@@ -415,9 +415,20 @@ button.github-repository:disabled :is(.github-repository-words, .github-reposito
   opacity: 0.55;
 }
 
-.github-repository.cloning {
+/* The picked one, which the bar's Clone clones, and the one cloning. */
+.github-repository:is(.selected, .cloning) {
   background: var(--surface-selected);
   box-shadow: inset 2px 0 0 var(--accent);
+}
+
+button.github-repository.selected:hover:not(:disabled) {
+  background: var(--surface-selected);
+}
+
+.github-repository.selected .github-repository-icon {
+  border-color: transparent;
+  background: var(--accent-subtle);
+  color: var(--accent-subtle-fg);
 }
 
 .github-repository.failed {
@@ -498,16 +509,6 @@ button.github-repository:disabled :is(.github-repository-words, .github-reposito
   align-items: center;
   gap: var(--space-1-5);
   min-height: var(--control-h);
-}
-
-.github-repository-clone-hint {
-  font: var(--type-caption);
-  color: var(--fg-2);
-  opacity: 0;
-}
-
-button.github-repository:is(:hover:not(:disabled), :focus-visible) .github-repository-clone-hint {
-  opacity: 1;
 }
 
 /* Signed out or the App not registered: one block in place of the search and the list. */

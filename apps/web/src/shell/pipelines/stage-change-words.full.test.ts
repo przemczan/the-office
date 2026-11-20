@@ -7,6 +7,7 @@ import {
   getsLine,
   originWords,
   projectPipelineLine,
+  routesUndoWords,
   stageChangeLine,
   undoWords,
 } from "./stage-change-words.ts";
@@ -27,6 +28,7 @@ const ROLES = [{ key: "developer", card: { name: "Jim" } }] as unknown as Role[]
 function row(
   built: Partial<BuiltStage>,
   stageChange?: StageChangeRow["stageChange"],
+  routesChanged = false,
 ): StageChangeRow {
   return {
     built: {
@@ -39,9 +41,10 @@ function row(
     },
     number: 1,
     stageChange,
+    routesChanged,
     broken: [],
     problems: [],
-    flags: [],
+    warnings: [],
   };
 }
 
@@ -69,6 +72,37 @@ describe("a row's mark and its Undo", () => {
       text: "Changed: Brief, Effort",
     });
     expect(originWords(row({ origin: "removed" }), "Full").text).toBe("Removed");
+  });
+
+  it("marks a Stage whose routes a Change routes changes, alone or beside its fields", () => {
+    const changeRoutes: StageChangeRow["stageChange"] = {
+      kind: "change-routes",
+      stageKey: "implement",
+      stageName: "Implement",
+      routes: [],
+    };
+    expect(originWords(row({ origin: "changed" }, changeRoutes, true), "Full")).toEqual({
+      tone: "warning",
+      text: "Routes changed",
+    });
+    // Before the check answers, the draft's Change routes already marks it.
+    expect(originWords(row({}, undefined, true), "Full").text).toBe("Routes changed");
+    expect(
+      originWords(row({ origin: "changed", changedFields: ["brief"] }, changeRoutes, true), "Full")
+        .text,
+    ).toBe("Changed: Brief, and its routes");
+    expect(routesUndoWords("Review & fix", "Full")).toBe(
+      "Undo: give Review & fix Full's routes back",
+    );
+    expect(routesUndoWords("Verify on Linux", undefined)).toBe(
+      "Undo: give Verify on Linux its routes back",
+    );
+  });
+
+  it("still names Optional for a Change saved with it, which redraws a converted line's routes", () => {
+    expect(
+      originWords(row({ origin: "changed", changedFields: ["brief", "optional"] }), "Full").text,
+    ).toBe("Changed: Brief, Optional");
   });
 
   it("says what Undo gives back", () => {
@@ -128,6 +162,14 @@ describe("a Change's fields beside the base Pipeline's values", () => {
         fields: { duty: "implements" },
       }),
     ).toBe("Changes Implement: Duty");
+    expect(
+      stageChangeLine({
+        kind: "change-routes",
+        stageKey: "produce",
+        stageName: "Produce",
+        routes: [{ to: null, condition: null }],
+      }),
+    ).toBe("Changes Produce's routes");
   });
 });
 

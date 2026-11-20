@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { aStageRun } from "./stage-run.fixtures.js";
 import { NO_STAGE_TOKENS, type StageTokens } from "./stage-run.js";
-import { dollarsPerToken, latestTasksRuns, stageUsages, tokensByModel } from "./usage-history.js";
+import { dollarsPerToken, stageUsages, tokensByModel } from "./usage-history.js";
 
 function tokens(input: number, output = 0, cacheCreation = 0, cacheRead = 0): StageTokens {
   return { input, output, cacheRead, cacheCreation };
@@ -46,33 +46,6 @@ describe("a Stage's samples", () => {
 
     expect(usages.get("review")?.samples).toBe(1);
     expect(usages.get("implement")?.samples).toBe(1);
-  });
-});
-
-describe("the latest done Tasks", () => {
-  it("keeps the runs of the Tasks whose last run ended latest", () => {
-    const runs = [
-      aStageRun({ taskId: "old", endedAt: new Date(1_000) }),
-      aStageRun({ taskId: "new", number: 1, endedAt: new Date(500) }),
-      aStageRun({ taskId: "new", number: 2, endedAt: new Date(3_000) }),
-      aStageRun({ taskId: "middle", endedAt: new Date(2_000) }),
-    ];
-
-    expect(latestTasksRuns(runs, 2).map(({ taskId }) => taskId)).toEqual(["new", "new", "middle"]);
-  });
-
-  it("leaves out a run that hasn't ended", () => {
-    const runs = [aStageRun({ taskId: "a", endedAt: undefined })];
-
-    expect(latestTasksRuns(runs)).toEqual([]);
-  });
-
-  it("keeps 20 Tasks by default", () => {
-    const runs = Array.from({ length: 25 }, (_, index) =>
-      aStageRun({ taskId: `task-${index}`, endedAt: new Date(index) }),
-    );
-
-    expect(new Set(latestTasksRuns(runs).map(({ taskId }) => taskId)).size).toBe(20);
   });
 });
 

@@ -4,6 +4,7 @@ import type { ApiEngine } from "../../domain/engines.js";
 import type { AgentEngine } from "../../ports/agent-engine.js";
 import { EngineSettingsForTests } from "../../ports/engine-settings-repository.fixtures.js";
 import { FakeChatCompletionsServer } from "./fake-chat-completions-server.fixtures.js";
+import { defaultEnginePromptTemplates } from "../prompt-templates/engine-prompt-templates.fixtures.js";
 import { OpenAiCompatibleApiEngine } from "./openai-compatible-api-engine.js";
 
 /** The OpenAI-compatible API engine itself, its one API endpoint a fake server. */
@@ -34,6 +35,7 @@ export async function apiEngineOnFakeServer(officeData: string): Promise<ApiEngi
     new EngineSettingsForTests({ engines: [endpoint], searchEndpoint: null, modelPrices: [] }),
     new OfficeDataDirectory(officeData),
     new SdkMcpClient(),
+    defaultEnginePromptTemplates(),
   );
   return { engine, endpoint, server };
 }

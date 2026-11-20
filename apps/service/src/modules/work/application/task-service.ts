@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { TaskLocks } from "../../../platform/locks/task-locks.js";
+import { Schedule } from "../../../platform/schedule/schedule.js";
 import type { Author } from "../domain/author.js";
 import { boardOrder, orderAfter } from "../domain/manual-order.js";
 import type { StateChange } from "../domain/state-change.js";
@@ -17,9 +19,12 @@ import {
   reorderTask,
   resumeTask,
   resumeTaskAtReset,
+  resumeTaskFreedByUsageWindow,
   stopTask,
+  taskWentOnOnStandIn,
   type TaskChange,
 } from "../domain/task-changes.js";
+import type { EngineStandIn } from "../domain/stand-ins-at-start.js";
 import { archiveTask, restoreTask } from "../domain/task-archive.js";
 import { unfinishedPublishingTask } from "../domain/publishing-task.js";
 import {
@@ -52,6 +57,16 @@ import { TaskRepository, type NeighbourIds, type TaskUpdate } from "../ports/tas
 import { publishDependencyChanges } from "./dependency-events.js";
 import { InitiativeBranching } from "./initiative-branching.js";
 
+/** The Tasks a Task is linked to on the board: by waiting, and by resolving a pull request's conflicts. */
+export interface TaskDependencyLinks {
+  readonly waitsFor: readonly Task[];
+  readonly waitingForIt: readonly Task[];
+  /** The Task whose pull request's conflicts it resolves, a Conflict resolution Task's. */
+  readonly resolvesConflictsOf: Task | undefined;
+  /** Its Conflict resolution Tasks, newest first. */
+  readonly conflictsResolvedBy: readonly Task[];
+}
+
 /** The Tasks use cases. Each change is saved first and its event published after. */
 @Injectable()
 export class TaskService {
@@ -63,6 +78,8 @@ export class TaskService {
     private readonly initiativeBranching: InitiativeBranching,
     private readonly initiatives: InitiativeRepository,
     private readonly events: EventBus,
+    private readonly schedule: Schedule,
+    private readonly taskLocks: TaskLocks,
   ) {}
 
   /**
@@ -129,6 +146,11 @@ export class TaskService {
     return ids.length === 0 ? [] : this.repository.findAll(ids);
   }
 
+  /** The Tasks that moved to Done at or after `since`, each once, archived ones too. */
+  async doneSince(since: Date): Promise<readonly string[]> {
+    return this.repository.doneSince(since);
+  }
+
   /** The Task's kept state changes, oldest first, each with who or what made it. */
   async stateChangesOf(taskId: string): Promise<readonly StateChange[]> {
     return this.repository.stateChangesOf(taskId);
@@ -138,14 +160,17 @@ export class TaskService {
    * The Tasks it waits for, in the order they were added, and the Tasks that wait for it, in the
    * board's order; archived ones too.
    */
-  async dependenciesOf(
-    task: Task,
-  ): Promise<{ readonly waitsFor: readonly Task[]; readonly waitingForIt: readonly Task[] }> {
+  async dependenciesOf(task: Task): Promise<TaskDependencyLinks> {
     const board = await this.repository.list();
     const byId = new Map(board.map((each) => [each.id, each]));
     return {
       waitsFor: task.blockedBy.flatMap((id) => byId.get(id) ?? []),
       waitingForIt: board.filter((each) => each.blockedBy.includes(task.id)).toSorted(boardOrder),
+      resolvesConflictsOf:
+        task.resolvesTaskId === undefined ? undefined : byId.get(task.resolvesTaskId),
+      conflictsResolvedBy: board
+        .filter((each) => each.madeFor === "resolve-conflicts" && each.resolvesTaskId === task.id)
+        .toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
     };
   }
 
@@ -330,25 +355,72 @@ export class TaskService {
    * at the window's reset (UsageWindowResumes). One paused by it already has its resume moved on.
    */
   async pauseForUsageWindow(id: string, refusal: UsageWindowRefusal): Promise<Task> {
-    return this.update(id, (task) => pauseTaskForUsageWindow(task, refusal));
+    const now = this.schedule.now();
+    return this.update(id, (task) => pauseTaskForUsageWindow(task, refusal, now));
+  }
+
+  /**
+   * A running Stage of the Task went on on a Stand-in Engine (spec 5.4): the Task's entry for that
+   * cascade's engine names it now, so the run's later Stages open on it; a Task no longer running
+   * keeps its list.
+   */
+  async wentOnOnStandIn(id: string, standIn: EngineStandIn): Promise<Task> {
+    return this.update(id, (task) => taskWentOnOnStandIn(task, standIn));
   }
 
   /**
    * The usage window's reset, for a Task it paused: resumed, so its Pipeline walks on where it was
    * held; while the fire alarm is on the alarm holds it instead, until the all clear. A Task the
-   * user, the alarm or its Initiative holds by now, or whose reset moved on, stays as it is.
+   * user, the alarm or its Initiative holds by now, one a free reading resumed already
+   * (`resumeFreedByUsageWindow`), or one whose reset moved on, stays as it is.
    */
   async resumeAtReset(id: string, now: Date): Promise<Task> {
     const fireAlarmOn = await this.fireAlarmOn();
-    const { task, event } = await this.repository.update(id, (held) =>
-      resumeTaskAtReset(held, { fireAlarmOn, now }),
-    );
+    return (
+      await this.resumeFromUsageWindow(id, (held) => resumeTaskAtReset(held, { fireAlarmOn, now }))
+    ).task;
+  }
+
+  /**
+   * A reading of `engineId`'s usage windows taken at `readAt` that Engine judged free: every Task
+   * that engine's usage window paused before then resumes now, as at its reset, or is held by the
+   * fire alarm while it is on. A Task paused before the engine was kept waits for its reset. Answers
+   * the ids of the Tasks it took off the usage window.
+   */
+  async resumeFreedByUsageWindow(engineId: string, readAt: Date): Promise<readonly string[]> {
+    const fireAlarmOn = await this.fireAlarmOn();
+    const freed: string[] = [];
+    for (const { id } of await this.repository.pausedByUsageWindowOn(engineId)) {
+      const { changed } = await this.resumeFromUsageWindow(id, (held) =>
+        resumeTaskFreedByUsageWindow(held, { fireAlarmOn, engineId, readAt }),
+      );
+      if (changed) freed.push(id);
+    }
+    return freed;
+  }
+
+  /**
+   * Under the Task's lock, which the user's switch of a Stage waiting for a Stand-in Engine takes
+   * too (Pipelines' `StandInSwitches`), so a click during the resume finds it resumed already.
+   */
+  private async resumeFromUsageWindow(
+    id: string,
+    change: (task: Task) => TaskChange<TaskResumed | TaskPaused> | undefined,
+  ): Promise<{ readonly task: Task; readonly changed: boolean }> {
+    return this.taskLocks.run(id, () => this.resumeFromUsageWindowNow(id, change));
+  }
+
+  private async resumeFromUsageWindowNow(
+    id: string,
+    change: (task: Task) => TaskChange<TaskResumed | TaskPaused> | undefined,
+  ): Promise<{ readonly task: Task; readonly changed: boolean }> {
+    const { task, event } = await this.repository.update(id, change);
     // Read again after the save, as a Resume does: an alarm sounded meanwhile passed it by as Paused.
     if (event instanceof TaskResumed && (await this.fireAlarmOn())) {
-      return this.update(id, pauseTaskForAlarm);
+      return { task: await this.update(id, pauseTaskForAlarm), changed: true };
     }
     if (event) await this.events.publish(event);
-    return task;
+    return { task, changed: event !== undefined };
   }
 
   /** Holds the Task now; TaskStopped tells Pipelines to interrupt the Stage running. */

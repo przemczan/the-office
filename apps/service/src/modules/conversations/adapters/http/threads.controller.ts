@@ -119,8 +119,7 @@ export class ThreadsController {
 
   @Get("tasks/:taskId/threads")
   async listOnTask(@Param("taskId", ParseUUIDPipe) taskId: string): Promise<ThreadResponse[]> {
-    const threads = await this.threads.listOnTask(taskId);
-    return Promise.all(threads.map((thread) => this.toResponse(thread)));
+    return this.toResponses(await this.threads.listOnTask(taskId));
   }
 
   /** Who has a tab in the Task's conversation, each with their Thread and their Consultations. */
@@ -153,8 +152,7 @@ export class ThreadsController {
   async listOnInitiative(
     @Param("initiativeId", ParseUUIDPipe) initiativeId: string,
   ): Promise<ThreadResponse[]> {
-    const threads = await this.threads.listOnInitiative(initiativeId);
-    return Promise.all(threads.map((thread) => this.toResponse(thread)));
+    return this.toResponses(await this.threads.listOnInitiative(initiativeId));
   }
 
   /** A page of the person's Threads on every Task, the newest started first, each with its Task. */
@@ -285,6 +283,17 @@ export class ThreadsController {
       this.chatActivity.inThread(thread),
     ]);
     return toThreadResponse(thread, reading, activity);
+  }
+
+  /** A list's Threads, reading what they share once (`ThreadContexts.readEach`). */
+  private async toResponses(threads: readonly Thread[]): Promise<ThreadResponse[]> {
+    const [readings, activity] = await Promise.all([
+      this.contexts.readEach(threads),
+      this.chatActivity.inThreads(threads),
+    ]);
+    return threads.map((thread, index) =>
+      toThreadResponse(thread, readings[index]!, activity.get(thread.id)),
+    );
   }
 }
 

@@ -16,15 +16,20 @@ import {
   type TaskThreadStart,
 } from "../domain/thread-changes.js";
 import type { ThreadStarted } from "../domain/conversation-events.js";
+import { worksIn } from "../domain/people-working.js";
 import { ThreadNotFound } from "../domain/thread-not-found.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository, type TaskThreadTitle } from "../ports/thread-repository.js";
 import { ThreadRunner } from "./thread-runner.js";
 
-/** A Thread The Office opens on an Initiative, and what it asks the person first. */
-export interface InitiativeThreadOpening extends InitiativeThreadStart {
+/** A Thread The Office opens on an Initiative. */
+export interface InitiativeThreadWaiting extends InitiativeThreadStart {
   /** The Thread's id, when the caller keeps it before the Thread opens; a new one otherwise. */
   readonly threadId?: string;
+}
+
+/** A Thread The Office opens on an Initiative, and what it asks the person first. */
+export interface InitiativeThreadOpening extends InitiativeThreadWaiting {
   readonly opening: string;
 }
 
@@ -64,10 +69,7 @@ export class ThreadService {
    */
   async openOnTask(start: TaskThreadStart): Promise<Thread> {
     await this.refuseUnlessFilled(start.roleKey);
-    const { thread, event } = startTaskThread(randomUUID(), start, new Date());
-    await this.repository.add(thread);
-    await this.events.publish(event);
-    return thread;
+    return this.add(startTaskThread(randomUUID(), start, new Date()));
   }
 
   /**
@@ -77,6 +79,19 @@ export class ThreadService {
   async startOnTask({ opening, ...start }: TaskThreadStarting): Promise<Thread> {
     await this.refuseUnlessFilled(start.roleKey);
     return this.openWith(startTaskThread(randomUUID(), start, new Date()), opening);
+  }
+
+  /**
+   * Opens a Thread on an Initiative, such as its planning Thread on Plan with…, waiting for the
+   * user: the person starts on their first message, in a new session with the Initiative's Brief.
+   * Refused when nobody fills the Role.
+   */
+  async openOnInitiative({
+    threadId = randomUUID(),
+    ...start
+  }: InitiativeThreadWaiting): Promise<Thread> {
+    await this.refuseUnlessFilled(start.roleKey);
+    return this.add(startInitiativeThread(threadId, start, new Date()));
   }
 
   /**
@@ -115,12 +130,23 @@ export class ThreadService {
   }
 
   private async openWith(
-    { thread, event }: { readonly thread: Thread; readonly event: ThreadStarted },
+    started: { readonly thread: Thread; readonly event: ThreadStarted },
     opening: string,
   ): Promise<Thread> {
+    const thread = await this.add(started);
+    return this.runner.open(thread.id, opening);
+  }
+
+  private async add({
+    thread,
+    event,
+  }: {
+    readonly thread: Thread;
+    readonly event: ThreadStarted;
+  }): Promise<Thread> {
     await this.repository.add(thread);
     await this.events.publish(event);
-    return this.runner.open(thread.id, opening);
+    return thread;
   }
 
   /** The Threads on a Task, the newest first; none for a Task The Office doesn't know. */
@@ -131,6 +157,15 @@ export class ThreadService {
   /** The Threads on an Initiative, the newest first; none for one The Office doesn't know. */
   listOnInitiative(initiativeId: string): Promise<readonly Thread[]> {
     return this.repository.listIn({ kind: "initiative", initiativeId });
+  }
+
+  /**
+   * How many engine sessions are working now, in Stages, chats and Threads: each Thread answering
+   * whose person works in it, as the Live view counts them (`worksIn`), so a Stage Thread waiting
+   * on its Decision doesn't count.
+   */
+  async sessionsWorking(): Promise<number> {
+    return (await this.repository.answering()).filter(worksIn).length;
   }
 
   /**

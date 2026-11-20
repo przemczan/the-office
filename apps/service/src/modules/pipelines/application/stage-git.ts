@@ -1,5 +1,7 @@
 import { Injectable } from "@nestjs/common";
+import { PromptTemplates, type PromptTexts } from "../../prompt-templates/index.js";
 import {
+  BRANCH_NEWS,
   branchKept,
   branchMovedWords,
   branchUpdateWords,
@@ -37,6 +39,7 @@ export class StageGit {
   constructor(
     private readonly git: TaskGit,
     private readonly runs: StageRunRepository,
+    private readonly promptTemplates: PromptTemplates,
   ) {}
 
   /**
@@ -45,7 +48,8 @@ export class StageGit {
    * user said to keep it or it moved along the base; any other move refuses the Stage (spec §2.3).
    */
   async start(work: StageAt, task: TaskRecord): Promise<StageStart> {
-    const updateNews = await this.updatedForFirstStage(work, task);
+    const prompts = await this.promptTemplates.textsOf([BRANCH_NEWS]);
+    const updateNews = await this.updatedForFirstStage(prompts, work, task);
     const expected = await this.expectedHead(work, task);
     const head = await this.git.head(task.project.id, work.run.taskId);
     const problem = headProblem(expected, head);
@@ -54,10 +58,10 @@ export class StageGit {
       return {
         expected: { ...expected, commit: head.commit },
         refusal: undefined,
-        branchNews: branchMovedWords(expected.commit, head.commit),
+        branchNews: branchMovedWords(prompts, expected.commit, head.commit),
       };
     }
-    await this.runs.saveHeadCommit(work.run.id, expected.commit);
+    await this.leaveAt(work.run, expected);
     return {
       expected,
       branchNews: undefined,
@@ -71,12 +75,13 @@ export class StageGit {
 
   /** Brings the branch to the base before the Task's first Stage; what its Agent should know. */
   private async updatedForFirstStage(
+    prompts: PromptTexts,
     { run, earlierRuns }: StageAt,
     task: TaskRecord,
   ): Promise<string | undefined> {
     if (earlierRuns.some(({ headCommit }) => headCommit !== undefined)) return undefined;
     const update = await this.git.updateFromBase(task.project.id, run.taskId, "give-back");
-    return branchUpdateWords(update, baseWords(task));
+    return branchUpdateWords(prompts, update, baseWords(task));
   }
 
   private async takesMove(
@@ -98,7 +103,7 @@ export class StageGit {
     expected: ExpectedHead,
   ): Promise<string | undefined> {
     const problem = headProblem(expected, await this.git.head(task.project.id, run.taskId));
-    if (problem) await this.runs.saveHeadCommit(run.id, expected.commit);
+    if (problem) await this.leaveAt(run, expected);
     return problem;
   }
 
@@ -110,8 +115,9 @@ export class StageGit {
   }
 
   /**
-   * Commits every change in the worktree with `message`, and records where the branch is now; a
-   * Publishing Task's branch is pushed after it. Answers why that push failed, for the outcome.
+   * Commits every change in the worktree with `message`, and records where the branch is now with
+   * the files the commit changed; a Publishing Task's branch is pushed after it. Answers why that
+   * push failed, for the outcome.
    */
   async commit(
     run: StageRun,
@@ -120,7 +126,8 @@ export class StageGit {
     message: string,
   ): Promise<string | undefined> {
     const commit = await this.git.commit(task.project.id, run.taskId, message);
-    await this.runs.saveHeadCommit(run.id, commit ?? expected.commit);
+    if (commit === undefined) await this.leaveAt(run, expected);
+    else await this.leaveAtCommit(run, task, commit);
     if (!task.publishingTask) return undefined;
     const push = await this.git.pushPublishingBranch(task.project.id, run.taskId);
     return pushFailedWords(push, task.worktree.branch);
@@ -170,7 +177,16 @@ export class StageGit {
 
   /** Records that the run left the branch where it found it, committing nothing. */
   async leaveAt(run: StageRun, expected: ExpectedHead): Promise<void> {
-    await this.runs.saveHeadCommit(run.id, expected.commit);
+    await this.runs.saveLeftBranch(run.id, { headCommit: expected.commit, changedFiles: [] });
+  }
+
+  /**
+   * Records that the run left the branch at `commit`, The Office's commit of its work, with the
+   * files that commit changed; a merge's are those its resolution changed.
+   */
+  async leaveAtCommit(run: StageRun, task: TaskRecord, commit: string): Promise<void> {
+    const changedFiles = await this.git.committedPaths(task.project.id, run.taskId, commit);
+    await this.runs.saveLeftBranch(run.id, { headCommit: commit, changedFiles });
   }
 
   /**

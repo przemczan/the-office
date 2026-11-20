@@ -25,6 +25,8 @@ export interface SdkSession {
   readonly options: SessionOptions;
   /** The engine's config folder, which holds its account (`engineConfigFolder`). */
   readonly configFolder: string;
+  /** The command printing the engine's API key file, when an API key signs it in. */
+  readonly apiKeyHelper: string | undefined;
   /** The file holding the session's MCP servers with their values, when it has any. */
   readonly mcpConfigFile: string | undefined;
   /** The plugin folder holding the session's language servers, when it has any. */
@@ -48,6 +50,7 @@ export function sdkOptions({
   resumes,
   options,
   configFolder,
+  apiKeyHelper,
   mcpConfigFile,
   languageServerPlugin,
   agentShells,
@@ -66,7 +69,7 @@ export function sdkOptions({
       .map((path) => ({ type: "local", path, skipMcpDiscovery: true })),
     // The session folder holds only the session's skills; the allowlist keeps the rest unlisted.
     skills: [...(options.skills?.names ?? [])],
-    settings: sessionSettings(options),
+    settings: sessionSettings(options, apiKeyHelper),
     permissionPrompts: "none",
     systemPrompt: {
       type: "preset",

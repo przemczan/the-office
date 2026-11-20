@@ -1,0 +1,692 @@
+/* The flow canvas and its List: see flow-canvas.tsx, flow-list.tsx, docs/design/pipeline-flow.html and
+   docs/design/pipeline-editor.html. The Stages sit in a grid of places; the routes and loops are drawn
+   in one SVG under the grid, whose empty places let a press through to the lines. A card keeps its
+   size, so a large Pipeline grows past the viewport (flow-viewport.css), which moves and zooms it.
+   Under 560px of viewport (flow-layout.ts's NARROW_FLOW_WIDTH) it runs down and fills its width. */
+.flow-canvas {
+  --flow-loop-room: 0px;
+  --flow-detour-room: 0px;
+  --flow-card-width: 232px;
+  position: relative;
+  isolation: isolate;
+  width: max-content;
+  padding: calc(18px + var(--flow-loop-room)) 14px calc(18px + var(--flow-detour-room)) 34px;
+}
+
+.flow-canvas[data-orientation="down"] {
+  padding: 34px calc(16px + var(--flow-detour-room)) 16px calc(14px + var(--flow-loop-room));
+}
+
+.flow-canvas-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(var(--flow-columns), var(--flow-card-width)) 44px;
+  grid-template-rows: repeat(var(--flow-rows), minmax(72px, auto));
+  gap: 22px 76px;
+  align-items: center;
+  pointer-events: none;
+}
+
+.flow-canvas-grid > * {
+  pointer-events: auto;
+}
+
+.flow-canvas[data-orientation="down"] .flow-canvas-grid {
+  grid-template-columns: repeat(var(--flow-rows), minmax(0, 1fr));
+  grid-template-rows: none;
+  grid-auto-rows: auto;
+  gap: 34px 14px;
+}
+
+/* Under 60%, a card shows only its kind mark and its name, drawn large enough to read. */
+.flow-canvas--names-only .flow-canvas-stage-who,
+.flow-canvas--names-only .flow-canvas-stage-tag,
+.flow-canvas--names-only .flow-canvas-stage-flag,
+.flow-canvas--names-only .flow-canvas-handle,
+.flow-canvas--names-only .flow-canvas-loop-mark {
+  display: none;
+}
+
+.flow-canvas--names-only .flow-canvas-stage-name {
+  font-size: var(--flow-name-size, 13px);
+  line-height: 1.2;
+}
+
+/* The Stage card */
+.flow-canvas-stage {
+  --flow-card-pad: calc(var(--gap-card) * 0.85);
+  --edge: var(--border-strong);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: calc(var(--flow-card-pad) * 0.75) var(--flow-card-pad);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  color: var(--fg-1);
+  font: var(--type-body-sm);
+  cursor: pointer;
+  user-select: none;
+}
+
+.flow-canvas-stage--draggable {
+  cursor: grab;
+  touch-action: none;
+}
+
+/* Down, a Stage moves by Move and Shift + arrows, so a touch on it scrolls the page */
+.flow-canvas[data-orientation="down"] .flow-canvas-stage {
+  touch-action: auto;
+}
+
+.flow-canvas-stage:hover {
+  border-color: var(--fg-3);
+}
+
+.flow-canvas-stage--picked,
+.flow-canvas-stage--target {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
+.flow-canvas-stage--problem {
+  border-color: var(--danger);
+}
+
+.flow-canvas-stage--inserted {
+  --edge: var(--success);
+}
+
+.flow-canvas-stage--replaced {
+  --edge: var(--info);
+}
+
+.flow-canvas-stage--changed,
+.flow-canvas-stage--routes-changed {
+  --edge: var(--warning);
+}
+
+.flow-canvas-stage--inserted,
+.flow-canvas-stage--replaced,
+.flow-canvas-stage--changed,
+.flow-canvas-stage--routes-changed {
+  border-left: 3px solid var(--edge);
+}
+
+/* A Task's started Stage: locked, its edge grey beside the marks' colours. */
+.flow-canvas-stage--locked {
+  border-left: 3px solid var(--border-strong);
+}
+
+.flow-canvas-stage--removed {
+  border-style: dashed;
+  background: transparent;
+  box-shadow: none;
+  color: var(--fg-3);
+}
+
+.flow-canvas-stage--removed .flow-canvas-stage-name {
+  text-decoration: line-through;
+}
+
+.flow-canvas-stage--dragging {
+  z-index: 30;
+  box-shadow: var(--shadow-3);
+  cursor: grabbing;
+  opacity: 0.95;
+}
+
+.flow-canvas-stage-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: inherit;
+}
+
+.flow-canvas-kind {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--fg-2);
+}
+
+.flow-canvas-kind--gate {
+  width: 19px;
+  height: 19px;
+  margin: 1.5px;
+  border-radius: var(--radius-sm);
+  transform: rotate(45deg);
+}
+
+.flow-canvas-kind--gate svg {
+  transform: rotate(-45deg);
+}
+
+/* In a narrow card the name goes under the mark, with the card's whole width */
+.flow-canvas-stage-words {
+  display: grid;
+  flex: 1 1 64px;
+  gap: 1px;
+  min-width: 0;
+}
+
+.flow-canvas-stage-name {
+  font: 600 var(--text-sm) / 1.3 var(--font-sans);
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+
+.flow-canvas-stage-who {
+  font: var(--type-caption);
+  color: var(--fg-3);
+  overflow-wrap: anywhere;
+}
+
+.flow-canvas-stage-flag {
+  flex: none;
+  margin-top: 1px;
+  color: var(--danger-fg);
+}
+
+/* A badge is a flex box, so an ellipsis can't show in it: a long label wraps instead (its Badge's
+   style, as the Badge styles itself inline) */
+.flow-canvas-stage-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.flow-lock {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  color: var(--fg-3);
+}
+
+/* The routes out, in the order they are weighed, each with its port on the card's edge */
+.flow-canvas-routes {
+  display: grid;
+  gap: 1px;
+  margin: 0 calc(-1 * var(--flow-card-pad)) calc(-0.75 * var(--flow-card-pad));
+  padding: 3px 0 5px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.flow-canvas-route {
+  position: relative;
+  min-width: 0;
+}
+
+.flow-canvas-route-row {
+  display: block;
+  width: 100%;
+  padding: 2px 14px 2px var(--flow-card-pad);
+  border: 0;
+  background: none;
+  color: var(--fg-2);
+  font: var(--type-caption);
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Two lines at most on the canvas; the whole words are on hover and in the panel */
+.flow-canvas-route-words {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+
+.flow-canvas-route-row b {
+  font-weight: 600;
+}
+
+.flow-canvas-route-row:hover {
+  background: var(--control-hover);
+  color: var(--fg-1);
+}
+
+.flow-canvas-route-row--picked,
+.flow-canvas-route-row--picked:hover {
+  background: var(--accent-subtle);
+  color: var(--accent-subtle-fg);
+}
+
+.flow-canvas-route-row--problem {
+  color: var(--danger-fg);
+}
+
+.flow-canvas-port {
+  position: absolute;
+  top: 50%;
+  right: -5px;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--fg-3);
+  border-radius: 50%;
+  background: var(--surface);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.flow-canvas[data-orientation="down"] .flow-canvas-port {
+  display: none;
+}
+
+.flow-canvas-none-holds {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 2px 14px 0 var(--flow-card-pad);
+  font: var(--type-caption);
+  color: var(--warning-fg);
+}
+
+.flow-canvas-none-holds svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+/* The + a route is drawn from: shown on hover, focus and when picked, and always down */
+.flow-canvas-handle {
+  position: absolute;
+  right: -9px;
+  bottom: -9px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1.5px solid var(--accent);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--accent);
+  opacity: 0;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+/* Drawn small, it takes a press 30px across, as a finger needs */
+.flow-canvas-handle::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+}
+
+.flow-canvas[data-orientation="down"] .flow-canvas-handle {
+  right: auto;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.flow-canvas-stage:hover .flow-canvas-handle,
+.flow-canvas-stage:focus-within .flow-canvas-handle,
+.flow-canvas-stage--picked .flow-canvas-handle,
+.flow-canvas[data-orientation="down"] .flow-canvas-handle,
+.flow-canvas--drawing .flow-canvas-handle {
+  opacity: 1;
+}
+
+.flow-canvas-end {
+  display: grid;
+  place-items: center;
+  justify-self: center;
+  width: 44px;
+  height: 44px;
+  border: 2px solid var(--fg-2);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--fg-1);
+  font: 600 var(--text-2xs) / 1 var(--font-sans);
+}
+
+.flow-canvas-end--target {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
+.flow-canvas[data-orientation="down"] .flow-canvas-end {
+  justify-self: stretch;
+  width: auto;
+  height: 28px;
+  padding: 0 16px;
+  border-radius: var(--radius-full);
+}
+
+/* The lines */
+.flow-canvas-lines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.flow-canvas-line {
+  fill: none;
+  stroke: var(--fg-3);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  /* Zoomed out, a line keeps its width on the screen. */
+  vector-effect: non-scaling-stroke;
+}
+
+.flow-canvas-arrow {
+  fill: var(--fg-3);
+}
+
+.flow-canvas-route-line--inserted {
+  --flow-line: var(--success);
+}
+
+.flow-canvas-route-line--changed {
+  --flow-line: var(--warning);
+}
+
+.flow-canvas-route-line--problem {
+  --flow-line: var(--danger);
+}
+
+.flow-canvas-route-line--picked {
+  --flow-line: var(--accent);
+}
+
+.flow-canvas-route-line .flow-canvas-line {
+  stroke: var(--flow-line, var(--fg-3));
+}
+
+.flow-canvas-route-line .flow-canvas-arrow {
+  fill: var(--flow-line, var(--fg-3));
+}
+
+.flow-canvas-route-line--picked .flow-canvas-line {
+  stroke-width: 2.25;
+}
+
+/* A Proposal's: what it proposes dashed in the accent, what it takes away dotted, as a removed Stage's */
+.flow-canvas-route-line--proposed {
+  --flow-line: var(--accent);
+}
+
+.flow-canvas-route-line--proposed .flow-canvas-line {
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+}
+
+.flow-canvas-route-line--taken-away,
+.flow-canvas-route-line--ghost {
+  opacity: 0.6;
+}
+
+.flow-canvas-route-line--taken-away .flow-canvas-line,
+.flow-canvas-route-line--ghost .flow-canvas-line {
+  stroke-dasharray: 2 3;
+}
+
+.flow-canvas-loop .flow-canvas-line {
+  stroke: var(--danger);
+  stroke-dasharray: 4 3;
+}
+
+.flow-canvas-loop .flow-canvas-arrow {
+  fill: var(--danger);
+}
+
+.flow-canvas-loop--problem .flow-canvas-line {
+  stroke-width: 2.5;
+}
+
+.flow-canvas-start {
+  fill: var(--fg-2);
+}
+
+.flow-canvas-start-line {
+  fill: none;
+  stroke: var(--fg-2);
+  stroke-width: 1.5;
+}
+
+.flow-canvas-drawing {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+
+.flow-canvas-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 12;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.flow-canvas-hit:focus-visible {
+  outline: none;
+  stroke: var(--accent-subtle);
+}
+
+.flow-canvas--read-only .flow-canvas-stage,
+.flow-canvas--drawing .flow-canvas-hit {
+  cursor: pointer;
+}
+
+/* The loops' ↺ N× marks, over the lines */
+.flow-canvas-marks {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.flow-canvas-loop-mark {
+  position: absolute;
+  padding: 1px 7px;
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--danger-fg);
+  font: 600 var(--text-2xs) / 1.4 var(--font-sans);
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.flow-canvas-loop-mark--problem {
+  border-width: 2px;
+  border-color: var(--danger);
+}
+
+.flow-canvas-drop {
+  position: absolute;
+  z-index: 0;
+  border: 1.5px dashed var(--accent);
+  border-radius: var(--radius-lg);
+  background: var(--accent-subtle);
+  pointer-events: none;
+}
+
+.flow-canvas-drop--column {
+  border-radius: var(--radius-full);
+}
+
+/* The List: the same flow a Stage a row, in the Pipeline's order */
+.flow-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  list-style: none;
+}
+
+.flow-list > li + li {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.flow-list-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  align-items: start;
+  padding: var(--pad-row);
+}
+
+.flow-list-row--picked {
+  background: var(--surface-selected);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.flow-list-row--problem {
+  box-shadow: inset 2px 0 0 var(--danger);
+}
+
+.flow-list-row--inserted {
+  box-shadow: inset 3px 0 0 var(--success);
+}
+
+.flow-list-row--replaced {
+  box-shadow: inset 3px 0 0 var(--info);
+}
+
+.flow-list-row--changed,
+.flow-list-row--routes-changed {
+  box-shadow: inset 3px 0 0 var(--warning);
+}
+
+.flow-list-row--locked {
+  box-shadow: inset 3px 0 0 var(--border-strong);
+}
+
+.flow-list-row--removed .flow-canvas-stage-name {
+  color: var(--fg-3);
+  text-decoration: line-through;
+}
+
+.flow-list-number {
+  padding-top: 3px;
+  font: var(--type-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-3);
+}
+
+.flow-list-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-1);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.flow-list-problem {
+  color: var(--danger-fg);
+}
+
+.flow-list-tools {
+  display: flex;
+  gap: 2px;
+}
+
+.flow-list-lines {
+  display: grid;
+  grid-column: 2 / -1;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flow-list-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--fg-2);
+  font: var(--type-caption);
+  text-align: left;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.flow-list-line:hover {
+  background: var(--control-hover);
+}
+
+.flow-list-line--picked,
+.flow-list-line--picked:hover {
+  background: var(--accent-subtle);
+  color: var(--accent-subtle-fg);
+}
+
+.flow-list-line--problem,
+.flow-list-line--loop {
+  color: var(--danger-fg);
+}
+
+.flow-list-line svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+.flow-list-line b {
+  font-weight: 600;
+  color: var(--fg-1);
+}
+
+.flow-list-line--picked b {
+  color: inherit;
+}
+
+/* Why a Stage stays, by the pointer (flow-canvas.tsx, FlowToldWhyToast): on the body, unscaled. */
+.flow-canvas-told {
+  position: fixed;
+  z-index: var(--z-tooltip);
+  max-width: 300px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--surface-inverse);
+  color: var(--fg-inverse);
+  box-shadow: var(--shadow-3);
+  font: 500 var(--text-xs) / 1.4 var(--font-sans);
+  pointer-events: none;
+}

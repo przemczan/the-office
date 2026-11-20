@@ -1,6 +1,16 @@
-import type { Stage, StageRun, TaskStage } from "@the-office/contracts";
+import type { EngineStandIn, Stage, StageRun, TaskStage } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { pipelineLabel, pullRequestUrlOf, scriptCommandLine, taskTokens } from "./stage-words.ts";
+import {
+  engineStandInsReasons,
+  engineStandInsShown,
+  engineStandInsWords,
+  pipelineLabel,
+  pullRequestUrlOf,
+  runEngineWords,
+  scriptCommandLine,
+  standInForWords,
+  taskTokens,
+} from "./stage-words.ts";
 import { NO_TOKENS } from "../../shell/token-words.ts";
 
 const tests: Stage = {
@@ -21,6 +31,8 @@ function aRun(fields: Partial<StageRun>): StageRun {
     waitingSince: null,
     threadId: null,
     session: null,
+    engine: null,
+    engineSwitches: [],
     tokens: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
     context: null,
     carriedFailure: null,
@@ -113,5 +125,64 @@ describe("pipelineLabel", () => {
   it("names the Pipeline, and says when its Stages were edited for the Task", () => {
     expect(pipelineLabel("Quick fix", false)).toBe("Quick fix");
     expect(pipelineLabel("Quick fix", true)).toBe("Quick fix · edited for this Task");
+  });
+});
+
+describe("a run's engine", () => {
+  it("names the model and the engine", () => {
+    expect(
+      runEngineWords({
+        engineId: "personal",
+        engineName: "Personal",
+        model: "claude-opus-5-5",
+        standInFor: null,
+      }),
+    ).toBe("Opus 5.5 on Personal");
+  });
+
+  it("names the cascade's engine a Stand-in Engine stood in for", () => {
+    expect(standInForWords("Work")).toBe("Stand-in for Work");
+  });
+});
+
+describe("a Task's Stand-in Engines", () => {
+  const forWork: EngineStandIn = {
+    engineId: "work",
+    engineName: "Work",
+    standInId: "personal",
+    standInName: "Personal",
+    reason: "Work's 5-hour window would be passed; Personal had room.",
+    short: "Work's window is full",
+  };
+  const forCodex: EngineStandIn = {
+    engineId: "codex",
+    engineName: "Codex",
+    standInId: "spare",
+    standInName: "Spare",
+    reason: "Codex's weekly window would be passed.",
+    short: "Codex's window is full",
+  };
+
+  it("names each stand-in and the engine it stands in for", () => {
+    expect(engineStandInsWords([forWork])).toBe("On a Stand-in Engine: Personal for Work");
+    expect(engineStandInsWords([forWork, forCodex])).toBe(
+      "On a Stand-in Engine: Personal for Work, Spare for Codex",
+    );
+  });
+
+  it("gives every reason for the hover", () => {
+    expect(engineStandInsReasons([forWork, forCodex])).toBe(
+      "Work's 5-hour window would be passed; Personal had room. Codex's weekly window would be passed.",
+    );
+  });
+
+  it("shows them only while the Task is started", () => {
+    const standIns = [forWork];
+    for (const state of ["in-progress", "waiting-on-you", "paused"] as const) {
+      expect(engineStandInsShown({ state, engineStandIns: standIns })).toEqual(standIns);
+    }
+    for (const state of ["ready", "done", "dropped"] as const) {
+      expect(engineStandInsShown({ state, engineStandIns: standIns })).toEqual([]);
+    }
   });
 });

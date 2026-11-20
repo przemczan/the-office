@@ -1,4 +1,4 @@
-import type { Idea, Initiative, Task } from "@the-office/contracts";
+import type { Idea, Initiative, PullRequest, Task } from "@the-office/contracts";
 import { projectIdsOfIdea } from "../../shell/work/work-words.ts";
 import { isOnBoard } from "./board-filters.ts";
 import { onTheBoard } from "./initiative-columns.ts";
@@ -28,6 +28,14 @@ export function shapingInitiativesCount(
   return onTheBoard(initiatives).filter(
     (initiative) => initiative.state === "shaping" && shows(initiative.projectIds),
   ).length;
+}
+
+/** The Pull requests tab's count: the open pull requests in the Projects the Project filter shows. */
+export function openPullRequestsCount(
+  pullRequests: readonly PullRequest[],
+  shows: ShownByProjectFilter,
+): number {
+  return pullRequests.filter((pullRequest) => shows([pullRequest.projectId])).length;
 }
 
 /** The Ideas tab's count: the new Ideas in the Projects the Project filter shows. */

@@ -57,6 +57,29 @@ describe("sdkOptions", () => {
     });
   });
 
+  it("signs a session in by the engine's API key through the helper, only on an engine an API key signs in", () => {
+    const helper = "'/usr/bin/node' -e '…' '/office/engines/claude-code/.anthropic-api-key'";
+
+    expect(optionsFor({ apiKeyHelper: helper }).settings).toMatchObject({ apiKeyHelper: helper });
+    expect(optionsFor().settings).not.toHaveProperty("apiKeyHelper");
+  });
+
+  it("gives a session no API key or token in its environment, whoever passed one", () => {
+    const options = optionsFor({
+      options: {
+        ...OPTIONS,
+        environment: {
+          PATH: "/usr/bin",
+          ANTHROPIC_API_KEY: "sk-ant-api03-the-callers",
+          ANTHROPIC_AUTH_TOKEN: "a-token",
+          CLAUDE_CODE_OAUTH_TOKEN: "sk-ant-oat01-the-callers",
+        },
+      },
+    });
+
+    expect(options.env).toEqual({ PATH: "/usr/bin", CLAUDE_CONFIG_DIR: CONFIG_FOLDER });
+  });
+
   it("never runs a Project's own MCP servers, even with no server of the session's", () => {
     expect(optionsFor().strictMcpConfig).toBe(true);
   });

@@ -1,0 +1,11 @@
+{"step":"start","brief":{"id":"086b1c8b-628f-4d2a-ad37-b569270df19a","text":"Call the hold tool once, then reply with the single word: done"}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":6107,"output":14,"cacheRead":3190,"cacheCreation":2914}}}
+{"step":"event","event":{"kind":"context-read","tokens":12211}}
+{"step":"event","event":{"kind":"tool-call","callId":"call_sjyLTm1ekQbTDGR5qGFJBCqS","tool":"hold","officeTool":true,"input":{},"withinToolCall":null}}
+{"step":"send","message":{"id":"46b73027-bb3d-4697-a822-9838a5ed4e71","text":"Also reply with the single word: extra"},"priority":"next"}
+{"step":"event","event":{"kind":"tool-result","callId":"call_sjyLTm1ekQbTDGR5qGFJBCqS","text":"Go on.","isError":false,"withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":12254,"output":164,"cacheRead":9294,"cacheCreation":2954}}}
+{"step":"event","event":{"kind":"context-read","tokens":12291}}
+{"step":"event","event":{"kind":"text","text":"extra","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["086b1c8b-628f-4d2a-ad37-b569270df19a","46b73027-bb3d-4697-a822-9838a5ed4e71"],"usage":{"input":12254,"output":164,"cacheRead":9294,"cacheCreation":2954},"sessionCostUsd":0,"output":null,"errors":[]}}
+{"step":"end"}

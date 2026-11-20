@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Priority, Task } from "@the-office/contracts";
 import { Icon, IconButton, type MenuItem } from "@the-office/ui";
-import { useState, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { changePriority, taskQueries } from "../../api/work.ts";
 import { FloatingMenu } from "../../shell/floating-menu.tsx";
 import { useToast } from "../../shell/toasts.tsx";
@@ -98,7 +98,8 @@ export function TaskMenu({
           },
         ]),
   ];
-  const items = withActionItems(actions ?? planningActions, ownItems);
+  const shownActions = actions ?? planningActions;
+  const items = withActionItems(shownActions, ownItems);
   if (items.length === 0) return null;
   return (
     <>
@@ -116,6 +117,9 @@ export function TaskMenu({
         }
         items={items}
       />
+      {shownActions.map(
+        (action) => action.dialog && <Fragment key={action.key}>{action.dialog}</Fragment>,
+      )}
       {dropping && <DropTaskDialog task={task} onClose={() => setDropping(false)} />}
       {moving && <MoveTaskDialog task={task} onClose={() => setMoving(false)} />}
       {editingStages && (

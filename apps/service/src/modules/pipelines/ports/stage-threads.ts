@@ -1,3 +1,4 @@
+import type { EngineModel, UsageWindowName } from "../../engine/index.js";
 import type { CommandPermission } from "../domain/allowed-commands.js";
 import type { HardSwitchOnCard } from "../domain/stage-permissions.js";
 import type { Effort, StageSession } from "../domain/stage.js";
@@ -5,9 +6,11 @@ import type { StageWorkClosing } from "../domain/stage-interruption.js";
 import type {
   StageDecision,
   StageRunContext,
+  StageRunStandIn,
   StageSessionMove,
   StageTokens,
 } from "../domain/stage-run.js";
+import type { TaskEngineStandIn } from "./task-records.js";
 
 /** What an Agent Stage gives its sessions, beside what the person's Role card does. */
 export interface StageSessionSettings {
@@ -36,6 +39,13 @@ export interface StageThreadRequest {
   /** The key of the Stage's Role, whose person works it. */
   readonly roleKey: string;
   readonly stageName: string;
+  /** The Task's Initiative; undefined when the Task is in none. */
+  readonly initiativeId: string | undefined;
+  /** The Stage run's number, as the Task's Stage history counts them. */
+  readonly stageRun: number;
+  /** The Task's Pipeline's name, and its Project's, which the session's telemetry carries. */
+  readonly pipelineName: string;
+  readonly projectName: string;
   /** The Stage's own effort; undefined keeps the Role card's. */
   readonly effort: Effort | undefined;
   /**
@@ -62,6 +72,11 @@ export interface StageThreadRequest {
   readonly useProjectSkills: boolean;
   readonly projectSkillsOff: readonly string[];
   readonly session: StageSessionSettings;
+  /**
+   * The Stand-in Engines the Task's Start chose, each for a cascade's engine: the session runs on
+   * the stand-in in its place.
+   */
+  readonly engineStandIns: readonly TaskEngineStandIn[];
 }
 
 /** How a turn of the person's ended. */
@@ -91,11 +106,29 @@ export interface StageThread {
   readonly threadId: string;
   /** The Context policy's move that began the Stage's session. */
   readonly move: { readonly move: StageSessionMove };
-  /** The engine the session runs on, by its id, and the session's model, by its id there. */
+  /**
+   * The engine the session runs on now, by its id, which `switchTo` changes, and the session's
+   * model, by its id there, which it keeps.
+   */
   readonly engine: string;
   readonly model: string;
+  /** The engine `engine` stands in for now; undefined when it is the cascade's own. */
+  readonly standInFor?: StageRunStandIn;
   /** The person's turn running now, as it ends. */
   nextTurn(): Promise<StageTurn>;
+  /** The session's context: the last turn's reading, else the Thread session's; 0 with none. */
+  contextTokens(): number;
+  /**
+   * Moves the session, idle after its engine refused a turn for the used-up window `why`, to the
+   * Stand-in Engine `standIn` on the same model (spec 5.4): the Thread logs why, and the session
+   * goes on there with its context, the user's waiting messages going with the next turn. Throws
+   * `SwitchFailed` (Conversations) when the session couldn't be carried over or resumed there; the
+   * Thread then stays on `engine`, where its session resumes later.
+   */
+  switchTo(
+    standIn: EngineModel,
+    why: { readonly window: UsageWindowName; readonly resetsAt: Date },
+  ): Promise<void>;
   /**
    * The latest Decision the person opened in the Thread since the Stage's work began, with an
    * Office tool (`open_decision` or `consult`), answered or not: the user may answer it while the
@@ -146,9 +179,32 @@ export abstract class StageThreads {
   abstract sessionAhead(
     request: Pick<
       StageThreadRequest,
-      "taskId" | "projectId" | "roleKey" | "declared" | "previousThreadId" | "record"
+      | "taskId"
+      | "projectId"
+      | "roleKey"
+      | "declared"
+      | "previousThreadId"
+      | "record"
+      | "engineStandIns"
     >,
   ): Promise<StageSessionAhead>;
+
+  /**
+   * Moves the idle session of a held run's Thread from the engine `from`, whose usage window `why`
+   * was used up, to the Stand-in Engine `standIn` on the same model (spec 5.4), as the user chose:
+   * the session is carried over, the Thread records it there and logs why, and the Stage's next
+   * run resumes it there. Opens no session on either engine. Throws when the Thread is answering,
+   * its session isn't on `from`, or the carry fails; the Thread then stays on the engine it records.
+   */
+  abstract moveToStandIn(
+    threadId: string,
+    standIn: EngineModel,
+    why: {
+      readonly from: string;
+      readonly window: UsageWindowName;
+      readonly resetsAt: Date;
+    },
+  ): Promise<void>;
 
   /**
    * Ends the Stage's work in the Thread of a run The Office left running as it stopped, closing

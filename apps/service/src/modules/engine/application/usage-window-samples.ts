@@ -48,6 +48,14 @@ export class UsageWindowSamples {
     return pooledRatios(await this.repository.latest(engineId, POOLED_SAMPLES));
   }
 
+  /**
+   * Drops `engineId`'s last readings, its pairs kept, so its next reading pairs with none: after
+   * its account changed, no pair spans two accounts.
+   */
+  forgetLastReadings(engineId: EngineId): void {
+    this.lastReadings.delete(engineId);
+  }
+
   /** Drops `engineId`'s pairs and last readings, so its next reading pairs with none. */
   async forget(engineId: EngineId): Promise<void> {
     this.lastReadings.delete(engineId);

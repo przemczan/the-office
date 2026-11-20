@@ -1,0 +1,154 @@
+/* Around the flow canvas: see flow-viewport.tsx and docs/design/pipeline-editor.html, "The canvas".
+   The frame clips the canvas, which is drawn at its own size and moved and scaled by a transform; the
+   dot grid moves and scales with it. The controls sit outside the frame, over its lower-left corner,
+   so the % menu can open past the frame's edge. */
+.flow-viewport {
+  position: relative;
+  min-width: 0;
+}
+
+.flow-viewport-frame {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 300px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background-color: var(--surface-sunken);
+  background-image: radial-gradient(circle, var(--border-strong) 1px, transparent 1.3px);
+  outline: none;
+  touch-action: none;
+}
+
+.flow-viewport-frame:focus-visible {
+  border-color: var(--border-focus);
+  box-shadow: var(--focus-ring);
+}
+
+.flow-viewport-frame--space {
+  cursor: grab;
+}
+
+.flow-viewport-frame--panning,
+.flow-viewport-frame--panning * {
+  cursor: grabbing !important;
+}
+
+.flow-viewport-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: max-content;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.flow-viewport-tools {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-2);
+}
+
+.flow-viewport-tools-gap {
+  width: 1px;
+  height: 18px;
+  margin: 0 3px;
+  background: var(--border);
+}
+
+.flow-viewport-tools [aria-disabled="true"] {
+  color: var(--fg-disabled);
+  cursor: not-allowed;
+}
+
+.flow-viewport-tools [aria-pressed="true"] {
+  color: var(--accent);
+}
+
+.flow-viewport-readout {
+  min-width: 54px;
+  height: 28px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-1);
+  font: 500 var(--text-xs) / 1 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.flow-viewport-readout:hover {
+  background: var(--control-hover);
+}
+
+.flow-viewport-readout:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.flow-overview {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 8;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-2);
+  cursor: pointer;
+}
+
+.flow-overview svg {
+  display: block;
+}
+
+.flow-overview-stage {
+  fill: var(--fg-3);
+}
+
+.flow-overview-stage--picked {
+  fill: var(--accent);
+}
+
+.flow-overview-stage--inserted {
+  fill: var(--success);
+}
+
+.flow-overview-stage--replaced {
+  fill: var(--info);
+}
+
+.flow-overview-stage--changed {
+  fill: var(--warning);
+}
+
+.flow-overview-stage--removed {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-dasharray: 6 4;
+  stroke-width: 4;
+}
+
+.flow-overview-end {
+  fill: none;
+  stroke: var(--fg-3);
+  stroke-width: 6;
+}
+
+.flow-overview-view {
+  fill: color-mix(in oklab, var(--accent) 8%, transparent);
+  stroke: var(--accent);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}

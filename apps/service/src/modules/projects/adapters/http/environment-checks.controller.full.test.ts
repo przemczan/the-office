@@ -28,7 +28,7 @@ let app: INestApplication;
 let url: string;
 let published: DomainEvent[];
 
-const { send, addProject, checked, latest, environmentOf, throwawayWorktrees } =
+const { send, addProject, save, checked, latest, environmentOf, throwawayWorktrees } =
   environmentChecksHttp(() => ({ app, url, repository, officeData }));
 
 beforeAll(async () => {
@@ -57,7 +57,7 @@ async function startApplication(): Promise<void> {
 }
 
 describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
-  it("keeps the environment when a check fails, and still runs the others", async () => {
+  it("leaves the saved environment as it is when a check fails, and still runs the others", async () => {
     const project = await addProject({
       installCommand: PASSES,
       commands: [
@@ -78,10 +78,10 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
       ["test", "passed"],
     ]);
     expect(check.checks[3]).toMatchObject({ run: { outcome: "failed", exitCode: 2 } });
-    await expect(environmentOf(project)).resolves.toEqual({ set: [], unset: [], prependPath: [] });
+    await expect(environmentOf(project)).resolves.toEqual(GREETING);
   });
 
-  it("skips the commands that aren't set, runs the others and saves the environment", async () => {
+  it("skips the commands that aren't set and runs the others", async () => {
     const project = await addProject({
       installCommand: "",
       commands: [
@@ -102,7 +102,6 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
       ["test", "passed"],
     ]);
     expect(check.checks[1]).not.toHaveProperty("run");
-    await expect(environmentOf(project)).resolves.toEqual(GREETING);
   });
 
   it("skips the rest when the install fails", async () => {
@@ -165,8 +164,10 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
   it("refuses a Secret variable left without a value when none is kept", async () => {
     const project = await addProject();
 
-    const refused = await send("POST", `/projects/${project.id}/environment-check`, {
-      environment: { set: [{ name: "NPM_TOKEN", secret: true }], unset: [], prependPath: [] },
+    const refused = await save(project, {
+      set: [{ name: "NPM_TOKEN", secret: true }],
+      unset: [],
+      prependPath: [],
     });
 
     expect(refused.status).toBe(422);
@@ -184,7 +185,7 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
         { key: "test", name: "Test", kind: "test", commandLine: SLEEPS },
       ],
     });
-    await send("POST", `/projects/${project.id}/environment-check`, { environment: GREETING });
+    await send("POST", `/projects/${project.id}/environment-check`);
     await expect
       .poll(async () => (await latest(project)).checks[4]?.state, CHECK_TIMEOUT)
       .toBe("running");

@@ -20,7 +20,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   checkApi,
   FIRST_PLANNING_MESSAGE,
+  firstQuestion,
   messageLine,
+  submitDecision,
   type Api,
   type ApiCall,
 } from "../../../../test/live-check.js";
@@ -61,6 +63,7 @@ import {
   ProjectsFromRepositories,
   ProjectsModule,
   InitiativeBranches,
+  PullRequestRecords,
   TaskWorktrees,
 } from "../../projects/index.js";
 import { SkillsModule } from "../../skills/index.js";
@@ -143,6 +146,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
                 knownProjects: ProjectService,
                 newProjects: ProjectsFromRepositories,
                 projectWorktrees: TaskWorktrees,
+                taskPullRequests: PullRequestRecords,
                 projectInitiativeBranches: InitiativeBranches,
                 knownPeople: RoleCards,
                 knownEngineCascade: EngineCascade,
@@ -281,22 +285,17 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
             decision = await openDecisionOn(api, shaped.id);
           }
           if (!decision) throw new Error("Jan opened no Decision.");
+          const asked = firstQuestion(decision);
           await note(
-            `Waiting on you: the open Decisions name the Task ${decision.taskId} (${decision.question})`,
+            `Waiting on you: the open Decisions name the Task ${decision.taskId} (${asked.question})`,
           );
           expect(threadSchema.parse(await api("GET", `/threads/${thread.id}`)).state).toBe(
             "waiting",
           );
 
           // Answered by the option Jan recommends, into the same session.
-          await api("POST", `/decisions/${decision.id}/answer`, {
-            kind: "option",
-            option: decision.recommendation.option,
-          });
-          await turn(
-            undefined,
-            `The answer: "${decision.options[decision.recommendation.option]}"`,
-          );
+          await submitDecision(api, decision);
+          await turn(undefined, `The answer: "${asked.options[asked.recommended] ?? "in words"}"`);
           await expect(openDecisionOn(api, shaped.id)).resolves.toBeUndefined();
 
           let task = await taskOf(api, shaped.id);

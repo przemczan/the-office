@@ -8,7 +8,7 @@ import {
   UsageWindowUsedUp,
 } from "../domain/engine-events.js";
 import type { Engine, EngineId } from "../domain/engines.js";
-import { sameUsageWindows, type UsageWindows } from "../domain/usage-windows.js";
+import { sameUsageWindows, showsFree, type UsageWindows } from "../domain/usage-windows.js";
 import type { TokenUsage, UsageWindowName, UsedUpWindow } from "../ports/session-events.js";
 
 /**
@@ -36,7 +36,13 @@ export interface UsedUpUsageWindow {
 @Injectable()
 export class UsageWindowState {
   private readonly readings = new Map<EngineId, UsageWindowReading>();
-  private readonly usedUp = new Map<EngineId, UsedUpUsageWindow & { readonly reset: Wait }>();
+  /** Each used-up window, with when it was found used up, so only a later reading resets it early. */
+  private readonly usedUp = new Map<
+    EngineId,
+    UsedUpUsageWindow & { readonly since: Date; readonly reset: Wait }
+  >();
+  /** Until when each engine's readings count as not free, after a refusal they didn't show. */
+  private readonly holds = new Map<EngineId, Date>();
 
   constructor(
     private readonly events: EventBus,
@@ -55,7 +61,8 @@ export class UsageWindowState {
 
   /**
    * Keeps every reading of `engine`'s account and announces it, and a change when its windows
-   * differ from what was known.
+   * differ from what was known. A reading taken after a window was used up that shows the engine
+   * free resets the window at once, as its reset time would.
    */
   async update(engine: Pick<Engine, "id" | "name">, reading: UsageWindowReading): Promise<void> {
     const previous = this.readings.get(engine.id);
@@ -63,7 +70,36 @@ export class UsageWindowState {
     if (previous === undefined || !sameUsageWindows(previous, reading)) {
       await this.events.publish(new UsageWindowsChanged(engine.id, engine.name, reading));
     }
-    await this.events.publish(new UsageWindowsRead(engine.id, reading, reading.readAt));
+    const free = this.showsFree(engine.id, reading);
+    if (free) await this.resetEarly(engine.id, reading.readAt);
+    await this.events.publish(new UsageWindowsRead(engine.id, reading, reading.readAt, free));
+  }
+
+  /**
+   * Whether `reading` shows `engineId` free: every window below 100%, and no refused turn holding
+   * the engine for a limit the readings don't show.
+   */
+  private showsFree(engineId: EngineId, reading: UsageWindows): boolean {
+    const heldUntil = this.holds.get(engineId);
+    const held = heldUntil !== undefined && heldUntil > this.schedule.now();
+    return !held && showsFree(reading);
+  }
+
+  /**
+   * Whether `engineId`'s latest reading shows it free, as `UsageWindowsRead` tells it, a hold
+   * included; true while it hasn't been read, as nothing shows it isn't.
+   */
+  latestShowsFree(engineId: EngineId): boolean {
+    const latest = this.readings.get(engineId);
+    return latest === undefined || this.showsFree(engineId, latest);
+  }
+
+  private async resetEarly(engineId: EngineId, readAt: Date): Promise<void> {
+    const usedUp = this.usedUp.get(engineId);
+    if (usedUp === undefined || readAt <= usedUp.since) return;
+    usedUp.reset.cancel();
+    this.usedUp.delete(engineId);
+    await this.events.publish(new UsageWindowReset(engineId, usedUp.window));
   }
 
   /** `engineId`'s used-up window while its reset is ahead; undefined otherwise. */
@@ -77,14 +113,19 @@ export class UsageWindowState {
    * A turn on `engine` was refused for `refused`'s window. When the engine gave no reset time, the
    * used-up window already known stands in, or else the latest reading's reset of that window, if
    * it is ahead. Announced once per engine until the reset, and again when the reset moves on; at
-   * the reset, on The Office's clock, the window is announced reset.
+   * the reset, on The Office's clock, the window is announced reset. A refusal while the latest
+   * reading shows the engine free is a limit the readings don't show: they count as not free until
+   * its reset, so the Tasks it pauses wait for it rather than resume into another refusal.
    */
   async refused(engine: Pick<Engine, "id" | "name">, refused: UsedUpWindow): Promise<UsedUpWindow> {
+    const latest = this.readings.get(engine.id);
+    const unseenLimit = latest !== undefined && this.showsFree(engine.id, latest);
     const known = this.usedUpUntil(engine.id);
-    if (known !== undefined && !refused.resetGiven) {
-      return { window: known.window, resetsAt: known.until, resetGiven: true };
-    }
-    const resolved = this.withReadReset(engine.id, refused);
+    const resolved: UsedUpWindow =
+      known !== undefined && !refused.resetGiven
+        ? { window: known.window, resetsAt: known.until, resetGiven: true }
+        : this.withReadReset(engine.id, refused);
+    if (unseenLimit) this.holds.set(engine.id, resolved.resetsAt);
     if (known !== undefined && known.until >= resolved.resetsAt) return resolved;
     this.usedUp.get(engine.id)?.reset.cancel();
     const reset = this.schedule.once(
@@ -99,6 +140,7 @@ export class UsageWindowState {
       engineName: engine.name,
       window: resolved.window,
       until: resolved.resetsAt,
+      since: this.schedule.now(),
       reset,
     });
     await this.events.publish(
@@ -126,5 +168,6 @@ export class UsageWindowState {
     this.readings.delete(engineId);
     this.usedUp.get(engineId)?.reset.cancel();
     this.usedUp.delete(engineId);
+    this.holds.delete(engineId);
   }
 }

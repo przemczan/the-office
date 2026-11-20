@@ -39,6 +39,7 @@ export function argumentsFor(session: Partial<ClaudeCodePSession> = {}): string[
     instructionsFile: undefined,
     mcpConfigFile: undefined,
     languageServerPlugin: undefined,
+    apiKeyHelper: undefined,
     ...session,
   });
 }

@@ -258,22 +258,34 @@ export function withStarted(usage: UsageAtStart, started: readonly EngineUsage[]
     started.find((estimate) => estimate.engineId === engineId);
   return {
     ...usage,
-    windows: usage.windows.map((windows) => {
-      const estimate = startedOn(windows.engineId);
-      if (!estimate) return windows;
-      const plus = (name: UsageWindowName): number =>
-        windows.startedSinceReading[name] + (estimate.windows?.[name] ?? 0);
-      return {
-        ...windows,
-        startedSinceReading: { fiveHour: plus("fiveHour"), sevenDay: plus("sevenDay") },
-      };
-    }),
-    daily: usage.daily.map((daily) => {
-      const estimate = startedOn(daily.engineId);
-      if (!estimate) return daily;
-      return { ...daily, inProgress: plusDayUse(daily.inProgress, dayUseOf(estimate)) };
-    }),
+    windows: usage.windows.map((windows) =>
+      windowsWithStarted(windows, startedOn(windows.engineId)),
+    ),
+    daily: usage.daily.map((daily) => dailyWithStarted(daily, startedOn(daily.engineId))),
   };
+}
+
+/** One engine id's windows with `started`, its estimate there, counted as started since reading. */
+export function windowsWithStarted(
+  windows: WindowsAtStart,
+  started: EngineUsage | undefined,
+): WindowsAtStart {
+  if (!started) return windows;
+  const plus = (name: UsageWindowName): number =>
+    windows.startedSinceReading[name] + (started.windows?.[name] ?? 0);
+  return {
+    ...windows,
+    startedSinceReading: { fiveHour: plus("fiveHour"), sevenDay: plus("sevenDay") },
+  };
+}
+
+/** One engine id's Daily caps with `started`, its estimate there, counted whole as in progress. */
+export function dailyWithStarted(
+  daily: DailyCapsAtStart,
+  started: EngineUsage | undefined,
+): DailyCapsAtStart {
+  if (!started) return daily;
+  return { ...daily, inProgress: plusDayUse(daily.inProgress, dayUseOf(started)) };
 }
 
 /** What a Task's estimate on one engine id comes to as day use; "no cost" adds no dollars. */

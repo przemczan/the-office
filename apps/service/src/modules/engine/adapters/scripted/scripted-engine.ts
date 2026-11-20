@@ -10,6 +10,7 @@ import { callAsRun } from "../office-rules/foreground-sub-agents.js";
 import { mcpToolOf } from "../office-rules/office-tool-names.js";
 import { toolDecision } from "../office-rules/tool-decision.js";
 import { officeToolCall, removeSessionTemporaryFolder } from "../office-rules/office-tool-call.js";
+import { hasUsageWindows, type Engine, type EngineId } from "../../domain/engines.js";
 import { OfficeRules } from "../../domain/office-rules.js";
 import { listingProblems } from "../../domain/skill-listing.js";
 import {
@@ -50,7 +51,15 @@ const EVERY_CAPABILITY: EngineCapabilities = {
   officeTools: true,
   outputSchema: true,
   languageServers: true,
+  carrySession: true,
 };
+
+/** A session `carrySession` carried over, by the ids of the engines it went from and to. */
+export interface CarriedSession {
+  readonly sessionId: string;
+  readonly from: EngineId;
+  readonly to: EngineId;
+}
 
 /** The caller did something other than what the script has next, or more than it has. */
 export class ScriptMismatch extends Error {
@@ -61,18 +70,18 @@ export class ScriptMismatch extends Error {
 }
 
 /**
- * A real process standing in for each scripted session's engine, started and ended as the Agent
+ * A real process playing each scripted session's engine, started and ended as the Agent
  * SDK adapter starts and ends the engine's, so a test can see what a session leaves running ended
  * with it. It runs until its standard input closes, as the engine does once its session closes.
  */
-export interface StandInEngine {
+export interface ScriptedEngineProcess {
   readonly command: string;
   readonly args: readonly string[];
   readonly processTrees: ProcessTrees;
 }
 
-/** A session's stand-in engine at work. */
-interface RunningStandIn {
+/** A session's engine process at work. */
+interface RunningEngineProcess {
   readonly process: EngineProcess;
   readonly input: Writable;
 }
@@ -85,13 +94,20 @@ export class ScriptedEngine extends AgentEngine {
   readonly capabilities: EngineCapabilities;
   /** Every session started or resumed, in order. */
   readonly sessions: ScriptedSession[] = [];
+  /** The engines whose usage windows were read with no session, by id, in order. */
+  readonly usageWindowReads: EngineId[] = [];
+  /** The sessions carried over from one engine to another (`carrySession`), in order. */
+  readonly carried: CarriedSession[] = [];
+  private carryFailure: Error | undefined;
   private readonly scripts: SessionScript[];
   private readonly mcpClient: McpClient = new SdkMcpClient();
+  /** What a read of each engine's usage windows answers, or fails with; none unless a test sets it. */
+  private readonly engineWindows = new Map<EngineId, UsageWindows | Error>();
 
   constructor(
     scripts: readonly SessionScript[],
     capabilities: Partial<EngineCapabilities> = {},
-    private readonly standIn?: StandInEngine,
+    private readonly engineProcess?: ScriptedEngineProcess,
   ) {
     super();
     this.scripts = [...scripts];
@@ -104,6 +120,52 @@ export class ScriptedEngine extends AgentEngine {
    */
   queue(...scripts: readonly SessionScript[]): void {
     this.scripts.push(...scripts);
+  }
+
+  /**
+   * What `readUsageWindows` answers for the engine from now on: `windows`, or none when undefined.
+   * Not part of the port: a test calls it.
+   */
+  setUsageWindows(engineId: EngineId, windows: UsageWindows | undefined): void {
+    if (windows === undefined) this.engineWindows.delete(engineId);
+    else this.engineWindows.set(engineId, windows);
+  }
+
+  /** Makes `readUsageWindows` fail with `error` for the engine from now on. Not part of the port. */
+  failUsageWindowReads(engineId: EngineId, error: Error): void {
+    this.engineWindows.set(engineId, error);
+  }
+
+  /**
+   * Answers what a test set for the engine (`setUsageWindows`, `failUsageWindowReads`), none
+   * unless it set any, counting the read in `usageWindowReads`. None without the capability or
+   * for an account without windows, as the port says.
+   */
+  async readUsageWindows(engine: Engine, signal: AbortSignal): Promise<UsageWindows | undefined> {
+    signal.throwIfAborted();
+    if (!this.capabilities.usageWindows || !hasUsageWindows(engine)) return undefined;
+    this.usageWindowReads.push(engine.id);
+    const set = this.engineWindows.get(engine.id);
+    if (set instanceof Error) throw set;
+    return set;
+  }
+
+  /**
+   * Makes `carrySession` fail with `error` from now on, or carry again when undefined. Not part of
+   * the port: a test calls it.
+   */
+  failSessionCarries(error: Error | undefined): void {
+    this.carryFailure = error;
+  }
+
+  /**
+   * Records the carry in `carried` and copies nothing, as a scripted session keeps no transcript:
+   * the next script is what the stand-in's resume replays. Fails with what `failSessionCarries` set.
+   */
+  override async carrySession(sessionId: string, from: Engine, to: Engine): Promise<void> {
+    this.require("carrySession");
+    if (this.carryFailure !== undefined) throw this.carryFailure;
+    this.carried.push({ sessionId, from: from.id, to: to.id });
   }
 
   async start({ id, options, brief }: NewSession): Promise<EngineSession> {
@@ -133,7 +195,7 @@ export class ScriptedEngine extends AgentEngine {
       script,
       this.capabilities,
       new McpServerConnections(options.mcpServers, this.mcpClient),
-      this.standIn && startStandIn(this.standIn),
+      this.engineProcess && startEngineProcess(this.engineProcess),
     );
     this.sessions.push(session);
     session.open(opening);
@@ -141,7 +203,11 @@ export class ScriptedEngine extends AgentEngine {
   }
 }
 
-function startStandIn({ command, args, processTrees }: StandInEngine): RunningStandIn {
+function startEngineProcess({
+  command,
+  args,
+  processTrees,
+}: ScriptedEngineProcess): RunningEngineProcess {
   const engineProcess = new EngineProcess(processTrees);
   const { stdin } = engineProcess.spawn({
     command,
@@ -247,7 +313,7 @@ export class ScriptedSession implements EngineSession {
     script: SessionScript,
     private readonly capabilities: EngineCapabilities,
     private readonly mcpServers: McpServerConnections,
-    private readonly standIn?: RunningStandIn,
+    private readonly engineProcess?: RunningEngineProcess,
   ) {
     this.rules = scriptedSessionRules(options);
     const steps = script.map((step) => inPlaces(step, { folder: options.folder, home: homedir() }));
@@ -327,9 +393,9 @@ export class ScriptedSession implements EngineSession {
     } finally {
       await this.mcpServers.close();
       await removeSessionTemporaryFolder(currentOperatingSystem().paths, this.id);
-      if (this.standIn) {
-        this.standIn.input.end();
-        await this.standIn.process.endWithLeftovers();
+      if (this.engineProcess) {
+        this.engineProcess.input.end();
+        await this.engineProcess.process.endWithLeftovers();
       }
     }
   }

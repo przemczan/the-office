@@ -12,9 +12,14 @@ import {
   type BriefMemoryNote,
   type BriefProject,
 } from "./brief.js";
-import { aDecision } from "./decision.fixtures.js";
+import { oneOptionAnswer } from "./decision.js";
+import { aDecision, THREE_QUESTIONS } from "./decision.fixtures.js";
 import type { Message, MessageDraft } from "./message.js";
 import { ANN_LEE } from "./user.fixtures.js";
+import { defaultPromptTexts } from "../../prompt-templates/index.js";
+import { CONVERSATIONS_PROMPT_TEMPLATES } from "./conversations-prompt-templates.js";
+
+const PROMPTS = defaultPromptTexts(CONVERSATIONS_PROMPT_TEMPLATES);
 
 const PROJECTS: BriefProject[] = [
   {
@@ -37,7 +42,7 @@ const answer = (text: string): Message => logged({ kind: "person", roleKey: "pla
 
 describe("a new chat Thread's Brief", () => {
   it("says where each Project's base branch is, and nothing carries over", () => {
-    const brief = newChatThreadBrief(PROJECTS, NO_MEMORY);
+    const brief = newChatThreadBrief(PROMPTS, PROJECTS, NO_MEMORY);
 
     expect(brief.text).toContain("in a new Thread: nothing from your earlier Threads carries over");
     expect(brief.text).toContain(
@@ -47,13 +52,15 @@ describe("a new chat Thread's Brief", () => {
   });
 
   it("says so when there is no Project", () => {
-    expect(newChatThreadBrief([], NO_MEMORY).text).toContain("The Office works on no Project yet.");
+    expect(newChatThreadBrief(PROMPTS, [], NO_MEMORY).text).toContain(
+      "The Office works on no Project yet.",
+    );
   });
 });
 
 /** The text of a Brief for a Thread on an Initiative reading `projects`. */
 function initiativeBriefReading(projects: readonly BriefProject[]): string {
-  return initiativeThreadBrief({
+  return initiativeThreadBrief(PROMPTS, {
     record: "## The Initiative",
     continuing: false,
     memory: NO_MEMORY,
@@ -77,7 +84,7 @@ describe("The Projects in a Brief for a Thread on an Initiative", () => {
   };
 
   it("reads as a chat's, word for word, while every Project is read at its base branch", () => {
-    const chat = newChatThreadBrief([...PROJECTS, SITE], NO_MEMORY).text;
+    const chat = newChatThreadBrief(PROMPTS, [...PROJECTS, SITE], NO_MEMORY).text;
     const projects = chat.slice(chat.indexOf("## The Projects"));
 
     expect(initiativeBriefReading([...PROJECTS, SITE]).endsWith(projects)).toBe(true);
@@ -107,6 +114,25 @@ describe("The Projects in a Brief for a Thread on an Initiative", () => {
   });
 });
 
+describe("a Brief for a Thread on an Initiative waiting on a Decision on no Task", () => {
+  it("names it, says it waits on the user and isn't asked again, and that the answer comes as a message", () => {
+    const brief = initiativeThreadBrief(PROMPTS, {
+      record: "## The Initiative",
+      continuing: true,
+      memory: NO_MEMORY,
+      projects: PROJECTS,
+      open: aDecision({ taskId: undefined, questions: THREE_QUESTIONS.slice(0, 1) }),
+    }).text;
+
+    expect(brief).toContain(
+      "## Your open Decision on the Initiative\n\nYou asked the user:\n\n1. ",
+    );
+    expect(brief).toContain(
+      "It still waits on the user: don't ask it again. Their answer comes as a message in this Thread.",
+    );
+  });
+});
+
 describe("a chat Thread's Brief when it continues fresh", () => {
   it("holds the title, the latest Handover note and the exchanges, without tool activity", () => {
     const log = [
@@ -122,7 +148,7 @@ describe("a chat Thread's Brief when it continues fresh", () => {
       say("And the tests?"),
     ];
 
-    const { text } = freshChatThreadBrief({
+    const { text } = freshChatThreadBrief(PROMPTS, {
       title: "Deploys",
       log,
       projects: PROJECTS,
@@ -143,7 +169,7 @@ describe("a chat Thread's Brief when it continues fresh", () => {
     const long = "x".repeat(CHAT_EXCHANGES_TOKENS * 2);
     const log = [say(`first ${long}`), answer(`second ${long}`), say("third")];
 
-    const { text, tokens } = freshChatThreadBrief({
+    const { text, tokens } = freshChatThreadBrief(PROMPTS, {
       title: undefined,
       log,
       projects: [],
@@ -160,7 +186,12 @@ describe("a chat Thread's Brief when it continues fresh", () => {
   it("keeps the end of a newest message that alone is over the cap", () => {
     const log = [say(`${"x".repeat(CHAT_EXCHANGES_TOKENS * 5)} the end`)];
 
-    const { text } = freshChatThreadBrief({ title: "Long", log, projects: [], memory: NO_MEMORY });
+    const { text } = freshChatThreadBrief(PROMPTS, {
+      title: "Long",
+      log,
+      projects: [],
+      memory: NO_MEMORY,
+    });
 
     expect(text).toContain("## The latest exchanges\n\n…");
     expect(text).toMatch(/x the end/);
@@ -172,7 +203,7 @@ describe("a Brief for a Thread on a Task", () => {
 
   it("is the Task's record alone when no Decision was opened", () => {
     expect(
-      taskThreadBrief({
+      taskThreadBrief(PROMPTS, {
         record: "## The Task",
         continuing: false,
         answered: [],
@@ -183,17 +214,35 @@ describe("a Brief for a Thread on a Task", () => {
   });
 
   it("adds the answered Decisions and the one the Thread waits on, when it continues fresh", () => {
-    const { text } = taskThreadBrief({
+    const { text } = taskThreadBrief(PROMPTS, {
       record: "## The Task",
       continuing: true,
       answered: [
-        aDecision({ answer: { kind: "option", option: 1, answeredAt } }),
+        aDecision({ answer: { ...oneOptionAnswer(1), answeredAt } }),
         aDecision({
-          question: "Which format?",
-          answer: { kind: "free-answer", text: "CSV, like the old one.", answeredAt },
+          questions: THREE_QUESTIONS.slice(1),
+          answer: {
+            kind: "submitted",
+            answers: [
+              { kind: "words", text: "This year" },
+              { kind: "words", text: "CSV, like the old one." },
+            ],
+            generalComment: "Thanks.",
+            answeredAt,
+          },
         }),
       ],
-      open: aDecision({ question: "Which columns?", options: ["All", "The visible ones"] }),
+      open: aDecision({
+        questions: [
+          {
+            kind: "choice",
+            question: "Which columns?",
+            options: ["All", "The visible ones"],
+            recommendation: { option: 1, reason: "They are what people read." },
+          },
+          { kind: "open", question: "Any column to rename?" },
+        ],
+      }),
       memory: NO_MEMORY,
     });
 
@@ -205,12 +254,34 @@ describe("a Brief for a Thread on a Task", () => {
         "- Should the export include archived Projects?",
       ].join(String.fromCharCode(10, 10)),
     );
-    expect(text).toContain("  Answer: Every Project");
-    expect(text).toContain("- Which format?");
-    expect(text).toContain("  Answer: CSV, like the old one.");
-    expect(text).toContain("## Your open Decision");
-    expect(text).toContain('You asked the user "Which columns?", with the options:');
-    expect(text).toContain("- The visible ones");
+    expect(text).toContain(
+      "- Should the export include archived Projects?\n  Answer: Every Project\n- Which years",
+    );
+    expect(text).toContain(
+      [
+        "- Which years should it cover? (and 1 more question)",
+        "  1. Which years should it cover?",
+        "     Answer, in their own words: This year",
+        "  2. Which format?",
+        "     Answer, in their own words: CSV, like the old one.",
+        "",
+        "  General comment: Thanks.",
+      ].join("\n"),
+    );
+    expect(text).toContain(
+      [
+        "## Your open Decision",
+        "",
+        "You asked the user:",
+        "",
+        "1. Which columns?",
+        "   - All",
+        "   - The visible ones",
+        "",
+        "2. Any column to rename?",
+        "   An open question, answered in their own words.",
+      ].join("\n"),
+    );
     expect(text).toMatch(/They haven't answered it yet/);
   });
 });
@@ -222,7 +293,7 @@ const note = (text: string, day: number, projectId?: string): BriefMemoryNote =>
 });
 
 const section = (leftOut: number): string =>
-  newChatThreadBrief([], { lines: ["- 2026-10-10: A note."], leftOut }).text;
+  newChatThreadBrief(PROMPTS, [], { lines: ["- 2026-10-10: A note."], leftOut }).text;
 
 describe("a person's Memory in a Brief", () => {
   it("takes the notes for all Projects and those of the Task's, oldest first", () => {
@@ -289,6 +360,6 @@ describe("a person's Memory in a Brief", () => {
     );
     expect(section(1)).toContain("1 older note left out.");
     expect(section(0)).not.toContain("left out");
-    expect(newChatThreadBrief([], NO_MEMORY).text).not.toContain("Your Memory");
+    expect(newChatThreadBrief(PROMPTS, [], NO_MEMORY).text).not.toContain("Your Memory");
   });
 });

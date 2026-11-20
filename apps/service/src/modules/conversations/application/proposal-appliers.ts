@@ -87,6 +87,8 @@ export class ProposalAppliers {
         return this.applierOf("office-instructions").problemsWith(change);
       case "duties":
         return this.applierOf("duties").problemsWith(change);
+      case "prompt-template":
+        return this.applierOf("prompt-template").problemsWith(change);
       case "office-setup":
         return this.applierOf("office-setup").problemsWith(change);
       case "initiative":
@@ -126,6 +128,8 @@ export class ProposalAppliers {
         return this.applierOf("office-instructions").apply(change, proposedBy, appliedBy);
       case "duties":
         return this.applierOf("duties").apply(change, proposedBy, appliedBy);
+      case "prompt-template":
+        return this.applierOf("prompt-template").apply(change, proposedBy, appliedBy);
       case "office-setup":
         return this.applierOf("office-setup").apply(change, proposedBy, appliedBy);
       case "initiative":

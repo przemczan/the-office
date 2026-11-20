@@ -9,13 +9,15 @@ import {
   startEngineSignIn,
 } from "../../../api/engine.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
+import { EngineApiKeyForm } from "./engine-api-key-form.tsx";
 import { engineAccountLine } from "./engine-account-words.ts";
 
-/** What the account part asks for: nothing, a Sign in's code, or a pasted token. */
+/** What the account part asks for: nothing, a Sign in's code, a pasted token, or an API key. */
 type Asking =
   | { readonly kind: "nothing" }
   | { readonly kind: "code"; readonly signInPage: string }
-  | { readonly kind: "token" };
+  | { readonly kind: "token" }
+  | { readonly kind: "api-key" };
 
 const ASKING_NOTHING: Asking = { kind: "nothing" };
 
@@ -27,8 +29,9 @@ function submit(event: FormEvent, send: () => void): void {
 
 /**
  * A saved Claude Code engine's account: the line `claude auth status` gives, Sign in (its page as a
- * link, its code pasted back), "Paste a token instead" and Sign out. What is typed here stays out of
- * the engines' draft, so the token never rides along in a Save and never comes back.
+ * link, its code pasted back), "Paste a token instead", "Use an API key" (an Anthropic API key) and
+ * Sign out. What is typed here stays out of the engines' draft, so a token or key never rides along
+ * in a Save and never comes back.
  */
 export function ClaudeCodeEngineAccount({ engineId }: { readonly engineId: string }): ReactNode {
   const queryClient = useQueryClient();
@@ -91,6 +94,11 @@ export function ClaudeCodeEngineAccount({ engineId }: { readonly engineId: strin
           {asking.kind !== "token" && (
             <Button variant="ghost" size="sm" onClick={() => ask({ kind: "token" })}>
               Paste a token instead
+            </Button>
+          )}
+          {asking.kind !== "api-key" && (
+            <Button variant="ghost" size="sm" onClick={() => ask({ kind: "api-key" })}>
+              Use an API key
             </Button>
           )}
           {account.data?.signedIn && (
@@ -184,6 +192,17 @@ export function ClaudeCodeEngineAccount({ engineId }: { readonly engineId: strin
             <RefusalAlert title="The token wasn't saved" error={pastingToken.error} />
           )}
         </form>
+      )}
+
+      {asking.kind === "api-key" && (
+        <EngineApiKeyForm
+          engineId={engineId}
+          hint="An Anthropic API key, from the Claude Console, signs this engine in, in place of a Claude sign-in. It has no usage windows then."
+          keptWhere="Kept in the engine's folder"
+          saveLabel="Save the API key"
+          saved={accountChanged}
+          cancel={() => ask(ASKING_NOTHING)}
+        />
       )}
     </div>
   );

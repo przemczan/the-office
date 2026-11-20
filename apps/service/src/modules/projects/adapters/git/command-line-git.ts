@@ -5,6 +5,7 @@ import {
   Git,
   GitCommandFailed,
   type BranchChanges,
+  type BranchTip,
   type ChangedFile,
   type CloneRequest,
   type CommitTree,
@@ -177,6 +178,37 @@ export class CommandLineGit extends Git {
       });
   }
 
+  async branchTips(
+    repositoryPath: string,
+    remote: string | undefined,
+  ): Promise<readonly BranchTip[]> {
+    const remotePrefix = remote === undefined ? undefined : `refs/remotes/${remote}/`;
+    const output = await this.process.output({
+      folder: repositoryPath,
+      gitArguments: [
+        "for-each-ref",
+        "--format=%(refname)%00%(objectname)%00%(symref)",
+        // A pattern matches whole names between slashes: `origin` never takes `origin-mirror`.
+        "refs/heads",
+        ...(remote === undefined ? [] : [`refs/remotes/${remote}`]),
+      ],
+    });
+    return output
+      .split("\n")
+      .filter((line) => line !== "")
+      .flatMap((line): BranchTip[] => {
+        const [ref = "", commit = "", symref = ""] = line.split("\0");
+        if (symref !== "") return [];
+        if (ref.startsWith("refs/heads/")) {
+          return [{ name: ref.slice("refs/heads/".length), kind: "local", commit }];
+        }
+        if (remotePrefix !== undefined && ref.startsWith(remotePrefix)) {
+          return [{ name: ref.slice("refs/remotes/".length), kind: "remote", commit }];
+        }
+        return [];
+      });
+  }
+
   async upstreamOf(repositoryPath: string, branch: string): Promise<Upstream | undefined> {
     const output = await this.process.output({
       folder: repositoryPath,
@@ -229,6 +261,30 @@ export class CommandLineGit extends Git {
       }),
     );
     return commitOf(this.process, repositoryPath, trackingRef);
+  }
+
+  async fetchRemote(
+    repositoryPath: string,
+    remote: string,
+    variables: GitVariables,
+  ): Promise<void> {
+    const reached = await this.fetchUrlOf(repositoryPath, remote);
+    await this.locked(repositoryPath, () =>
+      this.process.output({
+        folder: repositoryPath,
+        gitArguments: [
+          "fetch",
+          "--quiet",
+          "--no-tags",
+          "--",
+          remote,
+          `+refs/heads/*:refs/remotes/${remote}/*`,
+        ],
+        remote: reached,
+        variables,
+        timeoutMs: LONG_TIMEOUT_MS,
+      }),
+    );
   }
 
   async push(
@@ -661,6 +717,29 @@ export class CommandLineGit extends Git {
       await commitStaged(this.process, worktreePath, message, variables);
       return commitOf(this.process, worktreePath, "HEAD");
     });
+  }
+
+  async committedPaths(worktreePath: string, commit: string): Promise<readonly string[]> {
+    const secondParent = await this.process.run({
+      folder: worktreePath,
+      gitArguments: ["rev-parse", "--verify", "--quiet", `${commit}^2`],
+    });
+    if (secondParent.exitCode === 0) {
+      // A combined diff names only the paths that differ from every parent: what the merge's own
+      // resolution changed, never what either side brought in.
+      const names = await this.process.output({
+        folder: worktreePath,
+        gitArguments: ["diff-tree", "-c", "-r", "--name-only", "--no-commit-id", "-z", commit],
+      });
+      return nulSeparated(names);
+    }
+    const numstat = await this.process.output({
+      folder: worktreePath,
+      gitArguments: ["diff", ...DIFF_OPTIONS, "--numstat", "-z", `${commit}^1`, commit, "--"],
+    });
+    return changedFiles(numstat, new Set()).flatMap(({ path, previousPath }) =>
+      previousPath === undefined ? [path] : [previousPath, path],
+    );
   }
 
   async head(worktreePath: string): Promise<Head> {

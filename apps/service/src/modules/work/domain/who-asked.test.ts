@@ -6,6 +6,9 @@ import { shapingBrief } from "./shaping.js";
 import type { StateChange } from "./state-change.js";
 import { taskWhoAskedSection } from "./who-asked.js";
 import { ANN_LEE, anInitiative, aTask, BEN_ITO } from "./work.fixtures.js";
+import { defaultWorkPrompts } from "./work-prompt-templates.fixtures.js";
+
+const prompts = defaultWorkPrompts();
 
 const A_PLANNER: Author = { kind: "person", roleKey: "lead" };
 const at = new Date("2026-11-12T10:00:00.000Z");
@@ -25,7 +28,7 @@ const CREATED_THEN_PLANNED: readonly StateChange[] = [
 ];
 
 function aPlanningBrief(stateChanges: readonly StateChange[]): string {
-  return planningBrief({
+  return planningBrief(prompts, {
     task: aTask({ state: "planning" }),
     stateChanges,
     project: PROJECT,
@@ -37,7 +40,7 @@ function aPlanningBrief(stateChanges: readonly StateChange[]): string {
 }
 
 function anInitiativePlanningBrief(initiative = anInitiative()): string {
-  return initiativePlanningBrief({
+  return initiativePlanningBrief(prompts, {
     initiative,
     waiting: [],
     record: "Initiative: Usage exports",
@@ -71,27 +74,21 @@ describe("Briefs say which user asked", () => {
 
   it("reads 'the user' for a record kept before users existed", () => {
     expect(
-      taskWhoAskedSection(
-        aTask({ createdBy: { kind: "user", user: null } }),
-        [{ from: "ready", to: "in-progress", at, by: { kind: "user", user: null } }],
-        "start",
-      ),
+      taskWhoAskedSection(prompts, aTask({ createdBy: { kind: "user", user: null } }), [
+        { from: "ready", to: "in-progress", at, by: { kind: "user", user: null } },
+      ]),
     ).toBe("## Who asked\n\nThe Task was created by the user and started by the user.");
   });
 
   it("an Agent Stage's section names who started the Task, or who queued it", () => {
     const task = aTask({ createdBy: ANN_LEE });
     const startedBy = (by: StateChange["by"]) =>
-      taskWhoAskedSection(
-        task,
-        [
-          { from: "planning", to: "ready", at, by: ANN_LEE },
-          { from: "ready", to: "in-progress", at, by },
-          { from: "in-progress", to: "paused", at, by: ANN_LEE },
-          { from: "paused", to: "in-progress", at, by: ANN_LEE },
-        ],
-        "start",
-      );
+      taskWhoAskedSection(prompts, task, [
+        { from: "planning", to: "ready", at, by: ANN_LEE },
+        { from: "ready", to: "in-progress", at, by },
+        { from: "in-progress", to: "paused", at, by: ANN_LEE },
+        { from: "paused", to: "in-progress", at, by: ANN_LEE },
+      ]);
 
     expect(startedBy(BEN_ITO)).toBe(
       "## Who asked\n\nThe Task was created by the user Ann Lee and started by the user Ben Ito.",
@@ -119,10 +116,10 @@ describe("Briefs say which user asked", () => {
       createdBy: byTheUser({ userId: "u-3", name: "Cy Moe" }),
     });
 
-    expect(shapingBrief(shaped, undefined, "The record.", [], [])).toContain(
+    expect(shapingBrief(prompts, shaped, undefined, "The record.", [], [])).toContain(
       "The record.\n\n## Who asked\n\nThe Initiative was shaped from its Idea by the user Ben Ito.",
     );
-    expect(shapingBrief(created, undefined, "The record.", [], [])).toContain(
+    expect(shapingBrief(prompts, created, undefined, "The record.", [], [])).toContain(
       "## Who asked\n\nThe Initiative was created by the user Cy Moe.",
     );
   });

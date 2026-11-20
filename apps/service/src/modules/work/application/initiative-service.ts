@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
+import { readEach } from "../../../platform/database/fan-out.js";
+import { PromptTemplates } from "../../prompt-templates/index.js";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { moveAttachment } from "../domain/attachment-changes.js";
@@ -25,6 +27,7 @@ import {
   dropInitiative,
   finishInitiative,
   removeDependencyOfItsTask,
+  setInitiativePipelines,
   settleInitiative,
   tasksByInitiative,
   writeOutcome,
@@ -63,6 +66,10 @@ import { initiativeRecordText, type InitiativeRecord } from "../domain/record-wo
 import { searchWords } from "../domain/search.js";
 import { NOBODY_SHAPES_INITIATIVES, SHAPES_INITIATIVES } from "../domain/duties.js";
 import { SHAPING_THREAD_TITLE, shapingOpeningOf } from "../domain/shaping.js";
+import {
+  CREATED_INITIATIVE_SHAPING_OPENING,
+  SHAPING_OPENING,
+} from "../domain/work-prompt-templates.js";
 import { isPublishingTask, newTaskProblems, type NewTask, type Task } from "../domain/task.js";
 import type { TaskChange } from "../domain/task-changes.js";
 import { createdWaitingFor } from "../domain/task-dependencies.js";
@@ -145,6 +152,7 @@ export class InitiativeService implements OnModuleInit {
     private readonly proposals: ProposalDrafts,
     private readonly search: WorkSearch,
     private readonly events: EventBus,
+    private readonly promptTemplates: PromptTemplates,
   ) {}
 
   onModuleInit(): void {
@@ -221,11 +229,15 @@ export class InitiativeService implements OnModuleInit {
     initiative: Initiative,
     shaper: string,
   ): Promise<{ readonly id: string }> {
+    const prompts = await this.promptTemplates.textsOf([
+      SHAPING_OPENING,
+      CREATED_INITIATIVE_SHAPING_OPENING,
+    ]);
     return this.threads.startOnInitiative({
       initiativeId: initiative.id,
       roleKey: shaper,
       title: SHAPING_THREAD_TITLE,
-      opening: shapingOpeningOf(initiative),
+      opening: shapingOpeningOf(prompts, initiative),
     });
   }
 
@@ -300,7 +312,7 @@ export class InitiativeService implements OnModuleInit {
   /** The names of the Pipelines the Initiative has in its Projects, by id, those still known. */
   private async pipelineNamesOf(initiative: Initiative): Promise<ReadonlyMap<string, string>> {
     const ids = [...new Set(initiative.pipelines.flatMap(({ pipelineId }) => pipelineId ?? []))];
-    const pipelines = await Promise.all(ids.map((pipelineId) => this.pipelines.read(pipelineId)));
+    const pipelines = await readEach(ids, (pipelineId) => this.pipelines.read(pipelineId));
     return new Map(
       pipelines.flatMap((pipeline) => (pipeline ? [[pipeline.id, pipeline.name]] : [])),
     );
@@ -312,6 +324,32 @@ export class InitiativeService implements OnModuleInit {
     const idea = await this.ideas.find(originIdeaId);
     if (!idea) throw new IdeaNotFound(originIdeaId);
     return idea;
+  }
+
+  /**
+   * The Initiatives of these ids that The Office knows, archived ones too, each with its name as
+   * its title and the Projects its Tasks are in, for Stats.
+   */
+  async titlesOf(ids: readonly string[]): Promise<
+    readonly {
+      readonly initiativeId: string;
+      readonly title: string;
+      readonly projectIds: readonly string[];
+    }[]
+  > {
+    if (ids.length === 0) return [];
+    const wanted = new Set(ids);
+    const [every, byInitiative] = await Promise.all([
+      this.repository.list(),
+      this.tasksByInitiative(),
+    ]);
+    return every
+      .filter(({ id }) => wanted.has(id))
+      .map(({ id, name }) => ({
+        initiativeId: id,
+        title: name,
+        projectIds: initiativeProjectIds(byInitiative.get(id) ?? []),
+      }));
   }
 
   /** Every Initiative's Pipeline in each Project it spans that has one. */
@@ -366,6 +404,51 @@ export class InitiativeService implements OnModuleInit {
     );
     if (event) await this.events.publish(event);
     return initiative;
+  }
+
+  /**
+   * The user's Pipelines block saved as a whole while it is being shaped: the Pipeline in each
+   * Project of `choices`, null for None, and the Short name, null to keep or derive it. Refused,
+   * with nothing saved, for any Project it doesn't span or any Pipeline that Project's Tasks
+   * couldn't follow, as choosePipeline refuses it, and for a Short name writeShortName refuses.
+   */
+  async setPipelines(
+    id: string,
+    choices: readonly { readonly projectId: string; readonly pipelineId: string | null }[],
+    shortName: string | null,
+  ): Promise<Initiative> {
+    const tasks = (await this.tasksByInitiative()).get(id) ?? [];
+    const problems = (
+      await readEach(choices, ({ projectId, pipelineId }) =>
+        this.pipelineProblems(tasks, projectId, pipelineId),
+      )
+    ).flat();
+    if (problems.length > 0) throw new InitiativeRefused(problems);
+    const set = choices.map(({ projectId, pipelineId }) => ({
+      projectId,
+      pipelineId: pipelineId ?? undefined,
+    }));
+    const { initiative, event } = await this.repository.updateNaming(id, (held, taken) =>
+      setInitiativePipelines(held, set, shortName ?? undefined, taken),
+    );
+    if (event) await this.events.publish(event);
+    return initiative;
+  }
+
+  /**
+   * Every reason the user's choice of `pipelineId` in one Project would be refused, judged by the
+   * Initiative's `tasks`.
+   */
+  private async pipelineProblems(
+    tasks: readonly Task[],
+    projectId: string,
+    pipelineId: string | null,
+  ): Promise<string[]> {
+    const project = await this.spannedProjectIn(tasks, projectId);
+    if (!project) return [notSpannedWords(projectId)];
+    if (pipelineId === null) return [];
+    const choice = await pipelineChoiceIn(projectId, pipelineId, this.pipelines, this.projects);
+    return taskPipelineProblems(choice, project);
   }
 
   /** The user's own Short name, while it is being shaped with a Pipeline chosen. */
@@ -730,9 +813,7 @@ export class InitiativeService implements OnModuleInit {
   private async publishingProjects(
     projectIds: readonly string[],
   ): Promise<ReadonlyMap<string, PublishingProject>> {
-    const projects = await Promise.all(
-      projectIds.map((projectId) => this.projects.find(projectId)),
-    );
+    const projects = await readEach(projectIds, (projectId) => this.projects.find(projectId));
     return new Map(projects.flatMap((project) => (project ? [[project.id, project]] : [])));
   }
 
@@ -747,10 +828,8 @@ export class InitiativeService implements OnModuleInit {
   ): Promise<ReadonlySet<string>> {
     if (projectIds.length === 0 || initiative.shortName === undefined) return new Set();
     const branch = initiativeBranchOf(initiative.shortName);
-    const holding = await Promise.all(
-      projectIds.map((projectId) =>
-        this.branches.holdsUnpublished(projectId, branch, lastPublishedBy(tasks, projectId)?.id),
-      ),
+    const holding = await readEach(projectIds, (projectId) =>
+      this.branches.holdsUnpublished(projectId, branch, lastPublishedBy(tasks, projectId)?.id),
     );
     return new Set(projectIds.filter((_, index) => holding[index]));
   }

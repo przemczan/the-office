@@ -6,6 +6,7 @@ import type { Author } from "../../domain/author.js";
 import type { Idea } from "../../domain/idea.js";
 import type { Initiative } from "../../domain/initiative.js";
 import type { Task } from "../../domain/task.js";
+import type { PullRequestEnd } from "../../domain/task-pull-request.js";
 import type { StateChange, StateChangeCause } from "../../domain/state-change.js";
 import type { TaskChange } from "../../domain/task-changes.js";
 import type { DependencyChange, DependencyChanges } from "../../domain/task-dependencies.js";
@@ -20,6 +21,7 @@ import {
   tasks,
   taskStateChanges,
   type AuthorRow,
+  type PullRequestEndRow,
   type StateChangeCauseRow,
 } from "./work.schema.js";
 
@@ -314,9 +316,13 @@ export function toTaskRow(task: Task): TaskRow {
     markedPlanned: task.markedPlanned,
     hasPlanningThread: task.hasPlanningThread,
     personRole: task.personRole ?? null,
+    engineStandIns: [...task.engineStandIns],
     pausedBy: task.pausedBy ?? null,
     resumesAt: task.resumesAt ?? null,
+    usageWindowEngineId: task.usageWindowEngineId ?? null,
+    usageWindowPausedAt: task.usageWindowPausedAt ?? null,
     madeFor: task.madeFor ?? null,
+    resolvesTaskId: task.resolvesTaskId ?? null,
     blockedBy: [...task.blockedBy],
     originIdeaId: task.originIdeaId ?? null,
     initiativeId: task.initiativeId ?? null,
@@ -328,6 +334,20 @@ export function toTaskRow(task: Task): TaskRow {
     restoredAt: task.restoredAt ?? null,
     restoredBy: task.restoredBy ?? null,
     endedAt: task.endedAt ?? null,
+    pullRequestEnd: task.pullRequestEnd ? toPullRequestEndRow(task.pullRequestEnd) : null,
+  };
+}
+
+function toPullRequestEndRow(end: PullRequestEnd): PullRequestEndRow {
+  return { ...end, at: end.at.toISOString(), method: end.method ?? null };
+}
+
+function pullRequestEndOf(row: PullRequestEndRow): PullRequestEnd {
+  return {
+    ...row,
+    at: new Date(row.at),
+    method: row.method ?? undefined,
+    by: row.by.kind === "code-host" ? row.by : authorOf(row.by),
   };
 }
 
@@ -356,9 +376,13 @@ export function toTask(row: TaskRow): Task {
     markedPlanned: row.markedPlanned,
     hasPlanningThread: row.hasPlanningThread,
     personRole: row.personRole ?? undefined,
+    engineStandIns: row.engineStandIns,
     pausedBy: row.pausedBy ?? undefined,
     resumesAt: row.resumesAt ?? undefined,
+    usageWindowEngineId: row.usageWindowEngineId ?? undefined,
+    usageWindowPausedAt: row.usageWindowPausedAt ?? undefined,
     madeFor: row.madeFor ?? undefined,
+    resolvesTaskId: row.resolvesTaskId ?? undefined,
     blockedBy: row.blockedBy,
     originIdeaId: row.originIdeaId ?? undefined,
     initiativeId: row.initiativeId ?? undefined,
@@ -374,6 +398,7 @@ export function toTask(row: TaskRow): Task {
     restoredAt: row.restoredAt ?? undefined,
     restoredBy: row.restoredBy ? authorOf(row.restoredBy) : undefined,
     endedAt: row.endedAt ?? undefined,
+    pullRequestEnd: row.pullRequestEnd ? pullRequestEndOf(row.pullRequestEnd) : undefined,
   };
 }
 

@@ -61,6 +61,14 @@ export class PostgresLinkedIdentityRepository extends LinkedIdentityRepository {
   async removeAllOf(userId: string): Promise<void> {
     await this.database.delete(linkedIdentities).where(eq(linkedIdentities.userId, userId));
   }
+
+  async removeAllAt(provider: IdentityProviderId): Promise<number> {
+    const removed = await this.database
+      .delete(linkedIdentities)
+      .where(eq(linkedIdentities.provider, provider))
+      .returning({ id: linkedIdentities.id });
+    return removed.length;
+  }
 }
 
 function toLinkedIdentity(row: LinkedIdentityRow): LinkedIdentity {

@@ -15,6 +15,7 @@ function aTask(fields: Partial<Task>): Task {
     state: "planning",
     plan: "",
     pausedBy: null,
+    engineStandIns: [],
     resumesAt: null,
     autoMode: false,
     initiativePlanningThreadId: null,
@@ -34,11 +35,13 @@ function aTask(fields: Partial<Task>): Task {
     originIdeaId: null,
     initiativeId: null,
     madeFor: null,
+    resolvesTaskId: null,
     projectMoves: [],
     createdBy: { kind: "user", user: null },
     createdAt: "2026-10-25T10:00:00.000Z",
     archivedAt: null,
     endedAt: null,
+    pullRequestEnd: null,
     ...fields,
   };
 }
@@ -47,15 +50,20 @@ function aDecisionOn(taskId: string): Decision {
   return {
     id: "2a9e1f4c-7d3b-4c8e-9f1a-6b5d4c3e2f10",
     threadId: "0b4cbb0e-5a51-4a52-9a4e-7c0f3c1b9f10",
-    kind: "question",
+    kind: "form",
     taskId,
     roleKey: "planner",
-    question: "Keep the query string on the way back?",
+    questions: [
+      {
+        kind: "choice",
+        question: "Keep the query string on the way back?",
+        options: ["Keep it", "Drop it"],
+        recommendation: { option: 0, reason: "Filters live there." },
+      },
+    ],
     context: "",
-    options: ["Keep it", "Drop it"],
-    recommendation: { option: 0, reason: "Filters live there." },
     askedAt: "2026-10-26T09:00:00.000Z",
-    answer: null,
+    formAnswer: null,
     answeredAt: null,
     putTo: null,
     attachmentIds: [],
@@ -65,6 +73,7 @@ function aDecisionOn(taskId: string): Decision {
     atUsersRequest: null,
     answeredByTheOffice: false,
     closedAt: null,
+    closedBecause: null,
   };
 }
 

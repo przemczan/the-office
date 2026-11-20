@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_ENGINE_SETTINGS } from "../domain/engine-settings.js";
-import type { ApiEngine } from "../domain/engines.js";
+import type { ApiEngine, CodexEngine } from "../domain/engines.js";
 import { EngineSettingsForTests } from "../ports/engine-settings-repository.fixtures.js";
 import { ModelPrices } from "./model-prices.js";
 
 const SONNET_PRICE = { input: 3, output: 15, cacheWrites: 3.75, cacheReads: 0.3 };
 const CODER_PRICE = { input: 1, output: 2, cacheWrites: 0, cacheReads: 0 };
+const LUNA_PRICE = { input: 2, output: 8, cacheWrites: 0, cacheReads: 0.5 };
 
 const lab: ApiEngine = {
   id: "lab",
@@ -17,12 +18,21 @@ const lab: ApiEngine = {
   models: [{ id: "coder", contextWindow: 32_000 }],
 };
 
+const codex: CodexEngine = {
+  id: "codex",
+  name: "Codex",
+  kind: "codex",
+  defaultModel: "gpt-6-luna",
+  apiKey: null,
+};
+
 const prices = new ModelPrices(
   new EngineSettingsForTests({
     ...DEFAULT_ENGINE_SETTINGS,
-    engines: [...DEFAULT_ENGINE_SETTINGS.engines, lab],
+    engines: [...DEFAULT_ENGINE_SETTINGS.engines, lab, codex],
     modelPrices: [
       { engineId: null, model: "claude-sonnet-5-5", price: SONNET_PRICE },
+      { engineId: null, model: "gpt-6-luna", price: LUNA_PRICE },
       { engineId: "lab", model: "coder", price: CODER_PRICE },
       { engineId: "removed", model: "coder", price: CODER_PRICE },
     ],
@@ -50,6 +60,17 @@ describe("ModelPrices", () => {
     expect(
       await prices.costOf({ engineId: "second-account", model: "claude-sonnet-5-5" }, tokens),
     ).toBeCloseTo(18);
+  });
+
+  it("prices a Codex model by its one price on every Codex engine, a removed one's included", async () => {
+    // $2 + $8
+    expect(await prices.costOf({ engineId: "codex", model: "gpt-6-luna" }, tokens)).toBeCloseTo(10);
+    expect(
+      await prices.costOf({ engineId: "removed-codex", model: "gpt-6-luna" }, tokens),
+    ).toBeCloseTo(10);
+    expect(
+      await prices.costOf({ engineId: "codex", model: "gpt-5.6-terra" }, tokens),
+    ).toBeUndefined();
   });
 
   it("prices an API model by its own engine's price, a removed engine's kept", async () => {

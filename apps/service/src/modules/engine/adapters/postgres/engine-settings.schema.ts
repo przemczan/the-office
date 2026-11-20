@@ -11,12 +11,17 @@ import {
   unique,
 } from "drizzle-orm/pg-core";
 import type { ApiEndpointModel } from "../../domain/api-endpoints.js";
-import { FIRST_OFFICE_DEFAULT } from "../../domain/engine-settings.js";
+import {
+  DEFAULT_ASK_BEFORE_SWITCH_ABOVE,
+  FIRST_OFFICE_DEFAULT,
+} from "../../domain/engine-settings.js";
 import type { EngineId, EngineKind } from "../../domain/engines.js";
 
 /**
  * The engines Settings › Engines lists, in its order. The `-p` switch is a Claude Code engine's;
- * the base URL, key and models an API engine's, null on the other kind.
+ * the base URL, key and models an API engine's, null on the other kinds, but for a Codex engine's
+ * key, the OpenAI API key it is signed in with, and a Copilot CLI engine's, the token pasted into
+ * it: null when none is (never empty).
  */
 export const engines = pgTable(
   "engines",
@@ -36,7 +41,7 @@ export const engines = pgTable(
     check("engines_id", sql`${table.id} <> ''`),
     check(
       "engines_kind",
-      sql`(${table.kind} = 'claude-code' AND ${table.baseUrl} IS NULL AND ${table.key} IS NULL AND ${table.models} IS NULL) OR (${table.kind} = 'openai-compatible-api' AND ${table.baseUrl} IS NOT NULL AND ${table.key} IS NOT NULL AND ${table.models} IS NOT NULL AND NOT ${table.claudeCodeP})`,
+      sql`(${table.kind} = 'claude-code' AND ${table.baseUrl} IS NULL AND ${table.key} IS NULL AND ${table.models} IS NULL) OR (${table.kind} = 'openai-compatible-api' AND ${table.baseUrl} IS NOT NULL AND ${table.key} IS NOT NULL AND ${table.models} IS NOT NULL AND NOT ${table.claudeCodeP}) OR (${table.kind} = 'codex' AND ${table.baseUrl} IS NULL AND ${table.models} IS NULL AND NOT ${table.claudeCodeP} AND (${table.key} IS NULL OR ${table.key} <> '')) OR (${table.kind} = 'copilot-cli' AND ${table.baseUrl} IS NULL AND ${table.models} IS NULL AND NOT ${table.claudeCodeP} AND (${table.key} IS NULL OR ${table.key} <> ''))`,
     ),
   ],
 );
@@ -53,6 +58,15 @@ export const engineSettings = pgTable(
       .$type<EngineId>()
       .default(FIRST_OFFICE_DEFAULT.engineId),
     officeDefaultModel: text("office_default_model").default(FIRST_OFFICE_DEFAULT.model),
+    /** The Stand-in Engines in order; an id no longer listed is left out as it is read. */
+    standInEngineIds: text("stand_in_engine_ids")
+      .$type<EngineId>()
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
+    askBeforeSwitchAbove: integer("ask_before_switch_above")
+      .notNull()
+      .default(DEFAULT_ASK_BEFORE_SWITCH_ABOVE),
   },
   (table) => [
     check("engine_settings_one_row", sql`${table.id} = 1`),
@@ -60,12 +74,14 @@ export const engineSettings = pgTable(
       "engine_settings_office_default_whole",
       sql`(${table.officeDefaultEngineId} IS NULL) = (${table.officeDefaultModel} IS NULL)`,
     ),
+    check("engine_settings_ask_before_switch_above", sql`${table.askBeforeSwitchAbove} >= 0`),
   ],
 );
 
 /**
  * Each priced model's Model price, in dollars per million tokens; a model with no row has none. A
- * Claude model's engine id is null, its price shared by every Claude Code engine.
+ * Claude model's engine id is null, its price shared by every Claude Code engine, and so is a Codex
+ * model's, shared by every Codex engine.
  */
 export const modelPrices = pgTable(
   "model_prices",

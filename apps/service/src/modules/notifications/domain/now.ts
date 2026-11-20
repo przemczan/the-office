@@ -65,10 +65,15 @@ export interface TaskResume {
   readonly tokens: number;
 }
 
-/** A Decision that waits on the user, from Conversations. */
+/**
+ * A Decision that waits on the user, from Conversations: on a Task, or on no Task in one of an
+ * Initiative's Threads (`initiativeId` set).
+ */
 export interface OpenDecision {
   readonly id: string;
-  readonly taskId: string;
+  readonly threadId: string;
+  readonly taskId?: string | undefined;
+  readonly initiativeId?: string | undefined;
   readonly askedAt: Date;
 }
 
@@ -110,6 +115,18 @@ export interface WaitingDecision {
   readonly waitingSince: Date;
 }
 
+/** A Decision on no Task, waiting in an Initiative's shaping or planning Thread. */
+export interface WaitingInitiativeDecision {
+  readonly kind: "initiative-decision";
+  readonly decisionId: string;
+  readonly initiativeId: string;
+  /** The Initiative's Thread it waits in, where it is answered. */
+  readonly threadId: string;
+  /** The Projects the Initiative spans, so the Project filter can narrow what waits. */
+  readonly projectIds: readonly string[];
+  readonly waitingSince: Date;
+}
+
 export interface WaitingGate {
   readonly kind: "gate";
   readonly taskId: string;
@@ -118,8 +135,38 @@ export interface WaitingGate {
   readonly waitingSince: Date;
 }
 
+/**
+ * A Stage held as its engine's usage window was used up, waiting for the user's choice of going on
+ * on a Stand-in Engine now or waiting for the reset (spec 5.4), from Pipelines.
+ */
+export interface StandInChoiceWaiting {
+  readonly taskId: string;
+  readonly projectId: string;
+  readonly waitingSince: Date;
+  /** The used-up window's reset, as an ISO time. */
+  readonly resetsAt: string;
+  /** The Stand-in Engine it would move to now; null while none has room. */
+  readonly standInNow: { readonly engineName: string } | null;
+  /** The Stand-in Engine that had room as the Stage was held. */
+  readonly asked: { readonly engineName: string };
+}
+
+/**
+ * The Office's own Decision on every Stage waiting for the user's choice of a Stand-in Engine: one
+ * item for them all, however many wait.
+ */
+export interface WaitingStandInChoices {
+  readonly kind: "stand-in-choice";
+  /** The Projects of the waiting Stages' Tasks, so the Project filter can narrow what waits. */
+  readonly projectIds: readonly string[];
+  /** The oldest waiting Stage's. */
+  readonly waitingSince: Date;
+  readonly count: number;
+}
+
 /** What waits on the user. A message from a person joins with tier 2 (the user's answer of 2026-10-27). */
-export type NeedsYouItem = WaitingDecision | WaitingGate;
+export type NeedsYouItem =
+  WaitingDecision | WaitingInitiativeDecision | WaitingGate | WaitingStandInChoices;
 
 /** The Stage a started Task is at: the one with its latest run. */
 export interface CurrentStage {
@@ -257,6 +304,7 @@ export interface NowParts {
   readonly fireAlarm: NowFireAlarm;
   /** How each Task the alarm paused would resume, by its id; read only while the alarm is on. */
   readonly resumes: ReadonlyMap<string, TaskResume | undefined>;
+  readonly standInChoices: readonly StandInChoiceWaiting[];
 }
 
 export function nowOf(parts: NowParts): Now {
@@ -274,7 +322,7 @@ export function nowOf(parts: NowParts): Now {
     stage: stages && currentStageOf(stages),
   }));
   return {
-    needsYou: needsYouOf(parts.openDecisions, gates, parts.tasks),
+    needsYou: needsYouOf(parts, gates),
     running,
     queue: queueOf(parts.queued, parts.tasks),
     shaping: shapingOf(parts),
@@ -322,17 +370,30 @@ function shapingOf({ initiatives, initiativeTasks, shaper }: NowParts): ShapingI
         one.createdAt.getTime() - other.createdAt.getTime() || one.id.localeCompare(other.id),
     )
     .map(({ id, name, createdAt }) => {
-      const tasks = (initiativeTasks.get(id) ?? []).filter(({ state }) => state !== "dropped");
+      const tasks = liveTasksOf(initiativeTasks.get(id));
       return {
         initiativeId: id,
         title: name,
-        projectIds: [...new Set(tasks.map(({ projectId }) => projectId))],
+        projectIds: projectsOf(tasks),
         shapedBy: shaper,
         taskCount: tasks.length,
         since: createdAt,
       };
     });
 }
+
+/** An Initiative's Tasks but those Dropped, which no longer count. */
+function liveTasksOf(tasks: readonly InitiativeTask[] | undefined): readonly InitiativeTask[] {
+  return (tasks ?? []).filter(({ state }) => state !== "dropped");
+}
+
+/** The Projects an Initiative spans: those of its Tasks not Dropped, in the order its Tasks came. */
+function projectsOf(tasks: readonly InitiativeTask[] | undefined): string[] {
+  return [...new Set(liveTasksOf(tasks).map(({ projectId }) => projectId))];
+}
+
+/** An Initiative in one of these has ended: its Decisions on no Task no longer wait. */
+const ENDED_INITIATIVE_STATES: readonly string[] = ["done", "dropped"];
 
 function queueOf(queued: readonly QueuedOnNow[], tasks: readonly OfficeTask[]): QueuedTask[] {
   return queued.flatMap(({ taskId, reasons }, index) => {
@@ -381,33 +442,67 @@ export function currentStageOf(stages: readonly StageOfTask[]): CurrentStage | u
   );
 }
 
-/** A Decision on a Task Work no longer knows is left out. */
+/**
+ * A Decision on a Task Work no longer knows is left out, as is one on an Initiative Work no longer
+ * knows or that ended (Done or Dropped).
+ */
 function needsYouOf(
-  decisions: readonly OpenDecision[],
+  { openDecisions, tasks, initiatives, initiativeTasks, standInChoices }: NowParts,
   gates: readonly WaitingGate[],
-  tasks: readonly OfficeTask[],
 ): NeedsYouItem[] {
-  const byId = new Map(tasks.map((task) => [task.id, task]));
+  const tasksById = new Map(tasks.map((task) => [task.id, task]));
+  const initiativesById = new Map(initiatives.map((initiative) => [initiative.id, initiative]));
   const waiting: NeedsYouItem[] = [
-    ...decisions.flatMap(({ id, taskId, askedAt }): WaitingDecision[] => {
-      const task = byId.get(taskId);
-      return task
-        ? [
-            {
-              kind: "decision",
-              decisionId: id,
-              taskId,
-              projectId: task.projectId,
-              waitingSince: askedAt,
-            },
-          ]
-        : [];
+    ...openDecisions.flatMap(({ id, threadId, taskId, initiativeId, askedAt }): NeedsYouItem[] => {
+      if (taskId !== undefined) {
+        const task = tasksById.get(taskId);
+        return task
+          ? [
+              {
+                kind: "decision",
+                decisionId: id,
+                taskId,
+                projectId: task.projectId,
+                waitingSince: askedAt,
+              },
+            ]
+          : [];
+      }
+      const initiative = initiativeId === undefined ? undefined : initiativesById.get(initiativeId);
+      if (!initiative || ENDED_INITIATIVE_STATES.includes(initiative.state)) return [];
+      return [
+        {
+          kind: "initiative-decision",
+          decisionId: id,
+          initiativeId: initiative.id,
+          threadId,
+          projectIds: projectsOf(initiativeTasks.get(initiative.id)),
+          waitingSince: askedAt,
+        },
+      ];
     }),
     ...gates,
+    ...waitingStandInChoicesOf(standInChoices),
   ];
   return waiting.toSorted(
     (one, other) => one.waitingSince.getTime() - other.waitingSince.getTime(),
   );
+}
+
+/** One item for every Stage waiting for the choice, none while none waits. */
+function waitingStandInChoicesOf(
+  choices: readonly StandInChoiceWaiting[],
+): WaitingStandInChoices[] {
+  if (choices.length === 0) return [];
+  const since = Math.min(...choices.map(({ waitingSince }) => waitingSince.getTime()));
+  return [
+    {
+      kind: "stand-in-choice",
+      projectIds: [...new Set(choices.map(({ projectId }) => projectId))],
+      waitingSince: new Date(since),
+      count: choices.length,
+    },
+  ];
 }
 
 /** An outcome of a Task Work no longer knows is left out. */

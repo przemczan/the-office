@@ -7,13 +7,43 @@ import {
   consultationTitle,
   callChain,
   callProblems,
+  consultantAnswerProblems,
+  consultationAskedLine,
   CALL_STEPS,
   consultDecision,
   passedOnTo,
   type ConsultantPerson,
 } from "./consult.js";
-import type { Decision } from "./decision.js";
-import { aDecision } from "./decision.fixtures.js";
+import {
+  oneOptionAnswer,
+  oneWordsAnswer,
+  type Decision,
+  type DecisionQuestion,
+} from "./decision.js";
+import { aDecision, THREE_QUESTIONS } from "./decision.fixtures.js";
+
+/** An approval of installing ffmpeg, by The Office's two answers. */
+function anApproval(fields: Partial<Decision> = {}): Decision {
+  return aDecision({
+    kind: "approval",
+    questions: [
+      {
+        kind: "choice",
+        question: approvalQuestion("Install ffmpeg."),
+        options: APPROVAL_OPTIONS,
+        recommendation: { option: 0, reason: "Needed for video." },
+      },
+    ],
+    ...fields,
+  });
+}
+
+const DATABASE: DecisionQuestion = {
+  kind: "choice",
+  question: "Which database?",
+  options: ["SQLite", "Postgres"],
+  recommendation: { option: 0, reason: "It needs no server." },
+};
 
 const CTO: ConsultantPerson = { roleKey: "cto", name: "Casey", title: "CTO" };
 const DEVOPS: ConsultantPerson = { roleKey: "devops", name: "Dev", title: "Devops" };
@@ -34,20 +64,17 @@ describe("consultantNamed", () => {
 
 describe("consultDecision", () => {
   const consult = {
-    kind: "question",
+    kind: "form",
     person: "CTO",
-    question: "Which database?",
     context: "The export reads every Project.",
-    options: ["SQLite", "Postgres"],
-    recommended: 1,
-    why: "It is what the Projects use.",
+    questions: THREE_QUESTIONS,
   } as const;
 
-  it("puts the question to a Consultant as the Agent asked it", () => {
-    expect(consultDecision(consult, { kind: "consultant", roleKey: "cto" })).toMatchObject({
-      question: "Which database?",
+  it("puts the form to a Consultant as the Agent asked it", () => {
+    expect(consultDecision(consult, { kind: "consultant", roleKey: "cto" })).toEqual({
+      kind: "form",
       context: "The export reads every Project.",
-      recommendation: { option: 1 },
+      questions: THREE_QUESTIONS,
     });
   });
 
@@ -67,8 +94,18 @@ describe("consultDecision", () => {
       },
       { kind: "user" },
     );
-    expect(draft.options).toEqual(["Allow once", "Deny"]);
-    expect(draft.kind).toBe("approval");
+    expect(draft).toEqual({
+      kind: "approval",
+      context: "Needed for video.",
+      questions: [
+        {
+          kind: "choice",
+          question: approvalQuestion("Install ffmpeg."),
+          options: ["Allow once", "Deny"],
+          recommendation: { option: 0, reason: "No other way." },
+        },
+      ],
+    });
   });
 });
 
@@ -121,13 +158,7 @@ function chainOf(decision: Decision, above: readonly Decision[] = []) {
 }
 
 describe("passedOnTo", () => {
-  const approval = aDecision({
-    kind: "approval",
-    roleKey: "developer",
-    question: approvalQuestion("Install ffmpeg."),
-    options: [...APPROVAL_OPTIONS],
-    putTo: "devops",
-  });
+  const approval = anApproval({ roleKey: "developer", putTo: "devops" });
 
   it("finds the Consultant the first passer names", () => {
     expect(passedOnTo(approval, "CTO", [DEVOPS, CTO], chainOf(approval))).toEqual({
@@ -182,7 +213,7 @@ describe("passedOnTo", () => {
 });
 
 describe("a request", () => {
-  it("opens a Decision of its own kind, with no options, why it is needed as its reason", () => {
+  it("opens a Decision of its own kind, one open question with why it is needed", () => {
     expect(
       consultDecision(
         {
@@ -196,10 +227,14 @@ describe("a request", () => {
       ),
     ).toEqual({
       kind: "request",
-      question: "Set up the Project's commands.",
       context: "The user asked for it.",
-      options: [],
-      recommendation: { option: 0, reason: "Only Devops drafts Project commands." },
+      questions: [
+        {
+          kind: "open",
+          question: "Set up the Project's commands.",
+          why: "Only Devops drafts Project commands.",
+        },
+      ],
     });
   });
 
@@ -208,9 +243,13 @@ describe("a request", () => {
       aDecision({
         kind: "request",
         taskId: undefined,
-        question: "Set up the Project's commands.",
-        options: [],
-        recommendation: { option: 0, reason: "Only Devops drafts them." },
+        questions: [
+          {
+            kind: "open",
+            question: "Set up the Project's commands.",
+            why: "Only Devops drafts them.",
+          },
+        ],
       }),
       "Angela",
     );
@@ -228,30 +267,83 @@ describe("a Consultation", () => {
   });
 
   it("opens by asking the Consultant the Decision, with its options and the recommended one", () => {
-    const opening = consultationOpening(
-      aDecision({ question: "Which database?", options: ["SQLite", "Postgres"] }),
-      "Dana",
-    );
+    const opening = consultationOpening(aDecision({ questions: [DATABASE] }), "Dana");
 
     expect(opening).toContain("Dana asks for your answer");
-    expect(opening).toContain("Question: Which database?");
-    expect(opening).toContain("1. SQLite (recommended)\n2. Postgres");
+    expect(opening).toContain("Question 1: Which database?\n1. SQLite (recommended)\n2. Postgres");
+    expect(opening).toContain("Why they recommend it: It needs no server.");
+  });
+
+  it("lists every question of a form in order, and how to submit it or ask again", () => {
+    const decision = aDecision({ questions: THREE_QUESTIONS });
+    const opening = consultationOpening(decision, "Dana");
+
+    expect(opening).toContain(
+      [
+        "Their questions:",
+        "",
+        "Question 1: Should the export include archived Projects?",
+        "1. Only active Projects (recommended)",
+        "2. Every Project",
+        "Why they recommend it: Archived Projects have nothing to export.",
+        "",
+        "Question 2: Which years should it cover?",
+        "An open question: answer in your own words.",
+        "",
+        "Question 3: Which format?",
+        "1. CSV",
+        "2. JSON (recommended)",
+        "Why they recommend it: It keeps the nesting.",
+      ].join("\n"),
+    );
+    expect(opening).toContain("`generalComment`");
+    expect(opening).toContain("`askAgain`");
+    expect(consultationAskedLine("Dana", decision)).toBe(
+      "Dana asks: Should the export include archived Projects? (and 2 more questions)",
+    );
+  });
+
+  it("opens The Office's own Decision with the user's options, which stay theirs", () => {
+    const opening = consultationOpening(aDecision({ roleKey: undefined }), "The Office");
+
+    expect(opening).toContain("Question: Should the export include archived Projects?");
+    expect(opening).toContain(
+      "The user's options, which stay theirs:\n1. Only active Projects\n2. Every Project",
+    );
   });
 
   it("says who passed an approval on and why, and that it can be passed on again", () => {
-    const opening = consultationOpening(
-      aDecision({
-        kind: "approval",
-        question: approvalQuestion("Install ffmpeg."),
-        options: [...APPROVAL_OPTIONS],
-      }),
-      "Dana",
-      [{ name: "Dev", reason: "It changes the build machine for every Project." }],
-    );
+    const opening = consultationOpening(anApproval(), "Dana", [
+      { name: "Dev", reason: "It changes the build machine for every Project." },
+    ]);
 
     expect(opening).toContain(
       "Dev passed it on to you: It changes the build machine for every Project.",
     );
     expect(opening).toContain("or pass it on");
+  });
+});
+
+describe("consultantAnswerProblems", () => {
+  const theOffices = aDecision({ roleKey: undefined, putTo: "cto" });
+  const refusal = [
+    "Its options are the user's. Answer in your own words to send the Task back for one more round with them as its guidance, or pass it on to the user.",
+  ];
+
+  it("takes words on The Office's own Decision and refuses an option, which stays the user's", () => {
+    expect(consultantAnswerProblems(theOffices, oneWordsAnswer("Retry with more time."))).toEqual(
+      [],
+    );
+    expect(consultantAnswerProblems(theOffices, oneOptionAnswer(0))).toEqual(refusal);
+    expect(
+      consultantAnswerProblems(theOffices, {
+        kind: "submitted",
+        answers: [{ kind: "option", option: 1, comment: "Then fix it." }],
+      }),
+    ).toEqual(refusal);
+  });
+
+  it("adds nothing to the rules of an Agent's own form", () => {
+    expect(consultantAnswerProblems(aDecision({ putTo: "cto" }), oneOptionAnswer(0))).toEqual([]);
   });
 });

@@ -17,10 +17,11 @@ import {
   EngineModule,
   ModelPrices,
   UsageWindowSamples,
+  UsageWindowsNow,
   UsageWindowState,
 } from "./modules/engine/index.js";
 import { GitHubAccess, GitHubModule } from "./modules/github/index.js";
-import { NotificationsModule } from "./modules/notifications/index.js";
+import { DayTokenHistory, NotificationsModule } from "./modules/notifications/index.js";
 import {
   EngineCascade,
   EngineCascadeModule,
@@ -33,8 +34,12 @@ import {
   PipelineLibrary,
   PipelineLibraryModule,
   PipelinesModule,
+  RunningStageRuns,
+  StageRunsRunningNow,
   TaskStagesService,
   StageResultWords,
+  StageRunTotals,
+  StandInChoices,
   TaskGateRuns,
   UsageHistory,
   UsageHistoryModule,
@@ -47,6 +52,7 @@ import {
   ProjectService,
   ProjectsFromRepositories,
   ProjectsModule,
+  PullRequestRecords,
   TaskWorktrees,
 } from "./modules/projects/index.js";
 import { McpServersModule } from "./modules/mcp-servers/index.js";
@@ -55,11 +61,14 @@ import {
   RunEnvironmentsModule,
 } from "./modules/run-environments/index.js";
 import { OfficeUpdatesModule } from "./modules/office-updates/index.js";
+import { PromptTemplatesModule } from "./modules/prompt-templates/index.js";
 import { SkillsModule } from "./modules/skills/index.js";
+import { GrafanaStatsSource, StatsModule } from "./modules/telemetry/index.js";
 import {
   CookieSignedInRequests,
   GitHubIdentityProvider,
   GoogleIdentityProvider,
+  OpenIdConnectIdentityProvider,
   UsersModule,
 } from "./modules/users/index.js";
 import {
@@ -75,15 +84,20 @@ import {
 import type { OfficeConfig } from "./platform/config/office-config.js";
 import { DatabaseModule } from "./platform/database/database.module.js";
 import { EarlierRecordsModule } from "./platform/earlier-records/earlier-records.module.js";
+import { KnowledgeBaseModule } from "./platform/knowledge-base/knowledge-base.module.js";
 import { EventsModule } from "./platform/events/events.module.js";
 import { GitHubUserTokenModule } from "./platform/git-identity/git-identity.module.js";
 import { OfficeIdentityHttpModule } from "./platform/git-identity/office-identity-http.module.js";
 import { HealthModule } from "./platform/health/health.module.js";
 import { RequestAccessModule } from "./platform/http/request-access.module.js";
 import { OfficeDataModule } from "./platform/office-data/office-data.module.js";
+import { SystemHealthRecorder } from "./platform/system-health/system-health-recorder.js";
+import { SystemHealthModule } from "./platform/system-health/system-health.module.js";
+import { SystemHealthMetricsModule } from "./platform/telemetry/system-health-metrics.module.js";
 import { TelemetryHttpModule } from "./platform/telemetry/telemetry-http.module.js";
 import { TelemetryModule } from "./platform/telemetry/telemetry.module.js";
 import { WebAppModule, type WebAppOptions } from "./platform/web-app/web-app.module.js";
+import { EventStream } from "./platform/websocket/event-stream.js";
 import { EventStreamModule } from "./platform/websocket/event-stream.module.js";
 import { WorkstationModule } from "./platform/workstation/workstation.module.js";
 
@@ -102,7 +116,11 @@ export class AppModule {
     // One instance, so the guard and the sign-in pages share the same signed-in devices and trips.
     const users = UsersModule.register({
       imports: [github],
-      identityProviders: [GitHubIdentityProvider, GoogleIdentityProvider],
+      identityProviders: [
+        GitHubIdentityProvider,
+        GoogleIdentityProvider,
+        OpenIdConnectIdentityProvider,
+      ],
       skipSetupBasics: config.skipSetupBasics ?? false,
     });
     // One instance, so every git change on a repository goes through the same locks.
@@ -133,6 +151,7 @@ export class AppModule {
       knownProjects: ProjectService,
       newProjects: ProjectsFromRepositories,
       projectWorktrees: TaskWorktrees,
+      taskPullRequests: PullRequestRecords,
       projectInitiativeBranches: InitiativeBranches,
       knownPeople: RoleCards,
       knownEngineCascade: EngineCascade,
@@ -180,6 +199,22 @@ export class AppModule {
       runEnvironmentDefinitions: RunEnvironmentDefinitions,
       pipelineInitiatives: InitiativeService,
     });
+    // One instance, so Stats reads the same day figures Now counts.
+    const notifications = NotificationsModule.register({
+      imports: [work, conversations, pipelines, PeopleModule, EngineModule],
+      officeTasks: TaskService,
+      officeInitiatives: InitiativeService,
+      openDecisions: DecisionService,
+      taskStageProgress: TaskStagesService,
+      deskLimit: OfficeLimits,
+      startQueue: QueueService,
+      knownPeople: RoleCards,
+      accountUsage: UsageWindowState,
+      officeStatusCards: ThreadService,
+      officeFireAlarm: FireAlarmService,
+      resumePlans: AlarmResumes,
+      standInChoicesWaiting: StandInChoices,
+    });
     return {
       module: AppModule,
       imports: [
@@ -192,6 +227,7 @@ export class AppModule {
         EventsModule,
         EventStreamModule,
         github,
+        KnowledgeBaseModule,
         GitHubUserTokenModule.register({ imports: [github], gitHubUserToken: GitHubAccess }),
         HealthModule,
         McpServersModule,
@@ -204,23 +240,11 @@ export class AppModule {
           officeDataDirectory: config.officeDataDirectory,
           gitHubApiUrl: config.gitHub.apiUrl,
         }),
-        NotificationsModule.register({
-          imports: [work, conversations, pipelines, PeopleModule, EngineModule],
-          officeTasks: TaskService,
-          officeInitiatives: InitiativeService,
-          openDecisions: DecisionService,
-          taskStageProgress: TaskStagesService,
-          deskLimit: OfficeLimits,
-          startQueue: QueueService,
-          knownPeople: RoleCards,
-          accountUsage: UsageWindowState,
-          officeStatusCards: ThreadService,
-          officeFireAlarm: FireAlarmService,
-          resumePlans: AlarmResumes,
-        }),
+        notifications,
         PeopleModule,
         pipelines,
         projects,
+        PromptTemplatesModule,
         RequestAccessModule.register({
           publicAddress: config.publicAddress,
           imports: [users],
@@ -228,6 +252,31 @@ export class AppModule {
         }),
         runEnvironments,
         SkillsModule,
+        StatsModule.register({
+          imports: [
+            notifications,
+            EngineModule,
+            UsageHistoryModule,
+            work,
+            projects,
+            conversations,
+            pipelines,
+          ],
+          dayTokens: DayTokenHistory,
+          engineWindows: UsageWindowsNow,
+          stageRunTotals: StageRunTotals,
+          runningStageRuns: RunningStageRuns,
+          officeTasks: TaskService,
+          officeInitiatives: InitiativeService,
+          projectNames: ProjectService,
+          healthReadings: SystemHealthRecorder,
+          sessionsRunning: ThreadService,
+          stageRunsRunning: StageRunsRunningNow,
+          browserConnections: EventStream,
+          statsSource: GrafanaStatsSource,
+        }),
+        SystemHealthModule,
+        SystemHealthMetricsModule,
         TelemetryModule,
         TelemetryHttpModule,
         users,

@@ -1,5 +1,6 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { z } from "zod";
+import { readEach } from "../../../../platform/database/fan-out.js";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskService } from "../../application/task-service.js";
@@ -133,7 +134,7 @@ export class ShapingOfficeTools implements OnModuleInit {
             const taskId = applied.kind === "add-task" ? applied.taskId : undefined;
             if (taskId === undefined) throw new Error("Adding the Task answered no Task.");
             const task = await this.tasks.read(taskId);
-            const blockers = await Promise.all(task.blockedBy.map((id) => this.tasks.read(id)));
+            const blockers = await readEach(task.blockedBy, (id) => this.tasks.read(id));
             const waiting = blockers.map((blocker) => `"${blocker.title}"`).join(" and ");
             return `Added the Task "${task.title}" (Task ${task.id}) in ${TASK_STATE_NAMES[task.state]} in ${task.projectId}${waiting && `, waiting for ${waiting}`}, on the Initiative's page.`;
           },

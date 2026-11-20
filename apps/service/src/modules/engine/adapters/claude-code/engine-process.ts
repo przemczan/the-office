@@ -64,14 +64,15 @@ export class EngineProcess {
 
   /**
    * Once the session is closed: waits for the engine to end by itself, ending it if it won't,
-   * then ends what it left running, such as a dev server or a watcher.
+   * then ends what it left running, such as a dev server or a watcher. `graceMs` is how long it
+   * waits, shorter for an engine that runs no turn, such as an engine-level read's.
    */
-  async endWithLeftovers(): Promise<void> {
+  async endWithLeftovers(graceMs = EXIT_GRACE_MS): Promise<void> {
     const processId = this.child?.pid;
     if (processId === undefined) return;
     const exited = await Promise.race([
       this.exited.then(() => true),
-      delay(EXIT_GRACE_MS).then(() => false),
+      delay(graceMs).then(() => false),
     ]);
     if (!exited) await this.processTrees.end(processId);
     await this.processTrees.endLeftovers(processId);

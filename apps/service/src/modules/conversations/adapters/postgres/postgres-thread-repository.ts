@@ -10,6 +10,7 @@ import {
   isNotNull,
   isNull,
   lte,
+  ne,
   or,
   sql,
   type SQL,
@@ -17,8 +18,16 @@ import {
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { afterCursor, newestFirst } from "../../../../platform/database/page-sql.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
-import type { Decision } from "../../domain/decision.js";
-import type { Message } from "../../domain/message.js";
+import {
+  formAnswerFromOne,
+  formFromOne,
+  oneAnswerView,
+  oneQuestionKind,
+  oneQuestionView,
+  type Decision,
+  type GivenAnswer,
+} from "../../domain/decision.js";
+import type { Message, MessageDraft } from "../../domain/message.js";
 import { NO_OFFICE_INSTRUCTIONS } from "../../domain/office-instructions.js";
 import type { Proposal, ProposalStatus } from "../../domain/proposal.js";
 import type { ProposalChange } from "../../domain/proposal-changes.js";
@@ -42,6 +51,7 @@ import {
   proposals,
   threadMessages,
   threads,
+  type SavedMessage,
   type ThreadSessionRow,
 } from "./threads.schema.js";
 
@@ -176,6 +186,7 @@ export class PostgresThreadRepository extends ThreadRepository {
               putTo: decisionRow.putTo,
               passedOn: decisionRow.passedOn,
               answer: decisionRow.answer,
+              formAnswer: decisionRow.formAnswer,
               answeredAt: decisionRow.answeredAt,
               closedAt: decisionRow.closedAt,
             },
@@ -186,7 +197,10 @@ export class PostgresThreadRepository extends ThreadRepository {
       }
       if (changed.logged.length > 0) {
         // One insert keeps the log in the messages' order: position follows the rows.
-        await transaction.insert(threadMessages).values(changed.logged.map(toMessageRow));
+        const asked = [...thread.openDecisions, ...(changed.decision ? [changed.decision] : [])];
+        await transaction
+          .insert(threadMessages)
+          .values(changed.logged.map((message) => toMessageRow(message, asked)));
       }
       if (changed.marked) {
         const { messageIds, delivery } = changed.marked;
@@ -249,6 +263,15 @@ export class PostgresThreadRepository extends ThreadRepository {
     return row && toDecision(row);
   }
 
+  async decisionsWithIds(ids: readonly string[]): Promise<readonly Decision[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.database
+      .select()
+      .from(decisions)
+      .where(inArray(decisions.id, [...ids]));
+    return rows.map(toDecision);
+  }
+
   async decisionsIn(threadId: string): Promise<readonly Decision[]> {
     const rows = await this.database
       .select()
@@ -284,12 +307,39 @@ export class PostgresThreadRepository extends ThreadRepository {
 
   async openDecisions(): Promise<readonly Decision[]> {
     const rows = await this.database
-      .select()
+      .select({ decision: decisions })
       .from(decisions)
-      // A call made from a chat never waits on the user: a chat has no Needs you (spec §2.4).
-      .where(and(unanswered, isNull(decisions.putTo), isNotNull(decisions.taskId)))
+      .innerJoin(threads, eq(threads.id, decisions.threadId))
+      .where(
+        and(
+          unanswered,
+          isNull(decisions.putTo),
+          isNotNull(decisions.taskId),
+          // A chat's Decision waits on the user inline in the chat, never under Needs you (spec §2.7).
+          ne(threads.homeKind, "chat"),
+        ),
+      )
       .orderBy(asc(decisions.askedAt), asc(decisions.id));
-    return rows.map(toDecision);
+    return rows.map(({ decision }) => toDecision(decision));
+  }
+
+  async openInInitiativeThreads(): Promise<
+    readonly (Decision & { readonly initiativeId: string })[]
+  > {
+    const rows = await this.database
+      .select({ decision: decisions, initiativeId: threads.homeId })
+      .from(decisions)
+      .innerJoin(threads, eq(threads.id, decisions.threadId))
+      .where(
+        and(
+          eq(threads.homeKind, "initiative"),
+          isNull(decisions.taskId),
+          isNull(decisions.putTo),
+          unanswered,
+        ),
+      )
+      .orderBy(asc(decisions.askedAt), asc(decisions.id));
+    return rows.map(({ decision, initiativeId }) => ({ ...toDecision(decision), initiativeId }));
   }
 
   async unansweredOn(taskId: string): Promise<readonly Decision[]> {
@@ -479,17 +529,46 @@ function toSession(row: ThreadSessionRow): ThreadSession {
   };
 }
 
-function toMessageRow({ id, threadId, at, ...body }: Message): Omit<MessageRow, "position"> {
-  return { id, threadId, at, body };
+/**
+ * The message as kept: a Decision's answer line keeps the answer as one, from the Decision it
+ * answers among `asked`, beside the form's answer.
+ */
+function toMessageRow(
+  { id, threadId, at, ...draft }: Message,
+  asked: readonly Decision[],
+): Omit<MessageRow, "position"> {
+  if (draft.kind !== "decision-answer") return { id, threadId, at, body: draft };
+  const { answer, ...line } = draft;
+  const decision = asked.find((one) => one.id === draft.decisionId) ?? UNKNOWN_FORM;
+  return {
+    id,
+    threadId,
+    at,
+    body: { ...line, answer: oneAnswerView(decision, answer), formAnswer: answer },
+  };
 }
 
-function toMessage(row: MessageRow): Message {
-  return { ...row.body, id: row.id, threadId: row.threadId, at: row.at };
+/** A Decision not among those at hand, read as a form of no questions: its answer reads alone. */
+const UNKNOWN_FORM: Pick<Decision, "kind" | "questions"> = { kind: "form", questions: [] };
+
+function toMessage({ body, id, threadId, at }: MessageRow): Message {
+  return { ...toMessageDraft(body), id, threadId, at };
+}
+
+/** The message as kept, with a line kept before the form read as the answer to one question. */
+function toMessageDraft(body: SavedMessage): MessageDraft {
+  if (body.kind !== "decision-answer") return body;
+  const { answer, formAnswer, ...line } = body;
+  return { ...line, answer: formAnswer ?? formAnswerFromOne(answer) };
 }
 
 /** What a Decision is saved as; the approval it gave a held call is spent apart from it. */
 type SavedDecision = Omit<DecisionRow, "approvalSpentAt">;
 
+/**
+ * The Decision as kept: its form in `questions` and `form_answer`, and the form as one question in
+ * the columns the release before reads (spec: migrations keep the previous release working).
+ */
 function toDecisionRow({
   answer,
   taskId,
@@ -497,10 +576,15 @@ function toDecisionRow({
   putTo,
   passedOn,
   closedAt,
+  kind,
+  questions,
   ...fields
 }: Decision): SavedDecision {
   const decision = {
     ...fields,
+    ...oneQuestionView({ questions }),
+    kind: oneQuestionKind(kind),
+    questions,
     closedAt: closedAt ?? null,
     taskId: taskId ?? null,
     roleKey: roleKey ?? null,
@@ -510,9 +594,20 @@ function toDecisionRow({
       passedOnAt: passedOnAt.toISOString(),
     })),
   };
-  if (!answer) return { ...decision, answer: null, answeredAt: null };
-  const { answeredAt, ...given } = answer;
-  return { ...decision, answer: given, answeredAt };
+  if (!answer) return { ...decision, answer: null, formAnswer: null, answeredAt: null };
+  const { answeredAt, user, answeredBy, atUsersRequest, byTheOffice, ...formAnswer } = answer;
+  const givenBy = {
+    ...(user === undefined ? {} : { user }),
+    ...(answeredBy === undefined ? {} : { answeredBy }),
+    ...(atUsersRequest === undefined ? {} : { atUsersRequest }),
+    ...(byTheOffice === undefined ? {} : { byTheOffice }),
+  };
+  return {
+    ...decision,
+    answer: { ...oneAnswerView({ kind, questions }, formAnswer), ...givenBy },
+    formAnswer,
+    answeredAt,
+  };
 }
 
 function toDecision({
@@ -524,10 +619,19 @@ function toDecision({
   passedOn,
   closedAt,
   approvalSpentAt: _approvalSpentAt,
+  kind,
+  question,
+  options,
+  recommendation,
+  questions,
+  formAnswer,
   ...row
 }: DecisionRow): Decision {
+  const asked = formFromOne(kind, { question, options, recommendation });
   return {
     ...row,
+    kind: asked.kind,
+    questions: questions ?? asked.questions,
     ...(closedAt === null ? {} : { closedAt }),
     taskId: taskId ?? undefined,
     roleKey: roleKey ?? undefined,
@@ -536,7 +640,26 @@ function toDecision({
       ...passing,
       passedOnAt: new Date(passedOnAt),
     })),
-    answer: answer === null || answeredAt === null ? undefined : { ...answer, answeredAt },
+    answer:
+      answer === null || answeredAt === null
+        ? undefined
+        : toGivenAnswer(answer, formAnswer, answeredAt),
+  };
+}
+
+/** The answer given, its form's answer read from the one kept before the form when it has none. */
+function toGivenAnswer(
+  { user, answeredBy, atUsersRequest, byTheOffice, ...one }: NonNullable<DecisionRow["answer"]>,
+  formAnswer: DecisionRow["formAnswer"],
+  answeredAt: Date,
+): GivenAnswer {
+  return {
+    ...(formAnswer ?? formAnswerFromOne(one)),
+    ...(user === undefined ? {} : { user }),
+    ...(answeredBy === undefined ? {} : { answeredBy }),
+    ...(atUsersRequest === undefined ? {} : { atUsersRequest }),
+    ...(byTheOffice === undefined ? {} : { byTheOffice }),
+    answeredAt,
   };
 }
 

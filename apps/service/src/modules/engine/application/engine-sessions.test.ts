@@ -1,14 +1,17 @@
 import { describe, expect, it, vi } from "vitest";
 import { ScriptedEngine } from "../adapters/scripted/scripted-engine.js";
 import { EngineDown } from "../domain/engine-events.js";
+import { COPILOT_CLI_CAPABILITIES } from "../adapters/copilot-cli/copilot-cli-engine.js";
 import {
   FIRST_CLAUDE_CODE_ENGINE,
   type ApiEngine,
   type ClaudeCodeEngine,
+  type CopilotCliEngine,
 } from "../domain/engines.js";
 import {
   EngineNotListed,
   SessionSkillsDiffer,
+  type AgentEngine,
   type EngineCapabilities,
 } from "../ports/agent-engine.js";
 import { MeterProvider, MetricReader } from "@opentelemetry/sdk-metrics";
@@ -34,11 +37,13 @@ import type { SessionEvent, TurnEndedEvent } from "../ports/session-events.js";
 import type { OfficeTool } from "../ports/office-tool.js";
 import { AgentEngines, type EngineAdapter } from "./agent-engines.js";
 import { EngineModels } from "./engine-models.js";
+import { ModelPrices } from "./model-prices.js";
 import { RunningEngineSessions } from "./running-engine-sessions.js";
 import { DayUsage } from "./day-usage.js";
 import { EngineSessions, type SessionSettings } from "./engine-sessions.js";
 import { OfficeToolRegistry } from "./office-tool-registry.js";
 import { UsageWindowSamples } from "./usage-window-samples.js";
+import { UsageWindowReadings } from "./usage-window-readings.js";
 import { UsageWindowState } from "./usage-window-state.js";
 
 // What engine-sessions.test.ts and engine-sessions.full.test.ts share.
@@ -134,6 +139,8 @@ function setUp(
       "agent-sdk": new ScriptedEngine(scripts, capabilities),
       "claude-code-p": new ScriptedEngine([]),
       "openai-compatible-api": new ScriptedEngine([]),
+      codex: new ScriptedEngine([]),
+      "copilot-cli": new ScriptedEngine([]),
     },
     undefined,
     languageServers,
@@ -141,7 +148,7 @@ function setUp(
 }
 
 function setUpOn(
-  engines: Readonly<Record<EngineAdapter, ScriptedEngine>>,
+  engines: Readonly<Record<EngineAdapter, AgentEngine>>,
   settings = new EngineSettingsForTests({ engines: [FIRST_CLAUDE_CODE_ENGINE, FALLBACK, LAB] }),
   languageServers: SessionLanguageServers = new NoLanguageServers(),
 ) {
@@ -170,11 +177,12 @@ function setUpOn(
     usageWindows,
     officeTools,
     dayUsage,
-    windowSamples,
+    new UsageWindowReadings(usageWindows, windowSamples, schedule),
     new EngineModels(settings),
     running,
     new BusyWork(new EventBus()),
     languageServers,
+    new ModelPrices(settings),
   );
   return { sessions, spans, published, usageWindows, dayUsage, schedule, windowSamples, running };
 }
@@ -230,6 +238,8 @@ function twoEngines(scripts: {
       "agent-sdk": agentSdk,
       "claude-code-p": claudeCodeP,
       "openai-compatible-api": new ScriptedEngine([]),
+      codex: new ScriptedEngine([]),
+      "copilot-cli": new ScriptedEngine([]),
     }),
   };
 }
@@ -309,6 +319,39 @@ describe("EngineSessions", () => {
   });
 });
 
+const COPILOT: CopilotCliEngine = {
+  id: "copilot",
+  name: "Copilot",
+  kind: "copilot-cli",
+  defaultModel: "auto",
+  token: null,
+};
+
+function onCopilot() {
+  return setUpOn(
+    {
+      "agent-sdk": new ScriptedEngine([]),
+      "claude-code-p": new ScriptedEngine([]),
+      "openai-compatible-api": new ScriptedEngine([]),
+      codex: new ScriptedEngine([]),
+      "copilot-cli": new ScriptedEngine([], COPILOT_CLI_CAPABILITIES),
+    },
+    new EngineSettingsForTests({ engines: [FIRST_CLAUDE_CODE_ENGINE, COPILOT] }),
+  );
+}
+
+describe("EngineSessions on a Copilot CLI engine", () => {
+  it("names the capabilities it lacks, so the Role card names what it can't do", () => {
+    const { sessions } = onCopilot();
+
+    expect(sessions.missingCapabilitiesOf(COPILOT)).toEqual([
+      "usageWindows",
+      "languageServers",
+      "carrySession",
+    ]);
+  });
+});
+
 describe("EngineSessions on each engine's adapter", () => {
   it("starts and resumes each session on the engine it names", async () => {
     const { sessions, agentSdk, claudeCodeP } = twoEngines({
@@ -340,6 +383,8 @@ describe("EngineSessions' readings of the usage windows", () => {
         "agent-sdk": new ScriptedEngine([ONE_TURN, ONE_TURN]),
         "claude-code-p": new ScriptedEngine([ONE_TURN]),
         "openai-compatible-api": new ScriptedEngine([ONE_TURN], { usageWindows: false }),
+        codex: new ScriptedEngine([]),
+        "copilot-cli": new ScriptedEngine([]),
       });
 
       await oneTurn(sessions, SETTINGS);

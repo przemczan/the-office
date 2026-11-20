@@ -10,7 +10,8 @@ import { TelemetrySettingsController } from "./telemetry-settings.controller.js"
  * The telemetry setting over HTTP, for Settings › Telemetry and the First-run setup, and the
  * bundled Grafana it starts. Apart from `TelemetryModule`, which every module's tests import, so
  * only the app serves the routes and needs the Office data directory for them. A test overrides
- * `BundledGrafana` with `ScriptedBundledGrafana`.
+ * `BundledGrafana` with `ScriptedBundledGrafana`. Stats reads the saved choice and the keeper's
+ * status for the full stats.
  */
 @Module({
   providers: [
@@ -24,6 +25,6 @@ import { TelemetrySettingsController } from "./telemetry-settings.controller.js"
     },
   ],
   controllers: [TelemetrySettingsController],
-  exports: [BundledGrafanaKeeper],
+  exports: [BundledGrafanaKeeper, SavedTelemetrySetting],
 })
 export class TelemetryHttpModule {}

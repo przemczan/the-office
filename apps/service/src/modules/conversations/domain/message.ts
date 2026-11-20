@@ -35,6 +35,7 @@ export type MessageDraft =
   | ContextLine
   | ChangesAllowedLine
   | UsageWindowUsedUpLine
+  | EngineSwitchedLine
   | StageWorkClosing;
 
 /**
@@ -111,6 +112,35 @@ export function usageWindowUsedUpWords({
   resetsAt,
 }: Omit<UsageWindowUsedUpLine, "kind">): string {
   return `${engineName}'s ${usageWindowWords(window)} is used up until ${resetsAt.slice(0, 10)} ${resetsAt.slice(11, 16)} UTC.`;
+}
+
+/**
+ * The engine refused a turn for a used-up usage window, and the session went on on a Stand-in
+ * Engine (spec 5.4): The Office's line, a notice. The engines by their names then, the window by
+ * the port's name, its reset as an ISO time.
+ */
+export interface EngineSwitchedLine {
+  readonly kind: "engine-switched";
+  readonly fromName: string;
+  readonly toName: string;
+  readonly window: string;
+  readonly resetsAt: string;
+  /** Who went on, in a person's Thread; absent in a Stage Thread, where the Stage did. */
+  readonly personName?: string;
+}
+
+/**
+ * "Claude Code's 5-hour window was used up until 2026-11-13 14:00 UTC, so the Stage went on on
+ * Claude Code 2.", the line in words; "…, so Pam went on on Claude Code 2." in a person's Thread.
+ */
+export function engineSwitchedWords({
+  fromName,
+  toName,
+  window,
+  resetsAt,
+  personName,
+}: Omit<EngineSwitchedLine, "kind">): string {
+  return `${fromName}'s ${usageWindowWords(window)} was used up until ${resetsAt.slice(0, 10)} ${resetsAt.slice(11, 16)} UTC, so ${personName ?? "the Stage"} went on on ${toName}.`;
 }
 
 /**

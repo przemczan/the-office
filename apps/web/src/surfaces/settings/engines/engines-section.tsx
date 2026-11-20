@@ -19,6 +19,7 @@ import { DefaultsCard } from "./defaults-card.tsx";
 import { EngineDetail } from "./engine-detail.tsx";
 import { EngineList } from "./engine-list.tsx";
 import {
+  draftedIdAt,
   engineAt,
   engineProblem,
   engineSelectionsOf,
@@ -26,6 +27,8 @@ import {
   pricedModelsAt,
   saveHeldBy,
   shownSelection,
+  withEngineChanged,
+  withoutEngine,
   type EngineSelection,
   type EngineTab,
 } from "./engine-list-words.ts";
@@ -37,18 +40,22 @@ import {
   engineSettingsEditOf,
   NEW_API_ENDPOINT,
   newClaudeCodeEngine,
+  newCodexEngine,
+  newCopilotCliEngine,
   officeDefaultChoicesOf,
   offeredModelKey,
   priceTextIn,
   savedApiEngines,
+  standInsOf,
   type EngineSettingsDraft,
 } from "./engine-settings-draft.ts";
 import { RemoveEngineDialog } from "./remove-engine-dialog.tsx";
+import { StandInEnginesCard } from "./stand-in-engines-card.tsx";
 import "./engines.css";
 
 /**
- * Settings › Engines: the Defaults (the Office default and the Search endpoint) above the list of
- * engines beside the selected one's tabs, one draft saved whole.
+ * Settings › Engines: the Defaults (the Office default and the Search endpoint) and the Stand-in
+ * Engines above the list of engines beside the selected one's tabs, one draft saved whole.
  */
 export function EnginesSection(): ReactNode {
   usePageHeading({ title: "Settings", crumb: "Engines" });
@@ -108,35 +115,18 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
     setSelection(next);
     setTab(nextTab);
   };
-  const changeEngine = ({ kind, index }: EngineSelection, edit: EngineEdit): void =>
-    setDraft(
-      edit.kind === "claude-code"
-        ? {
-            ...draft,
-            claudeCodeEngines: draft.claudeCodeEngines.map((kept, at) =>
-              at === index && kind === "claude-code" ? edit : kept,
-            ),
-          }
-        : {
-            ...draft,
-            apiEndpoints: draft.apiEndpoints.map((kept, at) =>
-              at === index && kind === "openai-compatible-api" ? edit : kept,
-            ),
-          },
-    );
+  const changeEngine = (at: EngineSelection, edit: EngineEdit): void =>
+    setDraft(withEngineChanged(draft, at, edit));
   // A saved engine is removed by its dialog, which moves what names it.
-  const removeEngine = ({ kind, index }: EngineSelection, edit: EngineEdit): void => {
+  const removeEngine = (at: EngineSelection, edit: EngineEdit): void => {
     if (edit.id !== undefined) {
       setRemoving(edit.id);
       return;
     }
-    setDraft(
-      kind === "claude-code"
-        ? { ...draft, claudeCodeEngines: draft.claudeCodeEngines.filter((_, at) => at !== index) }
-        : { ...draft, apiEndpoints: draft.apiEndpoints.filter((_, at) => at !== index) },
-    );
+    setDraft(withoutEngine(draft, at));
   };
   const drafted = draftedEngines(draft, saved);
+  const standIns = standInsOf(draft, saved);
   return (
     <>
       <DefaultsCard
@@ -145,6 +135,15 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
         searchEndpoint={draft.searchEndpoint}
         changeOfficeDefault={(officeDefault) => setDraft({ ...draft, officeDefault })}
         changeSearchEndpoint={(searchEndpoint) => setDraft({ ...draft, searchEndpoint })}
+      />
+      <StandInEnginesCard
+        listed={standIns.listed}
+        addable={standIns.addable}
+        askBeforeSwitchAbove={draft.askBeforeSwitchAbove}
+        changeStandInEngines={(standInEngines) => setDraft({ ...draft, standInEngines })}
+        changeAskBeforeSwitchAbove={(askBeforeSwitchAbove) =>
+          setDraft({ ...draft, askBeforeSwitchAbove })
+        }
       />
       <div className="settings-split">
         <EngineList
@@ -172,6 +171,17 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
               });
               select({ kind: "claude-code", index: draft.claudeCodeEngines.length }, "settings");
             },
+            codex: () => {
+              setDraft({ ...draft, codexEngines: [...draft.codexEngines, newCodexEngine(saved)] });
+              select({ kind: "codex", index: draft.codexEngines.length }, "settings");
+            },
+            "copilot-cli": () => {
+              setDraft({
+                ...draft,
+                copilotCliEngines: [...draft.copilotCliEngines, newCopilotCliEngine()],
+              });
+              select({ kind: "copilot-cli", index: draft.copilotCliEngines.length }, "settings");
+            },
             "openai-compatible-api": () => {
               setDraft({ ...draft, apiEndpoints: [...draft.apiEndpoints, NEW_API_ENDPOINT] });
               select(
@@ -192,11 +202,7 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
               claudeModels={claudeModelsOf(saved)}
               savedEndpoint={savedApiEngines(saved.engines).find(({ id }) => id === engine.id)}
               pricedModels={pricedModelsAt(draft, saved, shown)}
-              draftedId={
-                (shown.kind === "claude-code"
-                  ? drafted.claudeCodeEngines[shown.index]?.id
-                  : drafted.apiEndpoints[shown.index]?.id) ?? ""
-              }
+              draftedId={draftedIdAt(drafted, shown)}
               prices={{
                 priceTextOf: (model) => priceTextIn(draft, model),
                 change: (model, text) =>

@@ -1,7 +1,7 @@
 import { stat } from "node:fs/promises";
 import { z } from "zod";
 import { builtInTool, failure, resolvedPath, success } from "./built-in-tool.js";
-import { fileProblem } from "./file-problems.js";
+import { fileProblem } from "../skills/file-problems.js";
 import { listedFiles } from "./file-listing.js";
 
 /** As many files as one Glob lists. */

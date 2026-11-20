@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { contextMoveSchema, tokenTotalsSchema } from "./conversations.js";
 import { webEventSchema } from "./events.js";
-import { keptStageChangeSchema, stageChangeSchema, stageSchema } from "./stages.js";
+import {
+  keptStageChangeSchema,
+  stageChangeSchema,
+  stageProblemSchema,
+  stageSchema,
+} from "./stages.js";
 
 export const pipelineSchema = z.object({
   id: z.string().min(1),
@@ -74,7 +79,8 @@ export type PipelineRemovalRefusal = z.infer<typeof pipelineRemovalRefusalSchema
 
 /**
  * Where one of a started Task's Stages stands, from its latest run: paused and stopped when the
- * user held it, which is no failure.
+ * user held it, which is no failure; not taken when it has no run and no path of routes leads to
+ * it from the Stage of the Task's latest run, as the walk went another way.
  */
 export const stageStateSchema = z.enum([
   "pending",
@@ -85,6 +91,7 @@ export const stageStateSchema = z.enum([
   "done",
   "skipped",
   "failed",
+  "not-taken",
 ]);
 export type StageState = z.infer<typeof stageStateSchema>;
 
@@ -113,7 +120,7 @@ export const stageRunOutcomeSchema = z.discriminatedUnion("status", [
   z.object({
     status: z.literal("done"),
     summary: z.string(),
-    /** An optional Stage skipped, which ran nothing. */
+    /** A Stage skipped, which ran nothing, as the previous release recorded optional Stages. */
     skipped: z.boolean(),
     /**
      * The Definition of Done statements this run's Agent reported met, by their numbers from 1; null
@@ -149,6 +156,19 @@ export const stageRunOutcomeSchema = z.discriminatedUnion("status", [
         windowWords: z.string(),
         resetsAt: z.iso.datetime(),
         sessionLeft: z.boolean(),
+        /**
+         * Set when a Stand-in Engine had room but the session's context was over the size
+         * Settings › Engines asks first above: the Task waits Paused for the user's choice of going
+         * on there, or the reset.
+         */
+        standInChoice: z
+          .object({
+            engineId: z.string(),
+            engineName: z.string(),
+            contextTokens: z.int().nonnegative(),
+            askAbove: z.int().nonnegative(),
+          })
+          .nullable(),
       })
       .nullable(),
     /**
@@ -163,11 +183,26 @@ export type StageRunOutcome = z.infer<typeof stageRunOutcomeSchema>;
 
 /** A Project command The Office ran for a Stage run. */
 export const stageCommandRunSchema = z.object({
-  /** The install before the Stage, the Script Stage's command, or a failing test's re-run. */
-  purpose: z.enum(["install", "command", "re-run", "before-publishing", "after-publishing"]),
+  /**
+   * The install before the Stage, the Script Stage's command, a failing test's re-run, a Publish's
+   * before or after publishing line, or the command a condition of the Stage's routes out names.
+   */
+  purpose: z.enum([
+    "install",
+    "command",
+    "re-run",
+    "before-publishing",
+    "after-publishing",
+    "condition",
+  ]),
   commandLine: z.string(),
   outcome: z.enum(["passed", "failed", "could-not-run", "timed-out", "stopped"]),
   durationMs: z.int().nonnegative(),
+  /**
+   * The route a condition command, or the install before it, was run for: the key of the Stage it
+   * leads to, or null for End. Absent for any other command.
+   */
+  condition: z.object({ to: z.string().nullable() }).optional(),
 });
 
 /**
@@ -210,6 +245,108 @@ export const gateRefusalSchema = z.object({
 });
 export type GateRefusal = z.infer<typeof gateRefusalSchema>;
 
+/**
+ * The engine and model a run's session ran on, with the engine's name at the time; `standInFor`
+ * names the cascade's engine it stood in for as a Stand-in Engine, and why, null on the cascade's.
+ */
+export const stageRunEngineSchema = z.object({
+  engineId: z.string(),
+  engineName: z.string(),
+  model: z.string(),
+  standInFor: z
+    .object({ engineId: z.string(), engineName: z.string(), reason: z.string() })
+    .nullable(),
+});
+export type StageRunEngine = z.infer<typeof stageRunEngineSchema>;
+
+/**
+ * A run's session moved to a Stand-in Engine as its engine refused a turn for a used-up usage
+ * window, each engine with its name at the time.
+ */
+export const engineSwitchSchema = z.object({
+  fromEngineId: z.string(),
+  fromEngineName: z.string(),
+  toEngineId: z.string(),
+  toEngineName: z.string(),
+  /** The used-up window as the user reads it, such as "5-hour window". */
+  windowWords: z.string(),
+  resetsAt: z.iso.datetime(),
+  at: z.iso.datetime(),
+  /**
+   * The user who chose the switch for a run held waiting for their choice; null for a switch The
+   * Office made by itself.
+   */
+  chosenBy: z.object({ userId: z.string(), name: z.string() }).nullable(),
+});
+export type EngineSwitch = z.infer<typeof engineSwitchSchema>;
+
+/**
+ * A Stage held as its engine's usage window was used up, whose context is over the size Settings ›
+ * Engines asks first above, waiting for the user's choice of going on on a Stand-in Engine now or
+ * waiting for the reset (spec 5.4): a row of The Office's own Decision in Needs you.
+ */
+export const standInChoiceSchema = z.object({
+  /** The held run, by which the user switches it. */
+  runId: z.uuid(),
+  taskId: z.uuid(),
+  taskTitle: z.string(),
+  projectId: z.string(),
+  stageKey: z.string(),
+  stageName: z.string(),
+  /** The engine whose usage window was used up, by its name at the time, and its reset. */
+  engineName: z.string(),
+  resetsAt: z.iso.datetime(),
+  /** The session's context when its turn was refused, in tokens. */
+  contextTokens: z.int().nonnegative(),
+  /** The size above which Settings › Engines asks before a switch, in tokens. */
+  askAbove: z.int().nonnegative(),
+  /**
+   * The Stand-in Engine it would move to now, the first with room, by its id and name; null while
+   * none has room.
+   */
+  standIn: z.object({ engineId: z.string(), engineName: z.string() }).nullable(),
+  /** Since when it waits: the held run's end. */
+  waitingSince: z.iso.datetime(),
+});
+export type StandInChoice = z.infer<typeof standInChoiceSchema>;
+
+export const standInChoicesResponseSchema = z.object({ choices: z.array(standInChoiceSchema) });
+export type StandInChoicesResponse = z.infer<typeof standInChoicesResponseSchema>;
+
+/** The held runs the user switches now, each Task on its own (`POST /stand-in-choices/switch`). */
+export const standInSwitchRequestSchema = z.object({ runIds: z.array(z.uuid()).min(1) });
+export type StandInSwitchRequest = z.infer<typeof standInSwitchRequestSchema>;
+
+/**
+ * What came of one held run's switch: moved and resumed (`switched`); it no longer waits, as its
+ * Task resumed by itself at the reset (`already-resumed`) or was resumed, stopped or dropped by
+ * hand (`no-longer-waiting`); no Stand-in Engine had room (`no-room`); the move failed (`failed`),
+ * the Task staying Paused on its own Engine; or the session moved but the Task couldn't resume
+ * (`moved-not-resumed`), so it waits for the user's Resume.
+ */
+export const standInSwitchOutcomeSchema = z.enum([
+  "switched",
+  "already-resumed",
+  "no-longer-waiting",
+  "no-room",
+  "failed",
+  "moved-not-resumed",
+]);
+export type StandInSwitchOutcome = z.infer<typeof standInSwitchOutcomeSchema>;
+
+export const standInSwitchResultSchema = z.object({
+  runId: z.uuid(),
+  outcome: standInSwitchOutcomeSchema,
+  /** What happened, as the card shows it beside the Stage. */
+  words: z.string(),
+});
+export type StandInSwitchResult = z.infer<typeof standInSwitchResultSchema>;
+
+export const standInSwitchResponseSchema = z.object({
+  results: z.array(standInSwitchResultSchema),
+});
+export type StandInSwitchResponse = z.infer<typeof standInSwitchResponseSchema>;
+
 /** One run of one of a Task's Stages. */
 export const stageRunSchema = z.object({
   id: z.uuid(),
@@ -226,6 +363,13 @@ export const stageRunSchema = z.object({
   threadId: z.uuid().nullable(),
   /** How its session began; null for a run that opened none. */
   session: contextMoveSchema.nullable(),
+  /** What its session ran on; null for a run that opened none, and for runs kept before it was. */
+  engine: stageRunEngineSchema.nullable(),
+  /**
+   * Each move of its session to a Stand-in Engine during the run, in order (`engine` is the last
+   * one's); none for a run that stayed on one engine.
+   */
+  engineSwitches: z.array(engineSwitchSchema),
   tokens: tokenTotalsSchema,
   /**
    * Its session's context after the run's latest turn, against its model's window, kept with the
@@ -315,13 +459,6 @@ export type TaskStages = z.infer<typeof taskStagesSchema>;
 export const taskStagesEditSchema = z.object({ stages: z.array(stageSchema) });
 export type TaskStagesEdit = z.infer<typeof taskStagesEditSchema>;
 
-/** Why a list of Stages can't be saved, on the Stage it concerns when there is one. */
-export const stageProblemSchema = z.object({
-  stageIndex: z.int().nonnegative().nullable(),
-  text: z.string(),
-});
-export type StageProblem = z.infer<typeof stageProblemSchema>;
-
 /**
  * POST /tasks/:id/stages/check: the Stages as the editor holds them, and `pipelineId`, the Pipeline
  * the draft follows when it isn't the Task's own yet, as one chosen or swapped to before Save.
@@ -371,14 +508,14 @@ export const projectPipelineBreakSchema = z.object({
 export type ProjectPipelineBreak = z.infer<typeof projectPipelineBreakSchema>;
 
 /**
- * What saving a library Pipeline would be refused for, and what the editor flags but saves: an
- * Agent Stage whose Role nobody fills, which pauses a Task that reaches it. An office-wide one's
- * check lists the Project Pipelines its edit would leave Broken, which never refuses the save; a
- * Stage template's and a new Pipeline's list none.
+ * What saving a library Pipeline would be refused for, and what the editor warns about but saves,
+ * in one list by level: an Agent Stage whose Role nobody fills, which pauses a Task that reaches it,
+ * or a Stage whose routes all carry a condition. An office-wide one's check lists the Project
+ * Pipelines its edit would leave Broken, which never refuses the save; a Stage template's and a new
+ * Pipeline's list none.
  */
 export const pipelineCheckSchema = z.object({
   problems: z.array(stageProblemSchema),
-  flags: z.array(stageProblemSchema),
   breaks: z.array(projectPipelineBreakSchema),
 });
 export type PipelineCheck = z.infer<typeof pipelineCheckSchema>;
@@ -453,12 +590,12 @@ export const projectPipelineCheckRequestSchema = newProjectPipelineSchema.extend
 export type ProjectPipelineCheckRequest = z.infer<typeof projectPipelineCheckRequestSchema>;
 
 /**
- * What saving a Project Pipeline would be refused for (a Broken one among them), what the editor
- * flags but saves, and its Stages built from the edit; no rows without a known base Pipeline.
+ * What saving a Project Pipeline would be refused for (a Broken one among them) and what the editor
+ * warns about but saves, in one list by level, and its Stages built from the edit; no rows without
+ * a known base Pipeline.
  */
 export const projectPipelineCheckSchema = z.object({
   problems: z.array(stageProblemSchema),
-  flags: z.array(stageProblemSchema),
   ...builtFields,
 });
 export type ProjectPipelineCheck = z.infer<typeof projectPipelineCheckSchema>;
@@ -538,6 +675,19 @@ export const pipelinesWebEventSchema = z.discriminatedUnion("type", [
     stageKey: z.string(),
     waiting: z.boolean(),
   }),
+  /**
+   * An Agent Stage run's session went on on a Stand-in Engine, its engine's usage window used up:
+   * the run goes on Running there.
+   */
+  webEventSchema.extend({
+    type: z.literal("stage-run.engine-switched"),
+    taskId: z.uuid(),
+    stageKey: z.string(),
+    fromEngineId: z.string(),
+    toEngineId: z.string(),
+  }),
+  /** The Stages waiting for the user's choice of a Stand-in Engine changed: refetch them. */
+  webEventSchema.extend({ type: z.literal("stand-in-choices.changed") }),
   webEventSchema.extend({
     type: z.literal("stage-run.ended"),
     taskId: z.uuid(),
@@ -547,11 +697,6 @@ export const pipelinesWebEventSchema = z.discriminatedUnion("type", [
   /** The user stopped a run that couldn't be interrupted, such as a command: held after it. */
   webEventSchema.extend({
     type: z.literal("stage-run.stop-held-as-pause"),
-    taskId: z.uuid(),
-    stageKey: z.string(),
-  }),
-  webEventSchema.extend({
-    type: z.literal("stage-run.skipped"),
     taskId: z.uuid(),
     stageKey: z.string(),
   }),

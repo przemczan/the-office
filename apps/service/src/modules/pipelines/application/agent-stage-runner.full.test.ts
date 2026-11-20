@@ -23,6 +23,7 @@ import {
   aCommandRun,
   recordedRun,
   aPerson,
+  aTaskRecord,
   PLANNED_COMMIT,
 } from "../ports/pipelines-ports.fixtures.js";
 import { isRunning } from "../../../platform/os/process-trees.fixtures.js";
@@ -52,6 +53,46 @@ describe("AgentStageRunner", () => {
       engineName: "Claude Code",
       model: "scripted",
     });
+  });
+
+  it("hands the Task's Stand-in Engines to its Stage Thread and keeps the engine it stood in for", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+    // The cascade names an engine no longer able to run; its stand-in is the listed one.
+    pipelines.stageThreads.engineId = "work";
+    const engineStandIns = [
+      {
+        engineId: "work",
+        standInId: "claude-code",
+        engineName: "Work",
+        reason: "The Work engine's 5-hour window would pass its 80% cap.",
+      },
+    ];
+    const taskId = randomUUID();
+    pipelines.records.put(taskId, aTaskRecord({ engineStandIns }));
+
+    await walkStages(pipelines, [anAgentStage("implement", { name: "Implement" })], taskId);
+
+    expect(pipelines.stageThreads.requests[0]?.engineStandIns).toEqual(engineStandIns);
+    const [run] = await runsOf(pipelines, taskId);
+    expect(run).toMatchObject({
+      engineId: "claude-code",
+      engineName: "Claude Code",
+      model: "scripted",
+      standInFor: {
+        engineId: "work",
+        engineName: "Work",
+        reason: "The Work engine's 5-hour window would pass its 80% cap.",
+      },
+    });
+  });
+
+  it("keeps no stand-in for a run on the cascade's own engine", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+
+    const taskId = await walkStages(pipelines, [anAgentStage("implement", { name: "Implement" })]);
+
+    const [run] = await runsOf(pipelines, taskId);
+    expect(run?.standInFor).toBeUndefined();
   });
 
   it("hands the earlier results on and names the previous Agent Stage's Thread", async () => {
@@ -239,9 +280,9 @@ describe("AgentStageRunner after the session", () => {
   it("ends what the session left running, such as a dev server, before git reads the worktree", async () => {
     const folder = await mkdtemp(join(tmpdir(), "office-stage-leftovers-"));
     const pidFile = join(folder, "dev-server.pid");
-    // The stand-in engine starts a dev server that outlives it, as a background Bash call does:
+    // The scripted engine process starts a dev server that outlives it, as a background Bash call does:
     // detached on Windows, where Node ends its non-detached children with it; in its group on Linux.
-    const standInEngine = `
+    const engineProcess = `
       const devServer = require("node:child_process").spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore", detached: process.platform === "win32" });
       devServer.unref();
       require("node:fs").writeFileSync(${JSON.stringify(pidFile)}, String(devServer.pid));
@@ -250,7 +291,7 @@ describe("AgentStageRunner after the session", () => {
     try {
       pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())], {
         command: process.execPath,
-        args: ["-e", standInEngine],
+        args: ["-e", engineProcess],
         processTrees: currentOperatingSystem().processTrees,
       });
       let devServer = 0;

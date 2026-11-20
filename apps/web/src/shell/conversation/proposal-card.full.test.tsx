@@ -12,10 +12,18 @@ import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
 import { officeInstructionsQuery } from "../../api/conversations.ts";
 import { dutyQueries, roleCardQueries, roleQueries } from "../../api/people.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
+import { ChatProvider } from "../chat/use-chat.tsx";
 import { DEVOPS, dutyOf, PLANNER } from "../duty-words.fixtures.ts";
 import { ToastProvider } from "../toasts.tsx";
 import { BY_ANN, BY_YOU, signIn } from "../user.fixtures.ts";
 import { ProposalCard } from "./proposal-card.tsx";
+import {
+  FULL_NOW,
+  FULL_PROPOSED,
+  ROUTES_PROPOSAL,
+  ROUTES_PROPOSAL_ID,
+} from "./proposed-routes.fixtures.ts";
+import { ThreadDraftsProvider } from "./thread-drafts.tsx";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -85,6 +93,59 @@ function button(page: HTMLElement, name: string): HTMLButtonElement {
   if (!found) throw new Error(`The card has no ${name} button.`);
   return found;
 }
+
+function promptTemplateProposal(to: string | null): Proposal {
+  return {
+    id: PROPOSAL_ID,
+    threadId: "6f1c2a52-1d0e-4a59-9d55-3c1f7f1f0a02",
+    draftedBy: "office-manager",
+    draftedAt: AT,
+    change: {
+      kind: "prompt-template",
+      key: "resolve-brief",
+      name: "Resolve's Brief",
+      from: "Old.",
+      to,
+    },
+    status: { kind: "open" },
+  };
+}
+
+describe("ProposalCard on a prompt template", () => {
+  it("names the template and shows the new text whole", () => {
+    serviceAnswering(promptTemplateProposal(SEVERAL_LINES));
+    const card = cardOf(promptTemplateProposal(SEVERAL_LINES));
+    expect(card.textContent).toContain("Change the prompt template · Resolve's Brief");
+    expect(card.querySelector(".proposal-text")?.textContent).toBe(SEVERAL_LINES);
+    expect(card.textContent).toContain("Applies to prompts rendered after it.");
+  });
+
+  it("says a reset goes back to the default", () => {
+    serviceAnswering(promptTemplateProposal(null));
+    const card = cardOf(promptTemplateProposal(null));
+    expect(card.textContent).toContain("Reset Resolve's Brief to its default");
+    expect(card.textContent).toContain("Back to the default that ships with The Office");
+    expect(card.querySelector(".proposal-text")).toBeNull();
+  });
+
+  it("applies through the Proposal's apply endpoint", async () => {
+    const fetched = serviceAnswering({
+      ...promptTemplateProposal(SEVERAL_LINES),
+      status: { kind: "applied", at: AT, by: null },
+    });
+    const card = cardOf(promptTemplateProposal(SEVERAL_LINES));
+    await act(async () => {
+      button(card, "Apply change").click();
+      await vi.waitFor(() =>
+        expect(document.body.textContent).toContain("Prompt template changed."),
+      );
+    });
+    expect(fetched).toHaveBeenCalledWith(
+      `/api/proposals/${PROPOSAL_ID}/apply`,
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+});
 
 describe("ProposalCard on the Office instructions", () => {
   it("says what it changes and shows the whole text with its line breaks", () => {
@@ -188,6 +249,7 @@ function serviceReading(answers: Record<string, unknown>, applied?: Proposal): M
 describe("ProposalCard on a Project Pipeline", () => {
   const newOne = proposalOf({
     kind: "project-pipeline",
+    routes: null,
     projectId: "the-office",
     pipelineId: null,
     from: null,
@@ -205,7 +267,6 @@ describe("ProposalCard on a Project Pipeline", () => {
       "/pipelines": [{ id: "full", name: "Full", description: "", stages: [TESTS], builtOnBy: [] }],
       "/project-pipelines/check": {
         problems: [],
-        flags: [],
         rows: [
           {
             stage: TESTS,
@@ -259,6 +320,7 @@ describe("ProposalCard on a Project Pipeline", () => {
     const card = cardOf(
       proposalOf({
         kind: "project-pipeline",
+        routes: null,
         projectId: "the-office",
         pipelineId: "pp-linux",
         from: fields,
@@ -272,14 +334,19 @@ describe("ProposalCard on a Project Pipeline", () => {
 });
 
 describe("ProposalCard on a library Pipeline's Stages", () => {
-  const proposal = proposalOf({ kind: "pipeline", pipelineId: "full", from: [TESTS], to: [] });
+  const proposal = proposalOf({
+    kind: "pipeline",
+    pipelineId: "full",
+    from: [TESTS],
+    to: [],
+    routes: null,
+  });
 
   it("lists the Project Pipelines it would break while open, and still applies", async () => {
     serviceReading({
       "/pipelines": [{ id: "full", name: "Full", description: "", stages: [TESTS], builtOnBy: [] }],
       "/pipelines/check": {
         problems: [],
-        flags: [],
         breaks: [
           {
             projectPipelineId: "pp-linux",
@@ -572,5 +639,124 @@ describe("ProposalCard on the set-up of The Office", () => {
       ["Max · Data Analyst", "/people/data-analyst"],
     ]);
     expect(page.textContent).toContain("Applied");
+  });
+});
+
+/** The card inside the shell's router and chat, as a Thread shows it; and where the page went. */
+async function routedCardOf(proposal: Proposal): Promise<{
+  readonly card: HTMLElement;
+  /** Where the page is now, its path and search. */
+  readonly address: () => string;
+}> {
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe(): void {}
+      unobserve(): void {}
+      disconnect(): void {}
+    },
+  );
+  const router = createRouter({
+    routeTree: createRootRoute({
+      component: () => (
+        <ThreadDraftsProvider>
+          <ChatProvider>
+            <ToastProvider>
+              <ProposalCard proposal={proposal} />
+            </ToastProvider>
+          </ChatProvider>
+        </ThreadDraftsProvider>
+      ),
+    }),
+    history: createMemoryHistory({ initialEntries: ["/now"] }),
+  });
+  const card = document.createElement("div");
+  document.body.append(card);
+  const root = createRoot(card);
+  mounted.push({ root, page: card });
+  await act(async () => {
+    root.render(
+      <QueryClientProvider client={new QueryClient()}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+    await router.load();
+  });
+  return { card, address: () => router.state.location.href };
+}
+
+const FULL = { id: "full", name: "Full", description: "", stages: FULL_NOW, builtOnBy: [] };
+
+describe("ProposalCard on a Pipeline's routes", () => {
+  it("shows each changed Stage's routes as Was and Proposed, then Full as proposed with what was checked", async () => {
+    serviceReading({ "/pipelines": [FULL], "/pipelines/check": { problems: [], breaks: [] } });
+    const { card } = await routedCardOf(ROUTES_PROPOSAL);
+
+    await vi.waitFor(() => expect(card.textContent).toContain("Change the Full Pipeline"));
+    const labels = [...card.querySelectorAll(".proposal-change-label")].map(
+      ({ textContent }) => textContent,
+    );
+    expect(labels).toEqual([
+      "Stages",
+      "Routes out of Tests",
+      "Routes out of Review & fix",
+      "Routes out of Verify on Linux",
+      "Routes out of Docs",
+    ]);
+    const tests = card.querySelector('[aria-label="Proposed: routes out of Tests"]');
+    expect(
+      [...(tests?.querySelectorAll("li") ?? [])].map(({ textContent }) => textContent),
+    ).toEqual(["→ Review & fix when Implement changed files", "→ Publish otherwise"]);
+    expect(card.textContent).toContain("None: a new Stage");
+    expect(card.textContent).toContain("None: the Stage is removed");
+
+    const flow = card.querySelector('[aria-label="Full, as proposed"]');
+    expect(flow?.querySelector('[aria-label="Flow"]')).not.toBeNull();
+    expect(flow?.querySelectorAll(".flow-canvas-route-line--proposed")).toHaveLength(4);
+    expect(flow?.querySelectorAll(".flow-canvas-route-line--taken-away")).toHaveLength(1);
+    expect(flow?.textContent).toContain(
+      "Checked: every Stage is reached, each has a route out and every route leads forward.",
+    );
+    expect(flow?.querySelector("button")?.textContent).toMatch(/^Show it on the flow/);
+  });
+
+  it("opens the Pipeline in Settings › Pipelines with the Proposal on it from Show it on the flow", async () => {
+    serviceReading({ "/pipelines": [FULL] });
+    const { card, address } = await routedCardOf(ROUTES_PROPOSAL);
+
+    await act(async () => button(card, "Show it on the flow").click());
+
+    await vi.waitFor(() =>
+      expect(address()).toBe(`/settings/pipelines/full?proposal=${ROUTES_PROPOSAL_ID}`),
+    );
+  });
+
+  it("no longer offers Show it on the flow once answered", async () => {
+    serviceReading({ "/pipelines": [FULL] });
+    const { card } = await routedCardOf({
+      ...ROUTES_PROPOSAL,
+      status: { kind: "declined", at: AT, by: null },
+    });
+
+    expect(card.querySelector('[aria-label="Full, as proposed"]')).not.toBeNull();
+    expect(card.textContent).not.toContain("Show it on the flow");
+  });
+
+  it("shows a Proposal drafted before routes as before: its Stages alone", () => {
+    serviceReading({ "/pipelines": [FULL] });
+    const card = cardOf({
+      ...ROUTES_PROPOSAL,
+      change: {
+        kind: "pipeline",
+        pipelineId: "full",
+        from: FULL_NOW.slice(),
+        to: FULL_PROPOSED.slice(),
+        routes: null,
+      },
+    });
+
+    expect(card.textContent).toContain("Change the full Pipeline");
+    expect(card.textContent).not.toContain("Routes out of");
+    expect(card.textContent).not.toContain("as proposed");
   });
 });

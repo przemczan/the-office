@@ -39,6 +39,7 @@ export const CONTRACT_SCENARIOS = [
   "resume",
   "output-schema",
   "usage-windows",
+  "engine-usage-windows",
   "context-usage",
   "mcp-tool",
   "background",
@@ -49,6 +50,12 @@ export const CONTRACT_SCENARIOS = [
 ] as const;
 
 export type ContractScenario = (typeof CONTRACT_SCENARIOS)[number];
+
+/**
+ * The scenarios that open no session, so leave no recording: a scripted engine answers them from
+ * what its test sets, such as `ScriptedEngine.setUsageWindows`.
+ */
+export const SESSIONLESS_SCENARIOS: readonly ContractScenario[] = ["engine-usage-windows"];
 
 export interface EngineUnderContract {
   /** What the adapter declares; scenarios for a missing capability check its refusal instead. */
@@ -68,8 +75,18 @@ export interface EngineUnderContract {
    * replays it, and a live engine only when the account's window really ran out.
    */
   readonly usageWindowUsedUp?: boolean;
+  /**
+   * Whether the account has the 5-hour and 7-day windows `usage-windows` reads; true unless said.
+   * A Codex account on ChatGPT Free has one 30-day window instead, which is left unread.
+   */
+  readonly fiveHourAndSevenDayWindows?: boolean;
   /** Whether a turn can be made to fail on purpose, after an allowed rate-limit event: a recording only. */
   readonly failedTurns?: boolean;
+  /**
+   * Whether the Agent runs a command in the background and stops it with TaskStop, which
+   * `background` and `background-stop` check: Codex has neither.
+   */
+  readonly backgroundCommands?: boolean;
   /** The fake local MCP server `mcp-tool` runs on; undefined skips it, for an engine without them yet. */
   readonly mcpServer?: ContractMcpServer;
 }
@@ -111,7 +128,7 @@ export function describeAgentEngineContract(adapter: string, under: EngineUnderC
     it(
       "starts a session on its brief, reports a turn that took it with its tokens, and ends",
       scenario("reply", async (engine, options) => {
-        const brief = message("Reply with the single word: ready");
+        const brief = message(REPLY_BRIEF);
         const session = await engine.start({ id: randomUUID(), options, brief });
         const log = new EventLog(session);
 
@@ -276,7 +293,7 @@ export function describeAgentEngineContract(adapter: string, under: EngineUnderC
       under.timeoutMs,
     );
 
-    it(
+    it.runIf(under.backgroundCommands === true)(
       "reports a background command's start, its output in order and whole, and its end, between turns too",
       scenario("background", async (engine, options) => {
         const session = await engine.start({
@@ -305,7 +322,7 @@ export function describeAgentEngineContract(adapter: string, under: EngineUnderC
       under.timeoutMs,
     );
 
-    it(
+    it.runIf(under.backgroundCommands === true)(
       "reports a background command the Agent stops with TaskStop as stopped by the Agent",
       scenario("background-stop", async (engine, options) => {
         const session = await engine.start({
@@ -406,7 +423,7 @@ export function describeAgentEngineContract(adapter: string, under: EngineUnderC
     it.skipIf(can.interrupt)(
       "refuses to interrupt without the interrupt capability",
       scenario("reply", async (engine, options) => {
-        await replyingSession(engine, options, async (session) => {
+        await replyingSession(engine, options, REPLY_BRIEF, async (session) => {
           await expect(session.interrupt()).rejects.toEqual(new CapabilityMissing("interrupt"));
         });
       }),
@@ -487,10 +504,10 @@ export function describeAgentEngineContract(adapter: string, under: EngineUnderC
       under.timeoutMs,
     );
 
-    it.runIf(can.usageWindows)(
+    it.runIf(can.usageWindows && under.fiveHourAndSevenDayWindows !== false)(
       "reads the account's usage windows",
       scenario("usage-windows", async (engine, options) => {
-        await replyingSession(engine, options, async (session) => {
+        await replyingSession(engine, options, SHORT_REPLY_BRIEF, async (session) => {
           const windows = await session.readUsageWindows();
           expect(windows).toBeDefined();
           for (const window of [windows?.fiveHour, windows?.sevenDay]) {
@@ -498,6 +515,19 @@ export function describeAgentEngineContract(adapter: string, under: EngineUnderC
             expect(window?.percentUsed).toBeLessThanOrEqual(100);
           }
         });
+      }),
+      under.timeoutMs,
+    );
+
+    it.runIf(can.usageWindows && under.fiveHourAndSevenDayWindows !== false)(
+      "reads the account's usage windows with no session",
+      scenario("engine-usage-windows", async (engine) => {
+        const windows = await engine.readUsageWindows(under.engine, new AbortController().signal);
+        expect(windows).toBeDefined();
+        for (const window of [windows?.fiveHour, windows?.sevenDay]) {
+          expect(window?.percentUsed).toBeGreaterThanOrEqual(0);
+          expect(window?.percentUsed).toBeLessThanOrEqual(100);
+        }
       }),
       under.timeoutMs,
     );
@@ -545,7 +575,7 @@ export function describeAgentEngineContract(adapter: string, under: EngineUnderC
     it.runIf(can.contextUsage)(
       "reads how full the context is between turns, within the model's window",
       scenario("context-usage", async (engine, options) => {
-        await replyingSession(engine, options, async (session) => {
+        await replyingSession(engine, options, SHORT_REPLY_BRIEF, async (session) => {
           const usage = await session.readContextUsage();
           expect(usage.tokens).toBeGreaterThan(0);
           expect(usage.window).toBeGreaterThan(usage.tokens);
@@ -557,7 +587,7 @@ export function describeAgentEngineContract(adapter: string, under: EngineUnderC
     it.skipIf(can.contextUsage)(
       "refuses to read the context usage without the contextUsage capability",
       scenario("reply", async (engine, options) => {
-        await replyingSession(engine, options, async (session) => {
+        await replyingSession(engine, options, REPLY_BRIEF, async (session) => {
           await expect(session.readContextUsage()).rejects.toEqual(
             new CapabilityMissing("contextUsage"),
           );
@@ -569,11 +599,21 @@ export function describeAgentEngineContract(adapter: string, under: EngineUnderC
     it.skipIf(can.usageWindows)(
       "refuses to read the usage windows without the usageWindows capability",
       scenario("reply", async (engine, options) => {
-        await replyingSession(engine, options, async (session) => {
+        await replyingSession(engine, options, REPLY_BRIEF, async (session) => {
           await expect(session.readUsageWindows()).rejects.toEqual(
             new CapabilityMissing("usageWindows"),
           );
         });
+      }),
+      under.timeoutMs,
+    );
+
+    it.skipIf(can.usageWindows)(
+      "reads no usage windows with no session without the usageWindows capability",
+      scenario("engine-usage-windows", async (engine) => {
+        await expect(
+          engine.readUsageWindows(under.engine, new AbortController().signal),
+        ).resolves.toBeUndefined();
       }),
       under.timeoutMs,
     );
@@ -684,17 +724,20 @@ function message(text: string): UserMessage {
   return { id: randomUUID(), text };
 }
 
-/** A session through one turn on a short reply, with `afterTurn` done before it ends. */
+/** `reply`'s brief, which a check of a missing capability run on `reply` gives too, as its recording has. */
+const REPLY_BRIEF = "Reply with the single word: ready";
+
+/** The brief of the scenarios reading something after a reply. */
+const SHORT_REPLY_BRIEF = "Reply with the single word: ok";
+
+/** A session through one turn on `brief`, with `afterTurn` done before it ends. */
 async function replyingSession(
   engine: AgentEngine,
   options: SessionOptions,
+  brief: string,
   afterTurn: (session: EngineSession) => Promise<void>,
 ): Promise<void> {
-  const session = await engine.start({
-    id: randomUUID(),
-    options,
-    brief: message("Reply with the single word: ok"),
-  });
+  const session = await engine.start({ id: randomUUID(), options, brief: message(brief) });
   await new EventLog(session).nextTurn();
   await afterTurn(session);
   await session.end();

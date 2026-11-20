@@ -6,6 +6,7 @@ import {
   gitHubStateSchema,
   type GitHubAppManifestForm,
   type GitHubSignIn,
+  type GitHubState,
   type GitHubWebEvent,
 } from "@the-office/contracts";
 import { deleteFromApi, getFromApi, sendToApi } from "./api-client.ts";
@@ -41,6 +42,14 @@ export function gitHubAppManifestForm(): Promise<GitHubAppManifestForm> {
 /** GitHub's authorize page for this sign-in, which sends the browser back to The Office. */
 export function startGitHubSignIn(): Promise<GitHubSignIn> {
   return sendToApi("POST", "/github/sign-in", {}, gitHubSignInSchema);
+}
+
+/**
+ * Check again: has the service read the App's permissions from GitHub again, after the user added or
+ * accepted them there, and answers Sign in with GitHub with what is still missing.
+ */
+export function checkGitHubPermissions(): Promise<GitHubState> {
+  return sendToApi("POST", "/github/permissions/check", {}, gitHubStateSchema);
 }
 
 /** Forgets the user token. */

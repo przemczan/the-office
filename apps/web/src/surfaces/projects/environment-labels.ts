@@ -12,7 +12,7 @@ import { INSTALL_LABEL } from "../../shell/project-words.ts";
 
 type Tone = "neutral" | "success" | "warning" | "danger" | "info";
 
-/** The block's badge: how the Project's last environment check went. */
+/** The Environment check block's badge: how the Project's last environment check went. */
 export function checkBadge(check: EnvironmentCheck | null | undefined): {
   readonly tone: Tone;
   readonly label: string;
@@ -113,6 +113,26 @@ export function draftOf(environment: ProjectEnvironment): EnvironmentDraft {
     unset: environment.unset.join(", "),
     prependPath: environment.prependPath.join("\n"),
   };
+}
+
+/** Whether the draft differs from the saved environment, so Save and Discard have something to do. */
+export function draftChanged(draft: EnvironmentDraft, saved: ProjectEnvironment): boolean {
+  const start = draftOf(saved);
+  return (
+    draft.set !== start.set ||
+    draft.unset !== start.unset ||
+    draft.prependPath !== start.prependPath ||
+    draft.secrets.length !== start.secrets.length ||
+    draft.secrets.some((secret, index) => {
+      const savedSecret = start.secrets[index];
+      return (
+        savedSecret === undefined ||
+        secret.name !== savedSecret.name ||
+        secret.keptName !== savedSecret.keptName ||
+        secret.typed !== undefined
+      );
+    })
+  );
 }
 
 /** A new, empty row for a Secret variable. */

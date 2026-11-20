@@ -1,7 +1,7 @@
 import { readFile, stat } from "node:fs/promises";
 import { z } from "zod";
 import { builtInTool, failure, resolvedPath, success, type ToolOutput } from "./built-in-tool.js";
-import { fileProblem, isBinary } from "./file-problems.js";
+import { fileProblem, isBinary } from "../skills/file-problems.js";
 
 /** As many lines as a Read gives without a limit. */
 const DEFAULT_LINE_LIMIT = 2000;

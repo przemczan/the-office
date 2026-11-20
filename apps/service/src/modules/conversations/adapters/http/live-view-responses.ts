@@ -30,13 +30,32 @@ function toLivePersonResponse(person: LivePerson): LivePersonResponse {
   };
 }
 
-function toLiveAgentResponse({ threadId, home, kind, consultation }: LiveAgent): LiveAgentResponse {
+function toLiveAgentResponse({
+  threadId,
+  home,
+  kind,
+  consultation,
+  engine,
+}: LiveAgent): LiveAgentResponse {
   return {
     threadId,
     home,
     kind,
     consultation: consultation
       ? { decisionId: consultation.decisionId, askerRoleKey: consultation.askerRoleKey ?? null }
+      : null,
+    engine: engine
+      ? {
+          engineId: engine.engineId,
+          engineName: engine.engineName,
+          standInFor: engine.standInFor
+            ? {
+                engineId: engine.standInFor.engineId,
+                engineName: engine.standInFor.engineName,
+                reason: engine.standInFor.reason,
+              }
+            : null,
+        }
       : null,
   };
 }

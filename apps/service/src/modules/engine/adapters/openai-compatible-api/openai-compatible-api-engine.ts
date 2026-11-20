@@ -5,6 +5,7 @@ import { currentOperatingSystem } from "../../../../platform/os/current-operatin
 import type { OperatingSystem } from "../../../../platform/os/operating-system.js";
 import { withoutContainerRuntimeVariables } from "../../domain/container-runtime-commands.js";
 import type { ApiEngine } from "../../domain/engines.js";
+import type { UsageWindows } from "../../domain/usage-windows.js";
 import type { SearchEndpoint } from "../../domain/engine-settings.js";
 import type { ToolDecision } from "../../domain/office-rules.js";
 import { listingProblems } from "../../domain/skill-listing.js";
@@ -29,9 +30,15 @@ import { ReadFiles } from "./built-in-tool.js";
 import { ChatCompletionsClient } from "./chat-completions-client.js";
 import type { ChatMessage } from "./chat-completions.js";
 import { ConversationFile } from "./conversation-file.js";
-import { listedSkills, modelListing } from "./listed-skills.js";
+import { listedSkills, modelListing } from "../skills/listed-skills.js";
 import { projectInstructions } from "./project-instructions.js";
 import { SessionTools } from "./session-tools.js";
+import {
+  API_OUTPUT_REMINDER,
+  ENGINE_PROMPT_TEMPLATES,
+} from "../../domain/engine-prompt-templates.js";
+import { PromptTemplates } from "../../../prompt-templates/index.js";
+import { STRUCTURED_OUTPUT_TOOL } from "./structured-output-tool.js";
 import { systemPrompt } from "./system-prompt.js";
 
 /** It never reads usage windows: a local server has none. */
@@ -44,6 +51,7 @@ export const OPENAI_COMPATIBLE_API_CAPABILITIES: EngineCapabilities = {
   officeTools: true,
   outputSchema: true,
   languageServers: false,
+  carrySession: false,
 };
 
 /** An API endpoint and the id of the model there that a session runs on. */
@@ -78,6 +86,7 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
     private readonly settings: EngineSettingsRepository,
     private readonly officeData: OfficeDataDirectory,
     private readonly mcpClient: McpClient,
+    private readonly promptTemplates: PromptTemplates,
   ) {
     super();
   }
@@ -109,6 +118,11 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
     });
   }
 
+  /** An API endpoint has no usage windows. */
+  readUsageWindows(): Promise<UsageWindows | undefined> {
+    return Promise.resolve(undefined);
+  }
+
   private conversationFile(sessionId: string): ConversationFile {
     return ConversationFile.of(this.officeData.folder("sessions"), sessionId);
   }
@@ -127,6 +141,7 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
       kept,
     }: SessionOpening,
   ): Promise<ApiSession> {
+    const prompts = await this.promptTemplates.textsOf(ENGINE_PROMPT_TEMPLATES);
     const skills = await listedSkills(options.folder, options.skills);
     const problems = listingProblems(
       options.skills?.expected ?? [],
@@ -157,12 +172,15 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
         model: modelId,
         contextWindow,
         seesImages,
-        system: systemPrompt({
+        system: systemPrompt(prompts, {
           folder: options.folder,
           operatingSystem: this.operatingSystem.name,
           projectInstructions: instructions,
           instructions: options.instructions,
           answersInSchema: options.outputSchema !== undefined,
+        }),
+        outputReminder: prompts.render(API_OUTPUT_REMINDER, {
+          structuredOutputTool: STRUCTURED_OUTPUT_TOOL,
         }),
         tools: SessionTools.of({
           agentShells,

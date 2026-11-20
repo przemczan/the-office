@@ -26,7 +26,7 @@ import {
   threadSchema,
   threadWebEventSchema,
   type ContextOverride,
-  type DecisionAnswer,
+  type DecisionFormAnswer,
   type FireAlarmLifts,
   type Home,
   type MessageImage,
@@ -42,6 +42,7 @@ import {
   type Thread,
   type ThreadSummary,
   type ThreadWebEvent,
+  type WebEvent,
 } from "@the-office/contracts";
 import { deleteFromApiReturning, getFromApi, sendFileToApi, sendToApi } from "./api-client.ts";
 import { changeRows, pagedQueryOptions, rowsOf } from "./pages.ts";
@@ -55,13 +56,13 @@ const SIZE_THRESHOLD = ["settings", "size-threshold"] as const;
 const OFFICE_INSTRUCTIONS = ["settings", "office-instructions"] as const;
 
 export const threadQueries = {
-  /** Where each person's chat stands, under the key every Thread's event refreshes. */
+  /** Where each person's chat stands, which each chat Thread's event refreshes. */
   chatActivity: () =>
     queryOptions({
       queryKey: [...THREADS, "chat-activity"],
       queryFn: ({ signal }) => getFromApi("/chats/activity", chatActivitySchema, signal),
     }),
-  /** Who is working on each Task now, under the key every Thread's event refreshes. */
+  /** Who is working on each Task now, which a Task Thread's turn or Decision refreshes. */
   peopleWorking: () =>
     queryOptions({
       queryKey: [...THREADS, "people-working"],
@@ -84,7 +85,7 @@ export const threadQueries = {
       queryFn: ({ signal }) =>
         getFromApi(`/tasks/${encodeURIComponent(taskId)}/threads`, threadListSchema, signal),
     }),
-  /** Who has a tab in the Task's conversation; under the Threads' key, as their events change it. */
+  /** Who has a tab in the Task's conversation; under its Threads' key, as their events change it. */
   conversationOnTask: (taskId: string) =>
     queryOptions({
       queryKey: [...THREADS, "task", taskId, "conversation"],
@@ -338,7 +339,7 @@ export function switchChangesOff(id: string): Promise<Thread> {
 }
 
 /** The person who asked takes the answer in their Thread, which this answers with. */
-export function answerDecision(id: string, answer: DecisionAnswer): Promise<Thread> {
+export function answerDecision(id: string, answer: DecisionFormAnswer): Promise<Thread> {
   return sendToApi("POST", `/decisions/${encodeURIComponent(id)}/answer`, answer, threadSchema);
 }
 
@@ -360,11 +361,14 @@ type SubAgentAndProcessEventType =
   | "thread.process-output";
 
 /**
- * Every other Conversations event makes the Threads stale: ["threads"] covers each home's list,
- * each Thread and its log. A Decision's events also make ["decisions"] stale, kept apart so the
- * many events of a turn don't refetch the open Decisions, and ["tasks"], as a waiting Decision is
- * one line of a Task's "Before Ready" checklist. A Proposal applied or declined makes ["proposals"]
- * stale, read by the hire page that edits one.
+ * Every other Conversations event makes stale only what shows the Thread it names
+ * (`threadAndListsOf`), as a running Stage logs messages many times a minute and each open tab
+ * would otherwise refetch every Thread it has read. A Thread starting stays broad: it can be a new
+ * chat, a new tab in a Task's conversation, or an Initiative's planning Thread its Tasks' Planner
+ * tabs link to, which the event doesn't name. A Decision's events also make ["decisions"] stale,
+ * kept apart so the many events of a turn don't refetch the open Decisions, and ["tasks"], as a
+ * waiting Decision is one line of a Task's "Before Ready" checklist. A Proposal applied or declined
+ * makes ["proposals"] stale, read by the hire page that edits one.
  */
 export const threadEventInvalidations: Readonly<
   Record<
@@ -374,22 +378,73 @@ export const threadEventInvalidations: Readonly<
 > = {
   // A person's Work tab names their Tasks by their Threads' titles.
   "thread.started": () => [THREADS, PERSON_TASKS],
-  "thread.renamed": () => [THREADS, PERSON_TASKS],
-  "thread.seen": () => [THREADS],
-  "thread.messages-logged": () => [THREADS],
-  "thread.turn-ended": () => [THREADS],
-  "thread.delivery-marked": () => [THREADS],
-  "thread.override-chosen": () => [THREADS],
-  "thread.decision-opened": () => [THREADS, DECISIONS, TASKS],
-  "thread.decision-answered": () => [THREADS, DECISIONS, TASKS],
-  "thread.decision-reopened": () => [THREADS, DECISIONS, TASKS],
-  "thread.decision-closed": () => [THREADS, DECISIONS, TASKS],
-  "thread.proposal-drafted": () => [THREADS, [...PROPOSALS, "open"]],
-  "thread.proposal-applied": () => [THREADS, PROPOSALS],
-  "thread.proposal-declined": () => [THREADS, PROPOSALS],
+  "thread.renamed": (event) => [...threadAndListsOf(event), PERSON_TASKS],
+  "thread.seen": (event) => threadAndListsOf(event),
+  "thread.messages-logged": (event) => threadAndListsOf(event, { stateMayChange: true }),
+  "thread.turn-ended": (event) => threadAndListsOf(event, { stateMayChange: true }),
+  "thread.delivery-marked": (event) => threadAndListsOf(event, { stateMayChange: true }),
+  "thread.override-chosen": (event) => threadAndListsOf(event),
+  "thread.decision-opened": (event) => [
+    ...threadAndListsOf(event, { stateMayChange: true }),
+    DECISIONS,
+    TASKS,
+  ],
+  "thread.decision-answered": (event) => [
+    ...threadAndListsOf(event, { stateMayChange: true }),
+    DECISIONS,
+    TASKS,
+  ],
+  "thread.decision-reopened": (event) => [
+    ...threadAndListsOf(event, { stateMayChange: true }),
+    DECISIONS,
+    TASKS,
+  ],
+  "thread.decision-closed": (event) => [
+    ...threadAndListsOf(event, { stateMayChange: true }),
+    DECISIONS,
+    TASKS,
+  ],
+  "thread.proposal-drafted": (event) => [...threadAndListsOf(event), [...PROPOSALS, "open"]],
+  "thread.proposal-applied": (event) => [...threadAndListsOf(event), PROPOSALS],
+  "thread.proposal-declined": (event) => [...threadAndListsOf(event), PROPOSALS],
   "context-policy.size-threshold-changed": () => [SIZE_THRESHOLD, THREADS],
   "office-instructions.changed": () => [OFFICE_INSTRUCTIONS],
 };
+
+/**
+ * The keys of the Thread the event names, its log and its session's Sub-agents and Processes with
+ * it, as a fresh session takes the old ones away; and of the lists that show it as a row: its home's
+ * (a Task's with its conversation, whose tabs show a Stage running), every person's Threads on
+ * Tasks, since the event doesn't name whose it is, or the chat's activity. `stateMayChange` when
+ * the Thread may have started or stopped answering, or waits on a Decision: who works on each Task
+ * then changes too, counted from Task Threads only.
+ */
+function threadAndListsOf(
+  event: WebEvent,
+  { stateMayChange = false }: { readonly stateMayChange?: boolean } = {},
+): QueryKey[] {
+  const named = threadWebEventSchema.parse(event);
+  if (!("threadId" in named)) throw new Error(`${named.type} names no Thread.`);
+  const { threadId, home } = named;
+  const thread = [...THREADS, threadId];
+  switch (home.kind) {
+    case "chat":
+      return [
+        thread,
+        threadQueries.inChat(home.roleKey).queryKey,
+        threadQueries.chatActivity().queryKey,
+      ];
+    case "task":
+      return [
+        thread,
+        threadQueries.onTask(home.taskId).queryKey,
+        [...THREADS, "on-tasks"],
+        ...(stateMayChange ? [threadQueries.peopleWorking().queryKey] : []),
+      ];
+    case "initiative":
+      return [thread, threadQueries.onInitiative(home.initiativeId).queryKey];
+  }
+}
 
 /**
  * A running turn's tokens and context readings change just that Thread, wherever it is cached, and

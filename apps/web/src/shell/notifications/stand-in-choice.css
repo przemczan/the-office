@@ -1,0 +1,48 @@
+/* ---- The Office's Decision on the Stages waiting for a Stand-in Engine: a row per Stage */
+.stand-in-choice-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stand-in-choice-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.stand-in-choice-what {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stand-in-choice-names {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  color: var(--fg-1);
+}
+
+.stand-in-choice-faint,
+.stand-in-choice-facts {
+  color: var(--fg-2);
+}
+
+.stand-in-choice-outcome {
+  color: var(--fg-3);
+}
+
+.stand-in-choice-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}

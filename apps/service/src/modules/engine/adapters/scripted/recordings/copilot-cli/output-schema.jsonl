@@ -1,0 +1,6 @@
+{"step":"start","brief":{"id":"e4e1d586-f6d4-46f9-bce4-8ba3d6ef2f8f","text":"Answer with the word ready."}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":6303,"output":25,"cacheRead":0,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"context-read","tokens":6303}}
+{"step":"event","event":{"kind":"text","text":"{\"word\":\"ready\"}","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["e4e1d586-f6d4-46f9-bce4-8ba3d6ef2f8f"],"usage":{"input":6303,"output":25,"cacheRead":0,"cacheCreation":0},"sessionCostUsd":0,"output":{"word":"ready"},"errors":[]}}
+{"step":"end"}

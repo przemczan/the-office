@@ -47,8 +47,9 @@ export function stageWorkedNow(
 }
 
 /**
- * Who is working on the Task now: their avatars with the live dot, and on hover the names with the
- * Stage's name when it is theirs.
+ * Who is working on the Task now: their avatars with the live dot, the Stage's name just before
+ * them when it is theirs (cut with an ellipsis when the row is narrow), and on hover the names with
+ * that Stage's name.
  */
 export function WorkingMark({
   people,
@@ -62,7 +63,16 @@ export function WorkingMark({
   const others = people.length - AVATARS_SHOWN;
   return (
     <Tooltip content={words}>
-      <span className="working-mark" role="img" aria-label={words}>
+      <span
+        className={stageName ? "working-mark working-mark-with-stage" : "working-mark"}
+        role="img"
+        aria-label={words}
+      >
+        {stageName && (
+          <span className="working-mark-stage" aria-hidden="true">
+            {stageName}
+          </span>
+        )}
         <span className="live-dot" />
         <span className="working-mark-avatars">
           {people.slice(0, AVATARS_SHOWN).map(({ roleKey, name }) => (

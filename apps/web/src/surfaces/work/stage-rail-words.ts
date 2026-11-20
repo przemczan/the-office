@@ -64,9 +64,13 @@ export function railScrollLeft(
   return ((stageIndex + 0.5) * scrollWidth) / stageCount - clientWidth / 2;
 }
 
-/** The line over the rail: "At Tests: running", or how far the Task has come. */
+/**
+ * The line over the rail: "At Tests: running", or how far the Task has come. A Stage the walk's
+ * path no longer reaches counts neither as finished nor among the Stages.
+ */
 export function railCaption(stages: readonly TaskStage[], taskState: TaskState): string {
-  if (taskState === "done") return `All ${stages.length} Stages finished`;
+  const taken = stages.filter(({ state }) => state !== "not-taken");
+  if (taskState === "done") return `All ${taken.length} Stages finished`;
   if (taskState === "planning") {
     return "Starts once you confirm the Plan, the Definition of Done and the Pipeline";
   }
@@ -76,8 +80,8 @@ export function railCaption(stages: readonly TaskStage[], taskState: TaskState):
   if (at && HOLDING_STATES.includes(at.state)) {
     return `At ${at.stage.name}: ${stateWords(at).toLowerCase()}`;
   }
-  const finished = stages.filter(({ state }) => state === "done" || state === "skipped").length;
-  return `${finished} of ${stages.length} Stages finished`;
+  const finished = taken.filter(({ state }) => state === "done" || state === "skipped").length;
+  return `${finished} of ${taken.length} Stages finished`;
 }
 
 /**
@@ -143,6 +147,7 @@ export function railRunsWords(
   now: Date = new Date(),
 ): string {
   if (state === "skipped") return "Not needed";
+  if (state === "not-taken") return "Not run";
   if (runs.length === 0) return walkStarted ? "Not run yet" : "Not started";
   const count = runs.length === 1 ? "1 run" : `${runs.length} runs`;
   const time = shortDurationWords(timeTaken(runs, now));

@@ -15,6 +15,7 @@ export type OfficeDataFolder =
   | "engines"
   | "run-environments"
   | "test-output"
+  | "stage-runs"
   | "grafana";
 
 /** Where The Office keeps its files outside the database: OFFICE_DATA_DIR or the system's default. */
@@ -23,5 +24,13 @@ export class OfficeDataDirectory {
 
   folder(name: OfficeDataFolder): string {
     return join(this.path, name);
+  }
+
+  /**
+   * The Task's folder of the file of its earlier Stage runs, which a condition command reads
+   * (spec §2.3): written by Pipelines, mounted read-only in the Task's run environment.
+   */
+  stageRunsFolder(taskId: string): string {
+    return join(this.folder("stage-runs"), taskId);
   }
 }

@@ -2,6 +2,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BUNDLED_GRAFANA_ENDPOINT,
   type BundledGrafanaStatus,
+  type GrafanaCheckAnswer,
+  type GrafanaDataSourceKind,
+  type OwnGrafana,
   type RunningTelemetry,
   type SavedTelemetryChoice,
   type TelemetryChoice,
@@ -22,6 +25,7 @@ import { Link } from "@tanstack/react-router";
 import { useId, useState, type ReactNode } from "react";
 import { officeUpdateQueries } from "../../../api/office-updates.ts";
 import {
+  checkGrafana,
   saveTelemetry,
   startBundledGrafana,
   TELEMETRY_SETTINGS,
@@ -139,16 +143,43 @@ function TelemetryForm({
   );
   const [headers, setHeaders] = useState<readonly HeaderRow[]>(() => savedRows(ownSaved));
   const [nextKey, setNextKey] = useState(headers.length);
+  const [readAddress, setReadAddress] = useState(ownSaved?.grafana?.readAddress ?? "");
+  const [readToken, setReadToken] = useState("");
   const timeoutProblem =
     timeout.trim() !== "" && !/^[1-9]\d*$/.test(timeout.trim())
       ? "A whole number of milliseconds, or empty for 10 seconds."
       : undefined;
   const saving = useMutation({
-    mutationFn: () => saveTelemetry(choiceOf(kind, endpoint, headers, timeout)),
+    mutationFn: () =>
+      saveTelemetry(
+        choiceOf(kind, endpoint, headers, timeout, {
+          readAddress,
+          readToken,
+          saved: ownSaved?.grafana !== undefined,
+        }),
+      ),
     onSuccess: async (answer) => {
       queryClient.setQueryData(TELEMETRY_SETTINGS, answer);
       await queryClient.invalidateQueries({ queryKey: TELEMETRY_SETTINGS });
       showToast(savedToast(answer));
+      onSaved(answer);
+    },
+  });
+  // Remove: the saved own endpoint as it is (its headers kept), with no Grafana.
+  const removing = useMutation({
+    mutationFn: () =>
+      saveTelemetry({
+        kind: "own-endpoint",
+        endpoint: ownSaved?.endpoint ?? endpoint.trim(),
+        ...(ownSaved?.timeoutMilliseconds !== undefined && {
+          timeoutMilliseconds: ownSaved.timeoutMilliseconds,
+        }),
+        grafana: null,
+      }),
+    onSuccess: async (answer) => {
+      queryClient.setQueryData(TELEMETRY_SETTINGS, answer);
+      await queryClient.invalidateQueries({ queryKey: TELEMETRY_SETTINGS });
+      showToast("The Grafana read address was removed: Stats shows the basic stats.");
       onSaved(answer);
     },
   });
@@ -164,6 +195,9 @@ function TelemetryForm({
       }}
     >
       {saving.error && <RefusalAlert title="Telemetry wasn't saved" error={saving.error} />}
+      {removing.error && (
+        <RefusalAlert title="The Grafana read address wasn't removed" error={removing.error} />
+      )}
       <RadioList
         label="Where telemetry goes"
         name={`telemetry-${name}`}
@@ -245,13 +279,25 @@ function TelemetryForm({
             value={timeout}
             onChange={(event) => setTimeoutText(event.target.value)}
           />
+          <StatsGroup
+            readAddress={readAddress}
+            readToken={readToken}
+            hasReadToken={ownSaved?.grafana?.hasReadToken ?? false}
+            removable={ownSaved?.grafana !== undefined}
+            removing={removing.isPending}
+            onReadAddress={setReadAddress}
+            onReadToken={setReadToken}
+            onRemove={() => removing.mutate()}
+          />
         </div>
       )}
       <p className="telemetry-note">{runningWords(settings.running)}</p>
       <div className="telemetry-actions">
         <div className="telemetry-actions-state">
           <span>
-            Applies the next time The Office starts.
+            {kind === "own-endpoint"
+              ? "Export settings apply the next time The Office starts. Stats' read address and token apply as soon as they're saved."
+              : "Applies the next time The Office starts."}
             {settings.appliesAtNextStart && (
               <>
                 {" "}
@@ -269,6 +315,146 @@ function TelemetryForm({
       </div>
     </form>
   );
+}
+
+/**
+ * Where Stats reads the full stats with Your own endpoint picked: the Grafana read address and its
+ * read token, whose saved value never comes back (left empty, it is kept). Test tries them as
+ * typed, before Save; Remove saves the own endpoint with no Grafana.
+ */
+function StatsGroup({
+  readAddress,
+  readToken,
+  hasReadToken,
+  removable,
+  removing,
+  onReadAddress,
+  onReadToken,
+  onRemove,
+}: {
+  readonly readAddress: string;
+  readonly readToken: string;
+  readonly hasReadToken: boolean;
+  readonly removable: boolean;
+  readonly removing: boolean;
+  readonly onReadAddress: (address: string) => void;
+  readonly onReadToken: (token: string) => void;
+  readonly onRemove: () => void;
+}): ReactNode {
+  const title = useId();
+  const testing = useMutation({
+    mutationFn: (address: string) =>
+      checkGrafana({ readAddress: address, ...(readToken !== "" && { readToken }) }),
+  });
+  const empty = readAddress.trim() === "";
+  return (
+    <div className="telemetry-stats" role="group" aria-labelledby={title}>
+      <span className="telemetry-subtitle" id={title}>
+        Stats
+      </span>
+      <p className="telemetry-stats-note">
+        Where Stats reads the full stats from. Optional: without it, Stats shows the basic stats.
+      </p>
+      <div className="telemetry-two">
+        <Input
+          label="Grafana read address"
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="https://grafana.example.com"
+          hint="The Grafana your endpoint feeds."
+          value={readAddress}
+          onChange={(event) => onReadAddress(event.target.value)}
+        />
+        <Input
+          label="Read token"
+          type="password"
+          autoComplete="off"
+          placeholder={hasReadToken ? "Saved" : undefined}
+          hint={
+            hasReadToken
+              ? "Saved, never shown. Leave it empty to keep it."
+              : "A Viewer service account token, made in Grafana under Administration › Service accounts."
+          }
+          value={readToken}
+          onChange={(event) => onReadToken(event.target.value)}
+        />
+      </div>
+      <div className="telemetry-test">
+        <div className="telemetry-test-row">
+          <Button
+            variant="secondary"
+            size="sm"
+            type="button"
+            iconLeft={<Icon name="activity" size={13} />}
+            disabled={empty || testing.isPending}
+            loading={testing.isPending}
+            title={empty ? "Give the Grafana read address to test it." : undefined}
+            onClick={() => testing.mutate(readAddress.trim())}
+          >
+            Test
+          </Button>
+          {removable && (
+            <Button
+              variant="secondary"
+              size="sm"
+              type="button"
+              iconLeft={<Icon name="trash-2" size={13} />}
+              loading={removing}
+              disabled={removing}
+              onClick={onRemove}
+            >
+              Remove
+            </Button>
+          )}
+          <span className="telemetry-test-hint">
+            Tries the address and token as typed, before Save.
+          </span>
+        </div>
+        {testing.error && <RefusalAlert title="Grafana wasn't tested" error={testing.error} />}
+        {testing.data && testing.variables !== undefined && (
+          <GrafanaCheckAlert answer={testing.data} address={testing.variables} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Test's answer in plain words, naming the Grafana it tried. */
+function GrafanaCheckAlert({
+  answer,
+  address,
+}: {
+  readonly answer: GrafanaCheckAnswer;
+  readonly address: string;
+}): ReactNode {
+  switch (answer.state) {
+    case "reachable":
+      return (
+        <Alert tone="success" title={`Grafana answered at ${address}.`}>
+          Found Prometheus “{answer.prometheus}” and Loki “{answer.loki}”.
+        </Alert>
+      );
+    case "rejected":
+      return <Alert tone="danger" title="Grafana refused the read token." />;
+    case "unreachable":
+      return (
+        <Alert tone="danger" title={`Couldn't reach Grafana at ${address}: ${answer.problem}`} />
+      );
+    case "no-data-sources":
+      return (
+        <Alert
+          tone="warning"
+          title={`Grafana answered at ${address}, but it has no ${missingWords(answer.missing)} the token can query.`}
+        />
+      );
+  }
+}
+
+function missingWords(missing: readonly GrafanaDataSourceKind[]): string {
+  const names = missing
+    .map((kind) => (kind === "prometheus" ? "Prometheus" : "Loki"))
+    .join(" and ");
+  return `${names} ${missing.length > 1 ? "data sources" : "data source"}`;
 }
 
 /**
@@ -379,6 +565,11 @@ function BundledGrafanaState({ status }: { readonly status: BundledGrafanaStatus
 
 /** The saved toast: with Bundled Grafana, that it starts now, and when the exporters switch to it. */
 function savedToast(answer: TelemetrySettings): string {
+  if (answer.saved.kind === "own-endpoint" && answer.saved.grafana) {
+    return answer.appliesAtNextStart
+      ? "Telemetry was saved: Stats reads Grafana with it now, and the export settings apply the next time The Office starts."
+      : "Telemetry was saved: Stats reads Grafana with it now.";
+  }
   if (answer.saved.kind !== "bundled-grafana") {
     return "Telemetry was saved: it applies the next time The Office starts.";
   }
@@ -396,12 +587,24 @@ function savedRows(saved: Extract<SavedTelemetryChoice, { kind: "own-endpoint" }
   }));
 }
 
-/** What Save sends: rows with neither a name nor a value are left out. */
+/** The Stats group as typed, and whether a Grafana is saved. */
+interface GrafanaFields {
+  readonly readAddress: string;
+  readonly readToken: string;
+  readonly saved: boolean;
+}
+
+/**
+ * What Save sends: rows with neither a name nor a value are left out. A typed read address sends
+ * the Grafana, its token left out while empty to keep the saved one; an emptied one removes the
+ * saved Grafana; with neither, the Grafana is left out.
+ */
 function choiceOf(
   kind: Kind,
   endpoint: string,
   headers: readonly HeaderRow[],
   timeout: string,
+  grafana: GrafanaFields,
 ): TelemetryChoice {
   if (kind !== "own-endpoint") return { kind };
   const milliseconds = timeout.trim() === "" ? undefined : Number(timeout.trim());
@@ -412,7 +615,16 @@ function choiceOf(
       .filter((row) => row.name.trim() !== "" || row.value !== "")
       .map((row) => ({ name: row.name.trim(), value: row.value })),
     ...(milliseconds !== undefined && { timeoutMilliseconds: milliseconds }),
+    ...grafanaOf(grafana),
   };
+}
+
+function grafanaOf({ readAddress, readToken, saved }: GrafanaFields): {
+  grafana?: OwnGrafana | null;
+} {
+  const address = readAddress.trim();
+  if (address === "") return saved ? { grafana: null } : {};
+  return { grafana: { readAddress: address, ...(readToken !== "" && { readToken }) } };
 }
 
 function runningWords(running: RunningTelemetry): string {

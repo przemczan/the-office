@@ -92,7 +92,7 @@ Users sign in with their GitHub account through the GitHub App registered for Si
 - **Public, for anyone but its owner.** The Office registers the App as private, and GitHub lets only a private App's owner (or the members of the organization owning it) authorize it. For other users to continue with GitHub, make it public in the App's settings under Advanced › Make public. The Office kept none of the App's private key, and only linked accounts sign in.
 - **Its authorization kept on the git identity's account.** Revoking the App's authorization on GitHub (Settings › Applications › Authorized GitHub Apps) from the account Sign in with GitHub uses ends that sign-in's token too.
 
-Not yet checked on real GitHub, only against the fake one: that GitHub takes a plain-HTTP callback URL on a local network IP; whether a loopback callback (`localhost`, `127.0.0.1`) must match its port exactly; and, as the App's user tokens expire, that revoking the access token also ends the refresh token GitHub hands out with it, so that repeated Continue with GitHub from the git identity's account never reaches GitHub's ten tokens per user and App, past which it revokes the oldest, Sign in with GitHub's among them.
+Checked only against a fake GitHub, not on real GitHub: that GitHub takes a plain-HTTP callback URL on a local network IP; whether a loopback callback (`localhost`, `127.0.0.1`) must match its port exactly; and, as the App's user tokens expire, that revoking the access token also ends the refresh token GitHub hands out with it, so that repeated Continue with GitHub from the git identity's account never reaches GitHub's ten tokens per user and App, past which it revokes the oldest, Sign in with GitHub's among them.
 
 ### Continue with Google
 
@@ -105,7 +105,11 @@ Users sign in with their Google account through a Google OAuth client one user r
 
 Removing the client in Settings › Signing in takes Continue with Google off the sign-in page and keeps the linked Google accounts, which sign in again once a client is saved, since Google's `sub` for an account doesn't depend on the client.
 
-Not yet checked on real Google, only with Google's endpoints stubbed and its authorize page caught in the e2e test.
+Checked only with Google's endpoints stubbed and its authorize page caught in the e2e test, not on real Google.
+
+### Continue with an OpenID Connect provider
+
+Users sign in through one OpenID Connect provider (Zitadel, Authentik, Keycloak and others) set up in Settings › Signing in; the steps, for Zitadel, are in [Installing](installing.md#signing-in-with-zitadel-or-another-openid-connect-provider). It works at every address, like Continue with GitHub, as the provider is given a redirect URI for each (`/api/sign-in/openid-connect/callback`). Removing the provider keeps the linked identities.
 
 ## First run: the setup token
 
@@ -198,7 +202,7 @@ A rollback puts the previous code back, never the database: a migration the newe
 2. Update is refused when the checkout has local changes to tracked files, has commits its upstream doesn't have, has no upstream, or the service runs without the launcher.
 3. The request is `{ "kind": "commit", "target": "<commit>" }`. The launcher takes it and runs, in the checkout, `git fetch`, `git merge --ff-only <target>`, `npm ci` and `npm run build`. If one fails, it runs `git reset --hard <previous commit>`, `npm ci` and `npm run build` again. Either way it starts the service. The steps a failure names: `fetch`, `merge`, `install`, `build`.
 
-`tools/deploy/update.sh` still updates a checkout host by hand from the workstation, outside the service.
+`tools/deploy/update.sh` updates a checkout host by hand from the workstation, outside the service.
 
 ### A release install (a tarball)
 

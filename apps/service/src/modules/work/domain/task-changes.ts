@@ -4,15 +4,20 @@ import { boardOrder, placementBetween, type Neighbours } from "./manual-order.js
 import { newTaskProblems, trimmedNewTask, type NewTask, type Priority, type Task } from "./task.js";
 import {
   TaskCreated,
+  TaskDefinitionOfDoneConfirmed,
   TaskHeldAtAllClear,
+  TaskMarkedReadyAsItStands,
   TaskPaused,
+  TaskPlanConfirmed,
   TaskPriorityChanged,
   TaskReordered,
   TaskResumed,
   TaskStateChanged,
   TaskStopped,
+  TaskWentOnOnStandIn,
   type UsageWindowRefusal,
 } from "./task-events.js";
+import type { EngineStandIn } from "./stand-ins-at-start.js";
 import { FIRE_ALARM_ON } from "./fire-alarm.js";
 import {
   BY_THE_FIRE_ALARM,
@@ -25,10 +30,13 @@ import {
 import { TaskRefused } from "./task-refused.js";
 import { writtenParts, type WrittenPlanAndDefinitionOfDone } from "./written-parts.js";
 import {
+  CONDITIONS_KEPT_WHEN_CONFIRMING,
   NOT_STARTED_STATES,
   STARTED_STATES,
   TASK_STATE_NAMES,
+  moveProblems,
   openDecisionProblems,
+  readinessLines,
   stateChangeProblems,
 } from "./task-states.js";
 
@@ -61,6 +69,13 @@ export function withStateChange<Event extends DomainEvent>(
     stateChange: { from: from.state, to: state, at, by },
   };
 }
+
+/** A Task the usage window doesn't hold: no resume of its own, no engine and no pause time kept. */
+const NO_USAGE_WINDOW_RESUME = {
+  resumesAt: undefined,
+  usageWindowEngineId: undefined,
+  usageWindowPausedAt: undefined,
+} as const satisfies Partial<Task>;
 
 /** What The Office sets on a new Task. */
 export interface NewTaskSetting {
@@ -105,9 +120,11 @@ export function createTask(
     markedPlanned: false,
     hasPlanningThread: false,
     personRole: undefined,
+    engineStandIns: [],
     pausedBy: undefined,
-    resumesAt: undefined,
+    ...NO_USAGE_WINDOW_RESUME,
     madeFor: undefined,
+    resolvesTaskId: undefined,
     blockedBy: [],
     originIdeaId: setting.originIdeaId,
     initiativeId: setting.initiativeId,
@@ -119,6 +136,7 @@ export function createTask(
     restoredAt: undefined,
     restoredBy: undefined,
     endedAt: undefined,
+    pullRequestEnd: undefined,
   };
   return {
     task,
@@ -136,9 +154,18 @@ export function changeTaskState(
   const problems = stateChangeProblems(task, to);
   if (problems.length > 0) throw new TaskRefused(problems);
   if (task.state === to) return undefined;
+  return stateMove(task, to, by);
+}
+
+/** The move to `to`, its conditions weighed already. */
+function stateMove(
+  task: Task,
+  to: Task["state"],
+  by: StateChangeCause,
+): TaskChange<TaskStateChanged> {
   return withStateChange(
     {
-      task: { ...task, state: to, pausedBy: undefined, resumesAt: undefined },
+      task: { ...task, state: to, pausedBy: undefined, ...NO_USAGE_WINDOW_RESUME },
       event: new TaskStateChanged(task.id, task.state, to),
     },
     task,
@@ -213,20 +240,66 @@ export function moveToBacklogOnConfirm(task: Task, by: Author): TaskChange<TaskS
   );
 }
 
+/** How the user marks a Task Ready: `confirmPlanAndDefinitionOfDone` confirms both as they stand. */
+export interface MarkReadyChoice {
+  readonly confirmPlanAndDefinitionOfDone: boolean;
+}
+
 /**
  * Mark Ready: Backlog or Planning → Ready, refused with every reason, those of the Task's record and the
  * Decisions on it still open; by the user, or by auto mode on their behalf. Undefined when the Task
- * is Ready already.
+ * is Ready already. With `confirmPlanAndDefinitionOfDone`, the user's choice in the dialog naming
+ * what is missing (spec §2.1), the Plan and the Definition of Done not yet confirmed are confirmed
+ * as they stand, even empty, by `by`, in the same save; the Pipeline and the open Decisions still
+ * hold it back.
  */
 export function markTaskReady(
   task: Task,
   openDecisions: number,
   by: StateChangeCause,
-): TaskChange<TaskStateChanged> | undefined {
+): TaskChange<TaskStateChanged> | undefined;
+export function markTaskReady(
+  task: Task,
+  openDecisions: number,
+  by: StateChangeCause,
+  choice: MarkReadyChoice,
+): TaskChange<TaskMarkedReadyAsItStands> | undefined;
+export function markTaskReady(
+  task: Task,
+  openDecisions: number,
+  by: StateChangeCause,
+  choice?: MarkReadyChoice,
+): TaskChange<TaskStateChanged | TaskMarkedReadyAsItStands> | undefined {
   if (task.state === "ready") return undefined;
-  const problems = [...stateChangeProblems(task, "ready"), ...openDecisionProblems(openDecisions)];
+  if (!choice?.confirmPlanAndDefinitionOfDone) {
+    const problems = [
+      ...stateChangeProblems(task, "ready"),
+      ...openDecisionProblems(openDecisions),
+    ];
+    if (problems.length > 0) throw new TaskRefused(problems);
+    const ready = stateMove(task, "ready", by);
+    if (!choice) return ready;
+    return { ...ready, event: new TaskMarkedReadyAsItStands(task.id, [], ready.event) };
+  }
+  const problems = [
+    ...moveProblems(task, "ready"),
+    ...readinessLines(task, openDecisions)
+      .filter(({ part }) => CONDITIONS_KEPT_WHEN_CONFIRMING.includes(part))
+      .flatMap(({ problems: unmet }) => unmet),
+  ];
   if (problems.length > 0) throw new TaskRefused(problems);
-  return changeTaskState(task, "ready", by);
+  const confirmations: (TaskPlanConfirmed | TaskDefinitionOfDoneConfirmed)[] = [];
+  let confirmed = task;
+  if (!confirmed.planConfirmed) {
+    confirmed = { ...confirmed, planConfirmed: true };
+    confirmations.push(new TaskPlanConfirmed(task.id));
+  }
+  if (!confirmed.definitionOfDoneConfirmed) {
+    confirmed = { ...confirmed, definitionOfDoneConfirmed: true };
+    confirmations.push(new TaskDefinitionOfDoneConfirmed(task.id));
+  }
+  const ready = stateMove(confirmed, "ready", by);
+  return { ...ready, event: new TaskMarkedReadyAsItStands(task.id, confirmations, ready.event) };
 }
 
 /**
@@ -257,7 +330,7 @@ export function pauseTask(task: Task, by: StateChangeCause): TaskChange<TaskPaus
   refuseUnlessRunning(task, "paused");
   return withStateChange(
     {
-      task: { ...task, state: "paused", pausedBy: undefined, resumesAt: undefined },
+      task: { ...task, state: "paused", pausedBy: undefined, ...NO_USAGE_WINDOW_RESUME },
       event: new TaskPaused(task.id, task.state, "user", undefined, userBehind(by)),
     },
     task,
@@ -285,13 +358,15 @@ export function pauseTaskForAlarm(task: Task): TaskChange<TaskPaused> | undefine
 /**
  * A pause by the usage window (spec §2.1): a Stage's turn was refused because its engine's usage
  * window is used up, so a Task In progress or Waiting on you is held Paused until the window's
- * reset, its Stage's run already ended held. One paused by the usage window has its resume moved to
+ * reset, its Stage's run already ended held, keeping the engine that refused and when (`now`, by
+ * The Office's clock) for an early resume. One paused by the usage window has its resume moved to
  * the new reset. Undefined for any other: a Task the user, the alarm or its Initiative holds stays
  * theirs.
  */
 export function pauseTaskForUsageWindow(
   task: Task,
   refusal: UsageWindowRefusal,
+  now: Date,
 ): TaskChange<TaskPaused> | undefined {
   const pausedByTheWindow = task.state === "paused" && task.pausedBy === "usage-window";
   if (!pausedByTheWindow && task.state !== "in-progress" && task.state !== "waiting-on-you") {
@@ -299,7 +374,14 @@ export function pauseTaskForUsageWindow(
   }
   return withStateChange(
     {
-      task: { ...task, state: "paused", pausedBy: "usage-window", resumesAt: refusal.resetsAt },
+      task: {
+        ...task,
+        state: "paused",
+        pausedBy: "usage-window",
+        resumesAt: refusal.resetsAt,
+        usageWindowEngineId: refusal.engineId,
+        usageWindowPausedAt: now,
+      },
       event: new TaskPaused(task.id, task.state, "usage-window", refusal),
     },
     task,
@@ -308,9 +390,40 @@ export function pauseTaskForUsageWindow(
 }
 
 /**
+ * A running Stage of the Task went on on a Stand-in Engine as its engine's usage window was used up
+ * (spec 5.4): `standIn` replaces the Task's entry for the same cascade's engine, or is added, so the
+ * run's later Stages open on it; back on the cascade's engine itself, the entry goes. The next Start
+ * chooses the list afresh. A Paused Task takes it too: the user's Switch now moves a held Stage's
+ * session before resuming the Task, and a Pause asked while the session switched holds it there.
+ * Undefined for a Task not started or ended, and when the list already says so.
+ */
+export function taskWentOnOnStandIn(
+  task: Task,
+  standIn: EngineStandIn,
+): TaskChange<TaskWentOnOnStandIn> | undefined {
+  if (task.state !== "in-progress" && task.state !== "waiting-on-you" && task.state !== "paused") {
+    return undefined;
+  }
+  const kept = task.engineStandIns.find(({ engineId }) => engineId === standIn.engineId);
+  const backOnItsOwn = standIn.standInId === standIn.engineId;
+  if (backOnItsOwn ? kept === undefined : kept?.standInId === standIn.standInId) return undefined;
+  const others = task.engineStandIns.filter((entry) => entry !== kept);
+  const engineStandIns = backOnItsOwn
+    ? others
+    : kept
+      ? task.engineStandIns.map((entry) => (entry === kept ? standIn : entry))
+      : [...task.engineStandIns, standIn];
+  return {
+    task: { ...task, engineStandIns },
+    event: new TaskWentOnOnStandIn(task.id, standIn.engineId, standIn.standInId),
+  };
+}
+
+/**
  * The usage window's reset, for a Task it paused: the Task goes on In progress, where its Pipeline
  * was held, or, while the fire alarm is on, is held by the alarm until the all clear, as a Resume
- * then is. Undefined for any other Task, and before its reset.
+ * then is. Undefined for any other Task, among them one an early resume took on already, and
+ * before its reset.
  */
 export function resumeTaskAtReset(
   task: Task,
@@ -318,9 +431,38 @@ export function resumeTaskAtReset(
 ): TaskChange<TaskResumed | TaskPaused> | undefined {
   if (task.state !== "paused" || task.pausedBy !== "usage-window") return undefined;
   if (task.resumesAt !== undefined && task.resumesAt > now) return undefined;
+  return resumedFromUsageWindow(task, fireAlarmOn);
+}
+
+/**
+ * A reading of `engineId`'s usage windows, taken at `readAt`, that Engine judges free: a Task that
+ * engine's usage window paused before then resumes now, before its reset, as at the reset. Undefined
+ * for any other Task: paused by another engine, by none kept (paused before engines were kept), or
+ * after the reading was taken.
+ */
+export function resumeTaskFreedByUsageWindow(
+  task: Task,
+  {
+    fireAlarmOn,
+    engineId,
+    readAt,
+  }: { readonly fireAlarmOn: boolean; readonly engineId: string; readonly readAt: Date },
+): TaskChange<TaskResumed | TaskPaused> | undefined {
+  if (task.state !== "paused" || task.pausedBy !== "usage-window") return undefined;
+  if (task.usageWindowEngineId !== engineId) return undefined;
+  if (task.usageWindowPausedAt === undefined || task.usageWindowPausedAt >= readAt) {
+    return undefined;
+  }
+  return resumedFromUsageWindow(task, fireAlarmOn);
+}
+
+function resumedFromUsageWindow(
+  task: Task,
+  fireAlarmOn: boolean,
+): TaskChange<TaskResumed | TaskPaused> {
   if (fireAlarmOn) {
     return {
-      task: { ...task, pausedBy: "alarm", resumesAt: undefined },
+      task: { ...task, pausedBy: "alarm", ...NO_USAGE_WINDOW_RESUME },
       event: new TaskPaused(task.id, "paused", "alarm"),
     };
   }
@@ -336,7 +478,7 @@ export function stopTask(task: Task, by: Author): TaskChange<TaskStopped> {
   if (task.state !== "paused") refuseUnlessRunning(task, "stopped");
   return withStateChange(
     {
-      task: { ...task, state: "paused", pausedBy: undefined, resumesAt: undefined },
+      task: { ...task, state: "paused", pausedBy: undefined, ...NO_USAGE_WINDOW_RESUME },
       event: new TaskStopped(task.id, task.state, userBehind(by)),
     },
     task,
@@ -390,7 +532,7 @@ export function resumeTaskForInitiative(
   }
   if (fireAlarmOn) {
     return {
-      task: { ...task, pausedBy: "alarm", resumesAt: undefined },
+      task: { ...task, pausedBy: "alarm", ...NO_USAGE_WINDOW_RESUME },
       event: new TaskPaused(task.id, "paused", "alarm"),
     };
   }
@@ -425,7 +567,7 @@ export function resumeTask(
     throw new TaskRefused([`${FIRE_ALARM_ON} The Task resumes with the all clear.`]);
   }
   return {
-    task: { ...task, pausedBy: "alarm", resumesAt: undefined },
+    task: { ...task, pausedBy: "alarm", ...NO_USAGE_WINDOW_RESUME },
     event: new TaskPaused(task.id, "paused", "alarm"),
   };
 }
@@ -433,7 +575,7 @@ export function resumeTask(
 function resumed(task: Task, by: StateChangeCause): TaskChange<TaskResumed> {
   return withStateChange(
     {
-      task: { ...task, state: "in-progress", pausedBy: undefined, resumesAt: undefined },
+      task: { ...task, state: "in-progress", pausedBy: undefined, ...NO_USAGE_WINDOW_RESUME },
       event: new TaskResumed(task.id),
     },
     task,

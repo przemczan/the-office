@@ -1,0 +1,16 @@
+{"step":"start","brief":{"id":"ce2d1cad-19a4-4da9-b7f1-e9d2f1e3f301","text":"Call the note tool once with the word \"tangerine\", then reply with the single word: done"}}
+{"step":"event","event":{"kind":"text","text":"I’ll locate the available note tool and call it once with “tangerine.”","withinToolCall":null}}
+{"step":"event","event":{"kind":"context-read","tokens":8832}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":8832,"output":57,"cacheRead":0,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"tool-call","callId":"exec-8afb9bc0-e46c-4182-a491-1dbdd4eb1199","tool":"note","officeTool":true,"input":{"word":"tangerine"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"exec-8afb9bc0-e46c-4182-a491-1dbdd4eb1199","text":"Noted.","isError":false,"withinToolCall":null}}
+{"step":"event","event":{"kind":"context-read","tokens":8975}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":9103,"output":88,"cacheRead":8704,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"text","text":"done","withinToolCall":null}}
+{"step":"event","event":{"kind":"context-read","tokens":9049}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":9320,"output":93,"cacheRead":17536,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["ce2d1cad-19a4-4da9-b7f1-e9d2f1e3f301"],"usage":{"input":9320,"output":93,"cacheRead":17536,"cacheCreation":0},"sessionCostUsd":0,"output":null,"errors":[]}}
+{"step":"end"}

@@ -13,6 +13,7 @@ import {
   callingItMet,
   checkApi,
   comparable,
+  firstQuestion,
   git,
   hireOnHaiku,
   openDecisionsOn,
@@ -20,6 +21,7 @@ import {
   quietly,
   stageLines,
   stagesOf,
+  submitDecision,
   tokensOf,
   untilWalkStops,
   type Api,
@@ -178,10 +180,11 @@ describe.runIf(
         task = await untilWalkStops(api, taskId, WALK_MS);
         for (const asked of await openDecisionsOn(api, taskId)) {
           // The Definition of Done is checked as the walk reaches Publish, here past the Gate.
-          await note(`Asked before Publish: ${asked.question} [${asked.options.join(" | ")}]`);
-          const markDone = callingItMet(asked.options);
-          if (!asked.question.includes("Definition of Done") || markDone < 0) break;
-          await api("POST", `/decisions/${asked.id}/answer`, { kind: "option", option: markDone });
+          const { question, options } = firstQuestion(asked);
+          await note(`Asked before Publish: ${question} [${options.join(" | ")}]`);
+          const markDone = callingItMet(options);
+          if (!question.includes("Definition of Done") || markDone < 0) break;
+          await submitDecision(api, asked, markDone);
           task = await untilWalkStops(api, taskId, WALK_MS);
         }
         await app.get(StageInterpreter, { strict: false }).walked(taskId);

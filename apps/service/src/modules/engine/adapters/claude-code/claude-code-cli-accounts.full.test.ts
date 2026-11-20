@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import { SignInFailed, SignInNotRunning } from "../../ports/claude-code-accounts.js";
-import { engineConfigFolder } from "./engine-config-folder.js";
+import { engineConfigFolder } from "../engine-folders/engine-config-folder.js";
 import { TOKEN, officeData, accounts, setUpEachTest } from "./claude-code-cli-accounts.fixtures.js";
 
 setUpEachTest();
@@ -26,6 +26,7 @@ describe("the Claude Code accounts through the binary", () => {
     await expect(accounts.account("work")).resolves.toEqual({
       signedIn: true,
       pastedToken: false,
+      apiKey: false,
       email: "ada@example.com",
       plan: "max",
     });
@@ -105,6 +106,7 @@ describe("the Claude Code accounts through the binary", () => {
     // The earlier Sign in's email, left in the folder, is not the token's account.
     await expect(accounts.account("work")).resolves.toMatchObject({
       pastedToken: true,
+      apiKey: false,
       email: undefined,
     });
   });

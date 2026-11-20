@@ -1,8 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { MessagesLogged, ThreadStarted } from "./conversation-events.js";
+import {
+  MessagesLogged,
+  ThreadSessionMovedToEngine,
+  ThreadStarted,
+} from "./conversation-events.js";
 import type { Message } from "./message.js";
 import { NO_TOKENS } from "./thread.js";
-import { bargeIn, logMessages, startChatThread } from "./thread-changes.js";
+import {
+  bargeIn,
+  freshSession,
+  logMessages,
+  moveSessionBack,
+  moveSessionToEngine,
+  startChatThread,
+} from "./thread-changes.js";
 import { aThread, aUserMessage } from "./thread.fixtures.js";
 import { ThreadRefused } from "./thread-refused.js";
 import { ANN_LEE } from "./user.fixtures.js";
@@ -123,5 +134,112 @@ describe("barge-in", () => {
         personName: "Jan",
       }),
     ).toThrow(new ThreadRefused(["Jan finished before your message went. Send it again."]));
+  });
+});
+
+describe("a Stage's session moved to a Stand-in Engine", () => {
+  const onWork = aThread({
+    stageThread: true,
+    state: "answering",
+    session: freshSession(
+      "session-1",
+      {
+        roleKey: "planner",
+        cardVersion: 1,
+        officeInstructionsVersion: 0,
+        engineId: "work",
+        changesAllowed: false,
+        heldDuties: [],
+        standInFor: undefined,
+      },
+      AT,
+    ),
+  });
+  const move = {
+    messageId: "line-1",
+    from: "work",
+    to: "home",
+    fromName: "Claude Code",
+    toName: "Claude Code 2",
+    window: "five-hour",
+    resetsAt: new Date("2026-11-13T14:00:00.000Z"),
+  };
+
+  it("runs on the stand-in for the engine it left, and logs the line that says why", () => {
+    const { thread, logged, event } = moveSessionToEngine(onWork, move, AT);
+
+    expect(thread.session).toMatchObject({
+      id: "session-1",
+      engineId: "home",
+      standInFor: {
+        engineId: "work",
+        engineName: "Claude Code",
+        reason:
+          "Claude Code's 5-hour window was used up until 2026-11-13 14:00 UTC, so the Stage went on on Claude Code 2.",
+      },
+    });
+    expect(logged).toEqual([
+      {
+        id: "line-1",
+        threadId: onWork.id,
+        at: AT,
+        kind: "engine-switched",
+        fromName: "Claude Code",
+        toName: "Claude Code 2",
+        window: "five-hour",
+        resetsAt: "2026-11-13T14:00:00.000Z",
+      },
+    ]);
+    expect(event).toEqual(new ThreadSessionMovedToEngine(thread, "work", "home", logged, AT));
+  });
+
+  it("names the person who went on in a person's Thread", () => {
+    const { thread, logged } = moveSessionToEngine(onWork, { ...move, personName: "Pam" }, AT);
+
+    expect(logged[0]).toMatchObject({ kind: "engine-switched", personName: "Pam" });
+    expect(thread.session?.standInFor?.reason).toBe(
+      "Claude Code's 5-hour window was used up until 2026-11-13 14:00 UTC, so Pam went on on Claude Code 2.",
+    );
+  });
+
+  it("still stands in for the engine it first ran on after a second switch, and for none back there", () => {
+    const { thread: onHome } = moveSessionToEngine(onWork, move, AT);
+    const second = { ...move, from: "home", fromName: "Claude Code 2" };
+
+    const { thread: onSpare } = moveSessionToEngine(
+      onHome,
+      { ...second, to: "spare", toName: "Spare" },
+      AT,
+    );
+    const { thread: backOnWork } = moveSessionToEngine(
+      onHome,
+      { ...second, to: "work", toName: "Claude Code" },
+      AT,
+    );
+
+    expect(onSpare.session).toMatchObject({
+      engineId: "spare",
+      standInFor: { engineId: "work", engineName: "Claude Code" },
+    });
+    expect(backOnWork.session?.engineId).toBe("work");
+    expect(backOnWork.session?.standInFor).toBeUndefined();
+  });
+
+  it("refuses a session that isn't on the engine it moves from", () => {
+    expect(() => moveSessionToEngine(onWork, { ...move, from: "home" }, AT)).toThrow(Error);
+  });
+
+  it("goes back to the engine it ran on, with the stand-in it recorded then, logging nothing", () => {
+    const { thread: moved } = moveSessionToEngine(onWork, move, AT);
+
+    const back = moveSessionBack(
+      moved,
+      { from: "home", to: { engineId: "work", standInFor: undefined } },
+      AT,
+    );
+
+    expect(back?.thread.session).toEqual(onWork.session);
+    expect(back?.logged).toEqual([]);
+    expect(moveSessionBack(onWork, { from: "home", to: { engineId: "work" } }, AT)).toBeUndefined();
   });
 });

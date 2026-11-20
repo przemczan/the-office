@@ -15,14 +15,25 @@ import {
   anAgentStage,
   runsOf,
   startPipelinesApplication,
+  startPipelinesApplicationWith,
   walkStages,
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
 import { aTaskRecord } from "../ports/pipelines-ports.fixtures.js";
+import {
+  PromptTemplateRepository,
+  PromptTemplateRepositoryForTests,
+} from "../../prompt-templates/index.fixtures.js";
+import { PromptTemplates } from "../../prompt-templates/index.js";
+import { SIGNED_IN_FOR_TESTS } from "../../../platform/http/signed-in-requests.fixtures.js";
+import { userOf } from "../../../platform/http/signed-in-requests.js";
+import { STAGE_BRIEF, STAGE_MESSAGE } from "../domain/agent-stage-brief-templates.js";
 import { AgentStageRunner } from "./agent-stage-runner.js";
 import { StageRunInterruption } from "./stage-run-interruption.js";
 import { implement, corrected } from "../agent-stage-runner.fixtures.js";
 import { aScriptStage, failing, passing } from "./script-stage-runner.fixtures.js";
+
+const ANN = userOf(SIGNED_IN_FOR_TESTS);
 
 let pipelines: PipelinesApplication;
 
@@ -250,6 +261,31 @@ describe("AgentStageRunner", () => {
     });
     expect(pipelines.stageThreads.requests).toEqual([]);
   });
+
+  it("briefs the Stage and words its message as the user saved their Prompt templates", async () => {
+    // Texts of the test's own: every test file shares the database, where the runner reads them.
+    pipelines = await startPipelinesApplicationWith(
+      [{ provide: PromptTemplateRepository, useValue: new PromptTemplateRepositoryForTests() }],
+      [anAgentSession(aDoneResult("Added the dialog.", "Left: the list's refresh."))],
+    );
+    const promptTemplates = pipelines.app.get(PromptTemplates);
+    await promptTemplates.save(
+      STAGE_BRIEF.key,
+      "Task: {{title}} ({{projectName}}), on {{worktreeBranch}}.{{#hasDefinitionOfDone}} Done when:{{#definitionOfDone}} {{number}}) {{statement}}{{/definitionOfDone}}{{/hasDefinitionOfDone}}",
+      ANN,
+    );
+    await promptTemplates.save(STAGE_MESSAGE.key, "Now: {{stageName}}. {{stageBrief}}", ANN);
+
+    await walkStages(pipelines, [implement]);
+
+    const [request] = pipelines.stageThreads.requests;
+    expect(request?.record).toBe(
+      "Task: Rename a device (Admin panel), on office/task. Done when: 1) The new name shows on the list 2) The rename persists",
+    );
+    expect(request?.work).toBe(
+      "Now: Implement. Implement the Plan until the Definition of Done is met.",
+    );
+  });
 });
 
 describe("AgentStageRunner after the session", () => {
@@ -265,7 +301,11 @@ describe("AgentStageRunner after the session", () => {
       sessionEndedAt[call] = ended ?? false;
     };
 
-    const taskId = await walkStages(pipelines, [implement]);
+    const taskId = randomUUID();
+    const paths = ["src/rename-dialog.tsx", "src/rename-dialog.test.tsx"];
+    pipelines.git.uncommitted.set(taskId, paths);
+
+    await walkStages(pipelines, [implement], taskId);
 
     expect(sessionEndedAt).toEqual({ head: true, commit: true, changesSoFar: false });
     expect(pipelines.stageThreads.sessionsEnded).toHaveLength(1);
@@ -275,9 +315,11 @@ describe("AgentStageRunner after the session", () => {
       message:
         "Implement: Rename a device\n\nAdded the rename dialog.\n\nIt saves on Enter.\n\nHandover note:\nLeft: the list's refresh.",
       commit: expect.any(String),
+      paths,
     });
     const [run] = await runsOf(pipelines, taskId);
     expect(run?.headCommit).toBe(commit?.commit);
+    expect(run?.changedFiles).toEqual(paths);
     expect(run?.outcome?.status).toBe("done");
   });
 
@@ -290,7 +332,10 @@ describe("AgentStageRunner after the session", () => {
 
     await walkStages(pipelines, [implement], taskId);
 
-    expect((await runsOf(pipelines, taskId))[0]?.headCommit).toBe(commit);
+    const [run] = await runsOf(pipelines, taskId);
+    expect(run?.headCommit).toBe(commit);
+    // The base's merge isn't the Stage's own change.
+    expect(run?.changedFiles).toEqual([]);
     expect(pipelines.stageThreads.requests[0]?.work).toContain("up to date with");
   });
 
@@ -317,6 +362,7 @@ describe("AgentStageRunner after the session", () => {
     const error = `The Stage changed git itself: HEAD moved from ${implemented?.commit.slice(0, 8)} to ffffffff. Only The Office commits a Stage's work, so it stopped here without committing.`;
     expect(moved?.outcome).toEqual({ status: "failed", error, handoverNote: "Nothing is left." });
     expect(moved?.headCommit).toBe(implemented?.commit);
+    expect(moved?.changedFiles).toEqual([]);
     expect(pipelines.stageThreads.ended[1]?.closing).toEqual({ kind: "failure", reason: error });
     expect(again?.stageKey).toBe("implement");
     expect(again?.outcome).toEqual({
@@ -324,6 +370,7 @@ describe("AgentStageRunner after the session", () => {
       error: `The Task's worktree isn't where The Office left it: HEAD moved from ${implemented?.commit.slice(0, 8)} to ffffffff. The Stage didn't start.`,
       branchMoved: true,
     });
+    expect(again?.changedFiles).toEqual([]);
     expect(pipelines.stageThreads.requests).toHaveLength(2);
   });
 });

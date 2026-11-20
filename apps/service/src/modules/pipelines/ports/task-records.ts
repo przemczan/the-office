@@ -14,6 +14,8 @@ export interface TaskRecord {
   readonly descriptionSection: string;
   readonly plan: string;
   readonly definitionOfDone: readonly string[];
+  /** The Task's Initiative; undefined when it is in none. */
+  readonly initiativeId: string | undefined;
   /**
    * The message of the one commit Publish lands the Task as (spec §2.3): the one written, or the
    * default, the title with a short summary below it, while none is (`written` false).
@@ -69,6 +71,20 @@ export interface TaskRecord {
     /** Where the Agent writes its screenshots, relative to the worktree. */
     readonly screenshotsFolder: string;
   };
+  /**
+   * The Stand-in Engines the Task's last Start chose in place of the cascade's engines (spec §5.4),
+   * which every Stage Thread it opens is given; none when Start chose none.
+   */
+  readonly engineStandIns: readonly TaskEngineStandIn[];
+}
+
+/** A Stand-in Engine the Task's Start chose for the cascade's engine `engineId`, and why. */
+export interface TaskEngineStandIn {
+  readonly engineId: string;
+  readonly standInId: string;
+  /** The cascade's engine's name as Start recorded it. */
+  readonly engineName: string;
+  readonly reason: string;
 }
 
 /** The started Tasks' records, which Work keeps; the composition root binds it. */

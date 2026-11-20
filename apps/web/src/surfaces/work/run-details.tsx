@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { countedTokens, type Role, type StageRun, type TaskStage } from "@the-office/contracts";
-import { Badge, Button, Icon, Tabs } from "@the-office/ui";
+import { Badge, Button, Icon, Tabs, Tooltip } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
@@ -12,7 +12,7 @@ import { ContextReading, SessionRow } from "../../shell/conversation/context-rea
 import { endedRunReadingLook } from "../../shell/conversation/context-reading-words.ts";
 import { DetailsSwitch } from "../../shell/conversation/details-switch.tsx";
 import { ReadOnlyNote, ThreadComposer } from "../../shell/conversation/thread-composer.tsx";
-import { ThreadLog } from "../../shell/conversation/thread-view.tsx";
+import { ThreadLoader, ThreadLog } from "../../shell/conversation/thread-view.tsx";
 import { takesMessages } from "../../shell/conversation/thread-writing.ts";
 import { MarkdownText } from "../../shell/markdown-text.tsx";
 import { PersonAvatar } from "../../shell/person-avatar.tsx";
@@ -27,6 +27,7 @@ import {
   carriedFailureWords,
   commandMarkWords,
   commandTimeWords,
+  engineSwitchWords,
   gateChoiceWords,
   runBadge,
   runOfHandoverNote,
@@ -37,7 +38,7 @@ import {
   type RunTab,
 } from "./stage-history-words.ts";
 import { stageWorkerWords } from "./stage-rail-words.ts";
-import { SESSION_WORDS, type StageNames } from "./stage-words.ts";
+import { runEngineWords, SESSION_WORDS, standInForWords, type StageNames } from "./stage-words.ts";
 import { chapterWork } from "./timeline-words.ts";
 
 /** Everything about the run picked in the Stage history. */
@@ -68,7 +69,14 @@ export function RunDetails({
 }): ReactNode {
   const { stage } = taskStage;
   const summary = (
-    <RunSummary taskStage={taskStage} run={run} roles={roles} names={names} onClose={onClose} />
+    <RunSummary
+      taskStage={taskStage}
+      run={run}
+      roles={roles}
+      names={names}
+      now={now}
+      onClose={onClose}
+    />
   );
   const head = <RunHead taskStage={taskStage} run={run} now={now} />;
   if (stage.kind !== "agent" || run.threadId === null) {
@@ -77,7 +85,9 @@ export function RunDetails({
         {head}
         <div className="run-details-body">
           {summary}
-          {stage.kind === "script" && <CommandLog taskId={taskId} run={run} />}
+          {(stage.kind === "script" || weighedConditions(run)) && (
+            <CommandLog taskId={taskId} run={run} names={names} />
+          )}
           {stage.kind === "gate" && (
             <GateRunAttachments key={run.id} taskId={taskId} stages={stages} run={run} />
           )}
@@ -87,6 +97,8 @@ export function RunDetails({
   }
   return (
     <AgentRunDetails
+      taskId={taskId}
+      names={names}
       threadId={run.threadId}
       stages={stages}
       taskStage={taskStage}
@@ -108,6 +120,8 @@ const SUB_AGENTS_AND_PROCESSES = "sub-agents-and-processes";
  * view as a tab, as no window opens over the Stage history.
  */
 function AgentRunDetails({
+  taskId,
+  names,
   threadId,
   stages,
   taskStage,
@@ -119,6 +133,8 @@ function AgentRunDetails({
   onTab,
   onReadSummary,
 }: {
+  readonly taskId: string;
+  readonly names: StageNames;
   readonly threadId: string;
   readonly stages: readonly TaskStage[];
   readonly taskStage: TaskStage;
@@ -170,7 +186,12 @@ function AgentRunDetails({
           </span>
         )}
       </div>
-      {shownTab === "summary" && <div className="run-details-body">{summary}</div>}
+      {shownTab === "summary" && (
+        <div className="run-details-body">
+          {summary}
+          {weighedConditions(run) && <CommandLog taskId={taskId} run={run} names={names} />}
+        </div>
+      )}
       {shownTab === "thread" && (
         <RunThread
           key={threadId}
@@ -203,7 +224,7 @@ function RunHead({
   readonly run: StageRun;
   readonly now: Date;
 }): ReactNode {
-  const { session, tokens, outcome } = run;
+  const { session, tokens, outcome, engine } = run;
   const badge = runBadge(run, taskStage.state);
   return (
     <div className="run-details-head">
@@ -220,7 +241,13 @@ function RunHead({
           </>
         )}
         {session && ` · ${SESSION_WORDS[session]}`}
+        {engine && ` · ${runEngineWords(engine)}`}
       </span>
+      {engine?.standInFor && (
+        <Tooltip content={engine.standInFor.reason} focusable>
+          <Badge tone="info">{standInForWords(engine.standInFor.engineName)}</Badge>
+        </Tooltip>
+      )}
     </div>
   );
 }
@@ -231,16 +258,18 @@ function RunSummary({
   run,
   roles,
   names,
+  now,
   onClose,
 }: {
   readonly taskStage: TaskStage;
   readonly run: StageRun;
   readonly roles: readonly Role[] | undefined;
   readonly names: StageNames;
+  readonly now: Date;
   readonly onClose: () => void;
 }): ReactNode {
   const { stage, state } = taskStage;
-  const { carriedFailure, sentBack, gateAction, outcome } = run;
+  const { carriedFailure, sentBack, gateAction, outcome, engineSwitches } = run;
   const result = runResultText(taskStage, run);
   return (
     <div className="run-summary">
@@ -249,6 +278,11 @@ function RunSummary({
           <Icon name="rotate-ccw" size={12} /> {carriedFailureWords(carriedFailure, names)}
         </p>
       )}
+      {engineSwitches.map((engineSwitch) => (
+        <p key={engineSwitch.at} className="run-engine-switch">
+          <Icon name="refresh-cw" size={12} /> {engineSwitchWords(engineSwitch, now)}
+        </p>
+      ))}
       {sentBack && (
         <div>
           <p className="run-label">Sent back from {names(sentBack.gateKey)}</p>
@@ -311,13 +345,23 @@ function GateRunAttachments({
   );
 }
 
+/**
+ * Whether the run's routes out had a condition's command run, kept on it whatever its Stage's kind
+ * (spec §2.3, "The Project-command condition").
+ */
+function weighedConditions(run: StageRun): boolean {
+  return run.commandRuns.some(({ condition }) => condition !== undefined);
+}
+
 /** Each command the run started, with what it printed, which is read only for the run picked. */
 function CommandLog({
   taskId,
   run,
+  names,
 }: {
   readonly taskId: string;
   readonly run: StageRun;
+  readonly names: StageNames;
 }): ReactNode {
   const hasCommands = run.commandRuns.length > 0;
   const outputs = useQuery({
@@ -345,7 +389,7 @@ function CommandLog({
               <span className={`command-log-${commandRun.outcome}`}>
                 {commandMarkWords(commandRun)}
               </span>
-              <span className="command-log-time">{commandTimeWords(commandRun)}</span>
+              <span className="command-log-time">{commandTimeWords(commandRun, names)}</span>
             </div>
             {output !== undefined && (
               <pre className="command-log-output">
@@ -379,9 +423,10 @@ function RunThread({
   /** Its line switches to the run's tab. */
   readonly onShowSubAgentsAndProcesses: () => void;
 }): ReactNode {
-  const thread = useQuery(threadQueries.one(threadId)).data;
+  const threadRead = useQuery(threadQueries.one(threadId));
   const [drafting, setDrafting] = useState(false);
-  if (!thread) return null;
+  const thread = threadRead.data;
+  if (!thread) return <ThreadLoader reads={[threadRead]} />;
   const handoverNoteReader = (note: string): (() => void) | undefined => {
     const place = runOfHandoverNote(stages, threadId, note);
     return place && (() => onReadSummary(place));

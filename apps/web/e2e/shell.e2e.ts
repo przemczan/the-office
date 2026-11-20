@@ -27,6 +27,7 @@ const SURFACES = [
   { name: "Work", path: "/work" },
   { name: "People", path: "/people" },
   { name: "Projects", path: "/projects" },
+  { name: "Stats", path: "/stats" },
   { name: "Live view", path: "/live-view" },
   // Settings opens at its first section.
   { name: "Settings", path: "/settings/pipelines" },
@@ -368,7 +369,7 @@ test.describe("the rail's toggle", { tag: "@full" }, () => {
   }) => {
     await page.goto("/now");
     const rail = page.getByRole("navigation", { name: "Surfaces" });
-    const labels = ["Now", "Work", "People", "Projects", "Live view", "Settings", "Theme"];
+    const labels = ["Now", "Work", "People", "Projects", "Stats", "Live view", "Settings", "Theme"];
     const expand = rail.getByRole("button", { name: "Expand sidebar" });
     await expect(expand).toHaveAttribute("aria-expanded", "false");
     for (const label of labels) await expect(rail.getByText(label, { exact: true })).toHaveCount(0);

@@ -11,7 +11,11 @@ import {
   GITHUB_SIGN_IN_FAILED_PARAMETER,
   LINK_FAILED_PARAMETER,
   SIGN_IN_FAILED_PARAMETER,
+  promptTemplateDomainSchema,
   type BoardFilters,
+  type FullStatsRange,
+  type PromptTemplateDomain,
+  type SystemHealthRange,
 } from "@the-office/contracts";
 import { RootLayout } from "./shell/root-layout.tsx";
 import { AccountPage } from "./surfaces/account/account-page.tsx";
@@ -22,6 +26,9 @@ import { PasskeysSection } from "./surfaces/account/passkeys-section.tsx";
 import { ProfileSection } from "./surfaces/account/profile-section.tsx";
 import { SignedInDevicesSection } from "./surfaces/account/signed-in-devices-section.tsx";
 import { LiveViewPage } from "./surfaces/live-view/live-view-page.tsx";
+import { statsRangeOf } from "./surfaces/stats/full-stats.tsx";
+import { StatsPage } from "./surfaces/stats/stats-page.tsx";
+import { healthRangeOf, SystemHealthPage } from "./surfaces/stats/system-health.tsx";
 import { NowPage } from "./surfaces/now/now-page.tsx";
 import { OverviewTab } from "./surfaces/people/overview-tab.tsx";
 import { PeoplePage } from "./surfaces/people/people-page.tsx";
@@ -31,10 +38,13 @@ import { PersonPage } from "./surfaces/people/person-page.tsx";
 import { HireFromScratchPage, RoleCardEditPage } from "./surfaces/people/role-card-form.tsx";
 import { RoleCardTab } from "./surfaces/people/role-card-tab.tsx";
 import { WorkTab } from "./surfaces/people/work-tab.tsx";
+import { ProjectFilesSection } from "./surfaces/projects/files-section.tsx";
+import { projectFilesSearchOf } from "./surfaces/projects/files-search.ts";
 import { ProjectPage } from "./surfaces/projects/project-page.tsx";
 import {
   ProjectAppearanceSection,
   ProjectCommandsSection,
+  ProjectEnvironmentSection,
   ProjectRunEnvironmentSection,
   ProjectEngineSection,
   ProjectOverviewSection,
@@ -57,6 +67,7 @@ import { SigningInSection } from "./surfaces/settings/signing-in/signing-in-sect
 import { TelemetrySection } from "./surfaces/settings/telemetry/telemetry-section.tsx";
 import { UsersSection } from "./surfaces/settings/users/users-section.tsx";
 import { OfficeInstructionsSection } from "./surfaces/settings/office-instructions/office-instructions-section.tsx";
+import { PromptTemplatesSection } from "./surfaces/settings/prompt-templates/prompt-templates-section.tsx";
 import { OfficeLimitsSection } from "./surfaces/settings/office-limits/office-limits-section.tsx";
 import { SettingsPage } from "./surfaces/settings/settings-page.tsx";
 import { CodePage } from "./surfaces/sign-in/code-page.tsx";
@@ -76,6 +87,9 @@ import {
   type InitiativesFilters,
 } from "./surfaces/work/initiative-columns.ts";
 import { InitiativesBoard } from "./surfaces/work/initiatives-board.tsx";
+import { CiRunsPage } from "./surfaces/work/ci-runs-page.tsx";
+import { PullRequestsPage } from "./surfaces/work/pull-requests-page.tsx";
+import { proposalSearchOf } from "./shell/conversation/proposal-search.ts";
 import { recordTabOf, type RecordTab } from "./shell/work/record-tab.ts";
 import { TaskPage } from "./surfaces/work/task-page.tsx";
 import { WorkPage } from "./surfaces/work/work-page.tsx";
@@ -285,9 +299,27 @@ const archivedRoute = createRoute({
   staticData: { title: "Work" },
 });
 
-/** An Initiative's page, showing one of its Threads first, as a Task's page does. */
+const pullRequestsRoute = createRoute({
+  getParentRoute: () => workRoute,
+  path: "pull-requests",
+  component: PullRequestsPage,
+  staticData: { title: "Work" },
+});
+
+const ciRunsRoute = createRoute({
+  getParentRoute: () => workRoute,
+  path: "ci",
+  component: CiRunsPage,
+  staticData: { title: "Work" },
+});
+
+/**
+ * An Initiative's page, showing one of its Threads first, as a Task's page does; a Decision's link
+ * also lands on its card in that Thread.
+ */
 export interface InitiativeSearch {
   readonly initiativeThread?: string;
+  readonly decision?: string;
 }
 
 // An Initiative's page, at the path its links name (`recordPath`), outside Work's tabs as a Task's is.
@@ -295,10 +327,12 @@ const initiativeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "work/initiatives/$initiativeId",
   component: InitiativePage,
-  validateSearch: (search: Record<string, unknown>): InitiativeSearch =>
-    typeof search["initiativeThread"] === "string"
-      ? { initiativeThread: search["initiativeThread"] }
-      : {},
+  validateSearch: (search: Record<string, unknown>): InitiativeSearch => ({
+    ...(typeof search["initiativeThread"] === "string" && {
+      initiativeThread: search["initiativeThread"],
+    }),
+    ...(typeof search["decision"] === "string" && { decision: search["decision"] }),
+  }),
   // Until the Initiative is read; the page then names it.
   staticData: { title: "Work" },
 });
@@ -411,6 +445,38 @@ const projectsRoute = createRoute({
   staticData: { title: "Projects" },
 });
 
+/** Stats' Tokens and cost, its full stats over the range named, 7 d when none is (spec 2.11). */
+export interface StatsSearch {
+  readonly range?: FullStatsRange;
+}
+
+const statsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "stats",
+  component: StatsPage,
+  validateSearch: (search: Record<string, unknown>): StatsSearch => {
+    const range = statsRangeOf(search["range"]);
+    return range === "7d" ? {} : { range };
+  },
+  staticData: { title: "Stats" },
+});
+
+/** Stats' System health, over the range named, 1 h when none is (spec 2.11, System health). */
+export interface SystemHealthSearch {
+  readonly range?: SystemHealthRange;
+}
+
+const systemHealthRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "stats/system-health",
+  component: SystemHealthPage,
+  validateSearch: (search: Record<string, unknown>): SystemHealthSearch => {
+    const range = healthRangeOf(search["range"]);
+    return range === "1h" ? {} : { range };
+  },
+  staticData: { title: "Stats" },
+});
+
 const liveViewRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "live-view",
@@ -435,10 +501,26 @@ const projectOverviewRoute = createRoute({
   staticData: { title: "Projects" },
 });
 
+// The Project's files; the address names the branch and the file or folder, so a link reopens them.
+const projectFilesRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: "files",
+  component: ProjectFilesSection,
+  validateSearch: projectFilesSearchOf,
+  staticData: { title: "Projects" },
+});
+
 const projectCommandsRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: "commands",
   component: ProjectCommandsSection,
+  staticData: { title: "Projects" },
+});
+
+const projectEnvironmentRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: "environment",
+  component: ProjectEnvironmentSection,
   staticData: { title: "Projects" },
 });
 
@@ -454,6 +536,7 @@ const projectPipelineRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: "pipelines/$projectPipelineId",
   component: ProjectPipelinesSection,
+  validateSearch: proposalSearchOf,
   staticData: { title: "Projects" },
 });
 
@@ -520,10 +603,19 @@ const settingsPipelineRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: "pipelines/$pipelineId",
   component: PipelinesSection,
+  validateSearch: proposalSearchOf,
   staticData: { title: "Settings" },
 });
 
-// Its own static segment, so a Stage template's id never reads as a Pipeline's.
+// Its own static segment, so a Stage template's id never reads as a Pipeline's. Without an id the
+// Stage templates tab opens at its first template.
+const settingsStageTemplatesRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "pipelines/stage-templates",
+  component: PipelinesSection,
+  staticData: { title: "Settings" },
+});
+
 const settingsStageTemplateRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: "pipelines/stage-templates/$stageTemplateId",
@@ -597,6 +689,26 @@ const settingsOfficeInstructionsRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: "office-instructions",
   component: OfficeInstructionsSection,
+  staticData: { title: "Settings" },
+});
+
+/** The Prompt templates tab and template shown, so a link or a reload opens the same one. */
+export interface PromptTemplatesSearch {
+  readonly domain?: PromptTemplateDomain;
+  readonly template?: string;
+}
+
+const settingsPromptTemplatesRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "prompt-templates",
+  component: PromptTemplatesSection,
+  validateSearch: (search: Record<string, unknown>): PromptTemplatesSearch => {
+    const domain = promptTemplateDomainSchema.safeParse(search.domain);
+    return {
+      ...(domain.success && { domain: domain.data }),
+      ...(typeof search.template === "string" && { template: search.template }),
+    };
+  },
   staticData: { title: "Settings" },
 });
 
@@ -681,7 +793,14 @@ export const router = createRouter({
     ]),
     homeRoute,
     nowRoute,
-    workRoute.addChildren([boardRoute, ideasRoute, initiativesRoute, archivedRoute]),
+    workRoute.addChildren([
+      boardRoute,
+      ideasRoute,
+      initiativesRoute,
+      pullRequestsRoute,
+      ciRunsRoute,
+      archivedRoute,
+    ]),
     initiativeRoute,
     taskRoute,
     peopleRoute,
@@ -697,7 +816,9 @@ export const router = createRouter({
     projectsRoute,
     projectRoute.addChildren([
       projectOverviewRoute,
+      projectFilesRoute,
       projectCommandsRoute,
+      projectEnvironmentRoute,
       projectPipelinesRoute,
       projectPipelineRoute,
       projectRunEnvironmentRoute,
@@ -706,11 +827,14 @@ export const router = createRouter({
       projectServerValuesRoute,
       projectAppearanceRoute,
     ]),
+    statsRoute,
+    systemHealthRoute,
     liveViewRoute,
     settingsRoute.addChildren([
       settingsHomeRoute,
       settingsPipelinesRoute,
       settingsPipelineRoute,
+      settingsStageTemplatesRoute,
       settingsStageTemplateRoute,
       settingsDutiesRoute,
       settingsSkillsRoute,
@@ -719,6 +843,7 @@ export const router = createRouter({
       settingsOfficeIdentityRoute,
       settingsOfficeLimitsRoute,
       settingsOfficeInstructionsRoute,
+      settingsPromptTemplatesRoute,
       settingsNotificationsRoute,
       settingsUsersRoute,
       settingsSigningInRoute,

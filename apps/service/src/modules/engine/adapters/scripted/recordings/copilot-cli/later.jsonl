@@ -1,0 +1,15 @@
+{"step":"start","brief":{"id":"9a6dc5b8-b573-4a78-852d-58127758d7bf","text":"Call the hold tool once, then reply with the single word: done"}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":6107,"output":14,"cacheRead":3190,"cacheCreation":2914}}}
+{"step":"event","event":{"kind":"context-read","tokens":12211}}
+{"step":"event","event":{"kind":"tool-call","callId":"call_KU2QEoxR6VDysjXpXbNnZ5Vq","tool":"hold","officeTool":true,"input":{},"withinToolCall":null}}
+{"step":"send","message":{"id":"35dafde3-ef3d-428e-8718-1c4d05cc40ef","text":"Reply with the single word: later"},"priority":"later"}
+{"step":"event","event":{"kind":"tool-result","callId":"call_KU2QEoxR6VDysjXpXbNnZ5Vq","text":"Go on.","isError":false,"withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":12242,"output":83,"cacheRead":9294,"cacheCreation":2942}}}
+{"step":"event","event":{"kind":"context-read","tokens":12267}}
+{"step":"event","event":{"kind":"text","text":"done","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["9a6dc5b8-b573-4a78-852d-58127758d7bf"],"usage":{"input":12242,"output":83,"cacheRead":9294,"cacheCreation":2942},"sessionCostUsd":0,"output":null,"errors":[]}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":6243,"output":16,"cacheRead":6132,"cacheCreation":108}}}
+{"step":"event","event":{"kind":"context-read","tokens":12483}}
+{"step":"event","event":{"kind":"text","text":"later","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["35dafde3-ef3d-428e-8718-1c4d05cc40ef"],"usage":{"input":6243,"output":16,"cacheRead":6132,"cacheCreation":108},"sessionCostUsd":0,"output":null,"errors":[]}}
+{"step":"end"}

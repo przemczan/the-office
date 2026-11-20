@@ -18,8 +18,8 @@ test.describe("the Live view", () => {
   test("opens from the rail with everyone on the floor, their states in words and their work a click away", async ({
     page,
   }) => {
-    // Twelve screenshots twice over of a canvas that redraws every frame take most of the default
-    // 30 s when the other files' workers load the machine.
+    // Twelve screenshots twice over take most of the default 30 s when the other files' workers
+    // load the machine.
     test.setTimeout(60_000);
     await page.goto("/now");
     await page
@@ -34,6 +34,12 @@ test.describe("the Live view", () => {
     await expect(floor).toBeVisible();
     await expect(page.getByRole("group", { name: "Zoom" })).toBeVisible();
     await expect(page.getByText("The floor can't be drawn in this browser.")).toHaveCount(0);
+
+    // The moving floor redraws every frame, which the runner's software rendering pays for on the
+    // page's main thread, slowing every later step past the timeout when other files load the
+    // machine; the still office draws only on change, and everything below is the same in both.
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(floor).toBeVisible();
 
     // Hovering the Caretaker's nameplate says what they're doing and what a click does.
     const nameplate = page.getByRole("button", { name: CARETAKER, exact: true });

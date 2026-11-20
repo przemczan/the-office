@@ -1,0 +1,21 @@
+{"step":"start","brief":{"id":"6b0196b0-c1b3-4612-8b26-83d13a8536a2","text":"Call the hold tool once, then reply with the single word: done"}}
+{"step":"event","event":{"kind":"text","text":"I’ll locate the available hold tool and call it once.","withinToolCall":null}}
+{"step":"event","event":{"kind":"context-read","tokens":8825}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":8825,"output":53,"cacheRead":0,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"tool-call","callId":"exec-325d512c-9341-49c8-bb91-cddd72c18be1","tool":"hold","officeTool":true,"input":{},"withinToolCall":null}}
+{"step":"interrupt"}
+{"step":"event","event":{"kind":"context-read","tokens":8825}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":8825,"output":53,"cacheRead":0,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"tool-result","callId":"exec-325d512c-9341-49c8-bb91-cddd72c18be1","text":"Interrupted before it finished.","isError":true,"withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"interrupted","consumedMessageIds":["6b0196b0-c1b3-4612-8b26-83d13a8536a2"],"usage":{"input":8825,"output":53,"cacheRead":0,"cacheCreation":0},"sessionCostUsd":0,"output":null,"errors":[]}}
+{"step":"send","message":{"id":"7f0ec68c-9cbd-4d5c-9b18-361e4cbf8405","text":"Reply with the single word: back"},"priority":"next"}
+{"step":"event","event":{"kind":"context-read","tokens":8825}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":0,"output":0,"cacheRead":0,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"text","text":"back","withinToolCall":null}}
+{"step":"event","event":{"kind":"context-read","tokens":9075}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":243,"output":5,"cacheRead":8832,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["7f0ec68c-9cbd-4d5c-9b18-361e4cbf8405"],"usage":{"input":243,"output":5,"cacheRead":8832,"cacheCreation":0},"sessionCostUsd":0,"output":null,"errors":[]}}
+{"step":"end"}

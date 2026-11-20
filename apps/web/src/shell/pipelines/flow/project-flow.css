@@ -1,0 +1,228 @@
+/* A Project Pipeline in the flow editor: see project-flow-editor.tsx and docs/design/pipeline-flow.html,
+   "A Project Pipeline as a flow". Its own container lays the compare tables out narrow. */
+.project-flow {
+  container: project-flow / inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* The legend's marks, as a Stage's left edge draws them (flow-canvas.css). */
+.project-flow-edge {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--edge, var(--border));
+  border-radius: 3px;
+  background: var(--surface);
+}
+
+.project-flow-edge--inserted {
+  --edge: var(--success);
+}
+
+.project-flow-edge--replaced {
+  --edge: var(--info);
+}
+
+.project-flow-edge--changed {
+  --edge: var(--warning);
+}
+
+.project-flow-edge--removed {
+  border-style: dashed;
+  border-left-width: 1px;
+  background: transparent;
+}
+
+.project-flow-note {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.project-flow-note > svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+/* "Full has" beside "the-office gets": a Change routes's routes. */
+.project-flow-routes-compare {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.project-flow-routes-compare > div {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  font: var(--type-body-sm);
+  overflow-wrap: anywhere;
+}
+
+.project-flow-routes-compare > div:first-child {
+  color: var(--fg-3);
+}
+
+.project-flow-routes-compare > div:last-child {
+  background: color-mix(in oklab, var(--warning-subtle) 70%, transparent);
+}
+
+.project-flow-undo {
+  display: flex;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+/* !important: the design system's Button styles itself inline on one line, and its words name the
+   Stage and the base Pipeline, so in a narrow panel they wrap. */
+.project-flow-undo > button {
+  max-width: 100%;
+  height: auto !important;
+  min-height: 28px;
+  padding-block: 5px !important;
+  line-height: 1.3 !important;
+  white-space: normal !important;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+/* A Change's fields: what the base Pipeline has, what the Project gets, and Set back on each. */
+.project-flow-compare {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) minmax(0, 1fr) auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  font: var(--type-body-sm);
+}
+
+.project-flow-compare > [role="row"] {
+  display: contents;
+}
+
+.project-flow-compare [role="row"] > * {
+  min-width: 0;
+  padding: 7px 10px;
+  border-top: 1px solid var(--border-subtle);
+  overflow-wrap: anywhere;
+}
+
+.project-flow-compare .project-flow-compare-head > * {
+  border-top: 0;
+  font: var(--type-overline);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.project-flow-compare-label {
+  font: var(--type-label);
+}
+
+.project-flow-was {
+  color: var(--fg-3);
+}
+
+.project-flow-now {
+  background: color-mix(in oklab, var(--warning-subtle) 70%, transparent);
+}
+
+.project-flow-compare [role="row"] > .project-flow-set-back {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 3px 4px;
+}
+
+/* The Stage changes that don't apply, above the flow, each with its fix. */
+.project-flow-not-apply {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.project-flow-not-apply-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--danger-border);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--danger-subtle);
+  font: 600 var(--text-sm) / 1.3 var(--font-sans);
+  color: var(--danger-fg);
+}
+
+.project-flow-not-apply-item {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+}
+
+.project-flow-not-apply-item + .project-flow-not-apply-item {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.project-flow-what {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  font: var(--type-label);
+}
+
+.project-flow-detail {
+  color: var(--fg-3);
+  font: var(--type-body-sm);
+}
+
+.project-flow-why {
+  font: var(--type-body-sm);
+  color: var(--danger-fg);
+}
+
+.project-flow-fix {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+}
+
+.project-flow-fix > span {
+  line-height: var(--control-sm);
+}
+
+@container project-flow (max-width: 620px) {
+  .project-flow-routes-compare,
+  .project-flow-compare {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .project-flow-compare > .project-flow-compare-head {
+    display: none;
+  }
+
+  .project-flow-compare [role="row"] > :not(.project-flow-compare-label) {
+    border-top: 0;
+  }
+
+  .project-flow-was::before,
+  .project-flow-now::before {
+    content: attr(data-who) ": ";
+    color: var(--fg-3);
+  }
+}

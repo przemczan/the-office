@@ -11,9 +11,11 @@ import {
   type Type,
 } from "@nestjs/common";
 import { uploadBody } from "../../platform/http/upload-body.js";
+import { TaskLocksModule } from "../../platform/locks/task-locks.module.js";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { BusyWorkModule } from "../office-updates/index.js";
 import { EngineModule } from "../engine/index.js";
+import { PromptTemplatesModule } from "../prompt-templates/index.js";
 import { FilesystemAttachmentFiles } from "./adapters/filesystem/filesystem-attachment-files.js";
 import { UnpdfPdfPages } from "./adapters/pdf/unpdf-pdf-pages.js";
 import { FilesystemWorktreeFiles } from "./adapters/filesystem/worktree-files.js";
@@ -52,6 +54,7 @@ import { WorkOfficeActionsController } from "./adapters/http/work-office-actions
 import { WorkOfficeTools } from "./adapters/office-tools/work-office-tools.js";
 import { QueueController } from "./adapters/http/queue.controller.js";
 import { TasksController } from "./adapters/http/tasks.controller.js";
+import { ConflictResolutionsController } from "./adapters/http/conflict-resolutions.controller.js";
 import { PostgresAttachmentRepository } from "./adapters/postgres/postgres-attachment-repository.js";
 import { PostgresFireAlarmRepository } from "./adapters/postgres/postgres-fire-alarm-repository.js";
 import { PostgresIdeaRepository } from "./adapters/postgres/postgres-idea-repository.js";
@@ -63,6 +66,7 @@ import { WorkEarlierRecords } from "./adapters/postgres/work-earlier-records.js"
 import { PostgresWorkSearch } from "./adapters/postgres/postgres-work-search.js";
 import { PostgresWorkSettings } from "./adapters/postgres/postgres-work-settings.js";
 import { WorkWebEvents } from "./adapters/websocket/work-web-events.js";
+import { WorkPromptTemplates } from "./adapters/prompt-templates/work-prompt-templates-registration.js";
 import { AttachmentService } from "./application/attachment-service.js";
 import { FireAlarmService } from "./application/fire-alarm-service.js";
 import { IdeaRecords } from "./application/idea-records.js";
@@ -77,6 +81,7 @@ import { OfficeLimits } from "./application/office-limits.js";
 import { RemovedEngineCaps } from "./application/removed-engine-caps.js";
 import { OnboardingService } from "./application/onboarding-service.js";
 import { RunEnvironmentSetUps } from "./application/run-environment-set-ups.js";
+import { ConflictResolutions } from "./application/conflict-resolutions.js";
 import { PlanningService } from "./application/planning-service.js";
 import { SavedViewService } from "./application/saved-view-service.js";
 import { SearchService } from "./application/search-service.js";
@@ -95,6 +100,7 @@ import { InitiativeArchiving } from "./application/initiative-archiving.js";
 import { DroppedInitiativeTasks } from "./application/dropped-initiative-tasks.js";
 import { DroppedTaskDecisions } from "./application/dropped-task-decisions.js";
 import { PlanningAfterRestart } from "./application/planning-after-restart.js";
+import { PullRequestOutcomes } from "./application/pull-request-outcomes.js";
 import { TaskService } from "./application/task-service.js";
 import { PersonTasks } from "./application/person-tasks.js";
 import { ATTACHMENT_SIZE_LIMIT } from "./domain/attachment.js";
@@ -118,6 +124,7 @@ import { NewProjects } from "./ports/new-projects.js";
 import { ProjectInitiativeBranches } from "./ports/project-initiative-branches.js";
 import { ProjectWorktrees } from "./ports/project-worktrees.js";
 import { StageResults } from "./ports/stage-results.js";
+import { TaskPullRequests } from "./ports/task-pull-requests.js";
 import { TaskGates } from "./ports/task-gates.js";
 import { ProposalDrafts } from "./ports/proposal-drafts.js";
 import { SavedViewRepository } from "./ports/saved-view-repository.js";
@@ -146,6 +153,7 @@ export interface WorkModuleOptions {
   readonly knownProjects: Type<KnownProjects>;
   readonly newProjects: Type<NewProjects>;
   readonly projectWorktrees: Type<ProjectWorktrees>;
+  readonly taskPullRequests: Type<TaskPullRequests>;
   readonly projectInitiativeBranches: Type<ProjectInitiativeBranches>;
   readonly knownPeople: Type<KnownPeople>;
   readonly knownEngineCascade: Type<KnownEngineCascade>;
@@ -179,6 +187,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
     knownProjects,
     newProjects,
     projectWorktrees,
+    taskPullRequests,
     projectInitiativeBranches,
     knownPeople,
     knownEngineCascade,
@@ -203,11 +212,19 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
     return {
       module: WorkModule,
       // Chats read Work and capture Ideas through Office tools on the Engine's registry.
-      imports: [...imports, EngineModule, ScheduleModule, BusyWorkModule],
+      imports: [
+        ...imports,
+        EngineModule,
+        ScheduleModule,
+        TaskLocksModule,
+        BusyWorkModule,
+        PromptTemplatesModule,
+      ],
       controllers: [
         IdeasController,
         InitiativesController,
         TasksController,
+        ConflictResolutionsController,
         QueueController,
         AttachmentsController,
         OfficeLimitsController,
@@ -238,6 +255,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         { provide: KnownProjects, useExisting: knownProjects },
         { provide: NewProjects, useExisting: newProjects },
         { provide: ProjectWorktrees, useExisting: projectWorktrees },
+        { provide: TaskPullRequests, useExisting: taskPullRequests },
         { provide: ProjectInitiativeBranches, useExisting: projectInitiativeBranches },
         { provide: KnownPeople, useExisting: knownPeople },
         { provide: KnownEngineCascade, useExisting: knownEngineCascade },
@@ -267,11 +285,13 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         InitiativeArchiving,
         DroppedInitiativeTasks,
         DroppedTaskDecisions,
+        PullRequestOutcomes,
         PlanningAfterRestart,
         OfficeLimits,
         RemovedEngineCaps,
         OnboardingService,
         RunEnvironmentSetUps,
+        ConflictResolutions,
         AttachmentService,
         SearchService,
         SavedViewService,
@@ -293,6 +313,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         IdeaRecords,
         StageScreenshots,
         WorkWebEvents,
+        WorkPromptTemplates,
         WorkOfficeTools,
         PlanningOfficeTools,
         CommitMessageOfficeTools,

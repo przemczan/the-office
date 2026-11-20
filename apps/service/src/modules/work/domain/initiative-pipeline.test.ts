@@ -4,12 +4,14 @@ import {
   chooseInitiativePipeline,
   confirmInitiative,
   dropInitiative,
+  setInitiativePipelines,
   writeShortName,
 } from "./initiative-changes.js";
 import { initiativeEditProblems } from "./initiative-edit.js";
 import {
   InitiativeBranchMade,
   InitiativePipelineChosen,
+  InitiativePipelinesSet,
   InitiativeShortNameWritten,
 } from "./initiative-events.js";
 import { InitiativeNotShaping } from "./initiative-not-shaping.js";
@@ -17,8 +19,11 @@ import { initiativePipelineChangeProblems } from "./initiative-pipeline.js";
 import { InitiativeRefused } from "./initiative-refused.js";
 import type { PipelineCommands, TaskPipelineChoice } from "./pipeline-commands.js";
 import { initiativePipelineLines } from "./record-words.js";
-import { SHAPING_OPENING, shapingBrief } from "./shaping.js";
+import { shapingBrief, shapingOpeningOf } from "./shaping.js";
 import { ANN_LEE, anInitiative, aTask } from "./work.fixtures.js";
+import { defaultWorkPrompts } from "./work-prompt-templates.fixtures.js";
+
+const prompts = defaultWorkPrompts();
 
 const at = new Date("2026-11-12T10:00:00.000Z");
 const NONE_TAKEN = new Set<string>();
@@ -257,6 +262,119 @@ describe("writeShortName", () => {
     ]);
     expect(() =>
       writeShortName(anInitiative({ ...ON_FULL, state: "active" }), "mine", NONE_TAKEN),
+    ).toThrow(InitiativeNotShaping);
+  });
+});
+
+describe("setInitiativePipelines", () => {
+  it("sets every Project's Pipeline and the user's Short name at once while shaping", () => {
+    const change = setInitiativePipelines(
+      anInitiative(ON_FULL),
+      [
+        { projectId: "app", pipelineId: undefined },
+        { projectId: "api", pipelineId: "quick" },
+      ],
+      " sync-2026 ",
+      NONE_TAKEN,
+    );
+
+    expect(change?.initiative).toMatchObject({
+      pipelines: [{ projectId: "api", pipelineId: "quick" }],
+      shortName: "sync-2026",
+    });
+    expect(change?.event).toBeInstanceOf(InitiativePipelinesSet);
+    expect(change?.event).toMatchObject({
+      pipelines: [{ projectId: "api", pipelineId: "quick" }],
+      shortName: "sync-2026",
+    });
+  });
+
+  it("keeps the Pipelines of the Projects it doesn't name", () => {
+    const change = setInitiativePipelines(
+      anInitiative(ON_TWO),
+      [{ projectId: "api", pipelineId: "full" }],
+      "sync-it",
+      NONE_TAKEN,
+    );
+
+    expect(change?.initiative.pipelines).toEqual([
+      { projectId: "app", pipelineId: "full" },
+      { projectId: "api", pipelineId: "full" },
+    ]);
+  });
+
+  it("without a Short name keeps the one it has, or derives one past those taken", () => {
+    const kept = setInitiativePipelines(
+      anInitiative(ON_FULL),
+      [{ projectId: "app", pipelineId: "quick" }],
+      undefined,
+      NONE_TAKEN,
+    );
+    const derived = setInitiativePipelines(
+      anInitiative(SYNC),
+      [{ projectId: "app", pipelineId: "full" }],
+      undefined,
+      new Set(["sync-it"]),
+    );
+
+    expect(kept?.initiative.shortName).toBe("sync-it");
+    expect(derived?.initiative.shortName).toBe("sync-it-2");
+  });
+
+  it("with None in every Project leaves no Short name", () => {
+    const change = setInitiativePipelines(
+      anInitiative(ON_FULL),
+      [{ projectId: "app", pipelineId: undefined }],
+      "sync-it",
+      NONE_TAKEN,
+    );
+
+    expect(change?.initiative).toMatchObject({ pipelines: [], shortName: undefined });
+    expect(change?.event).toMatchObject({ pipelines: [], shortName: undefined });
+  });
+
+  it("changes nothing when the block says so already", () => {
+    expect(
+      setInitiativePipelines(
+        anInitiative(ON_FULL),
+        [{ projectId: "app", pipelineId: "full" }],
+        "sync-it",
+        NONE_TAKEN,
+      ),
+    ).toBeUndefined();
+  });
+
+  it("refuses a Short name that is taken or not of the form, with nothing set", () => {
+    expect(
+      refusalOf(() =>
+        setInitiativePipelines(
+          anInitiative(ON_FULL),
+          [{ projectId: "api", pipelineId: "quick" }],
+          "mine",
+          new Set(["mine"]),
+        ),
+      ),
+    ).toEqual(["Another Initiative has the Short name mine; choose another."]);
+    expect(
+      refusalOf(() =>
+        setInitiativePipelines(
+          anInitiative(ON_FULL),
+          [{ projectId: "app", pipelineId: "full" }],
+          "Mine!",
+          NONE_TAKEN,
+        ),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("refuses once the Initiative is confirmed", () => {
+    expect(() =>
+      setInitiativePipelines(
+        anInitiative({ ...ON_FULL, state: "active" }),
+        [{ projectId: "app", pipelineId: "quick" }],
+        "sync-it",
+        NONE_TAKEN,
+      ),
     ).toThrow(InitiativeNotShaping);
   });
 });
@@ -529,7 +647,14 @@ describe("what the CTO and read_initiative read of the Initiative's Pipelines", 
   });
 
   it("lists each Project's Pipeline in the shaping Brief, None until one is chosen", () => {
-    const brief = shapingBrief(anInitiative(SYNC), undefined, "The record.", projects, pipelines);
+    const brief = shapingBrief(
+      prompts,
+      anInitiative(SYNC),
+      undefined,
+      "The record.",
+      projects,
+      pipelines,
+    );
 
     expect(brief).toContain("The record.");
     expect(brief).toContain("- App (app): None, so each of its Tasks publishes on its own.");
@@ -548,7 +673,7 @@ describe("what the CTO and read_initiative read of the Initiative's Pipelines", 
       shortName: "sync-it",
     });
 
-    const brief = shapingBrief(initiative, undefined, "The record.", projects, pipelines);
+    const brief = shapingBrief(prompts, initiative, undefined, "The record.", projects, pipelines);
 
     expect(brief).toContain("- App (app): App's checks.");
     expect(brief).toContain("- Api (api): Full.");
@@ -559,7 +684,14 @@ describe("what the CTO and read_initiative read of the Initiative's Pipelines", 
   });
 
   it("tells the CTO the Initiative's Tasks are in the Project its Idea was captured in", () => {
-    const brief = shapingBrief(anInitiative(SYNC), "app", "The record.", projects, pipelines);
+    const brief = shapingBrief(
+      prompts,
+      anInitiative(SYNC),
+      "app",
+      "The record.",
+      projects,
+      pipelines,
+    );
 
     expect(brief).toContain(
       "The Idea was captured in the Project app, so the Initiative's Tasks are in app unless the user names other Projects: don't ask which Project it is for.",
@@ -567,17 +699,24 @@ describe("what the CTO and read_initiative read of the Initiative's Pipelines", 
   });
 
   it("names no Project in the shaping Brief of an Initiative shaped from an Office-wide Idea", () => {
-    const brief = shapingBrief(anInitiative(SYNC), undefined, "The record.", projects, pipelines);
+    const brief = shapingBrief(
+      prompts,
+      anInitiative(SYNC),
+      undefined,
+      "The record.",
+      projects,
+      pipelines,
+    );
 
     expect(brief).not.toContain("The Idea was captured in the Project");
     expect(brief).not.toContain("don't ask which Project");
   });
 
   it("opens shaping asking which Projects it touches only for an Idea captured Office-wide", () => {
-    expect(SHAPING_OPENING).toContain(
+    expect(shapingOpeningOf(prompts, anInitiative())).toContain(
       "When the Idea was captured Office-wide, also ask which Projects it touches",
     );
-    expect(SHAPING_OPENING).toContain(
+    expect(shapingOpeningOf(prompts, anInitiative())).toContain(
       "when it was captured in a Project, ask only whether it reaches other Projects too",
     );
   });

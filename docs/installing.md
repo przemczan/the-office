@@ -80,7 +80,7 @@ curl -fsSL https://github.com/przemczan/the-office/releases/latest/download/inst
 | What | Where |
 | --- | --- |
 | The system user `the-office`, in the `docker` group, which runs The Office | home `/home/the-office` |
-| The release, unpacked, and the link to the one that runs | `/opt/the-office/releases/<version>/`, `/opt/the-office/current` |
+| The release, unpacked, and the link to the one that runs; it carries the knowledge base Agents read, `docs/spec/` with `GLOSSARY.md` | `/opt/the-office/releases/<version>/`, `/opt/the-office/current` |
 | The configuration, readable by root alone | `/etc/the-office/office.env` |
 | The systemd service, started now and at every boot | `the-office.service` (`/etc/systemd/system/the-office.service`) |
 | The database `the_office`, owned by the role `office` with a random password | PostgreSQL 18's own cluster, on port 5432 unless another PostgreSQL already holds it (`DATABASE_URL` in `office.env` names the port) |
@@ -162,7 +162,7 @@ Go on with [First run](#first-run). If The Office doesn't start in time, the ins
 
 Go on with [First run](#first-run).
 
-The Compose install runs two containers: `office` and `postgres` (its data in the volume `the-office_postgres-data`). When Bundled Grafana is chosen ([Telemetry](#telemetry)), The Office starts it itself, as a Compose project of its own, `the-office-grafana`. The repository's own `docker-compose.yml`, the dev stack, uses the same project name and volume, so a machine runs one of them, never both.
+The Compose install runs two containers: `office` and `postgres` (its data in the volume `the-office_postgres-data`). The `office` image carries the knowledge base Agents read at `/opt/the-office/docs/spec/`. When Bundled Grafana is chosen ([Telemetry](#telemetry)), The Office starts it itself, as a Compose project of its own, `the-office-grafana`. The repository's own `docker-compose.yml`, the dev stack, uses the same project name and volume, so a machine runs one of them, never both.
 
 **Only Projects inside the data folder work with run environments:** those added by Repository URL, which The Office clones into `<data folder>/repositories/`. A Project added from a local folder outside the data folder isn't at that path on the host, so its run environment can't mount it.
 
@@ -191,6 +191,8 @@ While no user exists, a new token replaces the earlier one:
 
 Once the first user exists, there is no token to get: sign in, or [set a password on the host](#setting-a-users-password-on-the-host).
 
+**The GitHub App's permissions:** the App that Sign in with GitHub registers asks for `metadata:read`, `contents:write`, `pull_requests:write`, `workflows:write`, `checks:read`, `statuses:read` (commit statuses) and `actions:write`. The last three let The Office show each pull request's checks. An install whose App was registered by an earlier release lacks them: Settings › Office identity, and the top of Work › Pull requests, then name what is missing. Choose **Add them to the App on GitHub** to edit the App's permissions, then have the owner accept the new permissions on each installation (the prompt links to each), and choose **Check again**. Until then pull requests are listed without their checks, with a problem in plain words.
+
 ## Configuration
 
 What The Office reads at its start, and how to apply a change:
@@ -212,6 +214,17 @@ A setting changed in The Office itself that applies only at its next start, such
 Telemetry is set in Settings › Telemetry (or First-run setup): Off, Bundled Grafana, or Your own endpoint, an OTLP over HTTP address. A change of where telemetry goes applies at the next start. On a direct install or a checkout, `OTEL_SDK_DISABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT` or `OTEL_EXPORTER_OTLP_HEADERS` in the configuration wins over the setting ([running-the-office.md](running-the-office.md#telemetry)).
 
 **Choosing Bundled Grafana is enough,** on every install: The Office starts it at once, in Docker, as its own Compose project `the-office-grafana`, at `http://localhost:3300` on this machine alone. Settings › Telemetry shows whether it is running, or why it couldn't start, with **Try again**. It needs the Docker The Office already uses for run environments, and ports `3300`, `4317` and `4318` free on `127.0.0.1`. Its data is kept in the volume `the-office-grafana_data`. Choosing Off or Your own endpoint stops it at the next start, keeping its data.
+
+### Signing in with Zitadel or another OpenID Connect provider
+
+Besides a password, a passkey, GitHub and Google, users can continue with one OpenID Connect provider, set up in Settings › Signing in. With Zitadel:
+
+1. In Zitadel, create an application of type **Web** with the authentication method **Code** (PKCE), and a client secret: choose the authentication method **Basic**, as The Office sends the secret by HTTP Basic.
+2. Add the redirect URIs Settings › Signing in shows, `<address>/api/sign-in/openid-connect/callback` for this address and for the public address, each with Copy. Zitadel accepts a plain-HTTP redirect URI only with the application's Development mode on.
+3. In Settings › Signing in, enter the name users see ("Continue with Zitadel"), the issuer URL (the instance's domain, such as `https://auth.example.com`), the client ID and the client secret, and save. The Office reads the provider's discovery document at the issuer URL and refuses a save that can't.
+4. Each user links their identity from Account › Linked identities, then continues with it from the sign-in page. Only a linked identity signs in, and an authenticator code is still asked for afterwards.
+
+Authentik and Keycloak work the same way: an OpenID Connect client with the authorization code flow, a client secret sent by HTTP Basic, and the same redirect URIs; the issuer URL is the one the provider's `.well-known/openid-configuration` lists as `issuer`. The issuer URL must be HTTPS, or `http://localhost` for a provider on the same machine. Saving a provider with another issuer removes the linked identities of the old one.
 
 ### Setting a user's password on the host
 

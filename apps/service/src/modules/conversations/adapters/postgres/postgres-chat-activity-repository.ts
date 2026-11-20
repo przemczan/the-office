@@ -1,15 +1,22 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, eq, inArray, notInArray, sql, type SQL } from "drizzle-orm";
+import { and, eq, inArray, not, notInArray, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { ChatThreadActivity } from "../../domain/chat-activity.js";
 import { USERS_OWN_MESSAGE_KINDS } from "../../domain/message.js";
 import { ChatActivityRepository, type SeenMark } from "../../ports/chat-activity-repository.js";
 import { threadSeen } from "./thread-seen.schema.js";
-import { threadMessages, threads } from "./threads.schema.js";
+import { decisions, threadMessages, threads } from "./threads.schema.js";
 
 const seenMessage = alias(threadMessages, "seen_message");
 const logged = alias(threadMessages, "logged");
+
+/**
+ * A `decision-answer` line of a chat's own Decision the user answered themselves, inline (spec
+ * §2.7): theirs, as their message is. The answer records `user` only then, even as null; a
+ * Consultant's, The Office's and one given at the user's request still count as answered.
+ */
+const answeredByTheUser = sql`(${logged.body}->>'kind' = 'decision-answer' and exists (select 1 from ${decisions} where ${decisions.id} = (${logged.body}->>'decisionId')::uuid and ${decisions.answer}->'user' is not null))`;
 
 @Injectable()
 export class PostgresChatActivityRepository extends ChatActivityRepository {
@@ -63,6 +70,7 @@ export class PostgresChatActivityRepository extends ChatActivityRepository {
           and(
             sql`${logged.position} > coalesce(${seenMessage.position}, 0)`,
             notInArray(sql`${logged.body}->>'kind'`, [...USERS_OWN_MESSAGE_KINDS]),
+            not(answeredByTheUser),
           ),
         )})`.mapWith(threads.startedAt),
       })

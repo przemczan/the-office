@@ -1,4 +1,5 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
+import { readEach } from "../../../../platform/database/fan-out.js";
 import {
   ANSWER_DECISION_TOOL,
   CONSULT_TOOL,
@@ -6,23 +7,29 @@ import {
   OPEN_DECISION_TOOL,
 } from "@the-office/contracts";
 import {
-  CALLING_RULE,
   InitiativeThreadSetups,
   type InitiativeThreadRequest,
   type InitiativeThreadSetup,
   type InitiativeThreadSource,
   READING_OFFICE_TOOLS,
 } from "../../../conversations/index.js";
+import { PromptTemplates, type PromptTexts } from "../../../prompt-templates/index.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import { initiativeProjectIds, type Initiative } from "../../domain/initiative.js";
 import {
-  INITIATIVE_PLANNING_INSTRUCTIONS,
   initiativePlanningBrief,
+  initiativePlanningInstructions,
   type InitiativePlanningProject,
 } from "../../domain/initiative-planning.js";
 import { initiativeRecordText } from "../../domain/record-words.js";
-import { SHAPING_INSTRUCTIONS, shapingBrief, type ShapingProject } from "../../domain/shaping.js";
+import { shapingBrief, shapingInstructions, type ShapingProject } from "../../domain/shaping.js";
 import type { Task } from "../../domain/task.js";
+import {
+  INITIATIVE_PLANNING_BRIEF,
+  INITIATIVE_PLANNING_INSTRUCTIONS,
+  SHAPING_BRIEF,
+  SHAPING_INSTRUCTIONS,
+} from "../../domain/work-prompt-templates.js";
 import { KnownPipelines } from "../../ports/known-pipelines.js";
 import { KnownProjects } from "../../ports/known-projects.js";
 import { TaskDecisions } from "../../ports/task-decisions.js";
@@ -42,13 +49,16 @@ import {
   WRITE_TASK_DESCRIPTION,
   WRITE_TASK_TITLE,
 } from "../office-tools/shaping-office-tools.js";
+import { withCallingRule } from "./calling-rule.js";
 import { initiativeBranchReads } from "./initiative-branch-reads.js";
 
 /**
  * The Office tools of a shaping session: it reads every record and Attachment and changes its own
  * Initiative, straight while it is shaping and by Proposal once it is active; create_task is left
  * out, since a Task made there would be no part of it. Its Tasks' dependencies and which Tasks it
- * has are Office actions, which the session gets by its person's duties (spec 5.4). It answers a
+ * has are Office actions, which the session gets by its person's duties (spec 5.4). It asks the
+ * user's choices in a Decision on no Task, one at a time, whose waiting Conversations' own section
+ * of the Brief words, so the shaping Brief doesn't read it. It answers a
  * Decision for the user when they ask, as every Thread the user talks in does, and calls a person
  * when the user asks (`CALLING_RULE`), on no Task, as a chat calls.
  */
@@ -59,20 +69,24 @@ export const SHAPING_OFFICE_TOOLS = [
   WRITE_TASK_TITLE,
   WRITE_TASK_DESCRIPTION,
   CHOOSE_PIPELINE,
+  OPEN_DECISION_TOOL,
   ANSWER_DECISION_TOOL,
   CONSULT_TOOL,
 ] as const;
 
-/** A shaping Thread's instructions, ending with when it calls a person. */
-export const SHAPING_THREAD_INSTRUCTIONS = `${SHAPING_INSTRUCTIONS}\n\n${CALLING_RULE}`;
-
-/** An Initiative's planning Thread's instructions, ending with when it calls a person. */
-export const INITIATIVE_PLANNING_THREAD_INSTRUCTIONS = `${INITIATIVE_PLANNING_INSTRUCTIONS}\n\n${CALLING_RULE}`;
+/** The templates an Initiative's Thread renders its instructions and Brief from. */
+const INITIATIVE_THREAD_PROMPT_TEMPLATES = [
+  SHAPING_INSTRUCTIONS,
+  SHAPING_BRIEF,
+  INITIATIVE_PLANNING_INSTRUCTIONS,
+  INITIATIVE_PLANNING_BRIEF,
+];
 
 /**
  * The Office tools of an Initiative's planning session: it reads every record and Attachment, moves
  * the Initiative's Tasks to Planning as their turn comes, writes each one's parts by its Task id,
- * opens a Decision on a Task that needs the user's answer, and answers one for the user when they
+ * opens a Decision on a Task that needs the user's answer, or one on no Task about the Initiative
+ * as a whole, and answers one for the user when they
  * ask; it calls a person when the user asks, on the Task its call names, or on none.
  */
 export const INITIATIVE_PLANNING_OFFICE_TOOLS = [
@@ -103,6 +117,7 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
     private readonly projects: KnownProjects,
     private readonly pipelines: KnownPipelines,
     private readonly decisions: TaskDecisions,
+    private readonly promptTemplates: PromptTemplates,
   ) {}
 
   onModuleInit(): void {
@@ -115,25 +130,27 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
     const record = initiativeRecordText(initiativeRecord);
     const sessionRefusal = ENDED_INITIATIVE_CONVERSATION_WORDS[initiative.state];
     const branchReads = initiativeBranchReads(initiative, tasks);
+    const prompts = await this.promptTemplates.textsOf(INITIATIVE_THREAD_PROMPT_TEMPLATES);
     if (!initiative.planningThreadIds.includes(threadId)) {
       return {
-        instructions: SHAPING_THREAD_INSTRUCTIONS,
+        instructions: withCallingRule(shapingInstructions(prompts)),
         officeTools: SHAPING_OFFICE_TOOLS,
-        record: await this.shapingBrief(initiative, idea?.projectId, record, tasks),
+        record: await this.shapingBrief(prompts, initiative, idea?.projectId, record, tasks),
         sessionRefusal,
         branchReads,
       };
     }
     return {
-      instructions: INITIATIVE_PLANNING_THREAD_INSTRUCTIONS,
+      instructions: withCallingRule(initiativePlanningInstructions(prompts)),
       officeTools: INITIATIVE_PLANNING_OFFICE_TOOLS,
-      record: await this.planningBrief(initiative, record, tasks, threadId),
+      record: await this.planningBrief(prompts, initiative, record, tasks, threadId),
       sessionRefusal,
       branchReads,
     };
   }
 
   private async shapingBrief(
+    prompts: PromptTexts,
     initiative: Initiative,
     ideaProjectId: string | undefined,
     record: string,
@@ -141,9 +158,9 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
   ): Promise<string> {
     const [officeWide, projects] = await Promise.all([
       this.pipelines.list(),
-      Promise.all(initiativeProjectIds(tasks).map((id) => this.shapingProject(id))),
+      readEach(initiativeProjectIds(tasks), (id) => this.shapingProject(id)),
     ]);
-    return shapingBrief(initiative, ideaProjectId, record, projects, officeWide);
+    return shapingBrief(prompts, initiative, ideaProjectId, record, projects, officeWide);
   }
 
   private async shapingProject(id: string): Promise<ShapingProject> {
@@ -159,6 +176,7 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
   }
 
   private async planningBrief(
+    prompts: PromptTexts,
     initiative: Initiative,
     record: string,
     tasks: readonly Task[],
@@ -168,10 +186,8 @@ export class InitiativeThreadRecords implements InitiativeThreadSource, OnModule
       this.pipelines.list(),
       this.decisions.openInThread(threadId),
     ]);
-    const projects = await Promise.all(
-      initiativeProjectIds(tasks).map((id) => this.planningProject(id)),
-    );
-    return initiativePlanningBrief({
+    const projects = await readEach(initiativeProjectIds(tasks), (id) => this.planningProject(id));
+    return initiativePlanningBrief(prompts, {
       initiative,
       waiting,
       record,

@@ -166,7 +166,9 @@ describe("POST /api/tasks/:id/stages/check", () => {
     expect(response.status).toBe(200);
     expect(stagesCheckSchema.parse(await response.json()).problems).toEqual([
       {
-        stageIndex: 0,
+        stageKey: "tests",
+        at: { kind: "onFailure" },
+        level: "problem",
         text: "Stage 1 · Tests: on failure it can only go back to an earlier Stage.",
       },
     ]);

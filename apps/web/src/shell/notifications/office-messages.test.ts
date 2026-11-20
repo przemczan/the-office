@@ -109,3 +109,27 @@ describe("officeMessageWords", () => {
     });
   });
 });
+
+describe("officeMessageWords of a Notification naming a time", () => {
+  it("words the time in the browser's time zone in both the short line and the line", () => {
+    const at = "2026-11-17T16:10:00.000Z";
+    const usedUp: Notification = {
+      ...notification(
+        "n4",
+        "office.window.used-up",
+        "Claude's 5-hour window is used up until {time}.",
+        "Claude used up until {time}",
+      ),
+      at,
+    };
+    const local = new Date(at);
+    const clock = `${String(local.getHours()).padStart(2, "0")}:${String(local.getMinutes()).padStart(2, "0")}`;
+
+    expect(officeMessageWords({ kind: "notification", notification: usedUp }, local)).toMatchObject(
+      {
+        shortLine: `Claude used up until ${clock}`,
+        line: `Claude's 5-hour window is used up until ${clock}.`,
+      },
+    );
+  });
+});

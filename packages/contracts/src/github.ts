@@ -38,6 +38,32 @@ const registeredAppSchema = z.object({
   installUrl: z.url(),
 });
 
+/** One permission the GitHub App needs, by GitHub's name and level, such as `checks` and `read`. */
+export const gitHubPermissionSchema = z.object({
+  name: z.string().min(1),
+  level: z.enum(["read", "write"]),
+});
+export type GitHubPermission = z.infer<typeof gitHubPermissionSchema>;
+
+/**
+ * The permissions the App needs that an installation hasn't granted, read from GitHub: the App's
+ * permission settings to add them on, and each installation's page to accept them on.
+ */
+export const gitHubMissingPermissionsSchema = z.object({
+  missing: z.array(gitHubPermissionSchema).min(1),
+  /** The App's permission settings on GitHub, the user's or the organisation's. */
+  appPermissionsUrl: z.url(),
+  installations: z.array(
+    z.object({
+      /** The login of the account the App is installed on. */
+      account: z.string().min(1),
+      /** The installation's page on GitHub, where its owner accepts the new permissions. */
+      acceptUrl: z.url(),
+    }),
+  ),
+});
+export type GitHubMissingPermissions = z.infer<typeof gitHubMissingPermissionsSchema>;
+
 /**
  * Sign in with GitHub as Settings › Office identity shows it. Tokens are never part of it: they stay
  * in the service.
@@ -50,7 +76,16 @@ export const gitHubStateSchema = z.discriminatedUnion("status", [
     /** Why the user was signed out, when The Office did it rather than the user. */
     reason: z.object({ text: z.string().min(1) }).optional(),
   }),
-  z.object({ status: z.literal("signed-in"), app: registeredAppSchema, login: z.string().min(1) }),
+  z.object({
+    status: z.literal("signed-in"),
+    app: registeredAppSchema,
+    login: z.string().min(1),
+    /**
+     * The permissions an installation lacks; null when every installation has them all, or when
+     * GitHub couldn't be asked.
+     */
+    permissions: gitHubMissingPermissionsSchema.nullable(),
+  }),
 ]);
 export type GitHubState = z.infer<typeof gitHubStateSchema>;
 

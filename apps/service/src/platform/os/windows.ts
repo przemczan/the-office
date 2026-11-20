@@ -2,8 +2,10 @@ import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import { win32 } from "node:path";
+import { codexBuild } from "./codex-build.js";
 import type { OperatingSystem, SshPrograms, UserEnvironment } from "./operating-system.js";
 import { pathLengthProblem, type PathLimits, type PathRules } from "./path-rules.js";
+import { doubleQuoted, printFileCommand } from "./print-file-command.js";
 import type { ProcessTrees } from "./process-trees.js";
 import type { AgentShellProgram, FailedShellCommand, Shell } from "./shell.js";
 
@@ -50,6 +52,7 @@ export function windows({ variables, homeDirectory }: UserEnvironment): Operatin
       "claude",
     ),
     claudeCodeBinaries: [`win32-${process.arch}/claude.exe`],
+    codexBinary: codexBuild("win32", "pc-windows-msvc", "codex.exe"),
     secretPaths: [
       win32.join(homeDirectory, ".ssh"),
       win32.join(
@@ -70,6 +73,7 @@ export function windows({ variables, homeDirectory }: UserEnvironment): Operatin
     },
     hasLoadAverage: false,
     sameVariableName: (one, other) => one.toUpperCase() === other.toUpperCase(),
+    printFileCommand: (file) => printFileCommand(doubleQuoted, file),
     gitHomeDirectory: (commandVariables) => gitForWindowsHome(commandVariables, homeDirectory),
     restrictToOwner: (path, kind) => icaclsOwnerOnly(variables, path, kind),
   };
@@ -285,13 +289,16 @@ function taskkill(variables: UserEnvironment["variables"]): ProcessTrees {
         (error) => (error && typeof error.code !== "number" ? reject(error) : resolve()),
       );
     });
+  const endChildren = async (processId: number): Promise<void> => {
+    for (const child of await childrenOf(powerShell, processId)) await end(child);
+  };
   return {
     // A detached process would get a console window of its own; taskkill finds the tree without.
     detached: false,
     end,
-    endLeftovers: async (processId) => {
-      for (const child of await childrenOf(powerShell, processId)) await end(child);
-    },
+    endLeftovers: endChildren,
+    // Each child's tree, as taskkill's /t finds it by the parents Windows keeps.
+    endDescendants: endChildren,
   };
 }
 

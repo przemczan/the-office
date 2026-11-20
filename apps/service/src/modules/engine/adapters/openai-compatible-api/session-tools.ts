@@ -10,7 +10,7 @@ import type { ToolDefinition } from "./chat-completions.js";
 import { EDIT_TOOL } from "./edit-tool.js";
 import { GLOB_TOOL } from "./glob-tool.js";
 import { GREP_TOOL } from "./grep-tool.js";
-import type { ListedSkill } from "./listed-skills.js";
+import type { ListedSkill } from "../skills/listed-skills.js";
 import { mcpBuiltInTool } from "./mcp-tool.js";
 import { officeBuiltInTool, type CallJudge } from "./office-tool.js";
 import { READ_TOOL } from "./read-tool.js";

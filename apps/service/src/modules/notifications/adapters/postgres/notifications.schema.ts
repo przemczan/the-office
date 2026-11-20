@@ -68,6 +68,11 @@ export const notifications = pgTable(
     line: text("line").notNull(),
     /** The line cut to fit the status strip, for the kinds that have one. */
     shortLine: text("short_line"),
+    /**
+     * The instant its lines name where they hold `{time}`, worded by each reader's time zone; null
+     * when they name none, and for those raised before the column (2026-11-16), worded already.
+     */
+    at: timestamp("at", { withTimezone: true }),
     pointsTo: jsonb("points_to").$type<Pointer>().notNull(),
     channels: jsonb("channels").$type<readonly Channel[]>().notNull(),
     raisedAt: timestamp("raised_at", { withTimezone: true }).notNull(),

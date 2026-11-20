@@ -6,6 +6,8 @@ export {
 } from "./application/initiative-branches.js";
 export { ProjectRecords } from "./application/project-records.js";
 export { ProjectService } from "./application/project-service.js";
+export { PullRequestRecords } from "./application/pull-request-records.js";
+export type { PullRequest } from "./domain/pull-request.js";
 export {
   EngineLevelsChecks,
   type EngineLevelsCheck,
@@ -26,6 +28,7 @@ export {
 export type { FinishedCommand } from "./ports/command-runner.js";
 export { OutputMask } from "./domain/output-mask.js";
 export { TaskWorktrees, type SessionWorktree } from "./application/task-worktrees.js";
+export type { BranchCheckout } from "./application/worktrees.js";
 export { TaskBases, type TaskBaseLookup } from "./application/task-bases.js";
 export type { TaskBase } from "./domain/task-base.js";
 export type { PublishingBranchPush } from "./domain/publication.js";
@@ -66,6 +69,13 @@ export type {
   RunEnvironmentAnswer,
   RunEnvironmentSetting,
 } from "./domain/project.js";
+export {
+  PullRequestClosed,
+  PullRequestMerged,
+  PullRequestReopened,
+  type PullRequestEndedBy,
+} from "./domain/pull-request-events.js";
+export type { MergeMethod } from "./domain/merge-method.js";
 export { ProjectNotFound } from "./domain/project-not-found.js";
 export { ProjectRefused } from "./domain/project-refused.js";
 export {

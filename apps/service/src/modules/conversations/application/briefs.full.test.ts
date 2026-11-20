@@ -6,17 +6,21 @@ import { ThreadImages } from "./thread-images.js";
 import type { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
+import { KnowledgeBase } from "../../../platform/knowledge-base/knowledge-base.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import {
   freshChatThreadBrief,
   initiativeThreadBrief,
+  knowledgeBaseLine,
   newChatThreadBrief,
   taskThreadBrief,
+  withKnowledgeBase,
+  type Brief,
   type BriefMemory,
   type BriefProject,
 } from "../domain/brief.js";
 import { TurnEnded } from "../domain/conversation-events.js";
-import type { Decision } from "../domain/decision.js";
+import { oneOptionAnswer, oneWordsAnswer, type Decision } from "../domain/decision.js";
 import { aDecision } from "../domain/decision.fixtures.js";
 import type { Thread } from "../domain/thread.js";
 import { logMessages } from "../domain/thread-changes.js";
@@ -31,6 +35,22 @@ import {
 } from "./initiative-thread-setups.js";
 import { sessionMemoryProvider, type MemoryAsk } from "./session-memory.fixtures.js";
 import { TaskThreadSetups, type TaskThreadRequest } from "./task-thread-setups.js";
+import { ConversationsPromptTemplatesForTests } from "../adapters/prompt-templates/conversations-prompt-templates.fixtures.js";
+import { defaultPromptTexts, PromptTemplates } from "../../prompt-templates/index.js";
+import { CONVERSATIONS_PROMPT_TEMPLATES } from "../domain/conversations-prompt-templates.js";
+import {
+  PromptTemplateRepository,
+  PromptTemplateRepositoryForTests,
+} from "../../prompt-templates/index.fixtures.js";
+import { TASK_THREAD_BRIEF } from "../domain/brief-templates.js";
+import { ANN_LEE } from "../domain/user.fixtures.js";
+
+const PROMPTS = defaultPromptTexts(CONVERSATIONS_PROMPT_TEMPLATES);
+
+/** A session's Brief as Briefs gives it: led by the line naming the checkout's knowledge base. */
+function led(brief: Brief): Brief {
+  return withKnowledgeBase(brief, KnowledgeBase.at().index);
+}
 
 const ADMIN_PANEL: BriefProject = {
   projectId: "admin-panel",
@@ -70,7 +90,12 @@ beforeAll(async () => {
     },
   };
   ({ app } = await startTestApplication({
+    imports: [ConversationsPromptTemplatesForTests],
     database: true,
+    // The test saves a real template's text, which every other test file would read.
+    overrides: [
+      { provide: PromptTemplateRepository, useValue: new PromptTemplateRepositoryForTests() },
+    ],
     providers: [
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
       { provide: ProjectBases, useValue: bases },
@@ -101,6 +126,9 @@ beforeAll(async () => {
     setUp: ({ taskId }: TaskThreadRequest) =>
       Promise.resolve({
         projectId: "admin-panel",
+        initiativeId: undefined,
+        projectName: "Admin panel",
+        pipelineName: "",
         folder: `/office/worktrees/admin-panel/${taskId}`,
         environment: {},
         useProjectSkills: true,
@@ -137,7 +165,7 @@ const A_SESSION = {
 describe("Briefs", () => {
   it("briefs a Thread nobody answered in yet as a new one", async () => {
     await expect(briefs.forThread(aThread({ id: randomUUID() }))).resolves.toEqual(
-      newChatThreadBrief(PROJECTS, MEMORY),
+      led(newChatThreadBrief(PROMPTS, PROJECTS, MEMORY)),
     );
   });
 
@@ -153,12 +181,14 @@ describe("Briefs", () => {
     );
 
     await expect(briefs.forThread(titled)).resolves.toEqual(
-      freshChatThreadBrief({
-        title: "Read the deploy workflow",
-        log: [said],
-        projects: PROJECTS,
-        memory: MEMORY,
-      }),
+      led(
+        freshChatThreadBrief(PROMPTS, {
+          title: "Read the deploy workflow",
+          log: [said],
+          projects: PROJECTS,
+          memory: MEMORY,
+        }),
+      ),
     );
   });
 
@@ -182,11 +212,31 @@ describe("Briefs", () => {
     const record = { record: recordOf(taskId), answered: [], open: undefined, memory: MEMORY };
 
     await expect(briefs.forThread(aThread({ home }))).resolves.toEqual(
-      taskThreadBrief({ ...record, continuing: false }),
+      led(taskThreadBrief(PROMPTS, { ...record, continuing: false })),
     );
     await expect(briefs.forThread(aThread({ home, session: A_SESSION }))).resolves.toEqual(
-      taskThreadBrief({ ...record, continuing: true }),
+      led(taskThreadBrief(PROMPTS, { ...record, continuing: true })),
     );
+  });
+
+  it("briefs a Thread on a Task in the Task Thread's Brief's saved text", async () => {
+    const taskId = randomUUID();
+    const templates = app.get(PromptTemplates);
+    await templates.save(
+      TASK_THREAD_BRIEF.key,
+      "{{record}}\n\nAsk before you start.{{#memory}}\n\n{{memory}}{{/memory}}",
+      ANN_LEE,
+    );
+
+    try {
+      const brief = await briefs.forThread(aThread({ home: { kind: "task", taskId } }));
+
+      expect(brief.text).toBe(
+        `${knowledgeBaseLine(String(KnowledgeBase.at().index))}\n\n${recordOf(taskId)}\n\nAsk before you start.\n\n## Your Memory\n\nNotes you wrote in earlier sessions, oldest first:\n\n- 2026-10-10: Prefers short answers.\n\n1 older note left out.`,
+      );
+    } finally {
+      await templates.resetToDefault(TASK_THREAD_BRIEF.key, ANN_LEE);
+    }
   });
 
   it("briefs a Thread on an Initiative from its record, the Memory for no Project and every Project", async () => {
@@ -196,11 +246,11 @@ describe("Briefs", () => {
     const record = { record: recordOf(initiativeId), memory: MEMORY, projects: PROJECTS };
 
     await expect(briefs.forThread(aThread({ roleKey: "cto", home }))).resolves.toEqual(
-      initiativeThreadBrief({ ...record, continuing: false }),
+      led(initiativeThreadBrief(PROMPTS, { ...record, continuing: false })),
     );
     await expect(
       briefs.forThread(aThread({ roleKey: "cto", home, session: A_SESSION })),
-    ).resolves.toEqual(initiativeThreadBrief({ ...record, continuing: true }));
+    ).resolves.toEqual(led(initiativeThreadBrief(PROMPTS, { ...record, continuing: true })));
     expect(asked).toEqual([
       { roleKey: "cto", reach: { kind: "all-projects" } },
       { roleKey: "cto", reach: { kind: "all-projects" } },
@@ -214,12 +264,14 @@ describe("Briefs", () => {
     const home = { kind: "initiative", initiativeId } as const;
 
     await expect(briefs.forThread(aThread({ roleKey: "cto", home }))).resolves.toEqual(
-      initiativeThreadBrief({
-        record: recordOf(initiativeId),
-        memory: MEMORY,
-        projects: ON_THE_BRANCH,
-        continuing: false,
-      }),
+      led(
+        initiativeThreadBrief(PROMPTS, {
+          record: recordOf(initiativeId),
+          memory: MEMORY,
+          projects: ON_THE_BRANCH,
+          continuing: false,
+        }),
+      ),
     );
     expect(listedOnInitiative).toEqual([reads]);
   });
@@ -233,20 +285,24 @@ describe("Briefs", () => {
     const first = aDecision({
       threadId: another.id,
       taskId,
-      answer: { kind: "option", option: 1, answeredAt },
+      answer: { ...oneOptionAnswer(1), answeredAt },
     });
     const second = aDecision({
       threadId: planning.id,
       taskId,
-      question: "Which format?",
-      answer: { kind: "free-answer", text: "CSV.", answeredAt: new Date(answeredAt.getTime() + 1) },
+      questions: [{ kind: "open", question: "Which format?" }],
+      answer: { ...oneWordsAnswer("CSV."), answeredAt: new Date(answeredAt.getTime() + 1) },
     });
-    const open = aDecision({ threadId: planning.id, taskId, question: "Which columns?" });
+    const open = aDecision({
+      threadId: planning.id,
+      taskId,
+      questions: [{ kind: "open", question: "Which columns?" }],
+    });
     const elsewhere = aDecision({
       threadId: (
         await added(aThread({ id: randomUUID(), home: { kind: "task", taskId: randomUUID() } }))
       ).id,
-      answer: { kind: "option", option: 0, answeredAt },
+      answer: { ...oneOptionAnswer(0), answeredAt },
     });
     await added(planning);
     await added(another);
@@ -256,13 +312,15 @@ describe("Briefs", () => {
 
     expect(thread?.openDecisions[0]).toEqual(open);
     await expect(briefs.forThread(thread ?? planning)).resolves.toEqual(
-      taskThreadBrief({
-        record: recordOf(taskId),
-        continuing: false,
-        answered: [first, second],
-        open,
-        memory: MEMORY,
-      }),
+      led(
+        taskThreadBrief(PROMPTS, {
+          record: recordOf(taskId),
+          continuing: false,
+          answered: [first, second],
+          open,
+          memory: MEMORY,
+        }),
+      ),
     );
   });
 });

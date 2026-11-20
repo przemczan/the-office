@@ -1,15 +1,16 @@
 import { Injectable } from "@nestjs/common";
+import { readEach } from "../../../platform/database/fan-out.js";
 import { ModelPrices } from "../../engine/index.js";
 import {
   dollarsPerToken,
-  latestTasksRuns,
+  HISTORY_TASKS,
   stageUsages,
   tokensByModel,
   type ModelTokens,
   type PricedTokens,
+  type StageRunUsage,
   type StageUsages,
 } from "../domain/usage-history.js";
-import type { StageRun } from "../domain/stage-run.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 
 /**
@@ -34,11 +35,11 @@ export class UsageHistory {
    */
   async dollarsPerToken(doneTaskIds: readonly string[]): Promise<number | undefined> {
     const runs = await this.latestRuns(doneTaskIds);
-    return dollarsPerToken(await Promise.all(tokensByModel(runs).map((each) => this.priced(each))));
+    return dollarsPerToken(await readEach(tokensByModel(runs), (each) => this.priced(each)));
   }
 
-  private async latestRuns(doneTaskIds: readonly string[]): Promise<readonly StageRun[]> {
-    return latestTasksRuns(await this.runs.listOfTasks(doneTaskIds));
+  private latestRuns(doneTaskIds: readonly string[]): Promise<readonly StageRunUsage[]> {
+    return this.runs.latestTasksUsage(doneTaskIds, HISTORY_TASKS);
   }
 
   // Cost is linear in tokens, so one price per engine and model covers all its runs.

@@ -3,6 +3,7 @@ import { TaskService } from "../../work/index.js";
 import {
   StartedTasks,
   type ResumedOrDroppedBy,
+  type StandInTakingOver,
   type StartedTask,
   type TaskBlocker,
   type UsageWindowRefusal,
@@ -50,6 +51,10 @@ export class OwnProjectsStartedTasks extends StartedTasks {
 
   pauseForUsageWindow(taskId: string, refusal: UsageWindowRefusal): Promise<StartedTask> {
     return this.tasks.pauseForUsageWindow(taskId, refusal);
+  }
+
+  wentOnOnStandIn(taskId: string, standIn: StandInTakingOver): Promise<unknown> {
+    return this.tasks.wentOnOnStandIn(taskId, standIn);
   }
 
   resume(taskId: string, by: ResumedOrDroppedBy): Promise<StartedTask> {

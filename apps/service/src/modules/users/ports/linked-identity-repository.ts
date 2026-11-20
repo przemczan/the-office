@@ -24,4 +24,7 @@ export abstract class LinkedIdentityRepository {
   abstract remove(userId: string, provider: IdentityProviderId): Promise<boolean>;
 
   abstract removeAllOf(userId: string): Promise<void>;
+
+  /** Forgets every user's identity of this provider; says how many there were. */
+  abstract removeAllAt(provider: IdentityProviderId): Promise<number>;
 }

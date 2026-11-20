@@ -19,8 +19,20 @@ export class ManualSchedule extends Schedule {
     return new Date((this.time ?? new Date()).getTime());
   }
 
+  private readonly intervals = new Map<string, number>();
+
   daily(name: string, job: ScheduledJob): void {
     this.jobs.set(name, job);
+  }
+
+  every(name: string, intervalMs: number, job: ScheduledJob): void {
+    this.jobs.set(name, job);
+    this.intervals.set(name, intervalMs);
+  }
+
+  /** How long a repeating job waits after each run; undefined when none by `name` was scheduled. */
+  intervalOf(name: string): number | undefined {
+    return this.intervals.get(name);
   }
 
   once(name: string, at: Date, job: ScheduledJob): Wait {
@@ -59,8 +71,16 @@ export class ManualSchedule extends Schedule {
 
   /** Runs the job as its day's run would, and waits for it. */
   async runDaily(name: string): Promise<void> {
+    await this.runRepeating(name);
+  }
+
+  /**
+   * Runs a daily or repeating job as its next run would, and waits for it. Repeating jobs never run
+   * as the clock moves, so a test moving it days on doesn't run thousands of them.
+   */
+  async runRepeating(name: string): Promise<void> {
     const job = this.jobs.get(name);
-    if (!job) throw new Error(`No daily job named ${name} was scheduled.`);
+    if (!job) throw new Error(`No repeating job named ${name} was scheduled.`);
     await job();
   }
 

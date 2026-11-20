@@ -172,6 +172,27 @@ describe("a session whose context filled up", () => {
     }
   });
 
+  it("resumes a session moved to a Stand-in Engine on the engine it stands in for", () => {
+    const moved = aContinuation(5, 40_000);
+    const onStandIn = {
+      ...moved,
+      session: moved.session && {
+        ...moved.session,
+        engineId: "home-account",
+        standInFor: { engineId: "claude-code", engineName: "Claude Code", reason: "used up" },
+      },
+    };
+
+    expect(decideContext(onStandIn)).toMatchObject({ move: "resume", reason: "cache-warm" });
+    expect(decideContext({ ...onStandIn, engineId: "home-account" })).toMatchObject({
+      move: "resume",
+    });
+    expect(decideContext({ ...onStandIn, engineId: "second-account" })).toMatchObject({
+      move: "fresh",
+      reason: "engine-changed",
+    });
+  });
+
   it("starts fresh once changes are allowed in the Thread or switched off, whatever would resume", () => {
     const allowed = aContinuation(5, 40_000, { changesAllowed: true });
     const base = aContinuation(5, 40_000);

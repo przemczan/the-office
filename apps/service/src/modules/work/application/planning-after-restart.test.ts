@@ -7,8 +7,9 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { OfficeToolRegistry } from "../../engine/index.js";
 import { anOfficeToolCall } from "../../engine/index.fixtures.js";
 import { START_PLANNING } from "../adapters/office-tools/planning-office-tools.js";
-import { INITIATIVE_PLANNING_AFTER_RESTART_OPENING } from "../domain/initiative-planning.js";
-import { PLANNING_AFTER_RESTART_OPENING } from "../domain/planning.js";
+import { initiativePlanningAfterRestartOpening } from "../domain/initiative-planning.js";
+import { planningAfterRestartOpening } from "../domain/planning.js";
+import { defaultWorkPrompts } from "../domain/work-prompt-templates.fixtures.js";
 import {
   InitiativeThreadsForTests,
   SessionInitiativesForTests,
@@ -21,6 +22,10 @@ import {
 } from "../work-application.fixtures.js";
 import { FireAlarmService } from "./fire-alarm-service.js";
 import { PlanningAfterRestart } from "./planning-after-restart.js";
+
+const prompts = defaultWorkPrompts();
+const PLANNING_AFTER_RESTART_OPENING = planningAfterRestartOpening(prompts);
+const INITIATIVE_PLANNING_AFTER_RESTART_OPENING = initiativePlanningAfterRestartOpening(prompts);
 
 let officeData: string;
 let work: WorkApplication;
@@ -142,6 +147,29 @@ describe("planning after a restart", () => {
     await wake(randomUUID(), developersThreadId, backlogThreadId, dropped.threadId);
 
     expect(taskThreads.askedAgain).toEqual([]);
+    expect(initiativeThreads.askedAgain).toEqual([]);
+  });
+
+  it("wakes nobody in a Plan with… Thread before a Task is planned there, still waiting for the user", async () => {
+    const projectId = `project-${randomUUID()}`;
+    const idea = ideaSchema.parse(
+      await postOk("/ideas", { title: "Usage exports", notes: "", projectId: null }),
+    );
+    const shaped = initiativeSchema.parse(await postOk(`/ideas/${idea.id}/initiative`));
+    await postOk(`/initiatives/${shaped.id}/tasks`, {
+      title: "Export API",
+      projectId,
+      priority: "normal",
+      blockedBy: [],
+    });
+    await postOk(`/initiatives/${shaped.id}/confirm`);
+    const planning = initiativeSchema.parse(await postOk(`/initiatives/${shaped.id}/plan-with`));
+
+    await wake(planning.planningThreadId ?? "");
+
+    expect(initiativeThreads.waiting.map(({ threadId }) => threadId)).toEqual([
+      planning.planningThreadId,
+    ]);
     expect(initiativeThreads.askedAgain).toEqual([]);
   });
 

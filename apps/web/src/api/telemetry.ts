@@ -1,6 +1,16 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
+  basicStatsSchema,
+  fullStatsSchema,
+  grafanaCheckAnswerSchema,
+  systemHealthSchema,
   telemetrySettingsSchema,
+  type FullStatsRange,
+  type FullStatsSplit,
+  type GrafanaCheck,
+  type GrafanaCheckAnswer,
+  type ProjectFilter,
+  type SystemHealthRange,
   type TelemetryChoice,
   type TelemetrySettings,
 } from "@the-office/contracts";
@@ -8,6 +18,90 @@ import { getFromApi, sendToApi } from "./api-client.ts";
 
 /** Where The Office exports its traces, metrics and logs, from its next start. */
 export const TELEMETRY_SETTINGS = ["settings", "telemetry"] as const;
+
+/** The basic stats, read again every minute while Stats is open (spec 2.11). */
+export const BASIC_STATS = ["stats", "basic"] as const;
+
+/** How often Stats reads the basic stats again while it is open. */
+export const BASIC_STATS_REFRESH_MS = 60_000;
+
+/** The full stats, read again every minute while Stats is open (spec 2.11). */
+export const FULL_STATS = ["stats", "full"] as const;
+
+/** How often Stats reads the full stats again while Grafana starts: every few seconds. */
+export const FULL_STATS_STARTING_REFRESH_MS = 3_000;
+
+/** System health, its Load now and its readings for a range (spec 2.11, System health). */
+export const SYSTEM_HEALTH = ["stats", "system-health"] as const;
+
+/** How often System health reads the last hour again while its tab is visible: each Health reading. */
+export const SYSTEM_HEALTH_HOUR_REFRESH_MS = 5_000;
+
+/** How long System health waits for the service before it says it couldn't read. */
+export const SYSTEM_HEALTH_TIMEOUT_MS = 10_000;
+
+export const statsQueries = {
+  /**
+   * System health for the range: the last hour every 5 s, the longer ranges every minute (every few
+   * seconds while Grafana starts), only while the tab is visible (`refetchIntervalInBackground` is
+   * off). A read is given up after 10 s and not tried again, as the next one comes soon.
+   */
+  systemHealth: (range: SystemHealthRange) =>
+    queryOptions({
+      queryKey: [...SYSTEM_HEALTH, range],
+      queryFn: ({ signal }) =>
+        getFromApi(
+          `/stats/system-health?range=${range}`,
+          systemHealthSchema,
+          AbortSignal.any([signal, AbortSignal.timeout(SYSTEM_HEALTH_TIMEOUT_MS)]),
+        ),
+      refetchInterval: (query) =>
+        range === "1h"
+          ? SYSTEM_HEALTH_HOUR_REFRESH_MS
+          : query.state.data?.readings.state === "starting"
+            ? FULL_STATS_STARTING_REFRESH_MS
+            : BASIC_STATS_REFRESH_MS,
+      refetchIntervalInBackground: false,
+      retry: false,
+    }),
+  /**
+   * The full stats for the range and split, tokens and cost over time and the most expensive
+   * narrowed to the Projects the Project filter shows; read every few seconds while Grafana starts.
+   */
+  full: (filter: ProjectFilter, range: FullStatsRange, split: FullStatsSplit) =>
+    queryOptions({
+      queryKey: [...FULL_STATS, filter, range, split],
+      queryFn: ({ signal }) => {
+        const projects =
+          filter === "all" ? [] : filter.map((id): [string, string] => ["project", id]);
+        const params = new URLSearchParams([["range", range], ["split", split], ...projects]);
+        return getFromApi(`/stats/full?${params.toString()}`, fullStatsSchema, signal);
+      },
+      refetchInterval: (query) =>
+        query.state.data?.state === "starting"
+          ? FULL_STATS_STARTING_REFRESH_MS
+          : BASIC_STATS_REFRESH_MS,
+    }),
+  /**
+   * The basic stats, the top Tasks, Tasks done and Stage retries narrowed to the Projects the
+   * Project filter shows, each named as a `project`; tokens per day and the windows Office-wide.
+   */
+  basic: (filter: ProjectFilter) =>
+    queryOptions({
+      queryKey: [...BASIC_STATS, filter],
+      queryFn: ({ signal }) => {
+        const projects =
+          filter === "all" ? [] : filter.map((id): [string, string] => ["project", id]);
+        const params = new URLSearchParams(projects).toString();
+        return getFromApi(
+          params === "" ? "/stats/basic" : `/stats/basic?${params}`,
+          basicStatsSchema,
+          signal,
+        );
+      },
+      refetchInterval: BASIC_STATS_REFRESH_MS,
+    }),
+};
 
 export const telemetryQueries = {
   /** The saved choice, its headers by name alone, beside what runs now. */
@@ -37,4 +131,12 @@ export function startBundledGrafana(): Promise<TelemetrySettings> {
     {},
     telemetrySettingsSchema,
   );
+}
+
+/**
+ * Settings › Telemetry's Test: whether Stats could read the user's own Grafana at the address with
+ * the read token as typed, the saved token when it is left empty.
+ */
+export function checkGrafana(check: GrafanaCheck): Promise<GrafanaCheckAnswer> {
+  return sendToApi("POST", "/stats/grafana-check", check, grafanaCheckAnswerSchema);
 }

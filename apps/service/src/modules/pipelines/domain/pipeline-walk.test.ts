@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { reportedMet, reportedOutOfReach, unmetStatements } from "./definition-of-done-reports.js";
 import { GATE_REACHED } from "./gate.js";
-import {
-  gateChecksDefinitionOfDone,
-  nextMove,
-  reportedMet,
-  reportedOutOfReach,
-  unmetStatements,
-} from "./pipeline-walk.js";
+import { gateChecksDefinitionOfDone, nextMove } from "./pipeline-walk.js";
 import {
   RESOLVE_GATE_KEY,
   RESOLVE_KEY,
@@ -14,7 +9,9 @@ import {
   resolvedByTheUser,
   walkedStages,
 } from "./resolve-stages.js";
+import { type ConditionGroup, type ConditionTest, plainRoute, type Route } from "./route.js";
 import type { OnFailure, Stage } from "./stage.js";
+import type { CommandOutcome, StageCommandPurpose, StageCommandRun } from "./stage-command-run.js";
 import {
   NO_STAGE_TOKENS,
   type GateAction,
@@ -95,12 +92,15 @@ function runs(...ran: readonly Ran[]): StageRun[] {
     roleKey: undefined,
     session: undefined,
     headCommit: undefined,
+    changedFiles: undefined,
     commandRuns: [],
     tokens: NO_STAGE_TOKENS,
     context: undefined,
     engineId: undefined,
     engineName: undefined,
     model: undefined,
+    standInFor: undefined,
+    engineSwitches: [],
     decisions,
     heldBy: undefined,
     heldByUser: undefined,
@@ -1127,20 +1127,34 @@ describe("nextMove", () => {
     });
   });
 
-  describe("an optional Stage", () => {
+  describe("an optional Stage, as the conversion writes its routes", () => {
     const withOptional = [agentStage("write"), { ...agentStage("look"), optional: true }];
+    const optionalBetween = [...withOptional, scriptStage("check")];
+    const skippedRun: StageOutcome = { status: "done", summary: "Skipped.", skipped: true };
 
-    it("is skipped once every statement of the Definition of Done is reported met", () => {
+    it("passes it by once every statement of the Definition of Done is reported met", () => {
       expect(nextMove(withOptional, runs(["write", meeting(1, 2)]), DEFINITION_OF_DONE)).toEqual({
-        move: "skip",
-        stage: withOptional[1],
+        move: "complete",
       });
+      expect(
+        nextMove(optionalBetween, runs(["write", meeting(1, 2)]), DEFINITION_OF_DONE),
+      ).toMatchObject({ move: "run", stage: { key: "check" } });
     });
 
     it("runs while a statement isn't reported met", () => {
       expect(nextMove(withOptional, runs(["write", meeting(1)]), DEFINITION_OF_DONE)).toMatchObject(
         { move: "run", stage: { key: "look" } },
       );
+    });
+
+    it("replays a Skipped run the previous release recorded, and goes on after it", () => {
+      const ran = runs(["write", meeting(1, 2)], ["look", skippedRun]);
+
+      expect(nextMove(withOptional, ran, DEFINITION_OF_DONE)).toEqual({ move: "complete" });
+      expect(nextMove(optionalBetween, ran, DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: { key: "check" },
+      });
     });
   });
 
@@ -1377,6 +1391,443 @@ describe("a Gate before Publish", () => {
     expect(nextMove(gateThenPublish, publishAsked, DEFINITION_OF_DONE)).toEqual({
       move: "wait",
       run: publishAsked[2],
+    });
+  });
+});
+
+/** `stage` with `routes` out of it, standing where its index puts it. */
+function routed(stage: Stage, ...routes: Route[]): Stage {
+  return { ...stage, routes };
+}
+
+function when(to: string | null, ...tests: ConditionGroup["tests"]): Route {
+  return { to, condition: { combine: "all", tests } };
+}
+
+const unmet: ConditionGroup["tests"][number] = { kind: "definitionOfDone", is: "some-not-met" };
+const allMet: ConditionGroup["tests"][number] = { kind: "definitionOfDone", is: "all-met" };
+const endedFailed: ConditionGroup["tests"][number] = { kind: "stage", stage: null, is: "failed" };
+
+/** The runs with `changedFiles` on the run of `stageKey`. */
+function changing(ran: readonly StageRun[], stageKey: string, files: string[]): StageRun[] {
+  return ran.map((run) => (run.stageKey === stageKey ? { ...run, changedFiles: files } : run));
+}
+
+const PUBLISH: Stage = {
+  kind: "script",
+  key: "publish",
+  name: "publish",
+  optional: false,
+  command: "publish",
+};
+
+const withFix = (checkRoutes: Route[]) => [
+  routed(agentStage("write"), plainRoute("check")),
+  routed(scriptStage("check", { goBackTo: "write", rounds: 1 }), ...checkRoutes),
+  routed(agentStage("fix"), plainRoute("publish")),
+  routed(PUBLISH, plainRoute(null)),
+];
+
+// A run kept before changed files were recorded holds neither files test.
+const unrecorded = (...decisions: StageRunDecision[]) =>
+  runs(["write", meeting(1, 2), ...decisions]);
+
+/** Write's run, with the condition commands recorded on it. */
+function weighed(...commandRuns: StageCommandRun[]): StageRun[] {
+  return runs(["write", done]).map((run) => ({ ...run, commandRuns }));
+}
+
+describe("nextMove over routes", () => {
+  // Write goes to Review while something is unmet, else straight to Check, which joins both paths.
+  const branching = [
+    routed(agentStage("write"), when("review", unmet), plainRoute("check")),
+    routed(agentStage("review"), plainRoute("check")),
+    routed(scriptStage("check"), plainRoute(null)),
+  ];
+
+  it("follows the first route whose condition holds, the other side not taken", () => {
+    expect(nextMove(branching, runs(["write", meeting(1)]), DEFINITION_OF_DONE)).toMatchObject({
+      move: "run",
+      stage: { key: "review" },
+    });
+    expect(nextMove(branching, runs(["write", meeting(1, 2)]), DEFINITION_OF_DONE)).toMatchObject({
+      move: "run",
+      stage: { key: "check" },
+    });
+  });
+
+  it("joins the paths again at a Stage both lead to", () => {
+    const ran = runs(["write", meeting(1)], ["review", meeting(2)]);
+
+    expect(nextMove(branching, ran, DEFINITION_OF_DONE)).toMatchObject({
+      move: "run",
+      stage: { key: "check" },
+    });
+    expect(nextMove(branching, [...ran, ...runs(["check", done])], DEFINITION_OF_DONE)).toEqual({
+      move: "complete",
+    });
+  });
+
+  it("ends the walk at a route to End in the middle of the order", () => {
+    const endingEarly = [
+      routed(agentStage("write"), when(null, allMet), plainRoute("review")),
+      routed(agentStage("review"), plainRoute(null)),
+    ];
+
+    expect(nextMove(endingEarly, runs(["write", meeting(1, 2)]), DEFINITION_OF_DONE)).toEqual({
+      move: "complete",
+    });
+  });
+
+  it("follows a recorded run a route leads to without weighing again, and throws for one none does", () => {
+    // Since the run, the user's edit made Write go to Review only once everything is met.
+    const edited = [
+      routed(agentStage("write"), when("review", allMet), plainRoute("check")),
+      ...branching.slice(1),
+    ];
+    const ran = runs(["write", meeting(1)], ["review", meeting(2)]);
+
+    expect(nextMove(edited, ran, DEFINITION_OF_DONE)).toMatchObject({
+      move: "run",
+      stage: { key: "check" },
+    });
+    const straight = [routed(agentStage("write"), plainRoute("check")), ...branching.slice(1)];
+    expect(() => nextMove(straight, ran, DEFINITION_OF_DONE)).toThrow(/expected "check"/);
+  });
+
+  describe("when no route holds", () => {
+    const byFiles = [
+      routed(
+        agentStage("write"),
+        when("review", { kind: "stage", stage: null, is: "changed" }),
+        when("check", { kind: "stage", stage: null, is: "unchanged" }),
+      ),
+      routed(agentStage("review"), plainRoute("check")),
+      routed(scriptStage("check"), plainRoute(null)),
+    ];
+
+    it("asks the user on the run, offering each route by where it leads", () => {
+      const ran = unrecorded();
+
+      expect(nextMove(byFiles, ran, DEFINITION_OF_DONE)).toEqual({
+        move: "ask",
+        run: ran[0],
+        question: {
+          kind: "no-route-holds",
+          stage: byFiles[0],
+          routes: [
+            { ...when("review", { kind: "stage", stage: null, is: "changed" }), toName: "review" },
+            { ...when("check", { kind: "stage", stage: null, is: "unchanged" }), toName: "check" },
+          ],
+          why: undefined,
+        },
+      });
+    });
+
+    it("weighs the files the run changed", () => {
+      const ran = changing(unrecorded(), "write", []);
+
+      expect(nextMove(byFiles, ran, DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: { key: "check" },
+      });
+    });
+
+    it("waits on the Decision, then follows the route the user chose, notes and all, or drops", () => {
+      const open = unrecorded(decided("no-route-holds"));
+      expect(nextMove(byFiles, open, DEFINITION_OF_DONE)).toEqual({ move: "wait", run: open[0] });
+
+      const toCheck = { kind: "follow-route", to: "check", guidance: "Skip the review." } as const;
+      expect(
+        nextMove(byFiles, unrecorded(decided("no-route-holds", toCheck)), DEFINITION_OF_DONE),
+      ).toMatchObject({ move: "run", stage: { key: "check" } });
+      expect(
+        nextMove(
+          byFiles,
+          unrecorded(decided("no-route-holds", { kind: "follow-route", to: null })),
+          DEFINITION_OF_DONE,
+        ),
+      ).toEqual({ move: "complete" });
+      expect(
+        nextMove(
+          byFiles,
+          unrecorded(decided("no-route-holds", { kind: "drop" })),
+          DEFINITION_OF_DONE,
+        ),
+      ).toEqual({ move: "drop" });
+    });
+
+    it("checks the Definition of Done at End after the user chose it", () => {
+      const ran = runs([
+        "write",
+        meeting(1),
+        decided("no-route-holds", { kind: "follow-route", to: null }),
+      ]);
+
+      expect(nextMove(byFiles, ran, DEFINITION_OF_DONE)).toMatchObject({
+        move: "ask",
+        question: { kind: "definition-of-done", unmet: ["The name persists"], before: undefined },
+      });
+    });
+  });
+
+  describe("a route that tests a Project command", () => {
+    const lint: ConditionTest = { kind: "command", key: "lint" };
+    const build: ConditionTest = { kind: "command", key: "build" };
+    const byCommand = [
+      routed(agentStage("write"), when("review", lint), plainRoute("check")),
+      routed(agentStage("review"), plainRoute("check")),
+      routed(scriptStage("check"), plainRoute(null)),
+    ];
+    const lintTest = { key: "lint", to: "review", routeIndex: 0, testPath: [0] };
+
+    function conditionRun(
+      outcome: CommandOutcome,
+      purpose: StageCommandPurpose = "condition",
+      condition = lintTest,
+    ): StageCommandRun {
+      return {
+        purpose,
+        commandLine: "npm run lint",
+        outcome,
+        exitCode: outcome === "passed" ? 0 : outcome === "failed" ? 1 : undefined,
+        durationMs: 1000,
+        output: outcome === "could-not-run" ? "The Project has no lint command." : "",
+        condition,
+      };
+    }
+
+    it("asks for the command's run once the walk weighs its test, with where the test is", () => {
+      const ran = weighed();
+
+      expect(nextMove(byCommand, ran, NO_DEFINITION_OF_DONE)).toEqual({
+        move: "weigh-command",
+        run: ran[0],
+        stage: byCommand[0],
+        condition: lintTest,
+      });
+    });
+
+    it("follows the route when the recorded command passed, and the next one when it failed", () => {
+      expect(
+        nextMove(byCommand, weighed(conditionRun("passed")), NO_DEFINITION_OF_DONE),
+      ).toMatchObject({ move: "run", stage: { key: "review" } });
+      expect(
+        nextMove(byCommand, weighed(conditionRun("failed")), NO_DEFINITION_OF_DONE),
+      ).toMatchObject({ move: "run", stage: { key: "check" } });
+    });
+
+    it("asks the no-route-holds Decision, saying why, when the command couldn't run or timed out", () => {
+      expect(
+        nextMove(byCommand, weighed(conditionRun("could-not-run")), NO_DEFINITION_OF_DONE),
+      ).toMatchObject({
+        move: "ask",
+        question: {
+          kind: "no-route-holds",
+          why: "The condition's command `lint` couldn't run: The Project has no lint command.",
+        },
+      });
+      expect(
+        nextMove(byCommand, weighed(conditionRun("timed-out")), NO_DEFINITION_OF_DONE),
+      ).toMatchObject({
+        move: "ask",
+        question: {
+          kind: "no-route-holds",
+          why: expect.stringMatching(/^The condition's command `lint` ran out of time/),
+        },
+      });
+      expect(
+        nextMove(byCommand, weighed(conditionRun("failed", "install")), NO_DEFINITION_OF_DONE),
+      ).toMatchObject({
+        move: "ask",
+        question: {
+          kind: "no-route-holds",
+          why: "The install before the condition's command `lint` failed with exit code 1.",
+        },
+      });
+    });
+
+    it("weighs a command again that The Office stopped, its install's included", () => {
+      for (const ran of [
+        weighed(conditionRun("stopped")),
+        weighed(conditionRun("stopped", "install")),
+        weighed(conditionRun("passed", "install")),
+      ]) {
+        expect(nextMove(byCommand, ran, NO_DEFINITION_OF_DONE)).toMatchObject({
+          move: "weigh-command",
+          condition: lintTest,
+        });
+      }
+      expect(
+        nextMove(
+          byCommand,
+          weighed(conditionRun("stopped"), conditionRun("passed")),
+          NO_DEFINITION_OF_DONE,
+        ),
+      ).toMatchObject({ move: "run", stage: { key: "review" } });
+    });
+
+    it("weighs the tests in order and asks for no command once the result is settled", () => {
+      const anyOf: Route = { to: "review", condition: { combine: "any", tests: [lint, build] } };
+      const either = [
+        routed(agentStage("write"), anyOf, plainRoute("check")),
+        ...byCommand.slice(1),
+      ];
+
+      expect(
+        nextMove(either, weighed(conditionRun("passed")), NO_DEFINITION_OF_DONE),
+      ).toMatchObject({ move: "run", stage: { key: "review" } });
+      expect(
+        nextMove(either, weighed(conditionRun("failed")), NO_DEFINITION_OF_DONE),
+      ).toMatchObject({
+        move: "weigh-command",
+        condition: { key: "build", to: "review", routeIndex: 0, testPath: [1] },
+      });
+    });
+
+    it("follows a recorded run without running the command again", () => {
+      expect(
+        nextMove(
+          byCommand,
+          [...weighed(conditionRun("passed")), ...runs(["review", done])],
+          NO_DEFINITION_OF_DONE,
+        ),
+      ).toMatchObject({ move: "run", stage: { key: "check" } });
+    });
+  });
+
+  describe("when a Stage fails", () => {
+    const toFixOnFailure = withFix([when("fix", endedFailed), plainRoute("publish")]);
+    const failedTwice = runs(
+      ["write", done],
+      ["check", failed("First.")],
+      ["write", done],
+      ["check", failed("Second.")],
+    );
+
+    it("goes back by its loop first, then on by a route whose condition says it ended Failed", () => {
+      expect(
+        nextMove(toFixOnFailure, failedTwice.slice(0, 2), NO_DEFINITION_OF_DONE),
+      ).toMatchObject({
+        move: "run",
+        stage: { key: "write" },
+        carriedFailure: { stageKey: "check", round: 1 },
+      });
+      expect(nextMove(toFixOnFailure, failedTwice, NO_DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: { key: "fix" },
+        carriedFailure: undefined,
+      });
+    });
+
+    it("never carries a failure on by a route with no condition or another one", () => {
+      const plainOnly = withFix([
+        when("fix", { kind: "stage", stage: null, is: "done" }),
+        plainRoute("publish"),
+      ]);
+      const failedOnlyOnce = withFix([
+        when("fix", endedFailed, { kind: "stage", stage: null, is: "ran", times: 3 }),
+        plainRoute("publish"),
+      ]);
+
+      for (const flow of [plainOnly, failedOnlyOnce]) {
+        expect(nextMove(flow, failedTwice, NO_DEFINITION_OF_DONE)).toMatchObject({
+          move: "ask",
+          question: { kind: "no-retries-left", stage: { key: "check" }, error: "Second." },
+        });
+      }
+    });
+
+    it("weighs every route once the user continues with the issues, the outcome staying Failed", () => {
+      const plainOnly = withFix([
+        when("fix", { kind: "stage", stage: null, is: "done" }),
+        plainRoute("publish"),
+      ]);
+      const accepted = failedTwice.map((run, index) =>
+        index === 3
+          ? { ...run, decisions: [decided("no-retries-left", { kind: "accept-issues" })] }
+          : run,
+      );
+
+      expect(nextMove(plainOnly, accepted, NO_DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: { key: "publish" },
+      });
+    });
+
+    it("weighs a failure route's command test at its place among all the Stage's routes", () => {
+      const lint: ConditionTest = { kind: "command", key: "lint" };
+      const flow = withFix([
+        when("fix", { kind: "stage", stage: null, is: "done" }),
+        when("publish", endedFailed, lint),
+        plainRoute(null),
+      ]);
+      const failedLint = {
+        purpose: "condition",
+        commandLine: "npm run lint",
+        outcome: "failed",
+        exitCode: 1,
+        durationMs: 1000,
+        output: "",
+        condition: { key: "lint", to: "publish", routeIndex: 1, testPath: [1] },
+      } satisfies StageCommandRun;
+      const weighedThenAccepted = failedTwice.map((run, index) =>
+        index === 3
+          ? {
+              ...run,
+              commandRuns: [failedLint],
+              decisions: [decided("no-retries-left", { kind: "accept-issues" })],
+            }
+          : run,
+      );
+
+      expect(nextMove(flow, failedTwice, NO_DEFINITION_OF_DONE)).toMatchObject({
+        move: "weigh-command",
+        condition: { key: "lint", to: "publish", routeIndex: 1, testPath: [1] },
+      });
+      // The recorded result is found again once every route is weighed: no command runs twice.
+      expect(nextMove(flow, weighedThenAccepted, NO_DEFINITION_OF_DONE)).toEqual({
+        move: "complete",
+      });
+    });
+  });
+
+  describe("the Definition of Done check", () => {
+    // Write publishes only when it changed files; otherwise the walk ends with nothing published.
+    const publishingWhenChanged = [
+      routed(
+        agentStage("write"),
+        when("publish", { kind: "stage", stage: null, is: "changed" }),
+        plainRoute(null),
+      ),
+      routed(PUBLISH, plainRoute(null)),
+    ];
+
+    it("runs as the walk enters Publish, and not again at End", () => {
+      const ran = changing(runs(["write", meeting(1)]), "write", ["a.ts"]);
+
+      expect(nextMove(publishingWhenChanged, ran, DEFINITION_OF_DONE)).toMatchObject({
+        move: "ask",
+        question: { kind: "definition-of-done", before: { key: "publish" } },
+      });
+      const calledMet = decided("definition-of-done", { kind: "mark-done" });
+      const published = changing(
+        runs(["write", meeting(1), calledMet], ["publish", done]),
+        "write",
+        ["a.ts"],
+      );
+      expect(nextMove(publishingWhenChanged, published, DEFINITION_OF_DONE)).toEqual({
+        move: "complete",
+      });
+    });
+
+    it("runs at End on a path that entered no Publish", () => {
+      const ran = changing(runs(["write", meeting(1)]), "write", []);
+
+      expect(nextMove(publishingWhenChanged, ran, DEFINITION_OF_DONE)).toMatchObject({
+        move: "ask",
+        question: { kind: "definition-of-done", before: undefined, again: { key: "write" } },
+      });
     });
   });
 });

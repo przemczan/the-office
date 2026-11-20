@@ -18,12 +18,13 @@ import { OpenPageChip } from "../open-page-chip.tsx";
 import { PersonAvatar } from "../person-avatar.tsx";
 import { roleFirstName, roleName } from "../person-name.ts";
 import { clockOf } from "../time.ts";
-import { usageWindowUsedUpWords } from "../usage-window-words.ts";
+import { engineSwitchedWords, usageWindowUsedUpWords } from "../usage-window-words.ts";
 import { userName, useSignedInUserId, useUserName, type UserNamer } from "../use-user-name.ts";
 import { contextLabel, earlierSessionLabel, newSessionLabel } from "./context-words.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import { DecisionInThread } from "./decision-card.tsx";
-import { answerWords, atUsersRequestWords } from "./decision-words.ts";
+import { formAnswerWords } from "./decision-form-words.ts";
+import { atUsersRequestWords } from "./decision-words.ts";
 import { IdeaCard } from "./idea-card.tsx";
 import { LinkCard } from "./link-card.tsx";
 import {
@@ -148,6 +149,7 @@ export function MessageList({
               group={piece}
               roleKey={roleKey}
               personName={personName}
+              answering={answering}
               stageThread={stageThread}
               handoverNoteReader={handoverNoteReader}
             />
@@ -337,12 +339,14 @@ function GroupItem({
   group,
   roleKey,
   personName,
+  answering,
   stageThread,
   handoverNoteReader,
 }: {
   readonly group: MessageGroup;
   readonly roleKey: string;
   readonly personName: string;
+  readonly answering: boolean;
   readonly stageThread: boolean;
   readonly handoverNoteReader: HandoverNoteReader | undefined;
 }): ReactNode {
@@ -363,6 +367,7 @@ function GroupItem({
         <MessageItem
           message={group.message}
           personName={personName}
+          answering={answering}
           handoverNoteReader={handoverNoteReader}
         />
       );
@@ -624,10 +629,13 @@ function ToolCallWords({ call: { tool, summary } }: { readonly call: ToolCall })
 function MessageItem({
   message,
   personName,
+  answering,
   handoverNoteReader,
 }: {
   readonly message: Extract<MessageGroup, { kind: "alone" }>["message"];
   readonly personName: string;
+  /** The person is answering now, which a Decision answered inline in a chat waits for. */
+  readonly answering: boolean;
   readonly handoverNoteReader: HandoverNoteReader | undefined;
 }): ReactNode {
   const nameOfUser = useUserName();
@@ -688,6 +696,13 @@ function MessageItem({
           <span>{usageWindowUsedUpWords(message)}</span>
         </div>
       );
+    case "engine-switched":
+      return (
+        <div className="message-office">
+          <Icon name="refresh-cw" size={12} />
+          <span>{engineSwitchedWords(message)}</span>
+        </div>
+      );
     case "held":
       return (
         <div className="message-office">
@@ -697,7 +712,13 @@ function MessageItem({
         </div>
       );
     case "decision":
-      return <DecisionInThread decision={message.decision} personName={personName} />;
+      return (
+        <DecisionInThread
+          decision={message.decision}
+          personName={personName}
+          answering={answering}
+        />
+      );
     case "decision-answer":
       return <DecisionAnswerItem message={message} />;
     case "proposal":
@@ -732,11 +753,13 @@ function DecisionAnswerItem({
 }): ReactNode {
   const roles = useQuery(roleQueries.list()).data;
   const signedInUserId = useSignedInUserId();
-  const words = answerWords(message.answer, message.decision);
+  const words = formAnswerWords(message.decision, message.formAnswer);
   if (message.decision.answeredByTheOffice) {
+    // The Office sends a call back to its caller with words of its own, its general comment.
+    const sent = message.formAnswer.generalComment?.trim();
     return (
       <div className="message-office">
-        <MarkdownText text={words} inline />
+        <MarkdownText text={sent ? sent : words} inline />
       </div>
     );
   }

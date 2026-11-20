@@ -2,11 +2,15 @@ import { movedEngineModel, type EngineRemoval } from "./engine-removal.js";
 import { EngineSettingsRefused, ENGINES_CHANGED_MEANWHILE } from "./engine-settings-refused.js";
 import {
   CLAUDE_CODE_MODELS,
+  CODEX_MODELS,
   engineIdFor,
   FIRST_CLAUDE_CODE_ENGINE,
   offeredModels,
+  pricedPerEngine,
   type ApiEngine,
   type ClaudeCodeEngine,
+  type CodexEngine,
+  type CopilotCliEngine,
   type Engine,
   type EngineId,
   type EngineModel,
@@ -36,7 +40,20 @@ export interface EngineSettings {
   readonly searchEndpoint: SearchEndpoint | null;
   /** Only the models offered now that have a Model price. */
   readonly modelPrices: readonly PricedModel[];
+  /** The Stand-in Engines, each listed once, in the order `engineToRunOn` tries them. */
+  readonly standInEngines: readonly EngineId[];
+  /** The context size, in tokens, above which a switch of a running Stage asks first; 0 always asks. */
+  readonly askBeforeSwitchAbove: number;
 }
+
+/**
+ * A switch loses the prompt cache, so the whole context is written again: above this many tokens
+ * that costs enough to ask first.
+ */
+export const DEFAULT_ASK_BEFORE_SWITCH_ABOVE = 100_000;
+
+/** Above any model's context window, and within the `integer` column it is kept in. */
+export const ASK_BEFORE_SWITCH_ABOVE_MOST = 10_000_000;
 
 /** The first Claude Code engine on its default model, as the upgrade leaves it. */
 export const FIRST_OFFICE_DEFAULT: EngineModel = {
@@ -49,6 +66,8 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   officeDefault: FIRST_OFFICE_DEFAULT,
   searchEndpoint: null,
   modelPrices: [],
+  standInEngines: [],
+  askBeforeSwitchAbove: DEFAULT_ASK_BEFORE_SWITCH_ABOVE,
 };
 
 /** A Claude Code engine as Settings › Engines saves it: without an `id` when it is new. */
@@ -63,7 +82,22 @@ export type ApiEngineEdit = Omit<ApiEngine, "id" | "key"> & {
   readonly key?: string;
 };
 
-export type EngineEdit = ClaudeCodeEngineEdit | ApiEngineEdit;
+/**
+ * A Codex engine as Settings › Engines saves it: without an `id` when it is new, and never with
+ * its API key, which only signing it in sets (a Save keeps the one kept).
+ */
+export type CodexEngineEdit = Omit<CodexEngine, "id" | "apiKey"> & { readonly id?: EngineId };
+
+/**
+ * A Copilot CLI engine as Settings › Engines saves it: without an `id` when it is new, and never
+ * with its token, which only "Paste a token instead" sets (a Save keeps the one kept).
+ */
+export type CopilotCliEngineEdit = Omit<CopilotCliEngine, "id" | "token"> & {
+  readonly id?: EngineId;
+};
+
+export type EngineEdit =
+  ClaudeCodeEngineEdit | ApiEngineEdit | CodexEngineEdit | CopilotCliEngineEdit;
 
 export interface EngineSettingsEdit {
   /** Every engine, in order; a saved one left out is refused, as removing one moves what names it. */
@@ -72,23 +106,24 @@ export interface EngineSettingsEdit {
   readonly officeDefault: EngineModel | null;
   readonly searchEndpoint: SearchEndpoint | null;
   readonly modelPrices: readonly OfferedModel[];
+  /** Left out, the stored list is kept. */
+  readonly standInEngines?: readonly EngineId[];
+  /** Left out, the stored size is kept. */
+  readonly askBeforeSwitchAbove?: number;
 }
 
 export const ENGINE_NAME_LENGTH = 40;
 
-/** The API engines among `engines`, in their order. */
-export function apiEngines(engines: readonly Engine[]): readonly ApiEngine[] {
-  return engines.filter((engine): engine is ApiEngine => engine.kind === "openai-compatible-api");
-}
-
 /**
  * Every model that may be priced, in order, with its Model price or none: the Claude models while
- * there is a Claude Code engine, then each API engine's.
+ * there is a Claude Code engine, the Codex models while there is a Codex engine, then each API and
+ * Copilot CLI engine's, in their order.
  */
 export function offeredModelPrices({ engines, modelPrices }: EngineSettings): OfferedModel[] {
   const priceOf = (engineId: EngineId | null, model: string) =>
     modelPrices.find((each) => each.engineId === engineId && each.model === model)?.price ?? null;
-  return [null, ...apiEngines(engines).map(({ id }) => id)].flatMap((engineId) =>
+  const pricedOnTheirOwn = engines.filter(pricedPerEngine).map(({ id }) => id);
+  return [null, ...pricedOnTheirOwn].flatMap((engineId) =>
     modelsPricedUnder(engines, engineId).map((model) => ({
       engineId,
       model,
@@ -97,23 +132,31 @@ export function offeredModelPrices({ engines, modelPrices }: EngineSettings): Of
   );
 }
 
-/** The models priced under a price's `engineId`: null for the Claude models. */
+/**
+ * The models priced under a price's `engineId`: null for the Claude models while a Claude Code
+ * engine is listed, then the Codex models while a Codex engine is, each priced once for them all;
+ * an API or Copilot CLI engine's id for its own models.
+ */
 function modelsPricedUnder(
   engines: readonly Engine[],
   engineId: EngineId | null,
 ): readonly string[] {
   if (engineId === null) {
-    return engines.some(({ kind }) => kind === "claude-code") ? CLAUDE_CODE_MODELS : [];
+    return [
+      ...(engines.some(({ kind }) => kind === "claude-code") ? CLAUDE_CODE_MODELS : []),
+      ...(engines.some(({ kind }) => kind === "codex") ? CODEX_MODELS : []),
+    ];
   }
   const engine = engines.find(({ id }) => id === engineId);
-  return engine?.kind === "openai-compatible-api" ? offeredModels(engine) : [];
+  return engine !== undefined && pricedPerEngine(engine) ? offeredModels(engine) : [];
 }
 
 /**
  * The settings `edit` makes of `stored`: the engines in its order, a new one given its id from its
- * name and an API engine keeping its key unless the edit gives one; the Office default; and the
- * Model prices of the models offered, a removed engine's kept (`keptModelPrices`). Refuses with
- * every reason when they break a rule.
+ * name, an API engine keeping its key unless the edit gives one, a Codex engine always keeping its
+ * API key and a Copilot CLI engine its token; the Office default; and the Model prices of the
+ * models offered, a removed engine's kept (`keptModelPrices`); the Stand-in Engines and the
+ * ask-above size, the stored ones when left out. Refuses with every reason when they break a rule.
  */
 export function changedEngineSettings(
   stored: EngineSettings,
@@ -124,7 +167,8 @@ export function changedEngineSettings(
 
 /**
  * The settings once the removal is done: the engine gone and the Office default moved by
- * `movedEngineModel`, to none with the only engine, the rest kept. Refuses with every reason when they break a rule.
+ * `movedEngineModel`, to none with the only engine, the engine dropped from the Stand-in Engines,
+ * the rest kept. Refuses with every reason when they break a rule.
  */
 export function settingsWithoutEngine(
   stored: EngineSettings,
@@ -135,6 +179,8 @@ export function settingsWithoutEngine(
     officeDefault: stored.officeDefault && movedEngineModel(stored.officeDefault, removal),
     searchEndpoint: stored.searchEndpoint,
     modelPrices: stored.modelPrices,
+    standInEngines: stored.standInEngines.filter((engineId) => engineId !== removal.engineId),
+    askBeforeSwitchAbove: stored.askBeforeSwitchAbove,
   };
   return settingsOf(stored, edit, []);
 }
@@ -161,8 +207,45 @@ function settingsOf(
     (engineId) => modelsPricedUnder(stored.engines, engineId),
     offeredNow,
   );
+  const standInEngines = edit.standInEngines ?? stored.standInEngines;
+  problems.push(...standInEngineProblems(standInEngines, engines));
+  const askBeforeSwitchAbove = edit.askBeforeSwitchAbove ?? stored.askBeforeSwitchAbove;
+  if (
+    !Number.isInteger(askBeforeSwitchAbove) ||
+    askBeforeSwitchAbove < 0 ||
+    askBeforeSwitchAbove > ASK_BEFORE_SWITCH_ABOVE_MOST
+  ) {
+    problems.push(
+      `Give the context size to ask above as a whole number of tokens from 0 to ${ASK_BEFORE_SWITCH_ABOVE_MOST.toLocaleString("en-US")} (0 always asks).`,
+    );
+  }
   if (problems.length > 0) throw new EngineSettingsRefused([...new Set(problems)]);
-  return { engines, officeDefault, searchEndpoint, modelPrices: [...edited, ...kept] };
+  return {
+    engines,
+    officeDefault,
+    searchEndpoint,
+    modelPrices: [...edited, ...kept],
+    standInEngines: [...standInEngines],
+    askBeforeSwitchAbove,
+  };
+}
+
+function standInEngineProblems(
+  standInEngines: readonly EngineId[],
+  engines: readonly Engine[],
+): string[] {
+  const problems: string[] = [];
+  const seen = new Set<EngineId>();
+  for (const engineId of standInEngines) {
+    const engine = engines.find(({ id }) => id === engineId);
+    if (engine === undefined) {
+      problems.push("Pick each Stand-in Engine among the engines listed.");
+    } else if (seen.has(engineId)) {
+      problems.push(`"${engine.name}" is listed twice as a Stand-in Engine.`);
+    }
+    seen.add(engineId);
+  }
+  return problems;
 }
 
 function changedEnginesOf(
@@ -189,6 +272,16 @@ function changedEnginesOf(
     const common = { id, name, defaultModel: edit.defaultModel.trim() };
     if (edit.kind === "claude-code") {
       return { ...common, kind: edit.kind, claudeCodeP: edit.claudeCodeP };
+    }
+    if (edit.kind === "codex") {
+      return { ...common, kind: edit.kind, apiKey: kept?.kind === "codex" ? kept.apiKey : null };
+    }
+    if (edit.kind === "copilot-cli") {
+      return {
+        ...common,
+        kind: edit.kind,
+        token: kept?.kind === "copilot-cli" ? kept.token : null,
+      };
     }
     const keptKey = kept?.kind === "openai-compatible-api" ? kept.key : "";
     return {

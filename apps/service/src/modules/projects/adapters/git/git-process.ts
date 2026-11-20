@@ -1,10 +1,9 @@
 import { execFile } from "node:child_process";
 import { StringDecoder } from "node:string_decoder";
 import type { OfficeIdentity } from "../../../../platform/git-identity/office-identity.js";
-import { GitCommandFailed, type GitVariables } from "../../ports/git.js";
+import { GIT_OUTPUT_LIMIT_BYTES, GitCommandFailed, type GitVariables } from "../../ports/git.js";
 
 const LOCAL_TIMEOUT_MS = 30_000;
-const OUTPUT_LIMIT_BYTES = 64 * 1024 * 1024;
 
 export interface GitCall {
   readonly folder: string;
@@ -93,7 +92,7 @@ export class GitProcess {
           env: identity.variables,
           timeout: timeoutMs,
           ...(signal && { signal }),
-          maxBuffer: OUTPUT_LIMIT_BYTES,
+          maxBuffer: GIT_OUTPUT_LIMIT_BYTES,
           windowsHide: true,
         },
         (error, stdout, stderr) => {

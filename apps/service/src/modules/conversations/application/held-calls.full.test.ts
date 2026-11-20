@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { approvalQuestion } from "../domain/consult.js";
-import { aDecision } from "../domain/decision.fixtures.js";
 import { ApprovalHolds } from "./approval-holds.js";
 import { SESSION, request, heldCallsWith, anApproval, call } from "./held-calls.fixtures.js";
 
@@ -72,7 +71,7 @@ describe("a call of an MCP tool waiting on approval", () => {
 
     expect(words).toContain("waits on the user");
     expect(words).toContain("End your turn now");
-    expect(opened[0]?.question).toBe(
+    expect(opened[0]?.questions[0]?.question).toBe(
       approvalQuestion('Call the github/create_issue MCP tool with {"body":"x","title":"Bug"}'),
     );
   });
@@ -94,12 +93,10 @@ describe("a call of an MCP tool waiting on approval", () => {
   });
 
   it('runs once after "Allow once", whatever order the input\'s keys come in', async () => {
-    const approval = aDecision({
-      ...anApproval(0),
-      question: approvalQuestion(
-        'Call the github/create_issue MCP tool with {"body":"x","title":"Bug"}',
-      ),
-    });
+    const approval = anApproval(
+      0,
+      'Call the github/create_issue MCP tool with {"body":"x","title":"Bug"}',
+    );
     const { heldCalls } = heldCallsWith({ changeRoles: { kind: "never" }, answered: [approval] });
 
     await expect(
@@ -110,15 +107,14 @@ describe("a call of an MCP tool waiting on approval", () => {
     ).resolves.toContain("waits on the user");
   });
 
-  it("is refused in a chat in the Hard switch's words", async () => {
+  it("is refused where no Decision opens, in the refusal's words", async () => {
     const { heldCalls } = heldCallsWith({
       changeRoles: { kind: "never" },
-      openRefusal:
-        "A Decision is opened on a Task. In your chat, ask the user in your answer instead.",
+      openRefusal: "A Consultation opens no Decision of its own: answer in words.",
     });
 
     await expect(heldCalls.holdMcpToolCall(SESSION, call({}))).resolves.toBe(
-      "A Decision is opened on a Task. In your chat, ask the user in your answer instead.",
+      "A Consultation opens no Decision of its own: answer in words.",
     );
   });
 

@@ -1,0 +1,1823 @@
+<!doctype html>
+<html lang="en" data-palette="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The Initiative's Pipelines block · design proposal · The Office</title>
+    <style>
+      /* ---------- Tokens (design-system/tokens/, as docs/design/initiative-page.html copies them) ---------- */
+      :root {
+        --ember-50: #fff2ed;
+        --ember-300: #ff9370;
+        --ember-500: #f23d0f;
+        --ember-600: #d4300a;
+        --ember-700: #9e2406;
+        --flare-300: #ffc266;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-850: #1f1f1d;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-700: #106a3b;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-500: #e5a00d;
+        --amber-700: #865b05;
+        --red-50: #fdeef0;
+        --red-100: #fad9dd;
+        --red-500: #c8102e;
+        --red-700: #8e0b20;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-raised: var(--white);
+        --surface-sunken: var(--gray-50);
+        --surface-hover: var(--gray-25);
+        --surface-selected: var(--ember-50);
+        --fg-1: var(--gray-950);
+        --fg-2: var(--gray-600);
+        --fg-3: var(--gray-500);
+        --fg-disabled: var(--gray-300);
+        --border: var(--gray-150);
+        --border-subtle: var(--gray-100);
+        --border-strong: var(--gray-200);
+        --accent: var(--ember-500);
+        --accent-hover: var(--ember-600);
+        --accent-subtle: var(--ember-50);
+        --accent-subtle-fg: var(--ember-700);
+        --control-hover: var(--gray-50);
+        --control-press: var(--gray-100);
+        --switch-off: var(--gray-200);
+        --success: var(--green-500);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --success-border: var(--green-100);
+        --warning: var(--amber-500);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --danger: var(--red-500);
+        --danger-subtle: var(--red-50);
+        --danger-fg: var(--red-700);
+        --danger-border: var(--red-100);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-600);
+        --neutral-border: var(--gray-150);
+        --focus-ring: 0 0 0 3px color-mix(in oklab, var(--ember-500) 30%, transparent);
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --text-2xs: 11px;
+        --text-xs: 12px;
+        --text-sm: 13px;
+        --text-md: 14px;
+        --text-lg: 16px;
+        --text-xl: 18px;
+        --text-body: var(--text-md);
+        --type-body: 400 var(--text-md) / 1.5 var(--font-sans);
+        --type-body-sm: 400 var(--text-sm) / 1.45 var(--font-sans);
+        --type-caption: 400 var(--text-xs) / 1.4 var(--font-sans);
+        --type-label: 500 var(--text-sm) / 1.3 var(--font-sans);
+        --type-card-title: 600 var(--text-md) / 1.4 var(--font-sans);
+        --type-section-title: 600 var(--text-lg) / 1.3 var(--font-sans);
+        --type-overline: 500 var(--text-2xs) / 1.2 var(--font-mono);
+        --type-mono: 400 var(--text-sm) / 1.5 var(--font-mono);
+        --tracking-caps: 0.06em;
+
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-card: 10px;
+        --radius-full: 999px;
+        --radius-control: var(--radius-md);
+        --control-sm: 28px;
+        --control-md: 32px;
+
+        --shadow-1: 0 1px 2px rgba(16, 16, 15, 0.06);
+        --shadow-2: 0 4px 12px -2px rgba(16, 16, 15, 0.08), 0 1px 3px rgba(16, 16, 15, 0.05);
+        --shadow-3: 0 16px 40px -8px rgba(16, 16, 15, 0.18), 0 2px 6px rgba(16, 16, 15, 0.06);
+        --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --duration-fast: 120ms;
+        --duration-base: 180ms;
+        --stage-mark-size: 24px;
+      }
+      :root[data-palette="dark"] {
+        --bg: var(--gray-950);
+        --surface: var(--gray-900);
+        --surface-raised: var(--gray-850);
+        --surface-sunken: var(--gray-950);
+        --surface-hover: var(--gray-850);
+        --surface-selected: color-mix(in oklab, var(--ember-500) 12%, var(--gray-900));
+        --fg-1: var(--gray-50);
+        --fg-2: var(--gray-300);
+        --fg-3: var(--gray-400);
+        --fg-disabled: var(--gray-600);
+        --border: var(--gray-800);
+        --border-subtle: var(--gray-850);
+        --border-strong: var(--gray-700);
+        --accent-subtle: color-mix(in oklab, var(--ember-500) 16%, transparent);
+        --accent-subtle-fg: var(--ember-300);
+        --control-hover: var(--gray-850);
+        --control-press: var(--gray-800);
+        --switch-off: var(--gray-700);
+        --success-subtle: color-mix(in oklab, var(--green-500) 16%, transparent);
+        --success-fg: #6fd69b;
+        --success-border: color-mix(in oklab, var(--green-500) 30%, transparent);
+        --warning-subtle: color-mix(in oklab, var(--amber-500) 16%, transparent);
+        --warning-fg: var(--flare-300);
+        --warning-border: color-mix(in oklab, var(--amber-500) 30%, transparent);
+        --danger-subtle: color-mix(in oklab, var(--red-500) 20%, transparent);
+        --danger-fg: #ff8a97;
+        --danger-border: color-mix(in oklab, var(--red-500) 36%, transparent);
+        --info-subtle: color-mix(in oklab, var(--blue-500) 18%, transparent);
+        --info-fg: #93b5f5;
+        --info-border: color-mix(in oklab, var(--blue-500) 34%, transparent);
+        --neutral-subtle: var(--gray-850);
+        --neutral-fg: var(--gray-300);
+        --neutral-border: var(--gray-700);
+        --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+        --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+        --shadow-3: 0 16px 40px -8px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg-1);
+        font: var(--type-body);
+        -webkit-font-smoothing: antialiased;
+      }
+      code {
+        font-family: var(--font-mono);
+      }
+      button {
+        font: inherit;
+        color: inherit;
+      }
+      :focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+
+      /* ---------- The proposal's frame ---------- */
+      .doc {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 28px;
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 28px 28px 64px;
+      }
+      @media (max-width: 1080px) {
+        .doc {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      .doc-head {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+      }
+      .overline {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .doc-head h1 {
+        margin: 6px 0 4px;
+        font: 600 22px/1.25 var(--font-sans);
+        letter-spacing: -0.01em;
+      }
+      .doc-head p {
+        margin: 0;
+        max-width: 72ch;
+        color: var(--fg-2);
+        font: var(--type-body-sm);
+      }
+      .doc-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+      }
+      .doc-control-label {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+
+      /* ---------- packages/ui look-alikes ---------- */
+      .seg {
+        display: inline-flex;
+        gap: 2px;
+        height: var(--control-sm);
+        padding: 2px;
+        background: var(--surface-sunken);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-control);
+      }
+      .seg button {
+        display: inline-flex;
+        align-items: center;
+        padding: 0 10px;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        color: var(--fg-2);
+        font: 500 12px/1 var(--font-sans);
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .seg button[aria-selected="true"] {
+        background: var(--surface);
+        color: var(--fg-1);
+        box-shadow: var(--shadow-1), 0 0 0 1px var(--border);
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: var(--control-sm);
+        padding: 0 10px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-control);
+        font: 500 var(--text-sm) / 1 var(--font-sans);
+        white-space: nowrap;
+        cursor: pointer;
+        transition:
+          background var(--duration-fast) var(--ease-out),
+          border-color var(--duration-fast) var(--ease-out);
+      }
+      .btn svg {
+        flex: none;
+      }
+      .btn-primary {
+        background: var(--accent);
+        color: var(--white);
+      }
+      .btn-primary:hover {
+        background: var(--accent-hover);
+      }
+      .btn-secondary {
+        background: var(--surface);
+        border-color: var(--border-strong);
+        color: var(--fg-1);
+        box-shadow: var(--shadow-1);
+      }
+      .btn-secondary:hover {
+        background: var(--control-hover);
+      }
+      .btn-ghost {
+        background: transparent;
+        color: var(--fg-2);
+      }
+      .btn-ghost:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: 20px;
+        padding: 0 6px;
+        border: 1px solid var(--neutral-border);
+        border-radius: var(--radius-sm);
+        background: var(--neutral-subtle);
+        color: var(--neutral-fg);
+        font: 500 var(--text-2xs) / 1 var(--font-sans);
+        white-space: nowrap;
+      }
+      .badge-info {
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+      }
+      .badge-success {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+
+      .switch {
+        position: relative;
+        flex: none;
+        width: 34px;
+        height: 20px;
+        border: 0;
+        border-radius: var(--radius-full);
+        background: var(--switch-off);
+        cursor: pointer;
+        transition: background var(--duration-fast) var(--ease-out);
+      }
+      .switch::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--white);
+        box-shadow: var(--shadow-1);
+        transition: left var(--duration-base) var(--ease-out);
+      }
+      .switch[aria-checked="true"] {
+        background: var(--accent);
+      }
+      .switch[aria-checked="true"]::after {
+        left: 16px;
+      }
+
+      .alert {
+        display: flex;
+        gap: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--warning-border);
+        border-radius: var(--radius-md);
+        background: var(--warning-subtle);
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .alert svg {
+        flex: none;
+        margin-top: 2px;
+        color: var(--warning-fg);
+      }
+      .alert b {
+        display: block;
+        color: var(--warning-fg);
+        font-weight: 600;
+      }
+
+      .project-mark {
+        display: inline-grid;
+        place-items: center;
+        flex: none;
+        width: 18px;
+        height: 18px;
+        border-radius: var(--radius-sm);
+        color: var(--white);
+        font: 700 10px/1 var(--font-sans);
+      }
+
+      /* ---------- The record fold (RecordFold, as work.css draws it) ---------- */
+      .page-column {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-width: 0;
+      }
+      .record-fold {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .record-fold.ghost {
+        opacity: 0.55;
+      }
+      .record-fold-row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        padding-right: 14px;
+        border-radius: var(--radius-card) var(--radius-card) 0 0;
+      }
+      .record-fold-row:hover {
+        background: var(--surface-hover);
+      }
+      .record-fold-head {
+        display: flex;
+        flex: 1;
+        gap: 8px;
+        align-items: center;
+        min-width: 0;
+        padding: 12px 0 12px 16px;
+        border: 0;
+        background: none;
+        text-align: left;
+        cursor: pointer;
+      }
+      .fold-chevron {
+        flex: none;
+        color: var(--fg-3);
+        transition: transform var(--duration-fast) var(--ease-out);
+      }
+      .record-fold-head[aria-expanded="true"] .fold-chevron {
+        transform: rotate(90deg);
+      }
+      .task-block-title {
+        display: inline-flex;
+        flex: none;
+        gap: 8px;
+        align-items: center;
+        margin-right: 4px;
+        font: var(--type-card-title);
+      }
+      .record-fold-summary {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        color: var(--fg-2);
+        font: 400 var(--text-body) / 1.45 var(--font-sans);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .record-fold-head[aria-expanded="true"] .record-fold-summary {
+        visibility: hidden;
+      }
+      .record-fold-side {
+        display: flex;
+        flex: none;
+        gap: 6px;
+        align-items: center;
+      }
+      .record-fold-body {
+        padding: 2px 18px 16px 16px;
+      }
+      .record-fold-body[hidden] {
+        display: none;
+      }
+      .ghost-line {
+        height: 10px;
+        border-radius: var(--radius-sm);
+        background: var(--border-subtle);
+      }
+
+      /* ---------- New: the Pipelines block, read ---------- */
+      .pipelines {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-width: 0;
+      }
+      .facts {
+        display: grid;
+        grid-template-columns: max-content minmax(0, 1fr);
+        margin: 0;
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+      }
+      .facts dt,
+      .facts dd {
+        margin: 0;
+        padding: 10px 12px;
+        border-top: 1px solid var(--border-subtle);
+      }
+      .facts dt:first-of-type,
+      .facts dt:first-of-type + dd {
+        border-top: 0;
+      }
+      .facts dt {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        background: var(--surface-sunken);
+        color: var(--fg-3);
+        font: var(--type-label);
+        white-space: nowrap;
+      }
+      .facts dd {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 10px;
+        align-items: center;
+        min-width: 0;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      @media (max-width: 640px) {
+        .facts {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .facts dt {
+          padding-block: 6px;
+        }
+        .facts dd {
+          border-top: 0;
+        }
+      }
+      .branch-name {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        padding: 2px 7px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--surface-sunken);
+        color: var(--fg-1);
+        font: 500 12px/1.5 var(--font-mono);
+        overflow-wrap: anywhere;
+      }
+      .branch-name svg {
+        flex: none;
+        color: var(--fg-3);
+      }
+      .quiet {
+        color: var(--fg-3);
+      }
+      .facts-project {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        color: var(--fg-1);
+        font-weight: 600;
+      }
+      .pipeline-name {
+        color: var(--fg-1);
+        font-weight: 600;
+      }
+
+      .project-pipelines {
+        display: flex;
+        flex-direction: column;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .project-pipeline {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 14px 0;
+        border-top: 1px solid var(--border-subtle);
+      }
+      .project-pipeline:first-child {
+        padding-top: 2px;
+        border-top: 0;
+      }
+      .project-pipeline:last-child {
+        padding-bottom: 0;
+      }
+      .project-pipeline-head {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 10px;
+        align-items: center;
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+      }
+      .publishing-label {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 10px;
+        align-items: center;
+        font: var(--type-body-sm);
+      }
+      .publishing-label a {
+        color: var(--fg-1);
+        text-decoration: none;
+        font-weight: 500;
+      }
+      .publishing-label a:hover {
+        text-decoration: underline;
+      }
+      .none-line {
+        margin: 0;
+        padding: 10px 12px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-md);
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .none-line b {
+        color: var(--fg-1);
+        font-weight: 600;
+      }
+      .foot {
+        margin: 0;
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+      }
+
+      /* The track (InitiativePipelineTrack), unchanged: drawn only to place it. */
+      .track {
+        display: flex;
+        align-items: flex-start;
+        min-width: 0;
+        padding: 12px 6px 4px;
+        overflow-x: auto;
+      }
+      .track-stage {
+        position: relative;
+        display: flex;
+        flex: 1 0 96px;
+        flex-direction: column;
+        gap: 6px;
+        align-items: center;
+        text-align: center;
+      }
+      .track-stage::before {
+        content: "";
+        position: absolute;
+        top: calc(var(--stage-mark-size) / 2);
+        left: calc(-50% + var(--stage-mark-size) / 2 + 4px);
+        right: calc(50% + var(--stage-mark-size) / 2 + 4px);
+        height: 0;
+        border-top: 1.5px dashed var(--border-strong);
+      }
+      .track-stage:first-child::before {
+        display: none;
+      }
+      .track-mark {
+        display: grid;
+        place-items: center;
+        width: var(--stage-mark-size);
+        height: var(--stage-mark-size);
+        border: 1.5px dashed var(--border-strong);
+        border-radius: 50%;
+        color: var(--fg-3);
+        background: var(--surface);
+      }
+      .track-stage.done .track-mark {
+        border: 0;
+        background: var(--success);
+        color: var(--white);
+      }
+      .track-stage.done::before {
+        border-top-style: solid;
+        border-color: var(--success);
+      }
+      .track-stage.now .track-mark {
+        border: 1.5px solid var(--accent);
+        color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-subtle);
+      }
+      .track-name {
+        font: 500 var(--text-xs) / 1.3 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .track-who {
+        margin-top: -4px;
+        font: var(--type-caption);
+        font-size: var(--text-2xs);
+        color: var(--fg-3);
+      }
+
+      /* ---------- New: the Pipelines block, edited ---------- */
+      .editor {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+      .step {
+        position: relative;
+        display: grid;
+        grid-template-columns: 24px minmax(0, 1fr);
+        gap: 0 12px;
+        padding-bottom: 20px;
+      }
+      .step::before {
+        content: "";
+        position: absolute;
+        top: 28px;
+        bottom: 4px;
+        left: 11.5px;
+        border-left: 1px solid var(--border);
+      }
+      .step:has(+ .editor-actions)::before {
+        display: none;
+      }
+      .step-number {
+        display: grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--accent-subtle);
+        color: var(--accent-subtle-fg);
+        font: 600 var(--text-xs) / 1 var(--font-sans);
+      }
+      .step.off .step-number {
+        background: var(--neutral-subtle);
+        color: var(--fg-3);
+        box-shadow: inset 0 0 0 1px var(--border);
+      }
+      .step-body {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-width: 0;
+        padding-top: 2px;
+      }
+      .step-title {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 8px;
+        align-items: baseline;
+      }
+      .step-title h3 {
+        margin: 0;
+        font: 600 var(--text-sm) / 1.45 var(--font-sans);
+      }
+      .step.off .step-title h3 {
+        color: var(--fg-3);
+      }
+      .required {
+        color: var(--danger-fg);
+        font-weight: 600;
+      }
+      .step-hint {
+        margin: -6px 0 0;
+        max-width: 68ch;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+
+      .choice-list {
+        display: flex;
+        flex-direction: column;
+        margin: 0;
+        padding: 0;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        list-style: none;
+        overflow: hidden;
+      }
+      .choice-row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        padding: 10px 12px;
+        border-top: 1px solid var(--border-subtle);
+        cursor: pointer;
+      }
+      .choice-row:first-child {
+        border-top: 0;
+      }
+      .choice-row:hover {
+        background: var(--surface-hover);
+      }
+      .choice-row-words {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        gap: 1px;
+        min-width: 0;
+      }
+      .choice-row-label {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        font: var(--type-label);
+        line-height: 20px;
+      }
+      .choice-row-description {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .choice-row-description code {
+        color: var(--fg-2);
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        max-width: 520px;
+      }
+      .input {
+        display: flex;
+        align-items: center;
+        height: var(--control-md);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-control);
+        background: var(--surface);
+        overflow: hidden;
+        transition:
+          border-color var(--duration-fast) var(--ease-out),
+          box-shadow var(--duration-fast) var(--ease-out);
+      }
+      .input:focus-within {
+        border-color: var(--accent);
+        box-shadow: var(--focus-ring);
+      }
+      .input.invalid {
+        border-color: var(--danger);
+      }
+      .input-prefix {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        align-self: stretch;
+        padding: 0 4px 0 10px;
+        color: var(--fg-3);
+        font: 400 var(--text-sm) / 1 var(--font-mono);
+        white-space: nowrap;
+      }
+      .input input {
+        flex: 1;
+        min-width: 0;
+        height: 100%;
+        padding: 0 10px 0 0;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--fg-1);
+        font: 500 var(--text-sm) / 1 var(--font-mono);
+      }
+      .input input:focus-visible {
+        box-shadow: none;
+      }
+      .field-hint {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .field-error {
+        display: flex;
+        gap: 6px;
+        align-items: flex-start;
+        font: var(--type-caption);
+        color: var(--danger-fg);
+      }
+      .field-error svg {
+        flex: none;
+        margin-top: 1px;
+      }
+
+      .pipeline-rows {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .pipeline-row {
+        display: grid;
+        grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
+        gap: 6px 12px;
+        align-items: center;
+      }
+      @media (max-width: 640px) {
+        .pipeline-row {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      .pipeline-row-project {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        min-width: 0;
+        font: var(--type-label);
+      }
+      .pipeline-row-choice {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 10px;
+        align-items: center;
+        min-width: 0;
+      }
+      .pipeline-row-extra {
+        grid-column: 2;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+      }
+      @media (max-width: 640px) {
+        .pipeline-row-extra {
+          grid-column: 1;
+        }
+      }
+      .shape {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+
+      .picker {
+        position: relative;
+      }
+      .picker-button {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        justify-content: space-between;
+        min-width: 240px;
+        max-width: 100%;
+        height: var(--control-md);
+        padding: 0 8px 0 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-control);
+        background: var(--surface);
+        color: var(--fg-1);
+        font: 500 var(--text-sm) / 1 var(--font-sans);
+        cursor: pointer;
+      }
+      .picker-button:hover {
+        background: var(--control-hover);
+      }
+      .picker-button.empty {
+        color: var(--fg-3);
+        font-weight: 400;
+      }
+      .picker-button.invalid {
+        border-color: var(--danger);
+      }
+      .picker-button svg {
+        flex: none;
+        color: var(--fg-3);
+      }
+      .picker-menu {
+        position: absolute;
+        z-index: 10;
+        top: calc(100% + 4px);
+        left: 0;
+        width: 340px;
+        max-width: 86vw;
+        padding: 4px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface-raised);
+        box-shadow: var(--shadow-3);
+      }
+      .picker-group {
+        padding: 8px 8px 4px;
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .picker-option {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        width: 100%;
+        padding: 7px 8px;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: none;
+        text-align: left;
+        cursor: pointer;
+      }
+      .picker-option:hover {
+        background: var(--control-hover);
+      }
+      .picker-option[aria-selected="true"] {
+        background: var(--surface-selected);
+      }
+      .picker-option-check {
+        flex: none;
+        width: 14px;
+        margin-top: 2px;
+        color: var(--accent);
+      }
+      .picker-option-words {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+      .picker-option-name {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        font: var(--type-label);
+      }
+      .picker-option-line {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+
+      .off-note {
+        margin: 0;
+        padding: 9px 12px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-md);
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+
+      .editor-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        padding-top: 14px;
+        border-top: 1px solid var(--border-subtle);
+      }
+      .editor-actions .note {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+
+      /* ---------- The notes beside the mock ---------- */
+      .notes {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-width: 0;
+      }
+      .note-card {
+        padding: 14px 16px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .note-card h2 {
+        margin: 0 0 8px;
+        font: var(--type-card-title);
+      }
+      .note-card ol,
+      .note-card ul {
+        margin: 0;
+        padding-left: 18px;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .note-card li + li {
+        margin-top: 6px;
+      }
+      .note-card p {
+        margin: 0;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .note-card code {
+        font-size: 12px;
+        color: var(--fg-1);
+      }
+      .note-card b {
+        color: var(--fg-1);
+      }
+      .state-caption {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="doc">
+      <header class="doc-head">
+        <div>
+          <div class="overline">Design proposal · Initiative page</div>
+          <h1>The Pipelines block, edited as a whole</h1>
+          <p>
+            One question at a time, in the order they are decided: does a Project work on an
+            Initiative's branch, what is the branch called, and which Pipeline publishes it. The
+            block reads as facts until you press Edit, like the Plan and the Definition of Done.
+            Try it: the mock below is live.
+          </p>
+        </div>
+        <div class="doc-controls">
+          <span class="doc-control-label">State</span>
+          <div class="seg" id="state-switch" role="tablist" aria-label="State"></div>
+          <span class="doc-control-label">Projects</span>
+          <div class="seg" id="projects-switch" role="tablist" aria-label="Projects"></div>
+          <div class="seg" id="palette-switch" role="tablist" aria-label="Palette"></div>
+        </div>
+      </header>
+
+      <section class="page-column" aria-label="Initiative page, record column">
+        <div class="state-caption" id="state-caption"></div>
+        <div class="record-fold ghost" aria-hidden="true">
+          <div class="record-fold-row">
+            <div class="record-fold-head">
+              <span class="task-block-title" data-icon="target">Outcome</span>
+              <span class="record-fold-summary"
+                >A Stage whose Engine runs out of its usage window goes on elsewhere</span
+              >
+            </div>
+          </div>
+        </div>
+        <div id="pipelines-block"></div>
+        <div class="record-fold ghost" aria-hidden="true">
+          <div class="record-fold-row">
+            <div class="record-fold-head">
+              <span class="task-block-title" data-icon="list">Tasks</span>
+              <span class="record-fold-summary">6 Tasks · 2 Done · 1 In progress</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="notes" aria-label="What changes">
+        <div class="note-card">
+          <h2>What changes</h2>
+          <ol>
+            <li>
+              <b>Edit, like the Plan.</b> While shaping the block's head has <b>Edit</b>; nothing in
+              the body is a control until then. Save writes everything in one go; Cancel throws the
+              draft away. Once confirmed there is no Edit: whether a Project has an Initiative's
+              branch is fixed at Confirm, and another Pipeline comes by a Proposal, as today.
+            </li>
+            <li>
+              <b>1 · Initiative's branch first.</b> One switch per Project the Initiative spans:
+              on, it works on <code>initiative/&lt;short name&gt;</code> there; off, its Tasks
+              publish Task by Task. This replaces "None" in the Pipeline picker.
+            </li>
+            <li>
+              <b>2 · Its name.</b> The Short name, edited in place with the fixed
+              <code>initiative/</code> prefix shown, so the field reads as the whole branch. Shown
+              once any switch is on; one for the whole Initiative.
+            </li>
+            <li>
+              <b>3 · Pipeline, required.</b> One picker per Project switched on, its Project default
+              picked at first. No None in the list: a branch without a Pipeline can't publish.
+            </li>
+            <li>
+              <b>Read view as facts.</b> Branch, then each Project's Pipeline with its track,
+              Publishing Task and wait words as today.
+            </li>
+          </ol>
+        </div>
+        <div class="note-card">
+          <h2>Behaviour</h2>
+          <ul>
+            <li>
+              Switching a Project on picks its Project default Pipeline and, when the Initiative has
+              no Short name yet, fills the branch name from the title, by the rule the service uses
+              (<code>derivedShortName</code>).
+            </li>
+            <li>
+              Switching every Project off dims steps 2 and 3 and says why; Save then writes None in
+              each Project and leaves the Short name as it is.
+            </li>
+            <li>
+              Save checks before it sends: a Project switched on with no Pipeline, or a branch name
+              outside a–z, 0–9 and -, shows its error under its field and keeps the form open. A
+              refusal from the service (a Short name already taken) shows under the branch name.
+            </li>
+            <li>
+              A Pipeline with no Gate keeps today's warning, "Publishes without your review",
+              under its picker.
+            </li>
+            <li>
+              The fold's summary line and foot words stay as they are.
+            </li>
+          </ul>
+        </div>
+        <div class="note-card">
+          <h2>For the build</h2>
+          <ul>
+            <li>
+              <code>packages/ui</code> as it is: <code>Switch</code> with label and description,
+              <code>Input</code> with <code>iconLeft</code> for the prefix, <code>Button</code>,
+              <code>Alert</code>; <code>PipelinePicker</code> without its None group; the
+              <code>RecordFold</code> side holds Edit, as <code>PartActions</code> does.
+            </li>
+            <li>
+              The numbered steps and the facts list are drawn in
+              <code>work.css</code> from tokens; they replace
+              <code>.initiative-pipelines-choice</code> and <code>.initiative-short-name</code>.
+            </li>
+            <li>
+              One Save is one change: a single call that takes the Short name and every Project's
+              Pipeline (or None) is preferred over today's one call per field, so a refusal leaves
+              nothing half-saved.
+            </li>
+          </ul>
+        </div>
+      </aside>
+    </main>
+
+    <script>
+      const ICONS = {
+        route:
+          '<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>',
+        branch:
+          '<line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>',
+        chevronRight: '<path d="m9 18 6-6-6-6"/>',
+        chevronDown: '<path d="m6 9 6 6 6-6"/>',
+        check: '<path d="M20 6 9 17l-5-5"/>',
+        pencil: '<path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>',
+        alert:
+          '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+        alertCircle:
+          '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
+        user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+        bot: '<rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 4v4"/><path d="M9 14h.01M15 14h.01"/>',
+        terminal: '<path d="m4 17 6-6-6-6"/><path d="M12 19h8"/>',
+        upload: '<path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/>',
+        target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>',
+        list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+      };
+      function icon(name, size = 14, stroke = 1.75) {
+        return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
+      }
+      document.querySelectorAll("[data-icon]").forEach((element) => {
+        element.insertAdjacentHTML("afterbegin", icon(element.dataset.icon, 15, 1.6));
+      });
+      function escapeHtml(text) {
+        return String(text).replace(
+          /[&<>"']/g,
+          (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char],
+        );
+      }
+
+      /* ---------- The mock's data ---------- */
+      const TITLE = "Stand-in Engines";
+      const SHORT_NAME_MAX_LENGTH = 40;
+      const STAGE_KINDS = { agent: "bot", gate: "user", script: "terminal", publish: "upload" };
+      const PIPELINES = {
+        standard: {
+          name: "Standard",
+          line: "Plan, build, review, your review, test, publish",
+          stages: [
+            ["Plan", "agent", "Planner"],
+            ["Implement", "agent", "Developer"],
+            ["Review & fix", "agent", "Reviewer"],
+            ["Your review", "gate", "You"],
+            ["Tests", "script", "npm test"],
+            ["Publish", "publish", "The Office"],
+          ],
+        },
+        quick: {
+          name: "Quick fix",
+          line: "Build, test, publish, no review",
+          stages: [
+            ["Implement", "agent", "Developer"],
+            ["Tests", "script", "npm test"],
+            ["Publish", "publish", "The Office"],
+          ],
+        },
+        design: {
+          name: "Design first",
+          line: "A design for you to approve, then the build",
+          stages: [
+            ["Create a design", "agent", "UI/UX Designer"],
+            ["Review the design", "gate", "You"],
+            ["Implement", "agent", "Developer"],
+            ["Review final result", "gate", "You"],
+            ["Tests", "script", "npm test"],
+            ["Publish", "publish", "The Office"],
+          ],
+        },
+        release: {
+          name: "Release check",
+          line: "Integrate, full checks, your review, publish",
+          stages: [
+            ["Integrate", "agent", "Developer"],
+            ["Full checks", "script", "npm run verify:full"],
+            ["Your review", "gate", "You"],
+            ["Publish", "publish", "The Office"],
+          ],
+        },
+      };
+      const PROJECTS = [
+        {
+          id: "the-office",
+          name: "the-office",
+          mark: "O",
+          colour: "#f23d0f",
+          baseBranch: "main",
+          defaultPipeline: "standard",
+          groups: [
+            { label: "the-office's Pipelines", ids: ["design"] },
+            { label: "Office-wide", ids: ["standard", "quick", "release"] },
+          ],
+        },
+        {
+          id: "not-astray",
+          name: "not-astray",
+          mark: "N",
+          colour: "#2f6bdb",
+          baseBranch: "main",
+          defaultPipeline: "standard",
+          groups: [{ label: "Office-wide", ids: ["standard", "quick", "release"] }],
+        },
+      ];
+
+      /* ---------- The mock's state ---------- */
+      const STATES = [
+        ["shaping", "Shaping"],
+        ["editing", "Editing"],
+        ["not-set-up", "No branch yet"],
+        ["active", "Confirmed"],
+      ];
+      let projectCount = 1;
+      let stateKey = "shaping";
+      let palette = "light";
+      let initiative;
+      let draft = null;
+      let errors = {};
+      let openPicker = null;
+      let foldOpen = true;
+
+      function freshInitiative(withBranch) {
+        return {
+          state: "shaping",
+          shortName: withBranch ? "stand-in-engines" : null,
+          pipelines: Object.fromEntries(
+            PROJECTS.map((project, index) => [
+              project.id,
+              withBranch && index === 0 ? "design" : null,
+            ]),
+          ),
+        };
+      }
+      function setState(key) {
+        stateKey = key;
+        errors = {};
+        openPicker = null;
+        foldOpen = true;
+        initiative = freshInitiative(key !== "not-set-up");
+        if (key === "active") initiative.state = "active";
+        draft = key === "editing" ? draftOf(initiative) : null;
+        render();
+      }
+      function projectsShown() {
+        return PROJECTS.slice(0, projectCount);
+      }
+      function hasBranch() {
+        return projectsShown().some(({ id }) => initiative.pipelines[id] !== null);
+      }
+      function draftOf(source) {
+        return {
+          shortName: source.shortName ?? "",
+          pipelines: { ...source.pipelines },
+          on: Object.fromEntries(PROJECTS.map(({ id }) => [id, source.pipelines[id] !== null])),
+        };
+      }
+      function derivedShortName(title) {
+        return title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, SHORT_NAME_MAX_LENGTH);
+      }
+
+      /* ---------- Words ---------- */
+      function shapeWords(stages) {
+        const gates = stages.filter(([, kind]) => kind === "gate").length;
+        const stageWords = `${stages.length} ${stages.length === 1 ? "Stage" : "Stages"}`;
+        const gateWords = gates === 0 ? "no Gate" : `${gates} ${gates === 1 ? "Gate" : "Gates"}`;
+        return `${stageWords}, ${gateWords}`;
+      }
+      function hasGate(pipeline) {
+        return pipeline.stages.some(([, kind]) => kind === "gate");
+      }
+      function foldedLine() {
+        const shown = projectsShown();
+        const any = shown.some(({ id }) => initiative.pipelines[id] !== null);
+        if (!any) {
+          return initiative.state === "shaping"
+            ? "None: each Task publishes on its own"
+            : "None: publishes Task by Task";
+        }
+        const named = shown
+          .map(
+            ({ id, name }) =>
+              `${name}: ${initiative.pipelines[id] ? PIPELINES[initiative.pipelines[id]].name : "None"}`,
+          )
+          .join(" · ");
+        return initiative.state === "shaping"
+          ? named
+          : `${named} · start once every Task is Done or Dropped`;
+      }
+
+      /* ---------- Rendering ---------- */
+      function render() {
+        renderControls();
+        document.getElementById("state-caption").innerHTML = captionHtml();
+        document.getElementById("pipelines-block").innerHTML = blockHtml();
+        bind();
+      }
+      function segHtml(options, value, attribute) {
+        return options
+          .map(
+            ([key, label]) =>
+              `<button type="button" role="tab" ${attribute}="${key}" aria-selected="${key === value}">${label}</button>`,
+          )
+          .join("");
+      }
+      function renderControls() {
+        document.getElementById("state-switch").innerHTML = segHtml(
+          STATES,
+          draft && stateKey !== "editing" ? "editing" : stateKey,
+          "data-state",
+        );
+        document.getElementById("projects-switch").innerHTML = segHtml(
+          [
+            ["1", "One"],
+            ["2", "Two"],
+          ],
+          String(projectCount),
+          "data-projects",
+        );
+        document.getElementById("palette-switch").innerHTML = segHtml(
+          [
+            ["light", "Light"],
+            ["dark", "Dark"],
+          ],
+          palette,
+          "data-palette-choice",
+        );
+      }
+      function captionHtml() {
+        if (draft) return "Shaping · after Edit: the block is a form, the order the user decides in.";
+        if (initiative.state === "active")
+          return "Confirmed: the branch and the Pipelines are fixed, so there is no Edit.";
+        return !hasBranch()
+          ? "Shaping, nothing set up yet: the block says what it would do, and Edit sets it up."
+          : "Shaping, set up: the block reads as facts, with Edit in its head.";
+      }
+
+      function blockHtml() {
+        const editable = initiative.state === "shaping" && draft === null;
+        return `<section class="record-fold" aria-label="Pipelines">
+          <div class="record-fold-row">
+            <button type="button" class="record-fold-head" aria-expanded="${foldOpen}" data-action="fold">
+              <span class="fold-chevron">${icon("chevronRight", 14)}</span>
+              <span class="task-block-title">${icon("route", 15, 1.6)}Pipelines</span>
+              <span class="record-fold-summary">${escapeHtml(foldedLine())}</span>
+            </button>
+            ${
+              editable
+                ? `<div class="record-fold-side"><button type="button" class="btn btn-secondary" data-action="edit">Edit</button></div>`
+                : ""
+            }
+          </div>
+          <div class="record-fold-body" ${foldOpen ? "" : "hidden"}>
+            ${draft ? editorHtml() : readHtml()}
+          </div>
+        </section>`;
+      }
+
+      /* The read view: the facts, then each Project's Pipeline and track. */
+      function readHtml() {
+        const shown = projectsShown();
+        const withBranch = shown.filter(({ id }) => initiative.pipelines[id] !== null);
+        const shaping = initiative.state === "shaping";
+        if (withBranch.length === 0) {
+          return `<div class="pipelines">
+            <p class="none-line"><b>No Initiative's branch.</b> Each Task publishes into its Project's base branch on its own, as it is done. ${
+              shaping
+                ? "Press Edit to work on an Initiative's branch instead and publish the whole change at once, through a Pipeline."
+                : "This was fixed at Confirm."
+            }</p>
+          </div>`;
+        }
+        const branch = `initiative/${initiative.shortName}`;
+        const branchNote = shaping ? "made at Confirm" : "";
+        const projectsWithout = shown.filter(({ id }) => initiative.pipelines[id] === null);
+        return `<div class="pipelines">
+          <dl class="facts">
+            <dt>${icon("branch", 13)}Initiative's branch</dt>
+            <dd>
+              <span class="branch-name">${icon("branch", 12)}${escapeHtml(branch)}</span>
+              ${branchNote ? `<span class="quiet">${branchNote}</span>` : ""}
+              ${
+                shown.length > 1
+                  ? `<span class="quiet">in ${withBranch.map(({ name }) => escapeHtml(name)).join(" and ")}</span>`
+                  : ""
+              }
+            </dd>
+            ${
+              projectsWithout.length > 0
+                ? `<dt>Task by Task</dt><dd>${projectsWithout
+                    .map(
+                      (project) =>
+                        `<span class="facts-project">${markHtml(project)}${escapeHtml(project.name)}</span>`,
+                    )
+                    .join("")}<span class="quiet">publishes each Task on its own, as it is done</span></dd>`
+                : ""
+            }
+          </dl>
+          <ol class="project-pipelines" aria-label="Projects">
+            ${withBranch.map((project) => projectReadHtml(project)).join("")}
+          </ol>
+          <p class="foot">${
+            shaping
+              ? "Once every other Task is Done or Dropped, each Project with a Pipeline gets a Publishing Task that walks its Stages."
+              : "Once every other Task is Done or Dropped, The Office adds a Publishing Task in each Project with a Pipeline whose branch holds work, to publish its whole change. Another Pipeline for a Project comes by a Proposal of whoever shapes Initiatives."
+          }</p>
+        </div>`;
+      }
+      function markHtml(project) {
+        return `<span class="project-mark" style="background:${project.colour}">${project.mark}</span>`;
+      }
+      function projectReadHtml(project) {
+        const pipeline = PIPELINES[initiative.pipelines[project.id]];
+        const shaping = initiative.state === "shaping";
+        return `<li class="project-pipeline" aria-label="${escapeHtml(project.name)}">
+          <div class="project-pipeline-head">
+            <span class="facts-project">${markHtml(project)}${escapeHtml(project.name)}</span>
+            <span><span class="pipeline-name">${escapeHtml(pipeline.name)}</span> · ${shapeWords(pipeline.stages)}</span>
+          </div>
+          ${
+            shaping
+              ? ""
+              : `<div class="publishing-label"><span class="quiet">No Publishing Task yet</span></div>`
+          }
+          ${!hasGate(pipeline) && shaping ? gateWarningHtml(pipeline, project) : ""}
+          ${trackHtml(pipeline)}
+        </li>`;
+      }
+      function trackHtml(pipeline) {
+        return `<div class="track" role="list" aria-label="${escapeHtml(pipeline.name)}">${pipeline.stages
+          .map(
+            ([name, kind, who]) => `<div class="track-stage" role="listitem">
+              <span class="track-mark">${icon(STAGE_KINDS[kind], 12)}</span>
+              <span class="track-name">${escapeHtml(name)}</span>
+              <span class="track-who">${escapeHtml(who)}</span>
+            </div>`,
+          )
+          .join("")}</div>`;
+      }
+      function gateWarningHtml(pipeline, project) {
+        return `<div class="alert" role="note">${icon("alert", 15)}<div><b>Publishes without your review</b>No Stage of ${escapeHtml(
+          pipeline.name,
+        )} is a Gate, so the Initiative's branch in ${escapeHtml(project.name)} is published into ${
+          project.baseBranch
+        } without you looking at it first.</div></div>`;
+      }
+
+      /* The form, after Edit: three steps, in the order they are decided. */
+      function editorHtml() {
+        const shown = projectsShown();
+        const anyOn = shown.some(({ id }) => draft.on[id]);
+        const branch = `initiative/${draft.shortName || "…"}`;
+        return `<form class="editor" novalidate data-form>
+          <div class="step">
+            <span class="step-number">1</span>
+            <div class="step-body">
+              <div class="step-title"><h3>Work on an Initiative's branch?</h3></div>
+              <p class="step-hint">On, the Initiative's Tasks start from its own branch and publish into it, and one Publishing Task puts the whole change into the base branch at the end. Off, each Task publishes on its own, as it is done. Fixed at Confirm.</p>
+              <ul class="choice-list" aria-label="Initiative's branch, per Project">
+                ${shown.map((project) => switchRowHtml(project, branch)).join("")}
+              </ul>
+            </div>
+          </div>
+
+          <div class="step ${anyOn ? "" : "off"}">
+            <span class="step-number">2</span>
+            <div class="step-body">
+              <div class="step-title"><h3>Branch name</h3>${anyOn ? '<span class="required" aria-hidden="true">*</span>' : ""}</div>
+              ${
+                anyOn
+                  ? `<div class="field">
+                      <label class="input ${errors.shortName ? "invalid" : ""}">
+                        <span class="input-prefix">${icon("branch", 13)}initiative/</span>
+                        <input data-short-name aria-label="Short name" value="${escapeHtml(draft.shortName)}" maxlength="${SHORT_NAME_MAX_LENGTH}" spellcheck="false" autocomplete="off" aria-invalid="${Boolean(errors.shortName)}" />
+                      </label>
+                      ${
+                        errors.shortName
+                          ? `<span class="field-error">${icon("alertCircle", 13)}${escapeHtml(errors.shortName)}</span>`
+                          : `<span class="field-hint">The Initiative's Short name, one for all its Projects: lower-case a–z, 0–9 and -, at most ${SHORT_NAME_MAX_LENGTH} characters.</span>`
+                      }
+                    </div>`
+                  : `<p class="off-note">Only with an Initiative's branch: switch a Project on above.</p>`
+              }
+            </div>
+          </div>
+
+          <div class="step ${anyOn ? "" : "off"}">
+            <span class="step-number">3</span>
+            <div class="step-body">
+              <div class="step-title"><h3>Pipeline</h3>${anyOn ? '<span class="required" aria-hidden="true">*</span>' : ""}</div>
+              ${
+                anyOn
+                  ? `<p class="step-hint">What the Publishing Task walks before the branch is published.</p>
+                     <ul class="pipeline-rows">${shown
+                       .filter(({ id }) => draft.on[id])
+                       .map((project) => pipelineRowHtml(project))
+                       .join("")}</ul>`
+                  : `<p class="off-note">Only with an Initiative's branch: a Project publishing Task by Task needs none.</p>`
+              }
+            </div>
+          </div>
+
+          <div class="editor-actions">
+            <button type="submit" class="btn btn-primary">${icon("check", 14)}Save</button>
+            <button type="button" class="btn btn-ghost" data-action="cancel">Cancel</button>
+          </div>
+        </form>`;
+      }
+      function switchRowHtml(project, branch) {
+        const on = draft.on[project.id];
+        const description = on
+          ? `Works on <code>${escapeHtml(branch)}</code>, published into ${project.baseBranch} by its Publishing Task.`
+          : `Task by Task: each Task publishes into ${project.baseBranch} as it is done.`;
+        return `<li class="choice-row" data-toggle="${project.id}">
+          <span class="choice-row-words">
+            <span class="choice-row-label">${markHtml(project)}${escapeHtml(project.name)}</span>
+            <span class="choice-row-description">${description}</span>
+          </span>
+          <button type="button" class="switch" role="switch" aria-checked="${on}" aria-label="${escapeHtml(project.name)} works on an Initiative's branch"></button>
+        </li>`;
+      }
+      function pipelineRowHtml(project) {
+        const pipelineId = draft.pipelines[project.id];
+        const pipeline = pipelineId ? PIPELINES[pipelineId] : null;
+        const error = errors[`pipeline-${project.id}`];
+        return `<li class="pipeline-row">
+          <span class="pipeline-row-project">${markHtml(project)}${escapeHtml(project.name)}</span>
+          <span class="pipeline-row-choice">
+            <span class="picker">
+              <button type="button" class="picker-button ${pipeline ? "" : "empty"} ${error ? "invalid" : ""}" aria-haspopup="listbox" aria-expanded="${openPicker === project.id}" data-picker="${project.id}" aria-label="${escapeHtml(project.name)}'s Pipeline">
+                <span>${pipeline ? escapeHtml(pipeline.name) : "Choose a Pipeline"}</span>${icon("chevronDown", 14)}
+              </button>
+              ${openPicker === project.id ? pickerMenuHtml(project, pipelineId) : ""}
+            </span>
+            ${pipeline ? `<span class="shape">${shapeWords(pipeline.stages)}</span>` : ""}
+          </span>
+          ${
+            error || (pipeline && !hasGate(pipeline))
+              ? `<div class="pipeline-row-extra">
+                  ${error ? `<span class="field-error">${icon("alertCircle", 13)}${escapeHtml(error)}</span>` : ""}
+                  ${pipeline && !hasGate(pipeline) ? gateWarningHtml(pipeline, project) : ""}
+                </div>`
+              : ""
+          }
+        </li>`;
+      }
+      function pickerMenuHtml(project, value) {
+        return `<div class="picker-menu" role="listbox" aria-label="${escapeHtml(project.name)}'s Pipeline">
+          ${project.groups
+            .map(
+              (group) => `<div class="picker-group">${escapeHtml(group.label)}</div>
+                ${group.ids
+                  .map((id) => {
+                    const pipeline = PIPELINES[id];
+                    return `<button type="button" class="picker-option" role="option" aria-selected="${id === value}" data-choose="${project.id}:${id}">
+                      <span class="picker-option-check">${id === value ? icon("check", 14) : ""}</span>
+                      <span class="picker-option-words">
+                        <span class="picker-option-name">${escapeHtml(pipeline.name)}${
+                          id === project.defaultPipeline
+                            ? '<span class="badge">Project default</span>'
+                            : ""
+                        }</span>
+                        <span class="picker-option-line">${escapeHtml(pipeline.line)} · ${shapeWords(pipeline.stages)}</span>
+                      </span>
+                    </button>`;
+                  })
+                  .join("")}`,
+            )
+            .join("")}
+        </div>`;
+      }
+
+      /* ---------- Behaviour ---------- */
+      function validate() {
+        const found = {};
+        const shown = projectsShown();
+        if (!shown.some(({ id }) => draft.on[id])) return found;
+        if (draft.shortName === "") {
+          found.shortName = "Name the branch: the Initiative works on it in each Project switched on.";
+        } else if (!/^[a-z0-9-]+$/.test(draft.shortName)) {
+          found.shortName = "Use only lower-case a–z, 0–9 and -.";
+        } else if (draft.shortName === "taken") {
+          found.shortName = "initiative/taken is already another Initiative's branch.";
+        }
+        for (const { id } of shown) {
+          if (draft.on[id] && !draft.pipelines[id]) {
+            found[`pipeline-${id}`] =
+              "Choose a Pipeline: a Project on an Initiative's branch publishes through one.";
+          }
+        }
+        return found;
+      }
+      function save() {
+        errors = validate();
+        if (Object.keys(errors).length > 0) {
+          render();
+          document.querySelector('[aria-invalid="true"], .picker-button.invalid')?.focus();
+          return;
+        }
+        const anyOn = projectsShown().some(({ id }) => draft.on[id]);
+        if (anyOn) initiative.shortName = draft.shortName;
+        for (const { id } of PROJECTS) {
+          initiative.pipelines[id] = draft.on[id] ? draft.pipelines[id] : null;
+        }
+        draft = null;
+        errors = {};
+        stateKey = anyOn ? "shaping" : "not-set-up";
+        render();
+      }
+      function bind() {
+        document.querySelectorAll("[data-state]").forEach((button) =>
+          button.addEventListener("click", () => setState(button.dataset.state)),
+        );
+        document.querySelectorAll("[data-projects]").forEach((button) =>
+          button.addEventListener("click", () => {
+            projectCount = Number(button.dataset.projects);
+            openPicker = null;
+            render();
+          }),
+        );
+        document.querySelectorAll("#palette-switch [data-palette-choice]").forEach((button) =>
+          button.addEventListener("click", () => {
+            palette = button.dataset.paletteChoice;
+            document.documentElement.dataset.palette = palette;
+            render();
+          }),
+        );
+        document.querySelector('[data-action="fold"]')?.addEventListener("click", () => {
+          foldOpen = !foldOpen;
+          render();
+        });
+        document.querySelector('[data-action="edit"]')?.addEventListener("click", () => {
+          draft = draftOf(initiative);
+          foldOpen = true;
+          errors = {};
+          render();
+          document.querySelector(".switch, [data-short-name]")?.focus();
+        });
+        document.querySelector('[data-action="cancel"]')?.addEventListener("click", () => {
+          draft = null;
+          errors = {};
+          openPicker = null;
+          if (stateKey === "editing") stateKey = hasBranch() ? "shaping" : "not-set-up";
+          render();
+        });
+        document.querySelectorAll("[data-toggle]").forEach((row) =>
+          row.addEventListener("click", (event) => {
+            event.preventDefault();
+            const id = row.dataset.toggle;
+            draft.on[id] = !draft.on[id];
+            if (draft.on[id]) {
+              draft.pipelines[id] ??= PROJECTS.find((project) => project.id === id).defaultPipeline;
+              if (draft.shortName === "") draft.shortName = derivedShortName(TITLE);
+            }
+            delete errors[`pipeline-${id}`];
+            render();
+            document.querySelector(`[data-toggle="${id}"] .switch`)?.focus();
+          }),
+        );
+        const shortName = document.querySelector("[data-short-name]");
+        shortName?.addEventListener("input", () => {
+          draft.shortName = shortName.value;
+          const description = document.querySelectorAll(".choice-row-description code");
+          description.forEach((code) => (code.textContent = `initiative/${draft.shortName || "…"}`));
+        });
+        document.querySelectorAll("[data-picker]").forEach((button) =>
+          button.addEventListener("click", (event) => {
+            event.stopPropagation();
+            openPicker = openPicker === button.dataset.picker ? null : button.dataset.picker;
+            render();
+          }),
+        );
+        document.querySelectorAll("[data-choose]").forEach((option) =>
+          option.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const [projectId, pipelineId] = option.dataset.choose.split(":");
+            draft.pipelines[projectId] = pipelineId;
+            delete errors[`pipeline-${projectId}`];
+            openPicker = null;
+            render();
+            document.querySelector(`[data-picker="${projectId}"]`)?.focus();
+          }),
+        );
+        document.querySelector("[data-form]")?.addEventListener("submit", (event) => {
+          event.preventDefault();
+          save();
+        });
+      }
+      document.addEventListener("click", (event) => {
+        // Closes the picker in place: a re-render here would detach the clicked control mid-click.
+        if (openPicker !== null && !event.target.closest(".picker")) {
+          openPicker = null;
+          document.querySelector(".picker-menu")?.remove();
+          document
+            .querySelector('[data-picker][aria-expanded="true"]')
+            ?.setAttribute("aria-expanded", "false");
+        }
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && openPicker !== null) {
+          const projectId = openPicker;
+          openPicker = null;
+          render();
+          document.querySelector(`[data-picker="${projectId}"]`)?.focus();
+        }
+      });
+
+      setState("shaping");
+    </script>
+  </body>
+</html>

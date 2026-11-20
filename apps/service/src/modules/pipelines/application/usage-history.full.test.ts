@@ -73,6 +73,29 @@ describe("UsageHistory", () => {
     expect(usages.get("review")).toMatchObject({ tokens: inputTokens(10), samples: 20 });
   });
 
+  it("takes a Task's place among the latest from its last run's end", async () => {
+    const lateFinish = await aDoneTask(
+      { tokens: inputTokens(7), endedAt: new Date(0) },
+      { stageKey: "review", tokens: inputTokens(3), endedAt: new Date(10_000) },
+    );
+    const others = await Promise.all(
+      Array.from({ length: 20 }, (_, index) =>
+        aDoneTask({ tokens: inputTokens(100), endedAt: new Date(1_000 + index) }),
+      ),
+    );
+
+    const usages = await history.of([lateFinish, ...others]);
+
+    expect(usages.get("implement")?.samples).toBe(20);
+    expect(usages.get("review")).toMatchObject({ tokens: inputTokens(3), samples: 1 });
+  });
+
+  it("leaves out a run that hasn't ended", async () => {
+    const taskId = await aDoneTask({ tokens: inputTokens(100), endedAt: undefined });
+
+    expect((await history.of([taskId])).size).toBe(0);
+  });
+
   it("knows nothing of no done Tasks", async () => {
     expect((await history.of([])).size).toBe(0);
   });

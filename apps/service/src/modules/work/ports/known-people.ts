@@ -7,6 +7,9 @@ export abstract class KnownPeople {
 
   /** The key of the hired Role holding the duty keyed `duty`; undefined while nobody does. */
   abstract holderOf(duty: string): Promise<string | undefined>;
+
+  /** The key of each held duty's holder, by duty key, in one read; a duty nobody holds is left out. */
+  abstract dutyHolders(): Promise<ReadonlyMap<string, string>>;
 }
 
 export interface KnownPerson {

@@ -6,6 +6,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { z } from "zod";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import { isRunning } from "../../../../platform/os/process-trees.fixtures.js";
+import { promptTemplatesFor } from "../../../prompt-templates/index.fixtures.js";
+import { ENGINE_PROMPT_TEMPLATES } from "../../domain/engine-prompt-templates.js";
 import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
 import type { PermissionProfile } from "../../domain/permission-profile.js";
 import { CONTRACT_MCP_SERVER } from "../mcp-servers/contract-mcp-server.fixtures.js";
@@ -310,6 +312,23 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
     expect(system).not.toContain("Use the design system.");
     expect(system).not.toContain("Only mine.");
     expect(system.indexOf("Run the tests")).toBeLessThan(system.indexOf("You are the Developer."));
+  });
+
+  it("starts the conversation with the API system prompt text saved in Settings › Prompts, then the Agent's instructions", async () => {
+    fake.script(textReply(["Ok."], USAGE));
+    const templates = await promptTemplatesFor(ENGINE_PROMPT_TEMPLATES, [
+      {
+        key: "engine.api-system-prompt",
+        text: "Work in {{folder}} on {{operatingSystem}}. {{#answersInSchema}}Use {{structuredOutputTool}}.{{/answersInSchema}}",
+      },
+    ]);
+
+    await oneTurn(options(), engineOn(undefined, undefined, templates));
+
+    expect(lastRequestBody().messages[0]).toEqual({
+      role: "system",
+      content: `Work in ${folder} on ${currentOperatingSystem().name}. \n\nYou are the Developer.`,
+    });
   });
 
   describe("its skills", () => {

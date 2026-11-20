@@ -17,7 +17,7 @@ import type { SessionOptions } from "../../ports/session-options.js";
 import { EngineProcess } from "../claude-code/engine-process.js";
 import { McpConfigFile } from "../claude-code/mcp-config-file.js";
 import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
-import { preparedEngineConfigFolder } from "../claude-code/engine-config-folder.js";
+import { preparedEngineConfigFolder } from "../engine-folders/engine-config-folder.js";
 import { sessionEnvironment } from "../claude-code/session-settings.js";
 import { serveSessionEndpoints, type ServedEndpoints } from "../http/session-endpoints.fixtures.js";
 import { CONTRACT_MCP_SERVER } from "../mcp-servers/contract-mcp-server.fixtures.js";
@@ -61,6 +61,7 @@ describe.runIf(MODE === "live")("ClaudeCodePEngine on a live session", () => {
     model: MODEL,
     timeoutMs: 180_000,
     mcpServer: CONTRACT_MCP_SERVER,
+    backgroundCommands: true,
     // A refused turn is seen live only while the account's window is used up (apps/service/docs/testing.md).
     usageWindowUsedUp: process.env["OFFICE_ENGINE_USAGE_WINDOW_USED_UP"] === "1",
     engineFor: () => Promise.resolve(liveEngine()),
@@ -127,6 +128,7 @@ describe.runIf(MODE === "live")("ClaudeCodePEngine on a live session", () => {
         instructionsFile: undefined,
         mcpConfigFile: mcpConfigFile.path,
         languageServerPlugin: undefined,
+        apiKeyHelper: undefined,
       }),
       cwd: folder,
       env: { ...options.environment, [TOKEN_VARIABLE]: "token" },

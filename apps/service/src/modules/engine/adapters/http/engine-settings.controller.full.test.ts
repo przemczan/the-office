@@ -116,6 +116,8 @@ describe("/api/settings/engines", () => {
       officeDefault: { engineId: "claude-code", model: "claude-sonnet-5-5" },
       searchEndpoint: null,
       modelPrices: UNPRICED_CLAUDE_MODELS,
+      standInEngines: [],
+      askBeforeSwitchAbove: 100_000,
     });
   });
 
@@ -147,6 +149,9 @@ describe("/api/settings/engines", () => {
     const { engines } = engineSettingsSchema.parse(JSON.parse(await read()));
     const renamed = engines.map((engine) => {
       if (engine.kind === "claude-code") return { ...engine, name: "Work account" };
+      if (engine.kind === "codex" || engine.kind === "copilot-cli") {
+        throw new Error(`No ${engine.kind} engine was saved.`);
+      }
       const { keySet: _keySet, ...edit } = engine;
       return { ...edit, name: "Strata box" };
     });

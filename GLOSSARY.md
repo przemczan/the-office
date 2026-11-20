@@ -1,6 +1,6 @@
 # The Office
 
-A workspace for a few users, each signed in, run like an office, where AI agents turn ideas into published changes across the users' projects while the users plan, steer and tune the work. Always written with "The"; formerly called Software Factory.
+A workspace for a few users, each signed in, run like an office, where AI agents turn ideas into published changes across the users' projects while the users plan, steer and tune the work. Always written with "The".
 
 ## Language
 
@@ -91,6 +91,10 @@ _Avoid_: Slug, key
 
 **Publishing Task**:
 The Task "<Initiative> → <Project>" that The Office adds in each Project where an Initiative has a Pipeline, once every other Task of the Initiative is Done or Dropped. It follows its Project's Initiative's Pipeline on the Initiative's branch, and its Publish puts the whole change into the base branch.
+
+**Conflict resolution Task**:
+The Task "Resolve conflicts: <Task>" that The Office makes when the user presses Resolve conflicts on a pull request in Work › Pull requests whose mergeable status is Conflicts. It works on the pull request's own branch in the built-in **Resolve conflicts** Pipeline: an Agent Stage merges the base into the branch and resolves the conflicts, a Test Stage checks it, and Publish pushes the branch to the same pull request. It belongs to its Project and never joins an Initiative; at most one is open for a Task.
+_Avoid_: Merge fix, Rebase Task
 _Avoid_: Release Task, merge Task, final Task
 
 **Task**:
@@ -116,6 +120,26 @@ _Avoid_: Acceptance criteria, DoD (in the UI)
 **Commit message** (a Task's):
 The message of the one commit Publish lands a Task as, following its Project's commit convention: suggested by the Planner, updated by its Agent Stages, editable by the user until Publish lands it; with none written, the title with a short summary below it. A pull request takes its first line as the title and the rest as the body.
 _Avoid_: Squash message, PR description, Stage commit (a Stage's own commit on the Task's branch)
+
+**Pull request**:
+What Publish by Push + PR opens on the Project's code host for a Task's branch. The Office records each one, linked to its Task, refreshes it every minute while it is open, and drops it from its list once merged or closed.
+_Avoid_: PR (in the UI), Merge request
+
+**Merge method**:
+How a pull request's commits reach its base when merged from Work › Pull requests: a merge commit ("Create a merge commit"), "Squash and merge" or "Rebase and merge", only those the repository allows.
+_Avoid_: Merge strategy, merge type
+
+**Checks** (of a pull request):
+The host's automated results on a pull request's head commit: Passing, Failing, Running, No checks or Can't read.
+_Avoid_: CI, Build status, Pipeline (a Pipeline is The Office's own)
+
+**CI run**:
+One run of a workflow on a Project's code host, such as a GitHub Actions run, listed on Work › CI with its status: Queued, Waiting, Running, Succeeded, Failed, Cancelled, Skipped or Unknown. A failed or cancelled one can be re-run, all its jobs or only the failed ones. The host keeps it; The Office only lists it.
+_Avoid_: Build, Workflow run (in the UI), Stage run (a Stage run is a Stage of The Office's own Pipeline running on a Task)
+
+**Workflow**:
+A file of a Project's repository that its code host runs as CI runs, such as a GitHub Actions workflow under `.github/workflows/`. One that declares a start by hand (GitHub's `workflow_dispatch`) can be started from Work › CI, or by an Agent with the `start_workflow` Office action, on a branch or tag, with the inputs its file declares there.
+_Avoid_: Pipeline (a Pipeline is The Office's own Stages a Task runs through), Action, Job
 
 **Save** (a Plan or a Definition of Done):
 The user keeping their edit of the part. It never confirms: a change leaves the part Not confirmed, and moves a Ready Task back to Planning, or to Backlog when it was never in Planning; the same words change nothing.
@@ -166,11 +190,11 @@ The top bar's choice of which Projects every surface shows; Office-wide numbers,
 _Avoid_: Scope, workspace switcher, Project picker (for the choice itself)
 
 **Queue**:
-The one Office-wide line of Tasks that Start couldn't run yet because a blocker wasn't Done or Dropped yet, a desk, their Project limit or their person's Task limit wasn't free or a Window cap or Daily cap would be passed, each with its reason; they start by themselves, oldest first, and hold no desk until they do. They stay Ready, and the board shows them in a Queued column of their own.
+The one Office-wide line of Tasks that Start couldn't run yet because a blocker wasn't Done or Dropped yet, a desk, their Project limit or their person's Task limit wasn't free or a Window cap or Daily cap would be passed (a Window cap only when no Stand-in Engine has room either, which its reason then says), each with its reason; they start by themselves, oldest first, and hold no desk until they do. They stay Ready, and the board shows them in a Queued column of their own.
 _Avoid_: Backlog (a Task state), waiting list, pending
 
 **Short reason**:
-A queued Task's reason in a few words, such as "Office-wide limit reached (3)" or "5-hour window cap (80%) · resets 14:30", which its board card shows, with the full reason on hover.
+A queued Task's reason in a few words, such as "Office-wide limit reached (3)", "5-hour window cap (80%) · resets 14:30" or "No stand-in with room", which its board card shows, with the full reason on hover.
 _Avoid_: label, summary, short form
 
 **Overlap**:
@@ -194,11 +218,11 @@ What a Ready Task's whole Pipeline is expected to use on each engine it uses, in
 _Avoid_: Budget (a Stage's token limit), forecast, quota estimate
 
 **Usage window**:
-One of a Claude Code engine's limits on use over time, such as the 5-hour window, the 7-day window or a model's weekly window, each with a reset time. It is **used up** when the engine refuses turns until its reset; a Task whose turn is refused then is paused by the usage window ([2.1](docs/spec/2.1-work.md#defaults)). Not a Window cap, which is the user's own limit on what a Start may spend of a window.
+One of an engine's limits on use over time, each with a reset time: on a Claude Code engine the 5-hour window, the 7-day window or a model's weekly window; on a Codex engine on a ChatGPT plan the 5-hour and the 7-day window its plan gives (a window of any other length, such as the Free plan's one 30-day window, is left unread). A Codex engine on an API key and a Copilot CLI engine have none (Copilot's monthly premium requests aren't read as one). It is **used up** when the engine refuses turns until its reset; a Task whose turn is refused then is paused by the usage window ([2.1](docs/spec/2.1.5-planning-and-start.md#a-pause-by-the-usage-window)). Not a Window cap, which is the user's own limit on what a Start may spend of a window.
 _Avoid_: Quota, rate limit, plan limit
 
 **Window cap**:
-A Claude Code engine's cap, one for each window, on how much of the 5-hour or the 7-day window a Start may bring the window to, with its Usage estimate, before it waits in the Queue for the reset.
+The cap of a Claude Code engine or a Codex engine on a ChatGPT plan, one for each of its windows, on how much of a Usage window (the 5-hour or the 7-day window) a Start may bring the window to, with its Usage estimate, before it waits in the Queue for the reset. A Start that would pass it first runs the Task on a Stand-in Engine with room, and waits only when none has.
 _Avoid_: Quota gate, budget, limit (the Office-wide limit, Project limits and Task limits count started Tasks), threshold
 
 **Daily cap**:
@@ -206,7 +230,7 @@ An engine's cap on the tokens, or the dollars, used on it in one day; a Start th
 _Avoid_: Budget, quota, daily limit
 
 **Model price**:
-What a model costs per million tokens of each kind (input, output, cache writes, cache reads), set in Settings › Engines: one per Claude model, shared by every Claude Code engine, and one per engine and model on the OpenAI-compatible API; every cost in The Office is priced by it.
+What a model costs per million tokens of each kind (input, output, cache writes, cache reads), set in Settings › Engines: one per Claude model, shared by every Claude Code engine, one per Codex model, shared by every Codex engine, and one per engine and model on the Copilot CLI and OpenAI-compatible API engines; every cost in The Office is priced by it.
 _Avoid_: Rate, pricing, price table
 
 **Reading source**:
@@ -234,8 +258,40 @@ A file Attachment whose bytes are text, a document among them; Agents read it by
 _Avoid_: Plain-text file, source file, text document
 
 **Decision**:
-A question an Agent puts to the user and waits on before continuing. Asked in an Initiative's planning Thread, it names one of the Initiative's Tasks. A person the user asks to may answer one waiting on the user for them; it then reads "answered by <person> at your request" (`atUsersRequest` in code). Dropping its Task closes one still open: it leaves Needs you unanswered, and its card says the Task was dropped.
-_Avoid_: Approval, prompt, question (as a noun for the record)
+A form an Agent puts to the user, or to a Consultant, and waits on before continuing: one or more questions in order, its context, a general comment, and two ways to send it, Submit or Ask me again; the asking session gets it all back together as its next message. Waiting on the user it shows under Needs you, except in a chat, where it shows inline. Asked in an Initiative's planning Thread, it names one of the Initiative's Tasks or none; asked in its shaping Thread, none. A person the user asks to may answer one waiting on the user for them; it then reads "answered by <person> at your request" (`atUsersRequest` in code). Dropping its Task closes one still open: it leaves Needs you unanswered, and its card says the Task was dropped. Approval of a call past a Hard switch is never one of its questions: it stays a card of its own. The one exception is The Office's own Decision on Stages waiting for a Stand-in Engine: Office-wide, in no Thread, answered Stage by Stage and closed on its own when none is left.
+_Avoid_: Approval (its own card), prompt, questionnaire, survey, question (one part of it)
+
+**Question**:
+One part of a Decision's form: a choice or an open question, with an optional comment. A Decision recorded before the form reads as a form of one question.
+_Avoid_: Item, field, prompt
+
+**Choice**:
+A question answered by picking one of its options, the Agent's recommended option preselected with the reason it gives; picking none, its comment alone is the answer, in words.
+_Avoid_: Multiple choice, select, poll
+
+**Open question**:
+A question answered in words, with no options; a Request is a Decision of one open question.
+_Avoid_: Free-text question, text question
+
+**Comment**:
+The optional words the user adds to one question of a Decision, beside its answer, sent with it on Submit.
+_Avoid_: Note (that is a Memory note or a Handover note), remark
+
+**General comment**:
+The optional words the user adds to a Decision as a whole: sent with the answers on Submit, and alone on Ask me again, saying what to explain or change.
+_Avoid_: Summary, overall note, feedback (that is a Gate's)
+
+**Submit**:
+Sending a Decision with every question's answer and comment and the general comment; it needs every question answered, and the Decision is then answered.
+_Avoid_: Answer (as the button), send, confirm
+
+**Ask me again**:
+Sending a Decision with only the general comment and no answers, so the Agent explains and asks again in a new form; the Decision closes as asked again. The Office's own Decisions and approvals have none.
+_Avoid_: Reject, decline, skip, cancel
+
+**Asked again**:
+The state of a Decision closed by Ask me again: no longer waiting, never reopened, its general comment kept; the Agent's new form follows it in the Thread.
+_Avoid_: Rejected, declined, cancelled, reopened
 
 **Thread**:
 One continuous exchange within a conversation on a Task, an Initiative or a person's chat; a fresh Thread starts without the previous one's context. On a Task, each person has one Thread of their own, in their tab, and each Stage run has its Stage Thread, shown in the Stage history.
@@ -250,11 +306,11 @@ One author's neighbouring messages in a Thread, shown together under one name.
 _Avoid_: Bubble
 
 **Consultation**:
-A Thread in which a Consultant answers what another person asks them: a question, approval of a call past a Hard switch, or a Request. It is on the asker's Task, or in the Consultant's own chat for a call made outside a Task; the Consultant works in it with their own tools and permissions and changes no file. On a Task the user can read it or take it over, but not join it.
+A Thread in which a Consultant answers what another person asks them: a Decision, answered as the same form the user would answer, approval of a call past a Hard switch, or a Request. It is on the asker's Task, or in the Consultant's own chat for a call made outside a Task; the Consultant works in it with their own tools and permissions and changes no file. On a Task the user can read it or take it over, but not join it.
 _Avoid_: Delegation, escalation (for this), handoff
 
 **Request**:
-A consult asking a person to do something the asker can't, such as "ask Devops to set that up": a Decision put to them with no options, which they answer in their own words, saying what they did, such as a Proposal they drafted, or why they can't.
+A consult asking a person to do something the asker can't, such as "ask Devops to set that up": a Decision put to them as a form of one open question, which they answer in their own words, saying what they did, such as a Proposal they drafted, or why they can't.
 _Avoid_: Task (for this), delegation, ticket
 
 **Mention**:
@@ -278,8 +334,12 @@ A few lines written for whoever continues: by an Agent at the end of a Stage (wh
 _Avoid_: Summary, transcript, report
 
 **Memory**:
-What a person with the Shared memory capability keeps across Tasks and conversations: a list of Memory notes, only ever added to, read into the Brief of each new session. Shown on the Memory tab of the person's page.
-_Avoid_: Knowledge base, history, context
+What a person with the Shared memory capability keeps across Tasks and conversations: a list of Memory notes, only ever added to, read into the Brief of each new session. Shown on the Memory tab of the person's page. Not the Knowledge base, which is The Office's own.
+_Avoid_: History, context
+
+**Knowledge base**:
+The Office's spec (`docs/spec/`, its index `docs/spec/README.md`) and this glossary, shipped with every install, which every session reads, read-only, about The Office itself; each Brief names its index.
+_Avoid_: Docs, wiki, manual
 
 **Memory note**:
 One short entry in a Memory, with its date and where it came from (an Agent's Thread, or the user). Written by an Agent with the `remember` tool or by the user; deleted one at a time or all together, never edited.
@@ -330,12 +390,40 @@ A signal outside the page the user is on that something waits for them or has ha
 _Avoid_: Alert, inbox item, notice
 
 **Quiet hours**:
-A daily window, off until the user sets it, in which no Notification goes to the desktop or the phone except "an Agent engine down"; one summary comes when it ends.
+A daily window, off until the user sets it, in which no Notification goes to the desktop except "an Agent engine down"; one summary comes when it ends.
 _Avoid_: Do not disturb, silent mode, mute
 
 **Pipeline**:
-A named, ordered set of Stages that a Task's work follows; a Publishing Task follows its Project's Initiative's Pipeline. It is an office-wide Pipeline or a Project Pipeline.
-_Avoid_: Workflow, flow, process (a Process is a session's background command)
+A named flow of Stages joined by routes, each with an optional condition, that a Task's work follows from its first Stage to End, one path at a time; a Publishing Task follows its Project's Initiative's Pipeline. Its Stages keep an order, the Pipeline's order, in which every route leads forward, so only an "on failure go back" loop goes back. It is an office-wide Pipeline or a Project Pipeline. "Flow" says what shape it has, as in the flow editor, and never names it.
+_Avoid_: Workflow, graph, process (a Process is a session's background command)
+
+**Route**:
+A link in a Pipeline from one Stage to another, or to End, that the walk follows as the Stage ends when its condition holds; the first route out of a Stage that holds is followed, and one with no condition always holds.
+_Avoid_: Edge, arrow, transition, branch (a branch is git's)
+
+**Condition**:
+What a route needs to be followed: built-in tests of the previous Stage or a named one (ended Done, ended Failed, was Skipped, changed files, changed no files, ran N or more times) or of the Definition of Done (all Reported met, some not Reported met), and Project-command tests that hold when the command exits 0, combined in All of and Any of groups.
+_Avoid_: Rule, guard, filter, expression
+
+**Join**:
+A Stage into which routes from more than one Stage lead, where paths of a Pipeline meet again; it runs each time the walk arrives, never waiting for another path.
+_Avoid_: Merge (git's), sync point
+
+**End**:
+Where a Pipeline's walk finishes; a route to it ends the walk, and the Task completes.
+_Avoid_: Finish node, exit, sink
+
+**Final Stage**:
+A Stage with a route to End. Every other Stage needs a route to another Stage, so a Stage is never final by a missing route.
+_Avoid_: Last Stage (which is the last in the Pipeline's order), terminal Stage
+
+**Walk**:
+A Task's way through its Pipeline: the Stages it ran and the routes it followed, from its first Stage to End, one Stage at a time, going back only by an on-failure loop, a Gate's Send back or one more round of the Definition of Done check.
+_Avoid_: Run (a run is one Stage's), execution, journey
+
+**Not taken**:
+Said of a Stage the walk went past on another path: it holds no run, and the Pipeline rail shows it so. A Stage the user skipped is Skipped instead.
+_Avoid_: Skipped, bypassed, inactive
 
 **Pipeline library**:
 The office-wide Pipelines and, beside them, the Stage templates, edited in Settings › Pipelines or changed by the Proposals of the holder of Onboards and repairs Projects (Devops by default). Project Pipelines are not in it: each is edited on its Project's page.
@@ -354,7 +442,7 @@ The office-wide Pipeline a Project Pipeline is built from. Always "base Pipeline
 _Avoid_: Parent, template, base
 
 **Stage change**:
-One entry in a Project Pipeline's ordered list, naming a Stage by its key: Insert before, Insert after, Replace, Change or Remove a Stage. Never bare "changes", which is the Changes tab.
+One entry in a Project Pipeline's ordered list, naming a Stage by its key: Insert before, Insert after, Replace, Change or Remove a Stage, or Change routes of a Stage (its whole list of routes out). Inserting and removing a Stage carry the routes around it along, so a straight line stays one. Never bare "changes", which is the Changes tab.
 _Avoid_: Override, patch, diff, changes
 
 **Broken**:
@@ -378,7 +466,7 @@ How many run environments may be running together across The Office, 2 by defaul
 _Avoid_: run environment slots, concurrency limit
 
 **Stage**:
-One step of a Pipeline: work by an Agent in a Role, or in the Role holding a duty, a Project command run without an Agent, or a Gate.
+One node of a Pipeline's flow, with its routes out and an optional "on failure go back" loop: work by an Agent in a Role, or in the Role holding a duty, a Project command run without an Agent, or a Gate.
 _Avoid_: Phase, step (as a noun for the record)
 
 **Stage template**:
@@ -435,13 +523,21 @@ _Avoid_: Profile picture, photo
 The one text of general guidelines the user writes in Settings, which every person's session gets with their Role's instructions; a Role's instructions and a Project's `CLAUDE.md` win where they disagree.
 _Avoid_: Global instructions, guidelines, house rules, agents.md
 
+**Prompt template**:
+One text The Office gives an Agent or a session, such as Resolve's Brief, with a default that ships with The Office and the variables it can use in `{{ }}`; the user can change it in Settings and reset it to its default.
+_Avoid_: system prompt, template (alone)
+
 **Engine**:
-What a session runs on, listed by the user in Settings › Engines with a name and a default model: a Claude Code account, signed in in its own folder, with the `-p` fallback as its switch, or an API endpoint of the OpenAI-compatible API. Caps and usage are kept per Engine. The one a session runs on comes from the cascade of the Office default, the Project default and the Role overrides.
-_Avoid_: Provider, backend, account (as the thing picked), engine id
+What a session runs on, listed by the user in Settings › Engines with a name and a default model: a Claude Code account, signed in in its own folder, with the `-p` fallback as its switch; a Codex account (ChatGPT or an OpenAI API key), signed in in its own folder; a GitHub account with Copilot on the Copilot CLI (a **Copilot CLI engine**), signed in in its own folder or by a pasted token; or an API endpoint of the OpenAI-compatible API. Caps and usage are kept per Engine. The one a session runs on comes from the cascade of the Office default, the Project default and the Role overrides.
+_Avoid_: Provider, backend, account (as the thing picked), engine id; Copilot, Copilot engine, GitHub engine (for a Copilot CLI engine)
 
 **Office default**:
 The Engine and model every session runs on unless a more specific level names another; set in Settings › Engines.
 _Avoid_: Global engine, default engine setting
+
+**Stand-in Engine**:
+An Engine in the one Office-wide ordered list in Settings › Engines, which takes over for another Engine that has run out of its 5-hour or 7-day Usage window: the first in order that serves the same model and has room. A switch keeps the model, so in practice Claude Code Engines stand in for each other on a Claude model. Beside the list, the context size above which a switch of a running Stage asks the user first.
+_Avoid_: Fallback engine, backup engine, failover
 
 **Project default**:
 The Engine and model a Project's sessions run on, set in the Project page's Engine block; with "Use for every Role" it applies to every Role in the Project over their Office-wide Role overrides.
@@ -480,7 +576,7 @@ A command an Agent's session, or one of its Sub-agents, runs in the background, 
 _Avoid_: Background task, shell, job, background command (in the UI)
 
 **Consultant**:
-A person whom other people of The Office may consult or call, with a question, for an approval or with a Request, in a Consultation.
+A person whom other people of The Office may consult or call, with a Decision, for an approval or with a Request, in a Consultation.
 _Avoid_: Expert, advisor, Staff
 
 **Task limit**:
@@ -555,8 +651,48 @@ _Avoid_: Dashboard, report, overview
 The main menu item showing The Office as an isometric pixel-art office, each person a figure doing what they are doing now: working, consulting, waiting on you, idle, joining or leaving.
 _Avoid_: Office map, visualisation, live office, dashboard
 
+**Stats**:
+The main menu item, between Projects and the Live view, showing how The Office performs, in two tabs: Tokens and cost, and System health ([2.11](docs/spec/2.11-stats.md)).
+_Avoid_: Dashboard, analytics, statistics page, insights, reports
+
+**Tokens and cost**:
+Stats' first tab, at `/stats`: what The Office spends in tokens and Usage windows, always the Basic stats, and the Full stats once Grafana answers.
+_Avoid_: Usage tab, spend, costs tab, token stats
+
+**System health**:
+Stats' second tab, at `/stats/system-health`: how well The Office itself runs, Office-wide. It shows how long its work waits (the event loop lag), its CPU and memory and the workstation's, its requests with the slowest routes, its database queries with the slowest queries and the queries waiting for a connection, and what is running now. The last hour comes from the Health readings, always; 24 h, 7 d and 30 d come from Grafana once it answers.
+_Avoid_: Performance, monitoring, health dashboard, metrics tab, observability
+
+**Health reading**:
+What The Office measures of itself every 5 seconds, whether telemetry is On or Off: the event loop lag, its CPU and memory, the workstation's, and the requests and queries of those 5 seconds. It keeps an hour of them, in memory only, and sends them to Grafana as metrics while telemetry is On.
+_Avoid_: Sample, snapshot, metric (a metric is what is sent to Grafana), health check, probe
+
+**Statement shape**:
+A database statement with its values and parameters made `?`, its IN lists and VALUES rows made one `?`, and cut at 200 characters, by which System health's slowest queries of the last hour are named. It is kept in memory only, never sent as telemetry.
+_Avoid_: Query text, SQL, fingerprint, normalised query
+
+**Basic stats**:
+What Stats' Tokens and cost tab shows from data The Office already keeps, with no cost: tokens per day by kind for the last 30 days and the Usage windows now, both Office-wide; the Tasks with the most tokens this week; and Tasks done and Stage retries this week.
+_Avoid_: Simple stats, local stats, summary
+
+**Full stats**:
+What Stats' Tokens and cost tab adds once Grafana answers, drawn by The Office itself from Grafana's data: tokens and estimated cost over time by model, Role, Stage, Pipeline or Project; the most expensive Tasks and Initiatives, with their cost per Stage and per retry; and how full the Usage windows were over time, beside what was running. They cover only what The Office has sent since its telemetry was added.
+_Avoid_: Grafana dashboards, panels, advanced stats, analytics
+
+**Grafana read address**:
+The address of the user's own Grafana that Stats reads the Full stats from, set in Settings › Telemetry beside the user's own endpoint. Stats reads the bundled Grafana at its own address, with no setting.
+_Avoid_: Grafana URL, dashboard address, query endpoint (the endpoint is where telemetry is sent)
+
+**Read token**:
+The Grafana Viewer service account token Stats reads the user's own Grafana with, set in Settings › Telemetry. Kept readable by The Office's owner only and never shown again once saved.
+_Avoid_: API key, Grafana token, access token, header (the export headers are for the endpoint)
+
+**Stage retry**:
+A Stage run whose Stage already had a run on the same Task, whenever that one ran: a loop-back, a Stage sent back at a Gate, or a failed Stage run again. Counted in the week its run started.
+_Avoid_: Rerun, attempt, repeat
+
 **Proposal**:
-A new or changed Role card or Office setting drafted by the holder of Default person to talk to, or by the Caretaker for hires and duty assignments, which takes effect only when the user confirms it.
+A new or changed Role card or Office setting, or a Prompt template's new text or reset to its default (drafted only when the user asks), drafted by the holder of Default person to talk to, or by the Caretaker for hires and duty assignments, which takes effect only when the user confirms it.
 _Avoid_: Suggestion, draft, request
 
 **Caretaker**:
@@ -578,7 +714,7 @@ _Avoid_: Size, zoom, scale
 ### Users and signing in
 
 **User**:
-Someone who signs in to The Office with an account. The first user is created at first run; any user adds an account for someone else and can remove one. For now every user can do everything. A user is never a person of The Office: people are the Roles users hire.
+Someone who signs in to The Office with an account. The first user is created at first run; any user adds an account for someone else and can remove one. Every user can do everything. A user is never a person of The Office: people are the Roles users hire.
 _Avoid_: Person, member, admin, operator, login
 
 **Account**:
@@ -606,7 +742,7 @@ Ends a signed-in device: this one from the top bar's user menu, any of a user's 
 _Avoid_: Log out, log off
 
 **Authenticator**:
-An app on a user's phone or computer that shows a new 6-digit **authenticator code** every 30 seconds, set up from the user's account; once set up, The Office asks for a code after a password, Continue with GitHub or Continue with Google.
+An app on a user's phone or computer that shows a new 6-digit **authenticator code** every 30 seconds, set up from the user's account; once set up, The Office asks for a code after a password, Continue with GitHub, Continue with Google or Continue with <name>.
 _Avoid_: 2FA, MFA, TOTP, OTP, verification code (in the UI)
 
 **Recovery code**:
@@ -618,7 +754,7 @@ A key a user's device or password manager keeps for The Office at one address, a
 _Avoid_: WebAuthn, security key, FIDO (in the UI)
 
 **Linked identity**:
-A user's GitHub or Google identity, linked from their account; Continue with GitHub and Continue with Google sign in only an identity linked this way, found by the provider's own id, never by matching an email.
+A user's GitHub, Google or OpenID Connect identity, linked from their account; Continue with GitHub, Continue with Google and Continue with <name> sign in only an identity linked this way, found by the provider's own id, never by matching an email.
 _Avoid_: Social login, connected account, external account
 
 **Continue with GitHub**:
@@ -628,6 +764,14 @@ _Avoid_: Sign in with GitHub, GitHub login, GitHub OAuth
 **Continue with Google**:
 Signing in to The Office with a user's linked Google identity, through a Google OAuth client a user sets up in Settings › Signing in; offered at `localhost` and the public address only.
 _Avoid_: Sign in with Google, Google login, Google OAuth
+
+**Continue with <name>**:
+Signing in to The Office with a user's linked identity at the Office's OpenID Connect provider, named by the user who set it up and shown as "Continue with Zitadel", say; offered at every address once the provider is saved.
+_Avoid_: SSO, Sign in with <name>, OIDC login
+
+**OpenID Connect provider**:
+The one outside identity provider (Zitadel, Authentik, Keycloak and others) a user sets up in Settings › Signing in with a name, an issuer URL, a client ID and a client secret, shared by every user; Continue with <name> signs in through it, and the user is found only by the provider's `sub`.
+_Avoid_: OIDC, SSO provider, identity provider (in the UI)
 
 **Public address**:
 The HTTPS address with a domain at which The Office is reached through the reverse proxy the user sets up, given to The Office as `OFFICE_PUBLIC_ADDRESS` when it starts.

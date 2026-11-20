@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import type { CommandRun } from "../domain/command-run.js";
 import { OutputMask } from "../domain/output-mask.js";
 import type { Project } from "../domain/project.js";
@@ -36,6 +37,11 @@ export interface TaskCommand {
   readonly writtenByAgent?: boolean;
   /** Set over the Project's own variables, such as what a Publish shipped. */
   readonly variables?: Readonly<Record<string, string>>;
+  /**
+   * A condition command, which reads the Task's Stage runs' file: a run environment running without
+   * its folder mounted refuses it, with nothing run.
+   */
+  readonly readsStageRuns?: boolean;
 }
 
 /**
@@ -48,6 +54,7 @@ export class TaskCommandRunner {
     private readonly host: ProjectCommandRunner,
     private readonly runEnvironments: TaskRunEnvironments,
     private readonly git: Git,
+    private readonly officeData: OfficeDataDirectory,
   ) {}
 
   async placeOf(project: Project, taskId: string, worktree: string): Promise<CommandPlace> {
@@ -64,7 +71,16 @@ export class TaskCommandRunner {
     project: Project,
     taskId: string,
     worktree: string,
-    { commandLine, timeoutMs, signal, wait, outputFile, writtenByAgent, variables }: TaskCommand,
+    {
+      commandLine,
+      timeoutMs,
+      signal,
+      wait,
+      outputFile,
+      writtenByAgent,
+      variables,
+      readsStageRuns,
+    }: TaskCommand,
   ): Promise<CommandRun> {
     const environment = withVariables(project.environment, variables);
     if (project.runEnvironment !== "on") {
@@ -81,7 +97,16 @@ export class TaskCommandRunner {
     const mask = OutputMask.of(environment);
     const finished = await this.runEnvironments.run(
       await this.taskInRunEnvironment(project, taskId, worktree),
-      { commandLine, environment, mask, timeoutMs, signal, wait, outputFile },
+      {
+        commandLine,
+        environment,
+        mask,
+        timeoutMs,
+        signal,
+        wait,
+        outputFile,
+        ...(readsStageRuns && { readsStageRuns }),
+      },
     );
     return commandRunOf(commandLine, finished, mask);
   }
@@ -100,6 +125,7 @@ export class TaskCommandRunner {
       projectId: project.id,
       worktree,
       repositoryGitFolder: await this.git.repositoryGitFolderOf(worktree),
+      stageRunsFolder: this.officeData.stageRunsFolder(taskId),
       installCommand: project.installCommand,
       installInputs: project.installInputs,
       installVariables: project.environment.set,

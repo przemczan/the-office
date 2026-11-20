@@ -21,10 +21,14 @@ export class TimerSchedule extends Schedule implements BeforeApplicationShutdown
   }
 
   daily(name: string, job: ScheduledJob): void {
-    const runDaily = (delayMs: number): void => {
-      this.runAfter(delayMs, name, job, () => runDaily(this.dayMs));
+    this.every(name, this.dayMs, job);
+  }
+
+  every(name: string, intervalMs: number, job: ScheduledJob): void {
+    const runEvery = (delayMs: number): void => {
+      this.runAfter(delayMs, name, job, () => runEvery(intervalMs));
     };
-    runDaily(0);
+    runEvery(0);
   }
 
   once(name: string, at: Date, job: ScheduledJob): Wait {

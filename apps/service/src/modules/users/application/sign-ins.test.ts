@@ -145,7 +145,10 @@ describe("SignInWays", () => {
       [{ kind: "passkey", reason: "needs-https-domain", elsewhere: PUBLIC_ADDRESS }],
     ],
   ])("offers at %s %j, and says why not the others", async (page, ways, unavailable) => {
-    expect(await new SignInWays().at(pages[page] as PageAddress)).toEqual({ ways, unavailable });
+    expect(await new SignInWays().at(pages[page] as PageAddress)).toEqual({
+      ways: ways.map((kind) => ({ kind, name: undefined })),
+      unavailable,
+    });
   });
 
   it("leaves out a way that isn't set up, wherever it would work", async () => {
@@ -160,6 +163,21 @@ describe("SignInWays", () => {
 
     const { ways: offered } = await ways.at(pages["localhost"] as PageAddress);
 
-    expect(offered).toEqual(["password", "passkey"]);
+    expect(offered.map(({ kind }) => kind)).toEqual(["password", "passkey"]);
+  });
+
+  it("names a way by its own name, as a provider set up under one is shown", async () => {
+    const ways = new SignInWays();
+    ways.add({
+      kind: "openid-connect",
+      enoughAlone: false,
+      unavailableAt: () => undefined,
+      isAvailable: () => Promise.resolve(true),
+      name: () => Promise.resolve("Zitadel"),
+    });
+
+    const { ways: offered } = await ways.at(pages["localhost"] as PageAddress);
+
+    expect(offered).toContainEqual({ kind: "openid-connect", name: "Zitadel" });
   });
 });

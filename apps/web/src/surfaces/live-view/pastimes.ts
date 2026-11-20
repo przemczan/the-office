@@ -24,6 +24,7 @@ const PASTIME_WEIGHTS: readonly { readonly pastime: PickedPastime; readonly weig
   { pastime: "exercise", weight: 2 },
   { pastime: "bookshelf", weight: 2 },
   { pastime: "plant", weight: 1 },
+  { pastime: "games", weight: 2 },
   { pastime: "nap", weight: 3 },
 ];
 

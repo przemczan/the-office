@@ -16,7 +16,7 @@ import {
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { NOBODY_SHAPES_INITIATIVES } from "../../domain/duties.js";
-import { SHAPING_OPENING } from "../../domain/shaping.js";
+import { shapingOpeningOf } from "../../domain/shaping.js";
 import { InitiativeStateChanged } from "../../domain/initiative-events.js";
 import { TaskStateChanged } from "../../domain/task-events.js";
 import { DroppedInitiativeTasks } from "../../application/dropped-initiative-tasks.js";
@@ -36,7 +36,10 @@ import {
 } from "../../work-application.fixtures.js";
 import { aProjectId, initiativesHttp } from "../../initiatives.controller.fixtures.js";
 import { ownProjectsQueue } from "../postgres/postgres-queue-repository.fixtures.js";
-import { ANN_LEE } from "../../domain/work.fixtures.js";
+import { defaultWorkPrompts } from "../../domain/work-prompt-templates.fixtures.js";
+import { ANN_LEE, anInitiative } from "../../domain/work.fixtures.js";
+
+const SHAPING_OPENING = shapingOpeningOf(defaultWorkPrompts(), anInitiative());
 
 let officeData: string;
 let work: WorkApplication;

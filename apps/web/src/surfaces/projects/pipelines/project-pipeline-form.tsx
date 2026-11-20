@@ -20,17 +20,18 @@ import { AskDevopsButton } from "../../../shell/ask-devops.tsx";
 import { projectCommandsOf } from "../../../shell/pipelines/library-commands.ts";
 import { projectPipelineUseLine } from "../../../shell/pipelines/pipeline-use-words.ts";
 import { RemovePipelineDialog } from "../../../shell/pipelines/remove-pipeline-dialog.tsx";
+import { flowProblems } from "../../../shell/pipelines/flow/flow-checks.ts";
+import { ProjectFlowEditor } from "../../../shell/pipelines/flow/project-flow-editor.tsx";
 import { counted } from "../../../shell/pipelines/stage-change-words.ts";
-import { StageChangesView } from "../../../shell/pipelines/stage-changes-view.tsx";
-import { checkAwaited } from "../../../shell/pipelines/stages-check.ts";
+import { byLevel, checkAwaited } from "../../../shell/pipelines/stages-check.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
 
 /**
  * The open Project Pipeline (docs/design/project-pipelines.html, "The editor"): its head, then its
- * name, base Pipeline and description, and what the Project gets in one view, saved or discarded as
- * a whole. The service builds and checks every edit; problems and Broken hold Save (a save never
- * leaves it Broken), flags don't.
+ * name, base Pipeline and description, and what the Project gets on the flow editor, saved or
+ * discarded as a whole. The service builds and checks every edit; problems and Broken hold Save (a save never
+ * leaves it Broken), warnings don't.
  */
 export function ProjectPipelineForm({
   project,
@@ -61,7 +62,10 @@ export function ProjectPipelineForm({
   });
   // Until the check answers, the Stages as they were saved.
   const built = check.data ?? projectPipeline;
-  const problems = check.data?.problems ?? [];
+  const { problems, warnings } = byLevel([
+    ...(check.data?.problems ?? []),
+    ...flowProblems(built.stages),
+  ]);
   const broken = built.broken.length > 0;
   const baseName =
     officeWide.find(({ id }) => id === draft.basePipelineId)?.name ??
@@ -80,6 +84,32 @@ export function ProjectPipelineForm({
   });
   const change = (changed: Partial<ProjectPipelineEdit>): void =>
     setDraft({ ...draft, ...changed });
+  // Under the form, and under the editor in full screen, so Save stays at hand.
+  const saveRow = (withRemove: boolean): ReactNode => (
+    <>
+      <span className="project-pipeline-actions-state">{dirty ? "Unsaved changes" : "Saved"}</span>
+      {withRemove && (
+        <Button variant="danger-ghost" onClick={() => setRemoving(true)}>
+          Remove
+        </Button>
+      )}
+      <Button variant="secondary" disabled={!dirty} onClick={() => setDraft(saved)}>
+        Discard
+      </Button>
+      <Button
+        loading={saving.isPending}
+        disabled={!dirty || broken || problems.length > 0 || checkAwaited(check)}
+        title={
+          broken
+            ? "Fix the Stage changes that don't apply first: a save never leaves it Broken"
+            : undefined
+        }
+        onClick={() => saving.mutate()}
+      >
+        Save the Pipeline
+      </Button>
+    </>
+  );
   return (
     <>
       <ProjectPipelineHead
@@ -130,45 +160,25 @@ export function ProjectPipelineForm({
             />
           </div>
         </div>
-        <StageChangesView
+        <ProjectFlowEditor
           projectName={project.name}
           baseName={baseName}
           built={built}
           stageChanges={draft.stageChanges}
           onChange={(stageChanges) => change({ stageChanges: [...stageChanges] })}
           problems={problems}
-          flags={check.data?.flags ?? []}
+          warnings={warnings}
           pending={checkAwaited(check)}
           roles={roles}
           duties={duties}
           options={options}
           commands={projectCommandsOf(project)}
+          fullScreenName={`${draft.name || projectPipeline.name} ·`}
+          fullScreenBar={saveRow(false)}
         />
       </Card>
       {saving.error && <RefusalAlert title="The Pipeline wasn't saved" error={saving.error} />}
-      <div className="project-pipeline-actions">
-        <span className="project-pipeline-actions-state">
-          {dirty ? "Unsaved changes" : "Saved"}
-        </span>
-        <Button variant="danger-ghost" onClick={() => setRemoving(true)}>
-          Remove
-        </Button>
-        <Button variant="secondary" disabled={!dirty} onClick={() => setDraft(saved)}>
-          Discard
-        </Button>
-        <Button
-          loading={saving.isPending}
-          disabled={!dirty || broken || problems.length > 0 || checkAwaited(check)}
-          title={
-            broken
-              ? "Fix the Stage changes that don't apply first: a save never leaves it Broken"
-              : undefined
-          }
-          onClick={() => saving.mutate()}
-        >
-          Save the Pipeline
-        </Button>
-      </div>
+      <div className="project-pipeline-actions">{saveRow(true)}</div>
       {removing && (
         <RemovePipelineDialog
           name={projectPipeline.name}

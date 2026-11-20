@@ -87,17 +87,16 @@ function namesRole(stage: AgentStage): stage is AgentStage & { readonly role: st
 }
 
 /**
- * Agent Stages whose Role or duty nobody can work, from `fromIndex` on: Stages before it have
- * started and keep whoever worked them, so a person let go since never blocks an edit the user
- * can't fix.
+ * Agent Stages whose Role or duty nobody can work, but those whose keys are in `skipped`: started
+ * Stages keep whoever worked them, so a person let go since never blocks an edit the user can't fix.
  */
 export function staffingProblems(
   stages: readonly Stage[],
-  fromIndex: number,
+  skipped: ReadonlySet<string>,
   fillings: RoleFillingsByWorker,
 ): StageProblem[] {
   return stages.flatMap((stage, stageIndex) => {
-    const problem = stageIndex < fromIndex ? undefined : stageStaffingProblem(stage, fillings);
+    const problem = skipped.has(stage.key) ? undefined : stageStaffingProblem(stage, fillings);
     return problem ? [problemOnStage(stage, stageIndex, problem)] : [];
   });
 }

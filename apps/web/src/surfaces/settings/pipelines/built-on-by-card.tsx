@@ -28,7 +28,7 @@ export function BuiltOnByCard({ pipeline }: { readonly pipeline: OfficeWidePipel
     >
       <p className="settings-note">
         Each Project edits its own on its page, with its Stage changes on top of {pipeline.name}'s
-        Stages.
+        Stages and routes.
       </p>
       <ul className="built-on-rows" aria-label={title}>
         {pipeline.builtOnBy.map(({ projectId, projectPipelines, broken }) => {

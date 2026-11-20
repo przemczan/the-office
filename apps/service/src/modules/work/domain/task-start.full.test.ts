@@ -9,6 +9,7 @@ import {
 } from "./task-start.js";
 import type { Wait } from "./wait.js";
 import { ANN_LEE, aTask, NO_USAGE_AT_START } from "./work.fixtures.js";
+import { NO_STAND_INS } from "./stand-ins-at-start.js";
 
 const ready = aTask({ id: "task-ready", state: "ready", projectId: "admin-panel" });
 
@@ -22,6 +23,7 @@ const conditions: StartConditions = {
   officeWideLimit: 3,
   project: { name: "Admin panel", projectLimit: 2 },
   usage: NO_USAGE_AT_START,
+  standIns: NO_STAND_INS,
   scheduledExitWait: undefined,
 };
 

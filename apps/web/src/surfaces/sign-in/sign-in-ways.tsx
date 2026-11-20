@@ -8,6 +8,7 @@ import {
 import { googleUnavailableWords } from "../../shell/google-words.ts";
 import { GitHubWay } from "./github-way.tsx";
 import { GoogleWay } from "./google-way.tsx";
+import { OpenIdConnectWay } from "./openid-connect-way.tsx";
 import { PasskeyWay } from "./passkey-way.tsx";
 import { PasswordWay } from "./password-way.tsx";
 
@@ -25,6 +26,7 @@ export const SIGN_IN_WAYS: { readonly [Kind in SignInWayKind]: SignInWayView<Kin
   passkey: PasskeyWay,
   github: GitHubWay,
   google: GoogleWay,
+  "openid-connect": OpenIdConnectWay,
 };
 
 /**
@@ -37,6 +39,8 @@ const UNAVAILABLE_WORDS: { readonly [Kind in SignInWayKind]: (way: UnavailableWa
   // GitHub sends the browser back to any callback URL the App lists, so it works at every address.
   github: () => "Continue with GitHub doesn't work at this address.",
   google: (way) => googleUnavailableWords(way.reason),
+  // The provider works at every address, like GitHub.
+  "openid-connect": () => "Continue with the OpenID Connect provider doesn't work at this address.",
 };
 
 /**

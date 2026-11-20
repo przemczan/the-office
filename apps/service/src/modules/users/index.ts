@@ -1,5 +1,6 @@
 export { GitHubIdentityProvider } from "./adapters/github/github-identity-provider.js";
 export { GoogleIdentityProvider } from "./adapters/google/google-identity-provider.js";
+export { OpenIdConnectIdentityProvider } from "./adapters/openid-connect/openid-connect-identity-provider.js";
 export { CookieSignedInRequests } from "./adapters/http/cookie-signed-in-requests.js";
 export { answerSignIn, redirectSignIn } from "./adapters/http/sign-in-answers.js";
 export { Accounts } from "./application/accounts.js";

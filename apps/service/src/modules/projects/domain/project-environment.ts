@@ -11,7 +11,7 @@ export interface ProjectVariable {
 
 /**
  * How the Project's commands and Agents change the variables they inherit (spec §5.5): kept with
- * the Project, outside its checkout, and saved only once the environment check passes with it.
+ * the Project, outside its checkout, and saved by the user's Save.
  */
 export interface ProjectEnvironment {
   /** Variables set, in this order, over any inherited one of the same name. */
@@ -46,7 +46,7 @@ export interface ShownEnvironment {
   readonly prependPath: readonly string[];
 }
 
-/** A Project's environment until its first environment check: the inherited one, unchanged. */
+/** A Project's environment until its first save: the inherited one, unchanged. */
 export const UNCHANGED_ENVIRONMENT: ProjectEnvironment = { set: [], unset: [], prependPath: [] };
 
 /** The shortest value a Secret variable takes, so hiding it in output never hides ordinary text. */
@@ -54,17 +54,15 @@ export const SECRET_VALUE_MIN_LENGTH = 6;
 
 /**
  * The environment an edit describes, each Secret variable left without a value taking the one
- * kept under its name in the first of `kept` that has it (the last check's try, then the
- * Project's own). One with no value anywhere stays empty, for environmentProblems to refuse.
+ * `kept` (the Project's own) has under its name. One with no value there stays empty, for
+ * environmentProblems to refuse.
  */
 export function editedEnvironment(
   edit: ProjectEnvironmentEdit,
-  kept: readonly ProjectEnvironment[],
+  kept: ProjectEnvironment,
 ): ProjectEnvironment {
   const keptValueOf = (name: string): string =>
-    kept
-      .flatMap((environment) => environment.set)
-      .find((variable) => variable.secret && variable.name === name)?.value ?? "";
+    kept.set.find((variable) => variable.secret && variable.name === name)?.value ?? "";
   return {
     set: edit.set.map((variable): ProjectVariable => {
       const name = variable.name.trim();

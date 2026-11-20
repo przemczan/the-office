@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
-import type { StageProblem } from "../domain/pipeline.js";
+import { asWarnings, pipelineProblem, type StageProblem } from "../domain/pipeline.js";
 import { UnknownStageTemplate } from "../domain/pipeline-library-refusals.js";
 import type { Stage } from "../domain/stage.js";
 import {
@@ -61,7 +61,7 @@ export class StageTemplateLibraryEditor {
   async proposedStageProblems(id: string, from: Stage, to: Stage): Promise<StageProblem[]> {
     const templates = await this.repository.list();
     const template = templates.find((each) => each.id === id);
-    if (!template) return [{ text: new UnknownStageTemplate(id).message }];
+    if (!template) return [pipelineProblem(new UnknownStageTemplate(id).message)];
     return proposedStageProblems(template, from, to, othersThan(id, templates));
   }
 
@@ -99,10 +99,10 @@ export class StageTemplateLibraryEditor {
     const others = othersThan(stageTemplateId, await this.repository.list());
     return {
       problems: stageTemplateProblems(stage, others),
-      flags: [
+      flags: asWarnings([
         ...stageTemplateFlags(stage, await this.roleFillings.of([stage])),
         ...(await this.roleFillings.stagePermissionProblems(stage)).map(templateProblem),
-      ],
+      ]),
     };
   }
 

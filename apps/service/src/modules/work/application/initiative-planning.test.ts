@@ -13,11 +13,10 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { OfficeToolRegistry } from "../../engine/index.js";
 import { anOfficeToolCall } from "../../engine/index.fixtures.js";
 import { InitiativeThreadSetups, TaskThreadSetups } from "../../conversations/index.js";
+import { withCallingRule } from "../adapters/conversations/calling-rule.js";
 import {
   INITIATIVE_PLANNING_OFFICE_TOOLS,
-  INITIATIVE_PLANNING_THREAD_INSTRUCTIONS,
   SHAPING_OFFICE_TOOLS,
-  SHAPING_THREAD_INSTRUCTIONS,
 } from "../adapters/conversations/initiative-thread-records.js";
 import {
   MARK_PLANNED,
@@ -28,9 +27,12 @@ import {
   WRITE_TAGS,
 } from "../adapters/office-tools/planning-office-tools.js";
 import {
-  INITIATIVE_PLANNING_OPENING,
+  initiativePlanningInstructions,
+  initiativePlanningOpening,
   INITIATIVE_PLANNING_THREAD_TITLE,
 } from "../domain/initiative-planning.js";
+import { shapingInstructions } from "../domain/shaping.js";
+import { defaultWorkPrompts } from "../domain/work-prompt-templates.fixtures.js";
 import { NOBODY_PLANS } from "../domain/duties.js";
 import { TaskStateChanged } from "../domain/task-events.js";
 import {
@@ -50,6 +52,13 @@ import {
   startWorkApplication,
   type WorkApplication,
 } from "../work-application.fixtures.js";
+
+const prompts = defaultWorkPrompts();
+const INITIATIVE_PLANNING_OPENING = initiativePlanningOpening(prompts);
+const SHAPING_THREAD_INSTRUCTIONS = withCallingRule(shapingInstructions(prompts));
+const INITIATIVE_PLANNING_THREAD_INSTRUCTIONS = withCallingRule(
+  initiativePlanningInstructions(prompts),
+);
 
 let officeData: string;
 let work: WorkApplication;
@@ -208,6 +217,105 @@ describe("Plan the Initiative", () => {
   });
 });
 
+/** Plan with…, the session put in the Thread it opened. */
+async function plannedWithTheUser(initiativeId: string): Promise<Initiative> {
+  const initiative = initiativeSchema.parse(await postOk(`/initiatives/${initiativeId}/plan-with`));
+  const sessions = work.app.get(SessionInitiativesForTests);
+  sessions.initiatives.set(SESSION, initiativeId);
+  sessions.threads.set(SESSION, initiative.planningThreadId ?? "");
+  return initiative;
+}
+
+describe("Plan with…", () => {
+  it("opens a planning Thread waiting for the user, with auto mode off, the default left as it was", async () => {
+    await settings.changeAutoMode(true);
+    const { initiative } = await anActiveInitiative();
+    const threads = work.app.get(InitiativeThreadsForTests);
+    const startedBefore = threads.opened.length;
+
+    const planning = await plannedWithTheUser(initiative.id);
+
+    expect(threads.waiting).toEqual([
+      {
+        threadId: planning.planningThreadId,
+        initiativeId: initiative.id,
+        roleKey: "planner",
+        title: INITIATIVE_PLANNING_THREAD_TITLE,
+      },
+    ]);
+    expect(threads.opened).toHaveLength(startedBefore);
+    expect(planning.planningAutoMode).toBe(false);
+    expect(await settings.autoMode()).toBe(true);
+  });
+
+  it("briefs the Planner to follow the user's instructions on how to plan", async () => {
+    const { initiative } = await anActiveInitiative();
+    const planning = await plannedWithTheUser(initiative.id);
+
+    const { record } = await work.app.get(InitiativeThreadSetups).of({
+      threadId: planning.planningThreadId ?? "",
+      initiativeId: initiative.id,
+      roleKey: "planner",
+    });
+
+    expect(record).toContain("## Planning with the user");
+    expect(record).toContain("with Plan with….");
+    expect(record).toContain("## Auto mode\n\nOff:");
+  });
+
+  it("is refused with the same reasons as Plan the Initiative, opening nothing", async () => {
+    const threads = work.app.get(InitiativeThreadsForTests);
+    const shaping = await anInitiativeWithTwoTasks();
+    const notActive = await post(`/initiatives/${shaping.initiative.id}/plan-with`);
+    expect(notActive.status).toBe(422);
+    expect(await notActive.json()).toMatchObject({
+      reasons: [
+        "Only an active Initiative is planned; this one is being shaped: confirm it first.",
+      ],
+    });
+
+    const { initiative, first, second } = await anActiveInitiative();
+    work.app.get(KnownPeopleForTests).vacant.add("planner");
+    const noPlanner = await post(`/initiatives/${initiative.id}/plan-with`);
+    expect(await noPlanner.json()).toMatchObject({ reasons: [NOBODY_PLANS] });
+    work.app.get(KnownPeopleForTests).vacant.delete("planner");
+
+    const earlier = await planned(initiative.id, false);
+    await call(START_PLANNING, { taskId: first.id });
+    const stillPlanning = await post(`/initiatives/${initiative.id}/plan-with`);
+    expect(await stillPlanning.json()).toMatchObject({
+      reasons: [
+        `"Export API" is still being planned in the earlier planning Thread (Thread ${earlier.planningThreadId}). Wait until it is marked planned there, or confirm it yourself.`,
+      ],
+    });
+
+    await planTask(first.id);
+    await call(START_PLANNING, { taskId: second.id });
+    await planTask(second.id);
+    const nothingLeft = await post(`/initiatives/${initiative.id}/plan-with`);
+    expect(await nothingLeft.json()).toMatchObject({
+      reasons: ["None of the Initiative's Tasks is in Backlog: nothing is left to plan."],
+    });
+    expect(threads.waiting).toEqual([]);
+  });
+
+  it("plans the Tasks in its Thread as Plan the Initiative's does, leaving each for the user's Confirm", async () => {
+    const { initiative, first, second } = await anActiveInitiative();
+    await plannedWithTheUser(initiative.id);
+
+    await call(START_PLANNING, { taskId: first.id });
+    await planTask(first.id);
+    await call(START_PLANNING, { taskId: second.id });
+    await planTask(second.id);
+
+    for (const task of [first, second]) {
+      expect(await read(task.id)).toMatchObject({ state: "planning", markedPlanned: true });
+    }
+    await call(WRITE_PLAN, { taskId: first.id, plan: "Add the endpoint, CSV only." });
+    expect(await read(first.id)).toMatchObject({ state: "planning", markedPlanned: false });
+  });
+});
+
 describe("planning the Initiative's Tasks in its planning Thread", () => {
   it("plans each Task in dependency order and, in auto mode, marks each Ready", async () => {
     const { initiative, first, second } = await anActiveInitiative();
@@ -344,7 +452,7 @@ describe("a Decision on one of the Initiative's Tasks", () => {
       .of({ threadId, initiativeId: initiative.id, roleKey: "planner" });
 
     expect(setup.record).toContain(
-      `## Waiting for an answer\n\nThis Thread opened these Decisions, which still wait on the user: leave each Task, and the Tasks that wait for it, until its answer comes as a message.\n\n- "Export API" (Task ${first.id}): "Which format?"`,
+      `## Waiting for an answer\n\nThis Thread opened these Decisions, which still wait on the user: don't ask them again, and leave each Task, and the Tasks that wait for it, until its answer comes as a message.\n\n- "Export API" (Task ${first.id}): "Which format?"`,
     );
   });
 });

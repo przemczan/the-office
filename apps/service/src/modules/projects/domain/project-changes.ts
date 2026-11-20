@@ -295,8 +295,8 @@ export function changeInstallInputs(
 }
 
 /**
- * Undefined when the Project already has that environment. That it passed the environment check,
- * and follows the rules, is for the caller to know.
+ * Undefined when the Project already has that environment. That it follows the rules is for the
+ * caller to know.
  */
 export function changeEnvironment(
   project: Project,

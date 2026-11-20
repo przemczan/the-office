@@ -1,6 +1,10 @@
-import { WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL } from "../../engine/index.js";
+import {
+  RUN_PROJECT_COMMAND_TOOL,
+  WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL,
+} from "../../engine/index.js";
 import type { DutyKey } from "../../people/index.js";
 import type { Pipeline } from "./pipeline.js";
+import { UPDATE_BRANCH_TOOL } from "./stage-commit.js";
 
 /**
  * The duties built-in Agent Stages name, whose default holders are the Developer and Devops presets'
@@ -14,6 +18,9 @@ export const ONBOARD_PIPELINE = "onboard";
 
 /** The Pipeline of a Project's "Set up the run environment" Task, which can't be removed either. */
 export const SET_UP_RUN_ENVIRONMENT_PIPELINE = "set-up-run-environment";
+
+/** The Pipeline of a Conflict resolution Task, which Work keys as `RESOLVE_CONFLICTS_PIPELINE`. */
+export const RESOLVE_CONFLICTS_PIPELINE = "resolve-conflicts";
 
 // A budget is checked against the whole Task's tokens (spec §2.3), so each Agent Stage's is the
 // budgets of the Stages before it plus its own, written as that sum.
@@ -218,6 +225,46 @@ const setUpRunEnvironment: Pipeline = {
 };
 
 /**
+ * A Conflict resolution Task's worktree holds the pull request's own branch: the Agent merges the
+ * base into it, Test checks the result, and Publish pushes the branch, without force, to the same
+ * pull request.
+ */
+const resolveConflicts: Pipeline = {
+  id: RESOLVE_CONFLICTS_PIPELINE,
+  name: "Resolve conflicts",
+  description:
+    "Merges the base branch into a pull request's branch, resolves the conflicts, tests, then pushes the branch to the same pull request.",
+  stages: [
+    {
+      kind: "agent",
+      key: "resolve-conflicts",
+      name: "Resolve conflicts",
+      duty: IMPLEMENTS,
+      brief: `Call ${UPDATE_BRANCH_TOOL} to merge the base branch into this branch: a merge, never a rebase. Resolve each conflicted file keeping what both sides meant, and remove every conflict marker. Run the Test with ${RUN_PROJECT_COMMAND_TOOL} test and fix what it finds. When you can't finish, end the Stage failed and write why in the Handover note.`,
+      session: "fresh",
+      budget: 150_000,
+      optional: false,
+    },
+    {
+      kind: "script",
+      key: "test",
+      name: "Test",
+      command: "test",
+      optional: false,
+      onFailure: { goBackTo: "resolve-conflicts", rounds: 2 },
+    },
+    {
+      kind: "script",
+      key: "publish",
+      name: "Publish",
+      command: "publish",
+      publishTarget: "branch-only",
+      optional: false,
+    },
+  ],
+};
+
+/**
  * Spec §2.3's built-ins, in the library's order. The `pipelines` table's migration seeds them once;
  * from then on the library holds them and the user edits them like any.
  */
@@ -228,4 +275,5 @@ export const builtInPipelines: readonly Pipeline[] = [
   onboard,
   proofOfConcept,
   setUpRunEnvironment,
+  resolveConflicts,
 ];

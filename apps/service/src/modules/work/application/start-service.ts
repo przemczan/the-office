@@ -7,7 +7,7 @@ import { startOrQueue, type OverlapChoice, type Starting } from "../domain/queue
 import type { Task } from "../domain/task.js";
 import { blockingTasks } from "../domain/task-dependencies.js";
 import { overlapsOf, type Overlap } from "../domain/task-overlap.js";
-import { startReasons, type StartReasons } from "../domain/task-start.js";
+import { startReasons, usageOnStandIns, type StartReasons } from "../domain/task-start.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import type { UsageEstimate } from "../domain/usage-estimate.js";
 import { FireAlarmRepository } from "../ports/fire-alarm-repository.js";
@@ -55,7 +55,10 @@ export class StartService {
       startOrQueue(task, conditions, held, queue, { now: this.schedule.now(), onOverlap, by }),
     );
     if (starting.kind === "started") {
-      this.startsSinceReading.record(this.schedule.now(), conditions.usage.estimate);
+      this.startsSinceReading.record(
+        this.schedule.now(),
+        usageOnStandIns(conditions).usage.estimate,
+      );
     }
     const event = starting.kind === "started" ? starting.change.event : starting.event;
     if (event) await this.events.publish(event);

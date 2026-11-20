@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { decisionSummary } from "./decision.js";
 import { aDecision } from "./decision.fixtures.js";
 import {
   liveViewOf,
@@ -33,8 +34,13 @@ function threadOf(roleKey: string, fields: Partial<Thread> = {}): Thread {
 }
 
 function liveView(records: Partial<LiveViewRecords>): readonly LivePerson[] {
-  return liveViewOf({ people: [OSCAR, CLARA], threads: [], lastCalls: new Map(), ...records })
-    .people;
+  return liveViewOf({
+    people: [OSCAR, CLARA],
+    threads: [],
+    lastCalls: new Map(),
+    engineNames: new Map(),
+    ...records,
+  }).people;
 }
 
 function personIn(people: readonly LivePerson[], roleKey: string): LivePerson {
@@ -127,7 +133,7 @@ describe("what each person is doing now", () => {
           threadId: stage.id,
           home: stage.home,
           consultantRoleKey: "cto",
-          question: decision.question,
+          question: decisionSummary(decision),
           since: FIRST,
         },
       ],
@@ -177,7 +183,7 @@ describe("what each person is doing now", () => {
           threadId: stage.id,
           home: stage.home,
           byTheOffice: false,
-          question: decision.question,
+          question: decisionSummary(decision),
           since: FIRST,
         },
       ],

@@ -25,7 +25,12 @@ import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { DecisionService } from "../../application/decision-service.js";
 import { ThreadService } from "../../application/thread-service.js";
 import { ThreadRenamed } from "../../domain/conversation-events.js";
-import type { Decision } from "../../domain/decision.js";
+import {
+  oneOptionAnswer,
+  oneWordsAnswer,
+  type Decision,
+  type DecisionDraft,
+} from "../../domain/decision.js";
 import { aDecision } from "../../domain/decision.fixtures.js";
 import type { Thread } from "../../domain/thread.js";
 import { aThread } from "../../domain/thread.fixtures.js";
@@ -104,6 +109,7 @@ import { SubAgentAndProcessRepository } from "../../ports/sub-agent-and-process-
 import { PostgresSubAgentAndProcessRepository } from "../postgres/postgres-sub-agent-and-process-repository.js";
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../../people/index.fixtures.js";
 import { ANN_LEE, ANSWERED_BY_ANN_LEE } from "../../domain/user.fixtures.js";
+import { ConversationsPromptTemplatesForTests } from "../prompt-templates/conversations-prompt-templates.fixtures.js";
 
 // What threads.controller.test.ts and threads.controller.full.test.ts share.
 
@@ -222,6 +228,7 @@ function setUpEachTest(): void {
     ({ app, url } = await startTestApplication({
       database: true,
       imports: [
+        ConversationsPromptTemplatesForTests,
         EventsModule,
         ScheduleModule,
         BusyWorkModule,
@@ -301,6 +308,9 @@ function setUpEachTest(): void {
           useProjectSkills: false,
           projectSkillsOff: [],
           projectId: "admin-panel",
+          initiativeId: undefined,
+          projectName: "Admin panel",
+          pipelineName: "",
           instructions: "On this Task you plan.",
           officeTools: [],
           brief: "The Task's record.",
@@ -595,11 +605,20 @@ describe("a Thread", () => {
 });
 
 describe("a Decision", () => {
-  const draft = {
-    question: "Should the export include archived Projects?",
+  const draft: DecisionDraft = {
     context: "Archived Projects have no worktree.",
-    options: ["Only active Projects", "Every Project"],
-    recommendation: { option: 0, reason: "Archived ones have nothing to export." },
+    questions: [
+      {
+        kind: "choice",
+        question: "Should the export include archived Projects?",
+        options: ["Only active Projects", "Every Project"],
+        recommendation: { option: 0, reason: "Archived ones have nothing to export." },
+      },
+    ],
+  };
+  const twoQuestions: DecisionDraft = {
+    ...draft,
+    questions: [...draft.questions, { kind: "open", question: "Which years should it cover?" }],
   };
 
   /** A planning Thread on a Task of its own whose session opened a Decision. */
@@ -634,13 +653,13 @@ describe("a Decision", () => {
     const { decision } = await opened();
 
     const wrongOption = await send("POST", `/decisions/${decision.id}/answer`, {
-      kind: "option",
-      option: 2,
+      kind: "submitted",
+      answers: [{ kind: "option", option: 2 }],
     });
     const noAnswer = await send("POST", `/decisions/${decision.id}/answer`, { kind: "maybe" });
     const nowhere = await send("POST", `/decisions/${randomUUID()}/answer`, {
-      kind: "free-answer",
-      text: "Yes.",
+      kind: "submitted",
+      answers: [{ kind: "words", text: "Yes." }],
     });
 
     expect(wrongOption.status).toBe(422);
@@ -651,13 +670,64 @@ describe("a Decision", () => {
     expect(nowhere.status).toBe(404);
   });
 
+  it("takes the form's answer, and refuses one that doesn't answer every question", async () => {
+    const taskId = randomUUID();
+    const openedIn = async (asked: DecisionDraft): Promise<Decision> => {
+      // In a Stage Thread the answer is only recorded, with no session to take it.
+      const { sessionId } = await withSession(() => ({ kind: "task", taskId }), {
+        stageThread: true,
+      });
+      return (await app.get(DecisionService).open(sessionId, asked)).decision;
+    };
+    const oneQuestion = await openedIn(draft);
+    const answeredInPart = await openedIn(twoQuestions);
+    const form = await openedIn(twoQuestions);
+
+    const toOne = await send("POST", `/decisions/${oneQuestion.id}/answer`, {
+      kind: "submitted",
+      answers: [{ kind: "option", option: 1 }],
+    });
+    const refused = await send("POST", `/decisions/${answeredInPart.id}/answer`, {
+      kind: "submitted",
+      answers: [{ kind: "option", option: 0 }],
+    });
+    const submitted = await send("POST", `/decisions/${form.id}/answer`, {
+      kind: "submitted",
+      answers: [
+        { kind: "option", option: 1, comment: "Archived ones too." },
+        { kind: "words", text: "This year." },
+      ],
+      generalComment: "Thanks.",
+    });
+
+    expect([toOne.status, refused.status, submitted.status]).toEqual([202, 422, 202]);
+    expect(threadRefusalSchema.parse(await refused.json()).reasons).toEqual([
+      "Answer every question: this Decision asks 2.",
+    ]);
+    const repository = app.get(ThreadRepository);
+    expect((await repository.decision(oneQuestion.id))?.answer).toMatchObject({
+      ...oneOptionAnswer(1),
+      user: ANN_LEE,
+    });
+    expect((await repository.decision(answeredInPart.id))?.answer).toBeUndefined();
+    expect((await repository.decision(form.id))?.answer).toMatchObject({
+      kind: "submitted",
+      answers: [
+        { kind: "option", option: 1, comment: "Archived ones too." },
+        { kind: "words", text: "This year." },
+      ],
+      generalComment: "Thanks.",
+      user: ANN_LEE,
+    });
+  });
+
   it("opens again when the session its answer goes to fails to start, keeping the answer in the log", async () => {
     // The scripted engine has no script: resuming the Decision's session fails.
     const { thread, decision } = await opened();
 
     const response = await send("POST", `/decisions/${decision.id}/answer`, {
-      kind: "free-answer",
-      text: "Only this year's.",
+      kind: "submitted",
+      answers: [{ kind: "words", text: "Only this year's." }],
     });
     const open = await vi.waitFor(
       async () => {
@@ -672,15 +742,15 @@ describe("a Decision", () => {
     );
 
     expect(response.status).toBe(202);
-    expect(open.find(({ id }) => id === decision.id)).toMatchObject({ answer: null });
+    expect(open.find(({ id }) => id === decision.id)).toMatchObject({ formAnswer: null });
     expect(messages.map((message) => message.kind)).toEqual([
       "decision",
       "decision-answer",
       "failure",
     ]);
     expect(messages[1]).toMatchObject({
-      answer: { kind: "free-answer", text: "Only this year's." },
-      decision: { answer: null },
+      formAnswer: oneWordsAnswer("Only this year's."),
+      decision: { formAnswer: null },
     });
     expect(webEvents()).toContainEqual({
       type: "thread.decision-reopened",
@@ -717,7 +787,7 @@ describe("a Decision", () => {
 
     await app
       .get(DecisionService)
-      .answer(withConsultant.id, { kind: "option", option: 0 }, ANSWERED_BY_ANN_LEE);
+      .answer(withConsultant.id, oneOptionAnswer(0), ANSWERED_BY_ANN_LEE);
 
     const left = decisionListSchema.parse(
       await (await get(`/tasks/${taskId}/decisions/unanswered`)).json(),

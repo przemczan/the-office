@@ -18,6 +18,7 @@ import type { AttachmentKind } from "../../domain/attachment.js";
 import type { ArchivedBy, Author } from "../../domain/author.js";
 import type { IdeaState } from "../../domain/idea.js";
 import type { InitiativeState } from "../../domain/initiative.js";
+import type { EngineStandIn } from "../../domain/stand-ins-at-start.js";
 import type { StateChangeCause } from "../../domain/state-change.js";
 import type {
   Priority,
@@ -26,6 +27,7 @@ import type {
   TaskMadeFor,
   TaskState,
 } from "../../domain/task.js";
+import type { PullRequestEnd, PullRequestMergeMethod } from "../../domain/task-pull-request.js";
 import { searchVectorOf } from "./search-vector.js";
 
 // The tables are in one file because Ideas, Initiatives and Tasks name each other.
@@ -51,6 +53,16 @@ export interface ProjectMoveRow {
   readonly to: string;
   readonly at: string;
   readonly by: AuthorRow;
+}
+
+/** How a Task's pull request ended as jsonb keeps it: its time as an ISO string. */
+export interface PullRequestEndRow {
+  readonly outcome: PullRequestEnd["outcome"];
+  readonly number: number;
+  readonly url: string;
+  readonly at: string;
+  readonly method: PullRequestMergeMethod | null;
+  readonly by: AuthorRow | { readonly kind: "code-host"; readonly name: string };
 }
 
 export const ideas = pgTable("ideas", {
@@ -113,6 +125,8 @@ export const initiatives = pgTable(
     /** Who asked for its latest planning Thread; null until it is first planned. */
     planningStartedBy: jsonb("planning_started_by").$type<AuthorRow>(),
     planningAutoMode: boolean("planning_auto_mode").notNull().default(false),
+    /** Whether its latest planning Thread was opened by Plan with…, waiting for the user. */
+    planningWithUser: boolean("planning_with_user").notNull().default(false),
     /**
      * The Initiative's Pipeline in each Project it was given one or None for (Initiative.pipelines);
      * a Project without an entry has None.
@@ -179,12 +193,26 @@ export const tasks = pgTable(
     hasPlanningThread: boolean("has_planning_thread").notNull().default(false),
     /** Null until the Task starts, and for a Pipeline without an Agent Stage. */
     personRole: text("person_role"),
+    /** The Stand-in Engines its last Start chose; engines are kept by Engine, so no foreign key. */
+    engineStandIns: jsonb("engine_stand_ins")
+      .$type<EngineStandIn[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     /** Null unless the fire alarm, its Initiative's Pause or the usage window holds it Paused. */
     pausedBy: text("paused_by").$type<TaskHolder>(),
     /** Null unless the usage window paused it: the window's reset, when it resumes by itself. */
     resumesAt: timestamp("resumes_at", { withTimezone: true }),
+    /**
+     * Null unless the usage window paused it: the engine whose window did, kept by Engine, so no
+     * foreign key; null too for one paused before it was kept, which resumes at its reset.
+     */
+    usageWindowEngineId: text("usage_window_engine_id"),
+    /** Null unless the usage window paused it: when it last did, by The Office's clock. */
+    usageWindowPausedAt: timestamp("usage_window_paused_at", { withTimezone: true }),
     /** Null for a Task the user or an Agent made. */
     madeFor: text("made_for").$type<TaskMadeFor>(),
+    /** The Task whose pull request's conflicts a Conflict resolution Task resolves; null otherwise. */
+    resolvesTaskId: uuid("resolves_task_id"),
     /** The Tasks it waits for, in the order added; a Task is dropped, never deleted, so ids hold. */
     blockedBy: uuid("blocked_by")
       .array()
@@ -209,6 +237,8 @@ export const tasks = pgTable(
     restoredBy: jsonb("restored_by").$type<AuthorRow>(),
     /** Null while it hasn't ended, and for one whose end was never recorded. */
     endedAt: timestamp("ended_at", { withTimezone: true }),
+    /** Null while its pull request hasn't ended, or is open again. */
+    pullRequestEnd: jsonb("pull_request_end").$type<PullRequestEndRow>(),
   },
   (table) => [
     uniqueIndex("tasks_order_key").on(table.order),
@@ -227,6 +257,12 @@ export const tasks = pgTable(
     uniqueIndex("tasks_open_publishing_task_per_project")
       .on(table.initiativeId, table.projectId)
       .where(sql`${table.madeFor} = 'publishing' AND ${table.state} NOT IN ('done', 'dropped')`),
+    // And one open Conflict resolution Task per Task whose pull request it resolves.
+    uniqueIndex("tasks_open_conflict_resolution_per_task")
+      .on(table.resolvesTaskId)
+      .where(
+        sql`${table.madeFor} = 'resolve-conflicts' AND ${table.state} NOT IN ('done', 'dropped')`,
+      ),
   ],
 );
 

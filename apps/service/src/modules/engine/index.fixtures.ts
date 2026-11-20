@@ -9,6 +9,8 @@ export {
 } from "./adapters/openai-compatible-api/fake-chat-completions-server.fixtures.js";
 export { EngineSettingsForTests } from "./ports/engine-settings-repository.fixtures.js";
 export { EngineSettingsRepository } from "./ports/engine-settings-repository.js";
+// So other modules' tests sign a Codex engine in by an API key (`setCodexApiKey`).
+export { CodexApiKey } from "./domain/codex-api-key.js";
 // So other modules' tests remove an engine at a moment they choose.
 export { EngineSettingsService } from "./application/engine-settings-service.js";
 export { anOfficeToolCall } from "./ports/office-tool.fixtures.js";

@@ -1,0 +1,3881 @@
+<!doctype html>
+<html lang="en" data-palette="light" data-theme="light" data-density="comfortable">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The Decision form card · design proposal · The Office</title>
+    <style>
+      /* ---------- Tokens (design-system/tokens/ and packages/ui/src/appearance/, copied as they were on 2026-11-16) ---------- */
+      :root {
+        --ember-50: #fff2ed;
+        --ember-100: #ffe0d4;
+        --ember-300: #ff9370;
+        --ember-400: #ff6638;
+        --ember-500: #f23d0f;
+        --ember-600: #cc2f07;
+        --ember-700: #9e2406;
+        --flare-300: #ffc266;
+        --flare-500: #ff9a1f;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-600: #17834a;
+        --green-700: #106a3b;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-500: #e5a00d;
+        --amber-700: #865b05;
+        --red-50: #fdeef0;
+        --red-100: #fad9dd;
+        --red-500: #c8102e;
+        --red-600: #aa0d27;
+        --red-700: #8e0b20;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+        --teal-500: #14a38b;
+        --violet-500: #7c5cd6;
+
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-raised: var(--white);
+        --surface-sunken: var(--gray-50);
+        --surface-hover: var(--gray-25);
+        --surface-selected: var(--ember-50);
+        --surface-inverse: var(--gray-900);
+        --fg-1: var(--gray-950);
+        --fg-2: var(--gray-600);
+        --fg-3: var(--gray-500);
+        --fg-disabled: var(--gray-400);
+        --fg-inverse: var(--white);
+        --fg-on-accent: var(--white);
+        --border: var(--gray-150);
+        --border-subtle: var(--gray-100);
+        --border-strong: var(--gray-200);
+        --border-focus: var(--ember-500);
+        --accent: var(--ember-500);
+        --accent-hover: var(--ember-600);
+        --accent-subtle: var(--ember-50);
+        --accent-subtle-fg: var(--ember-700);
+        --primary: var(--gray-900);
+        --primary-hover: var(--gray-700);
+        --primary-fg: var(--white);
+        --control-hover: var(--gray-50);
+        --control-press: var(--gray-100);
+        --success: var(--green-500);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --success-border: var(--green-100);
+        --warning: var(--amber-500);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --danger: var(--red-500);
+        --danger-subtle: var(--red-50);
+        --danger-fg: var(--red-700);
+        --danger-border: var(--red-100);
+        --info: var(--blue-500);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-600);
+        --neutral-border: var(--gray-150);
+        --focus-ring: 0 0 0 3px color-mix(in oklab, var(--ember-500) 30%, transparent);
+        --overlay: color-mix(in oklab, var(--gray-950) 45%, transparent);
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --text-2xs: 11px;
+        --text-xs: 12px;
+        --text-sm: 13px;
+        --text-md: 14px;
+        --text-lg: 16px;
+        --text-xl: 18px;
+        --text-2xl: 20px;
+        --type-body: 400 var(--text-md) / 1.5 var(--font-sans);
+        --type-body-sm: 400 var(--text-sm) / 1.45 var(--font-sans);
+        --type-caption: 400 var(--text-xs) / 1.4 var(--font-sans);
+        --type-card-title: 600 var(--text-md) / 1.4 var(--font-sans);
+        --type-section-title: 600 var(--text-lg) / 1.3 var(--font-sans);
+        --type-overline: 500 var(--text-2xs) / 1.2 var(--font-mono);
+        --tracking-caps: 0.06em;
+        --tracking-tight: -0.01em;
+
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 12px;
+        --space-4: 16px;
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-xl: 12px;
+        --radius-full: 999px;
+        --radius-control: var(--radius-md);
+        --radius-badge: var(--radius-sm);
+        --control-xs: 24px;
+        --control-sm: 28px;
+        --control-md: 32px;
+
+        --shadow-1: 0 1px 2px rgba(16, 16, 15, 0.05);
+        --shadow-2: 0 4px 12px -2px rgba(16, 16, 15, 0.08), 0 1px 3px rgba(16, 16, 15, 0.05);
+        --shadow-3: 0 16px 40px -8px rgba(16, 16, 15, 0.18), 0 2px 6px rgba(16, 16, 15, 0.06);
+        --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --duration-fast: 120ms;
+        --duration-base: 200ms;
+        --duration-slow: 280ms;
+      }
+      [data-theme="dark"] {
+        --surface-selected: color-mix(in oklab, var(--ember-500) 12%, var(--gray-900));
+        --fg-disabled: var(--gray-600);
+        --accent-hover: var(--ember-400);
+        --accent-subtle: color-mix(in oklab, var(--ember-500) 16%, transparent);
+        --accent-subtle-fg: var(--ember-300);
+        --success-subtle: color-mix(in oklab, var(--green-500) 16%, transparent);
+        --success-fg: #6fd69b;
+        --success-border: color-mix(in oklab, var(--green-500) 30%, transparent);
+        --warning-subtle: color-mix(in oklab, var(--amber-500) 16%, transparent);
+        --warning-fg: var(--flare-300);
+        --warning-border: color-mix(in oklab, var(--amber-500) 30%, transparent);
+        --danger-subtle: color-mix(in oklab, var(--red-500) 20%, transparent);
+        --danger-fg: #ff8a97;
+        --danger-border: color-mix(in oklab, var(--red-500) 36%, transparent);
+        --info-subtle: color-mix(in oklab, var(--blue-500) 18%, transparent);
+        --info-fg: #93b5f5;
+        --info-border: color-mix(in oklab, var(--blue-500) 34%, transparent);
+        --overlay: color-mix(in oklab, #000 65%, transparent);
+        --shadow-1: 0 0 0 1px rgba(255, 255, 255, 0.04);
+        --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+        --shadow-3: 0 16px 40px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      }
+      /* packages/ui/src/appearance/palettes/light.css */
+      :root[data-palette="light"] {
+        --fg-1: var(--gray-800);
+        --fg-2: var(--gray-500);
+        --fg-3: var(--gray-400);
+        --border: var(--gray-100);
+        --border-subtle: #efefec;
+        --border-strong: var(--gray-150);
+        --surface-hover: var(--gray-25);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-500);
+        --neutral-border: var(--gray-100);
+      }
+      /* packages/ui/src/appearance/palettes/dark.css */
+      :root[data-palette="dark"] {
+        --bg: #161615;
+        --surface: #1d1d1b;
+        --surface-raised: #242422;
+        --surface-sunken: #131312;
+        --surface-hover: #222220;
+        --surface-selected: #2a2420;
+        --surface-inverse: #e6e6e2;
+        --fg-1: #d9d9d5;
+        --fg-2: #9a9a94;
+        --fg-3: #6f6f69;
+        --fg-inverse: #161615;
+        --border: #262624;
+        --border-subtle: #222220;
+        --border-strong: #33332f;
+        --primary: #d9d9d5;
+        --primary-fg: #161615;
+        --primary-hover: #e6e6e2;
+        --control-hover: #262624;
+        --control-press: #2e2e2b;
+        --neutral-subtle: #242422;
+        --neutral-fg: #9a9a94;
+        --neutral-border: #2e2e2b;
+      }
+      /* packages/ui/src/appearance/densities/comfortable.css */
+      :root[data-density="comfortable"] {
+        --pad-card: 16px 18px;
+        --gap-card: 12px;
+        --pad-row: 14px 18px;
+        --pad-page: 24px;
+        --gap-panel: 20px;
+        --radius-card: 10px;
+        --text-item: 14px;
+        --text-body: 13px;
+        --control-h: 28px;
+        --line: 1.5;
+      }
+
+      /* ---------- Base (design-system/tokens/base.css) ---------- */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      button,
+      textarea,
+      input {
+        font: inherit;
+        color: inherit;
+      }
+      p {
+        margin: 0;
+      }
+      @supports selector(::-webkit-scrollbar) {
+        ::-webkit-scrollbar {
+          width: 10px;
+          height: 10px;
+        }
+        ::-webkit-scrollbar-track,
+        ::-webkit-scrollbar-corner {
+          background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+          border: 3px solid transparent;
+          border-radius: var(--radius-full);
+          background: var(--border-strong) padding-box;
+        }
+      }
+      @supports not selector(::-webkit-scrollbar) {
+        * {
+          scrollbar-width: thin;
+          scrollbar-color: var(--border-strong) transparent;
+        }
+      }
+      :is(button, textarea, a, [tabindex]):focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+
+      /* ---------- packages/ui, re-drawn: Badge, Avatar, Button, TextButton, Textarea, Alert, Tooltip ---------- */
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        height: 22px;
+        padding: 0 8px;
+        border-radius: var(--radius-badge);
+        border: 1px solid var(--neutral-border);
+        background: var(--neutral-subtle);
+        color: var(--neutral-fg);
+        font-size: var(--text-xs);
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      .badge.sm {
+        height: 18px;
+        padding: 0 6px;
+        font-size: var(--text-2xs);
+      }
+      .badge.success {
+        background: var(--success-subtle);
+        color: var(--success-fg);
+        border-color: var(--success-border);
+      }
+      .badge.warning {
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+        border-color: var(--warning-border);
+      }
+      .badge.danger {
+        background: var(--danger-subtle);
+        color: var(--danger-fg);
+        border-color: var(--danger-border);
+      }
+      .badge.info {
+        background: var(--info-subtle);
+        color: var(--info-fg);
+        border-color: var(--info-border);
+      }
+      .badge.accent {
+        background: var(--accent-subtle);
+        color: var(--accent-subtle-fg);
+        border-color: transparent;
+      }
+      .avatar {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        flex: none;
+        display: inline-grid;
+        place-items: center;
+        font-size: 9px;
+        font-weight: 600;
+        line-height: 1;
+        color: var(--avatar-fg, var(--fg-1));
+        background: var(--avatar-bg, var(--neutral-subtle));
+      }
+      .avatar.sm {
+        width: 20px;
+        height: 20px;
+        font-size: 8px;
+      }
+      .avatar.xs {
+        width: 18px;
+        height: 18px;
+        font-size: 8px;
+      }
+      .avatar.lg {
+        width: 32px;
+        height: 32px;
+        font-size: 11px;
+      }
+      .tint-jim {
+        --avatar-bg: color-mix(in oklab, var(--teal-500) 24%, var(--surface));
+      }
+      .tint-angela {
+        --avatar-bg: color-mix(in oklab, var(--violet-500) 24%, var(--surface));
+      }
+      .tint-michael {
+        --avatar-bg: color-mix(in oklab, var(--blue-500) 24%, var(--surface));
+      }
+      .tint-pam {
+        --avatar-bg: color-mix(in oklab, var(--amber-500) 30%, var(--surface));
+      }
+      .tint-you {
+        --avatar-bg: var(--neutral-subtle);
+        --avatar-fg: var(--fg-2);
+        box-shadow: inset 0 0 0 1px var(--border-strong);
+      }
+      .tint-office {
+        --avatar-bg: var(--ember-500);
+        --avatar-fg: var(--white);
+      }
+      .btn {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: var(--control-md);
+        padding: 0 12px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-control);
+        font: 500 var(--text-sm) / 1 var(--font-sans);
+        white-space: nowrap;
+        cursor: pointer;
+        transition: background var(--duration-fast) var(--ease-out);
+      }
+      .btn.sm {
+        height: var(--control-sm);
+        padding: 0 10px;
+      }
+      .btn.secondary {
+        border-color: var(--border-strong);
+        background: var(--surface);
+        color: var(--fg-1);
+        box-shadow: var(--shadow-1);
+      }
+      .btn.secondary:hover:not(:disabled) {
+        background: var(--control-hover);
+      }
+      .btn.primary {
+        background: var(--primary);
+        color: var(--primary-fg);
+      }
+      .btn.primary:hover:not(:disabled) {
+        background: var(--primary-hover);
+      }
+      .btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
+      }
+      .icon-button {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: var(--control-sm);
+        height: var(--control-sm);
+        padding: 0;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: none;
+        color: var(--fg-2);
+        cursor: pointer;
+      }
+      .icon-button.xs {
+        width: var(--control-xs);
+        height: var(--control-xs);
+      }
+      .icon-button:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .text-button {
+        display: inline-flex;
+        align-items: center;
+        min-height: var(--control-xs);
+        gap: 5px;
+        padding: 0;
+        border: 0;
+        background: none;
+        color: var(--fg-2);
+        font: 500 var(--text-xs) / 1.4 var(--font-sans);
+        cursor: pointer;
+      }
+      .text-button:hover {
+        color: var(--fg-1);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+      .link {
+        padding: 0;
+        border: 0;
+        background: none;
+        color: var(--accent-subtle-fg);
+        font: inherit;
+        font-weight: 500;
+        text-decoration: underline;
+        text-decoration-color: color-mix(in oklab, currentColor 35%, transparent);
+        text-underline-offset: 2px;
+        cursor: pointer;
+      }
+      .textarea {
+        display: block;
+        width: 100%;
+        min-height: 56px;
+        padding: 7px 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-control);
+        background: var(--surface);
+        color: var(--fg-1);
+        font: var(--type-body-sm);
+        resize: vertical;
+      }
+      .textarea.one-line {
+        min-height: var(--control-md);
+        height: auto;
+        resize: none;
+      }
+      .textarea::placeholder {
+        color: var(--fg-3);
+      }
+      .textarea:focus {
+        outline: none;
+        border-color: var(--border-focus);
+        box-shadow: var(--focus-ring);
+      }
+      .field {
+        display: grid;
+        gap: 5px;
+      }
+      .field-label {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 4px 6px;
+        font: 500 var(--text-xs) / 1.4 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .field-label .optional {
+        font-weight: 400;
+        color: var(--fg-3);
+      }
+      .alert {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        padding: 10px 12px;
+        border: 1px solid var(--danger-border);
+        border-radius: var(--radius-md);
+        background: var(--danger-subtle);
+        color: var(--danger-fg);
+        font: var(--type-body-sm);
+      }
+      .alert svg {
+        flex: none;
+        margin-top: 2px;
+      }
+      .alert b {
+        display: block;
+        font-weight: 600;
+      }
+      .alert span {
+        color: var(--fg-1);
+      }
+      /* Tooltip: on hover and keyboard focus, as packages/ui's Tooltip; pinned open where a scenario shows it. */
+      .tip-wrap {
+        position: relative;
+        display: inline-flex;
+        flex: none;
+      }
+      .tip {
+        position: absolute;
+        bottom: calc(100% + 8px);
+        left: 0;
+        z-index: 30;
+        /* Out of layout until shown, as packages/ui's Tooltip mounts only when open, so a hidden tip never widens a narrow Thread. */
+        display: none;
+        width: max-content;
+        max-width: min(260px, 90cqi);
+        padding: 6px 9px;
+        border-radius: var(--radius-md);
+        background: var(--surface-inverse);
+        color: var(--fg-inverse);
+        font: var(--type-caption);
+        box-shadow: var(--shadow-2);
+        pointer-events: none;
+      }
+      .tip::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 14px;
+        border: 5px solid transparent;
+        border-top-color: var(--surface-inverse);
+      }
+      /* A control after another, or at a row's end, opens its tip leftwards so it stays inside the card. */
+      .tip-wrap + .tip-wrap .tip,
+      .composer .tip {
+        left: auto;
+        right: 0;
+      }
+      .tip-wrap + .tip-wrap .tip::after,
+      .composer .tip::after {
+        left: auto;
+        right: 14px;
+      }
+      .tip-wrap:hover .tip,
+      .tip-wrap:focus-within .tip,
+      .tip-wrap.pinned .tip {
+        display: block;
+      }
+      .person-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--fg-1);
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      .project-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+        white-space: nowrap;
+      }
+      .project-chip::before {
+        content: "";
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+        background: var(--teal-500);
+      }
+      .record-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        max-width: 100%;
+        padding: 1px 7px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--surface);
+        color: var(--fg-1);
+        font: 500 var(--text-xs) / 1.5 var(--font-sans);
+        vertical-align: baseline;
+        cursor: pointer;
+      }
+      .record-chip svg {
+        flex: none;
+        color: var(--fg-3);
+      }
+      .overline {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .muted {
+        color: var(--fg-2);
+      }
+      .grow {
+        flex: 1;
+      }
+      .dot {
+        display: inline-block;
+        flex: none;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+      }
+      .dot.live {
+        background: var(--success);
+        animation: live 1.4s ease-in-out infinite;
+      }
+      @keyframes live {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 color-mix(in oklab, var(--success) 55%, transparent);
+        }
+        60% {
+          box-shadow: 0 0 0 4px color-mix(in oklab, var(--success) 0%, transparent);
+        }
+      }
+      code,
+      .code {
+        font: 12px / 1.5 var(--font-mono);
+      }
+      .code-block {
+        margin: 8px 0 0;
+        padding: 8px 10px;
+        border-radius: var(--radius-md);
+        background: var(--surface-sunken);
+        border: 1px solid var(--border);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+
+      /* ---------- The Decision form card (this design) ---------- */
+      .dcard {
+        container: dcard / inline-size;
+        min-width: 0;
+        padding: 14px 16px 16px;
+        border: 1px solid var(--warning-border);
+        border-radius: var(--radius-card);
+        background: var(--warning-subtle);
+        scroll-margin-top: 12px;
+      }
+      /* Nothing waits on it any more: the amber goes, so what still waits stands out in a Thread. */
+      .dcard.settled {
+        border-color: var(--border);
+        background: var(--surface);
+      }
+      .dcard.flash,
+      .acard.flash {
+        box-shadow: var(--focus-ring);
+      }
+      /* A path or a link in an Agent's words breaks instead of widening a 390px Thread. */
+      .dcard,
+      .acard,
+      .win,
+      .turn-text {
+        overflow-wrap: anywhere;
+      }
+      .dcard-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 8px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .dcard-head .put-to {
+        color: var(--fg-3);
+      }
+      .dcard-head .when {
+        margin-left: auto;
+        white-space: nowrap;
+      }
+      .dcard-on {
+        margin-top: 6px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .dcard-context {
+        margin-top: 10px;
+        max-width: 72ch;
+        font: var(--type-body-sm);
+        color: var(--fg-1);
+      }
+      .dcard-context.first-line {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        color: var(--fg-2);
+      }
+      .dcard-request {
+        margin-top: 10px;
+        font: var(--type-card-title);
+      }
+      .dcard-note {
+        display: flex;
+        gap: 6px;
+        align-items: flex-start;
+        margin-top: 10px;
+        padding: 7px 10px;
+        border-radius: var(--radius-md);
+        background: color-mix(in oklab, var(--surface) 70%, transparent);
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .dcard-note svg {
+        flex: none;
+        margin-top: 1px;
+      }
+      .dcard-attachments {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 10px;
+        margin-top: 10px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+
+      /* A question: its number, its words, its answer, its comment. */
+      .q {
+        margin-top: 14px;
+      }
+      .q + .q {
+        padding-top: 14px;
+        border-top: 1px solid var(--warning-border);
+      }
+      .win .q + .q,
+      .settled .q + .q {
+        border-top-color: var(--border-subtle);
+      }
+      .q-head {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+      }
+      .q-num {
+        flex: none;
+        display: inline-grid;
+        place-items: center;
+        min-width: 20px;
+        height: 20px;
+        margin-top: 1px;
+        padding: 0 5px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-full);
+        background: var(--surface);
+        color: var(--fg-2);
+        font: 600 var(--text-2xs) / 1 var(--font-sans);
+      }
+      .q-num.answered {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+      .q-num.missing {
+        border-color: var(--warning);
+        border-style: dashed;
+        color: var(--warning-fg);
+      }
+      .q-text {
+        flex: 1;
+        min-width: 0;
+        font: var(--type-card-title);
+      }
+      .q-kind {
+        display: block;
+        margin-top: 1px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .q-body {
+        display: grid;
+        gap: 8px;
+        margin-top: 10px;
+        padding-left: 30px;
+      }
+      .q.unnumbered .q-body {
+        padding-left: 0;
+      }
+      @container dcard (width < 460px) {
+        .q-body {
+          padding-left: 0;
+        }
+      }
+      @container win (width < 520px) {
+        .q-body {
+          padding-left: 0;
+        }
+      }
+
+      /* packages/ui RadioList: one boxed line per option, "Recommended" as its aside. Rows at its sm size in a card. */
+      .radio-list {
+        display: grid;
+        gap: 6px;
+      }
+      .radio-list-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        cursor: pointer;
+        font: var(--type-body-sm);
+      }
+      .win .radio-list-item {
+        padding: var(--pad-row);
+        font: var(--type-body);
+      }
+      .radio-list-item:hover {
+        background: var(--surface-hover);
+      }
+      .radio-list-item.picked {
+        border-color: var(--border-focus);
+        background: var(--surface-selected);
+      }
+      .radio-list-item:has(input:focus-visible) {
+        outline: 2px solid var(--border-focus);
+        outline-offset: 1px;
+      }
+      .radio-list-item:has(input:disabled) {
+        cursor: not-allowed;
+        opacity: 0.6;
+      }
+      .radio-list-item input {
+        flex: none;
+        margin: 0;
+        accent-color: var(--accent);
+      }
+      .radio-list-label {
+        flex: 1;
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      .radio-list-item.none-of-these {
+        border-style: dashed;
+        background: transparent;
+        color: var(--fg-2);
+      }
+      .radio-list-item.none-of-these.picked {
+        background: var(--surface-selected);
+        color: var(--fg-1);
+      }
+      .why {
+        max-width: 72ch;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .why b {
+        font-weight: 600;
+        color: var(--fg-1);
+      }
+      .win .why {
+        font: var(--type-body-sm);
+      }
+      .comment-fold {
+        justify-self: start;
+      }
+
+      /* The progress line: how many questions are answered, and the way to the first one that isn't. */
+      .progress {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 10px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .progress b {
+        font-weight: 600;
+        color: var(--fg-1);
+      }
+      .meter {
+        position: relative;
+        flex: none;
+        width: 56px;
+        height: 4px;
+        overflow: hidden;
+        border-radius: var(--radius-full);
+        background: var(--border-strong);
+      }
+      .meter i {
+        position: absolute;
+        inset: 0 auto 0 0;
+        border-radius: inherit;
+        background: var(--success);
+      }
+      .progress .missing-link {
+        color: var(--warning-fg);
+      }
+
+      .general {
+        margin-top: 16px;
+        padding-top: 14px;
+        border-top: 1px solid var(--warning-border);
+      }
+      .dactions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 10px;
+        margin-top: 12px;
+      }
+      .dactions .progress {
+        margin-left: auto;
+      }
+      .dhints {
+        display: grid;
+        gap: 4px;
+        margin-top: 10px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .dhints .reach {
+        color: var(--info-fg);
+      }
+      .ask-again-step {
+        display: grid;
+        gap: 8px;
+        margin-top: 16px;
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+      }
+      .ask-again-step .dactions {
+        margin-top: 2px;
+      }
+      .step-note {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .refused {
+        margin-top: 12px;
+      }
+
+      /* The compact card: a long form, or one with Attachments, in brief. */
+      .compact-first {
+        display: grid;
+        gap: 6px;
+        margin-top: 12px;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+      }
+      .compact-first .overline {
+        font-size: 10px;
+      }
+      .rec-line {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 8px;
+        font: var(--type-body-sm);
+        font-weight: 500;
+      }
+      .rec-line svg {
+        color: var(--accent);
+      }
+      .compact-more {
+        margin-top: 8px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+
+      /* Answered, asked again or closed: read-only, where it was asked. */
+      .qa-list {
+        display: grid;
+        gap: 10px;
+        margin: 12px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+      .qa {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 2px 10px;
+      }
+      .qa .q-num {
+        grid-row: span 3;
+      }
+      .qa-q {
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .qa-a {
+        font: var(--type-body-sm);
+        font-weight: 500;
+        color: var(--fg-1);
+        overflow-wrap: anywhere;
+      }
+      .qa-a .tag {
+        font-weight: 400;
+        color: var(--fg-3);
+      }
+      .qa-a.unanswered {
+        font-weight: 400;
+        color: var(--fg-3);
+      }
+      .qa-c,
+      .qa-general {
+        max-width: 72ch;
+        padding-left: 9px;
+        border-left: 2px solid var(--border-strong);
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .qa-c b,
+      .qa-general b {
+        font-weight: 600;
+        color: var(--fg-1);
+      }
+      .qa-general {
+        margin-top: 12px;
+      }
+      .show-all {
+        margin-top: 10px;
+      }
+      .outcome {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 6px;
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px solid var(--border-subtle);
+        font: var(--type-caption);
+        color: var(--success-fg);
+      }
+      .outcome.asked-again {
+        color: var(--info-fg);
+      }
+      .outcome.closed {
+        color: var(--fg-2);
+      }
+      .outcome .outcome-words {
+        color: var(--fg-1);
+      }
+
+      /* In short, in the Thread while it waits. */
+      .dshort .dshort-q {
+        margin-top: 8px;
+        font: var(--type-body-sm);
+        font-weight: 500;
+      }
+      .dshort .dshort-line {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 8px;
+        margin-top: 6px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+
+      /* The approval of a call past a Hard switch: a card of its own, never a question in a form. */
+      .acard {
+        container: dcard / inline-size;
+        min-width: 0;
+        padding: 14px 16px 16px;
+        border: 1px solid var(--danger-border);
+        border-radius: var(--radius-card);
+        background: color-mix(in oklab, var(--danger-subtle) 60%, var(--surface));
+      }
+      .acard.settled {
+        border-color: var(--border);
+        background: var(--surface);
+      }
+      .acard-call {
+        margin-top: 10px;
+        font: var(--type-card-title);
+      }
+      .acard-switch {
+        display: flex;
+        gap: 6px;
+        align-items: flex-start;
+        margin-top: 8px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .acard-switch svg {
+        flex: none;
+        margin-top: 1px;
+      }
+
+      /* Pictures at the one screenshot size; files as chips. */
+      .thumbs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .thumb {
+        display: grid;
+        width: 160px;
+        gap: 4px;
+        padding: 0;
+        border: 0;
+        background: none;
+        text-align: left;
+        cursor: zoom-in;
+      }
+      .thumb svg {
+        display: block;
+        width: 160px;
+        height: 100px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+      }
+      .thumb span {
+        font: var(--type-caption);
+        color: var(--fg-2);
+        overflow-wrap: anywhere;
+      }
+      .file-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        max-width: 100%;
+        min-width: 0;
+        height: 28px;
+        padding: 0 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        font: var(--type-caption);
+        color: var(--fg-1);
+      }
+
+      /* ---------- The window (packages/ui Dialog, Large) ---------- */
+      .win-layer {
+        position: absolute;
+        inset: 0;
+        z-index: 50;
+        background: var(--overlay);
+      }
+      .win {
+        container: win / inline-size;
+        position: absolute;
+        top: max(24px, 7%);
+        left: 50%;
+        display: flex;
+        flex-direction: column;
+        width: min(1180px, 94%);
+        height: 86%;
+        overflow: hidden;
+        transform: translateX(-50%);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-xl);
+        background: var(--surface-raised);
+        color: var(--fg-1);
+        box-shadow: var(--shadow-3);
+      }
+      .win-head {
+        flex: none;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 10px;
+        padding: 10px 10px 10px 18px;
+        border-bottom: 1px solid var(--border-subtle);
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .win-head h2 {
+        margin: 0;
+        min-width: 0;
+        overflow: hidden;
+        color: var(--fg-1);
+        font: var(--type-section-title);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .win-body {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+      }
+      .win-foot {
+        flex: none;
+        border-top: 1px solid var(--border-subtle);
+        background: var(--surface-sunken);
+      }
+      .win-step {
+        display: grid;
+        gap: 6px;
+        padding: 12px 18px 0;
+      }
+      .win-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 18px 12px;
+      }
+      .win-actions-start {
+        display: flex;
+        flex: 1;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 10px;
+      }
+
+      /* List and details (spec 4.1): the questions on the left, the picked one on the right. */
+      .split {
+        display: grid;
+        grid-template-columns: 300px minmax(0, 1fr);
+        height: 100%;
+      }
+      .qlist {
+        overflow-y: auto;
+        border-right: 1px solid var(--border-subtle);
+        background: var(--surface-sunken);
+      }
+      .qlist-head {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        display: grid;
+        gap: 6px;
+        padding: 12px 14px 10px;
+        border-bottom: 1px solid var(--border-subtle);
+        background: var(--surface-sunken);
+      }
+      .qrow {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 2px 10px;
+        width: 100%;
+        padding: 10px 14px;
+        border: 0;
+        border-bottom: 1px solid var(--border-subtle);
+        border-left: 3px solid transparent;
+        background: none;
+        text-align: left;
+        cursor: pointer;
+      }
+      .qrow:hover {
+        background: var(--surface-hover);
+      }
+      /* Inside the list's scroll box, so the ring is drawn inwards to stay whole. */
+      .qrow:focus-visible {
+        outline-offset: -2px;
+      }
+      .qrow[aria-current="true"] {
+        border-left-color: var(--accent);
+        background: var(--surface-selected);
+      }
+      .qrow .q-num {
+        grid-row: span 2;
+      }
+      .qrow-text {
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        font: 500 var(--text-sm) / 1.4 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .qrow-state {
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .qrow-state.missing {
+        color: var(--warning-fg);
+      }
+      .detail {
+        overflow-y: auto;
+        padding: 18px 24px 24px;
+      }
+      .detail-inner {
+        max-width: 760px;
+      }
+      .detail-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 18px;
+      }
+      .detail .q {
+        margin-top: 6px;
+      }
+      .detail .q-text {
+        font: 600 var(--text-lg) / 1.35 var(--font-sans);
+      }
+      .context-block {
+        display: grid;
+        gap: 10px;
+        margin-bottom: 18px;
+        padding-bottom: 18px;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      .context-block .dcard-context {
+        margin: 0;
+        font: var(--type-body);
+      }
+      /* The question strip: the list, under 900px, one row of numbers above the picked question. */
+      .qstrip {
+        display: none;
+      }
+      @container win (width < 900px) {
+        .split {
+          grid-template-columns: minmax(0, 1fr);
+          grid-template-rows: auto minmax(0, 1fr);
+        }
+        .qlist {
+          display: none;
+        }
+        .qstrip {
+          display: grid;
+          gap: 8px;
+          padding: 10px 16px;
+          border-bottom: 1px solid var(--border-subtle);
+          background: var(--surface-sunken);
+        }
+        .qstrip-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+        .qstrip-row button {
+          display: inline-grid;
+          place-items: center;
+          min-width: 32px;
+          height: 32px;
+          padding: 0 8px;
+          border: 1px solid var(--border-strong);
+          border-radius: var(--radius-md);
+          background: var(--surface);
+          color: var(--fg-1);
+          font: 600 var(--text-xs) / 1 var(--font-sans);
+          cursor: pointer;
+        }
+        .qstrip-row button.answered {
+          border-color: var(--success-border);
+          background: var(--success-subtle);
+          color: var(--success-fg);
+        }
+        .qstrip-row button.missing {
+          border-style: dashed;
+          border-color: var(--warning);
+          color: var(--warning-fg);
+        }
+        /* Unlike the focus ring, so the current question and keyboard focus read apart. */
+        .qstrip-row button[aria-current="true"] {
+          border-color: var(--accent);
+          background: var(--surface-selected);
+          box-shadow: inset 0 0 0 1px var(--accent);
+        }
+        .detail {
+          padding: 14px 16px 20px;
+        }
+      }
+      /* The alternative for the Gate: one scrolling form. */
+      .scroll-form {
+        height: 100%;
+        overflow-y: auto;
+        padding: 0 24px 24px;
+      }
+      .scroll-form-inner {
+        max-width: 760px;
+        margin: 0 auto;
+      }
+      .scroll-form .progress-bar {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        padding: 12px 0 10px;
+        border-bottom: 1px solid var(--border-subtle);
+        background: var(--surface);
+      }
+      .scroll-form .context-block {
+        margin-top: 16px;
+      }
+      @container win (width < 600px) {
+        .scroll-form {
+          padding: 0 16px 20px;
+        }
+      }
+
+      /* ---------- The design page around the mock ---------- */
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg-1);
+        font: var(--type-body);
+      }
+      .bar {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 18px;
+        padding: 10px 16px;
+        background: var(--gray-900);
+        color: var(--gray-100);
+      }
+      .bar-title {
+        font-weight: 600;
+      }
+      .bar-tag {
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: var(--ember-500);
+        color: var(--white);
+        font: var(--type-overline);
+      }
+      .control {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 8px;
+      }
+      .control-label {
+        font: var(--type-overline);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--gray-300);
+      }
+      .segments {
+        display: flex;
+        flex-wrap: wrap;
+        overflow: hidden;
+        border: 1px solid var(--gray-600);
+        border-radius: 6px;
+      }
+      .segments button {
+        padding: 4px 10px;
+        border: 0;
+        background: none;
+        font: var(--type-caption);
+        color: var(--gray-200);
+        cursor: pointer;
+      }
+      .segments button + button {
+        border-left: 1px solid var(--gray-600);
+      }
+      .segments button[aria-pressed="true"] {
+        background: var(--gray-50);
+        color: var(--gray-900);
+      }
+      .segments button:disabled {
+        color: var(--gray-500);
+        text-decoration: line-through;
+        cursor: not-allowed;
+      }
+      .segments button:focus-visible {
+        outline-offset: -2px;
+      }
+      .bar-break {
+        flex-basis: 100%;
+        height: 0;
+      }
+      .bar .reset {
+        padding: 4px 10px;
+        border: 1px solid var(--gray-600);
+        border-radius: 6px;
+        background: none;
+        color: var(--gray-200);
+        font: var(--type-caption);
+        cursor: pointer;
+      }
+      .stage {
+        display: grid;
+        gap: 14px;
+        padding: 16px 24px 40px;
+      }
+      .scenario-note {
+        max-width: 130ch;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .scenario-note strong {
+        color: var(--fg-1);
+      }
+      .frame-row {
+        display: flex;
+        justify-content: center;
+        overflow-x: auto;
+      }
+      .frame {
+        position: relative;
+        flex: none;
+        height: max(700px, calc(100vh - 230px));
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: 10px;
+        background: var(--bg);
+        box-shadow: var(--shadow-2);
+      }
+      .frame.w-wide {
+        flex: 1 1 auto;
+        width: 100%;
+        min-width: 1000px;
+      }
+      .frame.w-900 {
+        width: 900px;
+      }
+      .frame.w-390 {
+        width: 390px;
+        height: max(700px, min(844px, calc(100vh - 230px)));
+      }
+      .reference {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+        gap: 18px 32px;
+        max-width: 1400px;
+        margin-top: 10px;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .reference h2 {
+        margin: 0 0 8px;
+        font: var(--type-card-title);
+        color: var(--fg-1);
+      }
+      .reference p,
+      .reference ul {
+        margin: 0 0 8px;
+      }
+      .reference ul {
+        padding-left: 18px;
+      }
+      .reference table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .reference th,
+      .reference td {
+        padding: 5px 8px 5px 0;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        vertical-align: top;
+      }
+      .reference th {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .toast {
+        position: absolute;
+        left: 50%;
+        bottom: 20px;
+        z-index: 80;
+        transform: translateX(-50%);
+        max-width: calc(100% - 32px);
+        padding: 8px 14px;
+        border-radius: var(--radius-md);
+        background: var(--surface-inverse);
+        color: var(--fg-inverse);
+        font: var(--type-caption);
+        box-shadow: var(--shadow-3);
+      }
+
+      /* ---------- The app around the card: the shell ---------- */
+      .app {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: 56px minmax(0, 1fr);
+        grid-template-rows: 52px 52px minmax(0, 1fr);
+        color: var(--fg-1);
+        font: var(--type-body);
+      }
+      .app.no-rail {
+        grid-template-columns: 0 minmax(0, 1fr);
+      }
+      .rail {
+        grid-row: 1 / -1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 12px 0;
+        overflow: hidden;
+        border-right: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .rail-mark {
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        margin-bottom: 12px;
+        border-radius: 7px;
+        background: var(--ember-500);
+        color: var(--white);
+        font: 700 12px/1 var(--font-sans);
+      }
+      .rail-item {
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        border-radius: var(--radius-lg);
+        color: var(--fg-2);
+      }
+      .rail-item.on {
+        background: var(--surface-selected);
+        color: var(--accent-subtle-fg);
+      }
+      .topbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+        max-width: 420px;
+        height: 32px;
+        padding: 0 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--surface-sunken);
+        color: var(--fg-3);
+        font: var(--type-caption);
+        overflow: hidden;
+        white-space: nowrap;
+      }
+      .chat-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        font: 500 var(--text-sm) / 1 var(--font-sans);
+      }
+      .chat-button.on {
+        border-color: var(--border-focus);
+        background: var(--surface-selected);
+      }
+      .strip {
+        display: flex;
+        align-items: stretch;
+        gap: 20px;
+        min-width: 0;
+        padding: 0 16px;
+        overflow: hidden;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .no-rail .strip {
+        gap: var(--space-3);
+      }
+      .no-rail .strip .figure:last-child {
+        display: none;
+      }
+      .figure {
+        display: grid;
+        align-content: center;
+        gap: 2px;
+        padding: 0;
+        border: 0;
+        background: none;
+        text-align: left;
+        white-space: nowrap;
+        cursor: default;
+      }
+      .figure .overline {
+        font-size: 10px;
+      }
+      .figure b {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font: 600 var(--text-sm) / 1.2 var(--font-sans);
+      }
+      .figure.needs b {
+        color: var(--warning-fg);
+      }
+      button.figure {
+        cursor: pointer;
+      }
+      .count-pill {
+        display: inline-grid;
+        place-items: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        border-radius: 9px;
+        background: var(--warning);
+        color: var(--gray-950);
+        font: 700 11px / 1 var(--font-sans);
+      }
+      .count-pill.quiet {
+        background: var(--neutral-subtle);
+        color: var(--fg-2);
+      }
+      .page-area {
+        position: relative;
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+      }
+      .page {
+        height: 100%;
+        overflow-y: auto;
+        padding: 20px var(--pad-page) 32px;
+      }
+      .narrow .page {
+        padding: 16px 16px 28px;
+      }
+      .crumbs {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .page-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 10px;
+        margin: 4px 0 14px;
+      }
+      .page-head h1 {
+        margin: 0;
+        font: 600 var(--text-xl) / 1.3 var(--font-sans);
+        letter-spacing: var(--tracking-tight);
+      }
+      .card {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+
+      /* The Task page in small: the rail, record left, conversation right. */
+      .stage-rail {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        margin-bottom: 16px;
+        padding: 12px 16px;
+        overflow-x: auto;
+      }
+      .stage-rail .st {
+        display: grid;
+        justify-items: center;
+        gap: 4px;
+        min-width: 88px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .stage-rail .st b {
+        font: 500 var(--text-xs) / 1.2 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .stage-rail .mark {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        border: 2px solid var(--border-strong);
+        background: var(--surface);
+      }
+      .stage-rail .mark.done {
+        border-color: var(--success);
+        background: var(--success);
+      }
+      .stage-rail .mark.wait {
+        border-color: var(--warning);
+        background: var(--warning);
+      }
+      .stage-rail .mark.dropped {
+        border-color: var(--fg-3);
+        background: var(--fg-3);
+      }
+      .stage-rail .line {
+        flex: 1;
+        min-width: 16px;
+        height: 2px;
+        margin-bottom: 18px;
+        background: var(--border-strong);
+      }
+      .stage-rail .line.done {
+        background: var(--success);
+      }
+      .task-cols {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(360px, 440px);
+        gap: var(--gap-panel);
+        align-items: start;
+      }
+      .narrow .task-cols {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .needs-you {
+        margin-bottom: var(--gap-panel);
+        padding: var(--pad-card);
+        border-color: var(--warning-border);
+      }
+      .needs-you.clear {
+        padding: 12px 16px;
+        border-color: var(--border);
+      }
+      .needs-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .needs-head h2 {
+        margin: 0;
+        font: var(--type-card-title);
+      }
+      .needs-list {
+        display: grid;
+        gap: 12px;
+      }
+      .nothing {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .nothing svg {
+        color: var(--success);
+      }
+      .tabs {
+        display: flex;
+        gap: 2px;
+        overflow-x: auto;
+        border-bottom: 1px solid var(--border);
+      }
+      .tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 10px;
+        border-bottom: 2px solid transparent;
+        font: 500 var(--text-sm) / 1.2 var(--font-sans);
+        color: var(--fg-2);
+        white-space: nowrap;
+      }
+      .tab.on {
+        border-bottom-color: var(--accent);
+        color: var(--fg-1);
+      }
+      .record-stub {
+        padding: 14px 16px;
+        display: grid;
+        gap: 8px;
+      }
+      .stub-line {
+        height: 9px;
+        border-radius: var(--radius-full);
+        background: var(--border-subtle);
+      }
+      .fold-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border-subtle);
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .fold-row b {
+        font: var(--type-card-title);
+        color: var(--fg-1);
+      }
+
+      /* A conversation: tabs, the Thread in Rows, a composer. */
+      .conversation {
+        display: flex;
+        flex-direction: column;
+        min-height: 560px;
+        overflow: hidden;
+      }
+      .conv-head {
+        padding: 0 8px;
+      }
+      .conv-tools {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--border-subtle);
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .thread {
+        flex: 1;
+        display: grid;
+        align-content: start;
+        gap: 18px;
+        padding: 16px 14px;
+        font-size: var(--text-md);
+      }
+      .turn {
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr);
+        gap: 4px 10px;
+      }
+      .turn > .avatar {
+        width: 28px;
+        height: 28px;
+        font-size: 10px;
+      }
+      .turn-body {
+        display: grid;
+        gap: 8px;
+        min-width: 0;
+      }
+      .turn-by {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 4px 8px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .turn-by b {
+        font: 600 var(--text-sm) / 1.3 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .turn-text {
+        max-width: 72ch;
+        font: var(--type-body);
+      }
+      .office-line {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .office-line::before,
+      .office-line::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--border-subtle);
+      }
+      .typing {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .composer {
+        display: grid;
+        gap: 6px;
+        padding: 10px 14px 14px;
+        border-top: 1px solid var(--border-subtle);
+      }
+      .composer .to {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .composer-box {
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+        padding: 8px 8px 8px 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+        font: var(--type-body-sm);
+        color: var(--fg-3);
+      }
+      .composer-box span {
+        flex: 1;
+        padding-bottom: 6px;
+      }
+      /* The conversation's drawer on a narrow page (spec 4.1 Narrow). */
+      .conv-handle {
+        position: absolute;
+        right: 0;
+        top: 96px;
+        z-index: 20;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 10px;
+        border: 1px solid var(--border-strong);
+        border-right: 0;
+        border-radius: var(--radius-md) 0 0 var(--radius-md);
+        background: var(--surface);
+        box-shadow: var(--shadow-2);
+        font: 500 var(--text-xs) / 1 var(--font-sans);
+        cursor: pointer;
+      }
+      .conv-drawer {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 25;
+        display: flex;
+        flex-direction: column;
+        width: min(440px, 100%);
+        border-left: 1px solid var(--border);
+        background: var(--surface);
+        box-shadow: var(--shadow-3);
+      }
+      .conv-drawer .conversation {
+        flex: 1;
+        min-height: 0;
+        border: 0;
+        border-radius: 0;
+      }
+      .conv-drawer .thread {
+        overflow-y: auto;
+      }
+      .drawer-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 8px 8px 14px;
+        border-bottom: 1px solid var(--border-subtle);
+        font: var(--type-card-title);
+      }
+
+      /* Now and the Needs you panel. */
+      .now-cols {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: var(--gap-panel);
+        align-items: start;
+      }
+      .narrow .now-cols {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .now-col {
+        padding: 14px 16px;
+        display: grid;
+        gap: 12px;
+        align-content: start;
+      }
+      .now-col h2 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+        font: var(--type-card-title);
+      }
+      .entry {
+        display: grid;
+        gap: 8px;
+      }
+      .entry-line {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 8px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .entry-line .entry-kind {
+        font-weight: 600;
+        color: var(--fg-1);
+      }
+      .entry-title {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 8px;
+        font: var(--type-card-title);
+      }
+      .row-stub {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border-subtle);
+        font: var(--type-body-sm);
+      }
+      .backdrop {
+        position: absolute;
+        inset: 0;
+        z-index: 40;
+        background: var(--overlay);
+      }
+      .side-panel {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 45;
+        display: flex;
+        flex-direction: column;
+        width: min(560px, 100%);
+        border-left: 1px solid var(--border);
+        background: var(--bg);
+        box-shadow: var(--shadow-3);
+      }
+      .side-panel-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 10px 10px 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .side-panel-head h2 {
+        margin: 0;
+        font: var(--type-section-title);
+      }
+      .side-panel-body {
+        flex: 1;
+        overflow-y: auto;
+        display: grid;
+        align-content: start;
+        gap: 18px;
+        padding: 16px;
+      }
+      .group-title {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+
+      /* The Initiative page in small. */
+      .init-cols {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(380px, 520px);
+        gap: var(--gap-panel);
+        align-items: start;
+      }
+      .narrow .init-cols {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .person-tab-intro {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--border-subtle);
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .person-tab-intro b {
+        display: block;
+        font: var(--type-card-title);
+        color: var(--fg-1);
+      }
+
+      /* The chat drawer (docs/design/chat-drawer.html). */
+      .with-drawer {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 420px;
+      }
+      .with-drawer.over {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .chat-drawer {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        border-left: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .with-drawer.over .chat-drawer {
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 30;
+        width: min(420px, 100%);
+        box-shadow: var(--shadow-3);
+      }
+      .chat-drawer.fills {
+        position: absolute;
+        inset: 0;
+        z-index: 30;
+        border-left: 0;
+      }
+      .chat-drawer .thread {
+        overflow-y: auto;
+      }
+      .chat-tabs {
+        display: flex;
+        gap: 4px;
+        padding: 6px 10px;
+        border-bottom: 1px solid var(--border-subtle);
+        overflow-x: auto;
+      }
+      .chat-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 8px;
+        border-radius: var(--radius-md);
+        font: 500 var(--text-xs) / 1.2 var(--font-sans);
+        color: var(--fg-2);
+        white-space: nowrap;
+      }
+      .chat-tab.on {
+        background: var(--surface-selected);
+        color: var(--fg-1);
+      }
+      .thread-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--border-subtle);
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .thread-row b {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        font: 600 var(--text-sm) / 1.3 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .chat-drawer .thread,
+      .conv-drawer .thread {
+        min-height: 0;
+      }
+      .scroll-form .context-block:first-child {
+        margin-top: 18px;
+      }
+      .behind {
+        position: relative;
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      /* The shell's grid: without the rail (at 390px) the top bar, strip and page keep their column. */
+      .topbar,
+      .strip,
+      .page-area {
+        grid-column: 2;
+      }
+      .topbar .rail-mark {
+        flex: none;
+        margin: 0;
+      }
+      .win {
+        z-index: 51;
+      }
+      .stage-rail .mark.live {
+        border-color: var(--info);
+        background: var(--info);
+      }
+      .drawer-head .muted,
+      .entry-title .muted {
+        font: var(--type-caption);
+      }
+      .person-tab-intro > div {
+        min-width: 0;
+      }
+      .reference code {
+        font-size: var(--text-xs);
+      }
+    </style>
+  </head>
+  <body>
+    <header class="bar" id="bar"></header>
+    <main class="stage">
+      <p class="scenario-note" id="note"></p>
+      <div class="frame-row">
+        <div class="frame w-wide" id="frame"></div>
+      </div>
+      <section class="reference" id="reference"></section>
+    </main>
+    <script>
+      "use strict";
+
+      /* ---------- Icons (lucide, as packages/ui's Icon draws them) ---------- */
+      const ICON_PATHS = {
+        check: '<path d="M20 6 9 17l-5-5"/>',
+        x: '<path d="M18 6 6 18M6 6l12 12"/>',
+        link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+        users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+        paperclip: '<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
+        "chevron-right": '<path d="m9 18 6-6-6-6"/>',
+        "chevron-left": '<path d="m15 18-6-6 6-6"/>',
+        "chevron-down": '<path d="m6 9 6 6 6-6"/>',
+        plus: '<path d="M12 5v14M5 12h14"/>',
+        rotate: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+        alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/>',
+        file: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>',
+        shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+        home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+        board: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18"/>',
+        sliders: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
+        message: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+        search: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+        target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+        task: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="m8 12 3 3 5-6"/>',
+        send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+      };
+      function icon(name, size = 14) {
+        return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name]}</svg>`;
+      }
+      function esc(text) {
+        return String(text)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      /* ---------- People (names and titles for display) ---------- */
+      const PEOPLE = {
+        jim: { name: "Jim", title: "Developer", initials: "JH" },
+        angela: { name: "Angela", title: "Planner", initials: "AM" },
+        michael: { name: "Michael", title: "CTO", initials: "MS" },
+        pam: { name: "Pam", title: "Office Manager", initials: "PB" },
+      };
+      function avatar(key, size = "xs") {
+        if (key === null) return `<span class="avatar ${size} tint-office">O</span>`;
+        if (key === "you") return `<span class="avatar ${size} tint-you">You</span>`;
+        return `<span class="avatar ${size} tint-${key}">${PEOPLE[key].initials}</span>`;
+      }
+      function personTag(key) {
+        const name = key === null ? "The Office" : PEOPLE[key].name;
+        return `<span class="person-tag">${avatar(key)}${name}</span>`;
+      }
+
+      /* Who asks, by place: the Task's developer, the Initiative's planner, the CTO in their chat. */
+      const PLACE_ASKER = { task: "jim", thread: "jim", panel: "jim", initiative: "angela", chat: "michael" };
+      const TASK_TITLE = "Conflict resolution screen";
+      const INITIATIVE_TITLE = "Offline sync";
+
+      /* ---------- The questions each scenario asks ---------- */
+      const ONE_CHOICE = {
+        lead: "The drafts store is the last piece before offline editing works end to end.",
+        context: "Offline drafts need a store that survives a reload and holds pictures. Both work in every browser the app supports.",
+        questions: [
+          {
+            kind: "choice",
+            text: "Where should offline drafts be stored?",
+            options: ["IndexedDB", "localStorage"],
+            recommended: 0,
+            reason: "drafts can hold pictures, and localStorage stops at 5 MB and blocks the page while it writes.",
+          },
+        ],
+      };
+      const REQUEST = {
+        kind: "request",
+        lead: "The Package Stage needs something only you can add.",
+        context: "",
+        questions: [
+          {
+            kind: "open",
+            text: "Add the Apple signing certificate to not-astray's environment as the Secret variable APPLE_SIGNING_CERT.",
+            why: "the Package Stage signs the iOS build with it, and fails without it.",
+          },
+        ],
+      };
+      const MIXED = {
+        lead: "The conflict screen is built and its tests pass.",
+        context: "Three calls before I open the pull request. The screen works either way; these decide how it ships.",
+        questions: [
+          {
+            kind: "choice",
+            text: "Which date library formats the conflict times?",
+            options: ["date-fns, already in the app", "Luxon", "The Temporal polyfill"],
+            recommended: 0,
+            reason: "it is already in the bundle, so the screen adds nothing to the download.",
+          },
+          {
+            kind: "choice",
+            text: "Ship the conflict screen behind a flag?",
+            options: ["Yes, off by default", "No, on for everyone"],
+            recommended: 0,
+            reason: "support can turn it off without a release if merges go wrong.",
+          },
+          { kind: "open", text: "What should the screen say when nothing conflicts?" },
+        ],
+      };
+      const GRILLING = {
+        lead: "Before I build the conflict screen, eight calls on how it behaves.",
+        context:
+          "I read the beta's support tickets: most conflicts are one note edited on a phone and a laptop within a minute, and a few are checklists ticked on two devices. The questions follow the screen from where it opens to what it keeps.",
+        questions: [
+          {
+            kind: "choice",
+            text: "Which version shows first when a note conflicts?",
+            options: ["The newest edit", "The version on this device", "The version on the server"],
+            recommended: 0,
+            reason: "people expect their latest words on top; the other version stays one tap away.",
+          },
+          {
+            kind: "choice",
+            text: "Merge the text by itself when the two edits don't overlap?",
+            options: ["Yes, and say so in a banner", "No, always ask"],
+            recommended: 0,
+            reason: "two thirds of the beta's conflicts touched different lines.",
+          },
+          { kind: "open", text: "What should the screen call the other device's version?" },
+          {
+            kind: "choice",
+            text: "Where does the conflict screen open from?",
+            options: ["The note itself, with a badge", "A list in Settings", "A notification"],
+            recommended: 0,
+            reason: "the conflict is about that note, so that is where people look for it.",
+          },
+          {
+            kind: "choice",
+            text: "Keep both versions when nobody decides?",
+            options: ["Yes, as two notes", "No, the newest wins after 7 days"],
+            recommended: 0,
+            reason: "nothing a person wrote is ever lost without them choosing it.",
+          },
+          { kind: "open", text: "Which kinds of notes should never merge by themselves?" },
+          {
+            kind: "choice",
+            text: "Show the edit history on the conflict screen?",
+            options: ["Only the two versions", "The last 5 edits"],
+            recommended: 0,
+            reason: "the history is one tap away on every note already.",
+          },
+          { kind: "open", text: "Anything support asked for on this screen?" },
+        ],
+      };
+      const ATTACHED = {
+        lead: "Two layouts for the conflict screen, drawn at the phone's width.",
+        context: "Both pass the contrast checks and fit a 360px screen. The screenshots show the same conflict in each.",
+        attachments: [
+          { kind: "picture", name: "side-by-side.png", art: "side" },
+          { kind: "picture", name: "stacked.png", art: "stacked" },
+          { kind: "file", name: "layout-notes.md" },
+        ],
+        questions: [
+          {
+            kind: "choice",
+            text: "Which layout should the conflict screen use?",
+            options: ["Side by side", "Stacked, newest on top"],
+            recommended: 0,
+            reason: "the two versions read line by line, and in the beta's tests people turned the phone for it.",
+          },
+        ],
+      };
+      const OFFICE_OWN = {
+        office: true,
+        lead: "",
+        context: "Review failed 3 times: twice on a lint error Jim fixed, then on a test that timed out.",
+        questions: [
+          {
+            kind: "choice",
+            text: "Review has used its 3 tries. Run it again, or drop the Task?",
+            options: ["Run Review again", "Drop the Task"],
+            recommended: 0,
+            reason: "the last failure was a timeout, not the code.",
+          },
+        ],
+      };
+      const FOLLOW_UP = {
+        lead: "Fair question. The flag is one check where the screen opens; the merge code is shared, so there is one code path, and the flag comes out after the beta. Asking again with that in mind.",
+        context: "The flag costs one check at the screen's entry and a line in the release notes.",
+        questions: [
+          {
+            kind: "choice",
+            text: "Ship the conflict screen behind a flag?",
+            options: ["Yes, off by default", "Yes, on for the beta group only", "No, on for everyone"],
+            recommended: 1,
+            reason: "the beta group finds what the tests can't, and everyone else is untouched.",
+          },
+          { kind: "open", text: "When should the flag come out?" },
+        ],
+      };
+      const APPROVAL = {
+        id: "a1",
+        call: "Install ffmpeg on the machine",
+        command: "sudo apt-get install -y ffmpeg",
+        why: "the screen recording test encodes its video with it.",
+        hardSwitch: "Before you install anything that changes the machine outside the worktree, consult Devops.",
+        /* A Thread on a Task holds one Decision at a time, so the approval comes from another Thread on the Task. */
+        from: "Build",
+      };
+
+      /* ---------- Scenarios ---------- */
+      const SCENARIOS = [
+        ["one-choice", "One choice"],
+        ["request", "A Request"],
+        ["mixed", "Three questions"],
+        ["grilling", "8 questions"],
+        ["grilling-window", "8 questions, Open details"],
+        ["attachments", "With Attachments"],
+        ["not-ready", "Submit not ready"],
+        ["ask-again", "Ask me again"],
+        ["office", "The Office's own"],
+        ["answered", "Answered"],
+        ["asked-again", "Asked again"],
+        ["closed", "Closed"],
+        ["consultation", "Put to a Consultant"],
+        ["still-answering", "Still answering"],
+        ["refused", "Refused"],
+        ["approval", "With an approval"],
+      ];
+      const PLACES = [
+        ["task", "Task: Needs you"],
+        ["thread", "Task: Thread"],
+        ["panel", "Needs you panel and Now"],
+        ["initiative", "Initiative's Thread"],
+        ["chat", "Chat drawer"],
+      ];
+      /* Scenarios that happen only on a Task (spec 2.4), with why, for the switcher. */
+      const TASK_ONLY = {
+        office: "The Office's own Decisions come from a Stage, so they are on a Task only.",
+        closed: "Dropping a Task closes its Decisions, so this is on a Task only.",
+        consultation: "The user takes over a call only on a Task.",
+        approval: "Shown on a Task, where a Stage's call past a Hard switch waits.",
+      };
+      function scenarioFits(scenario, place) {
+        return !TASK_ONLY[scenario] || ["task", "thread", "panel"].includes(place);
+      }
+
+      let nextId = 1;
+      function decision(spec, extra = {}) {
+        return {
+          id: `d${nextId++}`,
+          kind: spec.kind || "form",
+          office: Boolean(spec.office),
+          lead: spec.lead,
+          context: spec.context,
+          attachments: spec.attachments || [],
+          questions: spec.questions,
+          putTo: null,
+          status: "open",
+          askedAt: "10:42",
+          result: null,
+          ...extra,
+        };
+      }
+      function blankAnswers(d) {
+        return d.questions.map((q) => ({
+          pick: q.kind === "choice" ? q.recommended : null,
+          words: "",
+          comment: "",
+          commentOpen: false,
+        }));
+      }
+
+      /* The world a scenario starts from: its Decisions, any approval, and whether the asker is answering. */
+      function buildWorld(scenario) {
+        nextId = 1;
+        drafts.clear();
+        showAll.clear();
+        const world = { decisions: [], approvals: [], answering: false, typing: false, dropped: false };
+        const add = (spec, extra) => {
+          const d = decision(spec, extra);
+          world.decisions.push(d);
+          return d;
+        };
+        const filledMixed = (d, { emptyThird = false } = {}) => {
+          const draft = draftOf(d);
+          draft.answers[0].comment = "Fine, but keep the formats in one file.";
+          draft.answers[0].commentOpen = true;
+          draft.answers[1].pick = "none";
+          draft.answers[1].comment = "On for the beta group only, off for everyone else.";
+          draft.answers[2].words = emptyThird ? "" : "Everything is in sync.";
+          return draft;
+        };
+        switch (scenario) {
+          case "one-choice":
+            add(ONE_CHOICE);
+            break;
+          case "request":
+            add(REQUEST);
+            break;
+          case "mixed":
+            filledMixed(add(MIXED));
+            break;
+          case "grilling":
+            add(GRILLING);
+            break;
+          case "grilling-window": {
+            const d = add(GRILLING);
+            state.window = d.id;
+            break;
+          }
+          case "attachments":
+            add(ATTACHED);
+            break;
+          case "not-ready":
+            filledMixed(add(MIXED), { emptyThird: true });
+            break;
+          case "ask-again": {
+            const draft = filledMixed(add(MIXED));
+            draft.answers[0].pick = 1;
+            draft.step = "ask-again";
+            break;
+          }
+          case "office":
+            add(OFFICE_OWN);
+            break;
+          case "answered": {
+            const d = add(GRILLING, { status: "answered", putTo: state.answeredBy === "consultant" ? "michael" : null });
+            const answers = blankAnswers(d);
+            answers[2].words = "Their version, with the device's name: “Pam's laptop”.";
+            answers[3].pick = 1;
+            answers[3].comment = "A badge alone gets missed on small screens; keep the badge too.";
+            answers[5].words = "Checklists, and anything with a picture in it.";
+            answers[7].pick = null;
+            answers[7].words = "Support wants the note's ID on the screen, small, for tickets.";
+            d.result = {
+              by: state.answeredBy,
+              at: "11:06",
+              answers,
+              general: "Good set of questions. Keep the screen one tap from the note.",
+            };
+            break;
+          }
+          case "asked-again": {
+            const d = add(MIXED, { status: "asked-again", askedAt: "10:20" });
+            d.result = {
+              by: "you",
+              at: "10:31",
+              answers: null,
+              general: "Explain what the flag costs: does it mean two code paths to keep?",
+            };
+            add(FOLLOW_UP, { askedAt: "10:42" });
+            break;
+          }
+          case "closed": {
+            const d = add(MIXED, { status: "closed" });
+            d.result = { by: null, at: "11:20", answers: null, general: "" };
+            world.dropped = true;
+            break;
+          }
+          case "consultation":
+            filledMixed(add(MIXED, { putTo: "michael" }));
+            break;
+          case "still-answering":
+            filledMixed(add(MIXED));
+            world.answering = true;
+            break;
+          case "refused": {
+            const draft = filledMixed(add(MIXED));
+            draft.refused = "The Office couldn't reach its database. Your answers are kept here; Submit again.";
+            break;
+          }
+          case "approval":
+            filledMixed(add(MIXED));
+            world.approvals.push({ ...APPROVAL, status: "open", askedAt: "10:51" });
+            break;
+        }
+        return world;
+      }
+
+      /* ---------- The page's state ---------- */
+      const state = {
+        place: "task",
+        scenario: "one-choice",
+        width: "wide",
+        palette: "light",
+        layout: "list",
+        answeredBy: "you",
+        window: null,
+        panelOpen: false,
+        convOpen: false,
+        flash: null,
+        toast: null,
+      };
+      /* Drafts are kept per Decision while the user moves between places and opens or closes the window. */
+      const drafts = new Map();
+      const showAll = new Set();
+      let world = null;
+
+      function draftOf(d) {
+        let draft = drafts.get(d.id);
+        if (!draft) {
+          draft = {
+            answers: blankAnswers(d),
+            general: "",
+            step: null,
+            refused: null,
+            current: 0,
+            contextOpen: true,
+          };
+          drafts.set(d.id, draft);
+        }
+        return draft;
+      }
+      function findDecision(id) {
+        return world.decisions.find((d) => d.id === id);
+      }
+
+      /* ---------- The form's rules (spec 2.4) ---------- */
+      function isAnswered(q, a) {
+        if (q.kind === "choice") return typeof a.pick === "number" || (a.pick === "none" && a.comment.trim() !== "");
+        return a.words.trim() !== "";
+      }
+      function answeredCount(d) {
+        const { answers } = draftOf(d);
+        return d.questions.filter((q, i) => isAnswered(q, answers[i])).length;
+      }
+      function firstMissing(d) {
+        const { answers } = draftOf(d);
+        return d.questions.findIndex((q, i) => !isAnswered(q, answers[i]));
+      }
+      function changes(d) {
+        const draft = draftOf(d);
+        let count = draft.general.trim() === "" ? 0 : 1;
+        d.questions.forEach((q, i) => {
+          const a = draft.answers[i];
+          if (q.kind === "choice" && a.pick !== q.recommended) count += 1;
+          if (a.words.trim() !== "") count += 1;
+          if (a.comment.trim() !== "" && a.pick !== "none") count += 1;
+        });
+        return count;
+      }
+      /* The compact card's threshold, proposed for the Gate: more than 3 questions, or any Attachment. */
+      function isCompact(d) {
+        return d.questions.length > 3 || d.attachments.length > 0;
+      }
+      function everyQuestionAChoice(d) {
+        return d.questions.every((q) => q.kind === "choice");
+      }
+      function askerKey(d) {
+        return d.office ? null : PLACE_ASKER[state.place];
+      }
+      function askerName(d) {
+        const key = askerKey(d);
+        return key === null ? "The Office" : PEOPLE[key].name;
+      }
+      /* Nothing is answered while the asker is answering, except in a planning Thread, where it waits for the turn's end. */
+      function stillAnswering(place) {
+        return world.answering && place !== "initiative";
+      }
+      function missingWords(d, index) {
+        const q = d.questions[index];
+        const a = draftOf(d).answers[index];
+        if (d.questions.length === 1) {
+          if (q.kind === "open") return "Write your answer first";
+          return "Pick an option or write your answer first";
+        }
+        if (q.kind === "choice" && a.pick === "none") return `Answer question ${index + 1} in its words first`;
+        return `Answer question ${index + 1} first`;
+      }
+      function submitBlock(d, place) {
+        if (stillAnswering(place)) return `${askerName(d)} is still answering. Answer once they finish.`;
+        const missing = firstMissing(d);
+        return missing === -1 ? null : missingWords(d, missing);
+      }
+
+      /* ---------- Parts of the card ---------- */
+      function withTip(control, reason, { pinned = false, live = "" } = {}) {
+        if (!reason) return `<span class="tip-wrap" ${live}>${control}</span>`;
+        return `<span class="tip-wrap${pinned ? " pinned" : ""}" tabindex="0" ${live}>${control}<span class="tip" role="tooltip">${esc(reason)}</span></span>`;
+      }
+      function submitControl(d, ctx, { label = "Submit" } = {}) {
+        const reason = submitBlock(d, ctx.place);
+        const pinned = state.scenario === "not-ready" && ctx.slot === pinnedSlot();
+        const live = `data-live="${d.id}" data-kind="submit" data-place="${ctx.place}" data-slot="${ctx.slot}"`;
+        const button = `<button class="btn primary" data-action="submit" data-id="${d.id}"${reason ? " disabled" : ""}>${label}</button>`;
+        return withTip(button, reason, { pinned, live });
+      }
+      /* The one copy whose tooltip the "Submit not ready" scenario shows pinned open. */
+      function pinnedSlot() {
+        return { task: "needs", thread: "needs", panel: "panel", initiative: "thread", chat: "thread" }[state.place];
+      }
+      function askAgainControl(d, ctx) {
+        if (d.office) return "";
+        const reason = stillAnswering(ctx.place) ? `${askerName(d)} is still answering. Ask again once they finish.` : null;
+        const button = `<button class="btn secondary" data-action="ask-again" data-id="${d.id}"${reason ? " disabled" : ""}>${icon("rotate", 13)} Ask me again</button>`;
+        return withTip(button, reason);
+      }
+      function progressLine(d, ctx) {
+        const n = d.questions.length;
+        const done = answeredCount(d);
+        const missing = firstMissing(d);
+        const width = Math.round((done / n) * 100);
+        const way =
+          missing === -1
+            ? `<span>Ready to submit</span>`
+            : `<button class="link missing-link" data-action="jump" data-id="${d.id}" data-q="${missing}" data-slot="${ctx.slot}">Question ${missing + 1} needs an answer</button>`;
+        return `<div class="progress" data-live="${d.id}" data-kind="progress" data-slot="${ctx.slot}"><span class="meter" aria-hidden="true"><i style="width:${width}%"></i></span><span><b>${done} of ${n}</b> answered</span>${way}</div>`;
+      }
+      function qNumber(d, index, { live = true } = {}) {
+        const q = d.questions[index];
+        const a = draftOf(d).answers[index];
+        const tone = isAnswered(q, a) ? " answered" : " missing";
+        const liveAttrs = live ? ` data-live="${d.id}" data-kind="qnum" data-q="${index}"` : "";
+        return `<span class="q-num${tone}"${liveAttrs}>${index + 1}</span>`;
+      }
+      function cardHead(d, ctx) {
+        const asker = askerKey(d);
+        const open = d.status === "open";
+        const count = d.questions.length > 1 ? `<span>· ${d.questions.length} questions</span>` : "";
+        const putTo = d.putTo ? `<span class="put-to">to</span>${personTag(d.putTo)}` : "";
+        const copy =
+          ctx.place === "chat" || ctx.place === "initiative"
+            ? ""
+            : `<button class="icon-button xs" data-action="copy-link" aria-label="Copy link">${icon("link", 12)}</button>`;
+        return `<div class="dcard-head"><span class="badge${open ? " warning" : ""}">Decision</span>${personTag(asker)}${putTo}${count}<span class="when">asked ${d.askedAt}</span>${copy}</div>`;
+      }
+      /* In an Initiative's Thread a Decision names the Task it is on, or none. */
+      function onLine(d, ctx) {
+        if (ctx.place !== "initiative" || ctx.headless) return "";
+        if (d.onTask) return `<p class="dcard-on">On <span class="record-chip">${icon("task", 12)}${esc(d.onTask)}</span> · on its page as well</p>`;
+        return `<p class="dcard-on">On no Task: about the Initiative as a whole</p>`;
+      }
+      function consultationNote(d) {
+        if (!d.putTo || d.status !== "open") return "";
+        return `<p class="dcard-note">${icon("users", 13)}<span>Waiting on ${PEOPLE[d.putTo].name} in a Consultation. Answer here to take it over.</span></p>`;
+      }
+      function requestLine(d) {
+        if (d.kind !== "request") return "";
+        return `<p class="dcard-request">Asked you to: ${esc(d.questions[0].text)}</p>`;
+      }
+      function contextLine(d, { firstLineOnly = false } = {}) {
+        if (!d.context) return "";
+        return `<p class="dcard-context${firstLineOnly ? " first-line" : ""}">${esc(d.context)}</p>`;
+      }
+      function textField({ d, index = null, field, label, optional = false, placeholder, value, slot, rows = 2, oneLine = false }) {
+        const q = index === null ? "" : ` data-q="${index}"`;
+        const optionalWords = optional ? ` <span class="optional">Optional</span>` : "";
+        return `<label class="field"><span class="field-label">${esc(label)}${optionalWords}</span><textarea class="textarea${oneLine ? " one-line" : ""}" rows="${rows}" data-field="${field}" data-id="${d.id}"${q} data-slot="${slot}" placeholder="${esc(placeholder)}">${esc(value)}</textarea></label>`;
+      }
+      function radioItem(name, d, index, option, optionIndex, picked, recommended) {
+        const aside = recommended ? `<span class="badge sm accent">Recommended</span>` : "";
+        return `<label class="radio-list-item${picked ? " picked" : ""}"><input type="radio" name="${name}" value="${optionIndex}" data-id="${d.id}" data-q="${index}"${picked ? " checked" : ""} /><span class="radio-list-label">${esc(option)}</span>${aside}</label>`;
+      }
+      function noneOfTheseItem(name, d, index, picked) {
+        return `<label class="radio-list-item none-of-these${picked ? " picked" : ""}"><input type="radio" name="${name}" value="none" data-id="${d.id}" data-q="${index}"${picked ? " checked" : ""} /><span class="radio-list-label">None of these: answer in words</span></label>`;
+      }
+
+      /* One question as the form asks it: its options or its box, the recommendation, its comment. */
+      function questionBlock(d, index, ctx, { numbered }) {
+        const q = d.questions[index];
+        const a = draftOf(d).answers[index];
+        const asker = askerName(d);
+        const name = `${ctx.slot}-${d.id}-q${index}`;
+        const head =
+          d.kind === "request"
+            ? ""
+            : `<div class="q-head">${numbered ? qNumber(d, index) : ""}<p class="q-text">${esc(q.text)}${q.kind === "open" ? `<span class="q-kind">Answered in words</span>` : ""}</p></div>`;
+        let body = "";
+        if (q.kind === "choice") {
+          const items = q.options.map((option, k) => radioItem(name, d, index, option, k, a.pick === k, k === q.recommended)).join("");
+          body += `<div class="radio-list" role="radiogroup" aria-label="${esc(q.text)}">${items}${noneOfTheseItem(name, d, index, a.pick === "none")}</div>`;
+          body += `<p class="why"><b>${esc(asker)} recommends “${esc(q.options[q.recommended])}”:</b> ${esc(q.reason)}</p>`;
+          if (a.pick === "none") {
+            body += textField({
+              d,
+              index,
+              field: "comment",
+              label: "Your answer in words",
+              placeholder: "None of the options: say what you want instead",
+              value: a.comment,
+              slot: ctx.slot,
+            });
+            return wrapQuestion(d, index, ctx, numbered, head, body);
+          }
+        } else {
+          if (q.why) body += `<p class="why"><b>Why ${esc(asker)} needs it:</b> ${esc(q.why)}</p>`;
+          body += textField({
+            d,
+            index,
+            field: "words",
+            label: "Your answer",
+            placeholder: d.kind === "request" ? "Say what you did, or why you can't" : "Your answer in words",
+            value: a.words,
+            slot: ctx.slot,
+          });
+        }
+        if (a.commentOpen || a.comment.trim() !== "") {
+          body += textField({
+            d,
+            index,
+            field: "comment",
+            label: "Comment",
+            optional: true,
+            placeholder: "Anything to add to this answer",
+            value: a.comment,
+            slot: ctx.slot,
+          });
+        } else {
+          body += `<button class="text-button comment-fold" data-action="open-comment" data-id="${d.id}" data-q="${index}" data-slot="${ctx.slot}">${icon("plus", 12)} Add a comment</button>`;
+        }
+        return wrapQuestion(d, index, ctx, numbered, head, body);
+      }
+      function wrapQuestion(d, index, ctx, numbered, head, body) {
+        return `<div class="q${numbered ? "" : " unnumbered"}" id="q-${ctx.slot}-${d.id}-${index}">${head}<div class="q-body">${body}</div></div>`;
+      }
+      function generalField(d, ctx, { oneLine = false } = {}) {
+        return textField({
+          d,
+          field: "general",
+          label: "General comment",
+          optional: true,
+          placeholder: "Anything about the form as a whole",
+          value: draftOf(d).general,
+          slot: ctx.slot,
+          rows: oneLine ? 1 : 2,
+          oneLine,
+        });
+      }
+      function askAgainStep(d, ctx) {
+        const draft = draftOf(d);
+        const field = textField({
+          d,
+          field: "general",
+          label: `What should ${askerName(d)} explain or change?`,
+          optional: true,
+          placeholder: "Your general comment, sent alone",
+          value: draft.general,
+          slot: ctx.slot,
+        });
+        return `<div class="ask-again-step">${field}<p class="step-note">Sends this comment and no answers. Your picks stay here as a draft until you send; ${esc(askerName(d))} explains and asks again in a new form.</p><div class="dactions"><button class="btn primary" data-action="ask-again-confirm" data-id="${d.id}">${icon("rotate", 13)} Ask me again</button><button class="btn secondary" data-action="cancel-step" data-id="${d.id}">Cancel</button></div></div>`;
+      }
+      function refusedAlert(d) {
+        const reason = draftOf(d).refused;
+        if (!reason) return "";
+        return `<div class="alert refused" role="alert">${icon("alert", 14)}<div><b>The answer wasn't sent</b><span>${esc(reason)}</span></div></div>`;
+      }
+      function hints(d, ctx) {
+        const lines = [];
+        const asker = askerName(d);
+        if (world.answering && ctx.place === "initiative") {
+          lines.push(`<p class="reach">Reaches ${esc(asker)} when this turn ends.</p>`);
+        } else if (stillAnswering(ctx.place)) {
+          lines.push(`<p>${esc(asker)} is still answering. Answer once they finish.</p>`);
+        }
+        if (!d.office && ctx.place !== "panel") {
+          const where = ctx.place !== "chat" ? "in the Thread" : ctx.slot === "win" ? "in the chat" : "below";
+          lines.push(`<p>A question first? Ask ${esc(asker)} ${where}; the Decision stays open.</p>`);
+        }
+        return lines.length ? `<div class="dhints">${lines.join("")}</div>` : "";
+      }
+
+      /* The whole form, answered in place. */
+      function wholeForm(d, ctx) {
+        const draft = draftOf(d);
+        const n = d.questions.length;
+        let html = d.questions.map((q, i) => questionBlock(d, i, ctx, { numbered: n > 1 })).join("");
+        if (draft.step === "ask-again") {
+          html += askAgainStep(d, ctx);
+        } else {
+          html += `<div class="general">${generalField(d, ctx)}</div>`;
+          html += refusedAlert(d);
+          html += `<div class="dactions">${submitControl(d, ctx)}${askAgainControl(d, ctx)}${n > 1 ? progressLine(d, ctx) : ""}</div>`;
+        }
+        return html + hints(d, ctx);
+      }
+
+      /* The compact card: a long form, or one with Attachments, in brief, with Open details. */
+      function compactBody(d, ctx) {
+        const q = d.questions[0];
+        const n = d.questions.length;
+        const asker = askerName(d);
+        const touched = changes(d) > 0;
+        let html = `<div class="compact-first"><span class="overline">${n > 1 ? `Question 1 of ${n}` : "The question"}</span><p class="q-text">${esc(q.text)}</p>`;
+        if (q.kind === "choice") {
+          html += `<p class="rec-line">${icon("check", 14)}${esc(q.options[q.recommended])}<span class="badge sm accent">Recommended</span></p>`;
+          html += `<p class="why"><b>${esc(asker)} recommends it:</b> ${esc(q.reason)}</p>`;
+        } else {
+          html += `<p class="why">Answered in words.</p>`;
+        }
+        html += `</div>`;
+        const more = [];
+        const rest = n - 1;
+        if (rest > 0) {
+          const open = d.questions.slice(1).filter((x) => x.kind === "open").length;
+          more.push(`${rest} more question${rest > 1 ? "s" : ""}${open ? `, ${open} of them open question${open > 1 ? "s" : ""}` : ""}`);
+        }
+        if (d.attachments.length) {
+          const count = d.attachments.length;
+          more.push(`${icon("paperclip", 12)} ${count} Attachment${count > 1 ? "s" : ""} to look at in Open details`);
+        }
+        if (more.length) html += `<p class="compact-more">${more.join(" · ")}</p>`;
+        html += refusedAlert(d);
+        const accept = everyQuestionAChoice(d) && !touched;
+        const reason = stillAnswering(ctx.place) ? `${asker} is still answering. Answer once they finish.` : null;
+        let actions = "";
+        if (accept) {
+          actions += withTip(
+            `<button class="btn primary" data-action="accept" data-id="${d.id}"${reason ? " disabled" : ""}>${icon("check", 13)} Accept</button>`,
+            reason,
+          );
+          actions += `<button class="btn secondary" data-action="open-details" data-id="${d.id}">Open details</button>`;
+        } else {
+          actions += `<button class="btn primary" data-action="open-details" data-id="${d.id}">Open details</button>`;
+        }
+        if (touched) actions += `<span class="badge info">Draft kept · ${changes(d)} change${changes(d) > 1 ? "s" : ""}</span>`;
+        if (n > 1) actions += progressLine(d, ctx);
+        html += `<div class="dactions">${actions}</div>`;
+        return html + hints(d, ctx);
+      }
+
+      /* The card in Needs you, in a chat or in an Initiative's Thread: answered there. */
+      function formCard(d, ctx) {
+        const compact = isCompact(d);
+        let html = ctx.headless ? "" : cardHead(d, ctx);
+        html += onLine(d, ctx);
+        html += requestLine(d);
+        html += contextLine(d, { firstLineOnly: compact });
+        html += consultationNote(d);
+        html += compact ? compactBody(d, ctx) : wholeForm(d, ctx);
+        const flash = state.flash === `${ctx.slot}-${d.id}` ? " flash" : "";
+        return `<section class="dcard${flash}" id="card-${ctx.slot}-${d.id}" aria-label="Decision">${html}</section>`;
+      }
+
+      /* In short, in a Task's Thread while it waits: the way to Needs you. */
+      function shortCard(d, ctx) {
+        const n = d.questions.length;
+        const first = d.kind === "request" ? `Asked you to: ${d.questions[0].text}` : d.questions[0].text;
+        const lead = n > 1 ? `${n} questions, starting with: ` : "";
+        const waits = d.putTo
+          ? `Waiting on ${PEOPLE[d.putTo].name} in a Consultation. <button class="link" data-action="go-needs-you" data-id="${d.id}">Take it over in Needs you</button> · <button class="link" data-action="toast" data-words="Opens the Consultation in Michael's tab">Open the Consultation</button>`
+          : `Waits on you. <button class="link" data-action="go-needs-you" data-id="${d.id}">Answer it in Needs you</button>`;
+        return `<section class="dcard dshort" aria-label="Decision">${cardHead(d, ctx)}<p class="dshort-q">${esc(lead)}${esc(first)}</p><p class="dshort-line">${waits}</p></section>`;
+      }
+
+      /* Answered, asked again or closed: read-only, where it was asked. */
+      function answeredByWords(d) {
+        const by = d.result.by;
+        if (by === "ana") return "Answered by Ana";
+        if (by === "consultant") {
+          return `Answered by Michael in a Consultation · <button class="link" data-action="toast" data-words="Opens the Consultation in Michael's tab">Open the Consultation</button>`;
+        }
+        if (by === "pam") {
+          return `Answered by Pam <button class="link" data-action="toast" data-words="Opens your chat with Pam, at the message that asked">at your request</button>`;
+        }
+        return "Answered by you";
+      }
+      function answerItem(d, index) {
+        const q = d.questions[index];
+        const a = d.result.answers[index];
+        let answer;
+        let comment = a.comment.trim();
+        if (q.kind === "choice" && typeof a.pick === "number") {
+          const tag = a.pick === q.recommended ? ` <span class="tag">(recommended)</span>` : "";
+          answer = `${esc(q.options[a.pick])}${tag}`;
+        } else if (q.kind === "choice") {
+          answer = esc(comment);
+          comment = "";
+        } else {
+          answer = esc(a.words);
+        }
+        const commentLine = comment ? `<p class="qa-c"><b>Comment:</b> ${esc(comment)}</p>` : "";
+        return `<li class="qa"><span class="q-num answered">${index + 1}</span><p class="qa-q">${esc(q.text)}</p><p class="qa-a">${answer}</p>${commentLine}</li>`;
+      }
+      function unansweredItem(d, index) {
+        return `<li class="qa"><span class="q-num">${index + 1}</span><p class="qa-q">${esc(d.questions[index].text)}</p><p class="qa-a unanswered">Not answered</p></li>`;
+      }
+      function settledCard(d, ctx) {
+        const n = d.questions.length;
+        const all = showAll.has(d.id) || n <= 3;
+        const shown = all ? n : 3;
+        const answered = d.status === "answered";
+        let items = "";
+        for (let i = 0; i < shown; i += 1) items += answered ? answerItem(d, i) : unansweredItem(d, i);
+        let html = cardHead(d, ctx) + onLine(d, ctx) + requestLine(d) + contextLine(d, { firstLineOnly: true });
+        if (d.kind !== "request" || answered) html += `<ol class="qa-list">${items}</ol>`;
+        if (!all) html += `<button class="text-button show-all" data-action="show-all" data-id="${d.id}">${icon("chevron-down", 12)} Show all ${n}</button>`;
+        if (answered && d.result.general) html += `<p class="qa-general"><b>General comment:</b> ${esc(d.result.general)}</p>`;
+        if (answered) {
+          html += `<p class="outcome">${icon("check", 13)}<span>${answeredByWords(d)} · ${d.result.at}</span></p>`;
+        } else if (d.status === "asked-again") {
+          const words = d.result.general ? `: <span class="outcome-words">${esc(d.result.general)}</span>` : ", with no comment";
+          html += `<p class="outcome asked-again">${icon("rotate", 13)}<span>Asked again by you · ${d.result.at}${words}</span></p>`;
+        } else {
+          html += `<p class="outcome closed">${icon("x", 13)}<span>Closed: the Task was dropped · ${d.result.at}</span></p>`;
+        }
+        if (d.result.pending) html += `<div class="dhints"><p class="reach">Reaches ${esc(askerName(d))} when this turn ends.</p></div>`;
+        return `<section class="dcard settled" aria-label="Decision">${html}</section>`;
+      }
+
+      /* The approval of a call past a Hard switch: its own card, beside a form, never in one. */
+      function approvalCard(a, { headless = false } = {}) {
+        const head = headless
+          ? ""
+          : `<div class="dcard-head"><span class="badge${a.status === "open" ? " danger" : ""}">${icon("shield", 11)} Approval</span>${personTag("jim")}<span>· in ${esc(a.from)}</span><span class="when">asked ${a.askedAt}</span></div>`;
+        let foot;
+        if (a.status === "open") {
+          foot = `<div class="dactions"><button class="btn primary" data-action="allow" data-id="${a.id}">Allow once</button><button class="btn secondary" data-action="deny" data-id="${a.id}">Deny</button></div>`;
+        } else {
+          const allowed = a.status === "allowed";
+          foot = `<p class="outcome${allowed ? "" : " closed"}">${icon(allowed ? "check" : "x", 13)}<span>${allowed ? "Allowed once" : "Denied"} by you · 10:58</span></p>`;
+        }
+        const id = headless ? "" : ` id="card-needs-${a.id}"`;
+        const flash = !headless && state.flash === `needs-${a.id}` ? " flash" : "";
+        return `<section class="acard${a.status === "open" ? "" : " settled"}${flash}"${id} aria-label="Approval">${head}<p class="acard-call">Jim asks to: ${esc(a.call)}</p><pre class="code-block code">${esc(a.command)}</pre><p class="why"><b>Why Jim needs it:</b> ${esc(a.why)}</p><p class="acard-switch">${icon("shield", 12)}<span>Past the Hard switch Run installs: “${esc(a.hardSwitch)}” Nobody holds Devops, so it comes to you. Allow once lets this one call run; Deny means Jim goes on without it.</span></p>${foot}</section>`;
+      }
+
+      /* ---------- Attachments ---------- */
+      function pictureArt(art) {
+        const bar = (x, y, w, tone = "var(--border-strong)") => `<rect x="${x}" y="${y}" width="${w}" height="4" rx="2" style="fill:${tone}"/>`;
+        const pane = (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" style="fill:var(--surface-sunken);stroke:var(--border)"/>`;
+        let body = `<rect width="160" height="100" style="fill:var(--surface)"/><rect width="160" height="14" style="fill:var(--surface-sunken)"/>`;
+        body += bar(8, 5, 40, "var(--fg-3)");
+        if (art === "side") {
+          body += pane(8, 22, 68, 70) + pane(84, 22, 68, 70);
+          body += bar(14, 30, 40, "var(--accent)") + bar(14, 40, 54) + bar(14, 48, 46) + bar(14, 56, 50);
+          body += bar(90, 30, 40, "var(--info)") + bar(90, 40, 50) + bar(90, 48, 54) + bar(90, 56, 38);
+        } else {
+          body += pane(8, 22, 144, 32) + pane(8, 60, 144, 32);
+          body += bar(14, 30, 50, "var(--accent)") + bar(14, 40, 120);
+          body += bar(14, 68, 50, "var(--info)") + bar(14, 78, 110);
+        }
+        return `<svg viewBox="0 0 160 100" role="img" aria-label="Screenshot">${body}</svg>`;
+      }
+      function attachmentsBlock(d) {
+        if (!d.attachments.length) return "";
+        const pictures = d.attachments
+          .filter((a) => a.kind === "picture")
+          .map((a) => `<button class="thumb" data-action="toast" data-words="Opens ${esc(a.name)} in the Attachment viewer">${pictureArt(a.art)}<span>${esc(a.name)}</span></button>`)
+          .join("");
+        const files = d.attachments
+          .filter((a) => a.kind !== "picture")
+          .map((a) => `<button class="file-chip" data-action="toast" data-words="Opens ${esc(a.name)} in the document window">${icon("file", 13)}${esc(a.name)}</button>`)
+          .join("");
+        return `<div class="thumbs">${pictures}</div>${files ? `<div class="thumbs">${files}</div>` : ""}`;
+      }
+
+      /* ---------- The Large window: Open details ---------- */
+      function qrowState(d, index) {
+        const q = d.questions[index];
+        const a = draftOf(d).answers[index];
+        if (q.kind === "choice") {
+          if (typeof a.pick === "number") return `${q.options[a.pick]}${a.pick === q.recommended ? " (recommended)" : ""}`;
+          return a.comment.trim() ? `In words: ${a.comment.trim()}` : "Needs an answer in words";
+        }
+        return a.words.trim() ? a.words.trim() : "Needs an answer";
+      }
+      function contextBlock(d) {
+        const draft = draftOf(d);
+        const label = d.attachments.length ? `Context and ${d.attachments.length} Attachments` : "Context";
+        const fold = `<button class="text-button" data-action="toggle-context" data-id="${d.id}" aria-expanded="${draft.contextOpen}">${icon(draft.contextOpen ? "chevron-down" : "chevron-right", 12)} ${label}</button>`;
+        if (!draft.contextOpen) return `<div class="context-block">${fold}</div>`;
+        return `<div class="context-block">${fold}${contextLine(d)}${consultationNote(d)}${attachmentsBlock(d)}</div>`;
+      }
+      function splitBody(d, ctx) {
+        const draft = draftOf(d);
+        const n = d.questions.length;
+        const current = draft.current;
+        const rows = d.questions
+          .map((q, i) => {
+            const ok = isAnswered(q, draft.answers[i]);
+            return `<button class="qrow" data-action="win-go" data-q="${i}" aria-current="${i === current}">${qNumber(d, i)}<span class="qrow-text">${esc(q.text)}</span><span class="qrow-state${ok ? "" : " missing"}" data-live="${d.id}" data-kind="qrow" data-q="${i}">${esc(qrowState(d, i))}</span></button>`;
+          })
+          .join("");
+        const list = `<nav class="qlist" aria-label="Questions" data-scroll="qlist"><div class="qlist-head">${progressLine(d, ctx)}</div>${rows}</nav>`;
+        const numbers = d.questions
+          .map((q, i) => {
+            const ok = isAnswered(q, draft.answers[i]);
+            return `<button class="${ok ? "answered" : "missing"}" data-action="win-go" data-q="${i}" aria-current="${i === current}" aria-label="Question ${i + 1}" data-live="${d.id}" data-kind="strip">${i + 1}</button>`;
+          })
+          .join("");
+        const strip = `<div class="qstrip">${progressLine(d, ctx)}<div class="qstrip-row">${numbers}</div></div>`;
+        const previous = `<button class="btn secondary" data-action="win-go" data-q="${current - 1}"${current === 0 ? " disabled" : ""}>${icon("chevron-left", 14)} Previous</button>`;
+        const next = current < n - 1 ? `<button class="btn secondary" data-action="win-go" data-q="${current + 1}">Next ${icon("chevron-right", 14)}</button>` : "";
+        const question = `<span class="overline">Question ${current + 1} of ${n}</span>${questionBlock(d, current, ctx, { numbered: false })}`;
+        return `<div class="split">${list}${strip}<div class="detail" data-scroll="detail"><div class="detail-inner">${contextBlock(d)}${question}<div class="detail-nav">${previous}${next}</div></div></div></div>`;
+      }
+      function scrollBody(d, ctx) {
+        const several = d.questions.length > 1;
+        const questions = d.questions.map((q, i) => questionBlock(d, i, ctx, { numbered: several })).join("");
+        const progress = several ? `<div class="progress-bar">${progressLine(d, ctx)}</div>` : "";
+        return `<div class="scroll-form" data-scroll="scroll-form"><div class="scroll-form-inner">${progress}${contextBlock(d)}${questions}</div></div>`;
+      }
+      function windowFoot(d, ctx) {
+        const draft = draftOf(d);
+        if (draft.step === "ask-again") {
+          const field = textField({
+            d,
+            field: "general",
+            label: `What should ${askerName(d)} explain or change?`,
+            optional: true,
+            placeholder: "Your general comment, sent alone",
+            value: draft.general,
+            slot: ctx.slot,
+          });
+          return `<div class="win-foot"><div class="win-step">${field}<p class="step-note">Sends this comment and no answers. Your picks stay here as a draft until you send.</p></div><div class="win-actions"><div class="win-actions-start"><button class="btn primary" data-action="ask-again-confirm" data-id="${d.id}">${icon("rotate", 13)} Ask me again</button><button class="btn secondary" data-action="cancel-step" data-id="${d.id}">Cancel</button></div><button class="btn secondary" data-action="close-window">Close</button></div></div>`;
+        }
+        return `<div class="win-foot"><div class="win-step">${generalField(d, ctx, { oneLine: true })}${refusedAlert(d)}${hints(d, ctx)}</div><div class="win-actions"><div class="win-actions-start">${submitControl(d, ctx)}${askAgainControl(d, ctx)}</div><button class="btn secondary" data-action="close-window">Close</button></div></div>`;
+      }
+      function windowLayer() {
+        const d = findDecision(state.window);
+        if (!d || d.status !== "open") return "";
+        const ctx = { place: state.place, slot: "win" };
+        const n = d.questions.length;
+        const where = state.place === "initiative" ? INITIATIVE_TITLE : state.place === "chat" ? "In your chat with Michael" : TASK_TITLE;
+        const putTo = d.putTo ? `<span>to</span>${personTag(d.putTo)}` : "";
+        const head = `<div class="win-head"><span class="badge warning">Decision</span><h2>${esc(where)}</h2>${personTag(askerKey(d))}${putTo}<span>· ${n} question${n > 1 ? "s" : ""} · asked ${d.askedAt}</span><span class="grow"></span><button class="icon-button" data-action="close-window" aria-label="Close">${icon("x", 16)}</button></div>`;
+        const body = state.layout === "list" && n > 1 ? splitBody(d, ctx) : scrollBody(d, ctx);
+        return `<div class="win-layer" data-action="close-window"></div><div class="win" role="dialog" aria-modal="true" aria-label="Decision">${head}<div class="win-body">${body}</div>${windowFoot(d, ctx)}</div>`;
+      }
+
+      /* ---------- The Thread ---------- */
+      /* An approval is never here: it waits in its Stage's Thread, as this Thread already holds a Decision. */
+      function threadItems() {
+        return world.decisions.map((d) => ({ who: askerKey(d), at: d.askedAt, text: d.lead, decision: d }));
+      }
+      function decisionInThread(d, place) {
+        const ctx = { place, slot: "thread" };
+        if (d.status !== "open") return settledCard(d, ctx);
+        if (place === "task" || place === "thread") return shortCard(d, ctx);
+        return formCard(d, ctx);
+      }
+      function renderTurn(item, place) {
+        const name = item.who === null ? "The Office" : PEOPLE[item.who].name;
+        const title = item.who === null ? "" : `<span>${PEOPLE[item.who].title}</span>`;
+        const card = item.decision ? decisionInThread(item.decision, place) : "";
+        const text = item.text ? `<p class="turn-text">${esc(item.text)}</p>` : "";
+        return `<div class="turn">${avatar(item.who, "")}<div class="turn-body"><div class="turn-by"><b>${name}</b>${title}<span>${item.at}</span></div>${text}${card}</div></div>`;
+      }
+      function threadHtml(place, scrollKey, extraBefore = "") {
+        let html = extraBefore + threadItems().map((item) => renderTurn(item, place)).join("");
+        if (world.answering || world.typing) {
+          html += `<p class="typing"><span class="dot live"></span>${PEOPLE[PLACE_ASKER[place]].name} is answering…</p>`;
+        }
+        return `<div class="thread" data-scroll="${scrollKey}">${html}</div>`;
+      }
+      function composer(key) {
+        const name = PEOPLE[key].name;
+        return `<div class="composer"><span class="to">To ${name}</span><div class="composer-box"><span>Message ${name}…</span>${withTip(`<button class="btn primary sm" disabled aria-label="Send">${icon("send", 13)}</button>`, "Write a message first")}</div></div>`;
+      }
+
+      /* ---------- Places ---------- */
+      function waitingDecisions() {
+        return state.place === "chat" ? [] : world.decisions.filter((d) => d.status === "open");
+      }
+      function waitingApprovals() {
+        return ["task", "thread", "panel"].includes(state.place) ? world.approvals.filter((a) => a.status === "open") : [];
+      }
+      function waitingCount() {
+        return waitingDecisions().length + waitingApprovals().length;
+      }
+      function railNav() {
+        const on = state.place === "panel" || state.place === "chat" ? "home" : "board";
+        const items = [
+          ["home", "Now"],
+          ["board", "Work"],
+          ["users", "People"],
+          ["sliders", "Settings"],
+        ];
+        return `<nav class="rail" aria-label="Main"><span class="rail-mark">O</span>${items.map(([name, label]) => `<span class="rail-item${name === on ? " on" : ""}" title="${label}">${icon(name, 18)}</span>`).join("")}</nav>`;
+      }
+      function topBar() {
+        const small = state.width === "390";
+        return `<header class="topbar">${small ? `<span class="rail-mark">O</span>` : ""}<div class="search">${icon("search", 14)}<span>Search Tasks, Initiatives and people</span></div><span class="grow"></span><span class="chat-button${state.place === "chat" ? " on" : ""}">${icon("message", 14)}${small ? "" : " Chat"}</span></header>`;
+      }
+      function statusStrip() {
+        const count = waitingCount();
+        const needs = `<button class="figure${count ? " needs" : ""}" data-action="toggle-panel"><span class="overline">Needs you</span><b><span class="count-pill${count ? "" : " quiet"}">${count}</span>${count ? "waiting" : "nothing"}</b></button>`;
+        return `<div class="strip">${needs}<div class="figure"><span class="overline">Claude Code</span><b>41% of 5 h</b></div><div class="figure"><span class="overline">Desks</span><b>2 of 4 busy</b></div><div class="figure"><span class="overline">Tokens today</span><b>1.2M</b></div></div>`;
+      }
+      function stubLines(widths) {
+        return widths.map((w) => `<span class="stub-line" style="width:${w}%"></span>`).join("");
+      }
+      function stageRail() {
+        const office = world.decisions.some((d) => d.office && d.status === "open");
+        const waiting = waitingCount() > 0;
+        const at = office ? 2 : 1;
+        const marks = [
+          ["Plan", "Angela"],
+          ["Build", "Jim"],
+          ["Review", "Oscar"],
+          ["Your review", "waits for you"],
+          ["Publish", "publish"],
+        ].map(([name, who], i) => {
+          let tone = "";
+          if (i < at) tone = "done";
+          else if (i === at) tone = world.dropped ? "dropped" : waiting ? "wait" : "live";
+          return `<div class="st"><span class="mark ${tone}"></span><b>${name}</b><span>${i === at && waiting ? "waits on you" : who}</span></div>`;
+        });
+        const lines = (i) => `<span class="line${i <= at ? " done" : ""}"></span>`;
+        return `<div class="card stage-rail" aria-label="Pipeline">${marks.map((m, i) => (i === 0 ? m : lines(i) + m)).join("")}</div>`;
+      }
+      function needsYou() {
+        const decisions = waitingDecisions();
+        const approvals = waitingApprovals();
+        if (!decisions.length && !approvals.length) {
+          return `<section class="card needs-you clear" id="needs-you" aria-label="Needs you"><p class="nothing">${icon("check", 16)} Nothing waits on you on this Task.</p></section>`;
+        }
+        const ctx = { place: state.place, slot: "needs" };
+        const cards = decisions.map((d) => formCard(d, ctx)).join("") + approvals.map((a) => approvalCard(a)).join("");
+        return `<section class="card needs-you" id="needs-you" aria-label="Needs you"><div class="needs-head"><h2>Needs you</h2><span class="count-pill">${decisions.length + approvals.length}</span></div><div class="needs-list">${cards}</div></section>`;
+      }
+      function taskConversation(scrollKey) {
+        const live = world.answering || world.typing ? `<span class="dot live"></span>` : "";
+        return `<div class="tabs conv-head"><span class="tab">${avatar("angela")} Angela</span><span class="tab on">${avatar("jim")} Jim ${live}</span></div><div class="conv-tools"><span>Jim's Thread on this Task</span><span class="grow"></span><span>Details</span></div>${threadHtml(state.place, scrollKey)}${composer("jim")}`;
+      }
+      function narrowDrawer(title, inner) {
+        if (state.width === "wide") return "";
+        if (!state.convOpen) return `<button class="conv-handle" data-action="toggle-conv">${icon("message", 13)} Conversation</button>`;
+        return `<aside class="conv-drawer" aria-label="${title}"><div class="drawer-head">${title}<span class="grow"></span><button class="icon-button" data-action="toggle-conv" aria-label="Close">${icon("x", 16)}</button></div><div class="conversation">${inner}</div></aside>`;
+      }
+      function taskPage() {
+        const wide = state.width === "wide";
+        const badge = world.dropped
+          ? `<span class="badge">Dropped</span>`
+          : waitingCount()
+            ? `<span class="badge warning">Waiting on you</span>`
+            : `<span class="badge info">In progress</span>`;
+        const head = `<p class="crumbs">Work › Tasks</p><div class="page-head"><h1>${TASK_TITLE}</h1>${badge}<span class="project-chip">not-astray</span><span class="record-chip">${icon("target", 12)}${INITIATIVE_TITLE}</span></div>`;
+        const record = `<section class="card"><div class="tabs conv-head"><span class="tab on">Overview</span><span class="tab">Changes</span><span class="tab">Attachments</span></div><div class="fold-row">${icon("chevron-down", 14)}<b>Description</b></div><div class="record-stub">${stubLines([92, 78, 64])}</div><div class="fold-row">${icon("chevron-right", 14)}<b>Plan</b><span>Confirmed</span></div><div class="fold-row">${icon("chevron-right", 14)}<b>Definition of Done</b><span>Confirmed · 6 statements</span></div></section>`;
+        const conversation = wide ? `<section class="card conversation" aria-label="Conversation">${taskConversation("conv")}</section>` : "";
+        return `<div class="page" data-scroll="page">${head}${stageRail()}<div class="task-cols"><div>${needsYou()}${record}</div>${conversation}</div></div>${narrowDrawer("Conversation", taskConversation("conv"))}`;
+      }
+      function rowStub(key, words, when) {
+        return `<div class="row-stub">${avatar(key, "sm")}<span class="grow">${words}</span><span class="muted">${when}</span></div>`;
+      }
+      function entries(slot) {
+        const ctx = { place: state.place, slot, headless: true };
+        const decisions = waitingDecisions().map((d) => {
+          const n = d.questions.length;
+          const putTo = d.putTo ? ` to ${PEOPLE[d.putTo].name}` : "";
+          const line = `<p class="entry-line"><span class="entry-kind">Decision</span><span>· ${n} question${n > 1 ? "s" : ""}</span><span>· ${esc(askerName(d))}${putTo}</span><span>· asked ${d.askedAt}</span></p>`;
+          const title =
+            state.place === "initiative"
+              ? `<p class="entry-title">${icon("target", 14)} ${INITIATIVE_TITLE}<span class="muted">On no Task</span></p>`
+              : `<p class="entry-title">${TASK_TITLE}<span class="project-chip">not-astray</span></p>`;
+          return `<div class="entry">${line}${title}${formCard(d, ctx)}</div>`;
+        });
+        const approvals = waitingApprovals().map(
+          (a) =>
+            `<div class="entry"><p class="entry-line"><span class="entry-kind">Approval</span><span>· Jim in ${esc(a.from)}</span><span>· asked ${a.askedAt}</span></p><p class="entry-title">${TASK_TITLE}<span class="project-chip">not-astray</span></p>${approvalCard(a, { headless: true })}</div>`,
+        );
+        return decisions.concat(approvals).join("");
+      }
+      function nowPage() {
+        const count = waitingCount();
+        const waiting = count ? entries("now") : `<p class="nothing">${icon("check", 16)} Nothing waits on you.</p>`;
+        const running = rowStub("jim", "Build · Sync settings page", "12 min") + rowStub("angela", "Planning · Offline sync", "3 min");
+        const done = rowStub("pam", "Weekly usage report", "09:30") + rowStub("michael", "Pipeline for notnullsoft", "08:55");
+        return `<div class="page" data-scroll="page"><p class="crumbs">The Office</p><div class="page-head"><h1>Now</h1></div><div class="now-cols"><section class="card now-col"><h2>Waiting on you <span class="count-pill${count ? "" : " quiet"}">${count}</span></h2>${waiting}</section><section class="card now-col"><h2>Running</h2>${running}</section><section class="card now-col"><h2>Done today</h2>${done}</section></div></div>`;
+      }
+      function needsYouPanel() {
+        const count = waitingCount();
+        const body = count
+          ? entries("panel")
+          : `<p class="nothing">${icon("check", 16)} Nothing waits on you.${state.place === "chat" ? " A Decision in a chat is answered in the chat, not here." : ""}</p>`;
+        return `<div class="backdrop" data-action="close-panel"></div><aside class="side-panel" aria-label="Needs you"><div class="side-panel-head"><h2>Needs you</h2><span class="count-pill${count ? "" : " quiet"}">${count}</span><span class="grow"></span><button class="icon-button" data-action="close-panel" aria-label="Close">${icon("x", 16)}</button></div><div class="side-panel-body" data-scroll="panel">${body}</div></aside>`;
+      }
+      /* An earlier Decision in the planning Thread, on one of the Initiative's Tasks: shown there and on that Task's page. */
+      const ON_TASK_EXAMPLE = {
+        id: "example",
+        kind: "form",
+        office: false,
+        onTask: TASK_TITLE,
+        lead: "Splitting the conflict work before I plan it.",
+        context: "",
+        attachments: [],
+        questions: [
+          {
+            kind: "choice",
+            text: "Split the conflict screen into two Tasks?",
+            options: ["Yes: the screen, then the merge rules", "No, one Task"],
+            recommended: 0,
+            reason: "each half is reviewable in a day.",
+          },
+        ],
+        putTo: null,
+        status: "answered",
+        askedAt: "09:12",
+        result: { by: "you", at: "09:20", general: "", answers: [{ pick: 0, words: "", comment: "", commentOpen: false }] },
+      };
+      function initiativeConversation(scrollKey) {
+        const live = world.answering || world.typing ? `<span class="dot live"></span>` : "";
+        const earlier = renderTurn({ who: "angela", at: "09:12", text: ON_TASK_EXAMPLE.lead, decision: ON_TASK_EXAMPLE }, "initiative");
+        return `<div class="tabs conv-head"><span class="tab">${avatar("michael")} Michael</span><span class="tab on">${avatar("angela")} Angela ${live}</span></div><div class="person-tab-intro">${avatar("angela", "lg")}<div><b>Angela</b>Planner · plans this Initiative's Tasks with you</div><span class="grow"></span><span>Details</span></div>${threadHtml("initiative", scrollKey, earlier)}${composer("angela")}`;
+      }
+      function foldRow(title, line) {
+        return `<div class="fold-row">${icon("chevron-right", 14)}<b>${title}</b><span>${line}</span></div>`;
+      }
+      function initiativePage() {
+        const wide = state.width === "wide";
+        const head = `<p class="crumbs">Work › Initiatives</p><div class="page-head"><h1>${INITIATIVE_TITLE}</h1><span class="badge info">Active</span><span class="project-chip">not-astray</span><span class="project-chip">notnullsoft</span></div>`;
+        const record = `<section class="card">${foldRow("Pipelines", "not-astray at Build · notnullsoft at Integrate")}${foldRow("Outcome", "People edit offline and nothing they write is lost.")}${foldRow("Tasks", "7 across 2 Projects · 2 done · 1 in progress")}<div class="record-stub">${stubLines([88, 70, 76, 52])}</div></section>`;
+        const conversation = wide ? `<section class="card conversation" aria-label="Conversation">${initiativeConversation("conv")}</section>` : "";
+        return `<div class="page" data-scroll="page">${head}<div class="init-cols"><div>${record}</div>${conversation}</div></div>${narrowDrawer("Conversation", initiativeConversation("conv"))}`;
+      }
+      /* At 390px the drawer fills the window (spec 4.1), so the app draws it over the whole frame instead. */
+      function drawerFillsWindow() {
+        return state.place === "chat" && state.width === "390";
+      }
+      function chatPlace() {
+        if (drawerFillsWindow()) return `<div class="behind">${nowPage()}</div>`;
+        const over = state.width !== "wide";
+        return `<div class="with-drawer${over ? " over" : ""}"><div class="behind">${nowPage()}</div>${chatDrawer()}</div>`;
+      }
+      function chatDrawer() {
+        const fills = drawerFillsWindow() ? " fills" : "";
+        return `<aside class="chat-drawer${fills}" aria-label="Chat with Michael"><div class="drawer-head">${avatar("michael", "sm")}<span>Michael</span><span class="muted">CTO</span><span class="grow"></span><button class="icon-button" data-action="toast" data-words="Closes the chat drawer" aria-label="Close the chat drawer">${icon("x", 16)}</button></div><div class="chat-tabs"><span class="chat-tab on">${avatar("michael")} Michael</span><span class="chat-tab">${avatar("pam")} Pam</span></div><div class="thread-row"><span>‹ Threads</span><b>How the Offline sync beta ships</b><span>Details</span></div>${threadHtml("chat", "chat")}${composer("michael")}</aside>`;
+      }
+      function appHtml() {
+        const noRail = state.width === "390";
+        /* The open chat drawer counts toward Narrow (spec 4.1): beside it, the page is under 845px even in the Wide frame. */
+        const narrow = state.width !== "wide" || state.place === "chat";
+        const pages = { task: taskPage, thread: taskPage, panel: nowPage, initiative: initiativePage, chat: chatPlace };
+        const page = pages[state.place]();
+        const panel = state.panelOpen ? needsYouPanel() : "";
+        const win = state.window ? windowLayer() : "";
+        const toastHtml = state.toast ? `<div class="toast" role="status">${esc(state.toast)}</div>` : "";
+        return `<div class="app${narrow ? " narrow" : ""}${noRail ? " no-rail" : ""}">${noRail ? "" : railNav()}${topBar()}${statusStrip()}<div class="page-area">${page}${panel}</div></div>${drawerFillsWindow() ? chatDrawer() : ""}${win}${toastHtml}`;
+      }
+
+      /* ---------- The switcher and the notes ---------- */
+      const NOTES = {
+        "one-choice":
+          "<strong>One choice, nothing to look at:</strong> answered in place. The recommended option is preselected and marked Recommended, with the reason under the options; “None of these” lets the comment be the answer. The comment stays folded until Add a comment; the general comment is always there. Submit sends it as recommended in one click.",
+        request: "<strong>A Request:</strong> a form of one open question. The card reads “Asked you to: …”, says why, and is answered in words.",
+        mixed:
+          "<strong>Three questions, mixed:</strong> each numbered, each with its own comment. Question 2 is a choice answered by its comment alone: “None of these” is picked, so the words are the answer. The progress line counts what is answered.",
+        grilling:
+          "<strong>8 questions:</strong> past the threshold the card is compact: the context's first line, question 1 with its recommendation, how many follow, and Open details. There is no Accept, as three are open questions. The progress line counts untouched recommendations as answered and leads to the first question without one.",
+        "grilling-window":
+          "<strong>Open details:</strong> a Large window. The questions on the left with each one's answer so far, the picked one on the right; under 900px the list becomes a row of numbers above it. The general comment and Submit, Ask me again and Close are in the bar. Switch “Long form's window” to see one scrolling form, the alternative for the Gate. Closing keeps the draft: no “Close without saving?”.",
+        attachments:
+          "<strong>With Attachments:</strong> compact even with one question: the pictures are what the user looks at first, in the window. Accept is there, as every question is a choice: it sends every recommended option and no comments.",
+        "not-ready":
+          "<strong>Submit not ready:</strong> question 3 has no answer, so Submit is disabled and says which on hover (pinned open here). The progress line's link jumps to it.",
+        "ask-again":
+          "<strong>Ask me again:</strong> a step over the actions asks for the general comment (“What should Jim explain or change?”), optional. Only that comment is sent; the picks already made stay as a draft until something is sent, and Cancel goes back to them.",
+        office:
+          "<strong>The Office's own Decision:</strong> a form of one choice, asked by The Office in a Stage, so on a Task only. No Ask me again: nobody is there to ask again.",
+        answered:
+          "<strong>Answered, as it stays in the Thread:</strong> read-only where it was asked, each question with its answer (“(recommended)” when it was), its comment, then the general comment and who answered. Past 3 questions it folds to “Show all 8”. Switch “Answered by” for another user, the Consultant and an answer given at your request.",
+        "asked-again":
+          "<strong>Asked again:</strong> the first form stays, closed, with “Asked again by you” and the general comment; the new form follows it in the Thread.",
+        closed: "<strong>Closed:</strong> the Task was dropped, so the Decision left Needs you unanswered and its card says why.",
+        "consultation":
+          "<strong>Put to a Consultant:</strong> it waits on Michael in a Consultation; the card says so, and answering here takes it over, which happens only on a Task. The Thread links to the Consultation.",
+        "still-answering":
+          "<strong>Still answering:</strong> Submit and Ask me again are disabled and say why, as nothing is answered while the asker answers. In an Initiative's planning Thread (Place: Initiative's Thread) they stay enabled, with “Reaches Angela when this turn ends.”",
+        refused: "<strong>Refused:</strong> the answer wasn't sent; an Alert says why and the draft is kept. Submit again sends it.",
+        approval:
+          "<strong>With an approval:</strong> a call past a Hard switch is a card of its own beside the form in Needs you and the Needs you panel, with Allow once and Deny: one question, no comments, never inside a form. A Thread on a Task holds one Decision at a time, so it comes from Jim's Build Stage, not from the Thread the form waits in.",
+      };
+      const PLACE_NOTES = {
+        task: "<strong>Place: a Task's Needs you.</strong> The card is answered here; the Thread shows it in short with the way back.",
+        thread:
+          "<strong>Place: the Task's Thread.</strong> In short while it waits, whole once answered or asked again. Under 845px the conversation is a drawer, open here.",
+        panel:
+          "<strong>Place: the Needs you panel, over Now.</strong> Each entry is one line (Decision · questions · who · when) and its Task, then the same card, answered as in Needs you. The draft is one per Decision: what you pick here shows on the Task too.",
+        initiative:
+          "<strong>Place: an Initiative's planning Thread.</strong> A Decision on no Task is answered in the Thread and listed in the Needs you panel under the Initiative's title; an earlier one names the Task it is on, and shows on that Task's page as well.",
+        chat: "<strong>Place: inline in a chat.</strong> Answered and sent in place: no Needs you card, no Notification, and the status strip's Needs you doesn't count it.",
+      };
+      function control(label, inner) {
+        return `<div class="control"><span class="control-label">${label}</span>${inner}</div>`;
+      }
+      function segments(name, options, current, unavailable = () => null) {
+        const buttons = options
+          .map(([value, label]) => {
+            const why = unavailable(value);
+            const off = why ? ` disabled title="${esc(why)}"` : "";
+            return `<button data-action="set" data-name="${name}" data-value="${value}" aria-pressed="${value === current}"${off}>${label}</button>`;
+          })
+          .join("");
+        return `<div class="segments" role="group">${buttons}</div>`;
+      }
+      function barHtml() {
+        let html = `<span class="bar-title">The Decision form card</span><span class="bar-tag">Proposed</span>`;
+        html += control("Place", segments("place", PLACES, state.place));
+        html += `<span class="bar-break"></span>`;
+        html += control(
+          "Scenario",
+          segments("scenario", SCENARIOS, state.scenario, (value) => (scenarioFits(value, state.place) ? null : TASK_ONLY[value])),
+        );
+        html += `<span class="bar-break"></span>`;
+        html += control("Width", segments("width", [["wide", "Wide"], ["900", "900px"], ["390", "390px"]], state.width));
+        html += control("Palette", segments("palette", [["light", "Light"], ["dark", "Dark"]], state.palette));
+        html += control("Long form's window", segments("layout", [["list", "List and details"], ["scroll", "One scrolling form"]], state.layout));
+        if (state.scenario === "answered") {
+          html += control(
+            "Answered by",
+            segments(
+              "answeredBy",
+              [["you", "You"], ["ana", "Ana, another user"], ["consultant", "Michael, a Consultant"], ["pam", "Pam at your request"]],
+              state.answeredBy,
+            ),
+          );
+        }
+        html += `<button class="reset" data-action="reset">Reset the scenario</button>`;
+        return html;
+      }
+
+      /* ---------- Rendering ---------- */
+      function render({ keepScroll = true } = {}) {
+        const frame = document.getElementById("frame");
+        const saved = {};
+        if (keepScroll) frame.querySelectorAll("[data-scroll]").forEach((el) => (saved[el.dataset.scroll] = el.scrollTop));
+        const restore = focusedSelector();
+        document.documentElement.dataset.palette = state.palette;
+        document.documentElement.dataset.theme = state.palette;
+        document.getElementById("bar").innerHTML = barHtml();
+        document.getElementById("note").innerHTML = `${NOTES[state.scenario]} ${PLACE_NOTES[state.place]}`;
+        frame.className = `frame w-${state.width}`;
+        frame.innerHTML = appHtml();
+        frame.querySelectorAll("[data-scroll]").forEach((el) => {
+          if (saved[el.dataset.scroll] !== undefined) el.scrollTop = saved[el.dataset.scroll];
+        });
+        const focusOn = state.focus || restore;
+        state.focus = null;
+        if (focusOn) {
+          const el = frame.querySelector(focusOn);
+          if (el) el.focus({ preventScroll: true });
+        }
+        if (state.scrollTo) {
+          const el = frame.querySelector(state.scrollTo);
+          state.scrollTo = null;
+          if (el) el.scrollIntoView({ block: "start" });
+        }
+      }
+      /* What had focus, so a re-render after a pick doesn't lose the keyboard's place. */
+      function focusedSelector() {
+        const el = document.activeElement;
+        if (!el || !el.matches) return null;
+        if (el.matches('input[type="radio"]')) return `input[type="radio"][name="${el.name}"][value="${el.value}"]`;
+        if (el.matches("textarea[data-field]")) {
+          const q = el.dataset.q === undefined ? "" : `[data-q="${el.dataset.q}"]`;
+          return `textarea[data-field="${el.dataset.field}"][data-id="${el.dataset.id}"][data-slot="${el.dataset.slot}"]${q}`;
+        }
+        return null;
+      }
+      /* While typing, only what depends on the words changes, so the box keeps its caret. */
+      function refreshLive(d) {
+        document.querySelectorAll(`[data-live="${d.id}"]`).forEach((el) => {
+          const index = Number(el.dataset.q);
+          switch (el.dataset.kind) {
+            case "progress":
+              el.outerHTML = progressLine(d, { slot: el.dataset.slot });
+              break;
+            case "submit":
+              el.outerHTML = submitControl(d, { place: el.dataset.place, slot: el.dataset.slot });
+              break;
+            case "qnum":
+              el.outerHTML = qNumber(d, index);
+              break;
+            case "qrow": {
+              el.textContent = qrowState(d, index);
+              el.classList.toggle("missing", !isAnswered(d.questions[index], draftOf(d).answers[index]));
+              break;
+            }
+            case "strip": {
+              const ok = isAnswered(d.questions[index], draftOf(d).answers[index]);
+              el.classList.toggle("answered", ok);
+              el.classList.toggle("missing", !ok);
+              break;
+            }
+          }
+        });
+      }
+      let toastTimer = null;
+      function say(words) {
+        state.toast = words;
+        render();
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+          state.toast = null;
+          const el = document.querySelector(".toast");
+          if (el) el.remove();
+        }, 2600);
+      }
+
+      /* ---------- What the user does ---------- */
+      function resetScenario() {
+        state.window = null;
+        state.flash = null;
+        state.panelOpen = state.place === "panel";
+        state.convOpen = state.place === "thread" || state.place === "initiative";
+        world = buildWorld(state.scenario);
+      }
+      function setControl(name, value) {
+        if (name === "place") {
+          state.place = value;
+          if (!scenarioFits(state.scenario, value)) {
+            state.scenario = "one-choice";
+            resetScenario();
+          }
+          state.window = state.scenario === "grilling-window" ? (world.decisions.find((d) => d.status === "open")?.id ?? null) : null;
+          state.panelOpen = value === "panel";
+          state.convOpen = value === "thread" || value === "initiative";
+          render({ keepScroll: false });
+          return;
+        }
+        if (name === "scenario") {
+          state.scenario = value;
+          resetScenario();
+          render({ keepScroll: false });
+          return;
+        }
+        state[name] = value;
+        if (name === "answeredBy") resetScenario();
+        render();
+      }
+      function send(d) {
+        if (submitBlock(d, state.place)) return;
+        const draft = draftOf(d);
+        const asker = askerName(d);
+        const later = state.place === "initiative" && world.answering;
+        d.status = "answered";
+        d.result = {
+          by: "you",
+          at: "10:58",
+          answers: draft.answers.map((a) => ({ ...a })),
+          general: draft.general.trim(),
+          pending: later,
+        };
+        drafts.delete(d.id);
+        state.window = null;
+        if (!d.office && !later) world.typing = true;
+        say(later ? `Submitted: it reaches ${asker} when this turn ends` : `Sent to ${asker}`);
+      }
+      function askAgain(d) {
+        const draft = draftOf(d);
+        const later = state.place === "initiative" && world.answering;
+        d.status = "asked-again";
+        d.result = { by: "you", at: "10:58", answers: null, general: draft.general.trim(), pending: later };
+        drafts.delete(d.id);
+        state.window = null;
+        if (later) {
+          say(`Asked again: it reaches ${askerName(d)} when this turn ends`);
+          return;
+        }
+        world.decisions.push(
+          decision(
+            {
+              kind: d.kind,
+              lead: "More on each option in the context below, and the same questions again with that in mind.",
+              context: d.context,
+              attachments: d.attachments,
+              questions: d.questions,
+            },
+            { askedAt: "11:02", putTo: d.putTo },
+          ),
+        );
+        say(`Asked ${askerName(d)} again`);
+      }
+      function openWindow(d, index) {
+        const draft = draftOf(d);
+        state.window = d.id;
+        draft.current = index === null ? 0 : index;
+        if (index !== null && state.layout === "scroll") state.scrollTo = `#q-win-${d.id}-${index}`;
+        render();
+      }
+      function focusQuestion(el) {
+        if (!el) return;
+        const field = el.querySelector("textarea") || el.querySelector("input");
+        if (field) field.focus({ preventScroll: true });
+      }
+      function jumpTo(d, index, slot) {
+        if (state.window === d.id) {
+          draftOf(d).current = index;
+          if (state.layout === "scroll") state.scrollTo = `#q-win-${d.id}-${index}`;
+          render();
+          const detail = document.querySelector(".detail");
+          if (detail && state.layout === "list") detail.scrollTop = 0;
+          focusQuestion(document.getElementById(`q-win-${d.id}-${index}`));
+          return;
+        }
+        if (isCompact(d)) {
+          openWindow(d, index);
+          focusQuestion(document.getElementById(`q-win-${d.id}-${index}`));
+          return;
+        }
+        const el = document.getElementById(`q-${slot}-${d.id}-${index}`);
+        if (!el) return;
+        el.scrollIntoView({ block: "center", behavior: "smooth" });
+        focusQuestion(el);
+      }
+      function goToNeedsYou(id) {
+        if (state.width !== "wide") state.convOpen = false;
+        state.flash = `needs-${id}`;
+        render();
+        const el = document.getElementById(`card-needs-${id}`) || document.getElementById("needs-you");
+        if (el) el.scrollIntoView({ block: "start", behavior: "smooth" });
+        setTimeout(() => {
+          state.flash = null;
+          const card = document.getElementById(`card-needs-${id}`);
+          if (card) card.classList.remove("flash");
+        }, 1600);
+      }
+      function settleApproval(id, status) {
+        const a = world.approvals.find((x) => x.id === id);
+        if (!a) return;
+        a.status = status;
+        say(status === "allowed" ? "Allowed once: Jim's call runs" : "Denied: Jim goes on without it");
+      }
+      const ACTIONS = {
+        set: (t) => setControl(t.dataset.name, t.dataset.value),
+        reset: () => {
+          resetScenario();
+          render({ keepScroll: false });
+        },
+        "open-comment": (t, d, q) => {
+          draftOf(d).answers[q].commentOpen = true;
+          state.focus = `#q-${t.dataset.slot}-${d.id}-${q} textarea[data-field="comment"]`;
+          render();
+        },
+        submit: (t, d) => send(d),
+        accept: (t, d) => {
+          const draft = draftOf(d);
+          draft.answers = blankAnswers(d);
+          draft.general = "";
+          send(d);
+        },
+        "ask-again": (t, d) => {
+          draftOf(d).step = "ask-again";
+          const card = t.closest(".dcard");
+          state.focus = state.window ? `.win textarea[data-field="general"]` : card ? `#${card.id} .ask-again-step textarea` : null;
+          render();
+        },
+        "cancel-step": (t, d) => {
+          draftOf(d).step = null;
+          render();
+        },
+        "ask-again-confirm": (t, d) => askAgain(d),
+        "open-details": (t, d) => openWindow(d, null),
+        "close-window": () => {
+          const d = findDecision(state.window);
+          if (d) draftOf(d).step = null;
+          state.window = null;
+          render();
+        },
+        "win-go": (t) => {
+          const d = findDecision(state.window);
+          const index = Number(t.dataset.q);
+          if (!d || index < 0 || index >= d.questions.length) return;
+          draftOf(d).current = index;
+          if (state.layout === "scroll") state.scrollTo = `#q-win-${d.id}-${index}`;
+          render();
+          const detail = document.querySelector(".detail");
+          if (detail && state.layout === "list") detail.scrollTop = 0;
+          focusQuestion(document.getElementById(`q-win-${d.id}-${index}`));
+        },
+        "toggle-context": (t, d) => {
+          const draft = draftOf(d);
+          draft.contextOpen = !draft.contextOpen;
+          render();
+        },
+        jump: (t, d, q) => jumpTo(d, q, t.dataset.slot),
+        "show-all": (t, d) => {
+          showAll.add(d.id);
+          render();
+        },
+        "go-needs-you": (t) => goToNeedsYou(t.dataset.id),
+        "toggle-conv": () => {
+          state.convOpen = !state.convOpen;
+          render();
+        },
+        "toggle-panel": () => {
+          state.panelOpen = !state.panelOpen;
+          render();
+        },
+        "close-panel": () => {
+          state.panelOpen = false;
+          render();
+        },
+        allow: (t) => settleApproval(t.dataset.id, "allowed"),
+        deny: (t) => settleApproval(t.dataset.id, "denied"),
+        "copy-link": () => say("Link copied"),
+        toast: (t) => say(t.dataset.words),
+      };
+      document.addEventListener("click", (event) => {
+        const target = event.target.closest("[data-action]");
+        if (!target || target.disabled) return;
+        const handler = ACTIONS[target.dataset.action];
+        if (!handler) return;
+        const d = target.dataset.id ? findDecision(target.dataset.id) || null : null;
+        const q = target.dataset.q === undefined ? null : Number(target.dataset.q);
+        handler(target, d, q);
+      });
+      document.addEventListener("change", (event) => {
+        const el = event.target;
+        if (!el.matches('input[type="radio"][data-id]')) return;
+        const d = findDecision(el.dataset.id);
+        if (!d) return;
+        const answer = draftOf(d).answers[Number(el.dataset.q)];
+        answer.pick = el.value === "none" ? "none" : Number(el.value);
+        if (answer.pick === "none") state.focus = `#${el.closest(".q").id} textarea[data-field="comment"]`;
+        render();
+      });
+      document.addEventListener("input", (event) => {
+        const el = event.target;
+        if (!el.matches("textarea[data-field]")) return;
+        const d = findDecision(el.dataset.id);
+        if (!d) return;
+        const draft = draftOf(d);
+        if (el.dataset.field === "general") draft.general = el.value;
+        else draft.answers[Number(el.dataset.q)][el.dataset.field] = el.value;
+        refreshLive(d);
+      });
+      /* Esc closes one thing: the window's step, then the window, then the side panel opened last. */
+      document.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape") return;
+        if (state.window) {
+          const d = findDecision(state.window);
+          if (d && draftOf(d).step) draftOf(d).step = null;
+          else state.window = null;
+        } else if (state.panelOpen) {
+          state.panelOpen = false;
+        } else if (state.convOpen && state.width !== "wide") {
+          state.convOpen = false;
+        } else {
+          return;
+        }
+        render();
+      });
+
+      /* ---------- Under the frame: what the parts are ---------- */
+      const REFERENCE = `
+        <div>
+          <h2>The card, top to bottom</h2>
+          <ul>
+            <li><b>Head:</b> the Decision badge (amber while it waits), who asks (The Office has its own mark), “to” and the Consultant when put to one, “· 3 questions”, when it was asked, Copy link on a Task.</li>
+            <li><b>Context</b> at reading width; a Request reads “Asked you to: …” instead.</li>
+            <li><b>Each question</b>, numbered when there are several. Its number turns green once answered and is dashed amber while it needs an answer. A choice is <code>RadioList</code>: one boxed line per option, the recommended one preselected with a “Recommended” <code>Badge</code>, then “None of these: answer in words”, then “Jim recommends “…”: why”. An open question is a <code>Textarea</code>. Under each, <b>Add a comment</b> (a <code>TextButton</code>) opens its comment.</li>
+            <li><b>General comment</b>, always shown, optional.</li>
+            <li><b>Submit</b> (primary), <b>Ask me again</b>, and with several questions the <b>progress line</b> at the right: “2 of 3 answered”, a small meter, and “Question 3 needs an answer”, which jumps there.</li>
+            <li><b>Hints</b> in small type: still answering, reaches when the turn ends, “A question first? Ask Jim in the Thread”.</li>
+          </ul>
+        </div>
+        <div>
+          <h2>Compact card and the window</h2>
+          <p><b>Compact</b> when the form has <b>more than 3 questions or any Attachment</b> (the threshold, open for the Gate). It shows the context's first line, question 1 with its recommendation and reason, how many follow, and <b>Open details</b>; <b>Accept</b> too while every question is a choice and nothing was changed. Once the draft differs, Accept goes and a “Draft kept · 2 changes” badge shows, so one click never throws away what was picked.</p>
+          <p><b>Open details</b> is a Large <code>Dialog</code> of one height: the questions on the left, each with its answer so far, the picked one on the right with Previous and Next; the context folds above it. Under 900px the list becomes a row of numbers above the question. The general comment, Submit, Ask me again and Close are in the bar; Ask me again's step opens over it.</p>
+          <p><b>One scrolling form</b> is the alternative for the Gate: the same form as in place, numbered, with the progress line pinned at the top.</p>
+        </div>
+        <div>
+          <h2>Drafts</h2>
+          <p>A form's picks and words are kept per Decision, in this browser, while the user moves between Needs you, the panel, Now and the window: the same draft shows wherever the card does. Closing the window keeps it, so the window doesn't ask “Close without saving?”: this is its exception to spec 4.1, which lets a window say otherwise. Submit and Ask me again end the draft; a refused send keeps it.</p>
+          <h2>The approval</h2>
+          <p>A call past a Hard switch stays a card of its own, red-edged, with the command whole, why, the Hard switch's words, and <b>Allow once</b> and <b>Deny</b>. It has no comment, no Ask me again and never joins a form; it sits beside the form in Needs you and the Needs you panel. A Thread on a Task holds one Decision at a time, a form counting as one, so the approval waits in another Thread on the Task, its Stage's, which its head names (“· in Build”).</p>
+        </div>
+        <div>
+          <h2>Words</h2>
+          <table>
+            <tr><th>Where</th><th>Words</th></tr>
+            <tr><td>Submit, a question unanswered</td><td>“Answer question 3 first”; one question: “Pick an option or write your answer first”</td></tr>
+            <tr><td>A choice answered in words, still empty</td><td>“Answer question 2 in its words first”</td></tr>
+            <tr><td>The asker answering</td><td>“Jim is still answering. Answer once they finish.”</td></tr>
+            <tr><td>Planning Thread, while answering</td><td>“Reaches Angela when this turn ends.”</td></tr>
+            <tr><td>Ask me again's step</td><td>“What should Jim explain or change?”, Optional</td></tr>
+            <tr><td>In the Thread, waiting</td><td>“Waits on you. Answer it in Needs you”</td></tr>
+            <tr><td>Answered</td><td>“Answered by you”, another user's name (“Answered by Ana”), “by Michael in a Consultation”, “by Pam at your request”</td></tr>
+            <tr><td>Asked again</td><td>“Asked again by you: …”</td></tr>
+            <tr><td>Closed</td><td>“Closed: the Task was dropped”</td></tr>
+            <tr><td>Consultation</td><td>“Waiting on Michael in a Consultation. Answer here to take it over.” (on a Task only)</td></tr>
+            <tr><td>Planning Thread, sent while answering</td><td>“Reaches Angela when this turn ends.” under the outcome</td></tr>
+            <tr><td>Refused</td><td>“The answer wasn't sent” and the reason</td></tr>
+          </table>
+        </div>`;
+
+      document.getElementById("reference").innerHTML = REFERENCE;
+      resetScenario();
+      render({ keepScroll: false });
+    </script>
+  </body>
+</html>

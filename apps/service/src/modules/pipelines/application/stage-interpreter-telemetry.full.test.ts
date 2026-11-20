@@ -7,8 +7,10 @@ import {
   TracerProvider,
   type ReadableSpan,
 } from "@opentelemetry/sdk-trace";
+import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
+import { aTaskRecord } from "../ports/pipelines-ports.fixtures.js";
 import {
   aDoneResult,
   anAgentSession,
@@ -71,7 +73,11 @@ describe("the Stage interpreter's telemetry", () => {
     const stages = named("stage");
     const engineCalls = named("engine call");
     expect(first?.parentSpanContext).toBeUndefined();
-    expect(first?.attributes).toMatchObject({ "office.task.id": taskId });
+    expect(first?.attributes).toMatchObject({
+      "office.task": taskId,
+      "office.pipeline": "for-tests",
+    });
+    expect(first?.attributes).not.toHaveProperty("office.task.id");
     expect(idOf(first) && again?.parentSpanContext?.spanId).toBe(idOf(first));
     const traceIds = new Set(
       [first, again, ...stages, ...engineCalls].map((span) => span?.spanContext().traceId),
@@ -87,5 +93,25 @@ describe("the Stage interpreter's telemetry", () => {
     ]);
     const engineCallParents = new Set(engineCalls.map((span) => span.parentSpanContext?.spanId));
     expect(engineCallParents).toEqual(new Set(stages.map(idOf)));
+  });
+
+  it("asks each Stage Thread for the Task's Initiative, the run's number and the Pipeline's and Project's names", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+    const initiativeId = "33333333-3333-4333-8333-333333333333";
+    const taskId = randomUUID();
+    pipelines.records.put(taskId, aTaskRecord({ initiativeId }));
+    await walkStages(pipelines, [anAgentStage("draft")], taskId);
+
+    expect(pipelines.stageThreads.requests).toEqual([
+      expect.objectContaining({
+        taskId,
+        initiativeId,
+        stageName: "draft",
+        stageRun: 1,
+        // The Pipeline the test walks is in no library, so it goes by its id.
+        pipelineName: "for-tests",
+        projectName: "Admin panel",
+      }),
+    ]);
   });
 });

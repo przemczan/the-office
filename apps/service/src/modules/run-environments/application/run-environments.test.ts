@@ -1,4 +1,4 @@
-import { readFile, rm } from "node:fs/promises";
+import { readFile, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -91,6 +91,20 @@ describe("RunEnvironments.prepare", () => {
       dockerfile: "Dockerfile",
       labels: officeLabels(testbed.folders.instance),
     });
+  });
+
+  it("makes the Task's Stage runs' folder before it starts, as a missing bind source fails", async () => {
+    const task = await taskWithDefinition("task-1");
+    const up = runtime.up.bind(runtime);
+    let madeBeforeUp = false;
+    runtime.up = async (project, outputFile) => {
+      madeBeforeUp = (await stat(task.stageRunsFolder)).isDirectory();
+      return up(project, outputFile);
+    };
+
+    await testbed.environments.prepare(task, outputOf("prepare"));
+
+    expect(madeBeforeUp).toBe(true);
   });
 });
 

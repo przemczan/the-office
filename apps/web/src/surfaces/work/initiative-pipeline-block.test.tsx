@@ -99,7 +99,7 @@ const PROJECTS = [
     name: "Admin panel",
     mark: { label: "AP", colour: "teal" },
     baseBranch: "main",
-    defaultPipeline: "",
+    defaultPipeline: "reviewed",
     publishingMode: "pull-request",
     commands: [],
   },
@@ -138,6 +138,7 @@ const PUBLISHING = {
   projectId: "admin-panel",
   initiativeId: INITIATIVE.id,
   madeFor: "publishing",
+  resolvesTaskId: null,
   pipelineId: REVIEWED.id,
   state: "in-progress",
   blockedBy: [],
@@ -216,6 +217,46 @@ function blockOf(page: HTMLElement, projectName: string): HTMLElement {
   return block;
 }
 
+function buttonNamed(page: HTMLElement, name: string): HTMLButtonElement | undefined {
+  return [...page.querySelectorAll("button")].find(({ textContent }) =>
+    textContent.trim().startsWith(name),
+  );
+}
+
+/** Edit in the block's head, there only while shaping and not editing. */
+function editButton(page: HTMLElement): HTMLButtonElement | undefined {
+  return buttonNamed(page, "Edit");
+}
+
+function stepTitles(page: HTMLElement): string[] {
+  return [...page.querySelectorAll("form section")].map(
+    (step) => step.getAttribute("aria-label") ?? "",
+  );
+}
+
+function switchOf(page: HTMLElement, projectName: string): HTMLElement {
+  const row = [
+    ...page.querySelectorAll<HTMLElement>('[aria-label="Initiative\'s branch, per Project"] li'),
+  ].find((candidate) => candidate.textContent.includes(projectName));
+  const found = row?.querySelector<HTMLElement>('[role="switch"]');
+  if (!found) throw new Error(`There is no switch for ${projectName}.`);
+  return found;
+}
+
+function shortNameField(page: HTMLElement): HTMLInputElement {
+  const field = page.querySelector<HTMLInputElement>('input[aria-label="Short name"]');
+  if (!field) throw new Error("There is no Short name field.");
+  return field;
+}
+
+function typeShortName(page: HTMLElement, text: string): void {
+  const field = shortNameField(page);
+  act(() => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(field, text);
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
 function pickerOf(page: HTMLElement, projectName: string): HTMLButtonElement {
   const picker = page.querySelector<HTMLButtonElement>(
     `[role="combobox"][aria-label="${projectName}'s Pipeline"]`,
@@ -251,100 +292,192 @@ describe("the Initiative's Pipelines card", () => {
     localStorage.clear();
   });
 
-  it("starts on None in each Project while shaping and says Confirm fixes it", async () => {
+  it("while shaping with no branch, reads as words with Edit in its head and no control", async () => {
     const page = await rendered(INITIATIVE);
 
+    expect(page.textContent).toContain("No Initiative's branch.");
     expect(page.textContent).toContain(
-      "Each Project publishes through a Pipeline of its own, or None. Whether a Project has one is fixed at Confirm.",
+      "Press Edit to work on an Initiative's branch instead and publish the whole change at once, through a Pipeline.",
     );
-    expect(pickerOf(page, "Admin panel").textContent).toBe("None");
-    expect(pickerOf(page, "Website").textContent).toBe("None");
-    expect(blockOf(page, "Website").textContent).toContain(
-      "None: its Tasks publish on their own, each as it is done.",
-    );
-    expect(page.textContent).not.toContain("Short name");
+    expect(page.querySelector('[role="combobox"]')).toBeNull();
+    expect(page.querySelector('[role="switch"]')).toBeNull();
+    expect(page.querySelector('[aria-label="Projects"]')).toBeNull();
+    expect(editButton(page)).toBeDefined();
   });
 
-  it("groups each Project's choices as a Task's picker does, with its own Project Pipelines only", async () => {
+  it("after Edit asks in order: the branch per Project, its name, then each Pipeline, dimmed until a Project is on", async () => {
     const page = await rendered(INITIATIVE);
 
-    expect(groupsOffered(page, "Admin panel")).toEqual([
-      ["No Pipeline", "None"],
-      ["Admin panel's Pipelines", "Admin's reviewed"],
-      ["Office-wide Pipelines", "Reviewed release", "Straight out"],
+    act(() => editButton(page)?.click());
+
+    expect(editButton(page)).toBeUndefined();
+    expect(stepTitles(page)).toEqual([
+      "Work on an Initiative's branch?",
+      "Branch name",
+      "Pipeline",
     ]);
-    expect(groupsOffered(page, "Website")).toEqual([
-      ["No Pipeline", "None"],
-      ["Office-wide Pipelines", "Reviewed release", "Straight out"],
-    ]);
-  });
-
-  it("sends the Pipeline chosen for one Project and shows it at once", async () => {
-    const chosen: Initiative = {
-      ...INITIATIVE,
-      pipelines: [{ projectId: "admin-panel", pipelineId: ADMINS_OWN.id }],
-      shortName: "usage-exports",
-    };
-    const fetched = vi.fn<typeof fetch>(() => Promise.resolve(Response.json(chosen)));
-    vi.stubGlobal("fetch", fetched);
-    const page = await rendered(INITIATIVE);
-
-    act(() => pickerOf(page, "Admin panel").click());
-    await act(async () => {
-      optionNamed("Admin's reviewed").click();
-      await new Promise((resolve) => setTimeout(resolve));
-    });
-
-    const [url, request] = fetched.mock.calls[0] ?? [];
-    expect(url).toBe(`/api/initiatives/${INITIATIVE.id}/pipeline`);
-    expect(request?.method).toBe("PUT");
-    expect(request?.body).toBe(
-      JSON.stringify({ projectId: "admin-panel", pipelineId: ADMINS_OWN.id }),
+    expect(switchOf(page, "Admin panel").getAttribute("aria-checked")).toBe("false");
+    expect(switchOf(page, "Website").getAttribute("aria-checked")).toBe("false");
+    expect(page.textContent).toContain(
+      "Only with an Initiative's branch: switch a Project on above.",
     );
-    expect(pickerOf(page, "Admin panel").textContent).toBe("Admin's reviewed");
-    expect(blockOf(page, "Admin panel").textContent).toContain("3 Stages, 1 Gate");
-    expect(pickerOf(page, "Website").textContent).toBe("None");
+    expect(page.querySelector("input")).toBeNull();
+    expect(page.querySelector('[role="combobox"]')).toBeNull();
   });
 
-  it("shows the Short name once a Project has a Pipeline, and saves an edited one", async () => {
-    const withPipeline: Initiative = {
+  it("switching a Project on picks its Project default Pipeline and names the branch from the title; Save sends it all at once", async () => {
+    const saved: Initiative = {
       ...INITIATIVE,
       pipelines: [{ projectId: "admin-panel", pipelineId: REVIEWED.id }],
       shortName: "usage-exports",
     };
-    const fetched = vi.fn<typeof fetch>(() =>
-      Promise.resolve(Response.json({ ...withPipeline, shortName: "exports" })),
-    );
+    const fetched = vi.fn<typeof fetch>(() => Promise.resolve(Response.json(saved)));
     vi.stubGlobal("fetch", fetched);
-    const page = await rendered(withPipeline);
-    expect(page.textContent).toContain("usage-exports");
-    expect(blockOf(page, "Admin panel").textContent).toContain(
-      "initiative/usage-exports· made at Confirm",
-    );
-    expect(blockOf(page, "Website").textContent).not.toContain("initiative/usage-exports");
+    const page = await rendered(INITIATIVE);
+    act(() => editButton(page)?.click());
 
-    const edit = [...page.querySelectorAll("button")].find(({ textContent }) =>
-      textContent.startsWith("Edit"),
-    );
-    act(() => edit?.click());
-    const field = page.querySelector<HTMLInputElement>('input[maxlength="40"]');
-    if (!field) throw new Error("There is no Short name field.");
-    act(() => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(
-        field,
-        "exports",
-      );
-      field.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-    expect(page.textContent).toContain("initiative/exports");
+    act(() => switchOf(page, "Admin panel").click());
+
+    expect(switchOf(page, "Admin panel").getAttribute("aria-checked")).toBe("true");
+    expect(shortNameField(page).value).toBe("usage-exports");
+    expect(page.textContent).toContain("Works on initiative/usage-exports, published into main");
+    expect(pickerOf(page, "Admin panel").textContent).toBe("Reviewed release");
+    expect(page.querySelector('[aria-label="Website\'s Pipeline"]')).toBeNull();
     await act(async () => {
-      field.form?.requestSubmit();
+      shortNameField(page).form?.requestSubmit();
       await new Promise((resolve) => setTimeout(resolve));
     });
 
-    const [url, request] = fetched.mock.calls[0] ?? [];
-    expect(url).toBe(`/api/initiatives/${INITIATIVE.id}/short-name`);
-    expect(request?.body).toBe(JSON.stringify({ shortName: "exports" }));
+    const saves = fetched.mock.calls.filter(([, request]) => request?.method === "PUT");
+    expect(saves).toHaveLength(1);
+    const [url, request] = saves[0] ?? [];
+    expect(url).toBe(`/api/initiatives/${INITIATIVE.id}/pipelines`);
+    expect(request?.method).toBe("PUT");
+    expect(request?.body).toBe(
+      JSON.stringify({
+        pipelines: [
+          { projectId: "admin-panel", pipelineId: REVIEWED.id },
+          { projectId: "website", pipelineId: null },
+        ],
+        shortName: "usage-exports",
+      }),
+    );
+    expect(page.querySelector("form")).toBeNull();
+    expect(page.textContent).toContain("initiative/usage-exports");
+    expect(blockOf(page, "Admin panel").textContent).toContain(
+      "Reviewed release · 3 Stages, 1 Gate",
+    );
+  });
+
+  it("offers each Project's choices as a Task's picker does, with no None", async () => {
+    const page = await rendered(INITIATIVE);
+    act(() => editButton(page)?.click());
+    act(() => switchOf(page, "Admin panel").click());
+    act(() => switchOf(page, "Website").click());
+
+    expect(groupsOffered(page, "Admin panel")).toEqual([
+      ["Admin panel's Pipelines", "Admin's reviewed"],
+      ["Office-wide Pipelines", "Reviewed release", "Straight out"],
+    ]);
+    expect(groupsOffered(page, "Website")).toEqual([
+      ["Office-wide Pipelines", "Reviewed release", "Straight out"],
+    ]);
+  });
+
+  it("checks before it sends: a Project on with no Pipeline, and a branch name out of form", async () => {
+    const fetched = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetched);
+    const page = await rendered(INITIATIVE);
+    act(() => editButton(page)?.click());
+    act(() => switchOf(page, "Website").click());
+    typeShortName(page, "Usage exports");
+
+    expect(pickerOf(page, "Website").textContent).toBe("Choose a Pipeline");
+    act(() => shortNameField(page).form?.requestSubmit());
+
+    expect(fetched).not.toHaveBeenCalled();
+    expect(page.textContent).toContain(
+      "Choose a Pipeline: a Project on an Initiative's branch publishes through one.",
+    );
+    expect(page.textContent).toContain("Use only lower-case a–z, 0–9 and -");
+    expect(shortNameField(page).getAttribute("aria-invalid")).toBe("true");
+
+    act(() => pickerOf(page, "Website").click());
+    act(() => optionNamed("Straight out").click());
+    expect(pickerOf(page, "Website").textContent).toBe("Straight out");
+    expect(page.textContent).not.toContain(
+      "Choose a Pipeline: a Project on an Initiative's branch",
+    );
+    expect(page.textContent).toContain("Publishes without your review");
+
+    typeShortName(page, "usage-exports");
+    expect(page.textContent).not.toContain("Use only lower-case a–z, 0–9 and -");
+    expect(shortNameField(page).getAttribute("aria-invalid")).toBe("false");
+    expect(shortNameField(page).required).toBe(true);
+  });
+
+  it("Cancel throws the draft away", async () => {
+    const fetched = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetched);
+    const page = await rendered(INITIATIVE);
+    act(() => editButton(page)?.click());
+    act(() => switchOf(page, "Admin panel").click());
+
+    act(() => buttonNamed(page, "Cancel")?.click());
+
+    expect(fetched).not.toHaveBeenCalled();
+    expect(page.querySelector("form")).toBeNull();
+    expect(page.textContent).toContain("No Initiative's branch.");
+    act(() => editButton(page)?.click());
+    expect(switchOf(page, "Admin panel").getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("switching every Project off saves None everywhere and no Short name", async () => {
+    const withBranch: Initiative = {
+      ...INITIATIVE,
+      pipelines: [{ projectId: "admin-panel", pipelineId: REVIEWED.id }],
+      shortName: "usage-exports",
+    };
+    const fetched = vi.fn<typeof fetch>(() => Promise.resolve(Response.json(INITIATIVE)));
+    vi.stubGlobal("fetch", fetched);
+    const page = await rendered(withBranch);
+    act(() => editButton(page)?.click());
+    expect(shortNameField(page).value).toBe("usage-exports");
+
+    act(() => switchOf(page, "Admin panel").click());
+    await act(async () => {
+      page.querySelector("form")?.requestSubmit();
+      await new Promise((resolve) => setTimeout(resolve));
+    });
+
+    const [, request] = fetched.mock.calls[0] ?? [];
+    expect(request?.body).toBe(
+      JSON.stringify({
+        pipelines: [
+          { projectId: "admin-panel", pipelineId: null },
+          { projectId: "website", pipelineId: null },
+        ],
+        shortName: null,
+      }),
+    );
+  });
+
+  it("while shaping reads the branch and the Projects publishing Task by Task as facts", async () => {
+    const page = await rendered({
+      ...INITIATIVE,
+      pipelines: [{ projectId: "admin-panel", pipelineId: REVIEWED.id }],
+      shortName: "usage-exports",
+    });
+
+    const facts = page.querySelector("dl");
+    expect(facts?.textContent).toContain(
+      "Initiative's branchinitiative/usage-exportsmade at Confirmin Admin panel",
+    );
+    expect(facts?.textContent).toContain("Task by TaskWEWebsitepublishes each Task on its own");
+    expect(blockOf(page, "Admin panel").textContent).toContain(
+      "Reviewed release · 3 Stages, 1 Gate",
+    );
+    expect(page.querySelector('li[aria-label="Website"]')).toBeNull();
   });
 
   it("warns in that Project's block that a Pipeline without a Gate publishes without your review", async () => {
@@ -362,20 +495,20 @@ describe("the Initiative's Pipelines card", () => {
     expect(blockOf(page, "Website").textContent).toContain("published into trunk");
   });
 
-  it("once confirmed shows each Project's Pipeline or None, and its branch, read-only", async () => {
+  it("once confirmed has no Edit, and shows the branch and each Project's Pipeline read-only", async () => {
     const page = await rendered(ACTIVE);
 
+    expect(editButton(page)).toBeUndefined();
     expect(page.querySelector('[role="combobox"]')).toBeNull();
+    expect(page.querySelector("dl")?.textContent).toContain("initiative/usage-exports");
+    expect(page.querySelector("dl")?.textContent).toContain("Task by TaskWEWebsite");
     const admin = blockOf(page, "Admin panel");
     expect(admin.textContent).toContain("Reviewed release · 3 Stages, 1 Gate");
     expect(admin.textContent).toContain("No Publishing Task yet");
-    expect(admin.textContent).toContain("initiative/usage-exports");
     expect(
       admin.querySelector('[role="group"][aria-label="Reviewed release in Admin panel"]'),
     ).not.toBeNull();
-    const website = blockOf(page, "Website");
-    expect(website.textContent).toContain("None · publishes Task by Task");
-    expect(website.textContent).not.toContain("initiative/usage-exports");
+    expect(page.querySelector('li[aria-label="Website"]')).toBeNull();
     expect(page.textContent).toContain(
       "Another Pipeline for a Project comes by a Proposal of whoever shapes Initiatives.",
     );

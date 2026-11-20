@@ -3,7 +3,9 @@ import type { OnModuleDestroy } from "@nestjs/common";
 import { KeyedLocks } from "../../../../platform/locks/keyed-locks.js";
 import type { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
+import type { AnthropicApiKey } from "../../domain/anthropic-api-key.js";
 import {
+  API_KEY_ACCOUNT,
   engineAccountOf,
   EngineAccountUnreadable,
   type EngineAccount,
@@ -21,10 +23,14 @@ import {
   preparedEngineConfigFolder,
   engineIdsWithConfigFolders,
   removeEngineConfigFolder,
-} from "./engine-config-folder.js";
+} from "../engine-folders/engine-config-folder.js";
 import {
+  apiKeyFileOf,
+  holdsLogin,
   holdsPastedToken,
+  removeApiKey,
   removeEngineCredentials,
+  writeApiKey,
   writePastedToken,
 } from "./engine-credentials.js";
 import { sessionEnvironment } from "./session-settings.js";
@@ -50,8 +56,9 @@ const SIGN_IN_PAGE = /visit:\s*(https:\/\/\S+)/;
  * The accounts of the Claude Code engines through the binary's `auth` commands, each run with
  * `CLAUDE_CONFIG_DIR` on the engine's folder. With no TTY the login opens the browser where there is
  * a display (`BROWSER` names another opener), waits for its callback on `localhost`, and also takes
- * a code pasted on its input, which is how a browser on another machine signs in. A pasted token
- * and Sign out change the folder's login file directly, as the binary has no command for either.
+ * a code pasted on its input, which is how a browser on another machine signs in. A pasted token,
+ * an API key and Sign out change the folder's login files directly, as the binary has no command
+ * for them. Logins are exclusive: each change removes what signed the folder in before.
  */
 export class ClaudeCodeCliAccounts extends ClaudeCodeAccounts implements OnModuleDestroy {
   private readonly signIns = new Map<EngineId, RunningSignIn>();
@@ -69,8 +76,13 @@ export class ClaudeCodeCliAccounts extends ClaudeCodeAccounts implements OnModul
     super();
   }
 
+  /**
+   * An API key signs the folder in while it holds one: `auth status` runs without the session
+   * settings, whose `apiKeyHelper` reads it, so it would say signed out.
+   */
   async account(engineId: EngineId): Promise<EngineAccount> {
     const folder = await preparedEngineConfigFolder(this.officeData, engineId);
+    if ((await apiKeyFileOf(folder)) !== undefined) return API_KEY_ACCOUNT;
     const env = sessionEnvironment(this.environment, folder);
     const { command, args } = this.cli();
     const output = await new Promise<string>((resolve, reject) => {
@@ -91,6 +103,10 @@ export class ClaudeCodeCliAccounts extends ClaudeCodeAccounts implements OnModul
     return engineAccountOf(output, await holdsPastedToken(folder));
   }
 
+  async signedInByApiKey(engineId: EngineId): Promise<boolean> {
+    return (await apiKeyFileOf(ownEngineConfigFolder(this.officeData, engineId))) !== undefined;
+  }
+
   async signIn(engineId: EngineId): Promise<SignIn> {
     const running = await this.loginChanges.run(engineId, async () => {
       await this.signIns.get(engineId)?.end();
@@ -103,13 +119,15 @@ export class ClaudeCodeCliAccounts extends ClaudeCodeAccounts implements OnModul
       });
       const started = new RunningSignIn(child, this.processTrees);
       this.signIns.set(engineId, started);
-      void started.ended.then(() => this.forget(engineId, started));
       return started;
     });
+    const ended = running.ended.then(() => this.afterSignIn(engineId, running));
     try {
-      return { url: await running.page, ended: running.ended };
+      return { url: await running.page, ended };
     } catch (error) {
       await running.end();
+      // Nobody waits for a Sign in that never gave its page; its clean-up only tidies the folder.
+      void ended.catch(() => undefined);
       throw error;
     }
   }
@@ -126,6 +144,15 @@ export class ClaudeCodeCliAccounts extends ClaudeCodeAccounts implements OnModul
       const folder = ownEngineConfigFolder(this.officeData, engineId);
       await preparedEngineConfigFolder(this.officeData, engineId);
       await writePastedToken(folder, token, new Date());
+    });
+  }
+
+  setApiKey(engineId: EngineId, key: AnthropicApiKey): Promise<void> {
+    return this.loginChanges.run(engineId, async () => {
+      await this.signIns.get(engineId)?.end();
+      const folder = ownEngineConfigFolder(this.officeData, engineId);
+      await preparedEngineConfigFolder(this.officeData, engineId);
+      await writeApiKey(folder, key);
     });
   }
 
@@ -155,9 +182,18 @@ export class ClaudeCodeCliAccounts extends ClaudeCodeAccounts implements OnModul
     await Promise.all([...this.signIns.values()].map((running) => running.end()));
   }
 
-  /** Forgets an ended login, unless another Sign in has taken its place. */
-  private forget(engineId: EngineId, running: RunningSignIn): boolean {
-    return this.signIns.get(engineId) === running && this.signIns.delete(engineId);
+  /**
+   * Forgets an ended login, unless another Sign in has taken its place, and removes any API key once
+   * it signed the folder in. A login ended by a pasted token, an API key or Sign out is ended under
+   * the lock before that change, so this runs after it and finds the change's files.
+   */
+  private afterSignIn(engineId: EngineId, running: RunningSignIn): Promise<void> {
+    return this.loginChanges.run(engineId, async () => {
+      if (this.signIns.get(engineId) !== running) return;
+      this.signIns.delete(engineId);
+      const folder = ownEngineConfigFolder(this.officeData, engineId);
+      if (await holdsLogin(folder)) await removeApiKey(folder);
+    });
   }
 
   private async environmentOf(engineId: EngineId): Promise<Record<string, string>> {

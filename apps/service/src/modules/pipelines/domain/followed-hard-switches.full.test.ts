@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { hardSwitchesSection, type FollowedHardSwitchValue } from "./followed-hard-switches.js";
+import { defaultPromptTexts } from "../../prompt-templates/index.js";
+import { PIPELINES_PROMPT_TEMPLATES } from "./pipelines-prompt-templates.js";
+
+const prompts = defaultPromptTexts(PIPELINES_PROMPT_TEMPLATES);
 
 const INSTALL = "install anything that changes the machine outside the worktree";
 const NOT_AN_INSTALL =
@@ -15,7 +19,9 @@ const NEVER: FollowedHardSwitchValue = { kind: "never" };
 
 describe("hardSwitchesSection", () => {
   it("lets an Allowed switch's call be made without asking", () => {
-    expect(hardSwitchesSection({ runInstalls: ALLOWED, publishOutsideThePipeline: ALLOWED })).toBe(
+    expect(
+      hardSwitchesSection(prompts, { runInstalls: ALLOWED, publishOutsideThePipeline: ALLOWED }),
+    ).toBe(
       `## Hard switches
 
 - You may ${INSTALL} without asking. ${NOT_AN_INSTALL}
@@ -25,7 +31,7 @@ describe("hardSwitchesSection", () => {
 
   it("sends a Consult switch's call to the consult tool first, naming the person", () => {
     expect(
-      hardSwitchesSection({
+      hardSwitchesSection(prompts, {
         runInstalls: { kind: "consult", person: "Devops" },
         publishOutsideThePipeline: NEVER,
       }),
@@ -41,7 +47,10 @@ ${APPROVAL_IS_ONCE}`,
 
   it("sends an Ask me switch's call to the consult tool first, naming no person", () => {
     expect(
-      hardSwitchesSection({ runInstalls: NEVER, publishOutsideThePipeline: { kind: "ask-me" } }),
+      hardSwitchesSection(prompts, {
+        runInstalls: NEVER,
+        publishOutsideThePipeline: { kind: "ask-me" },
+      }),
     ).toBe(
       `## Hard switches
 
@@ -53,7 +62,7 @@ ${APPROVAL_IS_ONCE}`,
   });
 
   it("never offers an approval that lasts", () => {
-    const words = hardSwitchesSection({
+    const words = hardSwitchesSection(prompts, {
       runInstalls: { kind: "consult", person: "Devops" },
       publishOutsideThePipeline: { kind: "ask-me" },
     });

@@ -26,6 +26,15 @@ export type EventCacheUpdates = Readonly<
 
 const EventStreamContext = createContext<EventStream | undefined>(undefined);
 
+type EventListener = (event: WebEvent) => void;
+
+/** Lets a part hear the events of one type the stream already receives (`useOfficeEvent`). */
+interface EventListeners {
+  listen(eventType: string, listener: EventListener): () => void;
+}
+
+const EventListenersContext = createContext<EventListeners | undefined>(undefined);
+
 /** What a part needs to receive one Thread's events: `EventStream`'s, or a test's own. */
 export type ThreadEvents = Pick<EventStream, "subscribeToThread">;
 
@@ -56,17 +65,47 @@ export function EventStreamProvider({
   readonly children: ReactNode;
 }): ReactNode {
   const queryClient = useQueryClient();
+  const [listeners] = useState(() => new Map<string, Set<EventListener>>());
   // Read once, as the invalidations are: the app's never change.
   const [eventStream] = useState(() =>
-    createEventStream(queryClient, invalidations, cacheUpdates, {
+    createEventStream(queryClient, invalidations, cacheUpdates, listeners, {
       onSignedOut,
       ...(openWebSocket && { openWebSocket }),
     }),
   );
+  const [eventListeners] = useState<EventListeners>(() => ({
+    listen: (eventType, listener) => {
+      const ofType = listeners.get(eventType) ?? new Set<EventListener>();
+      listeners.set(eventType, ofType.add(listener));
+      return () => {
+        ofType.delete(listener);
+      };
+    },
+  }));
   return (
     <EventStreamContext value={eventStream}>
-      <ThreadEventsContext value={eventStream}>{children}</ThreadEventsContext>
+      <EventListenersContext value={eventListeners}>
+        <ThreadEventsContext value={eventStream}>{children}</ThreadEventsContext>
+      </EventListenersContext>
     </EventStreamContext>
+  );
+}
+
+/**
+ * Hears each event of `eventType` while mounted, once the queries it makes stale are being read
+ * again; only a type the provider's invalidations or cache updates name is received. The callback
+ * may change on every render. Outside a provider, as in a test that renders a part alone, nothing
+ * is heard.
+ */
+export function useOfficeEvent(eventType: string, onEvent: EventListener): void {
+  const eventListeners = useContext(EventListenersContext);
+  const latest = useRef(onEvent);
+  useLayoutEffect(() => {
+    latest.current = onEvent;
+  });
+  useEffect(
+    () => eventListeners?.listen(eventType, (event) => latest.current(event)),
+    [eventListeners, eventType],
   );
 }
 
@@ -131,6 +170,7 @@ function createEventStream(
   queryClient: QueryClient,
   invalidations: EventInvalidations,
   cacheUpdates: EventCacheUpdates,
+  listeners: ReadonlyMap<string, ReadonlySet<EventListener>>,
   connection: Pick<EventStreamOptions, "onSignedOut" | "openWebSocket">,
 ): EventStream {
   return new EventStream({
@@ -142,6 +182,7 @@ function createEventStream(
       for (const queryKey of invalidations[event.type]?.(event) ?? []) {
         void queryClient.invalidateQueries({ queryKey });
       }
+      for (const listener of listeners.get(event.type) ?? []) listener(event);
     },
     onSubscribed: () => void queryClient.invalidateQueries(),
   });

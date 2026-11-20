@@ -1,10 +1,15 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { Injectable, Module, type DynamicModule, type ModuleMetadata } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { ProposalAppliers } from "../../conversations/index.js";
-import { EngineSessions, FIRST_CLAUDE_CODE_ENGINE } from "../../engine/index.js";
+import {
+  EngineSessions,
+  FIRST_CLAUDE_CODE_ENGINE,
+  type EngineId,
+  type EngineModel,
+} from "../../engine/index.js";
 import { DUTIES, permissionNarrowingProblems, PipelineRoleSources } from "../../people/index.js";
 import { TaskPaused, TaskResumed, TaskStageEdits, TaskStateChanged } from "../../work/index.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
@@ -31,6 +36,7 @@ import {
   type ResumedOrDroppedBy,
   type StartedTask,
   type TaskBlocker,
+  type StandInTakingOver,
   type UsageWindowRefusal,
   type WalkTaskState,
 } from "./started-tasks.js";
@@ -46,7 +52,7 @@ import type { StagePermissions } from "../domain/stage-permissions.js";
 import type { PublishTarget } from "../domain/stage.js";
 import type { AgentCommand, AgentCommandEnd } from "../domain/agent-command.js";
 import type { StageWorkClosing } from "../domain/stage-interruption.js";
-import type { StageRunContext, StageSessionMove } from "../domain/stage-run.js";
+import type { StageRunContext, StageRunStandIn, StageSessionMove } from "../domain/stage-run.js";
 import type { DecisionAnswer } from "../domain/walk-decisions.js";
 import {
   TaskCommands,
@@ -218,13 +224,30 @@ export class StartedTasksForTests extends StartedTasks {
     return this.read(taskId);
   }
 
+  /** Each Stand-in Engine a running Stage went on on, in order. */
+  readonly standInsTakenOver: { readonly taskId: string; readonly standIn: StandInTakingOver }[] =
+    [];
+  /** Told of each, as a test sets it, such as to give the Task's record the stand-in. */
+  whenWentOnOnStandIn: ((taskId: string, standIn: StandInTakingOver) => void) | undefined =
+    undefined;
+
+  async wentOnOnStandIn(taskId: string, standIn: StandInTakingOver): Promise<void> {
+    this.standInsTakenOver.push({ taskId, standIn });
+    this.whenWentOnOnStandIn?.(taskId, standIn);
+  }
+
   async holdForFireAlarm(taskId: string): Promise<boolean> {
     if (!this.fireAlarmOn) return false;
     await this.pauseForAlarm(taskId);
     return true;
   }
 
+  /** What `resume` fails with for each Task, as a test sets it: it resumes, unless set. */
+  readonly resumeFails = new Map<string, Error>();
+
   async resume(taskId: string): Promise<StartedTask> {
+    const fails = this.resumeFails.get(taskId);
+    if (fails) throw fails;
     const task = await this.read(taskId);
     this.put(taskId, { ...task, state: "in-progress", pausedBy: undefined });
     await this.announce(new TaskResumed(taskId));
@@ -265,6 +288,7 @@ export function aTaskRecord(fields: Partial<TaskRecord> = {}): TaskRecord {
       "## What the user wants, in their own words\n\nLet me name each device as I call it.",
     plan: "Add a rename dialog to the device page.",
     definitionOfDone: ["The new name shows on the list", "The rename persists"],
+    initiativeId: undefined,
     commitMessage: {
       text: "Rename a device\n\nAdds a rename dialog to the device page.",
       written: true,
@@ -292,6 +316,7 @@ export function aTaskRecord(fields: Partial<TaskRecord> = {}): TaskRecord {
       environment: { PROJECT_VARIABLE: "set" },
       screenshotsFolder: ".office/screenshots",
     },
+    engineStandIns: [],
     ...fields,
   };
 }
@@ -359,6 +384,17 @@ export class KnownPeopleForTests extends KnownPeople {
   holderOf(duty: string): Promise<string | undefined> {
     const roleKey = this.namedFor(duty);
     return Promise.resolve(roleKey !== undefined && this.people.has(roleKey) ? roleKey : undefined);
+  }
+
+  dutyHolders(): Promise<ReadonlyMap<string, string>> {
+    return Promise.resolve(
+      new Map(
+        DUTIES.flatMap(({ key }) => {
+          const roleKey = this.namedFor(key);
+          return roleKey !== undefined && this.people.has(roleKey) ? [[key, roleKey] as const] : [];
+        }),
+      ),
+    );
   }
 
   dutyRoleKey(duty: string): Promise<string | undefined> {
@@ -462,6 +498,14 @@ export class StageThreadsForTests extends StageThreads {
     [];
   /** The Decision each Thread found left running had opened, by its Thread, as a test puts it. */
   readonly leftAsking = new Map<string, AskedDecision>();
+  /** Each Stage session moved to a Stand-in Engine, in order, by its Thread. */
+  readonly switched: ({ readonly threadId: string; readonly standIn: EngineModel } & {
+    readonly why: Parameters<StageThread["switchTo"]>[1];
+  })[] = [];
+  /** What `switchTo` fails with, as a test sets it: it moves the session, unless set. */
+  switchFails: Error | undefined = undefined;
+  /** Told as a session moves to a Stand-in Engine, such as for the user to pause meanwhile. */
+  whileSwitching: ((threadId: string) => void | Promise<void>) | undefined = undefined;
 
   constructor(
     private readonly sessions: EngineSessions,
@@ -475,6 +519,9 @@ export class StageThreadsForTests extends StageThreads {
 
   /** The session's context after each turn, as a test sets it: not reported, unless set. */
   contextAfterTurn: StageRunContext | undefined = undefined;
+
+  /** The engine each Stage's session runs on, as a test sets it: the first Claude Code engine. */
+  engineId: EngineId = FIRST_CLAUDE_CODE_ENGINE.id;
 
   /** What `sessionAhead` answers, as a test sets it: a new session, unless set. */
   ahead: StageSessionAhead = { move: "fresh", cacheWarm: false, contextTokens: 0, briefTokens: 0 };
@@ -492,12 +539,19 @@ export class StageThreadsForTests extends StageThreads {
   async open(request: StageThreadRequest): Promise<StageThread> {
     this.requests.push(request);
     const threadId = randomUUID();
-    const engine = "claude-code";
+    // A Stand-in Engine the Task's Start chose for the engine runs in its place, as Conversations'.
+    const standIn = request.engineStandIns.find(({ engineId }) => engineId === this.engineId);
+    let engine = standIn?.standInId ?? this.engineId;
+    let standInFor: StageRunStandIn | undefined = standIn && {
+      engineId: standIn.engineId,
+      engineName: standIn.engineName,
+      reason: standIn.reason,
+    };
     const model = "scripted";
     const session = await this.sessions.start({
       id: randomUUID(),
       settings: {
-        engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+        engineId: engine,
         turnLabel: `Someone in the Stage ${request.stageName}`,
         folder: request.folder,
         environment: request.environment,
@@ -553,9 +607,23 @@ export class StageThreadsForTests extends StageThreads {
       threadId,
       // A new session every Stage, unless a test says the Stage went on in one.
       move: { move: this.move },
-      engine,
+      get engine() {
+        return engine;
+      },
       model,
+      get standInFor() {
+        return standInFor;
+      },
       nextTurn,
+      contextTokens: () => this.contextAfterTurn?.tokens ?? 0,
+      // The scripted session goes on as it is, as though resumed on the stand-in.
+      switchTo: async (to, why) => {
+        this.switched.push({ threadId, standIn: to, why });
+        if (this.switchFails) throw this.switchFails;
+        await this.whileSwitching?.(threadId);
+        standInFor = { engineId: engine, engineName: engine, reason: "Its window is used up." };
+        engine = to.engineId;
+      },
       askedDecision: async () => asked,
       send: (text, why) => {
         this.sent.push({ threadId, text, why });
@@ -574,6 +642,25 @@ export class StageThreadsForTests extends StageThreads {
       },
       endSession,
     };
+  }
+
+  /** Each held run's idle session moved to a Stand-in Engine as the user chose, in order. */
+  readonly movedToStandIn: ({ readonly threadId: string; readonly standIn: EngineModel } & {
+    readonly why: Parameters<StageThreads["moveToStandIn"]>[2];
+  })[] = [];
+  /** What `moveToStandIn` fails with, as a test sets it: it moves the session, unless set. */
+  moveFails: Error | undefined = undefined;
+  /** Told as a held run's session moves, such as for the reset to come meanwhile. */
+  whileMoving: ((threadId: string) => void | Promise<void>) | undefined = undefined;
+
+  async moveToStandIn(
+    threadId: string,
+    standIn: EngineModel,
+    why: Parameters<StageThreads["moveToStandIn"]>[2],
+  ): Promise<void> {
+    await this.whileMoving?.(threadId);
+    if (this.moveFails) throw this.moveFails;
+    this.movedToStandIn.push({ threadId, standIn, why });
   }
 
   async endLeftRunning(
@@ -675,15 +762,18 @@ export const PLANNED_COMMIT = "0123456789abcdef0123456789abcdef01234567";
 @Injectable()
 export class TaskGitForTests extends TaskGit {
   private readonly heads = new Map<string, WorktreeHead>();
+  /** Each merge commit Resolve made, with the paths its own resolution changed. */
+  private readonly merges = new Map<string, readonly string[]>();
   /** What each Task's worktree holds uncommitted, as an Agent's edits leave it. */
   readonly uncommitted = new Map<string, readonly string[]>();
   /** Every discard The Office made, in order, with the paths it dropped. */
   readonly discarded: { readonly taskId: string; readonly paths: readonly string[] }[] = [];
-  /** Every commit The Office made, in order. */
+  /** Every commit The Office made, in order, with the paths it holds: what was uncommitted. */
   readonly commits: {
     readonly taskId: string;
     readonly message: string;
     readonly commit: string;
+    readonly paths: readonly string[];
   }[] = [];
   /** The Tasks whose worktrees hold nothing to commit. */
   readonly unchanged = new Set<string>();
@@ -735,9 +825,25 @@ export class TaskGitForTests extends TaskGit {
     this.observe?.("commit");
     if (this.unchanged.has(taskId)) return Promise.resolve(undefined);
     const commit = `${this.commits.length + 1}`.padStart(40, "c");
-    this.commits.push({ taskId, message, commit });
+    this.commits.push({ taskId, message, commit, paths: this.uncommitted.get(taskId) ?? [] });
     this.move(taskId, { commit, branch: this.headOf(taskId).branch });
     return Promise.resolve(commit);
+  }
+
+  /**
+   * Moves the Task's HEAD to a merge commit Resolve made, as git's would, holding what was left
+   * uncommitted as the merge's own resolution.
+   */
+  merged(taskId: string, commit: string): void {
+    this.merges.set(commit, this.uncommitted.get(taskId) ?? []);
+    this.move(taskId, { commit, branch: this.headOf(taskId).branch });
+  }
+
+  committedPaths(_projectId: string, _taskId: string, commit: string): Promise<readonly string[]> {
+    const paths =
+      this.commits.find((each) => each.commit === commit)?.paths ?? this.merges.get(commit);
+    if (paths === undefined) return Promise.reject(new Error(`No commit ${commit}.`));
+    return Promise.resolve(paths);
   }
 
   discard(_projectId: string, taskId: string): Promise<readonly string[]> {
@@ -870,6 +976,26 @@ export class TaskCommandsForTests extends TaskCommands {
     const runs = await this.runsOf(taskId, key, stageRunId, options);
     return { kind: this.commandKinds.get(key), runs };
   }
+
+  /**
+   * Runs a condition command as `runCommand` runs a Script Stage's, from the same queue and into
+   * `ran`, keeping the file of earlier Stage runs as it read then in `stageRunsFiles`.
+   */
+  async runConditionCommand(
+    _projectId: string,
+    taskId: string,
+    key: string,
+    stageRunsFile: string,
+    stageRunId: string,
+    options: TaskCommandOptions,
+  ): Promise<ScriptCommandResult> {
+    this.stageRunsFiles.push({ path: stageRunsFile, text: await readFile(stageRunsFile, "utf8") });
+    const runs = await this.runsOf(taskId, key, stageRunId, options);
+    return { kind: this.commandKinds.get(key), runs: runs.slice(0, 1) };
+  }
+
+  /** Each condition command's file of earlier Stage runs, with what it held as the command ran. */
+  readonly stageRunsFiles: { readonly path: string; readonly text: string }[] = [];
 
   private async runsOf(
     taskId: string,
@@ -1046,11 +1172,14 @@ export class TaskPublishingForTests extends TaskPublishing {
   finishResolve(_projectId: string, taskId: string): Promise<ResolveEnd> {
     this.resolveCalls.push({ call: "finish", taskId });
     const end = this.resolveEnds.shift() ?? { kind: "resolved", commit: RESOLVED_COMMIT };
-    if (end.kind === "resolved") this.mergedAt(taskId, end.commit);
+    if (end.kind === "resolved") {
+      this.git.merged(taskId, end.commit);
+      this.git.merging.delete(taskId);
+    }
     return Promise.resolve(end);
   }
 
-  /** The merge commit moves the Task's branch, as git's would. */
+  /** A clean merge moves the Task's branch, as git's would. */
   private mergedAt(taskId: string, commit: string): void {
     this.git.move(taskId, { commit, branch: aTaskRecord().worktree.branch });
   }

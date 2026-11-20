@@ -23,6 +23,12 @@ export interface TaskInWorktree {
    * mounted read-only at the same path inside, where the worktree's `.git` file leads.
    */
   readonly repositoryGitFolder: string;
+  /**
+   * The folder of the file of the Task's earlier Stage runs, which a condition command reads
+   * (spec §2.3), an absolute path: mounted read-only at the same path inside. The folder, never the
+   * file, since a file's bind mount keeps the inode it started with and the file is written anew.
+   */
+  readonly stageRunsFolder: string;
   readonly installCommand: string | undefined;
   /** The Project's Install inputs, relative to the worktree. */
   readonly installInputs: readonly string[];
@@ -150,11 +156,11 @@ export function composeProjectNameOf(instance: string, taskId: string): string {
 }
 
 /**
- * The compose file The Office puts over the repository's: the image and the worktree on the
- * checks' service, The Office's labels on every service, network and volume, and the limits on
- * every service. Compose takes a later file's values over an earlier one's, so the definition can't
- * undo any of it. No service gets `cpu_shares`: the runtime's default weight is already equal, and
- * an explicit 1024 would lower it under cgroup v2.
+ * The compose file The Office puts over the repository's: the image, the worktree, the git folder
+ * and the Stage runs' folder on the checks' service, The Office's labels on every service, network
+ * and volume, and the limits on every service. Compose takes a later file's values over an earlier
+ * one's, so the definition can't undo any of it. No service gets `cpu_shares`: the runtime's
+ * default weight is already equal, and an explicit 1024 would lower it under cgroup v2.
  */
 export function composeOverrideOf(
   definition: RunEnvironmentDefinition,
@@ -205,6 +211,8 @@ function checksServiceOverride(
         ? []
         : // Read-only: checks read the history, but every git change is The Office's (spec §5.5).
           [bindMount(task.repositoryGitFolder, true)]),
+      // Read-only: The Office writes the file, condition commands only read it.
+      bindMount(task.stageRunsFolder, true),
     ],
     working_dir: composeLiteral(task.worktree),
     ...(definition.overrideCommand

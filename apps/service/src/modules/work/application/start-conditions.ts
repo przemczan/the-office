@@ -1,6 +1,12 @@
 import { Injectable } from "@nestjs/common";
+import { onceByKey, readEach } from "../../../platform/database/fan-out.js";
 import { ScheduledExitHold } from "../../office-updates/index.js";
-import { EngineModels, usageWindowWords, type EngineId } from "../../engine/index.js";
+import {
+  EngineModels,
+  usageWindowWords,
+  type EngineId,
+  type StandInEngineSettings,
+} from "../../engine/index.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import type {
   DailyCapsAtStart,
@@ -8,6 +14,8 @@ import type {
   UsedUpAtStart,
   WindowsAtStart,
 } from "../domain/cap-waits.js";
+import type { StandInEngineAtStart, StandInsAtStart } from "../domain/stand-ins-at-start.js";
+import type { Initiative } from "../domain/initiative.js";
 import { hasPipeline, type Task } from "../domain/task.js";
 import { taskBranchBase } from "../domain/task-branch-base.js";
 import { TaskRefused } from "../domain/task-refused.js";
@@ -17,10 +25,11 @@ import {
   type InitiativeBranchProblem,
   type StartConditions,
 } from "../domain/task-start.js";
-import type { UsageSettings } from "../domain/usage-settings.js";
+import type { PipelineStage } from "../domain/usage-estimate.js";
+import type { EngineCaps, UsageSettings } from "../domain/usage-settings.js";
 import { AccountWindows } from "../ports/account-windows.js";
-import { KnownPeople } from "../ports/known-people.js";
-import { KnownProjects } from "../ports/known-projects.js";
+import { KnownPeople, type KnownPerson } from "../ports/known-people.js";
+import { KnownProjects, type KnownProject } from "../ports/known-projects.js";
 import { KnownPipelines, type KnownPipeline } from "../ports/known-pipelines.js";
 import { InitiativeRepository } from "../ports/initiative-repository.js";
 import { ProjectInitiativeBranches } from "../ports/project-initiative-branches.js";
@@ -30,7 +39,7 @@ import { DailyCaps } from "./daily-caps.js";
 import { withDutiesHeld } from "./duty-holders.js";
 import { StartsSinceReading } from "./starts-since-reading.js";
 import { TaskStageEdits } from "./task-stage-edits.js";
-import { UsageEstimates } from "./usage-estimates.js";
+import { UsageEstimates, type TaskEstimator } from "./usage-estimates.js";
 
 const NOTHING_SINCE_READING = { fiveHour: 0, sevenDay: 0 };
 
@@ -39,12 +48,25 @@ interface OfficeUsageAtStart {
   readonly daily: readonly DailyCapsAtStart[];
   readonly engineNames: ReadonlyMap<EngineId, string>;
   readonly now: Date;
+  readonly standIns: StandInEngineSettings;
+  /** Each listed Stand-in Engine as a Start weighs it, but for the Task's estimate. */
+  readonly standInEngines: readonly StandInEngineAtStart[];
+}
+
+/** What the Tasks weighed together share, each read once for them all. */
+interface StartReads {
+  readonly pipelineOf: (pipelineId: string) => Promise<KnownPipeline | undefined>;
+  readonly heldStagesOf: (pipeline: KnownPipeline) => Promise<PipelineStage[]>;
+  readonly projectOf: (projectId: string) => Promise<KnownProject | undefined>;
+  readonly initiativeOf: (initiativeId: string) => Promise<Initiative | undefined>;
+  readonly personOf: (roleKey: string) => Promise<KnownPerson | undefined>;
+  readonly modelsOf: (task: Task) => Promise<ReadonlyMap<EngineId, readonly string[]>>;
 }
 
 /**
  * Gathers what Start weighs from the other modules: the Task's Pipeline, its person, the limits,
  * its Initiative's branch when it starts from one, and its Usage estimate against the windows and
- * the Daily caps of the engines it spends on.
+ * the Daily caps of the engines it spends on and of the Stand-in Engines that may take it on.
  */
 @Injectable()
 export class StartConditionsReader {
@@ -72,43 +94,49 @@ export class StartConditionsReader {
 
   /** What each of `tasks` weighs, the Office's settings and Tasks read once for them all. */
   async ofEach(tasks: readonly Task[]): Promise<Map<string, StartConditions>> {
+    if (tasks.length === 0) return new Map();
     const conditionsOf = await this.reading();
-    const read = await Promise.all(
-      tasks.map(async (task) => [task.id, await conditionsOf(task)] as const),
+    return new Map(
+      await readEach(tasks, async (task) => [task.id, await conditionsOf(task)] as const),
     );
-    return new Map(read);
   }
 
   private async reading(): Promise<(task: Task) => Promise<StartConditions>> {
-    const [officeWideLimit, usageSettings, everyTask, engines] = await Promise.all([
+    const [officeWideLimit, usageSettings, everyTask, standIns] = await Promise.all([
       this.limits.officeWideLimit(),
       this.limits.usageSettings(),
       this.tasks.list(),
-      this.engineModels.engines(),
+      this.engineModels.standIns(),
     ]);
     const now = this.schedule.now();
-    const daily = await this.dailyCaps.of(usageSettings.caps, everyTask);
-    const engineNames = new Map(engines.map(({ id, name }) => [id, name] as const));
+    const estimateOf = await this.estimates.estimator(everyTask);
+    const daily = await this.dailyCaps.of(usageSettings.caps, everyTask, estimateOf);
+    const engineNames = new Map(standIns.engines.map(({ id, name }) => [id, name] as const));
     const scheduledExitWait = this.exitHold.waitWords();
+    const standInEngines = await this.standInEngines(standIns, usageSettings.caps, daily);
+    const office = { daily, engineNames, now, standIns, standInEngines };
+    const reads = this.sharedReads();
     return async (task) => {
-      const [pipeline, project, usage] = await Promise.all([
-        this.pipelineOf(task),
-        this.projects.find(task.projectId),
-        this.usageOf(task, everyTask, usageSettings, { daily, engineNames, now }),
+      const [pipeline, project, { usage, standIns: taskStandIns }] = await Promise.all([
+        this.pipelineOf(task, reads),
+        reads.projectOf(task.projectId),
+        this.usageOf(task, estimateOf, usageSettings, office, reads),
       ]);
       const initiativeBranch = await this.initiativeBranchProblem(
         task,
         project?.name ?? task.projectId,
+        reads,
       );
-      const stages = pipeline && (await withDutiesHeld(pipeline.stages, this.people));
+      const stages = pipeline && (await reads.heldStagesOf(pipeline));
       const role = stages && firstAgentStage(stages)?.role;
-      const person = role === undefined ? undefined : await this.people.find(role);
+      const person = role === undefined ? undefined : await reads.personOf(role);
       return {
         stages,
         person: person?.card,
         officeWideLimit,
         project: project && { name: project.name, projectLimit: project.projectLimit },
         usage,
+        standIns: taskStandIns,
         scheduledExitWait,
         initiativeBranch,
         brokenPipeline: pipeline && (await this.brokenPipeline(task, pipeline)),
@@ -116,10 +144,40 @@ export class StartConditionsReader {
     };
   }
 
+  /**
+   * A Pipeline, its Stages with their duties' holders, a Project, an Initiative, a person and the
+   * models a Task's Stages use.
+   */
+  private sharedReads(): StartReads {
+    return {
+      pipelineOf: onceByKey(
+        (pipelineId: string) => this.pipelines.read(pipelineId),
+        (pipelineId) => pipelineId,
+      ),
+      heldStagesOf: onceByKey(
+        (pipeline: KnownPipeline) => withDutiesHeld(pipeline.stages, this.people),
+        (pipeline) => pipeline.id,
+      ),
+      projectOf: onceByKey(
+        (projectId: string) => this.projects.find(projectId),
+        (projectId) => projectId,
+      ),
+      initiativeOf: onceByKey(
+        (initiativeId: string) => this.initiatives.find(initiativeId),
+        (initiativeId) => initiativeId,
+      ),
+      personOf: onceByKey(
+        (roleKey: string) => this.people.find(roleKey),
+        (roleKey) => roleKey,
+      ),
+      modelsOf: this.estimates.modelsReader(),
+    };
+  }
+
   /** The Task's Pipeline: office-wide, or a Project Pipeline of its own Project, as another's is unknown. */
-  private async pipelineOf(task: Task): Promise<KnownPipeline | undefined> {
+  private async pipelineOf(task: Task, reads: StartReads): Promise<KnownPipeline | undefined> {
     if (!hasPipeline(task)) return undefined;
-    const pipeline = await this.pipelines.read(task.pipelineId);
+    const pipeline = await reads.pipelineOf(task.pipelineId);
     return pipeline?.projectId === undefined || pipeline.projectId === task.projectId
       ? pipeline
       : undefined;
@@ -138,9 +196,10 @@ export class StartConditionsReader {
   private async initiativeBranchProblem(
     task: Task,
     projectName: string,
+    reads: StartReads,
   ): Promise<InitiativeBranchProblem | undefined> {
     if (task.initiativeId === undefined) return undefined;
-    const initiative = await this.initiatives.find(task.initiativeId);
+    const initiative = await reads.initiativeOf(task.initiativeId);
     let base;
     try {
       base = taskBranchBase(task, initiative, task.projectId, projectName);
@@ -148,7 +207,7 @@ export class StartConditionsReader {
       if (!(error instanceof TaskRefused)) throw error;
       return { kind: "not-made", reason: error.message };
     }
-    if (base.kind === "base-branch") return undefined;
+    if (base.kind === "base-branch" || base.kind === "pull-request") return undefined;
     return (await this.initiativeBranches.exists(task.projectId, base.branch))
       ? undefined
       : { kind: "gone", branch: base.branch };
@@ -156,37 +215,64 @@ export class StartConditionsReader {
 
   private async usageOf(
     task: Task,
-    everyTask: readonly Task[],
+    estimateOf: TaskEstimator,
     { measures, caps }: UsageSettings,
-    { daily, engineNames, now }: OfficeUsageAtStart,
-  ): Promise<UsageAtStart> {
-    const [estimate, engineIds] = await Promise.all([
-      this.estimates.of(task, everyTask),
-      this.estimates.engineIdsOf(task),
-    ]);
-    const windows = engineIds.flatMap((engineId): WindowsAtStart[] => {
-      const windowCaps = caps.find((engineCaps) => engineCaps.engineId === engineId)?.windows;
-      if (!windowCaps) return [];
-      const reading = this.windows.of(engineId);
-      const startedSinceReading = reading
-        ? this.startsSinceReading.expectedOf(engineId, reading.readAt)
-        : NOTHING_SINCE_READING;
-      return [{ engineId, caps: windowCaps, reading, startedSinceReading }];
-    });
-    const usedUp = engineIds.flatMap((engineId): UsedUpAtStart[] => {
-      const window = this.windows.usedUpUntil(engineId);
-      return window === undefined
-        ? []
-        : [{ engineId, windowWords: usageWindowWords(window.window), until: window.until }];
-    });
-    return {
+    { daily, engineNames, now, standIns, standInEngines }: OfficeUsageAtStart,
+    reads: StartReads,
+  ): Promise<{ readonly usage: UsageAtStart; readonly standIns: StandInsAtStart }> {
+    const [estimate, modelsOn] = await Promise.all([estimateOf(task), reads.modelsOf(task)]);
+    const engineIds = [...modelsOn.keys()];
+    const usage = {
       now,
       measures,
       estimate: estimate?.engines ?? [],
-      windows,
+      windows: engineIds.flatMap((engineId) => this.windowsOf(engineId, caps) ?? []),
       daily: daily.filter(({ engineId }) => engineIds.includes(engineId)),
       engineNames,
-      usedUp,
+      usedUp: engineIds.flatMap((engineId) => this.usedUpOf(engineId) ?? []),
     };
+    return {
+      usage,
+      standIns: {
+        engines: standIns.engines,
+        order: standIns.standInEngines,
+        modelsOn,
+        standIns: standInEngines,
+      },
+    };
+  }
+
+  /** Each listed Stand-in Engine's windows, Daily caps, used-up windows and window ratios. */
+  private async standInEngines(
+    { engines, standInEngines }: StandInEngineSettings,
+    caps: readonly EngineCaps[],
+    daily: readonly DailyCapsAtStart[],
+  ): Promise<StandInEngineAtStart[]> {
+    const listed = standInEngines.filter((engineId) => engines.some(({ id }) => id === engineId));
+    return readEach(listed, async (engineId) => ({
+      engineId,
+      windows: this.windowsOf(engineId, caps),
+      daily: daily.find((engineDaily) => engineDaily.engineId === engineId),
+      usedUp: this.usedUpOf(engineId),
+      windowRatios: await this.estimates.windowRatiosOf(engineId),
+    }));
+  }
+
+  /** The engine id's windows as a Start weighs them; undefined while no Window cap is set for it. */
+  private windowsOf(engineId: EngineId, caps: readonly EngineCaps[]): WindowsAtStart | undefined {
+    const windowCaps = caps.find((engineCaps) => engineCaps.engineId === engineId)?.windows;
+    if (!windowCaps) return undefined;
+    const reading = this.windows.of(engineId);
+    const startedSinceReading = reading
+      ? this.startsSinceReading.expectedOf(engineId, reading.readAt)
+      : NOTHING_SINCE_READING;
+    return { engineId, caps: windowCaps, reading, startedSinceReading };
+  }
+
+  private usedUpOf(engineId: EngineId): UsedUpAtStart | undefined {
+    const window = this.windows.usedUpUntil(engineId);
+    return window === undefined
+      ? undefined
+      : { engineId, windowWords: usageWindowWords(window.window), until: window.until };
   }
 }

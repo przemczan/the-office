@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
+import { dirname } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   aDoneResult,
@@ -6,15 +8,27 @@ import {
   answerLastDecision,
   runsOf,
   startPipelinesApplication,
+  startPipelinesApplicationWith,
   walkStages,
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
 import { aTaskRecord, PLANNED_COMMIT, RESOLVED_COMMIT } from "../ports/pipelines-ports.fixtures.js";
-import { RESOLVE_GATE_KEY, RESOLVE_KEY, RESOLVE_TEST_KEY } from "../domain/resolve-stages.js";
+import {
+  RESOLVE_BRIEF,
+  RESOLVE_GATE_KEY,
+  RESOLVE_KEY,
+  RESOLVE_TEST_KEY,
+} from "../domain/resolve-stages.js";
+import { PromptTemplates } from "../../prompt-templates/index.js";
+import {
+  PromptTemplateRepository,
+  PromptTemplateRepositoryForTests,
+} from "../../prompt-templates/index.fixtures.js";
 import { SIGNED_IN_FOR_TESTS } from "../../../platform/http/signed-in-requests.fixtures.js";
 import { userOf } from "../../../platform/http/signed-in-requests.js";
 import { GateService } from "./gate-service.js";
 import { StageInterpreter } from "./stage-interpreter.js";
+import { StageRunsFiles } from "./stage-runs-files.js";
 import { implement, publish, reviewedPublish, PULL_REQUEST } from "../publish-stage.fixtures.js";
 
 const ANN = userOf(SIGNED_IN_FOR_TESTS);
@@ -53,6 +67,23 @@ describe("A Publish Stage", () => {
     expect(pipelines.commands.ran).toEqual([]);
     expect(pipelines.git.removedWorktrees).toEqual([taskId]);
     expect(pipelines.tasks.changes).toEqual([{ taskId, state: "done" }]);
+  });
+
+  it("removes the Task's folder of its earlier Stage runs with its worktree", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult("Added the dialog."))]);
+    const taskId = randomUUID();
+    const file = await pipelines.app.get(StageRunsFiles, { strict: false }).write(taskId, {
+      version: 1,
+      task: { id: taskId, title: "", project: "" },
+      route: { from: "implement", to: null },
+      definitionOfDone: [],
+      stageRuns: [],
+    });
+
+    await walkStages(pipelines, [implement, publish], taskId);
+
+    expect(pipelines.git.removedWorktrees).toEqual([taskId]);
+    expect(existsSync(dirname(file))).toBe(false);
   });
 
   it("pushes the branch only when its target says so, then removes the worktree", async () => {
@@ -120,8 +151,10 @@ describe("A Publish Stage", () => {
       error,
       conflictedFiles: ["src/index.ts"],
     });
+    const taskId = randomUUID();
+    pipelines.git.uncommitted.set(taskId, ["src/index.ts"]);
 
-    const taskId = await walkStages(pipelines, [implement, reviewedPublish]);
+    await walkStages(pipelines, [implement, reviewedPublish], taskId);
 
     const runs = await runsOf(pipelines, taskId);
     expect(runs.map(({ stageKey, outcome }) => [stageKey, outcome?.status])).toEqual([
@@ -133,6 +166,8 @@ describe("A Publish Stage", () => {
     ]);
     expect(runs[2]?.carriedFailure).toEqual({ stageKey: "publish", error, round: 1, rounds: 3 });
     expect(runs[2]?.headCommit).toBe(RESOLVED_COMMIT);
+    // The merge commit records only what its resolution changed.
+    expect(runs[2]?.changedFiles).toEqual(["src/index.ts"]);
     expect(pipelines.publishing.resolveCalls).toEqual([
       { call: "start", taskId },
       { call: "finish", taskId },
@@ -160,6 +195,34 @@ describe("A Publish Stage", () => {
     });
     expect(pipelines.publishing.published).toHaveLength(2);
     expect(pipelines.git.removedWorktrees).toEqual([taskId]);
+  });
+
+  it("tells Resolve's Agent the Brief as the user saved its Prompt template", async () => {
+    // Texts of the test's own: every test file shares the database, where Resolve reads them.
+    pipelines = await startPipelinesApplicationWith(
+      [{ provide: PromptTemplateRepository, useValue: new PromptTemplateRepositoryForTests() }],
+      [anAgentSession(aDoneResult()), anAgentSession(aDoneResult("Kept both renames."))],
+    );
+    await pipelines.app
+      .get(PromptTemplates)
+      .save(
+        RESOLVE_BRIEF.key,
+        "Merge {{baseBranch}} by hand in:{{#conflictedFiles}} {{.}}{{/conflictedFiles}}",
+        ANN,
+      );
+    pipelines.publishing.publications.push({
+      kind: "base-moved",
+      error: "office/task no longer applies cleanly on main on origin",
+      conflictedFiles: ["src/index.ts"],
+    });
+    const taskId = randomUUID();
+    pipelines.git.uncommitted.set(taskId, ["src/index.ts"]);
+
+    await walkStages(pipelines, [implement, publish], taskId);
+
+    expect(pipelines.stageThreads.requests.at(-1)?.work).toContain(
+      "Merge main by hand in: src/index.ts\n",
+    );
   });
 
   it("publishes an Initiative's Task into its branch, resolving a conflict with the base after a clean merge of the Initiative's branch", async () => {

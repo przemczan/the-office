@@ -12,6 +12,7 @@ import {
   messageListSchema,
   proposalSchema,
   taskThreadPageSchema,
+  threadListSchema,
   threadRefusalSchema,
   threadSchema,
   threadWebEventSchema,
@@ -25,7 +26,7 @@ import { DecisionService } from "../../application/decision-service.js";
 import { aPlannerCard } from "../../application/session-role.fixtures.js";
 import { ThreadService } from "../../application/thread-service.js";
 import { DecisionAnswered } from "../../domain/conversation-events.js";
-import type { Decision } from "../../domain/decision.js";
+import { oneWordsAnswer, type Decision, type DecisionDraft } from "../../domain/decision.js";
 import { aProposedCard } from "../../domain/proposal.fixtures.js";
 import type { Thread } from "../../domain/thread.js";
 import { aThread } from "../../domain/thread.fixtures.js";
@@ -112,6 +113,7 @@ import {
   ANOTHER_SIGNED_IN_FOR_TESTS,
   signedInAs,
 } from "../../../../platform/http/signed-in-requests.fixtures.js";
+import { ConversationsPromptTemplatesForTests } from "../prompt-templates/conversations-prompt-templates.fixtures.js";
 
 // What threads.controller.test.ts and threads.controller.full.test.ts share.
 
@@ -247,6 +249,7 @@ function setUpEachTest(): void {
     ({ app, url } = await startTestApplication({
       database: true,
       imports: [
+        ConversationsPromptTemplatesForTests,
         EventsModule,
         ScheduleModule,
         BusyWorkModule,
@@ -327,6 +330,9 @@ function setUpEachTest(): void {
           useProjectSkills: false,
           projectSkillsOff: [],
           projectId: "admin-panel",
+          initiativeId: undefined,
+          projectName: "Admin panel",
+          pipelineName: "",
           instructions: "On this Task you plan.",
           officeTools: [],
           brief: "The Task's record.",
@@ -532,6 +538,62 @@ describe("a person's lists of Threads", () => {
     const roleKey = aPerson("Jan", true);
 
     expect((await get(`/chats/${roleKey}/threads?after=not-a-cursor`)).status).toBe(400);
+  });
+});
+
+/** `count` Stage Threads on the Task, by turns of each of `roleKeys`, with sessions. */
+async function stageThreadsOn(
+  taskId: string,
+  roleKeys: readonly string[],
+  count: number,
+): Promise<void> {
+  for (let index = 0; index < count; index += 1) {
+    const roleKey = roleKeys[index % roleKeys.length]!;
+    await app.get(ThreadRepository).add(
+      aThread({
+        id: randomUUID(),
+        home: { kind: "task", taskId },
+        roleKey,
+        stageThread: true,
+        session: {
+          id: randomUUID(),
+          roleKey,
+          cardVersion: 1,
+          officeInstructionsVersion: 0,
+          engineId: "claude-code",
+          startedAt: new Date(),
+          lastCallAt: new Date(),
+          contextTokens: 34_000,
+          startContextTokens: 33_000,
+          full: false,
+          changesAllowed: false,
+        },
+      }),
+    );
+  }
+}
+
+describe("a Task's Threads", () => {
+  it("reads the Task's setup and what its Briefs share once, however many Threads are on it", async () => {
+    const taskId = randomUUID();
+    const roleKeys = [aPerson("Ann", false), aPerson("Ben", false)];
+    const setUps = vi.spyOn(app.get(TaskThreadSetups), "of");
+    const readList = async () =>
+      threadListSchema.parse(await (await get(`/tasks/${taskId}/threads`)).json());
+    await stageThreadsOn(taskId, roleKeys, 2);
+    const few = await queriesWhile(readList);
+    const setUpsForFew = setUps.mock.calls.length;
+    setUps.mockClear();
+
+    await stageThreadsOn(taskId, roleKeys, 10);
+    const many = await queriesWhile(readList);
+    const setUpsForMany = setUps.mock.calls.length;
+
+    expect(await readList()).toHaveLength(12);
+    expect(few).toBeGreaterThan(0);
+    expect(many).toBe(few);
+    // Once for each person, as a Thread asks Work for its setup as theirs.
+    expect([setUpsForFew, setUpsForMany]).toEqual([2, 2]);
   });
 });
 
@@ -768,20 +830,26 @@ describe("an image pasted into a Thread", () => {
 });
 
 describe("a Decision", () => {
-  const draft = {
+  const question = {
+    kind: "choice",
     question: "Should the export include archived Projects?",
-    context: "Archived Projects have no worktree.",
     options: ["Only active Projects", "Every Project"],
     recommendation: { option: 0, reason: "Archived ones have nothing to export." },
+  } as const;
+  const draft: DecisionDraft = {
+    context: "Archived Projects have no worktree.",
+    questions: [question],
   };
 
-  /** A planning Thread on a Task of its own whose session opened a Decision. */
-  async function opened(): Promise<{ readonly thread: Thread; readonly decision: Decision }> {
+  /** A planning Thread on a Task, of its own unless `taskId` names one, whose session opened a Decision. */
+  async function opened(
+    taskId: string = randomUUID(),
+  ): Promise<{ readonly thread: Thread; readonly decision: Decision }> {
     const roleKey = aPerson("Jan", false);
     const sessionId = randomUUID();
     const thread = aThread({
       id: randomUUID(),
-      home: { kind: "task", taskId: randomUUID() },
+      home: { kind: "task", taskId },
       roleKey,
       title: "Planning",
       session: {
@@ -812,8 +880,9 @@ describe("a Decision", () => {
     );
 
     const shown = {
-      ...draft,
-      kind: "question",
+      kind: "form",
+      context: draft.context,
+      questions: [question],
       id: decision.id,
       threadId: thread.id,
       taskId: decision.taskId,
@@ -822,13 +891,14 @@ describe("a Decision", () => {
       askedAt: decision.askedAt.toISOString(),
       putTo: null,
       passedOn: [],
-      answer: null,
+      formAnswer: null,
       answeredAt: null,
       answeredByUser: null,
       answeredBy: null,
       atUsersRequest: null,
       answeredByTheOffice: false,
       closedAt: null,
+      closedBecause: null,
     };
     expect(open).toContainEqual(shown);
     expect(messages.map(({ id: _id, at: _at, ...message }) => message)).toEqual([
@@ -842,11 +912,46 @@ describe("a Decision", () => {
     });
   });
 
+  it("reads a Task's conversation with as many queries however many Consultations are on it", async () => {
+    const taskId = randomUUID();
+    const consultant = aPerson("Ben", false);
+    const consulted = async (count: number): Promise<void> => {
+      for (let index = 0; index < count; index += 1) {
+        const { thread, decision } = await opened(taskId);
+        await app.get(ThreadRepository).add(
+          aThread({
+            id: randomUUID(),
+            home: { kind: "task", taskId },
+            roleKey: consultant,
+            consultation: {
+              decisionId: decision.id,
+              askerThreadId: thread.id,
+              askerRoleKey: thread.roleKey,
+            },
+          }),
+        );
+      }
+    };
+    const readTabs = async () => {
+      const response = await get(`/tasks/${taskId}/conversation`);
+      expect(response.status).toBe(200);
+      return response.json();
+    };
+    await consulted(1);
+    const few = await queriesWhile(readTabs);
+
+    await consulted(6);
+    const many = await queriesWhile(readTabs);
+
+    expect(few).toBeGreaterThan(0);
+    expect(many).toBe(few);
+  });
+
   it("refuses a second answer, and shows the first in the log", async () => {
     const { thread, decision } = await opened();
     const answered: Decision = {
       ...decision,
-      answer: { kind: "free-answer", text: "Only this year's.", answeredAt: new Date() },
+      answer: { ...oneWordsAnswer("Only this year's."), answeredAt: new Date() },
     };
     await app.get(ThreadRepository).update(thread.id, (current) => {
       const waiting = { ...current, openDecisions: [] };
@@ -856,7 +961,7 @@ describe("a Decision", () => {
         threadId: thread.id,
         at: new Date(),
         decisionId: decision.id,
-        answer: { kind: "free-answer", text: "Only this year's." },
+        answer: oneWordsAnswer("Only this year's."),
       } as const;
       return {
         thread: waiting,
@@ -867,8 +972,8 @@ describe("a Decision", () => {
     });
 
     const again = await send("POST", `/decisions/${decision.id}/answer`, {
-      kind: "option",
-      option: 0,
+      kind: "submitted",
+      answers: [{ kind: "option", option: 0 }],
     });
     const messages = messageListSchema.parse(
       await (await get(`/threads/${thread.id}/messages`)).json(),
@@ -880,8 +985,8 @@ describe("a Decision", () => {
     ]);
     expect(messages.map((message) => message.kind)).toEqual(["decision", "decision-answer"]);
     expect(messages[1]).toMatchObject({
-      answer: { kind: "free-answer", text: "Only this year's." },
-      decision: { answer: { kind: "free-answer", text: "Only this year's." } },
+      formAnswer: oneWordsAnswer("Only this year's."),
+      decision: { formAnswer: oneWordsAnswer("Only this year's.") },
     });
     const open = decisionListSchema.parse(await (await get("/decisions/open")).json());
     expect(open.map(({ id }) => id)).not.toContain(decision.id);
@@ -942,16 +1047,21 @@ describe("what each signed-in user does", () => {
         { kind: "user", text: "Export every column.", delivery: "delivered", writtenBy: ANN_LEE },
       ]);
     const { decision } = await app.get(DecisionService).open(sessionId, {
-      question: "Which columns?",
       context: "The export is wide.",
-      options: ["All", "Visible"],
-      recommendation: { option: 1, reason: "Fewer to read." },
+      questions: [
+        {
+          kind: "choice",
+          question: "Which columns?",
+          options: ["All", "Visible"],
+          recommendation: { option: 1, reason: "Fewer to read." },
+        },
+      ],
     });
 
     const answering = await send(
       "POST",
       `/decisions/${decision.id}/answer`,
-      { kind: "option", option: 0 },
+      { kind: "submitted", answers: [{ kind: "option", option: 0 }] },
       BY_BEN,
     );
     const log = messageListSchema.parse(await (await get(`/threads/${thread.id}/messages`)).json());
@@ -961,7 +1071,10 @@ describe("what each signed-in user does", () => {
     expect(log[0]).toMatchObject({ kind: "user", writtenBy: ANN_LEE });
     expect(log[2]).toMatchObject({
       kind: "decision-answer",
-      decision: { answer: { kind: "option", option: 0 }, answeredByUser: BEN_ITO },
+      decision: {
+        formAnswer: { kind: "submitted", answers: [{ kind: "option", option: 0 }] },
+        answeredByUser: BEN_ITO,
+      },
     });
     expect((await app.get(ThreadRepository).decision(decision.id))?.answer?.user).toEqual(BEN_ITO);
   });

@@ -7,7 +7,7 @@ export abstract class TaskDecisions {
   abstract openOn(taskId: string): Promise<number>;
   /**
    * The Decisions waiting on the user in the Thread, the first asked first: in an Initiative's
-   * planning Thread, one per Task at most.
+   * planning Thread, one per Task at most and one on no Task (`taskId` undefined) at most.
    */
   abstract openInThread(threadId: string): Promise<readonly OpenTaskDecision[]>;
   /** The ids of the Tasks a Decision waiting on the user is open on, each once. */
@@ -19,4 +19,9 @@ export abstract class TaskDecisions {
    * Consultant, in any of its Threads; nothing when none is.
    */
   abstract closeOnDroppedTask(taskId: string): Promise<void>;
+  /**
+   * Closes every Decision on no Task still open in the ended Initiative's Threads, as "Closed: the
+   * Initiative ended"; nothing when none is.
+   */
+  abstract closeOnInitiative(initiativeId: string): Promise<void>;
 }

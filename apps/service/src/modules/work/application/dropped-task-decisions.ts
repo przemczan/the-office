@@ -1,5 +1,6 @@
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { InitiativeStateChanged } from "../domain/initiative-events.js";
 import { TaskStateChanged } from "../domain/task-events.js";
 import { TaskDecisions } from "../ports/task-decisions.js";
 import { TaskRepository } from "../ports/task-repository.js";
@@ -8,6 +9,8 @@ import { TaskRepository } from "../ports/task-repository.js";
  * A dropped Task leaves no Decision open (spec §2.4): each Drop, the Task's own, a Gate's, or its
  * Initiative's taking it along, closes the Decisions still open on it, so none stays in Needs you.
  * At every start, those Tasks dropped before this rule, or while a close failed, are caught up.
+ * Likewise an Initiative becoming Done or Dropped closes the Decisions on no Task still open in its
+ * Threads, "Closed: the Initiative ended".
  */
 @Injectable()
 export class DroppedTaskDecisions implements OnModuleInit {
@@ -22,6 +25,9 @@ export class DroppedTaskDecisions implements OnModuleInit {
   onModuleInit(): void {
     this.events.subscribe(TaskStateChanged, async ({ taskId, to }) => {
       if (to === "dropped") await this.decisions.closeOnDroppedTask(taskId);
+    });
+    this.events.subscribe(InitiativeStateChanged, async ({ initiativeId, to }) => {
+      if (to === "done" || to === "dropped") await this.decisions.closeOnInitiative(initiativeId);
     });
   }
 

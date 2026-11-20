@@ -17,9 +17,10 @@ import {
   StageRunEnded,
   StageRunStarted,
   StageRunWaiting,
+  StageRunEngineSwitched,
   StageRunThreadOpened,
+  StandInChoicesChanged,
   SentBackFromGate,
-  StageSkipped,
   StopHeldAsPause,
   WentBackToStage,
 } from "../../domain/stage-run-events.js";
@@ -109,6 +110,19 @@ export class PipelinesWebEvents implements OnModuleInit {
       stageKey: event.stageKey,
       waiting: event.waiting,
     }));
+    this.forwarding.forward(
+      StageRunEngineSwitched,
+      (event): WebEventOf<"stage-run.engine-switched"> => ({
+        type: "stage-run.engine-switched",
+        taskId: event.taskId,
+        stageKey: event.stageKey,
+        fromEngineId: event.fromEngineId,
+        toEngineId: event.toEngineId,
+      }),
+    );
+    this.forwarding.forward(StandInChoicesChanged, (): WebEventOf<"stand-in-choices.changed"> => ({
+      type: "stand-in-choices.changed",
+    }));
     this.forwarding.forward(StageRunEnded, (event): WebEventOf<"stage-run.ended"> => ({
       type: "stage-run.ended",
       taskId: event.taskId,
@@ -123,11 +137,6 @@ export class PipelinesWebEvents implements OnModuleInit {
         stageKey: event.stageKey,
       }),
     );
-    this.forwarding.forward(StageSkipped, (event): WebEventOf<"stage-run.skipped"> => ({
-      type: "stage-run.skipped",
-      taskId: event.taskId,
-      stageKey: event.stageKey,
-    }));
     this.forwarding.forward(WentBackToStage, (event): WebEventOf<"stage-run.went-back"> => ({
       type: "stage-run.went-back",
       taskId: event.taskId,

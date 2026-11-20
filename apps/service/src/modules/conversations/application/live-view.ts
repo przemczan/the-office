@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from "node:util";
 import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import type { DomainEventClass } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { EngineModels } from "../../engine/index.js";
 import {
   RoleCardChanged,
   RoleCards,
@@ -17,6 +18,7 @@ import {
   DeliveryMarked,
   LiveViewChanged,
   MessagesLogged,
+  ThreadSessionMovedToEngine,
   ThreadStarted,
   TurnEnded,
 } from "../domain/conversation-events.js";
@@ -29,6 +31,8 @@ import { ThreadRepository } from "../ports/thread-repository.js";
 const LIVE_VIEW_CHANGES: readonly DomainEventClass[] = [
   ThreadStarted,
   TurnEnded,
+  // An Agent's session moved to a Stand-in Engine, which the view names.
+  ThreadSessionMovedToEngine,
   DecisionOpened,
   DecisionAnswered,
   DecisionClosed,
@@ -66,6 +70,7 @@ export class LiveView implements OnModuleInit, OnModuleDestroy {
     private readonly threads: ThreadRepository,
     private readonly roleCards: RoleCards,
     private readonly events: EventBus,
+    private readonly engineModels: EngineModels,
   ) {}
 
   onModuleInit(): void {
@@ -108,17 +113,19 @@ export class LiveView implements OnModuleInit, OnModuleDestroy {
 
   private async readNow(): Promise<LiveViewSnapshot> {
     const read = ++this.readsBegun;
-    const [people, threads, lastCalls] = await Promise.all([
+    const [people, threads, lastCalls, engines] = await Promise.all([
       this.roleCards.hiredPeople(),
       this.threads.busy(),
       this.threads.lastCallsByPerson(),
+      this.engineModels.engines(),
     ]);
+    const engineNames = new Map(engines.map(({ id, name }) => [id, name]));
     if (read > this.threadsKeptFrom) {
       this.threadsKeptFrom = read;
       this.busyThreadIds = new Set(threads.map(({ id }) => id));
       this.workingThreadIds = new Set(threads.filter(worksIn).map(({ id }) => id));
     }
-    return liveViewOf({ people, threads, lastCalls });
+    return liveViewOf({ people, threads, lastCalls, engineNames });
   }
 
   /**

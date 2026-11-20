@@ -15,9 +15,9 @@ import type { Engine } from "../../domain/engines.js";
 import { EngineSettingsRefusalFilter } from "./engine-settings-refusal.filter.js";
 
 /**
- * Settings › Engines: the engines, an API engine's key never sent back, the Office default, the
- * search endpoint, and every offered model's Model price; removing an engine with its replacement,
- * and what that would move.
+ * Settings › Engines: the engines, an API engine's key and a Codex engine's API key never sent
+ * back, the Office default, the search endpoint, and every offered model's Model price; removing
+ * an engine with its replacement, and what that would move.
  */
 @Controller("settings/engines")
 @UseFilters(EngineSettingsRefusalFilter)
@@ -65,7 +65,7 @@ export class EngineSettingsController {
 }
 
 function response(settings: EngineSettings): EngineSettingsResponse {
-  const { engines, officeDefault, searchEndpoint } = settings;
+  const { engines, officeDefault, searchEndpoint, standInEngines, askBeforeSwitchAbove } = settings;
   return {
     engines: engines.map(engineResponse),
     officeDefault: officeDefault && { ...officeDefault },
@@ -75,15 +75,33 @@ function response(settings: EngineSettings): EngineSettingsResponse {
       model,
       price: price && { ...price },
     })),
+    standInEngines: [...standInEngines],
+    askBeforeSwitchAbove,
   };
 }
 
+/** Each field named, never the engine spread, so no key it keeps is ever sent back. */
 function engineResponse(engine: Engine): EngineResponse {
-  if (engine.kind === "claude-code") return { ...engine };
-  const { key, models, ...rest } = engine;
-  return {
-    ...rest,
-    keySet: key !== "",
-    models: models.map((model) => ({ ...model, seesImages: model.seesImages ?? false })),
-  };
+  const { id, name, defaultModel } = engine;
+  switch (engine.kind) {
+    case "claude-code":
+      return { id, name, kind: engine.kind, defaultModel, claudeCodeP: engine.claudeCodeP };
+    case "codex":
+    case "copilot-cli":
+      return { id, name, kind: engine.kind, defaultModel };
+    case "openai-compatible-api":
+      return {
+        id,
+        name,
+        kind: engine.kind,
+        defaultModel,
+        baseUrl: engine.baseUrl,
+        keySet: engine.key !== "",
+        models: engine.models.map(({ id: modelId, contextWindow, seesImages }) => ({
+          id: modelId,
+          contextWindow,
+          seesImages: seesImages ?? false,
+        })),
+      };
+  }
 }

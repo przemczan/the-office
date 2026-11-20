@@ -4,6 +4,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startAnswerSchema, type Task } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { ProviderOverride } from "../../../../../test/test-application.js";
+import {
+  EngineModels,
+  FIRST_CLAUDE_CODE_ENGINE,
+  UsageWindowsRead,
+  type Engine,
+  type EngineId,
+} from "../../../engine/index.js";
+import { EngineSettingsForTests } from "../../../engine/index.fixtures.js";
+import { EventBus } from "../../../../platform/events/event-bus.js";
+import { TaskLocks } from "../../../../platform/locks/task-locks.js";
 import { Schedule } from "../../../../platform/schedule/schedule.js";
 import type { ManualSchedule } from "../../../../platform/schedule/schedule.fixtures.js";
 import { TaskService } from "../../application/task-service.js";
@@ -13,6 +24,7 @@ import { FireAlarmRepository } from "../../ports/fire-alarm-repository.js";
 import {
   AccountWindowsForTests,
   FireAlarmRepositoryForTests,
+  KnownEngineCascadeForTests,
   WorkSettingsForTests,
 } from "../../ports/work-ports.fixtures.js";
 import { WorkSettings } from "../../ports/work-settings.js";
@@ -20,6 +32,7 @@ import { HOUR, MANY_REQUESTS_TEST_MS, tasksHttp } from "../../tasks.controller.f
 import {
   sendJson,
   startWorkApplication,
+  webEventsOf,
   type WorkApplication,
 } from "../../work-application.fixtures.js";
 import { ownProjectsQueue } from "../postgres/postgres-queue-repository.fixtures.js";
@@ -40,7 +53,7 @@ const { readTask, readyTask, requestStart, ownProjectTasks, sound } = tasksHttp(
 const NOW = new Date(2026, 10, 13, 12, 0);
 const RESET = new Date(NOW.getTime() + 2 * HOUR);
 
-async function startApplication(): Promise<void> {
+async function startApplication(overrides: readonly ProviderOverride[] = []): Promise<void> {
   const settings = new WorkSettingsForTests();
   await settings.changeOfficeWideLimit(12);
   work = await startWorkApplication(officeData, [
@@ -48,6 +61,7 @@ async function startApplication(): Promise<void> {
     { provide: FireAlarmRepository, useValue: fireAlarm },
     ownProjectsQueue(() => [projectId]),
     ownProjectTasks(),
+    ...overrides,
   ]);
   clock().setTime(NOW);
 }
@@ -85,13 +99,34 @@ async function startedTask(): Promise<Task> {
 }
 
 /** As the Stage runner asks, once the engine refused the Stage's turn. */
-async function refused(taskId: string, resetsAt = RESET): Promise<void> {
+async function refused(
+  taskId: string,
+  resetsAt = RESET,
+  engine: Pick<Engine, "id" | "name"> = FIRST_CLAUDE_CODE_ENGINE,
+): Promise<void> {
   await work.app.get(TaskService).pauseForUsageWindow(taskId, {
-    engineId: "claude-code",
-    engineName: "Claude Code",
+    engineId: engine.id,
+    engineName: engine.name,
     window: "five-hour",
     resetsAt,
   });
+}
+
+/** Engine's reading of `engineId`'s usage windows, taken at `readAt`, judged `free` or not. */
+async function read(engineId: EngineId, readAt: Date, free: boolean): Promise<void> {
+  const percentUsed = free ? 40 : 100;
+  await work.app.get(EventBus).publish(
+    new UsageWindowsRead(
+      engineId,
+      {
+        fiveHour: { percentUsed, resetsAt: RESET },
+        sevenDay: { percentUsed: 10, resetsAt: undefined },
+        source: "rate-limit-headers",
+      },
+      readAt,
+      free,
+    ),
+  );
 }
 
 describe("A pause by the usage window", { timeout: MANY_REQUESTS_TEST_MS }, () => {
@@ -129,6 +164,64 @@ describe("A pause by the usage window", { timeout: MANY_REQUESTS_TEST_MS }, () =
     });
     expect(work.published).toContainEqual(expect.objectContaining({ taskId: task.id }));
     expect(work.published.some((event) => event instanceof TaskResumed)).toBe(true);
+  });
+
+  it("says in TaskPaused that the Stage awaits the user's choice of a Stand-in Engine, when it does", async () => {
+    const task = await startedTask();
+    work.published.length = 0;
+
+    await work.app.get(TaskService).pauseForUsageWindow(task.id, {
+      engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+      engineName: FIRST_CLAUDE_CODE_ENGINE.name,
+      window: "five-hour",
+      resetsAt: RESET,
+      awaitsStandInChoice: true,
+    });
+
+    expect(work.published).toContainEqual(
+      expect.objectContaining({
+        constructor: TaskPaused,
+        taskId: task.id,
+        by: "usage-window",
+        usageWindow: expect.objectContaining({ awaitsStandInChoice: true }),
+      }),
+    );
+  });
+
+  it("resumes at the reset under the Task's lock, which the user's switch of a Stage takes too", async () => {
+    const task = await startedTask();
+    await refused(task.id);
+    const locks = work.app.get(TaskLocks, { strict: false });
+    let release!: () => void;
+    const held = locks.run(task.id, () => new Promise<void>((resolve) => (release = resolve)));
+
+    const resuming = work.app.get(TaskService).resumeAtReset(task.id, RESET);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect((await readTask(task.id)).state).toBe("paused");
+    release();
+    await held;
+    await resuming;
+    expect((await readTask(task.id)).state).toBe("in-progress");
+  });
+
+  it("resumes a Task a free reading frees under the Task's lock too", async () => {
+    const task = await startedTask();
+    await refused(task.id);
+    const locks = work.app.get(TaskLocks, { strict: false });
+    let release!: () => void;
+    const held = locks.run(task.id, () => new Promise<void>((resolve) => (release = resolve)));
+
+    const freeing = work.app
+      .get(TaskService)
+      .resumeFreedByUsageWindow(FIRST_CLAUDE_CODE_ENGINE.id, new Date(NOW.getTime() + 60_000));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect((await readTask(task.id)).state).toBe("paused");
+    release();
+    await held;
+    expect(await freeing).toEqual([task.id]);
+    expect((await readTask(task.id)).state).toBe("in-progress");
   });
 
   it("moves the resume on when a refusal comes again", async () => {
@@ -204,6 +297,88 @@ describe("A pause by the usage window", { timeout: MANY_REQUESTS_TEST_MS }, () =
   });
 });
 
+describe("A free reading before the reset", { timeout: MANY_REQUESTS_TEST_MS }, () => {
+  const ENGINE = FIRST_CLAUDE_CODE_ENGINE.id;
+
+  it("resumes the Tasks that engine's usage window paused, and the reset then does nothing", async () => {
+    const task = await startedTask();
+    await refused(task.id);
+    work.published.length = 0;
+
+    await clock().advanceTo(new Date(NOW.getTime() + 10 * 60_000));
+    await read(ENGINE, clock().now(), true);
+
+    expect(await readTask(task.id)).toMatchObject({
+      state: "in-progress",
+      pausedBy: null,
+      resumesAt: null,
+    });
+    expect(await work.app.get(TaskService).read(task.id)).toMatchObject({
+      usageWindowEngineId: undefined,
+      usageWindowPausedAt: undefined,
+    });
+    expect(work.published.filter((event) => event instanceof TaskResumed)).toHaveLength(1);
+
+    // The Task goes on and is paused by the user; the reset passing leaves it to them.
+    await sendJson(work, "POST", `/tasks/${task.id}/pause`);
+    work.published.length = 0;
+    await clock().advanceTo(RESET);
+    expect((await readTask(task.id)).state).toBe("paused");
+    expect(work.published.some((event) => event instanceof TaskResumed)).toBe(false);
+  });
+
+  it("keeps the engine and when it paused, and resumes none on a reading of another engine, one not free, or one taken before the pause", async () => {
+    const task = await startedTask();
+    await clock().advanceTo(new Date(NOW.getTime() + 5 * 60_000));
+    const pausedAt = clock().now();
+    await refused(task.id);
+
+    expect(await work.app.get(TaskService).read(task.id)).toMatchObject({
+      usageWindowEngineId: ENGINE,
+      usageWindowPausedAt: pausedAt,
+    });
+
+    await clock().advanceTo(new Date(NOW.getTime() + 10 * 60_000));
+    await read("codex", clock().now(), true);
+    await read(ENGINE, clock().now(), false);
+    await read(ENGINE, NOW, true);
+    await read(ENGINE, pausedAt, true);
+
+    expect(await readTask(task.id)).toMatchObject({
+      state: "paused",
+      pausedBy: "usage-window",
+      resumesAt: RESET.toISOString(),
+    });
+    await clock().advanceTo(RESET);
+    expect((await readTask(task.id)).state).toBe("in-progress");
+  });
+
+  it("leaves the Task held by the alarm when the alarm is on", async () => {
+    const task = await startedTask();
+    await refused(task.id);
+    await sound();
+
+    await read(ENGINE, new Date(NOW.getTime() + 60_000), true);
+
+    expect(await readTask(task.id)).toMatchObject({
+      state: "paused",
+      pausedBy: "alarm",
+      resumesAt: null,
+    });
+  });
+
+  it("resumes, after a restart, a Task paused before it, on the first free reading", async () => {
+    const task = await startedTask();
+    await refused(task.id);
+
+    await work.app.close();
+    await startApplication();
+    await read(ENGINE, new Date(NOW.getTime() + 60_000), true);
+
+    expect((await readTask(task.id)).state).toBe("in-progress");
+  });
+});
+
 describe("The queue while an engine's usage window is used up", () => {
   it("holds a Start on that engine with the reason, and starts it at the reset", async () => {
     const usedUp = work.app.get(AccountWindowsForTests).usedUp;
@@ -236,5 +411,129 @@ describe("The queue while an engine's usage window is used up", () => {
     await requestStart(task.id);
 
     expect((await readTask(task.id)).state).toBe("in-progress");
+  });
+});
+
+/** A Codex engine signed in with ChatGPT, whose plan gives usage windows. */
+const CODEX: Engine = {
+  id: "codex",
+  name: "Codex",
+  kind: "codex",
+  defaultModel: "gpt-6-luna",
+  apiKey: null,
+};
+
+describe("A Codex engine's used-up usage window", { timeout: MANY_REQUESTS_TEST_MS }, () => {
+  beforeEach(async () => {
+    // Settings › Engines of the test's own lists the Codex engine, which the Project's Roles run on.
+    await work.app.close();
+    const engines = new EngineSettingsForTests({
+      engines: [FIRST_CLAUDE_CODE_ENGINE, CODEX],
+      searchEndpoint: null,
+      modelPrices: [],
+    });
+    await startApplication([{ provide: EngineModels, useValue: new EngineModels(engines) }]);
+    work.app
+      .get(KnownEngineCascadeForTests)
+      .inProject.set(projectId, { engineId: CODEX.id, model: "gpt-6-luna" });
+  });
+
+  it("pauses the Task until the window's reset, and resumes it by itself then", async () => {
+    const task = await startedTask();
+    work.published.length = 0;
+
+    await refused(task.id, RESET, CODEX);
+
+    expect(await readTask(task.id)).toMatchObject({
+      state: "paused",
+      pausedBy: "usage-window",
+      resumesAt: RESET.toISOString(),
+    });
+    expect(work.published).toContainEqual(
+      expect.objectContaining({
+        constructor: TaskPaused,
+        taskId: task.id,
+        by: "usage-window",
+        usageWindow: expect.objectContaining({
+          engineId: "codex",
+          engineName: "Codex",
+          window: "five-hour",
+          resetsAt: RESET,
+        }),
+      }),
+    );
+
+    await clock().advanceTo(RESET);
+
+    expect(await readTask(task.id)).toMatchObject({ state: "in-progress", pausedBy: null });
+    expect(work.published.some((event) => event instanceof TaskResumed)).toBe(true);
+  });
+
+  it("holds a Start on the Codex engine with the reason naming it, and starts it at the reset", async () => {
+    work.app
+      .get(AccountWindowsForTests)
+      .usedUp.set(CODEX.id, { window: "five-hour", until: RESET });
+    const task = await readyTask();
+    ownIds.push(task.id);
+
+    const answer = startAnswerSchema.parse(await (await requestStart(task.id)).json());
+
+    expect(answer.queued?.reasons).toEqual(["Codex's 5-hour window is used up until 14:00."]);
+    await clock().advanceTo(RESET);
+    expect((await readTask(task.id)).state).toBe("in-progress");
+  });
+});
+
+describe("TaskService.wentOnOnStandIn: a running Stage went on on a Stand-in Engine (spec 5.4)", () => {
+  const onHome = {
+    engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+    engineName: "Claude Code",
+    standInId: "home",
+    standInName: "Home",
+    reason:
+      "Claude Code's 5-hour window was used up until 2026-11-13 14:00 UTC, so the Stage went on on Home.",
+    short: "5-hour window used up",
+  };
+
+  it("names the stand-in for the cascade's engine, replaces it on the next switch, and drops it back on the engine itself", async () => {
+    const task = await startedTask();
+    const tasks = work.app.get(TaskService);
+    work.published.length = 0;
+
+    await tasks.wentOnOnStandIn(task.id, onHome);
+    expect((await readTask(task.id)).engineStandIns).toEqual([onHome]);
+    // The web reads the Task again, so its page names the stand-in.
+    expect(webEventsOf(work)).toEqual([{ type: "task.went-on-on-stand-in", taskId: task.id }]);
+
+    const onSpare = { ...onHome, standInId: "spare", standInName: "Spare" };
+    await tasks.wentOnOnStandIn(task.id, onSpare);
+    expect((await readTask(task.id)).engineStandIns).toEqual([onSpare]);
+    expect((await readTask(task.id)).state).toBe("in-progress");
+
+    await tasks.wentOnOnStandIn(task.id, {
+      ...onHome,
+      standInId: FIRST_CLAUDE_CODE_ENGINE.id,
+      standInName: "Claude Code",
+    });
+    expect((await readTask(task.id)).engineStandIns).toEqual([]);
+  });
+
+  it("names the stand-in on a Task paused by the usage window, as the user's Switch now moves its Stage before resuming it", async () => {
+    const task = await startedTask();
+    await refused(task.id);
+
+    await work.app.get(TaskService).wentOnOnStandIn(task.id, onHome);
+
+    expect(await readTask(task.id)).toMatchObject({ state: "paused", engineStandIns: [onHome] });
+  });
+
+  it("leaves a dropped Task as it is", async () => {
+    const task = await startedTask();
+    const tasks = work.app.get(TaskService);
+    await tasks.drop(task.id, { kind: "user", user: null });
+
+    await tasks.wentOnOnStandIn(task.id, onHome);
+
+    expect((await readTask(task.id)).engineStandIns).toEqual([]);
   });
 });

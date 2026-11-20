@@ -8,6 +8,7 @@ import { GitHubWebEvents } from "./adapters/websocket/github-web-events.js";
 import { AppRegistration } from "./application/app-registration.js";
 import { GitHubAccess } from "./application/github-access.js";
 import { GitHubIdentities } from "./application/github-identities.js";
+import { GitHubPermissions } from "./application/github-permissions.js";
 import { GitHubPullRequests } from "./application/github-pull-requests.js";
 import { GitHubSignIn } from "./application/github-sign-in.js";
 import { GITHUB_URLS, GitHubUrls } from "./application/github-urls.js";
@@ -38,6 +39,7 @@ export class GitHubModule {
         GitHubAccess,
         GitHubIdentities,
         GitHubPullRequests,
+        GitHubPermissions,
         GitHubWebEvents,
       ],
       exports: [GitHubAccess, GitHubIdentities, GitHubPullRequests],

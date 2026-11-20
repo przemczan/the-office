@@ -11,7 +11,10 @@ import { UsersController } from "./adapters/http/users.controller.js";
 import { GoogleClientController } from "./adapters/http/google-client.controller.js";
 import { IdentitySignInController } from "./adapters/http/identity-sign-in.controller.js";
 import { LinkedIdentitiesController } from "./adapters/http/linked-identities.controller.js";
+import { OpenIdConnectProviderController } from "./adapters/http/openid-connect-provider.controller.js";
 import { InMemoryPendingCeremonies } from "./adapters/in-memory/in-memory-pending-ceremonies.js";
+import { FetchOpenIdConnectDiscovery } from "./adapters/openid-connect/fetch-openid-connect-discovery.js";
+import { PostgresOpenIdConnectProviderRepository } from "./adapters/postgres/postgres-openid-connect-provider-repository.js";
 import { PostgresFirstRunSetupRepository } from "./adapters/postgres/postgres-first-run-setup-repository.js";
 import { PostgresGoogleClientRepository } from "./adapters/postgres/postgres-google-client-repository.js";
 import { PostgresLinkedIdentityRepository } from "./adapters/postgres/postgres-linked-identity-repository.js";
@@ -36,6 +39,7 @@ import { IdentityProviders } from "./application/identity-providers.js";
 import { IdentitySignIns } from "./application/identity-sign-ins.js";
 import { IdentityTrips } from "./application/identity-trips.js";
 import { LinkedIdentities } from "./application/linked-identities.js";
+import { OpenIdConnectProviders } from "./application/openid-connect-providers.js";
 import { PasskeySignIn } from "./application/passkey-sign-in.js";
 import { Passkeys } from "./application/passkeys.js";
 import { PasswordChecks } from "./application/password-checks.js";
@@ -51,6 +55,8 @@ import type { IdentityProvider } from "./ports/identity-provider.js";
 import { FirstRunSetupRepository } from "./ports/first-run-setup-repository.js";
 import { GoogleClientRepository } from "./ports/google-client-repository.js";
 import { LinkedIdentityRepository } from "./ports/linked-identity-repository.js";
+import { OpenIdConnectDiscovery } from "./ports/openid-connect-discovery.js";
+import { OpenIdConnectProviderRepository } from "./ports/openid-connect-provider-repository.js";
 import { UserWrongTries } from "./application/user-wrong-tries.js";
 import { AuthenticatorRepository } from "./ports/authenticator-repository.js";
 import { PasskeyCeremonies } from "./ports/passkey-ceremonies.js";
@@ -66,8 +72,9 @@ export interface UsersModuleOptions {
   /** The modules the identity providers' adapters need, such as the github module. */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
   /**
-   * The identity providers a user links and signs in with: `GitHubIdentityProvider`, and
-   * `GoogleIdentityProvider` over the Google OAuth client this module keeps.
+   * The identity providers a user links and signs in with: `GitHubIdentityProvider`,
+   * `GoogleIdentityProvider` over the Google OAuth client this module keeps, and
+   * `OpenIdConnectIdentityProvider` over the OpenID Connect provider it keeps.
    */
   readonly identityProviders: readonly Type<IdentityProvider>[];
   /**
@@ -101,6 +108,7 @@ export class UsersModule {
         PasskeysController,
         LinkedIdentitiesController,
         GoogleClientController,
+        OpenIdConnectProviderController,
         UsersController,
       ],
       providers: [
@@ -115,6 +123,11 @@ export class UsersModule {
         { provide: PendingCeremonies, useFactory: () => new InMemoryPendingCeremonies() },
         { provide: LinkedIdentityRepository, useClass: PostgresLinkedIdentityRepository },
         { provide: GoogleClientRepository, useClass: PostgresGoogleClientRepository },
+        {
+          provide: OpenIdConnectProviderRepository,
+          useClass: PostgresOpenIdConnectProviderRepository,
+        },
+        { provide: OpenIdConnectDiscovery, useFactory: () => new FetchOpenIdConnectDiscovery() },
         { provide: FirstRunSetupRepository, useClass: PostgresFirstRunSetupRepository },
         { provide: FirstRunSetupOptions, useValue: new FirstRunSetupOptions(skipSetupBasics) },
         ...identityProviders,
@@ -135,6 +148,7 @@ export class UsersModule {
         IdentitySignIns,
         IdentityTrips,
         LinkedIdentities,
+        OpenIdConnectProviders,
         Passkeys,
         PasskeySignIn,
         PasswordChecks,

@@ -1,11 +1,12 @@
-import type {
-  Channel,
-  Duty,
-  Notification,
-  NotificationRouting,
-  Project,
-  Role,
-  Task,
+import {
+  NOTIFICATION_TIME,
+  type Channel,
+  type Duty,
+  type Notification,
+  type NotificationRouting,
+  type Project,
+  type Role,
+  type Task,
 } from "@the-office/contracts";
 import type { NotificationPerson } from "./notification-channel.ts";
 import { needsYouWords } from "./now-words.ts";
@@ -14,15 +15,17 @@ import { needsYouWords } from "./now-words.ts";
 export const OFFICE_TITLE = "The Office";
 
 /**
- * Where opening a Notification goes: the Task or the Initiative it is about, Settings › Updates for
- * an Office update, or Now for the Office's own state, with the chat of the person who speaks over
- * it.
+ * Where opening a Notification goes: the Task or the Initiative it is about (for a Decision on no
+ * Task, the Initiative's Thread it waits in, at its card), Settings › Updates for an Office update,
+ * or Now for the Office's own state, with the chat of the person who speaks over it, and for the
+ * Stages waiting for a Stand-in Engine, whose card is in Now's Needs you.
  */
 export type NotificationTarget =
   | { readonly to: "/tasks/$taskId"; readonly params: { readonly taskId: string } }
   | {
       readonly to: "/work/initiatives/$initiativeId";
       readonly params: { readonly initiativeId: string };
+      readonly search?: { readonly initiativeThread: string; readonly decision?: string };
     }
   | { readonly to: "/now"; readonly search?: { readonly chat: string } }
   | { readonly to: "/settings/updates" };
@@ -39,12 +42,21 @@ export function targetOf({
   if (pointsTo.kind === "office") {
     return roleKey ? { to: "/now", search: { chat: roleKey } } : { to: "/now" };
   }
-  if (pointsTo.kind === "since-you-left") return { to: "/now" };
+  if (pointsTo.kind === "since-you-left" || pointsTo.kind === "stand-in-choice") {
+    return { to: "/now" };
+  }
   if (pointsTo.kind === "office-update") return { to: "/settings/updates" };
   if (pointsTo.kind === "initiative") {
+    const { initiativeId, threadId, decisionId } = pointsTo;
     return {
       to: "/work/initiatives/$initiativeId",
-      params: { initiativeId: pointsTo.initiativeId },
+      params: { initiativeId },
+      ...(threadId !== undefined && {
+        search: {
+          initiativeThread: threadId,
+          ...(decisionId !== undefined && { decision: decisionId }),
+        },
+      }),
     };
   }
   return { to: "/tasks/$taskId", params: { taskId: pointsTo.taskId } };
@@ -125,4 +137,48 @@ export function aboutLine(
   if (!task) return undefined;
   const project = projects?.find(({ id }) => id === task.projectId);
   return project ? `${task.title} · ${project.name}` : task.title;
+}
+
+/**
+ * A Notification's line or short line as the user reads it: the time it names (`at`, as a usage
+ * window's reset) worded in the browser's time zone where the line holds `NOTIFICATION_TIME`. One
+ * without `at`, raised before it or naming no time, shows as stored. The list, the status strip and
+ * the desktop all word it here; the phone, outside the browser, gets the service's words.
+ */
+export function notificationLineOf(
+  text: string,
+  { at }: Pick<Notification, "at">,
+  now: Date = new Date(),
+  timeZone?: string,
+): string {
+  if (at === undefined) return text;
+  return text.replaceAll(NOTIFICATION_TIME, namedTimeWords(at, now, timeZone));
+}
+
+/**
+ * "17:10" on the reader's day, "Tue 17 Nov 17:10" on another, in the browser's time zone unless
+ * `timeZone` names another.
+ */
+export function namedTimeWords(isoTime: string, now: Date = new Date(), timeZone?: string): string {
+  const at = new Date(isoTime);
+  const clock = new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone,
+  }).format(at);
+  const dayOf = new Intl.DateTimeFormat("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone,
+  });
+  if (dayOf.format(at) === dayOf.format(now)) return clock;
+  const day = new Intl.DateTimeFormat("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    timeZone,
+  }).format(at);
+  return `${day.replace(",", "")} ${clock}`;
 }

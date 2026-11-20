@@ -1,8 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import type { Project } from "../domain/project.js";
 import {
-  initiativeBranchDiverged,
-  initiativeBranchGone,
+  existingBranchUnusable,
+  type ExistingBranchKind,
   type FreshInitiativeBranch,
   type TaskBase,
 } from "../domain/task-base.js";
@@ -39,12 +39,23 @@ export class TaskBases {
   }
 
   /**
-   * The branch the Task's worktree holds: its own `office/<task>`, or, for a Publishing Task, its
-   * Initiative's branch itself (spec §2.3, "A Publishing Task's Publish").
+   * The branch the Task's worktree holds: its own `office/<task>`; for a Publishing Task, its
+   * Initiative's branch itself (spec §2.3, "A Publishing Task's Publish"); for a Conflict
+   * resolution Task, the branch of the pull request it resolves, the branch of the Task that
+   * opened it (`office/<that task>`, or an Initiative's branch for a Publishing Task's).
    */
   async branchOfTask(project: Project, taskId: string): Promise<string> {
     const taskBase = await this.of(project, taskId);
-    return taskBase.kind === "publishing-task" ? taskBase.branch : `${TASK_BRANCH_PREFIX}${taskId}`;
+    switch (taskBase.kind) {
+      case "publishing-task":
+        return taskBase.branch;
+      case "pull-request":
+        if (taskBase.taskId === taskId) throw new Error(`Task ${taskId} can't resolve itself.`);
+        return this.branchOfTask(project, taskBase.taskId);
+      case "base-branch":
+      case "initiative-branch":
+        return `${TASK_BRANCH_PREFIX}${taskId}`;
+    }
   }
 
   /**
@@ -69,13 +80,28 @@ export class TaskBases {
    * base branch tracks one and the remote has it. Refused (InitiativeBranchUnusable) when the
    * local branch is gone, or the two have diverged; never merged here.
    */
-  async freshInitiativeBranch(
+  freshInitiativeBranch(
     project: Project,
     branch: string,
     variables: GitVariables,
   ): Promise<FreshInitiativeBranch> {
+    return this.freshExistingBranch(project, branch, variables, "initiative");
+  }
+
+  /**
+   * A branch that isn't a Task's own (an Initiative's, or a pull request's), with its copy on the
+   * base branch's remote fetched as `freshInitiativeBranch` does, refused in the words of `kind`
+   * (ExistingBranchUnusable) when the local branch is gone or the two have diverged.
+   */
+  async freshExistingBranch(
+    project: Project,
+    branch: string,
+    variables: GitVariables,
+    kind: ExistingBranchKind,
+  ): Promise<FreshInitiativeBranch> {
+    const unusable = existingBranchUnusable[kind];
     const local = await this.git.findCommit(project.path, `refs/heads/${branch}`);
-    if (local === undefined) throw initiativeBranchGone(branch, project.name);
+    if (local === undefined) throw unusable.gone(branch, project.name);
     const upstream = await this.git.upstreamOf(project.path, project.baseBranch);
     if (!upstream) return { branch, commit: local, local, remote: undefined };
     const remote = { remote: upstream.remote, branch };
@@ -89,6 +115,6 @@ export class TaskBases {
     if (await this.git.contains(project.path, local, fetched)) {
       return { branch, commit: local, local, remote };
     }
-    throw initiativeBranchDiverged(branch, upstream.remote, project.name);
+    throw unusable.diverged(branch, upstream.remote, project.name);
   }
 }

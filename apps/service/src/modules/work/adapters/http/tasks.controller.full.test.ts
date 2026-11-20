@@ -21,6 +21,7 @@ import {
   signedInAs,
 } from "../../../../platform/http/signed-in-requests.fixtures.js";
 import { makeAPlanOpening } from "../../domain/planning.js";
+import { defaultWorkPrompts } from "../../domain/work-prompt-templates.fixtures.js";
 import { PlanningService } from "../../application/planning-service.js";
 import { QueueService } from "../../application/queue-service.js";
 import { StartService } from "../../application/start-service.js";
@@ -489,7 +490,12 @@ describe("POST /api/tasks/:id/make-a-plan", () => {
     expect(work.app.get(ProjectWorktreesForTests).opened).toContain(`${projectId}/${task.id}`);
     const threads = work.app.get(TaskThreadsForTests);
     expect(threads.started).toEqual([
-      { taskId: task.id, roleKey: "planner", title: "Planning", opening: makeAPlanOpening(false) },
+      {
+        taskId: task.id,
+        roleKey: "planner",
+        title: "Planning",
+        opening: makeAPlanOpening(defaultWorkPrompts(), false),
+      },
     ]);
     expect(threads.opened).toEqual([]);
     expect(webEventsOf(work)).toEqual([
@@ -1514,7 +1520,31 @@ describe("Usage estimates", () => {
       usageEstimate: { basis: { source: "none" }, engines: [] },
     });
   });
+
+  it("reads each person and the engine each gets in each Project once for every Ready Task", async () => {
+    for (let count = 0; count < 3; count += 1) await estimatedTask(90_000);
+    const finds = vi.spyOn(work.app.get(KnownPeopleForTests), "find");
+    const applying = vi.spyOn(work.app.get(KnownEngineCascadeForTests), "applying");
+
+    try {
+      const response = await sendJson(work, "GET", "/usage-estimates");
+
+      expect(response.status).toBe(200);
+      expect(finds).toHaveBeenCalled();
+      expect(askedTwice(finds.mock.calls)).toEqual([]);
+      expect(askedTwice(applying.mock.calls)).toEqual([]);
+    } finally {
+      finds.mockRestore();
+      applying.mockRestore();
+    }
+  });
 });
+
+/** The calls of a spy made again with the same arguments, as JSON. */
+function askedTwice(calls: readonly unknown[][]): string[] {
+  const asked = calls.map((call) => JSON.stringify(call));
+  return asked.filter((call, index) => asked.indexOf(call) !== index);
+}
 
 describe("Window caps", () => {
   const ownIds: string[] = [];

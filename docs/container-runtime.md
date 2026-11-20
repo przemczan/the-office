@@ -14,11 +14,11 @@ What runs each Task's run environment, the bundled Grafana, and in a checkout or
 
 The Debian/Ubuntu installer ([tools/install/install.sh](../tools/install/install.sh)) installs and holds the same versions, with the suffix built for each system it supports (`5:29.9.3-1~debian.13~trixie`), and checks the same key fingerprint; a version change updates its constants in the same commit.
 
-The Office's own machine (Ubuntu 24.04 x64, a Proxmox LXC guest) runs them, approved by Devops on 2026-11-08. It had Ubuntu's `docker.io` 29.1.3 and `docker-compose-v2` 2.40.3 before, which follow Ubuntu's updates rather than a pin. `apt-mark showhold` lists the five packages.
+The Office's own machine (Ubuntu 24.04 x64, a Proxmox LXC guest) runs them; `apt-mark showhold` lists the five packages. Ubuntu's own `docker.io` and `docker-compose-v2` follow Ubuntu's updates rather than a pin.
 
 ## Why Docker Engine and not Podman
 
-The compose file and the systemd unit already ran on Docker Engine, and Docker's repository gives exact versions to hold. Podman would mean moving both, and `podman compose` covers less of the compose and devcontainer specs, which run environments (Task 62120c02) will need.
+The compose file and the systemd unit run on Docker Engine, and Docker's repository gives exact versions to hold. `podman compose` covers less of the compose and devcontainer specs, which run environments need.
 
 ## Installing it on a fresh Linux machine
 
@@ -105,8 +105,8 @@ The Compose install ([deploy/compose/docker-compose.yml](../deploy/compose/docke
 
 Reaching the runtime is reaching the workstation as root: a container can mount `/`. So the Office rules refuse an Agent's command that runs `docker`, `docker-compose`, `podman`, `podman-compose` or `nerdctl`, names a runtime's socket (`docker.sock`, `podman.sock`, `containerd.sock`), or sets `DOCKER_HOST`, `DOCKER_CONTEXT` or `CONTAINER_HOST`, in every Role and Stage; only the Caretaker with Allow changes on may (`container-runtime-commands.ts` in the engine module). No session's environment carries those variables.
 
-**Accepted limit:** the hook sees the command, not what it runs. A command that calls the runtime indirectly, such as an npm script that runs `docker compose`, isn't seen; the-office has no such npm script since its Linux checks moved into run environments (Task 62120c02); the release scripts in `tools/release/` call `docker` and run only in the Release workflow on GitHub ([releasing.md](releasing.md)), never in a Stage. Agents run as the same OS user as the service, and spec §6 leaves a hostile Agent out of the threat model.
+**Accepted limit:** the hook sees the command, not what it runs. A command that calls the runtime indirectly, such as an npm script that runs `docker compose`, isn't seen; the-office has no such npm script; the release scripts in `tools/release/` call `docker` and run only in the Release workflow on GitHub ([releasing.md](releasing.md)), never in a Stage. Agents run as the same OS user as the service, and spec §6 leaves a hostile Agent out of the threat model.
 
-## Windows: an open follow-up
+## Windows
 
-Not installed or checked yet. The likely shape is Docker Desktop on WSL2, with its own versions and its own pinning. In PowerShell the refusal already covers the programs (`docker.exe` too) and the sockets; setting a variable (`$env:DOCKER_HOST = …`) needs a twin of the Bash check.
+No container runtime is installed or checked on Windows. In PowerShell the refusal covers the programs (`docker.exe` too) and the sockets, not setting a variable (`$env:DOCKER_HOST = …`).

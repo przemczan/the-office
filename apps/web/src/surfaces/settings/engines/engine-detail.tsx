@@ -5,7 +5,12 @@ import { SettingsCardTitle } from "../settings-card-parts.tsx";
 import { ApiEndpointFields } from "./api-endpoint-fields.tsx";
 import { ClaudeCodeEngineAccount } from "./claude-code-engine-account.tsx";
 import { ClaudeCodeEngineFields } from "./claude-code-engine-fields.tsx";
+import { CodexEngineAccount } from "./codex-engine-account.tsx";
+import { CodexEngineFields } from "./codex-engine-fields.tsx";
+import { CopilotCliEngineAccount } from "./copilot-cli-engine-account.tsx";
+import { CopilotCliEngineFields } from "./copilot-cli-engine-fields.tsx";
 import {
+  ENGINE_KIND_ICONS,
   ENGINE_KIND_LABELS,
   ENGINE_TAB_LABELS,
   engineCalled,
@@ -13,11 +18,17 @@ import {
   type EngineTab,
 } from "./engine-list-words.ts";
 import type { PricedModel } from "./engine-settings-draft.ts";
-import { ApiEndpointModels, ClaudeModelPrices, type PriceFields } from "./engine-prices.tsx";
+import {
+  ApiEndpointModels,
+  ClaudeModelPrices,
+  CodexModelPrices,
+  CopilotCliModelPrices,
+  type PriceFields,
+} from "./engine-prices.tsx";
 
 /**
- * The selected engine: its name with Remove, and its tabs: Settings, a Claude Code engine's
- * Account, and Models and prices.
+ * The selected engine: its name with Remove, and its tabs: Settings, a Claude Code, Codex or
+ * Copilot CLI engine's Account, and Models and prices.
  */
 export function EngineDetail({
   engine,
@@ -35,7 +46,7 @@ export function EngineDetail({
   readonly tab: EngineTab;
   readonly selectTab: (tab: EngineTab) => void;
   readonly claudeModels: readonly string[];
-  /** The API endpoint as saved, undefined for one not saved yet or a Claude Code engine. */
+  /** The API endpoint as saved, undefined for one not saved yet or another kind of engine. */
   readonly savedEndpoint: ApiEngine | undefined;
   /** The models its Models and prices prices. */
   readonly pricedModels: readonly PricedModel[];
@@ -49,11 +60,7 @@ export function EngineDetail({
   const called = engineCalled(engine);
   return (
     <Card
-      title={
-        <SettingsCardTitle icon={engine.kind === "claude-code" ? "terminal" : "server"}>
-          {called}
-        </SettingsCardTitle>
-      }
+      title={<SettingsCardTitle icon={ENGINE_KIND_ICONS[engine.kind]}>{called}</SettingsCardTitle>}
       subtitle={ENGINE_KIND_LABELS[engine.kind]}
       actions={
         <Button variant="danger-ghost" size="sm" onClick={remove}>
@@ -85,6 +92,36 @@ export function EngineDetail({
             )
           ) : (
             <ClaudeModelPrices models={pricedModels} prices={prices} />
+          )
+        ) : engine.kind === "codex" ? (
+          tab === "settings" ? (
+            <CodexEngineFields edit={engine} change={change} />
+          ) : tab === "account" ? (
+            engine.id === undefined ? (
+              <p className="settings-note">
+                It has no folder to sign in yet: Save, then sign it in here, with ChatGPT or an
+                OpenAI API key.
+              </p>
+            ) : (
+              <CodexEngineAccount key={engine.id} engineId={engine.id} />
+            )
+          ) : (
+            <CodexModelPrices models={pricedModels} prices={prices} />
+          )
+        ) : engine.kind === "copilot-cli" ? (
+          tab === "settings" ? (
+            <CopilotCliEngineFields edit={engine} change={change} />
+          ) : tab === "account" ? (
+            engine.id === undefined ? (
+              <p className="settings-note">
+                It has no account to sign in yet: Save, then sign it in here, with GitHub or a
+                token.
+              </p>
+            ) : (
+              <CopilotCliEngineAccount key={engine.id} engineId={engine.id} />
+            )
+          ) : (
+            <CopilotCliModelPrices models={pricedModels} called={called} prices={prices} />
           )
         ) : tab === "prices" ? (
           <ApiEndpointModels

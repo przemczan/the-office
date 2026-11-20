@@ -2,6 +2,7 @@ import { integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "dri
 import type { StageCommandRun } from "../../domain/stage-command-run.js";
 import type {
   CarriedFailure,
+  EngineSwitch,
   GateAction,
   SentBack,
   PublishedWork,
@@ -41,8 +42,22 @@ export const stageRuns = pgTable(
     engineId: text("engine_id"),
     engineName: text("engine_name"),
     model: text("model"),
+    /**
+     * When the run's session ran on a Stand-in Engine: the cascade's engine it stood in for, its
+     * name at the time, and why; null for a run on the cascade's engine, and for runs kept before.
+     */
+    standInForEngineId: text("stand_in_for_engine_id"),
+    standInForEngineName: text("stand_in_for_engine_name"),
+    standInReason: text("stand_in_reason"),
+    /** Each move of the run's session to a Stand-in Engine during the run, in order. */
+    engineSwitches: jsonb("engine_switches").$type<readonly EngineSwitch[]>().notNull().default([]),
     /** Where The Office left the Task's branch after the run. */
     headCommit: text("head_commit"),
+    /**
+     * The paths of The Office's commit of the run's work; `[]` for a run that committed nothing,
+     * null until recorded, and for runs kept before this was.
+     */
+    changedFiles: jsonb("changed_files").$type<readonly string[]>(),
     /** The Project commands The Office ran for the run. */
     commandRuns: jsonb("command_runs").$type<readonly StageCommandRun[]>().notNull().default([]),
     /**

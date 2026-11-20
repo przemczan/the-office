@@ -7,12 +7,14 @@ import { TaskRefused } from "./task-refused.js";
  * What a Task's branch starts from and publishes into (spec 5.5, "A worktree per Task"): the
  * Project's base branch, or the Initiative's branch in the Project for a Task of an Initiative
  * with a Pipeline in that Project. A Publishing Task works on the Initiative's branch itself and publishes it into
- * the base branch.
+ * the base branch. A Conflict resolution Task works on the branch of the pull request of the Task
+ * it resolves the conflicts of (`taskId`), never on an Initiative's.
  */
 export type TaskBranchBase =
   | { readonly kind: "base-branch" }
   | { readonly kind: "initiative-branch"; readonly branch: string }
-  | { readonly kind: "publishing-task"; readonly branch: string };
+  | { readonly kind: "publishing-task"; readonly branch: string }
+  | { readonly kind: "pull-request"; readonly taskId: string };
 
 const BASE_BRANCH: TaskBranchBase = { kind: "base-branch" };
 
@@ -20,14 +22,18 @@ const BASE_BRANCH: TaskBranchBase = { kind: "base-branch" };
  * The base of a Task in the Project `projectId`, by its Initiative: the base branch with none or
  * one on None in that Project, else the Initiative's branch there, which a Publishing Task holds itself. Refused
  * when the Initiative has a Pipeline but no branch in the Project, never the base branch in its
- * place, as the Task would publish there.
+ * place, as the Task would publish there. A Conflict resolution Task's is the pull request's branch,
+ * whatever its Initiative.
  */
 export function taskBranchBase(
-  task: Pick<Task, "madeFor">,
+  task: Pick<Task, "madeFor" | "resolvesTaskId">,
   initiative: Pick<Initiative, "name" | "pipelines" | "shortName" | "branches"> | undefined,
   projectId: string,
   projectName: string,
 ): TaskBranchBase {
+  if (task.madeFor === "resolve-conflicts" && task.resolvesTaskId !== undefined) {
+    return { kind: "pull-request", taskId: task.resolvesTaskId };
+  }
   if (!initiative || pipelineIn(initiative, projectId) === undefined) return BASE_BRANCH;
   const { shortName } = initiative;
   if (

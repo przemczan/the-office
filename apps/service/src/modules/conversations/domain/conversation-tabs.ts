@@ -1,10 +1,11 @@
-import { answerWords, type Decision } from "./decision.js";
+import { decisionSummary, formAnswerWords, type Decision } from "./decision.js";
 import { isPersonsThread, type Thread } from "./thread.js";
 
 /** A Consultation on the Task, from the moment it starts. */
 export interface TabConsultation {
   readonly threadId: string;
   readonly decisionId: string;
+  /** The Decision in one line: its first question, and how many more it asks. */
   readonly question: string;
   /** The Consultant's answer, in words; undefined while the Consultation waits on them. */
   readonly note: string | undefined;
@@ -90,8 +91,8 @@ function consultationsOfConsultants(
           consultation: {
             threadId: id,
             decisionId: decision.id,
-            question: decision.question,
-            note: answer && answerWords(decision, answer),
+            question: decisionSummary(decision),
+            note: answer && formAnswerWords(decision, answer),
             answeredAt: answer?.answeredAt,
           },
         },

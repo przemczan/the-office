@@ -44,6 +44,20 @@ describe("waitingWords", () => {
     expect(waitingWords([aGate()])).toBe("Waiting on you: 1 Gate");
   });
 
+  it("counts a Decision on an Initiative among the Decisions", () => {
+    const onInitiative: NeedsYouItem = {
+      kind: "initiative-decision",
+      decisionId: crypto.randomUUID(),
+      initiativeId: crypto.randomUUID(),
+      threadId: crypto.randomUUID(),
+      projectIds: ["p1", "p2"],
+      waitingSince: SINCE,
+    };
+    expect(waitingWords([aDecision(), onInitiative, aGate()])).toBe(
+      "Waiting on you: 2 Decisions, 1 Gate",
+    );
+  });
+
   it("says when nothing waits", () => {
     expect(waitingWords([])).toBe("Nothing waits on you.");
   });

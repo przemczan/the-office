@@ -1,5 +1,6 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { READ_ONLY_SHELL_RULE } from "../../engine/index.js";
+import type { PromptTexts } from "../../prompt-templates/index.js";
 import type { Author } from "./author.js";
 import type { Initiative } from "./initiative.js";
 import type { InitiativeChange } from "./initiative-changes.js";
@@ -13,12 +14,19 @@ import {
   type PlanningProject,
 } from "./planning.js";
 import { PUBLISHING_TASK_NEVER_PLANNED } from "./publishing-task.js";
+import { flagField, renderedText } from "./rendered-text.js";
 import { isPublishingTask, type Task, type TaskState } from "./task.js";
 import { startPlanningTask, withStateChange, type TaskChange } from "./task-changes.js";
 import { TaskRewrittenInInitiative, TaskStateChanged } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
 import { TASK_STATE_NAMES } from "./task-states.js";
-import { initiativePlanningWhoAskedSection } from "./who-asked.js";
+import { initiativePlanningOpenedBy } from "./who-asked.js";
+import {
+  INITIATIVE_PLANNING_AFTER_RESTART_OPENING,
+  INITIATIVE_PLANNING_BRIEF,
+  INITIATIVE_PLANNING_INSTRUCTIONS,
+  INITIATIVE_PLANNING_OPENING,
+} from "./work-prompt-templates.js";
 
 /*
  * Plan the Initiative (spec §2.1): one planning Thread with the Planner on an active Initiative,
@@ -30,30 +38,26 @@ export const INITIATIVE_PLANNING_THREAD_TITLE = "Planning the Initiative";
 
 /**
  * What the planner is woken with in an Initiative's planning Thread that a restart of The Office
- * cut short (spec §2.4), as `PLANNING_AFTER_RESTART_OPENING` is in a Task's.
+ * cut short (spec §2.4), as `planningAfterRestartOpening` is in a Task's.
  */
-export const INITIATIVE_PLANNING_AFTER_RESTART_OPENING =
-  "The Office restarted and cut your planning of this Initiative's Tasks short. Any Sub-agents you had running were stopped, and their results were lost: run again the ones you still need, then carry on planning the Tasks still in Planning where you left off.";
+export function initiativePlanningAfterRestartOpening(prompts: PromptTexts): string {
+  return renderedText(prompts, INITIATIVE_PLANNING_AFTER_RESTART_OPENING, {});
+}
 
-export const INITIATIVE_PLANNING_OPENING =
-  "Plan this Initiative's Tasks in Backlog, as your Brief lists them, in the order their blockers set. The user has nothing more to add yet.";
+export function initiativePlanningOpening(prompts: PromptTexts): string {
+  return renderedText(prompts, INITIATIVE_PLANNING_OPENING, {});
+}
 
 /**
  * What the Planner does in an Initiative's planning Thread, after their card's instructions. The
  * same for every session, so it stays in the cached prefix; worded for an engine with subagents
  * and for one without, so no engine needs telling apart.
  */
-export const INITIATIVE_PLANNING_INSTRUCTIONS = `In this Thread you plan an Initiative's Tasks in Backlog, one after another or several at once, without the user. You read each Project where The Projects in your Brief say: its base branch, or the Initiative's branch once it has one; you change no file, and ${READ_ONLY_SHELL_RULE}. With The Office's tools you read its records of Projects, people, Tasks, Ideas and Initiatives and any of their Attachments, and read_initiative reads this Initiative as it stands.
-
-Plan the Tasks in dependency order: a Task's turn comes once every Task it waits for inside the Initiative is planned, Ready or beyond, or Dropped; blockers outside the Initiative don't set the order. When a Task's turn comes, move it to Planning with start_planning, giving its Task id.
-
-If you have subagents (an Agent or a Task tool), hand each Task's research and drafting to one, and run the Tasks whose blockers are planned in parallel. Tell each subagent to read the Task's record and the checkouts The Projects list, to write nothing with The Office's tools, and to return the Plan (how it will be done, in plain words whoever implements it can follow) with the files and folders it expects to change, the Definition of Done (what must be true when it is done, one statement each that can be checked), the Pipeline that fits from your Brief's library and why, a few Tags, and its estimate of the tokens the whole Pipeline will use. Without subagents, plan the Tasks one after another yourself.
-
-You write each Task's parts yourself, naming it by its Task id: write_plan with its files to change and the token estimate, write_definition_of_done, propose_pipeline and write_tags, reusing Tags already in use where they fit. Suggest its commit message with write_commit_message too, the message of the one commit its Publish lands it as, following the commit convention its Project's own docs define (CLAUDE.md, AGENTS.md, README, CONTRIBUTING and the like), or with none its title with a short summary below it. Then call mark_planned for it; your Brief says what follows.
-
-When a Task needs an answer from the user, open a Decision on it with open_decision, giving its taskId. Leave that Task, and every Task that waits for it, and keep planning the rest. End your turn only when every Task left waits for an answer, or all are planned, saying which Tasks you planned and which wait and why. Each answer comes as a message: carry on from it.
-
-When an answer, or a decision you make later, changes what an already planned Task assumed, Ready ones included, rewrite its parts with write_plan, write_definition_of_done or propose_pipeline by its Task id, then call mark_planned for it again. A Task that has started, or one planned in its own planning Thread, is never rewritten: open a Decision on it instead, saying what changed and what you recommend.`;
+export function initiativePlanningInstructions(prompts: PromptTexts): string {
+  return renderedText(prompts, INITIATIVE_PLANNING_INSTRUCTIONS, {
+    readOnlyShellRule: READ_ONLY_SHELL_RULE,
+  });
+}
 
 /** States in which a Task is planned enough for the Tasks waiting for it to be planned. */
 const PLANNED_STATES: readonly TaskState[] = [
@@ -90,19 +94,25 @@ export function initiativePlanningProblems(
   return [];
 }
 
+/** How a new planning Thread on an Initiative is started, and by whom. */
+export interface InitiativePlanningStart {
+  readonly threadId: string;
+  readonly autoMode: boolean;
+  /** Opened by Plan with…: the planner waits for the user's first message on how to plan it. */
+  readonly withUser: boolean;
+  readonly by: Author;
+}
+
 /**
- * Plan the Initiative: its new planning Thread `threadId` becomes the one that plans its Tasks, in
- * auto mode or not, kept before the Thread opens so its first session's Brief and tools find it,
- * with `by`, who asked for it. Refused with the reasons of `initiativePlanningProblems`.
+ * Plan the Initiative, or Plan with…: its new planning Thread `threadId` becomes the one that plans
+ * its Tasks, in auto mode or not, kept before the Thread opens so its first session's Brief and
+ * tools find it, with `by`, who asked for it. Refused with the reasons of
+ * `initiativePlanningProblems`.
  */
 export function startInitiativePlanning(
   initiative: Initiative,
   tasks: readonly Task[],
-  {
-    threadId,
-    autoMode,
-    by,
-  }: { readonly threadId: string; readonly autoMode: boolean; readonly by: Author },
+  { threadId, autoMode, withUser, by }: InitiativePlanningStart,
 ): InitiativeChange<InitiativePlanningStarted> {
   const problems = initiativePlanningProblems(initiative, tasks);
   if (problems.length > 0) throw new InitiativeRefused(problems);
@@ -112,6 +122,7 @@ export function startInitiativePlanning(
       planningThreadId: threadId,
       planningThreadIds: [...initiative.planningThreadIds, threadId],
       planningAutoMode: autoMode,
+      planningWithUser: withUser,
       planningStartedBy: by,
     },
     event: new InitiativePlanningStarted(initiative.id, threadId, autoMode),
@@ -283,16 +294,19 @@ export interface InitiativePlanningProject extends PlanningProject {
   readonly ownPipelines: readonly PlanningPipeline[];
 }
 
-/** A Decision waiting on the user in a Thread, by the Task it is on and its question. */
+/**
+ * A Decision waiting on the user in a Thread, by the Task it is on and its question; on no Task,
+ * on the Initiative as a whole.
+ */
 export interface OpenTaskDecision {
-  readonly taskId: string;
+  readonly taskId: string | undefined;
   readonly question: string;
 }
 
 /** What an Initiative's planning Brief is assembled from, with no model call. */
 export interface InitiativePlanningRecord {
   readonly initiative: Initiative;
-  /** The Decisions open in this planning Thread, by the Task each is on. */
+  /** The Decisions open in this planning Thread, by the Task each is on, or on none. */
   readonly waiting: readonly OpenTaskDecision[];
   /** Its record as every session reads it: outcome, Tasks, dependencies and Attachments. */
   readonly record: string;
@@ -308,105 +322,94 @@ export interface InitiativePlanningRecord {
  * it spans with their base branches and commands, the Pipeline library and whether it is planned in
  * auto mode.
  */
-export function initiativePlanningBrief({
-  initiative,
-  waiting,
-  record,
-  tasks,
-  projects,
-  pipelines,
-}: InitiativePlanningRecord): string {
-  return [
-    "You are planning an Initiative's Tasks, in its planning Thread.",
+export function initiativePlanningBrief(
+  prompts: PromptTexts,
+  { initiative, waiting, record, tasks, projects, pipelines }: InitiativePlanningRecord,
+): string {
+  const tasksToPlan = tasksToPlanValues(tasks, projects);
+  const beingPlanned = beingPlannedValues(initiative, tasks);
+  const waitingOnTasks = waitingValues(waiting, tasks);
+  return renderedText(prompts, INITIATIVE_PLANNING_BRIEF, {
     record,
-    initiativePlanningWhoAskedSection(initiative),
-    toPlanSection(tasks, projects),
-    unfinishedSection(initiative, tasks),
-    waitingSection(waiting, tasks),
-    projectsSection(projects, pipelines),
-    [
-      "## The Pipelines\n\nA Task has no Pipeline until one is chosen. Propose the one each Task's Definition of Done needs with propose_pipeline; a Project Pipeline only for its own Project's Tasks:",
-      ...pipelineGroups(
-        projects.map((project) => ({ project, own: project.ownPipelines })),
-        pipelines,
+    planningOpenedBy: initiativePlanningOpenedBy(initiative),
+    withUser: initiative.planningWithUser,
+    hasTasksToPlan: tasksToPlan.length > 0,
+    tasksToPlan,
+    hasBeingPlanned: beingPlanned.length > 0,
+    beingPlanned,
+    hasWaiting: waitingOnTasks.length > 0,
+    waiting: waitingOnTasks,
+    projects: projects.map((project, index) => ({
+      first: flagField(index === 0),
+      name: project.name,
+      id: project.id,
+      baseBranch: project.baseBranch,
+      defaultPipeline: defaultPipelineWords(
+        [...project.ownPipelines, ...pipelines],
+        project.defaultPipeline,
       ),
-    ].join("\n\n"),
-    autoModeSection(initiative.planningAutoMode),
-  ]
-    .filter((section) => section !== undefined)
-    .join("\n\n");
+      commands: commandLines(project).join("\n"),
+    })),
+    pipelineLibrary: pipelineGroups(
+      projects.map((project) => ({ project, own: project.ownPipelines })),
+      pipelines,
+    ).join("\n\n"),
+    autoMode: initiative.planningAutoMode,
+  });
 }
 
-function toPlanSection(
+/** Its Tasks in Backlog, each with the Tasks inside the Initiative it waits for. */
+function tasksToPlanValues(
   tasks: readonly Task[],
   projects: readonly InitiativePlanningProject[],
-): string {
+): { title: string; id: string; projectName: string; waitsFor: string }[] {
   const byId = new Map(tasks.map((task) => [task.id, task]));
   const projectName = (id: string) => projects.find((project) => project.id === id)?.name ?? id;
-  const lines = tasks
+  return tasks
     .filter(({ state }) => state === "backlog")
-    .map((task) => {
-      const blockers = task.blockedBy
+    .map((task) => ({
+      title: task.title,
+      id: task.id,
+      projectName: projectName(task.projectId),
+      waitsFor: task.blockedBy
         .map((id) => byId.get(id))
         .filter((blocker) => blocker !== undefined)
         .map(
           (blocker) =>
             `"${blocker.title}" (Task ${blocker.id}, ${TASK_STATE_NAMES[blocker.state]})`,
-        );
-      const waits =
-        blockers.length === 0
-          ? "waits for no Task in the Initiative"
-          : `waits for ${blockers.join(", ")}`;
-      return `- "${task.title}" (Task ${task.id}), in the Project ${projectName(task.projectId)}: ${waits}.`;
-    });
-  if (lines.length === 0) return "## The Tasks to plan\n\nNone of its Tasks is in Backlog now.";
-  return `## The Tasks to plan\n\nIts Tasks in Backlog, each with the Tasks inside the Initiative it waits for:\n\n${lines.join("\n")}`;
+        )
+        .join(", "),
+    }));
 }
 
 /**
  * The Tasks this Thread moved to Planning and hasn't marked planned, for a fresh session to carry
  * on with: the earlier session's context, and with it how far it got, is gone.
  */
-function unfinishedSection(initiative: Initiative, tasks: readonly Task[]): string | undefined {
-  const unfinished = tasks.filter(
-    (task) =>
-      isBeingPlannedInItsInitiative(task) &&
-      task.initiativePlanningThreadId === initiative.planningThreadId,
-  );
-  if (unfinished.length === 0) return undefined;
-  const lines = unfinished.map(({ id, title }) => `- "${title}" (Task ${id})`);
-  return `## Being planned here\n\nThis Thread moved these Tasks to Planning and hasn't marked them planned yet: read each with read_task, finish what its parts lack and call mark_planned for it.\n\n${lines.join("\n")}`;
+function beingPlannedValues(
+  initiative: Initiative,
+  tasks: readonly Task[],
+): { title: string; id: string }[] {
+  return tasks
+    .filter(
+      (task) =>
+        isBeingPlannedInItsInitiative(task) &&
+        task.initiativePlanningThreadId === initiative.planningThreadId,
+    )
+    .map(({ id, title }) => ({ title, id }));
 }
 
 /**
- * The Decisions this Thread opened that wait on the user, for a fresh session: it leaves their
- * Tasks, and the Tasks waiting for them, until each answer comes as a message.
+ * The Decisions on Tasks this Thread opened that wait on the user, for a fresh session: it leaves
+ * their Tasks, and the Tasks waiting for them, until each answer comes as a message. The one on the
+ * Initiative as a whole is left to Conversations' own section of every Initiative Thread's Brief.
  */
-function waitingSection(
+function waitingValues(
   waiting: readonly OpenTaskDecision[],
   tasks: readonly Task[],
-): string | undefined {
-  if (waiting.length === 0) return undefined;
+): { taskTitle: string; taskId: string; question: string }[] {
   const titleOf = (id: string) => tasks.find((task) => task.id === id)?.title ?? id;
-  const lines = waiting.map(
-    ({ taskId, question }) => `- "${titleOf(taskId)}" (Task ${taskId}): "${question}"`,
+  return waiting.flatMap(({ taskId, question }) =>
+    taskId === undefined ? [] : [{ taskTitle: titleOf(taskId), taskId, question }],
   );
-  return `## Waiting for an answer\n\nThis Thread opened these Decisions, which still wait on the user: leave each Task, and the Tasks that wait for it, until its answer comes as a message.\n\n${lines.join("\n")}`;
-}
-
-function projectsSection(
-  projects: readonly InitiativePlanningProject[],
-  pipelines: readonly PlanningPipeline[],
-): string {
-  const parts = projects.map(
-    (project) =>
-      `### ${project.name} (${project.id})\n\nBase branch ${project.baseBranch}, checked out where The Projects below say; its default Pipeline is ${defaultPipelineWords([...project.ownPipelines, ...pipelines], project.defaultPipeline)}. Its commands:\n\n${commandLines(project).join("\n")}`,
-  );
-  return `## The Projects it spans\n\n${parts.join("\n\n")}`;
-}
-
-function autoModeSection(autoMode: boolean): string {
-  return autoMode
-    ? "## Auto mode\n\nOn: once you mark a Task planned with mark_planned, The Office confirms its Plan, Definition of Done and proposed Pipeline and marks it Ready."
-    : "## Auto mode\n\nOff: once you mark a Task planned with mark_planned, it waits in Planning for the user to confirm its Plan, Definition of Done and Pipeline and mark it Ready.";
 }

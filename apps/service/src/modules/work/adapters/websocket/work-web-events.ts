@@ -21,6 +21,7 @@ import {
   InitiativeCreated,
   InitiativeOutcomeWritten,
   InitiativePipelineChosen,
+  InitiativePipelinesSet,
   InitiativePlanningStarted,
   InitiativePaused,
   InitiativeRestored,
@@ -64,6 +65,8 @@ import {
   TaskRestored,
   TaskDescriptionChanged,
   TaskCommitMessageChanged,
+  TaskPullRequestEnded,
+  TaskPullRequestReopened,
   TaskTitleChanged,
   TaskTagsChanged,
   TaskReordered,
@@ -71,6 +74,7 @@ import {
   TaskStarted,
   TaskStateChanged,
   TaskStopped,
+  TaskWentOnOnStandIn,
 } from "../../domain/task-events.js";
 import { toOwnerResponse } from "../http/work-responses.js";
 
@@ -171,6 +175,13 @@ export class WorkWebEvents implements OnModuleInit {
       }),
     );
     this.forwarding.forward(
+      InitiativePipelinesSet,
+      (event): WebEventOf<"initiative.pipelines-set"> => ({
+        type: "initiative.pipelines-set",
+        initiativeId: event.initiativeId,
+      }),
+    );
+    this.forwarding.forward(
       InitiativeShortNameWritten,
       (event): WebEventOf<"initiative.short-name-written"> => ({
         type: "initiative.short-name-written",
@@ -243,6 +254,13 @@ export class WorkWebEvents implements OnModuleInit {
       type: "task.resumed",
       taskId: event.taskId,
     }));
+    this.forwarding.forward(
+      TaskWentOnOnStandIn,
+      (event): WebEventOf<"task.went-on-on-stand-in"> => ({
+        type: "task.went-on-on-stand-in",
+        taskId: event.taskId,
+      }),
+    );
     this.forwarding.forward(TaskMarkedPlanned, (event): WebEventOf<"task.marked-planned"> => ({
       type: "task.marked-planned",
       taskId: event.taskId,
@@ -274,6 +292,20 @@ export class WorkWebEvents implements OnModuleInit {
       TaskCommitMessageChanged,
       (event): WebEventOf<"task.commit-message-changed"> => ({
         type: "task.commit-message-changed",
+        taskId: event.taskId,
+      }),
+    );
+    this.forwarding.forward(
+      TaskPullRequestEnded,
+      (event): WebEventOf<"task.pull-request-end-changed"> => ({
+        type: "task.pull-request-end-changed",
+        taskId: event.taskId,
+      }),
+    );
+    this.forwarding.forward(
+      TaskPullRequestReopened,
+      (event): WebEventOf<"task.pull-request-end-changed"> => ({
+        type: "task.pull-request-end-changed",
         taskId: event.taskId,
       }),
     );

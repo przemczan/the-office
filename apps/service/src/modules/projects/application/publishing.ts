@@ -1,5 +1,9 @@
-import { Injectable } from "@nestjs/common";
+import { randomUUID } from "node:crypto";
+import { Injectable, Logger } from "@nestjs/common";
+import { EventBus } from "../../../platform/events/event-bus.js";
 import type { Project } from "../domain/project.js";
+import { openedPullRequest } from "../domain/pull-request.js";
+import { PullRequestBranchPushed, PullRequestOpened } from "../domain/pull-request-events.js";
 import {
   baseMovedError,
   type BaseTakenIn,
@@ -14,12 +18,14 @@ import {
 } from "../domain/publication.js";
 import { mergedBase, mergeMessage } from "../domain/resolve.js";
 import {
-  InitiativeBranchUnusable,
+  ExistingBranchUnusable,
   type FreshBase,
   type FreshInitiativeBranch,
 } from "../domain/task-base.js";
 import { Git, GitCommandFailed, type GitVariables } from "../ports/git.js";
-import { PullRequestRefused, PullRequests } from "../ports/pull-requests.js";
+import { CodeHostRefused } from "../ports/code-host.js";
+import { PullRequestRepository } from "../ports/pull-request-repository.js";
+import { CodeHosts } from "./code-hosts.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { TaskBases } from "./task-bases.js";
 import { Worktrees, type BaseBranch } from "./worktrees.js";
@@ -51,16 +57,22 @@ interface PublishContext {
  * left as they are. A Task of an Initiative with a Pipeline publishes into its Initiative's branch
  * instead, as one commit whatever the publishing mode (`mergeIntoInitiativeBranch`); a Publishing
  * Task publishes that branch itself into the base branch by the publishing mode, carrying those
- * commits unchanged (`publishPublishingTask`).
+ * commits unchanged (`publishPublishingTask`). A Conflict resolution Task pushes the branch of the
+ * pull request it resolves only, whatever the target, so the same pull request takes its merge of
+ * the base; the pull request watch then reads it again (`PullRequestBranchPushed`).
  */
 @Injectable()
 export class Publishing {
+  private readonly logger = new Logger(Publishing.name);
+
   constructor(
     private readonly git: Git,
-    private readonly pullRequests: PullRequests,
+    private readonly codeHosts: CodeHosts,
     private readonly commands: ProjectCommandRunner,
     private readonly worktrees: Worktrees,
     private readonly taskBases: TaskBases,
+    private readonly pullRequests: PullRequestRepository,
+    private readonly events: EventBus,
   ) {}
 
   async publish(
@@ -80,7 +92,8 @@ export class Publishing {
     const base = await this.git.upstreamOf(project.path, project.baseBranch);
     if (!base) return { kind: "failed", error: noRemoteError(project.baseBranch) };
     const variables = this.commands.variablesFor(project.environment);
-    return this.git
+    const resolvesPullRequest = taskBase.kind === "pull-request";
+    const publication = await this.git
       .exclusively(project.path, async () => {
         const baseCommit = await this.git
           .fetch(project.path, base, variables)
@@ -94,12 +107,21 @@ export class Publishing {
         if (await this.git.addsNothing(project.path, baseCommit, branchRef(branch))) {
           return { kind: "nothing-to-publish", branch, base } as const;
         }
-        if (target === "branch-only") return this.pushBranchOnly(project, context);
+        if (target === "branch-only" || resolvesPullRequest) {
+          return this.pushBranchOnly(project, context);
+        }
         return project.publishingMode === "merge"
           ? this.merge(project, context, message)
           : this.pushAndOpenPullRequest(project, context, message);
       })
       .catch(publishFailure);
+    if (taskBase.kind === "pull-request" && publication.kind === "branch-pushed") {
+      // The bus logs a handler's failure, so the watch never fails the Publish.
+      await this.events.publish(
+        new PullRequestBranchPushed(project.id, taskId, taskBase.taskId, branch, new Date()),
+      );
+    }
+    return publication;
   }
 
   /**
@@ -484,7 +506,7 @@ export class Publishing {
     const { branch, base, baseCommit } = context;
     // Before Resolve too: a branch Resolve took on would only be refused after it.
     const remoteUrl = await this.git.fetchUrlOf(project.path, base.remote);
-    const cannotOpen = await this.pullRequests.whyCannotOpen(remoteUrl);
+    const cannotOpen = await this.codeHosts.whyCannotOpen(remoteUrl);
     if (cannotOpen !== undefined) {
       return { kind: "failed", error: pullRequestBlockedError(branch, base, cannotOpen) };
     }
@@ -492,13 +514,53 @@ export class Publishing {
     if (conflictedFiles.length > 0) return conflicting(context, conflictedFiles);
     await this.push(project, context, { remote: base.remote, branch });
     await this.recordPublished(project, context);
-    const pullRequest = await this.pullRequests
-      .open({ remoteUrl, baseBranch: base.branch, branch, title: subject, body })
-      .catch((error: unknown) => {
-        if (error instanceof PullRequestRefused) throw new PublishFailed(error.message);
-        throw error;
-      });
+    const request = { remoteUrl, baseBranch: base.branch, branch, title: subject, body };
+    const pullRequest = await this.codeHosts.open(request).catch((error: unknown) => {
+      if (error instanceof CodeHostRefused) throw new PublishFailed(error.message);
+      throw error;
+    });
+    await this.recordPullRequest(project, context.taskId, {
+      remoteUrl,
+      number: pullRequest.number,
+      url: pullRequest.url,
+      title: subject,
+      branch,
+      baseBranch: base.branch,
+    });
     return { kind: "pull-request-opened", branch, url: pullRequest.url };
+  }
+
+  /**
+   * Keeps the pull request just opened for the list of them, then announces it. It is already open
+   * on the code host, so a failure to keep it is logged and never fails the Publish; the watch
+   * adopts it from the host's list by its branch.
+   */
+  private async recordPullRequest(
+    project: Project,
+    taskId: string,
+    opened: {
+      readonly remoteUrl: string;
+      readonly number: number;
+      readonly url: string;
+      readonly title: string;
+      readonly branch: string;
+      readonly baseBranch: string;
+    },
+  ): Promise<void> {
+    const openedAt = new Date();
+    try {
+      await this.pullRequests.record(
+        openedPullRequest({ id: randomUUID(), projectId: project.id, taskId, openedAt, ...opened }),
+      );
+    } catch (error) {
+      this.logger.error(
+        `Pull request ${opened.url} of ${project.name} was opened but couldn't be recorded: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return;
+    }
+    await this.events.publish(
+      new PullRequestOpened(project.id, taskId, opened.number, opened.url, openedAt),
+    );
   }
 
   /**
@@ -599,7 +661,7 @@ class PublishFailed extends Error {}
 
 /** A failed step as a failed Publish; anything else is a fault and stays as it is. */
 function publishFailure(error: unknown): Publication {
-  if (error instanceof PublishFailed || error instanceof InitiativeBranchUnusable) {
+  if (error instanceof PublishFailed || error instanceof ExistingBranchUnusable) {
     return { kind: "failed", error: error.message };
   }
   throw error;

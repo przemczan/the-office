@@ -80,7 +80,16 @@ export interface RunEnvironmentCommand extends SlotOptions {
   readonly outputFile: string;
   /** Where the run environment's own output goes if it has to start first; else `outputFile`. */
   readonly startOutputFile?: string;
+  /**
+   * A condition command, which reads the file in the Task's Stage runs' folder: refused, with
+   * nothing run, by a run environment already running without that folder mounted.
+   */
+  readonly readsStageRuns?: boolean;
 }
+
+/** Why a condition command isn't run in a run environment started without the Stage runs' folder. */
+export const STAGE_RUNS_NOT_MOUNTED =
+  "The run environment started before condition commands could read their file; stop and start the Task's run environment.";
 
 /** How a check ended, and how long it ran, from its start in the service. */
 export interface CommandEnd extends ExecutionEnd {
@@ -93,6 +102,11 @@ interface RunningEnvironment {
   readonly definition: RunEnvironmentDefinition;
   /** The worktree folder its containers have bind-mounted, as it was when it started. */
   readonly worktree: FolderIdentity | undefined;
+  /**
+   * The Stage runs' folder its override mounted as it started, which a condition command checks
+   * before it runs (`readsStageRuns`): a running container never gains a mount.
+   */
+  readonly stageRunsFolder: string;
   idleStop: Wait | undefined;
 }
 
@@ -173,6 +187,9 @@ export class RunEnvironments implements OnModuleInit {
           command.startOutputFile ?? command.outputFile,
           command,
         );
+        if (command.readsStageRuns && environment.stageRunsFolder !== task.stageRunsFolder) {
+          throw new RunEnvironmentRefused([STAGE_RUNS_NOT_MOUNTED]);
+        }
         environment.idleStop?.cancel();
         try {
           return await this.execute(task, environment, command);
@@ -379,6 +396,7 @@ export class RunEnvironments implements OnModuleInit {
       project,
       definition,
       worktree,
+      stageRunsFolder: task.stageRunsFolder,
       idleStop: undefined,
     };
     this.running.set(task.taskId, environment);
@@ -430,6 +448,9 @@ export class RunEnvironments implements OnModuleInit {
   ): Promise<ComposeProject> {
     const folder = this.folders.taskFolder(task.taskId);
     await mkdir(folder, { recursive: true });
+    // A long-syntax bind mount fails to start when its source is missing, and Pipelines writes the
+    // file only before a condition command.
+    await mkdir(task.stageRunsFolder, { recursive: true });
     const { limits } = await this.settings.read();
     const override = join(folder, OVERRIDE_FILE);
     await writeFile(

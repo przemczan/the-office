@@ -13,14 +13,19 @@ import {
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { InitiativeThreadSetups } from "../../../conversations/index.js";
 import { InitiativeService } from "../../application/initiative-service.js";
-import { INITIATIVE_PLANNING_INSTRUCTIONS } from "../../domain/initiative-planning.js";
-import { SHAPING_INSTRUCTIONS } from "../../domain/shaping.js";
+import { initiativePlanningInstructions } from "../../domain/initiative-planning.js";
+import { shapingInstructions } from "../../domain/shaping.js";
+import { defaultWorkPrompts } from "../../domain/work-prompt-templates.fixtures.js";
 import {
   sendJson,
   startWorkApplication,
   type WorkApplication,
 } from "../../work-application.fixtures.js";
-import { SHAPING_OFFICE_TOOLS, SHAPING_THREAD_INSTRUCTIONS } from "./initiative-thread-records.js";
+import { withCallingRule } from "./calling-rule.js";
+import { SHAPING_OFFICE_TOOLS } from "./initiative-thread-records.js";
+
+const prompts = defaultWorkPrompts();
+const SHAPING_THREAD_INSTRUCTIONS = withCallingRule(shapingInstructions(prompts));
 
 /**
  * The Role holding Plans: its Threads on an Initiative are shaping ones unless Plan the Initiative
@@ -254,9 +259,9 @@ describe("what the Threads on an Initiative read", () => {
     const reads =
       "You read each Project where The Projects in your Brief say: its base branch, or the Initiative's branch once it has one; you change no file";
 
-    expect(SHAPING_INSTRUCTIONS).toContain(reads);
-    expect(INITIATIVE_PLANNING_INSTRUCTIONS).toContain(reads);
-    expect(INITIATIVE_PLANNING_INSTRUCTIONS).toContain(
+    expect(shapingInstructions(prompts)).toContain(reads);
+    expect(initiativePlanningInstructions(prompts)).toContain(reads);
+    expect(initiativePlanningInstructions(prompts)).toContain(
       "Tell each subagent to read the Task's record and the checkouts The Projects list",
     );
   });

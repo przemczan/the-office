@@ -14,6 +14,7 @@ import type { StartConditions } from "./task-start.js";
 import { nextMidnight } from "./cap-waits.js";
 import { reasonsOf, shortReasonsOf, type Wait } from "./wait.js";
 import { ANN_LEE, aTask, NO_USAGE_AT_START } from "./work.fixtures.js";
+import { NO_STAND_INS } from "./stand-ins-at-start.js";
 
 const NOW = new Date("2026-10-29T09:00:00.000Z");
 const NO_CHOICE = { now: NOW, onOverlap: undefined, by: ANN_LEE };
@@ -28,6 +29,7 @@ function conditionsFor(role: string, taskLimit = 1, officeWideLimit = 3): StartC
     officeWideLimit,
     project: ROOMY_PROJECT,
     usage: NO_USAGE_AT_START,
+    standIns: NO_STAND_INS,
     scheduledExitWait: undefined,
   };
 }

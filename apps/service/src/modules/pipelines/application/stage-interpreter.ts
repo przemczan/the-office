@@ -10,7 +10,7 @@ import {
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule, type Wait } from "../../../platform/schedule/schedule.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
-import { DecisionAnswered } from "../../conversations/index.js";
+import { DecisionAnswered, stageAnswerOf } from "../../conversations/index.js";
 import { ScheduledExitCancelled, ScheduledExitHold } from "../../office-updates/index.js";
 import {
   AlarmSounded,
@@ -22,6 +22,7 @@ import {
   TaskStateChanged,
   TaskStopped,
 } from "../../work/index.js";
+import { ConditionCommands, type WeighCommandMove } from "./condition-commands.js";
 import { StaffingHolds } from "./staffing-holds.js";
 import { nextMove, type NextMove } from "../domain/pipeline-walk.js";
 import { STAGE_KIND_NAMES, type Stage } from "../domain/stage.js";
@@ -40,7 +41,6 @@ import {
   DefinitionOfDoneNotMet,
   NoRetriesLeft,
   PipelineCompleted,
-  StageSkipped,
   StopHeldAsPause,
   WentBackToStage,
 } from "../domain/stage-run-events.js";
@@ -63,11 +63,11 @@ import { StageGit } from "./stage-git.js";
 import { StageRunInterruption } from "./stage-run-interruption.js";
 import type { StageWork } from "./stage-runner.js";
 import { StageRunners } from "./stage-runners.js";
+import { StageRunsRunningNow } from "./stage-runs-running-now.js";
 import { TaskStagesService } from "./task-stages-service.js";
 
 type RunMove = Extract<NextMove, { move: "run" }>;
-type SkipMove = Extract<NextMove, { move: "skip" }>;
-type HaltMove = Exclude<NextMove, RunMove | SkipMove>;
+type HaltMove = Exclude<NextMove, RunMove | WeighCommandMove>;
 
 /** A run the walk started, with the Stages and runs it was started from. */
 interface StartedStep {
@@ -81,7 +81,8 @@ interface StartedStep {
 /** What the walk did at its next move, or why it waits there. */
 type WalkStep =
   | { readonly step: "over" }
-  | { readonly step: "skipped" }
+  /** A condition's command was weighed, its result recorded for the walk to go on from. */
+  | { readonly step: "weighed" }
   | StartedStep
   | {
       readonly step: "halt";
@@ -145,6 +146,8 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     private readonly branchStages: InitiativeBranchStages,
     private readonly roleFillings: RoleFillings,
     private readonly people: KnownPeople,
+    private readonly conditionCommands: ConditionCommands,
+    private readonly runningNow: StageRunsRunningNow,
   ) {}
 
   onModuleInit(): void {
@@ -169,8 +172,8 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     this.events.subscribe(TaskDependencyRemoved, () => this.walkHeldForBlocker());
     this.events.subscribe(DecisionAnswered, ({ decision }) => {
       // A call made from a chat is on no Task, so no Pipeline waits on it.
-      if (!decision.answer || decision.taskId === undefined) return;
-      const { answeredAt: _answeredAt, ...answer } = decision.answer;
+      const answer = stageAnswerOf(decision);
+      if (!answer || decision.taskId === undefined) return;
       return this.takeAnswer(decision.taskId, decision.id, answer);
     });
   }
@@ -397,7 +400,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     // The Task's own Stages, made here too: the event bus only logs a copy that failed as it started.
     const { pipelineId, trace } = await this.taskStages.make(taskId, task.pipelineId);
     if (await this.staffingHolds.holdIfLackingPeople(taskId)) return;
-    const attributes = { "office.task.id": taskId, "office.pipeline": pipelineId };
+    const attributes = { "office.task": taskId, "office.pipeline": pipelineId };
     await this.telemetry.inTrace("walk", attributes, trace, async (_span, root) => {
       if (!trace) await this.taskStages.saveTrace(taskId, root);
       await this.walkStages(taskId);
@@ -416,10 +419,10 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
       if ((await this.tasks.read(taskId)).state !== "in-progress") return;
       // Read afresh each move, so an edit of the Task's Stages for the Task applies to the next one.
       const step = await this.taskStages.holding(taskId, ({ stages }) =>
-        this.takeNextMove(taskId, stages, definitionOfDone, record),
+        this.takeNextMove(taskId, stages, record, interruption),
       );
       if (step.step === "over") return;
-      if (step.step === "skipped") continue;
+      if (step.step === "weighed") continue;
       if (step.step === "started") {
         await this.runStageOf(record, step, interruption);
         continue;
@@ -435,30 +438,36 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
   }
 
   /**
-   * The walk's next move, taken while no edit can change the Task's Stages: an optional Stage
-   * skipped, or a run started and saved. Over when another walk of the Task moved first, or The
-   * Office is stopping.
+   * The walk's next move, taken while no edit can change the Task's Stages: a run started and
+   * saved, or a condition's command weighed, so the routes it decides between stay as they are.
+   * Over when another walk of the Task moved first, or The Office is stopping.
    */
   private async takeNextMove(
     taskId: string,
     stages: readonly Stage[],
-    definitionOfDone: readonly string[],
     record: TaskRecord,
+    interruption: StageRunInterruption,
   ): Promise<WalkStep> {
     const runs = await this.runs.list(taskId);
     // Read once per move, so a Stage starts with whoever holds its duty now (spec §2.3).
     const staffed = await this.roleFillings.staffed(stages, runs);
-    const move = nextMove(staffed, runs, definitionOfDone);
-    if (move.move === "skip") {
-      return (await this.skip(taskId, move, runs)) ? { step: "skipped" } : { step: "over" };
+    const move = nextMove(staffed, runs, record.definitionOfDone);
+    if (move.move !== "run" && move.move !== "weigh-command") {
+      return { step: "halt", move, stages: staffed, runs };
     }
-    if (move.move !== "run") return { step: "halt", move, stages: staffed, runs };
     if (this.stopping) return { step: "over" };
     // At the Stage boundary, until the update or restart is cancelled or the service exits for it; a
     // Gate does no work, so it still asks the user.
-    if (this.exitHold.isScheduled() && move.stage.kind !== "gate") {
+    if (
+      this.exitHold.isScheduled() &&
+      (move.move === "weigh-command" || move.stage.kind !== "gate")
+    ) {
       this.heldForExit.add(taskId);
       return { step: "over" };
+    }
+    if (move.move === "weigh-command") {
+      await this.weighCommand(move, record, walkedStages(staffed, runs), runs, interruption);
+      return { step: "weighed" };
     }
     // A Task added to its Initiative meanwhile blocks it; a Gate waits too, as it shows the change.
     // Held before the read, so a blocker ending during it walks the Task again (walksAgain).
@@ -485,35 +494,20 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
   }
 
   /**
-   * Records the optional Stage as skipped, a run done without running anything, so the walk goes
-   * on past it as it replays. False when another walk of the Task recorded a run first.
+   * Runs a condition's command, holding a Publishing Task's Initiative's branch as its Stages do,
+   * stopped with the commands of a run the fire alarm or a shutdown interrupts.
    */
-  private async skip(
-    taskId: string,
-    { stage }: SkipMove,
-    earlierRuns: readonly StageRun[],
-  ): Promise<boolean> {
-    const now = new Date();
-    const started = startStageRun(
-      {
-        id: randomUUID(),
-        taskId,
-        stageKey: stage.key,
-        carriedFailure: undefined,
-        sentBack: undefined,
-      },
-      earlierRuns.length,
-      now,
-    );
-    return this.inStageSpan(started.run, stage, async () => {
-      if (!(await this.runs.saveNew(started.run))) return false;
-      const summary =
-        "Skipped: every statement of the Definition of Done was already reported met, and the Stage is optional.";
-      const ended = endStageRun(started.run, { status: "done", summary, skipped: true }, now);
-      await this.runs.saveEnded(ended.run);
-      await this.events.publish(new StageSkipped(taskId, ended.run.id, stage.key));
-      return true;
-    });
+  private async weighCommand(
+    move: WeighCommandMove,
+    record: TaskRecord,
+    stages: readonly Stage[],
+    runs: readonly StageRun[],
+    interruption: StageRunInterruption,
+  ): Promise<void> {
+    const weigh = () =>
+      this.conditionCommands.weigh(move, record, stages, runs, interruption.commandsSignal);
+    if (!record.publishingTask) return weigh();
+    await this.branchStages.holding(record, weigh);
   }
 
   /** A span per Stage run, whose engine calls are its children. */
@@ -569,6 +563,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
         heldByUser: interruption.heldByUser,
       });
     }
+    const ended = this.runningNow.began(stage.kind);
     try {
       const runner = this.runners.runnerOf(stage.kind);
       // Each kind's runner registers as the module starts, so a missing one is a fault.
@@ -577,6 +572,8 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     } catch (error) {
       this.logger.error(`Stage run ${run.id} of Task ${run.taskId} failed`, stackOf(error));
       return { status: "failed", error: error instanceof Error ? error.message : String(error) };
+    } finally {
+      ended();
     }
   }
 

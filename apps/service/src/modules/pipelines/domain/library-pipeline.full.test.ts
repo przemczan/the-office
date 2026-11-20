@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { builtInPipelines } from "./built-in-pipelines.js";
+import { straightLineFlow } from "./flow.js";
 import {
   addedPipeline,
   copiedPipeline,
@@ -38,10 +39,10 @@ describe("pipelineEditProblems", () => {
 
   it("wants a name, and one no other Pipeline has in any case", () => {
     expect(pipelineEditProblems(anEdit({ name: "  " }), [], [])).toEqual([
-      { text: "Give the Pipeline a name." },
+      { level: "problem", text: "Give the Pipeline a name." },
     ]);
     expect(pipelineEditProblems(anEdit({ name: " full " }), builtInPipelines, [])).toEqual([
-      { text: 'Another Pipeline is named "full".' },
+      { level: "problem", text: 'Another Pipeline is named "full".' },
     ]);
   });
 
@@ -57,7 +58,7 @@ describe("pipelineEditProblems", () => {
       "Stage 3 · Tests: on failure it can only go back to an earlier Stage.",
     ]);
     expect(pipelineEditProblems(anEdit({ stages: [] }), [], [])).toEqual([
-      { text: "A Pipeline needs at least one Stage." },
+      { level: "problem", text: "A Pipeline needs at least one Stage." },
     ]);
   });
 });
@@ -112,7 +113,7 @@ describe("proposedStagesProblems", () => {
     const changed: Pipeline = { ...nightly, stages: [agentStage()] };
 
     expect(proposedStagesProblems(changed, nightly.stages, proposed, [], [])).toEqual([
-      { text: "Nightly's Stages changed since this was proposed." },
+      { level: "problem", text: "Nightly's Stages changed since this was proposed." },
     ]);
   });
 
@@ -121,7 +122,10 @@ describe("proposedStagesProblems", () => {
       proposedStagesProblems(nightly, nightly.stages, [], [], []).map(({ text }) => text),
     ).toEqual(["A Pipeline needs at least one Stage."]);
     expect(proposedStagesProblems(nightly, nightly.stages, nightly.stages, [], [])).toEqual([
-      { text: "Nothing changes: give the Pipeline's Stages as they should be, all of them." },
+      {
+        level: "problem",
+        text: "Nothing changes: give the Pipeline's Stages as they should be, all of them.",
+      },
     ]);
   });
 });
@@ -135,7 +139,7 @@ describe("addedPipeline and savedPipeline", () => {
       id: "nightly-id",
       name: "Nightly",
       description: "Runs at night.",
-      stages: edit.stages,
+      stages: straightLineFlow(edit.stages),
     });
     expect(added.event).toBeInstanceOf(PipelineAdded);
     const saved = savedPipeline("nightly-id", edit);
@@ -262,6 +266,12 @@ describe("removalProblems", () => {
   it("always keeps the Set up run environment Pipeline, which a set-up Task uses", () => {
     expect(removalProblems("set-up-run-environment", NO_USE)).toEqual([
       "Setting up a run environment uses the Set up run environment Pipeline, so it stays in the library.",
+    ]);
+  });
+
+  it("always keeps the Resolve conflicts Pipeline, which a Conflict resolution Task uses", () => {
+    expect(removalProblems("resolve-conflicts", NO_USE)).toEqual([
+      "Resolving a pull request's conflicts uses the Resolve conflicts Pipeline, so it stays in the library.",
     ]);
   });
 

@@ -111,6 +111,9 @@ export abstract class ThreadRepository {
 
   abstract decision(id: string): Promise<Decision | undefined>;
 
+  /** Those of the Decisions with the ids still there, in one read, in no set order. */
+  abstract decisionsWithIds(ids: readonly string[]): Promise<readonly Decision[]>;
+
   /** The Thread's Decisions, open and answered, the first asked first. */
   abstract decisionsIn(threadId: string): Promise<readonly Decision[]>;
 
@@ -126,13 +129,28 @@ export abstract class ThreadRepository {
    */
   abstract spendApproval(decisionId: string): Promise<boolean>;
 
-  /** Every Decision waiting on the user, the first asked first. */
+  /**
+   * Every Decision on a Task waiting on the user under Needs you, the first asked first: never one
+   * in a chat, which waits inline there (spec §2.7).
+   */
   abstract openDecisions(): Promise<readonly Decision[]>;
+
+  /**
+   * Every Decision on no Task in an Initiative's Threads waiting on the user, the first asked first,
+   * each with the Initiative its Thread is on.
+   */
+  abstract openInInitiativeThreads(): Promise<
+    readonly (Decision & { readonly initiativeId: string })[]
+  >;
 
   /** Every Decision on the Task still open, a Consultant's too, the first asked first. */
   abstract unansweredOn(taskId: string): Promise<readonly Decision[]>;
 
-  /** Every call made outside a Task still open, the first asked first. */
+  /**
+   * Every Decision on no Task still open, the first asked first: calls, a chat's Decisions waiting
+   * on the user, and each Decision on an Initiative as a whole, waiting on the user or put to a
+   * Consultant.
+   */
   abstract unansweredOnNoTask(): Promise<readonly Decision[]>;
 
   abstract proposal(id: string): Promise<Proposal | undefined>;

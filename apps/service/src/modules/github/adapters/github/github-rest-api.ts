@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import { z } from "zod";
 import { gitHubUrl, GitHubUrls } from "../../application/github-urls.js";
@@ -8,14 +9,27 @@ import {
   type PullRequestToOpen,
   type RepositoryOnGitHub,
 } from "../../domain/pull-request.js";
+import type { MergeSettingsOnGitHub, RefusalOnGitHub } from "../../domain/merge-refusal.js";
+import type { ChecksOnGitHub } from "../../domain/pull-request-status.js";
+import { dispatchInputsOf, type DispatchInput } from "../../domain/workflow-dispatch.js";
 import {
   GitHubApi,
   GitHubApiFailure,
   GitHubUnreachable,
+  type DispatchableWorkflowOnGitHub,
+  type GitHubInstallation,
   type GitHubUser,
+  type ListedPullRequest,
+  type MergeAnswer,
+  type PullRequestMerge,
   type PullRequestAnswer,
+  type PullRequestDetail,
+  type PullRequestOnGitHub,
+  type RefsOnGitHub,
   type SignInCode,
   type TokenAnswer,
+  type WorkflowDispatch,
+  type WorkflowRunOnGitHub,
 } from "../../ports/github-api.js";
 
 const REST_HEADERS = {
@@ -25,6 +39,9 @@ const REST_HEADERS = {
 
 /** GitHub's largest page. */
 const PAGE_SIZE = "100";
+
+/** The most branches, and the most tags, `refsOf` lists. */
+const MOST_REFS = 1000;
 
 /** A call GitHub hasn't answered by then is given up, so a refresh can't hold up every git command. */
 const CALL_TIMEOUT_MS = 30_000;
@@ -54,7 +71,22 @@ const userTokensSchema = z.object({
 const userSchema = z.object({ id: z.number().int().positive(), login: z.string().min(1) });
 
 const installationsPageSchema = z.object({
-  installations: z.array(z.object({ id: z.number(), suspended_at: z.string().nullish() })),
+  installations: z.array(
+    z.object({
+      id: z.number(),
+      suspended_at: z.string().nullish(),
+      // An enterprise's installation names its account by slug, without a login.
+      account: z
+        .object({
+          login: z.string().min(1).optional(),
+          slug: z.string().min(1).optional(),
+          type: z.string().optional(),
+        })
+        .nullish(),
+      permissions: z.record(z.string(), z.string()).optional(),
+      html_url: z.string().min(1),
+    }),
+  ),
 });
 
 const repositoriesPageSchema = z.object({
@@ -70,7 +102,113 @@ const repositoriesPageSchema = z.object({
   ),
 });
 
-const pullRequestSchema = z.object({ html_url: z.string().min(1) });
+const pullRequestSchema = z.object({
+  number: z.number().int().positive(),
+  html_url: z.string().min(1),
+});
+
+const commitOfSchema = z.object({ ref: z.string().min(1), sha: z.string().min(1) });
+
+const listedPullRequestSchema = pullRequestSchema.extend({
+  title: z.string(),
+  head: commitOfSchema,
+  base: commitOfSchema,
+});
+
+const pullRequestDetailSchema = z.object({
+  title: z.string(),
+  body: z.string().nullish(),
+  state: z.enum(["open", "closed"]),
+  merged_at: z.string().nullish(),
+  mergeable: z.boolean().nullish(),
+  head: commitOfSchema,
+  base: commitOfSchema,
+});
+
+const checkRunsPageSchema = z.object({
+  check_runs: z.array(z.object({ status: z.string(), conclusion: z.string().nullish() })),
+});
+
+const combinedStatusSchema = z.object({ statuses: z.array(z.object({ state: z.string() })) });
+
+const workflowRunsPageSchema = z.object({
+  workflow_runs: z.array(
+    z.object({
+      id: z.number().int(),
+      name: z.string().nullish(),
+      display_title: z.string().nullish(),
+      run_number: z.number().int(),
+      run_attempt: z.number().int().nullish(),
+      event: z.string(),
+      status: z.string().nullish(),
+      conclusion: z.string().nullish(),
+      head_branch: z.string().nullish(),
+      head_sha: z.string(),
+      html_url: z.string(),
+      run_started_at: z.string().nullish(),
+      updated_at: z.string(),
+    }),
+  ),
+});
+
+const workflowsPageSchema = z.object({
+  workflows: z.array(
+    z.object({
+      name: z.string(),
+      path: z.string(),
+      state: z.string(),
+      html_url: z.string(),
+    }),
+  ),
+});
+
+/** A file's contents; GitHub leaves `content` empty for a file over 1 MB. */
+const fileContentsSchema = z.object({ content: z.string(), encoding: z.string() });
+
+const refsPageSchema = z.array(z.object({ name: z.string() }));
+
+/** A repository's merge settings; GitHub gives them only to those who may change them. */
+const repositorySchema = z.object({
+  allow_merge_commit: z.boolean().optional(),
+  allow_squash_merge: z.boolean().optional(),
+  allow_rebase_merge: z.boolean().optional(),
+  delete_branch_on_merge: z.boolean().optional(),
+});
+
+const mergedSchema = z.object({ sha: z.string().min(1) });
+
+/** A refusal's `message`, which GitHub writes for the user, such as "Pull Request is not mergeable". */
+const refusalMessageSchema = z.object({ message: z.string() });
+
+/** How many answers the conditional requests keep, the oldest read dropped first. */
+const CACHED_ANSWERS = 500;
+
+/** An answer kept for its ETag: what was parsed of its body, and its `Link` header. */
+interface CachedAnswer {
+  readonly etag: string;
+  readonly parsed: unknown;
+  readonly link: string | null;
+}
+
+/** A GET's answer: its status and, on a 200 (or a 304 the cache answered), its parsed body. */
+interface ReadAnswer<T> {
+  readonly status: number;
+  readonly parsed: T | undefined;
+  readonly link: string | null;
+  /** GitHub's `message` of a refusal (never of a 200); only Actions' reads read it. */
+  readonly message?: string;
+}
+
+/** GitHub refused a read with `status`; the message names the status only. */
+class GitHubRefusedRead extends GitHubApiFailure {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "GitHubRefusedRead";
+  }
+}
 
 /** A 422's body: `errors`, each with a `message` when GitHub words it, such as "A pull request already exists for …". */
 const validationErrorsSchema = z.object({
@@ -84,6 +222,14 @@ const validationErrorsSchema = z.object({
  */
 @Injectable()
 export class GitHubRestApi extends GitHubApi {
+  /**
+   * The answers to reads, by token and URL, for conditional requests
+   * (docs.github.com/rest/using-the-rest-api/best-practices-for-using-the-rest-api#use-conditional-requests-if-appropriate):
+   * a 304 doesn't count against the rate limit, so a list read every few seconds costs little.
+   * Keyed by the token's hash, so no token sits in a key.
+   */
+  private readonly answers = new Map<string, CachedAnswer>();
+
   constructor(private readonly urls: GitHubUrls) {
     super();
   }
@@ -170,20 +316,37 @@ export class GitHubRestApi extends GitHubApi {
     }
   }
 
-  async repositoriesOf(accessToken: string): Promise<readonly GitHubRepository[]> {
+  async installationsOf(accessToken: string): Promise<readonly GitHubInstallation[]> {
     // docs.github.com/rest/apps/installations, "accessible to the user access token".
     const installations = await this.everyPage(
-      "/user/installations",
+      gitHubUrl(this.urls.api, "/user/installations"),
       accessToken,
       (body) => installationsPageSchema.safeParse(body).data?.installations,
+      "GitHub didn't list the installations of the GitHub App",
     );
+    return installations.map((installation) => ({
+      id: installation.id,
+      suspended: Boolean(installation.suspended_at),
+      account:
+        installation.account?.login ??
+        installation.account?.slug ??
+        `installation ${installation.id}`,
+      accountType: installation.account?.type ?? "",
+      permissions: installation.permissions ?? {},
+      url: installation.html_url,
+    }));
+  }
+
+  async repositoriesOf(accessToken: string): Promise<readonly GitHubRepository[]> {
+    const installations = await this.installationsOf(accessToken);
     const repositories: GitHubRepository[] = [];
     // A suspended installation's repositories can't be reached with the user's token.
-    for (const { id } of installations.filter((installation) => !installation.suspended_at)) {
+    for (const { id } of installations.filter((installation) => !installation.suspended)) {
       const page = await this.everyPage(
-        `/user/installations/${id}/repositories`,
+        gitHubUrl(this.urls.api, `/user/installations/${id}/repositories`),
         accessToken,
         (body) => repositoriesPageSchema.safeParse(body).data?.repositories,
+        "GitHub didn't list the repositories the App is installed on",
       );
       repositories.push(
         ...page.map((repository) => ({
@@ -222,7 +385,7 @@ export class GitHubRestApi extends GitHubApi {
     if (!opened.success) {
       throw new GitHubApiFailure("GitHub's answer held no pull request (HTTP 201).");
     }
-    return { kind: "opened", url: opened.data.html_url };
+    return { kind: "opened", number: opened.data.number, url: opened.data.html_url };
   }
 
   async openPullRequestOf(
@@ -230,7 +393,7 @@ export class GitHubRestApi extends GitHubApi {
     repository: RepositoryOnGitHub,
     head: string,
     base: string,
-  ): Promise<string | undefined> {
+  ): Promise<PullRequestOnGitHub | undefined> {
     // docs.github.com/rest/pulls/pulls#list-pull-requests: `head` is `owner:branch`.
     const url = gitHubUrl(this.urls.api, pullsPathOf(repository));
     url.searchParams.set("state", "open");
@@ -247,41 +410,450 @@ export class GitHubRestApi extends GitHubApi {
         `GitHub didn't list the open pull requests of ${fullNameOf(repository)} (HTTP ${response.status}).`,
       );
     }
-    return listed.data[0]?.html_url;
+    const found = listed.data[0];
+    return found && { number: found.number, url: found.html_url };
+  }
+
+  async openPullRequestsOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+  ): Promise<readonly ListedPullRequest[]> {
+    // docs.github.com/rest/pulls/pulls#list-pull-requests
+    const url = gitHubUrl(this.urls.api, pullsPathOf(repository));
+    url.searchParams.set("state", "open");
+    const listed = await this.everyPage(
+      url,
+      accessToken,
+      (body) => z.array(listedPullRequestSchema).safeParse(body).data,
+      `GitHub didn't list the open pull requests of ${fullNameOf(repository)}`,
+    );
+    return listed.map((pullRequest) => ({
+      number: pullRequest.number,
+      url: pullRequest.html_url,
+      title: pullRequest.title,
+      head: pullRequest.head.ref,
+      base: pullRequest.base.ref,
+      headSha: pullRequest.head.sha,
+      baseSha: pullRequest.base.sha,
+    }));
+  }
+
+  async pullRequestOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    number: number,
+  ): Promise<PullRequestDetail> {
+    // docs.github.com/rest/pulls/pulls#get-a-pull-request
+    const url = gitHubUrl(this.urls.api, `${pullsPathOf(repository)}/${number}`);
+    const answer = await this.read(
+      url,
+      accessToken,
+      (body) => pullRequestDetailSchema.safeParse(body).data,
+    );
+    if (answer.parsed === undefined) {
+      throw new GitHubApiFailure(
+        `GitHub didn't give pull request #${number} of ${fullNameOf(repository)} (HTTP ${answer.status}).`,
+      );
+    }
+    const { title, body, state, merged_at: mergedAt, mergeable, head, base } = answer.parsed;
+    return {
+      title,
+      body: body ?? "",
+      state,
+      mergedAt: mergedAt ?? null,
+      mergeable: mergeable ?? null,
+      headSha: head.sha,
+      baseSha: base.sha,
+    };
+  }
+
+  async checksOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    sha: string,
+  ): Promise<ChecksOnGitHub> {
+    const commitPath = `/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.name)}/commits/${encodeURIComponent(sha)}`;
+    try {
+      // docs.github.com/rest/checks/runs#list-check-runs-for-a-git-reference: by default the latest
+      // run of each check only, so a re-run that passed replaces the failure before it.
+      const runs = await this.everyPage(
+        gitHubUrl(this.urls.api, `${commitPath}/check-runs`),
+        accessToken,
+        (body) => checkRunsPageSchema.safeParse(body).data?.check_runs,
+        `GitHub didn't list the checks of ${fullNameOf(repository)} at ${sha}`,
+      );
+      // docs.github.com/rest/commits/statuses#get-the-combined-status-for-a-specific-reference:
+      // its `statuses`, the latest of each context, rather than its `state`, which is `pending`
+      // for a commit with no status at all.
+      const statusUrl = gitHubUrl(this.urls.api, `${commitPath}/status`);
+      statusUrl.searchParams.set("per_page", PAGE_SIZE);
+      const combined = await this.read(
+        statusUrl,
+        accessToken,
+        (body) => combinedStatusSchema.safeParse(body).data?.statuses,
+      );
+      if (combined.parsed === undefined) {
+        throw new GitHubRefusedRead(
+          `GitHub didn't give the commit statuses of ${fullNameOf(repository)} at ${sha} (HTTP ${combined.status}).`,
+          combined.status,
+        );
+      }
+      return {
+        kind: "read",
+        runs: runs.map((run) => ({ status: run.status, conclusion: run.conclusion ?? null })),
+        statuses: combined.parsed,
+      };
+    } catch (error) {
+      // An installation without the Checks or Commit statuses permission is refused them.
+      if (error instanceof GitHubRefusedRead && (error.status === 403 || error.status === 404)) {
+        return { kind: "unreadable" };
+      }
+      throw error;
+    }
+  }
+
+  async workflowRunsOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    count = 30,
+  ): Promise<readonly WorkflowRunOnGitHub[]> {
+    // docs.github.com/rest/actions/workflow-runs#list-workflow-runs-for-a-repository: one page.
+    const url = gitHubUrl(this.urls.api, runsPathOf(repository));
+    url.searchParams.set("per_page", String(count));
+    const answer = await this.read(
+      url,
+      accessToken,
+      (body) => workflowRunsPageSchema.safeParse(body).data?.workflow_runs,
+    );
+    if (answer.parsed === undefined) {
+      throw new GitHubApiFailure(
+        answer.status === 403 || answer.status === 404
+          ? `GitHub refused to read the Actions runs of ${fullNameOf(repository)} (HTTP ${answer.status})${answer.message === undefined ? "." : `: ${answer.message}`}`
+          : `GitHub didn't list the Actions runs of ${fullNameOf(repository)} (HTTP ${answer.status}).`,
+      );
+    }
+    return answer.parsed.map((run) => ({
+      id: run.id,
+      name: run.name ?? "",
+      displayTitle: run.display_title ?? run.name ?? "",
+      runNumber: run.run_number,
+      runAttempt: run.run_attempt ?? 1,
+      event: run.event,
+      status: run.status ?? null,
+      conclusion: run.conclusion ?? null,
+      headBranch: run.head_branch ?? null,
+      headSha: run.head_sha,
+      url: run.html_url,
+      runStartedAt: run.run_started_at ?? null,
+      updatedAt: run.updated_at,
+    }));
+  }
+
+  async rerunWorkflowRun(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    runId: number,
+    onlyFailed: boolean,
+  ): Promise<void> {
+    // docs.github.com/rest/actions/workflow-runs#re-run-a-workflow
+    // and #re-run-failed-jobs-from-a-workflow-run
+    const path = `${runsPathOf(repository)}/${runId}/${onlyFailed ? "rerun-failed-jobs" : "rerun"}`;
+    const response = await this.call(gitHubUrl(this.urls.api, path), {
+      method: "POST",
+      headers: { ...REST_HEADERS, authorization: `Bearer ${accessToken}` },
+    });
+    if (response.status === 201) {
+      // The runs listed before no longer hold the run's state.
+      this.forgetRuns(repository);
+      return;
+    }
+    const body: unknown = await response.json().catch(() => undefined);
+    const message = refusalMessageOf(body) || undefined;
+    if ([403, 404, 422].includes(response.status)) {
+      throw new GitHubApiFailure(
+        `GitHub refused to re-run run ${runId} of ${fullNameOf(repository)} (HTTP ${response.status})${message === undefined ? "." : `: ${message}`}`,
+      );
+    }
+    throw new GitHubApiFailure(
+      `GitHub didn't re-run run ${runId} of ${fullNameOf(repository)} (HTTP ${response.status}).`,
+    );
+  }
+
+  async workflowsOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    ref: string,
+  ): Promise<readonly DispatchableWorkflowOnGitHub[]> {
+    // docs.github.com/rest/actions/workflows#list-repository-workflows
+    const listed = await this.everyPage(
+      gitHubUrl(this.urls.api, `${repositoryPathOf(repository)}/actions/workflows`),
+      accessToken,
+      (body) => workflowsPageSchema.safeParse(body).data?.workflows,
+      `GitHub didn't list the workflows of ${fullNameOf(repository)}`,
+    );
+    // A workflow GitHub lists elsewhere, such as Dependabot's or Pages', has no file to read.
+    const withFiles = listed.filter(
+      (each) => each.state === "active" && each.path.startsWith(".github/workflows/"),
+    );
+    const read = await Promise.all(
+      withFiles.map(async (workflow) => ({
+        workflow,
+        inputs: await this.dispatchInputsAt(accessToken, repository, workflow.path, ref),
+      })),
+    );
+    return read.flatMap(({ workflow, inputs }) =>
+      inputs === undefined
+        ? []
+        : [
+            {
+              file: workflow.path.slice(workflow.path.lastIndexOf("/") + 1),
+              name: workflow.name,
+              url: workflow.html_url,
+              inputs,
+            },
+          ],
+    );
+  }
+
+  async refsOf(accessToken: string, repository: RepositoryOnGitHub): Promise<RefsOnGitHub> {
+    // docs.github.com/rest/branches/branches#list-branches and docs.github.com/rest/repos/repos#list-repository-tags
+    const namesOf = async (kind: "branches" | "tags"): Promise<string[]> => {
+      const refs = await this.everyPage(
+        gitHubUrl(this.urls.api, `${repositoryPathOf(repository)}/${kind}`),
+        accessToken,
+        (body) => refsPageSchema.safeParse(body).data,
+        `GitHub didn't list the ${kind} of ${fullNameOf(repository)}`,
+        MOST_REFS,
+      );
+      return refs.map((ref) => ref.name);
+    };
+    return { branches: await namesOf("branches"), tags: await namesOf("tags") };
+  }
+
+  async dispatchWorkflow(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    { file, ref, inputs }: WorkflowDispatch,
+  ): Promise<void> {
+    // docs.github.com/rest/actions/workflows#create-a-workflow-dispatch-event: 204, no run's id.
+    const path = `${repositoryPathOf(repository)}/actions/workflows/${encodeURIComponent(file)}/dispatches`;
+    const response = await this.call(gitHubUrl(this.urls.api, path), {
+      method: "POST",
+      headers: this.writeHeaders(accessToken),
+      body: JSON.stringify({ ref, inputs }),
+    });
+    if (response.status === 204) {
+      // The runs listed before don't hold the run it queued.
+      this.forgetRuns(repository);
+      return;
+    }
+    const body: unknown = await response.json().catch(() => undefined);
+    const message = refusalMessageOf(body) || undefined;
+    if ([403, 404, 422].includes(response.status)) {
+      throw new GitHubApiFailure(
+        `GitHub refused to start ${file} on ${ref} in ${fullNameOf(repository)} (HTTP ${response.status})${message === undefined ? "." : `: ${message}`}`,
+      );
+    }
+    throw new GitHubApiFailure(
+      `GitHub didn't start ${file} on ${ref} in ${fullNameOf(repository)} (HTTP ${response.status}).`,
+    );
+  }
+
+  async repositoryOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+  ): Promise<MergeSettingsOnGitHub> {
+    // docs.github.com/rest/repos/repos#get-a-repository
+    const url = gitHubUrl(this.urls.api, repositoryPathOf(repository));
+    const answer = await this.read(
+      url,
+      accessToken,
+      (body) => repositorySchema.safeParse(body).data,
+    );
+    if (answer.parsed === undefined) {
+      throw new GitHubApiFailure(
+        `GitHub didn't give ${fullNameOf(repository)} (HTTP ${answer.status}).`,
+      );
+    }
+    const settings = answer.parsed;
+    return {
+      allowMergeCommit: settings.allow_merge_commit,
+      allowSquashMerge: settings.allow_squash_merge,
+      allowRebaseMerge: settings.allow_rebase_merge,
+      deleteBranchOnMerge: settings.delete_branch_on_merge,
+    };
+  }
+
+  async mergePullRequest(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    number: number,
+    { method, sha, commitTitle, commitMessage }: PullRequestMerge,
+  ): Promise<MergeAnswer> {
+    // docs.github.com/rest/pulls/pulls#merge-a-pull-request: `sha` makes GitHub refuse (409) a head
+    // that moved since. The branch is never deleted.
+    const url = gitHubUrl(this.urls.api, `${pullsPathOf(repository)}/${number}/merge`);
+    const response = await this.call(url, {
+      method: "PUT",
+      headers: this.writeHeaders(accessToken),
+      body: JSON.stringify({
+        merge_method: method,
+        sha,
+        ...(commitTitle !== undefined && { commit_title: commitTitle }),
+        ...(commitMessage !== undefined && { commit_message: commitMessage }),
+      }),
+    });
+    const answer: unknown = await response.json().catch(() => undefined);
+    if (response.status !== 200) {
+      return { kind: "refused", status: response.status, message: refusalMessageOf(answer) };
+    }
+    const merged = mergedSchema.safeParse(answer);
+    if (!merged.success) {
+      throw new GitHubApiFailure("GitHub's answer to the merge held no commit (HTTP 200).");
+    }
+    return { kind: "merged", sha: merged.data.sha };
+  }
+
+  async closePullRequest(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    number: number,
+  ): Promise<RefusalOnGitHub | undefined> {
+    // docs.github.com/rest/pulls/pulls#update-a-pull-request
+    const url = gitHubUrl(this.urls.api, `${pullsPathOf(repository)}/${number}`);
+    const response = await this.call(url, {
+      method: "PATCH",
+      headers: this.writeHeaders(accessToken),
+      body: JSON.stringify({ state: "closed" }),
+    });
+    const answer: unknown = await response.json().catch(() => undefined);
+    if (response.status === 200) return undefined;
+    return { status: response.status, message: refusalMessageOf(answer) };
+  }
+
+  /**
+   * The `workflow_dispatch` inputs the file at `path` declares at `ref`; undefined when it doesn't
+   * declare the trigger or isn't there (404).
+   */
+  private async dispatchInputsAt(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    path: string,
+    ref: string,
+  ): Promise<readonly DispatchInput[] | undefined> {
+    // docs.github.com/rest/repos/contents#get-repository-content: base64 for a file.
+    const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+    const url = gitHubUrl(this.urls.api, `${repositoryPathOf(repository)}/contents/${encodedPath}`);
+    url.searchParams.set("ref", ref);
+    // Kept as the inputs read, not the file, so a 304 parses nothing again.
+    const answer = await this.read(url, accessToken, (body) => {
+      const file = fileContentsSchema.safeParse(body).data;
+      if (file === undefined) return undefined;
+      const text = file.encoding === "base64" ? Buffer.from(file.content, "base64").toString() : "";
+      return { inputs: dispatchInputsOf(text) };
+    });
+    if (answer.status === 404) return undefined;
+    if (answer.parsed === undefined) {
+      throw new GitHubApiFailure(
+        answer.status === 403
+          ? `GitHub refused to read ${path} of ${fullNameOf(repository)} at ${ref} (HTTP 403)${answer.message === undefined ? "." : `: ${answer.message}`}`
+          : `GitHub didn't give ${path} of ${fullNameOf(repository)} at ${ref} (HTTP ${answer.status}).`,
+      );
+    }
+    return answer.parsed.inputs;
+  }
+
+  /** Drops the repository's runs listed before, so the next list asks GitHub afresh. */
+  private forgetRuns(repository: RepositoryOnGitHub): void {
+    const listed = gitHubUrl(this.urls.api, runsPathOf(repository)).href;
+    for (const key of this.answers.keys()) {
+      if (key.slice(key.indexOf(" ") + 1).startsWith(listed)) this.answers.delete(key);
+    }
+  }
+
+  private writeHeaders(accessToken: string): Record<string, string> {
+    return {
+      ...REST_HEADERS,
+      authorization: `Bearer ${accessToken}`,
+      "content-type": "application/json",
+    };
   }
 
   /**
    * Every page of a list, following the `Link` header's `next` until there is none
-   * (docs.github.com/rest/using-the-rest-api/using-pagination-in-the-rest-api).
+   * (docs.github.com/rest/using-the-rest-api/using-pagination-in-the-rest-api). `failure` says
+   * what wasn't listed, GitHub's status added. Stops once it has `most` items, giving no more.
    */
   private async everyPage<T>(
-    path: string,
+    first: URL,
     accessToken: string,
     itemsOf: (body: unknown) => T[] | undefined,
+    failure: string,
+    most = Infinity,
   ): Promise<T[]> {
     const items: T[] = [];
-    let url: URL | undefined = gitHubUrl(this.urls.api, path);
+    let url: URL | undefined = new URL(first);
     url.searchParams.set("per_page", PAGE_SIZE);
-    while (url !== undefined) {
-      const response = await this.call(url, {
-        headers: { ...REST_HEADERS, authorization: `Bearer ${accessToken}` },
-      });
-      const page =
-        response.status === 200 ? itemsOf(await response.json().catch(() => undefined)) : undefined;
-      if (page === undefined) {
-        throw new GitHubApiFailure(
-          `GitHub didn't list the repositories the App is installed on (HTTP ${response.status}).`,
-        );
+    while (url !== undefined && items.length < most) {
+      const page = await this.read(url, accessToken, itemsOf);
+      if (page.parsed === undefined) {
+        throw new GitHubRefusedRead(`${failure} (HTTP ${page.status}).`, page.status);
       }
-      items.push(...page);
-      url = this.nextPageOf(response);
+      items.push(...page.parsed);
+      url = this.nextPageOf(page.link);
     }
-    return items;
+    return items.slice(0, most);
+  }
+
+  /**
+   * A GET as the token's user, conditional on the ETag of the answer it had before: on a 304 that
+   * answer is given again. `parse` gives undefined for a body it can't read, which a 200 isn't
+   * kept with; only what it parsed is kept, never the whole body.
+   */
+  private async read<T>(
+    url: URL,
+    accessToken: string,
+    parse: (body: unknown) => T | undefined,
+  ): Promise<ReadAnswer<T>> {
+    const key = `${createHash("sha256").update(accessToken).digest("base64url")} ${url.href}`;
+    const cached = this.answers.get(key);
+    const response = await this.call(url, {
+      headers: {
+        ...REST_HEADERS,
+        authorization: `Bearer ${accessToken}`,
+        ...(cached && { "if-none-match": cached.etag }),
+      },
+    });
+    if (response.status === 304 && cached !== undefined) {
+      this.keep(key, cached);
+      // Parsed by the same `parse`: the key holds the URL, and each URL is read one way.
+      return { status: 200, parsed: cached.parsed as T, link: cached.link };
+    }
+    const link = response.headers.get("link");
+    if (response.status !== 200) {
+      const refusal: unknown = await response.json().catch(() => undefined);
+      const message = refusalMessageOf(refusal);
+      return { status: response.status, parsed: undefined, link, ...(message && { message }) };
+    }
+    const parsed = parse(await response.json().catch(() => undefined));
+    const etag = response.headers.get("etag");
+    if (parsed !== undefined && etag !== null) this.keep(key, { etag, parsed, link });
+    return { status: 200, parsed, link };
+  }
+
+  /** Keeps the answer as the newest read, dropping the oldest read beyond `CACHED_ANSWERS`. */
+  private keep(key: string, answer: CachedAnswer): void {
+    this.answers.delete(key);
+    this.answers.set(key, answer);
+    for (const oldest of this.answers.keys()) {
+      if (this.answers.size <= CACHED_ANSWERS) break;
+      this.answers.delete(oldest);
+    }
   }
 
   /** The next page's URL, only on the API's own origin, so the token goes nowhere else. */
-  private nextPageOf(response: Response): URL | undefined {
-    const next = /<([^>]+)>;\s*rel="next"/.exec(response.headers.get("link") ?? "")?.[1];
+  private nextPageOf(link: string | null): URL | undefined {
+    const next = /<([^>]+)>;\s*rel="next"/.exec(link ?? "")?.[1];
     if (next === undefined) return undefined;
     const url = new URL(next);
     if (url.origin !== new URL(this.urls.api).origin) {
@@ -331,8 +903,21 @@ async function tokenAnswerOf(response: Response, askedFor: string): Promise<Toke
   };
 }
 
-function pullsPathOf({ owner, name }: RepositoryOnGitHub): string {
-  return `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/pulls`;
+function repositoryPathOf({ owner, name }: RepositoryOnGitHub): string {
+  return `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
+}
+
+function pullsPathOf(repository: RepositoryOnGitHub): string {
+  return `${repositoryPathOf(repository)}/pulls`;
+}
+
+/** A refusal's `message`, which GitHub writes for the user; nothing else of its body. */
+function refusalMessageOf(answer: unknown): string | undefined {
+  return refusalMessageSchema.safeParse(answer).data?.message;
+}
+
+function runsPathOf(repository: RepositoryOnGitHub): string {
+  return `${repositoryPathOf(repository)}/actions/runs`;
 }
 
 /** The messages of a refusal's validation errors, which GitHub writes for the user; nothing else of its body. */

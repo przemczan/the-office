@@ -23,6 +23,7 @@ function aTask(id: string, fields: Partial<Task> = {}): Task {
     state: "backlog",
     plan: "",
     pausedBy: null,
+    engineStandIns: [],
     resumesAt: null,
     autoMode: false,
     initiativePlanningThreadId: null,
@@ -42,11 +43,13 @@ function aTask(id: string, fields: Partial<Task> = {}): Task {
     originIdeaId: null,
     initiativeId: null,
     madeFor: null,
+    resolvesTaskId: null,
     projectMoves: [],
     createdBy: { kind: "user", user: null },
     createdAt: "2026-10-28T10:00:00.000Z",
     archivedAt: null,
     endedAt: null,
+    pullRequestEnd: null,
     ...fields,
   };
 }

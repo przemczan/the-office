@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
-  INITIATIVE_PLANNING_INSTRUCTIONS,
   initiativePlanningBrief,
+  initiativePlanningInstructions,
   initiativePlanningProblems,
   rewriteInInitiative,
   startInitiativePlanning,
   startPlanningInInitiative,
   type InitiativePlanningProject,
+  type OpenTaskDecision,
 } from "./initiative-planning.js";
 import { proposeDefinitionOfDone, proposePipeline, proposePlan } from "./planning-changes.js";
 import { InitiativeRefused } from "./initiative-refused.js";
@@ -15,6 +16,9 @@ import { TaskRefused } from "./task-refused.js";
 import type { Task } from "./task.js";
 import type { Author } from "./author.js";
 import { anInitiative, aTask, BEN_ITO } from "./work.fixtures.js";
+import { defaultWorkPrompts } from "./work-prompt-templates.fixtures.js";
+
+const prompts = defaultWorkPrompts();
 
 /** Whoever holds Plans in these tests; the moves are theirs, whatever their Role key. */
 const THE_PLANNER: Author = { kind: "person", roleKey: "planner" };
@@ -67,7 +71,7 @@ describe("initiativePlanningProblems", () => {
   });
 
   it("keeps the new Thread, the auto mode and who asked on the Initiative it opens for", () => {
-    const opening = { threadId: "thread-2", autoMode: false, by: BEN_ITO };
+    const opening = { threadId: "thread-2", autoMode: false, withUser: false, by: BEN_ITO };
     const { initiative, event } = startInitiativePlanning(
       anInitiative({ state: "active" }),
       [first],
@@ -76,6 +80,7 @@ describe("initiativePlanningProblems", () => {
     expect(initiative).toMatchObject({
       planningThreadId: "thread-2",
       planningAutoMode: false,
+      planningWithUser: false,
       planningStartedBy: BEN_ITO,
     });
     expect(event).toMatchObject({ threadId: "thread-2", autoMode: false });
@@ -92,10 +97,28 @@ describe("initiativePlanningProblems", () => {
         planningThreadIds: ["thread-1"],
       }),
       [first],
-      { threadId: "thread-2", autoMode: false, by: BEN_ITO },
+      { threadId: "thread-2", autoMode: false, withUser: false, by: BEN_ITO },
     );
 
     expect(initiative.planningThreadIds).toEqual(["thread-1", "thread-2"]);
+  });
+
+  it("keeps that Plan with… opened the new Thread, until a later Plan the Initiative", () => {
+    const withUser = startInitiativePlanning(anInitiative({ state: "active" }), [first], {
+      threadId: "thread-2",
+      autoMode: false,
+      withUser: true,
+      by: BEN_ITO,
+    }).initiative;
+    expect(withUser).toMatchObject({ planningThreadId: "thread-2", planningWithUser: true });
+
+    const atOnce = startInitiativePlanning(withUser, [first], {
+      threadId: "thread-3",
+      autoMode: true,
+      withUser: false,
+      by: BEN_ITO,
+    }).initiative;
+    expect(atOnce).toMatchObject({ planningThreadId: "thread-3", planningWithUser: false });
   });
 });
 
@@ -205,6 +228,7 @@ describe("the Initiative's planning Thread", () => {
       "Without subagents, plan the Tasks one after another yourself",
       "mark_planned",
       "open a Decision on it with open_decision, giving its taskId",
+      "asking every question that Task has in that one Decision",
       "Leave that Task, and every Task that waits for it, and keep planning the rest",
       "End your turn only when every Task left waits for an answer, or all are planned",
       "Each answer comes as a message: carry on from it",
@@ -213,12 +237,12 @@ describe("the Initiative's planning Thread", () => {
       "A Task that has started, or one planned in its own planning Thread, is never rewritten: open a Decision on it instead",
       "you change no file",
     ]) {
-      expect(INITIATIVE_PLANNING_INSTRUCTIONS).toContain(words);
+      expect(initiativePlanningInstructions(prompts)).toContain(words);
     }
   });
 
   it("is briefed with its record, the Tasks to plan, the Projects, the Pipelines and auto mode", () => {
-    const brief = initiativePlanningBrief({
+    const brief = initiativePlanningBrief(prompts, {
       initiative: planning,
       waiting: [],
       record: "Initiative: Usage exports",
@@ -262,10 +286,27 @@ describe("the Initiative's planning Thread", () => {
     expect(brief).toContain("- full: Full (Implement → Review). For most work.");
     expect(brief).toContain("## Auto mode\n\nOn:");
     expect(brief).not.toContain("## Being planned here");
+    expect(brief).not.toContain("## Planning with the user");
+  });
+
+  it("tells the planner to follow the user's instructions on how to plan in a Plan with… Thread", () => {
+    const brief = initiativePlanningBrief(prompts, {
+      initiative: { ...planning, planningWithUser: true, planningStartedBy: BEN_ITO },
+      waiting: [],
+      record: "Initiative: Usage exports",
+      tasks: [first],
+      projects: [],
+      pipelines: [],
+    });
+
+    expect(brief).toContain(
+      "## Planning with the user\n\nThe user opened this Thread to plan the Initiative with you: their messages say how to plan it. Follow them where they differ from the default way your instructions give; ask in the Thread what is unclear.",
+    );
+    expect(brief).toContain("with Plan with….");
   });
 
   it("lists each Project's own Pipelines, flagged when Broken, before the office-wide ones once", () => {
-    const brief = initiativePlanningBrief({
+    const brief = initiativePlanningBrief(prompts, {
       initiative: planning,
       waiting: [],
       record: "Initiative: Usage exports",
@@ -305,7 +346,7 @@ describe("the Initiative's planning Thread", () => {
 
   it("names the Tasks this Thread moved to Planning and hasn't marked planned, for a fresh session", () => {
     const inThisThread = { state: "planning", initiativePlanningThreadId: THREAD } as const;
-    const brief = initiativePlanningBrief({
+    const brief = initiativePlanningBrief(prompts, {
       initiative: planning,
       waiting: [],
       record: "Initiative: Usage exports",
@@ -444,7 +485,7 @@ describe("rewriteInInitiative", () => {
 
 describe("the planning Brief's Decisions", () => {
   it("lists the Decisions open in this Thread with their Tasks, for a fresh session", () => {
-    const brief = initiativePlanningBrief({
+    const brief = initiativePlanningBrief(prompts, {
       initiative: planning,
       waiting: [{ taskId: first.id, question: "Which format?" }],
       record: "Initiative: Usage exports",
@@ -454,10 +495,10 @@ describe("the planning Brief's Decisions", () => {
     });
 
     expect(brief).toContain(
-      `## Waiting for an answer\n\nThis Thread opened these Decisions, which still wait on the user: leave each Task, and the Tasks that wait for it, until its answer comes as a message.\n\n- "Export API" (Task ${first.id}): "Which format?"`,
+      `## Waiting for an answer\n\nThis Thread opened these Decisions, which still wait on the user: don't ask them again, and leave each Task, and the Tasks that wait for it, until its answer comes as a message.\n\n- "Export API" (Task ${first.id}): "Which format?"`,
     );
     expect(
-      initiativePlanningBrief({
+      initiativePlanningBrief(prompts, {
         initiative: planning,
         waiting: [],
         record: "",
@@ -466,6 +507,30 @@ describe("the planning Brief's Decisions", () => {
         pipelines: [],
       }),
     ).not.toContain("## Waiting for an answer");
+  });
+
+  it("leaves the Decision open on the Initiative as a whole to the Brief's own section of it", () => {
+    const brief = (waiting: readonly OpenTaskDecision[]) =>
+      initiativePlanningBrief(prompts, {
+        initiative: planning,
+        waiting,
+        record: "Initiative: Usage exports",
+        tasks: [first, second],
+        projects: [],
+        pipelines: [],
+      });
+    const onTheInitiative = { taskId: undefined, question: "Ship both Projects together?" };
+
+    const beside = brief([{ taskId: first.id, question: "Which format?" }, onTheInitiative]);
+    expect(beside).toContain(`- "Export API" (Task ${first.id}): "Which format?"`);
+    expect(beside).not.toContain("Ship both Projects together?");
+    expect(brief([onTheInitiative])).not.toContain("## Waiting for an answer");
+  });
+
+  it("tells the planner to open one Decision on the Initiative as a whole leaving taskId out", () => {
+    expect(initiativePlanningInstructions(prompts)).toContain(
+      "When a choice is about the Initiative as a whole rather than one Task, open one Decision leaving taskId out",
+    );
   });
 });
 

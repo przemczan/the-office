@@ -12,7 +12,7 @@ import { ProjectNotFound } from "../domain/project-not-found.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import { ProjectImageFiles } from "../ports/project-image-files.js";
 import { ProjectRepository } from "../ports/project-repository.js";
-import type { BaseBranchFiles, FileSizeLimit } from "./base-branch-files.js";
+import type { RepositoryFiles, FileSizeLimit } from "./repository-files.js";
 import { ProjectImages } from "./project-images.js";
 
 const PNG = Uint8Array.of(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a);
@@ -64,7 +64,7 @@ class ProjectsInMemory extends ProjectRepository {
   }
 }
 
-/** The repository's files by `<commit>:<path>`, refusing as `BaseBranchFiles.file` does. */
+/** The repository's files by `<commit>:<path>`, refusing as `RepositoryFiles.file` does. */
 class RepositoryInMemory {
   readonly committed = new Map<string, Uint8Array>();
   limit: FileSizeLimit | undefined;
@@ -99,7 +99,7 @@ beforeEach(() => {
     projects,
     files,
     events,
-    repositoryFiles as unknown as BaseBranchFiles,
+    repositoryFiles as unknown as RepositoryFiles,
   );
 });
 

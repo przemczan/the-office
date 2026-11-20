@@ -1,0 +1,1 @@
+ALTER TABLE "initiatives" ADD COLUMN "planning_with_user" boolean DEFAULT false NOT NULL;

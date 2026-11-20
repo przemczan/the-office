@@ -1,4 +1,5 @@
-import type { EngineAccount } from "../../domain/engine-account.js";
+import type { AnthropicApiKey } from "../../domain/anthropic-api-key.js";
+import { API_KEY_ACCOUNT, type EngineAccount } from "../../domain/engine-account.js";
 import type { EngineId } from "../../domain/engines.js";
 import type { PastedToken } from "../../domain/pasted-token.js";
 import {
@@ -14,6 +15,7 @@ export const STAND_IN_SIGN_IN_PAGE = "https://claude.com/cai/oauth/authorize?sta
 export const STAND_IN_ACCOUNT: EngineAccount = {
   signedIn: true,
   pastedToken: false,
+  apiKey: false,
   email: "stand-in@example.com",
   plan: "max",
 };
@@ -22,14 +24,15 @@ export const STAND_IN_ACCOUNT: EngineAccount = {
 export const STAND_IN_PASTED_TOKEN_ACCOUNT: EngineAccount = {
   signedIn: true,
   pastedToken: true,
+  apiKey: false,
   email: undefined,
   plan: undefined,
 };
 
 /**
  * The Claude Code accounts on scripted engines, so a test never runs the binary nor opens the
- * user's browser: every engine is signed out until a Sign in on it takes a code or a token is
- * pasted, and the token is kept nowhere.
+ * user's browser: every engine is signed out until a Sign in on it takes a code, a token is pasted
+ * or an API key given, and the token or key is kept nowhere.
  */
 export class StandInClaudeCodeAccounts extends ClaudeCodeAccounts {
   private readonly signedIn = new Map<EngineId, EngineAccount>();
@@ -37,6 +40,11 @@ export class StandInClaudeCodeAccounts extends ClaudeCodeAccounts {
 
   account(engineId: EngineId): Promise<EngineAccount> {
     return Promise.resolve(this.signedIn.get(engineId) ?? { signedIn: false });
+  }
+
+  signedInByApiKey(engineId: EngineId): Promise<boolean> {
+    const account = this.signedIn.get(engineId);
+    return Promise.resolve(account?.signedIn === true && account.apiKey);
   }
 
   signIn(engineId: EngineId): Promise<SignIn> {
@@ -61,6 +69,12 @@ export class StandInClaudeCodeAccounts extends ClaudeCodeAccounts {
   setPastedToken(engineId: EngineId, _token: PastedToken): Promise<void> {
     this.signIns.get(engineId)?.();
     this.signedIn.set(engineId, STAND_IN_PASTED_TOKEN_ACCOUNT);
+    return Promise.resolve();
+  }
+
+  setApiKey(engineId: EngineId, _key: AnthropicApiKey): Promise<void> {
+    this.signIns.get(engineId)?.();
+    this.signedIn.set(engineId, API_KEY_ACCOUNT);
     return Promise.resolve();
   }
 

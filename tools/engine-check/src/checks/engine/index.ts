@@ -1,4 +1,5 @@
 import type { Check } from "../../check.ts";
+import { apiKeySignInCheck } from "./api-key-sign-in.ts";
 import { autoMemoryCheck } from "./auto-memory.ts";
 import { backgroundTasksCheck } from "./background-tasks.ts";
 import { decisionWaitCheck } from "./decision-wait.ts";
@@ -12,7 +13,9 @@ import { officeToolCheck } from "./office-tool.ts";
 import { parallelSessionsCheck } from "./parallel-sessions.ts";
 import { rateLimitEventCheck } from "./rate-limit-event.ts";
 import { resumeCacheCheck } from "./resume-cache.ts";
+import { sessionCarryOverCheck } from "./session-carry-over.ts";
 import { turnUsageCheck } from "./turn-usage.ts";
+import { usageReadAloneCheck } from "./usage-read-alone.ts";
 import { usageWindowRefusalCheck } from "./usage-window-refusal.ts";
 
 /** The engine behaviours of spec §5.4 the Office builds on. */
@@ -25,8 +28,11 @@ export const engineChecks: readonly Check[] = [
   longOfficeToolCheck,
   decisionWaitCheck,
   resumeCacheCheck,
+  sessionCarryOverCheck,
   rateLimitEventCheck,
   usageWindowRefusalCheck,
+  usageReadAloneCheck,
+  apiKeySignInCheck,
   parallelSessionsCheck,
   leanOptionsCheck,
   autoMemoryCheck,

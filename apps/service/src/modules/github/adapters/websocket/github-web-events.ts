@@ -3,6 +3,7 @@ import type { GitHubWebEvent } from "@the-office/contracts";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import {
   GitHubAppRegistered,
+  GitHubPermissionsChecked,
   GitHubSignedIn,
   GitHubSignedOut,
 } from "../../domain/github-events.js";
@@ -21,6 +22,7 @@ export class GitHubWebEvents implements OnModuleInit {
     this.forwarding.forward(GitHubAppRegistered, changed);
     this.forwarding.forward(GitHubSignedIn, changed);
     this.forwarding.forward(GitHubSignedOut, changed);
+    this.forwarding.forward(GitHubPermissionsChecked, changed);
   }
 }
 

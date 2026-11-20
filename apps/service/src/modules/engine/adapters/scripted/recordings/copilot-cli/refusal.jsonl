@@ -1,0 +1,11 @@
+{"step":"start","brief":{"id":"07a76400-8342-40de-a7b3-5a30cc22180e","text":"Create the file notes.txt containing the word hi, with your tool for writing files. If that is refused, do not try again or another way; reply with the single word: refused"}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":6115,"output":64,"cacheRead":3172,"cacheCreation":2940}}}
+{"step":"event","event":{"kind":"context-read","tokens":12227}}
+{"step":"event","event":{"kind":"tool-call","callId":"custom_call_S02U6BEANWiL1Z5brT6vUzr3","tool":"Write","input":{"file_path":"notes.txt"},"officeTool":false,"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-refused","callId":"custom_call_S02U6BEANWiL1Z5brT6vUzr3","tool":"Write","reason":"Not allowed in this session: editing files.","refusedBy":"office-rules"}}
+{"step":"event","event":{"kind":"tool-result","callId":"custom_call_S02U6BEANWiL1Z5brT6vUzr3","text":"Denied by preToolUse hook: Not allowed in this session: editing files.","isError":true,"withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":12321,"output":92,"cacheRead":9284,"cacheCreation":3031}}}
+{"step":"event","event":{"kind":"context-read","tokens":12409}}
+{"step":"event","event":{"kind":"text","text":"refused","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["07a76400-8342-40de-a7b3-5a30cc22180e"],"usage":{"input":12321,"output":92,"cacheRead":9284,"cacheCreation":3031},"sessionCostUsd":0,"output":null,"errors":[]}}
+{"step":"end"}

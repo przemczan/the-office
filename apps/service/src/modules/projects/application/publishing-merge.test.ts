@@ -8,13 +8,13 @@ import {
   PUBLISHING_TEST,
   PublishingTestbed,
   commitMessage,
-  type PullRequestsForTests,
+  type CodeHostForTests,
 } from "../adapters/git/publishing-testbed.fixtures.js";
 import type { Publishing } from "./publishing.js";
 
 let testbed: PublishingTestbed;
 let repository: TemporaryRepository;
-let pullRequests: PullRequestsForTests;
+let pullRequests: CodeHostForTests;
 let publishing: Publishing;
 
 beforeAll(async () => {

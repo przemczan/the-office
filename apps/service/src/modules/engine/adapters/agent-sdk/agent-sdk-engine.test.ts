@@ -17,19 +17,24 @@ import { Telemetry } from "../../../../platform/telemetry/telemetry.js";
 import { ManualSchedule } from "../../../../platform/schedule/schedule.fixtures.js";
 import { AgentEngines } from "../../application/agent-engines.js";
 import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
-import { preparedEngineConfigFolder } from "../claude-code/engine-config-folder.js";
+import { preparedEngineConfigFolder } from "../engine-folders/engine-config-folder.js";
 import { EngineModels } from "../../application/engine-models.js";
+import { ModelPrices } from "../../application/model-prices.js";
 import { RunningEngineSessions } from "../../application/running-engine-sessions.js";
 import { EngineSettingsForTests } from "../../ports/engine-settings-repository.fixtures.js";
 import { DayUsage } from "../../application/day-usage.js";
 import { EngineSessions } from "../../application/engine-sessions.js";
 import { OfficeToolRegistry } from "../../application/office-tool-registry.js";
 import { UsageWindowState } from "../../application/usage-window-state.js";
-import { describeAgentEngineContract } from "../../ports/agent-engine.contract.js";
+import {
+  describeAgentEngineContract,
+  SESSIONLESS_SCENARIOS,
+} from "../../ports/agent-engine.contract.js";
 import type { AgentEngine } from "../../ports/agent-engine.js";
 import { DayUsageForTests } from "../../ports/day-usage-repository.fixtures.js";
 import { UsageWindowSamplesForTests } from "../../ports/usage-window-sample-repository.fixtures.js";
 import { UsageWindowSamples } from "../../application/usage-window-samples.js";
+import { UsageWindowReadings } from "../../application/usage-window-readings.js";
 import type { EngineSession } from "../../ports/engine-session.js";
 import type { OfficeTool } from "../../ports/office-tool.js";
 import type { SessionEvent, TurnEndedEvent } from "../../ports/session-events.js";
@@ -79,12 +84,13 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
     model: MODEL,
     timeoutMs: 180_000,
     mcpServer: CONTRACT_MCP_SERVER,
+    backgroundCommands: true,
     // A refused turn is seen live only while the account's window is used up (apps/service/docs/testing.md).
     usageWindowUsedUp: process.env["OFFICE_ENGINE_USAGE_WINDOW_USED_UP"] === "1",
     engineFor: () =>
       Promise.resolve(MODE === "record" ? new RecordingEngine(liveEngine()) : liveEngine()),
     afterScenario: async (scenario, engine) => {
-      if (engine instanceof RecordingEngine) {
+      if (engine instanceof RecordingEngine && !SESSIONLESS_SCENARIOS.includes(scenario)) {
         await engine.save(join(RECORDINGS, `${scenario}.jsonl`));
       }
     },
@@ -121,6 +127,7 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
         resumes: false,
         options: withServer,
         configFolder: await preparedEngineConfigFolder(OFFICE_DATA, FIRST_CLAUDE_CODE_ENGINE.id),
+        apiKeyHelper: undefined,
         mcpConfigFile: mcpConfigFile.path,
         languageServerPlugin: undefined,
         agentShells: [],
@@ -183,22 +190,30 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
       });
       const events = new EventBus();
       const engine = liveEngine();
+      const usageWindows = new UsageWindowState(events, new ManualSchedule());
       const sessions = new EngineSessions(
         new AgentEngines({
           "agent-sdk": engine,
           "claude-code-p": engine,
           "openai-compatible-api": engine,
+          codex: engine,
+          "copilot-cli": engine,
         }),
         new Telemetry(trace.getTracer("test"), metrics.getMeter("test")),
         events,
-        new UsageWindowState(events, new ManualSchedule()),
+        usageWindows,
         registry,
         new DayUsage(new DayUsageForTests(), new ManualSchedule()),
-        new UsageWindowSamples(new UsageWindowSamplesForTests()),
+        new UsageWindowReadings(
+          usageWindows,
+          new UsageWindowSamples(new UsageWindowSamplesForTests()),
+          new ManualSchedule(),
+        ),
         new EngineModels(new EngineSettingsForTests()),
         new RunningEngineSessions(),
         new BusyWork(events),
         new NoLanguageServers(),
+        new ModelPrices(new EngineSettingsForTests()),
       );
 
       const session = await sessions.start({

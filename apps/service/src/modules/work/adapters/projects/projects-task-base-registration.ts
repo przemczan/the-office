@@ -25,7 +25,9 @@ export class ProjectsTaskBaseRegistration implements OnModuleInit {
   /** Throws TaskNotFound for no such Task, and TaskRefused when its Initiative's branch was never made. */
   private async baseOf(projectId: string, taskId: string): Promise<TaskBase> {
     const task = await this.tasks.read(taskId);
-    if (task.initiativeId === undefined) return { kind: "base-branch" };
+    if (task.initiativeId === undefined) {
+      return taskBranchBase(task, undefined, projectId, projectId);
+    }
     const [initiative, project] = await Promise.all([
       this.initiatives.read(task.initiativeId),
       this.projects.find(projectId),

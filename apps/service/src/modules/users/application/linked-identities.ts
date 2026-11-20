@@ -24,6 +24,8 @@ import { IdentityTrips } from "./identity-trips.js";
  */
 export interface ProviderLink {
   readonly provider: IdentityProviderId;
+  /** As the pages show it, the OpenID Connect provider's as it was set up. */
+  readonly providerName: string;
   readonly available: boolean;
   readonly unavailableHere: WayUnavailable | undefined;
   readonly linked: LinkedIdentity | undefined;
@@ -53,6 +55,7 @@ export class LinkedIdentities implements OnModuleInit {
     return Promise.all(
       this.providers.all.map(async (bound) => ({
         provider: bound.provider,
+        providerName: await bound.displayName(),
         available: await bound.isAvailable(),
         unavailableHere: bound.unavailableAt(page),
         linked: linked.find((identity) => identity.provider === bound.provider),
@@ -96,7 +99,9 @@ export class LinkedIdentities implements OnModuleInit {
   async link(userId: string, identity: ProviderIdentity): Promise<void> {
     const existing = await this.linkedIdentities.findBySubject(identity.provider, identity.subject);
     if (existing !== undefined) {
-      if (existing.userId !== userId) throw IdentityRefused.linkedToAnother(identity.provider);
+      if (existing.userId !== userId) {
+        throw IdentityRefused.linkedToAnother(await this.providers.nameOf(identity.provider));
+      }
       await this.linkedIdentities.save({ ...existing, name: identity.name });
       return;
     }
@@ -107,10 +112,11 @@ export class LinkedIdentities implements OnModuleInit {
     if (!added) {
       // Taken meanwhile, or the user has another identity of this provider.
       const taken = await this.linkedIdentities.findBySubject(identity.provider, identity.subject);
+      const providerName = await this.providers.nameOf(identity.provider);
       if (taken !== undefined && taken.userId !== userId) {
-        throw IdentityRefused.linkedToAnother(identity.provider);
+        throw IdentityRefused.linkedToAnother(providerName);
       }
-      if (taken === undefined) throw IdentityRefused.alreadyLinked(identity.provider);
+      if (taken === undefined) throw IdentityRefused.alreadyLinked(providerName);
       return;
     }
     await this.eventBus.publish(new IdentityLinked(userId, identity.provider, now));

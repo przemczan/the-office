@@ -41,6 +41,13 @@ done
 answer / | grep --quiet '<title>The Office</title>' || fail "/ doesn't serve the web app."
 echo "The service answered $health and served the web app."
 
+# The knowledge base every Brief names, at the path the service resolves it from its install.
+inside test -f /opt/the-office/docs/spec/README.md || fail "the knowledge base's index is missing."
+inside test -f /opt/the-office/GLOSSARY.md || fail "the glossary is missing."
+docker logs "$container" 2>&1 | grep --quiet 'knowledge base' &&
+  fail "the service didn't find the knowledge base."
+echo "The knowledge base is at /opt/the-office/docs/spec/README.md."
+
 docker logs "$container" 2>&1 | grep --quiet --ignore-case 'setup token' ||
   fail "the first start's logs hold no setup token."
 token=$(inside npm run --silent setup-token -- --quiet) || fail "npm run setup-token -- --quiet failed."

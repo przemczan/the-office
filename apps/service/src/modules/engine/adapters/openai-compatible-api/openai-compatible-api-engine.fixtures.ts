@@ -13,6 +13,8 @@ import {
   FakeChatCompletionsServer,
   type ScriptedReply,
 } from "./fake-chat-completions-server.fixtures.js";
+import type { PromptTemplates } from "../../../prompt-templates/index.js";
+import { defaultEnginePromptTemplates } from "../prompt-templates/engine-prompt-templates.fixtures.js";
 import { OpenAiCompatibleApiEngine } from "./openai-compatible-api-engine.js";
 
 // What openai-compatible-api-engine.test.ts and openai-compatible-api-engine.full.test.ts share:
@@ -56,11 +58,13 @@ export function endpoint(
 export function engineOn(
   endpoints: readonly ApiEngine[] = [endpoint()],
   searchEndpoint: SearchEndpoint | null = null,
+  promptTemplates: PromptTemplates = defaultEnginePromptTemplates(),
 ): OpenAiCompatibleApiEngine {
   return new OpenAiCompatibleApiEngine(
     new EngineSettingsForTests({ engines: endpoints, searchEndpoint, modelPrices: [] }),
     new OfficeDataDirectory(officeData),
     new SdkMcpClient(),
+    promptTemplates,
   );
 }
 

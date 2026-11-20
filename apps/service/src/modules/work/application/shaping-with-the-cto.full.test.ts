@@ -46,6 +46,7 @@ import {
   ModelPricesForTests,
   ProjectInitiativeBranchesForTests,
   ProjectWorktreesForTests,
+  TaskPullRequestsForTests,
   StageResultsForTests,
   TaskGatesForTests,
   TaskBasesForTests,
@@ -114,6 +115,10 @@ class CtoOnly {
   /** The CTO holds Shapes Initiatives, and nobody any other duty. */
   async holderOf(duty: string): Promise<string | undefined> {
     return duty === "shapes-initiatives" ? CTO : undefined;
+  }
+
+  async dutyHolders(): Promise<ReadonlyMap<string, string>> {
+    return new Map([["shapes-initiatives", CTO]]);
   }
 
   async consultants(): Promise<readonly never[]> {
@@ -187,6 +192,7 @@ const STAND_INS = [
   KnownEngineCascadeForTests,
   NewProjectsForTests,
   ProjectWorktreesForTests,
+  TaskPullRequestsForTests,
   ProjectInitiativeBranchesForTests,
   StageResultsForTests,
   TaskGatesForTests,
@@ -251,6 +257,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
         knownProjects: KnownProjectsForTests,
         newProjects: NewProjectsForTests,
         projectWorktrees: ProjectWorktreesForTests,
+        taskPullRequests: TaskPullRequestsForTests,
         projectInitiativeBranches: ProjectInitiativeBranchesForTests,
         knownPeople: RoleCards,
         knownEngineCascade: KnownEngineCascadeForTests,

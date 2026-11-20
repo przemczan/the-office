@@ -1,5 +1,6 @@
 import type { Server } from "node:http";
 import type { Request, Response } from "express";
+import { z } from "zod";
 import { launch } from "./launch.js";
 import { HTTP_APPLICATION_OPTIONS } from "./platform/http/configure-http.js";
 
@@ -19,6 +20,125 @@ const E2E_DAY_MS = 2000;
 const E2E_KEEP_ALIVE_MS = 10 * 60 * 1000;
 /** `POST` it to release a scripted session's `wait` step (`ScriptedSession.reach`). */
 const E2E_MARK_PATH = "/api/e2e/marks/:mark";
+/**
+ * `POST` it to approve the Sign in under way on a Codex engine, as the user would on the device
+ * page (`StandInCodexAccounts.approve`): 204, or 404 with none under way.
+ */
+const E2E_CODEX_APPROVAL_PATH = "/api/e2e/codex-sign-ins/:engineId/approval";
+/**
+ * `POST` it to enter the code of the Sign in under way on a Copilot CLI engine, as the user would on
+ * GitHub's page (`StandInCopilotCliAccounts.approve`): 204, or 404 with none under way.
+ */
+const E2E_COPILOT_CLI_APPROVAL_PATH = "/api/e2e/copilot-cli-sign-ins/:engineId/approval";
+/**
+ * `POST` it to set what the scripted Grafana holds for the full stats and System health's longer
+ * ranges, replacing all it held: each part absent answers empty (the data sources both there), a
+ * `failure` answers every read and `systemHealthFailures` each System health block named
+ * (`ScriptedStatsSource`). 204.
+ */
+const E2E_STATS_SOURCE_PATH = "/api/e2e/stats-source";
+const e2ePointsSchema = z.array(z.object({ at: z.coerce.date(), value: z.number() }));
+const e2eSpendSchema = { tokens: z.number(), estimatedCostUsd: z.number() };
+const e2eSlowestSchema = {
+  count: z.number(),
+  p95Ms: z.number(),
+  maxMs: z.number(),
+  totalMs: z.number(),
+};
+/** System health on the longer ranges, each block left out answering empty. */
+const e2eSystemHealthSchema = z
+  .object({
+    responsiveness: z.object({ lagP99Ms: e2ePointsSchema, lagMaxMs: e2ePointsSchema }),
+    "cpu-and-memory": z.object({
+      officeCpuPercent: e2ePointsSchema,
+      officeCpuOfWorkstationPercent: e2ePointsSchema,
+      memoryInUseBytes: e2ePointsSchema,
+      heapUsedBytes: e2ePointsSchema,
+      workstationCpuPercent: e2ePointsSchema,
+      workstationMemoryPercent: e2ePointsSchema,
+    }),
+    requests: z.object({
+      perMinute: e2ePointsSchema,
+      p95Ms: e2ePointsSchema,
+      total: z.number(),
+      totalP95Ms: z.number().nullable(),
+      slowest: z.array(
+        z.object({
+          route: z.object({ method: z.string(), template: z.string() }).nullable(),
+          ...e2eSlowestSchema,
+        }),
+      ),
+    }),
+    database: z.object({
+      perMinute: e2ePointsSchema,
+      p95Ms: e2ePointsSchema,
+      connectionsWaiting: e2ePointsSchema,
+      total: z.number(),
+      totalP95Ms: z.number().nullable(),
+      slowest: z.array(z.object({ operation: z.string(), table: z.string(), ...e2eSlowestSchema })),
+    }),
+  })
+  .partial();
+const e2eFailureSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("unreachable"), problem: z.string() }),
+  z.object({ kind: z.literal("rejected") }),
+]);
+const e2eStatsSourceSchema = z.object({
+  failure: e2eFailureSchema.optional(),
+  dataSources: z
+    .object({ prometheus: z.string().optional(), loki: z.string().optional() })
+    .optional(),
+  usage: z
+    .object({
+      tokens: z.array(z.object({ name: z.string(), points: e2ePointsSchema })),
+      estimatedCostUsd: z.array(z.object({ name: z.string(), points: e2ePointsSchema })),
+    })
+    .optional(),
+  costliest: z
+    .object({
+      tasks: z.array(
+        z.object({
+          taskId: z.string(),
+          ...e2eSpendSchema,
+          runs: z.array(
+            z.object({
+              stageName: z.string(),
+              stageRun: z.string(),
+              firstAt: z.coerce.date(),
+              ...e2eSpendSchema,
+            }),
+          ),
+        }),
+      ),
+      initiatives: z.array(
+        z.object({
+          initiativeId: z.string(),
+          ...e2eSpendSchema,
+          tasks: z.array(z.object({ taskId: z.string(), ...e2eSpendSchema })),
+        }),
+      ),
+    })
+    .optional(),
+  windows: z
+    .array(
+      z.object({
+        engineId: z.string(),
+        window: z.enum(["five_hour", "seven_day"]),
+        points: e2ePointsSchema,
+      }),
+    )
+    .optional(),
+  systemHealth: e2eSystemHealthSchema.optional(),
+  systemHealthFailures: z
+    .object({
+      responsiveness: e2eFailureSchema,
+      "cpu-and-memory": e2eFailureSchema,
+      requests: e2eFailureSchema,
+      database: e2eFailureSchema,
+    })
+    .partial()
+    .optional(),
+});
 if (!scripts) throw new Error("The end-to-end service needs OFFICE_ENGINE_SCRIPTS.");
 if (!hostKey) throw new Error("The end-to-end service needs OFFICE_E2E_HOST_KEY.");
 if (!officeCheckout) throw new Error("The end-to-end service needs OFFICE_E2E_CHECKOUT.");
@@ -30,14 +150,21 @@ await launch(
     const { Test } = await import("@nestjs/testing");
     const {
       ClaudeCodeAccounts,
+      CODEX_CAPABILITIES,
+      CodexAccounts,
+      CopilotCliAccounts,
       EngineModule,
       OPENAI_COMPATIBLE_API_CAPABILITIES,
       readRecording,
       ScriptedEngine,
       ScriptedEngineModule,
       StandInClaudeCodeAccounts,
+      StandInCodexAccounts,
+      StandInCopilotCliAccounts,
+      COPILOT_CLI_CAPABILITIES,
     } = await import("./modules/engine/index.js");
     const { UpdateSystem } = await import("./modules/office-updates/index.js");
+    const { ScriptedStatsSource, StatsSource } = await import("./modules/telemetry/index.js");
     const { Schedule } = await import("./platform/schedule/schedule.js");
     const { TimerSchedule } = await import("./platform/schedule/timer-schedule.js");
     const { HostKeyScanner } = await import("./platform/git-identity/host-key-scanner.js");
@@ -53,9 +180,14 @@ await launch(
       scan: () => Promise.resolve([scannedKey]),
     };
     const engine = new ScriptedEngine(await readRecording(scripts));
-    // No end-to-end session runs on the OpenAI-compatible API; its stand-in only declares what the
-    // engine can't do, for the Role card to name.
+    // No end-to-end session runs on the OpenAI-compatible API, Codex or the Copilot CLI; their
+    // stand-ins only declare what the engine can't do, for the Role card to name.
     const apiEngine = new ScriptedEngine([], OPENAI_COMPATIBLE_API_CAPABILITIES);
+    const codexEngine = new ScriptedEngine([], CODEX_CAPABILITIES);
+    const copilotCliEngine = new ScriptedEngine([], COPILOT_CLI_CAPABILITIES);
+    const codexAccounts = new StandInCodexAccounts();
+    const copilotCliAccounts = new StandInCopilotCliAccounts();
+    const statsSource = new ScriptedStatsSource();
     const moduleRef = await Test.createTestingModule({ imports: [appModule] })
       .overrideModule(EngineModule)
       .useModule(
@@ -63,10 +195,16 @@ await launch(
           "agent-sdk": engine,
           "claude-code-p": engine,
           "openai-compatible-api": apiEngine,
+          codex: codexEngine,
+          "copilot-cli": copilotCliEngine,
         }),
       )
       .overrideProvider(ClaudeCodeAccounts)
       .useValue(new StandInClaudeCodeAccounts())
+      .overrideProvider(CodexAccounts)
+      .useValue(codexAccounts)
+      .overrideProvider(CopilotCliAccounts)
+      .useValue(copilotCliAccounts)
       .overrideProvider(Schedule)
       .useFactory({ factory: () => new TimerSchedule(E2E_DAY_MS) })
       .overrideProvider(HostKeyScanner)
@@ -77,6 +215,9 @@ await launch(
       // No end-to-end test starts or stops a real Grafana container.
       .overrideProvider(BundledGrafana)
       .useValue(new ScriptedBundledGrafana())
+      // Nor reads one: the full stats read what the test sets at E2E_STATS_SOURCE_PATH.
+      .overrideProvider(StatsSource)
+      .useValue(statsSource)
       // The testing module's own logger shows errors alone; the service logs as main.ts's does.
       .setLogger(new OfficeLogger())
       .compile();
@@ -94,7 +235,46 @@ await launch(
         for (const session of engine.sessions) session.reach(request.params.mark);
         response.status(204).end();
       });
+    app
+      .getHttpAdapter()
+      .post(
+        E2E_CODEX_APPROVAL_PATH,
+        (request: Request<{ engineId: string }>, response: Response) => {
+          response.status(codexAccounts.approve(request.params.engineId) ? 204 : 404).end();
+        },
+      );
+    app
+      .getHttpAdapter()
+      .post(
+        E2E_COPILOT_CLI_APPROVAL_PATH,
+        (request: Request<{ engineId: string }>, response: Response) => {
+          response.status(copilotCliAccounts.approve(request.params.engineId) ? 204 : 404).end();
+        },
+      );
+    app.getHttpAdapter().post(E2E_STATS_SOURCE_PATH, (request: Request, response: Response) => {
+      jsonBodyOf(request)
+        .then((body) => e2eStatsSourceSchema.parse(body))
+        .then(
+          (stats) => {
+            statsSource.set(stats);
+            return response.status(204).end();
+          },
+          (error: unknown) =>
+            response.status(400).json({
+              message: error instanceof z.ZodError ? z.prettifyError(error) : String(error),
+            }),
+        );
+    });
     return app;
   },
   officeCheckout,
 );
+
+/** The request's JSON body, read here when no body parser ran before this route. */
+async function jsonBodyOf(request: Request): Promise<unknown> {
+  if (request.body !== undefined) return request.body;
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) chunks.push(Buffer.from(chunk as Uint8Array));
+  const text = Buffer.concat(chunks).toString("utf8");
+  return text === "" ? {} : JSON.parse(text);
+}

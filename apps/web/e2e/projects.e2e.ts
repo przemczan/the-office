@@ -5,14 +5,17 @@ import {
   OFFICE_IDENTITY_SETTINGS_PATH,
   IMAGE_UPLOAD_BYTES,
   environmentCheckSchema,
+  ideaSchema,
   latestEnvironmentCheckSchema,
   projectSchema,
   repositoryCloneSchema,
+  taskSchema,
   type NewProject,
   type Project,
 } from "@the-office/contracts";
 import { addFakeMcpServer } from "./fake-mcp-server.ts";
 import { branchOnHost, serveRepository } from "./git-host.ts";
+import { queryOfficeDatabase } from "./office-database.ts";
 import { asOwnUser } from "./own-user.ts";
 import { openPipelinePicker, optionNames } from "./pipeline-picker.ts";
 import { addedBasePipeline, addedProjectPipeline } from "./project-pipelines.ts";
@@ -76,8 +79,14 @@ const APPEARANCE_BLOCKS = ["How it looks", "Mark", "Images"];
 
 /** A Project's sections in the menu's order: each one's address and the blocks only it shows. */
 const SECTIONS = [
-  { name: "Overview", address: "", blocks: ["Onboarding", "Environment", "Work"] },
+  { name: "Overview", address: "", blocks: ["Onboarding", "Work"] },
+  { name: "Files", address: "/files", blocks: [] },
   { name: "Commands", address: "/commands", blocks: ["Commands"] },
+  {
+    name: "Environment",
+    address: "/environment",
+    blocks: ["Environment variables", "Environment check"],
+  },
   { name: "Pipelines", address: "/pipelines", blocks: ["Default Pipeline"] },
   { name: "Run environment", address: "/run-environment", blocks: ["Run environment"] },
   { name: "Engine", address: "/engine", blocks: ["Engine"] },
@@ -87,7 +96,7 @@ const SECTIONS = [
 ];
 
 const ANY_BLOCK =
-  /^(Onboarding|Environment|Work|Commands|Default Pipeline|Run environment|Engine|Skills in the repository.*|Server values|How it looks|Mark|Images)$/;
+  /^(Onboarding|Environment variables|Environment check|Work|Commands|Default Pipeline|Run environment|Engine|Skills in the repository.*|Server values|How it looks|Mark|Images)$/;
 
 let repository: TemporaryRepository;
 
@@ -788,7 +797,17 @@ test(
   },
 );
 
-test("the environment check shows each check, and saves the environment only once all pass", async ({
+/** Presses the Environment section's Save and waits for the service to keep the environment. */
+async function saveEnvironment(page: Page): Promise<void> {
+  const saving = page.waitForResponse(
+    (response) => response.url().endsWith("/environment") && response.request().method() === "PUT",
+  );
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  expect((await saving).ok()).toBe(true);
+  await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+}
+
+test("the environment is saved by Save, and the environment check tries it without changing it", async ({
   page,
 }) => {
   const passes = `node -e "process.exit(0)"`;
@@ -798,11 +817,21 @@ test("the environment check shows each check, and saves the environment only onc
     lint: `node -e "console.error('lint error: 1 problem'); process.exit(1)"`,
     test: `node -e "process.exit(process.env.GREETING === 'hello' ? 0 : 1)"`,
   });
-  await page.goto(`/projects/${project.id}`);
+  await page.goto(`/projects/${project.id}/environment`);
   await expect(page.getByText("Not checked yet.")).toBeVisible();
   const checks = page.getByRole("list", { name: "Environment checks" });
+  const variables = page.getByLabel("Variables to set");
+  await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
 
-  await page.getByLabel("Variables to set").fill("GREETING=hello");
+  // Discard drops an edit; Save keeps one, with no check.
+  await variables.fill("GREETING=bye");
+  await page.getByRole("button", { name: "Discard" }).click();
+  await expect(variables).toHaveValue("");
+  await expect(page.getByRole("button", { name: "Discard" })).toHaveCount(0);
+  await variables.fill("GREETING=hello");
+  await saveEnvironment(page);
+  await expect(page.getByText("Not checked yet.")).toBeVisible();
+
   await page.getByRole("button", { name: "Run the environment check" }).click();
 
   await expect(page.getByText("Failed", { exact: true })).toBeVisible({ timeout: 30_000 });
@@ -812,6 +841,9 @@ test("the environment check shows each check, and saves the environment only onc
   await page.screenshot({
     path: path.join(SCREENSHOTS, "light-1600-project-environment-failed.png"),
   });
+  // A failed check leaves the saved environment as it is.
+  await page.reload();
+  await expect(variables).toHaveValue("GREETING=hello");
 
   await page.request.put(`/api/projects/${project.id}/commands/lint`, {
     data: { name: "Lint", kind: "lint", commandLine: passes },
@@ -819,8 +851,6 @@ test("the environment check shows each check, and saves the environment only onc
   await page.getByRole("button", { name: "Run the environment check" }).click();
 
   await expect(page.getByText("Ready", { exact: true })).toBeVisible({ timeout: 30_000 });
-  await page.reload();
-  await expect(page.getByLabel("Variables to set")).toHaveValue("GREETING=hello");
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-environment.png") });
 });
 
@@ -837,7 +867,7 @@ test("a Secret variable is set, kept and removed, and its value never comes back
     lint: passes,
     test: `node -e "console.log('token: ' + (process.env.NPM_TOKEN ?? 'none'))"`,
   });
-  await page.goto(`/projects/${project.id}`);
+  await page.goto(`/projects/${project.id}/environment`);
   const secrets = page.getByRole("group", { name: "Secret variables" });
   const checks = page.getByRole("list", { name: "Environment checks" });
   const run = page.getByRole("button", { name: "Run the environment check" });
@@ -879,7 +909,7 @@ test("a Secret variable is set, kept and removed, and its value never comes back
   const row = secrets.getByRole("group", { name: "the Secret variable NPM_TOKEN" });
   await row.getByLabel("Value").fill("12345");
   await page.getByLabel("Variables to set").fill("NPM_TOKEN=plain");
-  await run.click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   const reasons = page.getByRole("alert").filter({ hasText: "Secret variable" });
   await expect(reasons).toContainText(
     "The value of the Secret variable NPM_TOKEN is shorter than 6 characters",
@@ -891,10 +921,11 @@ test("a Secret variable is set, kept and removed, and its value never comes back
   // Set: the commands get it, and its output hides it.
   await page.getByLabel("Variables to set").fill("");
   await row.getByLabel("Value").fill(token);
+  await saveEnvironment(page);
   await runCheck();
   await expect(await testOutput()).toHaveText("token: [secret NPM_TOKEN]");
 
-  // Kept: never shown again, in the page or the API, and given again when left empty.
+  // Kept: never shown again, in the page or the API, and given again with nothing typed.
   await page.reload();
   await expect(row.getByLabel("Value")).toHaveValue("");
   await expect(
@@ -919,8 +950,9 @@ test("a Secret variable is set, kept and removed, and its value never comes back
     expect(await (await page.request.get(address)).text()).not.toContain(token);
   }
 
-  // Removed: the commands no longer get it.
+  // Removed and saved: the commands no longer get it.
   await row.getByRole("button", { name: "Remove the Secret variable NPM_TOKEN" }).click();
+  await saveEnvironment(page);
   await runCheck();
   await expect(await testOutput()).toHaveText("token: none");
   const saved = projectSchema.parse(
@@ -2116,3 +2148,135 @@ test(
     }
   },
 );
+
+test("the Files tab shows a branch's files, a folder read as it unfolds, and opens from a Task's and an Initiative's Browse files", async ({
+  page,
+}) => {
+  // Five screenshot scenarios, six screenshots each.
+  test.setTimeout(120_000);
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  const files = await createTemporaryRepository();
+  try {
+    await commitFiles(files, {
+      "src/app.ts": 'export const greeting = "hello";\nexport const answer = 42;\n',
+      "docs/guide.md": "# Browsing guide\n\nRead **this** first.\n",
+    });
+    const gitIn = (...gitArguments: string[]): void =>
+      void execFileSync("git", gitArguments, { cwd: files.path, stdio: "ignore" });
+    gitIn("checkout", "--quiet", "-b", "feature/export");
+    await commitFiles(files, { "export.txt": "exported rows\n" });
+    gitIn("checkout", "--quiet", "main");
+    const project = await addedProject(page, "Files to browse", undefined, files.path);
+
+    await page.goto(`/projects/${project.id}/files`);
+
+    const branch = page.getByRole("combobox", { name: "Branch" });
+    await expect(branch).toContainText("main");
+    const tree = page.getByRole("tree", { name: "Files on main" });
+    const item = (filePath: string): Locator =>
+      tree.locator(`[role="treeitem"][data-path="${filePath}"]`);
+    await expect(item("docs")).toHaveAttribute("aria-expanded", "false");
+    // A folder's entries are read only once it unfolds.
+    await expect(item("docs/guide.md")).toHaveCount(0);
+    await item("docs").locator(".repository-tree-row").click();
+    await expect(item("docs")).toHaveAttribute("aria-expanded", "true");
+    await expect(item("docs/guide.md")).toBeVisible();
+
+    await item("src").locator(".repository-tree-row").click();
+    await item("src/app.ts").locator(".repository-tree-row").click();
+    await expect(item("src/app.ts")).toHaveAttribute("aria-selected", "true");
+    await expect(page).toHaveURL(/path=src%2Fapp\.ts/);
+    const preview = page.getByRole("region", { name: "Preview" });
+    await expect(preview.getByRole("heading", { name: "app.ts" })).toBeVisible();
+    await expect(preview.locator(".plain-text-file-numbers")).toContainText("1");
+    await expect(preview.locator(".plain-text-file-numbers")).toContainText("2");
+    await expect(preview.locator(".plain-text-file-lines")).toContainText(
+      'export const greeting = "hello";',
+    );
+    await expect(preview.getByRole("link", { name: "Download" })).toHaveAttribute("download");
+    await preview.getByRole("button", { name: "Copy path" }).click();
+    await expect(page.getByText("Path copied.")).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("src/app.ts");
+    await screenshotScenario(page, "files-text");
+
+    // The address reopens the same file, its folders unfolded down to it and no other.
+    await page.reload();
+    await expect(item("src/app.ts")).toHaveAttribute("aria-selected", "true");
+    await expect(preview.locator(".plain-text-file-lines")).toContainText("answer = 42");
+    await expect(item("docs")).toHaveAttribute("aria-expanded", "false");
+    await item("docs").locator(".repository-tree-row").click();
+
+    await item("docs/guide.md").locator(".repository-tree-row").click();
+    await expect(
+      preview.locator(".markdown-document").getByRole("heading", { name: "Browsing guide" }),
+    ).toBeVisible();
+    await screenshotScenario(page, "files-markdown");
+    await preview.getByRole("tab", { name: "Source" }).click();
+    await expect(preview.locator(".plain-text-file-lines")).toContainText("# Browsing guide");
+
+    await branch.click();
+    const branches = page.getByRole("listbox", { name: "Branch" });
+    await expect(branches.getByRole("group", { name: "Base branch" })).toContainText("base branch");
+    await expect(
+      branches
+        .getByRole("group", { name: "Local branches" })
+        .getByRole("option", { name: "feature/export" }),
+    ).toBeVisible();
+    await screenshotScenario(page, "files-branches");
+    await branches.getByRole("option", { name: "feature/export" }).click();
+    await expect(page).toHaveURL(/branch=feature%2Fexport/);
+    const featureTree = page.getByRole("tree", { name: "Files on feature/export" });
+    await featureTree.locator('[data-path="export.txt"] .repository-tree-row').click();
+    await expect(preview.locator(".plain-text-file-lines")).toContainText("exported rows");
+
+    // A Task's branch, as Start would make it, opens from the Task's Browse files.
+    const taskResponse = await page.request.post("/api/tasks", {
+      data: { title: "Export the rows to browse", projectId: project.id, priority: "normal" },
+    });
+    expect(taskResponse.status()).toBe(201);
+    const task = taskSchema.parse(await taskResponse.json());
+    gitIn("branch", `office/${task.id}`, "feature/export");
+    await page.goto(`/tasks/${task.id}`);
+    const browseFiles = page.getByRole("link", { name: "Browse files" });
+    await expect(browseFiles).toBeVisible();
+    await screenshotScenario(page, "task-browse-files");
+    await browseFiles.click();
+    await expect(page).toHaveURL(
+      `/projects/${project.id}/files?branch=${encodeURIComponent(`office/${task.id}`)}`,
+    );
+    await expect(page.getByRole("tree", { name: `Files on office/${task.id}` })).toBeVisible();
+
+    // An Initiative's branch opens from its Browse files; confirming one needs the CTO's session.
+    const idea = await page.request.post("/api/ideas", {
+      data: { title: "Browse the export Initiative", notes: "", projectId: null },
+    });
+    expect(idea.status()).toBe(201);
+    const initiativeId = crypto.randomUUID();
+    await queryOfficeDatabase(
+      `insert into initiatives (id, name, outcome, state, origin_idea_id, created_by, created_at, short_name)
+       values ($1, $2, '', 'active', $3, $4, now(), $5)`,
+      [
+        initiativeId,
+        "Browse the export Initiative",
+        ideaSchema.parse(await idea.json()).id,
+        { kind: "user" },
+        "browse-export",
+      ],
+    );
+    await queryOfficeDatabase(`update tasks set initiative_id = $2 where id = $1`, [
+      task.id,
+      initiativeId,
+    ]);
+    gitIn("branch", "initiative/browse-export", "feature/export");
+    await page.goto(`/work/initiatives/${initiativeId}`);
+    const browseInitiative = page.getByRole("link", { name: "Browse files" });
+    await expect(browseInitiative).toBeVisible();
+    await screenshotScenario(page, "initiative-browse-files");
+    await browseInitiative.click();
+    await expect(
+      page.getByRole("tree", { name: "Files on initiative/browse-export" }),
+    ).toBeVisible();
+  } finally {
+    await files.remove();
+  }
+});

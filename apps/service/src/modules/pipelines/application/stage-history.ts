@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { readEach } from "../../../platform/database/fan-out.js";
 import { TASK_STATE_NAMES } from "../../work/index.js";
 import { walkedStages } from "../domain/resolve-stages.js";
 import type { StageRun } from "../domain/stage-run.js";
@@ -33,13 +34,13 @@ export class StageHistory {
   async of(taskId: string): Promise<string> {
     const [runs, own] = await Promise.all([this.runs.list(taskId), this.taskStages.find(taskId)]);
     if (!own && runs.length === 0) return this.notStartedWords(taskId);
-    const counts = await Promise.all(
-      runs.flatMap((run) => {
-        const window = threadWindow(taskId, run);
-        return window
-          ? [this.threadMessages.count(window).then((count) => [run.id, count] as const)]
-          : [];
-      }),
+    const windows = runs.flatMap((run) => {
+      const window = threadWindow(taskId, run);
+      return window ? [{ runId: run.id, window }] : [];
+    });
+    const counts = await readEach(
+      windows,
+      async ({ runId, window }) => [runId, await this.threadMessages.count(window)] as const,
     );
     return stageHistoryWords(walkedStages(own?.stages ?? [], runs), runs, new Map(counts));
   }

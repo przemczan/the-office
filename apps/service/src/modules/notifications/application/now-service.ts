@@ -1,5 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
+import { readEach } from "../../../platform/database/fan-out.js";
+import { inReadScope } from "../../../platform/database/read-scope.js";
 import type { DomainEventClass } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
@@ -22,6 +24,7 @@ import {
   SentBackFromGate,
   StageRunEnded,
   StageRunStarted,
+  StandInChoicesChanged,
   TaskStagesEdited,
 } from "../../pipelines/index.js";
 import {
@@ -65,6 +68,7 @@ import { OfficeInitiatives } from "../ports/office-initiatives.js";
 import { OfficeTasks } from "../ports/office-tasks.js";
 import { OpenDecisions } from "../ports/open-decisions.js";
 import { ResumePlans } from "../ports/resume-plans.js";
+import { StandInChoicesWaiting } from "../ports/stand-in-choices-waiting.js";
 import { StartQueue } from "../ports/start-queue.js";
 import { TaskOutcomeRepository } from "../ports/task-outcome-repository.js";
 import { TaskStageProgress } from "../ports/task-stage-progress.js";
@@ -84,6 +88,7 @@ const NOW_CHANGES: readonly DomainEventClass[] = [
   SentBackFromGate,
   GateDropped,
   TaskStagesEdited,
+  StandInChoicesChanged,
   DecisionOpened,
   DecisionAnswered,
   DecisionClosed,
@@ -110,6 +115,9 @@ const NOW_CHANGES: readonly DomainEventClass[] = [
   RoleLetGo,
 ];
 
+/** What an event can have changed of Now: all of it, or only today's tokens. */
+type NowRead = "whole" | "tokens today";
+
 /**
  * Now and the status strip, read from the modules that own each part and kept fresh from their
  * domain events (spec §5.3): what only events tell, the outcomes, the day's figures and each user's
@@ -121,7 +129,8 @@ const NOW_CHANGES: readonly DomainEventClass[] = [
 export class NowService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(NowService.name);
   private announcing: Promise<void> | undefined;
-  private announceAgain = false;
+  /** What the next read reads; undefined while no event asks for one. */
+  private nextRead: NowRead | undefined;
   /** Announces the next read even when Now is as announced: Since you left changed. */
   private announceAnyway = false;
   private announced: Now | undefined;
@@ -140,6 +149,7 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
     private readonly figures: OfficeDayFigures,
     private readonly fireAlarm: OfficeFireAlarm,
     private readonly resumePlans: ResumePlans,
+    private readonly standInChoices: StandInChoicesWaiting,
     private readonly schedule: Schedule,
     private readonly events: EventBus,
   ) {}
@@ -170,6 +180,7 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       initiatives,
       initiativeTasks,
       shaper,
+      standInChoices,
     ] = await Promise.all([
       this.startedTasks(),
       this.decisions.listOpen(),
@@ -181,6 +192,7 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       this.initiatives.list(),
       this.initiatives.tasksByInitiative(),
       this.people.holderOf(SHAPES_INITIATIVES),
+      this.standInChoices.waiting(),
     ]);
     return nowOf({
       started,
@@ -199,6 +211,7 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       })),
       fireAlarm,
       resumes: fireAlarm.on ? await this.resumesOf(started) : new Map(),
+      standInChoices,
     });
   }
 
@@ -211,8 +224,9 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
   ): Promise<ReadonlyMap<string, TaskResume | undefined>> {
     const paused = started.filter(({ task }) => task.pausedBy === "alarm");
     return new Map(
-      await Promise.all(
-        paused.map(async ({ task }) => [task.id, await this.resumePlans.of(task.id)] as const),
+      await readEach(
+        paused,
+        async ({ task }) => [task.id, await this.resumePlans.of(task.id)] as const,
       ),
     );
   }
@@ -245,9 +259,14 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       to === "done" ? this.keepOutcome(taskId, "done", occurredAt) : this.announceInBackground(),
     );
     // What the fire alarm or an Initiative's Pause holds is no Outcome: Now shows it with the
-    // alarm, and the Initiative that it is paused. A refusal for a used-up usage window is.
+    // alarm, and the Initiative that it is paused. A refusal for a used-up usage window is, unless
+    // its Stage waits for the user's choice of a Stand-in Engine, which Needs you shows instead.
     this.events.subscribe(TaskPaused, ({ taskId, occurredAt, by, from, usageWindow }) =>
-      by === "user" || (by === "usage-window" && usageWindow !== undefined && from !== "paused")
+      by === "user" ||
+      (by === "usage-window" &&
+        usageWindow !== undefined &&
+        usageWindow.awaitsStandInChoice !== true &&
+        from !== "paused")
         ? this.keepOutcome(taskId, "paused", occurredAt)
         : this.announceInBackground(),
     );
@@ -265,7 +284,8 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
 
   private subscribeToFigures(): void {
     for (const eventClass of [TokensCounted, TurnEnded]) {
-      this.events.subscribe(eventClass, async ({ thread, occurredAt }) => {
+      this.events.subscribe(eventClass, async (event) => {
+        const { thread, occurredAt } = event;
         await this.figures.countThreadTokens(
           thread.id,
           {
@@ -274,7 +294,9 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
           },
           officeDayOf(occurredAt),
         );
-        this.announceInBackground();
+        // Tokens are counted many times a turn and change only the day's tokens; a turn's end may
+        // change more.
+        this.announceInBackground(false, event instanceof TokensCounted ? "tokens today" : "whole");
       });
     }
   }
@@ -290,45 +312,53 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
 
   private async startedTasks(): Promise<StartedTask[]> {
     const started = await this.tasks.listStarted();
-    return Promise.all(
-      started.map(async (task) => ({
-        task,
-        stages: (await this.stages.progress(task.id))?.stages,
-      })),
-    );
+    return readEach(started, async (task) => ({
+      task,
+      stages: (await this.stages.progress(task.id))?.stages,
+    }));
   }
 
   /**
    * Reads Now and announces it when it differs from what was last announced, returning at once
    * (`EventBus.publish` waits for its handlers). A burst of events while a read goes on makes one
    * more read after it, not one each. `anyway` announces it even when Now is unchanged, for Since
-   * you left, which each web reads again on it.
+   * you left, which each web reads again on it. `read` is what the event can have changed: the
+   * whole of Now, or only today's tokens, which are read alone on what was last announced.
    */
-  private announceInBackground(anyway = false): void {
+  private announceInBackground(anyway = false, read: NowRead = "whole"): void {
     if (anyway) this.announceAnyway = true;
-    if (this.announcing) {
-      this.announceAgain = true;
-      return;
-    }
+    this.nextRead = this.nextRead === "whole" ? "whole" : read;
+    if (this.announcing) return;
     this.announcing = this.announceUntilSettled()
       .catch((error: unknown) => {
         this.logger.error("Now could not be read", stackOf(error));
       })
       .finally(() => {
         this.announcing = undefined;
+        // An event that came as the last read ended still wants its read.
+        if (this.nextRead !== undefined) this.announceInBackground(false, this.nextRead);
       });
   }
 
   private async announceUntilSettled(): Promise<void> {
-    do {
-      this.announceAgain = false;
+    while (this.nextRead !== undefined) {
+      const read = this.nextRead;
+      this.nextRead = undefined;
       const anyway = this.announceAnyway;
       this.announceAnyway = false;
-      const now = await this.now();
+      const now =
+        read === "tokens today" && this.announced
+          ? await this.withTokensToday(this.announced)
+          : // A scope of its own: what each started Task's Stages read in common is read once.
+            await inReadScope(() => this.now());
       if (!anyway && isDeepStrictEqual(now, this.announced)) continue;
       this.announced = now;
       await this.events.publish(new NowChanged(now));
-    } while (this.announceAgain);
+    }
+  }
+
+  private async withTokensToday(announced: Now): Promise<Now> {
+    return { ...announced, tokensToday: await this.figures.tokensOn(officeDayOf(new Date())) };
   }
 }
 

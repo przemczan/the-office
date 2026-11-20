@@ -19,7 +19,7 @@ import {
   type StageKind,
 } from "../../../shell/pipelines/stage-edits.ts";
 import { StageForm } from "../../../shell/pipelines/stage-form.tsx";
-import { checkAwaited } from "../../../shell/pipelines/stages-check.ts";
+import { byLevel, checkAwaited } from "../../../shell/pipelines/stages-check.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
 
@@ -69,7 +69,7 @@ export function StageTemplateForm({
     ...stageTemplateQueries.check({ stage: draft, stageTemplateId: template?.id }),
     placeholderData: keepPreviousData,
   });
-  const problems = check.data?.problems ?? [];
+  const { problems, warnings } = byLevel(check.data?.problems);
   const commands = useLibraryCommands();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -117,7 +117,7 @@ export function StageTemplateForm({
         <div className="library-form">
           <StageCheckAlerts
             problems={problems}
-            flags={check.data?.flags ?? []}
+            warnings={warnings}
             problemsTitle="The Stage template can't be saved yet"
           />
           <StageForm
@@ -129,7 +129,6 @@ export function StageTemplateForm({
             duties={duties}
             options={options}
             commands={commands}
-            template
           />
         </div>
       </Card>

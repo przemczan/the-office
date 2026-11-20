@@ -1,4 +1,4 @@
-import type { StageProblem } from "./pipeline.js";
+import { pipelineProblem, type StageProblem } from "./pipeline.js";
 
 /** A Pipeline's name taken already, with the Project whose Pipeline it is; none for an office-wide one. */
 export interface TakenName {
@@ -14,13 +14,13 @@ export interface TakenName {
  */
 export function pipelineNameProblems(name: string, taken: readonly TakenName[]): StageProblem[] {
   const trimmed = name.trim();
-  if (trimmed === "") return [{ text: "Give the Pipeline a name." }];
+  if (trimmed === "") return [pipelineProblem("Give the Pipeline a name.")];
   const named = comparableName(trimmed);
   const holder = taken.find((other) => comparableName(other.name) === named);
   if (!holder) return [];
   return holder.projectName === undefined
-    ? [{ text: `Another Pipeline is named "${trimmed}".` }]
-    : [{ text: `${holder.projectName} has a Pipeline of its own named "${trimmed}".` }];
+    ? [pipelineProblem(`Another Pipeline is named "${trimmed}".`)]
+    : [pipelineProblem(`${holder.projectName} has a Pipeline of its own named "${trimmed}".`)];
 }
 
 /** Names compare trimmed and in any case, as the tables' unique indexes do. */

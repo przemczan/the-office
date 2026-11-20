@@ -1,7 +1,10 @@
 import type { INestApplication, NestApplicationOptions } from "@nestjs/common";
 import { API_PATH } from "@the-office/contracts";
 import express from "express";
+import { recordRequests } from "../system-health/request-recording.js";
+import { SystemHealthRecorder } from "../system-health/system-health-recorder.js";
 import { OfficeAddresses } from "./office-addresses.js";
+import { readOncePerRequest } from "./reads-per-request.js";
 import { refuseNonLocalRequests, refuseSignedOutRequests } from "./request-access.js";
 import { SignedInRequests } from "./signed-in-requests.js";
 
@@ -23,12 +26,28 @@ const JSON_BODY_LIMIT = "16mb";
 
 /**
  * HTTP settings shared by the running service and the tests that serve it, on the addresses and
- * signed-in devices `RequestAccessModule` binds: the Host and Origin checks, then the sign-in
- * guard, both before a body is read. Nest adds no JSON parser of its own once one is in place.
+ * signed-in devices `RequestAccessModule` binds: System health's request durations, when the app
+ * has its recorder, then the Host and Origin checks, then the sign-in
+ * guard, both before a body is read, and after it each GET's read scope (`readOncePerRequest`).
+ * Nest adds no JSON parser of its own once one is in place.
  */
 export function configureHttp(app: INestApplication): void {
+  // First, so a request's duration covers every middleware; only in an app with System health.
+  const systemHealth = systemHealthRecorderOf(app);
+  if (systemHealth) app.use(recordRequests(systemHealth));
   app.use(refuseNonLocalRequests(app.get(OfficeAddresses)));
   app.use(refuseSignedOutRequests(app.get(SignedInRequests)));
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
+  // After the body parser, whose callbacks would run outside the scope.
+  app.use(readOncePerRequest());
   app.setGlobalPrefix(API_PATH);
+}
+
+/** The app's System health recorder; undefined in an app without `SystemHealthModule`. */
+function systemHealthRecorderOf(app: INestApplication): SystemHealthRecorder | undefined {
+  try {
+    return app.get(SystemHealthRecorder, { strict: false });
+  } catch {
+    return undefined;
+  }
 }

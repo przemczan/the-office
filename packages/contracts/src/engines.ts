@@ -11,6 +11,7 @@ export const engineCapabilitySchema = z.enum([
   "officeTools",
   "outputSchema",
   "languageServers",
+  "carrySession",
 ]);
 export type EngineCapability = z.infer<typeof engineCapabilitySchema>;
 
@@ -61,8 +62,52 @@ export const apiEngineSchema = z.object({
 });
 export type ApiEngine = z.infer<typeof apiEngineSchema>;
 
+/**
+ * An OpenAI account whose sessions run on the pinned `codex app-server`. Its API key, when one
+ * signs it in, has no field here: it is never sent back.
+ */
+export const codexEngineSchema = z.object({
+  id: engineIdSchema,
+  name: z.string(),
+  kind: z.literal("codex"),
+  /** One of the Codex models, which picking the engine fills in. */
+  defaultModel: z.string(),
+});
+export type CodexEngine = z.infer<typeof codexEngineSchema>;
+
+/**
+ * The models the pinned Codex offers, by their ids; mirrors the Engine module's `CODEX_MODELS`
+ * (its domain doesn't read the contracts), so the web tells a Codex model from a Claude one.
+ */
+export const CODEX_MODELS = ["gpt-6-luna", "gpt-5.6-terra", "gpt-5.6-luna"] as const;
+
+/**
+ * A GitHub account with Copilot whose sessions run on the Copilot CLI runtime. Its pasted token,
+ * when one signs it in, has no field here: it is never sent back.
+ */
+export const copilotCliEngineSchema = z.object({
+  id: engineIdSchema,
+  name: z.string(),
+  kind: z.literal("copilot-cli"),
+  /** One of the Copilot CLI models; Auto unless the user picks another. */
+  defaultModel: z.string(),
+});
+export type CopilotCliEngine = z.infer<typeof copilotCliEngineSchema>;
+
+/**
+ * Auto, the Copilot CLI model that names none and lets the runtime choose, and the models a
+ * Copilot CLI engine offers; mirrors the Engine module's `COPILOT_CLI_MODELS`.
+ */
+export const COPILOT_CLI_AUTO_MODEL = "auto";
+export const COPILOT_CLI_MODELS = [COPILOT_CLI_AUTO_MODEL] as const;
+
 /** An engine the user lists in Settings › Engines (spec §5.4). */
-export const engineSchema = z.discriminatedUnion("kind", [claudeCodeEngineSchema, apiEngineSchema]);
+export const engineSchema = z.discriminatedUnion("kind", [
+  claudeCodeEngineSchema,
+  apiEngineSchema,
+  codexEngineSchema,
+  copilotCliEngineSchema,
+]);
 export type Engine = z.infer<typeof engineSchema>;
 export type EngineKind = Engine["kind"];
 
@@ -84,8 +129,8 @@ export type ModelPrice = z.infer<typeof modelPriceSchema>;
 
 /**
  * A model that may be priced, with its Model price; null when it has none, which gives "no cost".
- * A Claude model's `engineId` is null: its price is shared by every Claude Code engine. An API
- * engine's model is priced on that engine.
+ * A Claude or Codex model's `engineId` is null: its price is shared by every Claude Code engine, or
+ * every Codex engine. An API or Copilot CLI engine's model is priced on that engine.
  */
 export const offeredModelSchema = z.object({
   engineId: engineIdSchema.nullable(),
@@ -105,8 +150,18 @@ export const engineSettingsSchema = z.object({
   officeDefault: engineModelSchema.nullable(),
   /** Null until the user sets one; WebSearch is refused meanwhile. */
   searchEndpoint: searchEndpointSchema.nullable(),
-  /** Every model offered now: the Claude models first, then each API engine's. */
+  /**
+   * Every model offered now: the Claude models first, then the Codex models, then each API and
+   * Copilot CLI engine's.
+   */
   modelPrices: z.array(offeredModelSchema),
+  /**
+   * The Stand-in Engines, in the order one is picked to take over for an engine whose usage window
+   * is used up; a switch keeps the model, so only one serving it takes over.
+   */
+  standInEngines: z.array(engineIdSchema),
+  /** The context size, in tokens, above which a switch of a running Stage asks first; 0 always asks. */
+  askBeforeSwitchAbove: z.number(),
 });
 export type EngineSettings = z.infer<typeof engineSettingsSchema>;
 
@@ -128,16 +183,37 @@ export const apiEngineEditSchema = apiEngineSchema.omit({ keySet: true, models: 
 });
 export type ApiEngineEdit = z.infer<typeof apiEngineEditSchema>;
 
+/**
+ * A Codex engine as Settings › Engines saves it: without an `id` when it is new. A Save never
+ * carries its API key and keeps the one kept: PUT /settings/engines/:engineId/api-key sets it.
+ */
+export const codexEngineEditSchema = codexEngineSchema.extend({
+  id: engineIdSchema.optional(),
+});
+export type CodexEngineEdit = z.infer<typeof codexEngineEditSchema>;
+
+/**
+ * A Copilot CLI engine as Settings › Engines saves it: without an `id` when it is new. A Save never
+ * carries its token and keeps the one kept: PUT /settings/engines/:engineId/token sets it.
+ */
+export const copilotCliEngineEditSchema = copilotCliEngineSchema.extend({
+  id: engineIdSchema.optional(),
+});
+export type CopilotCliEngineEdit = z.infer<typeof copilotCliEngineEditSchema>;
+
 export const engineEditSchema = z.discriminatedUnion("kind", [
   claudeCodeEngineEditSchema,
   apiEngineEditSchema,
+  codexEngineEditSchema,
+  copilotCliEngineEditSchema,
 ]);
 export type EngineEdit = z.infer<typeof engineEditSchema>;
 
 /**
- * PUT /settings/engines: every engine, in order, the Office default, the search endpoint and the
- * Model prices. A saved engine left out is refused (422): DELETE /settings/engines/:engineId removes
- * one. A price of a model the saved engines no longer offer is dropped.
+ * PUT /settings/engines: every engine, in order, the Office default, the search endpoint, the
+ * Model prices, the Stand-in Engines and the ask-above size. A saved engine left out is refused
+ * (422): DELETE /settings/engines/:engineId removes one. A price of a model the saved engines no
+ * longer offer is dropped.
  */
 export const engineSettingsEditSchema = z.object({
   engines: z.array(engineEditSchema),
@@ -145,6 +221,12 @@ export const engineSettingsEditSchema = z.object({
   officeDefault: engineModelSchema.nullable(),
   searchEndpoint: searchEndpointSchema.nullable(),
   modelPrices: z.array(offeredModelSchema),
+  /**
+   * Left out, the stored list is kept. An engine not listed or named twice is refused (422).
+   */
+  standInEngines: z.array(engineIdSchema).optional(),
+  /** Left out, the stored size is kept. One that isn't a whole number 0–10,000,000 is refused (422). */
+  askBeforeSwitchAbove: z.number().optional(),
 });
 export type EngineSettingsEdit = z.infer<typeof engineSettingsEditSchema>;
 
@@ -188,12 +270,24 @@ export type EngineRemovalPreview = z.infer<typeof engineRemovalPreviewSchema>;
 
 /**
  * GET /settings/engines/:engineId/account: a Claude Code engine's account as `claude auth status`
- * gives it, the email and plan null when signed out, signed in by a pasted token, or not told.
+ * gives it, a Codex engine's as `account/read` gives it, or a Copilot CLI engine's as the runtime's
+ * sign-in status gives it; the email and plan null when signed out, signed in by a pasted token or
+ * an API key, or not told.
  */
 export const engineAccountSchema = z.object({
   signedIn: z.boolean(),
-  /** A token pasted with "Paste a token instead" signs it in, not a Sign in. */
+  /**
+   * A token pasted with "Paste a token instead" signs a Claude Code or Copilot CLI engine in, not a
+   * Sign in.
+   */
   pastedToken: z.boolean(),
+  /**
+   * An API key signs the engine in, not a Sign in: an Anthropic one given a Claude Code engine with
+   * "Use an API key", or an OpenAI one given a Codex engine with "Use an API key instead". Such an
+   * engine has no usage windows.
+   */
+  apiKey: z.boolean(),
+  /** The account's email; on a Copilot CLI engine, its GitHub login, which it has in place of one. */
   email: z.string().nullable(),
   /** The Claude subscription, such as `max` or `pro`. */
   plan: z.string().nullable(),
@@ -201,10 +295,13 @@ export const engineAccountSchema = z.object({
 export type EngineAccount = z.infer<typeof engineAccountSchema>;
 
 /**
- * POST /settings/engines/:engineId/sign-in: the Sign in started. Where there is a display the
- * browser opens by itself; this page signs in from any browser and gives a code to paste back.
+ * POST /settings/engines/:engineId/sign-in: the Sign in started. On a Claude Code engine the
+ * browser opens by itself where there is a display; the page signs in from any browser and gives a
+ * code to paste back. On a Codex or Copilot CLI engine it is a device-code login: the page signs in
+ * from any browser once `userCode` is entered there, with nothing pasted back, and the login's end
+ * is announced as `engine.account-changed`.
  */
-export const engineSignInSchema = z.object({ url: z.url() });
+export const engineSignInSchema = z.object({ url: z.url(), userCode: z.string().optional() });
 export type EngineSignIn = z.infer<typeof engineSignInSchema>;
 
 /** POST /settings/engines/:engineId/sign-in/code: the code the sign-in page gave. */
@@ -212,9 +309,10 @@ export const engineSignInCodeSchema = z.object({ code: z.string().trim().min(1) 
 export type EngineSignInCode = z.infer<typeof engineSignInCodeSchema>;
 
 /**
- * PUT /settings/engines/:engineId/token: "Paste a token instead", a token made with
- * `claude setup-token`, which signs the engine in and is never sent back. DELETE
- * /settings/engines/:engineId/sign-in signs the engine out, whatever signed it in.
+ * PUT /settings/engines/:engineId/token: "Paste a token instead", which signs the engine in and is
+ * never sent back. On a Claude Code engine a token made with `claude setup-token`; on a Copilot CLI
+ * engine `copilotCliPastedTokenSchema`'s. DELETE /settings/engines/:engineId/sign-in signs the
+ * engine out, whatever signed it in.
  */
 export const enginePastedTokenSchema = z.object({
   token: z
@@ -228,8 +326,40 @@ export const enginePastedTokenSchema = z.object({
 export type EnginePastedToken = z.infer<typeof enginePastedTokenSchema>;
 
 /**
- * A Claude Code engine's account changed (a Sign in ended, a token was pasted, or it was signed
- * out), so an open Settings page refetches it.
+ * PUT /settings/engines/:engineId/token's body as the service takes it: the token's shape is the
+ * engine's kind's (`enginePastedTokenSchema` or `copilotCliPastedTokenSchema`), refused with the
+ * same words (400) when it isn't one.
+ */
+export const engineTokenSchema = z.object({ token: z.string().trim().min(1) });
+export type EngineToken = z.infer<typeof engineTokenSchema>;
+
+/**
+ * PUT /settings/engines/:engineId/token on a Copilot CLI engine: a fine-grained personal access
+ * token with the "Copilot Requests" permission, kept in the database and never sent back.
+ */
+export const copilotCliPastedTokenSchema = z.object({
+  token: z
+    .string()
+    .trim()
+    .regex(
+      /^github_pat_\w+$/,
+      'That is no fine-grained personal access token: one starts with github_pat_ and has the "Copilot Requests" permission.',
+    ),
+});
+export type CopilotCliPastedToken = z.infer<typeof copilotCliPastedTokenSchema>;
+
+/**
+ * PUT /settings/engines/:engineId/api-key: an API key, which replaces any other sign-in and is never
+ * sent back. On a Claude Code engine "Use an API key", an Anthropic API key, kept in the engine's
+ * folder and refused unless it starts with sk-ant-api; on a Codex engine "Use an API key instead",
+ * an OpenAI API key, kept in the database.
+ */
+export const engineApiKeySchema = z.object({ key: z.string().trim().min(1) });
+export type EngineApiKey = z.infer<typeof engineApiKeySchema>;
+
+/**
+ * A Claude Code, Codex or Copilot CLI engine's account changed (a Sign in ended, a token or an API
+ * key was given, or it was signed out), so an open Settings page refetches it.
  */
 export const engineWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("engine.account-changed"), engineId: engineIdSchema }),

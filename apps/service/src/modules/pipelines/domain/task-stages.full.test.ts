@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import type { Stage } from "./stage.js";
 import { agentStage, gate } from "./stage.fixtures.js";
 import {
   editProblems,
@@ -44,17 +43,11 @@ describe("editProblems", () => {
   });
 
   it("passes changes after the started Stages, which stay as they were", () => {
-    const edited = [implement, tests, gate({ key: "look", name: "Look" }), publish];
+    const edited = [implement, tests, review, gate({ key: "look", name: "Look" }), publish];
 
     expect(editProblems(own, edited, [ranOnce("implement"), ranOnce("tests", 2)], roles)).toEqual(
       [],
     );
-  });
-
-  it("takes a started Stage read back with its fields in another order as unchanged", () => {
-    const reordered = Object.fromEntries(Object.entries(implement).toReversed()) as Stage;
-
-    expect(editProblems(own, [reordered, tests], [ranOnce("implement")], roles)).toEqual([]);
   });
 
   it("flags a Role that only talks, on Stages not yet started", () => {

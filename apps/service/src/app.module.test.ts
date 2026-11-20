@@ -13,6 +13,7 @@ import { AppModule } from "./app.module.js";
 import {
   StageDecisions as ConversationsStageDecisions,
   TaskTokens,
+  ThreadService,
 } from "./modules/conversations/index.js";
 import {
   EngineModule,
@@ -21,13 +22,27 @@ import {
   ScriptedEngineModule,
 } from "./modules/engine/index.js";
 import { GitHubAccess } from "./modules/github/index.js";
-import { StageDecisions, TaskCommands, TaskGit, TaskUsage } from "./modules/pipelines/index.js";
+import {
+  StageDecisions,
+  StageRunsRunningNow,
+  TaskCommands,
+  TaskGit,
+  TaskUsage,
+} from "./modules/pipelines/index.js";
 import { ownProjectsStartedTasks } from "./modules/pipelines/index.fixtures.js";
 import { TaskWorktrees } from "./modules/projects/index.js";
+import {
+  BrowserConnections,
+  HealthReadings,
+  SessionsRunning,
+  StageRunsRunning,
+} from "./modules/telemetry/index.js";
 import { ownProjectsQueue } from "./modules/work/index.fixtures.js";
 import { OfficeIdentity } from "./platform/git-identity/office-identity.js";
 import { GITHUB_SITE } from "./platform/git-identity/github-site.js";
 import { SIGN_IN_FIRST } from "./platform/http/signed-in-requests.js";
+import { SystemHealthRecorder } from "./platform/system-health/system-health-recorder.js";
+import { EventStream } from "./platform/websocket/event-stream.js";
 
 // Compiled, not started: the composition root's bindings resolve without the engine or listening.
 let folder: string;
@@ -73,6 +88,17 @@ it("binds Pipelines' Task usage to Conversations' Task tokens", () => {
 
   expect(bound).toBeInstanceOf(TaskTokens);
   expect(bound).toBe(app.get(TaskTokens, { strict: false }));
+});
+
+it.each([
+  ["Health readings", HealthReadings, SystemHealthRecorder],
+  ["sessions running", SessionsRunning, ThreadService],
+  ["Stage runs running", StageRunsRunning, StageRunsRunningNow],
+  ["browser connections", BrowserConnections, EventStream],
+] as const)("binds System health's %s to the one service that knows them", (_, port, service) => {
+  const bound: unknown = app.get(port, { strict: false });
+
+  expect(bound).toBe(app.get(service, { strict: false }));
 });
 
 it("binds Pipelines' Stage Decisions to Conversations' one service", () => {

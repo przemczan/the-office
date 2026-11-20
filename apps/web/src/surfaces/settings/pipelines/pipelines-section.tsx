@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useParams } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate, useParams } from "@tanstack/react-router";
 import type { Duty, OfficeWidePipeline, Role, StageTemplate } from "@the-office/contracts";
-import { Badge, Button, Card, Icon, Menu, PickList, PickListItem } from "@the-office/ui";
+import { Badge, Button, Card, Icon, Menu, PickList, PickListItem, Tabs } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { dutyQueries, roleCardQueries, roleQueries } from "../../../api/people.ts";
 import {
@@ -13,6 +13,10 @@ import { usePageHeading } from "../../../shell/page-heading.tsx";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { LibraryPipelineForm } from "./library-pipeline-form.tsx";
 import { AskDevopsButton } from "../../../shell/ask-devops.tsx";
+import {
+  OfficeProposalOnFlow,
+  useProposalShown,
+} from "../../../shell/conversation/proposal-on-flow.tsx";
 import { stagesLine, whoWorks } from "../../../shell/pipelines/pipeline-words.ts";
 import { builtOnByWords, counted } from "../../../shell/pipelines/stage-change-words.ts";
 import {
@@ -24,6 +28,8 @@ import { BuiltOnByCard, brokenBuiltOnByTotal, builtOnByTotal } from "./built-on-
 import { pipelineUseLine } from "../../../shell/pipelines/pipeline-use-words.ts";
 import { StageTemplateForm, type StageTemplateOpened } from "./stage-template-form.tsx";
 
+type Tab = "pipelines" | "stage-templates";
+
 /** What the detail column shows when the user is making something new. */
 type Making =
   { readonly what: "pipeline" } | { readonly what: "stage-template"; readonly kind: StageKind };
@@ -31,10 +37,10 @@ type Making =
 /**
  * Settings › Pipelines (prototypes/app/settings.js `pipelinesSection`, and for what Project Pipelines
  * add docs/design/project-pipelines.html): the office-wide Pipelines beside the open one, which the
- * user edits, duplicates or removes, and "New Pipeline" made from scratch; under it the Stage
- * templates, each opened in the same place. Project Pipelines are on their Project's page; here
- * each office-wide Pipeline says which Projects build on it. On a narrow page the lists or the open
- * item show, not one under the other.
+ * user edits, duplicates or removes, and "New Pipeline" made from scratch; the Stage templates on a
+ * second tab, each opened in the same place, the first when none is in the address. Project
+ * Pipelines are on their Project's page; here each office-wide Pipeline says which Projects build on
+ * it. On a narrow page the list or the open item shows, not one under the other.
  */
 export function PipelinesSection(): ReactNode {
   usePageHeading({ title: "Settings", crumb: "Pipelines" });
@@ -45,73 +51,134 @@ export function PipelinesSection(): ReactNode {
   const duties = useQuery(dutyQueries.list());
   const options = useQuery(roleCardQueries.options());
   const [making, setMaking] = useState<Making | undefined>();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const onFlow = useProposalShown(pipelineId);
   if (library.error)
     return <RefusalAlert title="The library can't be read" error={library.error} />;
   if (templates.error)
     return <RefusalAlert title="The Stage templates can't be read" error={templates.error} />;
-  if (!library.data || !templates.data || !roles.data || !duties.data || !options.data) {
+  if (
+    !library.data ||
+    !templates.data ||
+    !roles.data ||
+    !duties.data ||
+    !options.data ||
+    onFlow.reading
+  ) {
     return null;
   }
-  const openTemplate = making ? undefined : templates.data.find(({ id }) => id === stageTemplateId);
+  // The tab follows the address; making a template opens its tab too.
+  const onTemplatesAddress = /\/settings\/pipelines\/stage-templates(\/|$)/.test(pathname);
+  const tab: Tab = making
+    ? making.what === "pipeline"
+      ? "pipelines"
+      : "stage-templates"
+    : onTemplatesAddress
+      ? "stage-templates"
+      : "pipelines";
+  const openTemplate =
+    tab === "stage-templates" && !making
+      ? (templates.data.find(({ id }) => id === stageTemplateId) ?? templates.data[0])
+      : undefined;
   const open =
-    making || openTemplate
-      ? undefined
-      : (library.data.find(({ id }) => id === pipelineId) ?? library.data[0]);
+    tab === "pipelines" && !making
+      ? (library.data.find(({ id }) => id === pipelineId) ?? library.data[0])
+      : undefined;
   const openedTemplate = templateOpened(openTemplate, making);
   const stopMaking = (): void => setMaking(undefined);
+  const pickTab = (value: string): void => {
+    if (value === tab) return;
+    stopMaking();
+    void navigate({
+      to:
+        value === "stage-templates" ? "/settings/pipelines/stage-templates" : "/settings/pipelines",
+    });
+  };
   const showingDetail =
     making !== undefined || pipelineId !== undefined || stageTemplateId !== undefined;
   return (
-    <div className={showingDetail ? "settings-split showing-detail" : "settings-split"}>
-      <div className="library-lists">
-        <LibraryList
-          library={library.data}
-          open={open}
-          making={making?.what === "pipeline"}
-          onMake={() => setMaking({ what: "pipeline" })}
-          onOpen={stopMaking}
-        />
-        <StageTemplateList
-          templates={templates.data}
-          open={openTemplate}
-          roles={roles.data}
-          duties={duties.data}
-          onMake={(kind) => setMaking({ what: "stage-template", kind })}
-          onOpen={stopMaking}
-        />
-      </div>
-      <div className="library-detail">
-        <Link className="settings-back" to="/settings/pipelines" onClick={stopMaking}>
-          <Icon name="chevron-left" size={14} />
-          All Pipelines
-        </Link>
-        {openedTemplate ? (
-          <StageTemplateForm
-            // Each template, and each new one, starts its own draft.
-            key={
-              openedTemplate.template ? openedTemplate.template.id : `new-${openedTemplate.kind}`
+    <div className="pipelines-section">
+      <Tabs
+        tabs={[
+          { value: "pipelines", label: "Pipelines", count: library.data.length },
+          { value: "stage-templates", label: "Stage templates", count: templates.data.length },
+        ]}
+        value={tab}
+        onChange={pickTab}
+      />
+      <div className={showingDetail ? "settings-split showing-detail" : "settings-split"}>
+        <div className="library-lists">
+          {tab === "pipelines" ? (
+            <LibraryList
+              library={library.data}
+              open={open}
+              making={making?.what === "pipeline"}
+              onMake={() => setMaking({ what: "pipeline" })}
+              onOpen={stopMaking}
+            />
+          ) : (
+            <StageTemplateList
+              templates={templates.data}
+              open={openTemplate}
+              roles={roles.data}
+              duties={duties.data}
+              onMake={(kind) => setMaking({ what: "stage-template", kind })}
+              onOpen={stopMaking}
+            />
+          )}
+        </div>
+        <div className="library-detail">
+          <Link
+            className="settings-back"
+            to={
+              tab === "stage-templates"
+                ? "/settings/pipelines/stage-templates"
+                : "/settings/pipelines"
             }
-            opened={openedTemplate}
-            roles={roles.data}
-            duties={duties.data}
-            options={options.data}
-            onDone={stopMaking}
-          />
-        ) : (
-          <>
-            {open && <PipelineHead pipeline={open} />}
-            {open && <BuiltOnByCard pipeline={open} />}
-            <LibraryPipelineForm
-              // Each Pipeline, and each new one, starts its own draft.
-              key={open?.id ?? "new"}
-              pipeline={open}
+            onClick={stopMaking}
+          >
+            <Icon name="chevron-left" size={14} />
+            {tab === "stage-templates" ? "All Stage templates" : "All Pipelines"}
+          </Link>
+          {openedTemplate ? (
+            <StageTemplateForm
+              // Each template, and each new one, starts its own draft.
+              key={
+                openedTemplate.template ? openedTemplate.template.id : `new-${openedTemplate.kind}`
+              }
+              opened={openedTemplate}
               roles={roles.data}
               duties={duties.data}
               options={options.data}
               onDone={stopMaking}
             />
-          </>
-        )}
+          ) : tab === "pipelines" ? (
+            <>
+              {open && <PipelineHead pipeline={open} />}
+              {open && <BuiltOnByCard pipeline={open} />}
+              {open && onFlow.shown?.change.kind === "pipeline" ? (
+                <OfficeProposalOnFlow
+                  proposal={onFlow.shown.proposal}
+                  change={onFlow.shown.change}
+                  pipelineName={open.name}
+                  roles={roles.data}
+                  duties={duties.data}
+                />
+              ) : (
+                <LibraryPipelineForm
+                  // Each Pipeline, and each new one, starts its own draft.
+                  key={open?.id ?? "new"}
+                  pipeline={open}
+                  roles={roles.data}
+                  duties={duties.data}
+                  options={options.data}
+                  onDone={stopMaking}
+                />
+              )}
+            </>
+          ) : null}
+        </div>
       </div>
     </div>
   );
@@ -212,7 +279,7 @@ function LibraryItem({
   const check = useQuery(
     pipelineQueries.libraryCheck({ name, description, stages, pipelineId: id }),
   );
-  const needsFixing = (check.data?.problems.length ?? 0) + (check.data?.flags.length ?? 0) > 0;
+  const needsFixing = (check.data?.problems.length ?? 0) > 0;
   const builtOn = builtOnByTotal(pipeline);
   const broken = brokenBuiltOnByTotal(pipeline);
   return (
@@ -334,7 +401,7 @@ function StageTemplateItem({
 }): ReactNode {
   const { id, stage } = template;
   const check = useQuery(stageTemplateQueries.check({ stage, stageTemplateId: id }));
-  const needsFixing = (check.data?.problems.length ?? 0) + (check.data?.flags.length ?? 0) > 0;
+  const needsFixing = (check.data?.problems.length ?? 0) > 0;
   return (
     <PickListItem
       picked={picked}

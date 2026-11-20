@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { clockOf, dayAndClockOf } from "./time.ts";
-import { pausedByUsageWindowWords, usageWindowUsedUpWords } from "./usage-window-words.ts";
+import {
+  engineSwitchedWords,
+  pausedByUsageWindowWords,
+  usageWindowUsedUpWords,
+} from "./usage-window-words.ts";
 import { taskStateWords } from "./work/work-words.ts";
 
 const NOW = new Date("2026-11-13T12:00:00");
@@ -53,5 +57,23 @@ describe("a Thread's line for a turn refused for a used-up usage window (spec 2.
     expect(words("unknown")).toContain("Work's usage window is used up");
     expect(words("thirty_day_fable")).toContain("thirty_day_fable window");
     expect(words("seven-day")).toContain(dayAndClockOf(NEXT_WEEK, NOW));
+  });
+});
+
+describe("a Thread's line for a session that went on on a Stand-in Engine (spec 5.4)", () => {
+  const switched = { fromName: "Claude Code", toName: "Claude Code 2", window: "five-hour" };
+
+  it("says the Stage went on in a Stage Thread", () => {
+    expect(engineSwitchedWords({ ...switched, resetsAt: LATER_TODAY }, NOW)).toBe(
+      `Claude Code's 5-hour window was used up until ${clockOf(LATER_TODAY)}, so the Stage went on on Claude Code 2`,
+    );
+  });
+
+  it("names the person who went on in a person's Thread", () => {
+    expect(
+      engineSwitchedWords({ ...switched, resetsAt: LATER_TODAY, personName: "Pam" }, NOW),
+    ).toBe(
+      `Claude Code's 5-hour window was used up until ${clockOf(LATER_TODAY)}, so Pam went on on Claude Code 2`,
+    );
   });
 });

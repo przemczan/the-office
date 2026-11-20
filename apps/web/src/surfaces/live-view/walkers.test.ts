@@ -21,7 +21,14 @@ import type { FloorPoint, OfficePerson, Placement } from "./live-view-types.ts";
 import { pastimeTurnAt } from "./pastimes.ts";
 import { blockedCrossings } from "./routes.fixtures.ts";
 import { routeBetween, routeFloorOf, routeLength } from "./routes.ts";
-import { OUTSIDE, WALK_SPEED, type Walker, createWalkers } from "./walkers.ts";
+import {
+  ALARM_SPEED,
+  OUTSIDE,
+  PANIC_SECONDS,
+  WALK_SPEED,
+  type Walker,
+  createWalkers,
+} from "./walkers.ts";
 
 const NOW = new Date(2026, 10, 15, 13, 5);
 const DAY = DAY_LIGHT;
@@ -81,9 +88,12 @@ function office(people: readonly OfficePerson[]) {
     onGone: (walker) => events.push({ kind: "gone", key: walker.key, at: walkers.time() }),
   });
   let known = new Set(people.map((person) => person.roleKey));
-  const placementsFor = (now: readonly OfficePerson[], light = DAY) =>
-    placementsOf(now, layout, amenities, light, NOW);
-  const apply = (now: readonly OfficePerson[], { light = DAY, animate = true } = {}) => {
+  const placementsFor = (now: readonly OfficePerson[], light = DAY, alarmOn = false) =>
+    placementsOf(now, layout, amenities, light, NOW, alarmOn);
+  const apply = (
+    now: readonly OfficePerson[],
+    { light = DAY, animate = true, alarmOn = false, alarmSounded = false } = {},
+  ) => {
     const keys = new Set(now.map((person) => person.roleKey));
     let hired = false;
     for (const person of now) {
@@ -97,7 +107,7 @@ function office(people: readonly OfficePerson[]) {
       amenities = amenitiesOf(layout);
       walkers.setFloor(routeFloorOf(layout, amenities));
     }
-    walkers.direct(now, placementsFor(now, light), { animate });
+    walkers.direct(now, placementsFor(now, light, alarmOn), { animate, alarm: alarmSounded });
   };
   apply(people);
   return {
@@ -181,24 +191,33 @@ describe("walkers", () => {
     );
   });
 
-  it("walks two askers and their Consultant to the meeting spot, and back", () => {
+  it("walks the first of two askers to the Consultant's desk, the other staying at their own", () => {
     const world = office(eightWith());
-    const asked = eightWith(consulting("developer", "cto"), consulting("reviewer", "cto"));
-    world.apply(asked);
-    const seats = world.amenities().meetingSeats;
+    world.apply(eightWith(consulting("developer", "cto"), consulting("reviewer", "cto")));
     world.run(30, () =>
       ["cto", "developer", "reviewer"].every((key) => settled(world.walker(key))),
     );
-    expect(
-      ["cto", "developer", "reviewer"].map((key) => spotOf(world.walker(key).placement)),
-    ).toEqual([seats[0], seats[1], seats[2]].map((seat) => ({ x: seat!.x, y: seat!.y })));
-    expect(world.walkers.conversations().get("reviewer")).toEqual(["cto", "developer", "reviewer"]);
-    world.apply(eightWith());
-    world.run(30, () =>
-      ["cto", "developer", "reviewer"].every((key) => settled(world.walker(key))),
+    expect(spotOf(world.walker("developer").placement)).toEqual(
+      pointOf(consultSpot(deskOf(world.layout, "cto")!)),
     );
-    for (const key of ["cto", "developer", "reviewer"])
-      expect(world.walker(key).placement.kind).toBe("desk");
+    expect(spotOf(world.walker("reviewer").placement)).toEqual(
+      pointOf(deskSpot(deskOf(world.layout, "reviewer")!)),
+    );
+    expect(world.walkers.visitorsOf("cto")).toEqual([world.walker("developer")]);
+    expect(world.walkers.conversations().get("cto")).toEqual(["cto", "developer"]);
+    expect(world.walkers.conversations().has("reviewer")).toBe(false);
+  });
+
+  it("walks someone playing games round the pillows to sit on one, facing the TV", () => {
+    const world = office(eightWith());
+    let minutes = 0;
+    while (pastimeTurnAt("developer", minutes).pastime !== "games") minutes++;
+    world.apply(eightWith(idleFor("developer", minutes)));
+    const walker = world.walker("developer");
+    const pillow = world.amenities().pastimeSpots.find((spot) => spot.kind === "games")!;
+    world.run(30, () => settled(walker));
+    expect(walker.placement).toMatchObject({ kind: "pastime", pose: "sit-back-play" });
+    expect({ x: walker.x, y: walker.y }).toEqual(pointOf(pillow));
   });
 
   it("walks someone idle to a pastime's spot, and back to the desk once asleep", () => {
@@ -428,4 +447,112 @@ describe("walkers", () => {
       expect(world.walkers.poseOf(walker).frame).toBe(0);
     },
   );
+});
+
+describe("walkers at the fire alarm", () => {
+  it("panics everyone on the spot, then runs them out at twice the walk, one by one in hire order", () => {
+    const people = eightWith(idleFor("developer", 5));
+    const world = office(people);
+    const keys = people.map((person) => person.roleKey);
+    const before = new Map(
+      keys.map((key) => [key, { x: world.walker(key).x, y: world.walker(key).y }]),
+    );
+    world.apply(people, { alarmOn: true, alarmSounded: true });
+    world.run(PANIC_SECONDS - 0.1);
+    for (const key of keys) {
+      const walker = world.walker(key);
+      expect(walker.panic).toBe(true);
+      expect(world.walkers.isOnTheMove(walker)).toBe(true);
+      expect(world.walkers.poseOf(walker).pose).toBe("stand-front-panic");
+      expect({ x: walker.x, y: walker.y }).toEqual(before.get(key));
+    }
+    // Both frames of the arms waving show while they panic.
+    const frames = new Set<number>();
+    for (let i = 0; i < 30; i++) {
+      world.walkers.step(1 / 60);
+      frames.add(world.walkers.poseOf(world.walker("developer")).frame);
+    }
+    expect(frames).toEqual(new Set([0, 1]));
+
+    world.run(60, () => keys.every((key) => settled(world.walker(key))));
+    const departures = world.events.filter((event) => event.kind === "depart");
+    expect(departures.map((event) => event.key)).toEqual(keys);
+    departures.forEach((event, n) =>
+      expect(event.at).toBeCloseTo(PANIC_SECONDS + 0.2 + 0.4 * n, 1),
+    );
+    for (const key of keys)
+      expect(world.walker(key)).toMatchObject({
+        hidden: true,
+        panic: false,
+        speed: 1,
+        placement: { kind: "gone" },
+      });
+  });
+
+  it("runs out at twice the walking speed", () => {
+    const people = eightWith();
+    const world = office(people);
+    const walker = world.walker("developer");
+    world.apply(people, { alarmOn: true, alarmSounded: true });
+    expect(walker.speed).toBe(ALARM_SPEED);
+    world.run(30, () => world.walkers.isWalking(walker));
+    expect(world.walkers.poseOf(walker).pose).not.toBe("stand-front-panic");
+    const length = routeLength(walker.route!);
+    const took = world.run(30, () => settled(walker));
+    expect(took).toBeCloseTo(length / (WALK_SPEED * ALARM_SPEED), 1);
+  });
+
+  it("walks everyone back in one by one at the all clear, to where the snapshot puts them", () => {
+    const people = eightWith(idleFor("developer", 5));
+    const world = office(people);
+    const keys = people.map((person) => person.roleKey);
+    world.apply(people, { alarmOn: true, alarmSounded: true });
+    world.run(60, () => keys.every((key) => settled(world.walker(key))));
+    world.events.length = 0;
+    const allClear = world.walkers.time();
+    world.apply(people);
+    world.run(60, () => keys.every((key) => settled(world.walker(key))));
+    const returns = world.events.filter((event) => event.kind === "depart");
+    expect(returns.map((event) => event.key)).toEqual(keys);
+    returns.forEach((event, n) => expect(event.at - allClear).toBeCloseTo(0.3 + 1.1 * n, 1));
+    const placements = world.placementsFor(people);
+    for (const key of keys) {
+      const walker = world.walker(key);
+      expect(walker.hidden).toBe(false);
+      expect(walker.panic).toBe(false);
+      expect({ x: walker.x, y: walker.y }).toEqual(spotOf(placements.get(key)));
+    }
+  });
+
+  it("puts everyone out, and back, at once when the change isn't seen live", () => {
+    const people = eightWith(idleFor("developer", 5));
+    const world = office(people);
+    const keys = people.map((person) => person.roleKey);
+    world.apply(people, { alarmOn: true, animate: false });
+    for (const key of keys)
+      expect(world.walker(key)).toMatchObject({
+        hidden: true,
+        panic: false,
+        target: null,
+        placement: { kind: "gone" },
+      });
+    world.apply(people, { animate: false });
+    const placements = world.placementsFor(people);
+    for (const key of keys) {
+      const walker = world.walker(key);
+      expect(walker).toMatchObject({ hidden: false, target: null });
+      expect({ x: walker.x, y: walker.y }).toEqual(spotOf(placements.get(key)));
+    }
+  });
+
+  it("leaves those already gone home outside", () => {
+    const sleepers = ["office-manager", "caretaker"];
+    const people = eightWith(...sleepers.map((key) => idleFor(key, 45)));
+    const world = office(people);
+    world.apply(people, { light: NIGHT, animate: false });
+    world.apply(people, { light: NIGHT, alarmOn: true, alarmSounded: true });
+    for (const key of sleepers)
+      expect(world.walker(key)).toMatchObject({ hidden: true, panic: false, target: null });
+    expect(world.walker("developer").panic).toBe(true);
+  });
 });

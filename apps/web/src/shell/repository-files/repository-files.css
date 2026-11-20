@@ -49,3 +49,68 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+/* The tree: each level indented by one step, the row itself showing focus and selection. */
+.repository-tree,
+.repository-tree-group {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.repository-tree-item {
+  outline: none;
+}
+
+.repository-tree-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  padding-left: calc(var(--space-2) + (var(--tree-level, 1) - 1) * var(--space-4));
+  border-radius: var(--radius-control);
+  color: var(--fg-1);
+  font: var(--type-body-sm);
+  cursor: pointer;
+}
+
+.repository-tree-row:hover {
+  background: var(--surface-hover);
+}
+
+.repository-tree-item:focus-visible > .repository-tree-row {
+  outline: 2px solid var(--border-focus);
+  outline-offset: -2px;
+}
+
+.repository-tree-item[aria-selected="true"] > .repository-tree-row {
+  background: var(--surface-selected);
+  box-shadow: inset 0 0 0 1px var(--border-focus);
+}
+
+.repository-tree-chevron {
+  display: inline-flex;
+  flex: none;
+  justify-content: center;
+  width: var(--space-4);
+  color: var(--fg-3);
+}
+
+.repository-tree-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.repository-tree-note,
+.repository-tree-quiet {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  color: var(--fg-3);
+  font: var(--type-body-sm);
+}
+
+.repository-tree-note {
+  padding-left: calc(
+    var(--space-2) + (var(--tree-level, 1) - 1) * var(--space-4) + var(--space-4) + var(--space-1)
+  );
+}

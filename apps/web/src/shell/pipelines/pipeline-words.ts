@@ -70,7 +70,6 @@ const STAGE_FIELDS: readonly { readonly label: string; readonly words: StageFiel
     words: (stage) =>
       publishOnly(stage, ({ afterConflict }) => AFTER_CONFLICT_NAMES[afterConflict ?? "publish"]),
   },
-  { label: "Optional", words: ({ optional }) => (optional ? "Yes" : "No") },
 ];
 
 /** A field of a Stage from one value to another, in the editor's words. */
@@ -161,39 +160,6 @@ function dutyWorkerWords(duty: DutyKey, duties: readonly Duty[]): string {
   return `${DUTY_LABELS[duty]} · ${dutyHolder(duty, duties)?.name ?? "nobody yet"}`;
 }
 
-/**
- * What a Stage's row says under its name: "fresh session · 250k budget · on failure back to …",
- * naming the loop's target among `stages`.
- */
-export function stageDetailsLine(stage: Stage, stages: readonly Stage[]): string {
-  const onFailure = stage.kind !== "gate" ? stage.onFailure : undefined;
-  const target = onFailure && stages.find(({ key }) => key === onFailure.goBackTo);
-  return [
-    stage.kind === "agent" &&
-      (stage.session === "continue" ? "continues the session" : "fresh session"),
-    stage.kind === "agent" && `${thousands(stage.budget)}k budget`,
-    stage.kind === "agent" &&
-      stage.effort !== undefined &&
-      `effort ${EFFORT_LABELS[stage.effort].toLowerCase()}`,
-    stage.kind === "agent" &&
-      Object.keys(stage.permissions ?? {}).some((part) => part !== "commands") &&
-      "narrowed permission profile",
-    stage.kind === "agent" &&
-      stage.permissions?.commands !== undefined &&
-      `Project commands: ${stage.permissions.commands.join(", ")}`,
-    stage.kind === "script" && stage.publishTarget === "branch-only" && "pushes the branch only",
-    stage.kind === "script" &&
-      stage.afterConflict === "review" &&
-      stage.publishTarget !== "branch-only" &&
-      "a resolved conflict waits for you",
-    stage.optional && "optional",
-    onFailure &&
-      `on failure back to ${target?.name ?? onFailure.goBackTo}, at most ${onFailure.rounds}×`,
-  ]
-    .filter((detail) => typeof detail === "string")
-    .join(" · ");
-}
-
 /** Tokens in thousands, as a budget is typed and shown. */
 export function thousands(tokens: number): number {
   return Math.round(tokens / 1000);
@@ -223,7 +189,7 @@ export function stageChanges(from: readonly Stage[], to: readonly Stage[]): Stag
 
 /**
  * A Project Pipeline's Stage change in the editor's words, its Stage named `stageName`: "Inserts
- * Verify on Linux after Tests", "Replaces Tests with Lint", "Changes Implement", "Removes Tests".
+ * Verify on Linux after Tests", "Replaces Tests with Lint", "Changes Implement", "Removes Tests", "Changes Review's routes".
  */
 export function stageChangeLine(stageChange: ProjectStageChange, stageName: string): string {
   switch (stageChange.kind) {
@@ -237,6 +203,8 @@ export function stageChangeLine(stageChange: ProjectStageChange, stageName: stri
       return `Changes ${stageName}`;
     case "remove":
       return `Removes ${stageName}`;
+    case "change-routes":
+      return `Changes ${stageName}'s routes`;
   }
 }
 

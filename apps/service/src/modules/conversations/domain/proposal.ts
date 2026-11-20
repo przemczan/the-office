@@ -17,6 +17,7 @@ export interface ProposedChanges {
   readonly "size-threshold": ProposedSettingChange<"size-threshold">;
   readonly "office-instructions": ProposedSettingChange<"office-instructions">;
   readonly duties: ProposedSettingChange<"duties">;
+  readonly "prompt-template": ProposedPromptTemplateChange;
   readonly "office-setup": ProposedOfficeSetup;
   readonly initiative: ProposedInitiativeChange;
   readonly "project-commands": ProposedProjectCommands;
@@ -133,6 +134,19 @@ export type ProposedSettingValue = {
 }[OfficeSetting];
 
 /**
+ * A new text for a prompt template (spec §2.2), given whole (`to`), or its reset to the default
+ * (`to` null), with its text when drafted, saved or the default (`from`); Prompt templates refuses
+ * to apply it once that text changed. `name` keeps what the card and the Thread's history call it.
+ */
+export interface ProposedPromptTemplateChange {
+  readonly kind: "prompt-template";
+  readonly key: string;
+  readonly name: string;
+  readonly from: string;
+  readonly to: string | null;
+}
+
+/**
  * A change whoever shapes Initiatives wants to an active Initiative (spec §2.1 Defaults), which
  * Work applies under the Initiative's hold, refusing it once the Initiative is done or dropped.
  */
@@ -192,6 +206,8 @@ export interface ProposedPipelineChange {
   readonly pipelineId: string;
   readonly from: readonly PipelineStage[];
   readonly to: readonly PipelineStage[];
+  /** Undefined on a Proposal drafted before Proposals carried routes. */
+  readonly routes?: PipelineRoutes;
 }
 
 /**
@@ -219,6 +235,8 @@ export interface ProposedProjectPipelineChange {
   readonly pipelineId: string | null;
   readonly from: ProjectPipelineFields | null;
   readonly to: ProjectPipelineFields;
+  /** Undefined on a Proposal drafted before Proposals carried routes. */
+  readonly routes?: PipelineRoutes;
 }
 
 /**
@@ -311,6 +329,12 @@ export type PipelineStage = object;
 
 /** A Stage change of a Project Pipeline, as Pipelines keeps it; Conversations doesn't read it. */
 export type PipelineStageChange = object;
+
+/**
+ * What a Proposal of a Pipeline does to its routes, each Stage's as they were and as proposed, with
+ * the check's answer when drafted, as Pipelines gave it; Conversations doesn't read it.
+ */
+export type PipelineRoutes = object;
 
 /**
  * Open until a user applies it or declines it; nothing changes before they apply it. `by` is the

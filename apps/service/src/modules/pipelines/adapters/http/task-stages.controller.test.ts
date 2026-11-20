@@ -7,6 +7,7 @@ import {
   type TaskStages,
 } from "@the-office/contracts";
 import { afterEach, describe, expect, it } from "vitest";
+import { straightLineFlow } from "../../domain/flow.js";
 import type { Stage } from "../../domain/stage.js";
 import { aStageRun } from "../../domain/stage-run.fixtures.js";
 import {
@@ -20,6 +21,9 @@ import {
 } from "../../pipelines-application.fixtures.js";
 import { aCommandRun, recordedRun } from "../../ports/pipelines-ports.fixtures.js";
 import { StageRunRepository } from "../../ports/stage-run-repository.js";
+import { TaskStagesRepository } from "../../ports/task-stages-repository.js";
+import { TaskStagesService } from "../../application/task-stages-service.js";
+import { gate } from "../../domain/stage.fixtures.js";
 import { tests } from "./task-stages.controller.fixtures.js";
 
 let pipelines: PipelinesApplication | undefined;
@@ -81,6 +85,13 @@ describe("GET /api/tasks/:id/stages", () => {
         waitingSince: null,
         threadId: run?.threadId,
         session: "fresh",
+        engine: {
+          engineId: "claude-code",
+          engineName: "Claude Code",
+          model: "scripted",
+          standInFor: null,
+        },
+        engineSwitches: [],
         tokens: { input: 10, output: 10, cacheRead: 0, cacheCreation: 0 },
         context: null,
         carriedFailure: null,
@@ -102,6 +113,52 @@ describe("GET /api/tasks/:id/stages", () => {
     ]);
     expect(testResults).toEqual([
       { stageKey: tests.key, name: tests.name, state: "passed", detail: "`npm run test` passed." },
+    ]);
+  });
+
+  it("gives a run's engine with the engine it stood in for, and none for a run that kept no engine", async () => {
+    pipelines = await startPipelinesApplication();
+    const taskId = randomUUID();
+    const repository = pipelines.app.get(StageRunRepository);
+    const standingIn = aStageRun({ id: randomUUID(), taskId, number: 1 });
+    await repository.saveNew(standingIn);
+    await repository.saveThread(standingIn.id, {
+      threadId: randomUUID(),
+      session: "fresh",
+      engineId: "personal",
+      engineName: "Personal",
+      model: "claude-opus-5-5",
+      standInFor: {
+        engineId: "work",
+        engineName: "Work",
+        reason: "Work's window is near its cap.",
+      },
+    });
+    await repository.saveNew(aStageRun({ id: randomUUID(), taskId, number: 2 }));
+    await pipelines.app.get(TaskStagesRepository, { strict: false }).save({
+      taskId,
+      pipelineId: "for-tests",
+      stages: [anAgentStage(standingIn.stageKey)],
+      madeAt: new Date(),
+      editedForTask: false,
+      trace: undefined,
+    });
+    pipelines.tasks.put(taskId, { state: "in-progress", pipelineId: "for-tests" });
+
+    const { stages } = await stagesOf(taskId);
+
+    expect(stages?.[0]?.runs.map(({ engine }) => engine)).toEqual([
+      {
+        engineId: "personal",
+        engineName: "Personal",
+        model: "claude-opus-5-5",
+        standInFor: {
+          engineId: "work",
+          engineName: "Work",
+          reason: "Work's window is near its cap.",
+        },
+      },
+      null,
     ]);
   });
 
@@ -134,7 +191,7 @@ describe("PUT /api/tasks/:id/stages", () => {
     expect(response.status).toBe(200);
     const saved = taskStagesSchema.parse(await response.json());
     expect(saved.editedForTask).toBe(true);
-    expect(saved.stages?.map(({ stage }) => stage)).toEqual(stages);
+    expect(saved.stages?.map(({ stage }) => stage)).toEqual(straightLineFlow(stages));
     expect(await stagesOf(taskId)).toEqual(saved);
   });
 
@@ -151,13 +208,45 @@ describe("PUT /api/tasks/:id/stages", () => {
     expect(response.status).toBe(422);
     expect(stagesEditRefusalSchema.parse(await response.json()).problems).toEqual([
       {
-        stageIndex: 0,
+        stageKey: "tests",
+        at: { kind: "onFailure" },
+        level: "problem",
         text: "Stage 1 · Tests: on failure it can only go back to an earlier Stage.",
       },
       {
-        stageIndex: 1,
+        stageKey: "implement",
+        at: { kind: "stage" },
+        level: "problem",
         text: "Stage 2 · implement: continuing a session needs the same Role or the same duty in the Stage before.",
       },
     ]);
+  });
+
+  it("refuses a Stage inserted straight after a started one, on the started Stage's route, as its check does", async () => {
+    pipelines = await startPipelinesApplication();
+    const taskId = randomUUID();
+    pipelines.tasks.put(taskId, { state: "in-progress", pipelineId: "quick-fix" });
+    const own = await pipelines.app.get(TaskStagesService).make(taskId, "quick-fix");
+    await pipelines.app
+      .get(StageRunRepository)
+      .saveNew(aStageRun({ id: randomUUID(), taskId, stageKey: "implement" }));
+    const [implement, ...rest] = own.stages;
+    if (!implement) throw new Error("Quick fix has Stages.");
+    const inserted = straightLineFlow([implement, gate({ key: "look", name: "Look" }), ...rest]);
+    const refused = [
+      {
+        stageKey: "implement",
+        at: { kind: "route", routeIndex: 0 },
+        level: "problem",
+        text: "Stage 1 · Implement: it has started, so its routes out stay as they are. To change where the walk goes, change the routes of a Stage that hasn't started.",
+      },
+    ];
+
+    const response = await edit(taskId, inserted);
+    const check = await send("POST", `/api/tasks/${taskId}/stages/check`, inserted);
+
+    expect(response.status).toBe(422);
+    expect(stagesEditRefusalSchema.parse(await response.json()).problems).toEqual(refused);
+    expect((await check.json()) as unknown).toMatchObject({ problems: refused });
   });
 });

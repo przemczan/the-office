@@ -10,13 +10,14 @@ import {
   PUBLISHING_TEST,
   PublishingTestbed,
   commitMessage,
-  type PullRequestsForTests,
+  type CodeHostForTests,
 } from "../adapters/git/publishing-testbed.fixtures.js";
+import { PullRequestOpened } from "../domain/pull-request-events.js";
 import type { Publishing } from "./publishing.js";
 
 let testbed: PublishingTestbed;
 let repository: TemporaryRepository;
-let pullRequests: PullRequestsForTests;
+let pullRequests: CodeHostForTests;
 let publishing: Publishing;
 
 beforeAll(async () => {
@@ -26,6 +27,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   testbed.pullRequests.reset();
+  testbed.records.kept.clear();
 });
 
 afterAll(async () => {
@@ -62,6 +64,41 @@ describe("Publishing in push + PR mode", PUBLISHING_TEST, () => {
     expect(gitIn(repository.path, "rev-parse", `refs/office/published-from/${task.taskId}`)).toBe(
       gitIn(repository.path, "rev-parse", `${task.commit}^`),
     );
+  });
+
+  it("records the pull request it opened for the Task and announces it", async () => {
+    const project = testbed.pullRequestProject();
+    const task = await testbed.aTaskWithACommit(project);
+    testbed.published.length = 0;
+
+    await publishing.publish(project, task.taskId, commitMessage, "publishing-mode");
+
+    const [recorded, ...others] = await testbed.records.listOpen(project.id);
+    expect(others).toEqual([]);
+    expect(recorded).toMatchObject({
+      projectId: project.id,
+      taskId: task.taskId,
+      remoteUrl: await testbed.originUrl(),
+      number: 1,
+      url: "https://github.com/notnullsoft/admin/pull/1",
+      title: commitMessage.subject,
+      branch: task.branch,
+      baseBranch: "main",
+      state: "open",
+      checks: "unknown",
+      mergeable: "unknown",
+      checkedAt: null,
+      endedAt: null,
+      stale: false,
+    });
+    expect(testbed.published).toHaveLength(1);
+    expect(testbed.published[0]).toBeInstanceOf(PullRequestOpened);
+    expect(testbed.published[0]).toMatchObject({
+      projectId: project.id,
+      taskId: task.taskId,
+      number: 1,
+      url: "https://github.com/notnullsoft/admin/pull/1",
+    });
   });
 
   it("fails with the remote's words when the push is rejected, opening no pull request", async () => {

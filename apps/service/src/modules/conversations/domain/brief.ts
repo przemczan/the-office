@@ -1,4 +1,25 @@
-import { answerWords, type Decision } from "./decision.js";
+import { flagField, renderedPart, type PromptTexts } from "../../prompt-templates/index.js";
+import {
+  BRIEF_ANSWERED_DECISIONS,
+  BRIEF_LATEST_EXCHANGES,
+  BRIEF_MEMORY,
+  BRIEF_OPEN_DECISION,
+  BRIEF_OPEN_DECISION_ON_INITIATIVE,
+  BRIEF_PROJECTS,
+  FRESH_CHAT_THREAD_BRIEF,
+  FRESH_PERSONS_THREAD_BRIEF,
+  INITIATIVE_THREAD_BRIEF,
+  NEW_CHAT_THREAD_BRIEF,
+  TASK_THREAD_BRIEF,
+} from "./brief-templates.js";
+import {
+  decisionSummary,
+  formAnswerWords,
+  questionAnswerWords,
+  type Decision,
+  type DecisionAnswer,
+  type DecisionQuestion,
+} from "./decision.js";
 import type { Message } from "./message.js";
 import { userWordsOpening } from "./user.js";
 
@@ -114,42 +135,43 @@ function aboutLabel(note: BriefMemoryNote, reach: MemoryReach): string {
  * A new chat Thread's Brief: your Memory and where the Projects are, before the user's first
  * message.
  */
-export function newChatThreadBrief(projects: readonly BriefProject[], memory: BriefMemory): Brief {
-  return briefOf([
-    "You are talking with the user in your chat, in a new Thread: nothing from your earlier Threads carries over.",
-    memorySection(memory),
-    projectsSection(projects),
-  ]);
+export function newChatThreadBrief(
+  prompts: PromptTexts,
+  projects: readonly BriefProject[],
+  memory: BriefMemory,
+): Brief {
+  return briefOf(
+    renderedPart(prompts, NEW_CHAT_THREAD_BRIEF, {
+      memory: memoryPart(prompts, memory),
+      projects: projectsPart(prompts, projects),
+    }),
+  );
+}
+
+/** What a fresh session's Brief carries of the Thread it continues. */
+interface FreshThread {
+  readonly title: string | undefined;
+  /** The Thread's log so far, oldest first. */
+  readonly log: readonly Message[];
+  /** The ids of the Attachments of images its messages carried that are gone since. */
+  readonly removedImages?: ReadonlySet<string>;
+  readonly memory: BriefMemory;
 }
 
 /**
  * A chat Thread's Brief when it continues in a fresh session (spec §9): its title, the person's
  * latest Handover note, and its last exchanges, newest kept, capped at about 3k tokens.
  */
-export function freshChatThreadBrief({
-  title,
-  log,
-  removedImages = NO_REMOVED_IMAGES,
-  projects,
-  memory,
-}: {
-  readonly title: string | undefined;
-  /** The Thread's log so far, oldest first. */
-  readonly log: readonly Message[];
-  /** The ids of the Attachments of images its messages carried that are gone since. */
-  readonly removedImages?: ReadonlySet<string>;
-  readonly projects: readonly BriefProject[];
-  readonly memory: BriefMemory;
-}): Brief {
-  const note = log.findLast((message) => message.kind === "handover-note");
-  return briefOf([
-    "You are continuing a Thread with the user in your chat, in a fresh session: the earlier session's context is gone, and this Brief is what you pick up from.",
-    title === undefined ? undefined : `## The Thread\n\n${title}`,
-    note && `## Your Handover note\n\n${note.text}`,
-    exchangesSection(log, removedImages),
-    memorySection(memory),
-    projectsSection(projects),
-  ]);
+export function freshChatThreadBrief(
+  prompts: PromptTexts,
+  thread: FreshThread & { readonly projects: readonly BriefProject[] },
+): Brief {
+  return briefOf(
+    renderedPart(prompts, FRESH_CHAT_THREAD_BRIEF, {
+      ...freshThreadValues(prompts, thread),
+      projects: projectsPart(prompts, thread.projects),
+    }),
+  );
 }
 
 /**
@@ -157,27 +179,25 @@ export function freshChatThreadBrief({
  * from the Thread alone. The record was the first session's, and the session reads the Task's
  * worktree, so no Project is listed.
  */
-export function freshPersonsThreadBrief({
-  title,
-  log,
-  removedImages = NO_REMOVED_IMAGES,
-  memory,
-}: {
-  readonly title: string | undefined;
-  /** The Thread's log so far, oldest first. */
-  readonly log: readonly Message[];
-  /** The ids of the Attachments of images its messages carried that are gone since. */
-  readonly removedImages?: ReadonlySet<string>;
-  readonly memory: BriefMemory;
-}): Brief {
+export function freshPersonsThreadBrief(prompts: PromptTexts, thread: FreshThread): Brief {
+  return briefOf(
+    renderedPart(prompts, FRESH_PERSONS_THREAD_BRIEF, freshThreadValues(prompts, thread)),
+  );
+}
+
+function freshThreadValues(
+  prompts: PromptTexts,
+  { title, log, removedImages = NO_REMOVED_IMAGES, memory }: FreshThread,
+) {
   const note = log.findLast((message) => message.kind === "handover-note");
-  return briefOf([
-    "You are continuing your Thread on a Task with the user, in a fresh session: the earlier session's context is gone, and this Brief is what you pick up from. You read the Task's worktree and change nothing in it.",
-    title === undefined ? undefined : `## The Thread\n\n${title}`,
-    note && `## Your Handover note\n\n${note.text}`,
-    exchangesSection(log, removedImages),
-    memorySection(memory),
-  ]);
+  return {
+    hasTitle: title !== undefined,
+    title: title ?? "",
+    hasHandoverNote: note !== undefined,
+    handoverNote: note?.text ?? "",
+    latestExchanges: latestExchangesPart(prompts, log, removedImages),
+    memory: memoryPart(prompts, memory),
+  };
 }
 
 /** What a Brief for a Thread on a Task is assembled from. */
@@ -200,22 +220,22 @@ export interface TaskThreadRecord {
  * Unlike a chat's, it carries none of the Thread's exchanges: a Task's record holds what was
  * settled (spec §2.5).
  */
-export function taskThreadBrief({
-  record,
-  continuing,
-  answered,
-  open,
-  memory,
-}: TaskThreadRecord): Brief {
-  return briefOf([
-    continuing
-      ? "You are continuing a Thread on a Task in a fresh session: the earlier session's context is gone, and this Brief, from the Task's record, is what you pick up from."
-      : undefined,
-    record,
-    memorySection(memory),
-    answeredSection(answered),
-    open && openSection(open),
-  ]);
+export function taskThreadBrief(
+  prompts: PromptTexts,
+  { record, continuing, answered, open, memory }: TaskThreadRecord,
+): Brief {
+  return briefOf(
+    renderedPart(prompts, TASK_THREAD_BRIEF, {
+      continuing,
+      record,
+      memory: memoryPart(prompts, memory),
+      answeredDecisions: answeredDecisionsPart(prompts, answered),
+      openDecision:
+        open === undefined
+          ? ""
+          : renderedPart(prompts, BRIEF_OPEN_DECISION, { questions: openQuestions(open) }),
+    }),
+  );
 }
 
 /** What a Brief for a Thread on an Initiative is assembled from. */
@@ -227,6 +247,8 @@ export interface InitiativeThreadRecord {
   /** The person's Memory notes that hold for every Project, since an Initiative spans them. */
   readonly memory: BriefMemory;
   readonly projects: readonly BriefProject[];
+  /** The Decision on no Task, on the Initiative as a whole, this Thread waits on, if any. */
+  readonly open?: Decision | undefined;
 }
 
 /**
@@ -234,77 +256,143 @@ export interface InitiativeThreadRecord {
  * Thread continues in a fresh session, that the earlier context is gone. Like a Task's, it carries
  * none of the Thread's exchanges: what was settled is on the Initiative (spec §2.5).
  */
-export function initiativeThreadBrief({
-  record,
-  continuing,
-  memory,
-  projects,
-}: InitiativeThreadRecord): Brief {
-  return briefOf([
-    continuing
-      ? "You are continuing a Thread on an Initiative in a fresh session: the earlier session's context is gone, and this Brief, from the Initiative's record, is what you pick up from."
-      : undefined,
-    record,
-    memorySection(memory),
-    projectsSection(projects),
-  ]);
-}
-
-function memorySection({ lines, leftOut }: BriefMemory): string | undefined {
-  if (lines.length === 0 && leftOut === 0) return undefined;
-  const omitted =
-    leftOut === 0 ? "" : `\n\n${leftOut} older ${leftOut === 1 ? "note" : "notes"} left out.`;
-  return `## Your Memory\n\nNotes you wrote in earlier sessions, oldest first:\n\n${lines.join("\n")}${omitted}`;
-}
-
-function answeredSection(decisions: readonly Decision[]): string | undefined {
-  const lines = decisions.flatMap((decision) =>
-    decision.answer
-      ? [`- ${decision.question}\n  Answer: ${answerWords(decision, decision.answer)}`]
-      : [],
+export function initiativeThreadBrief(
+  prompts: PromptTexts,
+  { record, continuing, memory, projects, open }: InitiativeThreadRecord,
+): Brief {
+  return briefOf(
+    renderedPart(prompts, INITIATIVE_THREAD_BRIEF, {
+      continuing,
+      record,
+      memory: memoryPart(prompts, memory),
+      projects: projectsPart(prompts, projects),
+      openDecision: open === undefined ? "" : openOnInitiativePart(prompts, open),
+    }),
   );
-  if (lines.length === 0) return undefined;
-  return `## Decisions the user answered\n\n${lines.join("\n")}`;
 }
 
-function openSection({ question, options }: Decision): string {
-  const listed = options.map((option) => `- ${option}`).join("\n");
-  return `## Your open Decision\n\nYou asked the user "${question}", with the options:\n\n${listed}\n\nThey haven't answered it yet: their answer comes as a message in this Thread.`;
+/**
+ * The Brief's part for the Decision on no Task an Initiative's Thread waits on (spec §2.4): what
+ * was asked, that it waits on its answer and isn't asked again, and that the answer comes as a
+ * message in the Thread.
+ */
+function openOnInitiativePart(prompts: PromptTexts, decision: Decision): string {
+  return renderedPart(prompts, BRIEF_OPEN_DECISION_ON_INITIATIVE, {
+    questions: openQuestions(decision),
+    whom: decision.putTo === undefined ? "the user" : `the person in the Role ${decision.putTo}`,
+  });
+}
+
+/** Empty when there is no note to carry and none was left out. */
+function memoryPart(prompts: PromptTexts, { lines, leftOut }: BriefMemory): string {
+  if (lines.length === 0 && leftOut === 0) return "";
+  return renderedPart(prompts, BRIEF_MEMORY, {
+    lines,
+    // "0" would open the section: a template reads only an empty text as false.
+    leftOut: leftOut === 0 ? "" : String(leftOut),
+    oneLeftOut: leftOut === 1,
+  });
+}
+
+/** Empty when the user answered none of `decisions`. */
+function answeredDecisionsPart(prompts: PromptTexts, decisions: readonly Decision[]): string {
+  const entries = decisions.flatMap((decision) =>
+    decision.answer ? [answeredEntry(decision, decision.answer)] : [],
+  );
+  if (entries.length === 0) return "";
+  return renderedPart(prompts, BRIEF_ANSWERED_DECISIONS, { decisions: entries });
+}
+
+/**
+ * An answered Decision's lines: its question with the answer under it when it asked one, each
+ * question numbered with its answer when it asked several.
+ */
+function answeredEntry(decision: Decision, answer: DecisionAnswer): string {
+  const [only, ...others] = decision.questions;
+  if (only === undefined || others.length > 0 || answer.kind === "asked-again") {
+    return `- ${decisionSummary(decision)}\n${indented(formAnswerWords(decision, answer))}`;
+  }
+  const lines: string[] = [];
+  const given = answer.answers[0];
+  if (given !== undefined) {
+    const words = questionAnswerWords(only, given);
+    lines.push(
+      given.kind === "option" ? `Answer: ${words}` : `Answer, in their own words: ${words}`,
+    );
+    const comment = given.comment?.trim();
+    if (comment) lines.push(`Comment: ${comment}`);
+  }
+  const general = answer.generalComment?.trim();
+  if (general) lines.push("", `General comment: ${general}`);
+  return `- ${only.question}\n${indented(lines.join("\n"))}`;
+}
+
+/** Every line of `text` under its Decision's line, blank lines kept blank. */
+function indented(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => (line === "" ? line : `  ${line}`))
+    .join("\n");
+}
+
+/** The open Decision's questions, numbered, each with a choice's options. */
+function openQuestions({ questions }: Decision) {
+  return questions.map((question: DecisionQuestion, index) => ({
+    number: String(index + 1),
+    question: question.question,
+    first: flagField(index === 0),
+    openQuestion: flagField(question.kind === "open"),
+    optionLines:
+      question.kind === "open" ? "" : question.options.map((option) => `   - ${option}`).join("\n"),
+  }));
+}
+
+/** The Brief's line naming the knowledge base's index, at its path in the install. */
+export function knowledgeBaseLine(index: string): string {
+  return `The Office's knowledge base, about The Office itself, starts at its index, ${index}. It is read-only.`;
+}
+
+/**
+ * `brief` led by the line naming the knowledge base's index, on every engine; as it is when the
+ * install has no knowledge base.
+ */
+export function withKnowledgeBase(brief: Brief, index: string | undefined): Brief {
+  if (index === undefined) return brief;
+  return briefOf(`${knowledgeBaseLine(index)}\n\n${brief.text}`);
 }
 
 const NO_REMOVED_IMAGES: ReadonlySet<string> = new Set();
 
-function briefOf(sections: readonly (string | undefined)[]): Brief {
-  const text = sections.filter((section) => section !== undefined).join("\n\n");
+function briefOf(text: string): Brief {
   return { text, tokens: estimatedTokens(text) };
 }
 
-function projectsSection(projects: readonly BriefProject[]): string {
-  if (projects.length === 0) return "## The Projects\n\nThe Office works on no Project yet.";
-  const heading = projects.some(({ initiativeBranch }) => initiativeBranch?.gone === false)
-    ? "You read each Project where it is checked out:"
-    : "You read each Project's base branch where it is checked out:";
-  return `## The Projects\n\n${heading}\n\n${projects.map(projectLine).join("\n")}`;
-}
-
-function projectLine({ name, baseBranch, folder, initiativeBranch }: BriefProject): string {
-  if (initiativeBranch?.gone === false) {
-    return `- ${name}: the Initiative's branch ${initiativeBranch.branch}, read-only, at ${folder}`;
-  }
-  const base = `- ${name}: its ${baseBranch} branch, read-only, at ${folder}`;
-  return initiativeBranch === undefined
-    ? base
-    : `${base}; the Initiative's branch ${initiativeBranch.branch} is gone, so you read the base branch.`;
+function projectsPart(prompts: PromptTexts, projects: readonly BriefProject[]): string {
+  return renderedPart(prompts, BRIEF_PROJECTS, {
+    hasProjects: projects.length > 0,
+    readsInitiativeBranch: projects.some(
+      ({ initiativeBranch }) => initiativeBranch?.gone === false,
+    ),
+    projects: projects.map(({ name, baseBranch, folder, initiativeBranch }) => ({
+      name,
+      baseBranch,
+      folder,
+      initiativeBranch: initiativeBranch?.branch ?? "",
+      onInitiativeBranch: flagField(initiativeBranch?.gone === false),
+      initiativeBranchGone: flagField(initiativeBranch?.gone === true),
+    })),
+  });
 }
 
 /**
  * The users' messages, each naming who wrote it, and the person's, the newest that fit under the
- * cap, oldest first.
+ * cap, oldest first; empty when there are none.
  */
-function exchangesSection(
+function latestExchangesPart(
+  prompts: PromptTexts,
   log: readonly Message[],
   removedImages: ReadonlySet<string>,
-): string | undefined {
+): string {
   const lines: string[] = [];
   let room = CHAT_EXCHANGES_TOKENS * CHARACTERS_PER_TOKEN;
   let withImages = false;
@@ -329,9 +417,9 @@ function exchangesSection(
     room -= line.length;
     withImages ||= images.some(({ attachmentId }) => !removedImages.has(attachmentId));
   }
-  if (lines.length === 0) return undefined;
-  const reading = withImages
-    ? "\n\nRead an image the user sent with read_attachment, by its Attachment's id."
-    : "";
-  return `## The latest exchanges\n\n${lines.toReversed().join("\n\n")}${reading}`;
+  if (lines.length === 0) return "";
+  return renderedPart(prompts, BRIEF_LATEST_EXCHANGES, {
+    exchanges: lines.toReversed().map((text, index) => ({ text, first: flagField(index === 0) })),
+    readImages: withImages,
+  });
 }

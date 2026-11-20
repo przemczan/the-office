@@ -100,7 +100,7 @@ describe("the rows of what the Project gets", () => {
     const shown = stageChangesShown(
       { rows: [fromBase(REVIEW)], broken: [reason] },
       [change],
-      [{ stageIndex: null, text: reason.text }],
+      [{ stageKey: null, at: null, level: "problem", text: reason.text }],
     );
     expect(shown.notApplying).toEqual([
       { index: 0, stageChange: change, why: reason.text, fix: "apply-to" },

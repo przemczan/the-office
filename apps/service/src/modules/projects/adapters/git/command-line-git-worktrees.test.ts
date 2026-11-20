@@ -1,4 +1,4 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { officeIdentityForTests } from "../../../../platform/git-identity/office-identity.fixtures.js";
@@ -67,5 +67,69 @@ describe("CommandLineGit.commit", REAL_GIT_TEST, () => {
     await expect(git.head(worktree.path)).resolves.toEqual({ commit, branch: worktree.branch });
     expect(gitIn(worktree.path, "log", "-1", "--format=%B")).toBe(message);
     expect(gitIn(worktree.path, "status", "--porcelain")).toBe("");
+  });
+});
+
+describe("CommandLineGit.committedPaths", REAL_GIT_TEST, () => {
+  it("gives the paths a commit added, changed and deleted, and both paths of a rename", async () => {
+    const worktree = await worktrees.aWorktree();
+    await mkdir(join(worktree.path, "docs"));
+    await writeFile(join(worktree.path, "README.md"), "# Read me\n");
+    await writeFile(join(worktree.path, "docs", "guide.md"), "A guide.\n".repeat(20));
+    await git.commit(worktree.path, "Before", serviceVariables);
+    await writeFile(join(worktree.path, "src", "index.ts"), "export const changed = true;\n");
+    await writeFile(join(worktree.path, "new.txt"), "new\n");
+    await rm(join(worktree.path, "README.md"));
+    await rename(
+      join(worktree.path, "docs", "guide.md"),
+      join(worktree.path, "docs", "handbook.md"),
+    );
+    const commit = await git.commit(worktree.path, "After", serviceVariables);
+    if (commit === undefined) throw new Error("The change was committed.");
+
+    const paths = await git.committedPaths(worktree.path, commit);
+
+    expect(paths.toSorted()).toEqual([
+      "README.md",
+      "docs/guide.md",
+      "docs/handbook.md",
+      "new.txt",
+      "src/index.ts",
+    ]);
+  });
+
+  it("gives a merge commit's own resolution, not what either branch brought in", async () => {
+    const base = await worktrees.aWorktree();
+    await writeFile(join(base.path, "from-base.txt"), "base\n");
+    await writeFile(join(base.path, "both.txt"), "base\n");
+    await git.commit(base.path, "Base", serviceVariables);
+    const task = await worktrees.aWorktree();
+    await writeFile(join(task.path, "from-task.txt"), "task\n");
+    await writeFile(join(task.path, "both.txt"), "task\n");
+    await git.commit(task.path, "Task", serviceVariables);
+    gitIn(task.path, "merge", "--no-commit", "--no-ff", "--strategy-option=ours", base.branch);
+    await writeFile(join(task.path, "both.txt"), "resolved\n");
+    await rm(join(task.path, "src", "index.ts"));
+    await writeFile(join(task.path, "own.txt"), "own\n");
+    const merge = await git.commit(task.path, "Merge", serviceVariables);
+    if (merge === undefined) throw new Error("The merge was committed.");
+
+    const paths = await git.committedPaths(task.path, merge);
+
+    expect(paths.toSorted()).toEqual(["both.txt", "own.txt", "src/index.ts"]);
+  });
+
+  it("gives nothing for a clean merge", async () => {
+    const base = await worktrees.aWorktree();
+    await writeFile(join(base.path, "from-base.txt"), "base\n");
+    await git.commit(base.path, "Base", serviceVariables);
+    const task = await worktrees.aWorktree();
+    await writeFile(join(task.path, "from-task.txt"), "task\n");
+    await git.commit(task.path, "Task", serviceVariables);
+    gitIn(task.path, "merge", "--quiet", "--no-edit", base.branch);
+
+    await expect(
+      git.committedPaths(task.path, gitIn(task.path, "rev-parse", "HEAD")),
+    ).resolves.toEqual([]);
   });
 });

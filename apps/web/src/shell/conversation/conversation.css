@@ -8,6 +8,10 @@
   height: 100%;
 }
 
+.thread-log-loading {
+  padding: 16px;
+}
+
 .thread-title {
   display: flex;
   align-items: center;
@@ -919,9 +923,16 @@
 
 /* ---- a Decision: a card in the asking person's Thread (prototypes/app/conversation.js) */
 .message.decision-card {
+  min-width: 0;
   max-width: 100%;
   border: 1px solid var(--warning-border);
   background: var(--warning-subtle);
+  overflow-wrap: anywhere;
+}
+
+/* The whole form inline in a narrow chat drawer: its header wraps rather than scroll sideways. */
+.decision-card > .message-by {
+  flex-wrap: wrap;
 }
 
 /* The card a Decision's link opened the page at. */
@@ -991,68 +1002,287 @@
   flex: 1;
 }
 
+.decision-consultation > span {
+  flex: 1;
+  align-self: center;
+}
+
 .decision-consultation svg,
 .decision-passed-on svg {
   flex: none;
   margin-top: 2px;
 }
 
-/* Each answer a line of its own, the recommended one marked. */
-.decision-options {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 10px;
+/* Settled: nothing waits on it any more, so the amber goes and what still waits stands out. */
+.message.decision-card.settled {
+  border-color: var(--border);
+  background: var(--surface);
 }
 
-.decision-option-words {
+.decision-count {
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.decision-context.first-line {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.decision-reach {
+  color: var(--info-fg);
+}
+
+.decision-overline {
+  margin: 0;
+  font: var(--type-overline);
+  color: var(--fg-3);
+}
+
+/* ---- the Decision form (docs/design/decision-form.html): numbered questions, then the actions */
+.decision-form-question {
+  margin-top: var(--space-3);
+}
+
+.decision-form-question + .decision-form-question {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--warning-border);
+}
+
+.decision-form-question-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.decision-form-question-text {
   flex: 1;
   min-width: 0;
+  font: var(--type-card-title);
+  overflow-wrap: anywhere;
 }
 
-.decision-option-tag {
-  flex: none;
+.decision-form-question-kind {
+  display: block;
   font: var(--type-caption);
-  opacity: 0.85;
+  color: var(--fg-3);
 }
 
-/* A Decision with Attachments: the recommended answer to accept, beside the way to its details. */
-.decision-boxes {
+.decision-form-question-body {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10px;
-  margin-top: 12px;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 
-.decision-box {
+/* A question's number: green once answered, dashed amber while it needs an answer. */
+.decision-form-number {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--fg-2);
+  font: 600 var(--text-2xs) / 1 var(--font-sans);
+}
+
+.decision-form-number.answered {
+  border-color: var(--success-border);
+  background: var(--success-subtle);
+  color: var(--success-fg);
+}
+
+.decision-form-number.missing {
+  border-style: dashed;
+  border-color: var(--warning);
+  color: var(--warning-fg);
+}
+
+/* "None of these: answer in words", the last line of a choice: quieter than an option. */
+.decision-form-question-body .radio-list-item:last-child:not(:only-child) {
+  border-style: dashed;
+}
+
+/* A TextButton led by an Icon: the Icon on the label's line. */
+.decision-add-comment,
+.decision-show-all {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.decision-add-comment {
+  justify-self: start;
+}
+
+.decision-general {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--warning-border);
+}
+
+.decision-actions {
   display: flex;
-  flex-direction: column;
-  padding: var(--pad-card);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.decision-actions .decision-progress {
+  margin-left: auto;
+}
+
+/* The progress line: how many questions are answered, and the way to the first that isn't. */
+.decision-progress {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.decision-progress-meter {
+  flex: none;
+  width: 56px;
+}
+
+.decision-progress-missing {
+  color: var(--warning-fg);
+}
+
+.decision-ask-again {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding: var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface);
 }
 
-.decision-box-overline {
-  font: var(--type-overline);
-  color: var(--fg-3);
+.decision-ask-again .decision-actions {
+  margin-top: 0;
 }
 
-.decision-box-main {
-  margin: 4px 0 0;
-  font-weight: 600;
-  font-size: var(--text-body);
+.decision-ask-again-field {
+  display: grid;
+  gap: var(--space-1);
 }
 
-.decision-box-words {
-  flex: 1;
-  margin: 4px 0 0;
+.decision-ask-again-field .decision-hint {
+  margin: 0;
+}
+
+/* ---- the compact card: a long form, or one with Attachments, in brief */
+.decision-compact-first {
+  display: grid;
+  gap: var(--space-1);
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.decision-compact-question {
+  margin: 0;
+  font: var(--type-card-title);
+}
+
+.decision-compact-recommended {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  font: var(--type-body-sm);
+  font-weight: 500;
+}
+
+.decision-compact-recommended svg {
+  color: var(--accent);
+}
+
+.decision-compact-first .decision-recommendation {
+  margin: 0;
+}
+
+.decision-compact-more {
+  margin: var(--space-2) 0 0;
   font: var(--type-caption);
   color: var(--fg-2);
 }
 
-.decision-box-foot {
-  margin-top: 10px;
+/* ---- once sent, asked again or closed: read-only where it was asked */
+.decision-answers {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.decision-answer {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-0-5) var(--space-2);
+}
+
+.decision-answer > :not(.decision-form-number) {
+  grid-column: 2;
+}
+
+.decision-answer .decision-form-number {
+  grid-row: span 3;
+}
+
+.decision-answer-question {
+  margin: 0;
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.decision-answer-words {
+  margin: 0;
+  font: var(--type-body-sm);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.decision-answer-words.unanswered,
+.decision-answer-tag {
+  font-weight: 400;
+  color: var(--fg-3);
+}
+
+.decision-answer-comment {
+  margin: 0;
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--border-strong);
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.decision-general-comment {
+  margin-top: var(--space-3);
+}
+
+.decision-show-all {
+  margin-top: var(--space-2);
+}
+
+.decision-answered.decision-asked-again {
+  color: var(--info-fg);
+}
+
+.decision-outcome-words {
+  color: var(--fg-1);
 }
 
 .decision-window-title {
@@ -1068,48 +1298,203 @@
   color: var(--fg-3);
 }
 
+/* ---- Open details: the questions listed beside the picked one; under 900px a row of numbers */
 .decision-window {
+  container: decision-window / inline-size;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--space-3);
+  min-height: 100%;
 }
 
-.decision-window .decision-question {
-  font-weight: 600;
+.decision-window.several {
+  height: 100%;
+}
+
+.decision-window .decision-form-question {
+  margin-top: 0;
+}
+
+.decision-window .decision-form-question-text {
   font-size: var(--text-item);
 }
 
-.decision-window .decision-context,
-.decision-window .decision-recommendation,
-.decision-window .decision-hint {
+.decision-window-split {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 280px minmax(0, 1fr);
+  min-height: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.decision-window-list {
+  overflow-y: auto;
+  border-right: 1px solid var(--border-subtle);
+  background: var(--surface-sunken);
+}
+
+.decision-window-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-0-5) var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  border-left: 3px solid transparent;
+  background: none;
+  color: var(--fg-1);
+  text-align: left;
+  cursor: pointer;
+}
+
+.decision-window-row:hover {
+  background: var(--surface-hover);
+}
+
+.decision-window-row:focus-visible {
+  outline-offset: -2px;
+}
+
+.decision-window-row[aria-current="true"] {
+  border-left-color: var(--accent);
+  background: var(--surface-selected);
+}
+
+.decision-window-row .decision-form-number {
+  grid-row: span 2;
+}
+
+.decision-window-row-text {
+  display: -webkit-box;
+  overflow: hidden;
+  font: 500 var(--text-sm) / 1.4 var(--font-sans);
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.decision-window-row-state {
+  overflow: hidden;
+  font: var(--type-caption);
+  color: var(--fg-3);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.decision-window-row-state.missing {
+  color: var(--warning-fg);
+}
+
+.decision-window-numbers {
+  display: none;
+}
+
+.decision-window-detail {
+  overflow-y: auto;
+  padding: var(--space-4);
+}
+
+.decision-window-overline {
+  margin: 0 0 var(--space-1);
+  font: var(--type-overline);
+  color: var(--fg-3);
+}
+
+.decision-window-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.decision-window-context {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.decision-window-context .decision-context,
+.decision-window-context .decision-consultation,
+.decision-window-context .decision-passed-on {
   margin: 0;
   font: 400 var(--text-body) / 1.45 var(--font-sans);
 }
 
-.decision-free-answer {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  margin-top: 10px;
+.decision-window-foot {
+  display: grid;
+  flex: none;
+  gap: var(--space-2);
 }
 
-/* One line, beside its button. !important: the design system's Textarea styles itself inline. */
-.needs-you-list .decision-free-answer textarea {
-  height: calc(var(--control-h) + 4px) !important;
-  padding-block: 5px !important;
-  box-shadow: none !important;
-  resize: none !important;
+.decision-window-foot .decision-hint {
+  margin: 0;
 }
 
-.decision-free-answer > :first-child {
-  flex: 1;
+@container decision-window (width < 900px) {
+  .decision-window-split {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .decision-window-list {
+    display: none;
+  }
+
+  .decision-window-numbers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1-5);
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--surface-sunken);
+  }
+
+  .decision-window-numbers button {
+    display: inline-grid;
+    place-items: center;
+    min-width: 32px;
+    height: 32px;
+    padding: 0 var(--space-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    color: var(--fg-1);
+    font: 600 var(--text-xs) / 1 var(--font-sans);
+    cursor: pointer;
+  }
+
+  .decision-window-numbers button.answered {
+    border-color: var(--success-border);
+    background: var(--success-subtle);
+    color: var(--success-fg);
+  }
+
+  .decision-window-numbers button.missing {
+    border-style: dashed;
+    border-color: var(--warning);
+    color: var(--warning-fg);
+  }
+
+  .decision-window-numbers button[aria-current="true"] {
+    border-color: var(--accent);
+    background: var(--surface-selected);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+
+  .decision-window-detail {
+    padding: var(--space-3);
+  }
 }
 
 .decision-answered {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  margin-top: 8px;
+  margin: 8px 0 0;
   font: var(--type-caption);
   color: var(--success-fg);
 }
@@ -1262,6 +1647,131 @@
 /* A Change's fields under its line, each as was → proposed. */
 .proposal-field .proposal-changes {
   padding: 6px 0 0;
+}
+
+/* A Stage's routes out, as they were (struck through) and as proposed, in the order weighed. */
+.proposal-route-values {
+  display: grid;
+  flex: 1 1 220px;
+  gap: 6px;
+  min-width: 0;
+}
+
+.proposal-route-side {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.proposal-route-side > span:first-child {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.proposal-route-side ol {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding-left: 18px;
+  overflow-wrap: anywhere;
+}
+
+.proposal-changes .proposal-route-side li {
+  display: list-item;
+}
+
+.proposal-route-side--from ol {
+  color: var(--fg-3);
+  text-decoration: line-through;
+}
+
+.proposal-route-side--to ol {
+  font-weight: 600;
+}
+
+.proposal-route-side--to .proposal-route-when {
+  font-weight: 400;
+  color: var(--fg-2);
+}
+
+.proposal-route-none {
+  margin: 0;
+  color: var(--fg-3);
+}
+
+/* "Full, as proposed": the flow small, then what the check found when it was drafted. */
+.proposal-flow {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.proposal-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.proposal-checked {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  font: var(--type-caption);
+  color: var(--success-fg);
+}
+
+.proposal-checked--warning {
+  color: var(--warning-fg);
+}
+
+.proposal-checked svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+/* A Proposal shown on the flow: the ember banner above the read-only editor. */
+.proposal-on-flow {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.proposal-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--accent-subtle);
+  color: var(--accent-subtle-fg);
+}
+
+.proposal-banner > svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.proposal-banner-words {
+  display: grid;
+  flex: 1;
+  gap: 6px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.proposal-banner-words p {
+  margin: 0;
+  color: var(--fg-1);
+}
+
+.proposal-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .proposal-breaks p {

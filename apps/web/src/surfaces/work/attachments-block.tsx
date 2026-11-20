@@ -4,6 +4,7 @@ import { Button } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { attachmentQueries } from "../../api/work.ts";
+import { BlockLoaderOrProblem } from "../../shell/block-loader.tsx";
 import { AddAttachmentDialog } from "../../shell/attachments/add-attachment-dialog.tsx";
 import { AttachmentGallery } from "../../shell/attachments/attachment-gallery.tsx";
 import {
@@ -101,8 +102,15 @@ function AttachmentsBody({
     <>
       {attachments.data?.length === 0 ? (
         <p className="task-quiet">None</p>
-      ) : (
+      ) : attachments.data && rounds ? (
         <AttachmentGallery rounds={rounds} />
+      ) : (
+        <BlockLoaderOrProblem
+          reads={[attachments]}
+          shape="rows"
+          count={3}
+          label="Loading the Attachments…"
+        />
       )}
       {adding && <AddAttachmentDialog owner={owner} ownerTitle={ownerTitle} onClose={onAdded} />}
     </>
@@ -113,11 +121,11 @@ function AttachmentsBody({
 function useRoundsOf(
   owner: AttachmentOwner,
   attachments: readonly Attachment[],
-): AttachmentRound[] {
+): AttachmentRound[] | undefined {
   const taskId = owner.kind === "task" ? owner.taskId : "";
   const taskStages = useQuery({ ...pipelineQueries.taskStages(taskId), enabled: taskId !== "" });
   // Without the Stages, as when they fail to load, the rounds aren't known: all in one.
   if (owner.kind !== "task" || taskStages.isError) return oneRound(attachments);
-  // Until the Stages come: nothing rather than one round that then splits.
-  return taskStages.data ? attachmentRounds(attachments, taskStages.data.stages ?? []) : [];
+  // Until the Stages come: none rather than one round that then splits.
+  return taskStages.data && attachmentRounds(attachments, taskStages.data.stages ?? []);
 }

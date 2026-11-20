@@ -35,6 +35,7 @@ import {
 } from "./script-commands.js";
 import {
   Worktrees,
+  type BranchCheckout,
   type Installation,
   type TaskChanges,
   type TaskInstallOptions,
@@ -93,6 +94,15 @@ export class TaskWorktrees {
     };
   }
 
+  /**
+   * Where the Task's branch is checked out (its own worktree, another, the user's checkout, or
+   * nowhere), to ask before making a Conflict resolution Task for the Task's pull request, whose
+   * worktree can hold that branch only while nothing else has it checked out.
+   */
+  async checkoutOfBranch(projectId: string, taskId: string): Promise<BranchCheckout> {
+    return this.worktrees.checkoutOf(await this.projects.read(projectId), taskId);
+  }
+
   /** Whether the Task has a worktree in the Project: its folder is there. Runs no git. */
   async exists(projectId: string, taskId: string): Promise<boolean> {
     return this.worktrees.exists(await this.projects.read(projectId), taskId);
@@ -128,6 +138,18 @@ export class TaskWorktrees {
    */
   async commit(projectId: string, taskId: string, message: string): Promise<string | undefined> {
     return this.worktrees.commit(await this.projects.read(projectId), taskId, message);
+  }
+
+  /**
+   * The paths one of the Task's commits changed against its first parent: added, changed and
+   * deleted ones, and both paths of a rename.
+   */
+  async committedPaths(
+    projectId: string,
+    taskId: string,
+    commit: string,
+  ): Promise<readonly string[]> {
+    return this.worktrees.committedPaths(await this.projects.read(projectId), taskId, commit);
   }
 
   /**
@@ -200,7 +222,8 @@ export class TaskWorktrees {
 
   /**
    * Removes the Task's worktree with whatever it holds; its branch stays. A Publishing Task's
-   * Initiative's branch is kept too, so a later Publishing Task can check it out.
+   * Initiative's branch is kept too, so a later Publishing Task can check it out, and a Conflict
+   * resolution Task's pull request's branch, as its last commit.
    */
   async removeWorktree(projectId: string, taskId: string): Promise<void> {
     await this.worktrees.remove(await this.projects.read(projectId), taskId);
@@ -246,6 +269,36 @@ export class TaskWorktrees {
     const project = await this.projects.read(projectId);
     const runs = await this.scriptCommands.run(project, taskId, key, stageRunId, options);
     return { kind: commandOf(project, key)?.kind, runs };
+  }
+
+  /**
+   * Runs the Project command a route's condition names (spec §2.3, "The Project-command
+   * condition"), by its key, where a Script Stage's command runs, with `OFFICE_STAGE_RUNS_FILE`
+   * naming `stageRunsFile`: once, never again on failure, the worktree restored after it and the
+   * files it wrote moved to a folder under `stageRunId`, whatever its kind. Returns the command's
+   * kind, undefined for a key the Project lacks, and its one run.
+   */
+  async runConditionCommand(
+    projectId: string,
+    taskId: string,
+    key: string,
+    stageRunsFile: string,
+    stageRunId: string,
+    options: ScriptCommandOptions,
+  ): Promise<{
+    readonly kind: ProjectCommandKind | undefined;
+    readonly runs: readonly ScriptCommandRun[];
+  }> {
+    const project = await this.projects.read(projectId);
+    const run = await this.scriptCommands.runCondition(
+      project,
+      taskId,
+      key,
+      stageRunsFile,
+      stageRunId,
+      options,
+    );
+    return { kind: commandOf(project, key)?.kind, runs: [run] };
   }
 
   /** The Project's before and after publishing lines, each blank when not set. */

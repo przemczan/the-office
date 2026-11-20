@@ -2,14 +2,18 @@
  * The providers a user links an identity of (spec §2.10), as the contracts'
  * `identityProviderSchema` lists them.
  */
-export type IdentityProviderId = "github" | "google";
+export type IdentityProviderId = "github" | "google" | "openid-connect";
 
 const PROVIDER_NAMES: Readonly<Record<IdentityProviderId, string>> = {
   github: "GitHub",
   google: "Google",
+  "openid-connect": "OpenID Connect",
 };
 
-/** The provider as the pages name it. */
+/**
+ * The provider as the pages name it when it has no name of its own: the OpenID Connect provider's
+ * is the one it was set up with (`IdentityProvider.displayName`), this only before it is.
+ */
 export function providerNameOf(provider: IdentityProviderId): string {
   return PROVIDER_NAMES[provider];
 }

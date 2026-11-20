@@ -42,6 +42,7 @@ const TASK: Task = {
   state: "backlog",
   plan: "",
   pausedBy: null,
+  engineStandIns: [],
   resumesAt: null,
   autoMode: false,
   initiativePlanningThreadId: null,
@@ -61,11 +62,13 @@ const TASK: Task = {
   originIdeaId: null,
   initiativeId: null,
   madeFor: null,
+  resolvesTaskId: null,
   projectMoves: [],
   createdBy: { kind: "user", user: null },
   createdAt: "2026-11-11T10:00:00.000Z",
   archivedAt: null,
   endedAt: null,
+  pullRequestEnd: null,
 };
 
 const LIBRARY = [
@@ -151,7 +154,8 @@ function rendered(content: ReactNode): HTMLElement {
     id: TASK.projectId,
     name: "Admin panel",
     defaultPipeline: "quick-fix",
-  } as Project);
+    commands: [],
+  } as unknown as Project);
   const page = document.createElement("div");
   document.body.append(page);
   act(() =>
@@ -192,11 +196,18 @@ function buttonNamed(name: string): HTMLButtonElement | undefined {
   );
 }
 
-/** The Stages the dialog's Stage editor shows, by name. */
+/** The Stages the dialog's flow editor shows on its canvas, by name. */
 function stageNames(): (string | null)[] {
-  return [...document.querySelectorAll('[role="dialog"] [aria-label="Stages"] > li')].map((row) =>
-    row.getAttribute("aria-label"),
+  return [
+    ...document.querySelectorAll('[role="dialog"] [aria-label="Flow"] .flow-canvas-stage-pick'),
+  ].map((card) => card.getAttribute("aria-label"));
+}
+
+function pressNamed(name: string): void {
+  const button = [...document.querySelectorAll("button")].find(
+    (candidate) => candidate.getAttribute("aria-label") === name || candidate.textContent === name,
   );
+  act(() => button?.click());
 }
 
 describe("a Task with no Pipeline yet", () => {
@@ -250,7 +261,7 @@ describe("a Task with no Pipeline yet", () => {
       '[role="dialog"] button[title="Choose a Pipeline first."]',
     );
     expect(save?.disabled).toBe(true);
-    expect(document.querySelector('[role="dialog"] [aria-label="Stages"]')).toBeNull();
+    expect(document.querySelector('[role="dialog"] [aria-label="Flow"]')).toBeNull();
   });
 
   it("shows the chosen Pipeline's Stages to edit at once, checked against it, and Save sets the Pipeline then the Stages", async () => {
@@ -282,9 +293,9 @@ describe("a Task with no Pipeline yet", () => {
 
     expect(stageNames()).toEqual(["Implement", "Sort check"]);
 
-    act(() =>
-      document.querySelector<HTMLButtonElement>('button[aria-label="Remove Sort check"]')?.click(),
-    );
+    pressNamed("Sort check");
+    pressNamed("More for Sort check");
+    pressNamed("Remove Sort check");
     expect(stageNames()).toEqual(["Implement"]);
     // Save waits for the edited draft's check to answer.
     await act(async () => {

@@ -115,7 +115,9 @@ describe("PUT /api/stage-templates/:id", () => {
     expect(own.status).toBe(200);
     expect(await refusal(others)).toEqual([
       {
-        stageIndex: null,
+        stageKey: null,
+        at: null,
+        level: "problem",
         text: `Another Stage template is named "${other.stage.name.toUpperCase()}".`,
       },
     ]);
@@ -154,10 +156,17 @@ describe("POST /api/stage-templates/check", () => {
 
     expect(response.status).toBe(200);
     expect(pipelineCheckSchema.parse(await response.json())).toEqual({
-      problems: [{ stageIndex: null, text: 'Another Stage template is named "Implement".' }],
-      flags: [
+      problems: [
         {
-          stageIndex: null,
+          stageKey: null,
+          at: null,
+          level: "problem",
+          text: 'Another Stage template is named "Implement".',
+        },
+        {
+          stageKey: null,
+          at: null,
+          level: "warning",
           text: `Grace's Task limit is none, so ${roleKey} only talks and can't work a Stage.`,
         },
       ],
@@ -175,16 +184,22 @@ describe("POST /api/stage-templates/check", () => {
       stage: aStage({ permissions: { run: "anything" } }),
     });
 
-    expect(pipelineCheckSchema.parse(await letGo.json()).flags).toEqual([
+    expect(pipelineCheckSchema.parse(await letGo.json()).problems).toEqual([
       {
-        stageIndex: null,
+        stageKey: null,
+        at: null,
+        level: "warning",
         text: `Linus was let go from ${roleKey}; hire Linus back, hire someone else, or choose who works it.`,
       },
     ]);
     expect(pipelineCheckSchema.parse(await wider.json())).toEqual({
-      problems: [],
-      flags: [
-        { stageIndex: null, text: "The run permission can only be narrowed from the Role card's." },
+      problems: [
+        {
+          stageKey: null,
+          at: null,
+          level: "warning",
+          text: "The run permission can only be narrowed from the Role card's.",
+        },
       ],
       breaks: [],
     });
@@ -200,7 +215,6 @@ describe("POST /api/stage-templates/check", () => {
 
     expect(pipelineCheckSchema.parse(await response.json())).toEqual({
       problems: [],
-      flags: [],
       breaks: [],
     });
   });

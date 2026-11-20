@@ -1,3 +1,18 @@
+import {
+  flagField,
+  promptTemplate,
+  renderedPart,
+  type PromptTexts,
+  type PromptValues,
+} from "../../prompt-templates/index.js";
+import {
+  EARLIER_STAGE_RESULT,
+  STAGE_BRIEF,
+  STAGE_HELD,
+  STAGE_MESSAGE,
+  STAGE_RUNS_AGAIN,
+  STAGE_SENT_AGAIN,
+} from "./agent-stage-brief-templates.js";
 import { baseWords, publishingModeWords } from "./base-words.js";
 import type { AllowedCommands, NamedCommand } from "./allowed-commands.js";
 import { hardSwitchesSection, type FollowedHardSwitches } from "./followed-hard-switches.js";
@@ -10,7 +25,7 @@ import {
   type Stage,
   type StageKind,
 } from "./stage.js";
-import { reportedMetIn } from "./pipeline-walk.js";
+import { reportedMetIn } from "./definition-of-done-reports.js";
 import { isResolveStage } from "./resolve-stages.js";
 import { holdingUserWords } from "./stage-interruption.js";
 import type {
@@ -28,7 +43,18 @@ import type {
  * of every Task, so it stays in the cached prefix.
  */
 export const AGENT_STAGE_INSTRUCTIONS =
-  "In this Thread you work Stages of a Task's Pipeline, in the Task's worktree. Each Stage comes as a message saying what it asks, after the Task's Brief when your session is new. Work it through, checking your work with run_project_command: it runs one of the Project's commands by its key, or a command line you may run, such as one test file, where the Project's commands run (in the Task's run environment when the Project has one), and answers with the exit code and a file with the whole output. Your own shell runs on this computer, outside the run environment, so run the Project's checks with run_project_command, never by hand in your shell, and don't write a .env or start a database to make them run there. The Brief names the commands you may run. The Office commits your work after each Stage: you never commit, push or switch branches. The Stage ends when your turn ends, with your result, so finish within the turn whatever work you need: your sub-agents run in the foreground and answer within it, and you wait in it for anything else, such as a background command's output, never ending the turn to wait. Stop the background commands you no longer need before you end it. End the Stage with your result: done, with a summary, the numbers of the Definition of Done statements the work meets, and your Handover note (where you are, what is left, what to watch); needs_decision, once you asked and wait for the answer; or failed, with the reason, when you can't finish it. A Definition of Done statement you can't verify where you work, however many rounds you get, such as a live check on the user's workstation, you report as out of reach with why, never as met. A statement reported met, by you or an earlier Stage, stays met: the Brief marks those Reported met so far. One your work no longer meets, such as a regression you found, you list as no longer met, which takes it back. When a choice is the user's to make, open a Decision with open_decision; when your brief or your authority says to consult someone first, use consult. Either returns at once: then end the Stage with needs_decision and your Handover note, and the answer comes as your next message. Write a screenshot of each screen you changed into the screenshots folder the Brief names and list it in your result's screenshots: The Office attaches exactly those. Attach anything else the user should see with the Task, such as a report, with attach_file or attach_link. Attach a design the user is to approve before its Gate, as one self-contained .html file: the preview loads nothing from outside the file. When your work needs something the base branch has and the Task's branch doesn't, call update_branch rather than asking anyone: The Office commits your work so far and brings the branch up to date. The Task's commit message is the message of the one commit Publish lands the Task as: when your work changes what it should say, update it with write_commit_message.";
+  "In this Thread you work Stages of a Task's Pipeline, in the Task's worktree. Each Stage comes as a message saying what it asks, after the Task's Brief when your session is new. Work it through, checking your work with run_project_command: it runs one of the Project's commands by its key, or a command line you may run, such as one test file, where the Project's commands run (in the Task's run environment when the Project has one), and answers with the exit code and a file with the whole output. Your own shell runs on this computer, outside the run environment, so run the Project's checks with run_project_command, never by hand in your shell, and don't write a .env or start a database to make them run there. The Brief names the commands you may run. The Office commits your work after each Stage: you never commit, push or switch branches. The Stage ends when your turn ends, with your result, so finish within the turn whatever work you need: your sub-agents run in the foreground and answer within it, and you wait in it for anything else, such as a background command's output, never ending the turn to wait. Stop the background commands you no longer need before you end it. End the Stage with your result: done, with a summary, the numbers of the Definition of Done statements the work meets, and your Handover note (where you are, what is left, what to watch); needs_decision, once you asked and wait for the answer; or failed, with the reason, when you can't finish it. A Definition of Done statement you can't verify where you work, however many rounds you get, such as a live check on the user's workstation, you report as out of reach with why, never as met. A statement reported met, by you or an earlier Stage, stays met: the Brief marks those Reported met so far. One your work no longer meets, such as a regression you found, you list as no longer met, which takes it back. When a choice is the user's to make, open a Decision with open_decision, asking every question you have in that one Decision; when your brief or your authority says to consult someone first, use consult. Either returns at once: then end the Stage with needs_decision and your Handover note, and the answer comes as your next message. Write a screenshot of each screen you changed into the screenshots folder the Brief names and list it in your result's screenshots: The Office attaches exactly those. Attach anything else the user should see with the Task, such as a report, with attach_file or attach_link. Attach a design the user is to approve before its Gate, as one self-contained .html file: the preview loads nothing from outside the file. When your work needs something the base branch has and the Task's branch doesn't, call update_branch rather than asking anyone: The Office commits your work so far and brings the branch up to date. The Task's commit message is the message of the one commit Publish lands the Task as: when your work changes what it should say, update it with write_commit_message.";
+
+/** What an Agent is told in a Stage Thread, after their card's instructions. */
+export const AGENT_STAGE_THREAD_INSTRUCTIONS = promptTemplate({
+  key: "pipelines.stage-thread-instructions",
+  domain: "pipelines",
+  name: "Instructions of a Stage Thread",
+  description:
+    "What an Agent is told about working Stages in a Stage Thread, after the instructions on their Role card.",
+  variables: {},
+  text: AGENT_STAGE_INSTRUCTIONS,
+});
 
 /** The Task's commit message: the one written, or the default while none is (`written` false). */
 export interface BriefCommitMessage {
@@ -85,6 +111,8 @@ export interface EarlierResult {
   readonly outcome: StageOutcome;
   /** A Gate's run alone: the notes the user let the work continue with. */
   readonly gateNotes?: string;
+  /** The notes the user chose where the walk goes on with, when none of the Stage's routes held. */
+  readonly routeNotes?: string;
 }
 
 /** What an Agent Stage's Brief is assembled from: the record, with no model call (spec §2.5). */
@@ -106,68 +134,56 @@ export interface AgentStageRecord {
  * the commands the Agent may run and the Hard switches it follows. Conversations adds the answered
  * Decisions; transcripts are never handed over.
  */
-export function agentStageRecord({
-  task,
-  earlier,
-  diffSummary,
-  commands,
-  hardSwitches,
-}: AgentStageRecord): string {
-  return sections([
-    `## The Task\n\n${task.title}, in the Project ${task.projectName}.`,
-    task.whoAskedSection,
-    task.descriptionSection,
-    `## Where you work\n\nThe Task's worktree, at ${task.worktree.path} on the branch ${task.worktree.branch}, ${startedFrom(task)}.\n\nScreenshots go in ${task.worktree.screenshotsFolder}/ there: git ignores it, and The Office keeps it as you leave it across test runs.`,
-    task.plan === "" ? undefined : `## The Plan\n\n${task.plan}`,
-    definitionOfDoneSection(task.definitionOfDone, earlier),
-    commitMessageSection(task.commitMessage),
-    earlier.length === 0
-      ? undefined
-      : `## Earlier Stages\n\n${earlier.map(earlierResultWords).join("\n")}`,
-    diffSummary === undefined ? undefined : `## What changed so far\n\n${diffSummary}`,
-    task.linkedRecordsSection,
-    attachmentsSection(task.attachmentLines),
-    `## Commands you may run\n\n${commands.words}`,
-    // Claude Code asks approval for `cd <absolute path> && …` whatever the hook allows, which
-    // fails an unattended Stage (task 12's check on the Test Project).
-    "Run them in the worktree, where your session starts, with paths relative to it; never `cd` to an absolute path, as that stops the Stage to ask for approval.",
-    "The Office commits the Stage's work after it ends, so don't commit it yourself, and don't write in your Handover note that your changes are uncommitted.",
-    hardSwitchesSection(hardSwitches),
-  ]);
-}
-
-/**
- * The Definition of Done, numbered as results report it, marking the statements earlier Stages
- * reported met, which stay met unless a result takes them back.
- */
-function definitionOfDoneSection(
-  definitionOfDone: readonly string[],
-  earlier: readonly EarlierResult[],
-): string | undefined {
-  if (definitionOfDone.length === 0) return undefined;
+export function agentStageRecord(
+  prompts: PromptTexts,
+  { task, earlier, diffSummary, commands, hardSwitches }: AgentStageRecord,
+): string {
   const met = new Set(reportedMetIn(earlier.map(({ outcome }) => outcome)));
-  const statements = definitionOfDone.map(
-    (statement, index) =>
-      `${index + 1}. ${statement}${met.has(index + 1) ? REPORTED_MET_MARK : ""}`,
-  );
-  return `## The Definition of Done\n\n${statements.join("\n")}`;
+  const initiativeBranch = task.initiativeBranch ?? "";
+  const publishingTask = task.initiativeBranch !== undefined && task.publishingTask === true;
+  return renderedPart(prompts, STAGE_BRIEF, {
+    title: task.title,
+    projectName: task.projectName,
+    whoAskedSection: task.whoAskedSection,
+    descriptionSection: task.descriptionSection,
+    worktreePath: task.worktree.path,
+    worktreeBranch: task.worktree.branch,
+    screenshotsFolder: task.worktree.screenshotsFolder,
+    baseBranch: task.baseBranch,
+    inInitiative: task.initiativeBranch !== undefined && !publishingTask,
+    publishingTask,
+    initiativeBranch,
+    publishingMode: publishingModeWords(task.publishingMode, initiativeBranch, task.baseBranch),
+    bases: baseWords({
+      project: { baseBranch: task.baseBranch },
+      initiativeBranch: task.initiativeBranch,
+    }),
+    plan: task.plan,
+    hasDefinitionOfDone: task.definitionOfDone.length > 0,
+    definitionOfDone: task.definitionOfDone.map((statement, index) => ({
+      number: String(index + 1),
+      statement,
+      reportedMet: flagField(met.has(index + 1)),
+    })),
+    commitMessageWritten: task.commitMessage.written,
+    commitMessage: task.commitMessage.text,
+    fence: fenceFor(task.commitMessage.text),
+    earlierStages: earlier.map((result) => earlierResultWords(prompts, result)).join("\n"),
+    hasDiffSummary: diffSummary !== undefined,
+    diffSummary: diffSummary ?? "",
+    hasLinkedRecords: task.linkedRecordsSection !== undefined,
+    linkedRecordsSection: task.linkedRecordsSection ?? "",
+    hasAttachments: task.attachmentLines.length > 0,
+    attachments: task.attachmentLines,
+    commands: commands.words,
+    hardSwitches: hardSwitchesSection(prompts, hardSwitches),
+  });
 }
 
-const REPORTED_MET_MARK = " (Reported met so far)";
-
-/** The commit message as a section of the Brief, saying when it is the default. */
-function commitMessageSection({ text, written }: BriefCommitMessage): string {
-  const what = written
-    ? "Publish lands the Task as one commit with this message:"
-    : "None is written yet, so Publish lands the Task as one commit with the default, its title with a short summary below it:";
-  return `## The commit message\n\n${what}\n\n${fenced(text)}\n\nUpdate it with write_commit_message when your work changes what it should say, following the commit convention the Project's own docs define.`;
-}
-
-/** `text` in a fence longer than any run of backticks inside it. */
-function fenced(text: string): string {
+/** Backticks longer than any run of them inside `text`, to fence it with. */
+function fenceFor(text: string): string {
   const longest = Math.max(2, ...[...text.matchAll(/`+/g)].map(([run]) => run.length));
-  const fence = "`".repeat(longest + 1);
-  return `${fence}\n${text}\n${fence}`;
+  return "`".repeat(longest + 1);
 }
 
 /** The question the Stage's Agent asked the user last time, with the user's answer in words. */
@@ -239,6 +255,11 @@ export interface HeldRun {
    * refused, which is sent again (spec 2.3).
    */
   readonly refused?: Pick<RefusedTurn, "message" | "problems">;
+  /**
+   * Set when the user chose to move the held run's session to a Stand-in Engine rather than wait
+   * for the reset (spec 5.4): the stand-in's name and who chose it.
+   */
+  readonly standInChosen?: { readonly engineName: string; readonly chosenBy: HoldingUser };
 }
 
 /**
@@ -251,6 +272,7 @@ export interface HeldRun {
  * after the Brief, a continued one alone.
  */
 export function agentStageWork(
+  prompts: PromptTexts,
   stage: Pick<AgentStage, "key" | "name" | "brief">,
   {
     carried,
@@ -262,25 +284,35 @@ export function agentStageWork(
     commitMessage,
   }: StageWorkReasons = {},
 ): string {
-  return sections([
-    `## The Stage: ${stage.name}\n\n${stage.brief}`,
-    pipeline && laterStagesSection(stage, pipeline),
+  const later = pipeline ? laterStages(stage, pipeline) : [];
+  const recheck =
     pipeline && commitMessage && isLastAgentStageBeforePublish(stage, pipeline.stages)
-      ? recheckSection(commitMessage)
-      : undefined,
-    held && heldSection(held),
-    answered &&
-      `## Your question, answered\n\nYou asked the user: ${answered.question}\n\nTheir answer: ${answered.answer}\n\nGo on with the Stage from there.`,
-    carried && whyAgain(stage, carried),
-    sentBack &&
-      `## Sent back from ${sentBack.gateName}\n\nThe user looked at the work so far at the Gate and sent it back to this Stage with their feedback. It is no failure: act on it, then end the Stage with its result.\n\n${sentBack.feedback}`,
-    installProblem &&
-      `## The install before this Stage
-
-${installProblem}
-
-Commands that need the dependencies may fail until it passes. If the Task's changes broke it, fix that first; The Office installs again before the next Stage.`,
-  ]);
+      ? commitMessage
+      : undefined;
+  const [recheckBase = "", ...otherBases] = (recheck?.changesFrom ?? []).map(shortRevision);
+  return renderedPart(prompts, STAGE_MESSAGE, {
+    stageName: stage.name,
+    stageBrief: stage.brief,
+    listsLaterStages: pipeline !== undefined,
+    hasLaterStages: later.length > 0,
+    laterStages: later,
+    recheck: recheck !== undefined,
+    landsOn: recheck?.landsOn ?? "",
+    recheckBase: otherBases.length === 0 ? recheckBase : "",
+    recheckBases: otherBases.length === 0 ? "" : [recheckBase, ...otherBases].join(" "),
+    commitMessageWritten: recheck?.written ?? false,
+    commitMessage: recheck?.text ?? "",
+    fence: fenceFor(recheck?.text ?? ""),
+    held: (held && heldSection(prompts, held)) ?? "",
+    answered: answered !== undefined,
+    question: answered?.question ?? "",
+    answer: answered?.answer ?? "",
+    runsAgain: carried ? whyAgain(prompts, stage, carried) : "",
+    sentBack: sentBack !== undefined,
+    gateName: sentBack?.gateName ?? "",
+    feedback: sentBack?.feedback ?? "",
+    installProblem: installProblem ?? "",
+  });
 }
 
 /**
@@ -310,164 +342,105 @@ export function isLastAgentStageBeforePublish(
   return false;
 }
 
-/** What the last Agent Stage before a Publish does with the commit message, as it reads now. */
-function recheckSection(commitMessage: RecheckedCommitMessage): string {
-  const now = commitMessage.written
-    ? "It reads now:"
-    : "None is written, so Publish would use the default:";
-  return `## Recheck the commit message
-
-Yours is the last Agent Stage before Publish, which lands the Task on ${commitMessage.landsOn} as one commit with the Task's commit message. Before you end the Stage, read the Task's whole diff (${wholeDiffCommand(commitMessage.changesFrom)}; the Brief's "What changed so far" summarises it), check the message against that diff and the commit convention the Project's own docs define (CLAUDE.md, AGENTS.md, README, CONTRIBUTING and the like), and fix it with write_commit_message where it no longer fits. ${now}
-
-${fenced(commitMessage.text)}`;
-}
-
-/**
- * The read-only git that shows the Task's own changes: a diff from where the branch forked from its
- * one base; with two, the Task's own commits, as a diff from either would count the other's commits
- * taken in as the Task's.
- */
-function wholeDiffCommand(changesFrom: readonly string[]): string {
-  const [base, ...others] = changesFrom.map(shortRevision);
-  if (base === undefined) return "`git diff HEAD`";
-  if (others.length === 0) return `\`git diff ${base}...HEAD\``;
-  return `\`git log -p --no-merges HEAD --not ${[base, ...others].join(" ")}\`, its own commits without what the bases brought in`;
-}
-
 /** A ref as git takes it for short: `refs/remotes/origin/main` as `origin/main`. */
 function shortRevision(revision: string): string {
   return revision.replace(/^refs\/(?:remotes|heads)\//, "");
 }
 
+/** A later Stage as the Stage's message lists it. */
+type LaterStage = PromptValues<typeof STAGE_MESSAGE.variables>["laterStages"][number];
+
 /**
  * The Stages after `stage` in Pipeline order, as plain facts: what each runs, or who works it, so
  * the Agent can leave their work to them (spec §2.3).
  */
-function laterStagesSection(stage: Pick<Stage, "key">, pipeline: StagePipeline): string {
-  const later = pipeline.stages.slice(
-    pipeline.stages.findIndex(({ key }) => key === stage.key) + 1,
-  );
-  if (later.length === 0) {
-    return "## Later Stages\n\nNo Stage comes after this one in the Task's Pipeline.";
-  }
-  const lines = later.map((laterStage) => laterStageWords(laterStage, stage, pipeline));
-  return `## Later Stages\n\nThese Stages come after this one in the Task's Pipeline, in order:\n\n${lines.join("\n")}`;
-}
-
-function laterStageWords(
-  laterStage: Stage,
+function laterStages(
   stage: Pick<Stage, "key">,
-  { commands, roleTitle }: StagePipeline,
-): string {
-  const kind = [
-    STAGE_KIND_NAMES[laterStage.kind],
-    ...(laterStage.kind === "agent" ? [workerWords(laterStage, roleTitle)] : []),
-    ...(laterStage.optional ? ["optional"] : []),
-  ].join(", ");
-  const comesBack =
-    laterStage.kind !== "gate" && laterStage.onFailure?.goBackTo === stage.key
-      ? " If it fails, the work comes back here."
+  { stages, commands, roleTitle }: StagePipeline,
+): LaterStage[] {
+  const later = stages.slice(stages.findIndex(({ key }) => key === stage.key) + 1);
+  return later.map((laterStage) => {
+    const agent = laterStage.kind === "agent" ? laterStage : undefined;
+    const script =
+      laterStage.kind === "script" && laterStage.command !== PUBLISH_COMMAND
+        ? laterStage
+        : undefined;
+    const roleKey = agent && staffedRole(agent);
+    const commandLine = script
+      ? (commands.find(({ key }) => key === script.command)?.commandLine ?? "")
       : "";
-  // A brief's later lines stay within its item.
-  const what = laterStageDoes(laterStage, commands).replaceAll("\n", "\n  ");
-  return `- ${laterStage.name} (${kind}): ${what}${comesBack}`;
+    return {
+      name: laterStage.name,
+      kindName: STAGE_KIND_NAMES[laterStage.kind],
+      agent: flagField(agent !== undefined),
+      roleTitle: roleKey === undefined ? "" : roleTitle(roleKey),
+      dutyLabel: agent?.duty === undefined ? "" : dutyLabel(agent.duty),
+      // A brief's later lines stay within its item.
+      brief: agent ? withinItem(agent.brief) : "",
+      gate: flagField(laterStage.kind === "gate"),
+      publish: flagField(laterStage.kind === "script" && script === undefined),
+      commandLine,
+      unsetCommand: script && commandLine === "" ? script.command : "",
+      comesBack: flagField(
+        laterStage.kind !== "gate" && laterStage.onFailure?.goBackTo === stage.key,
+      ),
+    };
+  });
 }
 
-/** Who works a later Agent Stage: its Role's title, or the duty nobody holds yet. */
-function workerWords(stage: AgentStage, roleTitle: StagePipeline["roleTitle"]): string {
-  const roleKey = staffedRole(stage);
-  if (roleKey !== undefined) return roleTitle(roleKey);
-  return stage.duty === undefined
-    ? "nobody chosen yet"
-    : `${dutyLabel(stage.duty)}, nobody holds it`;
+/** The section for a run held before, or undefined when it has nothing to say. */
+function heldSection(
+  prompts: PromptTexts,
+  { by, byUser, notStarted, cutShort, guidance, refused, standInChosen }: HeldRun,
+): string | undefined {
+  const who = holdingUserWords(byUser);
+  const byTheUser = by === "stop" || by === "pause";
+  const standIn = !byTheUser && standInChosen !== undefined;
+  const cutShortNow = cutShort === true && refused === undefined;
+  const text = renderedPart(prompts, STAGE_HELD, {
+    notStarted: notStarted === true,
+    stop: by === "stop",
+    pause: by === "pause",
+    alarm: by === "alarm" && !standIn,
+    usageWindow: by === "usage-window" && !standIn,
+    standIn,
+    restart: by === "restart" && !standIn,
+    who,
+    whoCapitalized: `${who.charAt(0).toUpperCase()}${who.slice(1)}`,
+    engineName: standInChosen?.engineName ?? "",
+    chosenBy: standInChosen ? holdingUserWords(standInChosen.chosenBy) : "",
+    cutShortWhilePaused: cutShortNow && by === "pause",
+    cutShortByAlarm: cutShortNow && by === "alarm",
+    refused: refused !== undefined,
+    ...refusedMessageValues(prompts, refused),
+    hasGuidance: guidance !== undefined,
+    guidance: guidance ?? "",
+  });
+  return text === "" ? undefined : text;
 }
-
-function laterStageDoes(laterStage: Stage, commands: StagePipeline["commands"]): string {
-  switch (laterStage.kind) {
-    case "agent":
-      return laterStage.brief;
-    case "gate":
-      return "the user looks at the work there and lets it continue or sends it back.";
-    case "script": {
-      if (laterStage.command === PUBLISH_COMMAND) return "The Office publishes the Task's work.";
-      const commandLine = commands.find(({ key }) => key === laterStage.command)?.commandLine;
-      return commandLine
-        ? `runs \`${commandLine}\`.`
-        : `runs the Project's command ${laterStage.command}, which isn't set.`;
-    }
-  }
-}
-
-/** The section for a run the user held, "the user Ann Lee" as `who` names them. */
-const USER_HELD_SECTIONS: Readonly<Record<"stop" | "pause", (who: string) => string>> = {
-  stop: (who) => `## Stopped by ${who}
-
-${capitalized(who)} stopped this Stage while it ran, and has resumed it. The Office discarded the Stage's uncommitted edits, so the worktree is as the last Stage left it: do the Stage's work again from there.`,
-  pause: (who) => `## Paused by ${who}
-
-${capitalized(who)} paused this Stage after your last turn, and has resumed it. Your edits are in the worktree as you left them: go on with the Stage's work from there, and end with its result.`,
-};
-
-const HELD_SECTIONS: Readonly<Record<Exclude<StageInterruption, "stop" | "pause">, string>> = {
-  alarm: `## Held by the fire alarm
-
-The user sounded the fire alarm while this Stage ran, which held it after your last turn, and has given the all clear. Your edits are in the worktree as you left them: go on with the Stage's work from there, and end with its result.`,
-  "usage-window": `## Paused for the usage window
-
-Your engine refused your last turn because a usage window of its account was used up, so The Office paused this Stage until the window reset, and has resumed it now. Your edits are in the worktree as you left them.`,
-  restart: `## The Office restarted
-
-The Office restarted while this Stage ran, which cut your last turn short, and the Stage goes on now. The Stage's uncommitted edits are still in the worktree, but the cut may have left one half-done, such as a file half-written: check \`git status\` and \`git diff\` first, then go on with the Stage's work from there, and end with its result.`,
-};
-
-/** What cut the Agent's last turn short: The Office restarting, or the fire alarm's hard stop. */
-const CUT_SHORT: Readonly<Partial<Record<StageInterruption, string>>> = {
-  pause:
-    "The Office restarted during your last turn, which it cut short, so some of your edits may be half-done: check them before you go on.",
-  alarm:
-    "The Office cut your last turn short, so some of your edits may be half-done: check them before you go on.",
-};
 
 /**
- * A refused turn may have been cut off after some of its tool calls, as CUT_SHORT says of others.
+ * What a Stage's session is sent on the Stand-in Engine it went on on, after its engine refused the
+ * Stage's work for a used-up usage window (spec 5.4): the work again, as the session holds it.
  */
-const REFUSED_HALF_DONE =
-  "The engine may have refused your turn after some of its tool calls, so some of your edits may be half-done: check them before you go on.";
-
-function heldSection({
-  by,
-  byUser,
-  notStarted,
-  cutShort,
-  guidance,
-  refused,
-}: HeldRun): string | undefined {
-  if (notStarted) {
-    return guidance === undefined ? undefined : `## The user's words for this Stage\n\n${guidance}`;
-  }
-  const words = guidance === undefined ? "" : `\n\nThe user's words for it:\n\n${guidance}`;
-  const cutWords = refused ? REFUSED_HALF_DONE : cutShort ? CUT_SHORT[by] : undefined;
-  const cut = cutWords === undefined ? "" : `\n\n${cutWords}`;
-  const resent = refused ? `\n\n${refusedMessageWords(refused)}` : "";
-  const section =
-    by === "stop" || by === "pause"
-      ? USER_HELD_SECTIONS[by](holdingUserWords(byUser))
-      : HELD_SECTIONS[by];
-  return `${section}${cut}${resent}${words}`;
-}
-
-function capitalized(words: string): string {
-  return `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
+export function workSentAgain(
+  prompts: PromptTexts,
+  refused: NonNullable<HeldRun["refused"]>,
+): string {
+  return renderedPart(prompts, STAGE_SENT_AGAIN, refusedMessageValues(prompts, refused));
 }
 
 /**
  * The message the engine refused, sent again: the Stage's work, or the correction of its result.
  */
-function refusedMessageWords({ message, problems }: NonNullable<HeldRun["refused"]>): string {
-  if (message === "work") {
-    return "The message the engine refused was this Stage's work, above: do it now, and end with its result.";
+function refusedMessageValues(
+  prompts: PromptTexts,
+  refused: HeldRun["refused"],
+): { readonly refusedWork: boolean; readonly correction: string } {
+  if (refused === undefined || refused.message === "work") {
+    return { refusedWork: true, correction: "" };
   }
-  return `The message the engine refused was The Office's request to correct your result, sent again:\n\n${correctionMessage(problems ?? "")}`;
+  return { refusedWork: false, correction: correctionMessage(prompts, refused.problems ?? "") };
 }
 
 /**
@@ -475,45 +448,60 @@ function refusedMessageWords({ message, problems }: NonNullable<HeldRun["refused
  * asked first, gave it one more round itself; with what they said to do differently, when they said
  * it.
  */
-function whyAgain(stage: Pick<AgentStage, "key">, carried: CarriedRound): string {
-  const chosen =
-    carried.guide === undefined
-      ? "The user chose one more round of this Stage"
-      : `One more round of this Stage was chosen by ${carried.guide}`;
-  const why =
-    carried.stageKey === stage.key
-      ? `${chosen} after:\n\n${carried.error}`
-      : `"${carried.stageName}" failed after it, so the Pipeline went back here (round ${carried.round} of ${carried.rounds}):\n\n${carried.error}`;
-  const heading =
-    carried.guide === undefined
-      ? "The user's guidance for this round"
-      : `Guidance for this round from ${carried.guide}`;
-  const guidance = carried.guidance === undefined ? "" : `\n\n${heading}:\n\n${carried.guidance}`;
-  return `## Why this Stage runs again\n\n${why}${guidance}`;
+function whyAgain(
+  prompts: PromptTexts,
+  stage: Pick<AgentStage, "key">,
+  carried: CarriedRound,
+): string {
+  return renderedPart(prompts, STAGE_RUNS_AGAIN, {
+    sameStage: carried.stageKey === stage.key,
+    hasGuide: carried.guide !== undefined,
+    guide: carried.guide ?? "",
+    stageName: carried.stageName,
+    round: String(carried.round),
+    rounds: String(carried.rounds),
+    error: carried.error,
+    hasGuidance: carried.guidance !== undefined,
+    guidance: carried.guidance ?? "",
+  });
 }
 
-function earlierResultWords(result: EarlierResult): string {
-  const { handoverNote } = result.outcome;
-  const note = handoverNote === undefined ? "" : `\n  Handover note: ${handoverNote}`;
-  return `${stageResultWords(result)}${note}`;
+function earlierResultWords(prompts: PromptTexts, result: EarlierResult): string {
+  return resultWords(prompts, result, result.outcome.handoverNote);
 }
 
 /** A Stage run's result as a line of a Brief, without its Handover note. */
-export function stageResultWords({ stageName, kind, outcome, gateNotes }: EarlierResult): string {
-  const name = `- ${stageName} (${STAGE_KIND_NAMES[kind]})`;
-  if (gateNotes !== undefined) {
-    // A later brief line stays within its item, as laterStageWords keeps a brief's.
-    const notes = gateNotes.replaceAll("\n", "\n  ");
-    return `${name}: the user let the work continue, with notes for the Stages after it. Follow them:\n  ${notes}`;
-  }
-  switch (outcome.status) {
-    case "done":
-      return `${name}: done. ${outcome.summary}`;
-    case "needs-decision":
-      return `${name}: asked the user "${outcome.question}"`;
-    case "failed":
-      return `${name}: failed. ${outcome.error}`;
-  }
+export function stageResultWords(prompts: PromptTexts, result: EarlierResult): string {
+  return resultWords(prompts, result, undefined);
+}
+
+function resultWords(
+  prompts: PromptTexts,
+  { stageName, kind, outcome, gateNotes, routeNotes }: EarlierResult,
+  handoverNote: string | undefined,
+): string {
+  const gateContinued = gateNotes !== undefined;
+  return renderedPart(prompts, EARLIER_STAGE_RESULT, {
+    stageName,
+    kindName: STAGE_KIND_NAMES[kind],
+    gateContinued,
+    gateNotes: withinItem(gateNotes ?? ""),
+    done: !gateContinued && outcome.status === "done",
+    summary: outcome.status === "done" ? outcome.summary : "",
+    askedUser: !gateContinued && outcome.status === "needs-decision",
+    question: outcome.status === "needs-decision" ? outcome.question : "",
+    failed: !gateContinued && outcome.status === "failed",
+    error: outcome.status === "failed" ? outcome.error : "",
+    hasRouteNotes: routeNotes !== undefined,
+    routeNotes: withinItem(routeNotes ?? ""),
+    hasHandoverNote: handoverNote !== undefined,
+    handoverNote: handoverNote ?? "",
+  });
+}
+
+/** A later line of notes or a brief stays within its item. */
+function withinItem(notes: string): string {
+  return notes.replaceAll("\n", "\n  ");
 }
 
 /**
@@ -524,39 +512,22 @@ export function earlierResults(
   stages: readonly Stage[],
   runs: readonly StageRun[],
 ): EarlierResult[] {
-  return runs.flatMap(({ stageKey, outcome, gateAction }): EarlierResult[] => {
+  return runs.flatMap((run): EarlierResult[] => {
+    const { stageKey, outcome, gateAction } = run;
     const stage = stages.find(({ key }) => key === stageKey);
     if (!stage || !outcome) return [];
-    if (stage.kind !== "gate") return [{ stageName: stage.name, kind: stage.kind, outcome }];
+    const routeNotes = routeNotesOf(run);
+    const noted = routeNotes === undefined ? {} : { routeNotes };
+    const result = { stageName: stage.name, kind: stage.kind, outcome, ...noted };
+    if (stage.kind !== "gate") return [result];
     const gateNotes = gateAction?.kind === "continue" ? gateAction.feedback : undefined;
-    if (gateNotes === undefined) return [];
-    return [{ stageName: stage.name, kind: stage.kind, outcome, gateNotes }];
+    if (gateNotes === undefined && routeNotes === undefined) return [];
+    return [gateNotes === undefined ? result : { ...result, gateNotes }];
   });
 }
 
-function attachmentsSection(lines: readonly string[]): string {
-  if (lines.length === 0) return "## Attachments\n\nNone.";
-  return `## Attachments\n\nRead one with read_attachment, by its id: a text file or a PDF's text by its lines, a long one in slices or by searching it for a phrase; an image as a picture where the engine shows one; any other file by its name, kind and size.\n\n${lines.join("\n")}`;
-}
-
-function sections(parts: readonly (string | undefined)[]): string {
-  return parts.filter((part) => part !== undefined).join("\n\n");
-}
-
-/**
- * What the Task's branch started from, and for a Task of an Initiative with a Pipeline where it
- * publishes and what it takes in (spec §2.3, "Publishing into an Initiative's branch"); a
- * Publishing Task's is the Initiative's branch itself ("A Publishing Task's Publish").
- */
-function startedFrom(task: BriefTask): string {
-  if (task.initiativeBranch === undefined) return `which started from ${task.baseBranch}`;
-  if (task.publishingTask) {
-    const mode = publishingModeWords(task.publishingMode, task.initiativeBranch, task.baseBranch);
-    return `the Initiative's own. Its worktree holds ${task.initiativeBranch} itself, the Initiative's whole change in this Project; Publish puts it into ${task.baseBranch} by ${mode}. The Office brings ${task.baseBranch} into it`;
-  }
-  const bases = baseWords({
-    project: { baseBranch: task.baseBranch },
-    initiativeBranch: task.initiativeBranch,
-  });
-  return `which started from the Initiative's branch ${task.initiativeBranch}, and its Publish lands it on ${task.initiativeBranch} as one commit, not on ${task.baseBranch}. The Office brings ${bases} into it`;
+/** The notes the user answered the run's no-route-holds Decision with, if any. */
+function routeNotesOf({ decisions }: StageRun): string | undefined {
+  const answer = decisions.find(({ kind }) => kind === "no-route-holds")?.answer;
+  return answer?.kind === "follow-route" ? answer.guidance : undefined;
 }

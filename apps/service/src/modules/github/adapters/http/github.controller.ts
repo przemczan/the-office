@@ -20,6 +20,7 @@ import {
 import type { Request } from "express";
 import { OfficeAddresses } from "../../../../platform/http/office-addresses.js";
 import { GitHubAccess } from "../../application/github-access.js";
+import { GitHubPermissions, type LackedPermissions } from "../../application/github-permissions.js";
 import { GitHubSignIn, type SignInState } from "../../application/github-sign-in.js";
 import { appInstallUrl, GitHubUrls } from "../../application/github-urls.js";
 import { GitHubAccessFailed, NotSignedInWithGitHub } from "../../domain/github-repository.js";
@@ -33,13 +34,27 @@ export class GitHubController {
   constructor(
     private readonly signIn: GitHubSignIn,
     private readonly access: GitHubAccess,
+    private readonly permissions: GitHubPermissions,
     private readonly urls: GitHubUrls,
     private readonly addresses: OfficeAddresses,
   ) {}
 
   @Get()
   async state(): Promise<GitHubState> {
-    return webStateOf(await this.signIn.state(), this.urls);
+    const state = await this.signIn.state();
+    const lacking = state.status === "signed-in" ? await this.permissions.lacking() : undefined;
+    return webStateOf(state, lacking, this.urls);
+  }
+
+  /**
+   * Check again, after the user granted the App's permissions on GitHub: reads them from GitHub
+   * again and answers the state with what is still missing. Open Settings pages get `github.changed`.
+   */
+  @Post("permissions/check")
+  @HttpCode(200)
+  async checkPermissions(): Promise<GitHubState> {
+    await this.permissions.checkAgain();
+    return this.state();
   }
 
   /** GitHub's authorize page for the browser to go to, GitHub sending it back to this Office. */
@@ -107,11 +122,25 @@ export class GitHubController {
 }
 
 /** Only the App's slug, owner and install page reach the web: never its client secret or a token. */
-function webStateOf(state: SignInState, urls: GitHubUrls): GitHubState {
+function webStateOf(
+  state: SignInState,
+  lacking: LackedPermissions | undefined,
+  urls: GitHubUrls,
+): GitHubState {
   if (state.status === "not-registered") return state;
   const { slug, owner } = state.app;
   const app = { slug, owner, installUrl: appInstallUrl(urls, slug).href };
-  if (state.status === "signed-in") return { status: "signed-in", app, login: state.login };
+  if (state.status === "signed-in") {
+    const permissions = lacking && {
+      missing: lacking.missing.map(({ name, level }) => ({ name, level })),
+      appPermissionsUrl: lacking.appPermissionsUrl,
+      installations: lacking.installations.map(({ account, acceptUrl }) => ({
+        account,
+        acceptUrl,
+      })),
+    };
+    return { status: "signed-in", app, login: state.login, permissions: permissions ?? null };
+  }
   return {
     status: "signed-out",
     app,

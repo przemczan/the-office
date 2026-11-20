@@ -94,6 +94,7 @@ import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-rep
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
 import { ANN_LEE } from "../domain/user.fixtures.js";
+import { ConversationsPromptTemplatesForTests } from "../adapters/prompt-templates/conversations-prompt-templates.fixtures.js";
 
 /** The Role holding Default person to talk to by default. */
 const OFFICE_MANAGER = "office-manager";
@@ -161,6 +162,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
   ({ app } = await startTestApplication({
     database: true,
     imports: [
+      ConversationsPromptTemplatesForTests,
       EventsModule,
       ScheduleModule,
       BusyWorkModule,

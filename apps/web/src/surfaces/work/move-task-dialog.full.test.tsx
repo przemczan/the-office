@@ -25,6 +25,7 @@ const TASK: Task = {
   state: "ready",
   plan: "Keep the path.",
   pausedBy: null,
+  engineStandIns: [],
   resumesAt: null,
   autoMode: false,
   initiativePlanningThreadId: null,
@@ -44,11 +45,13 @@ const TASK: Task = {
   originIdeaId: null,
   initiativeId: null,
   madeFor: null,
+  resolvesTaskId: null,
   projectMoves: [],
   createdBy: { kind: "user", user: null },
   createdAt: "2026-11-07T10:00:00.000Z",
   archivedAt: null,
   endedAt: null,
+  pullRequestEnd: null,
 };
 
 function aProject(id: string, name: string, defaultPipeline = "full"): Project {

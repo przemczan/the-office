@@ -42,6 +42,11 @@ export function moveProblems(task: Task, { stateChanges, hasWorktree }: MoveGrou
   if (task.madeFor === "publishing") {
     return ["A Publishing Task belongs to its Project, so it can't move to another."];
   }
+  if (task.madeFor === "resolve-conflicts") {
+    return [
+      "A Conflict resolution Task works on its pull request's branch in its Project, so it can't move to another.",
+    ];
+  }
   const problems: string[] = [];
   // Planning is refused by the Task's history, below.
   if (!NOT_STARTED_STATES.includes(task.state)) {

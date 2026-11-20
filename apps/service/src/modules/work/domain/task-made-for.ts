@@ -23,6 +23,8 @@ export interface MadeTaskWords {
   /** The files and folders the Plan expects to change; none by default. */
   readonly filesToChange?: readonly string[];
   readonly definitionOfDone: readonly string[];
+  /** The Task whose pull request's conflicts it resolves: a Conflict resolution Task's; none by default. */
+  readonly resolvesTaskId?: string;
   /** Who its kept creation names; its creator by default. */
   readonly stateChangeCause?: StateChangeCause;
 }
@@ -65,6 +67,7 @@ export function createTaskMadeFor(
     definitionOfDone: words.definitionOfDone,
     definitionOfDoneConfirmed: true,
     madeFor: words.madeFor,
+    resolvesTaskId: words.resolvesTaskId,
   };
   return {
     task: madeTask,

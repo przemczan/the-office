@@ -1,4 +1,4 @@
-export { DecisionService } from "./application/decision-service.js";
+export { DecisionService, type DecisionWaitingOnTheUser } from "./application/decision-service.js";
 export {
   InitiativeThreadSetups,
   type InitiativeThreadRequest,
@@ -15,6 +15,8 @@ export {
   type SettingProposalApplier,
 } from "./application/proposal-appliers.js";
 export { StageDecisions, type StageDecisionRequest } from "./application/stage-decisions.js";
+export { stageAnswerOf, type StageAnswer } from "./domain/stage-answer.js";
+export { decisionSummary } from "./domain/decision.js";
 export {
   StageThreads,
   type StageSessionSettings,
@@ -22,6 +24,7 @@ export {
   type StageThreadRequest,
   type StageTurn,
 } from "./application/stage-threads.js";
+export { SwitchFailed } from "./domain/switch-failed.js";
 export { StageThreadMessages } from "./application/stage-thread-messages.js";
 export type { StageRunWindow } from "./application/thread-history.js";
 export { TaskTokens } from "./application/task-tokens.js";
@@ -57,6 +60,7 @@ export {
   DecisionClosed,
   DecisionOpened,
   DecisionReopened,
+  ThreadSessionMovedToEngine,
   TokensCounted,
   TurnEnded,
 } from "./domain/conversation-events.js";

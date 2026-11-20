@@ -1,9 +1,11 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
+import type { EngineId } from "../../engine/index.js";
 import type { ContextDecision } from "./context-policy.js";
 import {
   answerProblems,
   attachmentProblems,
   decisionProblems,
+  decisionSummary,
   isApproval,
   type AnswerGivenBy,
   type Decision,
@@ -21,22 +23,25 @@ import {
   MessagesLogged,
   ProposalDrafted,
   ThreadRenamed,
+  ThreadSessionMovedToEngine,
   ThreadStarted,
   TokensCounted,
   TurnEnded,
 } from "./conversation-events.js";
-import type {
-  Message,
-  MessageDelivery,
-  MessageDraft,
-  MessageImage,
-  StageWorkClosing,
+import {
+  engineSwitchedWords,
+  type Message,
+  type MessageDelivery,
+  type MessageDraft,
+  type MessageImage,
+  type StageWorkClosing,
 } from "./message.js";
 import type { OpenPage } from "./open-page.js";
 import { proposedChangeProblems, type Proposal, type ProposedChange } from "./proposal.js";
 import { ProposalRefused } from "./proposal-refused.js";
 import {
   addTokens,
+  isPersonsChat,
   NO_TOKENS,
   tokensSoFar,
   type Consultation,
@@ -279,6 +284,7 @@ export function freshSession(
     engineId,
     changesAllowed,
     heldDuties,
+    standInFor,
   }: Pick<
     ThreadSession,
     | "roleKey"
@@ -287,6 +293,7 @@ export function freshSession(
     | "engineId"
     | "changesAllowed"
     | "heldDuties"
+    | "standInFor"
   >,
   startedAt: Date,
 ): ThreadSession {
@@ -303,6 +310,7 @@ export function freshSession(
     full: false,
     changesAllowed,
     heldDuties,
+    ...(standInFor !== undefined && { standInFor }),
   };
 }
 
@@ -405,22 +413,32 @@ export interface DecisionOpening extends DecisionDraft {
   readonly byTheOffice?: boolean;
   /** The Consultant, by the key of their Role, the Agent's question is put to instead of the user. */
   readonly putTo?: string;
-  /** The ids of the Task's Attachments, which are all a Decision may name. */
+  /**
+   * The ids of the Task's Attachments, which are all a Decision may name; the Initiative's own for
+   * one on no Task in an Initiative's Thread.
+   */
   readonly attachmentsOfTheTask?: readonly string[];
   /**
    * The Task the Decision is on: the Thread's own in a Thread on a Task, where it may be left out,
-   * and one of the Initiative's Tasks, which the caller has checked, in an Initiative's Thread.
+   * and one of the Initiative's Tasks, which the caller has checked, in an Initiative's planning
+   * Thread, or none there for the Initiative as a whole.
    */
   readonly taskId?: string;
+  /** Which of an Initiative's Threads it is opened in, as Work tells them apart; planning unless said. */
+  readonly initiativeThread?: InitiativeThreadKind;
 }
+
+/** An Initiative's shaping Thread, or one of its planning Threads. */
+export type InitiativeThreadKind = "shaping" | "planning";
 
 /**
  * The person opens a Decision (spec §2.4): its card is logged, and the Thread waits on it until the
  * user answers. In a Thread on a Task it is on that Task, and refused while another Decision waits.
  * In an Initiative's planning Thread it names one of the Initiative's Tasks, several may be open,
- * and it is refused while another waits on the same Task. In a chat, which only talks, only a call
- * put to a person opens one, on no Task, as does a call from an Initiative's Thread naming none.
- * Refused with every problem of what is asked, in words the person acts on.
+ * and it is refused while another waits on the same Task; naming none, there or in the shaping
+ * Thread, it is on the Initiative as a whole, one at a time. In a person's chat one opens on no
+ * Task, one at a time, waiting on the user inline there or put to a person; a Consultation in a
+ * chat opens only a call. Refused with every problem of what is asked, in words the person acts on.
  */
 export function openDecision(
   thread: Thread,
@@ -432,18 +450,23 @@ export function openDecision(
     attachmentsOfTheTask = [],
     attachmentIds = [],
     taskId: named,
+    initiativeThread = "planning",
     ...draft
   }: DecisionOpening,
 ): ThreadChange<DecisionOpened> {
-  const taskId = decisionTaskOf(thread, named, putTo);
+  const taskId = decisionTaskOf(thread, named, putTo, initiativeThread);
   const problems = [
     ...decisionProblems(draft),
-    ...attachmentProblems(attachmentIds, attachmentsOfTheTask),
+    ...attachmentProblems(
+      attachmentIds,
+      attachmentsOfTheTask,
+      thread.home.kind === "initiative" && taskId === undefined ? "Initiative" : "Task",
+    ),
   ];
   if (problems.length > 0) throw new ThreadRefused(problems);
   const decision: Decision = {
     ...draft,
-    kind: draft.kind ?? "question",
+    kind: draft.kind ?? "form",
     attachmentIds: [...new Set(attachmentIds)],
     id,
     threadId: thread.id,
@@ -472,26 +495,34 @@ export function openDecision(
 }
 
 /**
- * The Task a Decision opened in the Thread is on, refused where none may be opened. In a chat only a
- * call put to a person opens one, on no Task (spec §2.4), and one at a time.
+ * The Task a Decision opened in the Thread is on, refused where none may be opened. A person's chat
+ * opens one on no Task, put to someone or waiting on the user inline there (spec §2.4, §2.7), one at
+ * a time; a Consultation sitting in a chat opens only a call, on no Task. In an Initiative's Thread
+ * one naming no Task, asked of the user or a call, is on no Task, about the Initiative as a whole,
+ * and one at a time; in its planning Thread one naming a Task is on it, one per Task.
  */
 function decisionTaskOf(
   thread: Thread,
   named: string | undefined,
   putTo: string | undefined,
+  initiativeThread: InitiativeThreadKind,
 ): string | undefined {
   const { home, openDecisions } = thread;
   switch (home.kind) {
     case "chat": {
-      if (putTo === undefined || named !== undefined) {
+      if (named !== undefined) {
         throw new ThreadRefused([
-          "A Decision is opened on a Task. In your chat, ask the user in your answer instead.",
+          "A Decision in your chat is on no Task: leave taskId out, and ask about the Task in the form.",
         ]);
+      }
+      if (!isPersonsChat(thread) && putTo === undefined) {
+        throw new ThreadRefused(["A Consultation opens no Decision of its own: answer in words."]);
       }
       const [waiting] = openDecisions;
       if (waiting) {
+        const what = waiting.putTo === undefined ? "Decision" : "call";
         throw new ThreadRefused([
-          `Your call "${waiting.question}" still waits on its answer. End your turn: it comes as your next message.`,
+          `Your ${what} "${decisionSummary(waiting)}" still waits on its answer. End your turn: it comes as your next message.`,
         ]);
       }
       return undefined;
@@ -505,17 +536,18 @@ function decisionTaskOf(
       const [waiting] = openDecisions;
       if (waiting) {
         throw new ThreadRefused([
-          `Your Decision "${waiting.question}" still waits on the user. End your turn: their answer comes as your next message.`,
+          `Your Decision "${decisionSummary(waiting)}" still waits on the user. End your turn: their answer comes as your next message.`,
         ]);
       }
       return home.taskId;
     }
     case "initiative": {
-      if (named === undefined) return callOnNoTask(openDecisions, putTo);
+      if (named === undefined) return onTheInitiative(openDecisions, initiativeThread);
+      if (initiativeThread === "shaping") throw new ThreadRefused([SHAPING_DECISION_ON_A_TASK]);
       const waiting = openDecisions.find((decision) => decision.taskId === named);
       if (waiting) {
         throw new ThreadRefused([
-          `Your Decision "${waiting.question}" on this Task still waits on the user. Plan the Tasks that don't wait for it; its answer comes as a message.`,
+          `Your Decision "${decisionSummary(waiting)}" on this Task still waits on the user. Plan the Tasks that don't wait for it; its answer comes as a message.`,
         ]);
       }
       return named;
@@ -523,20 +555,26 @@ function decisionTaskOf(
   }
 }
 
+/** Why a Decision in an Initiative's shaping Thread can't name a Task. */
+export const SHAPING_DECISION_ON_A_TASK =
+  "In the shaping Thread a Decision is on no Task: leave taskId out.";
+
 /**
- * A call from an Initiative's Thread naming no Task (spec §2.4): put to a person, on no Task, as a
- * chat's call is, and one at a time; anything else there names the Task it is on.
+ * A Decision in an Initiative's Thread naming no Task (spec §2.4): on the Initiative as a whole,
+ * waiting on the user or a call put to a person, one at a time in the Thread.
  */
-function callOnNoTask(openDecisions: readonly Decision[], putTo: string | undefined): undefined {
-  if (putTo === undefined) {
-    throw new ThreadRefused([
-      "Name the Task the Decision is on, by its taskId: one of the Initiative's Tasks. Only a call to a person may name none.",
-    ]);
-  }
+function onTheInitiative(
+  openDecisions: readonly Decision[],
+  initiativeThread: InitiativeThreadKind,
+): undefined {
   const waiting = openDecisions.find((decision) => decision.taskId === undefined);
   if (waiting) {
+    const goOn =
+      initiativeThread === "planning"
+        ? "End your turn, or plan the Tasks that don't need it: its answer comes as your next message."
+        : "End your turn: it comes as your next message.";
     throw new ThreadRefused([
-      `Your call "${waiting.question}" still waits on its answer. End your turn: it comes as your next message.`,
+      `Your Decision "${decisionSummary(waiting)}" on the Initiative still waits on its answer. ${goOn}`,
     ]);
   }
   return undefined;
@@ -629,8 +667,8 @@ export function answerDecision(
   thread: Thread,
   answering: DecisionAnswering,
 ): ThreadChange<DecisionAnswered> {
-  const { decisionId, answer, answeredAt, waitingAnswerIds = [] } = answering;
-  const open = answerableDecision(thread, decisionId, answer);
+  const { decisionId, answeredAt, waitingAnswerIds = [] } = answering;
+  const open = answerableDecision(thread, answering);
   if (thread.state === "answering") {
     throw new ThreadRefused([
       `${answering.personName} is still answering. Answer once they finish.`,
@@ -660,8 +698,8 @@ export function keepAnswerForTurnEnd(
   recording: DecisionRecording,
   personName: string,
 ): ThreadChange<DecisionAnswered> {
-  const { decisionId, answer, answeredAt } = recording;
-  const open = answerableDecision(thread, decisionId, answer);
+  const { decisionId, answeredAt } = recording;
+  const open = answerableDecision(thread, recording);
   if (thread.home.kind !== "initiative" || thread.state !== "answering") {
     throw new ThreadRefused([`${personName} is still answering. Answer once they finish.`]);
   }
@@ -766,8 +804,8 @@ export function recordDecisionAnswer(
   thread: Thread,
   recording: DecisionRecording,
 ): ThreadChange<DecisionAnswered> {
-  const { decisionId, answer, answeredAt } = recording;
-  const open = answerableDecision(thread, decisionId, answer);
+  const { decisionId, answeredAt } = recording;
+  const open = answerableDecision(thread, recording);
   const decision = answered(open, recording);
   const without = withoutDecision(thread, decisionId);
   return {
@@ -779,7 +817,8 @@ export function recordDecisionAnswer(
 }
 
 /**
- * The Decision's Task was dropped: the open Decision is closed unanswered, so nobody waits on it,
+ * The Decision's Task was dropped, or, for one on no Task in an Initiative's Thread, its Initiative
+ * ended: the open Decision is closed unanswered, so nobody waits on it,
  * the user or a Consultant, and it can't be answered any more. Its card shows it closed. None for
  * a Decision the Thread doesn't wait on, answered or closed already.
  */
@@ -801,10 +840,13 @@ export function closeDecision(
 }
 
 /** The Thread's open Decision, when it is the one answered and the answer is one. */
-function answerableDecision(thread: Thread, decisionId: string, answer: DecisionAnswer): Decision {
+function answerableDecision(
+  thread: Thread,
+  { decisionId, answer, byTheOffice }: DecisionRecording,
+): Decision {
   const open = openDecisionOf(thread, decisionId);
   if (!open) throw new ThreadRefused(["This Decision is answered already."]);
-  const problems = answerProblems(open, answer);
+  const problems = answerProblems(open, answer, { byTheOffice });
   if (problems.length > 0) throw new ThreadRefused(problems);
   return open;
 }
@@ -998,6 +1040,108 @@ export function readRunningContext(
 }
 
 /**
+ * A session going on on a Stand-in Engine as its engine's usage window is used up (spec 5.4): the
+ * engines by their ids and their names now, the window by the engine port's name, the id of the
+ * line that says so, and in a person's Thread the person who went on.
+ */
+export interface SessionMoveToEngine {
+  readonly messageId: string;
+  readonly from: EngineId;
+  readonly to: EngineId;
+  readonly fromName: string;
+  readonly toName: string;
+  readonly window: string;
+  readonly resetsAt: Date;
+  /** The person who went on, in a person's Thread; undefined in a Stage Thread. */
+  readonly personName?: string;
+}
+
+/**
+ * Moves the Thread's session to the engine `to`, which it now stands in for `from` on, and logs the
+ * `engine-switched` line. The session's files are carried to `to` before, and it resumes there after.
+ */
+export function moveSessionToEngine(
+  thread: Thread,
+  { messageId, from, to, fromName, toName, window, resetsAt, personName }: SessionMoveToEngine,
+  movedAt: Date,
+): ThreadChange<ThreadSessionMovedToEngine> {
+  const { session } = thread;
+  if (session?.engineId !== from) {
+    throw new Error(`Thread ${thread.id}'s session doesn't run on the engine ${from}.`);
+  }
+  const words = {
+    fromName,
+    toName,
+    window,
+    resetsAt: resetsAt.toISOString(),
+    ...(personName !== undefined && { personName }),
+  };
+  const line: Message = {
+    id: messageId,
+    threadId: thread.id,
+    at: movedAt,
+    kind: "engine-switched",
+    ...words,
+  };
+  // A second switch still stands in for the engine the session first ran on, as the run does.
+  const original = session.standInFor ?? { engineId: from, engineName: fromName };
+  const { standInFor: _earlier, ...rest } = session;
+  const moved: Thread = {
+    ...thread,
+    session: {
+      ...rest,
+      engineId: to,
+      ...(original.engineId !== to && {
+        standInFor: {
+          engineId: original.engineId,
+          engineName: original.engineName,
+          reason: engineSwitchedWords(words),
+        },
+      }),
+    },
+  };
+  return {
+    thread: moved,
+    logged: [line],
+    event: new ThreadSessionMovedToEngine(moved, from, to, [line], movedAt),
+  };
+}
+
+/**
+ * Puts the Thread's session back on the engine it ran on before `moveSessionToEngine`, with the
+ * Stand-in it recorded then, when its resume on the Stand-in Engine failed: it is resumed there
+ * later. Logs nothing. Undefined when the session is no longer on `from`.
+ */
+export function moveSessionBack(
+  thread: Thread,
+  {
+    from,
+    to,
+  }: {
+    readonly from: EngineId;
+    readonly to: Pick<ThreadSession, "engineId" | "standInFor">;
+  },
+  movedAt: Date,
+): ThreadChange<ThreadSessionMovedToEngine> | undefined {
+  const { session } = thread;
+  if (session?.engineId !== from) return undefined;
+  const { standInFor: _moved, ...rest } = session;
+  const back: Thread = {
+    ...thread,
+    session: {
+      ...rest,
+      engineId: to.engineId,
+      ...(to.standInFor !== undefined && { standInFor: to.standInFor }),
+    },
+  };
+  return {
+    thread: back,
+    logged: [],
+    event: new ThreadSessionMovedToEngine(back, from, to.engineId, [], movedAt),
+  };
+}
+
+/**
  * A turn whose session ended before the engine counted it keeps the count made so far, as the
  * tokens it spent: the next turn, or the Stage's end, adds it to the ended turns'.
  */
@@ -1136,7 +1280,7 @@ export function passDecisionOn(
   // passed on to the user (spec §2.3).
   if (!isApproval(open) && open.roleKey !== undefined) {
     throw new ThreadRefused([
-      "Only an approval is passed on. Answer the question with one of its options or in your own words.",
+      "Only an approval is passed on. Answer its questions, each with one of its options or in your own words, or ask them to ask again.",
     ]);
   }
   if (reason.trim() === "") throw new ThreadRefused(["Say why you pass it on."]);

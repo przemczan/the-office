@@ -17,8 +17,10 @@ import { NewTaskDialog } from "../../shell/work/new-task-dialog.tsx";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { canBeArchived } from "../../shell/work/work-words.ts";
 import { canHoldBack } from "./dependency-words.ts";
+import { useBrowseInitiativeFilesActions } from "./browse-files.tsx";
 import { useRestoreInitiativeAction } from "./archive-parts.tsx";
 import { useInitiativePauseAction } from "./initiative-pause.tsx";
+import { usePlanWithAction } from "./initiative-plan-with.tsx";
 import { canPlanInitiative } from "./initiative-planning-words.ts";
 import { DropInitiativeDialog } from "./drop-initiative-dialog.tsx";
 import { AddExistingTaskDialog } from "./initiative-membership.tsx";
@@ -32,13 +34,15 @@ import { useRememberedAutoMode } from "./use-planning.ts";
 
 /**
  * The Initiative page's head actions (prototypes/app/work.js `initiativePage`): "Confirm the
- * Initiative" while shaping, Plan the Initiative while it is active with a Task in Backlog, the
- * link to its planning Thread once it has one, Start Ready Tasks while it is active with a Ready
- * Task, its answer going to `onStartedReadyTasks`, Pause the Initiative while it is active and
- * Resume the Initiative while it is paused, "Add a Task" while it is open (in the Project of
- * the Idea it was shaped from, if any, until it has Tasks) and "Add an existing Task" beside it,
- * one in no Initiative, and Restore while it is archived; then its menu, with each of these and
- * Copy link, Drop until it has ended, asking first in DropInitiativeDialog, and Archive once it has.
+ * Initiative" while shaping, Plan the Initiative and Plan with… while it is active with a Task in
+ * Backlog, the link to its planning Thread once it has one, Start Ready Tasks while it is active
+ * with a Ready Task, its answer going to `onStartedReadyTasks`, Pause the Initiative while it is
+ * active and Resume the Initiative while it is paused, "Add a Task" while it is open (in the
+ * Project of the Idea it was shaped from, if any, until it has Tasks) and "Add an existing Task"
+ * beside it, one in no Initiative, Browse files for each Project where its branch is known here,
+ * and Restore while it is archived; then its menu, with each of
+ * these and Copy link, Drop until it has ended, asking first in DropInitiativeDialog, and Archive
+ * once it has.
  */
 export function InitiativeActions({
   initiative,
@@ -58,6 +62,7 @@ export function InitiativeActions({
   const confirm = useConfirmAction(initiative);
   const planningThread = usePlanningThreadAction(initiative);
   const plan = usePlanTheInitiativeAction(initiative, initiativeTasks);
+  const planWith = usePlanWithAction(initiative, initiativeTasks);
   const startReadyTasks = useStartReadyTasksAction(
     initiative,
     initiativeTasks,
@@ -65,13 +70,16 @@ export function InitiativeActions({
   );
   const pause = useInitiativePauseAction(initiative);
   const restore = useRestoreInitiativeAction(initiative);
+  const browseFiles = useBrowseInitiativeFilesActions(initiative);
   const actions = [
     confirm,
     planningThread,
     plan,
+    planWith,
     startReadyTasks,
     pause,
     ...(open ? addingActions(setAdding) : []),
+    ...browseFiles,
     restore,
   ].filter((action) => action !== undefined);
   return (

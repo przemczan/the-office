@@ -6,6 +6,7 @@ import {
   carriedFailureWords,
   commandMarkWords,
   commandTimeWords,
+  engineSwitchWords,
   gateChoiceWords,
   openingRunTab,
   runBadge,
@@ -50,6 +51,8 @@ function aRun(fields: Partial<StageRun> = {}): StageRun {
     waitingSince: null,
     threadId: null,
     session: null,
+    engine: null,
+    engineSwitches: [],
     tokens: NO_TOKENS,
     context: null,
     carriedFailure: null,
@@ -96,7 +99,7 @@ describe("stageHistoryLine", () => {
 
   it("says a Script Stage's command and rule", () => {
     expect(stageHistoryLine(aTaskStage(tests), roles, names)).toBe(
-      "Project command · test · optional · on failure back to Implement, at most 3×",
+      "Project command · test · on failure back to Implement, at most 3×",
     );
   });
 
@@ -221,6 +224,7 @@ describe("runResultText", () => {
         windowWords: "5-hour window",
         resetsAt,
         sessionLeft: true,
+        standInChoice: null,
       },
     });
 
@@ -230,6 +234,32 @@ describe("runResultText", () => {
       `Paused: Claude Code's 5-hour window is used up until ${momentWords(resetsAt, new Date())}. `,
     );
     expect(text).not.toMatch(/UTC/);
+    expect(text).toMatch(/it goes on by itself once the window resets\.$/);
+  });
+
+  it("says a held run whose session is too large to switch waits for the user's choice", () => {
+    const resetsAt = "2026-11-13T14:00:00.000Z";
+    const outcome = failed({
+      interrupted: "usage-window",
+      refusedTurn: {
+        engineName: "Claude Code",
+        windowWords: "5-hour window",
+        resetsAt,
+        sessionLeft: true,
+        standInChoice: {
+          engineId: "claude-code-2",
+          engineName: "Claude Code 2",
+          contextTokens: 182_000,
+          askAbove: 100_000,
+        },
+      },
+    });
+
+    const text = runResultText(aTaskStage(implement), aRun({ outcome }));
+
+    expect(text).toBe(
+      `Paused: Claude Code's 5-hour window is used up until ${momentWords(resetsAt, new Date())}. The engine refused the Agent's turn, which is no failure: the Stage's uncommitted edits stay in the worktree. Its context of 182,000 tokens is over the 100,000 set in Settings › Engines, so it waits for your choice to go on on Claude Code 2, or the reset.`,
+    );
   });
 
   it("gives a failure's whole error, or the budget it reached", () => {
@@ -254,6 +284,42 @@ describe("runResultText", () => {
     expect(runResultText(aTaskStage(look), aRun({ outcome }))).toBeUndefined();
     expect(runResultText(aTaskStage(look, { state: "waiting-on-you" }), aRun())).toMatch(/^Waits/);
     expect(runResultText(aTaskStage(implement, { state: "running" }), aRun())).toBe("Working now.");
+  });
+});
+
+describe("engineSwitchWords", () => {
+  it("says which window was used up, until when in local time, and where the Stage went on", () => {
+    const resetsAt = "2026-11-13T14:00:00.000Z";
+    const words = engineSwitchWords({
+      fromEngineId: "claude-code",
+      fromEngineName: "Claude Code",
+      toEngineId: "claude-code-2",
+      toEngineName: "Claude Code 2",
+      windowWords: "5-hour window",
+      resetsAt,
+      at: "2026-11-13T11:00:00.000Z",
+      chosenBy: null,
+    });
+
+    expect(words).toBe(
+      `Claude Code's 5-hour window was used up until ${momentWords(resetsAt, new Date())}, so the Stage went on on Claude Code 2`,
+    );
+    expect(words).not.toMatch(/UTC/);
+  });
+
+  it("names the user who chose the switch for a run that waited for their choice", () => {
+    const words = engineSwitchWords({
+      fromEngineId: "claude-code",
+      fromEngineName: "Claude Code",
+      toEngineId: "claude-code-2",
+      toEngineName: "Claude Code 2",
+      windowWords: "5-hour window",
+      resetsAt: "2026-11-13T14:00:00.000Z",
+      at: "2026-11-13T11:00:00.000Z",
+      chosenBy: { userId: "ann", name: "Ann Lee" },
+    });
+
+    expect(words).toMatch(/, so the Stage went on on Claude Code 2, as the user Ann Lee chose$/);
   });
 });
 
@@ -312,7 +378,22 @@ describe("a run's other words", () => {
     } as const;
     expect(commandMarkWords({ ...run, outcome: "passed" })).toBe("passed");
     expect(commandMarkWords({ ...run, outcome: "could-not-run" })).toBe("could not run");
-    expect(commandTimeWords({ ...run, purpose: "command" })).toBe("2m");
-    expect(commandTimeWords({ ...run, purpose: "re-run" })).toBe("re-run · 2m");
+    expect(commandTimeWords({ ...run, purpose: "command" }, names)).toBe("2m");
+    expect(commandTimeWords({ ...run, purpose: "re-run" }, names)).toBe("re-run · 2m");
+  });
+
+  it("says which route a condition's command, and the install before it, ran for", () => {
+    const run = { commandLine: "npm run lint", durationMs: 12_000, outcome: "passed" } as const;
+    const toReview = { to: "review" };
+
+    expect(commandTimeWords({ ...run, purpose: "condition", condition: toReview }, names)).toBe(
+      `condition for the route to ${names("review")} · 12s`,
+    );
+    expect(commandTimeWords({ ...run, purpose: "install", condition: toReview }, names)).toBe(
+      `install for the condition of the route to ${names("review")} · 12s`,
+    );
+    expect(commandTimeWords({ ...run, purpose: "condition", condition: { to: null } }, names)).toBe(
+      "condition for the route to End · 12s",
+    );
   });
 });

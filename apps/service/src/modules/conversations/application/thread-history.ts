@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { readEach } from "../../../platform/database/fan-out.js";
 import { RoleCards } from "../../people/index.js";
 import type { Decision } from "../domain/decision.js";
 import type { Message } from "../domain/message.js";
@@ -168,10 +169,13 @@ export class ThreadHistory {
   /** What the messages' words name: each person, Decision and Proposal, read once. */
   private async recordsOf(logged: readonly LoggedMessage[]): Promise<HistoryRecords> {
     const messages = logged.map(({ message }) => message);
-    const decisions = await readEach(idsOf(messages, "decision"), (id) =>
-      this.threads.decision(id),
+    const decisions = new Map(
+      (await this.threads.decisionsWithIds(idsOf(messages, "decision"))).map((decision) => [
+        decision.id,
+        decision,
+      ]),
     );
-    const proposals = await readEach(idsOf(messages, "proposal"), (id) =>
+    const proposals = await recordsByKey(idsOf(messages, "proposal"), (id) =>
       this.threads.proposal(id),
     );
     const roleKeys = new Set([
@@ -181,7 +185,7 @@ export class ThreadHistory {
         answer?.answeredBy === undefined ? [] : [answer.answeredBy],
       ),
     ]);
-    const people = await readEach([...roleKeys], (roleKey) => this.personOf(roleKey));
+    const people = await recordsByKey([...roleKeys], (roleKey) => this.personOf(roleKey));
     return {
       person: (roleKey) => people.get(roleKey) ?? roleKey,
       decision: (id): Decision | undefined => decisions.get(id),
@@ -195,8 +199,9 @@ export class ThreadHistory {
     records: HistoryRecords,
   ): Promise<ReadonlyMap<string, string>> {
     const threads = [...new Map(logged.map(({ thread }) => [thread.id, thread])).values()];
-    const subjects = await Promise.all(
-      threads.map(async (thread) => [thread.id, await this.subjectOf(thread, records)] as const),
+    const subjects = await readEach(
+      threads,
+      async (thread) => [thread.id, await this.subjectOf(thread, records)] as const,
     );
     return new Map(subjects);
   }
@@ -274,12 +279,12 @@ function roleKeysNamedBy(message: Message): string[] {
   return message.kind === "link-card" ? [...writer, message.to] : writer;
 }
 
-/** Each key's record, read at once, leaving out the keys with none. */
-async function readEach<Value>(
+/** Each key's record, leaving out the keys with none. */
+async function recordsByKey<Value>(
   keys: readonly string[],
   read: (key: string) => Promise<Value | undefined>,
 ): Promise<Map<string, Value>> {
-  const entries = await Promise.all(keys.map(async (key) => [key, await read(key)] as const));
+  const entries = await readEach(keys, async (key) => [key, await read(key)] as const);
   return new Map(
     entries.flatMap(([key, value]) => (value === undefined ? [] : [[key, value] as const])),
   );

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { allowedCommands, commandKeyRefusal, stageProjectCommands } from "./allowed-commands.js";
+import { defaultPromptTexts } from "../../prompt-templates/index.js";
+import { PIPELINES_PROMPT_TEMPLATES } from "./pipelines-prompt-templates.js";
+
+const prompts = defaultPromptTexts(PIPELINES_PROMPT_TEMPLATES);
 
 const GIT = ["status", "diff"];
 const COMMANDS = [
@@ -39,7 +43,7 @@ describe("stageProjectCommands", () => {
 
 describe("allowedCommands with a narrowing", () => {
   it("under the Project's own commands, allows and names only the narrowed lines", () => {
-    expect(allowedCommands("project-commands", THE_OFFICE, ["test"], GIT)).toEqual({
+    expect(allowedCommands(prompts, "project-commands", THE_OFFICE, ["test"], GIT)).toEqual({
       permission: { kind: "project-commands", commandLines: ["npm run verify"] },
       words:
         "You may run the Project's commands, exactly as written, and read-only git (git status, git diff):\n\n- test (Tests): `npm run verify`",
@@ -47,7 +51,7 @@ describe("allowedCommands with a narrowing", () => {
   });
 
   it("under the Project's own commands, falls back to git when none of the listed keys is set", () => {
-    expect(allowedCommands("project-commands", COMMANDS, ["lint"], GIT)).toEqual({
+    expect(allowedCommands(prompts, "project-commands", COMMANDS, ["lint"], GIT)).toEqual({
       permission: { kind: "project-commands", commandLines: [] },
       words:
         "None of the Project's commands is for this Stage, so you may run read-only git (git status, git diff) only.",
@@ -55,7 +59,7 @@ describe("allowedCommands with a narrowing", () => {
   });
 
   it("under anything, names the commands to run and the others as not for this Stage", () => {
-    expect(allowedCommands("anything", THE_OFFICE, ["test"], GIT)).toEqual({
+    expect(allowedCommands(prompts, "anything", THE_OFFICE, ["test"], GIT)).toEqual({
       permission: { kind: "anything" },
       words:
         "You may run any command in the worktree, but no git command that changes anything: besides read-only git (git status, git diff), git is The Office's.\n\nOf the Project's own commands, run only these, by their key with run_project_command or exactly as written:\n\n- test (Tests): `npm run verify`\n\nThe others (test-full) are not for this Stage.",
@@ -63,14 +67,14 @@ describe("allowedCommands with a narrowing", () => {
   });
 
   it("under anything, leaves the others out when the Stage keeps every set command", () => {
-    expect(allowedCommands("anything", THE_OFFICE, ["test", "test-full"], GIT).words).not.toContain(
-      "The others",
-    );
+    expect(
+      allowedCommands(prompts, "anything", THE_OFFICE, ["test", "test-full"], GIT).words,
+    ).not.toContain("The others");
   });
 
   it("under read-only git, doesn't change the words", () => {
-    expect(allowedCommands("read-only-git", COMMANDS, ["test"], GIT)).toEqual(
-      allowedCommands("read-only-git", COMMANDS, undefined, GIT),
+    expect(allowedCommands(prompts, "read-only-git", COMMANDS, ["test"], GIT)).toEqual(
+      allowedCommands(prompts, "read-only-git", COMMANDS, undefined, GIT),
     );
   });
 });

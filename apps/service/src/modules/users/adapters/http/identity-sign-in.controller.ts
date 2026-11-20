@@ -33,9 +33,10 @@ import { UserRefusalsFilter } from "./user-refusals.filter.js";
 const SIGN_IN_PATH = "/sign-in";
 
 /**
- * Continue with GitHub and Continue with Google (spec §2.10), under `/sign-in`, which the guard
- * leaves open: each sign-in's start, with a trip cookie, and the one callback each provider sends
- * the browser back to, for signing in and for linking alike, which redirects on every outcome.
+ * Continue with GitHub, Google and the OpenID Connect provider (spec §2.10), under `/sign-in`,
+ * which the guard leaves open: each sign-in's start, with a trip cookie, and the one callback each
+ * provider sends the browser back to, for signing in and for linking alike, which redirects on
+ * every outcome.
  * Each provider has its own explicit routes, so none shadows `/sign-in/password`.
  */
 @Controller("sign-in")
@@ -87,6 +88,27 @@ export class IdentitySignInController {
     @Res() response: Response,
   ): Promise<void> {
     return this.returned("google", { code, state, error }, request, response);
+  }
+
+  @Post("openid-connect")
+  @HttpCode(200)
+  startOpenIdConnect(
+    @Body(new ContractPipe(identitySignInSchema)) { returnTo }: IdentitySignIn,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<IdentityAuthorization> {
+    return this.start("openid-connect", returnTo, request, response);
+  }
+
+  @Get("openid-connect/callback")
+  openIdConnectReturned(
+    @Query("code") code: unknown,
+    @Query("state") state: unknown,
+    @Query("error") error: unknown,
+    @Req() request: Request,
+    @Res() response: Response,
+  ): Promise<void> {
+    return this.returned("openid-connect", { code, state, error }, request, response);
   }
 
   private async start(

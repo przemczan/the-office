@@ -1,5 +1,7 @@
 import { Injectable } from "@nestjs/common";
+import { PromptTemplates } from "../../prompt-templates/index.js";
 import { earlierResults, stageResultWords } from "../domain/agent-stage-brief.js";
+import { EARLIER_STAGE_RESULT } from "../domain/agent-stage-brief-templates.js";
 import type { Stage } from "../domain/stage.js";
 import type { StageRun } from "../domain/stage-run.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
@@ -21,6 +23,7 @@ export class StageResultWords {
   constructor(
     private readonly runs: StageRunRepository,
     private readonly taskStages: TaskStagesRepository,
+    private readonly promptTemplates: PromptTemplates,
   ) {}
 
   /** Every run's result, and the Handover notes of `roleKey`'s runs, in the order they ran. */
@@ -30,7 +33,7 @@ export class StageResultWords {
   ): Promise<{ readonly lines: readonly string[]; readonly handoverNotes: readonly string[] }> {
     const { stages, runs } = await this.read(taskId);
     return {
-      lines: earlierResults(stages, runs).map(stageResultWords),
+      lines: await this.linesOf(stages, runs),
       handoverNotes: handoverNotesOf(stages, runs)
         .filter((handover) => handover.roleKey === roleKey)
         .map(({ note }) => note),
@@ -44,9 +47,15 @@ export class StageResultWords {
   }> {
     const { stages, runs } = await this.read(taskId);
     return {
-      lines: earlierResults(stages, runs).map(stageResultWords),
+      lines: await this.linesOf(stages, runs),
       handoverNotes: handoverNotesOf(stages, runs),
     };
+  }
+
+  /** Each run's result as a line, as the earlier Stage's result template words it now. */
+  private async linesOf(stages: readonly Stage[], runs: readonly StageRun[]): Promise<string[]> {
+    const prompts = await this.promptTemplates.textsOf([EARLIER_STAGE_RESULT]);
+    return earlierResults(stages, runs).map((result) => stageResultWords(prompts, result));
   }
 
   private async read(

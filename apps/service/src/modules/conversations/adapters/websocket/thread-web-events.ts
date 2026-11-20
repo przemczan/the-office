@@ -20,6 +20,7 @@ import {
   SubAgentOrProcessChanged,
   ThreadRenamed,
   ThreadSeen,
+  ThreadSessionMovedToEngine,
   ThreadStarted,
   TokensCounted,
   TurnEnded,
@@ -39,7 +40,8 @@ type WebEventOf<Type extends ThreadWebEvent["type"]> = Omit<
 >;
 
 /**
- * Every Conversations event reaches the web, naming the Thread and its home, so open pages refetch;
+ * Every Conversations event reaches the web, naming the Thread and its home, so the open pages
+ * showing that Thread or its home's list refetch;
  * a count of tokens carries them, for the pages to show without refetching. A new size threshold
  * names no Thread: every label may change. Nor do new Office instructions, which only Settings and
  * a Proposal's card show.
@@ -65,6 +67,14 @@ export class ThreadWebEvents implements OnModuleInit {
       type: "thread.messages-logged",
       ...namesOf(event.thread),
     }));
+    // The web reads the Thread again, its `engine-switched` line and session's engine with it.
+    this.forwarding.forward(
+      ThreadSessionMovedToEngine,
+      (event): WebEventOf<"thread.messages-logged"> => ({
+        type: "thread.messages-logged",
+        ...namesOf(event.thread),
+      }),
+    );
     this.forwarding.forward(DeliveryMarked, (event): WebEventOf<"thread.delivery-marked"> => ({
       type: "thread.delivery-marked",
       ...namesOf(event.thread),

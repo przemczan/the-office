@@ -19,7 +19,50 @@ export interface GitHubAppManifest {
   readonly request_oauth_on_install: false;
   readonly description: string;
   readonly public: false;
-  readonly default_permissions: Readonly<Record<string, "read" | "write">>;
+  readonly default_permissions: Readonly<Record<string, PermissionLevel>>;
+}
+
+/** A level the App asks for a permission at. */
+export type PermissionLevel = "read" | "write";
+
+/**
+ * The permissions the App needs, by GitHub's names: cloning, pushing and pull requests, pushing a
+ * branch that changes workflows, reading a pull request's checks and commit statuses, and running
+ * workflows again. An App registered before one was added lacks it until its owner adds it on
+ * GitHub and each installation accepts it.
+ */
+export const REQUIRED_PERMISSIONS: Readonly<Record<string, PermissionLevel>> = {
+  metadata: "read",
+  contents: "write",
+  pull_requests: "write",
+  workflows: "write",
+  checks: "read",
+  statuses: "read",
+  actions: "write",
+};
+
+/** One permission the App needs that an installation hasn't granted at its level. */
+export interface MissingPermission {
+  readonly name: string;
+  readonly level: PermissionLevel;
+}
+
+/** GitHub's levels, each granting what the ones below it do. */
+const LEVEL_RANKS: Readonly<Record<string, number>> = { read: 1, write: 2, admin: 3 };
+
+/**
+ * The required permissions `granted`, an installation's permissions by name and level, lacks: a
+ * level satisfies one equal or lower (write grants read, admin write). A level GitHub may add that
+ * The Office doesn't know satisfies none.
+ */
+export function missingPermissions(
+  granted: Readonly<Record<string, string>>,
+): readonly MissingPermission[] {
+  return Object.entries(REQUIRED_PERMISSIONS).flatMap(([name, level]) => {
+    const grantedLevel = granted[name];
+    const rank = grantedLevel === undefined ? 0 : (LEVEL_RANKS[grantedLevel] ?? 0);
+    return rank >= (LEVEL_RANKS[level] ?? 0) ? [] : [{ name, level }];
+  });
 }
 
 /**
@@ -51,12 +94,7 @@ export function gitHubAppManifest(
     request_oauth_on_install: false,
     description: "Sign in with GitHub for The Office: clones, fetches, pushes and pull requests.",
     public: false,
-    default_permissions: {
-      metadata: "read",
-      contents: "write",
-      pull_requests: "write",
-      workflows: "write",
-    },
+    default_permissions: REQUIRED_PERMISSIONS,
   };
 }
 

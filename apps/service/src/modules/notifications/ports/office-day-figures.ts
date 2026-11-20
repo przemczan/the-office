@@ -20,4 +20,9 @@ export abstract class OfficeDayFigures {
   abstract countThreadTokens(threadId: string, tokens: ThreadTokens, day: string): Promise<void>;
   /** Every kind; which of them a count shows is the web's (spec 2.7, "Today's figures"). */
   abstract tokensOn(day: string): Promise<TokenKinds>;
+  /** Each day from `firstDay` to `lastDay`, both included, that has a count; a day with none is left out. */
+  abstract tokensBetween(
+    firstDay: string,
+    lastDay: string,
+  ): Promise<ReadonlyMap<string, TokenKinds>>;
 }

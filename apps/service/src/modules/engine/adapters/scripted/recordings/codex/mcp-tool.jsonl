@@ -1,0 +1,30 @@
+{"step":"start","brief":{"id":"c75bc759-c58b-406f-a662-5be394e97386","text":"Use the tools of the fake MCP server, each once, in this order: environment-variable with the name FAKE_SERVER_VALUE, started-process, and echo with the text hi. If a call is refused, do not try it again; then reply with the single word: done"}}
+{"step":"event","event":{"kind":"text","text":"I’ll call the fake MCP tools in the requested order, stopping if any call is refused.","withinToolCall":null}}
+{"step":"event","event":{"kind":"context-read","tokens":8867}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":8867,"output":61,"cacheRead":0,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"tool-call","callId":"exec-41f2849c-95e9-437e-8651-a5c18d441834","tool":"mcp__fake__environment-variable","officeTool":false,"input":{"name":"FAKE_SERVER_VALUE"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"exec-41f2849c-95e9-437e-8651-a5c18d441834","text":"kumquat","isError":false,"withinToolCall":null}}
+{"step":"event","event":{"kind":"context-read","tokens":9144}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":9307,"output":94,"cacheRead":8704,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"tool-call","callId":"exec-0aef97aa-ad77-43da-81a7-1a3bdeafa77a","tool":"mcp__fake__started-process","officeTool":false,"input":{},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"exec-0aef97aa-ad77-43da-81a7-1a3bdeafa77a","text":"880448","isError":false,"withinToolCall":null}}
+{"step":"event","event":{"kind":"context-read","tokens":9219}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":9566,"output":120,"cacheRead":17664,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"tool-call","callId":"exec-089d9545-8f90-408e-acca-6966ddbf7798","tool":"mcp__fake__echo","officeTool":false,"input":{"text":"hi"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-refused","callId":"exec-089d9545-8f90-408e-acca-6966ddbf7798","tool":"mcp__fake__echo","reason":"Not allowed in this session: the fake/echo MCP tool.","refusedBy":"office-rules"}}
+{"step":"event","event":{"kind":"tool-result","callId":"exec-089d9545-8f90-408e-acca-6966ddbf7798","text":"Not allowed in this session: the fake/echo MCP tool.","isError":true,"withinToolCall":null}}
+{"step":"event","event":{"kind":"context-read","tokens":9287}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":9765,"output":149,"cacheRead":26752,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"context-read","tokens":9372}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":10049,"output":180,"cacheRead":35840,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"text","text":"done","withinToolCall":null}}
+{"step":"event","event":{"kind":"context-read","tokens":9448}}
+{"step":"event","event":{"kind":"turn-tokens","soFar":{"input":19497,"output":185,"cacheRead":35840,"cacheCreation":0}}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","window":"codex","resetsAt":"2026-12-16T23:09:09.000Z"}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["c75bc759-c58b-406f-a662-5be394e97386"],"usage":{"input":19497,"output":185,"cacheRead":35840,"cacheCreation":0},"sessionCostUsd":0,"output":null,"errors":[]}}
+{"step":"end"}

@@ -1,15 +1,24 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import type { Pipeline, Project, Task, Thread } from "@the-office/contracts";
-import { Tabs } from "@the-office/ui";
+import { Badge, Skeleton, Tabs, Tooltip } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
-import { useEveryPipeline } from "../../shell/pipelines/use-pipelines.ts";
+import { BlockLoader, type BlockRead } from "../../shell/block-loader.tsx";
+import { useEveryPipelineRead } from "../../shell/pipelines/use-pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { attachmentQueries, taskQueries } from "../../api/work.ts";
 import { stoppedAtCurrentStage } from "./stage-rail-words.ts";
-import { PIPELINE_NOT_CHOSEN, pipelineLabel, REMOVED_PIPELINE, taskTokens } from "./stage-words.ts";
+import {
+  engineStandInsReasons,
+  engineStandInsShown,
+  engineStandInsWords,
+  PIPELINE_NOT_CHOSEN,
+  pipelineLabel,
+  REMOVED_PIPELINE,
+  taskTokens,
+} from "./stage-words.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { PriorityGlyph, TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
@@ -19,7 +28,7 @@ import { ArchivedBadge } from "./archive-parts.tsx";
 import { AttachmentsBlock } from "./attachments-block.tsx";
 import { ConversationDrawerProvider } from "./conversation-drawer.tsx";
 import { MissingRecord } from "./missing-record.tsx";
-import { PipelineRail } from "./pipeline-rail.tsx";
+import { PipelineRail, RailLoader } from "./pipeline-rail.tsx";
 import { NeedsYouCard } from "./needs-you-card.tsx";
 import { RecordActions } from "./record-actions.tsx";
 import { RECORD_ELEMENT_ID, recordTabOf, type RecordTab } from "../../shell/work/record-tab.ts";
@@ -32,6 +41,7 @@ import { TaskMenu } from "./task-menu.tsx";
 import { TaskRecord } from "./task-record.tsx";
 import { TaskTags } from "./task-tags.tsx";
 import { TokenCount, TokenMeter } from "../../shell/token-count.tsx";
+import { WorkTabs } from "./work-tabs.tsx";
 
 /**
  * The Task page (prototypes/app/task.js): its head, Pipeline rail and Needs you card across the
@@ -43,7 +53,7 @@ export function TaskPage(): ReactNode {
   const { taskThread, decision, recordTab } = useSearch({ from: "/tasks/$taskId" });
   const task = useQuery(taskQueries.one(taskId));
   const projects = useQuery(projectQueries.list());
-  const pipelines = useEveryPipeline();
+  const { pipelines, reads: pipelineReads } = useEveryPipelineRead();
   const threads = useQuery(threadQueries.onTask(taskId));
   usePageHeading({
     title: task.data?.title ?? "Work",
@@ -53,16 +63,24 @@ export function TaskPage(): ReactNode {
   if (task.error) return <MissingRecord error={task.error} kind="Task" />;
   const record = task.data;
   // Without the Pipelines a Pipeline they don't have would read as removed.
-  if (!record || !pipelines) return null;
+  if (!record || !pipelines) {
+    return (
+      <div className="task-page">
+        <WorkTabs shown="tasks" />
+        <TaskPageLoader pipelineReads={pipelineReads} />
+      </div>
+    );
+  }
   const pipeline = pipelines.find(({ id }) => id === record.pipelineId);
   return (
+    // The tabs stay inside the page's first element, which the conversation's fit watches.
     <div className="task-page">
+      <WorkTabs shown="tasks" />
       <TaskHead task={record} projects={projects.data} pipeline={pipeline} threads={threads.data} />
       <TaskBody
         key={record.id}
         task={record}
         pipeline={pipeline}
-        threads={threads.data}
         taskThread={taskThread}
         decisionId={decision}
         recordTab={recordTab}
@@ -78,14 +96,12 @@ export function TaskPage(): ReactNode {
 function TaskBody({
   task,
   pipeline,
-  threads,
   taskThread,
   decisionId,
   recordTab,
 }: {
   readonly task: Task;
   readonly pipeline: Pipeline | undefined;
-  readonly threads: readonly Thread[] | undefined;
   readonly taskThread: string | undefined;
   readonly decisionId: string | undefined;
   readonly recordTab: RecordTab | undefined;
@@ -110,12 +126,41 @@ function TaskBody({
         </div>
         <TaskConversation
           task={task}
-          threads={threads}
           onShowStage={stageHistory.show}
           asked={stageHistory.askedThread}
         />
       </div>
     </ConversationDrawerProvider>
+  );
+}
+
+/**
+ * The page's frame until the Task and the Pipelines are read, shaped as the page: the head, the
+ * rail, the record beside the conversation. The Task's own failure shows as MissingRecord instead.
+ */
+function TaskPageLoader({
+  pipelineReads,
+}: {
+  readonly pipelineReads: readonly BlockRead[];
+}): ReactNode {
+  return (
+    <>
+      {/* Part of the record's loader for screen readers, which says the Task loads. */}
+      <div className="block-loader task-head-loader">
+        <Skeleton width={120} height={10} />
+        <Skeleton width="46%" height={22} />
+        <Skeleton width="34%" height={12} />
+      </div>
+      <RailLoader reads={pipelineReads} />
+      <div className="task-columns">
+        <div className="task-record-column">
+          <BlockLoader shape="text" label="Loading the Task…" />
+        </div>
+        <div className="task-conversation task-conversation-loading">
+          <BlockLoader shape="turns" label="Loading the conversation…" />
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -176,6 +221,7 @@ function TaskHead({
           />
           {waitingOnYou(task) && <TaskStateBadge state="waiting-on-you" />}
           <ArchivedBadge record={task} />
+          <EngineStandInsMark task={task} />
         </div>
         <div className="task-head-meta">
           <span className="task-head-priority">
@@ -196,6 +242,17 @@ function TaskHead({
       </div>
       <StartNotes task={task} />
     </header>
+  );
+}
+
+/** While a started Task's run works on Stand-in Engines, which and for what, with why on hover. */
+export function EngineStandInsMark({ task }: { readonly task: Task }): ReactNode {
+  const standIns = engineStandInsShown(task);
+  if (standIns.length === 0) return null;
+  return (
+    <Tooltip content={engineStandInsReasons(standIns)} focusable>
+      <Badge tone="info">{engineStandInsWords(standIns)}</Badge>
+    </Tooltip>
   );
 }
 

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
+import { straightLineFlow } from "../domain/flow.js";
 import type { Stage } from "../domain/stage.js";
 import type { StagePermissions } from "../domain/stage-permissions.js";
 import { aStageRun } from "../domain/stage-run.fixtures.js";
@@ -9,7 +10,9 @@ import {
   startPipelinesApplication,
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
+import { KnownPeople } from "../ports/known-people.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
+import { TaskStagesRepository } from "../ports/task-stages-repository.js";
 import { TaskStagesService } from "./task-stages-service.js";
 import { quickFix, withGate, refusalOf } from "./task-stages-service.fixtures.js";
 
@@ -49,6 +52,20 @@ describe("TaskStagesService", () => {
     });
     expect(eventsOf(TaskStagesMade)).toMatchObject([{ taskId, pipelineId: "quick-fix" }]);
   });
+
+  it("reads who holds the duties the Stages name in one read, not one per duty", async () => {
+    const people = pipelines.app.get(KnownPeople);
+    const holderOf = vi.spyOn(people, "holderOf");
+    const dutyHolders = vi.spyOn(people, "dutyHolders");
+    const taskId = aTask("in-progress", "full");
+    await service.make(taskId, "full");
+
+    const progress = await service.progress(taskId);
+
+    expect(progress?.stages.some(({ stage }) => stage.kind === "agent" && stage.duty)).toBe(true);
+    expect(holderOf).not.toHaveBeenCalled();
+    expect(dutyHolders).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("Edit for this Task", () => {
@@ -60,7 +77,7 @@ describe("Edit for this Task", () => {
     expect(progress.editedForTask).toBe(true);
     expect(progress.stages.map(({ stage }) => stage.key)).toEqual(withGate.map(({ key }) => key));
     expect(eventsOf(TaskStagesEdited)).toMatchObject([{ taskId, pipelineId: "quick-fix" }]);
-    expect((await service.make(taskId, "quick-fix")).stages).toEqual(withGate);
+    expect((await service.make(taskId, "quick-fix")).stages).toEqual(straightLineFlow(withGate));
   });
 
   it("changes a running Task's Stages after the started ones, and refuses changing those", async () => {
@@ -83,7 +100,7 @@ describe("Edit for this Task", () => {
       await refusalOf(
         service.edit(taskId, [{ ...implement, effort: "low" }, ...withGate.slice(1)]),
       ),
-    ).toEqual(["Stage 1 · Implement: it has started, so it stays as it is, where it is."]);
+    ).toEqual(["Stage 1 · Implement: it has started, so it stays as it is."]);
   });
 
   it("refuses Stage permissions wider than the Role card's, and keeps those that narrow it", async () => {
@@ -111,7 +128,7 @@ describe("Edit for this Task", () => {
       mcpTools: { "github/merge": { kind: "never" } },
     });
     await service.edit(taskId, narrowing);
-    expect((await service.find(taskId))?.stages).toEqual(narrowing);
+    expect((await service.find(taskId))?.stages).toEqual(straightLineFlow(narrowing));
   });
 
   it("refuses a Script Stage whose command the Task's Project lacks", async () => {
@@ -131,6 +148,33 @@ describe("Edit for this Task", () => {
 
     expect(await refusalOf(service.edit(aTask(), [...quickFix, fullTests]))).toEqual([
       `Stage ${quickFix.length + 1} · Full tests: its Project, Site, has no command test-full.`,
+    ]);
+  });
+
+  it("leaves a started Stage's permissions and commands unchecked, as it keeps what it ran with", async () => {
+    pipelines.projects.projects.push({
+      id: "test-project",
+      name: "Site",
+      defaultPipeline: "full",
+      commands: [{ key: "build" }, { key: "test" }],
+    });
+    const [implement, ...rest] = quickFix;
+    if (implement?.kind !== "agent") throw new Error("Quick fix starts with an Agent Stage.");
+    const kept: Stage[] = [
+      { ...implement, permissions: { run: "anything", commands: ["test-full"] } },
+      ...rest,
+    ];
+    const taskId = aTask("in-progress");
+    const own = await service.make(taskId, "quick-fix");
+    await pipelines.app.get(TaskStagesRepository).save({ ...own, stages: straightLineFlow(kept) });
+    await pipelines.app
+      .get(StageRunRepository)
+      .saveNew(aStageRun({ id: randomUUID(), taskId, stageKey: "implement" }));
+
+    expect((await service.edit(taskId, kept)).editedForTask).toBe(true);
+    expect(await refusalOf(service.edit(aTask(), kept))).toEqual([
+      "Stage 1 · Implement: the run permission can only be narrowed from the Role card's.",
+      "Stage 1 · Implement: its Project, Site, has no command test-full.",
     ]);
   });
 });

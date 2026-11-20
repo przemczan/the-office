@@ -5,8 +5,14 @@ import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { EngineDown, SkillCalled } from "../domain/engine-events.js";
 import { calledSkill, skillNameOf } from "../domain/skill-calls.js";
 import { BusyWork } from "../../office-updates/index.js";
-import type { Engine, EngineId, EngineModel } from "../domain/engines.js";
+import {
+  hasUsageWindows,
+  type Engine,
+  type EngineId,
+  type EngineModel,
+} from "../domain/engines.js";
 import { withLeftOutLanguageServers } from "../domain/language-servers.js";
+import { engineToRunOn } from "../domain/stand-in-engines.js";
 import type { UsageWindows } from "../domain/usage-windows.js";
 import {
   CapabilityMissing,
@@ -24,8 +30,6 @@ import type {
   UserMessage,
 } from "../ports/engine-session.js";
 import {
-  addedTokens,
-  NO_TOKENS,
   type SessionEvent,
   type TokenUsage,
   type TurnEndedEvent,
@@ -37,12 +41,17 @@ import {
 import type { SessionOptions } from "../ports/session-options.js";
 import { AgentEngines } from "./agent-engines.js";
 import { EngineModels } from "./engine-models.js";
+import { ModelPrices } from "./model-prices.js";
 import { DayUsage } from "./day-usage.js";
 import { EngineCallSpans, SessionCosts, type SessionTelemetry } from "./engine-call-spans.js";
 import { OfficeToolRegistry } from "./office-tool-registry.js";
 import { RunningEngineSessions } from "./running-engine-sessions.js";
-import { UsageWindowSamples } from "./usage-window-samples.js";
-import { UsageWindowState, type UsageWindowReading } from "./usage-window-state.js";
+import { UsageWindowReadings } from "./usage-window-readings.js";
+import {
+  UsageWindowState,
+  type UsageWindowReading,
+  type UsedUpUsageWindow,
+} from "./usage-window-state.js";
 
 /**
  * What a caller runs a session with: the engine by its id and the model by its id there, which a
@@ -71,18 +80,16 @@ export interface SessionStart {
 }
 
 /**
- * Runs sessions on the engine each names for the other modules, and watches each: a span per engine call
- * with its tokens and cost, the usage windows read on each rate-limit signal and when a caller
- * asks, paired Office-wide into what the windows move by per token, the Office's tokens so far on
- * each engine, each day's use, and an "engine down" event when
- * the engine can't start a session or stops running one (spec §5.4).
+ * Runs sessions on the engine each names for the other modules, and watches each: a span and a log
+ * record per engine call with its tokens and its cost estimated from Model prices, the usage
+ * windows read on each rate-limit signal and when a caller asks, paired Office-wide into what the
+ * windows move by per token, the Office's tokens so far on each engine, each day's use, and an
+ * "engine down" event when the engine can't start a session or stops running one (spec §5.4).
  */
 @Injectable()
 export class EngineSessions {
   private readonly logger = new Logger(EngineSessions.name);
   private readonly costs = new SessionCosts();
-  /** Every turn's tokens on each engine since the service started, which its readings carry. */
-  private readonly officeTokensSoFar = new Map<EngineId, TokenUsage>();
 
   constructor(
     private readonly engines: AgentEngines,
@@ -91,11 +98,12 @@ export class EngineSessions {
     private readonly usageWindows: UsageWindowState,
     private readonly officeTools: OfficeToolRegistry,
     private readonly dayUsage: DayUsage,
-    private readonly windowSamples: UsageWindowSamples,
+    private readonly readings: UsageWindowReadings,
     private readonly engineModels: EngineModels,
     private readonly running: RunningEngineSessions,
     private readonly busyWork: BusyWork,
     private readonly languageServers: SessionLanguageServers,
+    private readonly prices: ModelPrices,
   ) {}
 
   /** What the engine listed as `engineId` can do; refused when Settings › Engines lists none. */
@@ -114,9 +122,9 @@ export class EngineSessions {
     return (await this.find(engineId))?.name ?? engineId;
   }
 
-  /** Whether `engine`'s sessions read its account's usage windows. */
+  /** Whether `engine`'s sessions read its account's usage windows: it has them and reads them. */
   readsUsageWindows(engine: Engine): boolean {
-    return this.engines.of(engine).capabilities.usageWindows;
+    return this.engines.readsUsageWindows(engine);
   }
 
   /** What `engine` declares it can't do, which the Role card names under its Engine field. */
@@ -162,6 +170,69 @@ export class EngineSessions {
         engine.resume(sessionId, options),
       );
     });
+  }
+
+  /**
+   * Carries the session `sessionId` over from the engine listed as `fromId` to the one listed as
+   * `toId`, so a resume on `toId` goes on with its conversation (a Stand-in Engine taking over a
+   * Stage, spec §5.4). Only called for an idle session, after its turn was refused and its engine
+   * session ended: nothing may write its transcript meanwhile. Both engines must be listed
+   * (`EngineNotListed`), Claude Code engines with the `carrySession` capability (`CapabilityMissing`);
+   * throws `SessionNotCarried` when `fromId` holds no such session. The session counts as running on
+   * `toId` while it is copied, so removing that engine waits for the copy. Idempotent: a carry cut
+   * short is carried again.
+   */
+  async carrySession(sessionId: string, fromId: EngineId, toId: EngineId): Promise<void> {
+    const ended = this.running.started(toId);
+    try {
+      const from = await this.listed(fromId);
+      const to = await this.listed(toId);
+      for (const engine of [from, to]) {
+        if (!this.carriesSessions(engine)) throw new CapabilityMissing("carrySession");
+      }
+      await this.engines.of(from).carrySession(sessionId, from, to);
+    } finally {
+      ended();
+    }
+  }
+
+  /**
+   * The Stand-in Engine a session running on `running` goes on on once its turn was refused for a
+   * used-up usage window: the first in the order of Settings › Engines that serves the same model
+   * and has room (`engineToRunOn`), never `running` itself; null when none has, or when a session
+   * on `running` can't be carried. An engine has room when it is a Claude Code engine with the
+   * `carrySession` capability, its usage window isn't used up and its latest reading shows it free
+   * or it hasn't been read yet.
+   */
+  async standInFor(running: EngineModel): Promise<EngineModel | null> {
+    const settings = await this.engineModels.standIns();
+    const engineOf = (engineId: EngineId) => settings.engines.find(({ id }) => id === engineId);
+    const runningEngine = engineOf(running.engineId);
+    if (runningEngine === undefined || !this.carriesSessions(runningEngine)) return null;
+    return engineToRunOn(running, settings, (engineId) => {
+      if (engineId === running.engineId) return false;
+      const engine = engineOf(engineId);
+      return (
+        engine !== undefined &&
+        this.carriesSessions(engine) &&
+        this.usageWindows.usedUpUntil(engineId) === undefined &&
+        this.usageWindows.latestShowsFree(engineId)
+      );
+    });
+  }
+
+  /**
+   * `engineId`'s used-up usage window while its reset is ahead, as a refused turn made it known;
+   * undefined while it has room. A person's Thread opens its next session on a Stand-in Engine
+   * meanwhile (spec 5.4).
+   */
+  usedUpUntil(engineId: EngineId): UsedUpUsageWindow | undefined {
+    return this.usageWindows.usedUpUntil(engineId);
+  }
+
+  /** Whether a session on `engine` can be carried to or from another: Claude Code's alone. */
+  private carriesSessions(engine: Engine): boolean {
+    return engine.kind === "claude-code" && this.engines.of(engine).capabilities.carrySession;
   }
 
   /**
@@ -218,6 +289,7 @@ export class EngineSessions {
     return new EngineCallSpans(
       this.telemetry,
       this.costs,
+      this.prices,
       sessionId,
       options,
       telemetry,
@@ -247,6 +319,7 @@ export class EngineSessions {
       },
       turnEnded: (usage) => this.turnEnded(settings, usage),
       refused: async (refusedTurn) => {
+        if (!hasUsageWindows(engine)) return asFailedTurn(refusedTurn);
         if (refusedTurn.usedUpWindow === undefined) return refusedTurn;
         const usedUpWindow = await this.usageWindows.refused(engine, refusedTurn.usedUpWindow);
         return { ...refusedTurn, usedUpWindow };
@@ -278,31 +351,12 @@ export class EngineSessions {
       return undefined;
     }
     if (windows === undefined) return undefined;
-    const reading: UsageWindowReading = {
-      ...windows,
-      readAt: new Date(),
-      officeTokensSoFar: this.officeTokensSoFar.get(engineId) ?? NO_TOKENS,
-    };
-    await this.usageWindows.update(engine, reading);
-    await this.keepSample(engineId, reading);
-    return reading;
-  }
-
-  /** A failure to keep a pair of readings is logged: the reading stands. */
-  private async keepSample(engineId: EngineId, reading: UsageWindowReading): Promise<void> {
-    try {
-      await this.windowSamples.add(engineId, reading);
-    } catch (error) {
-      this.logger.error(`Keeping a pair of usage readings failed: ${messageOf(error)}`);
-    }
+    return this.readings.keep(engine, windows);
   }
 
   /** A failure to keep the day's use is logged: the session runs on, and its turn is reported. */
   private async turnEnded({ engineId, model }: EngineModel, usage: TokenUsage): Promise<void> {
-    this.officeTokensSoFar.set(
-      engineId,
-      addedTokens(this.officeTokensSoFar.get(engineId) ?? NO_TOKENS, usage),
-    );
+    this.readings.turnEnded(engineId, usage);
     try {
       await this.dayUsage.add({ engineId, model }, usage);
     } catch (error) {
@@ -322,10 +376,28 @@ export class EngineSessions {
   }
 }
 
+/** What a refused turn reads as on an engine without usage windows, such as an API key's limit. */
+const NO_USAGE_WINDOW_REFUSAL = "The engine refused the turn: its rate limit was reached.";
+
+/**
+ * A turn refused on an engine without usage windows, which has no window to use up: an API's rate
+ * limit, which fails the turn as any other failure does and pauses no Task.
+ */
+function asFailedTurn({ usedUpWindow: _usedUpWindow, ...turn }: TurnEndedEvent): TurnEndedEvent {
+  return {
+    ...turn,
+    outcome: "failed",
+    errors: turn.errors.length > 0 ? turn.errors : [NO_USAGE_WINDOW_REFUSAL],
+  };
+}
+
 interface SessionWatch {
   readonly rateLimited: () => Promise<void>;
   readonly turnEnded: (usage: TokenUsage) => Promise<void>;
-  /** A turn was refused for a used-up usage window: it answers the turn with its reset settled. */
+  /**
+   * A turn was refused for a used-up usage window: it answers the turn with its reset settled, or
+   * as failed on an engine without windows.
+   */
   readonly refused: (ended: TurnEndedEvent) => Promise<TurnEndedEvent>;
   /**
    * The session's Agent or a subagent called the Skill tool for `skill`, or the user sent a skill

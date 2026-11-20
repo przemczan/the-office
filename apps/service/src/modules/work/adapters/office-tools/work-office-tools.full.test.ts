@@ -12,7 +12,8 @@ import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
 import type { AttachmentOwner } from "../../domain/attachment.js";
-import { CREATED_INITIATIVE_SHAPING_OPENING, SHAPING_THREAD_TITLE } from "../../domain/shaping.js";
+import { shapingOpeningOf, SHAPING_THREAD_TITLE } from "../../domain/shaping.js";
+import { defaultWorkPrompts } from "../../domain/work-prompt-templates.fixtures.js";
 import {
   IdeaCardsForTests,
   InitiativeThreadsForTests,
@@ -47,7 +48,12 @@ import {
   READ_TASK,
 } from "./work-office-tools.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
-import { ANN_LEE, BEN_ITO } from "../../domain/work.fixtures.js";
+import { ANN_LEE, anInitiative, BEN_ITO } from "../../domain/work.fixtures.js";
+
+const CREATED_INITIATIVE_SHAPING_OPENING = shapingOpeningOf(
+  defaultWorkPrompts(),
+  anInitiative({ originIdeaId: undefined }),
+);
 
 /** The Role holding Shapes Initiatives unless a test moves it. */
 const CTO = "cto";

@@ -33,12 +33,14 @@ describe("stageTemplateProblems", () => {
   });
 
   it("asks for a name", () => {
-    expect(stageTemplateProblems(gate({ name: "  " }), [])).toEqual([{ text: "Give it a name." }]);
+    expect(stageTemplateProblems(gate({ name: "  " }), [])).toEqual([
+      { level: "problem", text: "Give it a name." },
+    ]);
   });
 
   it("refuses a name another template has, in any case", () => {
     expect(stageTemplateProblems(scriptStage({ name: " IMPLEMENT " }), [implement])).toEqual([
-      { text: 'Another Stage template is named "IMPLEMENT".' },
+      { level: "problem", text: 'Another Stage template is named "IMPLEMENT".' },
     ]);
   });
 
@@ -46,8 +48,8 @@ describe("stageTemplateProblems", () => {
     expect(
       stageTemplateProblems(agentStage({ name: "Draft", role: " ", budget: 0.5 }), []),
     ).toEqual([
-      { text: "Choose who works it." },
-      { text: "Its budget must be a whole number of tokens above 0." },
+      { level: "problem", text: "Choose who works it." },
+      { level: "problem", text: "Its budget must be a whole number of tokens above 0." },
     ]);
     expect(
       stageTemplateProblems(
@@ -55,8 +57,8 @@ describe("stageTemplateProblems", () => {
         [],
       ),
     ).toEqual([
-      { text: "Only a Publish Stage has a publish target." },
-      { text: "Only a Publish Stage says what follows a conflict." },
+      { level: "problem", text: "Only a Publish Stage has a publish target." },
+      { level: "problem", text: "Only a Publish Stage says what follows a conflict." },
     ]);
   });
 
@@ -88,7 +90,7 @@ describe("proposedStageProblems", () => {
     const changed: StageTemplate = { ...implement, stage: agentStage({ budget: 50_000 }) };
 
     expect(proposedStageProblems(changed, implement.stage, proposed, [])).toEqual([
-      { text: "The Implement Stage template changed since this was proposed." },
+      { level: "problem", text: "The Implement Stage template changed since this was proposed." },
     ]);
   });
 
@@ -97,11 +99,14 @@ describe("proposedStageProblems", () => {
 
     expect(
       proposedStageProblems(implement, implement.stage, agentStage({ name: "tests" }), [tests]),
-    ).toEqual([{ text: 'Another Stage template is named "tests".' }]);
+    ).toEqual([{ level: "problem", text: 'Another Stage template is named "tests".' }]);
     // The loop target a template doesn't keep changes nothing either.
     const withLoop = agentStage({ onFailure: { goBackTo: "plan", rounds: 1 } });
     expect(proposedStageProblems(implement, implement.stage, withLoop, [])).toEqual([
-      { text: "Nothing changes: give the template's Stage as it should be, whole." },
+      {
+        level: "problem",
+        text: "Nothing changes: give the template's Stage as it should be, whole.",
+      },
     ]);
   });
 });
@@ -115,6 +120,7 @@ describe("stageTemplateFlags", () => {
       ),
     ).toEqual([
       {
+        level: "problem",
         text: "Ada was let go from Developer; hire Ada back, hire someone else, or choose who works it.",
       },
     ]);
@@ -126,7 +132,10 @@ describe("stageTemplateFlags", () => {
         ]),
       ),
     ).toEqual([
-      { text: "Ada's Task limit is none, so Developer only talks and can't work a Stage." },
+      {
+        level: "problem",
+        text: "Ada's Task limit is none, so Developer only talks and can't work a Stage.",
+      },
     ]);
   });
 

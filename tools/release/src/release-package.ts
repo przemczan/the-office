@@ -50,6 +50,10 @@ export const RELEASE_FILES: readonly ReleaseFile[] = [
   { path: "packages/contracts/dist" },
   { path: "tools/office-launcher/package.json" },
   { path: "tools/office-launcher/src" },
+  // The knowledge base Agents read (docs/spec/README.md), at its checkout's paths so the spec's
+  // relative links to the glossary hold.
+  { path: "docs/spec" },
+  { path: "GLOSSARY.md" },
 ];
 
 /** Whether a file inside one of RELEASE_FILES belongs in the release: no build state, no tests. */

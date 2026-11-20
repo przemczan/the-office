@@ -119,7 +119,7 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
       size="medium"
       keepsHeight
       title="Add a Project"
-      // The GitHub list's search only finds a repository; picking one starts its clone.
+      // The GitHub list's search only finds a repository; a picked one is the user's choice.
       unsavedChanges={
         source !== undefined || picked !== undefined || folder.trim() !== "" || url.trim() !== ""
       }
@@ -134,13 +134,21 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
             <Button type="submit" form={stepFormId}>
               Continue
             </Button>
+          ) : whereItIs === "git-url" ? (
+            <Button type="submit" form={stepFormId} loading={cloning.busy}>
+              Clone
+            </Button>
           ) : (
-            // Picking a repository from GitHub starts its clone, so that step submits nothing.
-            whereItIs === "git-url" && (
-              <Button type="submit" form={stepFormId} loading={cloning.busy}>
-                Clone
-              </Button>
-            )
+            // Clones the repository picked from GitHub; again after a failure, it tries again.
+            <Button
+              disabled={picked === undefined}
+              loading={cloning.busy}
+              onClick={() => {
+                if (picked) cloning.start(picked.repositoryUrl);
+              }}
+            >
+              Clone
+            </Button>
           )}
           {stepHint}
         </>
@@ -226,10 +234,8 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
             {whereItIs === "github" && (
               <GitHubRepositoryPicker
                 cloning={cloning}
-                onPick={(repository) => {
-                  setPicked(repository);
-                  cloning.start(repository.repositoryUrl);
-                }}
+                picked={picked}
+                onPick={setPicked}
                 onUseGitUrl={() => chooseWhereItIs("git-url")}
               />
             )}

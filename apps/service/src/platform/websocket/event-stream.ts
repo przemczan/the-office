@@ -86,6 +86,11 @@ export class EventStream implements OnApplicationBootstrap, BeforeApplicationShu
     this.webSocketServer.close();
   }
 
+  /** The browser tabs following The Office's events now, from every signed-in device. */
+  openConnections(): number {
+    return this.subscriptions.size;
+  }
+
   private httpServer(): Server {
     return this.httpAdapterHost.httpAdapter.getHttpServer() as Server;
   }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { missingCommandProblems } from "./library-pipeline.js";
+import { missingCommandsOnStages } from "./stage-commands.js";
 import { commandKeysNamedBy } from "./stage.js";
 import { agentStage, gate, scriptStage } from "./stage.fixtures.js";
 
@@ -33,6 +34,37 @@ describe("commandKeysNamedBy", () => {
     expect(commandKeysNamedBy([agentStage(), branchOnly])).toEqual([]);
     expect(commandKeysNamedBy([fullTests, publish])).toEqual(["test-full"]);
   });
+
+  it("names the key of each command test in a route's condition, nested ones too, once", () => {
+    const branching = scriptStage({
+      routes: [
+        {
+          to: "full",
+          condition: {
+            combine: "any",
+            tests: [
+              { kind: "command", key: "changed-docs" },
+              { combine: "all", tests: [{ kind: "command", key: "lint" }] },
+            ],
+          },
+        },
+        { to: null, condition: { combine: "all", tests: [{ kind: "command", key: "lint" }] } },
+      ],
+      place: { column: 0, row: 0 },
+    });
+    const full = {
+      ...fullTests,
+      routes: [{ to: null, condition: null }],
+      place: { column: 1, row: 0 },
+    };
+
+    expect(commandKeysNamedBy([branching, full])).toEqual([
+      "test",
+      "changed-docs",
+      "lint",
+      "test-full",
+    ]);
+  });
 });
 
 /** A Project with build and test, but no test-full. */
@@ -48,7 +80,9 @@ describe("missingCommandProblems", () => {
 
     expect(missingCommandProblems("mine", stages, projects, [], [])).toEqual([
       {
-        stageIndex: 1,
+        stageKey: "full",
+        at: { kind: "stage" },
+        level: "problem",
         text: "Stage 2 · Full tests: the-office has no command test-full (it is its default Pipeline)",
       },
     ]);
@@ -134,7 +168,9 @@ describe("missingCommandProblems", () => {
 
     expect(missingCommandProblems("mine", narrowed, projects, [], [])).toEqual([
       {
-        stageIndex: 0,
+        stageKey: "implement",
+        at: { kind: "stage" },
+        level: "problem",
         text: "Stage 1 · Implement: the-office has no command e2e (it is its default Pipeline)",
       },
     ]);
@@ -151,5 +187,18 @@ describe("missingCommandProblems", () => {
     ];
 
     expect(missingCommandProblems("mine", stages, projects, [], [])).toEqual([]);
+  });
+});
+
+describe("missingCommandsOnStages", () => {
+  it("skips the Stages by key, wherever they stand", () => {
+    const lint = scriptStage({ key: "lint", name: "Lint", command: "lint" });
+    const stages = [fullTests, agentStage(), lint];
+
+    expect(
+      missingCommandsOnStages(stages, [], new Set(["full"]), (keys) => keys.join()).map(
+        ({ stageKey }) => stageKey,
+      ),
+    ).toEqual(["lint"]);
   });
 });

@@ -143,8 +143,8 @@ export type ProjectEnvironment = z.infer<typeof projectEnvironmentSchema>;
 export type ProjectVariable = ProjectEnvironment["set"][number];
 
 /**
- * An environment to check, as the Project page saves it: a Secret variable without a `value`, or
- * with an empty one, keeps the value kept under its name.
+ * An environment as the Project page saves it: a Secret variable without a `value`, or with an
+ * empty one, keeps the value the Project has under its name.
  */
 export const projectEnvironmentEditSchema = z.object({
   set: z.array(
@@ -185,30 +185,98 @@ export const baseBranchFetchSchema = z.object({
 });
 export type BaseBranchFetch = z.infer<typeof baseBranchFetchSchema>;
 
-/** GET /projects/:id/base-branch/:commit/folder: `path` "" for the top level, `extensions` joined by commas. */
-export const baseBranchFolderQuerySchema = z.object({
+/** GET /projects/:id/commits/:commit/folder: `path` "" for the top level, `extensions` joined by commas. */
+export const repositoryFolderQuerySchema = z.object({
   path: z.string().default(""),
   extensions: z
     .string()
     .default("")
     .transform((extensions) => extensions.split(",").filter((extension) => extension !== "")),
 });
-export type BaseBranchFolderQuery = z.infer<typeof baseBranchFolderQuerySchema>;
+export type RepositoryFolderQuery = z.infer<typeof repositoryFolderQuerySchema>;
 
-export const baseBranchFolderEntrySchema = z.object({
+export const repositoryFolderEntrySchema = z.object({
   name: z.string(),
   kind: z.enum(["file", "folder"]),
 });
-export type BaseBranchFolderEntry = z.infer<typeof baseBranchFolderEntrySchema>;
+export type RepositoryFolderEntry = z.infer<typeof repositoryFolderEntrySchema>;
 
 /** One folder of a commit: folders, then files, cut to a limit; `total` counts what the cut left out too. */
-export const baseBranchFolderSchema = z.object({
+export const repositoryFolderSchema = z.object({
   commit: z.string(),
   path: z.string(),
-  entries: z.array(baseBranchFolderEntrySchema),
+  entries: z.array(repositoryFolderEntrySchema),
   total: z.number().int().nonnegative(),
 });
-export type BaseBranchFolder = z.infer<typeof baseBranchFolderSchema>;
+export type RepositoryFolder = z.infer<typeof repositoryFolderSchema>;
+
+/**
+ * GET /projects/:id/branches: `fetch` "1" fetches the base branch's remote first; without it only
+ * what is known here is read, as a page asking whether a branch exists does.
+ */
+export const projectBranchesQuerySchema = z.object({
+  fetch: z
+    .enum(["0", "1"])
+    .default("0")
+    .transform((fetch) => fetch === "1"),
+});
+export type ProjectBranchesQuery = z.infer<typeof projectBranchesQuerySchema>;
+
+/**
+ * A branch whose files can be browsed, at its tip. `name` is a local branch's own name or a remote
+ * one's with its remote first (`origin/main`), as git shows them; the base branch is a local one.
+ */
+export const projectBranchSchema = z.object({
+  name: z.string(),
+  kind: z.enum(["local", "remote"]),
+  commit: z.string(),
+});
+export type ProjectBranch = z.infer<typeof projectBranchSchema>;
+
+/**
+ * The branches to browse: the base branch, at its freshest commit known here (the fetched
+ * upstream's, else the local branch's), and in `branches` the other local branches, then the base
+ * branch's remote's (its own included), each by name. `fetchProblem` says why the remote couldn't
+ * be fetched, so these are the last known commits.
+ */
+export const projectBranchesSchema = z.object({
+  baseBranch: projectBranchSchema,
+  branches: z.array(projectBranchSchema),
+  fetchProblem: z.string().nullable(),
+});
+export type ProjectBranches = z.infer<typeof projectBranchesSchema>;
+
+/**
+ * GET /projects/:id/commits/:commit/file: the file's bytes, `download` "1" answering them as an
+ * attachment with the file's name; GET …/file-preview takes `path` alone.
+ */
+export const repositoryFileQuerySchema = z.object({
+  path: z.string().min(1),
+  download: z
+    .enum(["0", "1"])
+    .default("0")
+    .transform((download) => download === "1"),
+});
+export type RepositoryFileQuery = z.infer<typeof repositoryFileQuerySchema>;
+
+export const repositoryFilePreviewQuerySchema = z.object({ path: z.string().min(1) });
+export type RepositoryFilePreviewQuery = z.infer<typeof repositoryFilePreviewQuerySchema>;
+
+/** The most bytes a file may hold to be previewed; a bigger one is only downloaded. */
+export const FILE_PREVIEW_BYTES = 1024 * 1024;
+
+/**
+ * GET /projects/:id/commits/:commit/file-preview: how the file shows. `text` is any UTF-8 text with
+ * no NUL byte, its words included (Markdown is told by its name); `image` is shown from the file
+ * route; `binary` and `too-large` can only be downloaded. `size` is in bytes.
+ */
+export const repositoryFilePreviewSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("text"), size: z.number().int().nonnegative(), text: z.string() }),
+  z.object({ kind: z.literal("image"), size: z.number().int().nonnegative() }),
+  z.object({ kind: z.literal("binary"), size: z.number().int().nonnegative() }),
+  z.object({ kind: z.literal("too-large"), size: z.number().int().nonnegative() }),
+]);
+export type RepositoryFilePreview = z.infer<typeof repositoryFilePreviewSchema>;
 
 /** GET /projects/:id/remote-needs, read from the repository each time; null when the base branch tracks no remote branch. */
 export const projectRemoteNeedsSchema = z.object({ remoteNeeds: remoteNeedsSchema.nullable() });
@@ -316,6 +384,10 @@ export type CommandChange = z.infer<typeof commandChangeSchema>;
 export const installInputsChangeSchema = z.object({ installInputs: z.array(z.string()) });
 export type InstallInputsChange = z.infer<typeof installInputsChangeSchema>;
 
+/** PUT /projects/:id/environment: the whole environment, saved as it is given. */
+export const environmentChangeSchema = z.object({ environment: projectEnvironmentEditSchema });
+export type EnvironmentChange = z.infer<typeof environmentChangeSchema>;
+
 /** PUT /projects/:id/publishing-mode */
 export const publishingModeChangeSchema = z.object({ publishingMode: publishingModeSchema });
 export type PublishingModeChange = z.infer<typeof publishingModeChangeSchema>;
@@ -419,7 +491,7 @@ export type CommandCheck = z.infer<typeof commandCheckSchema>;
 export const environmentCheckStateSchema = z.enum(["running", "passed", "failed", "stopped"]);
 export type EnvironmentCheckState = z.infer<typeof environmentCheckStateSchema>;
 
-/** A try of an environment in a fresh worktree; it is saved only when every check passes. */
+/** A try of the Project's saved environment in a fresh worktree; it changes nothing. */
 export const environmentCheckSchema = z.object({
   projectId: z.string(),
   environment: projectEnvironmentSchema,
@@ -436,10 +508,6 @@ export type EnvironmentCheck = z.infer<typeof environmentCheckSchema>;
 /** GET /projects/:id/environment-check: the running check, or the last finished one. */
 export const latestEnvironmentCheckSchema = z.object({ check: environmentCheckSchema.nullable() });
 export type LatestEnvironmentCheck = z.infer<typeof latestEnvironmentCheckSchema>;
-
-/** POST /projects/:id/environment-check */
-export const environmentCheckStartSchema = z.object({ environment: projectEnvironmentEditSchema });
-export type EnvironmentCheckStart = z.infer<typeof environmentCheckStartSchema>;
 
 /** What a refused change answers: every reason, also joined into Nest's `message`. */
 export const projectRefusalSchema = z.object({

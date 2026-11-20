@@ -15,7 +15,12 @@ import {
 } from "./stage-history-words.ts";
 import { railStateWords } from "./stage-rail-words.ts";
 import { StageWorker } from "./stage-worker.tsx";
-import { waitsForRunEnvironment, type StageNames } from "./stage-words.ts";
+import {
+  runEngineWords,
+  standInForWords,
+  waitsForRunEnvironment,
+  type StageNames,
+} from "./stage-words.ts";
 
 /**
  * A Stage's history (spec 4.1): the Pipeline in small to move between Stages, the runs on the left
@@ -179,6 +184,8 @@ function RunItem({
               <TokenFigure tokens={run.tokens} /> tokens
             </>
           )}
+          {run.engine && ` · ${runEngineWords(run.engine)}`}
+          {run.engine?.standInFor && ` · ${standInForWords(run.engine.standInFor.engineName)}`}
         </span>
         <span className="stage-history-gist">{runGist(taskStage, run, names)}</span>
       </button>

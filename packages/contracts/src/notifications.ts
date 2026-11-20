@@ -21,6 +21,30 @@ export const needsYouItemSchema = z.discriminatedUnion("kind", [
     stageKey: z.string().min(1),
     waitingSince: z.iso.datetime(),
   }),
+  /** A Decision on no Task, opened in an Initiative's shaping or planning Thread. */
+  z.object({
+    kind: z.literal("initiative-decision"),
+    decisionId: z.uuid(),
+    initiativeId: z.uuid(),
+    /** The Initiative's Thread it waits in, where it is answered. */
+    threadId: z.uuid(),
+    /** The Projects the Initiative spans, which the Project filter narrows by. */
+    projectIds: z.array(z.string()),
+    waitingSince: z.iso.datetime(),
+  }),
+  /**
+   * The Office's own Decision on the Stages waiting for the user's choice of a Stand-in Engine
+   * (spec 5.4): one card for them all, its rows read from `GET /stand-in-choices`.
+   */
+  z.object({
+    kind: z.literal("stand-in-choice"),
+    /** The Projects of the waiting Stages' Tasks, which the Project filter narrows by. */
+    projectIds: z.array(z.string()),
+    /** The oldest waiting Stage's. */
+    waitingSince: z.iso.datetime(),
+    /** How many Stages wait. */
+    count: z.int().positive(),
+  }),
 ]);
 export type NeedsYouItem = z.infer<typeof needsYouItemSchema>;
 
@@ -235,13 +259,24 @@ export const pointerSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("decision"), decisionId: z.uuid(), taskId: z.uuid() }),
   z.object({ kind: z.literal("gate"), taskId: z.uuid(), stageKey: z.string().min(1) }),
   z.object({ kind: z.literal("task"), taskId: z.uuid() }),
-  z.object({ kind: z.literal("initiative"), initiativeId: z.uuid() }),
+  /**
+   * The Initiative page; for a Decision on no Task in one of its Threads, that Thread with the
+   * Decision brought into view.
+   */
+  z.object({
+    kind: z.literal("initiative"),
+    initiativeId: z.uuid(),
+    decisionId: z.uuid().optional(),
+    threadId: z.uuid().optional(),
+  }),
   /** The Office's own state, on Now and the status strip; an engine down names its engine. */
   z.object({ kind: z.literal("office"), engineId: z.string().min(1).optional() }),
   /** Now, where Needs you and Since you left show what a Notification gathered. */
   z.object({ kind: z.literal("since-you-left") }),
   /** Settings › Updates, with the last Office update's result and its log. */
   z.object({ kind: z.literal("office-update") }),
+  /** Now's Needs you, with the card of the Stages waiting for a Stand-in Engine. */
+  z.object({ kind: z.literal("stand-in-choice") }),
 ]);
 export type Pointer = z.infer<typeof pointerSchema>;
 
@@ -251,6 +286,12 @@ export type Pointer = z.infer<typeof pointerSchema>;
  */
 export const gatheringKindSchema = z.enum(["collapsed-outcomes", "quiet-hours-summary"]);
 export type GatheringKind = z.infer<typeof gatheringKindSchema>;
+
+/**
+ * Where a Notification's lines put the instant it names (`at`), mirroring the Notifications
+ * module's own: the web words it in the browser's time zone.
+ */
+export const NOTIFICATION_TIME = "{time}";
 
 /** A pointer to something that waits on the user or happened, cleared once they handle it. */
 export const notificationSchema = z.object({
@@ -265,6 +306,12 @@ export const notificationSchema = z.object({
    * it beside it. Only The Office's own kinds have one; the strip shows `line` without it.
    */
   shortLine: z.string().min(1).optional(),
+  /**
+   * The instant `line` and `shortLine` name, as a usage window's reset: they hold
+   * `NOTIFICATION_TIME` where it goes, which the web words in the browser's time zone. Absent when
+   * they name none, and on those raised before it (2026-11-16), whose lines are worded already.
+   */
+  at: z.iso.datetime().optional(),
   pointsTo: pointerSchema,
   /** Where its kind's routing sends it. */
   channels: z.array(channelSchema),
