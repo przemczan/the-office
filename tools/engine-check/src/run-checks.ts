@@ -19,7 +19,12 @@ import { COPILOT_TOKEN_VARIABLE } from "./copilot-cli/options.ts";
 import type { CopilotSessionSpec } from "./copilot-cli/session-options.ts";
 import type { SessionEvent } from "@microsoft/copilot-sdk";
 import type { Expectations } from "./expectations.ts";
-import { diffJson, type JsonDifference } from "./json.ts";
+import { GeminiAcpSession } from "./gemini/acp-session.ts";
+import { isSignedIn, SIGNED_IN_HOME } from "./gemini/gemini-home.ts";
+import { GEMINI_API_KEY_FILE_VARIABLE } from "./gemini/options.ts";
+import type { GeminiSession, GeminiSessionSpec } from "./gemini/gemini-session.ts";
+import { GeminiHeadlessSession } from "./gemini/headless-session.ts";
+import { diffJson, type Json, type JsonDifference } from "./json.ts";
 import { ProbeSession } from "./probe-session.ts";
 import type { HookCall, RecordedSession, TokenUsage } from "./recorded-session.ts";
 import { Sandbox } from "./sandbox.ts";
@@ -50,11 +55,23 @@ export interface CopilotSessionTranscript {
   readonly permissionCalls: readonly CopilotPermissionCall[];
 }
 
+export interface GeminiSessionTranscript {
+  readonly transport: string;
+  readonly sessionId: string;
+  readonly events: readonly Json[];
+  readonly hookCalls: GeminiSession["hookCalls"];
+  readonly officeToolCalls: GeminiSession["officeToolCalls"];
+  readonly permissionRequests: GeminiSession["permissionRequests"];
+  readonly stderr: string;
+}
+
 export interface RunOptions {
   /** The signed-in Codex folder the `codex.*` checks run with as `CODEX_HOME`; they are skipped without one. */
   readonly codexHome?: string;
   /** A second signed-in Claude Code config folder, for the checks that carry a session to another account. */
   readonly secondClaudeConfig?: string;
+  /** The Gemini API key the `gemini.*` checks sign in with; they are skipped without one. */
+  readonly geminiApiKey?: string;
   /** The Copilot token the `copilot.*` checks sign in with; they are skipped without one. */
   readonly copilotToken?: string;
 }
@@ -74,6 +91,7 @@ export interface CheckOutcome {
   readonly sessions: readonly SessionTranscript[];
   readonly codexSessions: readonly CodexSessionTranscript[];
   readonly copilotSessions: readonly CopilotSessionTranscript[];
+  readonly geminiSessions: readonly GeminiSessionTranscript[];
 }
 
 export async function runCheck(
@@ -95,6 +113,7 @@ export async function runCheck(
   const sessions: RecordedSession[] = [];
   const codexSessions: CodexSession[] = [];
   const copilotSessions: CopilotSession[] = [];
+  const geminiSessions: GeminiSession[] = [];
   const copilotHome = join(sandbox.root, "copilot-home");
   const expected = expectations[check.id]?.[platform];
   try {
@@ -129,6 +148,16 @@ export async function runCheck(
           copilotSessions.push(session);
           return session;
         },
+        startGeminiSession: async (spec) => {
+          const session = await startGeminiSession(
+            spec,
+            sandbox.root,
+            options.geminiApiKey,
+            signal,
+          );
+          geminiSessions.push(session);
+          return session;
+        },
       }),
       signal,
     );
@@ -150,6 +179,7 @@ export async function runCheck(
     await Promise.allSettled(sessions.map((session) => session.close()));
     await Promise.allSettled(codexSessions.map((session) => session.close()));
     await Promise.allSettled(copilotSessions.map((session) => session.close()));
+    await Promise.allSettled(geminiSessions.map((session) => session.close()));
     if (options.codexHome !== undefined) {
       await deleteCodexThreads(options.codexHome, codexSessions).catch(() => undefined);
     }
@@ -173,7 +203,9 @@ export async function runCheck(
       ...result,
       ...(expected === undefined ? {} : { expected }),
       tokens: sumTokens(
-        [...sessions, ...codexSessions, ...copilotSessions].map((session) => session.tokens()),
+        [...sessions, ...codexSessions, ...copilotSessions, ...geminiSessions].map((session) =>
+          session.tokens(),
+        ),
       ),
       durationMs: Date.now() - startedAt,
       sessions: sessions.map((session) => ({
@@ -194,6 +226,15 @@ export async function runCheck(
         hookCalls: session.hookCalls,
         permissionCalls: session.permissionCalls,
       })),
+      geminiSessions: geminiSessions.map((session) => ({
+        transport: session.transport,
+        sessionId: session.sessionId,
+        events: session.events,
+        hookCalls: session.hookCalls,
+        officeToolCalls: session.officeToolCalls,
+        permissionRequests: session.permissionRequests,
+        stderr: session.stderr,
+      })),
     };
   }
 }
@@ -210,6 +251,29 @@ async function startCopilotSession(
     );
   }
   return CopilotSession.start({ home: copilotHome, token }, spec, signal);
+}
+
+async function startGeminiSession(
+  spec: GeminiSessionSpec,
+  folder: string,
+  apiKey: string | undefined,
+  signal: AbortSignal,
+): Promise<GeminiSession> {
+  const signIn = spec.signIn ?? "api-key";
+  if (signIn === "api-key" && apiKey === undefined) {
+    throw new CheckSkipped(
+      `No Gemini API key: name a file holding one in ${GEMINI_API_KEY_FILE_VARIABLE}`,
+    );
+  }
+  if (signIn === "google" && !(await isSignedIn(SIGNED_IN_HOME))) {
+    throw new CheckSkipped(
+      `The Gemini folder ${SIGNED_IN_HOME} is not signed in: sign it in with npm run engine-check -- --gemini-sign-in`,
+    );
+  }
+  const place = { folder, apiKey, googleHome: SIGNED_IN_HOME, signal };
+  return spec.transport === "acp"
+    ? GeminiAcpSession.start(spec, place)
+    : GeminiHeadlessSession.start(spec, place);
 }
 
 async function startCodexSession(

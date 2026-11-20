@@ -5,6 +5,7 @@ import type {
 import type { CodexSession, CodexSessionSpec } from "./codex/codex-session.ts";
 import type { CopilotSession } from "./copilot-cli/copilot-session.ts";
 import type { CopilotSessionSpec } from "./copilot-cli/session-options.ts";
+import type { GeminiSession, GeminiSessionSpec } from "./gemini/gemini-session.ts";
 import type { Json } from "./json.ts";
 import type { ProbeSession, SessionSpec } from "./probe-session.ts";
 import type { Sandbox } from "./sandbox.ts";
@@ -50,6 +51,13 @@ export interface CheckContext {
    * the run was given no Copilot token.
    */
   startCopilotSession(spec: CopilotSessionSpec): Promise<CopilotSession>;
+  /**
+   * The same for a session on the pinned Gemini CLI, over ACP or headless as the spec says, in a home
+   * of its own, signed in as the spec's `signIn` says: with the run's Gemini API key (the default), or
+   * with the credentials of the folder `--gemini-sign-in` signed in. Throws `CheckSkipped` when the run
+   * has no key, or that folder is not signed in.
+   */
+  startGeminiSession(spec: GeminiSessionSpec): Promise<GeminiSession>;
 }
 
 export interface Check {

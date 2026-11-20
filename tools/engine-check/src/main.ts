@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -13,6 +13,9 @@ import { DEFAULT_LONG_TOOL_MINUTES, LONG_TOOL_VARIABLE } from "./checks/engine/l
 import { checks } from "./checks/index.ts";
 import { COPILOT_TOKEN_VARIABLE } from "./copilot-cli/options.ts";
 import { loadExpectations, recordObservations } from "./expectations.ts";
+import { SIGNED_IN_HOME } from "./gemini/gemini-home.ts";
+import { GEMINI_API_KEY_FILE_VARIABLE } from "./gemini/options.ts";
+import { signInToGemini } from "./gemini/sign-in.ts";
 import { runCheck, sumTokens, type CheckOutcome } from "./run-checks.ts";
 
 const CODEX_HOME_VARIABLE = "ENGINE_CHECK_CODEX_HOME";
@@ -20,6 +23,7 @@ const SECOND_CLAUDE_CONFIG_VARIABLE = "ENGINE_CHECK_SECOND_CLAUDE_CONFIG";
 
 const USAGE = `Usage: npm run engine-check -- [--only <id prefix>]... [--include-slow] [--record]
                                 [--codex-home <folder>] [--second-claude-config <folder>]
+       npm run engine-check -- --gemini-sign-in
 
 Runs the engine checks on this platform and compares each observation with the one recorded in
 expectations.json. Exits non-zero when a check differs, has no recorded result or fails; a check
@@ -40,6 +44,9 @@ that can't observe what it is for on this account now is skipped, with the reaso
                     checks run on; ${SECOND_CLAUDE_CONFIG_VARIABLE} when omitted. Without a
                     signed-in folder those checks are skipped. The check removes the session it
                     carried there.
+  --gemini-sign-in  signs a Google account into ${SIGNED_IN_HOME}, the folder
+                    gemini.google-sign-in copies the credentials from: open the address it prints,
+                    sign in, and paste the code the page shows. Without it that check is skipped.
 
 Environment:
   ${API_KEY_FILE_VARIABLE}
@@ -51,6 +58,10 @@ Environment:
                     Requests" permission), which the copilot.* checks sign the pinned Copilot runtime
                     in with, in a config folder of their own; without it they are skipped. The
                     user's own ~/.copilot is never read or written, and the token is never recorded.
+  ${GEMINI_API_KEY_FILE_VARIABLE}
+                    a file holding a Gemini API key (Google AI Studio), which the gemini.* checks
+                    give each Gemini session in its environment, in a home of its own; without it
+                    they are skipped. The key is never printed or recorded.
 
 Slow checks:
   engine.decision-wait  waits ${DECISION_WAIT_VARIABLE} (default ${DEFAULT_DECISION_WAIT_MINUTES}) before answering
@@ -71,12 +82,16 @@ async function main(): Promise<number> {
       record: { type: "boolean", default: false },
       "codex-home": { type: "string" },
       "second-claude-config": { type: "string" },
+      "gemini-sign-in": { type: "boolean", default: false },
       help: { type: "boolean", default: false },
     },
   });
   if (values.help) {
     process.stdout.write(USAGE);
     return 0;
+  }
+  if (values["gemini-sign-in"]) {
+    return signInToGemini();
   }
   const platform = currentPlatform();
   const selected = selectChecks(checks, platform, values.only, values["include-slow"]);
@@ -98,7 +113,11 @@ async function main(): Promise<number> {
     return 1;
   }
   const copilotToken = process.env[COPILOT_TOKEN_VARIABLE];
+  const geminiApiKeyFile = folderFromWhereNpmRan(process.env[GEMINI_API_KEY_FILE_VARIABLE]);
+  const geminiApiKey =
+    geminiApiKeyFile === undefined ? undefined : (await readFile(geminiApiKeyFile, "utf8")).trim();
   const runOptions = {
+    ...(geminiApiKey === undefined || geminiApiKey === "" ? {} : { geminiApiKey }),
     ...(codexHome === undefined ? {} : { codexHome }),
     ...(copilotToken === undefined || copilotToken === "" ? {} : { copilotToken }),
     ...(secondClaudeConfig === undefined ? {} : { secondClaudeConfig }),

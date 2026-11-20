@@ -218,7 +218,7 @@ What a Ready Task's whole Pipeline is expected to use on each engine it uses, in
 _Avoid_: Budget (a Stage's token limit), forecast, quota estimate
 
 **Usage window**:
-One of an engine's limits on use over time, each with a reset time: on a Claude Code engine the 5-hour window, the 7-day window or a model's weekly window; on a Codex engine on a ChatGPT plan the 5-hour and the 7-day window its plan gives (a window of any other length, such as the Free plan's one 30-day window, is left unread). A Codex engine on an API key and a Copilot CLI engine have none (Copilot's monthly premium requests aren't read as one). It is **used up** when the engine refuses turns until its reset; a Task whose turn is refused then is paused by the usage window ([2.1](docs/spec/2.1.5-planning-and-start.md#a-pause-by-the-usage-window)). Not a Window cap, which is the user's own limit on what a Start may spend of a window.
+One of an engine's limits on use over time, each with a reset time: on a Claude Code engine the 5-hour window, the 7-day window or a model's weekly window; on a Codex engine on a ChatGPT plan the 5-hour and the 7-day window its plan gives (a window of any other length, such as the Free plan's one 30-day window, is left unread). A Codex engine on an API key, a Copilot CLI engine and a Gemini CLI engine have none (Copilot's monthly premium requests aren't read as one). It is **used up** when the engine refuses turns until its reset; a Task whose turn is refused then is paused by the usage window ([2.1](docs/spec/2.1.5-planning-and-start.md#a-pause-by-the-usage-window)). Not a Window cap, which is the user's own limit on what a Start may spend of a window.
 _Avoid_: Quota, rate limit, plan limit
 
 **Window cap**:
@@ -230,7 +230,7 @@ An engine's cap on the tokens, or the dollars, used on it in one day; a Start th
 _Avoid_: Budget, quota, daily limit
 
 **Model price**:
-What a model costs per million tokens of each kind (input, output, cache writes, cache reads), set in Settings › Engines: one per Claude model, shared by every Claude Code engine, one per Codex model, shared by every Codex engine, and one per engine and model on the Copilot CLI and OpenAI-compatible API engines; every cost in The Office is priced by it.
+What a model costs per million tokens of each kind (input, output, cache writes, cache reads), set in Settings › Engines: one per Claude model, shared by every Claude Code engine, one per Codex model, shared by every Codex engine, and one per engine and model on the Copilot CLI, Gemini CLI and OpenAI-compatible API engines; every cost in The Office is priced by it.
 _Avoid_: Rate, pricing, price table
 
 **Reading source**:
@@ -528,8 +528,8 @@ One text The Office gives an Agent or a session, such as Resolve's Brief, with a
 _Avoid_: system prompt, template (alone)
 
 **Engine**:
-What a session runs on, listed by the user in Settings › Engines with a name and a default model: a Claude Code account, signed in in its own folder, with the `-p` fallback as its switch; a Codex account (ChatGPT or an OpenAI API key), signed in in its own folder; a GitHub account with Copilot on the Copilot CLI (a **Copilot CLI engine**), signed in in its own folder or by a pasted token; or an API endpoint of the OpenAI-compatible API. Caps and usage are kept per Engine. The one a session runs on comes from the cascade of the Office default, the Project default and the Role overrides.
-_Avoid_: Provider, backend, account (as the thing picked), engine id; Copilot, Copilot engine, GitHub engine (for a Copilot CLI engine)
+What a session runs on, listed by the user in Settings › Engines with a name and a default model: a Claude Code account, signed in in its own folder, with the `-p` fallback as its switch; a Codex account (ChatGPT or an OpenAI API key), signed in in its own folder; a GitHub account with Copilot on the Copilot CLI (a **Copilot CLI engine**), signed in in its own folder or by a pasted token; a Gemini API key on the Gemini CLI (a **Gemini CLI engine**), with its own folder; or an API endpoint of the OpenAI-compatible API. Caps and usage are kept per Engine. The one a session runs on comes from the cascade of the Office default, the Project default and the Role overrides.
+_Avoid_: Provider, backend, account (as the thing picked), engine id; Copilot, Copilot engine, GitHub engine (for a Copilot CLI engine); Gemini, Gemini engine, Google engine (for a Gemini CLI engine)
 
 **Office default**:
 The Engine and model every session runs on unless a more specific level names another; set in Settings › Engines.

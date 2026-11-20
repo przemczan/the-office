@@ -331,6 +331,7 @@ One page per screen, as built. Where a [design](../design/README.md) differs, th
   - [5.4.4 The Copilot CLI engine](5.4.4-copilot-cli-engine.md)
   - [5.4.5 Engines and the engine cascade](5.4.5-engines-and-cascade.md)
   - [5.4.6 Stand-in Engines and usage windows](5.4.6-stand-in-engines-and-usage-windows.md)
+  - [5.4.7 The Gemini CLI engine](5.4.7-gemini-cli-engine.md)
 - [5.5 Git and isolation](5.5-git-and-isolation.md): a worktree per Task, guards, environment as data, the Office identity, run environments.
 - [5.6 Skills per session](5.6-skills-per-session.md): what a session lists at start.
 
@@ -581,6 +582,16 @@ Where each default lives, by page:
   - [Carrying a session](5.4.6-stand-in-engines-and-usage-windows.md#carrying-a-session)
   - [A turn refused for a used-up usage window](5.4.6-stand-in-engines-and-usage-windows.md#a-turn-refused-for-a-used-up-usage-window)
   - [Checking the usage windows](5.4.6-stand-in-engines-and-usage-windows.md#checking-the-usage-windows)
+- 5.4.7 The Gemini CLI engine
+  - [The Gemini CLI engine](5.4.7-gemini-cli-engine.md#the-gemini-cli-engine)
+  - [Gemini CLI: sign-in](5.4.7-gemini-cli-engine.md#gemini-cli-sign-in)
+  - [Gemini CLI: the headless transport](5.4.7-gemini-cli-engine.md#gemini-cli-the-headless-transport)
+  - [Gemini CLI: the Office rules through the BeforeTool hook](5.4.7-gemini-cli-engine.md#gemini-cli-the-office-rules-through-the-beforetool-hook)
+  - [Gemini CLI: Office tools and MCP servers](5.4.7-gemini-cli-engine.md#gemini-cli-office-tools-and-mcp-servers)
+  - [Gemini CLI: answers held to a schema](5.4.7-gemini-cli-engine.md#gemini-cli-answers-held-to-a-schema)
+  - [Gemini CLI: skills and instructions](5.4.7-gemini-cli-engine.md#gemini-cli-skills-and-instructions)
+  - [Gemini CLI: usage](5.4.7-gemini-cli-engine.md#gemini-cli-usage)
+  - [Gemini CLI: capabilities as the engine check showed them](5.4.7-gemini-cli-engine.md#gemini-cli-capabilities-as-the-engine-check-showed-them)
 - 5.5 Git and isolation
   - [Install inputs](5.5-git-and-isolation.md#install-inputs)
   - [The base branch's upstream](5.5-git-and-isolation.md#the-base-branchs-upstream)

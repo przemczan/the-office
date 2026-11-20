@@ -3,6 +3,7 @@ import { codexChecks } from "./codex/index.ts";
 import { copilotChecks } from "./copilot/index.ts";
 import { engineChecks } from "./engine/index.ts";
 import { fallbackChecks } from "./fallback/index.ts";
+import { geminiChecks } from "./gemini/index.ts";
 import { permissionsChecks } from "./permissions/index.ts";
 import { skillsChecks } from "./skills/index.ts";
 
@@ -14,4 +15,5 @@ export const checks: readonly Check[] = [
   ...fallbackChecks,
   ...codexChecks,
   ...copilotChecks,
+  ...geminiChecks,
 ];
