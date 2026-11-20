@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   ProposedCommandChanges,
   ProposedProjectPipelineFields,
+  ProposedTestTargetChanges,
 } from "./devops-proposal-changes.tsx";
 import { FULL_NOW, FULL_PROPOSED, FULL_ROUTES } from "./proposed-routes.fixtures.ts";
 import { ProposedRouteChanges } from "./proposed-route-changes.tsx";
@@ -60,6 +61,86 @@ describe("ProposedCommandChanges", () => {
       "Before publishingNonenpm run changelog",
       "After publishing./notify.shNone",
     ]);
+  });
+});
+
+describe("ProposedTestTargetChanges", () => {
+  const web = {
+    key: "web",
+    name: "Web app",
+    kind: "hosted" as const,
+    entryPoint: {
+      kind: "package-script" as const,
+      manifest: "package.json",
+      script: "start",
+      arguments: [],
+    },
+    port: 3000,
+    variables: [],
+    secretVariables: ["API_TOKEN"],
+  };
+
+  function shown() {
+    const box = document.createElement("div");
+    box.innerHTML = renderToStaticMarkup(
+      <ProposedTestTargetChanges
+        changes={{
+          targets: [
+            { key: "web", from: web, to: { ...web, port: 4000 }, userSet: ["port"] },
+            {
+              key: "android",
+              from: null,
+              to: {
+                key: "android",
+                name: "Android",
+                kind: "build-to-install",
+                entryPoint: { kind: "gradle-task", task: "assembleDebug", arguments: [] },
+                outputPatterns: ["app/*.apk"],
+                variables: [{ name: "MODE", value: "test" }],
+                secretVariables: [],
+              },
+              userSet: [],
+            },
+            { key: "old", from: { ...web, key: "old", name: "Old" }, to: null, userSet: [] },
+          ],
+        }}
+      />,
+    );
+    return [...box.querySelectorAll("[role=group]")].map((group) => ({
+      title: group.querySelector(".proposal-section-title")?.textContent,
+      struck: group.querySelector(".proposal-section-title s") !== null,
+      rows: [...group.querySelectorAll("li")].map((row) => row.textContent),
+    }));
+  }
+
+  it("shows each value changed as it was and as proposed, flagging one the user set", () => {
+    expect(shown()[0]).toEqual({
+      title: "Web app (web) · Changed",
+      struck: false,
+      rows: ["Port30004000You set this"],
+    });
+  });
+
+  it("shows a target added from nothing, Secret variables by name alone", () => {
+    expect(shown()[1]).toEqual({
+      title: "Android (android) · Added",
+      struck: false,
+      rows: [
+        "NameAndroid",
+        "KindBuild to install",
+        "Entry point./gradlew assembleDebug",
+        "Output filesapp/*.apk",
+        "VariablesMODE=test",
+        "Secret variablesNone",
+      ],
+    });
+  });
+
+  it("strikes a removed target through, each of its values going", () => {
+    const removed = shown()[2];
+    expect(removed?.struck).toBe(true);
+    expect(removed?.title).toBe("Old (old) · Removed");
+    expect(removed?.rows).toContain("Secret variablesAPI_TOKENRemoved");
   });
 });
 

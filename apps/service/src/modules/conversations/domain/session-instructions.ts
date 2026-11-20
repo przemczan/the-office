@@ -242,6 +242,12 @@ export const SHOW_OFFICE_STATUS_TOOL = "show_office_status";
 export const PROPOSE_PROJECT_COMMANDS_TOOL = "propose_project_commands";
 
 /**
+ * The Office tool whoever onboards Projects drafts a Proposal of a Project's test targets with;
+ * named as above.
+ */
+export const PROPOSE_TEST_TARGETS_TOOL = "propose_test_targets";
+
+/**
  * The Office tool whoever onboards Projects drafts a Proposal of a library Pipeline's Stages with,
  * which Pipelines registers.
  */
@@ -376,7 +382,7 @@ function draftingOfficeTools(held: HeldDuties): readonly string[] {
 /**
  * The Office tools a person has in their chat and their Stage Threads alike, for the duties they
  * hold: whoever onboards and repairs Projects reads the Pipelines, proposes Project commands,
- * library Pipelines, Project Pipelines and Stage templates, drafts a Project to onboard, and
+ * test targets, library Pipelines, Project Pipelines and Stage templates, drafts a Project to onboard, and
  * installs and updates skills from a Source (spec §2.1, §2.2, §2.3, §2.6).
  */
 export function roleOfficeTools(held: HeldDuties): readonly string[] {
@@ -384,6 +390,7 @@ export function roleOfficeTools(held: HeldDuties): readonly string[] {
     ? [
         LIST_PIPELINES_TOOL,
         PROPOSE_PROJECT_COMMANDS_TOOL,
+        PROPOSE_TEST_TARGETS_TOOL,
         PROPOSE_LIBRARY_PIPELINE_TOOL,
         PROPOSE_PROJECT_PIPELINE_TOOL,
         LIST_STAGE_TEMPLATES_TOOL,

@@ -115,7 +115,8 @@ Covers: the Settings page and its sections (Pipelines list and Stage templates, 
 - **Archive** card: **Archive period** (days): "Done and Dropped Tasks finished longer ago than this are archived at the next daily run, …".
 - **Run environments** card: **Run environments at once**, **CPUs per run environment** (**Automatic** or **Fixed**, the fixed number up to this computer's cores; a note says what Automatic gives here), **Memory per service** ("The most memory each service may use, with no swap."; in GB) and **Processes per service** ("The most processes each service may run at once."); each change sends the whole set; a change applies from each run environment's next start.
 - The warning "Fewer run environments than running Tasks" shows when Run environments at once is below Running Tasks at once.
-- Facts: [2.2](../2.2-people.md#limits), [2.5](../2.5-context-policy.md), [2.1.3](../2.1.3-tasks.md).
+- **Test instances** card: **Test instances at once** (a stepper, 1 to 6; "Building counts. Counted apart from run environments."), **Idle time** (minutes, 5 to 240; "A running test instance stops after this long with no request.") and **Proxy ports** (a first and a last port; "Each running test instance is opened at one of these ports on <OFFICE_HOST>."); each change saves at once (`PUT /settings/test-instances`); a refusal shows under the card, naming the field.
+- Facts: [2.2](../2.2-people.md#limits), [2.5](../2.5-context-policy.md), [2.1.3](../2.1.3-tasks.md), [2.12](../2.12-test-instances.md#defaults).
 
 ## Office instructions
 

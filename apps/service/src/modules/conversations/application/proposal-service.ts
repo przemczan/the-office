@@ -104,6 +104,7 @@ export class ProposalService {
         changeToApply(stored, edited),
         stored.draftedBy,
         by,
+        stored.id,
       );
       return applyProposal(stored, thread, applied, new Date(), by);
     });

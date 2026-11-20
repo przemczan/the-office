@@ -501,6 +501,42 @@ _Avoid_: CPU cap, CPU quota, cpus
 How many run environments may be running together across The Office, 2 by default, set in Settings › Office limits' Run environments card. A Stage past it shows "Waiting for a run environment" until one stops; raising it lets a waiting Stage start at once, lowering it stops none.
 _Avoid_: run environment slots, concurrency limit
 
+**Test target**:
+A named entry in a Project's settings for what can be launched on an Initiative's branch to try the work: a key, a name, a kind and that kind's settings, pointing only to the repository's own entry points (a file, a package script, a Gradle task, a `.devcontainer/` service). Stored in the database only, never in a repository; written on the Project page or by Devops' `propose_test_targets` Proposal, which the user applies.
+_Avoid_: preview config, deploy target, environment
+
+**Test instance**:
+One launch of one Test target on one Initiative's branch in one Project, on its own checkout, with its own data and only the target's own variables. Building, then Running and Stopped (Hosted) or Built (Build to install), or Failed.
+_Avoid_: preview, staging, sandbox, deploy, review app
+
+**Hosted**:
+The kind of Test target that runs in the Project's run environment and is opened in a browser, at a port of its own behind The Office's sign-in. Built now.
+_Avoid_: web preview, server target
+
+**Build to install**:
+The kind of Test target that builds files the user installs, such as an APK, downloaded from the Initiative's page or by its QR code. Built now.
+_Avoid_: artifact, release build, deploy
+
+**Install on a device**:
+The kind of Test target that would build and install on a device attached to the workstation. Outlined only, not built; refused for now.
+_Avoid_: deploy to device, sideload
+
+**Deployed elsewhere**:
+The kind of Test target that would deploy to a host the user names. Outlined only, not built; refused for now.
+_Avoid_: staging, deploy, remote preview
+
+**Built**:
+The state a Build to install Test instance ends in once its files are ready to download; nothing of it runs.
+_Avoid_: Done, finished, Stopped (for a build)
+
+**Test instances at once**:
+How many Test instances may be Building or Running together across The Office, 2 by default, 1 to 6, set in Settings › Office limits' Test instances card; counted apart from Run environments at once. A launch over it is refused.
+_Avoid_: preview slots, sandbox limit
+
+**Idle time**:
+How long a Running Hosted Test instance may go with no request before The Office stops it, 30 minutes by default, set in Settings › Office limits' Test instances card.
+_Avoid_: timeout, TTL, sleep
+
 **Stage**:
 One node of a Pipeline's flow, with its routes out and an optional "on failure go back" loop: work by an Agent in a Role, or in the Role holding a duty, a Project command run without an Agent, or a Gate.
 _Avoid_: Phase, step (as a noun for the record)

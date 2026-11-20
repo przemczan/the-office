@@ -30,6 +30,7 @@ import { BugTaskOfficeTools } from "./adapters/office-tools/bug-task-office-tool
 import { DecisionOfficeTools } from "./adapters/office-tools/decision-office-tools.js";
 import { LinkCardOfficeTools } from "./adapters/office-tools/link-card-office-tools.js";
 import { ProjectCommandOfficeTools } from "./adapters/office-tools/project-command-office-tools.js";
+import { TestTargetOfficeTools } from "./adapters/office-tools/test-target-office-tools.js";
 import { PromptTemplateOfficeTools } from "./adapters/office-tools/prompt-template-office-tools.js";
 import { ProposalOfficeTools } from "./adapters/office-tools/proposal-office-tools.js";
 import { RoleOfficeTools } from "./adapters/office-tools/role-office-tools.js";
@@ -77,6 +78,7 @@ import { OfficeInstructions } from "./application/office-instructions.js";
 import { ProposalAppliers } from "./application/proposal-appliers.js";
 import { ProposalService } from "./application/proposal-service.js";
 import { ProjectCommandProposals } from "./application/project-command-proposals.js";
+import { TestTargetProposals } from "./application/test-target-proposals.js";
 import { RoleProposals } from "./application/role-proposals.js";
 import { SkillInstallProposals } from "./application/skill-install-proposals.js";
 import { SkillProposals } from "./application/skill-proposals.js";
@@ -200,6 +202,7 @@ export class ConversationsModule implements NestModule {
         ProposalService,
         RoleProposals,
         ProjectCommandProposals,
+        TestTargetProposals,
         SkillInstallProposals,
         SkillUpdateProposals,
         SkillProposals,
@@ -213,6 +216,7 @@ export class ConversationsModule implements NestModule {
         ProposalOfficeTools,
         PromptTemplateOfficeTools,
         ProjectCommandOfficeTools,
+        TestTargetOfficeTools,
         SkillOfficeTools,
         LinkCards,
         LinkCardOfficeTools,

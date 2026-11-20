@@ -6,6 +6,7 @@ import { openPageSchema } from "./open-page.js";
 import { pageSchemaOf } from "./paging.js";
 import { dutyKeySchema, roleCardSchema } from "./people.js";
 import { newProjectSchema, proposedProjectCommandsSchema } from "./projects.js";
+import { proposedTestTargetsSchema } from "./test-targets.js";
 import { pinnedVersionSchema } from "./skills.js";
 import { routeSchema, stageChangeSchema, stageProblemSchema, stageSchema } from "./stages.js";
 import { userRefSchema } from "./users.js";
@@ -533,6 +534,9 @@ export const SHOW_OFFICE_STATUS_TOOL = "show_office_status";
 /** The Office tool Devops drafts a Proposal of a Project's commands with, hidden alike. */
 export const PROPOSE_PROJECT_COMMANDS_TOOL = "propose_project_commands";
 
+/** The Office tool Devops drafts a Proposal of a Project's test targets with, hidden alike. */
+export const PROPOSE_TEST_TARGETS_TOOL = "propose_test_targets";
+
 /** The Office tool Devops drafts a Proposal of a library Pipeline's Stages with, hidden alike. */
 export const PROPOSE_LIBRARY_PIPELINE_TOOL = "propose_library_pipeline";
 
@@ -705,6 +709,15 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
     kind: z.literal("project-commands"),
     projectId: z.string(),
     changes: proposedProjectCommandsSchema,
+  }),
+  /**
+   * Devops' change to a Project's test targets: each target now and as proposed, Secret variables
+   * by name alone. Applying is refused once one changed or a target fails the page's rules.
+   */
+  z.object({
+    kind: z.literal("test-targets"),
+    projectId: z.string(),
+    changes: proposedTestTargetsSchema,
   }),
   /**
    * Devops' new Stages for a library Pipeline, its whole flow, and its Stages when drafted (now).

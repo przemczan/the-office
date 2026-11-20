@@ -1,6 +1,6 @@
 # 6 Permissions and safety
 
-Covers: threat models, stored hashes, the two layers, language servers, Hard switches, MCP tools, refusals, default profiles, reading records, Consultations' permissions, chats, the Caretaker with Allow changes on, secrets, Secret variables, build rules.
+Covers: threat models, stored hashes, the two layers, language servers, Hard switches, MCP tools, refusals, default profiles, reading records, Consultations' permissions, chats, the Caretaker with Allow changes on, secrets, Secret variables, test instances, build rules.
 
 ## Threat model
 
@@ -125,6 +125,18 @@ Covers: threat models, stored hashes, the two layers, language servers, Hard swi
 - A Project's Secret variables ([5.5](5.5-git-and-isolation.md#secret-variables)) reach its commands, its Tasks' sessions and its run environments' install, never a command line, an image layer or the web.
 - They are hidden as `[secret NAME]` in the output The Office keeps and shows and in a Thread's messages.
 - This guards against mistakes, not a hostile Agent: an Agent can use a value, and one that prints it reads it in the tool's result.
+
+## Test instances
+
+- A test instance ([2.12](2.12-test-instances.md#safety)) runs the Project's code from an Initiative's branch, which an Agent wrote, so it is kept from everything real.
+- It gets only its test target's own variables, test values, never the Project's environment or Secret variables, and never The Office's own environment.
+- Nothing from the host is mounted into it but its checkout: no Docker socket, no `identity/`, `engines/` or `repositories/`, no worktree.
+- So a test instance of The Office starts empty, with its own Postgres and its own data directory, and holds no real Project, credential or engine.
+- **Second layer, `OFFICE_TEST_INSTANCE=true`:** The Office sets it in every test instance, and a service started with it refuses, on the server:
+  - pushing, opening a pull request and merging, in the publishing and git layer where each happens;
+  - starting an engine, so no session runs and no model is called.
+- Each refusal names `OFFICE_TEST_INSTANCE`, and each is proven by a test.
+- Its UI shows a "Test instance" banner on every page.
 
 ## Build rules
 

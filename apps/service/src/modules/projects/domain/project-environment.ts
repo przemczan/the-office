@@ -112,7 +112,7 @@ export function environmentProblems(environment: ProjectEnvironment): string[] {
   for (const variable of environment.set) {
     const problem = variableNameProblem(variable.name);
     if (problem) problems.push(problem);
-    problems.push(...valueProblems(variable));
+    problems.push(...variableValueProblems(variable));
   }
   problems.push(...repeatedNameProblems(environment.set));
   for (const name of environment.unset) {
@@ -122,7 +122,8 @@ export function environmentProblems(environment: ProjectEnvironment): string[] {
   return problems;
 }
 
-function valueProblems({ name, value, secret }: ProjectVariable): string[] {
+/** Why a variable's value can't be saved: a NUL anywhere, or a Secret variable's value not one line of 6 or more. */
+export function variableValueProblems({ name, value, secret }: ProjectVariable): string[] {
   if (value.includes("\0")) return [`The value of ${name} has a NUL character.`];
   if (!secret) return [];
   if (value === "") return [`Give the Secret variable ${name} a value.`];
@@ -137,7 +138,8 @@ function valueProblems({ name, value, secret }: ProjectVariable): string[] {
   return [];
 }
 
-function repeatedNameProblems(variables: readonly ProjectVariable[]): string[] {
+/** Each name set more than once, or both plain and secret. */
+export function repeatedNameProblems(variables: readonly ProjectVariable[]): string[] {
   const names = variables.map((variable) => variable.name);
   const repeated = new Set(names.filter((each, index) => names.indexOf(each) !== index));
   return [...repeated].map((name) => {
@@ -150,7 +152,7 @@ function repeatedNameProblems(variables: readonly ProjectVariable[]): string[] {
   });
 }
 
-function variableNameProblem(name: string): string | undefined {
+export function variableNameProblem(name: string): string | undefined {
   if (name === "") return "Give each variable a name.";
   if (/[=\0]/.test(name)) return `A variable's name can't have "=" in it: ${name}.`;
   return undefined;

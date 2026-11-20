@@ -697,6 +697,10 @@ export const projectWebEventSchema = z.discriminatedUnion("type", [
     type: z.literal("project.skill-use-changed"),
     projectId: z.string(),
   }),
+  webEventSchema.extend({
+    type: z.literal("project.test-targets-changed"),
+    projectId: z.string(),
+  }),
   /** The Project's GitHub issue switches changed. */
   webEventSchema.extend({
     type: z.literal("project.issue-settings-changed"),

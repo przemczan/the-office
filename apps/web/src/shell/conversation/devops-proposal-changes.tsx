@@ -6,6 +6,7 @@ import type {
   ProjectPipelineFields,
   ProposedChange,
   ProposedProjectCommands,
+  ProposedTestTargets,
   Role,
   Stage,
   StageChange as ProjectStageChange,
@@ -21,6 +22,11 @@ import {
   type StageChange,
 } from "../pipelines/pipeline-words.ts";
 import { COMMAND_KIND_LABELS, INSTALL_INPUTS_LABEL, installInputsLine } from "../project-words.ts";
+import {
+  TEST_TARGET_FIELD_LABELS,
+  testTargetFieldsOf,
+  testTargetFieldWords,
+} from "../test-target-words.ts";
 import type { ProposedStageRoutes } from "../pipelines/flow/proposal-flow.ts";
 import { SkillUpdateDiff } from "../skill-update-diff.tsx";
 import { pinnedVersionLabel, sourceLabel } from "../skill-words.ts";
@@ -109,6 +115,63 @@ export function commandWords(
 ): string {
   const words = `${COMMAND_KIND_LABELS[kind]} · ${commandLine || "Not set"}`;
   return withName ? `${name} · ${words}` : words;
+}
+
+/**
+ * Each test target a Proposal adds, changes or removes, by key: every value it changes from now to
+ * as proposed (a target added from nothing, one removed struck through), each value the user set
+ * flagged "You set this", and Secret variables by name alone.
+ */
+export function ProposedTestTargetChanges({
+  changes,
+}: {
+  readonly changes: ProposedTestTargets;
+}): ReactNode {
+  return (
+    <>
+      {changes.targets.map(({ key, from, to, userSet }) => {
+        const shown = to ?? from;
+        if (!shown) return null;
+        const change = from === null ? "Added" : to === null ? "Removed" : "Changed";
+        const fields = [
+          ...new Set([
+            ...(from ? testTargetFieldsOf(from.kind) : []),
+            ...(to ? testTargetFieldsOf(to.kind) : []),
+          ]),
+        ];
+        const label = `${shown.name} (${key})`;
+        return (
+          <div className="proposal-section" role="group" aria-label={label} key={key}>
+            <span className="proposal-section-title">
+              {to === null ? <s>{label}</s> : label} · {change}
+            </span>
+            <ul className="proposal-changes">
+              {fields.flatMap((field) => {
+                const was = from && testTargetFieldWords(from, field);
+                const proposed = to && testTargetFieldWords(to, field);
+                if (was === proposed) return [];
+                return [
+                  <ChangeRow
+                    key={field}
+                    label={TEST_TARGET_FIELD_LABELS[field]}
+                    from={was ?? undefined}
+                    to={proposed ?? "Removed"}
+                    flag={
+                      userSet.includes(field) && (
+                        <Badge tone="warning" size="sm">
+                          You set this
+                        </Badge>
+                      )
+                    }
+                  />,
+                ];
+              })}
+            </ul>
+          </div>
+        );
+      })}
+    </>
+  );
 }
 
 /** A Pipeline's Stages from now to as proposed, and each Stage the change adds, removes or rewrites. */
@@ -433,10 +496,13 @@ function ChangeRow({
   label,
   from,
   to,
+  flag,
 }: {
   readonly label: string;
-  readonly from?: string;
+  readonly from?: string | undefined;
   readonly to: string;
+  /** After the proposed value, such as "You set this". */
+  readonly flag?: ReactNode;
 }): ReactNode {
   return (
     <li>
@@ -448,6 +514,7 @@ function ChangeRow({
         </>
       )}
       <span className="proposal-change-to">{to}</span>
+      {flag}
     </li>
   );
 }

@@ -38,6 +38,12 @@ export class CommittedFiles {
     return this.git.findCommit(project.path, `refs/heads/${branch}`);
   }
 
+  /** Whether `path` names a file at `commit`, whatever its size or contents; nothing of it is read. */
+  async isFileAt(projectId: string, commit: string, path: string): Promise<boolean> {
+    const project = await this.projects.read(projectId);
+    return (await this.git.commitTree(project.path, commit).kindOf(path)) === "file";
+  }
+
   /** The text of the file `path` names at `commit`; undefined when it names no file there. */
   async textAt(projectId: string, commit: string, path: string): Promise<string | undefined> {
     const project = await this.projects.read(projectId);

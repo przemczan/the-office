@@ -1043,6 +1043,89 @@ button.github-repository.selected:hover:not(:disabled) {
   color: var(--danger-fg);
 }
 
+/* ---- the test targets: rows and their editor on the commands' frame */
+.test-targets {
+  margin-top: 12px;
+}
+
+.test-target-set-by {
+  flex: none;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+/* Under the row, past the name and the row's gap, like a command's hint. */
+.test-target-warnings {
+  display: flex;
+  flex: 0 1 100%;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-left: calc(var(--command-key-width) + 10px);
+}
+
+.test-target-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--warning-fg);
+}
+
+.test-target-editor-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.test-target-entry-point {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.test-target-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.test-target-field-label {
+  font: 500 12px/1.3 var(--font-sans);
+  color: var(--fg-2);
+}
+
+/* Each field's mark of who set it, under the field's own hint. */
+.test-target-marked {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.test-target-kind-outlined {
+  color: var(--fg-3);
+  cursor: not-allowed;
+}
+
+.test-target-editor-note {
+  margin: 0;
+}
+
+.test-targets-proposals {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+@container page (max-width: 664px) {
+  .test-target-editor-fields,
+  .test-target-entry-point .command-editor-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .test-target-warnings {
+    margin-left: 0;
+  }
+}
+
 @container page (max-width: 1224px) {
   .projects-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

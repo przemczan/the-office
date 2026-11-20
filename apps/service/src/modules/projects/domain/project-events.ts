@@ -227,3 +227,10 @@ export class ProjectSkillUseChanged extends DomainEvent {
     super();
   }
 }
+
+/** The Project's test targets changed, on its page or by an applied Proposal; read them anew. */
+export class ProjectTestTargetsChanged extends DomainEvent {
+  constructor(readonly projectId: string) {
+    super();
+  }
+}

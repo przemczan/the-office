@@ -63,6 +63,7 @@ import {
   ProposedSkillUpdateFields,
   ProposedStageChanges,
   ProposedStageFieldChanges,
+  ProposedTestTargetChanges,
 } from "./devops-proposal-changes.tsx";
 import { officeSetupApplyLabel, ProposedOfficeSetup } from "./office-setup-changes.tsx";
 import { checkRequest } from "./project-pipeline-check.ts";
@@ -113,9 +114,10 @@ const OFFICE_LIMITS: Record<
  * (as proposed or edited first on the hire page) or from a preset (under the proposed name or one
  * the user gives), a change to a Role's card, a new value for an Office setting, a change to an
  * Initiative by whoever shapes Initiatives, the Caretaker's set-up of The Office (hires and duties
- * together), or by whoever onboards Projects a change to a Project's commands, a library
- * Pipeline's Stages, a Project Pipeline (new or changed) or a Stage template's Stage, a Project to
- * onboard, a skill to install from a Source or its update, or a written skill drafted in a chat.
+ * together), or by whoever onboards Projects a change to a Project's commands or test targets, a
+ * library Pipeline's Stages, a Project Pipeline (new or changed) or a Stage template's Stage, a
+ * Project to onboard, a skill to install from a Source or its update, or a written skill drafted
+ * in a chat.
  * Nothing changes until the user applies it; "Not now" declines it.
  */
 export function ProposalCard({ proposal }: { readonly proposal: Proposal }): ReactNode {
@@ -244,6 +246,22 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
             changes={[projectQueries.list().queryKey]}
             appliedToast={`${name}'s commands changed.`}
             openNote={STALE_NOTE}
+          />
+        </ProposalFrame>
+      );
+    }
+    case "test-targets": {
+      const name = projects?.find(({ id }) => id === change.projectId)?.name ?? change.projectId;
+      return (
+        <ProposalFrame title={`Change ${name}'s test targets`}>
+          <ProposedTestTargetChanges changes={change.changes} />
+          <AnswerFoot
+            proposal={proposal}
+            changes={[projectQueries.testTargets(change.projectId).queryKey]}
+            appliedToast={`${name}'s test targets changed.`}
+            openNote={`All or nothing. ${STALE_NOTE}`}
+            applyLabel="Apply"
+            declineLabel="Dismiss"
           />
         </ProposalFrame>
       );
@@ -1054,6 +1072,7 @@ function AnswerFoot({
   appliedNote,
   openNote,
   applyLabel = "Apply change",
+  declineLabel = "Not now",
 }: {
   readonly proposal: Proposal;
   /** What applying it changes, refreshed once it is applied. */
@@ -1062,6 +1081,7 @@ function AnswerFoot({
   readonly appliedNote?: string;
   readonly openNote: string;
   readonly applyLabel?: string | undefined;
+  readonly declineLabel?: string;
 }): ReactNode {
   const showToast = useToast();
   const answering = useAnswering(proposal, changes, () => showToast(appliedToast));
@@ -1097,7 +1117,7 @@ function AnswerFoot({
             disabled={answering.busy}
             onClick={() => answering.declining.mutate()}
           >
-            Not now
+            {declineLabel}
           </Button>
           <span className="proposal-note">{openNote}</span>
           {answering.error && (

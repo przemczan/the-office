@@ -27,6 +27,7 @@ import {
   ProjectRunEnvironmentChanged,
   ProjectRoleOverrideChanged,
   ProjectSkillUseChanged,
+  ProjectTestTargetsChanged,
   ProjectUseForEveryRoleChanged,
   ProjectUseProjectSkillsChanged,
 } from "../../domain/project-events.js";
@@ -170,6 +171,13 @@ export class ProjectWebEvents implements OnModuleInit {
       ProjectKindDefaultPipelineChanged,
       (event): WebEventOf<"project.default-pipeline-changed"> => ({
         type: "project.default-pipeline-changed",
+        projectId: event.projectId,
+      }),
+    );
+    this.forwarding.forward(
+      ProjectTestTargetsChanged,
+      (event): WebEventOf<"project.test-targets-changed"> => ({
+        type: "project.test-targets-changed",
         projectId: event.projectId,
       }),
     );

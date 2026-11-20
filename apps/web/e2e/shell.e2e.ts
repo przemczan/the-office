@@ -419,36 +419,41 @@ const claudeCode = (id: string, name: string): Engine => ({
   claudeCodeP: false,
 });
 
-/** The engines as Settings › Engines lists them, and their windows as they were first read. */
+/**
+ * The engines as Settings › Engines lists them, and their windows as they were first read; `pinned`
+ * holds any more of Now the test keeps fixed, such as Needs you, which other tests' work changes.
+ */
 async function stubEngines(
   page: Page,
   engines: readonly Engine[],
   usageWindows: Now["usageWindows"],
+  pinned: Partial<Now> = {},
 ): Promise<void> {
+  const fixed: Partial<Now> = { ...pinned, usageWindows };
   await page.route(/\/api\/settings\/engines$/, async (route) => {
     const settings = (await (await route.fetch()).json()) as EngineSettings;
     await route.fulfill({ json: { ...settings, engines } });
   });
   await page.route(/\/api\/now$/, async (route) => {
     const now = (await (await route.fetch()).json()) as Now;
-    await route.fulfill({ json: { ...now, usageWindows } });
+    await route.fulfill({ json: { ...now, ...fixed } });
   });
   // Now also comes whole in each `now.changed`, which another test's work can send at any time.
   await page.routeWebSocket(/\/api\/events$/, (stream) => {
     const service = stream.connectToServer();
     service.onMessage((message) => {
-      stream.send(typeof message === "string" ? withUsageWindows(message, usageWindows) : message);
+      stream.send(typeof message === "string" ? withNow(message, fixed) : message);
     });
   });
 }
 
-/** An event stream message, with its `now.changed`'s Now given these usage windows. */
-function withUsageWindows(message: string, usageWindows: Now["usageWindows"]): string {
+/** An event stream message, with its `now.changed`'s Now given these fixed parts. */
+function withNow(message: string, fixed: Partial<Now>): string {
   const sent = JSON.parse(message) as { type?: string; event?: { type?: string; now?: Now } };
   if (sent.type !== "event" || sent.event?.type !== "now.changed" || !sent.event.now) {
     return message;
   }
-  const now = { ...sent.event.now, usageWindows };
+  const now = { ...sent.event.now, ...fixed };
   return JSON.stringify({ ...sent, event: { ...sent.event, now } });
 }
 
@@ -638,6 +643,12 @@ test.describe("the status strip on a phone", () => {
           sevenDay: { percentUsed: 41, resetsAt: RESETS_AT },
         },
       ],
+      // Fixed, as other tests' work and Office limits would resize the figures between reads.
+      {
+        needsYou: [],
+        desks: { inUse: 0, limit: 3 },
+        tokensToday: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
+      },
     );
     await page.goto("/now");
     const strip = page.getByRole("status", { name: "Status strip" });

@@ -13,6 +13,7 @@ import {
   PROPOSE_PROJECT_TOOL,
   PROPOSE_SKILL_TOOL,
   PROPOSE_STAGE_TEMPLATE_TOOL,
+  PROPOSE_TEST_TARGETS_TOOL,
   pipelineListSchema,
   pipelineSchema,
   projectListSchema,
@@ -25,11 +26,13 @@ import {
   stageTemplateListSchema,
   stageTemplateSchema,
   taskSchema,
+  testTargetListSchema,
   type Pipeline,
   type Project,
   type ProjectPipeline,
   type Stage,
   type StageTemplate,
+  type TestTarget,
 } from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
@@ -925,6 +928,135 @@ describe("Devops' Proposals of a Project Pipeline, through the scripted engine",
   }, 30_000);
 });
 
+describe("Devops' Proposals of test targets, through the scripted engine", () => {
+  const WEB = {
+    key: "web",
+    name: "Web app",
+    kind: "hosted",
+    entryPoint: {
+      kind: "package-script",
+      manifest: "package.json",
+      script: "start",
+      arguments: [],
+    },
+    port: 5173,
+    variables: [{ name: "MODE", value: "test" }],
+    secretVariables: [],
+  } as const;
+  const ANDROID = {
+    key: "android",
+    name: "Android",
+    kind: "build-to-install",
+    entryPoint: {
+      kind: "package-script",
+      manifest: "package.json",
+      script: "build",
+      arguments: [],
+    },
+    outputPatterns: ["dist/*.apk"],
+    variables: [],
+    secretVariables: ["SIGNING_KEY"],
+  } as const;
+
+  it("drafts test targets that change nothing until applied, a value the user set only when named, and applies them as set by the Proposal", async () => {
+    const project = await aProject(await aRepositoryWithScripts());
+    await putTargets(project, [WEB]);
+    const before = await targetsOf(project);
+
+    const unnamed = await chat.ninaCalls(PROPOSE_TEST_TARGETS_TOOL, {
+      project: project.id,
+      targets: [{ ...WEB, port: 3000 }],
+    });
+    expect(unnamed.isError).toBe(true);
+    expect(unnamed.text).toContain("The user set web.port");
+
+    const [drafted] = await chat.ninaProposes([
+      PROPOSE_TEST_TARGETS_TOOL,
+      {
+        project: project.id,
+        targets: [{ ...WEB, port: 3000 }, ANDROID],
+        changeUserSet: ["web.port"],
+      },
+    ]);
+    if (!drafted) throw new Error("A Proposal of test targets.");
+    expect(drafted.change).toEqual({
+      kind: "test-targets",
+      projectId: project.id,
+      changes: {
+        targets: [
+          { key: "web", from: WEB, to: { ...WEB, port: 3000 }, userSet: ["port"] },
+          { key: "android", from: null, to: ANDROID, userSet: [] },
+        ],
+      },
+    });
+    expect(await targetsOf(project)).toEqual(before);
+
+    const applied = await chat.api("POST", `/proposals/${drafted.id}/apply`, {});
+    expect(applied.status).toBe(200);
+    const setter = {
+      by: "proposal",
+      proposalId: drafted.id,
+      agent: { roleKey: DEVOPS, name: "Nina" },
+    };
+    const [web, android] = await targetsOf(project);
+    expect(web).toMatchObject({ port: 3000, setBy: { port: setter, name: { by: "user" } } });
+    expect(android).toMatchObject({
+      key: "android",
+      secretVariables: [{ name: "SIGNING_KEY", valueSet: false }],
+      setBy: { name: setter, entryPoint: setter, outputPatterns: setter },
+    });
+    // The whole app, a real repository and two chat sessions: slow under a full run.
+  }, 60_000);
+
+  it("refuses to apply test targets whose values changed since they were drafted, changing nothing", async () => {
+    const project = await aProject(await aRepositoryWithScripts());
+    await putTargets(project, [WEB]);
+    const [drafted] = await chat.ninaProposes([
+      PROPOSE_TEST_TARGETS_TOOL,
+      { project: project.id, targets: [{ ...WEB, port: 3000 }], changeUserSet: ["web.port"] },
+    ]);
+    if (!drafted) throw new Error("A Proposal of test targets.");
+    await putTargets(project, [{ ...WEB, port: 8080 }]);
+    const before = await targetsOf(project);
+
+    const applied = await chat.api("POST", `/proposals/${drafted.id}/apply`, {});
+
+    expect(await chat.reasonsOf(applied)).toEqual([
+      `Test target "web" changed since this was proposed.`,
+    ]);
+    expect(await targetsOf(project)).toEqual(before);
+    expect((await chat.readProposal(drafted.id)).status.kind).toBe("open");
+    // The whole app, a real repository and a chat session: slow under a full run.
+  }, 30_000);
+});
+
+/** A repository as aRepository's, with a package manifest whose scripts test targets name. */
+async function aRepositoryWithScripts(): Promise<string> {
+  const repository = await aRepository();
+  await writeFile(
+    join(repository, "package.json"),
+    JSON.stringify({ name: "web", scripts: { start: "vite", build: "vite build" } }),
+  );
+  await run("git", ["add", "."], { cwd: repository });
+  await run(
+    "git",
+    ["-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "Scripts"],
+    { cwd: repository },
+  );
+  return repository;
+}
+
+/** Saves the Project's test targets as the user does on the Project page. */
+async function putTargets(project: Project, targets: readonly unknown[]): Promise<void> {
+  const response = await chat.api("PUT", `/projects/${project.id}/test-targets`, { targets });
+  expect(response.status).toBe(200);
+}
+
+async function targetsOf(project: Project): Promise<TestTarget[]> {
+  return testTargetListSchema.parse(await chat.read(`/projects/${project.id}/test-targets`))
+    .targets;
+}
+
 /** "Run Review only when Tests changed files or ended Failed, otherwise Publish", out of Tests. */
 const REVIEW_WHEN_TESTS_CHANGED_OR_FAILED = [
   {
@@ -1020,8 +1152,8 @@ function aDraftedSkillName(): string {
 }
 
 /** A Project of the test's own, on a repository of its own. */
-async function aProject(): Promise<Project> {
-  const repository = await aRepository();
+async function aProject(onRepository?: string): Promise<Project> {
+  const repository = onRepository ?? (await aRepository());
   const response = await chat.api("POST", "/projects", {
     name: `Devops ${randomUUID().slice(0, 8)}`,
     path: repository,

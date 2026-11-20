@@ -1644,7 +1644,8 @@
   color: var(--fg-3);
 }
 
-/* A Change's fields under its line, each as was → proposed. */
+/* A Change's fields under its line, each as was → proposed; a test target's under its name. */
+.proposal-section .proposal-changes,
 .proposal-field .proposal-changes {
   padding: 6px 0 0;
 }

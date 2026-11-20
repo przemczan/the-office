@@ -13,6 +13,8 @@ import {
   type Proposal as ProposalResponse,
   type ProposedChange as ProposedChangeResponse,
   type ProposedRoutes as ProposedRoutesResponse,
+  type ProposedTestTargetFields as ProposedTestTargetFieldsResponse,
+  type ProposedTestTargets as ProposedTestTargetsResponse,
   type Thread as ThreadResponse,
   type ThreadSummary as ThreadSummaryResponse,
   type TaskConversation,
@@ -25,7 +27,7 @@ import type { PersonChatActivity } from "../../domain/chat-activity.js";
 import type { ConversationTab } from "../../domain/conversation-tabs.js";
 import { type Decision, type DecisionAnswer } from "../../domain/decision.js";
 import { hiredKeyOf } from "../../../people/index.js";
-import type { NewProject } from "../../../projects/index.js";
+import type { NewProject, ProposedTestTargetFields } from "../../../projects/index.js";
 import type { Message } from "../../domain/message.js";
 import type { TaskPeopleWorking } from "../../domain/people-working.js";
 import type {
@@ -33,6 +35,7 @@ import type {
   Proposal,
   ProposedChange,
   ProposedProjectCommands,
+  ProposedTestTargetsChange,
 } from "../../domain/proposal.js";
 import { tokensSoFar, type Thread } from "../../domain/thread.js";
 
@@ -295,6 +298,12 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
         projectId: change.projectId,
         changes: toProposedProjectCommandsResponse(change.changes),
       };
+    case "test-targets":
+      return {
+        kind: "test-targets",
+        projectId: change.projectId,
+        changes: toProposedTestTargetsResponse(change.changes),
+      };
     case "pipeline":
       return {
         kind: "pipeline",
@@ -404,6 +413,38 @@ function toProposedProjectCommandsResponse({
       to: to && { ...to },
     })),
   };
+}
+
+function toProposedTestTargetsResponse({
+  targets,
+}: ProposedTestTargetsChange["changes"]): ProposedTestTargetsResponse {
+  return {
+    targets: targets.map(({ key, from, to, userSet }) => ({
+      key,
+      from: from && toProposedTestTargetFieldsResponse(from),
+      to: to && toProposedTestTargetFieldsResponse(to),
+      userSet: [...userSet],
+    })),
+  };
+}
+
+function toProposedTestTargetFieldsResponse(
+  fields: ProposedTestTargetFields,
+): ProposedTestTargetFieldsResponse {
+  const entryPoint =
+    fields.entryPoint.kind === "devcontainer-service"
+      ? { ...fields.entryPoint }
+      : { ...fields.entryPoint, arguments: [...fields.entryPoint.arguments] };
+  const shared = {
+    key: fields.key,
+    name: fields.name,
+    entryPoint,
+    variables: fields.variables.map(({ name, value }) => ({ name, value })),
+    secretVariables: [...fields.secretVariables],
+  };
+  return fields.kind === "build-to-install"
+    ? { ...shared, kind: fields.kind, outputPatterns: [...fields.outputPatterns] }
+    : { ...shared, kind: fields.kind, port: fields.port };
 }
 
 function decisionOf(

@@ -51,6 +51,7 @@ import {
   ProjectOverviewSection,
   ProjectServerValuesSection,
   ProjectSkillsSection,
+  ProjectTestTargetsSection,
 } from "./surfaces/projects/project-sections.tsx";
 import { ProjectsPage } from "./surfaces/projects/projects-page.tsx";
 import { NotificationsSection } from "./surfaces/settings/notifications/notifications-section.tsx";
@@ -555,6 +556,13 @@ const projectRunEnvironmentRoute = createRoute({
   staticData: { title: "Projects" },
 });
 
+const projectTestTargetsRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: "test-targets",
+  component: ProjectTestTargetsSection,
+  staticData: { title: "Projects" },
+});
+
 const projectEngineRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: "engine",
@@ -831,6 +839,7 @@ export const router = createRouter({
       projectPipelineRoute,
       projectIssuesRoute,
       projectRunEnvironmentRoute,
+      projectTestTargetsRoute,
       projectEngineRoute,
       projectSkillsRoute,
       projectServerValuesRoute,

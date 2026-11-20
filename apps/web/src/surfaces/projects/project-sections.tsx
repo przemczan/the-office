@@ -10,6 +10,7 @@ import { useOpenProject } from "./project-page.tsx";
 import { RunEnvironmentBlock } from "./run-environment-block.tsx";
 import { ServerValuesBlock } from "./server-values-block.tsx";
 import { SkillsBlock } from "./skills-block.tsx";
+import { TestTargetsBlock } from "./test-targets-block.tsx";
 import { WorkBlock } from "./work-block.tsx";
 
 /** How the Project stands: its onboarding and its Tasks. */
@@ -45,6 +46,10 @@ export function ProjectIssuesSection(): ReactNode {
 
 export function ProjectRunEnvironmentSection(): ReactNode {
   return <RunEnvironmentBlock project={useOpenProject()} />;
+}
+
+export function ProjectTestTargetsSection(): ReactNode {
+  return <TestTargetsBlock project={useOpenProject()} />;
 }
 
 export function ProjectEngineSection(): ReactNode {

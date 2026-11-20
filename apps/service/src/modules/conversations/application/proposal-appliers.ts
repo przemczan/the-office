@@ -18,13 +18,15 @@ export interface ProposalApplier<Kind extends ProposedChangeKind> {
   problemsWith(change: ProposedChanges[Kind]): Promise<readonly string[]>;
   /**
    * Carries the change out for the user `appliedBy`, as proposed by the person `proposedBy` (their
-   * Role's key), and answers it as applied. Throws ProposalRefused, changing nothing, when it
-   * can't.
+   * Role's key), and answers it as applied. `proposalId` is the Proposal's own, for an applier that
+   * records which Proposal set what; undefined when applied apart from a stored Proposal. Throws
+   * ProposalRefused, changing nothing, when it can't.
    */
   apply(
     change: ProposedChanges[Kind],
     proposedBy: string,
     appliedBy: UserRef,
+    proposalId?: string,
   ): Promise<ProposedChanges[Kind]>;
 }
 
@@ -140,6 +142,8 @@ export class ProposalAppliers {
         return this.applierOf("initiative").problemsWith(change);
       case "project-commands":
         return this.applierOf("project-commands").problemsWith(change);
+      case "test-targets":
+        return this.applierOf("test-targets").problemsWith(change);
       case "pipeline":
         return this.applierOf("pipeline").problemsWith(change);
       case "stage-template":
@@ -157,7 +161,12 @@ export class ProposalAppliers {
     }
   }
 
-  apply(change: ProposedChange, proposedBy: string, appliedBy: UserRef): Promise<ProposedChange> {
+  apply(
+    change: ProposedChange,
+    proposedBy: string,
+    appliedBy: UserRef,
+    proposalId?: string,
+  ): Promise<ProposedChange> {
     switch (change.kind) {
       case "hire":
         return this.applierOf("hire").apply(change, proposedBy, appliedBy);
@@ -181,6 +190,8 @@ export class ProposalAppliers {
         return this.applierOf("initiative").apply(change, proposedBy, appliedBy);
       case "project-commands":
         return this.applierOf("project-commands").apply(change, proposedBy, appliedBy);
+      case "test-targets":
+        return this.applierOf("test-targets").apply(change, proposedBy, appliedBy, proposalId);
       case "pipeline":
         return this.applierOf("pipeline").apply(change, proposedBy, appliedBy);
       case "stage-template":

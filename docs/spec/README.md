@@ -199,6 +199,13 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 ### T
 
 - **Tag**: [2.1.3 Tags](2.1.3-tasks.md#tags)
+- **Test target, Hosted, Build to install, Install on a device, Deployed elsewhere, entry points only**: [2.12 Test target](2.12-test-instances.md#test-target); [2.12 Kinds](2.12-test-instances.md#kinds); [2.12 Entry points only](2.12-test-instances.md#entry-points-only); screen: [Project page › Test targets](screens/project-page.md#test-targets)
+- **propose_test_targets, Set up test targets**: [2.12 Writing test targets](2.12-test-instances.md#writing-test-targets); [2.12 Set up test targets](2.12-test-instances.md#set-up-test-targets); [2.3.5 Built-ins](2.3.5-library.md#built-ins)
+- **Test instance, Building, Running, Stopped, Built, Failed**: [2.12 Test instance](2.12-test-instances.md#test-instance); [2.12 Test instance states](2.12-test-instances.md#test-instance-states); [2.1.4 Test instances of an Initiative](2.1.4-initiatives.md#test-instances-of-an-initiative); screen: [Initiative page › Test instances](screens/initiative-page.md#test-instances)
+- **Test instance proxy, hand-off link, Proxy ports**: [2.12 Reaching a Hosted instance](2.12-test-instances.md#reaching-a-hosted-instance); [5.1 The test instance proxy](5.1-shape.md#the-test-instance-proxy); [2.10 Signing in to a test instance](2.10-users-and-signing-in.md#signing-in-to-a-test-instance)
+- **Build to install files, QR code link**: [2.12 Build to install](2.12-test-instances.md#build-to-install); [2.12 Kept Build to install files](2.12-test-instances.md#kept-build-to-install-files); [5.5 The build cache volume](5.5-git-and-isolation.md#the-build-cache-volume)
+- **Test instances at once, Idle time**: [2.12 Test instances at once](2.12-test-instances.md#test-instances-at-once); [2.12 Idle time](2.12-test-instances.md#idle-time); screen: [Settings › Office limits](screens/settings.md#office-limits)
+- **Test instance safety, OFFICE_TEST_INSTANCE**: [6 Test instances](6-permissions-and-safety.md#test-instances); [2.12 Safety](2.12-test-instances.md#safety)
 - **Task**: [2.1.3 Task](2.1.3-tasks.md#task); screen: [Task page](screens/task-page.md#task-page)
 - **Task kind (Feature, Bug, Chore), a Kind's default Pipeline**: [2.1.3 Task kind](2.1.3-tasks.md#task-kind); [2.1.1 Project settings](2.1.1-projects.md#project-settings); screen: [Work board › Marks](screens/work-board.md#marks)
 - **Text file**: [2.1.2 Text files and PDFs](2.1.2-ideas-and-attachments.md#text-files-and-pdfs)
@@ -264,10 +271,10 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 ### 2. Domain model
 
 - [2.1 Work](2.1-work.md): index of the pages below.
-  - [2.1.1 Projects](2.1.1-projects.md): Project, its settings, a Kind's default Pipeline, Project limit, Icon and Logo, Project commands, GitHub issues.
+  - [2.1.1 Projects](2.1.1-projects.md): Project, its settings, a Kind's default Pipeline, test targets, Project limit, Icon and Logo, Project commands, GitHub issues.
   - [2.1.2 Ideas and Attachments](2.1.2-ideas-and-attachments.md): Idea, Attachment, text files and PDFs, pasted images.
   - [2.1.3 Tasks](2.1.3-tasks.md): Task, its Kind and bug details, its states, Ready, Description, Commit message, dependencies, Drop reason, GitHub issue, priority, archive, moving.
-  - [2.1.4 Initiatives](2.1.4-initiatives.md): Initiative, its states, shaping, Plan the Initiative, its Pipeline, Publishing Tasks, Pause.
+  - [2.1.4 Initiatives](2.1.4-initiatives.md): Initiative, its states, shaping, Plan the Initiative, its Pipeline, Publishing Tasks, Pause, its test instances.
   - [2.1.5 Planning and Start](2.1.5-planning-and-start.md): Plan and Definition of Done, Planning, Auto mode, the queue for Start, overlaps, Usage estimates.
   - [2.1.6 Board and search](2.1.6-board-and-search.md): the board, the Kind filter, search, Saved views, Group by Initiative, the Pull requests and CI tabs.
 - [2.2 People](2.2-people.md): Role, Agent, Role card, authority, escalation, presets, duties, the Office Manager, limits.
@@ -292,11 +299,12 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
   - [2.9.1 The model](2.9.1-the-model.md): Sub-agents and Processes, what is kept and for how long.
   - [2.9.2 Session events](2.9.2-session-events.md): what each engine reports.
   - [2.9.3 Streaming and the UI](2.9.3-streaming-and-ui.md): live streaming and the read-only view.
-- [2.10 Users and signing in](2.10-users-and-signing-in.md): users, the ways to sign in, signed-in devices, lockout, recovery, who did what.
+- [2.10 Users and signing in](2.10-users-and-signing-in.md): users, the ways to sign in, signed-in devices, lockout, recovery, signing in to a test instance, who did what.
 - [2.11 Stats](2.11-stats.md): index of the pages below.
   - [2.11.1 The Stats page](2.11.1-the-stats-page.md): basic and full stats, the states between.
   - [2.11.2 Tokens and cost](2.11.2-tokens-and-cost.md): what is counted, estimated cost, metric attributes.
   - [2.11.3 System health](2.11.3-system-health.md): health readings, slow routes and queries.
+- [2.12 Test instances](2.12-test-instances.md): test targets and their kinds, the Proposal that writes them, test instances, their states, the proxy, Build to install files, safety, limits.
 
 ### 4. UX
 
@@ -325,7 +333,7 @@ One page per screen, as built. Where a [design](../design/README.md) differs, th
 
 ### 5. Architecture and stack
 
-- [5.1 Shape](5.1-shape.md): one Node service, its addresses and the public address, Windows and Linux.
+- [5.1 Shape](5.1-shape.md): one Node service, its addresses and the public address, the test instance proxy, Windows and Linux.
   - [5.1.1 Releases and installs](5.1.1-releases-and-installs.md): released versions, the direct and Compose installs.
   - [5.1.2 Updates and restarts](5.1.2-updates-and-restarts.md): updating and restarting The Office.
 - [5.2 Stack](5.2-stack.md): TypeScript on Node 22, backend, web, data, infrastructure, telemetry.
@@ -338,12 +346,12 @@ One page per screen, as built. Where a [design](../design/README.md) differs, th
   - [5.4.5 Engines and the engine cascade](5.4.5-engines-and-cascade.md)
   - [5.4.6 Stand-in Engines and usage windows](5.4.6-stand-in-engines-and-usage-windows.md)
   - [5.4.7 The Gemini CLI engine](5.4.7-gemini-cli-engine.md)
-- [5.5 Git and isolation](5.5-git-and-isolation.md): a worktree per Task, guards, environment as data, the Office identity, run environments.
+- [5.5 Git and isolation](5.5-git-and-isolation.md): a worktree per Task, guards, environment as data, the Office identity, run environments, test instances' checkouts.
 - [5.6 Skills per session](5.6-skills-per-session.md): what a session lists at start.
 
 ### Safety and risks
 
-- [6. Permissions and safety](6-permissions-and-safety.md): threat model, only hashes stored, the two layers, Hard switches, profiles, secrets, build rules.
+- [6. Permissions and safety](6-permissions-and-safety.md): threat model, only hashes stored, the two layers, Hard switches, profiles, secrets, test instances, build rules.
 - [8. Risks](8-risks.md)
 
 ## Defaults
@@ -514,6 +522,12 @@ Where each default lives, by page:
 - 2.11.3 System health
   - [Routes are named by their template, statements by their shape](2.11.3-system-health.md#routes-are-named-by-their-template-statements-by-their-shape)
   - [1 h is the default range](2.11.3-system-health.md#1-h-is-the-default-range)
+- 2.12 Test instances
+  - [Test instances at once](2.12-test-instances.md#test-instances-at-once)
+  - [Idle time](2.12-test-instances.md#idle-time)
+  - [Proxy ports](2.12-test-instances.md#proxy-ports)
+  - [Kept Build to install files](2.12-test-instances.md#kept-build-to-install-files)
+  - [Implementation notes](2.12-test-instances.md#implementation-notes)
 - 4 UX direction
   - [Palette](4-ux-direction.md#palette)
   - [Density](4-ux-direction.md#density)
@@ -528,6 +542,7 @@ Where each default lives, by page:
   - [Windows and Linux](5.1-shape.md#windows-and-linux)
   - [Only The Office's own pages reach the service](5.1-shape.md#only-the-offices-own-pages-reach-the-service)
   - [The public address](5.1-shape.md#the-public-address)
+  - Proxy ports: [2.12](2.12-test-instances.md#proxy-ports)
 - 5.1.1 Releases and installs
   - [Released versions](5.1.1-releases-and-installs.md#released-versions)
   - [Installing on Debian/Ubuntu](5.1.1-releases-and-installs.md#installing-on-debianubuntu)
@@ -546,6 +561,7 @@ Where each default lives, by page:
   - [Users is its own module](5.3-modules.md#users-is-its-own-module)
   - [Telemetry owns Stats](5.3-modules.md#telemetry-owns-stats)
   - [The System health recorder sits in the platform layer](5.3-modules.md#the-system-health-recorder-sits-in-the-platform-layer)
+  - [Test instances uses Run environments through their public interface](5.3-modules.md#test-instances-uses-run-environments-through-their-public-interface)
   - [Office updates is reached through BusyWork](5.3-modules.md#office-updates-is-reached-through-busywork)
 - 5.4.1 Engine port and kinds
   - [Office actions](5.4.1-engine-kinds.md#office-actions)
@@ -609,6 +625,8 @@ Where each default lives, by page:
   - [The Office identity](5.5-git-and-isolation.md#the-office-identity)
   - [The CPU limit](5.5-git-and-isolation.md#the-cpu-limit)
   - [The other limits of run environments](5.5-git-and-isolation.md#the-other-limits-of-run-environments)
+  - [A test instance's checkout](5.5-git-and-isolation.md#a-test-instances-checkout)
+  - [The build cache volume](5.5-git-and-isolation.md#the-build-cache-volume)
   - [The repository's git data in a run environment](5.5-git-and-isolation.md#the-repositorys-git-data-in-a-run-environment)
   - [The file of earlier Stage runs in a run environment](5.5-git-and-isolation.md#the-file-of-earlier-stage-runs-in-a-run-environment)
   - [Run environments with a non-root Office](5.5-git-and-isolation.md#run-environments-with-a-non-root-office)

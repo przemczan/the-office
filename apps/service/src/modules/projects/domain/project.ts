@@ -263,18 +263,27 @@ export function trimmedCommand<Command extends ProjectCommandFields>(command: Co
 }
 
 /**
+ * Why `key` can't key a Project command or a test target, whose keys take one rule (spec §2.12):
+ * lower-case letters, digits and `-`, starting with a letter, at most 40 characters. `owner` starts
+ * the sentence, such as "A command's".
+ */
+export function keyShapeProblem(key: string, owner: string): string | undefined {
+  if (!COMMAND_KEY.test(key)) {
+    return `${owner} key is lower-case letters, digits and "-", starting with a letter; "${key}" is not.`;
+  }
+  if (key.length > COMMAND_KEY_LENGTH) {
+    return `${owner} key may be at most ${COMMAND_KEY_LENGTH} characters.`;
+  }
+  return undefined;
+}
+
+/**
  * Why a key can't be a new command's beside `commands`: it must be lower-case letters, digits and
  * `-`, starting with a letter, unique in the Project, and neither install's nor Publish's.
  */
 export function commandKeyProblems(key: string, commands: readonly ProjectCommand[]): string[] {
-  if (!COMMAND_KEY.test(key)) {
-    return [
-      `A command's key is lower-case letters, digits and "-", starting with a letter; "${key}" is not.`,
-    ];
-  }
-  if (key.length > COMMAND_KEY_LENGTH) {
-    return [`A command's key may be at most ${COMMAND_KEY_LENGTH} characters.`];
-  }
+  const shapeProblem = keyShapeProblem(key, "A command's");
+  if (shapeProblem) return [shapeProblem];
   if (RESERVED_COMMAND_KEYS.includes(key))
     return [`The key "${key}" is kept for The Office's own use.`];
   if (commands.some((command) => command.key === key)) {

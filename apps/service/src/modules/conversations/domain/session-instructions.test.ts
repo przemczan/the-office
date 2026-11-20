@@ -394,6 +394,7 @@ describe("a chat's built-in tools and instructions, by the duties held", () => {
     expect(tools).toEqual(
       expect.arrayContaining([
         "propose_project_commands",
+        "propose_test_targets",
         "propose_project",
         "list_pipelines",
         "propose_skill_install",

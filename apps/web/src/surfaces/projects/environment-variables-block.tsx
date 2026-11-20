@@ -137,10 +137,10 @@ function EnvironmentEditor({ project }: { readonly project: Project }): ReactNod
 }
 
 /**
- * The Project's Secret variables: given to its commands and Agents as the others are, their
+ * The Project's Secret variables, or a test target's: given to what runs as the others are, their
  * values never shown again once saved and hidden wherever they would appear in output.
  */
-function SecretVariables({
+export function SecretVariables({
   secrets,
   change,
   add,

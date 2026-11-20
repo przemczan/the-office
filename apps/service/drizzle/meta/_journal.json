@@ -1247,6 +1247,13 @@
       "when": 1795200520695,
       "tag": "0177_gemini_cli_engines",
       "breakpoints": true
+    },
+    {
+      "idx": 178,
+      "version": "7",
+      "when": 1795202187008,
+      "tag": "0178_test_targets",
+      "breakpoints": true
     }
   ]
 }

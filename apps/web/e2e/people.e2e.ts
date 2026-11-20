@@ -5076,6 +5076,104 @@ test(
 );
 
 test(
+  "the user adds a Hosted test target, then applies Nina's Proposal that changes the port they set",
+  { tag: "@full" },
+  async ({ page }) => {
+    const repository = await createTemporaryRepository();
+    try {
+      // The service checks the entry point against the base branch's tree.
+      await commitFiles(repository, {
+        "package.json": JSON.stringify({ name: "web", scripts: { start: "node server.js" } }),
+      });
+      const project = await addedProject(page, repository, `Test targets ${Date.now()}`, "TT");
+      await page.goto(`/projects/${project.id}/test-targets`);
+      await expect(page.getByText("None yet. Add one, or have Nina set them up")).toBeVisible();
+
+      await page.getByRole("button", { name: "Add a test target" }).click();
+      const adding = page.getByRole("form", { name: "Add a test target" });
+      await adding.getByLabel("Key", { exact: true }).fill("web");
+      await adding.getByLabel("Name", { exact: true }).fill("Web app");
+      await expect(adding.getByLabel("Entry point")).toHaveValue("package-script");
+      await adding.getByLabel("Script").fill("start");
+      await adding.getByLabel("Port", { exact: true }).fill("3000");
+      await adding.getByRole("button", { name: "Save" }).click();
+      await expect(page.getByText("Web app added.")).toBeVisible();
+
+      const row = page.getByRole("group", { name: "Web app", exact: true });
+      await expect(row).toContainText("package.json › start");
+      await expect(row).toContainText("Hosted");
+      await expect(row).toContainText("Set by you");
+      // Run environment isn't decided for a Project added through the API.
+      await expect(row).toContainText("Needs Run environment On to launch.");
+      await row.getByRole("button", { name: "Change Web app" }).click();
+      const editor = page.getByRole("form", { name: "Change Web app" });
+      await expect(editor.getByLabel("Port", { exact: true })).toHaveValue("3000");
+      await screenshotScenario(page, "test-targets-section", { inView: editor });
+      await editor.getByRole("button", { name: "Cancel" }).click();
+
+      const started = await page.request.post("/api/chats/devops/threads");
+      expect(started.status()).toBe(201);
+      const { id: threadId } = threadSchema.parse(await started.json());
+      const drafted = {
+        key: "web",
+        name: "Web app",
+        kind: "hosted",
+        entryPoint: {
+          kind: "package-script",
+          manifest: "package.json",
+          script: "start",
+          arguments: [],
+        },
+        port: 3000,
+        variables: [],
+        secretVariables: [],
+      };
+      await seedProposal(
+        threadId,
+        {
+          kind: "test-targets",
+          projectId: project.id,
+          changes: {
+            targets: [
+              {
+                key: "web",
+                from: drafted,
+                to: { ...drafted, port: 4000, secretVariables: ["API_TOKEN"] },
+                userSet: ["port"],
+              },
+            ],
+          },
+        },
+        "devops",
+      );
+      // Seeded, so no event tells the page: read it again.
+      await page.reload();
+
+      const card = page.getByRole("region", {
+        name: `Proposal: Change ${project.name}'s test targets`,
+      });
+      await expect(card.getByRole("listitem")).toHaveText([
+        "Port30004000You set this",
+        "Secret variablesNoneAPI_TOKEN",
+      ]);
+      await screenshotScenario(page, "test-targets-proposal-card", { inView: card });
+      await card.getByRole("button", { name: "Apply", exact: true }).click();
+      await expect(page.getByText(`${project.name}'s test targets changed.`)).toBeVisible();
+      await expect(card).toHaveCount(0);
+
+      await expect(row).toContainText("Set by you and Nina");
+      await expect(row).toContainText("Needs a value: API_TOKEN");
+      await row.getByRole("button", { name: "Change Web app" }).click();
+      await expect(editor.getByLabel("Port", { exact: true })).toHaveValue("4000");
+      await expect(editor.getByText("Set by Nina", { exact: true })).toHaveCount(2);
+      await expect(editor.getByText("Set by you", { exact: true })).toHaveCount(4);
+    } finally {
+      await repository.remove();
+    }
+  },
+);
+
+test(
   "the user asks Nina from a Stage template and applies her Proposal; a stale one is refused",
   { tag: "@full" },
   async ({ page }) => {

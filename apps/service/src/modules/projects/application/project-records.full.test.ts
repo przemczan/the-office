@@ -3,6 +3,8 @@ import type { ProjectMcpServerValues, ProjectServerValues } from "../../mcp-serv
 import type { EnvironmentCheck } from "../domain/environment-check.js";
 import { aProject } from "../domain/project.fixtures.js";
 import type { Project } from "../domain/project.js";
+import type { TestTarget } from "../domain/test-target.js";
+import type { TestTargetRepository } from "../ports/test-target-repository.js";
 import type { BaseCheckouts } from "./base-checkouts.js";
 import type { EnvironmentChecks } from "./environment-checks.js";
 import type { ProjectService } from "./project-service.js";
@@ -11,6 +13,7 @@ import { ProjectRecords } from "./project-records.js";
 interface Surroundings {
   readonly checks?: Readonly<Record<string, EnvironmentCheck>>;
   readonly serverValues?: Readonly<Record<string, readonly ProjectMcpServerValues[]>>;
+  readonly testTargets?: Readonly<Record<string, readonly TestTarget[]>>;
 }
 
 function recordsOver(projects: Project[], surroundings: Surroundings = {}): ProjectRecords {
@@ -35,11 +38,15 @@ function recordsOver(projects: Project[], surroundings: Surroundings = {}): Proj
   const serverValues: Pick<ProjectServerValues, "of"> = {
     of: (id) => Promise.resolve(surroundings.serverValues?.[id] ?? []),
   };
+  const testTargets: Pick<TestTargetRepository, "listOf"> = {
+    listOf: (id) => Promise.resolve(surroundings.testTargets?.[id] ?? []),
+  };
   return new ProjectRecords(
     service as ProjectService,
     bases as BaseCheckouts,
     checks as EnvironmentChecks,
     serverValues as ProjectServerValues,
+    testTargets as TestTargetRepository,
   );
 }
 
@@ -91,6 +98,7 @@ describe("ProjectRecords.of", () => {
         "- Role overrides: none",
         "- Project skills: used",
         "- Server values: none",
+        "- Test targets: none",
       ].join("\n"),
     );
   });
@@ -163,6 +171,58 @@ describe("ProjectRecords.of", () => {
         "- Server values: sentry TOKEN: the Project's own secret value, sentry ORG: the Office-wide value, sentry REGION: the Project's own `eu`",
       ]),
     );
+  });
+
+  it("gives each test target with who set each value, its Secret variables by name alone", async () => {
+    const ann = { by: "user", user: { userId: "user-ann", name: "Ann" } } as const;
+    const devops = {
+      by: "proposal",
+      proposalId: "proposal-1",
+      agent: { roleKey: "devops", name: "Dana" },
+    } as const;
+    const records = recordsOver([aProject()], {
+      testTargets: {
+        "admin-panel": [
+          {
+            key: "web",
+            name: "Web app",
+            kind: "hosted",
+            entryPoint: {
+              kind: "package-script",
+              manifest: "package.json",
+              script: "start",
+              arguments: [],
+            },
+            port: 3000,
+            variables: [{ name: "MODE", value: "test" }],
+            secretVariables: [
+              { name: "API_KEY", value: "api-s3cret" },
+              { name: "MAPS_KEY", value: null },
+            ],
+            setBy: { name: ann, kind: devops, entryPoint: devops, port: ann, variables: devops },
+          },
+          {
+            key: "android",
+            name: "Android",
+            kind: "build-to-install",
+            entryPoint: { kind: "gradle-task", task: "assembleDebug", arguments: [] },
+            outputPatterns: ["app/build/outputs/apk/debug/*.apk"],
+            variables: [],
+            secretVariables: [],
+            setBy: {},
+          },
+        ],
+      },
+    });
+
+    const record = (await records.of("admin-panel")) ?? "";
+
+    expect(record).not.toContain("api-s3cret");
+    expect(record.split("\n").slice(-3)).toEqual([
+      "- Test targets:",
+      "  - web (Web app, Hosted): script start of package.json; port 3000; variables `MODE=test`; Secret variables (values never shown) API_KEY (value set), MAPS_KEY (no value); set by: name the user Ann, kind a Proposal by Dana (devops), entry point a Proposal by Dana (devops), port the user Ann, variables a Proposal by Dana (devops), Secret variables unknown",
+      "  - android (Android, Build to install): Gradle task assembleDebug; output files app/build/outputs/apk/debug/*.apk; variables none; Secret variables (values never shown) none; set by: name unknown, kind unknown, entry point unknown, output files unknown, variables unknown, Secret variables unknown",
+    ]);
   });
 
   it("is undefined for a Project The Office doesn't have", async () => {

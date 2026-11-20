@@ -26,6 +26,7 @@ const SECTIONS: readonly MenuSection[] = [
   { to: "/projects/$projectId/pipelines", icon: "route", label: "Pipelines" },
   { to: "/projects/$projectId/issues", icon: "circle-dot", label: "GitHub issues" },
   { to: "/projects/$projectId/run-environment", icon: "container", label: "Run environment" },
+  { to: "/projects/$projectId/test-targets", icon: "flask-conical", label: "Test targets" },
   { to: "/projects/$projectId/engine", icon: "cpu", label: "Engine" },
   { to: "/projects/$projectId/skills", icon: "sparkles", label: "Skills" },
   { to: "/projects/$projectId/server-values", icon: "plug", label: "Server values" },

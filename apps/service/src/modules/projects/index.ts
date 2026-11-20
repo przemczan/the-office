@@ -17,6 +17,24 @@ export {
   RunEnvironmentSetUpRegistry,
   type RunEnvironmentSetUp,
 } from "./application/run-environment-set-up-registry.js";
+export {
+  DevcontainerServices,
+  type DevcontainerServicesReader,
+} from "./application/devcontainer-services.js";
+export { TestTargets } from "./application/test-targets.js";
+export type {
+  EditedTestTarget,
+  TestTarget,
+  TestTargetField,
+  TestTargetSetter,
+} from "./domain/test-target.js";
+export type { EntryPoint } from "./domain/entry-point.js";
+export type {
+  ProposedTestTarget,
+  ProposedTestTargetFields,
+  ProposedTestTargets,
+  TestTargetsToPropose,
+} from "./domain/proposed-test-targets.js";
 export { ProjectsFromRepositories } from "./application/projects-from-repositories.js";
 export {
   TaskRunEnvironments,
@@ -60,6 +78,7 @@ export {
   ProjectRoleOverrideChanged,
   ProjectRunEnvironmentChanged,
   ProjectSkillUseChanged,
+  ProjectTestTargetsChanged,
   ProjectUseForEveryRoleChanged,
   ProjectUseProjectSkillsChanged,
 } from "./domain/project-events.js";

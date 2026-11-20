@@ -1,6 +1,6 @@
 # Initiative page
 
-Covers: the Initiative page's head and actions (Confirm, Plan the Initiative, Plan with…, Start Ready Tasks, Pause, Resume, Add a Task, Drop, Archive), the Tasks block and its graph, membership (Add an existing Task, Take out), the Pipelines block and its editor, the record's folds (Outcome, Attachments, Origin), and the shaping and planning Threads.
+Covers: the Initiative page's head and actions (Confirm, Plan the Initiative, Plan with…, Start Ready Tasks, Pause, Resume, Add a Task, Drop, Archive), the Tasks block and its graph, membership (Add an existing Task, Take out), the Pipelines block and its editor, the Test instances block (Launch, states, Open, Download and the QR code, Stop, Log), the record's folds (Outcome, Attachments, Origin), and the shaping and planning Threads.
 
 ## Where it is
 
@@ -16,7 +16,7 @@ Covers: the Initiative page's head and actions (Confirm, Plan the Initiative, Pl
 - Under the head, once Start Ready Tasks has run: its note.
 - The Tasks block, across the page.
 - Below it two columns: the record on the left, the conversation on the right.
-- The record column holds, top to bottom: the shaping note (while shaping), Pipelines, Outcome, Attachments, Origin.
+- The record column holds, top to bottom: the shaping note (while shaping), Pipelines, Test instances (once active), Outcome, Attachments, Origin.
 - At 900px and below the conversation is a drawer, as on the Task page ([task-page.md](task-page.md#conversation-drawer)).
 
 ## Head
@@ -137,6 +137,28 @@ Covers: the Initiative page's head and actions (Confirm, Plan the Initiative, Pl
 - Save checks before sending: the Short name's form ("Name the branch: the Initiative works on it in each Project switched on." / "Use only lower-case a–z, 0–9 and -, with no - at either end or two in a row.") and a Pipeline for each Project on ("Choose a Pipeline: a Project on an Initiative's branch publishes through one.").
 - **Save** sends it all at once; **Cancel** throws the draft away; a refusal shows as "The Pipelines weren't saved" (a Short name another Initiative holds is refused).
 
+## Test instances
+
+- A fold "Test instances" (flask icon), shown once the Initiative is active, open while one is Building or Running; remembered per Initiative.
+- Summary: "<n> running · <n> built" (each only when not 0), or "None launched yet".
+- With no Project on an Initiative's branch: "Test instances launch on an Initiative's branch, and this Initiative publishes Task by Task."
+- A group per Project with a branch, its mark and name; one with no test target says "No test targets in <Project>." with a link to its Test targets section.
+- A row per test target: its name, its kind badge, and its newest instance:
+  - none yet: **Launch** (play icon);
+  - **Building** (info, spinner) with **Stop** and **Log**;
+  - **Running** (success) with "localhost:<port>" (or "<LAN IP>:<port>"), **Open** (a new tab, through the hand-off link), **Stop** and **Log**;
+  - **Built** (success) with each file's name and size, **Download**, a **QR code** button and **Log**;
+  - **Stopped** (neutral) or **Failed** (danger, with why) with **Log**;
+  - with **Launch again** once the newest has ended or is Built, and "<short commit> · <time>" of the instance shown, with "Newer commits on the branch" when the branch has moved past it.
+- **Launch** is refused with the service's reason as a toast: over Test instances at once ("2 test instances are running: <target> in <Initiative>, …"), Run environment not On, an entry point missing on the branch, no Proxy port free.
+- **Stop** asks nothing; toast "<name> stopped."
+- **Log** opens a window "<name> · <state>" with the masked log, streaming while it runs.
+- **QR code** opens a window "Install <file> on a phone": the QR code, "Works for this file only, for 1 hour." and the link with **Copy link**.
+  - At `localhost`: "A phone can't reach localhost. Open The Office at its LAN address to make a QR code that works there." in place of the code.
+- Earlier instances of a target fold under its row, "<n> earlier", each with its state, commit, time and **Log**.
+- Done or Dropped: read-only; Launch is gone, and Built files show until removed ("Removed 7 days after the Initiative ended.").
+- Rules: [2.12](../2.12-test-instances.md).
+
 ## Outcome
 
 - A fold "Outcome" (target icon), open by default.
@@ -188,4 +210,5 @@ Covers: the Initiative page's head and actions (Confirm, Plan the Initiative, Pl
 - [Plan the Initiative](../2.1.4-initiatives.md#plan-the-initiative), [Plan with…](../2.1.4-initiatives.md#plan-with-on-an-initiative), [Auto mode](../2.1.5-planning-and-start.md#auto-mode)
 - [Joining and leaving an Initiative](../2.1.3-tasks.md#joining-and-leaving-an-initiative)
 - [The Initiative's branch](../5.5-git-and-isolation.md#the-initiatives-branch), [Publish](../2.3.4-publish.md)
+- [Test instance](../2.12-test-instances.md#test-instance), [its states](../2.12-test-instances.md#test-instance-states), [reaching a Hosted instance](../2.12-test-instances.md#reaching-a-hosted-instance), [Build to install](../2.12-test-instances.md#build-to-install)
 - Related screens: [initiatives-tab.md](initiatives-tab.md), [work-board.md](work-board.md), [task-page.md](task-page.md), [thread.md](thread.md), [decision-card.md](decision-card.md), [archived.md](archived.md)

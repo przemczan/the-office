@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import type { DutyKey, RoleCard, SetUpDuty, SetUpHire } from "../../people/index.js";
-import type { NewProject, ProposedCommands } from "../../projects/index.js";
+import type { NewProject, ProposedCommands, ProposedTestTargets } from "../../projects/index.js";
 import type { PinnedVersion } from "../../skills/index.js";
 import { ProposalRefused } from "./proposal-refused.js";
 import type { UserRef } from "./user.js";
@@ -21,6 +21,7 @@ export interface ProposedChanges {
   readonly "office-setup": ProposedOfficeSetup;
   readonly initiative: ProposedInitiativeChange;
   readonly "project-commands": ProposedProjectCommands;
+  readonly "test-targets": ProposedTestTargetsChange;
   readonly pipeline: ProposedPipelineChange;
   readonly "stage-template": ProposedStageTemplateChange;
   readonly "project-pipeline": ProposedProjectPipelineChange;
@@ -194,6 +195,17 @@ export interface ProposedProjectCommands {
   readonly kind: "project-commands";
   readonly projectId: string;
   readonly changes: ProposedCommands;
+}
+
+/**
+ * A change, by whoever onboards Projects, to a Project's test targets (spec §2.12, "Writing test
+ * targets"): each target it adds, changes or removes as the Project had it when drafted and as
+ * proposed. Projects refuses to apply it once one of them changed.
+ */
+export interface ProposedTestTargetsChange {
+  readonly kind: "test-targets";
+  readonly projectId: string;
+  readonly changes: ProposedTestTargets;
 }
 
 /**

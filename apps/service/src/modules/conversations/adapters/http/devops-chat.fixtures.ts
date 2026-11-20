@@ -9,6 +9,7 @@ import {
   PROPOSE_SKILL_TOOL,
   PROPOSE_SKILL_UPDATE_TOOL,
   PROPOSE_STAGE_TEMPLATE_TOOL,
+  PROPOSE_TEST_TARGETS_TOOL,
   proposalSchema,
   threadRefusalSchema,
   type Proposal,
@@ -210,6 +211,7 @@ async function expectStatus(response: Response, status: number): Promise<void> {
 
 const KIND_OF_TOOL: Readonly<Record<string, Proposal["change"]["kind"]>> = {
   [PROPOSE_PROJECT_COMMANDS_TOOL]: "project-commands",
+  [PROPOSE_TEST_TARGETS_TOOL]: "test-targets",
   [PROPOSE_LIBRARY_PIPELINE_TOOL]: "pipeline",
   [PROPOSE_STAGE_TEMPLATE_TOOL]: "stage-template",
   [PROPOSE_PROJECT_PIPELINE_TOOL]: "project-pipeline",

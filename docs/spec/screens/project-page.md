@@ -1,6 +1,6 @@
 # Project page
 
-Covers: a Project's page and its head, the section menu, Overview (Onboarding, Work, the Project limit), Files, Commands (install, install inputs, commands, Publish), Environment (variables, Secret variables, environment check), Pipelines (Default Pipeline and its rows by Kind, Project Pipelines), GitHub issues (the Import issues window, auto-import, write-back), Run environment, Engine, Skills, Server values, Appearance (Mark, Icon and Logo, How it looks).
+Covers: a Project's page and its head, the section menu, Overview (Onboarding, Work, the Project limit), Files, Commands (install, install inputs, commands, Publish), Environment (variables, Secret variables, environment check), Pipelines (Default Pipeline and its rows by Kind, Project Pipelines), GitHub issues (the Import issues window, auto-import, write-back), Run environment, Test targets (the list, the editor, Set up test targets, the open Proposal), Engine, Skills, Server values, Appearance (Mark, Icon and Logo, How it looks).
 
 ## Where it is
 
@@ -15,6 +15,7 @@ Covers: a Project's page and its head, the section menu, Overview (Onboarding, W
   - **Pipelines**: `/projects/$projectId/pipelines`, and an open Project Pipeline at `/projects/$projectId/pipelines/$projectPipelineId`.
   - **GitHub issues**: `/projects/$projectId/issues`.
   - **Run environment**: `/projects/$projectId/run-environment`.
+  - **Test targets**: `/projects/$projectId/test-targets`.
   - **Engine**: `/projects/$projectId/engine`.
   - **Skills**: `/projects/$projectId/skills`.
   - **Server values**: `/projects/$projectId/server-values`.
@@ -230,6 +231,32 @@ Covers: a Project's page and its head, the section menu, Overview (Onboarding, W
 - With an open set-up Task, the button is replaced by "Being set up in the Task <title> · <state words>. Run environment turns On when it is Done."
 - A refused change shows the service's reasons under the block (a refused On shows why).
 
+## Test targets
+
+- Card **Test targets** (flask icon) with **Set up test targets** (wand icon) at its end.
+- Note: "What can be launched on an Initiative's branch to try the work. Kept in The Office, never in the repository."
+- With none: "None yet. Add one, or have <Devops> set them up from the repository."
+- A list, one row per target in the order added: its name, badges for its key (monospace) and kind (**Hosted** or **Build to install**), its entry point in monospace, and a mark of who set its values last, "Set by you" or "Set by <Agent>", naming each when they differ ("Set by you and <Agent>"); a pencil ("Change <name>") and a trash ("Remove <name>").
+- A row with a Secret variable whose value isn't typed yet shows the warning "Needs a value: <NAME>".
+- **Add a test target** and the pencil open the editor in place (one at a time; **Save** and **Cancel**):
+  - **Key** (hint "Lower-case letters, digits and "-"; fixed once added.", placeholder `web`), shown as a badge once added;
+  - **Name** (placeholder "Web app");
+  - **Kind**: a segmented control **Hosted** / **Build to install**; **Install on a device** and **Deployed elsewhere** are shown disabled, titled "Not built yet";
+  - **Entry point**: a select of **File in the repository**, **Package script**, **Gradle task** and **.devcontainer/ service**, then the path, script, task or service, and **Arguments**, one per line, each given as it is; hint "One of the repository's own entry points: no shell.";
+  - Hosted: **Port** (hint "The port the app listens on inside its container.");
+  - Build to install: **Output files**, one pattern per line (placeholder `composeApp/build/outputs/apk/debug/*.apk`);
+  - **Variables**, one `NAME=value` per line, and **Secret variables**, as in Environment (a value never shown again once saved); note "Test values only: a test instance never gets the Project's own variables."
+- Each value the editor saves is marked set by you; in the editor each value shows who set it last.
+- Toasts "<name> saved. It applies from its next launch.", "<name> added.", "<name> removed."; a refusal shows under the editor as the service words it (**The test target wasn't saved**).
+- A Hosted target with the Project's Run environment not On shows the warning "Needs Run environment On to launch." with a link to the Run environment section.
+- **Set up test targets** adds the Project's "Set up test targets" Task; toast "<Task title> is Ready, waiting for your Start."
+  - With an open one, the button is replaced by "Being set up in the Task <title> · <state words>."
+- **The open Proposal:** while Devops' `propose_test_targets` Proposal waits, its card shows above the list ([decision-card.md](decision-card.md)):
+  - each change as it was and as proposed, a removal struck through;
+  - each value the user set, which it changes, flagged "You set this";
+  - **Apply** (all or nothing) and **Dismiss**; a refused Apply names each value changed since it was drafted.
+- Rules: [2.12](../2.12-test-instances.md#test-target).
+
 ## Engine
 
 - Card **Engine** (cpu icon); note "The most specific level wins: the Project's Role overrides, then the Role overrides on the Role cards, then the Project default, then the Office default."
@@ -306,3 +333,4 @@ Covers: a Project's page and its head, the section menu, Overview (Onboarding, W
 - Publishing, Publish's before and after lines: [2.3.4](../2.3.4-publish.md#publishs-before-and-after-lines).
 - Project skills: [2.6](../2.6-skills.md#project-skills), [2.6](../2.6-skills.md#project-skills-turn-off-one-by-one).
 - The engine cascade: [5.4.5](../5.4.5-engines-and-cascade.md#the-engine-cascade).
+- Test targets and their Proposal: [2.12](../2.12-test-instances.md#test-target), [2.12](../2.12-test-instances.md#writing-test-targets).

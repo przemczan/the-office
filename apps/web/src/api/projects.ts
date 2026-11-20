@@ -20,6 +20,7 @@ import {
   repositoryFilePreviewSchema,
   repositoryFolderSchema,
   taskChangesSchema,
+  testTargetListSchema,
   type AddProject,
   type EngineModel,
   type EnvironmentCheck,
@@ -46,6 +47,8 @@ import {
   type RepositoryCloneWebEvent,
   type RunEnvironmentChange,
   type TaskKind,
+  type TestTargetList,
+  type TestTargetsEdit,
 } from "@the-office/contracts";
 import { deleteFromApiReturning, getFromApi, sendFileToApi, sendToApi } from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
@@ -114,6 +117,13 @@ export const projectQueries = {
       queryFn: ({ signal }) =>
         getFromApi(`${projectPath(id)}/environment-check`, latestEnvironmentCheckSchema, signal),
       select: ({ check }) => check,
+    }),
+  /** The Project's test targets, in the order added, each Secret variable by name alone. */
+  testTargets: (id: string) =>
+    queryOptions({
+      queryKey: testTargetsKey(id),
+      queryFn: ({ signal }) =>
+        getFromApi(`${projectPath(id)}/test-targets`, testTargetListSchema, signal),
     }),
   /** The repository's own skills and commands, read from its checkout. */
   skills: (id: string) =>
@@ -464,6 +474,18 @@ export function changeProjectServerValues(
   );
 }
 
+/**
+ * The Project's test targets, whole and in order: a target left out is removed, and a Secret
+ * variable sent without a value keeps its own.
+ */
+export function saveTestTargets(id: string, edit: TestTargetsEdit): Promise<TestTargetList> {
+  return sendToApi("PUT", `${projectPath(id)}/test-targets`, edit, testTargetListSchema);
+}
+
+function testTargetsKey(id: string) {
+  return [...PROJECTS, id, "test-targets"] as const;
+}
+
 function serverValuesKey(id: string) {
   return [...PROJECTS, id, "server-values"] as const;
 }
@@ -503,6 +525,7 @@ export const projectEventInvalidations: Readonly<
   "project.role-override-changed": () => [PROJECTS, ENGINE_CASCADE],
   "project.issue-settings-changed": () => [PROJECTS],
   "project.issues-imported": () => [PROJECTS, OPEN_ISSUES],
+  "project.test-targets-changed": () => [PROJECTS],
   "issue-link.changed": () => [ISSUE_LINKS],
 };
 

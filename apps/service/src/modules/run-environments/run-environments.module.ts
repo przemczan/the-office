@@ -8,6 +8,7 @@ import { ProjectRunEnvironmentsController } from "./adapters/http/project-run-en
 import { RunEnvironmentOfficeLimitsController } from "./adapters/http/run-environment-office-limits.controller.js";
 import { ProjectsRepositoryFiles } from "./adapters/projects/projects-repository-files.js";
 import { ProjectsSettings } from "./adapters/projects/projects-settings.js";
+import { ProjectsDevcontainerServicesRegistration } from "./adapters/projects/projects-devcontainer-services-registration.js";
 import { ProjectsSetUpRegistration } from "./adapters/projects/projects-set-up-registration.js";
 import { ProjectsTaskRunEnvironments } from "./adapters/projects/projects-task-run-environments.js";
 import { WorkSetUpTasks } from "./adapters/work/work-set-up-tasks.js";
@@ -81,6 +82,7 @@ export class RunEnvironmentsModule {
         { provide: SetUpTasks, useClass: WorkSetUpTasks },
         ProjectRunEnvironments,
         ProjectsSetUpRegistration,
+        ProjectsDevcontainerServicesRegistration,
         ProjectsTaskRunEnvironments,
       ],
       exports: [RunEnvironments, RunEnvironmentDefinitions],

@@ -5,6 +5,15 @@ import { ProjectServerValues, type ProjectMcpServerValues } from "../../mcp-serv
 import type { EnvironmentCheck } from "../domain/environment-check.js";
 import type { Project, RunEnvironmentSetting } from "../domain/project.js";
 import type { ProjectEnvironment } from "../domain/project-environment.js";
+import { entryPointWords } from "../domain/entry-point.js";
+import {
+  fieldsOfKind,
+  TEST_TARGET_KIND_NAMES,
+  type TestTarget,
+  type TestTargetField,
+  type TestTargetSetter,
+} from "../domain/test-target.js";
+import { TestTargetRepository } from "../ports/test-target-repository.js";
 import { BaseCheckouts } from "./base-checkouts.js";
 import { EnvironmentChecks } from "./environment-checks.js";
 import { ProjectService } from "./project-service.js";
@@ -14,6 +23,7 @@ interface ProjectSurroundings {
   readonly checkout: string | undefined;
   readonly environmentCheck: EnvironmentCheck | undefined;
   readonly serverValues: readonly ProjectMcpServerValues[];
+  readonly testTargets: readonly TestTarget[];
 }
 
 const RUN_ENVIRONMENT_WORDS: Readonly<Record<RunEnvironmentSetting, string>> = {
@@ -34,6 +44,7 @@ export class ProjectRecords {
     private readonly bases: BaseCheckouts,
     private readonly environmentChecks: EnvironmentChecks,
     private readonly serverValues: ProjectServerValues,
+    private readonly testTargets: TestTargetRepository,
   ) {}
 
   /** Every Project's record, or that there is none. */
@@ -58,11 +69,12 @@ export class ProjectRecords {
     project: Project,
     checkouts: ReadonlyMap<string, string>,
   ): Promise<ProjectSurroundings> {
-    const [environmentCheck, serverValues] = await Promise.all([
+    const [environmentCheck, serverValues, testTargets] = await Promise.all([
       this.environmentChecks.latest(project.id),
       this.serverValues.of(project.id),
+      this.testTargets.listOf(project.id),
     ]);
-    return { checkout: checkouts.get(project.id), environmentCheck, serverValues };
+    return { checkout: checkouts.get(project.id), environmentCheck, serverValues, testTargets };
   }
 
   private async checkoutFolders(): Promise<ReadonlyMap<string, string>> {
@@ -73,7 +85,7 @@ export class ProjectRecords {
 }
 
 function projectRecord(project: Project, surroundings: ProjectSurroundings): string {
-  const { checkout, environmentCheck, serverValues } = surroundings;
+  const { checkout, environmentCheck, serverValues, testTargets } = surroundings;
   const commands = project.commands.map(
     ({ key, name, kind, commandLine }) => `${key} (${name}, ${kind}) \`${commandLine || "none"}\``,
   );
@@ -95,7 +107,55 @@ function projectRecord(project: Project, surroundings: ProjectSurroundings): str
     ...engineLines(project),
     `- Project skills: ${projectSkillsWords(project)}`,
     `- Server values: ${serverValuesWords(serverValues)}`,
+    ...testTargetLines(testTargets),
   ].join("\n");
+}
+
+const TEST_TARGET_FIELD_WORDS: Readonly<Record<TestTargetField, string>> = {
+  name: "name",
+  kind: "kind",
+  entryPoint: "entry point",
+  port: "port",
+  outputPatterns: "output files",
+  variables: "variables",
+  secretVariables: "Secret variables",
+};
+
+/** Each target with who set each value last; a Secret variable by name alone (spec §2.12). */
+function testTargetLines(targets: readonly TestTarget[]): string[] {
+  if (targets.length === 0) return ["- Test targets: none"];
+  return [
+    "- Test targets:",
+    ...targets.map((target) => {
+      const own =
+        target.kind === "build-to-install"
+          ? `output files ${listed(target.outputPatterns)}`
+          : `port ${target.port}`;
+      const secrets = target.secretVariables.map(
+        ({ name, value }) => `${name} (${value === null ? "no value" : "value set"})`,
+      );
+      return [
+        `  - ${target.key} (${target.name}, ${TEST_TARGET_KIND_NAMES[target.kind]}): ${entryPointWords(target.entryPoint)}; ${own}`,
+        `variables ${listed(target.variables.map(({ name, value }) => `\`${name}=${value}\``))}`,
+        `Secret variables (values never shown) ${listed(secrets)}`,
+        `set by: ${setByWords(target)}`,
+      ].join("; ");
+    }),
+  ];
+}
+
+function setByWords(target: TestTarget): string {
+  const setters = fieldsOfKind(target.kind).map((field) => {
+    const setter = target.setBy[field];
+    return `${TEST_TARGET_FIELD_WORDS[field]} ${setter ? setterWords(setter) : "unknown"}`;
+  });
+  return setters.join(", ");
+}
+
+function setterWords(setter: TestTargetSetter): string {
+  return setter.by === "user"
+    ? `the user ${setter.user.name}`
+    : `a Proposal by ${setter.agent.name} (${setter.agent.roleKey})`;
 }
 
 function environmentLines({ set, unset, prependPath }: ProjectEnvironment): string[] {
