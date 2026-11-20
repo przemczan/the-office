@@ -3,15 +3,17 @@ import type { AgentEngine } from "../ports/agent-engine.js";
 
 /**
  * A way of running a session, each with its adapter: the Agent SDK, the `-p` fallback, The
- * Office's own loop on an API endpoint, Codex's app-server, or the Copilot CLI runtime.
+ * Office's own loop on an API endpoint, Codex's app-server, the Copilot CLI runtime, or the Gemini
+ * CLI.
  */
 export type EngineAdapter =
-  "agent-sdk" | "claude-code-p" | "openai-compatible-api" | "codex" | "copilot-cli";
+  "agent-sdk" | "claude-code-p" | "openai-compatible-api" | "codex" | "copilot-cli" | "gemini-cli";
 
 /**
  * An adapter per way of running a session (spec §5.4); the module binds one to each. An API engine
  * runs on The Office's own loop, a Codex engine on its app-server, a Copilot CLI engine on its
- * runtime, a Claude Code engine on the Agent SDK, or on `-p` when its switch is on.
+ * runtime, a Gemini CLI engine on the Gemini CLI, a Claude Code engine on the Agent SDK, or on
+ * `-p` when its switch is on.
  */
 export class AgentEngines {
   constructor(private readonly adapters: Readonly<Record<EngineAdapter, AgentEngine>>) {}
@@ -25,6 +27,8 @@ export class AgentEngines {
         return this.adapters.codex;
       case "copilot-cli":
         return this.adapters["copilot-cli"];
+      case "gemini-cli":
+        return this.adapters["gemini-cli"];
       case "claude-code":
         return this.adapters[engine.claudeCodeP ? "claude-code-p" : "agent-sdk"];
     }

@@ -23,6 +23,27 @@ describe("an added engine's id", () => {
   });
 });
 
+describe("a Gemini CLI engine", () => {
+  const engine = { id: "gemini", name: "Gemini", kind: "gemini-cli", defaultModel: "auto" };
+
+  it("is listed and saved by its name and default model alone, never with a key", () => {
+    expect(engineSchema.parse({ ...engine, apiKey: "AIzaSyKey" })).toEqual(engine);
+    const { id: _id, ...added } = engine;
+    expect(engineEditSchema.parse(added)).toEqual(added);
+  });
+
+  it("is refused without a default model or with an unknown kind", () => {
+    const { defaultModel: _model, ...noModel } = engine;
+    expect(engineSchema.safeParse(noModel).success).toBe(false);
+    expect(engineSchema.safeParse({ ...engine, kind: "gemini" }).success).toBe(false);
+    const { id: _id, defaultModel: _m, ...addedNoModel } = engine;
+    expect(engineEditSchema.safeParse(addedNoModel).success).toBe(false);
+    expect(
+      engineEditSchema.safeParse({ ...addedNoModel, defaultModel: "x", kind: "gemini" }).success,
+    ).toBe(false);
+  });
+});
+
 describe("a Copilot CLI engine", () => {
   const engine = { id: "copilot", name: "Copilot", kind: "copilot-cli", defaultModel: "auto" };
 

@@ -570,6 +570,7 @@ Where each default lives, by page:
   - [Engines are a list](5.4.5-engines-and-cascade.md#engines-are-a-list)
   - [A Claude Code engine](5.4.5-engines-and-cascade.md#a-claude-code-engine)
   - [A Copilot CLI engine](5.4.5-engines-and-cascade.md#a-copilot-cli-engine)
+  - [A Gemini CLI engine](5.4.5-engines-and-cascade.md#a-gemini-cli-engine)
   - [An OpenAI-compatible API engine](5.4.5-engines-and-cascade.md#an-openai-compatible-api-engine)
   - [The engine cascade](5.4.5-engines-and-cascade.md#the-engine-cascade)
   - [Removing an engine](5.4.5-engines-and-cascade.md#removing-an-engine)

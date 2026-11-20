@@ -42,6 +42,7 @@ import {
   newClaudeCodeEngine,
   newCodexEngine,
   newCopilotCliEngine,
+  newGeminiCliEngine,
   officeDefaultChoicesOf,
   offeredModelKey,
   priceTextIn,
@@ -181,6 +182,13 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
                 copilotCliEngines: [...draft.copilotCliEngines, newCopilotCliEngine()],
               });
               select({ kind: "copilot-cli", index: draft.copilotCliEngines.length }, "settings");
+            },
+            "gemini-cli": () => {
+              setDraft({
+                ...draft,
+                geminiCliEngines: [...draft.geminiCliEngines, newGeminiCliEngine()],
+              });
+              select({ kind: "gemini-cli", index: draft.geminiCliEngines.length }, "settings");
             },
             "openai-compatible-api": () => {
               setDraft({ ...draft, apiEndpoints: [...draft.apiEndpoints, NEW_API_ENDPOINT] });

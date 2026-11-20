@@ -5,11 +5,13 @@ import {
   NotAnEngineTakingAToken,
   NotAnEngineWithAnAccount,
   NotAnEngineWithAnApiKey,
+  NotAnEngineWithASignIn,
 } from "../../application/engine-accounts.js";
 import { NotAnAnthropicApiKey } from "../../domain/anthropic-api-key.js";
 import { NotACodexApiKey } from "../../domain/codex-api-key.js";
 import { NotACopilotCliToken } from "../../domain/copilot-cli-token.js";
 import { EngineAccountUnreadable } from "../../domain/engine-account.js";
+import { NotAGeminiApiKey } from "../../domain/gemini-api-key.js";
 import { NotAPastedToken } from "../../domain/pasted-token.js";
 import { SignInFailed, SignInNotRunning } from "../../ports/claude-code-accounts.js";
 import { CodexLoginFailed } from "../../ports/codex-accounts.js";
@@ -20,10 +22,12 @@ type AccountRefusal =
   | NotAnEngineWithAnAccount
   | NotAnEngineTakingAToken
   | NotAnEngineWithAnApiKey
+  | NotAnEngineWithASignIn
   | NotAPastedToken
   | NotAnAnthropicApiKey
   | NotACodexApiKey
   | NotACopilotCliToken
+  | NotAGeminiApiKey
   | SignInNotRunning
   | SignInFailed
   | CodexLoginFailed
@@ -36,10 +40,12 @@ type AccountRefusal =
   NotAnEngineWithAnAccount,
   NotAnEngineTakingAToken,
   NotAnEngineWithAnApiKey,
+  NotAnEngineWithASignIn,
   NotAPastedToken,
   NotAnAnthropicApiKey,
   NotACodexApiKey,
   NotACopilotCliToken,
+  NotAGeminiApiKey,
   SignInNotRunning,
   SignInFailed,
   CodexLoginFailed,
@@ -62,7 +68,8 @@ function statusOf(error: AccountRefusal): HttpStatus {
     error instanceof NotAClaudeCodeEngine ||
     error instanceof NotAnEngineWithAnAccount ||
     error instanceof NotAnEngineTakingAToken ||
-    error instanceof NotAnEngineWithAnApiKey
+    error instanceof NotAnEngineWithAnApiKey ||
+    error instanceof NotAnEngineWithASignIn
   ) {
     return HttpStatus.NOT_FOUND;
   }
@@ -70,7 +77,8 @@ function statusOf(error: AccountRefusal): HttpStatus {
     error instanceof NotAPastedToken ||
     error instanceof NotAnAnthropicApiKey ||
     error instanceof NotACodexApiKey ||
-    error instanceof NotACopilotCliToken
+    error instanceof NotACopilotCliToken ||
+    error instanceof NotAGeminiApiKey
   ) {
     return HttpStatus.BAD_REQUEST;
   }

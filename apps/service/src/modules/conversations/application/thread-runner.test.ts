@@ -345,6 +345,7 @@ async function startOn(
         "openai-compatible-api": api?.engine ?? new ScriptedEngine([]),
         codex: new ScriptedEngine([]),
         "copilot-cli": new ScriptedEngine([]),
+        "gemini-cli": new ScriptedEngine([]),
       }),
       // Signed in with GitHub, as the app may be, so a session holding the token would show.
       GitHubModule.register(),

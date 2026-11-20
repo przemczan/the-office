@@ -36,6 +36,11 @@ export function copilotCliAccountLine(account: EngineAccount): string {
   return account.pastedToken ? `${who} by a pasted token` : who;
 }
 
+/** A Gemini CLI engine's account in a line: an API key signs it in (its only way), or "Signed out". */
+export function geminiCliAccountLine(account: EngineAccount): string {
+  return account.signedIn ? "A Gemini API key signs it in" : "Signed out";
+}
+
 /**
  * The plan comes as `max` or `pro` (Claude) or `plus` (ChatGPT); their own pages call it "Claude
  * Max" or "ChatGPT Plus".

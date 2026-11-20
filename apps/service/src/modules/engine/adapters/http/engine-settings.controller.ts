@@ -88,6 +88,7 @@ function engineResponse(engine: Engine): EngineResponse {
       return { id, name, kind: engine.kind, defaultModel, claudeCodeP: engine.claudeCodeP };
     case "codex":
     case "copilot-cli":
+    case "gemini-cli":
       return { id, name, kind: engine.kind, defaultModel };
     case "openai-compatible-api":
       return {

@@ -1,4 +1,4 @@
-import { readdir } from "node:fs/promises";
+import { copyFile, mkdir, readdir } from "node:fs/promises";
 import path from "node:path";
 import {
   expect as playwrightExpect,
@@ -169,7 +169,7 @@ async function openEngine(
 /** Adds an engine of the kind through "Add an engine", which selects it. */
 async function addEngine(
   page: Page,
-  kind: "Claude Code" | "Codex" | "Copilot CLI" | "API endpoint",
+  kind: "Claude Code" | "Codex" | "Copilot CLI" | "Gemini CLI" | "API endpoint",
 ): Promise<void> {
   await page.getByRole("button", { name: "Add an engine" }).click();
   await page.getByRole("menu").getByRole("button", { name: kind, exact: true }).click();
@@ -1294,6 +1294,80 @@ test(
       await expect(account.getByText("Signed out", { exact: true })).toBeVisible();
 
       // Removed through its dialog, onto the Office default's engine.
+      await page.getByRole("button", { name: `Remove ${name}` }).click();
+      const dialog = page.getByRole("dialog", { name: `Remove ${name}?` });
+      await dialog.getByLabel("Replacement").selectOption({ label: "Claude Code" });
+      await dialog.getByRole("button", { name: `Remove ${name}` }).click();
+      await expect(
+        page.getByText("Engine removed. What named it moved to the replacement."),
+      ).toBeVisible();
+      expect((await savedEngines()).some((saved) => saved.id === engineId)).toBe(false);
+    } finally {
+      for (const each of await savedEngines()) {
+        if (each.name === name) await removeEngine(page, each.name);
+      }
+    }
+  },
+);
+
+// A Gemini CLI engine has no Sign in: a Gemini API key from Google AI Studio is its only way.
+test(
+  "the user adds a Gemini CLI engine, signs it in with a Gemini API key, signs it out and removes it",
+  { tag: "@full" },
+  async ({ page }) => {
+    const name = "Gemini check";
+    const savedEngines = async () =>
+      engineSettingsSchema.parse(await (await page.request.get("/api/settings/engines")).json())
+        .engines;
+    const officeScreenshots = path.resolve(import.meta.dirname, "../../../.office/screenshots");
+    const screenshot = async (file: string) => {
+      await page.screenshot({ path: path.join(SCREENSHOTS, file) });
+      await mkdir(officeScreenshots, { recursive: true });
+      await copyFile(path.join(SCREENSHOTS, file), path.join(officeScreenshots, file));
+    };
+    try {
+      await page.goto("/settings/engines");
+      await addEngine(page, "Gemini CLI");
+      const added = page.getByRole("group", { name: "the new Gemini CLI engine" });
+      await added.getByLabel("Name", { exact: true }).fill(name);
+      const engine = page.getByRole("group", { name, exact: true });
+      await expect(engine.getByLabel("Default model")).toHaveValue("auto");
+      await engine.getByLabel("Default model").selectOption({ label: "Flash-Lite" });
+      await expect(engine.getByLabel("Default model")).toHaveValue("flash-lite");
+      await screenshot("gemini-cli-engine-settings.png");
+      await page.getByRole("tab", { name: "Account" }).click();
+      await expect(engine.getByText("It has no key yet")).toBeVisible();
+      await page.getByRole("button", { name: "Save", exact: true }).click();
+      await expect(
+        page.getByText("Engines saved. Sessions started from now on use them."),
+      ).toBeVisible();
+      const engineId = (await savedEngines()).find((saved) => saved.name === name)?.id ?? "";
+      expect(engineId).not.toBe("");
+
+      await page.reload();
+      await expect(
+        page.getByRole("navigation", { name: "Engines" }).getByRole("button", {
+          name: new RegExp(`^${name}`),
+        }),
+      ).toContainText("Gemini CLI");
+      await openEngine(page, name, "Account");
+      const account = engine.getByRole("group", { name: "Account" });
+      await expect(account.getByText("Signed out", { exact: true })).toBeVisible();
+      await expect(account.getByRole("button", { name: /^Sign in/ })).toHaveCount(0);
+      await screenshot("gemini-cli-engine-signed-out.png");
+
+      await account.getByRole("button", { name: "Use an API key" }).click();
+      const keyBox = account.getByLabel("API key");
+      await expect(keyBox).toHaveAttribute("type", "password");
+      await keyBox.fill("AIza-e2e-gemini-key");
+      await account.getByRole("button", { name: "Save the key" }).click();
+      await expect(account.getByText("A Gemini API key signs it in")).toBeVisible();
+      await expect(page.getByText("AIza-e2e-gemini-key")).toHaveCount(0);
+      await screenshot("gemini-cli-engine-signed-in.png");
+
+      await account.getByRole("button", { name: "Sign out" }).click();
+      await expect(account.getByText("Signed out", { exact: true })).toBeVisible();
+
       await page.getByRole("button", { name: `Remove ${name}` }).click();
       const dialog = page.getByRole("dialog", { name: `Remove ${name}?` });
       await dialog.getByLabel("Replacement").selectOption({ label: "Claude Code" });

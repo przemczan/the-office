@@ -162,6 +162,7 @@ await launch(
       StandInCodexAccounts,
       StandInCopilotCliAccounts,
       COPILOT_CLI_CAPABILITIES,
+      UnavailableGeminiCliEngine,
     } = await import("./modules/engine/index.js");
     const { UpdateSystem } = await import("./modules/office-updates/index.js");
     const { ScriptedStatsSource, StatsSource } = await import("./modules/telemetry/index.js");
@@ -197,6 +198,8 @@ await launch(
           "openai-compatible-api": apiEngine,
           codex: codexEngine,
           "copilot-cli": copilotCliEngine,
+          // It refuses every session in words until the Gemini CLI adapter lands.
+          "gemini-cli": new UnavailableGeminiCliEngine(),
         }),
       )
       .overrideProvider(ClaudeCodeAccounts)

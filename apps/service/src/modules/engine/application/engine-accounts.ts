@@ -6,6 +6,7 @@ import { CopilotCliToken } from "../domain/copilot-cli-token.js";
 import {
   API_KEY_ACCOUNT,
   PASTED_TOKEN_ACCOUNT,
+  SIGNED_OUT_ACCOUNT,
   type EngineAccount,
 } from "../domain/engine-account.js";
 import { EngineAccountChanged, EngineAdded, EngineRemoved } from "../domain/engine-events.js";
@@ -15,12 +16,15 @@ import type {
   Engine,
   EngineId,
   EngineKind,
+  GeminiCliEngine,
 } from "../domain/engines.js";
+import { GeminiApiKey } from "../domain/gemini-api-key.js";
 import { PastedToken } from "../domain/pasted-token.js";
 import { ClaudeCodeAccounts } from "../ports/claude-code-accounts.js";
 import { CodexAccounts } from "../ports/codex-accounts.js";
 import { CopilotCliAccounts } from "../ports/copilot-cli-accounts.js";
 import { EngineSettingsRepository } from "../ports/engine-settings-repository.js";
+import { GeminiCliHomes } from "../ports/gemini-cli-homes.js";
 import { EngineModels } from "./engine-models.js";
 import { EngineReferenceLock } from "./engine-reference-lock.js";
 import { RunningEngineSessions } from "./running-engine-sessions.js";
@@ -42,17 +46,32 @@ export class NotAnEngineTakingAToken extends Error {
   }
 }
 
-/** Settings › Engines names no engine an API key signs in by that id: neither Claude Code nor Codex. */
+/**
+ * Settings › Engines names no engine an API key signs in by that id: neither Claude Code, Codex nor
+ * Gemini CLI.
+ */
 export class NotAnEngineWithAnApiKey extends Error {
   constructor(readonly engineId: EngineId) {
-    super("Settings › Engines lists no Claude Code or Codex engine by that id.");
+    super("Settings › Engines lists no Claude Code, Codex or Gemini CLI engine by that id.");
+  }
+}
+
+/**
+ * Settings › Engines names no engine with a Sign in by that id: none, an API engine, or a Gemini
+ * CLI engine, which only its API key signs in.
+ */
+export class NotAnEngineWithASignIn extends Error {
+  constructor(readonly engineId: EngineId) {
+    super("Settings › Engines lists no Claude Code, Codex or Copilot CLI engine by that id.");
   }
 }
 
 /** Settings › Engines names no engine with an account by that id: none, or an API engine. */
 export class NotAnEngineWithAnAccount extends Error {
   constructor(readonly engineId: EngineId) {
-    super("Settings › Engines lists no Claude Code, Codex or Copilot CLI engine by that id.");
+    super(
+      "Settings › Engines lists no Claude Code, Codex, Copilot CLI or Gemini CLI engine by that id.",
+    );
   }
 }
 
@@ -61,6 +80,7 @@ const KINDS_WITH_A_FOLDER: ReadonlySet<EngineKind> = new Set([
   "claude-code",
   "codex",
   "copilot-cli",
+  "gemini-cli",
 ]);
 
 /** A Sign in started: its page, and the one-time code a Codex or Copilot CLI engine's page asks for. */
@@ -70,12 +90,13 @@ export interface StartedSignIn {
 }
 
 /**
- * Each Claude Code, Codex and Copilot CLI engine's account (spec §5.4): its status, Sign in and Sign
- * out, a pasted token on a Claude Code or Copilot CLI engine and an API key on a Claude Code or
- * Codex engine, each change announced as `EngineAccountChanged`. The account lies in the engine's
- * folder, made when the engine is added and removed once the sessions running on it have ended; a
- * Codex engine's API key and a Copilot CLI engine's token are kept in the database instead. No key
- * or token is ever logged, announced or answered back.
+ * Each Claude Code, Codex, Copilot CLI and Gemini CLI engine's account (spec §5.4): its status, Sign
+ * in and Sign out, a pasted token on a Claude Code or Copilot CLI engine and an API key on a Claude
+ * Code, Codex or Gemini CLI engine, each change announced as `EngineAccountChanged`. The account
+ * lies in the engine's folder, made when the engine is added and removed once the sessions running
+ * on it have ended; a Codex or Gemini CLI engine's API key and a Copilot CLI engine's token are kept
+ * in the database instead. A Gemini CLI engine has no Sign in: only its API key signs it in (spec
+ * §5.4.7). No key or token is ever logged, announced or answered back.
  */
 @Injectable()
 export class EngineAccounts implements OnModuleInit, OnApplicationBootstrap {
@@ -85,6 +106,7 @@ export class EngineAccounts implements OnModuleInit, OnApplicationBootstrap {
     private readonly accounts: ClaudeCodeAccounts,
     private readonly codexAccounts: CodexAccounts,
     private readonly copilotCliAccounts: CopilotCliAccounts,
+    private readonly geminiCliHomes: GeminiCliHomes,
     private readonly engineModels: EngineModels,
     private readonly settings: EngineSettingsRepository,
     private readonly lock: EngineReferenceLock,
@@ -101,6 +123,7 @@ export class EngineAccounts implements OnModuleInit, OnApplicationBootstrap {
       }
       if (kind === "codex") await this.codexAccounts.prepareHome(engineId);
       if (kind === "copilot-cli") await this.copilotCliAccounts.prepareHome(engineId);
+      if (kind === "gemini-cli") await this.geminiCliHomes.prepareHome(engineId);
     });
     this.events.subscribe(EngineRemoved, ({ engineId, kind }) => {
       this.engineModels.recordApiKeySignIn(engineId, false);
@@ -124,7 +147,8 @@ export class EngineAccounts implements OnModuleInit, OnApplicationBootstrap {
       const listed = new Set(
         engines.filter(({ kind }) => KINDS_WITH_A_FOLDER.has(kind)).map(({ id }) => id),
       );
-      // Every kind's folders lie in the same `engines/` folder, so each adapter may name them all.
+      // Every kind's folders lie in the same `engines/` folder, so each adapter may name them all:
+      // these loops remove a Gemini CLI engine's folder too.
       for (const engineId of await this.accounts.engineIdsWithConfigFolders()) {
         if (!listed.has(engineId)) await this.accounts.removeConfigFolder(engineId);
       }
@@ -151,6 +175,7 @@ export class EngineAccounts implements OnModuleInit, OnApplicationBootstrap {
       if (listed !== undefined && KINDS_WITH_A_FOLDER.has(listed.kind)) return;
       if (kind === "codex") await this.codexAccounts.removeHome(engineId);
       else if (kind === "copilot-cli") await this.copilotCliAccounts.removeHome(engineId);
+      else if (kind === "gemini-cli") await this.geminiCliHomes.removeHome(engineId);
       else await this.accounts.removeConfigFolder(engineId);
     } catch (error) {
       this.logger.error(
@@ -160,8 +185,8 @@ export class EngineAccounts implements OnModuleInit, OnApplicationBootstrap {
   }
 
   /**
-   * The account; a Codex engine with an API key kept is signed in by it, and a Copilot CLI engine
-   * with a token kept by that.
+   * The account; a Codex engine with an API key kept is signed in by it, a Copilot CLI engine with a
+   * token kept by that, and a Gemini CLI engine by its API key or not at all.
    */
   async account(engineId: EngineId): Promise<EngineAccount> {
     const engine = await this.requireAccount(engineId);
@@ -174,6 +199,8 @@ export class EngineAccounts implements OnModuleInit, OnApplicationBootstrap {
         return engine.token === null
           ? this.copilotCliAccounts.account(engineId)
           : PASTED_TOKEN_ACCOUNT;
+      case "gemini-cli":
+        return engine.apiKey === null ? SIGNED_OUT_ACCOUNT : API_KEY_ACCOUNT;
     }
   }
 
@@ -181,10 +208,11 @@ export class EngineAccounts implements OnModuleInit, OnApplicationBootstrap {
    * Starts a Sign in on the engine: on a Claude Code engine the page that signs in by a pasted
    * code; on a Codex engine the device page and its one-time code, in place of any API key kept;
    * on a Copilot CLI engine GitHub's device page and its one-time code, in place of any token kept.
-   * Its end is announced.
+   * Its end is announced. A Gemini CLI engine has none.
    */
   async signIn(engineId: EngineId): Promise<StartedSignIn> {
     const engine = await this.requireAccount(engineId);
+    if (engine.kind === "gemini-cli") throw new NotAnEngineWithASignIn(engineId);
     if (engine.kind === "claude-code") {
       const { url, ended } = await this.accounts.signIn(engineId);
       this.announceAfter(engineId, ended);
@@ -227,13 +255,16 @@ export class EngineAccounts implements OnModuleInit, OnApplicationBootstrap {
    * Signs the engine in by the API key given as `text`, in place of any login: a Claude Code engine
    * by an Anthropic API key ("Use an API key"), kept in its folder only; a Codex engine by an OpenAI
    * API key ("Use an API key instead"), its folder signed in with it, then the key kept in the
-   * database. `text` is made a key, which reads as redacted, before anything else is done with it.
+   * database; a Gemini CLI engine by a Gemini API key, kept in the database only. `text` is made a
+   * key, which reads as redacted, before anything else is done with it.
    */
   async setApiKey(engineId: EngineId, text: string): Promise<void> {
     const engine = await this.requireAccount(engineId);
     if (engine.kind === "copilot-cli") throw new NotAnEngineWithAnApiKey(engineId);
     if (engine.kind === "claude-code") {
       await this.accounts.setApiKey(engineId, AnthropicApiKey.of(text));
+    } else if (engine.kind === "gemini-cli") {
+      await this.keepGeminiApiKey(engineId, GeminiApiKey.of(text));
     } else {
       const key = CodexApiKey.of(text);
       await this.codexAccounts.setApiKey(engineId, key);
@@ -255,6 +286,9 @@ export class EngineAccounts implements OnModuleInit, OnApplicationBootstrap {
       case "copilot-cli":
         await this.forgetToken(engine);
         await this.copilotCliAccounts.signOut(engineId);
+        break;
+      case "gemini-cli":
+        await this.forgetGeminiApiKey(engine);
         break;
     }
     await this.announce(engineId);
@@ -294,6 +328,15 @@ export class EngineAccounts implements OnModuleInit, OnApplicationBootstrap {
   /** Under the `EngineReferenceLock`, as `keepApiKey` is. */
   private async keepToken(engineId: EngineId, token: CopilotCliToken | null): Promise<void> {
     await this.lock.holding(() => this.settings.setCopilotCliToken(engineId, token));
+  }
+
+  private async forgetGeminiApiKey(engine: GeminiCliEngine): Promise<void> {
+    if (engine.apiKey !== null) await this.keepGeminiApiKey(engine.id, null);
+  }
+
+  /** Under the `EngineReferenceLock`, as `keepApiKey` is. */
+  private async keepGeminiApiKey(engineId: EngineId, key: GeminiApiKey | null): Promise<void> {
+    await this.lock.holding(() => this.settings.setGeminiApiKey(engineId, key));
   }
 
   /** Announces the account once the Sign in has ended, however it ended. */

@@ -9,6 +9,8 @@ import { CodexEngineAccount } from "./codex-engine-account.tsx";
 import { CodexEngineFields } from "./codex-engine-fields.tsx";
 import { CopilotCliEngineAccount } from "./copilot-cli-engine-account.tsx";
 import { CopilotCliEngineFields } from "./copilot-cli-engine-fields.tsx";
+import { GeminiCliEngineAccount } from "./gemini-cli-engine-account.tsx";
+import { GeminiCliEngineFields } from "./gemini-cli-engine-fields.tsx";
 import {
   ENGINE_KIND_ICONS,
   ENGINE_KIND_LABELS,
@@ -22,7 +24,7 @@ import {
   ApiEndpointModels,
   ClaudeModelPrices,
   CodexModelPrices,
-  CopilotCliModelPrices,
+  PerEngineModelPrices,
   type PriceFields,
 } from "./engine-prices.tsx";
 
@@ -121,7 +123,21 @@ export function EngineDetail({
               <CopilotCliEngineAccount key={engine.id} engineId={engine.id} />
             )
           ) : (
-            <CopilotCliModelPrices models={pricedModels} called={called} prices={prices} />
+            <PerEngineModelPrices models={pricedModels} called={called} prices={prices} />
+          )
+        ) : engine.kind === "gemini-cli" ? (
+          tab === "settings" ? (
+            <GeminiCliEngineFields edit={engine} change={change} />
+          ) : tab === "account" ? (
+            engine.id === undefined ? (
+              <p className="settings-note">
+                It has no key yet: Save, then paste a Gemini API key from Google AI Studio here.
+              </p>
+            ) : (
+              <GeminiCliEngineAccount key={engine.id} engineId={engine.id} />
+            )
+          ) : (
+            <PerEngineModelPrices models={pricedModels} called={called} prices={prices} />
           )
         ) : tab === "prices" ? (
           <ApiEndpointModels

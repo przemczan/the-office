@@ -7,4 +7,13 @@ describe("the engine's words", () => {
     expect(modelLabel("claude-haiku-5-5")).toBe("Haiku 5.5");
     expect(modelLabel("some-other-model")).toBe("some-other-model");
   });
+
+  it("reads the Gemini CLI's model aliases as its docs name them", () => {
+    expect(["auto", "pro", "flash", "flash-lite"].map(modelLabel)).toEqual([
+      "Auto",
+      "Pro",
+      "Flash",
+      "Flash-Lite",
+    ]);
+  });
 });

@@ -21,6 +21,7 @@ import { EngineAccountsModule } from "../../engine-accounts.module.js";
 import { ClaudeCodeAccounts } from "../../ports/claude-code-accounts.js";
 import { CodexAccounts } from "../../ports/codex-accounts.js";
 import { CopilotCliAccounts } from "../../ports/copilot-cli-accounts.js";
+import { GeminiCliHomes } from "../../ports/gemini-cli-homes.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
 import { EngineSettingsForTests } from "../../ports/engine-settings-repository.fixtures.js";
 import { StandInCodexAccounts } from "../scripted/stand-in-codex-accounts.js";
@@ -77,6 +78,23 @@ class HomeRecordingCopilotCliAccounts extends StandInCopilotCliAccounts {
   }
 }
 
+/** The Gemini CLI folders, telling what happened to each engine's folder in the same list. */
+class HomeRecordingGeminiCliHomes extends GeminiCliHomes {
+  constructor(private readonly folders: string[]) {
+    super();
+  }
+
+  prepareHome(engineId: string): Promise<void> {
+    this.folders.push(`made ${engineId}`);
+    return Promise.resolve();
+  }
+
+  removeHome(engineId: string): Promise<void> {
+    this.folders.push(`removed ${engineId}`);
+    return Promise.resolve();
+  }
+}
+
 let app: INestApplication;
 
 let url: string;
@@ -130,6 +148,7 @@ function setUpEachTest(): void {
         },
         { id: "codex", name: "Codex", kind: "codex", defaultModel: "gpt-6-luna", apiKey: null },
         { id: "copilot", name: "Copilot", kind: "copilot-cli", defaultModel: "auto", token: null },
+        { id: "gemini", name: "Gemini", kind: "gemini-cli", defaultModel: "auto", apiKey: null },
       ],
     });
     accounts = new FolderRecordingAccounts();
@@ -142,6 +161,7 @@ function setUpEachTest(): void {
         { provide: ClaudeCodeAccounts, useValue: accounts },
         { provide: CodexAccounts, useValue: codexAccounts },
         { provide: CopilotCliAccounts, useValue: copilotCliAccounts },
+        { provide: GeminiCliHomes, useValue: new HomeRecordingGeminiCliHomes(accounts.folders) },
       ],
     }));
     published = [];
@@ -185,6 +205,18 @@ async function addSecondOpenAi(service: EngineSettingsService): Promise<void> {
 }
 
 const API_KEY = CodexApiKey.of("sk-proj-an-openai-key_456");
+
+/** Adds the Gemini CLI engine "Second Gemini", whose id is `second-gemini`. */
+async function addSecondGemini(service: EngineSettingsService): Promise<void> {
+  const stored = await service.current();
+  await service.change({
+    ...stored,
+    engines: [
+      ...stored.engines,
+      { name: "Second Gemini", kind: "gemini-cli", defaultModel: "auto" },
+    ],
+  });
+}
 
 /** Adds the Copilot CLI engine "Second GitHub", whose id is `second-github`. */
 async function addSecondGitHub(service: EngineSettingsService): Promise<void> {
@@ -363,5 +395,21 @@ describe("/api/settings/engines/:engineId account and Sign in", () => {
 
     expect(accounts.folders).toEqual(["removed left-behind-github"]);
     expect(await copilotCliAccounts.engineIdsWithHomes()).toEqual(["copilot"]);
+  });
+
+  it("makes a Gemini CLI engine's folder when it is added, and removes it once its sessions have ended", async () => {
+    const service = app.get(EngineSettingsService);
+    await addSecondGemini(service);
+    await expect.poll(() => accounts.folders).toEqual(["made second-gemini"]);
+    const ended = app.get(RunningEngineSessions).started("second-gemini");
+
+    await service.remove("second-gemini", FIRST_CLAUDE_CODE_ENGINE.id);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(accounts.folders).toEqual(["made second-gemini"]);
+
+    ended();
+    await expect
+      .poll(() => accounts.folders)
+      .toEqual(["made second-gemini", "removed second-gemini"]);
   });
 });

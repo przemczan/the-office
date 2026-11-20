@@ -1219,6 +1219,13 @@
       "when": 1795109628620,
       "tag": "0173_copilot_cli_engines",
       "breakpoints": true
+    },
+    {
+      "idx": 174,
+      "version": "7",
+      "when": 1795166439505,
+      "tag": "0174_gemini_cli_engines",
+      "breakpoints": true
     }
   ]
 }

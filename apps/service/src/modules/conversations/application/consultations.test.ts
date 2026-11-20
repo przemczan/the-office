@@ -217,6 +217,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
               "openai-compatible-api": new ScriptedEngine([]),
               codex: new ScriptedEngine([]),
               "copilot-cli": new ScriptedEngine([]),
+              "gemini-cli": new ScriptedEngine([]),
             },
       ),
     ],

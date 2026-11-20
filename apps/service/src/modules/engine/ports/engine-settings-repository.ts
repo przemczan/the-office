@@ -2,6 +2,7 @@ import type { CodexApiKey } from "../domain/codex-api-key.js";
 import type { CopilotCliToken } from "../domain/copilot-cli-token.js";
 import type { EngineSettings } from "../domain/engine-settings.js";
 import type { EngineId } from "../domain/engines.js";
+import type { GeminiApiKey } from "../domain/gemini-api-key.js";
 
 /** Where the engines' Office-wide settings are kept, the API endpoints' keys with them. */
 export abstract class EngineSettingsRepository {
@@ -22,4 +23,10 @@ export abstract class EngineSettingsRepository {
    * of Settings › Engines never sets it.
    */
   abstract setCopilotCliToken(engineId: EngineId, token: CopilotCliToken | null): Promise<void>;
+
+  /**
+   * Keeps `key` as the Gemini CLI engine's API key, or none, changing nothing else: a Save of
+   * Settings › Engines never sets it.
+   */
+  abstract setGeminiApiKey(engineId: EngineId, key: GeminiApiKey | null): Promise<void>;
 }

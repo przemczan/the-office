@@ -73,6 +73,7 @@ function setUp(
       "openai-compatible-api": new ScriptedEngine([], { carrySession: false }),
       codex: new ScriptedEngine([], { carrySession: false }),
       "copilot-cli": new ScriptedEngine([], { carrySession: false }),
+      "gemini-cli": new ScriptedEngine([], { carrySession: false }),
     }),
     setUpTelemetry().telemetry,
     events,

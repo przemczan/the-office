@@ -101,12 +101,32 @@ export type CopilotCliEngine = z.infer<typeof copilotCliEngineSchema>;
 export const COPILOT_CLI_AUTO_MODEL = "auto";
 export const COPILOT_CLI_MODELS = [COPILOT_CLI_AUTO_MODEL] as const;
 
+/**
+ * A Gemini API key from Google AI Studio whose sessions run on the pinned Gemini CLI. The key has
+ * no field here: it is never sent back; its account tells whether one is set.
+ */
+export const geminiCliEngineSchema = z.object({
+  id: engineIdSchema,
+  name: z.string(),
+  kind: z.literal("gemini-cli"),
+  /** One of the Gemini CLI models; Auto unless the user picks another. */
+  defaultModel: z.string(),
+});
+export type GeminiCliEngine = z.infer<typeof geminiCliEngineSchema>;
+
+/**
+ * The models a Gemini CLI engine offers: the pinned CLI's aliases, each the newest Gemini model of
+ * its line the key may use, Auto first; mirrors the Engine module's `GEMINI_CLI_MODELS`.
+ */
+export const GEMINI_CLI_MODELS = ["auto", "pro", "flash", "flash-lite"] as const;
+
 /** An engine the user lists in Settings › Engines (spec §5.4). */
 export const engineSchema = z.discriminatedUnion("kind", [
   claudeCodeEngineSchema,
   apiEngineSchema,
   codexEngineSchema,
   copilotCliEngineSchema,
+  geminiCliEngineSchema,
 ]);
 export type Engine = z.infer<typeof engineSchema>;
 export type EngineKind = Engine["kind"];
@@ -130,7 +150,7 @@ export type ModelPrice = z.infer<typeof modelPriceSchema>;
 /**
  * A model that may be priced, with its Model price; null when it has none, which gives "no cost".
  * A Claude or Codex model's `engineId` is null: its price is shared by every Claude Code engine, or
- * every Codex engine. An API or Copilot CLI engine's model is priced on that engine.
+ * every Codex engine. An API, Copilot CLI or Gemini CLI engine's model is priced on that engine.
  */
 export const offeredModelSchema = z.object({
   engineId: engineIdSchema.nullable(),
@@ -151,8 +171,8 @@ export const engineSettingsSchema = z.object({
   /** Null until the user sets one; WebSearch is refused meanwhile. */
   searchEndpoint: searchEndpointSchema.nullable(),
   /**
-   * Every model offered now: the Claude models first, then the Codex models, then each API and
-   * Copilot CLI engine's.
+   * Every model offered now: the Claude models first, then the Codex models, then each API,
+   * Copilot CLI and Gemini CLI engine's.
    */
   modelPrices: z.array(offeredModelSchema),
   /**
@@ -201,11 +221,21 @@ export const copilotCliEngineEditSchema = copilotCliEngineSchema.extend({
 });
 export type CopilotCliEngineEdit = z.infer<typeof copilotCliEngineEditSchema>;
 
+/**
+ * A Gemini CLI engine as Settings › Engines saves it: without an `id` when it is new. A Save never
+ * carries its API key and keeps the one kept: PUT /settings/engines/:engineId/api-key sets it.
+ */
+export const geminiCliEngineEditSchema = geminiCliEngineSchema.extend({
+  id: engineIdSchema.optional(),
+});
+export type GeminiCliEngineEdit = z.infer<typeof geminiCliEngineEditSchema>;
+
 export const engineEditSchema = z.discriminatedUnion("kind", [
   claudeCodeEngineEditSchema,
   apiEngineEditSchema,
   codexEngineEditSchema,
   copilotCliEngineEditSchema,
+  geminiCliEngineEditSchema,
 ]);
 export type EngineEdit = z.infer<typeof engineEditSchema>;
 
@@ -270,9 +300,9 @@ export type EngineRemovalPreview = z.infer<typeof engineRemovalPreviewSchema>;
 
 /**
  * GET /settings/engines/:engineId/account: a Claude Code engine's account as `claude auth status`
- * gives it, a Codex engine's as `account/read` gives it, or a Copilot CLI engine's as the runtime's
- * sign-in status gives it; the email and plan null when signed out, signed in by a pasted token or
- * an API key, or not told.
+ * gives it, a Codex engine's as `account/read` gives it, a Copilot CLI engine's as the runtime's
+ * sign-in status gives it, or a Gemini CLI engine's as its kept API key tells it; the email and plan
+ * null when signed out, signed in by a pasted token or an API key, or not told.
  */
 export const engineAccountSchema = z.object({
   signedIn: z.boolean(),
@@ -283,8 +313,8 @@ export const engineAccountSchema = z.object({
   pastedToken: z.boolean(),
   /**
    * An API key signs the engine in, not a Sign in: an Anthropic one given a Claude Code engine with
-   * "Use an API key", or an OpenAI one given a Codex engine with "Use an API key instead". Such an
-   * engine has no usage windows.
+   * "Use an API key", an OpenAI one given a Codex engine with "Use an API key instead", or a Gemini
+   * one, the only sign-in of a Gemini CLI engine. Such an engine has no usage windows.
    */
   apiKey: z.boolean(),
   /** The account's email; on a Copilot CLI engine, its GitHub login, which it has in place of one. */
@@ -352,7 +382,8 @@ export type CopilotCliPastedToken = z.infer<typeof copilotCliPastedTokenSchema>;
  * PUT /settings/engines/:engineId/api-key: an API key, which replaces any other sign-in and is never
  * sent back. On a Claude Code engine "Use an API key", an Anthropic API key, kept in the engine's
  * folder and refused unless it starts with sk-ant-api; on a Codex engine "Use an API key instead",
- * an OpenAI API key, kept in the database.
+ * an OpenAI API key, kept in the database; on a Gemini CLI engine, which has no Sign in, the Gemini
+ * API key from Google AI Studio that signs it in, kept in the database.
  */
 export const engineApiKeySchema = z.object({ key: z.string().trim().min(1) });
 export type EngineApiKey = z.infer<typeof engineApiKeySchema>;

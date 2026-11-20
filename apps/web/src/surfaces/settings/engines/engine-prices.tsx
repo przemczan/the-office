@@ -66,10 +66,10 @@ export function CodexModelPrices({
 }
 
 /**
- * A Copilot CLI engine's Models and prices: its models priced on the engine itself, as an API
- * endpoint's are, so a new engine's wait for its name.
+ * A Copilot CLI or Gemini CLI engine's Models and prices: its models priced on the engine itself,
+ * as an API endpoint's are, so a new engine's wait for its name.
  */
-export function CopilotCliModelPrices({
+export function PerEngineModelPrices({
   models,
   called,
   prices,

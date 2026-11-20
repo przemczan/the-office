@@ -12,7 +12,10 @@ import {
   type ApiEngine,
   type CodexEngine,
   type CopilotCliEngine,
+  GEMINI_CLI_MODELS,
+  type GeminiCliEngine,
 } from "./engines.js";
+import { GeminiApiKey } from "./gemini-api-key.js";
 import { CopilotCliToken } from "./copilot-cli-token.js";
 
 const strata: ApiEngine = {
@@ -44,6 +47,14 @@ const copilot: CopilotCliEngine = {
   token: null,
 };
 
+const gemini: GeminiCliEngine = {
+  id: "gemini",
+  name: "Gemini",
+  kind: "gemini-cli",
+  defaultModel: "auto",
+  apiKey: null,
+};
+
 describe("an engine", () => {
   it("offers the Claude models on Claude Code, the Codex models on Codex, and an API engine's own by their ids", () => {
     expect(offeredModels(FIRST_CLAUDE_CODE_ENGINE)).toEqual(CLAUDE_CODE_MODELS);
@@ -60,6 +71,17 @@ describe("an engine", () => {
       false,
       false,
     ]);
+  });
+
+  it("offers Auto, Pro, Flash and Flash-Lite on a Gemini CLI engine, priced on that engine", () => {
+    expect(offeredModels(gemini)).toEqual(GEMINI_CLI_MODELS);
+    expect(GEMINI_CLI_MODELS).toEqual(["auto", "pro", "flash", "flash-lite"]);
+    expect(pricedPerEngine(gemini)).toBe(true);
+  });
+
+  it("has no usage windows on a Gemini CLI engine, however it is signed in", () => {
+    expect(hasUsageWindows(gemini)).toBe(false);
+    expect(hasUsageWindows({ ...gemini, apiKey: GeminiApiKey.of("AIzaSyKey") })).toBe(false);
   });
 
   it("has no usage windows on a Copilot CLI engine, however it is signed in", () => {

@@ -2,6 +2,7 @@ import { Test } from "@nestjs/testing";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   CODEX_CAPABILITIES,
+  GEMINI_CLI_CAPABILITIES,
   EngineModels,
   EngineSessions,
   EngineSettingsChecks,
@@ -42,6 +43,18 @@ const codex: Engine = {
   defaultModel: "gpt-6-luna",
   apiKey: null,
 };
+const gemini: Engine = {
+  id: "gemini",
+  name: "Gemini",
+  kind: "gemini-cli",
+  defaultModel: "auto",
+  apiKey: null,
+};
+const onGemini = { engineId: gemini.id, model: "auto" };
+/** What the Gemini CLI adapter declares it can't do. */
+const missingOnGemini = (
+  Object.keys(GEMINI_CLI_CAPABILITIES) as (keyof typeof GEMINI_CLI_CAPABILITIES)[]
+).filter((capability) => !GEMINI_CLI_CAPABILITIES[capability]);
 const onCodex = { engineId: codex.id, model: "gpt-6-luna" };
 /** What the Codex adapter declares it can't do. */
 const missingOnCodex = (
@@ -100,12 +113,18 @@ beforeEach(async () => {
   };
   const engineModels: Pick<EngineModels, "engines" | "officeDefault"> = {
     // Codex is listed too, for a Role override on it.
-    engines: async () => [...engines, codex],
+    engines: async () => [...engines, codex, gemini],
     officeDefault: async () => officeDefault,
   };
   const engineSessions: Pick<EngineSessions, "missingCapabilitiesOf"> = {
     missingCapabilitiesOf: (engine): readonly EngineCapability[] =>
-      engine.kind === "codex" ? missingOnCodex : engine.id === "local" ? ["officeTools"] : [],
+      engine.kind === "codex"
+        ? missingOnCodex
+        : engine.kind === "gemini-cli"
+          ? missingOnGemini
+          : engine.id === "local"
+            ? ["officeTools"]
+            : [],
   };
   rolesNamed = { everywhere: new Set(["developer", "reviewer"]), byProject: new Map() };
   dutyHolders = new Map([["implements", "developer"]]);
@@ -335,6 +354,20 @@ describe("PipelineRoleCapabilityChecks on a save of Settings › Engines", () =>
     ).resolves.toEqual([]);
     await expect(
       roleOverrideChecks.problemsOf({ roleKey: "reviewer", before: null, after: onCodex }),
+    ).resolves.toEqual([]);
+  });
+
+  it("lets through an Office default on a Gemini CLI engine, which lacks only what no Pipeline Role needs", async () => {
+    const withGemini = { engines: [...engines, gemini], officeDefault };
+
+    await expect(
+      engineSettingsChecks.problemsOf({
+        before: withGemini,
+        after: { ...withGemini, officeDefault: onGemini },
+      }),
+    ).resolves.toEqual([]);
+    await expect(
+      roleOverrideChecks.problemsOf({ roleKey: "reviewer", before: null, after: onGemini }),
     ).resolves.toEqual([]);
   });
 

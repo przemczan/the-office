@@ -10,6 +10,7 @@ import {
   type EngineSettings,
 } from "../../domain/engine-settings.js";
 import type { Engine, EngineId, EngineModel } from "../../domain/engines.js";
+import { GeminiApiKey } from "../../domain/gemini-api-key.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
 import { engines, engineSettings, modelPrices } from "./engine-settings.schema.js";
 
@@ -97,6 +98,15 @@ export class PostgresEngineSettings extends EngineSettingsRepository {
       .set({ key: token?.reveal() ?? null })
       .where(and(eq(engines.id, engineId), eq(engines.kind, "copilot-cli")));
   }
+
+  async setGeminiApiKey(engineId: EngineId, key: GeminiApiKey | null): Promise<void> {
+    await forgettingReads(() =>
+      this.database
+        .update(engines)
+        .set({ key: key?.reveal() ?? null })
+        .where(and(eq(engines.id, engineId), eq(engines.kind, "gemini-cli"))),
+    );
+  }
 }
 
 function officeDefaultOf({
@@ -122,6 +132,9 @@ function engineOf({
   }
   if (kind === "copilot-cli") {
     return { id, name, kind, defaultModel, token: key === null ? null : CopilotCliToken.of(key) };
+  }
+  if (kind === "gemini-cli") {
+    return { id, name, kind, defaultModel, apiKey: key === null ? null : GeminiApiKey.of(key) };
   }
   return {
     id,
@@ -154,6 +167,14 @@ function engineRowOf(engine: Engine, position: number): EngineRow {
         claudeCodeP: false,
         baseUrl: null,
         key: engine.token?.reveal() ?? null,
+        models: null,
+      };
+    case "gemini-cli":
+      return {
+        ...common,
+        claudeCodeP: false,
+        baseUrl: null,
+        key: engine.apiKey?.reveal() ?? null,
         models: null,
       };
     case "openai-compatible-api":

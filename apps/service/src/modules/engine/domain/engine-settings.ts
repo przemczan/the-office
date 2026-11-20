@@ -14,6 +14,7 @@ import {
   type Engine,
   type EngineId,
   type EngineModel,
+  type GeminiCliEngine,
 } from "./engines.js";
 import {
   keptModelPrices,
@@ -96,8 +97,20 @@ export type CopilotCliEngineEdit = Omit<CopilotCliEngine, "id" | "token"> & {
   readonly id?: EngineId;
 };
 
+/**
+ * A Gemini CLI engine as Settings › Engines saves it: without an `id` when it is new, and never
+ * with its API key, which only its own route sets (a Save keeps the one kept).
+ */
+export type GeminiCliEngineEdit = Omit<GeminiCliEngine, "id" | "apiKey"> & {
+  readonly id?: EngineId;
+};
+
 export type EngineEdit =
-  ClaudeCodeEngineEdit | ApiEngineEdit | CodexEngineEdit | CopilotCliEngineEdit;
+  | ClaudeCodeEngineEdit
+  | ApiEngineEdit
+  | CodexEngineEdit
+  | CopilotCliEngineEdit
+  | GeminiCliEngineEdit;
 
 export interface EngineSettingsEdit {
   /** Every engine, in order; a saved one left out is refused, as removing one moves what names it. */
@@ -117,7 +130,7 @@ export const ENGINE_NAME_LENGTH = 40;
 /**
  * Every model that may be priced, in order, with its Model price or none: the Claude models while
  * there is a Claude Code engine, the Codex models while there is a Codex engine, then each API and
- * Copilot CLI engine's, in their order.
+ * Copilot CLI and Gemini CLI engine's, in their order.
  */
 export function offeredModelPrices({ engines, modelPrices }: EngineSettings): OfferedModel[] {
   const priceOf = (engineId: EngineId | null, model: string) =>
@@ -135,7 +148,7 @@ export function offeredModelPrices({ engines, modelPrices }: EngineSettings): Of
 /**
  * The models priced under a price's `engineId`: null for the Claude models while a Claude Code
  * engine is listed, then the Codex models while a Codex engine is, each priced once for them all;
- * an API or Copilot CLI engine's id for its own models.
+ * an API, Copilot CLI or Gemini CLI engine's id for its own models.
  */
 function modelsPricedUnder(
   engines: readonly Engine[],
@@ -154,8 +167,8 @@ function modelsPricedUnder(
 /**
  * The settings `edit` makes of `stored`: the engines in its order, a new one given its id from its
  * name, an API engine keeping its key unless the edit gives one, a Codex engine always keeping its
- * API key and a Copilot CLI engine its token; the Office default; and the Model prices of the
- * models offered, a removed engine's kept (`keptModelPrices`); the Stand-in Engines and the
+ * API key, a Copilot CLI engine its token and a Gemini CLI engine its API key; the Office default;
+ * and the Model prices of the models offered, a removed engine's kept (`keptModelPrices`); the Stand-in Engines and the
  * ask-above size, the stored ones when left out. Refuses with every reason when they break a rule.
  */
 export function changedEngineSettings(
@@ -281,6 +294,13 @@ function changedEnginesOf(
         ...common,
         kind: edit.kind,
         token: kept?.kind === "copilot-cli" ? kept.token : null,
+      };
+    }
+    if (edit.kind === "gemini-cli") {
+      return {
+        ...common,
+        kind: edit.kind,
+        apiKey: kept?.kind === "gemini-cli" ? kept.apiKey : null,
       };
     }
     const keptKey = kept?.kind === "openai-compatible-api" ? kept.key : "";

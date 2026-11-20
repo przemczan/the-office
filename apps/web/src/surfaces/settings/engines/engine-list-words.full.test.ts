@@ -11,6 +11,7 @@ import {
   claudeCodeEngineSummary,
   codexEngineSummary,
   copilotCliEngineSummary,
+  geminiCliEngineSummary,
   draftedIdAt,
   engineAt,
   engineCalled,
@@ -201,6 +202,7 @@ describe("Codex engines in Settings › Engines' list", () => {
       "Claude Code",
       "Codex",
       "Copilot CLI",
+      "Gemini CLI",
       "API endpoint",
     ]);
     expect(engineTabsOf("codex")).toEqual(["settings", "account", "prices"]);
@@ -410,6 +412,22 @@ describe("Copilot CLI engines in Settings › Engines' list", () => {
     expect(withoutEngine(draft, COPILOT_CLI_FIRST).copilotCliEngines).toEqual([]);
     expect(draftedIdAt(draftedEngines(draft, SAVED_WITH_COPILOT_CLI), COPILOT_CLI_FIRST)).toBe(
       "copilot",
+    );
+  });
+});
+
+describe("Gemini CLI engines in Settings › Engines' list", () => {
+  it("calls the kind Gemini CLI, with an Account tab, and a new one on Auto", () => {
+    expect(ENGINE_KIND_LABELS["gemini-cli"]).toBe("Gemini CLI");
+    expect(engineTabsOf("gemini-cli")).toEqual(["settings", "account", "prices"]);
+    expect(engineCalled({ name: "", kind: "gemini-cli", defaultModel: "auto" })).toBe(
+      "the new Gemini CLI engine",
+    );
+  });
+
+  it("gives the engine's line with its model in words", () => {
+    expect(geminiCliEngineSummary("flash-lite", "not-saved")).toBe(
+      "Signed in once saved · Flash-Lite",
     );
   });
 });

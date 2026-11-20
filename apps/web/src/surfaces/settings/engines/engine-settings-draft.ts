@@ -3,6 +3,7 @@ import {
   COPILOT_CLI_AUTO_MODEL,
   COPILOT_CLI_MODELS,
   engineIdFor,
+  GEMINI_CLI_MODELS,
   type ApiEngine,
   type ApiEngineEdit,
   type ClaudeCodeEngineEdit,
@@ -13,6 +14,7 @@ import {
   type EngineModel,
   type EngineSettings,
   type EngineSettingsEdit,
+  type GeminiCliEngineEdit,
   type OfferedModel,
   type SearchEndpoint,
 } from "@the-office/contracts";
@@ -30,6 +32,7 @@ export interface EngineSettingsDraft {
   readonly claudeCodeEngines: readonly ClaudeCodeEngineEdit[];
   readonly codexEngines: readonly CodexEngineEdit[];
   readonly copilotCliEngines: readonly CopilotCliEngineEdit[];
+  readonly geminiCliEngines: readonly GeminiCliEngineEdit[];
   readonly apiEndpoints: readonly ApiEngineEdit[];
   /** None only while no engine is listed; Save asks for one once an engine is. */
   readonly officeDefault: EngineModel | null;
@@ -64,6 +67,7 @@ export interface DraftedEngines {
   readonly claudeCodeEngines: readonly Drafted<ClaudeCodeEngineEdit>[];
   readonly codexEngines: readonly Drafted<CodexEngineEdit>[];
   readonly copilotCliEngines: readonly Drafted<CopilotCliEngineEdit>[];
+  readonly geminiCliEngines: readonly Drafted<GeminiCliEngineEdit>[];
   readonly apiEndpoints: readonly DraftedEndpoint[];
 }
 
@@ -82,6 +86,9 @@ export function draftOf({
     codexEngines: engines.flatMap((engine) => (engine.kind === "codex" ? [{ ...engine }] : [])),
     copilotCliEngines: engines.flatMap((engine) =>
       engine.kind === "copilot-cli" ? [{ ...engine }] : [],
+    ),
+    geminiCliEngines: engines.flatMap((engine) =>
+      engine.kind === "gemini-cli" ? [{ ...engine }] : [],
     ),
     apiEndpoints: savedApiEngines(engines).map(({ keySet: _keySet, models, ...engine }) => ({
       ...engine,
@@ -121,6 +128,7 @@ export function draftedEngines(draft: EngineSettingsDraft, saved: EngineSettings
       ...draft.claudeCodeEngines,
       ...draft.codexEngines,
       ...draft.copilotCliEngines,
+      ...draft.geminiCliEngines,
       ...draft.apiEndpoints,
     ].flatMap(({ id }) => (id === undefined ? [] : [id])),
   ]);
@@ -144,12 +152,17 @@ export function draftedEngines(draft: EngineSettingsDraft, saved: EngineSettings
     id: idOf(engine),
     name: engine.name.trim(),
   }));
+  const geminiCliEngines = draft.geminiCliEngines.map((engine) => ({
+    ...engine,
+    id: idOf(engine),
+    name: engine.name.trim(),
+  }));
   const apiEndpoints = draft.apiEndpoints.map((endpoint) => ({
     ...endpoint,
     id: idOf(endpoint),
     name: endpoint.name.trim(),
   }));
-  return { claudeCodeEngines, codexEngines, copilotCliEngines, apiEndpoints };
+  return { claudeCodeEngines, codexEngines, copilotCliEngines, geminiCliEngines, apiEndpoints };
 }
 
 /** Whether a model is one of the Codex models, whose price, as a Claude model's, has no engine. */
@@ -190,7 +203,10 @@ export function offeredModelsOf(
   const copilotCliModels = drafted.copilotCliEngines.flatMap(({ id: engineId }) =>
     engineId === "" ? [] : COPILOT_CLI_MODELS.map((model) => ({ engineId, model })),
   );
-  return [...claudeModels, ...codexModels, ...apiModels, ...copilotCliModels];
+  const geminiCliModels = drafted.geminiCliEngines.flatMap(({ id: engineId }) =>
+    engineId === "" ? [] : GEMINI_CLI_MODELS.map((model) => ({ engineId, model })),
+  );
+  return [...claudeModels, ...codexModels, ...apiModels, ...copilotCliModels, ...geminiCliModels];
 }
 
 /** The models an API endpoint offers, by their trimmed ids, each once. */
@@ -224,6 +240,7 @@ export function engineSettingsEditOf(
       ...draft.claudeCodeEngines,
       ...draft.codexEngines,
       ...draft.copilotCliEngines,
+      ...draft.geminiCliEngines,
       ...draft.apiEndpoints.map(withOfferedDefaultModel),
     ],
     officeDefault: draft.officeDefault,
@@ -323,6 +340,11 @@ export function newCopilotCliEngine(): CopilotCliEngineEdit {
   return { name: "", kind: "copilot-cli", defaultModel: COPILOT_CLI_AUTO_MODEL };
 }
 
+/** A new Gemini CLI engine, on Auto. */
+export function newGeminiCliEngine(): GeminiCliEngineEdit {
+  return { name: "", kind: "gemini-cli", defaultModel: GEMINI_CLI_MODELS[0] };
+}
+
 /** An engine the Office default may name, with the models it offers. */
 export interface OfficeDefaultChoice {
   readonly id: EngineId;
@@ -349,6 +371,9 @@ export function officeDefaultChoicesOf(
     ),
     ...draft.copilotCliEngines.flatMap(({ id, name, defaultModel }) =>
       id === undefined ? [] : [{ id, name: name.trim(), defaultModel, models: COPILOT_CLI_MODELS }],
+    ),
+    ...draft.geminiCliEngines.flatMap(({ id, name, defaultModel }) =>
+      id === undefined ? [] : [{ id, name: name.trim(), defaultModel, models: GEMINI_CLI_MODELS }],
     ),
     ...draft.apiEndpoints.flatMap((endpoint) =>
       endpoint.id === undefined
@@ -378,6 +403,7 @@ function whatSaveSees(draft: EngineSettingsDraft, saved: EngineSettings): unknow
     claudeCodeEngines: draft.claudeCodeEngines,
     codexEngines: draft.codexEngines,
     copilotCliEngines: draft.copilotCliEngines,
+    geminiCliEngines: draft.geminiCliEngines,
     apiEndpoints: draft.apiEndpoints,
     officeDefault: draft.officeDefault,
     searchEndpoint: draft.searchEndpoint,

@@ -118,6 +118,7 @@ beforeEach(async () => {
         "openai-compatible-api": api.engine,
         codex: new ScriptedEngine([]),
         "copilot-cli": new ScriptedEngine([]),
+        "gemini-cli": new ScriptedEngine([]),
       }),
     ],
     overrides: [

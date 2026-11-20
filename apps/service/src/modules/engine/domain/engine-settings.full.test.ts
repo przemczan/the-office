@@ -10,7 +10,13 @@ import {
 } from "./engine-settings.js";
 import { EngineSettingsRefused } from "./engine-settings-refused.js";
 import { CopilotCliToken } from "./copilot-cli-token.js";
-import { FIRST_CLAUDE_CODE_ENGINE, type CopilotCliEngine } from "./engines.js";
+import {
+  FIRST_CLAUDE_CODE_ENGINE,
+  GEMINI_CLI_MODELS,
+  type CopilotCliEngine,
+  type GeminiCliEngine,
+} from "./engines.js";
+import { GeminiApiKey } from "./gemini-api-key.js";
 import type { ModelPrice, OfferedModel } from "./model-prices.js";
 import {
   codex,
@@ -452,6 +458,40 @@ describe("Model prices", () => {
     ).toContain('Pick the default model of "Renamed" among its models.');
   });
 
+  it("keeps a Gemini CLI engine's API key on a Save, refuses a model it doesn't offer, and prices its models on that engine alone", () => {
+    const withGemini: EngineSettings = {
+      ...stored,
+      engines: [...stored.engines, geminiOf("gemini", "AIzaSyKept"), geminiOf("gemini-2", null)],
+    };
+    const pro: ModelPrice = { input: 1, output: 4, cacheWrites: 0, cacheReads: 0.1 };
+
+    const changed = changedEngineSettings(
+      withGemini,
+      editOf([strataEdit(), geminiEdit("gemini"), geminiEdit("gemini-2")], {
+        modelPrices: [{ engineId: "gemini", model: "pro", price: pro }],
+      }),
+    );
+
+    const [, , saved, second] = changed.engines;
+    expect(saved?.kind === "gemini-cli" && saved.apiKey?.reveal()).toBe("AIzaSyKept");
+    expect(second?.kind === "gemini-cli" && second.apiKey).toBeNull();
+    const offered = offeredModelPrices(changed);
+    for (const model of GEMINI_CLI_MODELS) {
+      expect(offered).toContainEqual({
+        engineId: "gemini",
+        model,
+        price: model === "pro" ? pro : null,
+      });
+    }
+    expect(offered).toContainEqual({ engineId: "gemini-2", model: "pro", price: null });
+    expect(
+      refusal(
+        withGemini,
+        editOf([strataEdit(), geminiEdit("gemini", "gpt-6-luna"), geminiEdit("gemini-2")]),
+      ),
+    ).toContain('Pick the default model of "gemini" among its models.');
+  });
+
   it("keeps the Codex models' prices once the last Codex engine is removed, beside a Claude Code engine", () => {
     const luna: ModelPrice = { input: 2, output: 8, cacheWrites: 0, cacheReads: 0.5 };
     const pricedStored: EngineSettings = {
@@ -485,3 +525,17 @@ describe("Model prices", () => {
     ]);
   });
 });
+
+function geminiOf(id: string, key: string | null): GeminiCliEngine {
+  return {
+    id,
+    name: id,
+    kind: "gemini-cli",
+    defaultModel: "auto",
+    apiKey: key === null ? null : GeminiApiKey.of(key),
+  };
+}
+
+function geminiEdit(id: string, defaultModel = "auto") {
+  return { id, name: id, kind: "gemini-cli", defaultModel } as const;
+}

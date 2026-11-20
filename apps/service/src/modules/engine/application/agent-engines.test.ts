@@ -13,6 +13,7 @@ const ADAPTERS: Readonly<Record<EngineAdapter, ScriptedEngine>> = {
   "openai-compatible-api": new ScriptedEngine([]),
   codex: new ScriptedEngine([]),
   "copilot-cli": new ScriptedEngine([]),
+  "gemini-cli": new ScriptedEngine([]),
 };
 
 const ENGINES: Readonly<Record<EngineAdapter, Engine>> = {
@@ -34,6 +35,13 @@ const ENGINES: Readonly<Record<EngineAdapter, Engine>> = {
     kind: "copilot-cli",
     defaultModel: COPILOT_CLI_AUTO_MODEL,
     token: null,
+  },
+  "gemini-cli": {
+    id: "gemini",
+    name: "Gemini",
+    kind: "gemini-cli",
+    defaultModel: "auto",
+    apiKey: null,
   },
 };
 

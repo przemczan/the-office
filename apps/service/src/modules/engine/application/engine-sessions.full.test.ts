@@ -156,6 +156,7 @@ function setUp(
       "openai-compatible-api": new ScriptedEngine([]),
       codex: new ScriptedEngine([]),
       "copilot-cli": new ScriptedEngine([]),
+      "gemini-cli": new ScriptedEngine([]),
     },
     undefined,
     languageServers,
@@ -302,6 +303,7 @@ function twoEngines(scripts: {
       "openai-compatible-api": new ScriptedEngine([]),
       codex: new ScriptedEngine([]),
       "copilot-cli": new ScriptedEngine([]),
+      "gemini-cli": new ScriptedEngine([]),
     }),
   };
 }
@@ -652,6 +654,7 @@ describe("EngineSessions", () => {
           "openai-compatible-api": engine,
           codex: engine,
           "copilot-cli": engine,
+          "gemini-cli": engine,
         },
         undefined,
         new WorkstationWithoutKotlin(),
@@ -678,6 +681,7 @@ describe("EngineSessions", () => {
           "openai-compatible-api": engine,
           codex: engine,
           "copilot-cli": engine,
+          "gemini-cli": engine,
         },
         undefined,
         new WorkstationWithoutKotlin(),
@@ -697,6 +701,7 @@ describe("EngineSessions", () => {
           "openai-compatible-api": engine,
           codex: engine,
           "copilot-cli": engine,
+          "gemini-cli": engine,
         },
         undefined,
         new WorkstationWithoutKotlin(),
@@ -744,6 +749,7 @@ describe("EngineSessions", () => {
       "openai-compatible-api": new WithoutTheModel([]),
       codex: new ScriptedEngine([]),
       "copilot-cli": new ScriptedEngine([]),
+      "gemini-cli": new ScriptedEngine([]),
     });
 
     await expect(
@@ -863,6 +869,7 @@ describe("EngineSessions on each engine's adapter", () => {
       "openai-compatible-api": new HandedOptions([ONE_TURN]),
       codex: new ScriptedEngine([]),
       "copilot-cli": new ScriptedEngine([]),
+      "gemini-cli": new ScriptedEngine([]),
     });
 
     const started = await sessions.start({
@@ -912,6 +919,7 @@ describe("EngineSessions on each engine's adapter", () => {
             defaultEnginePromptTemplates(),
           ),
           "copilot-cli": new ScriptedEngine([]),
+          "gemini-cli": new ScriptedEngine([]),
         },
         new EngineSettingsForTests({ engines: [FIRST_CLAUDE_CODE_ENGINE, codex] }),
       );
@@ -954,6 +962,7 @@ describe("EngineSessions on each engine's adapter", () => {
       "openai-compatible-api": new ScriptedEngine([]),
       codex: new ScriptedEngine([]),
       "copilot-cli": new ScriptedEngine([]),
+      "gemini-cli": new ScriptedEngine([]),
     });
 
     const session = await sessions.start({
@@ -988,6 +997,7 @@ describe("EngineSessions' readings of the usage windows", () => {
       }),
       codex: new ScriptedEngine([], { usageWindows: false }),
       "copilot-cli": new ScriptedEngine([], { usageWindows: false }),
+      "gemini-cli": new ScriptedEngine([], { usageWindows: false }),
     });
     const onTheApi = await sessions.start({
       id: "s-api",
@@ -1030,6 +1040,7 @@ describe("EngineSessions' readings of the usage windows", () => {
       }),
       codex: new ScriptedEngine([], { usageWindows: false }),
       "copilot-cli": new ScriptedEngine([], { usageWindows: false }),
+      "gemini-cli": new ScriptedEngine([], { usageWindows: false }),
     });
     const session = await sessions.start({
       id: "s-1",
@@ -1126,6 +1137,7 @@ describe("EngineSessions' readings of the usage windows", () => {
         "openai-compatible-api": new ScriptedEngine([]),
         codex: new ScriptedEngine([]),
         "copilot-cli": new ScriptedEngine([]),
+        "gemini-cli": new ScriptedEngine([]),
       },
       new EngineSettingsForTests({
         ...DEFAULT_ENGINE_SETTINGS,

@@ -198,6 +198,7 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
           "openai-compatible-api": engine,
           codex: engine,
           "copilot-cli": engine,
+          "gemini-cli": engine,
         }),
         new Telemetry(trace.getTracer("test"), metrics.getMeter("test")),
         events,

@@ -120,6 +120,7 @@ describe("Settings › Engines' draft", () => {
       claudeCodeEngines: [CLAUDE_CODE],
       codexEngines: [],
       copilotCliEngines: [],
+      geminiCliEngines: [],
       apiEndpoints: [
         {
           id: "strata",

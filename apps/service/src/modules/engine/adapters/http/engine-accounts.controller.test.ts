@@ -13,6 +13,7 @@ import { EngineAccountsModule } from "../../engine-accounts.module.js";
 import { ClaudeCodeAccounts } from "../../ports/claude-code-accounts.js";
 import { CodexAccounts } from "../../ports/codex-accounts.js";
 import { CopilotCliAccounts } from "../../ports/copilot-cli-accounts.js";
+import { GeminiCliHomes } from "../../ports/gemini-cli-homes.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
 import { EngineSettingsForTests } from "../../ports/engine-settings-repository.fixtures.js";
 import {
@@ -78,6 +79,23 @@ class HomeRecordingCopilotCliAccounts extends StandInCopilotCliAccounts {
   }
 }
 
+/** The Gemini CLI folders, telling what happened to each engine's folder in the same list. */
+class HomeRecordingGeminiCliHomes extends GeminiCliHomes {
+  constructor(private readonly folders: string[]) {
+    super();
+  }
+
+  prepareHome(engineId: string): Promise<void> {
+    this.folders.push(`made ${engineId}`);
+    return Promise.resolve();
+  }
+
+  removeHome(engineId: string): Promise<void> {
+    this.folders.push(`removed ${engineId}`);
+    return Promise.resolve();
+  }
+}
+
 let app: INestApplication;
 
 let url: string;
@@ -104,6 +122,14 @@ const COPILOT_CLI_TOKEN = "github_pat_11ABCDEFG0123456789_aFineGrainedToken";
 async function keptToken(engineId: string): Promise<string | null> {
   const engine = (await repository.read()).engines.find(({ id }) => id === engineId);
   return engine?.kind === "copilot-cli" ? (engine.token?.reveal() ?? null) : null;
+}
+
+const GEMINI_API_KEY = "AIzaSyAGeminiKey_0123456789";
+
+/** The API key the repository keeps for the Gemini CLI engine, as only it reveals it. */
+async function keptGeminiKey(engineId: string): Promise<string | null> {
+  const engine = (await repository.read()).engines.find(({ id }) => id === engineId);
+  return engine?.kind === "gemini-cli" ? (engine.apiKey?.reveal() ?? null) : null;
 }
 
 /** The API key the repository keeps for the engine, as only it reveals it. */
@@ -154,6 +180,7 @@ function setUpEachTest(): void {
         },
         { id: "codex", name: "Codex", kind: "codex", defaultModel: "gpt-6-luna", apiKey: null },
         { id: "copilot", name: "Copilot", kind: "copilot-cli", defaultModel: "auto", token: null },
+        { id: "gemini", name: "Gemini", kind: "gemini-cli", defaultModel: "auto", apiKey: null },
       ],
     });
     accounts = new FolderRecordingAccounts();
@@ -166,6 +193,7 @@ function setUpEachTest(): void {
         { provide: ClaudeCodeAccounts, useValue: accounts },
         { provide: CodexAccounts, useValue: codexAccounts },
         { provide: CopilotCliAccounts, useValue: copilotCliAccounts },
+        { provide: GeminiCliHomes, useValue: new HomeRecordingGeminiCliHomes(accounts.folders) },
       ],
     }));
     published = [];
@@ -417,6 +445,43 @@ describe("/api/settings/engines/:engineId account and Sign in", () => {
     expect(refused.status).toBe(404);
     expect(await refused.text()).not.toContain(COPILOT_CLI_TOKEN);
     expect((await post("copilot/sign-in/code", { code: "a-code" })).status).toBe(404);
+  });
+
+  it("signs a Gemini CLI engine in by an API key, kept but never answered back, until Sign out", async () => {
+    expect(await account("gemini")).toMatchObject({ signedIn: false });
+
+    const pasted = await send("PUT", "gemini/api-key", { key: ` ${GEMINI_API_KEY}\n` });
+
+    expect(pasted.status).toBe(204);
+    expect(await pasted.text()).toBe("");
+    expect(await keptGeminiKey("gemini")).toBe(GEMINI_API_KEY);
+    const signedIn = await fetch(`${url}/api/settings/engines/gemini/account`);
+    expect(await signedIn.text()).not.toContain("AIza");
+    expect(await account("gemini")).toEqual({
+      signedIn: true,
+      pastedToken: false,
+      apiKey: true,
+      email: null,
+      plan: null,
+    });
+    expect(JSON.stringify(published)).not.toContain(GEMINI_API_KEY);
+    const settings = await fetch(`${url}/api/settings/engines`);
+    expect(await settings.text()).not.toContain("AIza");
+
+    expect((await send("DELETE", "gemini/sign-in")).status).toBe(204);
+    expect(await keptGeminiKey("gemini")).toBeNull();
+    expect(await account("gemini")).toMatchObject({ signedIn: false });
+  });
+
+  it("refuses a Gemini CLI engine an empty API key in words, and a Sign in, a code and a token", async () => {
+    const empty = await send("PUT", "gemini/api-key", { key: "  " });
+    expect(empty.status).toBe(400);
+    expect(JSON.parse(await empty.text())).toMatchObject({ message: expect.any(String) });
+    expect(await keptGeminiKey("gemini")).toBeNull();
+
+    expect((await post("gemini/sign-in")).status).toBe(404);
+    expect((await post("gemini/sign-in/code", { code: "a-code" })).status).toBe(404);
+    expect((await send("PUT", "gemini/token", { token: TOKEN })).status).toBe(404);
   });
 
   it("refuses a Codex engine what only a Claude Code engine takes", async () => {

@@ -41,7 +41,7 @@ export const engines = pgTable(
     check("engines_id", sql`${table.id} <> ''`),
     check(
       "engines_kind",
-      sql`(${table.kind} = 'claude-code' AND ${table.baseUrl} IS NULL AND ${table.key} IS NULL AND ${table.models} IS NULL) OR (${table.kind} = 'openai-compatible-api' AND ${table.baseUrl} IS NOT NULL AND ${table.key} IS NOT NULL AND ${table.models} IS NOT NULL AND NOT ${table.claudeCodeP}) OR (${table.kind} = 'codex' AND ${table.baseUrl} IS NULL AND ${table.models} IS NULL AND NOT ${table.claudeCodeP} AND (${table.key} IS NULL OR ${table.key} <> '')) OR (${table.kind} = 'copilot-cli' AND ${table.baseUrl} IS NULL AND ${table.models} IS NULL AND NOT ${table.claudeCodeP} AND (${table.key} IS NULL OR ${table.key} <> ''))`,
+      sql`(${table.kind} = 'claude-code' AND ${table.baseUrl} IS NULL AND ${table.key} IS NULL AND ${table.models} IS NULL) OR (${table.kind} = 'openai-compatible-api' AND ${table.baseUrl} IS NOT NULL AND ${table.key} IS NOT NULL AND ${table.models} IS NOT NULL AND NOT ${table.claudeCodeP}) OR (${table.kind} = 'codex' AND ${table.baseUrl} IS NULL AND ${table.models} IS NULL AND NOT ${table.claudeCodeP} AND (${table.key} IS NULL OR ${table.key} <> '')) OR (${table.kind} = 'copilot-cli' AND ${table.baseUrl} IS NULL AND ${table.models} IS NULL AND NOT ${table.claudeCodeP} AND (${table.key} IS NULL OR ${table.key} <> '')) OR (${table.kind} = 'gemini-cli' AND ${table.baseUrl} IS NULL AND ${table.models} IS NULL AND NOT ${table.claudeCodeP} AND (${table.key} IS NULL OR ${table.key} <> ''))`,
     ),
   ],
 );

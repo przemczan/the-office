@@ -10,9 +10,21 @@ export const EFFORT_LABELS: Readonly<Record<Effort, string>> = {
   max: "Max",
 };
 
-/** A model as a person reads it: "Opus 5.5" for a Claude model, "Auto" for Copilot CLI's, any other by its id. */
+/** The Gemini CLI's model aliases besides Auto, as its own docs name them. */
+const GEMINI_CLI_MODEL_LABELS: Readonly<Record<string, string>> = {
+  pro: "Pro",
+  flash: "Flash",
+  "flash-lite": "Flash-Lite",
+};
+
+/**
+ * A model as a person reads it: "Opus 5.5" for a Claude model, "Auto" for Copilot CLI's and Gemini
+ * CLI's, "Flash-Lite" for a Gemini CLI alias, any other by its id.
+ */
 export function modelLabel(model: string): string {
   if (model === COPILOT_CLI_AUTO_MODEL) return "Auto";
+  const geminiCliLabel = GEMINI_CLI_MODEL_LABELS[model];
+  if (geminiCliLabel !== undefined) return geminiCliLabel;
   const match = /^claude-([a-z]+)-(\d+)-(\d+)$/.exec(model);
   if (!match) return model;
   const [, family = "", major, minor] = match;

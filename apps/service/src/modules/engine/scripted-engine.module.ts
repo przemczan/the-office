@@ -79,5 +79,6 @@ function perEngine(
     "openai-compatible-api": engines,
     codex: engines,
     "copilot-cli": engines,
+    "gemini-cli": engines,
   };
 }

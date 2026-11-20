@@ -34,6 +34,7 @@ export const ENGINE_KIND_LABELS: Readonly<Record<EngineEdit["kind"], string>> = 
   "claude-code": "Claude Code",
   codex: "Codex",
   "copilot-cli": "Copilot CLI",
+  "gemini-cli": "Gemini CLI",
   "openai-compatible-api": "API endpoint",
 };
 
@@ -42,6 +43,7 @@ export const ENGINE_KIND_ICONS: Readonly<Record<EngineEdit["kind"], string>> = {
   "claude-code": "terminal",
   codex: "bot",
   "copilot-cli": "github",
+  "gemini-cli": "sparkles",
   "openai-compatible-api": "server",
 };
 
@@ -55,6 +57,10 @@ export function engineSelectionsOf(draft: EngineSettingsDraft): readonly EngineS
     ...draft.codexEngines.map((_engine, index) => ({ kind: "codex" as const, index })),
     ...draft.copilotCliEngines.map((_engine, index) => ({
       kind: "copilot-cli" as const,
+      index,
+    })),
+    ...draft.geminiCliEngines.map((_engine, index) => ({
+      kind: "gemini-cli" as const,
       index,
     })),
     ...draft.apiEndpoints.map((_endpoint, index) => ({
@@ -76,6 +82,8 @@ export function engineAt(
       return draft.codexEngines[index];
     case "copilot-cli":
       return draft.copilotCliEngines[index];
+    case "gemini-cli":
+      return draft.geminiCliEngines[index];
     case "openai-compatible-api":
       return draft.apiEndpoints[index];
   }
@@ -90,6 +98,8 @@ export function draftedIdAt(drafted: DraftedEngines, { kind, index }: EngineSele
       return drafted.codexEngines[index]?.id ?? "";
     case "copilot-cli":
       return drafted.copilotCliEngines[index]?.id ?? "";
+    case "gemini-cli":
+      return drafted.geminiCliEngines[index]?.id ?? "";
     case "openai-compatible-api":
       return drafted.apiEndpoints[index]?.id ?? "";
   }
@@ -114,6 +124,8 @@ export function withEngineChanged(
       return { ...draft, codexEngines: replaced(draft.codexEngines, edit) };
     case "copilot-cli":
       return { ...draft, copilotCliEngines: replaced(draft.copilotCliEngines, edit) };
+    case "gemini-cli":
+      return { ...draft, geminiCliEngines: replaced(draft.geminiCliEngines, edit) };
     case "openai-compatible-api":
       return { ...draft, apiEndpoints: replaced(draft.apiEndpoints, edit) };
   }
@@ -133,6 +145,8 @@ export function withoutEngine(
       return { ...draft, codexEngines: kept(draft.codexEngines) };
     case "copilot-cli":
       return { ...draft, copilotCliEngines: kept(draft.copilotCliEngines) };
+    case "gemini-cli":
+      return { ...draft, geminiCliEngines: kept(draft.geminiCliEngines) };
     case "openai-compatible-api":
       return { ...draft, apiEndpoints: kept(draft.apiEndpoints) };
   }
@@ -182,6 +196,8 @@ export function engineCalled({ name, kind }: EngineEdit): string {
       return "the new Codex engine";
     case "copilot-cli":
       return "the new Copilot CLI engine";
+    case "gemini-cli":
+      return "the new Gemini CLI engine";
     case "openai-compatible-api":
       return "the new API endpoint";
   }
@@ -230,6 +246,14 @@ export function copilotCliEngineSummary(
   return signedInEngineSummary(defaultModel, account);
 }
 
+/** A Gemini CLI engine's line in the list: signed in (by its API key) or out, then its model. */
+export function geminiCliEngineSummary(
+  defaultModel: string,
+  account: EngineAccount | "not-saved" | undefined,
+): string {
+  return signedInEngineSummary(defaultModel, account);
+}
+
 /** An API endpoint's line in the list: how many models it offers. */
 export function apiEndpointSummary(endpoint: Pick<ApiEngineEdit, "models">): string {
   const count = modelsOf(endpoint).length;
@@ -256,8 +280,13 @@ export function pricedModelsAt(
     return offered.filter(({ engineId, model }) => engineId === null && isCodexModel(model));
   }
   const drafted = draftedEngines(draft, saved);
-  const id =
-    (kind === "copilot-cli" ? drafted.copilotCliEngines : drafted.apiEndpoints)[index]?.id ?? "";
+  const ofKind =
+    kind === "copilot-cli"
+      ? drafted.copilotCliEngines
+      : kind === "gemini-cli"
+        ? drafted.geminiCliEngines
+        : drafted.apiEndpoints;
+  const id = ofKind[index]?.id ?? "";
   return id === "" ? [] : offered.filter(({ engineId }) => engineId === id);
 }
 
@@ -285,7 +314,7 @@ export function engineProblem(
       case "codex":
         return "A Codex model's price needs fixing";
       case "copilot-cli":
-        return "A model's price needs fixing";
+      case "gemini-cli":
       case "openai-compatible-api":
         return "A model's price needs fixing";
     }

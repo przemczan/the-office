@@ -3,6 +3,7 @@ import {
   codexAccountLine,
   copilotCliAccountLine,
   engineAccountLine,
+  geminiCliAccountLine,
 } from "./engine-account-words.ts";
 
 const SIGNED_OUT = { signedIn: false, pastedToken: false, apiKey: false, email: null, plan: null };
@@ -82,5 +83,14 @@ describe("a Copilot CLI engine's account line", () => {
     expect(
       copilotCliAccountLine({ ...SIGNED_OUT, signedIn: true, pastedToken: true, email: "octocat" }),
     ).toBe("Signed in as octocat by a pasted token");
+  });
+});
+
+describe("a Gemini CLI engine's account line", () => {
+  it("says it is signed out, or that a Gemini API key signs it in", () => {
+    expect(geminiCliAccountLine(SIGNED_OUT)).toBe("Signed out");
+    expect(geminiCliAccountLine({ ...SIGNED_OUT, signedIn: true, apiKey: true })).toBe(
+      "A Gemini API key signs it in",
+    );
   });
 });

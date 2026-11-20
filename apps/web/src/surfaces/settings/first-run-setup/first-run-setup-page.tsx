@@ -10,6 +10,7 @@ import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { ClaudeCodeEngineAccount } from "../engines/claude-code-engine-account.tsx";
 import { CodexEngineAccount } from "../engines/codex-engine-account.tsx";
 import { CopilotCliEngineAccount } from "../engines/copilot-cli-engine-account.tsx";
+import { GeminiCliEngineAccount } from "../engines/gemini-cli-engine-account.tsx";
 import { GitHubCard } from "../office-identity/github-card.tsx";
 import { SettingsCardTitle, SettingsProblem } from "../settings-card-parts.tsx";
 import { TelemetryCard } from "../telemetry/telemetry-card.tsx";
@@ -123,8 +124,8 @@ export function FirstRunSetupPage(): ReactNode {
 }
 
 /**
- * The Office default engine's sign-in when it is a Claude Code, Codex or Copilot CLI engine; an API
- * engine is set up in Settings › Engines, which the step links to.
+ * The Office default engine's sign-in when it is a Claude Code, Codex, Copilot CLI or Gemini CLI
+ * engine; an API engine is set up in Settings › Engines, which the step links to.
  */
 function EngineStep(): ReactNode {
   const settings = useQuery(engineSettingsQuery());
@@ -166,6 +167,15 @@ function EngineStep(): ReactNode {
               personal access token with the Copilot Requests permission.
             </p>
             <CopilotCliEngineAccount engineId={engine.id} />
+          </>
+        )}
+        {engine?.kind === "gemini-cli" && (
+          <>
+            <p className="settings-note">
+              {engine.name}, a Gemini CLI engine. Sign it in with a Gemini API key from Google AI
+              Studio.
+            </p>
+            <GeminiCliEngineAccount engineId={engine.id} />
           </>
         )}
         {engine?.kind === "openai-compatible-api" && (

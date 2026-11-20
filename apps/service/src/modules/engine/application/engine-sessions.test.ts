@@ -7,7 +7,9 @@ import {
   type ApiEngine,
   type ClaudeCodeEngine,
   type CopilotCliEngine,
+  type GeminiCliEngine,
 } from "../domain/engines.js";
+import { UnavailableGeminiCliEngine } from "../adapters/gemini-cli/unavailable-gemini-cli-engine.js";
 import {
   EngineNotListed,
   SessionSkillsDiffer,
@@ -141,6 +143,7 @@ function setUp(
       "openai-compatible-api": new ScriptedEngine([]),
       codex: new ScriptedEngine([]),
       "copilot-cli": new ScriptedEngine([]),
+      "gemini-cli": new ScriptedEngine([]),
     },
     undefined,
     languageServers,
@@ -240,6 +243,7 @@ function twoEngines(scripts: {
       "openai-compatible-api": new ScriptedEngine([]),
       codex: new ScriptedEngine([]),
       "copilot-cli": new ScriptedEngine([]),
+      "gemini-cli": new ScriptedEngine([]),
     }),
   };
 }
@@ -335,6 +339,7 @@ function onCopilot() {
       "openai-compatible-api": new ScriptedEngine([]),
       codex: new ScriptedEngine([]),
       "copilot-cli": new ScriptedEngine([], COPILOT_CLI_CAPABILITIES),
+      "gemini-cli": new ScriptedEngine([], COPILOT_CLI_CAPABILITIES),
     },
     new EngineSettingsForTests({ engines: [FIRST_CLAUDE_CODE_ENGINE, COPILOT] }),
   );
@@ -345,6 +350,37 @@ describe("EngineSessions on a Copilot CLI engine", () => {
     const { sessions } = onCopilot();
 
     expect(sessions.missingCapabilitiesOf(COPILOT)).toEqual([
+      "usageWindows",
+      "languageServers",
+      "carrySession",
+    ]);
+  });
+});
+
+const GEMINI: GeminiCliEngine = {
+  id: "gemini",
+  name: "Gemini",
+  kind: "gemini-cli",
+  defaultModel: "auto",
+  apiKey: null,
+};
+
+describe("EngineSessions on a Gemini CLI engine", () => {
+  it("names the capabilities it lacks, so the Role card names what it can't do", () => {
+    const { sessions } = setUpOn(
+      {
+        "agent-sdk": new ScriptedEngine([]),
+        "claude-code-p": new ScriptedEngine([]),
+        "openai-compatible-api": new ScriptedEngine([]),
+        codex: new ScriptedEngine([]),
+        "copilot-cli": new ScriptedEngine([]),
+        "gemini-cli": new UnavailableGeminiCliEngine(),
+      },
+      new EngineSettingsForTests({ engines: [FIRST_CLAUDE_CODE_ENGINE, GEMINI] }),
+    );
+
+    expect(sessions.missingCapabilitiesOf(GEMINI)).toEqual([
+      "bargeIn",
       "usageWindows",
       "languageServers",
       "carrySession",
@@ -385,6 +421,7 @@ describe("EngineSessions' readings of the usage windows", () => {
         "openai-compatible-api": new ScriptedEngine([ONE_TURN], { usageWindows: false }),
         codex: new ScriptedEngine([]),
         "copilot-cli": new ScriptedEngine([]),
+        "gemini-cli": new ScriptedEngine([]),
       });
 
       await oneTurn(sessions, SETTINGS);

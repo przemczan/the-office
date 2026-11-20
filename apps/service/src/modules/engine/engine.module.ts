@@ -9,6 +9,7 @@ import { ClaudeCodePEngine } from "./adapters/claude-code-p/claude-code-p-engine
 import { CodexAppServerEngine } from "./adapters/codex/codex-engine.js";
 import { CopilotSdkEngine } from "./adapters/copilot-cli/copilot-cli-engine.js";
 import { SessionEndpoints } from "./adapters/claude-code-p/session-endpoints.js";
+import { UnavailableGeminiCliEngine } from "./adapters/gemini-cli/unavailable-gemini-cli-engine.js";
 import { SessionEndpointsController } from "./adapters/http/session-endpoints.controller.js";
 import { WorkstationLanguageServers } from "./adapters/language-servers/workstation-language-servers.js";
 import { OpenAiCompatibleApiEngine } from "./adapters/openai-compatible-api/openai-compatible-api-engine.js";
@@ -47,6 +48,7 @@ import { UsageWindowSampleRepository } from "./ports/usage-window-sample-reposit
     OpenAiCompatibleApiEngine,
     CodexAppServerEngine,
     CopilotSdkEngine,
+    UnavailableGeminiCliEngine,
     {
       provide: AgentEngines,
       useFactory: (
@@ -55,6 +57,7 @@ import { UsageWindowSampleRepository } from "./ports/usage-window-sample-reposit
         openAiCompatibleApi: OpenAiCompatibleApiEngine,
         codex: CodexAppServerEngine,
         copilotCli: CopilotSdkEngine,
+        geminiCli: UnavailableGeminiCliEngine,
       ) =>
         new AgentEngines({
           "agent-sdk": agentSdk,
@@ -62,6 +65,7 @@ import { UsageWindowSampleRepository } from "./ports/usage-window-sample-reposit
           "openai-compatible-api": openAiCompatibleApi,
           codex,
           "copilot-cli": copilotCli,
+          "gemini-cli": geminiCli,
         }),
       inject: [
         AgentSdkEngine,
@@ -69,6 +73,7 @@ import { UsageWindowSampleRepository } from "./ports/usage-window-sample-reposit
         OpenAiCompatibleApiEngine,
         CodexAppServerEngine,
         CopilotSdkEngine,
+        UnavailableGeminiCliEngine,
       ],
     },
     OfficeToolRegistry,

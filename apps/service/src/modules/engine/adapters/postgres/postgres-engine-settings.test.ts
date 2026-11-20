@@ -10,7 +10,9 @@ import {
   type CodexEngine,
   type CopilotCliEngine,
   type Engine,
+  type GeminiCliEngine,
 } from "../../domain/engines.js";
+import { GeminiApiKey } from "../../domain/gemini-api-key.js";
 import { engines, engineSettings } from "./engine-settings.schema.js";
 import { PostgresEngineSettings } from "./postgres-engine-settings.js";
 
@@ -254,6 +256,74 @@ describe("PostgresEngineSettings", () => {
       });
     }
   });
+
+  it("keeps a Gemini CLI engine with its API key or none, priced on its own, and sets or clears the key alone", async () => {
+    const before = await settings.read();
+    const signedIn: GeminiCliEngine = {
+      id: "gemini",
+      name: "Gemini",
+      kind: "gemini-cli",
+      defaultModel: "auto",
+      apiKey: GeminiApiKey.of("AIzaSyKept"),
+    };
+    const unsigned: GeminiCliEngine = {
+      ...signedIn,
+      id: "gemini-2",
+      name: "Gemini 2",
+      apiKey: null,
+    };
+    const changed: EngineSettings = {
+      engines: [FIRST_CLAUDE_CODE_ENGINE, signedIn, unsigned],
+      officeDefault: { engineId: "gemini", model: "pro" },
+      searchEndpoint: null,
+      modelPrices: [
+        {
+          engineId: "gemini",
+          model: "pro",
+          price: { input: 1, output: 4, cacheWrites: 0, cacheReads: 0.1 },
+        },
+      ],
+      standInEngines: [],
+      askBeforeSwitchAbove: 100_000,
+    };
+    try {
+      await settings.replace(changed);
+      const kept = await settings.read();
+      await settings.setGeminiApiKey("gemini-2", GeminiApiKey.of("AIzaSyNew"));
+      await settings.setGeminiApiKey("gemini", null);
+      // Not a Gemini CLI engine: nothing changes.
+      await settings.setGeminiApiKey("claude-code", GeminiApiKey.of("AIzaSyElsewhere"));
+      const swapped = await settings.read();
+
+      expect(kept).toEqual(changed);
+      expect(geminiKeysOf(kept)).toEqual(["-", "AIzaSyKept", null]);
+      expect(geminiKeysOf(swapped)).toEqual(["-", null, "AIzaSyNew"]);
+    } finally {
+      await settings.replace(before);
+    }
+  });
+
+  it("refuses a Gemini CLI row with a base URL, models, the -p switch or an empty key", async () => {
+    const database = app.get<Database>(DATABASE);
+    const row = {
+      id: "gemini-refused",
+      position: 1_000_000,
+      name: "Refused",
+      kind: "gemini-cli" as const,
+      defaultModel: "auto",
+    };
+
+    for (const wrong of [
+      { baseUrl: "http://lab/v1" },
+      { models: [] },
+      { claudeCodeP: true },
+      { key: "" },
+    ]) {
+      await expect(database.insert(engines).values({ ...row, ...wrong })).rejects.toMatchObject({
+        cause: { constraint: "engines_kind" },
+      });
+    }
+  });
 });
 
 /** Each engine's Copilot CLI token as it reads, "-" for an engine of another kind. */
@@ -272,4 +342,11 @@ function keysOf({ engines: listed }: EngineSettings): (string | null)[] {
 
 function withoutKey(engine: Engine): Engine {
   return engine.kind === "codex" ? { ...engine, apiKey: null } : engine;
+}
+
+/** Each engine's Gemini API key, null when none is kept, "-" for an engine of another kind. */
+function geminiKeysOf({ engines: listed }: EngineSettings): (string | null)[] {
+  return listed.map((engine) =>
+    engine.kind === "gemini-cli" ? (engine.apiKey?.reveal() ?? null) : "-",
+  );
 }

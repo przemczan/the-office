@@ -1,15 +1,18 @@
 import type { ApiEndpointModel } from "./api-endpoints.js";
 import type { CodexApiKey } from "./codex-api-key.js";
 import type { CopilotCliToken } from "./copilot-cli-token.js";
+import type { GeminiApiKey } from "./gemini-api-key.js";
 
 /** Made from the engine's name when it is added and kept on a rename (spec §5.4). */
 export type EngineId = string;
 
 /**
  * What an engine is: a Claude Code account, an API endpoint of the OpenAI-compatible API, an
- * OpenAI account on Codex, or a GitHub account with Copilot on the Copilot CLI.
+ * OpenAI account on Codex, a GitHub account with Copilot on the Copilot CLI, or a Gemini API key on
+ * the Gemini CLI.
  */
-export type EngineKind = "claude-code" | "openai-compatible-api" | "codex" | "copilot-cli";
+export type EngineKind =
+  "claude-code" | "openai-compatible-api" | "codex" | "copilot-cli" | "gemini-cli";
 
 interface EngineBase {
   readonly id: EngineId;
@@ -62,8 +65,22 @@ export interface CopilotCliEngine extends EngineBase {
   readonly token: CopilotCliToken | null;
 }
 
+/**
+ * A Gemini API key from Google AI Studio, whose sessions run on the pinned `@google/gemini-cli`
+ * (spec §5.4.7).
+ */
+export interface GeminiCliEngine extends EngineBase {
+  readonly kind: "gemini-cli";
+  /**
+   * The key that signs it in; null until one is given. Never sent back, and a Save of Settings ›
+   * Engines keeps it.
+   */
+  readonly apiKey: GeminiApiKey | null;
+}
+
 /** An engine the user lists in Settings › Engines (spec §5.4), which caps and usage are kept by. */
-export type Engine = ClaudeCodeEngine | ApiEngine | CodexEngine | CopilotCliEngine;
+export type Engine =
+  ClaudeCodeEngine | ApiEngine | CodexEngine | CopilotCliEngine | GeminiCliEngine;
 
 /** The models the pinned binary offers, on every Claude Code engine, by their ids. */
 export const CLAUDE_CODE_MODELS = [
@@ -89,6 +106,13 @@ export const COPILOT_CLI_AUTO_MODEL = "auto";
  * until its adapter reads them, Auto alone.
  */
 export const COPILOT_CLI_MODELS = [COPILOT_CLI_AUTO_MODEL] as const;
+
+/**
+ * The models a Gemini CLI engine offers: the pinned CLI's own aliases, which it resolves to the
+ * newest Gemini model of each line the key may use, so a new model comes with the CLI, not with a
+ * list kept here (spec §5.4.7). Auto, its default, lets the CLI pick per request.
+ */
+export const GEMINI_CLI_MODELS = ["auto", "pro", "flash", "flash-lite"] as const;
 
 /** The Claude Code setup before engines were a list, as the upgrade turns it into a row. */
 export const FIRST_CLAUDE_CODE_ENGINE: ClaudeCodeEngine = {
@@ -125,6 +149,8 @@ export function offeredModels(engine: Engine): readonly string[] {
       return CODEX_MODELS;
     case "copilot-cli":
       return COPILOT_CLI_MODELS;
+    case "gemini-cli":
+      return GEMINI_CLI_MODELS;
     case "openai-compatible-api":
       return engine.models.map(({ id }) => id);
   }
@@ -132,8 +158,8 @@ export function offeredModels(engine: Engine): readonly string[] {
 
 /**
  * Whether `engine`'s account has usage windows (spec §5.4): a Claude Code account's and a Codex
- * account's, each unless an API key signs it in; never a Copilot CLI account's, by decision.
- * Whether an engine reads them is its adapter's capability (`usageWindows`).
+ * account's, each unless an API key signs it in; never a Copilot CLI account's, by decision, nor a
+ * Gemini API key's. Whether an engine reads them is its adapter's capability (`usageWindows`).
  */
 export function hasUsageWindows(engine: Engine): boolean {
   switch (engine.kind) {
@@ -142,17 +168,23 @@ export function hasUsageWindows(engine: Engine): boolean {
     case "codex":
       return engine.apiKey === null;
     case "copilot-cli":
+    case "gemini-cli":
     case "openai-compatible-api":
       return false;
   }
 }
 
 /**
- * Whether `engine`'s models are priced on it alone (spec §5.4): an API engine's and a Copilot CLI
- * engine's are; the Claude and Codex models share one price across their engines.
+ * Whether `engine`'s models are priced on it alone (spec §5.4): an API engine's, a Copilot CLI
+ * engine's and a Gemini CLI engine's are; the Claude and Codex models share one price across their
+ * engines.
  */
 export function pricedPerEngine(engine: Engine): boolean {
-  return engine.kind === "openai-compatible-api" || engine.kind === "copilot-cli";
+  return (
+    engine.kind === "openai-compatible-api" ||
+    engine.kind === "copilot-cli" ||
+    engine.kind === "gemini-cli"
+  );
 }
 
 /** An engine and one of its models, by its id there. */

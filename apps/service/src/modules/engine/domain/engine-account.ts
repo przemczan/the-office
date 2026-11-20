@@ -5,7 +5,8 @@ import { z } from "zod";
  * pasted token, which tells no email or plan, or by an Anthropic API key, which tells none either;
  * or a Codex engine's, as the app-server's `account/read` gives it, signed in by Sign in with
  * ChatGPT or by an OpenAI API key; or a Copilot CLI engine's, as the runtime's sign-in status gives
- * it, its GitHub login as its email, or signed in by a pasted token (spec §5.4).
+ * it, its GitHub login as its email, or signed in by a pasted token; or a Gemini CLI engine's,
+ * signed in by its Gemini API key or not at all (spec §5.4).
  */
 export type EngineAccount =
   | { readonly signedIn: false }
@@ -15,13 +16,17 @@ export type EngineAccount =
       readonly pastedToken: boolean;
       /**
        * An API key signs the engine in: an Anthropic one given a Claude Code engine with "Use an
-       * API key", or an OpenAI one given a Codex engine with "Use an API key instead".
+       * API key", an OpenAI one given a Codex engine with "Use an API key instead", or a Gemini
+       * one, a Gemini CLI engine's only sign-in.
        */
       readonly apiKey: boolean;
       readonly email: string | undefined;
       /** The Claude or ChatGPT subscription, such as `max` or `plus`. */
       readonly plan: string | undefined;
     };
+
+/** An engine signed in by nothing. */
+export const SIGNED_OUT_ACCOUNT: EngineAccount = { signedIn: false };
 
 /** An engine signed in by an API key: no email or plan is told. */
 export const API_KEY_ACCOUNT: EngineAccount = {

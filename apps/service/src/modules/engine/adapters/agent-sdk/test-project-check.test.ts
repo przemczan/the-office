@@ -100,6 +100,7 @@ describe.runIf((MODE === "live" || MODE === "record") && TEST_PROJECT !== undefi
             "openai-compatible-api": engine,
             codex: engine,
             "copilot-cli": engine,
+            "gemini-cli": engine,
           }),
           new Telemetry(tracing.getTracer("the-office"), metering.getMeter("the-office")),
           events,

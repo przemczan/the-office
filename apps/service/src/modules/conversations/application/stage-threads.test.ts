@@ -189,6 +189,7 @@ async function startOn(
               "openai-compatible-api": engine,
               codex: engine,
               "copilot-cli": engine,
+              "gemini-cli": engine,
             }
           : engine,
       ),

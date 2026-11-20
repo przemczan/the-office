@@ -149,7 +149,7 @@ describe("/api/settings/engines", () => {
     const { engines } = engineSettingsSchema.parse(JSON.parse(await read()));
     const renamed = engines.map((engine) => {
       if (engine.kind === "claude-code") return { ...engine, name: "Work account" };
-      if (engine.kind === "codex" || engine.kind === "copilot-cli") {
+      if (engine.kind !== "openai-compatible-api") {
         throw new Error(`No ${engine.kind} engine was saved.`);
       }
       const { keySet: _keySet, ...edit } = engine;
