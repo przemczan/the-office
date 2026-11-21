@@ -3,6 +3,7 @@ import {
   pipelineCheckSchema,
   pipelineRemovalRefusalSchema,
   pipelineSchema,
+  pipelinesNeedingFixingSchema,
   pipelineUseSchema,
   stagesEditRefusalSchema,
   type Pipeline,
@@ -168,6 +169,28 @@ describe("PUT /api/pipelines/:id", () => {
     const edit = anEdit({ stages: [scriptStage({ command: "install" })] });
 
     expect((await send("PUT", `/pipelines/${pipeline.id}`, edit)).status).toBe(400);
+  });
+});
+
+describe("GET /api/pipelines/library/needs-fixing", () => {
+  it("lists the Pipelines whose own check finds something, in one answer for the library", async () => {
+    const fine = await added(anEdit({ stages: [scriptStage()] }));
+    const lacking = await added(
+      anEdit({ stages: [scriptStage({ key: "full", name: "Full tests", command: "test-full" })] }),
+    );
+    pipelines.projects.projects.push({
+      id: randomUUID(),
+      name: "Site",
+      defaultPipeline: lacking.id,
+      commands: [{ key: "test" }],
+    });
+
+    const response = await send("GET", "/pipelines/library/needs-fixing");
+
+    expect(response.status).toBe(200);
+    const { pipelineIds } = pipelinesNeedingFixingSchema.parse(await response.json());
+    expect(pipelineIds).toContain(lacking.id);
+    expect(pipelineIds).not.toContain(fine.id);
   });
 });
 

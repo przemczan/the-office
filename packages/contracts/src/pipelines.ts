@@ -520,6 +520,15 @@ export const pipelineCheckSchema = z.object({
 });
 export type PipelineCheck = z.infer<typeof pipelineCheckSchema>;
 
+/**
+ * GET /pipelines/library/needs-fixing: the library Pipelines whose saved Stages their own check would
+ * list a problem or a warning for, the list's "Needs fixing" flag, in one answer for the whole library.
+ */
+export const pipelinesNeedingFixingSchema = z.object({
+  pipelineIds: z.array(z.string()),
+});
+export type PipelinesNeedingFixing = z.infer<typeof pipelinesNeedingFixingSchema>;
+
 /** Where a built Stage of a Project Pipeline comes from, as the editor marks its row. */
 export const stageOriginSchema = z.enum(["base", "inserted", "replaced", "changed", "removed"]);
 export type StageOrigin = z.infer<typeof stageOriginSchema>;

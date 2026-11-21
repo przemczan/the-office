@@ -1,8 +1,9 @@
-import { queryOptions } from "@tanstack/react-query";
+import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import {
   officeWidePipelineListSchema,
   pipelineCheckSchema,
   pipelineSchema,
+  pipelinesNeedingFixingSchema,
   pipelinesWebEventSchema,
   pipelineUseSchema,
   projectPipelineCheckSchema,
@@ -59,7 +60,26 @@ export const pipelineQueries = {
   libraryCheck: (request: PipelineCheckRequest) =>
     queryOptions({
       queryKey: [...PIPELINES_KEY, "check", request],
-      queryFn: () => sendToApi("POST", "/pipelines/check", request, pipelineCheckSchema),
+      queryFn: ({ signal }) =>
+        sendToApi("POST", "/pipelines/check", request, pipelineCheckSchema, signal),
+    }),
+  /**
+   * The library Pipelines flagged "Needs fixing", checked in one request for the whole list rather
+   * than one per row. Among the checks, so a change in who fills a Role reads it again too.
+   */
+  needingFixing: () =>
+    queryOptions({
+      queryKey: [...PIPELINES_KEY, "check", "needs-fixing"],
+      queryFn: async ({ signal }) =>
+        new Set(
+          (
+            await getFromApi(
+              "/pipelines/library/needs-fixing",
+              pipelinesNeedingFixingSchema,
+              signal,
+            )
+          ).pipelineIds,
+        ),
     }),
   /** Under the Task's key, so Work's events about the Task refresh it too. */
   taskStages: (taskId: string) =>
@@ -86,8 +106,14 @@ export const pipelineQueries = {
   stagesCheck: (taskId: string, stages: readonly Stage[], pipelineId: string) =>
     queryOptions({
       queryKey: [...taskStagesKey(taskId), "check", pipelineId, stages],
-      queryFn: () =>
-        sendToApi("POST", `${stagesPath(taskId)}/check`, { stages, pipelineId }, stagesCheckSchema),
+      queryFn: ({ signal }) =>
+        sendToApi(
+          "POST",
+          `${stagesPath(taskId)}/check`,
+          { stages, pipelineId },
+          stagesCheckSchema,
+          signal,
+        ),
     }),
 };
 
@@ -139,8 +165,8 @@ export const projectPipelineQueries = {
   check: (request: ProjectPipelineCheckRequest) =>
     queryOptions({
       queryKey: [...PROJECT_PIPELINES_KEY, "check", request],
-      queryFn: () =>
-        sendToApi("POST", "/project-pipelines/check", request, projectPipelineCheckSchema),
+      queryFn: ({ signal }) =>
+        sendToApi("POST", "/project-pipelines/check", request, projectPipelineCheckSchema, signal),
     }),
 };
 
@@ -154,9 +180,23 @@ export const stageTemplateQueries = {
   check: (request: StageTemplateCheckRequest) =>
     queryOptions({
       queryKey: [...STAGE_TEMPLATES_KEY, "check", request],
-      queryFn: () => sendToApi("POST", "/stage-templates/check", request, pipelineCheckSchema),
+      queryFn: ({ signal }) =>
+        sendToApi("POST", "/stage-templates/check", request, pipelineCheckSchema, signal),
     }),
 };
+
+/**
+ * Reads the library's list again after the user's own change to it, and only the list, so what
+ * follows the change waits for nothing else; the change's event refreshes the rest, checks too.
+ */
+export function refreshPipelineList(queryClient: QueryClient): Promise<void> {
+  return queryClient.invalidateQueries({ queryKey: PIPELINES_KEY, exact: true });
+}
+
+/** As refreshPipelineList, for the Stage templates' list. */
+export function refreshStageTemplateList(queryClient: QueryClient): Promise<void> {
+  return queryClient.invalidateQueries({ queryKey: STAGE_TEMPLATES_KEY, exact: true });
+}
 
 /** A Pipeline made from scratch in the library. */
 export function addPipeline(edit: PipelineEdit): Promise<Pipeline> {

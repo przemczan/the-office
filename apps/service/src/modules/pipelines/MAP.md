@@ -88,6 +88,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateR
 
 - `POST /pipelines`: PipelineLibraryController.add
 - `POST /pipelines/check`: PipelineLibraryController.check
+- `GET /pipelines/library/needs-fixing`: PipelineLibraryController.needingFixing
 - `PUT /pipelines/:id`: PipelineLibraryController.save
 - `DELETE /pipelines/:id`: PipelineLibraryController.remove
 - `GET /pipelines/:id/use`: PipelineLibraryController.use
