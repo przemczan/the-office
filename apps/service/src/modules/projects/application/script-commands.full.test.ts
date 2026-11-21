@@ -45,6 +45,7 @@ fs.writeFileSync("screenshots/run-" + runs + ".txt", "a screenshot\\n");
 fs.mkdirSync(".office/screenshots", { recursive: true });
 fs.writeFileSync(".office/screenshots/by-run-" + runs + ".png", "the run's\\n");
 fs.writeFileSync(".office/screenshots/dialog.png", "the run's\\n");
+if (process.argv.includes("--last-failed")) console.log("Ran only the failed tests.");
 if (runs >= Number(process.env.PASS_FROM_RUN)) {
   console.log("All 2 tests passed.");
   process.exit(0);
@@ -54,14 +55,30 @@ console.log("FAIL renames a device: expected 'Hall' to be 'Kitchen'");
 process.exit(1);
 `;
 const RUN_TEST_SUITE = `node -e "require(process.env.TEST_SUITE)"`;
+const RERUN_TEST_SUITE = `${RUN_TEST_SUITE} -- --last-failed`;
 const UNCHANGED_INDEX = "export {};\n";
 
-/** Each kind of command runs the suite; `test-full` is a test command under another key. */
+/**
+ * Each kind of command runs the suite; `test-full` is a test command under another key. Each test
+ * command re-runs it as one running only the failed tests.
+ */
 const SUITE_COMMANDS: readonly ProjectCommand[] = [
-  { key: "build", name: "Build", kind: "build", commandLine: RUN_TEST_SUITE },
-  { key: "lint", name: "Lint", kind: "lint", commandLine: RUN_TEST_SUITE },
-  { key: "test", name: "Test", kind: "test", commandLine: RUN_TEST_SUITE },
-  { key: "test-full", name: "Full tests", kind: "test", commandLine: RUN_TEST_SUITE },
+  { key: "build", name: "Build", kind: "build", commandLine: RUN_TEST_SUITE, rerunCommandLine: "" },
+  { key: "lint", name: "Lint", kind: "lint", commandLine: RUN_TEST_SUITE, rerunCommandLine: "" },
+  {
+    key: "test",
+    name: "Test",
+    kind: "test",
+    commandLine: RUN_TEST_SUITE,
+    rerunCommandLine: RERUN_TEST_SUITE,
+  },
+  {
+    key: "test-full",
+    name: "Full tests",
+    kind: "test",
+    commandLine: RUN_TEST_SUITE,
+    rerunCommandLine: RERUN_TEST_SUITE,
+  },
 ];
 
 beforeAll(async () => {
@@ -84,12 +101,14 @@ afterAll(async () => {
 
 /**
  * A started Task's worktree, as planning left it, of a Project whose suite passes from
- * `passFromRun`; `lines` gives a command another line by its key.
+ * `passFromRun`; `lines` gives a command another line by its key, and `rerunLines` another
+ * re-run command.
  */
 async function aTask(
   passFromRun: number,
   lines: Readonly<Record<string, string>> = {},
   runEnvironment: Project["runEnvironment"] = "not-decided",
+  rerunLines: Readonly<Record<string, string>> = {},
 ): Promise<{ project: Project; taskId: string; worktreePath: string; runLog: string }> {
   taskCount += 1;
   const taskId = `task-${taskCount}`;
@@ -99,6 +118,7 @@ async function aTask(
     commands: SUITE_COMMANDS.map((command) => ({
       ...command,
       commandLine: lines[command.key] ?? command.commandLine,
+      rerunCommandLine: rerunLines[command.key] ?? command.rerunCommandLine,
     })),
     environment: {
       set: [
@@ -153,22 +173,39 @@ describe("ScriptCommands.run", REAL_GIT_TEST, () => {
   });
 
   it.each(["test", "test-full"])(
-    "runs a flaky test command (%s) again from the restored worktree, and gives both runs",
+    "runs a flaky test command's (%s) re-run command from the restored worktree, and gives both runs",
     async (key) => {
       const { project, taskId, worktreePath, runLog } = await aTask(2);
+      const stageRunId = `stage-run-flaky-${key}`;
 
-      const runs = await scriptCommands.run(project, taskId, key, `stage-run-flaky-${key}`);
+      const runs = await scriptCommands.run(project, taskId, key, stageRunId);
 
-      expect(runs.map(({ outcome }) => outcome)).toEqual(["failed", "passed"]);
+      expect(runs.map(({ commandLine, outcome }) => [commandLine, outcome])).toEqual([
+        [RUN_TEST_SUITE, "failed"],
+        [RERUN_TEST_SUITE, "passed"],
+      ]);
       expect(runs[0]?.output).toContain("FAIL renames a device: expected 'Hall' to be 'Kitchen'");
+      expect(runs[1]?.output).toContain("Ran only the failed tests.");
       expect(await readFile(`${runLog}.seen`, "utf8")).toBe(UNCHANGED_INDEX.repeat(2));
       expect(await trackedIndex(worktreePath)).toBe(UNCHANGED_INDEX);
-      expect(runs.map(({ movedFiles }) => movedFiles?.paths)).toEqual([
-        ["screenshots/run-1.txt"],
-        ["screenshots/run-2.txt"],
+      const output = join(officeData.folder("test-output"), stageRunId);
+      expect(runs.map(({ movedFiles }) => movedFiles)).toEqual([
+        { folder: join(output, "1"), paths: ["screenshots/run-1.txt"] },
+        { folder: join(output, "2"), paths: ["screenshots/run-2.txt"] },
       ]);
     },
   );
+
+  it("runs a failing test command with no re-run command once, the worktree restored", async () => {
+    const { project, taskId, worktreePath } = await aTask(2, {}, "not-decided", { test: " " });
+
+    const runs = await scriptCommands.run(project, taskId, "test", "stage-run-no-rerun");
+
+    expect(runs).toEqual([
+      expect.objectContaining({ commandLine: RUN_TEST_SUITE, outcome: "failed" }),
+    ]);
+    expect(await trackedIndex(worktreePath)).toBe(UNCHANGED_INDEX);
+  });
 
   it.each(["test", "test-full"])(
     "keeps the screenshots folder as the Agent left it across %s runs, out of every commit",
@@ -209,7 +246,7 @@ describe("ScriptCommands.run", REAL_GIT_TEST, () => {
     expect(await readdir(join(worktreePath, ".office", "screenshots"))).toEqual([]);
   });
 
-  it("gives a test command that fails twice both its failed runs, with the worktree restored", async () => {
+  it("gives a test command whose re-run command fails too both its failed runs, with the worktree restored", async () => {
     const { project, taskId, worktreePath } = await aTask(Number.MAX_SAFE_INTEGER);
 
     const runs = await scriptCommands.run(project, taskId, "test", "stage-run");
@@ -222,7 +259,7 @@ describe("ScriptCommands.run", REAL_GIT_TEST, () => {
     expect(await trackedIndex(worktreePath)).toBe(UNCHANGED_INDEX);
   });
 
-  it("doesn't run a test command again that the shell couldn't run", async () => {
+  it("doesn't run the re-run command of a test command that the shell couldn't run", async () => {
     const { project, taskId } = await aTask(1, { test: "office-no-such-program --run" });
 
     const runs = await scriptCommands.run(project, taskId, "test", "stage-run");

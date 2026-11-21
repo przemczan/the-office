@@ -222,9 +222,15 @@ async function addedProject(
     mark: { label: "AP", colour: "violet" },
     installCommand: lines.install,
     commands: [
-      { key: "build", name: "Build", kind: "build", commandLine: lines.build },
-      { key: "lint", name: "Lint", kind: "lint", commandLine: lines.lint },
-      { key: "test", name: "Test", kind: "test", commandLine: lines.test },
+      {
+        key: "build",
+        name: "Build",
+        kind: "build",
+        commandLine: lines.build,
+        rerunCommandLine: "",
+      },
+      { key: "lint", name: "Lint", kind: "lint", commandLine: lines.lint, rerunCommandLine: "" },
+      { key: "test", name: "Test", kind: "test", commandLine: lines.test, rerunCommandLine: "" },
     ],
     installInputs: [],
     publishingMode: "push-and-pull-request",
@@ -491,12 +497,14 @@ test("the Project's commands are changed, added and removed in place, each kept"
   const changing = page.getByRole("form", { name: "Change the Test command" });
   await changing.getByLabel("Name").fill("Unit tests");
   await changing.getByLabel("Command line").fill("npm test -- --run");
+  await changing.getByLabel("Re-run command").fill("npm test -- --run --last-failed");
+  await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "project-command-rerun-form.png") });
   await page.keyboard.press("Enter");
   await expect(
     page.getByText("Unit tests saved. Tasks run it as saved from their next Stage that runs it."),
   ).toBeVisible();
   await expect(page.getByRole("group", { name: "The Unit tests command" })).toContainText(
-    "npm test -- --run",
+    "npm test -- --runRe-run npm test -- --run --last-failed",
   );
 
   await page.getByRole("button", { name: "Add a command" }).click();
@@ -511,6 +519,7 @@ test("the Project's commands are changed, added and removed in place, each kept"
   await adding.getByRole("button", { name: "Add" }).click();
   await expect(page.getByText("End to end added.")).toBeVisible();
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-commands.png") });
+  await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "project-commands-rerun.png") });
 
   await page.getByRole("button", { name: "Remove the Lint command" }).click();
   const confirming = page.getByRole("dialog", { name: "Remove Lint?" });
@@ -522,10 +531,17 @@ test("the Project's commands are changed, added and removed in place, each kept"
   const kept = projectSchema.parse(
     await (await page.request.get(`/api/projects/${project.id}`)).json(),
   );
-  expect(kept.commands.map(({ key, name, commandLine }) => [key, name, commandLine])).toEqual([
-    ["build", "Build", "npm run build"],
-    ["test", "Unit tests", "npm test -- --run"],
-    ["test-e2e", "End to end", "npm run e2e"],
+  expect(
+    kept.commands.map(({ key, name, commandLine, rerunCommandLine }) => [
+      key,
+      name,
+      commandLine,
+      rerunCommandLine,
+    ]),
+  ).toEqual([
+    ["build", "Build", "npm run build", ""],
+    ["test", "Unit tests", "npm test -- --run", "npm test -- --run --last-failed"],
+    ["test-e2e", "End to end", "npm run e2e", ""],
   ]);
   await expect(page.getByRole("group", { name: "The End to end command" })).toContainText(
     "npm run e2e",

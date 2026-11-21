@@ -28,16 +28,20 @@ async function outcomesOf(taskId: string): Promise<(StageOutcome | undefined)[]>
 }
 
 describe("ScriptStageRunner", () => {
-  it("is done when a flaky test command passes on its re-run, with the flake recorded", async () => {
+  it("is done when a flaky test command's re-run command passes, with the flake recorded", async () => {
     pipelines = await startPipelinesApplication();
-    pipelines.commands.commandRuns.push([failing, passing]);
+    pipelines.commands.commandRuns.push([
+      failing,
+      { ...passing, commandLine: "npm test -- --last-failed" },
+    ]);
 
     const taskId = await walkStages(pipelines, [tests]);
 
     const [run] = await runsOf(pipelines, taskId);
     expect(run?.outcome).toEqual({
       status: "done",
-      summary: "`npm test` failed, then passed when The Office ran it once more: a flake.",
+      summary:
+        "`npm test` failed, then passed when The Office ran its re-run command `npm test -- --last-failed`: a flake.",
     });
     expect(run?.commandRuns.map(({ purpose, outcome }) => [purpose, outcome])).toEqual([
       ["command", "failed"],

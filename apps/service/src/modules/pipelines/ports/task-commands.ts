@@ -53,9 +53,9 @@ export abstract class TaskCommands {
   /**
    * Runs a Script Stage's Project command, by its key (never install's), in the Task's worktree:
    * after each test-kind run the worktree is restored and the files it wrote are moved out of it,
-   * to a folder named by the Stage run, and a failing test command runs once more. Returns the
-   * command's kind and each run, in order; a key the Project lacks, or whose line is blank, gives
-   * a run that couldn't run. A stop runs no other.
+   * to a folder named by the Stage run, and a failing test command's re-run command, if it has
+   * one, runs in its place once. Returns the command's kind and each run, in order; a key the
+   * Project lacks, or whose line is blank, gives a run that couldn't run. A stop runs no other.
    */
   abstract runCommand(
     projectId: string,

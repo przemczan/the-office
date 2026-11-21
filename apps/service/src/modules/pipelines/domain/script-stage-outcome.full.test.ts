@@ -36,6 +36,50 @@ describe("scriptStageOutcome", () => {
     expect(scriptStageOutcome([run])).toEqual({ status: "failed", error });
   });
 
+  it("is done when the re-run command passed, naming both lines and the flake", () => {
+    const runs = [
+      aRun({ output: "FAIL renames a device" }),
+      aRun({ commandLine: "npm test -- --last-failed", outcome: "passed", exitCode: 0 }),
+    ];
+
+    expect(scriptStageOutcome(runs)).toEqual({
+      status: "done",
+      summary:
+        "`npm test` failed, then passed when The Office ran its re-run command `npm test -- --last-failed`: a flake.",
+    });
+  });
+
+  it("fails when the re-run command failed too, with what the re-run printed", () => {
+    const runs = [
+      aRun({ output: "FAIL the first run" }),
+      aRun({ commandLine: "npm test -- --last-failed", output: "FAIL renames a device\n" }),
+    ];
+
+    expect(scriptStageOutcome(runs)).toEqual({
+      status: "failed",
+      error:
+        "`npm test` failed, and its re-run command `npm test -- --last-failed` failed with exit code 1 too.\n\nWhat it printed:\n\n```\nFAIL renames a device\n```",
+    });
+  });
+
+  it("fails with how the re-run command ended when it ran out of time", () => {
+    const runs = [
+      aRun({}),
+      aRun({
+        commandLine: "npm test -- --last-failed",
+        outcome: "timed-out",
+        exitCode: undefined,
+        durationMs: 30 * 60_000,
+      }),
+    ];
+
+    expect(scriptStageOutcome(runs)).toEqual({
+      status: "failed",
+      error:
+        "`npm test` failed, and its re-run command `npm test -- --last-failed` ran out of time after 30 minutes and was ended too.",
+    });
+  });
+
   it("leaves out what it printed when it printed nothing", () => {
     expect(scriptStageOutcome([aRun({ output: "  \n" })])).toEqual({
       status: "failed",

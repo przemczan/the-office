@@ -32,7 +32,11 @@ const EMPTY: NewProject = {
   baseBranch: "main",
   mark: { label: "", colour: "teal" },
   installCommand: "",
-  commands: STARTING_COMMANDS.map((command) => ({ ...command, commandLine: "" })),
+  commands: STARTING_COMMANDS.map((command) => ({
+    ...command,
+    commandLine: "",
+    rerunCommandLine: "",
+  })),
   installInputs: [],
   publishingMode: "push-and-pull-request",
   defaultPipeline: "full",

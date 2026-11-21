@@ -39,9 +39,9 @@ const ADMIN_PANEL: Project = {
   mark: { label: "AP", colour: "teal" },
   installCommand: "",
   commands: [
-    { key: "build", name: "Build", kind: "build", commandLine: "" },
-    { key: "lint", name: "Lint", kind: "lint", commandLine: "" },
-    { key: "test", name: "Test", kind: "test", commandLine: "" },
+    { key: "build", name: "Build", kind: "build", commandLine: "", rerunCommandLine: "" },
+    { key: "lint", name: "Lint", kind: "lint", commandLine: "", rerunCommandLine: "" },
+    { key: "test", name: "Test", kind: "test", commandLine: "", rerunCommandLine: "" },
   ],
   installInputs: [],
   publishingMode: "merge",

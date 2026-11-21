@@ -150,7 +150,13 @@ describe("PUT /api/projects/:id/before-publishing-command and after-publishing-c
 });
 
 describe("the Project's commands", () => {
-  const E2E = { key: "test-e2e", name: "End to end", kind: "test", commandLine: "npm run e2e" };
+  const E2E = {
+    key: "test-e2e",
+    name: "End to end",
+    kind: "test",
+    commandLine: "npm run e2e",
+    rerunCommandLine: "",
+  };
 
   it("adds a command after the others and announces it", async () => {
     const project = await addProject();
@@ -179,12 +185,45 @@ describe("the Project's commands", () => {
     expect(projectSchema.parse(await response.json()).commands).toEqual(
       project.commands.map((command) =>
         command.key === "test"
-          ? { key: "test", name: "Unit tests", kind: "test", commandLine: "npm test -- --run" }
+          ? {
+              key: "test",
+              name: "Unit tests",
+              kind: "test",
+              commandLine: "npm test -- --run",
+              rerunCommandLine: "",
+            }
           : command,
       ),
     );
     expect(webEvents()).toEqual([
       { type: "project.command-changed", projectId: project.id, key: "test" },
+    ]);
+  });
+
+  it("sets a test command's re-run command, and refuses one on a command not of kind test", async () => {
+    const project = await addProject();
+    const rerunCommandLine = "npm test -- --last-failed";
+
+    const set = await send("PUT", `/projects/${project.id}/commands/test`, {
+      name: "Test",
+      kind: "test",
+      commandLine: "npm test",
+      rerunCommandLine,
+    });
+    const refused = await send("PUT", `/projects/${project.id}/commands/build`, {
+      name: "Build",
+      kind: "build",
+      commandLine: "npm run build",
+      rerunCommandLine,
+    });
+
+    expect(set.status).toBe(200);
+    expect(
+      projectSchema.parse(await set.json()).commands.find(({ key }) => key === "test"),
+    ).toMatchObject({ rerunCommandLine });
+    expect(refused.status).toBe(422);
+    expect(projectRefusalSchema.parse(await refused.json()).reasons).toEqual([
+      "Only a test command has a re-run command.",
     ]);
   });
 

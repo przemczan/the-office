@@ -6,8 +6,13 @@ import {
   type ProposedCommands,
 } from "./proposed-commands.js";
 
-const TEST = { name: "Test", kind: "test", commandLine: "npm test" } as const;
-const E2E = { name: "End to end", kind: "test", commandLine: "npm run e2e" } as const;
+const TEST = { name: "Test", kind: "test", commandLine: "npm test", rerunCommandLine: "" } as const;
+const E2E = {
+  name: "End to end",
+  kind: "test",
+  commandLine: "npm run e2e",
+  rerunCommandLine: "",
+} as const;
 
 describe("proposedCommands", () => {
   it("keeps only what differs, each with the Project's value now", () => {
@@ -18,8 +23,14 @@ describe("proposedCommands", () => {
         installCommand: " npm install ",
         installInputs: ["package-lock.json", " .nvmrc "],
         commands: [
-          { key: "test", ...TEST, commandLine: " npm run test:all " },
-          { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
+          { key: "test", ...TEST, commandLine: " npm run test:all ", rerunCommandLine: "" },
+          {
+            key: "lint",
+            name: "Lint",
+            kind: "lint",
+            commandLine: "npm run lint",
+            rerunCommandLine: "",
+          },
           { key: "test-e2e", ...E2E },
         ],
         removeCommands: ["build"],
@@ -28,11 +39,20 @@ describe("proposedCommands", () => {
       installCommand: { from: "npm ci", to: "npm install" },
       installInputs: { from: ["package-lock.json"], to: ["package-lock.json", ".nvmrc"] },
       commands: [
-        { key: "test", from: TEST, to: { ...TEST, commandLine: "npm run test:all" } },
+        {
+          key: "test",
+          from: TEST,
+          to: { ...TEST, commandLine: "npm run test:all", rerunCommandLine: "" },
+        },
         { key: "test-e2e", from: null, to: E2E },
         {
           key: "build",
-          from: { name: "Build", kind: "build", commandLine: "npm run build" },
+          from: {
+            name: "Build",
+            kind: "build",
+            commandLine: "npm run build",
+            rerunCommandLine: "",
+          },
           to: null,
         },
       ],
@@ -50,7 +70,7 @@ describe("proposedCommands", () => {
         commands: [
           { key: "test-e2e", ...E2E },
           { key: "test-e2e", ...E2E, name: "E2E" },
-          { key: "lint", name: "Lint", kind: "lint", commandLine: "oxlint" },
+          { key: "lint", name: "Lint", kind: "lint", commandLine: "oxlint", rerunCommandLine: "" },
         ],
         removeCommands: ["lint"],
       }).commands,
@@ -58,7 +78,7 @@ describe("proposedCommands", () => {
       { key: "test-e2e", from: null, to: { ...E2E, name: "E2E" } },
       {
         key: "lint",
-        from: { name: "Lint", kind: "lint", commandLine: "npm run lint" },
+        from: { name: "Lint", kind: "lint", commandLine: "npm run lint", rerunCommandLine: "" },
         to: null,
       },
     ]);
@@ -72,7 +92,11 @@ describe("proposedCommandsProblems", () => {
     commands: [
       { key: "test", from: TEST, to: { ...TEST, kind: "build" } },
       { key: "test-e2e", from: null, to: E2E },
-      { key: "lint", from: { name: "Lint", kind: "lint", commandLine: "npm run lint" }, to: null },
+      {
+        key: "lint",
+        from: { name: "Lint", kind: "lint", commandLine: "npm run lint", rerunCommandLine: "" },
+        to: null,
+      },
     ],
   };
 
@@ -85,7 +109,7 @@ describe("proposedCommandsProblems", () => {
     const setting = proposedCommands(project, { commands: [{ key: "test", ...TEST }] });
 
     expect(setting.commands).toEqual([
-      { key: "test", from: { ...TEST, commandLine: "" }, to: TEST },
+      { key: "test", from: { ...TEST, commandLine: "", rerunCommandLine: "" }, to: TEST },
     ]);
     expect(proposedCommandsProblems(project, setting)).toEqual([]);
   });
@@ -115,7 +139,7 @@ describe("proposedCommandsProblems", () => {
         installCommand: { from: "npm ci", to: " " },
         installInputs: { from: ["package-lock.json"], to: ["../outside"] },
         commands: [
-          { key: "test", from: TEST, to: { ...TEST, commandLine: " " } },
+          { key: "test", from: TEST, to: { ...TEST, commandLine: " ", rerunCommandLine: "" } },
           { key: "publish", from: null, to: E2E },
           { key: "e2e", from: null, to: null },
         ],

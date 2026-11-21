@@ -1019,6 +1019,22 @@ button.github-repository.selected:hover:not(:disabled) {
   color: var(--fg-2);
 }
 
+/* The command line, with a test command's re-run command under it. */
+.command-lines {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.command-rerun {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  color: var(--fg-3);
+}
+
 /* Under the line, past the key and the row's gap, like an error. */
 .command-hint {
   flex: 0 1 100%;

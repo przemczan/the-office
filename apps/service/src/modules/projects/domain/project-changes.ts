@@ -251,8 +251,8 @@ export function addCommand(
 }
 
 /**
- * The command's name, kind and command line; its key stays, as Pipelines name it by its key.
- * Undefined when it already has them.
+ * The command's name, kind, command line and re-run command; its key stays, as Pipelines name it
+ * by its key. Undefined when it already has them.
  */
 export function changeCommand(
   project: Project,

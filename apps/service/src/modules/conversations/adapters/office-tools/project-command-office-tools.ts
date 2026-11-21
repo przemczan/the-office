@@ -57,7 +57,7 @@ export class ProjectCommandOfficeTools implements OnModuleInit {
               .array(projectCommandSchema)
               .optional()
               .describe(
-                'Commands to add, or to change by their key, each whole: a key (lower-case letters, digits and "-", starting with a letter; not install or publish), a name, a kind (build, lint or test; a test command\'s runs never reach the work) and one command line.',
+                'Commands to add, or to change by their key, each whole: a key (lower-case letters, digits and "-", starting with a letter; not install or publish), a name, a kind (build, lint or test; a test command\'s runs never reach the work), one command line, and for a test command a re-run command: one command line run once in its place when it fails, to tell a flake, such as one running only the failed tests, finding what the first run wrote where git ignores it; blank for no re-run, so a failure fails at once.',
               ),
             removeCommands: z
               .array(z.string())

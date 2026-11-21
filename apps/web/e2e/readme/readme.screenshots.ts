@@ -173,9 +173,9 @@ async function addedProject(
     mark: { label, colour },
     installCommand: passing,
     commands: [
-      { key: "build", name: "Build", kind: "build", commandLine: passing },
-      { key: "lint", name: "Lint", kind: "lint", commandLine: passing },
-      { key: "test", name: "Test", kind: "test", commandLine: passing },
+      { key: "build", name: "Build", kind: "build", commandLine: passing, rerunCommandLine: "" },
+      { key: "lint", name: "Lint", kind: "lint", commandLine: passing, rerunCommandLine: "" },
+      { key: "test", name: "Test", kind: "test", commandLine: passing, rerunCommandLine: "" },
     ],
     installInputs: [],
     publishingMode: "push-and-pull-request",

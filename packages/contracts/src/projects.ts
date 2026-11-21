@@ -14,6 +14,11 @@ export const projectCommandFieldsSchema = z.object({
   kind: projectCommandKindSchema,
   /** A command line for the platform's shell; blank only for a starting command not set yet. */
   commandLine: z.string(),
+  /**
+   * A test command's re-run command, run once in its place when it fails (spec §5.5); blank for
+   * none. Missing reads as blank, as in a Proposal drafted before it existed.
+   */
+  rerunCommandLine: z.string().default(""),
 });
 export type ProjectCommandFields = z.infer<typeof projectCommandFieldsSchema>;
 
@@ -570,8 +575,8 @@ export const installCheckSchema = z.object({
 });
 export type InstallCheck = z.infer<typeof installCheckSchema>;
 
-/** That one of the Project's commands passes in that worktree, shown by its name. */
-export const commandCheckSchema = projectCommandSchema.extend({
+/** That one of the Project's commands passes in that worktree, shown by its name; it never re-runs. */
+export const commandCheckSchema = projectCommandSchema.omit({ rerunCommandLine: true }).extend({
   step: z.literal("command"),
   state: checkStateSchema,
   run: commandRunSchema.optional(),

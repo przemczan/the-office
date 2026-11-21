@@ -11,6 +11,11 @@ import type { IssueUser } from "../../domain/issue-settings.js";
 import type { StoredEnvironment } from "./stored-environment.js";
 import { NO_PROJECT_IMAGE, type ProjectImageVersions } from "../../domain/project-image.js";
 
+/** A command as it is kept: one saved before re-run commands has none, read as blank. */
+export type StoredProjectCommand = Omit<ProjectCommand, "rerunCommandLine"> & {
+  readonly rerunCommandLine?: string;
+};
+
 export const projects = pgTable(
   "projects",
   {
@@ -24,7 +29,7 @@ export const projects = pgTable(
     icon: jsonb("icon").$type<ProjectImageVersions>().notNull().default(NO_PROJECT_IMAGE),
     logo: jsonb("logo").$type<ProjectImageVersions>().notNull().default(NO_PROJECT_IMAGE),
     installCommand: text("install_command").notNull(),
-    commands: jsonb("commands").$type<readonly ProjectCommand[]>().notNull().default([]),
+    commands: jsonb("commands").$type<readonly StoredProjectCommand[]>().notNull().default([]),
     installInputs: text("install_inputs")
       .array()
       .notNull()

@@ -93,6 +93,7 @@ describe("addCommand", () => {
     name: " End to end ",
     kind: "test",
     commandLine: " npm run e2e ",
+    rerunCommandLine: "",
   } as const;
 
   it("adds the command after the others, trimmed, and announces it", () => {
@@ -103,6 +104,7 @@ describe("addCommand", () => {
       name: "End to end",
       kind: "test",
       commandLine: "npm run e2e",
+      rerunCommandLine: "",
     } as const;
     expect(project.commands).toEqual([...aProject().commands, added]);
     expect(event).toBeInstanceOf(ProjectCommandAdded);
@@ -110,7 +112,9 @@ describe("addCommand", () => {
   });
 
   it("refuses a key the Project has, with a blank line, with every reason", () => {
-    expect(() => addCommand(aProject(), { ...e2e, key: "lint", commandLine: "" })).toThrow(
+    expect(() =>
+      addCommand(aProject(), { ...e2e, key: "lint", commandLine: "", rerunCommandLine: "" }),
+    ).toThrow(
       new ProjectRefused([
         'The Project already has a command with the key "lint".',
         "The lint command can't be empty.",
@@ -131,6 +135,7 @@ describe("changeCommand", () => {
       name: "Unit tests",
       kind: "test",
       commandLine: " npm test -- --run ",
+      rerunCommandLine: "",
     } as const;
 
     const change = changeCommand(aProject(), "test", fields);
@@ -140,6 +145,7 @@ describe("changeCommand", () => {
       name: "Unit tests",
       kind: "test",
       commandLine: "npm test -- --run",
+      rerunCommandLine: "",
     } as const;
     expect(change?.project.commands).toEqual(
       startingCommands({ test: "npm test -- --run" }).map((command) =>
@@ -150,14 +156,52 @@ describe("changeCommand", () => {
     expect(change?.event).toMatchObject({ projectId: "admin-panel", command: changed });
   });
 
+  it("sets a test command's re-run command, trimmed, and clears it when given blank", () => {
+    const test = { name: "Test", kind: "test", commandLine: "npm test" } as const;
+
+    const set = changeCommand(aProject(), "test", {
+      ...test,
+      rerunCommandLine: " npm test -- --last-failed ",
+    });
+    const cleared = set && changeCommand(set.project, "test", { ...test, rerunCommandLine: " " });
+
+    expect(set?.project.commands.find(({ key }) => key === "test")).toMatchObject({
+      rerunCommandLine: "npm test -- --last-failed",
+    });
+    expect(cleared?.project.commands).toEqual(aProject().commands);
+  });
+
+  it("refuses a re-run command on a command not of kind test", () => {
+    const fields = {
+      name: "Build",
+      kind: "build",
+      commandLine: "npm run build",
+      rerunCommandLine: "npm run build",
+    } as const;
+
+    expect(() => changeCommand(aProject(), "build", fields)).toThrow(
+      new ProjectRefused(["Only a test command has a re-run command."]),
+    );
+  });
+
   it("changes nothing when the command already has them", () => {
-    const fields = { name: "Lint", kind: "lint", commandLine: "npm run lint " } as const;
+    const fields = {
+      name: "Lint",
+      kind: "lint",
+      commandLine: "npm run lint ",
+      rerunCommandLine: "",
+    } as const;
 
     expect(changeCommand(aProject(), "lint", fields)).toBeUndefined();
   });
 
   it("refuses an empty command", () => {
-    const fields = { name: "Build", kind: "build", commandLine: "  " } as const;
+    const fields = {
+      name: "Build",
+      kind: "build",
+      commandLine: "  ",
+      rerunCommandLine: "",
+    } as const;
 
     expect(() => changeCommand(aProject(), "build", fields)).toThrow(
       new ProjectRefused(["The build command can't be empty."]),
@@ -165,7 +209,12 @@ describe("changeCommand", () => {
   });
 
   it("refuses a key the Project has no command by", () => {
-    const fields = { name: "E2E", kind: "test", commandLine: "npm run e2e" } as const;
+    const fields = {
+      name: "E2E",
+      kind: "test",
+      commandLine: "npm run e2e",
+      rerunCommandLine: "",
+    } as const;
 
     expect(() => changeCommand(aProject(), "e2e", fields)).toThrow(
       new ProjectRefused(['The Project has no command with the key "e2e".']),
@@ -196,14 +245,18 @@ describe("changeCommandsAsProposed", () => {
     commands: [
       {
         key: "test",
-        from: { name: "Test", kind: "test", commandLine: "npm test" },
-        to: { name: "Test", kind: "test", commandLine: "vitest run" },
+        from: { name: "Test", kind: "test", commandLine: "npm test", rerunCommandLine: "" },
+        to: { name: "Test", kind: "test", commandLine: "vitest run", rerunCommandLine: "" },
       },
-      { key: "lint", from: { name: "Lint", kind: "lint", commandLine: "npm run lint" }, to: null },
+      {
+        key: "lint",
+        from: { name: "Lint", kind: "lint", commandLine: "npm run lint", rerunCommandLine: "" },
+        to: null,
+      },
       {
         key: "test-e2e",
         from: null,
-        to: { name: "End to end", kind: "test", commandLine: "npm run e2e" },
+        to: { name: "End to end", kind: "test", commandLine: "npm run e2e", rerunCommandLine: "" },
       },
     ],
   };
@@ -214,9 +267,21 @@ describe("changeCommandsAsProposed", () => {
     expect(project.installCommand).toBe("npm install");
     expect(project.installInputs).toEqual(["package-lock.json", ".nvmrc"]);
     expect(project.commands).toEqual([
-      { key: "build", name: "Build", kind: "build", commandLine: "npm run build" },
-      { key: "test", name: "Test", kind: "test", commandLine: "vitest run" },
-      { key: "test-e2e", name: "End to end", kind: "test", commandLine: "npm run e2e" },
+      {
+        key: "build",
+        name: "Build",
+        kind: "build",
+        commandLine: "npm run build",
+        rerunCommandLine: "",
+      },
+      { key: "test", name: "Test", kind: "test", commandLine: "vitest run", rerunCommandLine: "" },
+      {
+        key: "test-e2e",
+        name: "End to end",
+        kind: "test",
+        commandLine: "npm run e2e",
+        rerunCommandLine: "",
+      },
     ]);
     expect(events).toEqual([
       expect.any(ProjectInstallCommandChanged),

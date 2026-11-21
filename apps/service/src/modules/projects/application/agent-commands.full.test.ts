@@ -96,19 +96,21 @@ async function aTask({
     path: repository.path,
     installCommand,
     commands: [
-      { key: "build", name: "Build", kind: "build", commandLine: "" },
-      { key: "lint", name: "Lint", kind: "lint", commandLine: "" },
+      { key: "build", name: "Build", kind: "build", commandLine: "", rerunCommandLine: "" },
+      { key: "lint", name: "Lint", kind: "lint", commandLine: "", rerunCommandLine: "" },
       {
         key: "test",
         name: "Test",
         kind: "test",
         commandLine: `node "${join(repository.folder, "check.cjs")}"`,
+        rerunCommandLine: "",
       },
       {
         key: "check-all",
         name: "Check everything",
         kind: "test",
         commandLine: `node "${join(repository.folder, "check.cjs")}" all`,
+        rerunCommandLine: "",
       },
     ],
     installInputs: [],

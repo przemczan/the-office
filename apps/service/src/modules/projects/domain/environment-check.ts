@@ -33,10 +33,11 @@ export interface InstallCheck {
 }
 
 /**
- * That one of the Project's commands passes in that worktree. Its key, name, kind and command line
- * are as they were when the check started, so a command changed meanwhile doesn't mix in.
+ * That one of the Project's commands passes in that worktree, run once. Its key, name, kind and
+ * command line are as they were when the check started, so a command changed meanwhile doesn't mix
+ * in.
  */
-export interface CommandCheck extends ProjectCommand {
+export interface CommandCheck extends Omit<ProjectCommand, "rerunCommandLine"> {
   readonly step: "command";
   readonly state: CheckState;
   readonly run?: CheckedCommandRun;

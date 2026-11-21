@@ -61,9 +61,9 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
     const project = await addProject({
       installCommand: PASSES,
       commands: [
-        { key: "build", name: "Build", kind: "build", commandLine: PASSES },
-        { key: "lint", name: "Lint", kind: "lint", commandLine: FAILS },
-        { key: "test", name: "Test", kind: "test", commandLine: PASSES },
+        { key: "build", name: "Build", kind: "build", commandLine: PASSES, rerunCommandLine: "" },
+        { key: "lint", name: "Lint", kind: "lint", commandLine: FAILS, rerunCommandLine: "" },
+        { key: "test", name: "Test", kind: "test", commandLine: PASSES, rerunCommandLine: "" },
       ],
     });
 
@@ -85,9 +85,15 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
     const project = await addProject({
       installCommand: "",
       commands: [
-        { key: "build", name: "Build", kind: "build", commandLine: "" },
-        { key: "lint", name: "Lint", kind: "lint", commandLine: PASSES },
-        { key: "test", name: "Test", kind: "test", commandLine: NEEDS_GREETING },
+        { key: "build", name: "Build", kind: "build", commandLine: "", rerunCommandLine: "" },
+        { key: "lint", name: "Lint", kind: "lint", commandLine: PASSES, rerunCommandLine: "" },
+        {
+          key: "test",
+          name: "Test",
+          kind: "test",
+          commandLine: NEEDS_GREETING,
+          rerunCommandLine: "",
+        },
       ],
     });
 
@@ -108,9 +114,9 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
     const project = await addProject({
       installCommand: FAILS,
       commands: [
-        { key: "build", name: "Build", kind: "build", commandLine: PASSES },
-        { key: "lint", name: "Lint", kind: "lint", commandLine: PASSES },
-        { key: "test", name: "Test", kind: "test", commandLine: PASSES },
+        { key: "build", name: "Build", kind: "build", commandLine: PASSES, rerunCommandLine: "" },
+        { key: "lint", name: "Lint", kind: "lint", commandLine: PASSES, rerunCommandLine: "" },
+        { key: "test", name: "Test", kind: "test", commandLine: PASSES, rerunCommandLine: "" },
       ],
     });
 
@@ -180,9 +186,9 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
     const project = await addProject({
       installCommand: PASSES,
       commands: [
-        { key: "build", name: "Build", kind: "build", commandLine: PASSES },
-        { key: "lint", name: "Lint", kind: "lint", commandLine: PASSES },
-        { key: "test", name: "Test", kind: "test", commandLine: SLEEPS },
+        { key: "build", name: "Build", kind: "build", commandLine: PASSES, rerunCommandLine: "" },
+        { key: "lint", name: "Lint", kind: "lint", commandLine: PASSES, rerunCommandLine: "" },
+        { key: "test", name: "Test", kind: "test", commandLine: SLEEPS, rerunCommandLine: "" },
       ],
     });
     await send("POST", `/projects/${project.id}/environment-check`);

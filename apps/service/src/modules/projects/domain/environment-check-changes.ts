@@ -32,10 +32,13 @@ export function startEnvironmentCheck(
     checks: [
       { step: "worktree", state: "waiting" },
       { step: "install", state: stateAtStart(installCommand), commandLine: installCommand },
-      ...commands.map((command): CommandCheck => ({
+      ...commands.map(({ key, name, kind, commandLine }): CommandCheck => ({
         step: "command",
-        ...command,
-        state: stateAtStart(command.commandLine),
+        key,
+        name,
+        kind,
+        commandLine,
+        state: stateAtStart(commandLine),
       })),
     ],
     startedAt,

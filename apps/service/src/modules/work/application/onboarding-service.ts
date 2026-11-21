@@ -36,20 +36,40 @@ export class OnboardingService {
 
   /**
    * Adds the Project's Onboard Task, Ready on Onboard, in a worktree of its own made now, since
-   * the Task skips Planning, where a Task's worktree is otherwise made.
+   * the Task skips Planning, where a Task's worktree is otherwise made. The worktree is made once
+   * the Task is kept, as Projects reads which branch it starts from through the Task; a Task whose
+   * worktree couldn't be made is taken again, and opening it again makes only the missing worktree.
    */
   async addOnboardTask(projectId: string, createdBy: Author): Promise<Task> {
+    const task =
+      (await this.waitingOnboardTaskOf(projectId)) ?? (await this.create(projectId, createdBy));
+    await this.worktrees.open(projectId, task.id).catch((error: unknown) => {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new TaskRefused([`The Onboard Task's worktree couldn't be made: ${reason}`]);
+    });
+    return task;
+  }
+
+  /** The Project's Onboard Task still Ready, not started yet; undefined when it has none. */
+  async waitingOnboardTaskOf(projectId: string): Promise<Task | undefined> {
+    return (await this.tasks.list()).find(
+      (task) =>
+        task.projectId === projectId && task.madeFor === "onboard" && task.state === "ready",
+    );
+  }
+
+  private async create(projectId: string, createdBy: Author): Promise<Task> {
     const project = await this.projects.find(projectId);
     if (!project) throw new TaskRefused([`There is no Project "${projectId}".`]);
     const problems = await this.problems();
     if (problems.length > 0) throw new TaskRefused(problems);
-    const id = randomUUID();
-    await this.worktrees.open(projectId, id).catch((error: unknown) => {
-      const reason = error instanceof Error ? error.message : String(error);
-      throw new TaskRefused([`The Onboard Task's worktree couldn't be made: ${reason}`]);
-    });
     const { task, event } = await this.tasks.create((takenOrders) =>
-      createOnboardTask(id, project, { order: orderAfter(takenOrders), createdBy }, new Date()),
+      createOnboardTask(
+        randomUUID(),
+        project,
+        { order: orderAfter(takenOrders), createdBy },
+        new Date(),
+      ),
     );
     await this.events.publish(event);
     return task;

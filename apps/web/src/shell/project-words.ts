@@ -21,7 +21,10 @@ export const COMMAND_KIND_LABELS: Readonly<Record<ProjectCommandKind, string>> =
 };
 
 /** The commands every Project starts with, their command lines given when it is added. */
-export const STARTING_COMMANDS: readonly Omit<ProjectCommand, "commandLine">[] = [
+export const STARTING_COMMANDS: readonly Omit<
+  ProjectCommand,
+  "commandLine" | "rerunCommandLine"
+>[] = [
   { key: "build", name: "Build", kind: "build" },
   { key: "lint", name: "Lint", kind: "lint" },
   { key: "test", name: "Test", kind: "test" },

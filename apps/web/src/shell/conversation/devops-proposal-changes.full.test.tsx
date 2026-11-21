@@ -24,13 +24,28 @@ describe("ProposedCommandChanges", () => {
             commands: [
               {
                 key: "test",
-                from: { name: "Test", kind: "test", commandLine: "npm test" },
-                to: { name: "Unit tests", kind: "test", commandLine: "npm test" },
+                from: { name: "Test", kind: "test", commandLine: "npm test", rerunCommandLine: "" },
+                to: {
+                  name: "Unit tests",
+                  kind: "test",
+                  commandLine: "npm test",
+                  rerunCommandLine: "",
+                },
               },
               {
                 key: "lint",
-                from: { name: "Lint", kind: "lint", commandLine: "npm run lint" },
-                to: { name: "Lint", kind: "lint", commandLine: "npm run lint:all" },
+                from: {
+                  name: "Lint",
+                  kind: "lint",
+                  commandLine: "npm run lint",
+                  rerunCommandLine: "",
+                },
+                to: {
+                  name: "Lint",
+                  kind: "lint",
+                  commandLine: "npm run lint:all",
+                  rerunCommandLine: "",
+                },
               },
             ],
           }}
@@ -41,6 +56,29 @@ describe("ProposedCommandChanges", () => {
     expect(rows).toEqual([
       "Test (test)Test · Test · npm testUnit tests · Test · npm test",
       "Lint (lint)Lint · npm run lintLint · npm run lint:all",
+    ]);
+  });
+
+  it("shows a test command's re-run command from now to as proposed", () => {
+    const test = { name: "Test", kind: "test", commandLine: "npm test" } as const;
+    const rows = rowsOf(
+      renderToStaticMarkup(
+        <ProposedCommandChanges
+          changes={{
+            commands: [
+              {
+                key: "test",
+                from: { ...test, rerunCommandLine: "" },
+                to: { ...test, rerunCommandLine: "npm test -- --last-failed" },
+              },
+            ],
+          }}
+        />,
+      ),
+    );
+
+    expect(rows).toEqual([
+      "Test (test)Test · npm testTest · npm test · re-run npm test -- --last-failed",
     ]);
   });
 

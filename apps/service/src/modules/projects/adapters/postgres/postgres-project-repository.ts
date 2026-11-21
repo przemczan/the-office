@@ -3,11 +3,11 @@ import { asc, eq } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { forgettingReads, readKey, readOnce } from "../../../../platform/database/read-scope.js";
 import type { EngineModel } from "../../../engine/index.js";
-import type { Project } from "../../domain/project.js";
+import type { Project, ProjectCommand } from "../../domain/project.js";
 import type { ProjectChanges } from "../../domain/project-changes.js";
 import { ProjectNotFound } from "../../domain/project-not-found.js";
 import { ProjectRepository } from "../../ports/project-repository.js";
-import { projects } from "./projects.schema.js";
+import { projects, type StoredProjectCommand } from "./projects.schema.js";
 import { environmentOfStored } from "./stored-environment.js";
 
 type ProjectRow = typeof projects.$inferSelect;
@@ -108,7 +108,7 @@ function toProject(row: ProjectRow): Project {
     icon: row.icon,
     logo: row.logo,
     installCommand: row.installCommand,
-    commands: row.commands,
+    commands: row.commands.map(commandOfStored),
     installInputs: row.installInputs,
     publishingMode: row.publishingMode,
     beforePublishingCommand: row.beforePublishingCommand,
@@ -137,6 +137,10 @@ function toProject(row: ProjectRow): Project {
       closeOnDrop: row.closeIssueOnDrop,
     },
   };
+}
+
+function commandOfStored(command: StoredProjectCommand): ProjectCommand {
+  return { ...command, rerunCommandLine: command.rerunCommandLine ?? "" };
 }
 
 function projectDefaultOf(row: ProjectRow): EngineModel | null {

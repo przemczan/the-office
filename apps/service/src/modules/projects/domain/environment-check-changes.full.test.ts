@@ -51,6 +51,7 @@ describe("startEnvironmentCheck", () => {
       name: "End to end",
       kind: "test",
       commandLine: "npm run e2e",
+      rerunCommandLine: "",
     } as const;
     const project = aProject({ commands: [...startingCommands(), e2e] });
 
@@ -63,10 +64,12 @@ describe("startEnvironmentCheck", () => {
       checks: [
         { step: "worktree", state: "waiting" },
         { step: "install", state: "waiting", commandLine: "npm ci" },
-        { step: "command", state: "waiting", ...startingCommands()[0] },
-        { step: "command", state: "waiting", ...startingCommands()[1] },
-        { step: "command", state: "waiting", ...startingCommands()[2] },
-        { step: "command", state: "waiting", ...e2e },
+        // A check runs each command once, so it keeps no re-run command.
+        ...[...startingCommands(), e2e].map(({ rerunCommandLine: _rerun, ...command }) => ({
+          step: "command",
+          state: "waiting",
+          ...command,
+        })),
       ],
       startedAt,
       finishedAt: undefined,

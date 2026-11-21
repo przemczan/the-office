@@ -60,9 +60,15 @@ export function environmentChecksHttp(
       mark: { label: "CH", colour: "teal" },
       installCommand: PASSES,
       commands: [
-        { key: "build", name: "Build", kind: "build", commandLine: PASSES },
-        { key: "lint", name: "Lint", kind: "lint", commandLine: PASSES },
-        { key: "test", name: "Test", kind: "test", commandLine: NEEDS_GREETING },
+        { key: "build", name: "Build", kind: "build", commandLine: PASSES, rerunCommandLine: "" },
+        { key: "lint", name: "Lint", kind: "lint", commandLine: PASSES, rerunCommandLine: "" },
+        {
+          key: "test",
+          name: "Test",
+          kind: "test",
+          commandLine: NEEDS_GREETING,
+          rerunCommandLine: "",
+        },
       ],
       installInputs: [],
       publishingMode: "push-and-pull-request",

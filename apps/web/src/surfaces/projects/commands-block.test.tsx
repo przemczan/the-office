@@ -15,9 +15,15 @@ declare global {
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const COMMANDS: readonly ProjectCommand[] = [
-  { key: "build", name: "Build", kind: "build", commandLine: "npm run build" },
-  { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
-  { key: "test", name: "Test", kind: "test", commandLine: "" },
+  {
+    key: "build",
+    name: "Build",
+    kind: "build",
+    commandLine: "npm run build",
+    rerunCommandLine: "",
+  },
+  { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint", rerunCommandLine: "" },
+  { key: "test", name: "Test", kind: "test", commandLine: "", rerunCommandLine: "" },
 ];
 
 const PROJECT: Project = {
@@ -169,7 +175,13 @@ describe("the Project page's Commands block", () => {
   });
 
   it("changes a command's name, kind and line, keeping its key", async () => {
-    const changed = { key: "lint", name: "Static checks", kind: "test", commandLine: "oxlint" };
+    const changed = {
+      key: "lint",
+      name: "Static checks",
+      kind: "test",
+      commandLine: "oxlint",
+      rerunCommandLine: "",
+    };
     const fetched = answering(() =>
       Response.json({
         ...PROJECT,
@@ -190,7 +202,12 @@ describe("the Project page's Commands block", () => {
     expect(url).toBe("/api/projects/admin-panel/commands/lint");
     expect(request?.method).toBe("PUT");
     expect(request?.body).toBe(
-      JSON.stringify({ name: "Static checks", kind: "test", commandLine: "oxlint" }),
+      JSON.stringify({
+        name: "Static checks",
+        kind: "test",
+        commandLine: "oxlint",
+        rerunCommandLine: "",
+      }),
     );
     expect(document.body.textContent).toContain(
       "Static checks saved. Tasks run it as saved from their next Stage that runs it.",
@@ -230,9 +247,53 @@ describe("the Project page's Commands block", () => {
         name: "End to end",
         kind: "test",
         commandLine: "npm run e2e",
+        rerunCommandLine: "",
       }),
     );
     expect(document.body.textContent).toContain("End to end added.");
+  });
+
+  it("shows a test command's re-run command under its line", () => {
+    const rerunCommandLine = "npm test -- --last-failed";
+    const { page } = blockOf({
+      ...PROJECT,
+      commands: COMMANDS.map((command) =>
+        command.key === "test"
+          ? { ...command, commandLine: "npm test", rerunCommandLine }
+          : command,
+      ),
+    });
+
+    expect(rowText(page, "Test")).toBe(`Testnpm testRe-run ${rerunCommandLine}testTest`);
+    expect(rowText(page, "Build")).not.toContain("Re-run");
+  });
+
+  it("sets a test command's re-run command, offered only while its kind is Test", async () => {
+    const fetched = answering(() => Response.json(PROJECT));
+    const { page, queryClient } = blockOf(PROJECT);
+
+    act(() => button(page, "Change the Test command").click());
+    const editor = form(page, "Change the Test command");
+    fill(field(editor, "Command line"), "npm test");
+    fill(field(editor, "Re-run command"), " npm test -- --last-failed ");
+    expect(editor.textContent).toContain("Leave blank for no re-run.");
+    fill(field(editor, "Kind"), "build");
+    expect(() => field(editor, "Re-run command")).toThrow('There is no field "Re-run command".');
+    fill(field(editor, "Kind"), "test");
+    expect(field(editor, "Re-run command").value).toBe("");
+    fill(field(editor, "Re-run command"), "npm test -- --last-failed");
+    await settled(queryClient, () => button(editor, "Save").click());
+
+    const [url, request] = fetched.mock.calls[0] ?? [];
+    expect(url).toBe("/api/projects/admin-panel/commands/test");
+    expect(request?.body).toBe(
+      JSON.stringify({
+        name: "Test",
+        kind: "test",
+        commandLine: "npm test",
+        rerunCommandLine: "npm test -- --last-failed",
+      }),
+    );
   });
 
   it("holds the publishing mode in its Publish group, and saves a new one at once", async () => {

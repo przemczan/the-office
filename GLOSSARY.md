@@ -14,8 +14,12 @@ _Avoid_: Repo (in the UI), workspace
 One of a Project's named commands, beside its install command: a key, fixed once added, by which Pipelines and Agents name it, a name, a Command kind and a command line. Every Project starts with Build, Lint and Test.
 
 **Command kind**:
-What a Project command does: build, lint or test. A run of a test command, under any key, gets the test handling: one re-run on failure, the worktree restored, the files it wrote moved out of it.
+What a Project command does: build, lint or test. A run of a test command, under any key, gets the test handling: the worktree restored, the files it wrote moved out of it, and its Re-run command run in its place once when it fails.
 _Avoid_: Command type
+
+**Re-run command**:
+A test command's optional second command line, which The Office runs once in its place when it fails, such as one running only the failed tests; a pass there is a flake. Blank means no re-run: the failure fails the Stage.
+_Avoid_: Retry command, flaky re-run
 
 **Before publishing**:
 A Project's optional command line that runs in the Task's worktree before Publish ships anything, with the Project's own variables; what it changes is committed and shipped. Not a Project command: it has no key, and blank runs nothing. It runs again each time Publish runs.

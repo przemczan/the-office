@@ -19,6 +19,7 @@ export function startingCommands(
   return STARTING_COMMANDS.map((command) => ({
     ...command,
     commandLine: given[command.key] ?? "",
+    rerunCommandLine: "",
   }));
 }
 

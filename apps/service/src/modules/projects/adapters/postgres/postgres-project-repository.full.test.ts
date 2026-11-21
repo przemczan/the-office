@@ -106,12 +106,22 @@ describe("PostgresProjectRepository", () => {
           commands: [
             {
               key: "test",
-              from: { name: "Test", kind: "test", commandLine: "npm test" },
-              to: { name: "Test", kind: "test", commandLine: "npm test -- --run" },
+              from: { name: "Test", kind: "test", commandLine: "npm test", rerunCommandLine: "" },
+              to: {
+                name: "Test",
+                kind: "test",
+                commandLine: "npm test -- --run",
+                rerunCommandLine: "",
+              },
             },
             {
               key: "lint",
-              from: { name: "Lint", kind: "lint", commandLine: "npm run lint" },
+              from: {
+                name: "Lint",
+                kind: "lint",
+                commandLine: "npm run lint",
+                rerunCommandLine: "",
+              },
               to: null,
             },
           ],

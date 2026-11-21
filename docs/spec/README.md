@@ -171,6 +171,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 
 ### R
 
+- **Re-run command**: [2.1.1 The re-run command](2.1.1-projects.md#the-re-run-command); screen: [Project page › Commands](screens/project-page.md#commands)
 - **Recovery code**: [2.10 Recovery codes](2.10-users-and-signing-in.md#recovery-codes); screen: [Account › Recovery codes](screens/account.md#recovery-codes)
 - **Repository file browser**: screen: [Project page › Files](screens/project-page.md#files)
 - **Repository URL**: [5.5 Clones](5.5-git-and-isolation.md#clones); screen: [Projects › A git URL](screens/projects.md#a-git-url)
@@ -273,7 +274,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 ### 2. Domain model
 
 - [2.1 Work](2.1-work.md): index of the pages below.
-  - [2.1.1 Projects](2.1.1-projects.md): Project, its settings, a Kind's default Pipeline, test targets, Project limit, Icon and Logo, Project commands, GitHub issues.
+  - [2.1.1 Projects](2.1.1-projects.md): Project, its settings, a Kind's default Pipeline, test targets, Project limit, Icon and Logo, Project commands, the re-run command, GitHub issues.
   - [2.1.2 Ideas and Attachments](2.1.2-ideas-and-attachments.md): Idea, Attachment, text files and PDFs, pasted images.
   - [2.1.3 Tasks](2.1.3-tasks.md): Task, its Kind and bug details, its states, Ready, Description, Commit message, dependencies, Drop reason, GitHub issue, priority, archive, moving.
   - [2.1.4 Initiatives](2.1.4-initiatives.md): Initiative, its states, shaping, Plan the Initiative, its Pipeline, Publishing Tasks, Pause, its test instances.
@@ -361,6 +362,7 @@ One page per screen, as built. Where a [design](../design/README.md) differs, th
 Where each default lives, by page:
 
 - 2.1.1 Projects
+  - [No re-run command](2.1.1-projects.md#no-re-run-command)
   - [GitHub issues switches](2.1.1-projects.md#github-issues-switches)
   - [Onboarding a Project](2.1.1-projects.md#onboarding-a-project)
 - 2.1.2 Ideas and Attachments

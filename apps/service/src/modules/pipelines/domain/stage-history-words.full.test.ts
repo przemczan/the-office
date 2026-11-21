@@ -50,7 +50,10 @@ const wentBackThenPassed = [
       failedTest,
       { ...failedTest, purpose: "re-run" },
     ],
-    outcome: { status: "failed", error: "`npm test` failed with exit code 1 on its re-run too." },
+    outcome: {
+      status: "failed",
+      error: "`npm test` failed, and its re-run command `npm test` failed with exit code 1 too.",
+    },
   }),
   aStageRun({
     number: 3,
@@ -85,7 +88,7 @@ describe("stageHistoryWords", () => {
       "Started 2026-11-08T10:00:00.000Z, ended 2026-11-08T10:05:00.000Z (5 min).",
     );
     expect(words).toContain(
-      "Outcome: failed.\n`npm test` failed with exit code 1 on its re-run too.",
+      "Outcome: failed.\n`npm test` failed, and its re-run command `npm test` failed with exit code 1 too.",
     );
     expect(words).toContain("1. Install: `npm ci`, passed, exit code 0, 1.2 s.");
     expect(words).toContain("2. Command: `npm test`, failed, exit code 1, 2 min 5 s.");

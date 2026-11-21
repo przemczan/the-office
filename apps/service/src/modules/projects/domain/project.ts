@@ -14,6 +14,11 @@ export interface ProjectCommandFields {
   readonly kind: ProjectCommandKind;
   /** A command line for the platform's shell; blank only for a starting command not set yet. */
   readonly commandLine: string;
+  /**
+   * A test command's re-run command: run once in its place when it fails, to tell a flake (spec
+   * §5.5); blank for none, and always blank on a command not of kind test.
+   */
+  readonly rerunCommandLine: string;
 }
 
 /** One of the Project's commands besides install, run by its key (spec §2.1). */
@@ -28,7 +33,10 @@ export const INSTALL_COMMAND_KEY = "install";
 const RESERVED_COMMAND_KEYS: readonly string[] = [INSTALL_COMMAND_KEY, "publish"];
 
 /** The commands every Project starts with, their command lines given when it is added. */
-export const STARTING_COMMANDS: readonly Omit<ProjectCommand, "commandLine">[] = [
+export const STARTING_COMMANDS: readonly Omit<
+  ProjectCommand,
+  "commandLine" | "rerunCommandLine"
+>[] = [
   { key: "build", name: "Build", kind: "build" },
   { key: "lint", name: "Lint", kind: "lint" },
   { key: "test", name: "Test", kind: "test" },
@@ -250,16 +258,24 @@ export function commandOf(
   return project.commands.find((command) => command.key === key);
 }
 
-/** Whether two commands have the same name, kind and command line. */
+/** Whether two commands have the same name, kind, command line and re-run command. */
 export function sameCommandFields(one: ProjectCommandFields, other: ProjectCommandFields): boolean {
   return (
-    one.name === other.name && one.kind === other.kind && one.commandLine === other.commandLine
+    one.name === other.name &&
+    one.kind === other.kind &&
+    one.commandLine === other.commandLine &&
+    one.rerunCommandLine === other.rerunCommandLine
   );
 }
 
 /** The command as it is kept: without the spaces around what was typed. */
 export function trimmedCommand<Command extends ProjectCommandFields>(command: Command): Command {
-  return { ...command, name: command.name.trim(), commandLine: command.commandLine.trim() };
+  return {
+    ...command,
+    name: command.name.trim(),
+    commandLine: command.commandLine.trim(),
+    rerunCommandLine: command.rerunCommandLine.trim(),
+  };
 }
 
 /**
@@ -313,7 +329,21 @@ export function commandFieldsProblems(
     ? commandLineProblem(command.key, command.commandLine)
     : commandProblem(command.key, command.commandLine);
   if (lineProblem) problems.push(lineProblem);
+  const rerunProblem = rerunCommandProblem(command);
+  if (rerunProblem) problems.push(rerunProblem);
   return problems;
+}
+
+/** Why a re-run command can't be saved: one line, on a test command only; a blank one always can. */
+function rerunCommandProblem(
+  command: ProjectCommandFields & { readonly key: string },
+): string | undefined {
+  if (!isCommandSet(command.rerunCommandLine)) return undefined;
+  if (command.kind !== "test") return "Only a test command has a re-run command.";
+  if (/[\r\n]/.test(command.rerunCommandLine)) {
+    return `The ${command.key} command's re-run command must be one line.`;
+  }
+  return undefined;
 }
 
 /**

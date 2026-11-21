@@ -62,7 +62,7 @@ export class ProjectProposals implements OnModuleInit {
 
   /**
    * The Project an earlier apply added before its Onboard Task failed: at the repository, under the
-   * Proposal's name, not onboarded. A Project the user added there by hand isn't taken for it.
+   * Proposal's name, not onboarded or with its Onboard Task not started. A Project the user added there by hand isn't taken for it.
    */
   private async addedWithoutOnboarding({
     path,
@@ -71,7 +71,9 @@ export class ProjectProposals implements OnModuleInit {
     const project = await this.projects.findByPath(path);
     if (!project || project.name !== name.trim()) return undefined;
     const onboardings = await this.onboarding.list();
-    return onboardings.some(({ projectId }) => projectId === project.id) ? undefined : project;
+    if (!onboardings.some(({ projectId }) => projectId === project.id)) return project;
+    // Its Onboard Task was kept but its worktree couldn't be made.
+    return (await this.onboarding.waitingOnboardTaskOf(project.id)) ? project : undefined;
   }
 }
 

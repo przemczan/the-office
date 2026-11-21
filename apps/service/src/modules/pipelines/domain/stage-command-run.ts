@@ -30,8 +30,8 @@ export interface ScriptCommandRun extends CommandRun {
 
 /**
  * Why The Office ran a command for a Stage: the dependencies' install before it, the Script
- * Stage's command, a failing test command's one re-run, a Publish's before or after publishing
- * line, or the Project command a condition of one of the Stage's routes out names.
+ * Stage's command, the run of a failing test command's re-run command, a Publish's before or
+ * after publishing line, or the Project command a condition of one of the Stage's routes out names.
  */
 export type StageCommandPurpose =
   "install" | "command" | "re-run" | "before-publishing" | "after-publishing" | "condition";

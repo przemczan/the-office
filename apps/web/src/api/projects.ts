@@ -281,7 +281,7 @@ export function addCommand(id: string, command: ProjectCommand): Promise<Project
   return sendToApi("POST", `${projectPath(id)}/commands`, command, projectSchema);
 }
 
-/** The command's name, kind and command line; its key stays. */
+/** The command's name, kind, command line and re-run command; its key stays. */
 export function changeCommand(id: string, key: string, change: CommandChange): Promise<Project> {
   return sendToApi("PUT", commandPath(id, key), change, projectSchema);
 }

@@ -49,8 +49,9 @@ export interface ScriptCommandOptions {
  * command of kind test changed never reaches the work (spec §5.5): tracked files are restored after
  * it, the files it wrote are moved out of the worktree for the user to see, and the screenshots
  * folder is put back as the Agent left it, so only the Agent's screenshots are attached. A failing
- * test command runs once more before it counts as failed (research §11.5). A condition's command
- * is handled as a test run whatever its kind, and never runs twice.
+ * test command runs its re-run command in its place once before it counts as failed, and with
+ * none set it counts as failed at once. A condition's command is handled as a test run whatever
+ * its kind, and never runs twice.
  */
 @Injectable()
 export class ScriptCommands {
@@ -61,10 +62,10 @@ export class ScriptCommands {
   ) {}
 
   /**
-   * Each run of the command, in order: a failing test command's re-run follows it. A test run's
-   * files go to a folder named by `stageRunId` and the run's number. `signal` stops the command
-   * running, with everything it started; a stopped run is never run again. A key the Project has
-   * no command by, or one whose line is blank, can't run.
+   * Each run of the command, in order: when a test command fails, a run of its re-run command, if
+   * it has one, follows it. A test run's files go to a folder named by `stageRunId` and the run's
+   * number. `signal` stops the command running, with everything it started; a stopped run is never
+   * run again. A key the Project has no command by, or one whose line is blank, can't run.
    */
   async run(
     project: Project,
@@ -76,14 +77,27 @@ export class ScriptCommands {
     const command = setCommandOf(project, key);
     if (!("kind" in command)) return [command];
     if (command.kind !== "test") {
-      const run = await this.runOnce(project, taskId, command, options);
+      const run = await this.runOnce(project, taskId, command.commandLine, options);
       return [{ ...run, movedFiles: undefined }];
     }
-    const first = await this.runTests(project, taskId, command, join(stageRunId, "1"), options);
+    const first = await this.runTests(
+      project,
+      taskId,
+      command.commandLine,
+      join(stageRunId, "1"),
+      options,
+    );
     // Only a command that ran and failed may be a flake: one the shell couldn't start won't start
     // the second time either, and one that ran out of time would take as long again.
-    if (first.outcome !== "failed") return [first];
-    return [first, await this.runTests(project, taskId, command, join(stageRunId, "2"), options)];
+    if (first.outcome !== "failed" || !isCommandSet(command.rerunCommandLine)) return [first];
+    const rerun = await this.runTests(
+      project,
+      taskId,
+      command.rerunCommandLine,
+      join(stageRunId, "2"),
+      options,
+    );
+    return [first, rerun];
   }
 
   /**
@@ -106,7 +120,7 @@ export class ScriptCommands {
     if (!("kind" in command)) return command;
     const outputFolder = join(stageRunId, `condition-${key}-${randomUUID().slice(0, 8)}`);
     return this.restoring(project, taskId, outputFolder, () =>
-      this.runOnce(project, taskId, command, options, {
+      this.runOnce(project, taskId, command.commandLine, options, {
         variables: { [STAGE_RUNS_FILE_VARIABLE]: stageRunsFile },
         readsStageRuns: true,
       }),
@@ -137,12 +151,12 @@ export class ScriptCommands {
   private runTests(
     project: Project,
     taskId: string,
-    command: ProjectCommand,
+    commandLine: string,
     outputFolder: string,
     options: ScriptCommandOptions,
   ): Promise<ScriptCommandRun> {
     return this.restoring(project, taskId, outputFolder, () =>
-      this.runOnce(project, taskId, command, options),
+      this.runOnce(project, taskId, commandLine, options),
     );
   }
 
@@ -172,12 +186,12 @@ export class ScriptCommands {
   private runOnce(
     project: Project,
     taskId: string,
-    command: ProjectCommand,
+    commandLine: string,
     { signal, wait }: ScriptCommandOptions,
     extra: Pick<TaskCommand, "variables" | "readsStageRuns"> = {},
   ): Promise<CommandRun> {
     return this.commands.run(project, taskId, this.worktrees.pathOf(project, taskId), {
-      commandLine: command.commandLine,
+      commandLine,
       timeoutMs: SCRIPT_COMMAND_TIMEOUT_MS,
       signal,
       wait,

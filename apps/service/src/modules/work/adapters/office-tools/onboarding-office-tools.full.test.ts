@@ -23,6 +23,11 @@ const DRAFTED = {
   publishingMode: "merge",
   defaultPipeline: "quick-fix",
 };
+/** As the Proposal keeps it: a command drafted with no re-run command has a blank one. */
+const KEPT = {
+  ...DRAFTED,
+  commands: DRAFTED.commands.map((command) => ({ ...command, rerunCommandLine: "" })),
+};
 
 let folder: string;
 let work: WorkApplication;
@@ -61,7 +66,7 @@ describe("propose_project", () => {
         sessionId: SESSION,
         change: {
           kind: "project",
-          project: { ...DRAFTED, path: "/code/shop", mark },
+          project: { ...KEPT, path: "/code/shop", mark },
           projectId: undefined,
           taskId: undefined,
         },
@@ -78,7 +83,7 @@ describe("propose_project", () => {
     expect(work.app.get(ProposalDraftsForTests).drafted.map(({ change }) => change)).toEqual([
       {
         kind: "project",
-        project: { ...DRAFTED, path: "/repositories/shop", repositoryUrl: url, mark },
+        project: { ...KEPT, path: "/repositories/shop", repositoryUrl: url, mark },
         projectId: undefined,
         taskId: undefined,
       },

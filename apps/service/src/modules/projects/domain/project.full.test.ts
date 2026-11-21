@@ -128,6 +128,7 @@ describe("commandFieldsProblems", () => {
     name: "End to end",
     kind: "test",
     commandLine: "npm run e2e",
+    rerunCommandLine: "",
   } as const;
 
   it("takes a command with a name, a kind and one line", () => {
@@ -150,6 +151,35 @@ describe("commandFieldsProblems", () => {
     expect(
       commandFieldsProblems({ ...command, name: "a".repeat(61) }, { blankAllowed: false }),
     ).toEqual(["A command's name may be at most 60 characters."]);
+  });
+
+  it("takes a re-run command of one line on a test command", () => {
+    const rerunCommandLine = "npm run e2e -- --last-failed";
+    expect(
+      commandFieldsProblems({ ...command, rerunCommandLine }, { blankAllowed: false }),
+    ).toEqual([]);
+  });
+
+  it("refuses a re-run command of more than one line", () => {
+    expect(
+      commandFieldsProblems(
+        { ...command, rerunCommandLine: "npm run e2e\nnpm run e2e" },
+        { blankAllowed: false },
+      ),
+    ).toEqual(["The e2e command's re-run command must be one line."]);
+  });
+
+  it("refuses a re-run command on a command not of kind test, and takes a blank one there", () => {
+    const build = { ...command, kind: "build" } as const;
+    expect(
+      commandFieldsProblems(
+        { ...build, rerunCommandLine: "npm run build" },
+        { blankAllowed: false },
+      ),
+    ).toEqual(["Only a test command has a re-run command."]);
+    expect(
+      commandFieldsProblems({ ...build, rerunCommandLine: " " }, { blankAllowed: false }),
+    ).toEqual([]);
   });
 });
 

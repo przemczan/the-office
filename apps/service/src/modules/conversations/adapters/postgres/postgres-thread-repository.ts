@@ -18,6 +18,7 @@ import {
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { afterCursor, newestFirst } from "../../../../platform/database/page-sql.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
+import type { ProjectCommandFields } from "../../../projects/index.js";
 import {
   type DecisionAnswer,
   formAnswerFromOne,
@@ -739,10 +740,38 @@ function toProposalRow({ status, ...proposal }: Proposal): ProposalRow {
 function toProposal({ status, statusAt, statusBy, change, ...row }: ProposalRow): Proposal {
   return {
     ...row,
-    // A hire not applied yet has no Role key, which its JSON leaves out.
-    change: change.kind === "hire" ? { ...change, roleKey: change.roleKey ?? undefined } : change,
+    change: toProposedChange(change),
     status: toProposalStatus(status, statusAt, statusBy),
   };
+}
+
+function toProposedChange(change: Proposal["change"]): Proposal["change"] {
+  switch (change.kind) {
+    // A hire not applied yet has no Role key, which its JSON leaves out.
+    case "hire":
+      return { ...change, roleKey: change.roleKey ?? undefined };
+    // A Proposal of commands drafted before re-run commands has none, read as blank.
+    case "project-commands":
+      return {
+        ...change,
+        changes: {
+          ...change.changes,
+          commands: change.changes.commands.map(({ key, from, to }) => ({
+            key,
+            from: from && withRerunCommandLine(from),
+            to: to && withRerunCommandLine(to),
+          })),
+        },
+      };
+    default:
+      return change;
+  }
+}
+
+function withRerunCommandLine(
+  command: Omit<ProjectCommandFields, "rerunCommandLine"> & { readonly rerunCommandLine?: string },
+): ProjectCommandFields {
+  return { ...command, rerunCommandLine: command.rerunCommandLine ?? "" };
 }
 
 function toProposalStatus(

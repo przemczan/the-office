@@ -250,8 +250,9 @@ export class TaskWorktrees {
 
   /**
    * Runs a Script Stage's Project command, by its key, in the Task's worktree: after each run of a
-   * test command the worktree is restored and the files it wrote are moved to a folder named by `stageRunId`, and
-   * a failing test command runs once more. It runs where the Project's Run environment setting
+   * test command the worktree is restored and the files it wrote are moved to a folder named by
+   * `stageRunId`, and a failing test command's re-run command, if it has one, runs in its place
+   * once. It runs where the Project's Run environment setting
    * says. Returns the command's kind, undefined for a key the Project lacks, and each run, in
    * order. `signal` stops the command running, with everything it started, or its wait for a run
    * environment, and runs no other; `wait` is told of that wait.

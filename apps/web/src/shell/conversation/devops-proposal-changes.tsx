@@ -106,14 +106,16 @@ export function ProposedCommandChanges({
 }
 
 /**
- * A command's kind and line, as a Proposal shows it: "Test · npm test", or with its name first,
+ * A command's kind and line, as a Proposal shows it: "Test · npm test", with its re-run command
+ * when it has one, "Test · npm test · re-run npm test -- --last-failed", or with its name first,
  * "Unit tests · Test · npm test".
  */
 export function commandWords(
-  { name, kind, commandLine }: ProjectCommandFields,
+  { name, kind, commandLine, rerunCommandLine }: ProjectCommandFields,
   { withName = false }: { readonly withName?: boolean } = {},
 ): string {
-  const words = `${COMMAND_KIND_LABELS[kind]} · ${commandLine || "Not set"}`;
+  const rerun = rerunCommandLine === "" ? "" : ` · re-run ${rerunCommandLine}`;
+  const words = `${COMMAND_KIND_LABELS[kind]} · ${commandLine || "Not set"}${rerun}`;
   return withName ? `${name} · ${words}` : words;
 }
 

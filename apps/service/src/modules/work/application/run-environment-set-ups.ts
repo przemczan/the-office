@@ -45,38 +45,43 @@ export class RunEnvironmentSetUps {
 
   /**
    * The Project's open set-up Task, added now when it has none: Ready on "Set up run environment",
-   * in a worktree of its own made now, since the Task skips Planning. Refused when the Project
-   * lacks a command that Pipeline runs.
+   * in a worktree of its own, since the Task skips Planning. The worktree is made once the Task is
+   * kept, as Projects reads which branch it starts from through the Task; opening it again makes
+   * only one that is missing, so asking again mends a failed first try. Refused when the Project
+   * lacks a command that Pipeline runs, or the worktree can't be made.
    */
   async add(projectId: string, createdBy: Author): Promise<Task> {
-    return this.locks.run(projectId, async () => {
-      const open = await this.openOf(projectId);
-      if (open) return open;
-      const project = await this.projects.find(projectId);
-      if (!project) throw new TaskRefused([`There is no Project "${projectId}".`]);
-      const pipeline = await this.pipelines.commandsNamedBy(SET_UP_RUN_ENVIRONMENT_PIPELINE);
-      if (!pipeline) {
-        throw new TaskRefused(["The Pipeline library has no Set up run environment Pipeline."]);
-      }
-      const missing = missingCommands(pipeline, project);
-      if (missing.length > 0) {
-        throw new TaskRefused([missingCommandsWords(pipeline.name, missing, project.name)]);
-      }
-      const id = randomUUID();
-      await this.worktrees.open(projectId, id).catch((error: unknown) => {
-        const reason = error instanceof Error ? error.message : String(error);
-        throw new TaskRefused([`The set-up Task's worktree couldn't be made: ${reason}`]);
-      });
-      const { task, event } = await this.tasks.create((takenOrders) =>
-        createRunEnvironmentSetUpTask(
-          id,
-          project,
-          { order: orderAfter(takenOrders), createdBy },
-          new Date(),
-        ),
-      );
-      await this.events.publish(event);
-      return task;
+    const task = await this.locks.run(
+      projectId,
+      async () => (await this.openOf(projectId)) ?? this.create(projectId, createdBy),
+    );
+    await this.worktrees.open(projectId, task.id).catch((error: unknown) => {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new TaskRefused([`The set-up Task's worktree couldn't be made: ${reason}`]);
     });
+    return task;
+  }
+
+  private async create(projectId: string, createdBy: Author): Promise<Task> {
+    const project = await this.projects.find(projectId);
+    if (!project) throw new TaskRefused([`There is no Project "${projectId}".`]);
+    const pipeline = await this.pipelines.commandsNamedBy(SET_UP_RUN_ENVIRONMENT_PIPELINE);
+    if (!pipeline) {
+      throw new TaskRefused(["The Pipeline library has no Set up run environment Pipeline."]);
+    }
+    const missing = missingCommands(pipeline, project);
+    if (missing.length > 0) {
+      throw new TaskRefused([missingCommandsWords(pipeline.name, missing, project.name)]);
+    }
+    const { task, event } = await this.tasks.create((takenOrders) =>
+      createRunEnvironmentSetUpTask(
+        randomUUID(),
+        project,
+        { order: orderAfter(takenOrders), createdBy },
+        new Date(),
+      ),
+    );
+    await this.events.publish(event);
+    return task;
   }
 }

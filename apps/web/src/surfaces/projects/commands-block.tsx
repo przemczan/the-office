@@ -302,8 +302,15 @@ function CommandRow({
   return (
     <div className="command-row" aria-label={`The ${command.name} command`} role="group">
       <span className="command-key">{command.name}</span>
-      {/* Left blank when the Project was added: it can be set here, but once set not cleared. */}
-      <CommandLine line={command.commandLine} emptyLine="Not set" />
+      <span className="command-lines">
+        {/* Left blank when the Project was added: it can be set here, but once set not cleared. */}
+        <CommandLine line={command.commandLine} emptyLine="Not set" />
+        {command.rerunCommandLine !== "" && (
+          <span className="command-rerun">
+            Re-run <code className="command-line">{command.rerunCommandLine}</code>
+          </span>
+        )}
+      </span>
       <span className="command-meta">
         <Badge mono size="sm">
           {command.key}
@@ -388,8 +395,8 @@ function LineEditor({
 }
 
 /**
- * A command's name, kind and command line changed in place, or a new command with its key too: the
- * key is fixed once added, as Pipelines name a command by it.
+ * A command's name, kind, command line and, for a test command, re-run command changed in place, or
+ * a new command with its key too: the key is fixed once added, as Pipelines name a command by it.
  */
 function CommandEditor({
   project,
@@ -405,13 +412,14 @@ function CommandEditor({
   const [name, setName] = useState(command?.name ?? "");
   const [kind, setKind] = useState<ProjectCommandKind>(command?.kind ?? "test");
   const [commandLine, setCommandLine] = useState(command?.commandLine ?? "");
+  const [rerunCommandLine, setRerunCommandLine] = useState(command?.rerunCommandLine ?? "");
   const keep = useSavedProject();
   const showToast = useToast();
   const saving = useMutation({
     mutationFn: () =>
       command
-        ? changeCommand(project.id, command.key, { name, kind, commandLine })
-        : addCommand(project.id, { key: key.trim(), name, kind, commandLine }),
+        ? changeCommand(project.id, command.key, { name, kind, commandLine, rerunCommandLine })
+        : addCommand(project.id, { key: key.trim(), name, kind, commandLine, rerunCommandLine }),
     onSuccess: (saved) => {
       keep(saved);
       const shownName = name.trim();
@@ -427,7 +435,8 @@ function CommandEditor({
     command !== undefined &&
     name.trim() === command.name &&
     kind === command.kind &&
-    commandLine.trim() === command.commandLine;
+    commandLine.trim() === command.commandLine &&
+    rerunCommandLine.trim() === command.rerunCommandLine;
   const cancelOnEscape = (event: { readonly key: string }): void => {
     if (event.key === "Escape") onDone();
   };
@@ -482,7 +491,11 @@ function CommandEditor({
           hint="A test command's runs never reach the work."
           options={KIND_OPTIONS}
           value={kind}
-          onChange={(value) => setKind(value as ProjectCommandKind)}
+          onChange={(value) => {
+            setKind(value as ProjectCommandKind);
+            // Only a test command has a re-run command.
+            if (value !== "test") setRerunCommandLine("");
+          }}
           size="sm"
         />
       </div>
@@ -495,6 +508,18 @@ function CommandEditor({
         size="sm"
         inputStyle={{ fontFamily: "var(--font-mono)" }}
       />
+      {kind === "test" && (
+        <Input
+          label="Re-run command"
+          hint="Runs once in place of the command when it fails, to tell a flake: run only what failed. Leave blank for no re-run. Files the first run wrote that git ignores are still there."
+          placeholder="npm run test:e2e -- --last-failed"
+          value={rerunCommandLine}
+          onChange={(event) => setRerunCommandLine(event.target.value)}
+          onKeyDown={cancelOnEscape}
+          size="sm"
+          inputStyle={{ fontFamily: "var(--font-mono)" }}
+        />
+      )}
       <div className="command-editor-actions">
         <EditorButtons
           pending={saving.isPending}

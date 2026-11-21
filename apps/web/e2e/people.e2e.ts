@@ -1800,9 +1800,15 @@ function commandLinesOf(
   return {
     installCommand,
     commands: [
-      { key: "build", name: "Build", kind: "build", commandLine: lines.build },
-      { key: "lint", name: "Lint", kind: "lint", commandLine: lines.lint },
-      { key: "test", name: "Test", kind: "test", commandLine: lines.test },
+      {
+        key: "build",
+        name: "Build",
+        kind: "build",
+        commandLine: lines.build,
+        rerunCommandLine: "",
+      },
+      { key: "lint", name: "Lint", kind: "lint", commandLine: lines.lint, rerunCommandLine: "" },
+      { key: "test", name: "Test", kind: "test", commandLine: lines.test, rerunCommandLine: "" },
     ],
   };
 }

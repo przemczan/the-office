@@ -109,9 +109,9 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
     const project = await addProject({
       installCommand: PASSES,
       commands: [
-        { key: "build", name: "Build", kind: "build", commandLine: PASSES },
-        { key: "lint", name: "Lint", kind: "lint", commandLine: PASSES },
-        { key: "test", name: "Test", kind: "test", commandLine: SLEEPS },
+        { key: "build", name: "Build", kind: "build", commandLine: PASSES, rerunCommandLine: "" },
+        { key: "lint", name: "Lint", kind: "lint", commandLine: PASSES, rerunCommandLine: "" },
+        { key: "test", name: "Test", kind: "test", commandLine: SLEEPS, rerunCommandLine: "" },
       ],
     });
 
@@ -130,9 +130,9 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
     const project = await addProject({
       installCommand: PASSES,
       commands: [
-        { key: "build", name: "Build", kind: "build", commandLine: PASSES },
-        { key: "lint", name: "Lint", kind: "lint", commandLine: PASSES },
-        { key: "test", name: "Test", kind: "test", commandLine: printsToken },
+        { key: "build", name: "Build", kind: "build", commandLine: PASSES, rerunCommandLine: "" },
+        { key: "lint", name: "Lint", kind: "lint", commandLine: PASSES, rerunCommandLine: "" },
+        { key: "test", name: "Test", kind: "test", commandLine: printsToken, rerunCommandLine: "" },
       ],
     });
     published = [];

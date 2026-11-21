@@ -42,12 +42,13 @@ describe("ScriptStageRunner", () => {
     expect(pipelines.tasks.changes).toEqual([{ taskId, state: "waiting-on-you" }]);
   });
 
-  it("fails when the test command fails on its re-run too, handing what it printed to the Agent that fixes it", async () => {
+  it("fails when the test command's re-run command fails too, handing what it printed to the Agent that fixes it", async () => {
     pipelines = await startPipelinesApplication([
       anAgentSession(aDoneResult()),
       anAgentSession(aDoneResult()),
     ]);
-    pipelines.commands.commandRuns.push([failing, failing], [passing]);
+    const failingRerun = { ...failing, commandLine: "npm test -- --last-failed" };
+    pipelines.commands.commandRuns.push([failing, failingRerun], [passing]);
 
     const taskId = await walkStages(pipelines, [
       anAgentStage("implement"),
@@ -55,7 +56,7 @@ describe("ScriptStageRunner", () => {
     ]);
 
     const error =
-      "`npm test` failed with exit code 1 on its re-run too.\n\nWhat it printed:\n\n```\nFAIL renames a device: expected 'Hall' to be 'Kitchen'\n```";
+      "`npm test` failed, and its re-run command `npm test -- --last-failed` failed with exit code 1 too.\n\nWhat it printed:\n\n```\nFAIL renames a device: expected 'Hall' to be 'Kitchen'\n```";
     expect((await outcomesOf(taskId))[1]).toEqual({ status: "failed", error });
     expect(pipelines.stageThreads.requests[1]?.work).toContain(error);
     expect(pipelines.tasks.changes).toEqual([{ taskId, state: "done" }]);

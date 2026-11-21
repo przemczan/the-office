@@ -186,8 +186,13 @@ function commandChangeProblems(
   return to === null ? [] : commandFieldsProblems({ key, ...to }, { blankAllowed: false });
 }
 
-function fieldsOf({ name, kind, commandLine }: ProjectCommand): ProjectCommandFields {
-  return { name, kind, commandLine };
+function fieldsOf({
+  name,
+  kind,
+  commandLine,
+  rerunCommandLine,
+}: ProjectCommand): ProjectCommandFields {
+  return { name, kind, commandLine, rerunCommandLine };
 }
 
 function sameInstallInputs(one: readonly string[], other: readonly string[]): boolean {

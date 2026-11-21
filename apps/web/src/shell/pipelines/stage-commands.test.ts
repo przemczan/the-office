@@ -8,12 +8,19 @@ import {
   namedCommands,
 } from "./stage-commands.ts";
 
-const test: ProjectCommand = { key: "test", name: "Test", kind: "test", commandLine: "npm test" };
+const test: ProjectCommand = {
+  key: "test",
+  name: "Test",
+  kind: "test",
+  commandLine: "npm test",
+  rerunCommandLine: "",
+};
 const fullTests: ProjectCommand = {
   key: "test-full",
   name: "Full tests",
   kind: "test",
   commandLine: "npm run verify:full",
+  rerunCommandLine: "",
 };
 
 describe("commandChoices in the library", () => {

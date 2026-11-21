@@ -68,9 +68,9 @@ describe("POST /api/projects", () => {
     const project = await addProject({
       installCommand: "",
       commands: [
-        { key: "build", name: "Build", kind: "build", commandLine: " " },
-        { key: "lint", name: "Lint", kind: "lint", commandLine: "" },
-        { key: "test", name: "Test", kind: "test", commandLine: "" },
+        { key: "build", name: "Build", kind: "build", commandLine: " ", rerunCommandLine: "" },
+        { key: "lint", name: "Lint", kind: "lint", commandLine: "", rerunCommandLine: "" },
+        { key: "test", name: "Test", kind: "test", commandLine: "", rerunCommandLine: "" },
       ],
     });
 
@@ -171,9 +171,9 @@ describe("the Project's commands", () => {
     const project = await addProject({
       installCommand: "",
       commands: [
-        { key: "build", name: "Build", kind: "build", commandLine: "" },
-        { key: "lint", name: "Lint", kind: "lint", commandLine: "" },
-        { key: "test", name: "Test", kind: "test", commandLine: "" },
+        { key: "build", name: "Build", kind: "build", commandLine: "", rerunCommandLine: "" },
+        { key: "lint", name: "Lint", kind: "lint", commandLine: "", rerunCommandLine: "" },
+        { key: "test", name: "Test", kind: "test", commandLine: "", rerunCommandLine: "" },
       ],
     });
 

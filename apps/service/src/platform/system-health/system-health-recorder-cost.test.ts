@@ -19,6 +19,22 @@ function median(values: readonly number[]): number {
 }
 
 /**
+ * Under the full suite's load one round can stall on the scheduler or a collection well past the
+ * bound; a recorder that really grew slower is slow in every round, so the fastest one tells it.
+ */
+const MEASURED_ROUNDS = 3;
+
+function fastestOf(rounds: number, work: () => void): number {
+  let fastestMs = Number.POSITIVE_INFINITY;
+  for (let round = 0; round < rounds; round += 1) {
+    const startedAt = performance.now();
+    work();
+    fastestMs = Math.min(fastestMs, performance.now() - startedAt);
+  }
+  return fastestMs;
+}
+
+/**
  * The recorder must never be what slows The Office down (spec 5.2, System health, "Its cost").
  * On a 16-core machine a reading takes about 0.7 ms, most of it `os.cpus()`, which grows with the
  * cores; 10 000 queries take about 15 ms to record and the hour under 2 ms to give. The bounds
@@ -63,18 +79,16 @@ describe("SystemHealthRecorder's cost", () => {
       recorder.takeReading();
     }
 
-    const recordingStartedAt = performance.now();
-    for (let query = 0; query < 10_000; query += 1) {
-      recorder.recordQuery(
-        `select "id", "title" from "tasks" where "project_id" = $1 and "id" in ($2, $3) -- ${query % 200}`,
-        query % 50,
-        query % 3,
-      );
-    }
-    const recordingMs = performance.now() - recordingStartedAt;
-    const hourStartedAt = performance.now();
-    recorder.lastHour();
-    const hourMs = performance.now() - hourStartedAt;
+    const recordingMs = fastestOf(MEASURED_ROUNDS, () => {
+      for (let query = 0; query < 10_000; query += 1) {
+        recorder.recordQuery(
+          `select "id", "title" from "tasks" where "project_id" = $1 and "id" in ($2, $3) -- ${query % 200}`,
+          query % 50,
+          query % 3,
+        );
+      }
+    });
+    const hourMs = fastestOf(MEASURED_ROUNDS, () => recorder.lastHour());
 
     expect(recordingMs).toBeLessThan(100);
     expect(hourMs).toBeLessThan(50);

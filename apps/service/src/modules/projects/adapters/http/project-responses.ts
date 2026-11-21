@@ -27,11 +27,12 @@ export function toProjectResponse(project: Project, codeHost: string | null): Pr
     icon: toImageVersionsResponse(project.icon),
     logo: toImageVersionsResponse(project.logo),
     installCommand: project.installCommand,
-    commands: project.commands.map(({ key, name, kind, commandLine }) => ({
+    commands: project.commands.map(({ key, name, kind, commandLine, rerunCommandLine }) => ({
       key,
       name,
       kind,
       commandLine,
+      rerunCommandLine,
     })),
     installInputs: [...project.installInputs],
     publishingMode: project.publishingMode,
