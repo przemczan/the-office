@@ -31,6 +31,15 @@ In a checkout, `npm start` (at the root, or in `apps/service`) runs the launcher
 
 `npm run build` must have run before the first start. `npm run dev` doesn't use the launcher, so The Office it runs refuses Update and Restart.
 
+## A test instance of The Office
+
+`npm run test-instance` (`scripts/test-instance.sh`) is the entry point of the-office's Hosted test target ([spec §2.12](spec/2.12-test-instances.md)). It runs in the `checks` service of `.devcontainer/compose.yaml`, not on the workstation:
+
+- it runs `npm ci` and `npm run build`, then starts the service itself, without the launcher, on `OFFICE_HOST=0.0.0.0` and the target's `OFFICE_PORT`;
+- the service migrates the compose file's throwaway Postgres (`DATABASE_URL`) as it starts, and keeps its data in `/tmp/office-data` inside the container;
+- `OFFICE_TEST_INSTANCE=true` makes it refuse pushing, pull requests, merging and engine sessions, and `OTEL_SDK_DISABLED=true` leaves telemetry off;
+- it starts as a fresh install: nothing of the real Office is copied in, and its log shows the setup token for its own first user ([First run](#first-run-the-setup-token)).
+
 ## An example systemd unit
 
 The checkout way of keeping The Office running on a Linux host; a direct install sets up its own unit ([installing.md](installing.md#install-on-debianubuntu)). `/etc/systemd/system/the-office.service`, for a checkout in `/opt/the-office` with the compose stack's Postgres beside it. It needs `docker.service`: Docker Engine at the versions [container-runtime.md](container-runtime.md) holds, which also says how to upgrade it without losing Postgres.
