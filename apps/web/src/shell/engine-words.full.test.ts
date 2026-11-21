@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { modelLabel } from "./engine-words.ts";
+import { modelLabel, runEngineWords, standInForWords } from "./engine-words.ts";
 
 describe("the engine's words", () => {
   it("names a model by its family and version, and any other id as it is", () => {
@@ -15,5 +15,17 @@ describe("the engine's words", () => {
       "Flash",
       "Flash-Lite",
     ]);
+  });
+});
+
+describe("a run's engine", () => {
+  it("names the model and the engine", () => {
+    expect(runEngineWords({ engineName: "Personal", model: "claude-opus-5-5" })).toBe(
+      "Opus 5.5 on Personal",
+    );
+  });
+
+  it("names the cascade's engine a Stand-in Engine stood in for", () => {
+    expect(standInForWords("Work")).toBe("Stand-in for Work");
   });
 });

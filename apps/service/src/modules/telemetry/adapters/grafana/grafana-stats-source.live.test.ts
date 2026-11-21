@@ -145,8 +145,16 @@ describe.skipIf(missing !== undefined)(
       ]);
       const firstTask = costliest?.tasks.find((task) => task.taskId === SCENARIO.firstTask);
       const firstCalls = SCENARIO_CALLS.filter((call) => call.task === SCENARIO.firstTask);
-      expect(firstTask?.runs.map((r) => [r.stageName, r.stageRun, r.tokens])).toEqual(
-        firstCalls.map((call) => [call.stage, call.stageRun, countedTokensOf(call)]),
+      expect(
+        firstTask?.runs.map((r) => [r.stageName, r.stageRun, r.engineId, r.model, r.tokens]),
+      ).toEqual(
+        firstCalls.map((call) => [
+          call.stage,
+          call.stageRun,
+          call.engine,
+          call.model,
+          countedTokensOf(call),
+        ]),
       );
       expect(costliest?.initiatives[0]?.initiativeId).toBe(SCENARIO.initiative);
       expect(
@@ -208,7 +216,7 @@ async function sendScenario(otlp: string): Promise<void> {
         "office.role": call.role,
         "office.pipeline": call.pipeline,
         "office.project": call.project,
-        "office.engine": SCENARIO.engineId,
+        "office.engine": call.engine,
         "office.engine.model": call.model,
         "office.engine.outcome": "completed",
         "office.engine.call.duration_ms": 1_000,

@@ -6,16 +6,15 @@ import { fileURLToPath } from "node:url";
  * What the recorded answers hold: the engine calls and Usage windows the live check sends through
  * the real Telemetry before it records Grafana's answers, and that the default run reads back from
  * those recordings. Two Tasks, the first in an Initiative with a Stage retried and a call outside a
- * Stage, and the Initiative's own Thread.
+ * Stage, and the Initiative's own Thread. The retry ran on a second engine. `office.stage.run` is the
+ * run's number on its Task.
  */
 export const SCENARIO = {
   engineId: "claude-code",
+  otherEngineId: "claude-code-personal",
   firstTask: "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
   secondTask: "8a4b2e6f-93c1-4d7a-b5e0-6c1f3d8a2b22",
   initiative: "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33",
-  firstRun: "b1f0c6e2-7a3d-4c58-9e14-3f2a8d6c1e44",
-  retry: "e9d3a7b5-2c1f-4e86-a0b4-7d5c9f3e2a55",
-  reviewRun: "4c8e2a6d-1b9f-4f73-8e25-0a6d4b9c7f66",
   fiveHourPercent: 42,
   sevenDayPercent: 13,
 } as const;
@@ -26,6 +25,7 @@ export interface ScenarioCall {
   readonly stage: string;
   readonly stageRun: string;
   readonly role: string;
+  readonly engine: string;
   readonly model: string;
   readonly pipeline: string;
   readonly project: string;
@@ -44,8 +44,9 @@ export const SCENARIO_CALLS: readonly ScenarioCall[] = [
     task: SCENARIO.firstTask,
     initiative: SCENARIO.initiative,
     stage: "Implement",
-    stageRun: SCENARIO.firstRun,
+    stageRun: "1",
     role: "developer",
+    engine: SCENARIO.engineId,
     model: "claude-sonnet-5",
     pipeline: "Feature",
     project: "Admin panel",
@@ -56,8 +57,9 @@ export const SCENARIO_CALLS: readonly ScenarioCall[] = [
     task: SCENARIO.firstTask,
     initiative: SCENARIO.initiative,
     stage: "Implement",
-    stageRun: SCENARIO.retry,
+    stageRun: "2",
     role: "developer",
+    engine: SCENARIO.otherEngineId,
     model: "claude-sonnet-5",
     pipeline: "Feature",
     project: "Admin panel",
@@ -70,6 +72,7 @@ export const SCENARIO_CALLS: readonly ScenarioCall[] = [
     stage: "",
     stageRun: "",
     role: "planner",
+    engine: SCENARIO.engineId,
     model: "claude-sonnet-5",
     pipeline: "Feature",
     project: "Admin panel",
@@ -80,8 +83,9 @@ export const SCENARIO_CALLS: readonly ScenarioCall[] = [
     task: SCENARIO.secondTask,
     initiative: "",
     stage: "Review",
-    stageRun: SCENARIO.reviewRun,
+    stageRun: "1",
     role: "reviewer",
+    engine: SCENARIO.engineId,
     model: "claude-haiku-5",
     pipeline: "Feature",
     project: "Website",
@@ -94,6 +98,7 @@ export const SCENARIO_CALLS: readonly ScenarioCall[] = [
     stage: "",
     stageRun: "",
     role: "planner",
+    engine: SCENARIO.engineId,
     model: "claude-sonnet-5",
     pipeline: "",
     project: "",

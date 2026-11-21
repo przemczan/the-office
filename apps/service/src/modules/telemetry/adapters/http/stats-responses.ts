@@ -2,6 +2,7 @@ import type {
   BasicStats as BasicStatsResponse,
   FullStats as FullStatsResponse,
   StatsEngineWindows as StatsEngineWindowsResponse,
+  StatsRanOn,
   SystemHealth as SystemHealthResponse,
   SystemHealthRead as SystemHealthReadResponse,
   TokenTotals,
@@ -10,7 +11,7 @@ import type { BasicStatsRead } from "../../application/basic-stats.js";
 import type { FullStatsRead } from "../../application/full-stats.js";
 import type { HealthReadingsRead, SystemHealthRead } from "../../application/system-health.js";
 import type { StatsTokens } from "../../domain/basic-stats.js";
-import type { Spend, WindowPoint } from "../../domain/full-stats.js";
+import type { RanOn, Spend, WindowPoint } from "../../domain/full-stats.js";
 import type { StatsEngineWindows, StatsUsageWindow } from "../../ports/engine-windows.js";
 
 export function toBasicStatsResponse(stats: BasicStatsRead): BasicStatsResponse {
@@ -81,7 +82,11 @@ export function toFullStatsResponse(stats: FullStatsRead): FullStatsResponse {
       ...toSpend(task),
       stages: task.stages.map(({ stageName, tries }) => ({
         stageName,
-        tries: tries.map((one) => ({ try: one.try, ...toSpend(one) })),
+        tries: tries.map((one) => ({
+          try: one.try,
+          ...toSpend(one),
+          ranOn: toRanOnResponse(one.ranOn),
+        })),
       })),
       outsideStages: toSpend(task.outsideStages),
     })),
@@ -90,10 +95,11 @@ export function toFullStatsResponse(stats: FullStatsRead): FullStatsResponse {
       title: initiative.title,
       projectIds: [...initiative.projectIds],
       ...toSpend(initiative),
-      tasks: initiative.tasks.map(({ taskId, title, ...spend }) => ({
+      tasks: initiative.tasks.map(({ taskId, title, ranOn, ...spend }) => ({
         taskId,
         title,
         ...toSpend(spend),
+        ranOn: toRanOnResponse(ranOn),
       })),
       ownThreads: toSpend(initiative.ownThreads),
     })),
@@ -118,6 +124,15 @@ export function toFullStatsResponse(stats: FullStatsRead): FullStatsResponse {
 /** A sum of floating figures can come out a hair below zero, which the contract refuses. */
 function toSpend({ tokens, estimatedCostUsd }: Spend) {
   return { tokens: Math.max(0, tokens), estimatedCostUsd: Math.max(0, estimatedCostUsd) };
+}
+
+function toRanOnResponse(ranOn: readonly RanOn[]): StatsRanOn[] {
+  return ranOn.map(({ engineName, model, standInForEngineName, ...spend }) => ({
+    engineName,
+    model,
+    ...(standInForEngineName === undefined ? {} : { standInForEngineName }),
+    ...toSpend(spend),
+  }));
 }
 
 function toWindowPoint({ at, percentUsed }: WindowPoint) {

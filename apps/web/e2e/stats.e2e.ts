@@ -148,7 +148,10 @@ async function chooseTelemetry(page: Page, kind: "off" | "bundled-grafana"): Pro
   expect(response.ok()).toBe(true);
 }
 
-/** The scripted Grafana's data: tokens and cost over two models, a Task's two runs, the windows. */
+/**
+ * The scripted Grafana's data: tokens and cost over two models, a Task's two runs (the first on
+ * the own engine and on one no longer known), the windows.
+ */
 function grafanaHolding(task: Task): Record<string, unknown> {
   const spend = (hours: readonly number[], value: number) =>
     hours.map((hour) => ({ at: hoursAgo(hour), value }));
@@ -172,14 +175,27 @@ function grafanaHolding(task: Task): Record<string, unknown> {
           runs: [
             {
               stageName: "Implement",
-              stageRun: "e2e-stats-run-1",
+              stageRun: "1",
+              engineId: OWN_ENGINE_ID,
+              model: "claude-opus-5-5",
               firstAt: hoursAgo(30),
-              tokens: 1_200_000,
-              estimatedCostUsd: 7.1,
+              tokens: 900_000,
+              estimatedCostUsd: 5,
             },
             {
               stageName: "Implement",
-              stageRun: "e2e-stats-run-2",
+              stageRun: "1",
+              engineId: "e2e-stats-removed-engine",
+              model: "claude-sonnet-5-5",
+              firstAt: hoursAgo(29),
+              tokens: 300_000,
+              estimatedCostUsd: 2.1,
+            },
+            {
+              stageName: "Implement",
+              stageRun: "2",
+              engineId: OWN_ENGINE_ID,
+              model: "claude-sonnet-5-5",
               firstAt: hoursAgo(5),
               tokens: 800_000,
               estimatedCostUsd: 5.3,
@@ -344,8 +360,17 @@ test.describe("the full stats from the bundled Grafana", () => {
     const fold = costliest.getByRole("button", { name: "Cost per Stage: Price the full stats" });
     await fold.click();
     await expect(fold).toHaveAttribute("aria-expanded", "true");
-    await expect(costliest.getByText("Run 1 · $7.10", { exact: true })).toBeVisible();
-    await expect(costliest.getByText("Run 2 · retry · $5.30", { exact: true })).toBeVisible();
+    // Each try also says what it ran on, most cost first, by the engines' names; the Task has no
+    // Stage run records here, so the names are the engines' now and nothing is a stand-in.
+    await expect(
+      costliest.getByText("Run 1 · $7.10 · Opus 5.5 on Claude Code, Sonnet 5.5 on Removed engine", {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      costliest.getByText("Run 2 · retry · $5.30 · Sonnet 5.5 on Claude Code", { exact: true }),
+    ).toBeVisible();
+    await expect(costliest).not.toContainText("Stand-in for");
     await expect(costliest).toContainText("Retries: $5.30, 43%");
 
     // The own engine's windows, and the lane of what ran on it: Office-wide, so other files'

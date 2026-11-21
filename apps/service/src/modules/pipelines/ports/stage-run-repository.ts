@@ -53,6 +53,21 @@ export interface RanAgentStageRun {
   readonly endedAt: Date | undefined;
 }
 
+/**
+ * The engines a Stage run's session ran on, by their names at the time: the one it ran on last, the
+ * cascade's engine that one stood in for, and each switch of engine during the run. A name is
+ * undefined where the run kept none.
+ */
+export interface KeptStageRunEngines {
+  readonly taskId: string;
+  readonly number: number;
+  readonly engineId: string;
+  readonly engineName: string | undefined;
+  readonly standInFor:
+    { readonly engineId: string; readonly engineName: string | undefined } | undefined;
+  readonly switches: readonly EngineSwitch[];
+}
+
 /** Where each Task's Stage runs are kept. */
 export abstract class StageRunRepository {
   /**
@@ -170,4 +185,10 @@ export abstract class StageRunRepository {
    * kept before it was recorded, or one whose session never opened) is left out.
    */
   abstract ranBetween(from: Date, to: Date): Promise<readonly RanAgentStageRun[]>;
+
+  /**
+   * The engines each run of the Tasks ran on, each Task's oldest first; a run that kept no engine
+   * (a Script Stage's, a Gate's, one whose session never opened) is left out.
+   */
+  abstract enginesOfTasks(taskIds: readonly string[]): Promise<readonly KeptStageRunEngines[]>;
 }

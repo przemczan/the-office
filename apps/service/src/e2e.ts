@@ -116,6 +116,8 @@ const e2eStatsSourceSchema = z.object({
             z.object({
               stageName: z.string(),
               stageRun: z.string(),
+              engineId: z.string(),
+              model: z.string(),
               firstAt: z.coerce.date(),
               ...e2eSpendSchema,
             }),
@@ -126,7 +128,15 @@ const e2eStatsSourceSchema = z.object({
         z.object({
           initiativeId: z.string(),
           ...e2eSpendSchema,
-          tasks: z.array(z.object({ taskId: z.string(), ...e2eSpendSchema })),
+          tasks: z.array(
+            z.object({
+              taskId: z.string(),
+              stageRun: z.string(),
+              engineId: z.string(),
+              model: z.string(),
+              ...e2eSpendSchema,
+            }),
+          ),
         }),
       ),
     })

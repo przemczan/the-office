@@ -114,7 +114,7 @@
 - `duty-words.fixtures.ts`: roleFor, CARETAKER, PLANNER, DEVOPS, DEVELOPER_LET_GO, dutyOf
 - `duty-words.ts`: DUTY_LABELS, STAGE_DUTIES, dutyHolder, NOBODY, dutyDescription, fallbackWords, labelsFallingBackTo, holderOptions, dutiesHeldBy, holderName, holderNameOf, letGoHolderWords, passedOverWords, dutyLabels, suitsWords, dutyCountWords
 - `engine-model-fields.tsx`: OfferedEngine, EngineModelFields
-- `engine-words.ts`: EFFORT_LABELS, modelLabel
+- `engine-words.ts`: EFFORT_LABELS, modelLabel, runEngineWords, standInForWords
 - `floating-menu.tsx`: FloatingMenu
 - `github-permissions-prompt.tsx`: permissionWords, GitHubPermissionsPrompt
 - `google-mark.tsx`: GoogleMark

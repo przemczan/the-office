@@ -17,6 +17,7 @@ import type { StatsStageRun, StatsTask } from "../../domain/basic-stats.js";
 import type {
   StatsInitiative,
   StatsProjectName,
+  StatsStageRunEngines,
   StatsStageRunSpan,
 } from "../../domain/full-stats.js";
 import type { HealthHour } from "../../domain/system-health.js";
@@ -207,6 +208,21 @@ class ConnectionsForTests {
   }
 }
 
+class StageRunEnginesForTests {
+  async of(): Promise<readonly StatsStageRunEngines[]> {
+    return [
+      {
+        taskId: OURS,
+        number: 1,
+        engineId: "personal",
+        engineName: "Personal",
+        standInFor: { engineId: "claude-code", engineName: "Claude Code" },
+        switches: [],
+      },
+    ];
+  }
+}
+
 const SOURCES = [
   HealthReadingsForTests,
   SessionsForTests,
@@ -217,6 +233,7 @@ const SOURCES = [
   RunsForTests,
   TasksForTests,
   SpansForTests,
+  StageRunEnginesForTests,
   InitiativesForTests,
   ProjectNamesForTests,
 ];
@@ -251,6 +268,7 @@ beforeAll(async () => {
         engineWindows: EnginesForTests,
         stageRunTotals: RunsForTests,
         runningStageRuns: SpansForTests,
+        stageRunEngines: StageRunEnginesForTests,
         officeTasks: TasksForTests,
         officeInitiatives: InitiativesForTests,
         projectNames: ProjectNamesForTests,
@@ -331,7 +349,9 @@ describe("GET /stats/full", () => {
             runs: [
               {
                 stageName: "Implement",
-                stageRun: "run-1",
+                stageRun: "1",
+                engineId: "personal",
+                model: "claude-opus-5-5",
                 firstAt: new Date("2026-11-17T09:00:00.000Z"),
                 tokens: 10,
                 estimatedCostUsd: 0.5,
@@ -364,7 +384,26 @@ describe("GET /stats/full", () => {
           taskId: OURS,
           title: "Show the Stats",
           projectId: "office",
-          stages: [{ stageName: "Implement", tries: [{ try: 1, estimatedCostUsd: 0.5 }] }],
+          stages: [
+            {
+              stageName: "Implement",
+              tries: [
+                {
+                  try: 1,
+                  estimatedCostUsd: 0.5,
+                  ranOn: [
+                    {
+                      engineName: "Personal",
+                      model: "claude-opus-5-5",
+                      standInForEngineName: "Claude Code",
+                      tokens: 10,
+                      estimatedCostUsd: 0.5,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
           outsideStages: { tokens: 0, estimatedCostUsd: 0 },
         },
       ],

@@ -129,18 +129,18 @@ describe("GrafanaStatsSource", () => {
     expect(breakdown?.queries.map((query) => [query.refId, query.expr])).toEqual([
       [
         "taskCost",
-        `sum by (office_task, office_stage, office_stage_run) (sum_over_time({service_name="the-office"} |= "office.engine.call" | ${tasks} | unwrap office_cost_estimated_usd | __error__="" [3600s]))`,
+        `sum by (office_task, office_stage, office_stage_run, office_engine, office_engine_model) (sum_over_time({service_name="the-office"} |= "office.engine.call" | ${tasks} | unwrap office_cost_estimated_usd | __error__="" [3600s]))`,
       ],
       ["taskInput", expect.stringContaining("| unwrap office_tokens_input |")],
       ["taskOutput", expect.stringContaining("| unwrap office_tokens_output |")],
       ["taskCacheCreation", expect.stringContaining("| unwrap office_tokens_cache_creation |")],
       [
         "taskFirst",
-        `min by (office_task, office_stage, office_stage_run) (min_over_time({service_name="the-office"} |= "office.engine.call" | ${tasks} | label_format office_first_ms=\`{{ __timestamp__ | unixEpochMillis }}\` | unwrap office_first_ms | __error__="" [3600s]))`,
+        `min by (office_task, office_stage, office_stage_run, office_engine, office_engine_model) (min_over_time({service_name="the-office"} |= "office.engine.call" | ${tasks} | label_format office_first_ms=\`{{ __timestamp__ | unixEpochMillis }}\` | unwrap office_first_ms | __error__="" [3600s]))`,
       ],
       [
         "initiativeCost",
-        `sum by (office_initiative, office_task) (sum_over_time({service_name="the-office"} |= "office.engine.call" | office_initiative=~"${SCENARIO.initiative}" | unwrap office_cost_estimated_usd | __error__="" [3600s]))`,
+        `sum by (office_initiative, office_task, office_stage_run, office_engine, office_engine_model) (sum_over_time({service_name="the-office"} |= "office.engine.call" | office_initiative=~"${SCENARIO.initiative}" | unwrap office_cost_estimated_usd | __error__="" [3600s]))`,
       ],
       ["initiativeInput", expect.any(String)],
       ["initiativeOutput", expect.any(String)],
@@ -158,9 +158,9 @@ describe("GrafanaStatsSource", () => {
       firstCalls.reduce((sum, call) => sum + call.estimatedUsd, 0),
     );
     // The tries in the order their first records came; the call outside a Stage has "" for both.
-    expect(first?.runs.map((run) => [run.stageName, run.stageRun])).toEqual(
-      firstCalls.map((call) => [call.stage, call.stageRun]),
-    );
+    expect(
+      first?.runs.map((run) => [run.stageName, run.stageRun, run.engineId, run.model]),
+    ).toEqual(firstCalls.map((call) => [call.stage, call.stageRun, call.engine, call.model]));
     expect(first?.runs.map((run) => run.tokens)).toEqual(firstCalls.map(counted));
     for (const run of first?.runs ?? []) {
       expect(run.firstAt.getTime()).toBeGreaterThanOrEqual(range.from.getTime());
@@ -173,8 +173,15 @@ describe("GrafanaStatsSource", () => {
     );
     expect(initiative?.initiativeId).toBe(SCENARIO.initiative);
     expect(initiative?.tokens).toBe(initiativeCalls.reduce((sum, call) => sum + counted(call), 0));
-    expect(initiative?.tasks.map((task) => task.taskId).toSorted()).toEqual(
-      ["", SCENARIO.firstTask].toSorted(),
+    // One piece per call: each Task's Stage run on its engine and model.
+    expect(
+      initiative?.tasks
+        .map((task) => [task.taskId, task.stageRun, task.engineId, task.model].join(" "))
+        .toSorted(),
+    ).toEqual(
+      initiativeCalls
+        .map((call) => [call.task, call.stageRun, call.engine, call.model].join(" "))
+        .toSorted(),
     );
     const ownThreads = initiative?.tasks.find((task) => task.taskId === "");
     const ownCall = SCENARIO_CALLS.find((call) => call.task === "");

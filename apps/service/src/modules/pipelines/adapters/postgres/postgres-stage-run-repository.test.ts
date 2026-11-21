@@ -212,6 +212,72 @@ describe("PostgresStageRunRepository's engine", () => {
   });
 });
 
+describe("PostgresStageRunRepository.enginesOfTasks", () => {
+  it("gives each run of the Tasks named that ran on an engine, by number, with the engine it stood in for and its switches", async () => {
+    const taskId = randomUUID();
+    const other = randomUUID();
+    const first = aStageRun({ id: randomUUID(), taskId, number: 1 });
+    const retry = aStageRun({ id: randomUUID(), taskId, number: 2, outcome: undefined });
+    const notStarted = aStageRun({ id: randomUUID(), taskId, number: 3, outcome: undefined });
+    const otherTask = aStageRun({ id: randomUUID(), taskId: other, number: 1 });
+    for (const run of [first, retry, notStarted, otherTask]) await runs.saveNew(run);
+    const thread = { threadId: randomUUID(), session: "fresh", model: "claude-opus-5-5" } as const;
+    await runs.saveThread(first.id, {
+      ...thread,
+      engineId: "work",
+      engineName: "Work",
+      standInFor: undefined,
+    });
+    const standInFor = { engineId: "work", engineName: "Work", reason: "Its window was used up." };
+    await runs.saveThread(retry.id, {
+      ...thread,
+      engineId: "work",
+      engineName: "Work",
+      standInFor: undefined,
+    });
+    const toPersonal = {
+      fromEngineId: "work",
+      fromEngineName: "Work",
+      toEngineId: "personal",
+      toEngineName: "Personal",
+      windowWords: "5-hour window",
+      resetsAt: "2026-11-13T14:00:00.000Z",
+      at: "2026-11-13T12:00:00.000Z",
+    };
+    await runs.saveEngineSwitch(retry.id, toPersonal, {
+      engineId: "personal",
+      engineName: "Personal",
+      standInFor,
+    });
+    await runs.saveThread(otherTask.id, {
+      ...thread,
+      engineId: "spare",
+      engineName: "Spare",
+      standInFor: undefined,
+    });
+
+    expect(await runs.enginesOfTasks([taskId])).toEqual([
+      {
+        taskId,
+        number: 1,
+        engineId: "work",
+        engineName: "Work",
+        standInFor: undefined,
+        switches: [],
+      },
+      {
+        taskId,
+        number: 2,
+        engineId: "personal",
+        engineName: "Personal",
+        standInFor: { engineId: "work", engineName: "Work" },
+        switches: [toPersonal],
+      },
+    ]);
+    expect(await runs.enginesOfTasks([])).toEqual([]);
+  });
+});
+
 function commandRun(commandLine: string, wholeOutput: string) {
   return {
     purpose: "command" as const,
