@@ -323,18 +323,25 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 
 - The Devices section (plug icon), shown only while the Project's Run environment is On; open at the start while the Task has a device not Disconnected.
 - Summary: "<n> connected", or "None connected".
-- A list, one row per device not Disconnected: its name, a badge for its kind (**Android phone over USB**, **Serial board over USB**, **Android phone over wireless debugging**), its state (**Connecting**, **Connected**, **Waiting for the run environment**), "connected by <user> · <when>" (<user> reads "you" for yourself), its endpoint (`127.0.0.1:<port>`) in monospace once Connected, and **Disconnect**.
+- A list, one row per device not Disconnected: its name, a badge for its kind (**Android phone over USB**, **Serial board over USB**, **Android phone over wireless debugging**), its state (**Connecting**, **Connected**, **Waiting for the run environment**), "connected by <user> · <when>" (<user> reads "you" for yourself), its endpoint in monospace once Connected (`127.0.0.1:<port>` for an Android phone over USB, the serial path such as `/dev/ttyACM0` for a serial board), for a serial board "<baud> baud · round trip <n> ms" once each is known, and **Disconnect**.
 - An Android phone over USB's endpoint reads "adb serial 127.0.0.1:<port>", as `adb devices` lists it.
 - While a phone waits for the user to let adb in, its row says "Allow USB debugging on the phone, and tick Always allow from this computer."; the line goes once the phone lets adb in.
 - Below it, a fold "Disconnected" lists the Task's earlier devices with why and "disconnected <when>", each as [2.13](../2.13-connected-devices.md#states) names it.
 - **Connect over USB** is a menu of the USB kinds this build has a way to reach in the browser, each opening the browser's own device picker (an Android phone with WebUSB, a serial board with Web Serial).
-  - Its choices: **Android phone over USB** (WebUSB) in this build.
-  - A choice this browser can't reach is greyed, with why under its name: "Needs Chrome or Edge" (no WebUSB), or "Needs The Office over HTTPS or localhost" (the page isn't a secure one).
+  - Its choices: **Android phone over USB** (WebUSB) and **Serial board over USB** (Web Serial) in this build.
+  - A choice this browser can't reach is greyed, with why under its name: "Needs Chrome or Edge" (no WebUSB, or no Web Serial), or "Needs The Office over HTTPS or localhost" (the page isn't a secure one).
   - While the phone picker is open, and after it closed with no phone picked, the section says "Don't see the phone? Turn on USB debugging in Developer options."
+  - A serial board the browser can't open shows "This board is open in another tab or program."
   - The note "Keep this tab open: closing it disconnects the device."
 - **Pair over wireless debugging** opens the form **IP address**, **Port**, **Pairing port** and **Pairing code** (hint "From the phone's Wireless debugging › Pair device with pairing code. Used once, never kept."), button **Pair**; note "Pairing starts the Task's run environment."
 - An Android phone over USB whose run environment has no adb ends Disconnected as error; its why in the Disconnected fold reads "error: adb isn't in this Project's run environment. Add Android's platform-tools to .devcontainer, then connect again.", with no warning above the list and no link.
-- A serial board that needs a 1200-baud touch or its own DTR/RTS sequence shows "This board's reset isn't carried over the relay."
+- A serial board's notices ([2.13](../2.13-connected-devices.md#notices)) show on its row, one line each, in the warning tone unless said:
+  - slow round trip: "Uploads will be slow: each step waits <n> ms for the round trip.";
+  - no answer after a reset: "The board didn't answer after its reset; its bootloader may not wait for the <n> ms round trip. Press its reset button as the upload starts.";
+  - 1200-baud touch: "This board resets into a new USB device to upload (1200-baud touch, as Leonardo and Micro do); that isn't carried through the browser.";
+  - esptool's sync unanswered: "esptool's automatic reset isn't carried on this port. Hold BOOT, tap reset, and upload with --before no_reset.";
+  - no upload tool, in the info tone: "Neither avrdude nor arduino-cli is in the run environment's image; add the Project's upload tool to .devcontainer."
+  - Before the round trip is measured, the words leave out "<n> ms".
 - A device already connected to another Task is refused with "<device> is connected to <Task>. Disconnect it there first.", the Task linked.
 - Toasts "<name> connected.", "<name> disconnected."; a refusal shows under the section as the service words it (**The device wasn't connected**).
 - The browser's own refusals of an Android phone show the same way:

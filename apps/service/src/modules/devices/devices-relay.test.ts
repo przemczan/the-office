@@ -5,6 +5,7 @@ import {
   connectDeviceRefusalSchema,
   connectedDeviceListSchema,
   connectedDeviceSchema,
+  controlFrame,
   DEVICE_CONTROL_CHANNEL,
   DEVICE_FRAME_TYPES,
   DEVICE_RELAY_TAKEN_CLOSE_CODE,
@@ -13,7 +14,11 @@ import {
   disconnectDevicePath,
   encodeFrame,
   FrameReader,
+  helperNoticeCodeSchema,
+  SLOW_ROUND_TRIP_MS as CONTRACT_SLOW_ROUND_TRIP_MS,
   taskDevicesPath,
+  textFrame,
+  type ConnectedDevice as ConnectedDeviceResponse,
   type DeviceFrame,
   type DeviceRelayServerMessage,
 } from "@the-office/contracts";
@@ -21,6 +26,7 @@ import { WebSocket as WsClient } from "ws";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../test/test-application.js";
 import { EventsModule } from "../../platform/events/events.module.js";
+import { Schedule } from "../../platform/schedule/schedule.js";
 import { EventStreamModule } from "../../platform/websocket/event-stream.module.js";
 import {
   devicesForTests,
@@ -35,10 +41,12 @@ import type { TaskInWorktree } from "../run-environments/index.js";
 import { DevicesController } from "./adapters/http/devices.controller.js";
 import { DeviceRelayRoute } from "./adapters/websocket/device-relay-route.js";
 import { ConnectedDevices } from "./application/connected-devices.js";
+import { HELPER_NOTICE_CODES, SLOW_ROUND_TRIP_MS } from "./domain/connected-device.js";
 import {
   devicesTestbed,
   framesWrittenTo,
   HELPER_ENDPOINT,
+  loopbackHelper,
   PROJECT_ID,
   type DevicesTestbed,
 } from "./devices.fixtures.js";
@@ -63,7 +71,13 @@ beforeEach(async () => {
     imports: [EventsModule, EventStreamModule, devicesForTests()],
     requestAccess: "guarded",
     controllers: [DevicesController],
-    providers: [{ provide: ConnectedDevices, useValue: testbed.devices }, DeviceRelayRoute],
+    providers: [
+      { provide: ConnectedDevices, useValue: testbed.devices },
+      { provide: Schedule, useValue: testbed.environments.schedule },
+      DeviceRelayRoute,
+    ],
+    // The relay measures round trips on the devices' own clock.
+    overrides: [{ provide: Schedule, useValue: testbed.environments.schedule }],
   }));
   cookie = app.get(DevicesForTests).signIn("browser");
 });
@@ -179,6 +193,93 @@ describe("a device's relay over the signed-in WebSocket", () => {
       .poll(async () => (await testbed.devices.read(id)).disconnectedBecause)
       .toBe("tab-closed");
     expect(testbed.runtime.attached[0]?.stopped).toBe(true);
+  });
+});
+
+/** The Task's newest device, as the list route answers it. */
+async function listed(): Promise<ConnectedDeviceResponse | undefined> {
+  const list = await fetch(`${url}/api${taskDevicesPath(TASK_ID)}`, { headers: { cookie } });
+  return connectedDeviceListSchema.parse(await list.json()).devices[0];
+}
+
+describe("a serial board's relay", () => {
+  const BOARD = { kind: "serial-usb", name: "Arduino Uno", deviceKey: "2341:0043:RELAY" } as const;
+  const SETTINGS = { baudRate: 115_200, dataBits: 8, parity: "none", stopBits: 1 } as const;
+
+  async function connectBoard(): Promise<{ id: string; relay: RelayClient }> {
+    testbed.runtime.onAttach = (process) => loopbackHelper(process, { endpoint: "/dev/ttyACM0" });
+    await start();
+    const response = await post(taskDevicesPath(TASK_ID), BOARD);
+    const { id } = connectedDeviceSchema.parse(await response.json());
+    const relay = await openRelay(id);
+    await expect
+      .poll(() => relay.states.at(-1))
+      .toEqual({ type: "state", state: "connected", endpoint: "/dev/ttyACM0" });
+    return { id, relay };
+  }
+
+  it("passes the helper's SETTINGS, SIGNALS and PING in order with DATA, and keeps the baud rate", async () => {
+    const { relay } = await connectBoard();
+    const [helper] = testbed.runtime.attached;
+    if (helper === undefined) throw new Error("No helper attached.");
+
+    helper.print(encodeFrame(controlFrame(DEVICE_FRAME_TYPES.settings, SETTINGS)));
+    helper.print(encodeFrame({ ...textFrame(DEVICE_FRAME_TYPES.data, "hi\n"), channel: 1 }));
+    helper.print(
+      encodeFrame(
+        controlFrame(DEVICE_FRAME_TYPES.signals, { dataTerminalReady: true, requestToSend: true }),
+      ),
+    );
+    helper.print(encodeFrame(controlFrame(DEVICE_FRAME_TYPES.ping, { id: 1 })));
+
+    await expect.poll(() => relay.frames.length).toBe(4);
+    expect(relay.frames.map(({ type, channel }) => ({ type, channel }))).toEqual([
+      { type: DEVICE_FRAME_TYPES.settings, channel: DEVICE_CONTROL_CHANNEL },
+      { type: DEVICE_FRAME_TYPES.data, channel: 1 },
+      { type: DEVICE_FRAME_TYPES.signals, channel: DEVICE_CONTROL_CHANNEL },
+      { type: DEVICE_FRAME_TYPES.ping, channel: DEVICE_CONTROL_CHANNEL },
+    ]);
+    expect(JSON.parse(Buffer.from(relay.frames[0]?.payload ?? []).toString())).toEqual(SETTINGS);
+    await expect.poll(async () => (await listed())?.baudRate).toBe(115_200);
+    expect(await listed()).toMatchObject({
+      endpoint: "/dev/ttyACM0",
+      roundTripMs: null,
+      notices: [],
+    });
+  });
+
+  it("measures the round trip from the browser's PONG, says it is slow over 250 ms, and keeps the helper's NOTICE", async () => {
+    const { relay } = await connectBoard();
+    const [helper] = testbed.runtime.attached;
+    if (helper === undefined) throw new Error("No helper attached.");
+
+    testbed.environments.schedule.setTime(new Date("2026-11-21T10:00:00.000Z"));
+    helper.print(encodeFrame(controlFrame(DEVICE_FRAME_TYPES.ping, { id: 7 })));
+    await expect
+      .poll(() => relay.frames.map(({ type }) => type))
+      .toEqual([DEVICE_FRAME_TYPES.ping]);
+    await testbed.environments.schedule.advanceBy(300);
+    relay.socket.send(encodeFrame(controlFrame(DEVICE_FRAME_TYPES.pong, { id: 7 })));
+    relay.socket.send(encodeFrame(controlFrame(DEVICE_FRAME_TYPES.settings, SETTINGS)));
+    relay.socket.send(
+      encodeFrame(controlFrame(DEVICE_FRAME_TYPES.notice, { code: "no-upload-tool" })),
+    );
+    helper.print(
+      encodeFrame(controlFrame(DEVICE_FRAME_TYPES.notice, { code: "no-answer-after-reset" })),
+    );
+
+    await expect
+      .poll(async () => (await listed())?.notices)
+      .toEqual(["slow-round-trip", "no-answer-after-reset"]);
+    expect((await listed())?.roundTripMs).toBe(300);
+    // The PONG is the service's, and the browser's SETTINGS and NOTICE never reach the helper.
+    expect(framesWrittenTo(helper)).toEqual([]);
+    expect(relay.frames.map(({ type }) => type)).toEqual([DEVICE_FRAME_TYPES.ping]);
+  });
+
+  it("speaks the contracts' slow round trip and notice codes", () => {
+    expect(SLOW_ROUND_TRIP_MS).toBe(CONTRACT_SLOW_ROUND_TRIP_MS);
+    expect([...HELPER_NOTICE_CODES]).toEqual(helperNoticeCodeSchema.options);
   });
 });
 

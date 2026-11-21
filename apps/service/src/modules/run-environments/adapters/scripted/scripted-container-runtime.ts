@@ -182,6 +182,19 @@ export class ScriptedContainerRuntime extends ContainerRuntime {
     return Promise.resolve(attached);
   }
 
+  /** What `userIdsOf` answers for every service and user: root's unless a test sets another. */
+  userIds = "0:0";
+
+  userIdsOf(project: ComposeProject, service: string, user?: string): Promise<string> {
+    this.steps.push(`ids ${project.name} ${service}${user === undefined ? "" : ` ${user}`}`);
+    if (this.projects.get(project.name)?.state !== "running") {
+      return Promise.reject(
+        new ContainerRuntimeFailed(`The compose project ${project.name} isn't running.`),
+      );
+    }
+    return Promise.resolve(this.userIds);
+  }
+
   async exec(
     project: ComposeProject,
     execution: Execution,

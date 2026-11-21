@@ -34,6 +34,23 @@ describe("TaskConnectedDevices", () => {
     expect(await devices.of("t2")).toEqual([]);
   });
 
+  it("puts each detail after the endpoint, after a semicolon", async () => {
+    const devices = new TaskConnectedDevices();
+    devices.register(async () => [
+      {
+        kind: "Serial board over USB",
+        name: "Arduino Uno",
+        state: "Connected",
+        connected: true,
+        endpoint: "/dev/ttyACM0",
+        details: ["115200 baud", "round trip 40 ms"],
+      },
+    ]);
+    expect(await devices.linesOf("t1")).toEqual([
+      "Serial board over USB «Arduino Uno»: Connected, at /dev/ttyACM0; 115200 baud; round trip 40 ms",
+    ]);
+  });
+
   it("leaves out a lister that throws and logs it", async () => {
     const devices = new TaskConnectedDevices();
     devices.register(async () => {

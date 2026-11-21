@@ -2,6 +2,7 @@ import type {
   ConnectedDevice,
   ConnectedDeviceKind,
   ConnectedDeviceState,
+  DeviceNotice,
 } from "@the-office/contracts";
 import type { BadgeProps } from "@the-office/ui";
 
@@ -77,4 +78,47 @@ export function connectedToastWords(name: string): string {
 
 export function disconnectedToastWords(name: string): string {
   return `${name} disconnected.`;
+}
+
+/** A serial board's line settings and round trip on its row: "115200 baud · round trip 40 ms". */
+export function serialLineWords(
+  device: Pick<ConnectedDevice, "baudRate" | "roundTripMs">,
+): string | undefined {
+  const parts = [
+    device.baudRate === null ? undefined : `${device.baudRate} baud`,
+    device.roundTripMs === null ? undefined : `round trip ${device.roundTripMs} ms`,
+  ].filter((part) => part !== undefined);
+  return parts.length === 0 ? undefined : parts.join(" · ");
+}
+
+/** A notice's tone: what slows or stops an upload warns, a missing tool informs. */
+export const DEVICE_NOTICE_TONES: Readonly<Record<DeviceNotice, "warning" | "info">> = {
+  "slow-round-trip": "warning",
+  "no-answer-after-reset": "warning",
+  "touch-1200": "warning",
+  "esptool-sync-no-answer": "warning",
+  "no-upload-tool": "info",
+};
+
+/** What the Devices section says for each of a device's notices (spec 2.13, "Serial boards"). */
+export function deviceNoticeWords(
+  notice: DeviceNotice,
+  roundTripMs: ConnectedDevice["roundTripMs"],
+): string {
+  switch (notice) {
+    case "slow-round-trip":
+      return roundTripMs === null
+        ? "Uploads will be slow: each step waits for the round trip."
+        : `Uploads will be slow: each step waits ${roundTripMs} ms for the round trip.`;
+    case "no-answer-after-reset":
+      return roundTripMs === null
+        ? "The board didn't answer after its reset; its bootloader may not wait for the round trip. Press its reset button as the upload starts."
+        : `The board didn't answer after its reset; its bootloader may not wait for the ${roundTripMs} ms round trip. Press its reset button as the upload starts.`;
+    case "touch-1200":
+      return "This board resets into a new USB device to upload (1200-baud touch, as Leonardo and Micro do); that isn't carried through the browser.";
+    case "esptool-sync-no-answer":
+      return "esptool's automatic reset isn't carried on this port. Hold BOOT, tap reset, and upload with --before no_reset.";
+    case "no-upload-tool":
+      return "Neither avrdude nor arduino-cli is in the run environment's image; add the Project's upload tool to .devcontainer.";
+  }
 }

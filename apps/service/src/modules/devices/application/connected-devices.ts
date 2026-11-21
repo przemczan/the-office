@@ -25,8 +25,12 @@ import {
   connectedDevicesVariable,
   connectingDevice,
   connectProblemsOf,
+  detailsOf,
+  deviceBaudRateSet,
   deviceConnected,
   deviceDisconnected,
+  deviceNoticed,
+  deviceRoundTripMeasured,
   deviceWaiting,
   isOpen,
   KIND_WORDS,
@@ -44,7 +48,7 @@ import {
 import { ConnectedDeviceRepository } from "../ports/connected-device-repository.js";
 import { DeviceTasks } from "../ports/device-tasks.js";
 import { ProjectRunEnvironmentSettings } from "../ports/project-run-environment-settings.js";
-import type { HelperOpening, RelayClose, RelayLink } from "../ports/relay-link.js";
+import type { HelperOpening, HelperProcess, RelayClose, RelayLink } from "../ports/relay-link.js";
 import { AndroidUsbDevices, type ConnectedAndroidPhone } from "./android-usb-devices.js";
 import { hostHelperArchitecture } from "./device-helper-architecture.js";
 
@@ -52,6 +56,9 @@ import { hostHelperArchitecture } from "./device-helper-architecture.js";
 export const CONNECTED_DEVICES_VARIABLE = "OFFICE_CONNECTED_DEVICES";
 /** The serial adb uses when one Android phone is Connected, unless the Project sets its own. */
 export const ANDROID_SERIAL_VARIABLE = "ANDROID_SERIAL";
+
+/** Where the helper's serial mode makes a board's path: `/dev/ttyACM0`, then on (spec §2.13). */
+export const SERIAL_PATH_PREFIX = "/dev/ttyACM";
 
 /** How long a helper has to say HELLO and READY before its device ends as an error. */
 export const HELPER_START_TIMEOUT_MS = 10_000;
@@ -247,18 +254,26 @@ export class ConnectedDevices implements OnModuleInit {
         await this.end(device.id, "error", undefined, DEVICE_HELPER_NOT_BUILT);
         return;
       }
-      const helper = await this.environments.attach(device.taskId, {
-        arguments: [executable, "relay", "--listen", "127.0.0.1:0"],
-      });
+      const helper = await this.attachHelper(device, executable);
       if (helper === undefined) {
         await this.change(device.id, deviceWaiting);
         return;
       }
       const opening = await this.withinStartTimeout(
-        relay.link.startHelper(helper, (why) => {
-          // Weighed as it ends: a stop forgets the environment before its containers stop.
-          const running = this.environments.isRunning(device.taskId);
-          void this.helperEnded(device, relay, why, running);
+        relay.link.startHelper(helper, {
+          ended: (why) => {
+            // Weighed as it ends: a stop forgets the environment before its containers stop.
+            const running = this.environments.isRunning(device.taskId);
+            void this.helperEnded(device, relay, why, running);
+          },
+          settingsChanged: (baudRate) =>
+            this.relayedChange(device.id, relay, (current) => deviceBaudRateSet(current, baudRate)),
+          roundTripMeasured: (roundTripMs) =>
+            this.relayedChange(device.id, relay, (current) =>
+              deviceRoundTripMeasured(current, roundTripMs),
+            ),
+          noticed: (notice) =>
+            this.relayedChange(device.id, relay, (current) => deviceNoticed(current, notice)),
         }),
         () => relay.link.stopHelper(),
       );
@@ -286,6 +301,48 @@ export class ConnectedDevices implements OnModuleInit {
         this.logger.error(`The device ${device.id} wasn't disconnected.`, ending);
       });
     }
+  }
+
+  /**
+   * Attaches the helper for the device's kind: an Android phone's relay listening on 127.0.0.1 as
+   * the checks' user, a serial board's pseudo-terminal as root, handed to the checks' user.
+   * Nothing when the run environment isn't running.
+   */
+  private async attachHelper(
+    device: ConnectedDevice,
+    executable: string,
+  ): Promise<HelperProcess | undefined> {
+    if (device.kind !== "serial-usb") {
+      return this.environments.attach(device.taskId, {
+        arguments: [executable, "relay", "--listen", "127.0.0.1:0"],
+      });
+    }
+    const owner = await this.environments.checksUserOf(device.taskId);
+    if (owner === undefined) return undefined;
+    return this.environments.attach(device.taskId, {
+      arguments: [executable, "pty", "--path-prefix", SERIAL_PATH_PREFIX, "--owner", owner],
+      asRoot: true,
+    });
+  }
+
+  /**
+   * What the device's helper told after its READY, saved in the device's lock while the relay is
+   * still the device's; a failure is logged, never thrown, as nobody waits for it.
+   */
+  private relayedChange(
+    id: string,
+    relay: Relay,
+    transition: (device: ConnectedDevice) => ConnectedDeviceChange,
+  ): void {
+    // Told under startHelper's lock at times, so it must queue for the lock rather than inherit it.
+    void this.locks
+      .runDetached(id, async () => {
+        if (this.relays.get(id) !== relay) return;
+        await this.change(id, transition, { tellSocket: false });
+      })
+      .catch((error: unknown) => {
+        this.logger.error(`The device ${id} wasn't changed as its helper told.`, error);
+      });
   }
 
   private async withinStartTimeout(
@@ -426,26 +483,36 @@ export class ConnectedDevices implements OnModuleInit {
     });
   }
 
-  /** Saves the change, then publishes it and tells the device's socket. */
+  /**
+   * Saves the change, then publishes it and tells the device's socket its state, unless
+   * `tellSocket` is false, as for a baud rate, a round trip or a notice, which leave it as it was.
+   */
   private async change(
     id: string,
     transition: (device: ConnectedDevice) => ConnectedDeviceChange,
+    { tellSocket = true }: { readonly tellSocket?: boolean } = {},
   ): Promise<ConnectedDeviceChange> {
     const changed = await this.repository.update(id, transition);
     if (changed === undefined) return undefined;
-    this.relays.get(id)?.link.sendState(changed.device.state, changed.device.endpoint);
+    if (tellSocket) {
+      this.relays.get(id)?.link.sendState(changed.device.state, changed.device.endpoint);
+    }
     await this.events.publish(changed.event);
     return changed;
   }
 
   private async wordsOf(taskId: string): Promise<readonly TaskConnectedDevice[]> {
-    return (await this.repository.openOfTask(taskId)).map((device) => ({
-      kind: KIND_WORDS[device.kind],
-      name: device.name,
-      state: STATE_WORDS[device.state],
-      connected: device.state === "connected",
-      endpoint: device.endpoint,
-    }));
+    return (await this.repository.openOfTask(taskId)).map((device) => {
+      const details = detailsOf(device);
+      return {
+        kind: KIND_WORDS[device.kind],
+        name: device.name,
+        state: STATE_WORDS[device.state],
+        connected: device.state === "connected",
+        endpoint: device.endpoint,
+        ...(details.length === 0 ? {} : { details }),
+      };
+    });
   }
 }
 

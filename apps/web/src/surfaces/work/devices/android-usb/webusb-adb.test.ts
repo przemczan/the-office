@@ -160,6 +160,8 @@ function recordingSink(): {
       },
       close: (channel) => told.push(`close ${channel}`),
       open: (channel) => told.push(`open ${channel}`),
+      pong: (id) => told.push(`pong ${id}`),
+      fail: (problem) => told.push(`fail ${problem}`),
     },
   };
 }

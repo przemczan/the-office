@@ -4,10 +4,16 @@ import {
   connectedDevicesVariable,
   connectingDevice,
   connectProblemsOf,
+  detailsOf,
+  deviceBaudRateSet,
   deviceConnected,
   deviceDisconnected,
+  deviceNoticed,
+  deviceRoundTripMeasured,
   deviceWaiting,
+  noticesOf,
   type ConnectedDevice,
+  type ConnectedDeviceChange,
 } from "./connected-device.js";
 import { ConnectedDeviceChanged } from "./connected-device-events.js";
 
@@ -90,6 +96,82 @@ describe("a Connected device's transitions", () => {
     expect(deviceDisconnected(byUser, { because: "tab-closed", at: AT })).toBeUndefined();
     expect(deviceConnected(byUser, "127.0.0.1:1")).toBeUndefined();
     expect(deviceWaiting(byUser)).toBeUndefined();
+  });
+});
+
+/** The device a change made, its event the change's. */
+function changed(change: ConnectedDeviceChange): ConnectedDevice {
+  if (change === undefined) throw new Error("Nothing changed.");
+  expect(change.event).toBeInstanceOf(ConnectedDeviceChanged);
+  return change.device;
+}
+
+describe("a serial board's baud rate, round trip and notice", () => {
+  it("keeps a new baud rate, and changes nothing for the same one", () => {
+    const device = changed(deviceBaudRateSet(connected(), 115_200));
+    expect(device.baudRate).toBe(115_200);
+    expect(deviceBaudRateSet(device, 115_200)).toBeUndefined();
+    expect(changed(deviceBaudRateSet(device, 9600)).baudRate).toBe(9600);
+  });
+
+  it("keeps the first round trip, one moved by 25 ms or more, and one crossing 250 ms, rounded", () => {
+    const first = changed(deviceRoundTripMeasured(connected(), 40.4));
+    expect(first.roundTripMs).toBe(40);
+    expect(deviceRoundTripMeasured(first, 64)).toBeUndefined();
+    expect(deviceRoundTripMeasured(first, 16)).toBeUndefined();
+    const moved = changed(deviceRoundTripMeasured(first, 65));
+    expect(moved.roundTripMs).toBe(65);
+
+    const near = changed(deviceRoundTripMeasured(connected(), 240));
+    const over = changed(deviceRoundTripMeasured(near, 251));
+    expect(over.roundTripMs).toBe(251);
+    expect(changed(deviceRoundTripMeasured(over, 250)).roundTripMs).toBe(250);
+  });
+
+  it("keeps the helper's latest notice, and changes nothing for the same one", () => {
+    const device = changed(deviceNoticed(connected(), "touch-1200"));
+    expect(device.notice).toBe("touch-1200");
+    expect(deviceNoticed(device, "touch-1200")).toBeUndefined();
+    expect(changed(deviceNoticed(device, "no-upload-tool")).notice).toBe("no-upload-tool");
+  });
+
+  it("says a slow round trip first, then the helper's notice", () => {
+    expect(noticesOf(connected())).toEqual([]);
+    const fast = changed(deviceRoundTripMeasured(connected(), 250));
+    expect(noticesOf(fast)).toEqual([]);
+    const slow = changed(deviceNoticed(changed(deviceRoundTripMeasured(fast, 400)), "touch-1200"));
+    expect(noticesOf(slow)).toEqual(["slow-round-trip", "touch-1200"]);
+    expect(detailsOf(changed(deviceBaudRateSet(slow, 57_600)))).toEqual([
+      "57600 baud",
+      "round trip 400 ms",
+      "uploads will be slow, each step waiting for the round trip",
+      "its 1200-baud touch isn't carried through the browser",
+    ]);
+  });
+
+  it("starts the round trip and the notice again at a new helper's READY, keeping the baud rate", () => {
+    const told = changed(
+      deviceNoticed(
+        changed(deviceRoundTripMeasured(changed(deviceBaudRateSet(connected(), 9600)), 30)),
+        "no-answer-after-reset",
+      ),
+    );
+    const waiting = changed(deviceWaiting(told));
+    expect(waiting).toMatchObject({ baudRate: 9600, roundTripMs: 30 });
+
+    expect(changed(deviceConnected(waiting, "/dev/ttyACM0"))).toMatchObject({
+      endpoint: "/dev/ttyACM0",
+      baudRate: 9600,
+      roundTripMs: null,
+      notice: null,
+    });
+  });
+
+  it("changes nothing for a Disconnected device", () => {
+    const ended = changed(deviceDisconnected(connected(), { because: "tab-closed", at: AT }));
+    expect(deviceBaudRateSet(ended, 9600)).toBeUndefined();
+    expect(deviceRoundTripMeasured(ended, 30)).toBeUndefined();
+    expect(deviceNoticed(ended, "touch-1200")).toBeUndefined();
   });
 });
 

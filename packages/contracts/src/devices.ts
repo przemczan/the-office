@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { API_PATH } from "./api.js";
+import { helperNoticeCodeSchema } from "./device-control.js";
 import { webEventSchema } from "./events.js";
 import { userRefSchema } from "./users.js";
 
@@ -27,10 +28,24 @@ export const disconnectedBecauseSchema = z.enum([
 ]);
 export type DisconnectedBecause = z.infer<typeof disconnectedBecauseSchema>;
 
+/**
+ * What the Devices section says in words about a device (spec 2.13, "Serial boards"): the
+ * helper's notices, and `slow-round-trip` while the round trip is over `SLOW_ROUND_TRIP_MS`.
+ */
+export const deviceNoticeSchema = z.enum(["slow-round-trip", ...helperNoticeCodeSchema.options]);
+export type DeviceNotice = z.infer<typeof deviceNoticeSchema>;
+
+/** A round trip over this slows uploads enough to say so. */
+export const SLOW_ROUND_TRIP_MS = 250;
+/** How often the helper pings the browser to measure the round trip. */
+export const DEVICE_PING_INTERVAL_MS = 5_000;
+
 /** The longest name a device may report; a longer one is cut. */
 export const CONNECTED_DEVICE_NAME_MAX_LENGTH = 200;
 /** The longest device key the browser may report. */
 export const DEVICE_KEY_MAX_LENGTH = 500;
+/** The longest error in words the browser may report about its device. */
+export const DEVICE_RELAY_PROBLEM_MAX_LENGTH = 500;
 
 /** One device connected, or once connected, to one Task's run environment. */
 export const connectedDeviceSchema = z.object({
@@ -46,8 +61,14 @@ export const connectedDeviceSchema = z.object({
   disconnectedBy: userRefSchema.nullable(),
   /** The error in words, when `error`; null otherwise. */
   problem: z.string().nullable(),
-  /** Where the relayed bytes come out inside the run environment (`127.0.0.1:<port>`) while Connected; null otherwise. */
+  /** Where the relayed bytes come out inside the run environment while Connected: `127.0.0.1:<port>`, or a serial board's path (`/dev/ttyACM0`); null otherwise. */
   endpoint: z.string().nullable(),
+  /** A serial board's baud rate, as the Project's tool last set it; null until it reports one. */
+  baudRate: z.number().int().positive().nullable(),
+  /** The last round trip measured between the helper and the browser, in ms; null until measured. */
+  roundTripMs: z.number().int().nonnegative().nullable(),
+  /** What the Devices section says about it, in this order. */
+  notices: z.array(deviceNoticeSchema),
   connectedBy: userRefSchema,
   connectedAt: z.iso.datetime(),
   /** Null until Disconnected. */
@@ -113,9 +134,16 @@ export const DEVICE_RELAY_TAKEN_CLOSE_CODE = 4409;
 /** The close code of a relay socket for a device that isn't there or is Disconnected. */
 export const DEVICE_RELAY_ENDED_CLOSE_CODE = 4410;
 
-/** Browser → service: the device went away (unplugged), so it ends as device unplugged. */
+/**
+ * Browser → service: the device went away (unplugged), so it ends as device unplugged; or the
+ * browser can't reach it any more (`error`), so it ends as error with the problem in words.
+ */
 export const deviceRelayClientMessageSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("unplugged") }),
+  z.object({
+    type: z.literal("error"),
+    problem: z.string().min(1).max(DEVICE_RELAY_PROBLEM_MAX_LENGTH),
+  }),
 ]);
 export type DeviceRelayClientMessage = z.infer<typeof deviceRelayClientMessageSchema>;
 

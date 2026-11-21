@@ -56,7 +56,7 @@ func TestUnknownTypesAreRefused(t *testing.T) {
 	if _, err := encodeFrame(frame{typ: 0}); !errors.Is(err, errRefused) {
 		t.Fatalf("encode: %v", err)
 	}
-	if _, err := readFrame(bytes.NewReader([]byte{7, 0, 0, 0, 1, 0, 0, 0, 0})); !errors.Is(err, errRefused) {
+	if _, err := readFrame(bytes.NewReader([]byte{12, 0, 0, 0, 1, 0, 0, 0, 0})); !errors.Is(err, errRefused) {
 		t.Fatalf("read: %v", err)
 	}
 }

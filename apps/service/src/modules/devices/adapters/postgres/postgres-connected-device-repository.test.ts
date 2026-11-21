@@ -4,8 +4,11 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import {
   connectingDevice,
+  deviceBaudRateSet,
   deviceConnected,
   deviceDisconnected,
+  deviceNoticed,
+  deviceRoundTripMeasured,
   type ConnectedDevice,
 } from "../../domain/connected-device.js";
 import { PostgresConnectedDeviceRepository } from "./postgres-connected-device-repository.js";
@@ -91,5 +94,32 @@ describe("PostgresConnectedDeviceRepository", () => {
 
     expect((await repository.openOfProject(projectId)).map(({ id }) => id)).toEqual([device.id]);
     expect((await repository.allOpen()).map(({ id }) => id)).toContain(device.id);
+  });
+
+  it("keeps a serial board's baud rate, round trip and notice", async () => {
+    const device = {
+      ...aDevice(randomUUID(), `usb:${randomUUID()}`, new Date("2004-01-04T10:00:00Z")),
+      kind: "serial-usb" as const,
+    };
+    await repository.insert(device);
+    expect(await repository.find(device.id)).toMatchObject({
+      baudRate: null,
+      roundTripMs: null,
+      notice: null,
+    });
+
+    await repository.update(device.id, (kept) => deviceConnected(kept, "/dev/ttyACM0"));
+    await repository.update(device.id, (kept) => deviceBaudRateSet(kept, 115_200));
+    await repository.update(device.id, (kept) => deviceRoundTripMeasured(kept, 312));
+    await repository.update(device.id, (kept) => deviceNoticed(kept, "esptool-sync-no-answer"));
+
+    expect(await repository.find(device.id)).toEqual({
+      ...device,
+      state: "connected",
+      endpoint: "/dev/ttyACM0",
+      baudRate: 115_200,
+      roundTripMs: 312,
+      notice: "esptool-sync-no-answer",
+    });
   });
 });

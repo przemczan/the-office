@@ -178,9 +178,9 @@ func TestRelayEndsWithExitZeroWhenTerminated(t *testing.T) {
 
 func TestRelayEndsWithExitOneOnAMalformedFrame(t *testing.T) {
 	r, _ := startRelay(t)
-	go func() { _, _ = r.stdin.Write([]byte{9, 0, 0, 0, 0, 0, 0, 0, 0}) }()
+	go func() { _, _ = r.stdin.Write([]byte{12, 0, 0, 0, 0, 0, 0, 0, 0}) }()
 	ended := r.next()
-	if ended.typ != frameEnded || !strings.Contains(string(ended.payload), "unknown frame type 9") {
+	if ended.typ != frameEnded || !strings.Contains(string(ended.payload), "unknown frame type 12") {
 		t.Fatalf("got %+v: %s", ended, ended.payload)
 	}
 	if code := r.exitCode(); code != 1 {

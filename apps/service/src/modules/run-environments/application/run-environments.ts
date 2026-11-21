@@ -128,6 +128,8 @@ interface RunningEnvironment {
    */
   readonly stageRunsFolder: string;
   idleStop: Wait | undefined;
+  /** The checks' user's `<uid>:<gid>`, once asked: it can't change while the containers run. */
+  checksUser: Promise<string> | undefined;
 }
 
 /**
@@ -255,6 +257,33 @@ export class RunEnvironments implements OnModuleInit {
       if (!(error instanceof ContainerRuntimeFailed)) throw error;
       throw new RunEnvironmentRefused([
         "The program couldn't start in the run environment.",
+        error.message,
+      ]);
+    }
+  }
+
+  /**
+   * The numeric ids, `<uid>:<gid>`, of the user the Task's checks run as in its running run
+   * environment (the definition's, else the checks' service's own), read there once per start;
+   * nothing when it isn't running. A program attached as root gives what it makes to them, as the
+   * helper's serial mode does its terminal.
+   */
+  async checksUserOf(taskId: string): Promise<string | undefined> {
+    const environment = this.running.get(taskId);
+    if (environment === undefined) return undefined;
+    environment.checksUser ??= this.runtime.userIdsOf(
+      environment.project,
+      environment.definition.service,
+      environment.definition.user,
+    );
+    try {
+      return await environment.checksUser;
+    } catch (error) {
+      // Asked again next time, as the failure may have been the runtime's for a moment.
+      environment.checksUser = undefined;
+      if (!(error instanceof ContainerRuntimeFailed)) throw error;
+      throw new RunEnvironmentRefused([
+        "The checks' user couldn't be read in the run environment.",
         error.message,
       ]);
     }
@@ -466,6 +495,7 @@ export class RunEnvironments implements OnModuleInit {
       worktree,
       stageRunsFolder: task.stageRunsFolder,
       idleStop: undefined,
+      checksUser: undefined,
     };
     this.running.set(task.taskId, environment);
     this.stopWhenIdle(task.taskId, environment);

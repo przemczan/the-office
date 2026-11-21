@@ -4,7 +4,8 @@ package main
 // packages/contracts/src/device-frames.ts; change both together.
 //
 // A frame is `u8 type | u32 channel | u32 length | payload`, big-endian. Channel 0 carries the
-// helper's own frames (HELLO, READY, ENDED); each relayed connection gets a channel from 1 up.
+// helper's own frames (HELLO, READY, ENDED) and the control frames (SETTINGS, SIGNALS, PING, PONG,
+// NOTICE, whose JSON payloads pty.go writes); each relayed connection gets a channel from 1 up.
 
 import (
 	"encoding/binary"
@@ -22,6 +23,12 @@ const (
 	frameData  frameType = 4 // either way: bytes on the channel
 	frameClose frameType = 5 // either way: the channel is closed
 	frameEnded frameType = 6 // helper to service, last: why it ends
+
+	frameSettings frameType = 7  // helper to browser: a serial port's new line settings, JSON
+	frameSignals  frameType = 8  // helper to browser: a serial port's DTR and RTS to set, JSON
+	framePing     frameType = 9  // helper to browser: answer with PONG and the same id, JSON
+	framePong     frameType = 10 // browser to service: the answer to a PING, JSON
+	frameNotice   frameType = 11 // helper to service: something the Devices section says, JSON
 )
 
 const (
@@ -41,7 +48,7 @@ type frame struct {
 	payload []byte
 }
 
-func (t frameType) valid() bool { return t >= frameHello && t <= frameEnded }
+func (t frameType) valid() bool { return t >= frameHello && t <= frameNotice }
 
 func encodeFrame(f frame) ([]byte, error) {
 	if !f.typ.valid() {

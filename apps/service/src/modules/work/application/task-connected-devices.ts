@@ -12,16 +12,22 @@ export interface TaskConnectedDevice {
   readonly connected: boolean;
   /** For example "127.0.0.1:41234" while Connected. */
   readonly endpoint: string | null;
+  /** More about it in short words, each after a "; ": "115200 baud", "round trip 40 ms". */
+  readonly details?: readonly string[];
 }
 
 export type TaskConnectedDevicesLister = (
   taskId: string,
 ) => Promise<readonly TaskConnectedDevice[]>;
 
-/** One device as a line: "<kind> «<name>»: <state>", with ", at <endpoint>" when it has one. */
+/**
+ * One device as a line: "<kind> «<name>»: <state>", with ", at <endpoint>" when it has one, then
+ * each detail after a "; ".
+ */
 export function connectedDeviceLine(device: TaskConnectedDevice): string {
   const line = `${device.kind} «${device.name}»: ${device.state}`;
-  return device.endpoint === null ? line : `${line}, at ${device.endpoint}`;
+  const placed = device.endpoint === null ? line : `${line}, at ${device.endpoint}`;
+  return [placed, ...(device.details ?? [])].join("; ");
 }
 
 /**

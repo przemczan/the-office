@@ -17,7 +17,7 @@ import {
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import { ConnectedDevices } from "../../application/connected-devices.js";
-import type { ConnectedDevice } from "../../domain/connected-device.js";
+import { noticesOf, type ConnectedDevice } from "../../domain/connected-device.js";
 import { DeviceRefusalsFilter } from "./device-refusals.filter.js";
 
 /** A Task's Connected devices (spec §2.13): list, connect and disconnect, by any signed-in user. */
@@ -61,6 +61,9 @@ export function deviceResponse(device: ConnectedDevice): ConnectedDeviceResponse
     disconnectedBy: device.disconnectedBy && { ...device.disconnectedBy },
     problem: device.problem,
     endpoint: device.endpoint,
+    baudRate: device.baudRate,
+    roundTripMs: device.roundTripMs,
+    notices: noticesOf(device),
     connectedBy: { ...device.connectedBy },
     connectedAt: device.connectedAt.toISOString(),
     disconnectedAt: device.disconnectedAt?.toISOString() ?? null,

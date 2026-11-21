@@ -2,15 +2,24 @@
 // device, carrying device frames (`device-frames.ts`) between the device's transport (WebUSB, Web
 // Serial) and the Office device helper in the Task's run environment.
 import {
+  controlFrame,
+  controlPayload,
   DEVICE_FRAME_TYPES,
+  DEVICE_RELAY_PROBLEM_MAX_LENGTH,
+  devicePingSchema,
   deviceRelayPath,
   deviceRelayServerMessageSchema,
   encodeFrame,
   FrameReader,
+  serialSettingsSchema,
+  serialSignalsSchema,
   type ConnectedDeviceKind,
   type ConnectedDeviceState,
   type DeviceFrameType,
+  type DeviceFrame,
   type DeviceRelayClientMessage,
+  type SerialSettings,
+  type SerialSignals,
 } from "@the-office/contracts";
 
 /** What a transport gives the relay: the device's side of each channel, toward the run environment. */
@@ -21,6 +30,10 @@ export interface DeviceRelaySink {
   close(channel: number): void;
   /** The device opened `channel` itself, for a transport whose device starts connections. */
   open(channel: number): void;
+  /** Answers the helper's PING of `id`, once what the transport queued before it is done. */
+  pong(id: number): void;
+  /** The device can't be reached any more: the relay ends, the device as error with `problem`. */
+  fail(problem: string): void;
 }
 
 /** A device attached to a relay: what the run environment does on each channel reaches it here. */
@@ -31,6 +44,12 @@ export interface DeviceTransport {
   received(channel: number, bytes: Uint8Array): void;
   /** The run environment closed `channel`. */
   closed(channel: number): void;
+  /** A serial port's new line settings, in order with DATA; a transport without a port has none. */
+  settings?(settings: SerialSettings): void;
+  /** A serial port's DTR and RTS to set, in order with DATA. */
+  signals?(signals: SerialSignals): void;
+  /** The helper's PING: answer with the sink's `pong(id)`; unanswered by a transport without it. */
+  ping?(id: number): void;
   /** The relay ended: release the device. */
   end(): void;
 }
@@ -139,9 +158,9 @@ const NORMAL_CLOSE = 1000;
 const UNSUPPORTED_DATA_CLOSE = 1003;
 
 /**
- * Opens the device's relay and attaches the device to it: OPEN, DATA and CLOSE from the service go
- * to its transport, and what the transport sends goes back as frames. What is sent before the
- * socket opens waits for it.
+ * Opens the device's relay and attaches the device to it: OPEN, DATA, CLOSE and the control frames
+ * SETTINGS, SIGNALS and PING from the service go to its transport, in order, and what the transport
+ * sends goes back as frames. What is sent before the socket opens waits for it.
  */
 export function openDeviceRelay(
   deviceId: string,
@@ -166,28 +185,37 @@ export function openDeviceRelay(
     // A frame of its own buffer, as the socket sends only an ArrayBuffer's bytes.
     if (!ended) sendNow(new Uint8Array(encodeFrame({ type, channel, payload })));
   };
+  const close = (code = NORMAL_CLOSE): void => {
+    if (socket.readyState === SOCKET_CONNECTING) closeWhenSent = true;
+    else socket.close(code);
+  };
+  // Set by the first of unplugged and fail: the service hears only why the relay ends first.
+  let closing = false;
+  const endWith = (message: DeviceRelayClientMessage): void => {
+    if (ended || closing) return;
+    closing = true;
+    sendNow(JSON.stringify(message));
+    close();
+  };
   let transport: DeviceTransport;
   try {
     transport = device.attach({
       send: (channel, bytes) => sendFrame(DEVICE_FRAME_TYPES.data, channel, bytes),
       close: (channel) => sendFrame(DEVICE_FRAME_TYPES.close, channel, new Uint8Array(0)),
       open: (channel) => sendFrame(DEVICE_FRAME_TYPES.open, channel, new Uint8Array(0)),
+      pong: (id) => {
+        const { type, channel, payload } = controlFrame(DEVICE_FRAME_TYPES.pong, { id });
+        sendFrame(type, channel, payload);
+      },
+      fail: (problem) =>
+        endWith({ type: "error", problem: problem.slice(0, DEVICE_RELAY_PROBLEM_MAX_LENGTH) }),
     });
   } catch (error) {
     // A device that can't be attached leaves no socket open behind it.
     socket.close(NORMAL_CLOSE);
     throw error;
   }
-  const close = (code = NORMAL_CLOSE): void => {
-    if (socket.readyState === SOCKET_CONNECTING) closeWhenSent = true;
-    else socket.close(code);
-  };
-  const unplugged = (): void => {
-    if (ended) return;
-    const message: DeviceRelayClientMessage = { type: "unplugged" };
-    sendNow(JSON.stringify(message));
-    close();
-  };
+  const unplugged = (): void => endWith({ type: "unplugged" });
   const stopHearingUnplugged = device.onUnplugged(unplugged);
 
   socket.addEventListener("open", () => {
@@ -202,12 +230,7 @@ export function openDeviceRelay(
     }
     if (!(data instanceof ArrayBuffer)) return;
     try {
-      for (const frame of reader.push(new Uint8Array(data))) {
-        if (frame.type === DEVICE_FRAME_TYPES.open) transport.opened(frame.channel);
-        else if (frame.type === DEVICE_FRAME_TYPES.data) {
-          transport.received(frame.channel, frame.payload);
-        } else if (frame.type === DEVICE_FRAME_TYPES.close) transport.closed(frame.channel);
-      }
+      for (const frame of reader.push(new Uint8Array(data))) deliver(transport, frame);
     } catch {
       // A frame the relay can't read ends it: the stream can't be read on.
       close(UNSUPPORTED_DATA_CLOSE);
@@ -233,6 +256,38 @@ export function openDeviceRelay(
       return () => listeners.delete(listener);
     },
   };
+}
+
+/** One frame from the service to the transport; a control frame it can't read is left out. */
+function deliver(transport: DeviceTransport, frame: DeviceFrame): void {
+  switch (frame.type) {
+    case DEVICE_FRAME_TYPES.open:
+      transport.opened(frame.channel);
+      return;
+    case DEVICE_FRAME_TYPES.data:
+      transport.received(frame.channel, frame.payload);
+      return;
+    case DEVICE_FRAME_TYPES.close:
+      transport.closed(frame.channel);
+      return;
+    case DEVICE_FRAME_TYPES.settings: {
+      const settings = controlPayload(frame, serialSettingsSchema);
+      if (settings !== undefined) transport.settings?.(settings);
+      return;
+    }
+    case DEVICE_FRAME_TYPES.signals: {
+      const signals = controlPayload(frame, serialSignalsSchema);
+      if (signals !== undefined) transport.signals?.(signals);
+      return;
+    }
+    case DEVICE_FRAME_TYPES.ping: {
+      const ping = controlPayload(frame, devicePingSchema);
+      if (ping !== undefined) transport.ping?.(ping.id);
+      return;
+    }
+    default:
+      return;
+  }
 }
 
 function relayUrl(location: Pick<Location, "protocol" | "host">, deviceId: string): string {

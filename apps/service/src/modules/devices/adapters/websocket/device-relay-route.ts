@@ -1,6 +1,7 @@
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { DEVICE_RELAY_PATH_PATTERN } from "@the-office/contracts";
 import { z } from "zod";
+import { Schedule } from "../../../../platform/schedule/schedule.js";
 import { WebSocketRoutes } from "../../../../platform/websocket/websocket-routes.js";
 import { ConnectedDevices } from "../../application/connected-devices.js";
 import { DeviceRelayLink } from "./device-relay-link.js";
@@ -15,11 +16,12 @@ export class DeviceRelayRoute implements OnModuleInit {
   constructor(
     private readonly routes: WebSocketRoutes,
     private readonly devices: ConnectedDevices,
+    private readonly schedule: Schedule,
   ) {}
 
   onModuleInit(): void {
     this.routes.register(DEVICE_RELAY_PATH_PATTERN, (client, _signedIn, params) => {
-      const link = new DeviceRelayLink(client);
+      const link = new DeviceRelayLink(client, this.schedule);
       const id = deviceIdSchema.safeParse(params["id"]);
       if (!id.success) {
         link.closeAsEnded("There is no such device.");

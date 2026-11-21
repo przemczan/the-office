@@ -154,6 +154,12 @@ export abstract class ContainerRuntime {
   /** Starts the program in a running service, its standard input and output piped to The Office. */
   abstract attach(project: ComposeProject, attachment: Attachment): Promise<AttachedProcess>;
 
+  /**
+   * The numeric ids, `<uid>:<gid>`, the user (the service's own when none is named) has in a
+   * running service, as `id -u` and `id -g` print them there.
+   */
+  abstract userIdsOf(project: ComposeProject, service: string, user?: string): Promise<string>;
+
   /** Takes the compose project down with its volumes and orphans. */
   abstract down(projectName: string, removal?: Removal): Promise<void>;
 

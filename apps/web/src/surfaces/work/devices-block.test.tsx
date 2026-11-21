@@ -2,6 +2,7 @@ import type { ConnectedDevice, Project, Task } from "@the-office/contracts";
 import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { registerDeviceTransport, type RequestedDevice } from "../../api/device-relay.ts";
+import { NEEDS_WEB_SERIAL, serialUsbTransport } from "../../api/device-transports/serial-usb.ts";
 import {
   buttonNamed,
   closePage,
@@ -13,7 +14,7 @@ import {
 } from "../../shell/page.fixtures.tsx";
 import { BY_ANN } from "../../shell/user.fixtures.ts";
 import { closeEveryDeviceRelay } from "./device-relays.ts";
-import { KEEP_TAB_OPEN } from "./device-words.ts";
+import { deviceNoticeWords, KEEP_TAB_OPEN } from "./device-words.ts";
 import { DevicesBlock } from "./devices-block.tsx";
 import {
   ALLOW_USB_DEBUGGING,
@@ -113,6 +114,9 @@ const PHONE: ConnectedDevice = {
   disconnectedBy: null,
   problem: null,
   endpoint: "127.0.0.1:5555",
+  baudRate: null,
+  roundTripMs: null,
+  notices: [],
   connectedBy: BY_ANN,
   connectedAt: "2026-11-20T09:30:00.000Z",
   disconnectedAt: null,
@@ -361,7 +365,99 @@ describe("the Devices section", () => {
     }
   });
 
-  it("names the other Task, linked, when the device is connected there", async () => {
+  it("greys the serial board's choice, saying why, in a browser without Web Serial", async () => {
+    const unregister = registerDeviceTransport(serialUsbTransport(undefined, () => true));
+    try {
+      stubService(answers(PROJECT, []));
+      const page = await blockOf();
+      await until(() => expect(buttonNamed(page, "Connect over USB")).toBeDefined());
+
+      act(() => buttonNamed(page, "Connect over USB")?.click());
+
+      const choice = buttonNamed(
+        page.querySelector('[role="menu"]')!,
+        `Serial board over USB${NEEDS_WEB_SERIAL}`,
+      );
+      expect(choice?.disabled).toBe(true);
+    } finally {
+      unregister();
+    }
+  });
+
+  it("shows a serial board's path, baud and round trip once Connected", async () => {
+    stubService(
+      answers(PROJECT, [
+        {
+          ...BOARD,
+          state: "connected",
+          endpoint: "/dev/ttyACM0",
+          baudRate: 115_200,
+          roundTripMs: 40,
+        },
+      ]),
+    );
+    const page = await blockOf();
+
+    await until(() => expect(page.querySelector('[aria-label="Arduino Uno"]')).not.toBeNull());
+    const board = page.querySelector('[aria-label="Arduino Uno"]')!;
+    expect(board.querySelector("code")?.textContent).toBe("/dev/ttyACM0");
+    expect(shownText(board)).toContain("115200 baud · round trip 40 ms");
+  });
+
+  it("says each of a serial board's notices in words", async () => {
+    stubService(
+      answers(PROJECT, [
+        {
+          ...BOARD,
+          state: "connected",
+          endpoint: "/dev/ttyACM0",
+          baudRate: 115_200,
+          roundTripMs: 320,
+          notices: [
+            "slow-round-trip",
+            "no-answer-after-reset",
+            "touch-1200",
+            "esptool-sync-no-answer",
+            "no-upload-tool",
+          ],
+        },
+      ]),
+    );
+    const page = await blockOf();
+
+    await until(() => expect(page.querySelector('[aria-label="Arduino Uno"]')).not.toBeNull());
+    const notices = [
+      ...page.querySelectorAll('[aria-label="What to know about Arduino Uno"] li'),
+    ].map((notice) => [notice.getAttribute("data-tone"), shownText(notice)]);
+    expect(notices).toEqual([
+      ["warning", "Uploads will be slow: each step waits 320 ms for the round trip."],
+      [
+        "warning",
+        "The board didn't answer after its reset; its bootloader may not wait for the 320 ms round trip. Press its reset button as the upload starts.",
+      ],
+      [
+        "warning",
+        "This board resets into a new USB device to upload (1200-baud touch, as Leonardo and Micro do); that isn't carried through the browser.",
+      ],
+      [
+        "warning",
+        "esptool's automatic reset isn't carried on this port. Hold BOOT, tap reset, and upload with --before no_reset.",
+      ],
+      [
+        "info",
+        "Neither avrdude nor arduino-cli is in the run environment's image; add the Project's upload tool to .devcontainer.",
+      ],
+    ]);
+  });
+
+  it("leaves the round trip out of a notice's words until it is measured", () => {
+    expect(deviceNoticeWords("slow-round-trip", null)).toBe(
+      "Uploads will be slow: each step waits for the round trip.",
+    );
+  });
+
+  it("names the other Task, linked, when the device is connected there, and lets it go", async () => {
+    let released = 0;
     const unregister = registerDeviceTransport({
       kind: "android-usb",
       request: () =>
@@ -369,6 +465,7 @@ describe("the Devices section", () => {
           name: "Pixel 8",
           deviceKey: "18d1:4ee7:serial",
           attach: () => ({ opened: () => {}, received: () => {}, closed: () => {}, end: () => {} }),
+          release: () => (released += 1),
           onUnplugged: () => () => {},
         }),
     });
@@ -401,6 +498,7 @@ describe("the Devices section", () => {
       expect(page.querySelector('a[href="/tasks/other-task"]')?.textContent).toBe(
         "Flash the bootloader",
       );
+      expect(released).toBe(1);
     } finally {
       unregister();
     }

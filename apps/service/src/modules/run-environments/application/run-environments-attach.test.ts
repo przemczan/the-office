@@ -8,6 +8,7 @@ import {
   type ScriptedAttachedProcess,
 } from "../adapters/scripted/scripted-container-runtime.js";
 import { RunEnvironmentStarted, RunEnvironmentStopped } from "../domain/run-environment-events.js";
+import { ContainerRuntimeFailed } from "../ports/container-runtime.js";
 import {
   composeProjectNameOf,
   DEFAULT_RUN_ENVIRONMENT_OPTIONS,
@@ -163,6 +164,41 @@ describe("RunEnvironments.attach", () => {
     await testbed.schedule.advanceBy(IDLE_STOP_MS);
 
     expect(runtime.projects.get(projectName())?.state).toBe("stopped");
+  });
+});
+
+describe("RunEnvironments.checksUserOf", () => {
+  it("answers nothing while the Task's run environment isn't running, asking the runtime nothing", async () => {
+    expect(await testbed.environments.checksUserOf("task-1")).toBeUndefined();
+    expect(runtime.steps).toEqual([]);
+  });
+
+  it("reads the checks' user's ids in the checks' service once per start", async () => {
+    runtime.userIds = "1000:1000";
+    await testbed.environments.prepare(task, join(testbed.folder, "prepare.log"));
+
+    expect(await testbed.environments.checksUserOf("task-1")).toBe("1000:1000");
+    expect(await testbed.environments.checksUserOf("task-1")).toBe("1000:1000");
+    await testbed.schedule.advanceBy(IDLE_STOP_MS);
+    await testbed.environments.prepare(task, join(testbed.folder, "prepare.log"));
+    expect(await testbed.environments.checksUserOf("task-1")).toBe("1000:1000");
+
+    expect(runtime.steps.filter((step) => step.startsWith("ids"))).toEqual([
+      `ids ${projectName()} app node`,
+      `ids ${projectName()} app node`,
+    ]);
+  });
+
+  it("refuses in the UI's words when the runtime can't read them, and asks again next time", async () => {
+    await testbed.environments.prepare(task, join(testbed.folder, "prepare.log"));
+    const userIdsOf = runtime.userIdsOf.bind(runtime);
+    runtime.userIdsOf = () => Promise.reject(new ContainerRuntimeFailed("No id here."));
+
+    await expect(testbed.environments.checksUserOf("task-1")).rejects.toMatchObject({
+      reasons: ["The checks' user couldn't be read in the run environment.", "No id here."],
+    });
+    runtime.userIdsOf = userIdsOf;
+    expect(await testbed.environments.checksUserOf("task-1")).toBe("0:0");
   });
 });
 

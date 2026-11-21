@@ -210,6 +210,19 @@ export class ComposeCommandLine extends ContainerRuntime {
     };
   }
 
+  async userIdsOf(project: ComposeProject, service: string, user?: string): Promise<string> {
+    const what = `The user's ids in the service ${service} couldn't be read`;
+    const { stdout } = await this.required(what, {
+      arguments: userIdsArguments(project, service, user),
+      ...variablesOf(project),
+      timeoutMs: SHORT_TIMEOUT_MS,
+      workingFolder: project.projectDirectory,
+    });
+    const ids = userIdsFrom(stdout);
+    if (ids === undefined) throw new ContainerRuntimeFailed(`${what}. It printed ${stdout.trim()}`);
+    return ids;
+  }
+
   async down(projectName: string, removal: Removal = {}): Promise<void> {
     await this.required(`The compose project ${projectName} couldn't be removed`, {
       arguments: [
@@ -476,6 +489,30 @@ export function attachArguments(project: ComposeProject, attachment: Attachment)
     attachment.service,
     ...attachment.arguments,
   ];
+}
+
+/** `compose exec` of `id -u` and `id -g` as the user, printing `<uid>:<gid>`. */
+export function userIdsArguments(
+  project: ComposeProject,
+  service: string,
+  user: string | undefined,
+): string[] {
+  return [
+    ...composeArguments(project),
+    "exec",
+    "--no-TTY",
+    ...(user === undefined ? [] : ["--user", user]),
+    service,
+    "/bin/sh",
+    "-c",
+    'printf "%s:%s\\n" "$(id -u)" "$(id -g)"',
+  ];
+}
+
+/** `<uid>:<gid>` from what `userIdsArguments`' command printed; none unless it is that. */
+export function userIdsFrom(stdout: string): string | undefined {
+  const ids = stdout.trim();
+  return /^\d+:\d+$/.test(ids) ? ids : undefined;
 }
 
 /** The host port in `compose port`'s `127.0.0.1:49153`; none when nothing is published. */

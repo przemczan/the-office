@@ -142,6 +142,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Office identity, Office ssh key, Trusted host, Unconfirmed host, Sign in with GitHub**: [5.5 The Office identity](5.5-git-and-isolation.md#the-office-identity); [2.3.4 The Office's own credentials for publishing](2.3.4-publish.md#the-offices-own-credentials-for-publishing); screen: [Settings › Office identity](screens/settings.md#office-identity)
 - **Office instructions**: [2.2 Office instructions](2.2-people.md#office-instructions); screen: [Settings › Office instructions](screens/settings.md#office-instructions)
 - **Office Manager**: [2.2 Office Manager](2.2-people.md#office-manager)
+- **Serial board, serial path, DTR/RTS reset, the Devices section's notices**: [2.13 Serial boards](2.13-connected-devices.md#serial-boards); [2.13 Notices](2.13-connected-devices.md#notices); [2.13 Serial path](2.13-connected-devices.md#serial-path); [2.13 The round trip](2.13-connected-devices.md#the-round-trip); screen: [Task page › Devices](screens/task-page.md#devices)
 - **OFFICE_CONNECTED_DEVICES, ANDROID_SERIAL**: [2.13 What Agents see](2.13-connected-devices.md#what-agents-see); [5.5 The Office device helper in a run environment](5.5-git-and-isolation.md#the-office-device-helper-in-a-run-environment)
 - **Office release, Office update, Office restart**: [5.1.1 Released versions](5.1.1-releases-and-installs.md#released-versions); [5.1.2 Updating The Office](5.1.2-updates-and-restarts.md#updating-the-office); [5.1.2 Restarting The Office](5.1.2-updates-and-restarts.md#restarting-the-office)
 - **Office-wide Pipeline, Pipeline library**: [2.3.5 Library](2.3.5-library.md#library); screen: [Settings › Pipelines](screens/settings.md#pipelines)
@@ -551,6 +552,7 @@ Where each default lives, by page:
   - [Implementation notes](2.12-test-instances.md#implementation-notes)
 - 2.13 Connected devices
   - [Serial path](2.13-connected-devices.md#serial-path)
+  - [The round trip](2.13-connected-devices.md#the-round-trip)
   - [The helper's wait](2.13-connected-devices.md#the-helpers-wait)
   - [adb steps](2.13-connected-devices.md#adb-steps)
   - [adb reconnect](2.13-connected-devices.md#adb-reconnect)

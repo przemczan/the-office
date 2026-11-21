@@ -1,10 +1,20 @@
 import { sql } from "drizzle-orm";
-import { index, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import {
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import type {
   ConnectedDeviceKind,
   ConnectedDeviceState,
   DeviceUser,
   DisconnectedBecause,
+  HelperNoticeCode,
 } from "../../domain/connected-device.js";
 
 /**
@@ -25,6 +35,10 @@ export const connectedDevices = pgTable(
     disconnectedBy: jsonb("disconnected_by").$type<DeviceUser>(),
     problem: text("problem"),
     endpoint: text("endpoint"),
+    baudRate: integer("baud_rate"),
+    roundTripMs: integer("round_trip_ms"),
+    /** The helper's latest notice since its READY. */
+    notice: text("notice").$type<HelperNoticeCode>(),
     connectedBy: jsonb("connected_by").$type<DeviceUser>().notNull(),
     connectedAt: timestamp("connected_at", { withTimezone: true }).notNull(),
     disconnectedAt: timestamp("disconnected_at", { withTimezone: true }),

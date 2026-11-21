@@ -1,5 +1,5 @@
 import type { Readable, Writable } from "node:stream";
-import type { ConnectedDeviceState } from "../domain/connected-device.js";
+import type { ConnectedDeviceState, HelperNoticeCode } from "../domain/connected-device.js";
 
 /** The Office device helper running in the Task's run environment, its bytes on stdin and stdout. */
 export interface HelperProcess {
@@ -14,6 +14,21 @@ export interface HelperProcess {
 export type HelperOpening =
   | { readonly kind: "ready"; readonly version: string; readonly endpoint: string }
   | { readonly kind: "ended"; readonly why: string };
+
+/**
+ * What a relayed helper tells the service after its READY, each as it comes. `ended` is told once
+ * if it ends by itself, with why (its ENDED frame's words, or how it exited), never after
+ * `stopHelper`; the others are a serial board's, never told for a stopped helper.
+ */
+export interface HelperListener {
+  ended(why: string): void;
+  /** The Project's tool set the serial port's line settings, at this baud rate. */
+  settingsChanged(baudRate: number): void;
+  /** The browser answered a PING the link passed on, this many ms after it was sent. */
+  roundTripMeasured(roundTripMs: number): void;
+  /** The helper noticed something about the board. */
+  noticed(notice: HelperNoticeCode): void;
+}
 
 /** How the browser's relay socket closed. */
 export type RelayClose =
@@ -44,11 +59,10 @@ export interface RelayLink {
   /** Closes the socket as one for a device that isn't there or is Disconnected. */
   closeAsEnded(reason: string): void;
   /**
-   * Relays the helper's frames: answers once it said HELLO and READY, or ended first. After
-   * READY, `ended` is told once if it ends by itself, with why (its ENDED frame's words, or how it
-   * exited), never after `stopHelper`.
+   * Relays the helper's frames: answers once it said HELLO and READY, or ended first, then tells
+   * the listener what comes after READY.
    */
-  startHelper(helper: HelperProcess, ended: (why: string) => void): Promise<HelperOpening>;
+  startHelper(helper: HelperProcess, listener: HelperListener): Promise<HelperOpening>;
   /** Stops the helper it relays, if any; the socket stays open. */
   stopHelper(): void;
   /** Whether it relays a helper now. */

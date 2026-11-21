@@ -1,17 +1,24 @@
 import { finished } from "node:stream/promises";
 import {
+  BROWSER_CONTROL_FRAME_TYPES,
+  controlPayload,
+  DEVICE_CONTROL_CHANNEL,
   DEVICE_FRAME_TYPES,
   DEVICE_RELAY_ENDED_CLOSE_CODE,
   DEVICE_RELAY_TAKEN_CLOSE_CODE,
+  deviceNoticeFrameSchema,
+  devicePingSchema,
   deviceRelayClientMessageSchema,
   encodeFrame,
   FrameReader,
   frameText,
+  serialSettingsSchema,
   type DeviceFrame,
   type DeviceRelayServerMessage,
 } from "@the-office/contracts";
 import type { ConnectedDeviceState } from "../../domain/connected-device.js";
 import type {
+  HelperListener,
   HelperOpening,
   HelperProcess,
   RelayClose,
@@ -50,12 +57,31 @@ const BROWSER_FRAMES: ReadonlySet<number> = new Set([
   DEVICE_FRAME_TYPES.close,
 ]);
 
+/** The helper's frames the browser gets, in the order the helper wrote them. */
+const HELPER_FRAMES_TO_BROWSER: ReadonlySet<number> = new Set([
+  DEVICE_FRAME_TYPES.open,
+  DEVICE_FRAME_TYPES.data,
+  DEVICE_FRAME_TYPES.close,
+  ...BROWSER_CONTROL_FRAME_TYPES,
+]);
+
+/** PINGs kept waiting for their PONG; past this the oldest is forgotten, as never answered. */
+const PENDING_PINGS_MAX = 16;
+
 const HELPER_STOPPED = "The Office device helper was stopped.";
+
+/** The time the link measures round trips by: the module's `Schedule`. */
+export interface RelayClock {
+  now(): Date;
+}
 
 /** A helper while the link relays it. */
 interface RelayedHelper {
   readonly process: HelperProcess;
+  readonly listener: HelperListener;
   readonly reader: FrameReader;
+  /** When each PING passed on to the browser was sent, by its id, oldest first. */
+  readonly pings: Map<number, number>;
   version: string | undefined;
   ready: boolean;
   stopped: boolean;
@@ -68,10 +94,12 @@ interface RelayedHelper {
 
 /**
  * One device's relay over `ws` (spec §2.13, "The relay"): the browser's binary messages are read
- * as device frames, and only OPEN, DATA and CLOSE go on to the helper's standard input; the
- * helper's HELLO, READY and ENDED are the service's own, and its OPEN, DATA and CLOSE go to the
- * browser. Each side waits for the other: the helper's output pauses while the socket holds more
- * than `SOCKET_HIGH_WATER_BYTES`, and the socket pauses while the helper's input is full.
+ * as device frames, and only OPEN, DATA and CLOSE go on to the helper's standard input, its PONG
+ * measuring the round trip of the PING it answers; the helper's HELLO, READY, ENDED and NOTICE
+ * are the service's own, and its OPEN, DATA, CLOSE, SETTINGS, SIGNALS and PING go to the browser,
+ * on the one stream, in order. Each side waits for the other: the helper's output pauses while
+ * the socket holds more than `SOCKET_HIGH_WATER_BYTES`, and the socket pauses while the helper's
+ * input is full.
  */
 export class DeviceRelayLink implements RelayLink {
   private readonly fromBrowser = new FrameReader();
@@ -86,7 +114,10 @@ export class DeviceRelayLink implements RelayLink {
   private problem: string | undefined;
   private helperPaused = false;
 
-  constructor(private readonly socket: RelaySocket) {
+  constructor(
+    private readonly socket: RelaySocket,
+    private readonly clock: RelayClock,
+  ) {
     socket.on("message", (data, isBinary) => {
       if (isBinary) this.fromSocket(bytesOf(data));
       else this.controlMessage(bytesOf(data).toString("utf8"));
@@ -122,13 +153,15 @@ export class DeviceRelayLink implements RelayLink {
     this.closeByService(DEVICE_RELAY_ENDED_CLOSE_CODE, reason);
   }
 
-  startHelper(process: HelperProcess, ended: (why: string) => void): Promise<HelperOpening> {
+  startHelper(process: HelperProcess, listener: HelperListener): Promise<HelperOpening> {
     this.stopHelper();
     this.openChannels.clear();
     const opening = deferred<HelperOpening>();
     const helper: RelayedHelper = {
       process,
+      listener,
       reader: new FrameReader(),
+      pings: new Map(),
       version: undefined,
       ready: false,
       stopped: false,
@@ -142,7 +175,7 @@ export class DeviceRelayLink implements RelayLink {
     };
     this.helper = helper;
     process.stdout.on("data", (chunk: Buffer) => this.fromHelper(helper, chunk));
-    void this.untilEnded(helper, ended);
+    void this.untilEnded(helper, (why) => listener.ended(why));
     return opening.promise;
   }
 
@@ -200,11 +233,47 @@ export class DeviceRelayLink implements RelayLink {
           helper.endedWords = frameText(frame);
           break;
         default:
-          if (!helper.ready) break;
-          this.followChannel(frame);
-          this.toSocket(helper, encodeFrame(frame));
+          if (helper.ready) this.afterReady(helper, frame);
       }
     }
+  }
+
+  /** A frame of a ready helper: the browser's in order, a NOTICE the service's, a PONG dropped. */
+  private afterReady(helper: RelayedHelper, frame: DeviceFrame): void {
+    if (frame.type === DEVICE_FRAME_TYPES.notice) {
+      const notice = controlPayload(frame, deviceNoticeFrameSchema);
+      if (notice !== undefined) helper.listener.noticed(notice.code);
+      return;
+    }
+    if (!HELPER_FRAMES_TO_BROWSER.has(frame.type)) return;
+    this.followChannel(frame);
+    if (frame.channel === DEVICE_CONTROL_CHANNEL && frame.type === DEVICE_FRAME_TYPES.settings) {
+      const settings = controlPayload(frame, serialSettingsSchema);
+      if (settings !== undefined) helper.listener.settingsChanged(settings.baudRate);
+    }
+    if (frame.channel === DEVICE_CONTROL_CHANNEL && frame.type === DEVICE_FRAME_TYPES.ping) {
+      const ping = controlPayload(frame, devicePingSchema);
+      if (ping !== undefined) this.pingSent(helper, ping.id);
+    }
+    this.toSocket(helper, encodeFrame(frame));
+  }
+
+  private pingSent(helper: RelayedHelper, id: number): void {
+    helper.pings.delete(id);
+    helper.pings.set(id, this.clock.now().getTime());
+    if (helper.pings.size <= PENDING_PINGS_MAX) return;
+    const [oldest] = helper.pings.keys();
+    if (oldest !== undefined) helper.pings.delete(oldest);
+  }
+
+  /** The browser's PONG: the round trip of the PING it answers, if this helper sent it. */
+  private pongReceived(helper: RelayedHelper, frame: DeviceFrame): void {
+    const pong = controlPayload(frame, devicePingSchema);
+    if (pong === undefined) return;
+    const sentAt = helper.pings.get(pong.id);
+    if (sentAt === undefined) return;
+    helper.pings.delete(pong.id);
+    helper.listener.roundTripMeasured(Math.max(0, this.clock.now().getTime() - sentAt));
   }
 
   /** Keeps the open channels as frames pass, telling when the last one closed. */
@@ -249,6 +318,10 @@ export class DeviceRelayLink implements RelayLink {
     // Bytes for a device whose run environment isn't running have nowhere to go.
     if (helper === undefined) return;
     for (const frame of frames) {
+      if (frame.type === DEVICE_FRAME_TYPES.pong) {
+        if (!helper.stopped) this.pongReceived(helper, frame);
+        continue;
+      }
       if (!BROWSER_FRAMES.has(frame.type)) continue;
       this.followChannel(frame);
       if (!helper.process.stdin.write(encodeFrame(frame))) {
@@ -266,7 +339,10 @@ export class DeviceRelayLink implements RelayLink {
       return;
     }
     const message = deviceRelayClientMessageSchema.safeParse(parsed);
-    if (message.success && message.data.type === "unplugged") this.unplugged = true;
+    if (!message.success) return;
+    if (message.data.type === "unplugged") this.unplugged = true;
+    // The first problem stands: what follows it is most likely its consequence.
+    else this.problem ??= message.data.problem;
   }
 
   private closeByService(code: number, reason: string): void {

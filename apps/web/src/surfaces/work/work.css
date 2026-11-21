@@ -4470,6 +4470,41 @@ button.initiative-track-body:hover .stage-mark {
   color: var(--fg-2);
 }
 
+.devices-row-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: baseline;
+}
+
+/* What the helper noticed about a serial board, a line each, warning or informing. */
+.devices-row-notices {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.devices-row-notice {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+}
+
+.devices-row-notice svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--info-fg);
+}
+
+.devices-row-notice[data-tone="warning"] svg {
+  color: var(--warning-fg);
+}
+
 .devices-row-side {
   flex: none;
 }
@@ -4478,20 +4513,6 @@ button.initiative-track-body:hover .stage-mark {
 .devices-row-serial {
   font: var(--type-caption);
   color: var(--fg-3);
-}
-
-/* What the device asks the user now, such as allowing USB debugging. */
-.devices-row-notice {
-  display: flex;
-  gap: 6px;
-  align-items: flex-start;
-  font: var(--type-body-sm);
-  color: var(--warning-fg);
-}
-
-.devices-row-notice svg {
-  flex: none;
-  margin-top: 2px;
 }
 
 /* A kind in the Connect menu, with why it is greyed under its name. */

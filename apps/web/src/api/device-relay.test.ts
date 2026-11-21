@@ -1,5 +1,8 @@
 import {
+  controlFrame,
+  controlPayload,
   DEVICE_FRAME_TYPES,
+  devicePingSchema,
   encodeFrame,
   FrameReader,
   type DeviceFrame,
@@ -75,6 +78,7 @@ function loopbackDevice(): {
       closed: (channel) => heard.push(`closed ${channel}`),
       end: () => heard.push("ended"),
     }),
+    release: () => heard.push("released"),
     onUnplugged: (listener) => {
       unplugged = listener;
       return () => (unplugged = undefined);
@@ -172,6 +176,29 @@ describe("a device's relay", () => {
     expect(states).toEqual([{ type: "ended", code: 1000 }]);
   });
 
+  it("tells the service the device's problem when the transport fails, then closes, once", () => {
+    let sink: DeviceRelaySink | undefined;
+    const loopback = loopbackDevice();
+    const { socket, states } = opened({
+      ...loopback.device,
+      attach: (relay) => {
+        sink = relay;
+        return loopback.device.attach(relay);
+      },
+    });
+
+    sink?.fail("The browser couldn't open the board.");
+    sink?.fail("A later problem.");
+    loopback.unplug();
+
+    expect(socket.sent).toEqual([
+      JSON.stringify({ type: "error", problem: "The browser couldn't open the board." }),
+    ]);
+    expect(socket.closedWith).toBe(1000);
+    expect(loopback.heard).toEqual(["ended"]);
+    expect(states).toEqual([{ type: "ended", code: 1000 }]);
+  });
+
   it("passes on the device's state as the service sends it, ignoring what it can't read", () => {
     const { socket, states } = opened(loopbackDevice().device);
 
@@ -181,6 +208,75 @@ describe("a device's relay", () => {
     );
 
     expect(states).toEqual([{ type: "state", state: "connected", endpoint: "127.0.0.1:5037" }]);
+  });
+
+  it("carries SETTINGS, SIGNALS and PING to the transport in order with DATA, leaving out malformed ones", () => {
+    const heard: string[] = [];
+    let sink: DeviceRelaySink | undefined;
+    const { socket } = opened({
+      ...loopbackDevice().device,
+      attach: (relay) => {
+        sink = relay;
+        return {
+          opened: () => {},
+          received: (channel, bytes) => heard.push(`data ${channel} ${[...bytes].join(",")}`),
+          closed: () => {},
+          end: () => {},
+          settings: (settings) => heard.push(`settings ${settings.baudRate}`),
+          signals: (signals) =>
+            heard.push(`signals ${signals.dataTerminalReady} ${signals.requestToSend}`),
+          ping: (id) => {
+            heard.push(`ping ${id}`);
+            sink?.pong(id);
+          },
+        };
+      },
+    });
+    const settings = {
+      baudRate: 57_600,
+      dataBits: 8,
+      parity: "none",
+      stopBits: 1,
+    } as const;
+
+    socket.receives(
+      new Uint8Array([
+        ...encodeFrame(controlFrame(DEVICE_FRAME_TYPES.settings, settings)),
+        ...encodeFrame({ type: DEVICE_FRAME_TYPES.data, channel: 1, payload: new Uint8Array([7]) }),
+        ...encodeFrame(
+          controlFrame(DEVICE_FRAME_TYPES.signals, {
+            dataTerminalReady: true,
+            requestToSend: false,
+          }),
+        ),
+        ...encodeFrame(controlFrame(DEVICE_FRAME_TYPES.settings, { baudRate: "fast" })),
+        ...encodeFrame({
+          type: DEVICE_FRAME_TYPES.ping,
+          channel: 0,
+          payload: new TextEncoder().encode("not json"),
+        }),
+        ...encodeFrame(controlFrame(DEVICE_FRAME_TYPES.ping, { id: 4 })),
+      ]),
+    );
+
+    expect(heard).toEqual(["settings 57600", "data 1 7", "signals true false", "ping 4"]);
+    const [pong] = socket.framesSent();
+    expect(pong?.type).toBe(DEVICE_FRAME_TYPES.pong);
+    expect(pong?.channel).toBe(0);
+    expect(pong === undefined ? undefined : controlPayload(pong, devicePingSchema)).toEqual({
+      id: 4,
+    });
+  });
+
+  it("leaves control frames out for a transport that has no handler for them", () => {
+    const loopback = loopbackDevice();
+    const { socket } = opened(loopback.device);
+
+    socket.receives(encodeFrame(controlFrame(DEVICE_FRAME_TYPES.ping, { id: 1 })));
+
+    expect(loopback.heard).toEqual([]);
+    expect(socket.framesSent()).toEqual([]);
+    expect(socket.closedWith).toBeUndefined();
   });
 
   it("ends on a frame it can't read", () => {

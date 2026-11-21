@@ -11,6 +11,7 @@ import {
   type DeviceTransportProvider,
   type RequestedDevice,
 } from "../../api/device-relay.ts";
+import { serialUsbTransport } from "../../api/device-transports/serial-usb.ts";
 import {
   connectDevice,
   connectRefusalOf,
@@ -29,8 +30,10 @@ import {
   CONNECT_REFUSED,
   connectedToastWords,
   DEVICE_KIND_WORDS,
+  DEVICE_NOTICE_TONES,
   DEVICE_STATE_TONES,
   DEVICE_STATE_WORDS,
+  deviceNoticeWords,
   devicesSummary,
   DISCONNECT_REFUSED,
   disconnectedDevicesOf,
@@ -39,6 +42,7 @@ import {
   KEEP_TAB_OPEN,
   NO_DEVICES,
   openDevicesOf,
+  serialLineWords,
 } from "./device-words.ts";
 import { ADB_SERIAL, USB_DEBUGGING_HINT } from "./devices/android-usb/android-usb-words.ts";
 import { androidUsbTransport } from "./devices/android-usb/webusb-adb.ts";
@@ -47,11 +51,13 @@ import { useFold } from "./record-folds.ts";
 
 // Every kind this build reaches in the browser, offered once the Devices section is drawn.
 registerDeviceTransport(androidUsbTransport());
+registerDeviceTransport(serialUsbTransport());
 
 /**
  * The Task's Devices section (spec screens/task-page.md, "Devices"; 2.13): shown only while the
  * Project's Run environment is On. A row per device not Disconnected with Disconnect, the earlier
- * ones below as history, and Connect for each kind this browser has a transport for.
+ * ones below as history, and Connect for each kind this build has a transport for, greyed with why
+ * for a kind this browser can't reach.
  */
 export function DevicesBlock({ task }: { readonly task: Task }): ReactNode {
   const project = useQuery(projectQueries.one(task.projectId)).data;
@@ -162,7 +168,8 @@ function DeviceRow({
   readonly children?: ReactNode;
 }): ReactNode {
   const ended = device.state === "disconnected";
-  const notice = useSyncExternalStore(subscribeToDeviceNotices, () => deviceNotice(device.id));
+  const line = device.kind === "serial-usb" ? serialLineWords(device) : undefined;
+  const asks = useSyncExternalStore(subscribeToDeviceNotices, () => deviceNotice(device.id));
   return (
     <li className="devices-row" aria-label={device.name}>
       <div className="devices-row-main">
@@ -187,13 +194,33 @@ function DeviceRow({
               {ADB_SERIAL} <code className="devices-row-endpoint">{device.endpoint}</code>
             </span>
           ) : (
-            <code className="devices-row-endpoint">{device.endpoint}</code>
+            <span className="devices-row-line">
+              <code className="devices-row-endpoint">{device.endpoint}</code>
+              {line !== undefined && <span className="devices-row-meta">{line}</span>}
+            </span>
           ))}
-        {!ended && notice !== undefined && (
-          <span className="devices-row-notice" role="status">
+        {!ended && asks !== undefined && (
+          <span className="devices-row-notice" data-tone="warning" role="status">
             <Icon name="triangle-alert" size={14} />
-            {notice}
+            {asks}
           </span>
+        )}
+        {!ended && device.notices.length > 0 && (
+          <ul className="devices-row-notices" aria-label={`What to know about ${device.name}`}>
+            {device.notices.map((notice) => (
+              <li
+                key={notice}
+                className="devices-row-notice"
+                data-tone={DEVICE_NOTICE_TONES[notice]}
+              >
+                <Icon
+                  name={DEVICE_NOTICE_TONES[notice] === "warning" ? "triangle-alert" : "info"}
+                  size={14}
+                />
+                {deviceNoticeWords(notice, device.roundTripMs)}
+              </li>
+            ))}
+          </ul>
         )}
       </div>
       {children !== undefined && <div className="devices-row-side">{children}</div>}

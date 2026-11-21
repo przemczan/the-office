@@ -1310,6 +1310,13 @@
       "when": 1795275838186,
       "tag": "0186_project_adb_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 187,
+      "version": "7",
+      "when": 1795280833918,
+      "tag": "0187_connected_device_serial",
+      "breakpoints": true
     }
   ]
 }

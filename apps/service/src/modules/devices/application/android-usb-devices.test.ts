@@ -54,7 +54,10 @@ async function connectWithRelay(
 ): Promise<{ id: string; socket: FakeRelaySocket }> {
   const device = await testbed.devices.connect(taskId, phone, ANN);
   const socket = new FakeRelaySocket();
-  await testbed.devices.relayOpened(device.id, new DeviceRelayLink(socket));
+  await testbed.devices.relayOpened(
+    device.id,
+    new DeviceRelayLink(socket, testbed.environments.schedule),
+  );
   return { id: device.id, socket };
 }
 

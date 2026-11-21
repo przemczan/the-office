@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { NO_MASK } from "../scripted/scripted-container-runtime.js";
-import { attachArguments, buildArguments, execArguments } from "./compose-command-line.js";
+import {
+  attachArguments,
+  buildArguments,
+  execArguments,
+  userIdsArguments,
+  userIdsFrom,
+} from "./compose-command-line.js";
 
 const PROJECT = {
   name: "office-shop-task-1",
@@ -75,6 +81,29 @@ describe("attachArguments", () => {
       "--listen",
       "127.0.0.1:0",
     ]);
+  });
+});
+
+describe("userIdsArguments and userIdsFrom", () => {
+  it("prints the user's uid:gid in the service, as the definition's user or the service's own", () => {
+    expect(userIdsArguments(PROJECT, "app", "node").slice(7)).toEqual([
+      "exec",
+      "--no-TTY",
+      "--user",
+      "node",
+      "app",
+      "/bin/sh",
+      "-c",
+      'printf "%s:%s\\n" "$(id -u)" "$(id -g)"',
+    ]);
+    expect(userIdsArguments(PROJECT, "app", undefined)).not.toContain("--user");
+  });
+
+  it("reads uid:gid alone, and nothing else", () => {
+    expect(userIdsFrom("1000:1000\n")).toBe("1000:1000");
+    expect(userIdsFrom("0:0")).toBe("0:0");
+    expect(userIdsFrom("id: unknown user\n")).toBeUndefined();
+    expect(userIdsFrom("")).toBeUndefined();
   });
 });
 

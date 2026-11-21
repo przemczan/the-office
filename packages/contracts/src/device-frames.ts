@@ -2,7 +2,10 @@
 // relay"). tools/device-helper/frames.go mirrors this layout; change both together.
 //
 // A frame is `u8 type | u32 channel | u32 length | payload`, big-endian. Channel 0 carries the
-// helper's own frames (HELLO, READY, ENDED); each relayed connection gets a channel from 1 up.
+// helper's own frames (HELLO, READY, ENDED) and the control frames (SETTINGS, SIGNALS, PING, PONG,
+// NOTICE, whose JSON payloads `device-control.ts` defines); each relayed connection gets a channel
+// from 1 up. Frames travel in order on one stream, so a SETTINGS reaches the browser before the
+// DATA written after it.
 
 export const DEVICE_FRAME_TYPES = {
   /** Helper → service, first frame: the helper's version, UTF-8. */
@@ -17,6 +20,16 @@ export const DEVICE_FRAME_TYPES = {
   close: 5,
   /** Helper → service, last frame: why it ends, UTF-8. */
   ended: 6,
+  /** Helper → browser, channel 0: a serial port's new line settings, JSON (`device-control.ts`). */
+  settings: 7,
+  /** Helper → browser, channel 0: a serial port's DTR and RTS to set, JSON. */
+  signals: 8,
+  /** Helper → browser, channel 0: answer with PONG and the same id, JSON. */
+  ping: 9,
+  /** Browser → service, channel 0: the answer to a PING, JSON; the service measures the round trip. */
+  pong: 10,
+  /** Helper → service, channel 0: something the Devices section says in words, JSON. */
+  notice: 11,
 } as const;
 
 export type DeviceFrameType = (typeof DEVICE_FRAME_TYPES)[keyof typeof DEVICE_FRAME_TYPES];
