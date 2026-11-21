@@ -210,6 +210,8 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Build cache volume**: [5.5 The build cache volume](5.5-git-and-isolation.md#the-build-cache-volume)
 - **Build to install QR link**: [2.12 Build to install](2.12-test-instances.md#build-to-install); [2.10 What every request needs](2.10-users-and-signing-in.md#what-every-request-needs)
 - **Test instances at once, Idle time**: [2.12 Test instances at once](2.12-test-instances.md#test-instances-at-once); [2.12 Idle time](2.12-test-instances.md#idle-time); screen: [Settings › Office limits](screens/settings.md#office-limits)
+- **Test target commands before the entry point, port variable, what The Office sets**: [2.12 Commands before the entry point](2.12-test-instances.md#commands-before-the-entry-point); [2.12 What The Office sets](2.12-test-instances.md#what-the-office-sets); [5.5 A test instance's checkout](5.5-git-and-isolation.md#a-test-instances-checkout); screen: [Project page › Test targets](screens/project-page.md#test-targets)
+- **Test target Memory per service, tool settings (Gradle memory)**: [2.12 A target's memory](2.12-test-instances.md#a-targets-memory); [2.12 Tool settings](2.12-test-instances.md#tool-settings); [5.5 The other limits of run environments](5.5-git-and-isolation.md#the-other-limits-of-run-environments)
 - **Test instance safety, OFFICE_TEST_INSTANCE, Test instance banner**: [6 Test instances](6-permissions-and-safety.md#test-instances); [2.12 Safety](2.12-test-instances.md#safety); screen: [The shell › Test instance banner](screens/shell.md#test-instance-banner)
 - **Task**: [2.1.3 Task](2.1.3-tasks.md#task); screen: [Task page](screens/task-page.md#task-page)
 - **Task kind (Feature, Bug, Chore), a Kind's default Pipeline**: [2.1.3 Task kind](2.1.3-tasks.md#task-kind); [2.1.1 Project settings](2.1.1-projects.md#project-settings); screen: [Work board › Marks](screens/work-board.md#marks)
@@ -310,7 +312,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
   - [2.11.1 The Stats page](2.11.1-the-stats-page.md): basic and full stats, the states between.
   - [2.11.2 Tokens and cost](2.11.2-tokens-and-cost.md): what is counted, estimated cost, metric attributes.
   - [2.11.3 System health](2.11.3-system-health.md): health readings, slow routes and queries.
-- [2.12 Test instances](2.12-test-instances.md): test targets and their kinds, the Proposal that writes them, test instances, their states, the proxy, Build to install files, safety, limits.
+- [2.12 Test instances](2.12-test-instances.md): test targets and their kinds, what runs before the entry point and what The Office sets, the Proposal that writes them, test instances, their states, the proxy, Build to install files, safety, limits.
 
 ### 4. UX
 
@@ -533,6 +535,7 @@ Where each default lives, by page:
   - [Routes are named by their template, statements by their shape](2.11.3-system-health.md#routes-are-named-by-their-template-statements-by-their-shape)
   - [1 h is the default range](2.11.3-system-health.md#1-h-is-the-default-range)
 - 2.12 Test instances
+  - [Port variable](2.12-test-instances.md#port-variable)
   - [Test instances at once](2.12-test-instances.md#test-instances-at-once)
   - [Idle time](2.12-test-instances.md#idle-time)
   - [Proxy ports](2.12-test-instances.md#proxy-ports)

@@ -22,8 +22,11 @@ const WEB: TestTarget = {
   kind: "hosted",
   entryPoint: { kind: "package-script", manifest: "package.json", script: "start", arguments: [] },
   port: 5173,
+  portVariable: "PORT",
   variables: [],
   secretVariables: [{ name: "API_KEY", value: "api-s3cret" }],
+  commandsBefore: [],
+  memoryMegabytes: null,
   setBy: { name: ANN, port: ANN },
 };
 
@@ -35,7 +38,12 @@ const ANDROID: ProposedTestTargetFields = {
   outputPatterns: ["app/build/outputs/apk/debug/*.apk"],
   variables: [],
   secretVariables: ["SIGNING_KEY"],
+  commandsBefore: ["build"],
+  memoryMegabytes: 1024,
 };
+
+/** The Project's command keys, which a target's commands before the entry point name. */
+const COMMAND_KEYS = ["build", "lint", "test"];
 
 /** The Hosted target's fields, so a test can change its port. */
 const WEB_FIELDS = proposedFieldsOf(WEB) as Extract<ProposedTestTargetFields, { kind: "hosted" }>;
@@ -106,11 +114,11 @@ describe("proposedTestTargetsProblems", () => {
       { ...ANDROID, key: "ios", secretVariables: [], setBy: {} },
     ];
 
-    expect(proposedTestTargetsProblems(now, proposed)).toEqual([
+    expect(proposedTestTargetsProblems(now, proposed, COMMAND_KEYS)).toEqual([
       `Test target "web" changed since this was proposed.`,
       `Test target "ios" was added since this was proposed.`,
     ]);
-    expect(proposedTestTargetsProblems([WEB], proposed)).toEqual([
+    expect(proposedTestTargetsProblems([WEB], proposed, COMMAND_KEYS)).toEqual([
       `Test target "web": Its port must be a whole number from 1 to 65535.`,
     ]);
   });
@@ -119,7 +127,15 @@ describe("proposedTestTargetsProblems", () => {
     const proposed = proposedTestTargets([WEB], { targets: [ANDROID] });
     const typedSince = { ...WEB, secretVariables: [{ name: "API_KEY", value: "another-value" }] };
 
-    expect(proposedTestTargetsProblems([typedSince], proposed)).toEqual([]);
+    expect(proposedTestTargetsProblems([typedSince], proposed, COMMAND_KEYS)).toEqual([]);
+  });
+
+  it("refuses a command before the entry point the Project no longer has, as the page does", () => {
+    const proposed = proposedTestTargets([WEB], { targets: [ANDROID] });
+
+    expect(proposedTestTargetsProblems([WEB], proposed, ["lint", "test"])).toEqual([
+      `Test target "android": The command build in its commands before the entry point isn't one of the Project's commands.`,
+    ]);
   });
 });
 
@@ -150,6 +166,8 @@ describe("appliedTargets", () => {
           outputPatterns: PROPOSAL,
           variables: PROPOSAL,
           secretVariables: PROPOSAL,
+          commandsBefore: PROPOSAL,
+          memoryMegabytes: PROPOSAL,
         },
       },
     ]);

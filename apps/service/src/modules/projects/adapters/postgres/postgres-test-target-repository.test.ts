@@ -42,11 +42,14 @@ const WEB: TestTarget = {
   kind: "hosted",
   entryPoint: { kind: "package-script", manifest: "package.json", script: "start", arguments: [] },
   port: 5173,
+  portVariable: "WEB_PORT",
   variables: [{ name: "MODE", value: "test" }],
   secretVariables: [
     { name: "API_KEY", value: "api-s3cret" },
     { name: "MAPS_KEY", value: null },
   ],
+  commandsBefore: ["build", "seed"],
+  memoryMegabytes: 2048,
   setBy: { name: { by: "user", user: { userId: "user-ann", name: "Ann" } } },
 };
 
@@ -58,6 +61,8 @@ const ANDROID: TestTarget = {
   outputPatterns: ["app/build/outputs/apk/debug/*.apk"],
   variables: [],
   secretVariables: [],
+  commandsBefore: [],
+  memoryMegabytes: null,
   setBy: {
     kind: {
       by: "proposal",
@@ -98,6 +103,33 @@ describe("PostgresTestTargetRepository", () => {
     await expect(repository.update(`gone-${randomUUID()}`, async () => [WEB])).rejects.toThrow(
       ProjectNotFound,
     );
+  });
+
+  it("reads a target saved before commands before, the port variable and memory as their defaults", async () => {
+    const projectId = await aStoredProject();
+    const database = app.get<Database>(DATABASE);
+    await database.insert(testTargets).values({
+      projectId,
+      key: "web",
+      name: "Web app",
+      kind: "hosted",
+      settings: { entryPoint: WEB.entryPoint, port: 5173, variables: [], secretVariables: [] },
+      setBy: {},
+      position: 0,
+      updatedAt: new Date(),
+    });
+
+    expect(await repository.listOf(projectId)).toEqual([
+      {
+        ...WEB,
+        portVariable: "PORT",
+        variables: [],
+        secretVariables: [],
+        commandsBefore: [],
+        memoryMegabytes: null,
+        setBy: {},
+      },
+    ]);
   });
 
   it("removes a Project's targets with the Project", async () => {

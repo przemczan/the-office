@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { DEFAULT_PORT_VARIABLE } from "@the-office/contracts";
 import {
   ProjectNotFound,
   ProjectRefused,
@@ -59,6 +60,15 @@ export class ProjectsTestTargets extends ProjectTestTargets {
         runEnvironmentOn: launch.runEnvironmentOn,
         variables: launch.variables.map(({ name, value, secret }) => ({ name, value, secret })),
         secretsWithoutValue: launch.secretsWithoutValue,
+        commandsBefore: launch.commandsBefore.map((command) => ({
+          key: command.key,
+          name: command.name,
+          commandLine: command.commandLine,
+        })),
+        missingCommands: launch.missingCommands,
+        portVariable:
+          target.kind === "hosted" ? (launch.portVariable ?? DEFAULT_PORT_VARIABLE) : undefined,
+        memoryMegabytes: launch.memoryMegabytes,
         mask: launch.mask,
       };
     });

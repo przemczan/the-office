@@ -170,3 +170,38 @@ test("a restart request starts the service again, installing nothing and leaving
   assert.equal(existsSync(join(updateFolder, RESULT_FILE)), false);
   assert.equal(existsSync(join(updateFolder, LOG_FILE)), false);
 });
+
+test("in a test instance of The Office the service gets no update folder, and its update exit just ends the launcher", async () => {
+  const older = git(checkout, "rev-parse", "HEAD");
+  const newer = pushNewerCommit(false);
+  const marker = join(root, "env.txt");
+  const lines: string[] = [];
+
+  const exitCode = await runLauncher({
+    install: {
+      mode: "checkout",
+      updateFolder,
+      repository: checkout,
+      commands: { install: ["node", "-e", ""], build: ["node", "build.cjs"] },
+    },
+    service: [
+      "node",
+      "-e",
+      `require("node:fs").writeFileSync(${JSON.stringify(marker)}, String(process.env.OFFICE_UPDATE_FOLDER)); process.exit(${UPDATE_EXIT_CODE});`,
+    ],
+    serviceDirectory: () => checkout,
+    environment: {
+      ...process.env,
+      OFFICE_UPDATE_FOLDER: updateFolder,
+      OFFICE_TEST_INSTANCE: "true",
+    },
+    log: (line) => lines.push(line),
+  });
+
+  assert.equal(exitCode, UPDATE_EXIT_CODE);
+  assert.equal(readFileSync(marker, "utf8"), "undefined");
+  assert.deepEqual(lines, []);
+  assert.equal(git(checkout, "rev-parse", "HEAD"), older);
+  assert.notEqual(older, newer);
+  assert.equal(existsSync(updateFolder), false);
+});

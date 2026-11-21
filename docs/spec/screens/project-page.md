@@ -239,14 +239,20 @@ Covers: a Project's page and its head, the section menu, Overview (Onboarding, W
 - With none: "None yet. Add one, or have <Devops> set them up from the repository."
 - A list, one row per target in the order added: its name, badges for its key (monospace) and kind (**Hosted** or **Build to install**), its entry point in monospace, and a mark of who set its values last, "Set by you" or "Set by <Agent>", naming each when they differ ("Set by you and <Agent>"); a pencil ("Change <name>") and a trash ("Remove <name>").
 - A row with a Secret variable whose value isn't typed yet shows the warning "Needs a value: <NAME>".
+- Under the entry point, a row shows its details joined by " · ", each only when it applies: "Commands before: <keys>", a Hosted target's port as `<port variable>=<port>` (`PORT=3000`), and "Memory per service <N> GB" when it has its own.
+- A row listing a command the Project no longer has shows the warning "<key> isn't one of the Project's commands anymore."
 - **Add a test target** and the pencil open the editor in place (one at a time; **Save** and **Cancel**):
   - **Key** (hint "Lower-case letters, digits and "-"; fixed once added.", placeholder `web`), shown as a badge once added;
   - **Name** (placeholder "Web app");
   - **Kind**: a segmented control **Hosted** / **Build to install**; **Install on a device** and **Deployed elsewhere** are shown disabled, titled "Not built yet";
   - **Entry point**: a select of **File in the repository**, **Package script**, **Gradle task** and **.devcontainer/ service**, then the path, script, task or service, and **Arguments**, one per line, each given as it is; hint "One of the repository's own entry points: no shell.";
-  - Hosted: **Port** (hint "The port the app listens on inside its container.");
+  - **Commands before the entry point**: the listed commands in order, each its place, key (monospace) and name with arrows "Move <key> up" and "Move <key> down" and an x "Remove <key>", and **Add a command**, a select of **Install** (`install`, when the Project has an install command) and the Project's commands, those not listed yet (hint "One of the Project's commands, run in the checkout before the entry point, in this order."; "Every command is listed" once none is left); a listed key the Project no longer has is flagged "<key> isn't one of the Project's commands anymore.";
+  - Hosted: **Port** (hint "The port the app listens on inside its container.") and **Port variable** (monospace, placeholder `PORT`, hint "The variable The Office sets to the port.");
   - Build to install: **Output files**, one pattern per line (placeholder `composeApp/build/outputs/apk/debug/*.apk`);
-  - **Variables**, one `NAME=value` per line, and **Secret variables**, as in Environment (a value never shown again once saved); note "Test values only: a test instance never gets the Project's own variables."
+  - **Variables**, one `NAME=value` per line, and **Secret variables**, as in Environment (a value never shown again once saved);
+  - the note "Test values only: a test instance never gets the Project's own variables. The Office sets `OFFICE_TEST_INSTANCE=true` and `<port variable>` to the port." (Build to install: without the port part);
+  - **Memory per service**: empty, it reads "Office default (N GB)", N the Office-wide value, with **Set its own limit**; set, a stepper in GB with the Office-wide setting's bounds and steps, with **Use the Office default**; hint "The most memory each of its services may use, in place of the Office-wide value in Settings › Office limits.", plus, for a Build to install with Run environment not On, "Run environment isn't On, so it builds on the workstation, which ignores it.";
+  - the note "Tool settings go in the variables or the entry point's arguments, such as `-Dorg.gradle.jvmargs=-Xmx2g` for a Gradle task."
 - Each value the editor saves is marked set by you; in the editor each value shows who set it last.
 - Toasts "<name> saved. It applies from its next launch.", "<name> added.", "<name> removed."; a refusal shows under the editor as the service words it (**The test target wasn't saved**).
 - A Hosted target with the Project's Run environment not On shows the warning "Needs Run environment On to launch." with a link to the Run environment section.

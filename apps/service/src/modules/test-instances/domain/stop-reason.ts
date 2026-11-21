@@ -42,6 +42,16 @@ export function notRunning(name: string): string {
   return `${name} isn't Running, so it can't be opened. Launch it again from the Initiative's page.`;
 }
 
+/**
+ * Why a launch failed when a command its target runs before the entry point is no longer one of
+ * the Project's (spec §2.12, "Commands before the entry point").
+ */
+export function missingCommands(keys: readonly string[]): string {
+  return keys.length === 1
+    ? `The Project's command ${keys[0]} that runs before the entry point is gone; pick the commands again in the Project's Test targets.`
+    : `The Project's commands ${keys.join(", ")} that run before the entry point are gone; pick the commands again in the Project's Test targets.`;
+}
+
 export function secretsWithoutValue(names: readonly string[]): string {
   return `Type a value for ${names.join(", ")} in the Project's Test targets before launching.`;
 }

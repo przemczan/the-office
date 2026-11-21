@@ -116,6 +116,9 @@ describe("ProposedTestTargetChanges", () => {
     port: 3000,
     variables: [],
     secretVariables: ["API_TOKEN"],
+    commandsBefore: [],
+    portVariable: "PORT",
+    memoryMegabytes: null,
   };
 
   function shown() {
@@ -136,6 +139,8 @@ describe("ProposedTestTargetChanges", () => {
                 outputPatterns: ["app/*.apk"],
                 variables: [{ name: "MODE", value: "test" }],
                 secretVariables: [],
+                commandsBefore: ["install-tools"],
+                memoryMegabytes: 4096,
               },
               userSet: [],
             },
@@ -167,9 +172,11 @@ describe("ProposedTestTargetChanges", () => {
         "NameAndroid",
         "KindBuild to install",
         "Entry point./gradlew assembleDebug",
+        "Commands before the entry pointinstall-tools",
         "Output filesapp/*.apk",
         "VariablesMODE=test",
         "Secret variablesNone",
+        "Memory per service4 GB",
       ],
     });
   });

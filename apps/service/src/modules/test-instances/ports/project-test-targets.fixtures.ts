@@ -4,6 +4,7 @@ import { OutputMask } from "../../projects/index.js";
 import {
   ProjectTestTargets,
   type InstallSettings,
+  type CommandBefore,
   type ListedTarget,
   type TargetLaunch,
   type WorkstationBuild,
@@ -23,6 +24,14 @@ export interface TargetForTests {
   readonly outputPatterns?: readonly string[];
   readonly variables: readonly { readonly name: string; readonly value: string }[];
   readonly secretVariables: readonly { readonly name: string; readonly value: string | null }[];
+  /** The Project's commands run before the entry point; none by default. */
+  readonly commandsBefore?: readonly CommandBefore[];
+  /** The keys of commands before the entry point the Project no longer has; none by default. */
+  readonly missingCommands?: readonly string[];
+  /** A Hosted target's port variable; PORT, contracts' `DEFAULT_PORT_VARIABLE`, by default. */
+  readonly portVariable?: string;
+  /** The target's own Memory per service in MB; the Office-wide value by default. */
+  readonly memoryMegabytes?: number;
 }
 
 /** A Project as a test makes it: its targets, its Run environment and its branch's files. */
@@ -96,6 +105,10 @@ export class ProjectTestTargetsForTests extends ProjectTestTargets {
       secretsWithoutValue: target.secretVariables
         .filter(({ value }) => value === null)
         .map(({ name }) => name),
+      commandsBefore: target.commandsBefore ?? [],
+      missingCommands: target.missingCommands ?? [],
+      portVariable: target.kind === "hosted" ? (target.portVariable ?? "PORT") : undefined,
+      memoryMegabytes: target.memoryMegabytes,
       mask: OutputMask.ofSecrets(secrets),
     });
   }

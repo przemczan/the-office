@@ -1,14 +1,20 @@
-import type { TestTarget, TestTargetSetter } from "@the-office/contracts";
+import type { ProjectCommand, TestTarget, TestTargetSetter } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import { entryPointWords } from "../../shell/test-target-words.ts";
 import {
   editedTestTargetOf,
+  movedBy,
+  NEW_TEST_TARGET_DRAFT,
   needsRunEnvironment,
+  notACommandWords,
   secretsNeedingValues,
   setByWords,
+  targetDetailsWords,
   targetSetByWords,
   testTargetDraftOf,
   testTargetsWith,
+  runnableCommandsOf,
+  unknownCommandKeys,
 } from "./test-target-words.ts";
 
 const ANN: TestTargetSetter = { by: "user", user: { userId: "ann", name: "Ann Lee" } };
@@ -35,6 +41,9 @@ const WEB: TestTarget = {
     { name: "API_TOKEN", valueSet: true },
     { name: "MAPS_KEY", valueSet: false },
   ],
+  commandsBefore: ["seed"],
+  portVariable: "APP_PORT",
+  memoryMegabytes: null,
   setBy: { name: ANN, kind: ANN, entryPoint: ANN, port: ANN, variables: ANN },
 };
 
@@ -46,6 +55,8 @@ const APK: TestTarget = {
   outputPatterns: ["app/build/outputs/apk/debug/*.apk"],
   variables: [],
   secretVariables: [],
+  commandsBefore: [],
+  memoryMegabytes: 4096,
   setBy: {},
 };
 
@@ -105,6 +116,9 @@ describe("the test target editor's draft", () => {
         port: 3000,
         variables: [{ name: "MODE", value: "test" }],
         secretVariables: [{ name: "API_TOKEN" }, { name: "MAPS_KEY" }],
+        commandsBefore: ["seed"],
+        portVariable: "APP_PORT",
+        memoryMegabytes: null,
       },
     });
   });
@@ -125,8 +139,28 @@ describe("the test target editor's draft", () => {
         outputPatterns: ["a/*.apk", "b/*.aab"],
         variables: [],
         secretVariables: [{ name: "SIGNING", value: "s3cret-value" }],
+        commandsBefore: [],
+        memoryMegabytes: 4096,
       },
     });
+  });
+
+  it("starts a new target with no commands before, PORT and the Office default memory", () => {
+    const edited = editedTestTargetOf({
+      ...NEW_TEST_TARGET_DRAFT,
+      key: "web",
+      name: "Web",
+      script: "start",
+      port: "3000",
+    });
+    expect(edited).toMatchObject({
+      target: { commandsBefore: [], portVariable: "PORT", memoryMegabytes: null },
+    });
+  });
+
+  it("sends a blank port variable as PORT", () => {
+    const edited = editedTestTargetOf({ ...testTargetDraftOf(WEB), portVariable: "  " });
+    expect(edited).toMatchObject({ target: { portVariable: "PORT" } });
   });
 
   it("refuses a variable without = and a Hosted target without a whole port", () => {
@@ -137,6 +171,39 @@ describe("the test target editor's draft", () => {
         "Give the port the app listens on, a whole number.",
       ],
     });
+  });
+});
+
+describe("a target's commands before and its summary", () => {
+  const commands: ProjectCommand[] = [
+    { key: "seed", name: "Seed", kind: "build", commandLine: "npm run seed", rerunCommandLine: "" },
+  ];
+
+  it("flags a command key the Project no longer has", () => {
+    expect(unknownCommandKeys(["seed", "gone"], commands)).toEqual(["gone"]);
+    expect(notACommandWords("gone")).toBe("gone isn't one of the Project's commands anymore.");
+  });
+
+  it("offers Install first when the Project has an install command", () => {
+    expect(runnableCommandsOf({ installCommand: "npm ci", commands })).toEqual([
+      { key: "install", name: "Install" },
+      { key: "seed", name: "Seed" },
+    ]);
+    expect(runnableCommandsOf({ installCommand: "", commands })).toEqual([
+      { key: "seed", name: "Seed" },
+    ]);
+  });
+
+  it("moves a command up or down, keeping the list at either end", () => {
+    expect(movedBy(["a", "b", "c"], 2, -1)).toEqual(["a", "c", "b"]);
+    expect(movedBy(["a", "b", "c"], 0, 1)).toEqual(["b", "a", "c"]);
+    expect(movedBy(["a", "b"], 0, -1)).toEqual(["a", "b"]);
+    expect(movedBy(["a", "b"], 1, 1)).toEqual(["a", "b"]);
+  });
+
+  it("sums a row up: commands before, a Hosted target's port variable and its own memory", () => {
+    expect(targetDetailsWords(WEB)).toEqual(["Commands before: seed", "APP_PORT=3000"]);
+    expect(targetDetailsWords(APK)).toEqual(["Memory per service 4 GB"]);
   });
 });
 

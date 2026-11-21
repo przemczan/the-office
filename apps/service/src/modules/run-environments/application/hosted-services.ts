@@ -15,17 +15,22 @@ import {
   buildCacheVolumeOf,
   buildOverrideOf,
   carrierOf,
+  commandBeforeScript,
+  commandVariables,
   entryPointCommandOf,
   entryPointScript,
   hostedOverrideOf,
   hostedProjectNameOf,
   LABEL,
   officeLabels,
+  TEST_INSTANCE_VARIABLE,
   testInstanceLabels,
   type CommandEntryPoint,
+  type CommandEnvironment,
   type EntryPointCommand,
   type HostedEntryPoint,
   type InstallVariable,
+  type RunEnvironmentLimits,
 } from "../domain/run-environment.js";
 import {
   ContainerRuntime,
@@ -53,6 +58,16 @@ export interface HostedServiceStart {
   readonly containerPort: number;
   /** The target's own plain and Secret variables, never the Project's Secret variables. */
   readonly variables: readonly { readonly name: string; readonly value: string }[];
+  /** The variable set to `containerPort` in the app's service (spec §2.12, "What The Office sets"). */
+  readonly portVariable: string;
+  /**
+   * The Project's commands run in order in the devcontainer's service, in the checkout, once the
+   * compose project is up and before the entry point; the first that doesn't end with 0 ends the
+   * start, refused, naming it.
+   */
+  readonly commandsBefore: readonly { readonly name: string; readonly commandLine: string }[];
+  /** The target's own Memory per service in MB, on every service of the instance; else Office-wide. */
+  readonly memoryMegabytes: number | undefined;
   /** The Project's install command, Install inputs and variables, for its image. */
   readonly installCommand: string | undefined;
   readonly installInputs: readonly string[];
@@ -68,7 +83,10 @@ export interface HostedServiceStart {
  * What a Build to install Test instance is built from (spec §2.12, "Build to install"): as a Hosted
  * one's start, with an entry point The Office runs as a command and no port.
  */
-export interface TestBuildStart extends Omit<HostedServiceStart, "entryPoint" | "containerPort"> {
+export interface TestBuildStart extends Omit<
+  HostedServiceStart,
+  "entryPoint" | "containerPort" | "portVariable"
+> {
   readonly entryPoint: CommandEntryPoint;
   /** How long the build may take before it is ended. */
   readonly timeoutMs: number;
@@ -88,6 +106,13 @@ export interface HostedService {
 
 /** The longest a timer runs: an entry point runs until the instance stops. */
 const ENTRY_POINT_TIMEOUT_MS = 2 ** 31 - 1;
+
+/**
+ * How long each of a Hosted instance's commands before the entry point may take: as long as a
+ * Build to install build may (spec §2.12, "Build time"), so a command that hangs ends the start
+ * rather than leaving it Building until it is stopped. A build's commands share its own time.
+ */
+const COMMAND_BEFORE_TIMEOUT_MS = 60 * 60_000;
 
 /** How long giving the build cache's folders to the build's user may take. */
 const BUILD_CACHE_OWNERSHIP_TIMEOUT_MS = 60_000;
@@ -243,7 +268,7 @@ export class HostedServices {
     const image = await this.imageOf(start, definition);
     refuseWhenStopped(stopping, start.logFile);
 
-    const { limits } = await this.settings.read();
+    const limits = limitsOf(start, (await this.settings.read()).limits);
     const override = hostedOverrideOf(
       definition,
       {
@@ -253,6 +278,7 @@ export class HostedServices {
         appService,
         containerPort: start.containerPort,
         variableNames: start.variables.map(({ name }) => name),
+        portVariable: start.portVariable,
       },
       image,
       this.folders.instance,
@@ -270,11 +296,57 @@ export class HostedServices {
       await this.overrideFileOf(start.instanceId, override.value),
     );
 
+    // A devcontainer service entry point starts with its service, so it waits for the commands.
+    const appWaits = command === undefined && start.commandsBefore.length > 0;
+    if (appWaits && appService === definition.service) {
+      throw new RunEnvironmentRefused(
+        [
+          `The commands before the entry point run in the service ${appService}, which is the entry point itself: name another service as the entry point.`,
+        ],
+        start.logFile,
+      );
+    }
     await note(start.logFile, `Starting ${project.name}.`);
     await this.refusing(start.logFile, "The run environment couldn't start.", () =>
-      this.runtime.up(project, start.logFile, start.mask),
+      this.runtime.up(
+        appWaits
+          ? { ...project, services: project.services.filter((service) => service !== appService) }
+          : project,
+        start.logFile,
+        start.mask,
+      ),
     );
     refuseWhenStopped(stopping, start.logFile);
+
+    const late = await this.commandsBeforeRan(
+      start,
+      project,
+      definition,
+      {
+        set: [
+          ...start.variables,
+          { name: TEST_INSTANCE_VARIABLE, value: "true" },
+          { name: start.portVariable, value: String(start.containerPort) },
+        ],
+        unset: [],
+        prependPath: [],
+      },
+      stopping,
+      () => COMMAND_BEFORE_TIMEOUT_MS,
+    );
+    if (late !== undefined) {
+      throw new RunEnvironmentRefused(
+        [`The Project's command ${late} took too long.`],
+        start.logFile,
+      );
+    }
+    if (appWaits) {
+      await note(start.logFile, `Starting ${appService}.`);
+      await this.refusing(start.logFile, "The run environment couldn't start.", () =>
+        this.runtime.up(project, start.logFile, start.mask),
+      );
+      refuseWhenStopped(stopping, start.logFile);
+    }
 
     const ended = this.run(start, project, definition, command, appService, stopping);
     const hostPort = await this.refusing(
@@ -302,7 +374,7 @@ export class HostedServices {
     const image = await this.imageOf(start, definition);
     refuseWhenStopped(stopping, start.logFile);
 
-    const { limits } = await this.settings.read();
+    const limits = limitsOf(start, (await this.settings.read()).limits);
     const override = buildOverrideOf(
       definition,
       {
@@ -342,6 +414,22 @@ export class HostedServices {
       await this.giveBuildCacheTo(definition.user, project, definition.service, start, stopping);
       refuseWhenStopped(stopping, start.logFile);
     }
+    // The commands before the entry point and the entry point share the build's time.
+    const deadline = Date.now() + start.timeoutMs;
+    const late = await this.commandsBeforeRan(
+      start,
+      project,
+      definition,
+      {
+        set: [...start.variables, { name: TEST_INSTANCE_VARIABLE, value: "true" }],
+        unset: [],
+        prependPath: [],
+      },
+      stopping,
+      () => remainingOf(deadline),
+    );
+    // One past the build's time ends the build as the entry point's own timeout would.
+    if (late !== undefined) return { exitCode: undefined, endedBy: "timeout" };
 
     await note(start.logFile, `Running ${command.command.argv.join(" ")}.`);
     return this.runtime.exec(
@@ -353,11 +441,57 @@ export class HostedServices {
         arguments: command.command.argv,
         variables: {},
         mask: start.mask,
-        timeoutMs: start.timeoutMs,
+        timeoutMs: remainingOf(deadline),
         signal: stopping,
       },
       start.logFile,
     );
+  }
+
+  /**
+   * Runs the Project's commands before the entry point one after another in the devcontainer's
+   * service, in the checkout, each noted in the log first; the variables reach it by their carriers,
+   * so no value is in a command line. Refuses, naming the command, on the first that doesn't end
+   * with 0, and as stopped on a stop; answers the name of one that ran past its time, else nothing.
+   */
+  private async commandsBeforeRan(
+    start: Pick<HostedServiceStart, "checkout" | "commandsBefore" | "logFile" | "mask">,
+    project: ComposeProject,
+    definition: RunEnvironmentDefinition,
+    environment: CommandEnvironment,
+    stopping: AbortSignal,
+    timeoutMs: () => number,
+  ): Promise<string | undefined> {
+    for (const { name, commandLine } of start.commandsBefore) {
+      await note(start.logFile, `Running the Project's command ${name}.`);
+      const { exitCode, endedBy } = await this.runtime.exec(
+        project,
+        {
+          service: definition.service,
+          ...(definition.user === undefined ? {} : { user: definition.user }),
+          script: commandBeforeScript(start.checkout, commandLine, environment),
+          variables: commandVariables(environment),
+          mask: start.mask,
+          timeoutMs: timeoutMs(),
+          signal: stopping,
+        },
+        start.logFile,
+      );
+      refuseWhenStopped(stopping, start.logFile);
+      if (endedBy === "stop") throw new RunEnvironmentRefused([STOPPED], start.logFile);
+      if (endedBy === "timeout") return name;
+      if (exitCode !== 0) {
+        throw new RunEnvironmentRefused(
+          [
+            exitCode === undefined
+              ? `The Project's command ${name} ended without an exit code.`
+              : `The Project's command ${name} ended with exit code ${exitCode}.`,
+          ],
+          start.logFile,
+        );
+      }
+    }
+    return undefined;
   }
 
   /** Makes the build cache's folders the build's user's, refusing the build when that fails. */
@@ -538,6 +672,19 @@ const STOPPED = "The Test instance was stopped.";
 
 function refuseWhenStopped(stopping: AbortSignal, logFile: string): void {
   if (stopping.aborted) throw new RunEnvironmentRefused([STOPPED], logFile);
+}
+
+/** The Office-wide limits, with the target's own Memory per service over them when it has one. */
+function limitsOf(
+  start: Pick<HostedServiceStart, "memoryMegabytes">,
+  limits: RunEnvironmentLimits,
+): RunEnvironmentLimits {
+  return { ...limits, memoryMegabytes: start.memoryMegabytes ?? limits.memoryMegabytes };
+}
+
+/** What is left of a build's time, never below 1 ms. */
+function remainingOf(deadline: number): number {
+  return Math.max(1, deadline - Date.now());
 }
 
 /** The entry point's command, none for a devcontainer service; refused when it leads outside. */

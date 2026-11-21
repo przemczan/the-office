@@ -41,8 +41,11 @@ export function aHostedTarget(fields: Partial<EditedTestTarget> = {}): EditedTes
       arguments: [],
     },
     port: 5173,
+    portVariable: "PORT",
     variables: [{ name: "MODE", value: "test" }],
     secretVariables: [{ name: "API_KEY", value: "api-s3cret-value" }],
+    commandsBefore: [],
+    memoryMegabytes: null,
     ...fields,
   } as EditedTestTarget;
 }
@@ -60,6 +63,8 @@ export function aBuildToInstallTarget(fields: Partial<EditedTestTarget> = {}): E
     outputPatterns: ["app/build/outputs/apk/debug/*.apk"],
     variables: [],
     secretVariables: [],
+    commandsBefore: [],
+    memoryMegabytes: null,
     ...fields,
   } as EditedTestTarget;
 }

@@ -8,6 +8,7 @@ import {
 } from "../adapters/scripted/scripted-container-runtime.js";
 import { RunEnvironmentRefused } from "../domain/run-environment-refused.js";
 import {
+  commandBeforeScript,
   DEFAULT_RUN_ENVIRONMENT_OPTIONS,
   entryPointScript,
   hostedProjectNameOf,
@@ -51,6 +52,9 @@ async function launch(extra: Partial<HostedServiceStart> = {}): Promise<HostedSe
       { name: "GREETING", value: "hello" },
       { name: "API_TOKEN", value: SECRET },
     ],
+    portVariable: "PORT",
+    commandsBefore: [],
+    memoryMegabytes: undefined,
     installCommand: "npm ci",
     installInputs: ["package-lock.json"],
     installVariables: [],
@@ -261,6 +265,158 @@ describe("HostedServices.start", () => {
     });
     expect(runtime.steps.filter((step) => step.startsWith("up"))).toEqual([]);
     expect(runtime.steps).toContain(`down ${projectName} with built images`);
+  });
+
+  it("sets the port variable to the container port in the app's service", async () => {
+    const start = await launch({ portVariable: "APP_PORT" });
+
+    await testbed.hostedServices.start(start, () => undefined);
+
+    const override = await readFile(
+      join(testbed.folders.testInstanceFolder(INSTANCE_ID), "office-override.yaml"),
+      "utf8",
+    );
+    expect(override).toContain('APP_PORT: "3000"');
+  });
+
+  it("puts the target's own Memory per service on every service, else the Office-wide one", async () => {
+    const overrideFile = join(
+      testbed.folders.testInstanceFolder(INSTANCE_ID),
+      "office-override.yaml",
+    );
+    await testbed.hostedServices.start(await launch(), () => undefined);
+    const officeWide = await readFile(overrideFile, "utf8");
+    await testbed.hostedServices.stop(INSTANCE_ID);
+
+    await testbed.hostedServices.start(await launch({ memoryMegabytes: 1536 }), () => undefined);
+    const own = await readFile(overrideFile, "utf8");
+
+    expect(officeWide.match(/mem_limit: 4096m/g)).toHaveLength(2);
+    expect(own.match(/mem_limit: 1536m/g)).toHaveLength(2);
+    expect(own.match(/memswap_limit: 1536m/g)).toHaveLength(2);
+    expect(own).not.toContain("4096m");
+  });
+
+  it("runs the commands before the entry point in order after up, in the checkout, with the variables by carrier", async () => {
+    runtime.keepExecsRunning((execution) => execution.arguments !== undefined);
+    const start = await launch({
+      commandsBefore: [
+        { name: "Install", commandLine: "npm ci" },
+        { name: "Migrate", commandLine: "npm run migrate" },
+      ],
+    });
+
+    await testbed.hostedServices.start(start, () => undefined);
+
+    expect(runtime.steps.slice(1, 5)).toEqual([
+      `up ${projectName}`,
+      `exec ${projectName}`,
+      `exec ${projectName}`,
+      `logs ${projectName}`,
+    ]);
+    const environment = {
+      set: [
+        { name: "GREETING", value: "hello" },
+        { name: "API_TOKEN", value: SECRET },
+        { name: "OFFICE_TEST_INSTANCE", value: "true" },
+        { name: "PORT", value: "3000" },
+      ],
+      unset: [],
+      prependPath: [],
+    };
+    const [install, migrate, entryPoint] = runtime.executions;
+    expect(install).toMatchObject({
+      service: "app",
+      script: commandBeforeScript(start.checkout, "npm ci", environment),
+      variables: {
+        OFFICE_VARIABLE_0: "hello",
+        OFFICE_VARIABLE_1: SECRET,
+        OFFICE_VARIABLE_2: "true",
+        OFFICE_VARIABLE_3: "3000",
+      },
+    });
+    expect(install?.script).toMatch(/^cd '.*' \|\| exit 125\n/);
+    expect(install?.script).not.toContain(SECRET);
+    expect(install?.script).toContain('export PORT="$OFFICE_VARIABLE_3"');
+    expect(migrate?.script).toMatch(/\nnpm run migrate$/);
+    expect(entryPoint?.arguments).toEqual(["./scripts/start.sh", "--port", "3000"]);
+    const log = await readFile(start.logFile, "utf8");
+    expect(log.indexOf("Running the Project's command Install.")).toBeLessThan(
+      log.indexOf("Running the Project's command Migrate."),
+    );
+  });
+
+  it("starts a devcontainer service entry point only once the commands before it have run", async () => {
+    runtime.keepExecsRunning(() => false);
+    const start = await launch({
+      entryPoint: { kind: "devcontainer-service", service: "postgres" },
+      containerPort: 5432,
+      commandsBefore: [{ name: "Install", commandLine: "npm ci" }],
+    });
+
+    await testbed.hostedServices.start(start, () => undefined);
+
+    expect(runtime.steps.slice(1, 4)).toEqual([
+      `up ${projectName}`,
+      `exec ${projectName}`,
+      `up ${projectName}`,
+    ]);
+    expect(runtime.upped.map(({ services }) => services)).toEqual([["app"], ["app", "postgres"]]);
+    expect(runtime.executions).toEqual([expect.objectContaining({ service: "app" })]);
+  });
+
+  it("refuses commands before an entry point that is the definition's own service", async () => {
+    const start = await launch({
+      entryPoint: { kind: "devcontainer-service", service: "app" },
+      commandsBefore: [{ name: "Install", commandLine: "npm ci" }],
+    });
+
+    await expect(testbed.hostedServices.start(start, () => undefined)).rejects.toMatchObject({
+      reasons: [
+        "The commands before the entry point run in the service app, which is the entry point itself: name another service as the entry point.",
+      ],
+    });
+    expect(runtime.steps.filter((step) => step.startsWith("up"))).toEqual([]);
+  });
+
+  it("refuses naming the first command that fails, and never runs the entry point", async () => {
+    runtime.keepExecsRunning((execution) => execution.arguments !== undefined);
+    runtime.onExec = (execution) =>
+      Promise.resolve({ exitCode: execution.script.endsWith("npm run migrate") ? 3 : 0 });
+    const start = await launch({
+      commandsBefore: [
+        { name: "Migrate", commandLine: "npm run migrate" },
+        { name: "Seed", commandLine: "npm run seed" },
+      ],
+    });
+
+    await expect(testbed.hostedServices.start(start, () => undefined)).rejects.toMatchObject({
+      reasons: ["The Project's command Migrate ended with exit code 3."],
+      outputFile: start.logFile,
+    });
+    expect(runtime.executions).toHaveLength(1);
+    expect(runtime.steps).not.toContain(`logs ${projectName}`);
+    expect(runtime.projects.has(projectName)).toBe(false);
+  });
+
+  it("refuses as stopped when a command before the entry point is stopped", async () => {
+    runtime.keepExecsRunning((execution) => execution.arguments !== undefined);
+    runtime.onExec = () => Promise.resolve({ exitCode: undefined, endedBy: "stop" });
+    const start = await launch({ commandsBefore: [{ name: "Seed", commandLine: "npm run seed" }] });
+
+    await expect(testbed.hostedServices.start(start, () => undefined)).rejects.toMatchObject({
+      reasons: ["The Test instance was stopped."],
+    });
+  });
+
+  it("refuses when a command before the entry point takes too long", async () => {
+    runtime.keepExecsRunning((execution) => execution.arguments !== undefined);
+    runtime.onExec = () => Promise.resolve({ exitCode: undefined, endedBy: "timeout" });
+    const start = await launch({ commandsBefore: [{ name: "Seed", commandLine: "npm run seed" }] });
+
+    await expect(testbed.hostedServices.start(start, () => undefined)).rejects.toMatchObject({
+      reasons: ["The Project's command Seed took too long."],
+    });
   });
 
   it("takes no Run environments at once slot: a Task's run environment starts beside it", async () => {

@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
+  DEFAULT_PORT_VARIABLE,
+  gigabytesOf,
+  MEMORY_PER_SERVICE_MEGABYTES,
   testTargetKindSchema,
   type EditedTestTarget,
   type EntryPointKind,
@@ -19,11 +22,13 @@ import {
   Input,
   SegmentedControl,
   Select,
+  Stepper,
   Textarea,
 } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { proposalQueries } from "../../api/conversations.ts";
 import { projectQueries, saveTestTargets, setUpTestTargets } from "../../api/projects.ts";
+import { runEnvironmentOfficeLimitsQuery } from "../../api/run-environments.ts";
 import { useDevops } from "../../shell/ask-devops.tsx";
 import { ProposalCard } from "../../shell/conversation/proposal-card.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
@@ -41,13 +46,18 @@ import { ProjectBlock } from "./project-block.tsx";
 import { SetUpTaskLine } from "./set-up-task-line.tsx";
 import {
   editedTestTargetOf,
+  movedBy,
   NEW_TEST_TARGET_DRAFT,
+  notACommandWords,
   needsRunEnvironment,
   secretsNeedingValues,
   setByWords,
+  targetDetailsWords,
   targetSetByWords,
   testTargetDraftOf,
   testTargetsWith,
+  runnableCommandsOf,
+  unknownCommandKeys,
   withNewTargetSecret,
   type TestTargetDraft,
 } from "./test-target-words.ts";
@@ -79,6 +89,9 @@ const ENTRY_POINT_OPTIONS = ENTRY_POINT_KINDS.map((kind) => ({
   value: kind,
   label: ENTRY_POINT_KIND_LABELS[kind],
 }));
+
+/** The memory a target starts its own limit at when the Office-wide value can't be read. */
+const FIRST_OWN_MEMORY_MEGABYTES = 2048;
 
 /** The Test targets card's id, which the Test instances card under it links to. */
 export const TEST_TARGETS_ANCHOR = "test-targets";
@@ -250,6 +263,9 @@ function TestTargetRow({
   const signedInUserId = useSignedInUserId();
   const setBy = targetSetByWords(target, signedInUserId);
   const missing = secretsNeedingValues(target);
+  const unknown = unknownCommandKeys(target.commandsBefore, runnableCommandsOf(project));
+  const details = targetDetailsWords(target);
+  const needsOn = needsRunEnvironment(target, project.runEnvironment);
   return (
     <div className="command-row test-target-row" role="group" aria-label={target.name}>
       <span className="command-key">{target.name}</span>
@@ -275,7 +291,8 @@ function TestTargetRow({
         disabled={disabled}
         onClick={onRemove}
       />
-      {(missing.length > 0 || needsRunEnvironment(target, project.runEnvironment)) && (
+      {details.length > 0 && <span className="test-target-details">{details.join(" · ")}</span>}
+      {(missing.length > 0 || unknown.length > 0 || needsOn) && (
         <div className="test-target-warnings">
           {missing.map((name) => (
             <span key={name} className="test-target-warning">
@@ -283,7 +300,13 @@ function TestTargetRow({
               Needs a value: {name}
             </span>
           ))}
-          {needsRunEnvironment(target, project.runEnvironment) && (
+          {unknown.map((key) => (
+            <span key={`command-${key}`} className="test-target-warning">
+              <Icon name="triangle-alert" size={13} />
+              {notACommandWords(key)}
+            </span>
+          ))}
+          {needsOn && (
             <span className="test-target-warning">
               <Icon name="triangle-alert" size={13} />
               Needs Run environment On to launch.{" "}
@@ -404,6 +427,13 @@ function TestTargetEditor({
       <Marked setter={setBy("entryPoint")}>
         <EntryPointFields draft={draft} change={change} onKeyDown={cancelOnEscape} />
       </Marked>
+      <Marked setter={setBy("commandsBefore")}>
+        <CommandsBeforeField
+          project={project}
+          commandsBefore={draft.commandsBefore}
+          change={(commandsBefore) => change({ commandsBefore })}
+        />
+      </Marked>
       {draft.kind === "build-to-install" ? (
         <Marked setter={setBy("outputPatterns")}>
           <Textarea
@@ -417,18 +447,32 @@ function TestTargetEditor({
           />
         </Marked>
       ) : (
-        <Marked setter={setBy("port")}>
-          <Input
-            label="Port"
-            hint="The port the app listens on inside its container."
-            inputMode="numeric"
-            placeholder="3000"
-            value={draft.port}
-            onChange={(event) => change({ port: event.target.value })}
-            onKeyDown={cancelOnEscape}
-            size="sm"
-          />
-        </Marked>
+        <div className="command-editor-fields test-target-editor-fields">
+          <Marked setter={setBy("port")}>
+            <Input
+              label="Port"
+              hint="The port the app listens on inside its container."
+              inputMode="numeric"
+              placeholder="3000"
+              value={draft.port}
+              onChange={(event) => change({ port: event.target.value })}
+              onKeyDown={cancelOnEscape}
+              size="sm"
+            />
+          </Marked>
+          <Marked setter={setBy("portVariable")}>
+            <Input
+              label="Port variable"
+              hint="The variable The Office sets to the port."
+              placeholder={DEFAULT_PORT_VARIABLE}
+              value={draft.portVariable}
+              onChange={(event) => change({ portVariable: event.target.value })}
+              onKeyDown={cancelOnEscape}
+              size="sm"
+              inputStyle={{ fontFamily: "var(--font-mono)" }}
+            />
+          </Marked>
+        </div>
       )}
       <Marked setter={setBy("variables")}>
         <Textarea
@@ -449,7 +493,29 @@ function TestTargetEditor({
         />
       </Marked>
       <p className="project-block-note test-target-editor-note">
-        Test values only: a test instance never gets the Project&apos;s own variables.
+        Test values only: a test instance never gets the Project&apos;s own variables. The Office
+        sets <code>OFFICE_TEST_INSTANCE=true</code>
+        {draft.kind === "build-to-install" ? (
+          "."
+        ) : (
+          <>
+            {" "}
+            and <code>{draft.portVariable.trim() || DEFAULT_PORT_VARIABLE}</code> to the port.
+          </>
+        )}
+      </p>
+      <Marked setter={setBy("memoryMegabytes")}>
+        <MemoryField
+          memoryMegabytes={draft.memoryMegabytes}
+          change={(memoryMegabytes) => change({ memoryMegabytes })}
+          ignoredOnTheWorkstation={
+            draft.kind === "build-to-install" && project.runEnvironment !== "on"
+          }
+        />
+      </Marked>
+      <p className="project-block-note test-target-editor-note">
+        Tool settings go in the variables or the entry point&apos;s arguments, such as{" "}
+        <code>-Dorg.gradle.jvmargs=-Xmx2g</code> for a Gradle task.
       </p>
       {problems.length > 0 && (
         <ul className="environment-reasons" role="alert">
@@ -531,6 +597,146 @@ function EntryPointFields({
           style={{ fontFamily: "var(--font-mono)" }}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * The Project's commands run in the checkout before the entry point, in order: each can be moved
+ * or removed, and one the Project no longer has is flagged.
+ */
+function CommandsBeforeField({
+  project,
+  commandsBefore,
+  change,
+}: {
+  readonly project: Project;
+  readonly commandsBefore: readonly string[];
+  readonly change: (commandsBefore: readonly string[]) => void;
+}): ReactNode {
+  const runnable = runnableCommandsOf(project);
+  const addable = runnable.filter(({ key }) => !commandsBefore.includes(key));
+  const unknown = unknownCommandKeys(commandsBefore, runnable);
+  return (
+    <div className="test-target-field" role="group" aria-label="Commands before the entry point">
+      <span className="test-target-field-label">Commands before the entry point</span>
+      {commandsBefore.length > 0 && (
+        <ol className="test-target-commands" aria-label="Commands before the entry point, in order">
+          {commandsBefore.map((key, index) => {
+            const command = runnable.find((each) => each.key === key);
+            return (
+              <li key={`${index}-${key}`} className="test-target-command">
+                <span className="test-target-command-place">{index + 1}</span>
+                <span className="test-target-command-words">
+                  <code>{key}</code>
+                  {command && <span className="test-target-command-name">{command.name}</span>}
+                  {unknown.includes(key) && (
+                    <span className="test-target-warning">
+                      <Icon name="triangle-alert" size={13} />
+                      {notACommandWords(key)}
+                    </span>
+                  )}
+                </span>
+                <span className="test-target-command-tools">
+                  <IconButton
+                    size="sm"
+                    icon={<Icon name="chevron-up" size={14} />}
+                    label={`Move ${key} up`}
+                    disabled={index === 0}
+                    onClick={() => change(movedBy(commandsBefore, index, -1))}
+                  />
+                  <IconButton
+                    size="sm"
+                    icon={<Icon name="chevron-down" size={14} />}
+                    label={`Move ${key} down`}
+                    disabled={index === commandsBefore.length - 1}
+                    onClick={() => change(movedBy(commandsBefore, index, 1))}
+                  />
+                  <IconButton
+                    size="sm"
+                    icon={<Icon name="x" size={14} />}
+                    label={`Remove ${key}`}
+                    onClick={() => change(commandsBefore.filter((_, each) => each !== index))}
+                  />
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+      <div className="test-target-command-add">
+        <Select
+          label="Add a command"
+          hint="One of the Project's commands, run in the checkout before the entry point, in this order."
+          placeholder={
+            addable.length > 0 ? "Pick one of the Project's commands" : "Every command is listed"
+          }
+          disabled={addable.length === 0}
+          options={addable.map(({ key, name }) => ({ value: key, label: `${name} (${key})` }))}
+          value=""
+          onChange={(key) => key !== "" && change([...commandsBefore, key])}
+          size="sm"
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The target's own Memory per service, on a Stepper with the Office-wide setting's bounds, or the
+ * Office default while it has none.
+ */
+function MemoryField({
+  memoryMegabytes,
+  change,
+  ignoredOnTheWorkstation,
+}: {
+  readonly memoryMegabytes: number | null;
+  readonly change: (memoryMegabytes: number | null) => void;
+  readonly ignoredOnTheWorkstation: boolean;
+}): ReactNode {
+  const officeDefault = useQuery(runEnvironmentOfficeLimitsQuery()).data?.memoryMegabytes;
+  const defaultWords =
+    officeDefault === undefined
+      ? "Office default"
+      : `Office default (${gigabytesOf(officeDefault)})`;
+  return (
+    <div className="test-target-field" role="group" aria-label="Memory per service">
+      <span className="test-target-field-label">Memory per service</span>
+      {memoryMegabytes === null ? (
+        <div className="test-target-memory">
+          <span className="test-target-memory-default">{defaultWords}</span>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => change(officeDefault ?? FIRST_OWN_MEMORY_MEGABYTES)}
+          >
+            Set its own limit
+          </Button>
+        </div>
+      ) : (
+        <div className="test-target-memory">
+          <Stepper
+            label="the memory per service"
+            value={memoryMegabytes}
+            min={MEMORY_PER_SERVICE_MEGABYTES.min}
+            max={MEMORY_PER_SERVICE_MEGABYTES.max}
+            step={MEMORY_PER_SERVICE_MEGABYTES.step}
+            format={gigabytesOf}
+            onChange={change}
+          />
+          <Button type="button" variant="ghost" size="sm" onClick={() => change(null)}>
+            Use the Office default
+          </Button>
+        </div>
+      )}
+      <span className="test-target-field-hint">
+        The most memory each of its services may use, in place of the Office-wide value in Settings
+        › Office limits.
+        {ignoredOnTheWorkstation &&
+          " Run environment isn't On, so it builds on the workstation, which ignores it."}
+      </span>
     </div>
   );
 }

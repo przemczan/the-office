@@ -42,6 +42,8 @@ async function build(extra: Partial<TestBuildStart> = {}): Promise<TestBuildStar
       { name: "FLAVOUR", value: "debug" },
       { name: "SIGNING_TOKEN", value: SECRET },
     ],
+    commandsBefore: [],
+    memoryMegabytes: undefined,
     installCommand: undefined,
     installInputs: [],
     installVariables: [],
@@ -81,7 +83,9 @@ describe("HostedServices.build", () => {
     ]);
     const [execution] = runtime.executions;
     expect(execution?.arguments).toEqual(["./gradlew", "assembleDebug", "--offline"]);
-    expect(execution?.timeoutMs).toBe(60_000);
+    // The build's time, less what the steps before the entry point took.
+    expect(execution?.timeoutMs).toBeLessThanOrEqual(60_000);
+    expect(execution?.timeoutMs).toBeGreaterThan(50_000);
     const log = await readFile(start.logFile, "utf8");
     expect(log).toContain("signed with [secret SIGNING_TOKEN]");
     expect(log).not.toContain(SECRET);
@@ -161,6 +165,78 @@ describe("HostedServices.build", () => {
       OFFICE_VARIABLE_0: "debug",
       OFFICE_VARIABLE_1: SECRET,
     });
+  });
+
+  it("runs the commands before the entry point in order after the cache is given, as the build's user", async () => {
+    const start = await build({
+      commandsBefore: [
+        { name: "Install", commandLine: "npm ci" },
+        { name: "Generate", commandLine: "npm run generate" },
+      ],
+    });
+    await writeFiles(start.checkout, {
+      ".devcontainer/devcontainer.json": `{ "dockerComposeFile": "compose.yaml", "service": "app", "overrideCommand": true, "remoteUser": "vscode" }`,
+    });
+
+    expect(await testbed.hostedServices.build(start)).toEqual({ exitCode: 0 });
+
+    const [ownership, install, generate, entryPoint] = runtime.executions;
+    expect(ownership?.user).toBe("root");
+    expect(install).toMatchObject({
+      service: "app",
+      user: "vscode",
+      variables: {
+        OFFICE_VARIABLE_0: "debug",
+        OFFICE_VARIABLE_1: SECRET,
+        OFFICE_VARIABLE_2: "true",
+      },
+    });
+    expect(install?.script).toMatch(/\nnpm ci$/);
+    expect(install?.script).toContain('export OFFICE_TEST_INSTANCE="$OFFICE_VARIABLE_2"');
+    expect(install?.script).not.toContain(SECRET);
+    expect(install?.timeoutMs).toBeLessThanOrEqual(60_000);
+    expect(generate?.script).toMatch(/\nnpm run generate$/);
+    expect(entryPoint?.arguments).toEqual(["./gradlew", "assembleDebug", "--offline"]);
+    const log = await readFile(start.logFile, "utf8");
+    expect(log).toContain("Running the Project's command Install.");
+    expect(log).toContain("Running the Project's command Generate.");
+  });
+
+  it("refuses the build naming the command that fails, never running the entry point", async () => {
+    runtime.onExec = (execution) =>
+      Promise.resolve({ exitCode: execution.arguments === undefined ? 2 : 0 });
+    const start = await build({ commandsBefore: [{ name: "Install", commandLine: "npm ci" }] });
+
+    await expect(testbed.hostedServices.build(start)).rejects.toMatchObject({
+      reasons: ["The Project's command Install ended with exit code 2."],
+    });
+    expect(runtime.executions).toHaveLength(1);
+    expect(runtime.projects.has(projectName)).toBe(false);
+  });
+
+  it("ends the build as timed out when a command before the entry point runs past its time", async () => {
+    runtime.onExec = () => Promise.resolve({ exitCode: undefined, endedBy: "timeout" });
+    const start = await build({ commandsBefore: [{ name: "Install", commandLine: "npm ci" }] });
+
+    expect(await testbed.hostedServices.build(start)).toEqual({
+      exitCode: undefined,
+      endedBy: "timeout",
+    });
+    expect(runtime.executions).toHaveLength(1);
+  });
+
+  it("puts the target's own Memory per service on every service of the build", async () => {
+    let override = "";
+    runtime.onExec = async () => {
+      const file = join(testbed.folders.testInstanceFolder(INSTANCE_ID), "office-override.yaml");
+      override = await readFile(file, "utf8");
+      return { exitCode: 0 };
+    };
+
+    await testbed.hostedServices.build(await build({ memoryMegabytes: 2048 }));
+
+    expect(override).toContain("mem_limit: 2048m");
+    expect(override).toContain("memswap_limit: 2048m");
   });
 
   it("keeps the cache volume after the build and through the sweep, for the next build", async () => {

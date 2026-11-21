@@ -152,7 +152,7 @@
 - `status-strip.tsx`: StatusStrip
 - `strip-figure.tsx`: StripFigureAction, StripFigure, StripLabel
 - `test-instance-banner.tsx`: TestInstanceBanner
-- `test-target-words.ts`: TEST_TARGET_KIND_LABELS, BUILT_TEST_TARGET_KINDS, ENTRY_POINT_KIND_LABELS, TEST_TARGET_FIELD_LABELS, entryPointWords, testTargetFieldsOf, testTargetFieldWords
+- `test-target-words.ts`: TEST_TARGET_KIND_LABELS, BUILT_TEST_TARGET_KINDS, ENTRY_POINT_KIND_LABELS, TEST_TARGET_FIELD_LABELS, entryPointWords, testTargetFieldsOf, testTargetFieldWords, commandsBeforeWords, memoryWords
 - `theme-menu.tsx`: ThemeMenu
 - `time.ts`: dayOf, dayAndClockOf, clockOf, sameDay, dayLineWords, momentWords, durationWords, shortDurationWords
 - `toasts.tsx`: Notice, Notices, ToastProvider, useToast, useNotices

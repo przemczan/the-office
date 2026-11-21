@@ -6,6 +6,16 @@ export const BUILD_TIMEOUT_MINUTES = 60;
 export const BUILD_TIMEOUT_MS = BUILD_TIMEOUT_MINUTES * 60_000;
 
 /**
+ * The mark The Office sets in every test instance (spec §6, "Test instances"), given to a
+ * workstation build's commands and entry point beside the target's own variables.
+ */
+export const TEST_INSTANCE_MARK = {
+  name: "OFFICE_TEST_INSTANCE",
+  value: "true",
+  secret: false,
+} as const;
+
+/**
  * How many Built instances keep their files per target per Initiative, or per target per branch
  * for builds linked to no Initiative (spec §2.12, Defaults).
  */
@@ -45,6 +55,18 @@ export function buildFailureOf(end: BuildEnd): string | undefined {
         ? "The build ended without an exit code."
         : `The build ended with exit code ${end.exitCode}.`;
   }
+}
+
+/**
+ * Why a command before the entry point that ended by itself, or couldn't run, failed the build, in
+ * the user's words, as the run environment says it; undefined when it exited 0.
+ */
+export function commandBeforeFailureOf(name: string, end: BuildEnd): string | undefined {
+  if (end.endedBy === "could-not-run") return `The Project's command ${name} couldn't run.`;
+  if (end.exitCode === 0) return undefined;
+  return end.exitCode === undefined
+    ? `The Project's command ${name} ended without an exit code.`
+    : `The Project's command ${name} ended with exit code ${end.exitCode}.`;
 }
 
 /** Why an output pattern is refused before anything is matched: it leads out of the checkout. */

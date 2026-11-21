@@ -2427,16 +2427,19 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   await expect(beforeReady.locator(".task-checklist-met")).toHaveCount(0);
   await expect(beforeReady.getByRole("button", { name: "Confirm", exact: true })).toHaveCount(0);
 
-  const beforeReadyBox = await beforeReady.boundingBox();
-  const needsYouBox = await needsYou.boundingBox();
-  // Both in the record's column, above its tabs: what waits first, Before Ready under it.
-  const overviewTabBox = await page.getByRole("tab", { name: "Overview" }).boundingBox();
-  expect(beforeReadyBox?.x).toBe(needsYouBox?.x);
-  expect(beforeReadyBox?.width).toBe(needsYouBox?.width);
-  expect(beforeReadyBox?.y).toBeGreaterThan((needsYouBox?.y ?? 0) + (needsYouBox?.height ?? 0));
-  expect(overviewTabBox?.y).toBeGreaterThan(
-    (beforeReadyBox?.y ?? 0) + (beforeReadyBox?.height ?? 0),
-  );
+  // Both in the record's column, above its tabs: what waits first, Before Ready under it. The boxes
+  // are read one after another, so a late layout shift between reads is retried, not failed.
+  await expect(async () => {
+    const beforeReadyBox = await beforeReady.boundingBox();
+    const needsYouBox = await needsYou.boundingBox();
+    const overviewTabBox = await page.getByRole("tab", { name: "Overview" }).boundingBox();
+    expect(beforeReadyBox?.x).toBe(needsYouBox?.x);
+    expect(beforeReadyBox?.width).toBe(needsYouBox?.width);
+    expect(beforeReadyBox?.y).toBeGreaterThan((needsYouBox?.y ?? 0) + (needsYouBox?.height ?? 0));
+    expect(overviewTabBox?.y).toBeGreaterThan(
+      (beforeReadyBox?.y ?? 0) + (beforeReadyBox?.height ?? 0),
+    );
+  }).toPass();
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-planning.png") });
   await showPalette(page, "dark");
   await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-task-planning.png") });

@@ -49,11 +49,13 @@ function toTargetResponse(target: ShownTestTarget): TestTargetResponse {
     entryPoint: toEntryPointResponse(target.entryPoint),
     variables: target.variables.map(({ name, value }) => ({ name, value })),
     secretVariables: target.secretVariables.map(({ name, valueSet }) => ({ name, valueSet })),
+    commandsBefore: [...target.commandsBefore],
+    memoryMegabytes: target.memoryMegabytes,
     setBy: { ...target.setBy },
   };
   return target.kind === "build-to-install"
     ? { ...common, kind: target.kind, outputPatterns: [...target.outputPatterns] }
-    : { ...common, kind: target.kind, port: target.port };
+    : { ...common, kind: target.kind, port: target.port, portVariable: target.portVariable };
 }
 
 function toEntryPointResponse(entryPoint: EntryPoint): EntryPointResponse {

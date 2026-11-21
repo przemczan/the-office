@@ -18,7 +18,11 @@ import {
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { afterCursor, newestFirst } from "../../../../platform/database/page-sql.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
-import type { ProjectCommandFields } from "../../../projects/index.js";
+import {
+  DEFAULT_PORT_VARIABLE,
+  type ProjectCommandFields,
+  type ProposedTestTargetFields,
+} from "../../../projects/index.js";
 import {
   type DecisionAnswer,
   formAnswerFromOne,
@@ -763,9 +767,39 @@ function toProposedChange(change: Proposal["change"]): Proposal["change"] {
           })),
         },
       };
+    // A Proposal of test targets drafted before commands before the entry point, the port
+    // variable and a target's memory has none of them, read as their defaults.
+    case "test-targets":
+      return {
+        ...change,
+        changes: {
+          ...change.changes,
+          targets: change.changes.targets.map((target) => ({
+            ...target,
+            from: target.from && withTargetDefaults(target.from),
+            to: target.to && withTargetDefaults(target.to),
+          })),
+        },
+      };
     default:
       return change;
   }
+}
+
+function withTargetDefaults(fields: ProposedTestTargetFields): ProposedTestTargetFields {
+  // The row's JSON may lack them, whatever the type says.
+  const stored: {
+    readonly commandsBefore?: readonly string[];
+    readonly portVariable?: string;
+    readonly memoryMegabytes?: number | null;
+  } = fields;
+  const common = {
+    commandsBefore: stored.commandsBefore ?? [],
+    memoryMegabytes: stored.memoryMegabytes ?? null,
+  };
+  return fields.kind === "build-to-install"
+    ? { ...fields, ...common }
+    : { ...fields, ...common, portVariable: stored.portVariable ?? DEFAULT_PORT_VARIABLE };
 }
 
 function withRerunCommandLine(

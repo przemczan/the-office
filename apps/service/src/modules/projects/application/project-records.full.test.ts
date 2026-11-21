@@ -194,12 +194,23 @@ describe("ProjectRecords.of", () => {
               arguments: [],
             },
             port: 3000,
+            portVariable: "WEB_PORT",
             variables: [{ name: "MODE", value: "test" }],
             secretVariables: [
               { name: "API_KEY", value: "api-s3cret" },
               { name: "MAPS_KEY", value: null },
             ],
-            setBy: { name: ann, kind: devops, entryPoint: devops, port: ann, variables: devops },
+            commandsBefore: ["build", "seed"],
+            memoryMegabytes: 2048,
+            setBy: {
+              name: ann,
+              kind: devops,
+              entryPoint: devops,
+              port: ann,
+              variables: devops,
+              commandsBefore: devops,
+              memoryMegabytes: ann,
+            },
           },
           {
             key: "android",
@@ -209,6 +220,8 @@ describe("ProjectRecords.of", () => {
             outputPatterns: ["app/build/outputs/apk/debug/*.apk"],
             variables: [],
             secretVariables: [],
+            commandsBefore: [],
+            memoryMegabytes: null,
             setBy: {},
           },
         ],
@@ -220,8 +233,8 @@ describe("ProjectRecords.of", () => {
     expect(record).not.toContain("api-s3cret");
     expect(record.split("\n").slice(-3)).toEqual([
       "- Test targets:",
-      "  - web (Web app, Hosted): script start of package.json; port 3000; variables `MODE=test`; Secret variables (values never shown) API_KEY (value set), MAPS_KEY (no value); set by: name the user Ann, kind a Proposal by Dana (devops), entry point a Proposal by Dana (devops), port the user Ann, variables a Proposal by Dana (devops), Secret variables unknown",
-      "  - android (Android, Build to install): Gradle task assembleDebug; output files app/build/outputs/apk/debug/*.apk; variables none; Secret variables (values never shown) none; set by: name unknown, kind unknown, entry point unknown, output files unknown, variables unknown, Secret variables unknown",
+      "  - web (Web app, Hosted): script start of package.json; port 3000 in `WEB_PORT`; variables `MODE=test`; Secret variables (values never shown) API_KEY (value set), MAPS_KEY (no value); commands before the entry point build, seed; memory per service 2 GB; set by: name the user Ann, kind a Proposal by Dana (devops), entry point a Proposal by Dana (devops), port the user Ann, variables a Proposal by Dana (devops), Secret variables unknown, commands before the entry point a Proposal by Dana (devops), port variable unknown, memory per service the user Ann",
+      "  - android (Android, Build to install): Gradle task assembleDebug; output files app/build/outputs/apk/debug/*.apk; variables none; Secret variables (values never shown) none; commands before the entry point none; memory per service the Office-wide value; set by: name unknown, kind unknown, entry point unknown, output files unknown, variables unknown, Secret variables unknown, commands before the entry point unknown, memory per service unknown",
     ]);
   });
 

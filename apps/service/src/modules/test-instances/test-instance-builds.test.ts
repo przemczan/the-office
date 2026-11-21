@@ -215,7 +215,9 @@ describe("building a Build to install test instance", () => {
     );
     expect(mounts).toEqual([checkout, "office-build-cache"]);
     expect(runtime.executions[0]?.arguments).toEqual(["./gradlew", "assembleDebug"]);
-    expect(runtime.executions[0]?.timeoutMs).toBe(BUILD_TIMEOUT_MS);
+    // The build's time, less what came before the entry point.
+    expect(runtime.executions[0]?.timeoutMs).toBeLessThanOrEqual(BUILD_TIMEOUT_MS);
+    expect(runtime.executions[0]?.timeoutMs).toBeGreaterThan(BUILD_TIMEOUT_MS - 60_000);
     expect(runtime.upped.map(({ variables }) => variables)).toEqual([
       { OFFICE_VARIABLE_0: "debug", OFFICE_VARIABLE_1: BUILD_SECRET },
     ]);
@@ -228,7 +230,7 @@ describe("building a Build to install test instance", () => {
     expect(runtime.projects.size).toBe(0);
   });
 
-  it("builds on the workstation when the Run environment is Off, with only the target's variables", async () => {
+  it("builds on the workstation when the Run environment is Off, with only the target's variables and the mark", async () => {
     testbed.project.runEnvironmentOn = false;
     buildMakes({ [APK]: "apk" });
 
@@ -243,13 +245,115 @@ describe("building a Build to install test instance", () => {
         variables: [
           { name: "FLAVOUR", value: "debug", secret: false },
           { name: "SIGNING_TOKEN", value: BUILD_SECRET, secret: true },
+          { name: "OFFICE_TEST_INSTANCE", value: "true", secret: false },
         ],
         logFile: testbed.files.logOf(instance.id),
-        timeoutMs: BUILD_TIMEOUT_MS,
+        timeoutMs: expect.any(Number) as number,
         signal: expect.any(AbortSignal) as AbortSignal,
       },
     ]);
+    expect(testbed.projects.builds[0]?.timeoutMs).toBeLessThanOrEqual(BUILD_TIMEOUT_MS);
     expect(runtime.steps).toEqual([]);
+  });
+});
+
+describe("a build's commands before the entry point and Memory", () => {
+  const COMMANDS = [
+    { key: "install", name: "Install", commandLine: "npm ci" },
+    { key: "generate", name: "Generate", commandLine: "npm run generate" },
+  ];
+
+  it("runs them in order in the run environment before the entry point, with the target's Memory", async () => {
+    withTarget({ commandsBefore: COMMANDS, memoryMegabytes: 3072 });
+    let override = "";
+    buildMakes({ [APK]: "apk" });
+    const scripted = runtime.onExec;
+    runtime.onExec = async (execution) => {
+      const [id] = [...testbed.repository.rows.keys()];
+      override = await readFile(
+        join(environments.folders.testInstanceFolder(id ?? ""), "office-override.yaml"),
+        "utf8",
+      );
+      return scripted(execution);
+    };
+
+    const instance = await testbed.buildAndSettle();
+
+    expect(instance.state).toBe("built");
+    const [install, generate, entryPoint] = runtime.executions;
+    expect(install?.script).toMatch(/\nnpm ci$/);
+    expect(generate?.script).toMatch(/\nnpm run generate$/);
+    expect(entryPoint?.arguments).toEqual(["./gradlew", "assembleDebug"]);
+    expect(override).toContain("mem_limit: 3072m");
+    const log = await logOf(instance.id);
+    expect(log.indexOf("Running the Project's command Install.")).toBeLessThan(
+      log.indexOf("Running the Project's command Generate."),
+    );
+  });
+
+  it("fails with the command's words when one fails in the run environment, the entry point never run", async () => {
+    withTarget({ commandsBefore: COMMANDS });
+    runtime.onExec = (execution) =>
+      Promise.resolve({ exitCode: execution.script.endsWith("npm ci") ? 5 : 0 });
+
+    const instance = await testbed.buildAndSettle();
+
+    expect(instance).toMatchObject({
+      state: "failed",
+      failedReason: "The Project's command Install ended with exit code 5.",
+    });
+    expect(runtime.executions).toHaveLength(1);
+  });
+
+  it("runs them in order on the workstation in the checkout, before the entry point", async () => {
+    testbed.project.runEnvironmentOn = false;
+    withTarget({ commandsBefore: COMMANDS, memoryMegabytes: 3072 });
+    buildMakes({ [APK]: "apk" });
+
+    const instance = await testbed.buildAndSettle();
+
+    expect(instance.state).toBe("built");
+    expect(
+      testbed.projects.builds.map(({ folder, commandLine }) => ({ folder, commandLine })),
+    ).toEqual([
+      { folder: ".", commandLine: "npm ci" },
+      { folder: ".", commandLine: "npm run generate" },
+      { folder: ".", commandLine: `'./gradlew' 'assembleDebug'` },
+    ]);
+    expect(testbed.projects.builds[0]?.variables).toContainEqual({
+      name: "OFFICE_TEST_INSTANCE",
+      value: "true",
+      secret: false,
+    });
+    expect(await logOf(instance.id)).toContain("Running the Project's command Generate.");
+  });
+
+  it("fails with the command's words when one fails on the workstation, the entry point never run", async () => {
+    testbed.project.runEnvironmentOn = false;
+    withTarget({ commandsBefore: COMMANDS });
+    testbed.projects.onBuild = (build) =>
+      Promise.resolve({ exitCode: build.commandLine === "npm ci" ? 0 : 7, endedBy: undefined });
+
+    const instance = await testbed.buildAndSettle();
+
+    expect(instance).toMatchObject({
+      state: "failed",
+      failedReason: "The Project's command Generate ended with exit code 7.",
+    });
+    expect(testbed.projects.builds).toHaveLength(2);
+  });
+
+  it("fails the launch when a command is no longer the Project's, checking nothing out", async () => {
+    withTarget({ missingCommands: ["install", "generate"] });
+
+    const instance = await testbed.buildAndSettle();
+
+    expect(instance).toMatchObject({
+      state: "failed",
+      failedReason:
+        "The Project's commands install, generate that run before the entry point are gone; pick the commands again in the Project's Test targets.",
+    });
+    expect(testbed.projects.checkouts).toEqual([]);
   });
 });
 

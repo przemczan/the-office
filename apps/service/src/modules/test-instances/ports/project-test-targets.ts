@@ -22,6 +22,14 @@ export interface TargetVariable {
   readonly secret: boolean;
 }
 
+/** One of the Project's commands a target runs before its entry point, as the Project has it now. */
+export interface CommandBefore {
+  readonly key: string;
+  readonly name: string;
+  /** The Project's command line for it, run by a POSIX shell in the checkout. */
+  readonly commandLine: string;
+}
+
 /** A Build to install build on the workstation, its Run environment Off. */
 export interface WorkstationBuild {
   /** The instance's checkout, one directly inside `<office-data>/test-instances/`. */
@@ -30,7 +38,7 @@ export interface WorkstationBuild {
   readonly folder: string;
   /** A POSIX shell command line, every word quoted. */
   readonly commandLine: string;
-  /** The target's own variables, the only ones it gets beside the service's own. */
+  /** The target's own variables and `OFFICE_TEST_INSTANCE`, the only ones beside the service's. */
   readonly variables: readonly TargetVariable[];
   /** Its output is appended there, masked. */
   readonly logFile: string;
@@ -61,6 +69,14 @@ export interface TargetLaunch {
   /** The target's own variables, plain and secret with a value; never the Project's. */
   readonly variables: readonly TargetVariable[];
   readonly secretsWithoutValue: readonly string[];
+  /** The Project's commands run in the checkout before the entry point, in order. */
+  readonly commandsBefore: readonly CommandBefore[];
+  /** The keys of commands before the entry point the Project no longer has; a launch fails on one. */
+  readonly missingCommands: readonly string[];
+  /** A Hosted target's variable set to its port; undefined for other kinds. */
+  readonly portVariable: string | undefined;
+  /** The target's own Memory per service in MB; undefined when the Office-wide value applies. */
+  readonly memoryMegabytes: number | undefined;
   readonly mask: InstanceMask;
 }
 

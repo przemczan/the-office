@@ -136,11 +136,12 @@ function userSetAmong(target: TestTarget, fields: readonly TestTargetField[]): T
 /**
  * Every reason the Proposal can't apply to the targets as they are: it changes nothing, a target
  * it changes changed since it was drafted (each named, and checked first), or its result breaks a
- * rule the Project page keeps too.
+ * rule the Project page keeps too, against the Project's command keys as they are now.
  */
 export function proposedTestTargetsProblems(
   current: readonly TestTarget[],
   proposed: ProposedTestTargets,
+  commandKeys: readonly string[],
 ): string[] {
   if (proposed.targets.length === 0) {
     return ["Nothing changes: the Proposal adds, changes or removes no test target."];
@@ -152,7 +153,7 @@ export function proposedTestTargetsProblems(
   }
   const stale = proposed.targets.flatMap((target) => staleProblems(current, target));
   if (stale.length > 0) return stale;
-  return testTargetProblems(appliedTargets(current, proposed));
+  return testTargetProblems(appliedTargets(current, proposed), commandKeys);
 }
 
 function staleProblems(

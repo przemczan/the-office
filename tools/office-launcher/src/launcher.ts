@@ -18,6 +18,12 @@ export const UPDATE_FOLDER_VARIABLE = "OFFICE_UPDATE_FOLDER";
 /** The variable telling the service how it was installed, set here for a release alone. */
 export const INSTALL_VARIABLE = "OFFICE_INSTALL";
 
+/**
+ * The variable The Office sets in every test instance of itself (spec §6, "Test instances"): with
+ * it "true", the launcher updates and restarts nothing.
+ */
+export const TEST_INSTANCE_VARIABLE = "OFFICE_TEST_INSTANCE";
+
 const FORWARDED_SIGNALS = ["SIGINT", "SIGTERM"] as const;
 
 /** What the launcher updates, by how The Office was installed. */
@@ -53,9 +59,11 @@ export interface LauncherOptions {
  * `UPDATE_EXIT_CODE` is updated, or only restarted when it asked for that, and started again; a
  * stop signal goes on to the service, and one coming during an update lets the update finish, so
  * the install is left whole, but runs nothing after it. The launcher's own code is the one it was
- * started with: a new version's applies from its next start.
+ * started with: a new version's applies from its next start. In a test instance of The Office
+ * (`OFFICE_TEST_INSTANCE=true`) it updates and restarts nothing.
  */
-export async function runLauncher(options: LauncherOptions): Promise<number> {
+export async function runLauncher(given: LauncherOptions): Promise<number> {
+  const options = asTestInstance(given);
   let stopping = false;
   let service: RunningService | undefined;
   const forward = (signal: NodeJS.Signals): void => {
@@ -81,6 +89,16 @@ export async function runLauncher(options: LauncherOptions): Promise<number> {
   } finally {
     for (const signal of FORWARDED_SIGNALS) process.removeListener(signal, forward);
   }
+}
+
+/**
+ * A test instance of The Office runs as a copy that can't update itself, whatever its layout: its
+ * service gets no update folder, so it refuses Update and Restart, and an exit with
+ * `UPDATE_EXIT_CODE` just ends the launcher, so nothing touches the instance's checkout.
+ */
+function asTestInstance(options: LauncherOptions): LauncherOptions {
+  if (options.environment[TEST_INSTANCE_VARIABLE] !== "true") return options;
+  return { ...options, install: { mode: "not-installed" } };
 }
 
 function startService(options: LauncherOptions): RunningService {

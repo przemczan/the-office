@@ -21,17 +21,22 @@ export {
   DevcontainerServices,
   type DevcontainerServicesReader,
 } from "./application/devcontainer-services.js";
-export { TestTargets, type TestTargetLaunchSettings } from "./application/test-targets.js";
+export {
+  TestTargets,
+  type TestTargetCommandBefore,
+  type TestTargetLaunchSettings,
+} from "./application/test-targets.js";
 export {
   TestInstanceCheckouts,
   type WorkstationBuild,
   type WorkstationBuildEnd,
 } from "./application/test-instance-checkouts.js";
-export type {
-  EditedTestTarget,
-  TestTarget,
-  TestTargetField,
-  TestTargetSetter,
+export {
+  DEFAULT_PORT_VARIABLE,
+  type EditedTestTarget,
+  type TestTarget,
+  type TestTargetField,
+  type TestTargetSetter,
 } from "./domain/test-target.js";
 export type { EntryPoint } from "./domain/entry-point.js";
 export type {

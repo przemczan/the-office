@@ -17,7 +17,7 @@ import {
   setUpEachTest,
 } from "./postgres-thread-repository.fixtures.js";
 import { PostgresThreadRepository } from "./postgres-thread-repository.js";
-import { decisions, threadMessages } from "./threads.schema.js";
+import { decisions, proposals, threadMessages } from "./threads.schema.js";
 
 setUpEachTest();
 
@@ -639,5 +639,73 @@ describe("PostgresThreadRepository's Decision forms", () => {
         answer: { kind: "submitted", answers: [{ kind: "option", option: 1 }] },
       },
     ]);
+  });
+});
+
+describe("PostgresThreadRepository's Proposals", () => {
+  it("reads a Proposal of test targets drafted before commands before the entry point, the port variable and memory, with their defaults", async () => {
+    const thread = aThreadOfItsOwn(`role-${randomUUID()}`);
+    await repository.add(thread);
+    const entryPoint = {
+      kind: "package-script",
+      manifest: "package.json",
+      script: "start",
+      arguments: [],
+    };
+    const web = {
+      key: "web",
+      name: "Web",
+      kind: "hosted",
+      entryPoint,
+      port: 5173,
+      variables: [],
+      secretVariables: [],
+    };
+    const android = {
+      key: "android",
+      name: "Android",
+      kind: "build-to-install",
+      entryPoint,
+      outputPatterns: ["dist/*.apk"],
+      variables: [],
+      secretVariables: [],
+    };
+    const id = randomUUID();
+    await database()
+      .insert(proposals)
+      .values({
+        id,
+        threadId: thread.id,
+        draftedBy: "devops",
+        draftedAt: AT,
+        // As the release before kept it, which these fields didn't exist in.
+        change: {
+          kind: "test-targets",
+          projectId: "admin-panel",
+          changes: {
+            targets: [
+              { key: "web", from: web, to: { ...web, port: 3000 }, userSet: [] },
+              { key: "android", from: null, to: android, userSet: [] },
+            ],
+          },
+        } as never,
+        status: "open",
+        statusAt: null,
+      });
+
+    const defaults = { commandsBefore: [], memoryMegabytes: null };
+    await expect(repository.proposal(id)).resolves.toMatchObject({
+      change: {
+        changes: {
+          targets: [
+            {
+              from: { ...web, ...defaults, portVariable: "PORT" },
+              to: { ...web, port: 3000, ...defaults, portVariable: "PORT" },
+            },
+            { from: null, to: { ...android, ...defaults } },
+          ],
+        },
+      },
+    });
   });
 });

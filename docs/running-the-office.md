@@ -28,17 +28,20 @@ In a checkout, `npm start` (at the root, or in `apps/service`) runs the launcher
 - starts the service (`node dist/main.js` in `apps/service`) as its child, with `OFFICE_UPDATE_FOLDER` set to `<office-data>/update`;
 - passes SIGTERM and SIGINT on to the service, and exits with the service's exit code;
 - updates The Office when the service exits with code 75, then starts the service again; for an [Office restart](#restarting-the-office) it starts it again as it is.
+- with `OFFICE_TEST_INSTANCE=true`, in a [test instance of The Office](#a-test-instance-of-the-office), gives the service no update folder and updates or restarts nothing: an exit with code 75 just ends it.
 
 `npm run build` must have run before the first start. `npm run dev` doesn't use the launcher, so The Office it runs refuses Update and Restart.
 
 ## A test instance of The Office
 
-`npm run test-instance` (`scripts/test-instance.sh`) is the entry point of the-office's Hosted test target ([spec §2.12](spec/2.12-test-instances.md)). It runs in the `checks` service of `.devcontainer/compose.yaml`, not on the workstation:
+the-office's Hosted test target ([spec §2.12](spec/2.12-test-instances.md)) is a Project setting kept in The Office, with no script of its own in the repository. It runs in the `checks` service of `.devcontainer/compose.yaml`, not on the workstation:
 
-- it runs `npm ci` and `npm run build`, then starts the service itself, without the launcher, on `OFFICE_HOST=0.0.0.0` and the target's `OFFICE_PORT`;
-- the service migrates the compose file's throwaway Postgres (`DATABASE_URL`) as it starts, and keeps its data in `/tmp/office-data` inside the container;
-- `OFFICE_TEST_INSTANCE=true` makes it refuse pushing, pull requests, merging and engine sessions, and `OTEL_SDK_DISABLED=true` leaves telemetry off;
-- it starts as a fresh install: nothing of the real Office is copied in, and its log shows the setup token for its own first user ([First run](#first-run-the-setup-token)).
+- **Entry point:** the root `start` package script, so the service runs under the launcher;
+- **Commands before the entry point:** `install` (the Project's install command, `npm ci`), then `build`;
+- **Port variable:** `OFFICE_PORT`, which The Office sets to the target's port;
+- **Variables:** `OFFICE_HOST=0.0.0.0`, `OFFICE_DATA_DIR=/tmp/office-data`, `OTEL_SDK_DISABLED=true` and `DATABASE_URL=postgres://office:office@postgres:5432/the_office`, the compose file's throwaway Postgres, which the service migrates as it starts.
+
+The Office sets `OFFICE_TEST_INSTANCE=true` in it, which makes the service refuse pushing, pull requests, merging and engine sessions, and the launcher give the service no update folder and act on no request, so the instance refuses Update and Restart and never touches its checkout. It starts as a fresh install: nothing of the real Office is copied in, and its log shows the setup token for its own first user ([First run](#first-run-the-setup-token)). Stopping it removes its containers, which ends the launcher and the service with them.
 
 ## An example systemd unit
 

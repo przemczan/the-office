@@ -1,5 +1,11 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
-import { PROPOSE_TEST_TARGETS_TOOL, entryPointSchema } from "@the-office/contracts";
+import {
+  DEFAULT_PORT_VARIABLE,
+  MEMORY_PER_SERVICE_MEGABYTES,
+  PROPOSE_TEST_TARGETS_TOOL,
+  entryPointSchema,
+  gigabytesOf,
+} from "@the-office/contracts";
 import { z } from "zod";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import {
@@ -36,6 +42,12 @@ const targetInput = z.object({
     .int()
     .optional()
     .describe("Hosted only, and required for it: the port the app listens on."),
+  portVariable: z
+    .string()
+    .default(DEFAULT_PORT_VARIABLE)
+    .describe(
+      `Hosted only: the variable The Office sets to the port in the app's service, ${DEFAULT_PORT_VARIABLE} when left out; a variable's name (letters, digits and _, not starting with a digit), never OFFICE_TEST_INSTANCE nor one of the target's own variables.`,
+    ),
   outputPatterns: z
     .array(z.string())
     .optional()
@@ -53,6 +65,20 @@ const targetInput = z.object({
     .default([])
     .describe(
       "The names of the Secret variables it runs with, names only: the user types each value on the Project page after applying the Proposal.",
+    ),
+  commandsBefore: z
+    .array(z.string())
+    .default([])
+    .describe(
+      "The keys of the Project's commands (as list_projects lists them, or install for its install command) The Office runs in the instance's checkout, in this order, before the entry point, such as install then build, since the checkout has nothing installed; none when left out.",
+    ),
+  memoryMegabytes: z
+    .number()
+    .int()
+    .nullable()
+    .default(null)
+    .describe(
+      `The target's own Memory per service, in MB, from ${MEMORY_PER_SERVICE_MEGABYTES.min} (${gigabytesOf(MEMORY_PER_SERVICE_MEGABYTES.min)}) to ${MEMORY_PER_SERVICE_MEGABYTES.max} (${gigabytesOf(MEMORY_PER_SERVICE_MEGABYTES.max)}) in steps of ${MEMORY_PER_SERVICE_MEGABYTES.step}; null or left out for the Office-wide setting.`,
     ),
 });
 
@@ -91,7 +117,7 @@ export class TestTargetOfficeTools implements OnModuleInit {
           .array(z.string())
           .optional()
           .describe(
-            "Each value the user set that this changes on purpose, as key.field, such as web.port; field is one of name, kind, entryPoint, port, outputPatterns, variables and secretVariables. Removing a target changes each of its values. A value the user set that isn't named here is refused, so read the targets first and name only what you mean to change.",
+            "Each value the user set that this changes on purpose, as key.field, such as web.port; field is one of name, kind, entryPoint, port, portVariable, outputPatterns, variables, secretVariables, commandsBefore and memoryMegabytes. Removing a target changes each of its values. A value the user set that isn't named here is refused, so read the targets first and name only what you mean to change.",
           ),
       }),
       run: async ({ project: projectId, targets, removeTargets, changeUserSet }, { sessionId }) => {
@@ -132,14 +158,23 @@ export class TestTargetOfficeTools implements OnModuleInit {
 function proposedTargets(targets: readonly TargetInput[]): ProposedTestTargetFields[] {
   const problems: string[] = [];
   const proposed = targets.flatMap((target): ProposedTestTargetFields[] => {
-    const { key, name, entryPoint, variables, secretVariables } = target;
-    const fields = { key, name, entryPoint, variables, secretVariables };
+    const { key, name, entryPoint, variables, secretVariables, commandsBefore, memoryMegabytes } =
+      target;
+    const fields = {
+      key,
+      name,
+      entryPoint,
+      variables,
+      secretVariables,
+      commandsBefore,
+      memoryMegabytes,
+    };
     if (target.kind === "hosted") {
       if (target.port === undefined) {
         problems.push(`Test target "${key}" is Hosted, so it needs a port.`);
         return [];
       }
-      return [{ ...fields, kind: "hosted", port: target.port }];
+      return [{ ...fields, kind: "hosted", port: target.port, portVariable: target.portVariable }];
     }
     if (target.outputPatterns === undefined) {
       problems.push(`Test target "${key}" is Build to install, so it needs outputPatterns.`);

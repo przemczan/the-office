@@ -68,7 +68,7 @@ export class ScriptedContainerRuntime extends ContainerRuntime {
   hostPort = 49_153;
   /** Whether the app answers on `hostPort`, as `answers` tells the readiness check. */
   answering = true;
-  private holdingExecs = false;
+  private holdingExecs: ((execution: Execution) => boolean) | undefined;
   private readonly heldExecs: {
     readonly projectName: string;
     readonly end: (result: ExecutionResult) => void;
@@ -121,7 +121,7 @@ export class ScriptedContainerRuntime extends ContainerRuntime {
       throw new ContainerRuntimeFailed(`The compose project ${project.name} isn't running.`);
     }
     this.executions.push(execution);
-    const { output, exitCode, endedBy } = this.holdingExecs
+    const { output, exitCode, endedBy } = this.holdingExecs?.(execution)
       ? await new Promise<ExecutionResult & { endedBy?: undefined }>((end) =>
           this.heldExecs.push({ projectName: project.name, end }),
         )
@@ -235,9 +235,12 @@ export class ScriptedContainerRuntime extends ContainerRuntime {
     }
   }
 
-  /** From now on an exec keeps running, as an entry point does, until `endExecs` or `down`. */
-  keepExecsRunning(): void {
-    this.holdingExecs = true;
+  /**
+   * From now on an exec keeps running, as an entry point does, until `endExecs` or `down`; only
+   * those `which` picks when given (as an entry point, which has arguments), the rest by `onExec`.
+   */
+  keepExecsRunning(which: (execution: Execution) => boolean = () => true): void {
+    this.holdingExecs = which;
   }
 
   /** Ends every exec held running in the project, as an entry point ending on its own. */

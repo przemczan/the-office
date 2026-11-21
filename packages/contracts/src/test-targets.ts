@@ -70,6 +70,21 @@ export const editedTestTargetSecretSchema = z.object({
 });
 export type EditedTestTargetSecret = z.infer<typeof editedTestTargetSecretSchema>;
 
+/** The variable a Hosted target's port is set in when it names none (spec §2.12, "What The Office sets"). */
+export const DEFAULT_PORT_VARIABLE = "PORT";
+
+/**
+ * The Project's commands The Office runs in the checkout before the entry point, in order, by
+ * their keys (spec §2.12, "Commands before the entry point"). Left out, none.
+ */
+const commandsBeforeSchema = z.array(z.string()).default([]);
+
+/**
+ * A target's own Memory per service, in MB, within the Office-wide setting's bounds
+ * (`MEMORY_PER_SERVICE_MEGABYTES`); null when the Office-wide value applies.
+ */
+const targetMemorySchema = z.number().int().nullable().default(null);
+
 /** The fields of a test target that each record who set them last. */
 export const testTargetFieldSchema = z.enum([
   "name",
@@ -79,6 +94,9 @@ export const testTargetFieldSchema = z.enum([
   "outputPatterns",
   "variables",
   "secretVariables",
+  "commandsBefore",
+  "portVariable",
+  "memoryMegabytes",
 ]);
 export type TestTargetField = z.infer<typeof testTargetFieldSchema>;
 
@@ -113,6 +131,10 @@ function testTargetOfKind<Secret extends z.ZodType, Extra extends z.ZodRawShape>
     port: z.number().int(),
     variables: z.array(testTargetVariableSchema),
     secretVariables: z.array(secret),
+    commandsBefore: commandsBeforeSchema,
+    /** The variable The Office sets to `port` in the app's service. */
+    portVariable: z.string().default(DEFAULT_PORT_VARIABLE),
+    memoryMegabytes: targetMemorySchema,
   };
   return z.discriminatedUnion("kind", [
     z.object({ ...head, kind: z.literal("hosted"), ...hostedFields }),
@@ -124,6 +146,8 @@ function testTargetOfKind<Secret extends z.ZodType, Extra extends z.ZodRawShape>
       outputPatterns: z.array(z.string()),
       variables: z.array(testTargetVariableSchema),
       secretVariables: z.array(secret),
+      commandsBefore: commandsBeforeSchema,
+      memoryMegabytes: targetMemorySchema,
     }),
     z.object({ ...head, kind: z.literal("install-on-a-device"), ...hostedFields }),
     z.object({ ...head, kind: z.literal("deployed-elsewhere"), ...hostedFields }),

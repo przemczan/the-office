@@ -1,9 +1,10 @@
-import type {
-  EntryPoint,
-  EntryPointKind,
-  ProposedTestTargetFields,
-  TestTargetField,
-  TestTargetKind,
+import {
+  gigabytesOf,
+  type EntryPoint,
+  type EntryPointKind,
+  type ProposedTestTargetFields,
+  type TestTargetField,
+  type TestTargetKind,
 } from "@the-office/contracts";
 
 /** A test target's kind as the Project page and a Proposal's card name it (spec §2.12, "Kinds"). */
@@ -32,6 +33,9 @@ export const TEST_TARGET_FIELD_LABELS: Readonly<Record<TestTargetField, string>>
   outputPatterns: "Output files",
   variables: "Variables",
   secretVariables: "Secret variables",
+  commandsBefore: "Commands before the entry point",
+  portVariable: "Port variable",
+  memoryMegabytes: "Memory per service",
 };
 
 /**
@@ -57,8 +61,29 @@ function withArguments(head: string, args: readonly string[]): string {
 
 /** The fields a target of this kind has. */
 export function testTargetFieldsOf(kind: TestTargetKind): readonly TestTargetField[] {
-  const output: TestTargetField = kind === "build-to-install" ? "outputPatterns" : "port";
-  return ["name", "kind", "entryPoint", output, "variables", "secretVariables"];
+  if (kind === "build-to-install") {
+    return [
+      "name",
+      "kind",
+      "entryPoint",
+      "commandsBefore",
+      "outputPatterns",
+      "variables",
+      "secretVariables",
+      "memoryMegabytes",
+    ];
+  }
+  return [
+    "name",
+    "kind",
+    "entryPoint",
+    "commandsBefore",
+    "port",
+    "portVariable",
+    "variables",
+    "secretVariables",
+    "memoryMegabytes",
+  ];
 }
 
 /** One field of a target as a Proposal's card shows it; Secret variables by name alone. */
@@ -81,7 +106,23 @@ export function testTargetFieldWords(
       return listWords(target.variables.map(({ name, value }) => `${name}=${value}`));
     case "secretVariables":
       return listWords(target.secretVariables);
+    case "commandsBefore":
+      return commandsBeforeWords(target.commandsBefore);
+    case "portVariable":
+      return "portVariable" in target ? target.portVariable : "None";
+    case "memoryMegabytes":
+      return memoryWords(target.memoryMegabytes);
   }
+}
+
+/** The Project's commands run before the entry point, by key in order: `install-tools → seed`. */
+export function commandsBeforeWords(commandKeys: readonly string[]): string {
+  return commandKeys.length === 0 ? "None" : commandKeys.join(" → ");
+}
+
+/** A target's own Memory per service, or "Office default" when it has none. */
+export function memoryWords(memoryMegabytes: number | null): string {
+  return memoryMegabytes === null ? "Office default" : gigabytesOf(memoryMegabytes);
 }
 
 function listWords(items: readonly string[]): string {

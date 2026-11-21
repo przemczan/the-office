@@ -9,6 +9,7 @@ import {
   BY_RESTART,
   BY_USER,
   INITIATIVE_NOT_ACTIVE,
+  missingCommands,
   noInitiativeBranch,
   notLaunchable,
   RESTARTED_WHILE_BUILDING,
@@ -29,7 +30,14 @@ import {
   overTheLimit,
   type ActiveInstanceName,
 } from "../domain/test-instance-settings.js";
-import { BUILD_TIMEOUT_MS, buildFailureOf, hasFile, type BuildEnd } from "../domain/test-build.js";
+import {
+  BUILD_TIMEOUT_MS,
+  buildFailureOf,
+  commandBeforeFailureOf,
+  hasFile,
+  TEST_INSTANCE_MARK,
+  type BuildEnd,
+} from "../domain/test-build.js";
 import {
   built,
   failed,
@@ -463,6 +471,7 @@ export class TestInstances implements OnModuleInit {
     const signal = held.building.signal;
     const checkout = this.files.checkoutOf(id);
     try {
+      refuseMissingCommands(target);
       if (!(await this.checkedOut(instance, branch, target, held))) return;
       const install = await this.targets.installSettingsOf(projectId);
       const { hostPort } = await this.hostedServices.start(
@@ -473,6 +482,10 @@ export class TestInstances implements OnModuleInit {
           entryPoint: target.entryPoint,
           containerPort: target.containerPort ?? 0,
           variables: target.variables.map(({ name, value }) => ({ name, value })),
+          // The adapter fills contracts' DEFAULT_PORT_VARIABLE in for a Hosted target already.
+          portVariable: target.portVariable ?? "PORT",
+          commandsBefore: commandsBeforeOf(target),
+          memoryMegabytes: target.memoryMegabytes,
           installCommand: install.installCommand,
           installInputs: install.installInputs,
           installVariables: install.installVariables,
@@ -521,6 +534,7 @@ export class TestInstances implements OnModuleInit {
     const signal = held.building.signal;
     const checkout = this.files.checkoutOf(id);
     try {
+      refuseMissingCommands(target);
       if (!(await this.checkedOut(instance, branch, target, held))) return;
       const end = await this.buildIn(instance, target, held);
       if (signal.aborted) {
@@ -586,6 +600,8 @@ export class TestInstances implements OnModuleInit {
         checkout,
         entryPoint,
         variables: target.variables.map(({ name, value }) => ({ name, value })),
+        commandsBefore: commandsBeforeOf(target),
+        memoryMegabytes: target.memoryMegabytes,
         installCommand: install.installCommand,
         installInputs: install.installInputs,
         installVariables: install.installVariables,
@@ -597,6 +613,24 @@ export class TestInstances implements OnModuleInit {
     }
     const command = workstationBuildCommandOf(entryPoint);
     if ("problem" in command) throw new TestInstanceRefused([command.problem]);
+    // The commands before the entry point and the entry point share the build's time.
+    const deadline = Date.now() + BUILD_TIMEOUT_MS;
+    const variables = [...target.variables, TEST_INSTANCE_MARK];
+    for (const { name, commandLine } of target.commandsBefore) {
+      await this.files.note(id, `Running the Project's command ${name}.`, held.mask);
+      const end = await this.targets.runBuild({
+        checkout,
+        folder: ".",
+        commandLine,
+        variables,
+        logFile,
+        timeoutMs: remainingOf(deadline),
+        signal,
+      });
+      if (end.endedBy === "timeout" || end.endedBy === "stop") return end;
+      const failure = commandBeforeFailureOf(name, end);
+      if (failure !== undefined) throw new TestInstanceRefused([failure]);
+    }
     await this.files.note(
       id,
       `Running ${command.commandLine} in ${command.folder} on the workstation.`,
@@ -606,9 +640,9 @@ export class TestInstances implements OnModuleInit {
       checkout,
       folder: command.folder,
       commandLine: command.commandLine,
-      variables: target.variables,
+      variables,
       logFile,
-      timeoutMs: BUILD_TIMEOUT_MS,
+      timeoutMs: remainingOf(deadline),
       signal,
     });
   }
@@ -723,6 +757,23 @@ function launchableOf(
   return targets.flatMap(({ key, name, kind, entryPoint }) =>
     kind === "hosted" || kind === "build-to-install" ? [{ key, name, kind, entryPoint }] : [],
   );
+}
+
+/** A launch whose target runs a command the Project no longer has fails, naming it. */
+function refuseMissingCommands(target: TargetLaunch): void {
+  if (target.missingCommands.length > 0) {
+    throw new TestInstanceRefused([missingCommands(target.missingCommands)]);
+  }
+}
+
+/** The commands before the entry point as Run environments runs them: a name and a command line. */
+function commandsBeforeOf(target: TargetLaunch): { name: string; commandLine: string }[] {
+  return target.commandsBefore.map(({ name, commandLine }) => ({ name, commandLine }));
+}
+
+/** What is left of a build's time, never below 1 ms. */
+function remainingOf(deadline: number): number {
+  return Math.max(1, deadline - Date.now());
 }
 
 /** A start's failure in the user's words. */

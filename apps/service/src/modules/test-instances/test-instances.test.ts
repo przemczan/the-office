@@ -17,6 +17,7 @@ import {
   TARGET_SECRET,
   TESTBED_OFFICE_PORT,
   testInstancesTestbed,
+  WEB_TARGET,
   type TestInstancesTestbed,
 } from "./test-instances.fixtures.js";
 
@@ -337,6 +338,65 @@ describe("what an instance is given", () => {
     await testbed.instances.stop(instance.id);
 
     expect(runtime.steps).toContainEqual(expect.stringMatching(/^remove .*office.test-instance/));
+    await expectRemoved(instance.id);
+  });
+});
+
+describe("the target's commands before the entry point, port variable and Memory", () => {
+  const MIGRATE = { key: "migrate", name: "Migrate", commandLine: "npm run migrate" };
+
+  it("runs the commands in the checkout before the entry point, with the port variable and the target's Memory", async () => {
+    runtime.keepExecsRunning((execution) => execution.arguments !== undefined);
+    testbed.project.targets[0] = {
+      ...WEB_TARGET,
+      commandsBefore: [MIGRATE],
+      portVariable: "APP_PORT",
+      memoryMegabytes: 1024,
+    };
+
+    const instance = await testbed.launchAndSettle();
+
+    expect(instance.state).toBe("running");
+    const [migrate, entryPoint] = runtime.executions;
+    expect(migrate?.script).toMatch(/\nnpm run migrate$/);
+    expect(migrate?.script).toContain('export APP_PORT="$OFFICE_VARIABLE_3"');
+    expect(migrate?.variables).toMatchObject({ OFFICE_VARIABLE_3: "3000" });
+    expect(entryPoint?.arguments).toEqual(["./scripts/start.sh", "--port", "3000"]);
+    const override = await readFile(
+      join(environments.folders.testInstanceFolder(instance.id), "office-override.yaml"),
+      "utf8",
+    );
+    expect(override).toContain('APP_PORT: "3000"');
+    expect(override).toContain("mem_limit: 1024m");
+    expect(await logOf(instance.id)).toContain("Running the Project's command Migrate.");
+  });
+
+  it("fails the launch, checking nothing out, when a command is no longer the Project's", async () => {
+    testbed.project.targets[0] = { ...WEB_TARGET, missingCommands: ["seed"] };
+
+    const instance = await testbed.launchAndSettle();
+
+    expect(instance).toMatchObject({
+      state: "failed",
+      failedReason:
+        "The Project's command seed that runs before the entry point is gone; pick the commands again in the Project's Test targets.",
+    });
+    expect(testbed.projects.checkouts).toEqual([]);
+    expect(runtime.upped).toEqual([]);
+  });
+
+  it("fails with the command's words when one ends with an error, never running the entry point", async () => {
+    runtime.keepExecsRunning((execution) => execution.arguments !== undefined);
+    runtime.onExec = () => Promise.resolve({ exitCode: 4 });
+    testbed.project.targets[0] = { ...WEB_TARGET, commandsBefore: [MIGRATE] };
+
+    const instance = await testbed.launchAndSettle();
+
+    expect(instance).toMatchObject({
+      state: "failed",
+      failedReason: "The Project's command Migrate ended with exit code 4.",
+    });
+    expect(runtime.executions).toHaveLength(1);
     await expectRemoved(instance.id);
   });
 });

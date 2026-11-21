@@ -50,6 +50,9 @@ const TARGET: EditedTestTarget = {
   port: 3000,
   variables: [],
   secretVariables: [],
+  commandsBefore: [],
+  portVariable: "PORT",
+  memoryMegabytes: null,
 };
 
 async function saveSettings(page: Page, settings: TestInstanceSettings): Promise<void> {
@@ -305,6 +308,8 @@ const BUILD_TARGET: EditedTestTarget = {
   outputPatterns: ["out/*.apk"],
   variables: [],
   secretVariables: [],
+  commandsBefore: [],
+  memoryMegabytes: null,
 };
 
 /** A Project with its Run environment Off, so its build runs on the workstation. */

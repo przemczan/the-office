@@ -1,5 +1,6 @@
 import type { INestApplication } from "@nestjs/common";
 import {
+  MEMORY_PER_SERVICE_MEGABYTES,
   projectRefusalSchema,
   testTargetListSchema,
   type EditedTestTarget,
@@ -9,6 +10,7 @@ import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { DevcontainerServices } from "../../application/devcontainer-services.js";
 import { TestTargets } from "../../application/test-targets.js";
 import { ProjectRefused } from "../../domain/project-refused.js";
+import { TEST_TARGET_MEMORY_MEGABYTES } from "../../domain/test-target.js";
 import { projectsHttp, startProjectsApplication } from "../../projects.controller.fixtures.js";
 import {
   createTemporaryRepository,
@@ -174,6 +176,29 @@ describe("PUT /api/projects/:id/test-targets refuses", REAL_GIT_TEST, () => {
     expect(response.status).toBe(200);
   });
 
+  it("a command before the entry point the Project hasn't, a port variable that can't be one, and memory out of bounds", async () => {
+    expect(
+      await reasonsFor([
+        aHostedTarget({ commandsBefore: ["build", "seed"], portVariable: "1PORT" }),
+        aHostedTarget({
+          key: "admin",
+          portVariable: "OFFICE_TEST_INSTANCE",
+          memoryMegabytes: 700,
+        }),
+        aHostedTarget({ key: "api", portVariable: "MODE", memoryMegabytes: 131_072 }),
+        aBuildToInstallTarget({ commandsBefore: ["lint"], memoryMegabytes: 256 }),
+      ]),
+    ).toEqual([
+      `Test target "web": Its port variable must be a variable's name: letters, digits and _, not starting with a digit, such as PORT.`,
+      `Test target "web": The command seed in its commands before the entry point isn't one of the Project's commands.`,
+      `Test target "admin": Its port variable can't be OFFICE_TEST_INSTANCE: The Office sets it in every test instance.`,
+      `Test target "admin": Its memory per service is between 0.5 GB and 64 GB, in steps of 0.5 GB.`,
+      `Test target "api": Its port variable MODE is one of its own variables too: give the port its own name.`,
+      `Test target "api": Its memory per service is between 0.5 GB and 64 GB, in steps of 0.5 GB.`,
+      `Test target "android": Its memory per service is between 0.5 GB and 64 GB, in steps of 0.5 GB.`,
+    ]);
+  });
+
   it("a .devcontainer/ service the repository doesn't have, and one for Build to install", async () => {
     expect(
       await reasonsFor([
@@ -196,6 +221,67 @@ describe("PUT /api/projects/:id/test-targets refuses", REAL_GIT_TEST, () => {
     });
     expect(response.status).toBe(200);
     expect(testTargetListSchema.parse(await response.json()).targets).toHaveLength(1);
+  });
+});
+
+describe("PUT /api/projects/:id/test-targets saves", REAL_GIT_TEST, () => {
+  it("the commands before the entry point, the port variable and the memory, each set by you, and a launch resolves them", async () => {
+    const project = await addProject();
+    const target = aHostedTarget({
+      commandsBefore: ["install", "build", "lint"],
+      portVariable: "WEB_PORT",
+      memoryMegabytes: 2048,
+    });
+    const response = await send("PUT", `/projects/${project.id}/test-targets`, {
+      targets: [target, aBuildToInstallTarget({ memoryMegabytes: 1536 })],
+    });
+
+    expect(response.status).toBe(200);
+    const [saved, built] = testTargetListSchema.parse(await response.json()).targets;
+    expect(saved).toMatchObject({
+      commandsBefore: ["install", "build", "lint"],
+      portVariable: "WEB_PORT",
+      memoryMegabytes: 2048,
+      setBy: {
+        commandsBefore: { by: "user" },
+        portVariable: { by: "user" },
+        memoryMegabytes: { by: "user" },
+      },
+    });
+    expect(built).toMatchObject({ commandsBefore: [], memoryMegabytes: 1536 });
+    expect(built).not.toHaveProperty("portVariable");
+
+    const launch = await app.get(TestTargets).launchSettingsOf(project.id, "web");
+    expect(launch).toMatchObject({
+      commandsBefore: [
+        { key: "install", name: "Install", commandLine: project.installCommand },
+        { key: "build", name: "Build", commandLine: "npm run build" },
+        { key: "lint", name: "Lint", commandLine: "npm run lint" },
+      ],
+      missingCommands: [],
+      portVariable: "WEB_PORT",
+      memoryMegabytes: 2048,
+    });
+    expect(await app.get(TestTargets).launchSettingsOf(project.id, "android")).toMatchObject({
+      portVariable: undefined,
+      memoryMegabytes: 1536,
+    });
+
+    // A command removed from the Project later is the launch's to name, the target kept as saved.
+    expect((await send("DELETE", `/projects/${project.id}/commands/lint`)).status).toBe(200);
+    expect(await app.get(TestTargets).launchSettingsOf(project.id, "web")).toMatchObject({
+      commandsBefore: [
+        { key: "install", name: "Install", commandLine: project.installCommand },
+        { key: "build", name: "Build", commandLine: "npm run build" },
+      ],
+      missingCommands: ["lint"],
+    });
+  });
+});
+
+describe("A test target's memory", () => {
+  it("has the bounds of the Office-wide Memory per service", () => {
+    expect(TEST_TARGET_MEMORY_MEGABYTES).toEqual(MEMORY_PER_SERVICE_MEGABYTES);
   });
 });
 
@@ -235,6 +321,27 @@ describe("A Proposal of test targets", REAL_GIT_TEST, () => {
     });
     await expect(testTargets.changeAsProposed(project.id, proposed, DEVOPS)).rejects.toThrow(
       new ProjectRefused([`Test target "web" changed since this was proposed.`]),
+    );
+  });
+
+  it("refuses a command before the entry point the Project hasn't, as the page does", async () => {
+    const project = await addProject();
+    const testTargets = app.get(TestTargets);
+
+    await expect(
+      testTargets.propose(project.id, {
+        targets: [
+          {
+            ...aHostedTarget(),
+            commandsBefore: ["seed"],
+            secretVariables: [],
+          } as Parameters<TestTargets["propose"]>[1]["targets"][number],
+        ],
+      }),
+    ).rejects.toThrow(
+      new ProjectRefused([
+        `Test target "web": The command seed in its commands before the entry point isn't one of the Project's commands.`,
+      ]),
     );
   });
 });

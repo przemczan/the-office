@@ -29,6 +29,7 @@ const RUN: HostedRun = {
   appService: "app",
   containerPort: 3000,
   variableNames: ["API_URL", "API_TOKEN"],
+  portVariable: "PORT",
 };
 
 const LIMITS: RunEnvironmentLimits = {
@@ -55,6 +56,17 @@ function overrideOf(run: HostedRun = RUN): Record<string, unknown> {
   );
   expect(problems).toEqual([]);
   return value ?? {};
+}
+
+function portVariableProblemsOf(portVariable: string): readonly string[] {
+  return hostedOverrideOf(
+    DEFINITION,
+    { ...RUN, portVariable },
+    "the-office/shop:key",
+    "abc",
+    LIMITS,
+    10,
+  ).problems;
 }
 
 function servicesOf(override: Record<string, unknown>): Record<string, Record<string, unknown>> {
@@ -116,6 +128,7 @@ describe("hostedOverrideOf", () => {
       API_URL: "${OFFICE_VARIABLE_0}",
       API_TOKEN: "${OFFICE_VARIABLE_1}",
       OFFICE_TEST_INSTANCE: "true",
+      PORT: "3000",
     });
     expect(stringifyYaml(override)).not.toMatch(/s3cret/);
   });
@@ -130,6 +143,43 @@ describe("hostedOverrideOf", () => {
       memswap_limit: "4096m",
       pids_limit: 1024,
     });
+  });
+
+  it("sets the port variable to the container port in the app's service alone", () => {
+    const services = servicesOf(
+      overrideOf({ ...RUN, appService: "web", containerPort: 8080, portVariable: "SERVER_PORT" }),
+    );
+
+    expect(services["web"]?.["environment"]).toMatchObject({ SERVER_PORT: "8080" });
+    expect(services["web"]?.["environment"]).not.toHaveProperty("PORT");
+    expect(services["app"]).not.toHaveProperty("environment");
+  });
+
+  it("refuses a port variable that isn't a name, is the test instance's mark or is a target's variable", () => {
+    expect(portVariableProblemsOf("9PORT")).toEqual([
+      'The port variable "9PORT" isn\'t a variable name: use letters, digits and _, not starting with a digit.',
+    ]);
+    expect(portVariableProblemsOf("OFFICE_TEST_INSTANCE")).toEqual([
+      "The port variable OFFICE_TEST_INSTANCE is one The Office sets itself.",
+    ]);
+    expect(portVariableProblemsOf("API_URL")).toEqual([
+      "The port variable API_URL is also one of the target's variables.",
+    ]);
+  });
+
+  it("puts the Memory per service it is given on every service, swap included", () => {
+    const { value } = hostedOverrideOf(
+      DEFINITION,
+      RUN,
+      "the-office/shop:key",
+      "abc",
+      { ...LIMITS, memoryMegabytes: 1536 },
+      10,
+    );
+
+    for (const service of Object.values(servicesOf(value ?? {}))) {
+      expect(service).toMatchObject({ mem_limit: "1536m", memswap_limit: "1536m" });
+    }
   });
 
   it("writes a checkout path with $ as compose reads it literally", () => {

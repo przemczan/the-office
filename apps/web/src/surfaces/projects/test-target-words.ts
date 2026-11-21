@@ -1,14 +1,23 @@
-import type {
-  EditedTestTarget,
-  EntryPoint,
-  EntryPointKind,
-  RunEnvironmentSetting,
-  TestTarget,
-  TestTargetKind,
-  TestTargetSetter,
+import {
+  DEFAULT_PORT_VARIABLE,
+  type EditedTestTarget,
+  type EntryPoint,
+  type EntryPointKind,
+  type Project,
+  type RunEnvironmentSetting,
+  type TestTarget,
+  type TestTargetKind,
+  type TestTargetSetter,
 } from "@the-office/contracts";
-import { testTargetFieldsOf } from "../../shell/test-target-words.ts";
+import {
+  commandsBeforeWords,
+  memoryWords,
+  testTargetFieldsOf,
+} from "../../shell/test-target-words.ts";
 import type { SecretVariableDraft } from "./environment-labels.ts";
+
+/** Install's key among the Project's commands, which runs its install command. */
+const INSTALL_COMMAND_KEY = "install";
 
 /** Who set a value, as its mark names them: "you" for the signed-in user, else their name. */
 export function setterName(setter: TestTargetSetter, signedInUserId: string | undefined): string {
@@ -74,6 +83,12 @@ export interface TestTargetDraft {
   /** One `NAME=value` per line. */
   readonly variables: string;
   readonly secrets: readonly SecretVariableDraft[];
+  /** The Project's commands run before the entry point, by key, in order. */
+  readonly commandsBefore: readonly string[];
+  /** Hosted: the variable The Office sets to the port. */
+  readonly portVariable: string;
+  /** The target's own Memory per service in MB; null for the Office-wide value. */
+  readonly memoryMegabytes: number | null;
 }
 
 /** A new target's editor: Hosted, on the root package manifest's script. */
@@ -92,6 +107,9 @@ export const NEW_TEST_TARGET_DRAFT: TestTargetDraft = {
   outputPatterns: "",
   variables: "",
   secrets: [],
+  commandsBefore: [],
+  portVariable: DEFAULT_PORT_VARIABLE,
+  memoryMegabytes: null,
 };
 
 export function testTargetDraftOf(target: TestTarget): TestTargetDraft {
@@ -112,7 +130,66 @@ export function testTargetDraftOf(target: TestTarget): TestTargetDraft {
       keptName: valueSet ? name : undefined,
       typed: undefined,
     })),
+    commandsBefore: target.commandsBefore,
+    portVariable: "portVariable" in target ? target.portVariable : DEFAULT_PORT_VARIABLE,
+    memoryMegabytes: target.memoryMegabytes,
   };
+}
+
+/** A command a target may run before its entry point, as the editor names it. */
+export interface RunnableCommand {
+  readonly key: string;
+  readonly name: string;
+}
+
+/**
+ * The commands a target may run before its entry point: Install, by its key, when the Project has
+ * an install command, then the Project's own commands.
+ */
+export function runnableCommandsOf(
+  project: Pick<Project, "installCommand" | "commands">,
+): readonly RunnableCommand[] {
+  const install =
+    project.installCommand === "" ? [] : [{ key: INSTALL_COMMAND_KEY, name: "Install" }];
+  return [...install, ...project.commands.map(({ key, name }) => ({ key, name }))];
+}
+
+/** The keys among `commandKeys` the Project no longer has as a command. */
+export function unknownCommandKeys(
+  commandKeys: readonly string[],
+  commands: readonly RunnableCommand[],
+): readonly string[] {
+  return commandKeys.filter((key) => !commands.some((command) => command.key === key));
+}
+
+/** The warning on a command key the Project no longer has. */
+export function notACommandWords(key: string): string {
+  return `${key} isn't one of the Project's commands anymore.`;
+}
+
+/**
+ * What the target's row shows under its entry point: the commands run before it, a Hosted target's
+ * port as the variable it is set in (`PORT=3000`), and its own Memory per service when it has one.
+ */
+export function targetDetailsWords(target: TestTarget): readonly string[] {
+  return [
+    ...(target.commandsBefore.length > 0
+      ? [`Commands before: ${commandsBeforeWords(target.commandsBefore)}`]
+      : []),
+    ...(target.kind === "hosted" ? [`${target.portVariable}=${target.port}`] : []),
+    ...(target.memoryMegabytes === null
+      ? []
+      : [`Memory per service ${memoryWords(target.memoryMegabytes)}`]),
+  ];
+}
+
+/** The list with the item at `index` moved by `by` places, or as it was at either end. */
+export function movedBy<T>(items: readonly T[], index: number, by: -1 | 1): readonly T[] {
+  const to = index + by;
+  if (to < 0 || to >= items.length) return items;
+  const moved = [...items];
+  [moved[index], moved[to]] = [moved[to] as T, moved[index] as T];
+  return moved;
 }
 
 function entryPointDraftOf(entryPoint: EntryPoint): Partial<TestTargetDraft> {
@@ -172,13 +249,22 @@ export function editedTestTargetOf(
       name: name.trim(),
       ...(typed === undefined ? {} : { value: typed }),
     })),
+    commandsBefore: [...draft.commandsBefore],
+    memoryMegabytes: draft.memoryMegabytes,
   };
   if (draft.kind === "build-to-install") {
     return {
       target: { ...fields, kind: draft.kind, outputPatterns: linesOf(draft.outputPatterns) },
     };
   }
-  return { target: { ...fields, kind: draft.kind, port } };
+  return {
+    target: {
+      ...fields,
+      kind: draft.kind,
+      port,
+      portVariable: draft.portVariable.trim() || DEFAULT_PORT_VARIABLE,
+    },
+  };
 }
 
 function entryPointOf(draft: TestTargetDraft): EntryPoint {

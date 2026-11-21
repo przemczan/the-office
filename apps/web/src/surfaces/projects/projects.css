@@ -1115,6 +1115,83 @@ button.github-repository.selected:hover:not(:disabled) {
   gap: 4px;
 }
 
+.test-target-field-hint {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+/* The row's commands before, port variable and memory, under it like its warnings. */
+.test-target-details {
+  flex: 0 1 100%;
+  margin-left: calc(var(--command-key-width) + 10px);
+  font: var(--type-caption);
+  color: var(--fg-3);
+  overflow-wrap: anywhere;
+}
+
+.test-target-commands {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+}
+
+.test-target-command {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px 4px 12px;
+}
+
+.test-target-command + .test-target-command {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.test-target-command-place {
+  font: var(--type-caption);
+  color: var(--fg-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.test-target-command-words {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.test-target-command-name {
+  color: var(--fg-2);
+}
+
+.test-target-command-tools {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.test-target-command-add {
+  align-self: stretch;
+  max-width: 420px;
+}
+
+.test-target-memory {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.test-target-memory-default {
+  color: var(--fg-2);
+}
+
 .test-target-kind-outlined {
   color: var(--fg-3);
   cursor: not-allowed;
@@ -1169,7 +1246,8 @@ button.github-repository.selected:hover:not(:disabled) {
     grid-template-columns: 1fr;
   }
 
-  .test-target-warnings {
+  .test-target-warnings,
+  .test-target-details {
     margin-left: 0;
   }
 }

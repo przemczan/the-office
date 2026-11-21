@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { entryPointProblems, sameEntryPoint, type EntryPointTree } from "../domain/entry-point.js";
 import { OutputMask } from "../domain/output-mask.js";
+import { INSTALL_COMMAND_KEY, type Project } from "../domain/project.js";
 import type { ProjectVariable } from "../domain/project-environment.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
 import { ProjectRefused } from "../domain/project-refused.js";
@@ -44,6 +45,25 @@ export interface TestTargetLaunchSettings {
   readonly secretsWithoutValue: readonly string[];
   /** Hides the target's own Secret variables' values, as `[secret NAME]`, in the instance's log. */
   readonly mask: OutputMask;
+  /**
+   * The Project's commands the target runs in the checkout before its entry point, in its order,
+   * as the Project has them now (spec §2.12, "Commands before the entry point").
+   */
+  readonly commandsBefore: readonly TestTargetCommandBefore[];
+  /** The keys among the target's commands before the entry point the Project no longer has. */
+  readonly missingCommands: readonly string[];
+  /** The variable a Hosted target's port is set in; undefined for Build to install. */
+  readonly portVariable: string | undefined;
+  /** The target's own Memory per service in MB; undefined when the Office-wide value applies. */
+  readonly memoryMegabytes: number | undefined;
+}
+
+/** One of the Project's commands as a launch runs it before the entry point. */
+export interface TestTargetCommandBefore {
+  readonly key: string;
+  readonly name: string;
+  /** The Project's command line for it, for the platform's shell. */
+  readonly commandLine: string;
 }
 
 /** A target, or a Proposal's, whose entry point is checked against a commit. */
@@ -80,15 +100,16 @@ export class TestTargets {
     user: { userId: string; name: string },
   ): Promise<readonly TestTarget[]> {
     const setter: TestTargetSetter = { by: "user", user: { userId: user.userId, name: user.name } };
+    const commandKeys = keysOf(await this.projects.read(projectId));
     // Fetched before the Project is held, so no fetch runs while other changes wait.
-    const before = await this.list(projectId);
+    const before = await this.repository.listOf(projectId);
     const freshBase =
       entryPointsChanged(before, editedTestTargets(before, edit)).length > 0
         ? await this.files.freshBase(projectId)
         : undefined;
     const changed = await this.repository.update(projectId, async (stored) => {
       const edited = editedTestTargets(stored, edit);
-      const problems = testTargetProblems(edited);
+      const problems = testTargetProblems(edited, commandKeys);
       if (problems.length > 0) throw new ProjectRefused(problems);
       const toCheck = entryPointsChanged(stored, edited);
       if (toCheck.length > 0) {
@@ -116,9 +137,10 @@ export class TestTargets {
    * entry points against the base branch's fresh tree; nothing changes until it is applied.
    */
   async propose(projectId: string, given: TestTargetsToPropose): Promise<ProposedTestTargets> {
-    const current = await this.list(projectId);
+    const commandKeys = keysOf(await this.projects.read(projectId));
+    const current = await this.repository.listOf(projectId);
     const proposed = proposedTestTargets(current, given);
-    const problems = proposedTestTargetsProblems(current, proposed);
+    const problems = proposedTestTargetsProblems(current, proposed, commandKeys);
     if (problems.length > 0) throw new ProjectRefused(problems);
     const entryProblems = await this.proposedEntryPointsProblems(projectId, proposed);
     if (entryProblems.length > 0) throw new ProjectRefused(entryProblems);
@@ -129,7 +151,11 @@ export class TestTargets {
   async proposedProblems(projectId: string, proposed: ProposedTestTargets): Promise<string[]> {
     const project = await this.projects.find(projectId);
     if (!project) return [new ProjectNotFound(projectId).message];
-    const problems = proposedTestTargetsProblems(await this.repository.listOf(projectId), proposed);
+    const problems = proposedTestTargetsProblems(
+      await this.repository.listOf(projectId),
+      proposed,
+      keysOf(project),
+    );
     return problems.length > 0 ? problems : this.proposedEntryPointsProblems(projectId, proposed);
   }
 
@@ -148,11 +174,11 @@ export class TestTargets {
       proposalId: setter.proposalId,
       agent: { roleKey: setter.agent.roleKey, name: setter.agent.name },
     };
-    await this.projects.read(projectId);
+    const commandKeys = keysOf(await this.projects.read(projectId));
     const toCheck = entryPointsProposed(proposed);
     const commit = toCheck.length > 0 ? await this.files.freshBase(projectId) : undefined;
     await this.repository.update(projectId, async (current) => {
-      const problems = proposedTestTargetsProblems(current, proposed);
+      const problems = proposedTestTargetsProblems(current, proposed, commandKeys);
       if (problems.length > 0) throw new ProjectRefused(problems);
       if (commit !== undefined) {
         const entryProblems = await this.entryPointsProblems(projectId, commit, toCheck);
@@ -185,9 +211,19 @@ export class TestTargets {
     const secrets = target.secretVariables.flatMap(({ name, value }) =>
       value === null ? [] : [{ name, value, secret: true }],
     );
+    const runnable = runnableCommandsOf(project);
+    const commandsBefore = target.commandsBefore.flatMap((commandKey) =>
+      runnable.filter((each) => each.key === commandKey),
+    );
     return {
       target,
       runEnvironmentOn: project.runEnvironment === "on",
+      commandsBefore,
+      missingCommands: target.commandsBefore.filter(
+        (commandKey) => !runnable.some((each) => each.key === commandKey),
+      ),
+      portVariable: target.kind === "build-to-install" ? undefined : target.portVariable,
+      memoryMegabytes: target.memoryMegabytes ?? undefined,
       variables: [
         ...target.variables.map(({ name, value }) => ({ name, value, secret: false })),
         ...secrets,
@@ -231,6 +267,27 @@ export class TestTargets {
         (services ??= this.devcontainerServices.servicesAt(projectId, commit)),
     };
   }
+}
+
+/** The keys of the Project's commands, which a target's commands before the entry point name. */
+function keysOf(project: Project): string[] {
+  return runnableCommandsOf(project).map(({ key }) => key);
+}
+
+/**
+ * The commands a target may run before its entry point: Install, by its reserved key, when the
+ * Project has an install command, since an instance's checkout has none of the image's installed
+ * files; then the Project's own commands.
+ */
+function runnableCommandsOf(project: Project): TestTargetCommandBefore[] {
+  const install =
+    project.installCommand === ""
+      ? []
+      : [{ key: INSTALL_COMMAND_KEY, name: "Install", commandLine: project.installCommand }];
+  return [
+    ...install,
+    ...project.commands.map(({ key, name, commandLine }) => ({ key, name, commandLine })),
+  ];
 }
 
 /** The targets of `edited` added, or whose entry point changed from `stored`'s. */

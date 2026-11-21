@@ -119,6 +119,9 @@ const TEST_TARGET_FIELD_WORDS: Readonly<Record<TestTargetField, string>> = {
   outputPatterns: "output files",
   variables: "variables",
   secretVariables: "Secret variables",
+  commandsBefore: "commands before the entry point",
+  portVariable: "port variable",
+  memoryMegabytes: "memory per service",
 };
 
 /** Each target with who set each value last; a Secret variable by name alone (spec §2.12). */
@@ -130,7 +133,7 @@ function testTargetLines(targets: readonly TestTarget[]): string[] {
       const own =
         target.kind === "build-to-install"
           ? `output files ${listed(target.outputPatterns)}`
-          : `port ${target.port}`;
+          : `port ${target.port} in \`${target.portVariable}\``;
       const secrets = target.secretVariables.map(
         ({ name, value }) => `${name} (${value === null ? "no value" : "value set"})`,
       );
@@ -138,6 +141,8 @@ function testTargetLines(targets: readonly TestTarget[]): string[] {
         `  - ${target.key} (${target.name}, ${TEST_TARGET_KIND_NAMES[target.kind]}): ${entryPointWords(target.entryPoint)}; ${own}`,
         `variables ${listed(target.variables.map(({ name, value }) => `\`${name}=${value}\``))}`,
         `Secret variables (values never shown) ${listed(secrets)}`,
+        `commands before the entry point ${listed(target.commandsBefore)}`,
+        `memory per service ${target.memoryMegabytes === null ? "the Office-wide value" : `${target.memoryMegabytes / 1024} GB`}`,
         `set by: ${setByWords(target)}`,
       ].join("; ");
     }),

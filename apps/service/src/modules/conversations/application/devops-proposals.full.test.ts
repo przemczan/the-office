@@ -973,8 +973,11 @@ describe("Devops' Proposals of test targets, through the scripted engine", () =>
       arguments: [],
     },
     port: 5173,
+    portVariable: "PORT",
     variables: [{ name: "MODE", value: "test" }],
     secretVariables: [],
+    commandsBefore: [],
+    memoryMegabytes: null,
   } as const;
   const ANDROID = {
     key: "android",
@@ -989,6 +992,8 @@ describe("Devops' Proposals of test targets, through the scripted engine", () =>
     outputPatterns: ["dist/*.apk"],
     variables: [],
     secretVariables: ["SIGNING_KEY"],
+    commandsBefore: ["build"],
+    memoryMegabytes: 1024,
   } as const;
 
   it("drafts test targets that change nothing until applied, a value the user set only when named, and applies them as set by the Proposal", async () => {
@@ -1002,6 +1007,18 @@ describe("Devops' Proposals of test targets, through the scripted engine", () =>
     });
     expect(unnamed.isError).toBe(true);
     expect(unnamed.text).toContain("The user set web.port");
+
+    const refused = await chat.ninaCalls(PROPOSE_TEST_TARGETS_TOOL, {
+      project: project.id,
+      targets: [{ ...ANDROID, commandsBefore: ["seed"], memoryMegabytes: 700 }],
+    });
+    expect(refused.isError).toBe(true);
+    expect(refused.text).toContain(
+      `Test target "android": The command seed in its commands before the entry point isn't one of the Project's commands.`,
+    );
+    expect(refused.text).toContain(
+      `Test target "android": Its memory per service is between 0.5 GB and 64 GB, in steps of 0.5 GB.`,
+    );
 
     const [drafted] = await chat.ninaProposes([
       PROPOSE_TEST_TARGETS_TOOL,
@@ -1036,7 +1053,15 @@ describe("Devops' Proposals of test targets, through the scripted engine", () =>
     expect(android).toMatchObject({
       key: "android",
       secretVariables: [{ name: "SIGNING_KEY", valueSet: false }],
-      setBy: { name: setter, entryPoint: setter, outputPatterns: setter },
+      commandsBefore: ["build"],
+      memoryMegabytes: 1024,
+      setBy: {
+        name: setter,
+        entryPoint: setter,
+        outputPatterns: setter,
+        commandsBefore: setter,
+        memoryMegabytes: setter,
+      },
     });
     // The whole app, a real repository and two chat sessions: slow under a full run.
   }, 60_000);

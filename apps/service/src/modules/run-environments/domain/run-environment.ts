@@ -257,6 +257,8 @@ export interface HostedRun {
   readonly containerPort: number;
   /** The target's variables' names, each given its value from its carrier (`carrierOf`) by index. */
   readonly variableNames: readonly string[];
+  /** The variable set to `containerPort` in the app's service (spec §2.12, "What The Office sets"). */
+  readonly portVariable: string;
 }
 
 /** Set in the app's service, so The Office run as a test instance refuses what reaches outside. */
@@ -290,6 +292,7 @@ export function hostedOverrideOf(
     problems.push(`The port ${run.containerPort} isn't a port from 1 to 65535.`);
   }
   problems.push(...variableNameProblems(run.variableNames));
+  problems.push(...portVariableProblems(run.portVariable, run.variableNames));
   if (problems.length > 0) return { problems };
 
   const labels = {
@@ -309,7 +312,10 @@ export function hostedOverrideOf(
           : {}),
         ...(service === run.appService
           ? {
-              environment: testInstanceEnvironmentOf(run.variableNames),
+              environment: {
+                ...testInstanceEnvironmentOf(run.variableNames),
+                [run.portVariable]: String(run.containerPort),
+              },
               ports: [`127.0.0.1::${run.containerPort}`],
             }
           : {}),
@@ -442,6 +448,25 @@ function variableNameProblems(names: readonly string[]): string[] {
   );
 }
 
+/**
+ * Why the port variable can't be set: not a name, the test instance's mark, or one of the target's
+ * own variables, which the Project page refuses already; a defence here.
+ */
+function portVariableProblems(name: string, variableNames: readonly string[]): string[] {
+  if (!VARIABLE_NAME.test(name)) {
+    return [
+      `The port variable ${JSON.stringify(name)} isn't a variable name: use letters, digits and _, not starting with a digit.`,
+    ];
+  }
+  if (name === TEST_INSTANCE_VARIABLE) {
+    return [`The port variable ${name} is one The Office sets itself.`];
+  }
+  if (variableNames.includes(name)) {
+    return [`The port variable ${name} is also one of the target's variables.`];
+  }
+  return [];
+}
+
 /** The target's variables by their carriers, never their values, and the test instance's mark. */
 function testInstanceEnvironmentOf(variableNames: readonly string[]): Record<string, string> {
   return {
@@ -533,6 +558,20 @@ function repositoryPath(given: string): string | undefined {
  */
 export function entryPointScript(folder: string): string {
   return `cd ${quoted(folder)} || exit 125\nexec "$@"`;
+}
+
+/**
+ * The script one of the Project's commands before the entry point runs as in the devcontainer's
+ * service (spec §2.12, "Commands before the entry point"): in the checkout, each variable taken
+ * from its carrier (`commandVariables` gives their values by name), the command line last, so its
+ * exit code is the script's.
+ */
+export function commandBeforeScript(
+  checkout: string,
+  commandLine: string,
+  environment: CommandEnvironment,
+): string {
+  return commandScript(commandLine, checkout, environment);
 }
 
 function checksServiceOverride(

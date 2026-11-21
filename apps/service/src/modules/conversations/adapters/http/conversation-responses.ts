@@ -458,10 +458,12 @@ function toProposedTestTargetFieldsResponse(
     entryPoint,
     variables: fields.variables.map(({ name, value }) => ({ name, value })),
     secretVariables: [...fields.secretVariables],
+    commandsBefore: [...fields.commandsBefore],
+    memoryMegabytes: fields.memoryMegabytes,
   };
   return fields.kind === "build-to-install"
     ? { ...shared, kind: fields.kind, outputPatterns: [...fields.outputPatterns] }
-    : { ...shared, kind: fields.kind, port: fields.port };
+    : { ...shared, kind: fields.kind, port: fields.port, portVariable: fields.portVariable };
 }
 
 function decisionOf(

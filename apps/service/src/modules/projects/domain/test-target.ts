@@ -42,8 +42,26 @@ export const TEST_TARGET_FIELDS = [
   "outputPatterns",
   "variables",
   "secretVariables",
+  "commandsBefore",
+  "portVariable",
+  "memoryMegabytes",
 ] as const;
 export type TestTargetField = (typeof TEST_TARGET_FIELDS)[number];
+
+/** The variable a Hosted target's port is set in when it names none (spec §2.12). */
+export const DEFAULT_PORT_VARIABLE = "PORT";
+
+/**
+ * The names a target's port variable can't take: The Office sets `OFFICE_TEST_INSTANCE` in every
+ * test instance itself, so the app can't have its port there.
+ */
+const RESERVED_PORT_VARIABLES: readonly string[] = ["OFFICE_TEST_INSTANCE"];
+
+/**
+ * A target's own Memory per service, in MB: the bounds of the Office-wide setting (Settings ›
+ * Office limits), which the HTTP adapter's test holds equal to the contracts' ones.
+ */
+export const TEST_TARGET_MEMORY_MEGABYTES = { min: 512, max: 65_536, step: 512 } as const;
 
 /** Who set a field last: a user on the Project page, or a Proposal an Agent drafted. */
 export type TestTargetSetter =
@@ -79,16 +97,28 @@ export type TestTargetFields<Secret> = {
   readonly entryPoint: EntryPoint;
   readonly variables: readonly TestTargetVariable[];
   readonly secretVariables: readonly Secret[];
+  /** The keys of the Project's commands run in the checkout before the entry point, in order. */
+  readonly commandsBefore: readonly string[];
+  /** The target's own Memory per service in MB; null when the Office-wide value applies. */
+  readonly memoryMegabytes: number | null;
 } & (
-  | { readonly kind: "hosted"; readonly port: number }
-  | { readonly kind: "install-on-a-device"; readonly port: number }
-  | { readonly kind: "deployed-elsewhere"; readonly port: number }
+  | HostedFields<"hosted">
+  | HostedFields<"install-on-a-device">
+  | HostedFields<"deployed-elsewhere">
   | {
       readonly kind: "build-to-install";
       /** Relative to the repository's root, `*` and `**` allowed. */
       readonly outputPatterns: readonly string[];
     }
 );
+
+/** The fields of a kind that serves a port: Hosted's, which the outlined kinds take too. */
+interface HostedFields<Kind extends TestTargetKind> {
+  readonly kind: Kind;
+  readonly port: number;
+  /** The variable The Office sets to `port` in the app's service. */
+  readonly portVariable: string;
+}
 
 /** A Project's test target as kept (spec §2.12, "Test target"). */
 export type TestTarget = TestTargetFields<TestTargetSecret> & { readonly setBy: TestTargetSetBy };
@@ -120,11 +150,13 @@ export function testTargetLabel(key: string): string {
 
 /** The fields `kind` holds besides those every kind has. */
 export function fieldsOfKind(kind: TestTargetKind): readonly TestTargetField[] {
-  const own: TestTargetField = kind === "build-to-install" ? "outputPatterns" : "port";
-  return TEST_TARGET_FIELDS.filter(
-    (field) => field === own || (field !== "port" && field !== "outputPatterns"),
-  );
+  const own: readonly TestTargetField[] =
+    kind === "build-to-install" ? ["outputPatterns"] : ["port", "portVariable"];
+  return TEST_TARGET_FIELDS.filter((field) => own.includes(field) || !KIND_FIELDS.includes(field));
 }
+
+/** The fields only some kinds have. */
+const KIND_FIELDS: readonly TestTargetField[] = ["port", "portVariable", "outputPatterns"];
 
 /**
  * The target with the spaces around its key, name, entry point, names and patterns left out, each
@@ -142,6 +174,8 @@ export function trimmedTestTarget<Secret>(
       .map((variable) => ({ ...variable, name: variable.name.trim() }))
       .filter(({ name, value }) => name !== "" || value !== ""),
     secretVariables: target.secretVariables.map(trimmedSecret),
+    commandsBefore: target.commandsBefore.map((key) => key.trim()).filter((key) => key !== ""),
+    memoryMegabytes: target.memoryMegabytes,
   };
   return target.kind === "build-to-install"
     ? {
@@ -151,7 +185,12 @@ export function trimmedTestTarget<Secret>(
           .map((pattern) => pattern.trim())
           .filter((pattern) => pattern !== ""),
       }
-    : { ...common, kind: target.kind, port: target.port };
+    : {
+        ...common,
+        kind: target.kind,
+        port: target.port,
+        portVariable: target.portVariable.trim(),
+      };
 }
 
 /**
@@ -224,6 +263,15 @@ export function sameField<Secret>(
       );
     case "secretVariables":
       return sameList(one.secretVariables, other.secretVariables, secretsMatch);
+    case "commandsBefore":
+      return sameList(one.commandsBefore, other.commandsBefore, (a, b) => a === b);
+    case "portVariable":
+      return (
+        ("portVariable" in one ? one.portVariable : undefined) ===
+        ("portVariable" in other ? other.portVariable : undefined)
+      );
+    case "memoryMegabytes":
+      return one.memoryMegabytes === other.memoryMegabytes;
   }
 }
 
@@ -302,6 +350,7 @@ export function sameTestTargets(one: readonly TestTarget[], other: readonly Test
  */
 export function testTargetProblems(
   targets: readonly TestTargetFields<TestTargetSecret>[],
+  commandKeys: readonly string[],
 ): string[] {
   const problems: string[] = [];
   const keys = targets.map(({ key }) => key);
@@ -310,13 +359,18 @@ export function testTargetProblems(
   }
   for (const target of targets) {
     problems.push(
-      ...oneTargetProblems(target).map((problem) => `${testTargetLabel(target.key)}: ${problem}`),
+      ...oneTargetProblems(target, commandKeys).map(
+        (problem) => `${testTargetLabel(target.key)}: ${problem}`,
+      ),
     );
   }
   return problems;
 }
 
-function oneTargetProblems(target: TestTargetFields<TestTargetSecret>): string[] {
+function oneTargetProblems(
+  target: TestTargetFields<TestTargetSecret>,
+  commandKeys: readonly string[],
+): string[] {
   const problems: string[] = [];
   const keyProblem = keyShapeProblem(target.key, "A test target's");
   if (keyProblem) problems.push(keyProblem);
@@ -332,6 +386,7 @@ function oneTargetProblems(target: TestTargetFields<TestTargetSecret>): string[]
     if (!Number.isInteger(target.port) || target.port < 1 || target.port > 65535) {
       problems.push("Its port must be a whole number from 1 to 65535.");
     }
+    problems.push(...portVariableProblems(target));
   } else {
     if (target.entryPoint.kind === "devcontainer-service") {
       problems.push("A .devcontainer/ service is an entry point for Hosted only.");
@@ -343,8 +398,64 @@ function oneTargetProblems(target: TestTargetFields<TestTargetSecret>): string[]
     }
     problems.push(...target.outputPatterns.flatMap(outputPatternProblems));
   }
-  problems.push(...entryPointShapeProblems(target.entryPoint), ...variablesProblems(target));
+  problems.push(
+    ...entryPointShapeProblems(target.entryPoint),
+    ...variablesProblems(target),
+    ...commandsBeforeProblems(target.commandsBefore, commandKeys),
+    ...memoryProblems(target.memoryMegabytes),
+  );
   return problems;
+}
+
+/**
+ * A command before the entry point is one of the Project's commands by its key; one removed from
+ * the Project later is the launch's to refuse, as the target was saved with it.
+ */
+function commandsBeforeProblems(
+  commandsBefore: readonly string[],
+  commandKeys: readonly string[],
+): string[] {
+  return [...new Set(commandsBefore)]
+    .filter((key) => !commandKeys.includes(key))
+    .map(
+      (key) =>
+        `The command ${key} in its commands before the entry point isn't one of the Project's commands.`,
+    );
+}
+
+/** The port variable is a variable's name the app can read, and nothing else sets it. */
+function portVariableProblems(
+  target: TestTargetFields<TestTargetSecret> & HostedFields<"hosted">,
+): string[] {
+  const name = target.portVariable;
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+    return [
+      `Its port variable must be a variable's name: letters, digits and _, not starting with a digit, such as ${DEFAULT_PORT_VARIABLE}.`,
+    ];
+  }
+  if (RESERVED_PORT_VARIABLES.includes(name)) {
+    return [`Its port variable can't be ${name}: The Office sets it in every test instance.`];
+  }
+  const own = [...target.variables, ...target.secretVariables].some((each) => each.name === name);
+  return own
+    ? [`Its port variable ${name} is one of its own variables too: give the port its own name.`]
+    : [];
+}
+
+function memoryProblems(megabytes: number | null): string[] {
+  if (megabytes === null) return [];
+  const { min, max, step } = TEST_TARGET_MEMORY_MEGABYTES;
+  const within =
+    Number.isInteger(megabytes) && megabytes >= min && megabytes <= max && megabytes % step === 0;
+  return within
+    ? []
+    : [
+        `Its memory per service is between ${gigabytes(min)} and ${gigabytes(max)}, in steps of ${gigabytes(step)}.`,
+      ];
+}
+
+function gigabytes(megabytes: number): string {
+  return `${megabytes / 1024} GB`;
 }
 
 function outputPatternProblems(pattern: string): string[] {
