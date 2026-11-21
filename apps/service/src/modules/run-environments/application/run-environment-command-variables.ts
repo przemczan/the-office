@@ -4,6 +4,8 @@ import { Injectable, Logger } from "@nestjs/common";
 export interface CommandVariable {
   readonly name: string;
   readonly value: string;
+  /** Left out when the Project's own environment sets a variable of this name, as `ANDROID_SERIAL`. */
+  readonly unlessProjectSets?: boolean;
 }
 
 /** What another module answers for a Task's check, read again as each check runs. */

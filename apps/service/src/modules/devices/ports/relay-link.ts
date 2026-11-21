@@ -32,6 +32,11 @@ export type RelayClose =
 export interface RelayLink {
   /** Told once, as the browser's socket closes by itself, never after `closeAs…`. */
   onClosed(listener: (close: RelayClose) => void): void;
+  /**
+   * Told each time the helper's last open channel closes, from either side, as when adb in the run
+   * environment drops its connection; never as the helper stops.
+   */
+  onChannelsClosed(listener: () => void): void;
   /** Tells the browser the device's state. */
   sendState(state: ConnectedDeviceState, endpoint: string | null): void;
   /** Closes the socket as a second one for a device that has one. */

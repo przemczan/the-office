@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { arch } from "node:os";
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
@@ -14,7 +13,6 @@ import {
   RunEnvironments,
   RunEnvironmentStarted,
   RunEnvironmentStopped,
-  type DeviceHelperArchitecture,
 } from "../../run-environments/index.js";
 import {
   TaskConnectedDevices,
@@ -23,6 +21,7 @@ import {
 } from "../../work/index.js";
 import {
   alreadyConnectedTo,
+  androidSerialOf,
   connectedDevicesVariable,
   connectingDevice,
   connectProblemsOf,
@@ -46,9 +45,13 @@ import { ConnectedDeviceRepository } from "../ports/connected-device-repository.
 import { DeviceTasks } from "../ports/device-tasks.js";
 import { ProjectRunEnvironmentSettings } from "../ports/project-run-environment-settings.js";
 import type { HelperOpening, RelayClose, RelayLink } from "../ports/relay-link.js";
+import { AndroidUsbDevices, type ConnectedAndroidPhone } from "./android-usb-devices.js";
+import { hostHelperArchitecture } from "./device-helper-architecture.js";
 
 /** The variable every check in a Task's run environment gets (spec §2.13, "What Agents see"). */
 export const CONNECTED_DEVICES_VARIABLE = "OFFICE_CONNECTED_DEVICES";
+/** The serial adb uses when one Android phone is Connected, unless the Project sets its own. */
+export const ANDROID_SERIAL_VARIABLE = "ANDROID_SERIAL";
 
 /** How long a helper has to say HELLO and READY before its device ends as an error. */
 export const HELPER_START_TIMEOUT_MS = 10_000;
@@ -58,11 +61,6 @@ export interface DeviceToConnect {
   readonly kind: ConnectedDeviceKind;
   readonly name: string;
   readonly deviceKey: string;
-}
-
-/** The helper's executable for this computer's machine: a run environment's is the host's. */
-export function hostHelperArchitecture(): DeviceHelperArchitecture {
-  return arch() === "arm64" ? "aarch64" : "x86_64";
 }
 
 /** A device's open relay socket. */
@@ -92,16 +90,21 @@ export class ConnectedDevices implements OnModuleInit {
     private readonly taskDevices: TaskConnectedDevices,
     private readonly schedule: Schedule,
     private readonly events: EventBus,
+    private readonly androidUsb: AndroidUsbDevices,
   ) {}
 
   onModuleInit(): void {
     this.taskDevices.register((taskId) => this.wordsOf(taskId));
-    this.commandVariables.register(async (taskId) => [
-      {
-        name: CONNECTED_DEVICES_VARIABLE,
-        value: connectedDevicesVariable(await this.repository.openOfTask(taskId)),
-      },
-    ]);
+    this.commandVariables.register(async (taskId) => {
+      const open = await this.repository.openOfTask(taskId);
+      const androidSerial = androidSerialOf(open);
+      return [
+        { name: CONNECTED_DEVICES_VARIABLE, value: connectedDevicesVariable(open) },
+        ...(androidSerial === undefined
+          ? []
+          : [{ name: ANDROID_SERIAL_VARIABLE, value: androidSerial, unlessProjectSets: true }]),
+      ];
+    });
     // The bus waits for these: a start's handler is done, never throwing, before its first check.
     this.events.subscribe(RunEnvironmentStarted, ({ taskId }) => this.environmentStarted(taskId));
     this.events.subscribe(RunEnvironmentStopped, ({ taskId }) => this.environmentStopped(taskId));
@@ -204,6 +207,7 @@ export class ConnectedDevices implements OnModuleInit {
       }
       this.relays.set(id, { link });
       link.onClosed((close) => void this.relayClosed(id, link, close));
+      link.onChannelsClosed(() => void this.connectionsClosed(id));
       link.sendState(device.state, device.endpoint);
       await this.startHelper(device);
     });
@@ -269,7 +273,11 @@ export class ConnectedDevices implements OnModuleInit {
         await this.end(device.id, "error", undefined, problem);
         return;
       }
-      await this.change(device.id, (current) => deviceConnected(current, opening.endpoint));
+      const connected = await this.change(device.id, (current) =>
+        deviceConnected(current, opening.endpoint),
+      );
+      const phone = connected === undefined ? undefined : androidUsbPhoneOf(connected.device);
+      if (phone !== undefined) this.followAndroidUsb(phone);
     } catch (error) {
       const problem =
         error instanceof RunEnvironmentRefused ? error.reasons.join(" ") : wordsOf(error);
@@ -318,6 +326,29 @@ export class ConnectedDevices implements OnModuleInit {
       if (this.relays.get(device.id) !== relay || relay.link.relaysHelper) return;
       await this.helperEndedNow(device, why, environmentRunning);
     });
+  }
+
+  /**
+   * adb's steps for a phone whose helper got ready, outside the device's lock, so a slow adb never
+   * holds a disconnect back: the device ends as an error when the phone can't be used.
+   */
+  private followAndroidUsb(phone: ConnectedAndroidPhone): void {
+    void this.locks
+      .runDetached(`adb:${phone.id}`, async () => {
+        const problem = await this.androidUsb.helperReady(phone);
+        if (problem !== undefined) await this.end(phone.id, "error", undefined, problem);
+      })
+      .catch((error: unknown) => {
+        this.logger.error(`adb didn't connect to the device ${phone.id}.`, error);
+      });
+  }
+
+  /** adb's last connection to the helper closed while the phone was Connected. */
+  private async connectionsClosed(id: string): Promise<void> {
+    const device = await this.repository.find(id);
+    const phone = device === undefined ? undefined : androidUsbPhoneOf(device);
+    if (phone !== undefined)
+      this.androidUsb.connectionsClosed(phone, (kept) => this.repository.find(kept));
   }
 
   /** Waiting when its run environment stopped under it, an error with why otherwise. */
@@ -379,16 +410,19 @@ export class ConnectedDevices implements OnModuleInit {
       const relay = this.relays.get(id);
       relay?.link.stopHelper();
       // Told by `change` while the relay is still kept, then closed.
-      const changed = await this.change(id, (device) =>
-        deviceDisconnected(device, {
+      let phone: ConnectedAndroidPhone | undefined;
+      const changed = await this.change(id, (device) => {
+        phone = androidUsbPhoneOf(device);
+        return deviceDisconnected(device, {
           because,
           at,
           ...(by === undefined ? {} : { by }),
           ...(problem === undefined ? {} : { problem }),
-        }),
-      );
+        });
+      });
       this.relays.delete(id);
       relay?.link.closeAsEnded(changed?.device.problem ?? "The device was disconnected.");
+      if (changed !== undefined && phone !== undefined) void this.androidUsb.disconnected(phone);
     });
   }
 
@@ -413,6 +447,14 @@ export class ConnectedDevices implements OnModuleInit {
       endpoint: device.endpoint,
     }));
   }
+}
+
+/** The device as an Android phone over USB Connected at its helper's endpoint, if it is one. */
+function androidUsbPhoneOf(device: ConnectedDevice): ConnectedAndroidPhone | undefined {
+  if (device.kind !== "android-usb" || device.state !== "connected" || device.endpoint === null) {
+    return undefined;
+  }
+  return { ...device, endpoint: device.endpoint };
 }
 
 function wordsOf(error: unknown): string {

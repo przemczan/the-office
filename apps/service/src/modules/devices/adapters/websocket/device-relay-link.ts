@@ -77,6 +77,9 @@ export class DeviceRelayLink implements RelayLink {
   private readonly fromBrowser = new FrameReader();
   private helper: RelayedHelper | undefined;
   private closedListener: ((close: RelayClose) => void) | undefined;
+  private channelsClosedListener: (() => void) | undefined;
+  /** The helper's channels open now, from its OPEN to either side's CLOSE. */
+  private readonly openChannels = new Set<number>();
   private closedAs: RelayClose | undefined;
   private closedByService = false;
   private unplugged = false;
@@ -101,6 +104,10 @@ export class DeviceRelayLink implements RelayLink {
     if (closedAs !== undefined) queueMicrotask(() => listener(closedAs));
   }
 
+  onChannelsClosed(listener: () => void): void {
+    this.channelsClosedListener = listener;
+  }
+
   sendState(state: ConnectedDeviceState, endpoint: string | null): void {
     if (this.socket.readyState !== SOCKET_OPEN) return;
     const message: DeviceRelayServerMessage = { type: "state", state, endpoint };
@@ -117,6 +124,7 @@ export class DeviceRelayLink implements RelayLink {
 
   startHelper(process: HelperProcess, ended: (why: string) => void): Promise<HelperOpening> {
     this.stopHelper();
+    this.openChannels.clear();
     const opening = deferred<HelperOpening>();
     const helper: RelayedHelper = {
       process,
@@ -158,6 +166,7 @@ export class DeviceRelayLink implements RelayLink {
     this.helper = undefined;
     helper.stopped = true;
     this.helperPaused = false;
+    this.openChannels.clear();
     helper.process.stop();
     helper.settle({ kind: "ended", why: HELPER_STOPPED });
   }
@@ -191,9 +200,18 @@ export class DeviceRelayLink implements RelayLink {
           helper.endedWords = frameText(frame);
           break;
         default:
-          if (helper.ready) this.toSocket(helper, encodeFrame(frame));
+          if (!helper.ready) break;
+          this.followChannel(frame);
+          this.toSocket(helper, encodeFrame(frame));
       }
     }
+  }
+
+  /** Keeps the open channels as frames pass, telling when the last one closed. */
+  private followChannel(frame: DeviceFrame): void {
+    if (frame.type === DEVICE_FRAME_TYPES.open) this.openChannels.add(frame.channel);
+    if (frame.type !== DEVICE_FRAME_TYPES.close || !this.openChannels.delete(frame.channel)) return;
+    if (this.openChannels.size === 0) this.channelsClosedListener?.();
   }
 
   /** Ends the helper as it misbehaved: its end tells why. */
@@ -232,6 +250,7 @@ export class DeviceRelayLink implements RelayLink {
     if (helper === undefined) return;
     for (const frame of frames) {
       if (!BROWSER_FRAMES.has(frame.type)) continue;
+      this.followChannel(frame);
       if (!helper.process.stdin.write(encodeFrame(frame))) {
         this.socket.pause?.();
         helper.process.stdin.once("drain", () => this.socket.resume?.());

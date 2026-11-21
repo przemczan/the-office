@@ -171,6 +171,30 @@ export function connectedDevicesVariable(devices: readonly ConnectedDevice[]): s
   );
 }
 
+/** The kinds adb reaches, each by its adb serial. */
+export const ANDROID_KINDS: ReadonlySet<ConnectedDeviceKind> = new Set([
+  "android-usb",
+  "android-wireless",
+]);
+
+/**
+ * The adb serial `adb devices` lists a Connected Android phone under: an Android phone over USB is
+ * the helper's endpoint, as adb connects to it; undefined for any other device.
+ */
+export function adbSerialOf(device: ConnectedDevice): string | undefined {
+  if (device.state !== "connected" || !ANDROID_KINDS.has(device.kind)) return undefined;
+  return device.endpoint ?? undefined;
+}
+
+/**
+ * `ANDROID_SERIAL` (spec §2.13, "What Agents see"): the adb serial of the one Android phone
+ * Connected; undefined with none or several, so adb asks which.
+ */
+export function androidSerialOf(devices: readonly ConnectedDevice[]): string | undefined {
+  const serials = devices.flatMap((device) => adbSerialOf(device) ?? []);
+  return serials.length === 1 ? serials[0] : undefined;
+}
+
 export const KIND_WORDS: Readonly<Record<ConnectedDeviceKind, string>> = {
   "android-usb": "Android phone over USB",
   "serial-usb": "Serial board over USB",

@@ -4474,6 +4474,39 @@ button.initiative-track-body:hover .stage-mark {
   flex: none;
 }
 
+/* An Android phone's endpoint, as `adb devices` lists it. */
+.devices-row-serial {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+/* What the device asks the user now, such as allowing USB debugging. */
+.devices-row-notice {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  font: var(--type-body-sm);
+  color: var(--warning-fg);
+}
+
+.devices-row-notice svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+/* A kind in the Connect menu, with why it is greyed under its name. */
+.devices-kind {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.devices-kind-why {
+  font: var(--type-caption);
+  line-height: 1.2;
+  color: var(--fg-3);
+}
+
 .devices-note {
   display: flex;
   gap: 8px;

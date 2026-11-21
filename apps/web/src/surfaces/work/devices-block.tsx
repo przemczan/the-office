@@ -6,6 +6,7 @@ import { useState, useSyncExternalStore, type ReactNode } from "react";
 import {
   deviceTransportProviders,
   openDeviceRelay,
+  registerDeviceTransport,
   subscribeToDeviceTransports,
   type DeviceTransportProvider,
   type RequestedDevice,
@@ -23,7 +24,7 @@ import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { momentWords } from "../../shell/time.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { userName, useSignedInUserId } from "../../shell/use-user-name.ts";
-import { keepDeviceRelay } from "./device-relays.ts";
+import { deviceNotice, keepDeviceRelay, subscribeToDeviceNotices } from "./device-relays.ts";
 import {
   CONNECT_REFUSED,
   connectedToastWords,
@@ -36,12 +37,16 @@ import {
   disconnectedToastWords,
   disconnectedWhy,
   KEEP_TAB_OPEN,
-  NO_DEVICE_TRANSPORT,
   NO_DEVICES,
   openDevicesOf,
 } from "./device-words.ts";
+import { ADB_SERIAL, USB_DEBUGGING_HINT } from "./devices/android-usb/android-usb-words.ts";
+import { androidUsbTransport } from "./devices/android-usb/webusb-adb.ts";
 import { RecordFold } from "./record-fold.tsx";
 import { useFold } from "./record-folds.ts";
+
+// Every kind this build reaches in the browser, offered once the Devices section is drawn.
+registerDeviceTransport(androidUsbTransport());
 
 /**
  * The Task's Devices section (spec screens/task-page.md, "Devices"; 2.13): shown only while the
@@ -109,9 +114,15 @@ function DevicesFold({ task }: { readonly task: Task }): ReactNode {
               ))}
             </ul>
           )}
+          {connecting.hinted && (
+            <p className="devices-note">
+              <Icon name="lightbulb" size={14} />
+              {USB_DEBUGGING_HINT}
+            </p>
+          )}
           <p className="devices-note">
             <Icon name="info" size={14} />
-            {providers.length === 0 ? NO_DEVICE_TRANSPORT : KEEP_TAB_OPEN}
+            {KEEP_TAB_OPEN}
           </p>
           {connecting.refused}
           {disconnecting.error && (
@@ -151,6 +162,7 @@ function DeviceRow({
   readonly children?: ReactNode;
 }): ReactNode {
   const ended = device.state === "disconnected";
+  const notice = useSyncExternalStore(subscribeToDeviceNotices, () => deviceNotice(device.id));
   return (
     <li className="devices-row" aria-label={device.name}>
       <div className="devices-row-main">
@@ -168,8 +180,20 @@ function DeviceRow({
             <> · disconnected {momentWords(device.disconnectedAt)}</>
           )}
         </span>
-        {device.state === "connected" && device.endpoint !== null && (
-          <code className="devices-row-endpoint">{device.endpoint}</code>
+        {device.state === "connected" &&
+          device.endpoint !== null &&
+          (device.kind === "android-usb" ? (
+            <span className="devices-row-serial">
+              {ADB_SERIAL} <code className="devices-row-endpoint">{device.endpoint}</code>
+            </span>
+          ) : (
+            <code className="devices-row-endpoint">{device.endpoint}</code>
+          ))}
+        {!ended && notice !== undefined && (
+          <span className="devices-row-notice" role="status">
+            <Icon name="triangle-alert" size={14} />
+            {notice}
+          </span>
         )}
       </div>
       {children !== undefined && <div className="devices-row-side">{children}</div>}
@@ -177,7 +201,7 @@ function DeviceRow({
   );
 }
 
-/** Connect over USB: a menu of the kinds a transport is registered for. */
+/** Connect over USB: a menu of the kinds a transport is registered for, greyed with why. */
 function ConnectMenu({
   providers,
   busy,
@@ -205,38 +229,60 @@ function ConnectMenu({
           Connect over USB
         </Button>
       }
-      items={providers.map((provider) => ({
-        label: DEVICE_KIND_WORDS[provider.kind],
-        onSelect: () => onConnect(provider),
-      }))}
+      items={providers.map((provider) => {
+        const unavailable = provider.unavailable;
+        return unavailable === undefined
+          ? { label: DEVICE_KIND_WORDS[provider.kind], onSelect: () => onConnect(provider) }
+          : {
+              disabled: true,
+              label: (
+                <span className="devices-kind">
+                  {DEVICE_KIND_WORDS[provider.kind]}
+                  <span className="devices-kind-why">{unavailable}</span>
+                </span>
+              ),
+            };
+      })}
     />
   );
 }
 
 /**
  * Connect: the browser's picker, then the record, then the relay this tab keeps; a refusal in its
- * words, naming the other Task as a link when the device is connected there.
+ * words, naming the other Task as a link when the device is connected there. While an Android
+ * phone's picker is open, and after it closed with none picked, the USB debugging hint shows.
  */
 function useConnect(taskId: string): {
   readonly isPending: boolean;
   readonly mutate: (provider: DeviceTransportProvider) => void;
   readonly refused: ReactNode;
+  readonly hinted: boolean;
 } {
   const showToast = useToast();
   const [picked, setPicked] = useState<RequestedDevice>();
+  const [hinted, setHinted] = useState(false);
   const connecting = useMutation({
     mutationFn: async (provider: DeviceTransportProvider) => {
+      setHinted(provider.kind === "android-usb");
       const device = await provider.request();
       if (device === undefined) return undefined;
+      setHinted(false);
       setPicked(device);
-      const connected = await connectDevice(taskId, {
-        kind: provider.kind,
-        name: device.name,
-        deviceKey: device.deviceKey,
-      });
-      keepDeviceRelay(connected.id, openDeviceRelay(connected.id, device));
+      let connected: ConnectedDevice;
+      try {
+        connected = await connectDevice(taskId, {
+          kind: provider.kind,
+          name: device.name,
+          deviceKey: device.deviceKey,
+        });
+      } catch (error) {
+        device.release?.();
+        throw error;
+      }
+      keepDeviceRelay(connected.id, openDeviceRelay(connected.id, device), device);
       return connected;
     },
+    onError: () => setHinted(false),
     onSuccess: (connected) => {
       if (connected !== undefined) showToast(connectedToastWords(connected.name));
     },
@@ -244,6 +290,7 @@ function useConnect(taskId: string): {
   return {
     isPending: connecting.isPending,
     mutate: (provider) => connecting.mutate(provider),
+    hinted,
     refused: connecting.error && (
       <ConnectRefused error={connecting.error} deviceName={picked?.name ?? "The device"} />
     ),

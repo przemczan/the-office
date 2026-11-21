@@ -27,7 +27,8 @@ import {
   PROJECT_ID,
   type DevicesTestbed,
 } from "../devices.fixtures.js";
-import { hostHelperArchitecture, HELPER_START_TIMEOUT_MS } from "./connected-devices.js";
+import { HELPER_START_TIMEOUT_MS } from "./connected-devices.js";
+import { hostHelperArchitecture } from "./device-helper-architecture.js";
 
 const ANN = { userId: "user-ann", name: "Ann Lee" };
 const PHONE = { kind: "android-usb", name: "Pixel 9", deviceKey: "18d1:4ee7:ABC123" } as const;
@@ -141,7 +142,9 @@ describe("connecting a device", () => {
 
     await start();
     expect(await stateOf(id)).toBe("connected");
-    expect(testbed.runtime.attached).toHaveLength(2);
+    expect(
+      testbed.runtime.attached.filter(({ attachment }) => attachment.arguments[1] === "relay"),
+    ).toHaveLength(2);
     expect(socket.states().map(({ state }) => state)).toEqual([
       "connecting",
       "connected",

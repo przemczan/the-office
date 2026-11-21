@@ -16,6 +16,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 ### A
 
 - **Account, Users, User**: [2.10 Users](2.10-users-and-signing-in.md#users); screen: [Account](screens/account.md#account-page)
+- **Android phone over USB, adb connect, adb serial**: [2.13 Android phone over USB](2.13-connected-devices.md#android-phone-over-usb); screen: [Task page › Devices](screens/task-page.md#devices)
 - **adb key**: [2.13 The adb key](2.13-connected-devices.md#the-adb-key); [6 Connected devices](6-permissions-and-safety.md#connected-devices)
 - **Agent**: [2.2 Agent](2.2-people.md#agent)
 - **After publishing, Before publishing**: [2.3.4 Publish's before and after lines](2.3.4-publish.md#publishs-before-and-after-lines); screen: [Project page › Commands](screens/project-page.md#commands)
@@ -551,6 +552,9 @@ Where each default lives, by page:
 - 2.13 Connected devices
   - [Serial path](2.13-connected-devices.md#serial-path)
   - [The helper's wait](2.13-connected-devices.md#the-helpers-wait)
+  - [adb steps](2.13-connected-devices.md#adb-steps)
+  - [adb reconnect](2.13-connected-devices.md#adb-reconnect)
+  - [The adb key's size](2.13-connected-devices.md#the-adb-keys-size)
   - [A dropped relay socket](2.13-connected-devices.md#a-dropped-relay-socket)
   - [Browsers supported](2.13-connected-devices.md#browsers-supported)
 - 4 UX direction

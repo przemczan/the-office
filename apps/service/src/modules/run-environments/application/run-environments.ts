@@ -326,7 +326,10 @@ export class RunEnvironments implements OnModuleInit {
     taskId: string,
     environment: CommandEnvironment,
   ): Promise<CommandEnvironment> {
-    const registered = await this.registeredVariables.of(taskId);
+    const projectSets = new Set(environment.set.map(({ name }) => name));
+    const registered = (await this.registeredVariables.of(taskId))
+      .filter((variable) => variable.unlessProjectSets !== true || !projectSets.has(variable.name))
+      .map(({ name, value }) => ({ name, value }));
     if (registered.length === 0) return environment;
     return { ...environment, set: [...environment.set, ...registered] };
   }

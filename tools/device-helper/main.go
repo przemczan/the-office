@@ -24,8 +24,11 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, version)
 		return 0
 	}
+	if len(args) == 1 && args[0] == "adb-key" {
+		return runAdbKey(stdin, stdout, stderr, os.UserHomeDir)
+	}
 	if len(args) == 0 || args[0] != "relay" {
-		fmt.Fprintln(stderr, "usage: office-device-helper --version | relay --listen 127.0.0.1:<port>")
+		fmt.Fprintln(stderr, "usage: office-device-helper --version | relay --listen 127.0.0.1:<port> | adb-key")
 		return 2
 	}
 	flags := flag.NewFlagSet("relay", flag.ContinueOnError)

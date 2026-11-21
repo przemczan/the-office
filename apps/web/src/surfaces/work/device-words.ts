@@ -29,9 +29,6 @@ export const DEVICE_STATE_TONES: Readonly<
   disconnected: "neutral",
 };
 
-/** Said instead of Connect while no kind has a way to reach a device in this browser. */
-export const NO_DEVICE_TRANSPORT =
-  "Connecting a device isn't available in this build of The Office yet.";
 export const KEEP_TAB_OPEN = "Keep this tab open: closing it disconnects the device.";
 export const NO_DEVICES = "No device connected. Connect one to reach it from the Task's commands.";
 export const CONNECT_REFUSED = "The device wasn't connected";

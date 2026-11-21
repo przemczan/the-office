@@ -45,6 +45,13 @@ export interface RequestedDevice {
   attach(relay: DeviceRelaySink): DeviceTransport;
   /** Calls `listener` when the device goes away; answers a function that stops listening. */
   onUnplugged(listener: () => void): () => void;
+  /**
+   * Calls `listener` with what the device asks the user now, such as allowing USB debugging, and
+   * with undefined once it asks nothing; answers a function that stops listening.
+   */
+  onNotice?(listener: (notice: string | undefined) => void): () => void;
+  /** Lets the device go without attaching it, as when the service refused it. */
+  release?(): void;
 }
 
 /** The kinds the browser reaches over USB through the relay; wireless debugging needs no relay. */
@@ -53,22 +60,33 @@ export type UsbDeviceKind = Exclude<ConnectedDeviceKind, "android-wireless">;
 /** One kind's way to reach a device, as WebUSB for an Android phone. */
 export interface DeviceTransportProvider {
   readonly kind: UsbDeviceKind;
-  /** Opens the browser's picker; undefined when the user picked none. */
+  /** Why this browser can't reach the kind, so its choice is greyed; read as it is drawn. */
+  readonly unavailable?: string;
+  /**
+   * Opens the browser's picker; undefined when the user picked none. A device that can't be
+   * reached throws an Error in the words that say why.
+   */
   request(): Promise<RequestedDevice | undefined>;
 }
 
-// The kinds' own Tasks register their transports; none is registered in this build.
-const providers = new Map<UsbDeviceKind, DeviceTransportProvider>();
+// Each kind's transports as registered, the last one used; taking one away gives back the one before.
+const providers = new Map<UsbDeviceKind, DeviceTransportProvider[]>();
 const providerListeners = new Set<() => void>();
 let providersShown: readonly DeviceTransportProvider[] = [];
 
-/** Registers a kind's transport; answers a function that takes it away again. */
+/**
+ * Registers a kind's transport, used instead of the kind's earlier one; answers a function that
+ * takes it away again.
+ */
 export function registerDeviceTransport(provider: DeviceTransportProvider): () => void {
-  providers.set(provider.kind, provider);
+  providers.set(provider.kind, [...(providers.get(provider.kind) ?? []), provider]);
   providersChanged();
   return () => {
-    if (providers.get(provider.kind) !== provider) return;
-    providers.delete(provider.kind);
+    const registered = providers.get(provider.kind) ?? [];
+    if (!registered.includes(provider)) return;
+    const left = registered.filter((each) => each !== provider);
+    if (left.length === 0) providers.delete(provider.kind);
+    else providers.set(provider.kind, left);
     providersChanged();
   };
 }
@@ -85,7 +103,7 @@ export function subscribeToDeviceTransports(listener: () => void): () => void {
 }
 
 function providersChanged(): void {
-  providersShown = [...providers.values()];
+  providersShown = [...providers.values()].flatMap((registered) => registered.slice(-1));
   for (const listener of providerListeners) listener();
 }
 

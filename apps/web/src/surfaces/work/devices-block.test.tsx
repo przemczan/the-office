@@ -1,7 +1,7 @@
 import type { ConnectedDevice, Project, Task } from "@the-office/contracts";
 import { act } from "react";
-import { afterEach, describe, expect, it } from "vitest";
-import { registerDeviceTransport } from "../../api/device-relay.ts";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { registerDeviceTransport, type RequestedDevice } from "../../api/device-relay.ts";
 import {
   buttonNamed,
   closePage,
@@ -12,8 +12,16 @@ import {
   type Answers,
 } from "../../shell/page.fixtures.tsx";
 import { BY_ANN } from "../../shell/user.fixtures.ts";
-import { NO_DEVICE_TRANSPORT } from "./device-words.ts";
+import { closeEveryDeviceRelay } from "./device-relays.ts";
+import { KEEP_TAB_OPEN } from "./device-words.ts";
 import { DevicesBlock } from "./devices-block.tsx";
+import {
+  ALLOW_USB_DEBUGGING,
+  NEEDS_SECURE_CONTEXT,
+  NEEDS_WEBUSB,
+  PHONE_IN_USE,
+  USB_DEBUGGING_HINT,
+} from "./devices/android-usb/android-usb-words.ts";
 
 const TASK: Task = {
   id: "00000000-0000-4000-8000-000000000031",
@@ -140,6 +148,27 @@ const FAILED: ConnectedDevice = {
   problem: "The helper ended.",
 };
 
+/** A socket that opens at once and is never written to by the service. */
+class OpenSocket extends EventTarget {
+  readyState = 0;
+  binaryType = "blob";
+
+  constructor() {
+    super();
+    queueMicrotask(() => {
+      this.readyState = 1;
+      this.dispatchEvent(new Event("open"));
+    });
+  }
+
+  send(): void {}
+
+  close(code?: number): void {
+    this.readyState = 3;
+    this.dispatchEvent(Object.assign(new Event("close"), { code: code ?? 1005 }));
+  }
+}
+
 function answers(project: Project, devices: readonly ConnectedDevice[]): Answers {
   return {
     [`GET /api/projects/${project.id}`]: () => ({ status: 200, body: project }),
@@ -179,7 +208,7 @@ describe("the Devices section", () => {
     expect(phone).toContain("Android phone over USB");
     expect(phone).toContain("Connected");
     expect(phone).toContain("connected by Ann Lee");
-    expect(phone).toContain("127.0.0.1:5555");
+    expect(phone).toContain("adb serial 127.0.0.1:5555");
     const board = shownText(page.querySelector('[aria-label="Arduino Uno"]')!);
     expect(board).toContain("Serial board over USB");
     expect(board).toContain("Waiting for the run environment");
@@ -208,15 +237,108 @@ describe("the Devices section", () => {
     await until(() => expect(shownText(document.body)).toContain("Pixel 8 disconnected."));
   });
 
-  it("says connecting isn't available while no kind has a transport", async () => {
+  it("offers an Android phone over USB, greyed with why in a browser without WebUSB", async () => {
     stubService(answers(PROJECT, []));
     const page = await blockOf();
+    await until(() => expect(buttonNamed(page, "Connect over USB")).toBeDefined());
 
-    await until(() => expect(shownText(page)).toContain(NO_DEVICE_TRANSPORT));
-    expect(buttonNamed(page, "Connect over USB")).toBeUndefined();
+    act(() => buttonNamed(page, "Connect over USB")?.click());
+
+    const why = window.isSecureContext === false ? NEEDS_SECURE_CONTEXT : NEEDS_WEBUSB;
+    const option = buttonNamed(
+      page.querySelector('[role="menu"]')!,
+      `Android phone over USB${why}`,
+    );
+    expect(option?.disabled).toBe(true);
+    expect(shownText(page)).toContain(KEEP_TAB_OPEN);
+  });
+
+  it("hints at USB debugging after the picker closes with no phone picked", async () => {
+    const unregister = registerDeviceTransport({
+      kind: "android-usb",
+      request: () => Promise.resolve(undefined),
+    });
+    try {
+      stubService(answers(PROJECT, []));
+      const page = await blockOf();
+      await until(() => expect(buttonNamed(page, "Connect over USB")).toBeDefined());
+
+      act(() => buttonNamed(page, "Connect over USB")?.click());
+      act(() => buttonNamed(page, "Android phone over USB")?.click());
+
+      await until(() => expect(shownText(page)).toContain(USB_DEBUGGING_HINT));
+    } finally {
+      unregister();
+    }
+  });
+
+  it("shows why the browser couldn't open the phone as the refusal", async () => {
+    const unregister = registerDeviceTransport({
+      kind: "android-usb",
+      request: () => Promise.reject(new Error(PHONE_IN_USE)),
+    });
+    try {
+      const sent = stubService(answers(PROJECT, []));
+      const page = await blockOf();
+      await until(() => expect(buttonNamed(page, "Connect over USB")).toBeDefined());
+
+      act(() => buttonNamed(page, "Connect over USB")?.click());
+      act(() => buttonNamed(page, "Android phone over USB")?.click());
+
+      await until(() => expect(shownText(page)).toContain("The device wasn't connected"));
+      expect(shownText(page)).toContain(PHONE_IN_USE);
+      expect(sent.map(({ request }) => request)).not.toContain(
+        `POST /api/tasks/${TASK.id}/devices`,
+      );
+    } finally {
+      unregister();
+    }
+  });
+
+  it("shows on the phone's row what it asks the user, while it asks", async () => {
+    vi.stubGlobal("WebSocket", OpenSocket);
+    let tell: ((notice: string | undefined) => void) | undefined;
+    const phone: RequestedDevice = {
+      name: "Pixel 8",
+      deviceKey: "usb:18d1:4ee7:serial",
+      attach: () => ({ opened: () => {}, received: () => {}, closed: () => {}, end: () => {} }),
+      onUnplugged: () => () => {},
+      onNotice: (listener) => {
+        tell = listener;
+        return () => (tell = undefined);
+      },
+    };
+    const unregister = registerDeviceTransport({
+      kind: "android-usb",
+      request: () => Promise.resolve(phone),
+    });
+    try {
+      stubService({
+        ...answers(PROJECT, [PHONE]),
+        [`POST /api/tasks/${TASK.id}/devices`]: () => ({ status: 201, body: PHONE }),
+      });
+      const page = await blockOf();
+      await until(() => expect(buttonNamed(page, "Connect over USB")).toBeDefined());
+
+      act(() => buttonNamed(page, "Connect over USB")?.click());
+      act(() => buttonNamed(page, "Android phone over USB")?.click());
+      await until(() => expect(tell).toBeDefined());
+
+      act(() => tell?.(ALLOW_USB_DEBUGGING));
+      const row = (): string => shownText(page.querySelector('[aria-label="Pixel 8"]')!);
+      expect(row()).toContain(ALLOW_USB_DEBUGGING);
+
+      act(() => tell?.(undefined));
+      expect(row()).not.toContain(ALLOW_USB_DEBUGGING);
+    } finally {
+      unregister();
+      closeEveryDeviceRelay();
+    }
   });
 
   it("offers each kind with a registered transport in the Connect menu", async () => {
+    // A browser with WebUSB.
+    Object.defineProperty(navigator, "usb", { value: new EventTarget(), configurable: true });
     const unregister = registerDeviceTransport({
       kind: "serial-usb",
       request: () => Promise.resolve(undefined),
@@ -230,11 +352,12 @@ describe("the Devices section", () => {
 
       const menu = page.querySelector('[role="menu"]');
       expect(menu === null ? [] : [...menu.querySelectorAll("button")].map(shownText)).toEqual([
+        "Android phone over USB",
         "Serial board over USB",
       ]);
-      expect(shownText(page)).not.toContain(NO_DEVICE_TRANSPORT);
     } finally {
       unregister();
+      Reflect.deleteProperty(navigator, "usb");
     }
   });
 

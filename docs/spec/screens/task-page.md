@@ -323,17 +323,25 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 
 - The Devices section (plug icon), shown only while the Project's Run environment is On; open at the start while the Task has a device not Disconnected.
 - Summary: "<n> connected", or "None connected".
-- A list, one row per device not Disconnected: its name, a badge for its kind (**Android phone over USB**, **Serial board over USB**, **Android phone over wireless debugging**), its state (**Connecting**, **Connected**, **Waiting for the run environment**), "connected by <user> · <when>" (<user> reads "you" for yourself), its endpoint (`127.0.0.1:<port>`) in monospace once Connected (each kind's Task adds the adb serial or serial path), and **Disconnect**.
+- A list, one row per device not Disconnected: its name, a badge for its kind (**Android phone over USB**, **Serial board over USB**, **Android phone over wireless debugging**), its state (**Connecting**, **Connected**, **Waiting for the run environment**), "connected by <user> · <when>" (<user> reads "you" for yourself), its endpoint (`127.0.0.1:<port>`) in monospace once Connected, and **Disconnect**.
+- An Android phone over USB's endpoint reads "adb serial 127.0.0.1:<port>", as `adb devices` lists it.
+- While a phone waits for the user to let adb in, its row says "Allow USB debugging on the phone, and tick Always allow from this computer."; the line goes once the phone lets adb in.
 - Below it, a fold "Disconnected" lists the Task's earlier devices with why and "disconnected <when>", each as [2.13](../2.13-connected-devices.md#states) names it.
 - **Connect over USB** is a menu of the USB kinds this build has a way to reach in the browser, each opening the browser's own device picker (an Android phone with WebUSB, a serial board with Web Serial).
-  - With no kind to offer, the button is not shown and the note says "Connecting a device isn't available in this build of The Office yet."
-  - In a browser without WebUSB and Web Serial it is greyed, titled "Connecting over USB needs Chrome or Edge."
+  - Its choices: **Android phone over USB** (WebUSB) in this build.
+  - A choice this browser can't reach is greyed, with why under its name: "Needs Chrome or Edge" (no WebUSB), or "Needs The Office over HTTPS or localhost" (the page isn't a secure one).
+  - While the phone picker is open, and after it closed with no phone picked, the section says "Don't see the phone? Turn on USB debugging in Developer options."
   - The note "Keep this tab open: closing it disconnects the device."
 - **Pair over wireless debugging** opens the form **IP address**, **Port**, **Pairing port** and **Pairing code** (hint "From the phone's Wireless debugging › Pair device with pairing code. Used once, never kept."), button **Pair**; note "Pairing starts the Task's run environment."
-- A tool missing from the run environment shows the warning "<tool> isn't in the run environment. Add it to the Project's .devcontainer/." with a link to the Project page's Run environment section.
+- An Android phone over USB whose run environment has no adb ends Disconnected as error; its why in the Disconnected fold reads "error: adb isn't in this Project's run environment. Add Android's platform-tools to .devcontainer, then connect again.", with no warning above the list and no link.
 - A serial board that needs a 1200-baud touch or its own DTR/RTS sequence shows "This board's reset isn't carried over the relay."
 - A device already connected to another Task is refused with "<device> is connected to <Task>. Disconnect it there first.", the Task linked.
 - Toasts "<name> connected.", "<name> disconnected."; a refusal shows under the section as the service words it (**The device wasn't connected**).
+- The browser's own refusals of an Android phone show the same way:
+  - interface claimed elsewhere: "The phone is in use by adb on this computer (Android Studio or adb). Run adb kill-server, then connect again.";
+  - no serial number: "The phone reports no serial number, so The Office can't tell it from another phone.";
+  - no ADB interface: "The phone doesn't offer USB debugging. Turn on USB debugging in Developer options, then connect again.";
+  - the system denied access: "This computer didn't let the browser open the phone.", then on Linux a udev rule for the phone's vendor id (`SUBSYSTEM=="usb", ATTR{idVendor}=="<vid>", MODE="0660", GROUP="plugdev"` in `/etc/udev/rules.d/51-android.rules`, in the plugdev group), on Windows the WinUSB driver (the Google USB Driver, or the phone maker's), both elsewhere, and "Then unplug the phone and connect again."
 - Rules: [2.13](../2.13-connected-devices.md).
 
 ## Changes tab
