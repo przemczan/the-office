@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Module, type DynamicModule } from "@nestjs/common";
+import { ActivityModule } from "./modules/activity/index.js";
 import {
   ContextPolicySettingsService,
   ConversationsModule,
@@ -49,17 +50,20 @@ import {
 } from "./modules/pipelines/index.js";
 import {
   BaseCheckouts,
+  CiRunWatch,
   EngineLevelsChecks,
+  EnvironmentChecks,
   InitiativeBranches,
   ProjectRecords,
   ProjectService,
   ProjectsFromRepositories,
   ProjectsModule,
   PullRequestRecords,
+  PullRequestWatch,
   TaskWorktrees,
 } from "./modules/projects/index.js";
 import { McpServersModule } from "./modules/mcp-servers/index.js";
-import { DevicesModule } from "./modules/devices/index.js";
+import { ConnectedDevices, DevicesModule } from "./modules/devices/index.js";
 import {
   RunEnvironmentDefinitions,
   RunEnvironmentsModule,
@@ -68,7 +72,7 @@ import { OfficeUpdatesModule } from "./modules/office-updates/index.js";
 import { PromptTemplatesModule } from "./modules/prompt-templates/index.js";
 import { SkillsModule } from "./modules/skills/index.js";
 import { GrafanaStatsSource, StatsModule } from "./modules/telemetry/index.js";
-import { TestInstancesModule } from "./modules/test-instances/index.js";
+import { TestInstances, TestInstancesModule } from "./modules/test-instances/index.js";
 import {
   CookieSignedInRequests,
   GitHubIdentityProvider,
@@ -80,6 +84,7 @@ import {
   FireAlarmService,
   InitiativeService,
   OfficeLimits,
+  OnboardingService,
   QueueService,
   StageScreenshots,
   TaskRecords,
@@ -224,13 +229,33 @@ export class AppModule {
       resumePlans: AlarmResumes,
       standInChoicesWaiting: StandInChoices,
     });
+    // Work's Tasks and the run environments their devices are relayed into.
+    const devices = DevicesModule.register({ imports: [work, projects, runEnvironments] });
+    // Initiatives' branches from Work, test targets and checkouts from Projects, and Hosted
+    // instances from Run environments, which take no run environment slot.
+    const testInstances = TestInstancesModule.register({
+      imports: [work, projects, runEnvironments],
+      officePort: config.port,
+      officeHost: config.host,
+    });
     return {
       module: AppModule,
       imports: [
+        ActivityModule.register({
+          imports: [work, pipelines, conversations, testInstances, projects, devices],
+          tasks: TaskService,
+          stages: TaskStagesService,
+          decisions: DecisionService,
+          onboardings: OnboardingService,
+          testInstances: TestInstances,
+          ciRuns: CiRunWatch,
+          environmentChecks: EnvironmentChecks,
+          pullRequests: PullRequestWatch,
+          devices: ConnectedDevices,
+        }),
         conversations,
         DatabaseModule.forRoot({ url: config.databaseUrl }),
-        // Work's Tasks and the run environments their devices are relayed into.
-        DevicesModule.register({ imports: [work, projects, runEnvironments] }),
+        devices,
         EarlierRecordsModule,
         EngineAccountsModule,
         engineCascade,
@@ -292,13 +317,7 @@ export class AppModule {
         SystemHealthMetricsModule,
         TelemetryModule,
         TelemetryHttpModule,
-        // Initiatives' branches from Work, test targets and checkouts from Projects, and Hosted
-        // instances from Run environments, which take no run environment slot.
-        TestInstancesModule.register({
-          imports: [work, projects, runEnvironments],
-          officePort: config.port,
-          officeHost: config.host,
-        }),
+        testInstances,
         users,
         WebAppModule.register(webApp),
         work,

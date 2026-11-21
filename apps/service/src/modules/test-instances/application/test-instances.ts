@@ -217,6 +217,11 @@ export class TestInstances implements OnModuleInit {
     );
   }
 
+  /** Every active instance, then those Built or Failed since `since`, newest first. */
+  async activity(since: Date): Promise<readonly TestInstance[]> {
+    return [...(await this.repository.active()), ...(await this.repository.endedSince(since))];
+  }
+
   /**
    * The Project's Hosted and Build to install test targets and every instance launched on it,
    * linked to an Initiative or not, by branch.

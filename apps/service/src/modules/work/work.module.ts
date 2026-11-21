@@ -358,6 +358,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         DroppedTaskDecisions,
         PlanningAfterRestart,
         OfficeLimits,
+        OnboardingService,
         QueueService,
         UsageWindowResumes,
         RunEnvironmentSetUps,

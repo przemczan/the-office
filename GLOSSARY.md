@@ -545,6 +545,10 @@ _Avoid_: Offline, Paused device
 The Task page's Overview block, shown while the Project's Run environment is On, where any signed-in user connects a device over USB or pairs a phone over wireless debugging, sees the Task's Connected devices and disconnects them.
 _Avoid_: Devices panel, device manager
 
+**Activity**:
+Everything The Office is running, in one list: Tasks at a desk, Onboarding runs, Failed and Stopped Tasks with nothing open on them, test instances, CI runs, environment checks, Connected devices and pull requests ready to merge. An ended item stays listed for each user until that user has seen it. Not the user being active, which Now's Since you left reads.
+_Avoid_: running list, jobs, processes, dashboard
+
 **Office device helper**:
 The Office's own program, one static Linux executable mounted read-only into a Task's run environment, that the relay of a device over USB ends in: it listens on `127.0.0.1` for adb, or makes a pseudo-terminal for a serial board. Shipped with The Office, never with the Project.
 _Avoid_: agent, bridge, daemon, relay server

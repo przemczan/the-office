@@ -238,6 +238,9 @@ export class ProjectsModule implements NestModule {
         TaskBases,
         IssueTasks,
         IssueWriteBack,
+        EnvironmentChecks,
+        CiRunWatch,
+        PullRequestWatch,
       ],
     };
   }

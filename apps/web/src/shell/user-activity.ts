@@ -1,5 +1,5 @@
 import { useLocation } from "@tanstack/react-router";
-import type { Activity } from "@the-office/contracts";
+import type { UserActivityReport } from "@the-office/contracts";
 import { useEffect, useRef } from "react";
 import { reportActivity } from "../api/notifications.ts";
 
@@ -16,7 +16,7 @@ const INITIATIVE_PAGE = /^\/work\/initiatives\/([^/]+)/;
  * The page at a path, as far as Notifications care: Now, a Task's or an Initiative's page,
  * Settings › Updates, or another.
  */
-export function pageAt(pathname: string): Activity["page"] {
+export function pageAt(pathname: string): UserActivityReport["page"] {
   if (pathname === "/now") return { kind: "now" };
   if (pathname === "/settings/updates") return { kind: "office-update" };
   const taskId = TASK_PAGE.exec(pathname)?.[1];

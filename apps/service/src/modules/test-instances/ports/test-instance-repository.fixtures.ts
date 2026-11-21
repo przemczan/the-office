@@ -36,6 +36,19 @@ export class TestInstanceRepositoryForTests extends TestInstanceRepository {
     );
   }
 
+  endedSince(at: Date): Promise<readonly TestInstance[]> {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .filter(
+          ({ state, endedAt }) =>
+            (state === "built" || state === "failed") &&
+            endedAt !== undefined &&
+            endedAt.getTime() >= at.getTime(),
+        )
+        .toSorted((one, other) => (other.endedAt?.getTime() ?? 0) - (one.endedAt?.getTime() ?? 0)),
+    );
+  }
+
   builtWithFiles(of?: BuildsOf): Promise<readonly TestInstance[]> {
     return Promise.resolve(
       newestFirst(

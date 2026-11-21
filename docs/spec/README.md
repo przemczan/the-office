@@ -16,6 +16,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 ### A
 
 - **Account, Users, User**: [2.10 Users](2.10-users-and-signing-in.md#users); screen: [Account](screens/account.md#account-page)
+- **Activity, Activity item, seen, activity.changed**: [2.14 Activity](2.14-activity.md#activity); [2.14 What is listed](2.14-activity.md#what-is-listed); [2.14 Running and ended](2.14-activity.md#running-and-ended); [2.14 Seen per user](2.14-activity.md#seen-per-user); [2.14 The count](2.14-activity.md#the-count); [5.3 Activity reads through ports of its own](5.3-modules.md#activity-reads-through-ports-of-its-own)
 - **Android phone over USB, adb connect, adb serial**: [2.13 Android phone over USB](2.13-connected-devices.md#android-phone-over-usb); screen: [Task page › Devices](screens/task-page.md#devices)
 - **Android phone over wireless debugging, adb pair, pairing code, pairing port**: [2.13 Android phone over wireless debugging](2.13-connected-devices.md#android-phone-over-wireless-debugging); [2.13 The run environment's network](2.13-connected-devices.md#the-run-environments-network); [6 Connected devices](6-permissions-and-safety.md#connected-devices); screen: [Task page › Devices](screens/task-page.md#devices)
 - **adb key**: [2.13 The adb key](2.13-connected-devices.md#the-adb-key); [6 Connected devices](6-permissions-and-safety.md#connected-devices)
@@ -323,6 +324,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
   - [2.11.3 System health](2.11.3-system-health.md): health readings, slow routes and queries.
 - [2.12 Test instances](2.12-test-instances.md): test targets and their kinds, what runs before the entry point and what The Office sets, the Proposal that writes them, test instances, their states, the proxy, Build to install files, safety, limits.
 - [2.13 Connected devices](2.13-connected-devices.md): a device connected to a Task's run environment over USB through the browser or over Android wireless debugging, one to one Task, the relay and the Office device helper, states and lifecycle, what the image needs, the adb key, pairing a phone over wireless debugging, the run environment's network, what Agents see, who connects.
+- [2.14 Activity](2.14-activity.md): everything The Office is running in one list, what is listed, running and ended items, since, seen per user, the count, live updates.
 
 ### 4. UX
 
@@ -564,6 +566,9 @@ Where each default lives, by page:
   - [The adb key's size](2.13-connected-devices.md#the-adb-keys-size)
   - [A dropped relay socket](2.13-connected-devices.md#a-dropped-relay-socket)
   - [Browsers supported](2.13-connected-devices.md#browsers-supported)
+- 2.14 Activity
+  - [Ended items kept](2.14-activity.md#ended-items-kept)
+  - [Seen items kept](2.14-activity.md#seen-items-kept)
 - 4 UX direction
   - [Palette](4-ux-direction.md#palette)
   - [Density](4-ux-direction.md#density)
@@ -596,6 +601,7 @@ Where each default lives, by page:
   - [The Live view's read model lives in Conversations](5.3-modules.md#the-live-views-read-model-lives-in-conversations)
   - [Users is its own module](5.3-modules.md#users-is-its-own-module)
   - [Telemetry owns Stats](5.3-modules.md#telemetry-owns-stats)
+  - [Activity reads through ports of its own](5.3-modules.md#activity-reads-through-ports-of-its-own)
   - [The System health recorder sits in the platform layer](5.3-modules.md#the-system-health-recorder-sits-in-the-platform-layer)
   - [Test instances uses Run environments through their public interface](5.3-modules.md#test-instances-uses-run-environments-through-their-public-interface)
   - [Devices uses Run environments through their public interface](5.3-modules.md#devices-uses-run-environments-through-their-public-interface)

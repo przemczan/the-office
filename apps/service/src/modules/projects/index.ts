@@ -103,8 +103,14 @@ export type {
   RunEnvironmentAnswer,
   RunEnvironmentSetting,
 } from "./domain/project.js";
+export { EnvironmentChecks } from "./application/environment-checks.js";
+export { CiRunWatch, type CiRun, type CiRunList } from "./application/ci-run-watch.js";
+export { PullRequestWatch, type PullRequestList } from "./application/pull-request-watch.js";
+export type { EnvironmentCheck } from "./domain/environment-check.js";
+export { CiRunsChecked } from "./domain/ci-run-events.js";
 export {
   PullRequestClosed,
+  PullRequestsChecked,
   PullRequestMerged,
   PullRequestReopened,
   type PullRequestEndedBy,

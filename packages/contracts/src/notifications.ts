@@ -362,7 +362,7 @@ export const notificationTimingSchema = z.object({
 export type NotificationTiming = z.infer<typeof notificationTimingSchema>;
 
 /** The user is active on this page; opening what a Notification points to handles it. */
-export const activitySchema = z.object({
+export const userActivityReportSchema = z.object({
   page: z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("now") }),
     z.object({ kind: z.literal("task"), taskId: z.uuid() }),
@@ -371,7 +371,7 @@ export const activitySchema = z.object({
     z.object({ kind: z.literal("elsewhere") }),
   ]),
 });
-export type Activity = z.infer<typeof activitySchema>;
+export type UserActivityReport = z.infer<typeof userActivityReportSchema>;
 
 export const notificationsWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("now.changed"), now: nowSchema }),
