@@ -526,8 +526,24 @@ The kind of Test target that builds files the user installs, such as an APK, dow
 _Avoid_: artifact, release build, deploy
 
 **Install on a device**:
-The kind of Test target that would build and install on a device attached to the workstation. Outlined only, not built; refused for now.
+The kind of Test target that would build on a Task's branch and install on a Connected device of that Task. Outlined only, not built; refused for now.
 _Avoid_: deploy to device, sideload
+
+**Connected device**:
+A device the user connects to one Task's run environment so that Task's commands reach it: an Android phone over USB, a Serial board over USB, or an Android phone over wireless debugging. One device to one Task at a time, recognised by its device key. Connecting, Connected, Waiting for the run environment, or Disconnected with why: by a user, tab closed, Task ended, device unplugged, Run environment turned Off, or error. Never a signed-in device, which is a browser a user signed in from.
+_Avoid_: attached device, hardware, peripheral, device session
+
+**Waiting for the run environment**:
+The state of a Connected device whose Task's run environment isn't running; it comes back when the environment starts. Connecting a device never starts one. Not "Waiting for a run environment", a Stage's wait for a free slot.
+_Avoid_: Offline, Paused device
+
+**Devices section**:
+The Task page's Overview block, shown while the Project's Run environment is On, where any signed-in user connects a device over USB or pairs a phone over wireless debugging, sees the Task's Connected devices and disconnects them.
+_Avoid_: Devices panel, device manager
+
+**Office device helper**:
+The Office's own program, one static Linux executable mounted read-only into a Task's run environment, that the relay of a device over USB ends in: it listens on `127.0.0.1` for adb, or makes a pseudo-terminal for a serial board. Shipped with The Office, never with the Project.
+_Avoid_: agent, bridge, daemon, relay server
 
 **Deployed elsewhere**:
 The kind of Test target that would deploy to a host the user names. Outlined only, not built; refused for now.

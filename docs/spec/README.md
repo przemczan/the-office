@@ -16,6 +16,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 ### A
 
 - **Account, Users, User**: [2.10 Users](2.10-users-and-signing-in.md#users); screen: [Account](screens/account.md#account-page)
+- **adb key**: [2.13 The adb key](2.13-connected-devices.md#the-adb-key); [6 Connected devices](6-permissions-and-safety.md#connected-devices)
 - **Agent**: [2.2 Agent](2.2-people.md#agent)
 - **After publishing, Before publishing**: [2.3.4 Publish's before and after lines](2.3.4-publish.md#publishs-before-and-after-lines); screen: [Project page › Commands](screens/project-page.md#commands)
 - **All clear**: [2.8 All clear](2.8-fire-alarm.md#all-clear); screen: [Now › The all clear's review](screens/now.md#the-all-clears-review)
@@ -51,6 +52,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Condition, Route, Not taken**: [2.3.2 Which route the walk follows](2.3.2-flows.md#which-route-the-walk-follows); [2.3.2 Built-in conditions](2.3.2-flows.md#built-in-conditions); screen: [Pipeline flow editor › Condition builder](screens/pipeline-flow-editor.md#condition-builder)
 - **Confirm, Save**: [4.1 A step before an action](4.1-ui-rules.md#a-step-before-an-action)
 - **Conflict resolution Task**: [2.1.3 Conflict resolution Tasks](2.1.3-tasks.md#conflict-resolution-tasks); [2.3.4 Conflicts at Publish](2.3.4-publish.md#conflicts-at-publish); screen: [Pull requests › Resolve conflicts](screens/pull-requests.md#resolve-conflicts)
+- **Connected device, device key, Waiting for the run environment, Disconnected reasons**: [2.13 Connected device](2.13-connected-devices.md#connected-device); [2.13 One device to one Task](2.13-connected-devices.md#one-device-to-one-task); [2.13 States](2.13-connected-devices.md#states); [2.13 Lifecycle](2.13-connected-devices.md#lifecycle); [6 Connected devices](6-permissions-and-safety.md#connected-devices); screen: [Task page › Devices](screens/task-page.md#devices)
 - **Consultant, Consultation**: [2.4.3 Consultation](2.4.3-consultations.md#consultation); [2.2 Calls](2.2-people.md#calls)
 - **Continue with GitHub, Continue with Google, Continue with <name>, OpenID Connect provider**: [2.10 Continue with GitHub](2.10-users-and-signing-in.md#continue-with-github); [2.10 Continue with an OpenID Connect provider](2.10-users-and-signing-in.md#continue-with-an-openid-connect-provider); screen: [Sign in › Ways to sign in](screens/sign-in.md#ways-to-sign-in)
 - **CPU limit, Run environments at once**: [5.5 The CPU limit](5.5-git-and-isolation.md#the-cpu-limit); [5.5 The other limits of run environments](5.5-git-and-isolation.md#the-other-limits-of-run-environments)
@@ -63,6 +65,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Density**: [4 Densities](4-ux-direction.md#densities); [4 Density](4-ux-direction.md#density)
 - **Description**: [2.1.3 Description](2.1.3-tasks.md#description)
 - **Details**: [2.9.3 The details](2.9.3-streaming-and-ui.md#the-details); screen: [Decision card › The details window](screens/decision-card.md#the-details-window-open-details)
+- **Devices section, Connect over USB, Pair over wireless debugging**: [2.13 Two ways to connect](2.13-connected-devices.md#two-ways-to-connect); [2.13 Who connects](2.13-connected-devices.md#who-connects); screen: [Task page › Devices](screens/task-page.md#devices)
 - **Drop reason**: [2.1.3 Drop reason](2.1.3-tasks.md#drop-reason); screen: [Task page › Task menu](screens/task-page.md#task-menu); [Archived tab › Archived Tasks](screens/archived.md#archived-tasks)
 - **Dismiss, Dismissed**: [2.4.2 Dismiss](2.4.2-decisions.md#sending-a-decision); screen: [Decision card › Dismiss](screens/decision-card.md#dismiss)
 - **Duty**: [2.2 Duty](2.2-people.md#duty); [2.2 Duties](2.2-people.md#duties); screen: [Settings › Duties](screens/settings.md#duties)
@@ -134,9 +137,11 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 
 - **Office action**: [2.4.4 Office actions in Threads](2.4.4-messages.md#office-actions-in-threads); [5.4.1 Office actions](5.4.1-engine-kinds.md#office-actions)
 - **Office command, Skill command**: [2.4.4 Commands in the message box](2.4.4-messages.md#commands-in-the-message-box); [2.6 Skill commands](2.6-skills.md#skill-commands); screen: [Thread › Commands](screens/thread.md#commands)
+- **Office device helper, the relay**: [2.13 The relay](2.13-connected-devices.md#the-relay); [2.13 The helper's start and stop](2.13-connected-devices.md#the-helpers-start-and-stop); [2.13 What the image needs](2.13-connected-devices.md#what-the-image-needs); [5.5 The Office device helper in a run environment](5.5-git-and-isolation.md#the-office-device-helper-in-a-run-environment); [5.3 Devices uses Run environments through their public interface](5.3-modules.md#devices-uses-run-environments-through-their-public-interface)
 - **Office identity, Office ssh key, Trusted host, Unconfirmed host, Sign in with GitHub**: [5.5 The Office identity](5.5-git-and-isolation.md#the-office-identity); [2.3.4 The Office's own credentials for publishing](2.3.4-publish.md#the-offices-own-credentials-for-publishing); screen: [Settings › Office identity](screens/settings.md#office-identity)
 - **Office instructions**: [2.2 Office instructions](2.2-people.md#office-instructions); screen: [Settings › Office instructions](screens/settings.md#office-instructions)
 - **Office Manager**: [2.2 Office Manager](2.2-people.md#office-manager)
+- **OFFICE_CONNECTED_DEVICES, ANDROID_SERIAL**: [2.13 What Agents see](2.13-connected-devices.md#what-agents-see); [5.5 The Office device helper in a run environment](5.5-git-and-isolation.md#the-office-device-helper-in-a-run-environment)
 - **Office release, Office update, Office restart**: [5.1.1 Released versions](5.1.1-releases-and-installs.md#released-versions); [5.1.2 Updating The Office](5.1.2-updates-and-restarts.md#updating-the-office); [5.1.2 Restarting The Office](5.1.2-updates-and-restarts.md#restarting-the-office)
 - **Office-wide Pipeline, Pipeline library**: [2.3.5 Library](2.3.5-library.md#library); screen: [Settings › Pipelines](screens/settings.md#pipelines)
 - **Onboarding**: [2.1.1 Onboarding a Project](2.1.1-projects.md#onboarding-a-project); screen: [Project page › Onboarding](screens/project-page.md#onboarding)
@@ -313,6 +318,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
   - [2.11.2 Tokens and cost](2.11.2-tokens-and-cost.md): what is counted, estimated cost, metric attributes.
   - [2.11.3 System health](2.11.3-system-health.md): health readings, slow routes and queries.
 - [2.12 Test instances](2.12-test-instances.md): test targets and their kinds, what runs before the entry point and what The Office sets, the Proposal that writes them, test instances, their states, the proxy, Build to install files, safety, limits.
+- [2.13 Connected devices](2.13-connected-devices.md): a device connected to a Task's run environment over USB through the browser or over Android wireless debugging, one to one Task, the relay and the Office device helper, states and lifecycle, what the image needs, the adb key, what Agents see, who connects.
 
 ### 4. UX
 
@@ -542,6 +548,10 @@ Where each default lives, by page:
   - [Build time](2.12-test-instances.md#build-time)
   - [Kept Build to install files](2.12-test-instances.md#kept-build-to-install-files)
   - [Implementation notes](2.12-test-instances.md#implementation-notes)
+- 2.13 Connected devices
+  - [Serial path](2.13-connected-devices.md#serial-path)
+  - [A dropped relay socket](2.13-connected-devices.md#a-dropped-relay-socket)
+  - [Browsers supported](2.13-connected-devices.md#browsers-supported)
 - 4 UX direction
   - [Palette](4-ux-direction.md#palette)
   - [Density](4-ux-direction.md#density)
@@ -576,6 +586,7 @@ Where each default lives, by page:
   - [Telemetry owns Stats](5.3-modules.md#telemetry-owns-stats)
   - [The System health recorder sits in the platform layer](5.3-modules.md#the-system-health-recorder-sits-in-the-platform-layer)
   - [Test instances uses Run environments through their public interface](5.3-modules.md#test-instances-uses-run-environments-through-their-public-interface)
+  - [Devices uses Run environments through their public interface](5.3-modules.md#devices-uses-run-environments-through-their-public-interface)
   - [Office updates is reached through BusyWork](5.3-modules.md#office-updates-is-reached-through-busywork)
 - 5.4.1 Engine port and kinds
   - [Office actions](5.4.1-engine-kinds.md#office-actions)
@@ -643,6 +654,7 @@ Where each default lives, by page:
   - [The build cache volume](5.5-git-and-isolation.md#the-build-cache-volume)
   - [The repository's git data in a run environment](5.5-git-and-isolation.md#the-repositorys-git-data-in-a-run-environment)
   - [The file of earlier Stage runs in a run environment](5.5-git-and-isolation.md#the-file-of-earlier-stage-runs-in-a-run-environment)
+  - [The Office device helper in a run environment](5.5-git-and-isolation.md#the-office-device-helper-in-a-run-environment)
   - [Run environments with a non-root Office](5.5-git-and-isolation.md#run-environments-with-a-non-root-office)
   - [Writing the run environment definition](5.5-git-and-isolation.md#writing-the-run-environment-definition)
 - 6 Permissions and safety

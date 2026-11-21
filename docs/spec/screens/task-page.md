@@ -1,6 +1,6 @@
 # Task page
 
-Covers: the Task page's head and actions, the Kind, the drop note, Start and the queue, planning actions, the Needs you card and Before Ready, the Pipeline rail and Stage history, the record's tabs (Overview, Changes, Attachments), the record blocks (the Bug section and the GitHub issue among them), the Task menu, run controls, Gate actions, Conflict resolution, publishing, and the Task's conversation.
+Covers: the Task page's head and actions, the Kind, the drop note, Start and the queue, planning actions, the Needs you card and Before Ready, the Pipeline rail and Stage history, the record's tabs (Overview, Changes, Attachments), the record blocks (the Bug section, the GitHub issue and the Devices section among them), the Task menu, run controls, Gate actions, Conflict resolution, publishing, and the Task's conversation.
 
 ## Where it is
 
@@ -226,7 +226,7 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 
 ## Overview
 
-- Blocks, top to bottom: **Description**, **Plan**, **Commit message**, **Definition of Done**.
+- Blocks, top to bottom: **Description**, **Plan**, **Commit message**, **Definition of Done**, **Devices**.
 - Each is a fold remembered per Task in this browser; a folded body stays mounted, so an editor keeps what was typed, and **Edit** opens the fold first.
 - Open at the start: Description always; Plan and Definition of Done in Planning; Commit message folded.
 - Each fold's header has an icon, title, a summary line while folded, and its actions.
@@ -319,6 +319,22 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - Empty: "Not written yet." with "<Planner> proposes it while planning, or write it yourself; a Task can't be Ready without one."
 - Refusals: "The Definition of Done wasn't saved", "The Definition of Done wasn't confirmed".
 
+### Devices
+
+- The Devices section (plug icon), shown only while the Project's Run environment is On; open at the start while the Task has a device not Disconnected.
+- Summary: "<n> connected", or "None connected".
+- A list, one row per device not Disconnected: its name, a badge for its kind (**Android phone over USB**, **Serial board over USB**, **Android phone over wireless debugging**), its state (**Connecting**, **Connected**, **Waiting for the run environment**), "connected by <user> · <when>", the adb serial or serial path in monospace once Connected, and **Disconnect**.
+- Below it, a fold "Disconnected" lists the Task's earlier devices with why, each as [2.13](../2.13-connected-devices.md#states) names it.
+- **Connect over USB** opens the browser's own device picker, for an Android phone (WebUSB) or a serial board (Web Serial).
+  - In a browser without WebUSB and Web Serial it is greyed, titled "Connecting over USB needs Chrome or Edge."
+  - The note "Keep this tab open: closing it disconnects the device."
+- **Pair over wireless debugging** opens the form **IP address**, **Port**, **Pairing port** and **Pairing code** (hint "From the phone's Wireless debugging › Pair device with pairing code. Used once, never kept."), button **Pair**; note "Pairing starts the Task's run environment."
+- A tool missing from the run environment shows the warning "<tool> isn't in the run environment. Add it to the Project's .devcontainer/." with a link to the Project page's Run environment section.
+- A serial board that needs a 1200-baud touch or its own DTR/RTS sequence shows "This board's reset isn't carried over the relay."
+- A device already connected to another Task is refused with "<device> is connected to <Task>. Disconnect it there first.", the Task linked.
+- Toasts "<name> connected.", "<name> disconnected."; a refusal shows under the section as the service words it (**The device wasn't connected**).
+- Rules: [2.13](../2.13-connected-devices.md).
+
 ## Changes tab
 
 - A block "Files changed · <n>", read as it opens and after each Stage.
@@ -378,4 +394,5 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - [Decisions](../2.4.2-decisions.md), [Consultations](../2.4.3-consultations.md), [Threads](../2.4.1-threads.md)
 - [Stop and Pause](../2.4.5-stopping-and-restarts.md#stop-and-pause)
 - [A worktree per Task](../5.5-git-and-isolation.md#a-worktree-per-task)
+- [Connected devices](../2.13-connected-devices.md)
 - Related screens: [work-board.md](work-board.md), [initiative-page.md](initiative-page.md), [thread.md](thread.md), [decision-card.md](decision-card.md), [pull-requests.md](pull-requests.md)
