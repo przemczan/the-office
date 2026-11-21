@@ -3,9 +3,9 @@ import type { Project, TestInstance } from "@the-office/contracts";
 import { Badge, Button, Dialog, Icon, Switch } from "@the-office/ui";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { roleQueries } from "../../api/people.ts";
-import { ProjectMark } from "../../shell/project-mark.tsx";
-import { RefusalAlert } from "../../shell/refusal-alert.tsx";
-import { useSignedInUserId } from "../../shell/use-user-name.ts";
+import { ProjectMark } from "../project-mark.tsx";
+import { RefusalAlert } from "../refusal-alert.tsx";
+import { useSignedInUserId } from "../use-user-name.ts";
 import {
   instanceAddress,
   isActive,
@@ -15,8 +15,9 @@ import {
   shortCommit,
   TEST_INSTANCE_STATE_TONES,
   TEST_INSTANCE_STATE_WORDS,
-} from "./initiative-test-instances-words.ts";
+} from "./test-instance-words.ts";
 import { useTestInstanceLog } from "./use-test-instance-log.ts";
+import "./test-instances.css";
 
 /** How near the bottom the log counts as scrolled to its newest line. */
 const AT_THE_END_PX = 8;
@@ -41,7 +42,7 @@ export function TestInstanceLogWindow({
   readonly instance: TestInstance;
   readonly project: Project | undefined;
   readonly projectName: string;
-  /** The Initiative's branch, when it has its short name. */
+  /** The branch it runs, when it is known. */
   readonly branch: string | undefined;
   readonly stopping: boolean;
   readonly onOpen: () => void;

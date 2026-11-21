@@ -6,7 +6,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useOfficeEvent } from "../../api/event-stream-provider.tsx";
 import { readTestInstanceLog, TEST_INSTANCE_CHANGED } from "../../api/test-instances.ts";
-import { isActive } from "./initiative-test-instances-words.ts";
+import { isActive } from "./test-instance-words.ts";
 
 /** How often a streaming log is read on, besides each change of its instance. */
 const READ_ON_MS = 1000;

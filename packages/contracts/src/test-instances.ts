@@ -23,15 +23,18 @@ export type TestInstanceState = z.infer<typeof testInstanceStateSchema>;
 /** The states that count toward Test instances at once; a Hosted instance holds its Proxy port. */
 export const ACTIVE_TEST_INSTANCE_STATES: readonly TestInstanceState[] = ["building", "running"];
 
-/** One launch of one test target on one Initiative's branch in one Project. */
 /** One of a Built instance's files: its name and its size in bytes. */
 export const testBuildFileSchema = z.object({ name: z.string(), size: z.number().int().min(0) });
 export type TestBuildFile = z.infer<typeof testBuildFileSchema>;
 
+/** One launch of one test target on one branch of one Project. */
 export const testInstanceSchema = z.object({
   id: z.uuid(),
-  initiativeId: z.uuid(),
+  /** The Initiative it is linked to, whose page shows it too; null when it is linked to none. */
+  initiativeId: z.uuid().nullable(),
   projectId: z.string(),
+  /** The branch it runs. */
+  branch: z.string(),
   targetKey: z.string(),
   /** The target's name when it was launched, kept should the target be renamed or removed. */
   targetName: z.string(),
@@ -83,6 +86,68 @@ export const initiativeTestInstancesSchema = z.object({
   projects: z.array(initiativeTestInstancesProjectSchema),
 });
 export type InitiativeTestInstances = z.infer<typeof initiativeTestInstancesSchema>;
+
+/**
+ * A branch to launch on, as git takes a branch's name: no space, control character or any of
+ * `~^:?*[\`, no `..`, `@{` or `//`, not starting with `-` or `/`, not ending with `/`, `.` or `.lock`.
+ */
+export const testInstanceBranchSchema = z
+  .string()
+  .min(1)
+  .max(250)
+  .refine(
+    (branch) =>
+      ![...branch].some((character) => character.charCodeAt(0) < 0x20 || character === "\u007f") &&
+      !/[\s~^:?*[\\]/.test(branch) &&
+      !/\.\.|@\{|\/\//.test(branch) &&
+      !/^[-/]/.test(branch) &&
+      !/(\/|\.|\.lock)$/.test(branch) &&
+      !branch.split("/").some((part) => part.startsWith(".")),
+    { error: "That isn't a branch's name." },
+  );
+
+/** A Hosted or Build to install test target of a Project, to launch. */
+export const launchableTestTargetSchema = z.object({
+  key: z.string(),
+  name: z.string(),
+  kind: testInstanceKindSchema,
+  entryPoint: entryPointSchema,
+});
+export type LaunchableTestTarget = z.infer<typeof launchableTestTargetSchema>;
+
+/** One branch of a Project with the instances launched on it. */
+export const projectTestBranchSchema = z.object({
+  name: z.string(),
+  /** The branch's last commit known here; null when it has none here. */
+  branchCommit: z.string().nullable(),
+  /** Newest first. */
+  instances: z.array(testInstanceSchema),
+});
+export type ProjectTestBranch = z.infer<typeof projectTestBranchSchema>;
+
+/**
+ * GET /projects/:id/test-instances: the Project's test targets to launch and every instance
+ * launched on it, linked to an Initiative or not, by branch, the one launched on last first.
+ */
+export const projectTestInstancesSchema = z.object({
+  /** Whether the Project's Run environment is On, which a Hosted launch needs. */
+  runEnvironmentOn: z.boolean(),
+  targets: z.array(launchableTestTargetSchema),
+  branches: z.array(projectTestBranchSchema),
+  /** The Initiatives its instances are linked to, with their names. */
+  initiatives: z.array(z.object({ id: z.uuid(), name: z.string() })),
+});
+export type ProjectTestInstances = z.infer<typeof projectTestInstancesSchema>;
+
+/**
+ * POST /projects/:id/test-instances: launch a test target on a branch; it answers the new
+ * instance, linked to the active Initiative whose branch it is, if any.
+ */
+export const projectTestInstanceLaunchSchema = z.object({
+  branch: testInstanceBranchSchema,
+  targetKey: testTargetKeySchema,
+});
+export type ProjectTestInstanceLaunch = z.infer<typeof projectTestInstanceLaunchSchema>;
 
 /** POST /initiatives/:id/test-instances: launch a test target; it answers the new instance. */
 export const testInstanceLaunchSchema = z.object({
@@ -176,14 +241,16 @@ export const DEFAULT_TEST_INSTANCE_SETTINGS: TestInstanceSettings = {
 };
 
 /**
- * A Test instance changed (launched, its state, stopped), so the Initiative's block reads it
- * again; or the Test instances limits changed, so Settings › Office limits reads them again.
+ * A Test instance changed (launched, its state, stopped), so the Project page's card and its
+ * Initiative's block, when it is linked to one, read it again; or the Test instances limits
+ * changed, so Settings › Office limits reads them again.
  */
 export const testInstanceWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({
     type: z.literal("test-instance.changed"),
     instanceId: z.uuid(),
-    initiativeId: z.uuid(),
+    projectId: z.string(),
+    initiativeId: z.uuid().nullable(),
   }),
   webEventSchema.extend({ type: z.literal("test-instance-settings.changed") }),
 ]);

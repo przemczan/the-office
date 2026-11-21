@@ -18,11 +18,20 @@ export interface LaunchedBy {
   readonly user: { readonly userId: string; readonly name: string };
 }
 
-/** One launch of one test target on one Initiative's branch in one Project (spec §2.12). */
+/** One launch of one test target on one branch of one Project (spec §2.12). */
 export interface TestInstance {
   readonly id: string;
-  readonly initiativeId: string;
+  /**
+   * The Initiative it is linked to: the one whose branch it runs, launched from its page or on an
+   * active Initiative's branch from the Project page; undefined when it is linked to none.
+   */
+  readonly initiativeId: string | undefined;
   readonly projectId: string;
+  /**
+   * The branch it runs. Undefined only on a row launched before branches were recorded, which is
+   * always linked, its branch its Initiative's (`TestInstances` reads it so, in one place).
+   */
+  readonly branch: string | undefined;
   readonly targetKey: string;
   /** The target's name when it was launched, kept should the target be renamed or removed. */
   readonly targetName: string;
@@ -57,8 +66,9 @@ export function isActive(instance: Pick<TestInstance, "state">): boolean {
 export function launchedInstance(
   given: {
     readonly id: string;
-    readonly initiativeId: string;
+    readonly initiativeId: string | undefined;
     readonly projectId: string;
+    readonly branch: string;
     readonly targetKey: string;
     readonly targetName: string;
     readonly launchedBy: LaunchedBy;
@@ -69,6 +79,7 @@ export function launchedInstance(
     id: given.id,
     initiativeId: given.initiativeId,
     projectId: given.projectId,
+    branch: given.branch,
     targetKey: given.targetKey,
     targetName: given.targetName,
     kind: given.kind,
@@ -140,6 +151,7 @@ function moved(before: TestInstance, after: TestInstance): TestInstanceChange {
     instance: after,
     event: new TestInstanceStateChanged(
       after.id,
+      after.projectId,
       after.initiativeId,
       before.state,
       after.state,

@@ -5,6 +5,7 @@ import type { INestApplication } from "@nestjs/common";
 import {
   DEFAULT_TEST_INSTANCE_SETTINGS,
   initiativeTestInstancesSchema,
+  projectTestInstancesSchema,
   testInstanceLogSchema,
   testInstanceSchema,
   testInstanceSettingsSchema,
@@ -163,6 +164,45 @@ describe("/api/initiatives/:id/test-instances", () => {
     });
     expect((await send("GET", `/initiatives/${randomUUID()}/test-instances`)).status).toBe(404);
     expect((await send("POST", `/test-instances/${randomUUID()}/stop`)).status).toBe(404);
+  });
+});
+
+describe("/api/projects/:id/test-instances", () => {
+  it("launches on a branch no Initiative has and lists it under its branch", async () => {
+    const launched = await send("POST", "/projects/shop/test-instances", {
+      branch: "feature/search",
+      targetKey: "web",
+    });
+    expect(launched.status).toBe(201);
+    const instance = testInstanceSchema.parse(await launched.json());
+    expect(instance).toMatchObject({
+      branch: "feature/search",
+      initiativeId: null,
+      state: "building",
+    });
+    await testbed.instances.settled();
+
+    const listed = await send("GET", "/projects/shop/test-instances");
+    expect(listed.status).toBe(200);
+    const body = projectTestInstancesSchema.parse(await listed.json());
+    expect(body.branches).toEqual([
+      expect.objectContaining({
+        name: "feature/search",
+        instances: [expect.objectContaining({ id: instance.id, state: "running" })],
+      }),
+    ]);
+    expect(body.initiatives).toEqual([]);
+    expect(body.targets.map(({ key }) => key)).toEqual(["web", "android"]);
+  });
+
+  it.each(["-bad", "a..b"])("refuses the branch name %s with 400", async (branch) => {
+    const refused = await send("POST", "/projects/shop/test-instances", {
+      branch,
+      targetKey: "web",
+    });
+
+    expect(refused.status).toBe(400);
+    expect(testbed.repository.rows.size).toBe(0);
   });
 });
 

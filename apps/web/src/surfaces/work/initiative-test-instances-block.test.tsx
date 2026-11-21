@@ -48,6 +48,7 @@ const OFFICE: InitiativeTestTarget = {
 const BUILDING: TestInstance = {
   id: "11111111-2222-4333-8444-555555555555",
   initiativeId: INITIATIVE.id,
+  branch: "initiative/checkout",
   projectId: "website",
   targetKey: "office",
   targetName: "Office",

@@ -1,11 +1,12 @@
 import type { TestInstance, TestInstanceChange } from "../domain/test-instance.js";
 
-/** One test target's builds on one Initiative. */
-export interface BuildsOf {
-  readonly initiativeId: string;
-  readonly projectId: string;
-  readonly targetKey: string;
-}
+/**
+ * One test target's builds: those linked to one Initiative, or those on one branch linked to
+ * none (spec §2.12, "Kept Build to install files").
+ */
+export type BuildsOf =
+  | { readonly projectId: string; readonly targetKey: string; readonly initiativeId: string }
+  | { readonly projectId: string; readonly targetKey: string; readonly branch: string };
 
 /** The Test instances' rows, kept with their logs after they end. */
 export abstract class TestInstanceRepository {
@@ -16,12 +17,15 @@ export abstract class TestInstanceRepository {
   /** The Initiative's instances, newest first. */
   abstract listOf(initiativeId: string): Promise<readonly TestInstance[]>;
 
+  /** Every instance of the Project, linked to an Initiative or not, newest first. */
+  abstract listOfProject(projectId: string): Promise<readonly TestInstance[]>;
+
   /** Every instance Building or Running, across The Office. */
   abstract active(): Promise<readonly TestInstance[]>;
 
   /**
-   * Every Built instance whose files are still kept, across The Office, or only one target's on
-   * one Initiative when named; newest first.
+   * Every Built instance whose files are still kept, across The Office, or only one target's
+   * builds when named; newest first.
    */
   abstract builtWithFiles(of?: BuildsOf): Promise<readonly TestInstance[]>;
 

@@ -116,12 +116,26 @@ describe("A test instance's checkout (spec §5.5)", REAL_GIT_TEST, () => {
     await checkouts.remove(officeData.testInstanceFolder("instance-3"));
   });
 
-  it("refuses a branch the Project doesn't have, leaving no folder", async () => {
+  it("checks out a branch only the remote has", async () => {
+    const tip = await commitOnOrigin(repository, "feature/pushed-elsewhere", "pushed.ts");
+    const folder = officeData.testInstanceFolder("instance-4");
+
+    const { commit } = await checkouts.checkOut(project.id, "feature/pushed-elsewhere", folder);
+
+    expect(commit).toBe(tip);
+    await expect(readFile(join(folder, "pushed.ts"), "utf8")).resolves.toBe("from the origin\n");
+    await checkouts.remove(folder);
+  });
+
+  it("refuses a branch neither the Project nor its remote has, naming it, leaving no folder", async () => {
     const folder = officeData.testInstanceFolder("instance-2");
 
-    await expect(checkouts.checkOut(project.id, "initiative/gone", folder)).rejects.toBeInstanceOf(
-      ProjectRefused,
-    );
+    const checkingOut = checkouts.checkOut(project.id, "initiative/gone", folder);
+
+    await expect(checkingOut).rejects.toBeInstanceOf(ProjectRefused);
+    await expect(checkingOut).rejects.toMatchObject({
+      reasons: [`The branch initiative/gone isn't in ${project.name} or on its remote.`],
+    });
     await expect(stat(folder)).rejects.toMatchObject({ code: "ENOENT" });
   });
 

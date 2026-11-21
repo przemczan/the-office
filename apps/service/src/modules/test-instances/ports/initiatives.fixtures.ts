@@ -8,6 +8,21 @@ export class InitiativesForTests extends Initiatives {
     return Promise.resolve(this.initiatives.get(id));
   }
 
+  activeInitiativeOnBranch(
+    projectId: string,
+    branch: string,
+  ): Promise<InitiativeForTestInstances | undefined> {
+    return Promise.resolve(
+      [...this.initiatives.values()].find(
+        (initiative) =>
+          initiative.state === "active" &&
+          initiative.branches.some(
+            (each) => each.projectId === projectId && each.branch === branch,
+          ),
+      ),
+    );
+  }
+
   put(initiative: InitiativeForTestInstances): void {
     this.initiatives.set(initiative.id, initiative);
   }

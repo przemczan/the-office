@@ -5,11 +5,17 @@ import type { TestInstance } from "./test-instance.js";
 export const BUILD_TIMEOUT_MINUTES = 60;
 export const BUILD_TIMEOUT_MS = BUILD_TIMEOUT_MINUTES * 60_000;
 
-/** How many Built instances per target per Initiative keep their files (spec §2.12, Defaults). */
+/**
+ * How many Built instances keep their files per target per Initiative, or per target per branch
+ * for builds linked to no Initiative (spec §2.12, Defaults).
+ */
 export const KEPT_BUILDS = 3;
 
 /** How long after its Initiative is Done or Dropped a build keeps its files (spec §2.12, Defaults). */
 export const KEPT_AFTER_INITIATIVE_ENDS_DAYS = 7;
+
+/** How long after it was Built a build linked to no Initiative keeps its files (spec §2.12, Defaults). */
+export const KEPT_AFTER_BUILT_DAYS = 7;
 const DAY_MS = 24 * 60 * 60_000;
 
 /** How long a QR code's link to one file works (spec §2.12, "Build to install"). */
@@ -93,8 +99,8 @@ export function hasFile(instance: TestInstance, name: string): boolean {
 }
 
 /**
- * Of one target's Built instances on one Initiative with their files, the ones past the newest
- * `KEPT_BUILDS`, whose files go.
+ * Of one target's Built instances with their files on one Initiative, or on one branch for builds
+ * linked to none, the ones past the newest `KEPT_BUILDS`, whose files go.
  */
 export function buildsPastTheKept(builds: readonly TestInstance[]): TestInstance[] {
   return builds
@@ -114,11 +120,18 @@ export function initiativeEndedLongAgo(endedAt: Date | undefined, now: Date): bo
   );
 }
 
+/** Whether a build linked to no Initiative was Built long enough ago to drop its files. */
+export function builtLongAgo(instance: TestInstance, now: Date): boolean {
+  return now.getTime() - builtAtOf(instance) >= KEPT_AFTER_BUILT_DAYS * DAY_MS;
+}
+
 export const FILES_REMOVED_FOR_NEWER = `The files were removed: the newest ${KEPT_BUILDS} builds are kept.`;
 
 export function filesRemovedAsInitiativeEnded(state: "done" | "dropped"): string {
   return `The files were removed: the Initiative has been ${state === "done" ? "Done" : "Dropped"} for ${KEPT_AFTER_INITIATIVE_ENDS_DAYS} days.`;
 }
+
+export const FILES_REMOVED_AFTER_BUILT = `The files were removed: they were Built ${KEPT_AFTER_BUILT_DAYS} days ago.`;
 
 function builtAtOf(instance: TestInstance): number {
   return (instance.endedAt ?? instance.launchedAt).getTime();

@@ -80,6 +80,9 @@ const ENTRY_POINT_OPTIONS = ENTRY_POINT_KINDS.map((kind) => ({
   label: ENTRY_POINT_KIND_LABELS[kind],
 }));
 
+/** The Test targets card's id, which the Test instances card under it links to. */
+export const TEST_TARGETS_ANCHOR = "test-targets";
+
 /** What the block edits in place: a target by its key, or a new one. */
 type Editing = { readonly key: string } | "new";
 
@@ -124,6 +127,7 @@ export function TestTargetsBlock({ project }: { readonly project: Project }): Re
     <ProjectBlock
       icon="flask-conical"
       title="Test targets"
+      anchor={TEST_TARGETS_ANCHOR}
       actions={
         openTask ? undefined : (
           <Button

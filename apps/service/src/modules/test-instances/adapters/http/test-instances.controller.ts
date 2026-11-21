@@ -10,9 +10,12 @@ import {
   UseFilters,
 } from "@nestjs/common";
 import {
+  projectTestInstanceLaunchSchema,
   testInstanceLaunchSchema,
   type EntryPoint,
   type InitiativeTestInstances,
+  type ProjectTestInstanceLaunch,
+  type ProjectTestInstances as ProjectTestInstancesResponse,
   type TestInstance as TestInstanceResponse,
   type TestInstanceLaunch,
   type TestInstanceLog,
@@ -20,15 +23,23 @@ import {
 import { z } from "zod";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
-import { TestInstances, type InitiativeTestProject } from "../../application/test-instances.js";
-import type { TestInstance } from "../../domain/test-instance.js";
+import {
+  TestInstances,
+  type InitiativeTestProject,
+  type LaunchableTarget,
+  type ProjectTestInstances,
+  type TestInstanceOnBranch,
+} from "../../application/test-instances.js";
 import type { TargetEntryPoint } from "../../domain/entry-point.js";
 import { TestInstanceRefusalsFilter } from "./test-instance-refusals.filter.js";
 
 const logQuerySchema = z.object({ from: z.coerce.number().int().min(0).default(0) });
 type LogQuery = z.infer<typeof logQuerySchema>;
 
-/** The Initiative page's Test instances (spec §2.12): list, launch, stop and log. */
+/**
+ * The Test instances of the Initiative page and the Project page (spec §2.12): list, launch, stop
+ * and log.
+ */
 @Controller()
 @UseFilters(TestInstanceRefusalsFilter)
 export class TestInstancesController {
@@ -45,7 +56,25 @@ export class TestInstancesController {
     @Body(new ContractPipe(testInstanceLaunchSchema)) launch: TestInstanceLaunch,
     @SignedIn() signedIn: SignedIn,
   ): Promise<TestInstanceResponse> {
-    const instance = await this.instances.launch(id, launch, {
+    const instance = await this.instances.launchOnInitiative(id, launch, {
+      kind: "user",
+      user: userOf(signedIn),
+    });
+    return instanceResponse(instance);
+  }
+
+  @Get("projects/:id/test-instances")
+  async listOfProject(@Param("id") id: string): Promise<ProjectTestInstancesResponse> {
+    return projectInstancesResponse(await this.instances.listForProject(id));
+  }
+
+  @Post("projects/:id/test-instances")
+  async launchOnBranch(
+    @Param("id") id: string,
+    @Body(new ContractPipe(projectTestInstanceLaunchSchema)) launch: ProjectTestInstanceLaunch,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<TestInstanceResponse> {
+    const instance = await this.instances.launchOnBranch(id, launch.branch, launch.targetKey, {
       kind: "user",
       user: userOf(signedIn),
     });
@@ -75,20 +104,40 @@ function projectResponse(
     runEnvironmentOn: project.runEnvironmentOn,
     branchCommit: project.branchCommit ?? null,
     targets: project.targets.map((target) => ({
-      key: target.key,
-      name: target.name,
-      kind: target.kind,
-      entryPoint: entryPointResponse(target.entryPoint),
+      ...targetResponse(target),
       instances: target.instances.map(instanceResponse),
     })),
   };
 }
 
-export function instanceResponse(instance: TestInstance): TestInstanceResponse {
+function projectInstancesResponse(project: ProjectTestInstances): ProjectTestInstancesResponse {
+  return {
+    runEnvironmentOn: project.runEnvironmentOn,
+    targets: project.targets.map(targetResponse),
+    branches: project.branches.map((branch) => ({
+      name: branch.name,
+      branchCommit: branch.branchCommit ?? null,
+      instances: branch.instances.map(instanceResponse),
+    })),
+    initiatives: project.initiatives.map(({ id, name }) => ({ id, name })),
+  };
+}
+
+function targetResponse(target: LaunchableTarget): ProjectTestInstancesResponse["targets"][number] {
+  return {
+    key: target.key,
+    name: target.name,
+    kind: target.kind,
+    entryPoint: entryPointResponse(target.entryPoint),
+  };
+}
+
+export function instanceResponse(instance: TestInstanceOnBranch): TestInstanceResponse {
   return {
     id: instance.id,
-    initiativeId: instance.initiativeId,
+    initiativeId: instance.initiativeId ?? null,
     projectId: instance.projectId,
+    branch: instance.branch,
     targetKey: instance.targetKey,
     targetName: instance.targetName,
     kind: instance.kind,

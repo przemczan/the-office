@@ -1,6 +1,6 @@
 # Project page
 
-Covers: a Project's page and its head, the section menu, Overview (Onboarding, Work, the Project limit), Files, Commands (install, install inputs, commands, Publish), Environment (variables, Secret variables, environment check), Pipelines (Default Pipeline and its rows by Kind, Project Pipelines), GitHub issues (the Import issues window, auto-import, write-back), Run environment, Test targets (the list, the editor, Set up test targets, the open Proposal), Engine, Skills, Server values, Appearance (Mark, Icon and Logo, How it looks).
+Covers: a Project's page and its head, the section menu, Overview (Onboarding, Work, the Project limit), Files, Commands (install, install inputs, commands, Publish), Environment (variables, Secret variables, environment check), Pipelines (Default Pipeline and its rows by Kind, Project Pipelines), GitHub issues (the Import issues window, auto-import, write-back), Run environment, Test targets (the list, the editor, Set up test targets, the open Proposal), Test instances (the Branch picker, Launch on a branch, instances by branch), Engine, Skills, Server values, Appearance (Mark, Icon and Logo, How it looks).
 
 ## Where it is
 
@@ -235,7 +235,7 @@ Covers: a Project's page and its head, the section menu, Overview (Onboarding, W
 ## Test targets
 
 - Card **Test targets** (flask icon) with **Set up test targets** (wand icon) at its end.
-- Note: "What can be launched on an Initiative's branch to try the work. Kept in The Office, never in the repository."
+- Note: "What can be launched on a branch to try the work. Kept in The Office, never in the repository."
 - With none: "None yet. Add one, or have <Devops> set them up from the repository."
 - A list, one row per target in the order added: its name, badges for its key (monospace) and kind (**Hosted** or **Build to install**), its entry point in monospace, and a mark of who set its values last, "Set by you" or "Set by <Agent>", naming each when they differ ("Set by you and <Agent>"); a pencil ("Change <name>") and a trash ("Remove <name>").
 - A row with a Secret variable whose value isn't typed yet shows the warning "Needs a value: <NAME>".
@@ -257,6 +257,18 @@ Covers: a Project's page and its head, the section menu, Overview (Onboarding, W
   - each value the user set, which it changes, flagged "You set this";
   - **Apply** (all or nothing) and **Dismiss**; a refused Apply names each value changed since it was drafted.
 - Rules: [2.12](../2.12-test-instances.md#test-target).
+
+## Test instances
+
+- A card **Test instances** (flask icon) after Test targets, in the same section, with the note "Launch a test target on any branch. One launched on an active Initiative's branch shows on its page too."
+- With no Hosted or Build to install target: "<Project> has no Hosted or Build to install test targets yet." with a link "Add one under Test targets".
+- **Branch** picker: the base branch first (badged "base branch"), then the other branches of the repository and its remote by name; read when the picker is opened (`GET /projects/:id/branches?fetch=1`), with "Fetching branches…" meanwhile and a refusal or a warning that some may be missing when the fetch failed.
+- A row per Hosted or Build to install target on the branch picked, as on the Initiative page ([initiative-page.md](initiative-page.md#test-instances)): **Launch**, **Stop**, **Log**, **Open**, **Download**, **QR code**, **Launch again**, and the earlier instances folded.
+- A Project whose Run environment isn't On says "Needs Run environment On to launch." on a Hosted target, and its **Launch** is disabled.
+- Below, the other branches launched on, under "Other branches", each with its instances, the earlier ones folded.
+- An instance linked to an Initiative shows "in <Initiative>", linking to its page ([2.12](../2.12-test-instances.md#linking-to-an-initiative)).
+- A refusal is a toast "<name> can't launch" with the service's reason, as on the Initiative page; a branch that isn't in the Project or on its remote is refused naming it.
+- Rules: [2.12](../2.12-test-instances.md#test-instance).
 
 ## Engine
 
@@ -335,3 +347,4 @@ Covers: a Project's page and its head, the section menu, Overview (Onboarding, W
 - Project skills: [2.6](../2.6-skills.md#project-skills), [2.6](../2.6-skills.md#project-skills-turn-off-one-by-one).
 - The engine cascade: [5.4.5](../5.4.5-engines-and-cascade.md#the-engine-cascade).
 - Test targets and their Proposal: [2.12](../2.12-test-instances.md#test-target), [2.12](../2.12-test-instances.md#writing-test-targets).
+- Test instances, their branch and Initiative link: [2.12](../2.12-test-instances.md#test-instance), [2.12](../2.12-test-instances.md#linking-to-an-initiative).

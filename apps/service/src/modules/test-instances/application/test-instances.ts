@@ -62,14 +62,21 @@ import { TestBuildRetention } from "./test-build-retention.js";
 import { OfficePort } from "./test-instance-limits.js";
 import { RunningTestInstances } from "./running-test-instances.js";
 
-/** A test target as the Initiative's page lists it, with its instances on the Initiative. */
-export interface InitiativeTarget {
+/** A Hosted or Build to install test target, as a page lists it to launch. */
+export interface LaunchableTarget {
   readonly key: string;
   readonly name: string;
   readonly kind: TestInstanceKind;
   readonly entryPoint: TargetEntryPoint;
+}
+
+/** A test instance with its branch read, as every page shows it. */
+export type TestInstanceOnBranch = TestInstance & { readonly branch: string };
+
+/** A test target as the Initiative's page lists it, with its instances on the Initiative. */
+export interface InitiativeTarget extends LaunchableTarget {
   /** Newest first. */
-  readonly instances: readonly TestInstance[];
+  readonly instances: readonly TestInstanceOnBranch[];
 }
 
 /** One Project where the Initiative has a branch. */
@@ -81,10 +88,37 @@ export interface InitiativeTestProject {
   readonly targets: readonly InitiativeTarget[];
 }
 
-/** What launching names: the Project and its test target. */
+/** One branch of a Project with the instances launched on it. */
+export interface ProjectTestBranch {
+  readonly name: string;
+  /** The branch's tip as the Project's repository has it, unfetched; undefined with none. */
+  readonly branchCommit: string | undefined;
+  /** Newest first. */
+  readonly instances: readonly TestInstanceOnBranch[];
+}
+
+/** A Project's test instances, as its page shows them. */
+export interface ProjectTestInstances {
+  readonly runEnvironmentOn: boolean;
+  readonly targets: readonly LaunchableTarget[];
+  /** Each branch with instances, the one launched on last first. */
+  readonly branches: readonly ProjectTestBranch[];
+  /** The Initiatives its instances are linked to, by id, with their names. */
+  readonly initiatives: readonly { readonly id: string; readonly name: string }[];
+}
+
+/** What launching on an Initiative names: the Project and its test target. */
 export interface Launch {
   readonly projectId: string;
   readonly targetKey: string;
+}
+
+/** What every launch comes to: the target, the branch and the Initiative it is linked to. */
+interface LaunchRequest {
+  readonly projectId: string;
+  readonly branch: string;
+  readonly targetKey: string;
+  readonly initiativeId: string | undefined;
 }
 
 /** The instance's log from an offset, and its state, so a reader stops once it has ended. */
@@ -104,8 +138,8 @@ interface Held {
 }
 
 /**
- * Test instances (spec §2.12): launching a Hosted test target on an Initiative's branch in its own
- * checkout and compose project, its Proxy port and the Test instances at once limit, its log, and
+ * Test instances (spec §2.12): launching a Hosted test target on a branch of a Project, linked to an
+ * Initiative or not, in its own checkout and compose project, its Proxy port and the Test instances at once limit, its log, and
  * its stop by the user, by Idle time, as its Initiative ends and in the sweep as The Office starts;
  * and building a Build to install one, in the run environment or on the workstation, its output
  * files kept in `<office-data>/test-builds/<id>/`. Run environments are reached only through
@@ -152,7 +186,7 @@ export class TestInstances implements OnModuleInit {
   async listFor(initiativeId: string): Promise<InitiativeTestProject[]> {
     const initiative = await this.initiatives.find(initiativeId);
     if (!initiative) throw TestInstanceNotFound.initiative(initiativeId);
-    const instances = await this.repository.listOf(initiativeId);
+    const instances = await this.onBranches(await this.repository.listOf(initiativeId));
     return Promise.all(
       initiative.branches.map(async ({ projectId, branch }) => {
         const [targets, runEnvironmentOn, branchCommit] = await Promise.all([
@@ -164,45 +198,93 @@ export class TestInstances implements OnModuleInit {
           projectId,
           runEnvironmentOn,
           branchCommit,
-          targets: targets.flatMap(({ key, name, kind, entryPoint }) =>
-            kind === "hosted" || kind === "build-to-install"
-              ? [
-                  {
-                    key,
-                    name,
-                    kind,
-                    entryPoint,
-                    instances: instances.filter(
-                      (instance) => instance.projectId === projectId && instance.targetKey === key,
-                    ),
-                  },
-                ]
-              : [],
-          ),
+          targets: launchableOf(targets).map((target) => ({
+            ...target,
+            instances: instances.filter(
+              (instance) => instance.projectId === projectId && instance.targetKey === target.key,
+            ),
+          })),
         };
       }),
     );
   }
 
-  async read(id: string): Promise<TestInstance> {
+  /**
+   * The Project's Hosted and Build to install test targets and every instance launched on it,
+   * linked to an Initiative or not, by branch.
+   */
+  async listForProject(projectId: string): Promise<ProjectTestInstances> {
+    const [targets, runEnvironmentOn, rows] = await Promise.all([
+      this.targets.targetsOf(projectId),
+      this.targets.runEnvironmentOn(projectId),
+      this.repository.listOfProject(projectId),
+    ]);
+    const instances = await this.onBranches(rows);
+    const names = [...new Set(instances.map(({ branch }) => branch))];
+    const branches = await Promise.all(
+      names.map(async (name) => ({
+        name,
+        branchCommit: await this.targets.branchCommitOf(projectId, name),
+        instances: instances.filter(({ branch }) => branch === name),
+      })),
+    );
+    const linked = [...new Set(instances.flatMap(({ initiativeId }) => initiativeId ?? []))];
+    const initiatives = await Promise.all(linked.map((id) => this.initiatives.find(id)));
+    return {
+      runEnvironmentOn,
+      targets: launchableOf(targets),
+      branches,
+      initiatives: initiatives.flatMap((initiative) =>
+        initiative === undefined ? [] : [{ id: initiative.id, name: initiative.name }],
+      ),
+    };
+  }
+
+  async read(id: string): Promise<TestInstanceOnBranch> {
     const instance = await this.repository.find(id);
     if (!instance) throw TestInstanceNotFound.instance(id);
-    return instance;
+    return this.onBranch(instance);
   }
 
   /**
-   * Launches the target on the Initiative's branch: refused, with every reason, unless the
-   * Initiative is active with a branch in the Project, the target is Hosted or Build to install
+   * Launches the target on the Initiative's branch in the Project, linked to the Initiative:
+   * refused unless the Initiative is active with a branch there, then as `launch` refuses.
+   */
+  async launchOnInitiative(
+    initiativeId: string,
+    { projectId, targetKey }: Launch,
+    by: LaunchedBy,
+  ): Promise<TestInstanceOnBranch> {
+    const initiative = await this.initiatives.find(initiativeId);
+    if (!initiative) throw TestInstanceNotFound.initiative(initiativeId);
+    if (initiative.state !== "active") throw new TestInstanceRefused([INITIATIVE_NOT_ACTIVE]);
+    const onProject = initiative.branches.find((each) => each.projectId === projectId);
+    if (!onProject) throw new TestInstanceRefused([noInitiativeBranch(projectId)]);
+    return this.launch({ projectId, branch: onProject.branch, targetKey, initiativeId }, by);
+  }
+
+  /**
+   * Launches the target on any branch of the Project, from its page: linked to the active
+   * Initiative whose branch it is, if any, else to none. A branch neither the repository nor its
+   * remote has fails the launch as its checkout's fetch does, naming the branch.
+   */
+  async launchOnBranch(
+    projectId: string,
+    branch: string,
+    targetKey: string,
+    by: LaunchedBy,
+  ): Promise<TestInstanceOnBranch> {
+    const initiative = await this.initiatives.activeInitiativeOnBranch(projectId, branch);
+    return this.launch({ projectId, branch, targetKey, initiativeId: initiative?.id }, by);
+  }
+
+  /**
+   * Every launch: refused, with every reason, unless the target is Hosted or Build to install
    * with its Secret variables typed and the limit has room; a Hosted one also needs the Project's
    * Run environment On and a free Proxy port. Answers the instance Building at once; the checkout
    * and the start or the build go on in the background, ending Running, Built or Failed.
    */
-  async launch(initiativeId: string, launch: Launch, by: LaunchedBy): Promise<TestInstance> {
-    const initiative = await this.initiatives.find(initiativeId);
-    if (!initiative) throw TestInstanceNotFound.initiative(initiativeId);
-    if (initiative.state !== "active") throw new TestInstanceRefused([INITIATIVE_NOT_ACTIVE]);
-    const branch = initiative.branches.find(({ projectId }) => projectId === launch.projectId);
-    if (!branch) throw new TestInstanceRefused([noInitiativeBranch(launch.projectId)]);
+  private async launch(launch: LaunchRequest, by: LaunchedBy): Promise<TestInstanceOnBranch> {
     const target = await this.targets.launchOf(launch.projectId, launch.targetKey);
     const hosted = target.kind === "hosted" && target.containerPort !== undefined;
     if (!hosted && target.kind !== "build-to-install") {
@@ -223,8 +305,9 @@ export class TestInstances implements OnModuleInit {
       if (over !== undefined) throw new TestInstanceRefused([over]);
       const given = {
         id: randomUUID(),
-        initiativeId,
+        initiativeId: launch.initiativeId,
         projectId: launch.projectId,
+        branch: launch.branch,
         targetKey: target.key,
         targetName: target.name,
         launchedBy: by,
@@ -238,13 +321,20 @@ export class TestInstances implements OnModuleInit {
     });
     const held: Held = { building: new AbortController(), mask: target.mask };
     this.held.set(instance.id, held);
-    await this.events.publish(new TestInstanceLaunched(instance.id, initiativeId, instance.port));
+    await this.events.publish(
+      new TestInstanceLaunched(
+        instance.id,
+        instance.projectId,
+        instance.initiativeId,
+        instance.port,
+      ),
+    );
     this.inBackground(`The Test instance ${instance.id} didn't launch.`, () =>
       hosted
-        ? this.startHosted(instance, branch.branch, target, held, idleMinutes)
-        : this.runBuild(instance, branch.branch, target, held),
+        ? this.startHosted(instance, launch.branch, target, held, idleMinutes)
+        : this.runBuild(instance, launch.branch, target, held),
     );
-    return instance;
+    return { ...instance, branch: launch.branch };
   }
 
   /**
@@ -252,7 +342,7 @@ export class TestInstances implements OnModuleInit {
    * it stopped; its port freed, its containers, volumes and checkout removed, the reason last in
    * its log. One that has ended already stays as it is.
    */
-  async stop(id: string, reason: StopReason = BY_USER): Promise<TestInstance> {
+  async stop(id: string, reason: StopReason = BY_USER): Promise<TestInstanceOnBranch> {
     const instance = await this.read(id);
     if (!isActive(instance)) return instance;
     const held = this.held.get(id);
@@ -264,7 +354,7 @@ export class TestInstances implements OnModuleInit {
     if (!change?.event) return this.read(id);
     await this.files.note(id, words, held?.mask);
     await this.ended(change.instance, change.event);
-    return change.instance;
+    return { ...change.instance, branch: instance.branch };
   }
 
   /**
@@ -352,7 +442,9 @@ export class TestInstances implements OnModuleInit {
     await this.files.note(id, `Checked out ${branch} at ${commit}.`, held.mask);
     const recorded = await this.repository.update(id, (kept) => withCommit(kept, commit));
     if (recorded) {
-      await this.events.publish(new TestInstanceCommitRecorded(id, instance.initiativeId, commit));
+      await this.events.publish(
+        new TestInstanceCommitRecorded(id, projectId, instance.initiativeId, commit),
+      );
     }
     const problems = await this.targets.entryPointProblemsAt(projectId, commit, target.key);
     if (problems.length > 0) throw new TestInstanceRefused(problems);
@@ -573,14 +665,39 @@ export class TestInstances implements OnModuleInit {
     }
   }
 
-  /** Each instance by its target's name and its Initiative's, as the limit's refusal names them. */
+  /**
+   * Each instance as the limit's refusal names it: by its target's name and its Initiative's, or
+   * its branch's when it is linked to none.
+   */
   private async namesOf(active: readonly TestInstance[]): Promise<ActiveInstanceName[]> {
     return Promise.all(
-      active.map(async ({ targetName, initiativeId }) => ({
-        targetName,
-        initiativeName: (await this.initiatives.find(initiativeId))?.name ?? "an Initiative",
-      })),
+      active.map(async (instance) => {
+        const { targetName, initiativeId } = instance;
+        if (initiativeId === undefined) {
+          return { targetName, branch: (await this.onBranch(instance)).branch };
+        }
+        const initiative = await this.initiatives.find(initiativeId);
+        return { targetName, initiativeName: initiative?.name ?? "an Initiative" };
+      }),
     );
+  }
+
+  /**
+   * The instance with its branch: as recorded, or, on a row from before branches were recorded,
+   * its Initiative's in its Project. The one place that reading happens.
+   */
+  private async onBranch(instance: TestInstance): Promise<TestInstanceOnBranch> {
+    if (instance.branch !== undefined) return { ...instance, branch: instance.branch };
+    const initiative =
+      instance.initiativeId === undefined
+        ? undefined
+        : await this.initiatives.find(instance.initiativeId);
+    const branch = initiative?.branches.find(({ projectId }) => projectId === instance.projectId);
+    return { ...instance, branch: branch?.branch ?? "" };
+  }
+
+  private onBranches(instances: readonly TestInstance[]): Promise<TestInstanceOnBranch[]> {
+    return Promise.all(instances.map((instance) => this.onBranch(instance)));
   }
 
   private oneAtATime<Result>(step: () => Promise<Result>): Promise<Result> {
@@ -597,6 +714,15 @@ export class TestInstances implements OnModuleInit {
       .finally(() => this.background.delete(running));
     this.background.add(running);
   }
+}
+
+/** The targets a test instance can be launched from: Hosted and Build to install. */
+function launchableOf(
+  targets: Awaited<ReturnType<ProjectTestTargets["targetsOf"]>>,
+): LaunchableTarget[] {
+  return targets.flatMap(({ key, name, kind, entryPoint }) =>
+    kind === "hosted" || kind === "build-to-install" ? [{ key, name, kind, entryPoint }] : [],
+  );
 }
 
 /** A start's failure in the user's words. */

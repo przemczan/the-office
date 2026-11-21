@@ -7,6 +7,7 @@ export function ProjectBlock({
   title,
   actions,
   note,
+  anchor,
   children,
 }: {
   readonly icon: string;
@@ -14,12 +15,14 @@ export function ProjectBlock({
   /** Beside the title, such as a status badge. */
   readonly actions?: ReactNode;
   readonly note?: string;
+  /** The id a link to this block names as its hash, on its title. */
+  readonly anchor?: string;
   readonly children: ReactNode;
 }): ReactNode {
   return (
     <Card
       title={
-        <span className="project-block-title">
+        <span className="project-block-title" id={anchor}>
           <Icon name={icon} size={15} strokeWidth={1.6} />
           {title}
         </span>

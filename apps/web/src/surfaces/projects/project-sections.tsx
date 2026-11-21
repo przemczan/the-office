@@ -10,6 +10,7 @@ import { useOpenProject } from "./project-page.tsx";
 import { RunEnvironmentBlock } from "./run-environment-block.tsx";
 import { ServerValuesBlock } from "./server-values-block.tsx";
 import { SkillsBlock } from "./skills-block.tsx";
+import { TestInstancesBlock } from "./test-instances-block.tsx";
 import { TestTargetsBlock } from "./test-targets-block.tsx";
 import { WorkBlock } from "./work-block.tsx";
 
@@ -48,8 +49,15 @@ export function ProjectRunEnvironmentSection(): ReactNode {
   return <RunEnvironmentBlock project={useOpenProject()} />;
 }
 
+/** The Project's test targets, then its Test instances, launched on any branch. */
 export function ProjectTestTargetsSection(): ReactNode {
-  return <TestTargetsBlock project={useOpenProject()} />;
+  const project = useOpenProject();
+  return (
+    <>
+      <TestTargetsBlock project={project} />
+      <TestInstancesBlock project={project} />
+    </>
+  );
 }
 
 export function ProjectEngineSection(): ReactNode {

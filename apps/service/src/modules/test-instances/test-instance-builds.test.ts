@@ -11,7 +11,7 @@ import {
 } from "../run-environments/index.fixtures.js";
 import { REMOVING_ENDED_BUILDS } from "./application/test-build-retention.js";
 import { DEVCONTAINER_SERVICE_BUILDS_NOTHING } from "./domain/entry-point.js";
-import { BUILD_TIMEOUT_MS } from "./domain/test-build.js";
+import { BUILD_TIMEOUT_MS, FILES_REMOVED_AFTER_BUILT } from "./domain/test-build.js";
 import { TestInstanceRefused } from "./domain/test-instance-refused.js";
 import type { TestInstance } from "./domain/test-instance.js";
 import type { WorkstationBuildEnd } from "./ports/project-test-targets.js";
@@ -134,7 +134,7 @@ async function refusalOf(launching: Promise<unknown>): Promise<TestInstanceRefus
 }
 
 function launchBuild(): Promise<TestInstance> {
-  return testbed.instances.launch(
+  return testbed.instances.launchOnInitiative(
     testbed.initiativeId,
     { projectId: "shop", targetKey: BUILD_TARGET.key },
     ANN,
@@ -181,7 +181,7 @@ describe("building a Build to install test instance", () => {
     testbed.project.targets.push({ ...BUILD_TARGET, key: "phone", kind: "install-on-a-device" });
 
     const refusal = await refusalOf(
-      testbed.instances.launch(
+      testbed.instances.launchOnInitiative(
         testbed.initiativeId,
         { projectId: "shop", targetKey: "phone" },
         ANN,
@@ -462,4 +462,55 @@ describe("kept Build to install files", () => {
       );
     },
   );
+});
+
+function buildOn(branch: string): Promise<TestInstance> {
+  return testbed.instances
+    .launchOnBranch("shop", branch, BUILD_TARGET.key, ANN)
+    .then(async (launched) => {
+      await testbed.instances.settled();
+      return testbed.instances.read(launched.id);
+    });
+}
+
+describe("kept files of builds linked to no Initiative", () => {
+  it("keeps the newest 3 per target per branch, touching no other branch's nor a linked build's", async () => {
+    buildMakes({ [APK]: "apk" });
+    const linked = await buildOn("initiative/checkout");
+    const other = await buildOn("feature/other");
+    const builds: TestInstance[] = [];
+    for (let count = 0; count < 4; count++) {
+      builds.push(await buildOn("feature/search"));
+      await testbed.schedule.advanceBy(60_000);
+    }
+
+    expect(builds[0]?.initiativeId).toBeUndefined();
+    const [oldest, ...newer] = await Promise.all(
+      builds.map(({ id }) => testbed.instances.read(id)),
+    );
+    expect(oldest?.filesRemovedAt).toBeInstanceOf(Date);
+    expect(await exists(testbed.files.buildFilesOf(oldest?.id ?? ""))).toBe(false);
+    for (const id of [...newer.map((build) => build.id), linked.id, other.id]) {
+      expect((await testbed.instances.read(id)).filesRemovedAt).toBeUndefined();
+      expect(await exists(testbed.files.buildFilesOf(id))).toBe(true);
+    }
+  });
+
+  it("removes its files 7 days after it was Built, not at 6", async () => {
+    buildMakes({ [APK]: "apk" });
+    const build = await buildOn("feature/search");
+    testbed.retention.start();
+
+    await testbed.schedule.advanceBy(6 * DAY_MS);
+    await testbed.schedule.runDaily(REMOVING_ENDED_BUILDS);
+    expect((await testbed.instances.read(build.id)).filesRemovedAt).toBeUndefined();
+    expect(await exists(testbed.files.buildFilesOf(build.id))).toBe(true);
+
+    await testbed.schedule.advanceBy(DAY_MS);
+    await testbed.schedule.runDaily(REMOVING_ENDED_BUILDS);
+
+    expect((await testbed.instances.read(build.id)).filesRemovedAt).toEqual(testbed.schedule.now());
+    expect(await exists(testbed.files.buildFilesOf(build.id))).toBe(false);
+    expect(await logOf(build.id)).toContain(FILES_REMOVED_AFTER_BUILT);
+  });
 });

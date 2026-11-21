@@ -16,12 +16,19 @@ type WebEventOf<Type extends TestInstanceWebEvent["type"]> = Omit<
 
 function changed({
   instanceId,
+  projectId,
   initiativeId,
 }: {
   readonly instanceId: string;
-  readonly initiativeId: string;
+  readonly projectId: string;
+  readonly initiativeId: string | undefined;
 }): WebEventOf<"test-instance.changed"> {
-  return { type: "test-instance.changed", instanceId, initiativeId };
+  return {
+    type: "test-instance.changed",
+    instanceId,
+    projectId,
+    initiativeId: initiativeId ?? null,
+  };
 }
 
 /**

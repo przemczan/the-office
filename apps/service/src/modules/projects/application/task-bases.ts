@@ -2,6 +2,8 @@ import { Injectable } from "@nestjs/common";
 import type { Project } from "../domain/project.js";
 import {
   existingBranchUnusable,
+  testInstanceBranchDiverged,
+  testInstanceBranchNotFound,
   type ExistingBranchKind,
   type FreshInitiativeBranch,
   type TaskBase,
@@ -86,6 +88,40 @@ export class TaskBases {
     variables: GitVariables,
   ): Promise<FreshInitiativeBranch> {
     return this.freshExistingBranch(project, branch, variables, "initiative");
+  }
+
+  /**
+   * The tip of any branch for a test instance's checkout (spec §5.5, "A test instance's
+   * checkout"): its copy on the base branch's remote fetched when the remote has it, else the
+   * local branch, and the newer of the two when both are here, so an Initiative's branch with
+   * Tasks landed here but not pushed runs them. Refused (ExistingBranchUnusable) when neither has
+   * it, or the two have diverged.
+   */
+  async freshBranchTip(project: Project, branch: string, variables: GitVariables): Promise<string> {
+    const local = await this.git.findCommit(project.path, `refs/heads/${branch}`);
+    const fetched = await this.fetchedFromRemote(project, branch, variables);
+    if (fetched === undefined) {
+      if (local === undefined) throw testInstanceBranchNotFound(branch, project.name);
+      return local;
+    }
+    const { commit, remote } = fetched;
+    if (local === undefined || (await this.git.contains(project.path, commit, local)))
+      return commit;
+    if (await this.git.contains(project.path, local, commit)) return local;
+    throw testInstanceBranchDiverged(branch, remote, project.name);
+  }
+
+  /** `branch` fetched from the base branch's remote; undefined with no remote or none there. */
+  private async fetchedFromRemote(
+    project: Project,
+    branch: string,
+    variables: GitVariables,
+  ): Promise<{ readonly commit: string; readonly remote: string } | undefined> {
+    const upstream = await this.git.upstreamOf(project.path, project.baseBranch);
+    if (!upstream) return undefined;
+    const remote = { remote: upstream.remote, branch };
+    if (!(await this.git.remoteHasBranch(project.path, remote, variables))) return undefined;
+    return { commit: await this.git.fetch(project.path, remote, variables), remote: remote.remote };
   }
 
   /**

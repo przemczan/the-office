@@ -20,10 +20,13 @@ export class TestInstanceRepositoryForTests extends TestInstanceRepository {
 
   listOf(initiativeId: string): Promise<readonly TestInstance[]> {
     return Promise.resolve(
-      [...this.rows.values()]
-        .filter((instance) => instance.initiativeId === initiativeId)
-        .toReversed()
-        .toSorted((one, other) => other.launchedAt.getTime() - one.launchedAt.getTime()),
+      newestFirst([...this.rows.values()].filter((each) => each.initiativeId === initiativeId)),
+    );
+  }
+
+  listOfProject(projectId: string): Promise<readonly TestInstance[]> {
+    return Promise.resolve(
+      newestFirst([...this.rows.values()].filter((each) => each.projectId === projectId)),
     );
   }
 
@@ -35,18 +38,14 @@ export class TestInstanceRepositoryForTests extends TestInstanceRepository {
 
   builtWithFiles(of?: BuildsOf): Promise<readonly TestInstance[]> {
     return Promise.resolve(
-      [...this.rows.values()]
-        .filter(
+      newestFirst(
+        [...this.rows.values()].filter(
           (instance) =>
             instance.state === "built" &&
             instance.filesRemovedAt === undefined &&
-            (of === undefined ||
-              (instance.initiativeId === of.initiativeId &&
-                instance.projectId === of.projectId &&
-                instance.targetKey === of.targetKey)),
-        )
-        .toReversed()
-        .toSorted((one, other) => other.launchedAt.getTime() - one.launchedAt.getTime()),
+            (of === undefined || isBuildOf(instance, of)),
+        ),
+      ),
     );
   }
 
@@ -60,4 +59,18 @@ export class TestInstanceRepositoryForTests extends TestInstanceRepository {
     if (changed) this.rows.set(id, changed.instance);
     return Promise.resolve(changed);
   }
+}
+
+function isBuildOf(instance: TestInstance, of: BuildsOf): boolean {
+  if (instance.projectId !== of.projectId || instance.targetKey !== of.targetKey) return false;
+  return "initiativeId" in of
+    ? instance.initiativeId === of.initiativeId
+    : instance.initiativeId === undefined && instance.branch === of.branch;
+}
+
+/** Newest first; of two launched together, the one added later first. */
+function newestFirst(instances: readonly TestInstance[]): TestInstance[] {
+  return instances
+    .toReversed()
+    .toSorted((one, other) => other.launchedAt.getTime() - one.launchedAt.getTime());
 }

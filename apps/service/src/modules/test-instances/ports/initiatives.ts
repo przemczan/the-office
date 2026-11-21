@@ -13,4 +13,10 @@ export interface InitiativeForTestInstances {
 export abstract class Initiatives {
   /** The Initiative; undefined when there is none by that id. */
   abstract find(id: string): Promise<InitiativeForTestInstances | undefined>;
+
+  /** The active Initiative whose branch in the Project is `branch`; undefined when there is none. */
+  abstract activeInitiativeOnBranch(
+    projectId: string,
+    branch: string,
+  ): Promise<InitiativeForTestInstances | undefined>;
 }

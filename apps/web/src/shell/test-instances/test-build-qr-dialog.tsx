@@ -2,8 +2,9 @@ import type { TestBuildFileLink } from "@the-office/contracts";
 import { Alert, Button, Dialog, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { renderSVG } from "uqr";
-import { useCopyText } from "../../shell/copy-text.ts";
-import { QR_LINK_WORKS, QR_NEEDS_LAN_ADDRESS, qrTitle } from "./initiative-test-instances-words.ts";
+import { useCopyText } from "../copy-text.ts";
+import { QR_LINK_WORKS, QR_NEEDS_LAN_ADDRESS, qrTitle } from "./test-instance-words.ts";
+import "./test-instances.css";
 
 /** A Built instance's file and the link the service gave for it, which the window shows. */
 export interface ShownTestBuildLink {

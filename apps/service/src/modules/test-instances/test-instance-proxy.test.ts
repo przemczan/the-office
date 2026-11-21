@@ -184,7 +184,7 @@ function portOf(instance: TestInstance): number {
 }
 
 function launch(): Promise<TestInstance> {
-  return testbed.instances.launch(
+  return testbed.instances.launchOnInitiative(
     testbed.initiativeId,
     { projectId: "shop", targetKey: "web" },
     ANN,

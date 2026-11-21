@@ -37,6 +37,8 @@ export interface ProjectForTests {
   branchCommit?: string;
   /** Why the entry point isn't at the commit; none by default. */
   entryPointProblems: string[];
+  /** Branches neither the repository nor its remote has, which a checkout fails on. */
+  missingBranches?: string[];
   /** The Project's own Secret variables, which no instance may get. */
   readonly installVariables: InstallSettings["installVariables"];
 }
@@ -105,6 +107,9 @@ export class ProjectTestTargetsForTests extends ProjectTestTargets {
   async checkOut(projectId: string, branch: string, folder: string): Promise<{ commit: string }> {
     const project = this.project(projectId);
     this.checkouts.push({ projectId, branch, folder });
+    if (project.missingBranches?.includes(branch)) {
+      throw new Error(`The branch ${branch} isn't in ${projectId} or on its remote.`);
+    }
     await rm(folder, { recursive: true, force: true });
     for (const [path, text] of Object.entries(project.files)) {
       await mkdir(dirname(join(folder, path)), { recursive: true });

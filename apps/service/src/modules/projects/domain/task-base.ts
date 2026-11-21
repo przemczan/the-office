@@ -125,6 +125,26 @@ export function pullRequestBranchCheckedOut(
   );
 }
 
+/** The branch picked for a test instance is neither here nor on the base branch's remote. */
+export function testInstanceBranchNotFound(
+  branch: string,
+  projectName: string,
+): ExistingBranchUnusable {
+  return new ExistingBranchUnusable(
+    `The branch ${branch} isn't in ${projectName} or on its remote.`,
+  );
+}
+
+export function testInstanceBranchDiverged(
+  branch: string,
+  remote: string,
+  projectName: string,
+): ExistingBranchUnusable {
+  return new ExistingBranchUnusable(
+    `The branch ${branch} in ${projectName} has diverged from ${branch} on ${remote}: each has commits the other doesn't. Bring them together by hand, then try again.`,
+  );
+}
+
 /** Why the branch of `kind` is unusable: gone, diverged from its remote's, or checked out elsewhere. */
 export const existingBranchUnusable = {
   initiative: {

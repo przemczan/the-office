@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, type SQL } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import {
   ACTIVE_STATES,
@@ -35,6 +35,15 @@ export class PostgresTestInstanceRepository extends TestInstanceRepository {
     return rows.map(instanceOf);
   }
 
+  async listOfProject(projectId: string): Promise<readonly TestInstance[]> {
+    const rows = await this.database
+      .select()
+      .from(testInstances)
+      .where(eq(testInstances.projectId, projectId))
+      .orderBy(desc(testInstances.launchedAt), desc(testInstances.id));
+    return rows.map(instanceOf);
+  }
+
   async active(): Promise<readonly TestInstance[]> {
     const rows = await this.database
       .select()
@@ -52,13 +61,7 @@ export class PostgresTestInstanceRepository extends TestInstanceRepository {
         and(
           eq(testInstances.state, "built"),
           isNull(testInstances.filesRemovedAt),
-          ...(of === undefined
-            ? []
-            : [
-                eq(testInstances.initiativeId, of.initiativeId),
-                eq(testInstances.projectId, of.projectId),
-                eq(testInstances.targetKey, of.targetKey),
-              ]),
+          ...(of === undefined ? [] : buildsOf(of)),
         ),
       )
       .orderBy(desc(testInstances.launchedAt), desc(testInstances.id));
@@ -87,11 +90,22 @@ export class PostgresTestInstanceRepository extends TestInstanceRepository {
   }
 }
 
+function buildsOf(of: BuildsOf): SQL[] {
+  return [
+    eq(testInstances.projectId, of.projectId),
+    eq(testInstances.targetKey, of.targetKey),
+    ...("initiativeId" in of
+      ? [eq(testInstances.initiativeId, of.initiativeId)]
+      : [isNull(testInstances.initiativeId), eq(testInstances.branch, of.branch)]),
+  ];
+}
+
 function rowOf(instance: TestInstance): Row {
   return {
     id: instance.id,
-    initiativeId: instance.initiativeId,
+    initiativeId: instance.initiativeId ?? null,
     projectId: instance.projectId,
+    branch: instance.branch ?? null,
     targetKey: instance.targetKey,
     targetName: instance.targetName,
     kind: instance.kind,
@@ -111,8 +125,9 @@ function rowOf(instance: TestInstance): Row {
 function instanceOf(row: Row): TestInstance {
   return {
     id: row.id,
-    initiativeId: row.initiativeId,
+    initiativeId: row.initiativeId ?? undefined,
     projectId: row.projectId,
+    branch: row.branch ?? undefined,
     targetKey: row.targetKey,
     targetName: row.targetName,
     kind: row.kind,

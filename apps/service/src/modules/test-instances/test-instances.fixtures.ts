@@ -159,7 +159,7 @@ export function testInstancesTestbed(
     initiativeId,
     project,
     async launchAndSettle() {
-      const launched = await instances.launch(
+      const launched = await instances.launchOnInitiative(
         initiativeId,
         { projectId: "shop", targetKey: "web" },
         ANN,
@@ -168,7 +168,7 @@ export function testInstancesTestbed(
       return instances.read(launched.id);
     },
     async buildAndSettle() {
-      const launched = await instances.launch(
+      const launched = await instances.launchOnInitiative(
         initiativeId,
         { projectId: "shop", targetKey: "android" },
         ANN,

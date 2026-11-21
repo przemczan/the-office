@@ -4,11 +4,13 @@ import {
   healthReportSchema,
   testBuildFileLinkSchema,
   initiativeTestInstancesSchema,
+  projectTestInstancesSchema,
   testInstanceLogSchema,
   testInstanceOpeningSchema,
   testInstanceSchema,
   testInstanceSettingsSchema,
   testInstanceWebEventSchema,
+  type ProjectTestInstanceLaunch,
   type TestBuildFileLink,
   type TestInstance,
   type TestInstanceLaunch,
@@ -38,6 +40,16 @@ export const testInstanceQueries = {
           initiativeTestInstancesSchema,
           signal,
         ),
+    }),
+  /**
+   * A Project's Test instances card: its Hosted and Build to install test targets and every
+   * instance launched on it, by branch, the branch launched on last first.
+   */
+  ofProject: (projectId: string) =>
+    queryOptions({
+      queryKey: [...TEST_INSTANCES, "project", projectId],
+      queryFn: ({ signal }) =>
+        getFromApi(`/projects/${projectId}/test-instances`, projectTestInstancesSchema, signal),
     }),
   /** Settings › Office limits: Test instances at once, Idle time and Proxy ports. */
   settings: () =>
@@ -69,6 +81,17 @@ export function launchTestInstance(
     launch,
     testInstanceSchema,
   );
+}
+
+/**
+ * Launches a test target on a branch of the Project; it answers the new instance, Building, linked
+ * to the active Initiative whose branch it is, if any.
+ */
+export function launchOnBranch(
+  projectId: string,
+  launch: ProjectTestInstanceLaunch,
+): Promise<TestInstance> {
+  return sendToApi("POST", `/projects/${projectId}/test-instances`, launch, testInstanceSchema);
 }
 
 export function stopTestInstance(instanceId: string): Promise<TestInstance> {
@@ -125,9 +148,13 @@ export const testInstanceEventInvalidations: Readonly<
 > = {
   [TEST_INSTANCE_CHANGED]: (event) => {
     const parsed = testInstanceWebEventSchema.parse(event);
-    return parsed.type === "test-instance.changed"
-      ? [testInstanceQueries.ofInitiative(parsed.initiativeId).queryKey]
-      : [TEST_INSTANCES];
+    if (parsed.type !== "test-instance.changed") return [TEST_INSTANCES];
+    return [
+      testInstanceQueries.ofProject(parsed.projectId).queryKey,
+      ...(parsed.initiativeId === null
+        ? []
+        : [testInstanceQueries.ofInitiative(parsed.initiativeId).queryKey]),
+    ];
   },
   "test-instance-settings.changed": () => [SETTINGS],
 };

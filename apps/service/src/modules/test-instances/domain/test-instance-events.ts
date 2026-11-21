@@ -8,7 +8,9 @@ import type { TestInstanceState } from "./test-instance.js";
 export class TestInstanceLaunched extends DomainEvent {
   constructor(
     readonly instanceId: string,
-    readonly initiativeId: string,
+    readonly projectId: string,
+    /** Its Initiative; undefined when it is linked to none. */
+    readonly initiativeId: string | undefined,
     readonly port: number | undefined,
   ) {
     super();
@@ -22,7 +24,9 @@ export class TestInstanceLaunched extends DomainEvent {
 export class TestInstanceStateChanged extends DomainEvent {
   constructor(
     readonly instanceId: string,
-    readonly initiativeId: string,
+    readonly projectId: string,
+    /** Its Initiative; undefined when it is linked to none. */
+    readonly initiativeId: string | undefined,
     readonly from: TestInstanceState,
     readonly to: TestInstanceState,
     readonly port: number | undefined,
@@ -31,11 +35,13 @@ export class TestInstanceStateChanged extends DomainEvent {
   }
 }
 
-/** Its checkout has the commit it runs, which the Initiative's page shows. */
+/** Its checkout has the commit it runs, which the Initiative's page and the Project page show. */
 export class TestInstanceCommitRecorded extends DomainEvent {
   constructor(
     readonly instanceId: string,
-    readonly initiativeId: string,
+    readonly projectId: string,
+    /** Its Initiative; undefined when it is linked to none. */
+    readonly initiativeId: string | undefined,
     readonly commit: string,
   ) {
     super();
@@ -46,7 +52,9 @@ export class TestInstanceCommitRecorded extends DomainEvent {
 export class TestInstanceFilesRemoved extends DomainEvent {
   constructor(
     readonly instanceId: string,
-    readonly initiativeId: string,
+    readonly projectId: string,
+    /** Its Initiative; undefined when it is linked to none. */
+    readonly initiativeId: string | undefined,
   ) {
     super();
   }

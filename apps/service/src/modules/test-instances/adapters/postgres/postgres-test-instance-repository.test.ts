@@ -34,6 +34,7 @@ function anInstance(initiativeId: string, port: number, at: Date): TestInstance 
     id: randomUUID(),
     initiativeId,
     projectId: "shop",
+    branch: "initiative/checkout",
     targetKey: "web",
     targetName: "Web app",
     kind: "hosted",
@@ -91,6 +92,61 @@ describe("PostgresTestInstanceRepository", () => {
     ).toBeUndefined();
   });
 
+  it("keeps an instance linked to no Initiative with its branch, and lists the Project's, linked or not, newest first", async () => {
+    const projectId = `project-${randomUUID()}`;
+    const initiativeId = randomUUID();
+    const given = {
+      projectId,
+      targetKey: "android",
+      targetName: "Android app",
+      kind: "build-to-install",
+      launchedBy: { kind: "user", user: { userId: "user-ann", name: "Ann Lee" } },
+    } as const;
+    const unlinked = launchedInstance({
+      ...given,
+      id: randomUUID(),
+      initiativeId: undefined,
+      branch: "feature/login",
+      at: new Date("2003-03-01T10:00:00Z"),
+    });
+    const linked = launchedInstance({
+      ...given,
+      id: randomUUID(),
+      initiativeId,
+      branch: "initiative/checkout",
+      at: new Date("2003-03-01T11:00:00Z"),
+    });
+    const otherBranch = launchedInstance({
+      ...given,
+      id: randomUUID(),
+      initiativeId: undefined,
+      branch: "feature/search",
+      at: new Date("2003-03-01T12:00:00Z"),
+    });
+    for (const instance of [unlinked, linked, otherBranch]) {
+      await repository.add(instance);
+      await repository.update(instance.id, (kept) =>
+        built(kept, BUILT_FILES, new Date("2003-03-02T10:00:00Z")),
+      );
+    }
+
+    expect(await repository.find(unlinked.id)).toMatchObject({
+      initiativeId: undefined,
+      branch: "feature/login",
+    });
+    expect((await repository.listOfProject(projectId)).map(({ id }) => id)).toEqual([
+      otherBranch.id,
+      linked.id,
+      unlinked.id,
+    ]);
+    const onBranch = { projectId, targetKey: "android", branch: "feature/login" };
+    expect((await repository.builtWithFiles(onBranch)).map(({ id }) => id)).toEqual([unlinked.id]);
+    const onInitiative = { projectId, targetKey: "android", initiativeId };
+    expect((await repository.builtWithFiles(onInitiative)).map(({ id }) => id)).toEqual([
+      linked.id,
+    ]);
+  });
+
   const BUILT_FILES = [
     { name: "app.apk", size: 4404019 },
     { name: "app-2.apk", size: 0 },
@@ -102,6 +158,7 @@ describe("PostgresTestInstanceRepository", () => {
         id: randomUUID(),
         initiativeId,
         projectId: "shop",
+        branch: "initiative/checkout",
         targetKey,
         targetName: "Android app",
         kind: "build-to-install",

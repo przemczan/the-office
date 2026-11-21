@@ -50,7 +50,7 @@ afterEach(async () => {
 });
 
 function launch(): Promise<TestInstance> {
-  return testbed.instances.launch(
+  return testbed.instances.launchOnInitiative(
     testbed.initiativeId,
     { projectId: "shop", targetKey: "web" },
     ANN,
@@ -193,6 +193,85 @@ describe("a launch refused or failing", () => {
       "2 test instances are building or running: Web app in Checkout, Web app in Checkout. " +
         "Stop one to launch another.",
     );
+  });
+});
+
+function launchOn(branch: string): Promise<TestInstance> {
+  return testbed.instances.launchOnBranch("shop", branch, "web", ANN);
+}
+
+describe("launching on any branch of a Project", () => {
+  it("launches on a branch no Initiative has, linked to none, listed under its branch of the Project only", async () => {
+    const launched = await launchOn("feature/search");
+    await testbed.instances.settled();
+
+    const instance = await testbed.instances.read(launched.id);
+    expect(instance).toMatchObject({
+      state: "running",
+      initiativeId: undefined,
+      branch: "feature/search",
+    });
+    expect(testbed.projects.checkouts.map(({ branch }) => branch)).toEqual(["feature/search"]);
+    const listed = await testbed.instances.listForProject("shop");
+    expect(listed.branches.map(({ name }) => name)).toEqual(["feature/search"]);
+    expect(listed.branches[0]?.instances.map(({ id }) => id)).toEqual([launched.id]);
+    expect(listed.initiatives).toEqual([]);
+    const [project] = await testbed.instances.listFor(testbed.initiativeId);
+    expect(project?.targets.flatMap(({ instances }) => instances)).toEqual([]);
+  });
+
+  it("links to the active Initiative whose branch it is, which then lists it", async () => {
+    const launched = await launchOn("initiative/checkout");
+    await testbed.instances.settled();
+
+    expect(await testbed.instances.read(launched.id)).toMatchObject({
+      initiativeId: testbed.initiativeId,
+      branch: "initiative/checkout",
+    });
+    const [project] = await testbed.instances.listFor(testbed.initiativeId);
+    expect(project?.targets.flatMap(({ instances }) => instances.map(({ id }) => id))).toEqual([
+      launched.id,
+    ]);
+    const listed = await testbed.instances.listForProject("shop");
+    expect(listed.initiatives).toEqual([{ id: testbed.initiativeId, name: "Checkout" }]);
+  });
+
+  it("stops the linked instance as its Initiative is Done, the unlinked one staying Running", async () => {
+    const linked = await launchOn("initiative/checkout");
+    const unlinked = await launchOn("feature/search");
+    await testbed.instances.settled();
+
+    await testbed.events.publish(
+      new InitiativeStateChanged(testbed.initiativeId, "active", "done"),
+    );
+    await testbed.instances.settled();
+
+    expect((await testbed.instances.read(linked.id)).state).toBe("stopped");
+    expect((await testbed.instances.read(unlinked.id)).state).toBe("running");
+  });
+
+  it("is refused over Test instances naming an unlinked one by its branch", async () => {
+    await launchOn("feature/search");
+    await launchOn("initiative/checkout");
+
+    const refusal = await refusalOf(launchOn("feature/other"));
+
+    expect(refusal.message).toBe(
+      "2 test instances are building or running: Web app on feature/search, Web app in Checkout. " +
+        "Stop one to launch another.",
+    );
+  });
+
+  it("fails the launch, naming the branch, when neither the Project nor its remote has it", async () => {
+    testbed.project.missingBranches = ["gone"];
+
+    const launched = await launchOn("gone");
+    await testbed.instances.settled();
+
+    expect(await testbed.instances.read(launched.id)).toMatchObject({
+      state: "failed",
+      failedReason: "The branch gone isn't in shop or on its remote.",
+    });
   });
 });
 

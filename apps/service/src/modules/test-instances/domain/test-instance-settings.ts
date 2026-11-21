@@ -45,11 +45,10 @@ export function everyPortInUse(
   );
 }
 
-/** An instance Building or Running, as the refusal over the limit names it. */
-export interface ActiveInstanceName {
-  readonly targetName: string;
-  readonly initiativeName: string;
-}
+/** An active instance as the limit's refusal names it: by its Initiative, else by its branch. */
+export type ActiveInstanceName =
+  | { readonly targetName: string; readonly initiativeName: string }
+  | { readonly targetName: string; readonly branch: string };
 
 /** Why one more instance can't launch now; undefined while there is room (Building counts). */
 export function overTheLimit(
@@ -58,7 +57,11 @@ export function overTheLimit(
 ): string | undefined {
   if (active.length < testInstancesAtOnce) return undefined;
   const named = active
-    .map(({ targetName, initiativeName }) => `${targetName} in ${initiativeName}`)
+    .map((instance) =>
+      "initiativeName" in instance
+        ? `${instance.targetName} in ${instance.initiativeName}`
+        : `${instance.targetName} on ${instance.branch}`,
+    )
     .join(", ");
   const count = active.length === 1 ? "1 test instance is" : `${active.length} test instances are`;
   return `${count} building or running: ${named}. Stop one to launch another.`;

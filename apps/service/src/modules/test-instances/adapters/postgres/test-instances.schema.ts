@@ -19,14 +19,17 @@ import type {
 
 /**
  * Each Test instance (spec §2.12, "Test instance"), kept with its log after it ends. Its Initiative
- * and Project are Work's and Projects' records, named by id alone.
+ * and Project are Work's and Projects' records, named by id alone; an instance linked to no
+ * Initiative has none.
  */
 export const testInstances = pgTable(
   "test_instances",
   {
     id: uuid("id").primaryKey(),
-    initiativeId: uuid("initiative_id").notNull(),
+    initiativeId: uuid("initiative_id"),
     projectId: text("project_id").notNull(),
+    /** The branch it runs; null only on rows from before it was recorded, each its Initiative's. */
+    branch: text("branch"),
     targetKey: text("target_key").notNull(),
     /** The target's name when it was launched. */
     targetName: text("target_name").notNull(),
@@ -49,6 +52,7 @@ export const testInstances = pgTable(
   },
   (table) => [
     index("test_instances_initiative").on(table.initiativeId, table.launchedAt),
+    index("test_instances_project_branch").on(table.projectId, table.branch, table.launchedAt),
     // Two instances Building or Running never share a Proxy port.
     uniqueIndex("test_instances_active_port")
       .on(table.port)
