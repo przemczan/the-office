@@ -33,8 +33,8 @@ export class RunEnvironmentSetUps {
 
   /** The Project's open set-up Task; undefined when it has none. */
   async openOf(projectId: string): Promise<Task | undefined> {
-    return (await this.tasks.list()).find(
-      (task) => task.projectId === projectId && isOpenRunEnvironmentSetUp(task),
+    return (await this.tasks.madeFor("run-environment-setup", projectId)).find(
+      isOpenRunEnvironmentSetUp,
     );
   }
 

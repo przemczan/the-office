@@ -21,7 +21,13 @@ import {
 import { derivedShortName, initiativeBranchOf, shortNameProblems } from "./short-name.js";
 import { InitiativeNotShaping } from "./initiative-not-shaping.js";
 import { InitiativeRefused } from "./initiative-refused.js";
-import { newTaskProblems, trimmedNewTask, type NewTask, type Task } from "./task.js";
+import {
+  newTaskProblems,
+  trimmedNewTask,
+  type NewTask,
+  type Task,
+  type TaskSummary,
+} from "./task.js";
 import { titleProblem } from "./title.js";
 import {
   changeTaskState,
@@ -609,8 +615,10 @@ function requireItsTask(initiative: Initiative, task: Task): void {
  * Every Initiative's Tasks on the board, by the Initiative's id, in the order they were added, so
  * the Projects one spans keep their order.
  */
-export function tasksByInitiative(board: readonly Task[]): ReadonlyMap<string, readonly Task[]> {
-  const byInitiative = new Map<string, Task[]>();
+export function tasksByInitiative<Of extends TaskSummary>(
+  board: readonly Of[],
+): ReadonlyMap<string, readonly Of[]> {
+  const byInitiative = new Map<string, Of[]>();
   const added = board.toSorted(
     (one, other) =>
       one.createdAt.getTime() - other.createdAt.getTime() || one.id.localeCompare(other.id),

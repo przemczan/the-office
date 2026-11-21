@@ -19,7 +19,7 @@ import {
 } from "../../domain/attachment.js";
 import type { Idea } from "../../domain/idea.js";
 import { whereOf } from "../../domain/linked-records.js";
-import { PRIORITIES, TASK_KINDS, type Task } from "../../domain/task.js";
+import { PRIORITIES, TASK_KINDS, type TaskSummary } from "../../domain/task.js";
 import { isArchived } from "../../domain/task-archive.js";
 import { TASK_STATE_NAMES } from "../../domain/task-states.js";
 import {
@@ -451,7 +451,7 @@ function lineReading({
       };
 }
 
-function taskLine(task: Task): string {
+function taskLine(task: TaskSummary): string {
   return `- ${task.title} (Task ${task.id}) · Project ${task.projectId} · ${TASK_STATE_NAMES[task.state]} · ${task.priority} priority`;
 }
 

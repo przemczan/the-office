@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, getTableColumns, inArray, sql } from "drizzle-orm";
 import type { Database } from "../../../../platform/database/database.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
@@ -6,7 +6,7 @@ import type { Author } from "../../domain/author.js";
 import type { DropReason } from "../../domain/drop-reason.js";
 import type { Idea } from "../../domain/idea.js";
 import type { Initiative } from "../../domain/initiative.js";
-import type { Task } from "../../domain/task.js";
+import type { Task, TaskSummary, TaskTextField } from "../../domain/task.js";
 import type { PullRequestEnd } from "../../domain/task-pull-request.js";
 import type { StateChange, StateChangeCause } from "../../domain/state-change.js";
 import type { TaskChange } from "../../domain/task-changes.js";
@@ -390,6 +390,32 @@ function pullRequestEndOf(row: PullRequestEndRow): PullRequestEnd {
 
 export function toTask(row: TaskRow): Task {
   return {
+    ...toTaskSummary(row),
+    description: row.description,
+    plan: row.plan,
+    definitionOfDone: row.definitionOfDone,
+    commitMessage: row.commitMessage,
+    proposedPipeline: row.proposedPipeline ?? undefined,
+  };
+}
+
+/** A row's columns without the Task's long texts, which `TASK_SUMMARY_COLUMNS` reads. */
+export type TaskSummaryRow = Omit<TaskRow, TaskTextField>;
+
+const {
+  description: _description,
+  plan: _plan,
+  definitionOfDone: _definitionOfDone,
+  commitMessage: _commitMessage,
+  proposedPipeline: _proposedPipeline,
+  ...taskSummaryColumns
+} = getTableColumns(tasks);
+
+/** The columns a read of Task summaries selects: every one but the long texts. */
+export const TASK_SUMMARY_COLUMNS = taskSummaryColumns;
+
+export function toTaskSummary(row: TaskSummaryRow): TaskSummary {
+  return {
     id: row.id,
     title: row.title,
     projectId: row.projectId,
@@ -397,17 +423,12 @@ export function toTask(row: TaskRow): Task {
     priority: row.priority,
     tags: row.tags,
     order: row.order,
-    description: row.description,
-    plan: row.plan,
     planConfirmed: row.planConfirmed,
     filesToChange: row.filesToChange,
     estimatedTokens: row.estimatedTokens ?? undefined,
-    definitionOfDone: row.definitionOfDone,
     definitionOfDoneConfirmed: row.definitionOfDoneConfirmed,
-    commitMessage: row.commitMessage,
     commitMessagePublishedAt: row.commitMessagePublishedAt ?? undefined,
     pipelineId: row.pipelineId ?? undefined,
-    proposedPipeline: row.proposedPipeline ?? undefined,
     autoMode: row.autoMode,
     initiativePlanningThreadId: row.initiativePlanningThreadId ?? undefined,
     markedPlanned: row.markedPlanned,

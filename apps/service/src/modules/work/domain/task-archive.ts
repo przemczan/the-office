@@ -11,7 +11,7 @@ export const DEFAULT_ARCHIVE_PERIOD = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Whether the Task is in the Archive (spec §2.1): a mark beside its state, never a state. */
-export function isArchived(task: Task): boolean {
+export function isArchived(task: Pick<Task, "archivedAt">): boolean {
   return task.archivedAt !== undefined;
 }
 

@@ -1,5 +1,5 @@
 import type { Author } from "./author.js";
-import type { Task } from "./task.js";
+import type { Task, TaskSummary } from "./task.js";
 import type { TaskChange } from "./task-changes.js";
 import type { TaskStarted } from "./task-events.js";
 import type { EngineUsage } from "./usage-estimate.js";
@@ -109,7 +109,7 @@ function heldBy(waits: readonly Wait[]): Pick<QueuedTask, "reasons" | "shortReas
  * What holds a Task queued behind others: each of them not yet Done or Dropped, which `tasks`
  * holds as started (a Task it is behind that isn't there has ended or left).
  */
-function behindWaits(behind: readonly string[], tasks: readonly Task[]): Wait[] {
+function behindWaits(behind: readonly string[], tasks: readonly TaskSummary[]): Wait[] {
   return tasks
     .filter(({ id, state }) => behind.includes(id) && STARTED_STATES.includes(state))
     .map(({ title }) => ({

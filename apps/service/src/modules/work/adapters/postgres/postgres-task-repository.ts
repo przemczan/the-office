@@ -13,7 +13,7 @@ import {
 } from "../../domain/person-tasks.js";
 import type { ProjectFilter } from "../../domain/project-filter.js";
 import type { StateChange } from "../../domain/state-change.js";
-import type { Task } from "../../domain/task.js";
+import type { Task, TaskMadeFor, TaskState, TaskSummary } from "../../domain/task.js";
 import type { TaskChange } from "../../domain/task-changes.js";
 import type { DependencyChanges } from "../../domain/task-dependencies.js";
 import type { TaskCreated, TaskReordered } from "../../domain/task-events.js";
@@ -37,7 +37,9 @@ import {
   saveTask,
   stateChangesOf,
   takenOrders,
+  TASK_SUMMARY_COLUMNS,
   toTask,
+  toTaskSummary,
 } from "./work-rows.js";
 
 @Injectable()
@@ -67,22 +69,43 @@ export class PostgresTaskRepository extends TaskRepository {
     });
   }
 
-  async list(): Promise<readonly Task[]> {
-    return (await this.database.select().from(tasks)).map(toTask);
+  list(): Promise<readonly Task[]> {
+    return readOnce(readKey("tasks.list"), async () =>
+      (await this.database.select().from(tasks)).map(toTask),
+    );
   }
 
-  async pausedByUsageWindowOn(engineId: string): Promise<readonly Task[]> {
-    const rows = await this.database
-      .select()
-      .from(tasks)
-      .where(
+  summaries(): Promise<readonly TaskSummary[]> {
+    return readOnce(readKey("tasks.summaries"), async () =>
+      (await this.database.select(TASK_SUMMARY_COLUMNS).from(tasks)).map(toTaskSummary),
+    );
+  }
+
+  madeFor(madeFor: TaskMadeFor, projectId?: string): Promise<readonly Task[]> {
+    return readOnce(readKey("tasks.madeFor", madeFor, projectId), () =>
+      this.tasksWhere(
         and(
-          eq(tasks.state, "paused"),
-          eq(tasks.pausedBy, "usage-window"),
-          eq(tasks.usageWindowEngineId, engineId),
+          eq(tasks.madeFor, madeFor),
+          projectId === undefined ? undefined : eq(tasks.projectId, projectId),
         ),
-      );
-    return rows.map(toTask);
+      ),
+    );
+  }
+
+  inStates(states: readonly TaskState[]): Promise<readonly Task[]> {
+    return readOnce(readKey("tasks.inStates", [...states].toSorted()), () =>
+      this.tasksWhere(inArray(tasks.state, [...states])),
+    );
+  }
+
+  pausedByUsageWindowOn(engineId: string): Promise<readonly Task[]> {
+    return this.tasksWhere(
+      and(
+        eq(tasks.state, "paused"),
+        eq(tasks.pausedBy, "usage-window"),
+        eq(tasks.usageWindowEngineId, engineId),
+      ),
+    );
   }
 
   async droppedIds(): Promise<readonly string[]> {
@@ -93,12 +116,15 @@ export class PostgresTaskRepository extends TaskRepository {
     return rows.map(({ id }) => id);
   }
 
-  async findAll(ids: readonly string[]): Promise<readonly Task[]> {
-    const rows = await this.database
-      .select()
-      .from(tasks)
-      .where(inArray(tasks.id, ids.filter(canBeRowId)));
-    return rows.map(toTask);
+  findAll(ids: readonly string[]): Promise<readonly Task[]> {
+    const rowIds = [...new Set(ids.filter(canBeRowId))].toSorted();
+    return readOnce(readKey("tasks.findAll", rowIds), () =>
+      this.tasksWhere(inArray(tasks.id, rowIds)),
+    );
+  }
+
+  private async tasksWhere(condition: SQL | undefined): Promise<readonly Task[]> {
+    return (await this.database.select().from(tasks).where(condition)).map(toTask);
   }
 
   async personsTasks(query: PersonsTasksQuery): Promise<PersonsTasksRead> {

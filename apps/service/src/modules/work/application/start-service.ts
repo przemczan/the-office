@@ -4,7 +4,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import { isInitiativePaused } from "../domain/initiative-pause.js";
 import { startOrQueue, type OverlapChoice, type Starting } from "../domain/queue.js";
-import type { Task } from "../domain/task.js";
+import type { Task, TaskSummary } from "../domain/task.js";
 import { blockingTasks } from "../domain/task-dependencies.js";
 import { overlapsOf, type Overlap } from "../domain/task-overlap.js";
 import { startPastUsageCaps, type StartPastUsageCaps } from "../domain/start-past-usage-caps.js";
@@ -25,7 +25,7 @@ import { UsageEstimates } from "./usage-estimates.js";
  * and what it is expected to use, for the Task page's Start.
  */
 export interface StartCheck extends StartReasons {
-  readonly blockers: readonly Task[];
+  readonly blockers: readonly TaskSummary[];
   readonly overlaps: readonly Overlap[];
   /** Undefined with no measure ticked. */
   readonly usageEstimate: UsageEstimate | undefined;
@@ -83,7 +83,7 @@ export class StartService {
   /** What Start would meet now, for the Task page to show beside Start; all empty when nothing. */
   async check(id: string): Promise<StartCheck> {
     const task = await this.read(id);
-    const tasks = await this.tasks.list();
+    const tasks = await this.tasks.summaries();
     const blockers = tasks.filter(({ id: other }) => task.blockedBy.includes(other));
     const conditions = await this.conditions.of(task);
     const held = {

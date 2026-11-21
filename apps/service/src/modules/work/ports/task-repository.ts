@@ -3,7 +3,7 @@ import type { Neighbours } from "../domain/manual-order.js";
 import type { WorkFilter } from "../domain/person-tasks.js";
 import type { ProjectFilter } from "../domain/project-filter.js";
 import type { StateChange } from "../domain/state-change.js";
-import type { Task } from "../domain/task.js";
+import type { Task, TaskMadeFor, TaskState, TaskSummary } from "../domain/task.js";
 import type { TaskChange } from "../domain/task-changes.js";
 import type { DependencyChanges } from "../domain/task-dependencies.js";
 import type { TaskCreated, TaskReordered } from "../domain/task-events.js";
@@ -62,6 +62,15 @@ export abstract class TaskRepository {
 
   /** Every Task, in no particular order. */
   abstract list(): Promise<readonly Task[]>;
+
+  /** Every Task without its long texts, in no particular order: for reads that never show them. */
+  abstract summaries(): Promise<readonly TaskSummary[]>;
+
+  /** The Tasks The Office made for `madeFor`, of the Project when one is given, in no order. */
+  abstract madeFor(madeFor: TaskMadeFor, projectId?: string): Promise<readonly Task[]>;
+
+  /** The Tasks in one of `states`, in no particular order. */
+  abstract inStates(states: readonly TaskState[]): Promise<readonly Task[]>;
 
   /**
    * The Tasks `engineId`'s usage window holds Paused, in no particular order: none paused before

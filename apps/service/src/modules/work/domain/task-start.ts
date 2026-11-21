@@ -6,7 +6,7 @@ import {
   type UsageCapsChoice,
   type UsageOnStandIns,
 } from "./stand-ins-at-start.js";
-import { hasPipeline, NO_PIPELINE_YET, type Task } from "./task.js";
+import { hasPipeline, NO_PIPELINE_YET, type Task, type TaskSummary } from "./task.js";
 import type { StateChangeCause } from "./state-change.js";
 import { withStateChange, type TaskChange } from "./task-changes.js";
 import { blockedProblems } from "./task-dependencies.js";
@@ -94,8 +94,8 @@ export interface BrokenPipelineAtStart {
  * the Tasks it waits for.
  */
 export interface HeldAtStart {
-  readonly startedTasks: readonly Task[];
-  readonly blockers: readonly Task[];
+  readonly startedTasks: readonly TaskSummary[];
+  readonly blockers: readonly TaskSummary[];
   /** Whether the fire alarm is on, which holds every Start until the all clear (spec §2.8). */
   readonly fireAlarmOn: boolean;
   /** Whether the Task's Initiative is paused, which holds its Start until it is resumed. */
@@ -260,7 +260,7 @@ function initiativeBranchRefusals(task: Task, conditions: StartConditions): stri
   return [initiativeBranchGoneRefusal(problem.branch, conditions.project?.name ?? task.projectId)];
 }
 
-function officeWideLimitWaits(limit: number, others: readonly Task[]): Wait[] {
+function officeWideLimitWaits(limit: number, others: readonly TaskSummary[]): Wait[] {
   if (others.length < limit) return [];
   const desks = limit === 1 ? "the only desk is" : `all ${limit} desks are`;
   return [
@@ -275,7 +275,7 @@ function officeWideLimitWaits(limit: number, others: readonly Task[]): Wait[] {
 function projectLimitWaits(
   task: Task,
   project: StartingProject | undefined,
-  others: readonly Task[],
+  others: readonly TaskSummary[],
 ): Wait[] {
   if (!project) return [];
   const started = others.filter((other) => other.projectId === task.projectId).length;
@@ -292,7 +292,7 @@ function projectLimitWaits(
 function taskLimitWaits(
   stage: AgentStartingStage | undefined,
   person: StartingPerson | undefined,
-  others: readonly Task[],
+  others: readonly TaskSummary[],
 ): Wait[] {
   if (stage?.role === undefined || !person || person.taskLimit === "none") return [];
   const theirs = others.filter((other) => other.personRole === stage.role).length;

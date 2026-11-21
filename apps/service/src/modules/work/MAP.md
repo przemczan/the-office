@@ -231,10 +231,10 @@ FireAlarmService, IdeaService, InitiativeService, InitiativeArchiving, DroppedIn
 - `saved-views.schema.ts`: savedViews
 - `search-vector.ts`: searchVectorOf, matching, bestFirst
 - `work-earlier-records.ts`: WorkEarlierRecords
-- `work-rows.ts`: Transaction, IdeaRow, InitiativeRow, TaskRow, AttachmentRow, canBeRowId, holdManualOrder, holdShortNames, holdStarts, everyTaskHoldingDependencies, changeDependenciesHeld, changeEveryDependencyHeld, heldTask, saveTask, insertTask, keepStateChange, stateChangesOf, authorOf, takenOrders, toIdeaRow, toIdea, toInitiativeRow, toInitiative, toTaskRow, toTask, ownerColumns, toAttachmentRow, toAttachment
+- `work-rows.ts`: Transaction, IdeaRow, InitiativeRow, TaskRow, AttachmentRow, canBeRowId, holdManualOrder, holdShortNames, holdStarts, everyTaskHoldingDependencies, changeDependenciesHeld, changeEveryDependencyHeld, heldTask, saveTask, insertTask, keepStateChange, stateChangesOf, authorOf, takenOrders, toIdeaRow, toIdea, toInitiativeRow, toInitiative, toTaskRow, toTask, TaskSummaryRow, TASK_SUMMARY_COLUMNS, toTaskSummary, ownerColumns, toAttachmentRow, toAttachment
 - `work-settings.schema.ts`: workSettings, engineCaps
 - `work.schema.ts`: AuthorRow, StateChangeCauseRow, ProjectMoveRow, PullRequestEndRow, ideas, InitiativePipelineRow, InitiativeBranchRow, initiatives, tasks, taskStateChanges, attachments, attachmentTexts
-- Tests: initiative-pipeline-per-project-migration.test.ts, initiative-planning-threads-migration.test.ts, initiative-planning-with-user-migration.test.ts, paused-by-migration.test.ts, postgres-work-repositories.full.test.ts, postgres-work-repositories.test.ts, task-kinds-migration.test.ts, work-earlier-records.test.ts
+- Tests: initiative-pipeline-per-project-migration.test.ts, initiative-planning-threads-migration.test.ts, initiative-planning-with-user-migration.test.ts, paused-by-migration.test.ts, postgres-task-repository.test.ts, postgres-work-repositories.full.test.ts, postgres-work-repositories.test.ts, task-kinds-migration.test.ts, work-earlier-records.test.ts
 
 ### adapters/projects/
 
@@ -375,7 +375,7 @@ FireAlarmService, IdeaService, InitiativeService, InitiativeArchiving, DroppedIn
 - `task-start.ts`: StartingStage, DEFAULT_OFFICE_WIDE_LIMIT, TaskLimit, StartingPerson, StartingProject, InitiativeBranchProblem, StartConditions, BrokenPipelineAtStart, HeldAtStart, StartReasons, firstAgentStage, startReasons, reasonsBesideUsage, startTask, usageOnStandIns
 - `task-states.ts`: TASK_STATE_NAMES, CONFIRM_ITS_INITIATIVE, NOT_STARTED_STATES, STARTED_STATES, stateChangeProblems, moveProblems, ReadinessLine, readinessLines, CONDITIONS_KEPT_WHEN_CONFIRMING, openDecisionProblems
 - `task-tags.ts`: MAX_TAGS, MAX_TAG_LENGTH, normalizedTags, tagsProblems, changeTags
-- `task.ts`: TASK_STATES, TaskState, TASK_MADE_FOR, TaskMadeFor, TASK_HOLDERS, TaskHolder, isPublishingTask, TASK_KINDS, TaskKind, PRIORITIES, Priority, Task, ProjectMove, TaskWithPipeline, hasPipeline, NO_PIPELINE_YET, ProposedPipeline, NewTask, trimmedNewTask, newTaskProblems
+- `task.ts`: TASK_STATES, TaskState, TASK_MADE_FOR, TaskMadeFor, TASK_HOLDERS, TaskHolder, isPublishingTask, TASK_KINDS, TaskKind, PRIORITIES, Priority, Task, TaskTextField, TaskSummary, ProjectMove, TaskWithPipeline, hasPipeline, NO_PIPELINE_YET, ProposedPipeline, NewTask, trimmedNewTask, newTaskProblems
 - `test-targets-set-up.ts`: SET_UP_TEST_TARGETS_PIPELINE, TEST_TARGETS_SET_UP_TITLE, testTargetsSetUpPlan, TEST_TARGETS_SET_UP_DEFINITION_OF_DONE, createTestTargetsSetUpTask, isOpenTestTargetsSetUp
 - `text-lines.ts`: DEFAULT_LINE_COUNT, MAX_LINE_COUNT, DEFAULT_CONTEXT_LINES, MAX_CONTEXT_LINES, LineReading, LinesPart, LineReader, lineReader, lineCountWords
 - `title.ts`: TITLE_LENGTH, titleProblem

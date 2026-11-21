@@ -8,7 +8,7 @@ import {
   type DailyCapsAtStart,
   type DayUse,
 } from "../domain/cap-waits.js";
-import type { Task } from "../domain/task.js";
+import type { TaskSummary } from "../domain/task.js";
 import { STARTED_STATES } from "../domain/task-states.js";
 import { countedTokens } from "../domain/usage-estimate.js";
 import type { EngineCaps } from "../domain/usage-settings.js";
@@ -35,7 +35,7 @@ export class DailyCaps {
    */
   async of(
     caps: readonly EngineCaps[],
-    everyTask: readonly Task[],
+    everyTask: readonly TaskSummary[],
     estimateOf: TaskEstimator,
   ): Promise<DailyCapsAtStart[]> {
     const capped = caps.filter(
@@ -68,7 +68,7 @@ export class DailyCaps {
 
   /** What is left of every started Task's estimate, by engine id: each less its use so far. */
   private async leftInProgress(
-    everyTask: readonly Task[],
+    everyTask: readonly TaskSummary[],
     estimateOf: TaskEstimator,
   ): Promise<Map<EngineId, DayUse>> {
     const started = everyTask.filter(({ state }) => STARTED_STATES.includes(state));

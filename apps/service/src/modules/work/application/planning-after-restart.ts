@@ -48,7 +48,7 @@ export class PlanningAfterRestart {
   /** Wakes the planner in each of the cut-short Threads that is a planning Thread to go on with. */
   async wake(cutShortThreadIds: readonly string[]): Promise<void> {
     if (cutShortThreadIds.length === 0 || (await this.fireAlarm.read()).on) return;
-    const inPlanning = (await this.tasks.list()).filter(({ state }) => state === "planning");
+    const inPlanning = await this.tasks.inStates(["planning"]);
     for (const threadId of new Set(cutShortThreadIds)) {
       const waking = await this.wakingIn(threadId, inPlanning);
       if (waking) await this.wakeIn(waking);

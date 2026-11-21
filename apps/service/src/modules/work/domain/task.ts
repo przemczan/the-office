@@ -231,6 +231,13 @@ export interface Task {
   readonly createdByTheOffice: boolean;
 }
 
+/** The fields of a Task that hold its long texts, which most reads of many Tasks never need. */
+export type TaskTextField =
+  "description" | "plan" | "definitionOfDone" | "commitMessage" | "proposedPipeline";
+
+/** A Task without its long texts, as a read of many Tasks gives it. */
+export type TaskSummary = Omit<Task, TaskTextField>;
+
 /** A Task's Move from one Project to another, kept for its record. */
 export interface ProjectMove {
   readonly from: string;
@@ -242,7 +249,9 @@ export interface ProjectMove {
 /** A Task whose Pipeline is chosen, as every Ready and started Task's is. */
 export type TaskWithPipeline = Task & { readonly pipelineId: string };
 
-export function hasPipeline(task: Task): task is TaskWithPipeline {
+export function hasPipeline<Of extends Pick<Task, "pipelineId">>(
+  task: Of,
+): task is Of & { readonly pipelineId: string } {
   return task.pipelineId !== undefined;
 }
 

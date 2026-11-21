@@ -14,6 +14,7 @@ import {
   type Priority,
   type Task,
   type TaskKind,
+  type TaskSummary,
 } from "../domain/task.js";
 import {
   changeCausedBy,
@@ -144,19 +145,22 @@ export class TaskService {
     return task;
   }
 
-  /** Every Task, in the board's order: by priority, then by manual order. */
-  async list(): Promise<readonly Task[]> {
-    return (await this.repository.list()).toSorted(boardOrder);
+  /**
+   * Every Task without its long texts, in the board's order: by priority, then by manual order.
+   * `read` gives one whole.
+   */
+  async list(): Promise<readonly TaskSummary[]> {
+    return (await this.repository.summaries()).toSorted(boardOrder);
   }
 
   /** The Tasks at a desk: started and not yet Done or Dropped, each counting against the limits. */
-  async listStarted(): Promise<readonly Task[]> {
+  async listStarted(): Promise<readonly TaskSummary[]> {
     return (await this.list()).filter(({ state }) => STARTED_STATES.includes(state));
   }
 
   /** Every Tag on a Task, each once, in alphabetical order. */
   async tagsInUse(): Promise<string[]> {
-    const tags = new Set((await this.repository.list()).flatMap((task) => task.tags));
+    const tags = new Set((await this.repository.summaries()).flatMap((task) => task.tags));
     return [...tags].toSorted();
   }
 

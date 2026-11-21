@@ -1,13 +1,16 @@
 import { generateKeyBetween } from "fractional-indexing";
 import { PRIORITIES, type Priority, type Task } from "./task.js";
 
+/** What the board's order reads of a Task. */
+type OnTheBoard = Pick<Task, "id" | "priority" | "order">;
+
 /**
  * The board keeps one manual order per column: by priority, then by each Task's order key.
  * The keys are fractional, so a Task moves by taking a key between two others without
  * renumbering them, and they compare as plain strings (code units, never a locale). A key is
  * unique on the whole board, since a Task keeps its key when it changes column.
  */
-export function boardOrder(a: Task, b: Task): number {
+export function boardOrder(a: OnTheBoard, b: OnTheBoard): number {
   return (
     priorityRank(a.priority) - priorityRank(b.priority) ||
     compareOrders(a.order, b.order) ||

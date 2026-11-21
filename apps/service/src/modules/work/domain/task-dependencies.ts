@@ -158,12 +158,14 @@ export function removeDependency(
 }
 
 /** The blockers still holding the Task back: neither Done nor Dropped (the user, 2026-10-28). */
-export function blockingTasks(blockers: readonly Task[]): Task[] {
+export function blockingTasks<Blocker extends Pick<Task, "state">>(
+  blockers: readonly Blocker[],
+): Blocker[] {
   return blockers.filter(({ state }) => state !== "done" && state !== "dropped");
 }
 
 /** Why a Task with these blockers can't start yet; empty when none holds it back. */
-export function blockedProblems(blockers: readonly Task[]): string[] {
+export function blockedProblems(blockers: readonly Pick<Task, "state" | "title">[]): string[] {
   return blockingTasks(blockers).map(
     ({ title }) => `Blocked by "${title}", which must be Done first.`,
   );

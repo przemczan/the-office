@@ -8,7 +8,7 @@ import {
   type EngineId,
   type EngineModel,
 } from "../../engine/index.js";
-import { hasPipeline, type Task } from "../domain/task.js";
+import { hasPipeline, type TaskSummary } from "../domain/task.js";
 import { STARTED_STATES } from "../domain/task-states.js";
 import {
   HISTORY_WINS_AT,
@@ -47,7 +47,7 @@ export interface TaskUsageEstimate {
 }
 
 /** A Task's Usage estimate; undefined with no measure ticked. */
-export type TaskEstimator = (task: Task) => Promise<UsageEstimate | undefined>;
+export type TaskEstimator = (task: TaskSummary) => Promise<UsageEstimate | undefined>;
 
 /**
  * Usage estimates (spec §2.1): from the done Tasks of the same Project and Pipeline once there are
@@ -68,7 +68,10 @@ export class UsageEstimates {
   ) {}
 
   /** The Task's, its done Tasks found among `everyTask`; undefined with no measure ticked. */
-  async of(task: Task, everyTask: readonly Task[]): Promise<UsageEstimate | undefined> {
+  async of(
+    task: TaskSummary,
+    everyTask: readonly TaskSummary[],
+  ): Promise<UsageEstimate | undefined> {
     return (await this.estimator(everyTask))(task);
   }
 
@@ -76,7 +79,7 @@ export class UsageEstimates {
    * Estimates any of `everyTask`, reading the history each Project and Pipeline has, and the
    * Office-wide ratios, once for them all; each estimate is undefined with no measure ticked.
    */
-  async estimator(everyTask: readonly Task[]): Promise<TaskEstimator> {
+  async estimator(everyTask: readonly TaskSummary[]): Promise<TaskEstimator> {
     const measures = await this.tickedMeasures();
     return measures.length === 0 ? async () => undefined : this.estimating(everyTask, measures);
   }
@@ -85,7 +88,7 @@ export class UsageEstimates {
   async ofReadyTasks(): Promise<readonly TaskUsageEstimate[]> {
     const measures = await this.tickedMeasures();
     if (measures.length === 0) return [];
-    const everyTask = await this.tasks.list();
+    const everyTask = await this.tasks.summaries();
     const estimate = this.estimating(everyTask, measures);
     const ready = everyTask.filter(({ state }) => state === "ready");
     return readEach(ready, async (task) => ({
@@ -98,7 +101,7 @@ export class UsageEstimates {
    * The models a Task's Pipeline's Agent Stages use on each engine id they spend on, estimated or
    * not, in the Stages' order; what the Tasks asked share is read once for them all.
    */
-  modelsReader(): (task: Task) => Promise<ReadonlyMap<EngineId, readonly string[]>> {
+  modelsReader(): (task: TaskSummary) => Promise<ReadonlyMap<EngineId, readonly string[]>> {
     const reads = this.stageReads();
     return async (task) => {
       const models = new Map<EngineId, string[]>();
@@ -125,14 +128,14 @@ export class UsageEstimates {
    * Office-wide ratios, once.
    */
   private estimating(
-    everyTask: readonly Task[],
+    everyTask: readonly TaskSummary[],
     measures: readonly UsageMeasure[],
-  ): (task: Task) => Promise<UsageEstimate> {
+  ): (task: TaskSummary) => Promise<UsageEstimate> {
     const done = everyTask.filter(({ state }) => state === "done");
     const histories = new Map<string, Promise<StageUsages>>();
     let windowRatios: Promise<EngineWindowRatios> | undefined;
     let dollarsPerToken: Promise<number | undefined> | undefined;
-    const historyOf = ({ projectId, pipelineId }: Task): Promise<StageUsages> => {
+    const historyOf = ({ projectId, pipelineId }: TaskSummary): Promise<StageUsages> => {
       const key = JSON.stringify([projectId, pipelineId]);
       const ids = done
         .filter((task) => task.projectId === projectId && task.pipelineId === pipelineId)
@@ -177,7 +180,10 @@ export class UsageEstimates {
    * open on them (`engineThroughStandIns`); a vacant Role's and an unheld duty's are left out, and
    * every Stage while no engine is listed. None while the Task has no Pipeline.
    */
-  private async estimatedStages(task: Task, reads: StageReads): Promise<readonly EstimatedStage[]> {
+  private async estimatedStages(
+    task: TaskSummary,
+    reads: StageReads,
+  ): Promise<readonly EstimatedStage[]> {
     if (!hasPipeline(task)) return [];
     const { projectId } = task;
     const held = await reads.heldStagesOf(task.pipelineId);
@@ -225,7 +231,7 @@ export class UsageEstimates {
 
   /** The engines listed now, for a started Task with Stand-in Engines; none for any other. */
   private async enginesForStandIns(
-    task: Task,
+    task: TaskSummary,
     reads: StageReads,
   ): Promise<readonly Engine[] | undefined> {
     if (!STARTED_STATES.includes(task.state) || task.engineStandIns.length === 0) return undefined;

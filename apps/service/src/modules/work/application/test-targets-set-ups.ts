@@ -33,9 +33,7 @@ export class TestTargetsSetUps {
 
   /** The Project's open set-up Task; undefined when it has none. */
   async openOf(projectId: string): Promise<Task | undefined> {
-    return (await this.tasks.list()).find(
-      (task) => task.projectId === projectId && isOpenTestTargetsSetUp(task),
-    );
+    return (await this.tasks.madeFor("test-targets-setup", projectId)).find(isOpenTestTargetsSetUp);
   }
 
   /**

@@ -1,5 +1,5 @@
 import { covers } from "./files-to-change.js";
-import type { Task } from "./task.js";
+import type { TaskSummary } from "./task.js";
 import { STARTED_STATES } from "./task-states.js";
 
 /**
@@ -15,7 +15,7 @@ export interface Overlap {
  * The Overlaps of `task` with the started Tasks among `tasks`, in their order. A Plan with no
  * files to change overlaps none.
  */
-export function overlapsOf(task: Task, tasks: readonly Task[]): Overlap[] {
+export function overlapsOf(task: TaskSummary, tasks: readonly TaskSummary[]): Overlap[] {
   return tasks.flatMap((other) => {
     if (other.id === task.id || other.projectId !== task.projectId) return [];
     if (!STARTED_STATES.includes(other.state)) return [];

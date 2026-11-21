@@ -105,7 +105,7 @@ export class StartConditionsReader {
     const [officeWideLimit, usageSettings, everyTask, standIns] = await Promise.all([
       this.limits.officeWideLimit(),
       this.limits.usageSettings(),
-      this.tasks.list(),
+      this.tasks.summaries(),
       this.engineModels.standIns(),
     ]);
     const now = this.schedule.now();

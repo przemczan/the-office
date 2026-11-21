@@ -11,6 +11,7 @@ import { IdeaService } from "../../application/idea-service.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
+import type { Task } from "../../domain/task.js";
 import type { AttachmentOwner } from "../../domain/attachment.js";
 import { shapingOpeningOf, SHAPING_THREAD_TITLE } from "../../domain/shaping.js";
 import { defaultWorkPrompts } from "../../domain/work-prompt-templates.fixtures.js";
@@ -87,6 +88,13 @@ function call(name: string, input: Record<string, unknown>, sessionId = "planner
   return tool.run(input, anOfficeToolCall(sessionId));
 }
 
+/** The test's Project's one Task, read whole. */
+async function theProjectsTask(): Promise<Task | undefined> {
+  const tasks = work.app.get(TaskService);
+  const [task] = (await tasks.list()).filter((candidate) => candidate.projectId === projectId);
+  return task && tasks.read(task.id);
+}
+
 describe("capture_idea", () => {
   it("captures an Idea in the name of the person in the session", async () => {
     const result = await call(CAPTURE_IDEA_TOOL, {
@@ -146,9 +154,7 @@ describe("create_task", () => {
   it("creates a Task in Backlog in the person's name, with no Pipeline yet", async () => {
     const result = await call(CREATE_TASK, { title: "Fix the login redirect", projectId });
 
-    const [task] = (await work.app.get(TaskService).list()).filter(
-      (candidate) => candidate.projectId === projectId,
-    );
+    const task = await theProjectsTask();
     expect(task).toMatchObject({
       title: "Fix the login redirect",
       description: "",
@@ -170,9 +176,7 @@ describe("create_task", () => {
       projectId,
     });
 
-    const task = (await work.app.get(TaskService).list()).find(
-      (candidate) => candidate.title === "Remember the last Project",
-    );
+    const task = await theProjectsTask();
     expect(task?.description).toBe("The Add Task form should start on the Project I used last.");
   });
 
@@ -208,9 +212,7 @@ describe("create_task", () => {
       definitionOfDone: [" The button reads Keep. ", "The e2e test passes."],
     });
 
-    const [task] = (await work.app.get(TaskService).list()).filter(
-      (candidate) => candidate.projectId === projectId,
-    );
+    const task = await theProjectsTask();
     expect(task).toMatchObject({
       state: "backlog",
       plan: "Rename it in the editor.",

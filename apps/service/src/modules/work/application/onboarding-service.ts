@@ -52,10 +52,7 @@ export class OnboardingService {
 
   /** The Project's Onboard Task still Ready, not started yet; undefined when it has none. */
   async waitingOnboardTaskOf(projectId: string): Promise<Task | undefined> {
-    return (await this.tasks.list()).find(
-      (task) =>
-        task.projectId === projectId && task.madeFor === "onboard" && task.state === "ready",
-    );
+    return (await this.tasks.madeFor("onboard", projectId)).find((task) => task.state === "ready");
   }
 
   private async create(projectId: string, createdBy: Author): Promise<Task> {
@@ -77,6 +74,6 @@ export class OnboardingService {
 
   /** The onboarding of every Project that has one; a Project not listed has none. */
   async list(): Promise<ProjectOnboarding[]> {
-    return (await this.tasks.list()).flatMap((task) => projectOnboardingOf(task) ?? []);
+    return (await this.tasks.madeFor("onboard")).flatMap((task) => projectOnboardingOf(task) ?? []);
   }
 }

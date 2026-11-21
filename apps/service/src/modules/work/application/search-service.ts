@@ -6,7 +6,7 @@ import { tasksByInitiative } from "../domain/initiative-changes.js";
 import { boardOrder } from "../domain/manual-order.js";
 import { isInProjectFilter, type ProjectFilter } from "../domain/project-filter.js";
 import { idPrefixOf, SEARCH_RESULT_LIMIT, searchWords } from "../domain/search.js";
-import type { Task } from "../domain/task.js";
+import type { Task, TaskSummary } from "../domain/task.js";
 import { IdeaRepository } from "../ports/idea-repository.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { WorkSearch, type IdMatches } from "../ports/work-search.js";
@@ -81,7 +81,7 @@ export class SearchService {
     const [byId, byWords, board, ideas] = await Promise.all([
       this.startingWithId(query),
       this.search.matches(words),
-      this.tasks.list(),
+      this.tasks.summaries(),
       this.ideas.list(),
     ]);
     const projects = new ProjectsOf(board, ideas);
@@ -162,11 +162,11 @@ function narrowed<Record>(
 
 /** The Projects of each record, from the board and the Ideas as read once for a search. */
 class ProjectsOf {
-  private readonly tasks: ReadonlyMap<string, Task>;
+  private readonly tasks: ReadonlyMap<string, TaskSummary>;
   private readonly ideas: ReadonlyMap<string, Idea>;
-  private readonly initiativeTasks: ReadonlyMap<string, readonly Task[]>;
+  private readonly initiativeTasks: ReadonlyMap<string, readonly TaskSummary[]>;
 
-  constructor(board: readonly Task[], ideas: readonly Idea[]) {
+  constructor(board: readonly TaskSummary[], ideas: readonly Idea[]) {
     this.tasks = new Map(board.map((task) => [task.id, task]));
     this.ideas = new Map(ideas.map((idea) => [idea.id, idea]));
     this.initiativeTasks = tasksByInitiative(board);
