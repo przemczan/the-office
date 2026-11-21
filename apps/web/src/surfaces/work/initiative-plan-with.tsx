@@ -1,10 +1,10 @@
-import type { Initiative, Task } from "@the-office/contracts";
+import type { Initiative, TaskSummary } from "@the-office/contracts";
 import { Button, Icon } from "@the-office/ui";
-import { useQuery, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
+import { useQueryClient, type UseMutationResult } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
-import { planInitiativeWith, taskQueries } from "../../api/work.ts";
+import { planInitiativeWith, useEveryTask } from "../../api/work.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { canPlanInitiative } from "./initiative-planning-words.ts";
@@ -48,7 +48,7 @@ export function planningWithWords(planner: string): string {
  */
 export function usePlanWithAction(
   initiative: Initiative,
-  initiativeTasks: readonly Task[],
+  initiativeTasks: readonly TaskSummary[],
 ): RecordAction | undefined {
   const planner = usePlanner()?.card.name;
   const showToast = useToast();
@@ -74,7 +74,7 @@ export function PlanInitiativeWith({
   readonly planner: string;
 }): ReactNode {
   const showToast = useToast();
-  const tasks = useQuery(taskQueries.list()).data ?? [];
+  const tasks = useEveryTask().data ?? [];
   const planning = usePlanningWith(initiative);
   if (!canPlanInitiative(initiative, tasksOfInitiative(initiative, tasks))) return null;
   return (

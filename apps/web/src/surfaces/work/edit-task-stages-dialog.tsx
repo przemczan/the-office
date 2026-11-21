@@ -6,8 +6,8 @@ import type {
   Role,
   RoleCardOptions,
   Stage,
-  Task,
   TaskStages,
+  TaskSummary,
 } from "@the-office/contracts";
 import { Alert, Button, Dialog } from "@the-office/ui";
 import { useMemo, useState, type ReactNode } from "react";
@@ -43,7 +43,7 @@ export function EditTaskStagesDialog({
   task,
   onClose,
 }: {
-  readonly task: Task;
+  readonly task: TaskSummary;
   readonly onClose: () => void;
 }): ReactNode {
   const taskStages = useQuery(pipelineQueries.taskStages(task.id));
@@ -104,7 +104,7 @@ function EditTaskStagesForm({
   initiative,
   onClose,
 }: {
-  readonly task: Task;
+  readonly task: TaskSummary;
   readonly taskStages: TaskStages;
   /** What the Task may follow instead: its Project's own Pipelines, then the office-wide ones. */
   readonly groups: readonly PipelineChoiceGroup[];
@@ -267,7 +267,7 @@ function startedStages({ stages }: TaskStages): ReadonlyMap<string, string> {
 
 /** What a Script Stage may run in the Task's Project: its commands, and Publish as it ships there. */
 function commandsOf(
-  task: Task,
+  task: TaskSummary,
   project: Project,
   initiative: Initiative | undefined,
 ): StageCommandSource {

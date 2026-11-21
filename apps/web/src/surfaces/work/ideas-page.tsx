@@ -12,6 +12,7 @@ import {
   type Role,
   type Task,
   type TaskKind,
+  type TaskSummary,
 } from "@the-office/contracts";
 import { Alert, Button, Icon, IconButton, Menu, SplitButton } from "@the-office/ui";
 import { Link, useSearch } from "@tanstack/react-router";
@@ -24,7 +25,7 @@ import {
   ideaQueries,
   initiativeQueries,
   restoreIdea,
-  taskQueries,
+  useEveryTask,
 } from "../../api/work.ts";
 import { AddAttachmentDialog } from "../../shell/attachments/add-attachment-dialog.tsx";
 import { AttachmentGallery } from "../../shell/attachments/attachment-gallery.tsx";
@@ -55,7 +56,7 @@ export function IdeasPage(): ReactNode {
   const ideas = useQuery(ideaQueries.list());
   const projects = useQuery(projectQueries.list());
   const roles = useQuery(roleQueries.list());
-  const tasks = useQuery(taskQueries.list());
+  const tasks = useEveryTask();
   const initiatives = useQuery(initiativeQueries.list());
   const linkedTo = useSearch({ from: "/work/ideas" }).idea;
   const page = useScrolledToLinked(linkedTo, ideas.data !== undefined);
@@ -335,7 +336,7 @@ function ShapedIdea({
 }: {
   readonly idea: Idea;
   readonly projects: readonly Project[] | undefined;
-  readonly tasks: readonly Task[] | undefined;
+  readonly tasks: readonly TaskSummary[] | undefined;
   readonly initiatives: readonly Initiative[] | undefined;
   readonly linkedTo: boolean;
 }): ReactNode {

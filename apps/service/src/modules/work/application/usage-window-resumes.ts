@@ -44,8 +44,8 @@ export class UsageWindowResumes implements OnModuleInit, OnModuleDestroy {
 
   /** As The Office starts: the wait of every Task the usage window holds. */
   async start(): Promise<void> {
-    for (const task of await this.repository.list()) {
-      if (task.pausedBy === "usage-window" && task.resumesAt !== undefined) {
+    for (const task of await this.repository.pausedByUsageWindow()) {
+      if (task.resumesAt !== undefined) {
         this.resumeAt(task.id, task.resumesAt);
       }
     }

@@ -45,6 +45,15 @@ export const NOT_STARTED_STATES: readonly TaskState[] = ["shaping", "backlog", "
  */
 export const STARTED_STATES: readonly TaskState[] = ["in-progress", "waiting-on-you", "paused"];
 
+/** States of a Task neither Done nor Dropped, started or not. */
+export const OPEN_STATES: readonly TaskState[] = [...NOT_STARTED_STATES, ...STARTED_STATES];
+
+/**
+ * States of the other Tasks a Start weighs: the started ones for the Task limits, the Overlaps and
+ * the Daily caps' work in progress, the done ones as the Usage estimates' history.
+ */
+export const STATES_A_START_WEIGHS: readonly TaskState[] = [...STARTED_STATES, "done"];
+
 /** Every reason the Task can't move to `to`; empty when it can or is already there. */
 export function stateChangeProblems(task: Task, to: TaskState): string[] {
   const move = moveProblems(task, to);

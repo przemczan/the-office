@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import type { Initiative, Task } from "@the-office/contracts";
+import type { Initiative, Task, TaskSummary } from "@the-office/contracts";
 import { Button, Dialog } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { initiativeBackToShaping, taskQueries } from "../../api/work.ts";
@@ -16,7 +16,10 @@ export interface MovedBack {
 
 const MOVING_BACK: readonly Task["state"][] = ["backlog", "planning", "ready"];
 
-export function movedBack(initiative: Initiative, initiativeTasks: readonly Task[]): MovedBack {
+export function movedBack(
+  initiative: Initiative,
+  initiativeTasks: readonly TaskSummary[],
+): MovedBack {
   return {
     tasks: initiativeTasks.filter(({ state }) => MOVING_BACK.includes(state)).length,
     branches: initiative.branches.length,
@@ -47,7 +50,7 @@ export const BACK_IN_SHAPING_WORDS =
  */
 export function useBackToShapingAction(
   initiative: Initiative,
-  initiativeTasks: readonly Task[],
+  initiativeTasks: readonly TaskSummary[],
 ): RecordAction | undefined {
   const [asking, setAsking] = useState(false);
   if (initiative.state !== "active") return undefined;
@@ -75,7 +78,7 @@ function BackToShapingDialog({
   onClose,
 }: {
   readonly initiative: Initiative;
-  readonly initiativeTasks: readonly Task[];
+  readonly initiativeTasks: readonly TaskSummary[];
   readonly onClose: () => void;
 }): ReactNode {
   const queryClient = useQueryClient();

@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import type { Initiative, Task } from "@the-office/contracts";
+import type { Initiative, TaskSummary } from "@the-office/contracts";
 import { Button, Dialog } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { dropInitiative, taskQueries } from "../../api/work.ts";
@@ -23,7 +23,7 @@ export function DropInitiativeDialog({
   onClose,
 }: {
   readonly initiative: Initiative;
-  readonly initiativeTasks: readonly Task[];
+  readonly initiativeTasks: readonly TaskSummary[];
   readonly onClose: () => void;
 }): ReactNode {
   const queryClient = useQueryClient();

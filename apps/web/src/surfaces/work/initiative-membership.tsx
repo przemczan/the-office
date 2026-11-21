@@ -5,7 +5,7 @@ import {
   type UseMutationResult,
 } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { Initiative, Project, Task } from "@the-office/contracts";
+import type { Initiative, Project, Task, TaskSummary } from "@the-office/contracts";
 import { Button, Dialog, Icon, Input, RadioGroup, SearchableSelect } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
@@ -30,9 +30,9 @@ import {
 
 /** A Task joining or leaving an Initiative: the answer replaces the shown Task at once. */
 function useMembershipChange(
-  change: (task: Task) => Promise<Task>,
+  change: (task: TaskSummary) => Promise<Task>,
   onChanged: (changed: Task) => void,
-): UseMutationResult<Task, Error, Task> {
+): UseMutationResult<Task, Error, TaskSummary> {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: change,
@@ -53,7 +53,7 @@ function useMembershipChange(
  * section of the Description block. Both until the Task starts, and never for a Task The Office
  * made; once it can't change, the section shows only the Initiative it is in.
  */
-export function TaskInitiativeSection({ task }: { readonly task: Task }): ReactNode {
+export function TaskInitiativeSection({ task }: { readonly task: TaskSummary }): ReactNode {
   const initiative = useQuery({
     ...initiativeQueries.one(task.initiativeId ?? ""),
     enabled: task.initiativeId !== null,
@@ -110,7 +110,7 @@ function JoinInitiativeDialog({
   task,
   onClose,
 }: {
-  readonly task: Task;
+  readonly task: TaskSummary;
   readonly onClose: () => void;
 }): ReactNode {
   const showToast = useToast();
@@ -182,7 +182,7 @@ export function TakeOutDialog({
   onClose,
 }: {
   readonly initiative: Initiative;
-  readonly candidates: readonly Task[];
+  readonly candidates: readonly TaskSummary[];
   readonly projects: readonly Project[] | undefined;
   readonly onClose: () => void;
 }): ReactNode {
@@ -255,7 +255,7 @@ export function AddExistingTaskDialog({
   onClose,
 }: {
   readonly initiative: Initiative;
-  readonly candidates: readonly Task[];
+  readonly candidates: readonly TaskSummary[];
   readonly onClose: () => void;
 }): ReactNode {
   const showToast = useToast();
@@ -333,7 +333,7 @@ function TaskLabel({
   task,
   projects,
 }: {
-  readonly task: Task;
+  readonly task: TaskSummary;
   readonly projects: readonly Project[] | undefined;
 }): ReactNode {
   const project = projects?.find(({ id }) => id === task.projectId);

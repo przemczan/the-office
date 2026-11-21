@@ -1,4 +1,9 @@
-import { queryOptions, type QueryKey } from "@tanstack/react-query";
+import {
+  queryOptions,
+  useQueries,
+  type QueryKey,
+  type UseQueryResult,
+} from "@tanstack/react-query";
 import {
   ADD_DEPENDENCY_ACTION,
   ADD_TO_INITIATIVE_ACTION,
@@ -67,6 +72,7 @@ import {
   type FireAlarm,
   type Task,
   type TaskMoveCheck,
+  type TaskSummary,
   type TaskPlacement,
   type TaskUsageEstimateList,
   type UsageSettings,
@@ -253,11 +259,23 @@ export const searchQuery = (query: string, filter: ProjectFilter) =>
   });
 
 export const taskQueries = {
-  /** Every Task, in the board's order: by priority, then by manual order. */
+  /**
+   * The Tasks on the board, never an archived one, in the board's order: by priority, then by
+   * manual order. Each a Task's summary, without its long texts, which only `one` reads.
+   */
   list: () =>
     queryOptions({
       queryKey: TASKS,
       queryFn: ({ signal }) => getFromApi("/tasks", taskListSchema, signal),
+    }),
+  /**
+   * The archived Tasks, the last archived first, as summaries; under the Tasks' key, so whatever
+   * refreshes the board's Tasks refreshes them too.
+   */
+  archived: () =>
+    queryOptions({
+      queryKey: [...TASKS, "archived"],
+      queryFn: ({ signal }) => getFromApi("/tasks?archived=true", taskListSchema, signal),
     }),
   /**
    * The Tasks the board's search matches, by the service's full-text search; under the Tasks' key.
@@ -329,6 +347,40 @@ export const taskQueries = {
         getFromApi(`${taskPath(id)}/readiness`, readinessSchema, signal),
     }),
 };
+
+/** Every Task, on the board or archived, as `useEveryTask` reads them. */
+export interface EveryTask {
+  /** The board's Tasks, in its order, then the archived ones; none until both are read. */
+  readonly data: readonly TaskSummary[] | undefined;
+  readonly error: Error | null;
+  readonly isPending: boolean;
+}
+
+/**
+ * Every Task, the board's and the archived ones, for whatever looks a Task up by its id or names
+ * it (a dependency, a Duplicate of, an Initiative's progress, a mention), which may be archived.
+ * The board itself reads only `taskQueries.list()`.
+ */
+export function useEveryTask({ enabled = true }: { readonly enabled?: boolean } = {}): EveryTask {
+  return useQueries({
+    queries: [
+      { ...taskQueries.list(), enabled },
+      { ...taskQueries.archived(), enabled },
+    ],
+    combine: everyTaskOf,
+  });
+}
+
+function everyTaskOf([board, archived]: [
+  UseQueryResult<TaskSummary[]>,
+  UseQueryResult<TaskSummary[]>,
+]): EveryTask {
+  return {
+    data: board.data && archived.data ? [...board.data, ...archived.data] : undefined,
+    error: board.error ?? archived.error,
+    isPending: board.isPending || archived.isPending,
+  };
+}
 
 /**
  * Every Project's onboarding, read from its Onboard Task; a Project not listed has none. Under the

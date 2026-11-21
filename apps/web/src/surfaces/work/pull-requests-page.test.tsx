@@ -155,6 +155,7 @@ function openPullRequests(
     "GET /api/pull-requests": () => ({ status: 200, body: list }),
     "POST /api/pull-requests/refresh": () => ({ status: 202 }),
     "GET /api/tasks": () => ({ status: 200, body: tasks }),
+    "GET /api/tasks?archived=true": () => ({ status: 200, body: [] }),
     "GET /api/queue": () => ({ status: 200, body: [] }),
     "GET /api/projects": () => ({ status: 200, body: PROJECTS }),
     "GET /api/github": () => ({ status: 200, body: gitHub }),

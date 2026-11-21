@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { Project, Task } from "@the-office/contracts";
+import type { Project, TaskSummary } from "@the-office/contracts";
 import { Alert, DataTable, type DataTableColumn } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
-import { taskQueries } from "../../api/work.ts";
+import { taskQueries, useEveryTask } from "../../api/work.ts";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
 import { narrowed } from "../../shell/project-filter/project-filter-choices.ts";
@@ -21,7 +21,9 @@ import { archivedTasks } from "./archive-words.ts";
  * click from the board again.
  */
 export function ArchivedTasks(): ReactNode {
-  const tasks = useQuery(taskQueries.list());
+  const tasks = useQuery(taskQueries.archived());
+  // A Duplicate of names its Task, which may be on the board or archived.
+  const everyTask = useEveryTask();
   const projects = useQuery(projectQueries.list());
   const projectFilter = useProjectFilter();
   if (tasks.error) return <Alert tone="danger" title={tasks.error.message} />;
@@ -33,7 +35,7 @@ export function ArchivedTasks(): ReactNode {
     <div className="archived-tasks">
       <InOtherProjectsNote count={elsewhere} one="archived Task" many="archived Tasks" />
       <DataTable
-        columns={columnsFor(projects.data, tasks.data)}
+        columns={columnsFor(projects.data, everyTask.data ?? tasks.data)}
         rows={[...shown]}
         empty="No archived Tasks. Archive a Done or Dropped Task from its More menu."
       />
@@ -43,8 +45,8 @@ export function ArchivedTasks(): ReactNode {
 
 function columnsFor(
   projects: readonly Project[] | undefined,
-  tasks: readonly Task[],
-): DataTableColumn<Task & Archived>[] {
+  tasks: readonly TaskSummary[],
+): DataTableColumn<TaskSummary & Archived>[] {
   return [
     {
       key: "task",

@@ -43,6 +43,7 @@ export class InitiativeMembership {
       this.task(taskId),
     ]);
     const grounds = { worktreeExists: await this.worktreeExists(task) };
+    // Every Task: the Publishing Task's new dependency is checked for a cycle across the board.
     addToInitiative(initiative, task, await this.tasks.list(), grounds, by);
     await this.branching.forNewProject(initiativeId, task.projectId);
     return this.change(initiativeId, taskId, async (held, heldTask, everyTask) =>

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
-import { archiveCutoff, archiveIfDue, isFinishedOnTheBoard } from "../domain/task-archive.js";
+import { archiveCutoff, archiveIfDue } from "../domain/task-archive.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { WorkSettings } from "../ports/work-settings.js";
 
@@ -35,7 +35,7 @@ export class TaskArchiving {
   async archiveDue(): Promise<number> {
     const now = this.schedule.now();
     const cutoff = archiveCutoff(now, await this.settings.archivePeriod());
-    const candidates = (await this.repository.list()).filter(isFinishedOnTheBoard);
+    const candidates = await this.repository.finishedOnTheBoard();
     let archived = 0;
     for (const { id } of candidates) {
       // Weighed again while the Task is held, so a Restore since the list isn't undone.

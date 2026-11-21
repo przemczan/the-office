@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import type { Initiative, QueuedTask, Task } from "@the-office/contracts";
+import type { Initiative, QueuedTask, TaskSummary } from "@the-office/contracts";
 import { Button, Icon, PlainMark } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { blockCount } from "./board-blocks.ts";
@@ -10,7 +10,7 @@ export interface InitiativeBlockProps {
   readonly initiative: Pick<Initiative, "id" | "name" | "pausedAt">;
   readonly column: Column;
   /** The block's cards the column shows, in its order. */
-  readonly cards: readonly Task[];
+  readonly cards: readonly TaskSummary[];
   readonly queue: readonly QueuedTask[];
   /** Its Initiative's head is hovered or focused, in this column or another. */
   readonly outlined: boolean;
@@ -19,7 +19,7 @@ export interface InitiativeBlockProps {
   /** The head was hovered or focused (the Initiative's id), or left (undefined). */
   readonly onOutline: (initiativeId: string | undefined) => void;
   /** Draws one of the cards, as the board does. */
-  readonly renderCard: (card: Task) => ReactNode;
+  readonly renderCard: (card: TaskSummary) => ReactNode;
 }
 
 /**

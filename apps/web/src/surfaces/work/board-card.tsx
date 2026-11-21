@@ -1,4 +1,10 @@
-import type { Project, QueuedTask, Task, TaskState, UsageEstimate } from "@the-office/contracts";
+import type {
+  Project,
+  QueuedTask,
+  TaskState,
+  UsageEstimate,
+  TaskSummary,
+} from "@the-office/contracts";
 import { Badge, Icon, PlainMark, Popover } from "@the-office/ui";
 import { Link } from "@tanstack/react-router";
 import {
@@ -30,7 +36,7 @@ const EDGES: Partial<Record<TaskState, string>> = {
 };
 
 export interface BoardCardProps {
-  readonly task: Task;
+  readonly task: TaskSummary;
   readonly projects: readonly Project[] | undefined;
   /** The Planner's name; undefined while nobody is the Planner. */
   readonly planner: string | undefined;
@@ -39,9 +45,9 @@ export interface BoardCardProps {
   /** Its place in the queue for Start; undefined while it isn't queued. */
   readonly queued: QueuedTask | undefined;
   /** The Tasks it is queued behind for an Overlap. */
-  readonly queuedBehind: readonly Task[];
+  readonly queuedBehind: readonly TaskSummary[];
   /** The Tasks still holding it back. */
-  readonly blockers: readonly Task[];
+  readonly blockers: readonly TaskSummary[];
   /** The names of the people working on it now. */
   readonly peopleWorking: readonly PersonWorking[];
   /** The current Stage's name while one of them works it. */
@@ -232,7 +238,7 @@ function BlockedMark({
   blockers,
   projects,
 }: {
-  readonly blockers: readonly Task[];
+  readonly blockers: readonly TaskSummary[];
   readonly projects: readonly Project[] | undefined;
 }): ReactNode {
   const words = `Blocked by ${counted(blockers.length, "Task", "Tasks")}`;

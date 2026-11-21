@@ -55,7 +55,7 @@ function aTask(id: string, fields: Partial<Task> = {}): Task {
   };
 }
 
-const ids = (tasks: readonly Task[]): string[] => tasks.map(({ id }) => id);
+const ids = (tasks: readonly Pick<Task, "id">[]): string[] => tasks.map(({ id }) => id);
 
 describe("blockersOf and blockingTasksOf", () => {
   it("lists every blocker in the order added, and only those neither Done nor Dropped as blocking", () => {

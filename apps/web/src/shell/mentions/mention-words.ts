@@ -3,7 +3,7 @@ import {
   type Decision,
   type Idea,
   type Initiative,
-  type Task,
+  type TaskSummary,
 } from "@the-office/contracts";
 
 /** The kinds of record a message can mention, in the UI's words. */
@@ -45,7 +45,7 @@ export function mentionQueryAt(text: string, caret: number): MentionQuery | unde
 
 /** The Tasks, Initiatives, open Decisions and Ideas a message can mention; dropped ones are left out. */
 export function mentionables(
-  tasks: readonly Task[],
+  tasks: readonly TaskSummary[],
   initiatives: readonly Initiative[],
   decisions: readonly Decision[],
   ideas: readonly Idea[],

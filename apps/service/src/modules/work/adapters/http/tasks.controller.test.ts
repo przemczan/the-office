@@ -10,6 +10,7 @@ import {
   initiativeSchema,
   startAnswerSchema,
   taskMoveCheckSchema,
+  taskListSchema,
   taskSchema,
   workRefusalSchema,
   type PlanChange,
@@ -172,6 +173,31 @@ describe("GET /api/tasks", () => {
 
     expect(taskSchema.parse(await read.json())).toEqual(task);
     expect((await sendJson(work, "GET", `/tasks/${randomUUID()}`)).status).toBe(404);
+  });
+
+  it("lists the board's Tasks without their long texts, and the archived ones apart", async () => {
+    const onTheBoard = await create({ description: "A long story." });
+    const archived = await create();
+    await sendJson(work, "POST", `/tasks/${archived.id}/drop`);
+    await sendJson(work, "POST", `/tasks/${archived.id}/archive`);
+
+    const board = (await (await sendJson(work, "GET", "/tasks")).json()) as Record<
+      string,
+      unknown
+    >[];
+    const archive = taskListSchema.parse(
+      await (await sendJson(work, "GET", "/tasks?archived=true")).json(),
+    );
+
+    const listed = board.find(({ id }) => id === onTheBoard.id);
+    expect(() => taskListSchema.parse(board)).not.toThrow();
+    expect(listed).toMatchObject({ title: onTheBoard.title, state: "backlog" });
+    expect(listed).not.toHaveProperty("description");
+    expect(listed).not.toHaveProperty("plan");
+    expect(listed).not.toHaveProperty("definitionOfDone");
+    expect(board.map(({ id }) => id)).not.toContain(archived.id);
+    expect(archive.map(({ id }) => id)).toContain(archived.id);
+    expect(archive.map(({ id }) => id)).not.toContain(onTheBoard.id);
   });
 });
 

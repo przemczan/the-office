@@ -107,7 +107,7 @@ export class StandInChoices implements OnModuleInit {
   private async held(): Promise<
     { readonly task: StartedTask; readonly choice: HeldForStandInChoice }[]
   > {
-    const paused = (await this.tasks.list()).filter(pausedByTheWindow);
+    const paused = await this.tasks.pausedByUsageWindow();
     if (paused.length === 0) return [];
     const runs = await this.runs.listOfTasks(paused.map(({ id }) => id));
     return paused
@@ -156,10 +156,6 @@ export class StandInChoices implements OnModuleInit {
     const runs = await this.runs.listOfTasks([taskId]);
     if (runs.some(askedChoice)) await this.events.publish(new StandInChoicesChanged(taskId));
   }
-}
-
-function pausedByTheWindow({ state, pausedBy }: StartedTask): boolean {
-  return state === "paused" && pausedBy === "usage-window";
 }
 
 /** Whether the run was held asking the user's choice of a Stand-in Engine, made or not. */

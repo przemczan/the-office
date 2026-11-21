@@ -29,8 +29,8 @@ import { ServiceOwner } from "./service-owner.js";
 export class KnownTasksForTests extends KnownTasks {
   tasks: KnownTask[] = [];
 
-  list(): Promise<readonly KnownTask[]> {
-    return Promise.resolve(this.tasks);
+  open(): Promise<readonly KnownTask[]> {
+    return Promise.resolve(this.tasks.filter(({ state }) => !["done", "dropped"].includes(state)));
   }
 
   read(id: string): Promise<KnownTask> {

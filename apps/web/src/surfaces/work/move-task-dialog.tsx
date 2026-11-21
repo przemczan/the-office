@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Project, Task, TaskState } from "@the-office/contracts";
+import type { Project, TaskState, TaskSummary } from "@the-office/contracts";
 import { Alert, Button, Dialog, Field, RadioGroup, Skeleton } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
@@ -16,7 +16,7 @@ export function MoveTaskDialog({
   task,
   onClose,
 }: {
-  readonly task: Task;
+  readonly task: TaskSummary;
   readonly onClose: () => void;
 }): ReactNode {
   const formId = useId();
@@ -88,7 +88,7 @@ export function MoveTaskDialog({
   );
 }
 
-function useMovingTask(task: Task, onMoved: () => void) {
+function useMovingTask(task: TaskSummary, onMoved: () => void) {
   const queryClient = useQueryClient();
   const showToast = useToast();
   return useMutation({
@@ -110,7 +110,7 @@ function WhatMovingDoes({
   task,
   project,
 }: {
-  readonly task: Task;
+  readonly task: TaskSummary;
   readonly project: Project;
 }): ReactNode {
   return (

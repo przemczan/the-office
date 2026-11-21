@@ -328,11 +328,7 @@ export class RunEnvironments implements OnModuleInit {
    * check; then the files of Tasks with none, and the images no Project's current key uses.
    */
   async sweep(): Promise<void> {
-    const open = new Set(
-      (await this.knownTasks.list())
-        .filter(({ state }) => !FINISHED_STATES.includes(state))
-        .map(({ id }) => id),
-    );
+    const open = new Set((await this.knownTasks.open()).map(({ id }) => id));
     const resources = await this.runtime.listByLabel(officeLabels(this.folders.instance));
     const owners = new Set(resources.map(({ labels }) => labels[LABEL.task] ?? ""));
     owners.delete("");

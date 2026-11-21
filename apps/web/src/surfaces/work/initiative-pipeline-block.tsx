@@ -7,8 +7,8 @@ import {
   type Project,
   type ProjectPipeline,
   type Role,
-  type Task,
   type TaskStages,
+  type TaskSummary,
 } from "@the-office/contracts";
 import { Alert, Button, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
@@ -62,7 +62,7 @@ interface ProjectBlockData {
   readonly pipelineId: string | null;
   readonly pipeline: PipelineShown | undefined;
   /** Its Publishing Task once added, with its Stages once read. */
-  readonly publishingTask: Task | undefined;
+  readonly publishingTask: TaskSummary | undefined;
   readonly taskStages: TaskStages | undefined;
 }
 
@@ -82,7 +82,7 @@ export function InitiativePipelineBlock({
 }: {
   readonly initiative: Initiative;
   /** Every Task, where its Publishing Tasks and their blockers are read. */
-  readonly tasks: readonly Task[];
+  readonly tasks: readonly TaskSummary[];
   readonly projects: readonly Project[] | undefined;
 }): ReactNode {
   const fold = useFold(
@@ -309,7 +309,7 @@ function ProjectBlock({
 }: {
   readonly initiative: Initiative;
   readonly block: ProjectBlockData;
-  readonly tasks: readonly Task[];
+  readonly tasks: readonly TaskSummary[];
   readonly roles: readonly Role[] | undefined;
   readonly pipelineOf: (pipelineId: string | null) => PipelineShown | undefined;
 }): ReactNode {
@@ -409,8 +409,8 @@ function PublishingWait({
   task,
   tasks,
 }: {
-  readonly task: Task;
-  readonly tasks: readonly Task[];
+  readonly task: TaskSummary;
+  readonly tasks: readonly TaskSummary[];
 }): ReactNode {
   const wait = publishingWaitWords(task, tasks);
   return wait === undefined ? null : <p className="initiative-pipelines-wait">{wait}</p>;
@@ -425,7 +425,7 @@ function PublishingTrack({
   project,
   roles,
 }: {
-  readonly task: Task;
+  readonly task: TaskSummary;
   readonly taskStages: TaskStages;
   readonly pipeline: PipelineShown | undefined;
   readonly label: string;

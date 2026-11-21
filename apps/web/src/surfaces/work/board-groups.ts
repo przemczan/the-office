@@ -1,4 +1,4 @@
-import type { Initiative, QueuedTask, Task } from "@the-office/contracts";
+import type { Initiative, QueuedTask, TaskSummary } from "@the-office/contracts";
 import { cardsIn, COLUMNS, type Column } from "./board-columns.ts";
 import { isOnBoard } from "./board-filters.ts";
 import {
@@ -17,11 +17,11 @@ export interface BoardGroup {
   /** Undefined for No Initiative. */
   readonly initiative: Initiative | undefined;
   /** Its cards on the board, in every Project. */
-  readonly onBoard: readonly Task[];
+  readonly onBoard: readonly TaskSummary[];
   /** Those in the Projects the Project filter shows. */
-  readonly inProjects: readonly Task[];
+  readonly inProjects: readonly TaskSummary[];
   /** Those the filters leave too: the cards it shows. */
-  readonly shown: readonly Task[];
+  readonly shown: readonly TaskSummary[];
 }
 
 /** Why the group the Initiative filter picked has no card to show. */
@@ -49,18 +49,18 @@ export type BoardGroups =
     };
 
 export interface BoardGroupsInput {
-  /** Every Task, archived and in Shaping too. */
-  readonly tasks: readonly Task[];
+  /** The board's Tasks, in Shaping too. */
+  readonly tasks: readonly TaskSummary[];
   /** As `GET /initiatives` answers: the newest first. */
   readonly initiatives: readonly Initiative[];
-  readonly inProjectFilter: (task: Task) => boolean;
+  readonly inProjectFilter: (task: TaskSummary) => boolean;
   /** Whether a Task shows under the board's filters. */
-  readonly matches: (task: Task) => boolean;
+  readonly matches: (task: TaskSummary) => boolean;
   /** The Initiative filter's pick. */
   readonly chosenInitiative: string | undefined;
 }
 
-export function groupKeyOf(task: Pick<Task, "initiativeId">): string {
+export function groupKeyOf(task: Pick<TaskSummary, "initiativeId">): string {
   return task.initiativeId ?? NO_INITIATIVE;
 }
 
@@ -138,7 +138,10 @@ export function groupName(group: BoardGroup): string {
 }
 
 /** The header's progress, over every Task of the Initiative, archived and in Shaping too. */
-export function groupProgress(initiative: Initiative, tasks: readonly Task[]): InitiativeProgress {
+export function groupProgress(
+  initiative: Initiative,
+  tasks: readonly TaskSummary[],
+): InitiativeProgress {
   return initiativeProgress(tasksOfInitiative(initiative, tasks), tasks);
 }
 

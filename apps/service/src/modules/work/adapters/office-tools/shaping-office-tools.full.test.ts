@@ -333,7 +333,7 @@ describe("once the Initiative is active", () => {
     await work.app.get(TaskService).drop(queue.id, ANN_LEE);
 
     expect(await call(WRITE_TASK_TITLE, { taskId: queue.id, title: "Keep it" })).toEqual({
-      text: "A Task keeps its title once it has started.",
+      text: "A Task keeps its title once it is Done or Dropped.",
       isError: true,
     });
     expect(await call(WRITE_TASK_DESCRIPTION, { taskId: queue.id, description: "Why" })).toEqual({
@@ -365,7 +365,7 @@ describe("once the Initiative is dropped", () => {
     await work.app.get(InitiativeService).drop(initiative.id, ANN_LEE);
 
     expect(await call(WRITE_TASK_TITLE, { taskId: queue.id, title: "Keep it" })).toEqual({
-      text: "A Task keeps its title once it has started.",
+      text: "A Task keeps its title once it is Done or Dropped.",
       isError: true,
     });
     expect(await call(WRITE_TASK_DESCRIPTION, { taskId: queue.id, description: "Why" })).toEqual({

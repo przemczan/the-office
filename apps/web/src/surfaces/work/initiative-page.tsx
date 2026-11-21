@@ -6,13 +6,13 @@ import {
   type Project,
   type ReadyTasksStarted,
   type Role,
-  type Task,
+  type TaskSummary,
 } from "@the-office/contracts";
 import { Alert, Button } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { decisionQueries } from "../../api/conversations.ts";
 import { projectQueries } from "../../api/projects.ts";
-import { initiativeQueries, taskQueries } from "../../api/work.ts";
+import { initiativeQueries, useEveryTask } from "../../api/work.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { useShaper } from "../../shell/work/use-shaper.ts";
 import { ArchivedBadge } from "./archive-parts.tsx";
@@ -52,7 +52,7 @@ const NO_DECISIONS: readonly Decision[] = [];
 export function InitiativePage(): ReactNode {
   const { initiativeId } = useParams({ from: "/work/initiatives/$initiativeId" });
   const initiative = useQuery(initiativeQueries.one(initiativeId));
-  const tasks = useQuery(taskQueries.list());
+  const tasks = useEveryTask();
   const projects = useQuery(projectQueries.list());
   // What waits on the user, for the planning steps; the Decisions' events keep it current.
   const openDecisions = useQuery(decisionQueries.open()).data ?? NO_DECISIONS;
@@ -137,8 +137,8 @@ function InitiativeHead({
   onStartedReadyTasks,
 }: {
   readonly initiative: Initiative;
-  readonly initiativeTasks: readonly Task[];
-  readonly tasks: readonly Task[];
+  readonly initiativeTasks: readonly TaskSummary[];
+  readonly tasks: readonly TaskSummary[];
   readonly openDecisions: readonly Decision[];
   readonly projects: readonly Project[] | undefined;
   readonly shaper: Role | undefined;
@@ -181,8 +181,8 @@ function TasksBlock({
   shaper,
 }: {
   readonly initiative: Initiative;
-  readonly initiativeTasks: readonly Task[];
-  readonly tasks: readonly Task[];
+  readonly initiativeTasks: readonly TaskSummary[];
+  readonly tasks: readonly TaskSummary[];
   readonly openDecisions: readonly Decision[];
   readonly projects: readonly Project[] | undefined;
   readonly shaper: Role | undefined;

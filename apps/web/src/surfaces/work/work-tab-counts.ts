@@ -1,4 +1,4 @@
-import type { Idea, Initiative, PullRequest, Task } from "@the-office/contracts";
+import type { Idea, Initiative, PullRequest, TaskSummary } from "@the-office/contracts";
 import { projectIdsOfIdea } from "../../shell/work/work-words.ts";
 import { isOnBoard } from "./board-filters.ts";
 import { onTheBoard } from "./initiative-columns.ts";
@@ -10,7 +10,7 @@ export type ShownByProjectFilter = (projectIds: readonly string[]) => boolean;
  * The Tasks tab's count: the Tasks on the board neither Done nor Dropped, in the Projects the Project
  * filter shows. The board's own filters leave it as it is.
  */
-export function openTasksCount(tasks: readonly Task[], shows: ShownByProjectFilter): number {
+export function openTasksCount(tasks: readonly TaskSummary[], shows: ShownByProjectFilter): number {
   return tasks.filter(
     (task) =>
       isOnBoard(task) &&

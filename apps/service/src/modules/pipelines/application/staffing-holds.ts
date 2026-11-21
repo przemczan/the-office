@@ -13,8 +13,6 @@ import { StaffingHoldRepository } from "../ports/staffing-hold-repository.js";
 import { StartedTasks, type ResumedOrDroppedBy } from "../ports/started-tasks.js";
 import { TaskStagesService } from "./task-stages-service.js";
 
-const RUNNING_STATES: readonly string[] = ["in-progress", "waiting-on-you", "paused"];
-
 /**
  * Holds a Task whose next Stages nobody can work (spec §2.2), such as after the person who filled
  * their Role was let go, or the duty they name was left unheld: the Task is paused behind a
@@ -69,8 +67,7 @@ export class StaffingHolds implements OnModuleInit {
   }
 
   private async holdTasksLackingPeople(): Promise<void> {
-    for (const { id, state } of await this.tasks.list()) {
-      if (!RUNNING_STATES.includes(state)) continue;
+    for (const { id } of await this.tasks.started()) {
       await this.holdIfLackingPeople(id).catch((error: unknown) => {
         this.logger.error(`Task ${id} wasn't held for lack of people`, stackOf(error));
       });

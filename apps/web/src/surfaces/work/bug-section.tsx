@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import type { IssueLink, Project, Task } from "@the-office/contracts";
+import type { IssueLink, Project, TaskSummary } from "@the-office/contracts";
 import { Alert, Badge, Button, Icon, SearchableSelect } from "@the-office/ui";
 import { Link } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import { ciRunQueries } from "../../api/ci-runs.ts";
 import { roleQueries } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
-import { changeCausedBy, changeFoundInVersion, taskQueries } from "../../api/work.ts";
+import { changeCausedBy, changeFoundInVersion, useEveryTask } from "../../api/work.ts";
 import { ProjectMark } from "../../shell/project-mark.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { momentWords } from "../../shell/time.ts";
@@ -24,8 +24,8 @@ import { useRecordChange } from "./planning-parts.tsx";
  * them hidden, so changing back loses nothing. Editable until Done or Dropped; then read-only, its
  * empty rows hidden.
  */
-export function BugSection({ task }: { readonly task: Task }): ReactNode {
-  const tasks = useQuery(taskQueries.list()).data ?? [];
+export function BugSection({ task }: { readonly task: TaskSummary }): ReactNode {
+  const tasks = useEveryTask().data ?? [];
   const projects = useQuery(projectQueries.list()).data;
   const [pickingCause, setPickingCause] = useState(false);
   const [changingVersion, setChangingVersion] = useState(false);
@@ -175,7 +175,7 @@ function TaskChip({
   task,
   projects,
 }: {
-  readonly task: Task | undefined;
+  readonly task: TaskSummary | undefined;
   readonly projects: readonly Project[] | undefined;
 }): ReactNode {
   if (!task) return <span className="task-quiet">A Task no longer readable</span>;
@@ -200,7 +200,7 @@ function FoundInVersionPicker({
   task,
   onChoose,
 }: {
-  readonly task: Task;
+  readonly task: TaskSummary;
   readonly onChoose: (version: string | null) => void;
 }): ReactNode {
   const refs = useQuery(ciRunQueries.refs(task.projectId));
@@ -225,8 +225,8 @@ function FoundInVersionPicker({
  * The Bugs this Task's work caused and the Tasks dropped as its duplicates, each listed while there
  * is one, on a Task of any Kind.
  */
-export function CausedBugsSections({ task }: { readonly task: Task }): ReactNode {
-  const tasks = useQuery(taskQueries.list()).data ?? [];
+export function CausedBugsSections({ task }: { readonly task: TaskSummary }): ReactNode {
+  const tasks = useEveryTask().data ?? [];
   const projects = useQuery(projectQueries.list()).data;
   const causedBugs = tasks.filter(({ causedBy }) => causedBy === task.id);
   const duplicates = tasks.filter(
@@ -260,7 +260,7 @@ export function CausedBugsSections({ task }: { readonly task: Task }): ReactNode
  * closed issue is an Alert while the Task hasn't started, then a muted line; a refused write-back
  * says so in a muted line.
  */
-export function GitHubIssueSection({ task }: { readonly task: Task }): ReactNode {
+export function GitHubIssueSection({ task }: { readonly task: TaskSummary }): ReactNode {
   const issue = useQuery(projectQueries.issueLink(task.id)).data;
   const roles = useQuery(roleQueries.list()).data;
   const signedInUserId = useSignedInUserId();
@@ -301,7 +301,7 @@ function IssueClosedNote({
   task,
   issue,
 }: {
-  readonly task: Task;
+  readonly task: TaskSummary;
   readonly issue: IssueLink;
 }): ReactNode {
   if (issue.closedOnHostAt === null) return null;

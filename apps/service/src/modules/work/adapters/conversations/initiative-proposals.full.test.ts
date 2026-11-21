@@ -143,12 +143,12 @@ describe("Proposals of the CTO's changes to an Initiative", () => {
     expect(await work.app.get(ProposalAppliers).apply(change, "cto", ANN_LEE_USER)).toEqual(change);
   });
 
-  it("are refused a Task's title past Start, as it stands when applied", async () => {
+  it("are refused a Task's title once it is Dropped, as it stands when applied", async () => {
     const appliers = work.app.get(ProposalAppliers);
     const task = await itsTask();
     const change = proposed({ kind: "task-title", taskId: task.id, title: "Keep the queue" });
     await work.app.get(TaskService).drop(task.id, ANN_LEE);
-    const reason = "A Task keeps its title once it has started.";
+    const reason = "A Task keeps its title once it is Done or Dropped.";
 
     expect(await appliers.problemsWith(change)).toEqual([reason]);
     await expect(appliers.apply(change, "cto", ANN_LEE_USER)).rejects.toThrow(

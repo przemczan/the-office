@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { Readiness, Role, Task } from "@the-office/contracts";
+import type { Readiness, Role, Task, TaskSummary } from "@the-office/contracts";
 import { act, Fragment, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -160,8 +160,11 @@ describe("Make a plan", () => {
   });
 });
 
-/** The Task's planning actions as its page's head shows them, with the window an action opens. */
-function PlanningActions({ task }: { readonly task: Task }): ReactNode {
+/**
+ * The Task's planning actions as its page's head shows them, or its board card for a summary,
+ * with the window an action opens.
+ */
+function PlanningActions({ task }: { readonly task: Task | TaskSummary }): ReactNode {
   return usePlanningActions(task).map((action) => (
     <Fragment key={action.key}>
       <RecordActionButton action={action} />
@@ -268,6 +271,29 @@ describe("Mark Ready", () => {
       JSON.stringify({ confirmPlanAndDefinitionOfDone: true }),
     );
     expect(dialog()).toBeNull();
+  });
+
+  it("reads a board card's Task whole only once Mark Ready asks first", async () => {
+    const { plan: _plan, definitionOfDone: _definitionOfDone, ...summary } = planning;
+    const fetched = vi.fn<typeof fetch>(() =>
+      Promise.resolve(Response.json({ ...planning, plan: "Keep the sort" })),
+    );
+    vi.stubGlobal("fetch", fetched);
+    const page = rendered(
+      <PlanningActions task={summary} />,
+      false,
+      readinessWith("plan", "definition-of-done"),
+    );
+    const wholeReads = () => fetched.mock.calls.filter(([url]) => url === `/api/tasks/${TASK.id}`);
+    expect(wholeReads()).toHaveLength(0);
+
+    await press(page, "Mark Ready");
+    await act(() => new Promise((resolve) => setTimeout(resolve)));
+
+    expect(wholeReads()).toHaveLength(1);
+    expect(dialog()?.textContent).toContain(
+      "The Plan isn't confirmed. The Definition of Done isn't written.",
+    );
   });
 
   it("changes nothing when the window is closed", async () => {

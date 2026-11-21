@@ -1,4 +1,4 @@
-import type { Decision, Initiative, Task } from "@the-office/contracts";
+import type { Decision, Initiative, TaskSummary } from "@the-office/contracts";
 
 /**
  * Where a Task of an Initiative being planned (Plan the Initiative) stands: waiting in Backlog for
@@ -23,7 +23,7 @@ export const PLANNING_STEP_WORDS: Readonly<Record<PlanningStep, string>> = {
  */
 export function planningStepOf(
   initiative: Initiative,
-  task: Task,
+  task: TaskSummary,
   openDecisions: readonly Pick<Decision, "taskId">[],
 ): PlanningStep | undefined {
   const step = stepByState(initiative, task);
@@ -31,7 +31,7 @@ export function planningStepOf(
   return openDecisions.some(({ taskId }) => taskId === task.id) ? "answer-awaited" : step;
 }
 
-function stepByState(initiative: Initiative, task: Task): PlanningStep | undefined {
+function stepByState(initiative: Initiative, task: TaskSummary): PlanningStep | undefined {
   if (initiative.planningThreadId === null) return undefined;
   switch (task.state) {
     case "backlog":
@@ -52,7 +52,7 @@ function stepByState(initiative: Initiative, task: Task): PlanningStep | undefin
  */
 export function planningProgressWords(
   initiative: Initiative,
-  initiativeTasks: readonly Task[],
+  initiativeTasks: readonly TaskSummary[],
   openDecisions: readonly Pick<Decision, "taskId">[],
 ): string | undefined {
   const steps = initiativeTasks
@@ -73,7 +73,7 @@ export function planningProgressWords(
  */
 export function canPlanInitiative(
   initiative: Initiative,
-  initiativeTasks: readonly Task[],
+  initiativeTasks: readonly TaskSummary[],
 ): boolean {
   return initiative.state === "active" && initiativeTasks.some(({ state }) => state === "backlog");
 }

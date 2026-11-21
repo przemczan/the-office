@@ -59,7 +59,7 @@ import { changeDescription, changeTitle } from "../domain/task-description.js";
 import { changeTags } from "../domain/task-tags.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import { TaskRefused } from "../domain/task-refused.js";
-import { STARTED_STATES } from "../domain/task-states.js";
+import { OPEN_STATES, STARTED_STATES } from "../domain/task-states.js";
 import { writtenParts, type WrittenPlanAndDefinitionOfDone } from "../domain/written-parts.js";
 import { FireAlarmRepository } from "../ports/fire-alarm-repository.js";
 import { InitiativeRepository } from "../ports/initiative-repository.js";
@@ -146,22 +146,51 @@ export class TaskService {
   }
 
   /**
-   * Every Task without its long texts, in the board's order: by priority, then by manual order.
-   * `read` gives one whole.
+   * The Tasks on the board, of the Project when one is given, none archived, without their long
+   * texts, in the board's order: by priority, then by manual order. `read` gives one whole.
    */
-  async list(): Promise<readonly TaskSummary[]> {
-    return (await this.repository.summaries()).toSorted(boardOrder);
+  onTheBoard(projectId?: string): Promise<readonly TaskSummary[]> {
+    return projectId === undefined
+      ? this.repository.onTheBoard()
+      : this.repository.onTheBoardIn(projectId);
   }
 
-  /** The Tasks at a desk: started and not yet Done or Dropped, each counting against the limits. */
-  async listStarted(): Promise<readonly TaskSummary[]> {
-    return (await this.list()).filter(({ state }) => STARTED_STATES.includes(state));
+  /** The archived Tasks without their long texts, the one archived last first. */
+  archived(): Promise<readonly TaskSummary[]> {
+    return this.repository.archived();
+  }
+
+  /** The Project's Tasks, archived ones too, without their long texts, in no particular order. */
+  inProject(projectId: string): Promise<readonly TaskSummary[]> {
+    return this.repository.inProject(projectId);
+  }
+
+  /**
+   * The Tasks at a desk: started and not yet Done or Dropped, each counting against the limits;
+   * in the board's order.
+   */
+  started(): Promise<readonly TaskSummary[]> {
+    return this.repository.summariesIn(STARTED_STATES);
+  }
+
+  /** The Tasks neither Done nor Dropped, started or not, archived ones too, in the board's order. */
+  open(): Promise<readonly TaskSummary[]> {
+    return this.repository.summariesIn(OPEN_STATES);
+  }
+
+  /** The Tasks a usage window holds Paused, whatever its engine, in no particular order. */
+  pausedByUsageWindow(): Promise<readonly TaskSummary[]> {
+    return this.repository.pausedByUsageWindow();
+  }
+
+  /** The Tasks on one of these Pipelines, archived ones too, in no particular order. */
+  onPipelines(pipelineIds: readonly string[]): Promise<readonly TaskSummary[]> {
+    return this.repository.onPipelines(pipelineIds);
   }
 
   /** Every Tag on a Task, each once, in alphabetical order. */
   async tagsInUse(): Promise<string[]> {
-    const tags = new Set((await this.repository.summaries()).flatMap((task) => task.tags));
-    return [...tags].toSorted();
+    return [...(await this.repository.tagsInUse())].toSorted();
   }
 
   async read(id: string): Promise<Task> {
@@ -195,22 +224,34 @@ export class TaskService {
    * board's order; archived ones too.
    */
   async dependenciesOf(task: Task): Promise<TaskDependencyLinks> {
-    const board = await this.repository.list();
-    const byId = new Map(board.map((each) => [each.id, each]));
-    const linked = (id: string | undefined) => (id === undefined ? undefined : byId.get(id));
     const { dropReason } = task;
+    const named = [
+      ...task.blockedBy,
+      ...[
+        task.resolvesTaskId,
+        task.causedBy,
+        dropReason?.kind === "duplicate" ? dropReason.taskId : undefined,
+        task.foundWhileWorkingOn,
+      ].filter((id) => id !== undefined),
+    ];
+    const [naming, namedTasks] = await Promise.all([
+      this.repository.linkedTo(task.id),
+      this.findAll(named),
+    ]);
+    const byId = new Map(namedTasks.map((each) => [each.id, each]));
+    const linked = (id: string | undefined) => (id === undefined ? undefined : byId.get(id));
     return {
       waitsFor: task.blockedBy.flatMap((id) => byId.get(id) ?? []),
-      waitingForIt: board.filter((each) => each.blockedBy.includes(task.id)).toSorted(boardOrder),
+      waitingForIt: naming.filter((each) => each.blockedBy.includes(task.id)).toSorted(boardOrder),
       resolvesConflictsOf:
         task.resolvesTaskId === undefined ? undefined : byId.get(task.resolvesTaskId),
-      conflictsResolvedBy: board
+      conflictsResolvedBy: naming
         .filter((each) => each.madeFor === "resolve-conflicts" && each.resolvesTaskId === task.id)
         .toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime()),
       causedBy: linked(task.causedBy),
-      causedBugs: board.filter((each) => each.causedBy === task.id).toSorted(boardOrder),
+      causedBugs: naming.filter((each) => each.causedBy === task.id).toSorted(boardOrder),
       duplicateOf: linked(dropReason?.kind === "duplicate" ? dropReason.taskId : undefined),
-      duplicates: board
+      duplicates: naming
         .filter(
           ({ dropReason: reason }) => reason?.kind === "duplicate" && reason.taskId === task.id,
         )
@@ -355,7 +396,7 @@ export class TaskService {
     blockerId: string,
   ): Promise<void> {
     const publishing = unfinishedPublishingTask(
-      (await this.repository.list()).filter((task) => task.initiativeId === initiativeId),
+      await this.repository.inInitiatives([initiativeId]),
       projectId,
     );
     if (!publishing) return;
@@ -374,8 +415,8 @@ export class TaskService {
   async waitingFor(id: string): Promise<readonly Task[]> {
     const task = await this.read(id);
     if (task.blockedBy.length === 0) return [];
-    const board = new Map((await this.repository.list()).map((each) => [each.id, each]));
-    return blockingTasks(task.blockedBy.flatMap((blockerId) => board.get(blockerId) ?? []));
+    const blockers = new Map((await this.findAll(task.blockedBy)).map((each) => [each.id, each]));
+    return blockingTasks(task.blockedBy.flatMap((blockerId) => blockers.get(blockerId) ?? []));
   }
 
   /**

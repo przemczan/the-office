@@ -274,8 +274,8 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
    * the alarm or the usage window holds it.
    */
   async onApplicationBootstrap(): Promise<void> {
-    for (const task of await this.tasks.list()) {
-      if (task.state !== "in-progress" && task.state !== "paused") continue;
+    for (const task of await this.tasks.started()) {
+      if (task.state === "waiting-on-you") continue;
       await this.takeUpAfterRestart(task).catch((error: unknown) => {
         this.logger.error(`Task ${task.id}'s Stage runs weren't taken up`, stackOf(error));
       });

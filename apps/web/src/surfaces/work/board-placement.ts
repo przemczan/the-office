@@ -1,4 +1,4 @@
-import type { Task, TaskPlacement } from "@the-office/contracts";
+import type { TaskPlacement, TaskSummary } from "@the-office/contracts";
 
 /**
  * Where a card dropped just before `beforeId`, or at the column's end, lands; undefined when it
@@ -6,8 +6,8 @@ import type { Task, TaskPlacement } from "@the-office/contracts";
  * dropped between, never a Task the filters hide, which may have moved on since this list was read.
  */
 export function placementAmong(
-  cards: readonly Task[],
-  task: Task,
+  cards: readonly TaskSummary[],
+  task: TaskSummary,
   beforeId: string | undefined,
 ): TaskPlacement | undefined {
   if (beforeId === task.id) return undefined;

@@ -50,7 +50,7 @@ export class ConflictResolutions {
 
   /** The open Conflict resolution Task of the Task's pull request; undefined when it has none. */
   async openOf(taskId: string): Promise<Task | undefined> {
-    return (await this.repository.list()).find(
+    return (await this.repository.linkedTo(taskId)).find(
       (task) => task.resolvesTaskId === taskId && isOpenConflictResolution(task),
     );
   }

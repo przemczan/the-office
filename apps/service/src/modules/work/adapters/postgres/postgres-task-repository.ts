@@ -1,5 +1,19 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, eq, gte, inArray, isNull, not, or, sql, type SQL } from "drizzle-orm";
+import {
+  and,
+  arrayContains,
+  asc,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  not,
+  or,
+  sql,
+  type SQL,
+} from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { forgettingReads, readKey, readOnce } from "../../../../platform/database/read-scope.js";
 import { afterCursor, newestFirst } from "../../../../platform/database/page-sql.js";
@@ -12,6 +26,7 @@ import {
   type WorkFilter,
 } from "../../domain/person-tasks.js";
 import type { ProjectFilter } from "../../domain/project-filter.js";
+import type { TaskMatch } from "../../domain/search.js";
 import type { StateChange } from "../../domain/state-change.js";
 import type { Task, TaskMadeFor, TaskState, TaskSummary } from "../../domain/task.js";
 import type { TaskChange } from "../../domain/task-changes.js";
@@ -25,6 +40,9 @@ import {
   type PersonsTasksQuery,
   type TaskUpdate,
 } from "../../ports/task-repository.js";
+import { boardOrderOf } from "./board-order.js";
+import { idStartingWith } from "./id-prefix.js";
+import { matching, taskSearchVector } from "./search-vector.js";
 import { tasks, taskStateChanges } from "./work.schema.js";
 import {
   changeDependenciesHeld,
@@ -75,10 +93,89 @@ export class PostgresTaskRepository extends TaskRepository {
     );
   }
 
-  summaries(): Promise<readonly TaskSummary[]> {
-    return readOnce(readKey("tasks.summaries"), async () =>
-      (await this.database.select(TASK_SUMMARY_COLUMNS).from(tasks)).map(toTaskSummary),
+  async onTheBoardIn(projectId: string): Promise<readonly TaskSummary[]> {
+    const rows = await this.database
+      .select(TASK_SUMMARY_COLUMNS)
+      .from(tasks)
+      .where(and(isNull(tasks.archivedAt), eq(tasks.projectId, projectId)))
+      .orderBy(...boardOrderOf(tasks));
+    return rows.map(toTaskSummary);
+  }
+
+  finishedOnTheBoard(): Promise<readonly TaskSummary[]> {
+    return this.summariesWhere(
+      and(isNull(tasks.archivedAt), inArray(tasks.state, ["done", "dropped"])),
     );
+  }
+
+  summariesIn(states: readonly TaskState[]): Promise<readonly TaskSummary[]> {
+    return readOnce(readKey("tasks.summariesIn", [...states].toSorted()), async () => {
+      const rows = await this.database
+        .select(TASK_SUMMARY_COLUMNS)
+        .from(tasks)
+        .where(inArray(tasks.state, [...states]))
+        .orderBy(...boardOrderOf(tasks));
+      return rows.map(toTaskSummary);
+    });
+  }
+
+  inProject(projectId: string): Promise<readonly TaskSummary[]> {
+    return this.summariesWhere(eq(tasks.projectId, projectId));
+  }
+
+  inInitiatives(initiativeIds?: readonly string[]): Promise<readonly Task[]> {
+    if (initiativeIds === undefined) {
+      return readOnce(readKey("tasks.inInitiatives"), () =>
+        this.tasksWhere(isNotNull(tasks.initiativeId)),
+      );
+    }
+    const rowIds = [...new Set(initiativeIds.filter(canBeRowId))].toSorted();
+    if (rowIds.length === 0) return Promise.resolve([]);
+    return readOnce(readKey("tasks.inInitiatives", rowIds), () =>
+      this.tasksWhere(inArray(tasks.initiativeId, rowIds)),
+    );
+  }
+
+  async onPipelines(pipelineIds: readonly string[]): Promise<readonly TaskSummary[]> {
+    if (pipelineIds.length === 0) return [];
+    return this.summariesWhere(inArray(tasks.pipelineId, [...new Set(pipelineIds)]));
+  }
+
+  async linkedTo(taskId: string): Promise<readonly Task[]> {
+    if (!canBeRowId(taskId)) return [];
+    return this.tasksWhere(
+      or(
+        arrayContains(tasks.blockedBy, [taskId]),
+        eq(tasks.resolvesTaskId, taskId),
+        eq(tasks.causedByTaskId, taskId),
+        eq(tasks.duplicateOfTaskId, taskId),
+      ),
+    );
+  }
+
+  async tagsInUse(): Promise<readonly string[]> {
+    const rows = await this.database
+      .selectDistinct({ tag: sql<string>`unnest(${tasks.tags})` })
+      .from(tasks);
+    return rows.map(({ tag }) => tag);
+  }
+
+  async onTheBoard(match?: TaskMatch): Promise<readonly TaskSummary[]> {
+    const rows = await this.database
+      .select(TASK_SUMMARY_COLUMNS)
+      .from(tasks)
+      .where(and(isNull(tasks.archivedAt), match && matchingTask(match)))
+      .orderBy(...boardOrderOf(tasks));
+    return rows.map(toTaskSummary);
+  }
+
+  async archived(): Promise<readonly TaskSummary[]> {
+    const rows = await this.database
+      .select(TASK_SUMMARY_COLUMNS)
+      .from(tasks)
+      .where(isNotNull(tasks.archivedAt))
+      .orderBy(desc(tasks.archivedAt), asc(tasks.id));
+    return rows.map(toTaskSummary);
   }
 
   madeFor(madeFor: TaskMadeFor, projectId?: string): Promise<readonly Task[]> {
@@ -108,6 +205,10 @@ export class PostgresTaskRepository extends TaskRepository {
     );
   }
 
+  pausedByUsageWindow(): Promise<readonly TaskSummary[]> {
+    return this.summariesWhere(and(eq(tasks.state, "paused"), eq(tasks.pausedBy, "usage-window")));
+  }
+
   async droppedIds(): Promise<readonly string[]> {
     const rows = await this.database
       .select({ id: tasks.id })
@@ -125,6 +226,11 @@ export class PostgresTaskRepository extends TaskRepository {
 
   private async tasksWhere(condition: SQL | undefined): Promise<readonly Task[]> {
     return (await this.database.select().from(tasks).where(condition)).map(toTask);
+  }
+
+  private async summariesWhere(condition: SQL | undefined): Promise<readonly TaskSummary[]> {
+    const rows = await this.database.select(TASK_SUMMARY_COLUMNS).from(tasks).where(condition);
+    return rows.map(toTaskSummary);
   }
 
   async personsTasks(query: PersonsTasksQuery): Promise<PersonsTasksRead> {
@@ -274,6 +380,14 @@ const ZERO_COUNTS = Object.fromEntries(WORK_FILTERS.map((filter) => [filter, 0])
   WorkFilter,
   number
 >;
+
+/** A Task matching all the words, or whose ID starts as the query does. */
+function matchingTask({ words, idPrefix }: TaskMatch): SQL | undefined {
+  return or(
+    matching(taskSearchVector(tasks), words),
+    idPrefix === undefined ? undefined : idStartingWith(tasks.id, idPrefix),
+  );
+}
 
 /** The person's Tasks off the Archive: created by them, with a Thread with them, or a Stage. */
 function personsTasks({ roleKey, withThreads, pipelineIds }: PersonsTasksQuery): SQL | undefined {

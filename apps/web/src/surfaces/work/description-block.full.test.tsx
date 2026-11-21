@@ -86,6 +86,7 @@ async function descriptionOf(
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   });
   queryClient.setQueryData(taskQueries.list().queryKey, [task, ...others]);
+  queryClient.setQueryData(taskQueries.archived().queryKey, []);
   queryClient.setQueryData(projectQueries.list().queryKey, []);
   queryClient.setQueryData(ideaQueries.one(IDEA.id).queryKey, IDEA);
   queryClient.setQueryData(projectQueries.issueLink(task.id).queryKey, issue);

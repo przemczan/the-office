@@ -28,7 +28,7 @@ import type { Author } from "./domain/author.js";
 import type { AccountWindowsReading } from "./domain/cap-waits.js";
 import type { TaskChange } from "./domain/task-changes.js";
 import { STARTED_STATES } from "./domain/task-states.js";
-import type { Task as StoredTask } from "./domain/task.js";
+import type { Task as StoredTask, TaskState, TaskSummary } from "./domain/task.js";
 import type { UsageMeasure } from "./domain/usage-estimate.js";
 import { defaultEngineCaps } from "./domain/usage-settings.js";
 import { TaskRepository } from "./ports/task-repository.js";
@@ -89,9 +89,20 @@ class OwnProjectTaskRepository extends PostgresTaskRepository {
   }
 
   override async list(): Promise<readonly StoredTask[]> {
-    return (await super.list()).filter(
-      (task) => task.projectId === this.ownProjectId() || !STARTED_STATES.includes(task.state),
-    );
+    return (await super.list()).filter((task) => this.isSeen(task));
+  }
+
+  override async summariesIn(states: readonly TaskState[]): Promise<readonly TaskSummary[]> {
+    return (await super.summariesIn(states)).filter((task) => this.isSeen(task));
+  }
+
+  override async inStates(states: readonly TaskState[]): Promise<readonly StoredTask[]> {
+    return (await super.inStates(states)).filter((task) => this.isSeen(task));
+  }
+
+  /** The test's own Project's Tasks, and other Projects' not started. */
+  private isSeen(task: TaskSummary): boolean {
+    return task.projectId === this.ownProjectId() || !STARTED_STATES.includes(task.state);
   }
 
   override updateEveryStarted<Event extends DomainEvent>(

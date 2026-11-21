@@ -68,6 +68,7 @@ function editorWith(onSave: (text: string) => void): HTMLElement {
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   });
   queryClient.setQueryData(taskQueries.list().queryKey, [MENTIONED_TASK]);
+  queryClient.setQueryData(taskQueries.archived().queryKey, []);
   queryClient.setQueryData(initiativeQueries.list().queryKey, []);
   queryClient.setQueryData(decisionQueries.open().queryKey, []);
   queryClient.setQueryData(ideaQueries.list().queryKey, []);

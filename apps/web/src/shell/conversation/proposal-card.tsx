@@ -25,7 +25,12 @@ import {
 import { projectQueries } from "../../api/projects.ts";
 import { whoWorks } from "../pipelines/pipeline-words.ts";
 import { skillQueries } from "../../api/skills.ts";
-import { initiativeQueries, officeWideLimitQuery, taskQueries } from "../../api/work.ts";
+import {
+  initiativeQueries,
+  officeWideLimitQuery,
+  taskQueries,
+  useEveryTask,
+} from "../../api/work.ts";
 import { useEngineName } from "../use-engine-name.ts";
 import { personName, roleName } from "../person-name.ts";
 import {
@@ -685,7 +690,7 @@ const INITIATIVE_EDIT_TITLES: Readonly<Record<InitiativeEdit["kind"], string>> =
  * name.
  */
 function ProposedInitiativeEdit({ edit }: { readonly edit: InitiativeEdit }): ReactNode {
-  const tasks = useQuery(taskQueries.list()).data;
+  const tasks = useEveryTask().data;
   const projects = useQuery(projectQueries.list()).data;
   const pipelines = useQuery(pipelineQueries.list()).data;
   // An Initiative's Pipeline in a Project may be that Project's own Project Pipeline.

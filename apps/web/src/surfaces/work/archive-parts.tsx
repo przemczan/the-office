@@ -1,4 +1,4 @@
-import type { Initiative, Task } from "@the-office/contracts";
+import type { Initiative, TaskSummary } from "@the-office/contracts";
 import { Badge, Icon, type ButtonProps } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { dayOf } from "../../shell/time.ts";
@@ -11,7 +11,7 @@ import { useRestoring } from "./use-task-archive.ts";
 export function ArchivedBadge({
   record,
 }: {
-  readonly record: Pick<Task | Initiative, "archivedAt">;
+  readonly record: Pick<TaskSummary | Initiative, "archivedAt">;
 }): ReactNode {
   if (!isArchived(record)) return null;
   return (
@@ -27,7 +27,7 @@ export function RestoreButton({
   task,
   size,
 }: {
-  readonly task: Task;
+  readonly task: TaskSummary;
   readonly size?: ButtonProps["size"];
 }): ReactNode {
   const restore = useRestoreAction(task);
@@ -47,7 +47,7 @@ export function RestoreInitiativeButton({
 }
 
 /** The Task's Restore while it is archived. */
-export function useRestoreAction(task: Task): RecordAction | undefined {
+export function useRestoreAction(task: TaskSummary): RecordAction | undefined {
   const restoring = useRestoring();
   if (!isArchived(task)) return undefined;
   return restoreAction(task.title, restoring.isPending, () => restoring.mutate(task));

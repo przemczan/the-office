@@ -1,4 +1,4 @@
-import type { Initiative, ReadyTasksStarted, Task } from "@the-office/contracts";
+import type { Initiative, ReadyTasksStarted, TaskSummary } from "@the-office/contracts";
 import { Button, Icon, IconButton, Menu, Switch, type MenuItem } from "@the-office/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -9,7 +9,7 @@ import {
   confirmInitiative,
   ideaQueries,
   planInitiative,
-  taskQueries,
+  useEveryTask,
 } from "../../api/work.ts";
 import { useCopyRecordLink } from "../../shell/copy-record-link.ts";
 import { useToast } from "../../shell/toasts.tsx";
@@ -54,7 +54,7 @@ export function InitiativeActions({
   readonly onStartedReadyTasks: (started: ReadyTasksStarted) => void;
 }): ReactNode {
   const [adding, setAdding] = useState<"new" | "existing">();
-  const tasks = useQuery(taskQueries.list());
+  const tasks = useEveryTask();
   const originIdea = useQuery({
     ...ideaQueries.one(initiative.originIdeaId ?? ""),
     enabled: initiative.originIdeaId !== null,
@@ -159,7 +159,7 @@ function useConfirmAction(initiative: Initiative): RecordAction | undefined {
  */
 export function usePlanTheInitiativeAction(
   initiative: Initiative,
-  initiativeTasks: readonly Task[],
+  initiativeTasks: readonly TaskSummary[],
 ): RecordAction | undefined {
   const planner = usePlanner()?.card.name;
   const showToast = useToast();
@@ -245,7 +245,7 @@ function InitiativeMenu({
   actions,
 }: {
   readonly initiative: Initiative;
-  readonly initiativeTasks: readonly Task[];
+  readonly initiativeTasks: readonly TaskSummary[];
   readonly actions: readonly RecordAction[];
 }): ReactNode {
   const [open, setOpen] = useState(false);

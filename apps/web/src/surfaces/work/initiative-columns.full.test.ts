@@ -91,7 +91,7 @@ function inProjectFilter({ projectIds }: Initiative): boolean {
   return projectIds.includes("firmware");
 }
 
-function waitsOnYou(task: Task): boolean {
+function waitsOnYou(task: Pick<Task, "state">): boolean {
   return task.state === "waiting-on-you";
 }
 

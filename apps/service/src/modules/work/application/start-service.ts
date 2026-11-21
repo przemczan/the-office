@@ -11,6 +11,7 @@ import { startPastUsageCaps, type StartPastUsageCaps } from "../domain/start-pas
 import type { UsageCapsChoice } from "../domain/stand-ins-at-start.js";
 import { startReasons, usageOnStandIns, type StartReasons } from "../domain/task-start.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
+import { STATES_A_START_WEIGHS } from "../domain/task-states.js";
 import type { UsageEstimate } from "../domain/usage-estimate.js";
 import { FireAlarmRepository } from "../ports/fire-alarm-repository.js";
 import { InitiativeRepository } from "../ports/initiative-repository.js";
@@ -83,11 +84,13 @@ export class StartService {
   /** What Start would meet now, for the Task page to show beside Start; all empty when nothing. */
   async check(id: string): Promise<StartCheck> {
     const task = await this.read(id);
-    const tasks = await this.tasks.summaries();
-    const blockers = tasks.filter(({ id: other }) => task.blockedBy.includes(other));
+    const [weighed, blockers] = await Promise.all([
+      this.tasks.summariesIn(STATES_A_START_WEIGHS),
+      task.blockedBy.length === 0 ? [] : this.tasks.findAll(task.blockedBy),
+    ]);
     const conditions = await this.conditions.of(task);
     const held = {
-      startedTasks: tasks,
+      startedTasks: weighed,
       blockers,
       fireAlarmOn: (await this.fireAlarm.read()).on,
       initiativePaused: await this.initiativePaused(task),
@@ -96,8 +99,8 @@ export class StartService {
       ...startReasons(task, conditions, held),
       pastUsageCaps: startPastUsageCaps(task, conditions, held),
       blockers: blockingTasks(blockers),
-      overlaps: overlapsOf(task, tasks),
-      usageEstimate: await this.usageEstimates.of(task, tasks),
+      overlaps: overlapsOf(task, weighed),
+      usageEstimate: await this.usageEstimates.of(task, weighed),
     };
   }
 

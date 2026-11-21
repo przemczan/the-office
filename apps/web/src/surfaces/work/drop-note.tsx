@@ -1,9 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
-import type { Task } from "@the-office/contracts";
+import type { TaskSummary } from "@the-office/contracts";
 import { Icon } from "@the-office/ui";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { taskQueries } from "../../api/work.ts";
+import { useEveryTask } from "../../api/work.ts";
 import { momentWords } from "../../shell/time.ts";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
 
@@ -12,8 +11,8 @@ import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
  * reproduce", "Dropped: <Other's words>" or "Dropped as a duplicate of <Task>". A Task dropped with
  * no reason has none: its badge says it all.
  */
-export function DropNote({ task }: { readonly task: Task }): ReactNode {
-  const tasks = useQuery(taskQueries.list()).data;
+export function DropNote({ task }: { readonly task: TaskSummary }): ReactNode {
+  const tasks = useEveryTask().data;
   const reason = task.dropReason;
   if (task.state !== "dropped" || reason === null) return null;
   const when = task.endedAt === null ? null : <span> · {momentWords(task.endedAt)}</span>;

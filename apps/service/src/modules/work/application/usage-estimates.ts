@@ -67,30 +67,32 @@ export class UsageEstimates {
     private readonly engineModels: EngineModels,
   ) {}
 
-  /** The Task's, its done Tasks found among `everyTask`; undefined with no measure ticked. */
-  async of(
-    task: TaskSummary,
-    everyTask: readonly TaskSummary[],
-  ): Promise<UsageEstimate | undefined> {
-    return (await this.estimator(everyTask))(task);
+  /**
+   * The Task's, from the done Tasks among `weighed` (every done Task, as `STATES_A_START_WEIGHS`
+   * reads them); undefined with no measure ticked.
+   */
+  async of(task: TaskSummary, weighed: readonly TaskSummary[]): Promise<UsageEstimate | undefined> {
+    return (await this.estimator(weighed))(task);
   }
 
   /**
-   * Estimates any of `everyTask`, reading the history each Project and Pipeline has, and the
-   * Office-wide ratios, once for them all; each estimate is undefined with no measure ticked.
+   * Estimates any Task, from the done Tasks among `weighed`, reading the history each Project and
+   * Pipeline has, and the Office-wide ratios, once for them all; each estimate is undefined with
+   * no measure ticked.
    */
-  async estimator(everyTask: readonly TaskSummary[]): Promise<TaskEstimator> {
+  async estimator(weighed: readonly TaskSummary[]): Promise<TaskEstimator> {
     const measures = await this.tickedMeasures();
-    return measures.length === 0 ? async () => undefined : this.estimating(everyTask, measures);
+    return measures.length === 0 ? async () => undefined : this.estimating(weighed, measures);
   }
 
   /** Every Ready Task's, queued ones too; none with no measure ticked. */
   async ofReadyTasks(): Promise<readonly TaskUsageEstimate[]> {
     const measures = await this.tickedMeasures();
     if (measures.length === 0) return [];
-    const everyTask = await this.tasks.summaries();
-    const estimate = this.estimating(everyTask, measures);
-    const ready = everyTask.filter(({ state }) => state === "ready");
+    // The done Tasks are the history the estimates read.
+    const readyAndDone = await this.tasks.summariesIn(["ready", "done"]);
+    const estimate = this.estimating(readyAndDone, measures);
+    const ready = readyAndDone.filter(({ state }) => state === "ready");
     return readEach(ready, async (task) => ({
       taskId: task.id,
       usageEstimate: await estimate(task),
@@ -124,14 +126,14 @@ export class UsageEstimates {
   }
 
   /**
-   * Estimates Tasks among `everyTask`, reading each Project and Pipeline's history, and the
-   * Office-wide ratios, once.
+   * Estimates Tasks from the done Tasks among `weighed`, reading each Project and Pipeline's
+   * history, and the Office-wide ratios, once.
    */
   private estimating(
-    everyTask: readonly TaskSummary[],
+    weighed: readonly TaskSummary[],
     measures: readonly UsageMeasure[],
   ): (task: TaskSummary) => Promise<UsageEstimate> {
-    const done = everyTask.filter(({ state }) => state === "done");
+    const done = weighed.filter(({ state }) => state === "done");
     const histories = new Map<string, Promise<StageUsages>>();
     let windowRatios: Promise<EngineWindowRatios> | undefined;
     let dollarsPerToken: Promise<number | undefined> | undefined;

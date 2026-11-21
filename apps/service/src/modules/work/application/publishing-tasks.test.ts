@@ -6,6 +6,7 @@ import {
   ideaSchema,
   initiativeSchema,
   readyTasksStartedSchema,
+  taskListSchema,
   taskSchema,
   workRefusalSchema,
   type Initiative,
@@ -103,12 +104,16 @@ async function activeOnQuickFix(
 }
 
 async function publishingTasksOf(initiative: Initiative): Promise<Task[]> {
-  const every = (await (await sendJson(work, "GET", "/tasks")).json()) as unknown[];
-  const tasks = every
-    .map((task) => taskSchema.parse(task))
-    .filter((task) => task.initiativeId === initiative.id && task.madeFor === "publishing");
-  ownIds.push(...tasks.map(({ id }) => id));
-  return tasks;
+  const board = taskListSchema.parse(await (await sendJson(work, "GET", "/tasks")).json());
+  const ids = board
+    .filter((task) => task.initiativeId === initiative.id && task.madeFor === "publishing")
+    .map(({ id }) => id);
+  ownIds.push(...ids);
+  return Promise.all(
+    ids.map(async (id) =>
+      taskSchema.parse(await (await sendJson(work, "GET", `/tasks/${id}`)).json()),
+    ),
+  );
 }
 
 async function reasonsOf(response: Response): Promise<readonly string[]> {

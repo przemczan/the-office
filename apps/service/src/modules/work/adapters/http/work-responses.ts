@@ -11,6 +11,7 @@ import type {
   SavedView as SavedViewResponse,
   SearchResults as SearchResultsResponse,
   Task as TaskResponse,
+  TaskSummary as TaskSummaryResponse,
   UsageEstimate as UsageEstimateResponse,
   UsageSettings as UsageSettingsResponse,
 } from "@the-office/contracts";
@@ -27,7 +28,7 @@ import {
 import type { QueuedTask } from "../../domain/queue.js";
 import type { SavedView } from "../../domain/saved-view.js";
 import { initiativeBranchOf } from "../../domain/short-name.js";
-import type { Task } from "../../domain/task.js";
+import type { Task, TaskSummary } from "../../domain/task.js";
 import { isArchived } from "../../domain/task-archive.js";
 import { commitMessageOf } from "../../domain/task-commit-message.js";
 import type { PullRequestEnd } from "../../domain/task-pull-request.js";
@@ -111,9 +112,21 @@ export function toArchivedInitiativesPageResponse(
 
 export function toTaskResponse(task: Task): TaskResponse {
   return {
+    ...toTaskSummaryResponse(task),
+    description: task.description,
+    plan: task.plan,
+    definitionOfDone: [...task.definitionOfDone],
+    commitMessage: commitMessageOf(task),
+    commitMessageWritten: task.commitMessage !== "",
+    proposedPipeline: task.proposedPipeline ? { ...task.proposedPipeline } : null,
+  };
+}
+
+/** What the board and the lists read of a Task, without its long texts. */
+export function toTaskSummaryResponse(task: TaskSummary): TaskSummaryResponse {
+  return {
     id: task.id,
     title: task.title,
-    description: task.description,
     projectId: task.projectId,
     state: task.state,
     pausedBy: task.pausedBy ?? null,
@@ -121,17 +134,12 @@ export function toTaskResponse(task: Task): TaskResponse {
     engineStandIns: task.engineStandIns.map((standIn) => ({ ...standIn })),
     priority: task.priority,
     tags: [...task.tags],
-    plan: task.plan,
     planConfirmed: task.planConfirmed,
     filesToChange: [...task.filesToChange],
     estimatedTokens: task.estimatedTokens ?? null,
-    definitionOfDone: [...task.definitionOfDone],
     definitionOfDoneConfirmed: task.definitionOfDoneConfirmed,
-    commitMessage: commitMessageOf(task),
-    commitMessageWritten: task.commitMessage !== "",
     commitMessagePublishedAt: task.commitMessagePublishedAt?.toISOString() ?? null,
     pipelineId: task.pipelineId ?? null,
-    proposedPipeline: task.proposedPipeline ? { ...task.proposedPipeline } : null,
     autoMode: task.autoMode,
     initiativePlanningThreadId: task.initiativePlanningThreadId ?? null,
     markedPlanned: task.markedPlanned,

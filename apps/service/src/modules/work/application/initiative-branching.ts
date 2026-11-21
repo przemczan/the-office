@@ -352,6 +352,6 @@ export class InitiativeBranching {
   }
 
   private async tasksOf(id: string): Promise<readonly Task[]> {
-    return tasksByInitiative(await this.tasks.list()).get(id) ?? [];
+    return tasksByInitiative(await this.tasks.inInitiatives([id])).get(id) ?? [];
   }
 }

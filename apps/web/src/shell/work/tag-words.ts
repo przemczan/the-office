@@ -1,4 +1,4 @@
-import type { Task } from "@the-office/contracts";
+import type { TaskSummary } from "@the-office/contracts";
 
 /**
  * A word as the service keeps it as a Tag (the Work module's `task-tags.ts`): lower-case, spaces
@@ -15,6 +15,6 @@ export function withTag(tags: readonly string[], word: string): readonly string[
 }
 
 /** Every Tag on one of the Tasks, each once, in alphabetical order. */
-export function tagsInUse(tasks: readonly Task[]): string[] {
+export function tagsInUse(tasks: readonly TaskSummary[]): string[] {
   return [...new Set(tasks.flatMap((task) => task.tags))].toSorted();
 }

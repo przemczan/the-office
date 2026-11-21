@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import type { BoardFilters, Task } from "@the-office/contracts";
+import type { BoardFilters, TaskSummary } from "@the-office/contracts";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useMemo, useSyncExternalStore } from "react";
 import { taskQueries } from "../../api/work.ts";
@@ -11,11 +11,11 @@ export interface BoardFiltering {
   /** Sets the filters in the board's address, keeping what opens over the page and the grouping. */
   readonly change: (filters: BoardFilters) => void;
   /** Whether a Task shows under the filters. */
-  readonly shows: (task: Task) => boolean;
+  readonly shows: (task: TaskSummary) => boolean;
 }
 
 /** The board's filters, kept in its address; the search's words are the service's to match. */
-export function useBoardFilters(tasks: readonly Task[]): BoardFiltering {
+export function useBoardFilters(tasks: readonly TaskSummary[]): BoardFiltering {
   const search = useSearch({ from: "/work/" });
   // The address holds the grouping too, which isn't a filter.
   const filters = useMemo(() => boardFiltersOf(search), [search]);

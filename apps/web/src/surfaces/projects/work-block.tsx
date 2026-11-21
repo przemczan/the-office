@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { PROJECT_LIMIT_MAX, type Project, type Task } from "@the-office/contracts";
+import { PROJECT_LIMIT_MAX, type Project, type TaskSummary } from "@the-office/contracts";
 import { Stepper } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { changeProjectLimit, projectQueries } from "../../api/projects.ts";
@@ -12,7 +12,7 @@ import { ProjectBlock } from "./project-block.tsx";
 
 interface Tile {
   readonly label: string;
-  readonly includes: (task: Task, waitsOnYou: (task: Task) => boolean) => boolean;
+  readonly includes: (task: TaskSummary, waitsOnYou: (task: TaskSummary) => boolean) => boolean;
 }
 
 const TILES: readonly Tile[] = [

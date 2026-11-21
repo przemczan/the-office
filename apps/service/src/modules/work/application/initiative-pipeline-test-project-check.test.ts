@@ -783,9 +783,12 @@ async function freshBrief(
 }
 
 async function publishingTasksOf(api: Api, initiativeId: string): Promise<Task[]> {
-  return taskListSchema
+  const publishing = taskListSchema
     .parse(await api("GET", "/tasks"))
     .filter((task) => task.initiativeId === initiativeId && task.madeFor === "publishing");
+  return Promise.all(
+    publishing.map(async ({ id }) => taskSchema.parse(await api("GET", `/tasks/${id}`))),
+  );
 }
 
 async function changesOf(api: Api, projectId: string, taskId: string): Promise<TaskChanges> {

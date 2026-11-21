@@ -82,6 +82,7 @@ async function rendered(
   queryClient.setQueryData(roleQueries.list().queryKey, [PLANNER]);
   queryClient.setQueryData(dutyQueries.list().queryKey, [aDuty("plans", "planner")]);
   queryClient.setQueryData(taskQueries.list().queryKey, [...tasks]);
+  queryClient.setQueryData(taskQueries.archived().queryKey, []);
   const root = createRootRoute({
     component: () => (
       <>

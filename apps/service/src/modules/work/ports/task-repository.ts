@@ -2,6 +2,7 @@ import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { Neighbours } from "../domain/manual-order.js";
 import type { WorkFilter } from "../domain/person-tasks.js";
 import type { ProjectFilter } from "../domain/project-filter.js";
+import type { TaskMatch } from "../domain/search.js";
 import type { StateChange } from "../domain/state-change.js";
 import type { Task, TaskMadeFor, TaskState, TaskSummary } from "../domain/task.js";
 import type { TaskChange } from "../domain/task-changes.js";
@@ -63,8 +64,51 @@ export abstract class TaskRepository {
   /** Every Task, in no particular order. */
   abstract list(): Promise<readonly Task[]>;
 
-  /** Every Task without its long texts, in no particular order: for reads that never show them. */
-  abstract summaries(): Promise<readonly TaskSummary[]>;
+  /**
+   * The Tasks on the board, none archived, without their long texts, in the board's order
+   * (`boardOrder`); only those `match` matches when given, matched and ordered in the query.
+   */
+  abstract onTheBoard(match?: TaskMatch): Promise<readonly TaskSummary[]>;
+
+  /** The Project's Tasks on the board, none archived, without their long texts, in its order. */
+  abstract onTheBoardIn(projectId: string): Promise<readonly TaskSummary[]>;
+
+  /** The archived Tasks without their long texts, the one archived last first. */
+  abstract archived(): Promise<readonly TaskSummary[]>;
+
+  /** The Done and Dropped Tasks not yet archived, without their long texts, in no order. */
+  abstract finishedOnTheBoard(): Promise<readonly TaskSummary[]>;
+
+  /**
+   * The Tasks in one of `states`, archived ones too, without their long texts, in the board's
+   * order.
+   */
+  abstract summariesIn(states: readonly TaskState[]): Promise<readonly TaskSummary[]>;
+
+  /** The Project's Tasks, archived ones too, without their long texts, in no particular order. */
+  abstract inProject(projectId: string): Promise<readonly TaskSummary[]>;
+
+  /**
+   * The Tasks of these Initiatives, or of every Initiative when none are given, archived ones too,
+   * in no particular order (`tasksByInitiative` orders them).
+   */
+  abstract inInitiatives(initiativeIds?: readonly string[]): Promise<readonly Task[]>;
+
+  /**
+   * The Tasks whose Pipeline is one of these, library or Project Pipelines, archived ones too,
+   * without their long texts, in no particular order.
+   */
+  abstract onPipelines(pipelineIds: readonly string[]): Promise<readonly TaskSummary[]>;
+
+  /**
+   * The Tasks naming the Task: those waiting for it, the Conflict resolution Tasks resolving its
+   * pull request, the Bugs it caused and those Dropped as its Duplicates; archived ones too, in no
+   * particular order.
+   */
+  abstract linkedTo(taskId: string): Promise<readonly Task[]>;
+
+  /** Every Tag on a Task, archived ones too, each once, in no particular order. */
+  abstract tagsInUse(): Promise<readonly string[]>;
 
   /** The Tasks The Office made for `madeFor`, of the Project when one is given, in no order. */
   abstract madeFor(madeFor: TaskMadeFor, projectId?: string): Promise<readonly Task[]>;
@@ -77,6 +121,12 @@ export abstract class TaskRepository {
    * the engine was kept, nor one its Initiative's Pause took over.
    */
   abstract pausedByUsageWindowOn(engineId: string): Promise<readonly Task[]>;
+
+  /**
+   * Every Task a usage window holds Paused, whatever its engine, without its long texts, in no
+   * particular order.
+   */
+  abstract pausedByUsageWindow(): Promise<readonly TaskSummary[]>;
 
   /** The ids of every Dropped Task, archived or not, in no particular order. */
   abstract droppedIds(): Promise<readonly string[]>;

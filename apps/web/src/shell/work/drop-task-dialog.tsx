@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Task } from "@the-office/contracts";
+import type { TaskSummary } from "@the-office/contracts";
 import { Button, Dialog } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { dropTask, taskQueries } from "../../api/work.ts";
@@ -20,7 +20,7 @@ export function DropTaskDialog({
   task,
   onClose,
 }: {
-  readonly task: Task;
+  readonly task: TaskSummary;
   readonly onClose: () => void;
 }): ReactNode {
   const [reason, setReason] = useState<DropReasonDraft>(NO_DROP_REASON);

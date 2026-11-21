@@ -14,7 +14,7 @@ import {
 import { liveViewQueries } from "../../api/live-view.ts";
 import { nowQueries } from "../../api/notifications.ts";
 import { roleQueries } from "../../api/people.ts";
-import { initiativeQueries, taskQueries } from "../../api/work.ts";
+import { initiativeQueries, useEveryTask } from "../../api/work.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { useClock } from "../../shell/use-clock.ts";
 import { useNarrowPage } from "../../shell/use-narrow-page.ts";
@@ -37,7 +37,7 @@ const NOBODY: readonly OfficePerson[] = [];
 export function LiveViewPage(): ReactNode {
   const snapshot = useQuery(liveViewQueries.snapshot());
   const roles = useQuery(roleQueries.list());
-  const tasks = useQuery(taskQueries.list());
+  const tasks = useEveryTask();
   const initiatives = useQuery(initiativeQueries.list());
   // While the fire alarm is on, the floor is empty; kept fresh by its sounded and all clear events.
   const alarmOn = (useQuery(nowQueries.now()).data?.fireAlarm ?? null) !== null;

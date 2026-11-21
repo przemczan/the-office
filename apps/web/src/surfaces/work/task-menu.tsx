@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { TASK_KINDS, type Priority, type Task, type TaskKind } from "@the-office/contracts";
+import { TASK_KINDS, type Priority, type TaskKind, type TaskSummary } from "@the-office/contracts";
 import { Icon, IconButton, type MenuItem } from "@the-office/ui";
 import { Fragment, useState, type ReactNode } from "react";
 import { changeKind, changePriority, taskQueries } from "../../api/work.ts";
@@ -31,7 +31,7 @@ export function TaskMenu({
   task,
   actions,
 }: {
-  readonly task: Task;
+  readonly task: TaskSummary;
   readonly actions?: readonly RecordAction[];
 }): ReactNode {
   const [open, setOpen] = useState(false);

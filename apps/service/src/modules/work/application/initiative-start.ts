@@ -53,7 +53,7 @@ export class InitiativeStart {
   async startReadyTasks(initiativeId: string, by: Author): Promise<ReadyTasksStarted> {
     const initiative = await this.initiatives.find(initiativeId);
     if (!initiative) throw new InitiativeNotFound(initiativeId);
-    const toStart = readyTasksToStart(initiative, await this.tasks.list());
+    const toStart = readyTasksToStart(initiative, await this.tasks.inInitiatives([initiativeId]));
     const refused: RefusedInRun[] = [];
     for (const task of toStart) {
       try {
@@ -74,7 +74,10 @@ export class InitiativeStart {
     toStart: readonly Task[],
     refused: readonly RefusedInRun[],
   ): Promise<ReadyTasksStarted> {
-    const [queue, tasks] = await Promise.all([this.queue.list(), this.tasks.list()]);
+    const [queue, tasks] = await Promise.all([
+      this.queue.list(),
+      this.tasks.findAll(toStart.map(({ id }) => id)),
+    ]);
     const ordered = queueOrder(queue);
     const byId = new Map(tasks.map((task) => [task.id, task]));
     const refusedIds = new Set(refused.map(({ task }) => task.id));

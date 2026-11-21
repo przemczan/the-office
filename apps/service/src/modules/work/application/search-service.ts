@@ -3,13 +3,12 @@ import type { Attachment, AttachmentOwner } from "../domain/attachment.js";
 import type { Idea } from "../domain/idea.js";
 import { initiativeProjectIds, type Initiative } from "../domain/initiative.js";
 import { tasksByInitiative } from "../domain/initiative-changes.js";
-import { boardOrder } from "../domain/manual-order.js";
 import { isInProjectFilter, type ProjectFilter } from "../domain/project-filter.js";
-import { idPrefixOf, SEARCH_RESULT_LIMIT, searchWords } from "../domain/search.js";
+import { idPrefixOf, SEARCH_RESULT_LIMIT, searchWords, taskMatchOf } from "../domain/search.js";
 import type { Task, TaskSummary } from "../domain/task.js";
 import { IdeaRepository } from "../ports/idea-repository.js";
 import { TaskRepository } from "../ports/task-repository.js";
-import { WorkSearch, type IdMatches } from "../ports/work-search.js";
+import { WorkSearch, type IdMatches, type SearchMatches } from "../ports/work-search.js";
 
 /** A record a search found, with the Projects it is in: none for one Office-wide. */
 export interface Found<Record> {
@@ -57,18 +56,10 @@ export class SearchService {
 
   /**
    * The board's Tasks matching `query` by its words or as the start of their ID, in the board's
-   * order; every Task for no words.
+   * order; every Task on the board for no words.
    */
-  async tasksMatching(query: string): Promise<readonly Task[]> {
-    const board = (await this.tasks.list()).toSorted(boardOrder);
-    const words = searchWords(query);
-    if (words.length === 0) return board;
-    const [matching, byId] = await Promise.all([
-      this.search.matchingTaskIds(words),
-      this.startingWithId(query),
-    ]);
-    const byIdIds = new Set(byId.tasks.map(({ id }) => id));
-    return board.filter(({ id }) => matching.has(id) || byIdIds.has(id));
+  tasksMatching(query: string): Promise<readonly TaskSummary[]> {
+    return this.tasks.onTheBoard(taskMatchOf(query));
   }
 
   /**
@@ -78,13 +69,12 @@ export class SearchService {
   async everything(query: string, filter: ProjectFilter): Promise<SearchResults> {
     const words = searchWords(query);
     if (words.length === 0) return NOTHING_FOUND;
-    const [byId, byWords, board, ideas] = await Promise.all([
+    const [byId, byWords, ideas] = await Promise.all([
       this.startingWithId(query),
       this.search.matches(words),
-      this.tasks.summaries(),
       this.ideas.list(),
     ]);
-    const projects = new ProjectsOf(board, ideas);
+    const projects = new ProjectsOf(await this.tasksNamedBy(byId, byWords), ideas);
     const tasks = narrowed(
       firstOfEach(byId.tasks, byWords.tasks).map((task) => ({
         record: task,
@@ -127,6 +117,27 @@ export class SearchService {
     };
   }
 
+  /**
+   * The Tasks the found Initiatives and documents are placed in Projects by: the found
+   * Initiatives' Tasks, and the Tasks the found documents are attached to.
+   */
+  private async tasksNamedBy(
+    byId: IdMatches,
+    byWords: SearchMatches,
+  ): Promise<readonly TaskSummary[]> {
+    const initiativeIds = [...byId.initiatives, ...byWords.initiatives].map(({ id }) => id);
+    const taskIds = byWords.documents.flatMap(({ owner }) =>
+      owner.kind === "task" ? [owner.taskId] : [],
+    );
+    const [ofInitiatives, ownersOfDocuments] = await Promise.all([
+      this.tasks.inInitiatives(initiativeIds),
+      taskIds.length === 0 ? [] : this.tasks.findAll(taskIds),
+    ]);
+    return [
+      ...new Map([...ofInitiatives, ...ownersOfDocuments].map((task) => [task.id, task])).values(),
+    ];
+  }
+
   /** Nothing when `query` isn't the start of an ID. */
   private async startingWithId(query: string): Promise<IdMatches> {
     const idPrefix = idPrefixOf(query);
@@ -160,16 +171,16 @@ function narrowed<Record>(
   };
 }
 
-/** The Projects of each record, from the board and the Ideas as read once for a search. */
+/** The Projects of each record, from the Tasks and the Ideas as read once for a search. */
 class ProjectsOf {
   private readonly tasks: ReadonlyMap<string, TaskSummary>;
   private readonly ideas: ReadonlyMap<string, Idea>;
   private readonly initiativeTasks: ReadonlyMap<string, readonly TaskSummary[]>;
 
-  constructor(board: readonly TaskSummary[], ideas: readonly Idea[]) {
-    this.tasks = new Map(board.map((task) => [task.id, task]));
+  constructor(tasks: readonly TaskSummary[], ideas: readonly Idea[]) {
+    this.tasks = new Map(tasks.map((task) => [task.id, task]));
     this.ideas = new Map(ideas.map((idea) => [idea.id, idea]));
-    this.initiativeTasks = tasksByInitiative(board);
+    this.initiativeTasks = tasksByInitiative(tasks);
   }
 
   ofIdea(ideaId: string): string[] {

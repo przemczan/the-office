@@ -31,8 +31,8 @@ export class ProjectsIssueTaskRegistration implements OnModuleInit {
     const task = await this.repository.find(taskId);
     const initiativeId = task?.initiativeId;
     if (initiativeId === undefined) return [];
-    return (await this.repository.list())
-      .filter((each) => each.initiativeId === initiativeId && each.id !== taskId)
+    return (await this.repository.inInitiatives([initiativeId]))
+      .filter((each) => each.id !== taskId)
       .map((each) => each.id);
   }
 

@@ -1,4 +1,4 @@
-import type { Initiative, LiveView, Role, Task } from "@the-office/contracts";
+import type { Initiative, LiveView, Role, TaskSummary } from "@the-office/contracts";
 import { stateWords, workLinksOf, type PersonNames } from "./live-states.ts";
 import type {
   IdleDoing,
@@ -32,7 +32,7 @@ export function officePeopleOf(snapshot: LiveView, roles: readonly Role[]): Offi
 
 /** Each Task's and Initiative's title by its id, to name what a session runs on. */
 export function recordTitlesOf(
-  tasks: readonly Task[] | undefined,
+  tasks: readonly TaskSummary[] | undefined,
   initiatives: readonly Initiative[] | undefined,
 ): RecordTitles {
   return {

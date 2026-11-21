@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { Initiative, ReadyTasksStarted, Task } from "@the-office/contracts";
+import type { Initiative, ReadyTasksStarted, TaskSummary } from "@the-office/contracts";
 import { Alert } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { startReadyTasks, taskQueries } from "../../api/work.ts";
@@ -10,7 +10,7 @@ import type { RecordAction } from "./record-actions.tsx";
 /** Start Ready Tasks is offered while the Initiative is active and one of its Tasks is Ready. */
 export function canStartReadyTasks(
   initiative: Initiative,
-  initiativeTasks: readonly Task[],
+  initiativeTasks: readonly TaskSummary[],
 ): boolean {
   return initiative.state === "active" && initiativeTasks.some(({ state }) => state === "ready");
 }
@@ -34,7 +34,7 @@ export function readyTasksStartedWords({ started, queued, refused }: ReadyTasksS
  */
 export function useStartReadyTasksAction(
   initiative: Initiative,
-  initiativeTasks: readonly Task[],
+  initiativeTasks: readonly TaskSummary[],
   onStarted: (started: ReadyTasksStarted) => void,
 ): RecordAction | undefined {
   const queryClient = useQueryClient();

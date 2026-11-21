@@ -29,7 +29,7 @@ export class RolesNamedInStages implements OnModuleInit {
     const [everywhere, taskStages, tasks] = await Promise.all([
       this.library.rolesNamed(),
       this.taskStages.list(),
-      this.tasks.list(),
+      this.tasks.open(),
     ]);
     return rolesNamedOf(everywhere, rolesNamedByOpenTasks(taskStages, tasks));
   }

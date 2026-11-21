@@ -25,9 +25,6 @@ export abstract class WorkSearch {
   /** Every Task, Idea and Initiative whose ID starts with `idPrefix`, archived ones too. */
   abstract startingWithId(idPrefix: string): Promise<IdMatches>;
 
-  /** The ids of every Task matching all `words`. */
-  abstract matchingTaskIds(words: readonly string[]): Promise<ReadonlySet<string>>;
-
   /** The ids of every Initiative matching all `words`, archived ones too. */
   abstract matchingInitiativeIds(words: readonly string[]): Promise<ReadonlySet<string>>;
 

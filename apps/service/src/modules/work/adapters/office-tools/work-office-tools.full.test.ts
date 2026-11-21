@@ -91,7 +91,7 @@ function call(name: string, input: Record<string, unknown>, sessionId = "planner
 /** The test's Project's one Task, read whole. */
 async function theProjectsTask(): Promise<Task | undefined> {
   const tasks = work.app.get(TaskService);
-  const [task] = (await tasks.list()).filter((candidate) => candidate.projectId === projectId);
+  const [task] = await tasks.inProject(projectId);
   return task && tasks.read(task.id);
 }
 
@@ -249,11 +249,7 @@ describe("create_task", () => {
     const result = await call(CREATE_TASK, { title: "Half planned", projectId, ...parts });
 
     expect(result).toEqual({ text: reason, isError: true });
-    expect(
-      (await work.app.get(TaskService).list()).filter(
-        (candidate) => candidate.projectId === projectId,
-      ),
-    ).toEqual([]);
+    expect(await work.app.get(TaskService).inProject(projectId)).toEqual([]);
   });
 
   it("refuses an empty Plan or statement with every reason, and creates no Task", async () => {
@@ -268,11 +264,7 @@ describe("create_task", () => {
       text: "The Plan can't be empty. A statement of the Definition of Done can't be empty.",
       isError: true,
     });
-    expect(
-      (await work.app.get(TaskService).list()).filter(
-        (candidate) => candidate.projectId === projectId,
-      ),
-    ).toEqual([]);
+    expect(await work.app.get(TaskService).inProject(projectId)).toEqual([]);
   });
 });
 

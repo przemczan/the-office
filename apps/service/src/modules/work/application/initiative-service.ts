@@ -283,11 +283,16 @@ export class InitiativeService implements OnModuleInit {
   }
 
   /**
-   * Every Initiative's Tasks, by the Initiative's id, from one read of the board
+   * Every Initiative's Tasks, by the Initiative's id, from one read of the Tasks in an Initiative
    * (tasksByInitiative).
    */
   async tasksByInitiative(): Promise<ReadonlyMap<string, readonly Task[]>> {
-    return tasksByInitiative(await this.tasks.list());
+    return tasksByInitiative(await this.tasks.inInitiatives());
+  }
+
+  /** The Initiative's Tasks, the one added first first (tasksByInitiative). */
+  private async tasksOf(id: string): Promise<readonly Task[]> {
+    return tasksByInitiative(await this.tasks.inInitiatives([id])).get(id) ?? [];
   }
 
   /**
@@ -304,13 +309,18 @@ export class InitiativeService implements OnModuleInit {
    */
   async record(id: string): Promise<InitiativeRecord> {
     const initiative = await this.read(id);
-    const [idea, board, attachments] = await Promise.all([
+    const [idea, tasks, attachments] = await Promise.all([
       this.originIdeaOf(initiative),
-      this.tasks.list(),
+      this.tasksOf(id),
       this.attachments.listOf({ kind: "initiative", initiativeId: id }),
     ]);
-    const tasks = tasksByInitiative(board).get(id) ?? [];
-    const blockers = new Map(board.map((task) => [task.id, task]));
+    const blockerIds = [...new Set(tasks.flatMap(({ blockedBy }) => blockedBy))];
+    const blockers = new Map(
+      (blockerIds.length === 0 ? [] : await this.tasks.findAll(blockerIds)).map((task) => [
+        task.id,
+        task,
+      ]),
+    );
     const pipelineNames = await this.pipelineNamesOf(initiative);
     return { initiative, idea, tasks, blockers, attachments, pipelineNames };
   }
@@ -347,7 +357,7 @@ export class InitiativeService implements OnModuleInit {
     const wanted = new Set(ids);
     const [every, byInitiative] = await Promise.all([
       this.repository.list(),
-      this.tasksByInitiative(),
+      this.tasks.inInitiatives(ids).then(tasksByInitiative),
     ]);
     return every
       .filter(({ id }) => wanted.has(id))
@@ -434,7 +444,7 @@ export class InitiativeService implements OnModuleInit {
   ): Promise<Initiative> {
     const current = await this.read(id);
     if (current.state === "active") return this.setPipelinesOnceActive(current, choices, shortName);
-    const tasks = (await this.tasksByInitiative()).get(id) ?? [];
+    const tasks = await this.tasksOf(id);
     const problems = (
       await readEach(choices, ({ projectId, pipelineId }) =>
         this.pipelineProblems(tasks, projectId, pipelineId),
@@ -524,7 +534,7 @@ export class InitiativeService implements OnModuleInit {
     projectId: string,
     pipelineId: string | null,
   ): Promise<string[]> {
-    const tasks = (await this.tasksByInitiative()).get(initiative.id) ?? [];
+    const tasks = await this.tasksOf(initiative.id);
     const project = await this.spannedProjectIn(tasks, projectId);
     if (!project) return [notSpannedWords(projectId)];
     const choice =
@@ -536,7 +546,7 @@ export class InitiativeService implements OnModuleInit {
 
   /** A Project the Initiative's Tasks span, still known; refused otherwise. */
   private async spannedProject(id: string, projectId: string): Promise<KnownProject> {
-    const tasks = (await this.tasksByInitiative()).get(id) ?? [];
+    const tasks = await this.tasksOf(id);
     const project = await this.spannedProjectIn(tasks, projectId);
     if (!project) throw new InitiativeRefused([notSpannedWords(projectId)]);
     return project;
@@ -665,6 +675,7 @@ export class InitiativeService implements OnModuleInit {
     if (edit.kind === "pipeline") {
       return this.pipelineChangeProblems(initiative, edit.projectId, edit.pipelineId);
     }
+    // Every Task: a new Task's blockers and an added dependency's cycle reach past the Initiative.
     return initiativeEditProblems(initiative, edit, await this.tasks.list());
   }
 
@@ -827,10 +838,7 @@ export class InitiativeService implements OnModuleInit {
     const ended = await this.tasks.find(taskId);
     if (!ended?.initiativeId) return;
     const id = ended.initiativeId;
-    const [initiative, tasks] = await Promise.all([
-      this.read(id),
-      this.tasksByInitiative().then((byInitiative) => byInitiative.get(id) ?? []),
-    ]);
+    const [initiative, tasks] = await Promise.all([this.read(id), this.tasksOf(id)]);
     const candidates = isPublishingTask(ended) ? [] : publishingCandidates(initiative, tasks);
     const projects = await this.publishingProjects(candidates);
     const unpublished = await this.unpublishedIn(initiative, tasks, [...projects.keys()]);
@@ -910,7 +918,7 @@ export class InitiativeService implements OnModuleInit {
 
   /** Refuses another Pipeline in the Project once its Publishing Task has started. */
   private async refuseOncePipelineStarted(id: string, projectId: string): Promise<void> {
-    const tasks = (await this.tasksByInitiative()).get(id) ?? [];
+    const tasks = await this.tasksOf(id);
     const started = startedPublishingTask(tasks, projectId);
     if (started) {
       const projectName = (await this.projects.find(projectId))?.name ?? projectId;
@@ -929,7 +937,7 @@ export class InitiativeService implements OnModuleInit {
     projectId: string,
     pipelineId: string,
   ): Promise<void> {
-    const waiting = ((await this.tasksByInitiative()).get(id) ?? []).filter(
+    const waiting = (await this.tasksOf(id)).filter(
       (task) =>
         isPublishingTask(task) &&
         task.projectId === projectId &&

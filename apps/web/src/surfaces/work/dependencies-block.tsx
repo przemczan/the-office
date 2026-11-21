@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import type { Project, Task } from "@the-office/contracts";
+import type { Project, TaskSummary } from "@the-office/contracts";
 import { Button, Dialog, Icon, IconButton, Input, RadioGroup } from "@the-office/ui";
 import { Link } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
-import { addDependency, removeDependency, taskQueries } from "../../api/work.ts";
+import { addDependency, removeDependency, useEveryTask } from "../../api/work.ts";
 import { ProjectMark } from "../../shell/project-mark.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
@@ -14,11 +14,11 @@ import { blockerCandidates, blockersOf, waitingFor } from "./dependency-words.ts
 import { useRecordChange } from "./planning-parts.tsx";
 
 /** The Tasks this one waits for and the Tasks waiting for it, in any Project. */
-export function useDependencies(task: Task): {
-  readonly blockers: readonly Task[];
-  readonly waiting: readonly Task[];
+export function useDependencies(task: TaskSummary): {
+  readonly blockers: readonly TaskSummary[];
+  readonly waiting: readonly TaskSummary[];
 } {
-  const tasks = useQuery(taskQueries.list()).data ?? [];
+  const tasks = useEveryTask().data ?? [];
   return { blockers: blockersOf(task, tasks), waiting: waitingFor(task, tasks) };
 }
 
@@ -27,8 +27,8 @@ export function useDependencies(task: Task): {
  * `dependencies`), as a section of the Description block. Its blockers are set before it starts;
  * once started, the section shows only when there is something to show.
  */
-export function DependenciesSection({ task }: { readonly task: Task }): ReactNode {
-  const tasks = useQuery(taskQueries.list()).data ?? [];
+export function DependenciesSection({ task }: { readonly task: TaskSummary }): ReactNode {
+  const tasks = useEveryTask().data ?? [];
   const projects = useQuery(projectQueries.list()).data;
   const [adding, setAdding] = useState(false);
   const removing = useRecordChange(task, (blockerId: string) =>
@@ -91,10 +91,10 @@ export function TaskList({
   children,
 }: {
   readonly label: string;
-  readonly tasks: readonly Task[];
+  readonly tasks: readonly TaskSummary[];
   readonly projects: readonly Project[] | undefined;
   /** What a row can do, at its end. */
-  readonly children?: (task: Task) => ReactNode;
+  readonly children?: (task: TaskSummary) => ReactNode;
 }): ReactNode {
   return (
     <section className="task-dependencies" aria-label={label}>
@@ -126,8 +126,8 @@ function AddDependencyDialog({
   projects,
   onClose,
 }: {
-  readonly task: Task;
-  readonly candidates: readonly Task[];
+  readonly task: TaskSummary;
+  readonly candidates: readonly TaskSummary[];
   readonly projects: readonly Project[] | undefined;
   readonly onClose: () => void;
 }): ReactNode {
@@ -166,7 +166,7 @@ export function TaskPickerDialog({
 }: {
   readonly title: string;
   readonly text: string;
-  readonly candidates: readonly Task[];
+  readonly candidates: readonly TaskSummary[];
   readonly projects: readonly Project[] | undefined;
   /** What the window says when no Task can be picked. */
   readonly noCandidates: string;
@@ -243,7 +243,7 @@ function TaskProject({
   task,
   projects,
 }: {
-  readonly task: Task;
+  readonly task: TaskSummary;
   readonly projects: readonly Project[] | undefined;
 }): ReactNode {
   const project = projects?.find(({ id }) => id === task.projectId);

@@ -74,6 +74,7 @@ async function rendered(
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   });
   queryClient.setQueryData(taskQueries.list().queryKey, [] as Task[]);
+  queryClient.setQueryData(taskQueries.archived().queryKey, []);
   queryClient.setQueryData(projectQueries.list().queryKey, PROJECTS);
   seed(queryClient);
   const router = createRouter({

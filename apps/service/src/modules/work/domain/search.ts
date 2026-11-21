@@ -32,6 +32,18 @@ export function idPrefixOf(query: string): string | undefined {
   return ID_PREFIX.test(typed) ? typed : undefined;
 }
 
+/** What the board's search matches a Task by: all its words, or the start of its ID. */
+export interface TaskMatch {
+  readonly words: readonly string[];
+  readonly idPrefix: string | undefined;
+}
+
+/** The board's search for `query`; undefined for no words, which matches every Task. */
+export function taskMatchOf(query: string): TaskMatch | undefined {
+  const words = searchWords(query);
+  return words.length === 0 ? undefined : { words, idPrefix: idPrefixOf(query) };
+}
+
 /** Hex digits and dashes, from 8 characters up to a whole UUID, starting as an ID does. */
 const ID_PREFIX = /^[0-9a-f][0-9a-f-]{7,35}$/;
 

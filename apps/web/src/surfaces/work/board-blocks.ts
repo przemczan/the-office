@@ -1,4 +1,4 @@
-import type { QueuedTask, Task } from "@the-office/contracts";
+import type { QueuedTask, TaskSummary } from "@the-office/contracts";
 import { queuedEntryOf, type Column } from "./board-columns.ts";
 import { groupKeyOf, NO_INITIATIVE } from "./board-groups.ts";
 
@@ -7,9 +7,9 @@ export type ColumnItem =
   | {
       readonly kind: "block";
       readonly initiativeId: string;
-      readonly cards: readonly Task[];
+      readonly cards: readonly TaskSummary[];
     }
-  | { readonly kind: "loose"; readonly card: Task };
+  | { readonly kind: "loose"; readonly card: TaskSummary };
 
 export const BLOCK_REFUSAL =
   "A card moves only within its own block: the board doesn't change a Task's Initiative.";
@@ -23,11 +23,11 @@ export const LOOSE_REFUSAL =
  * none.
  */
 export function columnBlocks(
-  cards: readonly Task[],
-  blockOf: (card: Task) => string = groupKeyOf,
+  cards: readonly TaskSummary[],
+  blockOf: (card: TaskSummary) => string = groupKeyOf,
 ): ColumnItem[] {
   const items: ColumnItem[] = [];
-  const blocks = new Map<string, Task[]>();
+  const blocks = new Map<string, TaskSummary[]>();
   for (const card of cards) {
     const initiativeId = blockOf(card);
     if (initiativeId === NO_INITIATIVE) {
@@ -47,7 +47,7 @@ export function columnBlocks(
 }
 
 /** The cards a card dropped in the block `key` lands among: its cards, or the loose ones. */
-export function cardsOfBlock(items: readonly ColumnItem[], key: string): Task[] {
+export function cardsOfBlock(items: readonly ColumnItem[], key: string): TaskSummary[] {
   return items.flatMap((item) => {
     if (item.kind === "loose") return key === NO_INITIATIVE ? [item.card] : [];
     return item.initiativeId === key ? item.cards : [];
@@ -62,7 +62,7 @@ export function blockDropRefusal(from: string, over: string): string | undefined
 
 /** A block head's count: how many cards the column shows, or in Queued their places, with its words. */
 export function blockCount(
-  cards: readonly Task[],
+  cards: readonly TaskSummary[],
   column: Column,
   queue: readonly QueuedTask[],
 ): { readonly shown: string; readonly words: string } {

@@ -1,12 +1,12 @@
 import {
   archiveStateFilterSchema,
   type ArchiveStateFilter,
-  type Task,
+  type TaskSummary,
 } from "@the-office/contracts";
 import { isArchived, type Archived } from "../../shell/work/work-words.ts";
 
 /** The archived Tasks, the newest archived first, as the Archived tab lists them. */
-export function archivedTasks(tasks: readonly Task[]): (Task & Archived)[] {
+export function archivedTasks(tasks: readonly TaskSummary[]): (TaskSummary & Archived)[] {
   return tasks
     .filter((task) => isArchived(task))
     .toSorted((first, second) => second.archivedAt.localeCompare(first.archivedAt));

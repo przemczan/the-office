@@ -169,10 +169,10 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
   async now(): Promise<Now> {
     const at = new Date();
     const day = officeDayOf(at);
+    const decisionsAndQueue = Promise.all([this.decisions.listOpen(), this.queue.list()]);
     const [
       started,
-      openDecisions,
-      queued,
+      [openDecisions, queued],
       tasks,
       tokensToday,
       officeWideLimit,
@@ -183,9 +183,15 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       standInChoices,
     ] = await Promise.all([
       this.startedTasks(),
-      this.decisions.listOpen(),
-      this.queue.list(),
-      this.tasks.list(),
+      decisionsAndQueue,
+      decisionsAndQueue.then(([decisions, queue]) =>
+        this.tasks.findAll([
+          ...new Set([
+            ...decisions.flatMap(({ taskId }) => taskId ?? []),
+            ...queue.map(({ taskId }) => taskId),
+          ]),
+        ]),
+      ),
       this.figures.tokensOn(day),
       this.deskLimit.officeWideLimit(),
       this.fireAlarm.read(),
@@ -235,10 +241,8 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
   async sinceYouLeft(userId: string): Promise<SinceYouLeft> {
     const activity = await this.activity.find(userId);
     if (!activity) return sinceYouLeftOf(undefined, [], []);
-    const [outcomes, tasks] = await Promise.all([
-      this.outcomes.since(activity.leftAt),
-      this.tasks.list(),
-    ]);
+    const outcomes = await this.outcomes.since(activity.leftAt);
+    const tasks = await this.tasks.findAll([...new Set(outcomes.map(({ taskId }) => taskId))]);
     return sinceYouLeftOf(activity.leftAt, outcomes, tasks);
   }
 
@@ -311,7 +315,7 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async startedTasks(): Promise<StartedTask[]> {
-    const started = await this.tasks.listStarted();
+    const started = await this.tasks.started();
     return readEach(started, async (task) => ({
       task,
       stages: (await this.stages.progress(task.id))?.stages,

@@ -467,8 +467,25 @@ export const taskSchema = newTaskSchema.extend({
 });
 export type Task = z.infer<typeof taskSchema>;
 
-/** Every Task, in the board's order: by priority, then by manual order. */
-export const taskListSchema = z.array(taskSchema);
+/**
+ * A Task without its long texts, which only the Task itself answers (GET /tasks/:id): what the
+ * board and the lists of Tasks read.
+ */
+export const taskSummarySchema = taskSchema.omit({
+  description: true,
+  plan: true,
+  definitionOfDone: true,
+  commitMessage: true,
+  commitMessageWritten: true,
+  proposedPipeline: true,
+});
+export type TaskSummary = z.infer<typeof taskSummarySchema>;
+
+/**
+ * The Tasks GET /tasks answers: those on the board (never an archived one) in the board's order,
+ * by priority, then by manual order; with `archived=true` the archived ones, archived last first.
+ */
+export const taskListSchema = z.array(taskSummarySchema);
 
 /** The groups of a person's Work tab, as the user asks about their Tasks. */
 export const workFilterSchema = z.enum([
@@ -982,6 +999,18 @@ export function isHtmlFile(attachment: {
  */
 export const searchQuerySchema = z.object({ query: z.string().default("") });
 export type SearchQuery = z.infer<typeof searchQuerySchema>;
+
+/**
+ * The query of GET /tasks: the board's search words; or `archived=true` for the archived Tasks
+ * instead of the board's, which takes no words.
+ */
+export const taskListQuerySchema = searchQuerySchema.extend({
+  archived: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((archived) => archived === "true"),
+});
+export type TaskListQuery = z.infer<typeof taskListQuerySchema>;
 
 /**
  * The query of GET /search: the words, and the Projects the Project filter shows as one `project`

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import type { Project, QueuedTask, Role, Task } from "@the-office/contracts";
+import type { Project, QueuedTask, Role, TaskSummary } from "@the-office/contracts";
 import { FoldButton, Icon, ProgressBar } from "@the-office/ui";
 import { useRef, type MouseEvent, type ReactNode } from "react";
 import { cardsIn, COLUMNS, type Column } from "./board-columns.ts";
@@ -23,15 +23,19 @@ import { progressWords, type InitiativeProgress } from "./initiative-words.ts";
 
 export interface GroupedBoardProps {
   readonly grouping: BoardGroups;
-  /** Every Task, for each Initiative's progress. */
-  readonly tasks: readonly Task[];
+  /** Every Task, archived too, for each Initiative's progress. */
+  readonly tasks: readonly TaskSummary[];
   readonly queue: readonly QueuedTask[];
   readonly projects: readonly Project[] | undefined;
   readonly shaper: Role | undefined;
   readonly planner: string;
   readonly folds: BoardGroupFolds;
   /** The column's cards in a group, where a card is dropped. */
-  readonly cardsArea: (group: BoardGroup, column: Column, cards: readonly Task[]) => ReactNode;
+  readonly cardsArea: (
+    group: BoardGroup,
+    column: Column,
+    cards: readonly TaskSummary[],
+  ) => ReactNode;
   /** The one column of its group a dragged card can land in, outlined. */
   readonly canLandIn: (group: BoardGroup, column: Column) => boolean;
 }

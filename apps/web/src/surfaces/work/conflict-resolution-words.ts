@@ -1,20 +1,26 @@
-import type { PullRequest, QueuedTask, Task } from "@the-office/contracts";
+import type { PullRequest, QueuedTask, TaskSummary } from "@the-office/contracts";
 import { pullRequestName } from "./pull-request-words.ts";
 
 /** Whether The Office made the Task to resolve the conflicts of another Task's pull request. */
-export function isConflictResolutionTask(task: Pick<Task, "madeFor">): boolean {
+export function isConflictResolutionTask(task: Pick<TaskSummary, "madeFor">): boolean {
   return task.madeFor === "resolve-conflicts";
 }
 
 /** Every Conflict resolution Task naming the Task, newest first. */
-export function conflictResolutionsOf(taskId: string, tasks: readonly Task[]): Task[] {
+export function conflictResolutionsOf(
+  taskId: string,
+  tasks: readonly TaskSummary[],
+): TaskSummary[] {
   return tasks
     .filter((each) => isConflictResolutionTask(each) && each.resolvesTaskId === taskId)
     .toSorted((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 /** The Task's Conflict resolution Task while one is open: neither Done nor Dropped. */
-export function openConflictResolutionOf(taskId: string, tasks: readonly Task[]): Task | undefined {
+export function openConflictResolutionOf(
+  taskId: string,
+  tasks: readonly TaskSummary[],
+): TaskSummary | undefined {
   return conflictResolutionsOf(taskId, tasks).find(
     ({ state }) => state !== "done" && state !== "dropped",
   );
@@ -36,6 +42,6 @@ export const START_REFUSED_TITLE = "The Conflict resolution Task was made but di
 export const START_REFUSED_HINT = "It stays Ready; start it from its page once nothing holds it.";
 
 /** Start's own words for a queued Task: "… is queued, place 2: …". */
-export function queuedWords(task: Pick<Task, "title">, queued: QueuedTask): string {
+export function queuedWords(task: Pick<TaskSummary, "title">, queued: QueuedTask): string {
   return `${task.title} is queued, place ${queued.place}: ${queued.reasons.join(" ")}`;
 }

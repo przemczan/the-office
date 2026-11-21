@@ -30,7 +30,8 @@ import type {
   TaskState,
 } from "../../domain/task.js";
 import type { PullRequestEnd, PullRequestMergeMethod } from "../../domain/task-pull-request.js";
-import { searchVectorOf } from "./search-vector.js";
+import { boardOrderOf } from "./board-order.js";
+import { searchVectorOf, taskSearchVector } from "./search-vector.js";
 
 // The tables are in one file because Ideas, Initiatives and Tasks name each other.
 
@@ -164,7 +165,7 @@ export const tasks = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'`),
-    /** Compared in code as plain strings; never sorted by Postgres, whose collation differs. */
+    /** Sorted by its code units, as the board compares them: `board-order.ts`. */
     order: text("order_key").notNull(),
     description: text("description").notNull().default(""),
     plan: text("plan").notNull(),
@@ -265,6 +266,11 @@ export const tasks = pgTable(
   },
   (table) => [
     uniqueIndex("tasks_order_key").on(table.order),
+    // The board's read, the Tasks not archived in its order, reads this in order with no sort.
+    index("tasks_board_order")
+      .on(...boardOrderOf(table))
+      .where(sql`${table.archivedAt} IS NULL`),
+    index("tasks_search").using("gin", taskSearchVector(table)),
     index("tasks_initiative").on(table.initiativeId),
     index("tasks_kind_idx").on(table.kind),
     index("tasks_caused_by_idx")

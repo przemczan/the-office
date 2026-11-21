@@ -74,6 +74,7 @@ describe("initiativeEditProblems", () => {
 
   it("refuses a title or Description by the Task's own rules", () => {
     const started = { ...its, state: "in-progress" } as const;
+    const dropped = { ...its, state: "dropped" } as const;
 
     expect(
       initiativeEditProblems(active, { kind: "task-title", taskId: "its", title: " " }, board),
@@ -82,7 +83,12 @@ describe("initiativeEditProblems", () => {
       initiativeEditProblems(active, { kind: "task-title", taskId: "its", title: "New" }, [
         started,
       ]),
-    ).toEqual(["A Task keeps its title once it has started."]);
+    ).toEqual([]);
+    expect(
+      initiativeEditProblems(active, { kind: "task-title", taskId: "its", title: "New" }, [
+        dropped,
+      ]),
+    ).toEqual(["A Task keeps its title once it is Done or Dropped."]);
     expect(
       initiativeEditProblems(
         active,

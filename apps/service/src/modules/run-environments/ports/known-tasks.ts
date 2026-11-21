@@ -11,7 +11,8 @@ export interface KnownTask {
  * through, will call this module.
  */
 export abstract class KnownTasks {
-  abstract list(): Promise<readonly KnownTask[]>;
+  /** The Tasks neither Done nor Dropped. */
+  abstract open(): Promise<readonly KnownTask[]>;
 
   /** The Task; throws when there is none. */
   abstract read(id: string): Promise<KnownTask>;

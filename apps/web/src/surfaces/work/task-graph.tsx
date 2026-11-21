@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import type { Decision, Initiative, Project, Task } from "@the-office/contracts";
+import type { Decision, Initiative, Project, TaskSummary } from "@the-office/contracts";
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { ProjectMark } from "../../shell/project-mark.tsx";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
@@ -29,7 +29,7 @@ export function TaskGraph({
 }: {
   readonly initiative: Initiative;
   /** Every Task, as read: the graph is laid out again only when they change. */
-  readonly tasks: readonly Task[];
+  readonly tasks: readonly TaskSummary[];
   /** The Decisions waiting on the user, `GET /decisions/open`. */
   readonly openDecisions: readonly Decision[];
   readonly initiatives: readonly Initiative[] | undefined;
@@ -155,7 +155,7 @@ function TaskNode({
   );
 }
 
-function outsideWords(task: Task, initiatives: readonly Initiative[] | undefined): string {
+function outsideWords(task: TaskSummary, initiatives: readonly Initiative[] | undefined): string {
   const initiative = initiatives?.find(({ id }) => id === task.initiativeId);
   return initiative ? `Initiative ${initiative.name}` : "outside this Initiative";
 }

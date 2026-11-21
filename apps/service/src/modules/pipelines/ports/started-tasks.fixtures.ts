@@ -25,9 +25,25 @@ export class OwnProjectsStartedTasks extends StartedTasks {
     super();
   }
 
-  async list(): Promise<readonly StartedTask[]> {
+  async started(): Promise<readonly StartedTask[]> {
+    return this.own(await this.tasks.started());
+  }
+
+  async open(): Promise<readonly StartedTask[]> {
+    return this.own(await this.tasks.open());
+  }
+
+  async pausedByUsageWindow(): Promise<readonly StartedTask[]> {
+    return this.own(await this.tasks.pausedByUsageWindow());
+  }
+
+  async onPipelines(pipelineIds: readonly string[]): Promise<readonly StartedTask[]> {
+    return this.own(await this.tasks.onPipelines(pipelineIds));
+  }
+
+  private own(tasks: readonly StartedTask[]): readonly StartedTask[] {
     const own = this.ownProjectIds();
-    return (await this.tasks.list()).filter(({ projectId }) => own.includes(projectId));
+    return tasks.filter(({ projectId }) => own.includes(projectId));
   }
 
   read(taskId: string): Promise<StartedTask> {

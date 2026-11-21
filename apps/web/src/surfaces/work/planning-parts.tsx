@@ -328,7 +328,7 @@ function PartActions({
 
 /** A change to the Task's record from its page: the answer replaces the shown Task at once. */
 export function useRecordChange<Value>(
-  task: Task,
+  task: Pick<Task, "id">,
   change: (value: Value) => Promise<Task>,
 ): UseMutationResult<Task, Error, Value> {
   const queryClient = useQueryClient();

@@ -110,10 +110,7 @@ export class WorkOfficeTools implements OnModuleInit {
       }),
       run: ({ projectId }) =>
         answered(async () => {
-          const tasks = (await this.tasks.list()).filter(
-            (task) =>
-              !isArchived(task) && (projectId === undefined || task.projectId === projectId),
-          );
+          const tasks = await this.tasks.onTheBoard(projectId);
           if (tasks.length === 0) return "There is no Task yet.";
           return tasks.map(taskLine).join("\n");
         }),

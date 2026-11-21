@@ -4,7 +4,7 @@ import {
   useQueryClient,
   type UseMutationResult,
 } from "@tanstack/react-query";
-import type { Readiness, Task } from "@the-office/contracts";
+import type { Readiness, Task, TaskSummary } from "@the-office/contracts";
 import { autoModeQuery, makeAPlan, markReady, planTask, taskQueries } from "../../api/work.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { useOnPlanned } from "../../shell/work/use-idea-planning.ts";
@@ -14,12 +14,12 @@ import { usePlanner } from "../../shell/work/use-planner.ts";
  * Plan with the Planner: the Task moves to Planning with its planning Thread, and its page opens
  * on it. A refusal, such as a worktree that couldn't be made, shows with its reason.
  */
-export function usePlanning(): UseMutationResult<Task, Error, Task> {
+export function usePlanning(): UseMutationResult<Task, Error, TaskSummary> {
   const queryClient = useQueryClient();
   const showToast = useToast();
   const onPlanned = useOnPlanned();
   return useMutation({
-    mutationFn: (task: Task) => planTask(task.id),
+    mutationFn: (task: TaskSummary) => planTask(task.id),
     onSuccess: onPlanned,
     onError: (error) => showToast(error.message),
     onSettled: () => queryClient.invalidateQueries(taskQueries.list()),
@@ -28,7 +28,7 @@ export function usePlanning(): UseMutationResult<Task, Error, Task> {
 
 /** What Make a plan is asked: the Task, and whether it is planned in auto mode. */
 export interface MakingAPlan {
-  readonly task: Task;
+  readonly task: TaskSummary;
   readonly autoMode: boolean;
 }
 
@@ -66,7 +66,7 @@ export function useRememberedAutoMode(): boolean {
  * The Task's "Before Ready" checklist, line by line, while it is in Planning or Backlog, where Mark
  * Ready is offered; undefined until it is known.
  */
-export function useReadinessLines(task: Task): Readiness["lines"] | undefined {
+export function useReadinessLines(task: TaskSummary): Readiness["lines"] | undefined {
   const readiness = useQuery({
     ...taskQueries.readiness(task.id),
     enabled: task.state === "planning" || task.state === "backlog",
@@ -79,7 +79,7 @@ export function useReadinessLines(task: Task): Readiness["lines"] | undefined {
  * they stand, which the user agreed to when either isn't confirmed yet.
  */
 export interface MarkingReady {
-  readonly task: Task;
+  readonly task: TaskSummary;
   readonly confirmPlanAndDefinitionOfDone?: boolean;
 }
 

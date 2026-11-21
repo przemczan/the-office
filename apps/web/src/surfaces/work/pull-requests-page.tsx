@@ -1,11 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { ConflictResolutionAnswer, Project, PullRequest, Task } from "@the-office/contracts";
+import type {
+  ConflictResolutionAnswer,
+  Project,
+  PullRequest,
+  TaskSummary,
+} from "@the-office/contracts";
 import { Alert, Badge, Button, DataTable, Icon, type DataTableColumn } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
 import { pullRequestQueries, refreshPullRequests } from "../../api/pull-requests.ts";
-import { resolveConflicts, taskQueries } from "../../api/work.ts";
+import { resolveConflicts, taskQueries, useEveryTask } from "../../api/work.ts";
 import { BlockLoader } from "../../shell/block-loader.tsx";
 import { GitHubPermissionsPrompt } from "../../shell/github-permissions-prompt.tsx";
 import { ProjectChip } from "../../shell/project-chip.tsx";
@@ -55,7 +60,7 @@ import {
  */
 export function PullRequestsPage(): ReactNode {
   const list = useQuery(pullRequestQueries.list());
-  const tasks = useQuery(taskQueries.list());
+  const tasks = useEveryTask();
   const projects = useQuery(projectQueries.list());
   const projectFilter = useProjectFilter();
   const refreshing = useMutation({ mutationFn: refreshPullRequests });
@@ -157,9 +162,9 @@ function useResolving() {
 
 /** The Tasks as read, with `task` added until they include it; their copy is the newer one. */
 function withTask(
-  tasks: readonly Task[] | undefined,
-  task: Task | undefined,
-): readonly Task[] | undefined {
+  tasks: readonly TaskSummary[] | undefined,
+  task: TaskSummary | undefined,
+): readonly TaskSummary[] | undefined {
   if (tasks === undefined || task === undefined) return tasks;
   return tasks.some(({ id }) => id === task.id) ? tasks : [...tasks, task];
 }
@@ -216,7 +221,7 @@ function projectNameOf(projectId: string, projects: readonly Project[] | undefin
 
 function columnsFor(
   projects: readonly Project[] | undefined,
-  tasks: readonly Task[] | undefined,
+  tasks: readonly TaskSummary[] | undefined,
   act: (acting: Acting) => void,
   resolving: Resolving,
 ): DataTableColumn<PullRequest>[] {
@@ -317,7 +322,7 @@ function ResolveConflicts({
   resolving,
 }: {
   readonly pullRequest: PullRequest;
-  readonly tasks: readonly Task[] | undefined;
+  readonly tasks: readonly TaskSummary[] | undefined;
   readonly resolving: Resolving;
 }): ReactNode {
   const open = openConflictResolutionOf(pullRequest.taskId, tasks ?? []);
@@ -347,7 +352,7 @@ function TaskCell({
   tasks,
 }: {
   readonly taskId: string;
-  readonly tasks: readonly Task[] | undefined;
+  readonly tasks: readonly TaskSummary[] | undefined;
 }): ReactNode {
   if (tasks === undefined) return null;
   const task = tasks.find((candidate) => candidate.id === taskId);

@@ -88,7 +88,10 @@ export interface ProjectPipelineBreak {
   readonly reasons: readonly BrokenReason[];
 }
 
-/** Who runs which Pipeline: the Projects, Tasks and Initiatives the commands checks weigh. */
+/**
+ * Who runs which Pipeline: the Projects, Tasks and Initiatives the commands checks weigh; the Tasks
+ * only those on the Pipelines weighed.
+ */
 interface PipelineRunners {
   readonly projects: readonly ProjectDefault[];
   readonly tasks: readonly StartedTask[];
@@ -204,7 +207,7 @@ export class PipelineLibraryEditor {
   async use(id: string): Promise<PipelineUse> {
     if (!(await this.repository.find(id))) throw new UnknownPipeline(id);
     const [{ projects, tasks, initiatives }, builtFrom] = await Promise.all([
-      this.runners(),
+      this.runners([id]),
       this.projectPipelines.builtFrom(id),
     ]);
     return pipelineUse(id, projects, tasks, initiatives, builtFrom);
@@ -320,7 +323,7 @@ export class PipelineLibraryEditor {
   async projectPipelineUse(id: string): Promise<PipelineUse> {
     const projectPipeline = await this.projectPipelines.find(id);
     if (!projectPipeline) throw new UnknownProjectPipeline(id);
-    const { projects, tasks, initiatives } = await this.runners();
+    const { projects, tasks, initiatives } = await this.runners([id]);
     const ownProject = projects.filter(
       ({ id: projectId }) => projectId === projectPipeline.projectId,
     );
@@ -410,10 +413,8 @@ export class PipelineLibraryEditor {
     stages: readonly Stage[],
   ): Promise<StageProblem[]> {
     if (pipelineId === undefined) return [];
-    const [runners, builtFrom] = await Promise.all([
-      this.runners(),
-      this.projectPipelines.builtFrom(pipelineId),
-    ]);
+    const builtFrom = await this.projectPipelines.builtFrom(pipelineId);
+    const runners = await this.runners([pipelineId, ...builtFrom.map(({ id }) => id)]);
     const { projects, tasks, initiatives } = runners;
     return [
       ...missingCommandProblems(pipelineId, stages, projects, tasks, initiatives),
@@ -478,7 +479,7 @@ export class PipelineLibraryEditor {
     around: PipelinesAround,
     projectPipelineId: string | undefined,
   ): Promise<StageProblem[]> {
-    const runners = await this.runners();
+    const runners = await this.runners(projectPipelineId === undefined ? [] : [projectPipelineId]);
     const project = runners.projects.find(({ id }) => id === projectId);
     if (!project) return [pipelineProblem(`There is no Project "${projectId}".`)];
     const built = builtEdit(edit, around.officeWide);
@@ -509,10 +510,11 @@ export class PipelineLibraryEditor {
     };
   }
 
-  private async runners(): Promise<PipelineRunners> {
+  /** Who runs the Pipelines of these ids: every Project and Initiative, and the Tasks on them. */
+  private async runners(pipelineIds: readonly string[]): Promise<PipelineRunners> {
     const [projects, tasks, initiatives] = await Promise.all([
       this.projects.list(),
-      this.tasks.list(),
+      this.tasks.onPipelines(pipelineIds),
       this.initiatives.withPipelines(),
     ]);
     return { projects, tasks, initiatives };

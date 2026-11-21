@@ -308,6 +308,18 @@ describe("GET /api/tasks", () => {
     expect(endedAtOf(open.id)).toBeNull();
     expect(endedAtOf(dropped.id)).toEqual(expect.any(String));
   });
+
+  it("narrows the board to the Tasks a search query matches", async () => {
+    const word = `w${randomUUID().replaceAll("-", "").slice(0, 12)}`;
+    const found = await create({ title: `Fix the ${word} redirect` });
+    await create();
+
+    const listed = taskListSchema.parse(
+      await (await sendJson(work, "GET", `/tasks?query=${word}`)).json(),
+    );
+
+    expect(listed.map(({ id }) => id)).toEqual([found.id]);
+  });
 });
 
 describe("POST /api/tasks/:id/archive and /restore", () => {
@@ -326,7 +338,14 @@ describe("POST /api/tasks/:id/archive and /restore", () => {
     expect(archived.archivedAt).not.toBeNull();
     expect(again.status).toBe(200);
     expect(await readTask(task.id)).toEqual(archived);
-    await expect(board()).resolves.toEqual([task.title]);
+    await expect(board()).resolves.toEqual([]);
+    const archive = taskListSchema.parse(
+      await (await sendJson(work, "GET", "/tasks?archived=true")).json(),
+    );
+    expect(archive.find(({ id }) => id === task.id)).toMatchObject({
+      state: "dropped",
+      archivedAt: archived.archivedAt,
+    });
     expect(await tasks.stateChangesOf(task.id)).toEqual(stateChanges);
     expect(webEventsOf(work)).toEqual([{ type: "task.archived", taskId: task.id }]);
   });

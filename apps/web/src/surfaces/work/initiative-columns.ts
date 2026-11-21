@@ -1,4 +1,4 @@
-import type { Initiative, InitiativeState, Task } from "@the-office/contracts";
+import type { Initiative, InitiativeState, TaskSummary } from "@the-office/contracts";
 import { dayOf } from "../../shell/time.ts";
 import { isArchived, NOT_STARTED } from "../../shell/work/work-words.ts";
 import { blockingTasksOf } from "./dependency-words.ts";
@@ -92,9 +92,9 @@ export interface WhatMovesNow {
 }
 
 export function whatMovesNow(
-  initiativeTasks: readonly Task[],
-  tasks: readonly Task[],
-  waitsOnYou: (task: Task) => boolean,
+  initiativeTasks: readonly TaskSummary[],
+  tasks: readonly TaskSummary[],
+  waitsOnYou: (task: TaskSummary) => boolean,
 ): WhatMovesNow {
   return {
     waitingOnYou: initiativeTasks.filter(waitsOnYou).length,
@@ -112,7 +112,7 @@ export function activeEdge({ waitingOnYou }: WhatMovesNow): string | undefined {
 }
 
 /** What an Active card says in place of "0 of 0 Tasks done". */
-export function nothingToCountWords(initiativeTasks: readonly Task[]): string {
+export function nothingToCountWords(initiativeTasks: readonly TaskSummary[]): string {
   return initiativeTasks.length > 0
     ? "No Task left: every one was dropped. Add a Task or drop the Initiative on its page."
     : "No Task yet. Add one on its page.";

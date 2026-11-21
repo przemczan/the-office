@@ -19,6 +19,7 @@ import type { Initiative } from "../domain/initiative.js";
 import { hasPipeline, type Task } from "../domain/task.js";
 import { taskBranchBase } from "../domain/task-branch-base.js";
 import { TaskRefused } from "../domain/task-refused.js";
+import { STATES_A_START_WEIGHS } from "../domain/task-states.js";
 import {
   firstAgentStage,
   type BrokenPipelineAtStart,
@@ -102,15 +103,15 @@ export class StartConditionsReader {
   }
 
   private async reading(): Promise<(task: Task) => Promise<StartConditions>> {
-    const [officeWideLimit, usageSettings, everyTask, standIns] = await Promise.all([
+    const [officeWideLimit, usageSettings, weighed, standIns] = await Promise.all([
       this.limits.officeWideLimit(),
       this.limits.usageSettings(),
-      this.tasks.summaries(),
+      this.tasks.summariesIn(STATES_A_START_WEIGHS),
       this.engineModels.standIns(),
     ]);
     const now = this.schedule.now();
-    const estimateOf = await this.estimates.estimator(everyTask);
-    const daily = await this.dailyCaps.of(usageSettings.caps, everyTask, estimateOf);
+    const estimateOf = await this.estimates.estimator(weighed);
+    const daily = await this.dailyCaps.of(usageSettings.caps, weighed, estimateOf);
     const engineNames = new Map(standIns.engines.map(({ id, name }) => [id, name] as const));
     const scheduledExitWait = this.exitHold.waitWords();
     const standInEngines = await this.standInEngines(standIns, usageSettings.caps, daily);

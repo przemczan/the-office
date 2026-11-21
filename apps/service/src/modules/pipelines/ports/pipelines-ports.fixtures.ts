@@ -138,6 +138,9 @@ export class PipelineInitiativesForTests extends PipelineInitiatives {
   }
 }
 
+/** The states Work's started Tasks are in. */
+const STARTED_STATES: readonly string[] = ["in-progress", "waiting-on-you", "paused"];
+
 /** Work's Tasks in memory: a test starts each one it walks. */
 @Injectable()
 export class StartedTasksForTests extends StartedTasks {
@@ -169,8 +172,26 @@ export class StartedTasksForTests extends StartedTasks {
     });
   }
 
-  async list(): Promise<readonly StartedTask[]> {
-    return [...this.tasks.values()];
+  async started(): Promise<readonly StartedTask[]> {
+    return this.where(({ state }) => STARTED_STATES.includes(state));
+  }
+
+  async open(): Promise<readonly StartedTask[]> {
+    return this.where(({ state }) => state !== "done" && state !== "dropped");
+  }
+
+  async pausedByUsageWindow(): Promise<readonly StartedTask[]> {
+    return this.where(({ state, pausedBy }) => state === "paused" && pausedBy === "usage-window");
+  }
+
+  async onPipelines(pipelineIds: readonly string[]): Promise<readonly StartedTask[]> {
+    return this.where(
+      ({ pipelineId }) => pipelineId !== undefined && pipelineIds.includes(pipelineId),
+    );
+  }
+
+  private where(matches: (task: StartedTask) => boolean): StartedTask[] {
+    return [...this.tasks.values()].filter(matches);
   }
 
   async read(taskId: string): Promise<StartedTask> {

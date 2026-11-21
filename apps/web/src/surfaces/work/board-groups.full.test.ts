@@ -131,7 +131,7 @@ function alone(groups: BoardGroups): Extract<BoardGroups, { kind: "alone" }> {
 }
 
 const keys = (groups: readonly BoardGroup[]): string[] => groups.map(({ key }) => key);
-const ids = (tasks: readonly Task[]): string[] => tasks.map(({ id }) => id);
+const ids = (tasks: readonly Pick<Task, "id">[]): string[] => tasks.map(({ id }) => id);
 const group = (groups: BoardGroups, key: string): BoardGroup => {
   const found = all(groups).groups.find((candidate) => candidate.key === key);
   if (!found) throw new Error(`No group ${key}`);

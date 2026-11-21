@@ -1,4 +1,4 @@
-import type { Initiative, InitiativeState, Task } from "@the-office/contracts";
+import type { Initiative, InitiativeState, Task, TaskSummary } from "@the-office/contracts";
 import type { BadgeProps } from "@the-office/ui";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
 import { blockersOf, blockingTasksOf } from "./dependency-words.ts";
@@ -31,7 +31,10 @@ export function initiativeStateName(
 }
 
 /** The Initiative's Tasks, in the board's order. */
-export function tasksOfInitiative(initiative: Initiative, tasks: readonly Task[]): Task[] {
+export function tasksOfInitiative(
+  initiative: Initiative,
+  tasks: readonly TaskSummary[],
+): TaskSummary[] {
   return tasks.filter(({ initiativeId }) => initiativeId === initiative.id);
 }
 
@@ -47,17 +50,23 @@ export function initiativePipelineIn(
  * Whether the Task is an Initiative's Publishing Task (spec 2.1): The Office adds one per Project
  * once the other Tasks have ended, and it publishes the Initiative's branch into the base branch.
  */
-export function isPublishingTask({ madeFor }: Pick<Task, "madeFor">): boolean {
+export function isPublishingTask({ madeFor }: Pick<TaskSummary, "madeFor">): boolean {
   return madeFor === "publishing";
 }
 
 /** The Initiative's Tasks but its Publishing Tasks, which the Pipeline block lists apart. */
-export function ordinaryTasksOf(initiative: Initiative, tasks: readonly Task[]): Task[] {
+export function ordinaryTasksOf(
+  initiative: Initiative,
+  tasks: readonly TaskSummary[],
+): TaskSummary[] {
   return tasksOfInitiative(initiative, tasks).filter((task) => !isPublishingTask(task));
 }
 
 /** The Initiative's Publishing Tasks, in the order they were added. */
-export function publishingTasksOf(initiative: Initiative, tasks: readonly Task[]): Task[] {
+export function publishingTasksOf(
+  initiative: Initiative,
+  tasks: readonly TaskSummary[],
+): TaskSummary[] {
   return tasksOfInitiative(initiative, tasks).filter(isPublishingTask);
 }
 
@@ -67,7 +76,10 @@ const STARTED: readonly Task["state"][] = ["in-progress", "waiting-on-you", "pau
  * Why a started Publishing Task waits before its next Stage: a Task added to its Initiative or
  * moved into its Project that isn't Done or Dropped yet. Undefined when nothing holds it back.
  */
-export function publishingWaitWords(task: Task, tasks: readonly Task[]): string | undefined {
+export function publishingWaitWords(
+  task: TaskSummary,
+  tasks: readonly TaskSummary[],
+): string | undefined {
   if (!isPublishingTask(task) || !STARTED.includes(task.state)) return undefined;
   const blockers = blockingTasksOf(task, tasks);
   if (blockers.length === 0) return undefined;
@@ -84,8 +96,8 @@ export interface InitiativeProgress {
 }
 
 export function initiativeProgress(
-  initiativeTasks: readonly Task[],
-  tasks: readonly Task[],
+  initiativeTasks: readonly TaskSummary[],
+  tasks: readonly TaskSummary[],
 ): InitiativeProgress {
   const counted = initiativeTasks.filter(({ state }) => state !== "dropped");
   return {
@@ -109,7 +121,7 @@ export interface DroppedWithIt {
   readonly started: number;
 }
 
-export function droppedWithIt(initiativeTasks: readonly Task[]): DroppedWithIt {
+export function droppedWithIt(initiativeTasks: readonly TaskSummary[]): DroppedWithIt {
   const open = initiativeTasks.filter(({ state }) => state !== "done" && state !== "dropped");
   const started = open.filter(({ state }) => !NOT_STARTED.includes(state));
   return { open: open.length, started: started.length };
@@ -160,7 +172,7 @@ const TASKS_FOLD_STATES: readonly (readonly [Task["state"], string])[] = [
  */
 export function tasksFoldSummary(
   initiative: Pick<Initiative, "state">,
-  initiativeTasks: readonly Pick<Task, "state" | "projectId">[],
+  initiativeTasks: readonly Pick<TaskSummary, "state" | "projectId">[],
 ): string {
   if (initiativeTasks.length === 0) return "None yet";
   const projectCount = new Set(initiativeTasks.map(({ projectId }) => projectId)).size;
@@ -193,7 +205,7 @@ export function graphLineKinds(graph: TaskGraph): GraphLineKind[] {
 
 /** A Task in the graph; a blocker from outside the Initiative is drawn too, marked. */
 export interface GraphNode {
-  readonly task: Task;
+  readonly task: TaskSummary;
   readonly outside: boolean;
 }
 
@@ -214,7 +226,10 @@ export interface TaskGraph {
  * The Initiative's Tasks and the blockers they wait for from outside it, laid out by depth over
  * the edges among them only, so an outside blocker's own blockers add no empty columns.
  */
-export function taskGraph(initiativeTasks: readonly Task[], tasks: readonly Task[]): TaskGraph {
+export function taskGraph(
+  initiativeTasks: readonly TaskSummary[],
+  tasks: readonly TaskSummary[],
+): TaskGraph {
   const inside = new Set(initiativeTasks.map(({ id }) => id));
   const outsideBlockers = uniqueById(
     initiativeTasks.flatMap((task) => blockersOf(task, tasks)).filter(({ id }) => !inside.has(id)),
@@ -264,6 +279,6 @@ function depthsOf(nodes: readonly GraphNode[], edges: readonly GraphEdge[]): Map
   return depths;
 }
 
-function uniqueById(tasks: readonly Task[]): Task[] {
+function uniqueById(tasks: readonly TaskSummary[]): TaskSummary[] {
   return [...new Map(tasks.map((task) => [task.id, task])).values()];
 }

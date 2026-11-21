@@ -1,17 +1,20 @@
-import type { QueuedTask, Task, TaskState } from "@the-office/contracts";
+import type { QueuedTask, TaskState, TaskSummary } from "@the-office/contracts";
 import { lastEndedFirst } from "./last-ended-first.ts";
 
 export interface Column {
   readonly key: string;
   readonly label: string;
   readonly hint: (planner: string) => string;
-  readonly holds: (task: Task, queue: readonly QueuedTask[]) => boolean;
+  readonly holds: (task: TaskSummary, queue: readonly QueuedTask[]) => boolean;
   /** Its cards in order; left out, they keep the service's order (priority, then manual order). */
-  readonly inOrder?: (cards: readonly Task[], queue: readonly QueuedTask[]) => Task[];
+  readonly inOrder?: (cards: readonly TaskSummary[], queue: readonly QueuedTask[]) => TaskSummary[];
 }
 
 /** The Task's place in the queue. A Task that left Ready ignores an entry not yet read as gone. */
-export function queuedEntryOf(task: Task, queue: readonly QueuedTask[]): QueuedTask | undefined {
+export function queuedEntryOf(
+  task: TaskSummary,
+  queue: readonly QueuedTask[],
+): QueuedTask | undefined {
   return task.state === "ready" ? queue.find(({ taskId }) => taskId === task.id) : undefined;
 }
 
@@ -19,7 +22,7 @@ function inStates(...states: readonly TaskState[]): Column["holds"] {
   return (task) => states.includes(task.state);
 }
 
-function placeOf(task: Task, queue: readonly QueuedTask[]): number {
+function placeOf(task: TaskSummary, queue: readonly QueuedTask[]): number {
   return queuedEntryOf(task, queue)?.place ?? 0;
 }
 
@@ -68,9 +71,9 @@ export const COLUMNS: readonly Column[] = [
 /** The column's cards among `tasks`, in the order they show. */
 export function cardsIn(
   column: Column,
-  tasks: readonly Task[],
+  tasks: readonly TaskSummary[],
   queue: readonly QueuedTask[],
-): Task[] {
+): TaskSummary[] {
   const cards = tasks.filter((task) => column.holds(task, queue));
   return column.inOrder?.(cards, queue) ?? cards;
 }

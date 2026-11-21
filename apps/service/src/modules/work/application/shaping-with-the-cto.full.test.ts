@@ -33,7 +33,13 @@ import {
 } from "../../people/index.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { PipelineLibrary, PipelineLibraryModule } from "../../pipelines/index.js";
-import { IssueTasks, ProjectService, TaskBases } from "../../projects/index.js";
+import {
+  IssueTasks,
+  IssueWriteBack,
+  ProjectService,
+  TaskBases,
+  TestTargets,
+} from "../../projects/index.js";
 import type { Initiative } from "../domain/initiative.js";
 import {
   KnownProjectsForTests,
@@ -50,6 +56,7 @@ import {
   StageResultsForTests,
   TaskGatesForTests,
   TaskBasesForTests,
+  IssueWriteBackForTests,
   UsageHistoryForTests,
 } from "../ports/work-ports.fixtures.js";
 import { ADD_TASK, WRITE_OUTCOME } from "../adapters/office-tools/shaping-office-tools.js";
@@ -205,17 +212,28 @@ const STAND_INS = [
   TaskBasesForTests,
   { provide: TaskBases, useExisting: TaskBasesForTests },
   IssueTasks,
+  IssueWriteBackForTests,
+  { provide: IssueWriteBack, useExisting: IssueWriteBackForTests },
 ];
 
 /** Projects' service, which Conversations judges Devops' Proposals by; none is drafted here. */
 const NO_PROJECT_SERVICE = { provide: ProjectService, useValue: {} };
 
+/** Projects' test targets, which Conversations judges their Proposals by; none is drafted here. */
+const NO_TEST_TARGETS = { provide: TestTargets, useValue: {} };
+
 const ENGINE_CASCADE = { provide: EngineCascade, useValue: new EngineCascadeStandIn() };
 
 @Module({
   imports: [EngineModule],
-  providers: [...STAND_INS, NO_PROJECT_SERVICE, ENGINE_CASCADE, ListProjectsStandIn],
-  exports: [...STAND_INS, ProjectService, EngineCascade],
+  providers: [
+    ...STAND_INS,
+    NO_PROJECT_SERVICE,
+    NO_TEST_TARGETS,
+    ENGINE_CASCADE,
+    ListProjectsStandIn,
+  ],
+  exports: [...STAND_INS, ProjectService, TestTargets, EngineCascade],
 })
 class StandInsModule {}
 

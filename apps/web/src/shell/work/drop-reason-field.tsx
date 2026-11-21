@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import type { DropReason, Task } from "@the-office/contracts";
+import type { DropReason, TaskSummary } from "@the-office/contracts";
 import { Field, RadioList, SearchableSelect, Textarea } from "@the-office/ui";
 import { useId, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
-import { taskQueries } from "../../api/work.ts";
+import { useEveryTask } from "../../api/work.ts";
 
 /** The reason as the field holds it while the user picks: no Kind picked yet is "". */
 export interface DropReasonDraft {
@@ -56,7 +56,7 @@ export function dropReasonOf(
  * How a Dropped Task's reason reads (docs/design/issues-as-tasks.html, "Drop and Archived"):
  * "won't fix", "can't reproduce" or Other's words; a Duplicate's reads with its Task's title.
  */
-export function dropReasonWords(reason: DropReason, duplicated: Task | undefined): string {
+export function dropReasonWords(reason: DropReason, duplicated: TaskSummary | undefined): string {
   switch (reason.kind) {
     case "wont-fix":
       return "Won't fix";
@@ -79,12 +79,12 @@ export function DropReasonField({
   draft,
   onChange,
 }: {
-  readonly task: Task;
+  readonly task: TaskSummary;
   readonly draft: DropReasonDraft;
   readonly onChange: (draft: DropReasonDraft) => void;
 }): ReactNode {
   const name = useId();
-  const tasks = useQuery(taskQueries.list()).data ?? [];
+  const tasks = useEveryTask().data ?? [];
   const others = tasks.filter(({ id }) => id !== task.id);
   // What Duplicate and Other ask further, right under them while picked.
   const details: Partial<Record<DropReason["kind"], ReactNode>> = {
@@ -139,7 +139,7 @@ export function DropReasonField({
  * Says the Task's GitHub issue will be closed with the reason, while it has one and its Project's
  * "Close with the drop reason" switch is on.
  */
-function IssueClosedLine({ task }: { readonly task: Task }): ReactNode {
+function IssueClosedLine({ task }: { readonly task: TaskSummary }): ReactNode {
   const issue = useQuery(projectQueries.issueLink(task.id)).data;
   const project = useQuery(projectQueries.list()).data?.find(({ id }) => id === task.projectId);
   if (!issue || !project?.issueSettings.closeOnDrop) return null;

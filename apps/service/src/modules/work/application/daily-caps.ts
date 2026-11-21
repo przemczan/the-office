@@ -31,18 +31,18 @@ export class DailyCaps {
 
   /**
    * Each engine id with a Daily cap set, as a Start weighs it; read once for every Start, with the
-   * estimator that Start uses for `everyTask`.
+   * estimator that Start uses; the started Tasks among `weighed` are those still at work.
    */
   async of(
     caps: readonly EngineCaps[],
-    everyTask: readonly TaskSummary[],
+    weighed: readonly TaskSummary[],
     estimateOf: TaskEstimator,
   ): Promise<DailyCapsAtStart[]> {
     const capped = caps.filter(
       ({ dailyTokens, dailyDollars }) => dailyTokens !== undefined || dailyDollars !== undefined,
     );
     if (capped.length === 0) return [];
-    const inProgress = await this.leftInProgress(everyTask, estimateOf);
+    const inProgress = await this.leftInProgress(weighed, estimateOf);
     return readEach(capped, async ({ engineId, dailyTokens, dailyDollars }) => ({
       engineId,
       caps: { tokens: dailyTokens, dollars: dailyDollars },
@@ -68,10 +68,10 @@ export class DailyCaps {
 
   /** What is left of every started Task's estimate, by engine id: each less its use so far. */
   private async leftInProgress(
-    everyTask: readonly TaskSummary[],
+    weighed: readonly TaskSummary[],
     estimateOf: TaskEstimator,
   ): Promise<Map<EngineId, DayUse>> {
-    const started = everyTask.filter(({ state }) => STARTED_STATES.includes(state));
+    const started = weighed.filter(({ state }) => STARTED_STATES.includes(state));
     const left = new Map<EngineId, DayUse>();
     for (const task of started) {
       const [estimate, soFar] = await Promise.all([

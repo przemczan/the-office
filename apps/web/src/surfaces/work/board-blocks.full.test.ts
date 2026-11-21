@@ -84,7 +84,7 @@ function shape(items: readonly ColumnItem[]): (string | readonly [string, string
 }
 
 /** A block for the Initiative "sync" alone, as for an Initiative not read. */
-function onlySync(card: Task): string {
+function onlySync(card: Pick<Task, "initiativeId">): string {
   return card.initiativeId === "sync" ? "sync" : NO_INITIATIVE;
 }
 

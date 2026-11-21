@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Task, TaskPlacement } from "@the-office/contracts";
+import type { TaskPlacement, TaskSummary } from "@the-office/contracts";
 import { Alert, Icon } from "@the-office/ui";
 import { useState, type DragEvent, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
-import { initiativeQueries, placeTask, taskQueries } from "../../api/work.ts";
+import { initiativeQueries, placeTask, taskQueries, useEveryTask } from "../../api/work.ts";
 import { ImportIssuesDialog } from "../../shell/issues/import-issues-dialog.tsx";
 import { issueImportOf } from "../../shell/issues/issue-words.ts";
 import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
@@ -43,6 +43,8 @@ const GROUP_REFUSAL =
  */
 export function Board(): ReactNode {
   const tasks = useQuery(taskQueries.list());
+  // An Initiative's progress counts its archived Tasks too.
+  const everyTask = useEveryTask();
   const queue = useQuery(taskQueries.queue()).data ?? [];
   const projects = useQuery(projectQueries.list());
   const initiatives = useQuery(initiativeQueries.list());
@@ -51,10 +53,10 @@ export function Board(): ReactNode {
   const folds = useBoardGroupFolds();
   const projectFilter = useProjectFilter();
   // Blockers and placement read every Task: one in another Project still holds a Task back.
-  const inProjectFilter = (task: Task): boolean => projectFilter.shows([task.projectId]);
+  const inProjectFilter = (task: TaskSummary): boolean => projectFilter.shows([task.projectId]);
   const onBoard = tasks.data?.filter(isOnBoard) ?? [];
   const matching = onBoard.filter(shows);
-  const [dragged, setDragged] = useState<Task>();
+  const [dragged, setDragged] = useState<TaskSummary>();
   const [target, setTarget] = useState<DropTarget>();
   const [outlined, setOutlined] = useState<string>();
   const [importingIssues, setImportingIssues] = useState(false);
@@ -82,7 +84,7 @@ export function Board(): ReactNode {
 
   // Until the Initiatives are read, or while the Initiative filter is set, every card shows loose.
   const blockInitiatives = filters.initiative ? undefined : initiatives.data;
-  const blockOf = (task: Task): string =>
+  const blockOf = (task: TaskSummary): string =>
     blockInitiatives?.some(({ id }) => id === task.initiativeId) ? groupKeyOf(task) : NO_INITIATIVE;
 
   const endDrag = (): void => {
@@ -93,7 +95,7 @@ export function Board(): ReactNode {
   /** Drops the dragged card among `cards`, the column's in its group. */
   const dropInGroup = (
     column: Column,
-    cards: readonly Task[],
+    cards: readonly TaskSummary[],
     group: BoardGroup,
     event: DragEvent,
   ): void => {
@@ -140,7 +142,7 @@ export function Board(): ReactNode {
     if (placement) placing.mutate({ task, placement });
   };
 
-  const cardOf = (task: Task): ReactNode => {
+  const cardOf = (task: TaskSummary): ReactNode => {
     const peopleWorking = peopleWorkingOn(task.id);
     const queued = queuedEntryOf(task, queue);
     return (
@@ -286,7 +288,7 @@ export function Board(): ReactNode {
         groups && (
           <GroupedBoard
             grouping={groups}
-            tasks={tasks.data ?? []}
+            tasks={everyTask.data ?? tasks.data ?? []}
             queue={queue}
             projects={projects.data}
             shaper={shaper}
@@ -324,10 +326,10 @@ function BoardColumns({
   cardsArea,
 }: {
   readonly planner: string | undefined;
-  readonly cardsOf: (column: Column) => readonly Task[];
+  readonly cardsOf: (column: Column) => readonly TaskSummary[];
   /** Whether a card of a block, or a loose card, is dragged in the column. */
   readonly draggingIn: (column: Column) => "block" | "loose" | undefined;
-  readonly cardsArea: (column: Column, cards: readonly Task[]) => ReactNode;
+  readonly cardsArea: (column: Column, cards: readonly TaskSummary[]) => ReactNode;
 }): ReactNode {
   return (
     <div className="board">
@@ -358,7 +360,7 @@ function usePlacing() {
   const showToast = useToast();
   const listKey = taskQueries.list().queryKey;
   return useMutation({
-    mutationFn: ({ task, placement }: { task: Task; placement: TaskPlacement }) =>
+    mutationFn: ({ task, placement }: { task: TaskSummary; placement: TaskPlacement }) =>
       placeTask(task.id, placement),
     onMutate: async ({ task, placement }) => {
       await queryClient.cancelQueries({ queryKey: listKey });
@@ -382,7 +384,11 @@ function usePlacing() {
 }
 
 /** The list with `task` taken out and put back just before `below`, or just after `above`. */
-function moved(list: readonly Task[], task: Task, { above, below }: TaskPlacement): Task[] {
+function moved(
+  list: readonly TaskSummary[],
+  task: TaskSummary,
+  { above, below }: TaskPlacement,
+): TaskSummary[] {
   const others = list.filter(({ id }) => id !== task.id);
   const at =
     below !== null
@@ -392,7 +398,7 @@ function moved(list: readonly Task[], task: Task, { above, below }: TaskPlacemen
 }
 
 /** The Tasks of `ids` that are in `tasks`, in the order of `ids`. */
-function tasksAmong(ids: readonly string[], tasks: readonly Task[]): Task[] {
+function tasksAmong(ids: readonly string[], tasks: readonly TaskSummary[]): TaskSummary[] {
   return ids.flatMap((id) => tasks.filter((task) => task.id === id));
 }
 

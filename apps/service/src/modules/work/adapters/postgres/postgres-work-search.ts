@@ -2,22 +2,20 @@ import { Inject, Injectable } from "@nestjs/common";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { WorkSearch, type IdMatches, type SearchMatches } from "../../ports/work-search.js";
-import { bestFirst, matching, searchVectorOf } from "./search-vector.js";
+import { idStartingWith } from "./id-prefix.js";
+import { bestFirst, matching, searchVectorOf, taskSearchVector } from "./search-vector.js";
 import { attachments, attachmentTexts, ideas, initiatives, tasks } from "./work.schema.js";
 import { toAttachment, toIdea, toInitiative, toTask } from "./work-rows.js";
 
 /*
- * Each record's searched text is parsed as it is searched: The Office holds one user's records, so
- * reading every row is quick. A document's text, the one long field, is parsed once as it is
- * stored. A title or name weighs most, so it ranks first. A Task's Kind is one of its words, so
- * "bug" finds the Bugs. Every match is answered: the search narrows them by the Project filter
- * before it keeps the best.
+ * An Idea's and an Initiative's searched text is short, so it is parsed as it is searched. A
+ * Task's holds its Plan and Definition of Done, so its search reads an index instead
+ * (`taskSearchVector`), and a document's text is parsed once as it is stored. A title or name
+ * weighs most, so it ranks first. Every match is answered: the search narrows them by the Project
+ * filter before it keeps the best.
  */
 
-const taskVector = sql`setweight(${searchVectorOf(tasks.title)}, 'A')
-  || ${searchVectorOf(sql`${tasks.description} || ' ' || ${tasks.plan} || ' '
-    || array_to_string(${tasks.definitionOfDone}, ' ') || ' '
-    || array_to_string(${tasks.tags}, ' ') || ' ' || ${tasks.kind}`)}`;
+const taskVector = taskSearchVector(tasks);
 
 const ideaVector = sql`setweight(${searchVectorOf(ideas.title)}, 'A')
   || ${searchVectorOf(ideas.notes)}`;
@@ -36,22 +34,21 @@ export class PostgresWorkSearch extends WorkSearch {
   }
 
   async startingWithId(idPrefix: string): Promise<IdMatches> {
-    const startsWith = `${idPrefix}%`;
     const [taskRows, ideaRows, initiativeRows] = await Promise.all([
       this.database
         .select()
         .from(tasks)
-        .where(sql`${tasks.id}::text LIKE ${startsWith}`)
+        .where(idStartingWith(tasks.id, idPrefix))
         .orderBy(asc(tasks.id)),
       this.database
         .select()
         .from(ideas)
-        .where(sql`${ideas.id}::text LIKE ${startsWith}`)
+        .where(idStartingWith(ideas.id, idPrefix))
         .orderBy(asc(ideas.id)),
       this.database
         .select()
         .from(initiatives)
-        .where(sql`${initiatives.id}::text LIKE ${startsWith}`)
+        .where(idStartingWith(initiatives.id, idPrefix))
         .orderBy(asc(initiatives.id)),
     ]);
     return {
@@ -59,14 +56,6 @@ export class PostgresWorkSearch extends WorkSearch {
       ideas: ideaRows.map(toIdea),
       initiatives: initiativeRows.map(toInitiative),
     };
-  }
-
-  async matchingTaskIds(words: readonly string[]): Promise<ReadonlySet<string>> {
-    const rows = await this.database
-      .select({ id: tasks.id })
-      .from(tasks)
-      .where(matching(taskVector, words));
-    return new Set(rows.map(({ id }) => id));
   }
 
   async matchingInitiativeIds(words: readonly string[]): Promise<ReadonlySet<string>> {

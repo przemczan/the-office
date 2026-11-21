@@ -5,7 +5,14 @@ import {
   type UseMutationResult,
 } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import type { Initiative, NewTask, Project, Task, TaskKind } from "@the-office/contracts";
+import type {
+  Initiative,
+  NewTask,
+  Project,
+  Task,
+  TaskKind,
+  TaskSummary,
+} from "@the-office/contracts";
 import { Button, Checkbox, Dialog, Field, Input, RadioGroup } from "@the-office/ui";
 import { useId, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { projectQueries } from "../../api/projects.ts";
@@ -42,14 +49,14 @@ export const EMPTY_TASK_DRAFT: NewTaskDraft = {
 interface NewTaskPlace {
   readonly projectId?: string | null;
   readonly initiative?: Initiative;
-  readonly canWaitFor?: readonly Task[];
+  readonly canWaitFor?: readonly TaskSummary[];
 }
 
 /** New Task's state, its fields' and its submit's, held by the window it shows in. */
 export interface NewTaskForm {
   readonly formId: string;
   readonly initiative: Initiative | undefined;
-  readonly canWaitFor: readonly Task[];
+  readonly canWaitFor: readonly TaskSummary[];
   readonly draft: NewTaskDraft;
   readonly onChange: Dispatch<SetStateAction<NewTaskDraft>>;
   readonly pending: readonly PendingAttachment[];
@@ -300,7 +307,7 @@ function MustWaitFor({
   chosen,
   onChange,
 }: {
-  readonly candidates: readonly Task[];
+  readonly candidates: readonly TaskSummary[];
   readonly projects: readonly Project[] | undefined;
   readonly chosen: ReadonlySet<string>;
   readonly onChange: (chosen: ReadonlySet<string>) => void;

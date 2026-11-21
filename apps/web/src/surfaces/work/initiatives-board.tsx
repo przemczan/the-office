@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import type { Initiative, Project, Task } from "@the-office/contracts";
+import type { Initiative, Project, TaskSummary } from "@the-office/contracts";
 import {
   Alert,
   Badge,
@@ -14,7 +14,7 @@ import {
 } from "@the-office/ui";
 import { useRef, useState, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
-import { archivePeriodQuery, initiativeQueries, taskQueries } from "../../api/work.ts";
+import { archivePeriodQuery, initiativeQueries, useEveryTask } from "../../api/work.ts";
 import { FloatingMenu } from "../../shell/floating-menu.tsx";
 import { EmptyCard } from "../../shell/item-card.tsx";
 import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
@@ -55,11 +55,11 @@ import { usePeopleWorking, WorkingMark, type PersonWorking } from "./working-mar
 
 /** What every card on the board reads, from one read of each list. */
 interface BoardReading {
-  readonly tasks: readonly Task[];
+  readonly tasks: readonly TaskSummary[];
   readonly projects: readonly Project[] | undefined;
   /** Who shapes, as a Shaping card says it. */
   readonly shaper: string | undefined;
-  readonly waitsOnYou: (task: Task) => boolean;
+  readonly waitsOnYou: (task: TaskSummary) => boolean;
   readonly peopleWorkingOn: (taskId: string) => readonly PersonWorking[];
 }
 
@@ -70,7 +70,7 @@ interface BoardReading {
  */
 export function InitiativesBoard(): ReactNode {
   const initiatives = useQuery(initiativeQueries.list());
-  const tasks = useQuery(taskQueries.list());
+  const tasks = useEveryTask();
   const projects = useQuery(projectQueries.list());
   const period = useQuery(archivePeriodQuery());
   const shaper = useShaper()?.card.name;
@@ -288,7 +288,7 @@ function ActiveCard({
 
 /** Everyone working on any of the Tasks, each once. */
 function peopleWorkingOnAny(
-  tasks: readonly Task[],
+  tasks: readonly TaskSummary[],
   peopleWorkingOn: (taskId: string) => readonly PersonWorking[],
 ): PersonWorking[] {
   const byRole = new Map<string, PersonWorking>();

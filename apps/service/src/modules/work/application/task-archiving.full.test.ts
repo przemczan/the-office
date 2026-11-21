@@ -12,7 +12,7 @@ import { tasks } from "../adapters/postgres/work.schema.js";
 import { BY_THE_DAILY_RUN } from "../domain/author.js";
 import { DEFAULT_ARCHIVE_PERIOD } from "../domain/task-archive.js";
 import { TaskArchived, TaskStateChanged } from "../domain/task-events.js";
-import type { Task } from "../domain/task.js";
+import type { Task, TaskMadeFor } from "../domain/task.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { WorkSettings } from "../ports/work-settings.js";
 import { WorkSettingsForTests } from "../ports/work-ports.fixtures.js";
@@ -43,6 +43,13 @@ class OwnProjectTaskRepository extends PostgresTaskRepository {
 
   override async list(): Promise<readonly Task[]> {
     return (await super.list()).filter((task) => task.projectId === this.ownProjectId());
+  }
+
+  /** Other files mark Onboard Tasks of their own Projects meanwhile, which this one leaves out. */
+  override async madeFor(madeFor: TaskMadeFor, projectId?: string): Promise<readonly Task[]> {
+    return (await super.madeFor(madeFor, projectId)).filter(
+      (task) => task.projectId === this.ownProjectId(),
+    );
   }
 }
 

@@ -292,6 +292,7 @@ export interface NowParts {
   readonly openDecisions: readonly OpenDecision[];
   /** First place first. */
   readonly queued: readonly QueuedOnNow[];
+  /** The Tasks the open Decisions and the queue name, at least. */
   readonly tasks: readonly OfficeTask[];
   readonly initiatives: readonly OfficeInitiative[];
   /** Each Initiative's Tasks, by the Initiative's id. */

@@ -25,7 +25,7 @@ import {
   pipelineChangeSchema,
   planChangeSchema,
   priorityChangeSchema,
-  searchQuerySchema,
+  taskListQuerySchema,
   tagsChangeSchema,
   titleChangeSchema,
   taskMoveCheckQuerySchema,
@@ -46,13 +46,14 @@ import {
   type PlanChange,
   type PriorityChange,
   type Readiness,
-  type SearchQuery,
+  type TaskListQuery,
   startRequestSchema,
   type StartAnswer,
   type StartCheck,
   type StartRequest,
   type TagsChange,
   type Task as TaskResponse,
+  type TaskSummary as TaskSummaryResponse,
   type TaskMove,
   type TaskMoveCheckQuery,
   type TaskMoveCheck,
@@ -68,7 +69,12 @@ import { TaskService } from "../../application/task-service.js";
 import { reasonsOf } from "../../domain/wait.js";
 import { searchedQuery } from "./searched-query.js";
 import { authorOf } from "./signed-in-author.js";
-import { toQueueResponse, toTaskResponse, toUsageEstimateResponse } from "./work-responses.js";
+import {
+  toQueueResponse,
+  toTaskResponse,
+  toTaskSummaryResponse,
+  toUsageEstimateResponse,
+} from "./work-responses.js";
 import { WorkRefusalsFilter } from "./work-refusals.filter.js";
 
 @Controller("tasks")
@@ -90,12 +96,18 @@ export class TasksController {
     return toTaskResponse(await this.tasks.create(given, authorOf(signedIn)));
   }
 
-  /** The Tasks matching the query, every Task without one, in the board's order. */
+  /**
+   * The Tasks on the board matching the query, every one without one, in the board's order; or
+   * the archived Tasks, archived last first. Without their long texts, which `read` answers.
+   */
   @Get()
   async list(
-    @Query(new ContractPipe(searchQuerySchema)) { query }: SearchQuery,
-  ): Promise<TaskResponse[]> {
-    return (await this.search.tasksMatching(searchedQuery(query))).map(toTaskResponse);
+    @Query(new ContractPipe(taskListQuerySchema)) { query, archived }: TaskListQuery,
+  ): Promise<TaskSummaryResponse[]> {
+    const listed = archived
+      ? await this.tasks.archived()
+      : await this.search.tasksMatching(searchedQuery(query));
+    return listed.map(toTaskSummaryResponse);
   }
 
   @Get(":id")

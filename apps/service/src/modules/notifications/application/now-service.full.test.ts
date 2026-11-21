@@ -182,8 +182,8 @@ describe("NowService", () => {
       await events.publish(new StageRunStarted(randomUUID(), randomUUID(), "build"));
       await vi.waitFor(() => expect(lastAnnounced()).toBeDefined());
       const before = lastAnnounced()!.now.tokensToday;
-      const listed = vi.spyOn(tasks, "list");
-      const listedStarted = vi.spyOn(tasks, "listStarted");
+      const listed = vi.spyOn(tasks, "findAll");
+      const listedStarted = vi.spyOn(tasks, "started");
 
       await events.publish(new TokensCounted(threadWith(randomUUID(), 0, 70), new Date()));
 

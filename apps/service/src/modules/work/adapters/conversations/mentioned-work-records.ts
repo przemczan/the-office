@@ -116,7 +116,7 @@ export class MentionedWorkRecords implements WorkRecordSource, OnModuleInit {
   }
 
   async projectWork(projectId: string): Promise<ProjectWork> {
-    const tasks = (await this.tasks.list()).filter((task) => task.projectId === projectId);
+    const tasks = await this.tasks.inProject(projectId);
     return {
       taskIds: tasks.map(({ id }) => id),
       initiativeIds: [

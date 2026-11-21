@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Icon } from "@the-office/ui";
 import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { decisionQueries } from "../../api/conversations.ts";
-import { ideaQueries, initiativeQueries, taskQueries } from "../../api/work.ts";
+import { ideaQueries, initiativeQueries, useEveryTask } from "../../api/work.ts";
 import {
   matchingMentionables,
   MENTION_KINDS,
@@ -136,7 +136,7 @@ function useMentionables(open: boolean): {
   readonly records: Mentionable[];
   readonly loading: boolean;
 } {
-  const tasks = useQuery({ ...taskQueries.list(), enabled: open });
+  const tasks = useEveryTask({ enabled: open });
   const initiatives = useQuery({ ...initiativeQueries.list(), enabled: open });
   const decisions = useQuery({ ...decisionQueries.open(), enabled: open });
   const ideas = useQuery({ ...ideaQueries.list(), enabled: open });

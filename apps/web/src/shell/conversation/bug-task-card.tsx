@@ -19,7 +19,7 @@ import {
 import { Link } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
-import { taskQueries } from "../../api/work.ts";
+import { taskQueries, useEveryTask } from "../../api/work.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import { MentionField } from "../mentions/mention-field.tsx";
 import { useMentions } from "../mentions/mention-picker.tsx";
@@ -237,7 +237,7 @@ function BugTaskWhy({ decision }: { readonly decision: Decision }): ReactNode {
 function BugTaskFieldsForm({ form }: { readonly form: BugTaskForm }): ReactNode {
   const { fields, setFields } = form;
   const projects = useQuery(projectQueries.list()).data;
-  const tasks = useQuery(taskQueries.list()).data ?? [];
+  const tasks = useEveryTask().data ?? [];
   const mentions = useMentions(fields.description, (description) =>
     setFields({ ...fields, description }),
   );

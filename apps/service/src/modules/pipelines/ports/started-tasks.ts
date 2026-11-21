@@ -80,8 +80,20 @@ export abstract class StartedTasks {
   /** The Task, archived ones too, or undefined when The Office has none of that id. */
   abstract find(taskId: string): Promise<StartedTask | undefined>;
 
-  /** Every Task, started or not: as The Office starts, it looks for runs left running among them. */
-  abstract list(): Promise<readonly StartedTask[]>;
+  /**
+   * The Tasks In progress, Waiting on you or Paused: as The Office starts, it looks for runs left
+   * running among them.
+   */
+  abstract started(): Promise<readonly StartedTask[]>;
+
+  /** The Tasks neither Done nor Dropped, started or not. */
+  abstract open(): Promise<readonly StartedTask[]>;
+
+  /** The Tasks a usage window holds Paused, whatever its engine. */
+  abstract pausedByUsageWindow(): Promise<readonly StartedTask[]>;
+
+  /** The Tasks on one of these Pipelines, library or Project Pipelines, whatever their state. */
+  abstract onPipelines(pipelineIds: readonly string[]): Promise<readonly StartedTask[]>;
 
   /**
    * The Task as it is after the move. A Paused Task stays Paused: the user holds it, and only

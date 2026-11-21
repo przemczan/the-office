@@ -30,11 +30,11 @@ const STARTED_STATES: readonly string[] = ["in-progress", "waiting-on-you", "pau
 export class OfficeTasksForTests extends OfficeTasks {
   tasks: OfficeTask[] = [];
 
-  async list(): Promise<readonly OfficeTask[]> {
-    return this.tasks;
+  async findAll(ids: readonly string[]): Promise<readonly OfficeTask[]> {
+    return this.tasks.filter(({ id }) => ids.includes(id));
   }
 
-  async listStarted(): Promise<readonly OfficeTask[]> {
+  async started(): Promise<readonly OfficeTask[]> {
     return this.tasks.filter(({ state }) => STARTED_STATES.includes(state));
   }
 
