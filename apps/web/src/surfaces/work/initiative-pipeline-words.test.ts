@@ -140,16 +140,18 @@ describe("the Pipelines card's folded line", () => {
 });
 
 describe("the Pipelines card's foot line", () => {
-  it("says what comes, then why the Pipelines no longer change", () => {
+  it("says what comes, what can still change, then why the Pipelines no longer change", () => {
     expect(pipelinesFootWords("active", [SHIPPING, STRAIGHT])).toContain(
-      "Another Pipeline for a Project comes by a Proposal of whoever shapes Initiatives.",
+      "A Project's Pipeline can still change, by Edit or a Proposal of whoever shapes Initiatives, until its Publishing Task starts.",
     );
     expect(
       pipelinesFootWords("active", [
         { ...SHIPPING, publishingTask: added("in-progress") },
         { ...STRAIGHT, publishingTask: added("ready") },
       ]),
-    ).toBe("A Project's Pipeline no longer changes once its Publishing Task has started.");
+    ).toBe(
+      "A Project's Pipeline can still change, by Edit or a Proposal of whoever shapes Initiatives, until its Publishing Task starts.",
+    );
     expect(
       pipelinesFootWords("active", [
         { ...SHIPPING, publishingTask: added("in-progress") },

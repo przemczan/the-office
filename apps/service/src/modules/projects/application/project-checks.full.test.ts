@@ -55,6 +55,7 @@ class FakeGit extends Git {
   fetchRemote = notUsed;
   push = notUsed;
   pushCommit = notUsed;
+  deleteRemoteBranch = notUsed;
   writeCommit = notUsed;
   mergedTree = notUsed;
   contains = notUsed;

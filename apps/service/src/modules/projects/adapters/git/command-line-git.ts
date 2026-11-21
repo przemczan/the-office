@@ -337,6 +337,32 @@ export class CommandLineGit extends Git {
     );
   }
 
+  async deleteRemoteBranch(
+    repositoryPath: string,
+    target: Upstream,
+    expected: string,
+    variables: GitVariables,
+  ): Promise<void> {
+    const remote = await this.pushUrlOf(repositoryPath, target.remote);
+    const ref = `refs/heads/${target.branch}`;
+    await this.locked(repositoryPath, () =>
+      this.process.output({
+        folder: repositoryPath,
+        gitArguments: [
+          "push",
+          "--quiet",
+          `--force-with-lease=${ref}:${expected}`,
+          "--",
+          target.remote,
+          `:${ref}`,
+        ],
+        remote,
+        variables,
+        timeoutMs: LONG_TIMEOUT_MS,
+      }),
+    );
+  }
+
   async writeCommit(
     repositoryPath: string,
     treeish: string,

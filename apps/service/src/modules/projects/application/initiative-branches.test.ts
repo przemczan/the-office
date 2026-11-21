@@ -162,3 +162,49 @@ describe("InitiativeBranches.remove", REAL_GIT_TEST, () => {
     expect(await branches.exists(project.id, "initiative/taken-back")).toBe(false);
   });
 });
+
+describe("InitiativeBranches.removeEmpty", REAL_GIT_TEST, () => {
+  it("removes a branch with nothing beyond the base, here and on the remote", async () => {
+    const { repository, branches, project } = await branchesOnARepository(true);
+    const making = await branches.make(project.id, "initiative/empty");
+    if (making.kind !== "made") throw new Error(making.reason);
+    gitIn(repository.path, "push", "--quiet", "origin", "initiative/empty");
+    // The base moved on since: the branch still holds nothing it lacks.
+    await commitOnOrigin(repository, "main", "later.txt");
+
+    const removal = await branches.removeEmpty(project.id, "initiative/empty");
+
+    expect(removal).toEqual({ kind: "removed" });
+    expect(await branches.exists(project.id, "initiative/empty")).toBe(false);
+    expect(gitIn(repository.originPath, "branch", "--list", "initiative/empty")).toBe("");
+  });
+
+  it("refuses a branch whose copy on the remote holds a commit the base lacks, keeping both", async () => {
+    const { repository, branches, project } = await branchesOnARepository(true);
+    const making = await branches.make(project.id, "initiative/worked");
+    if (making.kind !== "made") throw new Error(making.reason);
+    await commitOnOrigin(repository, "initiative/worked", "work.txt");
+
+    const removal = await branches.removeEmpty(project.id, "initiative/worked");
+
+    expect(removal).toEqual({
+      kind: "refused",
+      reason: `The branch initiative/worked in ${project.name} holds commits ${project.baseBranch} doesn't have, so it stays.`,
+    });
+    expect(await branches.exists(project.id, "initiative/worked")).toBe(true);
+    expect(gitIn(repository.originPath, "branch", "--list", "initiative/worked")).not.toBe("");
+  });
+
+  it("refuses a local branch holding a commit the base lacks", async () => {
+    const { repository, branches, project } = await branchesOnARepository(false);
+    const making = await branches.make(project.id, "initiative/local-work");
+    if (making.kind !== "made") throw new Error(making.reason);
+    const work = gitIn(repository.path, "commit-tree", "main^{tree}", "-p", "main", "-m", "Work");
+    gitIn(repository.path, "update-ref", "refs/heads/initiative/local-work", work);
+
+    const removal = await branches.removeEmpty(project.id, "initiative/local-work");
+
+    expect(removal).toMatchObject({ kind: "refused" });
+    expect(await branches.exists(project.id, "initiative/local-work")).toBe(true);
+  });
+});

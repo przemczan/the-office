@@ -25,6 +25,7 @@ import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
 import {
   branchNoteWords,
   hasGate,
+  hasStarted,
   NO_BRANCH_WHILE_SHAPING,
   NONE_CONFIRMED,
   pipelineShapeWords,
@@ -71,7 +72,8 @@ interface ProjectBlockData {
  * a Pipeline of its own, or publishes Task by Task. It reads as facts, the branch first, then each
  * Project's Pipeline with its Publishing Task's progress through its Stages, each Stage opening
  * that Task's Stage history. While shaping, Edit in its head opens the editor, which saves it all
- * at once.
+ * at once; while active with an Initiative's branch, Edit opens it too, where only the Pipelines of
+ * the Projects on a branch change, until each one's Publishing Task starts.
  */
 export function InitiativePipelineBlock({
   initiative,
@@ -114,6 +116,7 @@ export function InitiativePipelineBlock({
     };
   });
   const shaping = initiative.state === "shaping";
+  const editable = shaping || (initiative.state === "active" && initiative.branches.length > 0);
   const read: ProjectPublishing[] = blocks.map((block) => ({
     projectName: block.projectName,
     pipelineName: block.pipelineId === null ? null : (block.pipeline?.name ?? block.pipelineId),
@@ -132,7 +135,7 @@ export function InitiativePipelineBlock({
       title="Pipelines"
       summary={pipelinesFoldedLine(initiative.state, read, initiative.branches.length)}
       side={
-        shaping && !editing ? (
+        editable && !editing ? (
           <Button
             size="sm"
             variant="secondary"
@@ -146,7 +149,7 @@ export function InitiativePipelineBlock({
         ) : undefined
       }
     >
-      {shaping && editing ? (
+      {editable && editing ? (
         <InitiativePipelinesEditor
           initiative={initiative}
           projects={blocks.map(({ projectId, project, projectName, pipelineId }) => ({
@@ -155,6 +158,10 @@ export function InitiativePipelineBlock({
             projectName,
             pipelineId,
             groups: choiceGroups(project, officeWide, projectPipelines),
+            onBranch: initiative.branches.some((branch) => branch.projectId === projectId),
+            publishingStarted: publishing.some(
+              (task) => task.projectId === projectId && hasStarted(task.state),
+            ),
           }))}
           pipelineOf={pipelineOf}
           onClose={() => setEditing(false)}

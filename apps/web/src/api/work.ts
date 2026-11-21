@@ -434,6 +434,14 @@ export function confirmInitiative(id: string): Promise<Initiative> {
 }
 
 /**
+ * "Back to Shaping": the active Initiative is shaping again, its Tasks in Backlog, Planning or
+ * Ready move to Shaping and its branches are removed.
+ */
+export function initiativeBackToShaping(id: string): Promise<Initiative> {
+  return sendToApi("POST", `${initiativePath(id)}/back-to-shaping`, {}, initiativeSchema);
+}
+
+/**
  * Pause the Initiative: its Tasks In progress or Waiting on you are paused, and none of its Tasks
  * starts until it is resumed; the Tasks it paused.
  */

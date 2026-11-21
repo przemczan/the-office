@@ -53,6 +53,7 @@ import { NewProjects, type AddedProject } from "./new-projects.js";
 import {
   ProjectInitiativeBranches,
   type InitiativeBranchMaking,
+  type InitiativeBranchRemoval,
 } from "./project-initiative-branches.js";
 import {
   ProjectWorktrees,
@@ -205,6 +206,22 @@ export class ProjectInitiativeBranchesForTests extends ProjectInitiativeBranches
       `${projectId}/${branch}${publishedByTaskId ? ` after ${publishedByTaskId}` : ""}`,
     );
     return !this.published.has(projectId);
+  }
+
+  /** Projects whose Initiative's branch a test says holds commits its base lacks. */
+  readonly holdingCommits = new Set<string>();
+
+  async removeEmpty(projectId: string, branch: string): Promise<InitiativeBranchRemoval> {
+    if (this.holdingCommits.has(projectId)) {
+      return {
+        kind: "refused",
+        reason: `The branch ${branch} in ${projectId} holds commits main doesn't have, so it stays.`,
+      };
+    }
+    const key = `${projectId}/${branch}`;
+    this.existing.delete(key);
+    this.removed.push(key);
+    return { kind: "removed" };
   }
 }
 

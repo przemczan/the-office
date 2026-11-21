@@ -223,7 +223,7 @@ function buttonNamed(page: HTMLElement, name: string): HTMLButtonElement | undef
   );
 }
 
-/** Edit in the block's head, there only while shaping and not editing. */
+/** Edit in the block's head, there while shaping or active with a branch, and not editing. */
 function editButton(page: HTMLElement): HTMLButtonElement | undefined {
   return buttonNamed(page, "Edit");
 }
@@ -495,10 +495,10 @@ describe("the Initiative's Pipelines card", () => {
     expect(blockOf(page, "Website").textContent).toContain("published into trunk");
   });
 
-  it("once confirmed has no Edit, and shows the branch and each Project's Pipeline read-only", async () => {
+  it("once confirmed shows the branch and each Project's Pipeline as facts, with Edit in its head", async () => {
     const page = await rendered(ACTIVE);
 
-    expect(editButton(page)).toBeUndefined();
+    expect(editButton(page)).toBeDefined();
     expect(page.querySelector('[role="combobox"]')).toBeNull();
     expect(page.querySelector("dl")?.textContent).toContain("initiative/usage-exports");
     expect(page.querySelector("dl")?.textContent).toContain("Task by TaskWEWebsite");
@@ -510,7 +510,7 @@ describe("the Initiative's Pipelines card", () => {
     ).not.toBeNull();
     expect(page.querySelector('li[aria-label="Website"]')).toBeNull();
     expect(page.textContent).toContain(
-      "Another Pipeline for a Project comes by a Proposal of whoever shapes Initiatives.",
+      "A Project's Pipeline can still change, by Edit or a Proposal of whoever shapes Initiatives, until its Publishing Task starts.",
     );
 
     document.body.replaceChildren();
@@ -521,6 +521,91 @@ describe("the Initiative's Pipelines card", () => {
     });
     expect(dropped.textContent).toContain("kept for you to delete");
     expect(dropped.textContent).toContain("Dropped: no Publishing Task is added any more.");
+    expect(editButton(dropped)).toBeUndefined();
+  });
+
+  it("once confirmed, Edit changes only the Pipeline of a Project on its branch; the switches and the branch name are fixed", async () => {
+    const saved: Initiative = {
+      ...ACTIVE,
+      pipelines: [
+        { projectId: "admin-panel", pipelineId: UNREVIEWED.id },
+        { projectId: "website", pipelineId: null },
+      ],
+    };
+    const fetched = vi.fn<typeof fetch>(() => Promise.resolve(Response.json(saved)));
+    vi.stubGlobal("fetch", fetched);
+    const page = await rendered(ACTIVE);
+    act(() => editButton(page)?.click());
+
+    expect(page.textContent).toContain("Fixed at Confirm: go Back to Shaping to change them.");
+    act(() => switchOf(page, "Admin panel").click());
+    act(() => switchOf(page, "Website").click());
+    expect(switchOf(page, "Admin panel").getAttribute("aria-checked")).toBe("true");
+    expect(switchOf(page, "Website").getAttribute("aria-checked")).toBe("false");
+    expect(shortNameField(page).disabled).toBe(true);
+    expect(page.querySelector('[aria-label="Website\'s Pipeline"]')).toBeNull();
+    expect(blockOf(page, "Website").textContent).toContain(
+      "None: publishes Task by TaskFixed at Confirm: go Back to Shaping to change it.",
+    );
+
+    act(() => pickerOf(page, "Admin panel").click());
+    act(() => optionNamed("Straight out").click());
+    // The query cache tells the block of the saved Initiative on a later tick than the form closes.
+    await act(async () => {
+      page.querySelector("form")?.requestSubmit();
+      await vi.waitFor(() =>
+        expect(blockOf(page, "Admin panel").textContent).toContain(
+          "Straight out · 1 Stage, no Gate",
+        ),
+      );
+    });
+
+    const saves = fetched.mock.calls.filter(([, request]) => request?.method === "PUT");
+    expect(saves).toHaveLength(1);
+    const [url, request] = saves[0] ?? [];
+    expect(url).toBe(`/api/initiatives/${INITIATIVE.id}/pipelines`);
+    expect(request?.body).toBe(
+      JSON.stringify({
+        pipelines: [
+          { projectId: "admin-panel", pipelineId: UNREVIEWED.id },
+          { projectId: "website", pipelineId: null },
+        ],
+        shortName: "usage-exports",
+      }),
+    );
+    expect(page.querySelector("form")).toBeNull();
+  });
+
+  it("once a Project's Publishing Task has started, its Pipeline shows read-only in the editor, with why", async () => {
+    const page = await rendered(ACTIVE, [PUBLISHING]);
+    act(() => editButton(page)?.click());
+
+    expect(page.querySelector('[role="combobox"]')).toBeNull();
+    expect(blockOf(page, "Admin panel").textContent).toContain(
+      "Reviewed release · 3 Stages, 1 Gate",
+    );
+    expect(blockOf(page, "Admin panel").textContent).toContain(
+      "Its Publishing Task has started, so its Pipeline can't change.",
+    );
+
+    document.body.replaceChildren();
+    const ready = await rendered(ACTIVE, [{ ...PUBLISHING, state: "ready" } as Task]);
+    act(() => editButton(ready)?.click());
+    expect(pickerOf(ready, "Admin panel").textContent).toBe("Reviewed release");
+  });
+
+  it("once confirmed with no Initiative's branch, has no Edit", async () => {
+    const page = await rendered({
+      ...ACTIVE,
+      pipelines: [
+        { projectId: "admin-panel", pipelineId: null },
+        { projectId: "website", pipelineId: null },
+      ],
+      shortName: null,
+      branches: [],
+    });
+
+    expect(editButton(page)).toBeUndefined();
   });
 
   it("starts folded when confirmed with None in every Project, its line saying so", async () => {

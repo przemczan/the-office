@@ -108,6 +108,12 @@ function requiredProject(
 export type ShaperChange =
   { readonly kind: "written"; readonly edit: InitiativeEdit } | { readonly kind: "proposed" };
 
+/** One Project's Pipeline as the user's Pipelines block saves it, null for None. */
+export interface PipelinesBlockChoice {
+  readonly projectId: string;
+  readonly pipelineId: string | null;
+}
+
 /** An Initiative that names a Pipeline in one Project it spans, as the library weighs it. */
 export interface InitiativeOnPipeline {
   readonly name: string;
@@ -380,6 +386,14 @@ export class InitiativeService implements OnModuleInit {
   }
 
   /**
+   * The user's undo of Confirm (spec 2.1, "Back to Shaping"): shaping again, its waiting Tasks back
+   * in Shaping and its still-empty branches removed (InitiativeBranching). No Agent has a tool for it.
+   */
+  async backToShaping(id: string, by: Author): Promise<Initiative> {
+    return this.branching.backToShaping(id, by);
+  }
+
+  /**
    * The Initiative's Pipeline in one Project it spans, null for None: by the user or whoever shapes
    * Initiatives straight onto it while it is being shaped, or by a Proposal of whoever shapes
    * Initiatives once active. Refused for a Project it doesn't span, and for a Pipeline that
@@ -411,12 +425,15 @@ export class InitiativeService implements OnModuleInit {
    * Project of `choices`, null for None, and the Short name, null to keep or derive it. Refused,
    * with nothing saved, for any Project it doesn't span or any Pipeline that Project's Tasks
    * couldn't follow, as choosePipeline refuses it, and for a Short name writeShortName refuses.
+   * Once active, setPipelinesOnceActive's rules hold instead.
    */
   async setPipelines(
     id: string,
-    choices: readonly { readonly projectId: string; readonly pipelineId: string | null }[],
+    choices: readonly PipelinesBlockChoice[],
     shortName: string | null,
   ): Promise<Initiative> {
+    const current = await this.read(id);
+    if (current.state === "active") return this.setPipelinesOnceActive(current, choices, shortName);
     const tasks = (await this.tasksByInitiative()).get(id) ?? [];
     const problems = (
       await readEach(choices, ({ projectId, pipelineId }) =>
@@ -433,6 +450,44 @@ export class InitiativeService implements OnModuleInit {
     );
     if (event) await this.events.publish(event);
     return initiative;
+  }
+
+  /**
+   * The user's Pipelines block once active (spec 2.1, "An Initiative's Pipeline"): only the
+   * Pipeline of a Project on an Initiative's branch changes, each as an applied Proposal of it
+   * would, with its refusals and its swap on a Publishing Task not yet started; the Short name and
+   * the branches stay as Confirm fixed them. Every changed choice is judged before any is applied.
+   */
+  private async setPipelinesOnceActive(
+    initiative: Initiative,
+    choices: readonly PipelinesBlockChoice[],
+    shortName: string | null,
+  ): Promise<Initiative> {
+    const changed = choices.filter(
+      ({ projectId, pipelineId }) =>
+        pipelineIn(initiative, projectId) !== (pipelineId ?? undefined),
+    );
+    const problems = [
+      ...(shortName !== null && shortName !== initiative.shortName
+        ? [fixedAtConfirmWords("Short name")]
+        : []),
+      ...(
+        await readEach(changed, async ({ projectId, pipelineId }) =>
+          initiative.branches.some((made) => made.projectId === projectId)
+            ? this.pipelineChangeProblems(initiative, projectId, pipelineId)
+            : [fixedAtConfirmWords(`Pipeline in ${await this.projectName(projectId)}`)],
+        )
+      ).flat(),
+    ];
+    if (problems.length > 0) throw new InitiativeRefused(problems);
+    for (const { projectId, pipelineId } of changed) {
+      await this.changePipeline(initiative.id, projectId, pipelineId, "by-proposal");
+    }
+    return this.read(initiative.id);
+  }
+
+  private async projectName(projectId: string): Promise<string> {
+    return (await this.projects.find(projectId))?.name ?? projectId;
   }
 
   /**
@@ -926,6 +981,10 @@ export class InitiativeService implements OnModuleInit {
 
 function notSpannedWords(projectId: string): string {
   return `The Initiative has no Task in the Project "${projectId}", so it has no Pipeline there.`;
+}
+
+function fixedAtConfirmWords(what: string): string {
+  return `The Initiative's ${what} was fixed at Confirm: go Back to Shaping to change it.`;
 }
 
 /** The name of the Initiative's Pipeline in the Project, or its id when the library lost it. */

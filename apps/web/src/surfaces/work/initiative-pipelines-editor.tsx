@@ -13,6 +13,7 @@ import { ProjectMark } from "../../shell/project-mark.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import {
   hasGate,
+  NONE_CONFIRMED,
   pipelineShapeWords,
   shortNameFormProblem,
   shortNameFromTitle,
@@ -29,6 +30,10 @@ export interface EditedProject {
   readonly pipelineId: string | null;
   /** Its Pipelines to choose from; undefined until they are read. */
   readonly groups: readonly PipelineChoiceGroup[] | undefined;
+  /** Whether its Initiative's branch was made: once active, only such a Pipeline can change. */
+  readonly onBranch: boolean;
+  /** Whether its Publishing Task has started, after which its Pipeline is fixed. */
+  readonly publishingStarted: boolean;
 }
 
 /** The block as the user edits it: unsaved until Save. */
@@ -42,11 +47,20 @@ interface Draft {
 /** What Save found wrong, by field: "shortName", or a Project's id for its Pipeline. */
 type Problems = Readonly<Record<string, string>>;
 
+/** Once active: what the switches and the branch name are. */
+export const FIXED_AT_CONFIRM = "Fixed at Confirm: go Back to Shaping to change them.";
+
+/** Once active: why a Project's Pipeline shows read-only. */
+export const NONE_FIXED_AT_CONFIRM = "Fixed at Confirm: go Back to Shaping to change it.";
+export const PUBLISHING_STARTED = "Its Publishing Task has started, so its Pipeline can't change.";
+
 /**
  * The Pipelines block after Edit (docs/design/initiative-pipelines-block.html): three steps in the
  * order they are decided, whether each Project works on an Initiative's branch, the branch's name,
  * then each switched-on Project's Pipeline, required. Save writes it all at once; Cancel throws the
- * draft away.
+ * draft away. Once active, the switches and the branch name show as fixed at Confirm, and only the
+ * picker of a Project on its Initiative's branch whose Publishing Task hasn't started changes; Save
+ * sends the rest as it stands.
  */
 export function InitiativePipelinesEditor({
   initiative,
@@ -61,6 +75,7 @@ export function InitiativePipelinesEditor({
 }): ReactNode {
   const [draft, setDraft] = useState(() => draftOf(initiative, projects));
   const [problems, setProblems] = useState<Problems>({});
+  const fixed = initiative.state !== "shaping";
   const saving = useInitiativeChange(initiative, (saved: Draft) =>
     setInitiativePipelines(initiative.id, {
       pipelines: projects.map(({ projectId }) => ({
@@ -68,7 +83,7 @@ export function InitiativePipelinesEditor({
         pipelineId:
           saved.onBranch[projectId] === true ? (saved.pipelines[projectId] ?? null) : null,
       })),
-      shortName: anyOnBranch(saved) ? saved.shortName : null,
+      shortName: fixed ? initiative.shortName : anyOnBranch(saved) ? saved.shortName : null,
     }),
   );
   const anyOn = anyOnBranch(draft);
@@ -88,7 +103,7 @@ export function InitiativePipelinesEditor({
   };
 
   const save = (): void => {
-    const found = problemsOf(draft, projects);
+    const found = problemsOf(draft, projects, fixed);
     setProblems(found);
     if (Object.keys(found).length === 0) saving.mutate(draft, { onSuccess: onClose });
   };
@@ -106,7 +121,7 @@ export function InitiativePipelinesEditor({
         <p className="initiative-pipelines-step-hint">
           On, the Initiative's Tasks start from its own branch and publish into it, and one
           Publishing Task puts the whole change into the base branch at the end. Off, each Task
-          publishes on its own, as it is done. Fixed at Confirm.
+          publishes on its own, as it is done. {fixed ? FIXED_AT_CONFIRM : "Fixed at Confirm."}
         </p>
         <ul className="initiative-pipelines-switches" aria-label="Initiative's branch, per Project">
           {projects.map((edited) => {
@@ -116,6 +131,7 @@ export function InitiativePipelinesEditor({
               <li key={edited.projectId} className="initiative-pipelines-switch">
                 <Switch
                   checked={on}
+                  disabled={fixed}
                   onChange={(checked) => switchProject(edited, checked)}
                   label={
                     <span className="initiative-pipelines-project-name">
@@ -150,6 +166,7 @@ export function InitiativePipelinesEditor({
               spellCheck={false}
               autoComplete="off"
               required
+              disabled={fixed}
               aria-invalid={problems.shortName !== undefined}
               error={problems.shortName}
               hint={`The Initiative's Short name, one for all its Projects: lower-case a–z, 0–9 and -, at most ${SHORT_NAME_MAX_LENGTH} characters.`}
@@ -178,16 +195,18 @@ export function InitiativePipelinesEditor({
         {anyOn ? (
           <>
             <p className="initiative-pipelines-step-hint">
-              What the Publishing Task walks before the branch is published.
+              What the Publishing Task walks before the branch is published
+              {fixed ? ": each can change until its Project's Publishing Task starts." : "."}
             </p>
             <ul className="initiative-pipelines-rows">
               {projects
-                .filter(({ projectId }) => draft.onBranch[projectId] === true)
+                .filter(({ projectId }) => fixed || draft.onBranch[projectId] === true)
                 .map((edited) => (
                   <PipelineRow
                     key={edited.projectId}
                     edited={edited}
                     pipelineId={draft.pipelines[edited.projectId] ?? ""}
+                    fixedWhy={fixed ? fixedWhy(edited) : undefined}
                     problem={problems[edited.projectId]}
                     pipelineOf={pipelineOf}
                     onChange={(pipelineId) => {
@@ -258,22 +277,52 @@ function EditorStep({
   );
 }
 
-/** A switched-on Project's Pipeline: its picker, its shape, and a warning when it has no Gate. */
+/**
+ * A switched-on Project's Pipeline: its picker, its shape, and a warning when it has no Gate; once
+ * active, read-only with why when it can't change.
+ */
 function PipelineRow({
   edited: { project, projectName, groups },
   pipelineId,
+  fixedWhy: why,
   problem,
   pipelineOf,
   onChange,
 }: {
   readonly edited: EditedProject;
   readonly pipelineId: string;
+  readonly fixedWhy: string | undefined;
   readonly problem: string | undefined;
   readonly pipelineOf: (pipelineId: string) => PipelineShown | undefined;
   readonly onChange: (pipelineId: string) => void;
 }): ReactNode {
   const pipeline = pipelineId === "" ? undefined : pipelineOf(pipelineId);
   const noGate = pipeline !== undefined && !hasGate(pipeline.stages) ? pipeline : undefined;
+  if (why !== undefined) {
+    return (
+      <li className="initiative-pipelines-row" aria-label={projectName}>
+        <span className="initiative-pipelines-project-name">
+          {project && <ProjectMark project={project} />}
+          {projectName}
+        </span>
+        <span className="initiative-pipelines-row-choice">
+          <span className="initiative-pipelines-shape">
+            {pipelineId === "" ? (
+              NONE_CONFIRMED
+            ) : (
+              <>
+                <b>{pipeline?.name ?? pipelineId}</b>
+                {pipeline && ` · ${pipelineShapeWords(pipeline.stages)}`}
+              </>
+            )}
+          </span>
+        </span>
+        <div className="initiative-pipelines-row-extra">
+          <span className="initiative-pipelines-quiet">{why}</span>
+        </div>
+      </li>
+    );
+  }
   return (
     <li className="initiative-pipelines-row" aria-label={projectName}>
       <span className="initiative-pipelines-project-name">
@@ -328,6 +377,12 @@ function draftOf(initiative: Initiative, projects: readonly EditedProject[]): Dr
   };
 }
 
+/** Once active, why a Project's Pipeline can't change; undefined while it can. */
+function fixedWhy({ onBranch, publishingStarted }: EditedProject): string | undefined {
+  if (!onBranch) return NONE_FIXED_AT_CONFIRM;
+  return publishingStarted ? PUBLISHING_STARTED : undefined;
+}
+
 function anyOnBranch(draft: Draft): boolean {
   return Object.values(draft.onBranch).some(Boolean);
 }
@@ -338,11 +393,14 @@ function defaultPipelineOf(groups: readonly PipelineChoiceGroup[] | undefined): 
   return choices.find(({ isDefault, brokenWhy }) => isDefault && brokenWhy === undefined)?.id ?? "";
 }
 
-/** Every problem Save checks before it sends; none with every Project switched off. */
-function problemsOf(draft: Draft, projects: readonly EditedProject[]): Problems {
+/**
+ * Every problem Save checks before it sends; none with every Project switched off, and none on the
+ * Short name once it is fixed.
+ */
+function problemsOf(draft: Draft, projects: readonly EditedProject[], fixed: boolean): Problems {
   if (!anyOnBranch(draft)) return {};
   const found: Record<string, string> = {};
-  const shortNameProblem = shortNameFormProblem(draft.shortName);
+  const shortNameProblem = fixed ? undefined : shortNameFormProblem(draft.shortName);
   if (shortNameProblem !== undefined) found.shortName = shortNameProblem;
   for (const { projectId } of projects) {
     if (draft.onBranch[projectId] === true && (draft.pipelines[projectId] ?? "") === "") {

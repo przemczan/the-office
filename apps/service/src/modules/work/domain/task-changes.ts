@@ -266,6 +266,43 @@ export function moveToBacklogOnConfirm(task: Task, by: Author): TaskChange<TaskS
   );
 }
 
+/**
+ * Backlog, Planning or Ready → Shaping, as the user takes the Task's Initiative Back to Shaping.
+ * Its Plan, Definition of Done and Pipeline stay, Not confirmed, its Pipeline as proposed unless
+ * one is proposed already, and it is no longer marked planned nor planned in an Initiative's
+ * planning Thread, so the next Confirm has it planned again. Moved here rather than by
+ * `changeTaskState`, as nobody may ask for this move on its own.
+ */
+export function moveToShapingOnBackToShaping(task: Task, by: Author): TaskChange<TaskStateChanged> {
+  const proposedPipeline =
+    task.proposedPipeline ??
+    (task.pipelineId === undefined
+      ? undefined
+      : { pipelineId: task.pipelineId, reason: PIPELINE_KEPT_AT_BACK_TO_SHAPING });
+  return withStateChange(
+    {
+      task: {
+        ...task,
+        state: "shaping",
+        planConfirmed: false,
+        definitionOfDoneConfirmed: false,
+        pipelineId: undefined,
+        proposedPipeline,
+        autoMode: false,
+        initiativePlanningThreadId: undefined,
+        markedPlanned: false,
+        hasPlanningThread: false,
+      },
+      event: new TaskStateChanged(task.id, task.state, "shaping"),
+    },
+    task,
+    by,
+  );
+}
+
+const PIPELINE_KEPT_AT_BACK_TO_SHAPING =
+  "Chosen before its Initiative went Back to Shaping; confirm it again.";
+
 /** How the user marks a Task Ready: `confirmPlanAndDefinitionOfDone` confirms both as they stand. */
 export interface MarkReadyChoice {
   readonly confirmPlanAndDefinitionOfDone: boolean;

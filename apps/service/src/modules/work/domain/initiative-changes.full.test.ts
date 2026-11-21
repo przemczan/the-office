@@ -5,6 +5,8 @@ import {
   changeDescriptionOfItsTask,
   changeTitleOfItsTask,
   addTaskToInitiative,
+  backToShaping,
+  backToShapingProblems,
   confirmInitiative,
   dropInitiative,
   dropLeftOpenTasks,
@@ -65,6 +67,113 @@ describe("confirmInitiative", () => {
         InitiativeRefused,
       );
     }
+  });
+});
+
+describe("backToShaping", () => {
+  const madeAt = new Date("2026-10-27T10:00:00.000Z");
+  const active = anInitiative({
+    state: "active",
+    pausedAt: at,
+    shortName: "checkout",
+    pipelines: [
+      { projectId: "project-1", pipelineId: "pipeline-1" },
+      { projectId: "project-2", pipelineId: undefined },
+    ],
+    branches: [{ projectId: "project-1", madeAt }],
+  });
+  const none: ReadonlySet<string> = new Set();
+
+  it("makes it shaping again, not paused, its branches gone and None no longer fixed", () => {
+    const change = backToShaping(active, [], none, ["project-1"], ANN_LEE);
+
+    expect(change.initiative).toMatchObject({
+      state: "shaping",
+      pausedAt: undefined,
+      shortName: "checkout",
+      pipelines: [{ projectId: "project-1", pipelineId: "pipeline-1" }],
+      branches: [],
+    });
+    expect(change.event).toMatchObject(stateChange("active", "shaping"));
+  });
+
+  it("moves its Tasks in Backlog, Planning and Ready to Shaping, Not confirmed, by the user", () => {
+    const backlog = aTask({ id: "task-1", state: "backlog" });
+    const planned = aTask({
+      id: "task-2",
+      state: "planning",
+      hasPlanningThread: true,
+      markedPlanned: true,
+      initiativePlanningThreadId: "thread-1",
+    });
+    const ready = aTask({
+      id: "task-3",
+      state: "ready",
+      plan: "Do it.",
+      planConfirmed: true,
+      definitionOfDone: ["It is done."],
+      definitionOfDoneConfirmed: true,
+      pipelineId: "pipeline-1",
+    });
+    const dropped = aTask({ id: "task-4", state: "dropped" });
+
+    const { taskChanges } = backToShaping(
+      { ...active, branches: [] },
+      [backlog, planned, ready, dropped],
+      none,
+      [],
+      ANN_LEE,
+    );
+
+    expect(taskChanges.map(({ task }) => [task.id, task.state])).toEqual([
+      ["task-1", "shaping"],
+      ["task-2", "shaping"],
+      ["task-3", "shaping"],
+    ]);
+    expect(taskChanges[1]?.task).toMatchObject({
+      markedPlanned: false,
+      hasPlanningThread: false,
+      initiativePlanningThreadId: undefined,
+    });
+    expect(taskChanges[2]?.task).toMatchObject({
+      plan: "Do it.",
+      planConfirmed: false,
+      definitionOfDone: ["It is done."],
+      definitionOfDoneConfirmed: false,
+      pipelineId: undefined,
+      proposedPipeline: { pipelineId: "pipeline-1" },
+    });
+    expect(taskChanges[2]?.stateChange).toMatchObject({
+      from: "ready",
+      to: "shaping",
+      by: ANN_LEE,
+    });
+  });
+
+  it("refuses with each reason a Task gives", () => {
+    const tasks = [
+      aTask({ id: "task-1", title: "Started", state: "in-progress" }),
+      aTask({ id: "task-2", title: "Opened", state: "backlog" }),
+      aTask({ id: "task-3", title: "Planned now", state: "planning", hasPlanningThread: true }),
+      aTask({ id: "task-4", title: "Publish", state: "backlog", madeFor: "publishing" }),
+    ];
+
+    expect(backToShapingProblems(active, tasks, new Set(["task-2"]))).toEqual([
+      'Its Task "Started" has started.',
+      'Its Task "Opened" has a worktree.',
+      'Its Task "Planned now" is being planned right now.',
+      'It has the Publishing Task "Publish".',
+    ]);
+    expect(() => backToShaping(active, tasks, new Set(), ["project-1"], ANN_LEE)).toThrow(
+      InitiativeRefused,
+    );
+  });
+
+  it("refuses one that isn't active, or whose branches changed meanwhile", () => {
+    for (const state of ["shaping", "done", "dropped"] as const) {
+      expect(backToShapingProblems(anInitiative({ state }), [], none)).toHaveLength(1);
+    }
+    expect(() => backToShaping(active, [], none, [], ANN_LEE)).toThrow(InitiativeRefused);
   });
 });
 
@@ -343,10 +452,10 @@ describe("the CTO's Tasks and their dependencies", () => {
 
   it("judges a title or Description before the state, then refuses a done or dropped Initiative", () => {
     const active = anInitiative({ state: "active" });
-    const started = { ...its, state: "in-progress" } as const;
+    const ended = { ...its, state: "done" } as const;
 
     expect(() => changeTitleOfItsTask(active, "straight", its, " ")).toThrow(TaskRefused);
-    expect(() => changeTitleOfItsTask(active, "straight", started, "Queue")).toThrow(TaskRefused);
+    expect(() => changeTitleOfItsTask(active, "straight", ended, "Queue")).toThrow(TaskRefused);
     expect(changeTitleOfItsTask(active, "straight", its, its.title)).toBeUndefined();
     expect(changeDescriptionOfItsTask(active, "straight", its, its.description)).toBeUndefined();
     for (const state of ["done", "dropped"] as const) {

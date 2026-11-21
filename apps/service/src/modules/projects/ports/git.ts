@@ -274,6 +274,17 @@ export abstract class Git {
   ): Promise<void>;
 
   /**
+   * Deletes `target.branch` on `target.remote` only while it still names `expected` there; the
+   * remote refuses otherwise. The remote-tracking ref follows.
+   */
+  abstract deleteRemoteBranch(
+    repositoryPath: string,
+    target: Upstream,
+    expected: string,
+    variables: GitVariables,
+  ): Promise<void>;
+
+  /**
    * Writes a commit of the tree `treeish` names (a commit's or a tree's own id) on `parents`, in
    * `message`, as `commit-tree` does: no ref and no worktree changes, and no hooks run. Returns it.
    */

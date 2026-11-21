@@ -13,11 +13,16 @@ export type InitiativeBranchMaking =
   | { readonly kind: "made"; readonly commit: string }
   | { readonly kind: "refused"; readonly reason: string };
 
+/** How removing an Initiative's branch from a Project went: removed, or refused with why. */
+export type InitiativeBranchRemoval =
+  { readonly kind: "removed" } | { readonly kind: "refused"; readonly reason: string };
+
 /**
  * An Initiative's branch in a Project (spec §5.5 Defaults, "The Initiative's branch"): made at the
  * freshly fetched base branch, only when the name is free here and on the base branch's remote.
- * Nothing is pushed here; a branch the same attempt made can be taken back. Whether a branch holds
- * work not yet published is asked of it too.
+ * Nothing is pushed here; a branch the same attempt made can be taken back, and Back to Shaping
+ * removes one that holds nothing beyond the base. Whether a branch holds work not yet published is
+ * asked of it too.
  */
 @Injectable()
 export class InitiativeBranches {
@@ -72,6 +77,48 @@ export class InitiativeBranches {
   async remove(projectId: string, branch: string, commit: string): Promise<void> {
     const project = await this.projects.read(projectId);
     await this.git.removeRef(project.path, refOf(branch), commit);
+  }
+
+  /**
+   * Removes `branch`, here and on the base branch's remote, only while neither copy holds a commit
+   * the freshly fetched base branch doesn't have (Back to Shaping); refused, with the Project
+   * named, when one does or git fails. A copy that is gone already is left gone. Never run inside a
+   * database hold: it fetches and pushes.
+   */
+  async removeEmpty(projectId: string, branch: string): Promise<InitiativeBranchRemoval> {
+    const project = await this.projects.read(projectId);
+    const variables = this.commands.variablesFor(project.environment);
+    try {
+      return await this.git.exclusively(project.path, async () => {
+        const base = await this.worktrees.freshBase(project, variables);
+        const local = await this.git.findCommit(project.path, refOf(branch));
+        const upstream = base.fetchedFrom && { remote: base.fetchedFrom.remote, branch };
+        const pushed =
+          upstream && (await this.git.remoteHasBranch(project.path, upstream, variables))
+            ? await this.git.fetch(project.path, upstream, variables)
+            : undefined;
+        for (const commit of [local, pushed]) {
+          if (
+            commit !== undefined &&
+            !(await this.git.contains(project.path, base.commit, commit))
+          ) {
+            return refused(
+              `The branch ${branch} in ${project.name} holds commits ${project.baseBranch} doesn't have, so it stays.`,
+            );
+          }
+        }
+        if (upstream && pushed !== undefined) {
+          await this.git.deleteRemoteBranch(project.path, upstream, pushed, variables);
+        }
+        if (local !== undefined) await this.git.removeRef(project.path, refOf(branch), local);
+        return { kind: "removed" } as const;
+      });
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+      return refused(
+        `The branch ${branch} couldn't be removed from ${project.name}: ${await this.reasonOf(project, error)}`,
+      );
+    }
   }
 
   /** Whether the Project's repository has the local branch `branch`. */
@@ -151,6 +198,6 @@ function taken(project: Project, branch: string): InitiativeBranchMaking {
   return refused(`The branch ${branch} already exists in ${project.name}.`);
 }
 
-function refused(reason: string): InitiativeBranchMaking {
+function refused(reason: string): { readonly kind: "refused"; readonly reason: string } {
   return { kind: "refused", reason };
 }

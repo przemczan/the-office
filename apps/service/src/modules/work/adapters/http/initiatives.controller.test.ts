@@ -23,7 +23,7 @@ import { projectPipelinesForTests } from "../../../pipelines/index.fixtures.js";
 import { TaskService } from "../../application/task-service.js";
 import { FIRE_ALARM_ON } from "../../domain/fire-alarm.js";
 import { INITIATIVE_PAUSED } from "../../domain/initiative-pause.js";
-import { TaskPaused } from "../../domain/task-events.js";
+import { TaskPaused, TaskStateChanged } from "../../domain/task-events.js";
 import { FireAlarmRepository } from "../../ports/fire-alarm-repository.js";
 import { KnownPipelines } from "../../ports/known-pipelines.js";
 import { TaskRepository } from "../../ports/task-repository.js";
@@ -32,6 +32,7 @@ import {
   KnownPeopleForTests,
   KnownProjectsForTests,
   ProjectInitiativeBranchesForTests,
+  ProjectWorktreesForTests,
   WorkSettingsForTests,
 } from "../../ports/work-ports.fixtures.js";
 import { WorkSettings } from "../../ports/work-settings.js";
@@ -1001,5 +1002,187 @@ describe("the Initiative's Pipeline and branches", () => {
       ],
       branches: [{ projectId: first }],
     });
+  });
+});
+
+/** An active Initiative with a Task in each Project, `full` in each, its branches made. */
+async function confirmedIn(projectIds: readonly string[]): Promise<{
+  initiative: Initiative;
+  tasks: readonly Task[];
+  branch: string;
+}> {
+  const initiative = await shapedOwnInitiative();
+  const tasks: Task[] = [];
+  for (const projectId of projectIds) tasks.push(await addTask(initiative, projectId));
+  const { shortName } = await chooseIn(initiative, projectIds, "full");
+  expect((await post(initiative, "confirm")).status).toBe(200);
+  return { initiative, tasks, branch: `initiative/${shortName}` };
+}
+
+async function moveTask(task: Task, to: Task["state"]): Promise<void> {
+  await work.app.get(TaskRepository).update(task.id, (held) => ({
+    task: { ...held, state: to },
+    event: new TaskStateChanged(held.id, held.state, to),
+  }));
+}
+
+describe("POST /api/initiatives/:id/back-to-shaping", () => {
+  it("makes it shaping again, its Tasks back in Shaping by the user and its branches removed", async () => {
+    const [first, second] = [aProjectId(), aProjectId()];
+    const { initiative, tasks, branch } = await confirmedIn([first, second]);
+    await pauseOrResume(initiative, "pause");
+    work.published.length = 0;
+
+    const shaping = await initiativeFrom(await post(initiative, "back-to-shaping"));
+
+    expect(shaping).toMatchObject({
+      state: "shaping",
+      pipelines: [
+        { projectId: first, pipelineId: "full" },
+        { projectId: second, pipelineId: "full" },
+      ],
+      branches: [],
+    });
+    expect(shaping.pausedAt ?? null).toBeNull();
+    expect(branches().removed).toEqual([`${first}/${branch}`, `${second}/${branch}`]);
+    for (const task of tasks) {
+      expect(await taskOf(task)).toMatchObject({ state: "shaping", planConfirmed: false });
+      expect((await work.app.get(TaskRepository).stateChangesOf(task.id)).at(-1)).toMatchObject({
+        from: "backlog",
+        to: "shaping",
+        by: ANN_LEE,
+      });
+    }
+    expect(webEventsOf(work)).toContainEqual({
+      type: "initiative.state-changed",
+      initiativeId: initiative.id,
+      from: "active",
+      to: "shaping",
+    });
+  });
+
+  it("lets the Short name change, and the next Confirm makes the branches under it", async () => {
+    const projectId = aProjectId();
+    const { initiative } = await confirmedIn([projectId]);
+    await post(initiative, "back-to-shaping");
+    const written = `again-${randomUUID().slice(0, 8)}`;
+
+    await initiativeFrom(
+      await setPipelines(initiative, {
+        pipelines: [{ projectId, pipelineId: "full" }],
+        shortName: written,
+      }),
+    );
+    const confirmed = await initiativeFrom(await post(initiative, "confirm"));
+
+    expect(confirmed).toMatchObject({
+      state: "active",
+      shortName: written,
+      branches: [{ projectId, branch: `initiative/${written}` }],
+    });
+    expect(branches().made.at(-1)).toBe(`${projectId}/initiative/${written}`);
+  });
+
+  it("is refused with every reason a Task gives, removing no branch", async () => {
+    const [first, second] = [aProjectId(), aProjectId()];
+    const {
+      initiative,
+      tasks: [started, opened],
+    } = await confirmedIn([first, second]);
+    if (!started || !opened) throw new Error("Two Tasks were added.");
+    await moveTask(started, "in-progress");
+    work.app.get(ProjectWorktreesForTests).opened.push(`${second}/${opened.id}`);
+
+    expect(await reasonsOf(await post(initiative, "back-to-shaping"))).toEqual([
+      `Its Task "${started.title}" has started.`,
+      `Its Task "${opened.title}" has a worktree.`,
+    ]);
+    expect(branches().removed).toEqual([]);
+    expect((await read(initiative)).state).toBe("active");
+  });
+
+  it("is refused naming the Project whose branch holds commits, making the others again", async () => {
+    const [first, holding] = [aProjectId(), aProjectId()];
+    const { initiative, branch } = await confirmedIn([first, holding]);
+    branches().holdingCommits.add(holding);
+
+    expect(await reasonsOf(await post(initiative, "back-to-shaping"))).toEqual([
+      `The branch ${branch} in ${holding} holds commits main doesn't have, so it stays.`,
+    ]);
+    expect(branches().removed).toEqual([`${first}/${branch}`]);
+    expect(branches().made.at(-1)).toBe(`${first}/${branch}`);
+    expect(await read(initiative)).toMatchObject({ state: "active", branches: [{}, {}] });
+  });
+
+  it("is refused for an Initiative that isn't active", async () => {
+    const initiative = await shapedOwnInitiative();
+
+    expect(await reasonsOf(await post(initiative, "back-to-shaping"))).toEqual([
+      "Only an active Initiative can go Back to Shaping; this one is shaping.",
+    ]);
+  });
+});
+
+describe("PUT /api/initiatives/:id/pipelines once active", () => {
+  it("changes the Pipeline of a Project on an Initiative's branch, as an applied Proposal does", async () => {
+    const initiative = await shapedOwnInitiative();
+    const [branched, onNone] = [aProjectId(), aProjectId()];
+    await addTask(initiative, branched);
+    await addTask(initiative, onNone);
+    const { shortName } = await initiativeFrom(await choose(initiative, branched, "full"));
+    await post(initiative, "confirm");
+    work.published.length = 0;
+
+    const changed = await initiativeFrom(
+      await setPipelines(initiative, {
+        pipelines: [
+          { projectId: branched, pipelineId: "quick-fix" },
+          { projectId: onNone, pipelineId: null },
+        ],
+        shortName,
+      }),
+    );
+
+    expect(changed).toMatchObject({
+      state: "active",
+      shortName,
+      pipelines: [
+        { projectId: branched, pipelineId: "quick-fix" },
+        { projectId: onNone, pipelineId: null },
+      ],
+    });
+    expect(webEventsOf(work)).toContainEqual({
+      type: "initiative.pipeline-chosen",
+      initiativeId: initiative.id,
+    });
+  });
+
+  it("refuses, saving nothing, None, a Project Confirm fixed on None, and another Short name", async () => {
+    const initiative = await shapedOwnInitiative();
+    const [branched, onNone] = [aProjectId(), aProjectId()];
+    await addTask(initiative, branched);
+    await addTask(initiative, onNone);
+    await choose(initiative, branched, "full");
+    await post(initiative, "confirm");
+
+    expect(
+      await reasonsOf(
+        await setPipelines(initiative, {
+          pipelines: [
+            { projectId: branched, pipelineId: null },
+            { projectId: onNone, pipelineId: "full" },
+          ],
+          shortName: "another-name",
+        }),
+      ),
+    ).toEqual([
+      "The Initiative's Short name was fixed at Confirm: go Back to Shaping to change it.",
+      expect.any(String),
+      `The Initiative's Pipeline in The ${onNone} was fixed at Confirm: go Back to Shaping to change it.`,
+    ]);
+    expect((await read(initiative)).pipelines).toEqual([
+      { projectId: branched, pipelineId: "full" },
+      { projectId: onNone, pipelineId: null },
+    ]);
   });
 });

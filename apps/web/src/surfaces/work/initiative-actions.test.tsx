@@ -162,3 +162,138 @@ describe("Add a Task on an Initiative's page", () => {
     expect(asked.filter((url) => url.includes("/ideas"))).toEqual([]);
   });
 });
+
+const ACTIVE: Initiative = {
+  ...INITIATIVE,
+  state: "active",
+  originIdeaId: null,
+  projectIds: ["api-service", "admin-panel"],
+  shortName: "usage-exports",
+  branches: [
+    {
+      projectId: "api-service",
+      branch: "initiative/usage-exports",
+      madeAt: INITIATIVE.createdAt,
+    },
+    {
+      projectId: "admin-panel",
+      branch: "initiative/usage-exports",
+      madeAt: INITIATIVE.createdAt,
+    },
+  ],
+};
+
+function aTask(id: string, state: Task["state"]): Task {
+  return { id, title: id, state, initiativeId: ACTIVE.id, projectId: "api-service" } as Task;
+}
+
+const TASKS = [
+  aTask("one", "backlog"),
+  aTask("two", "planning"),
+  aTask("three", "ready"),
+  aTask("four", "in-progress"),
+  aTask("five", "done"),
+];
+
+async function renderedActive(initiative: Initiative = ACTIVE): Promise<HTMLElement> {
+  return rendered(initiative, (queryClient) =>
+    queryClient.setQueryData(taskQueries.list().queryKey, TASKS),
+  );
+}
+
+function backToShapingButton(page: HTMLElement): HTMLButtonElement | undefined {
+  return [...page.querySelectorAll("button")].find(({ textContent }) =>
+    textContent.startsWith("Back to Shaping"),
+  );
+}
+
+function windowShown(): HTMLElement | null {
+  return document.querySelector<HTMLElement>('[role="dialog"]');
+}
+
+async function goBack(): Promise<void> {
+  await act(async () => {
+    [...(windowShown()?.querySelectorAll("button") ?? [])]
+      .find(({ textContent }) => textContent.startsWith("Back to Shaping"))
+      ?.click();
+    await new Promise((resolve) => setTimeout(resolve));
+  });
+}
+
+describe("Back to Shaping on an Initiative's page", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.body.replaceChildren();
+  });
+
+  it("is offered only while the Initiative is active", async () => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>());
+    expect(backToShapingButton(await renderedActive())).toBeDefined();
+    document.body.replaceChildren();
+    expect(backToShapingButton(await rendered(INITIATIVE))).toBeUndefined();
+    document.body.replaceChildren();
+    const done = await renderedActive({ ...ACTIVE, state: "done", endedAt: INITIATIVE.createdAt });
+    expect(backToShapingButton(done)).toBeUndefined();
+  });
+
+  it("asks first, saying how many Tasks go back to Shaping and how many branches are removed", async () => {
+    const fetched = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetched);
+    const page = await renderedActive();
+
+    act(() => backToShapingButton(page)?.click());
+
+    expect(fetched.mock.calls.filter(([, init]) => init?.method === "POST")).toEqual([]);
+    expect(windowShown()?.textContent).toContain(
+      "3 Tasks go back to Shaping, out of the queue, their Plans kept but Not confirmed.",
+    );
+    expect(windowShown()?.textContent).toContain(
+      "The Initiative's branch is removed from 2 Projects.",
+    );
+  });
+
+  it("sends it on the window's button and says so", async () => {
+    const fetched = vi.fn<typeof fetch>(() =>
+      Promise.resolve(Response.json({ ...ACTIVE, state: "shaping", branches: [] })),
+    );
+    vi.stubGlobal("fetch", fetched);
+    const page = await renderedActive();
+    act(() => backToShapingButton(page)?.click());
+
+    await goBack();
+
+    const [url, request] = fetched.mock.calls.find(([, init]) => init?.method === "POST") ?? [];
+    expect(url).toBe(`/api/initiatives/${ACTIVE.id}/back-to-shaping`);
+    expect(request?.method).toBe("POST");
+    expect(windowShown()).toBeNull();
+    expect(document.body.textContent).toContain(
+      "Initiative back in Shaping. Its Tasks wait in Shaping until you confirm it again.",
+    );
+  });
+
+  it("shows every reason it is refused in the window", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>(() =>
+        Promise.resolve(
+          Response.json(
+            {
+              message: "Refused",
+              reasons: ['Its Task "four" has started.', 'Its Task "four" has a worktree.'],
+            },
+            { status: 422 },
+          ),
+        ),
+      ),
+    );
+    const page = await renderedActive();
+    act(() => backToShapingButton(page)?.click());
+
+    await goBack();
+
+    const shown = windowShown()?.textContent;
+    expect(shown).toContain("The Initiative can't go back to Shaping");
+    expect(shown).toContain('Its Task "four" has started.');
+    expect(shown).toContain('Its Task "four" has a worktree.');
+  });
+});

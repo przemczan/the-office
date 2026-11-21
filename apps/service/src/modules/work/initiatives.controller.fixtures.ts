@@ -71,7 +71,10 @@ export function initiativesHttp(current: () => WorkApplication) {
     return workRefusalSchema.parse(await response.json()).reasons;
   }
 
-  async function post(initiative: Initiative, action: "confirm" | "drop"): Promise<Response> {
+  async function post(
+    initiative: Initiative,
+    action: "confirm" | "drop" | "back-to-shaping",
+  ): Promise<Response> {
     return sendJson(current(), "POST", `/initiatives/${initiative.id}/${action}`);
   }
 

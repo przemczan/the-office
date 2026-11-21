@@ -22,10 +22,12 @@ import { derivedShortName, initiativeBranchOf, shortNameProblems } from "./short
 import { InitiativeNotShaping } from "./initiative-not-shaping.js";
 import { InitiativeRefused } from "./initiative-refused.js";
 import {
+  isPublishingTask,
   newTaskProblems,
   trimmedNewTask,
   type NewTask,
   type Task,
+  type TaskState,
   type TaskSummary,
 } from "./task.js";
 import { titleProblem } from "./title.js";
@@ -33,6 +35,7 @@ import {
   changeTaskState,
   createTask,
   moveToBacklogOnConfirm,
+  moveToShapingOnBackToShaping,
   type NewTaskSetting,
   type TaskChange,
 } from "./task-changes.js";
@@ -144,6 +147,73 @@ export function confirmInitiative(
 }
 
 const CONFIRM_AGAIN = "The Initiative changed while it was being confirmed; confirm it again.";
+
+/** The Task states Back to Shaping moves back to Shaping; any other but Dropped refuses it. */
+const MOVED_BACK_TO_SHAPING: ReadonlySet<TaskState> = new Set(["backlog", "planning", "ready"]);
+
+/**
+ * Why Back to Shaping is refused, none when it is allowed: the Initiative must be active, and none
+ * of its Tasks started, with a worktree (`withWorktree`, by Task id), being planned right now or a
+ * Publishing Task (spec 2.1, "Back to Shaping"). Its branches are judged apart, in git.
+ */
+export function backToShapingProblems(
+  initiative: Initiative,
+  tasks: readonly Task[],
+  withWorktree: ReadonlySet<string>,
+): readonly string[] {
+  if (initiative.state !== "active") {
+    return [`Only an active Initiative can go Back to Shaping; this one is ${initiative.state}.`];
+  }
+  return tasks.flatMap((task) => {
+    if (isPublishingTask(task)) {
+      return [`It has the Publishing Task "${task.title}".`];
+    }
+    if (task.state !== "dropped" && !MOVED_BACK_TO_SHAPING.has(task.state)) {
+      return [`Its Task "${task.title}" has started.`];
+    }
+    if (withWorktree.has(task.id)) return [`Its Task "${task.title}" has a worktree.`];
+    if (task.state === "planning" && task.hasPlanningThread && !task.markedPlanned) {
+      return [`Its Task "${task.title}" is being planned right now.`];
+    }
+    return [];
+  });
+}
+
+/**
+ * Back to Shaping, the user's undo of Confirm: the Initiative is shaping again, no longer paused,
+ * and its Tasks in Backlog, Planning or Ready move to Shaping, their parts kept Not confirmed.
+ * `removedProjectIds` are the Projects whose branch was removed before the hold, which must be all
+ * of `branches`; the per-Project Pipelines stay as chosen, None no longer fixed, and the Short name
+ * is kept, editable again.
+ */
+export function backToShaping(
+  initiative: Initiative,
+  tasks: readonly Task[],
+  withWorktree: ReadonlySet<string>,
+  removedProjectIds: readonly string[],
+  by: Author,
+): InitiativeTasksChange<InitiativeStateChanged> {
+  const problems = backToShapingProblems(initiative, tasks, withWorktree);
+  if (problems.length > 0) throw new InitiativeRefused(problems);
+  const branched = initiative.branches.map(({ projectId }) => projectId);
+  if (!sameProjects(branched, removedProjectIds)) {
+    throw new InitiativeRefused([
+      "The Initiative changed while it was going Back to Shaping; try again.",
+    ]);
+  }
+  const shaping = moveTo(initiative, "shaping", undefined);
+  return {
+    ...shaping,
+    initiative: {
+      ...shaping.initiative,
+      pipelines: initiative.pipelines.filter(({ pipelineId }) => pipelineId !== undefined),
+      branches: [],
+    },
+    taskChanges: tasks
+      .filter(({ state }) => MOVED_BACK_TO_SHAPING.has(state))
+      .map((task) => moveToShapingOnBackToShaping(task, by)),
+  };
+}
 
 /** Every Project the Initiative spans with its Pipeline or None, as Confirm fixes them. */
 function fixedPipelines(

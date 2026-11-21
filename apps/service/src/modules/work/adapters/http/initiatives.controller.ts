@@ -108,6 +108,16 @@ export class InitiativesController {
     return this.respond(await this.initiatives.confirm(id, authorOf(signedIn)));
   }
 
+  /** Back to Shaping: the user's undo of Confirm, refused with every reason it can't be. */
+  @Post(":id/back-to-shaping")
+  @HttpCode(HttpStatus.OK)
+  async backToShaping(
+    @Param("id", ParseUUIDPipe) id: string,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<InitiativeResponse> {
+    return this.respond(await this.initiatives.backToShaping(id, authorOf(signedIn)));
+  }
+
   /** The user's outcome; refused once the Initiative is no longer being shaped. */
   @Put(":id/outcome")
   async writeOutcome(

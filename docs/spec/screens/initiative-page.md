@@ -1,6 +1,6 @@
 # Initiative page
 
-Covers: the Initiative page's head and actions (Confirm, Plan the Initiative, Plan with…, Start Ready Tasks, Pause, Resume, Add a Task, Drop, Archive), the Tasks block and its graph, membership (Add an existing Task, Take out), the Pipelines block and its editor, the Test instances block (Launch, states, Open, Download and the QR code, Stop, Log), the record's folds (Outcome, Attachments, Origin), and the shaping and planning Threads.
+Covers: the Initiative page's head and actions (Confirm, Back to Shaping, Plan the Initiative, Plan with…, Start Ready Tasks, Pause, Resume, Add a Task, Drop, Archive), the Tasks block and its graph, membership (Add an existing Task, Take out), the Pipelines block and its editor, the Test instances block (Launch, states, Open, Download and the QR code, Stop, Log), the record's folds (Outcome, Attachments, Origin), and the shaping and planning Threads.
 
 ## Where it is
 
@@ -31,7 +31,7 @@ Covers: the Initiative page's head and actions (Confirm, Plan the Initiative, Pl
 ## Head actions
 
 - One line of buttons; whatever wraps past it is hidden, the last first, and **More** always holds every action as its first items.
-- In order: **Confirm the Initiative**, **Planning Thread**, **Plan the Initiative**, **Plan with <Planner>**, **Start Ready Tasks**, **Pause the Initiative** or **Resume the Initiative**, **Add a Task**, **Add an existing Task**, **Browse files**, **Restore**.
+- In order: **Confirm the Initiative**, **Planning Thread**, **Plan the Initiative**, **Plan with <Planner>**, **Start Ready Tasks**, **Pause the Initiative** or **Resume the Initiative**, **Add a Task**, **Add an existing Task**, **Browse files**, **Back to Shaping**, **Restore**.
 - **Confirm the Initiative** (check, primary): while shaping; toast "Initiative confirmed. Its Tasks moved to Backlog, to wait until <Planner> plans them." or "Initiative confirmed, and done: its Tasks are."
 - **Planning Thread**: a link to the Initiative's latest planning Thread (`?initiativeThread=`), once it has one.
 - **Plan the Initiative** (map, primary) beside an **Auto mode** switch: offered while it is active with a Task in Backlog and someone holds Plans.
@@ -41,6 +41,7 @@ Covers: the Initiative page's head and actions (Confirm, Plan the Initiative, Pl
   - The service's other refusals show as a toast.
 - **Plan with <Planner>** (message icon): same offer; opens a new planning Thread where the Planner waits for the user's first message on how to plan; auto mode is off; toast "<Planner> waits for your message: say how to plan the Initiative's Tasks in Backlog. Auto mode is off: you confirm each one as it is planned."; the conversation then opens on that Thread.
 - **Start Ready Tasks** (play): while it is active and a Task of it is Ready; the normal Start on each Ready Task, an Overlap queued behind; toast "<n> started, <n> queued, <n> refused"; a refusal of the whole action shows as a toast.
+- **Back to Shaping** (undo icon): while it is active; opens the confirm window ([Back to Shaping](#back-to-shaping)).
 - **Pause the Initiative** (pause): while it is active and not paused; holds its running Tasks once each Agent's current turn ends and starts none of its Tasks; hint "Hold its running Tasks once each Agent's current turn ends, and start none of its Tasks"; toast "Initiative paused: <n> Tasks paused. None of its Tasks starts until you resume it." (or "none of its Tasks was running").
 - **Resume the Initiative** (play): while paused; hint "Resume the Tasks its Pause held and let its Tasks start again"; toast "Initiative resumed: <n> Tasks resumed.", or "… go on at the fire alarm's all clear." while the fire alarm is on, or "Initiative resumed: its Tasks may start again." when none were held.
 - A refusal of Pause or Resume shows its reason as a toast.
@@ -55,6 +56,14 @@ Covers: the Initiative page's head and actions (Confirm, Plan the Initiative, Pl
 - **Copy link**.
 - **Archive**: once Done or Dropped and not archived.
 - **Drop the Initiative** (danger): while Shaping or active.
+
+## Back to Shaping
+
+- Window "Back to Shaping?", button **Back to Shaping**.
+- It says how many Tasks move back to Shaping and from how many Projects the Initiative's branch is removed.
+- Toast: "Initiative back in Shaping. Its Tasks wait in Shaping until you confirm it again."
+- A refusal shows as "The Initiative can't go back to Shaping", with the reasons.
+- Rules: [2.1.4](../2.1.4-initiatives.md#back-to-shaping).
 
 ## Drop the Initiative
 
@@ -129,7 +138,9 @@ Covers: the Initiative page's head and actions (Confirm, Plan the Initiative, Pl
 
 ## Pipelines editor
 
-- **Edit** in the block's header, while shaping only; once confirmed there is no Edit.
+- **Edit** in the block's header, while shaping and while active; Done and Dropped have none.
+- Once active the editor shows only the Pipeline picker of each Project already on an Initiative's branch; the switch and the branch name show as fixed: "Fixed at Confirm: go Back to Shaping to change them"; a Project whose Publishing Task has started shows read-only with the reason.
+- Once active, the Short name can't change; the change follows the rules of an applied Proposal ([2.1.4](../2.1.4-initiatives.md#an-initiatives-pipeline)).
 - One form, three steps (a step is dimmed while it doesn't apply):
   1. **Work on an Initiative's branch?**: a switch per Project; on: "Works on `initiative/<name>`, published into <base> by its Publishing Task."; off: "Task by Task: each Task publishes into <base> as it is done." Hint: "On, the Initiative's Tasks start from its own branch and publish into it, and one Publishing Task puts the whole change into the base branch at the end. Off, each Task publishes on its own, as it is done. Fixed at Confirm."
   2. **Branch name**: the Short name, `initiative/` shown before it, one for all its Projects, hint "The Initiative's Short name, one for all its Projects: lower-case a–z, 0–9 and -, at most 40 characters."; switching a Project on fills it from the title when empty (accents dropped, lower-case, each run of other characters one `-`, at most 40 characters cut at a word); with every Project off: "Only with an Initiative's branch: a Project publishing Task by Task needs none."
@@ -205,6 +216,7 @@ Covers: the Initiative page's head and actions (Confirm, Plan the Initiative, Pl
 
 - Loading: only the tab strip shows until the Initiative and the Tasks are read.
 - Missing: an empty state with **Back to Work** and the service's message when it is gone (404), or "The Initiative can't be shown." with its reason.
+- Active: **Back to Shaping** while no Task has started; Pipelines editable as above.
 - Shaping: the shaping note; Outcome and Pipelines editable; its Tasks sit in Shaping.
 - Paused: a **Paused** badge and **Resume the Initiative**; its Tasks show Paused and the queue's reason.
 - Done and Dropped: no Pause, Plan or Add; **Archive** in the menu; Pipelines read-only; Threads read-only.

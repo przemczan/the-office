@@ -125,6 +125,10 @@ export function hasStarted(state: TaskState): boolean {
   return !NOT_STARTED.includes(state) && state !== "dropped";
 }
 
+/** While active: what can still change, and until when. */
+const PIPELINE_STILL_CHANGES =
+  "A Project's Pipeline can still change, by Edit or a Proposal of whoever shapes Initiatives, until its Publishing Task starts.";
+
 /**
  * The card's last line: what comes next for the Pipelines, or why they no longer change; undefined
  * when there is nothing to say, as once Done or with None in every Project.
@@ -142,14 +146,13 @@ export function pipelinesFootWords(
   if (state === "done") return undefined;
   const added = withPipeline.flatMap(({ publishingTask }) => publishingTask ?? []);
   if (added.length === 0) {
-    return "Once every other Task is Done or Dropped, The Office adds a Publishing Task in each Project with a Pipeline whose branch holds work, to publish its whole change; you start it, or Start Ready Tasks does. Another Pipeline for a Project comes by a Proposal of whoever shapes Initiatives.";
+    return `Once every other Task is Done or Dropped, The Office adds a Publishing Task in each Project with a Pipeline whose branch holds work, to publish its whole change; you start it, or Start Ready Tasks does. ${PIPELINE_STILL_CHANGES}`;
   }
   const started = added.filter(({ state: taskState }) => hasStarted(taskState)).length;
-  if (started === 0)
-    return "Another Pipeline for a Project comes by a Proposal of whoever shapes Initiatives.";
+  if (started === 0) return PIPELINE_STILL_CHANGES;
   return started === withPipeline.length
     ? "Their Publishing Tasks have started, so these Pipelines no longer change."
-    : "A Project's Pipeline no longer changes once its Publishing Task has started.";
+    : PIPELINE_STILL_CHANGES;
 }
 
 /** Whether the card starts open: folded only once confirmed with None in every Project. */

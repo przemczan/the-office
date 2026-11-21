@@ -30,6 +30,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 
 ### B
 
+- **Back to Shaping**: [2.1.4 Back to Shaping](2.1.4-initiatives.md#back-to-shaping); screen: [Initiative page › Back to Shaping](screens/initiative-page.md#back-to-shaping)
 - **Base Pipeline, Stage change**: [2.3.5 Project Pipelines](2.3.5-library.md#project-pipelines); screen: [Pipeline flow editor › In a Project Pipeline](screens/pipeline-flow-editor.md#in-a-project-pipeline)
 - **Basic stats, Full stats**: [2.11.2 Basic stats](2.11.2-tokens-and-cost.md#basic-stats); [2.11.2 Full stats](2.11.2-tokens-and-cost.md#full-stats)
 - **Brief**: [2.5 The Brief](2.5-context-policy.md#the-brief)
@@ -279,7 +280,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
   - [2.1.1 Projects](2.1.1-projects.md): Project, its settings, a Kind's default Pipeline, test targets, Project limit, Icon and Logo, Project commands, the re-run command, GitHub issues.
   - [2.1.2 Ideas and Attachments](2.1.2-ideas-and-attachments.md): Idea, Attachment, text files and PDFs, pasted images.
   - [2.1.3 Tasks](2.1.3-tasks.md): Task, its Kind and bug details, its states, Ready, Description, Commit message, dependencies, Drop reason, GitHub issue, priority, archive, moving.
-  - [2.1.4 Initiatives](2.1.4-initiatives.md): Initiative, its states, shaping, Plan the Initiative, its Pipeline, Publishing Tasks, Pause, its test instances.
+  - [2.1.4 Initiatives](2.1.4-initiatives.md): Initiative, its states, shaping, Plan the Initiative, its Pipeline, Back to Shaping, Publishing Tasks, Pause, its test instances.
   - [2.1.5 Planning and Start](2.1.5-planning-and-start.md): Plan and Definition of Done, Planning, Auto mode, the queue for Start, overlaps, Usage estimates.
   - [2.1.6 Board and search](2.1.6-board-and-search.md): the board, the Kind filter, search, Saved views, Group by Initiative, the Pull requests and CI tabs.
 - [2.2 People](2.2-people.md): Role, Agent, Role card, authority, escalation, presets, duties, the Office Manager, limits.
@@ -386,6 +387,7 @@ Where each default lives, by page:
   - [The user writes the outcome](2.1.4-initiatives.md#the-user-writes-the-outcome)
   - [An Initiative is done](2.1.4-initiatives.md#an-initiative-is-done)
   - [An Initiative's Pipeline](2.1.4-initiatives.md#an-initiatives-pipeline)
+  - [Back to Shaping](2.1.4-initiatives.md#back-to-shaping)
   - [Publishing Tasks](2.1.4-initiatives.md#publishing-tasks)
   - [Start Ready Tasks](2.1.4-initiatives.md#start-ready-tasks)
   - [Pause the Initiative](2.1.4-initiatives.md#pause-the-initiative)

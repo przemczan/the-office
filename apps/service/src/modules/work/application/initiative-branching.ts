@@ -6,6 +6,8 @@ import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
 import { initiativeProjectIds, pipelineIn, type Initiative } from "../domain/initiative.js";
 import {
   addBranch,
+  backToShaping,
+  backToShapingProblems,
   confirmInitiative,
   tasksByInitiative,
   type ConfirmBranching,
@@ -18,6 +20,7 @@ import { KnownPipelines } from "../ports/known-pipelines.js";
 import { taskPipelineProblems } from "../domain/pipeline-commands.js";
 import { KnownProjects, type KnownProject } from "../ports/known-projects.js";
 import { ProjectInitiativeBranches } from "../ports/project-initiative-branches.js";
+import { ProjectWorktrees } from "../ports/project-worktrees.js";
 import type { Task } from "../domain/task.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { pipelineChoiceIn } from "./pipeline-choice.js";
@@ -32,9 +35,9 @@ interface MadeBranch {
 /**
  * The Initiative's branches (spec 5.5): made at Confirm in every Project it spans with a Pipeline,
  * and once active in such a Project its Tasks come back to, or one a Proposal gives its first
- * Pipeline. Git runs before the Initiative is held and never inside a hold:
- * the hold then judges what was made, and anything that fails removes the branches the same
- * attempt made. One attempt at a time per Initiative.
+ * Pipeline; removed by Back to Shaping while they hold nothing beyond their base. Git runs before
+ * the Initiative is held and never inside a hold: the hold then judges what was made, and anything
+ * that fails removes the branches the same attempt made. One attempt at a time per Initiative.
  */
 @Injectable()
 export class InitiativeBranching {
@@ -47,6 +50,7 @@ export class InitiativeBranching {
     private readonly projects: KnownProjects,
     private readonly pipelines: KnownPipelines,
     private readonly branches: ProjectInitiativeBranches,
+    private readonly worktrees: ProjectWorktrees,
     private readonly events: EventBus,
   ) {}
 
@@ -80,6 +84,82 @@ export class InitiativeBranching {
         throw error;
       }
     });
+  }
+
+  /**
+   * Back to Shaping (spec 2.1): judged first as the hold will judge it, then the Initiative's
+   * branches are removed, locally and on the remote, each only while it holds nothing beyond its
+   * base. Refused, naming the Project and why, when one can't be removed, with those removed so far
+   * made again and the Initiative still active.
+   */
+  async backToShaping(id: string, by: Author): Promise<Initiative> {
+    return this.locks.run(id, async () => {
+      const initiative = await this.read(id);
+      const tasks = await this.tasksOf(id);
+      const withWorktree = await this.withWorktree(tasks);
+      const problems = backToShapingProblems(initiative, tasks, withWorktree);
+      if (problems.length > 0) throw new InitiativeRefused(problems);
+      const removed = await this.removeForBackToShaping(initiative);
+      try {
+        const shaping = await this.repository.updateWithTasks(id, (held, heldTasks) =>
+          backToShaping(held, heldTasks, withWorktree, removed, by),
+        );
+        if (shaping.event) await this.events.publish(shaping.event);
+        for (const taskChange of shaping.taskChanges) {
+          await this.events.publish(taskChange.event);
+        }
+        return shaping.initiative;
+      } catch (error) {
+        await this.makeAgain(initiative, removed);
+        throw error;
+      }
+    });
+  }
+
+  /** The ids of those of `tasks` that have a worktree, read before any hold. */
+  private async withWorktree(tasks: readonly Task[]): Promise<ReadonlySet<string>> {
+    const opened = await readEach(tasks, async (task) =>
+      (await this.worktrees.exists(task.projectId, task.id)) ? [task.id] : [],
+    );
+    return new Set(opened.flat());
+  }
+
+  /** The Projects whose branch it removed, all of the Initiative's, or refused with the first why. */
+  private async removeForBackToShaping(initiative: Initiative): Promise<readonly string[]> {
+    const { shortName } = initiative;
+    if (shortName === undefined) return [];
+    const branch = initiativeBranchOf(shortName);
+    const removed: string[] = [];
+    for (const { projectId } of initiative.branches) {
+      const removal = await this.branches.removeEmpty(projectId, branch);
+      if (removal.kind === "refused") {
+        await this.makeAgain(initiative, removed);
+        throw new InitiativeRefused([removal.reason]);
+      }
+      removed.push(projectId);
+    }
+    return removed;
+  }
+
+  /**
+   * Makes again the branches a failed Back to Shaping removed, at the base as they held
+   * nothing beyond it; one that can't be is only logged, so it doesn't hide why the attempt failed.
+   */
+  private async makeAgain(initiative: Initiative, projectIds: readonly string[]): Promise<void> {
+    const { shortName } = initiative;
+    if (shortName === undefined) return;
+    const branch = initiativeBranchOf(shortName);
+    for (const projectId of projectIds) {
+      const making = await this.branches.make(projectId, branch).catch((error: unknown) => ({
+        kind: "refused" as const,
+        reason: error instanceof Error ? error.message : String(error),
+      }));
+      if (making.kind === "refused") {
+        this.logger.warn(
+          `The branch ${branch} removed from Project ${projectId} couldn't be made again: ${making.reason}`,
+        );
+      }
+    }
   }
 
   /**

@@ -2,7 +2,7 @@ import type { Initiative, ReadyTasksStarted, Task } from "@the-office/contracts"
 import { Button, Icon, IconButton, Menu, Switch, type MenuItem } from "@the-office/ui";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
 import {
   autoModeQuery,
@@ -19,6 +19,7 @@ import { canBeArchived } from "../../shell/work/work-words.ts";
 import { canHoldBack } from "./dependency-words.ts";
 import { useBrowseInitiativeFilesActions } from "./browse-files.tsx";
 import { useRestoreInitiativeAction } from "./archive-parts.tsx";
+import { useBackToShapingAction } from "./initiative-back-to-shaping.tsx";
 import { useInitiativePauseAction } from "./initiative-pause.tsx";
 import { usePlanWithAction } from "./initiative-plan-with.tsx";
 import { canPlanInitiative } from "./initiative-planning-words.ts";
@@ -40,7 +41,8 @@ import { useRememberedAutoMode } from "./use-planning.ts";
  * active and Resume the Initiative while it is paused, "Add a Task" while it is open (in the
  * Project of the Idea it was shaped from, if any, until it has Tasks) and "Add an existing Task"
  * beside it, one in no Initiative, Browse files for each Project where its branch is known here,
- * and Restore while it is archived; then its menu, with each of
+ * Back to Shaping while it is active, asking first (the user's alone, no Agent's), and Restore
+ * while it is archived; then its menu, with each of
  * these and Copy link, Drop until it has ended, asking first in DropInitiativeDialog, and Archive
  * once it has.
  */
@@ -69,6 +71,7 @@ export function InitiativeActions({
     onStartedReadyTasks,
   );
   const pause = useInitiativePauseAction(initiative);
+  const backToShaping = useBackToShapingAction(initiative, initiativeTasks);
   const restore = useRestoreInitiativeAction(initiative);
   const browseFiles = useBrowseInitiativeFilesActions(initiative);
   const actions = [
@@ -80,6 +83,8 @@ export function InitiativeActions({
     pause,
     ...(open ? addingActions(setAdding) : []),
     ...browseFiles,
+    // Last of the row, so this rare step is the first left to the More menu when space runs out.
+    backToShaping,
     restore,
   ].filter((action) => action !== undefined);
   return (
@@ -285,6 +290,9 @@ function InitiativeMenu({
         }
         items={withActionItems(actions, items)}
       />
+      {actions.map(
+        (action) => action.dialog && <Fragment key={action.key}>{action.dialog}</Fragment>,
+      )}
       {dropping && (
         <DropInitiativeDialog
           initiative={initiative}
