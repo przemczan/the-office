@@ -98,6 +98,7 @@ import { DailyCaps } from "./application/daily-caps.js";
 import { StartsSinceReading } from "./application/starts-since-reading.js";
 import { StartService } from "./application/start-service.js";
 import { UsageEstimates } from "./application/usage-estimates.js";
+import { TaskConnectedDevices } from "./application/task-connected-devices.js";
 import { TaskRecords } from "./application/task-records.js";
 import { TaskStageEdits } from "./application/task-stage-edits.js";
 import { TaskArchiving } from "./application/task-archiving.js";
@@ -317,6 +318,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         QueueService,
         FireAlarmService,
         UsageWindowResumes,
+        TaskConnectedDevices,
         TaskRecords,
         TaskStageEdits,
         IdeaRecords,
@@ -359,6 +361,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         QueueService,
         UsageWindowResumes,
         RunEnvironmentSetUps,
+        TaskConnectedDevices,
         TaskRecords,
         TaskStageEdits,
         StageScreenshots,

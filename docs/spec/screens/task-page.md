@@ -323,9 +323,10 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 
 - The Devices section (plug icon), shown only while the Project's Run environment is On; open at the start while the Task has a device not Disconnected.
 - Summary: "<n> connected", or "None connected".
-- A list, one row per device not Disconnected: its name, a badge for its kind (**Android phone over USB**, **Serial board over USB**, **Android phone over wireless debugging**), its state (**Connecting**, **Connected**, **Waiting for the run environment**), "connected by <user> · <when>", the adb serial or serial path in monospace once Connected, and **Disconnect**.
-- Below it, a fold "Disconnected" lists the Task's earlier devices with why, each as [2.13](../2.13-connected-devices.md#states) names it.
-- **Connect over USB** opens the browser's own device picker, for an Android phone (WebUSB) or a serial board (Web Serial).
+- A list, one row per device not Disconnected: its name, a badge for its kind (**Android phone over USB**, **Serial board over USB**, **Android phone over wireless debugging**), its state (**Connecting**, **Connected**, **Waiting for the run environment**), "connected by <user> · <when>" (<user> reads "you" for yourself), its endpoint (`127.0.0.1:<port>`) in monospace once Connected (each kind's Task adds the adb serial or serial path), and **Disconnect**.
+- Below it, a fold "Disconnected" lists the Task's earlier devices with why and "disconnected <when>", each as [2.13](../2.13-connected-devices.md#states) names it.
+- **Connect over USB** is a menu of the USB kinds this build has a way to reach in the browser, each opening the browser's own device picker (an Android phone with WebUSB, a serial board with Web Serial).
+  - With no kind to offer, the button is not shown and the note says "Connecting a device isn't available in this build of The Office yet."
   - In a browser without WebUSB and Web Serial it is greyed, titled "Connecting over USB needs Chrome or Edge."
   - The note "Keep this tab open: closing it disconnects the device."
 - **Pair over wireless debugging** opens the form **IP address**, **Port**, **Pairing port** and **Pairing code** (hint "From the phone's Wireless debugging › Pair device with pairing code. Used once, never kept."), button **Pair**; note "Pairing starts the Task's run environment."

@@ -26,11 +26,42 @@ const task: BriefTask = {
   commitMessage: { text: "Rename a device", written: false },
   attachmentLines: [],
   linkedRecordsSection: undefined,
+  connectedDeviceLines: [],
   whoAskedSection: WHO_ASKED,
   projectName: "Admin panel",
   baseBranch: "main",
   worktree: { path: "/worktrees/task", branch: "office/task", screenshotsFolder: ".shots" },
 };
+
+function briefWithDevices(connectedDeviceLines: readonly string[]): string {
+  return agentStageRecord(prompts, {
+    task: { ...task, connectedDeviceLines },
+    earlier: [],
+    diffSummary: undefined,
+    commands: allowedCommands(prompts, "read-only-git", [], undefined, ["status"]),
+    hardSwitches: {
+      runInstalls: { kind: "consult", person: "Devops" },
+      publishOutsideThePipeline: { kind: "never" },
+    },
+  });
+}
+
+describe("an Agent Stage's Brief names the Connected devices", () => {
+  const brief = briefWithDevices;
+
+  it("lists the devices connected as the Stage starts", () => {
+    expect(brief(["Android phone over USB «Pixel 8»: Connected, at 127.0.0.1:41234"])).toContain(
+      "## Connected devices\n\n",
+    );
+    expect(brief(["Android phone over USB «Pixel 8»: Connected, at 127.0.0.1:41234"])).toContain(
+      "Android phone over USB «Pixel 8»: Connected, at 127.0.0.1:41234\n",
+    );
+  });
+
+  it("leaves the section out when none is connected", () => {
+    expect(brief([])).not.toContain("Connected devices");
+  });
+});
 
 describe("an Agent Stage's Brief says which user asked", () => {
   it("names who created the Task and who started or queued it, right after the Task", () => {

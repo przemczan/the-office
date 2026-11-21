@@ -14,6 +14,7 @@ import { orderAfter } from "../domain/manual-order.js";
 import { changeTaskState } from "../domain/task-changes.js";
 import { ANN_LEE } from "../domain/work.fixtures.js";
 import { TaskRepository } from "../ports/task-repository.js";
+import { TaskConnectedDevices } from "./task-connected-devices.js";
 import { TaskRecords } from "./task-records.js";
 
 let officeData: string;
@@ -65,6 +66,7 @@ describe("TaskRecords", () => {
       },
       attachmentLines: [`- Mockup (link to https://example.com/mockup) · Attachment ${link.id}`],
       linkedRecordsSection: undefined,
+      connectedDeviceLines: [],
       whoAskedSection: "## Who asked\n\nThe Task was created by the user Ann Lee.",
       project: {
         id: projectId,
@@ -115,6 +117,38 @@ describe("TaskRecords", () => {
     const record = await work.app.get(TaskRecords).read(task.id);
 
     expect(record.initiativeId).toBe(initiative.id);
+  });
+
+  it("names its Connected devices: the connected ones in the Brief, all of them in its record", async () => {
+    const taskId = await aTask(`project-${randomUUID()}`);
+    work.app.get(TaskConnectedDevices).register(async (id) =>
+      id === taskId
+        ? [
+            {
+              kind: "Android phone over USB",
+              name: "Pixel 8",
+              state: "Connected",
+              connected: true,
+              endpoint: "127.0.0.1:41234",
+            },
+            {
+              kind: "Android phone over USB",
+              name: "Old one",
+              state: "Connecting",
+              connected: false,
+              endpoint: null,
+            },
+          ]
+        : [],
+    );
+    const records = work.app.get(TaskRecords);
+
+    expect((await records.read(taskId)).connectedDeviceLines).toEqual([
+      "Android phone over USB «Pixel 8»: Connected, at 127.0.0.1:41234",
+    ]);
+    expect(await records.recordText(taskId)).toContain(
+      "Connected devices:\n- Android phone over USB «Pixel 8»: Connected, at 127.0.0.1:41234\n- Android phone over USB «Old one»: Connecting\n",
+    );
   });
 
   it("lists no Attachment lines for a Task without any", async () => {

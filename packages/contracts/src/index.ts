@@ -3,6 +3,7 @@ export * from "./ci-runs.js";
 export * from "./commands.js";
 export * from "./conversations.js";
 export * from "./device-frames.js";
+export * from "./devices.js";
 export * from "./engines.js";
 export * from "./events.js";
 export * from "./github.js";

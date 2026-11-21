@@ -169,6 +169,14 @@ export const STAGE_BRIEF = promptTemplate({
       kind: "text",
       description: "The records the Task is linked to, as a section.",
     },
+    hasConnectedDevices: {
+      kind: "flag",
+      description: "The Task has Connected devices that are connected as the Stage starts.",
+    },
+    connectedDevices: {
+      kind: "list",
+      description: "The Connected devices connected as the Stage starts, one line each.",
+    },
     hasAttachments: { kind: "flag", description: "The Task has Attachments." },
     attachments: { kind: "list", description: "The Task's Attachments, one line each." },
     commands: {
@@ -238,6 +246,16 @@ Update it with write_commit_message when your work changes what it should say, f
 
 {{linkedRecordsSection}}
 {{/hasLinkedRecords}}
+{{#hasConnectedDevices}}
+
+## Connected devices
+
+These devices of the Task were connected as this Stage started; commands reach them at the endpoint given:
+
+{{#connectedDevices}}
+{{.}}
+{{/connectedDevices}}
+{{/hasConnectedDevices}}
 
 ## Attachments
 

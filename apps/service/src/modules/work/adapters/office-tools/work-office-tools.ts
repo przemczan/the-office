@@ -121,7 +121,7 @@ export class WorkOfficeTools implements OnModuleInit {
     this.registry.register({
       name: READ_TASK,
       description:
-        "Reads any Task's record, archived ones too: its state, priority and Pipeline, its Description, Plan and Definition of Done, its linked records (the Tasks it waits for and that wait for it, the Idea it came from and its Initiative, each with its id), its Attachments by id, its Stage results with every Handover note, and its state changes with who or what made each.",
+        "Reads any Task's record, archived ones too: its state, priority and Pipeline, its Description, Plan and Definition of Done, its linked records (the Tasks it waits for and that wait for it, the Idea it came from and its Initiative, each with its id), its Attachments by id, its Connected devices with kind, name, state and endpoint, its Stage results with every Handover note, and its state changes with who or what made each.",
       input: z.object({ taskId: z.string().describe("The Task's id, as list_tasks gives it.") }),
       run: ({ taskId }) => answered(() => this.taskRecords.recordText(taskId)),
     });

@@ -609,6 +609,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         attachmentLines: task.attachmentLines,
         linkedRecordsSection: task.linkedRecordsSection,
         whoAskedSection: task.whoAskedSection,
+        connectedDeviceLines: task.connectedDeviceLines,
         projectName: task.project.name,
         baseBranch: task.project.baseBranch,
         initiativeBranch: task.initiativeBranch,

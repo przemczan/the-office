@@ -56,6 +56,8 @@ export interface TaskRecordParts {
   readonly stageResults: AllStageResults;
   readonly stateChanges: readonly StateChange[];
   readonly decisionsWaiting: readonly DecisionWaitingOnTheUser[];
+  /** One line per Connected device that isn't Disconnected; none when it has none. */
+  readonly connectedDeviceLines: readonly string[];
 }
 
 function pipelineWords({ pipelineId }: Task): string {
@@ -65,13 +67,20 @@ function pipelineWords({ pipelineId }: Task): string {
 /**
  * A Task's record as an Agent reads it, through `read_task` or mentioned in a chat: its state,
  * Kind, priority, Tags and Pipeline, the version a Bug was found in, its Plan, Definition of Done and Attachments, its Moves to another
- * Project, its linked records (one line each, never their own links), its Decisions waiting on the
+ * Project, its Connected devices that aren't Disconnected, its linked records (one line each, never their own links), its Decisions waiting on the
  * user with their numbered options, its Stage results with every Handover note, and its kept state
  * changes with who or what made each.
  */
 export function taskRecordText(
   task: Task,
-  { attachments, links, stageResults, stateChanges, decisionsWaiting }: TaskRecordParts,
+  {
+    attachments,
+    links,
+    stageResults,
+    stateChanges,
+    decisionsWaiting,
+    connectedDeviceLines,
+  }: TaskRecordParts,
 ): string {
   return [
     `${task.title} (Task ${task.id})`,
@@ -117,6 +126,9 @@ export function taskRecordText(
     "Attachments:",
     ...attachmentLines(attachments),
     "",
+    ...(connectedDeviceLines.length === 0
+      ? []
+      : ["Connected devices:", ...connectedDeviceLines.map((line) => `- ${line}`), ""]),
     "Decisions waiting on the user:",
     ...orNone(decisionsWaiting.flatMap(waitingDecisionLines)),
     "",

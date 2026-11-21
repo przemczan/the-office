@@ -16,6 +16,7 @@ import { TaskDecisions } from "../ports/task-decisions.js";
 import { AttachmentService } from "./attachment-service.js";
 import { IdeaService } from "./idea-service.js";
 import { InitiativeService } from "./initiative-service.js";
+import { connectedDeviceLine, TaskConnectedDevices } from "./task-connected-devices.js";
 import { TaskService } from "./task-service.js";
 
 /** A Task's record, as a session working on the Task reads it. */
@@ -36,6 +37,8 @@ export interface TaskRecord extends Pick<
   readonly linkedRecordsSection: string | undefined;
   /** Who created it and who started it, or queued it to start, as a section of a Brief. */
   readonly whoAskedSection: string;
+  /** The Task's Connected devices that are connected now, one line each; none when it has none. */
+  readonly connectedDeviceLines: readonly string[];
   readonly project: Pick<
     KnownProject,
     | "id"
@@ -74,6 +77,7 @@ export class TaskRecords {
     private readonly worktrees: ProjectWorktrees,
     private readonly decisions: TaskDecisions,
     private readonly promptTemplates: PromptTemplates,
+    private readonly connectedDevices: TaskConnectedDevices,
   ) {}
 
   /**
@@ -84,12 +88,13 @@ export class TaskRecords {
     const task = await this.tasks.read(taskId);
     const project = await this.projects.find(task.projectId);
     if (!project) throw new Error(`The Task ${task.id}'s Project ${task.projectId} is gone.`);
-    const [attachments, links, worktree, stateChanges, prompts] = await Promise.all([
+    const [attachments, links, worktree, stateChanges, prompts, devices] = await Promise.all([
       this.attachments.listOf({ kind: "task", taskId }),
       this.linksOf(task),
       this.worktrees.find(task.projectId, taskId),
       this.tasks.stateChangesOf(taskId),
       this.promptTemplates.textsOf([TASK_WHO_ASKED]),
+      this.connectedDevices.of(taskId),
     ]);
     const base = taskBranchBase(task, links.initiative, project.id, project.name);
     return {
@@ -103,6 +108,7 @@ export class TaskRecords {
       attachmentLines: attachments.length === 0 ? [] : attachmentLines(attachments),
       linkedRecordsSection: linkedRecordsSection(links),
       whoAskedSection: taskWhoAskedSection(prompts, task, stateChanges),
+      connectedDeviceLines: devices.filter(({ connected }) => connected).map(connectedDeviceLine),
       project: {
         id: project.id,
         name: project.name,
@@ -128,19 +134,22 @@ export class TaskRecords {
    */
   async recordText(taskId: string): Promise<string> {
     const task = await this.tasks.read(taskId);
-    const [attachments, links, stageResults, stateChanges, decisionsWaiting] = await Promise.all([
-      this.attachments.listOf({ kind: "task", taskId }),
-      this.linksOf(task),
-      this.stageResults.ofTask(taskId),
-      this.tasks.stateChangesOf(taskId),
-      this.decisions.waitingOnTheUserOn(taskId),
-    ]);
+    const [attachments, links, stageResults, stateChanges, decisionsWaiting, connectedDeviceLines] =
+      await Promise.all([
+        this.attachments.listOf({ kind: "task", taskId }),
+        this.linksOf(task),
+        this.stageResults.ofTask(taskId),
+        this.tasks.stateChangesOf(taskId),
+        this.decisions.waitingOnTheUserOn(taskId),
+        this.connectedDevices.linesOf(taskId),
+      ]);
     return taskRecordText(task, {
       attachments,
       links,
       stageResults,
       stateChanges,
       decisionsWaiting,
+      connectedDeviceLines,
     });
   }
 

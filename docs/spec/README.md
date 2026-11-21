@@ -550,6 +550,7 @@ Where each default lives, by page:
   - [Implementation notes](2.12-test-instances.md#implementation-notes)
 - 2.13 Connected devices
   - [Serial path](2.13-connected-devices.md#serial-path)
+  - [The helper's wait](2.13-connected-devices.md#the-helpers-wait)
   - [A dropped relay socket](2.13-connected-devices.md#a-dropped-relay-socket)
   - [Browsers supported](2.13-connected-devices.md#browsers-supported)
 - 4 UX direction

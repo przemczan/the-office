@@ -33,6 +33,11 @@ export interface TaskRecord {
    * words it as its records name who did what.
    */
   readonly whoAskedSection: string;
+  /**
+   * The Task's Connected devices that are connected now, one line each, as Work words them; none
+   * when it has none.
+   */
+  readonly connectedDeviceLines: readonly string[];
   readonly project: {
     readonly id: string;
     readonly name: string;

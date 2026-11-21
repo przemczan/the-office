@@ -10,6 +10,12 @@ export { QueueService } from "./application/queue-service.js";
 export { RunEnvironmentSetUps } from "./application/run-environment-set-ups.js";
 export { StageScreenshots } from "./application/stage-screenshots.js";
 export { TaskArchiving } from "./application/task-archiving.js";
+export {
+  connectedDeviceLine,
+  TaskConnectedDevices,
+  type TaskConnectedDevice,
+  type TaskConnectedDevicesLister,
+} from "./application/task-connected-devices.js";
 export { TaskRecords } from "./application/task-records.js";
 export type { EngineStandIn } from "./domain/stand-ins-at-start.js";
 export { TaskStageEdits, type TaskStageEditLookup } from "./application/task-stage-edits.js";

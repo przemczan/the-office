@@ -89,6 +89,8 @@ export interface BriefTask {
   readonly linkedRecordsSection: string | undefined;
   /** Who created the Task and who started or queued it, worded as a section by Work. */
   readonly whoAskedSection: string;
+  /** The Task's Connected devices that are connected as the Stage starts, one line each. */
+  readonly connectedDeviceLines: readonly string[];
   readonly projectName: string;
   readonly baseBranch: string;
   /** The Initiative's branch the Task starts from and publishes into, when it has one. */
@@ -174,6 +176,8 @@ export function agentStageRecord(
     diffSummary: diffSummary ?? "",
     hasLinkedRecords: task.linkedRecordsSection !== undefined,
     linkedRecordsSection: task.linkedRecordsSection ?? "",
+    hasConnectedDevices: task.connectedDeviceLines.length > 0,
+    connectedDevices: task.connectedDeviceLines,
     hasAttachments: task.attachmentLines.length > 0,
     attachments: task.attachmentLines,
     commands: commands.words,

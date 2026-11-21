@@ -23,6 +23,7 @@ const NOTHING: TaskRecordParts = {
   stageResults: { lines: [], handoverNotes: [] },
   stateChanges: [],
   decisionsWaiting: [],
+  connectedDeviceLines: [],
 };
 
 const ARCHIVED_AT = new Date("2026-11-01T10:00:00.000Z");
@@ -217,6 +218,18 @@ describe("taskRecordText", () => {
       "  Question 3: Keep the old route?",
       "    1. Keep it",
       "    2. Remove it",
+    ]);
+  });
+
+  it("lists its Connected devices, and leaves the section out when it has none", () => {
+    expect(taskRecordText(aTask(), NOTHING)).not.toContain("Connected devices:");
+    const record = taskRecordText(aTask(), {
+      ...NOTHING,
+      connectedDeviceLines: ["Android phone over USB «Pixel 8»: Connected, at 127.0.0.1:41234"],
+    });
+    expect(part(record, "Connected devices:")).toEqual([
+      "Connected devices:",
+      "- Android phone over USB «Pixel 8»: Connected, at 127.0.0.1:41234",
     ]);
   });
 

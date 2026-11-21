@@ -130,6 +130,7 @@
 - `keyed-locks.ts`: KeyedLocks
 - `task-locks.module.ts`: TaskLocksModule
 - `task-locks.ts`: TaskLocks
+- Tests: keyed-locks.test.ts
 
 ### mcp/
 

@@ -224,6 +224,14 @@ export class RunEnvironments implements OnModuleInit {
   }
 
   /**
+   * Whether The Office counts the Task's run environment running now. A stop forgets it before the
+   * runtime stops its containers, so a program attached in it that ends with them finds it false.
+   */
+  isRunning(taskId: string): boolean {
+    return this.running.has(taskId);
+  }
+
+  /**
    * Starts the program in the Task's run environment while it runs, in the checks' service as its
    * user; nothing when it isn't running, as a program never starts one. Outside the Task's step
    * and slots, so a `RunEnvironmentStarted` handler can attach while the start holds the step, and

@@ -27,4 +27,13 @@ export class KeyedLocks {
       if (this.tails.get(key) === tail) this.tails.delete(key);
     }
   }
+
+  /**
+   * Runs `work` as `run` does, but as work holding no lock: for a callback that work holding the
+   * lock set up and that fires later, which would otherwise inherit the held keys through its
+   * async context and skip the queue.
+   */
+  runDetached<Result>(key: string, work: () => Promise<Result>): Promise<Result> {
+    return this.heldByWork.exit(() => this.run(key, work));
+  }
 }

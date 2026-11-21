@@ -58,6 +58,7 @@ import {
   TaskWorktrees,
 } from "./modules/projects/index.js";
 import { McpServersModule } from "./modules/mcp-servers/index.js";
+import { DevicesModule } from "./modules/devices/index.js";
 import {
   RunEnvironmentDefinitions,
   RunEnvironmentsModule,
@@ -227,6 +228,8 @@ export class AppModule {
       imports: [
         conversations,
         DatabaseModule.forRoot({ url: config.databaseUrl }),
+        // Work's Tasks and the run environments their devices are relayed into.
+        DevicesModule.register({ imports: [work, runEnvironments] }),
         EarlierRecordsModule,
         EngineAccountsModule,
         engineCascade,

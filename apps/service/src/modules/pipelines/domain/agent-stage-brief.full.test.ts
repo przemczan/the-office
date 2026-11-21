@@ -37,6 +37,7 @@ const task: BriefTask = {
   commitMessage: { text: "Rename a device", written: false },
   attachmentLines: [],
   linkedRecordsSection: undefined,
+  connectedDeviceLines: [],
   whoAskedSection:
     "## Who asked\n\nThe Task was created by the user Ann Lee and started by the user Ben Ito.",
   projectName: "Admin panel",

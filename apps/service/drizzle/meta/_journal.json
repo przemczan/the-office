@@ -1296,6 +1296,13 @@
       "when": 1795266605513,
       "tag": "0184_task_board_and_search_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 185,
+      "version": "7",
+      "when": 1795272793776,
+      "tag": "0185_connected_devices",
+      "breakpoints": true
     }
   ]
 }

@@ -333,6 +333,7 @@ export function aTaskRecord(fields: Partial<TaskRecord> = {}): TaskRecord {
     },
     attachmentLines: ["- mockup.png (image, image/png, 2048 bytes) · Attachment a-1"],
     linkedRecordsSection: undefined,
+    connectedDeviceLines: [],
     whoAskedSection:
       "## Who asked\n\nThe Task was created by the user Ann Lee and started by the user Ben Ito.",
     project: {
