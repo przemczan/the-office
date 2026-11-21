@@ -490,11 +490,11 @@ export function taskWentOnOnStandIn(
  */
 export function resumeTaskAtReset(
   task: Task,
-  { fireAlarmOn, now }: { readonly fireAlarmOn: boolean; readonly now: Date },
+  { alarmHoldsResume, now }: { readonly alarmHoldsResume: boolean; readonly now: Date },
 ): TaskChange<TaskResumed | TaskPaused> | undefined {
   if (task.state !== "paused" || task.pausedBy !== "usage-window") return undefined;
   if (task.resumesAt !== undefined && task.resumesAt > now) return undefined;
-  return resumedFromUsageWindow(task, fireAlarmOn);
+  return resumedFromUsageWindow(task, alarmHoldsResume);
 }
 
 /**
@@ -506,24 +506,24 @@ export function resumeTaskAtReset(
 export function resumeTaskFreedByUsageWindow(
   task: Task,
   {
-    fireAlarmOn,
+    alarmHoldsResume,
     engineId,
     readAt,
-  }: { readonly fireAlarmOn: boolean; readonly engineId: string; readonly readAt: Date },
+  }: { readonly alarmHoldsResume: boolean; readonly engineId: string; readonly readAt: Date },
 ): TaskChange<TaskResumed | TaskPaused> | undefined {
   if (task.state !== "paused" || task.pausedBy !== "usage-window") return undefined;
   if (task.usageWindowEngineId !== engineId) return undefined;
   if (task.usageWindowPausedAt === undefined || task.usageWindowPausedAt >= readAt) {
     return undefined;
   }
-  return resumedFromUsageWindow(task, fireAlarmOn);
+  return resumedFromUsageWindow(task, alarmHoldsResume);
 }
 
 function resumedFromUsageWindow(
   task: Task,
-  fireAlarmOn: boolean,
+  alarmHoldsResume: boolean,
 ): TaskChange<TaskResumed | TaskPaused> {
-  if (fireAlarmOn) {
+  if (alarmHoldsResume) {
     return {
       task: { ...task, pausedBy: "alarm", ...NO_USAGE_WINDOW_RESUME },
       event: new TaskPaused(task.id, "paused", "alarm"),
@@ -583,7 +583,7 @@ export function pauseTaskForInitiative(task: Task, by: Author): TaskChange<TaskP
  */
 export function resumeTaskForInitiative(
   task: Task,
-  { fireAlarmOn, now }: { readonly fireAlarmOn: boolean; readonly now: Date },
+  { alarmHoldsResume, now }: { readonly alarmHoldsResume: boolean; readonly now: Date },
   by: Author,
 ): TaskChange<TaskResumed | TaskPaused> | undefined {
   if (task.state !== "paused" || task.pausedBy !== "initiative") return undefined;
@@ -593,7 +593,7 @@ export function resumeTaskForInitiative(
       event: new TaskPaused(task.id, "paused", "usage-window"),
     };
   }
-  if (fireAlarmOn) {
+  if (alarmHoldsResume) {
     return {
       task: { ...task, pausedBy: "alarm", ...NO_USAGE_WINDOW_RESUME },
       event: new TaskPaused(task.id, "paused", "alarm"),
@@ -614,9 +614,9 @@ export const INITIATIVE_PAUSED_RESUME = "The Initiative is paused: resume it to 
 export function resumeTask(
   task: Task,
   {
-    fireAlarmOn,
+    alarmHoldsResume,
     initiativePaused,
-  }: { readonly fireAlarmOn: boolean; readonly initiativePaused: boolean },
+  }: { readonly alarmHoldsResume: boolean; readonly initiativePaused: boolean },
   by: Author,
 ): TaskChange<TaskResumed | TaskPaused> {
   if (task.state !== "paused") {
@@ -625,7 +625,7 @@ export function resumeTask(
     ]);
   }
   if (initiativePaused) throw new TaskRefused([INITIATIVE_PAUSED_RESUME]);
-  if (!fireAlarmOn) return resumed(task, by);
+  if (!alarmHoldsResume) return resumed(task, by);
   if (task.pausedBy === "alarm") {
     throw new TaskRefused([`${FIRE_ALARM_ON} The Task resumes with the all clear.`]);
   }

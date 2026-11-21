@@ -39,8 +39,11 @@ export function LiveViewPage(): ReactNode {
   const roles = useQuery(roleQueries.list());
   const tasks = useEveryTask();
   const initiatives = useQuery(initiativeQueries.list());
-  // While the fire alarm is on, the floor is empty; kept fresh by its sounded and all clear events.
-  const alarmOn = (useQuery(nowQueries.now()).data?.fireAlarm ?? null) !== null;
+  // While the fire alarm is on, the floor is empty, but for those still at work under a softer way;
+  // kept fresh by its sounded and all clear events.
+  const alarm = useQuery(nowQueries.now()).data?.fireAlarm ?? null;
+  const alarmOn = alarm !== null;
+  const workGoesOn = alarm !== null && alarm.way !== "asap";
   // Asleep, "New" and the light turn on the minute.
   const now = useClock(MINUTE_MS);
   const narrow = useNarrowPage();
@@ -63,7 +66,7 @@ export function LiveViewPage(): ReactNode {
   const names = useMemo(() => personNamesOf(people), [people]);
   const light = useMemo(() => lightAt(now, zone), [now, zone]);
   const lookStates = useMemo(() => lookStatesOf(people, now, light), [people, now, light]);
-  const summary = summaryWords(people, light, lookStates, alarmOn);
+  const summary = summaryWords(people, light, lookStates, alarmOn, workGoesOn);
   usePageHeading({
     title: "Live view",
     crumb: people.length === 1 ? "1 person" : `${people.length} people`,
@@ -105,8 +108,8 @@ export function LiveViewPage(): ReactNode {
   // The stage's first `apply` lays out the floor, so it waits for the people: applied before they
   // load, everyone would walk in as a hire once they do.
   useEffect(() => {
-    if (loaded) floor.stage?.apply(loaded, now, alarmOn);
-  }, [floor.stage, loaded, now, alarmOn]);
+    if (loaded) floor.stage?.apply(loaded, now, alarmOn, workGoesOn);
+  }, [floor.stage, loaded, now, alarmOn, workGoesOn]);
   // What each idle person is doing: where the floor put them, or before it has, what they picked.
   const doings = floor.view?.doings;
   const shown = useMemo(

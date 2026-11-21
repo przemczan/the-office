@@ -61,6 +61,12 @@ import { TaskNotFound } from "../domain/task-not-found.js";
 import { TaskRefused } from "../domain/task-refused.js";
 import { OPEN_STATES, STARTED_STATES } from "../domain/task-states.js";
 import { writtenParts, type WrittenPlanAndDefinitionOfDone } from "../domain/written-parts.js";
+import {
+  holdsAtStageBoundary,
+  holdsResume,
+  stopsEveryWalk,
+  type FireAlarm,
+} from "../domain/fire-alarm.js";
 import { FireAlarmRepository } from "../ports/fire-alarm-repository.js";
 import { InitiativeRepository } from "../ports/initiative-repository.js";
 import { KnownProjects } from "../ports/known-projects.js";
@@ -485,29 +491,31 @@ export class TaskService {
 
   /**
    * The usage window's reset, for a Task it paused: resumed, so its Pipeline walks on where it was
-   * held; while the fire alarm is on the alarm holds it instead, until the all clear. A Task the
+   * held; while the fire alarm is on ASAP the alarm holds it instead, until the all clear. A Task the
    * user, the alarm or its Initiative holds by now, one a free reading resumed already
    * (`resumeFreedByUsageWindow`), or one whose reset moved on, stays as it is.
    */
   async resumeAtReset(id: string, now: Date): Promise<Task> {
-    const fireAlarmOn = await this.fireAlarmOn();
+    const alarmHoldsResume = await this.alarmStopsEveryWalk();
     return (
-      await this.resumeFromUsageWindow(id, (held) => resumeTaskAtReset(held, { fireAlarmOn, now }))
+      await this.resumeFromUsageWindow(id, (held) =>
+        resumeTaskAtReset(held, { alarmHoldsResume, now }),
+      )
     ).task;
   }
 
   /**
    * A reading of `engineId`'s usage windows taken at `readAt` that Engine judged free: every Task
    * that engine's usage window paused before then resumes now, as at its reset, or is held by the
-   * fire alarm while it is on. A Task paused before the engine was kept waits for its reset. Answers
+   * fire alarm while it is on ASAP. A Task paused before the engine was kept waits for its reset. Answers
    * the ids of the Tasks it took off the usage window.
    */
   async resumeFreedByUsageWindow(engineId: string, readAt: Date): Promise<readonly string[]> {
-    const fireAlarmOn = await this.fireAlarmOn();
+    const alarmHoldsResume = await this.alarmStopsEveryWalk();
     const freed: string[] = [];
     for (const { id } of await this.repository.pausedByUsageWindowOn(engineId)) {
       const { changed } = await this.resumeFromUsageWindow(id, (held) =>
-        resumeTaskFreedByUsageWindow(held, { fireAlarmOn, engineId, readAt }),
+        resumeTaskFreedByUsageWindow(held, { alarmHoldsResume, engineId, readAt }),
       );
       if (changed) freed.push(id);
     }
@@ -531,7 +539,7 @@ export class TaskService {
   ): Promise<{ readonly task: Task; readonly changed: boolean }> {
     const { task, event } = await this.repository.update(id, change);
     // Read again after the save, as a Resume does: an alarm sounded meanwhile passed it by as Paused.
-    if (event instanceof TaskResumed && (await this.fireAlarmOn())) {
+    if (event instanceof TaskResumed && (await this.alarmStopsEveryWalk())) {
       return { task: await this.update(id, pauseTaskForAlarm), changed: true };
     }
     if (event) await this.events.publish(event);
@@ -545,14 +553,15 @@ export class TaskService {
 
   /**
    * TaskResumed tells Pipelines to walk the Task's Stages on from where they were held. While the
-   * fire alarm is on, the alarm holds the Task instead, until the all clear; while its Initiative
-   * is paused, it is refused.
+   * fire alarm is on ASAP, the alarm holds the Task instead, until the all clear; under a softer
+   * way it walks on, and the walk holds it at its Stage boundary after the current Stages. A Task
+   * the alarm paused is refused, as is one whose Initiative is paused.
    */
   async resume(id: string, by: Author): Promise<Task> {
-    const fireAlarmOn = await this.fireAlarmOn();
-    const { task, event } = await this.resumeHeld(id, fireAlarmOn, by);
+    const alarm = await this.fireAlarm.read();
+    const { task, event } = await this.resumeHeld(id, alarm, by);
     // Read again after the save: an alarm sounded meanwhile may have passed the Task by as Paused.
-    if (event instanceof TaskResumed && (await this.fireAlarmOn())) {
+    if (event instanceof TaskResumed && (await this.alarmStopsEveryWalk())) {
       return this.update(id, pauseTaskForAlarm);
     }
     if (event) await this.events.publish(event);
@@ -560,11 +569,12 @@ export class TaskService {
   }
 
   /**
-   * Pauses a Task In progress or Waiting on you as the fire alarm does, if it is on: as The Office
-   * starts again, for a sounding it stopped during. Whether the alarm is on.
+   * Pauses a Task In progress or Waiting on you as the fire alarm does, if it holds Tasks at their
+   * Stage boundary (ASAP or after the current Stages): as the walk reaches one, and as The Office
+   * starts again, for a sounding it stopped during. Whether it paused the Task.
    */
   async holdForFireAlarm(id: string): Promise<boolean> {
-    if (!(await this.fireAlarmOn())) return false;
+    if (!holdsAtStageBoundary(await this.fireAlarm.read())) return false;
     await this.update(id, pauseTaskForAlarm);
     return true;
   }
@@ -607,22 +617,33 @@ export class TaskService {
   /** Whether its Initiative is paused is read holding the Initiative, then the Task. */
   private async resumeHeld(
     id: string,
-    fireAlarmOn: boolean,
+    alarm: FireAlarm,
     by: Author,
   ): Promise<TaskUpdate<TaskResumed | TaskPaused>> {
     const { initiativeId } = await this.read(id);
     if (initiativeId === undefined) {
       return this.repository.update(id, (held) =>
-        resumeTask(held, { fireAlarmOn, initiativePaused: false }, by),
+        resumeTask(
+          held,
+          { alarmHoldsResume: holdsResume(alarm, held), initiativePaused: false },
+          by,
+        ),
       );
     }
     return this.initiatives.changeTask(initiativeId, id, (initiative, held) =>
-      resumeTask(held, { fireAlarmOn, initiativePaused: isInitiativePaused(initiative) }, by),
+      resumeTask(
+        held,
+        {
+          alarmHoldsResume: holdsResume(alarm, held),
+          initiativePaused: isInitiativePaused(initiative),
+        },
+        by,
+      ),
     );
   }
 
-  private async fireAlarmOn(): Promise<boolean> {
-    return (await this.fireAlarm.read()).on;
+  private async alarmStopsEveryWalk(): Promise<boolean> {
+    return stopsEveryWalk(await this.fireAlarm.read());
   }
 
   private async update<Event extends DomainEvent>(

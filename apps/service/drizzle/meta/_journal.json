@@ -1317,6 +1317,13 @@
       "when": 1795280833918,
       "tag": "0187_connected_device_serial",
       "breakpoints": true
+    },
+    {
+      "idx": 188,
+      "version": "7",
+      "when": 1795284607464,
+      "tag": "0188_fire_alarm_way",
+      "breakpoints": true
     }
   ]
 }

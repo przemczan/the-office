@@ -128,7 +128,7 @@ describe("Pause, Stop and Resume", () => {
     const resumed = resumeTask(
       aTask({ state: "paused" }),
       {
-        fireAlarmOn: false,
+        alarmHoldsResume: false,
         initiativePaused: false,
       },
       ANN_LEE,
@@ -193,10 +193,14 @@ describe("the Initiative's Pause, for one of its Tasks", () => {
 
   it("resumes only a Task its Pause held, which the alarm holds instead while it is on", () => {
     const held = aTask({ state: "paused", pausedBy: "initiative" });
-    const resumed = resumeTaskForInitiative(held, { fireAlarmOn: false, now: new Date() }, ANN_LEE);
+    const resumed = resumeTaskForInitiative(
+      held,
+      { alarmHoldsResume: false, now: new Date() },
+      ANN_LEE,
+    );
     const forTheAlarm = resumeTaskForInitiative(
       held,
-      { fireAlarmOn: true, now: new Date() },
+      { alarmHoldsResume: true, now: new Date() },
       ANN_LEE,
     );
 
@@ -207,7 +211,7 @@ describe("the Initiative's Pause, for one of its Tasks", () => {
     expect(
       resumeTaskForInitiative(
         aTask({ state: "paused" }),
-        { fireAlarmOn: false, now: new Date() },
+        { alarmHoldsResume: false, now: new Date() },
         ANN_LEE,
       ),
     ).toBe(undefined);
@@ -216,8 +220,8 @@ describe("the Initiative's Pause, for one of its Tasks", () => {
   it("refuses a single Resume while the Initiative is paused", () => {
     const held = aTask({ state: "paused", pausedBy: "initiative" });
 
-    expect(() => resumeTask(held, { fireAlarmOn: false, initiativePaused: true }, ANN_LEE)).toThrow(
-      new TaskRefused(["The Initiative is paused: resume it to go on."]),
-    );
+    expect(() =>
+      resumeTask(held, { alarmHoldsResume: false, initiativePaused: true }, ANN_LEE),
+    ).toThrow(new TaskRefused(["The Initiative is paused: resume it to go on."]));
   });
 });

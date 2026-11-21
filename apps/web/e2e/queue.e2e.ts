@@ -1065,6 +1065,10 @@ test("the fire alarm: sounded from the top bar, it stops and holds the Tasks, th
   await page.goto("/now");
   await expect(strip).not.toContainText("Fire alarm");
   await page.getByRole("button", { name: "Sound the alarm" }).click();
+  await page
+    .getByRole("menu")
+    .getByRole("button", { name: /^Safe pause ASAP/ })
+    .click();
 
   await expect(
     page.getByText("Alarm sounded: every Stage stops at its next safe point."),

@@ -1,0 +1,1 @@
+ALTER TABLE "fire_alarm" ADD COLUMN "way" text DEFAULT 'asap' NOT NULL;

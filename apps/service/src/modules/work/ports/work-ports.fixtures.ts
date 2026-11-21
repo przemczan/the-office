@@ -19,7 +19,13 @@ import {
   type TaskBaseLookup,
 } from "../../projects/index.js";
 import type { AccountWindowsReading, UsedUpWindowReading } from "../domain/cap-waits.js";
-import { FIRE_ALARM_OFF, type FireAlarm } from "../domain/fire-alarm.js";
+import {
+  FIRE_ALARM_OFF,
+  soundingOf,
+  type FireAlarm,
+  type FireAlarmSounding,
+  type FireAlarmWay,
+} from "../domain/fire-alarm.js";
 import type { AllStageResults, DecisionWaitingOnTheUser } from "../domain/record-words.js";
 import type { TaskKind } from "../domain/task.js";
 import { DEFAULT_ARCHIVE_PERIOD } from "../domain/task-archive.js";
@@ -444,10 +450,11 @@ export class FireAlarmRepositoryForTests extends FireAlarmRepository {
     return this.alarm;
   }
 
-  async sound(since: Date): Promise<boolean> {
-    if (this.alarm.on) return false;
-    this.alarm = { on: true, since };
-    return true;
+  async sound(since: Date, way: FireAlarmWay): Promise<FireAlarmSounding> {
+    const sounding = soundingOf(this.alarm, way);
+    if (sounding === "turned-on") this.alarm = { on: true, since, way };
+    else if (sounding === "made-stricter" && this.alarm.on) this.alarm = { ...this.alarm, way };
+    return sounding;
   }
 
   async allClear(): Promise<boolean> {

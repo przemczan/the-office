@@ -1146,14 +1146,30 @@ export const usageSettingsSchema = z.object({
 export type UsageSettings = z.infer<typeof usageSettingsSchema>;
 
 /**
+ * How the fire alarm was sounded (spec §2.8), strictest first: Safe pause ASAP, after the current
+ * Stages, or after the current Tasks.
+ */
+export const fireAlarmWaySchema = z.enum(["asap", "after-stages", "after-tasks"]);
+export type FireAlarmWay = z.infer<typeof fireAlarmWaySchema>;
+
+/**
  * GET /fire-alarm, and what POST /fire-alarm/sound answers (spec §2.8): off, or on since it was
- * sounded.
+ * sounded, the way it is on now.
  */
 export const fireAlarmSchema = z.discriminatedUnion("on", [
   z.object({ on: z.literal(false) }),
-  z.object({ on: z.literal(true), since: z.iso.datetime() }),
+  z.object({ on: z.literal(true), since: z.iso.datetime(), way: fireAlarmWaySchema }),
 ]);
 export type FireAlarm = z.infer<typeof fireAlarmSchema>;
+
+/**
+ * POST /fire-alarm/sound: the way to sound it, ASAP when left out, as is a body left out. While it
+ * is on, a stricter way makes it stricter; a softer one is refused with 422.
+ */
+export const soundFireAlarmSchema = z
+  .object({ way: fireAlarmWaySchema.default("asap") })
+  .prefault({});
+export type SoundFireAlarm = z.input<typeof soundFireAlarmSchema>;
 
 /**
  * POST /fire-alarm/all-clear, which answers the alarm, off: the Tasks the alarm paused that the

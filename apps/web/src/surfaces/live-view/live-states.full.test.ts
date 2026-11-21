@@ -288,6 +288,18 @@ describe("the fire alarm", () => {
       summaryWords(people, DAY, lookStatesOf(people, NOW, DAY)),
     );
   });
+
+  it("keeps those still at work at their desks under a softer way, everyone else out", () => {
+    const people = eightWith(working("developer"), idleFor("office-manager", 5), napping("cto"));
+    const layout = layoutOffice(people);
+    const out = placementsOf(people, layout, amenitiesOf(layout), DAY, NOW, true, true);
+    expect(out.get("developer")?.kind).toBe("desk");
+    expect(out.get("office-manager")?.kind).toBe("gone");
+    expect(out.get("cto")?.kind).toBe("gone");
+    expect(summaryWords(people, DAY, lookStatesOf(people, NOW, DAY), true, true)).toBe(
+      "8 people: the fire alarm is on, 1 still at work, everyone else is out of the office. Day, 13:05.",
+    );
+  });
 });
 
 describe("placements", () => {

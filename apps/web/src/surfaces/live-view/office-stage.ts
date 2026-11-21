@@ -119,8 +119,12 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
   let seen: SeenLight | null = null;
   /** The people last applied, drawn again when the light changes. */
   let applied: readonly OfficePerson[] | null = null;
-  /** The fire alarm as last applied, and when; the floor is empty while it is on. */
+  /**
+   * The fire alarm as last applied, and when; the floor is empty while it is on, but for those
+   * still at work while it lets work go on.
+   */
   let alarmOn = false;
+  let workGoesOn = false;
   let seenAlarm: SeenAlarm | null = null;
   /** The tint easing from `from` to `to`, from the animation clock's `start`; null when still. */
   let fade: { from: number; to: number; start: number } | null = null;
@@ -263,7 +267,12 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
 
   /* ---------- The snapshot ---------- */
 
-  const apply = (next: readonly OfficePerson[], now: Date, nextAlarmOn: boolean): void => {
+  const apply = (
+    next: readonly OfficePerson[],
+    now: Date,
+    nextAlarmOn: boolean,
+    nextWorkGoesOn = false,
+  ): void => {
     if (destroyed) return;
     applied = next;
     // The alarm's sounding and all clear walk people only when seen live, as nightfall does.
@@ -277,6 +286,7 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
       else if (nextAlarmOn) alarmMove = "sounded";
     }
     alarmOn = nextAlarmOn;
+    workGoesOn = nextWorkGoesOn;
     seenAlarm = { on: nextAlarmOn, at: now };
     if (shownLight) applyAt(next, shownLight, now, alarmMove);
   };
@@ -330,7 +340,15 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
     animate: boolean,
     alarmSounded = false,
   ): void => {
-    const placements = placementsOf(people, on.layout, on.amenities, light, now, alarmOn);
+    const placements = placementsOf(
+      people,
+      on.layout,
+      on.amenities,
+      light,
+      now,
+      alarmOn,
+      workGoesOn,
+    );
     on.walkers.direct(people, placements, { animate, alarm: alarmSounded });
     on.doings = doingsOf(placements);
     on.scene = {

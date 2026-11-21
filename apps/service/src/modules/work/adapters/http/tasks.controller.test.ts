@@ -963,6 +963,64 @@ describe("The fire alarm", { timeout: MANY_REQUESTS_TEST_MS }, () => {
     );
   });
 
+  it("sounded after the current Stages or Tasks, pauses no Task, sets no hard stop and still queues Start", async () => {
+    for (const way of ["after-stages", "after-tasks"] as const) {
+      const working = await startedTask();
+      work.published.length = 0;
+
+      const response = await sound(way);
+
+      expect(fireAlarmSchema.parse(await response.json())).toMatchObject({ on: true, way });
+      expect(await storedTask(working.id)).toMatchObject({ state: "in-progress" });
+      expect(work.published.filter((event) => event instanceof TaskPaused)).toEqual([]);
+      expect(work.published.find((event) => event instanceof AlarmSounded)).toMatchObject({
+        way,
+        hardStopAt: undefined,
+      });
+      const queued = await readyTask();
+      ownIds.push(queued.id);
+      await sendJson(work, "POST", `/tasks/${queued.id}/start`);
+      expect((await readTask(queued.id)).state).toBe("ready");
+      fireAlarm.turnOff();
+    }
+  });
+
+  it("is made stricter, ASAP pausing the started Tasks then, and refuses a softer way", async () => {
+    const working = await startedTask();
+    const since = (await (await sound("after-tasks")).json()) as { since: string };
+    work.published.length = 0;
+
+    expect((await sound("after-stages")).status).toBe(200);
+    const asap = await sound("asap");
+
+    expect(fireAlarmSchema.parse(await asap.json())).toEqual({
+      on: true,
+      since: since.since,
+      way: "asap",
+    });
+    expect(await storedTask(working.id)).toMatchObject({ state: "paused", pausedBy: "alarm" });
+    const sounded = work.published.filter((event) => event instanceof AlarmSounded);
+    expect(sounded.map(({ way }) => way)).toEqual(["after-stages", "asap"]);
+    expect(sounded[1]?.hardStopAt).toBeInstanceOf(Date);
+    const refused = await sound("after-tasks");
+    expect(refused.status).toBe(422);
+    expect(await refused.json()).toMatchObject({
+      reasons: ["The fire alarm is on in a stricter way: only the all clear eases it."],
+    });
+  });
+
+  it("holds a Task at its Stage boundary after the current Stages, and lets it walk after the current Tasks", async () => {
+    const working = await startedTask();
+    await sound("after-tasks");
+    expect(await work.app.get(TaskService).holdForFireAlarm(working.id)).toBe(false);
+
+    await sound("after-stages");
+
+    expect(await work.app.get(TaskService).holdForFireAlarm(working.id)).toBe(true);
+    expect(await storedTask(working.id)).toMatchObject({ state: "paused", pausedBy: "alarm" });
+    expect((await sendJson(work, "POST", `/tasks/${working.id}/resume`)).status).toBe(422);
+  });
+
   it("gives the all clear: each Task it paused resumes unless held or dropped, and the queue is released", async () => {
     const resumed = await startedTask();
     const held = await startedTask();

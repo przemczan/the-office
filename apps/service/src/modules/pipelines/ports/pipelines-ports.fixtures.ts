@@ -153,8 +153,8 @@ export class StartedTasksForTests extends StartedTasks {
     readonly dropReason?: GateDropReason;
   }[] = [];
 
-  /** Whether the fire alarm is on, as Work keeps it. */
-  fireAlarmOn = false;
+  /** The way the fire alarm is on, as Work keeps it; undefined while it is off. */
+  fireAlarmWay: "asap" | "after-stages" | "after-tasks" | undefined = undefined;
 
   /** Tells the application of an event Work publishes, once the test application is up. */
   announce: (event: DomainEvent) => Promise<void> = () => Promise.resolve();
@@ -275,7 +275,7 @@ export class StartedTasksForTests extends StartedTasks {
   }
 
   async holdForFireAlarm(taskId: string): Promise<boolean> {
-    if (!this.fireAlarmOn) return false;
+    if (this.fireAlarmWay === undefined || this.fireAlarmWay === "after-tasks") return false;
     await this.pauseForAlarm(taskId);
     return true;
   }

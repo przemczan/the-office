@@ -2,7 +2,7 @@ import { z } from "zod";
 import { tokenTotalsSchema } from "./conversations.js";
 import { engineIdSchema } from "./engines.js";
 import { webEventSchema } from "./events.js";
-import { taskHolderSchema, taskStateSchema } from "./work.js";
+import { fireAlarmWaySchema, taskHolderSchema, taskStateSchema } from "./work.js";
 
 /** Something that waits on the user, oldest first in Needs you. */
 export const needsYouItemSchema = z.discriminatedUnion("kind", [
@@ -154,14 +154,27 @@ export const alarmPausedTaskSchema = z.object({
 });
 export type AlarmPausedTask = z.infer<typeof alarmPausedTaskSchema>;
 
+/** A started Task a softer fire alarm lets go on, with the Stage it is at. */
+export const alarmGoingOnTaskSchema = z.object({
+  taskId: z.uuid(),
+  title: z.string(),
+  projectId: z.string(),
+  stage: currentStageSchema.nullable(),
+});
+export type AlarmGoingOnTask = z.infer<typeof alarmGoingOnTaskSchema>;
+
 /**
- * The fire alarm while it is on: stopping until every Stage it holds has reached its safe point,
- * then the plan the all clear follows, each Task resuming unless the user holds or drops it.
+ * The fire alarm while it is on, with the way it was sounded: stopping until every Stage it holds
+ * has reached its safe point, then the plan the all clear follows, each Task resuming unless the
+ * user holds or drops it. Under a softer way, the started Tasks it lets go on: to the end of their
+ * Stage after the current Stages, of their Task after the current Tasks.
  */
 export const fireAlarmOnNowSchema = z.object({
   since: z.iso.datetime(),
+  way: fireAlarmWaySchema,
   stopping: z.boolean(),
   paused: z.array(alarmPausedTaskSchema),
+  goingOn: z.array(alarmGoingOnTaskSchema),
   /** What resuming every Task it paused costs, in tokens. */
   resumeTokens: z.number().int().nonnegative(),
 });

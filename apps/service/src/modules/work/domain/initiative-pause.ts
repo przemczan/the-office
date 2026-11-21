@@ -52,7 +52,10 @@ export function pauseInitiative(
 export function resumeInitiative(
   initiative: Initiative,
   tasks: readonly Task[],
-  { fireAlarmOn, now = new Date() }: { readonly fireAlarmOn: boolean; readonly now?: Date },
+  {
+    alarmHoldsResume,
+    now = new Date(),
+  }: { readonly alarmHoldsResume: boolean; readonly now?: Date },
   by: Author,
 ): InitiativeTasksChange<InitiativeResumed> {
   if (!isInitiativePaused(initiative)) {
@@ -64,7 +67,7 @@ export function resumeInitiative(
     initiative: { ...initiative, pausedAt: undefined },
     event: new InitiativeResumed(initiative.id),
     taskChanges: tasks.flatMap(
-      (task) => resumeTaskForInitiative(task, { fireAlarmOn, now }, by) ?? [],
+      (task) => resumeTaskForInitiative(task, { alarmHoldsResume, now }, by) ?? [],
     ),
   };
 }

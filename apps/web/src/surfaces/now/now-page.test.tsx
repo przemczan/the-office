@@ -1,9 +1,11 @@
 import { QueryClient, QueryObserver } from "@tanstack/react-query";
-import type { Now, ShapingOnNow, SinceYouLeft } from "@the-office/contracts";
+import type { FireAlarmOnNow, Now, ShapingOnNow, SinceYouLeft } from "@the-office/contracts";
 import { afterEach, describe, expect, it } from "vitest";
 import { notificationEventCacheUpdates, nowQueries } from "../../api/notifications.ts";
+import { FireAlarmReviewProvider } from "../../shell/fire-alarm/fire-alarm-review.tsx";
 import { closePage, openPage, stubService, until } from "../../shell/page.fixtures.tsx";
 import { PROJECT_FILTER_STORAGE_KEY } from "../../shell/project-filter/project-filter-store.ts";
+import { clockOf } from "../../shell/time.ts";
 import { NowPage } from "./now-page.tsx";
 
 const NOW: Now = {
@@ -157,5 +159,94 @@ describe("Now's Shaping", () => {
       "Shaping: Billing",
     ]);
     expect(page.textContent).toContain("1 more Initiative in other Projects");
+  });
+});
+
+const SINCE = "2026-11-21T14:02:00.000Z";
+
+function alarmIn(way: FireAlarmOnNow["way"]): FireAlarmOnNow {
+  return {
+    since: SINCE,
+    way,
+    stopping: false,
+    paused: [
+      {
+        taskId: "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+        title: "Fix the header",
+        projectId: "p1",
+        stage: null,
+        resume: {
+          kind: "fresh",
+          stageName: "Build",
+          contextTokens: 0,
+          briefTokens: 2000,
+          tokens: 2000,
+        },
+      },
+    ],
+    goingOn: [
+      {
+        taskId: "2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e",
+        title: "Add a footer",
+        projectId: "p1",
+        stage: { key: "build", name: "Build", role: null, since: SINCE },
+      },
+    ],
+    resumeTokens: 2000,
+  };
+}
+
+function openAlarmWith(fireAlarm: FireAlarmOnNow): Promise<{ readonly page: HTMLElement }> {
+  stubService({
+    "GET /api/now": () => ({ status: 200, body: { ...NOW, fireAlarm } }),
+    "GET /api/now/since-you-left": () => ({ status: 200, body: sinceYouLeftWith("Add a filter") }),
+  });
+  return openPage("/now", {
+    now: () => (
+      <FireAlarmReviewProvider>
+        <NowPage />
+      </FireAlarmReviewProvider>
+    ),
+  });
+}
+
+function alarmPanel(page: HTMLElement): HTMLElement {
+  const panel = page.querySelector<HTMLElement>("[aria-label='Fire alarm']");
+  if (!panel) throw new Error("There is no alarm panel.");
+  return panel;
+}
+
+describe("Now's fire alarm", () => {
+  it("names the way after the current Stages, with each Task going on to the end of its Stage", async () => {
+    const { page } = await openAlarmWith(alarmIn("after-stages"));
+
+    await until(() => expect(page.textContent).toContain("Add a footer"));
+    const panel = alarmPanel(page);
+    expect(panel.textContent).toContain(
+      `Alarm on since ${clockOf(SINCE)} · stopping after the current Stages`,
+    );
+    expect(panel.textContent).toContain("Fix the header");
+    expect(panel.textContent).toContain("Stopped");
+    expect(panel.textContent).toContain("Stopping after its Stage");
+  });
+
+  it("names the way after the current Tasks, with each started Task finishing", async () => {
+    const { page } = await openAlarmWith(alarmIn("after-tasks"));
+
+    await until(() => expect(page.textContent).toContain("Add a footer"));
+    const panel = alarmPanel(page);
+    expect(panel.textContent).toContain(
+      `Alarm on since ${clockOf(SINCE)} · finishing the current Tasks`,
+    );
+    expect(panel.textContent).toContain("Finishing its Task");
+  });
+
+  it("keeps today's line under ASAP, listing nothing as going on", async () => {
+    const { page } = await openAlarmWith(alarmIn("asap"));
+
+    await until(() => expect(page.textContent).toContain("Fix the header"));
+    const panel = alarmPanel(page);
+    expect(panel.querySelector("h2")?.textContent).toBe(`Alarm on since ${clockOf(SINCE)}`);
+    expect(panel.textContent).not.toContain("Add a footer");
   });
 });

@@ -1,6 +1,9 @@
 import { Injectable } from "@nestjs/common";
 
-/** The fire alarm as Threads see it (spec §2.8): off, or on since it was sounded. */
+/**
+ * The fire alarm as Threads see it (spec §2.8): on since it was sounded while it stops Agents
+ * (Safe pause ASAP); off otherwise, a softer way included, under which chats keep their tools.
+ */
 export type ThreadsFireAlarm = { readonly on: false } | { readonly on: true; readonly since: Date };
 
 type FireAlarmReader = () => Promise<ThreadsFireAlarm>;

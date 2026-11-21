@@ -81,6 +81,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 
 - **Files to change**: [2.1.4 Initiative](2.1.4-initiatives.md#initiative); screen: [Task page › Overview](screens/task-page.md#overview)
 - **Fire alarm, Sound the alarm**: [2.8 The alarm](2.8-fire-alarm.md#the-alarm); screen: [Shell › Fire alarm control](screens/shell.md#fire-alarm-control)
+- **Safe pause ASAP, Safe pause after the current Stages, Safe pause after the current Tasks (the fire alarm's ways)**: [2.8 Safe pause ASAP](2.8-fire-alarm.md#safe-pause-asap); [2.8 Safe pause after the current Stages](2.8-fire-alarm.md#safe-pause-after-the-current-stages); [2.8 Safe pause after the current Tasks](2.8-fire-alarm.md#safe-pause-after-the-current-tasks); [2.8 Making it stricter](2.8-fire-alarm.md#making-it-stricter); screen: [Shell › Fire alarm control](screens/shell.md#fire-alarm-control)
 - **First-run setup**: [2.10 First-run setup](2.10-users-and-signing-in.md#first-run-setup); screen: [Sign in › First user](screens/sign-in.md#first-user)
 
 ### G
@@ -310,7 +311,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - [2.5 Context policy](2.5-context-policy.md): resume, fresh or hand off; the Brief, the Handover note, overrides, a Stage's context limits.
 - [2.6 Skills](2.6-skills.md): the library, adding skills, Project skills, what a session gets.
 - [2.7 Notifications](2.7-notifications.md): kinds, channels, content, routing defaults.
-- [2.8 Fire alarm](2.8-fire-alarm.md): the alarm and the all clear.
+- [2.8 Fire alarm](2.8-fire-alarm.md): the alarm, its three ways and the all clear.
 - [2.9 Sub-agents and processes](2.9-sub-agents-and-processes.md): index of the pages below.
   - [2.9.1 The model](2.9.1-the-model.md): Sub-agents and Processes, what is kept and for how long.
   - [2.9.2 Session events](2.9.2-session-events.md): what each engine reports.

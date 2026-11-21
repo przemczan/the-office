@@ -4,12 +4,13 @@ import type { ReactNode } from "react";
 import { fireAlarmLiftsQuery, liftTheAlarm, takeTheLiftBack } from "../../api/conversations.ts";
 import { nowQueries } from "../../api/notifications.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
+import { alarmHoldsChats } from "./fire-alarm-words.ts";
 import "./fire-alarm.css";
 
 /**
- * Under a chat's composer while the fire alarm is on (spec §2.8): the person answers but runs no
- * tools, unless the user lets them act in this Thread, until the all clear or until they take it
- * back.
+ * Under a chat's composer while the fire alarm is on ASAP (spec §2.8): the person answers but runs
+ * no tools, unless the user lets them act in this Thread, until the all clear or until they take it
+ * back. Under a softer way chats keep their tools, and there is nothing to lift.
  */
 export function AlarmNote({
   threadId,
@@ -18,14 +19,14 @@ export function AlarmNote({
   readonly threadId: string;
   readonly personName: string;
 }): ReactNode {
-  const alarmOn = (useQuery(nowQueries.now()).data?.fireAlarm ?? null) !== null;
-  const lifts = useQuery({ ...fireAlarmLiftsQuery(), enabled: alarmOn });
+  const holdsChats = alarmHoldsChats(useQuery(nowQueries.now()).data?.fireAlarm);
+  const lifts = useQuery({ ...fireAlarmLiftsQuery(), enabled: holdsChats });
   const queryClient = useQueryClient();
   const changing = useMutation({
     mutationFn: (lifted: boolean) => (lifted ? liftTheAlarm(threadId) : takeTheLiftBack(threadId)),
     onSuccess: (now) => queryClient.setQueryData(fireAlarmLiftsQuery().queryKey, now),
   });
-  if (!alarmOn || !lifts.data) return null;
+  if (!holdsChats || !lifts.data) return null;
   const lifted = lifts.data.threadIds.includes(threadId);
   return (
     <>

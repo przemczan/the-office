@@ -29,17 +29,20 @@ export function scheduleOf({ app }: PipelinesApplication): ManualSchedule {
   return app.get(Schedule, { strict: false }) as ManualSchedule;
 }
 
-/** The user sounds the alarm, as Work announces it: each running Task paused by it, then AlarmSounded. */
+/**
+ * The user sounds the alarm, as Work announces it: ASAP, each running Task paused by it, then
+ * AlarmSounded with its hard stop; a softer way pauses none and sets no hard stop.
+ */
 export async function soundTheAlarm(
   pipelines: PipelinesApplication,
   taskId: string,
+  way: "asap" | "after-stages" | "after-tasks" = "asap",
 ): Promise<void> {
   const since = scheduleOf(pipelines).now();
-  pipelines.tasks.fireAlarmOn = true;
-  await pipelines.tasks.pauseForAlarm(taskId);
-  await pipelines.app
-    .get(EventBus)
-    .publish(new AlarmSounded(since, new Date(since.getTime() + 60_000)));
+  pipelines.tasks.fireAlarmWay = way;
+  if (way === "asap") await pipelines.tasks.pauseForAlarm(taskId);
+  const hardStopAt = way === "asap" ? new Date(since.getTime() + 60_000) : undefined;
+  await pipelines.app.get(EventBus).publish(new AlarmSounded(way, hardStopAt, since));
 }
 
 /** Runs `action` once, as the first Stage's first turn runs, which waits for it. */
@@ -55,7 +58,7 @@ export function whileTheFirstTurnRuns(
 
 /** The Task resumed, as the all clear will resume it through Work, waiting for the walk. */
 export async function resume(pipelines: PipelinesApplication, taskId: string): Promise<void> {
-  pipelines.tasks.fireAlarmOn = false;
+  pipelines.tasks.fireAlarmWay = undefined;
   pipelines.tasks.put(taskId, { state: "in-progress", pipelineId: "for-tests" });
   await pipelines.app.get(EventBus).publish(new TaskResumed(taskId));
   await pipelines.app.get(StageInterpreter, { strict: false }).walked(taskId);

@@ -173,7 +173,7 @@ describe("Pause, Stop and Resume", () => {
     const resumed = resumeTask(
       aTask({ state: "paused" }),
       {
-        fireAlarmOn: true,
+        alarmHoldsResume: true,
         initiativePaused: false,
       },
       ANN_LEE,
@@ -182,7 +182,7 @@ describe("Pause, Stop and Resume", () => {
     expect(resumed.task).toEqual(aTask({ state: "paused", pausedBy: "alarm" }));
     expect(resumed.event).toMatchObject({ from: "paused", by: "alarm" });
     expect(() =>
-      resumeTask(resumed.task, { fireAlarmOn: true, initiativePaused: false }, ANN_LEE),
+      resumeTask(resumed.task, { alarmHoldsResume: true, initiativePaused: false }, ANN_LEE),
     ).toThrow(new TaskRefused(["The fire alarm is on. The Task resumes with the all clear."]));
   });
 
@@ -191,7 +191,7 @@ describe("Pause, Stop and Resume", () => {
 
     expect(stopTask(heldByAlarm, ANN_LEE).task.pausedBy).toBeUndefined();
     expect(
-      resumeTask(heldByAlarm, { fireAlarmOn: false, initiativePaused: false }, ANN_LEE).task,
+      resumeTask(heldByAlarm, { alarmHoldsResume: false, initiativePaused: false }, ANN_LEE).task,
     ).toEqual(aTask({ state: "in-progress" }));
   });
 
@@ -202,7 +202,7 @@ describe("Pause, Stop and Resume", () => {
     const keptAsAlarm = resumeTask(
       aTask({ state: "paused" }),
       {
-        fireAlarmOn: true,
+        alarmHoldsResume: true,
         initiativePaused: false,
       },
       ANN_LEE,
@@ -231,7 +231,7 @@ describe("Pause, Stop and Resume", () => {
       resumeTask(
         aTask({ state: "waiting-on-you" }),
         {
-          fireAlarmOn: false,
+          alarmHoldsResume: false,
           initiativePaused: false,
         },
         ANN_LEE,

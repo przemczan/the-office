@@ -232,8 +232,9 @@ describe("PostgresFireAlarmRepository", () => {
   /** Rolled back: the stored alarm holds every file's Starts, so no test ever leaves it on. */
   class RolledBack extends Error {}
 
-  it("is off as migrated, sounds once, keeping when, and the all clear turns it off once", async () => {
+  it("is off as migrated, sounds once, keeping when, is made stricter only, and the all clear turns it off once", async () => {
     const since = new Date("2026-10-29T09:00:00.000Z");
+    const later = new Date("2026-10-29T10:00:00.000Z");
     const seen: unknown[] = [];
 
     await app
@@ -242,9 +243,11 @@ describe("PostgresFireAlarmRepository", () => {
         // The transaction offers every query the repository makes.
         const alarm = new PostgresFireAlarmRepository(transaction as unknown as Database);
         seen.push(await alarm.read());
-        seen.push(await alarm.sound(since));
-        seen.push(await alarm.sound(new Date("2026-10-29T10:00:00.000Z")));
+        seen.push(await alarm.sound(since, "after-tasks"));
+        seen.push(await alarm.sound(later, "after-tasks"));
+        seen.push(await alarm.sound(later, "after-stages"));
         seen.push(await alarm.read());
+        seen.push(await alarm.sound(later, "after-tasks"));
         seen.push(await alarm.allClear());
         seen.push(await alarm.allClear());
         seen.push(await alarm.read());
@@ -256,9 +259,11 @@ describe("PostgresFireAlarmRepository", () => {
 
     expect(seen).toEqual([
       { on: false },
-      true,
-      false,
-      { on: true, since },
+      "turned-on",
+      "unchanged",
+      "made-stricter",
+      { on: true, since, way: "after-stages" },
+      "refused",
       true,
       false,
       { on: false },

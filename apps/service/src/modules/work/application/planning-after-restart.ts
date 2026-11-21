@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PromptTemplates } from "../../prompt-templates/index.js";
 import { PLANS } from "../domain/duties.js";
+import { stopsEveryWalk } from "../domain/fire-alarm.js";
 import { initiativePlanningAfterRestartOpening } from "../domain/initiative-planning.js";
 import { isInitiativePaused } from "../domain/initiative-pause.js";
 import { planningAfterRestartOpening } from "../domain/planning.js";
@@ -27,9 +28,10 @@ interface Waking {
  * Planning goes on after a restart (spec §2.4): a planning Thread works on its own, so one the
  * restart cut short, mid-turn or with background Sub-agents running, has its planner woken in it
  * again while it still has a Task in Planning. Run as the service starts, after the fire alarm's
- * state is settled. Nothing is woken while the alarm sounds, nor for an Initiative the user paused:
- * the user writes in the Thread to go on. Shaping, chat, Consultation and Stage Threads are left as
- * they are.
+ * state is settled. Nothing is woken while the alarm is on ASAP, as Agents run no tools then, nor
+ * for an Initiative the user paused: the user writes in the Thread to go on. Under a softer way of
+ * the alarm Threads keep their tools, so planning goes on. Shaping, chat, Consultation and Stage
+ * Threads are left as they are.
  */
 @Injectable()
 export class PlanningAfterRestart {
@@ -47,7 +49,7 @@ export class PlanningAfterRestart {
 
   /** Wakes the planner in each of the cut-short Threads that is a planning Thread to go on with. */
   async wake(cutShortThreadIds: readonly string[]): Promise<void> {
-    if (cutShortThreadIds.length === 0 || (await this.fireAlarm.read()).on) return;
+    if (cutShortThreadIds.length === 0 || stopsEveryWalk(await this.fireAlarm.read())) return;
     const inPlanning = await this.tasks.inStates(["planning"]);
     for (const threadId of new Set(cutShortThreadIds)) {
       const waking = await this.wakingIn(threadId, inPlanning);

@@ -82,6 +82,7 @@ Covers: the Live view page, the office floor (isometric pixel-art office drawn w
 ## The fire alarm on the floor
 
 - While the fire alarm is on ([2.8](../2.8-fire-alarm.md)), everyone is out of the office, desks kept, and an alarm light flashes on the left wall by the door (lit steadily under reduced motion); the summary says so.
+- Under a softer way (after the current Stages or Tasks), those still at work (working, consulting, waiting on you) stay at their desks; the rest are out. The summary reads "8 people: the fire alarm is on, 2 still at work, everyone else is out of the office. Day, 10:00." ("8 still at work" when all are).
 - Sounded while the page is open and visible: everyone panics on the spot (a red "!" over them), then runs out of the door one after another; at the all clear they walk back in as at dawn. Otherwise they are put out or back at once.
 
 ## Reduced motion

@@ -170,6 +170,9 @@ function deskVisitorsOf(askers: ReadonlyMap<string, readonly string[]>): Map<str
   return visitors;
 }
 
+/** Who a softer fire alarm leaves at work: those working, consulting or waiting on you. */
+const STILL_AT_WORK: ReadonlySet<LookState> = new Set(["working", "consulting", "waiting-on-you"]);
+
 function locationsOf(
   people: readonly OfficePerson[],
   layout: Layout,
@@ -177,6 +180,7 @@ function locationsOf(
   lookStates: ReadonlyMap<string, LookState>,
   turnOf: (person: OfficePerson) => PastimeTurn,
   alarmOn: boolean,
+  workGoesOn: boolean,
 ): Map<string, Location> {
   const askers = askersByConsultant(people, lookStates);
   const deskVisitors = deskVisitorsOf(askers);
@@ -185,14 +189,16 @@ function locationsOf(
   for (const person of people) {
     const desk = deskOf(layout, person.roleKey);
     if (!desk) continue;
-    // The fire alarm empties the floor: everyone is out, their desk kept.
-    if (alarmOn) {
+    const lookState = lookStates.get(person.roleKey) ?? "idle";
+    // The fire alarm empties the floor: everyone is out, their desk kept, but under a softer way
+    // those still at work stay at it.
+    if (alarmOn && !(workGoesOn && STILL_AT_WORK.has(lookState))) {
       locations.set(person.roleKey, { kind: "gone" });
       continue;
     }
     const location = locationFor(desk, {
       layout,
-      lookState: lookStates.get(person.roleKey) ?? "idle",
+      lookState,
       visitedConsultant: deskVisitors.get(person.roleKey),
       takePastimeSpot: () => freeSpots.take(turnOf(person)),
     });
@@ -416,8 +422,8 @@ function doingOf(
  * on you and napping at the desk; consulting at the Consultant's desk, the first of two or more
  * asking one Consultant, the rest at their own desks; idle at a spot of this turn's pastime, in hire
  * order, else of the next in their own order with one free, else at the desk; gone home off the
- * floor; while the fire alarm is on, everyone off the floor. People without a desk on the layout are
- * left out.
+ * floor; while the fire alarm is on, everyone off the floor, but for those still at work when it
+ * lets work go on (`workGoesOn`, a softer way). People without a desk on the layout are left out.
  */
 export function placementsOf(
   people: readonly OfficePerson[],
@@ -426,6 +432,7 @@ export function placementsOf(
   light: Light,
   now: Date,
   alarmOn = false,
+  workGoesOn = false,
 ): ReadonlyMap<string, Placement> {
   const lookStates = lookStatesOf(people, now, light);
   const locations = locationsOf(
@@ -435,6 +442,7 @@ export function placementsOf(
     lookStates,
     (person) => pastimeTurnOf(person, now, light),
     alarmOn,
+    workGoesOn,
   );
   const visitors = visitorsByConsultant(locations);
   const conversations = conversationsOf(locations, visitors);
@@ -736,22 +744,36 @@ export function clockWords(minutes: number): string {
   return `${twoDigits(Math.floor(whole / 60))}:${twoDigits(whole % 60)}`;
 }
 
+/** Who is out at the fire alarm, and who a softer way leaves at work. */
+function alarmOutWords(total: number, atWork: number): string {
+  if (total === 0) return "nobody is in the office";
+  if (atWork === 0) return "everyone is out of the office";
+  if (atWork === total) return `${atWork} still at work`;
+  return `${atWork} still at work, everyone else is out of the office`;
+}
+
 /**
  * The canvas's label: "8 people: 2 working, 1 waiting on you, 5 gone home. Night, 22:30."; while the
- * fire alarm is on, "8 people: the fire alarm is on, everyone is out of the office. Day, 10:00."
+ * fire alarm is on, "8 people: the fire alarm is on, everyone is out of the office. Day, 10:00.",
+ * or when it lets work go on, "8 people: the fire alarm is on, 2 still at work, everyone else is out
+ * of the office. Day, 10:00."
  */
 export function summaryWords(
   people: readonly OfficePerson[],
   light: Light,
   lookStates: ReadonlyMap<string, LookState>,
   alarmOn = false,
+  workGoesOn = false,
 ): string {
   const total = people.length;
   const when = `${PHASE_WORDS[light.phase]}, ${clockWords(light.minutes)}.`;
   if (alarmOn) {
     const head = `${total} ${total === 1 ? "person" : "people"}`;
-    const out = total === 0 ? "nobody is in the office" : "everyone is out of the office";
-    return `${head}: the fire alarm is on, ${out}. ${when}`;
+    const atWork = workGoesOn
+      ? people.filter((person) => STILL_AT_WORK.has(lookStates.get(person.roleKey) ?? "idle"))
+          .length
+      : 0;
+    return `${head}: the fire alarm is on, ${alarmOutWords(total, atWork)}. ${when}`;
   }
   const counts = SUMMARY_COUNTS.map(({ states, words }) => ({
     count: people.filter((person) => states.includes(lookStates.get(person.roleKey) ?? "idle"))

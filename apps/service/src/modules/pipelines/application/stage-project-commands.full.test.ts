@@ -205,11 +205,11 @@ describe("A command an Agent runs through The Office", () => {
       void asked.answer?.finally(() => {
         stoppedBeforeTheTurnEnded = !turnEnded;
       });
-      pipelines.tasks.fireAlarmOn = true;
+      pipelines.tasks.fireAlarmWay = "asap";
       await pipelines.tasks.pauseForAlarm(taskId);
       await pipelines.app
         .get(EventBus)
-        .publish(new AlarmSounded(new Date(), new Date(Date.now() + 60_000)));
+        .publish(new AlarmSounded("asap", new Date(Date.now() + 60_000), new Date()));
     });
     pipelines.stageThreads.whileWorking = async () => {
       await asked.answer;

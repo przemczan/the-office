@@ -3,6 +3,7 @@ import type { WorkRefusal } from "@the-office/contracts";
 import type { Response } from "express";
 import { AttachmentNotFound } from "../../domain/attachment-not-found.js";
 import { AttachmentRefused } from "../../domain/attachment-refused.js";
+import { FireAlarmRefused } from "../../domain/fire-alarm-refused.js";
 import { IdeaNotFound } from "../../domain/idea-not-found.js";
 import { IdeaRefused } from "../../domain/idea-refused.js";
 import { InitiativeNotFound } from "../../domain/initiative-not-found.js";
@@ -13,7 +14,12 @@ import { TaskNotFound } from "../../domain/task-not-found.js";
 import { TaskRefused } from "../../domain/task-refused.js";
 
 type WorkRefused =
-  IdeaRefused | InitiativeRefused | TaskRefused | AttachmentRefused | SavedViewRefused;
+  | IdeaRefused
+  | InitiativeRefused
+  | TaskRefused
+  | AttachmentRefused
+  | SavedViewRefused
+  | FireAlarmRefused;
 type WorkNotFound =
   IdeaNotFound | InitiativeNotFound | TaskNotFound | AttachmentNotFound | SavedViewNotFound;
 
@@ -24,6 +30,7 @@ type WorkNotFound =
   TaskRefused,
   AttachmentRefused,
   SavedViewRefused,
+  FireAlarmRefused,
   IdeaNotFound,
   InitiativeNotFound,
   TaskNotFound,

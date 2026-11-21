@@ -1,15 +1,19 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
+import type { FireAlarmWay } from "./fire-alarm.js";
 
 /**
- * The user sounded the fire alarm (spec §2.8): every Stage, waiting Task and Consultation stops at
- * its next safe point, a running Stage's turn cut short once `hardStopAt` comes.
+ * The user sounded the fire alarm (spec §2.8), or made the one on stricter, at `occurredAt`. ASAP:
+ * every Stage, waiting Task and Consultation stops at its next safe point, a running Stage's turn
+ * cut short once `hardStopAt` comes. A softer way sets no hard stop, and Consultations go on.
  */
 export class AlarmSounded extends DomainEvent {
   constructor(
-    readonly since: Date,
-    readonly hardStopAt: Date,
+    readonly way: FireAlarmWay,
+    /** Set exactly when `way` is ASAP. */
+    readonly hardStopAt: Date | undefined,
+    occurredAt: Date,
   ) {
-    super(since);
+    super(occurredAt);
   }
 }
 

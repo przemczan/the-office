@@ -112,8 +112,9 @@ export abstract class StartedTasks {
   abstract hold(taskId: string, reason: string): Promise<StartedTask>;
 
   /**
-   * Pauses a Task In progress or Waiting on you as the fire alarm does, if the alarm is on: as The
-   * Office starts again after stopping during a sounding. Whether the alarm is on.
+   * Pauses a Task In progress or Waiting on you as the fire alarm does, if the alarm holds Tasks at
+   * their Stage boundary (sounded ASAP or after the current Stages): as the walk reaches one, and as
+   * The Office starts again after stopping during a sounding. Whether it paused the Task.
    */
   abstract holdForFireAlarm(taskId: string): Promise<boolean>;
 

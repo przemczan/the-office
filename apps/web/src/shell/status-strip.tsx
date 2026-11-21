@@ -49,8 +49,9 @@ export function StatusStrip(): ReactNode {
 }
 
 function Figures({ now }: { readonly now: Now }): ReactNode {
-  // While the alarm is on nothing runs at a desk, though its Tasks keep theirs.
-  const inUse = now.fireAlarm ? 0 : now.desks.inUse;
+  // While the alarm is on ASAP nothing runs at a desk, though its Tasks keep theirs; a softer way
+  // lets the started Tasks go on at theirs.
+  const inUse = now.fireAlarm?.way === "asap" ? 0 : now.desks.inUse;
   return (
     <div className="shell-strip-figures">
       <NeedsYouFigure />
@@ -137,7 +138,10 @@ function useRises(value: number | undefined): number {
   return rises;
 }
 
-/** While the alarm is on, after Tokens today: why Desks in use reads 0, opening the all clear's review. */
+/**
+ * While the alarm is on, after Tokens today: why Desks in use reads 0 under ASAP, or how a softer
+ * way stops; it opens the all clear's review.
+ */
 function AlarmFigure({ alarm }: { readonly alarm: FireAlarmOnNow }): ReactNode {
   const review = useFireAlarmReview();
   const navigate = useNavigate();

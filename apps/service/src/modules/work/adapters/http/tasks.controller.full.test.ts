@@ -1428,7 +1428,7 @@ describe("The fire alarm", { timeout: MANY_REQUESTS_TEST_MS }, () => {
     await fireAlarmService.finishSounding();
     const whileOff = (await storedTask(working.id)).state;
     // On, but the service stopped before it paused anything.
-    await fireAlarm.sound(new Date());
+    await fireAlarm.sound(new Date(), "asap");
     await fireAlarmService.finishSounding();
 
     expect(whileOff).toBe("in-progress");

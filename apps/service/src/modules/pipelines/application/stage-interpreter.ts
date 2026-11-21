@@ -35,6 +35,7 @@ import type {
   HoldingUser,
 } from "../domain/stage-run.js";
 import { endStageRun, startStageRun } from "../domain/stage-run-changes.js";
+import { startsAtStageBoundary } from "../domain/stage-boundary.js";
 import { staffedRole } from "../domain/stage-staffing.js";
 import {
   BudgetReached,
@@ -159,7 +160,10 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
       if (by === "alarm") await this.interrupt(taskId, "alarm");
       else await this.interrupt(taskId, "pause", user && holdingUserOf(user));
     });
-    this.events.subscribe(AlarmSounded, ({ hardStopAt }) => this.hardStopAt(hardStopAt));
+    // Only ASAP sets a hard stop; the softer ways let each running Stage end by itself.
+    this.events.subscribe(AlarmSounded, ({ hardStopAt }) => {
+      if (hardStopAt) this.hardStopAt(hardStopAt);
+    });
     this.events.subscribe(TaskStopped, ({ taskId, user }) =>
       this.interrupt(taskId, "stop", user && holdingUserOf(user)),
     );
@@ -465,6 +469,11 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
       this.heldForExit.add(taskId);
       return { step: "over" };
     }
+    // The fire alarm sounded after the current Stages holds the Task here, Paused by it, which the
+    // all clear resumes (spec §2.8); a Gate too, as it asks the user to start what comes next.
+    const stageKey = move.move === "run" ? move.stage.key : undefined;
+    const atBoundary = stageKey === undefined || startsAtStageBoundary(stageKey, runs);
+    if (atBoundary && (await this.tasks.holdForFireAlarm(taskId))) return { step: "over" };
     if (move.move === "weigh-command") {
       await this.weighCommand(move, record, walkedStages(staffed, runs), runs, interruption);
       return { step: "weighed" };

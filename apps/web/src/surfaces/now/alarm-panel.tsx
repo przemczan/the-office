@@ -1,6 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { AlarmPausedTask, FireAlarmOnNow, Project, Role } from "@the-office/contracts";
+import type {
+  AlarmGoingOnTask,
+  AlarmPausedTask,
+  FireAlarmOnNow,
+  FireAlarmWay,
+  Project,
+  Role,
+} from "@the-office/contracts";
 import { Badge, Button, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { nowQueries } from "../../api/notifications.ts";
@@ -11,6 +18,7 @@ import {
   ALL_CLEAR_CHOICES,
   allClearSummary,
   alarmStateWords,
+  GOING_ON_BADGES,
   resumeWords,
   type AllClearChoice,
 } from "../../shell/fire-alarm/fire-alarm-words.ts";
@@ -21,7 +29,8 @@ import { useToast } from "../../shell/toasts.tsx";
 
 /**
  * The fire alarm on Now (spec §2.8), Office-wide whatever the Project filter shows: stopping, then
- * on, with each Task it paused; before the all clear, how each would resume and at what cost, with
+ * on, the way it was sounded, with each Task it paused and, under a softer way, each started Task
+ * it lets go on; before the all clear, how each paused one would resume and at what cost, with
  * Resume, Hold or Drop for each and the total of those resuming.
  */
 export function AlarmPanel({ alarm }: { readonly alarm: FireAlarmOnNow }): ReactNode {
@@ -31,23 +40,22 @@ export function AlarmPanel({ alarm }: { readonly alarm: FireAlarmOnNow }): React
   if (review.reviewing && !alarm.stopping) {
     return <ReviewPanel alarm={alarm} projects={projects} roles={roles} />;
   }
+  const softer = alarm.way === "asap" ? null : alarm.way;
+  const foot = FOOT_WORDS[alarm.way];
+  const stopping = alarm.stopping && softer === null;
   return (
     <section className="alarm-panel" aria-label="Fire alarm">
       <div className="alarm-panel-head">
         <Icon name="siren" size={20} />
         <div className="alarm-panel-grow">
-          <h2>{alarm.stopping ? "Stopping all automated work" : alarmStateWords(alarm)}</h2>
-          <p>
-            {alarm.stopping
-              ? "Every Stage stops at its next safe point, between tool calls; anything still running after 60 seconds is stopped hard. Pushes already running finish."
-              : "Nothing automated runs: no Stage, no Task starts, no consultation. Chats stay open; Agents answer but run no tools unless you let them in a thread."}
-          </p>
+          <h2>{stopping ? "Stopping all automated work" : alarmStateWords(alarm)}</h2>
+          <p>{stopping ? STOPPING_WORDS : ON_WORDS[alarm.way]}</p>
         </div>
         <Button variant="danger" disabled={alarm.stopping} onClick={review.open}>
           All clear…
         </Button>
       </div>
-      {alarm.paused.length === 0 ? (
+      {alarm.paused.length === 0 && alarm.goingOn.length === 0 ? (
         <p className="alarm-panel-faint">Nothing was running.</p>
       ) : (
         <ul className="alarm-list">
@@ -63,15 +71,42 @@ export function AlarmPanel({ alarm }: { readonly alarm: FireAlarmOnNow }): React
               )}
             </li>
           ))}
+          {softer &&
+            alarm.goingOn.map((task) => (
+              <li key={task.taskId}>
+                <TaskLine task={task} projects={projects} roles={roles} />
+                <Badge tone="info">{GOING_ON_BADGES[softer]}</Badge>
+              </li>
+            ))}
         </ul>
       )}
-      <p className="alarm-panel-foot">
-        <Icon name="info" size={13} />
-        Tasks waiting on you keep waiting; answering one doesn't restart it until the all clear.
-      </p>
+      {foot && (
+        <p className="alarm-panel-foot">
+          <Icon name="info" size={13} />
+          {foot}
+        </p>
+      )}
     </section>
   );
 }
+
+const STOPPING_WORDS =
+  "Every Stage stops at its next safe point, between tool calls; anything still running after 60 seconds is stopped hard. Pushes already running finish.";
+
+const ON_WORDS: Readonly<Record<FireAlarmWay, string>> = {
+  asap: "Nothing automated runs: no Stage, no Task starts, no consultation. Chats stay open; Agents answer but run no tools unless you let them in a thread.",
+  "after-stages":
+    "Running Stages finish, then their Tasks pause; no new Stage or Task starts. Chats work as usual.",
+  "after-tasks": "Started Tasks finish; no new Task starts. Chats work as usual.",
+};
+
+/** What answering a Task waiting on you does under each way; after the current Tasks it walks on. */
+const FOOT_WORDS: Readonly<Record<FireAlarmWay, string | null>> = {
+  asap: "Tasks waiting on you keep waiting; answering one doesn't restart it until the all clear.",
+  "after-stages":
+    "Answering a Task waiting on you lets its Stage finish; then it pauses until the all clear.",
+  "after-tasks": null,
+};
 
 function ReviewPanel({
   alarm,
@@ -196,7 +231,7 @@ function TaskLine({
   projects,
   roles,
 }: {
-  readonly task: AlarmPausedTask;
+  readonly task: AlarmGoingOnTask;
   readonly projects: readonly Project[] | undefined;
   readonly roles: readonly Role[] | undefined;
 }): ReactNode {

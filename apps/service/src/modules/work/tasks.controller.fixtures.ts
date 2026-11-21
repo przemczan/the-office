@@ -26,6 +26,7 @@ import { PlanningService } from "./application/planning-service.js";
 import { TaskService } from "./application/task-service.js";
 import type { Author } from "./domain/author.js";
 import type { AccountWindowsReading } from "./domain/cap-waits.js";
+import type { FireAlarmWay } from "./domain/fire-alarm.js";
 import type { TaskChange } from "./domain/task-changes.js";
 import { STARTED_STATES } from "./domain/task-states.js";
 import type { Task as StoredTask, TaskState, TaskSummary } from "./domain/task.js";
@@ -240,8 +241,9 @@ export function tasksHttp(current: () => TasksHttpTest) {
     };
   }
 
-  async function sound(): Promise<Response> {
-    return sendJson(work(), "POST", "/fire-alarm/sound");
+  /** Sounds the alarm as the top bar does: ASAP with no way given, as the web sent it before. */
+  async function sound(way?: FireAlarmWay): Promise<Response> {
+    return sendJson(work(), "POST", "/fire-alarm/sound", way === undefined ? undefined : { way });
   }
 
   /** The Task as Work keeps it, with what the web doesn't read yet. */

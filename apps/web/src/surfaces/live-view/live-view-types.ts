@@ -341,11 +341,12 @@ export interface OfficeStage {
   /**
    * Draws a snapshot: hires take a desk and walk in, those let go walk out leaving an empty one,
    * everyone else walks where their state puts them; under the still office every move is a jump.
-   * While `alarmOn` (the fire alarm) the floor is empty: sounded in front of the viewer, everyone
-   * panics, then runs out; at the all clear they walk back in (`walksAtAlarmChange`), else they are
-   * put out, or back, at once.
+   * While `alarmOn` (the fire alarm) the floor is empty, but for those still at work when it lets
+   * work go on (`workGoesOn`, a softer way): sounded in front of the viewer, everyone else panics,
+   * then runs out; at the all clear they walk back in (`walksAtAlarmChange`), else they are put
+   * out, or back, at once.
    */
-  apply(people: readonly OfficePerson[], now: Date, alarmOn: boolean): void;
+  apply(people: readonly OfficePerson[], now: Date, alarmOn: boolean, workGoesOn?: boolean): void;
   /**
    * The hour's light; given before the first `apply`, then each minute. With motion the tint fades
    * over 2 s, and people walk out or in only when night begins or ends in front of the viewer

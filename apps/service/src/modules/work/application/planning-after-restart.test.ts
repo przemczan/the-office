@@ -202,12 +202,25 @@ describe("planning after a restart", () => {
     expect(taskThreads.askedAgain).toEqual([]);
   });
 
-  it("wakes nobody while the fire alarm sounds", async () => {
+  it("wakes the planners under a softer fire alarm, as Threads keep their tools", async () => {
+    const own = await aTaskInPlanning();
+    // The alarm is Office-wide, and test files share one database: it sounds here alone.
+    const alarm = work.app.get(FireAlarmService);
+    vi.spyOn(alarm, "read").mockResolvedValue({ on: true, since: new Date(), way: "after-tasks" });
+
+    await wake(own.threadId);
+
+    expect(taskThreads.askedAgain).toEqual([
+      { threadId: own.threadId, opening: PLANNING_AFTER_RESTART_OPENING },
+    ]);
+  });
+
+  it("wakes nobody while the fire alarm is on ASAP", async () => {
     const own = await aTaskInPlanning();
     const initiative = await anInitiativeInPlanning();
     // The alarm is Office-wide, and test files share one database: it sounds here alone.
     const alarm = work.app.get(FireAlarmService);
-    vi.spyOn(alarm, "read").mockResolvedValue({ on: true, since: new Date() });
+    vi.spyOn(alarm, "read").mockResolvedValue({ on: true, since: new Date(), way: "asap" });
 
     await wake(own.threadId, initiative.threadId);
 

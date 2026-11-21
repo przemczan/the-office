@@ -36,6 +36,7 @@ const stages = vi.hoisted(() => ({
     options: OfficeStageOptions;
     applied: (readonly OfficePerson[])[];
     alarms: boolean[];
+    workGoingOn: (boolean | undefined)[];
     lit: { light: Light; now: Date }[];
   }[],
 }));
@@ -54,15 +55,17 @@ vi.mock("./office-stage.ts", () => ({
       options,
       applied: [] as (readonly OfficePerson[])[],
       alarms: [] as boolean[],
+      workGoingOn: [] as (boolean | undefined)[],
       lit: [] as { light: Light; now: Date }[],
     };
     stages.made.push(made);
     const stage: OfficeStage = {
-      apply: (people, _now, alarmOn) => {
+      apply: (people, _now, alarmOn, workGoesOn) => {
         // The page gives the stage its light before anyone is drawn.
         if (made.lit.length === 0) throw new Error("The stage was given no light.");
         made.applied.push(people);
         made.alarms.push(alarmOn);
+        made.workGoingOn.push(workGoesOn);
       },
       setLight: (light, now) => void made.lit.push({ light, now }),
       frame: () => undefined,
@@ -278,8 +281,9 @@ describe("The Live view", () => {
   it("empties the floor while the fire alarm is on, from the now query, and says so", async () => {
     const { page } = await openLiveView([PAM_IDLE, JIM_WORKING]);
     expect(lastStage().alarms.at(-1)).toBe(false);
-    alarmTo({ since: new Date().toISOString(), paused: [] });
+    alarmTo({ since: new Date().toISOString(), way: "asap", paused: [], goingOn: [] });
     await until(() => expect(lastStage().alarms.at(-1)).toBe(true));
+    expect(lastStage().workGoingOn.at(-1)).toBe(false);
     expect(lastStage().applied.at(-1)).toHaveLength(2);
     expect(page.querySelector("canvas")?.getAttribute("aria-label")).toMatch(
       /^2 people: the fire alarm is on, everyone is out of the office\. Day, /,
@@ -289,6 +293,16 @@ describe("The Live view", () => {
     await until(() => expect(lastStage().alarms.at(-1)).toBe(false));
     expect(page.querySelector("canvas")?.getAttribute("aria-label")).toMatch(
       /^2 people: 1 working, 1 idle\. Day, /,
+    );
+  });
+
+  it("keeps those still at work in under a softer alarm, the rest out", async () => {
+    const { page } = await openLiveView([PAM_IDLE, JIM_WORKING]);
+    alarmTo({ since: new Date().toISOString(), way: "after-tasks", paused: [], goingOn: [] });
+    await until(() => expect(lastStage().alarms.at(-1)).toBe(true));
+    expect(lastStage().workGoingOn.at(-1)).toBe(true);
+    expect(page.querySelector("canvas")?.getAttribute("aria-label")).toMatch(
+      /^2 people: the fire alarm is on, 1 still at work, everyone else is out of the office\. Day, /,
     );
   });
 

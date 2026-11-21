@@ -364,7 +364,7 @@ describe("POST /api/initiatives/:id/start", () => {
   });
 
   it("queues every Task while the fire alarm is on", async () => {
-    await fireAlarm.sound(new Date());
+    await fireAlarm.sound(new Date(), "asap");
     const { initiative, tasks } = await initiativeWithReadyTasks([{}, {}]);
 
     expect(await startReadyTasks(initiative)).toEqual({

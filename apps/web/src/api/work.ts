@@ -70,6 +70,8 @@ import {
   type StartCheck,
   type AllClear,
   type FireAlarm,
+  type FireAlarmWay,
+  type SoundFireAlarm,
   type Task,
   type TaskMoveCheck,
   type TaskSummary,
@@ -217,9 +219,13 @@ export function changeUsageSettings(settings: UsageSettings): Promise<UsageSetti
   return sendToApi("PUT", "/settings/usage", settings, usageSettingsSchema);
 }
 
-/** Sounds the one Office-wide fire alarm (spec §2.8); Now carries it from then on. */
-export function soundTheAlarm(): Promise<FireAlarm> {
-  return sendToApi("POST", "/fire-alarm/sound", {}, fireAlarmSchema);
+/**
+ * Sounds the one Office-wide fire alarm in `way` (spec §2.8), or makes it stricter while it is on;
+ * Now carries it from then on.
+ */
+export function soundTheAlarm(way: FireAlarmWay): Promise<FireAlarm> {
+  const body: SoundFireAlarm = { way };
+  return sendToApi("POST", "/fire-alarm/sound", body, fireAlarmSchema);
 }
 
 /** The all clear: every Task the alarm paused resumes, unless the user holds or drops it. */

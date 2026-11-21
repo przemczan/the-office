@@ -3,8 +3,15 @@ import { Injectable } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
-import { hardStopAt, type FireAlarm } from "../domain/fire-alarm.js";
+import {
+  FIRE_ALARM_STRICTER_ONLY,
+  hardStopAt,
+  stopsEveryWalk,
+  type FireAlarm,
+  type FireAlarmWay,
+} from "../domain/fire-alarm.js";
 import { AlarmSounded, AllClearGiven } from "../domain/fire-alarm-events.js";
+import { FireAlarmRefused } from "../domain/fire-alarm-refused.js";
 import {
   giveTaskAllClear,
   pauseTaskForAlarm,
@@ -16,8 +23,10 @@ import { FireAlarmRepository } from "../ports/fire-alarm-repository.js";
 import { TaskRepository } from "../ports/task-repository.js";
 
 /**
- * The fire alarm (spec §2.8): sounding it pauses every Task In progress or Waiting on you as paused
- * by the alarm, which Pipelines holds at the next safe point; Start holds while it is on, and the
+ * The fire alarm (spec §2.8): sounding it ASAP pauses every Task In progress or Waiting on you as
+ * paused by the alarm, which Pipelines holds at the next safe point; sounded after the current
+ * Stages, Pipelines pauses each at its next Stage boundary (`holdAtStageBoundary`); after the
+ * current Tasks, the started ones walk on. Start holds while it is on, whichever the way, and the
  * all clear resumes, holds or drops each Task it paused.
  */
 @Injectable()
@@ -34,15 +43,21 @@ export class FireAlarmService {
   }
 
   /**
-   * Sounds the alarm; sounded again, it leaves it as it is. Either way it pauses the started Tasks
-   * still running. AlarmSounded comes after, so the hard stop it sets reaches every run held.
+   * Sounds the alarm the given way, or makes the one on stricter; sounded again the same way, it
+   * leaves it as it is, and a softer way than the one on is refused (FireAlarmRefused). ASAP pauses
+   * the started Tasks still running; AlarmSounded comes after, so the hard stop it sets reaches
+   * every run held.
    */
-  async sound(): Promise<FireAlarm> {
-    const since = this.schedule.now();
-    const turnedOn = await this.alarm.sound(since);
+  async sound(way: FireAlarmWay): Promise<FireAlarm> {
+    const now = this.schedule.now();
+    const sounding = await this.alarm.sound(now, way);
+    if (sounding === "refused") throw new FireAlarmRefused([FIRE_ALARM_STRICTER_ONLY]);
     // Once the alarm is on, so a Start holding Starts meanwhile either saw it or is paused here.
-    await this.pauseStartedTasks();
-    if (turnedOn) await this.events.publish(new AlarmSounded(since, hardStopAt(since)));
+    if (way === "asap") await this.pauseStartedTasks();
+    if (sounding !== "unchanged") {
+      const hardStop = way === "asap" ? hardStopAt(now) : undefined;
+      await this.events.publish(new AlarmSounded(way, hardStop, now));
+    }
     return this.alarm.read();
   }
 
@@ -66,11 +81,12 @@ export class FireAlarmService {
   }
 
   /**
-   * As The Office starts again, before anything is released: while the alarm is on, pauses the
-   * started Tasks a sounding the service stopped during left running. Nothing while it is off.
+   * As The Office starts again, before anything is released: while the alarm is on ASAP, pauses the
+   * started Tasks a sounding the service stopped during left running. Nothing while it is off or
+   * softer: Pipelines holds a run the restart cut short after the current Stages as it takes it up.
    */
   async finishSounding(): Promise<void> {
-    if ((await this.alarm.read()).on) await this.pauseStartedTasks();
+    if (stopsEveryWalk(await this.alarm.read())) await this.pauseStartedTasks();
   }
 
   private async pauseStartedTasks(): Promise<void> {

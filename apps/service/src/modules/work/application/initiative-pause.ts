@@ -4,6 +4,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import type { Initiative } from "../domain/initiative.js";
 import { pauseInitiative, resumeInitiative } from "../domain/initiative-pause.js";
 import { TaskResumed } from "../domain/task-events.js";
+import { stopsEveryWalk } from "../domain/fire-alarm.js";
 import { FireAlarmRepository } from "../ports/fire-alarm-repository.js";
 import { InitiativeRepository } from "../ports/initiative-repository.js";
 import { TaskService } from "./task-service.js";
@@ -41,18 +42,18 @@ export class InitiativePause {
   }
 
   /**
-   * Refused with the reason unless the Initiative is paused. While the fire alarm is on, the Tasks
+   * Refused with the reason unless the Initiative is paused. While the fire alarm is on ASAP, the Tasks
    * its Pause held are held by the alarm instead, which the all clear resumes.
    */
   async resume(id: string, by: Author): Promise<InitiativePauseOutcome> {
-    const fireAlarmOn = (await this.fireAlarm.read()).on;
+    const alarmHoldsResume = stopsEveryWalk(await this.fireAlarm.read());
     const { initiative, event, taskChanges } = await this.initiatives.updateWithTasks(
       id,
-      (held, tasks) => resumeInitiative(held, tasks, { fireAlarmOn }, by),
+      (held, tasks) => resumeInitiative(held, tasks, { alarmHoldsResume }, by),
     );
-    // Read again after the save, as a single Resume does: an alarm sounded meanwhile may have
+    // Read again after the save, as a single Resume does: an alarm sounded ASAP meanwhile may have
     // passed the resumed Tasks by as Paused, so the alarm holds them instead.
-    const soundedSince = !fireAlarmOn && (await this.fireAlarm.read()).on;
+    const soundedSince = !alarmHoldsResume && stopsEveryWalk(await this.fireAlarm.read());
     if (event) await this.events.publish(event);
     for (const { task, event: taskEvent } of taskChanges) {
       if (soundedSince && taskEvent instanceof TaskResumed) {

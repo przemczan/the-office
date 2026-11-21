@@ -238,7 +238,7 @@ describe("NowService", () => {
     ];
     const alarm = app.get(OfficeFireAlarmForTests);
     const off = await readNow();
-    alarm.alarm = { on: true, since: new Date("2026-10-29T09:00:00Z") };
+    alarm.alarm = { on: true, since: new Date("2026-10-29T09:00:00Z"), way: "asap" };
     const stopping = await readNow();
     app.get(ResumePlansForTests).resumes.set(taskId, {
       kind: "re-caches",
@@ -257,6 +257,7 @@ describe("NowService", () => {
     });
     expect(planned.fireAlarm).toEqual({
       since: "2026-10-29T09:00:00.000Z",
+      way: "asap",
       stopping: false,
       paused: [
         {
@@ -273,6 +274,7 @@ describe("NowService", () => {
           },
         },
       ],
+      goingOn: [],
       resumeTokens: 12_000,
     });
   });

@@ -335,12 +335,13 @@ describe("the fire alarm on Now", () => {
         { task: byAlarm, stages: undefined },
         { task: usersOwn, stages: undefined },
       ],
-      fireAlarm: { on: true, since },
+      fireAlarm: { on: true, since, way: "asap" },
       resumes: new Map([[byAlarm.id, undefined]]),
     };
 
     expect(nowOf(parts).fireAlarm).toEqual({
       since,
+      way: "asap",
       stopping: true,
       paused: [
         {
@@ -351,7 +352,35 @@ describe("the fire alarm on Now", () => {
           resume: undefined,
         },
       ],
+      goingOn: [],
       resumeTokens: 0,
+    });
+  });
+
+  it("lists the started Tasks a softer way lets go on, beside those it paused", () => {
+    const working: OfficeTask = { ...byAlarm, id: "t4", state: "in-progress", pausedBy: undefined };
+    const parts: NowParts = {
+      ...PARTS,
+      started: [
+        { task: working, stages: undefined },
+        { task: usersOwn, stages: undefined },
+      ],
+      fireAlarm: { on: true, since, way: "after-stages" },
+      resumes: new Map(),
+    };
+
+    expect(nowOf(parts).fireAlarm).toMatchObject({
+      way: "after-stages",
+      stopping: false,
+      paused: [],
+      goingOn: [
+        {
+          taskId: working.id,
+          title: working.title,
+          projectId: working.projectId,
+          stage: undefined,
+        },
+      ],
     });
   });
 
@@ -364,7 +393,7 @@ describe("the fire alarm on Now", () => {
         { task: byAlarm, stages: undefined },
         { task: other, stages: undefined },
       ],
-      fireAlarm: { on: true, since },
+      fireAlarm: { on: true, since, way: "asap" },
       resumes: new Map([
         [byAlarm.id, warm],
         [other.id, script],

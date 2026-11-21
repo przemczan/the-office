@@ -79,11 +79,13 @@ function toRunningResponse({
 function toFireAlarmResponse({
   since,
   paused,
+  goingOn,
   ...alarm
 }: FireAlarmOnNow): NonNullable<NowResponse["fireAlarm"]> {
   return {
     ...alarm,
     since: since.toISOString(),
+    goingOn: goingOn.map(({ stage, ...task }) => ({ ...task, stage: toStageResponse(stage) })),
     paused: paused.map(({ stage, resume, ...task }) => ({
       ...task,
       stage: toStageResponse(stage),

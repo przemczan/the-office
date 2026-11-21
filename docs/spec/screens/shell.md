@@ -100,11 +100,17 @@ Covers: the rail and its two states, the top bar (title and crumb, Project filte
 
 ## Fire alarm control
 
-- While off: a danger-ghost button with the siren icon, label "Sound the alarm", title "Fire alarm: pause all automated work". It asks no confirmation; the toast reads "Alarm sounded: every Stage stops at its next safe point. Chats stay open."
+- While off: a danger-ghost menu button with the siren icon, label "Sound the alarm", title "Fire alarm: pause automated work", opening a menu 400px wide of the three ways ([2.8](../2.8-fire-alarm.md)), each with a one-line hint:
+  - **Safe pause ASAP**: "Every Stage stops at its next safe point; chats lose their tools."
+  - **Safe pause after the current Stages**: "Running Stages finish; no new Stage starts."
+  - **Safe pause after the current Tasks**: "Started Tasks finish; no new Task starts."
+- Choosing a way asks no confirmation. The toast reads "Alarm sounded: every Stage stops at its next safe point. Chats stay open.", "Alarm sounded: running Stages finish, then no new Stage starts. Chats keep their tools." or "Alarm sounded: started Tasks finish, then no new Task starts. Chats keep their tools."
 - While on: a danger button "All clear…", title "See what will resume, then give the all clear". It opens the review on Now (it goes to `/`).
+- While on in a softer way, it is a split: "All clear…" joined to a chevron button named "Make the alarm stricter", opening a menu of the stricter ways only. The toast reads "Alarm made stricter: " and the way's words, as above.
+- A refusal shows a notice "The alarm wasn't sounded" (or "The alarm wasn't made stricter") with the service's reasons.
 - The alarm is read from Now's data; its changes arrive by `fire-alarm.sounded` and `fire-alarm.all-clear`.
 - The review is on Now ([now.md](now.md#fire-alarm-panel)).
-- Under a chat's composer, while the alarm is on, a note: "Alarm on: <name> answers but runs no tools." with the button **Let <name> act in this thread**; once lifted: "<name> may run tools in this thread while the alarm is on." with **Take it back**. A refusal shows "That didn't change". A Stage Thread has no note.
+- Under a chat's composer, while the alarm is on ASAP, a note: "Alarm on: <name> answers but runs no tools." with the button **Let <name> act in this thread**; once lifted: "<name> may run tools in this thread while the alarm is on." with **Take it back**. A refusal shows "That didn't change". A Stage Thread has no note.
 - A Task the alarm holds shows the state "Paused by the alarm"; one its engine's usage window holds shows "Usage window used up · resumes 14:00" (local time).
 - See [2.8](../2.8-fire-alarm.md).
 
@@ -131,9 +137,9 @@ Covers: the rail and its two states, the top bar (title and crumb, Project filte
 - Widths (by the strip's own width): under 1,180px the Workstation's cores and a narrower slot (260px); under 900px shorter words, gaps of 12px and a slot of 216px; under 600px two rows (93px high), labels shortened ("Desks in use" to "Desks", "Tokens today" to "Tokens", "5-hour window" to "5h window"). A figure is never hidden by width, only words. Words hidden by width stay in the DOM.
 - Needs you: label "Needs you" with a live dot while the count is above 0, then the count of items in the Projects shown, and "+N in other Projects" ("+N" when tight, title "N more in other Projects") while more wait elsewhere. A button named "<N> need(s) you[, N more in other Projects]", which opens the [Needs you panel](#needs-you-panel). It is an alert while something waits in the Projects shown, a softer tint while only other Projects have something, and quiet otherwise; it pops once each time the count goes up (not on the first load; reduced motion has no pop).
 - 5-hour window: nothing until an engine's windows are read. One engine: its % with a meter, "resets 14:20" (or "used up until 14:20" / "used up"), and "7d N%". Two or three engines: each engine's meter and %. More than three: the highest, and the word "highest". The % and meter turn amber from 90% (nearly used) and red at 100% (used up). A button named "5-hour window: <engine> N%, …" that opens a list "Usage by engine": per engine, the 5h and 7d windows each with a meter, % and "resets …"; engines in Settings › Engines' order, one no longer listed last by its id. The list is drawn on the body, placed under the figure.
-- Desks in use: a dot (running while above 0, idle otherwise), the count and "/ <limit>"; title "N of M desks in use". While the fire alarm is on it reads 0, though its Tasks keep their desks.
+- Desks in use: a dot (running while above 0, idle otherwise), the count and "/ <limit>"; title "N of M desks in use". While the fire alarm is on ASAP it reads 0, though its Tasks keep their desks; under a softer way it counts as usual.
 - Tokens today: the count of input, output and cache writes (cache reads left out) with an info icon giving each kind and its cost.
-- Fire alarm figure: a siren icon and "Fire alarm", then "Stopping at safe points" or "On since 14:02" ("On" when tight). A button named "Fire alarm: <words>. See what will resume, then give the all clear", which opens the review on Now.
+- Fire alarm figure: a siren icon and "Fire alarm", then "Stopping at safe points" or "On since 14:02" ("On" when tight) under ASAP, "Stopping after Stages" or "Stopping after Tasks" under a softer way. A button named "Fire alarm: <words>. See what will resume, then give the all clear", which opens the review on Now.
 - See [2.11.3](../2.11.3-system-health.md) for Stats; the strip's figures are Office-wide whatever the Project filter shows, except Needs you.
 
 ## Workstation figure

@@ -76,9 +76,13 @@ Covers: Now (the home), Needs you, Running, Queue, Shaping, Since you left, toda
 
 - Shown above the panels while the alarm is on; Office-wide whatever the Project filter shows. A section named "Fire alarm".
 - Stopping: siren icon, "Stopping all automated work", text "Every Stage stops at its next safe point, between tool calls; anything still running after 60 seconds is stopped hard. Pushes already running finish."; the button **All clear…** is disabled.
-- On: "Alarm on since 14:02", text "Nothing automated runs: no Stage, no Task starts, no consultation. Chats stay open; Agents answer but run no tools unless you let them in a thread."; the button **All clear…** (danger).
-- The list of Tasks the alarm paused: Project chip, title (link), "· <Stage> · <person>", and a badge: "Stopping at the next safe point" while it has no resume plan yet, **Stopped** after, **Push finished** where its push finished during the alarm. Empty: "Nothing was running."
-- The foot: "Tasks waiting on you keep waiting; answering one doesn't restart it until the all clear."
+- On ASAP: "Alarm on since 14:02", text "Nothing automated runs: no Stage, no Task starts, no consultation. Chats stay open; Agents answer but run no tools unless you let them in a thread."; the button **All clear…** (danger).
+- On after the current Stages: "Alarm on since 14:02 · stopping after the current Stages", text "Running Stages finish, then their Tasks pause; no new Stage or Task starts. Chats work as usual."; never Stopping.
+- On after the current Tasks: "Alarm on since 14:02 · finishing the current Tasks", text "Started Tasks finish; no new Task starts. Chats work as usual."; never Stopping.
+- The list of Tasks the alarm paused: Project chip, title (link), "· <Stage> · <person>", and a badge: "Stopping at the next safe point" while it has no resume plan yet, **Stopped** after, **Push finished** where its push finished during the alarm.
+- Under a softer way, then the started Tasks it lets go on (In progress or Waiting on you), with the badge "Stopping after its Stage" or "Finishing its Task".
+- Empty: "Nothing was running."
+- The foot under ASAP: "Tasks waiting on you keep waiting; answering one doesn't restart it until the all clear."; after the current Stages: "Answering a Task waiting on you lets its Stage finish; then it pauses until the all clear."; after the current Tasks, none.
 - **All clear…** (here or in the top bar or the strip) turns the panel into the review.
 
 ### The all clear's review
@@ -96,7 +100,7 @@ Covers: Now (the home), Needs you, Running, Queue, Shaping, Since you left, toda
 
 - Loading: each section shows its heading and an empty feed until its data is read.
 - Empty: each feed's words above; a narrowed view says "in these Projects".
-- Alarm on: the panel above; Desks in use reads 0 in the strip.
+- Alarm on: the panel above; under ASAP Desks in use reads 0 in the strip.
 - Service out of reach: the strip's slot says so ([shell.md](shell.md#office-messages-slot)).
 - Narrow window: see Layout.
 

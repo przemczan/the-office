@@ -10,3 +10,17 @@
   background: var(--warning-subtle);
   color: var(--warning-fg);
 }
+
+/* ---- a way to sound the alarm, in the top bar's menu: its name over its one-line hint */
+.alarm-way {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.alarm-way-hint {
+  font: var(--type-caption);
+  line-height: 1.2;
+  color: var(--fg-3);
+  white-space: nowrap;
+}

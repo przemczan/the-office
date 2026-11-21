@@ -46,7 +46,12 @@ export interface ShapingInitiative {
 }
 
 /** The fire alarm, from Work: off, or on since it was sounded. */
-export type NowFireAlarm = { readonly on: false } | { readonly on: true; readonly since: Date };
+/** How the fire alarm was sounded (spec §2.8), strictest first. */
+export type NowFireAlarmWay = "asap" | "after-stages" | "after-tasks";
+
+export type NowFireAlarm =
+  | { readonly on: false }
+  | { readonly on: true; readonly since: Date; readonly way: NowFireAlarmWay };
 
 /** How a Task the fire alarm paused would go on at the all clear (spec §2.8), from Pipelines. */
 export interface TaskResume {
@@ -223,6 +228,14 @@ export interface AlarmPausedTask {
   readonly resume: TaskResume | undefined;
 }
 
+/** A started Task a softer fire alarm lets go on, with the Stage it is at. */
+export interface AlarmGoingOnTask {
+  readonly taskId: string;
+  readonly title: string;
+  readonly projectId: string;
+  readonly stage: CurrentStage | undefined;
+}
+
 /**
  * The fire alarm while it is on (spec §2.8): stopping until every Stage it holds has reached its
  * safe point, then the plan the all clear follows, each Task resuming unless the user holds or
@@ -230,9 +243,16 @@ export interface AlarmPausedTask {
  */
 export interface FireAlarmOnNow {
   readonly since: Date;
+  readonly way: NowFireAlarmWay;
   readonly stopping: boolean;
   /** Each Task it paused, in the order Now runs them. */
   readonly paused: readonly AlarmPausedTask[];
+  /**
+   * Each started Task a softer way lets go on, In progress or Waiting on you, in the order Now runs
+   * them: to the end of its Stage after the current Stages, of its Task after the current Tasks.
+   * None under ASAP.
+   */
+  readonly goingOn: readonly AlarmGoingOnTask[];
   /** What resuming every one of them costs, in tokens. */
   readonly resumeTokens: number;
 }
@@ -351,9 +371,18 @@ function fireAlarmOf(
       stage,
       resume: resumes.get(taskId),
     }));
+  // ASAP lets nothing go on: a Task it hasn't paused yet is a sounding still under way.
+  const goingOn =
+    fireAlarm.way === "asap"
+      ? []
+      : running
+          .filter(({ state }) => state !== "paused")
+          .map(({ taskId, title, projectId, stage }) => ({ taskId, title, projectId, stage }));
   return {
     since: fireAlarm.since,
+    way: fireAlarm.way,
     stopping: paused.some(({ resume }) => resume === undefined),
+    goingOn,
     paused,
     resumeTokens: paused.reduce((sum, { resume }) => sum + (resume?.tokens ?? 0), 0),
   };

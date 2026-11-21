@@ -49,7 +49,7 @@ describe("resumeInitiative", () => {
     const change = resumeInitiative(
       paused,
       [heldByIt, usersOwn, ready],
-      { fireAlarmOn: false },
+      { alarmHoldsResume: false },
       ANN_LEE,
     );
 
@@ -65,13 +65,13 @@ describe("resumeInitiative", () => {
   });
 
   it("leaves the Tasks to the fire alarm while it is on, for the all clear", () => {
-    const change = resumeInitiative(paused, [heldByIt], { fireAlarmOn: true }, ANN_LEE);
+    const change = resumeInitiative(paused, [heldByIt], { alarmHoldsResume: true }, ANN_LEE);
 
     expect(change.taskChanges[0]?.task).toMatchObject({ state: "paused", pausedBy: "alarm" });
   });
 
   it("refuses one that isn't paused", () => {
-    expect(() => resumeInitiative(active, [], { fireAlarmOn: false }, ANN_LEE)).toThrow(
+    expect(() => resumeInitiative(active, [], { alarmHoldsResume: false }, ANN_LEE)).toThrow(
       new InitiativeRefused(["Only a paused Initiative can be resumed; this one isn't paused."]),
     );
   });

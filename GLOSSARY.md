@@ -390,8 +390,12 @@ The one Office-wide switch that pauses all automated work until the user gives t
 _Avoid_: Emergency stop, kill switch, global pause
 
 **Sound the alarm**:
-The user's act that turns the Fire alarm on: every Stage, waiting Task and Consultation stops at its next safe point.
+The user's act that turns the Fire alarm on, in one of its three ways; nothing new starts under any of them.
 _Avoid_: Trigger, panic, stop all
+
+**Way** (of the Fire alarm):
+How the alarm was sounded, kept with it: **Safe pause ASAP** (every Stage, waiting Task and Consultation stops at its next safe point), **Safe pause after the current Stages** (running Stage runs end, then their Tasks pause), **Safe pause after the current Tasks** (started Tasks walk on to their end). It can only be made stricter until the all clear.
+_Avoid_: Mode, level, kind
 
 **All clear**:
 The user's act that turns the Fire alarm off, after seeing on Now what will resume, how and at what cost, with Resume, Hold or Drop per Task.
