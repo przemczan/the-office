@@ -8,6 +8,7 @@ const AN_HOUR_AGO = new Date("2026-10-27T09:00:00Z");
 function nowWith(parts: Pick<Now, "needsYou" | "running">): Now {
   return {
     ...parts,
+    waitingForYou: [],
     queue: [],
     shaping: [],
     tokensToday: NO_TOKENS,

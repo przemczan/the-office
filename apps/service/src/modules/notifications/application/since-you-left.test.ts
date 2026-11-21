@@ -35,6 +35,11 @@ import {
   OpenDecisionsForTests,
   ResumePlansForTests,
   StandInChoicesWaitingForTests,
+  OpenProposalsForTests,
+  PullRequestsWaitingForTests,
+  SkillUpdatesFoundForTests,
+  OfficeUpdateAvailableForTests,
+  ShapingRepliesForTests,
   StartQueueForTests,
   TaskStageProgressForTests,
 } from "../ports/notifications-ports.fixtures.js";
@@ -55,6 +60,11 @@ const NOTIFICATIONS_FOR_TESTS = NotificationsModule.register({
   officeFireAlarm: OfficeFireAlarmForTests,
   resumePlans: ResumePlansForTests,
   standInChoicesWaiting: StandInChoicesWaitingForTests,
+  openProposals: OpenProposalsForTests,
+  pullRequestsWaiting: PullRequestsWaitingForTests,
+  skillUpdatesFound: SkillUpdatesFoundForTests,
+  officeUpdateAvailable: OfficeUpdateAvailableForTests,
+  shapingReplies: ShapingRepliesForTests,
 });
 
 /** A user of this test alone: the stored activity is one row a user for every test file. */

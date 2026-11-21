@@ -173,6 +173,130 @@ export interface WaitingStandInChoices {
 export type NeedsYouItem =
   WaitingDecision | WaitingInitiativeDecision | WaitingGate | WaitingStandInChoices;
 
+/** Where a Proposal's Thread lives, from Conversations. */
+export type ProposalHome =
+  | { readonly kind: "chat"; readonly roleKey: string }
+  | { readonly kind: "task"; readonly taskId: string }
+  | { readonly kind: "initiative"; readonly initiativeId: string };
+
+/** A Proposal not yet applied or declined, from Conversations. */
+export interface OpenProposal {
+  readonly id: string;
+  readonly threadId: string;
+  /** Who drafted it, by their Role's key. */
+  readonly draftedBy: string;
+  readonly draftedAt: Date;
+  readonly home: ProposalHome;
+  /** The Skill whose update it drafts, for a skill update; undefined for any other change. */
+  readonly skillUpdate: string | undefined;
+}
+
+/** An open pull request whose checks fail or which has conflicts, from Projects. */
+export interface PullRequestNeedingAttention {
+  readonly id: string;
+  readonly projectId: string;
+  readonly taskId: string;
+  readonly number: number;
+  readonly url: string;
+  readonly checksFailing: boolean;
+  readonly conflicts: boolean;
+  /** When its status was last read, or when it was opened before the first read. */
+  readonly waitingSince: Date;
+}
+
+/** What an Office update would install, from Office-updates. */
+export type OfficeUpdateTarget =
+  | {
+      readonly kind: "commit";
+      readonly commit: string;
+      readonly shortCommit: string;
+      readonly subject: string;
+      readonly committedAt: Date;
+    }
+  | {
+      readonly kind: "release";
+      readonly version: string;
+      readonly name: string;
+      readonly publishedAt: Date;
+      readonly url: string;
+    };
+
+/** The Office update the last check found, while none is scheduled, from Office-updates. */
+export interface OfficeUpdateFound {
+  readonly target: OfficeUpdateTarget;
+  /** When this target was first found. */
+  readonly foundAt: Date;
+}
+
+/** An Initiative whose shaper has answered and waits on the user's reply, from Conversations. */
+export interface ShapingReply {
+  readonly initiativeId: string;
+  readonly threadId: string;
+  /** The shaper, by their Role's key. */
+  readonly roleKey: string;
+  /** The shaper's last message. */
+  readonly answeredAt: Date;
+}
+
+export interface WaitingProposal {
+  readonly kind: "proposal";
+  readonly proposalId: string;
+  readonly threadId: string;
+  readonly draftedBy: string;
+  readonly home: ProposalHome;
+  readonly projectIds: readonly string[];
+  readonly waitingSince: Date;
+}
+
+export interface WaitingPullRequest {
+  readonly kind: "pull-request";
+  readonly pullRequestId: string;
+  readonly taskId: string;
+  readonly number: number;
+  readonly url: string;
+  readonly checksFailing: boolean;
+  readonly conflicts: boolean;
+  readonly projectIds: readonly string[];
+  readonly waitingSince: Date;
+}
+
+/** Every installed Skill with an update available, as one item. */
+export interface WaitingSkillUpdates {
+  readonly kind: "skill-updates";
+  readonly skillNames: readonly string[];
+  readonly count: number;
+  readonly projectIds: readonly string[];
+  /** An update has no time it was found. */
+  readonly waitingSince: undefined;
+}
+
+export interface WaitingOfficeUpdate {
+  readonly kind: "office-update";
+  readonly target: OfficeUpdateTarget;
+  readonly projectIds: readonly string[];
+  readonly waitingSince: Date;
+}
+
+export interface WaitingShapingReply {
+  readonly kind: "shaping-reply";
+  readonly initiativeId: string;
+  readonly threadId: string;
+  readonly roleKey: string;
+  readonly projectIds: readonly string[];
+  readonly waitingSince: Date;
+}
+
+/**
+ * What waits on the user without blocking anyone (spec §2.4.2, "Waiting for you"). No Project
+ * (`projectIds` empty) is Office-wide, shown whatever the Project filter.
+ */
+export type WaitingForYouItem =
+  | WaitingProposal
+  | WaitingPullRequest
+  | WaitingSkillUpdates
+  | WaitingOfficeUpdate
+  | WaitingShapingReply;
+
 /** The Stage a started Task is at: the one with its latest run. */
 export interface CurrentStage {
   readonly key: string;
@@ -267,6 +391,11 @@ export interface Desks {
 export interface Now {
   /** Oldest first. */
   readonly needsYou: readonly NeedsYouItem[];
+  /**
+   * Oldest first, undated items last. Counted apart: it never adds to Needs you's count or the tab
+   * title.
+   */
+  readonly waitingForYou: readonly WaitingForYouItem[];
   readonly running: readonly RunningTask[];
   /** The queue for Start, first place first (spec §2.1, "A queue for Start"). */
   readonly queue: readonly QueuedTask[];
@@ -326,6 +455,14 @@ export interface NowParts {
   /** How each Task the alarm paused would resume, by its id; read only while the alarm is on. */
   readonly resumes: ReadonlyMap<string, TaskResume | undefined>;
   readonly standInChoices: readonly StandInChoiceWaiting[];
+  readonly openProposals: readonly OpenProposal[];
+  readonly pullRequests: readonly PullRequestNeedingAttention[];
+  /** The installed Skills with an update available, by name. */
+  readonly skillUpdates: readonly string[];
+  /** Undefined while none is found or one is scheduled. */
+  readonly officeUpdate: OfficeUpdateFound | undefined;
+  /** For the Initiatives in Shaping alone. */
+  readonly shapingReplies: readonly ShapingReply[];
 }
 
 export function nowOf(parts: NowParts): Now {
@@ -344,6 +481,7 @@ export function nowOf(parts: NowParts): Now {
   }));
   return {
     needsYou: needsYouOf(parts, gates),
+    waitingForYou: waitingForYouOf(parts),
     running,
     queue: queueOf(parts.queued, parts.tasks),
     shaping: shapingOf(parts),
@@ -517,6 +655,127 @@ function needsYouOf(
   return waiting.toSorted(
     (one, other) => one.waitingSince.getTime() - other.waitingSince.getTime(),
   );
+}
+
+/** A Task in one of these has ended: its Proposals no longer wait. */
+const ENDED_TASK_STATES: readonly string[] = ["done", "dropped"];
+
+/**
+ * What waits on the user without blocking anyone, oldest first and undated items last. A Proposal
+ * whose Task Work no longer knows or that ended is left out, as is one whose Initiative Work no
+ * longer knows or that ended; a Skill already drafted as an open Proposal of its update is left
+ * out of the Skill updates.
+ */
+function waitingForYouOf(parts: NowParts): WaitingForYouItem[] {
+  const waiting: WaitingForYouItem[] = [
+    ...waitingProposalsOf(parts),
+    ...parts.pullRequests.map(({ id, projectId, ...pullRequest }): WaitingPullRequest => ({
+      kind: "pull-request",
+      pullRequestId: id,
+      ...pullRequest,
+      projectIds: [projectId],
+    })),
+    ...waitingSkillUpdatesOf(parts),
+    ...(parts.officeUpdate
+      ? [
+          {
+            kind: "office-update" as const,
+            target: parts.officeUpdate.target,
+            projectIds: [],
+            waitingSince: parts.officeUpdate.foundAt,
+          },
+        ]
+      : []),
+    ...waitingShapingRepliesOf(parts),
+  ];
+  return waiting.toSorted(
+    (one, other) =>
+      timeOrLast(one.waitingSince) - timeOrLast(other.waitingSince) ||
+      one.kind.localeCompare(other.kind),
+  );
+}
+
+function timeOrLast(at: Date | undefined): number {
+  return at?.getTime() ?? Number.POSITIVE_INFINITY;
+}
+
+function waitingProposalsOf({
+  openProposals,
+  tasks,
+  initiatives,
+  initiativeTasks,
+}: NowParts): WaitingProposal[] {
+  const tasksById = new Map(tasks.map((task) => [task.id, task]));
+  const initiativesById = new Map(initiatives.map((initiative) => [initiative.id, initiative]));
+  const projectIdsOf = (home: ProposalHome): readonly string[] | undefined => {
+    switch (home.kind) {
+      case "chat":
+        return [];
+      case "task": {
+        const task = tasksById.get(home.taskId);
+        return task && !ENDED_TASK_STATES.includes(task.state) ? [task.projectId] : undefined;
+      }
+      case "initiative": {
+        const initiative = initiativesById.get(home.initiativeId);
+        return initiative && !ENDED_INITIATIVE_STATES.includes(initiative.state)
+          ? projectsOf(initiativeTasks.get(initiative.id))
+          : undefined;
+      }
+    }
+  };
+  return openProposals.flatMap(({ id, threadId, draftedBy, draftedAt, home }) => {
+    const projectIds = projectIdsOf(home);
+    return projectIds
+      ? [
+          {
+            kind: "proposal" as const,
+            proposalId: id,
+            threadId,
+            draftedBy,
+            home,
+            projectIds,
+            waitingSince: draftedAt,
+          },
+        ]
+      : [];
+  });
+}
+
+/** One item for every Skill with an update not yet drafted as an open Proposal, none for none. */
+function waitingSkillUpdatesOf({ skillUpdates, openProposals }: NowParts): WaitingSkillUpdates[] {
+  const drafted = new Set(openProposals.flatMap(({ skillUpdate }) => skillUpdate ?? []));
+  const skillNames = skillUpdates.filter((name) => !drafted.has(name));
+  if (skillNames.length === 0) return [];
+  return [
+    {
+      kind: "skill-updates",
+      skillNames,
+      count: skillNames.length,
+      projectIds: [],
+      waitingSince: undefined,
+    },
+  ];
+}
+
+/** Only an Initiative still in Shaping waits on the user's reply. */
+function waitingShapingRepliesOf({
+  shapingReplies,
+  initiatives,
+  initiativeTasks,
+}: NowParts): WaitingShapingReply[] {
+  const shaping = new Set(
+    initiatives.filter(({ state }) => state === "shaping").map(({ id }) => id),
+  );
+  return shapingReplies
+    .filter(({ initiativeId }) => shaping.has(initiativeId))
+    .map(({ initiativeId, threadId, roleKey, answeredAt }) => ({
+      kind: "shaping-reply",
+      initiativeId,
+      threadId,
+      roleKey,
+      projectIds: projectsOf(initiativeTasks.get(initiativeId)),
+      waitingSince: answeredAt,
+    }));
 }
 
 /** One item for every Stage waiting for the choice, none while none waits. */

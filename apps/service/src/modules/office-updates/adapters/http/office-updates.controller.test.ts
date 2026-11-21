@@ -6,8 +6,11 @@ import { officeUpdateSchema, type OfficeUpdate } from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
+import { Schedule } from "../../../../platform/schedule/schedule.js";
+import type { ManualSchedule } from "../../../../platform/schedule/schedule.fixtures.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { BusyWork } from "../../application/busy-work.js";
+import { OfficeUpdates } from "../../application/office-updates.js";
 import { LOCAL_CHANGES } from "../../domain/update-refusal.js";
 import { OfficeUpdatesModule } from "../../office-updates.module.js";
 import { updateSystem } from "../../ports/update-system.fixtures.js";
@@ -142,5 +145,40 @@ describe("Settings › Updates", () => {
     ]);
     expect((await officeUpdate()).scheduled).toBeUndefined();
     await expect(readFile(join(updateFolder, "request.json"))).rejects.toThrow("ENOENT");
+  });
+});
+
+describe("the Office update available, for Now", () => {
+  it("is the target found, since the first check found it, and none while scheduled", async () => {
+    await start();
+    const updates = app.get(OfficeUpdates);
+    const clock = app.get<ManualSchedule>(Schedule);
+    clock.setTime(new Date("2026-11-20T08:00:00Z"));
+    await updates.check();
+    expect(await updates.available()).toBeUndefined();
+
+    const [newest] = await checkout.pushNewer("Newer");
+    clock.setTime(new Date("2026-11-21T08:00:00Z"));
+    await updates.check();
+    clock.setTime(new Date("2026-11-22T08:00:00Z"));
+    await updates.check();
+
+    expect(await updates.available()).toEqual({
+      target: {
+        kind: "commit",
+        commit: newest,
+        shortCommit: newest?.slice(0, 7),
+        subject: "Newer",
+        committedAt: expect.any(Date),
+      },
+      foundAt: new Date("2026-11-21T08:00:00Z"),
+    });
+
+    const endBusy = app.get(BusyWork).begin({ kind: "clone", label: "The clone of a repository" });
+    expect((await send("POST", "/schedule")).status).toBe(204);
+    expect(await updates.available()).toBeUndefined();
+    expect((await send("DELETE", "/schedule")).status).toBe(204);
+    endBusy();
+    expect(await updates.available()).toMatchObject({ foundAt: new Date("2026-11-21T08:00:00Z") });
   });
 });

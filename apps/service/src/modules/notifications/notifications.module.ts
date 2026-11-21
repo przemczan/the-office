@@ -28,9 +28,14 @@ import { OfficeStatusCards } from "./ports/office-status-cards.js";
 import { OfficeFireAlarm } from "./ports/office-fire-alarm.js";
 import { OfficeInitiatives } from "./ports/office-initiatives.js";
 import { OfficeTasks } from "./ports/office-tasks.js";
+import { OfficeUpdateAvailable } from "./ports/office-update-available.js";
 import { OpenDecisions } from "./ports/open-decisions.js";
+import { OpenProposals } from "./ports/open-proposals.js";
+import { PullRequestsWaiting } from "./ports/pull-requests-waiting.js";
 import { PhonePush } from "./ports/phone-push.js";
 import { ResumePlans } from "./ports/resume-plans.js";
+import { ShapingReplies } from "./ports/shaping-replies.js";
+import { SkillUpdatesFound } from "./ports/skill-updates-found.js";
 import { StandInChoicesWaiting } from "./ports/stand-in-choices-waiting.js";
 import { TaskOutcomeRepository } from "./ports/task-outcome-repository.js";
 import { TaskStageProgress } from "./ports/task-stage-progress.js";
@@ -38,8 +43,9 @@ import { UserActivityRepository } from "./ports/user-activity-repository.js";
 
 export interface NotificationsModuleOptions {
   /**
-   * The modules that provide the ports below: Work, Conversations, Pipelines, People and the
-   * Engine, whose Office tool registry takes the Office Manager's Office status.
+   * The modules that provide the ports below: Work, Conversations, Pipelines, People, Projects,
+   * Skills, Office-updates and the Engine, whose Office tool registry takes the Office Manager's
+   * Office status.
    */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
   readonly officeTasks: Type<OfficeTasks>;
@@ -54,6 +60,11 @@ export interface NotificationsModuleOptions {
   readonly officeFireAlarm: Type<OfficeFireAlarm>;
   readonly resumePlans: Type<ResumePlans>;
   readonly standInChoicesWaiting: Type<StandInChoicesWaiting>;
+  readonly openProposals: Type<OpenProposals>;
+  readonly pullRequestsWaiting: Type<PullRequestsWaiting>;
+  readonly skillUpdatesFound: Type<SkillUpdatesFound>;
+  readonly officeUpdateAvailable: Type<OfficeUpdateAvailable>;
+  readonly shapingReplies: Type<ShapingReplies>;
 }
 
 /**
@@ -77,6 +88,11 @@ export class NotificationsModule {
     officeFireAlarm,
     resumePlans,
     standInChoicesWaiting,
+    openProposals,
+    pullRequestsWaiting,
+    skillUpdatesFound,
+    officeUpdateAvailable,
+    shapingReplies,
   }: NotificationsModuleOptions): DynamicModule {
     return {
       module: NotificationsModule,
@@ -103,6 +119,11 @@ export class NotificationsModule {
         { provide: OfficeFireAlarm, useExisting: officeFireAlarm },
         { provide: ResumePlans, useExisting: resumePlans },
         { provide: StandInChoicesWaiting, useExisting: standInChoicesWaiting },
+        { provide: OpenProposals, useExisting: openProposals },
+        { provide: PullRequestsWaiting, useExisting: pullRequestsWaiting },
+        { provide: SkillUpdatesFound, useExisting: skillUpdatesFound },
+        { provide: OfficeUpdateAvailable, useExisting: officeUpdateAvailable },
+        { provide: ShapingReplies, useExisting: shapingReplies },
         NowService,
         NotificationService,
         NotificationDelivery,

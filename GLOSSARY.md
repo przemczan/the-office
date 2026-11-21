@@ -433,6 +433,10 @@ _Avoid_: Watchtower, update container, sidecar
 A signal outside the page the user is on that something waits for them or has happened; it opens that thing and is cleared by handling it, never by reading the Notification itself.
 _Avoid_: Alert, inbox item, notice
 
+**Waiting for you**:
+Now's list, beside Needs you, of what waits on the user without blocking anyone: open Proposals, pull requests with failing checks or conflicts, Skill updates, an Office update found, and Initiatives whose shaper waits on the user's reply; it has its own count, never in the tab title, and raises no Notification.
+_Avoid_: To do, backlog, reminders, FYI
+
 **Quiet hours**:
 A daily window, off until the user sets it, in which no Notification goes to the desktop except "an Agent engine down"; one summary comes when it ends.
 _Avoid_: Do not disturb, silent mode, mute

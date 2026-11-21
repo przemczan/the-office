@@ -10,6 +10,7 @@ import { NowPage } from "./now-page.tsx";
 
 const NOW: Now = {
   needsYou: [],
+  waitingForYou: [],
   running: [],
   queue: [],
   shaping: [],

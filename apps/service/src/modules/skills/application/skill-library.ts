@@ -62,6 +62,11 @@ export class SkillLibrary {
     return this.repository.list();
   }
 
+  /** The names of the installed skills whose daily check found an update at their Source. */
+  async withUpdate(): Promise<readonly string[]> {
+    return (await this.repository.list()).flatMap(({ name, update }) => (update ? [name] : []));
+  }
+
   async read(name: string): Promise<Skill> {
     const skill = await this.repository.find(name);
     if (!skill) throw new SkillNotFound(name);

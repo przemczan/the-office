@@ -116,6 +116,20 @@ describe("the daily update check", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     expect(updateEvents(name)[0]).toMatchObject({ skillName: name, update });
   });
 
+  it("lists by name the skills with an update found, for Now", async () => {
+    const outdated = await installed("v1.9");
+    await source.write("CHANGELOG.md", "v1.10\n");
+    source.commit();
+    source.tag("v1.10");
+    const newest = await installed("v1.11");
+
+    await schedule.runDaily(SKILL_UPDATE_CHECK);
+
+    const withUpdate = await library.withUpdate();
+    expect(withUpdate).toContain(outdated);
+    expect(withUpdate).not.toContain(newest);
+  });
+
   it("finds no update while the pinned version is the Source's newest", async () => {
     const name = await installed("v2.0.0");
     await source.write("CHANGELOG.md", "beta\n");

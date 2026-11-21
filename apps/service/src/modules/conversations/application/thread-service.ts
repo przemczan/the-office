@@ -38,6 +38,16 @@ export interface TaskThreadStarting extends TaskThreadStart {
   readonly opening: string;
 }
 
+/** An Initiative whose person answered in its newest Thread and waits on the user's reply. */
+export interface InitiativeReply {
+  readonly initiativeId: string;
+  readonly threadId: string;
+  /** The person who answered, by the key of their Role. */
+  readonly roleKey: string;
+  /** When their last message was logged. */
+  readonly answeredAt: Date;
+}
+
 /**
  * The Conversations use cases: Threads in their homes, and The Office's log of each. Each change is
  * saved first and its event published after, so nothing hears of a change that wasn't kept.
@@ -166,6 +176,26 @@ export class ThreadService {
    */
   async sessionsWorking(): Promise<number> {
     return (await this.repository.answering()).filter(worksIn).length;
+  }
+
+  /**
+   * Of the Initiatives `initiativeIds`, those whose person has answered in their newest Thread that
+   * isn't a Consultation and waits on the user's reply: the Thread waits with a session and no open
+   * Decision, and the person's last message came after the user's last, or the user wrote none.
+   */
+  async waitingForReply(initiativeIds: readonly string[]): Promise<readonly InitiativeReply[]> {
+    const newest = await this.repository.newestInitiativeThreads(initiativeIds);
+    return newest.flatMap((thread) => {
+      const answeredAt = thread.lastPersonMessageAt;
+      const waits =
+        thread.state === "waiting" &&
+        thread.hasSession &&
+        !thread.holdsOpenDecision &&
+        thread.personSpokeLast;
+      if (!waits || !answeredAt) return [];
+      const { initiativeId, threadId, roleKey } = thread;
+      return [{ initiativeId, threadId, roleKey, answeredAt }];
+    });
   }
 
   /**

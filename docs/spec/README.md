@@ -236,6 +236,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 
 ### W
 
+- **Waiting for you**: [2.4.2 Waiting for you](2.4.2-decisions.md#waiting-for-you); [2.7 The tab counts Needs you and blinks for a new item](2.7-notifications.md#the-tab-counts-needs-you-and-blinks-for-a-new-item)
 - **Workstation figure**: [4 Densities](4-ux-direction.md#densities); screen: [Shell › Workstation figure](screens/shell.md#workstation-figure)
 
 ### Questions Agents ask
@@ -304,7 +305,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
   - [2.3.5 Library and Project Pipelines](2.3.5-library.md): built-in Pipelines, the library, Stage templates, Project Pipelines.
 - [2.4 Conversations](2.4-conversations.md): index of the pages below.
   - [2.4.1 Threads](2.4.1-threads.md): homes, Threads, what a Thread reads, Allow changes.
-  - [2.4.2 Decisions](2.4.2-decisions.md): the form, Submit and Ask me again, the Bug Task Decision, where it shows.
+  - [2.4.2 Decisions](2.4.2-decisions.md): the form, Submit and Ask me again, the Bug Task Decision, where it shows, Waiting for you.
   - [2.4.3 Consultations](2.4.3-consultations.md): Consultation, calls from chats.
   - [2.4.4 Messages](2.4.4-messages.md): barge-in, Office actions, Mentions, images, Open page, commands.
   - [2.4.5 Stopping and restarts](2.4.5-stopping-and-restarts.md): Stop, Pause, shutdown, restarts, refused turns.

@@ -112,6 +112,7 @@ export {
   PullRequestClosed,
   PullRequestsChecked,
   PullRequestMerged,
+  PullRequestOpened,
   PullRequestReopened,
   type PullRequestEndedBy,
 } from "./domain/pull-request-events.js";

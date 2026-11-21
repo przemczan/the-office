@@ -9,14 +9,17 @@ import type {
   FireAlarmOnNow,
   Now,
   NeedsYouItem,
+  OfficeUpdateTarget,
   RunningTask,
   SinceYouLeft,
   UsageWindow,
+  WaitingForYouItem,
 } from "../../domain/now.js";
 
 export function toNowResponse(now: Now): NowResponse {
   return {
     needsYou: now.needsYou.map(toNeedsYouResponse),
+    waitingForYou: now.waitingForYou.map(toWaitingForYouResponse),
     running: now.running.map(toRunningResponse),
     queue: now.queue.map(({ reasons, ...queued }) => ({ ...queued, reasons: [...reasons] })),
     shaping: now.shaping.map(({ projectIds, shapedBy, since, ...initiative }) => ({
@@ -58,6 +61,41 @@ function toNeedsYouResponse(item: NeedsYouItem): NowResponse["needsYou"][number]
   return item.kind === "initiative-decision" || item.kind === "stand-in-choice"
     ? { ...item, projectIds: [...item.projectIds], waitingSince }
     : { ...item, waitingSince };
+}
+
+type WaitingForYouResponse = NowResponse["waitingForYou"][number];
+
+function toWaitingForYouResponse(item: WaitingForYouItem): WaitingForYouResponse {
+  const projectIds = [...item.projectIds];
+  switch (item.kind) {
+    case "skill-updates":
+      return { ...item, skillNames: [...item.skillNames], projectIds, waitingSince: null };
+    case "office-update":
+      return {
+        ...item,
+        target: toTargetResponse(item.target),
+        projectIds,
+        waitingSince: item.waitingSince.toISOString(),
+      };
+    case "proposal":
+      return {
+        ...item,
+        home: { ...item.home },
+        projectIds,
+        waitingSince: item.waitingSince.toISOString(),
+      };
+    case "pull-request":
+    case "shaping-reply":
+      return { ...item, projectIds, waitingSince: item.waitingSince.toISOString() };
+  }
+}
+
+function toTargetResponse(
+  target: OfficeUpdateTarget,
+): Extract<WaitingForYouResponse, { kind: "office-update" }>["target"] {
+  return target.kind === "commit"
+    ? { ...target, committedAt: target.committedAt.toISOString() }
+    : { ...target, publishedAt: target.publishedAt.toISOString() };
 }
 
 function toRunningResponse({
