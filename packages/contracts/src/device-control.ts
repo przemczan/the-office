@@ -1,6 +1,6 @@
 // The JSON payloads of the device frames on channel 0 that aren't the helper's own (spec 2.13,
-// "Serial boards"): SETTINGS, SIGNALS, PING, PONG and NOTICE. tools/device-helper/pty.go writes
-// the same JSON; change both together.
+// "Serial boards"): SETTINGS, SIGNALS, PING, PONG and NOTICE. tools/device-helper/pty.go and
+// rfc2217.go write the same JSON; change both together.
 import { z } from "zod";
 import {
   DEVICE_CONTROL_CHANNEL,
@@ -25,6 +25,21 @@ export const serialSignalsSchema = z.object({
 });
 export type SerialSignals = z.infer<typeof serialSignalsSchema>;
 
+/**
+ * When the helper saw a SETTINGS or SIGNALS change: microseconds on its monotonic clock. Only the
+ * differences between stamps mean anything; the browser replays each change at its offset from
+ * the first it got.
+ */
+export const helperStampSchema = z.number().int().nonnegative();
+
+/** SETTINGS as the helper sends it, stamped. */
+export const serialSettingsFrameSchema = serialSettingsSchema.extend({ at: helperStampSchema });
+export type SerialSettingsFrame = z.infer<typeof serialSettingsFrameSchema>;
+
+/** SIGNALS as the helper sends it, stamped. */
+export const serialSignalsFrameSchema = serialSignalsSchema.extend({ at: helperStampSchema });
+export type SerialSignalsFrame = z.infer<typeof serialSignalsFrameSchema>;
+
 /** PING and PONG: the browser answers each PING with a PONG of the same id. */
 export const devicePingSchema = z.object({ id: z.number().int().nonnegative() });
 export type DevicePing = z.infer<typeof devicePingSchema>;
@@ -35,6 +50,7 @@ export const helperNoticeCodeSchema = z.enum([
   "touch-1200",
   "esptool-sync-no-answer",
   "no-upload-tool",
+  "port-busy",
 ]);
 export type HelperNoticeCode = z.infer<typeof helperNoticeCodeSchema>;
 

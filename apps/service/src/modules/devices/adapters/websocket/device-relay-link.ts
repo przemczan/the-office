@@ -12,6 +12,7 @@ import {
   encodeFrame,
   FrameReader,
   frameText,
+  readyEndpoints,
   serialSettingsSchema,
   type DeviceFrame,
   type DeviceRelayServerMessage,
@@ -227,7 +228,7 @@ export class DeviceRelayLink implements RelayLink {
             return;
           }
           helper.ready = true;
-          helper.settle({ kind: "ready", version: helper.version, endpoint: frameText(frame) });
+          helper.settle({ kind: "ready", version: helper.version, ...readyEndpoints(frame) });
           break;
         case DEVICE_FRAME_TYPES.ended:
           helper.endedWords = frameText(frame);

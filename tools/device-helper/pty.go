@@ -4,11 +4,17 @@ package main
 
 // The pty mode: a serial board the browser has open with Web Serial, shown in the run environment
 // as a pseudo-terminal at a stable path (`/dev/ttyACM0`), so the Project's tools use it unchanged.
-// The JSON of its control frames is the Go twin of packages/contracts/src/device-control.ts.
+// The JSON of its control frames is the Go twin of packages/contracts/src/device-control.ts. Each
+// SETTINGS and SIGNALS carries `at`, when the helper saw the change: microseconds on its monotonic
+// clock since it started, so the browser can replay a reset's timing.
 //
-// A session is from the first open of the port by another process to the last close. One mutex
-// guards the port's state, and every read of the master and of the inotify events happens under
-// it, so the frames go out in the order the tool and the kernel did things.
+// READY carries the port's path and, on a second line, its RFC 2217 address (rfc2217.go):
+// `/dev/ttyACM0\nrfc2217://127.0.0.1:2217`, or the path alone when no port could be listened on.
+//
+// A session is from the first open of the port by another process to the last close, or an RFC
+// 2217 connection's life; the board has one at a time. One mutex guards the port's state, and
+// every read of the master, of the inotify events and of an RFC 2217 client happens under it, so
+// the frames go out in the order the tools and the kernel did things.
 
 import (
 	"bytes"
@@ -19,6 +25,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -33,6 +40,7 @@ const (
 	noticeTouch1200           = "touch-1200"
 	noticeEsptoolSyncNoAnswer = "esptool-sync-no-answer"
 	noticeNoUploadTool        = "no-upload-tool"
+	noticePortBusy            = "port-busy"
 
 	maxPortNumber = 256
 )
@@ -55,6 +63,17 @@ type serialSettings struct {
 type serialSignals struct {
 	DataTerminalReady bool `json:"dataTerminalReady"`
 	RequestToSend     bool `json:"requestToSend"`
+}
+
+// stampedSettings and stampedSignals are SETTINGS and SIGNALS as they go out, with `at`.
+type stampedSettings struct {
+	serialSettings
+	At int64 `json:"at"`
+}
+
+type stampedSignals struct {
+	serialSignals
+	At int64 `json:"at"`
 }
 
 type devicePing struct {
@@ -106,6 +125,8 @@ type ptyPort struct {
 	config     ptyConfig
 	sender     *frameSender
 	path       string // the stable path claimed, a symlink to slavePath
+	number     int    // the path's number
+	start      time.Time
 	slavePath  string
 	master     *os.File
 	masterFd   int
@@ -114,11 +135,13 @@ type ptyPort struct {
 	events     *os.File
 	eventsFd   int
 	eventsConn syscall.RawConn
+	listener   net.Listener // RFC 2217's, or nil
 
 	mutex          sync.Mutex
 	closed         bool
 	opens          int
 	session        *serialSession
+	rfc2217        *rfc2217Connection
 	nextChannel    uint32
 	sentSettings   serialSettings
 	esptoolNoticed bool
@@ -134,6 +157,7 @@ func runPty(ctx context.Context, config ptyConfig, in io.Reader, out, stderr io.
 		fmt.Fprintln(stderr, "office-device-helper:", err)
 		return 2
 	}
+	port.listen(stderr)
 	return port.serve(ctx, in, out)
 }
 
@@ -145,6 +169,7 @@ func openPort(config ptyConfig) (port *ptyPort, err error) {
 		eventsFd:    -1,
 		nextChannel: firstConnectionChannel,
 		buffer:      make([]byte, copyChunkBytes),
+		start:       time.Now(),
 	}
 	defer func() {
 		if err != nil {
@@ -158,7 +183,7 @@ func openPort(config ptyConfig) (port *ptyPort, err error) {
 		return nil, err
 	}
 	removeStaleLinks(config.pathPrefix, config.ptsDir)
-	if p.path, err = claimPath(config.pathPrefix, p.slavePath); err != nil {
+	if p.path, p.number, err = claimPath(config.pathPrefix, p.slavePath); err != nil {
 		return nil, err
 	}
 	if err = p.watchSlave(); err != nil {
@@ -254,18 +279,18 @@ func isDigits(text string) bool {
 
 // claimPath links the lowest free `<prefix><n>` to target; the link's creation is the claim, so
 // two helpers never take the same number.
-func claimPath(prefix, target string) (string, error) {
+func claimPath(prefix, target string) (string, int, error) {
 	for n := 0; n < maxPortNumber; n++ {
 		path := prefix + strconv.Itoa(n)
 		err := os.Symlink(target, path)
 		if err == nil {
-			return path, nil
+			return path, n, nil
 		}
 		if !errors.Is(err, fs.ErrExist) {
-			return "", fmt.Errorf("linking %s: %w", path, err)
+			return "", 0, fmt.Errorf("linking %s: %w", path, err)
 		}
 	}
-	return "", fmt.Errorf("no free path from %s0 to %s%d", prefix, prefix, maxPortNumber-1)
+	return "", 0, fmt.Errorf("no free path from %s0 to %s%d", prefix, prefix, maxPortNumber-1)
 }
 
 func (p *ptyPort) serve(ctx context.Context, in io.Reader, out io.Writer) int {
@@ -278,6 +303,9 @@ func (p *ptyPort) serve(ctx context.Context, in io.Reader, out io.Writer) int {
 	go p.watchOpens()
 	go p.readTool()
 	go p.tick(done)
+	if p.listener != nil {
+		go p.acceptRfc2217()
+	}
 	stopped := make(chan stopReason, 1)
 	go func() {
 		why, code := p.readInput(in)
@@ -300,12 +328,16 @@ func (p *ptyPort) greet() error {
 	if err := p.sender.send(frame{typ: frameHello, channel: controlChannel, payload: []byte(p.config.version)}); err != nil {
 		return err
 	}
-	if err := p.sender.send(frame{typ: frameReady, channel: controlChannel, payload: []byte(p.path)}); err != nil {
+	ready := p.path
+	if p.listener != nil {
+		ready += "\nrfc2217://" + p.listener.Addr().String()
+	}
+	if err := p.sender.send(frame{typ: frameReady, channel: controlChannel, payload: []byte(ready)}); err != nil {
 		return err
 	}
 	if settings, ok := p.currentSettings(); ok {
 		p.sentSettings = settings
-		if err := p.sendControl(frameSettings, settings); err != nil {
+		if err := p.sendSettings(settings); err != nil {
 			return err
 		}
 	}
@@ -332,14 +364,32 @@ func (p *ptyPort) sendControl(typ frameType, value any) error {
 	return p.sender.send(frame{typ: typ, channel: controlChannel, payload: payload})
 }
 
+// sendSettings and sendSignals stamp the change; the mutex is held (or nothing else runs yet), so
+// the stamps go out in order.
+func (p *ptyPort) sendSettings(settings serialSettings) error {
+	return p.sendControl(frameSettings, stampedSettings{serialSettings: settings, At: p.stamp()})
+}
+
+func (p *ptyPort) sendSignals(signals serialSignals) error {
+	return p.sendControl(frameSignals, stampedSignals{serialSignals: signals, At: p.stamp()})
+}
+
+func (p *ptyPort) stamp() int64 { return time.Since(p.start).Microseconds() }
+
 func (p *ptyPort) shutdown() {
 	p.mutex.Lock()
 	p.closed = true
+	if p.rfc2217 != nil {
+		_ = p.rfc2217.conn.Close()
+	}
 	p.mutex.Unlock()
 	p.release()
 }
 
 func (p *ptyPort) release() {
+	if p.listener != nil {
+		_ = p.listener.Close()
+	}
 	if p.master != nil {
 		_ = p.master.Close()
 	}
@@ -406,17 +456,22 @@ func (p *ptyPort) takeEvents() error {
 	}
 }
 
-// onEvent counts one open file description per open; the mutex is held.
+// onEvent counts one open file description per open; the mutex is held. An open while an RFC 2217
+// client has the board (one with CAP_SYS_ADMIN gets past TIOCEXCL) is busy: it starts no session, so nothing
+// it writes reaches the board.
 func (p *ptyPort) onEvent(mask uint32) {
 	switch {
 	case mask&syscall.IN_OPEN != 0:
 		p.opens++
-		if p.opens == 1 {
+		switch {
+		case p.rfc2217 != nil:
+			_ = p.sendControl(frameNotice, deviceNotice{Code: noticePortBusy})
+		case p.session == nil:
 			p.beginSession()
 		}
 	case mask&(syscall.IN_CLOSE_WRITE|syscall.IN_CLOSE_NOWRITE) != 0 && p.opens > 0:
 		p.opens--
-		if p.opens == 0 {
+		if p.opens == 0 && p.session != nil {
 			p.endSession()
 		}
 	}
@@ -465,8 +520,8 @@ func (p *ptyPort) beginSession() {
 	_ = p.sender.send(frame{typ: frameOpen, channel: p.session.channel})
 	// A real ttyACM's open drops DTR and RTS and raises them, which resets a board wired to reset
 	// on DTR.
-	_ = p.sendControl(frameSignals, serialSignals{})
-	_ = p.sendControl(frameSignals, serialSignals{DataTerminalReady: true, RequestToSend: true})
+	_ = p.sendSignals(serialSignals{})
+	_ = p.sendSignals(serialSignals{DataTerminalReady: true, RequestToSend: true})
 }
 
 func (p *ptyPort) endSession() {
@@ -474,7 +529,7 @@ func (p *ptyPort) endSession() {
 	p.reportSettings()
 	session := p.session
 	p.session = nil
-	_ = p.sendControl(frameSignals, serialSignals{})
+	_ = p.sendSignals(serialSignals{})
 	_ = p.sender.send(frame{typ: frameClose, channel: session.channel})
 	// A closed real port keeps nothing the board sends; the next session starts empty too.
 	_ = flushInput(p.slaveFd)
@@ -520,7 +575,7 @@ func (p *ptyPort) reportSettings() {
 		return
 	}
 	p.sentSettings = settings
-	_ = p.sendControl(frameSettings, settings)
+	_ = p.sendSettings(settings)
 }
 
 // tick polls the settings while a session is open, as a tool may change them without writing, and
@@ -558,8 +613,13 @@ func (p *ptyPort) readInput(in io.Reader) (string, int) {
 		if err != nil {
 			return "bad frame on stdin: " + err.Error(), 1
 		}
-		if f.typ == frameData && p.fromBoard(f.channel, f.payload) {
+		if f.typ != frameData {
+			continue
+		}
+		if p.fromBoard(f.channel, f.payload) {
 			p.writeToBoard(f.channel, f.payload)
+		} else if c := p.rfc2217On(f.channel); c != nil {
+			c.toClient(f.payload)
 		}
 	}
 }

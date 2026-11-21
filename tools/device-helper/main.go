@@ -31,6 +31,7 @@ type ptyConfig struct {
 	settingsPoll time.Duration
 	pingInterval time.Duration
 	lookPath     func(file string) (string, error)
+	rfc2217Base  int // the RFC 2217 port of `<pathPrefix><n>` is this plus n, or the next free one
 }
 
 type fileOwner struct{ uid, gid int }
@@ -44,6 +45,7 @@ func defaultPtyConfig() ptyConfig {
 		settingsPoll: 10 * time.Millisecond,
 		pingInterval: 5 * time.Second,
 		lookPath:     exec.LookPath,
+		rfc2217Base:  2217,
 	}
 }
 

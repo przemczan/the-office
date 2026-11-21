@@ -11,8 +11,8 @@ import {
   deviceRelayServerMessageSchema,
   encodeFrame,
   FrameReader,
-  serialSettingsSchema,
-  serialSignalsSchema,
+  serialSettingsFrameSchema,
+  serialSignalsFrameSchema,
   type ConnectedDeviceKind,
   type ConnectedDeviceState,
   type DeviceFrameType,
@@ -44,10 +44,13 @@ export interface DeviceTransport {
   received(channel: number, bytes: Uint8Array): void;
   /** The run environment closed `channel`. */
   closed(channel: number): void;
-  /** A serial port's new line settings, in order with DATA; a transport without a port has none. */
-  settings?(settings: SerialSettings): void;
-  /** A serial port's DTR and RTS to set, in order with DATA. */
-  signals?(signals: SerialSignals): void;
+  /**
+   * A serial port's new line settings, in order with DATA, stamped `at` (µs on the helper's clock)
+   * when the helper saw the change; a transport without a port has none.
+   */
+  settings?(settings: SerialSettings, at: number): void;
+  /** A serial port's DTR and RTS to set, in order with DATA, stamped as `settings` is. */
+  signals?(signals: SerialSignals, at: number): void;
   /** The helper's PING: answer with the sink's `pong(id)`; unanswered by a transport without it. */
   ping?(id: number): void;
   /** The relay ended: release the device. */
@@ -271,13 +274,18 @@ function deliver(transport: DeviceTransport, frame: DeviceFrame): void {
       transport.closed(frame.channel);
       return;
     case DEVICE_FRAME_TYPES.settings: {
-      const settings = controlPayload(frame, serialSettingsSchema);
-      if (settings !== undefined) transport.settings?.(settings);
+      // A change without its stamp is left out: the helper and The Office ship together.
+      const stamped = controlPayload(frame, serialSettingsFrameSchema);
+      if (stamped === undefined) return;
+      const { at, ...settings } = stamped;
+      transport.settings?.(settings, at);
       return;
     }
     case DEVICE_FRAME_TYPES.signals: {
-      const signals = controlPayload(frame, serialSignalsSchema);
-      if (signals !== undefined) transport.signals?.(signals);
+      const stamped = controlPayload(frame, serialSignalsFrameSchema);
+      if (stamped === undefined) return;
+      const { at, ...signals } = stamped;
+      transport.signals?.(signals, at);
       return;
     }
     case DEVICE_FRAME_TYPES.ping: {

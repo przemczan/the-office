@@ -323,7 +323,7 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 
 - The Devices section (plug icon), shown only while the Project's Run environment is On; open at the start while the Task has a device not Disconnected.
 - Summary: "<n> connected", or "None connected".
-- A list, one row per device not Disconnected: its name, a badge for its kind (**Android phone over USB**, **Serial board over USB**, **Android phone over wireless debugging**), its state (**Connecting**, **Connected**, **Waiting for the run environment**), "connected by <user> · <when>" (<user> reads "you" for yourself), its endpoint in monospace once Connected (`127.0.0.1:<port>` for an Android phone over USB, the serial path such as `/dev/ttyACM0` for a serial board), for a serial board "<baud> baud · round trip <n> ms" once each is known, and **Disconnect**.
+- A list, one row per device not Disconnected: its name, a badge for its kind (**Android phone over USB**, **Serial board over USB**, **Android phone over wireless debugging**), its state (**Connecting**, **Connected**, **Waiting for the run environment**), "connected by <user> · <when>" (<user> reads "you" for yourself), its endpoint in monospace once Connected (`127.0.0.1:<port>` for an Android phone over USB, the serial path such as `/dev/ttyACM0` for a serial board, then " · " and its RFC 2217 address such as `rfc2217://127.0.0.1:2217`), for a serial board "<baud> baud · round trip <n> ms" once each is known, and **Disconnect**.
 - An Android phone over USB's endpoint reads "adb serial 127.0.0.1:<port>", as `adb devices` lists it.
 - An Android phone over wireless debugging's name is its IP address until adb connects, then its model; its endpoint reads "adb serial <address>:<port>".
 - While a phone waits for the user to let adb in, its row says "Allow USB debugging on the phone, and tick Always allow from this computer."; the line goes once the phone lets adb in.
@@ -351,7 +351,8 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
   - slow round trip: "Uploads will be slow: each step waits <n> ms for the round trip.";
   - no answer after a reset: "The board didn't answer after its reset; its bootloader may not wait for the <n> ms round trip. Press its reset button as the upload starts.";
   - 1200-baud touch: "This board resets into a new USB device to upload (1200-baud touch, as Leonardo and Micro do); that isn't carried through the browser.";
-  - esptool's sync unanswered: "esptool's automatic reset isn't carried on this port. Hold BOOT, tap reset, and upload with --before no_reset.";
+  - esptool's sync unanswered: "Use --port rfc2217://127.0.0.1:<port> for esptool's automatic reset, or hold BOOT, tap reset and upload with --before no_reset.", with the board's own RFC 2217 address; without one, "esptool's automatic reset isn't carried on this port. Hold BOOT, tap reset, and upload with --before no_reset.";
+  - board busy: "The board is busy: one tool at a time can have it open, at <path> or at <rfc2217 address>. Close the other one first.";
   - no upload tool, in the info tone: "Neither avrdude nor arduino-cli is in the run environment's image; add the Project's upload tool to .devcontainer."
   - Before the round trip is measured, the words leave out "<n> ms".
 - A device already connected to another Task is refused with "<device> is connected to <Task>. Disconnect it there first.", the Task linked.

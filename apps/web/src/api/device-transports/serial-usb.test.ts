@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DeviceRelaySink, DeviceTransport, RequestedDevice } from "../device-relay.ts";
 import {
+  type MonotonicClock,
   NEEDS_SECURE_CONTEXT,
   NEEDS_WEB_SERIAL,
   SERIAL_PORT_BUSY,
@@ -96,6 +97,36 @@ class FakePort extends EventTarget {
   }
 }
 
+/** A clock the test moves on; each wait ends when the time passes it. */
+class FakeClock implements MonotonicClock {
+  time = 0;
+  private waits: { time: number; resolve: () => void }[] = [];
+
+  now(): number {
+    return this.time;
+  }
+
+  waitUntil(time: number): Promise<void> {
+    if (time <= this.time) return Promise.resolve();
+    return new Promise((resolve) => this.waits.push({ time, resolve }));
+  }
+
+  /** Moves the time on to `until`, ending each wait on the way at its own time. */
+  async advance(until: number): Promise<void> {
+    for (;;) {
+      await settle();
+      const next = Math.min(...this.waits.map((wait) => wait.time));
+      if (!(next <= until)) break;
+      this.time = next;
+      const due = this.waits.filter((wait) => wait.time <= next);
+      this.waits = this.waits.filter((wait) => wait.time > next);
+      for (const wait of due) wait.resolve();
+    }
+    this.time = until;
+    await settle();
+  }
+}
+
 class FakeSerial extends EventTarget {
   picked: FakePort | undefined;
 
@@ -114,12 +145,13 @@ async function settle(): Promise<void> {
 
 async function picked(
   info?: SerialPortInfo,
+  clock?: MonotonicClock,
 ): Promise<{ port: FakePort; serial: FakeSerial; device: RequestedDevice; log: string[] }> {
   const log: string[] = [];
   const serial = new FakeSerial();
   const port = new FakePort(log, info);
   serial.picked = port;
-  const device = await serialUsbTransport(serial as unknown as Serial).request();
+  const device = await serialUsbTransport(serial as unknown as Serial, undefined, clock).request();
   if (device === undefined) throw new Error("No board picked.");
   return { port, serial, device, log };
 }
@@ -136,6 +168,34 @@ function attached(device: RequestedDevice, log: string[]): DeviceTransport {
 }
 
 const SETTINGS = { baudRate: 115_200, dataBits: 8, parity: "none", stopBits: 1 } as const;
+// One stamp for every change, so each runs as soon as it reaches the queue's head.
+const AT = 0;
+
+// A stamp far from 0, as the helper's monotonic clock has run a while, in µs.
+const T = 7_000_000_000;
+/**
+ * esptool's classic reset as the helper stamps it: DTR off, RTS on (each its own SET-CONTROL,
+ * each frame with both lines), 100 ms, DTR on, RTS off, 50 ms, DTR off.
+ */
+const ESPTOOL_RESET = [
+  { signals: { dataTerminalReady: false, requestToSend: true }, at: T },
+  { signals: { dataTerminalReady: false, requestToSend: true }, at: T + 40 },
+  { signals: { dataTerminalReady: true, requestToSend: true }, at: T + 100_080 },
+  { signals: { dataTerminalReady: true, requestToSend: false }, at: T + 100_120 },
+  { signals: { dataTerminalReady: false, requestToSend: false }, at: T + 150_200 },
+] as const;
+
+/** Each setSignals the port hears, as the clock's ms from `from` (to the µs) and the two lines. */
+function timedSignals(port: FakePort, clock: FakeClock, from: number): string[] {
+  const heard: string[] = [];
+  const set = port.setSignals.bind(port);
+  port.setSignals = (signals) => {
+    const ms = Math.round((clock.now() - from) * 1000) / 1000;
+    heard.push(`${ms} ${signals.dataTerminalReady} ${signals.requestToSend}`);
+    return set(signals);
+  };
+  return heard;
+}
 
 describe("a serial board over USB", () => {
   it("opens the picked board at 115200 baud, named by its USB ids", async () => {
@@ -180,12 +240,12 @@ describe("a serial board over USB", () => {
     const { device, log } = await picked();
     const board = attached(device, log);
 
-    board.signals?.({ dataTerminalReady: true, requestToSend: true });
+    board.signals?.({ dataTerminalReady: true, requestToSend: true }, AT);
     board.received(1, new Uint8Array([1]));
-    board.settings?.(SETTINGS);
-    board.settings?.({ ...SETTINGS, baudRate: 57_600 });
+    board.settings?.(SETTINGS, AT);
+    board.settings?.({ ...SETTINGS, baudRate: 57_600 }, AT);
     board.received(1, new Uint8Array([2]));
-    board.settings?.({ ...SETTINGS, baudRate: 57_600 });
+    board.settings?.({ ...SETTINGS, baudRate: 57_600 }, AT);
     await settle();
 
     expect(log).toEqual([
@@ -203,14 +263,14 @@ describe("a serial board over USB", () => {
     const { port, device, log } = await picked();
     const board = attached(device, log);
     board.opened(1);
-    board.signals?.({ dataTerminalReady: true, requestToSend: true });
+    board.signals?.({ dataTerminalReady: true, requestToSend: true }, AT);
     port.opensToFail = 1;
 
-    board.settings?.({ ...SETTINGS, baudRate: 57_600 });
+    board.settings?.({ ...SETTINGS, baudRate: 57_600 }, AT);
     await settle();
     port.board(4);
     await settle();
-    board.settings?.({ ...SETTINGS, baudRate: 57_600 });
+    board.settings?.({ ...SETTINGS, baudRate: 57_600 }, AT);
     await settle();
 
     expect(log).toEqual([
@@ -232,7 +292,7 @@ describe("a serial board over USB", () => {
     const board = attached(device, log);
     port.opensToFail = 2;
 
-    board.settings?.({ ...SETTINGS, baudRate: 57_600 });
+    board.settings?.({ ...SETTINGS, baudRate: 57_600 }, AT);
     await settle();
 
     expect(log.filter((line) => line.startsWith("fail "))).toEqual([
@@ -250,8 +310,8 @@ describe("a serial board over USB", () => {
     board.opened(1);
     port.signalsFail = true;
 
-    board.signals?.({ dataTerminalReady: true, requestToSend: true });
-    board.settings?.({ ...SETTINGS, baudRate: 57_600 });
+    board.signals?.({ dataTerminalReady: true, requestToSend: true }, AT);
+    board.settings?.({ ...SETTINGS, baudRate: 57_600 }, AT);
     await settle();
     port.board(5);
     await settle();
@@ -305,8 +365,8 @@ describe("a serial board over USB", () => {
     const board = attached(device, log);
 
     board.received(1, new Uint8Array([1]));
-    board.signals?.({ dataTerminalReady: false, requestToSend: false });
-    board.signals?.({ dataTerminalReady: true, requestToSend: true });
+    board.signals?.({ dataTerminalReady: false, requestToSend: false }, AT);
+    board.signals?.({ dataTerminalReady: true, requestToSend: true }, AT);
     board.received(1, new Uint8Array([2, 3]));
     await settle();
 
@@ -372,5 +432,97 @@ describe("a serial board over USB", () => {
     await settle();
 
     expect(log).toEqual(["open 115200 4096", "close"]);
+  });
+  it("replays esptool's reset at its stamps when the frames arrive bunched", async () => {
+    const clock = new FakeClock();
+    clock.time = 1_000;
+    const { port, device } = await picked(undefined, clock);
+    const heard = timedSignals(port, clock, 1_000);
+    const board = attached(device, []);
+
+    for (const { signals, at } of ESPTOOL_RESET) board.signals?.(signals, at);
+    await clock.advance(1_200);
+
+    expect(heard).toEqual([
+      "0 false true",
+      "0.04 false true",
+      "100.08 true true",
+      "100.12 true false",
+      "150.2 false false",
+    ]);
+  });
+
+  it("applies a change already late at once and spaces the ones after it from it", async () => {
+    const clock = new FakeClock();
+    clock.time = 1_000;
+    const { port, device } = await picked(undefined, clock);
+    const heard = timedSignals(port, clock, 1_000);
+    const board = attached(device, []);
+    const [first, second, ...rest] = ESPTOOL_RESET;
+
+    board.signals?.(first.signals, first.at);
+    await clock.advance(1_030);
+    // Due 0.04 ms after the first, it comes 30 ms late.
+    board.signals?.(second.signals, second.at);
+    await clock.advance(1_031);
+    for (const { signals, at } of rest) board.signals?.(signals, at);
+    await clock.advance(1_300);
+
+    expect(heard).toEqual([
+      "0 false true",
+      "30 false true",
+      "130.04 true true",
+      "130.08 true false",
+      "180.16 false false",
+    ]);
+  });
+
+  it("keeps DATA and PING behind the changes queued before them", async () => {
+    const clock = new FakeClock();
+    clock.time = 1_000;
+    const { device, log } = await picked(undefined, clock);
+    const board = attached(device, log);
+    const [first, , third] = ESPTOOL_RESET;
+
+    board.signals?.(first.signals, first.at);
+    board.signals?.(third.signals, third.at);
+    board.received(1, new Uint8Array([1]));
+    board.ping?.(2);
+    board.settings?.({ ...SETTINGS, baudRate: 57_600 }, third.at + 1_000);
+    board.received(1, new Uint8Array([2]));
+    await clock.advance(1_050);
+
+    expect(log.slice(1)).toEqual(["signals false true"]);
+
+    await clock.advance(1_100.5);
+    expect(log.slice(1)).toEqual(["signals false true", "signals true true", "write 1", "pong 2"]);
+
+    await clock.advance(1_200);
+    expect(log.slice(1)).toEqual([
+      "signals false true",
+      "signals true true",
+      "write 1",
+      "pong 2",
+      "close",
+      "open 57600 4096",
+      "signals true true",
+      "write 2",
+    ]);
+  });
+
+  it("closes the port when the relay ends while a change waits for its time", async () => {
+    const clock = new FakeClock();
+    const { device, log } = await picked(undefined, clock);
+    const board = attached(device, log);
+    const [first, , third] = ESPTOOL_RESET;
+
+    board.signals?.(first.signals, first.at);
+    board.signals?.(third.signals, third.at);
+    board.received(1, new Uint8Array([1]));
+    await settle();
+    board.end();
+    await settle();
+
+    expect(log).toEqual(["open 115200 4096", "signals false true", "close"]);
   });
 });

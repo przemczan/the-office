@@ -7,9 +7,12 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -33,8 +36,14 @@ type runningPty struct {
 	stderr    strings.Builder
 	cancel    context.CancelFunc
 	path      string
+	rfc2217   string // READY's second line, or ""
+	stamps    []int64
 	keepPings bool
 }
+
+// stampPattern is the `at` every SETTINGS and SIGNALS ends with; next takes it off, so tests
+// compare the rest.
+var stampPattern = regexp.MustCompile(`,"at":(\d+)}$`)
 
 func testPtyConfig(t *testing.T) ptyConfig {
 	t.Helper()
@@ -43,7 +52,19 @@ func testPtyConfig(t *testing.T) ptyConfig {
 	config.pathPrefix = filepath.Join(t.TempDir(), "ttyACM")
 	config.pingInterval = time.Hour
 	config.lookPath = func(string) (string, error) { return "/usr/bin/avrdude", nil }
+	config.rfc2217Base = freePort(t)
 	return config
+}
+
+// freePort is a loopback port nothing listens on just now.
+func freePort(t *testing.T) int {
+	t.Helper()
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = listener.Close() }()
+	return listener.Addr().(*net.TCPAddr).Port
 }
 
 // startPty runs the helper and reads its greeting up to the first SETTINGS.
@@ -84,7 +105,7 @@ func startPty(t *testing.T, config ptyConfig) *runningPty {
 	if ready.typ != frameReady || !strings.HasPrefix(string(ready.payload), config.pathPrefix) {
 		t.Fatalf("second frame is %d %q", ready.typ, ready.payload)
 	}
-	r.path = string(ready.payload)
+	r.path, r.rfc2217, _ = strings.Cut(string(ready.payload), "\n")
 	r.expect(frameSettings, 0, settings9600)
 	return r
 }
@@ -101,11 +122,32 @@ func (r *runningPty) next() frame {
 			if f.typ == framePing && !r.keepPings {
 				continue
 			}
+			if f.typ == frameSettings || f.typ == frameSignals {
+				f.payload = r.unstamp(f.payload)
+			}
 			return f
 		case <-deadline:
 			r.t.Fatal("no frame came")
 		}
 	}
+}
+
+// unstamp takes `at` off a payload, checking that stamps never go back.
+func (r *runningPty) unstamp(payload []byte) []byte {
+	r.t.Helper()
+	match := stampPattern.FindSubmatchIndex(payload)
+	if match == nil {
+		r.t.Fatalf("no stamp in %q", payload)
+	}
+	stamp, err := strconv.ParseInt(string(payload[match[2]:match[3]]), 10, 64)
+	if err != nil {
+		r.t.Fatal(err)
+	}
+	if n := len(r.stamps); n > 0 && stamp < r.stamps[n-1] {
+		r.t.Fatalf("stamp %d after %d", stamp, r.stamps[n-1])
+	}
+	r.stamps = append(r.stamps, stamp)
+	return append(payload[:match[0]:match[0]], '}')
 }
 
 func (r *runningPty) stderrIfExited() string {

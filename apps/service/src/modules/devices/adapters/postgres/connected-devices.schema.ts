@@ -35,6 +35,8 @@ export const connectedDevices = pgTable(
     disconnectedBy: jsonb("disconnected_by").$type<DeviceUser>(),
     problem: text("problem"),
     endpoint: text("endpoint"),
+    /** A serial board's RFC 2217 address while Connected. */
+    rfc2217Url: text("rfc2217_url"),
     baudRate: integer("baud_rate"),
     roundTripMs: integer("round_trip_ms"),
     /** The helper's latest notice since its READY. */

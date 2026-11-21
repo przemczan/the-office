@@ -210,7 +210,7 @@ describe("a device's relay", () => {
     expect(states).toEqual([{ type: "state", state: "connected", endpoint: "127.0.0.1:5037" }]);
   });
 
-  it("carries SETTINGS, SIGNALS and PING to the transport in order with DATA, leaving out malformed ones", () => {
+  it("carries SETTINGS and SIGNALS with their stamps, and PING, to the transport in order with DATA, leaving out malformed ones", () => {
     const heard: string[] = [];
     let sink: DeviceRelaySink | undefined;
     const { socket } = opened({
@@ -222,9 +222,9 @@ describe("a device's relay", () => {
           received: (channel, bytes) => heard.push(`data ${channel} ${[...bytes].join(",")}`),
           closed: () => {},
           end: () => {},
-          settings: (settings) => heard.push(`settings ${settings.baudRate}`),
-          signals: (signals) =>
-            heard.push(`signals ${signals.dataTerminalReady} ${signals.requestToSend}`),
+          settings: (settings, at) => heard.push(`settings ${JSON.stringify(settings)} at ${at}`),
+          signals: (signals, at) =>
+            heard.push(`signals ${signals.dataTerminalReady} ${signals.requestToSend} at ${at}`),
           ping: (id) => {
             heard.push(`ping ${id}`);
             sink?.pong(id);
@@ -241,15 +241,25 @@ describe("a device's relay", () => {
 
     socket.receives(
       new Uint8Array([
-        ...encodeFrame(controlFrame(DEVICE_FRAME_TYPES.settings, settings)),
+        ...encodeFrame(controlFrame(DEVICE_FRAME_TYPES.settings, { ...settings, at: 1_000 })),
         ...encodeFrame({ type: DEVICE_FRAME_TYPES.data, channel: 1, payload: new Uint8Array([7]) }),
         ...encodeFrame(
           controlFrame(DEVICE_FRAME_TYPES.signals, {
             dataTerminalReady: true,
             requestToSend: false,
+            at: 101_000,
           }),
         ),
         ...encodeFrame(controlFrame(DEVICE_FRAME_TYPES.settings, { baudRate: "fast" })),
+        // Unstamped, or stamped with what isn't a whole count of µs: left out.
+        ...encodeFrame(controlFrame(DEVICE_FRAME_TYPES.settings, settings)),
+        ...encodeFrame(
+          controlFrame(DEVICE_FRAME_TYPES.signals, {
+            dataTerminalReady: false,
+            requestToSend: false,
+            at: 1.5,
+          }),
+        ),
         ...encodeFrame({
           type: DEVICE_FRAME_TYPES.ping,
           channel: 0,
@@ -259,7 +269,12 @@ describe("a device's relay", () => {
       ]),
     );
 
-    expect(heard).toEqual(["settings 57600", "data 1 7", "signals true false", "ping 4"]);
+    expect(heard).toEqual([
+      `settings ${JSON.stringify(settings)} at 1000`,
+      "data 1 7",
+      "signals true false at 101000",
+      "ping 4",
+    ]);
     const [pong] = socket.framesSent();
     expect(pong?.type).toBe(DEVICE_FRAME_TYPES.pong);
     expect(pong?.channel).toBe(0);

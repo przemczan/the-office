@@ -75,6 +75,7 @@ export function deviceResponse(device: ConnectedDevice): ConnectedDeviceResponse
     disconnectedBy: device.disconnectedBy && { ...device.disconnectedBy },
     problem: device.problem,
     endpoint: device.endpoint,
+    rfc2217Url: device.rfc2217Url,
     baudRate: device.baudRate,
     roundTripMs: device.roundTripMs,
     notices: noticesOf(device),

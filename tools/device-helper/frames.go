@@ -5,7 +5,8 @@ package main
 //
 // A frame is `u8 type | u32 channel | u32 length | payload`, big-endian. Channel 0 carries the
 // helper's own frames (HELLO, READY, ENDED) and the control frames (SETTINGS, SIGNALS, PING, PONG,
-// NOTICE, whose JSON payloads pty.go writes); each relayed connection gets a channel from 1 up.
+// NOTICE, whose JSON payloads pty.go writes); each relayed connection, pty session or RFC 2217
+// connection gets a channel from 1 up.
 
 import (
 	"encoding/binary"
@@ -18,7 +19,7 @@ type frameType uint8
 
 const (
 	frameHello frameType = 1 // helper to service, first: the helper's version
-	frameReady frameType = 2 // helper to service: the endpoint it listens on
+	frameReady frameType = 2 // helper to service: the endpoint it listens on; pty: the path, then a line with its rfc2217:// address
 	frameOpen  frameType = 3 // helper to service: a connection was accepted on the channel
 	frameData  frameType = 4 // either way: bytes on the channel
 	frameClose frameType = 5 // either way: the channel is closed

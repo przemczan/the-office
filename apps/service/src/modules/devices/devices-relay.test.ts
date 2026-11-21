@@ -205,9 +205,11 @@ async function listed(): Promise<ConnectedDeviceResponse | undefined> {
 describe("a serial board's relay", () => {
   const BOARD = { kind: "serial-usb", name: "Arduino Uno", deviceKey: "2341:0043:RELAY" } as const;
   const SETTINGS = { baudRate: 115_200, dataBits: 8, parity: "none", stopBits: 1 } as const;
+  const RFC2217_URL = "rfc2217://127.0.0.1:2217";
 
   async function connectBoard(): Promise<{ id: string; relay: RelayClient }> {
-    testbed.runtime.onAttach = (process) => loopbackHelper(process, { endpoint: "/dev/ttyACM0" });
+    testbed.runtime.onAttach = (process) =>
+      loopbackHelper(process, { endpoint: "/dev/ttyACM0", rfc2217Url: RFC2217_URL });
     await start();
     const response = await post(taskDevicesPath(TASK_ID), BOARD);
     const { id } = connectedDeviceSchema.parse(await response.json());
@@ -223,11 +225,16 @@ describe("a serial board's relay", () => {
     const [helper] = testbed.runtime.attached;
     if (helper === undefined) throw new Error("No helper attached.");
 
-    helper.print(encodeFrame(controlFrame(DEVICE_FRAME_TYPES.settings, SETTINGS)));
+    const settings = controlFrame(DEVICE_FRAME_TYPES.settings, { ...SETTINGS, at: 1_000 });
+    helper.print(encodeFrame(settings));
     helper.print(encodeFrame({ ...textFrame(DEVICE_FRAME_TYPES.data, "hi\n"), channel: 1 }));
     helper.print(
       encodeFrame(
-        controlFrame(DEVICE_FRAME_TYPES.signals, { dataTerminalReady: true, requestToSend: true }),
+        controlFrame(DEVICE_FRAME_TYPES.signals, {
+          dataTerminalReady: true,
+          requestToSend: true,
+          at: 1_250,
+        }),
       ),
     );
     helper.print(encodeFrame(controlFrame(DEVICE_FRAME_TYPES.ping, { id: 1 })));
@@ -239,10 +246,15 @@ describe("a serial board's relay", () => {
       { type: DEVICE_FRAME_TYPES.signals, channel: DEVICE_CONTROL_CHANNEL },
       { type: DEVICE_FRAME_TYPES.ping, channel: DEVICE_CONTROL_CHANNEL },
     ]);
-    expect(JSON.parse(Buffer.from(relay.frames[0]?.payload ?? []).toString())).toEqual(SETTINGS);
+    // The helper's stamps reach the browser as it sent them, byte for byte.
+    expect(Buffer.from(relay.frames[0]?.payload ?? [])).toEqual(Buffer.from(settings.payload));
+    expect(JSON.parse(Buffer.from(relay.frames[2]?.payload ?? []).toString())).toMatchObject({
+      at: 1_250,
+    });
     await expect.poll(async () => (await listed())?.baudRate).toBe(115_200);
     expect(await listed()).toMatchObject({
       endpoint: "/dev/ttyACM0",
+      rfc2217Url: RFC2217_URL,
       roundTripMs: null,
       notices: [],
     });
@@ -275,6 +287,16 @@ describe("a serial board's relay", () => {
     // The PONG is the service's, and the browser's SETTINGS and NOTICE never reach the helper.
     expect(framesWrittenTo(helper)).toEqual([]);
     expect(relay.frames.map(({ type }) => type)).toEqual([DEVICE_FRAME_TYPES.ping]);
+  });
+
+  it("keeps the helper's port-busy NOTICE", async () => {
+    await connectBoard();
+    const [helper] = testbed.runtime.attached;
+    if (helper === undefined) throw new Error("No helper attached.");
+
+    helper.print(encodeFrame(controlFrame(DEVICE_FRAME_TYPES.notice, { code: "port-busy" })));
+
+    await expect.poll(async () => (await listed())?.notices).toEqual(["port-busy"]);
   });
 
   it("speaks the contracts' slow round trip and notice codes", () => {

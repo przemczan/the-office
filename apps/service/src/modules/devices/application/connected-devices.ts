@@ -441,7 +441,7 @@ export class ConnectedDevices implements OnModuleInit {
         return;
       }
       const connected = await this.change(device.id, (current) =>
-        deviceConnected(current, opening.endpoint),
+        deviceConnected(current, opening.endpoint, current.name, opening.rfc2217Url),
       );
       const phone = connected === undefined ? undefined : androidUsbPhoneOf(connected.device);
       if (phone !== undefined) this.followAndroidUsb(phone);
@@ -676,11 +676,17 @@ export class ConnectedDevices implements OnModuleInit {
         name: device.name,
         state: STATE_WORDS[device.state],
         connected: device.state === "connected",
-        endpoint: device.endpoint,
+        endpoint: endpointWordsOf(device),
         ...(details.length === 0 ? {} : { details }),
       };
     });
   }
+}
+
+/** Where commands reach it, in words: a serial board's path and its RFC 2217 address, when known. */
+function endpointWordsOf(device: ConnectedDevice): string | null {
+  if (device.endpoint === null || device.rfc2217Url === null) return device.endpoint;
+  return `${device.endpoint} and ${device.rfc2217Url}`;
 }
 
 /** The device as an Android phone over USB Connected at its helper's endpoint, if it is one. */

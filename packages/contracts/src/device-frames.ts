@@ -10,7 +10,10 @@
 export const DEVICE_FRAME_TYPES = {
   /** Helper → service, first frame: the helper's version, UTF-8. */
   hello: 1,
-  /** Helper → service: the endpoint it listens on, UTF-8 (`127.0.0.1:<port>`). */
+  /**
+   * Helper → service: the endpoint it listens on, UTF-8 (`127.0.0.1:<port>`, or a serial board's
+   * path), and for a serial board a second line with its RFC 2217 address (`readyEndpoints`).
+   */
   ready: 2,
   /** Helper → service: a connection was accepted on the frame's channel. */
   open: 3,
@@ -78,6 +81,23 @@ export function textFrame(type: DeviceFrameType, text: string): DeviceFrame {
 
 export function frameText(frame: DeviceFrame): string {
   return new TextDecoder().decode(frame.payload);
+}
+
+/** What a READY says: the device's endpoint and, for a serial board, its `rfc2217://` address. */
+export interface HelperEndpoints {
+  readonly endpoint: string;
+  readonly rfc2217Url: string | null;
+}
+
+const RFC2217_URL = /^rfc2217:\/\/127\.0\.0\.1:\d{1,5}$/;
+
+/** A READY's endpoints; a second line that isn't a loopback `rfc2217://` address is left out. */
+export function readyEndpoints(frame: DeviceFrame): HelperEndpoints {
+  const [endpoint = "", second] = frameText(frame).split("\n");
+  return {
+    endpoint,
+    rfc2217Url: second !== undefined && RFC2217_URL.test(second) ? second : null,
+  };
 }
 
 /**

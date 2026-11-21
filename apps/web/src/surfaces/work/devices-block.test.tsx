@@ -114,6 +114,7 @@ const PHONE: ConnectedDevice = {
   disconnectedBy: null,
   problem: null,
   endpoint: "127.0.0.1:5555",
+  rfc2217Url: null,
   baudRate: null,
   roundTripMs: null,
   notices: [],
@@ -244,7 +245,8 @@ describe("the Devices section", () => {
   it("offers an Android phone over USB, greyed with why in a browser without WebUSB", async () => {
     stubService(answers(PROJECT, []));
     const page = await blockOf();
-    await until(() => expect(buttonNamed(page, "Connect a device")).toBeDefined());
+    // The button is in the section's head, shown before the devices are read; the note isn't.
+    await until(() => expect(shownText(page)).toContain(KEEP_TAB_OPEN));
 
     act(() => buttonNamed(page, "Connect a device")?.click());
 
@@ -254,7 +256,6 @@ describe("the Devices section", () => {
       `Android phone over USB${why}`,
     );
     expect(option?.disabled).toBe(true);
-    expect(shownText(page)).toContain(KEEP_TAB_OPEN);
   });
 
   it("hints at USB debugging after the picker closes with no phone picked", async () => {
@@ -385,13 +386,14 @@ describe("the Devices section", () => {
     }
   });
 
-  it("shows a serial board's path, baud and round trip once Connected", async () => {
+  it("shows a serial board's path, RFC 2217 address, baud and round trip once Connected", async () => {
     stubService(
       answers(PROJECT, [
         {
           ...BOARD,
           state: "connected",
           endpoint: "/dev/ttyACM0",
+          rfc2217Url: "rfc2217://127.0.0.1:2217",
           baudRate: 115_200,
           roundTripMs: 40,
         },
@@ -401,8 +403,22 @@ describe("the Devices section", () => {
 
     await until(() => expect(page.querySelector('[aria-label="Arduino Uno"]')).not.toBeNull());
     const board = page.querySelector('[aria-label="Arduino Uno"]')!;
-    expect(board.querySelector("code")?.textContent).toBe("/dev/ttyACM0");
+    expect([...board.querySelectorAll("code")].map((code) => code.textContent)).toEqual([
+      "/dev/ttyACM0",
+      "rfc2217://127.0.0.1:2217",
+    ]);
     expect(shownText(board)).toContain("115200 baud · round trip 40 ms");
+  });
+
+  it("shows only the path of a serial board without an RFC 2217 address", async () => {
+    stubService(answers(PROJECT, [{ ...BOARD, state: "connected", endpoint: "/dev/ttyACM0" }]));
+    const page = await blockOf();
+
+    await until(() => expect(page.querySelector('[aria-label="Arduino Uno"]')).not.toBeNull());
+    const board = page.querySelector('[aria-label="Arduino Uno"]')!;
+    expect([...board.querySelectorAll("code")].map((code) => code.textContent)).toEqual([
+      "/dev/ttyACM0",
+    ]);
   });
 
   it("says each of a serial board's notices in words", async () => {
@@ -420,6 +436,7 @@ describe("the Devices section", () => {
             "touch-1200",
             "esptool-sync-no-answer",
             "no-upload-tool",
+            "port-busy",
           ],
         },
       ]),
@@ -448,13 +465,39 @@ describe("the Devices section", () => {
         "info",
         "Neither avrdude nor arduino-cli is in the run environment's image; add the Project's upload tool to .devcontainer.",
       ],
+      [
+        "warning",
+        "The board is busy: one tool at a time can have it open, at /dev/ttyACM0. Close the other one first.",
+      ],
     ]);
   });
 
-  it("leaves the round trip out of a notice's words until it is measured", () => {
-    expect(deviceNoticeWords("slow-round-trip", null)).toBe(
-      "Uploads will be slow: each step waits for the round trip.",
+  it("points esptool and the busy board at the RFC 2217 address when the board has one", () => {
+    const board = {
+      roundTripMs: 40,
+      endpoint: "/dev/ttyACM0",
+      rfc2217Url: "rfc2217://127.0.0.1:2217",
+    };
+
+    expect(deviceNoticeWords("esptool-sync-no-answer", board)).toBe(
+      "Use --port rfc2217://127.0.0.1:2217 for esptool's automatic reset, or hold BOOT, tap reset and upload with --before no_reset.",
     );
+    expect(deviceNoticeWords("port-busy", board)).toBe(
+      "The board is busy: one tool at a time can have it open, at /dev/ttyACM0 or at rfc2217://127.0.0.1:2217. Close the other one first.",
+    );
+    expect(deviceNoticeWords("port-busy", { ...board, endpoint: null, rfc2217Url: null })).toBe(
+      "The board is busy: one tool at a time can have it open. Close the other one first.",
+    );
+  });
+
+  it("leaves the round trip out of a notice's words until it is measured", () => {
+    expect(
+      deviceNoticeWords("slow-round-trip", {
+        roundTripMs: null,
+        endpoint: null,
+        rfc2217Url: null,
+      }),
+    ).toBe("Uploads will be slow: each step waits for the round trip.");
   });
 
   it("names the other Task, linked, when the device is connected there, and lets it go", async () => {

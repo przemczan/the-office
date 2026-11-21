@@ -67,6 +67,12 @@ export const connectedDeviceSchema = z.object({
    * wireless debugging's `<address>:<port>`, which it keeps while Waiting too; null otherwise.
    */
   endpoint: z.string().nullable(),
+  /**
+   * While Connected, a serial board's RFC 2217 address in the run environment
+   * (`rfc2217://127.0.0.1:<port>`), where esptool, pyserial and PlatformIO also set its baud, DTR
+   * and RTS; null for every other kind and otherwise.
+   */
+  rfc2217Url: z.string().nullable(),
   /** A serial board's baud rate, as the Project's tool last set it; null until it reports one. */
   baudRate: z.number().int().positive().nullable(),
   /** The last round trip measured between the helper and the browser, in ms; null until measured. */

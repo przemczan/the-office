@@ -10,9 +10,17 @@ export interface HelperProcess {
   stop(): void;
 }
 
-/** How a helper's start went: its HELLO's version and its READY's endpoint, or why it ended first. */
+/**
+ * How a helper's start went: its HELLO's version and its READY's endpoint, with a serial board's
+ * RFC 2217 address (null for any other), or why it ended first.
+ */
 export type HelperOpening =
-  | { readonly kind: "ready"; readonly version: string; readonly endpoint: string }
+  | {
+      readonly kind: "ready";
+      readonly version: string;
+      readonly endpoint: string;
+      readonly rfc2217Url: string | null;
+    }
   | { readonly kind: "ended"; readonly why: string };
 
 /**

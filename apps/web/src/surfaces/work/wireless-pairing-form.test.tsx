@@ -110,6 +110,7 @@ const PAIRED: ConnectedDevice = {
   disconnectedBy: null,
   problem: null,
   endpoint: "192.168.1.20:37099",
+  rfc2217Url: null,
   baudRate: null,
   roundTripMs: null,
   notices: [],

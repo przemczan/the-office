@@ -1,0 +1,77 @@
+# esptool opening rfc2217://127.0.0.1:<port> through pyserial, and resetting the board into its
+# bootloader, as the bytes on the socket.
+#
+# Written from pyserial 3.5's serial/rfc2217.py (Serial.open, _reconfigure_port,
+# rfc2217_set_control, reset_input_buffer, reset_output_buffer) and esptool 4's reset.py
+# (ClassicReset, whose _setRTS sends DTR again as a work-around for Windows' usbser.sys), not
+# recorded: pyserial isn't installed where this was written.
+#
+# `>` the client sends, `<` the server answers (exactly, read in full before going on, as pyserial
+# waits for each answer), `sleep` the client waits. Hex bytes; `#` starts a comment.
+
+# The server asks for COM-PORT-OPTION both ways as the client connects.
+< ff fb 2c  ff fd 2c
+
+# Serial.open: DO ECHO, WILL SGA, DO SGA, DO COM-PORT, WILL COM-PORT. BINARY stays off, as pyserial
+# asks for it neither way.
+> ff fd 01  ff fb 03  ff fd 03  ff fd 2c  ff fb 2c
+# WONT ECHO, DO SGA, WILL SGA; COM-PORT's DO and WILL answer the server's own requests.
+< ff fc 01  ff fd 03  ff fb 03
+
+# _reconfigure_port at pyserial's 9600 8N1: four SETs sent together, then their answers.
+> ff fa 2c 01 00 00 25 80 ff f0
+> ff fa 2c 02 08 ff f0
+> ff fa 2c 03 01 ff f0
+> ff fa 2c 04 01 ff f0
+< ff fa 2c 65 00 00 25 80 ff f0  ff fa 2c 66 08 ff f0  ff fa 2c 67 01 ff f0  ff fa 2c 68 01 ff f0
+# No flow control.
+> ff fa 2c 05 01 ff f0
+< ff fa 2c 69 01 ff f0
+# DTR on, then RTS on: pyserial's open raises both lines itself.
+> ff fa 2c 05 08 ff f0
+< ff fa 2c 69 08 ff f0
+> ff fa 2c 05 0b ff f0
+< ff fa 2c 69 0b ff f0
+# reset_input_buffer, reset_output_buffer.
+> ff fa 2c 0c 01 ff f0
+< ff fa 2c 70 01 ff f0
+> ff fa 2c 0c 02 ff f0
+< ff fa 2c 70 02 ff f0
+
+# esptool sets 115200 baud: _reconfigure_port again.
+> ff fa 2c 01 00 01 c2 00 ff f0
+> ff fa 2c 02 08 ff f0
+> ff fa 2c 03 01 ff f0
+> ff fa 2c 04 01 ff f0
+< ff fa 2c 65 00 01 c2 00 ff f0  ff fa 2c 66 08 ff f0  ff fa 2c 67 01 ff f0  ff fa 2c 68 01 ff f0
+> ff fa 2c 05 01 ff f0
+< ff fa 2c 69 01 ff f0
+
+# ClassicReset: DTR off; RTS on, and DTR (off) again.
+> ff fa 2c 05 09 ff f0
+< ff fa 2c 69 09 ff f0
+> ff fa 2c 05 0b ff f0
+< ff fa 2c 69 0b ff f0
+> ff fa 2c 05 09 ff f0
+< ff fa 2c 69 09 ff f0
+sleep 100ms
+# DTR on; RTS off, and DTR (on) again.
+> ff fa 2c 05 08 ff f0
+< ff fa 2c 69 08 ff f0
+> ff fa 2c 05 0c ff f0
+< ff fa 2c 69 0c ff f0
+> ff fa 2c 05 08 ff f0
+< ff fa 2c 69 08 ff f0
+# The first attempt's reset delay, then DTR off.
+sleep 50ms
+> ff fa 2c 05 09 ff f0
+< ff fa 2c 69 09 ff f0
+
+# flush_input and flushOutput, then the SLIP SYNC request.
+> ff fa 2c 0c 01 ff f0
+< ff fa 2c 70 01 ff f0
+> ff fa 2c 0c 02 ff f0
+< ff fa 2c 70 02 ff f0
+> c0 00 08 24 00 00 00 00 00 07 07 12 20
+> 55 55 55 55 55 55 55 55 55 55 55 55 55 55 55 55 55 55 55 55 55 55 55 55 55 55 55 55 55 55 55 55
+> c0

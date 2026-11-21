@@ -102,6 +102,7 @@ describe("connecting a device", () => {
     expect(await testbed.devices.read(connecting.id)).toMatchObject({
       state: "connected",
       endpoint: HELPER_ENDPOINT,
+      rfc2217Url: null,
     });
     expect(socket.states()).toEqual([
       { type: "state", state: "connecting", endpoint: null },
@@ -237,10 +238,12 @@ describe("connecting a device", () => {
 describe("a serial board", () => {
   const BOARD = { kind: "serial-usb", name: "Arduino Uno", deviceKey: "2341:0043:7533" } as const;
   const PATH = "/dev/ttyACM0";
+  const RFC2217_URL = "rfc2217://127.0.0.1:2217";
 
   beforeEach(() => {
     testbed.runtime.userIds = "1000:1000";
-    testbed.runtime.onAttach = (process) => loopbackHelper(process, { endpoint: PATH });
+    testbed.runtime.onAttach = (process) =>
+      loopbackHelper(process, { endpoint: PATH, rfc2217Url: RFC2217_URL });
   });
 
   async function connectBoard(): Promise<{
@@ -277,12 +280,13 @@ describe("a serial board", () => {
     expect(await testbed.devices.read(id)).toMatchObject({
       state: "connected",
       endpoint: PATH,
+      rfc2217Url: RFC2217_URL,
       baudRate: null,
       roundTripMs: null,
       notice: null,
     });
     expect(await testbed.taskDevices.linesOf(TASK_ID)).toEqual([
-      `Serial board over USB «Arduino Uno»: Connected, at ${PATH}`,
+      `Serial board over USB «Arduino Uno»: Connected, at ${PATH} and ${RFC2217_URL}`,
     ]);
     await testbed.environments.environments.run(task, {
       commandLine: "avrdude -P /dev/ttyACM0",
@@ -292,8 +296,48 @@ describe("a serial board", () => {
       outputFile: join(testbed.environments.folder, "output", "check"),
     });
     expect(JSON.parse(testbed.runtime.executions[0]?.variables["OFFICE_VARIABLE_0"] ?? "")).toEqual(
-      [{ id, kind: "serial-usb", name: "Arduino Uno", endpoint: PATH }],
+      [{ id, kind: "serial-usb", name: "Arduino Uno", endpoint: PATH, rfc2217Url: RFC2217_URL }],
     );
+  });
+
+  it("forgets its RFC 2217 address while Waiting and once Disconnected, and is given it again at the next READY", async () => {
+    await start();
+    const { id } = await connectBoard();
+
+    await stop();
+    await settle();
+    expect(await testbed.devices.read(id)).toMatchObject({
+      state: "waiting-for-run-environment",
+      endpoint: null,
+      rfc2217Url: null,
+    });
+    expect(await testbed.taskDevices.linesOf(TASK_ID)).toEqual([
+      "Serial board over USB «Arduino Uno»: Waiting for the run environment",
+    ]);
+
+    await start();
+    expect(await testbed.devices.read(id)).toMatchObject({
+      state: "connected",
+      rfc2217Url: RFC2217_URL,
+    });
+
+    await testbed.devices.disconnect(id, "by-user", ANN);
+    expect(await testbed.devices.read(id)).toMatchObject({
+      state: "disconnected",
+      endpoint: null,
+      rfc2217Url: null,
+    });
+  });
+
+  it("is Connected at its path alone when the helper's READY gives no RFC 2217 address", async () => {
+    testbed.runtime.onAttach = (process) => loopbackHelper(process, { endpoint: PATH });
+    await start();
+    const { id } = await connectBoard();
+
+    expect(await testbed.devices.read(id)).toMatchObject({ endpoint: PATH, rfc2217Url: null });
+    expect(await testbed.taskDevices.linesOf(TASK_ID)).toEqual([
+      `Serial board over USB «Arduino Uno»: Connected, at ${PATH}`,
+    ]);
   });
 
   it("waits for the run environment, asking it nothing, and runs its helper at its start", async () => {
@@ -349,7 +393,7 @@ describe("a serial board", () => {
     // A baud rate leaves the device's state as it was: the browser is told no new one.
     expect(socket.states().map(({ state }) => state)).toEqual(["connecting", "connected"]);
     expect(await testbed.taskDevices.linesOf(TASK_ID)).toEqual([
-      `Serial board over USB «Arduino Uno»: Connected, at ${PATH}; 115200 baud`,
+      `Serial board over USB «Arduino Uno»: Connected, at ${PATH} and ${RFC2217_URL}; 115200 baud`,
     ]);
   });
 
@@ -379,7 +423,7 @@ describe("a serial board", () => {
       [],
     );
     expect(await testbed.taskDevices.linesOf(TASK_ID)).toEqual([
-      `Serial board over USB «Arduino Uno»: Connected, at ${PATH}; round trip 300 ms; uploads will be slow, each step waiting for the round trip`,
+      `Serial board over USB «Arduino Uno»: Connected, at ${PATH} and ${RFC2217_URL}; round trip 300 ms; uploads will be slow, each step waiting for the round trip`,
     ]);
 
     // A PONG for no PING the helper sent measures nothing.
@@ -416,7 +460,7 @@ describe("a serial board", () => {
     expect(changes).toEqual([id]);
     expect(socket.frames().map(({ type }) => type)).toEqual([DEVICE_FRAME_TYPES.settings]);
     expect(await testbed.taskDevices.linesOf(TASK_ID)).toEqual([
-      `Serial board over USB «Arduino Uno»: Connected, at ${PATH}; 115200 baud; the board didn't answer after its reset`,
+      `Serial board over USB «Arduino Uno»: Connected, at ${PATH} and ${RFC2217_URL}; 115200 baud; the board didn't answer after its reset`,
     ]);
 
     await stop();
@@ -632,7 +676,7 @@ describe("OFFICE_CONNECTED_DEVICES", () => {
     const [before, after] = testbed.runtime.executions;
     expect(before?.variables).toEqual({ OFFICE_VARIABLE_0: "[]" });
     expect(JSON.parse(after?.variables["OFFICE_VARIABLE_0"] ?? "")).toEqual([
-      { id, kind: "android-usb", name: "Pixel 9", endpoint: HELPER_ENDPOINT },
+      { id, kind: "android-usb", name: "Pixel 9", endpoint: HELPER_ENDPOINT, rfc2217Url: null },
     ]);
     expect(after?.script).toContain('export OFFICE_CONNECTED_DEVICES="$OFFICE_VARIABLE_0"');
   });

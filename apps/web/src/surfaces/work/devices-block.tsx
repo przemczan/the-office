@@ -198,6 +198,14 @@ function DeviceRow({
           ) : (
             <span className="devices-row-line">
               <code className="devices-row-endpoint">{device.endpoint}</code>
+              {device.rfc2217Url !== null && (
+                <>
+                  <span className="devices-row-meta" aria-hidden="true">
+                    ·
+                  </span>
+                  <code className="devices-row-endpoint">{device.rfc2217Url}</code>
+                </>
+              )}
               {line !== undefined && <span className="devices-row-meta">{line}</span>}
             </span>
           ))}
@@ -219,7 +227,7 @@ function DeviceRow({
                   name={DEVICE_NOTICE_TONES[notice] === "warning" ? "triangle-alert" : "info"}
                   size={14}
                 />
-                {deviceNoticeWords(notice, device.roundTripMs)}
+                {deviceNoticeWords(notice, device)}
               </li>
             ))}
           </ul>

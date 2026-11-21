@@ -148,25 +148,29 @@ export class FakeRelaySocket extends EventEmitter implements RelaySocket {
 export interface LoopbackHelperOptions {
   readonly version?: string;
   readonly endpoint?: string;
+  /** A serial board's RFC 2217 address, READY's second line as the helper's `pty` mode sends it. */
+  readonly rfc2217Url?: string;
   /** Says nothing, as a helper that never gets ready. */
   readonly silent?: boolean;
 }
 
 /**
  * Answers each helper attached as the Office device helper does: HELLO with the version, READY
- * at the endpoint, then each DATA frame written to it echoed back on its channel.
+ * at the endpoint (with the RFC 2217 address on a second line, when given), then each DATA frame written to it echoed back on its channel.
  */
 export function loopbackHelper(
   process: ScriptedAttachedProcess,
   {
     version = HELPER_VERSION,
     endpoint = HELPER_ENDPOINT,
+    rfc2217Url,
     silent = false,
   }: LoopbackHelperOptions = {},
 ): void {
   if (silent) return;
   process.print(encodeFrame(textFrame(DEVICE_FRAME_TYPES.hello, version)));
-  process.print(encodeFrame(textFrame(DEVICE_FRAME_TYPES.ready, endpoint)));
+  const ready = rfc2217Url === undefined ? endpoint : `${endpoint}\n${rfc2217Url}`;
+  process.print(encodeFrame(textFrame(DEVICE_FRAME_TYPES.ready, ready)));
   const reader = new FrameReader();
   process.stdin.on("data", (chunk: Buffer) => {
     for (const frame of reader.push(chunk)) {

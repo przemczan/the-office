@@ -1,0 +1,1 @@
+ALTER TABLE "connected_devices" ADD COLUMN "rfc2217_url" text;

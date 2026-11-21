@@ -116,3 +116,13 @@ func settingsOf(t termios2) (serialSettings, bool) {
 	}
 	return settings, true
 }
+
+// setExclusive makes the terminal's further opens fail with EBUSY, as a busy port's do (TIOCEXCL),
+// or lets them again (TIOCNXCL). Only an open with CAP_SYS_ADMIN still succeeds.
+func setExclusive(fd int, exclusive bool) error {
+	request := uintptr(syscall.TIOCNXCL)
+	if exclusive {
+		request = syscall.TIOCEXCL
+	}
+	return ioctl(fd, request, nil)
+}

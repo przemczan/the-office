@@ -24,6 +24,7 @@ export const HELPER_NOTICE_CODES = [
   "touch-1200",
   "esptool-sync-no-answer",
   "no-upload-tool",
+  "port-busy",
 ] as const;
 export type HelperNoticeCode = (typeof HELPER_NOTICE_CODES)[number];
 
@@ -65,6 +66,11 @@ export interface ConnectedDevice {
    * debugging's adb serial, `<address>:<port>`, which it keeps while Waiting too.
    */
   readonly endpoint: string | null;
+  /**
+   * While Connected, a serial board's RFC 2217 address in the run environment
+   * (`rfc2217://127.0.0.1:<port>`), beside its path; null for every other kind and otherwise.
+   */
+  readonly rfc2217Url: string | null;
   /** A serial board's baud rate, as the Project's tool last set it; null until it set one. */
   readonly baudRate: number | null;
   /** The round trip last measured between the helper and the browser, in ms; null until then. */
@@ -151,6 +157,7 @@ export function connectingDevice(given: NewConnectedDevice): {
     disconnectedBy: null,
     problem: null,
     endpoint: null,
+    rfc2217Url: null,
     baudRate: null,
     roundTripMs: null,
     notice: null,
@@ -165,7 +172,8 @@ export function isOpen(device: ConnectedDevice): boolean {
 
 /**
  * Commands reach it at the endpoint: from Connecting or Waiting, or at a new endpoint; `name` is
- * what it reports once connected, when it reports one only then. A new helper's READY is a new
+ * what it reports once connected, when it reports one only then; `rfc2217Url` a serial board's
+ * RFC 2217 address beside its path, as its helper's READY says it. A new helper's READY is a new
  * connection, so the round trip and the notice start again; the baud rate stays, as the board
  * keeps it.
  */
@@ -173,11 +181,13 @@ export function deviceConnected(
   device: ConnectedDevice,
   endpoint: string,
   name: string = device.name,
+  rfc2217Url: string | null = null,
 ): ConnectedDeviceChange {
   if (!isOpen(device)) return undefined;
   if (
     device.state === "connected" &&
     device.endpoint === endpoint &&
+    device.rfc2217Url === rfc2217Url &&
     device.name === name &&
     device.roundTripMs === null &&
     device.notice === null
@@ -188,6 +198,7 @@ export function deviceConnected(
     ...device,
     state: "connected",
     endpoint,
+    rfc2217Url,
     name,
     roundTripMs: null,
     notice: null,
@@ -248,7 +259,12 @@ export function noticesOf(device: ConnectedDevice): DeviceNotice[] {
 export function deviceWaiting(device: ConnectedDevice): ConnectedDeviceChange {
   if (device.state !== "connecting" && device.state !== "connected") return undefined;
   const endpoint = device.kind === "android-wireless" ? device.endpoint : null;
-  return withChange({ ...device, state: "waiting-for-run-environment", endpoint });
+  return withChange({
+    ...device,
+    state: "waiting-for-run-environment",
+    endpoint,
+    rfc2217Url: null,
+  });
 }
 
 /**
@@ -296,19 +312,27 @@ export function deviceDisconnected(
     disconnectedBy: disconnection.because === "by-user" ? (disconnection.by ?? null) : null,
     problem: KEEPS_PROBLEM.has(disconnection.because) ? (disconnection.problem ?? null) : null,
     endpoint: null,
+    rfc2217Url: null,
     disconnectedAt: disconnection.at,
   });
 }
 
 /**
  * `OFFICE_CONNECTED_DEVICES` (spec §2.13, "What Agents see"): the Connected ones only, as a JSON
- * array of `{ id, kind, name, endpoint }`; `[]` with none.
+ * array of `{ id, kind, name, endpoint, rfc2217Url }`, `rfc2217Url` null but for a serial board;
+ * `[]` with none.
  */
 export function connectedDevicesVariable(devices: readonly ConnectedDevice[]): string {
   return JSON.stringify(
     devices
       .filter((device) => device.state === "connected")
-      .map(({ id, kind, name, endpoint }) => ({ id, kind, name, endpoint })),
+      .map(({ id, kind, name, endpoint, rfc2217Url }) => ({
+        id,
+        kind,
+        name,
+        endpoint,
+        rfc2217Url,
+      })),
   );
 }
 
@@ -357,6 +381,8 @@ export const NOTICE_WORDS: Readonly<Record<DeviceNotice, string>> = {
   "touch-1200": "its 1200-baud touch isn't carried through the browser",
   "esptool-sync-no-answer": "esptool's automatic reset isn't carried on this port",
   "no-upload-tool": "neither avrdude nor arduino-cli is in the run environment",
+  "port-busy":
+    "the board is busy, as one tool at a time can have it open, at its path or its rfc2217:// port",
 };
 
 /**

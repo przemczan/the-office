@@ -134,13 +134,15 @@ export const DEVICE_NOTICE_TONES: Readonly<Record<DeviceNotice, "warning" | "inf
   "touch-1200": "warning",
   "esptool-sync-no-answer": "warning",
   "no-upload-tool": "info",
+  "port-busy": "warning",
 };
 
 /** What the Devices section says for each of a device's notices (spec 2.13, "Serial boards"). */
 export function deviceNoticeWords(
   notice: DeviceNotice,
-  roundTripMs: ConnectedDevice["roundTripMs"],
+  device: Pick<ConnectedDevice, "roundTripMs" | "endpoint" | "rfc2217Url">,
 ): string {
+  const { roundTripMs, endpoint, rfc2217Url } = device;
   switch (notice) {
     case "slow-round-trip":
       return roundTripMs === null
@@ -153,8 +155,18 @@ export function deviceNoticeWords(
     case "touch-1200":
       return "This board resets into a new USB device to upload (1200-baud touch, as Leonardo and Micro do); that isn't carried through the browser.";
     case "esptool-sync-no-answer":
-      return "esptool's automatic reset isn't carried on this port. Hold BOOT, tap reset, and upload with --before no_reset.";
+      return rfc2217Url === null
+        ? "esptool's automatic reset isn't carried on this port. Hold BOOT, tap reset, and upload with --before no_reset."
+        : `Use --port ${rfc2217Url} for esptool's automatic reset, or hold BOOT, tap reset and upload with --before no_reset.`;
+    case "port-busy":
+      return `The board is busy: one tool at a time can have it open${portsWords(endpoint, rfc2217Url)}. Close the other one first.`;
     case "no-upload-tool":
       return "Neither avrdude nor arduino-cli is in the run environment's image; add the Project's upload tool to .devcontainer.";
   }
+}
+
+// Where a serial board can be opened: ", at /dev/ttyACM0 or at rfc2217://…", either alone, or "".
+function portsWords(endpoint: string | null, rfc2217Url: string | null): string {
+  const at = [endpoint, rfc2217Url].filter((where) => where !== null).map((where) => `at ${where}`);
+  return at.length === 0 ? "" : `, ${at.join(" or ")}`;
 }

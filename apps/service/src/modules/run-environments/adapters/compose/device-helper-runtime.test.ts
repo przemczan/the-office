@@ -8,6 +8,7 @@ import {
   DEVICE_FRAME_TYPES,
   FrameReader,
   frameText,
+  readyEndpoints,
   serialSettingsSchema,
   type DeviceFrame,
 } from "@the-office/contracts";
@@ -175,7 +176,10 @@ describe.skipIf(missing !== undefined)(
       const frames = new Frames(attached.stdout);
 
       const ready = await frames.of(DEVICE_FRAME_TYPES.ready);
-      expect(frameText(ready)).toBe("/dev/ttyACM0");
+      expect(readyEndpoints(ready)).toEqual({
+        endpoint: "/dev/ttyACM0",
+        rfc2217Url: "rfc2217://127.0.0.1:2217",
+      });
 
       // As the checks' user the pty was handed to, not as root.
       const end = await testbed.environments.run(task, {

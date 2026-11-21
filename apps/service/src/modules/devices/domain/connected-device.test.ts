@@ -33,6 +33,26 @@ function connecting(id = "device-1"): ConnectedDevice {
   }).device;
 }
 
+function board(): ConnectedDevice {
+  const change = deviceConnected(
+    connectingDevice({
+      id: "board-1",
+      taskId: "task-1",
+      projectId: "shop",
+      kind: "serial-usb",
+      name: "Arduino Uno",
+      deviceKey: "2341:0043:XYZ",
+      connectedBy: ANN,
+      connectedAt: AT,
+    }).device,
+    "/dev/ttyACM0",
+    "Arduino Uno",
+    "rfc2217://127.0.0.1:2217",
+  );
+  if (change === undefined) throw new Error("Not connected.");
+  return change.device;
+}
+
 function connected(id = "device-1", endpoint = "127.0.0.1:41234"): ConnectedDevice {
   const change = deviceConnected(connecting(id), endpoint);
   if (change === undefined) throw new Error("Not connected.");
@@ -54,6 +74,7 @@ describe("a Connected device's transitions", () => {
     expect(device).toMatchObject({
       state: "connecting",
       endpoint: null,
+      rfc2217Url: null,
       disconnectedBecause: null,
       connectedBy: ANN,
       connectedAt: AT,
@@ -67,6 +88,27 @@ describe("a Connected device's transitions", () => {
     expect(device).toMatchObject({ state: "connected", endpoint: "127.0.0.1:41234" });
     expect(deviceConnected(device, "127.0.0.1:41234")).toBeUndefined();
     expect(deviceConnected(device, "127.0.0.1:5555")?.device.endpoint).toBe("127.0.0.1:5555");
+  });
+
+  it("keeps a serial board's RFC 2217 address beside its path while Connected, and loses it while Waiting or Disconnected", () => {
+    const device = board();
+    expect(device).toMatchObject({
+      state: "connected",
+      endpoint: "/dev/ttyACM0",
+      rfc2217Url: "rfc2217://127.0.0.1:2217",
+    });
+    expect(
+      deviceConnected(device, "/dev/ttyACM0", "Arduino Uno", "rfc2217://127.0.0.1:2217"),
+    ).toBeUndefined();
+    expect(
+      changed(deviceConnected(device, "/dev/ttyACM0", "Arduino Uno", "rfc2217://127.0.0.1:2218"))
+        .rfc2217Url,
+    ).toBe("rfc2217://127.0.0.1:2218");
+    expect(changed(deviceWaiting(device))).toMatchObject({ endpoint: null, rfc2217Url: null });
+    expect(changed(deviceDisconnected(device, { because: "tab-closed", at: AT }))).toMatchObject({
+      endpoint: null,
+      rfc2217Url: null,
+    });
   });
 
   it("waits from Connecting or Connected, losing its endpoint, and comes back Connected", () => {
@@ -147,6 +189,9 @@ describe("a serial board's baud rate, round trip and notice", () => {
       "uploads will be slow, each step waiting for the round trip",
       "its 1200-baud touch isn't carried through the browser",
     ]);
+    expect(detailsOf(changed(deviceNoticed(connected(), "port-busy")))).toEqual([
+      "the board is busy, as one tool at a time can have it open, at its path or its rfc2217:// port",
+    ]);
   });
 
   it("starts the round trip and the notice again at a new helper's READY, keeping the baud rate", () => {
@@ -214,7 +259,25 @@ describe("connectedDevicesVariable", () => {
         ]),
       ),
     ).toEqual([
-      { id: "device-1", kind: "android-usb", name: "Pixel 9", endpoint: "127.0.0.1:41234" },
+      {
+        id: "device-1",
+        kind: "android-usb",
+        name: "Pixel 9",
+        endpoint: "127.0.0.1:41234",
+        rfc2217Url: null,
+      },
+    ]);
+  });
+
+  it("gives a serial board's RFC 2217 address", () => {
+    expect(JSON.parse(connectedDevicesVariable([board()]))).toEqual([
+      {
+        id: "board-1",
+        kind: "serial-usb",
+        name: "Arduino Uno",
+        endpoint: "/dev/ttyACM0",
+        rfc2217Url: "rfc2217://127.0.0.1:2217",
+      },
     ]);
   });
 

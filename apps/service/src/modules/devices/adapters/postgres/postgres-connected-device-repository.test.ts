@@ -96,30 +96,34 @@ describe("PostgresConnectedDeviceRepository", () => {
     expect((await repository.allOpen()).map(({ id }) => id)).toContain(device.id);
   });
 
-  it("keeps a serial board's baud rate, round trip and notice", async () => {
+  it("keeps a serial board's RFC 2217 address, baud rate, round trip and notice", async () => {
     const device = {
       ...aDevice(randomUUID(), `usb:${randomUUID()}`, new Date("2004-01-04T10:00:00Z")),
       kind: "serial-usb" as const,
     };
     await repository.insert(device);
     expect(await repository.find(device.id)).toMatchObject({
+      rfc2217Url: null,
       baudRate: null,
       roundTripMs: null,
       notice: null,
     });
 
-    await repository.update(device.id, (kept) => deviceConnected(kept, "/dev/ttyACM0"));
+    await repository.update(device.id, (kept) =>
+      deviceConnected(kept, "/dev/ttyACM0", kept.name, "rfc2217://127.0.0.1:2217"),
+    );
     await repository.update(device.id, (kept) => deviceBaudRateSet(kept, 115_200));
     await repository.update(device.id, (kept) => deviceRoundTripMeasured(kept, 312));
-    await repository.update(device.id, (kept) => deviceNoticed(kept, "esptool-sync-no-answer"));
+    await repository.update(device.id, (kept) => deviceNoticed(kept, "port-busy"));
 
     expect(await repository.find(device.id)).toEqual({
       ...device,
       state: "connected",
       endpoint: "/dev/ttyACM0",
+      rfc2217Url: "rfc2217://127.0.0.1:2217",
       baudRate: 115_200,
       roundTripMs: 312,
-      notice: "esptool-sync-no-answer",
+      notice: "port-busy",
     });
   });
 });
