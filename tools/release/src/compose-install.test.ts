@@ -81,7 +81,7 @@ describe("the Compose install's docker-compose.yml", () => {
     assert.equal(serviceOf(install, "data-folder").image, office.image);
   });
 
-  it("runs The Office as the image's user, in the socket's group, on the host's network", () => {
+  it("runs The Office as the image's user, in the socket's group, on the host's network, where the test instance proxy binds its Proxy ports and reaches each instance's 127.0.0.1 port", () => {
     assert.equal(office.user, undefined);
     assert.equal(office.group_add?.length, 1);
     assert.match(office.group_add?.[0] ?? "", /^\$\{DOCKER_GID:\?[^}]*\}$/);
@@ -89,7 +89,7 @@ describe("the Compose install's docker-compose.yml", () => {
     assert.equal(office.ports, undefined);
   });
 
-  it("mounts the Docker socket, and the data folder at the same path it names in OFFICE_DATA_DIR", () => {
+  it("mounts the Docker socket, and the data folder at the same path it names in OFFICE_DATA_DIR, so worktrees and test instance checkouts bind-mount by their path", () => {
     assert.ok(office.volumes?.includes("/var/run/docker.sock:/var/run/docker.sock"));
     const dataMounts = (office.volumes ?? []).filter((volume) =>
       volume.includes("OFFICE_DATA_DIR"),

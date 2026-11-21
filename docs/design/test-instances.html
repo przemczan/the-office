@@ -1,0 +1,2969 @@
+<!doctype html>
+<html lang="en" data-palette="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hosted test instances · The Office design</title>
+    <style>
+      :root {
+        --ember-50: #fff2ed;
+        --ember-300: #ff9370;
+        --ember-500: #f23d0f;
+        --ember-600: #d4300a;
+        --ember-700: #9e2406;
+        --flare-300: #ffc266;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-850: #1f1f1d;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-700: #106a3b;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-500: #e5a00d;
+        --amber-700: #865b05;
+        --red-50: #fdeef0;
+        --red-100: #fad9dd;
+        --red-500: #c8102e;
+        --red-700: #8e0b20;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-raised: var(--white);
+        --surface-sunken: var(--gray-50);
+        --surface-hover: var(--gray-25);
+        --surface-selected: var(--ember-50);
+        --fg-1: var(--gray-950);
+        --fg-2: var(--gray-600);
+        --fg-3: var(--gray-500);
+        --fg-disabled: var(--gray-300);
+        --border: var(--gray-150);
+        --border-subtle: var(--gray-100);
+        --border-strong: var(--gray-200);
+        --accent: var(--ember-500);
+        --accent-hover: var(--ember-600);
+        --accent-subtle: var(--ember-50);
+        --accent-subtle-fg: var(--ember-700);
+        --control-hover: var(--gray-50);
+        --control-press: var(--gray-100);
+        --switch-off: var(--gray-200);
+        --success: var(--green-500);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --success-border: var(--green-100);
+        --warning: var(--amber-500);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --danger: var(--red-500);
+        --danger-subtle: var(--red-50);
+        --danger-fg: var(--red-700);
+        --danger-border: var(--red-100);
+        --info: var(--blue-500);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-600);
+        --neutral-border: var(--gray-150);
+        --backdrop: rgba(15, 15, 14, 0.36);
+        --focus-ring: 0 0 0 3px color-mix(in oklab, var(--ember-500) 30%, transparent);
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --text-2xs: 11px;
+        --text-xs: 12px;
+        --text-sm: 13px;
+        --text-md: 14px;
+        --text-lg: 16px;
+        --text-xl: 18px;
+        --text-body: var(--text-md);
+        --type-body: 400 var(--text-md) / 1.5 var(--font-sans);
+        --type-body-sm: 400 var(--text-sm) / 1.45 var(--font-sans);
+        --type-caption: 400 var(--text-xs) / 1.4 var(--font-sans);
+        --type-label: 500 var(--text-sm) / 1.3 var(--font-sans);
+        --type-card-title: 600 var(--text-md) / 1.4 var(--font-sans);
+        --type-section-title: 600 var(--text-lg) / 1.3 var(--font-sans);
+        --type-overline: 500 var(--text-2xs) / 1.2 var(--font-mono);
+        --type-mono: 400 var(--text-sm) / 1.5 var(--font-mono);
+        --type-mono-sm: 400 var(--text-xs) / 1.6 var(--font-mono);
+        --tracking-caps: 0.06em;
+
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-card: 10px;
+        --radius-full: 999px;
+        --radius-control: var(--radius-md);
+        --control-sm: 28px;
+        --control-md: 32px;
+
+        --shadow-1: 0 1px 2px rgba(16, 16, 15, 0.06);
+        --shadow-2: 0 4px 12px -2px rgba(16, 16, 15, 0.08), 0 1px 3px rgba(16, 16, 15, 0.05);
+        --shadow-3: 0 16px 40px -8px rgba(16, 16, 15, 0.18), 0 2px 6px rgba(16, 16, 15, 0.06);
+        --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --duration-fast: 120ms;
+        --duration-base: 180ms;
+      }
+      :root[data-palette="dark"] {
+        --bg: var(--gray-950);
+        --surface: var(--gray-900);
+        --surface-raised: var(--gray-850);
+        --surface-sunken: var(--gray-950);
+        --surface-hover: var(--gray-850);
+        --surface-selected: color-mix(in oklab, var(--ember-500) 12%, var(--gray-900));
+        --fg-1: var(--gray-50);
+        --fg-2: var(--gray-300);
+        --fg-3: var(--gray-400);
+        --fg-disabled: var(--gray-600);
+        --border: var(--gray-800);
+        --border-subtle: var(--gray-850);
+        --border-strong: var(--gray-700);
+        --accent-subtle: color-mix(in oklab, var(--ember-500) 16%, transparent);
+        --accent-subtle-fg: var(--ember-300);
+        --control-hover: var(--gray-850);
+        --control-press: var(--gray-800);
+        --switch-off: var(--gray-700);
+        --success-subtle: color-mix(in oklab, var(--green-500) 16%, transparent);
+        --success-fg: #6fd69b;
+        --success-border: color-mix(in oklab, var(--green-500) 30%, transparent);
+        --warning-subtle: color-mix(in oklab, var(--amber-500) 16%, transparent);
+        --warning-fg: var(--flare-300);
+        --warning-border: color-mix(in oklab, var(--amber-500) 30%, transparent);
+        --danger-subtle: color-mix(in oklab, var(--red-500) 20%, transparent);
+        --danger-fg: #ff8a97;
+        --danger-border: color-mix(in oklab, var(--red-500) 36%, transparent);
+        --info-subtle: color-mix(in oklab, var(--blue-500) 18%, transparent);
+        --info-fg: #93b5f5;
+        --info-border: color-mix(in oklab, var(--blue-500) 34%, transparent);
+        --neutral-subtle: var(--gray-850);
+        --neutral-fg: var(--gray-300);
+        --neutral-border: var(--gray-700);
+        --backdrop: rgba(0, 0, 0, 0.56);
+        --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+        --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+        --shadow-3: 0 16px 40px -8px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg-1);
+        font: var(--type-body);
+        -webkit-font-smoothing: antialiased;
+      }
+      code,
+      .mono {
+        font-family: var(--font-mono);
+        font-size: 0.93em;
+      }
+      button {
+        font: inherit;
+        color: inherit;
+      }
+      a {
+        color: var(--accent-subtle-fg);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+        text-decoration-color: color-mix(in oklab, currentColor 40%, transparent);
+      }
+      :focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+      [hidden] {
+        display: none !important;
+      }
+
+      /* ---------- The design's frame ---------- */
+      .doc {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 330px;
+        gap: 28px;
+        max-width: 1440px;
+        margin: 0 auto;
+        padding: 28px 28px 72px;
+      }
+      @media (max-width: 1180px) {
+        .doc {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      .doc-head {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+      }
+      .overline {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .doc-head h1 {
+        margin: 6px 0 4px;
+        font: 600 22px/1.25 var(--font-sans);
+        letter-spacing: -0.01em;
+      }
+      .doc-head p {
+        margin: 0;
+        max-width: 78ch;
+        color: var(--fg-2);
+        font: var(--type-body-sm);
+      }
+      .doc-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 16px;
+        align-items: center;
+      }
+      .doc-control {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .doc-control-label {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .views {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        padding-bottom: 2px;
+        border-bottom: 1px solid var(--border);
+      }
+      .views button {
+        position: relative;
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        height: 36px;
+        padding: 0 12px;
+        border: 0;
+        background: none;
+        color: var(--fg-2);
+        font: var(--type-label);
+        cursor: pointer;
+      }
+      .views button:hover {
+        color: var(--fg-1);
+      }
+      .views button[aria-selected="true"] {
+        color: var(--fg-1);
+      }
+      .views button[aria-selected="true"]::after {
+        content: "";
+        position: absolute;
+        right: 8px;
+        bottom: -3px;
+        left: 8px;
+        height: 2px;
+        border-radius: 2px;
+        background: var(--accent);
+      }
+      .stage {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-width: 0;
+      }
+      .stage-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 18px;
+        align-items: center;
+        padding: 10px 12px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-lg);
+        background: var(--surface-sunken);
+      }
+      .stage-bar .doc-control-label {
+        font-weight: 500;
+      }
+      .stage-caption {
+        margin: 0;
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+
+      /* ---------- packages/ui look-alikes ---------- */
+      .seg {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 2px;
+        min-height: var(--control-sm);
+        padding: 2px;
+        background: var(--surface-sunken);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-control);
+      }
+      .seg button {
+        display: inline-flex;
+        align-items: center;
+        min-height: 22px;
+        padding: 0 10px;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        color: var(--fg-2);
+        font: 500 12px/1 var(--font-sans);
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .seg button[aria-pressed="true"] {
+        background: var(--surface);
+        color: var(--fg-1);
+        box-shadow: var(--shadow-1), 0 0 0 1px var(--border);
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: var(--control-sm);
+        padding: 0 10px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-control);
+        font: 500 var(--text-sm) / 1 var(--font-sans);
+        white-space: nowrap;
+        text-decoration: none;
+        cursor: pointer;
+        transition:
+          background var(--duration-fast) var(--ease-out),
+          border-color var(--duration-fast) var(--ease-out),
+          color var(--duration-fast) var(--ease-out);
+      }
+      .btn svg {
+        flex: none;
+      }
+      .btn-md {
+        height: var(--control-md);
+        padding: 0 12px;
+      }
+      .btn-primary {
+        background: var(--accent);
+        color: var(--white);
+      }
+      .btn-primary:hover {
+        background: var(--accent-hover);
+      }
+      .btn-secondary {
+        background: var(--surface);
+        border-color: var(--border-strong);
+        color: var(--fg-1);
+        box-shadow: var(--shadow-1);
+      }
+      .btn-secondary:hover {
+        background: var(--control-hover);
+      }
+      .btn-ghost {
+        background: transparent;
+        color: var(--fg-2);
+      }
+      .btn-ghost:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .btn-danger {
+        background: var(--surface);
+        border-color: var(--danger-border);
+        color: var(--danger-fg);
+      }
+      .btn-danger:hover {
+        background: var(--danger-subtle);
+      }
+      .btn[aria-disabled="true"] {
+        border-color: var(--border);
+        background: var(--surface-sunken);
+        color: var(--fg-disabled);
+        box-shadow: none;
+        cursor: not-allowed;
+      }
+      .icon-btn {
+        display: inline-grid;
+        place-items: center;
+        width: var(--control-sm);
+        height: var(--control-sm);
+        border: 0;
+        border-radius: var(--radius-control);
+        background: transparent;
+        color: var(--fg-2);
+        cursor: pointer;
+      }
+      .icon-btn:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: 20px;
+        padding: 0 6px;
+        border: 1px solid var(--neutral-border);
+        border-radius: var(--radius-sm);
+        background: var(--neutral-subtle);
+        color: var(--neutral-fg);
+        font: 500 var(--text-2xs) / 1 var(--font-sans);
+        white-space: nowrap;
+      }
+      .badge-info {
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+      }
+      .badge-success {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+      .badge-warning {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .badge-danger {
+        border-color: var(--danger-border);
+        background: var(--danger-subtle);
+        color: var(--danger-fg);
+      }
+      .badge-quiet {
+        border-color: transparent;
+        background: transparent;
+        padding: 0;
+        color: var(--fg-3);
+      }
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .dot-live {
+        animation: pulse 1.6s var(--ease-out) infinite;
+      }
+      .spinner {
+        flex: none;
+        width: 10px;
+        height: 10px;
+        border: 1.5px solid color-mix(in oklab, currentColor 30%, transparent);
+        border-top-color: currentColor;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @keyframes pulse {
+        50% {
+          opacity: 0.35;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .spinner,
+        .dot-live {
+          animation: none;
+        }
+      }
+
+      .switch {
+        position: relative;
+        flex: none;
+        width: 30px;
+        height: 18px;
+        border: 0;
+        border-radius: var(--radius-full);
+        background: var(--switch-off);
+        cursor: pointer;
+        transition: background var(--duration-fast) var(--ease-out);
+      }
+      .switch::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--white);
+        box-shadow: var(--shadow-1);
+        transition: left var(--duration-base) var(--ease-out);
+      }
+      .switch[aria-checked="true"] {
+        background: var(--accent);
+      }
+      .switch[aria-checked="true"]::after {
+        left: 14px;
+      }
+
+      .alert {
+        display: flex;
+        gap: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--info-border);
+        border-radius: var(--radius-md);
+        background: var(--info-subtle);
+        color: var(--fg-2);
+        font: var(--type-body-sm);
+      }
+      .alert > svg {
+        flex: none;
+        margin-top: 2px;
+        color: var(--info-fg);
+      }
+      .alert b {
+        display: block;
+        color: var(--fg-1);
+        font-weight: 600;
+      }
+      .alert-warning {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+      }
+      .alert-warning > svg {
+        color: var(--warning-fg);
+      }
+      .alert-danger {
+        border-color: var(--danger-border);
+        background: var(--danger-subtle);
+      }
+      .alert-danger > svg {
+        color: var(--danger-fg);
+      }
+      .alert-danger b {
+        color: var(--danger-fg);
+      }
+
+      .input {
+        width: 92px;
+        height: var(--control-sm);
+        padding: 0 8px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-control);
+        background: var(--surface);
+        color: var(--fg-1);
+        font: 400 var(--text-sm) / 1 var(--font-mono);
+        font-variant-numeric: tabular-nums;
+      }
+      .input:focus-visible {
+        border-color: var(--accent);
+      }
+      .input[aria-invalid="true"] {
+        border-color: var(--danger);
+      }
+
+      .stepper {
+        display: inline-flex;
+        align-items: center;
+        height: var(--control-sm);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-control);
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+      }
+      .stepper button {
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 100%;
+        border: 0;
+        background: none;
+        color: var(--fg-2);
+        cursor: pointer;
+      }
+      .stepper button:hover:not([aria-disabled="true"]) {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .stepper button[aria-disabled="true"] {
+        color: var(--fg-disabled);
+        cursor: not-allowed;
+      }
+      .stepper output {
+        min-width: 64px;
+        padding: 0 6px;
+        border-inline: 1px solid var(--border);
+        text-align: center;
+        font: 500 var(--text-sm) / 26px var(--font-sans);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .project-mark {
+        display: inline-grid;
+        place-items: center;
+        flex: none;
+        width: 18px;
+        height: 18px;
+        border-radius: var(--radius-sm);
+        color: var(--white);
+        font: 700 10px/1 var(--font-sans);
+      }
+      .chip {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        height: 22px;
+        padding: 0 8px 0 3px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-full);
+        background: var(--surface);
+        color: var(--fg-2);
+        font: 500 var(--text-xs) / 1 var(--font-sans);
+      }
+      .chip .project-mark {
+        width: 16px;
+        height: 16px;
+        border-radius: var(--radius-full);
+        font-size: 9px;
+      }
+
+      /* ---------- The Initiative page, around the block ---------- */
+      .page {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 16px 18px 22px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--bg);
+        box-shadow: var(--shadow-1);
+      }
+      .page-tabs {
+        display: flex;
+        gap: 18px;
+        border-bottom: 1px solid var(--border);
+        color: var(--fg-3);
+        font: var(--type-label);
+      }
+      .page-tabs span {
+        padding-bottom: 8px;
+      }
+      .page-tabs .on {
+        color: var(--fg-1);
+        box-shadow: inset 0 -2px 0 var(--accent);
+      }
+      .page-head {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 12px;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .page-head-words {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 10px;
+        align-items: center;
+        min-width: 0;
+      }
+      .page-head h2 {
+        margin: 0;
+        font: 600 20px/1.25 var(--font-sans);
+        letter-spacing: -0.01em;
+      }
+      .page-head-meta {
+        color: var(--fg-3);
+        font: var(--type-body-sm);
+      }
+      .page-columns {
+        display: grid;
+        grid-template-columns: minmax(0, 1.5fr) minmax(220px, 1fr);
+        gap: 16px;
+        align-items: start;
+      }
+      @media (max-width: 900px) {
+        .page-columns {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .conversation-ghost {
+          display: none;
+        }
+      }
+      .record-column {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-width: 0;
+      }
+      .conversation-ghost {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-height: 420px;
+        padding: 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+        opacity: 0.6;
+      }
+      .ghost-line {
+        height: 10px;
+        border-radius: var(--radius-sm);
+        background: var(--border-subtle);
+      }
+      .ghost-tabs {
+        display: flex;
+        gap: 8px;
+      }
+      .ghost-tabs span {
+        width: 64px;
+        height: 22px;
+        border-radius: var(--radius-full);
+        background: var(--border-subtle);
+      }
+
+      /* ---------- RecordFold, as work.css draws it ---------- */
+      .record-fold {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .record-fold-row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        padding-right: 14px;
+        border-radius: var(--radius-card) var(--radius-card) 0 0;
+      }
+      .record-fold-row:hover {
+        background: var(--surface-hover);
+      }
+      .record-fold-head {
+        display: flex;
+        flex: 1;
+        gap: 8px;
+        align-items: center;
+        min-width: 0;
+        padding: 12px 0 12px 16px;
+        border: 0;
+        background: none;
+        text-align: left;
+        cursor: pointer;
+      }
+      .fold-chevron {
+        flex: none;
+        color: var(--fg-3);
+        transition: transform var(--duration-fast) var(--ease-out);
+      }
+      [aria-expanded="true"] > .fold-chevron {
+        transform: rotate(90deg);
+      }
+      .fold-title {
+        display: inline-flex;
+        flex: none;
+        gap: 8px;
+        align-items: center;
+        margin-right: 4px;
+        font: var(--type-card-title);
+      }
+      .record-fold-summary {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        color: var(--fg-2);
+        font: 400 var(--text-body) / 1.45 var(--font-sans);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .record-fold-body {
+        padding: 2px 16px 16px;
+      }
+      .is-folded {
+        opacity: 0.62;
+      }
+
+      /* ---------- New: the Test instances block ---------- */
+      .instances {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .instances-intro {
+        margin: 0;
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .project-group {
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+      }
+      .project-group-head {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 10px;
+        align-items: center;
+        padding: 9px 12px;
+        border-bottom: 1px solid var(--border-subtle);
+        background: var(--surface-sunken);
+      }
+      .project-group-name {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        font: 600 var(--text-sm) / 1.3 var(--font-sans);
+      }
+      .branch {
+        display: inline-flex;
+        gap: 5px;
+        align-items: center;
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .branch code {
+        color: var(--fg-2);
+      }
+      .group-note {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border-subtle);
+        background: var(--warning-subtle);
+        color: var(--fg-2);
+        font: var(--type-body-sm);
+      }
+      .group-note svg {
+        flex: none;
+        margin-top: 2px;
+        color: var(--warning-fg);
+      }
+      .group-empty {
+        margin: 0;
+        padding: 12px;
+        color: var(--fg-2);
+        font: var(--type-body-sm);
+      }
+      .target-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px 14px;
+        align-items: center;
+        padding: 12px;
+      }
+      .target-row + .target-row,
+      .earlier + .target-row {
+        border-top: 1px solid var(--border-subtle);
+      }
+      @container record (max-width: 520px) {
+        .target-row {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      .record-column {
+        container: record / inline-size;
+      }
+      .target-main {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
+      }
+      .target-line {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 8px;
+        align-items: center;
+      }
+      .target-name {
+        font: 600 var(--text-sm) / 1.3 var(--font-sans);
+      }
+      .target-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 10px;
+        align-items: center;
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .target-meta .sep {
+        color: var(--fg-disabled);
+      }
+      .address {
+        display: inline-flex;
+        gap: 5px;
+        align-items: center;
+        color: var(--fg-1);
+        font: 500 var(--text-xs) / 1 var(--font-mono);
+        font-variant-numeric: tabular-nums;
+      }
+      .commit {
+        color: var(--fg-2);
+        font: 400 var(--text-xs) / 1 var(--font-mono);
+      }
+      .newer {
+        display: inline-flex;
+        gap: 4px;
+        align-items: center;
+        color: var(--warning-fg);
+        font-weight: 500;
+      }
+      .reason {
+        margin: 0;
+        color: var(--danger-fg);
+        font: var(--type-body-sm);
+      }
+      .target-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: flex-end;
+      }
+      .earlier {
+        border-top: 1px dashed var(--border-subtle);
+      }
+      .earlier-toggle {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        margin: 0;
+        padding: 7px 12px;
+        border: 0;
+        background: none;
+        color: var(--fg-3);
+        font: 500 var(--text-xs) / 1 var(--font-sans);
+        cursor: pointer;
+      }
+      .earlier-toggle:hover {
+        color: var(--fg-1);
+      }
+      .earlier-list {
+        margin: 0 12px 10px 30px;
+        padding: 0;
+        list-style: none;
+        border-left: 2px solid var(--border-subtle);
+      }
+      .earlier-list li {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 10px;
+        align-items: center;
+        padding: 5px 0 5px 12px;
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .earlier-list li .btn {
+        height: 22px;
+        margin-left: auto;
+        padding: 0 8px;
+        font-size: var(--text-xs);
+      }
+      .block-foot {
+        margin: 0;
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+
+      /* ---------- Window (Dialog) ---------- */
+      .overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        display: flex;
+        justify-content: center;
+        padding-top: max(24px, 7vh);
+        background: var(--backdrop);
+      }
+      .dialog {
+        display: flex;
+        flex-direction: column;
+        width: min(1180px, 94vw);
+        height: min(86vh, 900px);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface-raised);
+        box-shadow: var(--shadow-3);
+        overflow: hidden;
+      }
+      .dialog-inline {
+        width: 100%;
+        height: 620px;
+      }
+      .dialog-head {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        padding: 12px 12px 12px 18px;
+        border-bottom: 1px solid var(--border);
+      }
+      .dialog-head h3 {
+        display: flex;
+        flex: 1;
+        gap: 10px;
+        align-items: center;
+        min-width: 0;
+        margin: 0;
+        font: var(--type-section-title);
+      }
+      .dialog-sub {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 14px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 9px 18px;
+        border-bottom: 1px solid var(--border-subtle);
+        background: var(--surface-sunken);
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .dialog-sub-facts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
+        align-items: center;
+      }
+      .dialog-sub-tools {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+      .live {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        color: var(--info-fg);
+        font-weight: 500;
+      }
+      .follow {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        color: var(--fg-2);
+      }
+      .dialog-body {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        background: var(--surface-sunken);
+      }
+      .dialog-bar {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding: 10px 14px;
+        border-top: 1px solid var(--border);
+      }
+      .dialog-bar .spacer {
+        flex: 1;
+      }
+
+      .log {
+        margin: 0;
+        padding: 10px 0 18px;
+        font: var(--type-mono-sm);
+        color: var(--fg-1);
+      }
+      .log-line {
+        display: grid;
+        grid-template-columns: 76px minmax(0, 1fr);
+        gap: 12px;
+        padding: 0 18px;
+      }
+      .log-line:hover {
+        background: var(--surface-hover);
+      }
+      .log-time {
+        color: var(--fg-3);
+        font-variant-numeric: tabular-nums;
+        user-select: none;
+      }
+      .log-text {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .log-phase {
+        margin-top: 10px;
+      }
+      .log-phase .log-text {
+        color: var(--fg-1);
+        font-weight: 600;
+      }
+      .log-phase .log-text::before {
+        content: "▸ ";
+        color: var(--accent);
+      }
+      .log-office .log-text {
+        color: var(--fg-2);
+      }
+      .log-end .log-text {
+        color: var(--success-fg);
+        font-weight: 600;
+      }
+      .log-fail .log-text {
+        color: var(--danger-fg);
+        font-weight: 600;
+      }
+      .log-stopped .log-text {
+        color: var(--fg-2);
+        font-weight: 600;
+      }
+      .masked {
+        padding: 0 4px;
+        border: 1px solid var(--warning-border);
+        border-radius: var(--radius-sm);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+
+      /* ---------- Settings ---------- */
+      .settings {
+        display: grid;
+        grid-template-columns: 200px minmax(0, 1fr);
+        gap: 20px;
+        padding: 18px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--bg);
+        box-shadow: var(--shadow-1);
+      }
+      @media (max-width: 760px) {
+        .settings {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .settings-menu {
+          display: none;
+        }
+      }
+      .settings-menu {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        color: var(--fg-2);
+        font: var(--type-label);
+      }
+      .settings-menu li {
+        padding: 7px 10px;
+        border-radius: var(--radius-md);
+      }
+      .settings-menu .on {
+        background: var(--surface-selected);
+        color: var(--accent-subtle-fg);
+      }
+      .settings-main {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-width: 0;
+      }
+      .settings-main h2 {
+        margin: 0;
+        font: var(--type-section-title);
+      }
+      .card {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+      }
+      .card-head {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding: 14px 16px 4px;
+        font: var(--type-card-title);
+      }
+      .card-head svg {
+        color: var(--fg-3);
+      }
+      .card-body {
+        padding: 6px 16px 16px;
+      }
+      .card.ghost {
+        opacity: 0.55;
+      }
+      .card.ghost .card-body {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .card.is-new {
+        box-shadow:
+          var(--shadow-1),
+          0 0 0 2px color-mix(in oklab, var(--accent) 35%, transparent);
+      }
+      .limit-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 6px 24px;
+        align-items: center;
+        padding: 12px 0;
+        border-top: 1px solid var(--border-subtle);
+      }
+      .limit-row:first-child {
+        border-top: 0;
+      }
+      .limit-row b {
+        font: var(--type-label);
+        font-weight: 600;
+      }
+      .settings-note {
+        margin: 2px 0 0;
+        color: var(--fg-3);
+        font: var(--type-body-sm);
+        max-width: 64ch;
+      }
+      .ports {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        justify-content: flex-end;
+      }
+      .ports label {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .ports-count {
+        min-width: 58px;
+        color: var(--fg-3);
+        font: var(--type-caption);
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .card-foot-note {
+        margin: 4px 0 0;
+        padding-top: 12px;
+        border-top: 1px solid var(--border-subtle);
+        color: var(--fg-3);
+        font: var(--type-body-sm);
+      }
+      .card-problem {
+        margin-top: 12px;
+      }
+
+      /* ---------- The shell, for the banner ---------- */
+      .shell {
+        display: grid;
+        grid-template-columns: 52px minmax(0, 1fr);
+        grid-template-rows: auto 48px 40px minmax(0, 1fr);
+        height: 440px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--bg);
+        box-shadow: var(--shadow-1);
+        overflow: hidden;
+      }
+      .test-banner {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 12px;
+        align-items: center;
+        min-height: 34px;
+        padding: 6px 14px;
+        border-bottom: 1px solid var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--fg-1);
+        font: var(--type-body-sm);
+      }
+      .test-banner-mark {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        height: 22px;
+        padding: 0 8px;
+        border-radius: var(--radius-sm);
+        background: var(--warning);
+        color: var(--gray-950);
+        font: 600 var(--text-xs) / 1 var(--font-sans);
+        white-space: nowrap;
+      }
+      .test-banner-words {
+        flex: 1;
+        min-width: 220px;
+        color: var(--fg-2);
+      }
+      .test-banner code {
+        color: var(--warning-fg);
+        font-size: var(--text-xs);
+      }
+      .rail {
+        grid-row: 2 / -1;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        align-items: center;
+        padding: 10px 0;
+        border-right: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--fg-3);
+      }
+      .rail-mark {
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 28px;
+        margin-bottom: 6px;
+        border-radius: var(--radius-md);
+        background: var(--accent);
+        color: var(--white);
+        font: 700 12px/1 var(--font-sans);
+      }
+      .rail span {
+        display: grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-md);
+      }
+      .rail .on {
+        background: var(--surface-selected);
+        color: var(--accent-subtle-fg);
+      }
+      .topbar {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 14px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .topbar h1 {
+        margin: 0;
+        font: 600 var(--text-lg) / 1 var(--font-sans);
+      }
+      .topbar-tools {
+        display: flex;
+        gap: 8px;
+      }
+      .topbar-tools span {
+        width: 72px;
+        height: 26px;
+        border-radius: var(--radius-md);
+        background: var(--border-subtle);
+      }
+      .strip {
+        display: flex;
+        gap: 22px;
+        align-items: center;
+        padding: 0 14px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .strip span {
+        width: 86px;
+        height: 18px;
+        border-radius: var(--radius-sm);
+        background: var(--border-subtle);
+      }
+      .shell-page {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        padding: 14px;
+        align-content: start;
+      }
+      .shell-page .ghost-card {
+        height: 120px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .toast-inline {
+        position: absolute;
+        right: 14px;
+        bottom: 14px;
+        width: min(380px, calc(100% - 28px));
+      }
+
+      .sign-in {
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr);
+        height: 340px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--bg);
+        box-shadow: var(--shadow-1);
+        overflow: hidden;
+      }
+      .sign-in-card {
+        align-self: center;
+        justify-self: center;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        width: 300px;
+        padding: 20px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .sign-in-card .ghost-line:nth-child(2) {
+        width: 60%;
+      }
+      .sign-in-card .ghost-field {
+        height: 30px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+      }
+      .two-up {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 14px;
+      }
+      @media (max-width: 900px) {
+        .two-up {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      .frame-label {
+        margin: 0 0 6px;
+        color: var(--fg-3);
+        font: var(--type-caption);
+        font-weight: 500;
+      }
+
+      /* ---------- Browser frame, for the proxy's pages ---------- */
+      .browser {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+        box-shadow: var(--shadow-2);
+        overflow: hidden;
+      }
+      .browser-bar {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-sunken);
+      }
+      .browser-dots {
+        display: flex;
+        gap: 5px;
+      }
+      .browser-dots span {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--border-strong);
+      }
+      .browser-address {
+        display: flex;
+        flex: 1;
+        gap: 6px;
+        align-items: center;
+        min-width: 0;
+        height: 26px;
+        padding: 0 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-full);
+        background: var(--surface);
+        color: var(--fg-2);
+        font: 400 var(--text-xs) / 1 var(--font-mono);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .browser-address b {
+        color: var(--fg-1);
+        font-weight: 500;
+      }
+      .browser-status {
+        color: var(--fg-3);
+        font: var(--type-caption);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .proxy-page {
+        display: grid;
+        place-items: center;
+        min-height: 380px;
+        padding: 32px 16px;
+        background: var(--bg);
+      }
+      .proxy-card {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: min(440px, 100%);
+        padding: 24px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+      }
+      .proxy-brand {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        color: var(--fg-3);
+        font: var(--type-caption);
+        font-weight: 500;
+      }
+      .proxy-brand .rail-mark {
+        width: 22px;
+        height: 22px;
+        margin: 0;
+        font-size: 10px;
+      }
+      .proxy-icon {
+        display: grid;
+        place-items: center;
+        width: 36px;
+        height: 36px;
+        border-radius: var(--radius-lg);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .proxy-card h3 {
+        margin: 0;
+        font: 600 var(--text-xl) / 1.3 var(--font-sans);
+        letter-spacing: -0.01em;
+      }
+      .proxy-card p {
+        margin: 0;
+        color: var(--fg-2);
+        font: var(--type-body-sm);
+      }
+      .proxy-card .actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 4px;
+      }
+      .proxy-foot {
+        padding-top: 10px;
+        border-top: 1px solid var(--border-subtle);
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+      @media (max-width: 900px) {
+        .steps {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      .step {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .step-number {
+        display: inline-grid;
+        place-items: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--accent-subtle);
+        color: var(--accent-subtle-fg);
+        font: 600 var(--text-2xs) / 1 var(--font-sans);
+      }
+      .step b {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        color: var(--fg-1);
+        font: var(--type-label);
+        font-weight: 600;
+      }
+      .step code {
+        overflow-wrap: anywhere;
+        font-size: var(--text-xs);
+      }
+      .app-ghost {
+        display: grid;
+        grid-template-rows: auto auto minmax(0, 1fr);
+        min-height: 300px;
+      }
+
+      /* ---------- Notes ---------- */
+      .notes {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-width: 0;
+      }
+      .note-card {
+        padding: 14px 16px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .note-card h2 {
+        margin: 0 0 8px;
+        font: var(--type-card-title);
+      }
+      .note-card ul {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        margin: 0;
+        padding-left: 16px;
+        color: var(--fg-2);
+        font: var(--type-body-sm);
+      }
+      .note-card li::marker {
+        color: var(--fg-3);
+      }
+      .note-card.proposed {
+        border-color: var(--accent-subtle);
+        background: color-mix(in oklab, var(--accent-subtle) 50%, var(--surface));
+      }
+      .dod {
+        display: inline-grid;
+        place-items: center;
+        min-width: 20px;
+        height: 18px;
+        margin-right: 4px;
+        padding: 0 4px;
+        border-radius: var(--radius-sm);
+        background: var(--neutral-subtle);
+        border: 1px solid var(--neutral-border);
+        color: var(--fg-2);
+        font: 600 var(--text-2xs) / 1 var(--font-sans);
+      }
+
+      /* ---------- Toasts ---------- */
+      .toasts {
+        position: fixed;
+        right: 20px;
+        bottom: 20px;
+        z-index: 60;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: min(400px, calc(100vw - 40px));
+      }
+      .toast {
+        display: flex;
+        gap: 10px;
+        padding: 12px 12px 12px 14px;
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--fg-3);
+        border-radius: var(--radius-lg);
+        background: var(--surface-raised);
+        box-shadow: var(--shadow-3);
+        color: var(--fg-2);
+        font: var(--type-body-sm);
+        animation: toast-in var(--duration-base) var(--ease-out);
+      }
+      .toast > svg {
+        flex: none;
+        margin-top: 2px;
+      }
+      .toast-words {
+        flex: 1;
+        min-width: 0;
+      }
+      .toast b {
+        display: block;
+        margin-bottom: 2px;
+        color: var(--fg-1);
+        font-weight: 600;
+      }
+      .toast-success {
+        border-left-color: var(--success);
+      }
+      .toast-success > svg {
+        color: var(--success-fg);
+      }
+      .toast-warning {
+        border-left-color: var(--warning);
+      }
+      .toast-warning > svg {
+        color: var(--warning-fg);
+      }
+      .toast-info {
+        border-left-color: var(--info);
+      }
+      .toast-info > svg {
+        color: var(--info-fg);
+      }
+      .toast-danger {
+        border-left-color: var(--danger);
+      }
+      .toast-danger > svg {
+        color: var(--danger-fg);
+      }
+      @keyframes toast-in {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .toast {
+          animation: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="doc">
+      <header class="doc-head">
+        <div>
+          <div class="overline">Design · Initiative Test environment · the-office</div>
+          <h1>Hosted test instances</h1>
+          <p>
+            Launch an Initiative&rsquo;s branch as a Hosted test instance, follow its log, open it
+            through The Office&rsquo;s proxy and stop it. Also: the Test instances card in Settings
+            › Office limits, the Test instance banner, and the pages the proxy itself answers with.
+            Built on <a href="#">docs/spec/2.12-test-instances.md</a> and the Initiative page&rsquo;s
+            screen page; where they differ, the screen page wins.
+          </p>
+        </div>
+        <div class="doc-controls">
+          <div class="doc-control">
+            <span class="doc-control-label">Palette</span>
+            <div class="seg" id="palette-control"></div>
+          </div>
+        </div>
+      </header>
+
+      <nav class="views" id="views" role="tablist" aria-label="What to look at"></nav>
+
+      <section class="stage" id="stage" aria-live="polite"></section>
+
+      <aside class="notes" id="notes" aria-label="Notes"></aside>
+    </main>
+
+    <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+    <div id="overlay-root"></div>
+
+    <script>
+      /* ---------- Icons (Lucide, as packages/ui draws them) ---------- */
+      const ICONS = {
+        flask: `<path d="M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2"/><path d="M6.453 15h11.094"/><path d="M8.5 2h7"/>`,
+        play: `<polygon points="6 3 20 12 6 21 6 3"/>`,
+        stop: `<rect x="5" y="5" width="14" height="14" rx="2"/>`,
+        open: `<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>`,
+        log: `<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>`,
+        globe: `<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>`,
+        x: `<path d="M18 6 6 18"/><path d="m6 6 12 12"/>`,
+        info: `<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>`,
+        again: `<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>`,
+        branch: `<line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>`,
+        lock: `<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>`,
+        clock: `<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>`,
+        power: `<path d="M18.36 6.64A9 9 0 0 1 20.77 15"/><path d="M6.16 6.16a9 9 0 1 0 12.68 12.68"/><path d="M12 2v4"/><path d="m2 2 20 20"/>`,
+        alert: `<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>`,
+        alertCircle: `<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>`,
+        check: `<path d="M20 6 9 17l-5-5"/>`,
+        chevronRight: `<path d="m9 18 6-6-6-6"/>`,
+        minus: `<path d="M5 12h14"/>`,
+        plus: `<path d="M5 12h14"/><path d="M12 5v14"/>`,
+        route: `<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>`,
+        target: `<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>`,
+        paperclip: `<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>`,
+        fork: `<circle cx="12" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><path d="M18 9v2c0 .6-.4 1-1 1H7c-.6 0-1-.4-1-1V9"/><path d="M12 12v3"/>`,
+        zap: `<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>`,
+        kanban: `<path d="M6 5v11"/><path d="M12 5v6"/><path d="M18 5v14"/>`,
+        users: `<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>`,
+        folder: `<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>`,
+        chart: `<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>`,
+        cpu: `<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2"/>`,
+        armchair: `<path d="M19 9V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v3"/><path d="M3 16a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v1.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V11a2 2 0 0 0-4 0z"/><path d="M5 18v2"/><path d="M19 18v2"/>`,
+        sliders: `<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>`,
+      };
+      function icon(name, size = 14, stroke = 1.75) {
+        return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
+      }
+      function escapeHtml(text) {
+        return String(text).replace(
+          /[&<>"']/g,
+          (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char],
+        );
+      }
+
+      /* ---------- The mock's data ---------- */
+      const INITIATIVE = "Test environment";
+      const BRANCH = "initiative/test-environment";
+      const HOST = "localhost";
+      const PROJECTS = [
+        {
+          key: "the-office",
+          name: "the-office",
+          mark: "O",
+          color: "#f23d0f",
+          headCommit: "4c5d6e7",
+          targets: [
+            { key: "office", name: "The Office", entry: "npm run start:test-instance" },
+            { key: "storybook", name: "Storybook", entry: "npm run storybook" },
+          ],
+        },
+        {
+          key: "not-astray",
+          name: "not-astray",
+          mark: "N",
+          color: "#1e9e57",
+          headCommit: "b81e0a2",
+          targets: [
+            { key: "web", name: "Web app", entry: ".devcontainer/ service web" },
+            { key: "admin", name: "Admin console", entry: "npm run admin" },
+          ],
+        },
+      ];
+      const SCENARIOS = [
+        { key: "live", label: "Running and building" },
+        { key: "none", label: "None launched yet" },
+        { key: "setup", label: "Needs setting up" },
+        { key: "taskByTask", label: "Publishes Task by Task" },
+        { key: "done", label: "Initiative done" },
+      ];
+      const VIEWS = [
+        { key: "initiative", label: "Initiative page", icon: "flask" },
+        { key: "log", label: "Log window", icon: "log" },
+        { key: "settings", label: "Settings › Office limits", icon: "sliders" },
+        { key: "banner", label: "Test instance banner", icon: "alert" },
+        { key: "proxy", label: "Opening and the proxy", icon: "lock" },
+      ];
+
+      const state = {
+        palette: "light",
+        view: "initiative",
+        scenario: "live",
+        foldOpen: true,
+        earlierOpen: {},
+        instances: [],
+        nextId: 20,
+        log: null,
+        logState: "building",
+        follow: true,
+        limits: { atOnce: 2, idle: 30, first: 4400, last: 4419 },
+        portDraft: { first: "4400", last: "4419" },
+        settingsProblem: null,
+        proxyPage: "handOff",
+        timers: [],
+      };
+
+      function seedInstances(scenario) {
+        const at = (projectKey, targetKey) => ({ project: projectKey, target: targetKey });
+        if (scenario === "live") {
+          return [
+            {
+              id: 1,
+              ...at("the-office", "office"),
+              state: "running",
+              commit: "a1b2c3d",
+              time: "14:02",
+              port: 4400,
+              newer: 2,
+            },
+            {
+              id: 2,
+              ...at("the-office", "storybook"),
+              state: "building",
+              commit: "4c5d6e7",
+              time: "14:31",
+              port: 4401,
+            },
+            {
+              id: 3,
+              ...at("not-astray", "web"),
+              state: "stopped",
+              commit: "9a01c33",
+              time: "Yesterday 11:05",
+              ended: "by you",
+            },
+            {
+              id: 4,
+              ...at("not-astray", "web"),
+              state: "stopped",
+              commit: "6f70e12",
+              time: "Yesterday 17:20",
+              ended: "after 30 min with no request",
+            },
+            {
+              id: 5,
+              ...at("not-astray", "web"),
+              state: "failed",
+              commit: "b81e0a2",
+              time: "13:48",
+              reason: "The app didn’t answer on port 3000 within 2 minutes.",
+            },
+          ];
+        }
+        if (scenario === "done") {
+          return [
+            {
+              id: 1,
+              ...at("the-office", "office"),
+              state: "stopped",
+              commit: "4c5d6e7",
+              time: "16:10",
+              ended: "when the Initiative was done",
+            },
+            {
+              id: 2,
+              ...at("not-astray", "web"),
+              state: "failed",
+              commit: "b81e0a2",
+              time: "13:48",
+              reason: "The app didn’t answer on port 3000 within 2 minutes.",
+            },
+          ];
+        }
+        return [];
+      }
+
+      function projectOf(key) {
+        return PROJECTS.find((project) => project.key === key);
+      }
+      function targetOf(instance) {
+        return projectOf(instance.project).targets.find((target) => target.key === instance.target);
+      }
+      function instancesOf(projectKey, targetKey) {
+        return state.instances
+          .filter((instance) => instance.project === projectKey && instance.target === targetKey)
+          .sort((a, b) => b.id - a.id);
+      }
+      function activeInstances() {
+        return state.instances.filter(
+          (instance) => instance.state === "building" || instance.state === "running",
+        );
+      }
+      function lowestFreePort() {
+        const taken = new Set(activeInstances().map((instance) => instance.port));
+        for (let port = state.limits.first; port <= state.limits.last; port += 1) {
+          if (!taken.has(port)) return port;
+        }
+        return null;
+      }
+      function scenarioIs(key) {
+        return state.scenario === key;
+      }
+      function projectSetup(projectKey) {
+        if (!scenarioIs("setup")) return { runEnvironment: true, targets: true };
+        if (projectKey === "the-office") return { runEnvironment: true, targets: false };
+        return { runEnvironment: false, targets: true };
+      }
+
+      /* ---------- Toasts ---------- */
+      function toast(tone, title, words) {
+        const iconName = { success: "check", warning: "alert", info: "info", danger: "alertCircle" }[
+          tone
+        ];
+        const element = document.createElement("div");
+        element.className = `toast toast-${tone}`;
+        element.innerHTML = `${icon(iconName, 16)}<div class="toast-words"><b>${escapeHtml(title)}</b>${
+          words ? escapeHtml(words) : ""
+        }</div><button class="icon-btn" type="button" aria-label="Close">${icon("x", 14)}</button>`;
+        element.querySelector("button").addEventListener("click", () => element.remove());
+        document.getElementById("toasts").append(element);
+        setTimeout(() => element.remove(), 7000);
+      }
+
+      /* ---------- Actions ---------- */
+      function refuseOverTheLimit(targetName, active) {
+        const names = active.map((instance) => `${targetOf(instance).name} in ${INITIATIVE}`).join(", ");
+        toast(
+          "warning",
+          `${targetName} can’t launch`,
+          `${active.length} test instances are building or running, at most ${state.limits.atOnce} at once: ${names}. Stop one, or raise Test instances at once in Settings › Office limits.`,
+        );
+      }
+      function launch(projectKey, targetKey) {
+        const target = projectOf(projectKey).targets.find((each) => each.key === targetKey);
+        const active = activeInstances();
+        if (active.length >= state.limits.atOnce) {
+          refuseOverTheLimit(target.name, active);
+          return;
+        }
+        const port = lowestFreePort();
+        if (port === null) {
+          toast(
+            "warning",
+            `${target.name} can’t launch`,
+            `Every Proxy port (${state.limits.first}–${state.limits.last}) is taken. Stop an instance, or widen Proxy ports in Settings › Office limits.`,
+          );
+          return;
+        }
+        const id = state.nextId++;
+        state.instances.push({
+          id,
+          project: projectKey,
+          target: targetKey,
+          state: "building",
+          commit: projectOf(projectKey).headCommit,
+          time: "14:36",
+          port,
+        });
+        state.foldOpen = true;
+        render();
+        const timer = setTimeout(() => {
+          const instance = state.instances.find((each) => each.id === id);
+          if (instance && instance.state === "building") {
+            instance.state = "running";
+            render();
+          }
+        }, 3200);
+        state.timers.push(timer);
+      }
+      function stop(id) {
+        const instance = state.instances.find((each) => each.id === id);
+        if (!instance) return;
+        instance.state = "stopped";
+        instance.ended = "by you";
+        instance.time = "14:37";
+        instance.port = undefined;
+        instance.newer = 0;
+        toast("success", `${targetOf(instance).name} stopped.`, "");
+        render();
+      }
+      function openInstance(id) {
+        const instance = state.instances.find((each) => each.id === id);
+        toast(
+          "info",
+          `In the app: a new tab opens ${HOST}:${instance.port}`,
+          "signed in to this instance alone by a single-use hand-off link. This toast is the mock’s, not the app’s.",
+        );
+      }
+      function openLog(id) {
+        state.log = id;
+        renderOverlay();
+      }
+
+      /* ---------- Rendering helpers ---------- */
+      function segHtml(options, value, action) {
+        return options
+          .map(
+            (option) =>
+              `<button type="button" data-action="${action}" data-value="${option.key}" aria-pressed="${
+                option.key === value
+              }">${escapeHtml(option.label)}</button>`,
+          )
+          .join("");
+      }
+      function markHtml(project) {
+        return `<span class="project-mark" style="background:${project.color}">${project.mark}</span>`;
+      }
+      function stateBadge(instance) {
+        switch (instance.state) {
+          case "building":
+            return `<span class="badge badge-info"><span class="spinner" aria-hidden="true"></span>Building</span>`;
+          case "running":
+            return `<span class="badge badge-success"><span class="dot"></span>Running</span>`;
+          case "failed":
+            return `<span class="badge badge-danger">Failed</span>`;
+          default:
+            return `<span class="badge">Stopped</span>`;
+        }
+      }
+      const SEP = `<span class="sep" aria-hidden="true">·</span>`;
+      function button(kind, iconName, label, action, id, extra = "") {
+        return `<button type="button" class="btn btn-${kind}" data-action="${action}" data-id="${id}" ${extra}>${icon(
+          iconName,
+          14,
+        )}${escapeHtml(label)}</button>`;
+      }
+
+      /* ---------- View: the Initiative page ---------- */
+      function summaryLine() {
+        if (scenarioIs("taskByTask")) return "None: publishes Task by Task";
+        const counts = { running: 0, building: 0 };
+        state.instances.forEach((instance) => {
+          if (instance.state in counts) counts[instance.state] += 1;
+        });
+        const parts = [];
+        if (counts.running) parts.push(`${counts.running} running`);
+        if (counts.building) parts.push(`${counts.building} building`);
+        if (parts.length) return parts.join(" · ");
+        return state.instances.length ? "None running" : "None launched yet";
+      }
+      function foldHtml(iconName, title, summary) {
+        return `<div class="record-fold is-folded"><div class="record-fold-row"><div class="record-fold-head" aria-expanded="false">${icon(
+          "chevronRight",
+          14,
+        ).replace("<svg", `<svg class="fold-chevron"`)}<span class="fold-title">${icon(
+          iconName,
+          15,
+          1.6,
+        )}${title}</span><span class="record-fold-summary">${summary}</span></div></div></div>`;
+      }
+      function initiativeView() {
+        const ended = scenarioIs("done");
+        const badge = ended
+          ? `<span class="badge badge-success">Done</span>`
+          : `<span class="badge badge-info">Active</span>`;
+        return `
+          <div class="stage-bar">
+            <span class="doc-control-label">Scenario</span>
+            <div class="seg">${segHtml(SCENARIOS, state.scenario, "scenario")}</div>
+            ${
+              scenarioIs("live") || scenarioIs("none")
+                ? `<span class="doc-control-label">Try a refusal</span>
+                   <div class="seg">
+                     <button type="button" data-action="refuse" data-value="limit">Over the limit</button>
+                     <button type="button" data-action="refuse" data-value="devcontainer">No valid .devcontainer/</button>
+                     <button type="button" data-action="refuse" data-value="entry">Entry point missing</button>
+                     <button type="button" data-action="refuse" data-value="ports">No port free</button>
+                   </div>`
+                : ""
+            }
+          </div>
+          <div class="page">
+            <div class="page-tabs"><span>Board</span><span class="on">Initiatives</span><span>Ideas</span><span>Archived</span></div>
+            <div class="page-head">
+              <div class="page-head-words">
+                <h2>${INITIATIVE}</h2>${badge}
+                <span class="chip">${markHtml(PROJECTS[0])}the-office</span>
+                <span class="chip">${markHtml(PROJECTS[1])}not-astray</span>
+                <span class="page-head-meta">· ${ended ? "6 of 6" : "3 of 6"} Tasks done</span>
+              </div>
+            </div>
+            ${foldHtml("fork", "Tasks", "6 across 2 Projects · 3 done · 2 in progress")}
+            <div class="page-columns">
+              <div class="record-column">
+                ${foldHtml(
+                  "route",
+                  "Pipelines",
+                  scenarioIs("taskByTask")
+                    ? "None: publishes Task by Task"
+                    : "the-office: Standard · not-astray: Standard",
+                )}
+                ${testInstancesFoldHtml()}
+                ${foldHtml("target", "Outcome", "An Initiative’s branch can be launched and tried before it is published.")}
+                ${foldHtml("paperclip", "Attachments", "None")}
+              </div>
+              <div class="conversation-ghost" aria-hidden="true">
+                <div class="ghost-tabs"><span></span><span></span></div>
+                <div class="ghost-line" style="width:70%"></div>
+                <div class="ghost-line" style="width:92%"></div>
+                <div class="ghost-line" style="width:84%"></div>
+                <div class="ghost-line" style="width:40%"></div>
+                <div style="flex:1"></div>
+                <div class="ghost-line" style="height:64px"></div>
+              </div>
+            </div>
+          </div>
+          <p class="stage-caption">Launch, Stop, Open, Log, Launch again and “2 earlier” work in this mock. A launch goes Building, then Running after about 3 seconds on the lowest free Proxy port.</p>`;
+      }
+      function testInstancesFoldHtml() {
+        const open = state.foldOpen;
+        return `<div class="record-fold">
+          <div class="record-fold-row">
+            <button type="button" class="record-fold-head" data-action="fold" aria-expanded="${open}">
+              ${icon("chevronRight", 14).replace("<svg", `<svg class="fold-chevron"`)}
+              <span class="fold-title">${icon("flask", 15, 1.6)}Test instances</span>
+              <span class="record-fold-summary" ${open ? `style="visibility:hidden"` : ""}>${escapeHtml(
+                summaryLine(),
+              )}</span>
+            </button>
+          </div>
+          ${open ? `<div class="record-fold-body">${testInstancesBodyHtml()}</div>` : ""}
+        </div>`;
+      }
+      function testInstancesBodyHtml() {
+        if (scenarioIs("taskByTask")) {
+          return `<p class="group-empty" style="padding:0">Test instances launch on an Initiative’s branch, and this Initiative publishes Task by Task.</p>`;
+        }
+        const groups = PROJECTS.map(projectGroupHtml).join("");
+        const foot = scenarioIs("done")
+          ? `<p class="block-foot">Done: nothing can be launched any more. Each log stays with its instance.</p>`
+          : `<p class="block-foot">Each launch runs the branch’s tip, fetched first, on its own checkout and data. At most ${state.limits.atOnce} at once across The Office; a running one stops after ${state.limits.idle} min with no request.</p>`;
+        return `<div class="instances">${groups}${foot}</div>`;
+      }
+      function projectGroupHtml(project) {
+        const setup = projectSetup(project.key);
+        const head = `<div class="project-group-head">
+            <span class="project-group-name">${markHtml(project)}${project.name}</span>
+            <span class="branch">${icon("branch", 12)}<code>${BRANCH}</code></span>
+          </div>`;
+        if (!setup.targets) {
+          return `<div class="project-group">${head}<p class="group-empty">No test targets in ${project.name}. <a href="#">Add them in its Test targets section</a>.</p></div>`;
+        }
+        const note = setup.runEnvironment
+          ? ""
+          : `<div class="group-note">${icon("alert", 14)}<span>Needs Run environment On to launch. <a href="#">Turn it on in ${project.name}’s Run environment section</a>.</span></div>`;
+        const rows = project.targets.map((target) => targetRowHtml(project, target, setup)).join("");
+        return `<div class="project-group">${head}${note}${rows}</div>`;
+      }
+      function targetRowHtml(project, target, setup) {
+        const all = instancesOf(project.key, target.key);
+        const newest = all[0];
+        const earlier = all.slice(1);
+        const ended = scenarioIs("done");
+        const kind = `<span class="badge">${icon("globe", 11)}Hosted</span>`;
+        let meta = "";
+        let reason = "";
+        let actions = "";
+        const launchDisabled = !setup.runEnvironment;
+        const disabledAttribute = launchDisabled
+          ? `aria-disabled="true" title="Needs Run environment On in ${project.name}"`
+          : "";
+        if (!newest) {
+          meta = `<span>Not launched yet</span>${SEP}<span class="mono">${escapeHtml(target.entry)}</span>`;
+          actions = ended ? "" : button("secondary", "play", "Launch", "launch", `${project.key}/${target.key}`, disabledAttribute);
+        } else {
+          const commit = `<span class="commit" title="Commit on ${BRANCH}">${newest.commit}</span>`;
+          if (newest.state === "building") {
+            meta = `${stateBadge(newest)}${commit}${SEP}<span>started ${newest.time}</span>${SEP}<span class="address" title="Given when it started">${HOST}:${newest.port}</span>`;
+            actions =
+              button("secondary", "stop", "Stop", "stop", newest.id) +
+              button("ghost", "log", "Log", "log", newest.id);
+          } else if (newest.state === "running") {
+            const newer = newest.newer
+              ? `${SEP}<span class="newer" title="${newest.newer} newer commits on ${BRANCH}: stop it and launch again to try them">${icon(
+                  "alert",
+                  12,
+                )}Newer commits on the branch</span>`
+              : "";
+            meta = `${stateBadge(newest)}<span class="address">${HOST}:${newest.port}</span>${SEP}${commit}${SEP}<span>since ${newest.time}</span>${newer}`;
+            actions =
+              button("primary", "open", "Open", "open", newest.id, `title="Open ${target.name} in a new tab"`) +
+              button("secondary", "stop", "Stop", "stop", newest.id) +
+              button("ghost", "log", "Log", "log", newest.id);
+          } else {
+            const ending =
+              newest.state === "failed" ? "" : `${SEP}<span>Stopped ${escapeHtml(newest.ended)}</span>`;
+            meta = `${stateBadge(newest)}${commit}${SEP}<span>${newest.time}</span>${ending}`;
+            if (newest.state === "failed") reason = `<p class="reason">${escapeHtml(newest.reason)}</p>`;
+            actions =
+              (ended
+                ? ""
+                : button("secondary", "again", "Launch again", "launch", `${project.key}/${target.key}`, disabledAttribute)) +
+              button("ghost", "log", "Log", "log", newest.id);
+          }
+        }
+        const rowKey = `${project.key}/${target.key}`;
+        const earlierHtml = earlier.length
+          ? `<div class="earlier">
+              <button type="button" class="earlier-toggle" data-action="earlier" data-id="${rowKey}" aria-expanded="${Boolean(
+                state.earlierOpen[rowKey],
+              )}">${icon("chevronRight", 12).replace("<svg", `<svg class="fold-chevron"`)}${earlier.length} earlier</button>
+              ${
+                state.earlierOpen[rowKey]
+                  ? `<ul class="earlier-list">${earlier
+                      .map(
+                        (instance) =>
+                          `<li>${stateBadge(instance)}<span class="commit">${instance.commit}</span>${SEP}<span>${instance.time}</span>${
+                            instance.ended ? `${SEP}<span>Stopped ${escapeHtml(instance.ended)}</span>` : ""
+                          }${button("ghost", "log", "Log", "log", instance.id)}</li>`,
+                      )
+                      .join("")}</ul>`
+                  : ""
+              }
+            </div>`
+          : "";
+        return `<div class="target-row">
+            <div class="target-main">
+              <div class="target-line"><span class="target-name">${escapeHtml(target.name)}</span>${kind}</div>
+              <div class="target-meta">${meta}</div>
+              ${reason}
+            </div>
+            <div class="target-actions">${actions}</div>
+          </div>${earlierHtml}`;
+      }
+
+      /* ---------- The log ---------- */
+      function logLinesOf(instance, logState) {
+        const target = targetOf(instance);
+        const lines = [
+          ["14:02:11", "phase", "Checkout"],
+          ["14:02:11", "office", `Fetching ${BRANCH} from origin`],
+          ["14:02:13", "office", `At ${instance.commit}: “feat(test-instances): launch an Initiative’s branch…”`],
+          ["14:02:13", "office", `Exported to <office-data>/test-instances/${instance.id}/checkout, with no .git`],
+          ["14:02:13", "phase", "Run environment"],
+          ["14:02:14", "office", "Building the image from .devcontainer/ (cached layers: 11 of 12)"],
+          ["14:02:29", "office", `Starting compose project office-7f3a-test-${instance.id}: app, postgres`],
+          ["14:02:30", "office", "Variables: OFFICE_TEST_INSTANCE, TEST_ADMIN_EMAIL, TEST_DATABASE_PASSWORD (secret)"],
+          ["14:02:31", "phase", `Entry point: ${target.entry}`],
+          ["14:02:33", "", "> the-office@0.42.0 start:test-instance"],
+          ["14:02:33", "", "> node apps/service/dist/main.js"],
+          ["14:02:35", "", "[service] Connecting to postgres://office:§TEST_DATABASE_PASSWORD§@postgres:5432/office"],
+          ["14:02:36", "", "[service] Migrations: 64 applied"],
+          ["14:02:38", "", "[service] OFFICE_TEST_INSTANCE=true: push, pull requests, merges and engine sessions are refused"],
+          ["14:02:39", "", "[service] Listening on 0.0.0.0:4392"],
+        ];
+        if (logState === "building") return lines.slice(0, 12);
+        if (logState === "failed") {
+          return [
+            ...lines.slice(0, 12),
+            ["14:02:36", "", "Error: password authentication failed for user “office”"],
+            ["14:02:36", "", "    at Connection.parseE (node_modules/pg/lib/connection.js:614:13)"],
+            ["14:02:36", "", "[service] exited with code 1"],
+            ["14:04:31", "fail", "Failed: the app didn’t answer on port 4392 within 2 minutes."],
+            ["14:04:32", "office", "Containers, volumes and checkout removed."],
+          ];
+        }
+        const running = [
+          ...lines,
+          ["14:02:40", "end", `Running at ${HOST}:${instance.port || 4400}, answering on its port 4392`],
+          ["14:09:12", "office", "Opened by Przemysław"],
+        ];
+        if (logState === "stopped") {
+          return [
+            ...running,
+            ["14:37:02", "stopped", "Stopped by you."],
+            ["14:37:04", "office", `Containers, volumes and checkout removed; port ${instance.port || 4400} freed.`],
+          ];
+        }
+        return running;
+      }
+      function logLineHtml([time, kind, text]) {
+        const masked = escapeHtml(text).replace(
+          /§([A-Z_]+)§/g,
+          (whole, name) => `<span class="masked" title="Masked: the target’s secret value">[secret ${name}]</span>`,
+        );
+        const kindClass = kind ? ` log-${kind}` : "";
+        return `<div class="log-line${kindClass}"><span class="log-time">${time}</span><span class="log-text">${masked}</span></div>`;
+      }
+      function logWindowHtml(instance, logState, inline) {
+        const target = targetOf(instance);
+        const project = projectOf(instance.project);
+        const words = { building: "Building", running: "Running", stopped: "Stopped", failed: "Failed" }[logState];
+        const badge = stateBadge({ state: logState });
+        const streaming = logState === "building" || logState === "running";
+        const lines = logLinesOf(instance, logState).map(logLineHtml).join("");
+        const tail = streaming
+          ? `<div class="log-line"><span class="log-time"></span><span class="log-text"><span class="dot dot-live" style="display:inline-block;color:var(--info)"></span></span></div>`
+          : "";
+        const port = instance.port || 4400;
+        const barActions = [
+          logState === "running"
+            ? `<button type="button" class="btn btn-primary btn-md" data-action="open-from-log" data-id="${instance.id}">${icon("open", 14)}Open</button>`
+            : "",
+          streaming
+            ? `<button type="button" class="btn btn-danger btn-md" data-action="stop-from-log" data-id="${instance.id}">${icon("stop", 14)}Stop</button>`
+            : "",
+        ].join("");
+        return `<div class="dialog ${inline ? "dialog-inline" : ""}" role="dialog" aria-modal="${!inline}" aria-labelledby="log-title">
+          <div class="dialog-head">
+            <h3 id="log-title">${escapeHtml(target.name)} · ${words}</h3>
+            <button type="button" class="icon-btn" data-action="close-log" aria-label="Close">${icon("x", 16)}</button>
+          </div>
+          <div class="dialog-sub">
+            <div class="dialog-sub-facts">
+              ${badge}
+              <span class="chip">${markHtml(project)}${project.name}</span>
+              <span class="branch">${icon("branch", 12)}<code>${BRANCH}</code> at <code>${instance.commit}</code></span>
+              <span>Launched by you at 14:02</span>
+              ${logState === "running" ? `<span class="address">${HOST}:${port}</span>` : ""}
+            </div>
+            <div class="dialog-sub-tools">
+              ${streaming ? `<span class="live"><span class="dot dot-live"></span>Streaming</span>` : `<span>Kept with the instance</span>`}
+              ${
+                streaming
+                  ? `<label class="follow">Follow <button type="button" class="switch" role="switch" data-action="follow" aria-checked="${state.follow}" aria-label="Follow the newest lines"></button></label>`
+                  : ""
+              }
+            </div>
+          </div>
+          <div class="dialog-body" id="log-body"><div class="log" role="log" aria-label="${escapeHtml(target.name)}’s log">${lines}${tail}</div></div>
+          <div class="dialog-bar">${barActions}<span class="spacer"></span><button type="button" class="btn btn-secondary btn-md" data-action="close-log">Close</button></div>
+        </div>`;
+      }
+      function logView() {
+        const options = [
+          { key: "building", label: "Building, streaming" },
+          { key: "running", label: "Running" },
+          { key: "failed", label: "Failed" },
+          { key: "stopped", label: "Stopped" },
+        ];
+        const instance = { id: 1, project: "the-office", target: "office", commit: "a1b2c3d", port: 4400 };
+        return `<div class="stage-bar"><span class="doc-control-label">The instance is</span><div class="seg">${segHtml(
+          options,
+          state.logState,
+          "log-state",
+        )}</div></div>
+        ${logWindowHtml(instance, state.logState, true)}
+        <p class="stage-caption">A large window (1180px wide, 86% high, one height so it doesn’t jump). Shown here in place; on the page it opens over it from Log.</p>`;
+      }
+      function renderOverlay() {
+        const root = document.getElementById("overlay-root");
+        if (state.log === null) {
+          root.innerHTML = "";
+          return;
+        }
+        const instance = state.instances.find((each) => each.id === state.log);
+        if (!instance) {
+          state.log = null;
+          root.innerHTML = "";
+          return;
+        }
+        root.innerHTML = `<div class="overlay" data-action="backdrop">${logWindowHtml(instance, instance.state, false)}</div>`;
+        const body = document.getElementById("log-body");
+        if (body && state.follow) body.scrollTop = body.scrollHeight;
+      }
+
+      /* ---------- View: Settings › Office limits ---------- */
+      function stepperHtml(field, value, min, max, words) {
+        const lower = value <= min;
+        const higher = value >= max;
+        return `<div class="stepper" role="group" aria-label="${escapeHtml(words.label)}">
+          <button type="button" data-action="step" data-field="${field}" data-value="-1" aria-label="Less" ${
+            lower ? `aria-disabled="true" title="${escapeHtml(words.atMin)}"` : ""
+          }>${icon("minus", 14)}</button>
+          <output>${escapeHtml(words.format(value))}</output>
+          <button type="button" data-action="step" data-field="${field}" data-value="1" aria-label="More" ${
+            higher ? `aria-disabled="true" title="${escapeHtml(words.atMax)}"` : ""
+          }>${icon("plus", 14)}</button>
+        </div>`;
+      }
+      function settingsView() {
+        const limits = state.limits;
+        const count = limits.last - limits.first + 1;
+        const problem = state.settingsProblem;
+        const firstInvalid = problem && problem.field === "first";
+        const lastInvalid = problem && problem.field === "last";
+        const menu = [
+          "Pipelines",
+          "Duties",
+          "Skills",
+          "MCP servers",
+          "Engines",
+          "Users",
+          "Signing in",
+          "Office identity",
+          "Office limits",
+          "Office instructions",
+          "Prompt templates",
+          "Notifications",
+          "Telemetry",
+          "Updates",
+        ]
+          .map((item) => `<li class="${item === "Office limits" ? "on" : ""}">${item}</li>`)
+          .join("");
+        return `<div class="stage-bar"><span class="doc-control-label">Try</span>
+            <div class="seg">
+              <button type="button" data-action="ports-demo" data-value="reversed">Last port below the first</button>
+              <button type="button" data-action="ports-demo" data-value="office">Range takes The Office’s port</button>
+              <button type="button" data-action="ports-demo" data-value="reset">Back to 4400–4419</button>
+            </div>
+          </div>
+          <div class="settings">
+            <ul class="settings-menu">${menu}</ul>
+            <div class="settings-main">
+              <h2>Office limits</h2>
+              <div class="card ghost"><div class="card-head">${icon("armchair", 15, 1.6)}Desks</div><div class="card-body"><div class="ghost-line" style="width:60%"></div></div></div>
+              <div class="card ghost"><div class="card-head">${icon("cpu", 15, 1.6)}Run environments</div><div class="card-body"><div class="ghost-line" style="width:72%"></div><div class="ghost-line" style="width:54%"></div><div class="ghost-line" style="width:66%"></div></div></div>
+              <div class="card is-new">
+                <div class="card-head">${icon("flask", 15, 1.6)}Test instances</div>
+                <div class="card-body">
+                  <div class="limit-row">
+                    <div><b>Test instances at once</b><p class="settings-note">How many may be Building or Running together across The Office. Building counts. Counted apart from run environments.</p></div>
+                    ${stepperHtml("atOnce", limits.atOnce, 1, 6, {
+                      label: "test instances at once",
+                      atMin: "At least 1",
+                      atMax: "At most 6",
+                      format: (value) => String(value),
+                    })}
+                  </div>
+                  <div class="limit-row">
+                    <div><b>Idle time</b><p class="settings-note">A running test instance stops after this long with no request.</p></div>
+                    ${stepperHtml("idle", limits.idle, 5, 240, {
+                      label: "the Idle time",
+                      atMin: "At least 5 min",
+                      atMax: "At most 240 min",
+                      format: (value) => `${value} min`,
+                    })}
+                  </div>
+                  <div class="limit-row">
+                    <div><b>Proxy ports</b><p class="settings-note">Each running test instance is opened at one of these ports on ${HOST}. To reach them from another device on your network, The Office must listen on its LAN address and its firewall must let these ports in.</p></div>
+                    <div class="ports">
+                      <label>First <input class="input" inputmode="numeric" data-port="first" value="${escapeHtml(
+                        state.portDraft.first,
+                      )}" aria-invalid="${Boolean(firstInvalid)}" aria-label="First proxy port" /></label>
+                      <label>Last <input class="input" inputmode="numeric" data-port="last" value="${escapeHtml(
+                        state.portDraft.last,
+                      )}" aria-invalid="${Boolean(lastInvalid)}" aria-label="Last proxy port" /></label>
+                      <span class="ports-count">${count > 0 && !problem ? `${count} ports` : ""}</span>
+                    </div>
+                  </div>
+                  <p class="card-foot-note">Each change saves at once; a port saves when you leave its field or press Enter. Running instances keep their port. Lowering Test instances at once stops none: the next launch waits until fewer are running.</p>
+                  ${
+                    problem
+                      ? `<div class="alert alert-danger card-problem" role="alert">${icon(
+                          "alertCircle",
+                          15,
+                        )}<div><b>The test instances’ limits can’t be saved</b>${escapeHtml(problem.words)}</div></div>`
+                      : ""
+                  }
+                </div>
+              </div>
+            </div>
+          </div>`;
+      }
+      function savePorts(rerender = true) {
+        const first = Number(state.portDraft.first);
+        const last = Number(state.portDraft.last);
+        const whole = (value) => Number.isInteger(value) && value >= 1024 && value <= 65535;
+        if (!whole(first)) {
+          state.settingsProblem = { field: "first", words: "Proxy ports: the first port must be a whole number from 1024 to 65535." };
+        } else if (!whole(last)) {
+          state.settingsProblem = { field: "last", words: "Proxy ports: the last port must be a whole number from 1024 to 65535." };
+        } else if (last < first) {
+          state.settingsProblem = { field: "last", words: `Proxy ports: the last port (${last}) is below the first (${first}).` };
+        } else if (last - first + 1 > 100) {
+          state.settingsProblem = { field: "last", words: "Proxy ports: at most 100 ports." };
+        } else if (first <= 4392 && 4392 <= last) {
+          state.settingsProblem = { field: "first", words: "Proxy ports: 4392 is The Office’s own port. Choose a range without it." };
+        } else {
+          state.settingsProblem = null;
+          state.limits.first = first;
+          state.limits.last = last;
+        }
+        if (rerender) render();
+      }
+
+      /* ---------- View: the Test instance banner ---------- */
+      function bannerHtml() {
+        return `<div class="test-banner" role="note" aria-label="Test instance">
+          <span class="test-banner-mark">${icon("flask", 13, 2)}Test instance</span>
+          <span class="test-banner-words">This Office runs from an Initiative’s branch, to be tried. Its data is its own; it can’t push, open a pull request, merge or start an engine session.</span>
+          <code>OFFICE_TEST_INSTANCE</code>
+        </div>`;
+      }
+      function bannerView() {
+        const rail = ["zap", "kanban", "users", "folder", "chart"]
+          .map((name, index) => `<span class="${index === 0 ? "on" : ""}">${icon(name, 16, 1.6)}</span>`)
+          .join("");
+        return `<div>
+            <p class="frame-label">Every page of a test instance of the-office: the banner sits above the rail and the top bar.</p>
+            <div class="shell">
+              ${bannerHtml()}
+              <div class="rail"><div class="rail-mark">O</div>${rail}</div>
+              <div class="topbar"><h1>Now</h1><div class="topbar-tools"><span></span><span></span><span></span></div></div>
+              <div class="strip"><span></span><span></span><span></span><span></span></div>
+              <div class="shell-page">
+                <div class="ghost-card"></div><div class="ghost-card"></div><div class="ghost-card"></div>
+                <div class="ghost-card"></div><div class="ghost-card"></div>
+                <div class="toast-inline"><div class="toast toast-warning">${icon("alert", 16)}<div class="toast-words"><b>The Task can’t start</b>A test instance starts no engine session (OFFICE_TEST_INSTANCE).</div></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="two-up">
+            <div>
+              <p class="frame-label">Sign in, before any page: the banner shows here too.</p>
+              <div class="sign-in">${bannerHtml()}<div class="sign-in-card"><div class="ghost-line" style="width:40%;height:14px"></div><div class="ghost-line"></div><div class="ghost-field"></div><div class="ghost-field"></div><div class="ghost-line" style="height:30px;background:var(--accent);opacity:.8"></div></div></div>
+            </div>
+            <div>
+              <p class="frame-label">Each refusal, as the service words it (one test each).</p>
+              <div class="note-card" style="height:340px;overflow:auto">
+                <ul>
+                  <li><b>Push:</b> “Pushing is refused in a test instance (OFFICE_TEST_INSTANCE).”</li>
+                  <li><b>Pushing a commit</b> (a Stage’s Publish, the Publishing Task): same words.</li>
+                  <li><b>Open a pull request:</b> “Opening a pull request is refused in a test instance (OFFICE_TEST_INSTANCE).”</li>
+                  <li><b>Merge, close:</b> “Merging is refused …”, “Closing a pull request is refused …”.</li>
+                  <li><b>Start or resume an engine session</b>, and the usage window checks: “A test instance starts no engine session (OFFICE_TEST_INSTANCE).”</li>
+                  <li>The web shows each as the toast or the problem the action already has; only the words are new.</li>
+                </ul>
+              </div>
+            </div>
+          </div>`;
+      }
+
+      /* ---------- View: opening and the proxy ---------- */
+      const PROXY_PAGES = [
+        { key: "handOff", label: "Open: the hand-off" },
+        { key: "noCookie", label: "No cookie for this instance" },
+        { key: "usedLink", label: "Link used or expired" },
+        { key: "notRunning", label: "Not running" },
+      ];
+      function browserHtml(address, status, content) {
+        return `<div class="browser">
+          <div class="browser-bar">
+            <div class="browser-dots"><span></span><span></span><span></span></div>
+            <div class="browser-address">${icon("lock", 11)}${address}</div>
+            <span class="browser-status">${status}</span>
+          </div>
+          ${content}
+        </div>`;
+      }
+      function proxyCardHtml(iconName, title, words, actions, foot) {
+        return `<div class="proxy-page"><div class="proxy-card">
+          <div class="proxy-brand"><span class="rail-mark">O</span>The Office · Test instance</div>
+          <div class="proxy-icon">${icon(iconName, 18)}</div>
+          <h3>${title}</h3>
+          <p>${words}</p>
+          <div class="actions">${actions}</div>
+          <div class="proxy-foot">${foot}</div>
+        </div></div>`;
+      }
+      function proxyView() {
+        const bar = `<div class="stage-bar"><span class="doc-control-label">Show</span><div class="seg">${segHtml(
+          PROXY_PAGES,
+          state.proxyPage,
+          "proxy-page",
+        )}</div></div>`;
+        const officeLink = `<a class="btn btn-primary btn-md" href="#">${icon("open", 14)}Open ${INITIATIVE} in The Office</a>`;
+        const instanceFoot = `The Office at ${HOST}:4392 · ${INITIATIVE} · The Office on <code>${BRANCH}</code>`;
+        if (state.proxyPage === "handOff") {
+          return `${bar}
+            <div class="steps">
+              <div class="step"><b><span class="step-number">1</span>Open, on the Initiative’s page</b>The click opens a new tab at once (so no pop-up blocker stops it), asks <code>POST /test-instances/:id/open</code> and points the tab at the link it returns.</div>
+              <div class="step"><b><span class="step-number">2</span>The hand-off link</b><code>${HOST}:4400/__office/hand-off?t=…</code> Single-use, about 60 s, bound to this instance. The proxy sets <code>office_test_instance_&lt;id&gt;</code> (HttpOnly, SameSite=Strict, Path=/) and redirects.</div>
+              <div class="step"><b><span class="step-number">3</span>The app, at its own root</b><code>${HOST}:4400/</code> The token is gone from the address and the history. Each request is the instance’s activity for its Idle time.</div>
+            </div>
+            ${browserHtml(
+              `<b>${HOST}:4400</b>/`,
+              "200 · through the proxy",
+              `<div class="app-ghost">${bannerHtml()}<div class="topbar" style="height:44px"><h1>Now</h1><div class="topbar-tools"><span></span><span></span></div></div><div class="shell-page" style="min-height:200px"><div class="ghost-card"></div><div class="ghost-card"></div><div class="ghost-card"></div></div></div>`,
+            )}
+            <p class="stage-caption">Here the instance is a test instance of the-office, so its own Test instance banner shows. Any other app shows as it is: the proxy adds nothing to its pages.</p>`;
+        }
+        if (state.proxyPage === "noCookie") {
+          return `${bar}${browserHtml(
+            `<b>${HOST}:4400</b>/settings`,
+            "401",
+            proxyCardHtml(
+              "lock",
+              "Open this test instance from The Office",
+              `This address is a test instance of The Office, on the Initiative ${INITIATIVE}. It opens only from <b>Open</b> on the Initiative’s page, which signs this browser in to it alone.`,
+              officeLink,
+              instanceFoot,
+            ),
+          )}<p class="stage-caption">Also what a cookie of another instance gets: each instance asks for its own. The Office’s sign-in cookie never counts here.</p>`;
+        }
+        if (state.proxyPage === "usedLink") {
+          return `${bar}${browserHtml(
+            `<b>${HOST}:4400</b>/__office/hand-off?t=…`,
+            "403",
+            proxyCardHtml(
+              "clock",
+              "This link has been used or has expired",
+              "A hand-off link works once, for about a minute, and for its own instance only. Press <b>Open</b> on the Initiative’s page again for a new one.",
+              officeLink,
+              instanceFoot,
+            ),
+          )}`;
+        }
+        return `${bar}${browserHtml(
+          `<b>${HOST}:4400</b>/`,
+          "503",
+          proxyCardHtml(
+            "power",
+            "No test instance is running at this port",
+            "It may still be building, or it has stopped: by Stop, after its Idle time, when its Initiative ended, or when The Office restarted. Launch it again from the Initiative’s page.",
+            `<a class="btn btn-primary btn-md" href="#">${icon("open", 14)}Go to The Office</a>`,
+            `Proxy port 4400 on ${HOST}`,
+          ),
+        )}<p class="stage-caption">Shown only while the proxy still listens on the port (Building, or the moment after a stop). Once it closes the port, the browser shows its own “can’t connect”. A wrong Host gets a plain 421, with no page.</p>`;
+      }
+
+      /* ---------- Notes, per view ---------- */
+      const NOTES = {
+        initiative: `
+          <div class="note-card"><h2>The Test instances block</h2><ul>
+            <li>A fold in the record column, after Pipelines, once the Initiative is active; open while one is Building or Running, else remembered per Initiative.</li>
+            <li>A group per Project on the Initiative’s branch, a row per Hosted target, showing its newest instance; earlier ones fold under “<i>n</i> earlier”.</li>
+            <li>Running shows its address as plain text, not a link: without the instance’s cookie it is refused, so <b>Open</b> is the one way in.</li>
+            <li>Stop asks nothing; toast “<i>name</i> stopped.” Launch shows no toast: the row turns Building.</li>
+            <li>A refusal is a toast titled “<i>name</i> can’t launch” with the service’s words; nothing on the row changes.</li>
+            <li>Launch again comes once the newest has ended. While Running, “Newer commits on the branch” says to stop it and launch again.</li>
+          </ul></div>
+          <div class="note-card proposed"><h2>Proposed beyond the screen page</h2><ul>
+            <li>Summary counts Building too: “1 running · 1 building”, and “None running” once all have ended.</li>
+            <li>A Project whose Run environment isn’t On shows “Needs Run environment On to launch.” on its group (the Project page’s words), and Launch is disabled saying why. The service still refuses it.</li>
+            <li>A row not launched yet names its entry point, so it is clear what Launch runs.</li>
+            <li>The limit refusal says “building or running”, since Building counts.</li>
+            <li>Build to install rows come with their own Task; this one lists Hosted targets only.</li>
+          </ul></div>
+          <div class="note-card"><h2>Definition of Done</h2><ul>
+            <li><span class="dod">1</span>Launch → Building → Running with a port, or Failed with why.</li>
+            <li><span class="dod">2</span><span class="dod">3</span>Refusals: try them in the bar above.</li>
+            <li><span class="dod">5</span>Stopped by you, after Idle time, when the Initiative was done, when The Office restarted.</li>
+            <li><span class="dod">12</span>e2e on the scripted runtime: launch, open, stop and log from this block.</li>
+          </ul></div>
+          <div class="note-card"><h2>For the build</h2><ul>
+            <li><code>RecordFold</code>, <code>Badge</code> (info with a spinner, success, danger, neutral), <code>Button</code> (secondary Launch and Stop, primary Open, ghost Log), <code>FoldButton</code> for “earlier”, <code>Alert</code>-toned group note.</li>
+            <li>One query, <code>GET /initiatives/:id/test-instances</code>, gives targets and instances per Project; <code>test-instance.changed</code> refreshes it.</li>
+          </ul></div>`,
+        log: `
+          <div class="note-card"><h2>The Log window</h2><ul>
+            <li>Large window, titled “<i>name</i> · <i>state</i>”, one height so streaming doesn’t make it jump.</li>
+            <li>Under the head: the state, the Project, the branch at its commit, who launched it and when, and the address while Running.</li>
+            <li>The log in monospace with the time of each line: The Office’s own steps (Checkout, Run environment, Entry point) as headings, then the entry point’s output as it is, then how it ended.</li>
+            <li>While Building or Running it streams; <b>Follow</b> (on at first) keeps the newest line in view, and scrolling up turns it off.</li>
+            <li>Bar: <b>Open</b> while Running, <b>Stop</b> last in red while Building or Running, <b>Close</b> on the right.</li>
+          </ul></div>
+          <div class="note-card"><h2>Definition of Done</h2><ul>
+            <li><span class="dod">1</span>Failed shows its reason as the log’s last words.</li>
+            <li><span class="dod">6</span>A secret value of the target shows as <code>[secret NAME]</code>, masked as it is written, so the file never holds it.</li>
+          </ul></div>
+          <div class="note-card"><h2>For the build</h2><ul>
+            <li><code>Dialog</code> size large. The variable names line lists names only, never values.</li>
+            <li>Reads <code>GET /test-instances/:id/log?from=&lt;offset&gt;</code> and asks for more on <code>test-instance.changed</code> and each second while open and streaming, appending only what is new.</li>
+          </ul></div>`,
+        settings: `
+          <div class="note-card"><h2>The Test instances card</h2><ul>
+            <li>Under Run environments in Settings › Office limits, built like its card: a row per limit, words left, control right.</li>
+            <li><b>Test instances at once</b> and <b>Idle time</b> are steppers (1–6; 5–240 min, by 5), saved at each step.</li>
+            <li><b>Proxy ports</b> is a first and a last port, saved on leaving the field or Enter, with the count beside.</li>
+            <li>A refusal shows under the card, naming the field; the field is marked. Try them in the bar above.</li>
+          </ul></div>
+          <div class="note-card proposed"><h2>Proposed beyond the screen page</h2><ul>
+            <li>Port rules: whole numbers 1024–65535, last not below first, at most 100 ports, and not The Office’s own port.</li>
+            <li>The firewall line for the LAN, as <code>docs/installing.md</code> words it for both installs.</li>
+            <li>The foot line: running instances keep their port; a lower limit stops none.</li>
+          </ul></div>
+          <div class="note-card"><h2>Definition of Done</h2><ul>
+            <li><span class="dod">10</span>Reads and saves the three limits and refuses values out of range.</li>
+            <li><span class="dod">3</span>The range is where the lowest free port is taken from.</li>
+          </ul></div>
+          <div class="note-card"><h2>For the build</h2><ul>
+            <li><code>Card</code>, <code>SettingsCardTitle</code> (flask), <code>Stepper</code>, <code>Input</code>, <code>SettingsProblem</code>; the same stepper rows as <code>run-environments-card.tsx</code>.</li>
+            <li><code>GET</code>/<code>PUT /settings/test-instances</code>; each change sends the whole set.</li>
+          </ul></div>`,
+        banner: `
+          <div class="note-card"><h2>The Test instance banner</h2><ul>
+            <li>Shown on every page of a service started with <code>OFFICE_TEST_INSTANCE=true</code>, Sign in included, above the rail and the top bar; it can’t be closed.</li>
+            <li>Amber, with a filled “Test instance” mark, so it is never taken for the real Office in the next tab.</li>
+            <li>The web reads <code>testInstance</code> from the health endpoint, which needs no sign-in.</li>
+          </ul></div>
+          <div class="note-card"><h2>Definition of Done</h2><ul>
+            <li><span class="dod">9</span>Push, pushing a commit, opening a pull request, merge, and starting or resuming an engine session each refused on the server, each with its own test; the banner proven by e2e.</li>
+          </ul></div>
+          <div class="note-card"><h2>For the build</h2><ul>
+            <li>A shell part drawn from tokens (warning tones), <code>role="note"</code>; the grid gets a row above the top bar only when it shows.</li>
+          </ul></div>`,
+        proxy: `
+          <div class="note-card"><h2>Opening and the proxy’s pages</h2><ul>
+            <li>The proxy answers on its own ports, so its pages are served by it: one small self-contained page, the design system’s tokens inlined, light or dark by the browser’s setting.</li>
+            <li>Each says what happened and leads back to The Office, never to a sign-in form: signing in to an instance happens only through Open.</li>
+            <li>“No cookie” covers a missing cookie, another instance’s cookie and a cookie of a stopped instance.</li>
+          </ul></div>
+          <div class="note-card"><h2>Definition of Done</h2><ul>
+            <li><span class="dod">7</span>Refuses a port with no Running instance, a wrong Host (plain 421), a missing or other instance’s cookie.</li>
+            <li><span class="dod">8</span>The link is refused used twice, after about 60 s, or for another instance; the cookie is HttpOnly and SameSite=Strict and ends with the instance.</li>
+          </ul></div>
+          <div class="note-card"><h2>For the build</h2><ul>
+            <li>Upstream cookies are namespaced and The Office’s <code>office_signed_in</code> is stripped; none of it shows to the user.</li>
+            <li>The redirect after the hand-off is a 303 to <code>/</code>, so the token leaves the address bar and the history.</li>
+          </ul></div>`,
+      };
+
+      /* ---------- Render and bind ---------- */
+      function render() {
+        document.documentElement.dataset.palette = state.palette;
+        document.getElementById("palette-control").innerHTML = segHtml(
+          [
+            { key: "light", label: "Light" },
+            { key: "dark", label: "Dark" },
+          ],
+          state.palette,
+          "palette",
+        );
+        document.getElementById("views").innerHTML = VIEWS.map(
+          (view) =>
+            `<button type="button" role="tab" data-action="view" data-value="${view.key}" aria-selected="${
+              view.key === state.view
+            }">${icon(view.icon, 14)}${view.label}</button>`,
+        ).join("");
+        const stage = document.getElementById("stage");
+        stage.innerHTML = {
+          initiative: initiativeView,
+          log: logView,
+          settings: settingsView,
+          banner: bannerView,
+          proxy: proxyView,
+        }[state.view]();
+        document.getElementById("notes").innerHTML = NOTES[state.view];
+        renderOverlay();
+      }
+
+      const REFUSALS = {
+        limit: () =>
+          refuseOverTheLimit(
+            "Admin console",
+            seedInstances("live").filter((instance) => instance.state === "running" || instance.state === "building"),
+          ),
+        devcontainer: () =>
+          toast(
+            "warning",
+            "Web app can’t launch",
+            `not-astray’s .devcontainer/ isn’t valid on ${BRANCH} at b81e0a2: devcontainer.json names no service “web”.`,
+          ),
+        entry: () =>
+          toast(
+            "warning",
+            "Storybook can’t launch",
+            `Its entry point, the package script “storybook”, isn’t in package.json on ${BRANCH} at 4c5d6e7.`,
+          ),
+        ports: () =>
+          toast(
+            "warning",
+            "Admin console can’t launch",
+            `Every Proxy port (${state.limits.first}–${state.limits.last}) is taken. Stop an instance, or widen Proxy ports in Settings › Office limits.`,
+          ),
+      };
+
+      document.addEventListener("click", (event) => {
+        const element = event.target.closest("[data-action]");
+        if (!element) return;
+        const { action, value, id } = element.dataset;
+        if (element.getAttribute("aria-disabled") === "true") return;
+        switch (action) {
+          case "palette":
+            state.palette = value;
+            break;
+          case "view":
+            state.view = value;
+            state.log = null;
+            break;
+          case "scenario":
+            state.timers.forEach(clearTimeout);
+            state.timers = [];
+            state.scenario = value;
+            state.log = null;
+            state.instances = seedInstances(value);
+            state.earlierOpen = {};
+            state.foldOpen = true;
+            break;
+          case "refuse":
+            REFUSALS[value]();
+            return;
+          case "fold":
+            state.foldOpen = !state.foldOpen;
+            break;
+          case "earlier":
+            state.earlierOpen[id] = !state.earlierOpen[id];
+            break;
+          case "launch": {
+            const [projectKey, targetKey] = id.split("/");
+            launch(projectKey, targetKey);
+            return;
+          }
+          case "stop":
+            stop(Number(id));
+            return;
+          case "open":
+            openInstance(Number(id));
+            return;
+          case "log":
+            openLog(Number(id));
+            return;
+          case "close-log":
+            if (state.view === "log" && state.log === null) return;
+            state.log = null;
+            renderOverlay();
+            return;
+          case "backdrop":
+            if (event.target === element) {
+              state.log = null;
+              renderOverlay();
+            }
+            return;
+          case "stop-from-log":
+            if (state.log === null) {
+              state.logState = "stopped";
+              break;
+            }
+            stop(Number(id));
+            return;
+          case "open-from-log":
+            if (state.log === null) {
+              toast("info", `In the app: a new tab opens ${HOST}:4400`, "through a single-use hand-off link.");
+              return;
+            }
+            openInstance(Number(id));
+            return;
+          case "follow":
+            state.follow = !state.follow;
+            element.setAttribute("aria-checked", String(state.follow));
+            return;
+          case "log-state":
+            state.logState = value;
+            break;
+          case "step": {
+            const field = element.dataset.field;
+            const step = Number(value) * (field === "idle" ? 5 : 1);
+            const bounds = field === "idle" ? [5, 240] : [1, 6];
+            state.limits[field] = Math.min(bounds[1], Math.max(bounds[0], state.limits[field] + step));
+            break;
+          }
+          case "ports-demo":
+            if (value === "reversed") state.portDraft = { first: "4400", last: "4390" };
+            if (value === "office") state.portDraft = { first: "4380", last: "4399" };
+            if (value === "reset") state.portDraft = { first: "4400", last: "4419" };
+            savePorts();
+            return;
+          case "proxy-page":
+            state.proxyPage = value;
+            break;
+          default:
+            return;
+        }
+        render();
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && state.log !== null) {
+          state.log = null;
+          renderOverlay();
+        }
+        if (event.key === "Enter" && event.target.matches("[data-port]")) {
+          event.target.blur();
+        }
+      });
+      document.addEventListener(
+        "blur",
+        (event) => {
+          const field = event.target.dataset && event.target.dataset.port;
+          if (!field) return;
+          if (state.portDraft[field] === event.target.value) return;
+          state.portDraft[field] = event.target.value;
+          // A click that moved the focus re-renders through its own action; rendering here would remove its button.
+          const next = event.relatedTarget;
+          savePorts(!(next && next.closest && next.closest("[data-action]")));
+        },
+        true,
+      );
+      document.addEventListener(
+        "scroll",
+        (event) => {
+          if (event.target.id !== "log-body") return;
+          const body = event.target;
+          const atEnd = body.scrollHeight - body.scrollTop - body.clientHeight < 8;
+          if (!atEnd && state.follow) {
+            state.follow = false;
+            const toggle = document.querySelector("[data-action=follow]");
+            if (toggle) toggle.setAttribute("aria-checked", "false");
+          }
+        },
+        true,
+      );
+
+      state.instances = seedInstances(state.scenario);
+      render();
+    </script>
+  </body>
+</html>

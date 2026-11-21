@@ -1,6 +1,6 @@
 # The shell
 
-Covers: the rail and its two states, the top bar (title and crumb, Project filter, search, Create, fire alarm control, user menu, Chat button), the Theme menu, the status strip and its figures, the Needs you panel, the chat drawer, toasts, the Office messages slot, the Workstation figure.
+Covers: the rail and its two states, the top bar (title and crumb, Project filter, search, Create, fire alarm control, user menu, Chat button), the Theme menu, the status strip and its figures, the Needs you panel, the chat drawer, toasts, the Office messages slot, the Workstation figure, the Test instance banner.
 
 ## Where it is
 
@@ -17,6 +17,14 @@ Covers: the rail and its two states, the top bar (title and crumb, Project filte
 - The open chat drawer pushes the page aside; at 601-900px it lies over it; at 600px and under it fills the window ([the chat drawer](#the-chat-drawer)).
 - A page lays itself out by its own width (`@container page`), so an open drawer folds it; only what is on the body keeps `@media`.
 - Toasts stack in the page's corner.
+- In a test instance of The Office the grid gets a row above the rail and the top bar for the [Test instance banner](#test-instance-banner).
+
+## Test instance banner
+
+- Shown on every page of a service started with `OFFICE_TEST_INSTANCE=true`, `/sign-in` and `/setup` included, above the rail and the top bar; it can't be closed.
+- Amber (the warning tones), with a filled "Test instance" mark, so it is never taken for the real Office in the next tab; `role="note"`.
+- The web reads `testInstance` from `/api/health`, which needs no sign-in.
+- Why: [6](../6-permissions-and-safety.md#test-instances).
 
 ## Rail
 

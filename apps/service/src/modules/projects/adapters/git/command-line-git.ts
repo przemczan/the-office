@@ -1,5 +1,6 @@
-import { readFile, realpath, rm, stat } from "node:fs/promises";
-import { normalize, resolve } from "node:path";
+import { mkdir, mkdtemp, readFile, realpath, rm, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, normalize, resolve } from "node:path";
 import { Injectable } from "@nestjs/common";
 import {
   Git,
@@ -656,6 +657,35 @@ export class CommandLineGit extends Git {
         timeoutMs: LONG_TIMEOUT_MS,
       }),
     );
+  }
+
+  async exportCommit(
+    repositoryPath: string,
+    commit: string,
+    folder: string,
+    variables: GitVariables,
+  ): Promise<void> {
+    // An index of its own, so the repository's index and worktrees stay as they are; `--prefix`
+    // writes every file of it under the folder, which takes no `.git` at all.
+    const indexFolder = await mkdtemp(join(tmpdir(), "office-export-"));
+    const withIndex = { ...variables, GIT_INDEX_FILE: join(indexFolder, "index") };
+    try {
+      await this.process.output({
+        folder: repositoryPath,
+        gitArguments: ["read-tree", commit],
+        variables: withIndex,
+        timeoutMs: LONG_TIMEOUT_MS,
+      });
+      await mkdir(folder, { recursive: true });
+      await this.process.output({
+        folder: repositoryPath,
+        gitArguments: ["checkout-index", "--all", "--force", `--prefix=${folder}/`],
+        variables: withIndex,
+        timeoutMs: LONG_TIMEOUT_MS,
+      });
+    } finally {
+      await rm(indexFolder, { recursive: true, force: true });
+    }
   }
 
   async removeWorktree(

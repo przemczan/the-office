@@ -16,9 +16,12 @@ afterEach(() => {
 
 describe("getFromApi", () => {
   it("reads a path under /api and returns the contract's value", async () => {
-    answer(200, { database: "up" });
+    answer(200, { database: "up", testInstance: false });
 
-    await expect(getFromApi("/health", healthReportSchema)).resolves.toEqual({ database: "up" });
+    await expect(getFromApi("/health", healthReportSchema)).resolves.toEqual({
+      database: "up",
+      testInstance: false,
+    });
     expect(vi.mocked(fetch).mock.calls[0]?.[0]).toBe("/api/health");
   });
 
@@ -51,10 +54,10 @@ describe("getFromApi", () => {
 
 describe("sendToApi", () => {
   it("sends the body as JSON and returns the contract's value", async () => {
-    answer(200, { database: "up" });
+    answer(200, { database: "up", testInstance: false });
 
     await expect(sendToApi("PUT", "/health", { check: true }, healthReportSchema)).resolves.toEqual(
-      { database: "up" },
+      { database: "up", testInstance: false },
     );
     const [path, init] = vi.mocked(fetch).mock.calls[0] ?? [];
     expect(path).toBe("/api/health");

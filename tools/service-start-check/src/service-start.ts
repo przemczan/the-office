@@ -25,7 +25,8 @@ export interface ServiceExit {
   readonly signal: NodeJS.Signals | null;
 }
 
-export const HEALTHY = '{"database":"up"}';
+/** A service of its own, never a test instance of The Office, with its database up. */
+export const HEALTHY = '{"database":"up","testInstance":false}';
 /** The web app's page, from apps/web/index.html. */
 export const WEB_APP_TITLE = "<title>The Office</title>";
 const SIGTERM_STATUS = 143;

@@ -23,7 +23,33 @@ describe("readOfficeConfig", () => {
       officeDataDirectory,
       gitHub: { webUrl: "https://github.com", apiUrl: "https://api.github.com" },
       skipSetupBasics: false,
+      testInstance: false,
     });
+  });
+
+  it.each([
+    ["true", true],
+    ["false", false],
+    ["", false],
+  ])("reads OFFICE_TEST_INSTANCE=%j as %s", (value, testInstance) => {
+    const config = readOfficeConfig(
+      { OFFICE_PORT: port, DATABASE_URL: databaseUrl, OFFICE_TEST_INSTANCE: value },
+      platformDefaults(),
+    );
+
+    expect(config.testInstance).toBe(testInstance);
+  });
+
+  it("refuses OFFICE_TEST_INSTANCE other than true or false", () => {
+    const error = readProblems({
+      OFFICE_PORT: port,
+      DATABASE_URL: databaseUrl,
+      OFFICE_TEST_INSTANCE: "yes",
+    });
+
+    expect(error.problems).toEqual([
+      { variable: "OFFICE_TEST_INSTANCE", problem: "must be true or false" },
+    ]);
   });
 
   it.each([

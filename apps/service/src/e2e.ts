@@ -1,6 +1,12 @@
 import type { Server } from "node:http";
 import type { Request, Response } from "express";
 import { z } from "zod";
+import type {
+  ComposeProject,
+  Execution,
+  ExecutionEnd,
+  Removal,
+} from "./modules/run-environments/index.js";
 import { launch } from "./launch.js";
 import { HTTP_APPLICATION_OPTIONS } from "./platform/http/configure-http.js";
 
@@ -37,6 +43,12 @@ const E2E_COPILOT_CLI_APPROVAL_PATH = "/api/e2e/copilot-cli-sign-ins/:engineId/a
  * (`ScriptedStatsSource`). 204.
  */
 const E2E_STATS_SOURCE_PATH = "/api/e2e/stats-source";
+/** What the end-to-end test instance app says, on its page and in its log. */
+const TEST_INSTANCE_APP_LINE = "Hello from the test instance";
+/** A Hosted test instance's compose project (`hostedProjectNameOf`): `office-<instance>-test-<id>`. */
+const HOSTED_PROJECT = /^office-[^-]+-test-/;
+/** What `compose exec` ends with when its container is taken down under it. */
+const KILLED_EXIT_CODE = 137;
 const e2ePointsSchema = z.array(z.object({ at: z.coerce.date(), value: z.number() }));
 const e2eSpendSchema = { tokens: z.number(), estimatedCostUsd: z.number() };
 const e2eSlowestSchema = {
@@ -175,6 +187,8 @@ await launch(
       await import("./platform/telemetry/bundled-grafana/bundled-grafana.js");
     const { ScriptedBundledGrafana } =
       await import("./platform/telemetry/bundled-grafana/scripted-bundled-grafana.js");
+    const { ContainerRuntime, ScriptedContainerRuntime } =
+      await import("./modules/run-environments/index.js");
     const scannedKey = hostKeyOf(hostKey);
     if (!scannedKey) throw new Error(`OFFICE_E2E_HOST_KEY is no ssh public key: ${hostKey}`);
     const scanner: InstanceType<typeof HostKeyScanner> = {
@@ -190,6 +204,36 @@ await launch(
     const codexAccounts = new StandInCodexAccounts();
     const copilotCliAccounts = new StandInCopilotCliAccounts();
     const statsSource = new ScriptedStatsSource();
+    // No container runtime runs in the end-to-end tests: every run environment is scripted, and a
+    // Hosted test instance's app is the one real app below, answering on the published port.
+    const testInstanceApp = await startTestInstanceApp();
+    /**
+     * The scripted runtime, whose Hosted entry point prints a line and keeps running until its
+     * compose project is taken down, as a real app's would; every other check runs as scripted.
+     */
+    class E2eContainerRuntime extends ScriptedContainerRuntime {
+      private readonly entryPoints = new Map<string, () => void>();
+
+      override async exec(
+        project: ComposeProject,
+        execution: Execution,
+        outputFile: string,
+      ): Promise<ExecutionEnd> {
+        if (!HOSTED_PROJECT.test(project.name)) return super.exec(project, execution, outputFile);
+        await this.emitLogs(project.name, `${TEST_INSTANCE_APP_LINE}\n`);
+        return new Promise((ended) =>
+          this.entryPoints.set(project.name, () => ended({ exitCode: KILLED_EXIT_CODE })),
+        );
+      }
+
+      override down(projectName: string, removal?: Removal): Promise<void> {
+        this.entryPoints.get(projectName)?.();
+        this.entryPoints.delete(projectName);
+        return super.down(projectName, removal);
+      }
+    }
+    const containerRuntime = new E2eContainerRuntime();
+    containerRuntime.hostPort = testInstanceApp.port;
     const moduleRef = await Test.createTestingModule({ imports: [appModule] })
       .overrideModule(EngineModule)
       .useModule(
@@ -221,6 +265,8 @@ await launch(
       // Nor reads one: the full stats read what the test sets at E2E_STATS_SOURCE_PATH.
       .overrideProvider(StatsSource)
       .useValue(statsSource)
+      .overrideProvider(ContainerRuntime)
+      .useValue(containerRuntime)
       // The testing module's own logger shows errors alone; the service logs as main.ts's does.
       .setLogger(new OfficeLogger())
       .compile();
@@ -228,6 +274,7 @@ await launch(
       ...HTTP_APPLICATION_OPTIONS,
       abortOnError: false,
     });
+    app.getHttpServer().on("close", () => testInstanceApp.server.close());
     const server: Server = app.getHttpServer();
     server.keepAliveTimeout = E2E_KEEP_ALIVE_MS;
     // The scripted sessions run in here, and a test reaches the service over HTTP alone: this
@@ -272,6 +319,28 @@ await launch(
   },
   officeCheckout,
 );
+
+/**
+ * The app every Hosted test instance of the end-to-end service runs: a page saying so, served on
+ * 127.0.0.1 at a free port, which the scripted runtime publishes as each instance's.
+ */
+async function startTestInstanceApp(): Promise<{ readonly server: Server; readonly port: number }> {
+  const { createServer } = await import("node:http");
+  const server = createServer((_request, response) => {
+    response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    response.end(
+      `<!doctype html><title>Test instance app</title><h1>${TEST_INSTANCE_APP_LINE}</h1>`,
+    );
+  });
+  await new Promise<void>((listening) => server.listen(0, "127.0.0.1", listening));
+  const address = server.address();
+  if (address === null || typeof address === "string") {
+    throw new Error("The end-to-end test instance app has no port.");
+  }
+  // Its connections never hold the service's exit.
+  server.unref();
+  return { server, port: address.port };
+}
 
 /** The request's JSON body, read here when no body parser ran before this route. */
 async function jsonBodyOf(request: Request): Promise<unknown> {

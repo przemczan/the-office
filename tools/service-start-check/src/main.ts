@@ -1,5 +1,6 @@
 // The last check of `npm run verify`: the built service started against DATABASE_URL's Postgres
-// answers /api/health with the database up, serves the built web app, and ends on SIGTERM.
+// answers /api/health with the database up and no test instance, serves the built web app, and
+// ends on SIGTERM.
 // `--root <folder>` checks the service of another folder laid out as the checkout, such as an
 // unpacked Office release (tools/release/prepare.sh).
 import { spawn, type ChildProcess } from "node:child_process";

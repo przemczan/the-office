@@ -1,0 +1,122 @@
+import { TestInstanceStateChanged } from "./test-instance-events.js";
+
+/** The kinds a Test instance may be (spec §2.12, "Kinds"); Build to install comes with its own Task. */
+export type TestInstanceKind = "hosted" | "build-to-install";
+
+/**
+ * A Test instance's state (spec §2.12, "Test instance states"): Hosted goes Building → Running →
+ * Stopped, or Failed from Building or Running; Built is Build to install's.
+ */
+export type TestInstanceState = "building" | "running" | "built" | "stopped" | "failed";
+
+/** The states that count toward Test instances at once and hold a Proxy port. */
+export const ACTIVE_STATES: readonly TestInstanceState[] = ["building", "running"];
+
+/** Who launched it, as records keep a user: their id and their name as it was then. */
+export interface LaunchedBy {
+  readonly kind: "user";
+  readonly user: { readonly userId: string; readonly name: string };
+}
+
+/** One launch of one test target on one Initiative's branch in one Project (spec §2.12). */
+export interface TestInstance {
+  readonly id: string;
+  readonly initiativeId: string;
+  readonly projectId: string;
+  readonly targetKey: string;
+  /** The target's name when it was launched, kept should the target be renamed or removed. */
+  readonly targetName: string;
+  readonly kind: TestInstanceKind;
+  readonly state: TestInstanceState;
+  /** The branch tip it runs; undefined until the checkout has it. */
+  readonly commit: string | undefined;
+  /** The Proxy port it holds while Building or Running; undefined once it has ended. */
+  readonly port: number | undefined;
+  /** Why it failed, in the user's words; undefined unless Failed. */
+  readonly failedReason: string | undefined;
+  readonly launchedBy: LaunchedBy;
+  readonly launchedAt: Date;
+  readonly runningAt: Date | undefined;
+  readonly endedAt: Date | undefined;
+}
+
+/** A change to an instance, with the event it carries; undefined when nothing would change. */
+export type TestInstanceChange =
+  | { readonly instance: TestInstance; readonly event: TestInstanceStateChanged | undefined }
+  | undefined;
+
+export function isActive(instance: Pick<TestInstance, "state">): boolean {
+  return ACTIVE_STATES.includes(instance.state);
+}
+
+/** A new Hosted instance, Building on its port. */
+export function launchedInstance(given: {
+  readonly id: string;
+  readonly initiativeId: string;
+  readonly projectId: string;
+  readonly targetKey: string;
+  readonly targetName: string;
+  readonly port: number;
+  readonly launchedBy: LaunchedBy;
+  readonly at: Date;
+}): TestInstance {
+  return {
+    id: given.id,
+    initiativeId: given.initiativeId,
+    projectId: given.projectId,
+    targetKey: given.targetKey,
+    targetName: given.targetName,
+    kind: "hosted",
+    state: "building",
+    commit: undefined,
+    port: given.port,
+    failedReason: undefined,
+    launchedBy: given.launchedBy,
+    launchedAt: given.at,
+    runningAt: undefined,
+    endedAt: undefined,
+  };
+}
+
+/** The commit its checkout has, recorded while it is Building. */
+export function withCommit(instance: TestInstance, commit: string): TestInstanceChange {
+  if (instance.state !== "building" || instance.commit === commit) return undefined;
+  return { instance: { ...instance, commit }, event: undefined };
+}
+
+/** Building → Running, once its app answers. */
+export function startedRunning(instance: TestInstance, at: Date): TestInstanceChange {
+  if (instance.state !== "building") return undefined;
+  return moved(instance, { ...instance, state: "running", runningAt: at });
+}
+
+/** Building or Running → Stopped, its port freed. */
+export function stopped(instance: TestInstance, at: Date): TestInstanceChange {
+  if (!isActive(instance)) return undefined;
+  return moved(instance, { ...instance, state: "stopped", port: undefined, endedAt: at });
+}
+
+/** Building or Running → Failed, saying why, its port freed. */
+export function failed(instance: TestInstance, reason: string, at: Date): TestInstanceChange {
+  if (!isActive(instance)) return undefined;
+  return moved(instance, {
+    ...instance,
+    state: "failed",
+    port: undefined,
+    failedReason: reason,
+    endedAt: at,
+  });
+}
+
+function moved(before: TestInstance, after: TestInstance): TestInstanceChange {
+  return {
+    instance: after,
+    event: new TestInstanceStateChanged(
+      after.id,
+      after.initiativeId,
+      before.state,
+      after.state,
+      before.port,
+    ),
+  };
+}

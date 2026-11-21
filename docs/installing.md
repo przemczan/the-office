@@ -33,6 +33,7 @@ Commands below use the defaults: port `4310`, the data folder `/var/lib/the-offi
 
 - **Docker access is root access.** The Office starts each Task's run environment through the Docker daemon, and whoever reaches Docker's socket can reach the whole machine as root. Install The Office on a machine you give it, and let in only people you trust.
 - **A free port:** `4310` unless you choose another.
+- **Proxy ports for test instances:** `4400` to `4419` by default, free on this machine, set in Settings › Office limits. Each running test instance is opened at one of them on `OFFICE_HOST`, so they never go through `OFFICE_PORT`, nor through a reverse proxy.
 - **Disk:** room for each Task's worktree, each Project's clone, and the run environment images Docker builds, which take the most. A few GB to start, and tens of GB for busy Projects.
 
 ## Install on Debian/Ubuntu
@@ -55,7 +56,7 @@ Then it shows the answers and the version and asks `Continue? [Y/n]`. Answering 
 
 ### Options
 
-Each option has a variable of the same meaning. Through `sudo`, give a variable after `sudo`: `curl … | sudo OFFICE_PORT=4400 bash`. A flag after `bash -s --` works too: `curl … | sudo bash -s -- --port 4400`.
+Each option has a variable of the same meaning. Through `sudo`, give a variable after `sudo`: `curl … | sudo OFFICE_PORT=4320 bash`. A flag after `bash -s --` works too: `curl … | sudo bash -s -- --port 4320`.
 
 | Flag | Variable | What it does |
 | --- | --- | --- |
@@ -110,6 +111,7 @@ Go on with [First run](#first-run). If The Office doesn't start in time, the ins
 ### Reaching it from other machines
 
 - **On your local network:** install with `--host 0.0.0.0` (or the machine's IP address), or set `OFFICE_HOST` in `office.env` ([Configuration](#configuration)), then open `http://<machine's IP>:4310`. Passwords and the sign-in cookie cross the network over plain HTTP, so only on a network you trust.
+- **Test instances from your local network:** with The Office on its LAN address, let the Proxy ports (`4400`–`4419` by default) in through the machine's firewall as well as `4310`. Only test instances need them; on `127.0.0.1` they stay on this machine.
 - **Over HTTPS at a domain:** keep `127.0.0.1`, put a reverse proxy in front and set the public address: [Behind a reverse proxy](running-the-office.md#behind-a-reverse-proxy).
 
 ## Install with Docker Compose
@@ -135,7 +137,7 @@ Go on with [First run](#first-run). If The Office doesn't start in time, the ins
    | `DOCKER_GID` | The group of Docker's socket: `stat -c %g /var/run/docker.sock`. |
    | `POSTGRES_PASSWORD` | A new password for the database: `openssl rand -hex 24`. Postgres keeps the one it first started with. |
    | `OFFICE_DATA_DIR` | The Office data folder, an absolute path, `/var/lib/the-office` by default. It is created at the first start and mounted at the same path in the container. |
-   | `OFFICE_HOST`, `OFFICE_PORT` | The address and port, on the host's network: `127.0.0.1` and `4310` by default. `0.0.0.0` or the machine's IP address opens it on your network (as [above](#reaching-it-from-other-machines)). |
+   | `OFFICE_HOST`, `OFFICE_PORT` | The address and port, on the host's network: `127.0.0.1` and `4310` by default. `0.0.0.0` or the machine's IP address opens it on your network (as [above](#reaching-it-from-other-machines)), and test instances' Proxy ports with it. |
    | `OFFICE_PUBLIC_ADDRESS` | Blank, or the `https://` address your reverse proxy serves it at ([Behind a reverse proxy](running-the-office.md#behind-a-reverse-proxy)). |
    | `POSTGRES_PORT` | The port Postgres is published on, on `127.0.0.1` only: `5432`. |
    | `OFFICE_SKIP_SETUP_BASICS` | `true` leaves out First-run setup's basics ([First run](#first-run)). |

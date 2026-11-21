@@ -43,7 +43,11 @@ export class OutputMask {
 
   /** Masks the environment's Secret variables. */
   static of(environment: ProjectEnvironment): OutputMask {
-    const secrets = environment.set.filter((variable) => variable.secret);
+    return OutputMask.ofSecrets(environment.set.filter((variable) => variable.secret));
+  }
+
+  /** Masks these values alone, such as a test target's own Secret variables (spec §2.12, "Log"). */
+  static ofSecrets(secrets: readonly SecretValue[]): OutputMask {
     return secrets.length === 0 ? OutputMask.NONE : new OutputMask(secrets);
   }
 

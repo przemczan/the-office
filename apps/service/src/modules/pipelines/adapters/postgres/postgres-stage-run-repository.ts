@@ -187,7 +187,9 @@ export class PostgresStageRunRepository extends StageRunRepository {
     return saved.length > 0;
   }
 
-  async saveEnded({ id, outcome, endedAt }: StageRun): Promise<void> {
+  async saveEnded({ id, outcome, endedAt, heldBy, heldByUser }: StageRun): Promise<void> {
+    // A Pause or a Stop the walk saved while the run ran wins over what the run honoured at its end.
+    const savedHeldBy = sql`${stageRuns.heldBy} is not null`;
     await this.database
       .update(stageRuns)
       .set({
@@ -195,6 +197,8 @@ export class PostgresStageRunRepository extends StageRunRepository {
         endedAt,
         waitingSince: null,
         changedFiles: sql`coalesce(${stageRuns.changedFiles}, '[]'::jsonb)`,
+        heldBy: sql`coalesce(${stageRuns.heldBy}, ${heldBy ?? null})`,
+        heldByUser: sql`case when ${savedHeldBy} then ${stageRuns.heldByUser} else ${heldByUser ? JSON.stringify(heldByUser) : null}::jsonb end`,
       })
       .where(eq(stageRuns.id, id));
   }

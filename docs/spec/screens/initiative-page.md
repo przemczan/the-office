@@ -140,19 +140,25 @@ Covers: the Initiative page's head and actions (Confirm, Plan the Initiative, Pl
 ## Test instances
 
 - A fold "Test instances" (flask icon), shown once the Initiative is active, open while one is Building or Running; remembered per Initiative.
-- Summary: "<n> running · <n> built" (each only when not 0), or "None launched yet".
+- Summary: "<n> running · <n> building · <n> built" (each only when not 0), "None running" once every instance has ended, or "None launched yet".
 - With no Project on an Initiative's branch: "Test instances launch on an Initiative's branch, and this Initiative publishes Task by Task."
 - A group per Project with a branch, its mark and name; one with no test target says "No test targets in <Project>." with a link to its Test targets section.
+- A Project whose Run environment isn't On says "Needs Run environment On to launch." on its group, with a link to its Run environment section; its **Launch** is disabled, saying why (the service refuses it too).
 - A row per test target: its name, its kind badge, and its newest instance:
-  - none yet: **Launch** (play icon);
+  - none yet: its entry point and **Launch** (play icon);
   - **Building** (info, spinner) with **Stop** and **Log**;
-  - **Running** (success) with "localhost:<port>" (or "<LAN IP>:<port>"), **Open** (a new tab, through the hand-off link), **Stop** and **Log**;
+  - **Running** (success) with "localhost:<port>" (or "<LAN IP>:<port>") as plain text, not a link, **Open** (a new tab, through the hand-off link), **Stop** and **Log**;
   - **Built** (success) with each file's name and size, **Download**, a **QR code** button and **Log**;
   - **Stopped** (neutral) or **Failed** (danger, with why) with **Log**;
   - with **Launch again** once the newest has ended or is Built, and "<short commit> · <time>" of the instance shown, with "Newer commits on the branch" when the branch has moved past it.
-- **Launch** is refused with the service's reason as a toast: over Test instances at once ("2 test instances are running: <target> in <Initiative>, …"), Run environment not On, an entry point missing on the branch, no Proxy port free.
+- **Launch** shows no toast: the row turns Building.
+- A refusal is a toast "<name> can't launch" with the service's reason, and the row stays as it was: over [Test instances at once](../2.12-test-instances.md#test-instances-at-once), Run environment not On, an entry point missing on the branch, no Proxy port free.
 - **Stop** asks nothing; toast "<name> stopped."
-- **Log** opens a window "<name> · <state>" with the masked log, streaming while it runs.
+- **Log** opens a large window "<name> · <state>":
+  - under its head: the state, the Project, the branch at its commit, who launched it and when, and the address while Running;
+  - the masked log in monospace, The Office's own lines (its steps: checkout, run environment, entry point) set apart from the output, and why it failed in danger;
+  - while Building or Running it streams, reading on from where it is; **Follow** (on at first) keeps the newest line in view, and scrolling up turns it off;
+  - its bar: **Open** while Running, **Stop** (danger) while Building or Running, **Close**.
 - **QR code** opens a window "Install <file> on a phone": the QR code, "Works for this file only, for 1 hour." and the link with **Copy link**.
   - At `localhost`: "A phone can't reach localhost. Open The Office at its LAN address to make a QR code that works there." in place of the code.
 - Earlier instances of a target fold under its row, "<n> earlier", each with its state, commit, time and **Log**.

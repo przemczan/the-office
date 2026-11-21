@@ -416,6 +416,18 @@ export abstract class Git {
     variables: GitVariables,
   ): Promise<void>;
 
+  /**
+   * Writes the files of `commit` into `folder`, made if missing, as a plain checkout: no `.git` in
+   * it, nothing of it known to the repository (no worktree, ref or index of its own changed), its
+   * files through the repository's filters and attributes, as a checkout writes them.
+   */
+  abstract exportCommit(
+    repositoryPath: string,
+    commit: string,
+    folder: string,
+    variables: GitVariables,
+  ): Promise<void>;
+
   /** Removes the worktree with whatever it holds; its branch stays. */
   abstract removeWorktree(
     repositoryPath: string,

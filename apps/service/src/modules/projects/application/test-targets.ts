@@ -1,6 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { entryPointProblems, sameEntryPoint, type EntryPointTree } from "../domain/entry-point.js";
+import { OutputMask } from "../domain/output-mask.js";
+import type { ProjectVariable } from "../domain/project-environment.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import { ProjectTestTargetsChanged } from "../domain/project-events.js";
@@ -15,6 +17,7 @@ import {
 import {
   editedTestTargets,
   sameTestTargets,
+  secretsWithoutValue,
   setByAfter,
   testTargetLabel,
   testTargetProblems,
@@ -26,6 +29,22 @@ import { TestTargetRepository } from "../ports/test-target-repository.js";
 import { CommittedFiles } from "./committed-files.js";
 import { DevcontainerServices } from "./devcontainer-services.js";
 import { ProjectService } from "./project-service.js";
+
+/**
+ * What launching a test target needs (spec §2.12): the target as kept, whether the Project's Run
+ * environment is On, and the target's own variables with their values, the only ones a test
+ * instance gets (spec §6, "Test instances"), never the Project's environment.
+ */
+export interface TestTargetLaunchSettings {
+  readonly target: TestTarget;
+  readonly runEnvironmentOn: boolean;
+  /** The target's variables, then each Secret variable with a value, `secret` set. */
+  readonly variables: readonly ProjectVariable[];
+  /** The target's Secret variables with no value typed yet, by name, which `variables` leaves out. */
+  readonly secretsWithoutValue: readonly string[];
+  /** Hides the target's own Secret variables' values, as `[secret NAME]`, in the instance's log. */
+  readonly mask: OutputMask;
+}
 
 /** A target, or a Proposal's, whose entry point is checked against a commit. */
 type EntryPointOwner = Pick<ProposedTestTargetFields, "key" | "entryPoint">;
@@ -152,6 +171,30 @@ export class TestTargets {
     const target = (await this.list(projectId)).find((each) => each.key === key);
     if (!target) return [`The Project has no test target with the key "${key}".`];
     return this.entryPointsProblems(projectId, commit, [target]);
+  }
+
+  /**
+   * What a launch of the target `key` needs, its Secret variables' values among them, which never
+   * leave the service. Refused (ProjectRefused) when the Project has no such target.
+   */
+  async launchSettingsOf(projectId: string, key: string): Promise<TestTargetLaunchSettings> {
+    const project = await this.projects.read(projectId);
+    const target = (await this.repository.listOf(projectId)).find((each) => each.key === key);
+    if (!target)
+      throw new ProjectRefused([`The Project has no test target with the key "${key}".`]);
+    const secrets = target.secretVariables.flatMap(({ name, value }) =>
+      value === null ? [] : [{ name, value, secret: true }],
+    );
+    return {
+      target,
+      runEnvironmentOn: project.runEnvironment === "on",
+      variables: [
+        ...target.variables.map(({ name, value }) => ({ name, value, secret: false })),
+        ...secrets,
+      ],
+      secretsWithoutValue: secretsWithoutValue(target),
+      mask: OutputMask.ofSecrets(secrets),
+    };
   }
 
   private async proposedEntryPointsProblems(

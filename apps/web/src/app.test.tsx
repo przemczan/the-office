@@ -48,7 +48,11 @@ function answer(more: Answers): void {
 
 function stubService(): void {
   // First-run setup is the setup page's tests' (first-run-setup.test.tsx): closed here.
-  answers = { "GET /api/first-run-setup": () => ({ status: 200, body: { basics: "closed" } }) };
+  answers = {
+    "GET /api/first-run-setup": () => ({ status: 200, body: { basics: "closed" } }),
+    // Open without signing in; a test instance's own answers `testInstance: true`.
+    "GET /api/health": () => ({ status: 200, body: { database: "up", testInstance: false } }),
+  };
   vi.stubGlobal(
     "fetch",
     vi.fn<typeof fetch>(async (input, init) => {
@@ -126,6 +130,27 @@ describe("signing in", () => {
     expect(page.textContent).not.toContain("The shell");
     expect(page.querySelector("nav")).toBeNull();
     expect(sockets).toHaveLength(0);
+  });
+
+  it("shows the Test instance banner on the sign-in page of a test instance, and only there", async () => {
+    stubService();
+    answer({ "GET /api/sign-in": () => ({ status: 200, body: SIGN_IN_PAGE }) });
+
+    const { page } = await opened("/sign-in");
+    await until(() => expect(page.querySelector("h1")?.textContent).toBe("Sign in to The Office"));
+    expect(page.querySelector('[role="note"][aria-label="Test instance"]')).toBeNull();
+
+    act(() => root?.unmount());
+    page.remove();
+    answer({
+      "GET /api/health": () => ({ status: 200, body: { database: "up", testInstance: true } }),
+    });
+    const tested = await opened("/sign-in");
+    await until(() =>
+      expect(
+        tested.page.querySelector('[role="note"][aria-label="Test instance"]')?.textContent,
+      ).toContain("Test instance"),
+    );
   });
 
   it("sends a browser that isn't signed in to the sign-in page, which returns to the page asked for, then connects", async () => {

@@ -17,6 +17,7 @@ import {
   type ImageBuild,
   type LabelledImage,
   type LabelledResource,
+  type Removal,
   type ResourceKind,
   type StreamedOutputMask,
 } from "../../ports/container-runtime.js";
@@ -30,6 +31,8 @@ const SHORT_TIMEOUT_MS = 2 * 60 * 1000;
 const LONG_TIMEOUT_MS = 60 * 60 * 1000;
 /** How long `up` waits for the services to be running, or healthy where they have a healthcheck. */
 const UP_WAIT_SECONDS = 600;
+/** The longest a timer runs: following a Hosted Test instance's logs runs until it ends. */
+const LONGEST_TIMEOUT_MS = 2 ** 31 - 1;
 /** The end of a failing command's error output kept for its message. */
 const ERROR_TAIL_BYTES = 4096;
 /** The most a listing's output may hold. */
@@ -78,16 +81,21 @@ export class ComposeCommandLine extends ContainerRuntime {
     return exitCode === 0;
   }
 
-  async buildImage(build: ImageBuild, outputFile: string): Promise<void> {
+  async buildImage(
+    build: ImageBuild,
+    outputFile: string,
+    mask?: StreamedOutputMask,
+  ): Promise<void> {
     await this.required(`The image ${build.image} couldn't be built`, {
       arguments: buildArguments(build),
       variables: build.secrets,
       timeoutMs: LONG_TIMEOUT_MS,
       outputFile,
+      ...(mask === undefined ? {} : { mask }),
     });
   }
 
-  async up(project: ComposeProject, outputFile: string): Promise<void> {
+  async up(project: ComposeProject, outputFile: string, mask?: StreamedOutputMask): Promise<void> {
     await this.required(`The compose project ${project.name} couldn't start`, {
       arguments: [
         ...composeArguments(project),
@@ -100,8 +108,10 @@ export class ComposeCommandLine extends ContainerRuntime {
         "--quiet-pull",
         ...project.services,
       ],
+      ...variablesOf(project),
       timeoutMs: LONG_TIMEOUT_MS,
       outputFile,
+      ...(mask === undefined ? {} : { mask }),
       workingFolder: project.projectDirectory,
     });
   }
@@ -120,7 +130,7 @@ export class ComposeCommandLine extends ContainerRuntime {
   ): Promise<ExecutionEnd> {
     const ended = await this.invoke({
       arguments: execArguments(project, execution),
-      variables: execution.variables,
+      variables: { ...project.variables, ...execution.variables },
       timeoutMs: execution.timeoutMs,
       outputFile,
       mask: execution.mask,
@@ -131,6 +141,7 @@ export class ComposeCommandLine extends ContainerRuntime {
       // Ending the CLI leaves the command running in the container: restarting the service ends it.
       await this.required(`The service ${execution.service} couldn't be restarted`, {
         arguments: [...composeArguments(project), "restart", execution.service],
+        ...variablesOf(project),
         timeoutMs: SHORT_TIMEOUT_MS,
         workingFolder: project.projectDirectory,
       });
@@ -142,7 +153,7 @@ export class ComposeCommandLine extends ContainerRuntime {
     return { exitCode: ended.exitCode };
   }
 
-  async down(projectName: string): Promise<void> {
+  async down(projectName: string, removal: Removal = {}): Promise<void> {
     await this.required(`The compose project ${projectName} couldn't be removed`, {
       arguments: [
         "compose",
@@ -151,10 +162,52 @@ export class ComposeCommandLine extends ContainerRuntime {
         "down",
         "--volumes",
         "--remove-orphans",
+        ...(removal.builtImages === true ? ["--rmi", "local"] : []),
         "--timeout",
         "10",
       ],
       timeoutMs: SHORT_TIMEOUT_MS,
+    });
+  }
+
+  async publishedPort(
+    project: ComposeProject,
+    service: string,
+    containerPort: number,
+  ): Promise<number> {
+    const what = `The port ${containerPort} of the service ${service} isn't published`;
+    const { stdout } = await this.required(what, {
+      arguments: [...composeArguments(project), "port", service, String(containerPort)],
+      ...variablesOf(project),
+      timeoutMs: SHORT_TIMEOUT_MS,
+      workingFolder: project.projectDirectory,
+    });
+    const port = publishedPortOf(stdout);
+    if (port === undefined) throw new ContainerRuntimeFailed(`${what}.`);
+    return port;
+  }
+
+  async followLogs(
+    project: ComposeProject,
+    service: string | undefined,
+    outputFile: string,
+    mask: StreamedOutputMask,
+    signal: AbortSignal,
+  ): Promise<void> {
+    await this.invoke({
+      arguments: [
+        ...composeArguments(project),
+        "logs",
+        "--follow",
+        "--no-color",
+        ...(service === undefined ? [] : [service]),
+      ],
+      ...variablesOf(project),
+      timeoutMs: LONGEST_TIMEOUT_MS,
+      outputFile,
+      mask,
+      signal,
+      workingFolder: project.projectDirectory,
     });
   }
 
@@ -334,7 +387,16 @@ export function execArguments(project: ComposeProject, execution: Execution): st
     "/bin/sh",
     "-c",
     execution.script,
+    // The script's $0, then its arguments one by one.
+    ...(execution.arguments === undefined ? [] : ["office-entry-point", ...execution.arguments]),
   ];
+}
+
+/** The host port in `compose port`'s `127.0.0.1:49153`; none when nothing is published. */
+export function publishedPortOf(stdout: string): number | undefined {
+  const line = lines(stdout)[0]?.trim() ?? "";
+  const port = Number(line.slice(line.lastIndexOf(":") + 1));
+  return line.includes(":") && Number.isInteger(port) && port > 0 ? port : undefined;
 }
 
 /** `build` of the image, each secret given from the CLI's environment by its id. */
@@ -364,6 +426,12 @@ function composeArguments(project: ComposeProject): string[] {
     project.projectDirectory,
     ...project.files.flatMap((file) => ["--file", file]),
   ];
+}
+
+function variablesOf(project: ComposeProject): {
+  readonly variables?: Readonly<Record<string, string>>;
+} {
+  return project.variables === undefined ? {} : { variables: project.variables };
 }
 
 function labelArguments(labels: Labels): string[] {

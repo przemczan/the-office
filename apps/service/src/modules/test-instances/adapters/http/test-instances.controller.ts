@@ -1,0 +1,110 @@
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  UseFilters,
+} from "@nestjs/common";
+import {
+  testInstanceLaunchSchema,
+  type EntryPoint,
+  type InitiativeTestInstances,
+  type TestInstance as TestInstanceResponse,
+  type TestInstanceLaunch,
+  type TestInstanceLog,
+} from "@the-office/contracts";
+import { z } from "zod";
+import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
+import { TestInstances, type InitiativeTestProject } from "../../application/test-instances.js";
+import type { TestInstance } from "../../domain/test-instance.js";
+import type { TargetEntryPoint } from "../../ports/project-test-targets.js";
+import { TestInstanceRefusalsFilter } from "./test-instance-refusals.filter.js";
+
+const logQuerySchema = z.object({ from: z.coerce.number().int().min(0).default(0) });
+type LogQuery = z.infer<typeof logQuerySchema>;
+
+/** The Initiative page's Test instances (spec §2.12): list, launch, stop and log. */
+@Controller()
+@UseFilters(TestInstanceRefusalsFilter)
+export class TestInstancesController {
+  constructor(private readonly instances: TestInstances) {}
+
+  @Get("initiatives/:id/test-instances")
+  async list(@Param("id", ParseUUIDPipe) id: string): Promise<InitiativeTestInstances> {
+    return { projects: (await this.instances.listFor(id)).map(projectResponse) };
+  }
+
+  @Post("initiatives/:id/test-instances")
+  async launch(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(testInstanceLaunchSchema)) launch: TestInstanceLaunch,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<TestInstanceResponse> {
+    const instance = await this.instances.launch(id, launch, {
+      kind: "user",
+      user: userOf(signedIn),
+    });
+    return instanceResponse(instance);
+  }
+
+  @Post("test-instances/:id/stop")
+  @HttpCode(200)
+  async stop(@Param("id", ParseUUIDPipe) id: string): Promise<TestInstanceResponse> {
+    return instanceResponse(await this.instances.stop(id));
+  }
+
+  @Get("test-instances/:id/log")
+  log(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Query(new ContractPipe(logQuerySchema)) { from }: LogQuery,
+  ): Promise<TestInstanceLog> {
+    return this.instances.readLog(id, from);
+  }
+}
+
+function projectResponse(
+  project: InitiativeTestProject,
+): InitiativeTestInstances["projects"][number] {
+  return {
+    projectId: project.projectId,
+    runEnvironmentOn: project.runEnvironmentOn,
+    branchCommit: project.branchCommit ?? null,
+    targets: project.targets.map((target) => ({
+      key: target.key,
+      name: target.name,
+      kind: target.kind,
+      entryPoint: entryPointResponse(target.entryPoint),
+      instances: target.instances.map(instanceResponse),
+    })),
+  };
+}
+
+export function instanceResponse(instance: TestInstance): TestInstanceResponse {
+  return {
+    id: instance.id,
+    initiativeId: instance.initiativeId,
+    projectId: instance.projectId,
+    targetKey: instance.targetKey,
+    targetName: instance.targetName,
+    kind: instance.kind,
+    state: instance.state,
+    commit: instance.commit ?? null,
+    port: instance.port ?? null,
+    failedReason: instance.failedReason ?? null,
+    launchedBy: instance.launchedBy,
+    launchedAt: instance.launchedAt.toISOString(),
+    runningAt: instance.runningAt?.toISOString() ?? null,
+    endedAt: instance.endedAt?.toISOString() ?? null,
+  };
+}
+
+function entryPointResponse(entryPoint: TargetEntryPoint): EntryPoint {
+  return entryPoint.kind === "devcontainer-service"
+    ? { ...entryPoint }
+    : { ...entryPoint, arguments: [...entryPoint.arguments] };
+}

@@ -16,7 +16,55 @@ body,
   grid-template-columns: auto minmax(0, 1fr) auto;
   /* The status strip sets its own height: 52px, or 94px in two rows on a narrow strip. */
   grid-template-rows: 56px auto minmax(0, 1fr);
-  height: 100vh;
+  height: calc(100vh - var(--test-instance-banner-height, 0px));
+}
+
+/* ---- the Test instance banner: above the rail and the top bar, or a page outside the shell, on a
+   test instance alone; one line high, so the frame under it gives up just that. */
+:root:has(.test-instance-banner) {
+  --test-instance-banner-height: 34px;
+}
+
+.test-instance-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: var(--test-instance-banner-height);
+  padding: 0 14px;
+  border-bottom: 1px solid var(--warning-border);
+  background: var(--warning-subtle);
+  font: var(--type-body-sm);
+  color: var(--fg-1);
+  white-space: nowrap;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.test-instance-banner-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  background: var(--warning);
+  font: 600 var(--text-xs) / 1 var(--font-sans);
+  color: var(--gray-950);
+}
+
+.test-instance-banner-words {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--fg-2);
+}
+
+.test-instance-banner code {
+  flex: none;
+  font-size: var(--text-xs);
+  color: var(--warning-fg);
 }
 
 /* ---- rail */

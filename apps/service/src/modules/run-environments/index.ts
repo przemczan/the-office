@@ -4,6 +4,12 @@ export {
   type SlotOptions,
 } from "./application/run-environments.js";
 export type { DefinitionWriting } from "./application/definition-files.js";
+export {
+  HostedServices,
+  type HostedService,
+  type HostedServiceStart,
+} from "./application/hosted-services.js";
+export type { HostedServiceReadinessOptions } from "./application/hosted-service-readiness.js";
 export { RunEnvironmentDefinitions } from "./application/run-environment-definitions.js";
 export type {
   DefinitionFile,
@@ -16,8 +22,22 @@ export {
   RunEnvironmentRemoved,
 } from "./domain/run-environment-events.js";
 export { RunEnvironmentRefused } from "./domain/run-environment-refused.js";
-export type { CommandEnvironment, TaskInWorktree } from "./domain/run-environment.js";
-export type { ExecutionEnd } from "./ports/container-runtime.js";
+export type {
+  CommandEnvironment,
+  HostedEntryPoint,
+  InstallVariable,
+  TaskInWorktree,
+} from "./domain/run-environment.js";
+export {
+  ContainerRuntime,
+  type ComposeProject,
+  type Execution,
+  type ExecutionEnd,
+  type Removal,
+  type StreamedOutputMask,
+} from "./ports/container-runtime.js";
+// The end-to-end service's runtime (src/e2e.ts); tests reach it through index.fixtures.ts too.
+export { ScriptedContainerRuntime } from "./adapters/scripted/scripted-container-runtime.js";
 export {
   RunEnvironmentsModule,
   type RunEnvironmentsModuleOptions,

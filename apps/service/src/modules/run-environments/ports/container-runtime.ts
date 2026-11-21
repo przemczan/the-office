@@ -26,6 +26,18 @@ export interface ComposeProject {
   readonly projectDirectory: string;
   /** The services to start. */
   readonly services: readonly string[];
+  /**
+   * Set in the compose CLI's environment for every command naming the project's files, which
+   * read them as `${NAME}`: a Hosted Test instance's variables by their carriers (`carrierOf`), so
+   * no value is ever in a compose file or a command line.
+   */
+  readonly variables?: Readonly<Record<string, string>>;
+}
+
+/** How a compose project is taken down. */
+export interface Removal {
+  /** Also removes the images compose built for its services, which no other project uses. */
+  readonly builtImages?: boolean;
 }
 
 /**
@@ -42,6 +54,11 @@ export interface Execution {
   readonly user?: string;
   /** A POSIX shell script, run by `/bin/sh -c`. */
   readonly script: string;
+  /**
+   * Given to the script as `$1`, `$2` and on, one by one, never read by the shell: an entry point's
+   * command, which the script runs with `exec "$@"`.
+   */
+  readonly arguments?: readonly string[];
   /**
    * The variables the script runs with, set over the service's own. Given to the runtime by name,
    * their values in its CLI's environment, so no value is ever in a command line.
@@ -82,10 +99,19 @@ export interface LabelledImage {
 export abstract class ContainerRuntime {
   abstract imageExists(image: string): Promise<boolean>;
 
-  abstract buildImage(build: ImageBuild, outputFile: string): Promise<void>;
+  /** Builds the image; `mask`, when given, hides values in its output on the way to the file. */
+  abstract buildImage(
+    build: ImageBuild,
+    outputFile: string,
+    mask?: StreamedOutputMask,
+  ): Promise<void>;
 
   /** Brings the compose project up, building nothing for its checks' service, and waits for it. */
-  abstract up(project: ComposeProject, outputFile: string): Promise<void>;
+  abstract up(
+    project: ComposeProject,
+    outputFile: string,
+    mask?: StreamedOutputMask,
+  ): Promise<void>;
 
   /** Stops its containers, keeping them and their data. */
   abstract stop(projectName: string): Promise<void>;
@@ -98,7 +124,28 @@ export abstract class ContainerRuntime {
   ): Promise<ExecutionEnd>;
 
   /** Takes the compose project down with its volumes and orphans. */
-  abstract down(projectName: string): Promise<void>;
+  abstract down(projectName: string, removal?: Removal): Promise<void>;
+
+  /** The port on 127.0.0.1 the runtime published for the service's `containerPort`. */
+  abstract publishedPort(
+    project: ComposeProject,
+    service: string,
+    containerPort: number,
+  ): Promise<number>;
+
+  /**
+   * Streams the logs of the service, or of every service when none is named, to the file as they
+   * come, masked, from the start; resolves once following ends: the service ended (every one, when
+   * none is named), the project was taken down, or `signal` aborted. It never throws for a
+   * command that fails; it ends.
+   */
+  abstract followLogs(
+    project: ComposeProject,
+    service: string | undefined,
+    outputFile: string,
+    mask: StreamedOutputMask,
+    signal: AbortSignal,
+  ): Promise<void>;
 
   /** The containers, networks and volumes carrying every one of the labels. */
   abstract listByLabel(labels: Labels): Promise<readonly LabelledResource[]>;

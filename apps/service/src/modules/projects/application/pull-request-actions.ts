@@ -1,5 +1,6 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { OfficeTestInstance } from "../../../platform/test-instance/office-test-instance.js";
 import type { SignedInUser } from "../../../platform/http/signed-in-requests.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import { recommendedMergeMethod, type MergeMethod } from "../domain/merge-method.js";
@@ -10,6 +11,7 @@ import {
   type PullRequestEndedBy,
 } from "../domain/pull-request-events.js";
 import { PullRequestNotFound, PullRequestRefused } from "../domain/pull-request-refused.js";
+import { refuseInTestInstance } from "../domain/test-instance-refused.js";
 import { CodeHost, CodeHostChangedSince, CodeHostRefused } from "../ports/code-host.js";
 import { PullRequestRepository } from "../ports/pull-request-repository.js";
 import { CodeHosts } from "./code-hosts.js";
@@ -41,6 +43,7 @@ export class PullRequestActions {
     private readonly codeHosts: CodeHosts,
     private readonly events: EventBus,
     private readonly schedule: Schedule,
+    @Optional() private readonly testInstance: OfficeTestInstance = OfficeTestInstance.OFF,
   ) {}
 
   /** The merge methods the repository allows for the pull request, and the one to pick first. */
@@ -65,6 +68,7 @@ export class PullRequestActions {
    * when the branch moved since, which is refused with `refresh`.
    */
   async merge(id: string, method: MergeMethod, by: SignedInUser): Promise<void> {
+    refuseInTestInstance(this.testInstance.on, "merge");
     const pullRequest = await this.openOne(id);
     const host = this.hostOf(pullRequest);
     const expectedHeadCommit = pullRequest.headCommit;
@@ -106,6 +110,7 @@ export class PullRequestActions {
 
   /** Closes the pull request without merging it; its branch stays. */
   async close(id: string, by: SignedInUser): Promise<void> {
+    refuseInTestInstance(this.testInstance.on, "close-pull-request");
     const pullRequest = await this.openOne(id);
     const host = this.hostOf(pullRequest);
     await asked(() => host.close(pullRequest.remoteUrl, pullRequest.number));

@@ -13,6 +13,7 @@ Covers: the sign-in page, the first-user form (setup token), the ways to sign in
 
 - One centred column: the Office name (the mark and "The Office"), the heading, a lead line, alerts, and a card holding the form.
 - The code page adds a **‹ Back to sign in** link under its card.
+- In a test instance of The Office the [Test instance banner](shell.md#test-instance-banner) shows above it.
 
 ## Sign-in page
 

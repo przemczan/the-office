@@ -13,6 +13,7 @@ import { uploadBody } from "../../platform/http/upload-body.js";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { ImageFolder } from "../../platform/images/image-folder.js";
 import { OfficeDataDirectory } from "../../platform/office-data/office-data-directory.js";
+import { OfficeTestInstance } from "../../platform/test-instance/office-test-instance.js";
 import { EngineModule } from "../engine/index.js";
 import { BusyWorkModule } from "../office-updates/index.js";
 import { McpServersModule } from "../mcp-servers/index.js";
@@ -55,6 +56,7 @@ import { EngineLevelsChecks } from "./application/engine-levels-checks.js";
 import { RunEnvironmentSetUpRegistry } from "./application/run-environment-set-up-registry.js";
 import { DevcontainerServices } from "./application/devcontainer-services.js";
 import { TestTargets } from "./application/test-targets.js";
+import { TestInstanceCheckouts } from "./application/test-instance-checkouts.js";
 import { TestTargetRepository } from "./ports/test-target-repository.js";
 import { TaskCommandRunner } from "./application/task-command-runner.js";
 import { TaskRunEnvironments } from "./application/task-run-environments.js";
@@ -162,8 +164,9 @@ export class ProjectsModule implements NestModule {
         // such as GitLab, is one more adapter of `CodeHost` in this list.
         {
           provide: CodeHosts,
-          inject: [GitHubCodeHost],
-          useFactory: (gitHub: GitHubCodeHost) => new CodeHosts([gitHub]),
+          inject: [GitHubCodeHost, { token: OfficeTestInstance, optional: true }],
+          useFactory: (gitHub: GitHubCodeHost, testInstance: OfficeTestInstance | undefined) =>
+            new CodeHosts([gitHub], testInstance),
         },
         PullRequestWatch,
         CiRunWatch,
@@ -181,6 +184,7 @@ export class ProjectsModule implements NestModule {
         RunEnvironmentSetUpRegistry,
         DevcontainerServices,
         TestTargets,
+        TestInstanceCheckouts,
         LocalRepositories,
         RepositoriesByUrl,
         ProjectService,
@@ -224,6 +228,7 @@ export class ProjectsModule implements NestModule {
         RunEnvironmentSetUpRegistry,
         DevcontainerServices,
         TestTargets,
+        TestInstanceCheckouts,
         ProjectRecords,
         ProjectService,
         ProjectsFromRepositories,

@@ -1,3 +1,5 @@
+import { OfficeTestInstance } from "../../../platform/test-instance/office-test-instance.js";
+import { TestInstanceRefused } from "../domain/test-instance-refused.js";
 import {
   CodeHost,
   CodeHostRefused,
@@ -11,7 +13,10 @@ import {
  * `CodeHost` given here in projects.module.ts.
  */
 export class CodeHosts {
-  constructor(private readonly hosts: readonly CodeHost[]) {}
+  constructor(
+    private readonly hosts: readonly CodeHost[],
+    private readonly testInstance: OfficeTestInstance = OfficeTestInstance.OFF,
+  ) {}
 
   /** The host that holds the repository at `remoteUrl`; undefined when none of them does. */
   of(remoteUrl: string): CodeHost | undefined {
@@ -24,8 +29,12 @@ export class CodeHosts {
     return host ? host.whyCannotOpen(remoteUrl) : Promise.resolve(this.notOnAnyHost());
   }
 
-  /** Opens the pull request on the remote's host; throws CodeHostRefused when there is none. */
+  /**
+   * Opens the pull request on the remote's host; throws CodeHostRefused when there is none, and
+   * TestInstanceRefused in a test instance of The Office.
+   */
   open(request: PullRequestRequest): Promise<OpenedPullRequest> {
+    if (this.testInstance.on) return Promise.reject(new TestInstanceRefused("open-pull-request"));
     const host = this.of(request.remoteUrl);
     if (!host) return Promise.reject(new CodeHostRefused(this.notOnAnyHost()));
     return host.open(request);

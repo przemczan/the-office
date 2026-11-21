@@ -30,6 +30,8 @@ export {
 } from "./domain/idea-events.js";
 export { AlarmSounded, AllClearGiven } from "./domain/fire-alarm-events.js";
 export { InitiativeCreated, InitiativeStateChanged } from "./domain/initiative-events.js";
+export { InitiativeNotFound } from "./domain/initiative-not-found.js";
+export { initiativeBranchOf } from "./domain/short-name.js";
 export { OfficeWideLimitChanged, UsageSettingsChanged } from "./domain/office-limit-events.js";
 export {
   TaskLeftQueue,

@@ -1,8 +1,10 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { OfficeTestInstance } from "../../../platform/test-instance/office-test-instance.js";
 import { AsyncChannel } from "../../../platform/streams/async-channel.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { EngineDown, SkillCalled } from "../domain/engine-events.js";
+import { EngineRefused } from "../domain/engine-refused.js";
 import { calledSkill, skillNameOf } from "../domain/skill-calls.js";
 import { BusyWork } from "../../office-updates/index.js";
 import {
@@ -104,6 +106,7 @@ export class EngineSessions {
     private readonly busyWork: BusyWork,
     private readonly languageServers: SessionLanguageServers,
     private readonly prices: ModelPrices,
+    @Optional() private readonly testInstance: OfficeTestInstance = OfficeTestInstance.OFF,
   ) {}
 
   /** What the engine listed as `engineId` can do; refused when Settings › Engines lists none. */
@@ -132,7 +135,9 @@ export class EngineSessions {
     return missingCapabilities(this.engines.of(engine).capabilities);
   }
 
+  /** Refused with EngineRefused in a test instance of The Office (`OFFICE_TEST_INSTANCE`). */
   async start({ id, settings, brief }: SessionStart): Promise<EngineSession> {
+    if (this.testInstance.on) throw new EngineRefused();
     return this.counted(settings.engineId, async (ended) => {
       const listed = await this.listed(settings.engineId);
       const engine = this.engines.of(listed);
@@ -158,6 +163,7 @@ export class EngineSessions {
    * breaks its cached prefix, and another engine has no such session.
    */
   async resume(sessionId: string, settings: SessionSettings): Promise<EngineSession> {
+    if (this.testInstance.on) throw new EngineRefused();
     return this.counted(settings.engineId, async (ended) => {
       const listed = await this.listed(settings.engineId);
       const engine = this.engines.of(listed);

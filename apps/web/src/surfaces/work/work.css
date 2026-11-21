@@ -4408,3 +4408,297 @@ button.initiative-track-body:hover .stage-mark {
   font-size: var(--text-sm);
   color: var(--fg-2);
 }
+
+/* ---- The Initiative page's Test instances (docs/design/test-instances.html): a group per Project on
+   the Initiative's branch, a row per Hosted target with its newest instance, the earlier ones folded
+   under it; and the Log window. */
+.test-instances {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.test-instances-project {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.test-instances-project-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-sunken);
+}
+
+.test-instances-project-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: 600 var(--text-sm) / 1.3 var(--font-sans);
+  color: var(--fg-1);
+}
+
+.test-instances-branch,
+.test-instance-log-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.test-instances-branch code,
+.test-instance-log-branch code {
+  color: var(--fg-2);
+}
+
+.test-instances-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--warning-subtle);
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+}
+
+.test-instances-note svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--warning-fg);
+}
+
+.test-instances-empty {
+  margin: 0;
+  padding: 12px;
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+}
+
+.test-instances-targets {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.test-instances-target + .test-instances-target {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.test-instances-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 12px;
+}
+
+.test-instances-main {
+  display: flex;
+  flex: 1 1 260px;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.test-instances-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.test-instances-name {
+  font: 600 var(--text-sm) / 1.3 var(--font-sans);
+  color: var(--fg-1);
+}
+
+.test-instances-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.test-instances-separator {
+  color: var(--fg-disabled);
+}
+
+.test-instances-entry-point {
+  font: 400 var(--text-xs) / 1.4 var(--font-mono);
+  color: var(--fg-2);
+  overflow-wrap: anywhere;
+}
+
+.test-instance-address {
+  font: 500 var(--text-xs) / 1 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-1);
+}
+
+.test-instances-newer {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  color: var(--warning-fg);
+}
+
+.test-instances-reason {
+  margin: 0;
+  font: var(--type-body-sm);
+  color: var(--danger-fg);
+}
+
+/* One line, even on a phone: the row wraps the actions under the name as a whole instead. */
+.test-instances-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.test-instances-earlier {
+  border-top: 1px dashed var(--border-subtle);
+}
+
+.test-instances-earlier-toggle {
+  padding: 7px 12px;
+  font: 500 var(--text-xs) / 1 var(--font-sans);
+  color: var(--fg-3);
+}
+
+.test-instances-earlier-list {
+  margin: 0 12px 10px 30px;
+  padding: 0;
+  list-style: none;
+  border-left: 2px solid var(--border-subtle);
+}
+
+.test-instances-earlier-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 5px 0 5px 12px;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.test-instances-earlier-list li button {
+  margin-left: auto;
+}
+
+.test-instances-foot {
+  margin: 0;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+/* Spins on transform alone, in its own painted box (apps/web/src/MAP.md, the live dot's trap). */
+.test-instances-spinner {
+  display: inline-flex;
+  margin-right: 4px;
+  contain: paint;
+  animation: test-instances-spin 1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .test-instances-spinner {
+    animation: none;
+  }
+}
+
+@keyframes test-instances-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.test-instance-log {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.test-instance-log-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 14px;
+  padding: 9px 0 12px;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.test-instance-log-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.test-instance-log-project {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--fg-1);
+}
+
+.test-instance-log-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.test-instance-log-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  color: var(--info-fg);
+}
+
+.test-instance-log-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+}
+
+.test-instance-log-lines {
+  padding: 10px 14px 18px;
+  font: var(--type-mono);
+  font-size: 12px;
+  color: var(--fg-1);
+}
+
+.test-instance-log-line {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.test-instance-log-line.is-office {
+  margin-top: 6px;
+  font-weight: 600;
+  color: var(--fg-2);
+}
+
+.test-instance-log-line.is-failed {
+  margin-top: 6px;
+  font-weight: 600;
+  color: var(--danger-fg);
+}

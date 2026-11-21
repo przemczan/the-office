@@ -21,6 +21,7 @@ import { pullRequestEventInvalidations } from "./api/pull-requests.ts";
 import { officeUpdateEventInvalidations } from "./api/office-updates.ts";
 import { runEnvironmentEventInvalidations } from "./api/run-environments.ts";
 import { skillEventCacheUpdates, skillEventInvalidations } from "./api/skills.ts";
+import { testInstanceEventInvalidations } from "./api/test-instances.ts";
 import { userEventInvalidations } from "./api/users.ts";
 import { workEventCacheUpdates, workEventInvalidations } from "./api/work.ts";
 import { router as officeRouter, type OfficeRouter } from "./router.tsx";
@@ -39,6 +40,7 @@ const EVENT_INVALIDATIONS: EventInvalidations = {
   ...pullRequestEventInvalidations,
   ...ciRunEventInvalidations,
   ...runEnvironmentEventInvalidations,
+  ...testInstanceEventInvalidations,
   ...engineEventInvalidations,
   ...threadEventInvalidations,
   ...workEventInvalidations,

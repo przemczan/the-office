@@ -28,6 +28,13 @@ describe("serviceStartProblems", () => {
     ]);
   });
 
+  it("names a service started as a test instance of The Office", () => {
+    const health = '{"database":"up","testInstance":true}';
+    assert.deepEqual(serviceStartProblems({ ...PASSING, health }, URL), [
+      `Expected ${URL}/api/health to answer ${HEALTHY}, got '${health}'.`,
+    ]);
+  });
+
   it("names a service that never answered, page and all", () => {
     assert.deepEqual(
       serviceStartProblems({ ...PASSING, health: undefined, page: undefined }, URL),

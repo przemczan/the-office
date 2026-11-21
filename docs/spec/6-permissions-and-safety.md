@@ -133,10 +133,13 @@ Covers: threat models, stored hashes, the two layers, language servers, Hard swi
 - Nothing from the host is mounted into it but its checkout: no Docker socket, no `identity/`, `engines/` or `repositories/`, no worktree.
 - So a test instance of The Office starts empty, with its own Postgres and its own data directory, and holds no real Project, credential or engine.
 - **Second layer, `OFFICE_TEST_INSTANCE=true`:** The Office sets it in every test instance, and a service started with it refuses, on the server:
-  - pushing, opening a pull request and merging, in the publishing and git layer where each happens;
-  - starting an engine, so no session runs and no model is called.
-- Each refusal names `OFFICE_TEST_INSTANCE`, and each is proven by a test.
-- Its UI shows a "Test instance" banner on every page.
+  - pushing a branch or a commit, before each push in Projects' publishing, so its Publish fails in those words;
+  - opening, merging and closing a pull request, in Projects where each is asked of the code host;
+  - starting or resuming an engine session, and reading an engine's usage windows, in Engine, so no session runs, no model is called and no account is reached.
+- Each refusal names `OFFICE_TEST_INSTANCE` ("A test instance of The Office (OFFICE_TEST_INSTANCE) doesn't push."), and each is proven by a test.
+  - Projects refuses with `TestInstanceRefused`, answered `409` over HTTP; Engine with `EngineRefused`, before a session starts or resumes and before a usage window check.
+- `/api/health` answers `{ "database", "testInstance" }`, so the web knows without a sign-in.
+- Its UI shows the [Test instance banner](screens/shell.md#test-instance-banner) on every page, Sign in included.
 
 ## Build rules
 

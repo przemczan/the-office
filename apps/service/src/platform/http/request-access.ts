@@ -9,7 +9,7 @@ type Middleware = (request: IncomingMessage, response: ServerResponse, next: () 
 /**
  * The API paths a request reaches without a signed-in device (spec §2.10): the sign-in pages and
  * every way's callback, under `/api/sign-in`; `/api/health`, which says only whether the database
- * is up; and the Claude Code `-p` hook, which checks its own token.
+ * is up and whether this is a test instance of The Office; and the Claude Code `-p` hook, which checks its own token.
  */
 const OPEN_PREFIX = `${API_PATH}/sign-in`;
 const OPEN_PATHS: readonly string[] = [

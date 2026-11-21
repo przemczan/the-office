@@ -31,6 +31,7 @@ export * from "./stage-context-limits.js";
 export * from "./stages.js";
 export * from "./stats.js";
 export * from "./telemetry.js";
+export * from "./test-instances.js";
 export * from "./test-targets.js";
 export * from "./users.js";
 export * from "./work.js";

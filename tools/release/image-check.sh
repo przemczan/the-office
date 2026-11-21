@@ -37,7 +37,7 @@ for _ in $(seq 60); do
   [[ $(docker inspect --format '{{.State.Running}}' "$container") == true ]] || fail "the service ended."
   sleep 1
 done
-[[ $health == '{"database":"up"}' ]] || fail "/api/health answered '$health'."
+[[ $health == '{"database":"up","testInstance":false}' ]] || fail "/api/health answered '$health'."
 answer / | grep --quiet '<title>The Office</title>' || fail "/ doesn't serve the web app."
 echo "The service answered $health and served the web app."
 

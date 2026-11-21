@@ -31,6 +31,11 @@ export interface OfficeConfig {
    * §2.10), never the setup token or the first user. Off when absent.
    */
   readonly skipSetupBasics?: boolean;
+  /**
+   * `OFFICE_TEST_INSTANCE`: this service is a test instance of The Office, which refuses pushing,
+   * pull requests, merging and engine sessions (spec §6, "Test instances"). Off when absent.
+   */
+  readonly testInstance?: boolean;
 }
 
 /** Values that depend on the operating system, supplied by the platform layer. */
@@ -127,6 +132,13 @@ const environmentSchema = z.object({
       .default("false")
       .transform((value) => value === "true"),
   ),
+  OFFICE_TEST_INSTANCE: z.preprocess(
+    blankAsUnset,
+    z
+      .enum(["true", "false"], { error: TRUE_OR_FALSE })
+      .default("false")
+      .transform((value) => value === "true"),
+  ),
 });
 
 /**
@@ -148,6 +160,7 @@ export function readOfficeConfig(
     officeDataDirectory: result.data.OFFICE_DATA_DIR ?? defaults.officeDataDirectory(),
     gitHub: { webUrl: result.data.OFFICE_GITHUB_URL, apiUrl: result.data.OFFICE_GITHUB_API_URL },
     skipSetupBasics: result.data.OFFICE_SKIP_SETUP_BASICS,
+    testInstance: result.data.OFFICE_TEST_INSTANCE,
     ...(result.data.OFFICE_UPDATE_FOLDER && {
       officeUpdateFolder: result.data.OFFICE_UPDATE_FOLDER,
     }),

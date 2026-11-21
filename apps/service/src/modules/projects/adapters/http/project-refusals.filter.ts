@@ -5,15 +5,33 @@ import { ProjectImageNotFound } from "../../domain/project-image.js";
 import { ProjectNotFound } from "../../domain/project-not-found.js";
 import { ProjectRefused } from "../../domain/project-refused.js";
 import { RepositoryCloneNotFound } from "../../domain/repository-clone.js";
+import { TestInstanceRefused } from "../../domain/test-instance-refused.js";
 
 /** Answers the Projects' own refusals as Nest answers its errors, with `message` for the web. */
 type ProjectsRefusal =
-  ProjectRefused | ProjectNotFound | ProjectImageNotFound | RepositoryCloneNotFound;
+  | ProjectRefused
+  | ProjectNotFound
+  | ProjectImageNotFound
+  | RepositoryCloneNotFound
+  | TestInstanceRefused;
 
-@Catch(ProjectRefused, ProjectNotFound, ProjectImageNotFound, RepositoryCloneNotFound)
+@Catch(
+  ProjectRefused,
+  ProjectNotFound,
+  ProjectImageNotFound,
+  RepositoryCloneNotFound,
+  TestInstanceRefused,
+)
 export class ProjectRefusalsFilter implements ExceptionFilter<ProjectsRefusal> {
   catch(error: ProjectsRefusal, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
+    if (error instanceof TestInstanceRefused) {
+      response.status(HttpStatus.CONFLICT).json({
+        statusCode: HttpStatus.CONFLICT,
+        message: error.message,
+      });
+      return;
+    }
     if (!(error instanceof ProjectRefused)) {
       response.status(HttpStatus.NOT_FOUND).json({
         statusCode: HttpStatus.NOT_FOUND,

@@ -44,11 +44,13 @@ services:
     # The Host check accepts a request addressed to the IP address it arrived at, at the port it
     # arrived at (spec §5.1), so only the host's network makes OFFICE_HOST and OFFICE_PORT behave as
     # on a direct install: localhost, the LAN IP and the public address. Hence no `ports:`.
+    # Test instances need it too: the proxy binds the Proxy ports (4400-4419 by default) on the
+    # host's OFFICE_HOST, and forwards to the port each instance publishes on the host's 127.0.0.1.
     network_mode: host
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      # The same path on both sides: run environments bind-mount worktrees by their path, which the
-      # Docker daemon reads on the host.
+      # The same path on both sides: run environments bind-mount worktrees, and test instances their
+      # checkouts (test-instances/<id>/), by their path, which the Docker daemon reads on the host.
       - ${OFFICE_DATA_DIR:?set OFFICE_DATA_DIR in .env}:${OFFICE_DATA_DIR:?set OFFICE_DATA_DIR in .env}
     # Listed one by one, never env_file: whatever The Office's container gets reaches Project
     # commands, and .env's OFFICE_VERSION, DOCKER_GID and POSTGRES_PASSWORD mustn't.

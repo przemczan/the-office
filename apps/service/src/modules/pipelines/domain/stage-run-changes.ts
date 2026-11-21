@@ -2,9 +2,11 @@ import { engineSwitchWords } from "./stage-history-words.js";
 import { StageRunEngineSwitched, StageRunEnded, StageRunStarted } from "./stage-run-events.js";
 import {
   NO_STAGE_TOKENS,
+  type AskedInterruption,
   type CarriedFailure,
   type EngineSwitch,
   type SentBack,
+  type StageInterruption,
   type StageOutcome,
   type StageRun,
   type StageRunStandIn,
@@ -63,9 +65,29 @@ export function endStageRun(
 ): { readonly run: StageRun; readonly event: StageRunEnded } {
   if (run.outcome) throw new Error(`Stage run ${run.id} has already ended ${run.outcome.status}.`);
   return {
-    run: { ...run, outcome, endedAt, waitingSince: undefined },
+    run: { ...run, ...heldAtTheEnd(run, outcome), outcome, endedAt, waitingSince: undefined },
     event: new StageRunEnded(run.taskId, run.id, run.stageKey, outcome.status),
   };
+}
+
+/**
+ * What an interrupted run honoured as it ended, kept with its end unless it records what was asked
+ * already: the walk records a Pause or a Stop as it is asked, yet a run a Stop interrupts at once
+ * can end before that record is saved.
+ */
+function heldAtTheEnd(
+  run: StageRun,
+  outcome: StageOutcome,
+): Pick<StageRun, "heldBy" | "heldByUser"> {
+  if (run.heldBy || outcome.status !== "failed" || !isAsked(outcome.interrupted)) {
+    return { heldBy: run.heldBy, heldByUser: run.heldByUser };
+  }
+  return { heldBy: outcome.interrupted, heldByUser: outcome.heldByUser };
+}
+
+/** Whether something was asked of the run, rather than The Office restarting under it. */
+function isAsked(interruption: StageInterruption | undefined): interruption is AskedInterruption {
+  return interruption !== undefined && interruption !== "restart";
 }
 
 /** An engine as a run records it: its id and its name at the time. */

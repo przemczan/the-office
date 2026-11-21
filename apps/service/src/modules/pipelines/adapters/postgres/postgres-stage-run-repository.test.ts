@@ -4,6 +4,8 @@ import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import { interruptedOutcome } from "../../domain/stage-interruption.js";
+import { endStageRun } from "../../domain/stage-run-changes.js";
 import { agentStage, scriptStage } from "../../domain/stage.fixtures.js";
 import { aStageRun } from "../../domain/stage-run.fixtures.js";
 import type { StageRun } from "../../domain/stage-run.js";
@@ -74,6 +76,41 @@ describe("PostgresStageRunRepository's changed files", () => {
 
     expect(run?.headCommit).toBe("b".repeat(40));
     expect(run?.changedFiles).toBeUndefined();
+  });
+});
+
+describe("PostgresStageRunRepository's hold", () => {
+  const BEN_ITO = { userId: randomUUID(), name: "Ben Ito" };
+  const ANN_LEE = { userId: randomUUID(), name: "Ann Lee" };
+
+  it("keeps what a run a Stop ended honoured when the walk saved nothing asked of it first", async () => {
+    const run = aStageRun({ id: randomUUID(), taskId: randomUUID(), outcome: undefined });
+    await runs.saveNew(run);
+
+    const stopped = interruptedOutcome("stop", [], { heldByUser: BEN_ITO });
+    await runs.saveEnded(endStageRun(run, stopped, new Date()).run);
+
+    expect(await runOf(run.taskId)).toMatchObject({ heldBy: "stop", heldByUser: BEN_ITO });
+  });
+
+  it("keeps what the walk saved was asked of the run over what its end honoured", async () => {
+    const run = aStageRun({ id: randomUUID(), taskId: randomUUID(), outcome: undefined });
+    await runs.saveNew(run);
+
+    await runs.saveHeldBy(run.id, "stop", BEN_ITO);
+    const paused = interruptedOutcome("pause", [], { heldByUser: ANN_LEE });
+    await runs.saveEnded(endStageRun(run, paused, new Date()).run);
+
+    expect(await runOf(run.taskId)).toMatchObject({ heldBy: "stop", heldByUser: BEN_ITO });
+  });
+
+  it("keeps none for a run that ended without being held", async () => {
+    const run = aStageRun({ id: randomUUID(), taskId: randomUUID(), outcome: undefined });
+    await runs.saveNew(run);
+
+    await runs.saveEnded(endStageRun(run, { status: "done", summary: "Done." }, new Date()).run);
+
+    expect(await runOf(run.taskId)).toMatchObject({ heldBy: undefined, heldByUser: undefined });
   });
 });
 

@@ -1,3 +1,5 @@
+import { OfficeTestInstance } from "../../../platform/test-instance/office-test-instance.js";
+import { EngineRefused } from "../domain/engine-refused.js";
 import { Logger } from "@nestjs/common";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
@@ -46,7 +48,7 @@ const WINDOWS: UsageWindows = {
   source: "usage-endpoint",
 };
 
-function setUp() {
+function setUp(testInstance = OfficeTestInstance.OFF) {
   const engine = new ScriptedEngine([]);
   const events = new EventBus();
   const read: UsageWindowsRead[] = [];
@@ -71,6 +73,7 @@ function setUp() {
       schedule,
     ),
     schedule,
+    testInstance,
   );
   return { engine, schedule, state, checks, read };
 }
@@ -133,6 +136,19 @@ describe("UsageWindowChecks (spec §5.4)", () => {
     checks.onModuleDestroy();
     await checks.check();
 
+    expect(engine.usageWindowReads).toEqual([]);
+  });
+});
+
+describe("UsageWindowChecks in a test instance of The Office (OFFICE_TEST_INSTANCE, spec §6)", () => {
+  it("schedules no check, and refuses one asked for, reading no engine", async () => {
+    const { engine, schedule, checks } = setUp(new OfficeTestInstance(true));
+    engine.setUsageWindows(FIRST_CLAUDE_CODE_ENGINE.id, WINDOWS);
+
+    checks.onApplicationBootstrap();
+
+    expect(schedule.intervalOf(USAGE_WINDOW_CHECK)).toBeUndefined();
+    await expect(checks.check()).rejects.toBeInstanceOf(EngineRefused);
     expect(engine.usageWindowReads).toEqual([]);
   });
 });

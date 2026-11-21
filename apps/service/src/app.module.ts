@@ -65,6 +65,7 @@ import { OfficeUpdatesModule } from "./modules/office-updates/index.js";
 import { PromptTemplatesModule } from "./modules/prompt-templates/index.js";
 import { SkillsModule } from "./modules/skills/index.js";
 import { GrafanaStatsSource, StatsModule } from "./modules/telemetry/index.js";
+import { TestInstancesModule } from "./modules/test-instances/index.js";
 import {
   CookieSignedInRequests,
   GitHubIdentityProvider,
@@ -90,6 +91,7 @@ import { EventsModule } from "./platform/events/events.module.js";
 import { GitHubUserTokenModule } from "./platform/git-identity/git-identity.module.js";
 import { OfficeIdentityHttpModule } from "./platform/git-identity/office-identity-http.module.js";
 import { HealthModule } from "./platform/health/health.module.js";
+import { OfficeTestInstanceModule } from "./platform/test-instance/office-test-instance.module.js";
 import { RequestAccessModule } from "./platform/http/request-access.module.js";
 import { OfficeDataModule } from "./platform/office-data/office-data.module.js";
 import { SystemHealthRecorder } from "./platform/system-health/system-health-recorder.js";
@@ -234,6 +236,7 @@ export class AppModule {
         HealthModule,
         McpServersModule,
         OfficeDataModule.forRoot(config.officeDataDirectory),
+        OfficeTestInstanceModule.forRoot(config.testInstance ?? false),
         OfficeIdentityHttpModule,
         OfficeUpdatesModule.register({
           checkout: officeCheckout,
@@ -281,6 +284,13 @@ export class AppModule {
         SystemHealthMetricsModule,
         TelemetryModule,
         TelemetryHttpModule,
+        // Initiatives' branches from Work, test targets and checkouts from Projects, and Hosted
+        // instances from Run environments, which take no run environment slot.
+        TestInstancesModule.register({
+          imports: [work, projects, runEnvironments],
+          officePort: config.port,
+          officeHost: config.host,
+        }),
         users,
         WebAppModule.register(webApp),
         work,

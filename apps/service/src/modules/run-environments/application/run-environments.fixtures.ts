@@ -14,6 +14,11 @@ import type { ContainerRuntime } from "../ports/container-runtime.js";
 import { KnownTasks, type KnownTask } from "../ports/known-tasks.js";
 import { RunEnvironmentSettingsForTests } from "../ports/run-environment-settings.fixtures.js";
 import { HostCores } from "./host-cores.js";
+import {
+  HostedServiceReadiness,
+  type HostedServiceReadinessOptions,
+} from "./hosted-service-readiness.js";
+import { HostedServices } from "./hosted-services.js";
 import { RunEnvironmentFolders } from "./run-environment-folders.js";
 import { RunEnvironmentImages } from "./run-environment-images.js";
 import { RunEnvironmentSlots } from "./run-environment-slots.js";
@@ -40,6 +45,8 @@ const TESTBED_HOST_CORES = 4;
 /** RunEnvironments wired by hand on the runtime given, in an Office data directory of its own. */
 export interface RunEnvironmentsTestbed {
   readonly environments: RunEnvironments;
+  /** Hosted Test instances on the same runtime, images, folders and settings. */
+  readonly hostedServices: HostedServices;
   readonly folders: RunEnvironmentFolders;
   readonly settings: RunEnvironmentSettingsForTests;
   readonly knownTasks: KnownTasksForTests;
@@ -55,6 +62,8 @@ export async function runEnvironmentsTestbed(
   options?: RunEnvironmentOptions,
   /** The non-root Office's user and group the checks' files go back to; none is a root Office. */
   serviceOwner?: FileOwnerIds,
+  /** How a Hosted Test instance's app is tried; a TCP connect for up to 120 s unless given. */
+  readiness?: HostedServiceReadinessOptions,
 ): Promise<RunEnvironmentsTestbed> {
   const folder = await mkdtemp(join(tmpdir(), "office-run-environments-"));
   const events = new EventBus();
@@ -63,21 +72,41 @@ export async function runEnvironmentsTestbed(
   const knownTasks = new KnownTasksForTests();
   const schedule = new ManualSchedule();
   const busyWork = new BusyWork(events);
+  const images = new RunEnvironmentImages(runtime, folders, events);
+  const hostCores = new HostCores(TESTBED_HOST_CORES);
   const environments = new RunEnvironments(
     runtime,
-    new RunEnvironmentImages(runtime, folders, events),
+    images,
     new RunEnvironmentSlots(settings),
     folders,
     knownTasks,
     settings,
-    new HostCores(TESTBED_HOST_CORES),
+    hostCores,
     new ServiceOwner(serviceOwner),
     schedule,
     busyWork,
     events,
   );
   await environments.onModuleInit();
-  return { environments, folders, settings, knownTasks, schedule, busyWork, events, folder };
+  const hostedServices = new HostedServices(
+    runtime,
+    images,
+    folders,
+    settings,
+    hostCores,
+    new HostedServiceReadiness(readiness),
+  );
+  return {
+    environments,
+    hostedServices,
+    folders,
+    settings,
+    knownTasks,
+    schedule,
+    busyWork,
+    events,
+    folder,
+  };
 }
 
 /** Writes the files, by their paths in the worktree, making the folders they need. */

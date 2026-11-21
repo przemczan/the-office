@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   NO_MASK,
   ScriptedContainerRuntime,
-} from "../adapters/scripted/scripted-container-runtime.fixtures.js";
+} from "../adapters/scripted/scripted-container-runtime.js";
 import { RunEnvironmentImageBuilt } from "../domain/run-environment-events.js";
 import {
   commandScript,

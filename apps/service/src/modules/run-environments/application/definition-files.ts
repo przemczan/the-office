@@ -13,7 +13,7 @@ import {
   type RunEnvironmentDefinition,
 } from "../domain/run-environment-definition.js";
 import type { ImageInputs, KeyedFile } from "../domain/run-environment-image.js";
-import type { TaskInWorktree } from "../domain/run-environment.js";
+import type { ImageSource } from "../domain/run-environment.js";
 
 /** Reads and validates the Run environment definition in a worktree or checkout. */
 export async function readDefinitionIn(folder: string): Promise<Reading<RunEnvironmentDefinition>> {
@@ -74,8 +74,8 @@ export async function writeDefinitionIn(
   return { written: true, paths: [...given.keys()], service: reading.value.service };
 }
 
-/** What the Task's image is made from, read from its worktree. */
-export async function imageInputsOf(task: TaskInWorktree): Promise<ImageInputs> {
+/** What the image is made from, read from the Task's worktree or the instance's checkout. */
+export async function imageInputsOf(task: ImageSource): Promise<ImageInputs> {
   const definitionFolder = join(task.worktree, DEFINITION_FOLDER);
   const definitionFiles = await Promise.all(
     (await filesIn(definitionFolder)).map((path) => keyedFile(task.worktree, path)),

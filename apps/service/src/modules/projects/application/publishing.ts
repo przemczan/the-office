@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { OfficeTestInstance } from "../../../platform/test-instance/office-test-instance.js";
 import type { Project } from "../domain/project.js";
 import { openedPullRequest } from "../domain/pull-request.js";
 import { PullRequestBranchPushed, PullRequestOpened } from "../domain/pull-request-events.js";
@@ -17,6 +18,7 @@ import {
   type RemoteBranch,
 } from "../domain/publication.js";
 import { mergedBase, mergeMessage } from "../domain/resolve.js";
+import { refuseInTestInstance, TestInstanceRefused } from "../domain/test-instance-refused.js";
 import {
   ExistingBranchUnusable,
   type FreshBase,
@@ -78,6 +80,7 @@ export class Publishing {
     private readonly pullRequests: PullRequestRepository,
     private readonly events: EventBus,
     private readonly issueFixes: IssueFixes,
+    @Optional() private readonly testInstance: OfficeTestInstance = OfficeTestInstance.OFF,
   ) {}
 
   async publish(
@@ -243,6 +246,8 @@ export class Publishing {
     const { branch } = taskBase;
     const target: RemoteBranch = { remote: upstream.remote, branch };
     const variables = this.commands.variablesFor(project.environment);
+    if (this.testInstance.on)
+      return { kind: "failed", reason: new TestInstanceRefused("push").message };
     try {
       await this.git.exclusively(project.path, () =>
         this.git.push(project.path, branch, target, variables),
@@ -484,6 +489,7 @@ export class Publishing {
   ): Promise<void> {
     if (initiative.remote) {
       const into = initiative.remote;
+      this.refusePush();
       await this.git.pushCommit(project.path, commit, into, variables).catch((error: unknown) => {
         throw failure(error, (said) => pushFailure(branch, into, said));
       });
@@ -528,7 +534,9 @@ export class Publishing {
     await this.recordPublished(project, context);
     const request = { remoteUrl, baseBranch: base.branch, branch, title: subject, body };
     const pullRequest = await this.codeHosts.open(request).catch((error: unknown) => {
-      if (error instanceof CodeHostRefused) throw new PublishFailed(error.message);
+      if (error instanceof CodeHostRefused || error instanceof TestInstanceRefused) {
+        throw new PublishFailed(error.message);
+      }
       throw error;
     });
     await this.recordPullRequest(project, context.taskId, {
@@ -613,6 +621,7 @@ export class Publishing {
       message.whole,
       variables,
     );
+    this.refusePush();
     await this.git.pushCommit(project.path, commit, base, variables).catch((error: unknown) => {
       throw failure(error, (said) => pushFailure(branch, base, said));
     });
@@ -650,9 +659,18 @@ export class Publishing {
     { branch, variables }: PublishContext,
     into: RemoteBranch,
   ): Promise<void> {
+    this.refusePush();
     await this.git.push(project.path, branch, into, variables).catch((error: unknown) => {
       throw failure(error, (said) => pushFailure(branch, into, said));
     });
+  }
+
+  /**
+   * Checked before every `Git.push` and `Git.pushCommit`: a test instance of The Office pushes
+   * nothing (spec §6, "Test instances"), its Publish failing in those words.
+   */
+  private refusePush(): void {
+    refuseInTestInstance(this.testInstance.on, "push");
   }
 }
 
@@ -674,7 +692,11 @@ class PublishFailed extends Error {}
 
 /** A failed step as a failed Publish; anything else is a fault and stays as it is. */
 function publishFailure(error: unknown): Publication {
-  if (error instanceof PublishFailed || error instanceof ExistingBranchUnusable) {
+  if (
+    error instanceof PublishFailed ||
+    error instanceof ExistingBranchUnusable ||
+    error instanceof TestInstanceRefused
+  ) {
     return { kind: "failed", error: error.message };
   }
   throw error;

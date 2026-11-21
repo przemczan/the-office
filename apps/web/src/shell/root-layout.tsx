@@ -12,6 +12,7 @@ import { SIGN_IN_CODE_PATH, SIGN_IN_PATH, userQueries } from "../api/users.ts";
 import { AccountAppearance } from "./account-appearance.tsx";
 import { Shell } from "./shell.tsx";
 import "./shell.css";
+import { TestInstanceBanner } from "./test-instance-banner.tsx";
 import { ToastProvider } from "./toasts.tsx";
 
 /** The pages shown before signing in, bare: the sign-in page and the authenticator code's. */
@@ -31,7 +32,8 @@ const OPEN_DURING_SETUP: ReadonlySet<string> = new Set([SETUP_PAGE, "/settings/e
 
 /**
  * Every page's frame: the sign-in pages alone, bare; First-run setup signed in, without the shell;
- * and every other page in the shell, shown only once the account has answered (spec §2.10).
+ * and every other page in the shell, shown only once the account has answered (spec §2.10). A test
+ * instance's banner is above each of them.
  */
 export function RootLayout(): ReactNode {
   // By the matches shown rather than the location, which changes as a navigation starts: the
@@ -44,8 +46,16 @@ export function RootLayout(): ReactNode {
           ? "setup"
           : "shell",
   });
-  if (frame === "bare") return <Outlet />;
-  return <SignedIn>{frame === "setup" ? <SetupFrame /> : <Shell />}</SignedIn>;
+  return (
+    <>
+      <TestInstanceBanner />
+      {frame === "bare" ? (
+        <Outlet />
+      ) : (
+        <SignedIn>{frame === "setup" ? <SetupFrame /> : <Shell />}</SignedIn>
+      )}
+    </>
+  );
 }
 
 /**

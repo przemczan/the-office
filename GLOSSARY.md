@@ -545,6 +545,18 @@ _Avoid_: preview slots, sandbox limit
 How long a Running Hosted Test instance may go with no request before The Office stops it, 30 minutes by default, set in Settings › Office limits' Test instances card.
 _Avoid_: timeout, TTL, sleep
 
+**Proxy ports**:
+The range of ports on `OFFICE_HOST` the test instance proxy gives out, one per Hosted Test instance while it is Building or Running, 4400 to 4419 by default, set in Settings › Office limits' Test instances card. Opened in a firewall only to reach Test instances from the local network.
+_Avoid_: preview ports, instance ports
+
+**Hand-off link**:
+The single-use link, good for about a minute, that **Open** on the Initiative's page gives the browser for one Hosted Test instance's port; the proxy exchanges it for that instance's own cookie.
+_Avoid_: magic link, share link, preview link
+
+**Test instance banner**:
+The amber "Test instance" banner every page of a test instance of The Office (`OFFICE_TEST_INSTANCE=true`) shows above the rail and the top bar, Sign in included, so it is never taken for the real Office.
+_Avoid_: staging banner, sandbox warning
+
 **Stage**:
 One node of a Pipeline's flow, with its routes out and an optional "on failure go back" loop: work by an Agent in a Role, or in the Role holding a duty, a Project command run without an Agent, or a Gate.
 _Avoid_: Phase, step (as a noun for the record)

@@ -25,6 +25,7 @@ import { tasksToTakeOut } from "./initiative-membership-words.ts";
 import { InitiativeProjects, InitiativeStateBadge } from "./initiative-parts.tsx";
 import { InitiativePausedBadge } from "./initiative-pause.tsx";
 import { InitiativePipelineBlock } from "./initiative-pipeline-block.tsx";
+import { InitiativeTestInstancesBlock } from "./initiative-test-instances-block.tsx";
 import { planningProgressWords } from "./initiative-planning-words.ts";
 import {
   initiativeProgress,
@@ -111,6 +112,7 @@ export function InitiativePage(): ReactNode {
               tasks={tasks.data}
               projects={projects.data}
             />
+            <InitiativeTestInstancesBlock initiative={record} projects={projects.data} />
             <OutcomeBlock initiative={record} />
             <InitiativeAttachments initiative={record} />
             <OriginBlock

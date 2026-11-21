@@ -207,7 +207,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Test instance proxy, hand-off link, Proxy ports**: [2.12 Reaching a Hosted instance](2.12-test-instances.md#reaching-a-hosted-instance); [5.1 The test instance proxy](5.1-shape.md#the-test-instance-proxy); [2.10 Signing in to a test instance](2.10-users-and-signing-in.md#signing-in-to-a-test-instance)
 - **Build to install files, QR code link**: [2.12 Build to install](2.12-test-instances.md#build-to-install); [2.12 Kept Build to install files](2.12-test-instances.md#kept-build-to-install-files); [5.5 The build cache volume](5.5-git-and-isolation.md#the-build-cache-volume)
 - **Test instances at once, Idle time**: [2.12 Test instances at once](2.12-test-instances.md#test-instances-at-once); [2.12 Idle time](2.12-test-instances.md#idle-time); screen: [Settings › Office limits](screens/settings.md#office-limits)
-- **Test instance safety, OFFICE_TEST_INSTANCE**: [6 Test instances](6-permissions-and-safety.md#test-instances); [2.12 Safety](2.12-test-instances.md#safety)
+- **Test instance safety, OFFICE_TEST_INSTANCE, Test instance banner**: [6 Test instances](6-permissions-and-safety.md#test-instances); [2.12 Safety](2.12-test-instances.md#safety); screen: [The shell › Test instance banner](screens/shell.md#test-instance-banner)
 - **Task**: [2.1.3 Task](2.1.3-tasks.md#task); screen: [Task page](screens/task-page.md#task-page)
 - **Task kind (Feature, Bug, Chore), a Kind's default Pipeline**: [2.1.3 Task kind](2.1.3-tasks.md#task-kind); [2.1.1 Project settings](2.1.1-projects.md#project-settings); screen: [Work board › Marks](screens/work-board.md#marks)
 - **Text file**: [2.1.2 Text files and PDFs](2.1.2-ideas-and-attachments.md#text-files-and-pdfs)

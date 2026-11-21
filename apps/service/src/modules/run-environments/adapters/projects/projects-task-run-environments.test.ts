@@ -14,7 +14,7 @@ import {
   type RunEnvironmentsTestbed,
 } from "../../application/run-environments.fixtures.js";
 import { DEFAULT_RUN_ENVIRONMENT_OPTIONS } from "../../domain/run-environment.js";
-import { ScriptedContainerRuntime } from "../scripted/scripted-container-runtime.fixtures.js";
+import { ScriptedContainerRuntime } from "../scripted/scripted-container-runtime.js";
 import { ProjectsTaskRunEnvironments } from "./projects-task-run-environments.js";
 
 const DEFINITION = {

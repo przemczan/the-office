@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
+import { OfficeTestInstance } from "../../../platform/test-instance/office-test-instance.js";
 import type { ManualWorkflow } from "../domain/manual-workflow.js";
 import { MERGE_METHODS, type MergeMethod } from "../domain/merge-method.js";
 import {
@@ -12,6 +13,7 @@ import {
 } from "../domain/pull-request.js";
 import { PullRequestClosed, PullRequestMerged } from "../domain/pull-request-events.js";
 import { PullRequestNotFound, PullRequestRefused } from "../domain/pull-request-refused.js";
+import { TestInstanceRefused } from "../domain/test-instance-refused.js";
 import {
   CodeHost,
   CodeHostChangedSince,
@@ -258,5 +260,41 @@ describe("PullRequestActions", () => {
         by: { kind: "user", ...USER },
       }),
     ]);
+  });
+});
+
+/** The actions as a test instance of The Office runs them. */
+function inTestInstance(): PullRequestActions {
+  return new PullRequestActions(
+    records,
+    new CodeHosts([host]),
+    new EventBus(),
+    schedule,
+    new OfficeTestInstance(true),
+  );
+}
+
+describe("PullRequestActions in a test instance of The Office (OFFICE_TEST_INSTANCE, spec §6)", () => {
+  it("refuses to merge, asking the code host nothing and leaving the row open", async () => {
+    const pullRequest = await aKeptPullRequest();
+
+    const merging = inTestInstance().merge(pullRequest.id, "squash", USER);
+
+    await expect(merging).rejects.toBeInstanceOf(TestInstanceRefused);
+    await expect(merging).rejects.toThrow(
+      "A test instance of The Office (OFFICE_TEST_INSTANCE) doesn't merge.",
+    );
+    expect(host.merges).toEqual([]);
+    await expect(records.findById(pullRequest.id)).resolves.toMatchObject({ endedAt: null });
+  });
+
+  it("refuses to close a pull request, asking the code host nothing", async () => {
+    const pullRequest = await aKeptPullRequest();
+
+    await expect(inTestInstance().close(pullRequest.id, USER)).rejects.toThrow(
+      "A test instance of The Office (OFFICE_TEST_INSTANCE) doesn't close pull requests.",
+    );
+    expect(host.closes).toEqual([]);
+    await expect(records.findById(pullRequest.id)).resolves.toMatchObject({ endedAt: null });
   });
 });

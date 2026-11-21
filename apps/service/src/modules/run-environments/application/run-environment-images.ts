@@ -12,8 +12,8 @@ import {
   installSecrets,
   INSTALL_INPUTS_FOLDER,
 } from "../domain/run-environment-image.js";
-import { officeLabels, type TaskInWorktree } from "../domain/run-environment.js";
-import { ContainerRuntime } from "../ports/container-runtime.js";
+import { officeLabels, type ImageSource } from "../domain/run-environment.js";
+import { ContainerRuntime, type StreamedOutputMask } from "../ports/container-runtime.js";
 import { imageInputsOf } from "./definition-files.js";
 import { RunEnvironmentFolders } from "./run-environment-folders.js";
 
@@ -34,15 +34,17 @@ export class RunEnvironmentImages {
   ) {}
 
   /** The name of the Task's image by the key of what it is made from now, built or not. */
-  async imageNameFor(task: TaskInWorktree): Promise<string> {
+  async imageNameFor(task: ImageSource): Promise<string> {
     return imageNameOf(task.projectId, imageKeyOf(await imageInputsOf(task)));
   }
 
   /** The Task's image, built first unless one is there for its key. */
   async imageFor(
-    task: TaskInWorktree,
+    task: ImageSource,
     definition: RunEnvironmentDefinition,
     outputFile: string,
+    /** Masks the build's output on its way to the file; none for a Task's, as before. */
+    mask?: StreamedOutputMask,
   ): Promise<string> {
     const inputs = await imageInputsOf(task);
     const key = imageKeyOf(inputs);
@@ -50,7 +52,7 @@ export class RunEnvironmentImages {
     if (await this.runtime.imageExists(image)) return image;
     let build = this.building.get(image);
     if (build === undefined) {
-      build = this.build(task, definition, key, outputFile).finally(() =>
+      build = this.build(task, definition, key, outputFile, mask).finally(() =>
         this.building.delete(image),
       );
       this.building.set(image, build);
@@ -81,10 +83,11 @@ export class RunEnvironmentImages {
   }
 
   private async build(
-    task: TaskInWorktree,
+    task: ImageSource,
     definition: RunEnvironmentDefinition,
     key: string,
     outputFile: string,
+    mask: StreamedOutputMask | undefined,
   ): Promise<void> {
     const labels = officeLabels(this.folders.instance);
     const image = imageNameOf(task.projectId, key);
@@ -104,6 +107,7 @@ export class RunEnvironmentImages {
           labels,
         },
         outputFile,
+        mask,
       );
     } else {
       from = definition.serviceImage.image;
@@ -122,6 +126,7 @@ export class RunEnvironmentImages {
           labels,
         },
         outputFile,
+        mask,
       );
     } finally {
       await rm(context, { recursive: true, force: true });
@@ -131,7 +136,7 @@ export class RunEnvironmentImages {
 
   /** The Dockerfile that runs the install command, beside a copy of the Install inputs. */
   private async writeInstallContext(
-    task: TaskInWorktree,
+    task: ImageSource,
     context: string,
     from: string,
   ): Promise<void> {

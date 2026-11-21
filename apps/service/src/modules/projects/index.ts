@@ -21,7 +21,8 @@ export {
   DevcontainerServices,
   type DevcontainerServicesReader,
 } from "./application/devcontainer-services.js";
-export { TestTargets } from "./application/test-targets.js";
+export { TestTargets, type TestTargetLaunchSettings } from "./application/test-targets.js";
+export { TestInstanceCheckouts } from "./application/test-instance-checkouts.js";
 export type {
   EditedTestTarget,
   TestTarget,
@@ -42,9 +43,10 @@ export {
   type TaskRunEnvironmentCommand,
   type TaskInRunEnvironment,
   type TaskRunEnvironmentRunner,
+  type RunEnvironmentInstall,
 } from "./application/task-run-environments.js";
 export type { FinishedCommand } from "./ports/command-runner.js";
-export { OutputMask } from "./domain/output-mask.js";
+export { OutputMask, type SecretValue } from "./domain/output-mask.js";
 export { TaskWorktrees, type SessionWorktree } from "./application/task-worktrees.js";
 export type { BranchCheckout } from "./application/worktrees.js";
 export { TaskBases, type TaskBaseLookup } from "./application/task-bases.js";
@@ -101,6 +103,7 @@ export {
 export type { MergeMethod } from "./domain/merge-method.js";
 export { ProjectNotFound } from "./domain/project-not-found.js";
 export { ProjectRefused } from "./domain/project-refused.js";
+export { TestInstanceRefused, type RefusedInTestInstance } from "./domain/test-instance-refused.js";
 export {
   proposedCommands,
   type CommandsToPropose,

@@ -63,7 +63,7 @@ compose config --quiet
 compose up --detach --wait || fail "docker compose up didn't bring the install up healthy."
 
 answer=$(health)
-[[ $answer == '{"database":"up"}' ]] || fail "/api/health answered '$answer'."
+[[ $answer == '{"database":"up","testInstance":false}' ]] || fail "/api/health answered '$answer'."
 echo "The Office answered $answer on 127.0.0.1:$port."
 
 compose logs office 2>&1 | grep --quiet --ignore-case 'setup token' ||
@@ -98,5 +98,5 @@ office_after=$(container_of office)
 running=$(docker inspect --format '{{.Config.Image}}' "$office_after")
 [[ $running == "$image:$update_version" ]] || fail "The Office runs $running, not $image:$update_version."
 answer=$(health)
-[[ $answer == '{"database":"up"}' ]] || fail "after the move /api/health answered '$answer'."
+[[ $answer == '{"database":"up","testInstance":false}' ]] || fail "after the move /api/health answered '$answer'."
 echo "Only The Office was recreated, at $update_version, and it is healthy."

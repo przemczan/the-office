@@ -7,6 +7,7 @@ import type { ProjectEnvironment } from "../domain/project-environment.js";
 import { Git } from "../ports/git.js";
 import { commandRunOf, ProjectCommandRunner } from "./project-command-runner.js";
 import {
+  runEnvironmentInstallOf,
   TaskRunEnvironments,
   type CommandWait,
   type TaskInRunEnvironment,
@@ -126,9 +127,7 @@ export class TaskCommandRunner {
       worktree,
       repositoryGitFolder: await this.git.repositoryGitFolderOf(worktree),
       stageRunsFolder: this.officeData.stageRunsFolder(taskId),
-      installCommand: project.installCommand,
-      installInputs: project.installInputs,
-      installVariables: project.environment.set,
+      ...runEnvironmentInstallOf(project),
     };
   }
 }

@@ -15,6 +15,11 @@ import { WorkSetUpTasks } from "./adapters/work/work-set-up-tasks.js";
 import { PostgresRunEnvironmentSettings } from "./adapters/postgres/postgres-run-environment-settings.js";
 import { RunEnvironmentWebEvents } from "./adapters/websocket/run-environment-web-events.js";
 import { HostCores } from "./application/host-cores.js";
+import {
+  HostedServiceReadiness,
+  type HostedServiceReadinessOptions,
+} from "./application/hosted-service-readiness.js";
+import { HostedServices } from "./application/hosted-services.js";
 import { ProjectRunEnvironments } from "./application/project-run-environments.js";
 import { RunEnvironmentDefinitions } from "./application/run-environment-definitions.js";
 import { RunEnvironmentOfficeLimits } from "./application/run-environment-office-limits.js";
@@ -47,6 +52,11 @@ export interface RunEnvironmentsModuleOptions {
    * a test gives one, none for root.
    */
   readonly serviceOwner?: FileOwnerIds;
+  /**
+   * How long a Hosted Test instance's app may take to answer, and how it is tried: a TCP connect
+   * to 127.0.0.1 for up to 120 s unless a test gives its own.
+   */
+  readonly hostedServiceReadiness?: HostedServiceReadinessOptions;
 }
 
 @Module({})
@@ -57,6 +67,7 @@ export class RunEnvironmentsModule {
     containerRuntime,
     hostCores = availableParallelism(),
     serviceOwner = currentOperatingSystem().fileOwner,
+    hostedServiceReadiness,
   }: RunEnvironmentsModuleOptions): DynamicModule {
     return {
       module: RunEnvironmentsModule,
@@ -70,6 +81,11 @@ export class RunEnvironmentsModule {
         { provide: HostCores, useValue: new HostCores(hostCores) },
         { provide: ServiceOwner, useValue: serviceOwnerOf(serviceOwner) },
         { provide: KnownTasks, useExisting: knownTasks },
+        {
+          provide: HostedServiceReadiness,
+          useValue: new HostedServiceReadiness(hostedServiceReadiness),
+        },
+        HostedServices,
         RunEnvironmentFolders,
         RunEnvironmentImages,
         RunEnvironmentSlots,
@@ -85,7 +101,7 @@ export class RunEnvironmentsModule {
         ProjectsDevcontainerServicesRegistration,
         ProjectsTaskRunEnvironments,
       ],
-      exports: [RunEnvironments, RunEnvironmentDefinitions],
+      exports: [RunEnvironments, RunEnvironmentDefinitions, HostedServices],
     };
   }
 }

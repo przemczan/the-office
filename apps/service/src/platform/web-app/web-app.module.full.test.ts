@@ -89,7 +89,10 @@ describe("the built web app", () => {
     const health = await get("/api/health");
     const unknown = await get("/api/nope");
 
-    expect(health).toMatchObject({ status: 200, body: JSON.stringify({ database: "up" }) });
+    expect(health).toMatchObject({
+      status: 200,
+      body: JSON.stringify({ database: "up", testInstance: false }),
+    });
     expect(unknown.status).toBe(404);
     expect(unknown.contentType).toMatch(/^application\/json/);
   });

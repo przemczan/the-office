@@ -28,6 +28,8 @@ import { z } from "zod";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
+import { OfficeTestInstance } from "../../../platform/test-instance/office-test-instance.js";
+import { EngineRefused } from "../domain/engine-refused.js";
 import { NoLanguageServers } from "../adapters/scripted/no-language-servers.js";
 import type { SessionScript } from "../adapters/scripted/session-script.js";
 import { EngineSettingsForTests } from "../ports/engine-settings-repository.fixtures.js";
@@ -154,6 +156,7 @@ function setUpOn(
   engines: Readonly<Record<EngineAdapter, AgentEngine>>,
   settings = new EngineSettingsForTests({ engines: [FIRST_CLAUDE_CODE_ENGINE, FALLBACK, LAB] }),
   languageServers: SessionLanguageServers = new NoLanguageServers(),
+  testInstance: OfficeTestInstance = OfficeTestInstance.OFF,
 ) {
   const spans = new InMemorySpanExporter();
   const tracerProvider = new TracerProvider({
@@ -186,6 +189,7 @@ function setUpOn(
     new BusyWork(new EventBus()),
     languageServers,
     new ModelPrices(settings),
+    testInstance,
   );
   return { sessions, spans, published, usageWindows, dayUsage, schedule, windowSamples, running };
 }
@@ -344,6 +348,50 @@ function onCopilot() {
     new EngineSettingsForTests({ engines: [FIRST_CLAUDE_CODE_ENGINE, COPILOT] }),
   );
 }
+
+/** Sessions on scripted engines, in a test instance of The Office. */
+function inTestInstance() {
+  const engine = new ScriptedEngine([ONE_TURN, RESUMED]);
+  const { sessions } = setUpOn(
+    {
+      "agent-sdk": engine,
+      "claude-code-p": engine,
+      "openai-compatible-api": engine,
+      codex: engine,
+      "copilot-cli": engine,
+      "gemini-cli": engine,
+    },
+    undefined,
+    undefined,
+    new OfficeTestInstance(true),
+  );
+  return { engine, sessions };
+}
+
+describe("EngineSessions in a test instance of The Office (OFFICE_TEST_INSTANCE, spec §6)", () => {
+  it("refuses to start a session, so no engine runs and no model is called", async () => {
+    const { engine, sessions } = inTestInstance();
+
+    const starting = sessions.start({
+      id: randomUUID(),
+      settings: SETTINGS,
+      brief: message("Begin."),
+    });
+
+    await expect(starting).rejects.toBeInstanceOf(EngineRefused);
+    await expect(starting).rejects.toThrow(
+      "A test instance of The Office (OFFICE_TEST_INSTANCE) starts no engine session.",
+    );
+    expect(engine.sessions).toEqual([]);
+  });
+
+  it("refuses to resume a session", async () => {
+    const { engine, sessions } = inTestInstance();
+
+    await expect(sessions.resume(randomUUID(), SETTINGS)).rejects.toBeInstanceOf(EngineRefused);
+    expect(engine.sessions).toEqual([]);
+  });
+});
 
 describe("EngineSessions on a Copilot CLI engine", () => {
   it("names the capabilities it lacks, so the Role card names what it can't do", () => {

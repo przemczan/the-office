@@ -131,7 +131,10 @@ export abstract class StageRunRepository {
    */
   abstract saveGateAction(runId: string, gateAction: GateAction): Promise<boolean>;
 
-  /** Saves how the run ended; a run that saved no changed files, such as a Gate's, changed none. */
+  /**
+   * Saves how the run ended, with what it was held by unless what was asked of it is saved
+   * already; a run that saved no changed files, such as a Gate's, changed none.
+   */
   abstract saveEnded(run: StageRun): Promise<void>;
 
   /** The Task's runs, oldest first, without their commands' whole outputs. */

@@ -1,10 +1,32 @@
 import { Injectable } from "@nestjs/common";
 import type { OutputMask } from "../domain/output-mask.js";
+import type { Project } from "../domain/project.js";
 import type { ProjectEnvironment, ProjectVariable } from "../domain/project-environment.js";
 import type { FinishedCommand } from "../ports/command-runner.js";
 
+/**
+ * What a Project's run environment image is made from: its install, with its Install inputs and the
+ * variables the install runs with as the image builds. A Task's and a test instance's alike.
+ */
+export interface RunEnvironmentInstall {
+  readonly installCommand: string;
+  /** The Project's Install inputs, relative to the worktree. */
+  readonly installInputs: readonly string[];
+  /** The Project's `set` variables, which the install runs with as the image builds. */
+  readonly installVariables: readonly ProjectVariable[];
+}
+
+/** The Project's install as its run environment image takes it. */
+export function runEnvironmentInstallOf(project: Project): RunEnvironmentInstall {
+  return {
+    installCommand: project.installCommand,
+    installInputs: project.installInputs,
+    installVariables: project.environment.set,
+  };
+}
+
 /** A Task whose commands run in its run environment, and what its image is made from. */
-export interface TaskInRunEnvironment {
+export interface TaskInRunEnvironment extends RunEnvironmentInstall {
   readonly taskId: string;
   readonly projectId: string;
   /** The Task's worktree, mounted at the same path inside. */
@@ -19,11 +41,6 @@ export interface TaskInRunEnvironment {
    * (spec §2.3): made before the run environment starts, mounted read-only at the same path inside.
    */
   readonly stageRunsFolder: string;
-  readonly installCommand: string;
-  /** The Project's Install inputs, relative to the worktree. */
-  readonly installInputs: readonly string[];
-  /** The Project's `set` variables, which the install runs with as the image builds. */
-  readonly installVariables: readonly ProjectVariable[];
 }
 
 /** Told when a command waits for a free run environment, and when that wait is over. */

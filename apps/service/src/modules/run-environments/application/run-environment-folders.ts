@@ -23,6 +23,15 @@ export class RunEnvironmentFolders {
     return join(this.tasks, taskId);
   }
 
+  /** Each Hosted Test instance's files: the compose file The Office puts over its checkout's. */
+  get testInstances(): string {
+    return join(this.root, "test-instances");
+  }
+
+  testInstanceFolder(testInstanceId: string): string {
+    return join(this.testInstances, testInstanceId);
+  }
+
   /** Where a Project command's output goes while it runs, read back once it ends. */
   get commandOutputs(): string {
     return join(this.root, "command-outputs");

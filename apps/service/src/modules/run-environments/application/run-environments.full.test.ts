@@ -5,7 +5,7 @@ import { TaskStateChanged } from "../../work/index.js";
 import {
   NO_MASK,
   ScriptedContainerRuntime,
-} from "../adapters/scripted/scripted-container-runtime.fixtures.js";
+} from "../adapters/scripted/scripted-container-runtime.js";
 import { RunEnvironmentCreated, RunEnvironmentRemoved } from "../domain/run-environment-events.js";
 import { RunEnvironmentRefused } from "../domain/run-environment-refused.js";
 import {

@@ -519,6 +519,25 @@
   gap: 12px;
 }
 
+/* The Test instances card's Proxy ports: the first and the last, with the count beside. */
+.proxy-ports {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--fg-3);
+}
+
+.proxy-port {
+  display: inline-flex;
+}
+
+.proxy-ports-count {
+  min-width: 64px;
+  font: var(--type-caption);
+  color: var(--fg-3);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---- Users: a row's name with You, its actions, and a one-time password shown once */
 .users-name,
 .users-actions {

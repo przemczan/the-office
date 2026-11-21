@@ -16,7 +16,8 @@ export type OfficeDataFolder =
   | "run-environments"
   | "test-output"
   | "stage-runs"
-  | "grafana";
+  | "grafana"
+  | "test-instances";
 
 /** Where The Office keeps its files outside the database: OFFICE_DATA_DIR or the system's default. */
 export class OfficeDataDirectory {
@@ -32,5 +33,13 @@ export class OfficeDataDirectory {
    */
   stageRunsFolder(taskId: string): string {
     return join(this.folder("stage-runs"), taskId);
+  }
+
+  /**
+   * A test instance's own detached checkout of the commit it launched (spec §5.5, "A test
+   * instance's checkout"), removed when the instance stops, fails or is Built.
+   */
+  testInstanceFolder(instanceId: string): string {
+    return join(this.folder("test-instances"), instanceId);
   }
 }

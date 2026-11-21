@@ -77,6 +77,7 @@ class FakeGit extends Git {
   abortMerge = notUsed;
   addWorktree = notUsed;
   checkoutDetached = notUsed;
+  exportCommit = notUsed;
   removeWorktree = notUsed;
   commit = notUsed;
   committedPaths = notUsed;

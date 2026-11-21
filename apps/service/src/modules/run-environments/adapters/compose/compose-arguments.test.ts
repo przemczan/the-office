@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NO_MASK } from "../scripted/scripted-container-runtime.fixtures.js";
+import { NO_MASK } from "../scripted/scripted-container-runtime.js";
 import { buildArguments, execArguments } from "./compose-command-line.js";
 
 const PROJECT = {

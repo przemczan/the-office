@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { isAbsolute, relative, sep } from "node:path";
-import type { RunEnvironmentDefinition } from "./run-environment-definition.js";
+import { isAbsolute, posix, relative, sep } from "node:path";
+import type { Reading, RunEnvironmentDefinition } from "./run-environment-definition.js";
 
 /** A variable the install command runs with while the image builds: the Project's `set`. */
 export interface InstallVariable {
@@ -8,6 +8,20 @@ export interface InstallVariable {
   readonly value: string;
   /** A Secret variable, whose value is in no image layer and not in the key. */
   readonly secret: boolean;
+}
+
+/**
+ * What a Project's image is made from: the definition and Install inputs in a folder (a Task's
+ * worktree, or a Test instance's checkout) and the Project's install command and variables.
+ */
+export interface ImageSource {
+  readonly projectId: string;
+  /** The folder the definition and the Install inputs are read from, an absolute path. */
+  readonly worktree: string;
+  readonly installCommand: string | undefined;
+  /** Relative to the folder. */
+  readonly installInputs: readonly string[];
+  readonly installVariables: readonly InstallVariable[];
 }
 
 /** A Task whose checks run in a run environment, and what its image is made from. */
@@ -131,6 +145,8 @@ export const LABEL = {
   instance: "office.instance",
   task: "office.task",
   project: "office.project",
+  /** A Hosted Test instance's compose project, by the instance's id. */
+  testInstance: "office.test-instance",
 } as const;
 
 export type Labels = Readonly<Record<string, string>>;
@@ -176,17 +192,35 @@ export function composeOverrideOf(
       service,
       {
         labels,
-        cpus: serviceCpusOf(limits.cpuLimit, hostCores, service === definition.service),
-        mem_limit: `${limits.memoryMegabytes}m`,
-        // No swap above the memory limit, so the limit holds.
-        memswap_limit: `${limits.memoryMegabytes}m`,
-        pids_limit: limits.processes,
+        ...serviceLimitsOf(limits, hostCores, service === definition.service),
         ...(service === definition.service ? checksServiceOverride(definition, task, image) : {}),
       },
     ]),
   );
+  return { services, ...networksAndVolumesOf(definition, labels) };
+}
+
+/** The Office's limits on one service: the checks' service is the one Automatic gives the most. */
+function serviceLimitsOf(
+  limits: RunEnvironmentLimits,
+  hostCores: number,
+  isChecksService: boolean,
+): Record<string, unknown> {
   return {
-    services,
+    cpus: serviceCpusOf(limits.cpuLimit, hostCores, isChecksService),
+    mem_limit: `${limits.memoryMegabytes}m`,
+    // No swap above the memory limit, so the limit holds.
+    memswap_limit: `${limits.memoryMegabytes}m`,
+    pids_limit: limits.processes,
+  };
+}
+
+/** The labels on the default network and every network and volume the definition declares. */
+function networksAndVolumesOf(
+  definition: RunEnvironmentDefinition,
+  labels: Labels,
+): Record<string, unknown> {
+  return {
     networks: Object.fromEntries(
       ["default", ...definition.networks].map((network) => [network, { labels }]),
     ),
@@ -196,25 +230,216 @@ export function composeOverrideOf(
   };
 }
 
+/** The labels of what a Hosted Test instance's compose project holds; its id is enough to find it. */
+export function testInstanceLabels(instance: string, testInstanceId: string): Labels {
+  return { ...officeLabels(instance), [LABEL.testInstance]: testInstanceId };
+}
+
+/**
+ * The compose project of a Hosted Test instance (spec §5.5, "A test instance's checkout"), unique
+ * to the Office and the instance, and never a Task's, whose ids carry no `test-`.
+ */
+export function hostedProjectNameOf(instance: string, testInstanceId: string): string {
+  return composeProjectNameOf(instance, `test-${testInstanceId}`);
+}
+
+/** What a Hosted Test instance's override is made of, beside the definition, image and limits. */
+export interface HostedRun {
+  readonly testInstanceId: string;
+  readonly projectId: string;
+  /** The instance's checkout, an absolute path: the one host folder mounted, at its own path. */
+  readonly checkout: string;
+  /** The service the app runs in: the devcontainer's own, or the one the entry point names. */
+  readonly appService: string;
+  /** The port the app listens on inside its service, published on 127.0.0.1 alone. */
+  readonly containerPort: number;
+  /** The target's variables' names, each given its value from its carrier (`carrierOf`) by index. */
+  readonly variableNames: readonly string[];
+}
+
+/** Set in the app's service, so The Office run as a test instance refuses what reaches outside. */
+export const TEST_INSTANCE_VARIABLE = "OFFICE_TEST_INSTANCE";
+
+const VARIABLE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+/**
+ * The compose file The Office puts over the repository's for a Hosted Test instance (spec §2.12,
+ * "Safety"): the checkout alone mounted, at its own path, in the devcontainer's service on the
+ * Project's image; the app's port alone published, on 127.0.0.1 at a port the runtime picks; the
+ * target's variables in the app's service by their carriers, never their values; the labels on
+ * every service, network and volume, and the limits on every service. The definition is one
+ * `readDefinition` took, so it sets no ports, host mounts, limits or privileges of its own.
+ */
+export function hostedOverrideOf(
+  definition: RunEnvironmentDefinition,
+  run: HostedRun,
+  image: string,
+  instance: string,
+  limits: RunEnvironmentLimits,
+  hostCores: number,
+): Reading<Record<string, unknown>> {
+  const problems: string[] = [];
+  if (!definition.services.includes(run.appService)) {
+    problems.push(
+      `The service ${run.appService} the entry point names isn't in the run environment definition.`,
+    );
+  }
+  if (!Number.isInteger(run.containerPort) || run.containerPort < 1 || run.containerPort > 65_535) {
+    problems.push(`The port ${run.containerPort} isn't a port from 1 to 65535.`);
+  }
+  for (const name of run.variableNames) {
+    if (!VARIABLE_NAME.test(name)) {
+      problems.push(
+        `The variable name ${JSON.stringify(name)} isn't one: use letters, digits and _, not starting with a digit.`,
+      );
+    }
+  }
+  if (problems.length > 0) return { problems };
+
+  const labels = {
+    ...testInstanceLabels(instance, run.testInstanceId),
+    [LABEL.project]: run.projectId,
+  };
+  const environment = {
+    ...Object.fromEntries(
+      run.variableNames.map((name, index) => [name, `\${${carrierOf(index)}}`]),
+    ),
+    [TEST_INSTANCE_VARIABLE]: "true",
+  };
+  const services = Object.fromEntries(
+    definition.services.map((service) => [
+      service,
+      {
+        labels,
+        ...serviceLimitsOf(limits, hostCores, service === definition.service),
+        ...(service === definition.service
+          ? devcontainerServiceOverride(definition, run.checkout, image, [
+              bindMount(run.checkout, false),
+            ])
+          : {}),
+        ...(service === run.appService
+          ? { environment, ports: [`127.0.0.1::${run.containerPort}`] }
+          : {}),
+      },
+    ]),
+  );
+  return { value: { services, ...networksAndVolumesOf(definition, labels) }, problems: [] };
+}
+
+/** How an entry point runs in the devcontainer's service: its folder and its arguments, no shell. */
+export interface EntryPointCommand {
+  /** An absolute path inside the checkout. */
+  readonly folder: string;
+  readonly argv: readonly string[];
+}
+
+/** The entry points The Office runs itself; a devcontainer service is the app with no command. */
+export type CommandEntryPoint =
+  | {
+      readonly kind: "repository-file";
+      readonly path: string;
+      readonly arguments: readonly string[];
+    }
+  | {
+      readonly kind: "package-script";
+      readonly manifest: string;
+      readonly script: string;
+      readonly arguments: readonly string[];
+    }
+  | { readonly kind: "gradle-task"; readonly task: string; readonly arguments: readonly string[] };
+
+/**
+ * A test target's entry point (spec §2.12, "Entry points only"), as contracts' `EntryPoint` has
+ * it: one The Office runs as a command, or a devcontainer service that is the app itself.
+ */
+export type HostedEntryPoint =
+  CommandEntryPoint | { readonly kind: "devcontainer-service"; readonly service: string };
+
+/**
+ * The command of an entry point (spec §2.12, "Entry points only"), given to the runtime as
+ * arguments one by one: a repository file run as `./<path>` from the checkout, a package script by
+ * `npm run` in its manifest's folder, a Gradle task through the repository's `./gradlew`. A path
+ * leading out of the checkout is refused.
+ */
+export function entryPointCommandOf(
+  entryPoint: CommandEntryPoint,
+  checkout: string,
+): { readonly command: EntryPointCommand } | { readonly problem: string } {
+  switch (entryPoint.kind) {
+    case "repository-file": {
+      const path = repositoryPath(entryPoint.path);
+      if (path === undefined || path === ".") {
+        return { problem: `The entry point ${entryPoint.path} isn't a file in the repository.` };
+      }
+      return { command: { folder: checkout, argv: [`./${path}`, ...entryPoint.arguments] } };
+    }
+    case "package-script": {
+      const manifest = repositoryPath(entryPoint.manifest);
+      if (manifest === undefined || manifest === ".") {
+        return { problem: `The manifest ${entryPoint.manifest} isn't a file in the repository.` };
+      }
+      const folder = posix.dirname(manifest);
+      return {
+        command: {
+          folder: folder === "." ? checkout : posix.join(checkout, folder),
+          argv: ["npm", "run", entryPoint.script, "--", ...entryPoint.arguments],
+        },
+      };
+    }
+    case "gradle-task":
+      return {
+        command: {
+          folder: checkout,
+          argv: ["./gradlew", entryPoint.task, ...entryPoint.arguments],
+        },
+      };
+  }
+}
+
+/** The path from the repository's root with forward slashes, or none when it leads out of it. */
+function repositoryPath(given: string): string | undefined {
+  const path = posix.normalize(given.trim().replaceAll("\\", "/"));
+  if (posix.isAbsolute(path) || path === ".." || path.startsWith("../")) return undefined;
+  return path.replace(/\/+$/, "");
+}
+
+/**
+ * The script an entry point runs as in the devcontainer's service: into its folder, then the
+ * command given as the script's arguments, so nothing the repository names is read by a shell.
+ */
+export function entryPointScript(folder: string): string {
+  return `cd ${quoted(folder)} || exit 125\nexec "$@"`;
+}
+
 function checksServiceOverride(
   definition: RunEnvironmentDefinition,
   task: TaskInWorktree,
   image: string,
 ): Record<string, unknown> {
+  return devcontainerServiceOverride(definition, task.worktree, image, [
+    bindMount(task.worktree, false),
+    ...(isInside(task.repositoryGitFolder, task.worktree)
+      ? []
+      : // Read-only: checks read the history, but every git change is The Office's (spec §5.5).
+        [bindMount(task.repositoryGitFolder, true)]),
+    // Read-only: The Office writes the file, condition commands only read it.
+    bindMount(task.stageRunsFolder, true),
+  ]);
+}
+
+/** The devcontainer's service on the Project's image, with its mounts, working in `folder`. */
+function devcontainerServiceOverride(
+  definition: RunEnvironmentDefinition,
+  folder: string,
+  image: string,
+  volumes: readonly Record<string, unknown>[],
+): Record<string, unknown> {
   return {
     image,
     // Built by The Office before the run environment starts; never pulled or built by compose.
     pull_policy: "never",
-    volumes: [
-      bindMount(task.worktree, false),
-      ...(isInside(task.repositoryGitFolder, task.worktree)
-        ? []
-        : // Read-only: checks read the history, but every git change is The Office's (spec §5.5).
-          [bindMount(task.repositoryGitFolder, true)]),
-      // Read-only: The Office writes the file, condition commands only read it.
-      bindMount(task.stageRunsFolder, true),
-    ],
-    working_dir: composeLiteral(task.worktree),
+    volumes,
+    working_dir: composeLiteral(folder),
     ...(definition.overrideCommand
       ? {
           entrypoint: ["/bin/sh", "-c"],

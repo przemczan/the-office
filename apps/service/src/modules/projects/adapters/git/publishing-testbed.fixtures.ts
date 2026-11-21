@@ -4,6 +4,7 @@ import { officeIdentityForTests } from "../../../../platform/git-identity/office
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
+import { OfficeTestInstance } from "../../../../platform/test-instance/office-test-instance.js";
 import { CommandLineGit } from "./command-line-git.js";
 import { serviceVariables } from "./command-line-git.fixtures.js";
 import { RepositoryLocks } from "./repository-locks.js";
@@ -176,7 +177,8 @@ export class PublishingTestbed {
     readonly issueTasks: IssueTasks,
   ) {}
 
-  static async create(): Promise<PublishingTestbed> {
+  /** `testInstance` runs it as a test instance of The Office would (`OFFICE_TEST_INSTANCE=true`). */
+  static async create({ testInstance = false } = {}): Promise<PublishingTestbed> {
     const repository = await createTemporaryRepository();
     gitIn(repository.path, "fetch", "--quiet", "origin");
     gitIn(repository.path, "branch", "--quiet", "--set-upstream-to=origin/main", "main");
@@ -197,15 +199,17 @@ export class PublishingTestbed {
     events.subscribeToEveryEvent((event) => void published.push(event));
     const issueLinks = new IssueLinkRepositoryForTests();
     const issueTasks = new IssueTasks();
+    const switchedOn = new OfficeTestInstance(testInstance);
     const publishing = new Publishing(
       git,
-      new CodeHosts([pullRequests]),
+      new CodeHosts([pullRequests], switchedOn),
       commands,
       worktrees,
       taskBases,
       records,
       events,
       new IssueFixes(issueLinks, git, issueTasks),
+      switchedOn,
     );
     return new PublishingTestbed(
       repository,

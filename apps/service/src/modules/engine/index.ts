@@ -1,4 +1,5 @@
 export { EngineSessions } from "./application/engine-sessions.js";
+export { EngineRefused } from "./domain/engine-refused.js";
 export type { EngineCapability } from "./ports/agent-engine.js";
 export { OfficeToolRegistry } from "./application/office-tool-registry.js";
 export {
