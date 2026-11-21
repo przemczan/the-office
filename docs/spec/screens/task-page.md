@@ -38,6 +38,7 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 ## Head actions
 
 - One line of buttons; whatever wraps past it is hidden, the last first, and the **More** menu always holds every action as its first items.
+- The line keeps room for its first button and **More**: when the title leaves less, the actions go under the title, never a blank where a hidden button was.
 - In order: planning actions, Start or the queue's actions, run controls, **Open pull request**, **Browse files**, **Restore**.
 - Planning actions: **Plan with <Planner>** and **Mark Ready** (see Planning actions).
 - Run controls: **Pause**, **Stop**, **Resume** (see Run controls).

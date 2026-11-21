@@ -160,9 +160,11 @@ function InitiativeHead({
           {planningProgress && <span>· {planningProgress}</span>}
         </div>
       </div>
-      <div className="task-head-actions">
-        <InitiativeActions initiative={initiative} onStartedReadyTasks={onStartedReadyTasks} />
-      </div>
+      <InitiativeActions
+        initiative={initiative}
+        onStartedReadyTasks={onStartedReadyTasks}
+        className="task-head-actions"
+      />
     </header>
   );
 }

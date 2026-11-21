@@ -49,9 +49,11 @@ import { useRememberedAutoMode } from "./use-planning.ts";
 export function InitiativeActions({
   initiative,
   onStartedReadyTasks,
+  className,
 }: {
   readonly initiative: Initiative;
   readonly onStartedReadyTasks: (started: ReadyTasksStarted) => void;
+  readonly className?: string;
 }): ReactNode {
   const [adding, setAdding] = useState<"new" | "existing">();
   const tasks = useEveryTask();
@@ -91,6 +93,7 @@ export function InitiativeActions({
     <>
       <RecordActions
         actions={actions}
+        {...(className && { className })}
         menu={
           <InitiativeMenu
             initiative={initiative}

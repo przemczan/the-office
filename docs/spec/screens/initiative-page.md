@@ -31,6 +31,7 @@ Covers: the Initiative page's head and actions (Confirm, Back to Shaping, Plan t
 ## Head actions
 
 - One line of buttons; whatever wraps past it is hidden, the last first, and **More** always holds every action as its first items.
+- The line keeps room for its first button and **More**: when the title leaves less, the actions go under the title, never a blank where a hidden button was.
 - In order: **Confirm the Initiative**, **Planning Thread**, **Plan the Initiative**, **Plan with <Planner>**, **Start Ready Tasks**, **Pause the Initiative** or **Resume the Initiative**, **Add a Task**, **Add an existing Task**, **Browse files**, **Back to Shaping**, **Restore**.
 - **Confirm the Initiative** (check, primary): while shaping; toast "Initiative confirmed. Its Tasks moved to Backlog, to wait until <Planner> plans them." or "Initiative confirmed, and done: its Tasks are."
 - **Planning Thread**: a link to the Initiative's latest planning Thread (`?initiativeThread=`), once it has one.

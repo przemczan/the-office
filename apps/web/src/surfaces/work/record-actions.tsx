@@ -91,10 +91,11 @@ export function RecordActions({
   readonly align?: "start" | "end";
   readonly className?: string;
 }): ReactNode {
+  const root = useRef<HTMLDivElement>(null);
   const row = useRef<HTMLDivElement>(null);
-  useOnlyWhatFits(row);
+  useOnlyWhatFits(root, row);
   return (
-    <div className={className ? `record-actions ${className}` : "record-actions"}>
+    <div ref={root} className={className ? `record-actions ${className}` : "record-actions"}>
       <div ref={row} className={`record-actions-row align-${align}`}>
         {actions.map((action) => (
           <Fragment key={action.key}>
@@ -111,16 +112,24 @@ export function RecordActions({
  * Keeps the row to its first line, as its items wrap: each item past it, or wider than the row,
  * is hidden and inert, and measured again on every change of the row's or an item's size.
  */
-function useOnlyWhatFits(rowRef: RefObject<HTMLElement | null>): void {
+function useOnlyWhatFits(
+  rootRef: RefObject<HTMLElement | null>,
+  rowRef: RefObject<HTMLElement | null>,
+): void {
   useLayoutEffect(() => {
+    const root = rootRef.current;
     const row = rowRef.current;
-    if (!row) return;
-    const resizes = new ResizeObserver(() => hideWhatOverflows(row));
+    if (!root || !row) return;
+    const fit = (): void => {
+      hideWhatOverflows(row);
+      keepRoomForTheFirst(root, row);
+    };
+    const resizes = new ResizeObserver(fit);
     const observeItems = (): void => {
       resizes.disconnect();
       resizes.observe(row);
       for (const item of row.children) resizes.observe(item);
-      hideWhatOverflows(row);
+      fit();
     };
     const changes = new MutationObserver(observeItems);
     changes.observe(row, { childList: true });
@@ -129,7 +138,26 @@ function useOnlyWhatFits(rowRef: RefObject<HTMLElement | null>): void {
       changes.disconnect();
       resizes.disconnect();
     };
-  }, [rowRef]);
+  }, [rootRef, rowRef]);
+}
+
+/**
+ * The least width the actions take where they are laid out, their first action and the rest of
+ * the line (the More menu): a narrower row would hide even the first, leaving only its blank room,
+ * so the layout around them, such as the head, wraps them onto a line of their own instead.
+ */
+function keepRoomForTheFirst(root: HTMLElement, row: HTMLElement): void {
+  const first = row.firstElementChild;
+  if (!first) {
+    root.style.removeProperty("--record-actions-least-width");
+    return;
+  }
+  const gap = Number.parseFloat(getComputedStyle(root).columnGap) || 0;
+  let leastWidth = first.getBoundingClientRect().width;
+  for (const other of root.children) {
+    if (other !== row) leastWidth += gap + other.getBoundingClientRect().width;
+  }
+  root.style.setProperty("--record-actions-least-width", `${Math.ceil(leastWidth)}px`);
 }
 
 /**

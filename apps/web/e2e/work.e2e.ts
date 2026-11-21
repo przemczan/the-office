@@ -1177,6 +1177,7 @@ test(
     const menu = page.getByRole("menu");
     await expect(menu.getByRole("button")).toHaveText([
       ...ACTIONS,
+      "Back to Shaping",
       "Copy link",
       "Drop the Initiative",
     ]);
@@ -1193,6 +1194,16 @@ test(
     const row = await head.locator(".record-actions-row").boundingBox();
     expect(row!.height).toBe((await shown.boundingBox())!.height);
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-960-initiative-head.png") });
+
+    // Where the title leaves less room than the first button and More, the head wraps them under
+    // the title rather than hiding the first button and keeping its blank room beside More.
+    for (let width = 700; width <= 1000; width += 20) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect(shown, `at ${width}px`).toBeVisible();
+    }
+    await page.setViewportSize({ width: 760, height: 900 });
+    await expect(page.getByRole("button", { name: "Conversation", exact: true })).toBeVisible();
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-760-initiative-head.png") });
 
     await more.click();
     await menu.getByRole("button", { name: "Add an existing Task" }).click();
@@ -1218,6 +1229,9 @@ test(
     await expect(menu.getByRole("button")).toHaveText([
       "Pause",
       "Stop",
+      "Feature",
+      "Bug",
+      "Chore",
       "Edit Stages for this Task",
       "Move to another Project…",
       "Drop…",
@@ -1233,7 +1247,10 @@ test(
     // Plan as a Task shows only while someone holds Plans.
     const options = card.locator(".idea-card-options").getByRole("button");
     await expect(options.first()).toHaveText("Shape into a Task");
-    const optionWords = (await options.allInnerTexts()).map((words) => words.trim());
+    // Shape into a Task's own Kinds button has an icon only, and no item of its own in the menu.
+    const optionWords = (await options.allInnerTexts())
+      .map((words) => words.trim())
+      .filter((words) => words !== "");
     await card.getByRole("button", { name: "More for Shape me from the menu" }).click();
     await expect(menu.getByRole("button")).toHaveText([
       ...optionWords,

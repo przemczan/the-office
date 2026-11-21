@@ -2894,21 +2894,21 @@
 
 /* ---- planning: the head's actions, what the Planner proposes, and the user's own version */
 /* Takes the room the title leaves, up to what its buttons need: past that, `RecordActions` hides
-   the buttons that don't fit, and the head wraps it under the title only on a window too narrow
-   for the title's basis. */
+   the buttons that don't fit, and the head wraps it under the title when the room left is less
+   than its first button and More. */
 .task-head-actions {
   flex: 100 1 0;
   max-width: max-content;
-  min-width: 0;
   padding-top: 18px;
 }
 
-/* A record's actions on one line, its More menu at the end (record-actions.tsx). */
+/* A record's actions on one line, its More menu at the end (record-actions.tsx). Never narrower
+   than its first action and More, as `keepRoomForTheFirst` measures, unless its container is. */
 .record-actions {
   display: flex;
   align-items: center;
   gap: 6px;
-  min-width: 0;
+  min-width: min(100%, var(--record-actions-least-width, 0px));
 }
 
 /* Wraps only for `hideWhatOverflows` to find what doesn't fit on the first line, which it hides;

@@ -60,6 +60,16 @@ async function saveSettings(page: Page, settings: TestInstanceSettings): Promise
   expect(saved.status()).toBe(200);
 }
 
+/** The card's next save of the test instances' settings, answered. */
+async function portsSaved(page: Page): Promise<void> {
+  const saved = await page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/settings/test-instances") &&
+      response.request().method() === "PUT",
+  );
+  expect(saved.status()).toBe(200);
+}
+
 /** The Office limits card, by its own first row. */
 function limitsCard(page: Page): Locator {
   return page.locator("section:not(:has(section))", { hasText: "Test instances at once" });
@@ -85,11 +95,12 @@ test("Office limits' Test instances card saves the three limits and refuses a po
     await expect(atOnce).toHaveText("3");
     await card.getByRole("button", { name: "Raise the Idle time" }).click();
     await expect(idle).toHaveText("35 min");
+    // The count follows the typed ports at once, so wait for each save before going on.
     await first.fill(String(E2E_PROXY_PORTS.firstProxyPort));
-    await first.press("Enter");
+    await Promise.all([portsSaved(page), first.press("Enter")]);
     await expect(card).toContainText("24 ports");
     await last.fill(String(E2E_PROXY_PORTS.lastProxyPort));
-    await last.press("Enter");
+    await Promise.all([portsSaved(page), last.press("Enter")]);
     await expect(card).toContainText("4 ports");
 
     await page.reload();
