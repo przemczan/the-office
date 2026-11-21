@@ -11,7 +11,12 @@ import {
   type Reading,
   type RunEnvironmentDefinition,
 } from "../domain/run-environment-definition.js";
-import { RunEnvironmentCreated, RunEnvironmentRemoved } from "../domain/run-environment-events.js";
+import {
+  RunEnvironmentCreated,
+  RunEnvironmentRemoved,
+  RunEnvironmentStarted,
+  RunEnvironmentStopped,
+} from "../domain/run-environment-events.js";
 import { RunEnvironmentRefused } from "../domain/run-environment-refused.js";
 import {
   commandScript,
@@ -30,6 +35,7 @@ import {
 import {
   ContainerRuntime,
   ContainerRuntimeFailed,
+  type AttachedProcess,
   type ComposeProject,
   type ExecutionEnd,
   type StreamedOutputMask,
@@ -38,6 +44,7 @@ import { KnownTasks } from "../ports/known-tasks.js";
 import { RunEnvironmentSettings } from "../ports/run-environment-settings.js";
 import { readDefinitionIn } from "./definition-files.js";
 import { HostCores } from "./host-cores.js";
+import { RunEnvironmentCommandVariables } from "./run-environment-command-variables.js";
 import { RunEnvironmentFolders } from "./run-environment-folders.js";
 import { note, RunEnvironmentImages } from "./run-environment-images.js";
 import { RunEnvironmentSlots } from "./run-environment-slots.js";
@@ -91,6 +98,19 @@ export interface RunEnvironmentCommand extends SlotOptions {
 export const STAGE_RUNS_NOT_MOUNTED =
   "The run environment started before condition commands could read their file; stop and start the Task's run environment.";
 
+/**
+ * A program the service runs in a Task's running run environment, its standard input and output
+ * The Office's own, as the Office device helper is (spec §2.13, "The relay").
+ */
+export interface RunEnvironmentAttachment {
+  /** The program and its arguments, run as they are, never by a shell. */
+  readonly arguments: readonly string[];
+  /** As the container's root instead of the checks' user, as the helper's serial mode runs. */
+  readonly asRoot?: boolean;
+  /** Where its standard error is appended; `attached.log` in the Task's folder unless given. */
+  readonly logFile?: string;
+}
+
 /** How a check ended, and how long it ran, from its start in the service. */
 export interface CommandEnd extends ExecutionEnd {
   readonly durationMs: number;
@@ -140,6 +160,7 @@ export class RunEnvironments implements OnModuleInit {
     private readonly knownTasks: KnownTasks,
     private readonly settings: RunEnvironmentSettings,
     private readonly hostCores: HostCores,
+    private readonly registeredVariables: RunEnvironmentCommandVariables,
     private readonly serviceOwner: ServiceOwner,
     private readonly schedule: Schedule,
     private readonly busyWork: BusyWork,
@@ -203,6 +224,35 @@ export class RunEnvironments implements OnModuleInit {
   }
 
   /**
+   * Starts the program in the Task's run environment while it runs, in the checks' service as its
+   * user; nothing when it isn't running, as a program never starts one. Outside the Task's step
+   * and slots, so a `RunEnvironmentStarted` handler can attach while the start holds the step, and
+   * no check's activity: an attached program never keeps the environment from its idle stop.
+   */
+  async attach(
+    taskId: string,
+    attachment: RunEnvironmentAttachment,
+  ): Promise<AttachedProcess | undefined> {
+    const environment = this.running.get(taskId);
+    if (environment === undefined) return undefined;
+    const user = attachment.asRoot === true ? ROOT_USER : environment.definition.user;
+    try {
+      return await this.runtime.attach(environment.project, {
+        service: environment.definition.service,
+        ...(user === undefined ? {} : { user }),
+        arguments: attachment.arguments,
+        errorFile: attachment.logFile ?? this.folders.attachedLog(taskId),
+      });
+    } catch (error) {
+      if (!(error instanceof ContainerRuntimeFailed)) throw error;
+      throw new RunEnvironmentRefused([
+        "The program couldn't start in the run environment.",
+        error.message,
+      ]);
+    }
+  }
+
+  /**
    * The image the Task's checks run in now, by its key, without building it: another one means
    * what was installed in the worktree inside the old one may not suit it.
    */
@@ -222,6 +272,7 @@ export class RunEnvironments implements OnModuleInit {
     command: RunEnvironmentCommand,
   ): Promise<CommandEnd> {
     const { owner } = this.serviceOwner;
+    const environmentNow = await this.withRegisteredVariables(task.taskId, command.environment);
     const startedAt = this.schedule.now().getTime();
     let end: ExecutionEnd;
     try {
@@ -232,10 +283,10 @@ export class RunEnvironments implements OnModuleInit {
           ...(environment.definition.user === undefined
             ? {}
             : { user: environment.definition.user }),
-          script: commandScript(command.commandLine, task.worktree, command.environment, {
+          script: commandScript(command.commandLine, task.worktree, environmentNow, {
             trustRepositories: owner !== undefined,
           }),
-          variables: commandVariables(command.environment),
+          variables: commandVariables(environmentNow),
           mask: command.mask,
           timeoutMs: command.timeoutMs,
           ...(command.signal === undefined ? {} : { signal: command.signal }),
@@ -260,6 +311,16 @@ export class RunEnvironments implements OnModuleInit {
       }
     }
     return { ...end, durationMs };
+  }
+
+  /** The Project's environment with what other modules give the Task's check now, set last. */
+  private async withRegisteredVariables(
+    taskId: string,
+    environment: CommandEnvironment,
+  ): Promise<CommandEnvironment> {
+    const registered = await this.registeredVariables.of(taskId);
+    if (registered.length === 0) return environment;
+    return { ...environment, set: [...environment.set, ...registered] };
   }
 
   /**
@@ -400,6 +461,9 @@ export class RunEnvironments implements OnModuleInit {
     if (created) {
       await this.events.publish(new RunEnvironmentCreated(task.taskId, task.projectId, image));
     }
+    // The bus waits for its handlers, so they run before the check that started it, the Task's
+    // step still held: one that waits for a step of the Task would never end.
+    await this.events.publish(new RunEnvironmentStarted(task.taskId, task.projectId));
     return environment;
   }
 
@@ -447,6 +511,8 @@ export class RunEnvironments implements OnModuleInit {
     // A long-syntax bind mount fails to start when its source is missing, and Pipelines writes the
     // file only before a condition command.
     await mkdir(task.stageRunsFolder, { recursive: true });
+    // Mounted whether or not the helper is built or copied yet: a copy later is seen inside.
+    await mkdir(this.folders.deviceHelper, { recursive: true });
     const { limits } = await this.settings.read();
     const override = join(folder, OVERRIDE_FILE);
     await writeFile(
@@ -459,6 +525,7 @@ export class RunEnvironments implements OnModuleInit {
           this.folders.instance,
           limits,
           this.hostCores.count,
+          this.folders.deviceHelper,
         ),
       ),
     );
@@ -489,6 +556,8 @@ export class RunEnvironments implements OnModuleInit {
       await this.runtime.stop(composeProjectNameOf(this.folders.instance, taskId));
     } finally {
       await this.slots.release(taskId);
+      // Even when the stop failed: The Office no longer counts it running.
+      await this.events.publish(new RunEnvironmentStopped(taskId));
     }
   }
 
@@ -502,6 +571,7 @@ export class RunEnvironments implements OnModuleInit {
       await rm(this.folders.taskFolder(taskId), { recursive: true, force: true });
     } finally {
       await this.slots.release(taskId);
+      if (environment !== undefined) await this.events.publish(new RunEnvironmentStopped(taskId));
     }
     await this.events.publish(new RunEnvironmentRemoved(taskId));
   }

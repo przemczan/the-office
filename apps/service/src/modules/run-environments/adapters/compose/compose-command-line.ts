@@ -11,6 +11,8 @@ import { LABEL, type Labels } from "../../domain/run-environment.js";
 import {
   ContainerRuntime,
   ContainerRuntimeFailed,
+  type AttachedProcess,
+  type Attachment,
   type ComposeProject,
   type Execution,
   type ExecutionEnd,
@@ -33,6 +35,8 @@ const LONG_TIMEOUT_MS = 60 * 60 * 1000;
 const UP_WAIT_SECONDS = 600;
 /** The longest a timer runs: following a Hosted Test instance's logs runs until it ends. */
 const LONGEST_TIMEOUT_MS = 2 ** 31 - 1;
+/** How long an attached program has, after its input ends, before its CLI is ended. */
+const ATTACHED_STOP_GRACE_MS = 2000;
 /** The end of a failing command's error output kept for its message. */
 const ERROR_TAIL_BYTES = 4096;
 /** The most a listing's output may hold. */
@@ -151,6 +155,59 @@ export class ComposeCommandLine extends ContainerRuntime {
       throw new ContainerRuntimeFailed(`The check couldn't run. ${ended.errorTail}`.trim());
     }
     return { exitCode: ended.exitCode };
+  }
+
+  async attach(project: ComposeProject, attachment: Attachment): Promise<AttachedProcess> {
+    await mkdir(dirname(attachment.errorFile), { recursive: true });
+    const errors = createWriteStream(attachment.errorFile, { flags: "a" });
+    const { processTrees } = this.operatingSystem;
+    const child = startProgram(
+      {
+        command: RUNTIME,
+        arguments: attachArguments(project, attachment),
+        workingFolder: project.projectDirectory,
+        environment: { ...runtimeEnvironment(), ...project.variables },
+      },
+      processTrees,
+    );
+    child.stderr.pipe(errors);
+    // A write after the program ended fails with EPIPE, which would otherwise end the service.
+    child.stdin.on("error", () => undefined);
+    errors.on("error", () => undefined);
+
+    let stopped = false;
+    let closed = false;
+    let killTimer: ReturnType<typeof setTimeout> | undefined;
+    const ended = new Promise<ExecutionEnd>((resolve) => {
+      child.once("error", (error) => {
+        closed = true;
+        errors.end(`${notStarted(error)}\n`);
+        resolve({ exitCode: undefined });
+      });
+      child.once("close", (code) => {
+        closed = true;
+        clearTimeout(killTimer);
+        resolve(
+          stopped ? { exitCode: undefined, endedBy: "stop" } : { exitCode: code ?? undefined },
+        );
+      });
+    });
+    return {
+      stdin: child.stdin,
+      stdout: child.stdout,
+      ended,
+      stop: () => {
+        if (stopped || closed) return;
+        stopped = true;
+        child.stdin.end();
+        // The end of its input ends the program in the container; the CLI is ended after a grace,
+        // and nothing restarts the service, which a device's program shares with the checks.
+        killTimer = setTimeout(() => {
+          if (child.pid !== undefined) void processTrees.end(child.pid);
+        }, ATTACHED_STOP_GRACE_MS);
+        killTimer.unref();
+      },
+    };
   }
 
   async down(projectName: string, removal: Removal = {}): Promise<void> {
@@ -402,6 +459,22 @@ export function execArguments(project: ComposeProject, execution: Execution): st
     execution.script,
     // The script's $0, then its arguments one by one.
     ...(execution.arguments === undefined ? [] : ["office-entry-point", ...execution.arguments]),
+  ];
+}
+
+/**
+ * `compose exec --interactive` of the program as it is, its standard input kept open and no TTY,
+ * so its bytes pass unchanged both ways.
+ */
+export function attachArguments(project: ComposeProject, attachment: Attachment): string[] {
+  return [
+    ...composeArguments(project),
+    "exec",
+    "--interactive",
+    "--no-TTY",
+    ...(attachment.user === undefined ? [] : ["--user", attachment.user]),
+    attachment.service,
+    ...attachment.arguments,
   ];
 }
 

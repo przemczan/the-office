@@ -9,6 +9,7 @@ import { Schedule } from "../schedule/schedule.js";
 import type { ManualSchedule } from "../schedule/schedule.fixtures.js";
 import { EventStream, SIGNED_IN_CHECK_EVERY_MS, SIGNED_OUT } from "./event-stream.js";
 import { EventStreamModule } from "./event-stream.module.js";
+import { WebSocketRoutes } from "./websocket-routes.js";
 import { WebEventForwarding } from "./web-event-forwarding.js";
 import {
   devicesForTests,
@@ -222,3 +223,114 @@ describe("signed-in devices", () => {
     staying.close();
   });
 });
+
+describe("WebSocket routes", () => {
+  let guarded: INestApplication;
+  let guardedPort: number;
+  let devices: DevicesForTests;
+  const seen: { params: Record<string, string>; userId: string; frames: Buffer[] }[] = [];
+
+  beforeEach(async () => {
+    ({ app: guarded, port: guardedPort } = await startTestApplication({
+      imports: [EventsModule, EventStreamModule, devicesForTests()],
+      requestAccess: "guarded",
+    }));
+    devices = guarded.get(DevicesForTests);
+    seen.length = 0;
+    guarded
+      .get(WebSocketRoutes)
+      .register("/api/tasks/:taskId/devices/:deviceId/relay", (client, signedIn, params) => {
+        seen.push({ params: { ...params }, userId: signedIn.userId, frames: [] });
+        client.on("message", (data, isBinary) => {
+          seen.at(-1)?.frames.push(data as Buffer);
+          client.send(Buffer.from([...(data as Buffer)].toReversed()), { binary: isBinary });
+        });
+      });
+  });
+
+  afterEach(async () => {
+    await guarded.close();
+  });
+
+  function connectTo(path: string, cookie?: string): WsClient {
+    return new WsClient(`ws://localhost:${guardedPort}${path}`, {
+      headers: cookie === undefined ? {} : { cookie },
+    });
+  }
+
+  const RELAY = "/api/tasks/t1/devices/d%201/relay";
+
+  it("upgrades a signed-in device on a registered path and gives the handler its params", async () => {
+    const client = connectTo(RELAY, devices.signIn("phone"));
+
+    expect(await statusOf(client)).toBe("open");
+    await expect.poll(() => seen.length).toBe(1);
+    expect(seen[0]).toMatchObject({ params: { taskId: "t1", deviceId: "d 1" }, userId: "user" });
+    client.close();
+  });
+
+  it("refuses a registered path without a signed-in device with 401", async () => {
+    expect(await statusOf(connectTo(RELAY))).toBe(401);
+    expect(seen).toEqual([]);
+  });
+
+  it("refuses an unknown path with 404, signed in or not, before asking who is signed in", async () => {
+    expect(await statusOf(connectTo("/api/tasks/t1/relay"))).toBe(404);
+    expect(await statusOf(connectTo("/api/tasks/t1/relay", devices.signIn("phone")))).toBe(404);
+  });
+
+  it("refuses to register the same pattern twice", () => {
+    expect(() =>
+      guarded.get(WebSocketRoutes).register("/api/tasks/:taskId/devices/:deviceId/relay", () => {}),
+    ).toThrow("already registered");
+  });
+
+  it("closes a route's client once its device is signed out, and only its own", async () => {
+    const leaving = connectTo(RELAY, devices.signIn("leaving"));
+    const staying = connectTo(RELAY, devices.signIn("staying"));
+    await Promise.all(
+      [leaving, staying].map((client) => new Promise((resolve) => client.once("open", resolve))),
+    );
+    const closedWith = new Promise((resolve) => leaving.once("close", (code) => resolve(code)));
+
+    devices.signOut("leaving");
+
+    expect(await closedWith).toBe(SIGNED_OUT);
+    expect(staying.readyState).toBe(WsClient.OPEN);
+    staying.close();
+  });
+
+  it("closes a route's client within a minute of a sign-out another process made", async () => {
+    const schedule = guarded.get(Schedule) as ManualSchedule;
+    const leaving = connectTo(RELAY, devices.signIn("leaving"));
+    await new Promise((resolve) => leaving.once("open", resolve));
+    const closedWith = new Promise((resolve) => leaving.once("close", (code) => resolve(code)));
+
+    devices.signOutUntold("leaving");
+    await schedule.advanceBy(SIGNED_IN_CHECK_EVERY_MS);
+
+    expect(await closedWith).toBe(SIGNED_OUT);
+  });
+
+  it("passes binary frames to the handler untouched, and its binary frames back", async () => {
+    const client = connectTo(RELAY, devices.signIn("phone"));
+    await new Promise((resolve) => client.once("open", resolve));
+    const bytes = Buffer.from([0, 255, 1, 254, 128, 7]);
+    const reply = new Promise<{ data: Buffer; isBinary: boolean }>((resolve) =>
+      client.once("message", (data, isBinary) => resolve({ data: data as Buffer, isBinary })),
+    );
+
+    client.send(bytes, { binary: true });
+
+    expect(await reply).toEqual({ data: Buffer.from([...bytes].toReversed()), isBinary: true });
+    expect(seen[0]?.frames[0]?.equals(bytes)).toBe(true);
+    client.close();
+  });
+});
+
+function statusOf(client: WsClient): Promise<unknown> {
+  return new Promise((resolve) => {
+    client.on("unexpected-response", (_request, response) => resolve(response.statusCode));
+    client.on("open", () => resolve("open"));
+  });
+}

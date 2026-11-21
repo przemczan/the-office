@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Module, type DynamicModule } from "@nestjs/common";
 import {
@@ -177,10 +178,12 @@ export class AppModule {
       taskTokens: TaskTokens,
     });
     // Work's Tasks tell the startup sweep which run environments to keep; a Project's Run
-    // environment setting is kept by Projects, and its set-up Task by Work.
+    // environment setting is kept by Projects, and its set-up Task by Work. The release carries
+    // the device helper's build where a checkout's `npm run build:device-helper` writes it.
     const runEnvironments = RunEnvironmentsModule.register({
       imports: [work, projects],
       knownTasks: TaskService,
+      deviceHelperSource: join(officeCheckout, "tools", "device-helper", "dist"),
     });
     const pipelines = PipelinesModule.register({
       imports: [work, PeopleModule, engineCascade, conversations, projects, runEnvironments],

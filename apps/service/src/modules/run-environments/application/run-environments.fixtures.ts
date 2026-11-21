@@ -14,6 +14,7 @@ import type { ContainerRuntime } from "../ports/container-runtime.js";
 import { KnownTasks, type KnownTask } from "../ports/known-tasks.js";
 import { RunEnvironmentSettingsForTests } from "../ports/run-environment-settings.fixtures.js";
 import { HostCores } from "./host-cores.js";
+import { RunEnvironmentCommandVariables } from "./run-environment-command-variables.js";
 import {
   HostedServiceReadiness,
   type HostedServiceReadinessOptions,
@@ -53,6 +54,8 @@ export interface RunEnvironmentsTestbed {
   readonly schedule: ManualSchedule;
   readonly busyWork: BusyWork;
   readonly events: EventBus;
+  /** Where another module's variables for each check are registered. */
+  readonly commandVariables: RunEnvironmentCommandVariables;
   /** A temp folder for the test's worktrees. */
   readonly folder: string;
 }
@@ -74,6 +77,7 @@ export async function runEnvironmentsTestbed(
   const busyWork = new BusyWork(events);
   const images = new RunEnvironmentImages(runtime, folders, events);
   const hostCores = new HostCores(TESTBED_HOST_CORES);
+  const commandVariables = new RunEnvironmentCommandVariables();
   const environments = new RunEnvironments(
     runtime,
     images,
@@ -82,6 +86,7 @@ export async function runEnvironmentsTestbed(
     knownTasks,
     settings,
     hostCores,
+    commandVariables,
     new ServiceOwner(serviceOwner),
     schedule,
     busyWork,
@@ -105,6 +110,7 @@ export async function runEnvironmentsTestbed(
     schedule,
     busyWork,
     events,
+    commandVariables,
     folder,
   };
 }

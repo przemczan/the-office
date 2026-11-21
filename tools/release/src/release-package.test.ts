@@ -43,7 +43,7 @@ describe("an Office release's tarball", () => {
     assert.equal(carries("docs/design/README.md"), false);
   });
 
-  it("carries the built service, web app, contracts, migrations, launcher and knowledge base, without tests or build state", () => {
+  it("carries the built service, web app, contracts, migrations, launcher, device helper and knowledge base, without tests or build state", () => {
     assert.deepEqual(
       RELEASE_FILES.map(({ path }) => path),
       [
@@ -58,6 +58,7 @@ describe("an Office release's tarball", () => {
         "packages/contracts/dist",
         "tools/office-launcher/package.json",
         "tools/office-launcher/src",
+        "tools/device-helper/dist",
         "docs/spec",
         "GLOSSARY.md",
       ],
@@ -65,6 +66,13 @@ describe("an Office release's tarball", () => {
     assert.equal(isReleased("tools/office-launcher/src/launcher.ts"), true);
     assert.equal(isReleased("tools/office-launcher/src/launcher.test.ts"), false);
     assert.equal(isReleased("apps/service/dist/tsconfig.build.tsbuildinfo"), false);
+  });
+
+  it("carries the device helper's binaries for both CPUs and its version file", () => {
+    for (const file of ["office-device-helper-x86_64", "office-device-helper-aarch64", "version"]) {
+      assert.equal(carries(`tools/device-helper/dist/${file}`), true, `${file} is released`);
+    }
+    assert.equal(carries("tools/device-helper/main.go"), false);
   });
 
   it("trims the root package.json to the released workspaces and scripts, at the version", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { NO_MASK } from "../scripted/scripted-container-runtime.js";
-import { buildArguments, execArguments } from "./compose-command-line.js";
+import { attachArguments, buildArguments, execArguments } from "./compose-command-line.js";
 
 const PROJECT = {
   name: "office-shop-task-1",
@@ -39,6 +39,42 @@ describe("execArguments", () => {
       "cd /w || exit 125\nnpm test",
     ]);
     expect(argv.join(" ")).not.toContain("npm_s3cret");
+  });
+});
+
+describe("attachArguments", () => {
+  it("keeps the program's input open with no TTY, and runs it as it is, by no shell", () => {
+    const argv = attachArguments(PROJECT, {
+      service: "app",
+      user: "node",
+      arguments: [
+        "/office-device-helper/office-device-helper-x86_64",
+        "relay",
+        "--listen",
+        "127.0.0.1:0",
+      ],
+      errorFile: "/data/attached.log",
+    });
+
+    expect(argv).toEqual([
+      "compose",
+      "--project-name",
+      "office-shop-task-1",
+      "--project-directory",
+      "/data",
+      "--file",
+      "/data/compose.yaml",
+      "exec",
+      "--interactive",
+      "--no-TTY",
+      "--user",
+      "node",
+      "app",
+      "/office-device-helper/office-device-helper-x86_64",
+      "relay",
+      "--listen",
+      "127.0.0.1:0",
+    ]);
   });
 });
 

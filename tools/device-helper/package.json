@@ -1,0 +1,10 @@
+{
+  "name": "@the-office/device-helper",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.ts",
+    "test": "node build.ts test",
+    "typecheck": "tsc -p ."
+  }
+}

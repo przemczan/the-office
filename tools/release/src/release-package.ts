@@ -50,6 +50,8 @@ export const RELEASE_FILES: readonly ReleaseFile[] = [
   { path: "packages/contracts/dist" },
   { path: "tools/office-launcher/package.json" },
   { path: "tools/office-launcher/src" },
+  // The device helper's two static binaries and the version file beside them.
+  { path: "tools/device-helper/dist" },
   // The knowledge base Agents read (docs/spec/README.md), at its checkout's paths so the spec's
   // relative links to the glossary hold.
   { path: "docs/spec" },

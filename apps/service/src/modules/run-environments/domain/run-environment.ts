@@ -174,10 +174,10 @@ export function composeProjectNameOf(instance: string, taskId: string): string {
 }
 
 /**
- * The compose file The Office puts over the repository's: the image, the worktree, the git folder
- * and the Stage runs' folder on the checks' service, The Office's labels on every service, network
- * and volume, and the limits on every service. Compose takes a later file's values over an earlier
- * one's, so the definition can't undo any of it. No service gets `cpu_shares`: the runtime's
+ * The compose file The Office puts over the repository's: the image, the worktree, the git folder,
+ * the Stage runs' folder and the device helper's on the checks' service, The Office's labels on
+ * every service, network and volume, and the limits on every service. Compose takes a later file's
+ * values over an earlier one's, so the definition can't undo any of it. No service gets `cpu_shares`: the runtime's
  * default weight is already equal, and an explicit 1024 would lower it under cgroup v2.
  */
 export function composeOverrideOf(
@@ -187,6 +187,8 @@ export function composeOverrideOf(
   instance: string,
   limits: RunEnvironmentLimits,
   hostCores: number,
+  /** `<office-data>/device-helper/`, mounted read-only at DEVICE_HELPER_MOUNT. */
+  deviceHelperFolder: string,
 ): Record<string, unknown> {
   const labels = { ...taskLabels(instance, task.taskId), [LABEL.project]: task.projectId };
   const services = Object.fromEntries(
@@ -195,7 +197,9 @@ export function composeOverrideOf(
       {
         labels,
         ...serviceLimitsOf(limits, hostCores, service === definition.service),
-        ...(service === definition.service ? checksServiceOverride(definition, task, image) : {}),
+        ...(service === definition.service
+          ? checksServiceOverride(definition, task, image, deviceHelperFolder)
+          : {}),
       },
     ]),
   );
@@ -578,6 +582,7 @@ function checksServiceOverride(
   definition: RunEnvironmentDefinition,
   task: TaskInWorktree,
   image: string,
+  deviceHelperFolder: string,
 ): Record<string, unknown> {
   return devcontainerServiceOverride(definition, task.worktree, image, [
     bindMount(task.worktree, false),
@@ -587,8 +592,16 @@ function checksServiceOverride(
         [bindMount(task.repositoryGitFolder, true)]),
     // Read-only: The Office writes the file, condition commands only read it.
     bindMount(task.stageRunsFolder, true),
+    // Read-only, and no port published for it: only the service runs it (spec §2.13, "The relay").
+    { ...bindMount(deviceHelperFolder, true), target: DEVICE_HELPER_MOUNT },
   ]);
 }
+
+/**
+ * Where the checks' service sees The Office device helper's folder (spec §5.5, "The Office device
+ * helper in a run environment"): one path whatever the Office data directory is.
+ */
+export const DEVICE_HELPER_MOUNT = "/office-device-helper";
 
 /** The devcontainer's service on the Project's image, with its mounts, working in `folder`. */
 function devcontainerServiceOverride(

@@ -7,10 +7,16 @@ import { instanceIdOf } from "../domain/run-environment.js";
 @Injectable()
 export class RunEnvironmentFolders {
   readonly instance: string;
+  /**
+   * The Office device helper's files, copied from the release (`DeviceHelperFiles`) and mounted
+   * read-only in every Task's run environment; outside `run-environments/`, as spec §5.5 names it.
+   */
+  readonly deviceHelper: string;
   private readonly root: string;
 
   constructor(officeData: OfficeDataDirectory) {
     this.instance = instanceIdOf(officeData.path);
+    this.deviceHelper = officeData.folder("device-helper");
     this.root = officeData.folder("run-environments");
   }
 
@@ -21,6 +27,11 @@ export class RunEnvironmentFolders {
 
   taskFolder(taskId: string): string {
     return join(this.tasks, taskId);
+  }
+
+  /** Where an attached program's standard error goes unless its caller names a file. */
+  attachedLog(taskId: string): string {
+    return join(this.taskFolder(taskId), "attached.log");
   }
 
   /** Each Hosted Test instance's files: the compose file The Office puts over its checkout's. */

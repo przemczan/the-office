@@ -19,11 +19,13 @@ import { WebSocket, WebSocketServer, type RawData } from "ws";
 import type { DomainEvent } from "../events/domain-event.js";
 import { EventBus, type Unsubscribe } from "../events/event-bus.js";
 import { OfficeAddresses } from "../http/office-addresses.js";
-import { SignedInRequests } from "../http/signed-in-requests.js";
+import { SignedInRequests, type SignedIn } from "../http/signed-in-requests.js";
 import { Schedule, type Wait } from "../schedule/schedule.js";
 import { WebEventForwarding } from "./web-event-forwarding.js";
+import { WebSocketRoutes, type WebSocketRouteHandler } from "./websocket-routes.js";
 
 const GOING_AWAY = 1001;
+const INTERNAL_ERROR = 1011;
 /** Closes a client whose signed-in device was signed out (an application's own code, 4000–4999). */
 export const SIGNED_OUT = 4401;
 /** How often the open clients' devices are checked, as their last use is written (spec §2.10). */
@@ -53,6 +55,8 @@ export class EventStream implements OnApplicationBootstrap, BeforeApplicationShu
   private readonly logger = new Logger(EventStream.name);
   private readonly webSocketServer = new WebSocketServer({ noServer: true });
   private readonly subscriptions = new Map<WebSocket, Subscriptions>();
+  /** The clients of the registered routes, each with its signed-in device. */
+  private readonly routeClients = new Map<WebSocket, string>();
   private stopForwarding: Unsubscribe | undefined;
   private stopClosingSignedOut: Unsubscribe | undefined;
   private nextSignedInCheck: Wait | undefined;
@@ -64,6 +68,7 @@ export class EventStream implements OnApplicationBootstrap, BeforeApplicationShu
     private readonly officeAddresses: OfficeAddresses,
     private readonly signedInRequests: SignedInRequests,
     private readonly schedule: Schedule,
+    private readonly webSocketRoutes: WebSocketRoutes,
   ) {}
 
   onApplicationBootstrap(): void {
@@ -82,7 +87,9 @@ export class EventStream implements OnApplicationBootstrap, BeforeApplicationShu
     this.nextSignedInCheck?.cancel();
     this.nextSignedInCheck = undefined;
     this.httpServer().off("upgrade", this.upgrade);
-    for (const client of this.subscriptions.keys()) client.close(GOING_AWAY);
+    for (const client of [...this.subscriptions.keys(), ...this.routeClients.keys()]) {
+      client.close(GOING_AWAY);
+    }
     this.webSocketServer.close();
   }
 
@@ -96,7 +103,10 @@ export class EventStream implements OnApplicationBootstrap, BeforeApplicationShu
   }
 
   private readonly upgrade = (request: IncomingMessage, socket: Duplex, head: Buffer): void => {
-    if (new URL(request.url ?? "/", "http://localhost").pathname !== EVENTS_PATH) {
+    // An unknown path answers 404 before any sign-in check, signed in or not.
+    const { pathname } = new URL(request.url ?? "/", "http://localhost");
+    const route = pathname === EVENTS_PATH ? undefined : this.webSocketRoutes.match(pathname);
+    if (pathname !== EVENTS_PATH && route === undefined) {
       refuseUpgrade(socket, "404 Not Found");
       return;
     }
@@ -106,29 +116,32 @@ export class EventStream implements OnApplicationBootstrap, BeforeApplicationShu
       refuseUpgrade(socket, "403 Forbidden");
       return;
     }
-    void this.upgradeSignedIn(request, socket, head);
+    void this.upgradeSignedIn(request, socket, head, route);
   };
 
   private async upgradeSignedIn(
     request: IncomingMessage,
     socket: Duplex,
     head: Buffer,
+    route: { handler: WebSocketRouteHandler; params: Record<string, string> } | undefined,
   ): Promise<void> {
-    let signedInDeviceId: string | undefined;
+    let signedIn: SignedIn | undefined;
     try {
-      signedInDeviceId = (await this.signedInRequests.signedInOf(request))?.signedInDeviceId;
+      signedIn = await this.signedInRequests.signedInOf(request);
     } catch (error) {
       this.logger.warn(`Refused a WebSocket: who is signed in was not found: ${String(error)}`);
       refuseUpgrade(socket, "503 Service Unavailable");
       return;
     }
-    if (signedInDeviceId === undefined) {
+    if (signedIn === undefined) {
       refuseUpgrade(socket, "401 Unauthorized");
       return;
     }
-    this.webSocketServer.handleUpgrade(request, socket, head, (client) =>
-      this.connect(client, signedInDeviceId),
-    );
+    const signedInUser = signedIn;
+    this.webSocketServer.handleUpgrade(request, socket, head, (client) => {
+      if (route === undefined) this.connect(client, signedInUser.signedInDeviceId);
+      else this.connectRoute(client, signedInUser, route);
+    });
   }
 
   private connect(client: WebSocket, signedInDeviceId: string): void {
@@ -140,6 +153,23 @@ export class EventStream implements OnApplicationBootstrap, BeforeApplicationShu
     client.on("message", (data, isBinary) => this.receive(client, data, isBinary));
     client.on("close", () => this.subscriptions.delete(client));
     client.on("error", (error) => this.logger.warn(`A WebSocket failed: ${error.message}`));
+  }
+
+  /** Tracks the client with its device; its handler owns the messages, the stream reads none. */
+  private connectRoute(
+    client: WebSocket,
+    signedIn: SignedIn,
+    route: { handler: WebSocketRouteHandler; params: Record<string, string> },
+  ): void {
+    this.routeClients.set(client, signedIn.signedInDeviceId);
+    client.on("close", () => this.routeClients.delete(client));
+    client.on("error", (error) => this.logger.warn(`A WebSocket failed: ${error.message}`));
+    try {
+      route.handler(client, signedIn, route.params);
+    } catch (error) {
+      this.logger.warn(`A WebSocket route failed: ${String(error)}`);
+      client.close(INTERNAL_ERROR);
+    }
   }
 
   private receive(client: WebSocket, data: RawData, isBinary: boolean): void {
@@ -185,15 +215,19 @@ export class EventStream implements OnApplicationBootstrap, BeforeApplicationShu
   }
 
   private async closeSignedOutClients(): Promise<void> {
-    const signedInDeviceIds = new Set(
-      [...this.subscriptions.values()].map(({ signedInDeviceId }) => signedInDeviceId),
-    );
+    const signedInDeviceIds = new Set([
+      ...[...this.subscriptions.values()].map(({ signedInDeviceId }) => signedInDeviceId),
+      ...this.routeClients.values(),
+    ]);
     if (signedInDeviceIds.size === 0) return;
     this.closeSignedOut(await this.signedInRequests.signedOutAmong([...signedInDeviceIds]));
   }
 
   private closeSignedOut(signedInDeviceIds: readonly string[]): void {
     for (const [client, { signedInDeviceId }] of this.subscriptions) {
+      if (signedInDeviceIds.includes(signedInDeviceId)) client.close(SIGNED_OUT, "Signed out");
+    }
+    for (const [client, signedInDeviceId] of this.routeClients) {
       if (signedInDeviceIds.includes(signedInDeviceId)) client.close(SIGNED_OUT, "Signed out");
     }
   }

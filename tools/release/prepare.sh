@@ -24,7 +24,8 @@ image_arguments=(
 
 echo "::group::Build and pack $version"
 npm ci
-npm run build
+# The device helper reports the release's version (tools/device-helper/build.ts).
+OFFICE_RELEASE_VERSION="$version" npm run build
 for arch in x64 arm64; do
   npm run pack-release -- --version "$version" --arch "$arch"
 done

@@ -14,6 +14,7 @@ import { ProjectsTaskRunEnvironments } from "./adapters/projects/projects-task-r
 import { WorkSetUpTasks } from "./adapters/work/work-set-up-tasks.js";
 import { PostgresRunEnvironmentSettings } from "./adapters/postgres/postgres-run-environment-settings.js";
 import { RunEnvironmentWebEvents } from "./adapters/websocket/run-environment-web-events.js";
+import { DeviceHelperFiles, DeviceHelperSource } from "./application/device-helper-files.js";
 import { HostCores } from "./application/host-cores.js";
 import {
   HostedServiceReadiness,
@@ -21,6 +22,7 @@ import {
 } from "./application/hosted-service-readiness.js";
 import { HostedServices } from "./application/hosted-services.js";
 import { ProjectRunEnvironments } from "./application/project-run-environments.js";
+import { RunEnvironmentCommandVariables } from "./application/run-environment-command-variables.js";
 import { RunEnvironmentDefinitions } from "./application/run-environment-definitions.js";
 import { RunEnvironmentOfficeLimits } from "./application/run-environment-office-limits.js";
 import { RunEnvironmentFolders } from "./application/run-environment-folders.js";
@@ -57,6 +59,11 @@ export interface RunEnvironmentsModuleOptions {
    * to 127.0.0.1 for up to 120 s unless a test gives its own.
    */
   readonly hostedServiceReadiness?: HostedServiceReadinessOptions;
+  /**
+   * The folder The Office device helper's build is in (`tools/device-helper/dist` of the folder The
+   * Office runs from), which `DeviceHelperFiles` copies; none for a test app, which has no helper.
+   */
+  readonly deviceHelperSource?: string;
 }
 
 @Module({})
@@ -68,6 +75,7 @@ export class RunEnvironmentsModule {
     hostCores = availableParallelism(),
     serviceOwner = currentOperatingSystem().fileOwner,
     hostedServiceReadiness,
+    deviceHelperSource,
   }: RunEnvironmentsModuleOptions): DynamicModule {
     return {
       module: RunEnvironmentsModule,
@@ -85,7 +93,10 @@ export class RunEnvironmentsModule {
           provide: HostedServiceReadiness,
           useValue: new HostedServiceReadiness(hostedServiceReadiness),
         },
+        { provide: DeviceHelperSource, useValue: new DeviceHelperSource(deviceHelperSource) },
+        DeviceHelperFiles,
         HostedServices,
+        RunEnvironmentCommandVariables,
         RunEnvironmentFolders,
         RunEnvironmentImages,
         RunEnvironmentSlots,
@@ -101,7 +112,14 @@ export class RunEnvironmentsModule {
         ProjectsDevcontainerServicesRegistration,
         ProjectsTaskRunEnvironments,
       ],
-      exports: [RunEnvironments, RunEnvironmentDefinitions, HostedServices],
+      exports: [
+        RunEnvironments,
+        RunEnvironmentDefinitions,
+        HostedServices,
+        RunEnvironmentCommandVariables,
+        DeviceHelperFiles,
+        ProjectRunEnvironments,
+      ],
     };
   }
 }

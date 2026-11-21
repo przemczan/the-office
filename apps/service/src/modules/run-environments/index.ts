@@ -1,8 +1,21 @@
 export {
   RunEnvironments,
+  type RunEnvironmentAttachment,
   type RunEnvironmentCommand,
   type SlotOptions,
 } from "./application/run-environments.js";
+export {
+  RunEnvironmentCommandVariables,
+  type CommandVariable,
+  type CommandVariableSource,
+} from "./application/run-environment-command-variables.js";
+export {
+  DEVICE_HELPER_ARCHITECTURES,
+  DEVICE_HELPER_NOT_BUILT,
+  DeviceHelperFiles,
+  type DeviceHelperArchitecture,
+} from "./application/device-helper-files.js";
+export { ProjectRunEnvironments } from "./application/project-run-environments.js";
 export type { DefinitionWriting } from "./application/definition-files.js";
 export {
   HostedServices,
@@ -22,8 +35,11 @@ export {
   RunEnvironmentCreated,
   RunEnvironmentImageBuilt,
   RunEnvironmentRemoved,
+  RunEnvironmentStarted,
+  RunEnvironmentStopped,
 } from "./domain/run-environment-events.js";
 export { RunEnvironmentRefused } from "./domain/run-environment-refused.js";
+export { DEVICE_HELPER_MOUNT } from "./domain/run-environment.js";
 export type {
   CommandEntryPoint,
   CommandEnvironment,
@@ -33,6 +49,8 @@ export type {
 } from "./domain/run-environment.js";
 export {
   ContainerRuntime,
+  type AttachedProcess,
+  type Attachment,
   type ComposeProject,
   type Execution,
   type ExecutionEnd,

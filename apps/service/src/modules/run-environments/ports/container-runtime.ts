@@ -1,3 +1,4 @@
+import type { Readable, Writable } from "node:stream";
 import type { Labels } from "../domain/run-environment.js";
 
 /** An image to build, its output streamed to a file as it builds. */
@@ -70,6 +71,33 @@ export interface Execution {
   readonly signal?: AbortSignal;
 }
 
+/**
+ * A program run in a running service with its standard input and output The Office's own, as the
+ * Office device helper is (spec §2.13, "The relay"): never through a shell, never with variables.
+ */
+export interface Attachment {
+  readonly service: string;
+  readonly user?: string;
+  /** The program and its arguments, as they are. */
+  readonly arguments: readonly string[];
+  /** Where its standard error is appended as it comes. */
+  readonly errorFile: string;
+}
+
+/** An attached program while it runs. */
+export interface AttachedProcess {
+  /** Its standard input; a write after it ended is dropped, as `ended` tells. */
+  readonly stdin: Writable;
+  readonly stdout: Readable;
+  /** Resolves once it ended, never rejects: `endedBy: "stop"` after `stop()`. */
+  readonly ended: Promise<ExecutionEnd>;
+  /**
+   * Ends its standard input, which a program reading it to its end takes as the end, then the
+   * runtime's command. Never restarts the service, as a stopped check does.
+   */
+  stop(): void;
+}
+
 /** How an execution ended; an exit code only when the command ended by itself. */
 export interface ExecutionEnd {
   readonly exitCode: number | undefined;
@@ -122,6 +150,9 @@ export abstract class ContainerRuntime {
     execution: Execution,
     outputFile: string,
   ): Promise<ExecutionEnd>;
+
+  /** Starts the program in a running service, its standard input and output piped to The Office. */
+  abstract attach(project: ComposeProject, attachment: Attachment): Promise<AttachedProcess>;
 
   /** Takes the compose project down with its volumes and orphans. */
   abstract down(projectName: string, removal?: Removal): Promise<void>;

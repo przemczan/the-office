@@ -35,6 +35,15 @@ const TASK: TaskInWorktree = {
   installVariables: [],
 };
 
+const DEVICE_HELPER_FOLDER = "/data/device-helper";
+
+const DEVICE_HELPER_MOUNT = {
+  type: "bind",
+  source: DEVICE_HELPER_FOLDER,
+  target: "/office-device-helper",
+  read_only: true,
+};
+
 const STAGE_RUNS_MOUNT = {
   type: "bind",
   source: TASK.stageRunsFolder,
@@ -51,7 +60,15 @@ const LIMITS: RunEnvironmentLimits = {
 const HOST_CORES = 10;
 
 function overrideWith(limits: RunEnvironmentLimits, hostCores: number): Record<string, unknown> {
-  return composeOverrideOf(DEFINITION, TASK, "the-office/shop:key", "abc", limits, hostCores);
+  return composeOverrideOf(
+    DEFINITION,
+    TASK,
+    "the-office/shop:key",
+    "abc",
+    limits,
+    hostCores,
+    DEVICE_HELPER_FOLDER,
+  );
 }
 
 const LABELS = {
@@ -93,6 +110,7 @@ describe("composeOverrideOf", () => {
         read_only: true,
       },
       STAGE_RUNS_MOUNT,
+      DEVICE_HELPER_MOUNT,
     ]);
   });
 
@@ -109,7 +127,15 @@ describe("composeOverrideOf", () => {
     };
 
     expect(
-      composeOverrideOf(DEFINITION, task, "the-office/shop:key", "abc", LIMITS, HOST_CORES),
+      composeOverrideOf(
+        DEFINITION,
+        task,
+        "the-office/shop:key",
+        "abc",
+        LIMITS,
+        HOST_CORES,
+        DEVICE_HELPER_FOLDER,
+      ),
     ).toHaveProperty("services.app.volumes", [
       {
         type: "bind",
@@ -128,6 +154,7 @@ describe("composeOverrideOf", () => {
         target: "/data/stage-runs/$$6d4250e7",
         read_only: true,
       },
+      DEVICE_HELPER_MOUNT,
     ]);
   });
 
@@ -138,10 +165,19 @@ describe("composeOverrideOf", () => {
     const task = { ...TASK, repositoryGitFolder: folder };
 
     expect(
-      composeOverrideOf(DEFINITION, task, "the-office/shop:key", "abc", LIMITS, HOST_CORES),
+      composeOverrideOf(
+        DEFINITION,
+        task,
+        "the-office/shop:key",
+        "abc",
+        LIMITS,
+        HOST_CORES,
+        DEVICE_HELPER_FOLDER,
+      ),
     ).toHaveProperty("services.app.volumes", [
       { type: "bind", source: TASK.worktree, target: TASK.worktree },
       STAGE_RUNS_MOUNT,
+      DEVICE_HELPER_MOUNT,
     ]);
   });
 
@@ -149,7 +185,15 @@ describe("composeOverrideOf", () => {
     const task = { ...TASK, repositoryGitFolder: `${TASK.worktree}-git` };
 
     expect(
-      composeOverrideOf(DEFINITION, task, "the-office/shop:key", "abc", LIMITS, HOST_CORES),
+      composeOverrideOf(
+        DEFINITION,
+        task,
+        "the-office/shop:key",
+        "abc",
+        LIMITS,
+        HOST_CORES,
+        DEVICE_HELPER_FOLDER,
+      ),
     ).toHaveProperty("services.app.volumes.1.source", `${TASK.worktree}-git`);
   });
 
@@ -211,6 +255,7 @@ describe("composeOverrideOf", () => {
       "abc",
       LIMITS,
       HOST_CORES,
+      DEVICE_HELPER_FOLDER,
     );
 
     expect(overridden).toHaveProperty("services.app.entrypoint", ["/bin/sh", "-c"]);

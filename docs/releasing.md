@@ -45,7 +45,7 @@ The run needs nothing set up: it signs in to GHCR and GitHub with the workflow's
 
 - `package.json`: the root's at the version, with the workspaces it carries and the scripts `start`, `set-password` and `setup-token`;
 - `office-release.json`: the version and the commit it was built from, with its date and subject. The service reads it: Settings › Updates shows `1.2.3 · <commit>`, and the log at start says "The Office 1.2.3 (<commit>)";
-- `apps/service/` (`dist/` and the `drizzle/` migrations), `apps/web/dist/`, `packages/contracts/dist/`, `tools/office-launcher/src/`, `LICENSE` and `.env.example`;
+- `apps/service/` (`dist/` and the `drizzle/` migrations), `apps/web/dist/`, `packages/contracts/dist/`, `tools/office-launcher/src/`, `tools/device-helper/dist/` (the device helper's static binaries for x86_64 and aarch64 and its `version` file, built with the release's version by `prepare.sh`, which needs Go from the workflow's `actions/setup-go`), `LICENSE` and `.env.example`;
 - the knowledge base every Brief names, `docs/spec/` and `GLOSSARY.md`, at the checkout's paths so the spec's links to the glossary hold; `docs/design/`, the mock-ups, stays out;
 - `node_modules/`: the production packages at the lockfile's versions, with Claude Code for the tarball's CPU alone (the SDK's glibc build).
 

@@ -1,9 +1,12 @@
 import { appendFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
+import { PassThrough } from "node:stream";
 import { LABEL, type Labels } from "../../domain/run-environment.js";
 import {
   ContainerRuntime,
   ContainerRuntimeFailed,
+  type AttachedProcess,
+  type Attachment,
   type ComposeProject,
   type Execution,
   type ExecutionEnd,
@@ -30,6 +33,58 @@ export type ScriptedExecution = (execution: Execution) => Promise<{
 interface ExecutionResult {
   readonly output?: string;
   readonly exitCode: number | undefined;
+}
+
+/**
+ * An attached program in memory: the test reads what the service wrote to its input (`written`),
+ * prints to its output (`print`) and ends it (`end`), or the service stops it.
+ */
+export class ScriptedAttachedProcess implements AttachedProcess {
+  readonly stdin = new PassThrough();
+  readonly stdout = new PassThrough();
+  readonly ended: Promise<ExecutionEnd>;
+  /** Whether `stop()` ended it. */
+  stopped = false;
+  private readonly received: Buffer[] = [];
+  private finish: ((end: ExecutionEnd) => void) | undefined;
+
+  constructor(
+    readonly projectName: string,
+    readonly attachment: Attachment,
+  ) {
+    this.stdin.on("data", (chunk: Buffer) => void this.received.push(chunk));
+    this.ended = new Promise((resolve) => {
+      this.finish = resolve;
+    });
+  }
+
+  /** Everything the service wrote to its standard input so far. */
+  written(): Buffer {
+    return Buffer.concat(this.received);
+  }
+
+  /** Writes to its standard output, as the program prints. */
+  print(chunk: Uint8Array | string): void {
+    this.stdout.write(chunk);
+  }
+
+  /** Ends it as the program ending by itself, or killed with its container. */
+  end(exitCode: number): void {
+    this.endWith({ exitCode });
+  }
+
+  stop(): void {
+    this.stopped = true;
+    this.stdin.end();
+    this.endWith({ exitCode: undefined, endedBy: "stop" });
+  }
+
+  private endWith(end: ExecutionEnd): void {
+    if (this.finish === undefined) return;
+    this.stdout.end();
+    this.finish(end);
+    this.finish = undefined;
+  }
 }
 
 /** A `followLogs` going on: where it writes, and how it ends. */
@@ -64,6 +119,9 @@ export class ScriptedContainerRuntime extends ContainerRuntime {
   /** Every execution run, as it was given. */
   readonly executions: Execution[] = [];
   onExec: ScriptedExecution = () => Promise.resolve({ exitCode: 0 });
+  /** Every program attached, in order; `onAttach` is told of each as it starts. */
+  readonly attached: ScriptedAttachedProcess[] = [];
+  onAttach: (process: ScriptedAttachedProcess) => void = () => undefined;
   /** The port `publishedPort` answers for every service and container port. */
   hostPort = 49_153;
   /** Whether the app answers on `hostPort`, as `answers` tells the readiness check. */
@@ -107,7 +165,21 @@ export class ScriptedContainerRuntime extends ContainerRuntime {
     this.steps.push(`stop ${projectName}`);
     const known = this.projects.get(projectName);
     if (known) known.state = "stopped";
+    this.endAttached(projectName);
     return Promise.resolve();
+  }
+
+  attach(project: ComposeProject, attachment: Attachment): Promise<AttachedProcess> {
+    this.steps.push(`attach ${project.name}`);
+    if (this.projects.get(project.name)?.state !== "running") {
+      return Promise.reject(
+        new ContainerRuntimeFailed(`The compose project ${project.name} isn't running.`),
+      );
+    }
+    const attached = new ScriptedAttachedProcess(project.name, attachment);
+    this.attached.push(attached);
+    this.onAttach(attached);
+    return Promise.resolve(attached);
   }
 
   async exec(
@@ -138,6 +210,7 @@ export class ScriptedContainerRuntime extends ContainerRuntime {
     this.projects.delete(projectName);
     // Its containers are killed: what runs in them ends, and their logs with them.
     this.endHeld(projectName, { exitCode: KILLED_EXIT_CODE });
+    this.endAttached(projectName);
     for (const follower of this.followers.filter((each) => each.projectName === projectName)) {
       follower.end();
     }
@@ -264,6 +337,13 @@ export class ScriptedContainerRuntime extends ContainerRuntime {
       if (held?.projectName !== projectName) continue;
       this.heldExecs.splice(index, 1);
       held.end(result);
+    }
+  }
+
+  /** Its containers stop: every program attached in them ends as killed. */
+  private endAttached(projectName: string): void {
+    for (const attached of this.attached.filter((each) => each.projectName === projectName)) {
+      attached.end(KILLED_EXIT_CODE);
     }
   }
 

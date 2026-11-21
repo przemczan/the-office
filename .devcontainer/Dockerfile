@@ -13,3 +13,23 @@ ARG PLAYWRIGHT_VERSION=1.64.1
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN npx --yes playwright@${PLAYWRIGHT_VERSION} install --with-deps chromium \
     && rm -rf /var/lib/apt/lists/* /root/.npm
+
+# Go, for tools/device-helper (the Connected devices' helper). Keep in step with the `toolchain` line
+# of its go.mod and the release workflow's setup-go; the official tarball for the container's CPU,
+# checked against the sha256 go.dev/dl lists.
+ARG GO_VERSION=1.27.4
+ARG GO_SHA256_AMD64=7226736c2339719cda28fbf3a54d71aa63bcefe376e98cef00034268dab24840
+ARG GO_SHA256_ARM64=3392582988a273a87ab5043ee1b2c9c17a2c3c00580bf9326c47a2e0aaaeac92
+RUN arch="$(dpkg --print-architecture)" \
+    && case "$arch" in \
+        amd64) sha256="$GO_SHA256_AMD64" ;; \
+        arm64) sha256="$GO_SHA256_ARM64" ;; \
+        *) echo "No Go is pinned for $arch." >&2; exit 1 ;; \
+    esac \
+    && curl --fail --silent --show-error --location --output /tmp/go.tar.gz \
+        "https://go.dev/dl/go${GO_VERSION}.linux-${arch}.tar.gz" \
+    && echo "${sha256}  /tmp/go.tar.gz" | sha256sum --check - \
+    && tar --extract --gzip --file /tmp/go.tar.gz --directory /usr/local \
+    && rm /tmp/go.tar.gz
+ENV PATH=/usr/local/go/bin:$PATH \
+    GOTOOLCHAIN=local

@@ -62,6 +62,11 @@ export class ProjectRunEnvironments implements OnModuleInit {
     };
   }
 
+  /** Whether the Project's Run environment is On now; not for a Project there is none of. */
+  async isOn(projectId: string): Promise<boolean> {
+    return (await this.settings.settingOf(projectId))?.runEnvironment === "on";
+  }
+
   /** On is refused, with the reasons, unless the base branch, fetched now, has a valid definition. */
   async change(
     projectId: string,

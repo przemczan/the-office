@@ -6,7 +6,7 @@ Running The Office from a checkout of the repository (for development, on Window
 
 ## Running from a checkout
 
-On Windows, macOS or Linux, with Node at `.nvmrc`'s version, git, and Docker with Compose (for the dev stack's Postgres and the run environments, [container-runtime.md](container-runtime.md)):
+On Windows, macOS or Linux, with Node at `.nvmrc`'s version, git, and Docker with Compose (for the dev stack's Postgres and the run environments, [container-runtime.md](container-runtime.md)), and Go at the version `tools/device-helper/go.mod` names for the helper Connected devices run (`npm run build` skips the helper with a warning without it):
 
 ```sh
 git clone https://github.com/przemczan/the-office.git
