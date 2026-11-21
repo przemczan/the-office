@@ -200,7 +200,7 @@ export class PipelineOfficeTools implements OnModuleInit {
     this.registry.register({
       name: LIST_PIPELINES_TOOL,
       description:
-        "Lists the Pipelines as JSON: the office-wide Pipelines of the library, each with its id, name, description and Stages in the Pipeline's order, each Stage with its routes out and their conditions and its place on the editor's canvas, in the shape propose_library_pipeline takes them; then the Project Pipelines, each with its id, Project, name, description, base Pipeline (an office-wide one, by id and name), Stage changes (Change routes among them), built Stages with their routes, and Broken with its reasons (empty when it isn't), in the shape propose_project_pipeline takes them; then, for each duty an Agent Stage names instead of a Role, by its key, who holds it, whom the Stage runs as when it starts. Give a Project to list only its Project Pipelines.",
+        "Lists the Pipelines as JSON: the office-wide Pipelines of the library, each with its id, name, description and Stages in the Pipeline's order, each Stage with its routes out and their conditions and its place on the editor's canvas, in the shape propose_library_pipeline takes them; then the Project Pipelines, each with its id, Project, name, description, base Pipeline (an office-wide one, by id and name), Stage changes (Change routes among them), built Stages with their routes, and Broken with its reasons (empty when it isn't), in the shape propose_project_pipeline takes them; then, for each duty an Agent Stage names instead of a Role, by its key, who holds it, whom the Stage runs as when it starts. Give a Project to list only its Project Pipelines, or a Pipeline to list only that one, office-wide or a Project's, with its duties.",
       input: z.object({
         project: z
           .string()
@@ -208,18 +208,33 @@ export class PipelineOfficeTools implements OnModuleInit {
           .describe(
             "A Project's id, to list only its Project Pipelines; every Project's when left out.",
           ),
+        pipeline: z
+          .string()
+          .optional()
+          .describe(
+            "A Pipeline's id, office-wide or a Project Pipeline's, to list only that Pipeline; every Pipeline when left out.",
+          ),
       }),
-      run: async ({ project }) => {
-        // An empty id means every Project, as one left out does.
+      run: async ({ project, pipeline }) => {
+        // An empty id means every Project or Pipeline, as one left out does.
         const projectId = project?.trim() || undefined;
+        const pipelineId = pipeline?.trim() || undefined;
         const projects = await this.projects.list();
         if (projectId !== undefined && !projects.some(({ id }) => id === projectId)) {
           return { text: `There is no Project "${projectId}".`, isError: true };
         }
-        const [officeWide, projectPipelines] = await Promise.all([
+        const [allOfficeWide, allProjectPipelines] = await Promise.all([
           this.library.list(),
           this.library.projectPipelines(projectId),
         ]);
+        const isListed = (id: string): boolean => pipelineId === undefined || id === pipelineId;
+        const officeWide = allOfficeWide.filter(({ id }) => isListed(id));
+        const projectPipelines = allProjectPipelines.filter(({ projectPipeline }) =>
+          isListed(projectPipeline.id),
+        );
+        if (pipelineId !== undefined && officeWide.length + projectPipelines.length === 0) {
+          return { text: `There is no Pipeline "${pipelineId}".`, isError: true };
+        }
         const listed = {
           officeWidePipelines: officeWide.map(toPipelineResponse),
           projectPipelines: projectPipelines.map((built) => listedProjectPipeline(built, projects)),

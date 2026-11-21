@@ -53,6 +53,7 @@ import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-r
 import {
   ALLOW_CHANGES_ADVICE,
   CALLING_RULE,
+  caretakerChatOfficeTools,
   CHANGE_ROLE_TOOL,
   CHAT_OFFICE_TOOLS,
   chatOfficeTools,
@@ -404,14 +405,11 @@ async function startOn(
       ...(standIn === undefined ? [] : [standInListing()]),
     ],
   }));
-  // As the Projects and People modules register theirs, and ProposalOfficeTools the Caretaker's
-  // set-up; DecisionOfficeTools registers its own.
-  for (const name of [
-    ...CHAT_OFFICE_TOOLS.filter(
-      (tool) => tool !== ANSWER_DECISION_TOOL && tool !== OPEN_DECISION_TOOL,
-    ),
-    PROPOSE_OFFICE_SETUP_TOOL,
-  ]) {
+  // As the Projects, People and Pipelines modules register theirs, and the Conversations' proposal
+  // tools the Caretaker's Proposals; DecisionOfficeTools registers its own.
+  for (const name of caretakerChatOfficeTools([]).filter(
+    (tool) => tool !== ANSWER_DECISION_TOOL && tool !== OPEN_DECISION_TOOL && tool !== CONSULT_TOOL,
+  )) {
     app.get(OfficeToolRegistry).register({
       name,
       description: `Reads ${name}.`,
@@ -4480,7 +4478,7 @@ describe("the Caretaker's chat", () => {
     await expect(app.get(AllowChanges).inThread(thread)).resolves.toBe(false);
   });
 
-  it("keeps only the chat's own tools and the set-up while standing in for an unheld Default person to talk to", async () => {
+  it("keeps only the chat's own tools and the Caretaker's Proposals while standing in for an unheld Default person to talk to", async () => {
     duties.set("default-person-to-talk-to", undefined);
     await startWith(started(...aTurn("brief", "Nobody greets the user yet.")));
     const thread = await threads.startInChat(roleKey);
@@ -4488,7 +4486,8 @@ describe("the Caretaker's chat", () => {
     await runner.send(thread.id, "Who do I talk to?", ANN_LEE);
     await answered(thread.id, 3);
 
-    expect(toolsOf(0)).toEqual([...CHAT_OFFICE_TOOLS, CONSULT_TOOL, PROPOSE_OFFICE_SETUP_TOOL]);
+    expect(toolsOf(0)).toEqual(caretakerChatOfficeTools([]));
+    expect(toolsOf(0)).toContain(PROPOSE_OFFICE_SETUP_TOOL);
     expect(toolsOf(0)).not.toContain(POST_LINK_CARD_TOOL);
     expect(engine.sessions[0]?.options.instructions).toContain(CALLING_RULE);
     expect((await threads.read(thread.id)).session?.heldDuties).toEqual([]);
@@ -4514,6 +4513,8 @@ describe("the Caretaker's chat", () => {
     const log = await answered(thread.id, 11);
 
     const [readOnly, onTheWorkstation, readOnlyAgain] = engine.sessions;
+    // A Proposal changes nothing until the user applies it, so Allow changes leaves them be.
+    for (const index of [0, 1, 2]) expect(toolsOf(index)).toEqual(caretakerChatOfficeTools([]));
     expect(readOnly?.received.at(-1)).toEqual({ step: "end" });
     expect(onTheWorkstation?.options).toMatchObject({
       folder: homedir(),

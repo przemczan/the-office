@@ -816,7 +816,7 @@ A Stage run whose Stage already had a run on the same Task, whenever that one ra
 _Avoid_: Rerun, attempt, repeat
 
 **Proposal**:
-A new or changed Role card or Office setting, or a Prompt template's new text or reset to its default (drafted only when the user asks), drafted by the holder of Default person to talk to, or by the Caretaker for hires and duty assignments, which takes effect only when the user confirms it.
+A new or changed Role card or Office setting, or a Prompt template's new text or reset to its default (drafted only when the user asks), drafted by the holder of Default person to talk to or by the Caretaker, which takes effect only when the user confirms it.
 _Avoid_: Suggestion, draft, request
 
 **Caretaker**:

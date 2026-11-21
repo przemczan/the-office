@@ -88,6 +88,14 @@ export const PROPOSE_OFFICE_SETUP_TOOL = "propose_office_setup";
 export const OFFICE_SETUP_RULE = `Setting up The Office: when list_people shows nobody hired but you, offer to set The Office up. Ask what the user works on, then recommend whom to hire: presets, saying the duties and capabilities each brings, or Roles from scratch for what no preset covers. Draft them with ${PROPOSE_OFFICE_SETUP_TOOL}, as one Proposal the user applies with a click. A hired preset holds its own duties with no assignment: assign a duty only to give it to a Role other than its preset's, such as a Role from scratch. You may draft a set-up at any time the user asks, and you never hire anyone or change a duty yourself.`;
 
 /**
+ * How the Caretaker changes how The Office works (spec §2.2): by Proposals the user applies,
+ * drafted from the text as it is now. The same whether changes are allowed or not, so the cached
+ * prefix stays.
+ */
+export const OFFICE_PROPOSALS_RULE =
+  "Changing how The Office works, when the user asks: read the Office instructions with read_office_instructions, a Prompt template with list_prompt_templates and read_prompt_template, a Role card with read_role, and the Pipelines and Stage templates, each Stage's brief included, with list_pipelines and list_stage_templates; never read a Stage's brief from a session's transcript. Read the current text right before you draft a change, then propose it with propose_office_setting, propose_role, propose_prompt_template or propose_prompt_template_reset, propose_library_pipeline, propose_project_pipeline or propose_stage_template, whether changes are allowed or not. Each is a Proposal the user applies with a click, refused if the text changed since your draft; never paste a new text for the user to copy in by hand.";
+
+/**
  * Where the Caretaker finds a session's transcript, to diagnose a Thread (spec §6, the user's answer
  * of 2026-11-14): readable raw whether changes are allowed or not, but for the engines' accounts.
  * The same in both modes, so the cached prefix stays.
@@ -123,10 +131,20 @@ export const PROPOSE_SKILL_TOOL = "propose_skill";
 export const READ_ROLE_TOOL = "read_role";
 
 /**
+ * The Office tool that reads the Pipelines, the office-wide ones and the Project Pipelines, or one
+ * of them by its id, each Stage whole, which Pipelines registers.
+ */
+export const LIST_PIPELINES_TOOL = "list_pipelines";
+
+/** The Office tool that reads the Stage templates, each Stage whole, which Pipelines registers. */
+export const LIST_STAGE_TEMPLATES_TOOL = "list_stage_templates";
+
+/**
  * The Office tools every session reads The Office's records with (spec §6), Agent Stages included:
- * Projects, people and their Roles, and every Task, Idea and Initiative, the links between them and
- * all their Attachments, as the Projects, People and Work modules register them. Each session's
- * list starts from these and adds only its own writing tools.
+ * Projects, people and their Roles, every Task, Idea and Initiative, the links between them and
+ * all their Attachments, and the Pipelines and Stage templates with each Stage's brief, as the
+ * Projects, People, Work and Pipelines modules register them. Each session's list starts from these
+ * and adds only its own writing tools.
  */
 export const READING_OFFICE_TOOLS = [
   "list_projects",
@@ -138,6 +156,8 @@ export const READING_OFFICE_TOOLS = [
   "read_idea",
   "read_initiative",
   "read_attachment",
+  LIST_PIPELINES_TOOL,
+  LIST_STAGE_TEMPLATES_TOOL,
 ] as const;
 
 /**
@@ -189,36 +209,37 @@ export const CHAT_OFFICE_TOOLS = [
 ] as const;
 
 /**
- * The Office tool the Default person to talk to drafts a Proposal of a Role with; the contracts
- * name it too, for the web to hide its activity line, and a test keeps the two the same.
+ * The Office tool the Default person to talk to and the Caretaker draft a Proposal of a Role
+ * with; the contracts name it too, for the web to hide its activity line, and a test keeps the two
+ * the same.
  */
 export const PROPOSE_ROLE_TOOL = "propose_role";
 
 /**
- * The Office tool the Default person to talk to drafts a Proposal of an Office setting with, named
- * as above.
+ * The Office tool the Default person to talk to and the Caretaker draft a Proposal of an Office
+ * setting with, named as above.
  */
 export const PROPOSE_OFFICE_SETTING_TOOL = "propose_office_setting";
 
 /**
- * The Office tool the Default person to talk to reads the Office instructions with before drafting
- * a change: their session holds the version it started with, and a draft of an old copy would undo
- * an edit.
+ * The Office tool the Default person to talk to and the Caretaker read the Office instructions
+ * with before drafting a change: their session holds the version it started with, and a draft of
+ * an old copy would undo an edit.
  */
 export const READ_OFFICE_INSTRUCTIONS_TOOL = "read_office_instructions";
 
-/** The Office tool the Default person to talk to lists the prompt templates with, all or by domain. */
+/** The Office tool that lists the prompt templates, all or by domain. */
 export const LIST_PROMPT_TEMPLATES_TOOL = "list_prompt_templates";
 
 /**
- * The Office tool the Default person to talk to reads a prompt template with before drafting a
- * change: its text now, its default, its variables and its stored text's problems.
+ * The Office tool that reads a prompt template before drafting a change: its text now, its
+ * default, its variables and its stored text's problems.
  */
 export const READ_PROMPT_TEMPLATE_TOOL = "read_prompt_template";
 
 /**
- * The Office tools the Default person to talk to drafts a Proposal of a prompt template's new text,
- * or of its reset to the default, with; named as above.
+ * The Office tools the Default person to talk to and the Caretaker draft a Proposal of a prompt
+ * template's new text, or of its reset to the default, with; named as above.
  */
 export const PROPOSE_PROMPT_TEMPLATE_TOOL = "propose_prompt_template";
 export const PROPOSE_PROMPT_TEMPLATE_RESET_TOOL = "propose_prompt_template_reset";
@@ -248,14 +269,14 @@ export const PROPOSE_PROJECT_COMMANDS_TOOL = "propose_project_commands";
 export const PROPOSE_TEST_TARGETS_TOOL = "propose_test_targets";
 
 /**
- * The Office tool whoever onboards Projects drafts a Proposal of a library Pipeline's Stages with,
- * which Pipelines registers.
+ * The Office tool whoever onboards Projects and the Caretaker draft a Proposal of a library
+ * Pipeline's Stages with, which Pipelines registers.
  */
 export const PROPOSE_LIBRARY_PIPELINE_TOOL = "propose_library_pipeline";
 
 /**
- * The Office tool whoever onboards Projects drafts a Proposal of a Project Pipeline with; named as
- * above.
+ * The Office tool whoever onboards Projects and the Caretaker draft a Proposal of a Project Pipeline
+ * with; named as above.
  */
 export const PROPOSE_PROJECT_PIPELINE_TOOL = "propose_project_pipeline";
 
@@ -266,20 +287,8 @@ export const PROPOSE_PROJECT_PIPELINE_TOOL = "propose_project_pipeline";
 export const PROPOSE_PROJECT_TOOL = "propose_project";
 
 /**
- * The Office tool whoever onboards Projects reads the Pipelines with, the office-wide ones and the
- * Project Pipelines, which Pipelines registers.
- */
-export const LIST_PIPELINES_TOOL = "list_pipelines";
-
-/**
- * The Office tool whoever onboards Projects reads the Stage templates with, which Pipelines
- * registers.
- */
-export const LIST_STAGE_TEMPLATES_TOOL = "list_stage_templates";
-
-/**
- * The Office tool whoever onboards Projects drafts a Proposal of a Stage template's Stage with;
- * named as above.
+ * The Office tool whoever onboards Projects and the Caretaker draft a Proposal of a Stage
+ * template's Stage with; named as above.
  */
 export const PROPOSE_STAGE_TEMPLATE_TOOL = "propose_stage_template";
 
@@ -320,8 +329,12 @@ export const READ_REPOSITORY_RULE = `A repository that is not a Project yet lies
  */
 export const CREATE_INITIATIVE_TOOL = "create_initiative";
 
-/** The Office tools the Default person to talk to has in their chat besides. */
-const DEFAULT_PERSON_OFFICE_TOOLS = [
+/**
+ * The Office tools that read and draft changes to how The Office works: the Office settings with
+ * the Office instructions, Role cards and Prompt templates, each change a Proposal the user applies
+ * (spec §2.2). The Default person to talk to and the Caretaker have them in their chat.
+ */
+const OFFICE_SETTINGS_OFFICE_TOOLS = [
   PROPOSE_ROLE_TOOL,
   PROPOSE_OFFICE_SETTING_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
@@ -329,8 +342,24 @@ const DEFAULT_PERSON_OFFICE_TOOLS = [
   READ_PROMPT_TEMPLATE_TOOL,
   PROPOSE_PROMPT_TEMPLATE_TOOL,
   PROPOSE_PROMPT_TEMPLATE_RESET_TOOL,
+] as const;
+
+/** The Office tools the Default person to talk to has in their chat besides. */
+const DEFAULT_PERSON_OFFICE_TOOLS = [
+  ...OFFICE_SETTINGS_OFFICE_TOOLS,
   POST_LINK_CARD_TOOL,
   SHOW_OFFICE_STATUS_TOOL,
+] as const;
+
+/**
+ * The Office tools that draft changes to the Pipelines: a library Pipeline, a Project Pipeline and
+ * a Stage template, each a Proposal the user applies. Whoever onboards and repairs Projects has
+ * them, and the Caretaker in their chat.
+ */
+const PIPELINE_PROPOSAL_OFFICE_TOOLS = [
+  PROPOSE_LIBRARY_PIPELINE_TOOL,
+  PROPOSE_PROJECT_PIPELINE_TOOL,
+  PROPOSE_STAGE_TEMPLATE_TOOL,
 ] as const;
 
 /**
@@ -343,7 +372,7 @@ const DEFAULT_PERSON_OFFICE_TOOLS = [
  * card and never relay, calling a person only when the user asks, as anyone else does (spec
  * §2.2). Each has their duties' own tools besides: whoever shapes Initiatives creates an
  * Initiative too, in their chat only. The Caretaker holds no duty, so has only the chat's own and
- * `caretakerChatOfficeTools`' set-up.
+ * `caretakerChatOfficeTools`' Proposals.
  */
 export function chatOfficeTools(held: HeldDuties): readonly string[] {
   const defaultPerson = held.includes("default-person-to-talk-to");
@@ -359,12 +388,20 @@ export function chatOfficeTools(held: HeldDuties): readonly string[] {
 }
 
 /**
- * The Caretaker's chat's Office tools: the chat's own for the duties they hold, and drafting the
- * set-up of The Office, its hires and duties as one Proposal (spec §2.2), but no other Proposal of
- * a Role.
+ * The Caretaker's chat's Office tools, in every Thread whether changes are allowed or not, since a
+ * Proposal changes nothing until the user applies it (spec §2.2, §6): the chat's own for the duties
+ * they hold, drafting the set-up of The Office, its hires and duties as one Proposal, and reading
+ * and drafting changes to the Office settings, Role cards, Prompt templates and Pipelines.
  */
 export function caretakerChatOfficeTools(held: HeldDuties): readonly string[] {
-  return [...chatOfficeTools(held), PROPOSE_OFFICE_SETUP_TOOL];
+  return [
+    ...new Set([
+      ...chatOfficeTools(held),
+      PROPOSE_OFFICE_SETUP_TOOL,
+      ...OFFICE_SETTINGS_OFFICE_TOOLS,
+      ...PIPELINE_PROPOSAL_OFFICE_TOOLS,
+    ]),
+  ];
 }
 
 /**
@@ -381,20 +418,16 @@ function draftingOfficeTools(held: HeldDuties): readonly string[] {
 
 /**
  * The Office tools a person has in their chat and their Stage Threads alike, for the duties they
- * hold: whoever onboards and repairs Projects reads the Pipelines, proposes Project commands,
- * test targets, library Pipelines, Project Pipelines and Stage templates, drafts a Project to onboard, and
- * installs and updates skills from a Source (spec §2.1, §2.2, §2.3, §2.6).
+ * hold: whoever onboards and repairs Projects proposes Project commands, test targets, library
+ * Pipelines, Project Pipelines and Stage templates, drafts a Project to onboard, and installs and
+ * updates skills from a Source (spec §2.1, §2.2, §2.3, §2.6).
  */
 export function roleOfficeTools(held: HeldDuties): readonly string[] {
   return held.includes("onboards-projects")
     ? [
-        LIST_PIPELINES_TOOL,
         PROPOSE_PROJECT_COMMANDS_TOOL,
         PROPOSE_TEST_TARGETS_TOOL,
-        PROPOSE_LIBRARY_PIPELINE_TOOL,
-        PROPOSE_PROJECT_PIPELINE_TOOL,
-        LIST_STAGE_TEMPLATES_TOOL,
-        PROPOSE_STAGE_TEMPLATE_TOOL,
+        ...PIPELINE_PROPOSAL_OFFICE_TOOLS,
         PROPOSE_PROJECT_TOOL,
         LIST_SOURCE_SKILLS_TOOL,
         PROPOSE_SKILL_INSTALL_TOOL,

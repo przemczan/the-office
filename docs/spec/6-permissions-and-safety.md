@@ -78,6 +78,7 @@ Covers: threat models, stored hashes, the two layers, language servers, Hard swi
 
 - Everyone also reads their session's skills folder, the [knowledge base](#the-knowledge-base) and the engine's output of their own background commands, and uses the Office tools.
 - Every session, Agent Stages included, can read every record with the Office tools: Projects, people, Tasks, Ideas, Initiatives, the links between them and all their Attachments, each by what it holds (`read_attachment`).
+- Every session also reads the Pipelines, office-wide and Project Pipelines, all or one by its id (`list_pipelines`), and the Stage templates (`list_stage_templates`), each Stage whole: its brief, duty, session, budget and routes.
 - `read_attachment` reads a text file, a document among them, and a PDF's text by numbered lines, in slices, a search for a phrase, and a line too long for one answer read on from a character.
 - It gives an image as a picture on an engine that shows pictures (Claude Code), up to the size its answer passes, else in words saying why it isn't shown.
 - It gives any other file by its name, kind and size, saying it can't be read, and a link by its address.
@@ -99,6 +100,7 @@ Covers: threat models, stored hashes, the two layers, language servers, Hard swi
 - A Thread on an Initiative with a Pipeline reads its Initiative's branch in the Projects it spans instead ([2.4.1](2.4.1-threads.md)).
 - No edits, read-only commands only, though a language server its LSP calls start may run Project code.
 - The one exception is a Caretaker Thread with Allow changes on ([2.4.1](2.4.1-threads.md)).
+- The Caretaker's chat drafts Proposals of the Office settings, Role cards, Prompt templates, Pipelines and Stage templates with Allow changes on or off, since a Proposal changes nothing until the user applies it ([2.2](2.2-people.md#caretaker)).
 
 ## The Caretaker with Allow changes on
 

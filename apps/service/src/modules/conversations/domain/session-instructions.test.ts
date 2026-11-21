@@ -20,15 +20,23 @@ import {
   decisionAnswerMessage,
   decisionAnswersOnTasksMessage,
   ENGINE_TRANSCRIPTS_RULE,
+  LIST_PIPELINES_TOOL,
   LIST_PROMPT_TEMPLATES_TOOL,
+  LIST_STAGE_TEMPLATES_TOOL,
+  OFFICE_PROPOSALS_RULE,
   PERSON_READING_OFFICE_TOOLS,
+  PROPOSE_LIBRARY_PIPELINE_TOOL,
   PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_OFFICE_SETUP_TOOL,
+  PROPOSE_PROJECT_COMMANDS_TOOL,
+  PROPOSE_PROJECT_PIPELINE_TOOL,
   PROPOSE_PROMPT_TEMPLATE_RESET_TOOL,
   PROPOSE_PROMPT_TEMPLATE_TOOL,
+  PROPOSE_STAGE_TEMPLATE_TOOL,
   READ_OFFICE_INSTRUCTIONS_TOOL,
   READ_PROMPT_TEMPLATE_TOOL,
   READ_REPOSITORY_TOOL,
+  READ_ROLE_TOOL,
   READ_THREADS_TOOL,
   READING_OFFICE_TOOLS,
   PROPOSE_ROLE_TOOL,
@@ -164,6 +172,22 @@ describe("the Caretaker's chat instructions", () => {
       );
     },
   );
+
+  it.each([false, true])(
+    "tell it to read the current text and propose each change for the user to apply, with changes allowed %s",
+    (changesAllowed) => {
+      const text = caretakerChatInstructions(PROMPTS, person, changesAllowed);
+
+      expect(text).toContain(OFFICE_PROPOSALS_RULE);
+      expect(OFFICE_PROPOSALS_RULE).toContain("Read the current text right before you draft");
+      expect(OFFICE_PROPOSALS_RULE).toContain(
+        "never paste a new text for the user to copy in by hand",
+      );
+      expect(OFFICE_PROPOSALS_RULE).toContain(
+        "never read a Stage's brief from a session's transcript",
+      );
+    },
+  );
 });
 
 describe("chatOfficeTools", () => {
@@ -179,7 +203,7 @@ describe("chatOfficeTools", () => {
     expect(chatOfficeTools(PLANNER)).not.toContain(READ_OFFICE_INSTRUCTIONS_TOOL);
   });
 
-  it("gives only the Default person to talk to reading prompt templates and drafting their changes and resets", () => {
+  it("gives the Default person to talk to and the Caretaker reading prompt templates and drafting their changes and resets, and no other chat", () => {
     const promptTemplateTools = [
       LIST_PROMPT_TEMPLATES_TOOL,
       READ_PROMPT_TEMPLATE_TOOL,
@@ -188,24 +212,64 @@ describe("chatOfficeTools", () => {
     ];
 
     expect(chatOfficeTools(OFFICE_MANAGER)).toEqual(expect.arrayContaining(promptTemplateTools));
+    expect(caretakerChatOfficeTools(CARETAKER)).toEqual(
+      expect.arrayContaining(promptTemplateTools),
+    );
     for (const held of [PLANNER, DEVOPS]) {
       for (const tool of promptTemplateTools) expect(chatOfficeTools(held)).not.toContain(tool);
     }
-    for (const tool of promptTemplateTools) {
-      expect(caretakerChatOfficeTools(CARETAKER)).not.toContain(tool);
+  });
+
+  it("gives the Caretaker reading and drafting the Office instructions, Role cards, Prompt templates and Pipelines, and the set-up of The Office", () => {
+    const tools = caretakerChatOfficeTools(CARETAKER);
+
+    expect(tools).toEqual(
+      expect.arrayContaining([
+        READ_OFFICE_INSTRUCTIONS_TOOL,
+        LIST_PROMPT_TEMPLATES_TOOL,
+        READ_PROMPT_TEMPLATE_TOOL,
+        READ_ROLE_TOOL,
+        LIST_PIPELINES_TOOL,
+        LIST_STAGE_TEMPLATES_TOOL,
+        PROPOSE_OFFICE_SETTING_TOOL,
+        PROPOSE_ROLE_TOOL,
+        PROPOSE_PROMPT_TEMPLATE_TOOL,
+        PROPOSE_PROMPT_TEMPLATE_RESET_TOOL,
+        PROPOSE_LIBRARY_PIPELINE_TOOL,
+        PROPOSE_PROJECT_PIPELINE_TOOL,
+        PROPOSE_STAGE_TEMPLATE_TOOL,
+        PROPOSE_OFFICE_SETUP_TOOL,
+        CONSULT_TOOL,
+      ]),
+    );
+    expect(tools).not.toContain(CHANGE_ROLE_TOOL);
+    expect(tools).not.toContain(PROPOSE_PROJECT_COMMANDS_TOOL);
+    for (const held of [PLANNER, DEVOPS, OFFICE_MANAGER, CARETAKER]) {
+      expect(chatOfficeTools(held)).not.toContain(PROPOSE_OFFICE_SETUP_TOOL);
     }
   });
 
-  it("gives the Caretaker drafting the set-up of The Office, and no other Proposal of a Role", () => {
-    const tools = caretakerChatOfficeTools(CARETAKER);
+  it("lists each of the Caretaker's tools once, while they stand in as the Default person to talk to too", () => {
+    const tools = caretakerChatOfficeTools(OFFICE_MANAGER);
 
-    expect(tools).toContain(PROPOSE_OFFICE_SETUP_TOOL);
-    expect(tools).toContain(CONSULT_TOOL);
-    expect(tools).not.toContain(PROPOSE_ROLE_TOOL);
-    expect(tools).not.toContain(PROPOSE_OFFICE_SETTING_TOOL);
-    expect(tools).not.toContain(CHANGE_ROLE_TOOL);
-    for (const held of [PLANNER, DEVOPS, OFFICE_MANAGER, CARETAKER]) {
-      expect(chatOfficeTools(held)).not.toContain(PROPOSE_OFFICE_SETUP_TOOL);
+    expect(new Set(tools).size).toBe(tools.length);
+  });
+
+  it("gives every session reading the Pipelines and Stage templates, and no one their drafting but whoever onboards Projects, the Caretaker aside", () => {
+    expect(READING_OFFICE_TOOLS).toEqual(
+      expect.arrayContaining([LIST_PIPELINES_TOOL, LIST_STAGE_TEMPLATES_TOOL]),
+    );
+    for (const held of [PLANNER, DEVOPS, CARETAKER, OFFICE_MANAGER]) {
+      expect(chatOfficeTools(held)).toEqual(
+        expect.arrayContaining([LIST_PIPELINES_TOOL, LIST_STAGE_TEMPLATES_TOOL]),
+      );
+    }
+    expect(consultationOfficeTools(PLANNER, false)).toEqual(
+      expect.arrayContaining([LIST_PIPELINES_TOOL, LIST_STAGE_TEMPLATES_TOOL]),
+    );
+    expect(chatOfficeTools(DEVOPS)).toContain(PROPOSE_LIBRARY_PIPELINE_TOOL);
+    for (const held of [PLANNER, OFFICE_MANAGER, CARETAKER]) {
+      expect(chatOfficeTools(held)).not.toContain(PROPOSE_LIBRARY_PIPELINE_TOOL);
     }
   });
 

@@ -351,6 +351,37 @@ describe("propose_project_pipeline", () => {
   });
 });
 
+describe("list_pipelines", () => {
+  interface Listed {
+    readonly officeWidePipelines: readonly { readonly id: string }[];
+    readonly projectPipelines: readonly { readonly id: string }[];
+  }
+
+  it("lists only the Pipeline it is given, office-wide or a Project's", async () => {
+    const base = await aBasePipeline();
+    const projectPipeline = await added(aNewProjectPipeline(aProject(), base.id));
+
+    const officeWide = await propose(LIST_PIPELINES_TOOL, { pipeline: base.id });
+    const ofProject = await propose(LIST_PIPELINES_TOOL, { pipeline: projectPipeline.id });
+
+    expect(officeWide.isError).toBe(false);
+    const listedOfficeWide = JSON.parse(officeWide.text) as Listed;
+    expect(listedOfficeWide.officeWidePipelines.map(({ id }) => id)).toEqual([base.id]);
+    expect(listedOfficeWide.projectPipelines).toEqual([]);
+    expect(ofProject.isError).toBe(false);
+    const listedOfProject = JSON.parse(ofProject.text) as Listed;
+    expect(listedOfProject.officeWidePipelines).toEqual([]);
+    expect(listedOfProject.projectPipelines.map(({ id }) => id)).toEqual([projectPipeline.id]);
+  });
+
+  it("refuses a Pipeline there is none of", async () => {
+    expect(await propose(LIST_PIPELINES_TOOL, { pipeline: "no-such-pipeline" })).toEqual({
+      text: 'There is no Pipeline "no-such-pipeline".',
+      isError: true,
+    });
+  });
+});
+
 describe("the Pipeline Office tools' inputs", () => {
   const tools = [
     LIST_PIPELINES_TOOL,

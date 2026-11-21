@@ -141,7 +141,8 @@ describe("the Office instructions in a session's standing instructions", () => {
           `${whoTheyAre}\n\nWrite the test first.\n\n${WRITING_FOR_THE_USER_RULE}\n\n${theRest}`,
         ),
       ).toBe(true);
-      expect(text).not.toContain("Office instructions");
+      // The Caretaker's rule on Proposals names the Office instructions, but not their heading.
+      expect(text).not.toContain("## Office instructions");
       expect(text).not.toContain("## Your Role's instructions");
       expect(text).not.toContain("CLAUDE.md");
     });
@@ -193,7 +194,7 @@ describe("chatOfficeTools", () => {
     expect(READING_OFFICE_TOOLS).not.toContain(READ_STAGE_HISTORY_TOOL);
   });
 
-  it("keeps the reading tools every session has to the records, so planning and Initiative Threads read no Stage history or Thread messages", () => {
+  it("keeps the reading tools every session has to the records and the Pipelines, so planning and Initiative Threads read no Stage history or Thread messages", () => {
     expect(READING_OFFICE_TOOLS).toEqual([
       "list_projects",
       "list_people",
@@ -204,6 +205,8 @@ describe("chatOfficeTools", () => {
       "read_idea",
       "read_initiative",
       "read_attachment",
+      LIST_PIPELINES_TOOL,
+      LIST_STAGE_TEMPLATES_TOOL,
     ]);
   });
 
@@ -219,15 +222,13 @@ describe("chatOfficeTools", () => {
     expect(chatOfficeTools(OFFICE_MANAGER)).toContain(PROPOSE_SKILL_TOOL);
   });
 
-  it("gives Devops reading the library and drafting Project commands, test targets, Pipelines, Project Pipelines, Stage templates, Projects and skill installs and updates as Proposals", () => {
+  it("gives Devops drafting Project commands, test targets, Pipelines, Project Pipelines, Stage templates, Projects and skill installs and updates as Proposals", () => {
     expect(chatOfficeTools(DEVOPS)).toEqual([
       ...CHAT_OFFICE_TOOLS,
-      LIST_PIPELINES_TOOL,
       PROPOSE_PROJECT_COMMANDS_TOOL,
       PROPOSE_TEST_TARGETS_TOOL,
       PROPOSE_LIBRARY_PIPELINE_TOOL,
       PROPOSE_PROJECT_PIPELINE_TOOL,
-      LIST_STAGE_TEMPLATES_TOOL,
       PROPOSE_STAGE_TEMPLATE_TOOL,
       PROPOSE_PROJECT_TOOL,
       LIST_SOURCE_SKILLS_TOOL,

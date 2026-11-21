@@ -13,6 +13,8 @@ import { EventStreamModule } from "../../../platform/websocket/event-stream.modu
 import {
   ConversationsModule,
   DecisionService,
+  LIST_PIPELINES_TOOL,
+  LIST_STAGE_TEMPLATES_TOOL,
   ProposalService,
   ThreadRunner,
   ThreadService,
@@ -178,7 +180,10 @@ class NoProjectRecords {
   }
 }
 
-/** Projects' list_projects, which a shaping session is given, on the registry the sessions read. */
+/**
+ * Projects' list_projects and Pipelines' list_pipelines and list_stage_templates, which a shaping
+ * session is given, on the registry the sessions read.
+ */
 @Injectable()
 class ListProjectsStandIn {
   constructor(registry: OfficeToolRegistry) {
@@ -188,6 +193,14 @@ class ListProjectsStandIn {
       input: z.object({}),
       run: () => Promise.resolve({ text: PROJECT, isError: false }),
     });
+    for (const name of [LIST_PIPELINES_TOOL, LIST_STAGE_TEMPLATES_TOOL]) {
+      registry.register({
+        name,
+        description: `Stands in for ${name}.`,
+        input: z.object({}),
+        run: () => Promise.resolve({ text: "Nothing.", isError: false }),
+      });
+    }
   }
 }
 

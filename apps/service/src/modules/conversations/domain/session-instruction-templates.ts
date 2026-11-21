@@ -8,6 +8,7 @@ import {
   DEFAULT_PERSON_CALLING_RULE,
   ENGINE_TRANSCRIPTS_RULE,
   OFFICE_INSTRUCTIONS_LEAD_IN,
+  OFFICE_PROPOSALS_RULE,
   OFFICE_SETUP_RULE,
   READ_REPOSITORY_RULE,
   WRITING_FOR_THE_USER_RULE,
@@ -103,7 +104,7 @@ export const CARETAKER_INSTRUCTIONS = promptTemplate({
   domain: "conversations",
   name: "Caretaker instructions",
   description:
-    "The standing instructions of the Caretaker's chat: what it may do before and after the user allows changes, reading sessions' transcripts and setting up The Office.",
+    "The standing instructions of the Caretaker's chat: what it may do before and after the user allows changes, reading sessions' transcripts, setting up The Office and proposing changes to how it works.",
   variables: {
     ...PERSON_INSTRUCTIONS_VARIABLE,
     changesAllowed: { kind: "flag", description: "The user allowed changes in this Thread." },
@@ -120,6 +121,8 @@ This Thread only reads until the user allows changes: you may read each Project'
 ${ENGINE_TRANSCRIPTS_RULE}
 
 ${OFFICE_SETUP_RULE}
+
+${OFFICE_PROPOSALS_RULE}
 
 ${CALLING_RULE}
 
