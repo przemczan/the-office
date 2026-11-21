@@ -22,7 +22,11 @@ export {
   type DevcontainerServicesReader,
 } from "./application/devcontainer-services.js";
 export { TestTargets, type TestTargetLaunchSettings } from "./application/test-targets.js";
-export { TestInstanceCheckouts } from "./application/test-instance-checkouts.js";
+export {
+  TestInstanceCheckouts,
+  type WorkstationBuild,
+  type WorkstationBuildEnd,
+} from "./application/test-instance-checkouts.js";
 export type {
   EditedTestTarget,
   TestTarget,

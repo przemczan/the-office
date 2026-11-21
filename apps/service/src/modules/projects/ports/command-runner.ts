@@ -13,6 +13,8 @@ export interface CommandToRun {
   readonly signal?: AbortSignal;
   /** Where its whole output is written too, as it comes; the file is made or replaced. */
   readonly outputFile?: string;
+  /** Appends to `outputFile` instead of replacing it, as a test instance's log goes on. */
+  readonly appendOutput?: boolean;
   /** Hides the Project's Secret variables in the output, and in what is written to `outputFile`. */
   readonly mask?: OutputMask;
   /**

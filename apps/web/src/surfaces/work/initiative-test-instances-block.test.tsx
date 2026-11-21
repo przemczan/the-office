@@ -60,6 +60,8 @@ const BUILDING: TestInstance = {
   launchedAt: "2026-11-20T14:02:00.000Z",
   runningAt: null,
   endedAt: null,
+  files: [],
+  filesRemoved: false,
 };
 
 const RUNNING: TestInstance = {
@@ -68,6 +70,44 @@ const RUNNING: TestInstance = {
   commit: "a1b2c3d4e5f6",
   runningAt: "2026-11-20T14:03:00.000Z",
 };
+
+const APP: InitiativeTestTarget = {
+  key: "app",
+  name: "Android app",
+  kind: "build-to-install",
+  entryPoint: { kind: "gradle-task", task: "assembleDebug", arguments: [] },
+  instances: [],
+};
+
+const BUILT: TestInstance = {
+  ...BUILDING,
+  id: "22222222-3333-4444-8555-666666666666",
+  targetKey: "app",
+  targetName: "Android app",
+  kind: "build-to-install",
+  state: "built",
+  commit: "a1b2c3d4e5f6",
+  port: null,
+  endedAt: "2026-11-20T14:09:00.000Z",
+  files: [
+    { name: "app-debug.apk", size: 4404019 },
+    { name: "app-release.apk", size: 2048 },
+  ],
+};
+
+/** The Android app's build in a Project whose Run environment is Off, which a build doesn't need. */
+function builds(instances: readonly TestInstance[]): InitiativeTestInstances {
+  return {
+    projects: [
+      {
+        projectId: "website",
+        runEnvironmentOn: false,
+        branchCommit: null,
+        targets: [{ ...APP, instances: [...instances] }],
+      },
+    ],
+  };
+}
 
 function listed(
   instances: readonly TestInstance[],
@@ -246,5 +286,91 @@ describe("the Initiative page's Test instances", () => {
     const launch = buttonOf(rowOf(page, "Office"), "Launch");
     expect(launch?.disabled).toBe(true);
     expect(launch?.title).toBe("Needs Run environment On in Website");
+  });
+
+  it("launches a Build to install target with the Run environment Off, and stops it while Building", async () => {
+    const building: TestInstance = { ...BUILT, state: "building", endedAt: null, files: [] };
+    const { page } = await rendered(builds([]), () => Response.json(builds([building])));
+
+    expect(page.textContent).not.toContain("Needs Run environment On to launch.");
+    const row = rowOf(page, "Android app");
+    expect(row.textContent).toContain("Build to install");
+    expect(row.textContent).toContain("./gradlew assembleDebug");
+    expect(buttonOf(row, "Launch")?.disabled).toBe(false);
+    document.body.replaceChildren();
+
+    const shown = await rendered(builds([building]), notFound);
+    const buildingRow = rowOf(shown.page, "Android app");
+    expect(buildingRow.textContent).toContain("Building");
+    expect(buttonOf(buildingRow, "Stop")).toBeDefined();
+    expect(buttonOf(buildingRow, "Log")).toBeDefined();
+    expect(buttonOf(buildingRow, "Open")).toBeUndefined();
+  });
+
+  it("gives a Built instance's files each a Download link and a QR code, and no Open", async () => {
+    const { page } = await rendered(builds([BUILT]), notFound);
+    const row = rowOf(page, "Android app");
+
+    expect(row.textContent).toContain("Built");
+    expect(buttonOf(row, "Open")).toBeUndefined();
+    expect(buttonOf(row, "Stop")).toBeUndefined();
+    expect(row.querySelector(".test-instance-address")).toBeNull();
+    const downloads = [...row.querySelectorAll<HTMLAnchorElement>("a[download]")];
+    expect(downloads.map((link) => [link.getAttribute("href"), link.download])).toEqual([
+      [`/api/test-instances/${BUILT.id}/files/app-debug.apk`, "app-debug.apk"],
+      [`/api/test-instances/${BUILT.id}/files/app-release.apk`, "app-release.apk"],
+    ]);
+    expect(downloads.every((link) => link.textContent.includes("Download"))).toBe(true);
+    const file = row.querySelector<HTMLElement>('li[aria-label="app-debug.apk"]');
+    expect(file && buttonOf(file, "QR code")).toBeDefined();
+    expect(buttonOf(row, "Launch again")).toBeDefined();
+  });
+
+  it("shows a file's link as a QR code with how long it works and Copy link", async () => {
+    const url = "http://192.168.1.20:4390/api/sign-in/test-builds/abc";
+    const { page, fetched } = await rendered(builds([BUILT]), () =>
+      Response.json({ kind: "link", url, expiresAt: "2026-11-20T15:09:00.000Z" }),
+    );
+    const file = page.querySelector<HTMLElement>('li[aria-label="app-debug.apk"]');
+
+    act(() => (file && buttonOf(file, "QR code"))?.click());
+    await settled();
+
+    const [called, request] = fetched.mock.calls[0] ?? [];
+    expect(called).toBe(`/api/test-instances/${BUILT.id}/files/app-debug.apk/link`);
+    expect(request?.method).toBe("POST");
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    expect(dialog?.textContent).toContain("Install app-debug.apk on a phone");
+    expect(dialog?.textContent).toContain("Works for this file only, for 1 hour.");
+    expect(dialog?.textContent).toContain(url);
+    expect(dialog?.querySelector("img")?.getAttribute("src")).toMatch(/^data:image\/svg\+xml/);
+    expect(dialog && buttonOf(dialog, "Copy link")).toBeDefined();
+  });
+
+  it("says to open The Office at its LAN address at localhost, with no QR code", async () => {
+    const { page } = await rendered(builds([BUILT]), () =>
+      Response.json({ kind: "needs-lan-address" }),
+    );
+    const file = page.querySelector<HTMLElement>('li[aria-label="app-debug.apk"]');
+
+    act(() => (file && buttonOf(file, "QR code"))?.click());
+    await settled();
+
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    expect(dialog?.textContent).toContain(
+      "A phone can't reach localhost. Open The Office at its LAN address to make a QR code that works there.",
+    );
+    expect(dialog?.querySelector("img")).toBeNull();
+    expect(dialog && buttonOf(dialog, "Copy link")).toBeUndefined();
+  });
+
+  it("says a Built instance's files were removed, with no Download or QR code", async () => {
+    const { page } = await rendered(builds([{ ...BUILT, filesRemoved: true }]), notFound);
+    const row = rowOf(page, "Android app");
+
+    expect(row.textContent).toContain("Built");
+    expect(row.textContent).toContain("Files removed");
+    expect(row.querySelector("a[download]")).toBeNull();
+    expect(buttonOf(row, "QR code")).toBeUndefined();
   });
 });

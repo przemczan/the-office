@@ -22,7 +22,7 @@ import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import { TestInstances, type InitiativeTestProject } from "../../application/test-instances.js";
 import type { TestInstance } from "../../domain/test-instance.js";
-import type { TargetEntryPoint } from "../../ports/project-test-targets.js";
+import type { TargetEntryPoint } from "../../domain/entry-point.js";
 import { TestInstanceRefusalsFilter } from "./test-instance-refusals.filter.js";
 
 const logQuerySchema = z.object({ from: z.coerce.number().int().min(0).default(0) });
@@ -100,6 +100,8 @@ export function instanceResponse(instance: TestInstance): TestInstanceResponse {
     launchedAt: instance.launchedAt.toISOString(),
     runningAt: instance.runningAt?.toISOString() ?? null,
     endedAt: instance.endedAt?.toISOString() ?? null,
+    files: instance.files.map(({ name, size }) => ({ name, size })),
+    filesRemoved: instance.filesRemovedAt !== undefined,
   };
 }
 

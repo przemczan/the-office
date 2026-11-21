@@ -34,8 +34,8 @@ export function noInitiativeBranch(projectId: string): string {
   return `The Initiative has no branch in ${projectId}, so nothing there can be launched.`;
 }
 
-export function notHosted(name: string): string {
-  return `${name} isn't a Hosted test target; only Hosted ones launch for now.`;
+export function notLaunchable(name: string): string {
+  return `${name} can't be launched; only Hosted and Build to install test targets launch for now.`;
 }
 
 export function notRunning(name: string): string {

@@ -3,10 +3,7 @@ import { webEventSchema } from "./events.js";
 import { entryPointSchema, testTargetKeySchema } from "./test-targets.js";
 import { authorSchema } from "./work.js";
 
-/**
- * The kinds a Test instance may be (spec §2.12, "Kinds"): Hosted is built now, Build to install
- * comes with its own Task.
- */
+/** The kinds a Test instance may be (spec §2.12, "Kinds"). */
 export const testInstanceKindSchema = z.enum(["hosted", "build-to-install"]);
 export type TestInstanceKind = z.infer<typeof testInstanceKindSchema>;
 
@@ -23,10 +20,14 @@ export const testInstanceStateSchema = z.enum([
 ]);
 export type TestInstanceState = z.infer<typeof testInstanceStateSchema>;
 
-/** The states that count toward Test instances at once and hold a Proxy port. */
+/** The states that count toward Test instances at once; a Hosted instance holds its Proxy port. */
 export const ACTIVE_TEST_INSTANCE_STATES: readonly TestInstanceState[] = ["building", "running"];
 
 /** One launch of one test target on one Initiative's branch in one Project. */
+/** One of a Built instance's files: its name and its size in bytes. */
+export const testBuildFileSchema = z.object({ name: z.string(), size: z.number().int().min(0) });
+export type TestBuildFile = z.infer<typeof testBuildFileSchema>;
+
 export const testInstanceSchema = z.object({
   id: z.uuid(),
   initiativeId: z.uuid(),
@@ -48,6 +49,10 @@ export const testInstanceSchema = z.object({
   runningAt: z.iso.datetime().nullable(),
   /** When it became Stopped, Failed or Built; null while Building or Running. */
   endedAt: z.iso.datetime().nullable(),
+  /** A Built instance's files by name, to download; empty for Hosted and until Built. */
+  files: z.array(testBuildFileSchema),
+  /** Whether a Built instance's files were removed, as newer builds or its Initiative's end do. */
+  filesRemoved: z.boolean(),
 });
 export type TestInstance = z.infer<typeof testInstanceSchema>;
 
@@ -89,6 +94,17 @@ export type TestInstanceLaunch = z.infer<typeof testInstanceLaunchSchema>;
 /** POST /test-instances/:id/open: the single-use hand-off link to the instance's own address. */
 export const testInstanceOpeningSchema = z.object({ url: z.string() });
 export type TestInstanceOpening = z.infer<typeof testInstanceOpeningSchema>;
+
+/**
+ * POST /test-instances/:id/files/:name/link: a link a phone opens without sign-in, for that one
+ * file, until `expiresAt`; or, when the page was opened at localhost, which a phone can't reach,
+ * `needs-lan-address`.
+ */
+export const testBuildFileLinkSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("link"), url: z.string(), expiresAt: z.iso.datetime() }),
+  z.object({ kind: z.literal("needs-lan-address") }),
+]);
+export type TestBuildFileLink = z.infer<typeof testBuildFileLinkSchema>;
 
 /**
  * GET /test-instances/:id/log?from=<offset>: the masked log from a byte offset, the offset to read

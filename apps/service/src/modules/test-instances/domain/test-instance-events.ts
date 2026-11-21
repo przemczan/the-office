@@ -1,12 +1,15 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { TestInstanceState } from "./test-instance.js";
 
-/** A test target was launched: its instance is Building on `port`. */
+/**
+ * A test target was launched: its instance is Building, a Hosted one on its Proxy port `port`; a
+ * Build to install one holds none.
+ */
 export class TestInstanceLaunched extends DomainEvent {
   constructor(
     readonly instanceId: string,
     readonly initiativeId: string,
-    readonly port: number,
+    readonly port: number | undefined,
   ) {
     super();
   }
@@ -34,6 +37,16 @@ export class TestInstanceCommitRecorded extends DomainEvent {
     readonly instanceId: string,
     readonly initiativeId: string,
     readonly commit: string,
+  ) {
+    super();
+  }
+}
+
+/** A Built instance's files were removed (spec §2.12, "Kept Build to install files"). */
+export class TestInstanceFilesRemoved extends DomainEvent {
+  constructor(
+    readonly instanceId: string,
+    readonly initiativeId: string,
   ) {
     super();
   }

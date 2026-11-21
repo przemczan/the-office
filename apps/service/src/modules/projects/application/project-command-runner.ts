@@ -16,6 +16,8 @@ export interface ProjectCommand {
   readonly signal?: AbortSignal;
   /** Where its whole output is written too, as it comes. */
   readonly outputFile?: string;
+  /** Appends to `outputFile` instead of replacing it. */
+  readonly appendOutput?: boolean;
   /** Runs it in the Bash Agents have, as a line an Agent wrote, rather than the Project's shell. */
   readonly inAgentBash?: boolean;
 }
@@ -34,6 +36,7 @@ export class ProjectCommandRunner {
     timeoutMs,
     signal,
     outputFile,
+    appendOutput,
     inAgentBash,
   }: ProjectCommand): Promise<CommandRun> {
     const mask = OutputMask.of(environment);
@@ -44,6 +47,7 @@ export class ProjectCommandRunner {
       timeoutMs,
       signal,
       outputFile,
+      appendOutput,
       mask,
       inAgentBash,
     });

@@ -1,5 +1,6 @@
 import { Module, type DynamicModule, type ModuleMetadata } from "@nestjs/common";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
+import { TestBuildFilesController } from "./adapters/http/test-build-files.controller.js";
 import { TestInstanceOpenController } from "./adapters/http/test-instance-open.controller.js";
 import { TestInstanceSettingsController } from "./adapters/http/test-instance-settings.controller.js";
 import { TestInstancesController } from "./adapters/http/test-instances.controller.js";
@@ -11,6 +12,8 @@ import { TestInstanceWebEvents } from "./adapters/websocket/test-instance-web-ev
 import { WorkInitiatives } from "./adapters/work/work-initiatives.js";
 import { InstanceFiles } from "./application/instance-files.js";
 import { RunningTestInstances } from "./application/running-test-instances.js";
+import { TestBuildLinks } from "./application/test-build-links.js";
+import { TestBuildRetention } from "./application/test-build-retention.js";
 import { TestInstanceHandOffs } from "./application/test-instance-hand-offs.js";
 import { OfficePort, TestInstanceLimits } from "./application/test-instance-limits.js";
 import { OfficeHost, TestInstanceProxy } from "./application/test-instance-proxy.js";
@@ -46,6 +49,7 @@ export class TestInstancesModule {
         TestInstancesController,
         TestInstanceSettingsController,
         TestInstanceOpenController,
+        TestBuildFilesController,
       ],
       providers: [
         { provide: OfficePort, useValue: new OfficePort(officePort) },
@@ -57,13 +61,15 @@ export class TestInstancesModule {
         { provide: ProjectTestTargets, useClass: ProjectsTestTargets },
         InstanceFiles,
         RunningTestInstances,
+        TestBuildLinks,
+        TestBuildRetention,
         TestInstanceHandOffs,
         TestInstanceLimits,
         TestInstanceProxy,
         TestInstances,
         TestInstanceWebEvents,
       ],
-      exports: [TestInstances, RunningTestInstances, TestInstanceProxy],
+      exports: [TestInstances, RunningTestInstances, TestInstanceProxy, TestBuildRetention],
     };
   }
 }

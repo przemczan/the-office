@@ -6,7 +6,11 @@ import { InterruptedAnswers, SubAgentsAndProcesses } from "./modules/conversatio
 import { ScheduledExits } from "./modules/office-updates/index.js";
 import { FirstRunSetup } from "./modules/users/index.js";
 import { RunEnvironments } from "./modules/run-environments/index.js";
-import { TestInstanceProxy, TestInstances } from "./modules/test-instances/index.js";
+import {
+  TestBuildRetention,
+  TestInstanceProxy,
+  TestInstances,
+} from "./modules/test-instances/index.js";
 import {
   DroppedInitiativeTasks,
   DroppedTaskDecisions,
@@ -131,6 +135,7 @@ async function takeUpWhereTheOfficeStopped(app: INestApplication): Promise<void>
   await app.get(QueueService).release();
   app.get(TaskArchiving).start();
   app.get(InitiativeArchiving).start();
+  app.get(TestBuildRetention).start();
   void app
     .get(RunEnvironments)
     .sweep()

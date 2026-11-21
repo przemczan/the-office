@@ -164,9 +164,21 @@ async function hostedProject(page: Page, repository: TemporaryRepository): Promi
     mark: { label: "TI", colour: "teal" },
     installCommand: "npm ci",
     commands: [
-      { key: "build", name: "Build", kind: "build", commandLine: "npm run build" },
-      { key: "lint", name: "Lint", kind: "lint", commandLine: "npm run lint" },
-      { key: "test", name: "Test", kind: "test", commandLine: "npm test" },
+      {
+        key: "build",
+        name: "Build",
+        kind: "build",
+        commandLine: "npm run build",
+        rerunCommandLine: "",
+      },
+      {
+        key: "lint",
+        name: "Lint",
+        kind: "lint",
+        commandLine: "npm run lint",
+        rerunCommandLine: "",
+      },
+      { key: "test", name: "Test", kind: "test", commandLine: "npm test", rerunCommandLine: "" },
     ],
     installInputs: [],
     publishingMode: "push-and-pull-request",
@@ -262,6 +274,127 @@ async function stopEvery(page: Page, initiativeId: string): Promise<void> {
     }
   }
 }
+
+/** The file the build writes, as an Android build writes its APK. */
+const BUILT_FILE = "app-debug.apk";
+
+/**
+ * A branch a Build to install target builds on the workstation: its package script runs a Node
+ * script of the repository that writes the output file, so the build really runs and makes it.
+ */
+const BUILD_BRANCH_FILES = {
+  "package.json": JSON.stringify({
+    name: "shop-app",
+    private: true,
+    scripts: { build: "node scripts/build.mjs" },
+  }),
+  "scripts/build.mjs": [
+    'import { mkdirSync, writeFileSync } from "node:fs";',
+    'mkdirSync("out", { recursive: true });',
+    `writeFileSync("out/${BUILT_FILE}", "not really an APK");`,
+    `console.log("Built out/${BUILT_FILE}");`,
+    "",
+  ].join("\n"),
+};
+
+const BUILD_TARGET: EditedTestTarget = {
+  key: "android",
+  name: "Shop Android app",
+  kind: "build-to-install",
+  entryPoint: { kind: "package-script", manifest: "package.json", script: "build", arguments: [] },
+  outputPatterns: ["out/*.apk"],
+  variables: [],
+  secretVariables: [],
+};
+
+/** A Project with its Run environment Off, so its build runs on the workstation. */
+async function buildProject(page: Page, repository: TemporaryRepository): Promise<Project> {
+  const newProject: NewProject = {
+    name: `Test builds shop ${Date.now()}`,
+    path: repository.path,
+    baseBranch: "main",
+    mark: { label: "TB", colour: "violet" },
+    installCommand: "npm ci",
+    commands: [
+      { key: "test", name: "Test", kind: "test", commandLine: "npm test", rerunCommandLine: "" },
+    ],
+    installInputs: [],
+    publishingMode: "push-and-pull-request",
+    defaultPipeline: "full",
+  };
+  const added = await page.request.post("/api/projects", { data: newProject });
+  expect(added.status(), await added.text()).toBe(201);
+  const project = projectSchema.parse(await added.json());
+  const targets = await page.request.put(`/api/projects/${project.id}/test-targets`, {
+    data: { targets: [BUILD_TARGET] },
+  });
+  expect(targets.status(), await targets.text()).toBe(200);
+  return project;
+}
+
+test("the Initiative page builds a Build to install test instance, downloads its file and shows its QR code", async ({
+  page,
+}) => {
+  const repository = await createTemporaryRepository();
+  let initiativeId: string | undefined;
+  try {
+    await commitFiles(repository, BUILD_BRANCH_FILES);
+    const project = await buildProject(page, repository);
+    initiativeId = await activeInitiative(page, project, repository, "Try the shop's Android app");
+
+    await page.goto(`/work/initiatives/${initiativeId}`);
+    const block = page.locator('section[aria-label="Test instances"]');
+    const head = block.locator(".record-fold-head");
+    await expect(head).toContainText("None launched yet");
+    if ((await head.getAttribute("aria-expanded")) !== "true") await head.click();
+    const group = block.locator(`section[aria-label="${project.name}"]`);
+    // A build needs no Run environment: nothing holds its Launch.
+    await expect(group).not.toContainText("Needs Run environment On to launch.");
+    const row = group
+      .getByRole("list", { name: `Test targets in ${project.name}` })
+      .getByRole("listitem", { name: BUILD_TARGET.name });
+    await expect(row).toContainText("Build to install");
+
+    await row.getByRole("button", { name: "Launch", exact: true }).click();
+    await expect(row).toContainText("Built", { timeout: 60_000 });
+    await expect(head).toContainText("1 built");
+    await expect(row.getByRole("button", { name: "Open", exact: true })).toHaveCount(0);
+    const file = row.getByRole("listitem", { name: BUILT_FILE });
+    await screenshotScenario(page, "build-to-install-built", { inView: block });
+
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      file.getByRole("link", { name: "Download" }).click(),
+    ]);
+    expect(download.suggestedFilename()).toBe(BUILT_FILE);
+
+    // At localhost, which a phone can't reach, the window says to use the LAN address instead.
+    await file.getByRole("button", { name: "QR code" }).click();
+    const qrWindow = page.getByRole("dialog", { name: `Install ${BUILT_FILE} on a phone` });
+    await expect(qrWindow).toContainText("A phone can't reach localhost.");
+    await expect(qrWindow.getByRole("img")).toHaveCount(0);
+    await qrWindow.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(qrWindow).toHaveCount(0);
+
+    // Opened at a LAN address, the service answers a link, which the window draws as a QR code.
+    const url = `http://192.168.1.20:4390/api/sign-in/test-builds/e2e`;
+    await page.route("**/files/*/link", (route) =>
+      route.fulfill({
+        json: { kind: "link", url, expiresAt: new Date(Date.now() + 3_600_000).toISOString() },
+      }),
+    );
+    await file.getByRole("button", { name: "QR code" }).click();
+    await expect(
+      qrWindow.getByRole("img", { name: `The QR code for ${BUILT_FILE}` }),
+    ).toBeVisible();
+    await expect(qrWindow).toContainText("Works for this file only, for 1 hour.");
+    await expect(qrWindow).toContainText(url);
+    await screenshotScenario(page, "build-to-install-qr", { inView: qrWindow });
+  } finally {
+    if (initiativeId !== undefined) await stopEvery(page, initiativeId);
+    await repository.remove();
+  }
+});
 
 function banner(page: Page): Locator {
   return page.getByRole("note", { name: "Test instance" });

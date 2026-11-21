@@ -163,6 +163,7 @@ Covers: the Initiative page's head and actions (Confirm, Plan the Initiative, Pl
   - At `localhost`: "A phone can't reach localhost. Open The Office at its LAN address to make a QR code that works there." in place of the code.
 - Earlier instances of a target fold under its row, "<n> earlier", each with its state, commit, time and **Log**.
 - Done or Dropped: read-only; Launch is gone, and Built files show until removed ("Removed 7 days after the Initiative ended.").
+- A Built instance whose files were removed (an older build past the newest 3, or after the Initiative ended) shows no Download or QR code, and says "Its files were removed.", with its **Log**.
 - Rules: [2.12](../2.12-test-instances.md).
 
 ## Outcome

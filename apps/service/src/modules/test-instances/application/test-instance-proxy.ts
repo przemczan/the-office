@@ -30,7 +30,9 @@ export class TestInstanceProxy implements OnModuleDestroy {
   async start(): Promise<void> {
     if (this.unsubscribes.length > 0) return;
     this.unsubscribes.push(
-      this.events.subscribe(TestInstanceLaunched, ({ port }) => this.open(port)),
+      this.events.subscribe(TestInstanceLaunched, async ({ port }) => {
+        if (port !== undefined) await this.open(port);
+      }),
       this.events.subscribe(TestInstanceStateChanged, async ({ to, port }) => {
         if (port === undefined) return;
         if (to === "running") await this.open(port);

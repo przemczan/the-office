@@ -5,17 +5,22 @@ import {
   ProjectTestTargets,
   type InstallSettings,
   type ListedTarget,
-  type TargetEntryPoint,
   type TargetLaunch,
+  type WorkstationBuild,
+  type WorkstationBuildEnd,
 } from "./project-test-targets.js";
+import type { TargetEntryPoint } from "../domain/entry-point.js";
 
-/** A Hosted test target as a test writes it, with its Secret variables' values. */
+/** A Hosted or Build to install test target as a test writes it, with its Secret variables' values. */
 export interface TargetForTests {
   readonly key: string;
   readonly name: string;
-  readonly kind: "hosted" | "build-to-install";
+  readonly kind: "hosted" | "build-to-install" | "install-on-a-device";
   readonly entryPoint: TargetEntryPoint;
-  readonly port: number;
+  /** A Hosted target's port. */
+  readonly port?: number;
+  /** A Build to install target's output patterns. */
+  readonly outputPatterns?: readonly string[];
   readonly variables: readonly { readonly name: string; readonly value: string }[];
   readonly secretVariables: readonly { readonly name: string; readonly value: string | null }[];
 }
@@ -42,6 +47,11 @@ export class ProjectTestTargetsForTests extends ProjectTestTargets {
   /** Each checkout asked for: the Project, the branch and the folder. */
   readonly checkouts: { projectId: string; branch: string; folder: string }[] = [];
   readonly removed: string[] = [];
+  /** Each workstation build asked for. */
+  readonly builds: WorkstationBuild[] = [];
+  /** How a workstation build runs: by default it exits 0 having made nothing. */
+  onBuild: (build: WorkstationBuild) => Promise<WorkstationBuildEnd> = () =>
+    Promise.resolve({ exitCode: 0, endedBy: undefined });
 
   put(project: ProjectForTests): void {
     this.projects.set(project.id, project);
@@ -74,9 +84,13 @@ export class ProjectTestTargetsForTests extends ProjectTestTargets {
       name: target.name,
       kind: target.kind,
       entryPoint: target.entryPoint,
-      containerPort: target.kind === "hosted" ? target.port : undefined,
+      containerPort: target.kind === "build-to-install" ? undefined : target.port,
       runEnvironmentOn: project.runEnvironmentOn,
-      variables: [...target.variables, ...secrets],
+      outputPatterns: target.kind === "build-to-install" ? (target.outputPatterns ?? []) : [],
+      variables: [
+        ...target.variables.map(({ name, value }) => ({ name, value, secret: false })),
+        ...secrets.map(({ name, value }) => ({ name, value, secret: true })),
+      ],
       secretsWithoutValue: target.secretVariables
         .filter(({ value }) => value === null)
         .map(({ name }) => name),
@@ -116,6 +130,11 @@ export class ProjectTestTargetsForTests extends ProjectTestTargets {
       installInputs: ["package-lock.json"],
       installVariables: this.project(projectId).installVariables,
     });
+  }
+
+  runBuild(build: WorkstationBuild): Promise<WorkstationBuildEnd> {
+    this.builds.push(build);
+    return this.onBuild(build);
   }
 
   private project(projectId: string): ProjectForTests {

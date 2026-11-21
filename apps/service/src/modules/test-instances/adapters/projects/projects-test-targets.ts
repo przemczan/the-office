@@ -12,6 +12,8 @@ import {
   type InstallSettings,
   type ListedTarget,
   type TargetLaunch,
+  type WorkstationBuild,
+  type WorkstationBuildEnd,
 } from "../../ports/project-test-targets.js";
 
 /**
@@ -53,8 +55,9 @@ export class ProjectsTestTargets extends ProjectTestTargets {
         kind: target.kind,
         entryPoint: target.entryPoint,
         containerPort: target.kind === "build-to-install" ? undefined : target.port,
+        outputPatterns: target.kind === "build-to-install" ? target.outputPatterns : [],
         runEnvironmentOn: launch.runEnvironmentOn,
-        variables: launch.variables.map(({ name, value }) => ({ name, value })),
+        variables: launch.variables.map(({ name, value, secret }) => ({ name, value, secret })),
         secretsWithoutValue: launch.secretsWithoutValue,
         mask: launch.mask,
       };
@@ -79,6 +82,22 @@ export class ProjectsTestTargets extends ProjectTestTargets {
 
   installSettingsOf(projectId: string): Promise<InstallSettings> {
     return translated(() => this.checkouts.installSettingsOf(projectId));
+  }
+
+  runBuild(build: WorkstationBuild): Promise<WorkstationBuildEnd> {
+    return translated(async () => {
+      const { outcome, exitCode } = await this.checkouts.runBuild(build);
+      switch (outcome) {
+        case "timed-out":
+          return { exitCode: undefined, endedBy: "timeout" };
+        case "stopped":
+          return { exitCode: undefined, endedBy: "stop" };
+        case "could-not-run":
+          return { exitCode, endedBy: "could-not-run" };
+        default:
+          return { exitCode, endedBy: undefined };
+      }
+    });
   }
 }
 

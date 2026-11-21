@@ -17,7 +17,8 @@ export type OfficeDataFolder =
   | "test-output"
   | "stage-runs"
   | "grafana"
-  | "test-instances";
+  | "test-instances"
+  | "test-builds";
 
 /** Where The Office keeps its files outside the database: OFFICE_DATA_DIR or the system's default. */
 export class OfficeDataDirectory {

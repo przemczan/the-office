@@ -5,6 +5,8 @@ import { ManualSchedule } from "../../platform/schedule/schedule.fixtures.js";
 import type { HostedServices } from "../run-environments/index.js";
 import { InstanceFiles } from "./application/instance-files.js";
 import { RunningTestInstances } from "./application/running-test-instances.js";
+import { TestBuildLinks } from "./application/test-build-links.js";
+import { TestBuildRetention } from "./application/test-build-retention.js";
 import { OfficePort, TestInstanceLimits } from "./application/test-instance-limits.js";
 import { TestInstances } from "./application/test-instances.js";
 import type { LaunchedBy, TestInstance } from "./domain/test-instance.js";
@@ -46,6 +48,22 @@ export const WEB_TARGET: TargetForTests = {
   secretVariables: [{ name: "API_TOKEN", value: TARGET_SECRET }],
 };
 
+/** A Build to install target's Secret variable's value, which the log shows only masked. */
+export const BUILD_SECRET = "build-s1gning-value";
+
+/** Where the Build to install target's APKs land in the checkout. */
+export const APK_PATTERN = "app/build/outputs/apk/**/*.apk";
+
+export const BUILD_TARGET: TargetForTests = {
+  key: "android",
+  name: "Android app",
+  kind: "build-to-install",
+  entryPoint: { kind: "gradle-task", task: "assembleDebug", arguments: [] },
+  outputPatterns: [APK_PATTERN],
+  variables: [{ name: "FLAVOUR", value: "debug" }],
+  secretVariables: [{ name: "SIGNING_TOKEN", value: BUILD_SECRET }],
+};
+
 /**
  * Test instances wired by hand over a Run environments testbed's `HostedServices` (Run
  * environments' `runEnvironmentsTestbed`, which a test makes, on the same Office data directory),
@@ -57,6 +75,8 @@ export interface TestInstancesTestbed {
   readonly running: RunningTestInstances;
   readonly limits: TestInstanceLimits;
   readonly files: InstanceFiles;
+  readonly retention: TestBuildRetention;
+  readonly links: TestBuildLinks;
   readonly repository: TestInstanceRepositoryForTests;
   readonly settings: TestInstanceSettingsForTests;
   readonly initiatives: InitiativesForTests;
@@ -68,6 +88,8 @@ export interface TestInstancesTestbed {
   readonly project: ProjectForTests;
   /** Launches the web target on the Initiative and waits until it is Running or Failed. */
   launchAndSettle(): Promise<TestInstance>;
+  /** Launches the Build to install target on the Initiative and waits until it is Built or Failed. */
+  buildAndSettle(): Promise<TestInstance>;
 }
 
 export function testInstancesTestbed(
@@ -85,6 +107,8 @@ export function testInstancesTestbed(
   const projects = new ProjectTestTargetsForTests();
   const files = new InstanceFiles(officeData);
   const running = new RunningTestInstances(schedule, settings);
+  const retention = new TestBuildRetention(repository, initiatives, files, schedule, events);
+  const links = new TestBuildLinks(officeData, schedule);
   const instances = new TestInstances(
     repository,
     settings,
@@ -96,6 +120,7 @@ export function testInstancesTestbed(
     schedule,
     events,
     new OfficePort(TESTBED_OFFICE_PORT),
+    retention,
   );
   instances.onModuleInit();
   const limits = new TestInstanceLimits(settings, new OfficePort(TESTBED_OFFICE_PORT), events);
@@ -104,12 +129,13 @@ export function testInstancesTestbed(
     id: initiativeId,
     name: "Checkout",
     state: "active",
+    endedAt: undefined,
     branches: [{ projectId: "shop", branch: "initiative/checkout" }],
   });
   const project: ProjectForTests = {
     id: "shop",
     runEnvironmentOn: true,
-    targets: [WEB_TARGET],
+    targets: [WEB_TARGET, BUILD_TARGET],
     files: { ...BRANCH_FILES },
     commit: "c0ffee0000000000000000000000000000000001",
     entryPointProblems: [],
@@ -121,6 +147,8 @@ export function testInstancesTestbed(
     running,
     limits,
     files,
+    retention,
+    links,
     repository,
     settings,
     initiatives,
@@ -134,6 +162,15 @@ export function testInstancesTestbed(
       const launched = await instances.launch(
         initiativeId,
         { projectId: "shop", targetKey: "web" },
+        ANN,
+      );
+      await instances.settled();
+      return instances.read(launched.id);
+    },
+    async buildAndSettle() {
+      const launched = await instances.launch(
+        initiativeId,
+        { projectId: "shop", targetKey: "android" },
         ANN,
       );
       await instances.settled();

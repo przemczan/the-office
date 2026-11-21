@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { appendFile, mkdir, open, readdir } from "node:fs/promises";
+import { appendFile, mkdir, open, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 
@@ -16,7 +16,7 @@ const NO_LINE_MASK: LineMask = { mask: (text) => text };
 /**
  * Each instance's files in `<office-data>/test-instances/`: its checkout, `<id>/`, removed when it
  * ends (spec §5.5, "A test instance's checkout"), and its log, `<id>.log` beside it, kept with the
- * instance (spec §2.12, "Log").
+ * instance (spec §2.12, "Log"); and a Built instance's files in `<office-data>/test-builds/<id>/`.
  */
 @Injectable()
 export class InstanceFiles {
@@ -32,6 +32,16 @@ export class InstanceFiles {
 
   logOf(id: string): string {
     return join(this.folder, `${id}.log`);
+  }
+
+  /** Where a Built instance's files are kept: `<office-data>/test-builds/<id>/`. */
+  buildFilesOf(id: string): string {
+    return join(this.officeData.folder("test-builds"), id);
+  }
+
+  /** Removes a Built instance's files; none there is no failure. */
+  async removeBuildFiles(id: string): Promise<void> {
+    await rm(this.buildFilesOf(id), { recursive: true, force: true, maxRetries: 5 });
   }
 
   /** Appends one line of The Office's own to the instance's log, masked. */

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { join } from "node:path";
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule, type Wait } from "../../../platform/schedule/schedule.js";
@@ -9,7 +10,7 @@ import {
   BY_USER,
   INITIATIVE_NOT_ACTIVE,
   noInitiativeBranch,
-  notHosted,
+  notLaunchable,
   RESTARTED_WHILE_BUILDING,
   RUN_ENVIRONMENT_OFF,
   secretsWithoutValue,
@@ -28,7 +29,9 @@ import {
   overTheLimit,
   type ActiveInstanceName,
 } from "../domain/test-instance-settings.js";
+import { BUILD_TIMEOUT_MS, buildFailureOf, hasFile, type BuildEnd } from "../domain/test-build.js";
 import {
+  built,
   failed,
   isActive,
   launchedInstance,
@@ -37,18 +40,25 @@ import {
   withCommit,
   type LaunchedBy,
   type TestInstance,
+  type TestInstanceKind,
   type TestInstanceState,
 } from "../domain/test-instance.js";
+import {
+  DEVCONTAINER_SERVICE_BUILDS_NOTHING,
+  workstationBuildCommandOf,
+  type TargetEntryPoint,
+} from "../domain/entry-point.js";
 import { Initiatives } from "../ports/initiatives.js";
 import {
   ProjectTestTargets,
   type InstanceMask,
-  type TargetEntryPoint,
   type TargetLaunch,
 } from "../ports/project-test-targets.js";
 import { TestInstanceRepository } from "../ports/test-instance-repository.js";
 import { TestInstanceSettingsStore } from "../ports/test-instance-settings-store.js";
+import { keepOutputs } from "./build-outputs.js";
 import { InstanceFiles } from "./instance-files.js";
+import { TestBuildRetention } from "./test-build-retention.js";
 import { OfficePort } from "./test-instance-limits.js";
 import { RunningTestInstances } from "./running-test-instances.js";
 
@@ -56,7 +66,7 @@ import { RunningTestInstances } from "./running-test-instances.js";
 export interface InitiativeTarget {
   readonly key: string;
   readonly name: string;
-  readonly kind: "hosted";
+  readonly kind: TestInstanceKind;
   readonly entryPoint: TargetEntryPoint;
   /** Newest first. */
   readonly instances: readonly TestInstance[];
@@ -96,8 +106,10 @@ interface Held {
 /**
  * Test instances (spec §2.12): launching a Hosted test target on an Initiative's branch in its own
  * checkout and compose project, its Proxy port and the Test instances at once limit, its log, and
- * its stop by the user, by Idle time, as its Initiative ends and in the sweep as The Office starts.
- * Run environments are reached only through `HostedServices`, which takes no run environment slot.
+ * its stop by the user, by Idle time, as its Initiative ends and in the sweep as The Office starts;
+ * and building a Build to install one, in the run environment or on the workstation, its output
+ * files kept in `<office-data>/test-builds/<id>/`. Run environments are reached only through
+ * `HostedServices`, which takes no run environment slot.
  */
 @Injectable()
 export class TestInstances implements OnModuleInit {
@@ -119,6 +131,7 @@ export class TestInstances implements OnModuleInit {
     private readonly schedule: Schedule,
     private readonly events: EventBus,
     private readonly officePort: OfficePort,
+    private readonly retention: TestBuildRetention,
   ) {}
 
   onModuleInit(): void {
@@ -132,7 +145,10 @@ export class TestInstances implements OnModuleInit {
     });
   }
 
-  /** A group per Project where the Initiative has a branch, each with its Hosted test targets. */
+  /**
+   * A group per Project where the Initiative has a branch, each with its Hosted and Build to install
+   * test targets.
+   */
   async listFor(initiativeId: string): Promise<InitiativeTestProject[]> {
     const initiative = await this.initiatives.find(initiativeId);
     if (!initiative) throw TestInstanceNotFound.initiative(initiativeId);
@@ -149,7 +165,7 @@ export class TestInstances implements OnModuleInit {
           runEnvironmentOn,
           branchCommit,
           targets: targets.flatMap(({ key, name, kind, entryPoint }) =>
-            kind === "hosted"
+            kind === "hosted" || kind === "build-to-install"
               ? [
                   {
                     key,
@@ -176,10 +192,10 @@ export class TestInstances implements OnModuleInit {
 
   /**
    * Launches the target on the Initiative's branch: refused, with every reason, unless the
-   * Initiative is active with a branch in the Project, the target is Hosted with its Secret
-   * variables typed, the Project's Run environment is On, the limit has room and a Proxy port is
-   * free. Answers the instance Building at once; the checkout and the start go on in the
-   * background, ending Running or Failed.
+   * Initiative is active with a branch in the Project, the target is Hosted or Build to install
+   * with its Secret variables typed and the limit has room; a Hosted one also needs the Project's
+   * Run environment On and a free Proxy port. Answers the instance Building at once; the checkout
+   * and the start or the build go on in the background, ending Running, Built or Failed.
    */
   async launch(initiativeId: string, launch: Launch, by: LaunchedBy): Promise<TestInstance> {
     const initiative = await this.initiatives.find(initiativeId);
@@ -188,11 +204,12 @@ export class TestInstances implements OnModuleInit {
     const branch = initiative.branches.find(({ projectId }) => projectId === launch.projectId);
     if (!branch) throw new TestInstanceRefused([noInitiativeBranch(launch.projectId)]);
     const target = await this.targets.launchOf(launch.projectId, launch.targetKey);
-    if (target.kind !== "hosted" || target.containerPort === undefined) {
-      throw new TestInstanceRefused([notHosted(target.name)]);
+    const hosted = target.kind === "hosted" && target.containerPort !== undefined;
+    if (!hosted && target.kind !== "build-to-install") {
+      throw new TestInstanceRefused([notLaunchable(target.name)]);
     }
     const problems = [
-      ...(target.runEnvironmentOn ? [] : [RUN_ENVIRONMENT_OFF]),
+      ...(!hosted || target.runEnvironmentOn ? [] : [RUN_ENVIRONMENT_OFF]),
       ...(target.secretsWithoutValue.length === 0
         ? []
         : [secretsWithoutValue(target.secretsWithoutValue)]),
@@ -204,51 +221,61 @@ export class TestInstances implements OnModuleInit {
       const active = await this.repository.active();
       const over = overTheLimit(await this.namesOf(active), settings.testInstancesAtOnce);
       if (over !== undefined) throw new TestInstanceRefused([over]);
-      // The Office's own port is never given out, should OFFICE_PORT fall inside the range.
-      const held = new Set([
-        this.officePort.port,
-        ...active.flatMap(({ port }) => (port === undefined ? [] : [port])),
-      ]);
-      const port = freeProxyPort(settings, held);
-      if (port === undefined) throw new TestInstanceRefused([everyPortInUse(settings)]);
-      const made = launchedInstance({
+      const given = {
         id: randomUUID(),
         initiativeId,
         projectId: launch.projectId,
         targetKey: target.key,
         targetName: target.name,
-        port,
         launchedBy: by,
         at: this.schedule.now(),
-      });
+      };
+      const made = hosted
+        ? launchedInstance({ ...given, kind: "hosted", port: this.proxyPortFor(settings, active) })
+        : launchedInstance({ ...given, kind: "build-to-install" });
       await this.repository.add(made);
       return { instance: made, idleMinutes: settings.idleMinutes };
     });
     const held: Held = { building: new AbortController(), mask: target.mask };
     this.held.set(instance.id, held);
-    await this.events.publish(
-      new TestInstanceLaunched(instance.id, initiativeId, instance.port ?? 0),
-    );
+    await this.events.publish(new TestInstanceLaunched(instance.id, initiativeId, instance.port));
     this.inBackground(`The Test instance ${instance.id} didn't launch.`, () =>
-      this.build(instance, branch.branch, target, held, idleMinutes),
+      hosted
+        ? this.startHosted(instance, branch.branch, target, held, idleMinutes)
+        : this.runBuild(instance, branch.branch, target, held),
     );
     return instance;
   }
 
   /**
-   * Stops a Building or Running instance: Stopped, its port freed, its containers, volumes and
-   * checkout removed, the reason last in its log. One that has ended already stays as it is.
+   * Stops a Building or Running instance: Stopped, or Failed for a Build to install one, saying how
+   * it stopped; its port freed, its containers, volumes and checkout removed, the reason last in
+   * its log. One that has ended already stays as it is.
    */
   async stop(id: string, reason: StopReason = BY_USER): Promise<TestInstance> {
     const instance = await this.read(id);
     if (!isActive(instance)) return instance;
     const held = this.held.get(id);
     held?.building.abort();
-    const change = await this.repository.update(id, (kept) => stopped(kept, this.schedule.now()));
+    const words = stopWords(reason);
+    const change = await this.repository.update(id, (kept) =>
+      stopped(kept, words, this.schedule.now()),
+    );
     if (!change?.event) return this.read(id);
-    await this.files.note(id, stopWords(reason), held?.mask);
+    await this.files.note(id, words, held?.mask);
     await this.ended(change.instance, change.event);
     return change.instance;
+  }
+
+  /**
+   * The path of one of a Built instance's files, by its name as listed on the instance; refused
+   * as not found for any other name, an instance not Built or one whose files were removed, so no
+   * unlisted name is ever joined into a path.
+   */
+  async builtFile(id: string, name: string): Promise<string> {
+    const instance = await this.read(id);
+    if (!hasFile(instance, name)) throw TestInstanceNotFound.file(id);
+    return join(this.files.buildFilesOf(id), name);
   }
 
   /** The instance's masked log from byte `from` on. */
@@ -268,7 +295,9 @@ export class TestInstances implements OnModuleInit {
     for (const instance of await this.repository.active()) {
       const building = instance.state === "building";
       const change = await this.repository.update(instance.id, (kept) =>
-        building ? failed(kept, RESTARTED_WHILE_BUILDING, at) : stopped(kept, at),
+        building
+          ? failed(kept, RESTARTED_WHILE_BUILDING, at)
+          : stopped(kept, stopWords(BY_RESTART), at),
       );
       if (!change?.event) continue;
       await this.files.note(
@@ -288,8 +317,50 @@ export class TestInstances implements OnModuleInit {
     while (this.background.size > 0) await Promise.all(this.background);
   }
 
+  /** The lowest free Proxy port; never The Office's own, should OFFICE_PORT fall inside the range. */
+  private proxyPortFor(
+    settings: Awaited<ReturnType<TestInstanceSettingsStore["read"]>>,
+    active: readonly TestInstance[],
+  ): number {
+    const held = new Set([
+      this.officePort.port,
+      ...active.flatMap(({ port }) => (port === undefined ? [] : [port])),
+    ]);
+    const port = freeProxyPort(settings, held);
+    if (port === undefined) throw new TestInstanceRefused([everyPortInUse(settings)]);
+    return port;
+  }
+
+  /**
+   * The checkout of the branch's tip, its commit recorded, and the entry point checked at it;
+   * answers false when the instance was stopped meanwhile, the checkout removed again.
+   */
+  private async checkedOut(
+    instance: TestInstance,
+    branch: string,
+    target: TargetLaunch,
+    held: Held,
+  ): Promise<boolean> {
+    const { id, projectId } = instance;
+    const checkout = this.files.checkoutOf(id);
+    await this.files.note(id, `Fetching ${branch}.`, held.mask);
+    const { commit } = await this.targets.checkOut(projectId, branch, checkout);
+    if (held.building.signal.aborted) {
+      await this.targets.removeCheckout(checkout);
+      return false;
+    }
+    await this.files.note(id, `Checked out ${branch} at ${commit}.`, held.mask);
+    const recorded = await this.repository.update(id, (kept) => withCommit(kept, commit));
+    if (recorded) {
+      await this.events.publish(new TestInstanceCommitRecorded(id, instance.initiativeId, commit));
+    }
+    const problems = await this.targets.entryPointProblemsAt(projectId, commit, target.key);
+    if (problems.length > 0) throw new TestInstanceRefused(problems);
+    return true;
+  }
+
   /** The checkout, the entry point's check and the start, ending Running or Failed. */
-  private async build(
+  private async startHosted(
     instance: TestInstance,
     branch: string,
     target: TargetLaunch,
@@ -300,21 +371,7 @@ export class TestInstances implements OnModuleInit {
     const signal = held.building.signal;
     const checkout = this.files.checkoutOf(id);
     try {
-      await this.files.note(id, `Fetching ${branch}.`, held.mask);
-      const { commit } = await this.targets.checkOut(projectId, branch, checkout);
-      if (signal.aborted) {
-        await this.targets.removeCheckout(checkout);
-        return;
-      }
-      await this.files.note(id, `Checked out ${branch} at ${commit}.`, held.mask);
-      const recorded = await this.repository.update(id, (kept) => withCommit(kept, commit));
-      if (recorded) {
-        await this.events.publish(
-          new TestInstanceCommitRecorded(id, instance.initiativeId, commit),
-        );
-      }
-      const problems = await this.targets.entryPointProblemsAt(projectId, commit, target.key);
-      if (problems.length > 0) throw new TestInstanceRefused(problems);
+      if (!(await this.checkedOut(instance, branch, target, held))) return;
       const install = await this.targets.installSettingsOf(projectId);
       const { hostPort } = await this.hostedServices.start(
         {
@@ -358,6 +415,112 @@ export class TestInstances implements OnModuleInit {
     }
   }
 
+  /**
+   * The checkout, the entry point's check and the build, then its output files kept: Built, or
+   * Failed with why. A build stopped meanwhile leaves the row as the stop wrote it.
+   */
+  private async runBuild(
+    instance: TestInstance,
+    branch: string,
+    target: TargetLaunch,
+    held: Held,
+  ): Promise<void> {
+    const { id } = instance;
+    const signal = held.building.signal;
+    const checkout = this.files.checkoutOf(id);
+    try {
+      if (!(await this.checkedOut(instance, branch, target, held))) return;
+      const end = await this.buildIn(instance, target, held);
+      if (signal.aborted) {
+        await this.targets.removeCheckout(checkout);
+        return;
+      }
+      const failure = buildFailureOf(end);
+      if (failure !== undefined) {
+        await this.fail(id, failure);
+        return;
+      }
+      const kept = await keepOutputs(checkout, target.outputPatterns, this.files.buildFilesOf(id));
+      if ("problem" in kept) {
+        await this.fail(id, kept.problem);
+        return;
+      }
+      const change = await this.repository.update(id, (row) =>
+        built(row, kept.files, this.schedule.now()),
+      );
+      if (!change?.event) {
+        // Stopped while its files were copied: they go with it.
+        await this.files.removeBuildFiles(id);
+        return;
+      }
+      await this.files.note(
+        id,
+        `Built: ${kept.files.map(({ name }) => name).join(", ")}.`,
+        held.mask,
+      );
+      await this.ended(change.instance, change.event);
+      await this.retention.keepNewest(instance);
+    } catch (error) {
+      if (signal.aborted) {
+        await this.files.removeBuildFiles(id);
+        return;
+      }
+      await this.fail(id, reasonOf(error));
+    }
+  }
+
+  /**
+   * Runs the build: in the Project's run environment when it is On, through `HostedServices`,
+   * otherwise on the workstation the way checks run there; only the target's own variables.
+   */
+  private async buildIn(
+    instance: TestInstance,
+    target: TargetLaunch,
+    held: Held,
+  ): Promise<BuildEnd> {
+    const { id, projectId } = instance;
+    const { entryPoint } = target;
+    if (entryPoint.kind === "devcontainer-service") {
+      throw new TestInstanceRefused([DEVCONTAINER_SERVICE_BUILDS_NOTHING]);
+    }
+    const checkout = this.files.checkoutOf(id);
+    const logFile = this.files.logOf(id);
+    const signal = held.building.signal;
+    if (target.runEnvironmentOn) {
+      const install = await this.targets.installSettingsOf(projectId);
+      return this.hostedServices.build({
+        instanceId: id,
+        projectId,
+        checkout,
+        entryPoint,
+        variables: target.variables.map(({ name, value }) => ({ name, value })),
+        installCommand: install.installCommand,
+        installInputs: install.installInputs,
+        installVariables: install.installVariables,
+        logFile,
+        mask: held.mask,
+        signal,
+        timeoutMs: BUILD_TIMEOUT_MS,
+      });
+    }
+    const command = workstationBuildCommandOf(entryPoint);
+    if ("problem" in command) throw new TestInstanceRefused([command.problem]);
+    await this.files.note(
+      id,
+      `Running ${command.commandLine} in ${command.folder} on the workstation.`,
+      held.mask,
+    );
+    return this.targets.runBuild({
+      checkout,
+      folder: command.folder,
+      commandLine: command.commandLine,
+      variables: target.variables,
+      logFile,
+      timeoutMs: BUILD_TIMEOUT_MS,
+      signal,
+    });
+  }
+
   /** Building or Running → Failed, saying why in its log too, and what it holds removed. */
   private async fail(id: string, reason: string): Promise<void> {
     const change = await this.repository.update(id, (kept) =>
@@ -375,9 +538,12 @@ export class TestInstances implements OnModuleInit {
     this.held.delete(instance.id);
     this.running.remove(instance.id);
     await this.events.publish(event);
-    await this.hostedServices.stop(instance.id).catch((error: unknown) => {
-      this.logger.warn(`The Test instance ${instance.id} wasn't removed.`, error);
-    });
+    // A build's compose project goes as its build ends, which a stop's abort ends.
+    if (instance.kind === "hosted") {
+      await this.hostedServices.stop(instance.id).catch((error: unknown) => {
+        this.logger.warn(`The Test instance ${instance.id} wasn't removed.`, error);
+      });
+    }
     await this.targets.removeCheckout(this.files.checkoutOf(instance.id));
   }
 

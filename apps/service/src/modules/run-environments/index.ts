@@ -8,6 +8,8 @@ export {
   HostedServices,
   type HostedService,
   type HostedServiceStart,
+  type TestBuildEnd,
+  type TestBuildStart,
 } from "./application/hosted-services.js";
 export type { HostedServiceReadinessOptions } from "./application/hosted-service-readiness.js";
 export { RunEnvironmentDefinitions } from "./application/run-environment-definitions.js";
@@ -23,6 +25,7 @@ export {
 } from "./domain/run-environment-events.js";
 export { RunEnvironmentRefused } from "./domain/run-environment-refused.js";
 export type {
+  CommandEntryPoint,
   CommandEnvironment,
   HostedEntryPoint,
   InstallVariable,

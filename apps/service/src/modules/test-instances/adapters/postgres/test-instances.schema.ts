@@ -42,6 +42,10 @@ export const testInstances = pgTable(
     launchedAt: timestamp("launched_at", { withTimezone: true }).notNull(),
     runningAt: timestamp("running_at", { withTimezone: true }),
     endedAt: timestamp("ended_at", { withTimezone: true }),
+    /** A Built instance's files by name, in `<office-data>/test-builds/<id>/`; empty otherwise. */
+    files: jsonb("files").$type<readonly { name: string; size: number }[]>().notNull().default([]),
+    /** When a Built instance's files were removed; null while they are kept. */
+    filesRemovedAt: timestamp("files_removed_at", { withTimezone: true }),
   },
   (table) => [
     index("test_instances_initiative").on(table.initiativeId, table.launchedAt),

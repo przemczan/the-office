@@ -1,12 +1,15 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
+  API_PATH,
   healthReportSchema,
+  testBuildFileLinkSchema,
   initiativeTestInstancesSchema,
   testInstanceLogSchema,
   testInstanceOpeningSchema,
   testInstanceSchema,
   testInstanceSettingsSchema,
   testInstanceWebEventSchema,
+  type TestBuildFileLink,
   type TestInstance,
   type TestInstanceLaunch,
   type TestInstanceLog,
@@ -75,6 +78,24 @@ export function stopTestInstance(instanceId: string): Promise<TestInstance> {
 /** The single-use hand-off link to a Running instance's own address. */
 export function openTestInstance(instanceId: string): Promise<TestInstanceOpening> {
   return sendToApi("POST", `/test-instances/${instanceId}/open`, {}, testInstanceOpeningSchema);
+}
+
+/** Where a Built instance's file downloads from, behind sign-in: a Download link's href. */
+export function testBuildFileAddress(instanceId: string, name: string): string {
+  return `${API_PATH}/test-instances/${instanceId}/files/${encodeURIComponent(name)}`;
+}
+
+/**
+ * A link a phone opens without sign-in, for this one file and an hour, at the address the page was
+ * opened at; or, opened at localhost, that it needs The Office's LAN address instead.
+ */
+export function linkTestBuildFile(instanceId: string, name: string): Promise<TestBuildFileLink> {
+  return sendToApi(
+    "POST",
+    `/test-instances/${instanceId}/files/${encodeURIComponent(name)}/link`,
+    {},
+    testBuildFileLinkSchema,
+  );
 }
 
 /** The masked log from byte `from` on, with the offset to read on from and the instance's state. */

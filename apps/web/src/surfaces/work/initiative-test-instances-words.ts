@@ -52,11 +52,38 @@ export function isActive(state: TestInstanceState): boolean {
   return ACTIVE_TEST_INSTANCE_STATES.includes(state);
 }
 
-/** The targets the block lists: Hosted alone, Build to install comes with its own Task. */
+/** The targets the block lists: every kind built now, Hosted and Build to install. */
 export function shownTargetsOf(
   project: InitiativeTestInstancesProject,
 ): readonly InitiativeTestTarget[] {
-  return project.targets.filter(({ kind }) => kind === "hosted");
+  return project.targets;
+}
+
+/** Only a Hosted target needs the Project's Run environment On; a build runs on the workstation. */
+export function needsRunEnvironment(target: InitiativeTestTarget): boolean {
+  return target.kind === "hosted";
+}
+
+/** A Built instance's files, once a newer build or its Initiative's end removed them. */
+export const FILES_REMOVED = "Files removed";
+
+/** Under a Done or Dropped Initiative's Built files, until they go. */
+export const FILES_REMOVED_LATER = "Removed 7 days after the Initiative ended.";
+
+/** The QR code window's title. */
+export function qrTitle(fileName: string): string {
+  return `Install ${fileName} on a phone`;
+}
+
+/** Under the QR code: what the link opens, and for how long. */
+export const QR_LINK_WORKS = "Works for this file only, for 1 hour.";
+
+/** At localhost, in place of the QR code. */
+export const QR_NEEDS_LAN_ADDRESS =
+  "A phone can't reach localhost. Open The Office at its LAN address to make a QR code that works there.";
+
+export function qrRefusedTitle(fileName: string): string {
+  return `The QR code for ${fileName} can't be made`;
 }
 
 function shownInstancesOf(

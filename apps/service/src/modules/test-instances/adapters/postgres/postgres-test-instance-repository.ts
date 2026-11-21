@@ -1,12 +1,12 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import {
   ACTIVE_STATES,
   type TestInstance,
   type TestInstanceChange,
 } from "../../domain/test-instance.js";
-import { TestInstanceRepository } from "../../ports/test-instance-repository.js";
+import { TestInstanceRepository, type BuildsOf } from "../../ports/test-instance-repository.js";
 import { testInstances } from "./test-instances.schema.js";
 
 type Row = typeof testInstances.$inferSelect;
@@ -41,6 +41,27 @@ export class PostgresTestInstanceRepository extends TestInstanceRepository {
       .from(testInstances)
       .where(inArray(testInstances.state, [...ACTIVE_STATES]))
       .orderBy(testInstances.launchedAt);
+    return rows.map(instanceOf);
+  }
+
+  async builtWithFiles(of?: BuildsOf): Promise<readonly TestInstance[]> {
+    const rows = await this.database
+      .select()
+      .from(testInstances)
+      .where(
+        and(
+          eq(testInstances.state, "built"),
+          isNull(testInstances.filesRemovedAt),
+          ...(of === undefined
+            ? []
+            : [
+                eq(testInstances.initiativeId, of.initiativeId),
+                eq(testInstances.projectId, of.projectId),
+                eq(testInstances.targetKey, of.targetKey),
+              ]),
+        ),
+      )
+      .orderBy(desc(testInstances.launchedAt), desc(testInstances.id));
     return rows.map(instanceOf);
   }
 
@@ -82,6 +103,8 @@ function rowOf(instance: TestInstance): Row {
     launchedAt: instance.launchedAt,
     runningAt: instance.runningAt ?? null,
     endedAt: instance.endedAt ?? null,
+    files: instance.files,
+    filesRemovedAt: instance.filesRemovedAt ?? null,
   };
 }
 
@@ -101,5 +124,7 @@ function instanceOf(row: Row): TestInstance {
     launchedAt: row.launchedAt,
     runningAt: row.runningAt ?? undefined,
     endedAt: row.endedAt ?? undefined,
+    files: row.files,
+    filesRemovedAt: row.filesRemovedAt ?? undefined,
   };
 }

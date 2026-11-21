@@ -17,6 +17,11 @@ export class TestInstanceNotFound extends Error {
     return new TestInstanceNotFound(`There is no Test instance "${id}".`);
   }
 
+  /** Not one of a Built instance's files, or its files were removed. */
+  static file(id: string): TestInstanceNotFound {
+    return new TestInstanceNotFound(`The Test instance "${id}" has no such file to download.`);
+  }
+
   static initiative(id: string): TestInstanceNotFound {
     return new TestInstanceNotFound(`There is no Initiative "${id}".`);
   }

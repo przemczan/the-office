@@ -145,6 +145,14 @@ export class ScriptedContainerRuntime extends ContainerRuntime {
     return Promise.resolve();
   }
 
+  createVolume(name: string, labels: Labels): Promise<void> {
+    this.steps.push(`volume ${name}`);
+    if (!this.resources.some((resource) => resource.kind === "volume" && resource.id === name)) {
+      this.resources.push({ kind: "volume", id: name, labels });
+    }
+    return Promise.resolve();
+  }
+
   listByLabel(labels: Labels): Promise<readonly LabelledResource[]> {
     return Promise.resolve(this.resources.filter((resource) => carries(resource.labels, labels)));
   }

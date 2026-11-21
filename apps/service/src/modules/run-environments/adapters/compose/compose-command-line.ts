@@ -211,6 +211,19 @@ export class ComposeCommandLine extends ContainerRuntime {
     });
   }
 
+  async createVolume(name: string, labels: Labels): Promise<void> {
+    // `volume create` answers an existing volume's name as it is, so a second build reuses it.
+    await this.required(`The volume ${name} couldn't be made`, {
+      arguments: [
+        "volume",
+        "create",
+        ...Object.entries(labels).flatMap(([label, value]) => ["--label", `${label}=${value}`]),
+        name,
+      ],
+      timeoutMs: SHORT_TIMEOUT_MS,
+    });
+  }
+
   async listByLabel(labels: Labels): Promise<readonly LabelledResource[]> {
     const lists = await Promise.all(
       (["container", "network", "volume"] as const).map((kind) => this.listed(kind, labels)),

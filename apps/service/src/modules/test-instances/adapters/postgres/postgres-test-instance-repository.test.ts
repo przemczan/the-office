@@ -3,7 +3,9 @@ import type { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import {
+  built,
   failed,
+  filesRemoved,
   launchedInstance,
   startedRunning,
   stopped,
@@ -34,6 +36,7 @@ function anInstance(initiativeId: string, port: number, at: Date): TestInstance 
     projectId: "shop",
     targetKey: "web",
     targetName: "Web app",
+    kind: "hosted",
     port,
     launchedBy: { kind: "user", user: { userId: "user-ann", name: "Ann Lee" } },
     at,
@@ -77,11 +80,71 @@ describe("PostgresTestInstanceRepository", () => {
       endedAt: new Date("2003-01-01T11:02:00Z"),
     });
 
-    await repository.update(older.id, (kept) => stopped(kept, new Date("2003-01-01T12:00:00Z")));
-    expect(await repository.update(older.id, (kept) => stopped(kept, new Date()))).toBeUndefined();
+    await repository.update(older.id, (kept) =>
+      stopped(kept, "Stopped by you.", new Date("2003-01-01T12:00:00Z")),
+    );
     expect(
-      await repository.update(randomUUID(), (kept) => stopped(kept, new Date())),
+      await repository.update(older.id, (kept) => stopped(kept, "Stopped by you.", new Date())),
     ).toBeUndefined();
+    expect(
+      await repository.update(randomUUID(), (kept) => stopped(kept, "Stopped by you.", new Date())),
+    ).toBeUndefined();
+  });
+
+  const BUILT_FILES = [
+    { name: "app.apk", size: 4404019 },
+    { name: "app-2.apk", size: 0 },
+  ];
+  it("keeps a Built instance's files, and lists the builds with files kept, newest first", async () => {
+    const initiativeId = randomUUID();
+    const aBuild = (targetKey: string, at: string): TestInstance =>
+      launchedInstance({
+        id: randomUUID(),
+        initiativeId,
+        projectId: "shop",
+        targetKey,
+        targetName: "Android app",
+        kind: "build-to-install",
+        launchedBy: { kind: "user", user: { userId: "user-ann", name: "Ann Lee" } },
+        at: new Date(at),
+      });
+    const older = aBuild("android", "2003-02-01T10:00:00Z");
+    const newer = aBuild("android", "2003-02-01T11:00:00Z");
+    const removed = aBuild("android", "2003-02-01T12:00:00Z");
+    const otherTarget = aBuild("wear", "2003-02-01T13:00:00Z");
+    const building = aBuild("android", "2003-02-01T14:00:00Z");
+    for (const build of [older, newer, removed, otherTarget, building]) {
+      await repository.add(build);
+      expect(build.port).toBeUndefined();
+    }
+    for (const build of [older, newer, removed, otherTarget]) {
+      await repository.update(build.id, (kept) =>
+        built(kept, BUILT_FILES, new Date("2003-02-02T10:00:00Z")),
+      );
+    }
+    await repository.update(removed.id, (kept) =>
+      filesRemoved(kept, new Date("2003-02-03T10:00:00Z")),
+    );
+
+    expect(await repository.find(newer.id)).toMatchObject({
+      state: "built",
+      files: BUILT_FILES,
+      filesRemovedAt: undefined,
+    });
+    expect(await repository.find(removed.id)).toMatchObject({
+      files: BUILT_FILES,
+      filesRemovedAt: new Date("2003-02-03T10:00:00Z"),
+    });
+    const target = { initiativeId, projectId: "shop", targetKey: "android" };
+    expect((await repository.builtWithFiles(target)).map(({ id }) => id)).toEqual([
+      newer.id,
+      older.id,
+    ]);
+    const everywhere = (await repository.builtWithFiles()).filter(
+      (each) => each.initiativeId === initiativeId,
+    );
+    expect(everywhere.map(({ id }) => id)).toEqual([otherTarget.id, newer.id, older.id]);
+    expect((await repository.active()).map(({ id }) => id)).toContain(building.id);
   });
 
   it("refuses two active instances on one Proxy port", async () => {
@@ -92,7 +155,7 @@ describe("PostgresTestInstanceRepository", () => {
     await expect(
       repository.add(anInstance(initiativeId, 61_010, new Date())),
     ).rejects.toMatchObject({ cause: { constraint: "test_instances_active_port" } });
-    await repository.update(first.id, (kept) => stopped(kept, new Date()));
+    await repository.update(first.id, (kept) => stopped(kept, "Stopped by you.", new Date()));
     await repository.add(anInstance(initiativeId, 61_010, new Date()));
   });
 });

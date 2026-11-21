@@ -1,18 +1,4 @@
-/** A test target's entry point, one of the repository's own (spec §2.12, "Entry points only"). */
-export type TargetEntryPoint =
-  | {
-      readonly kind: "repository-file";
-      readonly path: string;
-      readonly arguments: readonly string[];
-    }
-  | {
-      readonly kind: "package-script";
-      readonly manifest: string;
-      readonly script: string;
-      readonly arguments: readonly string[];
-    }
-  | { readonly kind: "gradle-task"; readonly task: string; readonly arguments: readonly string[] }
-  | { readonly kind: "devcontainer-service"; readonly service: string };
+import type { TargetEntryPoint } from "../domain/entry-point.js";
 
 /** A Project's test target as the Initiative's page lists it. */
 export interface ListedTarget {
@@ -29,6 +15,38 @@ export interface InstanceMask {
   chunks(): { next(chunk: Uint8Array): Uint8Array; end(): Uint8Array };
 }
 
+/** One of the target's own variables. */
+export interface TargetVariable {
+  readonly name: string;
+  readonly value: string;
+  readonly secret: boolean;
+}
+
+/** A Build to install build on the workstation, its Run environment Off. */
+export interface WorkstationBuild {
+  /** The instance's checkout, one directly inside `<office-data>/test-instances/`. */
+  readonly checkout: string;
+  /** The folder it runs in, relative to the checkout. */
+  readonly folder: string;
+  /** A POSIX shell command line, every word quoted. */
+  readonly commandLine: string;
+  /** The target's own variables, the only ones it gets beside the service's own. */
+  readonly variables: readonly TargetVariable[];
+  /** Its output is appended there, masked. */
+  readonly logFile: string;
+  readonly timeoutMs: number;
+  readonly signal: AbortSignal;
+}
+
+/**
+ * How a workstation build ended: its exit code only when it exited by itself; `endedBy` when it
+ * didn't, or couldn't run at all.
+ */
+export interface WorkstationBuildEnd {
+  readonly exitCode: number | undefined;
+  readonly endedBy: "timeout" | "stop" | "could-not-run" | undefined;
+}
+
 /** What launching a target needs, its Secret variables' values among them. */
 export interface TargetLaunch {
   readonly key: string;
@@ -38,8 +56,10 @@ export interface TargetLaunch {
   /** A Hosted target's port inside its container; undefined for other kinds. */
   readonly containerPort: number | undefined;
   readonly runEnvironmentOn: boolean;
+  /** A Build to install target's output file patterns, from the repository's root; else empty. */
+  readonly outputPatterns: readonly string[];
   /** The target's own variables, plain and secret with a value; never the Project's. */
-  readonly variables: readonly { readonly name: string; readonly value: string }[];
+  readonly variables: readonly TargetVariable[];
   readonly secretsWithoutValue: readonly string[];
   readonly mask: InstanceMask;
 }
@@ -85,4 +105,7 @@ export abstract class ProjectTestTargets {
   abstract removeCheckout(folder: string): Promise<void>;
 
   abstract installSettingsOf(projectId: string): Promise<InstallSettings>;
+
+  /** Runs a build in its checkout on the workstation, the way checks run there. */
+  abstract runBuild(build: WorkstationBuild): Promise<WorkstationBuildEnd>;
 }

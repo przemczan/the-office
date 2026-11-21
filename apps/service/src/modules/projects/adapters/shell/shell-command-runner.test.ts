@@ -71,4 +71,20 @@ setTimeout(() => process.stdout.write(process.env.NPM_TOKEN.slice(5) + " done\\n
     expect(ran.wholeOutput).toBe("token: [secret NPM_TOKEN] done");
     expect(await readFile(outputFile, "utf8")).toBe("token: [secret NPM_TOKEN] done\n");
   });
+
+  it("appends to its file when asked, keeping what the file held", async () => {
+    const outputFile = join(folder, "appended.log");
+    await writeFile(outputFile, "[The Office] Building.\n");
+
+    await runner.run({
+      commandLine: `node -e "console.log('built')"`,
+      folder,
+      environment: UNCHANGED_ENVIRONMENT,
+      timeoutMs: 20_000,
+      outputFile,
+      appendOutput: true,
+    });
+
+    expect(await readFile(outputFile, "utf8")).toBe("[The Office] Building.\nbuilt\n");
+  });
 });

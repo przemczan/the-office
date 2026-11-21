@@ -1,7 +1,9 @@
 import { rm } from "node:fs/promises";
-import { dirname, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { Injectable } from "@nestjs/common";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
+import type { CommandOutcome } from "../domain/command-run.js";
+import type { ProjectVariable } from "../domain/project-environment.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import type { Project } from "../domain/project.js";
@@ -13,6 +15,32 @@ import { TaskBases } from "./task-bases.js";
 import { runEnvironmentInstallOf, type RunEnvironmentInstall } from "./task-run-environments.js";
 
 const REMOVE_RETRIES = 5;
+
+/**
+ * A Build to install test instance's build on the workstation, with the Project's Run environment
+ * Off (spec §2.12, "Build to install"), the way checks run there.
+ */
+export interface WorkstationBuild {
+  /** The instance's checkout, one directly inside `<office-data>/test-instances/`. */
+  readonly checkout: string;
+  /** The folder it runs in, relative to the checkout: a package script's manifest's. */
+  readonly folder: string;
+  /** A POSIX shell command line, every word quoted. */
+  readonly commandLine: string;
+  /** The target's own variables, the only ones it gets beside the service's own. */
+  readonly variables: readonly ProjectVariable[];
+  /** Its output is appended there as it comes, the target's Secret variables masked. */
+  readonly logFile: string;
+  readonly timeoutMs: number;
+  readonly signal?: AbortSignal;
+}
+
+/** How a build ended. */
+export interface WorkstationBuildEnd {
+  readonly outcome: CommandOutcome;
+  /** Undefined when it never exited by itself. */
+  readonly exitCode: number | undefined;
+}
 
 /**
  * A test instance's own checkout of an Initiative's branch in a Project (spec §5.5, "A test
@@ -73,6 +101,31 @@ export class TestInstanceCheckouts {
       (await this.git.findCommit(project.path, `refs/remotes/${upstream.remote}/${branch}`));
     if (local === undefined || fetched === undefined) return local ?? fetched;
     return (await this.git.contains(project.path, fetched, local)) ? fetched : local;
+  }
+
+  /**
+   * Runs a build in a test instance's checkout on the workstation: in the Bash Agents have, so its
+   * POSIX quoting holds on Windows too, with the service's variables less The Office's and the
+   * target's over them; never the Project's environment, whose Secret variables it must not see.
+   */
+  async runBuild(build: WorkstationBuild): Promise<WorkstationBuildEnd> {
+    this.ensureTestInstanceFolder(build.checkout);
+    const folder = join(build.checkout, build.folder);
+    const fromCheckout = relative(build.checkout, folder);
+    if (fromCheckout === ".." || fromCheckout.startsWith(`..${sep}`) || isAbsolute(fromCheckout)) {
+      throw new ProjectRefused([`The folder ${build.folder} isn't in the checkout.`]);
+    }
+    const { outcome, exitCode } = await this.commands.run({
+      commandLine: build.commandLine,
+      folder,
+      environment: { set: build.variables, unset: [], prependPath: [] },
+      timeoutMs: build.timeoutMs,
+      signal: build.signal,
+      outputFile: build.logFile,
+      appendOutput: true,
+      inAgentBash: true,
+    });
+    return { outcome, exitCode };
   }
 
   /** Removes a test instance's checkout, best effort: one already gone is no failure. */

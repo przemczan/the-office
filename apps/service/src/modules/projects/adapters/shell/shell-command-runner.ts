@@ -46,7 +46,9 @@ export class ShellCommandRunner extends CommandRunner {
     const startedAt = performance.now();
     const output = new OutputEnd(OUTPUT_LIMIT_BYTES);
     const file =
-      command.outputFile === undefined ? undefined : await outputFile(command.outputFile);
+      command.outputFile === undefined
+        ? undefined
+        : await outputFile(command.outputFile, command.appendOutput === true);
     // Masked before the output's end is cut, so a cut can't fall inside a Secret variable's value
     // and leave the rest of it showing.
     const masked = (command.mask ?? OutputMask.NONE).chunks();
@@ -151,10 +153,10 @@ interface OutputFile {
   close(): Promise<void>;
 }
 
-/** Opens `path` for a command's output, made or replaced, its folder made if missing. */
-async function outputFile(path: string): Promise<OutputFile> {
+/** Opens `path` for a command's output, made, replaced or appended to, its folder made if missing. */
+async function outputFile(path: string, append: boolean): Promise<OutputFile> {
   await mkdir(dirname(path), { recursive: true });
-  const stream = createWriteStream(path);
+  const stream = createWriteStream(path, { flags: append ? "a" : "w" });
   await once(stream, "open");
   // A file that can't take more, such as on a full disk, ends short: the run goes on, its output's
   // end kept in memory as always.

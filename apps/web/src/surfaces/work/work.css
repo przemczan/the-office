@@ -4558,6 +4558,88 @@ button.initiative-track-body:hover .stage-mark {
   color: var(--danger-fg);
 }
 
+.test-instances-files-removed {
+  font-style: italic;
+}
+
+/* A Built instance's files under its row, each with Download and its QR code. */
+.test-instances-files {
+  padding: 0 12px 10px 30px;
+}
+
+.test-instances-files ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-left: 2px solid var(--border-subtle);
+}
+
+.test-instances-file {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 4px 0 4px 12px;
+  color: var(--fg-3);
+}
+
+.test-instances-file-name {
+  min-width: 0;
+  font: 500 var(--text-xs) / 1.4 var(--font-mono);
+  color: var(--fg-1);
+  overflow-wrap: anywhere;
+}
+
+.test-instances-file-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+/* The secondary Button's small size, as the row's Buttons are. */
+.link-button.test-instances-file-download {
+  height: 28px;
+  padding: 0 10px;
+}
+
+.test-instances-files-note {
+  margin: 6px 0 0;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+/* The QR code window: the code, what it opens for how long, then the link to copy. */
+.test-build-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.test-build-qr-code {
+  border-radius: var(--radius-sm);
+}
+
+.test-build-qr-words {
+  margin: 0;
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+}
+
+.test-build-qr-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.test-build-qr-link code {
+  min-width: 0;
+  font: 400 var(--text-xs) / 1.4 var(--font-mono);
+  color: var(--fg-2);
+  overflow-wrap: anywhere;
+}
+
 /* One line, even on a phone: the row wraps the actions under the name as a whole instead. */
 .test-instances-actions {
   display: flex;

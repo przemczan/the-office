@@ -1,6 +1,6 @@
 import type { TestInstance, TestInstanceChange } from "../domain/test-instance.js";
 import { ACTIVE_STATES } from "../domain/test-instance.js";
-import { TestInstanceRepository } from "./test-instance-repository.js";
+import { TestInstanceRepository, type BuildsOf } from "./test-instance-repository.js";
 
 /**
  * The rows in memory, so a test's limit, ports and sweep weigh its own instances alone: every test
@@ -30,6 +30,23 @@ export class TestInstanceRepositoryForTests extends TestInstanceRepository {
   active(): Promise<readonly TestInstance[]> {
     return Promise.resolve(
       [...this.rows.values()].filter(({ state }) => ACTIVE_STATES.includes(state)),
+    );
+  }
+
+  builtWithFiles(of?: BuildsOf): Promise<readonly TestInstance[]> {
+    return Promise.resolve(
+      [...this.rows.values()]
+        .filter(
+          (instance) =>
+            instance.state === "built" &&
+            instance.filesRemovedAt === undefined &&
+            (of === undefined ||
+              (instance.initiativeId === of.initiativeId &&
+                instance.projectId === of.projectId &&
+                instance.targetKey === of.targetKey)),
+        )
+        .toReversed()
+        .toSorted((one, other) => other.launchedAt.getTime() - one.launchedAt.getTime()),
     );
   }
 

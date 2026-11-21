@@ -122,8 +122,16 @@ describe("/api/initiatives/:id/test-instances", () => {
           expect.objectContaining({
             key: "web",
             kind: "hosted",
-            instances: [expect.objectContaining({ id: instance.id, state: "running" })],
+            instances: [
+              expect.objectContaining({
+                id: instance.id,
+                state: "running",
+                files: [],
+                filesRemoved: false,
+              }),
+            ],
           }),
+          expect.objectContaining({ key: "android", kind: "build-to-install", instances: [] }),
         ],
       },
     ]);

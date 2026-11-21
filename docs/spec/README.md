@@ -205,7 +205,9 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **propose_test_targets, Set up test targets**: [2.12 Writing test targets](2.12-test-instances.md#writing-test-targets); [2.12 Set up test targets](2.12-test-instances.md#set-up-test-targets); [2.3.5 Built-ins](2.3.5-library.md#built-ins)
 - **Test instance, Building, Running, Stopped, Built, Failed**: [2.12 Test instance](2.12-test-instances.md#test-instance); [2.12 Test instance states](2.12-test-instances.md#test-instance-states); [2.1.4 Test instances of an Initiative](2.1.4-initiatives.md#test-instances-of-an-initiative); screen: [Initiative page › Test instances](screens/initiative-page.md#test-instances)
 - **Test instance proxy, hand-off link, Proxy ports**: [2.12 Reaching a Hosted instance](2.12-test-instances.md#reaching-a-hosted-instance); [5.1 The test instance proxy](5.1-shape.md#the-test-instance-proxy); [2.10 Signing in to a test instance](2.10-users-and-signing-in.md#signing-in-to-a-test-instance)
-- **Build to install files, QR code link**: [2.12 Build to install](2.12-test-instances.md#build-to-install); [2.12 Kept Build to install files](2.12-test-instances.md#kept-build-to-install-files); [5.5 The build cache volume](5.5-git-and-isolation.md#the-build-cache-volume)
+- **Build to install files, QR code link, build time**: [2.12 Build to install](2.12-test-instances.md#build-to-install); [2.12 Kept Build to install files](2.12-test-instances.md#kept-build-to-install-files); [2.12 Build time](2.12-test-instances.md#build-time); [5.5 The build cache volume](5.5-git-and-isolation.md#the-build-cache-volume)
+- **Build cache volume**: [5.5 The build cache volume](5.5-git-and-isolation.md#the-build-cache-volume)
+- **Build to install QR link**: [2.12 Build to install](2.12-test-instances.md#build-to-install); [2.10 What every request needs](2.10-users-and-signing-in.md#what-every-request-needs)
 - **Test instances at once, Idle time**: [2.12 Test instances at once](2.12-test-instances.md#test-instances-at-once); [2.12 Idle time](2.12-test-instances.md#idle-time); screen: [Settings › Office limits](screens/settings.md#office-limits)
 - **Test instance safety, OFFICE_TEST_INSTANCE, Test instance banner**: [6 Test instances](6-permissions-and-safety.md#test-instances); [2.12 Safety](2.12-test-instances.md#safety); screen: [The shell › Test instance banner](screens/shell.md#test-instance-banner)
 - **Task**: [2.1.3 Task](2.1.3-tasks.md#task); screen: [Task page](screens/task-page.md#task-page)
@@ -532,6 +534,7 @@ Where each default lives, by page:
   - [Test instances at once](2.12-test-instances.md#test-instances-at-once)
   - [Idle time](2.12-test-instances.md#idle-time)
   - [Proxy ports](2.12-test-instances.md#proxy-ports)
+  - [Build time](2.12-test-instances.md#build-time)
   - [Kept Build to install files](2.12-test-instances.md#kept-build-to-install-files)
   - [Implementation notes](2.12-test-instances.md#implementation-notes)
 - 4 UX direction

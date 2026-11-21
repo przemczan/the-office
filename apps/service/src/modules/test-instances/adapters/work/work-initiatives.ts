@@ -11,11 +11,12 @@ export class WorkInitiatives extends Initiatives {
 
   async find(id: string): Promise<InitiativeForTestInstances | undefined> {
     try {
-      const { name, state, shortName, branches } = await this.initiatives.read(id);
+      const { name, state, endedAt, shortName, branches } = await this.initiatives.read(id);
       return {
         id,
         name,
         state,
+        endedAt: state === "done" || state === "dropped" ? endedAt : undefined,
         branches:
           shortName === undefined
             ? []

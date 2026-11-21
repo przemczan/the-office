@@ -9,6 +9,11 @@ import {
 } from "../domain/run-environment-definition.js";
 import { RunEnvironmentRefused } from "../domain/run-environment-refused.js";
 import {
+  BUILD_CACHE_FOLDERS,
+  BUILD_CACHE_OWNERSHIP_SCRIPT,
+  buildCacheLabels,
+  buildCacheVolumeOf,
+  buildOverrideOf,
   carrierOf,
   entryPointCommandOf,
   entryPointScript,
@@ -17,6 +22,7 @@ import {
   LABEL,
   officeLabels,
   testInstanceLabels,
+  type CommandEntryPoint,
   type EntryPointCommand,
   type HostedEntryPoint,
   type InstallVariable,
@@ -58,6 +64,22 @@ export interface HostedServiceStart {
   readonly signal?: AbortSignal;
 }
 
+/**
+ * What a Build to install Test instance is built from (spec §2.12, "Build to install"): as a Hosted
+ * one's start, with an entry point The Office runs as a command and no port.
+ */
+export interface TestBuildStart extends Omit<HostedServiceStart, "entryPoint" | "containerPort"> {
+  readonly entryPoint: CommandEntryPoint;
+  /** How long the build may take before it is ended. */
+  readonly timeoutMs: number;
+}
+
+/** How a build ended: its exit code only when it ended by itself. */
+export interface TestBuildEnd {
+  readonly exitCode: number | undefined;
+  readonly endedBy?: "timeout" | "stop";
+}
+
 /** A Hosted Test instance's app, started and answering. */
 export interface HostedService {
   /** The port on 127.0.0.1 the runtime published for the app's container port. */
@@ -66,6 +88,9 @@ export interface HostedService {
 
 /** The longest a timer runs: an entry point runs until the instance stops. */
 const ENTRY_POINT_TIMEOUT_MS = 2 ** 31 - 1;
+
+/** How long giving the build cache's folders to the build's user may take. */
+const BUILD_CACHE_OWNERSHIP_TIMEOUT_MS = 60_000;
 
 /** The name of the compose file The Office puts over the checkout's. */
 const OVERRIDE_FILE = "office-override.yaml";
@@ -76,7 +101,8 @@ const INSTANCE_ID = /^[A-Za-z0-9][A-Za-z0-9-]*$/;
 /**
  * Hosted Test instances, each its own compose project (spec §5.5, "A test instance's checkout"):
  * made from the checkout's own definition on the Project's image, the target's port alone
- * published on 127.0.0.1, removed with its volumes when it stops. The Test instances module's one
+ * published on 127.0.0.1, removed with its volumes when it stops; and Build to install ones, built
+ * in a compose project of their own removed once the build ends. The Test instances module's one
  * way into the runtime. It takes no Run environments at once slot and isn't Office-updates' busy
  * work: Test instances at once limits it.
  */
@@ -135,6 +161,41 @@ export class HostedServices {
   }
 
   /**
+   * Builds a Build to install Test instance: the image, its own compose project over the checkout
+   * with the Project's build cache volume, the entry point run to its end in the devcontainer's
+   * service, its output appended to the log, masked; then the compose project is removed, however
+   * the build ended. Refuses with why, in the user's words, when it couldn't run.
+   */
+  async build(start: TestBuildStart): Promise<TestBuildEnd> {
+    if (!INSTANCE_ID.test(start.instanceId)) {
+      throw new RunEnvironmentRefused([`${start.instanceId} isn't a Test instance's id.`]);
+    }
+    if (this.running.has(start.instanceId)) {
+      throw new RunEnvironmentRefused([
+        `The Test instance ${start.instanceId} is already running.`,
+      ]);
+    }
+    const stopping = new AbortController();
+    this.running.set(start.instanceId, stopping);
+    const stopped = (): void => stopping.abort();
+    start.signal?.addEventListener("abort", stopped, { once: true });
+    try {
+      if (start.signal?.aborted) stopping.abort();
+      return await this.built(start, stopping.signal);
+    } catch (error) {
+      if (error instanceof ContainerRuntimeFailed) {
+        throw new RunEnvironmentRefused([error.message], start.logFile);
+      }
+      throw error;
+    } finally {
+      start.signal?.removeEventListener("abort", stopped);
+      await this.stop(start.instanceId).catch((stopError: unknown) => {
+        this.logger.warn(`The Test instance ${start.instanceId} wasn't cleaned up.`, stopError);
+      });
+    }
+  }
+
+  /**
    * Takes the instance's compose project down with its volumes, orphans and the images compose
    * built for it, then removes whatever still carries its label, and its files. Stopping one not
    * running, or stopped already, does the same and finds nothing.
@@ -171,14 +232,7 @@ export class HostedServices {
     stopping: AbortSignal,
     onEnded: (reason: string) => void,
   ): Promise<HostedService> {
-    const reading = await readDefinitionIn(start.checkout);
-    if (reading.value === undefined) {
-      throw new RunEnvironmentRefused(
-        ["The run environment definition on this branch isn't valid.", ...reading.problems],
-        start.logFile,
-      );
-    }
-    const definition = reading.value;
+    const definition = await this.definitionIn(start.checkout, start.logFile);
     const appService =
       start.entryPoint.kind === "devcontainer-service"
         ? start.entryPoint.service
@@ -186,18 +240,7 @@ export class HostedServices {
     const command = commandOf(start);
     refuseWhenStopped(stopping, start.logFile);
 
-    await note(start.logFile, "Building the run environment's image.");
-    const image = await this.refusing(
-      start.logFile,
-      "The run environment's image couldn't be built.",
-      () =>
-        this.images.imageFor(
-          { ...start, worktree: start.checkout },
-          definition,
-          start.logFile,
-          start.mask,
-        ),
-    );
+    const image = await this.imageOf(start, definition);
     refuseWhenStopped(stopping, start.logFile);
 
     const { limits } = await this.settings.read();
@@ -219,11 +262,13 @@ export class HostedServices {
     if (override.value === undefined) {
       throw new RunEnvironmentRefused(override.problems, start.logFile);
     }
-    const folder = this.folders.testInstanceFolder(start.instanceId);
-    await mkdir(folder, { recursive: true });
-    const overrideFile = join(folder, OVERRIDE_FILE);
-    await writeFile(overrideFile, stringifyYaml(override.value));
-    const project = projectOf(start, this.folders.instance, definition, appService, overrideFile);
+    const project = projectOf(
+      start,
+      this.folders.instance,
+      definition,
+      appService,
+      await this.overrideFileOf(start.instanceId, override.value),
+    );
 
     await note(start.logFile, `Starting ${project.name}.`);
     await this.refusing(start.logFile, "The run environment couldn't start.", () =>
@@ -246,6 +291,150 @@ export class HostedServices {
     });
     await note(start.logFile, `The app answers on port ${start.containerPort}.`);
     return { hostPort };
+  }
+
+  private async built(start: TestBuildStart, stopping: AbortSignal): Promise<TestBuildEnd> {
+    const definition = await this.definitionIn(start.checkout, start.logFile);
+    const command = entryPointCommandOf(start.entryPoint, start.checkout);
+    if ("problem" in command) throw new RunEnvironmentRefused([command.problem], start.logFile);
+    refuseWhenStopped(stopping, start.logFile);
+
+    const image = await this.imageOf(start, definition);
+    refuseWhenStopped(stopping, start.logFile);
+
+    const { limits } = await this.settings.read();
+    const override = buildOverrideOf(
+      definition,
+      {
+        testInstanceId: start.instanceId,
+        projectId: start.projectId,
+        checkout: start.checkout,
+        variableNames: start.variables.map(({ name }) => name),
+      },
+      image,
+      this.folders.instance,
+      limits,
+      this.hostCores.count,
+    );
+    if (override.value === undefined) {
+      throw new RunEnvironmentRefused(override.problems, start.logFile);
+    }
+    const project = projectOf(
+      start,
+      this.folders.instance,
+      definition,
+      definition.service,
+      await this.overrideFileOf(start.instanceId, override.value),
+    );
+    await this.refusing(start.logFile, "The build cache volume couldn't be made.", () =>
+      this.runtime.createVolume(
+        buildCacheVolumeOf(this.folders.instance, start.projectId),
+        buildCacheLabels(this.folders.instance, start.projectId),
+      ),
+    );
+
+    await note(start.logFile, `Starting ${project.name}.`);
+    await this.refusing(start.logFile, "The run environment couldn't start.", () =>
+      this.runtime.up(project, start.logFile, start.mask),
+    );
+    refuseWhenStopped(stopping, start.logFile);
+    if (definition.user !== undefined) {
+      await this.giveBuildCacheTo(definition.user, project, definition.service, start, stopping);
+      refuseWhenStopped(stopping, start.logFile);
+    }
+
+    await note(start.logFile, `Running ${command.command.argv.join(" ")}.`);
+    return this.runtime.exec(
+      project,
+      {
+        service: definition.service,
+        ...(definition.user === undefined ? {} : { user: definition.user }),
+        script: entryPointScript(command.command.folder),
+        arguments: command.command.argv,
+        variables: {},
+        mask: start.mask,
+        timeoutMs: start.timeoutMs,
+        signal: stopping,
+      },
+      start.logFile,
+    );
+  }
+
+  /** Makes the build cache's folders the build's user's, refusing the build when that fails. */
+  private async giveBuildCacheTo(
+    user: string,
+    project: ComposeProject,
+    service: string,
+    start: TestBuildStart,
+    stopping: AbortSignal,
+  ): Promise<void> {
+    const { exitCode } = await this.runtime.exec(
+      project,
+      {
+        service,
+        user: "root",
+        script: BUILD_CACHE_OWNERSHIP_SCRIPT,
+        arguments: [user, ...BUILD_CACHE_FOLDERS],
+        variables: {},
+        mask: start.mask,
+        timeoutMs: BUILD_CACHE_OWNERSHIP_TIMEOUT_MS,
+        signal: stopping,
+      },
+      start.logFile,
+    );
+    if (exitCode !== 0 && !stopping.aborted) {
+      throw new RunEnvironmentRefused(
+        [`The build cache volume couldn't be given to the user ${user}.`],
+        start.logFile,
+      );
+    }
+  }
+
+  private async definitionIn(checkout: string, logFile: string): Promise<RunEnvironmentDefinition> {
+    const reading = await readDefinitionIn(checkout);
+    if (reading.value === undefined) {
+      throw new RunEnvironmentRefused(
+        ["The run environment definition on this branch isn't valid.", ...reading.problems],
+        logFile,
+      );
+    }
+    return reading.value;
+  }
+
+  private async imageOf(
+    start: Pick<
+      HostedServiceStart,
+      | "projectId"
+      | "checkout"
+      | "installCommand"
+      | "installInputs"
+      | "installVariables"
+      | "logFile"
+      | "mask"
+    >,
+    definition: RunEnvironmentDefinition,
+  ): Promise<string> {
+    await note(start.logFile, "Building the run environment's image.");
+    return this.refusing(start.logFile, "The run environment's image couldn't be built.", () =>
+      this.images.imageFor(
+        { ...start, worktree: start.checkout },
+        definition,
+        start.logFile,
+        start.mask,
+      ),
+    );
+  }
+
+  /** Writes the instance's override into its own folder; answers the file. */
+  private async overrideFileOf(
+    instanceId: string,
+    override: Record<string, unknown>,
+  ): Promise<string> {
+    const folder = this.folders.testInstanceFolder(instanceId);
+    await mkdir(folder, { recursive: true });
+    const overrideFile = join(folder, OVERRIDE_FILE);
+    await writeFile(overrideFile, stringifyYaml(override));
+    return overrideFile;
   }
 
   /**
@@ -364,7 +553,7 @@ function commandOf(start: HostedServiceStart): EntryPointCommand | undefined {
  * the definition's services and the app's, the variables in the CLI's environment by carrier.
  */
 function projectOf(
-  start: HostedServiceStart,
+  start: Pick<HostedServiceStart, "instanceId" | "checkout" | "variables">,
   instance: string,
   definition: RunEnvironmentDefinition,
   appService: string,

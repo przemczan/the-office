@@ -147,6 +147,8 @@ export const LABEL = {
   project: "office.project",
   /** A Hosted Test instance's compose project, by the instance's id. */
   testInstance: "office.test-instance",
+  /** A Project's build cache volume, which Build to install Test instances share. */
+  buildCache: "office.build-cache",
 } as const;
 
 export type Labels = Readonly<Record<string, string>>;
@@ -219,7 +221,7 @@ function serviceLimitsOf(
 function networksAndVolumesOf(
   definition: RunEnvironmentDefinition,
   labels: Labels,
-): Record<string, unknown> {
+): { networks: Record<string, unknown>; volumes?: Record<string, unknown> } {
   return {
     networks: Object.fromEntries(
       ["default", ...definition.networks].map((network) => [network, { labels }]),
@@ -287,24 +289,12 @@ export function hostedOverrideOf(
   if (!Number.isInteger(run.containerPort) || run.containerPort < 1 || run.containerPort > 65_535) {
     problems.push(`The port ${run.containerPort} isn't a port from 1 to 65535.`);
   }
-  for (const name of run.variableNames) {
-    if (!VARIABLE_NAME.test(name)) {
-      problems.push(
-        `The variable name ${JSON.stringify(name)} isn't one: use letters, digits and _, not starting with a digit.`,
-      );
-    }
-  }
+  problems.push(...variableNameProblems(run.variableNames));
   if (problems.length > 0) return { problems };
 
   const labels = {
     ...testInstanceLabels(instance, run.testInstanceId),
     [LABEL.project]: run.projectId,
-  };
-  const environment = {
-    ...Object.fromEntries(
-      run.variableNames.map((name, index) => [name, `\${${carrierOf(index)}}`]),
-    ),
-    [TEST_INSTANCE_VARIABLE]: "true",
   };
   const services = Object.fromEntries(
     definition.services.map((service) => [
@@ -318,12 +308,146 @@ export function hostedOverrideOf(
             ])
           : {}),
         ...(service === run.appService
-          ? { environment, ports: [`127.0.0.1::${run.containerPort}`] }
+          ? {
+              environment: testInstanceEnvironmentOf(run.variableNames),
+              ports: [`127.0.0.1::${run.containerPort}`],
+            }
           : {}),
       },
     ]),
   );
   return { value: { services, ...networksAndVolumesOf(definition, labels) }, problems: [] };
+}
+
+/** What a Build to install Test instance's override is made of, beside the definition and image. */
+export interface TestBuildRun {
+  readonly testInstanceId: string;
+  readonly projectId: string;
+  /** The instance's checkout, an absolute path: the one host folder mounted, at its own path. */
+  readonly checkout: string;
+  /** The target's variables' names, each given its value from its carrier (`carrierOf`) by index. */
+  readonly variableNames: readonly string[];
+}
+
+/** Where the Project's build cache volume is mounted in the devcontainer's service. */
+export const BUILD_CACHE_FOLDER = "/office-build-cache";
+
+/**
+ * Where the build tools keep what a build may reuse (spec §5.5, "The build cache volume"): Gradle's
+ * and npm's caches, and Android's user folder with its debug signing key, each in the volume.
+ */
+export const BUILD_CACHE_VARIABLES: Readonly<Record<string, string>> = {
+  GRADLE_USER_HOME: `${BUILD_CACHE_FOLDER}/gradle`,
+  npm_config_cache: `${BUILD_CACHE_FOLDER}/npm`,
+  ANDROID_USER_HOME: `${BUILD_CACHE_FOLDER}/android`,
+};
+
+/**
+ * Run as root before a build whose devcontainer names a user: a fresh named volume is root's, so
+ * the caches' folders are made and given to the user (`$1`) the build runs as, or the build tools
+ * couldn't write there. Not recursive, so a large cache costs nothing.
+ */
+export const BUILD_CACHE_OWNERSHIP_SCRIPT = `user="$1"; shift; mkdir -p -- "$@" && chown -- "$user" "$@"`;
+
+/** The folders `BUILD_CACHE_OWNERSHIP_SCRIPT` gives to the build's user. */
+export const BUILD_CACHE_FOLDERS: readonly string[] = [
+  BUILD_CACHE_FOLDER,
+  ...Object.values(BUILD_CACHE_VARIABLES),
+];
+
+/** The key of the build cache volume in the override's `volumes`. */
+const BUILD_CACHE_VOLUME_KEY = "office-build-cache";
+
+/**
+ * The Project's build cache volume, one per Project and Office: a named volume, never a host
+ * folder, made before the build and kept after it, as no instance's label or compose project is on
+ * it.
+ */
+export function buildCacheVolumeOf(instance: string, projectId: string): string {
+  return `office-${instance}-build-cache-${projectId}`.toLowerCase().replace(/[^a-z0-9_-]/g, "-");
+}
+
+/** The labels of a Project's build cache volume: this Office's and the Project's. */
+export function buildCacheLabels(instance: string, projectId: string): Labels {
+  return { ...officeLabels(instance), [LABEL.project]: projectId, [LABEL.buildCache]: "true" };
+}
+
+/**
+ * The compose file The Office puts over the repository's for a Build to install Test instance
+ * (spec §2.12, "Build to install"): as a Hosted one's, the checkout alone mounted from the host,
+ * with the Project's build cache volume beside it in the devcontainer's service, where the build
+ * runs, and no port published.
+ */
+export function buildOverrideOf(
+  definition: RunEnvironmentDefinition,
+  run: TestBuildRun,
+  image: string,
+  instance: string,
+  limits: RunEnvironmentLimits,
+  hostCores: number,
+): Reading<Record<string, unknown>> {
+  const problems = variableNameProblems(run.variableNames);
+  if (problems.length > 0) return { problems };
+
+  const labels = {
+    ...testInstanceLabels(instance, run.testInstanceId),
+    [LABEL.project]: run.projectId,
+  };
+  const services = Object.fromEntries(
+    definition.services.map((service) => [
+      service,
+      {
+        labels,
+        ...serviceLimitsOf(limits, hostCores, service === definition.service),
+        ...(service === definition.service
+          ? {
+              ...devcontainerServiceOverride(definition, run.checkout, image, [
+                bindMount(run.checkout, false),
+                { type: "volume", source: BUILD_CACHE_VOLUME_KEY, target: BUILD_CACHE_FOLDER },
+              ]),
+              environment: {
+                ...BUILD_CACHE_VARIABLES,
+                ...testInstanceEnvironmentOf(run.variableNames),
+              },
+            }
+          : {}),
+      },
+    ]),
+  );
+  const { networks, volumes } = networksAndVolumesOf(definition, labels);
+  return {
+    value: {
+      services,
+      networks,
+      volumes: {
+        ...volumes,
+        // External, so `down --volumes` leaves it for the next build.
+        [BUILD_CACHE_VOLUME_KEY]: {
+          name: buildCacheVolumeOf(instance, run.projectId),
+          external: true,
+        },
+      },
+    },
+    problems: [],
+  };
+}
+
+function variableNameProblems(names: readonly string[]): string[] {
+  return names.flatMap((name) =>
+    VARIABLE_NAME.test(name)
+      ? []
+      : [
+          `The variable name ${JSON.stringify(name)} isn't one: use letters, digits and _, not starting with a digit.`,
+        ],
+  );
+}
+
+/** The target's variables by their carriers, never their values, and the test instance's mark. */
+function testInstanceEnvironmentOf(variableNames: readonly string[]): Record<string, string> {
+  return {
+    ...Object.fromEntries(variableNames.map((name, index) => [name, `\${${carrierOf(index)}}`])),
+    [TEST_INSTANCE_VARIABLE]: "true",
+  };
 }
 
 /** How an entry point runs in the devcontainer's service: its folder and its arguments, no shell. */

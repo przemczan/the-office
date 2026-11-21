@@ -522,7 +522,7 @@ The kind of Test target that runs in the Project's run environment and is opened
 _Avoid_: web preview, server target
 
 **Build to install**:
-The kind of Test target that builds files the user installs, such as an APK, downloaded from the Initiative's page or by its QR code. Built now.
+The kind of Test target that builds files the user installs, such as an APK, downloaded from the Initiative's page or by its QR code, built in the Project's run environment or on the workstation. Needs no Proxy port. Built now.
 _Avoid_: artifact, release build, deploy
 
 **Install on a device**:
@@ -536,6 +536,10 @@ _Avoid_: staging, deploy, remote preview
 **Built**:
 The state a Build to install Test instance ends in once its files are ready to download; nothing of it runs.
 _Avoid_: Done, finished, Stopped (for a build)
+
+**Build cache volume**:
+The one named Docker volume per Project that holds the build tools' caches for Build to install builds in the run environment, kept between builds so they stay fast and the Android debug signing key stays the same.
+_Avoid_: cache folder, artifact cache
 
 **Test instances at once**:
 How many Test instances may be Building or Running together across The Office, 2 by default, 1 to 6, set in Settings › Office limits' Test instances card; counted apart from Run environments at once. A launch over it is refused.

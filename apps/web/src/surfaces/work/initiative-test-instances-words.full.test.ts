@@ -29,6 +29,8 @@ function anInstance(state: TestInstanceState, commit: string | null = null): Tes
     launchedAt: LAUNCHED_AT,
     runningAt: null,
     endedAt: null,
+    files: [],
+    filesRemoved: false,
   };
 }
 

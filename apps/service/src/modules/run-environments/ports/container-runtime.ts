@@ -147,6 +147,9 @@ export abstract class ContainerRuntime {
     signal: AbortSignal,
   ): Promise<void>;
 
+  /** Makes the named volume with the labels; one that exists already stays as it is. */
+  abstract createVolume(name: string, labels: Labels): Promise<void>;
+
   /** The containers, networks and volumes carrying every one of the labels. */
   abstract listByLabel(labels: Labels): Promise<readonly LabelledResource[]>;
 

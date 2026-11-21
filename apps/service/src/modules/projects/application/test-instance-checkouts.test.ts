@@ -144,4 +144,41 @@ describe("A test instance's checkout (spec §5.5)", REAL_GIT_TEST, () => {
       ],
     });
   });
+
+  it("runs a build in the checkout with the target's variables only, appending to the log", async () => {
+    const checkout = join(officeData.folder("test-instances"), "build-1");
+    await checkouts.checkOut(project.id, BRANCH, checkout);
+    const logFile = join(officeData.folder("test-instances"), "build-1.log");
+
+    const ended = await checkouts.runBuild({
+      checkout,
+      folder: ".",
+      commandLine: `node -e "console.log(process.env.FLAVOUR, process.env.REGISTRY ?? 'none', process.env.SIGNING)"`,
+      variables: [
+        { name: "FLAVOUR", value: "debug", secret: false },
+        { name: "SIGNING", value: "s3cret-key", secret: true },
+      ],
+      logFile,
+      timeoutMs: 20_000,
+    });
+
+    expect(ended).toEqual({ outcome: "passed", exitCode: 0 });
+    expect(await readFile(logFile, "utf8")).toBe("debug none [secret SIGNING]\n");
+    await checkouts.remove(checkout);
+  });
+
+  it("refuses a build folder outside the checkout", async () => {
+    const checkout = join(officeData.folder("test-instances"), "build-2");
+
+    await expect(
+      checkouts.runBuild({
+        checkout,
+        folder: "../elsewhere",
+        commandLine: "true",
+        variables: [],
+        logFile: join(officeData.folder("test-instances"), "build-2.log"),
+        timeoutMs: 20_000,
+      }),
+    ).rejects.toBeInstanceOf(ProjectRefused);
+  });
 });
