@@ -1,14 +1,14 @@
-import { availableParallelism } from "node:os";
 import { defineConfig, devices } from "@playwright/test";
 import { E2E_STORAGE_STATE } from "./e2e/e2e-user.ts";
+import { e2eWorkers } from "./e2e/workers.ts";
 
 // Off OFFICE_PORT, so the tests run beside npm run dev.
 const PORT = 4390;
 
-// Half the cores, as Playwright's default, but counted by availableParallelism: Playwright counts
-// os.cpus(), the host's every core even in a run environment capped at two, where that many
-// Chromiums beside the service exhaust its CPU and memory and the tests time out.
-const WORKERS = Math.max(1, Math.floor(availableParallelism() / 2));
+// Not Playwright's default, half of os.cpus(): that counts every core of the computer, even in a
+// run environment capped below it or beside another Task's run, where that many Chromiums beside
+// the service exhaust the CPUs and the tests time out.
+const WORKERS = e2eWorkers();
 
 /** The built web app and service, with the environment `serve-office.ts` reads besides its port. */
 export function officeServer(env: Readonly<Record<string, string>> = {}) {
