@@ -35,6 +35,34 @@ export const NO_DEVICES = "No device connected. Connect one to reach it from the
 export const CONNECT_REFUSED = "The device wasn't connected";
 export const DISCONNECT_REFUSED = "The device wasn't disconnected";
 
+/** The Connect menu's button: the USB kinds, then pairing over wireless debugging. */
+export const CONNECT_DEVICE = "Connect a device";
+
+/** Pairing over wireless debugging (spec screens/task-page.md, "Devices"). */
+export const PAIR_WIRELESS = "Pair over wireless debugging";
+export const PAIR_WIRELESS_HINTS = {
+  address: "From the phone's Wireless debugging screen, under IP address & Port.",
+  port: "The number after the colon on the same screen.",
+  pairingPort:
+    "From Wireless debugging › Pair device with pairing code: the number after the colon there.",
+  pairingCode:
+    "From the phone's Wireless debugging › Pair device with pairing code. Used once, never kept.",
+} as const;
+export const PAIRING_STARTS_RUN_ENVIRONMENT = "Pairing starts the Task's run environment.";
+export const PAIR_WIRELESS_ERRORS = {
+  noAddress: "Enter the phone's IP address.",
+  badAddress: "Enter an IPv4 or IPv6 address, such as 192.168.1.20.",
+  noPort: "Enter the port.",
+  badPort: "A port is a number from 1 to 65535.",
+  noPairingCode: "Enter the pairing code.",
+  badPairingCode: "The pairing code is 6 digits.",
+} as const;
+
+/** The phone a refused pairing names, as no name is known before adb reaches it. */
+export function wirelessPhoneWords(address: string): string {
+  return `The phone at ${address}`;
+}
+
 /** The folded line: "<n> connected", or "None connected"; Disconnected ones aren't counted. */
 export function devicesSummary(devices: readonly ConnectedDevice[] | undefined): string {
   const open = openDevicesOf(devices ?? []).length;
@@ -49,7 +77,10 @@ export function disconnectedDevicesOf(devices: readonly ConnectedDevice[]): Conn
   return devices.filter(({ state }) => state === "disconnected");
 }
 
-/** Why a device is Disconnected, as 2.13 names it: "by Ana", "tab closed", "error: …". */
+/**
+ * Why a device is Disconnected, as 2.13 names it: "by Ana", "tab closed", "error: …", and
+ * "device unplugged: …" with the record's problem when it has one.
+ */
 export function disconnectedWhy(
   device: Pick<ConnectedDevice, "disconnectedBecause" | "disconnectedBy" | "problem">,
   nameOf: (user: ConnectedDevice["disconnectedBy"]) => string,
@@ -62,7 +93,8 @@ export function disconnectedWhy(
     case "task-ended":
       return "Task ended";
     case "device-unplugged":
-      return "device unplugged";
+      // A phone over wireless debugging that didn't answer says so: "pair it again".
+      return device.problem === null ? "device unplugged" : `device unplugged: ${device.problem}`;
     case "run-environment-turned-off":
       return "Run environment turned Off";
     case "error":
@@ -74,6 +106,10 @@ export function disconnectedWhy(
 
 export function connectedToastWords(name: string): string {
   return `${name} connected.`;
+}
+
+export function pairingToastWords(address: string): string {
+  return `Pairing with the phone at ${address}…`;
 }
 
 export function disconnectedToastWords(name: string): string {

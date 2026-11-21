@@ -13,16 +13,28 @@ import { hostHelperArchitecture } from "./device-helper-architecture.js";
 
 /** Said when the Project's run environment has no adb (spec §2.13, "What the image needs"). */
 export const ADB_MISSING =
-  "adb isn't in this Project's run environment. Add Android's platform-tools to .devcontainer, then connect again.";
+  "adb isn't in this Project's run environment. Add Android's platform-tools to .devcontainer, then try again.";
+
+/** Said when the run environment's adb is older than 30.0, which brought `adb pair`. */
+export const ADB_WITHOUT_PAIR =
+  "This run environment's adb can't pair over wireless debugging: it needs Android's platform-tools 30.0 or newer in .devcontainer.";
+
+/** What `adb pair` asks the code with, before reading it from its standard input. */
+const PAIRING_PROMPT = /^Enter pairing code:\s*/i;
+
+/** Said when the pairing was cut off, as when the run environment stopped. */
+const PAIRING_CUT_OFF = "The pairing was cut off before adb answered; pair it again.";
 
 /** How long each adb step may take before it is stopped. */
 export const ADB_STEP_TIMEOUT_MS = 20_000;
 
 /**
  * Starts adb's server with its output and input away from the step's, then runs adb: a server
- * started by the step itself would otherwise hold the step's output open after adb ends.
+ * started by the step itself would otherwise hold the step's output open after adb ends. adb's
+ * standard error joins its output, as it says there why a command failed (an older adb's
+ * "unknown command pair", a query's error), which the step's output alone would miss.
  */
-const ADB_WITH_SERVER_APART = 'adb start-server </dev/null >/dev/null 2>&1; exec adb "$@"';
+const ADB_WITH_SERVER_APART = 'adb start-server </dev/null >/dev/null 2>&1; exec adb "$@" 2>&1';
 
 /** How a step in the run environment ended, with what it printed. */
 interface StepEnd {
@@ -87,13 +99,40 @@ export class AdbInRunEnvironment {
     return connected;
   }
 
+  /**
+   * `adb pair <target>`, the code written to its standard input and that closed, so it is never in
+   * a command line, a variable or a log: answers why it didn't pair, in adb's words, or nothing.
+   */
+  async pair(taskId: string, target: string, pairingCode: string): Promise<string | undefined> {
+    const end = await this.adb(taskId, ["pair", target], [Buffer.from(`${pairingCode}\n`)]);
+    if (end?.exitCode === undefined) return PAIRING_CUT_OFF;
+    if (end.exitCode === 0 && /successfully paired/i.test(end.output)) return undefined;
+    if (/unknown command/i.test(end.output)) return ADB_WITHOUT_PAIR;
+    // adb prompts for the code on the line its answer follows, with no newline between.
+    const said = lastLineOf(end.output)?.replace(PAIRING_PROMPT, "");
+    return said === undefined || said === ""
+      ? `adb didn't pair with the phone at ${target}.`
+      : `adb didn't pair with the phone at ${target}: ${said}`;
+  }
+
+  /** The model the phone at the serial reports (`ro.product.model`), if it answers one. */
+  async modelOf(taskId: string, serial: string): Promise<string | undefined> {
+    const end = await this.adb(taskId, ["-s", serial, "shell", "getprop", "ro.product.model"]);
+    if (end?.exitCode !== 0) return undefined;
+    return lastLineOf(end.output);
+  }
+
   /** `adb disconnect <serial>`, best effort: nothing when the run environment isn't running. */
   async disconnect(taskId: string, serial: string): Promise<void> {
     await this.adb(taskId, ["disconnect", serial]);
   }
 
-  private adb(taskId: string, adbArguments: readonly string[]): Promise<StepEnd | undefined> {
-    return this.step(taskId, ["sh", "-c", ADB_WITH_SERVER_APART, "sh", ...adbArguments]);
+  private adb(
+    taskId: string,
+    adbArguments: readonly string[],
+    input: readonly Uint8Array[] = [],
+  ): Promise<StepEnd | undefined> {
+    return this.step(taskId, ["sh", "-c", ADB_WITH_SERVER_APART, "sh", ...adbArguments], input);
   }
 
   private async keyOf(projectId: string): Promise<AdbKey> {
@@ -135,4 +174,12 @@ export class AdbInRunEnvironment {
       timeout.cancel();
     }
   }
+}
+
+/** The last line the step printed that isn't blank. */
+function lastLineOf(output: string): string | undefined {
+  return output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .findLast((line) => line !== "");
 }

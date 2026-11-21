@@ -229,7 +229,7 @@ export class AppModule {
         conversations,
         DatabaseModule.forRoot({ url: config.databaseUrl }),
         // Work's Tasks and the run environments their devices are relayed into.
-        DevicesModule.register({ imports: [work, runEnvironments] }),
+        DevicesModule.register({ imports: [work, projects, runEnvironments] }),
         EarlierRecordsModule,
         EngineAccountsModule,
         engineCascade,

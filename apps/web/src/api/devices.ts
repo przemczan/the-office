@@ -1,4 +1,9 @@
-import { queryOptions } from "@tanstack/react-query";
+import {
+  queryOptions,
+  useMutation,
+  useQueryClient,
+  type UseMutationResult,
+} from "@tanstack/react-query";
 import {
   connectDeviceRefusalSchema,
   connectedDeviceListSchema,
@@ -6,10 +11,12 @@ import {
   connectedDeviceWebEventSchema,
   disconnectDevicePath,
   taskDevicesPath,
+  taskWirelessDevicesPath,
   type ConnectDevice,
   type ConnectDeviceRefusal,
   type ConnectedDevice,
   type ConnectedDeviceWebEvent,
+  type PairWirelessDevice,
 } from "@the-office/contracts";
 import { getFromApi, RefusedAs, sendToApi, sendToApiRefusedAs } from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
@@ -38,6 +45,34 @@ export function connectDevice(taskId: string, device: ConnectDevice): Promise<Co
     connectedDeviceSchema,
     connectDeviceRefusalSchema,
   );
+}
+
+/**
+ * Pairs an Android phone over wireless debugging with the Task's run environment, starting it when
+ * it isn't running; it answers the new record, Connecting. Refused as `connectRefusalOf` reads.
+ */
+export function pairWirelessDevice(
+  taskId: string,
+  pairing: PairWirelessDevice,
+): Promise<ConnectedDevice> {
+  return sendToApiRefusedAs(
+    "POST",
+    apiPathOf(taskWirelessDevicesPath(taskId)),
+    pairing,
+    connectedDeviceSchema,
+    connectDeviceRefusalSchema,
+  );
+}
+
+/** Pairing over wireless debugging, the Task's devices read again once the record is made. */
+export function usePairWirelessDevice(
+  taskId: string,
+): UseMutationResult<ConnectedDevice, Error, PairWirelessDevice> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (pairing: PairWirelessDevice) => pairWirelessDevice(taskId, pairing),
+    onSuccess: () => queryClient.invalidateQueries(deviceQueries.ofTask(taskId)),
+  });
 }
 
 /** Disconnects the device, by the signed-in user; it answers the record, Disconnected. */

@@ -249,6 +249,15 @@ export class TaskWorktrees {
   }
 
   /**
+   * Starts the Task's run environment with no command (spec §2.13: pairing a phone over wireless
+   * debugging), the worktree made first if it isn't there; it stops when idle as usual. Every
+   * reason it couldn't, in the UI's words; none once it runs.
+   */
+  async startRunEnvironment(projectId: string, taskId: string): Promise<readonly string[]> {
+    return this.worktrees.startRunEnvironment(await this.projects.read(projectId), taskId);
+  }
+
+  /**
    * Runs a Script Stage's Project command, by its key, in the Task's worktree: after each run of a
    * test command the worktree is restored and the files it wrote are moved to a folder named by
    * `stageRunId`, and a failing test command's re-run command, if it has one, runs in its place

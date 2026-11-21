@@ -13,6 +13,8 @@ import {
   type TaskInRunEnvironment,
 } from "./task-run-environments.js";
 
+const RUN_ENVIRONMENT_NOT_ON = "The Project's Run environment is not On.";
+
 /**
  * Where a Task's commands run: on the host, or in its run environment's image. What was installed
  * in one place is never used in another.
@@ -110,6 +112,19 @@ export class TaskCommandRunner {
       },
     );
     return commandRunOf(commandLine, finished, mask);
+  }
+
+  /**
+   * Starts the Task's run environment with no command, for a Project whose Run environment setting
+   * is On; every reason it couldn't, none once it runs.
+   */
+  async startRunEnvironment(
+    project: Project,
+    taskId: string,
+    worktree: string,
+  ): Promise<readonly string[]> {
+    if (project.runEnvironment !== "on") return [RUN_ENVIRONMENT_NOT_ON];
+    return this.runEnvironments.start(await this.taskInRunEnvironment(project, taskId, worktree));
   }
 
   /**

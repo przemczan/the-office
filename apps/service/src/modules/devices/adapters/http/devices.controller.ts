@@ -10,9 +10,11 @@ import {
 } from "@nestjs/common";
 import {
   connectDeviceSchema,
+  pairWirelessDeviceSchema,
   type ConnectDevice,
   type ConnectedDevice as ConnectedDeviceResponse,
   type ConnectedDeviceList,
+  type PairWirelessDevice,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
@@ -20,7 +22,10 @@ import { ConnectedDevices } from "../../application/connected-devices.js";
 import { noticesOf, type ConnectedDevice } from "../../domain/connected-device.js";
 import { DeviceRefusalsFilter } from "./device-refusals.filter.js";
 
-/** A Task's Connected devices (spec §2.13): list, connect and disconnect, by any signed-in user. */
+/**
+ * A Task's Connected devices (spec §2.13): list, connect, pair over wireless debugging and
+ * disconnect, by any signed-in user. A pairing's code is in no response and no log line.
+ */
 @Controller()
 @UseFilters(DeviceRefusalsFilter)
 export class DevicesController {
@@ -38,6 +43,15 @@ export class DevicesController {
     @SignedIn() signedIn: SignedIn,
   ): Promise<ConnectedDeviceResponse> {
     return deviceResponse(await this.devices.connect(taskId, given, userOf(signedIn)));
+  }
+
+  @Post("tasks/:taskId/devices/wireless")
+  async pair(
+    @Param("taskId", ParseUUIDPipe) taskId: string,
+    @Body(new ContractPipe(pairWirelessDeviceSchema)) given: PairWirelessDevice,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<ConnectedDeviceResponse> {
+    return deviceResponse(await this.devices.pair(taskId, given, userOf(signedIn)));
   }
 
   @Post("devices/:id/disconnect")

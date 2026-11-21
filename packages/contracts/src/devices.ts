@@ -59,9 +59,13 @@ export const connectedDeviceSchema = z.object({
   disconnectedBecause: disconnectedBecauseSchema.nullable(),
   /** Who disconnected it, when `by-user`; null otherwise. */
   disconnectedBy: userRefSchema.nullable(),
-  /** The error in words, when `error`; null otherwise. */
+  /** The error in words, when `error`, or what to do, when `device-unplugged`; null otherwise. */
   problem: z.string().nullable(),
-  /** Where the relayed bytes come out inside the run environment while Connected: `127.0.0.1:<port>`, or a serial board's path (`/dev/ttyACM0`); null otherwise. */
+  /**
+   * While Connected, where commands reach it: where the relayed bytes come out inside the run
+   * environment (`127.0.0.1:<port>`), a serial board's path (`/dev/ttyACM0`), or a phone over
+   * wireless debugging's `<address>:<port>`, which it keeps while Waiting too; null otherwise.
+   */
   endpoint: z.string().nullable(),
   /** A serial board's baud rate, as the Project's tool last set it; null until it reports one. */
   baudRate: z.number().int().positive().nullable(),
@@ -93,10 +97,30 @@ export const connectDeviceSchema = z.object({
 });
 export type ConnectDevice = z.infer<typeof connectDeviceSchema>;
 
+/** A TCP port on the phone. */
+const phonePortSchema = z.number().int().min(1).max(65_535);
+
 /**
- * A refused connect: 409 when the device is already connected to another Task, naming it in
- * `otherTask`; 422 otherwise (the Run environment Off, the Task Done or Dropped, a kind with no
- * relay yet, no helper built). Every reason is also joined into Nest's `message`.
+ * POST /tasks/:taskId/devices/wireless: pair an Android phone over wireless debugging (spec 2.13).
+ * `address` is an IPv4 or IPv6 literal; the service refuses loopback, unspecified, multicast and
+ * link-local ones in words. `port` is the connect port on the phone's Wireless debugging screen,
+ * `pairingPort` and `pairingCode` those of its "Pair device with pairing code". It answers the
+ * new record, Connecting. The code goes to adb's standard input only: no response, event or
+ * record carries it.
+ */
+export const pairWirelessDeviceSchema = z.object({
+  address: z.union([z.ipv4(), z.ipv6()]),
+  port: phonePortSchema,
+  pairingPort: phonePortSchema,
+  pairingCode: z.string().regex(/^\d{6}$/, "The pairing code is 6 digits."),
+});
+export type PairWirelessDevice = z.infer<typeof pairWirelessDeviceSchema>;
+
+/**
+ * A refused connect or pairing: 409 when the device is already connected to another Task, naming
+ * it in `otherTask`; 422 otherwise (the Run environment Off, the Task Done or Dropped, an address
+ * the run environment can't reach, no helper built). Every reason is also joined into Nest's
+ * `message`.
  */
 export const connectDeviceRefusalSchema = z.object({
   statusCode: z.union([z.literal(409), z.literal(422)]),
@@ -109,6 +133,11 @@ export type ConnectDeviceRefusal = z.infer<typeof connectDeviceRefusalSchema>;
 /** GET and POST under a Task. */
 export function taskDevicesPath(taskId: string): string {
   return `/tasks/${encodeURIComponent(taskId)}/devices`;
+}
+
+/** POST under a Task: pair an Android phone over wireless debugging. */
+export function taskWirelessDevicesPath(taskId: string): string {
+  return `${taskDevicesPath(taskId)}/wireless`;
 }
 
 /** POST /devices/:id/disconnect: Disconnect, by the signed-in user; answers the record. */

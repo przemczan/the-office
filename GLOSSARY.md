@@ -534,7 +534,7 @@ A device the user connects to one Task's run environment so that Task's commands
 _Avoid_: attached device, hardware, peripheral, device session
 
 **Waiting for the run environment**:
-The state of a Connected device whose Task's run environment isn't running; it comes back when the environment starts. Connecting a device never starts one. Not "Waiting for a run environment", a Stage's wait for a free slot.
+The state of a Connected device whose Task's run environment isn't running; it comes back when the environment starts. Connecting a device never starts one, except pairing a phone over wireless debugging. Not "Waiting for a run environment", a Stage's wait for a free slot.
 _Avoid_: Offline, Paused device
 
 **Devices section**:

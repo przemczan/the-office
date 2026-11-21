@@ -1,7 +1,6 @@
 import { useMutation, useQuery, type UseMutationResult } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 import type { ConnectedDevice, Task } from "@the-office/contracts";
-import { Alert, Badge, Button, FoldButton, Icon, Menu } from "@the-office/ui";
+import { Badge, Button, FoldButton, Icon, Menu, type MenuItem } from "@the-office/ui";
 import { useState, useSyncExternalStore, type ReactNode } from "react";
 import {
   deviceTransportProviders,
@@ -12,22 +11,17 @@ import {
   type RequestedDevice,
 } from "../../api/device-relay.ts";
 import { serialUsbTransport } from "../../api/device-transports/serial-usb.ts";
-import {
-  connectDevice,
-  connectRefusalOf,
-  connectRefusalWords,
-  deviceQueries,
-  disconnectDevice,
-} from "../../api/devices.ts";
+import { connectDevice, deviceQueries, disconnectDevice } from "../../api/devices.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { BlockLoaderOrProblem } from "../../shell/block-loader.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { momentWords } from "../../shell/time.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { userName, useSignedInUserId } from "../../shell/use-user-name.ts";
+import { ConnectRefused } from "./connect-refused.tsx";
 import { deviceNotice, keepDeviceRelay, subscribeToDeviceNotices } from "./device-relays.ts";
 import {
-  CONNECT_REFUSED,
+  CONNECT_DEVICE,
   connectedToastWords,
   DEVICE_KIND_WORDS,
   DEVICE_NOTICE_TONES,
@@ -42,12 +36,14 @@ import {
   KEEP_TAB_OPEN,
   NO_DEVICES,
   openDevicesOf,
+  PAIR_WIRELESS,
   serialLineWords,
 } from "./device-words.ts";
 import { ADB_SERIAL, USB_DEBUGGING_HINT } from "./devices/android-usb/android-usb-words.ts";
 import { androidUsbTransport } from "./devices/android-usb/webusb-adb.ts";
 import { RecordFold } from "./record-fold.tsx";
 import { useFold } from "./record-folds.ts";
+import { WirelessPairingForm } from "./wireless-pairing-form.tsx";
 
 // Every kind this build reaches in the browser, offered once the Devices section is drawn.
 registerDeviceTransport(androidUsbTransport());
@@ -57,7 +53,7 @@ registerDeviceTransport(serialUsbTransport());
  * The Task's Devices section (spec screens/task-page.md, "Devices"; 2.13): shown only while the
  * Project's Run environment is On. A row per device not Disconnected with Disconnect, the earlier
  * ones below as history, and Connect for each kind this build has a transport for, greyed with why
- * for a kind this browser can't reach.
+ * for a kind this browser can't reach, and for pairing a phone over wireless debugging.
  */
 export function DevicesBlock({ task }: { readonly task: Task }): ReactNode {
   const project = useQuery(projectQueries.one(task.projectId)).data;
@@ -71,6 +67,7 @@ function DevicesFold({ task }: { readonly task: Task }): ReactNode {
   const fold = useFold({ kind: "task", id: task.id }, "devices", open.length > 0);
   const disconnected = disconnectedDevicesOf(devices ?? []);
   const [historyShown, setHistoryShown] = useState(false);
+  const [pairing, setPairing] = useState(false);
   const providers = useSyncExternalStore(
     subscribeToDeviceTransports,
     deviceTransportProviders,
@@ -80,13 +77,13 @@ function DevicesFold({ task }: { readonly task: Task }): ReactNode {
   const disconnecting = useDisconnect();
   const nameOf = useUserNames();
   return (
-    <RecordFold
-      fold={fold}
-      icon="plug"
-      title="Devices"
-      summary={devicesSummary(devices)}
-      side={
-        providers.length > 0 ? (
+    <>
+      <RecordFold
+        fold={fold}
+        icon="plug"
+        title="Devices"
+        summary={devicesSummary(devices)}
+        side={
           <ConnectMenu
             providers={providers}
             busy={connecting.isPending}
@@ -94,67 +91,72 @@ function DevicesFold({ task }: { readonly task: Task }): ReactNode {
               fold.open();
               connecting.mutate(provider);
             }}
+            onPairWireless={() => {
+              fold.open();
+              setPairing(true);
+            }}
           />
-        ) : undefined
-      }
-    >
-      {devices === undefined ? (
-        <BlockLoaderOrProblem shape="rows" count={1} reads={[query]} />
-      ) : (
-        <div className="devices">
-          {open.length === 0 ? (
-            <p className="task-quiet">{NO_DEVICES}</p>
-          ) : (
-            <ul className="devices-list" aria-label="Devices connected">
-              {open.map((device) => (
-                <DeviceRow key={device.id} device={device} nameOf={nameOf}>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    loading={disconnecting.isPending && disconnecting.variables?.id === device.id}
-                    onClick={() => disconnecting.mutate(device)}
-                  >
-                    Disconnect
-                  </Button>
-                </DeviceRow>
-              ))}
-            </ul>
-          )}
-          {connecting.hinted && (
+        }
+      >
+        {devices === undefined ? (
+          <BlockLoaderOrProblem shape="rows" count={1} reads={[query]} />
+        ) : (
+          <div className="devices">
+            {open.length === 0 ? (
+              <p className="task-quiet">{NO_DEVICES}</p>
+            ) : (
+              <ul className="devices-list" aria-label="Devices connected">
+                {open.map((device) => (
+                  <DeviceRow key={device.id} device={device} nameOf={nameOf}>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      loading={disconnecting.isPending && disconnecting.variables?.id === device.id}
+                      onClick={() => disconnecting.mutate(device)}
+                    >
+                      Disconnect
+                    </Button>
+                  </DeviceRow>
+                ))}
+              </ul>
+            )}
+            {connecting.hinted && (
+              <p className="devices-note">
+                <Icon name="lightbulb" size={14} />
+                {USB_DEBUGGING_HINT}
+              </p>
+            )}
             <p className="devices-note">
-              <Icon name="lightbulb" size={14} />
-              {USB_DEBUGGING_HINT}
+              <Icon name="info" size={14} />
+              {KEEP_TAB_OPEN}
             </p>
-          )}
-          <p className="devices-note">
-            <Icon name="info" size={14} />
-            {KEEP_TAB_OPEN}
-          </p>
-          {connecting.refused}
-          {disconnecting.error && (
-            <RefusalAlert title={DISCONNECT_REFUSED} error={disconnecting.error} />
-          )}
-          {disconnected.length > 0 && (
-            <div className="devices-history">
-              <FoldButton
-                className="devices-history-head"
-                unfolded={historyShown}
-                onClick={() => setHistoryShown(!historyShown)}
-              >
-                Disconnected · {disconnected.length}
-              </FoldButton>
-              {historyShown && (
-                <ul className="devices-list" aria-label="Disconnected devices">
-                  {disconnected.map((device) => (
-                    <DeviceRow key={device.id} device={device} nameOf={nameOf} />
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-    </RecordFold>
+            {connecting.refused}
+            {disconnecting.error && (
+              <RefusalAlert title={DISCONNECT_REFUSED} error={disconnecting.error} />
+            )}
+            {disconnected.length > 0 && (
+              <div className="devices-history">
+                <FoldButton
+                  className="devices-history-head"
+                  unfolded={historyShown}
+                  onClick={() => setHistoryShown(!historyShown)}
+                >
+                  Disconnected · {disconnected.length}
+                </FoldButton>
+                {historyShown && (
+                  <ul className="devices-list" aria-label="Disconnected devices">
+                    {disconnected.map((device) => (
+                      <DeviceRow key={device.id} device={device} nameOf={nameOf} />
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </RecordFold>
+      {pairing && <WirelessPairingForm taskId={task.id} onClose={() => setPairing(false)} />}
+    </>
   );
 }
 
@@ -189,7 +191,7 @@ function DeviceRow({
         </span>
         {device.state === "connected" &&
           device.endpoint !== null &&
-          (device.kind === "android-usb" ? (
+          (device.kind === "android-usb" || device.kind === "android-wireless" ? (
             <span className="devices-row-serial">
               {ADB_SERIAL} <code className="devices-row-endpoint">{device.endpoint}</code>
             </span>
@@ -228,15 +230,20 @@ function DeviceRow({
   );
 }
 
-/** Connect over USB: a menu of the kinds a transport is registered for, greyed with why. */
+/**
+ * Connect: a menu of the USB kinds a transport is registered for, greyed with why, then Pair over
+ * wireless debugging, which every browser offers.
+ */
 function ConnectMenu({
   providers,
   busy,
   onConnect,
+  onPairWireless,
 }: {
   readonly providers: readonly DeviceTransportProvider[];
   readonly busy: boolean;
   readonly onConnect: (provider: DeviceTransportProvider) => void;
+  readonly onPairWireless: () => void;
 }): ReactNode {
   const [open, setOpen] = useState(false);
   return (
@@ -253,23 +260,27 @@ function ConnectMenu({
           iconLeft={<Icon name="plug" size={14} />}
           iconRight={<Icon name="chevron-down" size={14} />}
         >
-          Connect over USB
+          {CONNECT_DEVICE}
         </Button>
       }
-      items={providers.map((provider) => {
-        const unavailable = provider.unavailable;
-        return unavailable === undefined
-          ? { label: DEVICE_KIND_WORDS[provider.kind], onSelect: () => onConnect(provider) }
-          : {
-              disabled: true,
-              label: (
-                <span className="devices-kind">
-                  {DEVICE_KIND_WORDS[provider.kind]}
-                  <span className="devices-kind-why">{unavailable}</span>
-                </span>
-              ),
-            };
-      })}
+      items={[
+        ...providers.map((provider): MenuItem => {
+          const unavailable = provider.unavailable;
+          return unavailable === undefined
+            ? { label: DEVICE_KIND_WORDS[provider.kind], onSelect: () => onConnect(provider) }
+            : {
+                disabled: true,
+                label: (
+                  <span className="devices-kind">
+                    {DEVICE_KIND_WORDS[provider.kind]}
+                    <span className="devices-kind-why">{unavailable}</span>
+                  </span>
+                ),
+              };
+        }),
+        ...(providers.length > 0 ? [{ divider: true }] : []),
+        { label: PAIR_WIRELESS, onSelect: onPairWireless },
+      ]}
     />
   );
 }
@@ -322,37 +333,6 @@ function useConnect(taskId: string): {
       <ConnectRefused error={connecting.error} deviceName={picked?.name ?? "The device"} />
     ),
   };
-}
-
-function ConnectRefused({
-  error,
-  deviceName,
-}: {
-  readonly error: Error;
-  readonly deviceName: string;
-}): ReactNode {
-  const refusal = connectRefusalOf(error);
-  if (refusal === undefined) return <RefusalAlert title={CONNECT_REFUSED} error={error} />;
-  const words = connectRefusalWords(refusal, deviceName);
-  return (
-    <Alert tone="danger" title={CONNECT_REFUSED}>
-      {words.kind === "other-task" ? (
-        <p className="devices-refusal">
-          {words.before}
-          <Link to="/tasks/$taskId" params={{ taskId: words.task.id }}>
-            {words.task.title}
-          </Link>
-          {words.after}
-        </p>
-      ) : (
-        <ul className="refusal-reasons">
-          {words.reasons.map((reason) => (
-            <li key={reason}>{reason}</li>
-          ))}
-        </ul>
-      )}
-    </Alert>
-  );
 }
 
 function useDisconnect(): UseMutationResult<ConnectedDevice, Error, ConnectedDevice> {

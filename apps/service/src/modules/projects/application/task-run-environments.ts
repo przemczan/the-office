@@ -81,6 +81,11 @@ export interface TaskRunEnvironmentRunner {
   /** The image the Task's commands run in now, built or not. */
   imageOf(task: TaskInRunEnvironment): Promise<string>;
   run(task: TaskInRunEnvironment, command: TaskRunEnvironmentCommand): Promise<FinishedCommand>;
+  /**
+   * Makes the Task's run environment ready and running with no command, stopping when idle as
+   * usual; every reason it couldn't, in the UI's words, none once it runs.
+   */
+  start(task: TaskInRunEnvironment): Promise<readonly string[]>;
 }
 
 /**
@@ -101,6 +106,10 @@ export class TaskRunEnvironments implements TaskRunEnvironmentRunner {
 
   run(task: TaskInRunEnvironment, command: TaskRunEnvironmentCommand): Promise<FinishedCommand> {
     return this.runner().run(task, command);
+  }
+
+  start(task: TaskInRunEnvironment): Promise<readonly string[]> {
+    return this.runner().start(task);
   }
 
   private runner(): TaskRunEnvironmentRunner {

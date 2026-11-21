@@ -244,9 +244,9 @@ describe("the Devices section", () => {
   it("offers an Android phone over USB, greyed with why in a browser without WebUSB", async () => {
     stubService(answers(PROJECT, []));
     const page = await blockOf();
-    await until(() => expect(buttonNamed(page, "Connect over USB")).toBeDefined());
+    await until(() => expect(buttonNamed(page, "Connect a device")).toBeDefined());
 
-    act(() => buttonNamed(page, "Connect over USB")?.click());
+    act(() => buttonNamed(page, "Connect a device")?.click());
 
     const why = window.isSecureContext === false ? NEEDS_SECURE_CONTEXT : NEEDS_WEBUSB;
     const option = buttonNamed(
@@ -265,9 +265,9 @@ describe("the Devices section", () => {
     try {
       stubService(answers(PROJECT, []));
       const page = await blockOf();
-      await until(() => expect(buttonNamed(page, "Connect over USB")).toBeDefined());
+      await until(() => expect(buttonNamed(page, "Connect a device")).toBeDefined());
 
-      act(() => buttonNamed(page, "Connect over USB")?.click());
+      act(() => buttonNamed(page, "Connect a device")?.click());
       act(() => buttonNamed(page, "Android phone over USB")?.click());
 
       await until(() => expect(shownText(page)).toContain(USB_DEBUGGING_HINT));
@@ -284,9 +284,9 @@ describe("the Devices section", () => {
     try {
       const sent = stubService(answers(PROJECT, []));
       const page = await blockOf();
-      await until(() => expect(buttonNamed(page, "Connect over USB")).toBeDefined());
+      await until(() => expect(buttonNamed(page, "Connect a device")).toBeDefined());
 
-      act(() => buttonNamed(page, "Connect over USB")?.click());
+      act(() => buttonNamed(page, "Connect a device")?.click());
       act(() => buttonNamed(page, "Android phone over USB")?.click());
 
       await until(() => expect(shownText(page)).toContain("The device wasn't connected"));
@@ -322,9 +322,9 @@ describe("the Devices section", () => {
         [`POST /api/tasks/${TASK.id}/devices`]: () => ({ status: 201, body: PHONE }),
       });
       const page = await blockOf();
-      await until(() => expect(buttonNamed(page, "Connect over USB")).toBeDefined());
+      await until(() => expect(buttonNamed(page, "Connect a device")).toBeDefined());
 
-      act(() => buttonNamed(page, "Connect over USB")?.click());
+      act(() => buttonNamed(page, "Connect a device")?.click());
       act(() => buttonNamed(page, "Android phone over USB")?.click());
       await until(() => expect(tell).toBeDefined());
 
@@ -350,14 +350,15 @@ describe("the Devices section", () => {
     try {
       stubService(answers(PROJECT, []));
       const page = await blockOf();
-      await until(() => expect(buttonNamed(page, "Connect over USB")).toBeDefined());
+      await until(() => expect(buttonNamed(page, "Connect a device")).toBeDefined());
 
-      act(() => buttonNamed(page, "Connect over USB")?.click());
+      act(() => buttonNamed(page, "Connect a device")?.click());
 
       const menu = page.querySelector('[role="menu"]');
       expect(menu === null ? [] : [...menu.querySelectorAll("button")].map(shownText)).toEqual([
         "Android phone over USB",
         "Serial board over USB",
+        "Pair over wireless debugging",
       ]);
     } finally {
       unregister();
@@ -370,9 +371,9 @@ describe("the Devices section", () => {
     try {
       stubService(answers(PROJECT, []));
       const page = await blockOf();
-      await until(() => expect(buttonNamed(page, "Connect over USB")).toBeDefined());
+      await until(() => expect(buttonNamed(page, "Connect a device")).toBeDefined());
 
-      act(() => buttonNamed(page, "Connect over USB")?.click());
+      act(() => buttonNamed(page, "Connect a device")?.click());
 
       const choice = buttonNamed(
         page.querySelector('[role="menu"]')!,
@@ -483,9 +484,9 @@ describe("the Devices section", () => {
         }),
       });
       const page = await blockOf();
-      await until(() => expect(buttonNamed(page, "Connect over USB")).toBeDefined());
+      await until(() => expect(buttonNamed(page, "Connect a device")).toBeDefined());
 
-      act(() => buttonNamed(page, "Connect over USB")?.click());
+      act(() => buttonNamed(page, "Connect a device")?.click());
       act(() => buttonNamed(page, "Android phone over USB")?.click());
 
       await until(() => expect(shownText(page)).toContain("The device wasn't connected"));

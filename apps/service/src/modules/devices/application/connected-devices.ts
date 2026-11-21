@@ -20,6 +20,7 @@ import {
   type TaskConnectedDevice,
 } from "../../work/index.js";
 import {
+  ALREADY_IN_THIS_TASK,
   alreadyConnectedTo,
   androidSerialOf,
   connectedDevicesVariable,
@@ -34,7 +35,9 @@ import {
   deviceWaiting,
   isOpen,
   KIND_WORDS,
+  phonePaired,
   STATE_WORDS,
+  taskProblemsOf,
   type ConnectedDevice,
   type ConnectedDeviceChange,
   type ConnectedDeviceKind,
@@ -45,12 +48,21 @@ import {
   ConnectedDeviceNotFound,
   ConnectedDeviceRefused,
 } from "../domain/connected-device-refused.js";
+import type { ConnectedDeviceChanged } from "../domain/connected-device-events.js";
+import { wirelessAddressOf, wirelessDeviceKeyOf } from "../domain/wireless-address.js";
 import { ConnectedDeviceRepository } from "../ports/connected-device-repository.js";
 import { DeviceTasks } from "../ports/device-tasks.js";
 import { ProjectRunEnvironmentSettings } from "../ports/project-run-environment-settings.js";
 import type { HelperOpening, HelperProcess, RelayClose, RelayLink } from "../ports/relay-link.js";
+import { RunEnvironmentStart } from "../ports/run-environment-start.js";
 import { AndroidUsbDevices, type ConnectedAndroidPhone } from "./android-usb-devices.js";
 import { hostHelperArchitecture } from "./device-helper-architecture.js";
+import {
+  WirelessDevices,
+  type PairedPhone,
+  type PhoneToPair,
+  type WirelessEnd,
+} from "./wireless-devices.js";
 
 /** The variable every check in a Task's run environment gets (spec §2.13, "What Agents see"). */
 export const CONNECTED_DEVICES_VARIABLE = "OFFICE_CONNECTED_DEVICES";
@@ -70,6 +82,15 @@ export interface DeviceToConnect {
   readonly deviceKey: string;
 }
 
+/** What the user entered to pair a phone over wireless debugging, from its Wireless debugging screen. */
+export interface WirelessPhoneToPair {
+  readonly address: string;
+  readonly port: number;
+  readonly pairingPort: number;
+  /** Used once, on `adb pair`'s standard input, and never kept. */
+  readonly pairingCode: string;
+}
+
 /** A device's open relay socket. */
 interface Relay {
   readonly link: RelayLink;
@@ -79,7 +100,8 @@ interface Relay {
  * Connected devices (spec §2.13): connect and disconnect, each device's relay socket and helper,
  * and how they follow the Task, its run environment and its Project's Run environment setting.
  * Relays live in memory: an Office restart drops every socket, so the sweep ends the open
- * records as tab closed.
+ * records relayed as tab closed; a phone over wireless debugging, which has none, waits for the
+ * run environment instead.
  */
 @Injectable()
 export class ConnectedDevices implements OnModuleInit {
@@ -98,6 +120,8 @@ export class ConnectedDevices implements OnModuleInit {
     private readonly schedule: Schedule,
     private readonly events: EventBus,
     private readonly androidUsb: AndroidUsbDevices,
+    private readonly wireless: WirelessDevices,
+    private readonly environmentStart: RunEnvironmentStart,
   ) {}
 
   onModuleInit(): void {
@@ -174,13 +198,48 @@ export class ConnectedDevices implements OnModuleInit {
       connectedBy: by,
       connectedAt: this.schedule.now(),
     });
-    const { heldBy } = await this.repository.insert(device);
-    if (heldBy !== undefined) {
-      const other = await this.tasks.find(heldBy.taskId);
-      const otherTask = { id: heldBy.taskId, title: other?.title ?? heldBy.taskId };
-      throw new ConnectedDeviceRefused([alreadyConnectedTo(otherTask)], otherTask);
+    await this.keep(device, event);
+    return device;
+  }
+
+  /**
+   * Keeps a Connecting record for a phone over wireless debugging and pairs with it in the
+   * background: the run environment started first when it isn't running (the one start a device
+   * makes), then adb's check, the Project's key, `adb pair` with the code on its standard input and
+   * `adb connect`, Connected or ended as an error with adb's words. Refused, with every reason,
+   * unless the Task is open, its Project's Run environment On, the address one the run environment
+   * can reach and the helper built (it writes the key); then refused naming the other Task when an
+   * open record holds the address. The code is never kept.
+   */
+  async pair(taskId: string, given: WirelessPhoneToPair, by: DeviceUser): Promise<ConnectedDevice> {
+    const task = await this.tasks.find(taskId);
+    if (task === undefined) throw ConnectedDeviceNotFound.task(taskId);
+    const problems = taskProblemsOf({
+      taskState: task.state,
+      runEnvironmentOn: await this.runEnvironmentSettings.isOn(task.projectId),
+    });
+    const reading = wirelessAddressOf(given.address);
+    if ("problem" in reading) problems.push(reading.problem);
+    if (
+      problems.length === 0 &&
+      (await this.helperFiles.executableFor(hostHelperArchitecture())) === undefined
+    ) {
+      problems.push(DEVICE_HELPER_NOT_BUILT);
     }
-    await this.events.publish(event);
+    if (problems.length > 0 || "problem" in reading) throw new ConnectedDeviceRefused(problems);
+    const { device, event } = connectingDevice({
+      id: randomUUID(),
+      taskId,
+      projectId: task.projectId,
+      kind: "android-wireless",
+      name: reading.address.address,
+      deviceKey: wirelessDeviceKeyOf(reading.address),
+      connectedBy: by,
+      connectedAt: this.schedule.now(),
+    });
+    await this.keep(device, event);
+    const target = { address: reading.address, port: given.port, pairingPort: given.pairingPort };
+    this.followPairing(device, target, given.pairingCode);
     return device;
   }
 
@@ -220,10 +279,103 @@ export class ConnectedDevices implements OnModuleInit {
     });
   }
 
-  /** Every open device ends as tab closed: an Office restart dropped every relay socket. */
+  /**
+   * An Office restart dropped every relay socket, so every open relayed device ends as tab closed;
+   * a phone over wireless debugging waits for the run environment, whose next start connects to it.
+   */
   async sweep(): Promise<void> {
     for (const device of await this.repository.allOpen()) {
-      await this.end(device.id, "tab-closed");
+      if (device.kind === "android-wireless") {
+        await this.locks.run(device.id, () => this.change(device.id, deviceWaiting));
+      } else {
+        await this.end(device.id, "tab-closed");
+      }
+    }
+  }
+
+  /** Keeps the new record, refused naming the other Task when an open one holds its device key. */
+  private async keep(device: ConnectedDevice, event: ConnectedDeviceChanged): Promise<void> {
+    const { heldBy } = await this.repository.insert(device);
+    if (heldBy?.taskId === device.taskId) throw new ConnectedDeviceRefused([ALREADY_IN_THIS_TASK]);
+    if (heldBy !== undefined) {
+      const other = await this.tasks.find(heldBy.taskId);
+      const otherTask = { id: heldBy.taskId, title: other?.title ?? heldBy.taskId };
+      throw new ConnectedDeviceRefused([alreadyConnectedTo(otherTask)], otherTask);
+    }
+    await this.events.publish(event);
+  }
+
+  /**
+   * Pairs outside the device's lock, under its own key as a USB phone's adb steps, so a slow start
+   * or adb never holds a disconnect back; the result is weighed against the record as it is then.
+   */
+  private followPairing(device: ConnectedDevice, target: PhoneToPair, pairingCode: string): void {
+    void this.locks
+      .runDetached(`adb:${device.id}`, async () => {
+        if (!this.environments.isRunning(device.taskId)) {
+          const problems = await this.environmentStart.start(device.taskId, device.projectId);
+          if (problems.length > 0) {
+            await this.end(device.id, "error", undefined, problems.join(" "));
+            return;
+          }
+        }
+        const paired = await this.wireless.pair(device, target, pairingCode);
+        await this.pairingEnded(device, paired);
+      })
+      .catch(async (error: unknown) => {
+        this.logger.error(`The device ${device.id} wasn't paired.`, error);
+        await this.end(device.id, "error", undefined, wordsOf(error)).catch(() => undefined);
+      });
+  }
+
+  private async pairingEnded(device: ConnectedDevice, paired: WirelessEnd): Promise<void> {
+    if (paired.kind !== "connected") {
+      const problem =
+        paired.kind === "failed" ? paired.problem : "The phone didn't answer; pair it again.";
+      await this.end(device.id, "error", undefined, problem);
+      return;
+    }
+    const changed = await this.locks.run(device.id, () =>
+      this.change(device.id, (current) =>
+        phonePaired(
+          current,
+          paired.endpoint,
+          paired.model ?? current.name,
+          this.environments.isRunning(device.taskId),
+        ),
+      ),
+    );
+    // Disconnected while it paired: adb forgets it again.
+    if (changed === undefined) {
+      await this.wireless.disconnected({ ...device, endpoint: paired.endpoint });
+    }
+  }
+
+  /**
+   * A paired phone Waiting for the run environment connects again as it starts, never pairing:
+   * Connected, or ended as device unplugged saying to pair it again when it doesn't answer.
+   * Inside the start's handler, so never throwing.
+   */
+  private async reconnectWireless(device: ConnectedDevice): Promise<void> {
+    if (device.state !== "waiting-for-run-environment") return;
+    if (device.endpoint === null) {
+      await this.end(device.id, "device-unplugged", undefined, PAIR_IT_AGAIN);
+      return;
+    }
+    const phone: PairedPhone = { ...device, endpoint: device.endpoint };
+    const reconnected = await this.wireless.reconnect(phone);
+    if (reconnected.kind === "connected") {
+      await this.locks.run(device.id, () =>
+        this.change(device.id, (current) =>
+          current.state === "waiting-for-run-environment"
+            ? deviceConnected(current, reconnected.endpoint, reconnected.model ?? current.name)
+            : undefined,
+        ),
+      );
+    } else if (reconnected.kind === "unanswered") {
+      await this.end(device.id, "device-unplugged", undefined, phoneDidntAnswerAt(phone.endpoint));
+    } else if (reconnected.kind === "failed") {
+      await this.end(device.id, "error", undefined, reconnected.problem);
     }
   }
 
@@ -421,10 +573,19 @@ export class ConnectedDevices implements OnModuleInit {
     await this.end(device.id, "error", undefined, why);
   }
 
-  /** Each Waiting or Connecting device of the Task with an open socket runs a new helper. */
+  /**
+   * Each Waiting or Connecting device of the Task with an open socket runs a new helper; each
+   * paired phone over wireless debugging Waiting connects again.
+   */
   private async environmentStarted(taskId: string): Promise<void> {
     const devices = await this.repository.openOfTask(taskId);
     for (const device of devices) {
+      if (device.kind === "android-wireless") {
+        await this.reconnectWireless(device).catch((error: unknown) => {
+          this.logger.error(`The device ${device.id} didn't connect again.`, error);
+        });
+        continue;
+      }
       await this.locks
         .run(device.id, async () => {
           const current = await this.repository.find(device.id);
@@ -468,8 +629,10 @@ export class ConnectedDevices implements OnModuleInit {
       relay?.link.stopHelper();
       // Told by `change` while the relay is still kept, then closed.
       let phone: ConnectedAndroidPhone | undefined;
+      let wirelessPhone: PairedPhone | undefined;
       const changed = await this.change(id, (device) => {
         phone = androidUsbPhoneOf(device);
+        wirelessPhone = pairedPhoneOf(device);
         return deviceDisconnected(device, {
           because,
           at,
@@ -480,6 +643,10 @@ export class ConnectedDevices implements OnModuleInit {
       this.relays.delete(id);
       relay?.link.closeAsEnded(changed?.device.problem ?? "The device was disconnected.");
       if (changed !== undefined && phone !== undefined) void this.androidUsb.disconnected(phone);
+      // Nothing when the run environment isn't running, as it attaches nothing.
+      if (changed !== undefined && wirelessPhone !== undefined) {
+        void this.wireless.disconnected(wirelessPhone);
+      }
     });
   }
 
@@ -522,6 +689,19 @@ function androidUsbPhoneOf(device: ConnectedDevice): ConnectedAndroidPhone | und
     return undefined;
   }
   return { ...device, endpoint: device.endpoint };
+}
+
+/** A phone over wireless debugging with the adb serial it was paired at, Connected or Waiting. */
+function pairedPhoneOf(device: ConnectedDevice): PairedPhone | undefined {
+  if (device.kind !== "android-wireless" || device.endpoint === null) return undefined;
+  return { ...device, endpoint: device.endpoint };
+}
+
+/** Said when a phone over wireless debugging was never paired before a restart. */
+const PAIR_IT_AGAIN = "The phone wasn't paired before the run environment stopped; pair it again.";
+
+function phoneDidntAnswerAt(serial: string): string {
+  return `The phone didn't answer at ${serial}; pair it again.`;
 }
 
 function wordsOf(error: unknown): string {

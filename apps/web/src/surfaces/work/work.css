@@ -4560,3 +4560,11 @@ button.initiative-track-body:hover .stage-mark {
 .devices-refusal {
   margin: 0;
 }
+
+/* Pair over wireless debugging: each screen's two fields side by side, one under the other when narrow. */
+.wireless-pairing-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  align-items: start;
+}

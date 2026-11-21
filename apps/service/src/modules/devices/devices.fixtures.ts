@@ -13,6 +13,7 @@ import type { EventBus } from "../../platform/events/event-bus.js";
 import type { Schedule } from "../../platform/schedule/schedule.js";
 import {
   DeviceHelperFiles,
+  RunEnvironmentRefused,
   type DeviceHelperArchitecture,
   type RunEnvironmentCommandVariables,
   type RunEnvironments,
@@ -25,11 +26,13 @@ import { AdbKeyFrames } from "./adapters/device-helper/adb-key-frames.js";
 import { AdbInRunEnvironment } from "./application/adb-in-run-environment.js";
 import { AndroidUsbDevices } from "./application/android-usb-devices.js";
 import { ConnectedDevices } from "./application/connected-devices.js";
+import { WirelessDevices } from "./application/wireless-devices.js";
 import { AdbKeysForTests } from "./ports/adb-key-repository.fixtures.js";
 import { ConnectedDeviceRepository } from "./ports/connected-device-repository.js";
 import { ConnectedDevicesForTests } from "./ports/connected-device-repository.fixtures.js";
 import { DeviceTasks, type DeviceTask } from "./ports/device-tasks.js";
 import { ProjectRunEnvironmentSettings } from "./ports/project-run-environment-settings.js";
+import { RunEnvironmentStart } from "./ports/run-environment-start.js";
 
 export const HELPER_VERSION = "1.4.0";
 export const HELPER_ENDPOINT = "127.0.0.1:41234";
@@ -56,6 +59,37 @@ export class RunEnvironmentSettingsForTests extends ProjectRunEnvironmentSetting
 
   isOn(projectId: string): Promise<boolean> {
     return Promise.resolve(!this.off.has(projectId));
+  }
+}
+
+/**
+ * Starts a Task's run environment as Projects would, on the worktree `addTask` made, and records
+ * each start.
+ */
+export class RunEnvironmentStartForTests extends RunEnvironmentStart {
+  readonly worktrees = new Map<string, TaskInWorktree>();
+  /** Every Task started, in order. */
+  readonly starts: string[] = [];
+
+  constructor(
+    private readonly environments: RunEnvironments,
+    private readonly folder: string,
+  ) {
+    super();
+  }
+
+  async start(taskId: string): Promise<readonly string[]> {
+    this.starts.push(taskId);
+    const task = this.worktrees.get(taskId);
+    if (task === undefined) return [`No worktree for the Task ${taskId}.`];
+    await mkdir(this.folder, { recursive: true });
+    try {
+      await this.environments.prepare(task, join(this.folder, `${taskId}-start.log`));
+      return [];
+    } catch (error) {
+      if (error instanceof RunEnvironmentRefused) return error.reasons;
+      throw error;
+    }
   }
 }
 
@@ -143,11 +177,22 @@ export function loopbackHelper(
 
 /**
  * adb in the scripted run environment: whether it is there, what the helper's `adb-key` mode
- * answers, and every adb step the service ran, in order ("command -v adb", "adb-key",
- * "adb kill-server", "adb connect 127.0.0.1:41234").
+ * answers, what `adb pair` and `getprop` answer, which serials `adb connect` reaches, and every
+ * adb step the service ran, in order ("command -v adb", "adb-key", "adb kill-server",
+ * "adb connect 127.0.0.1:41234", "adb pair 192.168.1.20:37000").
  */
 export class ScriptedAdb {
   present = true;
+  /** What `adb pair` prints and exits with; "Successfully paired …" and 0 unless set. */
+  pairAnswer: { readonly output: string; readonly exitCode: number } | undefined;
+  /** Whether `adb pair` never ends, as with a phone that doesn't answer. */
+  pairHangs = false;
+  /** What each `adb pair` read on its standard input. */
+  readonly pairingInputs: Buffer[] = [];
+  /** The model `getprop ro.product.model` answers. */
+  model = "Pixel 9";
+  /** The serials `adb connect` can't reach, as a phone that left the network. */
+  readonly unreachable = new Set<string>();
   /** Whether `command -v adb` is cut off with no exit code, as when its run environment stops. */
   checkStopped = false;
   /** What `adb-key` answers: `written` the first time, `same` after, unless set. */
@@ -185,9 +230,33 @@ export class ScriptedAdb {
           : undefined;
     if (adbArguments === undefined) return false;
     this.steps.push(`adb ${adbArguments.join(" ")}`);
+    if (adbArguments[0] === "pair") {
+      this.pair(process, adbArguments[1] ?? "");
+      return true;
+    }
+    if (adbArguments[0] === "connect" && this.unreachable.has(adbArguments[1] ?? "")) {
+      process.print(`failed to connect to '${adbArguments[1]}': No route to host\n`);
+      process.end(1);
+      return true;
+    }
     if (adbArguments[0] === "connect") process.print(`connected to ${adbArguments[1]}\n`);
+    if (adbArguments.includes("getprop")) process.print(`${this.model}\n`);
     process.end(0);
     return true;
+  }
+
+  private pair(process: ScriptedAttachedProcess, target: string): void {
+    process.print("Enter pairing code: ");
+    process.stdin.on("finish", () => {
+      this.pairingInputs.push(process.written());
+      if (this.pairHangs) return;
+      const answer = this.pairAnswer ?? {
+        output: `Successfully paired to ${target} [guid=adb-R5CT1234-abcdef]\n`,
+        exitCode: 0,
+      };
+      process.print(answer.output);
+      process.end(answer.exitCode);
+    });
   }
 }
 
@@ -219,6 +288,7 @@ export interface DevicesTestbed<Environments extends RunEnvironmentsOfTestbed> {
   readonly taskDevices: TaskConnectedDevices;
   readonly runtime: ScriptedContainerRuntime;
   readonly environments: Environments;
+  readonly environmentStart: RunEnvironmentStartForTests;
   /** Adds an open Task of the Project, in a worktree with a valid definition. */
   addTask(id: string, title?: string): Promise<TaskInWorktree>;
 }
@@ -246,15 +316,17 @@ export async function devicesTestbed<Environments extends RunEnvironmentsOfTestb
   const settings = new RunEnvironmentSettingsForTests();
   const taskDevices = new TaskConnectedDevices();
   const adbKeys = new AdbKeysForTests();
-  const androidUsb = new AndroidUsbDevices(
-    new AdbInRunEnvironment(
-      environments.environments,
-      helperFiles,
-      adbKeys,
-      new AdbKeyFrames(),
-      environments.schedule,
-    ),
+  const adbInRunEnvironment = new AdbInRunEnvironment(
+    environments.environments,
+    helperFiles,
+    adbKeys,
+    new AdbKeyFrames(),
     environments.schedule,
+  );
+  const androidUsb = new AndroidUsbDevices(adbInRunEnvironment, environments.schedule);
+  const environmentStart = new RunEnvironmentStartForTests(
+    environments.environments,
+    join(environments.folder, "starts"),
   );
   const devices = new ConnectedDevices(
     repository,
@@ -267,6 +339,8 @@ export async function devicesTestbed<Environments extends RunEnvironmentsOfTestb
     environments.schedule,
     environments.events,
     androidUsb,
+    new WirelessDevices(adbInRunEnvironment, environments.schedule),
+    environmentStart,
   );
   devices.onModuleInit();
   return {
@@ -279,6 +353,7 @@ export async function devicesTestbed<Environments extends RunEnvironmentsOfTestb
     taskDevices,
     runtime,
     environments,
+    environmentStart,
     async addTask(id, title = `Task ${id}`) {
       tasks.tasks.set(id, { id, title, projectId: PROJECT_ID, state: "in-progress" });
       environments.knownTasks.tasks.push({ id, title, state: "in-progress" });
@@ -297,6 +372,7 @@ export async function devicesTestbed<Environments extends RunEnvironmentsOfTestb
         await mkdir(dirname(join(task.worktree, path)), { recursive: true });
         await writeFile(join(task.worktree, path), content);
       }
+      environmentStart.worktrees.set(id, task);
       return task;
     },
   };

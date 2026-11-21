@@ -244,6 +244,12 @@ export class Worktrees {
     return { worktree, installation };
   }
 
+  /** Starts the Task's run environment on its worktree, made first if it isn't there, without installing. */
+  async startRunEnvironment(project: Project, taskId: string): Promise<readonly string[]> {
+    const worktree = await this.open(project, taskId);
+    return this.taskCommands.startRunEnvironment(project, taskId, worktree.path);
+  }
+
   /**
    * The Task's worktree on its branch, without installing: enough to read it, as planning does.
    * The first time, the branch starts at the freshly fetched base (`add`). Its screenshots folder

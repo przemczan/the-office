@@ -17,6 +17,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 
 - **Account, Users, User**: [2.10 Users](2.10-users-and-signing-in.md#users); screen: [Account](screens/account.md#account-page)
 - **Android phone over USB, adb connect, adb serial**: [2.13 Android phone over USB](2.13-connected-devices.md#android-phone-over-usb); screen: [Task page › Devices](screens/task-page.md#devices)
+- **Android phone over wireless debugging, adb pair, pairing code, pairing port**: [2.13 Android phone over wireless debugging](2.13-connected-devices.md#android-phone-over-wireless-debugging); [2.13 The run environment's network](2.13-connected-devices.md#the-run-environments-network); [6 Connected devices](6-permissions-and-safety.md#connected-devices); screen: [Task page › Devices](screens/task-page.md#devices)
 - **adb key**: [2.13 The adb key](2.13-connected-devices.md#the-adb-key); [6 Connected devices](6-permissions-and-safety.md#connected-devices)
 - **Agent**: [2.2 Agent](2.2-people.md#agent)
 - **After publishing, Before publishing**: [2.3.4 Publish's before and after lines](2.3.4-publish.md#publishs-before-and-after-lines); screen: [Project page › Commands](screens/project-page.md#commands)
@@ -66,7 +67,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Density**: [4 Densities](4-ux-direction.md#densities); [4 Density](4-ux-direction.md#density)
 - **Description**: [2.1.3 Description](2.1.3-tasks.md#description)
 - **Details**: [2.9.3 The details](2.9.3-streaming-and-ui.md#the-details); screen: [Decision card › The details window](screens/decision-card.md#the-details-window-open-details)
-- **Devices section, Connect over USB, Pair over wireless debugging**: [2.13 Two ways to connect](2.13-connected-devices.md#two-ways-to-connect); [2.13 Who connects](2.13-connected-devices.md#who-connects); screen: [Task page › Devices](screens/task-page.md#devices)
+- **Devices section, Connect a device, Pair over wireless debugging**: [2.13 Two ways to connect](2.13-connected-devices.md#two-ways-to-connect); [2.13 Who connects](2.13-connected-devices.md#who-connects); screen: [Task page › Devices](screens/task-page.md#devices)
 - **Drop reason**: [2.1.3 Drop reason](2.1.3-tasks.md#drop-reason); screen: [Task page › Task menu](screens/task-page.md#task-menu); [Archived tab › Archived Tasks](screens/archived.md#archived-tasks)
 - **Dismiss, Dismissed**: [2.4.2 Dismiss](2.4.2-decisions.md#sending-a-decision); screen: [Decision card › Dismiss](screens/decision-card.md#dismiss)
 - **Duty**: [2.2 Duty](2.2-people.md#duty); [2.2 Duties](2.2-people.md#duties); screen: [Settings › Duties](screens/settings.md#duties)
@@ -320,7 +321,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
   - [2.11.2 Tokens and cost](2.11.2-tokens-and-cost.md): what is counted, estimated cost, metric attributes.
   - [2.11.3 System health](2.11.3-system-health.md): health readings, slow routes and queries.
 - [2.12 Test instances](2.12-test-instances.md): test targets and their kinds, what runs before the entry point and what The Office sets, the Proposal that writes them, test instances, their states, the proxy, Build to install files, safety, limits.
-- [2.13 Connected devices](2.13-connected-devices.md): a device connected to a Task's run environment over USB through the browser or over Android wireless debugging, one to one Task, the relay and the Office device helper, states and lifecycle, what the image needs, the adb key, what Agents see, who connects.
+- [2.13 Connected devices](2.13-connected-devices.md): a device connected to a Task's run environment over USB through the browser or over Android wireless debugging, one to one Task, the relay and the Office device helper, states and lifecycle, what the image needs, the adb key, pairing a phone over wireless debugging, the run environment's network, what Agents see, who connects.
 
 ### 4. UX
 
@@ -556,6 +557,8 @@ Where each default lives, by page:
   - [The helper's wait](2.13-connected-devices.md#the-helpers-wait)
   - [adb steps](2.13-connected-devices.md#adb-steps)
   - [adb reconnect](2.13-connected-devices.md#adb-reconnect)
+  - [The pairing's wait](2.13-connected-devices.md#the-pairings-wait)
+  - [A paired phone's reconnect](2.13-connected-devices.md#a-paired-phones-reconnect)
   - [The adb key's size](2.13-connected-devices.md#the-adb-keys-size)
   - [A dropped relay socket](2.13-connected-devices.md#a-dropped-relay-socket)
   - [Browsers supported](2.13-connected-devices.md#browsers-supported)

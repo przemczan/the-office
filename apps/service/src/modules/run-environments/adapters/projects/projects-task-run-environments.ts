@@ -84,6 +84,21 @@ export class ProjectsTaskRunEnvironments implements TaskRunEnvironmentRunner, On
     }
   }
 
+  async start(task: TaskInRunEnvironment): Promise<readonly string[]> {
+    const inWorktree = await this.taskInWorktree(task);
+    await mkdir(this.folders.commandOutputs, { recursive: true });
+    const folder = await mkdtemp(join(this.folders.commandOutputs, `${task.taskId}-`));
+    try {
+      await this.environments.prepare(inWorktree, join(folder, "start.log"));
+      return [];
+    } catch (error) {
+      if (error instanceof RunEnvironmentRefused) return error.reasons;
+      throw error;
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  }
+
   private async taskInWorktree(task: TaskInRunEnvironment): Promise<TaskInWorktree> {
     const { title } = await this.knownTasks.read(task.taskId);
     return {

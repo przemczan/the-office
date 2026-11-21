@@ -57,11 +57,12 @@ export interface ConnectedDevice {
   readonly disconnectedBecause: DisconnectedBecause | null;
   /** Who disconnected it, when `by-user`. */
   readonly disconnectedBy: DeviceUser | null;
-  /** The error in words, when `error`. */
+  /** The error in words, when `error`; what to do, when a phone over wireless debugging is `device-unplugged`. */
   readonly problem: string | null;
   /**
-   * Where its bytes come out inside the run environment while Connected: `127.0.0.1:<port>`, or a
-   * serial board's path (`/dev/ttyACM0`).
+   * While Connected, where commands reach it: where its bytes come out inside the run environment,
+   * `127.0.0.1:<port>`, a serial board's path (`/dev/ttyACM0`), or a phone over wireless
+   * debugging's adb serial, `<address>:<port>`, which it keeps while Waiting too.
    */
   readonly endpoint: string | null;
   /** A serial board's baud rate, as the Project's tool last set it; null until it set one. */
@@ -88,29 +89,42 @@ export const RELAYED_KINDS: ReadonlySet<ConnectedDeviceKind> = new Set([
 export const RUN_ENVIRONMENT_OFF = "The Project's Run environment is Off.";
 export const TASK_DONE = "The Task is Done.";
 export const TASK_DROPPED = "The Task is Dropped.";
-export const WIRELESS_NOT_YET =
-  "An Android phone over wireless debugging can't be connected yet: pairing over the network isn't built.";
+export const WIRELESS_IS_PAIRED =
+  "An Android phone over wireless debugging is paired with its pairing code, not connected through the browser.";
+
+export const ALREADY_IN_THIS_TASK =
+  "This device is already in this Task's devices. Disconnect it there first, then connect it again.";
 
 /** Why the Task's other device holds the key, in the UI's words. */
 export function alreadyConnectedTo(task: OtherTask): string {
   return `Already connected to the Task «${task.title}».`;
 }
 
-/** What a connect is weighed on, besides the helper and the device key. */
-export interface ConnectRequest {
+/** What any device's connect or pairing is weighed on, besides the device key. */
+export interface TaskOfDevice {
   /** "done" or "dropped" for a Task that ended; anything else for an open one. */
   readonly taskState: string;
   readonly runEnvironmentOn: boolean;
+}
+
+/** What a connect through the browser is weighed on, besides the helper and the device key. */
+export interface ConnectRequest extends TaskOfDevice {
   readonly kind: ConnectedDeviceKind;
+}
+
+/** Every reason the Task takes no device, in the UI's words; none when it may. */
+export function taskProblemsOf(task: TaskOfDevice): string[] {
+  const problems: string[] = [];
+  if (task.taskState === "done") problems.push(TASK_DONE);
+  if (task.taskState === "dropped") problems.push(TASK_DROPPED);
+  if (!task.runEnvironmentOn) problems.push(RUN_ENVIRONMENT_OFF);
+  return problems;
 }
 
 /** Every reason the connect is refused, in the UI's words; none when it may go on. */
 export function connectProblemsOf(request: ConnectRequest): string[] {
-  const problems: string[] = [];
-  if (request.taskState === "done") problems.push(TASK_DONE);
-  if (request.taskState === "dropped") problems.push(TASK_DROPPED);
-  if (!request.runEnvironmentOn) problems.push(RUN_ENVIRONMENT_OFF);
-  if (!RELAYED_KINDS.has(request.kind)) problems.push(WIRELESS_NOT_YET);
+  const problems = taskProblemsOf(request);
+  if (!RELAYED_KINDS.has(request.kind)) problems.push(WIRELESS_IS_PAIRED);
   return problems;
 }
 
@@ -150,21 +164,34 @@ export function isOpen(device: ConnectedDevice): boolean {
 }
 
 /**
- * Commands reach it at the endpoint: from Connecting or Waiting, or at a new endpoint. A new
- * helper's READY is a new connection, so the round trip and the notice start again; the baud rate
- * stays, as the board keeps it.
+ * Commands reach it at the endpoint: from Connecting or Waiting, or at a new endpoint; `name` is
+ * what it reports once connected, when it reports one only then. A new helper's READY is a new
+ * connection, so the round trip and the notice start again; the baud rate stays, as the board
+ * keeps it.
  */
-export function deviceConnected(device: ConnectedDevice, endpoint: string): ConnectedDeviceChange {
+export function deviceConnected(
+  device: ConnectedDevice,
+  endpoint: string,
+  name: string = device.name,
+): ConnectedDeviceChange {
   if (!isOpen(device)) return undefined;
   if (
     device.state === "connected" &&
     device.endpoint === endpoint &&
+    device.name === name &&
     device.roundTripMs === null &&
     device.notice === null
   ) {
     return undefined;
   }
-  return withChange({ ...device, state: "connected", endpoint, roundTripMs: null, notice: null });
+  return withChange({
+    ...device,
+    state: "connected",
+    endpoint,
+    name,
+    roundTripMs: null,
+    notice: null,
+  });
 }
 
 /** The Project's tool set the serial port's baud rate; nothing when it is the one kept. */
@@ -214,20 +241,47 @@ export function noticesOf(device: ConnectedDevice): DeviceNotice[] {
   return notices;
 }
 
-/** The run environment isn't running: from Connecting or Connected. */
+/**
+ * The run environment isn't running: from Connecting or Connected. A phone over wireless debugging
+ * keeps its `<address>:<port>`, which its next start connects to again.
+ */
 export function deviceWaiting(device: ConnectedDevice): ConnectedDeviceChange {
   if (device.state !== "connecting" && device.state !== "connected") return undefined;
-  return withChange({ ...device, state: "waiting-for-run-environment", endpoint: null });
+  const endpoint = device.kind === "android-wireless" ? device.endpoint : null;
+  return withChange({ ...device, state: "waiting-for-run-environment", endpoint });
+}
+
+/**
+ * A phone over wireless debugging that adb paired and connected to at `endpoint`, `<address>:<port>`,
+ * with the model it reports: Connected there while its run environment runs; Waiting to connect
+ * there at its next start when it stopped meanwhile.
+ */
+export function phonePaired(
+  device: ConnectedDevice,
+  endpoint: string,
+  name: string,
+  environmentRunning: boolean,
+): ConnectedDeviceChange {
+  if (device.state === "connecting" && environmentRunning) {
+    return deviceConnected(device, endpoint, name);
+  }
+  if (device.state !== "connecting" && device.state !== "waiting-for-run-environment") {
+    return undefined;
+  }
+  return withChange({ ...device, state: "waiting-for-run-environment", endpoint, name });
 }
 
 export interface Disconnection {
   readonly because: DisconnectedBecause;
   /** Who, for `by-user`. */
   readonly by?: DeviceUser;
-  /** The error, for `error`. */
+  /** The error, for `error`; what to do, for `device-unplugged`. */
   readonly problem?: string;
   readonly at: Date;
 }
+
+/** The reasons a Disconnected device keeps words for. */
+const KEEPS_PROBLEM: ReadonlySet<DisconnectedBecause> = new Set(["error", "device-unplugged"]);
 
 /** Ends any open device, for good; a Disconnected one stays as it ended. */
 export function deviceDisconnected(
@@ -240,7 +294,7 @@ export function deviceDisconnected(
     state: "disconnected",
     disconnectedBecause: disconnection.because,
     disconnectedBy: disconnection.because === "by-user" ? (disconnection.by ?? null) : null,
-    problem: disconnection.because === "error" ? (disconnection.problem ?? null) : null,
+    problem: KEEPS_PROBLEM.has(disconnection.because) ? (disconnection.problem ?? null) : null,
     endpoint: null,
     disconnectedAt: disconnection.at,
   });
@@ -265,8 +319,9 @@ export const ANDROID_KINDS: ReadonlySet<ConnectedDeviceKind> = new Set([
 ]);
 
 /**
- * The adb serial `adb devices` lists a Connected Android phone under: an Android phone over USB is
- * the helper's endpoint, as adb connects to it; undefined for any other device.
+ * The adb serial `adb devices` lists a Connected Android phone under: the helper's endpoint for an
+ * Android phone over USB, as adb connects to it, and the phone's `<address>:<port>` over wireless
+ * debugging; undefined for any other device.
  */
 export function adbSerialOf(device: ConnectedDevice): string | undefined {
   if (device.state !== "connected" || !ANDROID_KINDS.has(device.kind)) return undefined;

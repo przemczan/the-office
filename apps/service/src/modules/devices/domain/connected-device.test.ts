@@ -188,7 +188,7 @@ describe("connectProblemsOf", () => {
     ).toEqual([
       "The Task is Done.",
       "The Project's Run environment is Off.",
-      "An Android phone over wireless debugging can't be connected yet: pairing over the network isn't built.",
+      "An Android phone over wireless debugging is paired with its pairing code, not connected through the browser.",
     ]);
     expect(
       connectProblemsOf({ taskState: "dropped", runEnvironmentOn: true, kind: "serial-usb" }),

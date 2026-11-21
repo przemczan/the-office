@@ -483,7 +483,7 @@ describe("refusing a connect", () => {
     expect(await testbed.devices.list(TASK_ID)).toEqual([]);
   });
 
-  it("is refused for an Android phone over wireless debugging, which has no relay yet", async () => {
+  it("is refused for an Android phone over wireless debugging, which is paired instead", async () => {
     await expect(
       testbed.devices.connect(
         TASK_ID,
@@ -492,7 +492,7 @@ describe("refusing a connect", () => {
       ),
     ).rejects.toMatchObject({
       reasons: [
-        "An Android phone over wireless debugging can't be connected yet: pairing over the network isn't built.",
+        "An Android phone over wireless debugging is paired with its pairing code, not connected through the browser.",
       ],
     });
   });

@@ -325,16 +325,28 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - Summary: "<n> connected", or "None connected".
 - A list, one row per device not Disconnected: its name, a badge for its kind (**Android phone over USB**, **Serial board over USB**, **Android phone over wireless debugging**), its state (**Connecting**, **Connected**, **Waiting for the run environment**), "connected by <user> · <when>" (<user> reads "you" for yourself), its endpoint in monospace once Connected (`127.0.0.1:<port>` for an Android phone over USB, the serial path such as `/dev/ttyACM0` for a serial board), for a serial board "<baud> baud · round trip <n> ms" once each is known, and **Disconnect**.
 - An Android phone over USB's endpoint reads "adb serial 127.0.0.1:<port>", as `adb devices` lists it.
+- An Android phone over wireless debugging's name is its IP address until adb connects, then its model; its endpoint reads "adb serial <address>:<port>".
 - While a phone waits for the user to let adb in, its row says "Allow USB debugging on the phone, and tick Always allow from this computer."; the line goes once the phone lets adb in.
 - Below it, a fold "Disconnected" lists the Task's earlier devices with why and "disconnected <when>", each as [2.13](../2.13-connected-devices.md#states) names it.
-- **Connect over USB** is a menu of the USB kinds this build has a way to reach in the browser, each opening the browser's own device picker (an Android phone with WebUSB, a serial board with Web Serial).
-  - Its choices: **Android phone over USB** (WebUSB) and **Serial board over USB** (Web Serial) in this build.
+- **Connect a device** is a menu: the USB kinds this build has a way to reach in the browser, each opening the browser's own device picker (an Android phone with WebUSB, a serial board with Web Serial), then a divider and **Pair over wireless debugging**.
+  - Its USB choices: **Android phone over USB** (WebUSB) and **Serial board over USB** (Web Serial) in this build.
   - A choice this browser can't reach is greyed, with why under its name: "Needs Chrome or Edge" (no WebUSB, or no Web Serial), or "Needs The Office over HTTPS or localhost" (the page isn't a secure one).
   - While the phone picker is open, and after it closed with no phone picked, the section says "Don't see the phone? Turn on USB debugging in Developer options."
   - A serial board the browser can't open shows "This board is open in another tab or program."
   - The note "Keep this tab open: closing it disconnects the device."
-- **Pair over wireless debugging** opens the form **IP address**, **Port**, **Pairing port** and **Pairing code** (hint "From the phone's Wireless debugging › Pair device with pairing code. Used once, never kept."), button **Pair**; note "Pairing starts the Task's run environment."
-- An Android phone over USB whose run environment has no adb ends Disconnected as error; its why in the Disconnected fold reads "error: adb isn't in this Project's run environment. Add Android's platform-tools to .devcontainer, then connect again.", with no warning above the list and no link.
+- **Pair over wireless debugging** is never greyed: it works in every browser.
+  - It opens the window **Pair over wireless debugging**, with the fields, each with its hint:
+    - **IP address** (placeholder "192.168.1.20"; hint "From the phone's Wireless debugging screen, under IP address & Port.");
+    - **Port** ("The number after the colon on the same screen.");
+    - **Pairing port** ("From Wireless debugging › Pair device with pairing code: the number after the colon there.");
+    - **Pairing code** ("From the phone's Wireless debugging › Pair device with pairing code. Used once, never kept.").
+  - The note "Pairing starts the Task's run environment.", and the button **Pair**.
+  - Each field is checked before sending, its words under it: "Enter the phone's IP address.", "Enter an IPv4 or IPv6 address, such as 192.168.1.20.", "Enter the port.", "A port is a number from 1 to 65535.", "Enter the pairing code.", "The pairing code is 6 digits."
+  - **Pair** empties the Pairing code field as it sends, since a code works once.
+  - Once the record is made the window closes with the toast "Pairing with the phone at <address>…"; its row shows Connecting while adb pairs, then Connected, or it moves to the Disconnected fold as error with adb's words.
+  - A refusal shows in the window as the service words it (**The device wasn't connected**), the phone named "The phone at <address>": among them an address the run environment can't reach (loopback, unspecified, multicast, link-local, [6](../6-permissions-and-safety.md#connected-devices)), and a phone this Task holds already, Waiting, which is Disconnected before it is paired again.
+- A phone over wireless debugging that didn't answer at a run environment's start shows in the Disconnected fold as "device unplugged: The phone didn't answer at <address>:<port>; pair it again."
+- An Android phone over USB whose run environment has no adb ends Disconnected as error; its why in the Disconnected fold reads "error: adb isn't in this Project's run environment. Add Android's platform-tools to .devcontainer, then try again.", with no warning above the list and no link.
 - A serial board's notices ([2.13](../2.13-connected-devices.md#notices)) show on its row, one line each, in the warning tone unless said:
   - slow round trip: "Uploads will be slow: each step waits <n> ms for the round trip.";
   - no answer after a reset: "The board didn't answer after its reset; its bootloader may not wait for the <n> ms round trip. Press its reset button as the upload starts.";

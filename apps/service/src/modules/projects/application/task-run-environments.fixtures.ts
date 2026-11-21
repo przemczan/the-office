@@ -16,6 +16,8 @@ import {
 export class ScriptedTaskRunEnvironments implements TaskRunEnvironmentRunner {
   /** Every command given, in order, with its Task. */
   readonly runs: { task: TaskInRunEnvironment; command: TaskRunEnvironmentCommand }[] = [];
+  /** Every Task started with no command, in order. */
+  readonly starts: TaskInRunEnvironment[] = [];
   image = "the-office/shop:first-key";
   /** Set for the next commands to find their run environment can't start, for this reason. */
   refusal: string | undefined = undefined;
@@ -61,6 +63,11 @@ export class ScriptedTaskRunEnvironments implements TaskRunEnvironmentRunner {
       signal: command.signal,
       outputFile: command.outputFile,
     });
+  }
+
+  start(task: TaskInRunEnvironment): Promise<readonly string[]> {
+    this.starts.push(task);
+    return Promise.resolve(this.refusal === undefined ? [] : [this.refusal]);
   }
 }
 

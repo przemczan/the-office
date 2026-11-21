@@ -149,7 +149,14 @@ Covers: threat models, stored hashes, the two layers, language servers, Hard swi
 - The helper is mounted read-only, so a command in the run environment can't change it.
 - It runs as the checks' user; only its serial mode runs as the container's root, to make the serial path, and it hands the pseudo-terminal to the checks' user (mode 0660), so the Project's commands never need root to reach the board.
 - The Project's adb key is kept as Secret variables are, and never sent to the web, logged or put in a Handover note.
-- A pairing code for wireless debugging is used once and never kept.
+- A pairing code for wireless debugging is used once and never kept: it goes only to `adb pair`'s standard input in the run environment, never into a record, a log, a response, a web event, a command line, a variable or a frame to the helper.
+- A phone over wireless debugging is reached by adb in the run environment alone, over its own network ([2.13](2.13-connected-devices.md#the-run-environments-network)); no port is published for it.
+- The address typed for it is refused when the run environment can't reach a phone there ([2.13](2.13-connected-devices.md#android-phone-over-wireless-debugging)):
+  - loopback (`127.0.0.0/8`, `::1`), which reaches the run environment itself;
+  - unspecified (`0.0.0.0/8`, `::`);
+  - multicast (`224.0.0.0/4`, `ff00::/8`);
+  - link-local (`169.254.0.0/16`, `fe80::/10`);
+  - an IPv4-mapped IPv6 address (`::ffff:a.b.c.d`), weighed as its IPv4 one.
 
 ## Build rules
 
