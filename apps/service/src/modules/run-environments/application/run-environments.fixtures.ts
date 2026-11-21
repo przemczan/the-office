@@ -63,8 +63,11 @@ export interface RunEnvironmentsTestbed {
 export async function runEnvironmentsTestbed(
   runtime: ContainerRuntime,
   options?: RunEnvironmentOptions,
-  /** The non-root Office's user and group the checks' files go back to; none is a root Office. */
-  serviceOwner?: FileOwnerIds,
+  /**
+   * The non-root Office's user and group the checks' files go back to; none is a root Office, and
+   * a `ServiceOwner` any other, such as Windows.
+   */
+  serviceOwner?: FileOwnerIds | ServiceOwner,
   /** How a Hosted Test instance's app is tried; a TCP connect for up to 120 s unless given. */
   readiness?: HostedServiceReadinessOptions,
 ): Promise<RunEnvironmentsTestbed> {
@@ -78,6 +81,8 @@ export async function runEnvironmentsTestbed(
   const images = new RunEnvironmentImages(runtime, folders, events);
   const hostCores = new HostCores(TESTBED_HOST_CORES);
   const commandVariables = new RunEnvironmentCommandVariables();
+  const owner =
+    serviceOwner instanceof ServiceOwner ? serviceOwner : new ServiceOwner(serviceOwner);
   const environments = new RunEnvironments(
     runtime,
     images,
@@ -87,7 +92,7 @@ export async function runEnvironmentsTestbed(
     settings,
     hostCores,
     commandVariables,
-    new ServiceOwner(serviceOwner),
+    owner,
     schedule,
     busyWork,
     events,
@@ -100,6 +105,7 @@ export async function runEnvironmentsTestbed(
     settings,
     hostCores,
     new HostedServiceReadiness(readiness),
+    owner,
   );
   return {
     environments,

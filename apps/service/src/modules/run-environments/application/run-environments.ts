@@ -23,10 +23,12 @@ import {
   commandVariables,
   composeOverrideOf,
   composeProjectNameOf,
+  HAND_BACK_TIMEOUT_MS,
   handBackScript,
   IDLE_STOP_MS,
   LABEL,
   officeLabels,
+  ROOT_USER,
   taskLabels,
   type CommandEnvironment,
   type FileOwnerIds,
@@ -55,12 +57,6 @@ const OVERRIDE_FILE = "office-override.yaml";
 
 /** The states a Task's run environment is removed in (spec §5.5, "Lifecycle"). */
 const FINISHED_STATES: readonly string[] = ["done", "dropped"];
-
-/** Who the hand-back runs as in the checks' service: root, whatever user the image names. */
-const ROOT_USER = "0:0";
-
-/** How long giving a check's files back may take: a worktree's node_modules can be large. */
-const HAND_BACK_TIMEOUT_MS = 10 * 60 * 1000;
 
 /**
  * What a step that may wait for a slot is told, and how it can be stopped. A hook that fails is

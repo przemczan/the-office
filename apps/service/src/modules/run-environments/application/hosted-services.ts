@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { stringify as stringifyYaml } from "yaml";
@@ -19,10 +19,14 @@ import {
   commandVariables,
   entryPointCommandOf,
   entryPointScript,
+  fileOwnerIdsOf,
+  HAND_BACK_TIMEOUT_MS,
+  handBackScript,
   hostedOverrideOf,
   hostedProjectNameOf,
   LABEL,
   officeLabels,
+  ROOT_USER,
   TEST_INSTANCE_VARIABLE,
   testInstanceLabels,
   type CommandEntryPoint,
@@ -44,6 +48,7 @@ import { HostCores } from "./host-cores.js";
 import { HostedServiceReadiness } from "./hosted-service-readiness.js";
 import { RunEnvironmentFolders } from "./run-environment-folders.js";
 import { note, RunEnvironmentImages } from "./run-environment-images.js";
+import { ServiceOwner } from "./service-owner.js";
 
 /** What a Hosted Test instance is started from (spec §2.12, "Hosted runs in the run environment"). */
 export interface HostedServiceStart {
@@ -120,6 +125,25 @@ const BUILD_CACHE_OWNERSHIP_TIMEOUT_MS = 60_000;
 /** The name of the compose file The Office puts over the checkout's. */
 const OVERRIDE_FILE = "office-override.yaml";
 
+/** The file, beside the override, that says how to give the checkout back as the instance stops. */
+const HAND_BACK_FILE = "checkout-hand-back.json";
+
+/**
+ * Where and how the checkout is given back to The Office's user: kept in a file, so the sweep after
+ * a restart gives it back too.
+ */
+interface CheckoutHandBack {
+  readonly project: ComposeProject;
+  readonly service: string;
+  readonly checkout: string;
+  readonly logFile: string;
+}
+
+/** The hand-back prints only chown's own words about the checkout's files, never a variable. */
+const UNMASKED: StreamedOutputMask = {
+  chunks: () => ({ next: (chunk) => chunk, end: () => new Uint8Array() }),
+};
+
 /** A Test instance's id, which names its folder and its compose project. */
 const INSTANCE_ID = /^[A-Za-z0-9][A-Za-z0-9-]*$/;
 
@@ -146,6 +170,7 @@ export class HostedServices {
     private readonly settings: RunEnvironmentSettings,
     private readonly hostCores: HostCores,
     private readonly readiness: HostedServiceReadiness,
+    private readonly serviceOwner: ServiceOwner,
   ) {}
 
   /**
@@ -317,6 +342,7 @@ export class HostedServices {
       ),
     );
     refuseWhenStopped(stopping, start.logFile);
+    await this.giveCheckoutToChecksUser(start, project, definition, stopping);
 
     const late = await this.commandsBeforeRan(
       start,
@@ -410,6 +436,7 @@ export class HostedServices {
       this.runtime.up(project, start.logFile, start.mask),
     );
     refuseWhenStopped(stopping, start.logFile);
+    await this.giveCheckoutToChecksUser(start, project, definition, stopping);
     if (definition.user !== undefined) {
       await this.giveBuildCacheTo(definition.user, project, definition.service, start, stopping);
       refuseWhenStopped(stopping, start.logFile);
@@ -492,6 +519,119 @@ export class HostedServices {
       }
     }
     return undefined;
+  }
+
+  /**
+   * Gives every file of the checkout to the user the commands before the entry point and the entry
+   * point run as, as root, with the hand-back's own script, so they can write it (spec §5.5, "A test
+   * instance's checkout"); a root checks' user, and Windows, need nothing. On a non-root Office it
+   * first records how to give the checkout back as the instance stops. Refuses the start when that
+   * fails.
+   */
+  private async giveCheckoutToChecksUser(
+    start: Pick<HostedServiceStart, "instanceId" | "checkout" | "logFile" | "mask">,
+    project: ComposeProject,
+    definition: RunEnvironmentDefinition,
+    stopping: AbortSignal,
+  ): Promise<void> {
+    if (!this.serviceOwner.filesHaveOwners) return;
+    if (this.serviceOwner.owner !== undefined) {
+      const handBack: CheckoutHandBack = {
+        project: { ...project, variables: {} },
+        service: definition.service,
+        checkout: start.checkout,
+        logFile: start.logFile,
+      };
+      await writeFile(this.handBackFileOf(start.instanceId), JSON.stringify(handBack));
+    }
+    const checksUser = fileOwnerIdsOf(
+      await this.refusing(
+        start.logFile,
+        "The checks' user couldn't be read in the run environment.",
+        () => this.runtime.userIdsOf(project, definition.service, definition.user),
+      ),
+    );
+    if (checksUser.userId === 0) return;
+    const { exitCode, endedBy } = await this.refusing(
+      start.logFile,
+      "The checkout couldn't be given to the checks' user.",
+      () =>
+        this.runtime.exec(
+          project,
+          {
+            service: definition.service,
+            user: ROOT_USER,
+            script: handBackScript(start.checkout, checksUser),
+            variables: {},
+            mask: start.mask,
+            timeoutMs: HAND_BACK_TIMEOUT_MS,
+            signal: stopping,
+          },
+          start.logFile,
+        ),
+    );
+    refuseWhenStopped(stopping, start.logFile);
+    if (endedBy === "stop") throw new RunEnvironmentRefused([STOPPED], start.logFile);
+    if (endedBy === "timeout" || exitCode !== 0) {
+      throw new RunEnvironmentRefused(
+        [
+          "The checkout couldn't be given to the checks' user.",
+          endedBy === "timeout"
+            ? `It didn't end within ${HAND_BACK_TIMEOUT_MS / 60_000} minutes.`
+            : `It ended with the exit code ${exitCode ?? "none"}.`,
+        ],
+        start.logFile,
+      );
+    }
+  }
+
+  /**
+   * On a non-root Office, gives every file of the checkout back to The Office's user, as root in
+   * the checks' service while it still runs, so the checkout can be removed (spec §5.5, "Run
+   * environments with a non-root Office"). A failure is only logged: the removal goes on.
+   */
+  private async giveCheckoutBack(instanceId: string): Promise<void> {
+    const { owner } = this.serviceOwner;
+    if (owner === undefined) return;
+    const handBack = await this.handBackOf(instanceId);
+    if (handBack === undefined) return;
+    try {
+      const { exitCode, endedBy } = await this.runtime.exec(
+        handBack.project,
+        {
+          service: handBack.service,
+          user: ROOT_USER,
+          script: handBackScript(handBack.checkout, owner),
+          variables: {},
+          mask: UNMASKED,
+          timeoutMs: HAND_BACK_TIMEOUT_MS,
+        },
+        handBack.logFile,
+      );
+      if (endedBy !== undefined || exitCode !== 0) {
+        this.logger.warn(
+          `The checkout of the Test instance ${instanceId} wasn't given back: ${endedBy ?? `exit code ${exitCode ?? "none"}`}.`,
+        );
+      }
+    } catch (error) {
+      if (!(error instanceof ContainerRuntimeFailed)) throw error;
+      this.logger.warn(`The checkout of the Test instance ${instanceId} wasn't given back.`, error);
+    }
+  }
+
+  private async handBackOf(instanceId: string): Promise<CheckoutHandBack | undefined> {
+    try {
+      return JSON.parse(
+        await readFile(this.handBackFileOf(instanceId), "utf8"),
+      ) as CheckoutHandBack;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+      throw error;
+    }
+  }
+
+  private handBackFileOf(instanceId: string): string {
+    return join(this.folders.testInstanceFolder(instanceId), HAND_BACK_FILE);
   }
 
   /** Makes the build cache's folders the build's user's, refusing the build when that fails. */
@@ -644,6 +784,7 @@ export class HostedServices {
 
   private async removeNow(instanceId: string): Promise<void> {
     const projectName = hostedProjectNameOf(this.folders.instance, instanceId);
+    await this.giveCheckoutBack(instanceId);
     try {
       await this.runtime.down(projectName, { builtImages: true });
     } catch (error) {

@@ -676,6 +676,18 @@ export interface FileOwnerIds {
   readonly groupId: number;
 }
 
+/** Who a hand-back runs as in the checks' service: root, whatever user the image names. */
+export const ROOT_USER = "0:0";
+
+/** How long giving files back may take: a worktree's node_modules can be large. */
+export const HAND_BACK_TIMEOUT_MS = 10 * 60 * 1000;
+
+/** The ids `<uid>:<gid>` a container runtime reads for a user, as numbers. */
+export function fileOwnerIdsOf(ids: string): FileOwnerIds {
+  const [userId = "", groupId = ""] = ids.split(":");
+  return { userId: Number(userId), groupId: Number(groupId) };
+}
+
 /**
  * The shell script a check runs as in the service: in the worktree, with the Project's environment
  * applied over the service's own, each `set` variable taken from its carrier, and the command line

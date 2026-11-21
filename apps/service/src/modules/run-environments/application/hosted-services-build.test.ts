@@ -7,8 +7,10 @@ import { ScriptedContainerRuntime } from "../adapters/scripted/scripted-containe
 import { RunEnvironmentRefused } from "../domain/run-environment-refused.js";
 import {
   BUILD_CACHE_FOLDER,
+  BUILD_CACHE_OWNERSHIP_SCRIPT,
   buildCacheVolumeOf,
   DEFAULT_RUN_ENVIRONMENT_OPTIONS,
+  handBackScript,
   hostedProjectNameOf,
 } from "../domain/run-environment.js";
 import type { TestBuildStart } from "./hosted-services.js";
@@ -77,6 +79,7 @@ describe("HostedServices.build", () => {
       expect.stringMatching(/^build the-office\/shop:/),
       `volume ${volume}`,
       `up ${projectName}`,
+      `ids ${projectName} app`,
       `exec ${projectName}`,
       `down ${projectName} with built images`,
       expect.stringMatching(/^remove /),
@@ -110,6 +113,24 @@ describe("HostedServices.build", () => {
     ]);
     expect(entryPoint?.user).toBe("vscode");
     expect(entryPoint?.arguments).toEqual(["./gradlew", "assembleDebug", "--offline"]);
+  });
+
+  it("gives the checkout to a non-root build user as root before the cache and the build", async () => {
+    runtime.userIds = "1000:1000";
+    const start = await build();
+    await writeFiles(start.checkout, {
+      ".devcontainer/devcontainer.json": `{ "dockerComposeFile": "compose.yaml", "service": "app", "overrideCommand": true, "remoteUser": "vscode" }`,
+    });
+
+    await testbed.hostedServices.build(start);
+
+    const [checkout, cache, entryPoint] = runtime.executions;
+    expect(checkout).toMatchObject({
+      user: "0:0",
+      script: handBackScript(start.checkout, { userId: 1000, groupId: 1000 }),
+    });
+    expect(cache?.script).toBe(BUILD_CACHE_OWNERSHIP_SCRIPT);
+    expect(entryPoint?.user).toBe("vscode");
   });
 
   it("refuses the build when the cache's folders can't be given to the user", async () => {

@@ -11,6 +11,7 @@ import {
   commandBeforeScript,
   DEFAULT_RUN_ENVIRONMENT_OPTIONS,
   entryPointScript,
+  handBackScript,
   hostedProjectNameOf,
 } from "../domain/run-environment.js";
 import type { HostedServiceStart } from "./hosted-services.js";
@@ -20,6 +21,7 @@ import {
   writeFiles,
   type RunEnvironmentsTestbed,
 } from "./run-environments.fixtures.js";
+import { serviceOwnerOf } from "./service-owner.js";
 
 const DEFINITION = {
   ".devcontainer/devcontainer.json": `{ "dockerComposeFile": "compose.yaml", "service": "app", "overrideCommand": true }`,
@@ -27,6 +29,8 @@ const DEFINITION = {
     "services:\n  app:\n    image: node:22\n  postgres:\n    image: postgres:17\n    volumes:\n      - data:/var/lib/postgresql/data\nvolumes:\n  data: {}\n",
   "package-lock.json": '{ "lockfileVersion": 3 }',
 };
+
+const NODE_USER_DEFINITION = `{ "dockerComposeFile": "compose.yaml", "service": "app", "overrideCommand": true, "remoteUser": "node" }`;
 
 const INSTANCE_ID = "6f1d2c3b-0a9e-4b8c-9d7f-1e2a3b4c5d6e";
 const SECRET = "s3cret-token";
@@ -100,6 +104,7 @@ describe("HostedServices.start", () => {
     expect(runtime.steps).toEqual([
       expect.stringMatching(/^build the-office\/shop:/),
       `up ${projectName}`,
+      `ids ${projectName} app`,
       `logs ${projectName}`,
       `exec ${projectName}`,
       `port ${projectName} app 3000`,
@@ -308,8 +313,9 @@ describe("HostedServices.start", () => {
 
     await testbed.hostedServices.start(start, () => undefined);
 
-    expect(runtime.steps.slice(1, 5)).toEqual([
+    expect(runtime.steps.slice(1, 6)).toEqual([
       `up ${projectName}`,
+      `ids ${projectName} app`,
       `exec ${projectName}`,
       `exec ${projectName}`,
       `logs ${projectName}`,
@@ -356,8 +362,9 @@ describe("HostedServices.start", () => {
 
     await testbed.hostedServices.start(start, () => undefined);
 
-    expect(runtime.steps.slice(1, 4)).toEqual([
+    expect(runtime.steps.slice(1, 5)).toEqual([
       `up ${projectName}`,
+      `ids ${projectName} app`,
       `exec ${projectName}`,
       `up ${projectName}`,
     ]);
@@ -419,6 +426,65 @@ describe("HostedServices.start", () => {
     });
   });
 
+  it("gives the checkout to a non-root checks' user as root before the commands before the entry point run as that user", async () => {
+    runtime.keepExecsRunning((execution) => execution.arguments !== undefined);
+    runtime.userIds = "1000:1000";
+    const start = await launch({ commandsBefore: [{ name: "Install", commandLine: "npm ci" }] });
+    await writeFiles(start.checkout, { ".devcontainer/devcontainer.json": NODE_USER_DEFINITION });
+
+    await testbed.hostedServices.start(start, () => undefined);
+
+    expect(runtime.steps.slice(1, 4)).toEqual([
+      `up ${projectName}`,
+      `ids ${projectName} app node`,
+      `exec ${projectName}`,
+    ]);
+    const [handOver, install, entryPoint] = runtime.executions;
+    expect(handOver).toMatchObject({
+      service: "app",
+      user: "0:0",
+      script: handBackScript(start.checkout, { userId: 1000, groupId: 1000 }),
+    });
+    expect(install).toMatchObject({ service: "app", user: "node" });
+    expect(entryPoint).toMatchObject({ service: "app", user: "node" });
+  });
+
+  it("refuses the start when the checkout can't be given to the checks' user, running no command", async () => {
+    runtime.keepExecsRunning((execution) => execution.arguments !== undefined);
+    runtime.userIds = "1000:1000";
+    runtime.onExec = (execution) => Promise.resolve({ exitCode: execution.user === "0:0" ? 1 : 0 });
+    const start = await launch({ commandsBefore: [{ name: "Install", commandLine: "npm ci" }] });
+
+    await expect(testbed.hostedServices.start(start, () => undefined)).rejects.toMatchObject({
+      reasons: [
+        "The checkout couldn't be given to the checks' user.",
+        "It ended with the exit code 1.",
+      ],
+    });
+    expect(runtime.executions).toHaveLength(1);
+  });
+
+  it("gives nothing on Windows, where the checkout's files carry no owner", async () => {
+    await rm(testbed.folder, { recursive: true, force: true });
+    testbed = await runEnvironmentsTestbed(
+      runtime,
+      { ...DEFAULT_RUN_ENVIRONMENT_OPTIONS, runEnvironmentsAtOnce: 1 },
+      serviceOwnerOf(undefined),
+      { timeoutMs: 100, intervalMs: 5, answers: (port) => runtime.answers(port) },
+    );
+    projectName = hostedProjectNameOf(testbed.folders.instance, INSTANCE_ID);
+    runtime.keepExecsRunning((execution) => execution.arguments !== undefined);
+    runtime.userIds = "1000:1000";
+    const start = await launch({ commandsBefore: [{ name: "Install", commandLine: "npm ci" }] });
+    await writeFiles(start.checkout, { ".devcontainer/devcontainer.json": NODE_USER_DEFINITION });
+
+    await testbed.hostedServices.start(start, () => undefined);
+    await testbed.hostedServices.stop(INSTANCE_ID);
+
+    expect(runtime.steps.some((step) => step.startsWith("ids "))).toBe(false);
+    expect(runtime.executions.map(({ user }) => user)).toEqual(["node", "node"]);
+  });
+
   it("takes no Run environments at once slot: a Task's run environment starts beside it", async () => {
     await testbed.hostedServices.start(await launch(), () => undefined);
     const task = taskIn(testbed, "task-1");
@@ -451,6 +517,70 @@ describe("HostedServices.stop", () => {
       removal,
     ]);
     expect(await runtime.listByLabel({ "office.test-instance": INSTANCE_ID })).toEqual([]);
+    expect(await exists(testbed.folders.testInstanceFolder(INSTANCE_ID))).toBe(false);
+  });
+});
+
+describe("HostedServices on a non-root Office", () => {
+  const OWNER = { userId: 999, groupId: 998 };
+
+  beforeEach(async () => {
+    await rm(testbed.folder, { recursive: true, force: true });
+    testbed = await runEnvironmentsTestbed(
+      runtime,
+      { ...DEFAULT_RUN_ENVIRONMENT_OPTIONS, runEnvironmentsAtOnce: 1 },
+      OWNER,
+      { timeoutMs: 100, intervalMs: 5, answers: (port) => runtime.answers(port) },
+    );
+    // Only the entry point keeps running: the hand-back ends as it runs.
+    runtime.keepExecsRunning((execution) => execution.arguments !== undefined);
+    projectName = hostedProjectNameOf(testbed.folders.instance, INSTANCE_ID);
+  });
+
+  it("gives the checkout back to The Office's user as root before the project comes down", async () => {
+    const start = await launch();
+    await testbed.hostedServices.start(start, () => undefined);
+    runtime.steps.length = 0;
+    runtime.executions.length = 0;
+
+    await testbed.hostedServices.stop(INSTANCE_ID);
+
+    expect(runtime.steps.slice(0, 2)).toEqual([
+      `exec ${projectName}`,
+      `down ${projectName} with built images`,
+    ]);
+    expect(runtime.executions).toEqual([
+      expect.objectContaining({
+        service: "app",
+        user: "0:0",
+        script: handBackScript(start.checkout, OWNER),
+      }),
+    ]);
+  });
+
+  it("gives the checkout back in the sweep too, from what it wrote beside the override", async () => {
+    const start = await launch();
+    await testbed.hostedServices.start(start, () => undefined);
+    runtime.executions.length = 0;
+
+    await testbed.hostedServices.sweep();
+
+    expect(runtime.executions).toEqual([
+      expect.objectContaining({ user: "0:0", script: handBackScript(start.checkout, OWNER) }),
+    ]);
+  });
+
+  it("goes on removing the instance when the hand-back fails", async () => {
+    await testbed.hostedServices.start(await launch(), () => undefined);
+    runtime.onExec = () => Promise.resolve({ exitCode: 1 });
+    runtime.steps.length = 0;
+
+    await testbed.hostedServices.stop(INSTANCE_ID);
+
+    expect(runtime.steps.slice(0, 2)).toEqual([
+      `exec ${projectName}`,
+      `down ${projectName} with built images`,
+    ]);
     expect(await exists(testbed.folders.testInstanceFolder(INSTANCE_ID))).toBe(false);
   });
 });
