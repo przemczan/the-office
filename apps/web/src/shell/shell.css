@@ -385,6 +385,12 @@ button.shell-strip-figure:hover {
   color: inherit;
 }
 
+/* Waiting for you's count, smaller than Needs you's and never its tone. */
+.shell-strip-waiting {
+  font-size: 0.85em;
+  font-weight: 400;
+}
+
 .shell-strip-needs-you.alert {
   /* Filled, it no longer hides in the strip's gap the way a hover background may. */
   margin: 0;

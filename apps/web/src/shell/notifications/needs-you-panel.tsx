@@ -10,14 +10,18 @@ import {
 import { needsYouWords } from "./now-words.ts";
 import { useNeedsYou } from "./use-needs-you.ts";
 import { useNeedsYouPanel } from "./use-needs-you-panel.ts";
+import { useWaitingForYou } from "./use-waiting-for-you.ts";
+import { WaitingForYouGroup } from "./waiting-for-you-feed.tsx";
 
 /**
- * Decisions and Gates over any page, opened from the status strip (spec §4), the same cards as on
- * Now, answered there. Its left edge resizes it, as the chat drawer's does.
+ * Decisions and Gates over any page, then what is Waiting for you, opened from the status strip
+ * (spec §4), the same cards as on Now, answered there. Its description counts the Decisions and
+ * Gates alone. Its left edge resizes it, as the chat drawer's does.
  */
 export function NeedsYouPanel(): ReactNode {
   const panel = useNeedsYouPanel();
   const needsYou = useNeedsYou();
+  const waitingForYou = useWaitingForYou();
   const layout = useNeedsYouPanelLayout();
   if (!panel.isOpen || !needsYou) return null;
   const count = needsYou.shown.length;
@@ -44,6 +48,7 @@ export function NeedsYouPanel(): ReactNode {
       <div className="feed">
         <NeedsYouFeed needsYou={needsYou} />
       </div>
+      {waitingForYou && <WaitingForYouGroup waitingForYou={waitingForYou} />}
     </Drawer>
   );
 }

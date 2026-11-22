@@ -21,6 +21,8 @@ import { EmptyCard, ItemCard } from "../../shell/item-card.tsx";
 import { NeedsYouFeed } from "../../shell/notifications/needs-you-feed.tsx";
 import { useNeedsYou } from "../../shell/notifications/use-needs-you.ts";
 import { useUsageWindows } from "../../shell/notifications/use-usage-windows.ts";
+import { useWaitingForYou } from "../../shell/notifications/use-waiting-for-you.ts";
+import { WaitingForYouGroup } from "../../shell/notifications/waiting-for-you-feed.tsx";
 import {
   desksWords,
   fiveHourWindowName,
@@ -45,7 +47,7 @@ import "./now.css";
 import { TokenCount } from "../../shell/token-count.tsx";
 
 /**
- * Home: what needs the user, what is running and queued, the Initiatives being shaped, what happened since they left, and today's tokens;
+ * Home: what needs the user (its Decisions and Gates, then what is Waiting for you), what is running and queued, the Initiatives being shaped, what happened since they left, and today's tokens;
  * nothing else (spec §4), with the fire alarm above while it is on (spec §2.8). Each Decision and Gate is answered in place. The Project filter narrows
  * the three feeds; desks and tokens stay Office-wide.
  */
@@ -53,6 +55,7 @@ export function NowPage(): ReactNode {
   const now = useQuery(nowQueries.now()).data;
   const sinceYouLeft = useQuery(nowQueries.sinceYouLeft()).data;
   const needsYou = useNeedsYou();
+  const waitingForYou = useWaitingForYou();
   const projects = useQuery(projectQueries.list()).data;
   const roles = useQuery(roleQueries.list()).data;
   const clock = useClock();
@@ -67,6 +70,7 @@ export function NowPage(): ReactNode {
             count={needsYou && String(needsYou.shown.length)}
           />
           <Feed>{needsYou && <NeedsYouFeed needsYou={needsYou} />}</Feed>
+          {waitingForYou && <WaitingForYouGroup waitingForYou={waitingForYou} />}
         </Panel>
         <Panel label="Running and since you left">
           <PanelHeading

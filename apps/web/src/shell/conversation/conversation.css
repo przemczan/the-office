@@ -935,8 +935,9 @@
   flex-wrap: wrap;
 }
 
-/* The card a Decision's link opened the page at. */
-.message.decision-card.linked-to {
+/* The card a Decision's or a Proposal's link opened the page at. */
+.message.decision-card.linked-to,
+.message.proposal-card.linked-to {
   box-shadow: var(--focus-ring);
 }
 

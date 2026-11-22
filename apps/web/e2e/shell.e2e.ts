@@ -3,9 +3,23 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { expect, test, type Page, type WebSocketRoute } from "@playwright/test";
-import type { Engine, EngineSettings, Notification, Now } from "@the-office/contracts";
+import {
+  projectSchema,
+  roleCardSchema,
+  roleSchema,
+  threadSchema,
+  type Engine,
+  type EngineSettings,
+  type NewProject,
+  type Notification,
+  type Now,
+  type Project,
+} from "@the-office/contracts";
 import { desktopShown, focusTab, recordDesktopNotifications } from "./desktop-notifications.ts";
+import { queryOfficeDatabase } from "./office-database.ts";
 import { asOwnUser } from "./own-user.ts";
+import { screenshotScenario } from "./task-screenshots.ts";
+import { createTemporaryRepository, type TemporaryRepository } from "./temporary-repository.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
@@ -925,3 +939,124 @@ test.describe("Notifications as the service sends them", { tag: "@full" }, () =>
       .toEqual(["Paused.", "3 Tasks done, 1 Task paused", "During quiet hours: 1 needs you."]);
   });
 });
+
+test.describe("Waiting for you", { tag: "@full" }, () => {
+  test.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
+
+  test("a chat Proposal waits under Needs you, counted apart in the strip, and opens its Thread at its card", async ({
+    page,
+  }) => {
+    const repository = await createTemporaryRepository();
+    try {
+      const project = await shellProject(page, repository);
+      const { card: caretaker } = roleSchema.parse(
+        await (await page.request.get("/api/roles/caretaker")).json(),
+      );
+      const started = await page.request.post("/api/chats/caretaker/threads");
+      expect(started.status()).toBe(201);
+      const { id: threadId } = threadSchema.parse(await started.json());
+      // A title no preset has and no other test proposes, so the drawer's card is this one.
+      const title = `Waiting ${Date.now()}`;
+      const proposalId = await seedChatProposal(threadId, {
+        kind: "hire",
+        card: roleCardSchema.omit({ skills: true }).parse({ ...caretaker, name: "Wim", title }),
+        skills: [],
+      });
+
+      try {
+        await page.goto("/now");
+        // Only this Project's Decisions and Gates; a chat Proposal is Office-wide, so it still shows.
+        await page.getByRole("button", { name: /^Project filter:/ }).click();
+        await page.getByRole("button", { name: `Show only ${project.name}`, exact: true }).click();
+        await page.keyboard.press("Escape");
+
+        const needsYou = page.getByRole("region", { name: "Needs you" });
+        const waiting = needsYou.getByRole("region", { name: "Waiting for you" });
+        // Other files' open chat Proposals wait too, each Office-wide; this one is the newest.
+        const card = waiting
+          .getByRole("article", { name: `Proposal: Drafted by ${caretaker.name}` })
+          .last();
+        await expect(card).toBeVisible();
+        await expect(card.getByText("Proposal", { exact: true })).toBeVisible();
+
+        // The strip counts it apart: the main count stays this Project's Decisions and Gates.
+        const strip = page.getByRole("status", { name: "Status strip" });
+        const figure = strip.getByRole("button", { name: /needs? you/ });
+        await expect(figure).toHaveAccessibleName(
+          /^0 need you(, \d+ more in other Projects)?, \d+ waiting for you$/,
+        );
+        await expect(figure).toContainText(/· \d+ waiting/);
+        await expect(figure).not.toHaveClass(/\balert\b/);
+        await expect(figure.locator(".live-dot")).toHaveCount(0);
+        await screenshotScenario(page, "now-waiting-for-you", { inView: waiting });
+
+        await figure.click();
+        const panel = page
+          .getByRole("dialog")
+          .filter({ has: page.getByRole("heading", { name: "Needs you", exact: true }) });
+        await expect(panel.getByRole("region", { name: "Waiting for you" })).toBeVisible();
+        await screenshotScenario(page, "needs-you-panel-waiting-for-you", {
+          inView: panel.getByRole("region", { name: "Waiting for you" }),
+        });
+        await page.keyboard.press("Escape");
+        await expect(panel).toHaveCount(0);
+
+        await card.getByRole("button", { name: `Drafted by ${caretaker.name}` }).click();
+        const chat = page.getByRole("complementary", { name: `Chat with ${caretaker.name}` });
+        const proposal = chat.getByRole("region", { name: `Proposal: New Role · Wim · ${title}` });
+        await expect(proposal).toHaveAttribute("aria-current", "true");
+        await expect(proposal).toHaveClass(/\blinked-to\b/);
+        await expect(proposal).toBeInViewport();
+      } finally {
+        // Declined, so other files' Now no longer lists it.
+        const declined = await page.request.post(`/api/proposals/${proposalId}/decline`);
+        expect(declined.ok()).toBe(true);
+      }
+    } finally {
+      await repository.remove();
+    }
+  });
+});
+
+/**
+ * A Proposal the Caretaker drafted in their chat, with its card in the Thread, as the Conversations
+ * service leaves one: only an Agent's session drafts a Proposal.
+ */
+async function seedChatProposal(
+  threadId: string,
+  change: Record<string, unknown>,
+): Promise<string> {
+  const proposalId = randomUUID();
+  await queryOfficeDatabase(
+    `insert into proposals (id, thread_id, drafted_by, drafted_at, change, status)
+     values ($1, $2, 'caretaker', now(), $3, 'open')`,
+    [proposalId, threadId, change],
+  );
+  await queryOfficeDatabase(
+    `insert into thread_messages (id, thread_id, body, at) values ($1, $2, $3, now())`,
+    [randomUUID(), threadId, { kind: "proposal", roleKey: "caretaker", proposalId }],
+  );
+  return proposalId;
+}
+
+async function shellProject(page: Page, repository: TemporaryRepository): Promise<Project> {
+  const quick = { commandLine: "node --version", rerunCommandLine: "" };
+  const newProject: NewProject = {
+    name: `Shell ${Date.now()}`,
+    path: repository.path,
+    baseBranch: "main",
+    mark: { label: "SH", colour: "teal" },
+    installCommand: "node --version",
+    commands: [
+      { key: "build", name: "Build", kind: "build", ...quick },
+      { key: "lint", name: "Lint", kind: "lint", ...quick },
+      { key: "test", name: "Test", kind: "test", ...quick },
+    ],
+    installInputs: [],
+    publishingMode: "push-and-pull-request",
+    defaultPipeline: "full",
+  };
+  const response = await page.request.post("/api/projects", { data: newProject });
+  expect(response.status()).toBe(201);
+  return projectSchema.parse(await response.json());
+}

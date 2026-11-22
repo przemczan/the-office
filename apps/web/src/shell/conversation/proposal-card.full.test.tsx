@@ -69,20 +69,30 @@ function serviceAnswering(answer: Proposal): Mock<ServiceCall> {
   return fetched;
 }
 
-function cardOf(proposal: Proposal, queryClient = new QueryClient()): HTMLElement {
+/** The card on its own, inside a router as every page shows it. */
+async function cardOf(proposal: Proposal, queryClient = new QueryClient()): Promise<HTMLElement> {
+  const router = createRouter({
+    routeTree: createRootRoute({
+      component: () => (
+        <ToastProvider>
+          <ProposalCard proposal={proposal} />
+        </ToastProvider>
+      ),
+    }),
+    history: createMemoryHistory({ initialEntries: ["/now"] }),
+  });
   const page = document.createElement("div");
   document.body.append(page);
   const root = createRoot(page);
   mounted.push({ root, page });
-  act(() =>
+  await act(async () => {
     root.render(
       <QueryClientProvider client={queryClient}>
-        <ToastProvider>
-          <ProposalCard proposal={proposal} />
-        </ToastProvider>
+        <RouterProvider router={router} />
       </QueryClientProvider>,
-    ),
-  );
+    );
+    await router.load();
+  });
   return page;
 }
 
@@ -112,17 +122,17 @@ function promptTemplateProposal(to: string | null): Proposal {
 }
 
 describe("ProposalCard on a prompt template", () => {
-  it("names the template and shows the new text whole", () => {
+  it("names the template and shows the new text whole", async () => {
     serviceAnswering(promptTemplateProposal(SEVERAL_LINES));
-    const card = cardOf(promptTemplateProposal(SEVERAL_LINES));
+    const card = await cardOf(promptTemplateProposal(SEVERAL_LINES));
     expect(card.textContent).toContain("Change the prompt template · Resolve's Brief");
     expect(card.querySelector(".proposal-text")?.textContent).toBe(SEVERAL_LINES);
     expect(card.textContent).toContain("Applies to prompts rendered after it.");
   });
 
-  it("says a reset goes back to the default", () => {
+  it("says a reset goes back to the default", async () => {
     serviceAnswering(promptTemplateProposal(null));
-    const card = cardOf(promptTemplateProposal(null));
+    const card = await cardOf(promptTemplateProposal(null));
     expect(card.textContent).toContain("Reset Resolve's Brief to its default");
     expect(card.textContent).toContain("Back to the default that ships with The Office");
     expect(card.querySelector(".proposal-text")).toBeNull();
@@ -133,7 +143,7 @@ describe("ProposalCard on a prompt template", () => {
       ...promptTemplateProposal(SEVERAL_LINES),
       status: { kind: "applied", at: AT, by: null },
     });
-    const card = cardOf(promptTemplateProposal(SEVERAL_LINES));
+    const card = await cardOf(promptTemplateProposal(SEVERAL_LINES));
     await act(async () => {
       button(card, "Apply change").click();
       await vi.waitFor(() =>
@@ -148,17 +158,17 @@ describe("ProposalCard on a prompt template", () => {
 });
 
 describe("ProposalCard on the Office instructions", () => {
-  it("says what it changes and shows the whole text with its line breaks", () => {
+  it("says what it changes and shows the whole text with its line breaks", async () => {
     serviceAnswering(officeInstructionsProposal(SEVERAL_LINES));
-    const card = cardOf(officeInstructionsProposal(SEVERAL_LINES));
+    const card = await cardOf(officeInstructionsProposal(SEVERAL_LINES));
     expect(card.textContent).toContain("Change the Office instructions");
     expect(card.textContent).toContain("New Office instructions");
     expect(card.querySelector(".proposal-text")?.textContent).toBe(SEVERAL_LINES);
   });
 
-  it("says they would be emptied when the new text is empty", () => {
+  it("says they would be emptied when the new text is empty", async () => {
     serviceAnswering(officeInstructionsProposal(""));
-    const card = cardOf(officeInstructionsProposal(""));
+    const card = await cardOf(officeInstructionsProposal(""));
     expect(card.textContent).toContain("the Office instructions would be emptied");
     expect(card.querySelector(".proposal-text")).toBeNull();
   });
@@ -169,7 +179,7 @@ describe("ProposalCard on the Office instructions", () => {
     );
     const queryClient = new QueryClient();
     const refreshed = vi.spyOn(queryClient, "invalidateQueries");
-    const card = cardOf(officeInstructionsProposal(SEVERAL_LINES), queryClient);
+    const card = await cardOf(officeInstructionsProposal(SEVERAL_LINES), queryClient);
     await act(async () => {
       button(card, "Apply change").click();
       await vi.waitFor(() => expect(refreshed).toHaveBeenCalledTimes(2));
@@ -185,9 +195,9 @@ describe("ProposalCard on the Office instructions", () => {
   it.each([
     [{ kind: "applied", at: AT, by: null }, "Applied"],
     [{ kind: "declined", at: AT, by: null }, "Not applied"],
-  ] satisfies [ProposalStatus, string][])("shows what became of it: %j", (status, words) => {
+  ] satisfies [ProposalStatus, string][])("shows what became of it: %j", async (status, words) => {
     serviceAnswering(officeInstructionsProposal(SEVERAL_LINES));
-    const card = cardOf(officeInstructionsProposal(SEVERAL_LINES, status));
+    const card = await cardOf(officeInstructionsProposal(SEVERAL_LINES, status));
     expect(card.textContent).toContain(words);
     expect(card.querySelector(".proposal-text")?.textContent).toBe(SEVERAL_LINES);
     expect(card.querySelectorAll("button")).toHaveLength(0);
@@ -200,11 +210,11 @@ describe("ProposalCard on the Office instructions", () => {
     [{ kind: "declined", at: AT, by: BY_ANN }, "Not applied", "by Ann Lee"],
   ] satisfies [ProposalStatus, string, string][])(
     "names the user who applied or declined it: %j",
-    (status, badge, by) => {
+    async (status, badge, by) => {
       serviceAnswering(officeInstructionsProposal(SEVERAL_LINES));
       const queryClient = new QueryClient();
       signIn(queryClient);
-      const card = cardOf(officeInstructionsProposal(SEVERAL_LINES, status), queryClient);
+      const card = await cardOf(officeInstructionsProposal(SEVERAL_LINES, status), queryClient);
       expect(card.querySelector(".proposal-foot")?.textContent).toContain(badge);
       expect(card.querySelector(".proposal-foot .proposal-note")?.textContent).toMatch(
         new RegExp(`^${by} · `),
@@ -287,7 +297,7 @@ describe("ProposalCard on a Project Pipeline", () => {
         broken: [],
       },
     });
-    const card = cardOf(newOne);
+    const card = await cardOf(newOne);
 
     await vi.waitFor(() => expect(card.textContent).toContain("Tests → Verify on Linux"));
     expect(card.textContent).toContain("Add Full with Linux check to the-office's Pipelines");
@@ -300,7 +310,7 @@ describe("ProposalCard on a Project Pipeline", () => {
     serviceReading({}, { ...newOne, status: { kind: "applied", at: AT, by: null } });
     const queryClient = new QueryClient();
     const refreshed = vi.spyOn(queryClient, "invalidateQueries");
-    const card = cardOf(newOne, queryClient);
+    const card = await cardOf(newOne, queryClient);
 
     await act(async () => {
       button(card, "Apply change").click();
@@ -313,11 +323,11 @@ describe("ProposalCard on a Project Pipeline", () => {
     );
   });
 
-  it("titles a change by the Project Pipeline it changes", () => {
+  it("titles a change by the Project Pipeline it changes", async () => {
     serviceReading({});
     const fields = newOne.change.kind === "project-pipeline" ? newOne.change.to : undefined;
     if (!fields) throw new Error("A Project Pipeline Proposal.");
-    const card = cardOf(
+    const card = await cardOf(
       proposalOf({
         kind: "project-pipeline",
         routes: null,
@@ -365,7 +375,7 @@ describe("ProposalCard on a library Pipeline's Stages", () => {
         ],
       },
     });
-    const card = cardOf(proposal);
+    const card = await cardOf(proposal);
 
     await vi.waitFor(() =>
       expect(card.textContent).toContain("Applying this breaks 1 Project Pipeline"),
@@ -376,11 +386,11 @@ describe("ProposalCard on a library Pipeline's Stages", () => {
     expect(button(card, "Apply anyway").disabled).toBe(false);
   });
 
-  it("warns of nothing once it is applied", () => {
+  it("warns of nothing once it is applied", async () => {
     serviceReading({
       "/pipelines": [{ id: "full", name: "Full", description: "", stages: [TESTS], builtOnBy: [] }],
     });
-    const card = cardOf({ ...proposal, status: { kind: "applied", at: AT, by: null } });
+    const card = await cardOf({ ...proposal, status: { kind: "applied", at: AT, by: null } });
 
     expect(card.textContent).not.toContain("breaks");
   });
@@ -410,7 +420,7 @@ describe("ProposalCard on the CTO's change of an Initiative's Pipeline", () => {
         },
       ],
     });
-    const card = cardOf(proposal);
+    const card = await cardOf(proposal);
 
     await vi.waitFor(() =>
       expect(card.textContent).toContain("Initiative's PipelineFull with Linux check"),
@@ -436,9 +446,12 @@ describe("ProposalCard on a change of duties", () => {
     to: { plans: "devops", reviews: null },
   };
 
-  it("shows each duty's holder as it was and as proposed, in the duties' order", () => {
+  it("shows each duty's holder as it was and as proposed, in the duties' order", async () => {
     serviceAnswering(proposalOf(change));
-    const card = cardOf({ ...proposalOf(change), draftedBy: "office-manager" }, readingQueries());
+    const card = await cardOf(
+      { ...proposalOf(change), draftedBy: "office-manager" },
+      readingQueries(),
+    );
 
     expect(card.textContent).toContain("Change duties");
     const rows = [...card.querySelectorAll(".proposal-changes li")].map(
@@ -455,7 +468,7 @@ describe("ProposalCard on a change of duties", () => {
     const fetched = serviceAnswering(proposalOf(change, { kind: "applied", at: AT, by: null }));
     const queryClient = readingQueries();
     const refreshed = vi.spyOn(queryClient, "invalidateQueries");
-    const card = cardOf(proposalOf(change), queryClient);
+    const card = await cardOf(proposalOf(change), queryClient);
 
     await act(async () => {
       button(card, "Apply change").click();
@@ -479,7 +492,7 @@ describe("ProposalCard on a change of duties", () => {
         ),
       ),
     );
-    const card = cardOf(proposalOf(change), readingQueries());
+    const card = await cardOf(proposalOf(change), readingQueries());
 
     await act(async () => {
       button(card, "Apply change").click();
@@ -558,9 +571,9 @@ describe("ProposalCard on the set-up of The Office", () => {
     return queryClient;
   }
 
-  it("lists each hire, from the preset or from scratch, and every duty's holder after it", () => {
+  it("lists each hire, from the preset or from scratch, and every duty's holder after it", async () => {
     serviceAnswering(proposalOf(change));
-    const card = cardOf({ ...proposalOf(change), draftedBy: "caretaker" }, freshOffice());
+    const card = await cardOf({ ...proposalOf(change), draftedBy: "caretaker" }, freshOffice());
 
     expect(card.textContent).toContain("Set up The Office");
     const hires = [...card.querySelectorAll(".proposal-setup-hire")].map(
@@ -583,7 +596,7 @@ describe("ProposalCard on the set-up of The Office", () => {
     const fetched = serviceAnswering(proposalOf(change, { kind: "applied", at: AT, by: null }));
     const queryClient = freshOffice();
     const refreshed = vi.spyOn(queryClient, "invalidateQueries");
-    const card = cardOf(proposalOf(change), queryClient);
+    const card = await cardOf(proposalOf(change), queryClient);
 
     await act(async () => {
       button(card, "Hire 2 and assign duties").click();
@@ -643,7 +656,11 @@ describe("ProposalCard on the set-up of The Office", () => {
 });
 
 /** The card inside the shell's router and chat, as a Thread shows it; and where the page went. */
-async function routedCardOf(proposal: Proposal): Promise<{
+async function routedCardOf(
+  proposal: Proposal,
+  /** Where the page opens, Now unless said. */
+  at = "/now",
+): Promise<{
   readonly card: HTMLElement;
   /** Where the page is now, its path and search. */
   readonly address: () => string;
@@ -668,7 +685,7 @@ async function routedCardOf(proposal: Proposal): Promise<{
         </ThreadDraftsProvider>
       ),
     }),
-    history: createMemoryHistory({ initialEntries: ["/now"] }),
+    history: createMemoryHistory({ initialEntries: [at] }),
   });
   const card = document.createElement("div");
   document.body.append(card);
@@ -742,9 +759,9 @@ describe("ProposalCard on a Pipeline's routes", () => {
     expect(card.textContent).not.toContain("Show it on the flow");
   });
 
-  it("shows a Proposal drafted before routes as before: its Stages alone", () => {
+  it("shows a Proposal drafted before routes as before: its Stages alone", async () => {
     serviceReading({ "/pipelines": [FULL] });
-    const card = cardOf({
+    const card = await cardOf({
       ...ROUTES_PROPOSAL,
       change: {
         kind: "pipeline",
@@ -758,5 +775,34 @@ describe("ProposalCard on a Pipeline's routes", () => {
     expect(card.textContent).toContain("Change the full Pipeline");
     expect(card.textContent).not.toContain("Routes out of");
     expect(card.textContent).not.toContain("as proposed");
+  });
+});
+
+describe("ProposalCard linked to", () => {
+  it("is marked while the address names its Proposal", async () => {
+    serviceAnswering(officeInstructionsProposal("Be brief."));
+    const { card } = await routedCardOf(
+      officeInstructionsProposal("Be brief."),
+      `/now?proposal=${PROPOSAL_ID}`,
+    );
+
+    const section = card.querySelector(".proposal-card");
+    expect(section?.classList.contains("linked-to")).toBe(true);
+    expect(section?.getAttribute("aria-current")).toBe("true");
+  });
+
+  it("isn't marked while the address names another Proposal, or none", async () => {
+    serviceAnswering(officeInstructionsProposal("Be brief."));
+    const { card: another } = await routedCardOf(
+      officeInstructionsProposal("Be brief."),
+      "/now?proposal=6f1c2a52-1d0e-4a59-9d55-3c1f7f1f0a99",
+    );
+    const { card: none } = await routedCardOf(officeInstructionsProposal("Be brief."));
+
+    for (const card of [another, none]) {
+      const section = card.querySelector(".proposal-card");
+      expect(section?.classList.contains("linked-to")).toBe(false);
+      expect(section?.hasAttribute("aria-current")).toBe(false);
+    }
   });
 });

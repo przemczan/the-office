@@ -1,5 +1,5 @@
 import { notifyManager, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { NeedsYouItem, Now } from "@the-office/contracts";
+import type { NeedsYouItem, Now, WaitingForYouItem } from "@the-office/contracts";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -213,4 +213,37 @@ it("counts the Stages waiting for a Stand-in Engine as one item, blinking only w
   needsYou([{ ...standInChoice, waitingSince: "2026-11-13T09:05:00.000Z", count: 2 }]);
 
   expect(titlesOver(1)).toEqual([STEADY, STEADY]);
+});
+
+it("counts only Needs you in the title, never what is Waiting for you", () => {
+  const officeUpdate: WaitingForYouItem = {
+    kind: "office-update",
+    target: {
+      kind: "commit",
+      commit: "abc1234def5678",
+      shortCommit: "abc1234",
+      subject: "fix: a thing",
+      committedAt: "2026-11-13T09:00:00.000Z",
+    },
+    projectIds: [],
+    waitingSince: "2026-11-13T09:00:00.000Z",
+  };
+  showTab(false);
+  act(() => {
+    queryClient.setQueryData(nowQueries.now().queryKey, {
+      needsYou: [],
+      waitingForYou: [officeUpdate],
+    } as unknown as Now);
+  });
+
+  expect(titlesOver(2)).toEqual(["The Office", "The Office", "The Office"]);
+
+  act(() => {
+    queryClient.setQueryData(nowQueries.now().queryKey, {
+      needsYou: [FIRST],
+      waitingForYou: [officeUpdate, { ...officeUpdate, projectIds: ["billing"] }],
+    } as unknown as Now);
+  });
+
+  expect(titlesOver(1)).toEqual([STEADY, BLINK]);
 });

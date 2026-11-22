@@ -40,6 +40,17 @@ export function useChat(): ChatControls {
   return { ...place, open, showThread, showThreadList, closeTab, close };
 }
 
+/**
+ * The Proposal card the chat drawer was opened at. A card shown outside the shell's chat, as on
+ * its own in a test, has none.
+ */
+export function useChatLandingProposal(): string | undefined {
+  const store = useContext(ChatContext);
+  return useSyncExternalStore(store?.subscribe ?? neverChanges, () => store?.place().proposalId);
+}
+
+const neverChanges = (): (() => void) => () => undefined;
+
 /** What the chat drawer's next message goes with, and leaving it out (spec §2.4). */
 export interface ChatOpenPage {
   /** The Open page, or undefined on a page with none or once the user left it out. */

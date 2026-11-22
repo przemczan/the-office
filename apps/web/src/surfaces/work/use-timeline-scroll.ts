@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { LINKED_CARD_SELECTOR } from "../../shell/conversation/message-list.tsx";
 
 /** Near enough to the end to count as reading it, whatever a line's height. */
 const AT_END_PX = 40;
@@ -26,9 +27,9 @@ export function chapterElementId(threadId: string): string {
  * Keeps the timeline on the newest messages of the Thread the address names, else on its end, while
  * chapters load and messages land, until the reader takes over: moving up from the end, or anything
  * they do on a Thread's chapter. A reader who took over is never moved; reaching the end again goes
- * back to following it. A linked Decision's card outranks all of it, once. Only `scrollTop` moves,
- * as scrollIntoView would scroll the page too: a message coming in must never move the page around
- * the timeline.
+ * back to following it. A linked Decision's or Proposal's card outranks all of it, once. Only
+ * `scrollTop` moves, as scrollIntoView would scroll the page too: a message coming in must never
+ * move the page around the timeline.
  */
 export function useTimelineScroll(landOn: string | undefined): TimelineScroll {
   const scroller = useRef<HTMLDivElement>(null);
@@ -50,7 +51,7 @@ export function useTimelineScroll(landOn: string | undefined): TimelineScroll {
   const settle = useCallback((): void => {
     const view = scroller.current;
     if (view === null || anchor.current === undefined) return;
-    const linkedCard = view.querySelector(".decision-card.linked-to");
+    const linkedCard = view.querySelector(LINKED_CARD_SELECTOR);
     if (linkedCard !== null) {
       view.scrollTop += centredOffset(view, linkedCard);
       anchorOn(undefined);

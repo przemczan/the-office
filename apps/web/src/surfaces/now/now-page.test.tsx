@@ -1,5 +1,11 @@
 import { QueryClient, QueryObserver } from "@tanstack/react-query";
-import type { FireAlarmOnNow, Now, ShapingOnNow, SinceYouLeft } from "@the-office/contracts";
+import type {
+  FireAlarmOnNow,
+  Now,
+  ShapingOnNow,
+  SinceYouLeft,
+  WaitingForYouItem,
+} from "@the-office/contracts";
 import { afterEach, describe, expect, it } from "vitest";
 import { notificationEventCacheUpdates, nowQueries } from "../../api/notifications.ts";
 import { FireAlarmReviewProvider } from "../../shell/fire-alarm/fire-alarm-review.tsx";
@@ -160,6 +166,45 @@ describe("Now's Shaping", () => {
       "Shaping: Billing",
     ]);
     expect(page.textContent).toContain("1 more Initiative in other Projects");
+  });
+});
+
+const OFFICE_UPDATE: WaitingForYouItem = {
+  kind: "office-update",
+  target: {
+    kind: "release",
+    version: "1.4.0",
+    name: "v1.4.0",
+    publishedAt: "2026-11-15T08:00:00.000Z",
+    url: "https://github.com/acme/the-office/releases/tag/v1.4.0",
+  },
+  projectIds: [],
+  waitingSince: "2026-11-15T08:00:00.000Z",
+};
+
+describe("Now's Waiting for you", () => {
+  it("sits under Needs you's cards, inside the Needs you panel", async () => {
+    const { page } = await openNowWith({ ...NOW, waitingForYou: [OFFICE_UPDATE] });
+
+    const panel = page.querySelector("section.panel[aria-label='Needs you']");
+    await until(() =>
+      expect(panel?.querySelector("section[aria-label='Waiting for you']")).not.toBeNull(),
+    );
+    const group = panel?.querySelector("section[aria-label='Waiting for you']");
+    const feed = panel?.querySelector(".feed");
+    expect(feed?.textContent).toContain("Nothing needs you. Enjoy it.");
+    expect(feed?.contains(group ?? null)).toBe(false);
+    expect(feed && group && feed.compareDocumentPosition(group)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(group?.textContent).toContain("Version 1.4.0 is available");
+  });
+
+  it("shows no Waiting for you group while nothing waits", async () => {
+    const { page } = await openNowWith(NOW);
+
+    await until(() => expect(page.textContent).toContain("Nothing needs you. Enjoy it."));
+    expect(page.querySelector("section[aria-label='Waiting for you']")).toBeNull();
   });
 });
 

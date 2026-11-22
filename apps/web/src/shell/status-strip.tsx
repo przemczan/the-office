@@ -21,6 +21,7 @@ import { officeMessages } from "./notifications/office-messages.ts";
 import { OfficeMessages } from "./notifications/office-messages-slot.tsx";
 import { useNeedsYou } from "./notifications/use-needs-you.ts";
 import { useNeedsYouPanel } from "./notifications/use-needs-you-panel.ts";
+import { useWaitingForYou } from "./notifications/use-waiting-for-you.ts";
 import { StripFigure, StripLabel } from "./strip-figure.tsx";
 import { TokenInfo } from "./token-count.tsx";
 import { UsageFigure } from "./usage-figure.tsx";
@@ -90,11 +91,14 @@ function Figures({ now }: { readonly now: Now }): ReactNode {
 /**
  * The one figure the Project filter narrows, saying how many more wait in other Projects. It is an
  * alert while something waits in the Projects shown, a softer tint while only other Projects have
- * something, and quiet otherwise; it pops once each time the count goes up.
+ * something, and quiet otherwise; it pops once each time the count goes up. Beside its number, a
+ * small count of what is Waiting for you in the Projects shown, which never changes the tone, the
+ * pop or the live dot.
  */
 function NeedsYouFigure(): ReactNode {
   const needsYouPanel = useNeedsYouPanel();
   const needsYou = useNeedsYou();
+  const waiting = useWaitingForYou()?.shown.length ?? 0;
   const pops = useRises(needsYou?.shown.length);
   if (!needsYou) return null;
   const count = needsYou.shown.length;
@@ -103,7 +107,14 @@ function NeedsYouFigure(): ReactNode {
   // Two classes with the same pop under different animation names, swapped on each rise, so the
   // browser replays it without remounting the button, which would take its focus away.
   const pop = pops === 0 ? "" : pops % 2 === 1 ? " pop" : " pop-again";
-  const name = `${count} ${needsYouWords(count)}${elsewhere > 0 ? `, ${elsewhere} more in other Projects` : ""}`;
+  const waitingName = `${waiting} waiting for you`;
+  const name = [
+    `${count} ${needsYouWords(count)}`,
+    elsewhere > 0 && `${elsewhere} more in other Projects`,
+    waiting > 0 && waitingName,
+  ]
+    .filter((part) => part !== false)
+    .join(", ");
   return (
     <StripFigure
       className={`shell-strip-needs-you${tone}${pop}`}
@@ -116,6 +127,12 @@ function NeedsYouFigure(): ReactNode {
       value={
         <>
           <b>{count}</b>
+          {waiting > 0 && (
+            <span className="shell-strip-faint shell-strip-waiting" title={waitingName}>
+              <span className="shell-strip-roomy">· {waiting} waiting</span>
+              <span className="shell-strip-tight">·{waiting}</span>
+            </span>
+          )}
           {elsewhere > 0 && (
             <span className="shell-strip-faint" title={`${elsewhere} more in other Projects`}>
               <span className="shell-strip-roomy">+{elsewhere} in other Projects</span>

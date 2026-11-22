@@ -317,12 +317,14 @@ const ciRunsRoute = createRoute({
 });
 
 /**
- * An Initiative's page, showing one of its Threads first, as a Task's page does; a Decision's link
- * also lands on its card in that Thread, and a test instance's on its row in the Test instances fold.
+ * An Initiative's page, showing one of its Threads first, as a Task's page does; a Decision's or a
+ * Proposal's link also lands on its card in that Thread, and a test instance's on its row in the
+ * Test instances fold.
  */
 export interface InitiativeSearch {
   readonly initiativeThread?: string;
   readonly decision?: string;
+  readonly proposal?: string;
   readonly testInstance?: string;
 }
 
@@ -345,6 +347,7 @@ const initiativeRoute = createRoute({
       initiativeThread: search["initiativeThread"],
     }),
     ...(typeof search["decision"] === "string" && { decision: search["decision"] }),
+    ...(typeof search["proposal"] === "string" && { proposal: search["proposal"] }),
     ...testInstanceSearchOf(search),
   }),
   // Until the Initiative is read; the page then names it.
@@ -353,12 +356,13 @@ const initiativeRoute = createRoute({
 
 /**
  * A Task's page, showing one of its Threads first, as one opened from a person's page, and a tab
- * of its record instead of Overview; a Decision's link also scrolls to its card.
+ * of its record instead of Overview; a Decision's or a Proposal's link also scrolls to its card.
  */
 export interface TaskSearch {
   readonly taskThread?: string;
   readonly recordTab?: RecordTab;
   readonly decision?: string;
+  readonly proposal?: string;
 }
 
 // A Task's page, in Work; the rail marks Work while it is open.
@@ -372,6 +376,7 @@ const taskRoute = createRoute({
       ...(typeof search["taskThread"] === "string" && { taskThread: search["taskThread"] }),
       ...(recordTab !== undefined && { recordTab }),
       ...(typeof search["decision"] === "string" && { decision: search["decision"] }),
+      ...(typeof search["proposal"] === "string" && { proposal: search["proposal"] }),
     };
   },
   // Until the Task is read; the page then names it.

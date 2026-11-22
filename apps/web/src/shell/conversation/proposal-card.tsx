@@ -1,5 +1,5 @@
 import { useQuery, type QueryKey } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import {
   dutyKeySchema,
   type Duty,
@@ -31,6 +31,7 @@ import {
   taskQueries,
   useEveryTask,
 } from "../../api/work.ts";
+import { useChatLandingProposal } from "../chat/use-chat.tsx";
 import { useEngineName } from "../use-engine-name.ts";
 import { personName, roleName } from "../person-name.ts";
 import {
@@ -138,7 +139,10 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
   switch (change.kind) {
     case "hire":
       return (
-        <ProposalFrame title={`New Role · ${change.card.name} · ${change.card.title}`}>
+        <ProposalFrame
+          proposalId={proposal.id}
+          title={`New Role · ${change.card.name} · ${change.card.title}`}
+        >
           <ProposedCard card={change.card} roleTitles={roleTitles} />
           <HireFoot proposal={proposal} change={change} />
         </ProposalFrame>
@@ -147,7 +151,7 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
       const preset = presets?.find(({ roleKey }) => roleKey === change.roleKey);
       const title = preset?.card.title ?? change.roleKey;
       return (
-        <ProposalFrame title={`New Role · ${change.name} · ${title}`}>
+        <ProposalFrame proposalId={proposal.id} title={`New Role · ${change.name} · ${title}`}>
           {preset && (
             <ProposedCard card={presetCard(preset, change.name)} roleTitles={roleTitles} />
           )}
@@ -157,7 +161,7 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
     }
     case "change":
       return (
-        <ProposalFrame title={`Change ${roleName(change.roleKey, roles)}`}>
+        <ProposalFrame proposalId={proposal.id} title={`Change ${roleName(change.roleKey, roles)}`}>
           <ProposedChanges change={change} roleTitles={roleTitles} />
           <ChangeFoot proposal={proposal} personFirstName={firstName(change.roleKey, roles)} />
         </ProposalFrame>
@@ -165,14 +169,14 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
     case "office-wide-limit":
     case "size-threshold":
       return (
-        <ProposalFrame title={OFFICE_LIMITS[change.kind].title}>
+        <ProposalFrame proposalId={proposal.id} title={OFFICE_LIMITS[change.kind].title}>
           <ProposedLimit change={change} />
           <LimitFoot proposal={proposal} setting={change.kind} />
         </ProposalFrame>
       );
     case "office-instructions":
       return (
-        <ProposalFrame title="Change the Office instructions">
+        <ProposalFrame proposalId={proposal.id} title="Change the Office instructions">
           <ProposedOfficeInstructions text={change.to} />
           <AnswerFoot
             proposal={proposal}
@@ -185,6 +189,7 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
     case "prompt-template":
       return (
         <ProposalFrame
+          proposalId={proposal.id}
           title={
             change.to === null
               ? `Reset ${change.name} to its default`
@@ -206,7 +211,7 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
       );
     case "duties":
       return (
-        <ProposalFrame title="Change duties">
+        <ProposalFrame proposalId={proposal.id} title="Change duties">
           <ProposedDuties change={change} roles={roles} />
           <AnswerFoot
             proposal={proposal}
@@ -218,7 +223,7 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
       );
     case "office-setup":
       return (
-        <ProposalFrame title="Set up The Office">
+        <ProposalFrame proposalId={proposal.id} title="Set up The Office">
           <ProposedOfficeSetup change={change} presets={presets} roles={roles} />
           <AnswerFoot
             proposal={proposal}
@@ -231,7 +236,7 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
       );
     case "initiative":
       return (
-        <ProposalFrame title={INITIATIVE_EDIT_TITLES[change.edit.kind]}>
+        <ProposalFrame proposalId={proposal.id} title={INITIATIVE_EDIT_TITLES[change.edit.kind]}>
           <ProposedInitiativeEdit edit={change.edit} />
           <AnswerFoot
             proposal={proposal}
@@ -244,7 +249,7 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
     case "project-commands": {
       const name = projects?.find(({ id }) => id === change.projectId)?.name ?? change.projectId;
       return (
-        <ProposalFrame title={`Change ${name}'s commands`}>
+        <ProposalFrame proposalId={proposal.id} title={`Change ${name}'s commands`}>
           <ProposedCommandChanges changes={change.changes} />
           <AnswerFoot
             proposal={proposal}
@@ -258,7 +263,7 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
     case "test-targets": {
       const name = projects?.find(({ id }) => id === change.projectId)?.name ?? change.projectId;
       return (
-        <ProposalFrame title={`Change ${name}'s test targets`}>
+        <ProposalFrame proposalId={proposal.id} title={`Change ${name}'s test targets`}>
           <ProposedTestTargetChanges changes={change.changes} />
           <AnswerFoot
             proposal={proposal}
@@ -288,7 +293,7 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
       const name =
         stageTemplates?.find(({ id }) => id === change.templateId)?.stage.name ?? change.from.name;
       return (
-        <ProposalFrame title={`Change the ${name} Stage template`}>
+        <ProposalFrame proposalId={proposal.id} title={`Change the ${name} Stage template`}>
           <ProposedStageFieldChanges
             from={change.from}
             to={change.to}
@@ -310,7 +315,7 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
         pipelines?.find(({ id }) => id === project.defaultPipeline)?.name ??
         project.defaultPipeline;
       return (
-        <ProposalFrame title={`Onboard ${project.name}`}>
+        <ProposalFrame proposalId={proposal.id} title={`Onboard ${project.name}`}>
           <dl className="proposal-fields">
             {project.repositoryUrl === undefined ? (
               <ProposedField label="Repository">{project.path}</ProposedField>
@@ -364,7 +369,7 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
     }
     case "skill-install":
       return (
-        <ProposalFrame title={`Install ${change.name}`}>
+        <ProposalFrame proposalId={proposal.id} title={`Install ${change.name}`}>
           <ProposedSkillInstallFields change={change} />
           <AnswerFoot
             proposal={proposal}
@@ -376,7 +381,7 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
       );
     case "skill-update":
       return (
-        <ProposalFrame title={`Update ${change.name}`}>
+        <ProposalFrame proposalId={proposal.id} title={`Update ${change.name}`}>
           <ProposedSkillUpdateFields change={change} />
           <AnswerFoot
             proposal={proposal}
@@ -388,7 +393,7 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
       );
     case "skill":
       return (
-        <ProposalFrame title={`New skill · ${change.name}`}>
+        <ProposalFrame proposalId={proposal.id} title={`New skill · ${change.name}`}>
           <dl className="proposal-fields">
             <ProposedField label="Description">
               <span className="proposal-clamp">{change.description}</span>
@@ -439,7 +444,7 @@ function PipelineProposal({
   const breaks = open ? (check?.breaks ?? []) : [];
   const name = pipeline?.name ?? change.pipelineId;
   return (
-    <ProposalFrame title={`Change the ${name} Pipeline`}>
+    <ProposalFrame proposalId={proposal.id} title={`Change the ${name} Pipeline`}>
       <ProposedStageChanges from={change.from} to={change.to} />
       {change.routes && (
         <>
@@ -520,6 +525,7 @@ function ProjectPipelineProposal({
   const { from, to } = change;
   return (
     <ProposalFrame
+      proposalId={proposal.id}
       title={
         from === null
           ? `Add ${to.name} to ${projectName}'s Pipelines`
@@ -561,15 +567,28 @@ function ProjectPipelineProposal({
 /** These Proposals change what the user may edit by hand meanwhile, which refuses them. */
 const STALE_NOTE = "Refused if it changes before you apply this";
 
+/**
+ * The card a Proposal's link opened its Thread at, from Needs you's Waiting for you, is marked: a
+ * Task's or an Initiative's page names it in the address, the chat drawer in its place.
+ */
 function ProposalFrame({
+  proposalId,
   title,
   children,
 }: {
+  readonly proposalId: string;
   readonly title: string;
   readonly children: ReactNode;
 }): ReactNode {
+  const inAddress = useSearch({ strict: false }).proposal;
+  const inChat = useChatLandingProposal();
+  const linkedTo = inAddress === proposalId || inChat === proposalId;
   return (
-    <section className="message proposal-card" aria-label={`Proposal: ${title}`}>
+    <section
+      className={`message proposal-card${linkedTo ? " linked-to" : ""}`}
+      aria-label={`Proposal: ${title}`}
+      aria-current={linkedTo || undefined}
+    >
       <div className="proposal-head">
         <Badge tone="accent">Proposal</Badge>
         <span className="proposal-title">{title}</span>

@@ -59,6 +59,9 @@ const YOUR_AVATAR_COLOURS: CSSProperties = {
   color: "var(--gray-700)",
 };
 
+/** The card a Decision's or a Proposal's link opened its Thread at. */
+export const LINKED_CARD_SELECTOR = ".decision-card.linked-to, .proposal-card.linked-to";
+
 /** How to read a Handover note whole, when somewhere else holds it. */
 export type HandoverNoteReader = (note: string) => (() => void) | undefined;
 
@@ -101,8 +104,9 @@ export function MessageList({
   const shownLinkedTo = useRef(false);
   const readerLeftEnd = useRef(false);
   // What the list shows at its end: each new message, or the person starting to answer, scrolls to it.
-  // A Decision's link opens the list at its card instead, once. Only the list scrolls, never the page
-  // around it, so scrollIntoView, which scrolls every scrolling ancestor, is left out.
+  // A Decision's or a Proposal's link opens the list at its card instead, once. Only the list
+  // scrolls, never the page around it, so scrollIntoView, which scrolls every scrolling ancestor,
+  // is left out.
   const visible = visibleMessages(messages, details);
   const lines = visible.length + (answering ? 1 : 0);
   const endsWithUsersMessage = visible.at(-1)?.kind === "user";
@@ -110,9 +114,7 @@ export function MessageList({
     const scroller = list.current;
     if (inTimeline || lines === 0 || scroller === null) return;
     if (leavesReaderBe && readerLeftEnd.current && !endsWithUsersMessage) return;
-    const linkedTo = shownLinkedTo.current
-      ? null
-      : scroller.querySelector(".decision-card.linked-to");
+    const linkedTo = shownLinkedTo.current ? null : scroller.querySelector(LINKED_CARD_SELECTOR);
     if (linkedTo) {
       shownLinkedTo.current = true;
       const card = linkedTo.getBoundingClientRect();
@@ -241,8 +243,8 @@ function SessionRule({
 }
 
 /**
- * An earlier session's messages under one line, closed at first. A Decision's link opens it at its
- * card, as the log scrolls to the card.
+ * An earlier session's messages under one line, closed at first. A Decision's or a Proposal's link
+ * opens it at its card, as the log scrolls to the card.
  */
 function EarlierSession({
   messages,
@@ -258,7 +260,7 @@ function EarlierSession({
   useLayoutEffect(() => {
     const shown = fold.current;
     if (openedAtLink.current || shown === null) return;
-    if (shown.querySelector(".decision-card.linked-to") === null) return;
+    if (shown.querySelector(LINKED_CARD_SELECTOR) === null) return;
     openedAtLink.current = true;
     shown.open = true;
   });
