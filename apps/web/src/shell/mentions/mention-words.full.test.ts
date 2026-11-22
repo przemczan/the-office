@@ -4,6 +4,8 @@ import {
   matchingMentionables,
   mentionables,
   mentionQueryAt,
+  mentionsOpenPage,
+  offersOpenPage,
   withMentionLinks,
   type Mentionable,
 } from "./mention-words.ts";
@@ -70,5 +72,28 @@ describe("a message with mentions", () => {
         EXPORT_CSV,
       ]),
     ).toBe("Is [@Export CSV \\[beta\\]](/tasks/b) done? See [@Export](/tasks/a) and @Dark mode.");
+  });
+});
+
+describe("the Open page as a mention", () => {
+  it("is offered for an empty query, its words or the current page's, in any case", () => {
+    expect(["", "open", "Open p", "open page", "cur", "Current page"].map(offersOpenPage)).toEqual([
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+    ]);
+    expect(["pa", "open pages", "export"].map(offersOpenPage)).toEqual([false, false, false]);
+  });
+
+  it("goes with a message that holds @open page on its own, in any case", () => {
+    expect(
+      ["@open page", "What about @Open Page?", "See\n@open page, then"].map(mentionsOpenPage),
+    ).toEqual([true, true, true]);
+    expect(
+      ["open page", "mail@open page", "@open pages", "@open page_2", "@open"].map(mentionsOpenPage),
+    ).toEqual([false, false, false, false, false]);
   });
 });

@@ -1,4 +1,9 @@
-import { messageCommand, type OfficeCommandName, type SkillCommand } from "@the-office/contracts";
+import {
+  messageCommand,
+  type OfficeCommandName,
+  type OpenPage,
+  type SkillCommand,
+} from "@the-office/contracts";
 import { Button, Icon, IconButton } from "@the-office/ui";
 import {
   useEffect,
@@ -23,10 +28,11 @@ export interface PrefilledNote {
 
 /**
  * Writes the next message, with the keys every message field has; `@` mentions a Task, an open
- * Decision or an Idea, which the person then reads. A Handover note a Link card gave starts the
- * draft, for the user to edit or leave out (spec §2.2). Given `onOfficeCommand`, "/" lists the
- * commands, and an Office command is carried out here rather than sent (spec §2.4). Images pasted
- * or dropped into the box wait over the field until Send, which uploads them through `onSend`.
+ * Decision or an Idea, which the person then reads, or the Open page where one is given. A Handover
+ * note a Link card gave starts the draft, for the user to edit or leave out (spec §2.2). Given
+ * `onOfficeCommand`, "/" lists the commands, and an Office command is carried out here rather than
+ * sent (spec §2.4). Images pasted or dropped into the box wait over the field until Send, which
+ * uploads them through `onSend`.
  */
 export function Composer({
   placeholder,
@@ -35,6 +41,7 @@ export function Composer({
   prefilledNote,
   startingDraft,
   autoFocus = true,
+  openPage,
   onSend,
   onLeaveNoteOut,
   onDrafting,
@@ -56,6 +63,8 @@ export function Composer({
    */
   readonly startingDraft?: string;
   readonly autoFocus?: boolean;
+  /** The page open beside the chat drawer, which the `@` picker offers first (spec §2.4). */
+  readonly openPage?: OpenPage | undefined;
   /**
    * Resolves once the message is taken; the draft and its images are kept when it rejects.
    * `fromNote` says the message started from the prefilled Handover note. `uploadImages` uploads
@@ -87,7 +96,7 @@ export function Composer({
   const [noteKept, setNoteKept] = useState(prefilledNote !== undefined);
   const note = noteKept ? prefilledNote : undefined;
   const [sending, setSending] = useState(false);
-  const mentions = useMentions(draft, setDraft);
+  const mentions = useMentions(draft, setDraft, openPage);
   const commands = useCommands(
     draft,
     setDraft,

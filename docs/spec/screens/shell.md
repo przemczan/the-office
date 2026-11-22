@@ -210,7 +210,7 @@ Covers: the rail and its two states, the top bar (title and crumb, Project filte
 - Empty list: "No threads with <name> yet." and "A new Thread starts a session that reads every Project's base branch." with **New thread**.
 - Inside a Thread: the way back **Threads** (title "Every Thread with <name>", a dot while another Thread has an unseen answer), an icon button "New thread", then the Thread ([thread.md](thread.md)).
 - A refusal to start a Thread shows "No new Thread".
-- The Thread's composer shows the Open page line and sends it ([thread.md](thread.md#composer)); the drawer is the only place that offers one.
+- The Thread's `@` picker offers the Open page and a message mentioning it sends it ([thread.md](thread.md#open-page)); the drawer is the only place that offers one.
 - A Mention of a waiting Decision opens its window rather than moving the page.
 - A Proposal's card in Waiting for you opens its chat at that Thread with the Proposal's card brought into view and marked (`aria-current`, the focus ring); the mark is the drawer's own and leaves with any other move in the drawer, and is never kept in session storage.
 - The newest message on screen is reported to the service while the tab is visible, so what the user has seen holds in every browser ([2.4.1](../2.4.1-threads.md#what-the-user-has-seen-in-a-chat)).

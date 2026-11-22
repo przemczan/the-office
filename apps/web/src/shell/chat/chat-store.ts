@@ -1,5 +1,3 @@
-import { sameOpenPage, type OpenPage } from "@the-office/contracts";
-
 /** A person open in the drawer, and where the user left off with them. */
 export interface ChatTab {
   /** The person, by their Role's key. */
@@ -59,11 +57,6 @@ export interface ChatStore {
   /** Closing the tab shown shows its neighbour, the one on its right first; the last leaves the person picker. */
   closeTab(roleKey: string): void;
   close(): void;
-  /** The Open page the user left out, kept out of messages while it stays open (spec §2.4). */
-  leftOutPage(): OpenPage | undefined;
-  leaveOut(page: OpenPage): void;
-  /** The page open beside the drawer now; another one than the left-out page brings its line back. */
-  openPageChanged(page: OpenPage | undefined): void;
   subscribe(onChange: () => void): () => void;
 }
 
@@ -80,8 +73,6 @@ export function tabStorage(): Pick<Storage, "getItem" | "setItem"> {
 export function createChatStore(storage: Pick<Storage, "getItem" | "setItem">): ChatStore {
   let stored = storedPlace(storage);
   let place = placeOf(stored, undefined);
-  // Lasts the page only: the page open after a reload is looked at afresh.
-  let leftOut: OpenPage | undefined;
   const listeners = new Set<() => void>();
   const notify = (): void => {
     for (const listener of listeners) listener();
@@ -131,16 +122,6 @@ export function createChatStore(storage: Pick<Storage, "getItem" | "setItem">): 
       });
     },
     close: () => update({ isOpen: false }),
-    leftOutPage: () => leftOut,
-    leaveOut: (page) => {
-      leftOut = page;
-      notify();
-    },
-    openPageChanged: (page) => {
-      if (leftOut === undefined || (page !== undefined && sameOpenPage(leftOut, page))) return;
-      leftOut = undefined;
-      notify();
-    },
     subscribe: (onChange) => {
       listeners.add(onChange);
       return () => listeners.delete(onChange);

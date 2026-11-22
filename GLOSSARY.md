@@ -370,7 +370,7 @@ A Task, Initiative, Idea or Decision named in a chat message or in a Task's Desc
 _Avoid_: Reference, tag, attachment (an image is attached to a message, but a record is mentioned in it, never attached)
 
 **Open page**:
-The Task, Initiative, Idea, person or Project whose page is open beside the chat drawer as the user sends a message there; the person answering is given its record with the message, unless the user leaves it out of that message.
+The Task, Initiative, Idea, person or Project whose page is open beside the chat drawer as the user sends a message there; the person answering is given its record with the message when the message mentions it as `@open page`.
 _Avoid_: Current page, page context, focus, selection
 
 **Brief**:

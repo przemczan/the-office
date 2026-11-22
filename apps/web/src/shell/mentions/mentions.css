@@ -63,6 +63,15 @@
   color: var(--fg-3);
 }
 
+/* The Open page's chip, on the right where a record's kind is */
+.mention-picker-open-page {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 60%;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
 .mention-none {
   margin: 0;
   padding: 10px 8px;

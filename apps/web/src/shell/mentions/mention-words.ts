@@ -23,6 +23,25 @@ export interface Mentionable {
   readonly path: string;
 }
 
+/**
+ * What the `@` picker writes for the page open beside the chat drawer (spec §2.4): a message that
+ * still holds it goes with that page's record.
+ */
+export const OPEN_PAGE_MENTION = "open page";
+
+/** Whether the picker offers the Open page for the query: by its words, or as the current page. */
+export function offersOpenPage(query: string): boolean {
+  const words = query.trim().toLowerCase();
+  return OPEN_PAGE_MENTION.startsWith(words) || "current page".startsWith(words);
+}
+
+const OPEN_PAGE_MENTIONED = new RegExp(`(?:^|\\s)@${OPEN_PAGE_MENTION}(?![\\p{L}\\p{N}_-])`, "iu");
+
+/** Whether a message mentions the Open page, as `@open page` standing on its own, in any case. */
+export function mentionsOpenPage(text: string): boolean {
+  return OPEN_PAGE_MENTIONED.test(text);
+}
+
 /** The `@` being typed before the caret: where it starts, and what follows it so far. */
 export interface MentionQuery {
   readonly start: number;

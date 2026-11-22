@@ -2055,11 +2055,6 @@
   flex: 1;
 }
 
-/* The Open page's chip sits in the line's text, as a Mention sits in a message. */
-.composer-open-page .composer-note-text {
-  min-width: 0;
-}
-
 /* A message that ran a skill (spec §2.4): its mark and the skill's name over its input. */
 .skill-command-head {
   display: flex;

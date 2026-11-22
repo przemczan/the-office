@@ -6997,7 +6997,7 @@ test.describe("the chat drawer", { tag: "@full" }, () => {
   });
 
   // The engine replays the last session in e2e/sessions.jsonl: Jan answers beside a Task's page.
-  test("sends the Open page with a message, shows it on the message, and leaves it out while that page stays open", async ({
+  test("sends the Open page with a message that mentions it as @open page, and shows it on the message", async ({
     page,
   }) => {
     const tasks = taskListSchema.parse(await (await page.request.get("/api/tasks")).json());
@@ -7016,21 +7016,25 @@ test.describe("the chat drawer", { tag: "@full" }, () => {
     const { id: threadId } = threadSchema.parse(await (await starting).json());
     await expect.poll(() => chatThreadShown(page)).toBe(threadId);
 
-    const openPage = jan.getByRole("note").filter({ hasText: "Open page:" });
-    await expect(openPage.getByRole("link", { name: task.title })).toBeVisible();
-    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-open-page.png") });
+    // Nothing says the page goes with a message until the user mentions it.
+    await expect(jan.getByText("Open page:")).toHaveCount(0);
     const message = jan.getByRole("textbox", { name: "Message" });
-    const sent = page.waitForRequest(
-      (request) =>
-        request.method() === "POST" && request.url().endsWith(`/threads/${threadId}/messages`),
+    const picker = jan.locator(".mention-picker");
+    const openPageOption = picker.getByRole("option", { name: /^open page / });
+    await message.pressSequentially("@");
+    // The first row, named by its words and the record's chip.
+    await expect(picker.getByRole("option").first()).toHaveAccessibleName(
+      `open page ${task.title}`,
     );
-    await message.fill("What is left on it?");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-open-page.png") });
     await message.press("Enter");
-    expect((await sent).postDataJSON()).toEqual({
-      text: "What is left on it?",
-      openPage: { kind: "task", taskId: task.id },
-    });
-    await expect(jan.getByText("I read the Task open beside the chat.")).toBeVisible();
+    await expect(message).toHaveValue("@open page ");
+    await message.pressSequentially("what is left on it?");
+    await sendAndExpect(
+      undefined,
+      { text: "@open page what is left on it?", openPage: { kind: "task", taskId: task.id } },
+      "I read the Task open beside the chat.",
+    );
     const withTask = jan.locator(".message-open-page");
     await expect(withTask).toHaveText(`With ${task.title} open`);
     // The session started with the Task's record in its Brief.
@@ -7040,39 +7044,33 @@ test.describe("the chat drawer", { tag: "@full" }, () => {
     await expect(jan.getByText(`${task.title} (Task ${task.id})`).first()).toBeVisible();
     await detailsSwitch(jan).click();
 
-    await openPage.getByRole("button", { name: "Leave out" }).click();
-    await expect(openPage).toHaveCount(0);
-    const leftOut = page.waitForRequest(
-      (request) =>
-        request.method() === "POST" && request.url().endsWith(`/threads/${threadId}/messages`),
-    );
-    await message.fill("And without it?");
-    await message.press("Enter");
-    expect((await leftOut).postDataJSON()).toEqual({ text: "And without it?" });
-    await expect(jan.getByText("Nothing open came with that one.")).toBeVisible();
-    await expect(withTask).toHaveCount(1);
-    // Left out while the page stays open, though the drawer closes and opens again.
-    await expect(openPage).toHaveCount(0);
-    await chatButton(page).click();
-    await chatButton(page).click();
-    await expect(jan.getByText("Nothing open came with that one.")).toBeVisible();
-    await expect(openPage).toHaveCount(0);
+    // A message that doesn't mention it goes without it.
     await sendAndExpect(
-      "Still without it?",
-      { text: "Still without it?" },
-      "Still nothing open with it.",
+      "And without it?",
+      { text: "And without it?" },
+      "Nothing open came with that one.",
     );
-    await expect(openPage).toHaveCount(0);
+    await expect(withTask).toHaveCount(1);
 
-    // Another page brings the line back, and so does coming back to the Task.
+    // A page with no Open page offers none, and the words alone send nothing with the message.
     await page.getByRole("link", { name: "People" }).first().click();
     await expect(page).toHaveURL(/\/people$/);
+    await message.fill("");
+    await message.pressSequentially("@open");
+    await expect(picker).toBeVisible();
+    await expect(openPageOption).toHaveCount(0);
+    await sendAndExpect(
+      "Still without @open page?",
+      { text: "Still without @open page?" },
+      "Still nothing open with it.",
+    );
+
+    // Back on the Task, the mention written by hand, in any case, sends it again.
     await page.goBack();
     await expect(page).toHaveURL(new RegExp(`/tasks/${task.id}$`));
-    await expect(openPage.getByRole("link", { name: task.title })).toBeVisible();
     await sendAndExpect(
-      "And with it again?",
-      { text: "And with it again?", openPage: { kind: "task", taskId: task.id } },
+      "And with @Open page again?",
+      { text: "And with @Open page again?", openPage: { kind: "task", taskId: task.id } },
       "The Task is open beside the chat again.",
     );
     await expect(withTask).toHaveCount(2);
@@ -7082,18 +7080,22 @@ test.describe("the chat drawer", { tag: "@full" }, () => {
       `With ${task.title} open`,
       `With ${task.title} open`,
     ]);
-    await page.getByRole("link", { name: "People" }).first().click();
-    await expect(page).toHaveURL(/\/people$/);
-    await expect(openPage).toHaveCount(0);
+    // A person's page is offered as the Open page too, as "current page" as well.
     await page.goto("/people/developer");
-    await expect(openPage.getByRole("link", { name: /Ada/ })).toBeVisible();
+    await message.pressSequentially("@current");
+    await expect(openPageOption.getByText(/Ada/)).toBeVisible();
 
-    async function sendAndExpect(text: string, body: object, answer: string): Promise<void> {
+    /** Sends the draft, written as `text` when given, and waits for Jan's `answer`. */
+    async function sendAndExpect(
+      text: string | undefined,
+      body: object,
+      answer: string,
+    ): Promise<void> {
       const sending = page.waitForRequest(
         (request) =>
           request.method() === "POST" && request.url().endsWith(`/threads/${threadId}/messages`),
       );
-      await message.fill(text);
+      if (text !== undefined) await message.fill(text);
       // A drawer opened again refetches its Thread; until then Enter only says Jan is answering.
       await expect(jan.getByRole("button", { name: "Send (Enter)" })).toBeEnabled();
       await message.press("Enter");

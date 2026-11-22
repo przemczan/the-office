@@ -1,13 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
+import type { OpenPage } from "@the-office/contracts";
 import { Icon } from "@the-office/ui";
 import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { decisionQueries } from "../../api/conversations.ts";
 import { ideaQueries, initiativeQueries, useEveryTask } from "../../api/work.ts";
+import { OpenPageChip } from "../open-page-chip.tsx";
 import {
   matchingMentionables,
   MENTION_KINDS,
   mentionables,
   mentionQueryAt,
+  offersOpenPage,
+  OPEN_PAGE_MENTION,
   withMentionLinks,
   type Mentionable,
   type MentionQuery,
@@ -27,26 +31,46 @@ export interface Mentions {
   readonly picker: ReactNode;
 }
 
+/** What the picker offers: the page open beside the chat drawer, or a record. */
+type PickerEntry = { readonly kind: "open-page"; readonly page: OpenPage } | Mentionable;
+
 /**
  * Mentions in a field (prototypes/app/conversation.js, the @ picker), the chat's composer or a Task's
  * Description: typing `@` offers the Tasks, Initiatives, open Decisions and Ideas whose words match;
  * arrows move, Enter or Tab picks, Esc closes. The text shows `@` and the record's name; the text
- * sent or saved links it to the record's page.
+ * sent or saved links it to the record's page. Given the Open page, as the chat drawer's composer
+ * is, the picker offers it first, written `@open page` (spec §2.4).
  */
-export function useMentions(draft: string, setDraft: (draft: string) => void): Mentions {
+export function useMentions(
+  draft: string,
+  setDraft: (draft: string) => void,
+  openPage?: OpenPage,
+): Mentions {
   const field = useRef<HTMLTextAreaElement>(null);
   const [query, setQuery] = useState<MentionQuery>();
   const [index, setIndex] = useState(0);
   const [picked, setPicked] = useState<readonly Mentionable[]>([]);
   const { records, loading } = useMentionables(query !== undefined);
-  const shown = query === undefined ? [] : matchingMentionables(records, query.query);
+  const shown: readonly PickerEntry[] =
+    query === undefined
+      ? []
+      : [
+          ...(openPage && offersOpenPage(query.query)
+            ? [{ kind: "open-page" as const, page: openPage }]
+            : []),
+          ...matchingMentionables(records, query.query),
+        ];
+  const pickedNames = [
+    ...(openPage ? [OPEN_PAGE_MENTION] : []),
+    ...picked.map(({ label }) => label),
+  ];
 
   const follow = (element: HTMLTextAreaElement): void => {
     field.current = element;
     const typing = mentionQueryAt(element.value, element.selectionStart);
     // A record just picked is followed by its name: typing on after it isn't a new query.
     const pickedOne =
-      typing && picked.some(({ label }) => `${typing.query} `.startsWith(`${label} `));
+      typing && pickedNames.some((name) => `${typing.query} `.startsWith(`${name} `));
     setQuery(pickedOne ? undefined : typing);
     if (typing?.query !== query?.query) setIndex(0);
   };
@@ -67,16 +91,16 @@ export function useMentions(draft: string, setDraft: (draft: string) => void): M
     });
   };
 
-  const pick = (record: Mentionable | undefined): void => {
+  const pick = (entry: PickerEntry | undefined): void => {
     const element = field.current;
-    if (!record || !element || !query) return;
-    const name = `@${record.label} `;
+    if (!entry || !element || !query) return;
+    const name = `@${entry.kind === "open-page" ? OPEN_PAGE_MENTION : entry.label} `;
     const before = draft.slice(0, query.start);
     writeDraft(
       `${before}${name}${draft.slice(element.selectionStart)}`,
       before.length + name.length,
     );
-    setPicked((earlier) => [...earlier, record]);
+    if (entry.kind !== "open-page") setPicked((earlier) => [...earlier, entry]);
     setQuery(undefined);
   };
 
@@ -159,10 +183,10 @@ function MentionPicker({
   onPick,
 }: {
   readonly query: string;
-  readonly shown: readonly Mentionable[];
+  readonly shown: readonly PickerEntry[];
   readonly index: number;
   readonly loading: boolean;
-  readonly onPick: (record: Mentionable) => void;
+  readonly onPick: (entry: PickerEntry) => void;
 }): ReactNode {
   const id = useId();
   if (shown.length === 0) {
@@ -180,24 +204,46 @@ function MentionPicker({
         Mention a record
       </p>
       <ul role="listbox" aria-labelledby={id}>
-        {shown.map((record, at) => (
+        {shown.map((entry, at) => (
           <li
-            key={record.path}
+            key={entry.kind === "open-page" ? "open-page" : entry.path}
             role="option"
             aria-selected={at === index}
             className={at === index ? "on" : undefined}
             // mousedown, not click: the field keeps its focus and caret while a record is picked.
             onMouseDown={(event) => {
               event.preventDefault();
-              onPick(record);
+              onPick(entry);
             }}
           >
-            <Icon name={MENTION_KINDS[record.kind].icon} size={14} />
-            <span className="mention-picker-label">{record.label}</span>
-            <span className="mention-picker-kind">{MENTION_KINDS[record.kind].word}</span>
+            {entry.kind === "open-page" ? (
+              <OpenPageOption page={entry.page} />
+            ) : (
+              <>
+                <Icon name={MENTION_KINDS[entry.kind].icon} size={14} />
+                <span className="mention-picker-label">{entry.label}</span>
+                <span className="mention-picker-kind">{MENTION_KINDS[entry.kind].word}</span>
+              </>
+            )}
           </li>
         ))}
       </ul>
     </div>
+  );
+}
+
+/**
+ * The Open page as the picker offers it: its words, and its record's chip, which is only shown here,
+ * as picking the option mustn't follow the chip's link.
+ */
+function OpenPageOption({ page }: { readonly page: OpenPage }): ReactNode {
+  return (
+    <>
+      <Icon name="app-window" size={14} />
+      <span className="mention-picker-label">{OPEN_PAGE_MENTION}</span>
+      <span className="mention-picker-open-page" inert>
+        <OpenPageChip page={page} />
+      </span>
+    </>
   );
 }

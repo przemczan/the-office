@@ -33,8 +33,9 @@ import {
 import { StandingDot, StandingWords } from "./chat-standing.tsx";
 import { ChatTabs } from "./chat-tabs.tsx";
 import { chatStanding } from "./chat-words.ts";
+import { useOpenPage } from "./open-page.ts";
 import { useChatPeople } from "./use-chat-people.ts";
-import { useChat, useChatOpenPage } from "./use-chat.tsx";
+import { useChat } from "./use-chat.tsx";
 import "./chat.css";
 
 /**
@@ -451,14 +452,13 @@ function ShownThread({
   readonly newThread: ReactNode;
 }): ReactNode {
   const chat = useChat();
-  const openPage = useChatOpenPage();
+  const openPage = useOpenPage();
   useReportingSeen(threadId);
   return (
     <ThreadView
       threadId={threadId}
       personName={personName}
-      openPage={openPage.page}
-      onLeaveOutOpenPage={openPage.leaveOut}
+      openPage={openPage}
       back={
         <>
           <button

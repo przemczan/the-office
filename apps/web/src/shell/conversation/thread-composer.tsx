@@ -5,13 +5,13 @@ import {
   type OpenPage,
   type Thread,
 } from "@the-office/contracts";
-import { Button, Icon } from "@the-office/ui";
+import { Icon } from "@the-office/ui";
 import { useCallback, useState, type ReactNode } from "react";
 import { chooseContextOverride, sendMessage, threadQueries } from "../../api/conversations.ts";
 import { CommandHelp, CommandNote } from "../commands/command-notes.tsx";
 import { roleQueries } from "../../api/people.ts";
 import { AlarmNote } from "../fire-alarm/alarm-note.tsx";
-import { OpenPageChip } from "../open-page-chip.tsx";
+import { mentionsOpenPage } from "../mentions/mention-words.ts";
 import { roleName } from "../person-name.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { SubAgentsAndProcessesLine } from "../sub-agents-and-processes/sub-agents-and-processes-line.tsx";
@@ -28,10 +28,10 @@ import { takesMessages, writingPlaceholder } from "./thread-writing.ts";
  * written. A chat keys it by the Thread's id, as the composer owns the draft once it has read it;
  * the timeline doesn't, so its draft goes with the To line. A chat's Thread may have one waiting, and
  * a composer that `keepsDraft` leaves its own there, for when it comes back. Given the Open page, as
- * the chat drawer is, it shows the line that says the message goes with it, which the user can
- * leave out. Right above the message input, or the note saying why there is none, the line says
- * what Sub-agents and Processes the session runs (spec 2.9), and beside it, where a message can be
- * written, the context reading says how full the session's context is (spec §2.5).
+ * the chat drawer is, the `@` picker offers it, and a message that mentions it goes with it. Right
+ * above the message input, or the note saying why there is none, the line says what Sub-agents and
+ * Processes the session runs (spec 2.9), and beside it, where a message can be written, the context
+ * reading says how full the session's context is (spec §2.5).
  */
 export function ThreadComposer({
   thread,
@@ -41,7 +41,6 @@ export function ThreadComposer({
   placeholder,
   keepsDraft = false,
   openPage,
-  onLeaveOutOpenPage,
   onDrafting,
   onSent,
   onShowSubAgentsAndProcesses,
@@ -56,10 +55,8 @@ export function ThreadComposer({
   readonly placeholder?: string;
   /** The composer goes as the user looks elsewhere, and what they wrote mustn't go with it. */
   readonly keepsDraft?: boolean;
-  /** The page open beside the chat drawer, which the next message goes with (spec §2.4). */
+  /** The page open beside the chat drawer, which a message mentioning it goes with (spec §2.4). */
   readonly openPage?: OpenPage | undefined;
-  /** Keeps the Open page out of messages; the chat drawer, which holds it, decides for how long. */
-  readonly onLeaveOutOpenPage?: (() => void) | undefined;
   readonly onDrafting?: (drafting: boolean) => void;
   readonly onSent?: (threadId: string) => void;
   /** What the Sub-agents and processes line does instead of opening its window. */
@@ -100,9 +97,6 @@ export function ThreadComposer({
         // A Stage's session is held at its safe point instead.
         <AlarmNote threadId={threadId} personName={personName} />
       )}
-      {readOnlyReason === undefined && openPage && onLeaveOutOpenPage && (
-        <OpenPageLine page={openPage} onLeaveOut={onLeaveOutOpenPage} />
-      )}
       <SessionRow
         line={
           <SubAgentsAndProcessesLine
@@ -127,6 +121,7 @@ export function ThreadComposer({
           }
           startingDraft={startingDraft}
           autoFocus={autoFocus}
+          openPage={openPage}
           onDrafting={onDrafting}
           onDraftChange={keepsDraft ? leaveDraft : undefined}
           onSend={(text, fromNote, uploadImages) =>
@@ -134,7 +129,7 @@ export function ThreadComposer({
               message: {
                 text,
                 ...(fromNote && handoverNote ? { handoverNoteFrom: handoverNote.from } : {}),
-                ...(openPage && { openPage }),
+                ...(openPage && mentionsOpenPage(text) && { openPage }),
               },
               uploadImages,
             })
@@ -212,27 +207,6 @@ function clearWords(shown: "starts-fresh" | "nothing-to-clear", { context }: Thr
   return context.reason === "new-thread"
     ? "There's no session to start fresh yet: your next message starts one."
     : "Your next message starts a fresh session already.";
-}
-
-/** The record the next message goes with, as the chat drawer's composer says it. */
-function OpenPageLine({
-  page,
-  onLeaveOut,
-}: {
-  readonly page: OpenPage;
-  readonly onLeaveOut: () => void;
-}): ReactNode {
-  return (
-    <p className="composer-note composer-open-page" role="note">
-      <Icon name="app-window" size={14} />
-      <span className="composer-note-text">
-        Open page: <OpenPageChip page={page} />
-      </span>
-      <Button size="sm" variant="secondary" onClick={onLeaveOut}>
-        Leave out
-      </Button>
-    </p>
-  );
 }
 
 /** Why nothing can be written, where a composer would be. */

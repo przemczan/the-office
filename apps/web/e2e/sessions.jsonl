@@ -212,11 +212,11 @@
 {"step":"event","event":{"kind":"text","text":"Nothing open came with that one.","withinToolCall":null}}
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["open-page-left-out"],"usage":{"input":2,"output":20,"cacheRead":30000,"cacheCreation":40},"sessionCostUsd":0.01,"output":null,"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":30200,"window":1000000}}
-{"step":"send","message":{"id":"open-page-still-left-out","text":"Still without it?"},"priority":"later"}
+{"step":"send","message":{"id":"open-page-still-left-out","text":"Still without @open page?"},"priority":"later"}
 {"step":"event","event":{"kind":"text","text":"Still nothing open with it.","withinToolCall":null}}
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["open-page-still-left-out"],"usage":{"input":2,"output":20,"cacheRead":30000,"cacheCreation":40},"sessionCostUsd":0.01,"output":null,"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":30300,"window":1000000}}
-{"step":"send","message":{"id":"open-page-again","text":"And with it again?"},"priority":"later"}
+{"step":"send","message":{"id":"open-page-again","text":"And with @Open page again?"},"priority":"later"}
 {"step":"event","event":{"kind":"text","text":"The Task is open beside the chat again.","withinToolCall":null}}
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["open-page-again"],"usage":{"input":2,"output":20,"cacheRead":30000,"cacheCreation":40},"sessionCostUsd":0.01,"output":null,"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":30400,"window":1000000}}

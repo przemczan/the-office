@@ -11,7 +11,7 @@ Covers: the Thread as the chat drawer, the Task page and the Initiative page dra
 ## Layout
 
 - A section named after the Thread's title.
-- Top to bottom: the head (the place's way back, the title, the Details switch), the context bar, for the Caretaker's chat the Allow changes bar, the log (scrolling), the alarm note, the Open page line, the Sub-agents and Processes line with the context reading beside it, the composer (or the read-only note), and the context bar's refusal.
+- Top to bottom: the head (the place's way back, the title, the Details switch), the context bar, for the Caretaker's chat the Allow changes bar, the log (scrolling), the alarm note, the Sub-agents and Processes line with the context reading beside it, the composer (or the read-only note), and the context bar's refusal.
 - The log scrolls on its own; the page around it never does.
 
 ## Head
@@ -115,9 +115,11 @@ Covers: the Thread as the chat drawer, the Task page and the Initiative page dra
 
 ### Open page
 
-- Only in the chat drawer: a line "Open page: <chip>" with **Leave out**, shown when the open page is a Task, an Initiative, an Idea open on Work › Ideas, a person's page or a Project's page (any of their tabs or sections); not on any other page or an address naming no record.
-- The next message goes with it; the user's message shows "With <chip> open" under its text.
-- **Leave out** keeps the page out across messages, Threads, people and closing the drawer until the open page changes; returning to the page shows its line again.
+- Only in the chat drawer, when the open page is a Task, an Initiative, an Idea open on Work › Ideas, a person's page or a Project's page (any of their tabs or sections); not on any other page or an address naming no record.
+- The `@` picker's first row is "open page" with the record's chip where the kind is, offered while the query starts "open page" or "current page" (an empty query included).
+- Picking it writes `@open page`; nothing else on the composer says the page would go.
+- A message whose text holds `@open page` on its own (any case, picked or typed) goes with the page open as it is sent; the text keeps the words as written.
+- The user's message shows "With <chip> open" under its text.
 - See [2.4.4](../2.4.4-messages.md#open-page).
 
 ### Handover note prefilled
