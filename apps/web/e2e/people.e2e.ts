@@ -19,6 +19,8 @@ import {
   pipelineListSchema,
   pipelineSchema,
   processOutputSchema,
+  projectListSchema,
+  projectOffBoardTasksSchema,
   projectPipelineListSchema,
   projectPipelineSchema,
   projectSchema,
@@ -47,6 +49,7 @@ import {
   type Stage,
   type TaskLimit,
 } from "@the-office/contracts";
+import { addAnswering } from "./add-a-project.ts";
 import { desktopShown, focusTab, recordDesktopNotifications } from "./desktop-notifications.ts";
 import { E2E_STORAGE_STATE } from "./e2e-user.ts";
 import { addFakeMcpServerTurnedOn } from "./fake-mcp-server.ts";
@@ -3857,6 +3860,50 @@ function startQuestion(page: Page): Locator {
   return page.locator(".task-head").getByRole("group", { name: "Run environment" });
 }
 
+/** What a parked Off-board Task's session says first in `sessions.jsonl`, before it waits. */
+const PARKED_OFF_BOARD_TASK_WORDS = "I am reading the repository's manifests.";
+
+/**
+ * Drops the Project's latest Off-board Task of the kind, if one is open, once its session has taken
+ * its parked script (start, its first words, then an interrupt it waits for): the Drop stops the
+ * Stage, which interrupts the turn and ends the session. Dropped any sooner, it would leave its
+ * script to the next session that opens.
+ */
+async function dropParkedOffBoardTask(
+  page: Page,
+  projectId: string,
+  kind: "onboard" | "runEnvironmentSetUp",
+): Promise<void> {
+  const latest = async () =>
+    projectOffBoardTasksSchema.parse(
+      await (await page.request.get(`/api/projects/${projectId}/off-board-tasks`)).json(),
+    )[kind];
+  const state = (await latest())?.status.state;
+  if (state === undefined || state === "done" || state === "dropped") return;
+  await expect
+    .poll(
+      async () => {
+        const threadId = (await latest())?.threadId;
+        if (!threadId) return "";
+        return (await page.request.get(`/api/threads/${threadId}/messages`)).text();
+      },
+      { timeout: 30_000 },
+    )
+    .toContain(PARKED_OFF_BOARD_TASK_WORDS);
+  const taskId = (await latest())?.taskId;
+  expect((await page.request.post(`/api/tasks/${taskId}/drop`)).status()).toBe(200);
+  await expect.poll(async () => (await latest())?.status.state).toBe("dropped");
+  // The stopped run still commits in the worktree: the test removes the repository only after.
+  await expect
+    .poll(async () => {
+      const { stages } = taskStagesSchema.parse(
+        await (await page.request.get(`/api/tasks/${taskId}/stages`)).json(),
+      );
+      return (stages ?? []).flatMap(({ runs }) => runs).every(({ outcome }) => outcome !== null);
+    })
+    .toBe(true);
+}
+
 test(
   "Start asks about a Not decided yet run environment, starts on this computer without an answer, and No ends the asking",
   { tag: "@full" },
@@ -3914,6 +3961,7 @@ test(
   async ({ page }) => {
     const bare = await createTemporaryRepository();
     const defined = await createTemporaryRepository();
+    let toSetUp: Project | undefined;
     try {
       await commitFiles(defined, {
         ".devcontainer/devcontainer.json":
@@ -3922,7 +3970,7 @@ test(
       });
       const question = startQuestion(page);
 
-      const toSetUp = await addedProject(page, bare, "Set up at Start", "SS", PASSING_COMMANDS);
+      toSetUp = await addedProject(page, bare, "Set up at Start", "SS", PASSING_COMMANDS);
       await page.goto(`/tasks/${await readyTask(page, toSetUp.id, "Asks to set one up")}`);
       await question.getByRole("button", { name: "Yes", exact: true }).click();
       // Yes starts the Off-board Task at once; the head says who sets it up, or its queue place,
@@ -3951,8 +3999,56 @@ test(
       await expect(question).toHaveCount(0);
       expect(await runEnvironmentOf(page, atOnce.id)).toBe("on");
     } finally {
+      if (toSetUp) await dropParkedOffBoardTask(page, toSetUp.id, "runEnvironmentSetUp");
       await bare.remove();
       await defined.remove();
+    }
+  },
+);
+
+// Each Off-board Task here opens a session, its script parked until the test drops the Task.
+test(
+  "Set up run environment on the Project page, and Add a Project's Yes, start an Off-board Task at once without a valid .devcontainer/",
+  { tag: "@full" },
+  async ({ page }) => {
+    const invalid = await createTemporaryRepository();
+    const bare = await createTemporaryRepository();
+    let fromThePage: Project | undefined;
+    let fromAdding: Project | undefined;
+    try {
+      await commitFiles(invalid, {
+        ".devcontainer/devcontainer.json": '{ "dockerComposeFile": "compose.yaml" }',
+      });
+      fromThePage = await addedProject(page, invalid, "Set up from the page", "SP");
+      await page.goto(`/projects/${fromThePage.id}/run-environment`);
+      const block = page.locator(".section-body");
+      await expect(block.getByText("Not valid")).toBeVisible();
+
+      await block.getByRole("button", { name: "Set up run environment" }).click();
+      // An Off-board Task, started at once: no Ready, no Start; its status in place of the button.
+      const setUp = block.getByRole("region", { name: /^Set up the run environment · / });
+      await expect(setUp).toBeVisible();
+      await expect(block).not.toContainText("waiting for your Start");
+      await expect(block.getByRole("button", { name: "Set up run environment" })).toHaveCount(0);
+      await page.screenshot({ path: path.join(SCREENSHOTS, "project-run-environment.png") });
+      await screenshotScenario(page, "project-run-environment-off-board-task", { inView: setUp });
+      await setUp.getByRole("link", { name: /^Open the (Task|Thread)$/ }).click();
+      await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]+(\?taskThread=[0-9a-f-]+)?$/);
+      await dropParkedOffBoardTask(page, fromThePage.id, "runEnvironmentSetUp");
+
+      fromAdding = await addAnswering(page, "Set up from Add a Project", bare.path, "Yes");
+      expect(fromAdding.runEnvironment).toBe("not-decided");
+      await page.goto(`/projects/${fromAdding.id}/run-environment`);
+      await expect(
+        page
+          .locator(".section-body")
+          .getByRole("region", { name: /^Set up the run environment · / }),
+      ).toBeVisible();
+    } finally {
+      if (fromThePage) await dropParkedOffBoardTask(page, fromThePage.id, "runEnvironmentSetUp");
+      if (fromAdding) await dropParkedOffBoardTask(page, fromAdding.id, "runEnvironmentSetUp");
+      await invalid.remove();
+      await bare.remove();
     }
   },
 );
@@ -5114,7 +5210,7 @@ test(
       const adding = page.getByRole("form", { name: "Add a test target" });
       await adding.getByLabel("Key", { exact: true }).fill("web");
       await adding.getByLabel("Name", { exact: true }).fill("Web app");
-      await expect(adding.getByLabel("Entry point")).toHaveValue("package-script");
+      await expect(adding.getByLabel("Entry point", { exact: true })).toHaveValue("package-script");
       await adding.getByLabel("Script").fill("start");
       await adding.getByLabel("Port", { exact: true }).fill("3000");
       await adding.getByRole("button", { name: "Save" }).click();
@@ -5187,7 +5283,8 @@ test(
       await row.getByRole("button", { name: "Change Web app" }).click();
       await expect(editor.getByLabel("Port", { exact: true })).toHaveValue("4000");
       await expect(editor.getByText("Set by Nina", { exact: true })).toHaveCount(2);
-      await expect(editor.getByText("Set by you", { exact: true })).toHaveCount(4);
+      // Name, Kind, Entry point, Commands before it, Port variable, Variables and Memory.
+      await expect(editor.getByText("Set by you", { exact: true })).toHaveCount(7);
     } finally {
       await repository.remove();
     }
@@ -5555,8 +5652,8 @@ test(
   { tag: "@full" },
   async ({ page }) => {
     const repository = await createTemporaryRepository();
+    const name = `Onboarded ${Date.now()}`;
     try {
-      const name = `Onboarded ${Date.now()}`;
       const nina = chatWith(page, "Nina");
 
       await page.goto("/projects");
@@ -5611,6 +5708,11 @@ test(
       await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]+/);
       await expect(page.locator(".task-page")).toContainText("Onboard");
     } finally {
+      const projects = projectListSchema.parse(
+        await (await page.request.get("/api/projects")).json(),
+      );
+      const onboarded = projects.find((project) => project.name === name);
+      if (onboarded) await dropParkedOffBoardTask(page, onboarded.id, "onboard");
       await repository.remove();
     }
   },

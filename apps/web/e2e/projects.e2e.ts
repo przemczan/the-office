@@ -13,6 +13,7 @@ import {
   type NewProject,
   type Project,
 } from "@the-office/contracts";
+import { addAnswering, chooseFolder, fillTheForm, sourceLine } from "./add-a-project.ts";
 import { addFakeMcpServer } from "./fake-mcp-server.ts";
 import { branchOnHost, serveRepository } from "./git-host.ts";
 import { queryOfficeDatabase } from "./office-database.ts";
@@ -262,14 +263,6 @@ async function expectOpenSection(page: Page, project: Project, section: (typeof 
   await expect(head).toContainText(project.baseBranch);
 }
 
-/** Step 1 of Add a Project from a folder: its path, then Continue to step 2. */
-async function chooseFolder(page: Page, folder: string) {
-  const dialog = page.getByRole("dialog");
-  await dialog.getByLabel("Repository folder").fill(folder);
-  await dialog.getByRole("button", { name: "Continue" }).click();
-  await expect(sourceLine(page)).toContainText(folder);
-}
-
 /**
  * Waits for the service to answer that a clone has ended, as the dialog reads it. A clone is real
  * git work, and on a loaded machine it takes longer than a look for the form would wait.
@@ -282,22 +275,6 @@ function cloneEnded(page: Page): Promise<unknown> {
       response.ok() &&
       repositoryCloneSchema.parse(await response.json()).state !== "cloning",
   );
-}
-
-/** Step 2's first line: where the repository is, with Change. */
-function sourceLine(page: Page): Locator {
-  return page.getByRole("dialog").getByRole("group", { name: "Where it is" });
-}
-
-async function fillTheForm(page: Page, fields: { name: string; path: string; branch: string }) {
-  await chooseFolder(page, fields.path);
-  const form = page.getByRole("dialog");
-  await form.getByLabel("Name").fill(fields.name);
-  await form.getByLabel("Base branch").fill(fields.branch);
-  await form.getByLabel("Install", { exact: true }).fill("npm ci");
-  await form.getByLabel("Build").fill("npm run build");
-  await form.getByLabel("Lint").fill("npm run lint");
-  await form.getByLabel("Test").fill("npm test");
 }
 
 test("the user adds a Project from the Projects page and lands on its page", async ({ page }) => {
@@ -1965,8 +1942,10 @@ function runEnvironmentBlock(page: Page): Locator {
   return page.locator(".section-body");
 }
 
+// Set up run environment without a valid .devcontainer/ starts an Off-board Task, whose session
+// takes a script, so pressing it is people.e2e.ts's, as is Add a Project's Yes on such a repository.
 test(
-  "Run environment starts Not decided yet, refuses On without .devcontainer/, and sets one up in a Task",
+  "Run environment starts Not decided yet, refuses On without .devcontainer/, and offers to set up one that isn't valid",
   { tag: "@full" },
   async ({ page }) => {
     const ownRepository = await createTemporaryRepository();
@@ -2006,18 +1985,7 @@ test(
       await page.reload();
       await expect(block.getByText("Not valid")).toBeVisible();
       await expect(block.getByText("devcontainer.json names no service")).toBeVisible();
-
-      await block.getByRole("button", { name: "Set up run environment" }).click();
-      // An Off-board Task, started at once: no Ready, no Start; its status in place of the button.
-      const setUp = block.getByRole("region", { name: /^Set up the run environment · / });
-      await expect(setUp).toBeVisible();
-      await expect(block).not.toContainText("waiting for your Start");
-      await expect(block.getByRole("button", { name: "Set up run environment" })).toHaveCount(0);
-      await page.screenshot({ path: path.join(SCREENSHOTS, "project-run-environment.png") });
-      await screenshotScenario(page, "project-run-environment-off-board-task", { inView: setUp });
-
-      await setUp.getByRole("link", { name: /^Open the (Task|Thread)$/ }).click();
-      await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]+(\?taskThread=[0-9a-f-]+)?$/);
+      await expect(block.getByRole("button", { name: "Set up run environment" })).toBeVisible();
     } finally {
       await ownRepository.remove();
     }
@@ -2046,7 +2014,9 @@ test(
       await expect(page.getByText(/Run environment is On/)).toBeVisible();
       await expect(block.getByRole("tab", { name: "On" })).toHaveAttribute("aria-selected", "true");
       await expect(block.getByRole("button", { name: "Set up run environment" })).toHaveCount(0);
-      await expect(block.getByRole("link", { name: "Set up the run environment" })).toHaveCount(0);
+      await expect(
+        block.getByRole("region", { name: /^Set up the run environment · / }),
+      ).toHaveCount(0);
     } finally {
       await ownRepository.remove();
     }
@@ -2057,32 +2027,8 @@ test(
  * Adds a Project from the folder in the window, answering its run environment question, which
  * starts at Decide later.
  */
-async function addAnswering(
-  page: Page,
-  name: string,
-  folder: string,
-  answer: "Yes" | "No" | "Decide later",
-): Promise<Project> {
-  await page.goto("/projects");
-  await page.getByRole("button", { name: "Add it yourself" }).click();
-  await fillTheForm(page, { name, path: folder, branch: "main" });
-  const question = page
-    .getByRole("dialog")
-    .getByRole("radiogroup", { name: "Run this Project's checks in a run environment?" });
-  await expect(question.getByRole("radio", { name: "Decide later" })).toBeChecked();
-  await question.getByRole("radio", { name: answer, exact: true }).check();
-  const added = page.waitForResponse(
-    (response) =>
-      response.url().endsWith("/api/projects") && response.request().method() === "POST",
-  );
-  await page.getByRole("button", { name: "Add the Project" }).click();
-  const project = projectSchema.parse(await (await added).json());
-  await expect(page).toHaveURL(`/projects/${project.id}`);
-  return project;
-}
-
 test(
-  "Add a Project asks about a run environment: Yes sets one up, No sets Off, Decide later leaves it",
+  "Add a Project asks about a run environment: Yes turns a valid one On, No sets Off, Decide later leaves it",
   { tag: "@full" },
   async ({ page }) => {
     const withDefinition = await createTemporaryRepository();
@@ -2099,7 +2045,9 @@ test(
       expect(later.runEnvironment).toBe("not-decided");
       await page.goto(`/projects/${later.id}/run-environment`);
       await expect(block.getByText("Not decided yet")).toBeVisible();
-      await expect(block.getByRole("link", { name: "Set up the run environment" })).toHaveCount(0);
+      await expect(
+        block.getByRole("region", { name: /^Set up the run environment · / }),
+      ).toHaveCount(0);
 
       const off = await addAnswering(page, "Run environment no", repository.path, "No");
       expect(off.runEnvironment).toBe("off");
@@ -2108,11 +2056,6 @@ test(
         "aria-selected",
         "true",
       );
-
-      const setUp = await addAnswering(page, "Run environment yes", repository.path, "Yes");
-      expect(setUp.runEnvironment).toBe("not-decided");
-      await page.goto(`/projects/${setUp.id}/run-environment`);
-      await expect(block.getByRole("link", { name: "Set up the run environment" })).toBeVisible();
 
       const on = await addAnswering(
         page,
@@ -2123,7 +2066,9 @@ test(
       expect(on.runEnvironment).toBe("on");
       await page.goto(`/projects/${on.id}/run-environment`);
       await expect(block.getByRole("tab", { name: "On" })).toHaveAttribute("aria-selected", "true");
-      await expect(block.getByRole("link", { name: "Set up the run environment" })).toHaveCount(0);
+      await expect(
+        block.getByRole("region", { name: /^Set up the run environment · / }),
+      ).toHaveCount(0);
     } finally {
       await withDefinition.remove();
     }
