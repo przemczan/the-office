@@ -719,6 +719,9 @@ test.describe.serial("Sign in with GitHub", () => {
   test("Import issues from the Work board picks two open issues, and they show in Backlog with their GitHub issue records", async ({
     page,
   }) => {
+    // Two Projects added and twenty-four screenshots take most of the default 30 s, and past it
+    // when other files' workers slow the page down.
+    test.setTimeout(90_000);
     const repository = await createTemporaryRepositoryWithRemote();
     const fullName = `office-user/issue-notes-${Date.now()}`;
     try {

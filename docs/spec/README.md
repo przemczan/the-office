@@ -16,7 +16,17 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 ### A
 
 - **Account, Users, User**: [2.10 Users](2.10-users-and-signing-in.md#users); screen: [Account](screens/account.md#account-page)
+- **Action, Actions section, Actions tile, who starts an Action**: [2.15 Action](2.15-actions.md#action); [2.15 Who starts an Action](2.15-actions.md#who-starts-an-action); screens: [Project page › Actions](screens/project-page.md#actions), [Project page › Actions tile](screens/project-page.md#actions-tile)
+- **Action kinds (Project command, Test target, Workflow)**: [2.15 Kinds](2.15-actions.md#kinds)
+- **Action limits, Actions at once, an Action's time limit, one run of each Action at a time**: [2.15 Limits](2.15-actions.md#limits); [2.15 Actions at once](2.15-actions.md#actions-at-once); [2.15 An Action's time limit](2.15-actions.md#an-actions-time-limit); screen: [Settings › Office limits](screens/settings.md#office-limits)
+- **Action run, where a run runs, OFFICE_ACTION, OFFICE_ACTION_BRANCH, OFFICE_ACTION_COMMIT, an Action run's checkout**: [2.15 Action run](2.15-actions.md#action-run); [2.15 Where a run runs](2.15-actions.md#where-a-run-runs); [2.15 What The Office sets](2.15-actions.md#what-the-office-sets); [5.5 An Action run's checkout](5.5-git-and-isolation.md#an-action-runs-checkout)
+- **Action run states, log and history, Action runs kept**: [2.15 States](2.15-actions.md#states); [2.15 Log](2.15-actions.md#log); [2.15 History](2.15-actions.md#history); [2.15 When a run stops](2.15-actions.md#when-a-run-stops); [2.15 Action runs kept](2.15-actions.md#action-runs-kept); screens: [Project page › History](screens/project-page.md#history), [Project page › A run's log](screens/project-page.md#a-runs-log)
+- **Action run Outcomes**: [2.7 Action run Outcomes](2.7-notifications.md#action-run-outcomes)
 - **Action tone, go, plan, hold, stop**: [4.1 Action tones](4.1-ui-rules.md#action-tones); screen: [Task page › Head actions](screens/task-page.md#head-actions)
+- **Actions by Proposal, propose_actions, Ask <Devops> to propose Actions (defining Actions)**: [2.15 Defining Actions](2.15-actions.md#defining-actions); screen: [Project page › Actions](screens/project-page.md#actions)
+- **Actions during the fire alarm**: [2.8 Actions during the alarm](2.8-fire-alarm.md#actions-during-the-alarm)
+- **Actions feature switch**: [2.15 The Actions feature switch](2.15-actions.md#the-actions-feature-switch); [2.1.1 Project settings](2.1.1-projects.md#project-settings)
+- **Actions safety**: [6 Actions](6-permissions-and-safety.md#actions); [2.15 Leaves the workstation](2.15-actions.md#leaves-the-workstation); [2.15 In a test instance of The Office](2.15-actions.md#in-a-test-instance-of-the-office)
 - **Activity, Activity item, seen, activity.changed**: [2.14 Activity](2.14-activity.md#activity); [2.14 What is listed](2.14-activity.md#what-is-listed); [2.14 Running and ended](2.14-activity.md#running-and-ended); [2.14 Seen per user](2.14-activity.md#seen-per-user); [2.14 The count](2.14-activity.md#the-count); screen: [Activity](screens/activity.md#activity); [Shell › Status strip](screens/shell.md#status-strip); [5.3 Activity reads through ports of its own](5.3-modules.md#activity-reads-through-ports-of-its-own)
 - **Android phone over USB, adb connect, adb serial**: [2.13 Android phone over USB](2.13-connected-devices.md#android-phone-over-usb); screen: [Task page › Devices](screens/task-page.md#devices)
 - **Android phone over wireless debugging, adb pair, pairing code, pairing port**: [2.13 Android phone over wireless debugging](2.13-connected-devices.md#android-phone-over-wireless-debugging); [2.13 The run environment's network](2.13-connected-devices.md#the-run-environments-network); [6 Connected devices](6-permissions-and-safety.md#connected-devices); screen: [Task page › Devices](screens/task-page.md#devices)
@@ -38,6 +48,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Back to Shaping**: [2.1.4 Back to Shaping](2.1.4-initiatives.md#back-to-shaping); screen: [Initiative page › Back to Shaping](screens/initiative-page.md#back-to-shaping)
 - **Base Pipeline, Stage change**: [2.3.5 Project Pipelines](2.3.5-library.md#project-pipelines); screen: [Pipeline flow editor › In a Project Pipeline](screens/pipeline-flow-editor.md#in-a-project-pipeline)
 - **Basic stats, Full stats**: [2.11.2 Basic stats](2.11.2-tokens-and-cost.md#basic-stats); [2.11.2 Full stats](2.11.2-tokens-and-cost.md#full-stats)
+- **Branch picker**: screen: [Project page › The Branch picker](screens/project-page.md#the-branch-picker); [2.15 What it runs from](2.15-actions.md#what-it-runs-from)
 - **Brief**: [2.5 The Brief](2.5-context-policy.md#the-brief)
 - **Broken, Broken Pipeline**: [2.3.5 A Broken Project Pipeline](2.3.5-library.md#a-broken-project-pipeline); screen: [Task page › Broken Pipeline flag](screens/task-page.md#broken-pipeline-flag)
 - **Bug Task Decision**: [2.4.2 The Bug Task Decision](2.4.2-decisions.md#the-bug-task-decision); screen: [Decision card › The Bug Task card](screens/decision-card.md#the-bug-task-card)
@@ -106,6 +117,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Initiative's branch**: [5.5 The Initiative's branch](5.5-git-and-isolation.md#the-initiatives-branch); [2.3.4 Publishing into an Initiative's branch](2.3.4-publish.md#publishing-into-an-initiatives-branch)
 - **Initiative's Pipeline**: [2.1.4 An Initiative's Pipeline](2.1.4-initiatives.md#an-initiatives-pipeline); screen: [Initiative page › Pipelines block](screens/initiative-page.md#pipelines-block)
 - **Install inputs**: [5.5 Install inputs](5.5-git-and-isolation.md#install-inputs)
+- **Install on a device, Installing, Installed, Install time**: [2.12 Install on a device](2.12-test-instances.md#install-on-a-device); [2.12 Install time](2.12-test-instances.md#install-time); [2.13 One environment at a time](2.13-connected-devices.md#one-environment-at-a-time); screen: [Project page › Test targets](screens/project-page.md#test-targets)
 
 ### J
 
@@ -118,6 +130,8 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 ### L
 
 - **Language server**: [5.4.1 Language servers for Agents](5.4.1-engine-kinds.md#language-servers-for-agents); [6 Language servers run Project code](6-permissions-and-safety.md#language-servers-run-project-code)
+- **Leaves the workstation**: [2.15 Leaves the workstation](2.15-actions.md#leaves-the-workstation); [6 Actions](6-permissions-and-safety.md#actions); screen: [Project page › The Run window](screens/project-page.md#the-run-window)
+- **Lent to a Task, Use a Project device**: [2.13 Lent to a Task](2.13-connected-devices.md#lent-to-a-task); screen: [Task page › Devices](screens/task-page.md#devices)
 - **Launcher, Office updater**: [5.1.2 Updating The Office](5.1.2-updates-and-restarts.md#updating-the-office); [5.1.2 Restarting The Office](5.1.2-updates-and-restarts.md#restarting-the-office)
 - **Link card, Office status**: [2.2 What each person is doing now](2.2-people.md#what-each-person-is-doing-now); screen: [Thread › Lines and cards in the log](screens/thread.md#lines-and-cards-in-the-log)
 - **Linked identity**: [2.10 Linking](2.10-users-and-signing-in.md#linking); screen: [Account › Linked identities](screens/account.md#linked-identities)
@@ -167,6 +181,8 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Plan the Initiative**: [2.1.4 Plan the Initiative](2.1.4-initiatives.md#plan-the-initiative)
 - **Process, Sub-agent**: [2.9.1 Sub-agents and Processes](2.9.1-the-model.md#sub-agents-and-processes); screen: [Thread › Sub-agents and Processes](screens/thread.md#sub-agents-and-processes)
 - **Project**: [2.1.1 Project](2.1.1-projects.md#project); screen: [Projects page](screens/projects.md#projects-page-and-add-a-project)
+- **Project device, at rest, in use, Paired, Didn't answer, Not paired, Over USB**: [2.13 A Project's device](2.13-connected-devices.md#a-projects-device); [2.13 At rest and in use](2.13-connected-devices.md#at-rest-and-in-use); [2.13 A Project device over USB](2.13-connected-devices.md#a-project-device-over-usb); [2.13 One environment at a time](2.13-connected-devices.md#one-environment-at-a-time); [2.13 Removing a Project device](2.13-connected-devices.md#removing-a-project-device); screen: [Project page › Devices](screens/project-page.md#devices)
+- **Pairing a Project device, pairing environment**: [2.13 Pairing a Project device](2.13-connected-devices.md#pairing-a-project-device); [5.5 A pairing environment](5.5-git-and-isolation.md#a-pairing-environment); screen: [Project page › Devices](screens/project-page.md#devices)
 - **Project filter**: [2.1.6 Saved views and the Project filter](2.1.6-board-and-search.md#saved-views-and-the-project-filter); screen: [Shell › Project filter](screens/shell.md#project-filter)
 - **Project limit, Task limit**: [2.1.1 Project limit](2.1.1-projects.md#project-limit); [2.2 Limits](2.2-people.md#limits)
 - **Project Pipeline**: [2.3.5 Project Pipelines](2.3.5-library.md#project-pipelines); screen: [Project page › Pipelines](screens/project-page.md#pipelines)
@@ -215,7 +231,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Tag**: [2.1.3 Tags](2.1.3-tasks.md#tags)
 - **Test target, Hosted, Build to install, Install on a device, Deployed elsewhere, entry points only**: [2.12 Test target](2.12-test-instances.md#test-target); [2.12 Kinds](2.12-test-instances.md#kinds); [2.12 Entry points only](2.12-test-instances.md#entry-points-only); screen: [Project page › Test targets](screens/project-page.md#test-targets)
 - **propose_test_targets, Set up test targets**: [2.12 Writing test targets](2.12-test-instances.md#writing-test-targets); [2.12 Set up test targets](2.12-test-instances.md#set-up-test-targets); [2.3.5 Built-ins](2.3.5-library.md#built-ins)
-- **Test instance, launching on a branch, linked to an Initiative, Building, Running, Stopped, Built, Failed**: [2.12 Test instance](2.12-test-instances.md#test-instance); [2.12 Linking to an Initiative](2.12-test-instances.md#linking-to-an-initiative); [2.12 Test instance states](2.12-test-instances.md#test-instance-states); [2.1.4 Test instances of an Initiative](2.1.4-initiatives.md#test-instances-of-an-initiative); [2.7 Test instance Outcomes](2.7-notifications.md#test-instance-outcomes); screens: [Initiative page › Test instances](screens/initiative-page.md#test-instances), [Project page › Test instances](screens/project-page.md#test-instances)
+- **Test instance, launching on a branch, linked to an Initiative, Building, Installing, Running, Stopped, Built, Installed, Failed**: [2.12 Test instance](2.12-test-instances.md#test-instance); [2.12 Linking to an Initiative](2.12-test-instances.md#linking-to-an-initiative); [2.12 Test instance states](2.12-test-instances.md#test-instance-states); [2.1.4 Test instances of an Initiative](2.1.4-initiatives.md#test-instances-of-an-initiative); [2.7 Test instance Outcomes](2.7-notifications.md#test-instance-outcomes); screens: [Initiative page › Test instances](screens/initiative-page.md#test-instances), [Project page › Test instances](screens/project-page.md#test-instances)
 - **Test instance proxy, hand-off link, Proxy ports**: [2.12 Reaching a Hosted instance](2.12-test-instances.md#reaching-a-hosted-instance); [5.1 The test instance proxy](5.1-shape.md#the-test-instance-proxy); [2.10 Signing in to a test instance](2.10-users-and-signing-in.md#signing-in-to-a-test-instance)
 - **Build to install files, QR code link, build time, Kept Build to install files (linked and unlinked builds)**: [2.12 Build to install](2.12-test-instances.md#build-to-install); [2.12 Kept Build to install files](2.12-test-instances.md#kept-build-to-install-files); [2.12 Build time](2.12-test-instances.md#build-time); [5.5 The build cache volume](5.5-git-and-isolation.md#the-build-cache-volume)
 - **Build cache volume**: [5.5 The build cache volume](5.5-git-and-isolation.md#the-build-cache-volume)
@@ -238,6 +254,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 ### W
 
 - **Waiting for you**: [2.4.2 Waiting for you](2.4.2-decisions.md#waiting-for-you); [2.7 The tab counts Needs you and blinks for a new item](2.7-notifications.md#the-tab-counts-needs-you-and-blinks-for-a-new-item)
+- **What an Action runs from (a branch, a Task or an Initiative)**: [2.15 What it runs from](2.15-actions.md#what-it-runs-from); screen: [Project page › The Branch picker](screens/project-page.md#the-branch-picker)
 - **Workstation figure**: [4 Densities](4-ux-direction.md#densities); screen: [Shell › Workstation figure](screens/shell.md#workstation-figure)
 
 ### Questions Agents ask
@@ -324,9 +341,10 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
   - [2.11.1 The Stats page](2.11.1-the-stats-page.md): basic and full stats, the states between.
   - [2.11.2 Tokens and cost](2.11.2-tokens-and-cost.md): what is counted, estimated cost, metric attributes.
   - [2.11.3 System health](2.11.3-system-health.md): health readings, slow routes and queries.
-- [2.12 Test instances](2.12-test-instances.md): test targets and their kinds, what runs before the entry point and what The Office sets, the Proposal that writes them, test instances, their states, the proxy, Build to install files, safety, limits.
-- [2.13 Connected devices](2.13-connected-devices.md): a device connected to a Task's run environment over USB through the browser or over Android wireless debugging, one to one Task, the relay and the Office device helper, states and lifecycle, what the image needs, the adb key, pairing a phone over wireless debugging, the run environment's network, what Agents see, who connects.
+- [2.12 Test instances](2.12-test-instances.md): test targets and their kinds, what runs before the entry point and what The Office sets, the Proposal that writes them, test instances, their states, the proxy, Build to install files, Install on a device, safety, limits.
+- [2.13 Connected devices](2.13-connected-devices.md): a device connected to a Task's run environment over USB through the browser or over Android wireless debugging, one to one Task, Project devices (at rest and in use, pairing one, over USB, one environment at a time, lent to a Task, removing one), the relay and the Office device helper, states and lifecycle, what the image needs, the adb key, pairing a phone over wireless debugging, the run environment's network, what Agents see, who connects.
 - [2.14 Activity](2.14-activity.md): everything The Office is running in one list, what is listed, running and ended items, since, seen per user, the count, live updates.
+- [2.15 Actions](2.15-actions.md): Action and its kinds, Leaves the workstation, what it runs from, Action runs, where they run, what The Office sets, their states, log and history, when a run stops, limits, who starts and who defines Actions, the feature switch.
 
 ### 4. UX
 
@@ -374,7 +392,7 @@ One page per screen, as built. Where a [design](../design/README.md) differs, th
 
 ### Safety and risks
 
-- [6. Permissions and safety](6-permissions-and-safety.md): threat model, only hashes stored, the two layers, Hard switches, profiles, secrets, test instances, build rules.
+- [6. Permissions and safety](6-permissions-and-safety.md): threat model, only hashes stored, the two layers, Hard switches, profiles, secrets, test instances, Actions, build rules.
 - [8. Risks](8-risks.md)
 
 ## Defaults
@@ -507,6 +525,7 @@ Where each default lives, by page:
   - [Batching Outcomes](2.7-notifications.md#batching-outcomes)
   - [The grid's rows](2.7-notifications.md#the-grids-rows)
   - [Test instance Outcomes](2.7-notifications.md#test-instance-outcomes)
+  - [Action run Outcomes](2.7-notifications.md#action-run-outcomes)
   - [Initiatives being shaped on Now](2.7-notifications.md#initiatives-being-shaped-on-now)
   - [Today's figures](2.7-notifications.md#todays-figures)
   - [The tab counts Needs you and blinks for a new item](2.7-notifications.md#the-tab-counts-needs-you-and-blinks-for-a-new-item)
@@ -556,6 +575,7 @@ Where each default lives, by page:
   - [Idle time](2.12-test-instances.md#idle-time)
   - [Proxy ports](2.12-test-instances.md#proxy-ports)
   - [Build time](2.12-test-instances.md#build-time)
+  - [Install time](2.12-test-instances.md#install-time)
   - [Kept Build to install files](2.12-test-instances.md#kept-build-to-install-files)
   - [Implementation notes](2.12-test-instances.md#implementation-notes)
 - 2.13 Connected devices
@@ -573,6 +593,11 @@ Where each default lives, by page:
 - 2.14 Activity
   - [Ended items kept](2.14-activity.md#ended-items-kept)
   - [Seen items kept](2.14-activity.md#seen-items-kept)
+- 2.15 Actions
+  - [Actions at once](2.15-actions.md#actions-at-once)
+  - [An Action's time limit](2.15-actions.md#an-actions-time-limit)
+  - [Action runs kept](2.15-actions.md#action-runs-kept)
+  - [Implementation notes](2.15-actions.md#implementation-notes)
 - 4 UX direction
   - [Palette](4-ux-direction.md#palette)
   - [Density](4-ux-direction.md#density)
@@ -609,6 +634,7 @@ Where each default lives, by page:
   - [The System health recorder sits in the platform layer](5.3-modules.md#the-system-health-recorder-sits-in-the-platform-layer)
   - [Test instances uses Run environments through their public interface](5.3-modules.md#test-instances-uses-run-environments-through-their-public-interface)
   - [Devices uses Run environments through their public interface](5.3-modules.md#devices-uses-run-environments-through-their-public-interface)
+  - [Actions uses Run environments through their public interface](5.3-modules.md#actions-uses-run-environments-through-their-public-interface)
   - [Office updates is reached through BusyWork](5.3-modules.md#office-updates-is-reached-through-busywork)
 - 5.4.1 Engine port and kinds
   - [Office actions](5.4.1-engine-kinds.md#office-actions)
@@ -673,6 +699,8 @@ Where each default lives, by page:
   - [The CPU limit](5.5-git-and-isolation.md#the-cpu-limit)
   - [The other limits of run environments](5.5-git-and-isolation.md#the-other-limits-of-run-environments)
   - [A test instance's checkout](5.5-git-and-isolation.md#a-test-instances-checkout)
+  - [An Action run's checkout](5.5-git-and-isolation.md#an-action-runs-checkout)
+  - [A pairing environment](5.5-git-and-isolation.md#a-pairing-environment)
   - [The build cache volume](5.5-git-and-isolation.md#the-build-cache-volume)
   - [The repository's git data in a run environment](5.5-git-and-isolation.md#the-repositorys-git-data-in-a-run-environment)
   - [The file of earlier Stage runs in a run environment](5.5-git-and-isolation.md#the-file-of-earlier-stage-runs-in-a-run-environment)

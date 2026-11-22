@@ -167,7 +167,7 @@ _Avoid_: Build, Workflow run (in the UI), Stage run (a Stage run is a Stage of T
 
 **Workflow**:
 A file of a Project's repository that its code host runs as CI runs, such as a GitHub Actions workflow under `.github/workflows/`. One that declares a start by hand (GitHub's `workflow_dispatch`) can be started from Work › CI, or by an Agent with the `start_workflow` Office action, on a branch or tag, with the inputs its file declares there.
-_Avoid_: Pipeline (a Pipeline is The Office's own Stages a Task runs through), Action, Job
+_Avoid_: Pipeline (a Pipeline is The Office's own Stages a Task runs through), "GitHub Action" and "Action" (an Action is a Project's on-demand run in The Office, which may start a Workflow), Job
 
 **Save** (a Plan or a Definition of Done):
 The user keeping their edit of the part. It never confirms: a change leaves the part Not confirmed, and moves a Ready Task back to Planning, or to Backlog when it was never in Planning; the same words change nothing.
@@ -518,7 +518,7 @@ How many run environments may be running together across The Office, 2 by defaul
 _Avoid_: run environment slots, concurrency limit
 
 **Test target**:
-A named entry in a Project's settings for what can be launched on an Initiative's branch to try the work: a key, a name, a kind and that kind's settings, pointing only to the repository's own entry points (a file, a package script, a Gradle task, a `.devcontainer/` service). Stored in the database only, never in a repository; written on the Project page or by Devops' `propose_test_targets` Proposal, which the user applies.
+A named entry in a Project's settings for what can be launched on a branch to try the work: a key, a name, a kind and that kind's settings, pointing only to the repository's own entry points (a file, a package script, a Gradle task, a `.devcontainer/` service). Stored in the database only, never in a repository; written on the Project page or by Devops' `propose_test_targets` Proposal, which the user applies.
 _Avoid_: preview config, deploy target, environment
 
 **Set up test targets**:
@@ -526,7 +526,7 @@ The Project page's button, in its Test targets section, that adds the Project's 
 _Avoid_: test target wizard, auto-detect targets
 
 **Test instance**:
-One launch of one Test target on one Initiative's branch in one Project, on its own checkout, with its own data and only the target's own variables. Building, then Running and Stopped (Hosted) or Built (Build to install), or Failed.
+One launch of one Test target on one branch in one Project (an Initiative's, a Task's or any other), on its own checkout, with its own data and only the target's own variables. Building, then Running and Stopped (Hosted), Built (Build to install) or Installing and Installed (Install on a device), or Failed.
 _Avoid_: preview, staging, sandbox, deploy, review app
 
 **Hosted**:
@@ -538,19 +538,35 @@ The kind of Test target that builds files the user installs, such as an APK, dow
 _Avoid_: artifact, release build, deploy
 
 **Install on a device**:
-The kind of Test target that would build on a Task's branch and install on a Connected device of that Task. Outlined only, not built; refused for now.
+The kind of Test target that installs what its Build to install target builds on one of the Project's devices, an Android phone, with adb: Building (or reusing the files already Built from that commit), then Installing, then Installed, or Failed. Nobody downloads the APK or scans a QR code. See [2.12](docs/spec/2.12-test-instances.md#install-on-a-device).
 _Avoid_: deploy to device, sideload
 
 **Connected device**:
-A device the user connects to one Task's run environment so that Task's commands reach it: an Android phone over USB, a Serial board over USB, or an Android phone over wireless debugging. One device to one Task at a time, recognised by its device key. Connecting, Connected, Waiting for the run environment, or Disconnected with why: by a user, tab closed, Task ended, device unplugged, Run environment turned Off, or error. Never a signed-in device, which is a browser a user signed in from.
+A device connected to one run environment so the commands run there reach it: an Android phone over USB, a Serial board over USB, or an Android phone over wireless debugging. It belongs to a Task, connected by the user on the Task page, or comes from a Project device, held by an Action run, a test instance or a Task it is lent to. One device to one environment at a time, recognised by its device key. Connecting, Connected, Waiting for the run environment, or Disconnected with why: by a user, tab closed, Task ended, device unplugged, Run environment turned Off, or error. Never a signed-in device, which is a browser a user signed in from.
 _Avoid_: attached device, hardware, peripheral, device session
+
+**Project device**:
+A device kept by a Project between uses, added in the Project page's Devices section, so an Action or a test target reaches it with nobody connecting it first: one of a Connected device's three kinds. At rest it is Paired, Didn't answer, Not paired or Over USB; In use while an environment holds it as a Connected device; it can be lent to a Task. A phone over wireless debugging is paired once with the Project's adb key. See [2.13](docs/spec/2.13-connected-devices.md#a-projects-device).
+_Avoid_: saved device, shared device, device pool
+
+**Action**:
+A named entry in a Project's settings that the user runs on demand, outside the Task queue, such as "Install on my phone" or "Release": a Project command, a test target or a Workflow, run from a branch, a Task or an Initiative. Stored in the database only; written on the Project page or by Devops' `propose_actions` Proposal; started only by a signed-in user, never by an Agent. Not an Office action, which is something the user or an Agent does on a record, nor a GitHub Actions run, which is a CI run. See [2.15](docs/spec/2.15-actions.md#action).
+_Avoid_: "Project action", job, script
+
+**Action run**:
+One start of one Action, on what was chosen: a Project command run in its own checkout (Running, then Succeeded, Failed or Stopped), a test instance, or a Workflow's CI run. It keeps its log and its place in the Action's history; one run of each Action at a time. See [2.15](docs/spec/2.15-actions.md#action-run).
+_Avoid_: job run, execution, Stage run (a Stage run is a Stage of a Task's Pipeline)
+
+**Leaves the workstation**:
+The mark on an Action whose run pushes, publishes, deploys or releases: anything that reaches people or systems outside this Office. The user sets and clears it; a Workflow Action has it when added; a Proposal may set it, never clear it. Such an Action runs from the base branch only. See [2.15](docs/spec/2.15-actions.md#leaves-the-workstation).
+_Avoid_: external, dangerous, production Action
 
 **Waiting for the run environment**:
 The state of a Connected device whose Task's run environment isn't running; it comes back when the environment starts. Connecting a device never starts one, except pairing a phone over wireless debugging. Not "Waiting for a run environment", a Stage's wait for a free slot.
 _Avoid_: Offline, Paused device
 
 **Devices section**:
-The Task page's Overview block, shown while the Project's Run environment is On, where any signed-in user connects a device over USB or pairs a phone over wireless debugging, sees the Task's Connected devices and disconnects them.
+The Task page's Overview block, shown while the Project's Run environment is On, where any signed-in user connects a device over USB or pairs a phone over wireless debugging, sees the Task's Connected devices and disconnects them; its Use a Project device lends one of the Project's devices at rest to the Task. The Project page has a Devices section of its own, where Project devices are added and paired.
 _Avoid_: Devices panel, device manager
 
 **Activity**:
@@ -574,7 +590,7 @@ The one named Docker volume per Project that holds the build tools' caches for B
 _Avoid_: cache folder, artifact cache
 
 **Test instances at once**:
-How many Test instances may be Building or Running together across The Office, 2 by default, 1 to 6, set in Settings › Office limits' Test instances card; counted apart from Run environments at once. A launch over it is refused.
+How many Test instances may be Building, Installing or Running together across The Office, 2 by default, 1 to 6, set in Settings › Office limits' Test instances card; counted apart from Run environments at once. A launch over it is refused.
 _Avoid_: preview slots, sandbox limit
 
 **Idle time**:
@@ -640,7 +656,7 @@ A built-in job The Office gives to whichever hired Role holds it, set in Setting
 _Avoid_: Responsibility (the Role card has responsibilities), assignment, function
 
 **Office action**:
-One thing the user can do on a record, such as adding a Task to an Initiative, declared once with the duties that cover it; its route on the record's page and its Office tool for Agents both come from that declaration. A person gets the tool when they hold a duty that covers it, in every Thread the user talks to them in; their Role's authority still says when they may use it without a Decision.
+One thing the user can do on a record, such as adding a Task to an Initiative, declared once with the duties that cover it; its route on the record's page and its Office tool for Agents both come from that declaration. A person gets the tool when they hold a duty that covers it, in every Thread the user talks to them in; their Role's authority still says when they may use it without a Decision. Not an Action, which is a Project's on-demand run.
 _Avoid_: Command, operation, endpoint (in the UI), capability (a Role card's capabilities are another thing)
 
 **Avatar**:

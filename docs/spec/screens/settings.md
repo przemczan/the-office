@@ -117,13 +117,19 @@ Covers: the Settings page and its sections (Pipelines list and Stage templates, 
 - **Run environments** card: **Run environments at once**, **CPUs per run environment** (**Automatic** or **Fixed**, the fixed number up to this computer's cores; a note says what Automatic gives here), **Memory per service** ("The most memory each service may use, with no swap."; in GB) and **Processes per service** ("The most processes each service may run at once."); each change sends the whole set; a change applies from each run environment's next start.
 - The warning "Fewer run environments than running Tasks" shows when Run environments at once is below Running Tasks at once.
 - **Test instances** card, under Run environments:
-  - **Test instances at once** (a stepper, 1 to 6; "How many may be Building or Running together across The Office. Building counts. Counted apart from run environments.");
+  - **Test instances at once** (a stepper, 1 to 6; "How many may be Building, Installing or Running together across The Office. Building and Installing count. Counted apart from run environments.");
   - **Idle time** (a stepper in minutes, 5 to 240 by 5; "A running test instance stops after this long with no request.");
   - **Proxy ports** (a first and a last port, with the count beside; "Each running test instance is opened at one of these ports on <OFFICE_HOST>. To reach them from another device on your network, The Office must listen on its LAN address and its firewall must let these ports in.");
   - each change sends the whole set (`PUT /settings/test-instances`): a stepper saves at each step, a port when its field loses focus or on Enter;
   - foot: "Running instances keep their port. Lowering Test instances at once stops none: the next launch waits until fewer are running.";
   - a refusal shows under the card, naming the field, and marks it ([Proxy ports' rules](../2.12-test-instances.md#proxy-ports)).
-- Facts: [2.2](../2.2-people.md#limits), [2.5](../2.5-context-policy.md), [2.1.3](../2.1.3-tasks.md), [2.12](../2.12-test-instances.md#defaults).
+- **Actions** card, under Test instances:
+  - **Actions at once** (a stepper, 1 to 6, 2 at first; "How many Project command runs of Actions may be running together across The Office. A Test target run counts as a test instance instead, a Workflow run toward neither.");
+  - it saves at each step (`PUT /settings/actions`);
+  - foot: "Lowering it stops none: the next start is refused until fewer are running.";
+  - a refusal shows under the card.
+  - Rules: [2.15](../2.15-actions.md#actions-at-once).
+- Facts: [2.2](../2.2-people.md#limits), [2.5](../2.5-context-policy.md), [2.1.3](../2.1.3-tasks.md), [2.12](../2.12-test-instances.md#defaults), [2.15](../2.15-actions.md#defaults).
 
 ## Office instructions
 

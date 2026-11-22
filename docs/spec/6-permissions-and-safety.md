@@ -1,6 +1,6 @@
 # 6 Permissions and safety
 
-Covers: threat models, stored hashes, the two layers, language servers, Hard switches, MCP tools, refusals, default profiles, reading records, Consultations' permissions, chats, the Caretaker with Allow changes on, secrets, Secret variables, test instances, Connected devices, build rules.
+Covers: threat models, stored hashes, the two layers, language servers, Hard switches, MCP tools, refusals, default profiles, reading records, Consultations' permissions, chats, the Caretaker with Allow changes on, secrets, Secret variables, test instances, Connected devices and Project devices, Actions, build rules.
 
 ## Threat model
 
@@ -138,6 +138,7 @@ Covers: threat models, stored hashes, the two layers, language servers, Hard swi
   - pushing a branch or a commit, before each push in Projects' publishing, so its Publish fails in those words;
   - opening, merging and closing a pull request, in Projects where each is asked of the code host;
   - starting or resuming an engine session, and reading an engine's usage windows, in Engine, so no session runs, no model is called and no account is reached.
+  - starting an Action, in Actions ([2.15](2.15-actions.md#in-a-test-instance-of-the-office)).
 - Each refusal names `OFFICE_TEST_INSTANCE` ("A test instance of The Office (OFFICE_TEST_INSTANCE) doesn't push."), and each is proven by a test.
   - Projects refuses with `TestInstanceRefused`, answered `409` over HTTP; Engine with `EngineRefused`, before a session starts or resumes and before a usage window check.
 - `/api/health` answers `{ "database", "testInstance" }`, so the web knows without a sign-in.
@@ -147,10 +148,13 @@ Covers: threat models, stored hashes, the two layers, language servers, Hard swi
 
 - Connecting a device ([2.13](2.13-connected-devices.md)) needs a signed-in session in the browser, as every request does ([2.10](2.10-users-and-signing-in.md#what-every-request-needs)); the relay's WebSocket is the signed-in one.
 - Over USB, the browser's own device picker asks the user which device to connect, so a page can't reach a device the user didn't pick.
-- A device is reachable only from its Task's run environment: the Office device helper listens inside the container, and no port is published.
+- A device is reachable only from the run environment it is connected to: the Office device helper listens inside the container, and no port is published.
+- A Project device is held by one environment at a time and is reached only by the environment holding it ([2.13](2.13-connected-devices.md#one-environment-at-a-time)).
+- A Project device's address (its IP address and Port) is never shown to Agents ([2.13](2.13-connected-devices.md#a-projects-device)).
 - The helper is mounted read-only, so a command in the run environment can't change it.
 - It runs as the checks' user; only its serial mode runs as the container's root, to make the serial path, and it hands the pseudo-terminal to the checks' user (mode 0660), so the Project's commands never need root to reach the board.
 - The Project's adb key is kept as Secret variables are, and never sent to the web, logged or put in a Handover note.
+- A Project device pairs and connects with that same key, the one The Office keeps for the Project ([2.13](2.13-connected-devices.md#the-adb-key)); no other key is made or kept for it.
 - A pairing code for wireless debugging is used once and never kept: it goes only to `adb pair`'s standard input in the run environment, never into a record, a log, a response, a web event, a command line, a variable or a frame to the helper.
 - A phone over wireless debugging is reached by adb in the run environment alone, over its own network ([2.13](2.13-connected-devices.md#the-run-environments-network)); no port is published for it.
 - The address typed for it is refused when the run environment can't reach a phone there ([2.13](2.13-connected-devices.md#android-phone-over-wireless-debugging)):
@@ -159,6 +163,18 @@ Covers: threat models, stored hashes, the two layers, language servers, Hard swi
   - multicast (`224.0.0.0/4`, `ff00::/8`);
   - link-local (`169.254.0.0/16`, `fe80::/10`);
   - an IPv4-mapped IPv6 address (`::ffff:a.b.c.d`), weighed as its IPv4 one.
+
+## Actions
+
+- An Action marked Leaves the workstation ([2.15](2.15-actions.md#leaves-the-workstation)) runs from the base branch only; a start on any other branch, Task or Initiative is refused, naming it.
+- Its start has a confirm step naming the Action, the base branch and the short commit it will run.
+- The service runs that commit only, and refuses the start when the branch moved since ([2.15](2.15-actions.md#implementation-notes)).
+- No Agent starts an Action: no Office tool does ([2.15](2.15-actions.md#who-starts-an-action)), so no Hard switch covers one.
+- No later build lets an Agent start an Action that leaves the workstation without a Hard switch of its own.
+- `start_workflow` ([2.1.6](2.1.6-board-and-search.md#the-ci-tab), [5.4.1](5.4.1-engine-kinds.md#office-actions)) refuses a Workflow file that a Leaves the workstation Action of the Project starts, naming the Action, so an Agent can't start a release around the Action; the file is refused whatever its inputs, a dry run's among them.
+- Work › CI's Start a workflow, by a user, refuses such a file too, pointing to the Action: "<file> is started by the Action <name>, from <Project>'s Actions.", so the base branch and the confirm step can't be gone around.
+- A Project command run never gets The Office's own credentials ([2.15](2.15-actions.md#where-a-run-runs)).
+- A test instance of The Office refuses every Action start ([Test instances](#test-instances)).
 
 ## Build rules
 

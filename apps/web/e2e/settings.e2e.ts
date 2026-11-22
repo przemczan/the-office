@@ -1639,15 +1639,24 @@ test("the flow canvas moves with the right mouse button, zooms, fits the whole P
     });
 
     // A Project Pipeline keeps its base Pipeline's places, and says so when a Stage is dragged.
+    // The card is measured again on each try: the page around the canvas can still be laying out
+    // after the card shows, moving it from under a press made at the first measure.
     await page.goto(`/projects/${project.id}/pipelines/${own.id}`);
-    const build = await boxOf(flow.locator('[data-flow-stage="build"]'));
-    await page.mouse.move(build.x + build.width / 2, build.y + 12);
-    await page.mouse.down();
-    await page.mouse.move(build.x + build.width / 2 + 80, build.y + 40, { steps: 4 });
-    await expect(page.getByRole("status").filter({ hasText: "Its place comes from" })).toHaveText(
-      `Its place comes from ${base.name}, the base Pipeline: move it there.`,
-    );
-    await page.mouse.up();
+    const toldWhy = page.getByRole("status").filter({ hasText: "Its place comes from" });
+    await expect(async () => {
+      const build = await boxOf(flow.locator('[data-flow-stage="build"]'));
+      await page.mouse.move(build.x + build.width / 2, build.y + 12);
+      await page.mouse.down();
+      try {
+        await page.mouse.move(build.x + build.width / 2 + 80, build.y + 40, { steps: 4 });
+        await expect(toldWhy).toHaveText(
+          `Its place comes from ${base.name}, the base Pipeline: move it there.`,
+          { timeout: 2_000 },
+        );
+      } finally {
+        await page.mouse.up();
+      }
+    }).toPass({ timeout: 20_000 });
     await screenshotScenario(page, "project-pipelines-canvas", { inView: view });
   } finally {
     await repository.remove();

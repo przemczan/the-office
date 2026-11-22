@@ -1,0 +1,3190 @@
+<!doctype html>
+<html lang="en" data-palette="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Project Actions · The Office design</title>
+    <style>
+      /* ---------- Tokens: design-system/tokens, as test-instances.html draws them ---------- */
+      :root {
+        --ember-50: #fff2ed;
+        --ember-300: #ff9370;
+        --ember-500: #f23d0f;
+        --ember-600: #d4300a;
+        --ember-700: #9e2406;
+        --flare-300: #ffc266;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-850: #1f1f1d;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-700: #106a3b;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-500: #e5a00d;
+        --amber-700: #865b05;
+        --red-50: #fdeef0;
+        --red-100: #fad9dd;
+        --red-500: #c8102e;
+        --red-700: #8e0b20;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-raised: var(--white);
+        --surface-sunken: var(--gray-50);
+        --surface-hover: var(--gray-25);
+        --surface-selected: var(--ember-50);
+        --fg-1: var(--gray-950);
+        --fg-2: var(--gray-600);
+        --fg-3: var(--gray-500);
+        --fg-disabled: var(--gray-300);
+        --border: var(--gray-150);
+        --border-subtle: var(--gray-100);
+        --border-strong: var(--gray-200);
+        --accent: var(--ember-500);
+        --accent-hover: var(--ember-600);
+        --accent-subtle: var(--ember-50);
+        --accent-subtle-fg: var(--ember-700);
+        --control-hover: var(--gray-50);
+        --control-press: var(--gray-100);
+        --switch-off: var(--gray-200);
+        --success: var(--green-500);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --success-border: var(--green-100);
+        --warning: var(--amber-500);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --danger: var(--red-500);
+        --danger-subtle: var(--red-50);
+        --danger-fg: var(--red-700);
+        --danger-border: var(--red-100);
+        --info: var(--blue-500);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-600);
+        --neutral-border: var(--gray-150);
+        --backdrop: rgba(15, 15, 14, 0.36);
+        --focus-ring: 0 0 0 3px color-mix(in oklab, var(--ember-500) 30%, transparent);
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --text-2xs: 11px;
+        --text-xs: 12px;
+        --text-sm: 13px;
+        --text-md: 14px;
+        --text-lg: 16px;
+        --type-body: 400 var(--text-md) / 1.5 var(--font-sans);
+        --type-body-sm: 400 var(--text-sm) / 1.45 var(--font-sans);
+        --type-caption: 400 var(--text-xs) / 1.4 var(--font-sans);
+        --type-label: 500 var(--text-sm) / 1.3 var(--font-sans);
+        --type-card-title: 600 var(--text-md) / 1.4 var(--font-sans);
+        --type-section-title: 600 var(--text-lg) / 1.3 var(--font-sans);
+        --type-overline: 500 var(--text-2xs) / 1.2 var(--font-mono);
+        --type-mono-sm: 400 var(--text-xs) / 1.6 var(--font-mono);
+        --tracking-caps: 0.06em;
+
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-card: 10px;
+        --radius-full: 999px;
+        --radius-control: var(--radius-md);
+        --control-sm: 28px;
+        --control-md: 32px;
+
+        --shadow-1: 0 1px 2px rgba(16, 16, 15, 0.06);
+        --shadow-2: 0 4px 12px -2px rgba(16, 16, 15, 0.08), 0 1px 3px rgba(16, 16, 15, 0.05);
+        --shadow-3: 0 16px 40px -8px rgba(16, 16, 15, 0.18), 0 2px 6px rgba(16, 16, 15, 0.06);
+        --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --duration-fast: 120ms;
+        --duration-base: 180ms;
+      }
+      :root[data-palette="dark"] {
+        --bg: var(--gray-950);
+        --surface: var(--gray-900);
+        --surface-raised: var(--gray-850);
+        --surface-sunken: var(--gray-950);
+        --surface-hover: var(--gray-850);
+        --surface-selected: color-mix(in oklab, var(--ember-500) 12%, var(--gray-900));
+        --fg-1: var(--gray-50);
+        --fg-2: var(--gray-300);
+        --fg-3: var(--gray-400);
+        --fg-disabled: var(--gray-600);
+        --border: var(--gray-800);
+        --border-subtle: var(--gray-850);
+        --border-strong: var(--gray-700);
+        --accent-subtle: color-mix(in oklab, var(--ember-500) 16%, transparent);
+        --accent-subtle-fg: var(--ember-300);
+        --control-hover: var(--gray-850);
+        --control-press: var(--gray-800);
+        --switch-off: var(--gray-700);
+        --success-subtle: color-mix(in oklab, var(--green-500) 16%, transparent);
+        --success-fg: #6fd69b;
+        --success-border: color-mix(in oklab, var(--green-500) 30%, transparent);
+        --warning-subtle: color-mix(in oklab, var(--amber-500) 16%, transparent);
+        --warning-fg: var(--flare-300);
+        --warning-border: color-mix(in oklab, var(--amber-500) 30%, transparent);
+        --danger-subtle: color-mix(in oklab, var(--red-500) 20%, transparent);
+        --danger-fg: #ff8a97;
+        --danger-border: color-mix(in oklab, var(--red-500) 36%, transparent);
+        --info-subtle: color-mix(in oklab, var(--blue-500) 18%, transparent);
+        --info-fg: #93b5f5;
+        --info-border: color-mix(in oklab, var(--blue-500) 34%, transparent);
+        --neutral-subtle: var(--gray-850);
+        --neutral-fg: var(--gray-300);
+        --neutral-border: var(--gray-700);
+        --backdrop: rgba(0, 0, 0, 0.56);
+        --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+        --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+        --shadow-3: 0 16px 40px -8px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg-1);
+        font: var(--type-body);
+        -webkit-font-smoothing: antialiased;
+      }
+      code,
+      .mono {
+        font-family: var(--font-mono);
+        font-size: 0.93em;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+        color: inherit;
+      }
+      a {
+        color: var(--accent-subtle-fg);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+        text-decoration-color: color-mix(in oklab, currentColor 40%, transparent);
+      }
+      :focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+      [hidden] {
+        display: none !important;
+      }
+      .i {
+        flex: none;
+        width: 14px;
+        height: 14px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.75;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .i.s12 {
+        width: 12px;
+        height: 12px;
+      }
+      .i.s16 {
+        width: 16px;
+        height: 16px;
+      }
+      .trunc {
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .muted {
+        color: var(--fg-3);
+      }
+      .grow {
+        flex: 1;
+        min-width: 0;
+      }
+
+      /* ---------- The design's frame ---------- */
+      .doc {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        max-width: 1440px;
+        margin: 0 auto;
+        padding: 28px 28px 72px;
+      }
+      .doc-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+      }
+      .overline {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .doc-head h1 {
+        margin: 6px 0 4px;
+        font: 600 22px/1.25 var(--font-sans);
+        letter-spacing: -0.01em;
+      }
+      .doc-head p {
+        margin: 0;
+        max-width: 84ch;
+        color: var(--fg-2);
+        font: var(--type-body-sm);
+      }
+      .doc-control {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .doc-control-label {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .views {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px;
+        padding: 4px 0 2px;
+        border-bottom: 1px solid var(--border);
+        background: color-mix(in oklab, var(--bg) 92%, transparent);
+        backdrop-filter: blur(6px);
+      }
+      .views button {
+        position: relative;
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        height: 36px;
+        padding: 0 11px;
+        border: 0;
+        background: none;
+        color: var(--fg-2);
+        font: var(--type-label);
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .views button:hover {
+        color: var(--fg-1);
+      }
+      .views button[aria-selected="true"] {
+        color: var(--fg-1);
+      }
+      .views button[aria-selected="true"]::after {
+        content: "";
+        position: absolute;
+        right: 8px;
+        bottom: -3px;
+        left: 8px;
+        height: 2px;
+        border-radius: 2px;
+        background: var(--accent);
+      }
+      .views .num {
+        display: inline-grid;
+        place-items: center;
+        min-width: 18px;
+        height: 18px;
+        border-radius: var(--radius-sm);
+        background: var(--neutral-subtle);
+        border: 1px solid var(--neutral-border);
+        font: 600 var(--text-2xs) / 1 var(--font-sans);
+        color: var(--fg-3);
+      }
+      .views .notes-tab {
+        margin-left: auto;
+      }
+      .view {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-width: 0;
+      }
+      .stage-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 18px;
+        align-items: center;
+        padding: 10px 12px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-lg);
+        background: var(--surface-sunken);
+      }
+      .stage-bar .doc-control-label {
+        font-weight: 500;
+      }
+      .stage-caption {
+        flex: 1 1 360px;
+        margin: 0;
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .stage-caption b {
+        color: var(--fg-2);
+        font-weight: 600;
+      }
+      .frame-label {
+        margin: 6px 0 -6px;
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+
+      /* ---------- packages/ui look-alikes ---------- */
+      .seg {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 2px;
+        min-height: var(--control-sm);
+        padding: 2px;
+        background: var(--surface-sunken);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-control);
+      }
+      .seg button {
+        display: inline-flex;
+        align-items: center;
+        min-height: 22px;
+        padding: 0 10px;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        color: var(--fg-2);
+        font: 500 12px/1 var(--font-sans);
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .seg button[aria-pressed="true"] {
+        background: var(--surface);
+        color: var(--fg-1);
+        box-shadow: var(--shadow-1), 0 0 0 1px var(--border);
+      }
+      .btn {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: var(--control-sm);
+        padding: 0 10px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-control);
+        font: 500 var(--text-sm) / 1 var(--font-sans);
+        white-space: nowrap;
+        text-decoration: none;
+        cursor: pointer;
+        transition:
+          background var(--duration-fast) var(--ease-out),
+          border-color var(--duration-fast) var(--ease-out);
+      }
+      .btn-md {
+        height: var(--control-md);
+        padding: 0 12px;
+      }
+      .btn-primary {
+        background: var(--accent);
+        color: var(--white);
+      }
+      .btn-primary:hover {
+        background: var(--accent-hover);
+      }
+      .btn-secondary {
+        background: var(--surface);
+        border-color: var(--border-strong);
+        color: var(--fg-1);
+        box-shadow: var(--shadow-1);
+      }
+      .btn-secondary:hover {
+        background: var(--control-hover);
+      }
+      .btn-ghost {
+        background: transparent;
+        color: var(--fg-2);
+      }
+      .btn-ghost:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .btn-danger {
+        background: var(--surface);
+        border-color: var(--danger-border);
+        color: var(--danger-fg);
+      }
+      .btn-danger:hover {
+        background: var(--danger-subtle);
+      }
+      .btn-danger-solid {
+        background: var(--danger);
+        color: var(--white);
+      }
+      .btn-danger-solid:hover {
+        background: var(--red-700);
+      }
+      .btn[aria-disabled="true"] {
+        border-color: var(--border);
+        background: var(--surface-sunken);
+        color: var(--fg-disabled);
+        box-shadow: none;
+        cursor: not-allowed;
+      }
+      .icon-btn {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: var(--control-sm);
+        height: var(--control-sm);
+        border: 0;
+        border-radius: var(--radius-control);
+        background: transparent;
+        color: var(--fg-2);
+        cursor: pointer;
+      }
+      .icon-btn:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .icon-btn[aria-disabled="true"] {
+        color: var(--fg-disabled);
+        background: transparent;
+        cursor: not-allowed;
+      }
+      .badge {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 4px;
+        height: 20px;
+        padding: 0 6px;
+        border: 1px solid var(--neutral-border);
+        border-radius: var(--radius-sm);
+        background: var(--neutral-subtle);
+        color: var(--neutral-fg);
+        font: 500 var(--text-2xs) / 1 var(--font-sans);
+        white-space: nowrap;
+      }
+      .badge.mono {
+        font-family: var(--font-mono);
+        font-weight: 400;
+      }
+      .badge-info {
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+      }
+      .badge-success {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+      .badge-warning {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .badge-danger {
+        border-color: var(--danger-border);
+        background: var(--danger-subtle);
+        color: var(--danger-fg);
+      }
+      .spinner {
+        flex: none;
+        width: 10px;
+        height: 10px;
+        border: 1.5px solid color-mix(in oklab, currentColor 30%, transparent);
+        border-top-color: currentColor;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .dot-live {
+        animation: pulse 1.6s var(--ease-out) infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @keyframes pulse {
+        50% {
+          opacity: 0.35;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .spinner,
+        .dot-live {
+          animation: none;
+        }
+      }
+      .switch {
+        position: relative;
+        flex: none;
+        width: 30px;
+        height: 18px;
+        border: 0;
+        border-radius: var(--radius-full);
+        background: var(--switch-off);
+        cursor: pointer;
+        transition: background var(--duration-fast) var(--ease-out);
+      }
+      .switch::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--white);
+        box-shadow: var(--shadow-1);
+        transition: left var(--duration-base) var(--ease-out);
+      }
+      .switch[aria-checked="true"] {
+        background: var(--accent);
+      }
+      .switch[aria-checked="true"]::after {
+        left: 14px;
+      }
+      .alert {
+        display: flex;
+        gap: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--info-border);
+        border-radius: var(--radius-md);
+        background: var(--info-subtle);
+        color: var(--fg-2);
+        font: var(--type-body-sm);
+      }
+      .alert > .i {
+        margin-top: 2px;
+        color: var(--info-fg);
+      }
+      .alert b {
+        display: block;
+        color: var(--fg-1);
+        font-weight: 600;
+      }
+      .alert-warning {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+      }
+      .alert-warning > .i {
+        color: var(--warning-fg);
+      }
+      .alert-danger {
+        border-color: var(--danger-border);
+        background: var(--danger-subtle);
+      }
+      .alert-danger > .i,
+      .alert-danger b {
+        color: var(--danger-fg);
+      }
+      .stepper {
+        display: inline-flex;
+        align-items: center;
+        height: var(--control-sm);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-control);
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+      }
+      .stepper button {
+        display: grid;
+        place-items: center;
+        width: 28px;
+        height: 100%;
+        border: 0;
+        background: none;
+        color: var(--fg-2);
+        cursor: pointer;
+      }
+      .stepper button:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .stepper output {
+        min-width: 64px;
+        padding: 0 6px;
+        border-inline: 1px solid var(--border);
+        text-align: center;
+        font: 500 var(--text-sm) / 26px var(--font-sans);
+        font-variant-numeric: tabular-nums;
+      }
+      .project-mark {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: 18px;
+        height: 18px;
+        border-radius: var(--radius-sm);
+        background: var(--mark);
+        color: var(--white);
+        font: 700 10px/1 var(--font-sans);
+      }
+      .project-mark.logo {
+        width: 40px;
+        height: 40px;
+        border-radius: var(--radius-lg);
+        font-size: 18px;
+      }
+
+      /* ---------- Form fields (Field, TextInput, Select, Radio, Checkbox) ---------- */
+      .form {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        max-width: 700px;
+      }
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
+      }
+      .field-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font: var(--type-label);
+        font-weight: 600;
+      }
+      .set-by {
+        margin-left: auto;
+        font: var(--type-caption);
+        font-weight: 400;
+        color: var(--fg-3);
+      }
+      .hint {
+        margin: 0;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .hint.error {
+        color: var(--danger-fg);
+      }
+      .text-input,
+      .select {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        min-width: 0;
+        height: var(--control-md);
+        padding: 0 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-control);
+        background: var(--surface);
+        color: var(--fg-1);
+        font: 400 var(--text-sm) / 1 var(--font-sans);
+      }
+      .text-input.mono {
+        font-family: var(--font-mono);
+      }
+      .text-input::placeholder {
+        color: var(--fg-3);
+      }
+      .select {
+        cursor: pointer;
+        text-align: left;
+      }
+      .select .chev {
+        margin-left: auto;
+        color: var(--fg-3);
+      }
+      .select.open {
+        border-color: var(--accent);
+        box-shadow: var(--focus-ring);
+      }
+      .field-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+      .radios {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 4px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+      }
+      .radio {
+        display: grid;
+        grid-template-columns: 18px minmax(0, 1fr);
+        gap: 4px 10px;
+        padding: 8px 10px;
+        border-radius: var(--radius-md);
+        cursor: pointer;
+      }
+      .radio:hover {
+        background: var(--surface-hover);
+      }
+      .radio:has(input:checked) {
+        background: var(--surface-selected);
+      }
+      .radio input,
+      .check input {
+        margin: 2px 0 0;
+        accent-color: var(--accent);
+      }
+      .radio b {
+        font: var(--type-label);
+        font-weight: 600;
+      }
+      .radio span {
+        grid-column: 2;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .check {
+        display: grid;
+        grid-template-columns: 18px minmax(0, 1fr);
+        gap: 4px 10px;
+        cursor: pointer;
+      }
+      .check b {
+        font: var(--type-label);
+        font-weight: 600;
+      }
+      .check .hint {
+        grid-column: 2;
+      }
+      .inputs-box {
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+      }
+      .input-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 4px 16px;
+        align-items: center;
+        padding: 10px 12px;
+      }
+      .input-row + .input-row {
+        border-top: 1px solid var(--border-subtle);
+      }
+      .input-row .hint {
+        grid-column: 1 / -1;
+      }
+      .list-box {
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+      }
+      .list-box-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 8px 7px 12px;
+        font: var(--type-body-sm);
+      }
+      .list-box-row + .list-box-row {
+        border-top: 1px solid var(--border-subtle);
+      }
+      .list-box-row .place {
+        width: 16px;
+        color: var(--fg-3);
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ---------- The page: a Project page with its section menu ---------- */
+      .page {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 14px 18px 22px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--bg);
+        box-shadow: var(--shadow-1);
+        min-width: 0;
+      }
+      .crumbs {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .project-head {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        min-width: 0;
+      }
+      .project-head h2 {
+        margin: 0;
+        font: 600 20px/1.25 var(--font-sans);
+        letter-spacing: -0.01em;
+      }
+      .project-meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 8px;
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .section-layout {
+        display: grid;
+        grid-template-columns: 184px minmax(0, 1fr);
+        gap: 22px;
+        align-items: start;
+      }
+      .section-menu {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .section-menu span {
+        display: flex;
+        align-items: center;
+        height: 32px;
+        padding: 0 10px;
+        border-radius: var(--radius-lg);
+        font: var(--type-label);
+        color: var(--fg-2);
+        white-space: nowrap;
+      }
+      .section-menu span.active {
+        background: var(--surface-selected);
+        color: var(--fg-1);
+        box-shadow: inset 2px 0 0 var(--accent);
+      }
+      .section-body {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-width: 0;
+        max-width: 1100px;
+      }
+      .split {
+        display: grid;
+        grid-template-columns: minmax(0, 440px) minmax(0, 1fr);
+        gap: 16px;
+        align-items: start;
+      }
+      .col {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-width: 0;
+      }
+
+      /* ---------- Card and PickList ---------- */
+      .card {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+        min-width: 0;
+      }
+      .card-head {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 8px;
+        align-items: center;
+        min-height: 44px;
+        padding: 8px 10px 8px 14px;
+        border-bottom: 1px solid var(--border);
+        font: var(--type-card-title);
+      }
+      .card-head > .i {
+        color: var(--fg-3);
+      }
+      .card-head .count {
+        font: var(--type-caption);
+        color: var(--fg-3);
+        font-variant-numeric: tabular-nums;
+      }
+      .card-head .head-tools {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 6px;
+        align-items: center;
+        margin-left: auto;
+      }
+      .card-body {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 12px 14px 14px;
+      }
+      .card-note {
+        margin: 0;
+        padding: 10px 14px 0;
+        color: var(--fg-3);
+        font: var(--type-body-sm);
+      }
+      .card-foot {
+        margin: 0;
+        padding: 9px 14px;
+        border-top: 1px solid var(--border-subtle);
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .rows {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .rows > li + li {
+        border-top: 1px solid var(--border-subtle);
+      }
+      .action-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 6px 10px;
+        padding: 11px 10px 11px 14px;
+        cursor: pointer;
+      }
+      .action-row:hover {
+        background: var(--surface-hover);
+      }
+      .action-row.picked {
+        background: var(--surface-selected);
+        box-shadow: inset 2px 0 0 var(--accent);
+      }
+      .action-words {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-width: 0;
+      }
+      .action-title {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        min-width: 0;
+      }
+      .action-title b {
+        font: var(--type-label);
+        font-weight: 600;
+      }
+      .action-line {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .action-line .i {
+        color: var(--fg-3);
+      }
+      .action-line.quiet {
+        color: var(--fg-3);
+      }
+      .action-line.warn {
+        color: var(--warning-fg);
+      }
+      .action-aside {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 8px;
+      }
+      .action-tools {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+      }
+      .sep {
+        color: var(--border-strong);
+      }
+
+      /* ---------- History ---------- */
+      .head-card {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 14px 14px 14px 16px;
+      }
+      .head-card-top {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+      }
+      .head-card h3 {
+        margin: 0;
+        font: 600 17px/1.3 var(--font-sans);
+        letter-spacing: -0.01em;
+      }
+      .head-card .facts {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+      }
+      .runs .run-row {
+        display: grid;
+        grid-template-columns: 96px minmax(0, 1fr) auto;
+        gap: 4px 12px;
+        align-items: start;
+        padding: 10px 14px;
+        cursor: pointer;
+      }
+      .runs .run-row:hover {
+        background: var(--surface-hover);
+      }
+      .run-from {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        min-width: 0;
+        font: var(--type-label);
+      }
+      .run-from .branch {
+        flex: 0 1 auto;
+        color: var(--fg-3);
+        font: 400 var(--text-xs) / 1.3 var(--font-mono);
+      }
+      .run-from a.trunc {
+        flex: 0 1 auto;
+      }
+      .run-facts {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 2px 8px;
+        margin-top: 3px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .run-facts code {
+        color: var(--fg-2);
+      }
+      .run-why {
+        margin-top: 3px;
+        font: var(--type-caption);
+        color: var(--danger-fg);
+      }
+      .run-why.neutral {
+        color: var(--fg-2);
+      }
+      .run-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font: var(--type-caption);
+        white-space: nowrap;
+      }
+      .ghost-card {
+        padding: 14px 16px;
+        opacity: 0.55;
+      }
+      .ghost-line {
+        height: 9px;
+        margin: 8px 0;
+        border-radius: var(--radius-sm);
+        background: var(--border);
+      }
+
+      /* ---------- Devices ---------- */
+      .device-row {
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr) auto;
+        gap: 4px 12px;
+        align-items: start;
+        padding: 12px 10px 12px 14px;
+      }
+      .device-icon {
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface-sunken);
+        color: var(--fg-2);
+      }
+      .device-top {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 8px;
+        min-width: 0;
+      }
+      .device-top b {
+        font: var(--type-label);
+        font-weight: 600;
+      }
+      .device-line {
+        margin-top: 3px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .device-line.warn {
+        color: var(--warning-fg);
+      }
+      .device-tools {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .menu-anchor {
+        position: relative;
+      }
+      .menu {
+        position: absolute;
+        top: calc(100% + 6px);
+        right: 0;
+        z-index: 5;
+        width: 300px;
+        padding: 4px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface-raised);
+        box-shadow: var(--shadow-3);
+      }
+      .menu.left {
+        right: auto;
+        left: 0;
+      }
+      .menu-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 8px 10px;
+        border-radius: var(--radius-md);
+        font: 400 13px/1.3 var(--font-sans);
+        color: var(--fg-1);
+        cursor: default;
+      }
+      .menu-item:hover {
+        background: var(--control-hover);
+      }
+      .menu-item > .i {
+        margin-top: 1px;
+        color: var(--fg-3);
+      }
+      .menu-item .sub {
+        display: block;
+        margin-top: 2px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .menu-item.disabled {
+        color: var(--fg-disabled);
+      }
+      .menu-item.disabled:hover {
+        background: transparent;
+      }
+      .menu-divider {
+        height: 1px;
+        margin: 4px 6px;
+        background: var(--border);
+      }
+      .menu-item .menu-words {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-width: 0;
+      }
+      .menu-item .menu-top {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .steps {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin: 0;
+        padding: 12px 14px;
+        list-style: none;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface-sunken);
+        font: var(--type-body-sm);
+      }
+      .steps li {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .steps .done {
+        color: var(--fg-2);
+      }
+      .steps .done .i {
+        color: var(--success-fg);
+      }
+      .steps .now {
+        color: var(--fg-1);
+        font-weight: 500;
+      }
+      .steps .now .spinner {
+        color: var(--info-fg);
+        width: 12px;
+        height: 12px;
+      }
+      .steps .later {
+        color: var(--fg-3);
+      }
+      .steps .later .ring {
+        width: 12px;
+        height: 12px;
+        border: 1.5px solid var(--border-strong);
+        border-radius: 50%;
+      }
+
+      /* ---------- Window (Dialog), drawn in place over a dimmed backdrop ---------- */
+      .scrim {
+        position: relative;
+        display: flex;
+        justify-content: center;
+        padding: 28px 20px 32px;
+        border-radius: var(--radius-card);
+        background:
+          linear-gradient(var(--backdrop), var(--backdrop)),
+          repeating-linear-gradient(135deg, var(--surface-sunken) 0 14px, var(--bg) 14px 28px);
+        border: 1px solid var(--border);
+        min-width: 0;
+      }
+      .over {
+        position: relative;
+      }
+      .over > .scrim.float {
+        position: absolute;
+        inset: 0;
+        align-items: flex-start;
+        z-index: 8;
+      }
+      .dialog {
+        display: flex;
+        flex-direction: column;
+        width: min(720px, 100%);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface-raised);
+        box-shadow: var(--shadow-3);
+        overflow: hidden;
+        min-width: 0;
+      }
+      .dialog.medium-fixed {
+        height: 640px;
+      }
+      .dialog.large {
+        width: min(1180px, 100%);
+        height: 720px;
+      }
+      .dialog-head {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        padding: 12px 12px 12px 18px;
+        border-bottom: 1px solid var(--border);
+      }
+      .dialog-head h3 {
+        display: flex;
+        flex: 1;
+        gap: 10px;
+        align-items: center;
+        min-width: 0;
+        margin: 0;
+        font: var(--type-section-title);
+      }
+      .dialog-sub {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 14px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 9px 18px;
+        border-bottom: 1px solid var(--border-subtle);
+        background: var(--surface-sunken);
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .dialog-sub-facts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
+        align-items: center;
+        min-width: 0;
+      }
+      .dialog-sub-tools {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+      .live {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        color: var(--info-fg);
+        font-weight: 500;
+      }
+      .follow {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        color: var(--fg-2);
+      }
+      .dialog-body {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        padding: 18px;
+      }
+      .dialog-body.sunken {
+        padding: 0;
+        background: var(--surface-sunken);
+      }
+      .dialog-bar {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding: 10px 14px;
+        border-top: 1px solid var(--border);
+      }
+      .dialog-bar .spacer {
+        flex: 1;
+      }
+      .dialog-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .tip {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 4px 12px;
+        align-items: center;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface-sunken);
+      }
+      .tip .commit {
+        padding: 2px 6px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        background: var(--surface);
+        font: 500 var(--text-xs) / 1.3 var(--font-mono);
+      }
+      .tip .subject {
+        font: var(--type-body-sm);
+        color: var(--fg-1);
+      }
+      .tip .tip-note {
+        grid-column: 1 / -1;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .runs-line {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .runs-line .i {
+        color: var(--fg-3);
+      }
+      .fixed-from {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: var(--control-md);
+        padding: 0 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-control);
+        background: var(--surface-sunken);
+        font: 400 var(--text-sm) / 1 var(--font-mono);
+      }
+      .fixed-from .i {
+        color: var(--fg-3);
+      }
+      .confirm-words {
+        margin: 0;
+        padding: 12px 14px;
+        border: 1px solid var(--warning-border);
+        border-radius: var(--radius-lg);
+        background: var(--warning-subtle);
+        color: var(--fg-1);
+        font: var(--type-body-sm);
+      }
+
+      /* ---------- Branch picker ---------- */
+      .picker {
+        position: absolute;
+        left: 18px;
+        right: 18px;
+        top: 80px;
+        z-index: 4;
+        display: flex;
+        flex-direction: column;
+        max-height: 432px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface-raised);
+        box-shadow: var(--shadow-3);
+        overflow: hidden;
+      }
+      .picker-search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+      }
+      .picker-search .i {
+        color: var(--fg-3);
+      }
+      .picker-search input {
+        flex: 1;
+        min-width: 0;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        font: var(--type-body-sm);
+      }
+      .picker-list {
+        overflow: auto;
+        padding: 4px;
+      }
+      .picker-group {
+        padding: 8px 10px 4px;
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .option {
+        display: grid;
+        grid-template-columns: 16px minmax(0, 1fr) auto;
+        gap: 1px 10px;
+        align-items: center;
+        padding: 6px 10px;
+        border-radius: var(--radius-md);
+        cursor: pointer;
+      }
+      .option:hover,
+      .option.active {
+        background: var(--control-hover);
+      }
+      .option.chosen .i {
+        color: var(--accent);
+      }
+      .option-name {
+        font: var(--type-body-sm);
+        color: var(--fg-1);
+      }
+      .option-name.mono {
+        font: 400 var(--text-sm) / 1.4 var(--font-mono);
+      }
+      .option-branch {
+        grid-column: 2;
+        font: 400 var(--text-xs) / 1.3 var(--font-mono);
+        color: var(--fg-3);
+      }
+      .option .badge {
+        grid-row: 1;
+        grid-column: 3;
+      }
+
+      /* ---------- Log ---------- */
+      .log {
+        margin: 0;
+        padding: 10px 0 18px;
+        font: var(--type-mono-sm);
+        color: var(--fg-1);
+      }
+      .log-line {
+        display: grid;
+        grid-template-columns: 70px minmax(0, 1fr);
+        gap: 12px;
+        padding: 0 18px;
+      }
+      .log-line:hover {
+        background: var(--surface-hover);
+      }
+      .log-time {
+        color: var(--fg-3);
+        font-variant-numeric: tabular-nums;
+        user-select: none;
+      }
+      .log-text {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .log-office .log-text {
+        color: var(--fg-2);
+      }
+      .log-office .log-text::before {
+        content: "office  ";
+        color: var(--accent-subtle-fg);
+        font-weight: 600;
+      }
+      .log-phase {
+        margin-top: 10px;
+      }
+      .log-phase .log-text {
+        font-weight: 600;
+      }
+      .log-phase .log-text::before {
+        content: "▸ ";
+        color: var(--accent);
+      }
+      .log-build .log-text {
+        padding-left: 12px;
+        border-left: 2px solid var(--border);
+        color: var(--fg-2);
+      }
+      .log-end .log-text {
+        color: var(--success-fg);
+        font-weight: 600;
+      }
+      .log-fail .log-text {
+        color: var(--danger-fg);
+        font-weight: 600;
+      }
+      .masked {
+        padding: 0 4px;
+        border: 1px solid var(--warning-border);
+        border-radius: var(--radius-sm);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .cursor {
+        display: inline-block;
+        width: 7px;
+        height: 13px;
+        margin-left: 2px;
+        vertical-align: -2px;
+        background: var(--fg-3);
+        animation: pulse 1s steps(2) infinite;
+      }
+
+      /* ---------- Smaller panels ---------- */
+      .panels {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 16px;
+        align-items: start;
+      }
+      .tile-line {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        gap: 10px;
+        align-items: center;
+        padding: 8px 14px;
+      }
+      .tile-line + .tile-line {
+        border-top: 1px solid var(--border-subtle);
+      }
+      .tile-line .name {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        font: var(--type-label);
+      }
+      .work-tiles {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .work-tile {
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface-sunken);
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .work-tile b {
+        display: block;
+        font: 600 18px/1.2 var(--font-sans);
+        color: var(--fg-1);
+      }
+      .limit-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 6px 24px;
+        align-items: center;
+      }
+      .limit-row b {
+        font: var(--type-label);
+        font-weight: 600;
+      }
+      .settings-menu {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        color: var(--fg-2);
+        font: var(--type-label);
+      }
+      .settings-menu li {
+        padding: 7px 10px;
+        border-radius: var(--radius-md);
+        white-space: nowrap;
+      }
+      .settings-menu .on {
+        background: var(--surface-selected);
+        color: var(--accent-subtle-fg);
+      }
+      .mini-layout {
+        display: grid;
+        grid-template-columns: 150px minmax(0, 1fr);
+        gap: 16px;
+        align-items: start;
+      }
+      .connected-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 4px 12px;
+        align-items: center;
+        padding: 10px 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+      }
+
+      /* ---------- Notes ---------- */
+      .notes {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 16px;
+        align-items: start;
+      }
+      .note-card {
+        padding: 16px 18px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+        min-width: 0;
+      }
+      .note-card.wide {
+        grid-column: 1 / -1;
+      }
+      .note-card h2 {
+        margin: 0 0 10px;
+        font: var(--type-card-title);
+      }
+      .note-card h3 {
+        margin: 16px 0 8px;
+        font: var(--type-label);
+        font-weight: 600;
+      }
+      .note-card p {
+        margin: 0 0 8px;
+        color: var(--fg-2);
+        font: var(--type-body-sm);
+        max-width: 90ch;
+      }
+      .note-card ul,
+      .note-card ol {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        margin: 0;
+        padding-left: 18px;
+        color: var(--fg-2);
+        font: var(--type-body-sm);
+      }
+      .note-card li::marker {
+        color: var(--fg-3);
+      }
+      .note-card b {
+        color: var(--fg-1);
+      }
+      .ref {
+        display: inline-block;
+        margin-left: 4px;
+        padding: 0 5px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--surface-sunken);
+        color: var(--fg-3);
+        font: 400 var(--text-2xs) / 1.6 var(--font-mono);
+        white-space: nowrap;
+      }
+      .choices {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+      .choice {
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface-sunken);
+      }
+      .choice h3 {
+        margin: 0 0 8px;
+      }
+      .choice ul {
+        list-style: none;
+        padding: 0;
+        gap: 5px;
+      }
+      .choice li {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+      }
+      .choice li .badge {
+        margin-top: 1px;
+      }
+      .choice .why {
+        margin: 8px 0 0;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .trace {
+        counter-reset: step;
+        list-style: none;
+        padding: 0 !important;
+        gap: 0 !important;
+      }
+      .trace > li {
+        counter-increment: step;
+        display: grid;
+        grid-template-columns: 26px minmax(0, 1fr);
+        gap: 10px;
+        padding: 9px 0;
+        border-top: 1px solid var(--border-subtle);
+      }
+      .trace > li:first-child {
+        border-top: 0;
+      }
+      .trace > li::before {
+        content: counter(step);
+        display: grid;
+        place-items: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--accent-subtle);
+        color: var(--accent-subtle-fg);
+        font: 600 var(--text-2xs) / 1 var(--font-sans);
+      }
+      .trace .gov {
+        display: block;
+        margin-top: 3px;
+      }
+      .gap-flag {
+        display: inline-flex;
+        margin-left: 4px;
+        padding: 0 5px;
+        border-radius: var(--radius-sm);
+        background: var(--danger-subtle);
+        border: 1px solid var(--danger-border);
+        color: var(--danger-fg);
+        font: 600 var(--text-2xs) / 1.6 var(--font-sans);
+      }
+
+      /* ---------- Toasts ---------- */
+      .toasts {
+        position: fixed;
+        right: 20px;
+        bottom: 20px;
+        z-index: 60;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: min(400px, calc(100vw - 40px));
+      }
+      .toast {
+        display: flex;
+        gap: 10px;
+        padding: 12px 12px 12px 14px;
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--success);
+        border-radius: var(--radius-lg);
+        background: var(--surface-raised);
+        box-shadow: var(--shadow-3);
+        color: var(--fg-1);
+        font: var(--type-body-sm);
+        animation: toast-in var(--duration-base) var(--ease-out);
+      }
+      .toast .i {
+        margin-top: 2px;
+        color: var(--success-fg);
+      }
+      @keyframes toast-in {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+      }
+
+      @media (max-width: 1100px) {
+        .notes,
+        .panels,
+        .choices {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .split {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Icons: Lucide, as packages/ui draws them -->
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <defs>
+        <symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3" /></symbol>
+        <symbol id="i-stop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" /></symbol>
+        <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></symbol>
+        <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z" /><path d="m15 5 4 4" /></symbol>
+        <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></symbol>
+        <symbol id="i-phone" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2" ry="2" /><path d="M12 18h.01" /></symbol>
+        <symbol id="i-plug" viewBox="0 0 24 24"><path d="M12 22v-5" /><path d="M9 8V2" /><path d="M15 8V2" /><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z" /></symbol>
+        <symbol id="i-flask" viewBox="0 0 24 24"><path d="M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2" /><path d="M6.453 15h11.094" /><path d="M8.5 2h7" /></symbol>
+        <symbol id="i-log" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" /><path d="M16 13H8" /><path d="M16 17H8" /><path d="M10 9H8" /></symbol>
+        <symbol id="i-open" viewBox="0 0 24 24"><path d="M15 3h6v6" /><path d="M10 14 21 3" /><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></symbol>
+        <symbol id="i-branch" viewBox="0 0 24 24"><line x1="6" y1="3" x2="6" y2="15" /><circle cx="18" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M18 9a9 9 0 0 1-9 9" /></symbol>
+        <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></symbol>
+        <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /><path d="M12 9v4" /><path d="M12 17h.01" /></symbol>
+        <symbol id="i-alert-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></symbol>
+        <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></symbol>
+        <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></symbol>
+        <symbol id="i-chev-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol>
+        <symbol id="i-chev-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6" /></symbol>
+        <symbol id="i-chev-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6" /></symbol>
+        <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14" /><path d="M12 5v14" /></symbol>
+        <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14" /></symbol>
+        <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z" /></symbol>
+        <symbol id="i-drive" viewBox="0 0 24 24"><line x1="22" x2="2" y1="12" y2="12" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" /><line x1="6" x2="6.01" y1="16" y2="16" /><line x1="10" x2="10.01" y1="16" y2="16" /></symbol>
+        <symbol id="i-kanban" viewBox="0 0 24 24"><path d="M6 5v11" /><path d="M12 5v6" /><path d="M18 5v14" /></symbol>
+        <symbol id="i-sliders" viewBox="0 0 24 24"><line x1="21" x2="14" y1="4" y2="4" /><line x1="10" x2="3" y1="4" y2="4" /><line x1="21" x2="12" y1="12" y2="12" /><line x1="8" x2="3" y1="12" y2="12" /><line x1="21" x2="16" y1="20" y2="20" /><line x1="12" x2="3" y1="20" y2="20" /><line x1="14" x2="14" y1="2" y2="6" /><line x1="8" x2="8" y1="10" y2="14" /><line x1="16" x2="16" y1="18" y2="22" /></symbol>
+        <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M12 20h.01" /><path d="M2 8.82a15 15 0 0 1 20 0" /><path d="M5 12.859a10 10 0 0 1 14 0" /><path d="M8.5 16.429a5 5 0 0 1 7 0" /></symbol>
+        <symbol id="i-usb" viewBox="0 0 24 24"><circle cx="10" cy="7" r="1" /><circle cx="4" cy="20" r="1" /><path d="M4.7 19.3 19 5" /><path d="m21 3-3 1 2 2Z" /><path d="M9.26 7.68 5 12l2 5" /><path d="m10 14 5 2 3.5-3.5" /><path d="m18 12 1-1 1 1-1 1Z" /></symbol>
+        <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" /><rect x="9" y="9" width="6" height="6" /><path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2" /></symbol>
+        <symbol id="i-again" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /></symbol>
+        <symbol id="i-terminal" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5" /><line x1="12" x2="20" y1="19" y2="19" /></symbol>
+        <symbol id="i-workflow" viewBox="0 0 24 24"><rect width="8" height="8" x="3" y="3" rx="2" /><path d="M7 11v4a2 2 0 0 0 2 2h4" /><rect width="8" height="8" x="13" y="13" rx="2" /></symbol>
+        <symbol id="i-send" viewBox="0 0 24 24"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z" /><path d="m21.854 2.147-10.94 10.939" /></symbol>
+        <symbol id="i-flame" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" /></symbol>
+        <symbol id="i-container" viewBox="0 0 24 24"><path d="M22 7.7c0-.6-.4-1.2-.8-1.5l-6.3-3.9a1.72 1.72 0 0 0-1.7 0l-10.3 6c-.5.2-.9.8-.9 1.4v6.6c0 .5.4 1.2.8 1.5l6.3 3.9a1.72 1.72 0 0 0 1.7 0l10.3-6c.5-.3.9-1 .9-1.5Z" /><path d="M10 21.9V14L2.1 9.1" /><path d="m10 14 11.9-6.9" /></symbol>
+        <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></symbol>
+        <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" /></symbol>
+      </defs>
+    </svg>
+
+    <main class="doc">
+      <header class="doc-head">
+        <div>
+          <div class="overline">Design · Project Actions · not-astray and the-office</div>
+          <h1>Actions: run on demand, outside the Task queue</h1>
+          <p>
+            A Project's named Actions (a Project command, a test target, or a Workflow), started by a signed-in user
+            from a branch, a Task or an Initiative, each with its history and its log. Also: Project devices, which an
+            Action or an Install on a device target reaches with nobody connecting them first. Drawn from
+            <code>docs/spec/2.15-actions.md</code> and <code>screens/project-page.md</code>; where a drawing and a screen
+            page differ, the screen page wins. Every screen is one moment of the same afternoon, 22 Nov, 14:34.
+          </p>
+        </div>
+        <div class="doc-control">
+          <span class="doc-control-label">Palette</span>
+          <div class="seg" role="group" aria-label="Palette">
+            <button type="button" data-set-palette="light" aria-pressed="true">Light</button>
+            <button type="button" data-set-palette="dark" aria-pressed="false">Dark</button>
+          </div>
+        </div>
+      </header>
+
+      <nav class="views" role="tablist" aria-label="Mock screens">
+        <button type="button" role="tab" data-view="actions" aria-controls="view-actions" aria-selected="true"><span class="num">1</span>Project › Actions</button>
+        <button type="button" role="tab" data-view="run" aria-controls="view-run" aria-selected="false"><span class="num">2</span>Run window</button>
+        <button type="button" role="tab" data-view="confirm" aria-controls="view-confirm" aria-selected="false"><span class="num">3</span>Confirm step</button>
+        <button type="button" role="tab" data-view="log" aria-controls="view-log" aria-selected="false"><span class="num">4</span>A run's log</button>
+        <button type="button" role="tab" data-view="editor" aria-controls="view-editor" aria-selected="false"><span class="num">5</span>Action editor</button>
+        <button type="button" role="tab" data-view="devices" aria-controls="view-devices" aria-selected="false"><span class="num">6</span>Project › Devices</button>
+        <button type="button" role="tab" data-view="more" aria-controls="view-more" aria-selected="false"><span class="num">7</span>Tile, limit, Task</button>
+        <button type="button" role="tab" class="notes-tab" data-view="notes" aria-controls="view-notes" aria-selected="false"><svg class="i"><use href="#i-info" /></svg>Design notes</button>
+      </nav>
+
+      <!-- ===================================================== 1. Project page › Actions -->
+      <section class="view" id="view-actions" role="tabpanel">
+        <div class="stage-bar">
+          <p class="stage-caption">
+            <b>Project page › Actions</b>, <code>/projects/not-astray/actions/install-phone</code>. The list on the left, the
+            open Action's History on the right (PickList beside its open item, as a Project's Pipelines lay out). Two runs
+            are going: your Install on my phone, Building from a Task (its phone isn't held yet: only the install step holds
+            it), and Ania's Instrumented tests, holding Pixel 6a.
+          </p>
+        </div>
+
+        <div class="page">
+          <div class="crumbs"><span>Projects</span><svg class="i s12"><use href="#i-chev-right" /></svg><span>not-astray</span></div>
+          <div class="project-head">
+            <span class="project-mark logo" style="--mark: #1e9e57">N</span>
+            <div class="grow">
+              <h2>not-astray</h2>
+              <div class="project-meta">
+                <span class="badge badge-success">Onboarded</span>
+                <code>/home/przemek/projects/not-astray</code><span>· main</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-layout">
+            <nav class="section-menu" aria-label="Project">
+              <span>Overview</span><span>Files</span><span>Commands</span><span>Environment</span><span>Pipelines</span><span>GitHub issues</span><span>Run environment</span><span>Devices</span><span>Test targets</span><span class="active">Actions</span><span>Engine</span><span>Skills</span><span>Server values</span><span>Appearance</span>
+            </nav>
+
+            <div class="section-body">
+              <div class="split">
+                <!-- The Actions list -->
+                <div class="col">
+                  <div class="card">
+                    <div class="card-head">
+                      <svg class="i"><use href="#i-play" /></svg>
+                      <span class="trunc">not-astray's Actions</span>
+                      <span class="count">5</span>
+                      <span class="head-tools">
+                        <button class="btn btn-secondary" type="button"><svg class="i"><use href="#i-plus" /></svg>Add an Action</button>
+                        <button class="btn btn-ghost" type="button"><svg class="i"><use href="#i-chat" /></svg>Ask Dwight to propose Actions</button>
+                      </span>
+                    </div>
+                    <p class="card-note">Things to run on demand, outside the Task queue. Kept in The Office, never in the repository.</p>
+                    <ul class="rows" style="margin-top: 10px; border-top: 1px solid var(--border-subtle)">
+                      <li class="action-row picked">
+                        <div class="action-words">
+                          <div class="action-title"><b class="trunc">Install on my phone</b><span class="badge mono">install-phone</span></div>
+                          <div class="action-line"><svg class="i s12"><use href="#i-flask" /></svg><span class="trunc">Test target · Install on Pixel</span></div>
+                          <div class="action-line quiet"><span class="trunc">Fix the map's offline tiles · 3e91c4d · 2 min ago</span></div>
+                          <div class="action-line quiet">Set by you and Dwight</div>
+                        </div>
+                        <div class="action-aside">
+                          <span class="badge badge-info"><span class="spinner"></span>Building</span>
+                          <div class="action-tools">
+                            <button class="btn btn-secondary" type="button" aria-disabled="true" title="Install on my phone is running already, started by you 2 min ago."><svg class="i s12"><use href="#i-play" /></svg>Run</button>
+                            <button class="icon-btn" type="button" title="Change Install on my phone" aria-label="Change Install on my phone"><svg class="i"><use href="#i-pencil" /></svg></button>
+                            <button class="icon-btn" type="button" title="Remove Install on my phone" aria-label="Remove Install on my phone"><svg class="i"><use href="#i-trash" /></svg></button>
+                          </div>
+                        </div>
+                      </li>
+                      <li class="action-row">
+                        <div class="action-words">
+                          <div class="action-title"><b class="trunc">Lint</b><span class="badge mono">lint</span></div>
+                          <div class="action-line"><svg class="i s12"><use href="#i-terminal" /></svg><span class="trunc">Project command · <code>lint</code></span></div>
+                          <div class="action-line quiet"><span class="trunc">main · a4b8e21 · 40 min ago</span></div>
+                          <div class="action-line quiet">Set by Dwight</div>
+                        </div>
+                        <div class="action-aside">
+                          <span class="badge badge-success">Succeeded</span>
+                          <div class="action-tools">
+                            <button class="btn btn-secondary" type="button"><svg class="i s12"><use href="#i-play" /></svg>Run</button>
+                            <button class="icon-btn" type="button" title="Change Lint" aria-label="Change Lint"><svg class="i"><use href="#i-pencil" /></svg></button>
+                            <button class="icon-btn" type="button" title="Remove Lint" aria-label="Remove Lint"><svg class="i"><use href="#i-trash" /></svg></button>
+                          </div>
+                        </div>
+                      </li>
+                      <li class="action-row">
+                        <div class="action-words">
+                          <div class="action-title"><b class="trunc">Unit tests</b><span class="badge mono">unit-tests</span></div>
+                          <div class="action-line"><svg class="i s12"><use href="#i-terminal" /></svg><span class="trunc">Project command · <code>test</code></span></div>
+                          <div class="action-line quiet"><span class="trunc">Fix the map's offline tiles · 3e91c4d · 1 h ago</span></div>
+                          <div class="action-line quiet">Set by Dwight</div>
+                        </div>
+                        <div class="action-aside">
+                          <span class="badge badge-danger" title="The command ended with exit code 1.">Failed</span>
+                          <div class="action-tools">
+                            <button class="btn btn-secondary" type="button"><svg class="i s12"><use href="#i-play" /></svg>Run</button>
+                            <button class="icon-btn" type="button" title="Change Unit tests" aria-label="Change Unit tests"><svg class="i"><use href="#i-pencil" /></svg></button>
+                            <button class="icon-btn" type="button" title="Remove Unit tests" aria-label="Remove Unit tests"><svg class="i"><use href="#i-trash" /></svg></button>
+                          </div>
+                        </div>
+                      </li>
+                      <li class="action-row">
+                        <div class="action-words">
+                          <div class="action-title"><b class="trunc">Instrumented tests on Pixel 6a</b><span class="badge mono">android-test</span></div>
+                          <div class="action-line"><svg class="i s12"><use href="#i-terminal" /></svg><span class="trunc">Project command · <code>connected-test</code></span></div>
+                          <div class="action-line quiet"><span class="trunc">main · a4b8e21 · 6 min ago</span></div>
+                          <div class="action-line quiet">Set by you</div>
+                        </div>
+                        <div class="action-aside">
+                          <span class="badge badge-info"><span class="spinner"></span>Running</span>
+                          <div class="action-tools">
+                            <button class="btn btn-secondary" type="button" aria-disabled="true" title="Instrumented tests on Pixel 6a is running already, started by Ania 6 min ago."><svg class="i s12"><use href="#i-play" /></svg>Run</button>
+                            <button class="icon-btn" type="button" title="Change Instrumented tests on Pixel 6a" aria-label="Change Instrumented tests on Pixel 6a"><svg class="i"><use href="#i-pencil" /></svg></button>
+                            <button class="icon-btn" type="button" title="Remove Instrumented tests on Pixel 6a" aria-label="Remove Instrumented tests on Pixel 6a"><svg class="i"><use href="#i-trash" /></svg></button>
+                          </div>
+                        </div>
+                      </li>
+                      <li class="action-row">
+                        <div class="action-words">
+                          <div class="action-title"><b class="trunc">Play Store internal track</b><span class="badge mono">play-internal</span></div>
+                          <div class="action-line"><svg class="i s12"><use href="#i-workflow" /></svg><span class="trunc">Workflow · <code>.github/workflows/play-internal.yml</code></span></div>
+                          <div class="action-line quiet"><span class="trunc">main · 1d4e5f6 · yesterday</span></div>
+                          <div class="action-line quiet">Set by Dwight</div>
+                        </div>
+                        <div class="action-aside">
+                          <span class="badge badge-success" title="Every job passed.">Succeeded</span>
+                          <span class="badge badge-warning" title="It pushes, publishes, deploys or releases. It runs from main only, after a confirm step."><svg class="i s12"><use href="#i-send" /></svg>Leaves the workstation</span>
+                          <div class="action-tools">
+                            <button class="btn btn-secondary" type="button"><svg class="i s12"><use href="#i-play" /></svg>Run</button>
+                            <button class="icon-btn" type="button" title="Change Play Store internal track" aria-label="Change Play Store internal track"><svg class="i"><use href="#i-pencil" /></svg></button>
+                            <button class="icon-btn" type="button" title="Remove Play Store internal track" aria-label="Remove Play Store internal track"><svg class="i"><use href="#i-trash" /></svg></button>
+                          </div>
+                        </div>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
+                <!-- The open Action -->
+                <div class="col">
+                  <div class="card head-card">
+                    <div class="head-card-top">
+                      <div class="grow">
+                        <h3 class="trunc">Install on my phone</h3>
+                        <div class="facts" style="margin-top: 6px">
+                          <span class="badge mono">install-phone</span>
+                          <span class="badge"><svg class="i s12"><use href="#i-flask" /></svg>Test target</span>
+                          <span class="muted" style="font: var(--type-caption)">Set by you and Dwight</span>
+                        </div>
+                      </div>
+                      <button class="btn btn-primary" type="button" aria-disabled="true" title="Install on my phone is running already, started by you 2 min ago."><svg class="i s12"><use href="#i-play" /></svg>Run</button>
+                      <button class="icon-btn" type="button" title="Change Install on my phone" aria-label="Change Install on my phone"><svg class="i"><use href="#i-pencil" /></svg></button>
+                      <button class="icon-btn" type="button" title="Remove Install on my phone" aria-label="Remove Install on my phone"><svg class="i"><use href="#i-trash" /></svg></button>
+                    </div>
+                    <div class="runs-line"><svg class="i"><use href="#i-flask" /></svg><span>Launches <b>Install on Pixel</b>: installs what Build debug APK builds on Pixel 8. It shows in Test instances.</span></div>
+                  </div>
+
+                  <div class="card">
+                    <div class="card-head"><svg class="i"><use href="#i-log" /></svg>History<span class="count">6</span></div>
+                    <ul class="rows runs">
+                      <li class="run-row" data-goto="log">
+                        <span class="badge badge-info"><span class="spinner"></span>Building</span>
+                        <div style="min-width: 0">
+                          <div class="run-from"><a href="#" class="trunc">Fix the map's offline tiles</a><span class="branch trunc">office/7f3a9c20-1b4d-4e8a-9c3f-2a5d6e7b8c90</span></div>
+                          <div class="run-facts"><code>3e91c4d</code><span>you · 14:32</span><span>for 2 min</span></div>
+                        </div>
+                        <a href="#" class="run-link"><svg class="i s12"><use href="#i-flask" /></svg>Test instance</a>
+                      </li>
+                      <li class="run-row">
+                        <span class="badge badge-success">Installed</span>
+                        <div style="min-width: 0">
+                          <div class="run-from"><code class="trunc">main</code></div>
+                          <div class="run-facts"><code>a4b8e21</code><span>you · 11:05</span><span>1 min 04 s</span></div>
+                        </div>
+                        <a href="#" class="run-link"><svg class="i s12"><use href="#i-flask" /></svg>Test instance</a>
+                      </li>
+                      <li class="run-row">
+                        <span class="badge badge-danger">Failed</span>
+                        <div style="min-width: 0">
+                          <div class="run-from"><code class="trunc">main</code></div>
+                          <div class="run-facts"><code>a4b8e21</code><span>Ania · 10:52</span><span>31 s</span></div>
+                          <div class="run-why">Pixel 8 didn't answer.</div>
+                        </div>
+                        <a href="#" class="run-link"><svg class="i s12"><use href="#i-flask" /></svg>Test instance</a>
+                      </li>
+                      <li class="run-row">
+                        <span class="badge badge-success">Installed</span>
+                        <div style="min-width: 0">
+                          <div class="run-from"><a href="#" class="trunc">Offline maps for trails without signal in the mountains</a><span class="branch trunc">initiative/offline-maps</span></div>
+                          <div class="run-facts"><code>9d02f7a</code><span>Ania · yesterday, 17:40</span><span>7 min 12 s</span></div>
+                        </div>
+                        <a href="#" class="run-link"><svg class="i s12"><use href="#i-flask" /></svg>Test instance</a>
+                      </li>
+                      <li class="run-row">
+                        <span class="badge badge-danger">Failed</span>
+                        <div style="min-width: 0">
+                          <div class="run-from"><a href="#" class="trunc">Fix the map's offline tiles</a><span class="branch trunc">office/7f3a9c20-1b4d-4e8a-9c3f-2a5d6e7b8c90</span></div>
+                          <div class="run-facts"><code>c77e012</code><span>you · yesterday, 16:03</span><span>3 min 50 s</span></div>
+                          <div class="run-why neutral">Stopped by you.</div>
+                        </div>
+                        <a href="#" class="run-link"><svg class="i s12"><use href="#i-flask" /></svg>Test instance</a>
+                      </li>
+                      <li class="run-row">
+                        <span class="badge badge-danger">Failed</span>
+                        <div style="min-width: 0">
+                          <div class="run-from"><code class="trunc">main</code></div>
+                          <div class="run-facts"><code>51c0b3e</code><span>you · 19 Nov, 09:12</span><span>5 min 02 s</span></div>
+                          <div class="run-why">The build failed: The build ended with exit code 1.</div>
+                        </div>
+                        <a href="#" class="run-link"><svg class="i s12"><use href="#i-flask" /></svg>Test instance</a>
+                      </li>
+                    </ul>
+                    <p class="card-foot">The newest 20 runs are kept with their logs.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================== 2. The Run window -->
+      <section class="view" id="view-run" role="tabpanel" hidden>
+        <div class="stage-bar">
+          <span class="doc-control-label">Moment</span>
+          <div class="seg" role="group" aria-label="Moment" data-group="run">
+            <button type="button" data-variant="open" aria-pressed="true">Branch picker open</button>
+            <button type="button" data-variant="main" aria-pressed="false">main chosen</button>
+            <button type="button" data-variant="task" aria-pressed="false">A Task chosen</button>
+          </div>
+          <p class="stage-caption">
+            <b>Run Install on my phone</b>, a medium window keeping one height (640px), at 14:31, just before the run in
+            History. Run from is the Branch picker, the base branch chosen first; the tip is read as a choice is made.
+          </p>
+        </div>
+
+        <div class="scrim">
+          <div class="dialog medium-fixed" role="dialog" aria-label="Run Install on my phone">
+            <div class="dialog-head">
+              <h3><svg class="i s16"><use href="#i-play" /></svg><span class="trunc">Run Install on my phone</span></h3>
+              <button class="icon-btn" type="button" aria-label="Close"><svg class="i"><use href="#i-x" /></svg></button>
+            </div>
+            <div class="dialog-body">
+              <div class="dialog-stack">
+                <div class="field">
+                  <span class="field-label">Run from</span>
+                  <button type="button" class="select open" data-of="run" data-when="open">
+                    <svg class="i"><use href="#i-branch" /></svg><code>main</code><span class="badge">base branch</span><svg class="i chev"><use href="#i-chev-up" /></svg>
+                  </button>
+                  <button type="button" class="select" data-of="run" data-when="main" hidden>
+                    <svg class="i"><use href="#i-branch" /></svg><code>main</code><span class="badge">base branch</span><svg class="i chev"><use href="#i-chev-down" /></svg>
+                  </button>
+                  <button type="button" class="select" data-of="run" data-when="task" hidden title="Its branch as last committed: work not committed in its worktree isn't in it.">
+                    <svg class="i"><use href="#i-kanban" /></svg><span class="trunc">Fix the map's offline tiles</span><code class="trunc muted" style="flex: 0 1 auto">office/7f3a9c20-1b4d-4e8a-9c3f-2a5d6e7b8c90</code><svg class="i chev"><use href="#i-chev-down" /></svg>
+                  </button>
+                </div>
+
+                <!-- the picker, open -->
+                <div class="picker" data-of="run" data-when="open" role="listbox" aria-label="Run from">
+                  <div class="picker-search"><svg class="i"><use href="#i-search" /></svg><input type="text" placeholder="Find a branch, Initiative or Task" aria-label="Find a branch, Initiative or Task" /></div>
+                  <div class="picker-list">
+                    <div class="picker-group">Branches</div>
+                    <div class="option chosen active" role="option" aria-selected="true"><svg class="i"><use href="#i-check" /></svg><span class="option-name mono trunc">main</span><span class="badge">base branch</span></div>
+                    <div class="option" role="option"><span></span><span class="option-name mono trunc">feature/offline-tiles-cache</span></div>
+                    <div class="option" role="option"><span></span><span class="option-name mono trunc">fix/gps-drift-on-resume</span></div>
+                    <div class="option" role="option"><span></span><span class="option-name mono trunc">release/2.4</span></div>
+                    <div class="option" role="option"><span></span><span class="option-name mono trunc">renovate/androidx-compose-bom-2026.11.00-and-kotlin-2.3.0-together</span></div>
+                    <div class="picker-group">Initiatives</div>
+                    <div class="option" role="option"><span></span><span class="option-name trunc">Offline maps for trails without signal in the mountains</span><span class="option-branch trunc">initiative/offline-maps</span></div>
+                    <div class="option" role="option"><span></span><span class="option-name trunc">Trail sharing</span><span class="option-branch trunc">initiative/trail-sharing</span></div>
+                    <div class="picker-group">Tasks</div>
+                    <div class="option" role="option" title="Its branch as last committed: work not committed in its worktree isn't in it."><span></span><span class="option-name trunc">Fix the map's offline tiles</span><span class="option-branch trunc">office/7f3a9c20-1b4d-4e8a-9c3f-2a5d6e7b8c90</span></div>
+                    <div class="option" role="option" title="Its branch as last committed: work not committed in its worktree isn't in it."><span></span><span class="option-name trunc">Show the elevation profile under the route on the trail screen</span><span class="option-branch trunc">office/0b9d4e71-55c2-4f0e-8d1a-7e6f3c2b1a09</span></div>
+                    <div class="option" role="option" title="Its branch as last committed: work not committed in its worktree isn't in it."><span></span><span class="option-name trunc">Crash when GPS is turned off mid-recording</span><span class="option-branch trunc">office/e4a1c8d2-9b3f-4a6e-b7c5-1d2e3f4a5b6c</span></div>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <span class="field-label">What it will run</span>
+                  <div class="tip" data-of="run" data-when="open main">
+                    <span class="commit">a4b8e21</span>
+                    <span class="subject trunc">Merge pull request #212 from fix/gps-drift-on-resume</span>
+                    <span class="tip-note">The tip of <code>main</code>, fetched just now.</span>
+                  </div>
+                  <div class="tip" data-of="run" data-when="task" hidden>
+                    <span class="commit">3e91c4d</span>
+                    <span class="subject trunc">Cache offline tiles per zoom level and evict the oldest first</span>
+                    <span class="tip-note">The tip of the Task's branch as The Office last committed it: work not committed in its worktree isn't in it.</span>
+                  </div>
+                </div>
+
+                <div class="runs-line"><svg class="i"><use href="#i-flask" /></svg><span>Launches Install on Pixel; it shows in Test instances.</span></div>
+              </div>
+            </div>
+            <div class="dialog-bar">
+              <button class="btn btn-primary btn-md" type="button" data-of="run" data-when="open main" data-toast="Install on my phone started on main."><svg class="i"><use href="#i-play" /></svg>Run</button>
+              <button class="btn btn-primary btn-md" type="button" data-of="run" data-when="task" hidden data-toast="Install on my phone started on office/7f3a9c20-1b4d-4e8a-9c3f-2a5d6e7b8c90."><svg class="i"><use href="#i-play" /></svg>Run</button>
+              <span class="spacer"></span>
+              <button class="btn btn-secondary btn-md" type="button">Close</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================== 3. The confirm step -->
+      <section class="view" id="view-confirm" role="tabpanel" hidden>
+        <div class="stage-bar">
+          <span class="doc-control-label">State</span>
+          <div class="seg" role="group" aria-label="State" data-group="confirm">
+            <button type="button" data-variant="ask" aria-pressed="true">Confirm step</button>
+            <button type="button" data-variant="moved" aria-pressed="false">main moved since</button>
+            <button type="button" data-variant="alarm" aria-pressed="false">Fire alarm on</button>
+          </div>
+          <p class="stage-caption">
+            <b>the-office › Actions › Release</b>, a Workflow Action marked Leaves the workstation. Its Run window is a
+            confirm step: Run from is fixed to the base branch, the commit is named, and Run sends that commit.
+          </p>
+        </div>
+
+        <div class="scrim">
+          <div class="dialog medium-fixed" role="dialog" aria-label="Run Release">
+            <div class="dialog-head">
+              <h3><svg class="i s16"><use href="#i-play" /></svg><span class="trunc">Run Release</span><span class="badge badge-warning"><svg class="i s12"><use href="#i-send" /></svg>Leaves the workstation</span></h3>
+              <button class="icon-btn" type="button" aria-label="Close"><svg class="i"><use href="#i-x" /></svg></button>
+            </div>
+            <div class="dialog-body">
+              <div class="dialog-stack">
+                <div class="field">
+                  <span class="field-label">Run from</span>
+                  <div class="fixed-from"><svg class="i"><use href="#i-lock" /></svg>main<span class="badge" style="font-family: var(--font-sans)">base branch</span></div>
+                  <p class="hint">It leaves the workstation, so it runs from main only.</p>
+                </div>
+
+                <div class="field">
+                  <span class="field-label">What it will run</span>
+                  <div class="tip" data-of="confirm" data-when="ask alarm">
+                    <span class="commit">f00ba12</span>
+                    <span class="subject trunc">fix(pipelines): a Stage stopped by the fire alarm starts again after the all clear</span>
+                  </div>
+                  <div class="tip" data-of="confirm" data-when="moved" hidden>
+                    <span class="commit">7c21d9e</span>
+                    <span class="subject trunc">feat(conversations): an Agent can ask a choice of several in a Decision</span>
+                  </div>
+                </div>
+
+                <div class="runs-line"><svg class="i"><use href="#i-workflow" /></svg><span>Starts <code>.github/workflows/release.yml</code> on the code host with its fixed inputs.</span></div>
+
+                <p class="confirm-words" data-of="confirm" data-when="ask alarm">
+                  Run Release on main at <code>f00ba12</code> (fix(pipelines): a Stage stopped by the fire alarm starts again after the all clear)? What it pushes, publishes, deploys or releases reaches outside this Office.
+                </p>
+                <p class="confirm-words" data-of="confirm" data-when="moved" hidden>
+                  Run Release on main at <code>7c21d9e</code> (feat(conversations): an Agent can ask a choice of several in a Decision)? What it pushes, publishes, deploys or releases reaches outside this Office.
+                </p>
+                <div class="field">
+                  <span class="field-label">Its inputs</span>
+                  <div class="tip"><span class="commit">dry_run=false</span></div>
+                </div>
+
+                <div class="alert alert-danger" data-of="confirm" data-when="moved" hidden>
+                  <svg class="i"><use href="#i-alert-circle" /></svg>
+                  <div><b>The Action didn't start</b>main moved to 7c21d9e since you looked. Run it again to run that commit.</div>
+                </div>
+                <div class="alert alert-danger" data-of="confirm" data-when="alarm" hidden>
+                  <svg class="i"><use href="#i-flame" /></svg>
+                  <div><b>The Action didn't start</b>The fire alarm is on.</div>
+                </div>
+              </div>
+            </div>
+            <div class="dialog-bar">
+              <button class="btn btn-danger-solid btn-md" type="button" data-of="confirm" data-when="ask alarm" data-toast="Release started on main."><svg class="i"><use href="#i-play" /></svg>Run Release on main at f00ba12</button>
+              <button class="btn btn-danger-solid btn-md" type="button" data-of="confirm" data-when="moved" hidden data-toast="Release started on main."><svg class="i"><use href="#i-play" /></svg>Run Release on main at 7c21d9e</button>
+              <span class="spacer"></span>
+              <button class="btn btn-secondary btn-md" type="button">Close</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="frame-label">the-office's two release Actions, as its Actions list shows them</div>
+        <div class="card" style="max-width: 720px">
+          <ul class="rows">
+            <li class="action-row">
+              <div class="action-words">
+                <div class="action-title"><b class="trunc">Release</b><span class="badge mono">release</span></div>
+                <div class="action-line"><svg class="i s12"><use href="#i-workflow" /></svg><span class="trunc">Workflow · <code>.github/workflows/release.yml</code></span></div>
+                <div class="action-line quiet"><span class="trunc">main · 4cbad08 · 3 days ago</span></div>
+                <div class="action-line quiet">Set by you</div>
+              </div>
+              <div class="action-aside">
+                <span class="badge badge-success" title="Every job passed.">Succeeded</span>
+                <span class="badge badge-warning" title="It pushes, publishes, deploys or releases. It runs from main only, after a confirm step."><svg class="i s12"><use href="#i-send" /></svg>Leaves the workstation</span>
+                <div class="action-tools"><button class="btn btn-secondary" type="button"><svg class="i s12"><use href="#i-play" /></svg>Run</button></div>
+              </div>
+            </li>
+            <li class="action-row">
+              <div class="action-words">
+                <div class="action-title"><b class="trunc">Release dry run</b><span class="badge mono">release-dry-run</span></div>
+                <div class="action-line"><svg class="i s12"><use href="#i-workflow" /></svg><span class="trunc">Workflow · <code>.github/workflows/release.yml</code></span></div>
+                <div class="action-line quiet"><span class="trunc">fix/release-notes-for-a-first-release-with-no-earlier-tag · 9c3e2b1 · 1 h ago</span></div>
+                <div class="action-line quiet">Set by you</div>
+              </div>
+              <div class="action-aside">
+                <span class="badge badge-success" title="Every job passed.">Succeeded</span>
+                <div class="action-tools"><button class="btn btn-secondary" type="button"><svg class="i s12"><use href="#i-play" /></svg>Run</button></div>
+              </div>
+            </li>
+          </ul>
+          <p class="card-foot">Release dry run isn't marked (its <code>dry_run</code> is fixed to <code>true</code>, so the user cleared the mark the Workflow kind sets), so its Run window is the ordinary one, with the Branch picker, on any branch the remote has.</p>
+        </div>
+      </section>
+
+      <!-- ===================================================== 4. A run's log -->
+      <section class="view" id="view-log" role="tabpanel" hidden>
+        <div class="stage-bar">
+          <button class="btn btn-secondary" type="button" id="log-replay"><svg class="i"><use href="#i-again" /></svg>Replay the stream</button>
+          <p class="stage-caption">
+            <b>Install on my phone · Building</b>, opened from its History row (<code>?run=ar_3f81</code>), a large window as a
+            test instance's Log window is. A Test target run's log is its test instance's. It streams on: Building, then
+            Installing, then Installed. Scroll up to see Follow turn off; press Stop to see what a Stop ends it as.
+          </p>
+        </div>
+
+        <div class="scrim">
+          <div class="dialog large" role="dialog" aria-labelledby="log-title">
+            <div class="dialog-head">
+              <h3><svg class="i s16"><use href="#i-log" /></svg><span class="trunc" id="log-title">Install on my phone · Building</span></h3>
+              <button class="icon-btn" type="button" aria-label="Close"><svg class="i"><use href="#i-x" /></svg></button>
+            </div>
+            <div class="dialog-sub">
+              <div class="dialog-sub-facts">
+                <span id="log-state"><span class="badge badge-info"><span class="spinner"></span>Building</span></span>
+                <span class="trunc" style="max-width: 520px">From the Task <a href="#">Fix the map's offline tiles</a> (<code>office/7f3a9c20-1b4d-4e8a-9c3f-2a5d6e7b8c90</code>) at <code>3e91c4d</code></span>
+                <span>started by you at 14:32</span>
+                <span id="log-took">for 2 min</span>
+              </div>
+              <div class="dialog-sub-tools">
+                <span class="live" id="log-live"><span class="dot dot-live"></span>Streaming</span>
+                <span class="follow">Follow<button type="button" class="switch" role="switch" aria-checked="true" id="log-follow" aria-label="Follow"></button></span>
+              </div>
+            </div>
+            <div class="dialog-body sunken" id="log-body">
+              <div class="log" id="log-lines" role="log" aria-live="off">
+                <div class="log-line log-office"><span class="log-time">14:32:01</span><span class="log-text">Install on my phone, started by you, from the Task "Fix the map's offline tiles": test instance ti-8c1f of Install on Pixel.</span></div>
+                <div class="log-line log-office"><span class="log-time">14:32:01</span><span class="log-text">Fetched office/7f3a9c20-1b4d-4e8a-9c3f-2a5d6e7b8c90 from origin: its tip is 3e91c4d.</span></div>
+                <div class="log-line log-office"><span class="log-time">14:32:02</span><span class="log-text">No Built files of Build debug APK from 3e91c4d to reuse, so they are built first.</span></div>
+                <div class="log-line log-phase"><span class="log-time">14:32:02</span><span class="log-text">Building: Build debug APK on office/7f3a9c20-1b4d-4e8a-9c3f-2a5d6e7b8c90, ti-8c1e <a href="#">Open its build's log</a></span></div>
+                <div class="log-line log-build log-office"><span class="log-time">14:32:03</span><span class="log-text">Checkout of 3e91c4d exported to test-instances/ti-8c1e/, with no .git.</span></div>
+                <div class="log-line log-build log-office"><span class="log-time">14:32:09</span><span class="log-text">Started compose project office-main-test-ti-8c1e from .devcontainer/, service android; build cache volume mounted at /office-build-cache.</span></div>
+                <div class="log-line log-build log-office"><span class="log-time">14:32:31</span><span class="log-text">./gradlew :composeApp:assembleDebug</span></div>
+                <div class="log-line log-build"><span class="log-time">14:32:44</span><span class="log-text">&gt; Configure project :composeApp</span></div>
+                <div class="log-line log-build"><span class="log-time">14:32:44</span><span class="log-text">BuildConfig: MAPTILER_KEY=<span class="masked">[secret MAPTILER_KEY]</span>, TILE_CDN=tiles.not-astray.app</span></div>
+                <div class="log-line log-build"><span class="log-time">14:33:02</span><span class="log-text">&gt; Task :composeApp:generateDebugBuildConfig</span></div>
+                <div class="log-line log-build"><span class="log-time">14:33:10</span><span class="log-text">&gt; Task :composeApp:compileDebugKotlinAndroid</span></div>
+              </div>
+            </div>
+            <div class="dialog-bar">
+              <button class="btn btn-secondary btn-md" type="button"><svg class="i"><use href="#i-flask" /></svg>Open the test instance</button>
+              <button class="btn btn-danger btn-md" type="button" id="log-stop"><svg class="i"><use href="#i-stop" /></svg>Stop</button>
+              <span class="spacer"></span>
+              <button class="btn btn-secondary btn-md" type="button">Close</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================== 5. The Action editor -->
+      <section class="view" id="view-editor" role="tabpanel" hidden>
+        <div class="stage-bar">
+          <p class="stage-caption">
+            <b>Change Release</b> on the-office, a large window keeping one height. Pick another Kind to see its settings;
+            the Workflow kind reads the files on main that declare a start by hand, and fixes each input with the Action.
+            The key is a badge once added.
+          </p>
+        </div>
+
+        <div class="scrim">
+          <div class="dialog large" role="dialog" aria-label="Change Release">
+            <div class="dialog-head">
+              <h3><svg class="i s16"><use href="#i-pencil" /></svg><span class="trunc">Change Release</span></h3>
+              <button class="icon-btn" type="button" aria-label="Close"><svg class="i"><use href="#i-x" /></svg></button>
+            </div>
+            <div class="dialog-body">
+              <div class="form">
+                <div class="field-row">
+                  <div class="field">
+                    <span class="field-label">Key<span class="set-by">Set by you</span></span>
+                    <div><span class="badge mono" style="height: 26px; font-size: 13px">release</span></div>
+                    <p class="hint">Lower-case letters, digits and "-"; fixed once added.</p>
+                  </div>
+                  <div class="field">
+                    <label class="field-label" for="ed-name">Name<span class="set-by">Set by you</span></label>
+                    <input class="text-input" id="ed-name" type="text" value="Release" placeholder="Install on my phone" maxlength="60" />
+                    <p class="hint">At most 60 characters.</p>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <span class="field-label">Kind<span class="set-by">Set by you</span></span>
+                  <div class="radios" role="radiogroup" aria-label="Kind">
+                    <label class="radio"><input type="radio" name="kind" value="command" /><b>Project command</b><span>Runs one of the-office's commands in a fresh checkout of what you pick.</span></label>
+                    <label class="radio"><input type="radio" name="kind" value="target" /><b>Test target</b><span>Launches one of the-office's test targets on what you pick.</span></label>
+                    <label class="radio"><input type="radio" name="kind" value="workflow" checked /><b>Workflow</b><span>Starts one of the repository's workflows on the code host, on the branch you pick.</span></label>
+                  </div>
+                </div>
+
+                <!-- Workflow -->
+                <div class="field" data-of="kind" data-when="workflow">
+                  <span class="field-label">Workflow file<span class="set-by">Set by you</span></span>
+                  <button type="button" class="select"><svg class="i"><use href="#i-workflow" /></svg><code class="trunc">.github/workflows/release.yml</code><span class="muted trunc" style="font: var(--type-caption)">Release</span><svg class="i chev"><use href="#i-chev-down" /></svg></button>
+                  <p class="hint">The workflows on main whose file declares a start by hand, as last fetched.</p>
+                </div>
+                <div class="field" data-of="kind" data-when="workflow">
+                  <span class="field-label">Inputs<span class="set-by">Set by you</span></span>
+                  <div class="inputs-box">
+                    <div class="input-row">
+                      <span><code>dry_run</code> <span class="muted" style="font: var(--type-caption)">· yes or no</span></span>
+                      <span class="follow">false<button type="button" class="switch" role="switch" aria-checked="false" aria-label="dry_run" data-toggle></button></span>
+                      <p class="hint">Run semantic-release without tagging or publishing.</p>
+                    </div>
+                  </div>
+                  <p class="hint">Fixed with the Action: nothing is asked at its start.</p>
+                </div>
+
+                <!-- Project command -->
+                <div class="field" data-of="kind" data-when="command" hidden>
+                  <span class="field-label">Command</span>
+                  <button type="button" class="select"><svg class="i"><use href="#i-terminal" /></svg><code>build</code><span class="muted">Build</span><svg class="i chev"><use href="#i-chev-down" /></svg></button>
+                </div>
+                <div class="field" data-of="kind" data-when="command" hidden>
+                  <span class="field-label">Commands before it</span>
+                  <div class="list-box">
+                    <div class="list-box-row"><span class="place">1</span><code>install</code><span class="grow muted">Install</span>
+                      <button class="icon-btn" type="button" aria-label="Move install up" aria-disabled="true"><svg class="i"><use href="#i-chev-up" /></svg></button>
+                      <button class="icon-btn" type="button" aria-label="Move install down"><svg class="i"><use href="#i-chev-down" /></svg></button>
+                      <button class="icon-btn" type="button" aria-label="Remove install"><svg class="i"><use href="#i-x" /></svg></button>
+                    </div>
+                    <div class="list-box-row"><button type="button" class="btn btn-ghost"><svg class="i"><use href="#i-plus" /></svg>Add a command</button></div>
+                  </div>
+                  <p class="hint">Run in the checkout before the command, in this order.</p>
+                </div>
+                <div class="field-row" data-of="kind" data-when="command" hidden>
+                  <div class="field">
+                    <span class="field-label">Device</span>
+                    <button type="button" class="select"><span>None</span><svg class="i chev"><use href="#i-chev-down" /></svg></button>
+                    <p class="hint">Held by the run while it runs. Needs Run environment On.</p>
+                  </div>
+                  <div class="field">
+                    <span class="field-label">Time limit</span>
+                    <div style="display: flex; align-items: center; gap: 10px"><span class="muted" style="font: var(--type-body-sm)">Default (60 minutes)</span><button type="button" class="btn btn-ghost">Set its own limit</button></div>
+                    <p class="hint">Its commands before it included.</p>
+                  </div>
+                </div>
+                <p class="hint" data-of="kind" data-when="command" hidden style="font: var(--type-body-sm)">It gets the-office's variables and Secret variables, and <code>OFFICE_ACTION</code>, <code>OFFICE_ACTION_BRANCH</code> and <code>OFFICE_ACTION_COMMIT</code>; never The Office's own sign-ins. A token it needs goes in a Secret variable.</p>
+
+                <!-- Test target -->
+                <div class="field" data-of="kind" data-when="target" hidden>
+                  <span class="field-label">Test target</span>
+                  <button type="button" class="select"><svg class="i"><use href="#i-flask" /></svg><span>The Office</span><span class="badge">Hosted</span><svg class="i chev"><use href="#i-chev-down" /></svg></button>
+                  <p class="hint">Build to install and Install on a device are what it is meant for; a Hosted target runs as long as its instance does.</p>
+                </div>
+
+                <div class="field" style="padding-top: 16px; border-top: 1px solid var(--border-subtle)">
+                  <label class="check"><input type="checkbox" checked /><b style="display: flex; align-items: center; gap: 8px">Leaves the workstation<span class="set-by">Set by you</span></b><p class="hint">It pushes, publishes, deploys or releases: anything that reaches people or systems outside this Office. It then runs from main only, after a confirm step.</p></label>
+                </div>
+              </div>
+            </div>
+            <div class="dialog-bar">
+              <button class="btn btn-primary btn-md" type="button" data-toast="Release saved. It applies from its next run.">Save</button>
+              <span class="spacer"></span>
+              <button class="btn btn-secondary btn-md" type="button">Close</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================== 6. Project page › Devices -->
+      <section class="view" id="view-devices" role="tabpanel" hidden>
+        <div class="stage-bar">
+          <span class="doc-control-label">Showing</span>
+          <div class="seg" role="group" aria-label="Showing" data-group="dev">
+            <button type="button" data-variant="list" aria-pressed="true">The list</button>
+            <button type="button" data-variant="menu" aria-pressed="false">Add a device menu</button>
+            <button type="button" data-variant="form" aria-pressed="false">Pair: the form</button>
+            <button type="button" data-variant="pairing" aria-pressed="false">Pair: pairing</button>
+            <button type="button" data-variant="failed" aria-pressed="false">Pair: failed</button>
+          </div>
+          <p class="stage-caption"><b>Project page › Devices</b>, <code>/projects/not-astray/devices</code>, at 14:34.</p>
+        </div>
+
+        <div class="over">
+          <div class="page">
+            <div class="crumbs"><span>Projects</span><svg class="i s12"><use href="#i-chev-right" /></svg><span>not-astray</span></div>
+            <div class="project-head">
+              <span class="project-mark logo" style="--mark: #1e9e57">N</span>
+              <div class="grow">
+                <h2>not-astray</h2>
+                <div class="project-meta"><span class="badge badge-success">Onboarded</span><code>/home/przemek/projects/not-astray</code><span>· main</span></div>
+              </div>
+            </div>
+            <div class="section-layout">
+              <nav class="section-menu" aria-label="Project">
+                <span>Overview</span><span>Files</span><span>Commands</span><span>Environment</span><span>Pipelines</span><span>GitHub issues</span><span>Run environment</span><span class="active">Devices</span><span>Test targets</span><span>Actions</span><span>Engine</span><span>Skills</span><span>Server values</span><span>Appearance</span>
+              </nav>
+              <div class="section-body">
+                <div class="card">
+                  <div class="card-head">
+                    <svg class="i"><use href="#i-phone" /></svg>Devices<span class="count">4</span>
+                    <span class="head-tools menu-anchor">
+                      <button class="btn btn-secondary" type="button"><svg class="i"><use href="#i-plus" /></svg>Add a device<svg class="i s12"><use href="#i-chev-down" /></svg></button>
+                      <div class="menu" data-of="dev" data-when="menu" hidden role="menu">
+                        <div class="menu-item" role="menuitem"><svg class="i"><use href="#i-usb" /></svg><span class="menu-words">Android phone over USB</span></div>
+                        <div class="menu-item" role="menuitem"><svg class="i"><use href="#i-cpu" /></svg><span class="menu-words">Serial board over USB</span></div>
+                        <div class="menu-divider"></div>
+                        <div class="menu-item" role="menuitem"><svg class="i"><use href="#i-wifi" /></svg><span class="menu-words">Phone over wireless debugging</span></div>
+                      </div>
+                    </span>
+                  </div>
+                  <p class="card-note">Phones and boards kept for not-astray, so an Action or a test target reaches them with nobody connecting them first.</p>
+                  <ul class="rows" style="margin-top: 10px; border-top: 1px solid var(--border-subtle)">
+                    <li class="device-row">
+                      <span class="device-icon"><svg class="i s16"><use href="#i-wifi" /></svg></span>
+                      <div style="min-width: 0">
+                        <div class="device-top"><b>Pixel 8</b><span class="badge">Android phone over wireless debugging</span><span class="badge badge-success">Paired</span></div>
+                        <div class="device-line"><code>192.168.1.42:41235</code></div>
+                        <div class="device-line trunc">Last used by Install on my phone on main · 11:05 · Installed</div>
+                      </div>
+                      <div class="device-tools">
+                        <button class="icon-btn" type="button" title="Rename Pixel 8" aria-label="Rename Pixel 8"><svg class="i"><use href="#i-pencil" /></svg></button>
+                        <button class="btn btn-ghost" type="button">Change Port</button>
+                        <button class="btn btn-ghost" type="button">Pair again</button>
+                        <button class="icon-btn" type="button" title="Remove Pixel 8" aria-label="Remove Pixel 8"><svg class="i"><use href="#i-trash" /></svg></button>
+                      </div>
+                    </li>
+                    <li class="device-row">
+                      <span class="device-icon"><svg class="i s16"><use href="#i-wifi" /></svg></span>
+                      <div style="min-width: 0">
+                        <div class="device-top"><b>Pixel 6a</b><span class="badge">Android phone over wireless debugging</span><span class="badge badge-info">In use</span><span class="muted trunc" style="font: var(--type-caption)">by <a href="#">Instrumented tests on Pixel 6a on main</a></span></div>
+                        <div class="device-line"><code>192.168.1.57:37011</code></div>
+                        <div class="device-line trunc">Last used by Instrumented tests on Pixel 6a on main · 09:40 · Succeeded</div>
+                      </div>
+                      <div class="device-tools">
+                        <button class="icon-btn" type="button" title="Rename Pixel 6a" aria-label="Rename Pixel 6a"><svg class="i"><use href="#i-pencil" /></svg></button>
+                        <button class="btn btn-ghost" type="button">Change Port</button>
+                        <button class="btn btn-ghost" type="button">Pair again</button>
+                        <button class="icon-btn" type="button" aria-disabled="true" title="In use by Instrumented tests on Pixel 6a on main: remove it once it is let go of." aria-label="Remove Pixel 6a"><svg class="i"><use href="#i-trash" /></svg></button>
+                      </div>
+                    </li>
+                    <li class="device-row">
+                      <span class="device-icon"><svg class="i s16"><use href="#i-usb" /></svg></span>
+                      <div style="min-width: 0">
+                        <div class="device-top"><b>Galaxy A54</b><span class="badge">Android phone over USB</span><span class="badge">Over USB</span></div>
+                        <div class="device-line trunc">Last used by the Task <a href="#">Crash when GPS is turned off mid-recording</a> · yesterday, 15:20 · tab closed</div>
+                      </div>
+                      <div class="device-tools">
+                        <button class="icon-btn" type="button" title="Rename Galaxy A54" aria-label="Rename Galaxy A54"><svg class="i"><use href="#i-pencil" /></svg></button>
+                        <button class="icon-btn" type="button" title="Remove Galaxy A54" aria-label="Remove Galaxy A54"><svg class="i"><use href="#i-trash" /></svg></button>
+                      </div>
+                    </li>
+                    <li class="device-row">
+                      <span class="device-icon"><svg class="i s16"><use href="#i-wifi" /></svg></span>
+                      <div style="min-width: 0">
+                        <div class="device-top"><b>Galaxy Tab S9 in the meeting room</b><span class="badge">Android phone over wireless debugging</span><span class="badge badge-warning">Didn't answer</span></div>
+                        <div class="device-line"><code>192.168.1.88:40119</code></div>
+                        <div class="device-line warn">Turning wireless debugging off and on changes its Port: change it here, or pair it again.</div>
+                        <div class="device-line trunc">Last used by Install on Ania's tablet on release/2.4 · 20 Nov · Failed</div>
+                      </div>
+                      <div class="device-tools">
+                        <button class="icon-btn" type="button" title="Rename Galaxy Tab S9 in the meeting room" aria-label="Rename Galaxy Tab S9 in the meeting room"><svg class="i"><use href="#i-pencil" /></svg></button>
+                        <button class="btn btn-ghost" type="button">Change Port</button>
+                        <button class="btn btn-ghost" type="button">Pair again</button>
+                        <button class="icon-btn" type="button" title="Remove Galaxy Tab S9 in the meeting room" aria-label="Remove Galaxy Tab S9 in the meeting room"><svg class="i"><use href="#i-trash" /></svg></button>
+                      </div>
+                    </li>
+                  </ul>
+                  <p class="card-foot">A device over USB works in Chrome and Edge only. A run that uses it starts from a browser it is plugged into, which remembers it, and that tab stays open until the run lets go of it.</p>
+                </div>
+                <div class="card ghost-card"><div class="ghost-line" style="width: 30%"></div><div class="ghost-line" style="width: 70%"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Add a phone over wireless debugging -->
+          <div class="scrim float" data-of="dev" data-when="form pairing failed" hidden>
+            <div class="dialog" role="dialog" aria-label="Add a phone over wireless debugging">
+              <div class="dialog-head">
+                <h3><svg class="i s16"><use href="#i-wifi" /></svg><span class="trunc">Add a phone over wireless debugging</span></h3>
+                <button class="icon-btn" type="button" aria-label="Close"><svg class="i"><use href="#i-x" /></svg></button>
+              </div>
+              <div class="dialog-body">
+                <div class="dialog-stack">
+                  <div class="field-row">
+                    <div class="field">
+                      <label class="field-label" for="pair-ip">IP address</label>
+                      <input class="text-input mono" id="pair-ip" type="text" value="192.168.1.63" placeholder="192.168.1.20" />
+                      <p class="hint">From the phone's Wireless debugging screen, under IP address &amp; Port.</p>
+                    </div>
+                    <div class="field">
+                      <label class="field-label" for="pair-port">Port</label>
+                      <input class="text-input mono" id="pair-port" type="text" value="42197" />
+                      <p class="hint">The number after the colon on the same screen.</p>
+                    </div>
+                  </div>
+                  <div class="field-row">
+                    <div class="field">
+                      <label class="field-label" for="pair-pport">Pairing port</label>
+                      <input class="text-input mono" id="pair-pport" type="text" value="38411" />
+                      <p class="hint">From Wireless debugging › Pair device with pairing code: the number after the colon there.</p>
+                    </div>
+                    <div class="field">
+                      <label class="field-label" for="pair-code">Pairing code</label>
+                      <input class="text-input mono" id="pair-code" type="text" value="" placeholder="" data-of="dev" data-when="pairing failed" />
+                      <input class="text-input mono" type="text" value="482 913" aria-label="Pairing code" data-of="dev" data-when="form" />
+                      <p class="hint">From the phone's Wireless debugging › Pair device with pairing code. Used once, never kept.</p>
+                    </div>
+                  </div>
+                  <p class="hint" style="font: var(--type-body-sm)">Pairing starts a pairing environment from main's .devcontainer/ and removes it once done.</p>
+
+                  <ol class="steps" data-of="dev" data-when="pairing">
+                    <li class="done"><svg class="i"><use href="#i-check" /></svg>Starting the pairing environment…</li>
+                    <li class="now"><span class="spinner"></span>Pairing with the phone…</li>
+                    <li class="later"><span class="ring"></span>Reading its model…</li>
+                  </ol>
+                  <div class="alert alert-danger" data-of="dev" data-when="failed">
+                    <svg class="i"><use href="#i-alert-circle" /></svg>
+                    <div><b>The pairing failed</b>adb: Failed: Wrong password or connection was dropped. The phone at 192.168.1.63 stays listed Not paired; Pair tries again with a new code from the phone.</div>
+                  </div>
+                </div>
+              </div>
+              <div class="dialog-bar">
+                <button class="btn btn-primary btn-md" type="button" data-of="dev" data-when="form failed">Pair</button>
+                <button class="btn btn-primary btn-md" type="button" data-of="dev" data-when="pairing" aria-disabled="true" title="Pairing with the phone…"><span class="spinner"></span>Pairing…</button>
+                <span class="spacer"></span>
+                <button class="btn btn-secondary btn-md" type="button">Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================== 7. Tile, limit, Task -->
+      <section class="view" id="view-more" role="tabpanel" hidden>
+        <div class="stage-bar">
+          <p class="stage-caption"><b>Three smaller places:</b> the Actions tile on the Project's Overview, Settings › Office limits' Actions card, and the Task page's Devices section with Use a Project device.</p>
+        </div>
+
+        <div class="frame-label">Project page › Overview, not-astray</div>
+        <div class="page">
+          <div class="card ghost-card" style="opacity: 0.6">
+            <div style="display: flex; gap: 8px; align-items: center; font: var(--type-card-title)"><svg class="i"><use href="#i-drive" /></svg>Onboarding<span class="badge badge-success" style="margin-left: auto">Onboarded</span></div>
+            <div class="ghost-line" style="width: 46%"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><svg class="i"><use href="#i-kanban" /></svg>Work<span class="head-tools"><a href="#" style="font: var(--type-caption)">Open in Work</a><a href="#" style="font: var(--type-caption)">CI runs</a></span></div>
+            <div class="card-body">
+              <div class="work-tiles">
+                <div class="work-tile"><b>2</b>Running</div>
+                <div class="work-tile"><b>1</b>Waiting on you</div>
+                <div class="work-tile"><b>3</b>Ready to start</div>
+                <div class="work-tile"><b>7</b>Not planned yet</div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><svg class="i"><use href="#i-play" /></svg>Actions<span class="head-tools"><a href="#" style="font: var(--type-caption)">All Actions</a></span></div>
+            <div>
+              <div class="tile-line">
+                <span class="name"><span class="trunc">Install on my phone</span></span>
+                <span class="badge badge-info"><span class="spinner"></span>Building</span>
+                <button class="btn btn-secondary" type="button" aria-disabled="true" title="Install on my phone is running already, started by you 2 min ago."><svg class="i s12"><use href="#i-play" /></svg>Run</button>
+              </div>
+              <div class="tile-line">
+                <span class="name"><span class="trunc">Lint</span></span>
+                <span class="badge badge-success">Succeeded</span>
+                <button class="btn btn-secondary" type="button"><svg class="i s12"><use href="#i-play" /></svg>Run</button>
+              </div>
+              <div class="tile-line">
+                <span class="name"><span class="trunc">Unit tests</span></span>
+                <span class="badge badge-danger" title="The command ended with exit code 1.">Failed</span>
+                <button class="btn btn-secondary" type="button"><svg class="i s12"><use href="#i-play" /></svg>Run</button>
+              </div>
+              <div class="tile-line">
+                <span class="name"><span class="trunc">Instrumented tests on Pixel 6a</span></span>
+                <span class="badge badge-info"><span class="spinner"></span>Running</span>
+                <button class="btn btn-secondary" type="button" aria-disabled="true" title="Instrumented tests on Pixel 6a is running already, started by Ania 6 min ago."><svg class="i s12"><use href="#i-play" /></svg>Run</button>
+              </div>
+              <div class="tile-line">
+                <span class="name"><span class="trunc">Play Store internal track</span><span class="badge badge-warning" title="It pushes, publishes, deploys or releases. It runs from main only, after a confirm step."><svg class="i s12"><use href="#i-send" /></svg>Leaves the workstation</span></span>
+                <span class="badge badge-success" title="Every job passed.">Succeeded</span>
+                <button class="btn btn-secondary" type="button"><svg class="i s12"><use href="#i-play" /></svg>Run</button>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><svg class="i"><use href="#i-play" /></svg>Actions<span class="muted" style="font: var(--type-caption); font-weight: 400">· a Project with none</span><span class="head-tools"><a href="#" style="font: var(--type-caption)">All Actions</a></span></div>
+            <p class="card-note" style="padding-bottom: 14px">No Actions yet: things to run on demand, such as an install on a phone or a release. <a href="#">Add one under Actions</a></p>
+          </div>
+        </div>
+
+        <div class="panels">
+          <div>
+            <div class="frame-label" style="margin-bottom: 8px">Settings › Office limits</div>
+            <div class="page">
+              <div class="mini-layout">
+                <ul class="settings-menu"><li>Pipelines</li><li>Duties</li><li>Skills</li><li>MCP servers</li><li>Engines</li><li>Users</li><li>Signing in</li><li>Office identity</li><li class="on">Office limits</li><li>Office instructions</li><li>Prompt templates</li><li>Notifications</li><li>Telemetry</li><li>Updates</li></ul>
+                <div class="col">
+                  <div class="card ghost-card"><div style="font: var(--type-card-title)">Test instances</div><div class="ghost-line" style="width: 80%"></div><div class="ghost-line" style="width: 55%"></div></div>
+                  <div class="card">
+                    <div class="card-head"><svg class="i"><use href="#i-play" /></svg>Actions</div>
+                    <div class="card-body">
+                      <div class="limit-row">
+                        <div>
+                          <b>Actions at once</b>
+                          <p class="hint" style="margin-top: 3px; font: var(--type-body-sm); color: var(--fg-3)">How many Project command runs of Actions may be running together across The Office. A Test target run counts as a test instance instead, a Workflow run toward neither.</p>
+                        </div>
+                        <div class="stepper" data-stepper data-min="1" data-max="6">
+                          <button type="button" aria-label="Fewer" data-step="-1"><svg class="i s12"><use href="#i-minus" /></svg></button>
+                          <output>2</output>
+                          <button type="button" aria-label="More" data-step="1"><svg class="i s12"><use href="#i-plus" /></svg></button>
+                        </div>
+                      </div>
+                    </div>
+                    <p class="card-foot">Lowering it stops none: the next start is refused until fewer are running.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="frame-label" style="margin-bottom: 8px">Task page › Overview › Devices, "Show the elevation profile…"</div>
+            <div class="page">
+              <div class="card">
+                <div class="card-head">
+                  <svg class="i"><use href="#i-plug" /></svg>Devices<span class="count">None connected</span>
+                  <span class="head-tools menu-anchor">
+                    <button class="btn btn-secondary" type="button"><svg class="i"><use href="#i-phone" /></svg>Use a Project device<svg class="i s12"><use href="#i-chev-down" /></svg></button>
+                    <button class="btn btn-secondary" type="button"><svg class="i"><use href="#i-plug" /></svg>Connect a device<svg class="i s12"><use href="#i-chev-down" /></svg></button>
+                  </span>
+                </div>
+                <div class="card-body" style="position: relative; min-height: 300px">
+                  <div class="menu left" style="top: 0; left: auto; right: 150px; width: 330px" role="menu" aria-label="Use a Project device">
+                    <div class="menu-item" role="menuitem"><svg class="i"><use href="#i-wifi" /></svg><span class="menu-words"><span class="menu-top">Pixel 8<span class="badge badge-success">Paired</span></span><span class="sub"><span class="badge">Android phone over wireless debugging</span></span></span></div>
+                    <div class="menu-item" role="menuitem"><svg class="i"><use href="#i-usb" /></svg><span class="menu-words"><span class="menu-top">Galaxy A54<span class="badge">Over USB</span></span><span class="sub"><span class="badge">Android phone over USB</span> opens without the picker: this browser allowed it before</span></span></div>
+                    <div class="menu-item" role="menuitem"><svg class="i"><use href="#i-wifi" /></svg><span class="menu-words"><span class="menu-top">Galaxy Tab S9 in the meeting room<span class="badge badge-warning">Didn't answer</span></span><span class="sub"><span class="badge">Android phone over wireless debugging</span></span></span></div>
+                    <div class="menu-item disabled" role="menuitem" aria-disabled="true" title="In use by Instrumented tests on Pixel 6a on main"><svg class="i"><use href="#i-wifi" /></svg><span class="menu-words"><span class="menu-top">Pixel 6a</span><span class="sub"><span class="badge">Android phone over wireless debugging</span> In use by Instrumented tests on Pixel 6a on main</span></span></div>
+                  </div>
+                  <p class="hint" style="margin-top: 230px">Keep this tab open: closing it disconnects the device.</p>
+                </div>
+              </div>
+              <div class="frame-label" style="margin: 0">After picking Pixel 8</div>
+              <div class="connected-row">
+                <div style="min-width: 0">
+                  <div class="device-top"><b>Pixel 8</b><span class="badge">Android phone over wireless debugging</span><span class="badge badge-success">Connected</span></div>
+                  <div class="device-line">From <a href="#">not-astray's devices</a> · connected by you · just now · <code>adb serial 192.168.1.42:41235</code></div>
+                </div>
+                <button class="btn btn-secondary" type="button" data-toast="Pixel 8 given back to not-astray's devices.">Disconnect</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================== Design notes -->
+      <section class="view" id="view-notes" role="tabpanel" hidden>
+        <div class="notes">
+          <div class="note-card">
+            <h2>What this is</h2>
+            <p>An <b>Action</b> is a named entry in a Project's settings that a signed-in user runs on demand, outside the Task queue: a <b>Project command</b> in a fresh checkout, a <b>Test target</b> launched as a test instance, or a <b>Workflow</b> started on the code host. Each start picks what it runs from (a branch, a Task's branch or an Initiative's branch) with the Branch picker; each run keeps a log and a row in the Action's History. An Action marked <b>Leaves the workstation</b> runs from the base branch only, after a confirm step.</p>
+            <p>The new spec page is <b>2.15 Actions</b> (<code>docs/spec/2.15-actions.md</code>), not 2.14 as the Plan said: 2.14 is Activity. Project devices, the device a run or an Install on a device target holds, are part of the same change in 2.13.</p>
+          </div>
+          <div class="note-card">
+            <h2>Spec pages in this change</h2>
+            <ul>
+              <li><b>New:</b> <code>2.15-actions.md</code>.</li>
+              <li><b>Changed:</b> <code>2.1.1-projects.md</code> (Actions setting, feature switch, onboarding), <code>2.2-people.md</code> (limits), <code>2.7-notifications.md</code> (Action run Outcomes, Installed), <code>2.8-fire-alarm.md</code> (Actions during the alarm), <code>2.12-test-instances.md</code> (Install on a device, any branch), <code>2.13-connected-devices.md</code> (Project devices), <code>2.14-activity.md</code> (Action runs listed), <code>5.1.2-updates-and-restarts.md</code>, <code>5.3-modules.md</code>, <code>5.5-git-and-isolation.md</code> (An Action run's checkout, pairing environment), <code>6-permissions-and-safety.md</code> (Actions), <code>README.md</code> (topic map, Defaults).</li>
+              <li><b>Screens:</b> <code>project-page.md</code> (Actions tile, Devices, Add a device, Test instances, the Branch picker, Actions), <code>settings.md</code> (Actions card), <code>task-page.md</code> (Use a Project device), <code>initiative-page.md</code>.</li>
+              <li><b>Also:</b> <code>GLOSSARY.md</code> (Action, Action run, Leaves the workstation, Project device), <code>AGENTS.md</code>.</li>
+            </ul>
+          </div>
+
+          <div class="note-card wide">
+            <h2>Open choices for Review Design</h2>
+            <p>The drawings follow the recommended option of each. Pick another and the screens change as noted.</p>
+            <div class="choices">
+              <div class="choice">
+                <h3>1 · The term</h3>
+                <ul>
+                  <li><span class="badge badge-success">Recommended</span><span><b>Action</b></span></li>
+                  <li><span class="badge">Other</span><span>Project action</span></li>
+                </ul>
+                <p class="why">Short, and it reads as a button's verb ("Run Release"); the glossary already keeps it apart from Office action, Workflow and a CI run.</p>
+              </div>
+              <div class="choice">
+                <h3>2 · The Workflow kind</h3>
+                <ul>
+                  <li><span class="badge badge-success">Recommended</span><span><b>Include it now</b></span></li>
+                  <li><span class="badge">Other</span><span>Leave it out for now</span></li>
+                </ul>
+                <p class="why">It reuses Start a workflow and the CI run tracking that already exist, and a release is the Action people most want behind a confirm step.</p>
+              </div>
+              <div class="choice">
+                <h3>3 · Limits</h3>
+                <ul>
+                  <li><span class="badge badge-success">Recommended</span><span><b>A separate Actions at once</b> (2, 1 to 6)</span></li>
+                  <li><span class="badge">Other</span><span>Shared with Run environments at once</span></li>
+                  <li><span class="badge badge-success">Recommended</span><span>Over the limit: <b>refuse</b>, naming what holds it</span></li>
+                  <li><span class="badge">Other</span><span>Over the limit: queue</span></li>
+                </ul>
+                <p class="why">A user pressing Run should never wait behind Tasks' checks, nor take a slot a Task needs; a refusal that names the runs is clearer than a silent queue for something started by hand.</p>
+              </div>
+              <div class="choice">
+                <h3>4 · Agents</h3>
+                <ul>
+                  <li><span class="badge badge-success">Recommended</span><span><b>No Agent starts an Action at first</b>; <code>start_workflow</code> refuses a Workflow a Leaves the workstation Action starts</span></li>
+                  <li><span class="badge">Other</span><span>A <code>run_action</code> Office tool behind a new Hard switch</span></li>
+                </ul>
+                <p class="why">Actions are what reaches outside; keeping them human-started first costs nothing now, and a Hard switch can be added once the confirm rules have been lived with.</p>
+              </div>
+              <div class="choice">
+                <h3>5 · Installing</h3>
+                <ul>
+                  <li><span class="badge badge-success">Recommended</span><span><b>Reuse</b> the newest Built files of the chosen branch when their commit is the tip, else build first</span></li>
+                  <li><span class="badge">Other</span><span>Always build</span></li>
+                </ul>
+                <p class="why">Installing the same commit on a second phone, or again after a failed install, takes a minute instead of a full Gradle build; a different commit always builds.</p>
+              </div>
+              <div class="choice">
+                <h3>6 · A Project device</h3>
+                <ul>
+                  <li><span class="badge badge-success">Recommended</span><span><b>Lent to a Task</b>, one environment at a time</span></li>
+                  <li><span class="badge">Other</span><span>Exclusive to the Project's Actions and test targets</span></li>
+                </ul>
+                <p class="why">The phone on the desk is the one a Task's Agent needs too; one holder at a time, named in every refusal, keeps it safe without a second pairing.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="note-card wide">
+            <h2>Trace a · not-astray: "Install on my phone"</h2>
+            <ol class="trace">
+              <li><span><b>Build to install target <code>android-debug</code></b> ("Build debug APK"): Gradle task <code>:composeApp:assembleDebug</code>, output <code>composeApp/build/outputs/apk/debug/*.apk</code>, Secret variable <code>MAPTILER_KEY</code>. Added in Test targets' editor or by Dwight's <code>propose_test_targets</code>.<span class="gov"><span class="ref">project-page.md › Test targets</span><span class="ref">2.12 › Build to install</span><span class="ref">2.12 › Writing test targets</span></span></span></li>
+              <li><span><b>Pixel 8 as a Project device:</b> Devices › Add a device › Phone over wireless debugging; four values; Pair starts a pairing environment from main's <code>.devcontainer/</code>, pairs with not-astray's adb key, reads the model, removes the environment. Needs Run environment On. Toast "Pixel 8 paired with not-astray."; at rest it is Paired.<span class="gov"><span class="ref">project-page.md › Add a device</span><span class="ref">2.13 › Pairing a Project device</span><span class="ref">2.13 › The adb key</span><span class="ref">5.5 › An Action run's checkout</span></span></span></li>
+              <li><span><b>Install on a device target <code>phone</code></b> ("Install on Pixel"): Build to install target <code>android-debug</code>, device Pixel 8. Saving checks both exist.<span class="gov"><span class="ref">project-page.md › Test targets</span><span class="ref">2.12 › Install on a device</span></span></span></li>
+              <li><span><b>The Action <code>install-phone</code></b>, kind Test target, target <code>phone</code>, not marked Leaves the workstation.<span class="gov"><span class="ref">project-page.md › The Action editor</span><span class="ref">2.15 › Kinds</span></span></span></li>
+              <li><span><b>Run from main.</b> Run window, base branch chosen, tip <code>a4b8e21</code> read; Run. The service checks: Actions on, no fire alarm, not a test instance of The Office, its last run not running, Test instances at once (the run counts as a test instance, not toward Actions at once), Run environment On, Pixel 8 not in use. Toast "Install on my phone started on main."<span class="gov"><span class="ref">project-page.md › The Run window</span><span class="ref">2.15 › Limits</span><span class="ref">2.12 › Test instances at once</span><span class="ref">2.13 › One environment at a time</span></span></span></li>
+              <li><span><b>Reuse.</b> The newest Built instance of <code>android-debug</code> on main ran <code>a4b8e21</code> and its files are kept, so the instance starts Installing at once; its log says "Reusing the files Built from a4b8e21 …".<span class="gov"><span class="ref">2.12 › Reusing Built files</span><span class="ref">2.12 › Kept Build to install files</span></span></span></li>
+              <li><span><b>Installing, and the hold.</b> Its own compose project from the checkout's <code>.devcontainer/</code>; that environment holds Pixel 8 for the install alone (Pixel 8 shows In use); adb connects with the Project's key, <code>adb install -r</code>, Success; the environment is removed and Pixel 8 let go of, at rest Paired again.<span class="gov"><span class="ref">2.12 › Installing</span><span class="ref">2.13 › At rest and in use</span><span class="ref">2.13 › A paired phone's reconnect</span></span></span></li>
+              <li><span><b>States and Outcome.</b> The run is the instance: Installing, then Installed (counts as succeeded). One Notification, the test instance's: "Install on Pixel on main is Installed."; the Action run raises none of its own.<span class="gov"><span class="ref">2.15 › States</span><span class="ref">2.7 › Test instance Outcomes</span><span class="ref">2.7 › Action run Outcomes</span></span></span></li>
+              <li><span><b>Run from a Task.</b> The picker's Tasks group, "Fix the map's offline tiles", meaning <code>office/7f3a9c20-…</code> as last committed; tip <code>3e91c4d</code>. No Built files of that commit on that branch, so it launches a Build to install instance of <code>android-debug</code> on the same branch ("Built for Install on Pixel"); the two take one Test instances at once slot.<span class="gov"><span class="ref">2.15 › What it runs from</span><span class="ref">project-page.md › The Branch picker</span><span class="ref">2.12 › Its build</span></span></span></li>
+              <li><span><b>Where the build runs.</b> Run environment is On, so in its own compose project <code>office-&lt;office&gt;-test-&lt;id&gt;</code> with the Project's build cache volume; only the target's own variables, <code>MAPTILER_KEY</code> masked as <code>[secret MAPTILER_KEY]</code>. Pixel 8 stays at rest while it builds; the install&#8217;s log links its build&#8217;s log. <span class="gov"><span class="ref">2.12 › Its build</span><span class="ref">2.12 › Build to install</span><span class="ref">5.5 › The build cache volume</span><span class="ref">5.5 › Secret variables</span></span></span></li>
+              <li><span><b>Then as from main:</b> Installing, Installed, one Outcome naming the branch, since the Task's branch links to no Initiative. A Stop while Building ends the instance Failed, "Stopped by you.", and stops its build; the Action run counts it as Stopped. <span class="gov"><span class="ref">2.12 › When an instance stops</span><span class="ref">2.15 › States</span><span class="ref">2.12 › Linking to an Initiative</span><span class="ref">2.7 › Test instance Outcomes</span></span></span></li>
+            </ol>
+          </div>
+
+          <div class="note-card wide">
+            <h2>Trace b · the-office: "Release" and "Release dry run"</h2>
+            <ol class="trace">
+              <li><span><b>Two Workflow Actions on <code>.github/workflows/release.yml</code>:</b> Release, <code>dry_run=false</code>, marked Leaves the workstation as a Workflow is when added; Release dry run, <code>dry_run=true</code>, mark cleared by the user. Inputs are checked against what the file declares on main when saved.<span class="gov"><span class="ref">project-page.md › The Action editor</span><span class="ref">2.15 › Kinds</span><span class="ref">2.15 › Leaves the workstation</span></span></span></li>
+              <li><span><b>Start Release dry run:</b> the ordinary Run window, any branch the remote has; a Task's branch the remote lacks is refused, naming it. "Starts .github/workflows/release.yml on the code host with its fixed inputs."<span class="gov"><span class="ref">project-page.md › The Run window</span><span class="ref">2.15 › What it runs from</span></span></span></li>
+              <li><span><b>Start Release:</b> the confirm step, Run from fixed to main, "Run Release on main at f00ba12"; the start sends <code>commit</code>; if main moved, refused "main moved to 7c21d9e since you looked. Run it again to run that commit." and the window shows the new tip. Its inputs show as <code>dry_run=false</code>; a CI run that reports another commit is written on the run. <span class="gov"><span class="ref">project-page.md › The Run window</span><span class="ref">6 › Actions</span><span class="ref">2.15 › Implementation notes</span></span></span></li>
+              <li><span><b>Where it runs:</b> on the code host. The Office only asks it with its own GitHub sign-in, as Start a workflow does; nothing runs on the workstation and it counts toward no limit of The Office.<span class="gov"><span class="ref">2.15 › Where a run runs</span><span class="ref">2.15 › Limits</span><span class="ref">2.1.6 › The CI tab</span></span></span></li>
+              <li><span><b>Its state follows the CI run:</b> Starting until the CI run shows (60 seconds at most), then the CI run's status (Queued, Waiting, Running, Succeeded, Failed…), refreshed every 15 seconds while it runs; cancelled or skipped counts as Stopped and raises nothing. Its log is the start, the inputs and the CI run's link; Stop isn't offered. Succeeded or Failed raises "Release on main succeeded." to the user who started it. <span class="gov"><span class="ref">2.15 › States</span><span class="ref">2.15 › Log</span><span class="ref">2.15 › When a run stops</span><span class="ref">2.7 › Action run Outcomes</span></span></span></li>
+              <li><span><b>What an Agent can't do:</b> no Office tool starts an Action; <code>start_workflow</code> refuses <code>release.yml</code> because the Release Action starts it, naming the Action: so the dry run can't be started by an Agent either, as it shares the file (on purpose: the safer reading).<span class="gov"><span class="ref">2.15 › Who starts an Action</span><span class="ref">6 › Actions</span><span class="ref">5.4.1 › Office actions</span></span></span></li>
+              <li><span><b>The fire alarm:</b> under every way a new start is refused, "The fire alarm is on.", never queued; a Workflow run already started goes on, as CI runs do; the all clear lets starts happen again. <span class="gov"><span class="ref">2.8 › Actions during the alarm</span></span></span></li>
+              <li><span><b>A user around the confirm step:</b> Work › CI's Start a workflow refuses <code>release.yml</code>, "release.yml is started by the Action Release, from the-office&#8217;s Actions.", so only the Action starts it, on main, after its confirm step. <span class="gov"><span class="ref">6 › Actions</span></span></span></li>
+            </ol>
+          </div>
+
+          <div class="note-card wide">
+            <h2>What the traces found</h2>
+            <p>Closed in the spec after tracing:</p>
+            <ol>
+              <li><b>Removing an Action</b> removes its runs and their logs, on 2.15 › Defining Actions and project-page.md › The Actions list alike.</li>
+              <li><b>A Test target run stopped by its user</b> (its instance Failed, "Stopped by you.") counts as Stopped (2.15 › States).</li>
+              <li><b>The device during the build:</b> it is held only while Installing; one taken meanwhile ends the install Failed, naming the holder, and keeps the build for the next launch (2.12 › Install on a device).</li>
+              <li><b>A Workflow run</b> finds its CI run (the first one of that Workflow on that branch started by hand by The Office&#8217;s sign-in after the start), waits at most 60 seconds for it, maps success / cancelled or skipped / other to succeeded / stopped / failed, and records the commit the CI run reports (2.15 › States).</li>
+              <li><b>A user around the confirm step:</b> Work › CI&#8217;s Start a workflow refuses a Leaves the workstation Action&#8217;s file, as <code>start_workflow</code> does, whatever its inputs (6 › Actions).</li>
+              <li><b>The confirm step</b> shows a Workflow&#8217;s fixed inputs, so &#8220;Release&#8221; and &#8220;Release dry run&#8221; read apart (project-page.md › The Run window).</li>
+              <li><b>Glossary:</b> a Test target and a Test instance are on any branch, not only an Initiative&#8217;s.</li>
+              <li><b>The tile&#8217;s Run</b> is disabled while its last run is running, as on The Actions list (project-page.md › Actions tile).</li>
+              <li><b>Installing counts</b> toward Test instances at once everywhere it is named: settings.md, the glossary, 2.1.4, 5.1.2 and 5.3 now say Building, Installing or Running, as 2.12 does.</li>
+              <li><b>Outcomes:</b> a Project command or Workflow run raises its own; a Test target run raises none, as its test instance does (2.15 › States, 2.7).</li>
+            </ol>
+            <p>Still open, small, for the build Task:</p>
+            <ol>
+              <li><b>The file, not the inputs:</b> an Agent can&#8217;t start <code>release.yml</code> even with <code>dry_run=true</code>. Kept on purpose: it is the safer reading.</li>
+              <li><b>An Office update scheduled:</b> whether a new Action start is refused while an update waits (5.1.2 › Updating The Office).</li>
+              <li><b>A device&#8217;s holder</b> for an Install on a device run is drawn as the Action run.</li>
+              <li><b>Who gets a test instance&#8217;s Outcome</b> isn&#8217;t named in 2.7 › Test instance Outcomes (unchanged by this Task).</li>
+              <li><b>Project feature switches</b> have no screen yet: the <code>actions</code> switch joins the registry the feature-switch Task builds.</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+
+        /* ---------- Palette ---------- */
+        var paletteButtons = Array.from(document.querySelectorAll("[data-set-palette]"));
+        paletteButtons.forEach(function (button) {
+          button.addEventListener("click", function () {
+            root.setAttribute("data-palette", button.getAttribute("data-set-palette"));
+            paletteButtons.forEach(function (other) {
+              other.setAttribute("aria-pressed", String(other === button));
+            });
+          });
+        });
+
+        /* ---------- Toasts ---------- */
+        var toasts = document.getElementById("toasts");
+        function toast(text) {
+          var element = document.createElement("div");
+          element.className = "toast";
+          element.innerHTML = "<svg class=\"i\"><use href=\"#i-check\" /></svg>";
+          var words = document.createElement("span");
+          words.textContent = text;
+          element.appendChild(words);
+          toasts.appendChild(element);
+          setTimeout(function () {
+            element.remove();
+          }, 4200);
+        }
+        document.querySelectorAll("[data-toast]").forEach(function (element) {
+          element.addEventListener("click", function () {
+            if (element.getAttribute("aria-disabled") === "true") return;
+            toast(element.getAttribute("data-toast"));
+          });
+        });
+
+        /* ---------- Variants: a seg group shows the elements of its variant ---------- */
+        function setVariant(group, variant) {
+          document.querySelectorAll(`.seg[data-group="${group}"] button[data-variant]`).forEach(function (button) {
+            button.setAttribute("aria-pressed", String(button.dataset.variant === variant));
+          });
+          document.querySelectorAll(`[data-of="${group}"]`).forEach(function (element) {
+            var when = (element.dataset.when || "").split(" ");
+            element.hidden = when.indexOf(variant) === -1;
+          });
+        }
+        document.querySelectorAll(".seg[data-group]").forEach(function (seg) {
+          var group = seg.dataset.group;
+          seg.querySelectorAll("button[data-variant]").forEach(function (button) {
+            button.addEventListener("click", function () {
+              setVariant(group, button.dataset.variant);
+            });
+          });
+          var pressed = seg.querySelector("button[aria-pressed=\"true\"]");
+          if (pressed) setVariant(group, pressed.dataset.variant);
+        });
+
+        /* ---------- The editor's Kind radios ---------- */
+        document.querySelectorAll("input[name=\"kind\"]").forEach(function (input) {
+          input.addEventListener("change", function () {
+            if (input.checked) setVariant("kind", input.value);
+          });
+        });
+        setVariant("kind", "workflow");
+
+        /* ---------- Plain switches and steppers ---------- */
+        document.querySelectorAll("[data-toggle]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            var on = button.getAttribute("aria-checked") !== "true";
+            button.setAttribute("aria-checked", String(on));
+            var label = button.previousSibling;
+            if (label && label.nodeType === 3) label.textContent = on ? "true" : "false";
+          });
+        });
+        document.querySelectorAll("[data-stepper]").forEach(function (stepper) {
+          var output = stepper.querySelector("output");
+          var min = Number(stepper.dataset.min);
+          var max = Number(stepper.dataset.max);
+          stepper.querySelectorAll("button[data-step]").forEach(function (button) {
+            button.addEventListener("click", function () {
+              var next = Math.min(max, Math.max(min, Number(output.textContent) + Number(button.dataset.step)));
+              output.textContent = String(next);
+            });
+          });
+        });
+
+        /* ---------- The run's log: streams on, Follow, Stop ---------- */
+        var logBody = document.getElementById("log-body");
+        var logLines = document.getElementById("log-lines");
+        var logTitle = document.getElementById("log-title");
+        var logState = document.getElementById("log-state");
+        var logTook = document.getElementById("log-took");
+        var logLive = document.getElementById("log-live");
+        var logFollow = document.getElementById("log-follow");
+        var logStop = document.getElementById("log-stop");
+        var logReplay = document.getElementById("log-replay");
+        var initialLog = logLines.innerHTML;
+        var STREAM = [
+          ["14:33:41", "build", "> Task :composeApp:mergeDebugAssets"],
+          ["14:34:20", "build", "> Task :composeApp:dexBuilderDebug"],
+          ["14:35:02", "build", "> Task :composeApp:packageDebug"],
+          ["14:35:38", "build", "BUILD SUCCESSFUL in 3m 7s"],
+          ["14:35:39", "build office", "Built: composeApp-debug.apk (24.1 MB), kept as ti-8c1e. Built for Install on Pixel."],
+          ["14:35:40", "phase", "Installing on Pixel 8", "Installing"],
+          ["14:35:40", "office", "Starting the install environment from the .devcontainer/ of 3e91c4d."],
+          ["14:35:52", "office", "Connecting to Pixel 8 at 192.168.1.42:41235 with not-astray's adb key."],
+          ["14:35:53", "", "connected to 192.168.1.42:41235"],
+          ["14:35:53", "office", "adb install -r composeApp-debug.apk"],
+          ["14:35:54", "", "Performing Streamed Install"],
+          ["14:36:09", "", "Success"],
+          ["14:36:09", "end", "Installed on Pixel 8. The install environment was removed and Pixel 8 let go of.", "Installed"],
+        ];
+        var STATES = {
+          Building: "<span class=\"badge badge-info\"><span class=\"spinner\"></span>Building</span>",
+          Installing: "<span class=\"badge badge-info\"><span class=\"spinner\"></span>Installing</span>",
+          Installed: "<span class=\"badge badge-success\">Installed</span>",
+          Failed: "<span class=\"badge badge-danger\">Failed</span>",
+        };
+        var streamIndex = 0;
+        var timer = null;
+        var started = false;
+
+        function addLine(time, kind, text) {
+          var line = document.createElement("div");
+          line.className = "log-line" + (kind ? " " + kind.split(" ").map(function (k) { return "log-" + k; }).join(" ") : "");
+          var timeElement = document.createElement("span");
+          timeElement.className = "log-time";
+          timeElement.textContent = time;
+          var textElement = document.createElement("span");
+          textElement.className = "log-text";
+          text.split(/(\[secret [A-Z_]+\])/).forEach(function (part) {
+            if (/^\[secret [A-Z_]+\]$/.test(part)) {
+              var masked = document.createElement("span");
+              masked.className = "masked";
+              masked.textContent = part;
+              textElement.appendChild(masked);
+            } else if (part) {
+              textElement.appendChild(document.createTextNode(part));
+            }
+          });
+          line.appendChild(timeElement);
+          line.appendChild(textElement);
+          logLines.appendChild(line);
+          if (logFollow.getAttribute("aria-checked") === "true") logBody.scrollTop = logBody.scrollHeight;
+        }
+        function setState(state, ended) {
+          logTitle.textContent = "Install on my phone · " + state;
+          logState.innerHTML = STATES[state];
+          if (ended) {
+            logLive.innerHTML = "Ended";
+            logLive.style.color = "var(--fg-3)";
+            logStop.hidden = true;
+            logTook.textContent = "4 min 08 s";
+          }
+        }
+        function step() {
+          if (streamIndex >= STREAM.length) return;
+          var entry = STREAM[streamIndex];
+          streamIndex += 1;
+          addLine(entry[0], entry[1], entry[2]);
+          if (entry[3]) setState(entry[3], entry[3] === "Installed");
+          if (entry[3] === "Installing") logTook.textContent = "for 3 min";
+          timer = setTimeout(step, 900);
+        }
+        function resetLog() {
+          clearTimeout(timer);
+          logLines.innerHTML = initialLog;
+          streamIndex = 0;
+          setState("Building", false);
+          logLive.innerHTML = "<span class=\"dot dot-live\"></span>Streaming";
+          logLive.style.color = "";
+          logStop.hidden = false;
+          logTook.textContent = "for 2 min";
+          logFollow.setAttribute("aria-checked", "true");
+          logBody.scrollTop = logBody.scrollHeight;
+          timer = setTimeout(step, 900);
+        }
+        function startLog() {
+          if (started) return;
+          started = true;
+          resetLog();
+        }
+        logFollow.addEventListener("click", function () {
+          var on = logFollow.getAttribute("aria-checked") !== "true";
+          logFollow.setAttribute("aria-checked", String(on));
+          if (on) logBody.scrollTop = logBody.scrollHeight;
+        });
+        logBody.addEventListener("scroll", function () {
+          var nearBottom = logBody.scrollTop + logBody.clientHeight >= logBody.scrollHeight - 8;
+          if (!nearBottom) logFollow.setAttribute("aria-checked", "false");
+        });
+        logStop.addEventListener("click", function () {
+          clearTimeout(timer);
+          var lastTime = streamIndex > 0 ? STREAM[streamIndex - 1][0] : "14:34:12";
+          streamIndex = STREAM.length;
+          addLine(lastTime, "fail", "Stopped by you.");
+          setState("Failed", true);
+          logTook.textContent = "2 min 11 s";
+          toast("Install on my phone stopped.");
+        });
+        logReplay.addEventListener("click", resetLog);
+
+        /* ---------- Tabs ---------- */
+        var tabs = Array.from(document.querySelectorAll(".views [data-view]"));
+        function show(key) {
+          if (!document.getElementById("view-" + key)) key = "actions";
+          tabs.forEach(function (tab) {
+            var on = tab.dataset.view === key;
+            tab.setAttribute("aria-selected", String(on));
+            tab.tabIndex = on ? 0 : -1;
+          });
+          document.querySelectorAll(".view").forEach(function (view) {
+            view.hidden = view.id !== "view-" + key;
+          });
+          if (key === "log") startLog();
+          try {
+            history.replaceState(null, "", "#" + key);
+          } catch (error) {
+            /* a sandboxed preview may refuse it */
+          }
+        }
+        tabs.forEach(function (tab, index) {
+          tab.addEventListener("click", function () {
+            show(tab.dataset.view);
+          });
+          tab.addEventListener("keydown", function (event) {
+            var next = null;
+            if (event.key === "ArrowRight") next = tabs[(index + 1) % tabs.length];
+            if (event.key === "ArrowLeft") next = tabs[(index - 1 + tabs.length) % tabs.length];
+            if (next) {
+              event.preventDefault();
+              next.focus();
+              show(next.dataset.view);
+            }
+          });
+        });
+        document.querySelectorAll("[data-goto]").forEach(function (element) {
+          element.addEventListener("click", function (event) {
+            if (event.target.closest("a")) event.preventDefault();
+            show(element.dataset.goto);
+          });
+        });
+        document.querySelectorAll("a[href=\"#\"]").forEach(function (link) {
+          link.addEventListener("click", function (event) {
+            event.preventDefault();
+          });
+        });
+        show((location.hash || "#actions").slice(1));
+      })();
+    </script>
+  </body>
+</html>

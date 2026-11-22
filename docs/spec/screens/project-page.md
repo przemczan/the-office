@@ -1,6 +1,6 @@
 # Project page
 
-Covers: a Project's page and its head, the section tabs, Overview (Onboarding, Work, the Project limit), Files, Commands (install, install inputs, commands, Publish), Environment (variables, Secret variables, environment check), Pipelines (Default Pipeline and its rows by Kind, Project Pipelines), GitHub issues (the Import issues window, auto-import, write-back), Run environment, Test targets (the list, the editor, Set up test targets, the open Proposal), Test instances (the Branch picker, Launch on a branch, instances by branch), Engine, Skills, Server values, Appearance (Mark, Icon and Logo, How it looks).
+Covers: a Project's page and its head, the section tabs, Overview (Onboarding, Work, the Project limit, the Actions tile), Files, Commands (install, install inputs, commands, Publish), Environment (variables, Secret variables, environment check), Pipelines (Default Pipeline and its rows by Kind, Project Pipelines), GitHub issues (the Import issues window, auto-import, write-back), Run environment, Devices (the Project's devices, Add a device, pairing, Change Port, Pair again, Remove), Test targets (the list, the editor, Install on a device, Set up test targets, the open Proposal), Test instances (Launch on a branch, instances by branch), the Branch picker, Actions (the list, the editor, the open Proposal, the Run window and its confirm step, an Action's History, a run's log), Engine, Skills, Server values, Appearance (Mark, Icon and Logo, How it looks).
 
 ## Where it is
 
@@ -15,7 +15,9 @@ Covers: a Project's page and its head, the section tabs, Overview (Onboarding, W
   - **Pipelines**: `/projects/$projectId/pipelines`, and an open Project Pipeline at `/projects/$projectId/pipelines/$projectPipelineId`.
   - **GitHub issues**: `/projects/$projectId/issues`.
   - **Run environment**: `/projects/$projectId/run-environment`.
-  - **Test targets**: `/projects/$projectId/test-targets`.
+  - **Devices**: `/projects/$projectId/devices`.
+  - **Test targets**: `/projects/$projectId/test-targets`, with Test instances in the same section.
+  - **Actions**: `/projects/$projectId/actions`, an open Action's History at `/projects/$projectId/actions/$actionKey`, and a run's log opened over it with `?run=<id>`; its tab hidden while the Project's `actions` feature switch is off ([Actions](#actions)).
   - **Engine**: `/projects/$projectId/engine`.
   - **Skills**: `/projects/$projectId/skills`.
   - **Server values**: `/projects/$projectId/server-values`.
@@ -49,7 +51,7 @@ Covers: a Project's page and its head, the section tabs, Overview (Onboarding, W
 
 ## Overview
 
-- Two blocks: Onboarding, then Work.
+- Blocks: Onboarding, Work, then the Actions tile while the Project's `actions` feature switch is on.
 
 ### Onboarding
 
@@ -71,6 +73,16 @@ Covers: a Project's page and its head, the section tabs, Overview (Onboarding, W
 - **Running Tasks at once in this Project**: a stepper, 1 to the Project limit's maximum (`PROJECT_LIMIT_MAX`), saved at each step.
 - Note: "Lowering it lets running Tasks finish; nothing new starts in this Project until one ends."
 - A refusal shows under the stepper.
+
+### Actions tile
+
+- Card **Actions** (play icon) with the link **All Actions** at its end, to the [Actions](#actions) section.
+- Up to 5 of the Project's Actions, in the Actions section's order, one line each: its name, the **Leaves the workstation** badge when it has it, its last run's state badge ([Actions](#actions)), and **Run**, which opens [the Run window](#the-run-window), disabled while its last run is running, as on [the Actions list](#the-actions-list).
+- With more than 5: "<n> more under Actions", linked.
+- With none: "No Actions yet: things to run on demand, such as an install on a phone or a release." with a link "Add one under Actions".
+- It follows `action-run.changed`.
+- Gone while the `actions` feature switch is off.
+- Rules: [2.15](../2.15-actions.md#who-starts-an-action).
 
 ## Files
 
@@ -237,19 +249,57 @@ Covers: a Project's page and its head, the section tabs, Overview (Onboarding, W
 - With an open set-up Task, the button is replaced by "Being set up in the Task <title> · <state words>. Run environment turns On when it is Done."
 - A refused change shows the service's reasons under the block (a refused On shows why).
 
+## Devices
+
+- Card **Devices** (smartphone icon) with **Add a device** at its end.
+- Note: "Phones and boards kept for <Project>, so an Action or a test target reaches them with nobody connecting them first."
+- With the Project's Run environment not On, the warning "Needs Run environment On: a device is paired and used in the run environment." with a link to the [Run environment](#run-environment) section; its devices stay listed, and Add a device and Pair again are disabled, saying so.
+- With none: "No devices yet. Add a phone or a board, then name it in an Action or an Install on a device test target."
+- A list, one row per device in the order added:
+  - its name, and a badge for its kind (**Android phone over USB**, **Serial board over USB**, **Android phone over wireless debugging**);
+  - its state: at rest **Paired** (success), **Didn't answer** (warning), **Not paired** (warning) or **Over USB** (neutral), or **In use** (info) with "by <holder>", the Task, the Action run or the test instance linked;
+  - for a phone over wireless debugging, `<address>:<Port>` in monospace;
+  - its last use: "Last used by <the run or Task> · <when> · <how it ended>", or "Not used yet";
+  - a pencil ("Rename <name>"), for a phone over wireless debugging **Change Port** and **Pair again**, and a trash ("Remove <name>").
+- **Didn't answer** adds the line "Turning wireless debugging off and on changes its Port: change it here, or pair it again."
+- **Rename** edits the name in place, at most 60 characters; **Save** and **Cancel**; toast "<name> renamed."
+- **Change Port** opens a small window with **Port** (hint "The number after the colon on the phone's Wireless debugging screen.") and the note "No pairing needed: the phone trusts <Project>'s key until office@<project> is removed from its paired devices."; **Save**; toast "<name>'s Port saved."
+- The trash is disabled while the device is in use, saying "In use by <holder>: remove it once it is let go of."; a remove asks nothing else; toast "<name> removed from <Project>'s devices. The phone keeps trusting <Project>'s key until you remove it there."
+- A refusal shows under the card as the service words it (**The device wasn't saved**).
+- It follows `project-device.changed`.
+- Rules: [2.13](../2.13-connected-devices.md#a-projects-device), [2.13](../2.13-connected-devices.md#removing-a-project-device).
+
+### Add a device
+
+- **Add a device** is a menu, as the Task page's Connect a device is ([task-page.md](task-page.md#devices)): **Android phone over USB** and **Serial board over USB**, each opening the browser's own device picker, then a divider and **Phone over wireless debugging**.
+- A USB choice this browser can't reach is greyed with why under its name: "Needs Chrome or Edge", or "Needs The Office over HTTPS or localhost".
+- **Over USB:** the device picked is added by its device key, its name the one the browser reports; the browser lets go of it at once, as nothing is connected at rest; toast "<name> added to <Project>'s devices."
+  - The note under the list: "A device over USB works in Chrome and Edge only. A run that uses it starts from a browser it is plugged into, which remembers it, and that tab stays open until the run lets go of it."
+- **Over wireless debugging:** the window **Add a phone over wireless debugging**, with the four fields, hints and checks of the Task page's Pair over wireless debugging ([task-page.md](task-page.md#devices)), the note "Pairing starts a pairing environment from <base branch>'s .devcontainer/ and removes it once done.", and **Pair**.
+  - **Pair** empties the Pairing code field as it sends; the device is added Not paired and the window shows the pairing's steps as they pass: "Starting the pairing environment…", "Pairing with the phone…", "Reading its model…".
+  - Paired: the window closes with the toast "<model> paired with <Project>."
+  - A failed pairing stays in the window in the service's or adb's words ([2.13](../2.13-connected-devices.md#android-phone-over-wireless-debugging)); the device stays listed Not paired, and **Pair** tries again with a new code.
+  - A refusal before pairing (an address the run environment can't reach, a phone already among the Project's devices) shows in the window as the service words it (**The phone wasn't paired**).
+- **Pair again** opens the same window, titled "Pair <name> again", its IP address and Port filled in.
+- Rules: [2.13](../2.13-connected-devices.md#pairing-a-project-device), [2.13](../2.13-connected-devices.md#a-project-device-over-usb), [2.13](../2.13-connected-devices.md#browsers-supported).
+
 ## Test targets
 
 - Card **Test targets** (flask icon) with **Set up test targets** (wand icon) at its end.
 - Note: "What can be launched on a branch to try the work. Kept in The Office, never in the repository."
 - With none: "None yet. Add one, or have <Devops> set them up from the repository."
-- A list, one row per target in the order added: its name, badges for its key (monospace) and kind (**Hosted** or **Build to install**), its entry point in monospace, and a mark of who set its values last, "Set by you" or "Set by <Agent>", naming each when they differ ("Set by you and <Agent>"); a pencil ("Change <name>") and a trash ("Remove <name>").
+- A list, one row per target in the order added: its name, badges for its key (monospace) and kind (**Hosted**, **Build to install** or **Install on a device**), its entry point in monospace (Install on a device: "Installs <target> on <device>"), and a mark of who set its values last, "Set by you" or "Set by <Agent>", naming each when they differ ("Set by you and <Agent>"); a pencil ("Change <name>") and a trash ("Remove <name>").
 - A row with a Secret variable whose value isn't typed yet shows the warning "Needs a value: <NAME>".
 - Under the entry point, a row shows its details joined by " · ", each only when it applies: "Commands before: <keys>", a Hosted target's port as `<port variable>=<port>` (`PORT=3000`), and "Memory per service <N> GB" when it has its own.
 - A row listing a command the Project no longer has shows the warning "<key> isn't one of the Project's commands anymore."
+- An Install on a device row whose target or device is gone shows the warning "<target> isn't one of <Project>'s Build to install targets anymore." or "<device> isn't one of <Project>'s devices anymore."
 - **Add a test target** and the pencil open the editor in place (one at a time; **Save** and **Cancel**):
   - **Key** (hint "Lower-case letters, digits and "-"; fixed once added.", placeholder `web`), shown as a badge once added;
   - **Name** (placeholder "Web app");
-  - **Kind**: a segmented control **Hosted** / **Build to install**; **Install on a device** and **Deployed elsewhere** are shown disabled, titled "Not built yet";
+  - **Kind**: a segmented control **Hosted** / **Build to install** / **Install on a device**; **Deployed elsewhere** is shown disabled, titled "Not built yet";
+  - Install on a device takes only its two settings, in place of the entry point, the commands, the variables and the memory below ([2.12](../2.12-test-instances.md#install-on-a-device)):
+    - **Build to install target**, a select of the Project's Build to install targets (hint "Its files are what is installed: reused when it has Built the same commit, built first otherwise."); with none, "Add a Build to install target first.";
+    - **Device**, a select of the Project's Android phones, each with its kind badge and state ([Devices](#devices)); with none, "<Project> has no Android phone among its devices." with a link "Add one under Devices";
   - **Entry point**: a select of **File in the repository**, **Package script**, **Gradle task** and **.devcontainer/ service**, then the path, script, task or service, and **Arguments**, one per line, each given as it is; hint "One of the repository's own entry points: no shell.";
   - **Commands before the entry point**: the listed commands in order, each its place, key (monospace) and name with arrows "Move <key> up" and "Move <key> down" and an x "Remove <key>", and **Add a command**, a select of **Install** (`install`, when the Project has an install command) and the Project's commands, those not listed yet (hint "One of the Project's commands, run in the checkout before the entry point, in this order."; "Every command is listed" once none is left); a listed key the Project no longer has is flagged "<key> isn't one of the Project's commands anymore.";
   - Hosted: **Port** (hint "The port the app listens on inside its container.") and **Port variable** (monospace, placeholder `PORT`, hint "The variable The Office sets to the port.");
@@ -260,7 +310,7 @@ Covers: a Project's page and its head, the section tabs, Overview (Onboarding, W
   - the note "Tool settings go in the variables or the entry point's arguments, such as `-Dorg.gradle.jvmargs=-Xmx2g` for a Gradle task."
 - Each value the editor saves is marked set by you; in the editor each value shows who set it last.
 - Toasts "<name> saved. It applies from its next launch.", "<name> added.", "<name> removed."; a refusal shows under the editor as the service words it (**The test target wasn't saved**).
-- A Hosted target with the Project's Run environment not On shows the warning "Needs Run environment On to launch." with a link to the Run environment section.
+- A Hosted or Install on a device target with the Project's Run environment not On shows the warning "Needs Run environment On to launch." with a link to the Run environment section.
 - **Set up test targets** adds the Project's "Set up test targets" Task; toast "<Task title> is Ready, waiting for your Start."
   - With an open one, the button is replaced by "Being set up in the Task <title> · <state words>."
 - **The open Proposal:** while Devops' `propose_test_targets` Proposal waits, its card shows above the list ([decision-card.md](decision-card.md)):
@@ -272,15 +322,136 @@ Covers: a Project's page and its head, the section tabs, Overview (Onboarding, W
 ## Test instances
 
 - A card **Test instances** (flask icon) after Test targets, in the same section, with the note "Launch a test target on any branch. One launched on an active Initiative's branch shows on its page too."
-- With no Hosted or Build to install target: "<Project> has no Hosted or Build to install test targets yet." with a link "Add one under Test targets".
-- **Branch** picker: the base branch first (badged "base branch"), then the other branches of the repository and its remote by name; read when the picker is opened (`GET /projects/:id/branches?fetch=1`), with "Fetching branches…" meanwhile and a refusal or a warning that some may be missing when the fetch failed.
-- A row per Hosted or Build to install target on the branch picked, as on the Initiative page ([initiative-page.md](initiative-page.md#test-instances)): **Launch**, **Stop**, **Log**, **Open**, **Download**, **QR code**, **Launch again**, and the earlier instances folded.
-- A Project whose Run environment isn't On says "Needs Run environment On to launch." on a Hosted target, and its **Launch** is disabled.
+- With no Hosted, Build to install or Install on a device target: "<Project> has no test targets to launch yet." with a link "Add one under Test targets".
+- **Branch**: [the Branch picker](#the-branch-picker); the instances below are those of the branch it means.
+- A row per Hosted, Build to install or Install on a device target on the branch picked, as on the Initiative page ([initiative-page.md](initiative-page.md#test-instances)): **Launch**, **Stop**, **Log**, **Open**, **Download**, **QR code**, **Launch again**, and the earlier instances folded.
+- An Install on a device row's newest instance also shows:
+  - **Installing** (info, spinner) with "on <device>", **Stop** and **Log**;
+  - **Installed** (success) with "on <device>" and **Log**;
+  - while it builds, **Building** with a link "Its build", to the Build to install instance it launched; one that reused Built files says "Reusing <short commit>'s build", linked to it.
+- A Build to install instance an Install launched says "Built for <target>", the Install on a device target named.
+- An instance an Action launched says "Run as <Action>", linked to that Action's History ([Actions](#actions)).
+- A Project whose Run environment isn't On says "Needs Run environment On to launch." on a Hosted or Install on a device target, and its **Launch** is disabled.
 - Below, the other branches launched on, under "Other branches", each with its instances, the earlier ones folded.
 - An instance linked to an Initiative shows "in <Initiative>", linking to its page ([2.12](../2.12-test-instances.md#linking-to-an-initiative)).
 - A Notification of an instance linked to none opens Test targets with `testInstance=<id>`: its branch is picked, an earlier instance's fold opens, and its row scrolls into view ([2.7](../2.7-notifications.md#test-instance-outcomes)).
-- A refusal is a toast "<name> can't launch" with the service's reason, as on the Initiative page; a branch that isn't in the Project or on its remote is refused naming it.
-- Rules: [2.12](../2.12-test-instances.md#test-instance).
+- A refusal is a toast "<name> can't launch" with the service's reason, as on the Initiative page; a branch that isn't in the Project or on its remote is refused naming it, and an Install on a device whose device is in use names its holder.
+- Rules: [2.12](../2.12-test-instances.md#test-instance), [2.12](../2.12-test-instances.md#test-instance-states).
+
+## The Branch picker
+
+- What a test instance launches on or an Action runs from: a searchable select, used by the [Test instances](#test-instances) card and [the Run window](#the-run-window).
+- Three groups, searched together by name, title and branch:
+  - **Branches**: the base branch first (badged "base branch"), then the other branches of the repository and its remote, by name;
+  - **Initiatives**: the active Initiatives with a branch in this Project, by name, meaning their branch;
+  - **Tasks**: the Project's Tasks with a branch, not Done or Dropped, by title, meaning their branch.
+- Each choice shows the branch it means in monospace, under an Initiative's name or a Task's title.
+- The base branch is chosen until the user picks another.
+- It is read when it is opened (`GET /projects/:id/branches?fetch=1`), with "Fetching branches…" meanwhile, and a refusal, or a warning that some may be missing when the fetch failed.
+- No match: "No branch, Initiative or Task matches."
+- A Task's branch holds what The Office last committed; the Task choice says so on hover: "Its branch as last committed: work not committed in its worktree isn't in it."
+- Rules: [2.15](../2.15-actions.md#what-it-runs-from), [2.12](../2.12-test-instances.md#test-instance).
+
+## Actions
+
+- Shown while the Project's `actions` feature switch is on; while it is off, there is no Actions tab and its address says "Actions are switched off for <Project>." ([2.15](../2.15-actions.md#the-actions-feature-switch)).
+- Layout: the list on the left and the open Action's History on the right, as [Pipelines](#pipelines) lay out; at a pane width of 952px and under only the list or the open Action shows, the Action with a back link "‹ <Project>'s Actions".
+- Nothing open: "Open an Action to see its runs."; a key the Project lacks: "<Project> has no such Action: it may have been removed."
+- It follows `action-run.changed` and the Project's changes.
+- Rules: [2.15](../2.15-actions.md).
+
+### The Actions list
+
+- A list named "<Project>'s Actions" with a count, **Add an Action** and **Ask <name> to propose Actions** (Ask Devops, draft "Can you propose Actions for <Project>? ") at its head; while nobody holds Onboards and repairs Projects, a note says so instead of Ask.
+- Note: "Things to run on demand, outside the Task queue. Kept in The Office, never in the repository."
+- With none: "No Actions yet. Add one, such as an install on a phone or a release, or have <name> propose them from the repository.", with **Add an Action** and **Ask <name> to propose Actions**.
+- One row per Action in the order added, linking to its History:
+  - its name, and a badge for its key (monospace);
+  - its kind with what it runs: "Project command · `<key>`", "Test target · <target name>" or "Workflow · `<file>`";
+  - the **Leaves the workstation** badge (warning) when it has it, with its words on hover: "It pushes, publishes, deploys or releases. It runs from <base branch> only, after a confirm step.";
+  - its last run's state: **Running** (info, spinner), **Succeeded** (success), **Failed** (danger, with why on hover) or **Stopped** (neutral); a Test target run's its test instance's state, a Workflow run's **Starting**, then its CI run's status badge ([ci-runs.md](ci-runs.md#table)); "Not run yet" before its first;
+  - under it, what the last run ran from and when: "main · f00ba12 · 18 min ago", "<Task title> · <short commit> · …", "<Initiative> · …";
+  - a mark of who set its values last, as a test target's: "Set by you", "Set by <Agent>" or "Set by you and <Agent>";
+  - **Run** (play icon), which opens [the Run window](#the-run-window); disabled while its last run is running, saying "<Action> is running already, started by <user> <when>.";
+  - a pencil ("Change <name>") and a trash ("Remove <name>").
+- A row whose setting names something the Project no longer has shows the warning naming it: "<key> isn't one of the Project's commands anymore.", "<target> isn't one of <Project>'s test targets anymore.", "<device> isn't one of <Project>'s devices anymore." or "<file> doesn't declare a start by hand on <base branch> anymore."
+- A Project command Action naming a device, with Run environment not On, shows the warning "Needs Run environment On to run." with a link to the Run environment section, and its **Run** is disabled.
+- The trash removes at once, but for a running Action, which first asks in a step: "Remove <name>? Its running run stops first. Its runs and their logs are removed with it."; toast "<name> removed."
+
+### The Action editor
+
+- **Add an Action** and the pencil open a large window "Add an Action" or "Change <name>", keeping one height; **Add the Action** or **Save** and **Close** in its bar.
+- **Key** (hint "Lower-case letters, digits and "-"; fixed once added.", placeholder `install-phone`), shown as a badge once added.
+- **Name** (placeholder "Install on my phone"; at most 60 characters).
+- **Kind**: radios, each with its line:
+  - **Project command**: "Runs one of <Project>'s commands in a fresh checkout of what you pick.";
+  - **Test target**: "Launches one of <Project>'s test targets on what you pick.";
+  - **Workflow**: "Starts one of the repository's workflows on the code host, on the branch you pick."
+- Project command:
+  - **Command**, a select of the Project's commands, each its key (monospace) and name;
+  - **Commands before it**, as the test target editor's Commands before the entry point ([Test targets](#test-targets)), hint "Run in the checkout before the command, in this order.";
+  - **Device**, a select of **None** and the Project's devices, each with its kind badge (hint "Held by the run while it runs. Needs Run environment On."); with none, "<Project> has no devices yet." with a link "Add one under Devices";
+  - **Time limit**: empty, it reads "Default (60 minutes)" with **Set its own limit**; set, a stepper in minutes, 1 to 240, with **Use the default**; hint "Its commands before it included.";
+  - the note "It gets <Project>'s variables and Secret variables, and `OFFICE_ACTION`, `OFFICE_ACTION_BRANCH` and `OFFICE_ACTION_COMMIT`; never The Office's own sign-ins. A token it needs goes in a Secret variable."
+- Test target: **Test target**, a select of the Project's test targets, each with its kind badge (hint "Build to install and Install on a device are what it is meant for; a Hosted target runs as long as its instance does."); with none, "<Project> has no test targets yet." with a link "Add one under Test targets".
+- Workflow:
+  - **Workflow file**, a select of the workflows on the base branch whose file declares a start by hand, read as the Start a workflow window reads them ([ci-runs.md](ci-runs.md#start-a-workflow-window)): "Reading the workflows on <base branch>…", or "No workflow on <base branch> can be started by hand.";
+  - one control per input it declares there, as that window's, hint "Fixed with the Action: nothing is asked at its start."
+- **Leaves the workstation**, a checkbox with the hint "It pushes, publishes, deploys or releases: anything that reaches people or systems outside this Office. It then runs from <base branch> only, after a confirm step."; ticked when Workflow is chosen for a new Action, and the user may clear it.
+- Each value the editor saves is marked set by you; in the editor each value shows who set it last.
+- Toasts "<name> added.", "<name> saved. It applies from its next run."; a refusal shows in the window as the service words it (**The Action wasn't saved**), naming the value: a key taken, a command, target, device or Workflow the Project doesn't have, an input the file doesn't declare, a Project variable named as one The Office sets.
+- Rules: [2.15](../2.15-actions.md#kinds), [2.15](../2.15-actions.md#leaves-the-workstation), [2.15](../2.15-actions.md#what-the-office-sets).
+
+### The open Proposal of Actions
+
+- While Devops' `propose_actions` Proposal waits, its card shows above the list, as the test targets' does ([Test targets](#test-targets), [decision-card.md](decision-card.md)): each change as it was and as proposed, a removal struck through, each value the user set flagged "You set this", **Apply** (all or nothing) and **Dismiss**.
+- A Leaves the workstation mark it adds is flagged "Marks it Leaves the workstation".
+- Rules: [2.15](../2.15-actions.md#defining-actions).
+
+### The Run window
+
+- A medium window "Run <Action>", keeping one height, opened by **Run** on the list, the Actions tile or the open Action.
+- **Run from**: [the Branch picker](#the-branch-picker), the base branch chosen.
+- What it will run: the tip of the branch it means, as its short commit (monospace) and its subject, read as it is chosen ("Reading <branch>…"), with what reading it found when it can't.
+- A line of what it runs: "Runs `<key>` (after `<keys>`)", "Launches <target>; it shows in Test instances." or "Starts `<file>` on the code host with its fixed inputs."
+- A run that holds a device over USB (the Action's own, or its Install on a device target's) adds "Keep this tab open until the run lets go of <device>." and may open the browser's picker as it starts; in a browser without WebUSB or Web Serial **Run** is disabled, "Needs Chrome or Edge to reach <device>."
+- **Run** (play icon, primary) starts it; the window closes with the toast "<Action> started on <branch>.", and its row, its tile line and its History show it Running.
+- **For an Action that leaves the workstation**, the window is a confirm step ([6](../6-permissions-and-safety.md#actions)):
+  - **Run from** is fixed to the base branch, shown, not a picker, with "It leaves the workstation, so it runs from <base branch> only.";
+  - the text "Run <Action> on <base branch> at <short commit> (<subject>)? What it pushes, publishes, deploys or releases reaches outside this Office.";
+  - for a Workflow, its fixed inputs below it, in monospace ("dry_run=false"), so two Actions of one Workflow read apart;
+  - its button, in danger: "Run <Action> on <base branch> at <short commit>", sending that commit;
+  - when the branch moved since, the refusal "main moved to f00ba12 since you looked. Run it again to run that commit." shows in the window, and the commit and its button change to the new tip.
+- A refusal stays in the window in the service's words (**The Action didn't start**): running already, over Actions at once or Test instances at once naming the runs that hold it, the fire alarm, a branch the remote doesn't have for a Workflow, Run environment not On, a device in use naming its holder, a test instance of The Office.
+- Rules: [2.15](../2.15-actions.md#what-it-runs-from), [2.15](../2.15-actions.md#limits).
+
+### History
+
+- The open Action: a head card with its name, key and kind badges, what it runs, the **Leaves the workstation** badge, who set it, **Run**, the pencil and the trash.
+- Card **History** below it: its runs, newest first, one row each:
+  - its state badge, as the list's;
+  - what it ran from: the branch in monospace, or the Task's title or the Initiative's name, linked, with its branch;
+  - its short commit (monospace);
+  - who started it ("you" for yourself) and when;
+  - how long it took, or "for <n> min" while running;
+  - why, for Failed or Stopped;
+  - a Test target run's "Test instance", linked to it in Test instances (`/projects/$projectId/test-targets?testInstance=<id>`); a Workflow run's "<workflow> #<number>", linked to its page on the code host.
+- A press on a row opens its log.
+- With none: "Not run yet. Run it to see its runs here."
+- Foot: "The newest 20 runs are kept with their logs."
+- A Notification of a run opens its Action's History with `?run=<id>`: the row scrolls into view and its log opens ([2.7](../2.7-notifications.md#action-run-outcomes)).
+- Rules: [2.15](../2.15-actions.md#history), [2.15](../2.15-actions.md#action-runs-kept).
+
+### A run's log
+
+- A large window "<Action> · <state>", keeping one height, as a test instance's Log window is ([initiative-page.md](initiative-page.md#test-instances)); its address carries `?run=<id>`.
+- Under its head: the state, what it ran from at its commit, who started it and when, and how long it took.
+- The masked log in monospace, The Office's own lines (the checkout, each command named first, how it ended) set apart from the output, and why it failed in danger.
+- While the run is running it streams, reading on from where it is; **Follow** (on at first) keeps the newest line in view, and scrolling up turns it off.
+- A Test target run's log is its test instance's, with **Open the test instance** in the bar.
+- A Workflow run's log is its start, its inputs and the CI run's link; **Open the CI run** in the bar opens its page on the code host in a new tab, and it has no Stop.
+- Its bar: **Stop** (danger) while a Project command or Test target run is running, asking nothing (toast "<Action> stopped."), then **Close**.
+- Rules: [2.15](../2.15-actions.md#log), [2.15](../2.15-actions.md#when-a-run-stops).
 
 ## Engine
 
@@ -360,3 +531,6 @@ Covers: a Project's page and its head, the section tabs, Overview (Onboarding, W
 - The engine cascade: [5.4.5](../5.4.5-engines-and-cascade.md#the-engine-cascade).
 - Test targets and their Proposal: [2.12](../2.12-test-instances.md#test-target), [2.12](../2.12-test-instances.md#writing-test-targets).
 - Test instances, their branch and Initiative link: [2.12](../2.12-test-instances.md#test-instance), [2.12](../2.12-test-instances.md#linking-to-an-initiative).
+- Install on a device: [2.12](../2.12-test-instances.md#install-on-a-device).
+- Project devices, pairing one, one environment at a time: [2.13](../2.13-connected-devices.md#a-projects-device), [2.13](../2.13-connected-devices.md#pairing-a-project-device), [2.13](../2.13-connected-devices.md#one-environment-at-a-time).
+- Actions, their runs, their Proposal and the `actions` feature switch: [2.15](../2.15-actions.md); their safety: [6](../6-permissions-and-safety.md#actions).

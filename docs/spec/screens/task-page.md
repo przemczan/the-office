@@ -1,6 +1,6 @@
 # Task page
 
-Covers: the Task page's head and actions, the Kind, the drop note, Start and the queue, planning actions, the Needs you card and Before Ready, the Pipeline rail and Stage history, the record's tabs (Overview, Changes, Attachments), the record blocks (the Bug section, the GitHub issue and the Devices section among them), the Task menu, run controls, Gate actions, Conflict resolution, publishing, and the Task's conversation.
+Covers: the Task page's head and actions, the Kind, the drop note, Start and the queue, planning actions, the Needs you card and Before Ready, the Pipeline rail and Stage history, the record's tabs (Overview, Changes, Attachments), the record blocks (the Bug section, the GitHub issue and the Devices section with Use a Project device among them), the Task menu, run controls, Gate actions, Conflict resolution, publishing, and the Task's conversation.
 
 ## Where it is
 
@@ -347,6 +347,12 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
   - **Pair** empties the Pairing code field as it sends, since a code works once.
   - Once the record is made the window closes with the toast "Pairing with the phone at <address>…"; its row shows Connecting while adb pairs, then Connected, or it moves to the Disconnected fold as error with adb's words.
   - A refusal shows in the window as the service words it (**The device wasn't connected**), the phone named "The phone at <address>": among them an address the run environment can't reach (loopback, unspecified, multicast, link-local, [6](../6-permissions-and-safety.md#connected-devices)), and a phone this Task holds already, Waiting, which is Disconnected before it is paired again.
+- **Use a Project device**, beside Connect a device, is a menu of the Project's devices ([project-page.md](project-page.md#devices)), each with its name, its kind badge and its state at rest:
+  - a device at rest is a choice; picking one connects it to this Task's run environment with no pairing ([2.13](../2.13-connected-devices.md#lent-to-a-task)), with the toast "<name> connected.";
+  - a device in use elsewhere is listed disabled, naming its holder: "In use by <the Task's title | the Action run or test instance>";
+  - a device over USB opens without the browser's picker when this browser allowed it before, else the picker opens; its choice is greyed in a browser without WebUSB or Web Serial, as Connect a device's are, and the note "Keep this tab open: closing it disconnects the device." applies;
+  - with no Project devices: "<Project> has no devices yet." with a link "Add one under Devices".
+- A lent device's row says "From <Project>'s devices", the Project's Devices section linked; its **Disconnect** gives it back to the Project, at rest again, with the toast "<name> given back to <Project>'s devices."
 - A phone over wireless debugging that didn't answer at a run environment's start shows in the Disconnected fold as "device unplugged: The phone didn't answer at <address>:<port>; pair it again."
 - An Android phone over USB whose run environment has no adb ends Disconnected as error; its why in the Disconnected fold reads "error: adb isn't in this Project's run environment. Add Android's platform-tools to .devcontainer, then try again.", with no warning above the list and no link.
 - A serial board's notices ([2.13](../2.13-connected-devices.md#notices)) show on its row, one line each, in the warning tone unless said:
