@@ -240,7 +240,9 @@ describe("The daily archiving of finished Tasks", () => {
 
   it("leaves a Project whose Onboard Task is archived reading as onboarded", async () => {
     const onboarding = work.app.get(OnboardingService);
-    const task = await onboarding.addOnboardTask(projectId, ANN_LEE);
+    const start = await onboarding.onboard(projectId, ANN_LEE);
+    if (start.outcome === "refused") throw new Error(start.reasons.join(" "));
+    const task = { id: start.offBoardTask.taskId };
     await finish(task.id, "done", DEFAULT_ARCHIVE_PERIOD + 1);
 
     await runAt(now);

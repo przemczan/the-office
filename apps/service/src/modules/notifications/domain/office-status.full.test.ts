@@ -29,6 +29,7 @@ describe("officeStatusText", () => {
             taskId: "t1",
             projectId: "p1",
             waitingSince: AN_HOUR_AGO,
+            offBoardTask: undefined,
           },
           {
             kind: "gate",
@@ -54,6 +55,7 @@ describe("officeStatusText", () => {
             pausedBy: undefined,
             resumesAt: undefined,
             stage: { key: "build", name: "Implement", role: "developer", since: AN_HOUR_AGO },
+            madeFor: undefined,
           },
           {
             taskId: "t4",
@@ -63,6 +65,7 @@ describe("officeStatusText", () => {
             pausedBy: undefined,
             resumesAt: undefined,
             stage: undefined,
+            madeFor: undefined,
           },
         ],
       }),
@@ -88,6 +91,7 @@ describe("officeStatusText", () => {
             taskId: "t1",
             projectId: "p1",
             waitingSince: AN_HOUR_AGO,
+            offBoardTask: undefined,
           },
           {
             kind: "initiative-decision",

@@ -14,6 +14,24 @@ export interface HandoverNoteWords {
   readonly note: string;
 }
 
+/** A Task's own Stages and its runs, outlined for an Off-board Task's card in Work. */
+export interface TaskStageRunsOutline {
+  readonly taskId: string;
+  /** The Task's own Stage names in order; undefined before its Stages are made. */
+  readonly stages: readonly string[] | undefined;
+  /** In the order they ran. */
+  readonly runs: readonly {
+    /** Its Stage's name in the Task's Stages; its key when the Task no longer has it. */
+    readonly stageName: string;
+    readonly roleKey: string | undefined;
+    readonly threadId: string | undefined;
+    /** The failure's error of a failed run; undefined for any other. */
+    readonly error: string | undefined;
+    /** Its Decision on running out of tries while it waits for an answer; undefined otherwise. */
+    readonly openOutOfTriesDecisionId: string | undefined;
+  }[];
+}
+
 /**
  * A Task's Stage results, as a person's Thread on it is briefed with them (spec §2.5) and as an
  * Agent reads the Task's record.
@@ -50,6 +68,35 @@ export class StageResultWords {
       lines: await this.linesOf(stages, runs),
       handoverNotes: handoverNotesOf(stages, runs),
     };
+  }
+
+  /** One outline for each of `taskIds`, in their order, their runs read at once. */
+  async outlinesOf(taskIds: readonly string[]): Promise<readonly TaskStageRunsOutline[]> {
+    if (taskIds.length === 0) return [];
+    const [runs, taskStages] = await Promise.all([
+      this.runs.listOfTasks(taskIds),
+      Promise.all(taskIds.map((taskId) => this.taskStages.find(taskId))),
+    ]);
+    return taskIds.map((taskId, index) => {
+      const stages = taskStages[index]?.stages;
+      const nameOf = (key: string) => stages?.find((stage) => stage.key === key)?.name ?? key;
+      return {
+        taskId,
+        stages: stages?.map(({ name }) => name),
+        runs: runs
+          .filter((run) => run.taskId === taskId)
+          .toSorted((one, other) => one.number - other.number)
+          .map((run) => ({
+            stageName: nameOf(run.stageKey),
+            roleKey: run.roleKey,
+            threadId: run.threadId,
+            error: run.outcome?.status === "failed" ? run.outcome.error : undefined,
+            openOutOfTriesDecisionId: run.decisions.find(
+              ({ kind, answer }) => kind === "no-retries-left" && answer === undefined,
+            )?.id,
+          })),
+      };
+    });
   }
 
   /** Each run's result as a line, as the earlier Stage's result template words it now. */

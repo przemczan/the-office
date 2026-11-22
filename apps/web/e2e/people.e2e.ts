@@ -3925,9 +3925,18 @@ test(
       const toSetUp = await addedProject(page, bare, "Set up at Start", "SS", PASSING_COMMANDS);
       await page.goto(`/tasks/${await readyTask(page, toSetUp.id, "Asks to set one up")}`);
       await question.getByRole("button", { name: "Yes", exact: true }).click();
+      // Yes starts the Off-board Task at once; the head says who sets it up, or its queue place,
+      // and links to the Project's Run environment.
+      const settingUp = page
+        .locator(".task-head")
+        .getByRole("status")
+        .filter({
+          hasText: /(is setting up .+’s run environment|is queued, place \d+)/,
+        });
+      await expect(settingUp).toBeVisible();
       await expect(
-        page.getByText("Set up the run environment is Ready, waiting for your Start."),
-      ).toBeVisible();
+        settingUp.getByRole("link", { name: `${toSetUp.name}’s Run environment` }),
+      ).toHaveAttribute("href", `/projects/${toSetUp.id}/run-environment`);
       // The set-up Task is the answer until it is Done, so neither Task asks again meanwhile.
       await expect(question).toHaveCount(0);
       expect(await runEnvironmentOf(page, toSetUp.id)).toBe("not-decided");
@@ -5097,6 +5106,9 @@ test(
       const project = await addedProject(page, repository, `Test targets ${Date.now()}`, "TT");
       await page.goto(`/projects/${project.id}/test-targets`);
       await expect(page.getByText("None yet. Add one, or have Nina set them up")).toBeVisible();
+      const askNina = page.getByRole("button", { name: "Ask Nina to set up test targets" });
+      await expect(askNina).toBeVisible();
+      await screenshotScenario(page, "test-targets-ask-in-chat", { inView: askNina });
 
       await page.getByRole("button", { name: "Add a test target" }).click();
       const adding = page.getByRole("form", { name: "Add a test target" });
@@ -5539,7 +5551,7 @@ test(
 );
 
 test(
-  "the user asks Nina to onboard a Project, applies her Proposal and finds its Onboard Task Ready",
+  "the user asks Nina to onboard a Project, applies her Proposal and its Onboard Task starts at once",
   { tag: "@full" },
   async ({ page }) => {
     const repository = await createTemporaryRepository();
@@ -5579,21 +5591,24 @@ test(
       await card.getByRole("button", { name: "Apply change" }).click();
       await expect(card).toContainText("Applied");
       await expect(
-        page.getByText(`${name} added, with its Onboard Task Ready to start.`),
+        page.getByText(`${name} added. Its Onboard Task started at once.`),
       ).toBeVisible();
+      await expect(card).toContainText(`Added ${name}. Its Onboard Task started at once:`);
       const projectCard = page.locator(".project-card", { hasText: name });
       await expect(projectCard).toContainText("Onboarding");
 
-      await card.getByRole("link", { name: `Open ${name}` }).click();
-      // The Onboarding block, from the Onboard Task.
-      const onboarding = page.locator(".project-block-note", { hasText: "From the Task" });
-      await expect(onboarding).toHaveText("From the Task Onboard · Ready, waiting for your Start");
+      await card.getByRole("link", { name: "follow it on the Project page" }).click();
+      // The Onboarding card follows the Onboard Task, an Off-board Task: no Ready, no Start.
+      const onboarding = page.getByRole("region", { name: /^Onboard · / });
+      await expect(onboarding).toBeVisible();
+      await expect(onboarding).not.toContainText("Ready");
+      await expect(page.getByRole("button", { name: "Onboard", exact: true })).toHaveCount(0);
       await expect(page.locator(".project-head")).toContainText("Onboarding");
       await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-onboarding.png") });
+      await screenshotScenario(page, "project-onboarding-off-board-task", { inView: onboarding });
 
-      await onboarding.getByRole("link", { name: "Onboard" }).click();
+      await onboarding.getByRole("link", { name: /^Open the (Task|Thread)$/ }).click();
       await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]+/);
-      await expect(page.locator(".task-page")).toContainText("Ready");
       await expect(page.locator(".task-page")).toContainText("Onboard");
     } finally {
       await repository.remove();

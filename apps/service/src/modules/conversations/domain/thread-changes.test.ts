@@ -41,6 +41,18 @@ describe("a chat Thread", () => {
     });
     expect(event).toEqual(new ThreadStarted(thread));
   });
+
+  it("starts with the title The Office gives it, kept past the user's first message, or refuses one too long", () => {
+    const { thread } = startChatThread("thread-1", JAN, AT, " Set up test targets: Billing ");
+
+    expect(thread.title).toBe("Set up test targets: Billing");
+    expect(
+      logMessages(thread, [aUserMessage(thread, "Can you set them up?")], AT)?.thread.title,
+    ).toBe("Set up test targets: Billing");
+    expect(() => startChatThread("thread-2", JAN, AT, "x".repeat(81))).toThrow(
+      new ThreadRefused(["A Thread's title may be at most 80 characters."]),
+    );
+  });
 });
 
 describe("the Thread's log", () => {

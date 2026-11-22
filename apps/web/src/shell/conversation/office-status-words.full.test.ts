@@ -11,6 +11,7 @@ function aDecision(): NeedsYouItem {
     taskId: crypto.randomUUID(),
     projectId: "p1",
     waitingSince: SINCE,
+    offBoardTask: null,
   };
 }
 
@@ -33,6 +34,7 @@ function aRunningTask(state: TaskState): RunningTask {
     pausedBy: null,
     resumesAt: null,
     stage: null,
+    madeFor: null,
   };
 }
 

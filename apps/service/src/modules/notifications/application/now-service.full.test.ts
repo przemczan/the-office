@@ -33,6 +33,7 @@ import {
   OfficeUpdateAvailableForTests,
   ShapingRepliesForTests,
   OfficeUsersForTests,
+  OfficeOffBoardTasksForTests,
   OfficeInitiativesForTests,
   OfficeTasksForTests,
   OpenDecisionsForTests,
@@ -93,6 +94,7 @@ describe("NowService", () => {
           officeUpdateAvailable: OfficeUpdateAvailableForTests,
           shapingReplies: ShapingRepliesForTests,
           officeUsers: OfficeUsersForTests,
+          officeOffBoardTasks: OfficeOffBoardTasksForTests,
         }),
       ],
     }));

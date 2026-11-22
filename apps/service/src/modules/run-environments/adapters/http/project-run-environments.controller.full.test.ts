@@ -4,10 +4,12 @@ import type { INestApplication } from "@nestjs/common";
 import {
   projectListSchema,
   projectSchema,
+  runEnvironmentSetUpAnswerSchema,
   type AddProject,
   type Project,
   type ProjectRunEnvironment,
   type RunEnvironmentAnswer,
+  type RunEnvironmentSetUpAnswer,
 } from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
@@ -18,7 +20,7 @@ import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { GitHubModule } from "../../../github/index.js";
 import { PipelineLibrary, PipelineLibraryModule } from "../../../pipelines/index.js";
-import { ProjectsModule } from "../../../projects/index.js";
+import { ProjectsModule, TaskBases } from "../../../projects/index.js";
 import {
   createTemporaryRepository,
   gitIn,
@@ -73,6 +75,11 @@ beforeEach(async () => {
       }),
     ],
   }));
+  // Work registers its lookup with its test ports' stand-in, so Projects' own gets one here.
+  app
+    .select(projects)
+    .get(TaskBases, { strict: true })
+    .register(async () => ({ kind: "base-branch" }));
   project = await addProject(newProjectIn(repository.path));
 });
 
@@ -99,8 +106,13 @@ function send(method: "GET" | "PUT" | "POST", path: string, body?: unknown): Pro
 const read = async (projectId = project.id): Promise<ProjectRunEnvironment> =>
   runEnvironmentOf(await send("GET", `/projects/${projectId}/run-environment`));
 
-const setUp = async (): Promise<ProjectRunEnvironment> =>
-  runEnvironmentOf(await send("POST", `/projects/${project.id}/run-environment/set-up`));
+const setUpAnswer = async (): Promise<RunEnvironmentSetUpAnswer> => {
+  const response = await send("POST", `/projects/${project.id}/run-environment/set-up`);
+  expect(response.status).toBeLessThan(300);
+  return runEnvironmentSetUpAnswerSchema.parse(await response.json());
+};
+
+const setUp = async (): Promise<ProjectRunEnvironment> => (await setUpAnswer()).runEnvironment;
 
 /** Commits the files on `branch`, made from main when it isn't there yet, and goes back to main. */
 async function commitFiles(
@@ -144,29 +156,43 @@ describe("POST /projects/:id/run-environment/set-up", REAL_GIT_TEST, () => {
   it("turns On at once with a valid definition on the base branch, adding no Task", async () => {
     await commitFiles("main", VALID_DEFINITION);
 
-    expect(await setUp()).toEqual({
-      runEnvironment: "on",
-      definition: { state: "valid" },
-      setUpProblems: [],
-      setUpTask: null,
+    expect(await setUpAnswer()).toEqual({
+      runEnvironment: {
+        runEnvironment: "on",
+        definition: { state: "valid" },
+        setUpProblems: [],
+        setUpTask: null,
+      },
+      start: null,
     });
   });
 
-  it("adds one set-up Task without one, which asking again answers", async () => {
-    const first = await setUp();
-    const second = await setUp();
+  it("makes and starts one set-up Off-board Task without one, which asking again answers", async () => {
+    const first = await setUpAnswer();
+    const second = await setUpAnswer();
 
-    expect(first.runEnvironment).toBe("not-decided");
-    expect(first.setUpTask).toEqual({
+    expect(first.runEnvironment.runEnvironment).toBe("not-decided");
+    expect(first.runEnvironment.setUpTask).toEqual({
       id: expect.any(String),
       title: "Set up the run environment",
-      state: "ready",
+      state: "in-progress",
     });
-    expect(second.setUpTask).toEqual(first.setUpTask);
+    expect(first.start).toMatchObject({
+      outcome: "started",
+      offBoardTask: {
+        taskId: first.runEnvironment.setUpTask?.id,
+        kind: "run-environment-setup",
+        status: { state: "running" },
+      },
+    });
+    expect(second.start).toMatchObject({
+      outcome: "in-flight",
+      offBoardTask: { taskId: first.runEnvironment.setUpTask?.id },
+    });
     const [againAtOnce, andAgain] = await Promise.all([setUp(), setUp()]);
-    expect(againAtOnce.setUpTask?.id).toBe(first.setUpTask?.id);
-    expect(andAgain.setUpTask?.id).toBe(first.setUpTask?.id);
-    expect((await read()).setUpTask).toEqual(first.setUpTask);
+    expect(againAtOnce.setUpTask?.id).toBe(first.runEnvironment.setUpTask?.id);
+    expect(andAgain.setUpTask?.id).toBe(first.runEnvironment.setUpTask?.id);
+    expect((await read()).setUpTask).toEqual(first.runEnvironment.setUpTask);
   });
 });
 
@@ -193,14 +219,14 @@ describe("POST /projects with the run environment answer", REAL_GIT_TEST, () => 
     expect((await read(added.id)).setUpTask).toBeNull();
   });
 
-  it("adds the set-up Task with Yes and no definition, leaving Not decided yet", async () => {
+  it("starts the set-up Task with Yes and no definition, leaving Not decided yet", async () => {
     const added = await addAnswering("yes");
 
     expect(added.runEnvironment).toBe("not-decided");
     expect((await read(added.id)).setUpTask).toEqual({
       id: expect.any(String),
       title: "Set up the run environment",
-      state: "ready",
+      state: "in-progress",
     });
   });
 

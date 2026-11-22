@@ -343,25 +343,22 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
           <AnswerFoot
             proposal={proposal}
             changes={[projectQueries.list().queryKey, taskQueries.list().queryKey]}
-            appliedToast={`${project.name} added, with its Onboard Task Ready to start.`}
-            openNote="Adds the Project and its Onboard Task once applied"
+            appliedToast={`${project.name} added. Its Onboard Task started at once.`}
+            openNote="Adds the Project and starts its Onboard Task at once."
           />
-          {change.projectId !== null && change.taskId !== null && (
+          {change.projectId !== null && (
             <div className="proposal-foot">
-              <Link
-                className="proposal-link"
-                to="/projects/$projectId"
-                params={{ projectId: change.projectId }}
-              >
-                Open {project.name}
-              </Link>
-              <Link
-                className="proposal-link"
-                to="/tasks/$taskId"
-                params={{ taskId: change.taskId }}
-              >
-                Open the Onboard Task
-              </Link>
+              <span>
+                Added {project.name}. Its Onboard Task started at once:{" "}
+                <Link
+                  className="proposal-link"
+                  to="/projects/$projectId"
+                  params={{ projectId: change.projectId }}
+                >
+                  follow it on the Project page
+                </Link>
+                .
+              </span>
             </div>
           )}
         </ProposalFrame>

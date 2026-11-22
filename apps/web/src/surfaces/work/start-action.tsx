@@ -19,7 +19,7 @@ import { useToast } from "../../shell/toasts.tsx";
 import { UsageEstimateLine } from "../../shell/work/usage-estimate-line.tsx";
 import { QueuedMark, useQueueActions, useQueued } from "./queue-parts.tsx";
 import type { RecordAction } from "./record-actions.tsx";
-import { RunEnvironmentQuestion, useAskedProject } from "./run-environment-question.tsx";
+import { RunEnvironmentNote, useAskedProject } from "./run-environment-question.tsx";
 import { useStartPastUsageCapsAction } from "./start-past-usage-caps.tsx";
 
 interface StartStanding {
@@ -116,23 +116,27 @@ export function useStartActions(task: Task): RecordAction[] {
  */
 export function StartNotes({ task }: { readonly task: Task }): ReactNode {
   const { ready, check, queued, overlaps } = useStartStanding(task);
-  const askedProject = useAskedProject(task.projectId, ready && !queued);
+  // Asked on a queued Task too: Yes may have queued it behind the set-up it started.
+  const askedRunEnvironment = useAskedProject(task.projectId, ready);
   if (!ready) return null;
   if (queued) {
     return (
       <div className="task-head-notes">
         <QueuedMark queued={queued} />
+        {askedRunEnvironment?.kind === "setting-up" && (
+          <RunEnvironmentNote asked={askedRunEnvironment} />
+        )}
       </div>
     );
   }
   const checkNotes = check !== undefined && hasNote(check, overlaps);
-  if (!checkNotes && !askedProject) return null;
+  if (!checkNotes && !askedRunEnvironment) return null;
   return (
     <div className="task-head-notes">
       {overlaps.length > 0 && <OverlapNote overlaps={overlaps} />}
       {check && <HeldNote check={check} />}
       {check && <UsageEstimateLine estimate={check.usageEstimate} />}
-      {askedProject && <RunEnvironmentQuestion project={askedProject} />}
+      {askedRunEnvironment && <RunEnvironmentNote asked={askedRunEnvironment} />}
     </div>
   );
 }

@@ -2008,14 +2008,16 @@ test(
       await expect(block.getByText("devcontainer.json names no service")).toBeVisible();
 
       await block.getByRole("button", { name: "Set up run environment" }).click();
-      const taskLink = block.getByRole("link", { name: "Set up the run environment" });
-      await expect(taskLink).toBeVisible();
-      await expect(block).toContainText("Ready, waiting for your Start");
+      // An Off-board Task, started at once: no Ready, no Start; its status in place of the button.
+      const setUp = block.getByRole("region", { name: /^Set up the run environment · / });
+      await expect(setUp).toBeVisible();
+      await expect(block).not.toContainText("waiting for your Start");
       await expect(block.getByRole("button", { name: "Set up run environment" })).toHaveCount(0);
       await page.screenshot({ path: path.join(SCREENSHOTS, "project-run-environment.png") });
+      await screenshotScenario(page, "project-run-environment-off-board-task", { inView: setUp });
 
-      await taskLink.click();
-      await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]+$/);
+      await setUp.getByRole("link", { name: /^Open the (Task|Thread)$/ }).click();
+      await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]+(\?taskThread=[0-9a-f-]+)?$/);
     } finally {
       await ownRepository.remove();
     }

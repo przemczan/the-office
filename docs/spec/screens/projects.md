@@ -22,7 +22,7 @@ Covers: the Projects page (a card per Project, the Add a Project card, Ask Devop
 
 - The whole card is a link to the Project's page.
 - Head: the Project's Logo, its name, and its folder path in monospace.
-- At the head's end: the onboarding badge, **Onboarding** (info) or **Onboarded** (success), only for a Project with an Onboard Task.
+- At the head's end: the onboarding badge, **Onboarding** (info) or **Onboarded** (success), only for a Project with an Onboard Task, read from its latest one ([2.1.1](../2.1.1-projects.md#onboarding-a-project)).
 - Foot line (route icon): "Default Pipeline <name> · <publishing words>".
   - The Pipeline is the Project's default Pipeline by name; while the Pipeline list loads, or if the Pipeline is gone, its id.
   - Publishing words: "Merge into <base branch>" or "Push and open a pull request".
@@ -35,6 +35,7 @@ Covers: the Projects page (a card per Project, the Add a Project card, Ask Devop
 - Text otherwise: "Give its folder or git URL, base branch and commands. Script Stages run the commands in each Task's worktree."
 - Actions:
   - **Ask <name> to onboard one** (the Ask Devops button): opens a new Thread in the holder's chat with the draft "Can you onboard a new Project? The repository is " waiting. While nobody holds the duty, a note says so instead of the button.
+  - The Project Proposal's card in that chat notes "Adds the Project and starts its Onboard Task at once."; Apply toasts "<name> added. Its Onboard Task started at once." and the card then reads "Added <name>. Its Onboard Task started at once: follow it on the Project page.", the last words a link to the Project page ([2.1.1](../2.1.1-projects.md#onboarding-a-project)).
   - **Add it yourself**: opens the Add a Project window.
 
 ## Add a Project window
@@ -100,7 +101,7 @@ Covers: the Projects page (a card per Project, the Add a Project card, Ask Devop
   - **Commands**, hint "Optional. Leave any you don't know yet: set them later on the Project's page, or ask whoever onboards Projects.": inputs **Install** (placeholder `npm ci`), **Build** (`npm run build`), **Lint** (`npm run lint`), **Test** (`npm test`), all monospace and optional.
   - **Install inputs**, hint "Files whose change makes a worktree install again, separated by commas. With none, a worktree installs once.", placeholder `package-lock.json`.
   - **Publishing**: radios, "Push and open a pull request" (default) or "Merge into <base branch>" (or "the base branch" while it is blank).
-  - **Run this Project's checks in a run environment?**, hint "In the containers its .devcontainer/ defines. Until you decide, they run on this computer.": radios **Yes**, **No**, **Decide later** (picked first); the answer is sent with Add the Project.
+  - **Run this Project's checks in a run environment?**, hint "In the containers its .devcontainer/ defines. Until you decide, they run on this computer.": radios **Yes**, **No**, **Decide later** (picked first); the answer is sent with Add the Project, Yes acting as Set up run environment ([2.1.3](../2.1.3-tasks.md#setting-up-the-run-environment)).
 - A new Project starts with the commands Build, Lint and Test (keys `build`, `lint`, `test`), install blank and no install inputs.
 
 ## States

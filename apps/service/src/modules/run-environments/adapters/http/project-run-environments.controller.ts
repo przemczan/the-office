@@ -4,8 +4,10 @@ import {
   taskStateSchema,
   type ProjectRunEnvironment as ProjectRunEnvironmentResponse,
   type RunEnvironmentChange,
+  type RunEnvironmentSetUpAnswer,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { toOffBoardTaskStartResponse } from "../../../work/index.js";
 import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import {
   ProjectRunEnvironments,
@@ -32,12 +34,17 @@ export class ProjectRunEnvironmentsController {
     return toResponse(await this.runEnvironments.change(id, runEnvironment));
   }
 
+  /** On at once with a valid definition, else the start of its set-up Off-board Task. */
   @Post("set-up")
   async setUp(
     @Param("id") id: string,
     @SignedIn() signedIn: SignedIn,
-  ): Promise<ProjectRunEnvironmentResponse> {
-    return toResponse(await this.runEnvironments.setUp(id, userOf(signedIn)));
+  ): Promise<RunEnvironmentSetUpAnswer> {
+    const { runEnvironment, start } = await this.runEnvironments.setUp(id, userOf(signedIn));
+    return {
+      runEnvironment: toResponse(runEnvironment),
+      start: start ? toOffBoardTaskStartResponse(start) : null,
+    };
   }
 }
 

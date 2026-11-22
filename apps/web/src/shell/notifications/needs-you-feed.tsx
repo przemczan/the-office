@@ -18,6 +18,7 @@ import { clockOf } from "../time.ts";
 import { GateCard } from "../work/gate-card.tsx";
 import { waitingGateOf } from "../work/gate-words.ts";
 import { NeedsYouList } from "../work/needs-you-list.tsx";
+import { isOffBoardFailure, OffBoardFailedCard } from "./off-board-failed-card.tsx";
 import { StandInChoiceCard } from "./stand-in-choice-card.tsx";
 import "./notifications.css";
 
@@ -26,7 +27,9 @@ import "./notifications.css";
  * Decision and Gate cards, under the Task's title and Project, as nothing around them says which
  * Task it is, and a Decision on no Task in an Initiative's Thread under the Initiative's title and
  * Projects; The Office's own Decision on the Stages waiting for a Stand-in Engine, one card for
- * them all, its rows narrowed by the Project filter too. The same on Now and in the Needs you panel.
+ * them all, its rows narrowed by the Project filter too; an Off-board Task's out-of-tries Decision,
+ * once it is the user's, as its "Off-board Task failed" card with Retry. The same on Now and in the
+ * Needs you panel.
  */
 export function NeedsYouFeed({
   needsYou,
@@ -47,6 +50,9 @@ export function NeedsYouFeed({
       {shown.map((item) => {
         switch (item.kind) {
           case "decision":
+            if (isOffBoardFailure(item)) {
+              return <OffBoardFailedCard key={item.decisionId} item={item} projects={projects} />;
+            }
             return (
               <WaitingDecision
                 key={item.decisionId}

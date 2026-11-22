@@ -74,6 +74,9 @@ import {
   nowOf,
   sinceYouLeftOf,
   type Now,
+  type OffBoardTaskOnNow,
+  type OfficeTask,
+  type OpenDecision,
   type SinceYouLeft,
   type StartedTask,
   type TaskResume,
@@ -88,6 +91,7 @@ import { KnownPeople } from "../ports/known-people.js";
 import { OfficeDayFigures } from "../ports/office-day-figures.js";
 import { OfficeFireAlarm } from "../ports/office-fire-alarm.js";
 import { OfficeInitiatives } from "../ports/office-initiatives.js";
+import { OfficeOffBoardTasks } from "../ports/office-off-board-tasks.js";
 import { OfficeTasks } from "../ports/office-tasks.js";
 import { OfficeUpdateAvailable } from "../ports/office-update-available.js";
 import { OpenDecisions } from "../ports/open-decisions.js";
@@ -201,6 +205,7 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
     private readonly skillUpdates: SkillUpdatesFound,
     private readonly officeUpdate: OfficeUpdateAvailable,
     private readonly shapingReplies: ShapingReplies,
+    private readonly offBoardTasks: OfficeOffBoardTasks,
     private readonly schedule: Schedule,
     private readonly events: EventBus,
   ) {}
@@ -227,10 +232,20 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       this.proposals.waitingOnTheUser(),
     ]);
     const initiativesNow = this.initiatives.list();
+    const tasksNow = waitingOnTasks.then(([decisions, queue, proposals]) =>
+      this.tasks.findAll([
+        ...new Set([
+          ...decisions.flatMap(({ taskId }) => taskId ?? []),
+          ...queue.map(({ taskId }) => taskId),
+          ...proposals.flatMap(({ home }) => (home.kind === "task" ? home.taskId : [])),
+        ]),
+      ]),
+    );
     const [
       started,
       [openDecisions, queued, openProposals],
       tasks,
+      offBoardTasks,
       tokensToday,
       officeWideLimit,
       fireAlarm,
@@ -245,14 +260,9 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
     ] = await Promise.all([
       this.startedTasks(),
       waitingOnTasks,
-      waitingOnTasks.then(([decisions, queue, proposals]) =>
-        this.tasks.findAll([
-          ...new Set([
-            ...decisions.flatMap(({ taskId }) => taskId ?? []),
-            ...queue.map(({ taskId }) => taskId),
-            ...proposals.flatMap(({ home }) => (home.kind === "task" ? home.taskId : [])),
-          ]),
-        ]),
+      tasksNow,
+      Promise.all([waitingOnTasks, tasksNow]).then(([[decisions], all]) =>
+        this.offBoardTasksWaiting(decisions, all),
       ),
       this.figures.tokensOn(day),
       this.deskLimit.officeWideLimit(),
@@ -275,6 +285,7 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       openDecisions,
       queued,
       tasks,
+      offBoardTasks,
       initiatives,
       initiativeTasks,
       shaper,
@@ -294,6 +305,23 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       officeUpdate,
       shapingReplies,
     });
+  }
+
+  /**
+   * The Off-board Tasks waiting on the user with a Decision open, which may be a Stage's out of
+   * tries: Work tells which Task is one, and which of its Decisions is that one.
+   */
+  private async offBoardTasksWaiting(
+    decisions: readonly OpenDecision[],
+    tasks: readonly OfficeTask[],
+  ): Promise<OffBoardTaskOnNow[]> {
+    const deciding = new Set(decisions.flatMap(({ taskId }) => taskId ?? []));
+    const candidates = tasks.filter(
+      ({ id, state, madeFor }) =>
+        madeFor !== undefined && state === "waiting-on-you" && deciding.has(id),
+    );
+    const read = await readEach(candidates, ({ id }) => this.offBoardTasks.ofTask(id));
+    return read.flatMap((offBoardTask) => offBoardTask ?? []);
   }
 
   /**

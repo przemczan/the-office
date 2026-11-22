@@ -26,6 +26,7 @@ function decision(decisionId: string): NeedsYouItem {
     taskId: TASK_ID,
     projectId: "billing",
     waitingSince: "2026-11-13T09:00:00.000Z",
+    offBoardTask: null,
   };
 }
 const FIRST = decision("0b6a4f1e-6a55-4c1c-9d51-2f0d5a1c7e10");

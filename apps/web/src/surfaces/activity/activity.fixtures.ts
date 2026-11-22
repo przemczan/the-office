@@ -98,6 +98,31 @@ export function failedTaskItem(
   };
 }
 
+export const OFF_BOARD_TASK_ID = "4e5f6a7b-8c9d-4e0f-8a1b-2c3d4e5f6a7b";
+
+/** An Off-board Task's item, Onboard's unless the kind is given, at its Stage. */
+export function offBoardTaskItem(
+  overrides: Partial<ItemOf<"onboarding">> | Partial<ItemOf<"run-environment-set-up">> = {},
+): ItemOf<"onboarding"> | ItemOf<"run-environment-set-up"> {
+  const fields = {
+    id: `onboarding:${OFF_BOARD_TASK_ID}`,
+    projectId: "p1",
+    title: "Onboard",
+    since: minutesAgo(8),
+    ended: false,
+    endedAt: null,
+    link: { kind: "task", taskId: OFF_BOARD_TASK_ID },
+    taskId: OFF_BOARD_TASK_ID,
+    state: "in-progress",
+    stageName: "Onboard",
+    tokens: 212_000,
+    queued: null,
+  } as const;
+  return overrides.kind === "run-environment-set-up"
+    ? { ...fields, ...overrides, kind: "run-environment-set-up" }
+    : { ...fields, ...overrides, kind: "onboarding" };
+}
+
 export function minutesAgo(minutes: number): string {
   return new Date(NOW.getTime() - minutes * 60_000).toISOString();
 }

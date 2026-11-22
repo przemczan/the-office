@@ -35,6 +35,7 @@ import {
 } from "../../shell/notifications/now-words.ts";
 import { PersonAvatar } from "../../shell/person-avatar.tsx";
 import { ProjectChip } from "../../shell/project-chip.tsx";
+import { OffBoardTaskBadge } from "../../shell/work/off-board-task-badge.tsx";
 import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
 import { narrowed, type Narrowed } from "../../shell/project-filter/project-filter-choices.ts";
 import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
@@ -176,6 +177,7 @@ function RunningCard({
           <Link to="/tasks/$taskId" params={{ taskId: task.taskId }} className="now-item-title">
             {task.title}
           </Link>
+          <OffBoardTaskBadge madeFor={task.madeFor} />
           <ProjectChip projectId={task.projectId} projects={projects} />
           {task.state !== "in-progress" && (
             <Badge tone={TASK_STATE_TONES[task.state]}>
@@ -230,6 +232,7 @@ function QueueFeed({
               <Link to="/tasks/$taskId" params={{ taskId: task.taskId }} className="now-item-title">
                 {task.title}
               </Link>
+              <OffBoardTaskBadge madeFor={task.madeFor} />
               <ProjectChip projectId={task.projectId} projects={projects} />
             </div>
             <div className="now-item-sub">

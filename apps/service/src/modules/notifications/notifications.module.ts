@@ -28,6 +28,7 @@ import { OfficeDayFigures } from "./ports/office-day-figures.js";
 import { OfficeStatusCards } from "./ports/office-status-cards.js";
 import { OfficeFireAlarm } from "./ports/office-fire-alarm.js";
 import { OfficeInitiatives } from "./ports/office-initiatives.js";
+import { OfficeOffBoardTasks } from "./ports/office-off-board-tasks.js";
 import { OfficeTasks } from "./ports/office-tasks.js";
 import { OfficeUpdateAvailable } from "./ports/office-update-available.js";
 import { OfficeUsers } from "./ports/office-users.js";
@@ -68,6 +69,7 @@ export interface NotificationsModuleOptions {
   readonly officeUpdateAvailable: Type<OfficeUpdateAvailable>;
   readonly shapingReplies: Type<ShapingReplies>;
   readonly officeUsers: Type<OfficeUsers>;
+  readonly officeOffBoardTasks: Type<OfficeOffBoardTasks>;
 }
 
 /**
@@ -97,6 +99,7 @@ export class NotificationsModule {
     officeUpdateAvailable,
     shapingReplies,
     officeUsers,
+    officeOffBoardTasks,
   }: NotificationsModuleOptions): DynamicModule {
     return {
       module: NotificationsModule,
@@ -129,6 +132,7 @@ export class NotificationsModule {
         { provide: OfficeUpdateAvailable, useExisting: officeUpdateAvailable },
         { provide: ShapingReplies, useExisting: shapingReplies },
         { provide: OfficeUsers, useExisting: officeUsers },
+        { provide: OfficeOffBoardTasks, useExisting: officeOffBoardTasks },
         NowService,
         NotificationService,
         NotificationDelivery,

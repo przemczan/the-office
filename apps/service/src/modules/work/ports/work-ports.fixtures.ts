@@ -14,6 +14,7 @@ import {
   IssueTasks,
   IssueWriteBack,
   TaskBases,
+  TestTargetsSetUpTasks,
   type IssueDropReason,
   type NewProject,
   type TaskBaseLookup,
@@ -74,7 +75,7 @@ import {
   type TaskWorktree,
 } from "./project-worktrees.js";
 import { TaskPullRequests, type TaskPullRequest } from "./task-pull-requests.js";
-import { StageResults, type TaskStageResults } from "./stage-results.js";
+import { StageResults, type TaskStageResults, type TaskStageRunsOutline } from "./stage-results.js";
 import { TaskGates } from "./task-gates.js";
 import { ProposalDrafts, type WorkProposedChange } from "./proposal-drafts.js";
 import { SessionPeople } from "./session-people.js";
@@ -398,6 +399,16 @@ export class StageResultsForTests extends StageResults {
 
   async ofTask(taskId: string): Promise<AllStageResults> {
     return this.allResults.get(taskId) ?? { lines: [], handoverNotes: [] };
+  }
+
+  /** Each Task's Stages and runs, as a test sets them; none made and no run for any other Task. */
+  readonly outlines = new Map<string, Omit<TaskStageRunsOutline, "taskId">>();
+
+  async outlinesOf(taskIds: readonly string[]): Promise<readonly TaskStageRunsOutline[]> {
+    return taskIds.map((taskId) => ({
+      taskId,
+      ...(this.outlines.get(taskId) ?? { stages: undefined, runs: [] }),
+    }));
   }
 }
 
@@ -899,6 +910,7 @@ const PORTS = [
   TaskBasesForTests,
   { provide: TaskBases, useExisting: TaskBasesForTests },
   IssueTasks,
+  TestTargetsSetUpTasks,
   IssueWriteBackForTests,
   { provide: IssueWriteBack, useExisting: IssueWriteBackForTests },
 ];

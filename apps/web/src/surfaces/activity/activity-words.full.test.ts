@@ -7,6 +7,8 @@ import {
   INITIATIVE_ID,
   minutesAgo,
   NOW,
+  OFF_BOARD_TASK_ID,
+  offBoardTaskItem,
   TASK_ID,
   taskItem,
   testInstanceItem,
@@ -17,6 +19,7 @@ import {
   detailWords,
   groupedActivity,
   inStateWords,
+  kindWords,
   spanWords,
   stateWords,
 } from "./activity-words.ts";
@@ -29,6 +32,7 @@ const EVERY_KIND: readonly ActivityItemKind[] = [
   "ci-run",
   "environment-check",
   "onboarding",
+  "run-environment-set-up",
   "connected-device",
   "pull-request",
 ];
@@ -39,7 +43,7 @@ describe("Activity's groups", () => {
       "Tasks",
       "Test instances",
       "CI runs",
-      "Environment checks and Onboarding",
+      "Off-board Tasks and environment checks",
       "Connected devices",
       "Pull requests",
       "Stalled Tasks",
@@ -57,7 +61,7 @@ describe("Activity's groups", () => {
 
     expect(groups.map(({ group }) => group.title)).toEqual([
       "Tasks",
-      "Environment checks and Onboarding",
+      "Off-board Tasks and environment checks",
     ]);
     expect(groups[0]?.items.map(({ id }) => id)).toEqual(["newer", "older", "done"]);
   });
@@ -92,6 +96,57 @@ describe("an Activity item's words", () => {
     expect(detailWords(failedTaskItem())).toBe("Failed in Tests");
     expect(detailWords(testInstanceItem())).toBe("office/add-a-filter");
     expect(detailWords(taskItem())).toBeUndefined();
+  });
+});
+
+describe("an Off-board Task's item", () => {
+  it("is listed with the environment checks, never in Stalled Tasks, whatever its state", () => {
+    const failed = offBoardTaskItem({ state: "failed", stageName: "Verify" });
+    const setUp = offBoardTaskItem({ kind: "run-environment-set-up", id: "set-up" });
+
+    const groups = groupedActivity([failed, setUp, environmentCheckItem()]);
+
+    expect(groups.map(({ group }) => group.title)).toEqual([
+      "Off-board Tasks and environment checks",
+    ]);
+  });
+
+  it("names its kind and says its state, Running at a desk", () => {
+    expect(kindWords(offBoardTaskItem())).toBe("Onboarding run");
+    expect(kindWords(offBoardTaskItem({ kind: "run-environment-set-up" }))).toBe(
+      "Run environment set-up",
+    );
+    expect(kindWords(taskItem())).toBeUndefined();
+    expect(inStateWords(offBoardTaskItem(), NOW)).toBe("Running for 8 min");
+    expect(stateWords(offBoardTaskItem({ state: "failed" }))).toEqual({
+      label: "Failed",
+      tone: "danger",
+    });
+    expect(stateWords(offBoardTaskItem({ state: "queued" })).label).toBe("Queued");
+  });
+
+  it("adds its Stage and tokens, or its place in the queue while queued", () => {
+    expect(detailWords(offBoardTaskItem())).toBe("Onboard · 212k tokens");
+    expect(detailWords(offBoardTaskItem({ stageName: "Verify", tokens: 1_400_000 }))).toBe(
+      "Verify · 1.4M tokens",
+    );
+    expect(
+      detailWords(
+        offBoardTaskItem({
+          state: "queued",
+          stageName: null,
+          tokens: 0,
+          queued: { place: 1, shortReasons: ["Project limit reached (1)"] },
+        }),
+      ),
+    ).toBe("Place 1 · Project limit reached (1)");
+  });
+
+  it("leads to its Task's page", () => {
+    expect(activityPlaceOf(offBoardTaskItem({ kind: "run-environment-set-up" }))).toEqual({
+      kind: "task",
+      taskId: OFF_BOARD_TASK_ID,
+    });
   });
 });
 

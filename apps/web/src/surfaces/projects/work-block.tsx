@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { PROJECT_LIMIT_MAX, type Project, type TaskSummary } from "@the-office/contracts";
+import {
+  isOffBoardTask,
+  PROJECT_LIMIT_MAX,
+  type Project,
+  type TaskSummary,
+} from "@the-office/contracts";
 import { Stepper } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { changeProjectLimit, projectQueries } from "../../api/projects.ts";
@@ -26,15 +31,17 @@ const TILES: readonly Tile[] = [
 ];
 
 /**
- * How many of the Project's Tasks are where, with the board one click away, and how many may run
- * at once.
+ * How many of the Project's Tasks are where, Off-board Tasks left out, with the board one click
+ * away, and how many may run at once.
  */
 export function WorkBlock({ project }: { readonly project: Project }): ReactNode {
   const tasks = useQuery(taskQueries.list());
   const projects = useQuery(projectQueries.list());
   const { choose } = useProjectFilter();
   const waitsOnYou = useWaitingOnYou();
-  const ofProject = tasks.data?.filter((task) => task.projectId === project.id) ?? [];
+  // Off-board Tasks show on the Onboarding and Run environment cards instead.
+  const ofProject =
+    tasks.data?.filter((task) => task.projectId === project.id && !isOffBoardTask(task)) ?? [];
   return (
     <ProjectBlock
       icon="kanban"
@@ -71,6 +78,11 @@ export function WorkBlock({ project }: { readonly project: Project }): ReactNode
           </div>
         ))}
       </div>
+      <p className="project-block-note">
+        Off-board Tasks aren&apos;t counted here: the Onboarding and Run environment cards show
+        them. They still take a running slot under &ldquo;Running Tasks at once in this
+        Project&rdquo;.
+      </p>
       <ProjectLimitRow project={project} />
     </ProjectBlock>
   );

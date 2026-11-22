@@ -1,4 +1,6 @@
 import {
+  offBoardTaskKindSchema,
+  TASK_MADE_FOR,
   taskHolderSchema,
   taskStateSchema,
   type Now as NowResponse,
@@ -21,7 +23,11 @@ export function toNowResponse(now: Now): NowResponse {
     needsYou: now.needsYou.map(toNeedsYouResponse),
     waitingForYou: now.waitingForYou.map(toWaitingForYouResponse),
     running: now.running.map(toRunningResponse),
-    queue: now.queue.map(({ reasons, ...queued }) => ({ ...queued, reasons: [...reasons] })),
+    queue: now.queue.map(({ reasons, madeFor, ...queued }) => ({
+      ...queued,
+      madeFor: toMadeForResponse(madeFor),
+      reasons: [...reasons],
+    })),
     shaping: now.shaping.map(({ projectIds, shapedBy, since, ...initiative }) => ({
       ...initiative,
       projectIds: [...projectIds],
@@ -58,9 +64,33 @@ function toUsageWindowResponse({
 
 function toNeedsYouResponse(item: NeedsYouItem): NowResponse["needsYou"][number] {
   const waitingSince = item.waitingSince.toISOString();
-  return item.kind === "initiative-decision" || item.kind === "stand-in-choice"
-    ? { ...item, projectIds: [...item.projectIds], waitingSince }
-    : { ...item, waitingSince };
+  switch (item.kind) {
+    case "initiative-decision":
+    case "stand-in-choice":
+      return { ...item, projectIds: [...item.projectIds], waitingSince };
+    case "decision": {
+      const { offBoardTask, ...decision } = item;
+      return {
+        ...decision,
+        waitingSince,
+        offBoardTask: offBoardTask
+          ? {
+              kind: offBoardTaskKindSchema.parse(offBoardTask.kind),
+              title: offBoardTask.title,
+              stageName: offBoardTask.stageName,
+              error: offBoardTask.error ?? null,
+            }
+          : null,
+      };
+    }
+    case "gate":
+      return { ...item, waitingSince };
+  }
+}
+
+/** What The Office made the Task for, one of the contracts' kinds, or null for none. */
+function toMadeForResponse(madeFor: string | undefined): NowResponse["queue"][number]["madeFor"] {
+  return TASK_MADE_FOR.find((kind) => kind === madeFor) ?? null;
 }
 
 type WaitingForYouResponse = NowResponse["waitingForYou"][number];
@@ -103,10 +133,12 @@ function toRunningResponse({
   state,
   pausedBy,
   resumesAt,
+  madeFor,
   ...task
 }: RunningTask): NowResponse["running"][number] {
   return {
     ...task,
+    madeFor: toMadeForResponse(madeFor),
     state: taskStateSchema.parse(state),
     pausedBy: pausedBy === undefined ? null : taskHolderSchema.parse(pausedBy),
     resumesAt: resumesAt?.toISOString() ?? null,

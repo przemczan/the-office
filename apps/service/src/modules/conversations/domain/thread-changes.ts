@@ -89,23 +89,29 @@ export interface ChatPerson {
 
 /**
  * A fresh Thread in the person's chat: a new session underneath once they answer, with no context
- * from the Threads before it. Refused when the person's Chat is off.
+ * from the Threads before it. Untitled until its first message unless The Office gives it `title`,
+ * as the Project page's Set up test targets does. Refused when the person's Chat is off.
  */
 export function startChatThread(
   id: string,
   person: ChatPerson,
   startedAt: Date,
+  title?: string,
 ): { readonly thread: Thread; readonly event: ThreadStarted } {
   if (!person.chat) {
     throw new ThreadRefused([
       `Chat is off for ${person.name}: talk to them on a Task, or turn Chat on on their Role card.`,
     ]);
   }
+  if (title !== undefined) {
+    const problems = titleProblems(title);
+    if (problems.length > 0) throw new ThreadRefused(problems);
+  }
   const thread: Thread = {
     id,
     home: { kind: "chat", roleKey: person.roleKey },
     roleKey: person.roleKey,
-    title: undefined,
+    title: title?.trim(),
     state: "waiting",
     session: undefined,
     override: undefined,

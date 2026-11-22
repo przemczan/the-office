@@ -70,3 +70,9 @@
     padding: 14px;
   }
 }
+
+/* Which Off-board Task an item is, after its state. */
+.activity-item-kind {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}

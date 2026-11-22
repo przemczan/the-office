@@ -22,10 +22,19 @@ import {
   PullRequestsChecked,
 } from "../../projects/index.js";
 import { TestInstanceLaunched, TestInstanceStateChanged } from "../../test-instances/index.js";
-import { TaskResumed, TaskStateChanged, TaskStopped } from "../../work/index.js";
+import {
+  TaskLeftQueue,
+  TaskMovedUpInQueue,
+  TaskQueued,
+  TaskQueueReasonsChanged,
+  TaskResumed,
+  TaskStateChanged,
+  TaskStopped,
+} from "../../work/index.js";
 import {
   activityOf,
   endedCutOf,
+  isOffBoard,
   seenCutOf,
   type Activity,
   type ActivityParts,
@@ -36,7 +45,7 @@ import { ActivityCiRuns } from "../ports/activity-ci-runs.js";
 import { ActivityDecisions } from "../ports/activity-decisions.js";
 import { ActivityDevices } from "../ports/activity-devices.js";
 import { ActivityEnvironmentChecks } from "../ports/activity-environment-checks.js";
-import { ActivityOnboardings } from "../ports/activity-onboardings.js";
+import { ActivityOffBoardTasks } from "../ports/activity-off-board-tasks.js";
 import { ActivityPullRequests } from "../ports/activity-pull-requests.js";
 import { ActivitySeenRepository } from "../ports/activity-seen-repository.js";
 import { ActivityStages } from "../ports/activity-stages.js";
@@ -48,6 +57,11 @@ const SOURCE_CHANGES: readonly DomainEventClass[] = [
   TaskStateChanged,
   TaskStopped,
   TaskResumed,
+  // An Off-board Task's place in the queue and its reasons.
+  TaskQueued,
+  TaskLeftQueue,
+  TaskQueueReasonsChanged,
+  TaskMovedUpInQueue,
   StageRunStarted,
   StageRunEnded,
   DecisionOpened,
@@ -81,7 +95,7 @@ export class ActivityService implements OnModuleInit, OnModuleDestroy {
     private readonly tasks: ActivityTasks,
     private readonly stages: ActivityStages,
     private readonly decisions: ActivityDecisions,
-    private readonly onboardings: ActivityOnboardings,
+    private readonly offBoardTasks: ActivityOffBoardTasks,
     private readonly testInstances: ActivityTestInstances,
     private readonly ciRuns: ActivityCiRuns,
     private readonly environmentChecks: ActivityEnvironmentChecks,
@@ -127,7 +141,7 @@ export class ActivityService implements OnModuleInit, OnModuleDestroy {
       started,
       done,
       openDecisions,
-      onboardings,
+      offBoardTasks,
       testInstances,
       environmentChecks,
       devices,
@@ -136,7 +150,7 @@ export class ActivityService implements OnModuleInit, OnModuleDestroy {
       this.startedTasks(),
       this.tasks.doneSince(cut).then((ids) => this.tasks.findAll(ids)),
       this.decisions.listOpen(),
-      this.onboardings.list(),
+      this.offBoardTasks.listAll(),
       this.testInstances.activity(cut),
       this.environmentChecks.latestOfAll(),
       this.devices.open(),
@@ -146,7 +160,7 @@ export class ActivityService implements OnModuleInit, OnModuleDestroy {
       started,
       done: done.filter(({ state }) => state === "done"),
       openDecisionTaskIds: new Set(openDecisions.flatMap(({ taskId }) => taskId ?? [])),
-      onboardings,
+      offBoardTasks,
       testInstances,
       ciRuns: this.ciRuns.list().runs,
       environmentChecks,
@@ -156,7 +170,9 @@ export class ActivityService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async startedTasks(): Promise<StartedActivityTask[]> {
-    return readEach(await this.tasks.started(), async (task) => {
+    // An Off-board Task is listed as its own kind, from what Work reads of it.
+    const started = (await this.tasks.started()).filter((task) => !isOffBoard(task));
+    return readEach(started, async (task) => {
       const [stateChanges, progress] = await Promise.all([
         this.tasks.stateChangesOf(task.id),
         this.stages.progress(task.id),

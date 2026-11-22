@@ -1,5 +1,10 @@
-import type { ActivityItem, ActivityItemKind } from "@the-office/contracts";
+import type {
+  ActivityItem,
+  ActivityItemKind,
+  ActivityOffBoardTaskState,
+} from "@the-office/contracts";
 import { CI_RUN_STATUS_WORDS } from "../../shell/ci-run-status-words.ts";
+import { tokensShort } from "../../shell/conversation/context-words.ts";
 import { DEVICE_STATE_TONES, DEVICE_STATE_WORDS } from "../../shell/device-state-words.ts";
 import { ENVIRONMENT_CHECK_STATE_WORDS } from "../../shell/environment-check-words.ts";
 import {
@@ -29,10 +34,10 @@ export const ACTIVITY_GROUPS: readonly ActivityGroup[] = [
   },
   { key: "ci-runs", title: "CI runs", icon: "workflow", kinds: ["ci-run"] },
   {
-    key: "environment-checks",
-    title: "Environment checks and Onboarding",
+    key: "off-board-tasks",
+    title: "Off-board Tasks and environment checks",
     icon: "wrench",
-    kinds: ["environment-check", "onboarding"],
+    kinds: ["onboarding", "run-environment-set-up", "environment-check"],
   },
   {
     key: "connected-devices",
@@ -84,8 +89,10 @@ export interface StateWords {
 export function stateWords(item: ActivityItem): StateWords {
   switch (item.kind) {
     case "task":
-    case "onboarding":
       return { label: TASK_STATE_NAMES[item.state], tone: TASK_STATE_TONES[item.state] };
+    case "onboarding":
+    case "run-environment-set-up":
+      return OFF_BOARD_TASK_STATE_WORDS[item.state];
     case "failed-task":
       return { label: "Failed", tone: "danger" };
     case "stopped-task":
@@ -105,6 +112,32 @@ export function stateWords(item: ActivityItem): StateWords {
       return { label: DEVICE_STATE_WORDS[item.state], tone: DEVICE_STATE_TONES[item.state] };
     case "pull-request":
       return { label: "Ready to merge", tone: "success" };
+  }
+}
+
+/** An Off-board Task's states, as its item's badge says them: at a desk it is Running. */
+const OFF_BOARD_TASK_STATE_WORDS: Readonly<Record<ActivityOffBoardTaskState, StateWords>> = {
+  queued: { label: "Queued", tone: "info" },
+  "in-progress": { label: "Running", tone: TASK_STATE_TONES["in-progress"] },
+  "waiting-on-you": {
+    label: TASK_STATE_NAMES["waiting-on-you"],
+    tone: TASK_STATE_TONES["waiting-on-you"],
+  },
+  paused: { label: TASK_STATE_NAMES.paused, tone: TASK_STATE_TONES.paused },
+  failed: { label: "Failed", tone: "danger" },
+  done: { label: TASK_STATE_NAMES.done, tone: TASK_STATE_TONES.done },
+  dropped: { label: TASK_STATE_NAMES.dropped, tone: TASK_STATE_TONES.dropped },
+};
+
+/** Which Off-board Task an item is, beside its state; none for every other kind. */
+export function kindWords(item: ActivityItem): string | undefined {
+  switch (item.kind) {
+    case "onboarding":
+      return "Onboarding run";
+    case "run-environment-set-up":
+      return "Run environment set-up";
+    default:
+      return undefined;
   }
 }
 
@@ -133,9 +166,25 @@ export function detailWords(item: ActivityItem): string | undefined {
       return item.branch ?? undefined;
     case "pull-request":
       return `#${item.number}`;
+    case "onboarding":
+    case "run-environment-set-up":
+      return offBoardDetailWords(item);
     default:
       return undefined;
   }
+}
+
+/**
+ * An Off-board Task's line: its queue place and short reasons while queued, else the Stage it is
+ * at or failed at and its tokens so far.
+ */
+function offBoardDetailWords(
+  item: Extract<ActivityItem, { kind: "onboarding" | "run-environment-set-up" }>,
+): string | undefined {
+  if (item.queued) return [`Place ${item.queued.place}`, ...item.queued.shortReasons].join(" · ");
+  const tokens = item.tokens > 0 ? `${tokensShort(item.tokens)} tokens` : undefined;
+  const parts = [item.stageName, tokens].filter((part) => part !== undefined && part !== null);
+  return parts.length > 0 ? parts.join(" · ") : undefined;
 }
 
 /** Where an item lives in The Office, and its page on the code host when it has one. */
@@ -153,6 +202,7 @@ export function activityPlaceOf(item: ActivityItem): ActivityPlace {
     case "failed-task":
     case "stopped-task":
     case "onboarding":
+    case "run-environment-set-up":
     case "connected-device":
       return { kind: "task", taskId: item.taskId };
     case "test-instance":

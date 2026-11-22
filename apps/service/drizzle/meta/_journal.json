@@ -1359,6 +1359,20 @@
       "when": 1795352852972,
       "tag": "0193_task_branch_deletion",
       "breakpoints": true
+    },
+    {
+      "idx": 194,
+      "version": "7",
+      "when": 1795359806702,
+      "tag": "0194_open_onboard_task_per_project",
+      "breakpoints": true
+    },
+    {
+      "idx": 195,
+      "version": "7",
+      "when": 1795361511423,
+      "tag": "0195_test_targets_chats",
+      "breakpoints": true
     }
   ]
 }

@@ -85,8 +85,8 @@ import {
 import {
   FireAlarmService,
   InitiativeService,
+  OffBoardTaskReader,
   OfficeLimits,
-  OnboardingService,
   QueueService,
   StageScreenshots,
   TaskRecords,
@@ -255,6 +255,7 @@ export class AppModule {
       officeUpdateAvailable: OfficeUpdates,
       shapingReplies: ThreadService,
       officeUsers: Users,
+      officeOffBoardTasks: OffBoardTaskReader,
     });
     // Work's Tasks and the run environments their devices are relayed into.
     const devices = DevicesModule.register({ imports: [work, projects, runEnvironments] });
@@ -273,7 +274,7 @@ export class AppModule {
           tasks: TaskService,
           stages: TaskStagesService,
           decisions: DecisionService,
-          onboardings: OnboardingService,
+          offBoardTasks: OffBoardTaskReader,
           testInstances: TestInstances,
           ciRuns: CiRunWatch,
           environmentChecks: EnvironmentChecks,

@@ -55,6 +55,11 @@ export const NINA_ROLE_CARDS: Partial<RoleCards> = {
   // Nina holds the duties Devops holds by default, such as onboarding Projects.
   holderOf: (duty) => Promise.resolve(devopsDuty(duty) ? DEVOPS : undefined),
   dutyRoleKey: (duty) => Promise.resolve(devopsDuty(duty) ? DEVOPS : undefined),
+  // What Start weighs an Onboard Task's Stages by, as applying a Project starts it at once.
+  dutyHolders: () =>
+    Promise.resolve(
+      new Map(DUTIES.flatMap(({ key }) => (devopsDuty(key) ? [[key, DEVOPS] as const] : []))),
+    ),
 };
 
 function devopsDuty(duty: DutyKey): boolean {
@@ -119,18 +124,29 @@ export class DevopsChat {
   async ninaProposes(
     ...calls: readonly (readonly [string, Record<string, unknown>])[]
   ): Promise<readonly Proposal[]> {
+    return this.ninaProposesIn(undefined, ...calls);
+  }
+
+  /**
+   * As `ninaProposes`, in the chat Thread `threadId` already started, such as the Project page's
+   * Set up test targets chat; a new one when undefined.
+   */
+  async ninaProposesIn(
+    threadId: string | undefined,
+    ...calls: readonly (readonly [string, Record<string, unknown>])[]
+  ): Promise<readonly Proposal[]> {
     const sessionsBefore = this.engine.sessions.length;
     this.engine.queue([
       { step: "start", brief: { id: "brief", text: "" } },
       ...calls.flatMap(([tool, input], index) => toolCall(`c-${index}`, tool, input)),
       ...endsTurn("Here are the cards."),
     ]);
-    const threadId = await this.askNina("Tidy up the commands, please.");
+    const askedIn = await this.askNina("Tidy up the commands, please.", threadId);
     const proposals = this.app.get(ProposalService, { strict: false });
     // The scripted turn may end before its Office tools finish drafting.
     const drafted = await vi.waitFor(
       async () => {
-        const inThread = await proposals.listInThread(threadId);
+        const inThread = await proposals.listInThread(askedIn);
         if (inThread.length >= calls.length) return inThread;
         // A refused draft never arrives: name the refusal rather than wait it out as slowness.
         const refusal = this.reportedSince(sessionsBefore).find(
@@ -173,11 +189,12 @@ export class DevopsChat {
     });
   }
 
-  /** A new chat Thread with Nina, sent `message`; its id. */
-  private async askNina(message: string): Promise<string> {
-    const started = await this.app.get(ThreadService, { strict: false }).startInChat(DEVOPS);
-    await this.app.get(ThreadRunner, { strict: false }).send(started.id, message, ANN_LEE);
-    return started.id;
+  /** The chat Thread `threadId`, or a new one with Nina, sent `message`; its id. */
+  private async askNina(message: string, threadId?: string): Promise<string> {
+    const asked =
+      threadId ?? (await this.app.get(ThreadService, { strict: false }).startInChat(DEVOPS)).id;
+    await this.app.get(ThreadRunner, { strict: false }).send(asked, message, ANN_LEE);
+    return asked;
   }
 
   private reportedSince(sessionsBefore: number) {

@@ -4,7 +4,13 @@ import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { closePage, openPage, stubService, until } from "../../shell/page.fixtures.tsx";
 import { PROJECT_FILTER_STORAGE_KEY } from "../../shell/project-filter/project-filter-store.ts";
-import { environmentCheckItem, failedTaskItem, taskItem } from "./activity.fixtures.ts";
+import {
+  environmentCheckItem,
+  failedTaskItem,
+  OFF_BOARD_TASK_ID,
+  offBoardTaskItem,
+  taskItem,
+} from "./activity.fixtures.ts";
 import { ActivityPage } from "./activity-page.tsx";
 import { SEEN_AFTER_MS } from "./use-marking-seen.ts";
 
@@ -86,7 +92,7 @@ describe("the Activity page", () => {
     await until(() => expect(cards(page)).toHaveLength(3));
     expect(sectionTitles(page)).toEqual([
       "Tasks1",
-      "Environment checks and Onboarding1",
+      "Off-board Tasks and environment checks1",
       "Stalled Tasks1",
     ]);
     const task = cards(page)[0];
@@ -95,6 +101,31 @@ describe("the Activity page", () => {
       "/tasks/3f2a1b0c-4d5e-4f6a-8b7c-9d0e1f2a3b4c",
     );
     expect(task?.textContent).toContain("In progress for ");
+  });
+
+  it("shows an Off-board Task by its kind, with its Stage and tokens, leading to its Task", async () => {
+    stubService({
+      "GET /api/activity": () => ({
+        status: 200,
+        body: activityOf([
+          offBoardTaskItem({
+            kind: "run-environment-set-up",
+            title: "Set up the run environment",
+            stageName: "Set up",
+          }),
+        ]),
+      }),
+    });
+
+    const { page } = await openPage("/activity", { activity: ActivityPage });
+
+    await until(() => expect(cards(page)).toHaveLength(1));
+    expect(sectionTitles(page)).toEqual(["Off-board Tasks and environment checks1"]);
+    const card = cards(page)[0];
+    expect(card?.getAttribute("aria-label")).toBe("Running: Set up the run environment");
+    expect(card?.textContent).toContain("Run environment set-up");
+    expect(card?.textContent).toContain("Set up · 212k tokens");
+    expect(card?.querySelector("a")?.getAttribute("href")).toBe(`/tasks/${OFF_BOARD_TASK_ID}`);
   });
 
   it("follows the Project filter, counting what it leaves out", async () => {

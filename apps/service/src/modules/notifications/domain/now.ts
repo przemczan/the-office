@@ -15,6 +15,8 @@ export interface OfficeTask {
   readonly pausedBy: string | undefined;
   /** When a Task the usage window paused resumes by itself; undefined otherwise. */
   readonly resumesAt: Date | undefined;
+  /** What The Office made it for, if anything, such as `onboard` for an Off-board Task. */
+  readonly madeFor?: string | undefined;
 }
 
 /** An Initiative as Now reads it, from Work. */
@@ -82,6 +84,33 @@ export interface OpenDecision {
   readonly askedAt: Date;
 }
 
+/**
+ * An Off-board Task as Needs you reads it, from Work (spec §2.1, "Off-board Tasks"): `failed`
+ * while a Stage out of tries has its Decision open (`decisionId`), `withCto` while the CTO still has
+ * it; any other state carries none of these.
+ */
+export interface OffBoardTaskOnNow {
+  readonly taskId: string;
+  /** `onboard` or `run-environment-setup`. */
+  readonly kind: string;
+  readonly title: string;
+  readonly status: {
+    readonly state: string;
+    readonly stageName?: string;
+    readonly error?: string | undefined;
+    readonly decisionId?: string | undefined;
+    readonly withCto?: boolean;
+  };
+}
+
+/** An Off-board Task's Stage out of tries, whose Decision is now the user's. */
+export interface OffBoardTaskFailure {
+  readonly kind: string;
+  readonly title: string;
+  readonly stageName: string;
+  readonly error: string | undefined;
+}
+
 /** One of a started Task's Stages with where it stands and its runs, oldest first, from Pipelines. */
 export interface StageOfTask {
   readonly stage: {
@@ -118,6 +147,11 @@ export interface WaitingDecision {
   /** The Task's, so the Project filter can narrow what waits. */
   readonly projectId: string;
   readonly waitingSince: Date;
+  /**
+   * Set for an Off-board Task's out-of-tries Decision once it is the user's, the CTO having handed
+   * it on; undefined for any other Decision, an Off-board Task's other questions too.
+   */
+  readonly offBoardTask: OffBoardTaskFailure | undefined;
 }
 
 /** A Decision on no Task, waiting in an Initiative's shaping or planning Thread. */
@@ -317,6 +351,8 @@ export interface RunningTask {
   readonly resumesAt: Date | undefined;
   /** Undefined before its first Stage run. */
   readonly stage: CurrentStage | undefined;
+  /** As `OfficeTask.madeFor` says. */
+  readonly madeFor: string | undefined;
 }
 
 export interface FinishedTask {
@@ -338,6 +374,8 @@ export interface QueuedTask {
   readonly taskId: string;
   readonly title: string;
   readonly projectId: string;
+  /** As `OfficeTask.madeFor` says. */
+  readonly madeFor: string | undefined;
   readonly place: number;
   readonly reasons: readonly string[];
 }
@@ -443,6 +481,8 @@ export interface NowParts {
   readonly queued: readonly QueuedOnNow[];
   /** The Tasks the open Decisions and the queue name, at least. */
   readonly tasks: readonly OfficeTask[];
+  /** The Off-board Tasks among those waiting on the user with a Decision open, at least. */
+  readonly offBoardTasks: readonly OffBoardTaskOnNow[];
   readonly initiatives: readonly OfficeInitiative[];
   /** Each Initiative's Tasks, by the Initiative's id. */
   readonly initiativeTasks: ReadonlyMap<string, readonly InitiativeTask[]>;
@@ -478,6 +518,7 @@ export function nowOf(parts: NowParts): Now {
     pausedBy: task.pausedBy,
     resumesAt: task.resumesAt,
     stage: stages && currentStageOf(stages),
+    madeFor: task.madeFor,
   }));
   return {
     needsYou: needsYouOf(parts, gates),
@@ -567,7 +608,16 @@ function queueOf(queued: readonly QueuedOnNow[], tasks: readonly OfficeTask[]): 
   return queued.flatMap(({ taskId, reasons }, index) => {
     const task = tasks.find(({ id }) => id === taskId);
     if (!task) return [];
-    return [{ taskId, title: task.title, projectId: task.projectId, place: index + 1, reasons }];
+    return [
+      {
+        taskId,
+        title: task.title,
+        projectId: task.projectId,
+        madeFor: task.madeFor,
+        place: index + 1,
+        reasons,
+      },
+    ];
   });
 }
 
@@ -615,10 +665,11 @@ export function currentStageOf(stages: readonly StageOfTask[]): CurrentStage | u
  * knows or that ended (Done or Dropped).
  */
 function needsYouOf(
-  { openDecisions, tasks, initiatives, initiativeTasks, standInChoices }: NowParts,
+  { openDecisions, tasks, offBoardTasks, initiatives, initiativeTasks, standInChoices }: NowParts,
   gates: readonly WaitingGate[],
 ): NeedsYouItem[] {
   const tasksById = new Map(tasks.map((task) => [task.id, task]));
+  const failures = offBoardFailuresOf(offBoardTasks);
   const initiativesById = new Map(initiatives.map((initiative) => [initiative.id, initiative]));
   const waiting: NeedsYouItem[] = [
     ...openDecisions.flatMap(({ id, threadId, taskId, initiativeId, askedAt }): NeedsYouItem[] => {
@@ -632,6 +683,7 @@ function needsYouOf(
                 taskId,
                 projectId: task.projectId,
                 waitingSince: askedAt,
+                offBoardTask: failures.get(id),
               },
             ]
           : [];
@@ -654,6 +706,25 @@ function needsYouOf(
   ];
   return waiting.toSorted(
     (one, other) => one.waitingSince.getTime() - other.waitingSince.getTime(),
+  );
+}
+
+/**
+ * Each Off-board Task's out-of-tries Decision that is now the user's, by the Decision's id: the CTO,
+ * asked first, has handed it on.
+ */
+function offBoardFailuresOf(
+  offBoardTasks: readonly OffBoardTaskOnNow[],
+): ReadonlyMap<string, OffBoardTaskFailure> {
+  return new Map(
+    offBoardTasks.flatMap(({ kind, title, status }): [string, OffBoardTaskFailure][] =>
+      status.state === "failed" &&
+      status.decisionId !== undefined &&
+      status.stageName !== undefined &&
+      status.withCto === false
+        ? [[status.decisionId, { kind, title, stageName: status.stageName, error: status.error }]]
+        : [],
+    ),
   );
 }
 

@@ -1,12 +1,45 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { EditedTestTarget, Project, TaskState, TestTarget } from "@the-office/contracts";
+import type {
+  EditedTestTarget,
+  Project,
+  ProjectTestTargetsChat,
+  Role,
+  TaskState,
+  TestTarget,
+} from "@the-office/contracts";
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../shell/toasts.tsx";
 import { TestTargetsBlock } from "./test-targets-block.tsx";
 
-vi.mock("../../shell/ask-devops.tsx", () => ({ useDevops: () => undefined }));
+const held = vi.hoisted(() => ({
+  devops: undefined as
+    { key: string; card: { name: string; capabilities: { chat: boolean } } } | undefined,
+  opened: [] as { thread: { id: string; roleKey: string }; draft: string }[],
+}));
+
+vi.mock("../../shell/ask-devops.tsx", () => ({ useDevops: () => held.devops }));
+vi.mock("../../shell/use-duty-holder.ts", () => ({
+  useDutyHolder: () => ({
+    holder: held.devops,
+    label: "Onboards and repairs Projects",
+    fallback: held.devops ? undefined : "unstaffed",
+  }),
+}));
+vi.mock("../../shell/use-hired.ts", () => ({
+  useHired: (roleKey: string | undefined) =>
+    roleKey === held.devops?.key ? (held.devops as unknown as Role) : undefined,
+}));
+vi.mock("../../shell/chat/ask-in-chat.tsx", () => ({
+  useOpenWithDraft:
+    () =>
+    (thread: { id: string; roleKey: string }, draft: string): Promise<void> => {
+      held.opened.push({ thread, draft });
+      return Promise.resolve();
+    },
+}));
+vi.mock("../../shell/chat/use-chat.tsx", () => ({ useChat: () => ({ open: () => undefined }) }));
 vi.mock("../../shell/use-user-name.ts", () => ({ useSignedInUserId: () => "u1" }));
 vi.mock("@tanstack/react-router", () => ({
   Link: ({
@@ -63,6 +96,8 @@ const PROJECT: Project = {
 };
 
 afterEach(() => {
+  held.devops = undefined;
+  held.opened.length = 0;
   vi.unstubAllGlobals();
   document.body.innerHTML = "";
 });
@@ -73,16 +108,19 @@ const TASK: { id: string; title: string; state: TaskState } = {
   state: "ready",
 };
 
-/** Answers each request by its method and path. */
-function serving(openTask: typeof TASK | null) {
+const DWIGHT = { key: "devops", card: { name: "Dwight", capabilities: { chat: true } } };
+
+const THREAD_ID = "8a6a2a43-4f7b-4a39-9f0c-1f8a3b2c1d01";
+
+/** Answers each request by its method and path; a POST to the chat answers `asked`. */
+function serving(followed: ProjectTestTargetsChat, asked: ProjectTestTargetsChat = followed) {
   const fetched = vi.fn<(url: string, request?: RequestInit) => Promise<Response>>(
     (url, request) => {
       if (url.endsWith("/test-targets")) return Promise.resolve(Response.json({ targets: [] }));
-      if (url.endsWith("/set-up-task"))
-        return Promise.resolve(Response.json({ setUpTask: openTask }));
-      if (url.endsWith("/test-targets/set-up") && request?.method === "POST") {
-        return Promise.resolve(Response.json({ setUpTask: TASK }));
+      if (url.endsWith("/test-targets/chat") && request?.method === "POST") {
+        return Promise.resolve(Response.json(asked));
       }
+      if (url.endsWith("/test-targets/chat")) return Promise.resolve(Response.json(followed));
       return Promise.resolve(Response.json([]));
     },
   );
@@ -90,18 +128,26 @@ function serving(openTask: typeof TASK | null) {
   return fetched;
 }
 
-function setUpButton(page: HTMLElement): HTMLButtonElement | undefined {
-  return [...page.querySelectorAll("button")].find((each) =>
-    each.textContent.includes("Set up test targets"),
-  );
+function chatOf(state: "draft" | "answering" | "waiting-on-you" | "proposal") {
+  return {
+    chat: { threadId: THREAD_ID, roleKey: "devops", state, since: "2026-11-22T10:00:00.000Z" },
+    setUpTask: null,
+  };
 }
 
-describe("the Project page's Test targets block, setting up", () => {
-  it("adds the set-up Task when Set up test targets is pressed, and says it is Ready", async () => {
-    const fetched = serving(null);
+const NOTHING_ASKED: ProjectTestTargetsChat = { chat: null, setUpTask: null };
+
+function buttonWith(page: HTMLElement, words: string): HTMLButtonElement | undefined {
+  return [...page.querySelectorAll("button")].find((each) => each.textContent.includes(words));
+}
+
+describe("the Project page's Test targets block, asking in a chat", () => {
+  it("starts the chat with Dwight and opens it with the draft waiting", async () => {
+    held.devops = DWIGHT;
+    const fetched = serving(NOTHING_ASKED, chatOf("draft"));
     const { page, queryClient } = await shown();
 
-    const button = setUpButton(page);
+    const button = buttonWith(page, "Ask Dwight to set up test targets");
     expect(button).toBeDefined();
     await act(async () => {
       button?.click();
@@ -110,19 +156,71 @@ describe("the Project page's Test targets block, setting up", () => {
     });
 
     const post = fetched.mock.calls.find(([, request]) => request?.method === "POST");
-    expect(post?.[0]).toBe("/api/projects/admin-panel/test-targets/set-up");
-    expect(document.body.textContent).toContain(`${TASK.title} is Ready, waiting for your Start.`);
-    expect(page.textContent).toContain("Being set up in the Task");
-    expect(setUpButton(page)).toBeUndefined();
+    expect(post?.[0]).toBe("/api/projects/admin-panel/test-targets/chat");
+    expect(held.opened).toEqual([
+      {
+        thread: { id: THREAD_ID, roleKey: "devops" },
+        draft:
+          "Can you set up the test targets of Admin panel? Read its repository, change no file, and propose them.",
+      },
+    ]);
+    expect(page.textContent).toContain("Draft waiting");
+    expect(page.textContent).toContain("Asked Dwight in a chat");
+    expect(page.textContent).toContain("Your draft waits in the chat for you to send it.");
+    expect(buttonWith(page, "Ask Dwight to set up test targets")).toBeUndefined();
+    expect(buttonWith(page, "Ask again")).toBeDefined();
   });
 
-  it("shows the open set-up Task in place of the button", async () => {
-    serving({ ...TASK, state: "in-progress" });
+  it("follows the chat while Dwight answers, with Ask again as no Proposal is open", async () => {
+    held.devops = DWIGHT;
+    serving(chatOf("answering"));
+    const { page } = await shown();
+
+    await vi.waitFor(() => expect(page.textContent).toContain("Dwight is reading the repository"));
+    expect(page.textContent).toContain("In a chat, on the base branch main");
+    expect(buttonWith(page, "Open the chat")).toBeDefined();
+    expect(buttonWith(page, "Ask again")).toBeDefined();
+  });
+
+  it("says Dwight replied, with Ask again", async () => {
+    held.devops = DWIGHT;
+    serving(chatOf("waiting-on-you"));
+    const { page } = await shown();
+
+    await vi.waitFor(() => expect(page.textContent).toContain("Dwight replied in the chat"));
+    expect(page.textContent).toContain("Waiting on you");
+    expect(buttonWith(page, "Ask again")).toBeDefined();
+  });
+
+  it("offers no Ask again while the chat's Proposal is open", async () => {
+    held.devops = DWIGHT;
+    serving(chatOf("proposal"));
+    const { page } = await shown();
+
+    await vi.waitFor(() => expect(page.textContent).toContain("Proposal ready"));
+    expect(buttonWith(page, "Ask again")).toBeUndefined();
+    expect(buttonWith(page, "Ask Dwight")).toBeUndefined();
+  });
+
+  it("says nobody onboards Projects while nobody holds the duty", async () => {
+    serving(NOTHING_ASKED);
+    const { page } = await shown();
+
+    expect(page.textContent).toContain(
+      "Nobody onboards Projects yet: give Onboards and repairs Projects to someone in People.",
+    );
+    expect(buttonWith(page, "set up test targets")).toBeUndefined();
+  });
+
+  it("shows an open set-up Task made before in place of the button", async () => {
+    held.devops = DWIGHT;
+    serving({ chat: null, setUpTask: { ...TASK, state: "in-progress" } });
     const { page } = await shown();
 
     await vi.waitFor(() => expect(page.textContent).toContain("Being set up"));
-    expect(setUpButton(page)).toBeUndefined();
+    expect(buttonWith(page, "Ask Dwight")).toBeUndefined();
     expect(page.textContent).toContain(`Being set up in the Task ${TASK.title} · In progress.`);
+    expect(page.textContent).toContain("Made before test targets were set up in a chat.");
     expect(page.querySelector("a")?.getAttribute("href")).toBe("/tasks/t1");
   });
 });
@@ -163,7 +261,9 @@ function servingTargets(targets: readonly TestTarget[]) {
         );
       }
       if (url.endsWith("/test-targets")) return Promise.resolve(Response.json({ targets }));
-      if (url.endsWith("/set-up-task")) return Promise.resolve(Response.json({ setUpTask: null }));
+      if (url.endsWith("/test-targets/chat")) {
+        return Promise.resolve(Response.json({ chat: null, setUpTask: null }));
+      }
       if (url.endsWith("/settings/run-environments")) {
         return Promise.resolve(
           Response.json({

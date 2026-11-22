@@ -58,3 +58,26 @@
 .waiting-for-you-sub a {
   color: inherit;
 }
+
+/* ---- An Off-board Task's out-of-tries Decision, once it is the user's */
+.off-board-failed-line {
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+}
+
+.off-board-failed-error {
+  margin: 0;
+  padding: 8px 10px;
+  overflow-x: auto;
+  font: var(--type-mono);
+  white-space: pre-wrap;
+  color: var(--fg-2);
+  background: var(--bg-2);
+  border-radius: var(--radius-sm);
+}
+
+.off-board-failed-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

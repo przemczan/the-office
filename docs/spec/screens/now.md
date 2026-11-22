@@ -1,6 +1,6 @@
 # Now
 
-Covers: Now (the home), Needs you and its Waiting for you group, Running, Queue, Shaping, Since you left, today's tokens, the fire alarm panel and the all clear's review.
+Covers: Now (the home), Needs you (the Off-board Task failed card among it) and its Waiting for you group, Running, Queue, Shaping, Since you left, today's tokens, the fire alarm panel and the all clear's review.
 
 ## Where it is
 
@@ -25,6 +25,11 @@ Covers: Now (the home), Needs you and its Waiting for you group, Running, Queue,
 - Oldest first. Each item is a card with a left edge (Decision or Gate) and is answered in place.
 - A **Decision** on a Task: the Task's title (link to its page) and Project chip above the Decision card, with when it was asked in place of where; the card is answered here ([decision-card.md](decision-card.md)).
 - A **Decision on no Task** in an Initiative's Thread: the Initiative's name (link to `/work/initiatives/<id>?initiativeThread=<thread>&decision=<decision>`) and one Project chip per Project; the card is the same.
+- An **Off-board Task failed** card, in place of the Decision card, for an Off-board Task's out-of-tries Decision once it is the user's ([2.1.3](../2.1.3-tasks.md#off-board-tasks)):
+  - the badge **Off-board Task failed**, the Task's title (link to its page), its Project chip and "<time> ago";
+  - "<Stage> failed, and its rounds are used up." and the error, in monospace;
+  - **Retry**, hover "Retry runs <Stage> again, with the failure in its Brief.", which answers the Decision with its first option and no guidance; a refusal toasts the service's words;
+  - **Open the Decision**: the Task page at the Decision, for guidance, Continue with the issues or Drop.
 - A **Gate**: the Task's title and Project chip over the Gate's card, which reads the Task's changes and its Stages ([task-page.md](task-page.md)).
 - A **Stand-in choice**: The Office's own Decision on the Stages Paused by a used-up usage window whose context is over Settings › Engines' size; one card for all of them, its rows read from `GET /stand-in-choices` and narrowed by each Task's Project. Each row has **Switch now** and, with two or more, **Switch all now**; each run's result shows beside its row while the row is still listed.
 - Counted once in the tab and the strip.
@@ -49,7 +54,7 @@ Covers: Now (the home), Needs you and its Waiting for you group, Running, Queue,
 ## Running
 
 - Heading: activity icon, **Running**, the desks as "N of M desks", and the action **Open Work** (`/work`).
-- One card per running Task: its title (link), its Project chip, and a badge when it isn't In progress (Paused, Waiting on you…, with how it was paused and when it resumes).
+- One card per running Task: its title (link), the **Off-board Task** badge on an Off-board Task ([2.1.3](../2.1.3-tasks.md#off-board-tasks)), its Project chip, and a badge when it isn't In progress (Paused, Waiting on you…, with how it was paused and when it resumes).
 - Second line: "Starting" before a Stage exists; else the person's avatar and name (or "No Agent"), a badge with the Stage's name, and "<time> in Stage" counted from the Stage's latest run.
 - Left edge: running while In progress, paused otherwise.
 - Empty: "Nothing is running." or "Nothing is running in these Projects."
@@ -59,7 +64,7 @@ Covers: Now (the home), Needs you and its Waiting for you group, Running, Queue,
 
 - Shown only while a Task is queued; heading: list-ordered icon, **Queue**, the count.
 - A Task is queued for Start; it starts by itself once a desk and its person are free and its caps allow it.
-- One card per queued Task: a **Queued** badge, its title (link), its Project chip, then "Place N · <reasons>", then its Usage estimate line (from Work's `GET /usage-estimates`).
+- One card per queued Task: a **Queued** badge, its title (link), the **Off-board Task** badge on an Off-board Task, its Project chip, then "Place N · <reasons>", then its Usage estimate line (from Work's `GET /usage-estimates`).
 - Empty (only in a narrowed view): "Nothing is queued in these Projects."
 - Note: "N more Tasks in other Projects."
 - See [2.1.5](../2.1.5-planning-and-start.md).

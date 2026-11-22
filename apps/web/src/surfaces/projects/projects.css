@@ -1727,3 +1727,194 @@ button.github-repository.selected:hover:not(:disabled) {
 .issue-label-input {
   width: 140px;
 }
+
+/* ---- an Off-board Task as a card follows it (docs/design/set-up-tasks.html, "setup" and "rail") */
+.off-board-task {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--success);
+  border-radius: var(--radius-lg);
+  background: var(--surface-hover);
+}
+
+.off-board-task.is-queued,
+.off-board-task.is-waiting-on-you,
+.off-board-task.is-paused,
+.off-board-task.is-ready {
+  border-left-color: var(--warning);
+}
+
+.off-board-task.is-failed {
+  border-left-color: var(--danger);
+}
+
+.off-board-task.is-done,
+.off-board-task.is-dropped {
+  border-left-color: var(--border-strong);
+}
+
+.off-board-task-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.off-board-task-title {
+  font: var(--type-label);
+  color: var(--fg-1);
+}
+
+.off-board-task-end {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-left: auto;
+  font: var(--type-caption);
+}
+
+.off-board-task-rail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.off-board-task-stage {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  font: 500 11.5px/1 var(--font-sans);
+  color: var(--fg-3);
+}
+
+.off-board-task-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+
+.off-board-task-stage.done {
+  border-color: var(--success-border);
+  color: var(--success-fg);
+}
+
+.off-board-task-stage.done .off-board-task-dot {
+  background: var(--success);
+}
+
+.off-board-task-stage.now {
+  border-color: var(--info-border);
+  background: var(--info-subtle);
+  color: var(--info-fg);
+}
+
+.off-board-task-stage.now .off-board-task-dot {
+  background: var(--info);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--info) 25%, transparent);
+}
+
+.off-board-task-stage.wait {
+  border-color: var(--warning-border);
+  background: var(--warning-subtle);
+  color: var(--warning-fg);
+}
+
+.off-board-task-stage.wait .off-board-task-dot {
+  background: var(--warning);
+}
+
+.off-board-task-stage.fail {
+  border-color: var(--danger-border);
+  background: var(--danger-subtle);
+  color: var(--danger-fg);
+}
+
+.off-board-task-stage.fail .off-board-task-dot {
+  background: var(--danger);
+}
+
+.off-board-task-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.off-board-task-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.off-board-task-question {
+  padding: 8px 10px;
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-md);
+  background: var(--warning-subtle);
+  font: var(--type-body-sm);
+  color: var(--fg-1);
+}
+
+.off-board-task-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.off-board-task-text {
+  margin: 0;
+  font: var(--type-body-sm);
+  color: var(--fg-1);
+}
+
+.off-board-task-hint {
+  margin: 0;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.off-board-task-error {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  font: var(--type-mono);
+}
+
+.onboarding-history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin: 10px 0 0;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.run-environment-done {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.run-environment-done .off-board-task-meta {
+  margin: 0;
+}

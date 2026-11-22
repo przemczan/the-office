@@ -27,8 +27,9 @@ export const RUN_ENVIRONMENT_SET_UP_DEFINITION_OF_DONE: readonly string[] = [
 ];
 
 /**
- * A Project's "Set up the run environment" Task: Ready on the "Set up run environment" Pipeline,
- * its Plan and Definition of Done written by The Office and confirmed.
+ * A Project's "Set up the run environment" Task, an Off-board Task: Ready on the "Set up run
+ * environment" Pipeline, its Plan and Definition of Done written by The Office and confirmed, for
+ * `OffBoardTasks` to start at once.
  */
 export function createRunEnvironmentSetUpTask(
   id: string,

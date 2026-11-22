@@ -1,6 +1,6 @@
 # Activity surface: map
 
-**Owns:** the Activity page, `/activity` (spec 2.14, [screens/activity.md](../../../../../docs/spec/screens/activity.md)): what The Office is running and the ended items the user hasn't seen, in seven groups (`ACTIVITY_GROUPS` in `activity-words.ts`, with each item's state, time in state, detail line and where it links), each card marked New until seen, narrowed by the Project filter with its "in other Projects" note. No rail entry: the status strip's Activity figure (`shell/activity-figure.tsx`) opens it.
+**Owns:** the Activity page, `/activity` (spec 2.14, [screens/activity.md](../../../../../docs/spec/screens/activity.md)): what The Office is running and the ended items the user hasn't seen, in seven groups (`ACTIVITY_GROUPS` in `activity-words.ts`, with each item's state, time in state, detail line and where it links), each card marked New until seen; Off-board Tasks (`onboarding` and `run-environment-set-up`, never in Stalled Tasks) share "Off-board Tasks and environment checks" with the environment checks, each naming its kind after its state (`kindWords`) and adding its queue place and short reasons, or its Stage and tokens (`tokensShort`), to its line, narrowed by the Project filter with its "in other Projects" note. No rail entry: the status strip's Activity figure (`shell/activity-figure.tsx`) opens it.
 
 **Talks to:** the service through `api/activity.ts` (`activityQueries.list()`, `GET /activity`, read again on `activity.changed`; `markActivitySeen`, `POST /activity/seen`) and Projects' list for the chips. The state words of CI runs, Connected devices, environment checks, test instances and Tasks come from the shell, shared with the surfaces that own those pages (see [the web app's map](../../MAP.md)).
 
@@ -15,7 +15,7 @@
 ### ./
 
 - `activity-page.tsx`: ActivityPage
-- `activity-words.ts`: ActivityGroup, ACTIVITY_GROUPS, GroupedActivity, groupedActivity, StateWords, stateWords, inStateWords, spanWords, detailWords, ActivityPlace, activityPlaceOf, NOTHING_RUNNING, NOTHING_RUNNING_HERE, WHAT_SHOWS_HERE
-- `activity.fixtures.ts`: TASK_ID, INITIATIVE_ID, NOW, taskItem, environmentCheckItem, ciRunItem, testInstanceItem, failedTaskItem, minutesAgo
+- `activity-words.ts`: ActivityGroup, ACTIVITY_GROUPS, GroupedActivity, groupedActivity, StateWords, stateWords, kindWords, inStateWords, spanWords, detailWords, ActivityPlace, activityPlaceOf, NOTHING_RUNNING, NOTHING_RUNNING_HERE, WHAT_SHOWS_HERE
+- `activity.fixtures.ts`: TASK_ID, INITIATIVE_ID, NOW, taskItem, environmentCheckItem, ciRunItem, testInstanceItem, failedTaskItem, OFF_BOARD_TASK_ID, offBoardTaskItem, minutesAgo
 - `use-marking-seen.ts`: SEEN_AFTER_MS, SEND_EVERY_MS, useMarkingSeen, SeenWatcher
 - Tests: activity-page.test.tsx, activity-words.full.test.ts, use-marking-seen.full.test.ts

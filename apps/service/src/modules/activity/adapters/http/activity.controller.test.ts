@@ -19,6 +19,7 @@ import {
   ACTIVITY_PORTS_FOR_TESTS,
   ActivityCiRunsForTests,
   ActivityDevicesForTests,
+  ActivityOffBoardTasksForTests,
   ActivityTasksForTests,
   activityTask,
 } from "../../ports/activity-ports.fixtures.js";
@@ -49,6 +50,7 @@ beforeEach(() => {
   app.get(ActivityTasksForTests).tasks = [
     activityTask({ id: taskId, projectId, createdAt: new Date("2026-11-21T09:00:00Z") }),
   ];
+  app.get(ActivityOffBoardTasksForTests).offBoardTasks = [];
   app.get(ActivityCiRunsForTests).runs = [
     {
       id: 41,
@@ -106,6 +108,58 @@ describe("GET /activity", () => {
       link: { kind: "url", url: "https://github.com/acme/office/actions/runs/41" },
     });
     expect(activity.count).toBe(3);
+  });
+
+  it("answers each Off-board Task as its own kind, with its state, Stage, tokens and place", async () => {
+    const onboardId = randomUUID();
+    const setUpId = randomUUID();
+    app.get(ActivityOffBoardTasksForTests).offBoardTasks = [
+      {
+        taskId: onboardId,
+        projectId,
+        title: "Onboard office",
+        kind: "onboard",
+        status: { state: "queued", place: 1, shortReasons: ["Project limit reached (1)"] },
+        currentStage: undefined,
+        since: new Date("2026-11-21T11:30:00Z"),
+        tokens: 0,
+      },
+      {
+        taskId: setUpId,
+        projectId,
+        title: "Set up the run environment",
+        kind: "run-environment-setup",
+        status: { state: "failed", stageName: "Verify" },
+        currentStage: "Verify",
+        since: new Date("2026-11-21T10:30:00Z"),
+        tokens: 1_400_000,
+      },
+    ];
+
+    const activity = await readActivity();
+
+    const offBoard = activity.items.filter(
+      (item) => "taskId" in item && (item.taskId === onboardId || item.taskId === setUpId),
+    );
+    expect(offBoard).toEqual([
+      expect.objectContaining({
+        kind: "onboarding",
+        id: `onboarding:${onboardId}`,
+        state: "queued",
+        stageName: null,
+        tokens: 0,
+        queued: { place: 1, shortReasons: ["Project limit reached (1)"] },
+        endedAt: null,
+      }),
+      expect.objectContaining({
+        kind: "run-environment-set-up",
+        id: `run-environment-set-up:${setUpId}`,
+        state: "failed",
+        stageName: "Verify",
+        tokens: 1_400_000,
+        queued: null,
+      }),
+    ]);
   });
 });
 

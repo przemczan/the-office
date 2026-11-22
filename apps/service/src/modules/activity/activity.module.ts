@@ -8,7 +8,7 @@ import { ActivityCiRuns } from "./ports/activity-ci-runs.js";
 import { ActivityDecisions } from "./ports/activity-decisions.js";
 import { ActivityDevices } from "./ports/activity-devices.js";
 import { ActivityEnvironmentChecks } from "./ports/activity-environment-checks.js";
-import { ActivityOnboardings } from "./ports/activity-onboardings.js";
+import { ActivityOffBoardTasks } from "./ports/activity-off-board-tasks.js";
 import { ActivityPullRequests } from "./ports/activity-pull-requests.js";
 import { ActivitySeenRepository } from "./ports/activity-seen-repository.js";
 import { ActivityStages } from "./ports/activity-stages.js";
@@ -21,7 +21,7 @@ export interface ActivityModuleOptions {
   readonly tasks: Type<ActivityTasks>;
   readonly stages: Type<ActivityStages>;
   readonly decisions: Type<ActivityDecisions>;
-  readonly onboardings: Type<ActivityOnboardings>;
+  readonly offBoardTasks: Type<ActivityOffBoardTasks>;
   readonly testInstances: Type<ActivityTestInstances>;
   readonly ciRuns: Type<ActivityCiRuns>;
   readonly environmentChecks: Type<ActivityEnvironmentChecks>;
@@ -41,7 +41,7 @@ export class ActivityModule {
     tasks,
     stages,
     decisions,
-    onboardings,
+    offBoardTasks,
     testInstances,
     ciRuns,
     environmentChecks,
@@ -56,7 +56,7 @@ export class ActivityModule {
         { provide: ActivityTasks, useExisting: tasks },
         { provide: ActivityStages, useExisting: stages },
         { provide: ActivityDecisions, useExisting: decisions },
-        { provide: ActivityOnboardings, useExisting: onboardings },
+        { provide: ActivityOffBoardTasks, useExisting: offBoardTasks },
         { provide: ActivityTestInstances, useExisting: testInstances },
         { provide: ActivityCiRuns, useExisting: ciRuns },
         { provide: ActivityEnvironmentChecks, useExisting: environmentChecks },

@@ -263,7 +263,7 @@ export interface ProjectPipelineFields {
 
 /**
  * A Project whoever onboards Projects drafted to onboard (spec §2.1 Defaults): applying it adds the
- * Project and its Onboard Task, Ready on the Onboard Pipeline.
+ * Project and its Onboard Task on the Onboard Pipeline, started at once.
  */
 export interface ProposedProject {
   readonly kind: "project";

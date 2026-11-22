@@ -61,12 +61,15 @@ export class ThreadService {
     private readonly events: EventBus,
   ) {}
 
-  /** A fresh Thread in the person's chat; refused when their Chat is off. */
-  async startInChat(roleKey: string): Promise<Thread> {
+  /**
+   * A fresh Thread in the person's chat, titled `title` when The Office names it, with no message
+   * sent; refused when their Chat is off.
+   */
+  async startInChat(roleKey: string, title?: string): Promise<Thread> {
     const role = await this.roleCards.find(roleKey);
     if (!role) throw new ChatNotFound(roleKey);
     const person = { roleKey, name: role.card.name, chat: role.card.capabilities.chat };
-    const { thread, event } = startChatThread(randomUUID(), person, new Date());
+    const { thread, event } = startChatThread(randomUUID(), person, new Date(), title);
     await this.repository.add(thread);
     await this.events.publish(event);
     return thread;

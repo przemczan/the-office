@@ -9,7 +9,7 @@ import { ProposalDrafts } from "../../ports/proposal-drafts.js";
 import type { OfficeToolResult } from "./work-tool-answers.js";
 
 const DRAFTED =
-  "The Proposal is in this Thread as a card with the Project as you drafted it; nothing is added until the user applies it, which clones it when it was given by its URL, then adds the Project and its Onboard Task, Ready on the Onboard Pipeline, for the user to start. Don't wait for it: tell the user what you propose and why, in a line or two.";
+  "The Proposal is in this Thread as a card with the Project as you drafted it; nothing is added until the user applies it, which clones it when it was given by its URL, then adds the Project and makes its Onboard Task on the Onboard Pipeline and starts it at once. Don't wait for it: tell the user what you propose and why, in a line or two.";
 
 /**
  * What Devops drafts: a repository by its folder or by its Repository URL, whose clone's folder

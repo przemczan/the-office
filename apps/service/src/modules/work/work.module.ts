@@ -1,6 +1,7 @@
 import { IssueWriteBackForwarding } from "./adapters/projects/issue-write-back-forwarding.js";
 import { ProjectsIssueTaskRegistration } from "./adapters/projects/projects-issue-task-registration.js";
 import { ProjectsTaskBaseRegistration } from "./adapters/projects/projects-task-base-registration.js";
+import { ProjectsTestTargetsSetUpTaskRegistration } from "./adapters/projects/projects-test-targets-set-up-task-registration.js";
 import {
   Logger,
   Module,
@@ -31,6 +32,7 @@ import { FireAlarmController } from "./adapters/http/fire-alarm.controller.js";
 import { IdeasController } from "./adapters/http/ideas.controller.js";
 import { InitiativesController } from "./adapters/http/initiatives.controller.js";
 import { OfficeLimitsController } from "./adapters/http/office-limits.controller.js";
+import { OffBoardTasksController } from "./adapters/http/off-board-tasks.controller.js";
 import { OnboardingsController } from "./adapters/http/onboardings.controller.js";
 import { SavedViewsController } from "./adapters/http/saved-views.controller.js";
 import { PersonTasksController } from "./adapters/http/person-tasks.controller.js";
@@ -83,6 +85,8 @@ import { InitiativeBranching } from "./application/initiative-branching.js";
 import { InitiativeService } from "./application/initiative-service.js";
 import { OfficeLimits } from "./application/office-limits.js";
 import { RemovedEngineCaps } from "./application/removed-engine-caps.js";
+import { OffBoardTaskReader } from "./application/off-board-task-reader.js";
+import { OffBoardTasks } from "./application/off-board-tasks.js";
 import { OnboardingService } from "./application/onboarding-service.js";
 import { RunEnvironmentSetUps } from "./application/run-environment-set-ups.js";
 import { TestTargetsSetUps } from "./application/test-targets-set-ups.js";
@@ -157,8 +161,8 @@ export interface WorkModuleOptions {
    * Threads on its Tasks and Initiatives, gives the records mentioned in a chat and applies
    * Proposals of the Office-wide limit, of Initiatives and of Projects to onboard, and Projects'
    * TaskBases, where Work tells what each Task's branch starts from, IssueTasks, where it creates
-   * the Task of an imported issue, and IssueWriteBack, which it tells of those Tasks' starts and
-   * ends.
+   * the Task of an imported issue, IssueWriteBack, which it tells of those Tasks' starts and
+   * ends, and TestTargetsSetUpTasks, where it gives a Project's open "Set up test targets" Task.
    */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
   readonly knownProjects: Type<KnownProjects>;
@@ -246,6 +250,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         ArchivePeriodController,
         AutoModeController,
         OnboardingsController,
+        OffBoardTasksController,
         SearchController,
         SavedViewsController,
         PersonTasksController,
@@ -306,6 +311,8 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         PlanningAfterRestart,
         OfficeLimits,
         RemovedEngineCaps,
+        OffBoardTaskReader,
+        OffBoardTasks,
         OnboardingService,
         RunEnvironmentSetUps,
         TestTargetsSetUps,
@@ -352,6 +359,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         FireAlarmForThreads,
         ProjectsTaskBaseRegistration,
         ProjectsIssueTaskRegistration,
+        ProjectsTestTargetsSetUpTaskRegistration,
         IssueWriteBackForwarding,
         WorkEarlierRecords,
       ],
@@ -367,6 +375,8 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         DroppedTaskDecisions,
         PlanningAfterRestart,
         OfficeLimits,
+        OffBoardTaskReader,
+        OffBoardTasks,
         OnboardingService,
         QueueService,
         UsageWindowResumes,

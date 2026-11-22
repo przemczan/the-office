@@ -48,7 +48,7 @@ test("an environment check is followed from the strip's Activity figure to the A
   await page.getByRole("button", { name: `Show only ${project.name}` }).click();
   await page.keyboard.press("Escape");
 
-  const group = page.getByRole("region", { name: "Environment checks and Onboarding" });
+  const group = page.getByRole("region", { name: "Off-board Tasks and environment checks" });
   const card = group.getByRole("article", { name: /: Environment check$/ });
   await expect(card).toHaveCount(1);
   await expect(card.getByText("New", { exact: true })).toBeVisible();

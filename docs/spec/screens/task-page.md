@@ -27,12 +27,13 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - Badges: the Task's state ([2.1.3](../2.1.3-tasks.md#task-states)); "Waiting on you" when a Decision or Gate waits on the user; **Archived <day>** once archived; the Stand-in mark.
 - A Task Stopped at its current Stage shows the state "Stopped" while the Task itself stays Paused; a Paused Task shown without its Stages reads "Paused".
 - Stand-in mark: while a started Task's run works on Stand-in Engines, an info badge "On a Stand-in Engine: <stand-in> for <engine>" (several joined), the reasons on hover; a Stage's switch mid-run refreshes it.
-- Facts line: the Kind's glyph with its name ("Feature", "Bug" or "Chore", [2.1.3](../2.1.3-tasks.md#task-kind)); the priority glyph with "<High|Normal|Low> priority"; "Pipeline <name>"; the Task's tokens; its Tags.
+- Facts line: on an Off-board Task, the badge **Off-board Task** first ([2.1.3](../2.1.3-tasks.md#off-board-tasks)); the Kind's glyph with its name ("Feature", "Bug" or "Chore", [2.1.3](../2.1.3-tasks.md#task-kind)); the priority glyph with "<High|Normal|Low> priority"; "Pipeline <name>"; the Task's tokens; its Tags.
 - Pipeline fact: the Pipeline's name, with the "edited for this Task" label once the Task has its own Stages; "Pipeline Not chosen yet" while none is chosen, never "removed".
 - Tokens: a plain count labelled "tokens", or a meter against the Planner's estimate when the Task has one.
 - Tags: the shell's tags input, saved as each is added or removed, in any state; the last change sent wins.
 - Right: the actions (see Head actions), then **More**.
-- Under the head: the Start notes (see Start and the queue), then the drop note.
+- Under the head: the Off-board Task note, the Start notes (see Start and the queue), then the drop note.
+- Off-board Task note: on an Off-board Task, "The Office started this Off-board Task at once and keeps it off the Work board. Follow it here or on <Project>'s page.", the last words a link to the Project page's Onboarding (an Onboard Task) or Run environment (a "Set up the run environment" Task).
 - Drop note: on a Task dropped with a reason, "Dropped: won't fix", "Dropped: can't reproduce", "Dropped: <Other's words>" or "Dropped as a duplicate of <Task>" (linked, with its state badge), then when; none for a Task dropped with no reason ([2.1.3](../2.1.3-tasks.md#drop-reason)).
 
 ## Head actions
@@ -105,7 +106,10 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
   - the Usage estimate line;
   - the run environment question.
 - A queued Task shows a **Queued** badge with "Place <n> · <reasons>" in the notes instead.
-- The run environment question shows on a Ready Task while its Project's Run environment is Not decided yet and no set-up Task is open; Start never waits for it; Yes and No call the Project page's Set up run environment and Off ([project-page.md](project-page.md)).
+- The run environment question shows on a Ready Task while its Project's Run environment is Not decided yet and no "Set up the run environment" Task is open; Start never waits for it; Yes and No call the Project page's Set up run environment and Off ([project-page.md](project-page.md#run-environment)).
+  - Its hint under Yes: "Yes starts an Off-board Task at once, off the board. It takes one of <Project>'s running slots while it runs.", which with a Project limit of 1 ends ", so with a Project limit of 1 this Task's Start queues behind it." ([2.1.3](../2.1.3-tasks.md#setting-up-the-run-environment)).
+  - After Yes, the line "<Person> is setting up <Project>'s run environment." (or "<title> is queued, place N: <reasons>.") "Follow it on <Project>'s Run environment. It turns On when the Off-board Task is Done.", the link to the Project page's Run environment.
+  - A refused Yes makes nothing and shows "The run environment's set-up didn't start" with the reasons under the question.
 - Ready's Needs you words: "Ready: start it when you want; nothing starts by itself."
 
 ## Planning actions

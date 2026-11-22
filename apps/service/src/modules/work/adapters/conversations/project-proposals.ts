@@ -1,4 +1,4 @@
-import { Injectable, type OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import {
   ProposalAppliers,
   ProposalRefused,
@@ -6,17 +6,18 @@ import {
 } from "../../../conversations/index.js";
 import { ProjectRefused, type NewProject } from "../../../projects/index.js";
 import { OnboardingService } from "../../application/onboarding-service.js";
-import { TaskRefused } from "../../domain/task-refused.js";
 import { NewProjects, type AddedProject } from "../../ports/new-projects.js";
 
 /**
  * Proposals of a Project to onboard (spec §2.1 Defaults): applying one adds the Project through
- * Projects (`NewProjects`), whose rules judge it, then its Onboard Task. Work applies them since the Onboard Task
- * is Work's, and Projects never calls Work. A Project by Repository URL is judged with nothing
+ * Projects (`NewProjects`), whose rules judge it, then makes and starts its Onboard Task, an
+ * Off-board Task. Work applies them since the Onboard Task is Work's, and Projects never calls Work. A Project by Repository URL is judged with nothing
  * cloned, and cloned as it is applied, the apply waiting for the clone.
  */
 @Injectable()
 export class ProjectProposals implements OnModuleInit {
+  private readonly logger = new Logger(ProjectProposals.name);
+
   constructor(
     private readonly appliers: ProposalAppliers,
     private readonly projects: NewProjects,
@@ -38,10 +39,10 @@ export class ProjectProposals implements OnModuleInit {
   }
 
   /**
-   * Judged whole first, so a refusal leaves the Proposal open with nothing added. The Project and
-   * its Task can't be added in one transaction: should the Task fail after the Project is added,
-   * the refusal says so and the Proposal stays open, and applying it again carries on with the
-   * Project already added, and its clone not made again.
+   * Judged whole first, so a refusal leaves the Proposal open with nothing added. The Project is
+   * added whatever its Onboard Task's start meets: a refused start makes no Task, and the Proposal
+   * is applied with none, the Project page offering Onboard. Applying again after a failure carries
+   * on with the Project already added, and its clone not made again.
    */
   private async apply(change: ProposedProject, proposedBy: string): Promise<ProposedProject> {
     const problems = await this.problemsWith(change.project);
@@ -49,20 +50,23 @@ export class ProjectProposals implements OnModuleInit {
     const project =
       (await this.addedWithoutOnboarding(change.project)) ??
       (await this.projects.add(change.project).catch(refusedAsProposal));
-    const task = await this.onboarding
-      .addOnboardTask(project.id, { kind: "person", roleKey: proposedBy })
-      .catch((error: unknown) => {
-        if (!(error instanceof TaskRefused)) throw error;
-        throw new ProposalRefused([
-          `${project.name} is added, but its Onboard Task isn't: ${error.reasons.join(" ")}`,
-        ]);
-      });
-    return { ...change, projectId: project.id, taskId: task.id };
+    const start = await this.onboarding.onboard(project.id, {
+      kind: "person",
+      roleKey: proposedBy,
+    });
+    if (start.outcome === "refused") {
+      this.logger.warn(
+        `${project.name} is added, but its Onboard Task didn't start: ${start.reasons.join(" ")}`,
+      );
+      return { ...change, projectId: project.id, taskId: undefined };
+    }
+    return { ...change, projectId: project.id, taskId: start.offBoardTask.taskId };
   }
 
   /**
-   * The Project an earlier apply added before its Onboard Task failed: at the repository, under the
-   * Proposal's name, not onboarded or with its Onboard Task not started. A Project the user added there by hand isn't taken for it.
+   * The Project an earlier apply added before it failed: at the repository, under the Proposal's
+   * name, not onboarded or with an Onboard Task made before they started at once still Ready. A
+   * Project the user added there by hand isn't taken for it.
    */
   private async addedWithoutOnboarding({
     path,
@@ -72,7 +76,6 @@ export class ProjectProposals implements OnModuleInit {
     if (!project || project.name !== name.trim()) return undefined;
     const onboardings = await this.onboarding.list();
     if (!onboardings.some(({ projectId }) => projectId === project.id)) return project;
-    // Its Onboard Task was kept but its worktree couldn't be made.
     return (await this.onboarding.waitingOnboardTaskOf(project.id)) ? project : undefined;
   }
 }

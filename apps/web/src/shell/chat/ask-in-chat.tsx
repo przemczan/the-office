@@ -18,21 +18,44 @@ export interface AskInChat {
   readonly error: Error | null;
 }
 
+/** A chat Thread to open: by its id, in the chat of the Role it is with. */
+export interface ChatThreadToOpen {
+  readonly id: string;
+  readonly roleKey: string;
+}
+
+/**
+ * Opens a Thread of a person's chat with `draft` waiting in its composer, for the user to finish
+ * and send: one `useAskInChat` started, or one the service started for a page (the Test targets
+ * card's chat). The chat's Thread list is read again first, so the Thread is listed as it opens.
+ */
+export function useOpenWithDraft(): (
+  thread: ChatThreadToOpen,
+  draft: string,
+  onAsked?: () => void,
+) => Promise<void> {
+  const chat = useChat();
+  const drafts = useThreadDrafts();
+  const queryClient = useQueryClient();
+  return async (thread, draft, onAsked) => {
+    drafts.leave(thread.id, draft);
+    await queryClient.invalidateQueries(threadQueries.inChat(thread.roleKey));
+    onAsked?.();
+    chat.open(thread.roleKey, thread.id);
+  };
+}
+
 /** Asks the person who fills the Role from a page, as the click-through's "Ask Nina" does. */
 export function useAskInChat(roleKey: string | undefined, onAsked?: () => void): AskInChat {
   const hired = useHired(roleKey);
   const person = hired?.card.capabilities.chat ? hired : undefined;
-  const chat = useChat();
-  const drafts = useThreadDrafts();
+  const openWithDraft = useOpenWithDraft();
   const queryClient = useQueryClient();
   const opening = useMutation({
     mutationFn: (_draft: string) => startChatThread(asked(person)),
     onSuccess: async (thread, draft) => {
-      drafts.leave(thread.id, draft);
       queryClient.setQueryData(threadQueries.one(thread.id).queryKey, thread);
-      await queryClient.invalidateQueries(threadQueries.inChat(thread.roleKey));
-      onAsked?.();
-      chat.open(thread.roleKey, thread.id);
+      await openWithDraft(thread, draft, onAsked);
     },
   });
   return {

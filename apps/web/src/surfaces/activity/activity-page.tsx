@@ -18,6 +18,7 @@ import {
   detailWords,
   groupedActivity,
   inStateWords,
+  kindWords,
   NOTHING_RUNNING,
   NOTHING_RUNNING_HERE,
   stateWords,
@@ -150,6 +151,7 @@ function ActivityCard({
 }): ReactNode {
   const state = stateWords(item);
   const detail = detailWords(item);
+  const kind = kindWords(item);
   return (
     <ItemCard
       edge={edgeOf(item, state.tone)}
@@ -164,6 +166,7 @@ function ActivityCard({
           <Badge size="sm" dot tone={state.tone}>
             {state.label}
           </Badge>
+          {kind && <span className="activity-item-kind">{kind}</span>}
           {unseen && (
             <Badge size="sm" tone="accent">
               New

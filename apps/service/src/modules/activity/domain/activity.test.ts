@@ -3,6 +3,7 @@ import {
   activityOf,
   ENDED_KEPT_DAYS,
   type ActivityCiRun,
+  type ActivityOffBoardTask,
   type ActivityParts,
   type ActivityPullRequest,
   type ActivityStage,
@@ -14,6 +15,7 @@ const NOW = new Date("2026-11-21T12:00:00Z");
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TASK_ID = "00000000-0000-4000-8000-00000000a001";
 const OTHER_TASK_ID = "00000000-0000-4000-8000-00000000a002";
+const THIRD_TASK_ID = "00000000-0000-4000-8000-00000000a003";
 
 function hoursAgo(hours: number): Date {
   return new Date(NOW.getTime() - hours * 60 * 60 * 1000);
@@ -36,12 +38,26 @@ function partsWith(overrides: Partial<ActivityParts>): ActivityParts {
     started: [],
     done: [],
     openDecisionTaskIds: new Set(),
-    onboardings: [],
+    offBoardTasks: [],
     testInstances: [],
     ciRuns: [],
     environmentChecks: [],
     devices: [],
     pullRequests: [],
+    ...overrides,
+  };
+}
+
+function offBoardTask(overrides: Partial<ActivityOffBoardTask>): ActivityOffBoardTask {
+  return {
+    taskId: TASK_ID,
+    projectId: "office",
+    title: "Onboard office",
+    kind: "onboard",
+    status: { state: "running" },
+    currentStage: "Survey",
+    since: hoursAgo(2),
+    tokens: 212_000,
     ...overrides,
   };
 }
@@ -233,18 +249,167 @@ describe("activityOf", () => {
     ]);
   });
 
-  it("lists an Onboard Task once, as onboarding, running and once Done", () => {
-    const parts = partsWith({
-      started: [{ task: activityTask(), stateChanges: [], stages: [] }],
-      done: [activityTask({ id: OTHER_TASK_ID, state: "done", endedAt: hoursAgo(1) })],
-      onboardings: [{ taskId: TASK_ID }, { taskId: OTHER_TASK_ID }],
-    });
+  it("lists each Off-board Task once, as its own kind, with its Stage, its tokens and none waiting for Start", () => {
+    const activity = activityOf(
+      partsWith({
+        offBoardTasks: [
+          offBoardTask({}),
+          offBoardTask({
+            taskId: OTHER_TASK_ID,
+            kind: "run-environment-setup",
+            title: "Set up the run environment",
+            status: { state: "paused" },
+            currentStage: "Set up",
+            since: hoursAgo(1),
+            tokens: 0,
+          }),
+          offBoardTask({
+            taskId: THIRD_TASK_ID,
+            status: { state: "ready" },
+            currentStage: undefined,
+          }),
+        ],
+      }),
+      new Set(),
+      NOW,
+    );
 
-    const activity = activityOf(parts, new Set(), NOW);
+    expect(activity.items).toEqual([
+      expect.objectContaining({
+        kind: "run-environment-set-up",
+        id: `run-environment-set-up:${OTHER_TASK_ID}`,
+        taskId: OTHER_TASK_ID,
+        state: "paused",
+        stageName: "Set up",
+        tokens: 0,
+        queued: null,
+        since: hoursAgo(1),
+        ended: false,
+        link: { kind: "task", taskId: OTHER_TASK_ID },
+      }),
+      expect.objectContaining({
+        kind: "onboarding",
+        id: `onboarding:${TASK_ID}`,
+        state: "in-progress",
+        stageName: "Survey",
+        tokens: 212_000,
+        queued: null,
+        since: hoursAgo(2),
+        ended: false,
+      }),
+    ]);
+  });
+
+  it("lists a queued Off-board Task with its place and short reasons, before it started", () => {
+    const activity = activityOf(
+      partsWith({
+        offBoardTasks: [
+          offBoardTask({
+            status: { state: "queued", place: 1, shortReasons: ["Project limit reached (1)"] },
+            currentStage: undefined,
+            tokens: 0,
+          }),
+        ],
+      }),
+      new Set(),
+      NOW,
+    );
+
+    expect(activity.items).toEqual([
+      expect.objectContaining({
+        kind: "onboarding",
+        state: "queued",
+        stageName: null,
+        queued: { place: 1, shortReasons: ["Project limit reached (1)"] },
+        ended: false,
+      }),
+    ]);
+  });
+
+  it("lists a failed Off-board Task, out of tries, as running at the Stage it failed at", () => {
+    const activity = activityOf(
+      partsWith({
+        offBoardTasks: [
+          offBoardTask({
+            status: { state: "failed", stageName: "Verify" },
+            currentStage: "Verify",
+          }),
+        ],
+      }),
+      new Set(),
+      NOW,
+    );
+
+    expect(activity.items).toEqual([
+      expect.objectContaining({
+        kind: "onboarding",
+        id: `onboarding:${TASK_ID}`,
+        state: "failed",
+        stageName: "Verify",
+        ended: false,
+      }),
+    ]);
+  });
+
+  it("ends an Off-board Task once Done or Dropped, keyed by that state, since it ended", () => {
+    const activity = activityOf(
+      partsWith({
+        offBoardTasks: [
+          offBoardTask({ status: { state: "done", endedAt: hoursAgo(3) } }),
+          offBoardTask({
+            taskId: OTHER_TASK_ID,
+            kind: "run-environment-setup",
+            status: { state: "dropped", endedAt: hoursAgo(4) },
+          }),
+        ],
+      }),
+      new Set(),
+      NOW,
+    );
+
+    expect(
+      activity.items.map(({ kind, id, ended, since }) => ({ kind, id, ended, since })),
+    ).toEqual([
+      { kind: "onboarding", id: `onboarding:${TASK_ID}:done`, ended: true, since: hoursAgo(3) },
+      {
+        kind: "run-environment-set-up",
+        id: `run-environment-set-up:${OTHER_TASK_ID}:dropped`,
+        ended: true,
+        since: hoursAgo(4),
+      },
+    ]);
+  });
+
+  it("never lists an Off-board Task as a task, failed-task or stopped-task", () => {
+    const failedStages = [stage("Verify", "failed", "run-9", hoursAgo(2), hoursAgo(1))];
+    const activity = activityOf(
+      partsWith({
+        started: [
+          // Read by Work as an Off-board Task.
+          { task: activityTask(), stateChanges: [], stages: failedStages },
+          // Made for one, though Work's list missed it, such as one archived meanwhile.
+          {
+            task: activityTask({ id: OTHER_TASK_ID, madeFor: "run-environment-setup" }),
+            stateChanges: [],
+            stages: failedStages,
+          },
+        ],
+        done: [
+          activityTask({
+            id: THIRD_TASK_ID,
+            state: "done",
+            endedAt: hoursAgo(1),
+            madeFor: "onboard",
+          }),
+        ],
+        offBoardTasks: [offBoardTask({ status: { state: "failed", stageName: "Verify" } })],
+      }),
+      new Set(),
+      NOW,
+    );
 
     expect(activity.items.map(({ kind, id }) => ({ kind, id }))).toEqual([
       { kind: "onboarding", id: `onboarding:${TASK_ID}` },
-      { kind: "onboarding", id: `onboarding:${OTHER_TASK_ID}:done` },
     ]);
   });
 

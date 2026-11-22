@@ -1,6 +1,6 @@
 # Activity
 
-Covers: the Activity page, its groups, an item and its time in state, the New mark and how an item is seen, the Project filter on it, states.
+Covers: the Activity page, its groups (Off-board Tasks and environment checks among them), an item and its time in state, the New mark and how an item is seen, the Project filter on it, states.
 
 ## Where it is
 
@@ -20,19 +20,20 @@ Covers: the Activity page, its groups, an item and its time in state, the New ma
   - **Tasks**: Tasks at a desk.
   - **Test instances**.
   - **CI runs**.
-  - **Environment checks and Onboarding**.
+  - **Off-board Tasks and environment checks**: Onboarding runs, Run environment set-ups and environment checks.
   - **Connected devices**.
   - **Pull requests**: those ready to merge.
-  - **Stalled Tasks**: Tasks whose Stage failed or was stopped.
+  - **Stalled Tasks**: Tasks whose Stage failed or was stopped, never an Off-board Task.
 - Each kind of [Activity item](../2.14-activity.md#what-is-listed) is in exactly one group.
 
 ## An item
 
 - A card named "<state>: <title>": the title, a link to where the item lives; the Project chip; the state as a badge; a New badge while unseen.
-- Under it a line with what the item adds (the Stage a stalled Task failed or stopped in, a test instance's branch, a pull request's "#N"), then how long it has been in its state: "Running for 18 min", "Failed for 2h 10 min", from a day on "Ready for 3 days". It ticks with the clock.
+- Beside the state, an Off-board Task's item names its kind: "Onboarding run" or "Run environment set-up".
+- Under it a line with what the item adds (the Stage a stalled Task failed or stopped in; an Off-board Task's "Place N · <short reasons>" while Queued, else its Stage and "<N> tokens"; a test instance's branch; a pull request's "#N"), then how long it has been in its state: "Running for 18 min", "Failed for 2h 10 min", from a day on "Ready for 3 days". It ticks with the clock.
 - The card's left edge: red when its state is a failure, amber when it waits (Waiting on you, a CI run waiting, a device waiting for the run environment), is paused or stopped, green otherwise.
 - Where the title links:
-  - a Task, a stalled Task, Onboarding and a Connected device: the Task's page;
+  - a Task, a stalled Task, an Off-board Task and a Connected device: the Task's page;
   - a test instance: its Initiative's page, or the Project's Test targets when it has none;
   - a CI run: the CI tab, with its run on the code host beside it ("Open on the code host");
   - an environment check: the Project's Environment;

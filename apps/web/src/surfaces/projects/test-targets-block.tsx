@@ -9,8 +9,9 @@ import {
   type EntryPointKind,
   type Project,
   type Proposal,
+  type ProjectTestTargetsChat,
   type TestTarget,
-  type TestTargetsSetUp,
+  type TestTargetsChat,
   type TestTargetField,
   type TestTargetSetter,
 } from "@the-office/contracts";
@@ -24,12 +25,17 @@ import {
   Select,
   Stepper,
   Textarea,
+  TextButton,
 } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { proposalQueries } from "../../api/conversations.ts";
-import { projectQueries, saveTestTargets, setUpTestTargets } from "../../api/projects.ts";
+import { useOfficeEvent } from "../../api/event-stream-provider.tsx";
+import { askTestTargetsChat, projectQueries, saveTestTargets } from "../../api/projects.ts";
 import { runEnvironmentOfficeLimitsQuery } from "../../api/run-environments.ts";
 import { useDevops } from "../../shell/ask-devops.tsx";
+import { useOpenWithDraft } from "../../shell/chat/ask-in-chat.tsx";
+import { useChat } from "../../shell/chat/use-chat.tsx";
+import { PersonAvatar } from "../../shell/person-avatar.tsx";
 import { ProposalCard } from "../../shell/conversation/proposal-card.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import {
@@ -38,8 +44,11 @@ import {
   entryPointWords,
   TEST_TARGET_KIND_LABELS,
 } from "../../shell/test-target-words.ts";
-import { TASK_STATE_NAMES } from "../../shell/work/work-words.ts";
+import { durationWords } from "../../shell/time.ts";
 import { useToast } from "../../shell/toasts.tsx";
+import { useClock } from "../../shell/use-clock.ts";
+import { useDutyHolder } from "../../shell/use-duty-holder.ts";
+import { useHired } from "../../shell/use-hired.ts";
 import { useSignedInUserId } from "../../shell/use-user-name.ts";
 import { SecretVariables } from "./environment-variables-block.tsx";
 import { ProjectBlock } from "./project-block.tsx";
@@ -121,46 +130,58 @@ export function TestTargetsBlock({ project }: { readonly project: Project }): Re
     },
   });
   const done = (): void => setEditing(undefined);
-  const setUpTask = useQuery(projectQueries.testTargetsSetUp(project.id));
-  const queryClient = useQueryClient();
-  const settingUp = useMutation({
-    mutationFn: () => setUpTestTargets(project.id),
-    onSuccess: (saved: TestTargetsSetUp) => {
-      queryClient.setQueryData(projectQueries.testTargetsSetUp(project.id).queryKey, saved);
-      const task = saved.setUpTask;
-      if (task) {
-        showToast(
-          `${task.title} is ${TASK_STATE_NAMES[task.state]}${task.state === "ready" ? ", waiting for your Start" : ""}.`,
-        );
-      }
-    },
-  });
-  const openTask = setUpTask.data?.setUpTask;
+  const followed = useQuery(projectQueries.testTargetsChat(project.id)).data;
+  const nobodyOnboards = useDutyHolder("onboards-projects").fallback !== undefined;
+  const asking = useAskTestTargets(project);
+  const openTask = followed?.setUpTask ?? null;
+  const chat = followed?.chat ?? null;
+  const canAsk = followed !== undefined && openTask === null && chat === null;
   return (
     <ProjectBlock
       icon="flask-conical"
       title="Test targets"
       anchor={TEST_TARGETS_ANCHOR}
       actions={
-        openTask ? undefined : (
+        canAsk && devops?.card.capabilities.chat ? (
           <Button
             variant="secondary"
             size="sm"
-            iconLeft={<Icon name="wand-sparkles" size={14} />}
-            loading={settingUp.isPending}
-            onClick={() => settingUp.mutate()}
+            iconLeft={<Icon name="message-circle" size={14} />}
+            loading={asking.isPending}
+            onClick={() => asking.mutate()}
           >
-            Set up test targets
+            Ask {devops.card.name} to set up test targets
           </Button>
-        )
+        ) : undefined
       }
     >
       <p className="project-block-text">
         What can be launched on an Initiative&apos;s branch to try the work. Kept in The Office,
         never in the repository.
       </p>
-      {openTask && <SetUpTaskLine task={openTask} />}
-      {settingUp.error && <RefusalAlert title="Nothing was set up" error={settingUp.error} />}
+      {canAsk && nobodyOnboards && (
+        <p className="project-block-note">
+          Nobody onboards Projects yet: give Onboards and repairs Projects to someone in People.
+        </p>
+      )}
+      {openTask && (
+        <div className="off-board-task is-ready">
+          <SetUpTaskLine task={openTask} />
+          <p className="off-board-task-hint">
+            Made before test targets were set up in a chat. It works as before; once it is Done or
+            Dropped, the button asks in a chat.
+          </p>
+        </div>
+      )}
+      {!openTask && chat && (
+        <TestTargetsChatLine
+          project={project}
+          chat={chat}
+          asking={asking.isPending}
+          onAskAgain={() => asking.mutate()}
+        />
+      )}
+      {asking.error && <RefusalAlert title="Nothing was asked" error={asking.error} />}
       <OpenProposals projectId={project.id} />
       {read.error && <RefusalAlert title="The test targets can't be read" error={read.error} />}
       {targets && (
@@ -220,6 +241,147 @@ export function TestTargetsBlock({ project }: { readonly project: Project }): Re
         </>
       )}
     </ProjectBlock>
+  );
+}
+
+/** The words the test targets chat opens with, waiting in its composer for the user to send. */
+export function testTargetsDraftOf(projectName: string): string {
+  return `Can you set up the test targets of ${projectName}? Read its repository, change no file, and propose them.`;
+}
+
+/** The followed Thread's events that move the chat's state: a message, a turn's end, its Proposal. */
+const FOLLOWED_CHAT_EVENTS = [
+  "thread.messages-logged",
+  "thread.turn-ended",
+  "thread.proposal-drafted",
+  "thread.proposal-applied",
+  "thread.proposal-declined",
+] as const;
+
+/**
+ * Ask, or Ask again: the service starts a Thread in the chat of whoever onboards Projects, and the
+ * chat drawer opens on it with the draft waiting; the card follows it from then on.
+ */
+function useAskTestTargets(project: Project) {
+  const queryClient = useQueryClient();
+  const openWithDraft = useOpenWithDraft();
+  return useMutation({
+    mutationFn: () => askTestTargetsChat(project.id),
+    onSuccess: async (asked: ProjectTestTargetsChat) => {
+      queryClient.setQueryData(projectQueries.testTargetsChat(project.id).queryKey, asked);
+      if (asked.chat) {
+        await openWithDraft(
+          { id: asked.chat.threadId, roleKey: asked.chat.roleKey },
+          testTargetsDraftOf(project.name),
+        );
+      }
+    },
+  });
+}
+
+/** Reads the followed chat again on its Thread's events, which no query key of the Project names. */
+function useFollowedChatEvents(projectId: string, threadId: string): void {
+  const queryClient = useQueryClient();
+  const readAgain = (event: object): void => {
+    if ("threadId" in event && event.threadId === threadId) {
+      void queryClient.invalidateQueries({
+        queryKey: projectQueries.testTargetsChat(projectId).queryKey,
+      });
+    }
+  };
+  useOfficeEvent(FOLLOWED_CHAT_EVENTS[0], readAgain);
+  useOfficeEvent(FOLLOWED_CHAT_EVENTS[1], readAgain);
+  useOfficeEvent(FOLLOWED_CHAT_EVENTS[2], readAgain);
+  useOfficeEvent(FOLLOWED_CHAT_EVENTS[3], readAgain);
+  useOfficeEvent(FOLLOWED_CHAT_EVENTS[4], readAgain);
+}
+
+const CHAT_BADGES: Readonly<
+  Record<
+    TestTargetsChat["state"],
+    { readonly label: string; readonly tone: "neutral" | "info" | "warning" | "accent" }
+  >
+> = {
+  draft: { label: "Draft waiting", tone: "neutral" },
+  answering: { label: "Answering", tone: "info" },
+  "waiting-on-you": { label: "Waiting on you", tone: "warning" },
+  proposal: { label: "Proposal ready", tone: "accent" },
+};
+
+const CHAT_CLASSES: Readonly<Record<TestTargetsChat["state"], string>> = {
+  draft: "is-queued",
+  answering: "is-running",
+  "waiting-on-you": "is-waiting-on-you",
+  proposal: "is-done",
+};
+
+/**
+ * Where the test targets chat stands (docs/design/set-up-tasks.html, "The chat in flight"), with
+ * Open the chat, and Ask again while no Proposal is open.
+ */
+function TestTargetsChatLine({
+  project,
+  chat,
+  asking,
+  onAskAgain,
+}: {
+  readonly project: Project;
+  readonly chat: TestTargetsChat;
+  readonly asking: boolean;
+  readonly onAskAgain: () => void;
+}): ReactNode {
+  useFollowedChatEvents(project.id, chat.threadId);
+  const person = useHired(chat.roleKey);
+  const chatControls = useChat();
+  const now = useClock();
+  const name = person?.card.name ?? "Devops";
+  const badge = CHAT_BADGES[chat.state];
+  const title = {
+    draft: `Asked ${name} in a chat`,
+    answering: `${name} is reading the repository`,
+    "waiting-on-you": `${name} replied in the chat`,
+    proposal: `${name} proposed them in the chat`,
+  }[chat.state];
+  return (
+    <section
+      className={`off-board-task ${CHAT_CLASSES[chat.state]}`}
+      aria-label={`Test targets chat · ${badge.label}`}
+    >
+      <div className="off-board-task-head">
+        <Badge tone={badge.tone} dot>
+          {badge.label}
+        </Badge>
+        <span className="off-board-task-title">{title}</span>
+        <span className="off-board-task-end">
+          <TextButton onClick={() => chatControls.open(chat.roleKey, chat.threadId)}>
+            Open the chat
+          </TextButton>
+          {chat.state !== "proposal" && (
+            <Button size="sm" variant="ghost" loading={asking} onClick={onAskAgain}>
+              Ask again
+            </Button>
+          )}
+        </span>
+      </div>
+      {chat.state === "draft" && (
+        <p className="off-board-task-hint">Your draft waits in the chat for you to send it.</p>
+      )}
+      {chat.state === "answering" && (
+        <div className="off-board-task-meta">
+          <span className="off-board-task-person">
+            <PersonAvatar roleKey={chat.roleKey} name={name} size="xs" />
+            <strong>{name}</strong>
+          </span>
+          <span>For {durationWords(now.getTime() - Date.parse(chat.since))}</span>
+          <span>In a chat, on the base branch {project.baseBranch}</span>
+        </div>
+      )}
+      {chat.state === "proposal" && (
+        <p className="off-board-task-hint">
+          Apply or dismiss the Proposal below; the list stays as it is until it is applied.
+        </p>
+      )}
+    </section>
   );
 }
 

@@ -23,6 +23,8 @@ import { usePageHeading } from "../../shell/page-heading.tsx";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { KindGlyph, PriorityGlyph, TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
 import { DropNote } from "./drop-note.tsx";
+import { OffBoardTaskBadge } from "../../shell/work/off-board-task-badge.tsx";
+import { OffBoardTaskNote } from "./off-board-task-note.tsx";
 import { useWaitingOnYouInItsState } from "../../shell/work/waiting-on-you.ts";
 import { KIND_NAMES, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
 import { ArchivedBadge } from "./archive-parts.tsx";
@@ -226,6 +228,7 @@ function TaskHead({
           <EngineStandInsMark task={task} />
         </div>
         <div className="task-head-meta">
+          <OffBoardTaskBadge madeFor={task.madeFor} />
           <span className="task-head-priority task-head-kind">
             <KindGlyph kind={task.kind} size={12} />
             {KIND_NAMES[task.kind]}
@@ -248,6 +251,7 @@ function TaskHead({
         menu={<TaskMenu task={task} actions={actions} offersBranchDeletion />}
         className="task-head-actions"
       />
+      <OffBoardTaskNote task={task} projects={projects} />
       <StartNotes task={task} />
       <DropNote task={task} />
     </header>

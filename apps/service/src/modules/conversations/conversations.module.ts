@@ -32,6 +32,7 @@ import { DecisionOfficeTools } from "./adapters/office-tools/decision-office-too
 import { LinkCardOfficeTools } from "./adapters/office-tools/link-card-office-tools.js";
 import { ProjectCommandOfficeTools } from "./adapters/office-tools/project-command-office-tools.js";
 import { TestTargetOfficeTools } from "./adapters/office-tools/test-target-office-tools.js";
+import { ProjectsTestTargetsChatRegistration } from "./adapters/projects/projects-test-targets-chat-registration.js";
 import { PromptTemplateOfficeTools } from "./adapters/office-tools/prompt-template-office-tools.js";
 import { ProposalOfficeTools } from "./adapters/office-tools/proposal-office-tools.js";
 import { RoleOfficeTools } from "./adapters/office-tools/role-office-tools.js";
@@ -219,6 +220,7 @@ export class ConversationsModule implements NestModule {
         PromptTemplateOfficeTools,
         ProjectCommandOfficeTools,
         TestTargetOfficeTools,
+        ProjectsTestTargetsChatRegistration,
         SkillOfficeTools,
         LinkCards,
         LinkCardOfficeTools,

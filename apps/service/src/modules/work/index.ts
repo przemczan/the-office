@@ -7,7 +7,22 @@ export { DroppedInitiativeTasks } from "./application/dropped-initiative-tasks.j
 export { DroppedTaskDecisions } from "./application/dropped-task-decisions.js";
 export { PlanningAfterRestart } from "./application/planning-after-restart.js";
 export { OfficeLimits } from "./application/office-limits.js";
+export { OffBoardTaskReader } from "./application/off-board-task-reader.js";
+export { OffBoardTasks } from "./application/off-board-tasks.js";
 export { OnboardingService } from "./application/onboarding-service.js";
+export {
+  isOffBoardTask,
+  type OffBoardTask,
+  type OffBoardTaskKind,
+  type OffBoardTaskStart,
+  type OffBoardTaskStatus,
+  type ProjectOffBoardTasks,
+} from "./domain/off-board-task.js";
+export {
+  toOffBoardTaskResponse,
+  toOffBoardTaskStartResponse,
+  toProjectOffBoardTasksResponse,
+} from "./adapters/http/off-board-task-responses.js";
 export { QueueService } from "./application/queue-service.js";
 export { RunEnvironmentSetUps } from "./application/run-environment-set-ups.js";
 export { StageScreenshots } from "./application/stage-screenshots.js";
