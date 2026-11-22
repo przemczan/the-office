@@ -1,5 +1,5 @@
 // The design system for React: each component of design-system/components, typed by its .d.ts,
-// and the appearance over its aliases. design-system/ stays as exported, so nothing outside this
+// and the appearance over its aliases. design-system/ stays as it is, so nothing outside this
 // package imports it.
 import { icons } from "lucide";
 import type { JSX as ReactJSX } from "react";
@@ -63,7 +63,6 @@ export { type ButtonProps } from "../../../design-system/components/core/Button.
 export { type CardProps } from "../../../design-system/components/core/Card.jsx";
 export { Icon, type IconProps } from "../../../design-system/components/core/Icon.jsx";
 export { type IconButtonProps } from "../../../design-system/components/core/IconButton.jsx";
-export { Logo, type LogoProps } from "../../../design-system/components/core/Logo.jsx";
 export { Tag, type TagProps } from "../../../design-system/components/core/Tag.jsx";
 export {
   type DataTableColumn,

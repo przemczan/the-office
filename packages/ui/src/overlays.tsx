@@ -3,7 +3,7 @@
 // backdrop. A press outside is the one way to close it by accident, so a window holding unsaved
 // input asks first, in a step over its bar. The design system's Drawer closes on any click on its
 // backdrop, a drag from inside it included, so the wrapper takes that click over and closes it on a
-// press outside as a window closes. design-system/ stays as exported, hence the wrapper rather than
+// press outside as a window closes. design-system/ stays as it is, hence the wrapper rather than
 // an edit there. The conversation's drawer on the Task and Initiative pages closes on a press
 // outside too, built apart from these (apps/web/src/surfaces/work/conversation-drawer.tsx); the chat
 // drawer has no backdrop and stays open beside the page. `Tooltip` is built here too (its press-to-open

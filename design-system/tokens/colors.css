@@ -1,8 +1,8 @@
 :root{
-/* Ember — brand accent (inherited from NotNullSoft) */
+/* Ember — The Office's accent */
 --ember-50:#FFF2ED;--ember-100:#FFE0D4;--ember-200:#FFBDA6;--ember-300:#FF9370;--ember-400:#FF6638;--ember-500:#F23D0F;--ember-600:#CC2F07;--ember-700:#9E2406;--ember-800:#6E1906;--ember-900:#3D0E04;
 --flare-100:#FFE9C7;--flare-300:#FFC266;--flare-500:#FF9A1F;--flare-700:#B86505;
-/* Gray — near-neutral, a whisper warm. Replaces the brand's beige Ink ramp for admin legibility */
+/* Gray — near-neutral, a whisper warm, for legibility in dense screens */
 --white:#FFFFFF;
 --gray-25:#FAFAF9;--gray-50:#F4F4F2;--gray-100:#E9E9E6;--gray-150:#DEDEDA;--gray-200:#D1D1CC;--gray-300:#B1B1AB;--gray-400:#8A8A84;--gray-500:#6B6B66;--gray-600:#50504C;--gray-700:#3A3A37;--gray-800:#262624;--gray-900:#181817;--gray-950:#0F0F0E;
 /* Status */

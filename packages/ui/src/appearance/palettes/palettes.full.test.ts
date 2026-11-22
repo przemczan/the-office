@@ -8,10 +8,10 @@ const SPEC = readFileSync(
   "utf8",
 );
 
-/** The aliases spec §4 gives a palette, from its bullet to the next palette's or the densities'. */
+/** The aliases spec §4 gives a palette, from its heading to the next palette's or the densities'. */
 function specValues(name: string): Record<string, string> {
-  const start = SPEC.indexOf(`  - **${name}** sets`);
-  const end = SPEC.indexOf("\n  - **", start + 1);
+  const start = SPEC.indexOf(`\n### ${name}\n`);
+  const end = SPEC.indexOf("\n##", start + 1);
   const section = SPEC.slice(start, end);
   const values = [...section.matchAll(/`(--[\w-]+): (#[0-9A-Fa-f]{6})`/g)].map(
     ([, alias = "", value = ""]) => [alias, value.toLowerCase()],

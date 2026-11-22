@@ -9,7 +9,7 @@ interface AdherenceConfig {
 }
 
 export interface AdherenceOptions {
-  /** The exported adherence config, which stays as exported. */
+  /** The design system's adherence config, which stays as it is. */
   readonly configFile: string;
   /** The files it lints. */
   readonly files: readonly string[];

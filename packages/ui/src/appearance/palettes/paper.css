@@ -1,4 +1,4 @@
-/* Paper: light and warm, from the brand system's beige, on the design system's light aliases. It
+/* Paper: light and warm, a soft beige, on the design system's light aliases. It
    keeps their primary, inverse and status colours (spec §4). */
 :root[data-palette="paper"] {
   --bg: #f3efe8;

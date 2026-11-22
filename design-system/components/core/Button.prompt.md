@@ -1,4 +1,4 @@
-Primary action control for admin screens — ink "primary" for the main action, "secondary" for everything else in toolbars.
+Primary action control for the app's screens — ink "primary" for the main action, "secondary" for everything else in toolbars.
 ```jsx
 <Button iconLeft={<Icon name="plus" size={14}/>}>New user</Button>
 <Button variant="secondary">Export</Button>
