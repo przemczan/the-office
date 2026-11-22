@@ -1,19 +1,5 @@
 import type { TaskSummary } from "@the-office/contracts";
-
-/** The Tasks this one must wait for, in the order they were added. */
-export function blockersOf(task: TaskSummary, tasks: readonly TaskSummary[]): TaskSummary[] {
-  return task.blockedBy.flatMap((id) => tasks.find((each) => each.id === id) ?? []);
-}
-
-/** The blockers still holding the Task back: a Done or Dropped one no longer blocks (spec §2.1). */
-export function blockingTasksOf(task: TaskSummary, tasks: readonly TaskSummary[]): TaskSummary[] {
-  return blockersOf(task, tasks).filter(canHoldBack);
-}
-
-/** Whether a Task waiting for this one would wait: neither Done nor Dropped. */
-export function canHoldBack({ state }: TaskSummary): boolean {
-  return state !== "done" && state !== "dropped";
-}
+import { canHoldBack } from "../../shell/work/initiative-progress.ts";
 
 /** The Tasks waiting for this one, leaving out the Dropped. */
 export function waitingFor(task: TaskSummary, tasks: readonly TaskSummary[]): TaskSummary[] {

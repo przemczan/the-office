@@ -10,7 +10,8 @@ import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
-import { blockerCandidates, blockersOf, waitingFor } from "./dependency-words.ts";
+import { blockersOf } from "../../shell/work/initiative-progress.ts";
+import { blockerCandidates, waitingFor } from "./dependency-words.ts";
 import { useRecordChange } from "./planning-parts.tsx";
 
 /** The Tasks this one waits for and the Tasks waiting for it, in any Project. */

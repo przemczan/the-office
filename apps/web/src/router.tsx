@@ -50,11 +50,11 @@ import {
   ProjectIssuesSection,
   ProjectRunEnvironmentSection,
   ProjectEngineSection,
-  ProjectOverviewSection,
   ProjectServerValuesSection,
   ProjectSkillsSection,
   ProjectTestTargetsSection,
 } from "./surfaces/projects/project-sections.tsx";
+import { ProjectOverviewSection } from "./surfaces/projects/overview/overview-section.tsx";
 import { NoProjectOpen, ProjectsPage } from "./surfaces/projects/projects-page.tsx";
 import { NotificationsSection } from "./surfaces/settings/notifications/notifications-section.tsx";
 import { EnginesSection } from "./surfaces/settings/engines/engines-section.tsx";

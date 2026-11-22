@@ -1,6 +1,6 @@
 # Project page
 
-Covers: a Project's page and its head, the section tabs, Overview (Onboarding, Work, the Project limit, the Actions tile), Files, Commands (install, install inputs, commands, Publish), Environment (variables, Secret variables, environment check), Pipelines (Default Pipeline and its rows by Kind, Project Pipelines), GitHub issues (the Import issues window, auto-import, write-back), Run environment, Devices (the Project's devices, Add a device, pairing, Change Port, Pair again, Remove), Test targets (the list, the editor, Install on a device, Set up test targets, the open Proposal), Test instances (Launch on a branch, instances by branch), the Branch picker, Actions (the list, the editor, the open Proposal, the Run window and its confirm step, an Action's History, a run's log), Engine, Skills, Server values, Features (the switches, the tabs a switched-off feature hides), Appearance (Mark, Icon and Logo, How it looks).
+Covers: a Project's page and its head, the section tabs, Overview (the dashboard: the Actions tile, Onboarding, Work, the Project limit, the tiles for Initiatives, Ideas, CI, Pull requests, Test instances, Environment, Remote sign-in and Recent activity), Files, Commands (install, install inputs, commands, Publish), Environment (variables, Secret variables, environment check), Pipelines (Default Pipeline and its rows by Kind, Project Pipelines), GitHub issues (the Import issues window, auto-import, write-back), Run environment, Devices (the Project's devices, Add a device, pairing, Change Port, Pair again, Remove), Test targets (the list, the editor, Install on a device, Set up test targets, the open Proposal), Test instances (Launch on a branch, instances by branch), the Branch picker, Actions (the list, the editor, the open Proposal, the Run window and its confirm step, an Action's History, a run's log), Engine, Skills, Server values, Features (the switches, the tabs a switched-off feature hides), Appearance (Mark, Icon and Logo, How it looks).
 
 ## Where it is
 
@@ -33,7 +33,7 @@ Covers: a Project's page and its head, the section tabs, Overview (Onboarding, W
 - Below it a row of tabs, one per section, labelled as in [Where it is](#where-it-is); choosing one opens its address.
 - A section's tab stays chosen on its sub-addresses, such as an open Project Pipeline.
 - On a narrow pane the tabs scroll sideways.
-- Below the tabs the open section: its blocks are cards stacked in one column, 1100px at most wide.
+- Below the tabs the open section: its blocks are cards stacked in one column, 1100px at most wide; the Overview takes the pane's whole width ([Overview](#overview)).
 - The section breakpoints below are measured on the pane's width, not the page's.
 - At a page width of 1224px and under the page shows alone, with **‹ All Projects** above it back to the list ([projects.md](projects.md#states)).
 - At a page width of 664px and under, the page padding shrinks to 14px.
@@ -53,7 +53,18 @@ Covers: a Project's page and its head, the section tabs, Overview (Onboarding, W
 
 ## Overview
 
-- Blocks: Onboarding, Work, then the Actions tile while the Project's `actions` feature switch is on.
+- The Project's dashboard: how it stands, each tile linking to where its details live.
+- Top to bottom:
+  - the Actions tile, first, while the Project's `actions` feature switch is on; until Actions are built ([2.15](../2.15-actions.md)) this place shows nothing;
+  - Onboarding;
+  - Work;
+  - a grid of tiles: Initiatives, Ideas, CI, Pull requests, Test instances, Environment, Remote sign-in, Recent activity.
+- The grid's columns are at least 300px wide, as many as fit the pane; at a pane width under 640px it is one column.
+- Initiatives and Recent activity span two columns while the pane fits two.
+- Each tile is a card with its icon and title, and its link at the title's end.
+- While a tile's reads load it shows a skeleton; a failed read shows its error in that tile only, the others as they are.
+- A tile tied to a feature switch is gone while the switch is off; `project.features-changed` shows or hides it.
+- Each tile refreshes from the events already named below; the Overview adds no read or event of its own.
 
 ### Onboarding
 
@@ -75,6 +86,85 @@ Covers: a Project's page and its head, the section tabs, Overview (Onboarding, W
 - **Running Tasks at once in this Project**: a stepper, 1 to the Project limit's maximum (`PROJECT_LIMIT_MAX`), saved at each step.
 - Note: "Lowering it lets running Tasks finish; nothing new starts in this Project until one ends."
 - A refusal shows under the stepper.
+
+### Initiatives tile
+
+- Card **Initiatives** (flag icon) with the link **All Initiatives** at its end: it narrows the Project filter to this Project, then goes to `/work/initiatives`.
+- The Initiatives spanning the Project that are Shaping or Active and not archived, the Active first.
+- One row each:
+  - its name, linking to its Initiative page ([initiative-page.md](initiative-page.md));
+  - **Shaping** while it is Shaping, **Paused** while it is paused;
+  - a progress bar with "<n> of <m> Tasks done", as on [the Initiatives tab](initiatives-tab.md), once it has Tasks.
+- Empty: "No Initiative spans <Project> right now."
+- It follows `initiative.*` and `task.*`.
+
+### Ideas tile
+
+- Card **Ideas** (lightbulb icon) with the link **Open Ideas** at its end: it narrows the Project filter to this Project, then goes to `/work/ideas`.
+- "<n> New Ideas": the Project's Ideas in New.
+- The newest 3 by when they were captured, each its title linking to it on Work › Ideas (`?idea=<id>`), with its age.
+- Empty: "No new Ideas for <Project>."
+- It follows `idea.*`.
+
+### CI tile
+
+- Card **CI** (activity icon) with the link **CI runs** at its end: it narrows the Project filter to this Project, then goes to `/work/ci`.
+- The newest run on the base branch: its status badge in Work › CI's words, "<workflow> #<n> · <title>" linking to its logs on the code host, then its branch, short commit and age.
+- Under it the newest run on any branch, when that is a newer one.
+- "Out of date" while the listing is stale.
+- The listing's problem, in Work › CI's words, as an error line.
+- Empty: "No CI runs on GitHub yet."
+- With no listing for the Project, as its code host isn't GitHub: "CI runs need a code host The Office reads."
+- It follows `ci-runs.changed`.
+
+### Pull requests tile
+
+- Card **Pull requests** (git-pull-request icon) with the link **Pull requests** at its end: it narrows the Project filter to this Project, then goes to `/work/pull-requests`.
+- "<n> open": the Project's open pull requests.
+- The newest 3, each "#<n> <title>" linking to it on the code host, its **Checks** and **Mergeable** badges in Work › Pull requests' words, and **Its Task**, linking to the Task that opened it.
+- Each of the Project's problems, in Work › Pull requests' words, as an error line.
+- Empty: "No open pull requests."
+- It follows `pull-requests.changed`.
+
+### Test instances tile
+
+- Card **Test instances** (flask-conical icon) with the link **Test targets** at its end, to `/projects/$projectId/test-targets`.
+- The Project's Building and Running instances on every branch, the newest launched first.
+- One row each: the target's name, its state badge, the branch, and the Initiative it is linked to, linking to its page.
+- A Running Hosted instance has **Open**, as on [Test instances](#test-instances).
+- Empty: "None running."
+- Gone while the `test-targets` feature switch is off.
+- It follows `test-instance.changed`.
+
+### Environment tile
+
+- Card **Environment** (shield-check icon) with the link **Environment** at its end, to `/projects/$projectId/environment`.
+- The last environment check's badge, as the [Environment check](#environment-check) block's, and when it ended, or started while it runs.
+- A Failed check adds "Failed at: <step>", its first failed step by name.
+- Empty: "Not checked yet."
+- It follows `project.environment-check-changed`.
+
+### Remote sign-in tile
+
+- Card **Remote sign-in** (key-round icon) with the link **Settings › Office identity** at its end.
+- The remote's needs in the head's words ([Head](#head)).
+- With nothing missing and the code host reading: **Signed in** (success).
+- With something missing, or the code host refusing to be read as the CI or pull request listing last found it: **Needs attention** (warning), then each, the missing parts in the head's words and the refusal in the code host's.
+- A remote that needs nothing of the Office identity (a local folder, anonymous https, a refused scheme): its words alone, without a badge.
+- Without a remote branch: "Its base branch tracks no remote branch, so it needs nothing of the Office identity."
+- It follows `github.changed`, `ci-runs.changed` and `pull-requests.changed`.
+
+### Recent activity tile
+
+- Card **Recent activity** (history icon) with the link **Open in Work** at its end, to `/work`.
+- A timeline of the Project's last 7 days, newest first, 10 lines at most ([2.1.1 Recent activity](../2.1.1-projects.md#recent-activity)), each with its age:
+  - "Done: <Task>", with " · published" when its commit message was published too;
+  - "Published: <Task>", for a Task published but not Done;
+  - "Idea captured: <title>".
+- Each names its record with a link: the Task's page, or the Idea on Work › Ideas.
+- A Done Task archived since leaves it, as the Task list holds no archived Task.
+- Empty: "Nothing in the last 7 days."
+- It follows `task.*` and `idea.*`.
 
 ### Actions tile
 

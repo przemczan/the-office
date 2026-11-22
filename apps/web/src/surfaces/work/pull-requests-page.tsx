@@ -12,6 +12,13 @@ import { projectQueries } from "../../api/projects.ts";
 import { pullRequestQueries, refreshPullRequests } from "../../api/pull-requests.ts";
 import { resolveConflicts, taskQueries, useEveryTask } from "../../api/work.ts";
 import { BlockLoader } from "../../shell/block-loader.tsx";
+import {
+  CHECKS_WORDS,
+  checkedWords,
+  MERGEABLE_WORDS,
+  pullRequestName,
+  pullRequestProblemWords,
+} from "../../shell/code-host-words.ts";
 import { GitHubPermissionsPrompt } from "../../shell/github-permissions-prompt.tsx";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
@@ -31,21 +38,16 @@ import {
   START_REFUSED_TITLE,
 } from "./conflict-resolution-words.ts";
 import { MergePullRequestDialog } from "./merge-pull-request-dialog.tsx";
-import { ToneBadge } from "./pull-request-parts.tsx";
+import { ToneBadge } from "../../shell/tone-badge.tsx";
 import {
   branchWords,
-  CHECKS_WORDS,
   CLOSE_ACTION,
-  checkedWords,
   IN_OTHER_PROJECTS,
   MERGE_ACTION,
-  MERGEABLE_WORDS,
   NO_PULL_REQUESTS,
   OUT_OF_DATE,
   OUT_OF_DATE_TITLE,
   problemTitle,
-  problemWords,
-  pullRequestName,
   REFRESH_HINT,
   TASK_NOT_FOUND,
 } from "./pull-request-words.ts";
@@ -98,7 +100,7 @@ export function PullRequestsPage(): ReactNode {
           tone="warning"
           title={problemTitle(projectNameOf(problem.projectId, projects.data))}
         >
-          {problemWords(problem)}
+          {pullRequestProblemWords(problem)}
         </Alert>
       ))}
       <ResolvingOutcome resolving={resolving} />

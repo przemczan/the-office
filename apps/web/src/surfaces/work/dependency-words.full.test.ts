@@ -1,12 +1,7 @@
 import type { Task } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import {
-  blockerCandidates,
-  blockersOf,
-  blockingTasksOf,
-  dependenciesSummary,
-  waitingFor,
-} from "./dependency-words.ts";
+import { blockersOf, blockingTasksOf } from "../../shell/work/initiative-progress.ts";
+import { blockerCandidates, dependenciesSummary, waitingFor } from "./dependency-words.ts";
 
 function aTask(id: string, fields: Partial<Task> = {}): Task {
   return {

@@ -14,6 +14,7 @@ import { decisionQueries } from "../../api/conversations.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { initiativeQueries, useEveryTask } from "../../api/work.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
+import { initiativeProgress, progressWords } from "../../shell/work/initiative-progress.ts";
 import { useShaper } from "../../shell/work/use-shaper.ts";
 import { ArchivedBadge } from "./archive-parts.tsx";
 import { InitiativeAttachments } from "./attachments-block.tsx";
@@ -27,13 +28,7 @@ import { InitiativePausedBadge } from "./initiative-pause.tsx";
 import { InitiativePipelineBlock } from "./initiative-pipeline-block.tsx";
 import { InitiativeTestInstancesBlock } from "./initiative-test-instances-block.tsx";
 import { planningProgressWords } from "./initiative-planning-words.ts";
-import {
-  initiativeProgress,
-  ordinaryTasksOf,
-  progressWords,
-  tasksFoldSummary,
-  tasksOfInitiative,
-} from "./initiative-words.ts";
+import { ordinaryTasksOf, tasksFoldSummary, tasksOfInitiative } from "./initiative-words.ts";
 import { MissingRecord } from "./missing-record.tsx";
 import { WorkTabs } from "./work-tabs.tsx";
 import { OriginBlock } from "./origin-block.tsx";

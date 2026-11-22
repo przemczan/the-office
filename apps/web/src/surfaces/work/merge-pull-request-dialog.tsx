@@ -3,12 +3,13 @@ import type { MergeMethod, PullRequest } from "@the-office/contracts";
 import { Alert, Button, Dialog, Field, RadioGroup, Skeleton } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
 import { mergePullRequest, pullRequestQueries } from "../../api/pull-requests.ts";
+import { CHECKS_WORDS, MERGEABLE_WORDS } from "../../shell/code-host-words.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
-import { PullRequestRefusalAlert, ToneBadge } from "./pull-request-parts.tsx";
+import { ToneBadge } from "../../shell/tone-badge.tsx";
+import { PullRequestRefusalAlert } from "./pull-request-parts.tsx";
 import {
   branchDeletionWords,
-  CHECKS_WORDS,
   endedToast,
   MERGE_BUTTON,
   MERGE_CAUTION,
@@ -16,7 +17,6 @@ import {
   MERGE_METHOD_WORDS,
   MERGE_METHODS_UNREAD,
   MERGE_REFUSED,
-  MERGEABLE_WORDS,
   mergeCautionTitle,
   mergeIntoWords,
   mergeTitle,

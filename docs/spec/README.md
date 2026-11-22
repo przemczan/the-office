@@ -171,6 +171,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Open page**: [2.4.4 Open page](2.4.4-messages.md#open-page); screen: [Thread › Open page](screens/thread.md#open-page)
 - **Out of reach, Reported met**: [2.3.3 Statements Out of reach](2.3.3-gates-and-checks.md#statements-out-of-reach); [2.3.3 Reports count across Stages](2.3.3-gates-and-checks.md#reports-count-across-stages-and-the-check-runs-before-publish)
 - **Overlap**: [2.1.5 Overlaps at Start](2.1.5-planning-and-start.md#overlaps-at-start)
+- **Overview, a Project's dashboard, Recent activity**: [2.1.1 Recent activity](2.1.1-projects.md#recent-activity); screen: [Project page › Overview](screens/project-page.md#overview), [Project page › Recent activity tile](screens/project-page.md#recent-activity-tile)
 
 ### P
 
@@ -406,6 +407,7 @@ Where each default lives, by page:
   - [Feature switches](2.1.1-projects.md#feature-switches-1)
   - [GitHub issues switches](2.1.1-projects.md#github-issues-switches)
   - [Onboarding a Project](2.1.1-projects.md#onboarding-a-project)
+  - [Recent activity](2.1.1-projects.md#recent-activity)
 - 2.1.2 Ideas and Attachments
   - [Plan as a Task with the Planner](2.1.2-ideas-and-attachments.md#plan-as-a-task-with-the-planner)
 - 2.1.3 Tasks

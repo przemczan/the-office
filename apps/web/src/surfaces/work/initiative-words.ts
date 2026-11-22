@@ -1,7 +1,7 @@
 import type { Initiative, InitiativeState, Task, TaskSummary } from "@the-office/contracts";
 import type { BadgeProps } from "@the-office/ui";
+import { blockersOf, blockingTasksOf } from "../../shell/work/initiative-progress.ts";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
-import { blockersOf, blockingTasksOf } from "./dependency-words.ts";
 import { firstLine, withoutMarkdownMarks } from "./stage-words.ts";
 
 export const INITIATIVE_STATE_TONES: Readonly<
@@ -85,33 +85,6 @@ export function publishingWaitWords(
   if (blockers.length === 0) return undefined;
   const titles = blockers.map(({ title }) => `“${title}”`).join(", ");
   return `Waits for ${titles} before its next Stage.`;
-}
-
-/** How far the Initiative is; a Dropped Task no longer counts, as it is done without it (spec §2.1). */
-export interface InitiativeProgress {
-  readonly done: number;
-  readonly counted: number;
-  /** Ready, and waiting for no Task. */
-  readonly readyToStart: number;
-}
-
-export function initiativeProgress(
-  initiativeTasks: readonly TaskSummary[],
-  tasks: readonly TaskSummary[],
-): InitiativeProgress {
-  const counted = initiativeTasks.filter(({ state }) => state !== "dropped");
-  return {
-    done: counted.filter(({ state }) => state === "done").length,
-    counted: counted.length,
-    readyToStart: counted.filter(
-      (task) => task.state === "ready" && blockingTasksOf(task, tasks).length === 0,
-    ).length,
-  };
-}
-
-export function progressWords({ done, counted, readyToStart }: InitiativeProgress): string {
-  const ready = readyToStart > 0 ? ` · ${readyToStart} ready to start` : "";
-  return `${done} of ${counted} ${counted === 1 ? "Task" : "Tasks"} done${ready}`;
 }
 
 /** What an Initiative's Drop takes with it (spec 2.1): every Task not yet Done or Dropped. */

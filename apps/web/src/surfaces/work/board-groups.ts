@@ -1,11 +1,11 @@
 import type { Initiative, QueuedTask, TaskSummary } from "@the-office/contracts";
-import { cardsIn, COLUMNS, type Column } from "./board-columns.ts";
-import { isOnBoard } from "./board-filters.ts";
 import {
   initiativeProgress,
-  tasksOfInitiative,
   type InitiativeProgress,
-} from "./initiative-words.ts";
+} from "../../shell/work/initiative-progress.ts";
+import { cardsIn, COLUMNS, type Column } from "./board-columns.ts";
+import { isOnBoard } from "./board-filters.ts";
+import { tasksOfInitiative } from "./initiative-words.ts";
 
 /** The key of the group of Tasks that aren't part of an Initiative. */
 export const NO_INITIATIVE = "none";

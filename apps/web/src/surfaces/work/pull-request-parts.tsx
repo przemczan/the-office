@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Alert, Badge, Button, Icon } from "@the-office/ui";
+import { Alert, Button, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import {
   pullRequestQueries,
@@ -7,18 +7,6 @@ import {
   refreshPullRequests,
 } from "../../api/pull-requests.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
-import type { ToneWords } from "../../shell/tone-words.ts";
-
-/** A pull request's status as a badge, with what it means on hover. */
-export function ToneBadge({ words }: { readonly words: ToneWords }): ReactNode {
-  return (
-    <span title={words.title}>
-      <Badge tone={words.tone} dot size="sm">
-        {words.label}
-      </Badge>
-    </span>
-  );
-}
 
 /**
  * Why a Merge or Close was refused, in the code host's words; when the pull request changed since

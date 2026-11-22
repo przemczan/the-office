@@ -77,9 +77,23 @@ const SVG_WITH_A_SCRIPT = {
 /** In the page's order, How it looks first, as it shows on top in one column. */
 const APPEARANCE_BLOCKS = ["How it looks", "Mark", "Images"];
 
+/** The Overview's blocks in the page's order: Onboarding and Work, then the dashboard's tiles. */
+const OVERVIEW_BLOCKS = [
+  "Onboarding",
+  "Work",
+  "Initiatives",
+  "Ideas",
+  "CI",
+  "Pull requests",
+  "Test instances",
+  "Environment",
+  "Remote sign-in",
+  "Recent activity",
+];
+
 /** A Project's sections in the menu's order: each one's address and the blocks only it shows. */
 const SECTIONS = [
-  { name: "Overview", address: "", blocks: ["Onboarding", "Work"] },
+  { name: "Overview", address: "", blocks: OVERVIEW_BLOCKS },
   { name: "Files", address: "/files", blocks: [] },
   { name: "Commands", address: "/commands", blocks: ["Commands"] },
   {
@@ -99,7 +113,7 @@ const SECTIONS = [
 ];
 
 const ANY_BLOCK =
-  /^(Onboarding|Environment variables|Environment check|Work|Commands|Default Pipeline|GitHub issues|Run environment|Test targets|Test instances|Engine|Skills in the repository.*|Server values|Features|How it looks|Mark|Images)$/;
+  /^(Onboarding|Initiatives|Ideas|CI|Pull requests|Environment|Remote sign-in|Recent activity|Environment variables|Environment check|Work|Commands|Default Pipeline|GitHub issues|Run environment|Test targets|Test instances|Engine|Skills in the repository.*|Server values|Features|How it looks|Mark|Images)$/;
 
 let repository: TemporaryRepository;
 
@@ -2252,6 +2266,61 @@ test("on a narrow page the Projects list shows alone, then the Project with the 
   await back.click();
   await expect(page).toHaveURL(/\/projects$/);
   await expect(list).toBeVisible();
+});
+
+/** One tile of the Overview's dashboard, by its title. */
+function overviewTile(page: Page, title: string): Locator {
+  return page
+    .locator(".project-overview-tile")
+    .filter({ has: page.getByRole("heading", { name: title, exact: true }) });
+}
+
+test("a Project's Overview is a dashboard: Onboarding, Work, then its tiles, updating live", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Dashboard overview");
+  const created = await page.request.post("/api/tasks", {
+    data: { title: "Ship the dashboard", projectId: project.id, priority: "normal" },
+  });
+  expect(created.status()).toBe(201);
+  const task = taskSchema.parse(await created.json());
+  await page.goto(`/projects/${project.id}`);
+
+  await expect(
+    page.locator(".project-section").getByRole("heading", { name: ANY_BLOCK }),
+  ).toHaveText(OVERVIEW_BLOCKS);
+  const activity = overviewTile(page, "Recent activity");
+  await expect(activity).toContainText("Nothing in the last 7 days.");
+  await expect(overviewTile(page, "Initiatives")).toContainText(
+    `No Initiative spans ${project.name} right now.`,
+  );
+  await expect(
+    overviewTile(page, "Environment").getByRole("link", { name: "Environment" }),
+  ).toHaveAttribute("href", `/projects/${project.id}/environment`);
+
+  // Done without a walk, held archived so no event tells the page yet; Restore is the event.
+  await queryOfficeDatabase(
+    `update tasks set state = 'done', ended_at = now(), archived_at = now() where id = $1`,
+    [task.id],
+  );
+  const restored = await page.request.post(`/api/tasks/${task.id}/restore`);
+  expect(restored.ok()).toBe(true);
+  await expect(activity).toContainText("Done:");
+  await expect(activity.getByRole("link", { name: task.title })).toHaveAttribute(
+    "href",
+    `/tasks/${task.id}`,
+  );
+  await activity.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "light-1600-project-overview.png") });
+
+  // A narrow pane lays the tiles in one column.
+  await page.setViewportSize({ width: 600, height: 900 });
+  const lefts = await page
+    .locator(".project-overview-tile")
+    .evaluateAll((tiles) => tiles.map((tile) => Math.round(tile.getBoundingClientRect().left)));
+  expect(new Set(lefts).size).toBe(1);
+  await overviewTile(page, "Environment").scrollIntoViewIfNeeded();
+  await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "light-600-project-overview.png") });
 });
 
 test(

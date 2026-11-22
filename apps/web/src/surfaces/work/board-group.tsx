@@ -19,7 +19,7 @@ import {
 } from "./board-groups.ts";
 import { InitiativeProjects, InitiativeStateBadge } from "./initiative-parts.tsx";
 import { InitiativePausedBadge } from "./initiative-pause.tsx";
-import { progressWords, type InitiativeProgress } from "./initiative-words.ts";
+import { progressWords, type InitiativeProgress } from "../../shell/work/initiative-progress.ts";
 
 export interface GroupedBoardProps {
   readonly grouping: BoardGroups;

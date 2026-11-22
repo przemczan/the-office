@@ -5,7 +5,7 @@ import {
   type TaskSummary,
 } from "@the-office/contracts";
 import { isArchived } from "../../shell/work/work-words.ts";
-import { blockingTasksOf } from "./dependency-words.ts";
+import { blockingTasksOf } from "../../shell/work/initiative-progress.ts";
 
 /**
  * The board's filters from its address, leaving out whatever isn't one: only the filters set. The

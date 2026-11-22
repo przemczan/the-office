@@ -22,7 +22,7 @@ import { GroupedBoard } from "./board-group.tsx";
 import { useBoardGroupFolds } from "./board-group-folds.ts";
 import { boardGroups, groupKeyOf, NO_INITIATIVE, type BoardGroup } from "./board-groups.ts";
 import { placementAmong } from "./board-placement.ts";
-import { blockingTasksOf } from "./dependency-words.ts";
+import { blockingTasksOf } from "../../shell/work/initiative-progress.ts";
 import { FilterBar } from "./filter-bar.tsx";
 import { useBoardFilters, useBoardGrouping } from "./use-board-filters.ts";
 import { stageWorkedNow, useCurrentStage, usePeopleWorking } from "./working-mark.tsx";

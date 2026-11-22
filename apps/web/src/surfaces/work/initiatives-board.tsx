@@ -20,6 +20,7 @@ import { EmptyCard } from "../../shell/item-card.tsx";
 import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
 import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
 import { dayOf } from "../../shell/time.ts";
+import { initiativeProgress, progressWords } from "../../shell/work/initiative-progress.ts";
 import { useShaper } from "../../shell/work/use-shaper.ts";
 import { useWaitingOnYou } from "../../shell/work/waiting-on-you.ts";
 import { isArchived } from "../../shell/work/work-words.ts";
@@ -42,12 +43,7 @@ import {
 } from "./initiative-columns.ts";
 import { InitiativeProjects } from "./initiative-parts.tsx";
 import { InitiativePausedBadge } from "./initiative-pause.tsx";
-import {
-  initiativeProgress,
-  initiativeStateName,
-  progressWords,
-  tasksOfInitiative,
-} from "./initiative-words.ts";
+import { initiativeStateName, tasksOfInitiative } from "./initiative-words.ts";
 import { SearchBox } from "./search-box.tsx";
 import { useArchivingInitiative } from "./use-initiative-archive.ts";
 import { useInitiativesFilters } from "./use-initiatives-filters.ts";

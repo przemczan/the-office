@@ -1,5 +1,6 @@
 import type { Task } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
+import { initiativeProgress, progressWords } from "../../shell/work/initiative-progress.ts";
 import {
   attachmentsSummary,
   droppedWithIt,
@@ -7,9 +8,7 @@ import {
   dropTasksWords,
   graphLineKinds,
   initiativePipelineIn,
-  initiativeProgress,
   outcomeSummary,
-  progressWords,
   taskGraph,
   tasksFoldSummary,
 } from "./initiative-words.ts";

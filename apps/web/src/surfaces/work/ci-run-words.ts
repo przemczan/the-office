@@ -1,20 +1,9 @@
-import type { CiRun, CiRunProblem } from "@the-office/contracts";
-import { clockOf } from "../../shell/time.ts";
-import { checkedWords } from "./pull-request-words.ts";
+import type { CiRun } from "@the-office/contracts";
+import { checkedWords } from "../../shell/code-host-words.ts";
 
 /** Statuses a re-run is offered for. */
 export function canRerun(run: Pick<CiRun, "status">): boolean {
   return run.status === "failed" || run.status === "cancelled";
-}
-
-/** "CI #118 · Add the sign-in page". */
-export function ciRunName(run: Pick<CiRun, "workflow" | "number" | "title">): string {
-  return `${run.workflow} #${run.number} · ${run.title}`;
-}
-
-/** The first seven characters of a commit. */
-export function shortCommit(commit: string): string {
-  return commit.slice(0, 7);
 }
 
 /** When it started, as "18 min ago", or "Not started yet". */
@@ -39,12 +28,6 @@ export const RERUN_FAILED = "Re-run failed jobs";
 /** The line over a Project's problem. */
 export function problemTitle(projectName: string): string {
   return `${projectName}'s CI runs weren't refreshed`;
-}
-
-/** Why, in the user's own time: the code host's words, or "GitHub couldn't be reached at 14:02." */
-export function problemWords(problem: CiRunProblem): string {
-  if (problem.kind === "cannot-read") return problem.text;
-  return `${problem.codeHost} couldn't be reached at ${clockOf(problem.failedAt)}.`;
 }
 
 export const START_A_WORKFLOW = "Start a workflow";

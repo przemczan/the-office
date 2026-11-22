@@ -1,5 +1,5 @@
 import type { PullRequest, QueuedTask, TaskSummary } from "@the-office/contracts";
-import { pullRequestName } from "./pull-request-words.ts";
+import { pullRequestName } from "../../shell/code-host-words.ts";
 
 /** Whether The Office made the Task to resolve the conflicts of another Task's pull request. */
 export function isConflictResolutionTask(task: Pick<TaskSummary, "madeFor">): boolean {

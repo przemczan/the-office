@@ -16,7 +16,7 @@ import { useToast } from "../../shell/toasts.tsx";
 import { NewTaskDialog } from "../../shell/work/new-task-dialog.tsx";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { canBeArchived } from "../../shell/work/work-words.ts";
-import { canHoldBack } from "./dependency-words.ts";
+import { canHoldBack } from "../../shell/work/initiative-progress.ts";
 import { useBrowseInitiativeFilesActions } from "./browse-files.tsx";
 import { useRestoreInitiativeAction } from "./archive-parts.tsx";
 import { useBackToShapingAction } from "./initiative-back-to-shaping.tsx";

@@ -1,8 +1,8 @@
 import type { Initiative, InitiativeState, TaskSummary } from "@the-office/contracts";
 import { dayOf } from "../../shell/time.ts";
 import { isArchived, NOT_STARTED } from "../../shell/work/work-words.ts";
-import { blockingTasksOf } from "./dependency-words.ts";
-import type { InitiativeProgress } from "./initiative-words.ts";
+import { blockingTasksOf } from "../../shell/work/initiative-progress.ts";
+import type { InitiativeProgress } from "../../shell/work/initiative-progress.ts";
 import { lastEndedFirst } from "./last-ended-first.ts";
 
 /** The Initiatives board's filters, kept in its address. */
