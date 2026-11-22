@@ -30,6 +30,7 @@ import {
 } from "../../engine/index.js";
 import { OfficeUpdated, OfficeUpdateFailed } from "../../office-updates/index.js";
 import { CARETAKER } from "../../people/index.js";
+import { TestInstanceStateChanged } from "../../test-instances/index.js";
 import {
   GateContinued,
   GateReached,
@@ -163,6 +164,33 @@ function waitingStage(
   };
 }
 
+/** A test instance of the-office on feature/search moving `from` → `to`. */
+function moved(
+  instance: { readonly instanceId: string; readonly initiativeId?: string },
+  from: TestInstanceStateChanged["from"],
+  to: TestInstanceStateChanged["to"],
+  details: {
+    readonly targetName?: string;
+    readonly failedReason?: string;
+    readonly stoppedBy?: TestInstanceStateChanged["stoppedBy"];
+    readonly files?: readonly string[];
+  } = {},
+): TestInstanceStateChanged {
+  return new TestInstanceStateChanged(
+    instance.instanceId,
+    "the-office",
+    instance.initiativeId,
+    from,
+    to,
+    undefined,
+    details.targetName ?? "Web app",
+    "feature/search",
+    details.failedReason,
+    details.stoppedBy,
+    details.files ?? [],
+  );
+}
+
 async function routingOf(response: Response): Promise<NotificationRouting> {
   expect(response.status).toBe(200);
   return notificationRoutingSchema.parse(await response.json());
@@ -228,6 +256,12 @@ describe("NotificationService", () => {
     const response = await fetch(`${url}/api/notifications`);
     expect(response.status).toBe(200);
     return notificationListSchema.parse(await response.json());
+  }
+
+  async function ownOpen(instanceId: string): Promise<Notification[]> {
+    return (await openNotifications()).filter(
+      ({ pointsTo }) => pointsTo.kind === "test-instance" && pointsTo.instanceId === instanceId,
+    );
   }
 
   async function reportActivity(page: unknown): Promise<void> {
@@ -784,6 +818,111 @@ describe("NotificationService", () => {
     expect(cleared).not.toContain(home);
     await events.publish(turnEndedOn("home-account"));
     expect(cleared).toContain(home);
+  });
+
+  describe("a test instance's state", () => {
+    it("tells Running in the UI's voice, naming the Initiative, until the user opens its page", async () => {
+      const { initiativeId } = anInitiative();
+      const instance = { instanceId: randomUUID(), initiativeId };
+
+      await events.publish(moved(instance, "building", "running"));
+
+      const [notification] = raised.map((event) => event.notification);
+      expect(notification).toMatchObject({
+        kind: "outcomes.test-instance.running",
+        roleKey: undefined,
+        line: "Web app in Billing is Running.",
+        pointsTo: { kind: "test-instance", projectId: "the-office", ...instance },
+        channels: ["in-app", "desktop"],
+      });
+      await reportActivity({ kind: "test-instances", projectId: "the-office" });
+      expect(await ownOpen(instance.instanceId)).toHaveLength(1);
+      await reportActivity({ kind: "initiative", initiativeId });
+      expect(await ownOpen(instance.instanceId)).toEqual([]);
+    });
+
+    it("tells Built with its files, cleared by the Project's Test targets when it is linked to none", async () => {
+      const instance = { instanceId: randomUUID() };
+
+      await events.publish(
+        moved(instance, "building", "built", { targetName: "Android app", files: ["app.apk"] }),
+      );
+
+      expect(raised.map(({ notification }) => [notification.kind, notification.line])).toEqual([
+        ["outcomes.test-instance.built", "Android app on feature/search is Built: app.apk."],
+      ]);
+      await reportActivity({ kind: "test-instances", projectId: "the-office" });
+      expect(await ownOpen(instance.instanceId)).toEqual([]);
+    });
+
+    it("replaces Running with the failure once it fails, saying why", async () => {
+      const instance = { instanceId: randomUUID() };
+
+      await events.publish(moved(instance, "building", "running"));
+      await events.publish(
+        moved(instance, "running", "failed", { failedReason: "Exited with code 1." }),
+      );
+
+      const [running, failed] = raised.map(({ notification }) => notification);
+      expect(cleared).toContain(running?.id);
+      expect(failed?.line).toBe("Web app on feature/search failed: Exited with code 1.");
+      expect((await ownOpen(instance.instanceId)).map(({ kind }) => kind)).toEqual([
+        "outcomes.test-instance.failed",
+      ]);
+
+      await events.publish(moved(instance, "failed", "building"));
+      expect(await ownOpen(instance.instanceId)).toEqual([]);
+    });
+
+    it("clears Running once it is Stopped, telling nothing more", async () => {
+      const instance = { instanceId: randomUUID() };
+
+      await events.publish(moved(instance, "building", "running"));
+      await events.publish(moved(instance, "running", "stopped", { stoppedBy: "by-user" }));
+
+      expect(raised).toHaveLength(1);
+      expect(await ownOpen(instance.instanceId)).toEqual([]);
+    });
+
+    it("raises none for a build the user's Stop or its Initiative's end failed, but one for any other failure", async () => {
+      for (const stoppedBy of ["by-user", "initiative-ended"] as const) {
+        await events.publish(
+          moved({ instanceId: randomUUID() }, "building", "failed", {
+            failedReason: "Stopped by you.",
+            stoppedBy,
+          }),
+        );
+      }
+      expect(raised).toEqual([]);
+
+      const instance = { instanceId: randomUUID() };
+      await events.publish(
+        moved(instance, "building", "failed", {
+          failedReason: "Stopped after 30 minutes with no request.",
+          stoppedBy: "idle",
+        }),
+      );
+      expect(raised.map(({ notification }) => notification.kind)).toEqual([
+        "outcomes.test-instance.failed",
+      ]);
+      await events.publish(moved(instance, "failed", "building"));
+    });
+
+    it("never collapses with a Task's Outcome landing close by", async () => {
+      const taskId = randomUUID();
+      const instance = { instanceId: randomUUID() };
+
+      await events.publish(new TaskStateChanged(taskId, "in-progress", "done"));
+      await events.publish(moved(instance, "building", "running"));
+
+      expect(raised.map(({ notification }) => notification.kind)).toEqual([
+        "outcomes.task-done",
+        "outcomes.test-instance.running",
+      ]);
+      expect(raised.map(({ replaces }) => replaces)).toEqual([[], []]);
+      await reportActivity({ kind: "task", taskId });
+      await events.publish(moved(instance, "running", "stopped"));
+    });
   });
 
   describe("the routing", () => {

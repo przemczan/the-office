@@ -25,6 +25,7 @@ import {
   officeVersionWords,
 } from "../../office-updates/index.js";
 import { CARETAKER } from "../../people/index.js";
+import { TestInstanceStateChanged } from "../../test-instances/index.js";
 import {
   DefinitionOfDoneNotMet,
   GateContinued,
@@ -57,6 +58,9 @@ import {
   taskFailed,
   taskPaused,
   taskPausedByUsageWindow,
+  testInstanceBuilt,
+  testInstanceFailed,
+  testInstanceRunning,
   windowMove,
   windowNearlyUsed,
   windowReset,
@@ -65,6 +69,7 @@ import {
   type Handling,
   type Notification,
   type NotificationDraft,
+  type TestInstanceWords,
   type WindowReading,
 } from "../domain/notification.js";
 import {
@@ -96,6 +101,8 @@ export type Page =
   | { readonly kind: "task"; readonly taskId: string }
   | { readonly kind: "initiative"; readonly initiativeId: string }
   | { readonly kind: "office-update" }
+  /** A Project's Test targets, with its Test instances. */
+  | { readonly kind: "test-instances"; readonly projectId: string }
   | { readonly kind: "elsewhere" };
 
 /**
@@ -131,6 +138,7 @@ export class NotificationService implements OnModuleInit {
   onModuleInit(): void {
     this.subscribeToNeedsYou();
     this.subscribeToOutcomes();
+    this.subscribeToTestInstances();
     this.subscribeToOffice();
   }
 
@@ -147,6 +155,9 @@ export class NotificationService implements OnModuleInit {
       await this.handle({ kind: "initiative-opened", initiativeId: page.initiativeId });
     }
     if (page.kind === "office-update") await this.handle({ kind: "office-update-opened" });
+    if (page.kind === "test-instances") {
+      await this.handle({ kind: "test-instances-opened", projectId: page.projectId });
+    }
   }
 
   private subscribeToNeedsYou(): void {
@@ -263,6 +274,54 @@ export class NotificationService implements OnModuleInit {
     this.events.subscribe(DefinitionOfDoneNotMet, ({ taskId }) =>
       this.raiseFailure(taskId, { kind: "definition-of-done" }),
     );
+  }
+
+  /**
+   * A test instance Running, Built or Failed is an Outcome in the UI's voice (spec §2.7 Defaults,
+   * "Test instance Outcomes"); its next state makes it stale, so that clears it first. A build
+   * failed by the user's own Stop or by its Initiative ending tells them nothing new.
+   */
+  private subscribeToTestInstances(): void {
+    this.events.subscribe(TestInstanceStateChanged, async (changed) => {
+      await this.handle({ kind: "test-instance-moved", instanceId: changed.instanceId });
+      const draft = await this.testInstanceOutcome(changed);
+      if (draft) await this.raise(draft);
+    });
+  }
+
+  private async testInstanceOutcome(
+    changed: TestInstanceStateChanged,
+  ): Promise<NotificationDraft | undefined> {
+    switch (changed.to) {
+      case "running":
+        return testInstanceRunning(await this.testInstanceWords(changed));
+      case "built":
+        return testInstanceBuilt(await this.testInstanceWords(changed), changed.files);
+      case "failed": {
+        const { stoppedBy, failedReason = "" } = changed;
+        if (stoppedBy === "by-user" || stoppedBy === "initiative-ended") return undefined;
+        return testInstanceFailed(await this.testInstanceWords(changed), failedReason);
+      }
+      case "building":
+      case "stopped":
+        return undefined;
+    }
+  }
+
+  private async testInstanceWords(changed: TestInstanceStateChanged): Promise<TestInstanceWords> {
+    const { instanceId, projectId, initiativeId, branch, targetName } = changed;
+    const initiative =
+      initiativeId === undefined
+        ? undefined
+        : (await this.initiatives.list()).find((held) => held.id === initiativeId);
+    return {
+      instanceId,
+      projectId,
+      initiativeId,
+      initiativeTitle: initiative?.name,
+      branch,
+      targetName,
+    };
   }
 
   private subscribeToOffice(): void {

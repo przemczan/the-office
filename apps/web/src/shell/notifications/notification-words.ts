@@ -16,7 +16,9 @@ export const OFFICE_TITLE = "The Office";
 
 /**
  * Where opening a Notification goes: the Task or the Initiative it is about (for a Decision on no
- * Task, the Initiative's Thread it waits in, at its card), Settings › Updates for an Office update,
+ * Task, the Initiative's Thread it waits in, at its card), a test instance's row in the Test
+ * instances fold of its Initiative or, linked to none, its Project's Test targets, Settings ›
+ * Updates for an Office update,
  * or Now for the Office's own state, with the chat of the person who speaks over it, and for the
  * Stages waiting for a Stand-in Engine, whose card is in Now's Needs you.
  */
@@ -25,7 +27,14 @@ export type NotificationTarget =
   | {
       readonly to: "/work/initiatives/$initiativeId";
       readonly params: { readonly initiativeId: string };
-      readonly search?: { readonly initiativeThread: string; readonly decision?: string };
+      readonly search?:
+        | { readonly initiativeThread: string; readonly decision?: string }
+        | { readonly testInstance: string };
+    }
+  | {
+      readonly to: "/projects/$projectId/test-targets";
+      readonly params: { readonly projectId: string };
+      readonly search: { readonly testInstance: string };
     }
   | { readonly to: "/now"; readonly search?: { readonly chat: string } }
   | { readonly to: "/settings/updates" };
@@ -58,6 +67,13 @@ export function targetOf({
         },
       }),
     };
+  }
+  if (pointsTo.kind === "test-instance") {
+    const { instanceId, projectId, initiativeId } = pointsTo;
+    const search = { testInstance: instanceId };
+    return initiativeId === undefined
+      ? { to: "/projects/$projectId/test-targets", params: { projectId }, search }
+      : { to: "/work/initiatives/$initiativeId", params: { initiativeId }, search };
   }
   return { to: "/tasks/$taskId", params: { taskId: pointsTo.taskId } };
 }
@@ -129,14 +145,19 @@ export function personOf(
   return role && { roleKey: role.key, name: role.card.name };
 }
 
-/** "Add a filter · Billing": the Task and its Project, when the Notification is about a Task. */
+/**
+ * "Add a filter · Billing": the Task and its Project, when the Notification is about a Task;
+ * "Billing", the Project alone, when it is about a Project's record with no title, as a test
+ * instance.
+ */
 export function aboutLine(
-  task: Pick<Task, "title" | "projectId"> | undefined,
+  about: Pick<Task, "title" | "projectId"> | Pick<Task, "projectId"> | undefined,
   projects: readonly Project[] | undefined,
 ): string | undefined {
-  if (!task) return undefined;
-  const project = projects?.find(({ id }) => id === task.projectId);
-  return project ? `${task.title} · ${project.name}` : task.title;
+  if (!about) return undefined;
+  const project = projects?.find(({ id }) => id === about.projectId);
+  if (!("title" in about)) return project?.name;
+  return project ? `${about.title} · ${project.name}` : about.title;
 }
 
 /**

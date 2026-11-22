@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "@tanstack/react-router";
+import { useParams, useSearch } from "@tanstack/react-router";
 import {
   type Decision,
   type Initiative,
@@ -51,6 +51,7 @@ const NO_DECISIONS: readonly Decision[] = [];
  */
 export function InitiativePage(): ReactNode {
   const { initiativeId } = useParams({ from: "/work/initiatives/$initiativeId" });
+  const { testInstance } = useSearch({ from: "/work/initiatives/$initiativeId" });
   const initiative = useQuery(initiativeQueries.one(initiativeId));
   const tasks = useEveryTask();
   const projects = useQuery(projectQueries.list());
@@ -112,7 +113,11 @@ export function InitiativePage(): ReactNode {
               tasks={tasks.data}
               projects={projects.data}
             />
-            <InitiativeTestInstancesBlock initiative={record} projects={projects.data} />
+            <InitiativeTestInstancesBlock
+              initiative={record}
+              projects={projects.data}
+              linkedTo={testInstance}
+            />
             <OutcomeBlock initiative={record} />
             <InitiativeAttachments initiative={record} />
             <OriginBlock

@@ -317,11 +317,21 @@ const ciRunsRoute = createRoute({
 
 /**
  * An Initiative's page, showing one of its Threads first, as a Task's page does; a Decision's link
- * also lands on its card in that Thread.
+ * also lands on its card in that Thread, and a test instance's on its row in the Test instances fold.
  */
 export interface InitiativeSearch {
   readonly initiativeThread?: string;
   readonly decision?: string;
+  readonly testInstance?: string;
+}
+
+/** A test instance's row to open the Test instances fold at, by its id. */
+export interface TestInstanceSearch {
+  readonly testInstance?: string;
+}
+
+function testInstanceSearchOf(search: Record<string, unknown>): TestInstanceSearch {
+  return typeof search["testInstance"] === "string" ? { testInstance: search["testInstance"] } : {};
 }
 
 // An Initiative's page, at the path its links name (`recordPath`), outside Work's tabs as a Task's is.
@@ -334,6 +344,7 @@ const initiativeRoute = createRoute({
       initiativeThread: search["initiativeThread"],
     }),
     ...(typeof search["decision"] === "string" && { decision: search["decision"] }),
+    ...testInstanceSearchOf(search),
   }),
   // Until the Initiative is read; the page then names it.
   staticData: { title: "Work" },
@@ -556,10 +567,12 @@ const projectRunEnvironmentRoute = createRoute({
   staticData: { title: "Projects" },
 });
 
+// The Project's test targets; a test instance's link opens its row in the Test instances fold.
 const projectTestTargetsRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: "test-targets",
   component: ProjectTestTargetsSection,
+  validateSearch: testInstanceSearchOf,
   staticData: { title: "Projects" },
 });
 

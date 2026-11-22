@@ -40,7 +40,7 @@
 
 **Signing in's shared parts** (spec §2.10): `shell/try-again-words.ts` says when the next try is taken after wrong tries (`useTryAgainWords`, renewed each second), and `shell/code-answer-field.tsx` is the authenticator code's field with "Use a recovery code" and `useCodeRefusal`/`CodeRefusalAlert`, used by the code page and the account's authenticator windows. `signed-out.ts`'s `sendToSignIn` takes the code page's own `returnTo`, so an ended pending sign-in signs in again for the page first asked for.
 
-**Test instances, the shared parts** (`shell/test-instances/`, spec §2.12): `test-target-launch-row.tsx` (a target's row: its newest instance, Launch, Stop, Open, Log, Download, QR code, the files, "<n> earlier" folded), `test-instance-words.ts` (states, tones, the Run environment note), `use-test-instance-actions.ts` (launch, stop, open and link as a toast on a refusal), `test-instance-log-window.tsx` with `use-test-instance-log.ts` (a large `Dialog` that follows the instance; the log is read from offset 0, then each second while Building or Running and at once on `test-instance.changed`, appending only what is new; The Office's `[The Office] ` lines marked; the service's log has no time per line, so none is shown), `test-build-qr-dialog.tsx` (the link drawn as an `<img>` of `uqr`'s SVG, "Works for this file only, for 1 hour.", Copy link, or at localhost (`needs-lan-address`) the LAN-address words and no code) and `test-instances.css`; the Initiative page's block (`surfaces/work`) and the Project page's card (`surfaces/projects`) both use them.
+**Test instances, the shared parts** (`shell/test-instances/`, spec §2.12): `test-target-launch-row.tsx` (a target's row: its newest instance, Launch, Stop, Open, Log, Download, QR code, the files, "<n> earlier" folded), `test-instance-words.ts` (states, tones, the Run environment note), `use-test-instance-actions.ts` (launch, stop, open and link as a toast on a refusal), `test-instance-log-window.tsx` with `use-test-instance-log.ts` (a large `Dialog` that follows the instance; the log is read from offset 0, then each second while Building or Running and at once on `test-instance.changed`, appending only what is new; The Office's `[The Office] ` lines marked; the service's log has no time per line, so none is shown), `test-build-qr-dialog.tsx` (the link drawn as an `<img>` of `uqr`'s SVG, "Works for this file only, for 1 hour.", Copy link, or at localhost (`needs-lan-address`) the LAN-address words and no code) and `test-instances.css`, and `use-test-instance-into-view.ts` (a link's `?testInstance=<id>`, a test instance Notification's `targetOf`, scrolled into view once per instance by the row's `data-test-instance`; the row's `linkedTo` unfolds its earlier instances when it is one of them); the Initiative page's block (`surfaces/work`) and the Project page's card (`surfaces/projects`) both use them.
 
 **The Test instance banner** (`shell/test-instance-banner.tsx`, spec screens/shell.md): `RootLayout` draws it above every frame, the sign-in pages and First-run setup included, from `/api/health`'s `testInstance` (`testInstanceQueries.health`, read once, no sign-in needed); `role="note"` named "Test instance". It is one line, 34px, set as `--test-instance-banner-height` on `:root` only while it shows (`:has`), which the shell's grid and the bare pages' heights take off `100vh`; anything new sized to the window does the same.
 
@@ -52,7 +52,7 @@
 
 - `app.tsx`: App
 - `main.tsx`
-- `router.tsx`: OverPageSearch, SignInSearch, LinkedIdentitiesSearch, IdeasSearch, InitiativeSearch, TaskSearch, HireSearch, StatsSearch, SystemHealthSearch, OfficeIdentitySearch, PromptTemplatesSearch, FirstRunSetupSearch, router, OfficeRouter
+- `router.tsx`: OverPageSearch, SignInSearch, LinkedIdentitiesSearch, IdeasSearch, InitiativeSearch, TestInstanceSearch, TaskSearch, HireSearch, StatsSearch, SystemHealthSearch, OfficeIdentitySearch, PromptTemplatesSearch, FirstRunSetupSearch, router, OfficeRouter
 - `signed-out.ts`: officeQueryClient, sendToSignIn
 - Tests: app.test.tsx, first-run-setup.test.tsx
 
@@ -435,6 +435,7 @@
 - `test-instance-words.ts`: TEST_INSTANCE_STATE_WORDS, TEST_INSTANCE_STATE_TONES, NEEDS_RUN_ENVIRONMENT, isActive, needsRunEnvironment, FILES_REMOVED, qrTitle, QR_LINK_WORKS, QR_NEEDS_LAN_ADDRESS, qrRefusedTitle, shortCommit, instanceAddress, instanceMoment, instanceLine, NEWER_COMMITS, branchMovedPast, earlierWords, launchRefusedTitle, openRefusedTitle, stoppedToast, launchDisabledWhy, logTitle, launchedWords, LogLine, logLinesOf
 - `test-target-launch-row.tsx`: TestTargetLaunchRow, NeedsRunEnvironmentNote, TestInstanceStateBadge
 - `use-test-instance-actions.ts`: TestInstanceLaunching, TestInstanceActions, useTestInstanceActions
+- `use-test-instance-into-view.ts`: useTestInstanceIntoView
 - `use-test-instance-log.ts`: ReadLog, useTestInstanceLog
 - Tests: test-instance-words.full.test.ts
 

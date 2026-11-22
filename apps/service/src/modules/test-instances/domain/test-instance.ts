@@ -1,3 +1,4 @@
+import { type StopReason, stopWords } from "./stop-reason.js";
 import { TestInstanceStateChanged } from "./test-instance-events.js";
 
 /** The kinds a Test instance may be (spec §2.12, "Kinds"). */
@@ -126,27 +127,45 @@ export function filesRemoved(instance: TestInstance, at: Date): TestInstanceChan
 
 /**
  * Building or Running → Stopped, its port freed. A Build to install instance has no Stopped: it
- * fails with how it stopped (spec §2.12, "When an instance stops").
+ * fails with how it stopped (spec §2.12, "When an instance stops"). The event says how it was
+ * stopped either way.
  */
-export function stopped(instance: TestInstance, words: string, at: Date): TestInstanceChange {
-  if (instance.kind === "build-to-install") return failed(instance, words, at);
+export function stopped(instance: TestInstance, reason: StopReason, at: Date): TestInstanceChange {
+  if (instance.kind === "build-to-install") {
+    return failedWith(instance, stopWords(reason), at, reason.kind);
+  }
   if (!isActive(instance)) return undefined;
-  return moved(instance, { ...instance, state: "stopped", port: undefined, endedAt: at });
+  return moved(
+    instance,
+    { ...instance, state: "stopped", port: undefined, endedAt: at },
+    reason.kind,
+  );
 }
 
 /** Building or Running → Failed, saying why, its port freed. */
 export function failed(instance: TestInstance, reason: string, at: Date): TestInstanceChange {
-  if (!isActive(instance)) return undefined;
-  return moved(instance, {
-    ...instance,
-    state: "failed",
-    port: undefined,
-    failedReason: reason,
-    endedAt: at,
-  });
+  return failedWith(instance, reason, at, undefined);
 }
 
-function moved(before: TestInstance, after: TestInstance): TestInstanceChange {
+function failedWith(
+  instance: TestInstance,
+  reason: string,
+  at: Date,
+  stoppedBy: StopReason["kind"] | undefined,
+): TestInstanceChange {
+  if (!isActive(instance)) return undefined;
+  return moved(
+    instance,
+    { ...instance, state: "failed", port: undefined, failedReason: reason, endedAt: at },
+    stoppedBy,
+  );
+}
+
+function moved(
+  before: TestInstance,
+  after: TestInstance,
+  stoppedBy: StopReason["kind"] | undefined = undefined,
+): TestInstanceChange {
   return {
     instance: after,
     event: new TestInstanceStateChanged(
@@ -156,6 +175,11 @@ function moved(before: TestInstance, after: TestInstance): TestInstanceChange {
       before.state,
       after.state,
       before.port,
+      after.targetName,
+      after.branch,
+      after.failedReason,
+      stoppedBy,
+      after.files.map((file) => file.name),
     ),
   };
 }

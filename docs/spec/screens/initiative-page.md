@@ -175,6 +175,7 @@ Covers: the Initiative page's head and actions (Confirm, Back to Shaping, Plan t
 - **QR code** opens a window "Install <file> on a phone": the QR code, "Works for this file only, for 1 hour." and the link with **Copy link**.
   - At `localhost`: "A phone can't reach localhost. Open The Office at its LAN address to make a QR code that works there." in place of the code.
 - Earlier instances of a target fold under its row, "<n> earlier", each with its state, commit, time and **Log**.
+- A test instance's Notification opens the page with `testInstance=<id>`: the fold opens, an earlier instance's fold too, and its row scrolls into view ([2.7](../2.7-notifications.md#test-instance-outcomes)).
 - Done or Dropped: read-only; Launch is gone, and Built files show until removed ("Removed 7 days after the Initiative ended.").
 - A Built instance whose files were removed (an older build past the newest 3, or after the Initiative ended) shows no Download or QR code, and says "Its files were removed.", with its **Log**.
 - Rules: [2.12](../2.12-test-instances.md).

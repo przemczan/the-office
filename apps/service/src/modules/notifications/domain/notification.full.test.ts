@@ -14,6 +14,9 @@ import {
   taskFailed,
   taskPaused,
   taskPausedByUsageWindow,
+  testInstanceBuilt,
+  testInstanceFailed,
+  testInstanceRunning,
   TIME,
   windowMove,
   windowNearlyUsed,
@@ -28,6 +31,22 @@ const CLAUDE_CODE = { id: "claude-code", name: "Claude Code" };
 const WORK_ACCOUNT = { id: "work-account", name: "Work account" };
 
 const AT = new Date("2026-10-27T09:00:00Z");
+
+const LINKED = {
+  instanceId: "i1",
+  projectId: "the-office",
+  initiativeId: "n1",
+  initiativeTitle: "Notes",
+  branch: "initiative/notes",
+  targetName: "Web app",
+};
+const UNLINKED = {
+  ...LINKED,
+  instanceId: "i2",
+  initiativeId: undefined,
+  initiativeTitle: undefined,
+  branch: "feature/search",
+};
 
 function raised(draft: NotificationDraft) {
   return notificationOf(draft, "n1", AT, DEFAULT_ROUTING);
@@ -165,6 +184,36 @@ describe("the Notifications' content", () => {
     expect(taskDone("t1", "developer").shortLine).toBeUndefined();
   });
 
+  it("tells a test instance's state in the UI's voice, naming its Initiative or its branch", () => {
+    expect(
+      [
+        testInstanceRunning(LINKED),
+        testInstanceBuilt({ ...LINKED, targetName: "Android app" }, ["app.apk"]),
+        testInstanceFailed(UNLINKED, "Exited with code 1."),
+      ].map(content),
+    ).toEqual([
+      ["outcomes.test-instance.running", null, "Web app in Notes is Running."],
+      ["outcomes.test-instance.built", null, "Android app in Notes is Built: app.apk."],
+      [
+        "outcomes.test-instance.failed",
+        null,
+        "Web app on feature/search failed: Exited with code 1.",
+      ],
+    ]);
+    expect(testInstanceRunning(LINKED).pointsTo).toEqual({
+      kind: "test-instance",
+      instanceId: "i1",
+      projectId: "the-office",
+      initiativeId: "n1",
+    });
+    expect(testInstanceRunning(UNLINKED).pointsTo).toEqual({
+      kind: "test-instance",
+      instanceId: "i2",
+      projectId: "the-office",
+    });
+    expect(raised(testInstanceRunning(LINKED)).channels).toEqual(["in-app", "desktop"]);
+  });
+
   it("goes to the channels its kind routes to", () => {
     expect(
       raised(gateWaiting("t1", { key: "look", name: "UI acceptance" }, "developer")),
@@ -223,6 +272,21 @@ describe("handles", () => {
     expect(handles({ kind: "engine-removed", engineId: "claude-code" }, nearlyUsed)).toBe(true);
     expect(handles({ kind: "engine-removed", engineId: "work-account" }, down)).toBe(false);
     expect(handles({ kind: "engine-removed", engineId: "claude-code" }, unnamed)).toBe(false);
+  });
+
+  it("clears a test instance's Notification on the page it opens, or once the instance moves on", () => {
+    const linked = raised(testInstanceRunning(LINKED));
+    const unlinked = raised(testInstanceFailed(UNLINKED, "Exited with code 1."));
+
+    expect(handles({ kind: "initiative-opened", initiativeId: "n1" }, linked)).toBe(true);
+    expect(handles({ kind: "initiative-opened", initiativeId: "n2" }, linked)).toBe(false);
+    expect(handles({ kind: "test-instances-opened", projectId: "the-office" }, unlinked)).toBe(
+      true,
+    );
+    expect(handles({ kind: "test-instances-opened", projectId: "the-office" }, linked)).toBe(false);
+    expect(handles({ kind: "test-instances-opened", projectId: "other" }, unlinked)).toBe(false);
+    expect(handles({ kind: "test-instance-moved", instanceId: "i1" }, linked)).toBe(true);
+    expect(handles({ kind: "test-instance-moved", instanceId: "i1" }, unlinked)).toBe(false);
   });
 
   it("clears only that engine's nearly used window when its window resets, and every one on Now", () => {

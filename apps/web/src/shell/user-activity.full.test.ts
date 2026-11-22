@@ -14,4 +14,13 @@ describe("pageAt", () => {
     expect(pageAt("/work/initiatives")).toEqual({ kind: "elsewhere" });
     expect(pageAt("/projects")).toEqual({ kind: "elsewhere" });
   });
+
+  it("tells a Project's Test targets from its other sections", () => {
+    expect(pageAt("/projects/billing/test-targets")).toEqual({
+      kind: "test-instances",
+      projectId: "billing",
+    });
+    expect(pageAt("/projects/billing")).toEqual({ kind: "elsewhere" });
+    expect(pageAt("/projects/billing/commands")).toEqual({ kind: "elsewhere" });
+  });
 });

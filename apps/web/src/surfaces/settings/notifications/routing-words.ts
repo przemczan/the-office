@@ -39,6 +39,7 @@ export const ROUTING_GROUPS: readonly RoutingGroup[] = [
       { level: "outcomes.task-failed", label: "Task failed" },
       { level: "outcomes.task-paused", label: "Task paused" },
       { level: "outcomes.initiative-done", label: "Initiative done" },
+      { level: "outcomes.test-instance", label: "A test instance Running, Built or Failed" },
     ],
   },
   {

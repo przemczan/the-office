@@ -33,7 +33,17 @@ export type Pointer =
   /** Settings › Updates, with the last Office update's result and its log. */
   | { readonly kind: "office-update" }
   /** Now's Needs you, with the card of the Stages waiting for a Stand-in Engine. */
-  | { readonly kind: "stand-in-choice" };
+  | { readonly kind: "stand-in-choice" }
+  /**
+   * A test instance, in the Test instances fold of its Initiative's page, or of its Project's Test
+   * targets when it is linked to none.
+   */
+  | {
+      readonly kind: "test-instance";
+      readonly instanceId: string;
+      readonly projectId: string;
+      readonly initiativeId?: string;
+    };
 
 /**
  * A Notification that stands for others rather than for a kind (spec §2.7 Defaults): Outcomes
@@ -341,6 +351,74 @@ export function initiativeDone(
   };
 }
 
+/** The test instance a Notification is about, and where it runs. */
+export interface TestInstanceWords {
+  readonly instanceId: string;
+  readonly projectId: string;
+  /** Undefined when it is linked to no Initiative. */
+  readonly initiativeId: string | undefined;
+  /** Its Initiative's title; undefined when it is linked to none or the Initiative isn't known. */
+  readonly initiativeTitle: string | undefined;
+  readonly branch: string | undefined;
+  readonly targetName: string;
+}
+
+/**
+ * Test instance Outcomes are in the UI's own voice, as the user launched the instance themselves
+ * (spec §2.7 Defaults, "Test instance Outcomes").
+ */
+export function testInstanceRunning(instance: TestInstanceWords): NotificationDraft {
+  return testInstanceOutcome(
+    "outcomes.test-instance.running",
+    instance,
+    `${instance.targetName} ${placeOf(instance)} is Running.`,
+  );
+}
+
+export function testInstanceBuilt(
+  instance: TestInstanceWords,
+  files: readonly string[],
+): NotificationDraft {
+  const made = files.length > 0 ? `: ${files.join(", ")}.` : ".";
+  return testInstanceOutcome(
+    "outcomes.test-instance.built",
+    instance,
+    `${instance.targetName} ${placeOf(instance)} is Built${made}`,
+  );
+}
+
+export function testInstanceFailed(instance: TestInstanceWords, reason: string): NotificationDraft {
+  return testInstanceOutcome(
+    "outcomes.test-instance.failed",
+    instance,
+    `${instance.targetName} ${placeOf(instance)} failed: ${reason}`,
+  );
+}
+
+/** "in <Initiative>" for a linked instance, "on <branch>" otherwise. */
+function placeOf({ initiativeTitle, branch }: TestInstanceWords): string {
+  if (initiativeTitle !== undefined) return `in ${initiativeTitle}`;
+  return branch === undefined ? "in its Initiative" : `on ${branch}`;
+}
+
+function testInstanceOutcome(
+  kind: NotificationKind,
+  { instanceId, projectId, initiativeId }: TestInstanceWords,
+  line: string,
+): NotificationDraft {
+  return {
+    kind,
+    roleKey: undefined,
+    line,
+    shortLine: undefined,
+    // No initiativeId field when unlinked: a pointer read back from storage has none either.
+    pointsTo:
+      initiativeId === undefined
+        ? { kind: "test-instance", instanceId, projectId }
+        : { kind: "test-instance", instanceId, projectId, initiativeId },
+  };
+}
+
 /**
  * Office kinds come from `defaultPerson`, by their Role's key: whoever holds Default person to talk
  * to, or the Caretaker while nobody does (spec §2.7 and its Defaults); in the UI's own voice
@@ -543,8 +621,12 @@ export type Handling =
   | { readonly kind: "task-resumed"; readonly taskId: string }
   /** The user opened the Task, which is where its outcome is looked at. */
   | { readonly kind: "task-opened"; readonly taskId: string }
-  /** The user opened the Initiative, where it shows as done. */
+  /** The user opened the Initiative, where it shows as done, with its test instances. */
   | { readonly kind: "initiative-opened"; readonly initiativeId: string }
+  /** The user opened the Project's Test targets, with its test instances. */
+  | { readonly kind: "test-instances-opened"; readonly projectId: string }
+  /** A test instance moved to another state, so what was told of the last one is stale. */
+  | { readonly kind: "test-instance-moved"; readonly instanceId: string }
   /** The user opened Now, where the 5-hour window shows. */
   | { readonly kind: "now-opened" }
   | { readonly kind: "window-reset"; readonly engineId: string }
@@ -579,10 +661,20 @@ export function handles(handling: Handling, { kind, pointsTo }: Notification): b
     case "initiative-opened":
       // A Decision waiting in one of its Threads is handled only by its answer, never by a look.
       return (
-        pointsTo.kind === "initiative" &&
-        pointsTo.initiativeId === handling.initiativeId &&
-        pointsTo.decisionId === undefined
+        (pointsTo.kind === "initiative" &&
+          pointsTo.initiativeId === handling.initiativeId &&
+          pointsTo.decisionId === undefined) ||
+        (pointsTo.kind === "test-instance" && pointsTo.initiativeId === handling.initiativeId)
       );
+    case "test-instances-opened":
+      // Only the page the Notification opens handles it: a linked instance's is its Initiative's.
+      return (
+        pointsTo.kind === "test-instance" &&
+        pointsTo.projectId === handling.projectId &&
+        pointsTo.initiativeId === undefined
+      );
+    case "test-instance-moved":
+      return pointsTo.kind === "test-instance" && pointsTo.instanceId === handling.instanceId;
     case "now-opened":
       return levelsOf(kind).includes("office.window");
     case "window-reset":

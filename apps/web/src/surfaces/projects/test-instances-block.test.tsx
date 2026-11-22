@@ -122,6 +122,7 @@ const BRANCHES: ProjectBranches = {
 async function rendered(
   shown: ProjectTestInstances,
   answer: (url: string, method: string) => Response,
+  linkedTo?: string,
 ): Promise<{ page: HTMLElement; fetched: ReturnType<typeof vi.fn<typeof fetch>> }> {
   const fetched = vi.fn<typeof fetch>((input, request) =>
     Promise.resolve(answer(String(input), request?.method ?? "GET")),
@@ -135,7 +136,7 @@ async function rendered(
     routeTree: createRootRoute({
       component: () => (
         <ToastProvider>
-          <TestInstancesBlock project={PROJECT} />
+          <TestInstancesBlock project={PROJECT} linkedTo={linkedTo} />
         </ToastProvider>
       ),
     }),
@@ -224,6 +225,28 @@ describe("a Project's Test instances", () => {
     const fix = groupOf(page, "fix-login");
     expect(rowOf(fix, "Office").textContent).toContain("Stopped");
     expect(fix.querySelector('li[aria-label="Android app"]')).toBeNull();
+  });
+
+  it("picks a linked instance's branch and brings its row into view", async () => {
+    const scrolled = vi.fn<(this: Element) => void>(function (this: Element) {});
+    Element.prototype.scrollIntoView = scrolled;
+
+    const { page } = await rendered(LAUNCHED, notFound, ON_FIX.id);
+
+    expect(branchPicker().textContent).toContain("fix-login");
+    expect(scrolled).toHaveBeenCalledOnce();
+    expect(scrolled.mock.contexts[0]).toBe(rowOf(groupOf(page, "fix-login"), "Office"));
+  });
+
+  it("unfolds the earlier instances when the linked one is among them", async () => {
+    const scrolled = vi.fn<(this: Element) => void>(function (this: Element) {});
+    Element.prototype.scrollIntoView = scrolled;
+
+    const { page } = await rendered(LAUNCHED, notFound, STOPPED.id);
+
+    const earlier = page.querySelector(`[data-test-instance="${STOPPED.id}"]`);
+    expect(earlier?.closest('[aria-label="Earlier Office"]')).not.toBeNull();
+    expect(scrolled.mock.contexts).toEqual([earlier]);
   });
 
   it("says an instance linked to an Initiative is in it, linking to its page", async () => {

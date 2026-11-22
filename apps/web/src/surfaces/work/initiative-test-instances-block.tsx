@@ -8,7 +8,7 @@ import {
   type TestInstance,
 } from "@the-office/contracts";
 import { Icon } from "@the-office/ui";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { launchTestInstance, testInstanceQueries } from "../../api/test-instances.ts";
 import { BlockLoaderOrProblem } from "../../shell/block-loader.tsx";
 import { ProjectMark } from "../../shell/project-mark.tsx";
@@ -26,6 +26,7 @@ import {
   useTestInstanceActions,
   type TestInstanceActions,
 } from "../../shell/test-instances/use-test-instance-actions.ts";
+import { useTestInstanceIntoView } from "../../shell/test-instances/use-test-instance-into-view.ts";
 import {
   FILES_REMOVED_LATER,
   NO_INITIATIVE_BRANCH,
@@ -38,33 +39,39 @@ import {
   testInstancesSummary,
 } from "./initiative-test-instances-words.ts";
 import { RecordFold } from "./record-fold.tsx";
-import { useFold } from "./record-folds.ts";
+import { openFold, useFold } from "./record-folds.ts";
 
 /**
  * The Initiative page's Test instances (spec screens/initiative-page.md, "Test instances";
  * docs/design/test-instances.html): once the Initiative is confirmed, a group per Project on its
  * branch with a row per Hosted or Build to install test target, its newest instance and the earlier
  * ones folded under it. Launch, Stop, Open and Log act from the row, and a Built instance's files
- * each have Download and a QR code; Done or Dropped, it is read-only.
+ * each have Download and a QR code; Done or Dropped, it is read-only. A link to an instance
+ * (`?testInstance=`, a Notification's) opens the fold at its row.
  */
 export function InitiativeTestInstancesBlock({
   initiative,
   projects,
+  linkedTo,
 }: {
   readonly initiative: Initiative;
   readonly projects: readonly Project[] | undefined;
+  /** The instance a link leads to, by its id. */
+  readonly linkedTo?: string;
 }): ReactNode {
   return testInstancesShown(initiative) ? (
-    <TestInstancesFold initiative={initiative} projects={projects} />
+    <TestInstancesFold initiative={initiative} projects={projects} linkedTo={linkedTo} />
   ) : null;
 }
 
 function TestInstancesFold({
   initiative,
   projects,
+  linkedTo,
 }: {
   readonly initiative: Initiative;
   readonly projects: readonly Project[] | undefined;
+  readonly linkedTo: string | undefined;
 }): ReactNode {
   const query = useQuery(testInstanceQueries.ofInitiative(initiative.id));
   const groups = query.data?.projects;
@@ -73,6 +80,11 @@ function TestInstancesFold({
     "test-instances",
     testInstancesStartOpen(groups),
   );
+  useEffect(() => {
+    if (linkedTo !== undefined)
+      openFold({ kind: "initiative", id: initiative.id }, "test-instances");
+  }, [linkedTo, initiative.id]);
+  const place = useTestInstanceIntoView(linkedTo, fold.isOpen);
   const [qrShown, setQrShown] = useState<ShownTestBuildLink>();
   const queryClient = useQueryClient();
   const actions = useTestInstanceActions({
@@ -105,7 +117,7 @@ function TestInstancesFold({
       ) : groups.length === 0 ? (
         <p className="task-quiet">{NO_INITIATIVE_BRANCH}</p>
       ) : (
-        <div className="test-instances">
+        <div className="test-instances" ref={place}>
           {groups.map((group) => (
             <ProjectGroup
               key={group.projectId}
@@ -114,6 +126,7 @@ function TestInstancesFold({
               initiativeId={initiative.id}
               branch={branch}
               actions={withLog}
+              linkedTo={linkedTo}
             />
           ))}
           <p className="test-instances-foot">{testInstancesFoot(initiative)}</p>
@@ -152,12 +165,14 @@ function ProjectGroup({
   initiativeId,
   branch,
   actions,
+  linkedTo,
 }: {
   readonly group: InitiativeTestInstancesProject;
   readonly initiativeId: string;
   readonly project: Project | undefined;
   readonly branch: string | undefined;
   readonly actions: TestInstanceActions;
+  readonly linkedTo: string | undefined;
 }): ReactNode {
   const projectName = project?.name ?? group.projectId;
   const targets = shownTargetsOf(group);
@@ -211,6 +226,7 @@ function ProjectGroup({
                 }
                 actions={actions}
                 filesNote={actions.readOnly ? FILES_REMOVED_LATER : undefined}
+                linkedTo={linkedTo}
               />
             ))}
           </ul>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cellTitle, columnNote, isSetHere } from "./routing-words.ts";
+import { cellTitle, columnNote, isSetHere, ROUTING_GROUPS } from "./routing-words.ts";
 
 describe("cellTitle", () => {
   it("says whether the row sets the channel, takes it from its group, or nothing does", () => {
@@ -10,6 +10,16 @@ describe("cellTitle", () => {
       "Inherited from Outcomes",
     );
     expect(cellTitle("office.alarm-lifted", { on: false, from: null })).toBe("Off");
+  });
+});
+
+describe("ROUTING_GROUPS", () => {
+  it("lists a test instance's kinds as one Outcomes row, after Initiative done", () => {
+    const outcomes = ROUTING_GROUPS.find(({ level }) => level === "outcomes");
+    expect(outcomes?.kinds.map(({ level }) => level).slice(-2)).toEqual([
+      "outcomes.initiative-done",
+      "outcomes.test-instance",
+    ]);
   });
 });
 

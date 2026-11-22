@@ -43,8 +43,14 @@ export function shownOf(open: readonly Notification[]): Notification[] {
   return open.filter(({ id }) => !collapsed.has(id));
 }
 
+/**
+ * An Outcome batching collapses: a test instance's is left out, as a collapse opens Since you left,
+ * which lists no test instances (spec §2.7 Defaults, "Test instance Outcomes").
+ */
 export function isOutcome({ kind }: Pick<Notification, "kind">): boolean {
-  return kind === "collapsed-outcomes" || levelsOf(kind).includes("outcomes");
+  if (kind === "collapsed-outcomes") return true;
+  const levels = levelsOf(kind);
+  return levels.includes("outcomes") && !levels.includes("outcomes.test-instance");
 }
 
 /**

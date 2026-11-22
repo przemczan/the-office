@@ -362,7 +362,7 @@ export class TestInstances implements OnModuleInit {
     held?.building.abort();
     const words = stopWords(reason);
     const change = await this.repository.update(id, (kept) =>
-      stopped(kept, words, this.schedule.now()),
+      stopped(kept, reason, this.schedule.now()),
     );
     if (!change?.event) return this.read(id);
     await this.files.note(id, words, held?.mask);
@@ -398,9 +398,7 @@ export class TestInstances implements OnModuleInit {
     for (const instance of await this.repository.active()) {
       const building = instance.state === "building";
       const change = await this.repository.update(instance.id, (kept) =>
-        building
-          ? failed(kept, RESTARTED_WHILE_BUILDING, at)
-          : stopped(kept, stopWords(BY_RESTART), at),
+        building ? failed(kept, RESTARTED_WHILE_BUILDING, at) : stopped(kept, BY_RESTART, at),
       );
       if (!change?.event) continue;
       await this.files.note(

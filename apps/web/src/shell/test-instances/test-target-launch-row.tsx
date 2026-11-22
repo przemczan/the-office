@@ -39,6 +39,7 @@ export function TestTargetLaunchRow({
   actions,
   filesNote,
   aboutInstance,
+  linkedTo,
 }: {
   readonly projectName: string;
   readonly runEnvironmentOn: boolean;
@@ -55,15 +56,24 @@ export function TestTargetLaunchRow({
   readonly filesNote?: string;
   /** What else an instance's line says, such as the Initiative it is linked to. */
   readonly aboutInstance?: (instance: TestInstance) => ReactNode;
+  /** The instance a link leads to, by its id: an earlier one unfolds the earlier instances. */
+  readonly linkedTo?: string;
 }): ReactNode {
   const now = useClock();
   const [newest, ...earlier] = instances;
-  const [earlierOpen, setEarlierOpen] = useState(false);
+  const linkedEarlier = earlier.some(({ id }) => id === linkedTo);
+  const [earlierOpen, setEarlierOpen] = useState(linkedEarlier);
+  // A link to an earlier instance followed while the row is shown, or once it is listed.
+  const [unfoldedFor, setUnfoldedFor] = useState(linkedEarlier ? linkedTo : undefined);
+  if (linkedEarlier && unfoldedFor !== linkedTo) {
+    setUnfoldedFor(linkedTo);
+    setEarlierOpen(true);
+  }
   const launching = actions.launchingKey === launchKey;
   const launchable = !actions.readOnly && (newest === undefined || !isActive(newest.state));
   const runEnvironmentMissing = needsRunEnvironment(target) && !runEnvironmentOn;
   return (
-    <li className="test-instances-target" aria-label={target.name}>
+    <li className="test-instances-target" aria-label={target.name} data-test-instance={newest?.id}>
       <div className="test-instances-row">
         <div className="test-instances-main">
           <div className="test-instances-line">
@@ -175,7 +185,7 @@ export function TestTargetLaunchRow({
           {earlierOpen && (
             <ul className="test-instances-earlier-list" aria-label={`Earlier ${target.name}`}>
               {earlier.map((instance) => (
-                <li key={instance.id}>
+                <li key={instance.id} data-test-instance={instance.id}>
                   <TestInstanceStateBadge instance={instance} />
                   <span>{instanceLine(instance, now)}</span>
                   {aboutInstance?.(instance)}

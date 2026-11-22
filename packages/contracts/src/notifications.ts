@@ -312,6 +312,9 @@ export const notificationKindSchema = z.enum([
   "outcomes.task-failed",
   "outcomes.task-paused",
   "outcomes.initiative-done",
+  "outcomes.test-instance.running",
+  "outcomes.test-instance.built",
+  "outcomes.test-instance.failed",
   "office.window.nearly-used",
   "office.window.used-up",
   "office.window.reset",
@@ -368,6 +371,16 @@ export const pointerSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("office-update") }),
   /** Now's Needs you, with the card of the Stages waiting for a Stand-in Engine. */
   z.object({ kind: z.literal("stand-in-choice") }),
+  /**
+   * A test instance, in the Test instances fold of its Initiative's page, or of its Project's Test
+   * targets when it is linked to none.
+   */
+  z.object({
+    kind: z.literal("test-instance"),
+    instanceId: z.uuid(),
+    projectId: z.string().min(1),
+    initiativeId: z.uuid().optional(),
+  }),
 ]);
 export type Pointer = z.infer<typeof pointerSchema>;
 
@@ -446,6 +459,8 @@ export const userActivityReportSchema = z.object({
     z.object({ kind: z.literal("task"), taskId: z.uuid() }),
     z.object({ kind: z.literal("initiative"), initiativeId: z.uuid() }),
     z.object({ kind: z.literal("office-update") }),
+    /** A Project's Test targets, with its Test instances. */
+    z.object({ kind: z.literal("test-instances"), projectId: z.string().min(1) }),
     z.object({ kind: z.literal("elsewhere") }),
   ]),
 });

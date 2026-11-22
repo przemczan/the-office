@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   collapsedOutcomes,
   emptiedGatherings,
+  isOutcome,
   outcomeToJoin,
   outcomesLine,
   phoneDeliveryOf,
@@ -126,6 +127,33 @@ describe("batching", () => {
 
     expect(outcomeToJoin(shown, DEFAULT_TIMING, at(12, 2))?.id).toBe("o2");
     expect(outcomeToJoin(shown, DEFAULT_TIMING, at(12, 3))).toBeUndefined();
+  });
+
+  it("never batches a test instance's Outcome, neither joining one nor joined", () => {
+    const running = notification({
+      id: "t1",
+      kind: "outcomes.test-instance.running",
+      pointsTo: { kind: "test-instance", instanceId: "i1", projectId: "the-office" },
+      raisedAt: at(12, 1),
+    });
+
+    expect(isOutcome(running)).toBe(false);
+    expect(isOutcome(done("o1", at(12)))).toBe(true);
+    expect(outcomeToJoin([done("o1", at(12, 1)), running], DEFAULT_TIMING, at(12, 2))?.id).toBe(
+      "o1",
+    );
+    expect(outcomeToJoin([running], DEFAULT_TIMING, at(12, 2))).toBeUndefined();
+  });
+
+  it("counts a test instance's Outcome among the Outcomes quiet hours held", () => {
+    const failed = notification({
+      id: "t1",
+      kind: "outcomes.test-instance.failed",
+      channels: ["in-app", "desktop"],
+      held: ["desktop"],
+    });
+
+    expect(quietHoursSummary([failed], "s1", at(7))?.line).toBe("During quiet hours: 1 Outcome.");
   });
 
   it("collapses Outcomes into one in the UI's voice, sent where any of them goes", () => {

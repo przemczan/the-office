@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { BY_USER } from "../../domain/stop-reason.js";
 import {
   built,
   failed,
@@ -82,13 +83,13 @@ describe("PostgresTestInstanceRepository", () => {
     });
 
     await repository.update(older.id, (kept) =>
-      stopped(kept, "Stopped by you.", new Date("2003-01-01T12:00:00Z")),
+      stopped(kept, BY_USER, new Date("2003-01-01T12:00:00Z")),
     );
     expect(
-      await repository.update(older.id, (kept) => stopped(kept, "Stopped by you.", new Date())),
+      await repository.update(older.id, (kept) => stopped(kept, BY_USER, new Date())),
     ).toBeUndefined();
     expect(
-      await repository.update(randomUUID(), (kept) => stopped(kept, "Stopped by you.", new Date())),
+      await repository.update(randomUUID(), (kept) => stopped(kept, BY_USER, new Date())),
     ).toBeUndefined();
   });
 
@@ -227,7 +228,7 @@ describe("PostgresTestInstanceRepository", () => {
       failed(kept, "The build failed.", new Date("2004-01-02T11:00:00Z")),
     );
     await repository.update(stoppedOne.id, (kept) =>
-      stopped(kept, "Stopped by you.", new Date("2004-01-02T13:00:00Z")),
+      stopped(kept, BY_USER, new Date("2004-01-02T13:00:00Z")),
     );
 
     const since = async (at: string): Promise<string[]> =>
@@ -247,7 +248,7 @@ describe("PostgresTestInstanceRepository", () => {
     await expect(
       repository.add(anInstance(initiativeId, 61_010, new Date())),
     ).rejects.toMatchObject({ cause: { constraint: "test_instances_active_port" } });
-    await repository.update(first.id, (kept) => stopped(kept, "Stopped by you.", new Date()));
+    await repository.update(first.id, (kept) => stopped(kept, BY_USER, new Date()));
     await repository.add(anInstance(initiativeId, 61_010, new Date()));
   });
 });
