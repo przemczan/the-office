@@ -1,4 +1,4 @@
-import { Application, Culler, UPDATE_PRIORITY } from "pixi.js";
+import { Application, Culler, RenderTexture, Sprite, UPDATE_PRIORITY } from "pixi.js";
 import type { FigureBounds } from "./art/figures.ts";
 import { forgetPaintedArt } from "./art/pixel-grid.ts";
 import { NAMEPLATE_BELOW_FEET, figureAnchor } from "./figure-hit.ts";
@@ -39,6 +39,7 @@ import {
   canZoomOut,
   clampView,
   createView,
+  drawnLevel,
   figureFrame,
   fitView,
   frameFigure,
@@ -80,7 +81,8 @@ interface Floor {
 /**
  * The PixiJS floor (design decisions 2, 8, 10, 12, 13, 15 and 16): the office laid out once per page
  * open, hires and those let go changing only their own desk, people walking where the snapshot
- * sends them, pan and zoom by whole device pixels, one ticker for the walks and the in-place
+ * sends them, pan and zoom by whole device pixels (the whole office's in-between zoom drawn at the
+ * next whole step and scaled down), one ticker for the walks and the in-place
  * animation while the page is visible and never under the still office, where every move is a jump.
  */
 export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
@@ -102,6 +104,23 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
   const textures = new StageTextures();
   const scene = new OfficeScene(textures);
   app.stage.addChild(scene.world);
+  /**
+   * At the whole office's in-between level the world is drawn at the next whole step into this
+   * texture, nearest-neighbour, and shown scaled down smoothly, so every art pixel stays the same size.
+   */
+  const fitTexture = RenderTexture.create({
+    width: 1,
+    height: 1,
+    resolution: 1,
+    scaleMode: "linear",
+    antialias: false,
+    dynamic: true,
+  });
+  const fitSprite = new Sprite(fitTexture);
+  /** `fitTexture`'s box, in its own pixels, which culling keeps to. */
+  const fitArea = { x: 0, y: 0, width: 0, height: 0 };
+  /** Whether the world is drawn through `fitTexture` (an in-between level) rather than straight. */
+  let drawnScaledDown = false;
 
   let view: View = createView(width, height, window.devicePixelRatio || 1);
   let floor: Floor | null = null;
@@ -132,7 +151,15 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
   /* ---------- Drawing ---------- */
 
   const ticking = (): boolean => app.ticker.started;
-  const cull = (): void => Culler.shared.cull(app.stage, app.screen);
+  /** Culls what lies off the canvas and, at an in-between level, draws the world into its texture. */
+  const cull = (): void => {
+    if (!drawnScaledDown) {
+      Culler.shared.cull(app.stage, app.screen);
+      return;
+    }
+    Culler.shared.cull(scene.world, fitArea, false);
+    app.renderer.render({ container: scene.world, target: fitTexture, clear: true });
+  };
   const onTick = (): void => {
     const now = performance.now();
     const seconds = Math.min(MAX_FRAME_SECONDS, Math.max(0, (now - lastTick) / 1000));
@@ -205,9 +232,45 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
 
   const placeWorld = (): void => {
     const origin = artOrigin(view);
-    const scale = scaleOf(view);
-    scene.world.position.set(origin.x, origin.y);
-    scene.world.scale.set(scale);
+    const drawn = drawnLevel(view.level);
+    if (drawn === view.level) {
+      showStraight();
+      scene.world.position.set(origin.x, origin.y);
+      scene.world.scale.set(scaleOf(view));
+      return;
+    }
+    showScaledDown();
+    // Device pixels per texture pixel. The texture holds the part of the world drawn at `drawn` that
+    // covers the canvas, from a whole texture pixel: each texture pixel always holds the same piece of
+    // the art, and the art's origin lands on a whole device pixel, so a pan moves the picture by whole
+    // device pixels and nothing shimmers.
+    const ratio = view.level / drawn;
+    const dpr = view.devicePixelRatio;
+    const originX = origin.x * dpr;
+    const originY = origin.y * dpr;
+    fitArea.width = Math.ceil((view.width * dpr) / ratio) + 2;
+    fitArea.height = Math.ceil((view.height * dpr) / ratio) + 2;
+    const startX = Math.floor(-originX / ratio) - 1;
+    const startY = Math.floor(-originY / ratio) - 1;
+    if (fitTexture.width !== fitArea.width || fitTexture.height !== fitArea.height) {
+      fitTexture.resize(fitArea.width, fitArea.height);
+    }
+    scene.world.position.set(-startX, -startY);
+    scene.world.scale.set(drawn);
+    fitSprite.position.set((originX + startX * ratio) / dpr, (originY + startY * ratio) / dpr);
+    fitSprite.scale.set(ratio / dpr);
+  };
+  const showStraight = (): void => {
+    if (!drawnScaledDown) return;
+    drawnScaledDown = false;
+    app.stage.removeChild(fitSprite);
+    app.stage.addChild(scene.world);
+  };
+  const showScaledDown = (): void => {
+    if (drawnScaledDown) return;
+    drawnScaledDown = true;
+    app.stage.removeChild(scene.world);
+    app.stage.addChild(fitSprite);
   };
   /** Where a figure stands now and how far it reaches, as the scene placed it. */
   const placeOf = (roleKey: string): { feet: Point; bounds: FigureBounds } | null => {
@@ -486,6 +549,9 @@ export const createOfficeStage: CreateOfficeStage = async (canvas, options) => {
       document.removeEventListener("visibilitychange", onVisibility);
       stopTicker();
       app.ticker.remove(onTick);
+      app.stage.removeChild(fitSprite);
+      fitSprite.destroy();
+      fitTexture.destroy(true);
       scene.destroy();
       textures.destroy();
       forgetPaintedArt();

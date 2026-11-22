@@ -10,12 +10,15 @@ export interface View {
   readonly width: number;
   readonly height: number;
   readonly devicePixelRatio: number;
-  /** Device pixels per art pixel: 0.5 or a whole number. */
+  /**
+   * Device pixels per art pixel: 0.5 or a whole number, but for the whole office's own level, which
+   * may be in-between (`isWholeLevel`).
+   */
   readonly level: number;
   /** Where the art's (0, 0) lands, in CSS pixels. */
   readonly offsetX: number;
   readonly offsetY: number;
-  /** The level that shows the whole office; zooming out stops there. */
+  /** The level that shows the whole office exactly; zooming out stops there. */
   readonly minLevel: number;
   readonly framing: Framing;
 }
@@ -32,6 +35,10 @@ export const FIT_MARGINS = { top: 56, right: 16, bottom: 64, left: 16 } as const
 const KEEP_IN_VIEW = 80;
 const MAX_CSS_SCALE = 6;
 const FIGURE_FRAME_MAX_SCALE = 3;
+/** The first zoom step, half a device pixel per art pixel. */
+const FIRST_LEVEL = 0.5;
+/** How close to a whole step an exact fit snaps to it, so float noise never draws through a texture. */
+const WHOLE_LEVEL_SNAP = 1e-6;
 
 export function createView(width: number, height: number, devicePixelRatio: number): View {
   return {
@@ -41,14 +48,14 @@ export function createView(width: number, height: number, devicePixelRatio: numb
     level: 2,
     offsetX: 0,
     offsetY: 0,
-    minLevel: 0.5,
+    minLevel: FIRST_LEVEL,
     framing: { kind: "office" },
   };
 }
 
 /** Device pixels per art pixel: half a pixel for a big office on a small screen, then whole numbers up to six CSS pixels. */
 export function zoomLevels(devicePixelRatio: number): number[] {
-  const levels = [0.5];
+  const levels = [FIRST_LEVEL];
   for (let level = 1; level <= Math.max(1, Math.floor(MAX_CSS_SCALE * devicePixelRatio)); level++)
     levels.push(level);
   return levels;
@@ -70,18 +77,30 @@ function topLevel(devicePixelRatio: number): number {
   return levels[levels.length - 1] ?? 1;
 }
 
-/** The largest zoom level at which `bounds` fits inside the margins, centred; `maxScale` caps it, in CSS pixels per art pixel. */
-export function frameBounds(view: View, bounds: ArtRect, maxScale = Infinity): View {
-  const width = view.width - FIT_MARGINS.left - FIT_MARGINS.right;
-  const height = view.height - FIT_MARGINS.top - FIT_MARGINS.bottom;
-  const levels = zoomLevels(view.devicePixelRatio);
-  let level = levels[0] ?? 0.5;
-  for (const candidate of levels) {
-    const scale = candidate / view.devicePixelRatio;
-    if (bounds.width * scale <= width && bounds.height * scale <= height && scale <= maxScale) {
-      level = candidate;
-    }
-  }
+/** Whether a level is one of the zoom steps, as against the whole office's in-between one. */
+export function isWholeLevel(level: number): boolean {
+  return level === FIRST_LEVEL || Number.isInteger(level);
+}
+
+/**
+ * The whole step the art is drawn at: the level itself, or at an in-between level the next whole
+ * step up, which the stage scales down smoothly so every art pixel stays the same size.
+ */
+export function drawnLevel(level: number): number {
+  return isWholeLevel(level) ? level : Math.ceil(level);
+}
+
+/** The room inside the margins, in CSS pixels. */
+function framedArea(view: View): { width: number; height: number } {
+  return {
+    width: view.width - FIT_MARGINS.left - FIT_MARGINS.right,
+    height: view.height - FIT_MARGINS.top - FIT_MARGINS.bottom,
+  };
+}
+
+/** `bounds` centred inside the margins at `level`. */
+function centredAt(view: View, bounds: ArtRect, level: number): View {
+  const { width, height } = framedArea(view);
   const scale = level / view.devicePixelRatio;
   return {
     ...view,
@@ -91,10 +110,37 @@ export function frameBounds(view: View, bounds: ArtRect, maxScale = Infinity): V
   };
 }
 
+/** The largest zoom step at which `bounds` fits inside the margins, centred; `maxScale` caps it, in CSS pixels per art pixel. */
+export function frameBounds(view: View, bounds: ArtRect, maxScale = Infinity): View {
+  const { width, height } = framedArea(view);
+  const levels = zoomLevels(view.devicePixelRatio);
+  let level = levels[0] ?? FIRST_LEVEL;
+  for (const candidate of levels) {
+    const scale = candidate / view.devicePixelRatio;
+    if (bounds.width * scale <= width && bounds.height * scale <= height && scale <= maxScale) {
+      level = candidate;
+    }
+  }
+  return centredAt(view, bounds, level);
+}
+
+/**
+ * The level at which the whole office fills the margins exactly: in-between steps allowed, never
+ * under half a pixel nor over the top step.
+ */
+function exactFitLevel(view: View, officeBounds: ArtRect): number {
+  const { width, height } = framedArea(view);
+  const fits =
+    Math.min(width / officeBounds.width, height / officeBounds.height) * view.devicePixelRatio;
+  const level = Math.min(topLevel(view.devicePixelRatio), Math.max(FIRST_LEVEL, fits));
+  const whole = Math.round(level);
+  return Math.abs(level - whole) < WHOLE_LEVEL_SNAP ? whole : level;
+}
+
 /** The whole office at the largest level that fits; that level becomes the furthest one can zoom out. */
 export function fitView(view: View, officeBounds: ArtRect): View {
   if (view.width <= 0 || view.height <= 0) return view;
-  const fitted = frameBounds(view, officeBounds);
+  const fitted = centredAt(view, officeBounds, exactFitLevel(view, officeBounds));
   return { ...fitted, minLevel: fitted.level, framing: { kind: "office" } };
 }
 
@@ -145,10 +191,16 @@ export function zoomTo(
   );
 }
 
-/** The levels one may zoom between: from the whole office (or lower, when already there) to the top. */
+/**
+ * The levels one may zoom between: from the whole office (or lower, when already there) to the top,
+ * the whole steps and the whole office's own level, which may be in-between.
+ */
 function reachableLevels(view: View): number[] {
   const floor = Math.min(view.minLevel, view.level);
-  return zoomLevels(view.devicePixelRatio).filter((level) => level >= floor);
+  const steps = zoomLevels(view.devicePixelRatio).filter(
+    (level) => level >= floor && level !== view.minLevel,
+  );
+  return [...steps, view.minLevel].toSorted((a, b) => a - b);
 }
 
 /** One step in or out, round the anchor; never past the whole office or the top level. */
@@ -239,15 +291,18 @@ export function resizeView(
   };
   const resized: View = { ...view, width, height, devicePixelRatio };
   if (!hadSize || view.framing.kind === "office") return fitView(resized, officeBounds);
-  const minLevel = frameBounds(resized, officeBounds).level;
+  const minLevel = exactFitLevel(resized, officeBounds);
   if (view.framing.kind === "figure" && figureBounds) {
     const framed = frameBounds(resized, figureBounds, FIGURE_FRAME_MAX_SCALE);
     return clampView({ ...framed, minLevel }, officeBounds);
   }
+  // At the whole office's own level the view stays at the whole office's new one; a whole step stays
+  // (on a new screen, the nearest), but never further out than the whole office.
   const levels = zoomLevels(devicePixelRatio);
-  const level = levels.includes(view.level)
+  const step = levels.includes(view.level)
     ? view.level
     : nearestLevel(devicePixelRatio, view.level);
+  const level = view.level === view.minLevel ? minLevel : Math.max(step, minLevel);
   const scale = level / devicePixelRatio;
   return clampView(
     {

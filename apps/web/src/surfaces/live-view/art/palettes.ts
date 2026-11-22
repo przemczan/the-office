@@ -9,6 +9,11 @@ export const ART_COLORS = {
   wallSide: 0xe3dacb,
   wallTop: 0xc8bead,
   baseboard: 0xb8ac98,
+  /* The slab the room stands on: its right and front sides, the light along its edge, its shadow. */
+  slabSide: 0x9f8c70,
+  slabFront: 0x83735c,
+  slabLip: 0xe6d7be,
+  slabShadow: 0x2a1f12,
   frame: 0xfbf8f2,
   sill: 0xd2c8b6,
   glass: 0xbfe2fb,

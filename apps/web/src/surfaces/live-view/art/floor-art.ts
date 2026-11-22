@@ -1,11 +1,20 @@
-import type { DeskGroup, Layout } from "../live-view-types.ts";
-import { WALL_H } from "./iso.ts";
-import { ART as A, GROUP_ART } from "./palettes.ts";
-import type { IsoPen } from "./pixel-grid.ts";
+import type { DeskGroup, FloorPoint, Layout } from "../live-view-types.ts";
+import { HALF_H, HALF_W, WALL_H, isoX, isoY } from "./iso.ts";
+import { ART as A, ART_COLORS, GROUP_ART } from "./palettes.ts";
+import { type IsoPen, PixelGrid, isoPen } from "./pixel-grid.ts";
 
 /* As floor-plan.ts lays the floor out: the main aisle's row, from the door, and the first pod row. */
 const AISLE_ROW = 3;
 const POD_TOP = 4;
+/** The back and left walls' thickness, in tiles. */
+const WALL_T = 0.25;
+/** How far the room's floor stands above the open floor round it, in art pixels: the slab it stands on. */
+export const SLAB_H = 6;
+/**
+ * The boards' pattern repeats every 1.5 tiles along a row and every 2 rows; on the screen, that is
+ * a rectangle of 192 × 96 art pixels, which tiles the open floor.
+ */
+export const BOARDS_REPEAT = { width: 12 * HALF_W, height: 12 * HALF_H } as const;
 
 /** Where the windows start along the back wall (x) and the left wall (y), in tiles; each is 1.4 wide. */
 export interface Windows {
@@ -32,10 +41,7 @@ interface Pod {
 export function paintFloorLayer(pen: IsoPen, layout: Layout): void {
   const { width: W, depth: D } = layout;
   pen.floor(0, 0, W, D, A.floorA);
-  for (let y = 0; y <= D; y++) pen.line([0, y, 0], [W, y, 0], A.floorSeam);
-  for (let y = 0; y < D; y++) {
-    for (let x = y % 2 ? 0.5 : 1; x < W; x += 1.5) pen.line([x, y, 0], [x, y + 1, 0], A.floorSeam);
-  }
+  paintSeams(pen, 0, 0, W, D);
   // Each pod's carpet, in its group's colour.
   const pods = new Map<string, Pod>();
   for (const desk of layout.desks) {
@@ -64,6 +70,91 @@ export function paintFloorLayer(pen: IsoPen, layout: Layout): void {
   pen.floor(s0 + 0.4, 1.05, s0 + layout.sofaSeats + 2.8, 2.85, A.rug);
   pen.floor(s0 + 0.65, 1.3, s0 + layout.sofaSeats + 2.55, 2.6, A.rugInner);
   pen.floor(s0 + 0.75, 1.4, s0 + layout.sofaSeats + 2.45, 2.5, A.rug);
+}
+
+/** The boards' seams from (x0, y0) to (x1, y1): one along each row, and the boards' ends, staggered by row. */
+function paintSeams(pen: IsoPen, x0: number, y0: number, x1: number, y1: number): void {
+  for (let y = y0; y <= y1; y++) pen.line([x0, y, 0], [x1, y, 0], A.floorSeam);
+  for (let y = y0; y < y1; y++) {
+    const first = (Math.abs(y) % 2 ? 0.5 : 1) + Math.ceil((x0 - 1) / 1.5) * 1.5;
+    for (let x = first; x < x1; x += 1.5) pen.line([x, y, 0], [x, y + 1, 0], A.floorSeam);
+  }
+}
+
+/**
+ * One repeat of the open floor's boards (`BOARDS_REPEAT`), with the floor's (0, 0) at its top left
+ * corner: tiled, the boards line up with the room's own.
+ */
+export function paintBoardsRepeat(): PixelGrid {
+  const { width, height } = BOARDS_REPEAT;
+  const grid = new PixelGrid(width, height);
+  grid.rect(0, 0, width, height, A.floorA);
+  // Every tile row and column that touches the rectangle, and a tile more round it.
+  const reach = Math.ceil(width / HALF_W);
+  paintSeams(isoPen(grid, 0, 0), -reach, -reach, reach, reach);
+  return grid;
+}
+
+/**
+ * The slab the room stands on: its two front sides under the floor's right and front edges, with a
+ * pixel of light along their top.
+ */
+export function paintSlab(pen: IsoPen, layout: Layout): void {
+  const { width: W, depth: D } = layout;
+  pen.faceX(W, -WALL_T, D, -SLAB_H, 0, A.slabSide);
+  pen.faceY(D, -WALL_T, W, -SLAB_H, 0, A.slabFront);
+  pen.grid.polygon(
+    [
+      pen.point(-WALL_T, D),
+      pen.point(W, D),
+      pen.point(W, -WALL_T),
+      pen.point(W, -WALL_T, -1),
+      pen.point(W, D, -1),
+      pen.point(-WALL_T, D, -1),
+    ],
+    A.slabLip,
+  );
+}
+
+/** Room left round the slab's shadow, in art pixels, for its blur. */
+export const SLAB_SHADOW_PAD = 48;
+const SLAB_SHADOW_BLUR = 14;
+const SLAB_SHADOW_DROP = 4;
+const SLAB_SHADOW_ALPHA = 0.5;
+
+/**
+ * The slab's soft shadow on the open floor, the size of the office's art and `SLAB_SHADOW_PAD`
+ * more each side, `origin` being the floor's (0, 0) in the office's art.
+ */
+export function paintSlabShadow(
+  width: number,
+  height: number,
+  origin: FloorPoint,
+  layout: Layout,
+): HTMLCanvasElement {
+  const { width: W, depth: D } = layout;
+  const canvas = document.createElement("canvas");
+  canvas.width = width + SLAB_SHADOW_PAD * 2;
+  canvas.height = height + SLAB_SHADOW_PAD * 2;
+  const context = canvas.getContext("2d");
+  if (!context) return canvas;
+  // The footprint is drawn a canvas away, so only its blurred shadow lands on the canvas.
+  const away = canvas.width;
+  const at = (x: number, y: number): [number, number] => [
+    SLAB_SHADOW_PAD + origin.x + isoX(x, y) - away,
+    SLAB_SHADOW_PAD + origin.y + isoY(x, y, -SLAB_H) + SLAB_SHADOW_DROP,
+  ];
+  const shadow = ART_COLORS.slabShadow;
+  context.shadowColor = `rgba(${shadow >> 16}, ${(shadow >> 8) & 0xff}, ${shadow & 0xff}, ${SLAB_SHADOW_ALPHA})`;
+  context.shadowBlur = SLAB_SHADOW_BLUR;
+  context.shadowOffsetX = away;
+  context.beginPath();
+  for (const [x, y] of [at(-WALL_T, -WALL_T), at(W, -WALL_T), at(W, D), at(-WALL_T, D)]) {
+    context.lineTo(x, y);
+  }
+  context.closePath();
+  context.fill();
+  return canvas;
 }
 
 type WallFace = (from: number, to: number, z0: number, z1: number, index: number) => void;
@@ -112,7 +203,7 @@ export function paintSunPatches(pen: IsoPen, layout: Layout): void {
  */
 export function paintWalls(pen: IsoPen, layout: Layout): void {
   const { width: W, depth: D } = layout;
-  const T = 0.25;
+  const T = WALL_T;
   // The back wall (along x) and the left wall (along y), their tops and their ends.
   pen.faceY(0, 0, W, 0, WALL_H, A.wallFace);
   pen.faceY(0, 0, W, 0, 3, A.baseboard);

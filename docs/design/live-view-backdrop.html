@@ -1,0 +1,3663 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Live view backdrop · design proposal · The Office</title>
+    <style>
+      /* ---------- Tokens: design-system/tokens/colors.css, radius.css and elevation.css, as used here ---------- */
+      :root {
+        --ember-50: #fff2ed;
+        --ember-500: #f23d0f;
+        --ember-700: #9e2406;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-900: #181817;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-700: #106a3b;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-500: #e5a00d;
+        --amber-700: #865b05;
+        --red-50: #fdeef0;
+        --red-100: #fad9dd;
+        --red-700: #8e0b20;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-700: #1d4699;
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-control: var(--radius-md);
+        --radius-card: 10px;
+        --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --duration-fast: 120ms;
+      }
+
+      /* Light: the design system's light aliases, then packages/ui/src/appearance/palettes/light.css */
+      :root,
+      .pal-light {
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-sunken: var(--gray-50);
+        --fg-1: var(--gray-800);
+        --fg-2: var(--gray-500);
+        --fg-3: var(--gray-400);
+        --border: var(--gray-100);
+        --border-strong: var(--gray-150);
+        --control-hover: var(--gray-50);
+        --accent: var(--ember-500);
+        --accent-subtle: var(--ember-50);
+        --accent-fg: var(--ember-700);
+        --neutral-subtle: var(--gray-50);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --success-border: var(--green-100);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --danger-subtle: var(--red-50);
+        --danger-fg: var(--red-700);
+        --danger-border: var(--red-100);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+        --shadow-1: 0 1px 2px rgba(16, 16, 15, 0.05);
+        --shadow-2: 0 4px 12px -2px rgba(16, 16, 15, 0.08), 0 1px 3px rgba(16, 16, 15, 0.05);
+        color-scheme: light;
+      }
+      /* Dark: the design system's [data-theme="dark"] aliases, then palettes/dark.css */
+      .pal-dark {
+        --bg: #161615;
+        --surface: #1d1d1b;
+        --surface-sunken: #131312;
+        --fg-1: #d9d9d5;
+        --fg-2: #9a9a94;
+        --fg-3: #6f6f69;
+        --border: #262624;
+        --border-strong: #33332f;
+        --control-hover: #262624;
+        --accent-subtle: color-mix(in oklab, var(--ember-500) 16%, transparent);
+        --accent-fg: #ff9370;
+        --neutral-subtle: #242422;
+        --shadow-1: 0 0 0 1px rgba(255, 255, 255, 0.04);
+        --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+        color-scheme: dark;
+      }
+
+      /* ---------- Base ---------- */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font: 400 14px/1.55 var(--font-sans);
+        color: var(--fg-1);
+        background: var(--bg);
+        -webkit-font-smoothing: antialiased;
+      }
+      button {
+        font: inherit;
+        color: inherit;
+      }
+      :is(button, a, input, [tabindex]):focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      a {
+        color: var(--accent-fg);
+      }
+      code {
+        font: 400 12px/1.4 var(--font-mono);
+        background: var(--neutral-subtle);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 0 4px;
+      }
+      h1,
+      h2,
+      h3,
+      h4,
+      p {
+        margin: 0;
+      }
+      .ico {
+        flex: none;
+        display: block;
+      }
+
+      /* ---------- The page ---------- */
+      .page {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 40px 32px 96px;
+        display: grid;
+        gap: 48px;
+      }
+      .page-head {
+        display: grid;
+        gap: 12px;
+        max-width: 860px;
+      }
+      .eyebrow {
+        font: 500 12px/1 var(--font-sans);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .page-head h1 {
+        font: 600 28px/1.2 var(--font-sans);
+        letter-spacing: -0.01em;
+      }
+      .lede {
+        font-size: 15px;
+        color: var(--fg-2);
+      }
+      .asks {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 8px;
+      }
+      .ask {
+        display: grid;
+        gap: 4px;
+        padding: 12px 14px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        box-shadow: var(--shadow-1);
+      }
+      .ask b {
+        font-weight: 600;
+      }
+      .ask span {
+        color: var(--fg-2);
+        font-size: 13px;
+      }
+      .jump {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 4px;
+      }
+      .jump a {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 28px;
+        padding: 0 10px;
+        font: 500 13px/1 var(--font-sans);
+        color: var(--fg-1);
+        text-decoration: none;
+        background: var(--surface);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-control);
+        box-shadow: var(--shadow-1);
+      }
+      .jump a:hover {
+        background: var(--control-hover);
+      }
+      .jump a[data-recommended] {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+
+      .section {
+        display: grid;
+        gap: 16px;
+        scroll-margin-top: 24px;
+      }
+      .section-head {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+      }
+      .letter {
+        display: grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        flex: none;
+        font: 600 15px/1 var(--font-sans);
+        color: var(--fg-1);
+        background: var(--surface);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-1);
+      }
+      .section[data-recommended] .letter {
+        color: var(--success-fg);
+        background: var(--success-subtle);
+        border-color: var(--success-border);
+      }
+      .section-head h2 {
+        font: 600 20px/1.3 var(--font-sans);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .section-head p {
+        color: var(--fg-2);
+        max-width: 860px;
+        margin-top: 2px;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: 20px;
+        padding: 0 7px;
+        font: 500 12px/1 var(--font-sans);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--neutral-subtle);
+        color: var(--fg-2);
+        white-space: nowrap;
+      }
+      .badge.good {
+        background: var(--success-subtle);
+        border-color: var(--success-border);
+        color: var(--success-fg);
+      }
+      .badge.fair {
+        background: var(--warning-subtle);
+        border-color: var(--warning-border);
+        color: var(--warning-fg);
+      }
+      .badge.weak {
+        background: var(--danger-subtle);
+        border-color: var(--danger-border);
+        color: var(--danger-fg);
+      }
+      .badge.decided {
+        background: var(--info-subtle);
+        border-color: var(--info-border);
+        color: var(--info-fg);
+      }
+
+      /* ---------- The four cases ---------- */
+      .cases {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+      .case {
+        display: grid;
+        gap: 6px;
+        margin: 0;
+      }
+      .case figcaption {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font: 500 12px/1 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .case figcaption .ico {
+        color: var(--fg-3);
+      }
+
+      /* A drawing of the Live view's floor: the canvas, the time chip and the zoom, in the case's theme. */
+      .floor {
+        position: relative;
+        aspect-ratio: 21 / 10;
+        overflow: hidden;
+        background: var(--surface-sunken);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        box-shadow: var(--shadow-1);
+        color: var(--fg-1);
+      }
+      /* The zoom's two frames: the 2560 × 1100 floor they shrink, so its bands show true. */
+      .floor[data-frame^="zoom"] {
+        aspect-ratio: 2560 / 1100;
+      }
+      .floor canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      .floor[data-interactive] canvas {
+        cursor: grab;
+        touch-action: none;
+      }
+      .floor[data-interactive] canvas:active {
+        cursor: grabbing;
+      }
+      .chip {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 26px;
+        padding: 0 10px;
+        font: 400 12px/1 var(--font-sans);
+        color: var(--fg-2);
+        background: color-mix(in oklab, var(--surface) 94%, transparent);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        box-shadow: var(--shadow-1);
+        pointer-events: none;
+      }
+      .chip b {
+        font-weight: 600;
+        color: var(--fg-1);
+      }
+      .zoom {
+        position: absolute;
+        right: 10px;
+        bottom: 10px;
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        padding: 2px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-2);
+      }
+      .zoom button {
+        display: grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        color: var(--fg-2);
+        cursor: pointer;
+      }
+      .zoom button:hover:not(:disabled) {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .zoom button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .zoom .percent {
+        min-width: 40px;
+        font: 500 11px/1 var(--font-sans);
+        color: var(--fg-2);
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+      }
+      .zoom .sep {
+        width: 1px;
+        height: 14px;
+        background: var(--border);
+      }
+      .floor:not([data-interactive]) .zoom {
+        pointer-events: none;
+      }
+
+      /* ---------- Notes ---------- */
+      .notes {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+      .note {
+        display: grid;
+        align-content: start;
+        gap: 6px;
+        padding: 12px 14px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+      }
+      .note h3 {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font: 600 13px/1.2 var(--font-sans);
+      }
+      .note h3 .ico {
+        color: var(--fg-3);
+      }
+      .note p {
+        font-size: 13px;
+        color: var(--fg-2);
+      }
+      .verdict {
+        display: flex;
+        gap: 10px;
+        align-items: baseline;
+        padding: 10px 14px;
+        font-size: 13px;
+        color: var(--fg-2);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--border-strong);
+        border-radius: var(--radius-md);
+      }
+      .verdict b {
+        color: var(--fg-1);
+        font-weight: 600;
+        flex: none;
+      }
+      .section[data-recommended] .verdict {
+        border-left-color: var(--green-500);
+      }
+
+      /* ---------- The zoom ---------- */
+      .pair {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      /* ---------- Try it ---------- */
+      .playground {
+        display: grid;
+        gap: 12px;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px 20px;
+        padding: 10px 12px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        box-shadow: var(--shadow-1);
+      }
+      .control {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font: 500 12px/1 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .control[hidden] {
+        display: none;
+      }
+      .segmented {
+        display: inline-flex;
+        padding: 2px;
+        gap: 2px;
+        background: var(--neutral-subtle);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+      }
+      .segmented button {
+        height: 24px;
+        padding: 0 9px;
+        font: 500 12px/1 var(--font-sans);
+        color: var(--fg-2);
+        background: transparent;
+        border: 0;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+      }
+      .segmented button:hover {
+        color: var(--fg-1);
+      }
+      .segmented button[aria-pressed="true"] {
+        color: var(--fg-1);
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+      }
+      .control input[type="range"] {
+        width: 200px;
+        accent-color: var(--accent);
+      }
+      .control output {
+        min-width: 88px;
+        font: 500 12px/1 var(--font-sans);
+        color: var(--fg-1);
+        font-variant-numeric: tabular-nums;
+      }
+      .playground .floor {
+        aspect-ratio: 21 / 9;
+      }
+      .hint {
+        font-size: 12px;
+        color: var(--fg-3);
+      }
+
+      /* ---------- Compare and recommend ---------- */
+      .table-wrap {
+        overflow-x: auto;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        box-shadow: var(--shadow-1);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      th,
+      td {
+        padding: 10px 14px;
+        text-align: left;
+        vertical-align: top;
+        border-bottom: 1px solid var(--border);
+      }
+      tr:last-child td {
+        border-bottom: 0;
+      }
+      th {
+        font: 500 12px/1.2 var(--font-sans);
+        color: var(--fg-3);
+        background: var(--surface-sunken);
+      }
+      td:first-child {
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      tr[data-recommended] td {
+        background: color-mix(in oklab, var(--success-subtle) 60%, transparent);
+      }
+      .recommend {
+        display: grid;
+        gap: 12px;
+        padding: 20px 22px;
+        background: var(--surface);
+        border: 1px solid var(--success-border);
+        border-radius: var(--radius-card);
+        box-shadow: var(--shadow-2);
+      }
+      .recommend h2 {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font: 600 18px/1.3 var(--font-sans);
+      }
+      .recommend h2 .ico {
+        color: var(--success-fg);
+      }
+      .recommend ul {
+        margin: 0;
+        padding-left: 20px;
+        display: grid;
+        gap: 6px;
+        color: var(--fg-2);
+      }
+      .recommend li b {
+        color: var(--fg-1);
+        font-weight: 600;
+      }
+
+      @media (max-width: 900px) {
+        .cases,
+        .pair,
+        .notes,
+        .asks {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .page {
+          padding: 24px 16px 64px;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <symbol id="i-sun" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="3" /><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1" /></g></symbol>
+      <symbol id="i-moon" viewBox="0 0 16 16"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" d="M13 9.6A5.5 5.5 0 0 1 6.4 3a5.5 5.5 0 1 0 6.6 6.6Z" /></symbol>
+      <symbol id="i-minus" viewBox="0 0 16 16"><path stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M3.5 8h9" /></symbol>
+      <symbol id="i-plus" viewBox="0 0 16 16"><path stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M3.5 8h9M8 3.5v9" /></symbol>
+      <symbol id="i-fit" viewBox="0 0 16 16"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" /></symbol>
+      <symbol id="i-clock" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="6" /><path d="M8 4.5V8l2.5 1.5" /></g></symbol>
+      <symbol id="i-cost" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="9" rx="1.5" /><path d="M5 14h6M5 9l2-2 1.5 1.5L11 6" /></g></symbol>
+      <symbol id="i-move" viewBox="0 0 16 16"><path fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" d="M8 1.5v13M1.5 8h13M8 1.5 6 3.5M8 1.5l2 2M8 14.5l-2-2M8 14.5l2-2M1.5 8l2-2M1.5 8l2 2M14.5 8l-2-2M14.5 8l-2 2" /></symbol>
+      <symbol id="i-check" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.25" /><path d="m5.5 8.2 1.7 1.7 3.4-3.6" /></g></symbol>
+      <symbol id="i-palette" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6" /><path d="M8 2a6 6 0 0 0 0 12Z" fill="currentColor" stroke="none" /></g></symbol>
+    </svg>
+
+    <main class="page">
+      <header class="page-head">
+        <span class="eyebrow">Design proposal · Live view</span>
+        <h1>The space round the room</h1>
+        <p class="lede">
+          The Live view draws the office as a room on an empty floor. Two things to fix: the
+          whole-office zoom leaves room above and below the office on a wide screen, and the empty
+          page round the room makes a bright room look cut out on the Dark theme, and a dark room at
+          night look cut out on the Light theme.
+        </p>
+        <div class="asks">
+          <div class="ask">
+            <b>1. The whole-office zoom fills the floor <span class="badge decided">Decided</span></b>
+            <span>It fits exactly (e.g. 367%), drawn at the next whole step and scaled down smoothly. Drawn below for reference.</span>
+          </div>
+          <div class="ask">
+            <b>2. The backdrop blends the room into the page <span class="badge">To choose</span></b>
+            <span>Five backdrops, each round the real room, by day and night on the Light and Dark themes.</span>
+          </div>
+        </div>
+        <p class="hint">
+          Every room here is painted by the Live view's own art (the floor plan, furniture, figures,
+          tint, sky and lamps of <code>art/</code>, ported into this page) for an office of ten, 16 × 9
+          tiles: the real room, not a picture of it.
+        </p>
+        <nav class="jump" aria-label="Backdrops">
+          <a href="#zoom">The zoom</a>
+          <a href="#glow">A · Glow</a>
+          <a href="#diorama">B · Diorama</a>
+          <a href="#sky">C · Sky backdrop</a>
+          <a href="#floor">D · Floor everywhere</a>
+          <a href="#fog" data-recommended>E · Floor + fog of war</a>
+          <a href="#try">Try it</a>
+          <a href="#recommend">Recommendation</a>
+        </nav>
+      </header>
+
+      <section class="section" id="zoom">
+        <div class="section-head">
+          <div>
+            <h2>The whole-office zoom <span class="badge decided">Decided</span></h2>
+            <p>
+              A floor of 2560 × 1100 CSS pixels at 1 device pixel per CSS pixel, today's room, no
+              backdrop yet. Today Fit drops to the whole step below; fitting exactly fills the
+              floor inside the same margins (56 above, 64 below, 16 at the sides).
+            </p>
+          </div>
+        </div>
+        <div class="pair">
+          <figure class="case">
+            <figcaption>Today: the whole step below</figcaption>
+            <div class="floor pal-light" data-frame="zoom-whole"></div>
+          </figure>
+          <figure class="case">
+            <figcaption>Fit exactly: the largest scale that fits</figcaption>
+            <div class="floor pal-light" data-frame="zoom-exact"></div>
+          </figure>
+        </div>
+      </section>
+
+      <section class="section" id="glow" data-backdrop="glow">
+        <div class="section-head">
+          <span class="letter">A</span>
+          <div>
+            <h2>Glow</h2>
+            <p>A soft glow in the room's own colour, in the hour's light, fading into the page's background.</p>
+          </div>
+        </div>
+        <div class="cases"></div>
+        <div class="notes">
+          <div class="note">
+            <h3><svg class="ico" width="14" height="14"><use href="#i-clock" /></svg>How it follows the hour</h3>
+            <p>The glow is the room's mean colour under the hour's tint: cream by day, peach at golden hour, deep blue at night with a little lamp warmth at its heart. <code>setLight</code> tints it with the art, so it fades as the tint fades.</p>
+          </div>
+          <div class="note">
+            <h3><svg class="ico" width="14" height="14"><use href="#i-cost" /></svg>What it costs to draw</h3>
+            <p>One radial gradient texture made once (256 px), one sprite under the floor in the <code>backdrop</code> container, tinted. Nothing per frame.</p>
+          </div>
+          <div class="note">
+            <h3><svg class="ico" width="14" height="14"><use href="#i-move" /></svg>Under pan and zoom</h3>
+            <p>It is in the world, so it moves and scales with the room. It is the one smooth thing on a pixel floor; zoomed in, only its middle shows, and panning far shows the plain page past it.</p>
+          </div>
+        </div>
+        <p class="verdict"><b>Verdict</b>Cheapest, and it softens the cut-out look on Dark by day and Light by night. By day on Light it is barely there, and the room still floats on an empty page.</p>
+      </section>
+
+      <section class="section" id="diorama" data-backdrop="diorama">
+        <div class="section-head">
+          <span class="letter">B</span>
+          <div>
+            <h2>Diorama</h2>
+            <p>The room stands on a floor slab, its two front sides showing, with a soft drop shadow under it.</p>
+          </div>
+        </div>
+        <div class="cases"></div>
+        <div class="notes">
+          <div class="note">
+            <h3><svg class="ico" width="14" height="14"><use href="#i-clock" /></svg>How it follows the hour</h3>
+            <p>The slab's sides are art and take the tint with the floor. The shadow is the theme's, not the hour's: it doesn't change from day to night.</p>
+          </div>
+          <div class="note">
+            <h3><svg class="ico" width="14" height="14"><use href="#i-cost" /></svg>What it costs to draw</h3>
+            <p>The slab is two faces painted into the floor's art (<code>floor-art.ts</code>); the shadow is one blurred texture made once per theme. Nothing per frame.</p>
+          </div>
+          <div class="note">
+            <h3><svg class="ico" width="14" height="14"><use href="#i-move" /></svg>Under pan and zoom</h3>
+            <p>Moves and scales with the room; the slab is art pixels, crisp at every whole step. Past the shadow the page is as empty as today.</p>
+          </div>
+        </div>
+        <p class="verdict"><b>Verdict</b>It frames the room rather than blending it in: on Dark the shadow disappears into the page and the slab makes the bright room stand out more. Reads as a toy model on a table.</p>
+      </section>
+
+      <section class="section" id="sky" data-backdrop="sky">
+        <div class="section-head">
+          <span class="letter">C</span>
+          <div>
+            <h2>Sky backdrop</h2>
+            <p>The hour's sky, the windows' own colours, across the whole floor, with a vignette into the page's background at the edges.</p>
+          </div>
+        </div>
+        <div class="cases"></div>
+        <div class="notes">
+          <div class="note">
+            <h3><svg class="ico" width="14" height="14"><use href="#i-clock" /></svg>How it follows the hour</h3>
+            <p>The strongest sense of time: <code>SKY_PALETTES</code>' blue by day, gold at golden hour, violet and orange at dusk, navy with stars at night. It changes when <code>light.sky</code> does.</p>
+          </div>
+          <div class="note">
+            <h3><svg class="ico" width="14" height="14"><use href="#i-cost" /></svg>What it costs to draw</h3>
+            <p>A gradient and a vignette the size of the canvas, drawn again on a resize and when the sky changes (a few times a day). Nothing per frame.</p>
+          </div>
+          <div class="note">
+            <h3><svg class="ico" width="14" height="14"><use href="#i-move" /></svg>Under pan and zoom</h3>
+            <p>It is the sky, so it stays put while the room moves over it: it lives in the stage's screen layer, not in the <code>backdrop</code> container, and the room reads as floating.</p>
+          </div>
+        </div>
+        <p class="verdict"><b>Verdict</b>Loud. The theme's palette is gone from the floor: a navy block on Light at night, a bright blue one on Dark by day. A room in the sky also argues with the windows, which show the same sky.</p>
+      </section>
+
+      <section class="section" id="floor" data-backdrop="floor">
+        <div class="section-head">
+          <span class="letter">D</span>
+          <div>
+            <h2>Floor everywhere</h2>
+            <p>The office's floor boards run on to the canvas's edges; only the room's two walls stay, like partitions on an open floor.</p>
+          </div>
+        </div>
+        <div class="cases"></div>
+        <div class="notes">
+          <div class="note">
+            <h3><svg class="ico" width="14" height="14"><use href="#i-clock" /></svg>How it follows the hour</h3>
+            <p>The boards are art and take the tint with the room, so the whole floor darkens together at night and warms at dusk.</p>
+          </div>
+          <div class="note">
+            <h3><svg class="ico" width="14" height="14"><use href="#i-cost" /></svg>What it costs to draw</h3>
+            <p>One <code>TilingSprite</code> of one repeat of the boards (3 × 2 tiles of 32 × 16), tinted, in the world under the room. Endless, one more quad per frame.</p>
+          </div>
+          <div class="note">
+            <h3><svg class="ico" width="14" height="14"><use href="#i-move" /></svg>Under pan and zoom</h3>
+            <p>Pixel-exact with the room's own boards at every zoom; a pan never finds an edge. <code>officeBounds</code> stays the room, so Fit and the pan clamp don't change.</p>
+          </div>
+        </div>
+        <p class="verdict"><b>Verdict</b>Blends the room with the floor, but the floor itself is now a beige box with a hard edge against the shell: on Dark that's a big bright panel, and at night on Light a big dark one. The room loses its outline.</p>
+      </section>
+
+      <section class="section" id="fog" data-backdrop="fog" data-recommended>
+        <div class="section-head">
+          <span class="letter">E</span>
+          <div>
+            <h2>Floor everywhere + fog of war <span class="badge good">Recommended</span></h2>
+            <p>As D, but the boards fade away from the room into the page's own background: mist on the Light theme, darkness on the Dark one. The fade is stepped and dithered by art pixel, as in a pixel-art game.</p>
+          </div>
+        </div>
+        <div class="cases"></div>
+        <div class="notes">
+          <div class="note">
+            <h3><svg class="ico" width="14" height="14"><use href="#i-clock" /></svg>How it follows the hour</h3>
+            <p>The boards take the tint with the room. The fog is the page's <code>--surface-sunken</code>, so the floor fades out into the page at every hour and on every palette; only a theme change repaints its colour.</p>
+          </div>
+          <div class="note">
+            <h3><svg class="ico" width="14" height="14"><use href="#i-cost" /></svg>What it costs to draw</h3>
+            <p>The boards painted 9 tiles past the room into the floor's art, and one fog mask made once at art scale, white, tinted with the token. Nothing per frame; both are made again only when a hire widens the floor.</p>
+          </div>
+          <div class="note">
+            <h3><svg class="ico" width="14" height="14"><use href="#i-move" /></svg>Under pan and zoom</h3>
+            <p>In the world, crisp at whole steps: the fog's steps are art pixels too. A pan shows the floor fading off, never an edge; past the fog the canvas is clear and the page shows.</p>
+          </div>
+        </div>
+        <p class="verdict"><b>Verdict</b>The room sits on its own floor, and the floor dissolves into whatever the page is. No edge on any theme, any palette or any hour. On Light at night, the dark floor fades into a light mist, which reads as fog rather than night.</p>
+      </section>
+
+      <section class="section" id="try">
+        <div class="section-head">
+          <div>
+            <h2>Try it</h2>
+            <p>One floor, any backdrop, any hour. Drag to pan, scroll or use the buttons to zoom: the whole-office zoom is exact, and the steps in and out from it are whole.</p>
+          </div>
+        </div>
+        <div class="playground">
+          <div class="controls">
+            <div class="control">Backdrop
+              <div class="segmented" data-control="backdrop">
+                <button type="button" data-value="none">None</button>
+                <button type="button" data-value="glow">A</button>
+                <button type="button" data-value="diorama">B</button>
+                <button type="button" data-value="sky">C</button>
+                <button type="button" data-value="floor">D</button>
+                <button type="button" data-value="fog">E</button>
+              </div>
+            </div>
+            <div class="control">Theme
+              <div class="segmented" data-control="theme">
+                <button type="button" data-value="light">Light</button>
+                <button type="button" data-value="dark">Dark</button>
+              </div>
+            </div>
+            <label class="control">Hour
+              <input type="range" min="0" max="1439" step="10" value="840" data-control="hour" />
+              <output data-output="hour">14:00 · Day</output>
+            </label>
+            <div class="control" data-only="fog">Fog
+              <div class="segmented" data-control="fogStyle">
+                <button type="button" data-value="stepped">Stepped</button>
+                <button type="button" data-value="smooth">Smooth</button>
+              </div>
+            </div>
+          </div>
+          <div class="floor pal-light" data-frame="playground" data-interactive></div>
+          <p class="hint">The hours here follow a nominal day (sunrise 06:00, sunset 18:00); the built page follows the sun where the browser is, as today.</p>
+        </div>
+      </section>
+
+      <section class="section" id="compare">
+        <div class="section-head">
+          <div>
+            <h2>Side by side</h2>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Backdrop</th>
+                <th>Blends on Light</th>
+                <th>Blends on Dark</th>
+                <th>Follows the hour</th>
+                <th>Cost to draw</th>
+                <th>Under pan and zoom</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>A · Glow</td>
+                <td><span class="badge fair">By night only</span></td>
+                <td><span class="badge good">Yes</span></td>
+                <td><span class="badge good">Tint</span></td>
+                <td><span class="badge good">One sprite</span></td>
+                <td><span class="badge fair">Soft, plain page past it</span></td>
+              </tr>
+              <tr>
+                <td>B · Diorama</td>
+                <td><span class="badge fair">Frames it</span></td>
+                <td><span class="badge weak">Stands out more</span></td>
+                <td><span class="badge fair">Slab only</span></td>
+                <td><span class="badge good">Art + one sprite</span></td>
+                <td><span class="badge fair">Plain page past it</span></td>
+              </tr>
+              <tr>
+                <td>C · Sky backdrop</td>
+                <td><span class="badge weak">Loud at night</span></td>
+                <td><span class="badge weak">Loud by day</span></td>
+                <td><span class="badge good">Strongest</span></td>
+                <td><span class="badge good">Redraw on resize</span></td>
+                <td><span class="badge fair">Stays put, room floats</span></td>
+              </tr>
+              <tr>
+                <td>D · Floor everywhere</td>
+                <td><span class="badge fair">Hard canvas edge</span></td>
+                <td><span class="badge weak">Bright panel</span></td>
+                <td><span class="badge good">Tint</span></td>
+                <td><span class="badge good">One tiling sprite</span></td>
+                <td><span class="badge good">Endless</span></td>
+              </tr>
+              <tr data-recommended>
+                <td>E · Floor + fog of war</td>
+                <td><span class="badge good">Yes, into mist</span></td>
+                <td><span class="badge good">Yes, into darkness</span></td>
+                <td><span class="badge good">Tint</span></td>
+                <td><span class="badge good">Art + one mask</span></td>
+                <td><span class="badge good">Fades, never an edge</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="recommend" id="recommend">
+        <h2><svg class="ico" width="18" height="18"><use href="#i-check" /></svg>Recommendation: E, floor everywhere + fog of war</h2>
+        <ul>
+          <li><b>It removes the edge everywhere.</b> The fog is the page's own <code>--surface-sunken</code>, so the floor meets the page with no line on Light, Dark or any of the other palettes, by day and by night.</li>
+          <li><b>It keeps the art's language.</b> The boards are the room's own 32 × 16 tiles, and the fog steps by art pixel with a 4 × 4 ordered dither: crisp at whole steps, even at the exact fit, never a smooth blur on a pixel floor.</li>
+          <li><b>The room stays the room.</b> Its walls, rugs and carpets mark it, the fog starts at its edge, and behind the walls the floor shows only a tile or two before the fog takes it.</li>
+          <li><b>It is bounded.</b> Unlike D, the floor needs to reach only where the fog is whole (about 6 tiles out, painted to 9), so it is a fixed texture, not an endless one. Fit and the pan clamp keep <code>officeBounds</code>, the room.</li>
+          <li><b>To build:</b> the boards past the room in <code>art/floor-art.ts</code> (<code>office-geometry.ts</code> grows the art by the apron); the fog mask as a sprite in <code>stage-scene.ts</code>'s <code>backdrop</code> container, over the outer boards and under the room's; its tint read from <code>--surface-sunken</code> on the floor element, again when the theme changes.</li>
+          <li><b>If E is too much:</b> A, the glow, is the cheapest step up from today, and the two combine (a glow under the fog) should night on the Light theme feel too misty.</li>
+        </ul>
+      </section>
+    </main>
+
+    <script>
+      /* ===== ART:BEGIN · the room, ported from apps/web/src/surfaces/live-view/art (see ART:CONTRACT) ===== */
+      /*
+       * ART:CONTRACT. The page's code below uses only this:
+       *   Art.HALF_W, Art.HALF_H, Art.WALL_H       the iso constants (16, 8, 44)
+       *   Art.isoX(x, y), Art.isoY(x, y, z)        floor tiles (and a height in px) to art pixels
+       *   Art.ART_COLORS                           the art's colours as 0xRRGGBB (floorA, floorSeam, wallFace, ...)
+       *   Art.SKY_PALETTES                         { day, golden, dusk, dawn, night } of { glass, glassHigh, glassStar }
+       *   Art.layout                               { width, depth } in tiles (the floor plan of the roster)
+       *   Art.geometry                             { origin: { x, y }, width, height }, as officeGeometryOf
+       *   Art.bounds                               { x, y, width, height }, as officeBounds
+       *   Art.paintRoom(light)                     a canvas of geometry.width × geometry.height: the room as the stage
+       *                                            draws it in that light, clear outside the art. Cached by light.
+       *   Art.paintFloorBoards(apron, tint)        { canvas, origin }: only the floor boards (floorA and its seams),
+       *                                            tinted, from -apron to width + apron and -apron to depth + apron
+       *                                            tiles; floor (0, 0) lands at origin in that canvas. Cached.
+       * A light is { tint, sky, sunPatch: { color, alpha } | null, lampsOn, glow }, as light.ts's Light.
+       *
+       * What paintRoom draws, as stage-scene.ts builds the scene: the floor and walls (tinted), the windows'
+       * glass, stars and exit sign again in the sky's palette (untinted), the sunlight (light.sunPatch's
+       * colour and alpha), then every item sorted by depth as the stage sorts them: the door, each desk
+       * with its monitors, lit screens, chair, lamp, bulb and pizza, the furniture, the TV's game, the
+       * coffee machine's light and the glows (added, at light.glow), and the people seated at their desks
+       * (figures.ts, tinted): someone working sits facing their lit screens and, with lampsOn, under their
+       * lamp; by day the idle sit back at their dark screens (their lamps on too with lampsOn); at night
+       * only those working are there, the others gone home, chairs pushed in. Nobody is elsewhere on the
+       * floor. The floor plan is layoutOffice of the fixtures' first
+       * 10 (rosterOf(10)): 2 at the front desk, 6 Consultants, 2 others; 16 x 9 tiles.
+       */
+      const Art = (() => {
+        /* ---------- seeded.ts ---------- */
+
+        /** FNV-1a over the text's code points (each one's first UTF-16 unit). */
+        function seedOf(text) {
+          let hash = 2166136261;
+          for (const c of text) {
+            hash ^= c.charCodeAt(0);
+            hash = Math.imul(hash, 16777619) >>> 0;
+          }
+          return hash >>> 0;
+        }
+
+        /** mulberry32: numbers in [0, 1), the same ones for the same seed. */
+        function seededRandom(seed) {
+          let state = seed >>> 0;
+          return () => {
+            state = (state + 0x6d2b79f5) >>> 0;
+            let t = state;
+            t = Math.imul(t ^ (t >>> 15), t | 1);
+            t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+          };
+        }
+
+        function pickFrom(random, list) {
+          return list[Math.floor(random() * list.length)] ?? list[0];
+        }
+
+        /* ---------- art/iso.ts ---------- */
+        const HALF_W = 16;
+        const HALF_H = 8;
+        const WALL_H = 44;
+        const DESK_H = 8;
+        const isoX = (x, y) => (x - y) * HALF_W;
+        const isoY = (x, y, z = 0) => (x + y) * HALF_H - z;
+
+        /* ---------- art/pixel-grid.ts ---------- */
+
+        /** Every sprite is a grid of palette indexes, painted once per palette. */
+        class PixelGrid {
+          constructor(width, height) {
+            this.width = width;
+            this.height = height;
+            this.cells = new Uint8Array(width * height);
+          }
+
+          get(x, y) {
+            if (x < 0 || y < 0 || x >= this.width || y >= this.height) return 0;
+            return this.cells[y * this.width + x] ?? 0;
+          }
+
+          set(x, y, index) {
+            if (x >= 0 && y >= 0 && x < this.width && y < this.height) this.cells[y * this.width + x] = index;
+          }
+
+          rect(x, y, width, height, index) {
+            for (let row = y; row < y + height; row++) {
+              for (let column = x; column < x + width; column++) this.set(column, row, index);
+            }
+          }
+
+          row(y, from, to, index) {
+            for (let x = from; x <= to; x++) this.set(x, y, index);
+          }
+
+          line(x0, y0, x1, y1, index) {
+            let x = Math.round(x0);
+            let y = Math.round(y0);
+            const xEnd = Math.round(x1);
+            const yEnd = Math.round(y1);
+            const dx = Math.abs(xEnd - x);
+            const dy = -Math.abs(yEnd - y);
+            const stepX = x < xEnd ? 1 : -1;
+            const stepY = y < yEnd ? 1 : -1;
+            let error = dx + dy;
+            for (;;) {
+              this.set(x, y, index);
+              if (x === xEnd && y === yEnd) break;
+              const doubled = 2 * error;
+              if (doubled >= dy) {
+                error += dy;
+                x += stepX;
+              }
+              if (doubled <= dx) {
+                error += dx;
+                y += stepY;
+              }
+            }
+          }
+
+          /** Fills the pixels whose centres fall inside the polygon. */
+          polygon(points, index) {
+            const xs = points.map((point) => point[0]);
+            const ys = points.map((point) => point[1]);
+            const left = Math.max(0, Math.floor(Math.min(...xs)));
+            const right = Math.min(this.width - 1, Math.ceil(Math.max(...xs)));
+            const top = Math.max(0, Math.floor(Math.min(...ys)));
+            const bottom = Math.min(this.height - 1, Math.ceil(Math.max(...ys)));
+            for (let y = top; y <= bottom; y++) {
+              for (let x = left; x <= right; x++) {
+                if (insidePolygon(points, x + 0.5, y + 0.5)) this.cells[y * this.width + x] = index;
+              }
+            }
+          }
+
+          ellipse(centreX, centreY, radiusX, radiusY, index) {
+            for (let y = Math.floor(centreY - radiusY); y <= Math.ceil(centreY + radiusY); y++) {
+              for (let x = Math.floor(centreX - radiusX); x <= Math.ceil(centreX + radiusX); x++) {
+                const dx = (x + 0.5 - centreX) / radiusX;
+                const dy = (y + 0.5 - centreY) / radiusY;
+                if (dx * dx + dy * dy <= 1) this.set(x, y, index);
+              }
+            }
+          }
+
+          /** Rings every opaque shape with the outline index, outside its own pixels. */
+          outline(index) {
+            const before = this.cells.slice();
+            const opaque = (x, y) => x >= 0 && y >= 0 && x < this.width && y < this.height && before[y * this.width + x] !== 0;
+            for (let y = 0; y < this.height; y++) {
+              for (let x = 0; x < this.width; x++) {
+                if (before[y * this.width + x] !== 0) continue;
+                if (opaque(x - 1, y) || opaque(x + 1, y) || opaque(x, y - 1) || opaque(x, y + 1)) {
+                  this.cells[y * this.width + x] = index;
+                }
+              }
+            }
+          }
+        }
+
+        function insidePolygon(points, x, y) {
+          let inside = false;
+          for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+            const [xi, yi] = points[i];
+            const [xj, yj] = points[j];
+            if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+          }
+          return inside;
+        }
+
+        /** Draws on a grid in floor tiles and heights in pixels, from the anchor the floor's origin lands on. */
+        function isoPen(grid, anchorX, anchorY) {
+          const point = (x, y, z = 0) => [anchorX + Math.round(isoX(x, y)), anchorY + Math.round(isoY(x, y, z))];
+          const line = (from, to, index) => {
+            const [x0, y0] = point(from[0], from[1], from[2]);
+            const [x1, y1] = point(to[0], to[1], to[2]);
+            grid.line(x0, y0, x1, y1, index);
+          };
+          return {
+            grid,
+            point,
+            box(x, y, z, w, d, h, top, left, right, edge) {
+              if (left) {
+                grid.polygon([point(x, y + d, z + h), point(x + w, y + d, z + h), point(x + w, y + d, z), point(x, y + d, z)], left);
+              }
+              if (right) {
+                grid.polygon([point(x + w, y, z + h), point(x + w, y + d, z + h), point(x + w, y + d, z), point(x + w, y, z)], right);
+              }
+              if (top) {
+                grid.polygon([point(x, y, z + h), point(x + w, y, z + h), point(x + w, y + d, z + h), point(x, y + d, z + h)], top);
+              }
+              if (edge) {
+                line([x, y + d, z + h], [x + w, y + d, z + h], edge);
+                line([x + w, y, z + h], [x + w, y + d, z + h], edge);
+              }
+            },
+            faceX(x, y0, y1, z0, z1, index) {
+              grid.polygon([point(x, y0, z1), point(x, y1, z1), point(x, y1, z0), point(x, y0, z0)], index);
+            },
+            faceY(y, x0, x1, z0, z1, index) {
+              grid.polygon([point(x0, y, z1), point(x1, y, z1), point(x1, y, z0), point(x0, y, z0)], index);
+            },
+            floor(x0, y0, x1, y1, index, z = 0) {
+              grid.polygon([point(x0, y0, z), point(x1, y0, z), point(x1, y1, z), point(x0, y1, z)], index);
+            },
+            line,
+            ellipse(x, y, z, radiusX, radiusY, index) {
+              const [centreX, centreY] = point(x, y, z);
+              grid.ellipse(centreX, centreY, radiusX, radiusY, index);
+            },
+          };
+        }
+
+        /** A shape whose origin, (0, 0, 0) in tiles, lands on its anchor; bounds in tiles, height in pixels. */
+        function isoShape(bounds, paint) {
+          const { minX = 0, maxX, minY = 0, maxY, maxZ } = bounds;
+          const left = Math.floor(isoX(minX, maxY)) - 2;
+          const right = Math.ceil(isoX(maxX, minY)) + 2;
+          const top = Math.floor(isoY(minX, minY, maxZ)) - 2;
+          const bottom = Math.ceil(isoY(maxX, maxY)) + 2;
+          const grid = new PixelGrid(right - left, bottom - top);
+          paint(isoPen(grid, -left, -top));
+          return { grid, anchorX: -left, anchorY: -top };
+        }
+
+        const channelsOf = (color) => [(color >> 16) & 0xff, (color >> 8) & 0xff, color & 0xff];
+        const clampChannel = (value) => Math.min(255, Math.max(0, Math.round(value)));
+
+        function mix(from, to, amount) {
+          const a = channelsOf(from);
+          const b = channelsOf(to);
+          const [red, green, blue] = a.map((value, i) => clampChannel(value + (b[i] - value) * amount));
+          return (red << 16) | (green << 8) | blue;
+        }
+        const darker = (color, amount) => mix(color, 0x000000, amount);
+        const lighter = (color, amount) => mix(color, 0xffffff, amount);
+
+        function canvasOf(width, height) {
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.ceil(width));
+          canvas.height = Math.max(1, Math.ceil(height));
+          return canvas;
+        }
+
+        /** A grid painted with a palette: index to colour, a missing colour left transparent. */
+        function paintGrid(grid, palette) {
+          const canvas = canvasOf(grid.width, grid.height);
+          const context = canvas.getContext("2d");
+          if (!context) return canvas;
+          const image = context.createImageData(canvas.width, canvas.height);
+          for (let i = 0; i < grid.cells.length; i++) {
+            const color = palette[grid.cells[i]];
+            // Black, 0x000000, is a colour: only null and undefined are transparent.
+            if (color === null || color === undefined) continue;
+            image.data[i * 4] = (color >> 16) & 0xff;
+            image.data[i * 4 + 1] = (color >> 8) & 0xff;
+            image.data[i * 4 + 2] = color & 0xff;
+            image.data[i * 4 + 3] = 255;
+          }
+          context.putImageData(image, 0, 0);
+          return canvas;
+        }
+
+        /* ---------- art/palettes.ts ---------- */
+        const ART_COLORS = {
+          floorA: 0xddcaa8,
+          floorSeam: 0xccb48f,
+          wallFace: 0xf0e9dd,
+          wallSide: 0xe3dacb,
+          wallTop: 0xc8bead,
+          baseboard: 0xb8ac98,
+          frame: 0xfbf8f2,
+          sill: 0xd2c8b6,
+          glass: 0xbfe2fb,
+          glassHigh: 0xe2f2fe,
+          glassStar: 0xe2f2fe,
+          exitSign: 0x2fbf71,
+          exitSignInk: 0xeafff2,
+          doorFrame: 0xf7f2e9,
+          doorPanel: 0xa9774d,
+          doorPanelShade: 0x8c613c,
+          doorHandle: 0xe5c07b,
+          doorway: 0x3a3842,
+          deskTop: 0xf2ede5,
+          deskLeft: 0xd0c7b9,
+          deskRight: 0xbeb4a5,
+          deskEdge: 0xfbf9f5,
+          monitorFrame: 0x2b2e35,
+          monitorSide: 0x1f2127,
+          screenOff: 0x3b4251,
+          screenLit: 0xc4e8ff,
+          codeA: 0x3b82c4,
+          codeB: 0x7a5cd6,
+          codeC: 0x2f9e6a,
+          stand: 0x5c616b,
+          chairSeat: 0x454951,
+          chairSeatSide: 0x353840,
+          chairBack: 0x50545d,
+          chairBackSide: 0x3a3d45,
+          chairBase: 0x25272c,
+          lampBody: 0x3d3f45,
+          lampShade: 0xe9c46a,
+          lampShadeSide: 0xc9a24a,
+          bulb: 0xfff4c2,
+          pizzaTop: 0xd9b17b,
+          pizzaSide: 0xb98d55,
+          pizzaLogo: 0xc8102e,
+          mug: 0xf7f7f5,
+          carpetFront: 0xecd6bf,
+          carpetFrontEdge: 0xddc1a3,
+          carpetConsultants: 0xcde0cf,
+          carpetConsultantsEdge: 0xb5ccb8,
+          carpetTeam: 0xcfd8e8,
+          carpetTeamEdge: 0xb8c5dc,
+          dividerFront: 0xd99a7a,
+          dividerFrontSide: 0xc3825f,
+          dividerConsultants: 0x82b08d,
+          dividerConsultantsSide: 0x6a9977,
+          dividerTeam: 0x8299c3,
+          dividerTeamSide: 0x6a82ad,
+          sofaTop: 0xc4705a,
+          sofaLeft: 0xa85b45,
+          sofaRight: 0x964f3b,
+          cushion: 0xd7846c,
+          beanA: 0xe0a93b,
+          beanAShade: 0xc18e27,
+          beanB: 0x5f8fd0,
+          beanBShade: 0x4a76b4,
+          beanC: 0x8f74c6,
+          beanCShade: 0x755aad,
+          rug: 0xe6cfac,
+          rugEdge: 0xc99f6c,
+          rugInner: 0xd9bb90,
+          gamesRug: 0xd5dfcf,
+          gamesRugEdge: 0xaebfa6,
+          tableTop: 0xece2d3,
+          tableSide: 0xcdbda4,
+          machine: 0x3b3e45,
+          machineSide: 0x2c2e34,
+          machineTop: 0x585c63,
+          machineLed: 0xff5a3c,
+          cabinet: 0xc99e74,
+          cabinetSide: 0xab835b,
+          cabinetRight: 0x966f4a,
+          cooler: 0xe0e8f0,
+          coolerSide: 0xc5d1dc,
+          water: 0x8fc9f2,
+          waterSide: 0x6db0e2,
+          potTop: 0xc97b54,
+          potSide: 0xb06644,
+          potRight: 0x9a5739,
+          leaf: 0x4f9b59,
+          leafDark: 0x3a7a45,
+          leafLight: 0x7cc176,
+          bookA: 0xc8102e,
+          bookB: 0x2f6bdb,
+          bookC: 0xe5a00d,
+          bookD: 0x1e9e57,
+          bookE: 0xf4f4f2,
+          tvStand: 0x6b5a4a,
+          tvStandSide: 0x564738,
+          tvStandRight: 0x47392c,
+          consoleBody: 0x2a2c33,
+          consoleTop: 0x3c3f48,
+          consoleLight: 0x4fd1ff,
+          pillowA: 0xd9706a,
+          pillowAShade: 0xb8554f,
+          pillowB: 0x6aa8a0,
+          pillowBShade: 0x4f8b83,
+          pillowC: 0xe3b65a,
+          pillowCShade: 0xc39a3f,
+          gameSky: 0x6fc3ff,
+          gameCloud: 0xf2fbff,
+          gameGround: 0x4caf50,
+          gameDirt: 0x9a6a3c,
+          gameHeroA: 0xe53935,
+          gameHeroB: 0x3f51b5,
+          gameCoin: 0xffd54f,
+          printer: 0xe8e8e4,
+          printerSide: 0xcacac5,
+          printerTop: 0xd6d6d1,
+          paper: 0xffffff,
+          nextDesk: 0xf23d0f,
+          mat: 0x5aa39b,
+          matSide: 0x43867f,
+          matStripe: 0x8fd3c9,
+        };
+
+        const ART_NAMES = Object.keys(ART_COLORS);
+
+        /** Each art colour's palette index, from 1 (0 is transparent). */
+        const ART = Object.fromEntries(ART_NAMES.map((name, i) => [name, i + 1]));
+        const A = ART;
+
+        const ART_PALETTE = [null, ...ART_NAMES.map((name) => ART_COLORS[name])];
+
+        /** The art's palette with some indexes swapped, the rest left out (transparent) when `only`. */
+        function artPalette(overrides, only = false) {
+          const palette = only ? ART_PALETTE.map(() => null) : ART_PALETTE.slice();
+          for (const name of Object.keys(overrides)) palette[ART[name]] = overrides[name] ?? null;
+          return palette;
+        }
+
+        /** The windows' glass for each sky; night's stars are `glassStar`, the other skies hide them. */
+        const SKY_PALETTES = {
+          day: { glass: 0xbfe2fb, glassHigh: 0xe2f2fe, glassStar: 0xe2f2fe },
+          golden: { glass: 0xffd8a8, glassHigh: 0xffeccf, glassStar: 0xffeccf },
+          dusk: { glass: 0xf08f6c, glassHigh: 0x8c74b8, glassStar: 0x8c74b8 },
+          dawn: { glass: 0xf4b2b8, glassHigh: 0x9aa3d6, glassStar: 0x9aa3d6 },
+          night: { glass: 0x1d2748, glassHigh: 0x141c36, glassStar: 0xe9edff },
+        };
+        /** A desk group's divider and carpet, as art palette indexes. */
+        const GROUP_ART = {
+          "front-desk": {
+            divider: A.dividerFront,
+            dividerSide: A.dividerFrontSide,
+            carpet: A.carpetFront,
+            carpetEdge: A.carpetFrontEdge,
+          },
+          consultants: {
+            divider: A.dividerConsultants,
+            dividerSide: A.dividerConsultantsSide,
+            carpet: A.carpetConsultants,
+            carpetEdge: A.carpetConsultantsEdge,
+          },
+          team: {
+            divider: A.dividerTeam,
+            dividerSide: A.dividerTeamSide,
+            carpet: A.carpetTeam,
+            carpetEdge: A.carpetTeamEdge,
+          },
+        };
+
+        /* ---------- The tint: Pixi's sprite.tint multiplies each channel, c * tint / 255 ---------- */
+        const UNTINTED = 0xffffff;
+        const css = (color) => "#" + color.toString(16).padStart(6, "0");
+
+        function tintedColor(color, tint) {
+          const channel = (shift) => Math.round((((color >> shift) & 0xff) * ((tint >> shift) & 0xff)) / 255);
+          return (channel(16) << 16) | (channel(8) << 8) | channel(0);
+        }
+
+        const tintedPalettes = new Map();
+        /** The art's palette under a tint; UNTINTED gives ART_PALETTE's own colours. */
+        function tintedPalette(tint) {
+          let palette = tintedPalettes.get(tint);
+          if (!palette) {
+            palette = ART_PALETTE.map((color) => (color === null ? null : tintedColor(color, tint)));
+            tintedPalettes.set(tint, palette);
+          }
+          return palette;
+        }
+
+        /* As pixel-grid.ts's paintedArt: a shape built once by its key, painted once per tint. */
+        const shapes = new Map();
+        const painted = new Map();
+
+        /** A shape painted with the art's palette under `tint` (palettes.ts's paintedOfficeArt, plus the tint). */
+        function paintedOfficeArt(shapeKey, buildShape, tint) {
+          const key = shapeKey + "|" + tint;
+          let made = painted.get(key);
+          if (!made) {
+            let shape = shapes.get(shapeKey);
+            if (!shape) {
+              shape = buildShape();
+              shapes.set(shapeKey, shape);
+            }
+            if (painted.size > 1500) painted.clear();
+            made = { canvas: paintGrid(shape.grid, tintedPalette(tint)), anchorX: shape.anchorX, anchorY: shape.anchorY };
+            painted.set(key, made);
+          }
+          return made;
+        }
+
+        /* ---------- art/floor-art.ts ---------- */
+        /* As floor-plan.ts lays the floor out: the main aisle's row, from the door, and the first pod row. */
+        const AISLE_ROW = 3;
+        const POD_TOP = 4;
+
+        /** Where the windows start along the back wall (x) and the left wall (y), in tiles; each is 1.4 wide. */
+        function windowsOf(layout) {
+          const back = [];
+          for (let x = 5.3; x + 1.4 <= layout.width - 0.4; x += 3) back.push(x);
+          const left = [];
+          for (let y = POD_TOP + 1.3; y + 1.4 <= layout.depth - 0.4; y += 3) left.push(y);
+          return { back, left };
+        }
+
+        /**
+         * The boards from (x0, y0) to (x1, y1) in tiles: floorA with its seams, a seam along every row and
+         * one across each row every 1.5 tiles, odd rows offset by half a tile. paintFloorLayer's own loops,
+         * with the first seam of a row found for any x0, so the boards past the room continue its pattern.
+         */
+        function paintBoards(pen, x0, y0, x1, y1) {
+          pen.floor(x0, y0, x1, y1, A.floorA);
+          for (let y = y0; y <= y1; y++) pen.line([x0, y, 0], [x1, y, 0], A.floorSeam);
+          for (let y = y0; y < y1; y++) {
+            const start = y % 2 ? 0.5 : 1;
+            for (let x = start + 1.5 * Math.ceil((x0 - start) / 1.5); x < x1; x += 1.5) {
+              pen.line([x, y, 0], [x, y + 1, 0], A.floorSeam);
+            }
+          }
+        }
+
+        /** The floor's still layer: the boards, each pod's carpet and the entertainment and chill areas' rugs. */
+        function paintFloorLayer(pen, layout) {
+          const { width: W, depth: D } = layout;
+          paintBoards(pen, 0, 0, W, D);
+          // Each pod's carpet, in its group's colour.
+          const pods = new Map();
+          for (const desk of layout.desks) {
+            const top = desk.y - ((desk.y - POD_TOP) % (2 * layout.perPod + 1));
+            const key = `${desk.column.x}:${top}`;
+            const pod = pods.get(key) ?? { x: desk.column.x, top: desk.y, bottom: desk.y + 2, group: desk.group };
+            pod.bottom = Math.max(pod.bottom, desk.y + 2);
+            pod.top = Math.min(pod.top, desk.y);
+            pods.set(key, pod);
+          }
+          for (const pod of pods.values()) {
+            const art = GROUP_ART[pod.group];
+            pen.floor(pod.x - 0.15, pod.top - 0.15, pod.x + 2.15, pod.bottom + 0.15, art.carpetEdge);
+            pen.floor(pod.x - 0.05, pod.top - 0.05, pod.x + 2.05, pod.bottom + 0.05, art.carpet);
+          }
+          // The entertainment area's rug and the chill area's.
+          pen.floor(1.15, 0.25, 3.85, 2.95, A.gamesRugEdge);
+          pen.floor(1.25, 0.35, 3.75, 2.85, A.gamesRug);
+          const s0 = layout.chillStart;
+          pen.floor(s0 + 0.3, 0.95, s0 + layout.sofaSeats + 2.9, 2.95, A.rugEdge);
+          pen.floor(s0 + 0.4, 1.05, s0 + layout.sofaSeats + 2.8, 2.85, A.rug);
+          pen.floor(s0 + 0.65, 1.3, s0 + layout.sofaSeats + 2.55, 2.6, A.rugInner);
+          pen.floor(s0 + 0.75, 1.4, s0 + layout.sofaSeats + 2.45, 2.5, A.rug);
+        }
+
+        /** A window on a wall face: a frame, the glass in two bands, the bars and the sill. */
+        function paintWindow(face, from) {
+          face(from - 0.05, from + 1.45, 14, 15, A.sill);
+          face(from, from + 1.4, 15, 38, A.frame);
+          face(from + 0.1, from + 1.3, 17, 27, A.glass);
+          face(from + 0.1, from + 1.3, 27, 36, A.glassHigh);
+          face(from + 0.66, from + 0.74, 17, 36, A.frame);
+          face(from + 0.1, from + 1.3, 26.5, 27.5, A.frame);
+        }
+
+        /** Sunlight through each window: a patch on the floor in palette index 1, tinted by the hour. */
+        function paintSunPatches(pen, layout) {
+          const { back, left } = windowsOf(layout);
+          for (const x of back) {
+            pen.grid.polygon([pen.point(x + 0.1, 0.05), pen.point(x + 1.3, 0.05), pen.point(x + 1.9, 1.7), pen.point(x + 0.7, 1.7)], 1);
+          }
+          for (const y of left) {
+            pen.grid.polygon([pen.point(0.05, y + 0.1), pen.point(0.05, y + 1.3), pen.point(1.6, y + 1.9), pen.point(1.6, y + 0.7)], 1);
+          }
+        }
+
+        /** The back and left walls, the windows and the exit sign; the sky paints the glass and the sign again. */
+        function paintWalls(pen, layout) {
+          const { width: W, depth: D } = layout;
+          const T = 0.25;
+          // The back wall (along x) and the left wall (along y), their tops and their ends.
+          pen.faceY(0, 0, W, 0, WALL_H, A.wallFace);
+          pen.faceY(0, 0, W, 0, 3, A.baseboard);
+          pen.faceX(W, -T, 0, 0, WALL_H, A.wallSide);
+          pen.faceX(0, 0, D, 0, WALL_H, A.wallSide);
+          pen.faceX(0, 0, D, 0, 3, A.baseboard);
+          pen.faceY(D, -T, 0, 0, WALL_H, A.wallFace);
+          pen.grid.polygon(
+            [pen.point(-T, -T, WALL_H), pen.point(W, -T, WALL_H), pen.point(W, 0, WALL_H), pen.point(0, 0, WALL_H), pen.point(0, D, WALL_H), pen.point(-T, D, WALL_H)],
+            A.wallTop,
+          );
+          // Windows: a frame, the glass in two bands, the bars and the sill; the sky paints the glass.
+          const { back, left } = windowsOf(layout);
+          for (const x of back) paintWindow((a, b, z0, z1, index) => pen.faceY(0, a, b, z0, z1, index), x);
+          for (const y of left) paintWindow((a, b, z0, z1, index) => pen.faceX(0, a, b, z0, z1, index), y);
+          // A few stars, which show only in the night sky's palette (`glassStar` is the glass's own by day).
+          back.forEach((x, i) => {
+            pen.faceY(0, x + 0.25 + (i % 2) * 0.2, x + 0.3 + (i % 2) * 0.2, 33, 34, A.glassStar);
+            pen.faceY(0, x + 0.95, x + 1.0, 30 + (i % 3), 31 + (i % 3), A.glassStar);
+          });
+          left.forEach((y, i) => pen.faceX(0, y + 0.4 + (i % 2) * 0.3, y + 0.45 + (i % 2) * 0.3, 32, 33, A.glassStar));
+          // The exit sign over the door.
+          pen.faceX(0, AISLE_ROW + 0.28, AISLE_ROW + 0.72, 37, 41, A.exitSign);
+          pen.faceX(0, AISLE_ROW + 0.36, AISLE_ROW + 0.64, 38, 40, A.exitSignInk);
+        }
+
+        /* ---------- art/furniture.ts ---------- */
+
+        /** Where each monitor stands along the desk, by how many it holds (one to three). */
+        function monitorSlots(count) {
+          if (count <= 1) return [1];
+          if (count === 2) return [0.72, 1.28];
+          return [0.5, 1, 1.5];
+        }
+
+        const DESK_BOUNDS = { maxX: 1, maxY: 2, maxZ: 26 };
+
+        /** A desk, 1 x 2 tiles, its low divider at the back and its monitors facing you (a laptop for someone who only talks). */
+        function deskShape(group, monitors, laptop) {
+          return isoShape(DESK_BOUNDS, (pen) => {
+            const art = GROUP_ART[group];
+            pen.box(0, 0.02, 0, 0.1, 1.96, 15, art.divider, art.dividerSide, art.divider);
+            pen.box(0.12, 0.06, 0, 0.82, 1.88, DESK_H, A.deskTop, A.deskLeft, A.deskRight, A.deskEdge);
+            if (laptop) {
+              pen.box(0.42, 0.78, DESK_H, 0.36, 0.44, 1, A.monitorSide, A.monitorFrame, A.monitorFrame);
+              pen.box(0.36, 0.78, DESK_H + 1, 0.05, 0.44, 7, A.monitorSide, A.monitorSide, A.monitorFrame);
+              pen.faceX(0.41, 0.82, 1.18, DESK_H + 2, DESK_H + 7, A.screenOff);
+              return;
+            }
+            for (const centre of monitorSlots(monitors)) {
+              pen.box(0.3, centre - 0.05, DESK_H, 0.05, 0.1, 1, A.stand, A.stand, A.stand);
+              pen.box(0.3, centre - 0.22, DESK_H + 1, 0.06, 0.44, 10, A.monitorSide, A.monitorSide, A.monitorFrame);
+              pen.faceX(0.36, centre - 0.18, centre + 0.18, DESK_H + 2, DESK_H + 10, A.screenOff);
+            }
+          });
+        }
+
+        /** Lines of code on a lit screen: indent and length along the screen, and their colour. */
+        const CODE = [
+          [0.02, 0.22, A.codeA],
+          [0.08, 0.16, A.codeB],
+          [0.02, 0.26, A.codeC],
+          [0.12, 0.12, A.codeA],
+          [0.02, 0.18, A.codeB],
+          [0.08, 0.22, A.codeA],
+        ];
+
+        /** One monitor's screen, lit: drawn untinted over the desk. */
+        function screenShape(centre, frame, laptop) {
+          return isoShape(DESK_BOUNDS, (pen) => {
+            const x = laptop ? 0.41 : 0.36;
+            const half = 0.18;
+            const z0 = DESK_H + 2;
+            const z1 = laptop ? DESK_H + 7 : DESK_H + 10;
+            pen.faceX(x, centre - half, centre + half, z0, z1, A.screenLit);
+            const rows = laptop ? 2 : 3;
+            for (let row = 0; row < rows; row++) {
+              const [indent, length, index] = CODE[(row + frame) % CODE.length] ?? [0, 0, A.codeA];
+              const z = z1 - 2 - row * 2;
+              pen.line([x, centre - half + 0.04 + indent, z], [x, centre - half + 0.04 + indent + length, z], index);
+            }
+          });
+        }
+
+        const CHAIR_BOUNDS = { minX: -0.4, maxX: 0.4, minY: -0.4, maxY: 0.4, maxZ: 18 };
+
+        /** A chair's base and seat, drawn before whoever sits on it. */
+        function chairSeatShape() {
+          return isoShape(CHAIR_BOUNDS, (pen) => {
+            pen.box(-0.26, -0.03, 0, 0.52, 0.06, 1, A.chairBase, A.chairBase, A.chairBase);
+            pen.box(-0.03, -0.26, 0, 0.06, 0.52, 1, A.chairBase, A.chairBase, A.chairBase);
+            pen.box(-0.03, -0.03, 1, 0.06, 0.06, 3, A.chairBase, A.chairBase, A.chairBase);
+            pen.box(-0.24, -0.24, 4, 0.48, 0.48, 1, A.chairSeat, A.chairSeatSide, A.chairSeatSide);
+          });
+        }
+
+        const CHAIR_BACKS = {
+          "+x": [0.18, -0.22, 0.08, 0.44],
+          "-x": [-0.26, -0.22, 0.08, 0.44],
+          "+y": [-0.22, 0.18, 0.44, 0.08],
+          "-y": [-0.22, -0.26, 0.44, 0.08],
+        };
+
+        /** A chair's back, on the side it stands: "+x" faces the desk, "-x" is turned round. */
+        function chairBackShape(side) {
+          return isoShape(CHAIR_BOUNDS, (pen) => {
+            const [x, y, w, d] = CHAIR_BACKS[side];
+            pen.box(x, y, 5, w, d, 10, A.chairBack, A.chairBackSide, A.chairBack);
+          });
+        }
+
+        function sofaShape(seats) {
+          return isoShape({ maxX: seats, maxY: 0.95, maxZ: 18 }, (pen) => {
+            pen.box(0, 0, 0, seats, 0.3, 15, A.sofaTop, A.sofaLeft, A.sofaRight);
+            pen.box(0, 0.12, 0, seats, 0.8, 6, A.cushion, A.sofaLeft, A.sofaRight);
+            for (let i = 1; i < seats; i++) pen.line([i, 0.32, 6], [i, 0.92, 6], A.sofaLeft);
+            pen.box(0, 0.12, 6, 0.22, 0.8, 4, A.sofaTop, A.sofaLeft, A.sofaRight);
+            pen.box(seats - 0.22, 0.12, 6, 0.22, 0.8, 4, A.sofaTop, A.sofaLeft, A.sofaRight);
+          });
+        }
+
+        /** The beanbags' colours and shades, by the item's variant. */
+        const BEANBAG_COLOURS = [
+          [A.beanA, A.beanAShade],
+          [A.beanB, A.beanBShade],
+          [A.beanC, A.beanCShade],
+        ];
+
+        function beanbagShape(variant) {
+          const [colour, shade] = BEANBAG_COLOURS[Math.abs(variant) % BEANBAG_COLOURS.length] ?? [A.beanA, A.beanAShade];
+          return isoShape({ minX: -0.45, maxX: 0.45, minY: -0.45, maxY: 0.45, maxZ: 10 }, (pen) => {
+            pen.ellipse(0, 0, 2, 8, 5, shade);
+            pen.ellipse(-0.04, -0.04, 4, 7, 4, colour);
+            pen.ellipse(-0.12, -0.12, 6, 3, 2, colour);
+          });
+        }
+
+        function coffeeTableShape(width) {
+          return isoShape({ maxX: width, maxY: 0.5, maxZ: 10 }, (pen) => {
+            pen.box(0, 0, 0, width, 0.5, 5, A.tableTop, A.tableSide, A.tableSide, A.deskEdge);
+            pen.box(width * 0.3, 0.18, 5, 0.12, 0.12, 2, A.mug, A.mug, A.deskLeft);
+            pen.box(width * 0.62, 0.12, 5, 0.12, 0.12, 2, A.mug, A.mug, A.deskLeft);
+          });
+        }
+
+        /** The exercise mat's size in tiles (furniture.ts's MAT): one across, two deep. */
+        const MAT_SIZE = { width: 1, length: 2 };
+        const MAT_INSET = 0.08;
+        const MAT_ROLL = 0.14;
+        const MAT_STRIPE_IN = 0.1;
+
+        /** A flat mat on the floor, a pixel thick, rolled at its far end, a stripe along each side. */
+        function exerciseMatShape() {
+          return isoShape({ maxX: MAT_SIZE.width, maxY: MAT_SIZE.length, maxZ: 3 }, (pen) => {
+            const x0 = MAT_INSET;
+            const x1 = MAT_SIZE.width - MAT_INSET;
+            const y0 = MAT_INSET;
+            const y1 = MAT_SIZE.length - MAT_INSET;
+            pen.box(x0, y0, 0, x1 - x0, y1 - y0, 1, A.mat, A.matSide, A.matSide);
+            for (const x of [x0 + MAT_STRIPE_IN, x1 - MAT_STRIPE_IN]) {
+              pen.line([x, y0 + MAT_ROLL, 1], [x, y1 - MAT_STRIPE_IN, 1], A.matStripe);
+            }
+            pen.box(x0, y0, 1, x1 - x0, MAT_ROLL, 2, A.mat, A.matSide, A.matSide);
+          });
+        }
+
+        const PILLOW_COLOURS = [
+          [A.pillowA, A.pillowAShade],
+          [A.pillowB, A.pillowBShade],
+          [A.pillowC, A.pillowCShade],
+        ];
+        const FLOOR_PILLOW_H = 4;
+
+        /** A plump square floor pillow in one of three colours, by its variant from 0; its origin its middle. */
+        function floorPillowShape(variant) {
+          const [colour, shade] = PILLOW_COLOURS[Math.abs(variant) % PILLOW_COLOURS.length] ?? [A.pillowA, A.pillowAShade];
+          return isoShape({ minX: -0.45, maxX: 0.45, minY: -0.45, maxY: 0.45, maxZ: 8 }, (pen) => {
+            pen.box(-0.32, -0.32, 0, 0.64, 0.64, FLOOR_PILLOW_H - 1, colour, shade, shade);
+            pen.box(-0.27, -0.27, FLOOR_PILLOW_H - 1, 0.54, 0.54, 1, colour, colour, shade);
+            pen.floor(-0.04, -0.04, 0.04, 0.04, shade, FLOOR_PILLOW_H);
+          });
+        }
+
+        const TV_BOUNDS = { maxX: 2.2, maxY: 0.6, maxZ: 34 };
+        const TV_STAND_H = 7;
+        const TV_SCREEN = { y: 0.28, x0: 0.2, x1: 2.0, z0: TV_STAND_H + 4, z1: TV_STAND_H + 22 };
+
+        /** A big flat TV on a low stand against the back wall, the games console on its shelf; the screen dark. */
+        function tvStandShape() {
+          return isoShape(TV_BOUNDS, (pen) => {
+            pen.box(0, 0.1, 0, 2.2, 0.5, TV_STAND_H, A.tvStand, A.tvStandSide, A.tvStandRight, A.deskEdge);
+            // The open shelf under the top, and the console in it.
+            pen.faceY(0.6, 0.15, 2.05, 1, TV_STAND_H - 2, A.tvStandRight);
+            pen.box(0.75, 0.32, 1, 0.7, 0.28, 3, A.consoleTop, A.consoleBody, A.consoleBody);
+            pen.faceY(0.6, 1.3, 1.37, 2, 3, A.consoleLight);
+            // The TV on its foot.
+            pen.box(1.0, 0.24, TV_STAND_H, 0.2, 0.16, 2, A.stand, A.stand, A.stand);
+            const { y, x0, x1, z0, z1 } = TV_SCREEN;
+            pen.box(0.1, 0.2, TV_STAND_H + 2, 2.0, y - 0.2, 22, A.monitorSide, A.monitorFrame, A.monitorSide);
+            pen.faceY(y, x0, x1, z0, z1, A.screenOff);
+          });
+        }
+
+        /** The TV's screen, lit with a game: drawn untinted over the TV stand. */
+        function tvScreenShape(frame) {
+          return isoShape(TV_BOUNDS, (pen) => {
+            const { y, x0, x1, z0, z1 } = TV_SCREEN;
+            const step = frame % 2 === 0 ? 0 : 0.08;
+            pen.faceY(y, x0, x1, z0, z1, A.gameSky);
+            pen.faceY(y, 0.45 + step / 2, 0.85 + step / 2, z1 - 5, z1 - 3, A.gameCloud);
+            pen.faceY(y, 1.4 - step / 2, 1.65 - step / 2, z1 - 8, z1 - 7, A.gameCloud);
+            pen.faceY(y, x0, x1, z0, z0 + 2, A.gameDirt);
+            pen.faceY(y, x0, x1, z0 + 2, z0 + 4, A.gameGround);
+            pen.faceY(y, 0.55 + step, 0.7 + step, z0 + 4, z0 + 9, A.gameHeroA);
+            pen.faceY(y, 1.5 - step, 1.65 - step, z0 + 4, z0 + 9, A.gameHeroB);
+            pen.faceY(y, 1.06, 1.14, z0 + 11 + (frame % 2), z0 + 13 + (frame % 2), A.gameCoin);
+          });
+        }
+
+        function coffeeMachineShape() {
+          return isoShape({ maxX: 0.9, maxY: 0.7, maxZ: 28 }, (pen) => {
+            pen.box(0, 0, 0, 0.9, 0.7, 11, A.cabinet, A.cabinetSide, A.cabinetRight, A.deskEdge);
+            pen.box(0.15, 0.05, 11, 0.6, 0.45, 13, A.machineTop, A.machineSide, A.machine);
+            pen.faceY(0.5, 0.32, 0.58, 13, 19, A.monitorSide);
+            pen.box(0.38, 0.5, 11, 0.1, 0.1, 2, A.mug, A.mug, A.deskLeft);
+          });
+        }
+
+        function waterCoolerShape() {
+          return isoShape({ maxX: 0.8, maxY: 0.7, maxZ: 26 }, (pen) => {
+            pen.box(0.2, 0.1, 0, 0.42, 0.42, 14, A.cooler, A.coolerSide, A.coolerSide);
+            pen.box(0.26, 0.16, 14, 0.3, 0.3, 8, A.water, A.waterSide, A.waterSide);
+          });
+        }
+
+        function plantShape(tall) {
+          return isoShape({ minX: -0.4, maxX: 0.4, minY: -0.4, maxY: 0.4, maxZ: tall ? 34 : 24 }, (pen) => {
+            const potHeight = tall ? 9 : 6;
+            pen.box(-0.17, -0.17, 0, 0.34, 0.34, potHeight, A.potTop, A.potSide, A.potRight);
+            const z = potHeight + (tall ? 12 : 8);
+            pen.ellipse(0.02, 0.02, z - 2, tall ? 8 : 6, tall ? 10 : 7, A.leafDark);
+            pen.ellipse(-0.03, -0.03, z, tall ? 7 : 5, tall ? 9 : 6, A.leaf);
+            pen.ellipse(-0.12, -0.12, z + (tall ? 4 : 2), 3, 3, A.leafLight);
+          });
+        }
+
+        /** A bookshelf, its books' widths, heights and colours drawn from the seed. */
+        function bookshelfShape(seed) {
+          return isoShape({ maxX: 1.6, maxY: 0.45, maxZ: 30 }, (pen) => {
+            pen.box(0, 0, 0, 1.6, 0.4, 27, A.cabinet, A.cabinetSide, A.cabinetRight, A.deskEdge);
+            const random = seededRandom(seed);
+            const books = [A.bookA, A.bookB, A.bookC, A.bookD, A.bookE];
+            for (const z of [3, 12, 21]) {
+              pen.faceY(0.4, 0.06, 1.54, z - 1, z + 6, A.cabinetRight);
+              let x = 0.1;
+              while (x < 1.45) {
+                const width = 0.06 + random() * 0.06;
+                const height = 4 + Math.floor(random() * 3);
+                pen.faceY(0.4, x, Math.min(1.5, x + width), z, z + height, pickFrom(random, books));
+                x += width + 0.02;
+              }
+            }
+          });
+        }
+
+        function printerShape() {
+          return isoShape({ maxX: 0.9, maxY: 0.7, maxZ: 22 }, (pen) => {
+            pen.box(0, 0, 0, 0.9, 0.7, 10, A.cabinet, A.cabinetSide, A.cabinetRight, A.deskEdge);
+            pen.box(0.08, 0.08, 10, 0.74, 0.54, 7, A.printerTop, A.printerSide, A.printer);
+            pen.floor(0.25, 0.2, 0.6, 0.45, A.paper, 17);
+          });
+        }
+
+        /** A desk lamp, on at dusk and night while someone sits at the desk; the stage paints its bulb, untinted. */
+        function lampShape() {
+          return isoShape({ minX: -0.3, maxX: 0.3, minY: -0.3, maxY: 0.3, maxZ: 24 }, (pen) => {
+            pen.box(-0.08, -0.08, DESK_H, 0.16, 0.16, 1, A.lampBody, A.lampBody, A.lampBody);
+            pen.line([0, 0, DESK_H + 1], [0.06, 0, DESK_H + 9], A.lampBody);
+            pen.box(0, -0.1, DESK_H + 8, 0.2, 0.2, 3, A.lampShade, A.lampShadeSide, A.lampShade);
+          });
+        }
+
+        /** A pizza box on the desk of some who work at night. */
+        function pizzaShape() {
+          return isoShape({ minX: -0.3, maxX: 0.3, minY: -0.3, maxY: 0.3, maxZ: 14 }, (pen) => {
+            pen.box(-0.2, -0.2, DESK_H, 0.4, 0.4, 2, A.pizzaTop, A.pizzaSide, A.pizzaSide);
+            pen.floor(-0.05, -0.05, 0.05, 0.05, A.pizzaLogo, DESK_H + 2);
+          });
+        }
+
+        /** The door in the left wall, closed or open; its origin at the wall, at the main aisle's row. */
+        function doorShape(open) {
+          return isoShape({ minX: -0.1, maxX: 0.8, minY: 0, maxY: 1, maxZ: 40 }, (pen) => {
+            pen.faceX(0, 0.1, 0.9, 0, 35, A.doorFrame);
+            if (!open) {
+              pen.faceX(0, 0.16, 0.84, 0, 33, A.doorPanel);
+              pen.faceX(0, 0.24, 0.76, 20, 30, A.doorPanelShade);
+              pen.faceX(0, 0.24, 0.76, 4, 16, A.doorPanelShade);
+              pen.faceX(0, 0.7, 0.76, 16, 18, A.doorHandle);
+              return;
+            }
+            pen.faceX(0, 0.16, 0.84, 0, 33, A.doorway);
+            pen.box(0, 0.12, 0, 0.66, 0.05, 33, A.doorPanelShade, A.doorPanel, A.doorPanelShade);
+          });
+        }
+
+        /* ---------- art/palettes.ts: the Avatar's tint, as design-system/components/core/Avatar.jsx picks it ---------- */
+
+        /**
+         * In Avatar.jsx's order: each tint's background (`light`, the ramp's 100) and initials (`strong`, its
+         * 700). toneColours reads them from the ramp tokens; here they are inlined, the light theme's ramp
+         * of design-system/tokens/colors.css (the same as palettes.ts's fallbacks).
+         */
+        const AVATAR_TONES = [
+          { name: "blue", light: 0xdae5fa, strong: 0x1d4699 },
+          { name: "green", light: 0xd5f0df, strong: 0x106a3b },
+          { name: "amber", light: 0xffedc2, strong: 0x865b05 },
+          { name: "ember", light: 0xffe0d4, strong: 0x9e2406 },
+          { name: "gray", light: 0xe9e9e6, strong: 0x3a3a37 },
+          { name: "red", light: 0xfad9dd, strong: 0x8e0b20 },
+        ];
+
+        /** The tint Avatar.jsx gives a name, by its index in the Avatar's order. */
+        function avatarToneIndex(name) {
+          let hash = 0;
+          // As Avatar.jsx: by code point, each one's first UTF-16 unit.
+          for (const c of name) hash = (hash * 31 + c.charCodeAt(0)) >>> 0;
+          return hash % AVATAR_TONES.length;
+        }
+
+        /** A tint's colours, as the ramp tokens give them (inlined, see AVATAR_TONES). */
+        function toneColours(index) {
+          const tone = AVATAR_TONES[index % AVATAR_TONES.length] ?? AVATAR_TONES[0];
+          return { name: tone.name, light: tone.light, strong: tone.strong };
+        }
+
+        /** The tint the Avatar gives a name. */
+        const avatarTone = (name) => toneColours(avatarToneIndex(name));
+
+        /* ---------- art/figures.ts: generated from the Role key, layered; only what the poses at a desk reach ---------- */
+
+        const FIGURE = {
+          width: 20,
+          height: 30,
+          anchorX: 10,
+          anchorY: 28,
+          ground: 27,
+          centre: 10,
+        };
+
+        /** A figure's palette indexes. */
+        const F = {
+          outline: 1,
+          skin: 2,
+          skinShade: 3,
+          hair: 4,
+          hairShade: 5,
+          top: 6,
+          topShade: 7,
+          trim: 8,
+          legs: 9,
+          legsShade: 10,
+          shoes: 11,
+          eye: 12,
+          extra: 13,
+          extraLight: 14,
+          mug: 15,
+          device: 16,
+          screen: 17,
+          book: 18,
+          can: 19,
+          canShade: 20,
+          water: 21,
+          mugShade: 22,
+          coffee: 23,
+          cupShade: 24,
+        };
+
+        /** What a pastime holds, the same for everyone (in the palette, though nothing is held at a desk). */
+        const PROP_COLOURS = {
+          device: 0x2b2e35,
+          screen: 0x9fd6ff,
+          book: 0xc8102e,
+          can: 0x4f9b59,
+          canShade: 0x3a7a45,
+          water: 0x8fc9f2,
+          mugShade: 0xc4bcae,
+          coffee: 0x4a2a17,
+          cupShade: 0xcfd8e2,
+        };
+
+        const SKINS = [
+          [0xf7d9c4, 0xe6bca2],
+          [0xefc4a1, 0xd9a67f],
+          [0xd9a174, 0xbf8457],
+          [0xb97b52, 0x9c6340],
+          [0x8e5b3c, 0x74472e],
+          [0x5f3b27, 0x4a2d1d],
+        ];
+        const HAIRS = [
+          [0x2a2321, 0x1a1514],
+          [0x4a3326, 0x35241a],
+          [0x7a4e2d, 0x5e3a20],
+          [0xa8552e, 0x86401f],
+          [0xdcb66d, 0xb99450],
+          [0xbdbab4, 0x9a9790],
+          [0x5b4a8a, 0x45386c],
+        ];
+        const TROUSERS = [
+          [0x40454f, 0x30343c],
+          [0x3e5b86, 0x2f466a],
+          [0xa68f6a, 0x8a7553],
+          [0x2d2d30, 0x1f1f22],
+        ];
+        const SHOES = [0x2a2522, 0x5a3d2b, 0xefefec, 0x3b3f46];
+        const BUILDS = ["slim", "regular", "broad"];
+        const HAIR_STYLES = ["bald", "buzz", "short", "swept", "bob", "long", "bun", "curly"];
+        const TOPS = ["tee", "hoodie", "jacket"];
+        /** "none" twice: most people wear nothing extra. */
+        const ACCESSORIES = ["none", "none", "glasses", "headphones", "beard", "scarf"];
+        const LAYERS = ["body", "clothes", "hair", "accessory"];
+
+        const looks = new Map();
+
+        /** What a Role key gives: drawn in this order from one seeded random, so it never changes. */
+        function lookOf(roleKey) {
+          let look = looks.get(roleKey);
+          if (!look) {
+            const random = seededRandom(seedOf(roleKey));
+            // The object literal's order is the draw order: changing it changes everyone's figure.
+            look = {
+              build: pickFrom(random, BUILDS),
+              tall: random() < 0.5,
+              skin: Math.floor(random() * SKINS.length),
+              hairStyle: pickFrom(random, HAIR_STYLES),
+              hair: Math.floor(random() * HAIRS.length),
+              top: pickFrom(random, TOPS),
+              accessory: pickFrom(random, ACCESSORIES),
+              trousers: Math.floor(random() * TROUSERS.length),
+              shoes: Math.floor(random() * SHOES.length),
+            };
+            looks.set(roleKey, look);
+          }
+          return look;
+        }
+
+        const pairOf = (list, index) => list[index] ?? list[0] ?? [0, 0];
+
+        /** A figure's palette: its look's colours, its top in the person's Avatar tint. */
+        function figureColors(look, tone) {
+          const hair = pairOf(HAIRS, look.hair);
+          const extras = {
+            none: [0x000000, 0x000000],
+            glasses: [0x26232a, 0xcfe6ff],
+            headphones: [0x30333a, tone.light],
+            beard: [hair[1], hair[0]],
+            scarf: [tone.light, lighter(tone.light, 0.5)],
+          };
+          const [extra, extraLight] = extras[look.accessory];
+          const skin = pairOf(SKINS, look.skin);
+          const trousers = pairOf(TROUSERS, look.trousers);
+          const colors = Array.from({ length: Math.max(...Object.values(F)) + 1 }, () => null);
+          colors[F.outline] = 0x2b2428;
+          colors[F.skin] = skin[0];
+          colors[F.skinShade] = skin[1];
+          colors[F.hair] = hair[0];
+          colors[F.hairShade] = hair[1];
+          colors[F.top] = tone.strong;
+          colors[F.topShade] = darker(tone.strong, 0.3);
+          colors[F.trim] = tone.light;
+          colors[F.legs] = trousers[0];
+          colors[F.legsShade] = trousers[1];
+          colors[F.shoes] = SHOES[look.shoes] ?? SHOES[0];
+          colors[F.eye] = 0x231d1f;
+          colors[F.extra] = extra;
+          colors[F.extraLight] = extraLight;
+          colors[F.mug] = 0xf7f5f0;
+          for (const [name, colour] of Object.entries(PROP_COLOURS)) colors[F[name]] = colour;
+          return colors;
+        }
+
+        const figurePaletteKey = (look, tone) =>
+          `fig-${look.skin}.${look.hair}.${look.trousers}.${look.shoes}.${look.accessory}.${tone.name}`;
+
+        const figureShapeKey = (look, pose, frame, glance = "ahead", layers = LAYERS) =>
+          `fig:${look.build}.${look.tall ? 1 : 0}.${look.hairStyle}.${look.top}.${look.accessory}:${pose}:${frame}:${glance}:${layers.join("+")}`;
+
+        /** A figure lying along the floor (a push-up): wider than a standing figure, its anchor higher up. */
+        const LYING_FIGURE = { width: 36, height: 34, anchorX: 16, anchorY: 25 };
+        /** Room on the left for the open book, and for the watering can. */
+        const PROP_ROOM = 4;
+        const WATERING_ROOM = 5;
+
+        const STANDING_GRID = FIGURE;
+        const PROP_GRID = {
+          ...FIGURE,
+          width: FIGURE.width + PROP_ROOM,
+          anchorX: FIGURE.anchorX + PROP_ROOM,
+          centre: FIGURE.centre + PROP_ROOM,
+        };
+        const WATERING_GRID = {
+          ...FIGURE,
+          width: FIGURE.width + WATERING_ROOM,
+          anchorX: FIGURE.anchorX + WATERING_ROOM,
+          centre: FIGURE.centre + WATERING_ROOM,
+        };
+        const LYING_GRID = { ...LYING_FIGURE, centre: LYING_FIGURE.anchorX };
+
+        const isLying = (pose) => pose.startsWith("lie");
+
+        /** A pose's grid: its size, the pixel its anchor lands on, and the column its body is centred on. */
+        function figureGridOf(pose) {
+          if (isLying(pose)) return LYING_GRID;
+          if (pose === "stand-back-water") return WATERING_GRID;
+          return pose === "stand-back-read" ? PROP_GRID : STANDING_GRID;
+        }
+
+        const HALF_BY_BUILD = { slim: 3, regular: 4, broad: 5 };
+        /** How far above the ground a seated figure's torso ends. */
+        const SEATED_TORSO_ABOVE_GROUND = 4;
+        /** How far above the ground a squatting figure's torso ends. */
+        const SQUAT_TORSO_ABOVE_GROUND = 5;
+        /** A jumping jack's feet, apart: pixels out on each side. */
+        const JACKS_SPREAD = 2;
+
+        /** A figure's rows in a pose: where its feet, torso and head go. */
+        function figureFrame(look, pose, frame) {
+          const seated = pose.startsWith("sit");
+          const lying = isLying(pose);
+          const squat = pose === "stand-front-squat" && frame % 2 === 0;
+          const stride = pose.startsWith("walk") && frame % 2 === 1;
+          const spread = pose === "stand-front-jacks" && frame % 2 === 0 ? JACKS_SPREAD : 0;
+          const half = HALF_BY_BUILD[look.build];
+          const legRows = look.tall ? 6 : 5;
+          const torsoRows = look.tall ? 8 : 7;
+          const torsoBottom = seated
+            ? FIGURE.ground - SEATED_TORSO_ABOVE_GROUND
+            : squat
+              ? FIGURE.ground - SQUAT_TORSO_ABOVE_GROUND
+              : FIGURE.ground - legRows - 1 + (stride ? 1 : 0);
+          const torsoTop = torsoBottom - torsoRows + 1;
+          const headTop = torsoTop - 8;
+          const cx = figureGridOf(pose).centre;
+          return { seated, lying, squat, stride, spread, half, legRows, torsoTop, torsoBottom, headTop, cx };
+        }
+
+        /** How far a glance turns the head: a pixel to that side of the grid. */
+        const GLANCE_TURN = { ahead: 0, left: -1, right: 1 };
+
+        /**
+         * Paints one figure. Lying (paintLying), playing on a floor pillow (paintPlaying) and what a
+         * pastime holds (paintProp) are left out: no pose at a desk reaches them.
+         */
+        function paintFigure(grid, look, pose, frame, glance = "ahead", layers = LAYERS) {
+          const g = figureFrame(look, pose, frame);
+          if (g.lying || pose === "sit-back-play") return;
+          const back = pose.includes("back");
+          const sleep = pose === "sit-back-sleep";
+          const breathe = sleep ? frame % 2 : 0;
+          // Looking down at the phone: the head nods a pixel.
+          const nod = pose === "sit-front-phone" ? 1 : 0;
+          const turn = sleep || pose.startsWith("walk") ? 0 : GLANCE_TURN[glance];
+          const hx = g.cx - 4 + (sleep ? -3 : 0) + turn;
+          const hy = g.headTop + (sleep ? 3 + breathe : nod);
+          const has = (layer) => layers.includes(layer);
+          const sleeveRows = look.top === "tee" ? 2 : 99;
+          const arms = armPixels(pose, frame, g, sleeveRows);
+          const legs = legPixels(frame, g, back);
+          const overTorso = (x, y) => x >= g.cx - g.half && x < g.cx + g.half && y >= g.torsoTop && y <= g.torsoBottom;
+
+          if (has("body")) {
+            for (const leg of legs) for (const [x, y] of leg.trousers) grid.set(x, y, F.skinShade);
+            for (const arm of arms) if (!arm.raised) grid.set(arm.x, arm.y, F.skin);
+          }
+          if (has("clothes")) {
+            for (const leg of legs) {
+              for (const [x, y, shade] of leg.trousers) grid.set(x, y, shade ? F.legsShade : F.legs);
+              for (const [x, y] of leg.shoes) grid.set(x, y, F.shoes);
+            }
+            paintTorso(grid, look, g, back);
+            for (const arm of arms) {
+              if (!arm.raised && arm.part === "sleeve") grid.set(arm.x, arm.y, arm.x > g.cx ? F.topShade : F.top);
+            }
+          }
+          if (has("body")) paintHead(grid, hx, hy, back, turn);
+          if (has("hair")) {
+            if (back) paintHairBack(grid, look.hairStyle, hx, hy);
+            else paintHairFront(grid, look.hairStyle, hx, hy);
+          }
+          if (has("body")) paintGlanceEdge(grid, hx, hy, back, turn);
+          if (has("accessory")) paintAccessory(grid, look, back, hx, hy, g, turn);
+          // Panicking, the mouth is open.
+          if (has("body") && pose === "stand-front-panic") grid.set(hx + 5 + faceShiftOf(turn), hy + 6, F.eye);
+          for (const arm of arms) {
+            if (!arm.raised) continue;
+            if (arm.part === "skin" && has("body")) grid.set(arm.x, arm.y, F.skin);
+            // An arm across the body takes the shade, so it shows against the top.
+            if (arm.part === "sleeve" && has("clothes")) grid.set(arm.x, arm.y, overTorso(arm.x, arm.y) ? F.topShade : F.top);
+          }
+        }
+
+        /** A head is 8 pixels square, from `cx - 4`. */
+        const HEAD_SIZE = 8;
+        const HEAD_HALF = HEAD_SIZE / 2;
+        /** Arms up in a stretch: the hands come in a pixel over the head. */
+        const STRETCH_REACH = -1;
+        /** How far over the head's top arms raised in a stretch reach. */
+        const RAISED_OVER_HEAD = 2;
+
+        /** The arms, pixel by pixel: the poses at a desk, and arms hanging for any other. */
+        function armPixels(pose, frame, g, sleeveRows) {
+          const pixels = [];
+          const leftX = g.cx - g.half - 1;
+          const rightX = g.cx + g.half;
+          const shoulder = g.torsoTop + 1;
+          const column = (x, from, to, handX = x) => {
+            for (let y = from; y <= to; y++) {
+              const isHand = y === to;
+              pixels.push({ x: isHand ? handX : x, y, part: !isHand && y - from < sleeveRows ? "sleeve" : "skin" });
+            }
+          };
+          /** An arm from the shoulder along `points`, its last pixel the hand; `inFront` draws the arm, or the hand, over the body. */
+          const path = (points, inFront = null) => {
+            points.forEach(([x, y], i) => {
+              const isHand = i === points.length - 1;
+              const raised = inFront === "arm" || (inFront === "hand" && isHand);
+              pixels.push({ x, y, part: !isHand && i < sleeveRows ? "sleeve" : "skin", raised });
+            });
+          };
+          /** Both arms up from the shoulders to over the head, `reach` pixels out (or in, when negative) at the top. */
+          const armsUp = (reach) => {
+            const top = g.headTop - RAISED_OVER_HEAD;
+            for (const [x, out] of [
+              [leftX, -1],
+              [rightX, 1],
+            ]) {
+              // Past the shoulder the arm goes up beside the head, never through it.
+              const beside = out < 0 ? Math.min(x, g.cx - HEAD_HALF - 1) : Math.max(x, g.cx + HEAD_HALF);
+              const points = [[x, shoulder]];
+              for (let y = shoulder - 1; y >= top; y--) {
+                const up = (shoulder - y) / (shoulder - top);
+                // Outwards, the arm leaves the shoulder at once; inwards, it bends only over the head.
+                const offset = reach >= 0 ? Math.ceil(up * reach) : y < g.headTop ? reach : 0;
+                points.push([beside + out * offset, y]);
+              }
+              path(points, "arm");
+            }
+          };
+          const hangTo = g.torsoBottom - 1;
+          switch (pose) {
+            case "sit-back":
+              column(leftX, shoulder, shoulder + 2, leftX - (frame % 2));
+              column(rightX, shoulder, shoulder + 2, rightX - 1 + (frame % 2));
+              break;
+            case "sit-back-stretch":
+              if (frame % 2) armsUp(STRETCH_REACH);
+              else {
+                column(leftX, shoulder, shoulder + 2, leftX);
+                column(rightX, shoulder, shoulder + 2, rightX - 1);
+              }
+              break;
+            case "sit-back-raise": {
+              column(leftX, shoulder, shoulder + 2, leftX - 1);
+              const wave = frame % 2;
+              for (let y = g.headTop - 3; y <= shoulder + 1; y++) {
+                const x = y < g.headTop ? rightX + wave : rightX;
+                pixels.push({ x, y, part: y <= g.headTop - 2 ? "skin" : "sleeve", raised: true });
+              }
+              break;
+            }
+            case "sit-back-sleep":
+              for (let x = g.cx - 7; x <= g.cx + 1; x++) {
+                pixels.push({ x, y: g.torsoTop + 2, part: "sleeve" });
+                pixels.push({ x, y: g.torsoTop + 3, part: "sleeve" });
+              }
+              break;
+            case "sit-front":
+              column(leftX, shoulder, shoulder + 3);
+              if (frame % 2) column(rightX, shoulder, shoulder + 1, rightX + 1);
+              else column(rightX, shoulder, shoulder + 3);
+              break;
+            default: {
+              const swing = pose.startsWith("walk") ? frame % 4 : 0;
+              column(leftX, shoulder, hangTo, leftX + (swing === 1 ? 1 : 0));
+              column(rightX, shoulder, hangTo, rightX + (swing === 3 ? 1 : 0));
+            }
+          }
+          return pixels;
+        }
+
+        /** A leg's width, in pixels: a broad build's legs are a pixel wider. */
+        const legWidthOf = (half) => (half >= 5 ? 4 : 3);
+
+        /**
+         * The legs and shoes, the one on the grid's left first. Seated, they go side by side with a column
+         * between them, so they never read as crossed; from behind, a chair hides all but the thighs.
+         * Standing, striding, squatting and jumping legs are left out: every pose at a desk is seated.
+         */
+        function legPixels(frame, g, back) {
+          const left = { trousers: [], shoes: [] };
+          const right = { trousers: [], shoes: [] };
+          const width = legWidthOf(g.half);
+          if (!g.seated) return [left, right];
+          for (let y = g.torsoBottom + 1; y <= g.torsoBottom + 2; y++) {
+            const shaded = back ? false : y > g.torsoBottom + 1;
+            for (let x = g.cx - width; x < g.cx; x++) left.trousers.push([x, y, shaded]);
+            for (let x = g.cx + 1; x <= g.cx + width; x++) right.trousers.push([x, y, back || shaded]);
+          }
+          if (back) return [left, right];
+          for (let y = g.torsoBottom + 3; y < FIGURE.ground; y++) {
+            for (let x = g.cx - width; x < g.cx; x++) left.trousers.push([x, y, false]);
+            for (let x = g.cx + 1; x <= g.cx + width; x++) right.trousers.push([x, y, true]);
+          }
+          for (let x = g.cx - width; x < g.cx; x++) left.shoes.push([x, FIGURE.ground]);
+          for (let x = g.cx + 1; x <= g.cx + width; x++) right.shoes.push([x, FIGURE.ground]);
+          return [left, right];
+        }
+
+        /** The torso, its right column in the shade, for the light from the left. */
+        function paintTorso(grid, look, g, back) {
+          const x0 = g.cx - g.half;
+          const x1 = g.cx + g.half - 1;
+          grid.rect(x0, g.torsoTop, x1 - x0 + 1, g.torsoBottom - g.torsoTop + 1, F.top);
+          for (let y = g.torsoTop; y <= g.torsoBottom; y++) grid.set(x1, y, F.topShade);
+          grid.row(g.torsoBottom, x0, x1, F.topShade);
+          const c = g.cx;
+          if (look.top === "tee" && !back) grid.row(g.torsoTop, c - 1, c, F.trim);
+          if (look.top === "hoodie") {
+            if (back) {
+              grid.row(g.torsoTop, c - 3, c + 2, F.topShade);
+              grid.row(g.torsoTop + 1, c - 2, c + 1, F.topShade);
+            } else {
+              grid.set(c - 2, g.torsoTop + 1, F.trim);
+              grid.set(c - 2, g.torsoTop + 2, F.trim);
+              grid.set(c + 1, g.torsoTop + 1, F.trim);
+              grid.set(c + 1, g.torsoTop + 2, F.trim);
+              grid.row(g.torsoBottom - 2, c - 2, c + 1, F.topShade);
+            }
+          }
+          if (look.top === "jacket") {
+            if (back) {
+              for (let y = g.torsoTop + 2; y < g.torsoBottom; y++) grid.set(c - 1, y, F.topShade);
+            } else {
+              for (let y = g.torsoTop; y < g.torsoBottom; y++) grid.row(y, c - 1, c, F.trim);
+              grid.set(c - 2, g.torsoTop, F.topShade);
+              grid.set(c - 2, g.torsoTop + 1, F.topShade);
+              grid.set(c + 1, g.torsoTop, F.topShade);
+              grid.set(c + 1, g.torsoTop + 1, F.topShade);
+            }
+          }
+        }
+
+        /** How far a glance moves the face: it sits a pixel right of the head's middle, so a turn left moves it two. */
+        const faceShiftOf = (turn) => (turn < 0 ? -2 : turn);
+
+        /** A head; `turn` (-1, 0 or 1) moves the face to that side, as a glance does. */
+        function paintHead(grid, hx, hy, back, turn = 0) {
+          grid.rect(hx, hy, 8, 8, F.skin);
+          for (const [x, y] of [
+            [hx, hy],
+            [hx + 7, hy],
+            [hx, hy + 7],
+            [hx + 7, hy + 7],
+          ]) {
+            grid.set(x, y, 0);
+          }
+          if (back) {
+            grid.set(hx + 1, hy + 4, F.skinShade);
+            return;
+          }
+          const face = faceShiftOf(turn);
+          grid.set(hx + 4 + face, hy + 4, F.eye);
+          grid.set(hx + 6 + face, hy + 4, F.eye);
+          // The ear is on the side the face turned away from.
+          grid.set(turn < 0 ? hx + 6 : hx + 1, hy + 4, F.skinShade);
+          grid.set(hx + 5 + face, hy + 6, F.skinShade);
+        }
+
+        /** A glance's profile, over the hair: the nose (and from behind the cheek) past the head's edge. */
+        function paintGlanceEdge(grid, hx, hy, back, turn) {
+          if (turn === 0) return;
+          const edge = turn > 0 ? hx + HEAD_SIZE - 1 : hx;
+          if (back) {
+            grid.set(edge, hy + 5, F.skin);
+            grid.set(edge, hy + 6, F.skinShade);
+            grid.set(edge + turn, hy + 5, F.skin);
+          } else grid.set(edge + turn, hy + 5, F.skin);
+        }
+
+        /* Facing you, a figure looks down and to the right: its face on the right, the back of its head on the left. */
+        function paintHairFront(grid, style, hx, hy) {
+          const H = F.hair;
+          const S = F.hairShade;
+          const short = () => {
+            grid.row(hy - 1, hx + 2, hx + 5, H);
+            grid.row(hy, hx, hx + 7, H);
+            grid.row(hy + 1, hx, hx + 7, H);
+            grid.row(hy + 2, hx, hx + 2, H);
+            grid.set(hx, hy + 3, H);
+            grid.set(hx + 7, hy + 2, S);
+          };
+          switch (style) {
+            case "buzz":
+              grid.row(hy, hx + 1, hx + 6, S);
+              grid.row(hy + 1, hx, hx + 7, S);
+              grid.set(hx, hy + 2, S);
+              break;
+            case "short":
+              short();
+              break;
+            case "swept":
+              short();
+              grid.row(hy + 2, hx + 3, hx + 6, H);
+              grid.set(hx + 7, hy + 3, S);
+              break;
+            case "bob":
+              short();
+              grid.row(hy, hx - 1, hx + 8, H);
+              for (let y = hy + 1; y <= hy + 7; y++) {
+                grid.set(hx - 1, y, H);
+                grid.set(hx, y, y > hy + 4 ? S : H);
+              }
+              for (let y = hy + 2; y <= hy + 5; y++) grid.set(hx + 7, y, S);
+              break;
+            case "long":
+              short();
+              for (let y = hy + 1; y <= hy + 12; y++) {
+                grid.set(hx - 1, y, H);
+                grid.set(hx, y, y > hy + 6 ? S : H);
+              }
+              for (let y = hy + 2; y <= hy + 6; y++) grid.set(hx + 7, y, S);
+              break;
+            case "bun":
+              short();
+              grid.row(hy - 4, hx + 2, hx + 4, H);
+              grid.row(hy - 3, hx + 1, hx + 5, H);
+              grid.row(hy - 2, hx + 2, hx + 4, S);
+              break;
+            case "curly":
+              for (let y = hy - 2; y <= hy + 5; y++) {
+                for (let x = hx - 1; x <= hx + 8; x++) {
+                  const dx = (x - (hx + 3.5)) / 5.2;
+                  const dy = (y - (hy + 1.5)) / 4.2;
+                  if (dx * dx + dy * dy > 1) continue;
+                  if (y >= hy + 2 && x >= hx + 2 && x <= hx + 7) continue;
+                  grid.set(x, y, (x + y) % 3 === 0 ? S : H);
+                }
+              }
+              break;
+            case "bald":
+              break;
+          }
+        }
+
+        /* From behind, a figure looks up and to the left: hair over the back of its head. */
+        function paintHairBack(grid, style, hx, hy) {
+          const H = F.hair;
+          const S = F.hairShade;
+          const cap = (rows, index = H) => {
+            grid.row(hy - 1, hx + 2, hx + 5, index);
+            for (let y = hy; y < hy + rows; y++) grid.row(y, hx + (y === hy ? 1 : 0), hx + (y === hy ? 6 : 7), index);
+          };
+          switch (style) {
+            case "buzz":
+              for (let y = hy; y < hy + 6; y++) grid.row(y, hx + (y === hy ? 1 : 0), hx + (y === hy ? 6 : 7), S);
+              break;
+            case "short":
+            case "swept":
+              cap(6);
+              grid.row(hy + 6, hx + 1, hx + 6, S);
+              break;
+            case "bob":
+              cap(8);
+              for (let y = hy + 1; y <= hy + 7; y++) {
+                grid.set(hx - 1, y, H);
+                grid.set(hx + 8, y, S);
+              }
+              break;
+            case "long":
+              cap(8);
+              for (let y = hy + 1; y <= hy + 12; y++) {
+                grid.set(hx - 1, y, H);
+                grid.set(hx + 8, y, S);
+              }
+              for (let y = hy + 8; y <= hy + 12; y++) grid.row(y, hx, hx + 7, y > hy + 10 ? S : H);
+              break;
+            case "bun":
+              cap(6);
+              grid.row(hy - 4, hx + 3, hx + 5, H);
+              grid.row(hy - 3, hx + 2, hx + 6, H);
+              grid.row(hy - 2, hx + 3, hx + 5, S);
+              break;
+            case "curly":
+              for (let y = hy - 2; y <= hy + 6; y++) {
+                for (let x = hx - 1; x <= hx + 8; x++) {
+                  const dx = (x - (hx + 3.5)) / 5.2;
+                  const dy = (y - (hy + 2)) / 5;
+                  if (dx * dx + dy * dy <= 1) grid.set(x, y, (x + y) % 3 === 0 ? S : H);
+                }
+              }
+              break;
+            case "bald":
+              break;
+          }
+        }
+
+        function paintAccessory(grid, look, back, hx, hy, g, turn = 0) {
+          const E = F.extra;
+          const L = F.extraLight;
+          // What is on the face moves with a glance's turn.
+          const fx = hx + faceShiftOf(turn);
+          switch (look.accessory) {
+            case "glasses":
+              if (back) {
+                grid.set(hx, hy + 4, E);
+                break;
+              }
+              grid.set(fx + 3, hy + 4, E);
+              grid.set(fx + 5, hy + 4, E);
+              grid.set(fx + 7, hy + 4, E);
+              grid.set(fx + 4, hy + 3, E);
+              grid.set(fx + 6, hy + 3, E);
+              grid.set(fx + 4, hy + 4, L);
+              grid.set(fx + 6, hy + 4, L);
+              grid.set(fx + 2, hy + 4, E);
+              break;
+            case "headphones":
+              grid.row(hy - 1, hx + 1, hx + 6, E);
+              grid.set(hx, hy, E);
+              grid.set(hx + 7, hy, E);
+              grid.rect(hx - 1, hy + 3, 2, 3, E);
+              grid.set(hx, hy + 4, L);
+              if (back) {
+                grid.rect(hx + 7, hy + 3, 2, 3, E);
+                grid.set(hx + 7, hy + 4, L);
+              }
+              break;
+            case "beard":
+              if (back) {
+                for (let y = hy + 5; y <= hy + 7; y++) grid.set(hx, y, E);
+                break;
+              }
+              grid.row(hy + 5, fx + 3, fx + 4, E);
+              grid.row(hy + 6, fx + 2, fx + 7, E);
+              grid.row(hy + 7, fx + 3, fx + 6, E);
+              grid.set(fx + 6, hy + 5, E);
+              break;
+            case "scarf":
+              grid.row(g.torsoTop, g.cx - g.half, g.cx + g.half - 1, E);
+              grid.row(g.torsoTop + 1, g.cx - g.half, g.cx + g.half - 1, E);
+              grid.set(back ? g.cx - 2 : g.cx + 1, g.torsoTop + 2, L);
+              grid.set(back ? g.cx - 2 : g.cx + 1, g.torsoTop + 3, L);
+              break;
+            case "none":
+              break;
+          }
+        }
+
+        /** A figure in a pose and frame, its head turned by `glance`, outlined, its feet's middle on the anchor. */
+        function figureShape(look, pose, frame, glance = "ahead", layers = LAYERS) {
+          const size = figureGridOf(pose);
+          const grid = new PixelGrid(size.width, size.height);
+          paintFigure(grid, look, pose, frame, glance, layers);
+          grid.outline(F.outline);
+          return { grid, anchorX: size.anchorX, anchorY: size.anchorY };
+        }
+
+        const figurePalettes = new Map();
+        const figureShapes = new Map();
+        const paintedFigures = new Map();
+
+        /**
+         * A person's figure in a pose, its head turned by `glance`, painted: shape by their Role key's look,
+         * colours by it and their Avatar tint. `tint` takes the place of figures.ts's `layers` (always all
+         * four here): the stage tints the figure's sprite (`shaded`), so each colour is multiplied by it.
+         */
+        function paintedFigure(roleKey, tone, pose, frame, glance = "ahead", tint = UNTINTED) {
+          const look = lookOf(roleKey);
+          const paletteKey = figurePaletteKey(look, tone);
+          let palette = figurePalettes.get(paletteKey);
+          if (!palette) {
+            palette = figureColors(look, tone);
+            figurePalettes.set(paletteKey, palette);
+          }
+          const colors = palette;
+          const shapeKey = figureShapeKey(look, pose, frame, glance);
+          return cached(paintedFigures, `${shapeKey}|${paletteKey}|${tint}`, 400, () => {
+            const shape = cached(figureShapes, shapeKey, 200, () => figureShape(look, pose, frame, glance));
+            const tinted = colors.map((color) => (color === null ? null : tintedColor(color, tint)));
+            return { canvas: paintGrid(shape.grid, tinted), anchorX: shape.anchorX, anchorY: shape.anchorY };
+          });
+        }
+
+        /* ---------- floor-plan.ts (the desks and the furniture; the walkable tiles and spots left out) ---------- */
+        const CHILL_START = 5;
+        const DESK_GROUPS = ["front-desk", "consultants", "team"];
+
+        function groupOf(person) {
+          if (person.taskLimit === "none") return "front-desk";
+          return person.consultant ? "consultants" : "team";
+        }
+
+        function podShapeFor(count) {
+          if (count <= 10) return { perPod: 2, rows: 1 };
+          if (count <= 18) return { perPod: 2, rows: 2 };
+          return { perPod: 3, rows: 2 };
+        }
+
+        /** The floor laid out for everyone, front desk first, then Consultants, then everyone else. */
+        function layoutOffice(people) {
+          const count = people.length;
+          const { perPod, rows } = podShapeFor(count);
+          const sofaSeats = count > 10 ? 6 : 3;
+          const chillEnd = CHILL_START + sofaSeats + 3;
+          const layout = {
+            perPod,
+            rows,
+            columns: [],
+            desks: [],
+            sofaSeats,
+            beanbags: count <= 4 ? 1 : count <= 10 ? 2 : 3,
+            chillStart: CHILL_START,
+            chillEnd,
+            depth: POD_TOP + rows * (2 * perPod + 1),
+            width: chillEnd + 1,
+          };
+          for (const group of DESK_GROUPS) {
+            for (const person of people) {
+              if (groupOf(person) === group) placeDesk(layout, group, person.roleKey);
+            }
+          }
+          return layout;
+        }
+
+        function placeDesk(layout, group, roleKey) {
+          const free = layout.desks.find((desk) => desk.group === group && desk.roleKey === null);
+          if (free) {
+            free.roleKey = roleKey;
+            free.formerKey = null;
+            return free;
+          }
+          const column = columnWithRoom(layout, group) ?? openColumn(layout, group);
+          const slot = firstFreeSlot(layout, column);
+          const podRow = Math.floor(slot / layout.perPod);
+          const inPod = slot % layout.perPod;
+          const x = column.x;
+          const y = POD_TOP + podRow * (2 * layout.perPod + 1) + 2 * inPod;
+          const desk = { roleKey, formerKey: null, group, column, slot, x, y, depth: x + y + 1.5 };
+          layout.desks.push(desk);
+          return desk;
+        }
+
+        function columnWithRoom(layout, group) {
+          const capacity = layout.perPod * layout.rows;
+          return layout.columns.find(
+            (column) => column.group === group && layout.desks.filter((desk) => desk.column === column).length < capacity,
+          );
+        }
+
+        function openColumn(layout, group) {
+          const column = { group, x: 1 + 3 * layout.columns.length };
+          layout.columns.push(column);
+          layout.width = Math.max(layout.width, 1 + 3 * layout.columns.length);
+          return column;
+        }
+
+        function firstFreeSlot(layout, column) {
+          const taken = new Set(layout.desks.filter((desk) => desk.column === column).map((desk) => desk.slot));
+          let slot = 0;
+          while (taken.has(slot)) slot++;
+          return slot;
+        }
+
+        /** Sitting at the desk (the chair out). */
+        function deskSpot(desk) {
+          return { x: desk.x + 1.45, y: desk.y + 1 };
+        }
+
+        /** The empty chair, pushed in under the desk. */
+        function pushedInSpot(desk) {
+          return { x: desk.x + 1.14, y: desk.y + 1 };
+        }
+
+        /** The entertainment area, the chill area, the exercise mat and the furniture along the back wall. */
+        function amenitiesOf(layout) {
+          const items = [];
+          entertainmentArea(items);
+          chillArea(items, layout);
+          exerciseMat(items);
+          backWallDecor(items, layout);
+          return { items };
+        }
+
+        const TV_STAND = { x: 1.4, y: 0, width: 2.2, depth: 0.6 };
+        const PILLOWS = { xs: [2.5, 1.5, 3.5], y: 1.5 };
+
+        function entertainmentArea(items) {
+          // Long and against the wall, it sorts by its front-left corner, as the sofa does.
+          items.push({ kind: "tvStand", x: TV_STAND.x, y: TV_STAND.y, depth: TV_STAND.x + TV_STAND.depth });
+          for (const x of PILLOWS.xs) {
+            const y = PILLOWS.y;
+            items.push({ kind: "floorPillow", x, y, variant: Math.floor(x) - 1, depth: x + y });
+          }
+        }
+
+        function chillArea(items, layout) {
+          const start = layout.chillStart;
+          const seats = layout.sofaSeats;
+          items.push({ kind: "plant", x: start + 0.5, y: 0.45, tall: true, depth: start + 0.95 });
+          // The sofa sorts by its front-left corner, not its middle.
+          items.push({ kind: "sofa", x: start + 1, y: 0.08, seats, depth: start + 1 + 0.95 });
+          const coffeeX = start + seats + 1;
+          items.push({ kind: "coffeeMachine", x: coffeeX + 0.05, y: 0.08, depth: coffeeX + 0.9 });
+          items.push({ kind: "waterCooler", x: coffeeX + 1, y: 0.05, depth: coffeeX + 1.8 });
+          const tableX = start + 1.7;
+          const tableWidth = Math.max(0.8, seats - 1.4);
+          // Low and long, it too sorts by its front-left corner.
+          items.push({ kind: "coffeeTable", x: tableX, y: 2.1, width: tableWidth, depth: tableX + 2.6 });
+          const beanbags = [
+            { x: start + 0.55, y: 2.4 },
+            { x: start + seats + 1.5, y: 2.4 },
+            { x: start + seats + 2.5, y: 2.45 },
+          ].slice(0, layout.beanbags);
+          beanbags.forEach(({ x, y }, variant) => items.push({ kind: "beanbag", x, y, variant, depth: x + y }));
+        }
+
+        /** The mat flat on the floor, sorted under everything standing on it. */
+        const MAT = { x: 4, y: 1, length: 2 };
+
+        function exerciseMat(items) {
+          items.push({ kind: "exerciseMat", x: MAT.x, y: MAT.y, depth: 0 });
+        }
+
+        const DECOR = ["bookshelf", "plant", "printer", "plant"];
+
+        /** Along the back wall past the chill area: shelves, a printer and plants, as far as it reaches. */
+        function backWallDecor(items, layout) {
+          let index = 0;
+          for (let x = layout.chillEnd + 0.2; x < layout.width - 1.2; ) {
+            const kind = DECOR[index % DECOR.length];
+            if (kind === "bookshelf" && x + 1.6 > layout.width - 0.5) break;
+            if (kind === "bookshelf") items.push({ kind, x, y: 0.05, seed: index + 7, depth: x + 0.8 + 0.25 });
+            else if (kind === "printer") items.push({ kind, x, y: 0.06, depth: x + 0.45 + 0.4 });
+            else items.push({ kind, x: x + 0.4, y: 0.45, tall: index % 4 === 1, depth: x + 0.85 });
+            x += kind === "bookshelf" ? 2 : 1.2;
+            index++;
+          }
+        }
+
+        /* ---------- live-view.fixtures.ts: rosterOf(10), and who is at work (this page's choice) ---------- */
+        const ROSTER = [
+          { roleKey: "office-manager", name: "Pam", taskLimit: "none" },
+          { roleKey: "caretaker", name: "Jan", taskLimit: "none" },
+          { roleKey: "cto", name: "Michael", taskLimit: 2, consultant: true },
+          { roleKey: "devops", name: "Dwight", taskLimit: 2, consultant: true },
+          { roleKey: "planner", name: "Angela", taskLimit: 2, consultant: true },
+          { roleKey: "developer", name: "Jim", taskLimit: 3 },
+          { roleKey: "reviewer", name: "Oscar", taskLimit: 3 },
+          { roleKey: "ui-ux-designer", name: "Stanley", taskLimit: 3, consultant: true },
+          { roleKey: "security-reviewer", name: "Toby", taskLimit: 2, consultant: true },
+          { roleKey: "product-manager", name: "Holly", taskLimit: 1, consultant: true },
+        ];
+        /** Sessions running per person: these work at their desks; the rest are idle, and home at night. */
+        const WORKING = { "office-manager": 1, cto: 2, developer: 3, reviewer: 1, "security-reviewer": 2 };
+        const PEOPLE = ROSTER.map((role) => ({
+          roleKey: role.roleKey,
+          name: role.name,
+          taskLimit: role.taskLimit,
+          consultant: role.consultant ?? false,
+          agents: new Array(WORKING[role.roleKey] ?? 0).fill("session"),
+        }));
+        const PEOPLE_BY_KEY = new Map(PEOPLE.map((person) => [person.roleKey, person]));
+
+        /** live-states.ts's look state, simplified: working, idle, or gone home under the night sky. */
+        function lookStateOf(roleKey, light) {
+          if (WORKING[roleKey]) return "working";
+          return light.sky === "night" ? "home" : "idle";
+        }
+
+        /* ---------- live-states.ts: monitorsOf and DESK_DEPTHS ---------- */
+        function monitorsOf(person, lookState) {
+          const laptop = person.taskLimit === "none";
+          const limit = person.taskLimit === "none" ? 1 : person.taskLimit;
+          const shown = laptop ? 1 : Math.min(3, Math.max(1, limit));
+          const sessions = lookState === "home" ? 0 : person.agents.length;
+          return { shown, lit: Math.min(sessions, shown), laptop };
+        }
+
+        const DESK_DEPTHS = {
+          screen: 0.001,
+          lamp: 0.002,
+          bulb: 0.0025,
+          pizza: 0.003,
+          seat: 0.05,
+          chairBackTurned: 0.07,
+          screenGlow: 0.09,
+          lampGlow: 0.091,
+          sitter: 0.1,
+          chairBack: 0.15,
+        };
+
+        /** The pose at a desk, by what is done there (live-states.ts's DESK_POSES). */
+        const DESK_POSES = {
+          waiting: "sit-back-raise",
+          asleep: "sit-back-sleep",
+          talking: "sit-front",
+          working: "sit-back",
+          idle: "sit-back-stretch",
+        };
+
+        /** The pose at a desk: turned round to talk, else facing the monitors. */
+        function deskPoseOf(activity) {
+          return DESK_POSES[activity];
+        }
+
+        /* ---------- office-geometry.ts ---------- */
+        function officeGeometryOf(layout) {
+          return {
+            origin: { x: (layout.depth + 1) * HALF_W + 12, y: WALL_H + 30 },
+            width: (layout.width + layout.depth + 2) * HALF_W + 24,
+            height: (layout.width + layout.depth) * HALF_H + WALL_H + 64,
+          };
+        }
+
+        function officeBounds(layout, geometry) {
+          const { width, depth } = layout;
+          const left = geometry.origin.x + isoX(0, depth) - 6;
+          const right = geometry.origin.x + isoX(width, 0) + 6;
+          const top = geometry.origin.y + isoY(0, 0, WALL_H) - 8;
+          const bottom = geometry.origin.y + isoY(width, depth) + 16;
+          return { x: left, y: top, width: right - left, height: bottom - top };
+        }
+
+        function toArt(geometry, x, y, z = 0) {
+          return { x: Math.round(geometry.origin.x + isoX(x, y)), y: Math.round(geometry.origin.y + isoY(x, y, z)) };
+        }
+
+        const layout = layoutOffice(PEOPLE);
+        const amenities = amenitiesOf(layout);
+        const geometry = officeGeometryOf(layout);
+        const bounds = officeBounds(layout, geometry);
+        const at = (x, y, z = 0) => toArt(geometry, x, y, z);
+
+        /* ---------- stage-scene.ts: the scene, painted to one canvas ---------- */
+        const DOOR_DEPTH = AISLE_ROW + 0.3;
+        const BULB = { width: 3, height: 1 };
+        /** The TV is on while someone plays on a floor pillow; nobody is drawn there, but it is shown on. */
+        const TV_PLAYING = true;
+
+        /** What glows in the dark (design decision 13): its colour and its rings, each a radius and an alpha. */
+        const GLOWS = {
+          monitor: { color: 0x6fb6ff, rings: [[13, 0.05], [8, 0.07], [4, 0.08]] },
+          lamp: { color: 0xffcf80, rings: [[22, 0.06], [14, 0.09], [8, 0.12]] },
+          led: { color: 0xff6a4a, rings: [[3, 0.12]] },
+          tv: { color: 0x6fc3ff, rings: [[30, 0.05], [20, 0.07], [12, 0.08]] },
+          exitSign: { color: 0x2fbf71, rings: [[6, 0.1]] },
+        };
+
+        /** A glow's flat ellipses, twice as wide as high, centred on its anchor; drawn added to what is under it. */
+        function paintGlow(kind) {
+          const { color, rings } = GLOWS[kind];
+          const radius = Math.max(...rings.map((ring) => ring[0]));
+          const anchorX = radius + 1;
+          const anchorY = Math.ceil(radius / 2) + 1;
+          const canvas = document.createElement("canvas");
+          canvas.width = anchorX * 2;
+          canvas.height = anchorY * 2;
+          const context = canvas.getContext("2d");
+          if (context) {
+            context.globalCompositeOperation = "lighter";
+            const rgb = `${(color >> 16) & 0xff}, ${(color >> 8) & 0xff}, ${color & 0xff}`;
+            for (const [ringRadius, alpha] of rings) {
+              context.fillStyle = `rgba(${rgb}, ${alpha})`;
+              context.beginPath();
+              context.ellipse(anchorX, anchorY, ringRadius, ringRadius / 2, 0, 0, Math.PI * 2);
+              context.fill();
+            }
+          }
+          return { canvas, anchorX, anchorY };
+        }
+
+        const glowArts = new Map();
+        function glowArt(kind) {
+          let art = glowArts.get(kind);
+          if (!art) {
+            art = paintGlow(kind);
+            glowArts.set(kind, art);
+          }
+          return art;
+        }
+
+        function amenityArt(item, tint) {
+          switch (item.kind) {
+            case "tvStand":
+              return paintedOfficeArt("tvStand", tvStandShape, tint);
+            case "floorPillow": {
+              const variant = item.variant ?? 0;
+              return paintedOfficeArt(`floorPillow:${variant}`, () => floorPillowShape(variant), tint);
+            }
+            case "sofa": {
+              const seats = item.seats ?? 3;
+              return paintedOfficeArt(`sofa:${seats}`, () => sofaShape(seats), tint);
+            }
+            case "coffeeMachine":
+              return paintedOfficeArt("coffeeMachine", coffeeMachineShape, tint);
+            case "waterCooler":
+              return paintedOfficeArt("waterCooler", waterCoolerShape, tint);
+            case "coffeeTable": {
+              const width = item.width ?? 1;
+              return paintedOfficeArt(`coffeeTable:${width}`, () => coffeeTableShape(width), tint);
+            }
+            case "beanbag": {
+              const variant = item.variant ?? 0;
+              return paintedOfficeArt(`beanbag:${variant}`, () => beanbagShape(variant), tint);
+            }
+            case "plant": {
+              const tall = Boolean(item.tall);
+              return paintedOfficeArt(`plant:${tall ? 1 : 0}`, () => plantShape(tall), tint);
+            }
+            case "bookshelf": {
+              const seed = item.seed ?? 0;
+              return paintedOfficeArt(`bookshelf:${seed}`, () => bookshelfShape(seed), tint);
+            }
+            case "printer":
+              return paintedOfficeArt("printer", printerShape, tint);
+            case "exerciseMat":
+              return paintedOfficeArt("exerciseMat", exerciseMatShape, tint);
+            default:
+              return null;
+          }
+        }
+
+        /* The backdrop's grids, as paintFloor builds them: the floor and walls, and the sunlight. */
+        const floorGrid = new PixelGrid(geometry.width, geometry.height);
+        const floorPen = isoPen(floorGrid, geometry.origin.x, geometry.origin.y);
+        paintFloorLayer(floorPen, layout);
+        paintWalls(floorPen, layout);
+        const sunGrid = new PixelGrid(geometry.width, geometry.height);
+        paintSunPatches(isoPen(sunGrid, geometry.origin.x, geometry.origin.y), layout);
+
+        /** A small cache that forgets its oldest entry past `limit`. */
+        function cached(map, key, limit, make) {
+          let value = map.get(key);
+          if (value === undefined) {
+            value = make();
+            map.set(key, value);
+            if (map.size > limit) map.delete(map.keys().next().value);
+          }
+          return value;
+        }
+
+        const floorCanvases = new Map();
+        /** The floor and walls under the tint: the stage's floor sprite, shaded. */
+        const floorCanvas = (tint) => cached(floorCanvases, tint, 24, () => paintGrid(floorGrid, tintedPalette(tint)));
+
+        const skyCanvases = new Map();
+        /** The windows' glass (with night's stars) and the exit sign, in the sky's palette, the rest clear; untinted. */
+        const skyCanvas = (sky) =>
+          cached(skyCanvases, sky, 8, () =>
+            paintGrid(floorGrid, artPalette({ ...SKY_PALETTES[sky], exitSign: ART_COLORS.exitSign, exitSignInk: ART_COLORS.exitSignInk }, true)),
+          );
+
+        const sunCanvases = new Map();
+        /** The sunlight: palette index 1 white, under the sun patch's colour as its sprite's tint. */
+        const sunCanvas = (color) => cached(sunCanvases, color, 8, () => paintGrid(sunGrid, [null, tintedColor(0xffffff, color)]));
+
+        /** The scene's items, as build adds them: each with its sort depth, in the order added. */
+        function sceneItems(light) {
+          const items = [];
+          const tint = light.tint;
+          const add = (depth, draw) => items.push({ depth, order: items.length, draw });
+          const addArt = (art, point, depth) =>
+            add(depth, (ctx) => ctx.drawImage(art.canvas, point.x - art.anchorX, point.y - art.anchorY));
+          const addRect = (color, x, y, width, height, depth) =>
+            add(depth, (ctx) => {
+              ctx.fillStyle = css(color);
+              ctx.fillRect(x, y, width, height);
+            });
+          const addGlow = (kind, point, depth) => {
+            if (!(light.glow > 0)) return;
+            const art = glowArt(kind);
+            add(depth, (ctx) => {
+              ctx.save();
+              ctx.globalCompositeOperation = "lighter";
+              ctx.globalAlpha = Math.min(1, light.glow);
+              ctx.drawImage(art.canvas, point.x - art.anchorX, point.y - art.anchorY);
+              ctx.restore();
+            });
+          };
+
+          // The door, closed, and the exit sign's glow over it.
+          addArt(paintedOfficeArt("door:0", () => doorShape(false), tint), at(0, AISLE_ROW), DOOR_DEPTH);
+          addGlow("exitSign", at(0.05, AISLE_ROW + 0.5, 39), DOOR_DEPTH + 0.0005);
+
+          for (const desk of layout.desks) buildDesk(light, desk, addArt, addRect, addGlow);
+
+          for (const item of amenities.items) {
+            const art = amenityArt(item, tint);
+            if (art) addArt(art, at(item.x, item.y), item.depth);
+            if (item.kind === "coffeeMachine") {
+              const point = at(item.x + 0.62, item.y + 0.5, 21);
+              addRect(ART_COLORS.machineLed, point.x, point.y, 1, 1, item.depth + 0.001);
+              addGlow("led", at(item.x + 0.6, item.y + 0.5, 21), item.depth + 0.002);
+            }
+            if (item.kind === "tvStand" && TV_PLAYING) {
+              addArt(paintedOfficeArt("tvScreen:0", () => tvScreenShape(0), UNTINTED), at(item.x, item.y), item.depth + 0.001);
+              addGlow("tv", at(item.x + 1.1, item.y + 0.6, 12), item.depth + 0.002);
+            }
+          }
+          return items;
+        }
+
+        /** A desk, its screens, its chair, whoever sits there and, while someone sits there after dark, its lamp, bulb and pizza. */
+        function buildDesk(light, desk, addArt, addRect, addGlow) {
+          const tint = light.tint;
+          const roleKey = desk.roleKey;
+          const person = PEOPLE_BY_KEY.get(roleKey);
+          const lookState = lookStateOf(roleKey, light);
+          // Someone working sits at the desk; by day the idle sit there too, sitting back (this page has no
+          // pastimes; the stage puts someone idle at the desk when no pastime has room). Home, the chair is in.
+          const working = lookState === "working";
+          const sitting = lookState !== "home";
+          const kept = sitting;
+          const { shown, lit, laptop } = monitorsOf(person, lookState);
+          const deskArt = paintedOfficeArt(`desk:${desk.group}:${shown}:${laptop ? 1 : 0}`, () => deskShape(desk.group, shown, laptop), tint);
+          const deskAt = at(desk.x, desk.y);
+          addArt(deskArt, deskAt, desk.depth);
+
+          const slots = monitorSlots(shown);
+          const litNow = kept ? lit : 0;
+          for (let i = 0; i < Math.min(litNow, slots.length); i++) {
+            const slot = slots[i] ?? 1;
+            const frame = i * 2;
+            const screen = paintedOfficeArt(`screen:${slot}:${frame}:${laptop ? 1 : 0}`, () => screenShape(slot, frame, laptop), UNTINTED);
+            addArt(screen, deskAt, desk.depth + DESK_DEPTHS.screen + i * 0.0001);
+            addGlow("monitor", at(desk.x + 0.6, desk.y + slot, DESK_H + 6), desk.depth + DESK_DEPTHS.screenGlow + i * 0.0001);
+          }
+
+          const spot = kept ? deskSpot(desk) : pushedInSpot(desk);
+          const chairAt = at(spot.x, spot.y);
+          addArt(paintedOfficeArt("chairSeat", chairSeatShape, tint), chairAt, desk.depth + DESK_DEPTHS.seat);
+          addArt(paintedOfficeArt("chairBack:+x", () => chairBackShape("+x"), tint), chairAt, desk.depth + DESK_DEPTHS.chairBack);
+
+          // The one at the desk, as stage-scene.ts's buildFigure seats them: feet on the chair's spot (z 0), not
+          // mirrored, frame 0 as in the still office, tinted, sorted over the seat and the glows and under the
+          // chair's back (nobody visits, so it is never turned).
+          if (sitting) {
+            const pose = deskPoseOf(working ? "working" : "idle");
+            const figure = paintedFigure(roleKey, avatarTone(person.name), pose, 0, "ahead", tint);
+            addArt(figure, chairAt, desk.depth + DESK_DEPTHS.sitter);
+          }
+
+          // At dusk and night the lamp is on while someone sits at the desk; some who work late have a pizza.
+          if (sitting && light.lampsOn) {
+            addArt(paintedOfficeArt("lamp", lampShape, tint), at(desk.x + 0.55, desk.y + 0.25), desk.depth + DESK_DEPTHS.lamp);
+            const bulbAt = at(desk.x + 0.62, desk.y + 0.25, DESK_H + 7);
+            addRect(ART_COLORS.bulb, Math.round(bulbAt.x) - 1, Math.round(bulbAt.y), BULB.width, BULB.height, desk.depth + DESK_DEPTHS.bulb);
+            addGlow("lamp", at(desk.x + 0.6, desk.y + 0.5, DESK_H), desk.depth + DESK_DEPTHS.lampGlow);
+            // The stage asks for the night phase; this page's light has none, so the night sky stands in.
+            if (light.sky === "night" && working && seedOf(roleKey) % 2 === 0) {
+              addArt(paintedOfficeArt("pizza", pizzaShape, tint), at(desk.x + 0.6, desk.y + 1.62), desk.depth + DESK_DEPTHS.pizza);
+            }
+          }
+        }
+
+        const rooms = new Map();
+        /** The room as the stage draws it in that light: the backdrop (floor, sky, sun), then the items by depth. */
+        function paintRoom(light) {
+          const sun = light.sunPatch ? `${light.sunPatch.color}/${light.sunPatch.alpha}` : "none";
+          const key = `${light.tint}:${light.sky}:${sun}:${light.lampsOn ? 1 : 0}:${light.glow}`;
+          return cached(rooms, key, 32, () => {
+            const canvas = canvasOf(geometry.width, geometry.height);
+            const ctx = canvas.getContext("2d");
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(floorCanvas(light.tint), 0, 0);
+            ctx.drawImage(skyCanvas(light.sky), 0, 0);
+            if (light.sunPatch) {
+              ctx.globalAlpha = light.sunPatch.alpha;
+              ctx.drawImage(sunCanvas(light.sunPatch.color), 0, 0);
+              ctx.globalAlpha = 1;
+            }
+            const items = sceneItems(light);
+            items.sort((a, b) => a.depth - b.depth || a.order - b.order);
+            for (const item of items) item.draw(ctx);
+            return canvas;
+          });
+        }
+
+        const boardGrids = new Map();
+        const boardCanvases = new Map();
+        /** Only the floor boards, from -apron to width + apron and -apron to depth + apron tiles, tinted. */
+        function paintFloorBoards(apron, tint) {
+          const shape = cached(boardGrids, apron, 4, () => {
+            const x0 = -apron;
+            const y0 = -apron;
+            const x1 = layout.width + apron;
+            const y1 = layout.depth + apron;
+            const left = Math.floor(isoX(x0, y1)) - 2;
+            const right = Math.ceil(isoX(x1, y0)) + 2;
+            const top = Math.floor(isoY(x0, y0)) - 2;
+            const bottom = Math.ceil(isoY(x1, y1)) + 2;
+            const grid = new PixelGrid(right - left, bottom - top);
+            paintBoards(isoPen(grid, -left, -top), x0, y0, x1, y1);
+            return { grid, origin: { x: -left, y: -top } };
+          });
+          return cached(boardCanvases, apron + ":" + tint, 8, () => ({
+            canvas: paintGrid(shape.grid, tintedPalette(tint)),
+            origin: shape.origin,
+          }));
+        }
+
+        return { HALF_W, HALF_H, WALL_H, isoX, isoY, ART_COLORS, SKY_PALETTES, layout, geometry, bounds, paintRoom, paintFloorBoards };
+      })();
+      /* ===== ART:END ===== */
+    </script>
+
+    <script>
+      /* ===== The page: the backdrops, the frames and the playground ===== */
+
+      /* ---------- Colours ---------- */
+      const channelsOf = (color) => [(color >> 16) & 255, (color >> 8) & 255, color & 255];
+      const fromChannels = ([r, g, b]) => (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(b);
+      const mixColor = (a, b, t) => {
+        const ca = channelsOf(a);
+        const cb = channelsOf(b);
+        return fromChannels(ca.map((value, i) => value + (cb[i] - value) * t));
+      };
+      const multiplyColor = (a, b) => {
+        const cb = channelsOf(b);
+        return fromChannels(channelsOf(a).map((value, i) => (value * cb[i]) / 255));
+      };
+      const rgba = (color, alpha) => {
+        const [r, g, b] = channelsOf(color);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      };
+      const parseColor = (text) => {
+        const value = text.trim();
+        if (/^#[0-9a-f]{6}$/i.test(value)) return parseInt(value.slice(1), 16);
+        const probe = document.createElement("canvas").getContext("2d");
+        probe.fillStyle = value || "#000";
+        return parseInt(probe.fillStyle.slice(1), 16);
+      };
+
+      /* ---------- The light: light.ts's ramps, on a nominal day ---------- */
+      const DAWN_LIGHT = [[-12, 0x525d9c], [-6, 0x7177b2], [-2, 0xc49bbb], [2, 0xf5c6b5], [8, 0xfff0dd], [14, 0xffffff]];
+      const DUSK_LIGHT = [[-12, 0x525d9c], [-6, 0x6c6ba8], [-2, 0xb88a9c], [2, 0xf0b48e], [8, 0xffe6c8], [14, 0xffffff]];
+      const PHASE_WORDS = { day: "Day", golden: "Golden hour", dusk: "Dusk", dawn: "Dawn", night: "Night" };
+
+      function tintAt(elevation, morning) {
+        const stops = morning ? DAWN_LIGHT : DUSK_LIGHT;
+        let tint = stops[0][1];
+        if (elevation >= stops[stops.length - 1][0]) tint = 0xffffff;
+        else {
+          for (let i = 1; i < stops.length; i++) {
+            const [fromElevation, fromColor] = stops[i - 1];
+            const [toElevation, toColor] = stops[i];
+            if (elevation <= toElevation) {
+              const t = Math.min(1, Math.max(0, (elevation - fromElevation) / (toElevation - fromElevation)));
+              tint = mixColor(fromColor, toColor, t);
+              break;
+            }
+          }
+        }
+        return fromChannels(channelsOf(tint).map((value) => Math.min(255, Math.round(value / 8) * 8)));
+      }
+
+      function lightOf(elevation, morning) {
+        const tint = tintAt(elevation, morning);
+        const [r, g, b] = channelsOf(tint);
+        const darkness = Math.min(1, Math.max(0, 1 - (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255));
+        const sky = elevation >= 8 ? "day" : elevation >= 2 ? "golden" : elevation >= -8 ? (morning ? "dawn" : "dusk") : "night";
+        const sunPatch = elevation <= 2 ? null : elevation > 12 ? { color: 0xfff1cf, alpha: 0.3 } : { color: 0xffc58f, alpha: 0.24 };
+        return { tint, sky, sunPatch, lampsOn: darkness > 0.3, glow: Math.min(1, Math.max(0, (darkness - 0.12) / 0.45)), elevation };
+      }
+
+      /** A nominal day: sunrise at 06:00, sunset at 18:00, the sun 55° high at noon. */
+      const lightAtMinute = (minute) => lightOf(55 * Math.sin((2 * Math.PI * (minute - 360)) / 1440), minute < 720);
+      const clockOf = (minute) => `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
+
+      const HOURS = {
+        day: { minute: 14 * 60 + 20, light: lightAtMinute(14 * 60 + 20) },
+        night: { minute: 23 * 60 + 10, light: lightAtMinute(23 * 60 + 10) },
+      };
+      const THEME_WORDS = { light: "Light theme", dark: "Dark theme" };
+
+      /* ---------- The world: art pixels, the room's floor (0, 0) at Art.geometry.origin ---------- */
+      const G = Art.geometry;
+      const L = Art.layout;
+      const at = (x, y, z = 0) => ({ x: G.origin.x + Art.isoX(x, y), y: G.origin.y + Art.isoY(x, y, z) });
+
+      function polygon(ctx, points) {
+        ctx.beginPath();
+        points.forEach((point, i) => (i ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y)));
+        ctx.closePath();
+      }
+
+      /** The room's own colour in the light: its floor and walls together, under the tint. */
+      function roomColorOf(light) {
+        const C = Art.ART_COLORS;
+        return multiplyColor(mixColor(C.floorA, C.wallFace, 0.35), light.tint);
+      }
+
+      /* ---------- A · Glow ---------- */
+      function drawGlow(ctx, frame) {
+        const { light } = frame;
+        const centre = at(L.width / 2, L.depth / 2, 14);
+        const reach = (L.width + L.depth) * Art.HALF_W * 0.82;
+        const color = roomColorOf(light);
+        const glowOf = (tone, alpha, radius) => {
+          ctx.save();
+          ctx.translate(centre.x, centre.y);
+          ctx.scale(1, 0.6);
+          const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
+          gradient.addColorStop(0, rgba(tone, alpha));
+          gradient.addColorStop(0.45, rgba(tone, alpha * 0.62));
+          gradient.addColorStop(0.75, rgba(tone, alpha * 0.2));
+          gradient.addColorStop(1, rgba(tone, 0));
+          ctx.fillStyle = gradient;
+          ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
+          ctx.restore();
+        };
+        glowOf(color, 0.85, reach);
+        if (light.lampsOn) glowOf(0xffc27a, 0.16 * light.glow, reach * 0.55);
+      }
+
+      /* ---------- B · Diorama ---------- */
+      const SLAB = 7;
+      const WALL_T = 0.25;
+      const shadows = new Map();
+
+      function shadowOf(theme) {
+        if (shadows.has(theme)) return shadows.get(theme);
+        const pad = 64;
+        const canvas = document.createElement("canvas");
+        canvas.width = G.width + pad * 2;
+        canvas.height = G.height + pad * 2;
+        const ctx = canvas.getContext("2d");
+        const far = 10000;
+        ctx.translate(pad - far, pad + SLAB + 6);
+        ctx.shadowColor = theme === "dark" ? "rgba(0, 0, 0, 0.9)" : "rgba(40, 32, 20, 0.34)";
+        ctx.shadowBlur = 26;
+        ctx.shadowOffsetX = far;
+        // Drawn far off the canvas, so only its shadow lands on it.
+        ctx.fillStyle = "#000";
+        polygon(ctx, [at(-WALL_T, -WALL_T), at(L.width, -WALL_T), at(L.width, L.depth), at(-WALL_T, L.depth)]);
+        ctx.fill();
+        const made = { canvas, pad };
+        shadows.set(theme, made);
+        return made;
+      }
+
+      function drawDiorama(ctx, frame) {
+        const { light, theme } = frame;
+        const shadow = shadowOf(theme);
+        ctx.drawImage(shadow.canvas, -shadow.pad, -shadow.pad);
+        const C = Art.ART_COLORS;
+        const right = multiplyColor(mixColor(C.floorSeam, 0x000000, 0.22), light.tint);
+        const front = multiplyColor(mixColor(C.floorSeam, 0x000000, 0.36), light.tint);
+        const lip = multiplyColor(mixColor(C.floorA, 0xffffff, 0.25), light.tint);
+        const { width: W, depth: D } = L;
+        ctx.fillStyle = rgba(right, 1);
+        polygon(ctx, [at(W, -WALL_T, 0), at(W, D, 0), at(W, D, -SLAB), at(W, -WALL_T, -SLAB)]);
+        ctx.fill();
+        ctx.fillStyle = rgba(front, 1);
+        polygon(ctx, [at(-WALL_T, D, 0), at(W, D, 0), at(W, D, -SLAB), at(-WALL_T, D, -SLAB)]);
+        ctx.fill();
+        // A one-pixel lip of light along the slab's top edge.
+        ctx.fillStyle = rgba(lip, 1);
+        polygon(ctx, [at(-WALL_T, D, 0), at(W, D, 0), at(W, -WALL_T, 0), at(W, -WALL_T, -1), at(W, D, -1), at(-WALL_T, D, -1)]);
+        ctx.fill();
+      }
+
+      /* ---------- C · Sky backdrop (screen layers) ---------- */
+      function drawSky(ctx, frame) {
+        const { light, width, height, view } = frame;
+        const sky = Art.SKY_PALETTES[light.sky];
+        // As the windows' glass: its high band above, the glass below.
+        const gradient = ctx.createLinearGradient(0, 0, 0, height);
+        gradient.addColorStop(0, rgba(sky.glassHigh, 1));
+        gradient.addColorStop(1, rgba(sky.glass, 1));
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
+        if (light.sky === "night" || light.sky === "dusk" || light.sky === "dawn") {
+          // A few stars, a whole number of art pixels across at the view's scale.
+          const size = Math.max(1, Math.round(view.scale));
+          let seed = 7;
+          const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+          ctx.fillStyle = rgba(sky.glassStar, light.sky === "night" ? 0.9 : 0.5);
+          for (let i = 0; i < 70; i++) {
+            const x = Math.floor((random() * width) / size) * size;
+            const y = Math.floor((random() * height * 0.9) / size) * size;
+            ctx.fillRect(x, y, size, size);
+          }
+        }
+      }
+
+      function drawVignette(ctx, frame) {
+        const { width, height, background } = frame;
+        ctx.save();
+        ctx.translate(width / 2, height / 2);
+        ctx.scale(1, height / width);
+        const radius = width * 0.72;
+        const gradient = ctx.createRadialGradient(0, 0, radius * 0.45, 0, 0, radius);
+        gradient.addColorStop(0, rgba(background, 0));
+        gradient.addColorStop(0.7, rgba(background, 0.55));
+        gradient.addColorStop(1, rgba(background, 1));
+        ctx.fillStyle = gradient;
+        ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
+        ctx.restore();
+      }
+
+      /* ---------- D · Floor everywhere ---------- */
+      const FLOOR_APRON = 34;
+
+      function drawBoards(ctx, frame, apron) {
+        const boards = Art.paintFloorBoards(apron, frame.light.tint);
+        ctx.drawImage(boards.canvas, G.origin.x - boards.origin.x, G.origin.y - boards.origin.y);
+      }
+
+      /* ---------- E · Floor + fog of war ---------- */
+      const FOG_APRON = 9;
+      /** Where the fog starts past the room's edge and where it is whole, in tiles. */
+      const FOG_FROM = 0.35;
+      const FOG_WHOLE = 6.5;
+      const FOG_STEPS = 8;
+      const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+      const fogMasks = new Map();
+      const fogs = new Map();
+
+      /** The fog's alpha per art pixel, by the distance from the room's floor, read on the floor's plane. */
+      function fogMaskOf(style) {
+        if (fogMasks.has(style)) return fogMasks.get(style);
+        const boards = Art.paintFloorBoards(FOG_APRON, 0xffffff);
+        const { width, height } = boards.canvas;
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        const image = ctx.createImageData(width, height);
+        const data = image.data;
+        for (let py = 0; py < height; py++) {
+          for (let px = 0; px < width; px++) {
+            const u = (px + 0.5 - boards.origin.x) / Art.HALF_W;
+            const v = (py + 0.5 - boards.origin.y) / Art.HALF_H;
+            const x = (u + v) / 2;
+            const y = (v - u) / 2;
+            const dx = x < 0 ? -x : x > L.width ? x - L.width : 0;
+            const dy = y < 0 ? -y : y > L.depth ? y - L.depth : 0;
+            const distance = Math.hypot(dx, dy);
+            let alpha = Math.min(1, Math.max(0, (distance - FOG_FROM) / (FOG_WHOLE - FOG_FROM)));
+            alpha = alpha * alpha * (3 - 2 * alpha);
+            if (style === "stepped") {
+              const threshold = (BAYER[(py & 3) * 4 + (px & 3)] + 0.5) / 16;
+              const scaled = alpha * FOG_STEPS;
+              const step = Math.floor(scaled) + (scaled - Math.floor(scaled) > threshold ? 1 : 0);
+              alpha = Math.min(FOG_STEPS, step) / FOG_STEPS;
+            }
+            const i = (py * width + px) * 4;
+            data[i] = 255;
+            data[i + 1] = 255;
+            data[i + 2] = 255;
+            data[i + 3] = Math.round(alpha * 255);
+          }
+        }
+        ctx.putImageData(image, 0, 0);
+        const made = { canvas, origin: boards.origin };
+        fogMasks.set(style, made);
+        return made;
+      }
+
+      /** The mask in the page's background colour: what the stage does with a tint. */
+      function fogOf(style, background) {
+        const key = style + ":" + background;
+        if (fogs.has(key)) return fogs.get(key);
+        const mask = fogMaskOf(style);
+        const canvas = document.createElement("canvas");
+        canvas.width = mask.canvas.width;
+        canvas.height = mask.canvas.height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(mask.canvas, 0, 0);
+        ctx.globalCompositeOperation = "source-in";
+        ctx.fillStyle = rgba(background, 1);
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const made = { canvas, origin: mask.origin };
+        fogs.set(key, made);
+        return made;
+      }
+
+      function drawFog(ctx, frame) {
+        const fog = fogOf(frame.fogStyle, frame.background);
+        ctx.drawImage(fog.canvas, G.origin.x - fog.origin.x, G.origin.y - fog.origin.y);
+      }
+
+      /* ---------- The backdrops: what each draws under the room (world or screen) and over it ---------- */
+      const BACKDROPS = {
+        none: {},
+        glow: { worldUnder: drawGlow },
+        diorama: { worldUnder: drawDiorama },
+        sky: { screenUnder: drawSky, screenOver: drawVignette },
+        floor: { worldUnder: (ctx, frame) => drawBoards(ctx, frame, FLOOR_APRON) },
+        fog: {
+          worldUnder: (ctx, frame) => {
+            drawBoards(ctx, frame, FOG_APRON);
+            drawFog(ctx, frame);
+          },
+        },
+      };
+
+      /* ---------- The view: device pixels per art pixel, and where the art's (0, 0) lands ---------- */
+      function fitScale(width, height, margins, rect = Art.bounds) {
+        return Math.min(
+          (width - margins.left - margins.right) / rect.width,
+          (height - margins.top - margins.bottom) / rect.height,
+        );
+      }
+
+      function centredView(width, height, margins, scale, rect = Art.bounds) {
+        const innerWidth = width - margins.left - margins.right;
+        const innerHeight = height - margins.top - margins.bottom;
+        return {
+          scale,
+          offsetX: margins.left + (innerWidth - rect.width * scale) / 2 - rect.x * scale,
+          offsetY: margins.top + (innerHeight - rect.height * scale) / 2 - rect.y * scale,
+        };
+      }
+
+      /** The frames' margins: the page's FIT_MARGINS, in proportion to a small floor. */
+      const frameMargins = (width, height) => ({
+        top: Math.round(height * 0.11),
+        bottom: Math.round(height * 0.12),
+        left: Math.round(width * 0.03),
+        right: Math.round(width * 0.03),
+      });
+
+      /* ---------- Drawing one frame ---------- */
+      const scratch = document.createElement("canvas");
+
+      /** The world's layers at the view's scale; an in-between scale is drawn at the next whole one and scaled down smoothly. */
+      function drawWorld(ctx, frame, paint) {
+        const { view, width, height } = frame;
+        const whole = Math.abs(view.scale - Math.round(view.scale)) < 1e-6 || view.scale === 0.5;
+        if (whole) {
+          ctx.save();
+          ctx.imageSmoothingEnabled = false;
+          ctx.setTransform(view.scale, 0, 0, view.scale, Math.round(view.offsetX), Math.round(view.offsetY));
+          paint(ctx);
+          ctx.restore();
+          return;
+        }
+        const step = Math.ceil(view.scale);
+        const ratio = step / view.scale;
+        scratch.width = Math.ceil(width * ratio);
+        scratch.height = Math.ceil(height * ratio);
+        const off = scratch.getContext("2d");
+        off.imageSmoothingEnabled = false;
+        off.setTransform(step, 0, 0, step, Math.round(view.offsetX * ratio), Math.round(view.offsetY * ratio));
+        paint(off);
+        ctx.save();
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(scratch, 0, 0, scratch.width / ratio, scratch.height / ratio);
+        ctx.restore();
+      }
+
+      function drawFrame(canvas, frame) {
+        const ctx = canvas.getContext("2d");
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = rgba(frame.background, 1);
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const backdrop = BACKDROPS[frame.backdrop] ?? BACKDROPS.none;
+        backdrop.screenUnder?.(ctx, frame);
+        const room = Art.paintRoom(frame.light);
+        drawWorld(ctx, frame, (world) => {
+          backdrop.worldUnder?.(world, frame);
+          world.drawImage(room, 0, 0);
+        });
+        backdrop.screenOver?.(ctx, frame);
+      }
+
+      /* ---------- The frame's chrome: the time chip and the zoom, as the Live view has them ---------- */
+      function chromeOf(element, { phase, clock, percent }) {
+        const icon = phase === "Night" || phase === "Dusk" ? "i-moon" : "i-sun";
+        element.insertAdjacentHTML(
+          "beforeend",
+          `<span class="chip"><svg class="ico" width="13" height="13"><use href="#${icon}" /></svg><b data-chip="phase">${phase}</b><span data-chip="clock">${clock}</span></span>` +
+            `<div class="zoom"><button type="button" data-zoom="out" aria-label="Zoom out"><svg class="ico" width="14" height="14"><use href="#i-minus" /></svg></button>` +
+            `<span class="percent" data-zoom="percent">${percent}</span>` +
+            `<button type="button" data-zoom="in" aria-label="Zoom in"><svg class="ico" width="14" height="14"><use href="#i-plus" /></svg></button>` +
+            `<span class="sep"></span><button type="button" data-zoom="fit" aria-label="Fit the whole office"><svg class="ico" width="14" height="14"><use href="#i-fit" /></svg></button></div>`,
+        );
+      }
+
+      function canvasIn(element) {
+        const canvas = document.createElement("canvas");
+        element.prepend(canvas);
+        return canvas;
+      }
+
+      function sizeCanvas(canvas) {
+        const ratio = window.devicePixelRatio || 1;
+        const box = canvas.getBoundingClientRect();
+        const width = Math.max(1, Math.round(box.width * ratio));
+        const height = Math.max(1, Math.round(box.height * ratio));
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+        }
+        return { width, height, ratio };
+      }
+
+      const backgroundOf = (element) => parseColor(getComputedStyle(element).getPropertyValue("--surface-sunken"));
+
+      /* ---------- The four cases of each backdrop ---------- */
+      const CASES = [
+        { hour: "day", theme: "light" },
+        { hour: "day", theme: "dark" },
+        { hour: "night", theme: "light" },
+        { hour: "night", theme: "dark" },
+      ];
+      const staticFrames = [];
+
+      for (const section of document.querySelectorAll("[data-backdrop]")) {
+        const backdrop = section.dataset.backdrop;
+        const cases = section.querySelector(".cases");
+        for (const { hour, theme } of CASES) {
+          const { minute, light } = HOURS[hour];
+          const figure = document.createElement("figure");
+          figure.className = "case";
+          const icon = hour === "day" ? "i-sun" : "i-moon";
+          figure.innerHTML = `<figcaption><svg class="ico" width="13" height="13"><use href="#${icon}" /></svg>${hour === "day" ? "Day" : "Night"} · ${THEME_WORDS[theme]}</figcaption><div class="floor pal-${theme}"></div>`;
+          cases.append(figure);
+          const element = figure.querySelector(".floor");
+          chromeOf(element, { phase: PHASE_WORDS[light.sky], clock: clockOf(minute), percent: "Fit" });
+          staticFrames.push({ element, canvas: canvasIn(element), backdrop, light, theme, mode: "fit" });
+        }
+      }
+
+      /* ---------- The zoom: a 2560 × 1100 floor at 1 device pixel per CSS pixel, drawn to the frame's size ---------- */
+      const PAGE_FLOOR = { width: 2560, height: 1100 };
+      const FIT_MARGINS = { top: 56, right: 16, bottom: 64, left: 16 };
+      const pageFit = fitScale(PAGE_FLOOR.width, PAGE_FLOOR.height, FIT_MARGINS);
+      const pageWhole = Math.max(0.5, Math.floor(pageFit));
+      for (const [name, scale] of [["zoom-whole", pageWhole], ["zoom-exact", pageFit]]) {
+        const element = document.querySelector(`[data-frame="${name}"]`);
+        chromeOf(element, { phase: "Day", clock: clockOf(HOURS.day.minute), percent: `${Math.floor(scale * 100)}%` });
+        staticFrames.push({ element, canvas: canvasIn(element), backdrop: "none", light: HOURS.day.light, theme: "light", mode: "page", pageScale: scale });
+      }
+
+      function drawStatic(entry) {
+        const { width, height, ratio } = sizeCanvas(entry.canvas);
+        let view;
+        if (entry.mode === "page") {
+          // The page's view, shrunk to the frame: the bands round the office show as on the wide screen.
+          const shrink = width / PAGE_FLOOR.width;
+          const page = centredView(PAGE_FLOOR.width, PAGE_FLOOR.height, FIT_MARGINS, entry.pageScale);
+          view = { scale: page.scale * shrink, offsetX: page.offsetX * shrink, offsetY: page.offsetY * shrink };
+        } else {
+          const margins = frameMargins(width, height);
+          view = centredView(width, height, margins, fitScale(width, height, margins));
+        }
+        drawFrame(entry.canvas, {
+          backdrop: entry.backdrop,
+          light: entry.light,
+          theme: entry.theme,
+          background: backgroundOf(entry.element),
+          fogStyle: "stepped",
+          view,
+          width,
+          height,
+          ratio,
+        });
+      }
+
+      /* ---------- Try it ---------- */
+      const play = {
+        element: document.querySelector('[data-frame="playground"]'),
+        backdrop: "fog",
+        theme: "light",
+        minute: 840,
+        fogStyle: "stepped",
+        view: null,
+        minScale: 1,
+      };
+      chromeOf(play.element, { phase: "Day", clock: "14:00", percent: "" });
+      play.canvas = canvasIn(play.element);
+      const KEEP_IN_VIEW = 80;
+      const MAX_CSS_SCALE = 6;
+
+      function playMargins() {
+        const ratio = window.devicePixelRatio || 1;
+        return { top: 56 * ratio, right: 16 * ratio, bottom: 64 * ratio, left: 16 * ratio };
+      }
+
+      function fitPlay() {
+        const { width, height } = sizeCanvas(play.canvas);
+        const margins = playMargins();
+        const scale = Math.max(0.5, fitScale(width, height, margins));
+        play.minScale = scale;
+        play.view = centredView(width, height, margins, scale);
+      }
+
+      function clampPlay() {
+        const { width, height } = play.canvas;
+        const keep = KEEP_IN_VIEW * (window.devicePixelRatio || 1);
+        const view = play.view;
+        const B = Art.bounds;
+        const left = B.x * view.scale + view.offsetX;
+        const right = (B.x + B.width) * view.scale + view.offsetX;
+        const top = B.y * view.scale + view.offsetY;
+        const bottom = (B.y + B.height) * view.scale + view.offsetY;
+        if (right < keep) view.offsetX += keep - right;
+        if (left > width - keep) view.offsetX -= left - (width - keep);
+        if (bottom < keep) view.offsetY += keep - bottom;
+        if (top > height - keep) view.offsetY -= top - (height - keep);
+      }
+
+      function zoomPlayTo(scale, at) {
+        const view = play.view;
+        const next = Math.min(MAX_CSS_SCALE * (window.devicePixelRatio || 1), Math.max(play.minScale, scale));
+        const artX = (at.x - view.offsetX) / view.scale;
+        const artY = (at.y - view.offsetY) / view.scale;
+        play.view = { scale: next, offsetX: at.x - artX * next, offsetY: at.y - artY * next };
+        clampPlay();
+        drawPlay();
+      }
+
+      /** Whole steps either side; the exact fit is the floor of the range. */
+      function stepFrom(scale, direction) {
+        if (direction > 0) return Math.floor(scale + 1e-6) + 1;
+        const below = Math.ceil(scale - 1e-6) - 1;
+        return below < play.minScale ? play.minScale : below;
+      }
+
+      const centreOf = () => ({ x: play.canvas.width / 2, y: play.canvas.height / 2 });
+
+      function drawPlay() {
+        const { width, height, ratio } = sizeCanvas(play.canvas);
+        if (!play.view) fitPlay();
+        const light = lightAtMinute(play.minute);
+        drawFrame(play.canvas, {
+          backdrop: play.backdrop,
+          light,
+          theme: play.theme,
+          background: backgroundOf(play.element),
+          fogStyle: play.fogStyle,
+          view: play.view,
+          width,
+          height,
+          ratio,
+        });
+        const phase = PHASE_WORDS[light.sky];
+        play.element.querySelector('[data-chip="phase"]').textContent = phase;
+        play.element.querySelector('[data-chip="clock"]').textContent = clockOf(play.minute);
+        play.element.querySelector(".chip use").setAttribute("href", phase === "Night" || phase === "Dusk" ? "#i-moon" : "#i-sun");
+        play.element.querySelector('[data-zoom="percent"]').textContent = `${Math.floor((play.view.scale / ratio) * 100)}%`;
+        play.element.querySelector('[data-zoom="out"]').disabled = play.view.scale <= play.minScale + 1e-6;
+        play.element.querySelector('[data-zoom="in"]').disabled = play.view.scale >= MAX_CSS_SCALE * ratio - 1e-6;
+        document.querySelector('[data-output="hour"]').textContent = `${clockOf(play.minute)} · ${phase}`;
+      }
+
+      function pressed(control, value) {
+        for (const button of document.querySelectorAll(`[data-control="${control}"] button`)) {
+          button.setAttribute("aria-pressed", String(button.dataset.value === value));
+        }
+      }
+
+      function syncControls() {
+        pressed("backdrop", play.backdrop);
+        pressed("theme", play.theme);
+        pressed("fogStyle", play.fogStyle);
+        play.element.className = `floor pal-${play.theme}`;
+        document.querySelector('[data-only="fog"]').hidden = play.backdrop !== "fog";
+      }
+
+      for (const control of ["backdrop", "theme", "fogStyle"]) {
+        document.querySelector(`[data-control="${control}"]`).addEventListener("click", (event) => {
+          const button = event.target.closest("button");
+          if (!button) return;
+          play[control] = button.dataset.value;
+          syncControls();
+          drawPlay();
+        });
+      }
+      document.querySelector('[data-control="hour"]').addEventListener("input", (event) => {
+        play.minute = Number(event.target.value);
+        drawPlay();
+      });
+      play.element.querySelector('[data-zoom="in"]').addEventListener("click", () => zoomPlayTo(stepFrom(play.view.scale, 1), centreOf()));
+      play.element.querySelector('[data-zoom="out"]').addEventListener("click", () => zoomPlayTo(stepFrom(play.view.scale, -1), centreOf()));
+      play.element.querySelector('[data-zoom="fit"]').addEventListener("click", () => {
+        fitPlay();
+        drawPlay();
+      });
+
+      const devicePoint = (event) => {
+        const box = play.canvas.getBoundingClientRect();
+        const ratio = window.devicePixelRatio || 1;
+        return { x: (event.clientX - box.left) * ratio, y: (event.clientY - box.top) * ratio };
+      };
+      const WHEEL_NOTCH = 60;
+      let wheelTravel = 0;
+      play.canvas.addEventListener(
+        "wheel",
+        (event) => {
+          event.preventDefault();
+          // A trackpad sends many small deltas: one whole step per notch's worth of them.
+          wheelTravel += event.deltaMode === 0 ? event.deltaY : event.deltaY * 40;
+          if (Math.abs(wheelTravel) < WHEEL_NOTCH) return;
+          const direction = wheelTravel < 0 ? 1 : -1;
+          wheelTravel = 0;
+          zoomPlayTo(stepFrom(play.view.scale, direction), devicePoint(event));
+        },
+        { passive: false },
+      );
+      let drag = null;
+      play.canvas.addEventListener("pointerdown", (event) => {
+        drag = { point: devicePoint(event), id: event.pointerId };
+        play.canvas.setPointerCapture(event.pointerId);
+      });
+      play.canvas.addEventListener("pointermove", (event) => {
+        if (!drag || drag.id !== event.pointerId) return;
+        const point = devicePoint(event);
+        play.view.offsetX += point.x - drag.point.x;
+        play.view.offsetY += point.y - drag.point.y;
+        drag.point = point;
+        clampPlay();
+        drawPlay();
+      });
+      const endDrag = () => (drag = null);
+      play.canvas.addEventListener("pointerup", endDrag);
+      play.canvas.addEventListener("pointercancel", endDrag);
+      play.canvas.tabIndex = 0;
+      play.canvas.setAttribute("aria-label", "The office floor: drag to pan, scroll to zoom, 0 to fit");
+      play.canvas.addEventListener("keydown", (event) => {
+        if (event.key === "0") {
+          fitPlay();
+          drawPlay();
+        } else if (event.key === "+" || event.key === "=") zoomPlayTo(stepFrom(play.view.scale, 1), centreOf());
+        else if (event.key === "-") zoomPlayTo(stepFrom(play.view.scale, -1), centreOf());
+      });
+
+      /* ---------- Draw, and again on a resize ---------- */
+      function drawAll() {
+        staticFrames.forEach(drawStatic);
+        fitPlay();
+        drawPlay();
+      }
+      syncControls();
+      drawAll();
+      let resizeTimer;
+      window.addEventListener("resize", () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(drawAll, 120);
+      });
+    </script>
+  </body>
+</html>
