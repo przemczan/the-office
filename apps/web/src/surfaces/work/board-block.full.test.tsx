@@ -136,7 +136,7 @@ describe("InitiativeBlock", () => {
       queue: [queued("a", 1), queued("b", 3)],
     });
 
-    expect(count(page)?.textContent).toBe("#1 · #3");
+    expect(count(page)?.textContent).toBe("#1 · #3");
     expect(count(page)?.getAttribute("aria-label")).toBe("Places 1 and 3 in the queue");
   });
 

@@ -140,17 +140,21 @@
     opacity var(--duration-fast) var(--ease-out);
 }
 
+/* Wrapping, so a long list of queue places moves to a line of its own instead of squeezing the name
+   to a letter a line. */
 .initiative-block-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
-  gap: 6px;
+  gap: 2px 6px;
   min-width: 0;
   padding: 1px 4px 0 5px;
 }
 
+/* The basis keeps a short count on the name's line, the name wrapping beside it. */
 .initiative-block-name {
   display: inline-flex;
-  flex: 0 1 auto;
+  flex: 1 1 8rem;
   align-items: flex-start;
   gap: 5px;
   min-width: 0;
@@ -178,14 +182,20 @@
   margin-top: -1px;
 }
 
+/* With a hover, the count's tooltip trigger is the head's item; on a touch screen the count is. */
+.initiative-block-head > .tooltip-trigger:has(> .initiative-block-count),
 .initiative-block-count {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
   margin-left: auto;
+}
+
+.initiative-block-count {
   padding-top: 2px;
   font: var(--type-overline);
   font-variant-numeric: tabular-nums;
   color: var(--fg-3);
-  white-space: nowrap;
+  text-align: right;
 }
 
 .initiative-block-cards {

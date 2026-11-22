@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import type { INestApplication } from "@nestjs/common";
-import { sql, TransactionRollbackError } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { rolledBackMigration } from "../../../../../test/test-database.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { builtInPipelines } from "../../domain/built-in-pipelines.js";
 import { straightLineFlow } from "../../domain/flow.js";
@@ -23,21 +24,6 @@ afterAll(async () => {
 });
 
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
-
-/** What `read` found, with its changes undone: every test file shares the database. */
-async function rolledBack<Result>(read: (transaction: Transaction) => Promise<Result>) {
-  let result: Result | undefined;
-  await database
-    .transaction(async (transaction) => {
-      result = await read(transaction);
-      transaction.rollback();
-    })
-    .catch((error: unknown) => {
-      if (!(error instanceof TransactionRollbackError)) throw error;
-    });
-  if (result === undefined) throw new Error("Nothing was read.");
-  return result;
-}
 
 /** `stage` as kept before the migration: without routes or a place. */
 function asAList({ routes: _routes, place: _place, ...stage }: Stage): Stage {
@@ -104,7 +90,7 @@ async function applyMigration(transaction: Transaction): Promise<void> {
 describe("migration 0163", () => {
   it("draws every Pipeline's and Task's list of Stages as a straight line, keeping optional", async () => {
     const lists = Object.entries(LISTS);
-    const after = await rolledBack(async (transaction) => {
+    const after = await rolledBackMigration(database, async (transaction) => {
       for (const { id, stages } of builtInPipelines) {
         await transaction.execute(
           sql`UPDATE "pipelines" SET "stages" = ${JSON.stringify(stages.map(asAList))}::jsonb WHERE "id" = ${id}`,
@@ -155,7 +141,7 @@ describe("migration 0163", () => {
   });
 
   it("leaves Stages that carry their routes already as they are", async () => {
-    const after = await rolledBack(async (transaction) => {
+    const after = await rolledBackMigration(database, async (transaction) => {
       const pipeline = await aPipeline(transaction, ALREADY_A_FLOW);
       const task = await aTask(transaction, ALREADY_A_FLOW);
       await applyMigration(transaction);

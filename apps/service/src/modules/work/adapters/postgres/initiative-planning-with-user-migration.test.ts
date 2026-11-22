@@ -1,13 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import type { INestApplication } from "@nestjs/common";
-import { eq, sql, TransactionRollbackError } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { rolledBackMigration } from "../../../../../test/test-database.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { anInitiative } from "../../domain/work.fixtures.js";
 import { initiatives } from "./work.schema.js";
-import { toInitiativeRow, type Transaction } from "./work-rows.js";
+import { toInitiativeRow } from "./work-rows.js";
 
 let app: INestApplication;
 let database: Database;
@@ -20,21 +21,6 @@ beforeAll(async () => {
 afterAll(async () => {
   await app.close();
 });
-
-/** What `read` found, with its changes undone: every test file shares the database. */
-async function rolledBack<Result>(read: (transaction: Transaction) => Promise<Result>) {
-  let result: Result | undefined;
-  await database
-    .transaction(async (transaction) => {
-      result = await read(transaction);
-      transaction.rollback();
-    })
-    .catch((error: unknown) => {
-      if (!(error instanceof TransactionRollbackError)) throw error;
-    });
-  if (result === undefined) throw new Error("Nothing was read.");
-  return result;
-}
 
 describe("migration 0167", () => {
   it("reads an Initiative planned before it as planned with Plan the Initiative, not Plan with…", async () => {
@@ -50,7 +36,7 @@ describe("migration 0167", () => {
       planningThreadId: randomUUID(),
     });
 
-    const after = await rolledBack(async (transaction) => {
+    const after = await rolledBackMigration(database, async (transaction) => {
       await transaction.insert(initiatives).values(toInitiativeRow(planned));
       await transaction.execute(sql`ALTER TABLE "initiatives" DROP COLUMN "planning_with_user"`);
       for (const statement of migration.split("--> statement-breakpoint")) {

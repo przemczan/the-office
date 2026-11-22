@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import type { INestApplication } from "@nestjs/common";
-import { sql, TransactionRollbackError } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { rolledBackMigration } from "../../../../../test/test-database.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import {
   builtInPipelines,
@@ -24,21 +25,6 @@ afterAll(async () => {
 });
 
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
-
-/** What `read` found, with its changes undone: every test file shares the database. */
-async function rolledBack<Result>(read: (transaction: Transaction) => Promise<Result>) {
-  let result: Result | undefined;
-  await database
-    .transaction(async (transaction) => {
-      result = await read(transaction);
-      transaction.rollback();
-    })
-    .catch((error: unknown) => {
-      if (!(error instanceof TransactionRollbackError)) throw error;
-    });
-  if (result === undefined) throw new Error("Nothing was read.");
-  return result;
-}
 
 const OLD_BRIEF =
   "Write .devcontainer/ (devcontainer.json and a compose file for the services) for the Project's stack, from its manifests and commands.";
@@ -98,7 +84,7 @@ describe("migration 0112", () => {
   it("tells the built-in Set up Stage to write with the tool, in the library, its template and open Tasks", async () => {
     expect(NEW_BRIEF).toContain("write_run_environment_definition");
 
-    const after = await rolledBack(async (transaction) => {
+    const after = await rolledBackMigration(database, async (transaction) => {
       await transaction.execute(
         sql`UPDATE "pipelines" SET "stages" = ${JSON.stringify(stagesBriefed(OLD_BRIEF))}::jsonb WHERE "id" = ${SET_UP_RUN_ENVIRONMENT_PIPELINE}`,
       );
@@ -133,7 +119,7 @@ describe("migration 0112", () => {
   });
 
   it("keeps a brief the user edited", async () => {
-    const after = await rolledBack(async (transaction) => {
+    const after = await rolledBackMigration(database, async (transaction) => {
       await transaction.execute(
         sql`UPDATE "pipelines" SET "stages" = ${JSON.stringify(stagesBriefed(EDITED_BRIEF))}::jsonb WHERE "id" = ${SET_UP_RUN_ENVIRONMENT_PIPELINE}`,
       );
