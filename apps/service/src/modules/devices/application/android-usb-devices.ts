@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import type { ConnectedDevice } from "../domain/connected-device.js";
-import { ADB_MISSING, AdbInRunEnvironment } from "./adb-in-run-environment.js";
+import { ADB_MISSING, AdbInRunEnvironment, type AdbPlace } from "./adb-in-run-environment.js";
 
 /** How long after adb dropped its connection it connects again. */
 export const ADB_RECONNECT_DELAY_MS = 2_000;
@@ -30,12 +30,13 @@ export class AndroidUsbDevices {
 
   /** The helper is ready at the endpoint: answers why the phone can't be used, or nothing. */
   async helperReady(device: ConnectedAndroidPhone): Promise<string | undefined> {
-    const check = await this.adb.ensureAdb(device.taskId);
+    const place = this.placeOf(device);
+    const check = await this.adb.ensureAdb(place);
     if (check === "missing") return ADB_MISSING;
     if (check === "not-running") return undefined;
-    const problem = await this.adb.writeKey(device.taskId, device.projectId);
+    const problem = await this.adb.writeKey(place);
     if (problem !== undefined) return problem;
-    await this.adb.connect(device.taskId, device.endpoint);
+    await this.adb.connect(place, device.endpoint);
     return undefined;
   }
 
@@ -58,7 +59,7 @@ export class AndroidUsbDevices {
       async () => {
         const kept = await current(device.id);
         if (kept?.state !== "connected" || kept.endpoint !== device.endpoint) return;
-        await this.adb.connect(device.taskId, device.endpoint);
+        await this.adb.connect(this.placeOf(device), device.endpoint);
       },
     );
   }
@@ -66,11 +67,15 @@ export class AndroidUsbDevices {
   /** The device was disconnected: adb forgets its serial, best effort. */
   async disconnected(device: ConnectedAndroidPhone): Promise<void> {
     this.reconnectedAt.delete(device.id);
-    await this.adb.disconnect(device.taskId, device.endpoint).catch((error: unknown) => {
+    await this.adb.disconnect(this.placeOf(device), device.endpoint).catch((error: unknown) => {
       this.logger.warn(
         `adb disconnect ${device.endpoint} in the Task ${device.taskId} failed.`,
         error,
       );
     });
+  }
+
+  private placeOf(device: ConnectedAndroidPhone): AdbPlace {
+    return this.adb.inTask(device.taskId, device.projectId);
   }
 }

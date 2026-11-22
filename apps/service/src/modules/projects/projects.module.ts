@@ -54,6 +54,7 @@ import { CodeHosts } from "./application/code-hosts.js";
 import { ManualWorkflows } from "./application/manual-workflows.js";
 import { ProjectFeatures } from "./application/project-features.js";
 import { ProjectRecords } from "./application/project-records.js";
+import { ProjectDeviceLines } from "./application/project-device-lines.js";
 import { CommittedFiles } from "./application/committed-files.js";
 import { EngineLevelsChecks } from "./application/engine-levels-checks.js";
 import { RunEnvironmentSetUpRegistry } from "./application/run-environment-set-up-registry.js";
@@ -61,6 +62,7 @@ import { DevcontainerServices } from "./application/devcontainer-services.js";
 import { TestTargets } from "./application/test-targets.js";
 import { ProjectActions } from "./application/project-actions.js";
 import { TestInstanceCheckouts } from "./application/test-instance-checkouts.js";
+import { PairingDefinitionExports } from "./application/pairing-definition-exports.js";
 import { TestTargetRepository } from "./ports/test-target-repository.js";
 import { ActionRepository } from "./ports/action-repository.js";
 import { TaskCommandRunner } from "./application/task-command-runner.js";
@@ -194,6 +196,7 @@ export class ProjectsModule implements NestModule {
         TestTargets,
         ProjectActions,
         TestInstanceCheckouts,
+        PairingDefinitionExports,
         LocalRepositories,
         RepositoriesByUrl,
         ProjectService,
@@ -229,6 +232,7 @@ export class ProjectsModule implements NestModule {
         ProjectOfficeTools,
         ProjectOfficeActions,
         ProjectRecords,
+        ProjectDeviceLines,
         PullRequestRecords,
       ],
       exports: [
@@ -242,7 +246,9 @@ export class ProjectsModule implements NestModule {
         TestTargets,
         ProjectActions,
         TestInstanceCheckouts,
+        PairingDefinitionExports,
         ProjectRecords,
+        ProjectDeviceLines,
         ProjectService,
         ProjectFeatures,
         ProjectsFromRepositories,

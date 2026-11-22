@@ -43,6 +43,15 @@ export class RunEnvironmentFolders {
     return join(this.testInstances, testInstanceId);
   }
 
+  /** Each pairing environment's files: the compose file The Office puts over the definition's. */
+  get pairings(): string {
+    return join(this.root, "pairings");
+  }
+
+  pairingFolder(deviceId: string): string {
+    return join(this.pairings, deviceId);
+  }
+
   /** Where a Project command's output goes while it runs, read back once it ends. */
   get commandOutputs(): string {
     return join(this.root, "command-outputs");

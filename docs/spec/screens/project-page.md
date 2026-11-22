@@ -23,7 +23,7 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
   - **Server values**: `/projects/$projectId/server-values`.
   - **Features**: `/projects/$projectId/features`.
   - **Appearance**: `/projects/$projectId/appearance`.
-- A switched-off feature's tab (GitHub issues, Run environment, Test targets, Actions) is gone from the tabs; its address shows a note ([Features](#features)).
+- A switched-off feature's tab (GitHub issues, Run environment, Devices, Test targets, Actions) is gone from the tabs; its address shows a note ([Features](#features)).
 - An unknown Project says so at every section's address ([States](#states)).
 
 ## Layout
@@ -352,12 +352,12 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
   - its name, and a badge for its kind (**Android phone over USB**, **Serial board over USB**, **Android phone over wireless debugging**);
   - its state: at rest **Paired** (success), **Didn't answer** (warning), **Not paired** (warning) or **Over USB** (neutral), or **In use** (info) with "by <holder>", the Task, the Action run or the test instance linked;
   - for a phone over wireless debugging, `<address>:<Port>` in monospace;
-  - its last use: "Last used by <the run or Task> · <when> · <how it ended>", or "Not used yet";
+  - its last use: "Last used by <the run or Task> · <when> · <how it ended>" (given back, tab closed, Task ended, device unplugged, Run environment turned Off, Connected devices switched off, error), or "Not used yet";
   - a pencil ("Rename <name>"), for a phone over wireless debugging **Change Port** and **Pair again**, and a trash ("Remove <name>").
 - **Didn't answer** adds the line "Turning wireless debugging off and on changes its Port: change it here, or pair it again."
 - **Rename** edits the name in place, at most 60 characters; **Save** and **Cancel**; toast "<name> renamed."
-- **Change Port** opens a small window with **Port** (hint "The number after the colon on the phone's Wireless debugging screen.") and the note "No pairing needed: the phone trusts <Project>'s key until office@<project> is removed from its paired devices."; **Save**; toast "<name>'s Port saved."
-- The trash is disabled while the device is in use, saying "In use by <holder>: remove it once it is let go of."; a remove asks nothing else; toast "<name> removed from <Project>'s devices. The phone keeps trusting <Project>'s key until you remove it there."
+- **Change Port** opens a small window, "Change <name>'s Port", with **Port** (hint "The number after the colon on the phone's Wireless debugging screen.") and the note "No pairing needed: the phone trusts <Project>'s key until office@<project> is removed from its paired devices."; **Save**; toast "<name>'s Port saved."
+- The trash is disabled while the device is in use, saying "In use by <holder>: remove it once it is let go of."; a remove asks nothing else; toast "<name> removed from <Project>'s devices. The phone keeps trusting <Project>'s key until you remove it there.", a device over USB's without its second sentence.
 - A refusal shows under the card as the service words it (**The device wasn't saved**).
 - It follows `project-device.changed`.
 - Rules: [2.13](../2.13-connected-devices.md#a-projects-device), [2.13](../2.13-connected-devices.md#removing-a-project-device).
@@ -580,7 +580,7 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
 ## Features
 
 - One row per feature, each with a switch and a one-line hint, saved at once ([Feature switches](../2.1.1-projects.md#feature-switches)):
-  - **Connected devices**, hint "Devices connected to a Task's run environment.";
+  - **Connected devices**, hint "Devices connected to a Task or kept for the Project.";
   - **Test targets**, hint "What can be launched on an Initiative's branch to try the work.";
   - **GitHub issues**, hint "Import issues as Tasks and write back to them.";
   - **Run environment**, hint "Checks run in the containers .devcontainer/ defines."; it shows and writes the Project's Run environment setting ([Run environment](#run-environment)), "Not decided" showing as off;
@@ -588,8 +588,9 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
 - A switch whose needed feature is off is disabled, saying "Needs Run environment".
 - Turning one off turns off the features that need it; a refused change shows the service's reasons under the block.
 - The tab sits before Appearance.
-- A switched-off feature's tab (GitHub issues, Run environment, Test targets, Actions) is gone from the tabs; Run environment's only while it is Off, so Not decided yet still shows its tab.
-  - Its address shows a note, "GitHub issues are switched off for <name>.", "Run environment is switched off for <name>.", "Test targets are switched off for <name>." or "Actions are switched off for <name>.", with a link to Features; it doesn't redirect.
+- A switched-off feature's tab (GitHub issues, Run environment, Devices, Test targets, Actions) is gone from the tabs; Run environment's only while it is Off, so Not decided yet still shows its tab.
+  - Devices' tab is gone only while Run environment is On and Connected devices are switched off; while Run environment isn't On the section shows, saying it needs Run environment On ([Devices](#devices)).
+  - Its address shows a note, "GitHub issues are switched off for <name>.", "Run environment is switched off for <name>.", "Connected devices are switched off for <name>.", "Test targets are switched off for <name>." or "Actions are switched off for <name>.", with a link to Features; it doesn't redirect.
 
 ## Appearance
 

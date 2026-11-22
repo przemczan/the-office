@@ -10,6 +10,7 @@ import type { TestTargetRepository } from "../ports/test-target-repository.js";
 import type { BaseCheckouts } from "./base-checkouts.js";
 import type { EnvironmentChecks } from "./environment-checks.js";
 import type { ProjectService } from "./project-service.js";
+import { ProjectDeviceLines, type ProjectDeviceLine } from "./project-device-lines.js";
 import { ProjectRecords } from "./project-records.js";
 
 interface Surroundings {
@@ -17,6 +18,7 @@ interface Surroundings {
   readonly serverValues?: Readonly<Record<string, readonly ProjectMcpServerValues[]>>;
   readonly testTargets?: Readonly<Record<string, readonly TestTarget[]>>;
   readonly actions?: Readonly<Record<string, readonly Action[]>>;
+  readonly devices?: Readonly<Record<string, readonly ProjectDeviceLine[]>>;
 }
 
 function recordsOver(projects: Project[], surroundings: Surroundings = {}): ProjectRecords {
@@ -47,6 +49,8 @@ function recordsOver(projects: Project[], surroundings: Surroundings = {}): Proj
   const actions: Pick<ActionRepository, "listOf"> = {
     listOf: (id) => Promise.resolve(surroundings.actions?.[id] ?? []),
   };
+  const devices = new ProjectDeviceLines();
+  devices.register((id) => Promise.resolve(surroundings.devices?.[id] ?? []));
   return new ProjectRecords(
     service as ProjectService,
     bases as BaseCheckouts,
@@ -54,6 +58,7 @@ function recordsOver(projects: Project[], surroundings: Surroundings = {}): Proj
     serverValues as ProjectServerValues,
     testTargets as TestTargetRepository,
     actions as ActionRepository,
+    devices,
   );
 }
 
@@ -109,6 +114,7 @@ describe("ProjectRecords.of", () => {
         "- Server values: none",
         "- Test targets: none",
         "- Actions: none",
+        "- Devices: none",
       ].join("\n"),
     );
   });
@@ -243,7 +249,7 @@ describe("ProjectRecords.of", () => {
     const record = (await records.of("admin-panel")) ?? "";
 
     expect(record).not.toContain("api-s3cret");
-    expect(record.split("\n").slice(-4, -1)).toEqual([
+    expect(record.split("\n").slice(-5, -2)).toEqual([
       "- Test targets:",
       "  - web (Web app, Hosted): script start of package.json; port 3000 in `WEB_PORT`; variables `MODE=test`; Secret variables (values never shown) API_KEY (value set), MAPS_KEY (no value); commands before the entry point build, seed; memory per service 2 GB; set by: name the user Ann, kind a Proposal by Dana (devops), entry point a Proposal by Dana (devops), port the user Ann, variables a Proposal by Dana (devops), Secret variables unknown, commands before the entry point a Proposal by Dana (devops), port variable unknown, memory per service the user Ann",
       "  - android (Android, Build to install): Gradle task assembleDebug; output files app/build/outputs/apk/debug/*.apk; variables none; Secret variables (values never shown) none; commands before the entry point none; memory per service the Office-wide value; set by: name unknown, kind unknown, entry point unknown, output files unknown, variables unknown, Secret variables unknown, commands before the entry point unknown, memory per service unknown",
@@ -290,11 +296,49 @@ describe("ProjectRecords.of", () => {
 
     const record = (await records.of("admin-panel")) ?? "";
 
-    expect(record.split("\n").slice(-4)).toEqual([
+    expect(record.split("\n").slice(-5, -1)).toEqual([
       "- Actions:",
       "  - build-web (Build web, Project command): command build; commands before it install; time limit the default 60 minutes; stays on the workstation; set by: name the user Ann, kind the user Ann, settings the user Ann, leaves the workstation the user Ann",
       "  - phone (Install on my phone, Test target): test target android; stays on the workstation; set by: name unknown, kind unknown, settings unknown, leaves the workstation unknown",
       "  - release (Release, Workflow): Workflow release.yml; inputs `channel=stable`; leaves the workstation; set by: name a Proposal by Dana (devops), kind a Proposal by Dana (devops), settings a Proposal by Dana (devops), leaves the workstation a Proposal by Dana (devops)",
+    ]);
+  });
+
+  it("lists each device by id, name, kind and state, never its address", async () => {
+    const records = recordsOver([aProject()], {
+      devices: {
+        "admin-panel": [
+          {
+            id: "device-1",
+            kind: "Android phone over wireless debugging",
+            name: "Pixel 9",
+            state: "In use by Install on the phone",
+          },
+          { id: "device-2", kind: "Serial board over USB", name: "Arduino Uno", state: "Over USB" },
+        ],
+      },
+    });
+
+    const record = (await records.of("admin-panel")) ?? "";
+
+    expect(record.split("\n").slice(-3)).toEqual([
+      "- Devices:",
+      "  - device-1 (Pixel 9, Android phone over wireless debugging): In use by Install on the phone",
+      "  - device-2 (Arduino Uno, Serial board over USB): Over USB",
+    ]);
+  });
+
+  it("leaves out a device lister that fails, logging it", async () => {
+    const lines = new ProjectDeviceLines();
+    lines.register(() => Promise.reject(new Error("The database is down.")));
+    lines.register(() =>
+      Promise.resolve([
+        { id: "device-1", kind: "Serial board over USB", name: "Uno", state: "Over USB" },
+      ]),
+    );
+
+    expect(await lines.of("admin-panel")).toEqual([
+      { id: "device-1", kind: "Serial board over USB", name: "Uno", state: "Over USB" },
     ]);
   });
 

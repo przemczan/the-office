@@ -68,6 +68,7 @@ export function deviceResponse(device: ConnectedDevice): ConnectedDeviceResponse
   return {
     id: device.id,
     taskId: device.taskId,
+    projectDeviceId: device.projectDeviceId,
     kind: device.kind,
     name: device.name,
     state: device.state,

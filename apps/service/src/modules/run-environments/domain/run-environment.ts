@@ -149,6 +149,8 @@ export const LABEL = {
   testInstance: "office.test-instance",
   /** A Project's build cache volume, which Build to install Test instances share. */
   buildCache: "office.build-cache",
+  /** A pairing environment's compose project, by the Project device's id. */
+  pairing: "office.pairing",
 } as const;
 
 export type Labels = Readonly<Record<string, string>>;
@@ -442,6 +444,60 @@ export function buildOverrideOf(
   };
 }
 
+/** The labels of what a pairing environment holds; the Project device's id is enough to find it. */
+export function pairingLabels(instance: string, deviceId: string): Labels {
+  return { ...officeLabels(instance), [LABEL.pairing]: deviceId };
+}
+
+/**
+ * The compose project of a pairing environment (spec §5.5, "A pairing environment"), unique to the
+ * Office and the Project device, and never a Task's or a Test instance's, whose ids carry no
+ * `pairing-`.
+ */
+export function pairingProjectNameOf(instance: string, deviceId: string): string {
+  return composeProjectNameOf(instance, `pairing-${deviceId}`);
+}
+
+/** What a pairing environment's override is made of, beside the definition, image and limits. */
+export interface PairingRun {
+  readonly deviceId: string;
+  readonly projectId: string;
+  /** `<office-data>/device-helper/`, mounted read-only at DEVICE_HELPER_MOUNT. */
+  readonly deviceHelperFolder: string;
+}
+
+/**
+ * The compose file The Office puts over the base branch's definition for a pairing environment
+ * (spec §5.5, "A pairing environment"): the devcontainer's service on the image, with the device
+ * helper's folder alone mounted from the host, read-only, no checkout and no port; the labels on
+ * every service, network and volume, and the limits on every service.
+ */
+export function pairingOverrideOf(
+  definition: RunEnvironmentDefinition,
+  run: PairingRun,
+  image: string,
+  instance: string,
+  limits: RunEnvironmentLimits,
+  hostCores: number,
+): Record<string, unknown> {
+  const labels = { ...pairingLabels(instance, run.deviceId), [LABEL.project]: run.projectId };
+  const services = Object.fromEntries(
+    definition.services.map((service) => [
+      service,
+      {
+        labels,
+        ...serviceLimitsOf(limits, hostCores, service === definition.service),
+        ...(service === definition.service
+          ? devcontainerServiceOverride(definition, undefined, image, [
+              deviceHelperMount(run.deviceHelperFolder),
+            ])
+          : {}),
+      },
+    ]),
+  );
+  return { services, ...networksAndVolumesOf(definition, labels) };
+}
+
 function variableNameProblems(names: readonly string[]): string[] {
   return names.flatMap((name) =>
     VARIABLE_NAME.test(name)
@@ -592,9 +648,16 @@ function checksServiceOverride(
         [bindMount(task.repositoryGitFolder, true)]),
     // Read-only: The Office writes the file, condition commands only read it.
     bindMount(task.stageRunsFolder, true),
-    // Read-only, and no port published for it: only the service runs it (spec §2.13, "The relay").
-    { ...bindMount(deviceHelperFolder, true), target: DEVICE_HELPER_MOUNT },
+    deviceHelperMount(deviceHelperFolder),
   ]);
+}
+
+/**
+ * The device helper's folder at DEVICE_HELPER_MOUNT: read-only, and no port published for it, as
+ * only the service runs it (spec §2.13, "The relay").
+ */
+function deviceHelperMount(deviceHelperFolder: string): Record<string, unknown> {
+  return { ...bindMount(deviceHelperFolder, true), target: DEVICE_HELPER_MOUNT };
 }
 
 /**
@@ -603,10 +666,13 @@ function checksServiceOverride(
  */
 export const DEVICE_HELPER_MOUNT = "/office-device-helper";
 
-/** The devcontainer's service on the Project's image, with its mounts, working in `folder`. */
+/**
+ * The devcontainer's service on the Project's image, with its mounts, working in `folder`; in the
+ * image's own working folder when there is none, as a pairing environment mounts no checkout.
+ */
 function devcontainerServiceOverride(
   definition: RunEnvironmentDefinition,
-  folder: string,
+  folder: string | undefined,
   image: string,
   volumes: readonly Record<string, unknown>[],
 ): Record<string, unknown> {
@@ -615,7 +681,7 @@ function devcontainerServiceOverride(
     // Built by The Office before the run environment starts; never pulled or built by compose.
     pull_policy: "never",
     volumes,
-    working_dir: composeLiteral(folder),
+    ...(folder === undefined ? {} : { working_dir: composeLiteral(folder) }),
     ...(definition.overrideCommand
       ? {
           entrypoint: ["/bin/sh", "-c"],

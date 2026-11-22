@@ -104,6 +104,7 @@ const SECTIONS = [
   { name: "Pipelines", address: "/pipelines", blocks: ["Default Pipeline"] },
   { name: "GitHub issues", address: "/issues", blocks: ["GitHub issues"] },
   { name: "Run environment", address: "/run-environment", blocks: ["Run environment"] },
+  { name: "Devices", address: "/devices", blocks: ["Devices"] },
   { name: "Test targets", address: "/test-targets", blocks: ["Test targets", "Test instances"] },
   { name: "Actions", address: "/actions", blocks: [] },
   { name: "Engine", address: "/engine", blocks: ["Engine"] },
@@ -114,7 +115,7 @@ const SECTIONS = [
 ];
 
 const ANY_BLOCK =
-  /^(Onboarding|Initiatives|Ideas|CI|Pull requests|Environment|Remote sign-in|Recent activity|Environment variables|Environment check|Work|Commands|Default Pipeline|GitHub issues|Run environment|Test targets|Test instances|Engine|Skills in the repository.*|Server values|Features|How it looks|Mark|Images)$/;
+  /^(Onboarding|Initiatives|Ideas|CI|Pull requests|Environment|Remote sign-in|Recent activity|Environment variables|Environment check|Work|Commands|Default Pipeline|GitHub issues|Run environment|Devices|Test targets|Test instances|Engine|Skills in the repository.*|Server values|Features|How it looks|Mark|Images)$/;
 
 let repository: TemporaryRepository;
 
@@ -2188,6 +2189,84 @@ test(
     }
   },
 );
+
+/** A base branch a pairing environment starts from: a valid `.devcontainer/` alone. */
+const PAIRING_DEFINITION = {
+  ".devcontainer/devcontainer.json":
+    '{ "dockerComposeFile": "compose.yaml", "service": "app", "overrideCommand": true }',
+  ".devcontainer/compose.yaml": "services:\n  app:\n    image: node:22\n",
+};
+
+// The e2e service's scripted runtime answers adb as a phone that pairs and is a Pixel 9
+// (`ScriptedAdb`, in apps/service/src/e2e.ts); the Task's run environment never runs, so the lent
+// phone waits for it and goes back Paired.
+test("a phone paired on the Project's Devices is lent to a Task, given back and Paired again", async ({
+  page,
+}) => {
+  const withDefinition = await createTemporaryRepository();
+  try {
+    await commitFiles(withDefinition, PAIRING_DEFINITION);
+    const project = await addedProject(
+      page,
+      `Paired phones ${Date.now()}`,
+      undefined,
+      withDefinition.path,
+    );
+    const on = await page.request.put(`/api/projects/${project.id}/run-environment`, {
+      data: { runEnvironment: "on" },
+    });
+    expect(on.status(), await on.text()).toBe(200);
+    const switched = await page.request.put(`/api/projects/${project.id}/features`, {
+      data: { features: { "connected-devices": true } },
+    });
+    expect(switched.status(), await switched.text()).toBe(200);
+    const created = await page.request.post("/api/tasks", {
+      data: { title: "Try the shop on a phone", projectId: project.id, priority: "normal" },
+    });
+    expect(created.status()).toBe(201);
+    const task = taskSchema.parse(await created.json());
+
+    await page.goto(`/projects/${project.id}/devices`);
+    await page.getByRole("button", { name: "Add a device" }).click();
+    await page
+      .getByRole("menu")
+      .getByRole("button", { name: "Phone over wireless debugging" })
+      .click();
+    const window = page.getByRole("dialog", { name: "Add a phone over wireless debugging" });
+    await window.getByLabel("IP address").fill("192.168.1.20");
+    await window.getByLabel("Port", { exact: true }).fill("37000");
+    await window.getByLabel("Pairing port").fill("37001");
+    await window.getByLabel("Pairing code").fill("123456");
+    await window.getByRole("button", { name: "Pair" }).click();
+    await expect(page.getByText(`Pixel 9 paired with ${project.name}.`)).toBeVisible();
+    await expect(window).toBeHidden();
+    const projectDevices = page.getByRole("list", { name: `${project.name}'s devices` });
+    const phone = projectDevices.getByRole("listitem", { name: "Pixel 9" });
+    await expect(phone).toContainText("Paired");
+    await expect(phone).toContainText("Not used yet");
+
+    await page.goto(`/tasks/${task.id}`);
+    await page.getByRole("button", { name: "Use a Project device" }).click();
+    await page
+      .getByRole("menu")
+      .getByRole("button", { name: /^Pixel 9/ })
+      .click();
+    await expect(page.getByText("Pixel 9 connected.")).toBeVisible();
+    const lent = page
+      .getByRole("list", { name: "Devices connected" })
+      .getByRole("listitem", { name: "Pixel 9" });
+    await expect(lent.getByRole("link", { name: `From ${project.name}'s devices` })).toBeVisible();
+    await lent.getByRole("button", { name: "Disconnect" }).click();
+    await expect(page.getByText(`Pixel 9 given back to ${project.name}'s devices.`)).toBeVisible();
+
+    await page.goto(`/projects/${project.id}/devices`);
+    await expect(phone).toContainText("Paired");
+    await expect(phone).toContainText(`Last used by ${task.title} · `);
+    await expect(phone).toContainText("given back");
+  } finally {
+    await withDefinition.remove();
+  }
+});
 
 test("on a wide page the Projects list sits beside the open Project, and switches it", async ({
   page,

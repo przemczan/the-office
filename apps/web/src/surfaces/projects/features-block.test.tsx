@@ -136,6 +136,9 @@ describe("the Features tab", () => {
     expect(shownText(rowOf(page, "Actions"))).toContain(
       "Things to run on demand, outside the Task queue.",
     );
+    expect(shownText(rowOf(page, "Connected devices"))).toContain(
+      "Devices connected to a Task or kept for the Project.",
+    );
     expect(switchOf(page, "Actions").getAttribute("aria-checked")).toBe("true");
     expect(shownText(rowOf(page, "Test targets"))).toContain(
       "What can be launched on an Initiative's branch to try the work.",

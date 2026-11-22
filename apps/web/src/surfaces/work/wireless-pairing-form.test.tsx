@@ -11,14 +11,10 @@ import {
   until,
   type Answers,
 } from "../../shell/page.fixtures.tsx";
+import { PAIR_WIRELESS_ERRORS } from "../../shell/devices/device-words.ts";
 import { BY_ANN } from "../../shell/user.fixtures.ts";
-import {
-  disconnectedWhy,
-  PAIR_WIRELESS_ERRORS,
-  PAIRING_STARTS_RUN_ENVIRONMENT,
-} from "./device-words.ts";
+import { disconnectedWhy, PAIRING_STARTS_RUN_ENVIRONMENT } from "./device-words.ts";
 import { DevicesBlock } from "./devices-block.tsx";
-import { wirelessPairingOf } from "./wireless-pairing-form.tsx";
 
 const TASK: Task = {
   id: "00000000-0000-4000-8000-000000000031",
@@ -111,6 +107,7 @@ const PROJECT: Project = {
 const PAIRED: ConnectedDevice = {
   id: "00000000-0000-4000-8000-0000000000e1",
   taskId: TASK.id,
+  projectDeviceId: null,
   kind: "android-wireless",
   name: "192.168.1.20:37099",
   state: "connecting",
@@ -278,34 +275,6 @@ describe("pairing a phone over wireless debugging", () => {
     expect(document.body.querySelector('a[href="/tasks/other-task"]')?.textContent).toBe(
       "Flash the bootloader",
     );
-  });
-});
-
-describe("the pairing the fields make", () => {
-  it("takes ports from 1 to 65535, an IPv6 address and a code with a space in it", () => {
-    expect(
-      wirelessPairingOf({
-        address: " fd00::20 ",
-        port: "1",
-        pairingPort: "65535",
-        pairingCode: "482 913",
-      }),
-    ).toEqual({
-      pairing: { address: "fd00::20", port: 1, pairingPort: 65_535, pairingCode: "482913" },
-    });
-    expect(
-      wirelessPairingOf({
-        address: "10.0.0.2",
-        port: "0",
-        pairingPort: "5",
-        pairingCode: "1234567",
-      }),
-    ).toEqual({
-      errors: {
-        port: PAIR_WIRELESS_ERRORS.badPort,
-        pairingCode: PAIR_WIRELESS_ERRORS.badPairingCode,
-      },
-    });
   });
 });
 

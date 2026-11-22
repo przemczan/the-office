@@ -73,14 +73,14 @@ export class TestInstanceCheckouts {
     const commit = await this.git
       .exclusively(project.path, () => this.taskBases.freshBranchTip(project, branch, variables))
       .catch((error: unknown) => {
-        throw refusal(error, `Fetching ${branch} of ${project.name} failed.`);
+        throw branchRefusal(error, `Fetching ${branch} of ${project.name} failed.`);
       });
     await this.remove(folder);
     try {
       await this.git.exportCommit(project.path, commit, folder, variables);
     } catch (error) {
       await this.remove(folder);
-      throw refusal(error, `Checking out ${branch} of ${project.name} at ${commit} failed.`);
+      throw branchRefusal(error, `Checking out ${branch} of ${project.name} at ${commit} failed.`);
     }
     return { commit };
   }
@@ -157,7 +157,7 @@ export class TestInstanceCheckouts {
 }
 
 /** git's failure or an unusable branch as a refusal in `words`; anything else stays as it is. */
-function refusal(error: unknown, words: string): unknown {
+export function branchRefusal(error: unknown, words: string): unknown {
   if (error instanceof ExistingBranchUnusable) return new ProjectRefused([error.message]);
   if (error instanceof GitCommandFailed) {
     return new ProjectRefused([`${words} git said: ${error.detail}`]);

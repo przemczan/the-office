@@ -49,6 +49,8 @@ export interface ConnectedDevice {
   readonly taskId: string;
   /** The Task's Project, whose Run environment setting it needs On. */
   readonly projectId: string;
+  /** The Project device it was lent from (spec §2.13, "Lent to a Task"); null for one the Task connected itself. */
+  readonly projectDeviceId: string | null;
   readonly kind: ConnectedDeviceKind;
   /** As the device reports it. */
   readonly name: string;
@@ -139,6 +141,8 @@ export interface NewConnectedDevice {
   readonly id: string;
   readonly taskId: string;
   readonly projectId: string;
+  /** The Project device lent to the Task, when it is one. */
+  readonly projectDeviceId?: string;
   readonly kind: ConnectedDeviceKind;
   readonly name: string;
   readonly deviceKey: string;
@@ -153,6 +157,7 @@ export function connectingDevice(given: NewConnectedDevice): {
 } {
   const device: ConnectedDevice = {
     ...given,
+    projectDeviceId: given.projectDeviceId ?? null,
     state: "connecting",
     disconnectedBecause: null,
     disconnectedBy: null,
@@ -165,6 +170,28 @@ export function connectingDevice(given: NewConnectedDevice): {
     disconnectedAt: null,
   };
   return { device, event: changed(device) };
+}
+
+/**
+ * A Project device lent to the Task (spec §2.13, "Lent to a Task"), with no pairing: a device over
+ * USB Connecting until the browser's relay and helper are up; a phone over wireless debugging
+ * Waiting for the run environment at its adb serial `<address>:<port>`, which its start, or a
+ * reconnect at once while it runs, connects to with the Project's adb key.
+ */
+export function lentDevice(
+  given: NewConnectedDevice & { readonly projectDeviceId: string },
+  wirelessEndpoint: string | null,
+): { readonly device: ConnectedDevice; readonly event: ConnectedDeviceChanged } {
+  const { device } = connectingDevice(given);
+  if (device.kind !== "android-wireless" || wirelessEndpoint === null) {
+    return { device, event: changed(device) };
+  }
+  const waiting: ConnectedDevice = {
+    ...device,
+    state: "waiting-for-run-environment",
+    endpoint: wirelessEndpoint,
+  };
+  return { device: waiting, event: changed(waiting) };
 }
 
 export function isOpen(device: ConnectedDevice): boolean {
@@ -403,5 +430,5 @@ function withChange(device: ConnectedDevice): ConnectedDeviceChange {
 }
 
 function changed(device: ConnectedDevice): ConnectedDeviceChanged {
-  return new ConnectedDeviceChanged(device.taskId, device.id);
+  return new ConnectedDeviceChanged(device.taskId, device.id, device.projectDeviceId, device.state);
 }

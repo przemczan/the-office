@@ -10,15 +10,33 @@ import {
   connectedDeviceSchema,
   connectedDeviceWebEventSchema,
   disconnectDevicePath,
+  projectDeviceListSchema,
+  projectDevicePairPath,
+  projectDevicePath,
+  projectDeviceSchema,
+  projectDevicesPath,
+  projectDeviceWebEventSchema,
   taskDevicesPath,
+  taskLendDevicePath,
   taskWirelessDevicesPath,
+  type AddProjectDevice,
+  type ChangeProjectDevice,
   type ConnectDevice,
   type ConnectDeviceRefusal,
   type ConnectedDevice,
   type ConnectedDeviceWebEvent,
+  type PairProjectDevice,
   type PairWirelessDevice,
+  type ProjectDevice,
+  type ProjectDeviceWebEvent,
 } from "@the-office/contracts";
-import { getFromApi, RefusedAs, sendToApi, sendToApiRefusedAs } from "./api-client.ts";
+import {
+  deleteFromApi,
+  getFromApi,
+  RefusedAs,
+  sendToApi,
+  sendToApiRefusedAs,
+} from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 
 const DEVICES = ["devices"] as const;
@@ -31,7 +49,76 @@ export const deviceQueries = {
       queryFn: ({ signal }) =>
         getFromApi(apiPathOf(taskDevicesPath(taskId)), connectedDeviceListSchema, signal),
     }),
+  /**
+   * The Project's devices in the order added (spec 2.13, "A Project's device"), under the devices'
+   * key, apart from the Projects', so only `project-device.changed` reads them again.
+   */
+  ofProject: (projectId: string) =>
+    queryOptions({
+      queryKey: [...DEVICES, "project", projectId],
+      queryFn: ({ signal }) =>
+        getFromApi(apiPathOf(projectDevicesPath(projectId)), projectDeviceListSchema, signal),
+    }),
 };
+
+/**
+ * Adds a device to the Project: one over USB by the device key the browser reached, or a phone
+ * over wireless debugging, added Not paired and paired in the background, its `pairingStep`
+ * followed through `project-device.changed`. Refused in the service's words (`ApiError.reasons`).
+ */
+export function addProjectDevice(
+  projectId: string,
+  device: AddProjectDevice,
+): Promise<ProjectDevice> {
+  return sendToApi("POST", apiPathOf(projectDevicesPath(projectId)), device, projectDeviceSchema);
+}
+
+/** Renames a Project device, or gives a phone over wireless debugging its new Port. */
+export function changeProjectDevice(
+  projectDeviceId: string,
+  change: ChangeProjectDevice,
+): Promise<ProjectDevice> {
+  return sendToApi(
+    "PATCH",
+    apiPathOf(projectDevicePath(projectDeviceId)),
+    change,
+    projectDeviceSchema,
+  );
+}
+
+/** Pairs a phone over wireless debugging again; it answers the device, its pairing started. */
+export function pairProjectDevice(
+  projectDeviceId: string,
+  pairing: PairProjectDevice,
+): Promise<ProjectDevice> {
+  return sendToApi(
+    "POST",
+    apiPathOf(projectDevicePairPath(projectDeviceId)),
+    pairing,
+    projectDeviceSchema,
+  );
+}
+
+/** Forgets a Project device; refused while it is in use, naming the holder. */
+export function removeProjectDevice(projectDeviceId: string): Promise<void> {
+  return deleteFromApi(apiPathOf(projectDevicePath(projectDeviceId)));
+}
+
+/**
+ * Use a Project device: lends it to the Task's run environment with no pairing; it answers the new
+ * Connected device record, Connecting, whose relay the browser opens for a device over USB.
+ */
+export function lendProjectDevice(
+  taskId: string,
+  projectDeviceId: string,
+): Promise<ConnectedDevice> {
+  return sendToApi(
+    "POST",
+    apiPathOf(taskLendDevicePath(taskId)),
+    { projectDeviceId },
+    connectedDeviceSchema,
+  );
+}
 
 /**
  * Connects a device the browser reached to the Task's run environment; it answers the new record,
@@ -118,6 +205,15 @@ export const deviceEventInvalidations: Readonly<
   "connected-device.changed": (event) => {
     const parsed = connectedDeviceWebEventSchema.safeParse(event);
     return parsed.success ? [deviceQueries.ofTask(parsed.data.taskId).queryKey] : [DEVICES];
+  },
+};
+
+export const projectDeviceEventInvalidations: Readonly<
+  Record<ProjectDeviceWebEvent["type"], EventInvalidations[string]>
+> = {
+  "project-device.changed": (event) => {
+    const parsed = projectDeviceWebEventSchema.safeParse(event);
+    return parsed.success ? [deviceQueries.ofProject(parsed.data.projectId).queryKey] : [DEVICES];
   },
 };
 

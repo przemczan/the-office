@@ -2,6 +2,7 @@ import { useSearch } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { AppearanceBlock } from "./appearance-block.tsx";
 import { CommandsBlock } from "./commands-block.tsx";
+import { DevicesBlock } from "./devices-block.tsx";
 import { EngineBlock } from "./engine-block.tsx";
 import { EnvironmentCheckBlock } from "./environment-check-block.tsx";
 import { EnvironmentVariablesBlock } from "./environment-variables-block.tsx";
@@ -36,6 +37,11 @@ export function ProjectIssuesSection(): ReactNode {
 
 export function ProjectRunEnvironmentSection(): ReactNode {
   return <RunEnvironmentBlock project={useOpenProject()} />;
+}
+
+/** The devices kept for the Project, which its Actions and test targets reach. */
+export function ProjectDevicesSection(): ReactNode {
+  return <DevicesBlock project={useOpenProject()} />;
 }
 
 /**

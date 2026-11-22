@@ -50,6 +50,11 @@ import { RunEnvironmentCommandVariables } from "./run-environment-command-variab
 import { RunEnvironmentFolders } from "./run-environment-folders.js";
 import { note, RunEnvironmentImages } from "./run-environment-images.js";
 import { RunEnvironmentSlots } from "./run-environment-slots.js";
+import {
+  attachedIn,
+  refusingOnRuntimeFailure,
+  type RunEnvironmentAttachment,
+} from "./runtime-steps.js";
 import { ServiceOwner } from "./service-owner.js";
 
 /** The name of the compose file The Office puts over the repository's, in the Task's folder. */
@@ -94,18 +99,7 @@ export interface RunEnvironmentCommand extends SlotOptions {
 export const STAGE_RUNS_NOT_MOUNTED =
   "The run environment started before condition commands could read their file; stop and start the Task's run environment.";
 
-/**
- * A program the service runs in a Task's running run environment, its standard input and output
- * The Office's own, as the Office device helper is (spec §2.13, "The relay").
- */
-export interface RunEnvironmentAttachment {
-  /** The program and its arguments, run as they are, never by a shell. */
-  readonly arguments: readonly string[];
-  /** As the container's root instead of the checks' user, as the helper's serial mode runs. */
-  readonly asRoot?: boolean;
-  /** Where its standard error is appended; `attached.log` in the Task's folder unless given. */
-  readonly logFile?: string;
-}
+export type { RunEnvironmentAttachment } from "./runtime-steps.js";
 
 /** How a check ended, and how long it ran, from its start in the service. */
 export interface CommandEnd extends ExecutionEnd {
@@ -241,21 +235,13 @@ export class RunEnvironments implements OnModuleInit {
   ): Promise<AttachedProcess | undefined> {
     const environment = this.running.get(taskId);
     if (environment === undefined) return undefined;
-    const user = attachment.asRoot === true ? ROOT_USER : environment.definition.user;
-    try {
-      return await this.runtime.attach(environment.project, {
-        service: environment.definition.service,
-        ...(user === undefined ? {} : { user }),
-        arguments: attachment.arguments,
-        errorFile: attachment.logFile ?? this.folders.attachedLog(taskId),
-      });
-    } catch (error) {
-      if (!(error instanceof ContainerRuntimeFailed)) throw error;
-      throw new RunEnvironmentRefused([
-        "The program couldn't start in the run environment.",
-        error.message,
-      ]);
-    }
+    return attachedIn(
+      this.runtime,
+      environment.project,
+      environment.definition,
+      attachment,
+      this.folders.attachedLog(taskId),
+    );
   }
 
   /**
@@ -618,12 +604,7 @@ export class RunEnvironments implements OnModuleInit {
     reason: string,
     step: () => Promise<Result>,
   ): Promise<Result> {
-    try {
-      return await step();
-    } catch (error) {
-      if (!(error instanceof ContainerRuntimeFailed)) throw error;
-      throw new RunEnvironmentRefused([reason, error.message], outputFile);
-    }
+    return refusingOnRuntimeFailure(outputFile, reason, step);
   }
 
   private exclusively<Result>(taskId: string, step: () => Promise<Result>): Promise<Result> {

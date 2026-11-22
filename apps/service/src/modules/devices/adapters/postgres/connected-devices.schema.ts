@@ -27,6 +27,8 @@ export const connectedDevices = pgTable(
     id: uuid("id").primaryKey(),
     taskId: uuid("task_id").notNull(),
     projectId: text("project_id").notNull(),
+    /** The Project device it was lent from; its uses stay named here once it is removed. */
+    projectDeviceId: uuid("project_device_id"),
     kind: text("kind").$type<ConnectedDeviceKind>().notNull(),
     name: text("name").notNull(),
     deviceKey: text("device_key").notNull(),

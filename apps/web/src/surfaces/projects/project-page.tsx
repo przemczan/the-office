@@ -39,6 +39,7 @@ const SECTIONS = [
     label: "Run environment",
     feature: "run-environment",
   },
+  { to: "/projects/$projectId/devices", label: "Devices", feature: "connected-devices" },
   { to: "/projects/$projectId/test-targets", label: "Test targets", feature: "test-targets" },
   { to: "/projects/$projectId/actions", label: "Actions", feature: "actions" },
   { to: "/projects/$projectId/engine", label: "Engine" },
@@ -135,6 +136,10 @@ function useOpenSection(projectId: string): Section {
 function switchedOn(project: Project, section: Section): boolean {
   if (!("feature" in section)) return true;
   if (section.feature === "run-environment") return project.runEnvironment !== "off";
+  // Connected devices read off while Run environment isn't On, which the section itself says.
+  if (section.feature === "connected-devices") {
+    return project.runEnvironment !== "on" || project.features["connected-devices"];
+  }
   return project.features[section.feature];
 }
 

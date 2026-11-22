@@ -20,6 +20,7 @@ import {
   type HostedServiceReadinessOptions,
 } from "./hosted-service-readiness.js";
 import { HostedServices } from "./hosted-services.js";
+import { PairingEnvironments } from "./pairing-environments.js";
 import { RunEnvironmentFolders } from "./run-environment-folders.js";
 import { RunEnvironmentImages } from "./run-environment-images.js";
 import { RunEnvironmentSlots } from "./run-environment-slots.js";
@@ -48,6 +49,8 @@ export interface RunEnvironmentsTestbed {
   readonly environments: RunEnvironments;
   /** Hosted Test instances on the same runtime, images, folders and settings. */
   readonly hostedServices: HostedServices;
+  /** Pairing environments on the same runtime, images, folders and settings. */
+  readonly pairingEnvironments: PairingEnvironments;
   readonly folders: RunEnvironmentFolders;
   readonly settings: RunEnvironmentSettingsForTests;
   readonly knownTasks: KnownTasksForTests;
@@ -107,9 +110,17 @@ export async function runEnvironmentsTestbed(
     new HostedServiceReadiness(readiness),
     owner,
   );
+  const pairingEnvironments = new PairingEnvironments(
+    runtime,
+    images,
+    folders,
+    settings,
+    hostCores,
+  );
   return {
     environments,
     hostedServices,
+    pairingEnvironments,
     folders,
     settings,
     knownTasks,

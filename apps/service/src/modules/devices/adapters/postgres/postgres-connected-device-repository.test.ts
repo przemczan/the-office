@@ -96,6 +96,34 @@ describe("PostgresConnectedDeviceRepository", () => {
     expect((await repository.allOpen()).map(({ id }) => id)).toContain(device.id);
   });
 
+  it("keeps the Project device a lent record came from, and finds the open one naming it", async () => {
+    const projectDeviceId = randomUUID();
+    const lent = connectingDevice({
+      id: randomUUID(),
+      taskId: randomUUID(),
+      projectId: "shop",
+      projectDeviceId,
+      kind: "serial-usb",
+      name: "Arduino Uno",
+      deviceKey: `usb:${randomUUID()}`,
+      connectedBy: { userId: "user-ann", name: "Ann Lee" },
+      connectedAt: new Date("2004-01-05T10:00:00Z"),
+    }).device;
+    const own = aDevice(randomUUID(), `usb:${randomUUID()}`, new Date("2004-01-05T10:01:00Z"));
+    await repository.insert(lent);
+    await repository.insert(own);
+
+    expect(await repository.find(lent.id)).toEqual(lent);
+    expect((await repository.find(own.id))?.projectDeviceId).toBeNull();
+    expect(await repository.openOfProjectDevice(projectDeviceId)).toEqual(lent);
+
+    await repository.update(lent.id, (device) =>
+      deviceDisconnected(device, { because: "by-user", at: new Date("2004-01-05T10:05:00Z") }),
+    );
+    expect(await repository.openOfProjectDevice(projectDeviceId)).toBeUndefined();
+    expect((await repository.find(lent.id))?.projectDeviceId).toBe(projectDeviceId);
+  });
+
   it("keeps a serial board's RFC 2217 address, baud rate, round trip and notice", async () => {
     const device = {
       ...aDevice(randomUUID(), `usb:${randomUUID()}`, new Date("2004-01-04T10:00:00Z")),

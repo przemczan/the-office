@@ -115,7 +115,7 @@ describe.skipIf(missing !== undefined)(
     }, REAL_RUNTIME_TEST.timeout);
 
     it("gives the code to adb pair's standard input only, and leaves adb's server running", async () => {
-      expect(await adb.pair(task.taskId, TARGET, CODE)).toBeUndefined();
+      expect(await adb.pair(adb.inTask(task.taskId, task.projectId), TARGET, CODE)).toBeUndefined();
 
       const stdin = await inside(["cat", "/tmp/adb-stdin"]);
       expect(stdin.output).toBe(`${CODE}\n`);

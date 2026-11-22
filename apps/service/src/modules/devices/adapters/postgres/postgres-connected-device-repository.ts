@@ -95,6 +95,16 @@ export class PostgresConnectedDeviceRepository extends ConnectedDeviceRepository
     return rows.map(deviceOf);
   }
 
+  async openOfProjectDevice(projectDeviceId: string): Promise<ConnectedDevice | undefined> {
+    const [row] = await this.database
+      .select()
+      .from(connectedDevices)
+      .where(and(eq(connectedDevices.projectDeviceId, projectDeviceId), OPEN))
+      .orderBy(asc(connectedDevices.connectedAt))
+      .limit(1);
+    return row && deviceOf(row);
+  }
+
   async allOpen(): Promise<readonly ConnectedDevice[]> {
     const rows = await this.database
       .select()
@@ -120,6 +130,7 @@ function rowOf(device: ConnectedDevice): Row {
     id: device.id,
     taskId: device.taskId,
     projectId: device.projectId,
+    projectDeviceId: device.projectDeviceId,
     kind: device.kind,
     name: device.name,
     deviceKey: device.deviceKey,
@@ -143,6 +154,7 @@ function deviceOf(row: Row): ConnectedDevice {
     id: row.id,
     taskId: row.taskId,
     projectId: row.projectId,
+    projectDeviceId: row.projectDeviceId,
     kind: row.kind,
     name: row.name,
     deviceKey: row.deviceKey,

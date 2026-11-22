@@ -93,22 +93,54 @@ export function serialUsbTransport(
         if (isDomError(error, "NotFoundError")) return undefined;
         throw error;
       }
-      // A port picked again while held belongs to another relay: this pick mustn't close it.
-      const openedHere = !heldPorts.has(port);
-      if (openedHere) {
-        try {
-          await port.open(serialOptions(DEFAULT_SERIAL_SETTINGS));
-        } catch (error) {
-          if (isDomError(error, "InvalidStateError") || isDomError(error, "NetworkError")) {
-            throw new Error(SERIAL_PORT_BUSY, { cause: error });
-          }
-          throw error;
-        }
-        heldPorts.add(port);
-      }
-      return requestedBoard(serial, port, openedHere, clock);
+      return openedBoard(serial, port, clock);
+    },
+    remembered: async (deviceKey) => {
+      const port = rememberedPort(await serial.getPorts(), deviceKey);
+      return port === undefined ? undefined : openedBoard(serial, port, clock);
     },
   };
+}
+
+/**
+ * The port of `deviceKey` among those this browser allowed: the same port object in this tab, or
+ * else the one allowed port with its USB ids, since a port's id lives only as long as the tab.
+ */
+function rememberedPort(ports: readonly SerialPort[], deviceKey: string): SerialPort | undefined {
+  const same = ports.find((port) => serialDeviceKey(port) === deviceKey);
+  if (same !== undefined) return same;
+  const ids = serialUsbIdsOfKey(deviceKey);
+  if (ids === undefined || ids === UNKNOWN_USB_IDS) return undefined;
+  const alike = ports.filter((port) => usbIds(port.getInfo()) === ids);
+  return alike.length === 1 ? alike[0] : undefined;
+}
+
+/** The `vvvv:pppp` of a serial board's device key, or undefined for a key of another kind. */
+export function serialUsbIdsOfKey(deviceKey: string): string | undefined {
+  const parts = deviceKey.split(":");
+  if (parts[0] !== "serial" || parts.length < 3) return undefined;
+  return parts.slice(1, -1).join(":");
+}
+
+async function openedBoard(
+  serial: Serial,
+  port: SerialPort,
+  clock: MonotonicClock,
+): Promise<RequestedDevice> {
+  // A port picked again while held belongs to another relay: this pick mustn't close it.
+  const openedHere = !heldPorts.has(port);
+  if (openedHere) {
+    try {
+      await port.open(serialOptions(DEFAULT_SERIAL_SETTINGS));
+    } catch (error) {
+      if (isDomError(error, "InvalidStateError") || isDomError(error, "NetworkError")) {
+        throw new Error(SERIAL_PORT_BUSY, { cause: error });
+      }
+      throw error;
+    }
+    heldPorts.add(port);
+  }
+  return requestedBoard(serial, port, openedHere, clock);
 }
 
 /** Why the relay ends when the board opens neither at the tool's new baud nor at the one it had. */

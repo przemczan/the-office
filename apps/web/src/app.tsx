@@ -7,7 +7,7 @@ import {
   type EventCacheUpdates,
   type EventInvalidations,
 } from "./api/event-stream-provider.tsx";
-import { deviceEventInvalidations } from "./api/devices.ts";
+import { deviceEventInvalidations, projectDeviceEventInvalidations } from "./api/devices.ts";
 import { engineEventInvalidations } from "./api/engine.ts";
 import { gitHubEventInvalidations } from "./api/github.ts";
 import { liveViewEventCacheUpdates } from "./api/live-view.ts";
@@ -45,6 +45,7 @@ const EVENT_INVALIDATIONS: EventInvalidations = {
   ...runEnvironmentEventInvalidations,
   ...testInstanceEventInvalidations,
   ...deviceEventInvalidations,
+  ...projectDeviceEventInvalidations,
   ...engineEventInvalidations,
   ...threadEventInvalidations,
   ...workEventInvalidations,

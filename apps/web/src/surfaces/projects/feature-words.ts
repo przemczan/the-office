@@ -9,7 +9,7 @@ export const FEATURE_ROWS: readonly {
   {
     feature: "connected-devices",
     name: "Connected devices",
-    line: "Devices connected to a Task's run environment.",
+    line: "Devices connected to a Task or kept for the Project.",
   },
   {
     feature: "test-targets",

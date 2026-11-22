@@ -25,6 +25,9 @@ export abstract class ConnectedDeviceRepository {
   /** The devices not Disconnected of every Task of the Project. */
   abstract openOfProject(projectId: string): Promise<readonly ConnectedDevice[]>;
 
+  /** The record not Disconnected lent from the Project device, if one holds it. */
+  abstract openOfProjectDevice(projectDeviceId: string): Promise<ConnectedDevice | undefined>;
+
   /** Every device not Disconnected, for the startup sweep. */
   abstract allOpen(): Promise<readonly ConnectedDevice[]>;
 }

@@ -52,6 +52,8 @@ export const DEVICE_RELAY_PROBLEM_MAX_LENGTH = 500;
 export const connectedDeviceSchema = z.object({
   id: z.uuid(),
   taskId: z.string(),
+  /** The Project device it was lent from (spec 2.13, "Lent to a Task"); null for one the Task connected itself. */
+  projectDeviceId: z.uuid().nullable(),
   kind: connectedDeviceKindSchema,
   /** Its name, as the device reports it. */
   name: z.string(),
@@ -137,6 +139,154 @@ export const connectDeviceRefusalSchema = z.object({
 });
 export type ConnectDeviceRefusal = z.infer<typeof connectDeviceRefusalSchema>;
 
+/** The longest name the user gives a Project device. */
+export const PROJECT_DEVICE_NAME_MAX_LENGTH = 60;
+
+/**
+ * A Project device's state (spec 2.13, "At rest and in use"): at rest `paired`, `didnt-answer`,
+ * `not-paired` or `over-usb`; `in-use` while a Connected device record not Disconnected names it.
+ */
+export const projectDeviceStateSchema = z.enum([
+  "paired",
+  "didnt-answer",
+  "not-paired",
+  "over-usb",
+  "in-use",
+]);
+export type ProjectDeviceState = z.infer<typeof projectDeviceStateSchema>;
+
+/** The states a Project device keeps at rest; `in-use` is worked out, never kept. */
+export const projectDeviceRestStateSchema = projectDeviceStateSchema.exclude(["in-use"]);
+export type ProjectDeviceRestState = z.infer<typeof projectDeviceRestStateSchema>;
+
+/**
+ * What holds a Project device, or last held it: a Task it is lent to. The Install on a device
+ * Task adds an Action run and a test instance.
+ */
+export const projectDeviceHolderSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("task"), taskId: z.string(), title: z.string() }),
+]);
+export type ProjectDeviceHolder = z.infer<typeof projectDeviceHolderSchema>;
+
+/** A Project device's last use: who held it, when it was let go of, and why. */
+export const projectDeviceLastUseSchema = z.object({
+  holder: projectDeviceHolderSchema,
+  endedAt: z.iso.datetime(),
+  endedBecause: disconnectedBecauseSchema,
+});
+export type ProjectDeviceLastUse = z.infer<typeof projectDeviceLastUseSchema>;
+
+/** A pairing's steps as they pass, which the pairing window shows. */
+export const projectDevicePairingStepSchema = z.enum([
+  "starting-environment",
+  "pairing",
+  "reading-model",
+]);
+export type ProjectDevicePairingStep = z.infer<typeof projectDevicePairingStepSchema>;
+
+/** A device kept for a Project between uses (spec 2.13, "A Project's device"). */
+export const projectDeviceSchema = z.object({
+  id: z.uuid(),
+  projectId: z.string(),
+  kind: connectedDeviceKindSchema,
+  /**
+   * Its device key, as the browser or the pairing made it, so a tab lending one over USB opens the
+   * device this browser allowed before without its picker.
+   */
+  deviceKey: z.string(),
+  /** The user's name for it, first the model or the name the browser reports. */
+  name: z.string(),
+  /** A phone over wireless debugging's IP address and Port; null for a device over USB. */
+  address: z.string().nullable(),
+  port: z.number().int().positive().nullable(),
+  state: projectDeviceStateSchema,
+  /** While `in-use`, what holds it; null otherwise. */
+  inUseBy: projectDeviceHolderSchema.nullable(),
+  /** While a pairing runs, the step it is at; null otherwise. */
+  pairingStep: projectDevicePairingStepSchema.nullable(),
+  /** Why the last pairing failed, in the service's or adb's words; null once paired. */
+  pairingProblem: z.string().nullable(),
+  addedBy: userRefSchema,
+  addedAt: z.iso.datetime(),
+  lastUse: projectDeviceLastUseSchema.nullable(),
+});
+export type ProjectDevice = z.infer<typeof projectDeviceSchema>;
+
+/** GET /projects/:id/devices: the Project's devices in the order added. */
+export const projectDeviceListSchema = z.object({ devices: z.array(projectDeviceSchema) });
+export type ProjectDeviceList = z.infer<typeof projectDeviceListSchema>;
+
+/**
+ * POST /projects/:id/devices: add a device over USB the browser reached, by its device key, or a
+ * phone over wireless debugging, which is added Not paired and paired at once in a pairing
+ * environment. It answers the new Project device.
+ */
+export const addProjectDeviceSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.enum(["android-usb", "serial-usb"]),
+    name: z.string().trim().min(1).max(CONNECTED_DEVICE_NAME_MAX_LENGTH),
+    deviceKey: z.string().min(1).max(DEVICE_KEY_MAX_LENGTH),
+  }),
+  pairWirelessDeviceSchema.extend({ kind: z.literal("android-wireless") }),
+]);
+export type AddProjectDevice = z.infer<typeof addProjectDeviceSchema>;
+
+/** PATCH /project-devices/:id: rename it, or give a phone over wireless debugging a new Port. */
+export const changeProjectDeviceSchema = z
+  .object({
+    name: z.string().trim().min(1).max(PROJECT_DEVICE_NAME_MAX_LENGTH).optional(),
+    port: phonePortSchema.optional(),
+  })
+  .refine((change) => change.name !== undefined || change.port !== undefined, {
+    message: "Give a name or a Port.",
+  });
+export type ChangeProjectDevice = z.infer<typeof changeProjectDeviceSchema>;
+
+/**
+ * POST /project-devices/:id/pair: pair a phone over wireless debugging again, its address and
+ * Port as the user gives them. It answers the device, its pairing started.
+ */
+export const pairProjectDeviceSchema = pairWirelessDeviceSchema;
+export type PairProjectDevice = PairWirelessDevice;
+
+/** POST /tasks/:id/devices/lend: Use a Project device; it answers the new Connected device record. */
+export const lendProjectDeviceSchema = z.object({ projectDeviceId: z.uuid() });
+export type LendProjectDevice = z.infer<typeof lendProjectDeviceSchema>;
+
+/**
+ * A refused change to a Project device or a lend: 409 when another environment holds it, naming
+ * the holder in `holder`; 422 otherwise (Run environment not On, Connected devices switched off,
+ * an address the run environment can't reach, a device already among the Project's). Every reason
+ * is also joined into Nest's `message`.
+ */
+export const projectDeviceRefusalSchema = z.object({
+  statusCode: z.union([z.literal(409), z.literal(422)]),
+  message: z.string(),
+  reasons: z.array(z.string()).min(1),
+  holder: projectDeviceHolderSchema.nullable(),
+});
+export type ProjectDeviceRefusal = z.infer<typeof projectDeviceRefusalSchema>;
+
+/** GET and POST under a Project. */
+export function projectDevicesPath(projectId: string): string {
+  return `/projects/${encodeURIComponent(projectId)}/devices`;
+}
+
+/** PATCH and DELETE one Project device. */
+export function projectDevicePath(projectDeviceId: string): string {
+  return `/project-devices/${encodeURIComponent(projectDeviceId)}`;
+}
+
+/** POST: pair a Project device again. */
+export function projectDevicePairPath(projectDeviceId: string): string {
+  return `${projectDevicePath(projectDeviceId)}/pair`;
+}
+
+/** POST under a Task: Use a Project device. */
+export function taskLendDevicePath(taskId: string): string {
+  return `${taskDevicesPath(taskId)}/lend`;
+}
+
 /** GET and POST under a Task. */
 export function taskDevicesPath(taskId: string): string {
   return `/tasks/${encodeURIComponent(taskId)}/devices`;
@@ -202,3 +352,12 @@ export const connectedDeviceWebEventSchema = z.discriminatedUnion("type", [
   }),
 ]);
 export type ConnectedDeviceWebEvent = z.infer<typeof connectedDeviceWebEventSchema>;
+
+/** A Project's devices changed (added, renamed, paired, lent, let go of, removed), so its Devices section reads them again. */
+export const projectDeviceWebEventSchema = z.discriminatedUnion("type", [
+  webEventSchema.extend({
+    type: z.literal("project-device.changed"),
+    projectId: z.string(),
+  }),
+]);
+export type ProjectDeviceWebEvent = z.infer<typeof projectDeviceWebEventSchema>;

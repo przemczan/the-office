@@ -46,6 +46,7 @@ import { ProjectPage } from "./surfaces/projects/project-page.tsx";
 import {
   ProjectAppearanceSection,
   ProjectCommandsSection,
+  ProjectDevicesSection,
   ProjectEnvironmentSection,
   ProjectFeaturesSection,
   ProjectIssuesSection,
@@ -598,6 +599,13 @@ const projectRunEnvironmentRoute = createRoute({
   staticData: { title: "Projects" },
 });
 
+const projectDevicesRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: "devices",
+  component: ProjectDevicesSection,
+  staticData: { title: "Projects" },
+});
+
 // The Project's test targets; a test instance's link opens its row in the Test instances fold.
 const projectTestTargetsRoute = createRoute({
   getParentRoute: () => projectRoute,
@@ -910,6 +918,7 @@ export const router = createRouter({
         projectPipelineRoute,
         projectIssuesRoute,
         projectRunEnvironmentRoute,
+        projectDevicesRoute,
         projectTestTargetsRoute,
         projectActionsRoute,
         projectActionRoute,

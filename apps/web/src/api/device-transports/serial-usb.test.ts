@@ -129,6 +129,12 @@ class FakeClock implements MonotonicClock {
 
 class FakeSerial extends EventTarget {
   picked: FakePort | undefined;
+  /** The ports this browser allowed before. */
+  allowed: FakePort[] = [];
+
+  getPorts(): Promise<SerialPort[]> {
+    return Promise.resolve(this.allowed as unknown as SerialPort[]);
+  }
 
   requestPort(): Promise<SerialPort> {
     if (this.picked === undefined) {
@@ -211,6 +217,22 @@ describe("a serial board over USB", () => {
     const bare = await picked({});
     expect(bare.device.name).toBe("USB serial device");
     expect(bare.device.deviceKey).toMatch(/^serial:unknown:/);
+  });
+
+  it("opens a board this browser allowed before, by its key or else its only port with its USB ids", async () => {
+    const log: string[] = [];
+    const serial = new FakeSerial();
+    serial.allowed = [new FakePort(log)];
+    const transport = serialUsbTransport(serial as unknown as Serial);
+
+    const board = await transport.remembered?.("serial:2341:0043:from-another-tab");
+    expect(board?.name).toBe("Arduino Uno");
+    expect(log).toEqual(["open 115200 4096"]);
+    board?.release?.();
+    expect(await transport.remembered?.("serial:1234:abcd:from-another-tab")).toBeUndefined();
+
+    serial.allowed = [new FakePort(log), new FakePort(log)];
+    expect(await transport.remembered?.("serial:2341:0043:from-another-tab")).toBeUndefined();
   });
 
   it("answers no board when the user closes the picker", async () => {

@@ -35,6 +35,7 @@ import {
   deviceWaiting,
   isOpen,
   KIND_WORDS,
+  lentDevice,
   phonePaired,
   STATE_WORDS,
   taskProblemsOf,
@@ -49,6 +50,11 @@ import {
   ConnectedDeviceRefused,
 } from "../domain/connected-device-refused.js";
 import type { ConnectedDeviceChanged } from "../domain/connected-device-events.js";
+import { inUseBy, notOfTheTasksProject } from "../domain/project-device.js";
+import {
+  ProjectDeviceRefused,
+  type ProjectDeviceHolder,
+} from "../domain/project-device-refused.js";
 import { wirelessAddressOf, wirelessDeviceKeyOf } from "../domain/wireless-address.js";
 import { ConnectedDeviceRepository } from "../ports/connected-device-repository.js";
 import { DeviceTasks, type DeviceTask } from "../ports/device-tasks.js";
@@ -90,6 +96,17 @@ export interface WirelessPhoneToPair {
   readonly pairingPort: number;
   /** Used once, on `adb pair`'s standard input, and never kept. */
   readonly pairingCode: string;
+}
+
+/** A Project device to lend a Task, with no pairing (spec §2.13, "Lent to a Task"). */
+export interface DeviceToLend {
+  readonly projectDeviceId: string;
+  readonly projectId: string;
+  readonly kind: ConnectedDeviceKind;
+  readonly name: string;
+  readonly deviceKey: string;
+  /** A phone over wireless debugging's adb serial, `<address>:<port>`; null for a device over USB. */
+  readonly wirelessEndpoint: string | null;
 }
 
 /** A device's open relay socket. */
@@ -250,6 +267,65 @@ export class ConnectedDevices implements OnModuleInit {
     await this.keep(device, event);
     const target = { address: reading.address, port: given.port, pairingPort: given.pairingPort };
     this.followPairing(device, target, given.pairingCode);
+    return device;
+  }
+
+  /**
+   * Lends the Project device to the Task as one of its Connected devices, with no pairing: a
+   * device over USB Connecting, whose relay the browser opens next; a phone over wireless
+   * debugging Waiting at its adb serial, connected again at once with the Project's key while the
+   * run environment runs, else at its next start. Refused as a connect is (ProjectDeviceRefused),
+   * and naming the holder when an open record holds its device key. Never starts the run
+   * environment.
+   */
+  async lend(taskId: string, lent: DeviceToLend, by: DeviceUser): Promise<ConnectedDevice> {
+    const task = await this.tasks.find(taskId);
+    if (task === undefined) throw ConnectedDeviceNotFound.task(taskId);
+    if (task.projectId !== lent.projectId) {
+      throw new ProjectDeviceRefused([notOfTheTasksProject(lent)]);
+    }
+    const runEnvironmentOn = await this.runEnvironmentSettings.isOn(task.projectId);
+    const problems = taskProblemsOf({ taskState: task.state, runEnvironmentOn });
+    problems.push(...(await this.switchedOffReasons(task, runEnvironmentOn)));
+    if (
+      problems.length === 0 &&
+      (await this.helperFiles.executableFor(hostHelperArchitecture())) === undefined
+    ) {
+      problems.push(DEVICE_HELPER_NOT_BUILT);
+    }
+    if (problems.length > 0) throw new ProjectDeviceRefused(problems);
+    const { device, event } = lentDevice(
+      {
+        id: randomUUID(),
+        taskId,
+        projectId: task.projectId,
+        projectDeviceId: lent.projectDeviceId,
+        kind: lent.kind,
+        name: lent.name,
+        deviceKey: lent.deviceKey,
+        connectedBy: by,
+        connectedAt: this.schedule.now(),
+      },
+      lent.wirelessEndpoint,
+    );
+    const { heldBy } = await this.repository.insert(device);
+    if (heldBy !== undefined) {
+      const holderTask = await this.tasks.find(heldBy.taskId);
+      const holder: ProjectDeviceHolder = {
+        kind: "task",
+        taskId: heldBy.taskId,
+        title: holderTask?.title ?? heldBy.taskId,
+      };
+      throw new ProjectDeviceRefused([inUseBy(lent, holder)], holder);
+    }
+    await this.events.publish(event);
+    if (device.state === "waiting-for-run-environment" && this.environments.isRunning(taskId)) {
+      void this.locks
+        .runDetached(`adb:${device.id}`, () => this.reconnectWireless(device))
+        .catch((error: unknown) => {
+          this.logger.error(`The device ${device.id} didn't connect.`, error);
+        });
+    }
     return device;
   }
 

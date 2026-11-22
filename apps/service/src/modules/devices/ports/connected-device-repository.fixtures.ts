@@ -44,6 +44,12 @@ export class ConnectedDevicesForTests extends ConnectedDeviceRepository {
     return Promise.resolve(this.open().filter((device) => device.projectId === projectId));
   }
 
+  openOfProjectDevice(projectDeviceId: string): Promise<ConnectedDevice | undefined> {
+    return Promise.resolve(
+      this.open().find((device) => device.projectDeviceId === projectDeviceId),
+    );
+  }
+
   allOpen(): Promise<readonly ConnectedDevice[]> {
     return Promise.resolve(this.open());
   }

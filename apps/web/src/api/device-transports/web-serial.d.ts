@@ -36,6 +36,8 @@ interface SerialPortRequestOptions {
 
 interface Serial extends EventTarget {
   requestPort(options?: SerialPortRequestOptions): Promise<SerialPort>;
+  /** The ports this origin was allowed before, opened or not. */
+  getPorts(): Promise<SerialPort[]>;
 }
 
 interface Navigator {

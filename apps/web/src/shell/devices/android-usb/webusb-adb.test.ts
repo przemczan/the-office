@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DeviceRelaySink, RequestedDevice } from "../../../../api/device-relay.ts";
+import type { DeviceRelaySink, RequestedDevice } from "../../../api/device-relay.ts";
 import { ADB_AUTH_TYPES, ADB_COMMANDS, adbPacketBytes } from "./adb-packets.ts";
 import {
   ALLOW_USB_DEBUGGING,
@@ -120,6 +120,13 @@ class FakeUsb extends EventTarget {
     this.picked = picked;
   }
 
+  /** The phones this browser allowed before. */
+  allowed: FakePhone[] = [];
+
+  getDevices(): Promise<FakePhone[]> {
+    return Promise.resolve(this.allowed);
+  }
+
   requestDevice(): Promise<FakePhone> {
     return this.picked instanceof FakePhone
       ? Promise.resolve(this.picked)
@@ -192,6 +199,18 @@ describe("an Android phone over USB", () => {
     expect(phone.calls).toEqual(["open", "configuration 1", "claim 0"]);
     expect(device.name).toBe("Google Pixel 8");
     expect(device.deviceKey).toBe("usb:18d1:4ee7:35161FDH2000GL");
+  });
+
+  it("opens a phone this browser allowed before by its device key, without the picker", async () => {
+    const phone = new FakePhone();
+    const usb = new FakeUsb(new DOMException("No device selected.", "NotFoundError"));
+    usb.allowed = [phone];
+    const transport = transportFor(usb);
+
+    const device = await transport.remembered?.("usb:18d1:4ee7:35161FDH2000GL");
+    expect(device?.name).toBe("Google Pixel 8");
+    expect(phone.calls).toEqual(["open", "configuration 1", "claim 0"]);
+    expect(await transport.remembered?.("usb:18d1:4ee7:ANOTHER")).toBeUndefined();
   });
 
   it("names a phone that names nothing Android phone", async () => {

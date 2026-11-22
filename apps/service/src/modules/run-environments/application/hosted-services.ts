@@ -48,6 +48,7 @@ import { HostCores } from "./host-cores.js";
 import { HostedServiceReadiness } from "./hosted-service-readiness.js";
 import { RunEnvironmentFolders } from "./run-environment-folders.js";
 import { note, RunEnvironmentImages } from "./run-environment-images.js";
+import { refusingOnRuntimeFailure } from "./runtime-steps.js";
 import { ServiceOwner } from "./service-owner.js";
 
 /** What a Hosted Test instance is started from (spec §2.12, "Hosted runs in the run environment"). */
@@ -800,12 +801,7 @@ export class HostedServices {
     reason: string,
     step: () => Promise<Result>,
   ): Promise<Result> {
-    try {
-      return await step();
-    } catch (error) {
-      if (!(error instanceof ContainerRuntimeFailed)) throw error;
-      throw new RunEnvironmentRefused([reason, error.message], logFile);
-    }
+    return refusingOnRuntimeFailure(logFile, reason, step);
   }
 }
 

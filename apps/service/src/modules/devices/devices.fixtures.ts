@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import {
   DEVICE_FRAME_TYPES,
@@ -10,11 +10,13 @@ import {
   type DeviceRelayServerMessage,
 } from "@the-office/contracts";
 import type { EventBus } from "../../platform/events/event-bus.js";
+import { ProjectDeviceLines } from "../projects/index.js";
 import type { Schedule } from "../../platform/schedule/schedule.js";
 import {
   DeviceHelperFiles,
   RunEnvironmentRefused,
   type DeviceHelperArchitecture,
+  type PairingEnvironments,
   type RunEnvironmentCommandVariables,
   type RunEnvironments,
   type ScriptedContainerRuntime,
@@ -23,14 +25,20 @@ import {
 import { TaskConnectedDevices } from "../work/index.js";
 import type { RelaySocket } from "./adapters/websocket/device-relay-link.js";
 import { AdbKeyFrames } from "./adapters/device-helper/adb-key-frames.js";
+import { ScriptedAdb } from "./adapters/scripted/scripted-adb.js";
+import { RunEnvironmentsPairingStart } from "./adapters/run-environments/run-environments-pairing-start.js";
 import { AdbInRunEnvironment } from "./application/adb-in-run-environment.js";
 import { AndroidUsbDevices } from "./application/android-usb-devices.js";
 import { ConnectedDevices } from "./application/connected-devices.js";
+import { ProjectDevices } from "./application/project-devices.js";
 import { WirelessDevices } from "./application/wireless-devices.js";
 import { AdbKeysForTests } from "./ports/adb-key-repository.fixtures.js";
 import { ConnectedDeviceRepository } from "./ports/connected-device-repository.js";
 import { ConnectedDevicesForTests } from "./ports/connected-device-repository.fixtures.js";
 import { DeviceTasks, type DeviceTask } from "./ports/device-tasks.js";
+import { PairingDefinitions, type PairingDefinition } from "./ports/pairing-definitions.js";
+import { ProjectDeviceRepository } from "./ports/project-device-repository.js";
+import { ProjectDevicesForTests } from "./ports/project-device-repository.fixtures.js";
 import { ProjectDeviceFeature } from "./ports/project-features.js";
 import { ProjectRunEnvironmentSettings } from "./ports/project-run-environment-settings.js";
 import { RunEnvironmentStart } from "./ports/run-environment-start.js";
@@ -104,6 +112,43 @@ export class RunEnvironmentStartForTests extends RunEnvironmentStart {
       if (error instanceof RunEnvironmentRefused) return error.reasons;
       throw error;
     }
+  }
+}
+
+/**
+ * The base branch's `.devcontainer/` as Projects would write it out: the testbed's definition in
+ * a temporary folder of its own, each export and removal recorded; refused with `problems`.
+ */
+export class PairingDefinitionsForTests extends PairingDefinitions {
+  /** Every folder written out, in order. */
+  readonly exported: string[] = [];
+  /** Every folder removed, in order. */
+  readonly removed: string[] = [];
+  problems: readonly string[] | undefined;
+
+  constructor(private readonly folder: string) {
+    super();
+  }
+
+  async exportDefinition(
+    projectId: string,
+  ): Promise<PairingDefinition | { readonly problems: readonly string[] }> {
+    if (this.problems !== undefined) return { problems: this.problems };
+    await mkdir(this.folder, { recursive: true });
+    const folder = await mkdtemp(join(this.folder, `${projectId}-`));
+    for (const [path, content] of Object.entries(DEFINITION)) {
+      if (!path.startsWith(".devcontainer/")) continue;
+      await mkdir(dirname(join(folder, path)), { recursive: true });
+      await writeFile(join(folder, path), content);
+    }
+    this.exported.push(folder);
+    return {
+      folder,
+      remove: async () => {
+        this.removed.push(folder);
+        await rm(folder, { recursive: true, force: true });
+      },
+    };
   }
 }
 
@@ -193,91 +238,6 @@ export function loopbackHelper(
   });
 }
 
-/**
- * adb in the scripted run environment: whether it is there, what the helper's `adb-key` mode
- * answers, what `adb pair` and `getprop` answer, which serials `adb connect` reaches, and every
- * adb step the service ran, in order ("command -v adb", "adb-key", "adb kill-server",
- * "adb connect 127.0.0.1:41234", "adb pair 192.168.1.20:37000").
- */
-export class ScriptedAdb {
-  present = true;
-  /** What `adb pair` prints and exits with; "Successfully paired …" and 0 unless set. */
-  pairAnswer: { readonly output: string; readonly exitCode: number } | undefined;
-  /** Whether `adb pair` never ends, as with a phone that doesn't answer. */
-  pairHangs = false;
-  /** What each `adb pair` read on its standard input. */
-  readonly pairingInputs: Buffer[] = [];
-  /** The model `getprop ro.product.model` answers. */
-  model = "Pixel 9";
-  /** The serials `adb connect` can't reach, as a phone that left the network. */
-  readonly unreachable = new Set<string>();
-  /** Whether `command -v adb` is cut off with no exit code, as when its run environment stops. */
-  checkStopped = false;
-  /** What `adb-key` answers: `written` the first time, `same` after, unless set. */
-  keyAnswer: "written" | "same" | undefined;
-  readonly steps: string[] = [];
-  /** What each `adb-key` step read on its standard input. */
-  readonly keyInputs: Buffer[] = [];
-  private keyWritten = false;
-
-  /** Answers the attached program when it is an adb step; false for anything else. */
-  answer(process: ScriptedAttachedProcess): boolean {
-    const programArguments = process.attachment.arguments;
-    if (programArguments.join(" ") === "sh -c command -v adb") {
-      this.steps.push("command -v adb");
-      if (this.checkStopped) process.stop();
-      else process.end(this.present ? 0 : 1);
-      return true;
-    }
-    if (programArguments[1] === "adb-key") {
-      process.stdin.on("finish", () => {
-        this.steps.push("adb-key");
-        this.keyInputs.push(process.written());
-        const answer = this.keyAnswer ?? (this.keyWritten ? "same" : "written");
-        this.keyWritten = true;
-        process.print(`${answer}\n`);
-        process.end(0);
-      });
-      return true;
-    }
-    const adbArguments =
-      programArguments[0] === "adb"
-        ? programArguments.slice(1)
-        : programArguments[0] === "sh" && programArguments[3] === "sh"
-          ? programArguments.slice(4)
-          : undefined;
-    if (adbArguments === undefined) return false;
-    this.steps.push(`adb ${adbArguments.join(" ")}`);
-    if (adbArguments[0] === "pair") {
-      this.pair(process, adbArguments[1] ?? "");
-      return true;
-    }
-    if (adbArguments[0] === "connect" && this.unreachable.has(adbArguments[1] ?? "")) {
-      process.print(`failed to connect to '${adbArguments[1]}': No route to host\n`);
-      process.end(1);
-      return true;
-    }
-    if (adbArguments[0] === "connect") process.print(`connected to ${adbArguments[1]}\n`);
-    if (adbArguments.includes("getprop")) process.print(`${this.model}\n`);
-    process.end(0);
-    return true;
-  }
-
-  private pair(process: ScriptedAttachedProcess, target: string): void {
-    process.print("Enter pairing code: ");
-    process.stdin.on("finish", () => {
-      this.pairingInputs.push(process.written());
-      if (this.pairHangs) return;
-      const answer = this.pairAnswer ?? {
-        output: `Successfully paired to ${target} [guid=adb-R5CT1234-abcdef]\n`,
-        exitCode: 0,
-      };
-      process.print(answer.output);
-      process.end(answer.exitCode);
-    });
-  }
-}
-
 /** Frames written to a helper's standard input. */
 export function framesWrittenTo(process: ScriptedAttachedProcess): DeviceFrame[] {
   return new FrameReader().push(process.written());
@@ -293,6 +253,7 @@ export interface RunEnvironmentsOfTestbed {
   readonly schedule: Schedule;
   readonly events: EventBus;
   readonly commandVariables: RunEnvironmentCommandVariables;
+  readonly pairingEnvironments: PairingEnvironments;
   readonly folder: string;
 }
 
@@ -308,6 +269,11 @@ export interface DevicesTestbed<Environments extends RunEnvironmentsOfTestbed> {
   readonly runtime: ScriptedContainerRuntime;
   readonly environments: Environments;
   readonly environmentStart: RunEnvironmentStartForTests;
+  readonly projectDevices: ProjectDevices;
+  readonly projectDeviceRepository: ProjectDeviceRepository;
+  readonly pairingDefinitions: PairingDefinitionsForTests;
+  /** Where Projects' record reads the Project's devices. */
+  readonly projectDeviceLines: ProjectDeviceLines;
   /** Adds an open Task of the Project, in a worktree with a valid definition. */
   addTask(id: string, title?: string): Promise<TaskInWorktree>;
 }
@@ -322,6 +288,7 @@ export async function devicesTestbed<Environments extends RunEnvironmentsOfTestb
   runtime: ScriptedContainerRuntime,
   environments: Environments,
   repository: ConnectedDeviceRepository = new ConnectedDevicesForTests(),
+  projectDeviceRepository: ProjectDeviceRepository = new ProjectDevicesForTests(),
 ): Promise<DevicesTestbed<Environments>> {
   const adb = new ScriptedAdb();
   runtime.onAttach = (process) => {
@@ -349,6 +316,7 @@ export async function devicesTestbed<Environments extends RunEnvironmentsOfTestb
     environments.environments,
     join(environments.folder, "starts"),
   );
+  const wireless = new WirelessDevices(adbInRunEnvironment, environments.schedule);
   const devices = new ConnectedDevices(
     repository,
     tasks,
@@ -360,11 +328,29 @@ export async function devicesTestbed<Environments extends RunEnvironmentsOfTestb
     environments.schedule,
     environments.events,
     androidUsb,
-    new WirelessDevices(adbInRunEnvironment, environments.schedule),
+    wireless,
     environmentStart,
     deviceFeature,
   );
   devices.onModuleInit();
+  const pairingDefinitions = new PairingDefinitionsForTests(join(environments.folder, "pairings"));
+  const projectDeviceLines = new ProjectDeviceLines();
+  const projectDevices = new ProjectDevices(
+    projectDeviceRepository,
+    repository,
+    devices,
+    tasks,
+    settings,
+    deviceFeature,
+    helperFiles,
+    pairingDefinitions,
+    new RunEnvironmentsPairingStart(environments.pairingEnvironments),
+    wireless,
+    projectDeviceLines,
+    environments.schedule,
+    environments.events,
+  );
+  projectDevices.onModuleInit();
   return {
     devices,
     adb,
@@ -377,6 +363,10 @@ export async function devicesTestbed<Environments extends RunEnvironmentsOfTestb
     runtime,
     environments,
     environmentStart,
+    projectDevices,
+    projectDeviceRepository,
+    pairingDefinitions,
+    projectDeviceLines,
     async addTask(id, title = `Task ${id}`) {
       tasks.tasks.set(id, { id, title, projectId: PROJECT_ID, state: "in-progress" });
       environments.knownTasks.tasks.push({ id, title, state: "in-progress" });

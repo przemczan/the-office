@@ -89,6 +89,12 @@ export interface DeviceTransportProvider {
    * reached throws an Error in the words that say why.
    */
   request(): Promise<RequestedDevice | undefined>;
+  /**
+   * The device of `deviceKey` this browser allowed before, opened without the picker, as a Project
+   * device lent to a Task is (spec 2.13, "A Project device over USB"); undefined when this browser
+   * allowed none such. A device found but not opened throws as `request` does.
+   */
+  remembered?(deviceKey: string): Promise<RequestedDevice | undefined>;
 }
 
 // Each kind's transports as registered, the last one used; taking one away gives back the one before.

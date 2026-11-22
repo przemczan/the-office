@@ -244,6 +244,11 @@ await launch(
     }
     const containerRuntime = new E2eContainerRuntime();
     containerRuntime.hostPort = testInstanceApp.port;
+    // No phone is near either: adb's steps in a pairing environment or a Task's are answered as
+    // a phone that pairs, connects and is a Pixel 9 would; any other attached program never ends.
+    const { ScriptedAdb } = await import("./modules/devices/index.js");
+    const adb = new ScriptedAdb();
+    containerRuntime.onAttach = (process) => void adb.answer(process);
     const moduleRef = await Test.createTestingModule({ imports: [appModule] })
       .overrideModule(EngineModule)
       .useModule(

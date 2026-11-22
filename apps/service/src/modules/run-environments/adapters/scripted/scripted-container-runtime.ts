@@ -106,7 +106,8 @@ const KILLED_EXIT_CODE = 137;
  * `onExec` says, by default printing nothing and exiting 0. For a Hosted Test instance it
  * publishes every port on `hostPort`, answers there while `answering`, keeps execs running after
  * `keepExecsRunning` until `endExecs` or the project is taken down, and writes `emitLogs`' text to
- * the project's log followers.
+ * the project's log followers. A pairing environment's project is labelled by its device's id, and
+ * a program attached in it reaches `onAttach` as one in a Task's does.
  */
 export class ScriptedContainerRuntime extends ContainerRuntime {
   readonly images = new Map<string, Date>();
@@ -394,6 +395,11 @@ function labelsOf(project: ComposeProject): Labels {
       "office.instance": instance,
       [LABEL.testInstance]: testInstance,
     };
+  }
+  const pairing = /^office-([^-]+)-pairing-(.+)$/.exec(project.name);
+  if (pairing !== null) {
+    const [, instance = "", deviceId = ""] = pairing;
+    return { "office.managed": "true", "office.instance": instance, [LABEL.pairing]: deviceId };
   }
   const [, instance = "", ...task] = project.name.split("-");
   return { "office.managed": "true", "office.instance": instance, "office.task": task.join("-") };

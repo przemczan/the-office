@@ -30,6 +30,7 @@ import { ActionRepository } from "../ports/action-repository.js";
 import { TestTargetRepository } from "../ports/test-target-repository.js";
 import { BaseCheckouts } from "./base-checkouts.js";
 import { EnvironmentChecks } from "./environment-checks.js";
+import { ProjectDeviceLines, type ProjectDeviceLine } from "./project-device-lines.js";
 import { ProjectService } from "./project-service.js";
 
 /** What The Office reads of a Project beyond its own row, for its record. */
@@ -39,6 +40,7 @@ interface ProjectSurroundings {
   readonly serverValues: readonly ProjectMcpServerValues[];
   readonly testTargets: readonly TestTarget[];
   readonly actions: readonly Action[];
+  readonly devices: readonly ProjectDeviceLine[];
 }
 
 const RUN_ENVIRONMENT_WORDS: Readonly<Record<RunEnvironmentSetting, string>> = {
@@ -61,6 +63,7 @@ export class ProjectRecords {
     private readonly serverValues: ProjectServerValues,
     private readonly testTargets: TestTargetRepository,
     private readonly actions: ActionRepository,
+    private readonly devices: ProjectDeviceLines,
   ) {}
 
   /** Every Project's record, or that there is none. */
@@ -85,11 +88,12 @@ export class ProjectRecords {
     project: Project,
     checkouts: ReadonlyMap<string, string>,
   ): Promise<ProjectSurroundings> {
-    const [environmentCheck, serverValues, testTargets, actions] = await Promise.all([
+    const [environmentCheck, serverValues, testTargets, actions, devices] = await Promise.all([
       this.environmentChecks.latest(project.id),
       this.serverValues.of(project.id),
       this.testTargets.listOf(project.id),
       this.actions.listOf(project.id),
+      this.devices.of(project.id),
     ]);
     return {
       checkout: checkouts.get(project.id),
@@ -97,6 +101,7 @@ export class ProjectRecords {
       serverValues,
       testTargets,
       actions,
+      devices,
     };
   }
 
@@ -108,7 +113,7 @@ export class ProjectRecords {
 }
 
 function projectRecord(project: Project, surroundings: ProjectSurroundings): string {
-  const { checkout, environmentCheck, serverValues, testTargets, actions } = surroundings;
+  const { checkout, environmentCheck, serverValues, testTargets, actions, devices } = surroundings;
   const commands = project.commands.map(
     ({ key, name, kind, commandLine }) => `${key} (${name}, ${kind}) \`${commandLine || "none"}\``,
   );
@@ -134,7 +139,17 @@ function projectRecord(project: Project, surroundings: ProjectSurroundings): str
     `- Server values: ${serverValuesWords(serverValues)}`,
     ...testTargetLines(testTargets),
     ...actionLines(actions),
+    ...deviceLines(devices),
   ].join("\n");
+}
+
+/** Each of its devices by id, name, kind and state, never its address or Port (spec §2.13). */
+function deviceLines(devices: readonly ProjectDeviceLine[]): string[] {
+  if (devices.length === 0) return ["- Devices: none"];
+  return [
+    "- Devices:",
+    ...devices.map(({ id, kind, name, state }) => `  - ${id} (${name}, ${kind}): ${state}`),
+  ];
 }
 
 /** Every feature on or off as read now; one off for a feature it needs says so. */

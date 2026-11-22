@@ -3,7 +3,7 @@ import type {
   DeviceTransport,
   DeviceTransportProvider,
   RequestedDevice,
-} from "../../../../api/device-relay.ts";
+} from "../../../api/device-relay.ts";
 import {
   ADB_HEADER_LENGTH,
   AdbAuthorisation,
@@ -68,7 +68,25 @@ export function androidUsbTransport(options: AndroidUsbOptions = {}): DeviceTran
       const adb = await opened(device, userAgentOf());
       return requestedPhone(usb, device, device.serialNumber, adb);
     },
+    remembered: async (deviceKey) => {
+      const usb = usbOf();
+      if (usb === undefined) return undefined;
+      const device = (await usb.getDevices()).find(
+        (allowed) =>
+          allowed.serialNumber !== null &&
+          allowed.serialNumber !== undefined &&
+          phoneKeyOf(allowed, allowed.serialNumber) === deviceKey,
+      );
+      if (device?.serialNumber === undefined || device.serialNumber === null) return undefined;
+      const adb = await opened(device, userAgentOf());
+      return requestedPhone(usb, device, device.serialNumber, adb);
+    },
   };
+}
+
+/** A phone's device key: `usb:<vendor>:<product>:<serial number>`. */
+function phoneKeyOf(device: USBDevice, serialNumber: string): string {
+  return `usb:${hex4(device.vendorId)}:${hex4(device.productId)}:${serialNumber}`;
 }
 
 function browserUsb(): USB | undefined {
@@ -194,7 +212,7 @@ function requestedPhone(
 
   return {
     name: phoneNameOf(device),
-    deviceKey: `usb:${hex4(device.vendorId)}:${hex4(device.productId)}:${serialNumber}`,
+    deviceKey: phoneKeyOf(device, serialNumber),
     attach: (sink) =>
       attachedPhone(device, adb, sink, {
         released: () => released,

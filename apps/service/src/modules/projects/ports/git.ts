@@ -448,13 +448,16 @@ export abstract class Git {
   /**
    * Writes the files of `commit` into `folder`, made if missing, as a plain checkout: no `.git` in
    * it, nothing of it known to the repository (no worktree, ref or index of its own changed), its
-   * files through the repository's filters and attributes, as a checkout writes them.
+   * files through the repository's filters and attributes, as a checkout writes them. With
+   * `onlyFolder`, a folder's path in the repository such as `.devcontainer`, only that folder's
+   * files are written, at their own paths under `folder`; none when the commit has no such folder.
    */
   abstract exportCommit(
     repositoryPath: string,
     commit: string,
     folder: string,
     variables: GitVariables,
+    onlyFolder?: string,
   ): Promise<void>;
 
   /** Removes the worktree with whatever it holds; its branch stays. */

@@ -7,6 +7,11 @@ export {
 } from "./application/initiative-branches.js";
 export { ProjectFeatures } from "./application/project-features.js";
 export { ProjectRecords } from "./application/project-records.js";
+export {
+  ProjectDeviceLines,
+  type ProjectDeviceLine,
+  type ProjectDeviceLister,
+} from "./application/project-device-lines.js";
 export { ProjectService } from "./application/project-service.js";
 export { PullRequestRecords } from "./application/pull-request-records.js";
 export type { PullRequest } from "./domain/pull-request.js";
@@ -33,6 +38,10 @@ export {
   type WorkstationBuild,
   type WorkstationBuildEnd,
 } from "./application/test-instance-checkouts.js";
+export {
+  PairingDefinitionExports,
+  type ExportedDefinition,
+} from "./application/pairing-definition-exports.js";
 export {
   DEFAULT_PORT_VARIABLE,
   type EditedTestTarget,

@@ -1,30 +1,59 @@
-import { useMutation, useQuery, type UseMutationResult } from "@tanstack/react-query";
-import type { ConnectedDevice, Task } from "@the-office/contracts";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+} from "@tanstack/react-query";
+import { Link, useNavigate } from "@tanstack/react-router";
+import type { ConnectedDevice, Project, ProjectDevice, Task } from "@the-office/contracts";
 import { Badge, Button, FoldButton, Icon, Menu, type MenuItem } from "@the-office/ui";
 import { useState, useSyncExternalStore, type ReactNode } from "react";
 import {
   deviceTransportProviders,
   openDeviceRelay,
-  registerDeviceTransport,
   subscribeToDeviceTransports,
   type DeviceTransportProvider,
   type RequestedDevice,
 } from "../../api/device-relay.ts";
-import { serialUsbTransport } from "../../api/device-transports/serial-usb.ts";
-import { connectDevice, deviceQueries, disconnectDevice } from "../../api/devices.ts";
+import {
+  connectDevice,
+  deviceQueries,
+  disconnectDevice,
+  lendProjectDevice,
+} from "../../api/devices.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { BlockLoaderOrProblem } from "../../shell/block-loader.tsx";
 import { DEVICE_STATE_TONES, DEVICE_STATE_WORDS } from "../../shell/device-state-words.ts";
+import {
+  ADB_SERIAL,
+  USB_DEBUGGING_HINT,
+} from "../../shell/devices/android-usb/android-usb-words.ts";
+import {
+  DevicesNote,
+  registerBrowserDeviceTransports,
+  usbKindChoice,
+} from "../../shell/devices/device-parts.tsx";
+import {
+  deviceNotice,
+  keepDeviceRelay,
+  subscribeToDeviceNotices,
+} from "../../shell/devices/device-relays.ts";
+import { DEVICE_KIND_WORDS, KEEP_TAB_OPEN } from "../../shell/devices/device-words.ts";
+import {
+  isOverUsb,
+  PROJECT_DEVICE_STATE_TONES,
+  PROJECT_DEVICE_STATE_WORDS,
+} from "../../shell/devices/project-device-words.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { momentWords } from "../../shell/time.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { userName, useSignedInUserId } from "../../shell/use-user-name.ts";
 import { ConnectRefused } from "./connect-refused.tsx";
-import { deviceNotice, keepDeviceRelay, subscribeToDeviceNotices } from "./device-relays.ts";
 import {
+  ADD_ONE_UNDER_DEVICES,
   CONNECT_DEVICE,
+  CONNECT_REFUSED,
   connectedToastWords,
-  DEVICE_KIND_WORDS,
   DEVICE_NOTICE_TONES,
   deviceNoticeWords,
   devicesSummary,
@@ -32,37 +61,45 @@ import {
   disconnectedDevicesOf,
   disconnectedToastWords,
   disconnectedWhy,
-  KEEP_TAB_OPEN,
+  givenBackToastWords,
+  inUseByWords,
+  lentFromWords,
   NO_DEVICES,
+  noProjectDevicesWords,
   openDevicesOf,
   PAIR_WIRELESS,
   serialLineWords,
+  USE_PROJECT_DEVICE,
 } from "./device-words.ts";
-import { ADB_SERIAL, USB_DEBUGGING_HINT } from "./devices/android-usb/android-usb-words.ts";
-import { androidUsbTransport } from "./devices/android-usb/webusb-adb.ts";
+import { openProjectDeviceOverUsb } from "./project-device-lend.ts";
 import { RecordFold } from "./record-fold.tsx";
 import { useFold } from "./record-folds.ts";
 import { WirelessPairingForm } from "./wireless-pairing-form.tsx";
 
 // Every kind this build reaches in the browser, offered once the Devices section is drawn.
-registerDeviceTransport(androidUsbTransport());
-registerDeviceTransport(serialUsbTransport());
+registerBrowserDeviceTransports();
 
 /**
  * The Task's Devices section (spec screens/task-page.md, "Devices"; 2.13): shown only while the
  * Project's Run environment is On and its Connected devices are switched on. A row per device not
  * Disconnected with Disconnect, the earlier ones below as history, and Connect for each kind this
  * build has a transport for, greyed with why for a kind this browser can't reach, and for pairing a
- * phone over wireless debugging.
+ * phone over wireless debugging; beside it Use a Project device, lending one of the Project's.
  */
 export function DevicesBlock({ task }: { readonly task: Task }): ReactNode {
   const project = useQuery(projectQueries.one(task.projectId)).data;
   return project?.runEnvironment === "on" && project.features["connected-devices"] ? (
-    <DevicesFold task={task} />
+    <DevicesFold task={task} project={project} />
   ) : null;
 }
 
-function DevicesFold({ task }: { readonly task: Task }): ReactNode {
+function DevicesFold({
+  task,
+  project,
+}: {
+  readonly task: Task;
+  readonly project: Project;
+}): ReactNode {
   const query = useQuery(deviceQueries.ofTask(task.id));
   const devices = query.data?.devices;
   const open = openDevicesOf(devices ?? []);
@@ -76,7 +113,8 @@ function DevicesFold({ task }: { readonly task: Task }): ReactNode {
     deviceTransportProviders,
   );
   const connecting = useConnect(task.id);
-  const disconnecting = useDisconnect();
+  const lending = useLend(task.id, providers);
+  const disconnecting = useDisconnect(project);
   const nameOf = useUserNames();
   return (
     <>
@@ -86,18 +124,31 @@ function DevicesFold({ task }: { readonly task: Task }): ReactNode {
         title="Devices"
         summary={devicesSummary(devices)}
         side={
-          <ConnectMenu
-            providers={providers}
-            busy={connecting.isPending}
-            onConnect={(provider) => {
-              fold.open();
-              connecting.mutate(provider);
-            }}
-            onPairWireless={() => {
-              fold.open();
-              setPairing(true);
-            }}
-          />
+          <span className="devices-actions">
+            <UseProjectDeviceMenu
+              project={project}
+              providers={providers}
+              busy={lending.isPending}
+              onUse={(device) => {
+                fold.open();
+                connecting.reset();
+                lending.mutate(device);
+              }}
+            />
+            <ConnectMenu
+              providers={providers}
+              busy={connecting.isPending}
+              onConnect={(provider) => {
+                fold.open();
+                lending.reset();
+                connecting.mutate(provider);
+              }}
+              onPairWireless={() => {
+                fold.open();
+                setPairing(true);
+              }}
+            />
+          </span>
         }
       >
         {devices === undefined ? (
@@ -109,7 +160,7 @@ function DevicesFold({ task }: { readonly task: Task }): ReactNode {
             ) : (
               <ul className="devices-list" aria-label="Devices connected">
                 {open.map((device) => (
-                  <DeviceRow key={device.id} device={device} nameOf={nameOf}>
+                  <DeviceRow key={device.id} device={device} nameOf={nameOf} project={project}>
                     <Button
                       size="sm"
                       variant="secondary"
@@ -122,17 +173,12 @@ function DevicesFold({ task }: { readonly task: Task }): ReactNode {
                 ))}
               </ul>
             )}
-            {connecting.hinted && (
-              <p className="devices-note">
-                <Icon name="lightbulb" size={14} />
-                {USB_DEBUGGING_HINT}
-              </p>
+            {(connecting.hinted || lending.hinted) && (
+              <DevicesNote icon="lightbulb">{USB_DEBUGGING_HINT}</DevicesNote>
             )}
-            <p className="devices-note">
-              <Icon name="info" size={14} />
-              {KEEP_TAB_OPEN}
-            </p>
+            <DevicesNote>{KEEP_TAB_OPEN}</DevicesNote>
             {connecting.refused}
+            {lending.error && <RefusalAlert title={CONNECT_REFUSED} error={lending.error} />}
             {disconnecting.error && (
               <RefusalAlert title={DISCONNECT_REFUSED} error={disconnecting.error} />
             )}
@@ -148,7 +194,12 @@ function DevicesFold({ task }: { readonly task: Task }): ReactNode {
                 {historyShown && (
                   <ul className="devices-list" aria-label="Disconnected devices">
                     {disconnected.map((device) => (
-                      <DeviceRow key={device.id} device={device} nameOf={nameOf} />
+                      <DeviceRow
+                        key={device.id}
+                        device={device}
+                        nameOf={nameOf}
+                        project={project}
+                      />
                     ))}
                   </ul>
                 )}
@@ -165,10 +216,12 @@ function DevicesFold({ task }: { readonly task: Task }): ReactNode {
 function DeviceRow({
   device,
   nameOf,
+  project,
   children,
 }: {
   readonly device: ConnectedDevice;
   readonly nameOf: (user: ConnectedDevice["disconnectedBy"]) => string;
+  readonly project: Project;
   readonly children?: ReactNode;
 }): ReactNode {
   const ended = device.state === "disconnected";
@@ -189,6 +242,14 @@ function DeviceRow({
           connected by {nameOf(device.connectedBy)} · {momentWords(device.connectedAt)}
           {ended && device.disconnectedAt !== null && (
             <> · disconnected {momentWords(device.disconnectedAt)}</>
+          )}
+          {device.projectDeviceId !== null && (
+            <>
+              {" · "}
+              <Link to="/projects/$projectId/devices" params={{ projectId: project.id }}>
+                {lentFromWords(project.name)}
+              </Link>
+            </>
           )}
         </span>
         {device.state === "connected" &&
@@ -275,18 +336,7 @@ function ConnectMenu({
       }
       items={[
         ...providers.map((provider): MenuItem => {
-          const unavailable = provider.unavailable;
-          return unavailable === undefined
-            ? { label: DEVICE_KIND_WORDS[provider.kind], onSelect: () => onConnect(provider) }
-            : {
-                disabled: true,
-                label: (
-                  <span className="devices-kind">
-                    {DEVICE_KIND_WORDS[provider.kind]}
-                    <span className="devices-kind-why">{unavailable}</span>
-                  </span>
-                ),
-              };
+          return usbKindChoice(provider, () => onConnect(provider));
         }),
         ...(providers.length > 0 ? [{ divider: true }] : []),
         { label: PAIR_WIRELESS, onSelect: onPairWireless },
@@ -303,6 +353,7 @@ function ConnectMenu({
 function useConnect(taskId: string): {
   readonly isPending: boolean;
   readonly mutate: (provider: DeviceTransportProvider) => void;
+  readonly reset: () => void;
   readonly refused: ReactNode;
   readonly hinted: boolean;
 } {
@@ -338,6 +389,7 @@ function useConnect(taskId: string): {
   return {
     isPending: connecting.isPending,
     mutate: (provider) => connecting.mutate(provider),
+    reset: () => connecting.reset(),
     hinted,
     refused: connecting.error && (
       <ConnectRefused error={connecting.error} deviceName={picked?.name ?? "The device"} />
@@ -345,12 +397,163 @@ function useConnect(taskId: string): {
   };
 }
 
-function useDisconnect(): UseMutationResult<ConnectedDevice, Error, ConnectedDevice> {
+/** Disconnect: a lent device is given back to the Project's devices, which its toast says. */
+function useDisconnect(
+  project: Project,
+): UseMutationResult<ConnectedDevice, Error, ConnectedDevice> {
   const showToast = useToast();
   return useMutation({
     mutationFn: (device: ConnectedDevice) => disconnectDevice(device.id),
-    onSuccess: (device) => showToast(disconnectedToastWords(device.name)),
+    onSuccess: (device) =>
+      showToast(
+        device.projectDeviceId === null
+          ? disconnectedToastWords(device.name)
+          : givenBackToastWords(device.name, project.name),
+      ),
   });
+}
+
+/**
+ * Use a Project device (spec screens/task-page.md, "Devices"): the Project's devices, each with its
+ * name, kind and state at rest; one in use elsewhere disabled naming its holder, one over USB
+ * greyed where this browser can't reach its kind; with none, a way to the Project's Devices.
+ */
+function UseProjectDeviceMenu({
+  project,
+  providers,
+  busy,
+  onUse,
+}: {
+  readonly project: Project;
+  readonly providers: readonly DeviceTransportProvider[];
+  readonly busy: boolean;
+  readonly onUse: (device: ProjectDevice) => void;
+}): ReactNode {
+  const [open, setOpen] = useState(false);
+  const devices = useQuery(deviceQueries.ofProject(project.id)).data?.devices;
+  const navigate = useNavigate();
+  const items: MenuItem[] =
+    devices === undefined
+      ? [{ disabled: true, label: "Reading the Project's devices…" }]
+      : devices.length === 0
+        ? [
+            { disabled: true, label: noProjectDevicesWords(project.name) },
+            {
+              label: ADD_ONE_UNDER_DEVICES,
+              onSelect: () =>
+                void navigate({
+                  to: "/projects/$projectId/devices",
+                  params: { projectId: project.id },
+                }),
+            },
+          ]
+        : devices.map((device) => projectDeviceChoice(device, providers, () => onUse(device)));
+  return (
+    <Menu
+      open={open}
+      onOpenChange={setOpen}
+      align="end"
+      width={340}
+      trigger={
+        <Button
+          size="sm"
+          variant="secondary"
+          loading={busy}
+          iconLeft={<Icon name="smartphone" size={14} />}
+          iconRight={<Icon name="chevron-down" size={14} />}
+        >
+          {USE_PROJECT_DEVICE}
+        </Button>
+      }
+      items={items}
+    />
+  );
+}
+
+function projectDeviceChoice(
+  device: ProjectDevice,
+  providers: readonly DeviceTransportProvider[],
+  onSelect: () => void,
+): MenuItem {
+  const head = (
+    <span className="devices-choice-head">
+      <span className="devices-choice-name">{device.name}</span>
+      <Badge size="sm">{DEVICE_KIND_WORDS[device.kind]}</Badge>
+      <Badge size="sm" dot tone={PROJECT_DEVICE_STATE_TONES[device.state]}>
+        {PROJECT_DEVICE_STATE_WORDS[device.state]}
+      </Badge>
+    </span>
+  );
+  if (device.inUseBy !== null) {
+    return {
+      disabled: true,
+      label: (
+        <span className="devices-kind">
+          {head}
+          <span className="devices-kind-why">{inUseByWords(device.inUseBy.title)}</span>
+        </span>
+      ),
+    };
+  }
+  if (!isOverUsb(device)) return { label: head, onSelect };
+  const provider = providers.find(({ kind }) => kind === device.kind);
+  if (provider === undefined) return { disabled: true, label: head };
+  return usbKindChoice(provider, onSelect, head);
+}
+
+/**
+ * Lends a Project device to the Task: a phone over wireless debugging connects with the Project's
+ * key; one over USB is opened first, without the picker when this browser allowed it before, and
+ * its relay then opens from this tab as a connect's does.
+ */
+function useLend(
+  taskId: string,
+  providers: readonly DeviceTransportProvider[],
+): {
+  readonly isPending: boolean;
+  readonly mutate: (device: ProjectDevice) => void;
+  readonly reset: () => void;
+  readonly error: Error | null;
+  readonly hinted: boolean;
+} {
+  const showToast = useToast();
+  const queryClient = useQueryClient();
+  const [hinted, setHinted] = useState(false);
+  const lending = useMutation({
+    mutationFn: async (device: ProjectDevice) => {
+      if (!isOverUsb(device)) return lendProjectDevice(taskId, device.id);
+      const provider = providers.find(({ kind }) => kind === device.kind);
+      if (provider === undefined) {
+        throw new Error(`${DEVICE_KIND_WORDS[device.kind]} can't be reached in this browser.`);
+      }
+      setHinted(device.kind === "android-usb");
+      const opened = await openProjectDeviceOverUsb(provider, device);
+      setHinted(false);
+      if (opened === undefined) return undefined;
+      let lent: ConnectedDevice;
+      try {
+        lent = await lendProjectDevice(taskId, device.id);
+      } catch (error) {
+        opened.release?.();
+        throw error;
+      }
+      keepDeviceRelay(lent.id, openDeviceRelay(lent.id, opened), opened);
+      return lent;
+    },
+    onError: () => setHinted(false),
+    onSuccess: (lent) => {
+      if (lent === undefined) return;
+      showToast(connectedToastWords(lent.name));
+      void queryClient.invalidateQueries(deviceQueries.ofTask(taskId));
+    },
+  });
+  return {
+    isPending: lending.isPending,
+    mutate: (device) => lending.mutate(device),
+    reset: () => lending.reset(),
+    error: lending.error,
+    hinted,
+  };
 }
 
 /** Names a user as the record says, "you" for the signed-in user. */

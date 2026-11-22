@@ -5,6 +5,8 @@ import {
   DEVICE_HELPER_NOT_BUILT,
   DeviceHelperFiles,
   RunEnvironments,
+  type AttachedProcess,
+  type RunEnvironmentAttachment,
 } from "../../run-environments/index.js";
 import { newAdbKey, type AdbKey } from "../domain/adb-key.js";
 import { AdbKeyInput } from "../ports/adb-key-input.js";
@@ -50,10 +52,24 @@ interface StepEnd {
 export type AdbCheck = "present" | "missing" | "not-running";
 
 /**
- * adb in a Task's run environment, for both Android kinds (spec §2.13): the check that it's
- * there, the Project's adb key written into `~/.android`, and `adb connect` and `adb disconnect`.
- * Each step is one program attached as the checks' user, stopped after `ADB_STEP_TIMEOUT_MS`.
- * The key goes on the helper's standard input only: never a command line, a log or the web.
+ * Where adb runs: a Task's run environment (`AdbInRunEnvironment.inTask`) or a Project device's
+ * pairing environment.
+ */
+export interface AdbPlace {
+  /** The Project whose adb key is written there. */
+  readonly projectId: string;
+  /** How a log line names it, such as "the Task <id>". */
+  readonly label: string;
+  /** Starts one program there as the checks' user; undefined when it isn't running. */
+  attach(attachment: RunEnvironmentAttachment): Promise<AttachedProcess | undefined>;
+}
+
+/**
+ * adb in a Task's run environment or a pairing environment, for both Android kinds (spec §2.13):
+ * the check that it's there, the Project's adb key written into `~/.android`, and `adb connect`
+ * and `adb disconnect`. Each step is one program attached as the checks' user, stopped after
+ * `ADB_STEP_TIMEOUT_MS`. The key goes on the helper's standard input only: never a command line,
+ * a log or the web.
  */
 @Injectable()
 export class AdbInRunEnvironment {
@@ -67,8 +83,17 @@ export class AdbInRunEnvironment {
     private readonly schedule: Schedule,
   ) {}
 
-  async ensureAdb(taskId: string): Promise<AdbCheck> {
-    const end = await this.step(taskId, ["sh", "-c", "command -v adb"]);
+  /** The Task's run environment, while it runs. */
+  inTask(taskId: string, projectId: string): AdbPlace {
+    return {
+      projectId,
+      label: `the Task ${taskId}`,
+      attach: (attachment) => this.environments.attach(taskId, attachment),
+    };
+  }
+
+  async ensureAdb(place: AdbPlace): Promise<AdbCheck> {
+    const end = await this.step(place, ["sh", "-c", "command -v adb"]);
     if (end?.exitCode === undefined) return "not-running";
     return end.exitCode === 0 ? "present" : "missing";
   }
@@ -77,24 +102,24 @@ export class AdbInRunEnvironment {
    * Writes the Project's adb key, made the first time, into `~/.android`; a running adb server
    * restarts when it changed, to read it. Answers why it failed, or nothing.
    */
-  async writeKey(taskId: string, projectId: string): Promise<string | undefined> {
+  async writeKey(place: AdbPlace): Promise<string | undefined> {
     const executable = await this.helperFiles.executableFor(hostHelperArchitecture());
     if (executable === undefined) return DEVICE_HELPER_NOT_BUILT;
-    const key = await this.keyOf(projectId);
-    const end = await this.step(taskId, [executable, "adb-key"], this.keyInput.of(key));
+    const key = await this.keyOf(place.projectId);
+    const end = await this.step(place, [executable, "adb-key"], this.keyInput.of(key));
     // Cut off with no exit code, as when the run environment stops: the helper's next READY retries.
     if (end?.exitCode === undefined) return undefined;
     if (end.exitCode !== 0) return "The adb key couldn't be written into the run environment.";
-    if (end.output.trim() === "written") await this.step(taskId, ["adb", "kill-server"]);
+    if (end.output.trim() === "written") await this.step(place, ["adb", "kill-server"]);
     return undefined;
   }
 
   /** `adb connect <serial>`; whether adb says it connected, logged when it doesn't. */
-  async connect(taskId: string, serial: string): Promise<boolean> {
-    const end = await this.adb(taskId, ["connect", serial]);
+  async connect(place: AdbPlace, serial: string): Promise<boolean> {
+    const end = await this.adb(place, ["connect", serial]);
     const connected = end?.exitCode === 0 && /connected to/i.test(end.output);
     if (end !== undefined && !connected) {
-      this.logger.warn(`adb connect ${serial} in the Task ${taskId}: ${end.output.trim()}`);
+      this.logger.warn(`adb connect ${serial} in ${place.label}: ${end.output.trim()}`);
     }
     return connected;
   }
@@ -103,8 +128,8 @@ export class AdbInRunEnvironment {
    * `adb pair <target>`, the code written to its standard input and that closed, so it is never in
    * a command line, a variable or a log: answers why it didn't pair, in adb's words, or nothing.
    */
-  async pair(taskId: string, target: string, pairingCode: string): Promise<string | undefined> {
-    const end = await this.adb(taskId, ["pair", target], [Buffer.from(`${pairingCode}\n`)]);
+  async pair(place: AdbPlace, target: string, pairingCode: string): Promise<string | undefined> {
+    const end = await this.adb(place, ["pair", target], [Buffer.from(`${pairingCode}\n`)]);
     if (end?.exitCode === undefined) return PAIRING_CUT_OFF;
     if (end.exitCode === 0 && /successfully paired/i.test(end.output)) return undefined;
     if (/unknown command/i.test(end.output)) return ADB_WITHOUT_PAIR;
@@ -116,23 +141,23 @@ export class AdbInRunEnvironment {
   }
 
   /** The model the phone at the serial reports (`ro.product.model`), if it answers one. */
-  async modelOf(taskId: string, serial: string): Promise<string | undefined> {
-    const end = await this.adb(taskId, ["-s", serial, "shell", "getprop", "ro.product.model"]);
+  async modelOf(place: AdbPlace, serial: string): Promise<string | undefined> {
+    const end = await this.adb(place, ["-s", serial, "shell", "getprop", "ro.product.model"]);
     if (end?.exitCode !== 0) return undefined;
     return lastLineOf(end.output);
   }
 
   /** `adb disconnect <serial>`, best effort: nothing when the run environment isn't running. */
-  async disconnect(taskId: string, serial: string): Promise<void> {
-    await this.adb(taskId, ["disconnect", serial]);
+  async disconnect(place: AdbPlace, serial: string): Promise<void> {
+    await this.adb(place, ["disconnect", serial]);
   }
 
   private adb(
-    taskId: string,
+    place: AdbPlace,
     adbArguments: readonly string[],
     input: readonly Uint8Array[] = [],
   ): Promise<StepEnd | undefined> {
-    return this.step(taskId, ["sh", "-c", ADB_WITH_SERVER_APART, "sh", ...adbArguments], input);
+    return this.step(place, ["sh", "-c", ADB_WITH_SERVER_APART, "sh", ...adbArguments], input);
   }
 
   private async keyOf(projectId: string): Promise<AdbKey> {
@@ -142,15 +167,15 @@ export class AdbInRunEnvironment {
   }
 
   /**
-   * Runs one program in the Task's run environment to its end, its input written then closed;
-   * undefined when the run environment isn't running.
+   * Runs one program where adb runs to its end, its input written then closed; undefined when the
+   * environment isn't running.
    */
   private async step(
-    taskId: string,
+    place: AdbPlace,
     programArguments: readonly string[],
     input: readonly Uint8Array[] = [],
   ): Promise<StepEnd | undefined> {
-    const process = await this.environments.attach(taskId, { arguments: programArguments });
+    const process = await place.attach({ arguments: programArguments });
     if (process === undefined) return undefined;
     const output: Buffer[] = [];
     process.stdout.on("data", (chunk: Buffer) => void output.push(chunk));

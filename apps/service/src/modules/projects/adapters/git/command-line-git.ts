@@ -714,7 +714,12 @@ export class CommandLineGit extends Git {
     commit: string,
     folder: string,
     variables: GitVariables,
+    onlyFolder?: string,
   ): Promise<void> {
+    if (onlyFolder !== undefined && !(await this.hasFolder(repositoryPath, commit, onlyFolder))) {
+      await mkdir(folder, { recursive: true });
+      return;
+    }
     // An index of its own, so the repository's index and worktrees stay as they are; `--prefix`
     // writes every file of it under the folder, which takes no `.git` at all.
     const indexFolder = await mkdtemp(join(tmpdir(), "office-export-"));
@@ -722,7 +727,11 @@ export class CommandLineGit extends Git {
     try {
       await this.process.output({
         folder: repositoryPath,
-        gitArguments: ["read-tree", commit],
+        gitArguments:
+          onlyFolder === undefined
+            ? ["read-tree", commit]
+            : // The folder's tree alone, read in at its own path.
+              ["read-tree", `--prefix=${onlyFolder}/`, `${commit}:${onlyFolder}`],
         variables: withIndex,
         timeoutMs: LONG_TIMEOUT_MS,
       });
@@ -736,6 +745,16 @@ export class CommandLineGit extends Git {
     } finally {
       await rm(indexFolder, { recursive: true, force: true });
     }
+  }
+
+  /** Whether the commit has a folder (a tree) at the path. */
+  private async hasFolder(repositoryPath: string, commit: string, path: string): Promise<boolean> {
+    const output = await this.process.output({
+      folder: repositoryPath,
+      gitArguments: ["ls-tree", "-z", commit, "--", path],
+    });
+    // Each entry is `<mode> <type> <object>\t<path>`.
+    return output.split("\0").some((entry) => entry.split(" ")[1] === "tree");
   }
 
   async removeWorktree(

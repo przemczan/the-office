@@ -101,6 +101,7 @@ async function open(address: string): Promise<HTMLElement> {
         section("/"),
         section("issues"),
         section("run-environment"),
+        section("devices"),
         section("test-targets"),
         section("actions"),
         section("features"),
@@ -184,6 +185,26 @@ describe("a Project's tabs and its switched-off features", () => {
 
     expect(tabs(page)).toContain("Run environment");
     expect(page.querySelector(".shown-section")?.textContent).toBe("run-environment");
+  });
+
+  it("keeps the Devices tab while Run environment isn't On, where the section says what it needs", async () => {
+    const page = await open("/projects/shop/devices");
+
+    expect(tabs(page).indexOf("Devices")).toBe(tabs(page).indexOf("GitHub issues") + 1);
+    expect(page.querySelector(".shown-section")?.textContent).toBe("devices");
+  });
+
+  it("hides the Devices tab once Connected devices are switched off, saying so at its address", async () => {
+    shownProject = {
+      ...PROJECT,
+      runEnvironment: "on",
+      features: { ...PROJECT.features, "run-environment": true },
+    };
+    const page = await open("/projects/shop/devices");
+
+    expect(tabs(page)).not.toContain("Devices");
+    expect(tabs(page).indexOf("Run environment")).toBeGreaterThan(-1);
+    expect(page.textContent).toContain("Connected devices are switched off for «Shop».");
   });
 
   it("shows a section whose feature is on", async () => {

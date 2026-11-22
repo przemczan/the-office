@@ -1697,6 +1697,35 @@ button.github-repository.selected:hover:not(:disabled) {
   margin: 0;
 }
 
+/* ---- the Devices section: the Project's devices, their tools at each row's end */
+.project-devices-warning {
+  margin-top: 12px;
+}
+
+.project-devices {
+  margin-top: 14px;
+}
+
+.project-devices-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.project-devices-rename {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  max-width: 480px;
+}
+
+.project-devices-rename > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
 /* ---- GitHub issues: the label's field beside its switch */
 .issue-label-input {
   width: 140px;

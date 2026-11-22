@@ -1,13 +1,5 @@
-import type { ConnectedDevice, ConnectedDeviceKind, DeviceNotice } from "@the-office/contracts";
+import type { ConnectedDevice, DeviceNotice } from "@the-office/contracts";
 
-/** Each kind's name (spec 2.13, "Connected device"). */
-export const DEVICE_KIND_WORDS: Readonly<Record<ConnectedDeviceKind, string>> = {
-  "android-usb": "Android phone over USB",
-  "serial-usb": "Serial board over USB",
-  "android-wireless": "Android phone over wireless debugging",
-};
-
-export const KEEP_TAB_OPEN = "Keep this tab open: closing it disconnects the device.";
 export const NO_DEVICES = "No device connected. Connect one to reach it from the Task's commands.";
 export const CONNECT_REFUSED = "The device wasn't connected";
 export const DISCONNECT_REFUSED = "The device wasn't disconnected";
@@ -17,23 +9,31 @@ export const CONNECT_DEVICE = "Connect a device";
 
 /** Pairing over wireless debugging (spec screens/task-page.md, "Devices"). */
 export const PAIR_WIRELESS = "Pair over wireless debugging";
-export const PAIR_WIRELESS_HINTS = {
-  address: "From the phone's Wireless debugging screen, under IP address & Port.",
-  port: "The number after the colon on the same screen.",
-  pairingPort:
-    "From Wireless debugging › Pair device with pairing code: the number after the colon there.",
-  pairingCode:
-    "From the phone's Wireless debugging › Pair device with pairing code. Used once, never kept.",
-} as const;
 export const PAIRING_STARTS_RUN_ENVIRONMENT = "Pairing starts the Task's run environment.";
-export const PAIR_WIRELESS_ERRORS = {
-  noAddress: "Enter the phone's IP address.",
-  badAddress: "Enter an IPv4 or IPv6 address, such as 192.168.1.20.",
-  noPort: "Enter the port.",
-  badPort: "A port is a number from 1 to 65535.",
-  noPairingCode: "Enter the pairing code.",
-  badPairingCode: "The pairing code is 6 digits.",
-} as const;
+
+/** Use a Project device (spec screens/task-page.md, "Devices"): the menu beside Connect a device. */
+export const USE_PROJECT_DEVICE = "Use a Project device";
+export const ADD_ONE_UNDER_DEVICES = "Add one under Devices";
+
+/** The menu with none to lend: "<Project> has no devices yet." */
+export function noProjectDevicesWords(projectName: string): string {
+  return `${projectName} has no devices yet.`;
+}
+
+/** A device in use elsewhere, listed disabled: "In use by <Task's title>". */
+export function inUseByWords(holderTitle: string): string {
+  return `In use by ${holderTitle}`;
+}
+
+/** A lent device's row: "From <Project>'s devices". */
+export function lentFromWords(projectName: string): string {
+  return `From ${projectName}'s devices`;
+}
+
+/** A lent device's Disconnect: "<name> given back to <Project>'s devices." */
+export function givenBackToastWords(name: string, projectName: string): string {
+  return `${name} given back to ${projectName}'s devices.`;
+}
 
 /** The phone a refused pairing names, as no name is known before adb reaches it. */
 export function wirelessPhoneWords(address: string): string {

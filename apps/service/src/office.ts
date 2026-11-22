@@ -5,7 +5,7 @@ import { AppModule } from "./app.module.js";
 import { InterruptedAnswers, SubAgentsAndProcesses } from "./modules/conversations/index.js";
 import { ScheduledExits } from "./modules/office-updates/index.js";
 import { FirstRunSetup } from "./modules/users/index.js";
-import { ConnectedDevices } from "./modules/devices/index.js";
+import { ConnectedDevices, ProjectDevices } from "./modules/devices/index.js";
 import { DeviceHelperFiles, RunEnvironments } from "./modules/run-environments/index.js";
 import {
   TestBuildRetention,
@@ -120,7 +120,7 @@ function closeForScheduledExit(app: INestApplication, telemetry: StartedTelemetr
  * the restart cut short (spec §2.4), sets again the resume of each Task the usage window paused,
  * resuming one whose reset passed meanwhile (spec §2.1), then releases the kept queue (spec §2.1),
  * since a desk may have been freed while the service was down; the release holds while the alarm is on. Last, it starts the
- * daily archiving of finished Tasks and ended Initiatives and the test-instance proxy's listeners, here only so a test app never runs them, sweeps the Connected devices (spec §2.13), the run
+ * daily archiving of finished Tasks and ended Initiatives and the test-instance proxy's listeners, here only so a test app never runs them, sweeps the Connected devices and the pairings of Project devices (spec §2.13), the run
  * environments and the test instances the last run left (spec §5.5, §2.12), copies the Office device helper into the Office data directory (spec §5.5) and starts or stops the bundled Grafana as the
  * telemetry setting wants it, both in the background, as the container runtime may be slow or not
  * there. After every module's start, so the walks the release starts aren't taken for
@@ -145,6 +145,13 @@ async function takeUpWhereTheOfficeStopped(app: INestApplication): Promise<void>
     .sweep()
     .catch((error: unknown) => {
       logger.warn(`The Connected devices the last run left were not swept: ${String(error)}`);
+    });
+  // A restart cut off every pairing: its environment goes, and its Project device is Not paired.
+  void app
+    .get(ProjectDevices)
+    .sweep()
+    .catch((error: unknown) => {
+      logger.warn(`The pairings the last run left were not swept: ${String(error)}`);
     });
   void app
     .get(RunEnvironments)

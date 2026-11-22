@@ -24,6 +24,11 @@ export {
   type TestBuildEnd,
   type TestBuildStart,
 } from "./application/hosted-services.js";
+export {
+  PairingEnvironments,
+  type PairingEnvironment,
+  type PairingEnvironmentStart,
+} from "./application/pairing-environments.js";
 export type { HostedServiceReadinessOptions } from "./application/hosted-service-readiness.js";
 export { RunEnvironmentDefinitions } from "./application/run-environment-definitions.js";
 export type {

@@ -1,4 +1,4 @@
-import type { ConnectedDevice, Project, Task } from "@the-office/contracts";
+import type { ConnectedDevice, Project, ProjectDevice, Task } from "@the-office/contracts";
 import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { registerDeviceTransport, type RequestedDevice } from "../../api/device-relay.ts";
@@ -12,17 +12,18 @@ import {
   until,
   type Answers,
 } from "../../shell/page.fixtures.tsx";
-import { BY_ANN } from "../../shell/user.fixtures.ts";
-import { closeEveryDeviceRelay } from "./device-relays.ts";
-import { deviceNoticeWords, KEEP_TAB_OPEN } from "./device-words.ts";
-import { DevicesBlock } from "./devices-block.tsx";
 import {
   ALLOW_USB_DEBUGGING,
   NEEDS_SECURE_CONTEXT,
   NEEDS_WEBUSB,
   PHONE_IN_USE,
   USB_DEBUGGING_HINT,
-} from "./devices/android-usb/android-usb-words.ts";
+} from "../../shell/devices/android-usb/android-usb-words.ts";
+import { closeEveryDeviceRelay } from "../../shell/devices/device-relays.ts";
+import { KEEP_TAB_OPEN } from "../../shell/devices/device-words.ts";
+import { BY_ANN } from "../../shell/user.fixtures.ts";
+import { deviceNoticeWords } from "./device-words.ts";
+import { DevicesBlock } from "./devices-block.tsx";
 
 const TASK: Task = {
   id: "00000000-0000-4000-8000-000000000031",
@@ -115,6 +116,7 @@ const PROJECT: Project = {
 const PHONE: ConnectedDevice = {
   id: "00000000-0000-4000-8000-0000000000d1",
   taskId: TASK.id,
+  projectDeviceId: null,
   kind: "android-usb",
   name: "Pixel 8",
   state: "connected",
@@ -569,5 +571,200 @@ describe("the Devices section", () => {
     } finally {
       unregister();
     }
+  });
+});
+
+const LENT_PHONE: ProjectDevice = {
+  id: "00000000-0000-4000-8000-0000000000f1",
+  projectId: PROJECT.id,
+  kind: "android-wireless",
+  deviceKey: "wireless:192.168.1.20",
+  name: "Lab phone",
+  address: "192.168.1.20",
+  port: 37_099,
+  state: "paired",
+  inUseBy: null,
+  pairingStep: null,
+  pairingProblem: null,
+  addedBy: BY_ANN,
+  addedAt: "2026-11-20T09:00:00.000Z",
+  lastUse: null,
+};
+
+const HELD_BOARD: ProjectDevice = {
+  ...LENT_PHONE,
+  id: "00000000-0000-4000-8000-0000000000f2",
+  kind: "serial-usb",
+  deviceKey: "serial:2341:0043:abc",
+  name: "Bench Uno",
+  address: null,
+  port: null,
+  state: "in-use",
+  inUseBy: { kind: "task", taskId: "other-task", title: "Flash the bootloader" },
+};
+
+const USB_PHONE: ProjectDevice = {
+  ...LENT_PHONE,
+  id: "00000000-0000-4000-8000-0000000000f3",
+  kind: "android-usb",
+  deviceKey: "usb:18d1:4ee7:serial",
+  name: "Desk Pixel",
+  address: null,
+  port: null,
+  state: "over-usb",
+};
+
+const LEND_PATH = `POST /api/tasks/${TASK.id}/devices/lend`;
+
+function withProjectDevices(answered: Answers, devices: readonly ProjectDevice[]): Answers {
+  return {
+    ...answered,
+    [`GET /api/projects/${PROJECT.id}/devices`]: () => ({ status: 200, body: { devices } }),
+  };
+}
+
+function useMenu(page: HTMLElement): HTMLElement {
+  act(() => buttonNamed(page, "Use a Project device")?.click());
+  const menu = page.querySelector<HTMLElement>('[role="menu"]');
+  if (menu === null) throw new Error("Use a Project device opened no menu.");
+  return menu;
+}
+
+function choiceNamed(menu: HTMLElement, name: string): HTMLButtonElement | undefined {
+  return [...menu.querySelectorAll("button")].find((button) => shownText(button).startsWith(name));
+}
+
+describe("Use a Project device", () => {
+  afterEach(closePage);
+
+  it("lists the Project's devices with their kind and state, one in use elsewhere disabled", async () => {
+    stubService(withProjectDevices(answers(PROJECT, []), [LENT_PHONE, HELD_BOARD]));
+    const page = await blockOf();
+    await until(() => expect(buttonNamed(page, "Use a Project device")).toBeDefined());
+
+    const menu = useMenu(page);
+    await until(() => expect(choiceNamed(menu, "Lab phone")).toBeDefined());
+    const phone = choiceNamed(menu, "Lab phone")!;
+    expect(shownText(phone)).toContain("Android phone over wireless debugging");
+    expect(shownText(phone)).toContain("Paired");
+    expect(phone.disabled).toBe(false);
+    const board = choiceNamed(page.querySelector('[role="menu"]')!, "Bench Uno")!;
+    expect(board.disabled).toBe(true);
+    expect(shownText(board)).toContain("In use by Flash the bootloader");
+  });
+
+  it("lends a phone over wireless debugging to the Task", async () => {
+    const lent: ConnectedDevice = {
+      ...PHONE,
+      kind: "android-wireless",
+      name: "Lab phone",
+      state: "connecting",
+      endpoint: "192.168.1.20:37099",
+      projectDeviceId: LENT_PHONE.id,
+    };
+    const sent = stubService({
+      ...withProjectDevices(answers(PROJECT, []), [LENT_PHONE]),
+      [LEND_PATH]: () => ({ status: 201, body: lent }),
+    });
+    const page = await blockOf();
+    await until(() => expect(buttonNamed(page, "Use a Project device")).toBeDefined());
+
+    let menu = useMenu(page);
+    await until(() => {
+      menu = page.querySelector<HTMLElement>('[role="menu"]')!;
+      expect(choiceNamed(menu, "Lab phone")).toBeDefined();
+    });
+    act(() => choiceNamed(menu, "Lab phone")?.click());
+
+    await until(() => expect(shownText(document.body)).toContain("Lab phone connected."));
+    expect(sent.find(({ request }) => request === LEND_PATH)?.body).toEqual({
+      projectDeviceId: LENT_PHONE.id,
+    });
+  });
+
+  it("opens a device over USB this browser allowed before without its picker", async () => {
+    vi.stubGlobal("WebSocket", OpenSocket);
+    const request = vi.fn<() => Promise<RequestedDevice | undefined>>(() =>
+      Promise.resolve(undefined),
+    );
+    const remembered = vi.fn<(deviceKey: string) => Promise<RequestedDevice | undefined>>(
+      (deviceKey) =>
+        Promise.resolve<RequestedDevice>({
+          name: "Pixel 8",
+          deviceKey,
+          attach: () => ({ opened: () => {}, received: () => {}, closed: () => {}, end: () => {} }),
+          onUnplugged: () => () => {},
+        }),
+    );
+    const unregister = registerDeviceTransport({ kind: "android-usb", request, remembered });
+    try {
+      const lent: ConnectedDevice = {
+        ...PHONE,
+        name: "Desk Pixel",
+        state: "connecting",
+        endpoint: null,
+        projectDeviceId: USB_PHONE.id,
+      };
+      const sent = stubService({
+        ...withProjectDevices(answers(PROJECT, []), [USB_PHONE]),
+        [LEND_PATH]: () => ({ status: 201, body: lent }),
+      });
+      const page = await blockOf();
+      await until(() => expect(buttonNamed(page, "Use a Project device")).toBeDefined());
+
+      let menu = useMenu(page);
+      await until(() => {
+        menu = page.querySelector<HTMLElement>('[role="menu"]')!;
+        expect(choiceNamed(menu, "Desk Pixel")?.disabled).toBe(false);
+      });
+      act(() => choiceNamed(menu, "Desk Pixel")?.click());
+
+      await until(() => expect(shownText(document.body)).toContain("Desk Pixel connected."));
+      expect(remembered).toHaveBeenCalledWith("usb:18d1:4ee7:serial");
+      expect(request).not.toHaveBeenCalled();
+      expect(sent.map(({ request: sentRequest }) => sentRequest)).toContain(LEND_PATH);
+    } finally {
+      unregister();
+      closeEveryDeviceRelay();
+    }
+  });
+
+  it("says when the Project has no devices, with a way to add one", async () => {
+    stubService(withProjectDevices(answers(PROJECT, []), []));
+    const page = await blockOf();
+    await until(() => expect(buttonNamed(page, "Use a Project device")).toBeDefined());
+
+    useMenu(page);
+    await until(() =>
+      expect(shownText(page.querySelector('[role="menu"]')!)).toContain(
+        "Admin panel has no devices yet.",
+      ),
+    );
+    expect(
+      buttonNamed(page.querySelector('[role="menu"]')!, "Add one under Devices"),
+    ).toBeDefined();
+  });
+
+  it("says where a lent device came from, and gives it back on Disconnect", async () => {
+    const lent: ConnectedDevice = { ...PHONE, projectDeviceId: USB_PHONE.id };
+    stubService({
+      ...withProjectDevices(answers(PROJECT, [lent]), [USB_PHONE]),
+      [`POST /api/devices/${PHONE.id}/disconnect`]: () => ({
+        status: 200,
+        body: { ...lent, state: "disconnected", disconnectedBecause: "by-user" },
+      }),
+    });
+    const page = await blockOf();
+    await until(() => expect(page.querySelector('[aria-label="Pixel 8"]')).not.toBeNull());
+
+    const from = [...page.querySelectorAll("a")].find(
+      (link) => link.textContent === "From Admin panel's devices",
+    );
+    expect(from?.getAttribute("href")).toBe(`/projects/${PROJECT.id}/devices`);
+
+    act(() => buttonNamed(page, "Disconnect")?.click());
+    await until(() =>
+      expect(shownText(document.body)).toContain("Pixel 8 given back to Admin panel's devices."),
+    );
   });
 });
