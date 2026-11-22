@@ -693,7 +693,10 @@ test.describe.serial("Sign in with GitHub", () => {
       await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "start-workflow-dialog.png") });
 
       await start.click();
-      await expect(dialog).toBeHidden();
+      // The window closes once the start answers, and the service answers only after reading the
+      // workflows, the dispatch, the CI listing round under way and one listing the Project again:
+      // under the full run's load, that outlasts the default 5 s, as the row's wait below does.
+      await expect(dialog).toBeHidden({ timeout: 15_000 });
       await expect(page.getByText("Release started on v1.2.0.")).toBeVisible();
       // The start lists the Project at once, and the fake queues a run on the tag.
       const row = page

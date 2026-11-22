@@ -1428,10 +1428,9 @@ test("the flow canvas moves with the right mouse button, zooms, fits the whole P
     const own = await addedProjectPipeline(page, project.id, base, "Canvas own");
 
     // Full has more Stages than fit beside the list at 100%. By its address, so a narrow window
-    // shows it rather than the list.
-    await page.goto("/settings/pipelines");
-    const full = page.getByRole("navigation", { name: "Office-wide Pipelines" }).getByRole("link");
-    await page.goto((await full.first().getAttribute("href")) ?? "");
+    // shows it rather than the list, and by its id, as tests running alongside add and remove
+    // Pipelines in the list.
+    await page.goto("/settings/pipelines/full");
     const flow = page.getByRole("region", { name: "Flow" });
     const view = page.getByRole("group", { name: /^Flow view/ });
     const tools = page.getByRole("toolbar", { name: "Canvas" });
