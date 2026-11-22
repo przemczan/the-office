@@ -1,4 +1,4 @@
-// The design system's Card pads its parts with fixed sizes, and design-system/ stays as exported.
+// The design system's Card pads its parts with fixed sizes, and design-system/ stays as it is.
 // So this Card keeps its frame (the variants' surface, border, corner and shadow) and draws the
 // header, body and footer itself, padded by the density's card aliases like every other card.
 import type { JSX } from "react";

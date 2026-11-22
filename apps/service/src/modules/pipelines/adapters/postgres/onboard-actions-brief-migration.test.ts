@@ -79,7 +79,7 @@ async function briefOf(transaction: Transaction, query: ReturnType<typeof sql>) 
 
 async function applyMigration(transaction: Transaction): Promise<void> {
   const migration = await readFile(
-    new URL("../../../../../drizzle/0196_onboard_actions_brief.sql", import.meta.url),
+    new URL("../../../../../drizzle/0198_onboard_actions_brief.sql", import.meta.url),
     "utf8",
   );
   for (const statement of migration.split("--> statement-breakpoint")) {

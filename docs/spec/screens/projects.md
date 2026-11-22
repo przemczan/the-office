@@ -25,7 +25,7 @@ Covers: the Projects page (the Projects list beside the open Project, a list ite
 
 - The whole item is a link to the Project's page, about 52px tall.
 - It shows the Project's Logo, else its Icon, else its mark ([project-page.md](project-page.md#appearance)), then its name.
-- At its end: the onboarding badge, **Onboarding** (info) or **Onboarded** (success), only for a Project with an Onboard Task.
+- At its end: the onboarding badge, **Onboarding** (info) or **Onboarded** (success), only for a Project with an Onboard Task, read from its latest one ([2.1.1](../2.1.1-projects.md#onboarding-a-project)).
 - The open Project's item is marked active on every section and sub-address of its page.
 - A Project the Project filter hides still opens beside the list, from a link or an address, with no item marked.
 
@@ -34,6 +34,7 @@ Covers: the Projects page (the Projects list beside the open Project, a list ite
 - The list's foot:
   - **Add a Project** (folder-plus icon): opens the Add a Project window.
   - **Ask <name> to onboard one** (the Ask Devops button): opens a new Thread in the holder's chat of Onboards and repairs Projects (the Devops duty) with the draft "Can you onboard a new Project? The repository is " waiting. While nobody holds the duty, a note says so instead of the button.
+    - The Project Proposal's card in that chat notes "Adds the Project and starts its Onboard Task at once."; Apply toasts "<name> added. Its Onboard Task started at once." and the card then reads "Added <name>. Its Onboard Task started at once: follow it on the Project page.", the last words a link to the Project page ([2.1.1](../2.1.1-projects.md#onboarding-a-project)).
 - The empty pane, at the bare `/projects` beside the list:
   - Title "Open a Project from the list, or add one", a folder icon.
   - Text while someone holds the Devops duty and can chat: "<name> prepares it until it builds and tests in a fresh worktree, and asks before installing anything. Or give its folder or git URL, base branch and commands yourself."
@@ -104,7 +105,7 @@ Covers: the Projects page (the Projects list beside the open Project, a list ite
   - **Commands**, hint "Optional. Leave any you don't know yet: set them later on the Project's page, or ask whoever onboards Projects.": inputs **Install** (placeholder `npm ci`), **Build** (`npm run build`), **Lint** (`npm run lint`), **Test** (`npm test`), all monospace and optional.
   - **Install inputs**, hint "Files whose change makes a worktree install again, separated by commas. With none, a worktree installs once.", placeholder `package-lock.json`.
   - **Publishing**: radios, "Push and open a pull request" (default) or "Merge into <base branch>" (or "the base branch" while it is blank).
-  - **Run this Project's checks in a run environment?**, hint "In the containers its .devcontainer/ defines. Until you decide, they run on this computer.": radios **Yes**, **No**, **Decide later** (picked first); the answer is sent with Add the Project.
+  - **Run this Project's checks in a run environment?**, hint "In the containers its .devcontainer/ defines. Until you decide, they run on this computer.": radios **Yes**, **No**, **Decide later** (picked first); the answer is sent with Add the Project, Yes acting as Set up run environment ([2.1.3](../2.1.3-tasks.md#setting-up-the-run-environment)).
 - A new Project starts with the commands Build, Lint and Test (keys `build`, `lint`, `test`), install blank and no install inputs.
 
 ## States

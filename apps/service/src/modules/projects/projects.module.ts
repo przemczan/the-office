@@ -63,6 +63,7 @@ import { TestTargets } from "./application/test-targets.js";
 import { ProjectActions } from "./application/project-actions.js";
 import { TestInstanceCheckouts } from "./application/test-instance-checkouts.js";
 import { PairingDefinitionExports } from "./application/pairing-definition-exports.js";
+import { TestTargetsChatRepository } from "./ports/test-targets-chat-repository.js";
 import { TestTargetRepository } from "./ports/test-target-repository.js";
 import { ActionRepository } from "./ports/action-repository.js";
 import { TaskCommandRunner } from "./application/task-command-runner.js";
@@ -96,6 +97,11 @@ import { IssueWriteBack } from "./application/issue-write-back.js";
 import { IssueWriteBacks } from "./application/issue-write-backs.js";
 import { ProjectIssueHosts } from "./application/project-issue-hosts.js";
 import { TaskBases } from "./application/task-bases.js";
+import { TestTargetsChats } from "./application/test-targets-chats.js";
+import { TestTargetsChatThreads } from "./application/test-targets-chat-threads.js";
+import { TestTargetsSetUpTasks } from "./application/test-targets-set-up-tasks.js";
+import { PostgresTestTargetsChatRepository } from "./adapters/postgres/postgres-test-targets-chat-repository.js";
+import { TestTargetsChatsController } from "./adapters/http/test-targets-chats.controller.js";
 import { TaskWorktrees } from "./application/task-worktrees.js";
 import { Worktrees } from "./application/worktrees.js";
 import { CommandRunner } from "./ports/command-runner.js";
@@ -145,6 +151,7 @@ export class ProjectsModule implements NestModule {
         ProjectServerValuesController,
         ProjectTestTargetsController,
         ProjectActionsController,
+        TestTargetsChatsController,
         EnvironmentChecksController,
         TaskChangesController,
         RepositoryFilesController,
@@ -169,6 +176,7 @@ export class ProjectsModule implements NestModule {
         { provide: IssueLinkRepository, useClass: PostgresIssueLinkRepository },
         { provide: TestTargetRepository, useClass: PostgresTestTargetRepository },
         { provide: ActionRepository, useClass: PostgresActionRepository },
+        { provide: TestTargetsChatRepository, useClass: PostgresTestTargetsChatRepository },
         GitHubCodeHost,
         // Each remote's pull requests and CI runs go to the first host that reaches its URL; another host,
         // such as GitLab, is one more adapter of `CodeHost` in this list.
@@ -195,6 +203,9 @@ export class ProjectsModule implements NestModule {
         DevcontainerServices,
         TestTargets,
         ProjectActions,
+        TestTargetsChats,
+        TestTargetsChatThreads,
+        TestTargetsSetUpTasks,
         TestInstanceCheckouts,
         PairingDefinitionExports,
         LocalRepositories,
@@ -245,6 +256,8 @@ export class ProjectsModule implements NestModule {
         DevcontainerServices,
         TestTargets,
         ProjectActions,
+        TestTargetsChatThreads,
+        TestTargetsSetUpTasks,
         TestInstanceCheckouts,
         PairingDefinitionExports,
         ProjectRecords,

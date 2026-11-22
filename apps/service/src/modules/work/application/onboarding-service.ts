@@ -1,30 +1,27 @@
-import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
-import { EventBus } from "../../../platform/events/event-bus.js";
 import type { Author } from "../domain/author.js";
-import { orderAfter } from "../domain/manual-order.js";
+import type { OffBoardTaskStart } from "../domain/off-board-task.js";
 import {
-  createOnboardTask,
+  latestOnboardingsOf,
   ONBOARD_PIPELINE,
   projectOnboardingOf,
   type ProjectOnboarding,
 } from "../domain/onboarding.js";
 import type { Task } from "../domain/task.js";
-import { TaskRefused } from "../domain/task-refused.js";
 import { KnownPipelines } from "../ports/known-pipelines.js";
-import { KnownProjects } from "../ports/known-projects.js";
-import { ProjectWorktrees } from "../ports/project-worktrees.js";
 import { TaskRepository } from "../ports/task-repository.js";
+import { OffBoardTasks } from "./off-board-tasks.js";
 
-/** Onboarding a Project (spec §2.1 Defaults): its Onboard Task, and the onboarding read from it. */
+/**
+ * Onboarding a Project (spec §2.1 Defaults): its Onboard Task, an Off-board Task made and started
+ * at once, and the onboarding read from its latest one.
+ */
 @Injectable()
 export class OnboardingService {
   constructor(
     private readonly tasks: TaskRepository,
-    private readonly projects: KnownProjects,
     private readonly pipelines: KnownPipelines,
-    private readonly worktrees: ProjectWorktrees,
-    private readonly events: EventBus,
+    private readonly offBoardTasks: OffBoardTasks,
   ) {}
 
   /** Every reason an Onboard Task can't be added now, besides its Project's own. */
@@ -35,45 +32,26 @@ export class OnboardingService {
   }
 
   /**
-   * Adds the Project's Onboard Task, Ready on Onboard, in a worktree of its own made now, since
-   * the Task skips Planning, where a Task's worktree is otherwise made. The worktree is made once
-   * the Task is kept, as Projects reads which branch it starts from through the Task; a Task whose
-   * worktree couldn't be made is taken again, and opening it again makes only the missing worktree.
+   * Onboard, and Onboard again once the latest Onboard Task is Done or Dropped: a new Onboard Task
+   * made and started at once, or queued; the open one while there is one; refused with nothing made.
    */
-  async addOnboardTask(projectId: string, createdBy: Author): Promise<Task> {
-    const task =
-      (await this.waitingOnboardTaskOf(projectId)) ?? (await this.create(projectId, createdBy));
-    await this.worktrees.open(projectId, task.id).catch((error: unknown) => {
-      const reason = error instanceof Error ? error.message : String(error);
-      throw new TaskRefused([`The Onboard Task's worktree couldn't be made: ${reason}`]);
-    });
-    return task;
+  onboard(projectId: string, by: Author): Promise<OffBoardTaskStart> {
+    return this.offBoardTasks.start("onboard", projectId, by);
   }
 
-  /** The Project's Onboard Task still Ready, not started yet; undefined when it has none. */
+  /** The Project's Onboard Task still Ready, made before Off-board Tasks started at once. */
   async waitingOnboardTaskOf(projectId: string): Promise<Task | undefined> {
     return (await this.tasks.madeFor("onboard", projectId)).find((task) => task.state === "ready");
   }
 
-  private async create(projectId: string, createdBy: Author): Promise<Task> {
-    const project = await this.projects.find(projectId);
-    if (!project) throw new TaskRefused([`There is no Project "${projectId}".`]);
-    const problems = await this.problems();
-    if (problems.length > 0) throw new TaskRefused(problems);
-    const { task, event } = await this.tasks.create((takenOrders) =>
-      createOnboardTask(
-        randomUUID(),
-        project,
-        { order: orderAfter(takenOrders), createdBy },
-        new Date(),
-      ),
-    );
-    await this.events.publish(event);
-    return task;
+  /** The Project's onboarding, from its latest Onboard Task; undefined when it has none. */
+  async onboardingOf(projectId: string): Promise<ProjectOnboarding | undefined> {
+    const latest = await this.offBoardTasks.latestOf("onboard", projectId);
+    return latest && projectOnboardingOf(latest);
   }
 
-  /** The onboarding of every Project that has one; a Project not listed has none. */
+  /** The onboarding of every Project that has one, from its latest Onboard Task. */
   async list(): Promise<ProjectOnboarding[]> {
-    return (await this.tasks.madeFor("onboard")).flatMap((task) => projectOnboardingOf(task) ?? []);
+    return latestOnboardingsOf(await this.tasks.madeFor("onboard"));
   }
 }

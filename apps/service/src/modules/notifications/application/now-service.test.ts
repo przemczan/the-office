@@ -54,6 +54,7 @@ import {
   OfficeUpdateAvailableForTests,
   ShapingRepliesForTests,
   OfficeUsersForTests,
+  OfficeOffBoardTasksForTests,
   OfficeInitiativesForTests,
   OfficeTasksForTests,
   OpenDecisionsForTests,
@@ -93,6 +94,7 @@ describe("NowService", () => {
           officeUpdateAvailable: OfficeUpdateAvailableForTests,
           shapingReplies: ShapingRepliesForTests,
           officeUsers: OfficeUsersForTests,
+          officeOffBoardTasks: OfficeOffBoardTasksForTests,
         }),
       ],
     }));
@@ -155,6 +157,7 @@ describe("NowService", () => {
         taskId,
         projectId: "p1",
         waitingSince: "2026-10-27T09:05:00.000Z",
+        offBoardTask: null,
       },
     ]);
     expect(now.running).toEqual([
@@ -171,6 +174,7 @@ describe("NowService", () => {
           role: "developer",
           since: "2026-10-27T09:00:00.000Z",
         },
+        madeFor: null,
       },
     ]);
     expect(now.desks).toEqual({ inUse: 1, limit: 4 });
@@ -185,6 +189,69 @@ describe("NowService", () => {
         fiveHour: { percentUsed: 0, resetsAt: null },
         sevenDay: { percentUsed: 5, resetsAt: "2026-11-01T09:00:00.000Z" },
       },
+    ]);
+  });
+
+  it("marks an Off-board Task's out-of-tries Decision once it is the user's, and what each Task was made for", async () => {
+    const taskId = randomUUID();
+    const queuedId = randomUUID();
+    const decisionId = randomUUID();
+    tasks.tasks = [
+      {
+        id: taskId,
+        title: "Set up the run environment",
+        projectId: "p1",
+        state: "waiting-on-you",
+        pausedBy: undefined,
+        resumesAt: undefined,
+        madeFor: "run-environment-setup",
+      },
+      {
+        id: queuedId,
+        title: "Onboard p2",
+        projectId: "p2",
+        state: "ready",
+        pausedBy: undefined,
+        resumesAt: undefined,
+        madeFor: "onboard",
+      },
+    ];
+    app.get(OpenDecisionsForTests).open = [
+      { id: decisionId, threadId: randomUUID(), taskId, askedAt: new Date("2026-10-27T09:05:00Z") },
+    ];
+    app.get(StartQueueForTests).queued = [{ taskId: queuedId, reasons: ["Project limit reached"] }];
+    app.get(OfficeOffBoardTasksForTests).offBoardTasks.set(taskId, {
+      taskId,
+      kind: "run-environment-setup",
+      title: "Set up the run environment",
+      status: {
+        state: "failed",
+        stageName: "Verify",
+        error: undefined,
+        decisionId,
+        withCto: false,
+      },
+    });
+
+    const now = await readNow();
+
+    expect(now.needsYou).toEqual([
+      expect.objectContaining({
+        kind: "decision",
+        decisionId,
+        offBoardTask: {
+          kind: "run-environment-setup",
+          title: "Set up the run environment",
+          stageName: "Verify",
+          error: null,
+        },
+      }),
+    ]);
+    expect(now.running).toEqual([
+      expect.objectContaining({ taskId, madeFor: "run-environment-setup" }),
+    ]);
+    expect(now.queue).toEqual([
+      expect.objectContaining({ taskId: queuedId, madeFor: "onboard", place: 1 }),
     ]);
   });
 

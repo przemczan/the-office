@@ -5,6 +5,7 @@ import type {
   EngineUsageWindows,
   InitiativeTask,
   NowFireAlarm,
+  OffBoardTaskOnNow,
   OfficeInitiative,
   OfficeTask,
   OfficeUpdateFound,
@@ -22,6 +23,7 @@ import { DeskLimit } from "./desk-limit.js";
 import { KnownPeople } from "./known-people.js";
 import { OfficeFireAlarm } from "./office-fire-alarm.js";
 import { OfficeInitiatives } from "./office-initiatives.js";
+import { OfficeOffBoardTasks } from "./office-off-board-tasks.js";
 import { OfficeStatusCards } from "./office-status-cards.js";
 import { OfficeTasks } from "./office-tasks.js";
 import { OfficeUpdateAvailable } from "./office-update-available.js";
@@ -54,6 +56,15 @@ export class OfficeTasksForTests extends OfficeTasks {
 
   async read(taskId: string): Promise<{ readonly personRole: string | undefined }> {
     return { personRole: this.people.get(taskId) };
+  }
+}
+
+/** Work's Off-board Tasks as a test sets them, by their Task's id. */
+export class OfficeOffBoardTasksForTests extends OfficeOffBoardTasks {
+  readonly offBoardTasks = new Map<string, OffBoardTaskOnNow>();
+
+  async ofTask(taskId: string): Promise<OffBoardTaskOnNow | undefined> {
+    return this.offBoardTasks.get(taskId);
   }
 }
 
@@ -238,6 +249,7 @@ const PORTS = [
   OfficeUpdateAvailableForTests,
   ShapingRepliesForTests,
   OfficeUsersForTests,
+  OfficeOffBoardTasksForTests,
   OfficeToolRegistry,
 ];
 

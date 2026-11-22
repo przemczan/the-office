@@ -1,5 +1,5 @@
 {
-  "id": "bd3c2b7f-865d-4934-a836-9ab3811ebf31",
+  "id": "12e01707-bec7-43e3-8c39-277454b442fb",
   "prevId": "8d8966e5-8000-4bd1-9508-9848ea1f69e4",
   "version": "7",
   "dialect": "postgresql",
@@ -3756,6 +3756,13 @@
           "notNull": true,
           "default": "''"
         },
+        "delete_merged_branches": {
+          "name": "delete_merged_branches",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "default_pipeline": {
           "name": "default_pipeline",
           "type": "text",
@@ -3881,20 +3888,6 @@
         },
         "close_issue_on_drop": {
           "name": "close_issue_on_drop",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "features": {
-          "name": "features",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::jsonb"
-        },
-        "delete_merged_branches": {
-          "name": "delete_merged_branches",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
@@ -7062,6 +7055,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "branch_deletion": {
+          "name": "branch_deletion",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "kind": {
           "name": "kind",
           "type": "text",
@@ -7111,12 +7110,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
-        },
-        "branch_deletion": {
-          "name": "branch_deletion",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {
@@ -7224,8 +7217,8 @@
           "method": "btree",
           "with": {}
         },
-        "tasks_onboard_task_per_project": {
-          "name": "tasks_onboard_task_per_project",
+        "tasks_open_onboard_task_per_project": {
+          "name": "tasks_open_onboard_task_per_project",
           "columns": [
             {
               "expression": "project_id",
@@ -7235,7 +7228,7 @@
             }
           ],
           "isUnique": true,
-          "where": "\"tasks\".\"made_for\" = 'onboard'",
+          "where": "\"tasks\".\"made_for\" = 'onboard' AND \"tasks\".\"state\" NOT IN ('done', 'dropped')",
           "concurrently": false,
           "method": "btree",
           "with": {}

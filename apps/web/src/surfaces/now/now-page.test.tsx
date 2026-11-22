@@ -1,15 +1,23 @@
 import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import type {
+  Decision,
   FireAlarmOnNow,
   Now,
   ShapingOnNow,
   SinceYouLeft,
   WaitingForYouItem,
 } from "@the-office/contracts";
+import { act } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { notificationEventCacheUpdates, nowQueries } from "../../api/notifications.ts";
 import { FireAlarmReviewProvider } from "../../shell/fire-alarm/fire-alarm-review.tsx";
-import { closePage, openPage, stubService, until } from "../../shell/page.fixtures.tsx";
+import {
+  buttonNamed,
+  closePage,
+  openPage,
+  stubService,
+  until,
+} from "../../shell/page.fixtures.tsx";
 import { PROJECT_FILTER_STORAGE_KEY } from "../../shell/project-filter/project-filter-store.ts";
 import { clockOf } from "../../shell/time.ts";
 import { NowPage } from "./now-page.tsx";
@@ -294,5 +302,135 @@ describe("Now's fire alarm", () => {
     const panel = alarmPanel(page);
     expect(panel.querySelector("h2")?.textContent).toBe(`Alarm on since ${clockOf(SINCE)}`);
     expect(panel.textContent).not.toContain("Add a footer");
+  });
+});
+
+const ONBOARD_TASK_ID = "1b2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e";
+const DECISION_ID = "2c3d4e5f-6a7b-4c8d-9e0f-1a2b3c4d5e6f";
+
+const OUT_OF_TRIES: Decision = {
+  id: DECISION_ID,
+  threadId: "3d4e5f6a-7b8c-4d9e-8f0a-1b2c3d4e5f6a",
+  inStageThread: true,
+  kind: "form",
+  taskId: ONBOARD_TASK_ID,
+  roleKey: null,
+  context: "Verify failed.",
+  questions: [
+    {
+      kind: "choice",
+      question: "Verify is out of tries. What now?",
+      options: ["Retry", "Continue with the issues", "Drop"],
+      recommendation: { option: 0, reason: "It may pass now." },
+    },
+  ],
+  attachmentIds: [],
+  askedAt: "2026-11-22T10:00:00.000Z",
+  putTo: null,
+  passedOn: [],
+  formAnswer: null,
+  answeredAt: null,
+  closedAt: null,
+  closedBecause: null,
+  answeredByUser: null,
+  answeredBy: null,
+  atUsersRequest: null,
+  answeredByTheOffice: false,
+};
+
+const FAILED_ONBOARD: Now["needsYou"][number] = {
+  kind: "decision",
+  decisionId: DECISION_ID,
+  taskId: ONBOARD_TASK_ID,
+  projectId: "p1",
+  waitingSince: "2026-11-22T10:00:00.000Z",
+  offBoardTask: {
+    kind: "onboard",
+    title: "Onboard",
+    stageName: "Verify",
+    error: "npm test exited 1: 3 of 214 tests failed",
+  },
+};
+
+describe("Now's Off-board Tasks", () => {
+  it("shows an Off-board Task's out-of-tries Decision as its failed card, Retry answering its first option", async () => {
+    const sent = stubService({
+      "GET /api/now": () => ({ status: 200, body: { ...NOW, needsYou: [FAILED_ONBOARD] } }),
+      "GET /api/now/since-you-left": () => ({
+        status: 200,
+        body: sinceYouLeftWith("Add a filter"),
+      }),
+      "GET /api/decisions/open": () => ({ status: 200, body: [OUT_OF_TRIES] }),
+      [`POST /api/decisions/${DECISION_ID}/answer`]: () => ({ status: 200, body: {} }),
+    });
+    const { page } = await openPage("/now", { now: NowPage });
+
+    const card = (): Element | null =>
+      page.querySelector("[aria-label='Off-board Task failed: Onboard']");
+    await until(() => expect(buttonNamed(card() ?? page, "Retry")?.disabled).toBe(false));
+    expect(card()?.textContent).toContain("Verify failed, and its rounds are used up.");
+    expect(card()?.textContent).toContain("npm test exited 1: 3 of 214 tests failed");
+    const links = [...(card()?.querySelectorAll("a") ?? [])].map((link) => [
+      link.textContent,
+      link.getAttribute("href"),
+    ]);
+    expect(links).toContainEqual(["Onboard", `/tasks/${ONBOARD_TASK_ID}`]);
+    expect(links).toContainEqual([
+      "Open the Decision",
+      `/tasks/${ONBOARD_TASK_ID}?decision=${DECISION_ID}`,
+    ]);
+
+    act(() => buttonNamed(card() ?? page, "Retry")?.click());
+
+    await until(() =>
+      expect(sent).toContainEqual({
+        request: `POST /api/decisions/${DECISION_ID}/answer`,
+        body: { kind: "submitted", answers: [{ kind: "option", option: 0 }] },
+      }),
+    );
+  });
+
+  it("marks an Off-board Task in Running and in the Queue with its badge, and no other Task", async () => {
+    const { page } = await openNowWith({
+      ...NOW,
+      running: [
+        {
+          taskId: crypto.randomUUID(),
+          title: "Set up the run environment",
+          projectId: "p1",
+          state: "in-progress",
+          pausedBy: null,
+          resumesAt: null,
+          stage: null,
+          madeFor: "run-environment-setup",
+        },
+        {
+          taskId: crypto.randomUUID(),
+          title: "Add offline sync",
+          projectId: "p1",
+          state: "in-progress",
+          pausedBy: null,
+          resumesAt: null,
+          stage: null,
+          madeFor: null,
+        },
+      ],
+      queue: [
+        {
+          taskId: crypto.randomUUID(),
+          title: "Onboard",
+          projectId: "p2",
+          madeFor: "onboard",
+          place: 1,
+          reasons: ["Project limit reached (1)."],
+        },
+      ],
+    });
+
+    const badged = (label: string): boolean | undefined =>
+      page.querySelector(`[aria-label='${label}']`)?.textContent?.includes("Off-board Task");
+    await until(() => expect(badged("Running: Set up the run environment")).toBe(true));
+    expect(badged("Running: Add offline sync")).toBe(false);
+    expect(badged("Queued: Onboard")).toBe(true);
   });
 });

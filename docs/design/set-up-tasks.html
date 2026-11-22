@@ -1,0 +1,2362 @@
+<!doctype html>
+<html lang="en" data-palette="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Off-board Tasks on demand · The Office design</title>
+    <style>
+      :root {
+        --ember-50: #fff2ed;
+        --ember-300: #ff9370;
+        --ember-500: #f23d0f;
+        --ember-600: #d4300a;
+        --ember-700: #9e2406;
+        --flare-300: #ffc266;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-850: #1f1f1d;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-700: #106a3b;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-500: #e5a00d;
+        --amber-700: #865b05;
+        --red-50: #fdeef0;
+        --red-100: #fad9dd;
+        --red-500: #c8102e;
+        --red-700: #8e0b20;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-raised: var(--white);
+        --surface-sunken: var(--gray-50);
+        --surface-hover: var(--gray-25);
+        --surface-selected: var(--ember-50);
+        --fg-1: var(--gray-950);
+        --fg-2: var(--gray-600);
+        --fg-3: var(--gray-500);
+        --fg-disabled: var(--gray-300);
+        --border: var(--gray-150);
+        --border-subtle: var(--gray-100);
+        --border-strong: var(--gray-200);
+        --accent: var(--ember-500);
+        --accent-hover: var(--ember-600);
+        --accent-subtle: var(--ember-50);
+        --accent-subtle-fg: var(--ember-700);
+        --control-hover: var(--gray-50);
+        --control-press: var(--gray-100);
+        --success: var(--green-500);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --success-border: var(--green-100);
+        --warning: var(--amber-500);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --danger: var(--red-500);
+        --danger-subtle: var(--red-50);
+        --danger-fg: var(--red-700);
+        --danger-border: var(--red-100);
+        --info: var(--blue-500);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-600);
+        --neutral-border: var(--gray-150);
+        --focus-ring: 0 0 0 3px color-mix(in oklab, var(--ember-500) 30%, transparent);
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --text-2xs: 11px;
+        --text-xs: 12px;
+        --text-sm: 13px;
+        --text-md: 14px;
+        --text-lg: 16px;
+        --type-body: 400 var(--text-md) / 1.5 var(--font-sans);
+        --type-body-sm: 400 var(--text-sm) / 1.45 var(--font-sans);
+        --type-caption: 400 var(--text-xs) / 1.4 var(--font-sans);
+        --type-label: 500 var(--text-sm) / 1.3 var(--font-sans);
+        --type-card-title: 600 var(--text-md) / 1.4 var(--font-sans);
+        --type-section-title: 600 var(--text-lg) / 1.3 var(--font-sans);
+        --type-overline: 500 var(--text-2xs) / 1.2 var(--font-mono);
+        --type-mono-sm: 400 var(--text-xs) / 1.6 var(--font-mono);
+        --tracking-caps: 0.06em;
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-card: 10px;
+        --radius-full: 999px;
+        --control-sm: 28px;
+        --control-md: 32px;
+        --shadow-1: 0 1px 2px rgba(16, 16, 15, 0.06);
+        --shadow-2: 0 4px 12px -2px rgba(16, 16, 15, 0.08), 0 1px 3px rgba(16, 16, 15, 0.05);
+        --shadow-3: 0 16px 40px -8px rgba(16, 16, 15, 0.18), 0 2px 6px rgba(16, 16, 15, 0.06);
+      }
+      [data-palette="dark"] {
+        --bg: var(--gray-950);
+        --surface: var(--gray-900);
+        --surface-raised: var(--gray-850);
+        --surface-sunken: var(--gray-950);
+        --surface-hover: var(--gray-850);
+        --surface-selected: color-mix(in oklab, var(--ember-500) 12%, var(--gray-900));
+        --fg-1: var(--gray-50);
+        --fg-2: var(--gray-300);
+        --fg-3: var(--gray-400);
+        --fg-disabled: var(--gray-600);
+        --border: var(--gray-800);
+        --border-subtle: var(--gray-850);
+        --border-strong: var(--gray-700);
+        --accent-subtle: color-mix(in oklab, var(--ember-500) 16%, transparent);
+        --accent-subtle-fg: var(--ember-300);
+        --control-hover: var(--gray-850);
+        --control-press: var(--gray-800);
+        --success-subtle: color-mix(in oklab, var(--green-500) 16%, transparent);
+        --success-fg: #6fd69b;
+        --success-border: color-mix(in oklab, var(--green-500) 30%, transparent);
+        --warning-subtle: color-mix(in oklab, var(--amber-500) 16%, transparent);
+        --warning-fg: var(--flare-300);
+        --warning-border: color-mix(in oklab, var(--amber-500) 30%, transparent);
+        --danger-subtle: color-mix(in oklab, var(--red-500) 20%, transparent);
+        --danger-fg: #ff8a97;
+        --danger-border: color-mix(in oklab, var(--red-500) 36%, transparent);
+        --info-subtle: color-mix(in oklab, var(--blue-500) 18%, transparent);
+        --info-fg: #93b5f5;
+        --info-border: color-mix(in oklab, var(--blue-500) 34%, transparent);
+        --neutral-subtle: var(--gray-850);
+        --neutral-fg: var(--gray-300);
+        --neutral-border: var(--gray-700);
+        --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+        --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+        --shadow-3: 0 16px 40px -8px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg-1);
+        font: var(--type-body);
+        -webkit-font-smoothing: antialiased;
+      }
+      code,
+      .mono {
+        font-family: var(--font-mono);
+        font-size: 0.93em;
+      }
+      button {
+        font: inherit;
+        color: inherit;
+      }
+      a {
+        color: var(--accent-subtle-fg);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+        text-decoration-color: color-mix(in oklab, currentColor 40%, transparent);
+      }
+      :focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+      [hidden] {
+        display: none !important;
+      }
+      svg.i {
+        width: 14px;
+        height: 14px;
+        flex: none;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      svg.i.lg {
+        width: 16px;
+        height: 16px;
+      }
+
+      /* ---------- The design's frame ---------- */
+      .doc {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 28px;
+        max-width: 1440px;
+        margin: 0 auto;
+        padding: 28px 28px 72px;
+      }
+      @media (max-width: 1180px) {
+        .doc {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      .doc-head {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+      }
+      .overline {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .doc-head h1 {
+        margin: 6px 0 4px;
+        font: 600 22px/1.25 var(--font-sans);
+        letter-spacing: -0.01em;
+      }
+      .doc-head p {
+        margin: 0;
+        max-width: 80ch;
+        color: var(--fg-2);
+        font: var(--type-body-sm);
+      }
+      .views {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        padding-bottom: 2px;
+        border-bottom: 1px solid var(--border);
+      }
+      .views button {
+        position: relative;
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        height: 36px;
+        padding: 0 12px;
+        border: 0;
+        background: none;
+        color: var(--fg-2);
+        font: var(--type-label);
+        cursor: pointer;
+      }
+      .views button:hover,
+      .views button[aria-selected="true"] {
+        color: var(--fg-1);
+      }
+      .views button[aria-selected="true"]::after {
+        content: "";
+        position: absolute;
+        right: 8px;
+        bottom: -3px;
+        left: 8px;
+        height: 2px;
+        border-radius: 2px;
+        background: var(--accent);
+      }
+      .stage {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-width: 0;
+      }
+      .stage-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 14px;
+        align-items: center;
+        padding: 10px 12px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-lg);
+        background: var(--surface-sunken);
+      }
+      .stage-bar-label {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+        min-width: 120px;
+      }
+      .seg {
+        display: inline-flex;
+        flex-wrap: wrap;
+        padding: 2px;
+        gap: 2px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+      }
+      .seg button {
+        height: 24px;
+        padding: 0 9px;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: none;
+        color: var(--fg-2);
+        font: 500 12px/1 var(--font-sans);
+        cursor: pointer;
+      }
+      .seg button:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .seg button[aria-pressed="true"] {
+        background: var(--accent-subtle);
+        color: var(--accent-subtle-fg);
+      }
+      .aside {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-width: 0;
+      }
+      .note {
+        padding: 14px 16px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .note h3 {
+        margin: 0 0 6px;
+        font: var(--type-card-title);
+        color: var(--fg-1);
+      }
+      .note ul,
+      .note ol {
+        margin: 0;
+        padding-left: 18px;
+      }
+      .note li + li {
+        margin-top: 4px;
+      }
+      .note p {
+        margin: 0 0 6px;
+      }
+      .note.accent {
+        border-color: color-mix(in oklab, var(--accent) 35%, var(--border));
+        background: color-mix(in oklab, var(--accent-subtle) 60%, var(--surface));
+      }
+      .caption {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .label {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+        margin: 4px 0 -6px;
+      }
+
+      /* ---------- The app's parts, as packages/ui draws them ---------- */
+      .frame {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--bg);
+        box-shadow: var(--shadow-2);
+        overflow: hidden;
+      }
+      .frame-bar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 34px;
+        padding: 0 12px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .frame-bar .dots {
+        display: flex;
+        gap: 5px;
+      }
+      .frame-bar .dots span {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--border-strong);
+      }
+      .frame-body {
+        padding: 20px 22px 24px;
+      }
+      .card {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+      }
+      .card + .card {
+        margin-top: 14px;
+      }
+      .card-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      .card-head h4 {
+        margin: 0;
+        font: var(--type-card-title);
+      }
+      .card-head .end {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .card-body {
+        padding: 14px 16px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .card-body p {
+        margin: 0;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: 20px;
+        padding: 0 7px;
+        border: 1px solid var(--neutral-border);
+        border-radius: var(--radius-full);
+        background: var(--neutral-subtle);
+        color: var(--neutral-fg);
+        font: 500 11.5px/1 var(--font-sans);
+        white-space: nowrap;
+      }
+      .badge.info {
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+      }
+      .badge.success {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+      .badge.warning {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .badge.danger {
+        border-color: var(--danger-border);
+        background: var(--danger-subtle);
+        color: var(--danger-fg);
+      }
+      .badge.accent {
+        border-color: color-mix(in oklab, var(--accent) 30%, transparent);
+        background: var(--accent-subtle);
+        color: var(--accent-subtle-fg);
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: var(--control-sm);
+        padding: 0 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        color: var(--fg-1);
+        font: var(--type-label);
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .btn:hover {
+        background: var(--control-hover);
+      }
+      .btn.primary {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #fff;
+      }
+      .btn.primary:hover {
+        background: var(--accent-hover);
+      }
+      .btn.ghost {
+        border-color: transparent;
+        background: none;
+        color: var(--fg-2);
+      }
+      .btn.ghost:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .btn[disabled] {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      .alert {
+        display: flex;
+        gap: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--danger-border);
+        border-radius: var(--radius-lg);
+        background: var(--danger-subtle);
+        font: var(--type-body-sm);
+      }
+      .alert .alert-icon {
+        color: var(--danger-fg);
+        margin-top: 2px;
+      }
+      .alert.warning {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+      }
+      .alert.warning .alert-icon {
+        color: var(--warning-fg);
+      }
+      .alert.info {
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+      }
+      .alert.info .alert-icon {
+        color: var(--info-fg);
+      }
+      .alert-title {
+        font-weight: 600;
+        color: var(--fg-1);
+      }
+      .alert-body {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
+        flex: 1;
+      }
+      .alert-body p {
+        margin: 0;
+        color: var(--fg-2);
+      }
+      .error-excerpt {
+        margin: 0;
+        padding: 8px 10px;
+        border-radius: var(--radius-md);
+        background: color-mix(in oklab, var(--surface) 70%, transparent);
+        border: 1px solid var(--border-subtle);
+        font: var(--type-mono-sm);
+        color: var(--fg-1);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .avatar {
+        display: inline-grid;
+        place-items: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--blue-500);
+        color: #fff;
+        font: 600 10px/1 var(--font-sans);
+        flex: none;
+      }
+      .avatar.cto {
+        background: var(--gray-700);
+      }
+      .avatar.you {
+        background: var(--accent);
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        height: 20px;
+        padding: 0 7px 0 3px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-full);
+        background: var(--surface);
+        font: 500 11.5px/1 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .chip .mark {
+        width: 14px;
+        height: 14px;
+        border-radius: 4px;
+        background: linear-gradient(135deg, var(--blue-500), var(--green-500));
+      }
+      .chip .mark.ember {
+        background: linear-gradient(135deg, var(--ember-500), var(--flare-300));
+      }
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 10px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .meta .sep::before {
+        content: "·";
+      }
+      .meta strong {
+        color: var(--fg-2);
+        font-weight: 500;
+      }
+
+      /* The Off-board Task's status, one component for every kind (OffBoardTaskStatus) */
+      .setup {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--success);
+        border-radius: var(--radius-lg);
+        background: var(--surface-hover);
+      }
+      .setup.is-queued,
+      .setup.is-waiting,
+      .setup.is-paused {
+        border-left-color: var(--warning);
+      }
+      .setup.is-failed {
+        border-left-color: var(--danger);
+      }
+      .setup.is-done {
+        border-left-color: var(--border-strong);
+      }
+      .setup-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      .setup-title {
+        font: var(--type-label);
+        color: var(--fg-1);
+      }
+      .setup-head .end {
+        margin-left: auto;
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .rail {
+        display: flex;
+        align-items: center;
+        gap: 0;
+        flex-wrap: wrap;
+      }
+      .rail .st {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        height: 22px;
+        padding: 0 8px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-full);
+        background: var(--surface);
+        font: 500 11.5px/1 var(--font-sans);
+        color: var(--fg-3);
+      }
+      .rail .st .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--border-strong);
+      }
+      .rail .st.done {
+        color: var(--success-fg);
+        border-color: var(--success-border);
+      }
+      .rail .st.done .dot {
+        background: var(--success);
+      }
+      .rail .st.now {
+        color: var(--info-fg);
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+      }
+      .rail .st.now .dot {
+        background: var(--info);
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--info) 25%, transparent);
+      }
+      .rail .st.wait {
+        color: var(--warning-fg);
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+      }
+      .rail .st.wait .dot {
+        background: var(--warning);
+      }
+      .rail .st.fail {
+        color: var(--danger-fg);
+        border-color: var(--danger-border);
+        background: var(--danger-subtle);
+      }
+      .rail .st.fail .dot {
+        background: var(--danger);
+      }
+      .rail .link {
+        width: 14px;
+        height: 1px;
+        background: var(--border-strong);
+      }
+      .question {
+        padding: 8px 10px;
+        border: 1px solid var(--warning-border);
+        border-radius: var(--radius-md);
+        background: var(--warning-subtle);
+        font: var(--type-body-sm);
+        color: var(--fg-1);
+      }
+      .hint {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+
+      /* Project page frame */
+      .proj-head {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .proj-logo {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--blue-500), var(--green-500));
+      }
+      .proj-head h2 {
+        margin: 0 0 3px;
+        font: 600 18px/1.2 var(--font-sans);
+      }
+      .proj-layout {
+        display: grid;
+        grid-template-columns: 170px minmax(0, 1fr);
+        gap: 20px;
+      }
+      @media (max-width: 900px) {
+        .proj-layout {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      .menu {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+      }
+      .menu span {
+        padding: 6px 10px;
+        border-radius: var(--radius-md);
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .menu span.on {
+        background: var(--surface-selected);
+        color: var(--accent-subtle-fg);
+        font-weight: 500;
+      }
+      .tiles {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .tile {
+        padding: 10px 12px;
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        background: var(--surface-sunken);
+      }
+      .tile b {
+        display: block;
+        font: 600 18px/1.2 var(--font-sans);
+      }
+      .tile span {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .section-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 18px 0 8px;
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .section-label::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--border);
+      }
+      .seg-static {
+        display: inline-flex;
+        padding: 2px;
+        gap: 2px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+      }
+      .seg-static span {
+        padding: 3px 10px;
+        border-radius: var(--radius-sm);
+        font: 500 12px/1.4 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .seg-static span.on {
+        background: var(--accent-subtle);
+        color: var(--accent-subtle-fg);
+      }
+      .target {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        padding: 10px 0;
+        border-top: 1px solid var(--border-subtle);
+      }
+      .target:first-child {
+        border-top: 0;
+      }
+
+      /* Toast */
+      .toast {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        max-width: 100%;
+        padding: 9px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface-raised);
+        box-shadow: var(--shadow-3);
+        font: var(--type-body-sm);
+      }
+      .toast .ok {
+        color: var(--success);
+      }
+      .toast .wait {
+        color: var(--warning);
+      }
+
+      /* Chat drawer */
+      .drawer-wrap {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 420px;
+        min-height: 560px;
+      }
+      @media (max-width: 1000px) {
+        .drawer-wrap {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      .drawer-page {
+        padding: 18px;
+        opacity: 0.55;
+        filter: saturate(0.7);
+      }
+      .drawer {
+        display: flex;
+        flex-direction: column;
+        border-left: 1px solid var(--border);
+        background: var(--surface);
+        box-shadow: var(--shadow-3);
+      }
+      .drawer-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--border);
+      }
+      .drawer-head .who {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .drawer-head .who b {
+        font: var(--type-label);
+      }
+      .drawer-msgs {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 14px;
+        overflow: auto;
+      }
+      .msg {
+        max-width: 92%;
+        padding: 9px 12px;
+        border-radius: 12px;
+        font: var(--type-body-sm);
+      }
+      .msg.user {
+        align-self: flex-end;
+        background: var(--accent-subtle);
+        color: var(--fg-1);
+        border-bottom-right-radius: 4px;
+      }
+      .msg.agent {
+        align-self: flex-start;
+        background: var(--surface-sunken);
+        border: 1px solid var(--border-subtle);
+        border-bottom-left-radius: 4px;
+      }
+      .tool-line {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font: var(--type-mono-sm);
+        color: var(--fg-3);
+      }
+      .proposal {
+        border: 1px solid color-mix(in oklab, var(--accent) 35%, var(--border));
+        border-radius: var(--radius-card);
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+      }
+      .proposal-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      .proposal-head b {
+        font: var(--type-label);
+      }
+      .proposal-body {
+        padding: 10px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        font: var(--type-body-sm);
+      }
+      .proposal-foot {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        padding: 10px 12px;
+        border-top: 1px solid var(--border-subtle);
+      }
+      .added {
+        color: var(--success-fg);
+      }
+      .composer {
+        margin: 0 14px 14px;
+        padding: 10px 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+        font: var(--type-body-sm);
+        color: var(--fg-1);
+        min-height: 64px;
+        box-shadow: var(--focus-ring);
+      }
+      .composer-foot {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin: -6px 14px 14px;
+      }
+
+      /* Now and Activity */
+      .panels {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 16px;
+      }
+      @media (max-width: 1000px) {
+        .panels {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      .panel-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 10px;
+        font: var(--type-section-title);
+      }
+      .panel-head .count {
+        font: var(--type-label);
+        color: var(--fg-3);
+      }
+      .item {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--success);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+      }
+      .item + .item {
+        margin-top: 10px;
+      }
+      .item.danger {
+        border-left-color: var(--danger);
+      }
+      .item.warn {
+        border-left-color: var(--warning);
+      }
+      .item.muted {
+        border-left-color: var(--border-strong);
+      }
+      .item.accent {
+        border-left-color: var(--accent);
+      }
+      .item-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      .item-head a {
+        font: var(--type-label);
+        color: var(--fg-1);
+      }
+      .item-head .end {
+        margin-left: auto;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .group {
+        margin-bottom: 18px;
+      }
+      .group-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 8px;
+        font: var(--type-card-title);
+      }
+      .group-head .count {
+        font: var(--type-label);
+        color: var(--fg-3);
+      }
+      .changed {
+        position: relative;
+      }
+      .changed::before {
+        content: "New";
+        position: absolute;
+        top: -9px;
+        right: 10px;
+        padding: 1px 6px;
+        border-radius: var(--radius-full);
+        background: var(--accent);
+        color: #fff;
+        font: 600 10px/1.5 var(--font-sans);
+        letter-spacing: 0.02em;
+      }
+      .changed.was::before {
+        content: "Changed";
+      }
+
+      /* Overview diagrams */
+      .shape {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+      @media (max-width: 900px) {
+        .shape {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      .flow {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        margin-top: 4px;
+      }
+      .flow .arrow {
+        color: var(--fg-3);
+      }
+      .term {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 16px 18px;
+        border: 1px solid color-mix(in oklab, var(--accent) 35%, var(--border));
+        border-radius: var(--radius-card);
+        background: color-mix(in oklab, var(--accent-subtle) 55%, var(--surface));
+      }
+      .term b.word {
+        font: 600 18px/1.3 var(--font-sans);
+      }
+      .term p {
+        margin: 0;
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      table.t {
+        width: 100%;
+        border-collapse: collapse;
+        font: var(--type-body-sm);
+      }
+      table.t th,
+      table.t td {
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border-subtle);
+        text-align: left;
+        vertical-align: top;
+      }
+      table.t th {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+        background: var(--surface-sunken);
+      }
+      table.t td:first-child {
+        white-space: nowrap;
+        font-weight: 500;
+      }
+      table.t td code {
+        overflow-wrap: anywhere;
+      }
+      .steps {
+        counter-reset: step;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .steps > li {
+        counter-increment: step;
+        position: relative;
+        padding: 12px 14px 12px 48px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .steps > li::before {
+        content: counter(step);
+        position: absolute;
+        top: 12px;
+        left: 14px;
+        display: grid;
+        place-items: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--accent-subtle);
+        color: var(--accent-subtle-fg);
+        font: 600 12px/1 var(--font-sans);
+      }
+      .steps > li b {
+        color: var(--fg-1);
+      }
+      .steps ul {
+        margin: 6px 0 0;
+        padding-left: 18px;
+      }
+      .steps li li + li {
+        margin-top: 3px;
+      }
+      .copy {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+      }
+      .copy-row {
+        display: grid;
+        grid-template-columns: 210px minmax(0, 1fr);
+        gap: 12px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border-subtle);
+        font: var(--type-body-sm);
+      }
+      .copy-row > span:first-child {
+        color: var(--fg-3);
+      }
+      .copy-row q {
+        quotes: "\201C" "\201D";
+        color: var(--fg-1);
+      }
+    </style>
+  </head>
+  <body>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <symbol id="i-drive" viewBox="0 0 24 24">
+        <line x1="22" y1="12" x2="2" y2="12" />
+        <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+        <line x1="6" y1="16" x2="6.01" y2="16" />
+        <line x1="10" y1="16" x2="10.01" y2="16" />
+      </symbol>
+      <symbol id="i-box" viewBox="0 0 24 24">
+        <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+        <path d="m3.3 7 8.7 5 8.7-5" />
+        <path d="M12 22V12" />
+      </symbol>
+      <symbol id="i-flask" viewBox="0 0 24 24">
+        <path d="M9 3h6" />
+        <path d="M10 9V3h4v6l5 9a2 2 0 0 1-1.7 3H6.7A2 2 0 0 1 5 18Z" />
+        <path d="M7.5 14h9" />
+      </symbol>
+      <symbol id="i-chat" viewBox="0 0 24 24">
+        <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+      </symbol>
+      <symbol id="i-retry" viewBox="0 0 24 24">
+        <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+        <path d="M3 3v5h5" />
+      </symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24">
+        <path d="M5 12h14" />
+        <path d="m12 5 7 7-7 7" />
+      </symbol>
+      <symbol id="i-wrench" viewBox="0 0 24 24">
+        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+      </symbol>
+      <symbol id="i-play" viewBox="0 0 24 24">
+        <polygon points="6 3 20 12 6 21 6 3" />
+      </symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="12" />
+        <line x1="12" y1="16" x2="12.01" y2="16" />
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24">
+        <path d="M20 6 9 17l-5-5" />
+      </symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 6v6l4 2" />
+      </symbol>
+      <symbol id="i-inbox" viewBox="0 0 24 24">
+        <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+        <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+      </symbol>
+      <symbol id="i-activity" viewBox="0 0 24 24">
+        <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+      </symbol>
+      <symbol id="i-list" viewBox="0 0 24 24">
+        <path d="M10 6h11" />
+        <path d="M10 12h11" />
+        <path d="M10 18h11" />
+        <path d="M4 6h1v4" />
+        <path d="M4 10h2" />
+        <path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1" />
+      </symbol>
+      <symbol id="i-sparkles" viewBox="0 0 24 24">
+        <path d="M9.94 14.06 4 20" />
+        <path d="m12 3 1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2Z" />
+      </symbol>
+      <symbol id="i-kanban" viewBox="0 0 24 24">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M8 7v7" />
+        <path d="M12 7v4" />
+        <path d="M16 7v9" />
+      </symbol>
+      <symbol id="i-file" viewBox="0 0 24 24">
+        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5Z" />
+        <polyline points="14 2 14 8 20 8" />
+      </symbol>
+    </svg>
+
+    <div class="doc">
+      <header class="doc-head">
+        <div>
+          <div class="overline">The Office · Design · Task 54b7656b</div>
+          <h1>Onboard, Set up run environment and Set up test targets, on demand</h1>
+          <p>
+            Onboard and Set up run environment become <b>Off-board Tasks</b>: The Office makes the Task and starts it
+            in the same click, keeps it off the Work board and shows it on the Project page, in Activity and on Now.
+            Set up test targets becomes a chat with Devops that ends with its Proposal. The tabs walk each screen;
+            the bar above each drawing switches its states.
+          </p>
+        </div>
+        <div class="row">
+          <span class="caption">Palette</span>
+          <div class="seg" id="palette">
+            <button type="button" data-palette-choice="light" aria-pressed="true">Light</button>
+            <button type="button" data-palette-choice="dark" aria-pressed="false">Dark</button>
+          </div>
+        </div>
+      </header>
+
+      <nav class="views" role="tablist" aria-label="Views">
+        <button type="button" role="tab" data-view="shape" aria-selected="true">Shape and term</button>
+        <button type="button" role="tab" data-view="project" aria-selected="false">Project page</button>
+        <button type="button" role="tab" data-view="targets" aria-selected="false">Test targets in chat</button>
+        <button type="button" role="tab" data-view="starting" aria-selected="false">Starting elsewhere</button>
+        <button type="button" role="tab" data-view="now" aria-selected="false">Needs you and Now</button>
+        <button type="button" role="tab" data-view="activity" aria-selected="false">Activity</button>
+        <button type="button" role="tab" data-view="task" aria-selected="false">Task page and board</button>
+        <button type="button" role="tab" data-view="stays" aria-selected="false">What stays</button>
+        <button type="button" role="tab" data-view="breakdown" aria-selected="false">Breakdown</button>
+      </nav>
+
+      <!-- ================= Shape and term ================= -->
+      <main class="stage" data-panel="shape">
+        <div class="term">
+          <span class="overline">The new term · for the glossary · chosen by the user</span>
+          <b class="word">Off-board Task</b>
+          <p>
+            A Task The Office makes for a Project&rsquo;s set-up and starts at once, with no Ready step and no Start:
+            the Project&rsquo;s <b>Onboard</b> Task and its <b>Set up the run environment</b> Task. It is still a Task,
+            with its page, worktree, Stages, Decisions, Verify and Publish; it is only kept off the Work board, and
+            the user follows it on the Project page, in Activity and on Now. It waits Queued, with its place, while
+            the Project limit or the Office&rsquo;s queue is full. A Project has at most one of each kind in flight.
+          </p>
+          <p class="caption">
+            Avoid: set-up Task, job, background Task, hidden Task, run (a &ldquo;run&rdquo; is already a Stage run).
+            The spec&rsquo;s loose phrase &ldquo;set-up Task&rdquo; (project-page.md, 5.5) becomes &ldquo;Off-board Task&rdquo;.
+            The Activity kinds keep their names, Onboarding run and Run environment set-up: each is one kind of
+            Off-board Task.
+          </p>
+        </div>
+
+        <div class="shape">
+          <div class="card">
+            <div class="card-head">
+              <svg class="i lg"><use href="#i-drive" /></svg>
+              <h4>Onboard · Set up run environment</h4>
+              <span class="end"><span class="badge accent">Off-board Task</span></span>
+            </div>
+            <div class="card-body">
+              <p>Keeps the Task machinery. One click makes the Task and starts it.</p>
+              <div class="flow">
+                <span class="badge">Button</span><span class="arrow">&rarr;</span>
+                <span class="badge warning">Queued · place N</span><span class="arrow">&rarr;</span>
+                <span class="badge info">Running · Stage</span><span class="arrow">&rarr;</span>
+                <span class="badge success">Done</span>
+              </div>
+              <div class="flow">
+                <span class="caption">on the way:</span>
+                <span class="badge warning">Waiting on you</span>
+                <span class="badge danger">Failed · Retry</span>
+                <span class="badge warning">Paused</span>
+              </div>
+              <p class="caption">
+                Worktree, Stages, Verify, Decisions and Publish as today. No Ready step, no Start, not on the board.
+                Queued only when the limits are full.
+              </p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <svg class="i lg"><use href="#i-flask" /></svg>
+              <h4>Set up test targets</h4>
+              <span class="end"><span class="badge info">Chat</span></span>
+            </div>
+            <div class="card-body">
+              <p>No Task and no worktree: a Thread in Devops&rsquo; chat, on the Project&rsquo;s base checkout.</p>
+              <div class="flow">
+                <span class="badge">Ask Devops</span><span class="arrow">&rarr;</span>
+                <span class="badge">Draft waiting</span><span class="arrow">&rarr;</span>
+                <span class="badge info">Devops is answering</span><span class="arrow">&rarr;</span>
+                <span class="badge accent">Proposal ready</span><span class="arrow">&rarr;</span>
+                <span class="badge success">Applied</span>
+              </div>
+              <p class="caption">
+                Devops reads <code>bases/&lt;project&gt;</code>, which is read-only, and ends with the
+                <code>propose_test_targets</code> card. The user applies it there or on the Project page. It takes no
+                desk and no place in the queue: a chat never did.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h4>What &ldquo;without a Task&rdquo; means in practice</h4></div>
+          <div class="card-body">
+            <table class="t">
+              <thead>
+                <tr>
+                  <th>&nbsp;</th>
+                  <th>An ordinary Task</th>
+                  <th>An Off-board Task</th>
+                  <th>Test targets chat</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Made by</td>
+                  <td>The user, the Planner, an Idea, an issue</td>
+                  <td>The Office, at the button (or at applying a Project Proposal)</td>
+                  <td>The user, at the button: a new chat Thread</td>
+                </tr>
+                <tr>
+                  <td>Backlog, Planning, Ready</td>
+                  <td>Yes</td>
+                  <td>Skipped: Plan and Definition of Done come with it, confirmed</td>
+                  <td>&mdash;</td>
+                </tr>
+                <tr>
+                  <td>Start</td>
+                  <td>The user&rsquo;s Start</td>
+                  <td>At once, in the same request; Queued when there is no room</td>
+                  <td>The user sends the draft</td>
+                </tr>
+                <tr>
+                  <td>Work board</td>
+                  <td>In its column</td>
+                  <td>Left out: columns, counts, search and the Project page&rsquo;s Work tiles</td>
+                  <td>&mdash;</td>
+                </tr>
+                <tr>
+                  <td>Followed on</td>
+                  <td>Board, Task page, Now, Activity</td>
+                  <td>Project page, Task page, Now (Running, Queue, Needs you), Activity</td>
+                  <td>Chat drawer, Project page</td>
+                </tr>
+                <tr>
+                  <td>Counts against</td>
+                  <td>Desks, Project limit, queue, budgets</td>
+                  <td>The same, unchanged</td>
+                  <td>Nothing: a chat</td>
+                </tr>
+                <tr>
+                  <td>Tokens</td>
+                  <td>Stats, usage windows</td>
+                  <td>The same, and shown on its Project page and Activity item</td>
+                  <td>Stats, as a chat</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+      <aside class="aside" data-panel="shape">
+        <div class="note accent">
+          <h3>Agreed shape (CTO)</h3>
+          <ul>
+            <li>The two set-ups that change files keep the Task: worktree, Stages, Verify, Decisions and Publish are proven.</li>
+            <li>Test targets only reads and proposes, so a Devops chat on the base checkout fits.</li>
+            <li>&ldquo;Right away&rdquo; means no Start. Limits still hold: Queued with its place.</li>
+          </ul>
+        </div>
+        <div class="note">
+          <h3>Checked in the code</h3>
+          <ul>
+            <li>A chat with the holder of Onboards and repairs Projects already gets <code>propose_test_targets</code> (<code>roleOfficeTools</code>, via <code>chatOfficeTools</code>).</li>
+            <li><code>ProposalCard</code> draws a <code>test-targets</code> Proposal in every Thread, chat included, and the Project page already shows the open one.</li>
+            <li>A chat runs on <code>bases/</code> (<code>basesPlace</code>), read-only, so &ldquo;changes no file&rdquo; holds by construction.</li>
+            <li><code>useAskInChat</code> opens a new Thread with a draft waiting: the Projects page&rsquo;s onboarding uses it today.</li>
+            <li>Tasks already carry <code>madeFor</code> (<code>onboard</code>, <code>run-environment-setup</code>), so the board can leave them out without a new column.</li>
+          </ul>
+        </div>
+        <div class="note">
+          <h3>Decided by the user</h3>
+          <ul>
+            <li>The term is <b>Off-board Task</b>.</li>
+            <li>The Project page&rsquo;s <b>Onboard</b> also onboards a Project again once its last Onboard Task is Done or Dropped. The one-Onboard-Task index becomes one open Onboard Task (see What stays).</li>
+          </ul>
+        </div>
+      </aside>
+
+      <!-- ================= Project page ================= -->
+      <main class="stage" data-panel="project" hidden>
+        <div class="stage-bar">
+          <span class="stage-bar-label">Onboarding card</span>
+          <div class="seg" data-switch="onb">
+            <button type="button" data-state="none" aria-pressed="false">None</button>
+            <button type="button" data-state="queued" aria-pressed="false">Queued</button>
+            <button type="button" data-state="running" aria-pressed="true">Running</button>
+            <button type="button" data-state="waiting" aria-pressed="false">Waiting on you</button>
+            <button type="button" data-state="cto" aria-pressed="false">Failed, with the CTO</button>
+            <button type="button" data-state="failed" aria-pressed="false">Failed</button>
+            <button type="button" data-state="done" aria-pressed="false">Done</button>
+            <button type="button" data-state="dropped" aria-pressed="false">Dropped</button>
+            <button type="button" data-state="legacy" aria-pressed="false">Made before (Ready)</button>
+          </div>
+        </div>
+        <div class="stage-bar">
+          <span class="stage-bar-label">Run environment card</span>
+          <div class="seg" data-switch="env">
+            <button type="button" data-state="undecided" aria-pressed="true">Not decided yet</button>
+            <button type="button" data-state="queued" aria-pressed="false">Queued</button>
+            <button type="button" data-state="running" aria-pressed="false">Running</button>
+            <button type="button" data-state="paused" aria-pressed="false">Paused</button>
+            <button type="button" data-state="failed" aria-pressed="false">Failed</button>
+            <button type="button" data-state="on" aria-pressed="false">Done: On</button>
+            <button type="button" data-state="invalid" aria-pressed="false">Done, not valid</button>
+          </div>
+        </div>
+
+        <div class="frame">
+          <div class="frame-bar"><span class="dots"><span></span><span></span><span></span></span>/projects/notnullsoft</div>
+          <div class="frame-body">
+            <div class="proj-head">
+              <div class="proj-logo"></div>
+              <div>
+                <h2>notnullsoft</h2>
+                <div class="meta">
+                  <span data-for="onb" data-show="queued running waiting cto failed legacy" class="badge info">Onboarding</span>
+                  <span data-for="onb" data-show="done" class="badge success">Onboarded</span>
+                  <span class="mono">/srv/projects/notnullsoft</span><span>· main</span>
+                </div>
+              </div>
+            </div>
+            <div class="proj-layout">
+              <nav class="menu" aria-label="Project">
+                <span class="on">Overview</span><span>Files</span><span>Commands</span><span>Environment</span><span>Pipelines</span><span>GitHub issues</span><span>Run environment</span><span>Test targets</span><span>Engine</span><span>Skills</span>
+              </nav>
+              <div>
+                <!-- Onboarding card -->
+                <section class="card changed was">
+                  <div class="card-head">
+                    <svg class="i lg"><use href="#i-drive" /></svg>
+                    <h4>Onboarding</h4>
+                    <span class="end">
+                      <span data-for="onb" data-show="queued running waiting cto failed legacy" class="badge info">Onboarding</span>
+                      <span data-for="onb" data-show="done" class="badge success">Onboarded</span>
+                      <button type="button" class="btn primary" data-for="onb" data-show="none"><svg class="i"><use href="#i-play" /></svg>Onboard</button>
+                      <button type="button" class="btn" data-for="onb" data-show="done dropped"><svg class="i"><use href="#i-retry" /></svg>Onboard again</button>
+                    </span>
+                  </div>
+                  <div class="card-body">
+                    <!-- none -->
+                    <div data-for="onb" data-show="none">
+                      <p>Not onboarded yet. Devops makes it build and test in a fresh worktree, asking before installing anything, then publishes the fixes.</p>
+                      <p class="hint" style="margin-top: 6px">Starts at once as an Off-board Task: no Start, not on the board. It waits Queued while the Project limit or the queue is full.</p>
+                    </div>
+
+                    <!-- queued -->
+                    <div class="setup is-queued" data-for="onb" data-show="queued">
+                      <div class="setup-head">
+                        <span class="badge warning"><svg class="i"><use href="#i-clock" /></svg>Queued</span>
+                        <span class="setup-title">Onboard</span>
+                        <span class="end"><a href="#">Open the Task</a></span>
+                      </div>
+                      <div class="rail"><span class="st"><span class="dot"></span>Onboard</span><span class="link"></span><span class="st"><span class="dot"></span>Verify</span><span class="link"></span><span class="st"><span class="dot"></span>Publish</span></div>
+                      <div class="meta"><strong>Place 2 in the queue</strong><span class="sep"></span><span>Project limit reached (1)</span><span class="sep"></span><span>Queued for 4 min</span></div>
+                      <p class="hint">It starts by itself once there is room. Move it up on Now&rsquo;s Queue.</p>
+                    </div>
+
+                    <!-- running -->
+                    <div class="setup is-running" data-for="onb" data-show="running">
+                      <div class="setup-head">
+                        <span class="badge info">Running</span>
+                        <span class="setup-title">Onboard</span>
+                        <span class="end"><a href="#">Open the Thread</a></span>
+                      </div>
+                      <div class="rail"><span class="st now"><span class="dot"></span>Onboard</span><span class="link"></span><span class="st"><span class="dot"></span>Verify</span><span class="link"></span><span class="st"><span class="dot"></span>Publish</span></div>
+                      <div class="meta"><span class="avatar">D</span><strong>Dwight</strong><span class="sep"></span><span>12 min in Stage</span><span class="sep"></span><span>184k tokens</span></div>
+                    </div>
+
+                    <!-- waiting -->
+                    <div class="setup is-waiting" data-for="onb" data-show="waiting">
+                      <div class="setup-head">
+                        <span class="badge warning">Waiting on you</span>
+                        <span class="setup-title">Onboard</span>
+                        <span class="end"><a href="#">Open the Task</a></span>
+                      </div>
+                      <div class="rail"><span class="st wait"><span class="dot"></span>Onboard</span><span class="link"></span><span class="st"><span class="dot"></span>Verify</span><span class="link"></span><span class="st"><span class="dot"></span>Publish</span></div>
+                      <div class="question"><b>Dwight asks:</b> Install Gradle 8.10 on the workstation? The repository&rsquo;s wrapper needs it to build.</div>
+                      <div class="row"><button type="button" class="btn primary">Answer</button><span class="meta"><span>Asked 6 min ago</span><span class="sep"></span><span>212k tokens</span></span></div>
+                    </div>
+
+                    <!-- failed, with the CTO -->
+                    <div class="setup is-failed" data-for="onb" data-show="cto">
+                      <div class="setup-head">
+                        <span class="badge danger">Failed</span>
+                        <span class="setup-title">Onboard</span>
+                        <span class="end"><a href="#">Open the Task</a></span>
+                      </div>
+                      <div class="rail"><span class="st done"><span class="dot"></span>Onboard</span><span class="link"></span><span class="st fail"><span class="dot"></span>Verify</span><span class="link"></span><span class="st"><span class="dot"></span>Publish</span></div>
+                      <p><b>Verify failed, and its rounds are used up.</b></p>
+                      <div class="meta"><span class="avatar cto">M</span><span>Asked Michael (CTO) first. It comes to you, here and in Needs you, if Michael passes it on.</span></div>
+                    </div>
+
+                    <!-- failed -->
+                    <div class="setup is-failed" data-for="onb" data-show="failed">
+                      <div class="setup-head">
+                        <span class="badge danger">Failed</span>
+                        <span class="setup-title">Onboard</span>
+                        <span class="end"><a href="#">Open the Task</a></span>
+                      </div>
+                      <div class="rail"><span class="st done"><span class="dot"></span>Onboard</span><span class="link"></span><span class="st fail"><span class="dot"></span>Verify</span><span class="link"></span><span class="st"><span class="dot"></span>Publish</span></div>
+                      <div class="alert">
+                        <svg class="i lg alert-icon"><use href="#i-alert" /></svg>
+                        <div class="alert-body">
+                          <span class="alert-title">Verify failed, and its rounds are used up.</span>
+                          <pre class="error-excerpt">npm test exited 1: 3 of 214 tests failed
+  src/api/sync.test.ts &rsaquo; retries a dropped socket
+  Error: connect ECONNREFUSED 127.0.0.1:5432</pre>
+                          <p>Michael (CTO) looked first and passed it to you.</p>
+                          <div class="row">
+                            <button type="button" class="btn primary"><svg class="i"><use href="#i-retry" /></svg>Retry</button>
+                            <button type="button" class="btn">Open the Decision</button>
+                            <span class="hint">Retry runs Onboard again, with the failure in its Brief.</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- done -->
+                    <div class="setup is-done" data-for="onb" data-show="done">
+                      <div class="setup-head">
+                        <span class="badge success"><svg class="i"><use href="#i-check" /></svg>Done</span>
+                        <span class="setup-title">Onboard</span>
+                        <span class="end"><a href="#">Open the Task</a></span>
+                      </div>
+                      <div class="meta"><span>Done on 18 Nov, 14:02</span><span class="sep"></span><span>Published as pull request #41</span><span class="sep"></span><span>1.2M tokens</span></div>
+                      <p class="hint">Onboard again starts a new Onboard Task on the base branch as it is now, for when the toolchain or the commands have changed. The earlier one stays readable from Onboarding history.</p>
+                    </div>
+
+                    <!-- dropped -->
+                    <div class="setup is-done" data-for="onb" data-show="dropped">
+                      <div class="setup-head">
+                        <span class="badge">Dropped</span>
+                        <span class="setup-title">Onboard</span>
+                        <span class="end"><a href="#">Open the Task</a></span>
+                      </div>
+                      <div class="meta"><span>Dropped by you on 19 Nov, 09:15</span><span class="sep"></span><span>&ldquo;Wrong base branch&rdquo;</span><span class="sep"></span><span>640k tokens</span></div>
+                      <p class="hint">Not onboarded. Onboard again starts a new Onboard Task.</p>
+                    </div>
+
+                    <!-- history, under every state once the Project has had an earlier Onboard Task -->
+                    <div class="meta" data-for="onb" data-show="done dropped">
+                      <span>Onboarding history:</span><a href="#">Onboard · Done 2 Oct</a><span class="sep"></span><a href="#">Onboard · Dropped 28 Sep</a>
+                    </div>
+
+                    <!-- legacy -->
+                    <div class="setup is-queued" data-for="onb" data-show="legacy">
+                      <div class="setup-head">
+                        <span class="badge">Ready</span>
+                        <span class="setup-title">Onboard</span>
+                        <span class="end"><a href="#">Open the Task</a></span>
+                      </div>
+                      <p>Made before Off-board Tasks started at once, so it waits for your Start.</p>
+                      <div class="row"><button type="button" class="btn primary"><svg class="i"><use href="#i-play" /></svg>Start</button></div>
+                    </div>
+                  </div>
+                </section>
+
+                <!-- Work card -->
+                <section class="card">
+                  <div class="card-head">
+                    <svg class="i lg"><use href="#i-kanban" /></svg>
+                    <h4>Work</h4>
+                    <span class="end"><a href="#">Open in Work</a><a href="#">CI runs</a></span>
+                  </div>
+                  <div class="card-body">
+                    <div class="tiles">
+                      <div class="tile"><b>2</b><span>Running</span></div>
+                      <div class="tile"><b>0</b><span>Waiting on you</span></div>
+                      <div class="tile"><b>1</b><span>Ready to start</span></div>
+                      <div class="tile"><b>4</b><span>Not planned yet</span></div>
+                    </div>
+                    <p class="hint">Off-board Tasks aren&rsquo;t counted here: the Onboarding and Run environment cards show them. They still take a running slot under &ldquo;Running Tasks at once in this Project&rdquo;.</p>
+                  </div>
+                </section>
+
+                <div class="section-label">Run environment section</div>
+
+                <!-- Run environment card -->
+                <section class="card changed was">
+                  <div class="card-head">
+                    <svg class="i lg"><use href="#i-box" /></svg>
+                    <h4>Run environment</h4>
+                    <span class="end">
+                      <span data-for="env" data-show="undecided queued running paused failed" class="badge">Not decided yet</span>
+                      <button type="button" class="btn" data-for="env" data-show="undecided invalid"><svg class="i"><use href="#i-wrench" /></svg>Set up run environment</button>
+                    </span>
+                  </div>
+                  <div class="card-body">
+                    <p>With Run environment On, the Project&rsquo;s checks run in the containers its .devcontainer/ defines; until then they run on this computer.</p>
+                    <div class="row">
+                      <span class="caption" style="min-width: 120px">Run environment</span>
+                      <span class="seg-static">
+                        <span data-for="env" data-show="on" class="on">On</span><span data-for="env" data-show="undecided queued running paused failed invalid">On</span>
+                        <span>Off</span>
+                      </span>
+                    </div>
+                    <p class="hint" data-for="env" data-show="undecided">With a valid .devcontainer/ on the base branch it turns On at once; otherwise Devops writes one in an Off-board Task that starts now.</p>
+
+                    <div class="setup is-queued" data-for="env" data-show="queued">
+                      <div class="setup-head">
+                        <span class="badge warning"><svg class="i"><use href="#i-clock" /></svg>Queued</span>
+                        <span class="setup-title">Set up the run environment</span>
+                        <span class="end"><a href="#">Open the Task</a></span>
+                      </div>
+                      <div class="rail"><span class="st"><span class="dot"></span>Set up</span><span class="link"></span><span class="st"><span class="dot"></span>Verify</span><span class="link"></span><span class="st"><span class="dot"></span>Publish</span></div>
+                      <div class="meta"><strong>Place 1 in the queue</strong><span class="sep"></span><span>All desks busy (3 of 3)</span></div>
+                      <p class="hint">Run environment turns On when it is Done.</p>
+                    </div>
+
+                    <div class="setup is-running" data-for="env" data-show="running">
+                      <div class="setup-head">
+                        <span class="badge info">Running</span>
+                        <span class="setup-title">Set up the run environment</span>
+                        <span class="end"><a href="#">Open the Thread</a></span>
+                      </div>
+                      <div class="rail"><span class="st done"><span class="dot"></span>Set up</span><span class="link"></span><span class="st now"><span class="dot"></span>Verify</span><span class="link"></span><span class="st"><span class="dot"></span>Publish</span></div>
+                      <div class="meta"><span>Running npm test in the run environment</span><span class="sep"></span><span>3 min in Stage</span><span class="sep"></span><span>96k tokens</span></div>
+                      <p class="hint">Run environment turns On when it is Done.</p>
+                    </div>
+
+                    <div class="setup is-paused" data-for="env" data-show="paused">
+                      <div class="setup-head">
+                        <span class="badge warning">Paused</span>
+                        <span class="setup-title">Set up the run environment</span>
+                        <span class="end"><a href="#">Open the Task</a></span>
+                      </div>
+                      <div class="rail"><span class="st wait"><span class="dot"></span>Set up</span><span class="link"></span><span class="st"><span class="dot"></span>Verify</span><span class="link"></span><span class="st"><span class="dot"></span>Publish</span></div>
+                      <div class="meta"><span>Paused by you at 10:42</span><span class="sep"></span><span>58k tokens</span></div>
+                      <div class="row"><button type="button" class="btn"><svg class="i"><use href="#i-play" /></svg>Resume</button></div>
+                    </div>
+
+                    <div class="setup is-failed" data-for="env" data-show="failed">
+                      <div class="setup-head">
+                        <span class="badge danger">Failed</span>
+                        <span class="setup-title">Set up the run environment</span>
+                        <span class="end"><a href="#">Open the Task</a></span>
+                      </div>
+                      <div class="rail"><span class="st fail"><span class="dot"></span>Set up</span><span class="link"></span><span class="st"><span class="dot"></span>Verify</span><span class="link"></span><span class="st"><span class="dot"></span>Publish</span></div>
+                      <div class="alert">
+                        <svg class="i lg alert-icon"><use href="#i-alert" /></svg>
+                        <div class="alert-body">
+                          <span class="alert-title">Set up failed, with no round to go back to.</span>
+                          <pre class="error-excerpt">The run environment didn&rsquo;t start: service &ldquo;db&rdquo; exited 1 (image postgres:17 not found for linux/arm64)</pre>
+                          <div class="row">
+                            <button type="button" class="btn primary"><svg class="i"><use href="#i-retry" /></svg>Retry</button>
+                            <button type="button" class="btn">Open the Decision</button>
+                            <span class="hint">Retry runs Set up once more, with the failure in its Brief.</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div data-for="env" data-show="on">
+                      <div class="toast"><svg class="i ok"><use href="#i-check" /></svg>Run environment is On: notnullsoft&rsquo;s .devcontainer/ is valid.</div>
+                      <div class="meta" style="margin-top: 8px"><span>Set up in the Off-board Task <a href="#">Set up the run environment</a></span><span class="sep"></span><span>Done on 21 Nov</span><span class="sep"></span><span>340k tokens</span></div>
+                    </div>
+
+                    <div class="alert warning" data-for="env" data-show="invalid">
+                      <svg class="i lg alert-icon"><use href="#i-alert" /></svg>
+                      <div class="alert-body">
+                        <span class="alert-title">The last Off-board Task was Done, but the .devcontainer/ on its branch isn&rsquo;t valid, so Run environment stayed as it was:</span>
+                        <p class="mono">devcontainer.json: &ldquo;dockerComposeFile&rdquo; names compose.dev.yml, which isn&rsquo;t in the repository.</p>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="label">Toasts at the press</div>
+        <div class="row">
+          <div class="toast"><svg class="i ok"><use href="#i-check" /></svg>Dwight is onboarding notnullsoft.</div>
+          <div class="toast"><svg class="i wait"><use href="#i-clock" /></svg>Onboard is queued, place 2: Project limit reached (1).</div>
+          <div class="toast"><svg class="i ok"><use href="#i-check" /></svg>Dwight is setting up notnullsoft&rsquo;s run environment.</div>
+        </div>
+      </main>
+      <aside class="aside" data-panel="project" hidden>
+        <div class="note accent">
+          <h3>One status, every kind</h3>
+          <p>One component, <code>OffBoardTaskStatus</code>, draws an Off-board Task in each card: its state badge, its title, its Stages as on a board card, a meta line (who, time in Stage or place in the queue, tokens) and one link.</p>
+          <ul>
+            <li><b>Queued</b>: &ldquo;Place N in the queue&rdquo; and the queue&rsquo;s short reasons.</li>
+            <li><b>Running</b>: the Stage, its person, time in Stage; link <b>Open the Thread</b>.</li>
+            <li><b>Waiting on you</b>: the question, <b>Answer</b> opens it on the Task page.</li>
+            <li><b>Paused</b>: <b>Resume</b>, as on the Task page.</li>
+            <li><b>Failed</b>: the out-of-tries question and the error, <b>Retry</b> and <b>Open the Decision</b>.</li>
+            <li><b>Done</b>: when, how it was published, tokens.</li>
+          </ul>
+        </div>
+        <div class="note">
+          <h3>One of each kind</h3>
+          <ul>
+            <li>While an Off-board Task of a kind is in flight (anything but Done or Dropped), the card shows it in place of the button.</li>
+            <li>The service refuses a second one, as the existing partial unique indexes do; pressing twice answers the one in flight.</li>
+            <li>A start that is refused (no Onboard Pipeline, nobody holds the duty, the fire alarm) makes nothing and shows the refusal under the button.</li>
+          </ul>
+        </div>
+        <div class="note">
+          <h3>Failed and Retry</h3>
+          <ul>
+            <li>Failed is the out-of-tries Decision of today, unchanged: it goes to the CTO first, then the user.</li>
+            <li>While the CTO has it, the card says so with no Retry.</li>
+            <li><b>Retry</b> answers that Decision with its first option (&ldquo;Run &lt;Stage&gt; once more&rdquo; or &ldquo;Give it N more rounds&rdquo;), no guidance. <b>Open the Decision</b> is for guidance, Continue with the issues, or Drop.</li>
+          </ul>
+        </div>
+        <div class="note">
+          <h3>Onboard on the Project page (new)</h3>
+          <ul>
+            <li><b>Onboard</b> (primary) while the Project has never had an Onboard Task: one added by hand.</li>
+            <li><b>Onboard again</b> (secondary) once its latest Onboard Task is Done or Dropped. It is the user&rsquo;s choice, so it never shows while one is in flight.</li>
+            <li>The Project&rsquo;s onboarding (the badge here, on the Projects page and in the head) reads from its latest Onboard Task. The earlier ones are listed under Onboarding history, each linking to its Task page.</li>
+            <li>The index <code>tasks_onboard_task_per_project</code> (one for good) becomes one <i>open</i> Onboard Task per Project, as the run environment one already is. This is the user&rsquo;s call, beyond add-only: see What stays.</li>
+          </ul>
+        </div>
+      </aside>
+
+      <!-- ================= Test targets in chat ================= -->
+      <main class="stage" data-panel="targets" hidden>
+        <div class="stage-bar">
+          <span class="stage-bar-label">Test targets card</span>
+          <div class="seg" data-switch="tt">
+            <button type="button" data-state="none" aria-pressed="true">Nothing asked</button>
+            <button type="button" data-state="draft" aria-pressed="false">Draft waiting</button>
+            <button type="button" data-state="answering" aria-pressed="false">Devops answering</button>
+            <button type="button" data-state="replied" aria-pressed="false">Waiting on you</button>
+            <button type="button" data-state="proposal" aria-pressed="false">Proposal ready</button>
+            <button type="button" data-state="legacy" aria-pressed="false">Old Task open</button>
+          </div>
+        </div>
+        <div class="frame">
+          <div class="frame-bar"><span class="dots"><span></span><span></span><span></span></span>/projects/notnullsoft/test-targets</div>
+          <div class="drawer-wrap">
+            <div class="frame-body">
+              <section class="card changed was">
+                <div class="card-head">
+                  <svg class="i lg"><use href="#i-flask" /></svg>
+                  <h4>Test targets</h4>
+                  <span class="end">
+                    <button type="button" class="btn" data-for="tt" data-show="none"><svg class="i"><use href="#i-chat" /></svg>Ask Dwight to set up test targets</button>
+                  </span>
+                </div>
+                <div class="card-body">
+                  <p>What can be launched on a branch to try the work. Kept in The Office, never in the repository.</p>
+
+                  <div class="setup is-queued" data-for="tt" data-show="draft">
+                    <div class="setup-head">
+                      <span class="badge">Draft waiting</span>
+                      <span class="setup-title">Asked Dwight in a chat</span>
+                      <span class="end"><a href="#">Open the chat</a><button type="button" class="btn ghost">Ask again</button></span>
+                    </div>
+                    <p class="hint">Your draft waits in the chat for you to send it.</p>
+                  </div>
+                  <div class="setup is-running" data-for="tt" data-show="answering">
+                    <div class="setup-head">
+                      <span class="badge info">Answering</span>
+                      <span class="setup-title">Dwight is reading the repository</span>
+                      <span class="end"><a href="#">Open the chat</a></span>
+                    </div>
+                    <div class="meta"><span class="avatar">D</span><strong>Dwight</strong><span class="sep"></span><span>For 3 min</span><span class="sep"></span><span>In a chat, on the base branch main</span></div>
+                  </div>
+                  <div class="setup is-waiting" data-for="tt" data-show="replied">
+                    <div class="setup-head">
+                      <span class="badge warning">Waiting on you</span>
+                      <span class="setup-title">Dwight replied in the chat</span>
+                      <span class="end"><a href="#">Open the chat</a><button type="button" class="btn ghost">Ask again</button></span>
+                    </div>
+                    <div class="question">&ldquo;The Android app needs a signing key to build a release APK. Should the target build the debug APK instead?&rdquo;</div>
+                  </div>
+                  <div data-for="tt" data-show="proposal" class="proposal">
+                    <div class="proposal-head">
+                      <span class="badge accent">Proposal</span><b>Test targets for notnullsoft</b>
+                      <span class="caption" style="margin-left: auto">Drafted by Dwight in a chat · <a href="#">Open the chat</a></span>
+                    </div>
+                    <div class="proposal-body">
+                      <div class="added">+ <b>web</b> · Hosted · package script <code>dev</code> · <code>PORT=5173</code></div>
+                      <div class="added">+ <b>android</b> · Build to install · Gradle task <code>:composeApp:assembleDebug</code></div>
+                    </div>
+                    <div class="proposal-foot"><button type="button" class="btn">Dismiss</button><button type="button" class="btn primary">Apply</button></div>
+                  </div>
+                  <div class="setup is-queued" data-for="tt" data-show="legacy">
+                    <div class="setup-head">
+                      <span class="badge">Ready</span>
+                      <span class="setup-title">Being set up in the Task <a href="#">Set up test targets</a></span>
+                    </div>
+                    <p class="hint">Made before test targets were set up in a chat. It works as before; once it is Done or Dropped, the button asks in a chat.</p>
+                  </div>
+
+                  <p data-for="tt" data-show="none draft answering replied legacy">None yet. Add one, or have Dwight set them up from the repository.</p>
+                  <div data-for="tt" data-show="proposal" class="target">
+                    <span class="caption">The list is empty until the Proposal is applied.</span>
+                  </div>
+                </div>
+              </section>
+              <div class="label" style="margin-top: 18px">Ask again</div>
+              <p class="caption">Starts a new chat and makes it the one the card follows; the old Thread stays in Dwight&rsquo;s chat. Shown while no Proposal is open, so a forgotten chat never blocks the button.</p>
+            </div>
+
+            <div class="drawer">
+              <div class="drawer-head">
+                <span class="avatar">D</span>
+                <div class="who"><b>Dwight</b><span class="caption">Devops · Set up test targets: notnullsoft</span></div>
+              </div>
+              <div class="drawer-msgs">
+                <div class="msg user" data-for="tt" data-show="answering replied proposal">Can you set up the test targets of notnullsoft? Read its repository, change no file, and propose them.</div>
+                <div class="tool-line" data-for="tt" data-show="answering replied proposal"><svg class="i"><use href="#i-file" /></svg>Read package.json</div>
+                <div class="tool-line" data-for="tt" data-show="answering replied proposal"><svg class="i"><use href="#i-file" /></svg>Read composeApp/build.gradle.kts</div>
+                <div class="tool-line" data-for="tt" data-show="answering replied proposal"><svg class="i"><use href="#i-file" /></svg>Read .devcontainer/devcontainer.json</div>
+                <div class="msg agent" data-for="tt" data-show="replied proposal">The Android app needs a signing key to build a release APK. Should the target build the debug APK instead?</div>
+                <div class="msg user" data-for="tt" data-show="proposal">Yes, debug is fine.</div>
+                <div class="proposal" data-for="tt" data-show="proposal">
+                  <div class="proposal-head"><span class="badge accent">Proposal</span><b>Test targets for notnullsoft</b></div>
+                  <div class="proposal-body">
+                    <div class="added">+ <b>web</b> · Hosted · package script <code>dev</code> · <code>PORT=5173</code></div>
+                    <div class="added">+ <b>android</b> · Build to install · Gradle task <code>:composeApp:assembleDebug</code></div>
+                  </div>
+                  <div class="proposal-foot"><button type="button" class="btn">Dismiss</button><button type="button" class="btn primary">Apply</button></div>
+                </div>
+                <p class="caption" data-for="tt" data-show="none legacy" style="margin: auto; text-align: center">The chat opens at the press, with the draft waiting.</p>
+              </div>
+              <div class="composer" data-for="tt" data-show="draft">Can you set up the test targets of notnullsoft? Read its repository, change no file, and propose them.</div>
+              <div class="composer-foot" data-for="tt" data-show="draft"><span class="caption">Draft from the Project page</span><button type="button" class="btn primary">Send</button></div>
+            </div>
+          </div>
+        </div>
+      </main>
+      <aside class="aside" data-panel="targets" hidden>
+        <div class="note accent">
+          <h3>The chat in flight</h3>
+          <ul>
+            <li>The button starts a Thread in the chat of whoever holds Onboards and repairs Projects, titled &ldquo;Set up test targets: &lt;Project&gt;&rdquo;, leaves the draft and opens the drawer.</li>
+            <li>The Project records that Thread (a new table, add-only) so the card can follow it: <b>Draft waiting</b>, <b>Answering</b>, <b>Waiting on you</b>, <b>Proposal ready</b>.</li>
+            <li>It ends when that Thread&rsquo;s <code>test-targets</code> Proposal is applied or dismissed; the button comes back.</li>
+            <li><b>Ask again</b> replaces it while no Proposal is open.</li>
+          </ul>
+        </div>
+        <div class="note">
+          <h3>Checked: it works in a chat today</h3>
+          <ul>
+            <li><code>propose_test_targets</code> is in the duty holder&rsquo;s chat tools already.</li>
+            <li>The Proposal card renders in the chat Thread, and the Project page&rsquo;s open-Proposal card shows it above the list, with &ldquo;Drafted by &lt;name&gt; in a chat&rdquo; and <b>Open the chat</b>.</li>
+            <li>The base checkout is read-only: no file can change.</li>
+            <li>Needs you&rsquo;s Waiting for you already lists a chat&rsquo;s Proposal, Office-wide.</li>
+          </ul>
+        </div>
+        <div class="note">
+          <h3>Nobody holds the duty</h3>
+          <p>The button is replaced by the note &ldquo;Nobody onboards Projects yet: give Onboards and repairs Projects to someone in People.&rdquo;, as the Projects page does.</p>
+        </div>
+      </aside>
+
+      <!-- ================= Starting elsewhere ================= -->
+      <main class="stage" data-panel="starting" hidden>
+        <div class="label">Projects page · Devops&rsquo; Project Proposal, applied</div>
+        <div class="frame">
+          <div class="frame-bar"><span class="dots"><span></span><span></span><span></span></span>Chat drawer · Dwight · Onboard a new Project</div>
+          <div class="frame-body" style="display: flex; flex-direction: column; gap: 12px">
+            <div class="proposal changed was">
+              <div class="proposal-head"><span class="badge accent">Proposal</span><b>Add the Project notnullsoft</b><span class="badge success" style="margin-left: auto"><svg class="i"><use href="#i-check" /></svg>Applied</span></div>
+              <div class="proposal-body">
+                <div class="meta"><span class="mono">https://github.com/notnull/notnullsoft</span><span class="sep"></span><span>main</span><span class="sep"></span><span>Install, Build, Lint, Test</span></div>
+                <p style="margin: 0">Added notnullsoft. Its Onboard Task started at once: <a href="#">follow it on the Project page</a>.</p>
+              </div>
+            </div>
+            <p class="caption">Before applying, the card&rsquo;s Apply hint reads: &ldquo;Adds the Project and starts its Onboard Task at once.&rdquo;</p>
+            <div class="row">
+              <div class="toast"><svg class="i ok"><use href="#i-check" /></svg>notnullsoft added. Dwight is onboarding it.</div>
+              <div class="toast"><svg class="i wait"><use href="#i-clock" /></svg>notnullsoft added. Its Onboard Task is queued, place 2.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="label">Task page · the run environment question</div>
+        <div class="frame">
+          <div class="frame-bar"><span class="dots"><span></span><span></span><span></span></span>/tasks/1b2c… · Add offline sync · Ready</div>
+          <div class="frame-body">
+            <div class="alert info changed was">
+              <svg class="i lg alert-icon"><use href="#i-box" /></svg>
+              <div class="alert-body">
+                <span class="alert-title">Should notnullsoft&rsquo;s checks run in a run environment?</span>
+                <p>Its Run environment is Not decided yet, so its checks run on this computer. Start doesn&rsquo;t wait for your answer.</p>
+                <div class="row"><button type="button" class="btn">Yes, set it up</button><button type="button" class="btn ghost">No, keep this computer</button></div>
+                <p class="hint">Yes starts an Off-board Task at once, off the board. It takes one of notnullsoft&rsquo;s running slots while it runs, so with a Project limit of 1 this Task&rsquo;s Start queues behind it.</p>
+              </div>
+            </div>
+            <div class="label" style="margin-top: 14px">After Yes</div>
+            <div class="alert info" style="margin-top: 10px">
+              <svg class="i lg alert-icon"><use href="#i-box" /></svg>
+              <div class="alert-body">
+                <span class="alert-title">Dwight is setting up notnullsoft&rsquo;s run environment.</span>
+                <p>Follow it on <a href="#">notnullsoft&rsquo;s Run environment</a>. It turns On when the Off-board Task is Done.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+      <aside class="aside" data-panel="starting" hidden>
+        <div class="note accent">
+          <h3>Every way in starts at once</h3>
+          <ul>
+            <li><b>Applying a Project Proposal</b> adds the Project, makes its Onboard Task and starts it, in that order; the Proposal&rsquo;s applied line links to the Project page.</li>
+            <li><b>The Task page&rsquo;s run environment question</b> calls the same Set up run environment as the Project page, so it starts at once too.</li>
+            <li>A start refused after the Project was added keeps the Project: the Onboarding card shows the refusal and <b>Onboard</b> to try again.</li>
+          </ul>
+        </div>
+        <div class="note">
+          <h3>Why the hint on the question</h3>
+          <p>With the Project limit at 1, an Off-board Task started from this question takes the Project&rsquo;s slot, and the Task the user is looking at queues behind it. Saying so at Yes avoids a surprise &ldquo;Queued&rdquo;.</p>
+        </div>
+      </aside>
+
+      <!-- ================= Needs you and Now ================= -->
+      <main class="stage" data-panel="now" hidden>
+        <div class="frame">
+          <div class="frame-bar"><span class="dots"><span></span><span></span><span></span></span>/ · Now</div>
+          <div class="frame-body">
+            <div class="panels">
+              <div>
+                <div class="panel-head"><svg class="i lg"><use href="#i-inbox" /></svg>Needs you <span class="count">2</span></div>
+                <div class="item danger changed">
+                  <div class="item-head">
+                    <span class="badge danger">Off-board Task failed</span>
+                    <a href="#">Onboard</a>
+                    <span class="chip"><span class="mark"></span>notnullsoft</span>
+                    <span class="end">12 min ago</span>
+                  </div>
+                  <p style="margin: 0; font: var(--type-body-sm)"><b>Verify failed, and its rounds are used up.</b></p>
+                  <pre class="error-excerpt">npm test exited 1: 3 of 214 tests failed
+  Error: connect ECONNREFUSED 127.0.0.1:5432</pre>
+                  <div class="meta"><span class="avatar cto">M</span><span>Michael (CTO) looked first and passed it to you.</span></div>
+                  <div class="row">
+                    <button type="button" class="btn primary"><svg class="i"><use href="#i-retry" /></svg>Retry</button>
+                    <button type="button" class="btn">Open the Decision</button>
+                  </div>
+                </div>
+                <div class="item warn">
+                  <div class="item-head">
+                    <a href="#">Add offline sync</a>
+                    <span class="chip"><span class="mark ember"></span>the-office</span>
+                    <span class="end">34 min ago</span>
+                  </div>
+                  <p style="margin: 0; font: var(--type-body-sm); color: var(--fg-2)">A Decision card, as today.</p>
+                </div>
+              </div>
+              <div>
+                <div class="panel-head"><svg class="i lg"><use href="#i-activity" /></svg>Running <span class="count">2 of 3 desks</span></div>
+                <div class="item changed was">
+                  <div class="item-head"><a href="#">Set up the run environment</a><span class="badge accent">Off-board Task</span><span class="chip"><span class="mark ember"></span>the-office</span></div>
+                  <div class="meta"><span class="avatar">D</span><strong>Dwight</strong><span class="badge">Set up</span><span>8 min in Stage</span></div>
+                </div>
+                <div class="item">
+                  <div class="item-head"><a href="#">Add offline sync</a><span class="chip"><span class="mark"></span>notnullsoft</span></div>
+                  <div class="meta"><span class="avatar you">J</span><strong>Jim</strong><span class="badge">Implement</span><span>22 min in Stage</span></div>
+                </div>
+                <div class="panel-head" style="margin-top: 18px"><svg class="i lg"><use href="#i-list" /></svg>Queue <span class="count">1</span></div>
+                <div class="item warn changed was">
+                  <div class="item-head"><span class="badge warning">Queued</span><a href="#">Onboard</a><span class="badge accent">Off-board Task</span><span class="chip"><span class="mark"></span>notnullsoft</span></div>
+                  <div class="meta"><span>Place 1 · Project limit reached (1)</span></div>
+                  <div class="meta"><span>Usage estimate: about 1.1M tokens</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+      <aside class="aside" data-panel="now" hidden>
+        <div class="note accent">
+          <h3>Needs you: Off-board Task failed</h3>
+          <ul>
+            <li>An Off-board Task&rsquo;s out-of-tries Decision, once it is the user&rsquo;s, shows as this card in place of the full Decision card: the same Decision, counted once.</li>
+            <li><b>Retry</b> answers it with its first option; <b>Open the Decision</b> opens it on the Task page, for guidance, Continue with the issues or Drop.</li>
+            <li>Any other Decision an Off-board Task opens (Devops asking before an install) is an ordinary Decision card, as today.</li>
+          </ul>
+        </div>
+        <div class="note">
+          <h3>Running and Queue</h3>
+          <ul>
+            <li>Off-board Tasks take a desk and a place in the queue like any Task, so they stay in Running and Queue, marked with the <b>Off-board Task</b> badge.</li>
+            <li>Move up and Move to top work on them as on any queued Task.</li>
+            <li>Since you left lists them when they finish, as any Task.</li>
+          </ul>
+        </div>
+      </aside>
+
+      <!-- ================= Activity ================= -->
+      <main class="stage" data-panel="activity" hidden>
+        <div class="frame">
+          <div class="frame-bar"><span class="dots"><span></span><span></span><span></span></span>/activity</div>
+          <div class="frame-body">
+            <div class="group">
+              <div class="group-head"><svg class="i lg"><use href="#i-activity" /></svg>Tasks <span class="count">1</span></div>
+              <div class="item">
+                <div class="item-head"><a href="#">In progress: Add offline sync</a><span class="chip"><span class="mark"></span>notnullsoft</span><span class="badge info">In progress</span></div>
+                <div class="meta"><span>Running for 22 min</span></div>
+              </div>
+            </div>
+            <div class="group changed was">
+              <div class="group-head"><svg class="i lg"><use href="#i-wrench" /></svg>Off-board Tasks and environment checks <span class="count">4</span></div>
+              <div class="item warn">
+                <div class="item-head"><a href="#">Queued: Onboard</a><span class="chip"><span class="mark"></span>notnullsoft</span><span class="badge warning">Queued</span><span class="end">Onboarding run</span></div>
+                <div class="meta"><span>Place 1 · Project limit reached (1)</span><span class="sep"></span><span>Queued for 4 min</span></div>
+              </div>
+              <div class="item">
+                <div class="item-head"><a href="#">Running: Set up the run environment</a><span class="chip"><span class="mark ember"></span>the-office</span><span class="badge info">Running</span><span class="end">Run environment set-up</span></div>
+                <div class="meta"><span>Set up</span><span class="sep"></span><span>212k tokens</span><span class="sep"></span><span>Running for 8 min</span></div>
+              </div>
+              <div class="item danger">
+                <div class="item-head"><a href="#">Failed: Onboard</a><span class="chip"><span class="mark"></span>tasker</span><span class="badge danger">Failed</span><span class="end">Onboarding run</span></div>
+                <div class="meta"><span>Verify</span><span class="sep"></span><span>1.4M tokens</span><span class="sep"></span><span>Failed for 2h 10 min</span></div>
+              </div>
+              <div class="item muted">
+                <div class="item-head"><a href="#">Passed: Environment check</a><span class="chip"><span class="mark ember"></span>the-office</span><span class="badge success">Passed</span></div>
+                <div class="meta"><span>Finished 1h ago</span></div>
+              </div>
+            </div>
+            <div class="group">
+              <div class="group-head"><svg class="i lg"><use href="#i-alert" /></svg>Stalled Tasks <span class="count">0</span></div>
+              <p class="caption" style="margin: 0">A failed or stopped Off-board Task stays in its own group, never here: each kind is in one group.</p>
+            </div>
+          </div>
+        </div>
+      </main>
+      <aside class="aside" data-panel="activity" hidden>
+        <div class="note accent">
+          <h3>Two kinds, one group</h3>
+          <ul>
+            <li><b>Onboarding run</b> (as today) and a new <b>Run environment set-up</b>, each an Off-board Task listed once, not as a Task.</li>
+            <li>The group &ldquo;Environment checks and Onboarding&rdquo; becomes <b>Off-board Tasks and environment checks</b>.</li>
+            <li>Listed while Queued (new: with its place), Running, Waiting on you, Paused or Failed; ended once Done or Dropped.</li>
+          </ul>
+        </div>
+        <div class="note">
+          <h3>Token use</h3>
+          <ul>
+            <li>An Off-board Task item&rsquo;s line adds its tokens: every Stage run&rsquo;s so far, counted as Now&rsquo;s Today&rsquo;s tokens counts them (input, output, cache writes).</li>
+            <li>Stats and the usage windows count them as Tasks already; nothing changes there.</li>
+          </ul>
+        </div>
+      </aside>
+
+      <!-- ================= Task page and board ================= -->
+      <main class="stage" data-panel="task" hidden>
+        <div class="frame">
+          <div class="frame-bar"><span class="dots"><span></span><span></span><span></span></span>/tasks/9f1e… · Onboard</div>
+          <div class="frame-body">
+            <div class="row" style="margin-bottom: 6px">
+              <span class="badge info">In progress</span><span class="badge accent">Off-board Task</span><span class="badge">Chore</span><span class="chip"><span class="mark"></span>notnullsoft</span>
+            </div>
+            <h2 style="margin: 4px 0 10px; font: 600 20px/1.3 var(--font-sans)">Onboard</h2>
+            <div class="alert info changed">
+              <svg class="i lg alert-icon"><use href="#i-sparkles" /></svg>
+              <div class="alert-body">
+                <p style="color: var(--fg-1)">The Office started this Off-board Task at once and keeps it off the Work board. Follow it here or on <a href="#">notnullsoft&rsquo;s page</a>.</p>
+              </div>
+            </div>
+            <div class="rail" style="margin-top: 14px"><span class="st done"><span class="dot"></span>Onboard</span><span class="link"></span><span class="st now"><span class="dot"></span>Verify</span><span class="link"></span><span class="st"><span class="dot"></span>Publish</span></div>
+            <p class="caption" style="margin-top: 12px">Everything else is the Task page as today: the Pipeline rail, Threads, Decisions, Pause, Stop and Resume, Drop, the commit message and Publish. No Mark Ready and no Start, except on one made before this change.</p>
+          </div>
+        </div>
+        <div class="label">Work board</div>
+        <div class="card">
+          <div class="card-body">
+            <p>Off-board Tasks are left out of the board: its columns, its counts and tabs, its search, and the Project page&rsquo;s Work tiles. Every other Task the Office adds (Publishing, Conflict resolution) stays on it. A Bug Task made from an Off-board Task&rsquo;s <code>propose_bug_task</code> Decision is an ordinary Task, in Backlog, on the board.</p>
+          </div>
+        </div>
+      </main>
+      <aside class="aside" data-panel="task" hidden>
+        <div class="note accent">
+          <h3>Still a Task</h3>
+          <ul>
+            <li>The Task page opens it from every link (Project page, Activity, Now, Notifications).</li>
+            <li>The <b>Off-board Task</b> badge sits by its Kind, and the one-line note says why it isn&rsquo;t on the board.</li>
+            <li>Dropping it frees its kind: the Project page&rsquo;s button comes back.</li>
+          </ul>
+        </div>
+      </aside>
+
+      <!-- ================= What stays ================= -->
+      <main class="stage" data-panel="stays" hidden>
+        <div class="card">
+          <div class="card-head"><h4>What stays as it is</h4></div>
+          <div class="card-body">
+            <table class="t">
+              <tbody>
+                <tr><td>Publish</td><td>Unchanged: the Project&rsquo;s publishing mode, the Task&rsquo;s branch, its pull request, merge rules and Delete branches once merged. Nothing pushes outside the Publish Stage.</td></tr>
+                <tr><td>Out of tries</td><td>Unchanged: a Stage out of tries goes to the holder of Asked first when a Stage runs out of tries (the CTO), then to the user. Only how the user sees it changes (Failed, Retry).</td></tr>
+                <tr><td>Bug Tasks</td><td>No Off-board Task makes a Bug Task on its own; none does today either. An Agent&rsquo;s <code>propose_bug_task</code> stays a Decision the user answers.</td></tr>
+                <tr><td>Limits</td><td>Desks, the Project limit, the person&rsquo;s Task limit, budgets and the fire alarm hold as for any Task.</td></tr>
+                <tr><td>Stats and usage</td><td>They count Off-board Tasks as Tasks, as today.</td></tr>
+                <tr><td>Tasks made before</td><td>Done and Dropped ones stay readable on their pages. One in flight goes on as it is. One still Ready (made before) shows on the Project page with <b>Start</b>. An open &ldquo;Set up test targets&rdquo; Task stays a Task, on the board, linked from the Test targets card as today, until it is Done or Dropped.</td></tr>
+                <tr><td>The Pipelines</td><td>Onboard and Set up run environment unchanged. The built-in Set up test targets stays in the library for the Tasks already on it; The Office makes no new Task on it.</td></tr>
+                <tr><td>Migrations</td><td>One new table for the test targets chat, and one index swap the user chose for Onboard again: <code>tasks_onboard_task_per_project</code> (one Onboard Task for good) is dropped and <code>tasks_open_onboard_task_per_project</code> (one not Done or Dropped) is added, in one migration. No column is dropped or renamed.<br /><span class="caption">The rollback: the previous release still reads every table it read. With an Onboard Task made again, its onboarding list has two entries for that Project; its Project page and Projects page take one of them, so the badge may show the earlier onboarding until the update is back. Nothing fails, and no Task is lost.</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h4>The words, in one place</h4></div>
+          <div class="card-body">
+            <div class="copy">
+              <div class="copy-row"><span>Onboard (Project page)</span><q>Not onboarded yet. Devops makes it build and test in a fresh worktree, asking before installing anything, then publishes the fixes.</q></div>
+              <div class="copy-row"><span>Under Onboard</span><q>Starts at once as an Off-board Task: no Start, not on the board. It waits Queued while the Project limit or the queue is full.</q></div>
+              <div class="copy-row"><span>Onboard again hint</span><q>Onboard again starts a new Onboard Task on the base branch as it is now, for when the toolchain or the commands have changed.</q></div>
+              <div class="copy-row"><span>Onboarding history</span><q>Onboarding history: Onboard · Done 2 Oct · Onboard · Dropped 28 Sep</q></div>
+              <div class="copy-row"><span>Queued line</span><q>Place 2 in the queue · Project limit reached (1)</q></div>
+              <div class="copy-row"><span>Failed, with the CTO</span><q>Asked Michael (CTO) first. It comes to you, here and in Needs you, if Michael passes it on.</q></div>
+              <div class="copy-row"><span>Failed, the user&rsquo;s</span><q>Michael (CTO) looked first and passed it to you.</q></div>
+              <div class="copy-row"><span>Retry hint</span><q>Retry runs &lt;Stage&gt; again, with the failure in its Brief.</q></div>
+              <div class="copy-row"><span>Legacy Ready</span><q>Made before Off-board Tasks started at once, so it waits for your Start.</q></div>
+              <div class="copy-row"><span>Run environment note</span><q>With a valid .devcontainer/ on the base branch it turns On at once; otherwise Devops writes one in an Off-board Task that starts now.</q></div>
+              <div class="copy-row"><span>Toasts</span><q>&lt;Person&gt; is onboarding &lt;Project&gt;.</q> <q>&lt;Person&gt; is setting up &lt;Project&gt;&rsquo;s run environment.</q> <q>&lt;Title&gt; is queued, place N: &lt;reason&gt;.</q></div>
+              <div class="copy-row"><span>Test targets button</span><q>Ask &lt;Person&gt; to set up test targets</q></div>
+              <div class="copy-row"><span>Test targets draft</span><q>Can you set up the test targets of &lt;Project&gt;? Read its repository, change no file, and propose them.</q></div>
+              <div class="copy-row"><span>Chat Thread title</span><q>Set up test targets: &lt;Project&gt;</q></div>
+              <div class="copy-row"><span>Task page note</span><q>The Office started this Off-board Task at once and keeps it off the Work board. Follow it here or on &lt;Project&gt;&rsquo;s page.</q></div>
+              <div class="copy-row"><span>Needs you badge</span><q>Off-board Task failed</q></div>
+              <div class="copy-row"><span>Activity group</span><q>Off-board Tasks and environment checks</q></div>
+              <div class="copy-row"><span>Project Proposal applied</span><q>Added &lt;Project&gt;. Its Onboard Task started at once: follow it on the Project page.</q></div>
+            </div>
+          </div>
+        </div>
+      </main>
+      <aside class="aside" data-panel="stays" hidden>
+        <div class="note accent">
+          <h3>Plain about the record</h3>
+          <p>The spec says it in one line on 2.1.3 and in the glossary: an Off-board Task is a Task, kept off the board; &ldquo;without a Task&rdquo; means no Ready step, no Start and no board card, not no record.</p>
+        </div>
+      </aside>
+
+      <!-- ================= Breakdown ================= -->
+      <main class="stage" data-panel="breakdown" hidden>
+        <ol class="steps">
+          <li>
+            <b>Contracts</b> (<code>packages/contracts/src/</code>)
+            <ul>
+              <li><code>work.ts</code>: <code>OFF_BOARD_TASK_MADE_FOR</code> (<code>onboard</code>, <code>run-environment-setup</code>) and <code>isOffBoardTask</code>; <code>offBoardTaskSchema</code>, the Project page&rsquo;s read model: Task id, title, kind, state (<code>queued</code> with place and short reasons, <code>running</code>, <code>waiting-on-you</code>, <code>paused</code>, <code>failed</code> with Stage, error, Decision id and whether the CTO has it, <code>ready</code> for an old one, <code>done</code>, <code>dropped</code>), current Stage, Stages, person, since, tokens; <code>offBoardTaskStartedSchema</code>, the start&rsquo;s answer (started, or queued with place).</li>
+              <li><code>projects.ts</code>: the run environment set-up answer carries the Off-board Task&rsquo;s start; <code>testTargetsChatSchema</code> (Thread id, Role key, state <code>draft</code> / <code>answering</code> / <code>waiting-on-you</code> / <code>proposal</code>, since).</li>
+              <li><code>activity.ts</code>: kind <code>run-environment-set-up</code>; <code>tokens</code> and a queued place on both set-up kinds.</li>
+              <li><code>notifications.ts</code>: Needs you&rsquo;s Decision item gets <code>offBoardTask</code> (kind, Stage, error) when it is an Off-board Task&rsquo;s out-of-tries Decision.</li>
+            </ul>
+          </li>
+          <li>
+            <b>Work</b> (<code>apps/service/src/modules/work/</code>)
+            <ul>
+              <li>An application service that makes an Off-board Task and starts it in one call, through the existing <code>startOrQueue</code>; a refused start makes nothing. <code>OnboardingService.addOnboardTask</code> and <code>RunEnvironmentSetUps.add</code> use it.</li>
+              <li><code>POST /projects/:id/onboard</code>: Onboard, and Onboard again once the latest Onboard Task is Done or Dropped; refused while one is open. <code>GET /projects/:id/off-board-tasks</code>, the latest of each kind, with the earlier Onboard Tasks as history.</li>
+              <li><code>OnboardingService</code>, <code>projectOnboardingOf</code> and <code>GET /onboardings</code> read a Project&rsquo;s onboarding from its latest Onboard Task.</li>
+              <li><code>TestTargetsSetUps</code> makes no new Task: its <code>POST</code> goes; its <code>GET .../set-up-task</code> stays for one made before.</li>
+              <li>Migration <code>0194</code>: drop <code>tasks_onboard_task_per_project</code> and add <code>tasks_open_onboard_task_per_project</code> (<code>made_for = 'onboard'</code> and state not Done or Dropped). <code>made_for</code> and the run environment index already hold the rest.</li>
+            </ul>
+          </li>
+          <li>
+            <b>Projects and Conversations</b>
+            <ul>
+              <li>Projects: table <code>test_targets_chats</code> (Project id, Thread id, asked by, asked at), migration <code>0195</code>; <code>POST</code> and <code>GET /projects/:id/test-targets/chat</code>; ends on the Thread&rsquo;s <code>test-targets</code> Proposal applied or dismissed.</li>
+              <li>Conversations: a port to start a chat Thread with the duty holder, titled, and to read its state for the card. No tool change: the chat already has <code>propose_test_targets</code>.</li>
+            </ul>
+          </li>
+          <li>
+            <b>Pipelines, Activity, Notifications</b>
+            <ul>
+              <li>Pipelines: no change to the walk or the out-of-tries Decision; a read of a Task&rsquo;s Stage-run tokens, if Work and Activity don&rsquo;t have one already.</li>
+              <li>Activity: the new kind, tokens, Queued; Off-board Tasks never as Task, Failed Task or Stopped Task items.</li>
+              <li>Notifications: <code>needsYouOf</code> marks the set-up failure; Now&rsquo;s Running and Queue carry <code>madeFor</code> for the badge.</li>
+            </ul>
+          </li>
+          <li>
+            <b>Web</b> (<code>apps/web/src/</code>)
+            <ul>
+              <li><code>surfaces/projects/</code>: <code>OffBoardTaskStatus</code>, used by the Onboarding card (with <b>Onboard</b>) and <code>run-environment-block.tsx</code>; <code>test-targets-block.tsx</code> asks in a chat and follows it; <code>projects-page.tsx</code> and the Project Proposal card&rsquo;s applied line.</li>
+              <li><code>surfaces/work/</code>: <code>isOnBoard</code> leaves Off-board Tasks out (board, groups, tab counts, search); <code>run-environment-question.tsx</code> hint and after-Yes line; the Task page&rsquo;s badge and note.</li>
+              <li><code>surfaces/now/</code>: the Off-board Task failed card with Retry (answers the Decision&rsquo;s first option through the existing answer route); the badge in Running and Queue.</li>
+              <li><code>surfaces/activity/</code>: the group&rsquo;s words, the new kind, tokens.</li>
+              <li><code>shell/chat/ask-in-chat.tsx</code>: an asking that takes a Thread started by the service.</li>
+            </ul>
+          </li>
+          <li>
+            <b>Spec and maps</b>
+            <ul>
+              <li>2.1.1 Onboarding a Project, 2.1.3 (Task, Tasks The Office adds), 2.3.5 Built-ins, 2.12 Set up test targets, 2.14 What is listed, 5.5 Writing the run environment definition; screens <code>project-page.md</code>, <code>projects.md</code>, <code>activity.md</code>, <code>now.md</code>, <code>task-page.md</code>, <code>work-board.md</code>.</li>
+              <li><code>GLOSSARY.md</code>: <b>Off-board Task</b>; Onboarding, Run environment, Set up test targets, Activity and Task kind reworded. The README&rsquo;s topic map gets the term; <code>docs/design/README.md</code> lists this drawing.</li>
+              <li><code>npm run maps</code> for Work, Projects, Conversations, Activity, Notifications and the projects, work, now and activity surfaces.</li>
+            </ul>
+          </li>
+        </ol>
+      </main>
+      <aside class="aside" data-panel="breakdown" hidden>
+        <div class="note accent">
+          <h3>Order</h3>
+          <p>Contracts first, then the service modules (Work before Activity and Notifications, which read it), then the web, then the spec. Projects and Conversations can go beside Work: they share only the contracts.</p>
+        </div>
+        <div class="note">
+          <h3>Tests that cover it</h3>
+          <ul>
+            <li>Work: an Off-board Task starts at once, queues when the limits are full, is refused whole, one of each kind.</li>
+            <li>Activity and Notifications: the kinds, tokens, Queued, the set-up failure.</li>
+            <li>Projects: the test targets chat record and its end.</li>
+            <li>Web: <code>isOnBoard</code>, <code>OffBoardTaskStatus</code> states, the Test targets card.</li>
+          </ul>
+        </div>
+      </aside>
+    </div>
+
+    <script>
+      (function () {
+        var tabs = document.querySelectorAll("[data-view]");
+        var panels = document.querySelectorAll("[data-panel]");
+        function showView(name) {
+          tabs.forEach(function (tab) {
+            tab.setAttribute("aria-selected", tab.getAttribute("data-view") === name ? "true" : "false");
+          });
+          panels.forEach(function (panel) {
+            panel.hidden = panel.getAttribute("data-panel") !== name;
+          });
+        }
+        tabs.forEach(function (tab) {
+          tab.addEventListener("click", function () {
+            showView(tab.getAttribute("data-view"));
+          });
+        });
+
+        function showState(group, state) {
+          document.querySelectorAll('[data-for="' + group + '"]').forEach(function (part) {
+            var states = (part.getAttribute("data-show") || "").split(" ");
+            part.hidden = states.indexOf(state) === -1;
+          });
+          document.querySelectorAll('[data-switch="' + group + '"] button').forEach(function (button) {
+            button.setAttribute("aria-pressed", button.getAttribute("data-state") === state ? "true" : "false");
+          });
+        }
+        document.querySelectorAll("[data-switch]").forEach(function (bar) {
+          var group = bar.getAttribute("data-switch");
+          bar.querySelectorAll("button").forEach(function (button) {
+            button.addEventListener("click", function () {
+              showState(group, button.getAttribute("data-state"));
+            });
+          });
+          var pressed = bar.querySelector('button[aria-pressed="true"]');
+          if (pressed) showState(group, pressed.getAttribute("data-state"));
+        });
+
+        document.querySelectorAll("[data-palette-choice]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            var choice = button.getAttribute("data-palette-choice");
+            document.documentElement.setAttribute("data-palette", choice);
+            document.querySelectorAll("[data-palette-choice]").forEach(function (other) {
+              other.setAttribute("aria-pressed", other === button ? "true" : "false");
+            });
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>

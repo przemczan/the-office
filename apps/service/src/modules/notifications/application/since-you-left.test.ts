@@ -41,6 +41,7 @@ import {
   OfficeUpdateAvailableForTests,
   ShapingRepliesForTests,
   OfficeUsersForTests,
+  OfficeOffBoardTasksForTests,
   StartQueueForTests,
   TaskStageProgressForTests,
 } from "../ports/notifications-ports.fixtures.js";
@@ -67,6 +68,7 @@ const NOTIFICATIONS_FOR_TESTS = NotificationsModule.register({
   officeUpdateAvailable: OfficeUpdateAvailableForTests,
   shapingReplies: ShapingRepliesForTests,
   officeUsers: OfficeUsersForTests,
+  officeOffBoardTasks: OfficeOffBoardTasksForTests,
 });
 
 /** A user of this test alone: the stored activity is one row a user for every test file. */

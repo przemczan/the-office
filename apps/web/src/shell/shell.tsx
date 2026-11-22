@@ -1,6 +1,7 @@
 import { Outlet, useMatches } from "@tanstack/react-router";
 import type { CSSProperties, ReactNode } from "react";
 import { AccountAppearance } from "./account-appearance.tsx";
+import { ActivityPanel } from "./activity/activity-panel.tsx";
 import { ChatDrawer } from "./chat/chat-drawer.tsx";
 import { useChatDrawerLayout } from "./chat/chat-drawer-width.ts";
 import { ChatProvider, useChat } from "./chat/use-chat.tsx";
@@ -32,6 +33,7 @@ export function Shell(): ReactNode {
                 <ShellFrame />
               </FireAlarmReviewProvider>
               <NeedsYouPanel />
+              <ActivityPanel />
               <NotificationChannels />
             </ChatProvider>
           </DecisionDraftsProvider>

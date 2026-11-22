@@ -34,6 +34,7 @@ import {
   type TaskStages,
 } from "@the-office/contracts";
 import { deleteFromApi, getFromApi, sendToApi } from "./api-client.ts";
+import { OFF_BOARD_TASKS } from "./off-board-tasks.ts";
 import { taskChangesKey } from "./projects.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 import { PIPELINES_KEY, PROJECT_PIPELINES_KEY, STAGE_TEMPLATES_KEY } from "./pipeline-keys.ts";
@@ -323,9 +324,12 @@ function staleStageTemplates(): readonly (readonly unknown[])[] {
   return [STAGE_TEMPLATES_KEY];
 }
 
-/** Each of the walk's events makes the Stages of the Task it names stale. */
+/**
+ * Each of the walk's events makes the Stages of the Task it names stale, and the Projects'
+ * Off-board Tasks, whose cards show the current Stage and who works it.
+ */
 function staleTaskStages(event: unknown): readonly (readonly unknown[])[] {
-  return [taskStagesKey(taskIdOf(event))];
+  return [taskStagesKey(taskIdOf(event)), OFF_BOARD_TASKS];
 }
 
 /**
@@ -334,7 +338,12 @@ function staleTaskStages(event: unknown): readonly (readonly unknown[])[] {
  */
 function staleTaskStagesAndChanges(event: unknown): readonly (readonly unknown[])[] {
   const taskId = taskIdOf(event);
-  return [taskStagesKey(taskId), taskChangesKey(taskId), commandOutputsKey(taskId)];
+  return [
+    taskStagesKey(taskId),
+    taskChangesKey(taskId),
+    commandOutputsKey(taskId),
+    OFF_BOARD_TASKS,
+  ];
 }
 
 /** The Stages waiting for the user's choice of a Stand-in Engine changed. */

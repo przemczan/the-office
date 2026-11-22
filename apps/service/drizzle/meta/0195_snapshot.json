@@ -1,6 +1,6 @@
 {
-  "id": "97cae781-c16a-4e17-a502-060e057f4793",
-  "prevId": "bd3c2b7f-865d-4934-a836-9ab3811ebf31",
+  "id": "ea16c685-be25-4904-b87f-3209c131043f",
+  "prevId": "12e01707-bec7-43e3-8c39-277454b442fb",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -3395,96 +3395,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.actions": {
-      "name": "actions",
-      "schema": "",
-      "columns": {
-        "project_id": {
-          "name": "project_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "key": {
-          "name": "key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "position": {
-          "name": "position",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "settings": {
-          "name": "settings",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "leaves_the_workstation": {
-          "name": "leaves_the_workstation",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "set_by": {
-          "name": "set_by",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::jsonb"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "actions_project_id_projects_id_fk": {
-          "name": "actions_project_id_projects_id_fk",
-          "tableFrom": "actions",
-          "tableTo": "projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "actions_project_id_key_pk": {
-          "name": "actions_project_id_key_pk",
-          "columns": [
-            "project_id",
-            "key"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.environment_checks": {
       "name": "environment_checks",
       "schema": "",
@@ -3846,6 +3756,13 @@
           "notNull": true,
           "default": "''"
         },
+        "delete_merged_branches": {
+          "name": "delete_merged_branches",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "default_pipeline": {
           "name": "default_pipeline",
           "type": "text",
@@ -3971,20 +3888,6 @@
         },
         "close_issue_on_drop": {
           "name": "close_issue_on_drop",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "features": {
-          "name": "features",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::jsonb"
-        },
-        "delete_merged_branches": {
-          "name": "delete_merged_branches",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
@@ -4161,6 +4064,85 @@
           ]
         }
       },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.test_targets_chats": {
+      "name": "test_targets_chats",
+      "schema": "",
+      "columns": {
+        "thread_id": {
+          "name": "thread_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role_key": {
+          "name": "role_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "asked_by": {
+          "name": "asked_by",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "asked_at": {
+          "name": "asked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "test_targets_chats_project_asked_at": {
+          "name": "test_targets_chats_project_asked_at",
+          "columns": [
+            {
+              "expression": "project_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "asked_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "test_targets_chats_project_id_projects_id_fk": {
+          "name": "test_targets_chats_project_id_projects_id_fk",
+          "tableFrom": "test_targets_chats",
+          "tableTo": "projects",
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -7152,6 +7134,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "branch_deletion": {
+          "name": "branch_deletion",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "kind": {
           "name": "kind",
           "type": "text",
@@ -7201,12 +7189,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
-        },
-        "branch_deletion": {
-          "name": "branch_deletion",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
         }
       },
       "indexes": {
@@ -7314,8 +7296,8 @@
           "method": "btree",
           "with": {}
         },
-        "tasks_onboard_task_per_project": {
-          "name": "tasks_onboard_task_per_project",
+        "tasks_open_onboard_task_per_project": {
+          "name": "tasks_open_onboard_task_per_project",
           "columns": [
             {
               "expression": "project_id",
@@ -7325,7 +7307,7 @@
             }
           ],
           "isUnique": true,
-          "where": "\"tasks\".\"made_for\" = 'onboard'",
+          "where": "\"tasks\".\"made_for\" = 'onboard' AND \"tasks\".\"state\" NOT IN ('done', 'dropped')",
           "concurrently": false,
           "method": "btree",
           "with": {}

@@ -4,6 +4,7 @@ import type {
   ProjectFeature,
   ProjectFeaturesChange,
   ProjectRunEnvironment,
+  RunEnvironmentSetUpAnswer,
 } from "@the-office/contracts";
 import { Badge, Switch } from "@the-office/ui";
 import type { ReactNode } from "react";
@@ -13,10 +14,12 @@ import {
   projectQueries,
   setUpRunEnvironment,
 } from "../../api/projects.ts";
+import { TASKS } from "../../api/work.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { settingChosenWords, setUpWords } from "../../shell/run-environment-words.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { FEATURE_NEEDS, FEATURE_ROWS, needsWords } from "./feature-words.ts";
+import { StartRefusal } from "./off-board-task-status.tsx";
 import { ProjectBlock } from "./project-block.tsx";
 import { SetUpTaskLine } from "./set-up-task-line.tsx";
 
@@ -46,13 +49,22 @@ export function FeaturesBlock({ project }: { readonly project: Project }): React
   };
   const turningRunEnvironment = useMutation({
     scope: { id: `features-${project.id}` },
-    mutationFn: (on: boolean) =>
-      on ? setUpRunEnvironment(project.id) : changeRunEnvironment(project.id, "off"),
-    onSuccess: (saved, on) => {
-      keep(saved);
-      showToast(on ? setUpWords(saved, project.name) : settingChosenWords(saved, project.name));
+    mutationFn: async (on: boolean): Promise<RunEnvironmentSetUpAnswer> =>
+      on
+        ? setUpRunEnvironment(project.id)
+        : { runEnvironment: await changeRunEnvironment(project.id, "off"), start: null },
+    onSuccess: (answer, on) => {
+      keep(answer.runEnvironment);
+      // The Off-board Tasks sit under the Tasks' key.
+      if (answer.start) void queryClient.invalidateQueries({ queryKey: TASKS });
+      const words = on
+        ? setUpWords(answer, project.name)
+        : settingChosenWords(answer.runEnvironment, project.name);
+      if (words !== undefined) showToast(words);
     },
   });
+  const start = turningRunEnvironment.data?.start;
+  const setUpRefusal = start?.outcome === "refused" ? start.reasons : undefined;
   const pending = switching.isPending || turningRunEnvironment.isPending;
   // One switch's refusal shows until the next change, so another's never shows as its own.
   const turn = (feature: ProjectFeature, on: boolean): void => {
@@ -99,6 +111,9 @@ export function FeaturesBlock({ project }: { readonly project: Project }): React
           </div>
         );
       })}
+      {setUpRefusal && (
+        <StartRefusal title="Run environment wasn't set up" reasons={setUpRefusal} />
+      )}
       {failure && <RefusalAlert title="The switch wasn't changed" error={failure} />}
     </ProjectBlock>
   );

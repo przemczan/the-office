@@ -381,6 +381,18 @@ export const TASK_MADE_FOR = [
 ] as const;
 export type TaskMadeFor = (typeof TASK_MADE_FOR)[number];
 
+/**
+ * The Tasks The Office makes and starts at once, kept off the board: Off-board Tasks (spec §2.1,
+ * "Off-board Tasks"). Still Tasks, with their page, Stages, Decisions and Publish.
+ */
+export const OFF_BOARD_TASK_MADE_FOR = ["onboard", "run-environment-setup"] as const;
+export type OffBoardTaskKind = (typeof OFF_BOARD_TASK_MADE_FOR)[number];
+export const offBoardTaskKindSchema = z.enum(OFF_BOARD_TASK_MADE_FOR);
+
+export function isOffBoardTask(task: { readonly madeFor: TaskMadeFor | null }): boolean {
+  return (OFF_BOARD_TASK_MADE_FOR as readonly (TaskMadeFor | null)[]).includes(task.madeFor);
+}
+
 export const taskSchema = newTaskSchema.extend({
   id: z.uuid(),
   state: taskStateSchema,
@@ -546,8 +558,8 @@ export const personTaskPageSchema = pageSchemaOf(personTaskSchema).extend({
 export type PersonTaskPage = z.infer<typeof personTaskPageSchema>;
 
 /**
- * A Project's onboarding, read from its Onboard Task: onboarding until the Task is done, then
- * onboarded. A Project without one, or whose Onboard Task was dropped, has none.
+ * A Project's onboarding, read from its latest Onboard Task: onboarding until the Task is done,
+ * then onboarded. A Project without one, or whose latest Onboard Task was dropped, has none.
  */
 export const onboardingStateSchema = z.enum(["onboarding", "onboarded"]);
 export type OnboardingState = z.infer<typeof onboardingStateSchema>;
@@ -895,6 +907,90 @@ export const conflictResolutionAnswerSchema = z.object({
   startRefusal: z.array(z.string()).nullable(),
 });
 export type ConflictResolutionAnswer = z.infer<typeof conflictResolutionAnswerSchema>;
+
+/**
+ * Where an Off-board Task stands, as the Project page's card draws it. `failed` is a Stage out of
+ * tries with its Decision open: `withCto` while the holder of "Asked first when a Stage runs out of
+ * tries" has it, so the user can't Retry yet. `ready` is one made before Off-board Tasks started
+ * at once, which waits for Start.
+ */
+export const offBoardTaskStatusSchema = z.discriminatedUnion("state", [
+  z.object({
+    state: z.literal("queued"),
+    place: z.number().int().positive(),
+    shortReasons: z.array(z.string()),
+    queuedAt: z.iso.datetime(),
+  }),
+  z.object({ state: z.literal("running") }),
+  z.object({
+    state: z.literal("waiting-on-you"),
+    /** The open Decision's id and its first question; null when none is found. */
+    decisionId: z.uuid().nullable(),
+    question: z.string().nullable(),
+  }),
+  z.object({ state: z.literal("paused") }),
+  z.object({
+    state: z.literal("failed"),
+    stageName: z.string(),
+    /** The failure's error, as the out-of-tries Decision gives it; null when it gave none. */
+    error: z.string().nullable(),
+    decisionId: z.uuid(),
+    withCto: z.boolean(),
+  }),
+  z.object({ state: z.literal("ready") }),
+  z.object({ state: z.literal("done"), endedAt: z.iso.datetime().nullable() }),
+  z.object({
+    state: z.literal("dropped"),
+    endedAt: z.iso.datetime().nullable(),
+    dropReason: z.string().nullable(),
+  }),
+]);
+export type OffBoardTaskStatus = z.infer<typeof offBoardTaskStatusSchema>;
+export type OffBoardTaskState = OffBoardTaskStatus["state"];
+
+/** An Off-board Task, as the Project page, Activity and Needs you show it. */
+export const offBoardTaskSchema = z.object({
+  taskId: z.uuid(),
+  projectId: z.string(),
+  title: z.string(),
+  kind: offBoardTaskKindSchema,
+  status: offBoardTaskStatusSchema,
+  /** Its Pipeline's Stage names in order, and the one it is at; null before it started. */
+  stages: z.array(z.string()),
+  currentStage: z.string().nullable(),
+  /** Who works its current Stage; null while none does. */
+  person: z.object({ roleKey: z.string(), name: z.string() }).nullable(),
+  /** The current Stage run's Thread, to follow it; null while no Stage runs. */
+  threadId: z.uuid().nullable(),
+  /** When it entered its state. */
+  since: z.iso.datetime(),
+  /** Every Stage run's tokens so far (input, output and cache writes, as Today's tokens counts). */
+  tokens: z.number().int().nonnegative(),
+});
+export type OffBoardTask = z.infer<typeof offBoardTaskSchema>;
+
+/**
+ * GET /projects/:id/off-board-tasks: the latest Off-board Task of each kind, null for a kind it
+ * never had, and the earlier Onboard Tasks, newest first.
+ */
+export const projectOffBoardTasksSchema = z.object({
+  onboard: offBoardTaskSchema.nullable(),
+  onboardHistory: z.array(offBoardTaskSchema),
+  runEnvironmentSetUp: offBoardTaskSchema.nullable(),
+});
+export type ProjectOffBoardTasks = z.infer<typeof projectOffBoardTasksSchema>;
+
+/**
+ * What starting an Off-board Task answers (POST /projects/:id/onboard, and the run environment's
+ * set-up): started or queued, or the one already in flight; or refused, which makes nothing, with
+ * every reason.
+ */
+export const offBoardTaskStartSchema = z.discriminatedUnion("outcome", [
+  z.object({ outcome: z.literal("started"), offBoardTask: offBoardTaskSchema }),
+  z.object({ outcome: z.literal("in-flight"), offBoardTask: offBoardTaskSchema }),
+  z.object({ outcome: z.literal("refused"), reasons: z.array(z.string()).min(1) }),
+]);
+export type OffBoardTaskStart = z.infer<typeof offBoardTaskStartSchema>;
 
 /**
  * POST /initiatives/:id/start, Start Ready Tasks: what the normal Start did to each of the

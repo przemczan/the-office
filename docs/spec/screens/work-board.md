@@ -21,7 +21,7 @@ Covers: the Work page and its tabs, the Task board (filters, the Kind filter, Im
 
 - In order: **Tasks**, **Ideas**, **Initiatives**, **Pull requests**, **CI**, **Archived**.
 - A tab shows a count while it is above 0; **CI** and **Archived** have none.
-- Tasks: the Tasks on the board that are neither Done nor Dropped.
+- Tasks: the Tasks on the board that are neither Done nor Dropped, so never an Off-board Task ([Board columns](#board-columns)).
 - Ideas: the new Ideas ([ideas.md](ideas.md)).
 - Initiatives: the Initiatives in Shaping that aren't archived ([initiatives-tab.md](initiatives-tab.md)).
 - Pull requests: the open pull requests ([pull-requests.md](pull-requests.md)).
@@ -97,6 +97,7 @@ Covers: the Work page and its tabs, the Task board (filters, the Kind filter, Im
 - Every other column keeps the service's order: priority, then manual order.
 - A queued Task stays Ready; the Queued column only shows it apart.
 - A Task in Shaping has no column, and an archived Task has left the board ([archived.md](archived.md)).
+- An Off-board Task is never on the board: no column, card, column or tab count, or search result shows it; its Project page and Now follow it ([2.1.3](../2.1.3-tasks.md#off-board-tasks)). Publishing and Conflict resolution Tasks stay on it.
 - An empty column (grouping off) shows "Nothing here".
 - The column counts include only the Tasks the filters match.
 - The note in the Project filter area, "<n> more Tasks in other Projects" with **Show all projects**, counts the matching Tasks the Project filter hides.

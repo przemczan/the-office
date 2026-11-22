@@ -33,6 +33,32 @@ const activityItemFields = {
 export const activityTaskStateSchema = z.enum(["in-progress", "waiting-on-you", "paused", "done"]);
 export type ActivityTaskState = z.infer<typeof activityTaskStateSchema>;
 
+/** An Off-board Task's states Activity lists: queued, at a desk, failed, or ended. */
+export const activityOffBoardTaskStateSchema = z.enum([
+  "queued",
+  "in-progress",
+  "waiting-on-you",
+  "paused",
+  "failed",
+  "done",
+  "dropped",
+]);
+export type ActivityOffBoardTaskState = z.infer<typeof activityOffBoardTaskStateSchema>;
+
+/** What an Off-board Task's item has beside every item's fields. */
+const offBoardTaskItemFields = {
+  taskId: z.uuid(),
+  state: activityOffBoardTaskStateSchema,
+  /** The Stage it is at, or failed at; null before it started. */
+  stageName: z.string().nullable(),
+  /** Every Stage run's tokens so far, as Today's tokens counts them. */
+  tokens: z.number().int().nonnegative(),
+  /** Its place in the queue and the queue's short reasons, while queued; null otherwise. */
+  queued: z
+    .object({ place: z.number().int().positive(), shortReasons: z.array(z.string()) })
+    .nullable(),
+};
+
 /** The test instance states Activity lists; a Stopped one isn't. */
 export const activityTestInstanceStateSchema = z.enum(["building", "running", "built", "failed"]);
 export type ActivityTestInstanceState = z.infer<typeof activityTestInstanceStateSchema>;
@@ -81,12 +107,17 @@ export const activityItemSchema = z.discriminatedUnion("kind", [
     kind: z.literal("environment-check"),
     state: environmentCheckStateSchema,
   }),
-  /** A Project's Onboard Task, listed once, as this kind rather than as a `task`. */
+  /** A Project's Onboard Task, an Off-board Task listed once, as this kind rather than as a `task`. */
   z.object({
     ...activityItemFields,
+    ...offBoardTaskItemFields,
     kind: z.literal("onboarding"),
-    taskId: z.uuid(),
-    state: activityTaskStateSchema,
+  }),
+  /** A Project's "Set up the run environment" Off-board Task, listed once, never as a `task`. */
+  z.object({
+    ...activityItemFields,
+    ...offBoardTaskItemFields,
+    kind: z.literal("run-environment-set-up"),
   }),
   z.object({
     ...activityItemFields,

@@ -1,0 +1,2 @@
+-- Renumbered from 0191 when main took that number (then from 0192 and 0194), so a database that ran it under an earlier number runs it again.
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "features" jsonb DEFAULT '{}'::jsonb NOT NULL;

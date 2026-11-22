@@ -24,7 +24,7 @@ test.afterAll(async () => {
   await repository.remove();
 });
 
-test("an environment check is followed from the strip's Activity figure to the Activity page, marked New until seen", async ({
+test("an environment check is followed from the strip's Activity figure to the Activity panel, marked New until seen", async ({
   page,
 }) => {
   const project = await quickProject(page);
@@ -37,18 +37,22 @@ test("an environment check is followed from the strip's Activity figure to the A
   const ended = await environmentCheckOf(page, project);
 
   await page.goto("/now");
-  await page
-    .getByRole("status", { name: "Status strip" })
-    .getByRole("button", { name: /^Activity: \d+ running, \d+ ended not yet seen$/ })
-    .click();
-  await expect(page).toHaveURL(/\/activity$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Activity");
   // Only this Project's items, so what other tests leave running stays out.
   await page.getByRole("button", { name: /^Project filter:/ }).click();
   await page.getByRole("button", { name: `Show only ${project.name}` }).click();
   await page.keyboard.press("Escape");
+  await page
+    .getByRole("status", { name: "Status strip" })
+    .getByRole("button", { name: /^Activity: \d+ running, \d+ ended not yet seen$/ })
+    .click();
+  // A panel over the page, which stays where it was.
+  await expect(page).toHaveURL(/\/now\?activity=true$/);
+  const panel = page
+    .getByRole("dialog")
+    .filter({ has: page.getByRole("heading", { name: "Activity", exact: true }) });
+  await expect(panel).toBeVisible();
 
-  const group = page.getByRole("region", { name: "Environment checks and Onboarding" });
+  const group = panel.getByRole("region", { name: "Off-board Tasks and environment checks" });
   const card = group.getByRole("article", { name: /: Environment check$/ });
   await expect(card).toHaveCount(1);
   await expect(card.getByText("New", { exact: true })).toBeVisible();
@@ -57,7 +61,7 @@ test("an environment check is followed from the strip's Activity figure to the A
     `/projects/${project.id}/environment`,
   );
   await expect(card).toContainText(/ for (<1 min|\d+ min)$/);
-  await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "activity-page.png") });
+  await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "activity-panel.png") });
 
   // Seen after a second in view: the card stays for this visit, without its mark.
   await expect
@@ -66,9 +70,14 @@ test("an environment check is followed from the strip's Activity figure to the A
   await expect(card.getByText("New", { exact: true })).toHaveCount(0);
   await expect(card).toHaveCount(1);
 
-  await page.reload();
+  // The next visit leaves it out; Esc closes the panel, and the old address opens it again.
+  await page.keyboard.press("Escape");
+  await expect(panel).toHaveCount(0);
+  await expect(page).toHaveURL(/\/now$/);
+  await page.goto("/activity");
+  await expect(page).toHaveURL(/\/now\?activity=true$/);
   // "…in these Projects." only while another test's Project has an item.
-  await expect(page.getByText(/^Nothing is running( in these Projects)?\.$/)).toBeVisible();
+  await expect(panel.getByText(/^Nothing is running( in these Projects)?\.$/)).toBeVisible();
   await expect(group).toHaveCount(0);
 });
 

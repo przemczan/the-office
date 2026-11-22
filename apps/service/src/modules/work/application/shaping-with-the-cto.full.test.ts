@@ -43,6 +43,8 @@ import {
   ProjectService,
   TaskBases,
   TestTargets,
+  TestTargetsChatThreads,
+  TestTargetsSetUpTasks,
 } from "../../projects/index.js";
 import type { Initiative } from "../domain/initiative.js";
 import {
@@ -230,6 +232,8 @@ const STAND_INS = [
   TaskBasesForTests,
   { provide: TaskBases, useExisting: TaskBasesForTests },
   IssueTasks,
+  TestTargetsChatThreads,
+  TestTargetsSetUpTasks,
   IssueWriteBackForTests,
   { provide: IssueWriteBack, useExisting: IssueWriteBackForTests },
   ProjectFeaturesForTests,

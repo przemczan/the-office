@@ -1,7 +1,7 @@
 # Prettier checks code and config only; Markdown is left as written.
 *.md
 
-# Kept exactly as exported, so it can be re-exported from claude.ai.
+# The design system stays as it is; packages/ui wraps it rather than editing it.
 design-system/
 
 package-lock.json

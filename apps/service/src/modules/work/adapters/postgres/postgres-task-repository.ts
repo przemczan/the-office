@@ -43,6 +43,7 @@ import {
 import { boardOrderOf } from "./board-order.js";
 import { idStartingWith } from "./id-prefix.js";
 import { matching, taskSearchVector } from "./search-vector.js";
+import { queue } from "./queue.schema.js";
 import { tasks, taskStateChanges } from "./work.schema.js";
 import {
   changeDependenciesHeld,
@@ -75,6 +76,28 @@ export class PostgresTaskRepository extends TaskRepository {
         const created = create(await takenOrders(transaction));
         await insertTask(transaction, created);
         return created;
+      }),
+    );
+  }
+
+  async discardNeverStarted(id: string): Promise<boolean> {
+    if (!canBeRowId(id)) return false;
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        const [held] = await transaction
+          .select({ state: tasks.state })
+          .from(tasks)
+          .where(eq(tasks.id, id))
+          .for("update");
+        if (held?.state !== "ready") return false;
+        const [queued] = await transaction
+          .select({ taskId: queue.taskId })
+          .from(queue)
+          .where(eq(queue.taskId, id));
+        if (queued) return false;
+        await transaction.delete(taskStateChanges).where(eq(taskStateChanges.taskId, id));
+        await transaction.delete(tasks).where(eq(tasks.id, id));
+        return true;
       }),
     );
   }

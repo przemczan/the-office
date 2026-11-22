@@ -19,10 +19,10 @@ afterAll(async () => {
   await app.close();
 });
 
-describe("migration 0193", () => {
+describe("migration 0197", () => {
   it("adds the actions table only, leaving a Project added before it with none", async () => {
     const migration = await readFile(
-      new URL("../../../../../drizzle/0195_actions.sql", import.meta.url),
+      new URL("../../../../../drizzle/0197_actions.sql", import.meta.url),
       "utf8",
     );
     const id = `project-${randomUUID()}`;

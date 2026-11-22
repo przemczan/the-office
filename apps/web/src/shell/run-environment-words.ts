@@ -2,8 +2,9 @@ import {
   runEnvironmentAnswerSchema,
   type ProjectRunEnvironment,
   type RunEnvironmentAnswer,
+  type RunEnvironmentSetUpAnswer,
 } from "@the-office/contracts";
-import { TASK_STATE_NAMES } from "./work/work-words.ts";
+import { offBoardStartWords } from "./off-board-task-words.ts";
 
 /**
  * Asked once, while a Project's Run environment is "Not decided yet": in Add a Project, and at a
@@ -31,9 +32,14 @@ export function settingChosenWords(saved: ProjectRunEnvironment, projectName: st
     : `Checks in ${projectName} run on this computer.`;
 }
 
-/** What Set up run environment did: turned On, or the set-up Task it added or found. */
-export function setUpWords(saved: ProjectRunEnvironment, projectName: string): string {
-  const task = saved.setUpTask;
-  if (!task) return `Run environment is On: ${projectName}'s .devcontainer/ is valid.`;
-  return `${task.title} is ${TASK_STATE_NAMES[task.state]}${task.state === "ready" ? ", waiting for your Start" : ""}.`;
+/**
+ * What Set up run environment did: turned On at once, or started (or found in flight) its
+ * Off-board Task. Undefined when it was refused, which shows where it was asked instead.
+ */
+export function setUpWords(
+  answer: RunEnvironmentSetUpAnswer,
+  projectName: string,
+): string | undefined {
+  if (!answer.start) return `Run environment is On: ${projectName}'s .devcontainer/ is valid.`;
+  return offBoardStartWords(answer.start, projectName);
 }

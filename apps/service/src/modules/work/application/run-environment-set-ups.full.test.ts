@@ -22,15 +22,18 @@ afterAll(async () => {
 });
 
 describe("RunEnvironmentSetUps.add", () => {
-  it("refuses the set-up Task when the Project lacks a command its Pipeline runs, naming it", async () => {
+  it("refuses the set-up Task when the Project lacks a command its Pipeline runs, naming it, making none", async () => {
     const projectId = `project-${randomUUID()}`;
     work.app
       .get(KnownProjectsForTests)
       .commands.set(projectId, [{ key: "build", name: "Build", commandLine: "npm run build" }]);
 
-    await expect(work.app.get(RunEnvironmentSetUps).add(projectId, ANN_LEE)).rejects.toThrow(
-      `The Pipeline Set up run environment runs test, which The ${projectId} has no command for. Add it on the Project page, or choose another Pipeline.`,
-    );
+    expect(await work.app.get(RunEnvironmentSetUps).add(projectId, ANN_LEE)).toEqual({
+      outcome: "refused",
+      reasons: [
+        `The Pipeline Set up run environment runs test, which The ${projectId} has no command for. Add it on the Project page, or choose another Pipeline.`,
+      ],
+    });
     expect(await work.app.get(RunEnvironmentSetUps).openOf(projectId)).toBeUndefined();
   });
 });

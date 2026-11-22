@@ -71,7 +71,7 @@ Covers: the UI spec, shell, Project mark, progressive disclosure, palettes, dens
 - Components use aliases only, so a palette or a density changes colours and air, never layout.
 - Brand marks use the design system's ramp colours directly, so no palette mutes them.
 - The status colours (badges, edges, dots) and the accent are aliases too, but every palette keeps the design system's values.
-- Palettes are picked in Account › Appearance or from the rail's Theme menu: **Light** (the default, muted), **Dark** (dark gray, not black), **Graphite** (dark, cool), **Paper** (light and warm, from the brand system's beige), **Midnight** (dark, a deep blue-tinted navy, not black), **Mist** (light, a cool soft blue-grey), **Mocha** (dark, a warm brown-grey), **Sage** (light, a soft muted green-grey), **Aubergine** (dark, a deep plum-violet with lavender buttons), **Lavender** (light, a soft violet page with deep violet buttons), **Lagoon** (dark, a deep teal with sea-green buttons), **Cobalt** (light, crisp white on a clearly blue page with cobalt buttons), **Emerald** (dark, a deep emerald green with champagne-gold buttons and a gold active sidebar item) and **Citrine** (light, crisp white on a butter-yellow page with deep indigo buttons and a golden active sidebar item); or following the system, which shows Light or Dark.
+- Palettes are picked in Account › Appearance or from the rail's Theme menu: **Light** (the default, muted), **Dark** (dark gray, not black), **Graphite** (dark, cool), **Paper** (light and warm, a soft beige), **Midnight** (dark, a deep blue-tinted navy, not black), **Mist** (light, a cool soft blue-grey), **Mocha** (dark, a warm brown-grey), **Sage** (light, a soft muted green-grey), **Aubergine** (dark, a deep plum-violet with lavender buttons), **Lavender** (light, a soft violet page with deep violet buttons), **Lagoon** (dark, a deep teal with sea-green buttons), **Cobalt** (light, crisp white on a clearly blue page with cobalt buttons), **Emerald** (dark, a deep emerald green with champagne-gold buttons and a gold active sidebar item) and **Citrine** (light, crisp white on a butter-yellow page with deep indigo buttons and a golden active sidebar item); or following the system, which shows Light or Dark.
 - Dark palettes: Dark, Graphite, Midnight, Mocha, Aubergine, Lagoon, Emerald.
 - Light palettes: Light, Paper, Mist, Sage, Lavender, Cobalt, Citrine.
 - Dark or light decides which version of a Project's Icon and Logo shows, and anything else that follows the palette shown.
@@ -231,7 +231,9 @@ Covers: the UI spec, shell, Project mark, progressive disclosure, palettes, dens
 ## Brand
 
 - The Office's own mark is in the rail; Ember is the accent.
-- The design system ([design-system/readme.md](../../design-system/readme.md)) is a component library plus brand; its admin sidebar layout is not used.
+- The design system ([design-system/readme.md](../../design-system/readme.md)) is The Office's own component library and tokens, with no brand of its own; The Office's mark is the brand.
+- Its components stay as they are and are wrapped in `packages/ui` rather than edited; it is no longer an export from claude.ai.
+- Its Sidebar's layout is not used.
 
 ## Copy
 

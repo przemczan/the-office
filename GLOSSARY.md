@@ -110,8 +110,12 @@ One unit of work in a Project, done when its Definition of Done is met: a publis
 _Avoid_: Job, ticket, issue
 
 **Task kind**:
-What a Task is: **Feature**, new or changed behaviour; **Bug**, something that doesn't work as it should; **Chore**, upkeep such as an update or a clean-up. It shows as "Kind" on a Task. New Tasks are Features. The Tasks The Office adds on its own (Onboard, run environment set-up, Publishing, Conflict resolution) are Chores.
+What a Task is: **Feature**, new or changed behaviour; **Bug**, something that doesn't work as it should; **Chore**, upkeep such as an update or a clean-up. It shows as "Kind" on a Task. New Tasks are Features. The Tasks The Office adds on its own (the Off-board Tasks, Publishing, Conflict resolution) are Chores.
 _Avoid_: Type, Issue type, Category, Issue (as an entity)
+
+**Off-board Task**:
+A Task The Office makes and starts at once, kept off the Work board: a Project's Onboard Task ("Onboard") and its "Set up the run environment" Task. It is still a Task, with its page, worktree, Stages, Decisions, Pause, Stop, Resume, Drop, commit message and Publish; "without a Task" means only no Ready step, no Start and no board card, never no record. It starts through the normal start-or-queue, so every limit holds and with no room it is Queued; at most one of each kind is open per Project. Its Project page, Now and Activity follow it. Publishing and Conflict resolution Tasks aren't Off-board Tasks.
+_Avoid_: Background Task, hidden Task, system Task, set-up Task
 
 **Drop reason**:
 Why a Task was Dropped, optional: Won't fix, Duplicate (of another Task), Can't reproduce, or Other (with words).
@@ -506,11 +510,11 @@ Said of a Project Pipeline whose Stage changes no longer apply to its base Pipel
 _Avoid_: Invalid, stale, out of date
 
 **Onboarding**:
-Making a Project build and test in a fresh worktree on the workstation, done by the holder of Onboards and repairs Projects (Devops by default) in the Project's Onboard Task.
+Making a Project build and test in a fresh worktree on the workstation, done by the holder of Onboards and repairs Projects (Devops by default) in the Project's Onboard Task, an Off-board Task started at once by applying Devops' Project Proposal, or by Onboard or Onboard again on the Project page. One open per Project; the Project's onboarding (Onboarding, Onboarded) reads its latest Onboard Task.
 _Avoid_: Setup, initialization, provisioning
 
 **Run environment**:
-A Project's containers, defined by its repository's `.devcontainer/` (devcontainer.json and the compose files it names), that its checks run in when the Project's Run environment setting is On. The setting is "Not decided yet" until the user picks On or Off, the checks running on the workstation meanwhile, and On needs a valid definition on the base branch. "Set up run environment" turns it On at once when there is one, else adds the Project's "Set up the run environment" Task, in which Devops writes it with The Office's `write_run_environment_definition`, which checks it first, and its Done turns the setting On.
+A Project's containers, defined by its repository's `.devcontainer/` (devcontainer.json and the compose files it names), that its checks run in when the Project's Run environment setting is On. The setting is "Not decided yet" until the user picks On or Off, the checks running on the workstation meanwhile, and On needs a valid definition on the base branch. "Set up run environment" turns it On at once when there is one, else makes and starts the Project's "Set up the run environment" Off-board Task, in which Devops writes it with The Office's `write_run_environment_definition`, which checks it first, and its Done turns the setting On.
 _Avoid_: dev container, sandbox
 
 **CPU limit**:
@@ -526,7 +530,7 @@ A named entry in a Project's settings for what can be launched on a branch to tr
 _Avoid_: preview config, deploy target, environment
 
 **Set up test targets**:
-The Project page's button, in its Test targets section, that adds the Project's "Set up test targets" Task on the built-in Pipeline of that name: one Agent Stage naming Onboards and repairs Projects and no Publish, in which Devops reads the repository, changes no file and ends with a `propose_test_targets` Proposal. The Task is Done once Devops has proposed; the Proposal stays open for the user to apply. One open per Project.
+Setting up a Project's test targets in a chat, never a Task: the Project page's "Ask <Person> to set up test targets", in its Test targets section, starts a chat Thread "Set up test targets: <Project>" with the holder of Onboards and repairs Projects, on the Project's base checkout (read-only, no worktree), its draft waiting in the chat drawer. Devops reads the repository, changes no file and ends with a `propose_test_targets` Proposal in the chat, which the user applies. The page follows that chat until its Proposal is applied or dismissed. The built-in "Set up test targets" Pipeline stays only for the Tasks made on it before.
 _Avoid_: test target wizard, auto-detect targets
 
 **Test instance**:
@@ -574,7 +578,7 @@ The Task page's Overview block, shown while the Project's Run environment is On,
 _Avoid_: Devices panel, device manager
 
 **Activity**:
-Everything The Office is running, in one list: Tasks at a desk, Onboarding runs, Failed and Stopped Tasks with nothing open on them, test instances, CI runs, environment checks, Connected devices and pull requests ready to merge. An ended item stays listed for each user until that user has seen it. Not the user being active, which Now's Since you left reads.
+Everything The Office is running, in one list: Tasks at a desk, Off-board Tasks (Onboarding runs and Run environment set-ups), Failed and Stopped Tasks with nothing open on them, test instances, CI runs, environment checks, Connected devices and pull requests ready to merge. An ended item stays listed for each user until that user has seen it. Not the user being active, which Now's Since you left reads.
 _Avoid_: running list, jobs, processes, dashboard
 
 **Office device helper**:

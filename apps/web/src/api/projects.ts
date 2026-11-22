@@ -20,8 +20,9 @@ import {
   repositoryFilePreviewSchema,
   repositoryFolderSchema,
   taskChangesSchema,
+  projectTestTargetsChatSchema,
+  runEnvironmentSetUpAnswerSchema,
   testTargetListSchema,
-  testTargetsSetUpSchema,
   type AddProject,
   type EngineModel,
   type EnvironmentCheck,
@@ -50,8 +51,9 @@ import {
   type RunEnvironmentChange,
   type TaskKind,
   type TestTargetList,
+  type ProjectTestTargetsChat,
+  type RunEnvironmentSetUpAnswer,
   type TestTargetsEdit,
-  type TestTargetsSetUp,
 } from "@the-office/contracts";
 import { deleteFromApiReturning, getFromApi, sendFileToApi, sendToApi } from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
@@ -72,7 +74,10 @@ export const REMOTE_NEEDS = ["remote-needs"] as const;
  * that turns it On.
  */
 export const RUN_ENVIRONMENTS = ["run-environments"] as const;
-/** Apart from the Projects' key, since a Task's events change it: the open set-up Task. */
+/**
+ * Apart from the Projects' key, since a Task's events change it: the test targets chat and an
+ * open set-up Task made before.
+ */
 export const TEST_TARGETS_SET_UPS = ["test-targets-set-ups"] as const;
 /**
  * Apart from the Projects' key, so no event moves an open file browser to another commit; what a
@@ -130,12 +135,15 @@ export const projectQueries = {
       queryFn: ({ signal }) =>
         getFromApi(`${projectPath(id)}/test-targets`, testTargetListSchema, signal),
     }),
-  /** The open "Set up test targets" Task, or null. */
-  testTargetsSetUp: (id: string) =>
+  /**
+   * The test targets chat the card follows, and an open "Set up test targets" Task made before;
+   * read again by Task events, and by the followed Thread's (`TestTargetsBlock` hears them).
+   */
+  testTargetsChat: (id: string) =>
     queryOptions({
       queryKey: [...TEST_TARGETS_SET_UPS, id],
       queryFn: ({ signal }) =>
-        getFromApi(`${projectPath(id)}/test-targets/set-up-task`, testTargetsSetUpSchema, signal),
+        getFromApi(`${projectPath(id)}/test-targets/chat`, projectTestTargetsChatSchema, signal),
     }),
   /** The repository's own skills and commands, read from its checkout. */
   skills: (id: string) =>
@@ -333,13 +341,16 @@ export function changeRunEnvironment(
   );
 }
 
-/** Turns On at once with a valid definition on the base branch, else adds the set-up Task. */
-export function setUpRunEnvironment(id: string): Promise<ProjectRunEnvironment> {
+/**
+ * Turns On at once with a valid definition on the base branch (`start` null), else starts the
+ * "Set up the run environment" Off-board Task at once, answers the one in flight, or is refused.
+ */
+export function setUpRunEnvironment(id: string): Promise<RunEnvironmentSetUpAnswer> {
   return sendToApi(
     "POST",
     `${projectPath(id)}/run-environment/set-up`,
     {},
-    projectRunEnvironmentSchema,
+    runEnvironmentSetUpAnswerSchema,
   );
 }
 
@@ -510,9 +521,18 @@ export function saveTestTargets(id: string, edit: TestTargetsEdit): Promise<Test
   return sendToApi("PUT", `${projectPath(id)}/test-targets`, edit, testTargetListSchema);
 }
 
-/** Adds the Project's set-up Task, Ready, unless one is open; answers the open one. */
-export function setUpTestTargets(id: string): Promise<TestTargetsSetUp> {
-  return sendToApi("POST", `${projectPath(id)}/test-targets/set-up`, {}, testTargetsSetUpSchema);
+/**
+ * Ask, or Ask again: a new Thread in the chat of whoever onboards Projects, titled "Set up test
+ * targets: <Project>", with no message sent, which the Test targets card follows from now on.
+ * Refused (422) while nobody holds the duty, or while the followed chat's Proposal is open.
+ */
+export function askTestTargetsChat(id: string): Promise<ProjectTestTargetsChat> {
+  return sendToApi(
+    "POST",
+    `${projectPath(id)}/test-targets/chat`,
+    {},
+    projectTestTargetsChatSchema,
+  );
 }
 
 function testTargetsKey(id: string) {

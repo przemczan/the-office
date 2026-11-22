@@ -1,3 +1,4 @@
+import { newestMadeFirst } from "./off-board-task.js";
 import type { Task } from "./task.js";
 import type { TaskChange } from "./task-changes.js";
 import type { TaskCreated } from "./task-events.js";
@@ -29,8 +30,8 @@ export const ONBOARD_TASK_DEFINITION_OF_DONE: readonly string[] = [
 ];
 
 /**
- * A Project's Onboard Task: Ready on the Onboard Pipeline, its Plan and Definition of Done written
- * by The Office and confirmed, waiting for the user's Start like any Task.
+ * A Project's Onboard Task, an Off-board Task: Ready on the Onboard Pipeline, its Plan and
+ * Definition of Done written by The Office and confirmed, for `OffBoardTasks` to start at once.
  */
 export function createOnboardTask(
   id: string,
@@ -53,7 +54,7 @@ export function createOnboardTask(
   );
 }
 
-/** A Project's onboarding, read from its Onboard Task alone; a Project without one has none. */
+/** A Project's onboarding, read from its latest Onboard Task; a Project without one has none. */
 export type OnboardingState = "onboarding" | "onboarded";
 
 export interface ProjectOnboarding {
@@ -70,4 +71,16 @@ export function projectOnboardingOf(task: Task): ProjectOnboarding | undefined {
     taskId: task.id,
     state: task.state === "done" ? "onboarded" : "onboarding",
   };
+}
+
+/**
+ * The onboarding of every Project with an Onboard Task, each read from its latest one: none for a
+ * Project whose latest Onboard Task was dropped, even when an earlier one was done.
+ */
+export function latestOnboardingsOf(tasks: readonly Task[]): ProjectOnboarding[] {
+  const latest = new Map<string, Task>();
+  for (const task of newestMadeFirst(tasks.filter(({ madeFor }) => madeFor === "onboard"))) {
+    if (!latest.has(task.projectId)) latest.set(task.projectId, task);
+  }
+  return [...latest.values()].flatMap((task) => projectOnboardingOf(task) ?? []);
 }

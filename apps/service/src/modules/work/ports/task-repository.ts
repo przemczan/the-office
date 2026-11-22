@@ -59,6 +59,13 @@ export abstract class TaskRepository {
     create: (takenOrders: readonly string[]) => TaskChange<TaskCreated>,
   ): Promise<TaskChange<TaskCreated>>;
 
+  /**
+   * Removes a Task The Office made a moment ago whose start was refused, with its kept creation, so
+   * nothing is left of it: only while it is Ready, out of the queue, with nothing else kept on it.
+   * Whether it was removed.
+   */
+  abstract discardNeverStarted(id: string): Promise<boolean>;
+
   abstract find(id: string): Promise<Task | undefined>;
 
   /** Every Task, in no particular order. */

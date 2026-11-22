@@ -1,7 +1,7 @@
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import type { SignedInUser } from "../../../platform/http/signed-in-requests.js";
-import { TaskStateChanged } from "../../work/index.js";
+import { TaskStateChanged, type OffBoardTaskStart } from "../../work/index.js";
 import {
   definitionProblemsOf,
   definitionStatusOf,
@@ -25,8 +25,17 @@ export interface ProjectRunEnvironment extends ProjectSetting {
 }
 
 /**
+ * What "Set up run environment" did: the run environment after it, and the start of its set-up
+ * Task; undefined when a valid definition turned it On at once.
+ */
+export interface RunEnvironmentSetUp {
+  readonly runEnvironment: ProjectRunEnvironment;
+  readonly start: OffBoardTaskStart | undefined;
+}
+
+/**
  * A Project's Run environment setting and its set-up: On only with a valid definition on the base
- * branch, "Set up run environment" turning it On at once with one, else adding the Project's
+ * branch, "Set up run environment" turning it On at once with one, else making and starting the Project's
  * "Set up the run environment" Task, whose Done turns it On with a valid definition on its branch.
  */
 @Injectable()
@@ -81,16 +90,16 @@ export class ProjectRunEnvironments implements OnModuleInit {
 
   /**
    * On at once when the base branch, fetched now, has a valid definition; else the Project's open
-   * set-up Task, added as `by` asked when it has none.
+   * set-up Task, or one made now as `by` asked and started at once, an Off-board Task.
    */
-  async setUp(projectId: string, by: SignedInUser): Promise<ProjectRunEnvironment> {
+  async setUp(projectId: string, by: SignedInUser): Promise<RunEnvironmentSetUp> {
     await this.settingOf(projectId);
     if ((await this.freshDefinition(projectId)).state === "valid") {
       await this.settings.change(projectId, "on", []);
-    } else {
-      await this.setUpTasks.add(projectId, by);
+      return { runEnvironment: await this.read(projectId), start: undefined };
     }
-    return this.read(projectId);
+    const start = await this.setUpTasks.add(projectId, by);
+    return { runEnvironment: await this.read(projectId), start };
   }
 
   /**

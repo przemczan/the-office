@@ -22,8 +22,7 @@
               "components/feedback/**",
               "components/forms/**",
               "components/navigation/**",
-              "components/overlays/**",
-              "ui_kits/admin/**"
+              "components/overlays/**"
             ],
             "message": "Import design-system components from 'index.js', not component internals."
           }
@@ -41,8 +40,8 @@
         "message": "Raw px value — use a design-system spacing token via var()."
       },
       {
-        "selector": "Literal[value=/font-family\\s*:\\s*(?!['\\\"]?(?:Geist|Geist Mono|Darker Grotesque))/i]",
-        "message": "Font not provided by the design system. Available: Geist, Geist Mono, Darker Grotesque."
+        "selector": "Literal[value=/font-family\\s*:\\s*(?!['\\\"]?(?:Geist|Geist Mono))/i]",
+        "message": "Font not provided by the design system. Available: Geist, Geist Mono."
       },
       {
         "selector": "JSXOpeningElement[name.name='Alert'] > JSXAttribute > JSXIdentifier[name!=/^(?:tone|title|children|action|onClose|style|key|ref|className|style|children)$/]",
@@ -167,18 +166,6 @@
       {
         "selector": "JSXOpeningElement[name.name='ChartSeries'] > JSXAttribute > JSXIdentifier[name!=/^(?:name|data|color|dashed|key|ref|className|style|children)$/]",
         "message": "<ChartSeries> doesn't accept that prop. Declared props: name, data, color, dashed."
-      },
-      {
-        "selector": "JSXOpeningElement[name.name='Logo'] > JSXAttribute > JSXIdentifier[name!=/^(?:variant|tone|size|product|style|key|ref|className|style|children)$/]",
-        "message": "<Logo> doesn't accept that prop. Declared props: variant, tone, size, product, style."
-      },
-      {
-        "selector": "JSXOpeningElement[name.name='Logo'] > JSXAttribute[name.name='variant'] > Literal[value!=/^(?:horizontal|mark)$/]",
-        "message": "<Logo> variant must be one of 'horizontal' | 'mark'."
-      },
-      {
-        "selector": "JSXOpeningElement[name.name='Logo'] > JSXAttribute[name.name='tone'] > Literal[value!=/^(?:auto|light|dark|mono-ink|mono-white)$/]",
-        "message": "<Logo> tone must be one of 'auto' | 'light' | 'dark' | 'mono-ink' | 'mono-white'."
       },
       {
         "selector": "JSXOpeningElement[name.name='MenuItem'] > JSXAttribute > JSXIdentifier[name!=/^(?:label|icon|shortcut|danger|disabled|onSelect|divider|heading|key|ref|className|style|children)$/]",
@@ -348,9 +335,6 @@
       "ChartSeries": {
         "replaces": []
       },
-      "Logo": {
-        "replaces": []
-      },
       "MenuItem": {
         "replaces": []
       },
@@ -481,7 +465,6 @@
       "--flare-500",
       "--flare-700",
       "--focus-ring",
-      "--font-logo",
       "--font-mono",
       "--font-sans",
       "--gray-100",
@@ -739,7 +722,6 @@
       "--chart-track": "color",
       "--font-sans": "font",
       "--font-mono": "font",
-      "--font-logo": "font",
       "--weight-regular": "font",
       "--weight-medium": "font",
       "--weight-semibold": "font",
@@ -828,7 +810,6 @@
       "--z-tooltip": "other"
     },
     "fontFamilies": [
-      "Darker Grotesque",
       "Geist",
       "Geist Mono"
     ]

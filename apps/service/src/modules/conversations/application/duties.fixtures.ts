@@ -4,7 +4,7 @@ import { DUTIES, Duties, type DutyKey } from "../../people/index.js";
  * Who holds each duty, for tests that stand in for People: its default Role key, hired or not,
  * until a test moves it to another Role or to nobody.
  */
-export class DutiesStandIn implements Pick<Duties, "heldBy" | "holders"> {
+export class DutiesStandIn implements Pick<Duties, "heldBy" | "holders" | "holderOf"> {
   private readonly holding = new Map<DutyKey, string | undefined>(
     DUTIES.map((duty) => [duty.key, duty.defaultRoleKey]),
   );
@@ -12,6 +12,10 @@ export class DutiesStandIn implements Pick<Duties, "heldBy" | "holders"> {
   /** `duty` goes to the Role keyed `roleKey`, or to nobody. */
   set(duty: DutyKey, roleKey: string | undefined): void {
     this.holding.set(duty, roleKey);
+  }
+
+  holderOf(duty: DutyKey): Promise<string | undefined> {
+    return Promise.resolve(this.holding.get(duty));
   }
 
   heldBy(roleKey: string): Promise<DutyKey[]> {

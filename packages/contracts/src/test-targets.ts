@@ -207,10 +207,46 @@ export const testTargetsSetUpTaskSchema = z.object({
 export type TestTargetsSetUpTask = z.infer<typeof testTargetsSetUpTaskSchema>;
 
 /**
- * GET /projects/:id/test-targets/set-up-task, and what POST /projects/:id/test-targets/set-up
- * answers: the Project's open "Set up test targets" Task, null when it has none.
+ * GET /projects/:id/test-targets/set-up-task: the Project's open "Set up test targets" Task made
+ * before the Project page asked in a chat, null when it has none.
  */
 export const testTargetsSetUpSchema = z.object({
   setUpTask: testTargetsSetUpTaskSchema.nullable(),
 });
 export type TestTargetsSetUp = z.infer<typeof testTargetsSetUpSchema>;
+
+/**
+ * Where a test targets chat stands: its draft waits unsent, the person is answering, they replied
+ * and wait on the user, or the Thread's `test-targets` Proposal is open.
+ */
+export const testTargetsChatStateSchema = z.enum([
+  "draft",
+  "answering",
+  "waiting-on-you",
+  "proposal",
+]);
+export type TestTargetsChatState = z.infer<typeof testTargetsChatStateSchema>;
+
+/**
+ * The chat Thread the Project page asked to set up its test targets in (spec §2.12, "Set up test
+ * targets"), with the holder of "Onboards and repairs Projects", on the base checkout.
+ */
+export const testTargetsChatSchema = z.object({
+  threadId: z.uuid(),
+  roleKey: z.string(),
+  state: testTargetsChatStateSchema,
+  /** When it entered its state. */
+  since: z.iso.datetime(),
+});
+export type TestTargetsChat = z.infer<typeof testTargetsChatSchema>;
+
+/**
+ * GET /projects/:id/test-targets/chat, and what POST answers (Ask, or Ask again, which starts a new
+ * Thread): the chat the card follows, null once its Proposal was applied or dismissed or none was
+ * asked; and an open "Set up test targets" Task made before, which the card links instead.
+ */
+export const projectTestTargetsChatSchema = z.object({
+  chat: testTargetsChatSchema.nullable(),
+  setUpTask: testTargetsSetUpTaskSchema.nullable(),
+});
+export type ProjectTestTargetsChat = z.infer<typeof projectTestTargetsChatSchema>;

@@ -259,3 +259,29 @@ describe("the Task page while it loads", () => {
     expect(loadersIn(page)).toEqual(["Loading the Task…", "Loading the conversation…"]);
   });
 });
+
+describe("the Task page of an Off-board Task", () => {
+  it("badges it by its Kind and says why it isn't on the Work board, linking to its Project's page", async () => {
+    stubService();
+    const onboard = aTask({ title: "Onboard", madeFor: "onboard", kind: "chore" });
+
+    const page = await openTaskPage((queryClient) => {
+      taskAndPipelinesArrived(queryClient);
+      queryClient.setQueryData(taskQueries.one(TASK.id).queryKey, onboard);
+    });
+
+    expect(page.querySelector(".task-head-meta")?.textContent).toMatch(/^Off-board TaskChore/);
+    const note = [...page.querySelectorAll(".task-head-note")].find(({ textContent }) =>
+      textContent?.startsWith("The Office started this Off-board Task at once"),
+    );
+    expect(note?.querySelector("a")?.getAttribute("href")).toBe("/projects/admin-panel");
+  });
+
+  it("shows neither on any other Task", async () => {
+    stubService();
+
+    const page = await openTaskPage(taskAndPipelinesArrived);
+
+    expect(page.textContent).not.toContain("Off-board Task");
+  });
+});

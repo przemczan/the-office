@@ -1,5 +1,5 @@
 // The design system's controls and tables at the chosen density. They set their heights inline, in
-// fixed pixels, and design-system/ stays as exported: so each size is restated here on the
+// fixed pixels, and design-system/ stays as it is: so each size is restated here on the
 // density's --control-h, `sm` being the alias itself and the larger sizes a fixed step above it,
 // which keeps Comfortable's 28, 32 and 40 px. Spacing inside a control stays the design system's.
 import type { JSX } from "react";

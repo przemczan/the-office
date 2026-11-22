@@ -167,7 +167,8 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **OFFICE_CONNECTED_DEVICES, ANDROID_SERIAL**: [2.13 What Agents see](2.13-connected-devices.md#what-agents-see); [5.5 The Office device helper in a run environment](5.5-git-and-isolation.md#the-office-device-helper-in-a-run-environment)
 - **Office release, Office update, Office restart**: [5.1.1 Released versions](5.1.1-releases-and-installs.md#released-versions); [5.1.2 Updating The Office](5.1.2-updates-and-restarts.md#updating-the-office); [5.1.2 Restarting The Office](5.1.2-updates-and-restarts.md#restarting-the-office)
 - **Office-wide Pipeline, Pipeline library**: [2.3.5 Library](2.3.5-library.md#library); screen: [Settings › Pipelines](screens/settings.md#pipelines)
-- **Onboarding**: [2.1.1 Onboarding a Project](2.1.1-projects.md#onboarding-a-project); screen: [Project page › Onboarding](screens/project-page.md#onboarding)
+- **Off-board Task, Onboard Task, Retry**: [2.1.3 Off-board Tasks](2.1.3-tasks.md#off-board-tasks); screen: [Project page › Following an Off-board Task](screens/project-page.md#following-an-off-board-task); [Now › Needs you](screens/now.md#needs-you); [Task page › Head](screens/task-page.md#head)
+- **Onboarding, Onboard, Onboard again, Onboarding history**: [2.1.1 Onboarding a Project](2.1.1-projects.md#onboarding-a-project); screen: [Project page › Onboarding](screens/project-page.md#onboarding)
 - **One-time password**: [2.10 The one-time password](2.10-users-and-signing-in.md#the-one-time-password)
 - **Open page**: [2.4.4 Open page](2.4.4-messages.md#open-page); screen: [Thread › Open page](screens/thread.md#open-page)
 - **Out of reach, Reported met**: [2.3.3 Statements Out of reach](2.3.3-gates-and-checks.md#statements-out-of-reach); [2.3.3 Reports count across Stages](2.3.3-gates-and-checks.md#reports-count-across-stages-and-the-check-runs-before-publish)
@@ -210,7 +211,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Request**: [2.2 Calls](2.2-people.md#calls); [2.4.3 Calls from chats](2.4.3-consultations.md#calls-from-chats)
 - **Resolve**: [2.3.4 Conflicts at Publish](2.3.4-publish.md#conflicts-at-publish); screen: [Pull requests › Resolve conflicts](screens/pull-requests.md#resolve-conflicts)
 - **Role, Role card**: [2.2 Role](2.2-people.md#role); [2.2 Role card](2.2-people.md#role-card); screen: [People › Role card tab](screens/people.md#role-card-tab)
-- **Run environment**: [2.3.1 Script Stages in the run environment](2.3.1-stages.md#script-stages-in-the-run-environment); [5.5 Writing the run environment definition](5.5-git-and-isolation.md#writing-the-run-environment-definition); screen: [Project page › Run environment](screens/project-page.md#run-environment)
+- **Run environment, Set up run environment**: [2.3.1 Script Stages in the run environment](2.3.1-stages.md#script-stages-in-the-run-environment); [2.1.3 Setting up the run environment](2.1.3-tasks.md#setting-up-the-run-environment); [5.5 Writing the run environment definition](5.5-git-and-isolation.md#writing-the-run-environment-definition); screen: [Project page › Run environment](screens/project-page.md#run-environment)
 
 ### S
 
@@ -234,7 +235,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 
 - **Tag**: [2.1.3 Tags](2.1.3-tasks.md#tags)
 - **Test target, Hosted, Build to install, Install on a device, Deployed elsewhere, entry points only**: [2.12 Test target](2.12-test-instances.md#test-target); [2.12 Kinds](2.12-test-instances.md#kinds); [2.12 Entry points only](2.12-test-instances.md#entry-points-only); screen: [Project page › Test targets](screens/project-page.md#test-targets)
-- **propose_test_targets, Set up test targets**: [2.12 Writing test targets](2.12-test-instances.md#writing-test-targets); [2.12 Set up test targets](2.12-test-instances.md#set-up-test-targets); [2.3.5 Built-ins](2.3.5-library.md#built-ins)
+- **propose_test_targets, Set up test targets, test targets chat**: [2.12 Writing test targets](2.12-test-instances.md#writing-test-targets); [2.12 Set up test targets](2.12-test-instances.md#set-up-test-targets); [2.3.5 Built-ins](2.3.5-library.md#built-ins); screen: [Project page › Test targets](screens/project-page.md#test-targets)
 - **Test instance, launching on a branch, linked to an Initiative, Building, Installing, Running, Stopped, Built, Installed, Failed**: [2.12 Test instance](2.12-test-instances.md#test-instance); [2.12 Linking to an Initiative](2.12-test-instances.md#linking-to-an-initiative); [2.12 Test instance states](2.12-test-instances.md#test-instance-states); [2.1.4 Test instances of an Initiative](2.1.4-initiatives.md#test-instances-of-an-initiative); [2.7 Test instance Outcomes](2.7-notifications.md#test-instance-outcomes); screens: [Initiative page › Test instances](screens/initiative-page.md#test-instances), [Project page › Test instances](screens/project-page.md#test-instances)
 - **Test instance proxy, hand-off link, Proxy ports**: [2.12 Reaching a Hosted instance](2.12-test-instances.md#reaching-a-hosted-instance); [5.1 The test instance proxy](5.1-shape.md#the-test-instance-proxy); [2.10 Signing in to a test instance](2.10-users-and-signing-in.md#signing-in-to-a-test-instance)
 - **Build to install files, QR code link, build time, Kept Build to install files (linked and unlinked builds)**: [2.12 Build to install](2.12-test-instances.md#build-to-install); [2.12 Kept Build to install files](2.12-test-instances.md#kept-build-to-install-files); [2.12 Build time](2.12-test-instances.md#build-time); [5.5 The build cache volume](5.5-git-and-isolation.md#the-build-cache-volume)
@@ -315,7 +316,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - [2.1 Work](2.1-work.md): index of the pages below.
   - [2.1.1 Projects](2.1.1-projects.md): Project, its settings, a Kind's default Pipeline, test targets, Project limit, Icon and Logo, Project commands, the re-run command, feature switches, GitHub issues.
   - [2.1.2 Ideas and Attachments](2.1.2-ideas-and-attachments.md): Idea, Attachment, text files and PDFs, pasted images.
-  - [2.1.3 Tasks](2.1.3-tasks.md): Task, its Kind and bug details, its states, Ready, Description, Commit message, dependencies, Drop reason, GitHub issue, priority, archive, moving.
+  - [2.1.3 Tasks](2.1.3-tasks.md): Task, its Kind and bug details, its states, Ready, Description, Commit message, dependencies, Drop reason, GitHub issue, priority, Off-board Tasks, setting up the run environment, archive, moving.
   - [2.1.4 Initiatives](2.1.4-initiatives.md): Initiative, its states, shaping, Plan the Initiative, its Pipeline, Back to Shaping, Publishing Tasks, Pause, its test instances.
   - [2.1.5 Planning and Start](2.1.5-planning-and-start.md): Plan and Definition of Done, Planning, Auto mode, the queue for Start, overlaps, Usage estimates.
   - [2.1.6 Board and search](2.1.6-board-and-search.md): the board, the Kind filter, search, Saved views, Group by Initiative, the Pull requests and CI tabs.
@@ -373,7 +374,7 @@ One page per screen, as built. Where a [design](../design/README.md) differs, th
 - [Settings](screens/settings.md)
 - [Stats](screens/stats.md)
 - [Live view](screens/live-view.md)
-- [Activity](screens/activity.md): opened from the status strip's Activity figure.
+- [Activity](screens/activity.md): a panel over any page, opened from the status strip's Activity figure.
 - [Account](screens/account.md)
 - [Sign in](screens/sign-in.md): the sign-in pages and First-run setup.
 

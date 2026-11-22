@@ -1,6 +1,6 @@
 # Project page
 
-Covers: a Project's page and its head, the section tabs, Overview (the dashboard: the Actions tile, Onboarding, Work, the Project limit, the tiles for Initiatives, Ideas, CI, Pull requests, Test instances, Environment, Remote sign-in and Recent activity), Files, Commands (install, install inputs, commands, Publish, Delete branches once merged), Environment (variables, Secret variables, environment check), Pipelines (Default Pipeline and its rows by Kind, Project Pipelines), GitHub issues (the Import issues window, auto-import, write-back), Run environment, Devices (the Project's devices, Add a device, pairing, Change Port, Pair again, Remove), Test targets (the list, the editor, Install on a device, Set up test targets, the open Proposal), Test instances (Launch on a branch, instances by branch), the Branch picker, Actions (the list, the editor, the open Proposal, the Run window and its confirm step, an Action's History, a run's log), Engine, Skills, Server values, Features (the switches, the tabs a switched-off feature hides), Appearance (Mark, Icon and Logo, How it looks).
+Covers: a Project's page and its head, the section tabs, Overview (the dashboard: the Actions tile, Onboarding, Onboard and Onboard again, following an Off-board Task, Work, the Project limit, the tiles for Initiatives, Ideas, CI, Pull requests, Test instances, Environment, Remote sign-in and Recent activity), Files, Commands (install, install inputs, commands, Publish, Delete branches once merged), Environment (variables, Secret variables, environment check), Pipelines (Default Pipeline and its rows by Kind, Project Pipelines), GitHub issues (the Import issues window, auto-import, write-back), Run environment (Set up run environment), Devices (the Project's devices, Add a device, pairing, Change Port, Pair again, Remove), Test targets (the list, the editor, Install on a device, asking for them in a chat, the open Proposal), Test instances (Launch on a branch, instances by branch), the Branch picker, Actions (the list, the editor, the open Proposal, the Run window and its confirm step, an Action's History, a run's log), Engine, Skills, Server values, Features (the switches, the tabs a switched-off feature hides), Appearance (Mark, Icon and Logo, How it looks).
 
 ## Where it is
 
@@ -41,7 +41,7 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
 
 ## Head
 
-- The Project's Logo (page size), its name, then a meta line: the onboarding badge (**Onboarding** or **Onboarded**, when the Project has an Onboard Task), the Project's folder path (monospace) and "· <base branch>".
+- The Project's Logo (page size), its name, then a meta line: the onboarding badge (**Onboarding** or **Onboarded**, read from the Project's latest Onboard Task, when it has one), the Project's folder path (monospace) and "· <base branch>".
 - When the Project was cloned: a line "Repository URL" with the URL.
 - The remote's needs line: which part of the Office identity the base branch's remote needs, and what is missing. It shows only while the Project has a remote, and changes when `github.changed` arrives.
   - GitHub over https: "Its remote is GitHub over https, reached with Sign in with GitHub."; missing: "Not signed in with GitHub."; with a link to **Settings › Office identity**.
@@ -68,10 +68,26 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
 
 ### Onboarding
 
-- Card **Onboarding** (hard-drive icon) with the onboarding badge at its end.
-- With an Onboard Task: "From the Task <title> · <state words>", the title a link to the Task ([task-page.md](task-page.md)); a Task in Ready adds ", waiting for your Start".
-- Without one: "None: the Project has no Onboard Task. Devops onboards a Project they are asked to add."
+- Card **Onboarding** (hard-drive icon) with the onboarding badge at its end, then **Onboard** (primary, play icon) while the Project never had an Onboard Task, or **Onboard again** (secondary, rotate icon) once its latest is Done or Dropped; neither while one is in flight ([2.1.1](../2.1.1-projects.md#onboarding-a-project)).
+- With none yet: "Not onboarded yet. Devops makes it build and test in a fresh worktree, asking before installing anything, then publishes the fixes." and the note "Starts at once as an Off-board Task: no Start, not on the board. It waits Queued while the Project limit or the queue is full."
+- With one: the latest Onboard Task as [Following an Off-board Task](#following-an-off-board-task) shows it.
+  - Done adds "Onboard again starts a new Onboard Task on the base branch as it is now, for when the toolchain or the commands have changed."; Dropped adds "Not onboarded. Onboard again starts a new Onboard Task."
+- With earlier ones: "Onboarding history: <title> · Done 2 Oct · <title> · Dropped 28 Sep", each a link to its Task.
+- Onboard toasts "<Person> is onboarding <Project>.", "<title> is queued, place N: <reasons>." or "<title> is already under way."; a refusal shows under the button as **Onboard didn't start** with the reasons.
 - It refreshes with any Task event.
+
+### Following an Off-board Task
+
+- The Onboarding and Run environment cards show their Off-board Task the same way ([2.1.3](../2.1.3-tasks.md#off-board-tasks)): a state badge and the Task's title, its Stages as a rail (not once Done or Dropped), a meta line, and at the head's end **Open the Thread** while a Stage runs with a Thread, else **Open the Task**.
+- **Queued**: "Place N in the queue", the short reasons and "Queued for <time>", with "It starts by itself once there is room. Move it up on Now's Queue."
+- **Running**: the person's avatar and name, "<time> in Stage" and its tokens.
+- **Waiting on you**: "<Person> asks: <question>", **Answer** (the Task page at the Decision), "Asked <time> ago" and its tokens.
+- **Paused**: "Paused at <time>", its tokens and **Resume**.
+- **Failed**: "<Stage> failed, and its rounds are used up."
+  - While the holder of Asked first when a Stage runs out of tries has it: "Asked <Person> (<title>) first. It comes to you, here and in Needs you, if <Person> passes it on.", with no Retry.
+  - Once it is the user's: a danger alert with the error, **Retry**, **Open the Decision** and "Retry runs <Stage> again, with the failure in its Brief."; a refusal shows **Nothing was retried**.
+- **Done**: "Done on <day>" and its tokens; **Dropped**: "Dropped on <day>", the Drop reason and its tokens.
+- **Ready**, for one made before: "Made before Off-board Tasks started at once, so it waits for your Start." with **Start**.
 
 ### Work
 
@@ -83,6 +99,7 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
   - **Waiting on you**: the Tasks waiting on the user ([work-board.md](work-board.md)).
   - **Ready to start**: Tasks in Ready.
   - **Not planned yet**: Tasks in Backlog or Planning.
+- Note under the tiles: "Off-board Tasks aren't counted here: the Onboarding and Run environment cards show them. They still take a running slot under “Running Tasks at once in this Project”."
 - **Running Tasks at once in this Project**: a stepper, 1 to the Project limit's maximum (`PROJECT_LIMIT_MAX`), saved at each step.
 - Note: "Lowering it lets running Tasks finish; nothing new starts in this Project until one ends."
 - A refusal shows under the stepper.
@@ -337,9 +354,10 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
 - Text: "With Run environment On, the Project's checks run in the containers its .devcontainer/ defines; until then they run on this computer."
 - A row **Run environment** with an **On** / **Off** segmented control, saved at once; toasts "Checks in <name> run in its run environment." or "Checks in <name> run on this computer."
 - A row **.devcontainer/** with the badge **Valid** (success), **Not valid** (warning) or **Not found**, "on <base branch>, as last fetched"; a not valid definition lists each problem.
-- After a set-up Task was Done but its `.devcontainer/` isn't valid: "The last set-up Task was Done, but the .devcontainer/ on its branch isn't valid, so Run environment stayed as it was:" with the problems.
-- **Set up run environment** (wrench icon): shown unless it is On with a valid definition; note "With a valid .devcontainer/ on the base branch it turns On at once; otherwise Devops writes one in a Task." Toasts: "Run environment is On: <name>'s .devcontainer/ is valid." or "<Task title> is <state>, waiting for your Start." (the latter only in Ready).
-- With an open set-up Task, the button is replaced by "Being set up in the Task <title> · <state words>. Run environment turns On when it is Done."
+- After a "Set up the run environment" Task was Done but its `.devcontainer/` isn't valid: "The last Off-board Task was Done, but the .devcontainer/ on its branch isn't valid, so Run environment stayed as it was:" with the problems.
+- **Set up run environment** (wrench icon): shown unless it is On with a valid definition; note "With a valid .devcontainer/ on the base branch it turns On at once; otherwise Devops writes one in an Off-board Task that starts now." ([2.1.3](../2.1.3-tasks.md#setting-up-the-run-environment)). Toasts: "Run environment is On: <name>'s .devcontainer/ is valid.", "<Person> is setting up <Project>'s run environment." or "<title> is queued, place N: <reasons>."; a refused start shows **Nothing was set up** with the reasons.
+- With an open "Set up the run environment" Task, the button is replaced by that Task as [Following an Off-board Task](#following-an-off-board-task) shows it, with "Run environment turns On when it is Done." while Queued or Running.
+- Once that Task is Done and Run environment is On with a valid definition: the success alert "Run environment is On: <name>'s .devcontainer/ is valid." over "Set up in the Off-board Task <title> · Done on <day> · <N> tokens", the title a link to the Task.
 - A refused change shows the service's reasons under the block (a refused On shows why).
 
 ## Devices
@@ -378,7 +396,7 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
 
 ## Test targets
 
-- Card **Test targets** (flask icon) with **Set up test targets** (wand icon) at its end.
+- Card **Test targets** (flask icon) with **Ask <Person> to set up test targets** (message icon) at its end, naming the holder of Onboards and repairs Projects, while no chat or "Set up test targets" Task made before is followed and that person can chat ([2.12](../2.12-test-instances.md#set-up-test-targets)).
 - Note: "What can be launched on a branch to try the work. Kept in The Office, never in the repository."
 - With none: "None yet. Add one, or have <Devops> set them up from the repository."
 - A list, one row per target in the order added: its name, badges for its key (monospace) and kind (**Hosted**, **Build to install** or **Install on a device**), its entry point in monospace (Install on a device: "Installs <target> on <device>"), and a mark of who set its values last, "Set by you" or "Set by <Agent>", naming each when they differ ("Set by you and <Agent>"); a pencil ("Change <name>") and a trash ("Remove <name>").
@@ -404,8 +422,15 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
 - Each value the editor saves is marked set by you; in the editor each value shows who set it last.
 - Toasts "<name> saved. It applies from its next launch.", "<name> added.", "<name> removed."; a refusal shows under the editor as the service words it (**The test target wasn't saved**).
 - A Hosted or Install on a device target with the Project's Run environment not On shows the warning "Needs Run environment On to launch." with a link to the Run environment section.
-- **Set up test targets** adds the Project's "Set up test targets" Task; toast "<Task title> is Ready, waiting for your Start."
-  - With an open one, the button is replaced by "Being set up in the Task <title> · <state words>."
+- **Ask <Person> to set up test targets** starts the chat Thread "Set up test targets: <Project>" and opens the chat drawer on it with the draft "Can you set up the test targets of <Project>? Read its repository, change no file, and propose them." waiting; a refusal shows **Nothing was asked**.
+  - While nobody holds the duty: "Nobody onboards Projects yet: give Onboards and repairs Projects to someone in People."
+- The chat followed shows in place of the button: a badge, a title, **Open the chat** (the chat drawer on that Thread) and **Ask again** (not while its Proposal is open):
+  - **Draft waiting**: "Asked <Person> in a chat", with "Your draft waits in the chat for you to send it.";
+  - **Answering**: "<Person> is reading the repository", with the person, "For <time>" and "In a chat, on the base branch <branch>";
+  - **Waiting on you**: "<Person> replied in the chat";
+  - **Proposal ready**: "<Person> proposed them in the chat", with "Apply or dismiss the Proposal below; the list stays as it is until it is applied."
+- It ends once that Thread's Proposal is applied or dismissed, and the button shows again.
+- A "Set up test targets" Task made before, while open, shows in place of the button with its title and state, a link to it, and "Made before test targets were set up in a chat. It works as before; once it is Done or Dropped, the button asks in a chat."
 - **The open Proposal:** while Devops' `propose_test_targets` Proposal waits, its card shows above the list ([decision-card.md](decision-card.md)):
   - each change as it was and as proposed, a removal struck through;
   - each value the user set, which it changes, flagged "You set this";
@@ -632,6 +657,7 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
 - Project commands: [2.1.1](../2.1.1-projects.md#project-commands).
 - Icon and Logo: [2.1.1](../2.1.1-projects.md#icon-and-logo).
 - Onboarding: [2.1.1](../2.1.1-projects.md#onboarding-a-project).
+- Off-board Tasks and setting up the run environment: [2.1.3](../2.1.3-tasks.md#off-board-tasks).
 - Project Pipelines and a Broken Project Pipeline: [2.3.5](../2.3.5-library.md#project-pipelines), [2.3.5](../2.3.5-library.md#a-broken-project-pipeline).
 - Which Pipeline a Task follows: [2.3.5](../2.3.5-library.md#which-pipeline-a-task-follows).
 - GitHub issues: [2.1.1](../2.1.1-projects.md#github-issues).

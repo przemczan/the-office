@@ -7,7 +7,7 @@ import { notificationQueries, nowQueries } from "../api/notifications.ts";
 import { officeUpdateQueries } from "../api/office-updates.ts";
 import { useEventStreamStatus } from "../api/event-stream-provider.tsx";
 import { roleQueries } from "../api/people.ts";
-import { ActivityFigure } from "./activity-figure.tsx";
+import { ActivityFigure } from "./activity/activity-figure.tsx";
 import { tokensShort } from "./conversation/context-words.ts";
 import { alarmFigureWords } from "./fire-alarm/fire-alarm-words.ts";
 import { useFireAlarmReview } from "./fire-alarm/fire-alarm-review.tsx";

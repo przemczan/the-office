@@ -192,6 +192,7 @@ const A_DECISION: NeedsYouItem = {
   taskId: "6820f3e0-132c-414a-9d26-ed497c7ea9bf",
   projectId: "billing",
   waitingSince: "2026-11-13T09:00:00.000Z",
+  offBoardTask: null,
 };
 const SKILL_UPDATES: WaitingForYouItem = {
   kind: "skill-updates",

@@ -1363,29 +1363,43 @@
     {
       "idx": 194,
       "version": "7",
-      "when": 1795354232768,
-      "tag": "0194_project_features",
+      "when": 1795359806702,
+      "tag": "0194_open_onboard_task_per_project",
       "breakpoints": true
     },
     {
       "idx": 195,
       "version": "7",
-      "when": 1795354681158,
-      "tag": "0195_actions",
+      "when": 1795361511423,
+      "tag": "0195_test_targets_chats",
       "breakpoints": true
     },
     {
       "idx": 196,
       "version": "7",
-      "when": 1795360000000,
-      "tag": "0196_onboard_actions_brief",
+      "when": 1795361512423,
+      "tag": "0196_project_features",
       "breakpoints": true
     },
     {
       "idx": 197,
       "version": "7",
-      "when": 1795360865267,
-      "tag": "0197_project_devices",
+      "when": 1795361513423,
+      "tag": "0197_actions",
+      "breakpoints": true
+    },
+    {
+      "idx": 198,
+      "version": "7",
+      "when": 1795361514423,
+      "tag": "0198_onboard_actions_brief",
+      "breakpoints": true
+    },
+    {
+      "idx": 199,
+      "version": "7",
+      "when": 1795361515423,
+      "tag": "0199_project_devices",
       "breakpoints": true
     }
   ]

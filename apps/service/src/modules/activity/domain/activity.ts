@@ -25,6 +25,8 @@ export interface ActivityTask {
   readonly createdAt: Date;
   /** When it was Done or Dropped; undefined while open. */
   readonly endedAt: Date | undefined;
+  /** What The Office made it for, if anything: an Off-board Task's is listed as its own kind. */
+  readonly madeFor?: string | undefined;
 }
 
 /** One of a Task's kept state changes. */
@@ -51,9 +53,42 @@ export interface ActivityStage {
   }[];
 }
 
-/** A Project's onboarding, from its Onboard Task, from Work. */
-export interface ActivityOnboarding {
+/** The item kind of each Off-board Task, by what The Office made it for (spec §2.1). */
+const OFF_BOARD_ITEM_KINDS: Readonly<Record<string, OffBoardItemKind>> = {
+  onboard: "onboarding",
+  "run-environment-setup": "run-environment-set-up",
+};
+type OffBoardItemKind = "onboarding" | "run-environment-set-up";
+
+/** Whether Activity lists the Task as an Off-board Task's item, never as a `task` one. */
+export function isOffBoard(task: Pick<ActivityTask, "madeFor">): boolean {
+  return task.madeFor !== undefined && Object.hasOwn(OFF_BOARD_ITEM_KINDS, task.madeFor);
+}
+
+/**
+ * An Off-board Task, a Project's Onboard Task or its "Set up the run environment" Task, as Work
+ * reads it: `failed` is a Stage out of tries with its Decision open; `ready` waits for Start.
+ */
+export interface ActivityOffBoardTask {
   readonly taskId: string;
+  readonly projectId: string;
+  readonly title: string;
+  /** What The Office made it for: `onboard` or `run-environment-setup`. */
+  readonly kind: string;
+  readonly status:
+    | {
+        readonly state: "queued";
+        readonly place: number;
+        readonly shortReasons: readonly string[];
+      }
+    | { readonly state: "running" | "waiting-on-you" | "paused" | "ready" }
+    | { readonly state: "failed"; readonly stageName: string }
+    | { readonly state: "done" | "dropped"; readonly endedAt: Date | undefined };
+  /** The Stage of its latest run; undefined before it started. */
+  readonly currentStage: string | undefined;
+  /** When it entered its state. */
+  readonly since: Date;
+  readonly tokens: number;
 }
 
 export interface ActivityTestInstance {
@@ -121,7 +156,8 @@ export interface ActivityParts {
   readonly done: readonly ActivityTask[];
   /** The Task ids with a Decision open on them, waiting on the user. */
   readonly openDecisionTaskIds: ReadonlySet<string>;
-  readonly onboardings: readonly ActivityOnboarding[];
+  /** Every Off-board Task off the Archive. */
+  readonly offBoardTasks: readonly ActivityOffBoardTask[];
   readonly testInstances: readonly ActivityTestInstance[];
   readonly ciRuns: readonly ActivityCiRun[];
   readonly environmentChecks: readonly ActivityEnvironmentCheck[];
@@ -148,7 +184,18 @@ export type ActivityLink =
 /** One thing The Office is doing, or did and the user hasn't seen (spec §2.14). */
 export type ActivityItem = ItemFields &
   (
-    | { readonly kind: "task" | "onboarding"; readonly taskId: string; readonly state: string }
+    | { readonly kind: "task"; readonly taskId: string; readonly state: string }
+    | {
+        readonly kind: OffBoardItemKind;
+        readonly taskId: string;
+        readonly state: string;
+        readonly stageName: string | null;
+        readonly tokens: number;
+        readonly queued: {
+          readonly place: number;
+          readonly shortReasons: readonly string[];
+        } | null;
+      }
     | {
         readonly kind: "stopped-task" | "failed-task";
         readonly taskId: string;
@@ -226,12 +273,14 @@ export function activityOf(
 }
 
 function itemsOf(parts: ActivityParts): ActivityItem[] {
-  const onboarding = new Set(parts.onboardings.map(({ taskId }) => taskId));
+  const offBoard = new Set(parts.offBoardTasks.map(({ taskId }) => taskId));
+  const onBoard = (task: ActivityTask) => !offBoard.has(task.id) && !isOffBoard(task);
   return [
-    ...parts.started.flatMap((started) =>
-      startedTaskItem(started, parts.openDecisionTaskIds, onboarding),
-    ),
-    ...parts.done.map((task) => doneTaskItem(task, onboarding)),
+    ...parts.started
+      .filter(({ task }) => onBoard(task))
+      .flatMap((started) => startedTaskItem(started, parts.openDecisionTaskIds)),
+    ...parts.done.filter(onBoard).map(doneTaskItem),
+    ...parts.offBoardTasks.flatMap(offBoardTaskItem),
     ...parts.testInstances.flatMap(testInstanceItem),
     ...parts.ciRuns.map(ciRunItem),
     ...parts.environmentChecks.map(environmentCheckItem),
@@ -241,14 +290,13 @@ function itemsOf(parts: ActivityParts): ActivityItem[] {
 }
 
 /**
- * A started Task is `failed-task` or `stopped-task` while its current Stage, the one run last, is
- * failed or stopped and no Decision is open on it, keyed by that run so a later one shows again; an
- * Onboard Task is `onboarding`; any other is `task`, since its last state change.
+ * A started Task, never an Off-board Task, is `failed-task` or `stopped-task` while its current
+ * Stage, the one run last, is failed or stopped and no Decision is open on it, keyed by that run so
+ * a later one shows again; any other is `task`, since its last state change.
  */
 function startedTaskItem(
   { task, stateChanges, stages }: StartedActivityTask,
   openDecisionTaskIds: ReadonlySet<string>,
-  onboarding: ReadonlySet<string>,
 ): ActivityItem[] {
   if (!AT_A_DESK.has(task.state)) return [];
   const fields = { projectId: task.projectId, title: task.title, link: taskLink(task.id) };
@@ -272,12 +320,11 @@ function startedTaskItem(
       },
     ];
   }
-  const kind = onboarding.has(task.id) ? "onboarding" : "task";
   return [
     {
       ...fields,
-      kind,
-      id: `${kind}:${task.id}`,
+      kind: "task",
+      id: `task:${task.id}`,
       taskId: task.id,
       state: task.state,
       since: enteredAt(task, stateChanges),
@@ -287,12 +334,11 @@ function startedTaskItem(
   ];
 }
 
-function doneTaskItem(task: ActivityTask, onboarding: ReadonlySet<string>): ActivityItem {
-  const kind = onboarding.has(task.id) ? "onboarding" : "task";
+function doneTaskItem(task: ActivityTask): ActivityItem {
   const endedAt = task.endedAt ?? task.createdAt;
   return {
-    kind,
-    id: `${kind}:${task.id}:done`,
+    kind: "task",
+    id: `task:${task.id}:done`,
     projectId: task.projectId,
     title: task.title,
     link: taskLink(task.id),
@@ -302,6 +348,41 @@ function doneTaskItem(task: ActivityTask, onboarding: ReadonlySet<string>): Acti
     ended: true,
     endedAt,
   };
+}
+
+/**
+ * An Off-board Task, listed once as its own kind while queued, at a desk or failed (a Stage out of
+ * tries, its Decision open), and ended once Done or Dropped, keyed by that state; one waiting for
+ * Start isn't listed.
+ */
+function offBoardTaskItem(offBoardTask: ActivityOffBoardTask): ActivityItem[] {
+  const kind = OFF_BOARD_ITEM_KINDS[offBoardTask.kind];
+  const { status } = offBoardTask;
+  if (kind === undefined || status.state === "ready") return [];
+  const ended = status.state === "done" || status.state === "dropped";
+  const endedAt = ended ? (status.endedAt ?? offBoardTask.since) : undefined;
+  return [
+    {
+      kind,
+      id: ended
+        ? `${kind}:${offBoardTask.taskId}:${status.state}`
+        : `${kind}:${offBoardTask.taskId}`,
+      projectId: offBoardTask.projectId,
+      title: offBoardTask.title,
+      link: taskLink(offBoardTask.taskId),
+      taskId: offBoardTask.taskId,
+      state: status.state === "running" ? "in-progress" : status.state,
+      stageName: status.state === "failed" ? status.stageName : (offBoardTask.currentStage ?? null),
+      tokens: offBoardTask.tokens,
+      queued:
+        status.state === "queued"
+          ? { place: status.place, shortReasons: status.shortReasons }
+          : null,
+      since: endedAt ?? offBoardTask.since,
+      ended,
+      endedAt,
+    },
+  ];
 }
 
 function testInstanceItem(instance: ActivityTestInstance): ActivityItem[] {

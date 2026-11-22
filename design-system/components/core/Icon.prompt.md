@@ -1,4 +1,4 @@
-Renders a Lucide outline icon at the system stroke (1.75); use for every glyph in the admin UI.
+Renders a Lucide outline icon at the system stroke (1.75); use for every glyph in the app.
 ```jsx
 <Icon name="users" size={16}/>
 ```

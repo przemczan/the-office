@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 /**
  * A button that reads as a link among words, where the design system's Button, a control of its own
- * height, would break the line. design-system/ stays as exported, hence this here.
+ * height, would break the line. design-system/ stays as it is, hence this here.
  */
 export function TextButton({
   className,

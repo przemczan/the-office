@@ -12,6 +12,7 @@ import {
   type Answers,
 } from "../../shell/page.fixtures.tsx";
 import { FeaturesBlock } from "./features-block.tsx";
+import { offBoardTask } from "./off-board-task.fixtures.tsx";
 
 const ALL_ON: ProjectFeatures = {
   "connected-devices": true,
@@ -210,11 +211,20 @@ describe("the Features tab", () => {
       answers(notDecided, {
         [`POST /api/projects/${PROJECT.id}/run-environment/set-up`]: () => ({
           status: 200,
-          body: runEnvironmentOf(notDecided, {
-            id: "task-1",
-            title: "Set up the run environment",
-            state: "ready",
-          }),
+          body: {
+            runEnvironment: runEnvironmentOf(notDecided, {
+              id: "task-1",
+              title: "Set up the run environment",
+              state: "ready",
+            }),
+            start: {
+              outcome: "started",
+              offBoardTask: offBoardTask(
+                { state: "running" },
+                { title: "Set up the run environment", kind: "run-environment-setup" },
+              ),
+            },
+          },
         }),
       }),
     );

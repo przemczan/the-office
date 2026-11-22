@@ -3,7 +3,7 @@ import type {
   ActivityCiRun,
   ActivityDevice,
   ActivityEnvironmentCheck,
-  ActivityOnboarding,
+  ActivityOffBoardTask,
   ActivityPullRequest,
   ActivityStage,
   ActivityStateChange,
@@ -14,7 +14,7 @@ import { ActivityCiRuns } from "./activity-ci-runs.js";
 import { ActivityDecisions } from "./activity-decisions.js";
 import { ActivityDevices } from "./activity-devices.js";
 import { ActivityEnvironmentChecks } from "./activity-environment-checks.js";
-import { ActivityOnboardings } from "./activity-onboardings.js";
+import { ActivityOffBoardTasks } from "./activity-off-board-tasks.js";
 import { ActivityPullRequests } from "./activity-pull-requests.js";
 import { ActivityStages } from "./activity-stages.js";
 import { ActivityTasks } from "./activity-tasks.js";
@@ -69,11 +69,11 @@ export class ActivityDecisionsForTests extends ActivityDecisions {
 }
 
 @Injectable()
-export class ActivityOnboardingsForTests extends ActivityOnboardings {
-  onboardings: ActivityOnboarding[] = [];
+export class ActivityOffBoardTasksForTests extends ActivityOffBoardTasks {
+  offBoardTasks: ActivityOffBoardTask[] = [];
 
-  list(): Promise<readonly ActivityOnboarding[]> {
-    return Promise.resolve(this.onboardings);
+  listAll(): Promise<readonly ActivityOffBoardTask[]> {
+    return Promise.resolve(this.offBoardTasks);
   }
 }
 
@@ -126,7 +126,7 @@ const PORTS = [
   ActivityTasksForTests,
   ActivityStagesForTests,
   ActivityDecisionsForTests,
-  ActivityOnboardingsForTests,
+  ActivityOffBoardTasksForTests,
   ActivityTestInstancesForTests,
   ActivityCiRunsForTests,
   ActivityEnvironmentChecksForTests,
@@ -143,7 +143,7 @@ export const ACTIVITY_PORTS_FOR_TESTS = {
   tasks: ActivityTasksForTests,
   stages: ActivityStagesForTests,
   decisions: ActivityDecisionsForTests,
-  onboardings: ActivityOnboardingsForTests,
+  offBoardTasks: ActivityOffBoardTasksForTests,
   testInstances: ActivityTestInstancesForTests,
   ciRuns: ActivityCiRunsForTests,
   environmentChecks: ActivityEnvironmentChecksForTests,

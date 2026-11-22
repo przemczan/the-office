@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { webEventSchema } from "./events.js";
 import { runEnvironmentSettingSchema } from "./projects.js";
-import { taskStateSchema } from "./work.js";
+import { offBoardTaskStartSchema, taskStateSchema } from "./work.js";
 
 /** What the user picks for a Project's Run environment (PUT /projects/:id/run-environment). */
 export const runEnvironmentChangeSchema = z.object({ runEnvironment: z.enum(["on", "off"]) });
@@ -36,6 +36,16 @@ export const projectRunEnvironmentSchema = z.object({
   setUpTask: runEnvironmentSetUpTaskSchema.nullable(),
 });
 export type ProjectRunEnvironment = z.infer<typeof projectRunEnvironmentSchema>;
+
+/**
+ * POST /projects/:id/run-environment/set-up: the run environment after it, and the start of its
+ * "Set up the run environment" Off-board Task; null when a valid definition turned it On at once.
+ */
+export const runEnvironmentSetUpAnswerSchema = z.object({
+  runEnvironment: projectRunEnvironmentSchema,
+  start: offBoardTaskStartSchema.nullable(),
+});
+export type RunEnvironmentSetUpAnswer = z.infer<typeof runEnvironmentSetUpAnswerSchema>;
 
 /**
  * The run environments' CPU limit: Automatic follows this computer's cores, Fixed puts one number

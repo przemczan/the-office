@@ -1,0 +1,2 @@
+DROP INDEX "tasks_onboard_task_per_project";--> statement-breakpoint
+CREATE UNIQUE INDEX "tasks_open_onboard_task_per_project" ON "tasks" USING btree ("project_id") WHERE "tasks"."made_for" = 'onboard' AND "tasks"."state" NOT IN ('done', 'dropped');

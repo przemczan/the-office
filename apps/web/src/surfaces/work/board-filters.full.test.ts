@@ -142,16 +142,25 @@ describe("withoutBoardFilters", () => {
 
 describe("isOnBoard", () => {
   it("leaves out a Task in Shaping, whose Initiative isn't confirmed", () => {
-    expect(isOnBoard({ state: "shaping", archivedAt: null })).toBe(false);
+    expect(isOnBoard({ state: "shaping", archivedAt: null, madeFor: null })).toBe(false);
     for (const state of ["backlog", "planning", "ready", "in-progress", "done"] as const) {
-      expect(isOnBoard({ state, archivedAt: null })).toBe(true);
+      expect(isOnBoard({ state, archivedAt: null, madeFor: null })).toBe(true);
     }
   });
 
   it("leaves out an archived Task, in the state it stays in", () => {
     const archivedAt = "2026-11-07T10:00:00.000Z";
-    expect(isOnBoard({ state: "done", archivedAt })).toBe(false);
-    expect(isOnBoard({ state: "dropped", archivedAt })).toBe(false);
+    expect(isOnBoard({ state: "done", archivedAt, madeFor: null })).toBe(false);
+    expect(isOnBoard({ state: "dropped", archivedAt, madeFor: null })).toBe(false);
+  });
+
+  it("leaves out an Off-board Task in every state, keeping the other Tasks The Office makes", () => {
+    for (const state of ["ready", "in-progress", "paused", "done"] as const) {
+      expect(isOnBoard({ state, archivedAt: null, madeFor: "onboard" })).toBe(false);
+      expect(isOnBoard({ state, archivedAt: null, madeFor: "run-environment-setup" })).toBe(false);
+      expect(isOnBoard({ state, archivedAt: null, madeFor: "publishing" })).toBe(true);
+      expect(isOnBoard({ state, archivedAt: null, madeFor: "resolve-conflicts" })).toBe(true);
+    }
   });
 });
 

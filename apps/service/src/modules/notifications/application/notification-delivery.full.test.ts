@@ -43,6 +43,7 @@ import {
   OfficeUpdateAvailableForTests,
   ShapingRepliesForTests,
   OfficeUsersForTests,
+  OfficeOffBoardTasksForTests,
   OfficeInitiativesForTests,
   OfficeTasksForTests,
   OpenDecisionsForTests,
@@ -125,6 +126,7 @@ describe("NotificationDelivery", () => {
           officeUpdateAvailable: OfficeUpdateAvailableForTests,
           shapingReplies: ShapingRepliesForTests,
           officeUsers: OfficeUsersForTests,
+          officeOffBoardTasks: OfficeOffBoardTasksForTests,
         }),
       ],
       overrides: [

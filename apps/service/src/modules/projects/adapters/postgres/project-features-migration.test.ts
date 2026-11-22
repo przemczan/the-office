@@ -21,10 +21,10 @@ afterAll(async () => {
   await app.close();
 });
 
-describe("migration 0191", () => {
+describe("migration 0196", () => {
   it("leaves a Project added before it with every feature on, as it was", async () => {
     const migration = await readFile(
-      new URL("../../../../../drizzle/0194_project_features.sql", import.meta.url),
+      new URL("../../../../../drizzle/0196_project_features.sql", import.meta.url),
       "utf8",
     );
     const id = `project-${randomUUID()}`;

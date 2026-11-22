@@ -1,7 +1,0 @@
-import React from 'react';
-const PAL={light:['var(--gray-950)','var(--ember-500)'],dark:['#F4F4F2','var(--ember-500)'],auto:['var(--fg-1)','var(--ember-500)'],'mono-ink':['var(--gray-950)','var(--gray-950)'],'mono-white':['#fff','#fff']};
-export function Mark({size=32,tone='auto',style}){const[k,e]=PAL[tone]||PAL.auto;return <svg width={size*16/48} height={size} viewBox="2 0 16 48" style={{display:'block',flex:'none',...style}} aria-hidden="true"><rect x="4" y="2" width="12" height="30" rx="6" fill={k}/><circle cx="10" cy="41" r="6" fill={e}/></svg>;}
-export function Logo({variant='horizontal',tone='auto',size=24,product,style}){const[k,e]=PAL[tone]||PAL.auto;
-if(variant==='mark')return <Mark size={size} tone={tone} style={style}/>;
-const word=<span style={{font:`500 ${size*0.78}px/1 var(--font-logo)`,whiteSpace:'nowrap',color:k}}><span style={{color:e}}>not</span>nullsoft</span>;
-return <span role="img" aria-label={product?'NotNullSoft '+product:'NotNullSoft'} style={{display:'inline-flex',alignItems:'center',gap:size*0.0529,...style}}><Mark size={size*0.55} tone={tone} style={{transform:`translateY(${size*0.22}px)`}}/>{word}{product&&<span style={{marginLeft:size*0.35,padding:'3px 6px',borderRadius:'var(--radius-sm)',border:'1px solid var(--border-strong)',font:`500 ${Math.max(10,Math.round(size*0.42))}px/1 var(--font-mono)`,color:'var(--fg-2)',textTransform:'uppercase',letterSpacing:'var(--tracking-caps)',alignSelf:'center'}}>{product}</span>}</span>;}

@@ -6,6 +6,7 @@ import {
   waitingGateOf,
   type NeedsYouItem,
   type NowParts,
+  type OffBoardTaskOnNow,
   type OfficeInitiative,
   type OfficeTask,
   type OpenProposal,
@@ -44,6 +45,7 @@ const PARTS: NowParts = {
   openDecisions: [],
   queued: [],
   tasks: [],
+  offBoardTasks: [],
   initiatives: [],
   initiativeTasks: new Map(),
   shaper: undefined,
@@ -315,6 +317,93 @@ describe("nowOf", () => {
     expect(now.queue).toEqual([
       { taskId: "t2", title: "Fix the header", projectId: "p1", place: 1, reasons: waits },
       { taskId: "t3", title: "Add a filter", projectId: "p2", place: 3, reasons: waits },
+    ]);
+  });
+
+  it("carries what each running and queued Task was made for, as an Off-board Task's badge", () => {
+    const onboard = { ...TASK, id: "t2", madeFor: "onboard" };
+    const setUp = { ...TASK, id: "t3", state: "ready", madeFor: "run-environment-setup" };
+    const now = nowOf({
+      ...PARTS,
+      started: [
+        { task: TASK, stages: undefined },
+        { task: onboard, stages: undefined },
+      ],
+      tasks: [setUp],
+      queued: [{ taskId: "t3", reasons: [] }],
+    });
+
+    expect(now.running.map(({ taskId, madeFor }) => ({ taskId, madeFor }))).toEqual([
+      { taskId: "t1", madeFor: undefined },
+      { taskId: "t2", madeFor: "onboard" },
+    ]);
+    expect(now.queue).toEqual([
+      expect.objectContaining({ taskId: "t3", madeFor: "run-environment-setup" }),
+    ]);
+  });
+});
+
+function failedOnboard(withCto: boolean): OffBoardTaskOnNow {
+  return {
+    taskId: "t1",
+    kind: "onboard",
+    title: "Onboard office",
+    status: {
+      state: "failed",
+      stageName: "Verify",
+      error: "The tests failed.",
+      decisionId: "d1",
+      withCto,
+    },
+  };
+}
+
+describe("nowOf's Off-board Task failed", () => {
+  const onboard = { ...TASK, state: "waiting-on-you", madeFor: "onboard" };
+
+  it("marks the out-of-tries Decision once it is the user's, with the Stage and its error", () => {
+    const now = nowOf({
+      ...PARTS,
+      openDecisions: [{ id: "d1", threadId: "th", taskId: "t1", askedAt: at(1) }],
+      tasks: [onboard],
+      offBoardTasks: [failedOnboard(false)],
+    });
+
+    expect(now.needsYou).toEqual([
+      expect.objectContaining({
+        kind: "decision",
+        decisionId: "d1",
+        offBoardTask: {
+          kind: "onboard",
+          title: "Onboard office",
+          stageName: "Verify",
+          error: "The tests failed.",
+        },
+      }),
+    ]);
+  });
+
+  it("marks none while the CTO still has it, nor any other Decision of an Off-board Task", () => {
+    const withCto = nowOf({
+      ...PARTS,
+      openDecisions: [{ id: "d1", threadId: "th", taskId: "t1", askedAt: at(1) }],
+      tasks: [onboard],
+      offBoardTasks: [failedOnboard(true)],
+    });
+    const question = nowOf({
+      ...PARTS,
+      openDecisions: [{ id: "d2", threadId: "th", taskId: "t1", askedAt: at(1) }],
+      tasks: [onboard],
+      offBoardTasks: [
+        { ...failedOnboard(false), status: { state: "waiting-on-you", decisionId: "d2" } },
+      ],
+    });
+
+    expect(withCto.needsYou).toEqual([
+      expect.objectContaining({ decisionId: "d1", offBoardTask: undefined }),
+    ]);
+    expect(question.needsYou).toEqual([
+      expect.objectContaining({ decisionId: "d2", offBoardTask: undefined }),
     ]);
   });
 });

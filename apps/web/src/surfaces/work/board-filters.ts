@@ -1,4 +1,5 @@
 import {
+  isOffBoardTask,
   prioritySchema,
   taskKindSchema,
   type BoardFilters,
@@ -63,10 +64,11 @@ export function withBoardFilter<Key extends keyof BoardFilters>(
 
 /**
  * A Task in Shaping joins the board as its Initiative is confirmed; until then it has no column. An
- * archived Task has left it, until restored.
+ * archived Task has left it, until restored. An Off-board Task (Onboard, Set up the run
+ * environment) is never on it: The Office starts it at once and the Project page follows it.
  */
-export function isOnBoard(task: Pick<TaskSummary, "state" | "archivedAt">): boolean {
-  return task.state !== "shaping" && !isArchived(task);
+export function isOnBoard(task: Pick<TaskSummary, "state" | "archivedAt" | "madeFor">): boolean {
+  return task.state !== "shaping" && !isArchived(task) && !isOffBoardTask(task);
 }
 
 /**

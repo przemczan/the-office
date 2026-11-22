@@ -3,7 +3,13 @@ import { tokenTotalsSchema } from "./conversations.js";
 import { engineIdSchema } from "./engines.js";
 import { officeUpdateTargetSchema } from "./office-updates.js";
 import { webEventSchema } from "./events.js";
-import { fireAlarmWaySchema, taskHolderSchema, taskStateSchema } from "./work.js";
+import {
+  TASK_MADE_FOR,
+  fireAlarmWaySchema,
+  offBoardTaskKindSchema,
+  taskHolderSchema,
+  taskStateSchema,
+} from "./work.js";
 
 /** Something that waits on the user, oldest first in Needs you. */
 export const needsYouItemSchema = z.discriminatedUnion("kind", [
@@ -14,6 +20,18 @@ export const needsYouItemSchema = z.discriminatedUnion("kind", [
     /** The Task's, which the Project filter narrows by. */
     projectId: z.string(),
     waitingSince: z.iso.datetime(),
+    /**
+     * Set when it is an Off-board Task's out-of-tries Decision, which Needs you shows as its
+     * "Off-board Task failed" card with Retry; null for any other Decision.
+     */
+    offBoardTask: z
+      .object({
+        kind: offBoardTaskKindSchema,
+        title: z.string(),
+        stageName: z.string(),
+        error: z.string().nullable(),
+      })
+      .nullable(),
   }),
   z.object({
     kind: z.literal("gate"),
@@ -143,6 +161,8 @@ export const runningTaskSchema = z.object({
   resumesAt: z.iso.datetime().nullable(),
   /** Null before its first Stage run. */
   stage: currentStageSchema.nullable(),
+  /** What The Office made it for, as the Task's `madeFor`: an Off-board Task gets its badge. */
+  madeFor: z.enum(TASK_MADE_FOR).nullable(),
 });
 export type RunningTask = z.infer<typeof runningTaskSchema>;
 
@@ -151,6 +171,7 @@ export const queuedOnNowSchema = z.object({
   taskId: z.uuid(),
   title: z.string(),
   projectId: z.string(),
+  madeFor: z.enum(TASK_MADE_FOR).nullable(),
   place: z.number().int().positive(),
   reasons: z.array(z.string()),
 });

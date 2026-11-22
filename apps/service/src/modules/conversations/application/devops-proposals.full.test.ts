@@ -9,6 +9,7 @@ import {
   actionListSchema,
   markLabelFor,
   PROPOSE_ACTIONS_TOOL,
+  offBoardTaskStartSchema,
   PROPOSE_LIBRARY_PIPELINE_TOOL,
   PROPOSE_PROJECT_COMMANDS_TOOL,
   PROPOSE_PROJECT_PIPELINE_TOOL,
@@ -22,6 +23,7 @@ import {
   projectOnboardingListSchema,
   projectPipelineSchema,
   projectSchema,
+  projectTestTargetsChatSchema,
   proposalSchema,
   skillReviewSchema,
   skillSchema,
@@ -35,6 +37,7 @@ import {
   type ProjectPipeline,
   type Stage,
   type StageTemplate,
+  type ProjectTestTargetsChat,
   type TestTarget,
 } from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -54,6 +57,7 @@ import { LIST_PIPELINES_TOOL, LIST_STAGE_TEMPLATES_TOOL } from "../domain/sessio
 import { ProjectBases } from "../ports/project-bases.js";
 import { noProjectBases } from "../ports/project-bases.fixtures.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
+import { ThreadService } from "./thread-service.js";
 
 /** The Role holding Onboards and repairs Projects by default. */
 const DEVOPS = "devops";
@@ -312,7 +316,7 @@ describe("Devops' Proposals, through the scripted engine", () => {
     // The whole app, a real repository and a chat session: slow under a full run.
   }, 30_000);
 
-  it("drafts a Project to onboard; applied, it adds the Project and its Onboard Task, Ready on Onboard", async () => {
+  it("drafts a Project to onboard; applied, it adds the Project and starts its Onboard Task on Onboard", async () => {
     const repository = await aRepository();
     const name = `Onboarded ${randomUUID().slice(0, 8)}`;
     const drafted = {
@@ -364,15 +368,18 @@ describe("Devops' Proposals, through the scripted engine", () => {
       // Asked at its first Start: the Proposal carries no answer.
       runEnvironment: "not-decided",
     });
-    expect(taskSchema.parse(await chat.read(`/tasks/${change.taskId}`))).toMatchObject({
+    const task = taskSchema.parse(await chat.read(`/tasks/${change.taskId}`));
+    expect(task).toMatchObject({
       title: "Onboard",
       projectId: change.projectId,
-      state: "ready",
       pipelineId: "onboard",
       planConfirmed: true,
       definitionOfDoneConfirmed: true,
+      madeFor: "onboard",
       createdBy: { kind: "person", roleKey: DEVOPS },
     });
+    // An Off-board Task: started at once, never left Ready for the user's Start.
+    expect(task.state).not.toBe("ready");
     expect(projectOnboardingListSchema.parse(await chat.read("/onboardings"))).toContainEqual({
       projectId: change.projectId,
       taskId: change.taskId,
@@ -425,7 +432,7 @@ describe("Devops' Proposals, through the scripted engine", () => {
     // The whole app, a real repository and a chat session: slow under a full run.
   }, 30_000);
 
-  it("applied again after its Onboard Task failed, carries on with the Project already added", async () => {
+  it("applied with its Onboard Task's start refused, adds the Project alone, which Onboard starts later", async () => {
     const repository = await aRepository();
     const name = `Retried ${randomUUID().slice(0, 8)}`;
     const [proposal] = await chat.ninaProposes([
@@ -449,26 +456,27 @@ describe("Devops' Proposals, through the scripted engine", () => {
       new Error("No space left on the disk."),
     );
 
-    const refused = await chat.api("POST", `/proposals/${proposal?.id}/apply`, {});
-    expect(refused.status).toBe(422);
-    expect(await chat.reasonsOf(refused)).toEqual([
-      `${name} is added, but its Onboard Task isn't: The Onboard Task's worktree couldn't be made: No space left on the disk.`,
-    ]);
-    expect((await chat.readProposal(proposal?.id ?? "")).status.kind).toBe("open");
-
     const applied = await chat.api("POST", `/proposals/${proposal?.id}/apply`, {});
     expect(applied.status).toBe(200);
     const { change } = proposalSchema.parse(await applied.json());
-    if (change.kind !== "project" || !change.projectId || !change.taskId) {
-      throw new Error("The applied Proposal names no Project and Task.");
+    if (change.kind !== "project" || !change.projectId) {
+      throw new Error("The applied Proposal names no Project.");
     }
+    expect(change.taskId).toBeNull();
     const projects = projectListSchema.parse(await chat.read("/projects"));
     expect(projects.filter((project) => project.path === repository)).toMatchObject([
       { id: change.projectId, name },
     ]);
+    const onboardings = projectOnboardingListSchema.parse(await chat.read("/onboardings"));
+    expect(onboardings.filter(({ projectId }) => projectId === change.projectId)).toEqual([]);
+
+    const onboard = await chat.api("POST", `/projects/${change.projectId}/onboard`, {});
+    expect(onboard.status).toBe(200);
+    const started = offBoardTaskStartSchema.parse(await onboard.json());
+    if (started.outcome === "refused") throw new Error(started.reasons.join(" "));
     expect(projectOnboardingListSchema.parse(await chat.read("/onboardings"))).toContainEqual({
       projectId: change.projectId,
-      taskId: change.taskId,
+      taskId: started.offBoardTask.taskId,
       state: "onboarding",
     });
     // The whole app, a real repository and a chat session: slow under a full run.
@@ -1135,6 +1143,62 @@ describe("Devops' Proposals of test targets, through the scripted engine", () =>
     expect((await chat.readProposal(drafted.id)).status.kind).toBe("open");
     // The whole app, a real repository and a chat session: slow under a full run.
   }, 30_000);
+
+  it("asks Nina in a titled chat with no message sent, follows it to its Proposal, and ends it once applied", async () => {
+    const project = await aProject(await aRepositoryWithScripts());
+    expect(await testTargetsChatOf(project)).toEqual({ chat: null, setUpTask: null });
+
+    const asked = await askForTestTargets(project);
+    const first = asked.chat;
+    expect(asked).toEqual({
+      chat: {
+        threadId: expect.any(String),
+        roleKey: DEVOPS,
+        state: "draft",
+        since: expect.any(String),
+      },
+      setUpTask: null,
+    });
+    if (!first) throw new Error("A chat.");
+    const threads = app.get(ThreadService, { strict: false });
+    expect(await threads.read(first.threadId)).toMatchObject({
+      home: { kind: "chat", roleKey: DEVOPS },
+      title: `Set up test targets: ${project.name}`,
+      state: "waiting",
+    });
+    expect(await threads.messages(first.threadId)).toEqual([]);
+
+    // Ask again, while no Proposal is open: a new Thread the card follows from now.
+    const again = (await askForTestTargets(project)).chat;
+    expect(again?.threadId).not.toBe(first.threadId);
+    expect((await testTargetsChatOf(project)).chat?.threadId).toBe(again?.threadId);
+    if (!again) throw new Error("A chat asked again.");
+
+    const [drafted] = await chat.ninaProposesIn(again.threadId, [
+      PROPOSE_TEST_TARGETS_TOOL,
+      { project: project.id, targets: [WEB] },
+    ]);
+    if (!drafted) throw new Error("A Proposal of test targets.");
+    await vi.waitFor(async () => {
+      expect((await testTargetsChatOf(project)).chat).toEqual({
+        threadId: again.threadId,
+        roleKey: DEVOPS,
+        state: "proposal",
+        since: drafted.draftedAt,
+      });
+    });
+
+    const refused = await chat.api("POST", `/projects/${project.id}/test-targets/chat`, {});
+    expect(refused.status).toBe(422);
+    expect(await refused.json()).toMatchObject({
+      reasons: ["The test targets Proposal in the chat is still open: apply or dismiss it first."],
+    });
+
+    const applied = await chat.api("POST", `/proposals/${drafted.id}/apply`, {});
+    expect(applied.status).toBe(200);
+    expect(await testTargetsChatOf(project)).toEqual({ chat: null, setUpTask: null });
+    // The whole app, a real repository and a chat session: slow under a full run.
+  }, 30_000);
 });
 
 describe("Devops' Proposals of Actions, through the scripted engine", () => {
@@ -1319,6 +1383,18 @@ async function putActions(project: Project, actions: readonly unknown[]): Promis
 
 async function actionsOf(project: Project): Promise<Action[]> {
   return actionListSchema.parse(await chat.read(`/projects/${project.id}/actions`)).actions;
+}
+
+async function testTargetsChatOf(project: Project): Promise<ProjectTestTargetsChat> {
+  return projectTestTargetsChatSchema.parse(
+    await chat.read(`/projects/${project.id}/test-targets/chat`),
+  );
+}
+
+async function askForTestTargets(project: Project): Promise<ProjectTestTargetsChat> {
+  const response = await chat.api("POST", `/projects/${project.id}/test-targets/chat`, {});
+  if (response.status !== 200) throw new Error(await response.text());
+  return projectTestTargetsChatSchema.parse(await response.json());
 }
 
 /** A repository as aRepository's, with a package manifest whose scripts test targets name. */

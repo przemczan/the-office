@@ -8,7 +8,7 @@ import { usePlacedList } from "./use-placed-list.ts";
  * The design system's Menu, its list drawn on the page's body, fixed to the window, so a scrolling
  * parent such as the board doesn't clip it: below the trigger, or above it when there is no room
  * below.
- * design-system/ stays as exported, so its Menu can't do this itself; the props are the same.
+ * design-system/ stays as it is, so its Menu can't do this itself; the props are the same.
  */
 export function FloatingMenu({
   trigger,

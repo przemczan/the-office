@@ -288,10 +288,10 @@ export const tasks = pgTable(
     index("tasks_caused_by_idx")
       .on(table.causedByTaskId)
       .where(sql`${table.causedByTaskId} IS NOT NULL`),
-    // A Project has one Onboard Task at most: its onboarding is read from it alone.
-    uniqueIndex("tasks_onboard_task_per_project")
+    // A Project has one open Onboard Task at most: Onboard again makes another once it ended.
+    uniqueIndex("tasks_open_onboard_task_per_project")
       .on(table.projectId)
-      .where(sql`${table.madeFor} = 'onboard'`),
+      .where(sql`${table.madeFor} = 'onboard' AND ${table.state} NOT IN ('done', 'dropped')`),
     // And one open "Set up the run environment" Task, which asking again answers.
     uniqueIndex("tasks_open_run_environment_set_up_per_project")
       .on(table.projectId)

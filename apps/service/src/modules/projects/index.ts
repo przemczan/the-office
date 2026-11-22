@@ -34,6 +34,17 @@ export {
   type TestTargetLaunchSettings,
 } from "./application/test-targets.js";
 export {
+  TestTargetsChatThreads,
+  type TestTargetsChatThreadSource,
+  type TestTargetsChatThreadStart,
+} from "./application/test-targets-chat-threads.js";
+export type { TestTargetsChatProposal, TestTargetsChatThread } from "./domain/test-targets-chat.js";
+export {
+  TestTargetsSetUpTasks,
+  type TestTargetsSetUpTask,
+  type TestTargetsSetUpTaskLookup,
+} from "./application/test-targets-set-up-tasks.js";
+export {
   TestInstanceCheckouts,
   type WorkstationBuild,
   type WorkstationBuildEnd,
