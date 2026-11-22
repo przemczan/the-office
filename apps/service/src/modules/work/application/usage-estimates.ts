@@ -188,6 +188,8 @@ export class UsageEstimates {
   ): Promise<readonly EstimatedStage[]> {
     if (!hasPipeline(task)) return [];
     const { projectId } = task;
+    // A Task that sets no engine and is in no Initiative reads its Project's, shared by many Tasks.
+    const taskId = task.engine !== null || task.initiativeId !== undefined ? task.id : undefined;
     const held = await reads.heldStagesOf(task.pipelineId);
     const engines = await this.enginesForStandIns(task, reads);
     const stages = await readEach(
@@ -195,7 +197,7 @@ export class UsageEstimates {
       async (stage) => {
         const person = stage.role === undefined ? undefined : await reads.personOf(stage.role);
         if (!person) return [];
-        const applying = await reads.engineOf({ roleKey: person.roleKey, projectId });
+        const applying = await reads.engineOf({ roleKey: person.roleKey, projectId, taskId });
         if (!applying) return [];
         const { engineId, model } = engines
           ? engineThroughStandIns(applying, task.engineStandIns, engines)
@@ -224,8 +226,11 @@ export class UsageEstimates {
         (roleKey: string) => this.people.find(roleKey),
         (roleKey) => roleKey,
       ),
-      engineOf: onceByKey(({ roleKey, projectId }) =>
-        this.engineCascade.applying(roleKey, projectId),
+      engineOf: onceByKey(({ roleKey, projectId, taskId }) =>
+        this.engineCascade.applying(
+          roleKey,
+          taskId === undefined ? { projectId } : { projectId, taskId },
+        ),
       ),
       engines: () => (engines ??= this.engineModels.engines()),
     };
@@ -264,6 +269,8 @@ interface StageReads {
   readonly engineOf: (place: {
     readonly roleKey: string;
     readonly projectId: string;
+    /** Only for a Task whose own or Initiative's engine may take the Project default's place. */
+    readonly taskId: string | undefined;
   }) => Promise<EngineModel | null>;
   readonly engines: () => Promise<readonly Engine[]>;
 }

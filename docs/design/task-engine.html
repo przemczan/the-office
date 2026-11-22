@@ -1,0 +1,2405 @@
+<!doctype html>
+<html lang="en" data-palette="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>A Task's engine and an Initiative's engine · The Office design</title>
+    <style>
+      :root {
+        --ember-50: #fff2ed;
+        --ember-300: #ff9370;
+        --ember-500: #f23d0f;
+        --ember-600: #d4300a;
+        --ember-700: #9e2406;
+        --flare-300: #ffc266;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-850: #1f1f1d;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-700: #106a3b;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-500: #e5a00d;
+        --amber-700: #865b05;
+        --red-50: #fdeef0;
+        --red-100: #fad9dd;
+        --red-500: #c8102e;
+        --red-700: #8e0b20;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-raised: var(--white);
+        --surface-sunken: var(--gray-50);
+        --surface-hover: var(--gray-25);
+        --surface-selected: var(--ember-50);
+        --fg-1: var(--gray-950);
+        --fg-2: var(--gray-600);
+        --fg-3: var(--gray-500);
+        --fg-disabled: var(--gray-300);
+        --border: var(--gray-150);
+        --border-subtle: var(--gray-100);
+        --border-strong: var(--gray-200);
+        --border-hover: var(--gray-300);
+        --accent: var(--ember-500);
+        --accent-hover: var(--ember-600);
+        --accent-subtle: var(--ember-50);
+        --accent-subtle-fg: var(--ember-700);
+        --control-hover: var(--gray-50);
+        --control-press: var(--gray-100);
+        --success: var(--green-500);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --success-border: var(--green-100);
+        --warning: var(--amber-500);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --danger: var(--red-500);
+        --danger-subtle: var(--red-50);
+        --danger-fg: var(--red-700);
+        --danger-border: var(--red-100);
+        --info: var(--blue-500);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-600);
+        --neutral-border: var(--gray-150);
+        --backdrop: color-mix(in oklab, var(--gray-950) 32%, transparent);
+        --focus-ring: 0 0 0 3px color-mix(in oklab, var(--ember-500) 30%, transparent);
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --text-2xs: 11px;
+        --text-xs: 12px;
+        --text-sm: 13px;
+        --text-md: 14px;
+        --text-lg: 16px;
+        --type-body: 400 var(--text-md) / 1.5 var(--font-sans);
+        --type-body-sm: 400 var(--text-sm) / 1.45 var(--font-sans);
+        --type-caption: 400 var(--text-xs) / 1.4 var(--font-sans);
+        --type-label: 500 var(--text-sm) / 1.3 var(--font-sans);
+        --type-card-title: 600 var(--text-md) / 1.4 var(--font-sans);
+        --type-section-title: 600 var(--text-lg) / 1.3 var(--font-sans);
+        --type-overline: 500 var(--text-2xs) / 1.2 var(--font-mono);
+        --tracking-caps: 0.06em;
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-card: 10px;
+        --radius-full: 999px;
+        --control-sm: 28px;
+        --control-md: 32px;
+        --shadow-1: 0 1px 2px rgba(16, 16, 15, 0.06);
+        --shadow-2: 0 4px 12px -2px rgba(16, 16, 15, 0.08), 0 1px 3px rgba(16, 16, 15, 0.05);
+        --shadow-3: 0 16px 40px -8px rgba(16, 16, 15, 0.18), 0 2px 6px rgba(16, 16, 15, 0.06);
+      }
+      [data-palette="dark"] {
+        color-scheme: dark;
+        --bg: var(--gray-950);
+        --surface: var(--gray-900);
+        --surface-raised: var(--gray-850);
+        --surface-sunken: var(--gray-950);
+        --surface-hover: var(--gray-850);
+        --surface-selected: color-mix(in oklab, var(--ember-500) 12%, var(--gray-900));
+        --fg-1: var(--gray-50);
+        --fg-2: var(--gray-300);
+        --fg-3: var(--gray-400);
+        --fg-disabled: var(--gray-600);
+        --border: var(--gray-800);
+        --border-subtle: var(--gray-850);
+        --border-strong: var(--gray-700);
+        --border-hover: var(--gray-600);
+        --accent-subtle: color-mix(in oklab, var(--ember-500) 16%, transparent);
+        --accent-subtle-fg: var(--ember-300);
+        --control-hover: var(--gray-850);
+        --control-press: var(--gray-800);
+        --success-subtle: color-mix(in oklab, var(--green-500) 16%, transparent);
+        --success-fg: #6fd69b;
+        --success-border: color-mix(in oklab, var(--green-500) 30%, transparent);
+        --warning-subtle: color-mix(in oklab, var(--amber-500) 16%, transparent);
+        --warning-fg: var(--flare-300);
+        --warning-border: color-mix(in oklab, var(--amber-500) 30%, transparent);
+        --danger-subtle: color-mix(in oklab, var(--red-500) 20%, transparent);
+        --danger-fg: #ff8a97;
+        --danger-border: color-mix(in oklab, var(--red-500) 36%, transparent);
+        --info-subtle: color-mix(in oklab, var(--blue-500) 18%, transparent);
+        --info-fg: #93b5f5;
+        --info-border: color-mix(in oklab, var(--blue-500) 34%, transparent);
+        --neutral-subtle: var(--gray-850);
+        --neutral-fg: var(--gray-300);
+        --neutral-border: var(--gray-700);
+        --backdrop: color-mix(in oklab, black 55%, transparent);
+        --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+        --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+        --shadow-3: 0 16px 40px -8px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg-1);
+        font: var(--type-body);
+        -webkit-font-smoothing: antialiased;
+      }
+      code,
+      .mono {
+        font-family: var(--font-mono);
+        font-size: 0.93em;
+      }
+      button,
+      select,
+      input {
+        font: inherit;
+        color: inherit;
+      }
+      a,
+      .link {
+        color: var(--accent-subtle-fg);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+        text-decoration-color: color-mix(in oklab, currentColor 40%, transparent);
+        cursor: pointer;
+      }
+      :focus-visible {
+        outline: none;
+        box-shadow: var(--focus-ring);
+      }
+      [hidden] {
+        display: none !important;
+      }
+      svg.i {
+        width: 14px;
+        height: 14px;
+        flex: none;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      svg.i.lg {
+        width: 16px;
+        height: 16px;
+      }
+      svg.i.spin {
+        animation: spin 0.9s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* ---------- The design's frame ---------- */
+      .doc {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 22px 28px;
+        max-width: 1480px;
+        margin: 0 auto;
+        padding: 28px 28px 96px;
+      }
+      @media (max-width: 1180px) {
+        .doc {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+      .doc-head {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+      }
+      .overline {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .doc-head h1 {
+        margin: 6px 0 4px;
+        font: 600 22px/1.25 var(--font-sans);
+        letter-spacing: -0.01em;
+      }
+      .doc-head p {
+        margin: 0;
+        max-width: 84ch;
+        color: var(--fg-2);
+        font: var(--type-body-sm);
+      }
+      .views {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: -6px;
+        padding-bottom: 2px;
+        border-bottom: 1px solid var(--border);
+      }
+      .views button {
+        position: relative;
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        height: 36px;
+        padding: 0 12px;
+        border: 0;
+        background: none;
+        color: var(--fg-2);
+        font: var(--type-label);
+        cursor: pointer;
+      }
+      .views button:hover,
+      .views button[aria-selected="true"] {
+        color: var(--fg-1);
+      }
+      .views button[aria-selected="true"]::after {
+        content: "";
+        position: absolute;
+        right: 8px;
+        bottom: -3px;
+        left: 8px;
+        height: 2px;
+        border-radius: 2px;
+        background: var(--accent);
+      }
+      .stage {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-width: 0;
+      }
+      .stage-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 18px;
+        align-items: center;
+        padding: 10px 12px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-lg);
+        background: var(--surface-sunken);
+      }
+      .stage-bar-item {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .stage-bar-label {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .seg {
+        display: inline-flex;
+        flex-wrap: wrap;
+        padding: 2px;
+        gap: 2px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+      }
+      .seg button {
+        height: 24px;
+        padding: 0 9px;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: none;
+        color: var(--fg-2);
+        font: 500 12px/1 var(--font-sans);
+        cursor: pointer;
+      }
+      .seg button:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .seg button[aria-pressed="true"] {
+        background: var(--accent-subtle);
+        color: var(--accent-subtle-fg);
+      }
+      .aside {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-width: 0;
+      }
+      .note {
+        padding: 14px 16px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+        font: var(--type-body-sm);
+        color: var(--fg-2);
+      }
+      .note h3 {
+        margin: 0 0 6px;
+        font: var(--type-card-title);
+        color: var(--fg-1);
+      }
+      .note ul,
+      .note ol {
+        margin: 0;
+        padding-left: 18px;
+      }
+      .note li + li {
+        margin-top: 4px;
+      }
+      .note p {
+        margin: 0 0 6px;
+      }
+      .note b {
+        color: var(--fg-1);
+        font-weight: 600;
+      }
+      .note.accent {
+        border-color: color-mix(in oklab, var(--accent) 35%, var(--border));
+        background: color-mix(in oklab, var(--accent-subtle) 60%, var(--surface));
+      }
+      .caption {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .new-mark {
+        display: inline-flex;
+        align-items: center;
+        height: 18px;
+        padding: 0 6px;
+        border-radius: var(--radius-full);
+        background: var(--accent-subtle);
+        color: var(--accent-subtle-fg);
+        font: 600 10px/1 var(--font-mono);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+      }
+      mark.changed {
+        padding: 0 2px;
+        border-radius: 3px;
+        background: var(--accent-subtle);
+        color: var(--accent-subtle-fg);
+      }
+
+      /* ---------- The app's parts, as packages/ui draws them ---------- */
+      .frame {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--bg);
+        box-shadow: var(--shadow-2);
+        overflow: hidden;
+      }
+      .frame-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 34px;
+        padding: 0 12px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .frame-bar .dots {
+        display: flex;
+        gap: 5px;
+      }
+      .frame-bar .dots span {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--border-strong);
+      }
+      .frame-body {
+        padding: 0 22px 24px;
+      }
+      .app-tabs {
+        display: flex;
+        gap: 2px;
+        margin: 0 -22px 18px;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .app-tabs span {
+        position: relative;
+        padding: 10px 10px 11px;
+        color: var(--fg-2);
+        font: var(--type-label);
+      }
+      .app-tabs span.on {
+        color: var(--fg-1);
+      }
+      .app-tabs span.on::after {
+        content: "";
+        position: absolute;
+        right: 6px;
+        bottom: -1px;
+        left: 6px;
+        height: 2px;
+        border-radius: 2px;
+        background: var(--accent);
+      }
+      .card {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+      }
+      .card-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      .card-head h4 {
+        margin: 0;
+        font: var(--type-card-title);
+      }
+      .card-body {
+        padding: 14px 16px 16px;
+      }
+      .muted {
+        color: var(--fg-3);
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: 20px;
+        padding: 0 7px;
+        border: 1px solid var(--neutral-border);
+        border-radius: var(--radius-full);
+        background: var(--neutral-subtle);
+        color: var(--neutral-fg);
+        font: 500 11px/1 var(--font-sans);
+        white-space: nowrap;
+      }
+      .badge.info {
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+      }
+      .badge.success {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+      .badge.warning {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .badge.danger {
+        border-color: var(--danger-border);
+        background: var(--danger-subtle);
+        color: var(--danger-fg);
+      }
+      .badge.accent {
+        border-color: color-mix(in oklab, var(--accent) 30%, transparent);
+        background: var(--accent-subtle);
+        color: var(--accent-subtle-fg);
+      }
+      .badge svg.i {
+        width: 11px;
+        height: 11px;
+      }
+      .btn {
+        display: inline-flex;
+        flex: none;
+        gap: 6px;
+        align-items: center;
+        justify-content: center;
+        height: var(--control-md);
+        padding: 0 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        color: var(--fg-1);
+        font: var(--type-label);
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .btn:hover {
+        background: var(--control-hover);
+      }
+      .btn.sm {
+        height: var(--control-sm);
+        padding: 0 10px;
+        font-size: var(--text-xs);
+      }
+      .btn.icon {
+        width: var(--control-md);
+        padding: 0;
+      }
+      .btn.primary {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: var(--white);
+      }
+      .btn.primary:hover {
+        background: var(--accent-hover);
+      }
+      .btn.primary.go svg {
+        color: var(--success);
+      }
+      .btn.ghost {
+        border-color: transparent;
+        background: none;
+      }
+      .btn.ghost:hover {
+        background: var(--control-hover);
+      }
+      .btn.go {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+      .btn.plan {
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+      }
+      .btn.hold {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .btn.stop {
+        border-color: var(--danger-border);
+        background: var(--danger-subtle);
+        color: var(--danger-fg);
+      }
+      .btn.danger {
+        border-color: var(--danger);
+        background: var(--danger);
+        color: var(--white);
+      }
+      .btn[disabled] {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      /* ---------- Record head and the rail ---------- */
+      .rec-head {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px 16px;
+        align-items: flex-start;
+        justify-content: space-between;
+      }
+      .rec-head-main {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
+      }
+      .project-chip {
+        display: inline-flex;
+        align-self: flex-start;
+        gap: 6px;
+        align-items: center;
+        height: 22px;
+        padding: 0 8px 0 4px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-full);
+        background: var(--surface);
+        color: var(--fg-2);
+        font: 500 12px/1 var(--font-sans);
+      }
+      .project-mark {
+        display: inline-grid;
+        place-items: center;
+        width: 15px;
+        height: 15px;
+        border-radius: 4px;
+        background: var(--accent);
+        color: var(--white);
+        font: 700 9px/1 var(--font-sans);
+      }
+      .title-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+      .title-row h2 {
+        margin: 0;
+        font: 600 20px/1.25 var(--font-sans);
+        letter-spacing: -0.01em;
+      }
+      .facts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 14px;
+        align-items: center;
+        color: var(--fg-2);
+        font: var(--type-body-sm);
+      }
+      .facts > span {
+        display: inline-flex;
+        gap: 5px;
+        align-items: center;
+      }
+      .head-actions {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .rail {
+        margin-top: 16px;
+        padding: 12px 14px 14px;
+      }
+      .rail-head {
+        display: flex;
+        gap: 10px;
+        align-items: baseline;
+        margin-bottom: 12px;
+      }
+      .rail-head h4 {
+        margin: 0;
+        font: var(--type-card-title);
+      }
+      .rail-stages {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 8px;
+      }
+      .rail-stage {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        padding-top: 22px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .rail-stage::before {
+        content: "";
+        position: absolute;
+        top: 8px;
+        right: -8px;
+        left: 18px;
+        height: 2px;
+        background: var(--border);
+      }
+      .rail-stage:last-child::before {
+        display: none;
+      }
+      .rail-stage b {
+        color: var(--fg-1);
+        font: var(--type-label);
+      }
+      .rail-mark {
+        position: absolute;
+        top: 0;
+        left: 0;
+        display: grid;
+        place-items: center;
+        width: 18px;
+        height: 18px;
+        border: 2px solid var(--border-strong);
+        border-radius: 50%;
+        background: var(--surface);
+      }
+      .rail-mark.gate {
+        border-radius: 4px;
+        transform: rotate(45deg) scale(0.82);
+      }
+      .rail-mark.done {
+        border-color: var(--success);
+        background: var(--success);
+        color: var(--white);
+      }
+      .rail-mark.running {
+        border-color: var(--info);
+        box-shadow: 0 0 0 3px var(--info-subtle);
+      }
+      .rail-mark svg.i {
+        width: 10px;
+        height: 10px;
+        stroke-width: 3;
+      }
+      .rail-mark.gate svg.i {
+        transform: rotate(-45deg);
+      }
+      .cols {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 290px;
+        gap: 16px;
+        margin-top: 16px;
+        align-items: start;
+      }
+      @media (max-width: 1320px) {
+        .cols {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .convo {
+          display: none;
+        }
+      }
+      .record {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-width: 0;
+      }
+      .rtabs {
+        display: flex;
+        gap: 2px;
+        border-bottom: 1px solid var(--border);
+      }
+      .rtabs span {
+        position: relative;
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        padding: 6px 10px 9px;
+        color: var(--fg-2);
+        font: var(--type-label);
+      }
+      .rtabs span.on {
+        color: var(--fg-1);
+      }
+      .rtabs span.on::after {
+        content: "";
+        position: absolute;
+        right: 6px;
+        bottom: -1px;
+        left: 6px;
+        height: 2px;
+        border-radius: 2px;
+        background: var(--accent);
+      }
+      .rtabs .count {
+        padding: 1px 6px;
+        border-radius: var(--radius-full);
+        background: var(--neutral-subtle);
+        color: var(--fg-3);
+        font-size: 11px;
+      }
+
+      /* ---------- Record folds (RecordFold) ---------- */
+      .fold {
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .fold.focus {
+        border-color: color-mix(in oklab, var(--accent) 45%, var(--border));
+        box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 10%, transparent);
+      }
+      .fold-row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        padding-right: 14px;
+      }
+      .fold-row:hover {
+        background: var(--surface-hover);
+      }
+      .fold-head {
+        display: flex;
+        flex: 1;
+        gap: 8px;
+        align-items: center;
+        min-width: 0;
+        padding: 12px 0 12px 16px;
+        border: 0;
+        background: none;
+        text-align: left;
+        cursor: pointer;
+      }
+      .fold-head .chev {
+        color: var(--fg-3);
+        transition: transform 0.15s ease;
+      }
+      .fold-head[aria-expanded="true"] .chev {
+        transform: rotate(90deg);
+      }
+      .fold-head .fold-icon {
+        color: var(--fg-2);
+      }
+      .fold-title {
+        flex: none;
+        margin-right: 4px;
+        font: var(--type-card-title);
+      }
+      .fold-summary {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        color: var(--fg-2);
+        font: var(--type-body-sm);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .fold-head[aria-expanded="true"] .fold-summary {
+        visibility: hidden;
+      }
+      .fold-side {
+        display: flex;
+        flex: none;
+        gap: 6px;
+        align-items: center;
+      }
+      .fold-body {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 2px 18px 16px 16px;
+        font: var(--type-body-sm);
+      }
+      .fold-intro {
+        max-width: 72ch;
+        margin: 0;
+        color: var(--fg-2);
+      }
+
+      /* ---------- Fields (Select, as packages/ui draws it) ---------- */
+      .pair {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+        gap: 12px;
+        max-width: 600px;
+      }
+      .caption svg.i {
+        vertical-align: -2px;
+      }
+      .field-label {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--fg-1);
+        font: var(--type-label);
+      }
+      .select {
+        position: relative;
+      }
+      .select select,
+      .text-input {
+        width: 100%;
+        height: var(--control-md);
+        padding: 0 30px 0 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        color: var(--fg-1);
+        font: var(--type-body-sm);
+        cursor: pointer;
+        appearance: none;
+      }
+      .text-input {
+        padding: 0 10px 0 30px;
+        cursor: text;
+      }
+      .select select:hover {
+        border-color: var(--border-hover);
+      }
+      .select select:disabled {
+        background: var(--surface-sunken);
+        color: var(--fg-3);
+        cursor: not-allowed;
+      }
+      .select > svg.i,
+      .search > svg.i {
+        position: absolute;
+        top: 50%;
+        right: 9px;
+        color: var(--fg-3);
+        transform: translateY(-50%);
+        pointer-events: none;
+      }
+      .search {
+        position: relative;
+      }
+      .search > svg.i {
+        right: auto;
+        left: 10px;
+      }
+      .field-hint {
+        margin-top: 6px;
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .field-hint.warn {
+        color: var(--warning-fg);
+      }
+      .saving-line {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .alert {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        max-width: 72ch;
+        padding: 10px 12px;
+        border: 1px solid var(--neutral-border);
+        border-radius: var(--radius-lg);
+        background: var(--neutral-subtle);
+        color: var(--fg-1);
+        font: var(--type-body-sm);
+      }
+      .alert > svg.i {
+        margin-top: 2px;
+      }
+      .alert.info {
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+      }
+      .alert.info > svg.i {
+        color: var(--info-fg);
+      }
+      .alert.warning {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+      }
+      .alert.warning > svg.i {
+        color: var(--warning-fg);
+      }
+      .alert.danger {
+        border-color: var(--danger-border);
+        background: var(--danger-subtle);
+      }
+      .alert.danger > svg.i {
+        color: var(--danger-fg);
+      }
+      .alert-title {
+        display: block;
+        margin-bottom: 2px;
+        font-weight: 600;
+      }
+      .alert ul {
+        margin: 4px 0 0;
+        padding-left: 16px;
+      }
+      .alert li + li {
+        margin-top: 4px;
+      }
+      .readonly {
+        display: grid;
+        grid-template-columns: max-content minmax(0, 1fr);
+        gap: 6px 18px;
+        margin: 0;
+      }
+      .readonly dt {
+        color: var(--fg-3);
+        font: var(--type-label);
+      }
+      .readonly dd {
+        margin: 0;
+        color: var(--fg-1);
+      }
+
+      /* ---------- Runs on: the cascade, worked out per Role ---------- */
+      .runs {
+        border-top: 1px solid var(--border-subtle);
+        padding-top: 12px;
+      }
+      .runs-head {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px 10px;
+        align-items: baseline;
+        margin-bottom: 8px;
+      }
+      .runs-head h5 {
+        margin: 0;
+        font: var(--type-label);
+        color: var(--fg-1);
+      }
+      .runs ul {
+        display: flex;
+        flex-direction: column;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+      }
+      .runs li {
+        display: grid;
+        grid-template-columns: 26px minmax(0, 0.9fr) minmax(0, 1.25fr);
+        gap: 10px;
+        align-items: center;
+        padding: 8px 12px;
+      }
+      .runs li + li {
+        border-top: 1px solid var(--border-subtle);
+      }
+      .avatar {
+        display: grid;
+        place-items: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: var(--neutral-subtle);
+        color: var(--fg-2);
+        font: 600 11px/1 var(--font-sans);
+      }
+      .avatar.a1 {
+        background: var(--info-subtle);
+        color: var(--info-fg);
+      }
+      .avatar.a2 {
+        background: var(--accent-subtle);
+        color: var(--accent-subtle-fg);
+      }
+      .avatar.a3 {
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+      .avatar.a4 {
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .who {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .who b {
+        font: var(--type-label);
+      }
+      .who span,
+      .what .src {
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .what {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+      .what .em {
+        color: var(--fg-1);
+      }
+      .what .src.here {
+        align-self: flex-start;
+        padding: 1px 6px;
+        border-radius: var(--radius-sm);
+        background: var(--accent-subtle);
+        color: var(--accent-subtle-fg);
+      }
+      .task-link {
+        color: var(--fg-1);
+        font: var(--type-label);
+        text-decoration: none;
+      }
+      .task-link:hover {
+        text-decoration: underline;
+      }
+
+      /* ---------- Conversation column (context only) ---------- */
+      .convo {
+        position: sticky;
+        top: 12px;
+        display: flex;
+        flex-direction: column;
+        min-height: 420px;
+      }
+      .convo-tabs {
+        display: flex;
+        gap: 2px;
+        padding: 0 8px;
+        border-bottom: 1px solid var(--border);
+      }
+      .convo-tabs span {
+        position: relative;
+        padding: 10px 8px;
+        color: var(--fg-2);
+        font: var(--type-label);
+      }
+      .convo-tabs span.on {
+        color: var(--fg-1);
+      }
+      .convo-tabs span.on::after {
+        content: "";
+        position: absolute;
+        right: 4px;
+        bottom: -1px;
+        left: 4px;
+        height: 2px;
+        background: var(--accent);
+      }
+      .convo-body {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        gap: 10px;
+        padding: 14px;
+      }
+      .bubble {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .bubble-line {
+        height: 8px;
+        border-radius: 4px;
+        background: var(--border-subtle);
+      }
+      .composer {
+        margin: 0 12px 12px;
+        padding: 10px 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-lg);
+        color: var(--fg-3);
+        font: var(--type-body-sm);
+      }
+      .context-row {
+        display: flex;
+        justify-content: space-between;
+        margin: 0 12px 6px;
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+
+      /* ---------- Windows ---------- */
+      .win-stage {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+        gap: 22px;
+        align-items: start;
+        padding: 28px;
+        border-radius: 12px;
+        background:
+          linear-gradient(var(--backdrop), var(--backdrop)),
+          repeating-linear-gradient(45deg, var(--bg) 0 12px, var(--surface-sunken) 12px 24px);
+      }
+      .win-stage.one {
+        grid-template-columns: minmax(0, 560px);
+        justify-content: center;
+      }
+      .win {
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--surface-raised);
+        box-shadow: var(--shadow-3);
+      }
+      .win-head {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      .win-head h4 {
+        margin: 0;
+        font: var(--type-section-title);
+      }
+      .win-body {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 16px 18px;
+        font: var(--type-body-sm);
+      }
+      .win-body p {
+        margin: 0;
+      }
+      .win-bar {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        padding: 12px 18px;
+        border-top: 1px solid var(--border-subtle);
+      }
+      .radios {
+        display: flex;
+        flex-direction: column;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+      }
+      .radios li {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        padding: 9px 12px;
+      }
+      .radios li + li {
+        border-top: 1px solid var(--border-subtle);
+      }
+      .radios li.picked {
+        background: var(--surface-selected);
+      }
+      .radio {
+        flex: none;
+        width: 16px;
+        height: 16px;
+        border: 1.5px solid var(--border-strong);
+        border-radius: 50%;
+      }
+      .picked .radio {
+        border: 5px solid var(--accent);
+      }
+      .radios .meta {
+        margin-left: auto;
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .moves {
+        display: flex;
+        flex-direction: column;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+      }
+      .moves li {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 8px 12px;
+      }
+      .moves li + li {
+        border-top: 1px solid var(--border-subtle);
+      }
+      .moves .place {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+        color: var(--fg-1);
+        font: var(--type-label);
+      }
+      .moves .change {
+        color: var(--fg-2);
+      }
+      .moves li.new-level {
+        background: color-mix(in oklab, var(--accent-subtle) 45%, transparent);
+      }
+
+      /* ---------- Switch ---------- */
+      .switch-row {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+      }
+      .switch {
+        position: relative;
+        flex: none;
+        width: 32px;
+        height: 18px;
+        margin-top: 1px;
+        border-radius: var(--radius-full);
+        background: var(--border-strong);
+      }
+      .switch::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--white);
+        box-shadow: var(--shadow-1);
+      }
+      .switch.on {
+        background: var(--accent);
+      }
+      .switch.on::after {
+        left: 16px;
+      }
+      .switch-text b {
+        display: block;
+        font: var(--type-label);
+      }
+      .switch-text span {
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+
+      /* ---------- The cascade ---------- */
+      .ladders {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 16px;
+      }
+      .ladder {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        counter-reset: level;
+      }
+      .ladder li {
+        display: grid;
+        grid-template-columns: 24px minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+        padding: 9px 12px;
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+        counter-increment: level;
+      }
+      .ladder li::before {
+        content: counter(level);
+        display: grid;
+        place-items: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--neutral-subtle);
+        color: var(--fg-2);
+        font: 600 11px/1 var(--font-mono);
+      }
+      .ladder li.new {
+        border-color: color-mix(in oklab, var(--accent) 35%, var(--border));
+        background: color-mix(in oklab, var(--accent-subtle) 55%, var(--surface));
+      }
+      .ladder li.new::before {
+        background: var(--accent);
+        color: var(--white);
+      }
+      .ladder li.skipped {
+        opacity: 0.55;
+      }
+      .ladder li.skipped .lv-name {
+        text-decoration: line-through;
+      }
+      .lv-name {
+        display: block;
+        font: var(--type-label);
+      }
+      .lv-where {
+        color: var(--fg-3);
+        font: var(--type-caption);
+      }
+      .ends {
+        display: flex;
+        justify-content: space-between;
+        margin: 0 2px 6px;
+        color: var(--fg-3);
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+      }
+      .table {
+        width: 100%;
+        border-collapse: collapse;
+        font: var(--type-body-sm);
+      }
+      .table th,
+      .table td {
+        padding: 9px 12px;
+        border-top: 1px solid var(--border-subtle);
+        text-align: left;
+        vertical-align: top;
+      }
+      .table thead th {
+        border-top: 0;
+        color: var(--fg-3);
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+      }
+      .table td:first-child {
+        width: 34%;
+        color: var(--fg-1);
+        font-weight: 500;
+      }
+      .table td {
+        color: var(--fg-2);
+      }
+
+      /* ---------- Toasts ---------- */
+      .toasts {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        z-index: 50;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: center;
+        transform: translateX(-50%);
+        pointer-events: none;
+      }
+      .toast {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        max-width: 560px;
+        padding: 10px 14px;
+        border-radius: var(--radius-lg);
+        background: var(--fg-1);
+        color: var(--bg);
+        box-shadow: var(--shadow-3);
+        font: var(--type-body-sm);
+        animation: rise 0.18s ease-out;
+      }
+      .toast svg.i {
+        margin-top: 2px;
+        color: var(--success);
+      }
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+      }
+      .grid-2 {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6" /></symbol>
+      <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol>
+      <symbol id="i-cpu" viewBox="0 0 24 24">
+        <rect x="4" y="4" width="16" height="16" rx="2" />
+        <rect x="9" y="9" width="6" height="6" rx="1" />
+        <path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2" />
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></symbol>
+      <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" /></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12" /></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" /></symbol>
+      <symbol id="i-triangle" viewBox="0 0 24 24">
+        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+        <path d="M12 9v4M12 17h.01" />
+      </symbol>
+      <symbol id="i-align-left" viewBox="0 0 24 24"><path d="M15 12H3M17 18H3M21 6H3" /></symbol>
+      <symbol id="i-file" viewBox="0 0 24 24">
+        <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+        <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+      </symbol>
+      <symbol id="i-commit" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M3 12h6M15 12h6" /></symbol>
+      <symbol id="i-route" viewBox="0 0 24 24">
+        <circle cx="6" cy="19" r="3" />
+        <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" />
+        <circle cx="18" cy="5" r="3" />
+      </symbol>
+      <symbol id="i-target" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" />
+      </symbol>
+      <symbol id="i-flask" viewBox="0 0 24 24">
+        <path d="M10 2v7.5L4.5 19A2 2 0 0 0 6.2 22h11.6a2 2 0 0 0 1.7-3L14 9.5V2M8.5 2h7M7 16h10" />
+      </symbol>
+      <symbol id="i-fork" viewBox="0 0 24 24">
+        <circle cx="12" cy="18" r="3" /><circle cx="6" cy="6" r="3" /><circle cx="18" cy="6" r="3" />
+        <path d="M18 9v2c0 .6-.4 1-1 1H7c-.6 0-1-.4-1-1V9M12 12v3" />
+      </symbol>
+      <symbol id="i-paperclip" viewBox="0 0 24 24">
+        <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+      </symbol>
+      <symbol id="i-map" viewBox="0 0 24 24">
+        <path d="M14.1 5.55a2 2 0 0 0 1.8 0l3.65-1.83A1 1 0 0 1 21 4.62v12.76a1 1 0 0 1-.55.9l-4.55 2.27a2 2 0 0 1-1.8 0l-4.2-2.1a2 2 0 0 0-1.8 0l-3.65 1.83A1 1 0 0 1 3 19.38V6.62a1 1 0 0 1 .55-.9L8.1 3.45a2 2 0 0 1 1.8 0z" />
+        <path d="M15 5.76v15M9 3.24v15" />
+      </symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="M6 3l14 9-14 9V3z" /></symbol>
+      <symbol id="i-pause" viewBox="0 0 24 24">
+        <rect x="14" y="4" width="4" height="16" rx="1" /><rect x="6" y="4" width="4" height="16" rx="1" />
+      </symbol>
+      <symbol id="i-square" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" /></symbol>
+      <symbol id="i-more" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" />
+      </symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14" /></symbol>
+      <symbol id="i-list-plus" viewBox="0 0 24 24"><path d="M11 12H3M16 6H3M16 18H3M18 9v6M21 12h-6" /></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></symbol>
+      <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.9 5.8L20 10.7l-5.8 1.9L12 18.5l-1.9-5.9L4 10.7l6.1-1.9z" /></symbol>
+      <symbol id="i-equal" viewBox="0 0 24 24"><path d="M5 9h14M5 15h14" /></symbol>
+      <symbol id="i-check-list" viewBox="0 0 24 24"><path d="m3 17 2 2 4-4M3 7l2 2 4-4M13 6h8M13 12h8M13 18h8" /></symbol>
+      <symbol id="i-loader" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.22-8.56" /></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24">
+        <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+      </symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+      </symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" /></symbol>
+    </svg>
+
+    <div class="doc">
+      <header class="doc-head">
+        <div>
+          <div class="overline">Design · Assigning an Engine to a Task/Initiative</div>
+          <h1>A Task&#39;s engine and an Initiative&#39;s engine</h1>
+          <p>
+            An engine and model set on a Task or an Initiative takes the Project default&#39;s place in the engine
+            cascade; Role overrides still win. Each view below is one place that changes. The Task and Initiative
+            views are live: pick an engine or a model to see the summary, the toast, the Runs on list and a
+            refusal as the Office would show them.
+          </p>
+        </div>
+        <div class="stage-bar-item">
+          <span class="stage-bar-label">Palette</span>
+          <div class="seg" role="group" aria-label="Palette" id="palette"></div>
+        </div>
+      </header>
+
+      <nav class="views" role="tablist" aria-label="Views" id="views"></nav>
+
+      <main class="stage" id="stage"></main>
+      <aside class="aside" id="aside"></aside>
+    </div>
+    <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+    <script>
+      /* ---------- The Office as this design pictures it ---------- */
+      const ENGINES = [
+        {
+          id: "work",
+          name: "Work account",
+          models: ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"],
+          defaultModel: "claude-sonnet-5-5",
+          missing: [],
+        },
+        {
+          id: "personal",
+          name: "Personal",
+          models: ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"],
+          defaultModel: "claude-opus-5-5",
+          missing: [],
+        },
+        {
+          id: "gemini",
+          name: "Gemini",
+          models: ["auto", "pro", "flash", "flash-lite"],
+          defaultModel: "auto",
+          missing: ["officeTools", "outputSchema"],
+        },
+      ];
+      const MODEL_LABELS = {
+        "claude-opus-5-5": "Opus 5.5",
+        "claude-sonnet-5-5": "Sonnet 5.5",
+        "claude-haiku-5-5": "Haiku 5.5",
+        auto: "Auto",
+        pro: "Pro",
+        flash: "Flash",
+        "flash-lite": "Flash-Lite",
+      };
+      const MISSING_HINTS = {
+        officeTools: "It can’t use Office tools.",
+        outputSchema: "It can’t hold a Stage’s answer to a schema.",
+      };
+      const MISSING_REFUSAL = {
+        officeTools: "use Office tools",
+        outputSchema: "hold a Stage’s answer to a schema",
+      };
+      const OFFICE_DEFAULT = { engineId: "work", model: "claude-haiku-5-5" };
+      const PROJECT_DEFAULT = { engineId: "work", model: "claude-sonnet-5-5" };
+      const PROJECT = "the-office";
+      const TASK_TITLE = "Export Stats as CSV";
+      const INITIATIVE = "Usage reports";
+      const INITIATIVE_ENGINE = { engineId: "personal", model: "claude-opus-5-5" };
+
+      /* The Planner works the planning Thread; the others are the Roles the Task's Stages name. */
+      const ROLES = [
+        { key: "planner", person: "Pam", title: "Planner", where: "Planning Thread", staged: false, tone: "a1" },
+        { key: "designer", person: "Stanley", title: "UI/UX Designer", where: "Create a design", staged: true, tone: "a2" },
+        {
+          key: "developer",
+          person: "Dwight",
+          title: "Developer",
+          where: "Implement",
+          staged: true,
+          tone: "a3",
+          officeOverride: { engineId: "personal", model: "claude-opus-5-5" },
+        },
+        {
+          key: "reviewer",
+          person: "Angela",
+          title: "Reviewer",
+          where: "Review & fix",
+          staged: true,
+          tone: "a4",
+          projectOverride: { engineId: "personal", model: "claude-sonnet-5-5" },
+        },
+      ];
+
+      const S = {
+        view: "task",
+        palette: "light",
+        task: { phase: "backlog", initiative: "engine", every: "off", preset: "none", own: null, refusal: null, saving: false },
+        ini: { phase: "active", preset: "own", own: { ...INITIATIVE_ENGINE }, refusal: null, saving: false },
+        removal: { only: "no" },
+        folds: { "task:engine": true, "ini:engine": true },
+      };
+
+      const AND = new Intl.ListFormat("en", { type: "conjunction" });
+      const OR = new Intl.ListFormat("en", { type: "disjunction" });
+
+      /* ---------- Small helpers ---------- */
+      const icon = (name, extra = "") => `<svg class="i ${extra}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+      const engineOf = (id) => ENGINES.find((engine) => engine.id === id);
+      const engineName = (id) => engineOf(id).name;
+      const modelLabel = (model) => MODEL_LABELS[model] ?? model;
+      const onEngine = (value) => `${modelLabel(value.model)} on ${engineName(value.engineId)}`;
+      const badge = (words, tone = "") => `<span class="badge ${tone}">${words}</span>`;
+
+      function seg(key, options) {
+        const [group, field] = key.split(".");
+        const current = S[group][field];
+        return `<div class="seg" role="group">${options
+          .map(
+            ([value, label]) =>
+              `<button type="button" data-action="set" data-key="${key}" data-value="${value}" aria-pressed="${current === value}">${label}</button>`,
+          )
+          .join("")}</div>`;
+      }
+      const barItem = (label, control) =>
+        `<span class="stage-bar-item"><span class="stage-bar-label">${label}</span>${control}</span>`;
+
+      /* ---------- The engine cascade, most specific level first (spec 5.4.5 as changed) ---------- */
+      function cascade(role, { taskEngine, initiativeEngine, useForEveryRole }) {
+        if (role.projectOverride) return { ...role.projectOverride, level: "the Project’s Role override" };
+        if (role.officeOverride && !useForEveryRole) return { ...role.officeOverride, level: "the Role override" };
+        if (taskEngine) return { ...taskEngine, level: "the Task’s engine", here: true };
+        if (initiativeEngine) return { ...initiativeEngine, level: "the Initiative’s engine", here: true };
+        if (PROJECT_DEFAULT) return { ...PROJECT_DEFAULT, level: "the Project default" };
+        return { ...OFFICE_DEFAULT, level: "the Office default" };
+      }
+
+      /* The Roles a save would newly put on an engine lacking what Stages need, as the service refuses it. */
+      function capabilityRefusal(place, before, after) {
+        const lacking = (levels) =>
+          ROLES.filter((role) => role.staged)
+            .map((role) => ({ role, applying: cascade(role, levels) }))
+            .filter(({ applying }) => engineOf(applying.engineId).missing.length > 0);
+        const already = new Set(lacking(before).map(({ role }) => role.key));
+        const newly = lacking(after).filter(({ role }) => !already.has(role.key));
+        if (newly.length === 0) return null;
+        const engine = engineOf(newly[0].applying.engineId);
+        const roles = AND.format(newly.map(({ role }) => `the ${role.title}`));
+        const missing = OR.format(engine.missing.map((capability) => MISSING_REFUSAL[capability]));
+        return `${place}, ${roles} would run on ${engine.name}, which can’t ${missing}, as its Stages need.`;
+      }
+
+      /* ---------- Fields ---------- */
+      function engineModelFields({ id, value, noneLabel, disabled, hint, hintWarn }) {
+        const picked = value ? engineOf(value.engineId) : null;
+        const engineOptions = [
+          noneLabel ? `<option value=""${value ? "" : " selected"}>${noneLabel}</option>` : "",
+          ...ENGINES.map(
+            (engine) =>
+              `<option value="${engine.id}"${value && value.engineId === engine.id ? " selected" : ""}>${engine.name}</option>`,
+          ),
+        ].join("");
+        const modelField = picked
+          ? `<div><label class="field-label" for="${id}-model">Model</label><div class="select"><select id="${id}-model" data-field="${id}-model"${disabled ? " disabled" : ""}>${picked.models
+              .map(
+                (model) =>
+                  `<option value="${model}"${value.model === model ? " selected" : ""}>${modelLabel(model)}</option>`,
+              )
+              .join("")}</select>${icon("chevron-down")}</div></div>`
+          : "<div></div>";
+        return `<div class="pair">
+          <div>
+            <label class="field-label" for="${id}-engine">Engine</label>
+            <div class="select"><select id="${id}-engine" data-field="${id}-engine"${disabled ? " disabled" : ""}>${engineOptions}</select>${icon("chevron-down")}</div>
+            ${hint ? `<div class="field-hint${hintWarn ? " warn" : ""}">${hint}</div>` : ""}
+          </div>
+          ${modelField}
+        </div>`;
+      }
+      const missingHint = (value) =>
+        value ? engineOf(value.engineId).missing.map((capability) => MISSING_HINTS[capability]).join(" ") : "";
+
+      function fold({ key, icon: name, title, summary, side = "", body, focus = false }) {
+        const open = Boolean(S.folds[key]);
+        return `<section class="fold${focus ? " focus" : ""}">
+          <div class="fold-row">
+            <button type="button" class="fold-head" aria-expanded="${open}" data-action="fold" data-key="${key}">
+              ${icon("chevron-right", "chev")}${icon(name, "fold-icon")}
+              <span class="fold-title">${title}</span>
+              <span class="fold-summary">${summary}</span>
+            </button>
+            <div class="fold-side">${side}</div>
+          </div>
+          ${open ? `<div class="fold-body">${body}</div>` : ""}
+        </section>`;
+      }
+
+      const savingLine = () => `<span class="saving-line">${icon("loader", "spin")} Saving…</span>`;
+      const refusalAlert = (title, reasons) =>
+        `<div class="alert danger" role="alert">${icon("alert")}<div><span class="alert-title">${title}</span>${
+          reasons.length === 1 ? reasons[0] : `<ul>${reasons.map((reason) => `<li>${reason}</li>`).join("")}</ul>`
+        }</div></div>`;
+
+      /* ---------- Task page ---------- */
+      function taskLevels(taskEngine) {
+        return {
+          taskEngine,
+          initiativeEngine: S.task.initiative === "engine" ? INITIATIVE_ENGINE : null,
+          useForEveryRole: S.task.every === "on",
+        };
+      }
+      function taskNoneLabel() {
+        if (S.task.initiative === "engine") return `Initiative’s engine (${onEngine(INITIATIVE_ENGINE)})`;
+        return "Project’s engine";
+      }
+      function taskSummary() {
+        const t = S.task;
+        if (t.own) return `${onEngine(t.own)} · set for this Task`;
+        if (t.initiative === "engine") return `Initiative’s engine · ${onEngine(INITIATIVE_ENGINE)}`;
+        return `Project’s engine · ${onEngine(PROJECT_DEFAULT)}`;
+      }
+      function taskNoneHint() {
+        if (S.task.initiative === "engine") return `Set on its Initiative, <a>${INITIATIVE}</a>. Pick an engine to run this Task on its own.`;
+        return `${PROJECT}’s Project default. Pick an engine to run this Task on its own.`;
+      }
+
+      function runsOn(levels) {
+        const rows = ROLES.map((role) => {
+          const applying = cascade(role, levels);
+          return `<li>
+            <span class="avatar ${role.tone}">${role.person[0]}</span>
+            <span class="who"><b>${role.person}</b><span>${role.title} · ${role.where}</span></span>
+            <span class="what"><span class="em">${onEngine(applying)}</span><span class="src${applying.here ? " here" : ""}">from ${applying.level}</span></span>
+          </li>`;
+        }).join("");
+        return `<div class="runs">
+          <div class="runs-head"><h5>Runs on</h5><span class="caption">Its Planner and the Roles its Stages name, as the engine cascade gives them now. A Consultant on it runs the same way.</span></div>
+          <ul aria-label="Runs on">${rows}</ul>
+        </div>`;
+      }
+
+      function taskEngineBody() {
+        const t = S.task;
+        const intro = `<p class="fold-intro">What every session about this Task runs on: its Stages, its planning Thread and Consultations on it. It takes the Project default’s place; a Role override still wins.</p>`;
+        if (t.phase === "done") {
+          return `${intro}
+            <dl class="readonly">
+              <dt>Engine</dt><dd>${t.own ? engineName(t.own.engineId) : taskNoneLabel()}</dd>
+              ${t.own ? `<dt>Model</dt><dd>${modelLabel(t.own.model)}</dd>` : ""}
+            </dl>
+            <p class="caption">${icon("lock")} Kept as it was: the engine of a Done or Dropped Task doesn’t change.</p>`;
+        }
+        const running =
+          t.phase === "running"
+            ? `<div class="alert info">${icon("info")}<div>Dwight is working on Implement now. That session finishes on the engine it started on; a change applies from each next session.</div></div>`
+            : "";
+        const hint = t.own ? missingHint(t.own) : taskNoneHint();
+        return `${intro}${running}
+          ${engineModelFields({ id: "task", value: t.own, noneLabel: taskNoneLabel(), disabled: t.saving, hint, hintWarn: Boolean(t.own && missingHint(t.own)) })}
+          ${t.saving ? savingLine() : ""}
+          ${t.refusal ? refusalAlert("The engine wasn’t saved", [t.refusal]) : ""}
+          <p class="caption">A new engine starts each next session fresh; a new model alone resumes it.</p>
+          ${runsOn(taskLevels(t.own))}`;
+      }
+
+      function taskHeadActions() {
+        const phase = S.task.phase;
+        const more = `<button class="btn icon" type="button" title="More for ${TASK_TITLE}">${icon("more")}</button>`;
+        if (phase === "backlog")
+          return `<button class="btn plan" type="button">${icon("map")} Plan with Pam</button><button class="btn primary go" type="button">${icon("check")} Mark Ready</button>${more}`;
+        if (phase === "running")
+          return `<button class="btn hold" type="button">${icon("pause")} Pause</button><button class="btn stop" type="button">${icon("square")} Stop</button>${more}`;
+        return more;
+      }
+      function taskStateBadge() {
+        return { backlog: badge("Backlog"), running: badge("In progress", "info"), done: badge("Done", "success") }[S.task.phase];
+      }
+      function rail() {
+        const phase = S.task.phase;
+        const stages = [
+          ["Create a design", "Stanley", false],
+          ["Review the design", "You", true],
+          ["Implement", "Dwight", false],
+          ["Review & fix", "Angela", false],
+          ["Tests", "npm run test", false],
+          ["Publish", "Publish", false],
+        ];
+        const caption = { backlog: "Not started", running: "At Implement: Running", done: "All 6 Stages finished" }[phase];
+        return `<section class="card rail">
+          <div class="rail-head"><h4>Pipeline · Design first</h4><span class="caption">${caption} · select a Stage for its history</span></div>
+          <div class="rail-stages">${stages
+            .map(([name, worker, gate], index) => {
+              const state = phase === "done" || (phase === "running" && index < 2) ? "done" : phase === "running" && index === 2 ? "running" : "";
+              const words = { done: "Done", running: "Running", "": "Pending" }[state];
+              return `<div class="rail-stage"><span class="rail-mark ${gate ? "gate" : ""} ${state}">${state === "done" ? icon("check") : ""}</span><b>${name}</b><span>${worker}</span><span>${words}</span></div>`;
+            })
+            .join("")}</div>
+        </section>`;
+      }
+      function conversation(tabs) {
+        return `<aside class="card convo" aria-label="Conversation">
+          <div class="convo-tabs">${tabs.map((tab, index) => `<span class="${index === 0 ? "on" : ""}">${tab}</span>`).join("")}</div>
+          <div class="convo-body">
+            <div class="bubble"><div class="bubble-line" style="width: 70%"></div><div class="bubble-line" style="width: 92%"></div><div class="bubble-line" style="width: 54%"></div></div>
+            <div class="bubble"><div class="bubble-line" style="width: 84%"></div><div class="bubble-line" style="width: 40%"></div></div>
+          </div>
+          <div class="context-row"><span>Sub-agents and processes · none</span><span>41k of 200k</span></div>
+          <div class="composer">Ask Pam anything about this Task…</div>
+        </aside>`;
+      }
+
+      function taskView() {
+        const t = S.task;
+        const bar = `<div class="stage-bar">
+          ${barItem("Task", seg("task.phase", [["backlog", "Backlog"], ["running", "In progress"], ["done", "Done"]]))}
+          ${barItem("Its Initiative", seg("task.initiative", [["none", "In none"], ["plain", "In one, no engine"], ["engine", "In one, with an engine"]]))}
+          ${barItem("Use for every Role", seg("task.every", [["off", "Off"], ["on", "On"]]))}
+          ${barItem("Start from", seg("task.preset", [["none", "Nothing set"], ["own", "Set for this Task"], ["refused", "A refused save"]]))}
+        </div>`;
+        const initiativeFact = t.initiative === "none" ? "" : `<span>${icon("fork")} <a>${INITIATIVE}</a></span>`;
+        const page = `<div class="frame">
+          <div class="frame-bar"><span class="dots"><span></span><span></span><span></span></span><span class="mono">/tasks/7c1e2a94-3f5d-4b8e-9a61-2d0f8c4b5e17</span></div>
+          <div class="frame-body">
+            <div class="app-tabs"><span class="on">Tasks</span><span>Initiatives</span><span>Ideas</span><span>Pull requests</span><span>Archived</span></div>
+            <div class="rec-head">
+              <div class="rec-head-main">
+                <span class="project-chip"><span class="project-mark">O</span>${PROJECT}</span>
+                <div class="title-row"><h2>${TASK_TITLE}</h2>${taskStateBadge()}</div>
+                <div class="facts">
+                  <span>${icon("sparkle")} Feature</span>
+                  <span>${icon("equal")} Normal priority</span>
+                  <span>${icon("route")} Pipeline Design first</span>
+                  ${initiativeFact}
+                  <span class="mono">${t.phase === "backlog" ? "0" : "184k"} tokens</span>
+                </div>
+              </div>
+              <div class="head-actions">${taskHeadActions()}</div>
+            </div>
+            ${rail()}
+            <div class="cols">
+              <div class="record">
+                <div class="rtabs"><span class="on">Overview</span><span>Changes <span class="count">${t.phase === "backlog" ? 0 : 7}</span></span><span>Attachments <span class="count">2</span></span></div>
+                ${fold({ key: "task:description", icon: "align-left", title: "Description", summary: "A CSV of the Stats page’s tokens and cost, per day and per Project.", body: "<p class=\"fold-intro\">A CSV of the Stats page’s tokens and cost, per day and per Project, so a month can be put in a spreadsheet.</p>" })}
+                ${fold({ key: "task:plan", icon: "file", title: "Plan", summary: "Add an Export CSV button to Stats · 4 files", body: "<p class=\"fold-intro\">Add an Export CSV button to Stats’ Tokens and cost tab, built from the rows it shows.</p>" })}
+                ${fold({ key: "task:commit", icon: "commit", title: "Commit message", summary: "Default · Export Stats as CSV", body: "<p class=\"fold-intro mono\">feat(stats): the Stats page exports its rows as CSV</p>" })}
+                ${fold({ key: "task:dod", icon: "check", title: "Definition of Done", summary: "3 statements · confirmed", body: "<p class=\"fold-intro\">Stats exports what it shows as CSV.</p>" })}
+                ${fold({ key: "task:engine", icon: "cpu", title: "Engine", summary: taskSummary(), body: taskEngineBody(), focus: true })}
+              </div>
+              ${conversation(["Pam", "Stanley", "Dwight"])}
+            </div>
+          </div>
+        </div>`;
+        return bar + page;
+      }
+
+      function taskPreset(preset) {
+        const t = S.task;
+        t.preset = preset;
+        t.refusal = null;
+        t.own = preset === "none" ? null : { engineId: "work", model: "claude-opus-5-5" };
+        if (preset === "refused") {
+          t.refusal = capabilityRefusal(`On “${TASK_TITLE}”`, taskLevels(t.own), taskLevels({ engineId: "gemini", model: "auto" }));
+        }
+        S.folds["task:engine"] = true;
+      }
+
+      function saveTaskEngine(candidate) {
+        const t = S.task;
+        const before = t.own;
+        t.saving = true;
+        t.refusal = null;
+        render();
+        setTimeout(() => {
+          t.saving = false;
+          const refusal = capabilityRefusal(`On “${TASK_TITLE}”`, taskLevels(before), taskLevels(candidate));
+          if (refusal) {
+            t.refusal = refusal;
+          } else {
+            t.own = candidate;
+            toast(taskToast(before, candidate));
+          }
+          render();
+        }, 450);
+      }
+      function taskToast(before, after) {
+        const inherited = S.task.initiative === "engine" ? INITIATIVE_ENGINE : PROJECT_DEFAULT;
+        const was = before ?? inherited;
+        if (after === null) {
+          const whose = S.task.initiative === "engine" ? "Initiative’s" : "Project’s";
+          return `${TASK_TITLE} has no engine of its own now: it runs on its ${whose} engine from its next session.`;
+        }
+        if (was.engineId === after.engineId)
+          return `Model saved for ${TASK_TITLE}: its next sessions resume, on ${modelLabel(after.model)}.`;
+        return `Engine saved for ${TASK_TITLE}: its next sessions start fresh, on ${onEngine(after)}.`;
+      }
+
+      /* ---------- Initiative page ---------- */
+      function initiativeTasks() {
+        const phase = S.ini.phase;
+        if (phase === "shaping")
+          return [
+            { title: "Export Stats as CSV", state: badge("Shaping"), own: null, open: true },
+            { title: "Email the weekly usage report", state: badge("Shaping"), own: null, open: true },
+            { title: "Usage report page", state: badge("Shaping"), own: { engineId: "work", model: "claude-opus-5-5" }, open: true },
+          ];
+        return [
+          { title: "Export Stats as CSV", state: badge("Backlog"), own: null, open: phase !== "done" },
+          { title: "Email the weekly usage report", state: badge("Ready", "success"), own: null, open: phase !== "done" },
+          { title: "Usage report page", state: badge("In progress", "info"), own: { engineId: "work", model: "claude-opus-5-5" }, open: phase !== "done" },
+          { title: "Old dashboard cleanup", state: badge("Done", "success"), own: null, open: false },
+        ];
+      }
+      function initiativeRefusals(candidate) {
+        const levelsWith = (initiativeEngine) => ({ taskEngine: null, initiativeEngine, useForEveryRole: false });
+        return initiativeTasks()
+          .filter((task) => task.open && task.own === null)
+          .map((task) => capabilityRefusal(`On “${task.title}”`, levelsWith(S.ini.own), levelsWith(candidate)))
+          .filter(Boolean);
+      }
+      function initiativeSummary() {
+        return S.ini.own ? onEngine(S.ini.own) : `Project’s engine · ${onEngine(PROJECT_DEFAULT)}`;
+      }
+      function initiativeTaskList() {
+        const own = S.ini.own;
+        const rows = initiativeTasks()
+          .filter((task) => task.open)
+          .map((task) => {
+            const what = task.own
+              ? `<span class="em">${onEngine(task.own)}</span><span class="src">its own engine</span>`
+              : own
+                ? `<span class="em">${onEngine(own)}</span><span class="src here">the Initiative’s engine</span>`
+                : `<span class="em">${onEngine(PROJECT_DEFAULT)}</span><span class="src">its Project’s engine</span>`;
+            return `<li style="grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr)"><a class="task-link">${task.title}</a>${task.state}<span class="what">${what}</span></li>`;
+          })
+          .join("");
+        return `<div class="runs">
+          <div class="runs-head"><h5>Its Tasks</h5><span class="caption">The level each open Task takes; its Role overrides still win. Done and Dropped Tasks run no more sessions, so they aren’t listed.</span></div>
+          <ul aria-label="Its Tasks">${rows}</ul>
+        </div>`;
+      }
+      function initiativeEngineBody() {
+        const i = S.ini;
+        const intro = `<p class="fold-intro">What its shaping and planning Threads run on, and every Task in it that sets no engine of its own. It takes the Project default’s place; a Role override still wins.</p>`;
+        if (i.phase === "done") {
+          return `${intro}
+            <dl class="readonly">
+              <dt>Engine</dt><dd>${i.own ? engineName(i.own.engineId) : "Project’s engine"}</dd>
+              ${i.own ? `<dt>Model</dt><dd>${modelLabel(i.own.model)}</dd>` : ""}
+            </dl>
+            <p class="caption">${icon("lock")} Kept as it was: the engine of a Done or Dropped Initiative doesn’t change.</p>`;
+        }
+        const hint = i.own ? missingHint(i.own) : `Each Task takes its Project default, as the Project page sets it.`;
+        return `${intro}
+          ${engineModelFields({ id: "ini", value: i.own, noneLabel: "Project’s engine", disabled: i.saving, hint, hintWarn: Boolean(i.own && missingHint(i.own)) })}
+          ${i.saving ? savingLine() : ""}
+          ${i.refusal ? refusalAlert("The engine wasn’t saved", i.refusal) : ""}
+          <p class="caption">A new engine starts each next session fresh; a new model alone resumes it. Its Tasks’ pages show the change at once.</p>
+          ${initiativeTaskList()}`;
+      }
+      function initiativeView() {
+        const i = S.ini;
+        const bar = `<div class="stage-bar">
+          ${barItem("Initiative", seg("ini.phase", [["shaping", "Shaping"], ["active", "Active"], ["done", "Done"]]))}
+          ${barItem("Start from", seg("ini.preset", [["none", "Nothing set"], ["own", "Set for the Initiative"], ["refused", "A refused save"]]))}
+        </div>`;
+        const stateBadge = { shaping: badge("Shaping with Michael"), active: badge("Active", "info"), done: badge("Done", "success") }[i.phase];
+        const actions = {
+          shaping: `<button class="btn primary go" type="button">${icon("check")} Confirm the Initiative</button><button class="btn" type="button">${icon("plus")} Add a Task</button>`,
+          active: `<button class="btn go" type="button">${icon("play")} Start Ready Tasks</button><button class="btn hold" type="button">${icon("pause")} Pause the Initiative</button><button class="btn" type="button">${icon("plus")} Add a Task</button>`,
+          done: "",
+        }[i.phase];
+        const progress = { shaping: "· 0 of 3 Tasks done", active: "· 1 of 4 Tasks done · 1 ready to start", done: "· 4 of 4 Tasks done" }[i.phase];
+        const page = `<div class="frame">
+          <div class="frame-bar"><span class="dots"><span></span><span></span><span></span></span><span class="mono">/work/initiatives/3b9d61f0-8a2e-4c57-b1d4-6e0a9f2c7d38</span></div>
+          <div class="frame-body">
+            <div class="app-tabs"><span>Tasks</span><span class="on">Initiatives</span><span>Ideas</span><span>Pull requests</span><span>Archived</span></div>
+            <div class="rec-head">
+              <div class="rec-head-main">
+                <div class="title-row"><h2>${INITIATIVE}</h2>${stateBadge}</div>
+                <div class="facts"><span class="project-chip"><span class="project-mark">O</span>${PROJECT}</span><span>${progress}</span></div>
+              </div>
+              <div class="head-actions">${actions}<button class="btn icon" type="button" title="More for ${INITIATIVE}">${icon("more")}</button></div>
+            </div>
+            <div style="margin-top: 16px">${fold({ key: "ini:tasks", icon: "fork", title: "Tasks", summary: i.phase === "shaping" ? "3 across 1 Project · in Shaping until you confirm" : "4 across 1 Project · 1 done · 1 in progress", body: "<p class=\"fold-intro\">The Task graph.</p>" })}</div>
+            <div class="cols">
+              <div class="record">
+                ${fold({ key: "ini:pipelines", icon: "route", title: "Pipelines", summary: `${PROJECT}: Initiative publish`, body: "<p class=\"fold-intro\">The Pipelines block.</p>" })}
+                ${fold({ key: "ini:engine", icon: "cpu", title: "Engine", summary: initiativeSummary(), body: initiativeEngineBody(), focus: true })}
+                ${i.phase === "shaping" ? "" : fold({ key: "ini:tests", icon: "flask", title: "Test instances", summary: "None launched yet", body: "<p class=\"fold-intro\">The Test instances block.</p>" })}
+                ${fold({ key: "ini:outcome", icon: "target", title: "Outcome", summary: "Each user can see and export what The Office used, per week.", body: "<p class=\"fold-intro\">Each user can see and export what The Office used, per week.</p>" })}
+                ${fold({ key: "ini:attachments", icon: "paperclip", title: "Attachments", summary: "None", body: "<p class=\"fold-intro\">None yet.</p>" })}
+              </div>
+              ${conversation(["Michael", "Pam"])}
+            </div>
+          </div>
+        </div>`;
+        return bar + page;
+      }
+      function initiativePreset(preset) {
+        const i = S.ini;
+        i.preset = preset;
+        i.refusal = null;
+        i.own = preset === "none" ? null : { ...INITIATIVE_ENGINE };
+        if (preset === "refused") i.refusal = initiativeRefusals({ engineId: "gemini", model: "flash" });
+        S.folds["ini:engine"] = true;
+      }
+      function saveInitiativeEngine(candidate) {
+        const i = S.ini;
+        const before = i.own;
+        i.saving = true;
+        i.refusal = null;
+        render();
+        setTimeout(() => {
+          i.saving = false;
+          const refusals = initiativeRefusals(candidate);
+          if (refusals.length > 0) {
+            i.refusal = refusals;
+          } else {
+            i.own = candidate;
+            toast(initiativeToast(before, candidate));
+          }
+          render();
+        }, 450);
+      }
+      function initiativeToast(before, after) {
+        const taking = initiativeTasks().filter((task) => task.open && task.own === null).length;
+        if (after === null)
+          return `${INITIATIVE} has no engine of its own now: its Threads and Tasks run on their Project’s engine from their next session.`;
+        if (before && before.engineId === after.engineId)
+          return `Model saved for ${INITIATIVE}: its next sessions resume, on ${modelLabel(after.model)}.`;
+        return `Engine saved for ${INITIATIVE}: its Threads and its ${taking} open Tasks that set none run on ${onEngine(after)} from their next session.`;
+      }
+
+      /* ---------- The cascade ---------- */
+      function ladder(useForEveryRole) {
+        const levels = [
+          ["Project’s Role override", "Project page › Engine", ""],
+          ["Role override", "The Role card, Office-wide", useForEveryRole ? "skipped" : ""],
+          ["Task’s engine", "Task page › Engine", "new"],
+          ["Initiative’s engine", "Initiative page › Engine", "new"],
+          ["Project default", "Project page › Engine", ""],
+          ["Office default", "Settings › Engines", ""],
+        ];
+        return `<ol class="ladder">${levels
+          .map(
+            ([name, where, kind]) =>
+              `<li class="${kind}"><span><span class="lv-name">${name}</span><span class="lv-where">${where}</span></span>${
+                kind === "new" ? `<span class="new-mark">New</span>` : kind === "skipped" ? badge("Skipped") : ""
+              }</li>`,
+          )
+          .join("")}</ol>`;
+      }
+      function cascadeView() {
+        return `<div class="ladders">
+            <section class="card"><div class="card-head"><h4>Use for every Role off</h4></div><div class="card-body">
+              <div class="ends"><span>Most specific: wins</span><span>1 → 6</span></div>${ladder(false)}
+              <p class="caption" style="margin: 10px 0 0">Always the case while the Project has no Project default: an Office-wide Role override beats the Task’s and the Initiative’s engine.</p>
+            </div></section>
+            <section class="card"><div class="card-head"><h4>Use for every Role on</h4>${badge("Needs a Project default")}</div><div class="card-body">
+              <div class="ends"><span>Most specific: wins</span><span>1 → 6</span></div>${ladder(true)}
+              <p class="caption" style="margin: 10px 0 0">The Task’s or the Initiative’s engine takes the Project default’s place entirely, so it also beats the Office-wide Role overrides. The Project’s own Role overrides still apply.</p>
+            </div></section>
+          </div>
+          <div class="grid-2">
+            <section class="card"><div class="card-head"><h4>Which sessions each covers</h4></div>
+              <table class="table"><thead><tr><th>Level</th><th>Sessions</th></tr></thead><tbody>
+                <tr><td>Task’s engine</td><td>Every session about the Task: its Stage runs, its planning Thread and Consultations on it.</td></tr>
+                <tr><td>Initiative’s engine</td><td>Its shaping and planning Threads, and every Task in it that sets no engine of its own.</td></tr>
+              </tbody></table>
+            </section>
+            <section class="card"><div class="card-head"><h4>When it changes</h4></div>
+              <table class="table"><thead><tr><th>Change</th><th>Next session</th></tr></thead><tbody>
+                <tr><td>Another engine</td><td>Starts fresh, with a Brief.</td></tr>
+                <tr><td>Another model alone</td><td>Resumes its session.</td></tr>
+                <tr><td>Joining or leaving an Initiative</td><td>Counts as a change of its engine, checked first.</td></tr>
+                <tr><td>A session running now</td><td>Finishes on the engine it started on.</td></tr>
+                <tr><td>Done or Dropped</td><td>Kept as history, read-only; still moved when its engine is removed.</td></tr>
+              </tbody></table>
+            </section>
+          </div>`;
+      }
+
+      /* ---------- Joining and leaving an Initiative, and Stages ---------- */
+      function membershipView() {
+        return `<div class="win-stage">
+          <section class="win" role="dialog" aria-label="Add an existing Task to Weekly digest">
+            <div class="win-head"><h4>Add an existing Task to Weekly digest</h4><button class="btn ghost icon" type="button" title="Close">${icon("x")}</button></div>
+            <div class="win-body">
+              ${refusalAlert("The Task can’t be added", ["In Weekly digest, the UI/UX Designer would run on Gemini, which can’t use Office tools or hold a Stage’s answer to a schema, as the Task’s Stages need."])}
+              <div><label class="field-label">Find a Task</label><div class="search">${icon("search")}<input class="text-input" placeholder="Find a Task by its title" /></div></div>
+              <ul class="radios">
+                <li class="picked"><span class="radio"></span><span>Export Stats as CSV</span><span class="meta"><span class="project-mark">O</span>${PROJECT} ${badge("Backlog")}</span></li>
+                <li><span class="radio"></span><span>Fix the sign-in redirect</span><span class="meta"><span class="project-mark">O</span>${PROJECT} ${badge("Backlog")}</span></li>
+              </ul>
+              <p class="field-hint" style="margin: 0">It stays in Backlog. It sets no engine of its own, so it runs on the Initiative’s engine, Flash on Gemini, from its next session.</p>
+            </div>
+            <div class="win-bar"><button class="btn" type="button">Cancel</button><button class="btn primary" type="button">Add the Task</button></div>
+          </section>
+          <section class="win" role="dialog" aria-label="Take a Task out">
+            <div class="win-head"><h4>Take Email the weekly usage report out of ${INITIATIVE}?</h4><button class="btn ghost icon" type="button" title="Close">${icon("x")}</button></div>
+            <div class="win-body">
+              <p>It stays in Ready. What it waits for stays.</p>
+              <p>It sets no engine of its own, so it runs on its Project’s engine, Sonnet 5.5 on Work account, from its next session.</p>
+            </div>
+            <div class="win-bar"><button class="btn" type="button">Cancel</button><button class="btn danger" type="button">Take out</button></div>
+          </section>
+          <section class="win" role="dialog" aria-label="Stages of Export Stats as CSV">
+            <div class="win-head"><h4>Stages of Export Stats as CSV</h4><button class="btn ghost icon" type="button" title="Close">${icon("x")}</button></div>
+            <div class="win-body">
+              ${refusalAlert("The Stages weren’t saved", ["On “Export Stats as CSV”, the Researcher would run on Gemini, which can’t use Office tools or hold a Stage’s answer to a schema, as its Stages need."])}
+              <p class="muted">The Stage editor of a Task on Auto on Gemini, whose Roles so far all had Role overrides: a new Agent Stage names the Researcher, who has none, so it would take the Task’s engine.</p>
+            </div>
+            <div class="win-bar"><button class="btn" type="button">Cancel</button><button class="btn primary" type="button">Save for this Task</button></div>
+          </section>
+        </div>`;
+      }
+
+      /* ---------- Project page ---------- */
+      function projectView() {
+        return `<div class="frame">
+          <div class="frame-bar"><span class="dots"><span></span><span></span><span></span></span><span class="mono">/projects/${PROJECT}</span></div>
+          <div class="frame-body" style="padding-top: 18px">
+            <section class="card" style="max-width: 760px">
+              <div class="card-head">${icon("cpu", "lg")}<h4>Engine</h4></div>
+              <div class="card-body" style="display: flex; flex-direction: column; gap: 16px">
+                <p class="fold-intro">The most specific level wins: the Project’s Role overrides, then the Role overrides on the Role cards, <mark class="changed">then a Task’s engine, then its Initiative’s engine,</mark> then the Project default, then the Office default.</p>
+                ${engineModelFields({ id: "project", value: PROJECT_DEFAULT, noneLabel: "Office default", disabled: false })}
+                <div class="switch-row"><span class="switch"></span><span class="switch-text"><b>Use for every Role</b><span>The Project default wins over the Role overrides on the Role cards, <mark class="changed">and so does a Task’s or an Initiative’s engine set in its place;</mark> the Project’s Role overrides still apply.</span></span></div>
+                <div>
+                  <div class="field-label">Role overrides in this Project</div>
+                  <ul class="radios"><li><span class="avatar a4">A</span><span>Angela · Reviewer</span><span class="meta">Sonnet 5.5 on Personal <button class="btn ghost sm" type="button">Remove</button></span></li></ul>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>`;
+      }
+
+      /* ---------- Removing an engine ---------- */
+      function removalView() {
+        const only = S.removal.only === "yes";
+        const to = (value) => (only ? "none" : `${modelLabel(value)} on Work account`);
+        const moves = [
+          ["The Role override of Dwight", "", "claude-opus-5-5", false],
+          [`The Role override of Angela in ${PROJECT}`, "", "claude-sonnet-5-5", false],
+          [`The engine of the Initiative “${INITIATIVE}”`, "", "claude-opus-5-5", true],
+          ["The engine of the Task “Usage report page”", "", "claude-opus-5-5", true],
+          ["The engine of the Task “Old dashboard cleanup”", badge("Done", "success"), "claude-haiku-5-5", true],
+          ["The engine of the Task “Draft the CSV columns”", badge("Dropped"), "claude-sonnet-5-5", true],
+        ];
+        const replacement = only
+          ? `<div class="alert warning">${icon("triangle")}<div><span class="alert-title">It is the only engine</span>Everything that names it moves to none, and no session starts until an engine is added.</div></div>`
+          : `<div><label class="field-label">Replacement</label><div class="select"><select><option>Work account</option><option>Gemini</option></select>${icon("chevron-down")}</div><div class="field-hint">Takes over everything that names it, on the same model where it offers it, else on its default model.</div></div>
+             <p>A session running on Personal finishes there; its Thread starts fresh on its next message.</p>`;
+        return `<div class="stage-bar">${barItem("Engines", seg("removal.only", [["no", "With a replacement"], ["yes", "The only engine"]]))}</div>
+          <div class="win-stage one">
+            <section class="win" role="dialog" aria-label="Remove Personal">
+              <div class="win-head"><h4>Remove Personal?</h4><button class="btn ghost icon" type="button" title="Close">${icon("x")}</button></div>
+              <div class="win-body">
+                ${replacement}
+                <ul class="moves" aria-label="What moves">${moves
+                  .map(
+                    ([place, mark, model, isNew]) =>
+                      `<li class="${isNew ? "new-level" : ""}"><span class="place">${place}${mark}</span><span class="change">${modelLabel(model)} on Personal → ${to(model)}</span></li>`,
+                  )
+                  .join("")}</ul>
+              </div>
+              <div class="win-bar"><button class="btn" type="button">Cancel</button><button class="btn danger" type="button">Remove Personal</button></div>
+            </section>
+          </div>`;
+      }
+
+      /* ---------- Notes beside each view ---------- */
+      const NOTES = {
+        cascade: `
+          <div class="note accent"><h3>What this design covers</h3>
+            <ul>
+              <li><b>Two new levels</b> in the engine cascade, between the Role overrides and the Project default.</li>
+              <li>An <b>Engine</b> fold on the Task page and on the Initiative page, saved at once, like the Project page’s Engine card.</li>
+              <li>The refusals of the capability check where the level changes: saving, joining or leaving an Initiative, editing a Task’s Stages.</li>
+              <li>The Project page’s Engine note, and the Remove engine window’s new rows.</li>
+            </ul></div>
+          <div class="note"><h3>Words</h3>
+            <ul>
+              <li>The levels are <b>Task’s engine</b> and <b>Initiative’s engine</b>, as the glossary will define them.</li>
+              <li>A source label reads “from the Task’s engine” and “from the Initiative’s engine”, beside “from the Project default” and the rest (<code>ENGINE_CASCADE_LEVEL_WORDS</code>).</li>
+              <li>An engine and model read as “&lt;model&gt; on &lt;engine&gt;”, as the Role card and the Remove window already write them.</li>
+            </ul></div>
+          <div class="note"><h3>Unchanged</h3>
+            <ul>
+              <li>Stand-in Engines take over from whatever engine the cascade gives.</li>
+              <li>The Live view, the Role card’s Runs on (it reads outside any Task) and the Stage history’s engine line.</li>
+            </ul></div>`,
+        task: `
+          <div class="note accent"><h3>The Engine fold</h3>
+            <ul>
+              <li>Last in Overview, after Definition of Done (before Devices, when it shows). Folded at the start, remembered per Task like the others; its summary says what the Task takes.</li>
+              <li>The Role card’s <b>Engine</b> and <b>Model</b> fields (<code>EngineModelFields</code>). The empty choice is <b>Project’s engine</b>, or <b>Initiative’s engine (&lt;model&gt; on &lt;engine&gt;)</b> when its Initiative sets one, so the inherited value shows as the placeholder.</li>
+              <li>Every change saves at once, controls disabled meanwhile, then a toast. A refusal shows under the fields until the next change, and the fields go back to what is saved.</li>
+              <li>Editable until Done or Dropped, then read-only with the lock line.</li>
+            </ul></div>
+          <div class="note"><h3>Runs on: recommended</h3>
+            <p>The list under the fields works the cascade out for the Planner and each Role the Task’s Stages name, with its source. It is where “from the Task’s engine” shows, and it answers “why isn’t the Reviewer on it?” at a glance.</p>
+            <p>It needs one read beyond the Plan: the service’s cascade per Role for the Task (for example <code>GET /tasks/:id/engine-cascade</code>), refreshed by the same events. If you’d rather keep to the Plan, say so at the Gate and it is left out.</p></div>
+          <div class="note"><h3>Toasts</h3>
+            <ul>
+              <li>“Engine saved for &lt;title&gt;: its next sessions start fresh, on &lt;model&gt; on &lt;engine&gt;.”</li>
+              <li>“Model saved for &lt;title&gt;: its next sessions resume, on &lt;model&gt;.”</li>
+              <li>“&lt;title&gt; has no engine of its own now: it runs on its Project’s (or Initiative’s) engine from its next session.”</li>
+            </ul></div>
+          <div class="note"><h3>Try it</h3>
+            <p>Pick <b>Gemini</b>: the UI/UX Designer, who has no Role override, would land on an engine without Office tools, so the save is refused, naming the Role. Turn <b>Use for every Role</b> on to see Dwight follow the Task’s engine past his Role override.</p></div>`,
+        initiative: `
+          <div class="note accent"><h3>The Engine fold</h3>
+            <ul>
+              <li>In the record column after Pipelines: both say how the Initiative’s work runs. Folded at the start, remembered per Initiative.</li>
+              <li>The same fields; the empty choice is <b>Project’s engine</b> (“Each Project’s engine” for an Initiative across several Projects).</li>
+              <li>Editable while Shaping and Active; read-only once Done or Dropped.</li>
+            </ul></div>
+          <div class="note"><h3>Its Tasks</h3>
+            <p>A list of its open Tasks with the level each takes: the Initiative’s engine, its own engine, or its Project’s. It reads from the Task list the page already has, so it needs no new read.</p></div>
+          <div class="note"><h3>Refusal</h3>
+            <p>Checked over its open Tasks that set no engine of their own, Publishing Tasks included: one line per Task, naming the Roles, as the service words it. Its Threads’ people (the Shaper, the Planner) aren’t named by a Pipeline, so they take any engine.</p></div>
+          <div class="note"><h3>Toasts</h3>
+            <ul>
+              <li>“Engine saved for &lt;name&gt;: its Threads and its &lt;n&gt; open Tasks that set none run on &lt;model&gt; on &lt;engine&gt; from their next session.”</li>
+              <li>“Model saved for &lt;name&gt;: its next sessions resume, on &lt;model&gt;.”</li>
+              <li>“&lt;name&gt; has no engine of its own now: its Threads and Tasks run on their Project’s engine from their next session.”</li>
+            </ul></div>`,
+        membership: `
+          <div class="note accent"><h3>Where the level changes</h3>
+            <ul>
+              <li><b>Add an existing Task</b> (the Initiative page) and <b>Add to an Initiative</b> (the Task page) say what it will run on in the hint, and show the service’s refusal as “The Task can’t be added”.</li>
+              <li><b>Take out</b> says what it runs on afterwards; a refusal shows in the window as “The Task can’t be taken out”.</li>
+              <li><b>Edit for this Task</b> weighs a new Stage against the Task’s own level, Initiative’s or Project’s as it applies, and refuses as today.</li>
+            </ul></div>
+          <div class="note"><h3>Refusal words</h3>
+            <p>The service’s sentence, with the place it weighs: “On “&lt;Task&gt;”, …” for a Task’s engine and its Stages, “In &lt;Initiative&gt;, …” for joining. Done and Dropped Tasks are never checked.</p></div>
+          <div class="note"><h3>A Task that sets its own</h3>
+            <p>Joining or leaving changes nothing for it: the hint says “It keeps its own engine, &lt;model&gt; on &lt;engine&gt;.”</p></div>`,
+        project: `
+          <div class="note accent"><h3>The Engine card’s words</h3>
+            <p>Only the note and the switch’s description change, highlighted here. Nothing else on the card moves.</p></div>
+          <div class="note"><h3>Before</h3>
+            <p>“The most specific level wins: the Project’s Role overrides, then the Role overrides on the Role cards, then the Project default, then the Office default.”</p>
+            <p>“The Project default wins over the Role overrides on the Role cards; the Project’s Role overrides still apply.”</p></div>
+          <div class="note"><h3>Unchanged</h3>
+            <ul><li>“Pick a Project default first.” while there is none, so the switch stays off and Office-wide Role overrides beat the Task’s and the Initiative’s engine.</li></ul></div>`,
+        removal: `
+          <div class="note accent"><h3>New rows in What moves</h3>
+            <ul>
+              <li>“The engine of the Task “&lt;title&gt;”” and “The engine of the Initiative “&lt;name&gt;””, highlighted here.</li>
+              <li>A Done or Dropped one is moved too, marked with its state badge: its value is history, and the engine it names no longer exists.</li>
+              <li>The only engine: they move to none, with the rest.</li>
+            </ul></div>
+          <div class="note"><h3>Order</h3>
+            <p>As the service lists them: the Office levels and Role overrides first, then Initiatives, then Tasks, open ones before Done and Dropped.</p></div>`,
+      };
+
+      const VIEWS = [
+        ["cascade", "The cascade"],
+        ["task", "Task page"],
+        ["initiative", "Initiative page"],
+        ["membership", "Joining, leaving, Stages"],
+        ["project", "Project page"],
+        ["removal", "Removing an engine"],
+      ];
+
+      /* ---------- Rendering and events ---------- */
+      function render() {
+        document.documentElement.dataset.palette = S.palette;
+        document.getElementById("palette").innerHTML = [
+          ["light", "Light", "sun"],
+          ["dark", "Dark", "moon"],
+        ]
+          .map(
+            ([value, label]) =>
+              `<button type="button" data-action="palette" data-value="${value}" aria-pressed="${S.palette === value}">${label}</button>`,
+          )
+          .join("");
+        document.getElementById("views").innerHTML = VIEWS.map(
+          ([key, label]) =>
+            `<button type="button" role="tab" data-action="view" data-value="${key}" aria-selected="${S.view === key}">${label}</button>`,
+        ).join("");
+        const views = {
+          cascade: cascadeView,
+          task: taskView,
+          initiative: initiativeView,
+          membership: membershipView,
+          project: projectView,
+          removal: removalView,
+        };
+        document.getElementById("stage").innerHTML = views[S.view]();
+        document.getElementById("aside").innerHTML = NOTES[S.view];
+      }
+
+      function toast(words) {
+        const region = document.getElementById("toasts");
+        const element = document.createElement("div");
+        element.className = "toast";
+        element.innerHTML = `${icon("check-circle")}<span>${words}</span>`;
+        region.replaceChildren(element);
+        setTimeout(() => element.remove(), 4200);
+      }
+
+      document.addEventListener("click", (event) => {
+        const target = event.target.closest("[data-action]");
+        if (!target) return;
+        const { action, value, key } = target.dataset;
+        if (action === "view") S.view = value;
+        if (action === "palette") S.palette = value;
+        if (action === "fold") S.folds[key] = !S.folds[key];
+        if (action === "set") {
+          const [group, field] = key.split(".");
+          if (key === "task.preset") taskPreset(value);
+          else if (key === "ini.preset") initiativePreset(value);
+          else {
+            S[group][field] = value;
+            if (group === "task" || group === "ini") S[group].refusal = null;
+          }
+        }
+        render();
+      });
+
+      document.addEventListener("change", (event) => {
+        const field = event.target.dataset.field;
+        const chosen = event.target.value;
+        if (field === "task-engine" || field === "ini-engine") {
+          const engine = engineOf(chosen);
+          const candidate = engine ? { engineId: engine.id, model: engine.defaultModel } : null;
+          if (field === "task-engine") saveTaskEngine(candidate);
+          else saveInitiativeEngine(candidate);
+        }
+        if (field === "task-model") saveTaskEngine({ ...S.task.own, model: chosen });
+        if (field === "ini-model") saveInitiativeEngine({ ...S.ini.own, model: chosen });
+      });
+
+      render();
+    </script>
+  </body>
+</html>

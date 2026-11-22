@@ -1,4 +1,5 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
+import type { EngineModel } from "../../engine/index.js";
 import type { UserRef } from "./author.js";
 import type { Priority, Task, TaskHolder, TaskKind, TaskState } from "./task.js";
 
@@ -59,6 +60,29 @@ export class TaskKindChanged extends DomainEvent {
   constructor(
     readonly taskId: string,
     readonly kind: TaskKind,
+  ) {
+    super();
+  }
+}
+
+/** The Task's own engine and model was set, or cleared with null (spec 5.4.5). */
+export class TaskEngineSet extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly engine: EngineModel | null,
+  ) {
+    super();
+  }
+}
+
+/**
+ * The engine of the Initiative the Task is in changed for it, which it runs on while it sets none:
+ * its Initiative's engine was set, or it joined or left an Initiative with another.
+ */
+export class TaskInitiativeEngineChanged extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly initiativeEngine: EngineModel | null,
   ) {
     super();
   }

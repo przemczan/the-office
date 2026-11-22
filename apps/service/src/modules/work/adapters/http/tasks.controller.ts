@@ -19,6 +19,7 @@ import {
   dropSchema,
   foundInVersionChangeSchema,
   kindChangeSchema,
+  workEngineChangeSchema,
   makeAPlanSchema,
   markReadyRequestSchema,
   newTaskSchema,
@@ -38,6 +39,7 @@ import {
   type Drop,
   type FoundInVersionChange,
   type KindChange,
+  type WorkEngineChange,
   type TitleChange,
   type MakeAPlan,
   type MarkReadyRequest,
@@ -69,12 +71,8 @@ import { TaskService } from "../../application/task-service.js";
 import { reasonsOf } from "../../domain/wait.js";
 import { searchedQuery } from "./searched-query.js";
 import { authorOf } from "./signed-in-author.js";
-import {
-  toQueueResponse,
-  toTaskResponse,
-  toTaskSummaryResponse,
-  toUsageEstimateResponse,
-} from "./work-responses.js";
+import { toQueueResponse, toUsageEstimateResponse } from "./work-responses.js";
+import { TaskResponses } from "./task-responses.js";
 import { WorkRefusalsFilter } from "./work-refusals.filter.js";
 
 @Controller("tasks")
@@ -86,6 +84,7 @@ export class TasksController {
     private readonly starting: StartService,
     private readonly queue: QueueService,
     private readonly search: SearchService,
+    private readonly responses: TaskResponses,
   ) {}
 
   @Post()
@@ -93,7 +92,7 @@ export class TasksController {
     @Body(new ContractPipe(newTaskSchema)) given: NewTask,
     @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.create(given, authorOf(signedIn)));
+    return this.responses.task(await this.tasks.create(given, authorOf(signedIn)));
   }
 
   /**
@@ -107,12 +106,12 @@ export class TasksController {
     const listed = archived
       ? await this.tasks.archived()
       : await this.search.tasksMatching(searchedQuery(query));
-    return listed.map(toTaskSummaryResponse);
+    return this.responses.summaries(listed);
   }
 
   @Get(":id")
   async read(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.read(id));
+    return this.responses.task(await this.tasks.read(id));
   }
 
   @Put(":id/priority")
@@ -120,7 +119,7 @@ export class TasksController {
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(priorityChangeSchema)) { priority }: PriorityChange,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.changePriority(id, priority));
+    return this.responses.task(await this.tasks.changePriority(id, priority));
   }
 
   /** The user's new title, in any state but Done and Dropped. */
@@ -129,7 +128,7 @@ export class TasksController {
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(titleChangeSchema)) { title }: TitleChange,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.changeTitle(id, title));
+    return this.responses.task(await this.tasks.changeTitle(id, title));
   }
 
   /** Feature, Bug or Chore, in any state but Done and Dropped; the Task never moves for it. */
@@ -138,7 +137,7 @@ export class TasksController {
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(kindChangeSchema)) { kind }: KindChange,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.changeKind(id, kind));
+    return this.responses.task(await this.tasks.changeKind(id, kind));
   }
 
   /** The Task whose work caused this Bug, or null for none. */
@@ -147,7 +146,7 @@ export class TasksController {
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(causedByChangeSchema)) { causedBy }: CausedByChange,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.changeCausedBy(id, causedBy ?? undefined));
+    return this.responses.task(await this.tasks.changeCausedBy(id, causedBy ?? undefined));
   }
 
   /** The version the Bug was found in, free text, or null for none. */
@@ -156,7 +155,9 @@ export class TasksController {
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(foundInVersionChangeSchema)) { foundInVersion }: FoundInVersionChange,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.changeFoundInVersion(id, foundInVersion ?? undefined));
+    return this.responses.task(
+      await this.tasks.changeFoundInVersion(id, foundInVersion ?? undefined),
+    );
   }
 
   /** The user's Description, until the Task starts. */
@@ -165,7 +166,7 @@ export class TasksController {
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(descriptionChangeSchema)) { description }: DescriptionChange,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.changeDescription(id, description));
+    return this.responses.task(await this.tasks.changeDescription(id, description));
   }
 
   /** The user's commit message, until Publish lands it (spec §2.3). */
@@ -174,7 +175,19 @@ export class TasksController {
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(commitMessageChangeSchema)) { message }: CommitMessageChange,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.changeCommitMessage(id, message));
+    return this.responses.task(await this.tasks.changeCommitMessage(id, message));
+  }
+
+  /**
+   * The Task's own engine and model (spec 5.4.5), null for none, in any state but Done and Dropped;
+   * refused when a Role of its Pipeline couldn't run on it.
+   */
+  @Put(":id/engine")
+  async setEngine(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(workEngineChangeSchema)) { engine }: WorkEngineChange,
+  ): Promise<TaskResponse> {
+    return this.responses.task(await this.tasks.setEngine(id, engine));
   }
 
   @Put(":id/tags")
@@ -182,7 +195,7 @@ export class TasksController {
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(tagsChangeSchema)) { tags }: TagsChange,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.changeTags(id, tags));
+    return this.responses.task(await this.tasks.changeTags(id, tags));
   }
 
   @Put(":id/place")
@@ -194,7 +207,7 @@ export class TasksController {
       above: above ?? undefined,
       below: below ?? undefined,
     });
-    return toTaskResponse(task);
+    return this.responses.task(task);
   }
 
   /**
@@ -207,7 +220,7 @@ export class TasksController {
     @Param("id", ParseUUIDPipe) id: string,
     @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.planning.plan(id, authorOf(signedIn)));
+    return this.responses.task(await this.planning.plan(id, authorOf(signedIn)));
   }
 
   /**
@@ -221,7 +234,7 @@ export class TasksController {
     @Body(new ContractPipe(makeAPlanSchema)) { autoMode }: MakeAPlan,
     @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.planning.makeAPlan(id, autoMode, authorOf(signedIn)));
+    return this.responses.task(await this.planning.makeAPlan(id, autoMode, authorOf(signedIn)));
   }
 
   /** Save: the user's Plan, unconfirmed once changed; a change moves a Ready Task to Backlog. */
@@ -231,14 +244,14 @@ export class TasksController {
     @Body(new ContractPipe(planChangeSchema)) change: PlanChange,
     @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.planning.savePlan(id, change, authorOf(signedIn)));
+    return this.responses.task(await this.planning.savePlan(id, change, authorOf(signedIn)));
   }
 
   /** Confirm: the Plan as it reads. */
   @Post(":id/plan/confirm")
   @HttpCode(HttpStatus.OK)
   async confirmPlan(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
-    return toTaskResponse(await this.planning.confirmPlan(id));
+    return this.responses.task(await this.planning.confirmPlan(id));
   }
 
   /** Save, as with the Plan. */
@@ -249,7 +262,7 @@ export class TasksController {
     { definitionOfDone }: DefinitionOfDoneChange,
     @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(
+    return this.responses.task(
       await this.planning.saveDefinitionOfDone(id, definitionOfDone, authorOf(signedIn)),
     );
   }
@@ -258,7 +271,7 @@ export class TasksController {
   @Post(":id/definition-of-done/confirm")
   @HttpCode(HttpStatus.OK)
   async confirmDefinitionOfDone(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
-    return toTaskResponse(await this.planning.confirmDefinitionOfDone(id));
+    return this.responses.task(await this.planning.confirmDefinitionOfDone(id));
   }
 
   /** The Task's Pipeline, set by the user: the proposed one confirmed, or another. */
@@ -267,7 +280,7 @@ export class TasksController {
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(pipelineChangeSchema)) { pipelineId }: PipelineChange,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.planning.confirmPipeline(id, pipelineId));
+    return this.responses.task(await this.planning.confirmPipeline(id, pipelineId));
   }
 
   /**
@@ -287,7 +300,7 @@ export class TasksController {
     { confirmPlanAndDefinitionOfDone = false }: MarkReadyRequest,
     @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(
+    return this.responses.task(
       await this.planning.markReady(id, authorOf(signedIn), { confirmPlanAndDefinitionOfDone }),
     );
   }
@@ -352,10 +365,10 @@ export class TasksController {
       authorOf(signedIn),
     );
     if (starting.kind === "started") {
-      return { task: toTaskResponse(starting.change.task), queued: null };
+      return { task: await this.responses.task(starting.change.task), queued: null };
     }
     const queued = toQueueResponse(await this.queue.list()).find(({ taskId }) => taskId === id);
-    return { task: toTaskResponse(await this.tasks.read(id)), queued: queued ?? null };
+    return { task: await this.responses.task(await this.tasks.read(id)), queued: queued ?? null };
   }
 
   /** Pause: the Task is held, its running Stage once the Agent's current turn ends. */
@@ -365,7 +378,7 @@ export class TasksController {
     @Param("id", ParseUUIDPipe) id: string,
     @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.pause(id, authorOf(signedIn)));
+    return this.responses.task(await this.tasks.pause(id, authorOf(signedIn)));
   }
 
   /** Stop: the Stage running now is interrupted, its uncommitted edits discarded, the Task held. */
@@ -375,7 +388,7 @@ export class TasksController {
     @Param("id", ParseUUIDPipe) id: string,
     @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.stop(id, authorOf(signedIn)));
+    return this.responses.task(await this.tasks.stop(id, authorOf(signedIn)));
   }
 
   /** Resume: a Paused Task goes on through the Context policy. */
@@ -385,7 +398,7 @@ export class TasksController {
     @Param("id", ParseUUIDPipe) id: string,
     @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.resume(id, authorOf(signedIn)));
+    return this.responses.task(await this.tasks.resume(id, authorOf(signedIn)));
   }
 
   /** Drop, with the reason the user gave, if any; no body is a Drop with no reason. */
@@ -396,7 +409,7 @@ export class TasksController {
     @Body(new ContractPipe(dropSchema.optional())) body: Drop | undefined,
     @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.drop(id, authorOf(signedIn), body?.reason));
+    return this.responses.task(await this.tasks.drop(id, authorOf(signedIn), body?.reason));
   }
 
   /** Archive: a Done or Dropped Task leaves the board, its state as it was. */
@@ -406,7 +419,7 @@ export class TasksController {
     @Param("id", ParseUUIDPipe) id: string,
     @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.archive(id, authorOf(signedIn)));
+    return this.responses.task(await this.tasks.archive(id, authorOf(signedIn)));
   }
 
   /** Restore: an archived Task returns to the board in the state it had. */
@@ -416,7 +429,7 @@ export class TasksController {
     @Param("id", ParseUUIDPipe) id: string,
     @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.restore(id, authorOf(signedIn)));
+    return this.responses.task(await this.tasks.restore(id, authorOf(signedIn)));
   }
 
   /** Move's check: every reason the Task can't move to another Project now. */
@@ -436,6 +449,6 @@ export class TasksController {
     @Body(new ContractPipe(taskMoveSchema)) { projectId }: TaskMove,
     @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.tasks.move(id, projectId, authorOf(signedIn)));
+    return this.responses.task(await this.tasks.move(id, projectId, authorOf(signedIn)));
   }
 }

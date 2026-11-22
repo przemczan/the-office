@@ -574,10 +574,10 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
 
 ## Engine
 
-- Card **Engine** (cpu icon); note "The most specific level wins: the Project's Role overrides, then the Role overrides on the Role cards, then the Project default, then the Office default."
+- Card **Engine** (cpu icon); note "The most specific level wins: the Project's Role overrides, then the Role overrides on the Role cards, then a Task's engine, then its Initiative's engine, then the Project default, then the Office default."
 - Every change saves at once; while one saves, the controls are disabled; a refusal shows under the block until the next change.
 - **Project default**: the engine and model pair (the same fields as the Role card); the "Office default" choice clears it and is offered only while **Use for every Role** is off. Toasts "Project default saved for <name>." / "<name> has no Project default now."
-- **Use for every Role** switch: disabled with "Pick a Project default first." while there is no Project default; otherwise "The Project default wins over the Role overrides on the Role cards; the Project's Role overrides still apply." Toasts "Every Role in <name> runs on its Project default, past their Role overrides." / "Role overrides apply in <name> again."
+- **Use for every Role** switch: disabled with "Pick a Project default first." while there is no Project default; otherwise "The Project default wins over the Role overrides on the Role cards, and so does a Task's or an Initiative's engine set in its place; the Project's Role overrides still apply." Toasts "Every Role in <name> runs on its Project default, past their Role overrides." / "Role overrides apply in <name> again."
 - **Role overrides in this Project**: a list of rows, each a Role name, its engine and model pair and **Remove**; below it **Add a Role override** (a group: **Role** select, "Pick a Role"; the engine and model pair, starting from the first engine's default model; **Add**), offering only Roles not let go and not already overridden. Toasts "<Role> has a Role override in <name>." / "<Role>'s Role override in <name> is removed."
 - The engines offered are the Role card's options.
 

@@ -31,6 +31,8 @@ function aTask(id: string, archivedAt: string | null): Task {
     proposedPipeline: null,
     blockedBy: [],
     originIdeaId: null,
+    engine: null,
+    initiativeEngine: null,
     initiativeId: null,
     madeFor: null,
     resolvesTaskId: null,

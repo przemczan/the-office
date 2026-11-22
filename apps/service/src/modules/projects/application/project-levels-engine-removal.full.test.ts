@@ -174,10 +174,11 @@ describe("removing an engine a Project's levels name", () => {
     const project = { id, name };
     expect(preview).toEqual({
       moves: [
-        { roleKey: null, project, from: ON_RACING, to: moved.projectDefault },
+        { roleKey: null, project, work: null, from: ON_RACING, to: moved.projectDefault },
         {
           roleKey: "developer",
           project,
+          work: null,
           from: { engineId: RACING.id, model: "claude-opus-5-5" },
           to: { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-opus-5-5" },
         },

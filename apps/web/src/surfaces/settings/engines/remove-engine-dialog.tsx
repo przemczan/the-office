@@ -5,7 +5,9 @@ import { useState, type ReactNode } from "react";
 import { engineRemovalQuery, removeEngine } from "../../../api/engine.ts";
 import { roleQueries } from "../../../api/people.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
+import { TaskStateBadge } from "../../../shell/work/task-state-badge.tsx";
 import {
+  endedStateOf,
   movedReferenceChange,
   movedReferencePlace,
   suggestedReplacement,
@@ -133,12 +135,18 @@ function RemovalMoves({
         <p className="dialog-text">Nothing names {name}.</p>
       ) : (
         <ul className="engine-removal-moves" aria-label="What moves">
-          {preview.moves.map((move) => (
-            <li key={`${move.roleKey ?? ""}/${move.project?.id ?? ""}`}>
-              <span className="engine-removal-place">{describePlace(move)}</span>
-              <span>{describeChange(move)}</span>
-            </li>
-          ))}
+          {preview.moves.map((move) => {
+            const ended = endedStateOf(move);
+            return (
+              <li key={`${move.work?.id ?? ""}/${move.roleKey ?? ""}/${move.project?.id ?? ""}`}>
+                <span className="engine-removal-place">
+                  {describePlace(move)}
+                  {ended && <TaskStateBadge state={ended} />}
+                </span>
+                <span>{describeChange(move)}</span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </>

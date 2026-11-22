@@ -39,6 +39,7 @@ const ACTIVE: Initiative = {
   planningAutoMode: false,
   pipelines: [],
   shortName: null,
+  engine: null,
   branches: [],
 };
 const PAUSED: Initiative = { ...ACTIVE, pausedAt: "2026-11-12T12:00:00.000Z" };

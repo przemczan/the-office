@@ -49,6 +49,7 @@ const INITIATIVE: Initiative = {
   planningAutoMode: false,
   pipelines: [],
   shortName: null,
+  engine: null,
   branches: [],
 };
 
@@ -83,6 +84,8 @@ function aTask(id: string, fields: Partial<Task> = {}): Task {
     proposedPipeline: null,
     blockedBy: [],
     originIdeaId: null,
+    engine: null,
+    initiativeEngine: null,
     initiativeId: INITIATIVE.id,
     madeFor: null,
     resolvesTaskId: null,

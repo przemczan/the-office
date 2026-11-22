@@ -1,4 +1,5 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
+import type { EngineModel } from "../../engine/index.js";
 import type { Initiative, InitiativeState } from "./initiative.js";
 
 export class InitiativeCreated extends DomainEvent {
@@ -81,6 +82,16 @@ export class InitiativePipelinesSet extends DomainEvent {
     readonly initiativeId: string,
     readonly pipelines: readonly { readonly projectId: string; readonly pipelineId: string }[],
     readonly shortName: string | undefined,
+  ) {
+    super();
+  }
+}
+
+/** The Initiative's engine and model was set, or cleared with null (spec 5.4.5). */
+export class InitiativeEngineSet extends DomainEvent {
+  constructor(
+    readonly initiativeId: string,
+    readonly engine: EngineModel | null,
   ) {
     super();
   }

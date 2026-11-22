@@ -36,7 +36,16 @@ export {
 export { TaskRecords } from "./application/task-records.js";
 export type { EngineStandIn } from "./domain/stand-ins-at-start.js";
 export { TaskStageEdits, type TaskStageEditLookup } from "./application/task-stage-edits.js";
+export {
+  TaskEngineChecks,
+  type TaskEngineChange,
+  type TaskEngineCheck,
+  type TaskEngineLevels,
+  type TaskEngineMove,
+} from "./application/task-engine-checks.js";
 export { TaskService } from "./application/task-service.js";
+export { WorkEngineLevels } from "./adapters/people/work-engine-levels.js";
+export { WorkEngineLevelsModule } from "./work-engine-levels.module.js";
 export { UsageWindowResumes } from "./application/usage-window-resumes.js";
 export {
   AttachmentAdded,

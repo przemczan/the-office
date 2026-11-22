@@ -1,6 +1,7 @@
 import type { Role } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
+  endedStateOf,
   movedReferenceChange,
   movedReferencePlace,
   suggestedReplacement,
@@ -18,23 +19,56 @@ const SHOP = { id: "p1", name: "Shop" };
 
 describe("where a removal moves a reference", () => {
   it("names each level", () => {
-    expect(movedReferencePlace({ roleKey: null, project: null }, ROLES)).toBe("The Office default");
-    expect(movedReferencePlace({ roleKey: null, project: SHOP }, ROLES)).toBe(
+    expect(movedReferencePlace({ roleKey: null, project: null, work: null }, ROLES)).toBe(
+      "The Office default",
+    );
+    expect(movedReferencePlace({ roleKey: null, project: SHOP, work: null }, ROLES)).toBe(
       "The Project default of Shop",
     );
-    expect(movedReferencePlace({ roleKey: "data-analyst", project: null }, ROLES)).toBe(
+    expect(movedReferencePlace({ roleKey: "data-analyst", project: null, work: null }, ROLES)).toBe(
       "The Role override of Mia · Data Analyst",
     );
-    expect(movedReferencePlace({ roleKey: "data-analyst", project: SHOP }, ROLES)).toBe(
+    expect(movedReferencePlace({ roleKey: "data-analyst", project: SHOP, work: null }, ROLES)).toBe(
       "The Role override of Mia · Data Analyst in Shop",
     );
   });
 
+  it("names a Task's and an Initiative's engine by the record", () => {
+    const task = {
+      kind: "task" as const,
+      id: "t1",
+      name: "Export Stats as CSV",
+      state: "ready" as const,
+    };
+    const initiative = {
+      kind: "initiative" as const,
+      id: "i1",
+      name: "Usage reports",
+      state: "active" as const,
+    };
+    expect(movedReferencePlace({ roleKey: null, project: SHOP, work: task }, ROLES)).toBe(
+      "The engine of the Task “Export Stats as CSV”",
+    );
+    expect(movedReferencePlace({ roleKey: null, project: SHOP, work: initiative }, ROLES)).toBe(
+      "The engine of the Initiative “Usage reports”",
+    );
+  });
+
+  it("marks a Task or an Initiative Done or Dropped, and no open one", () => {
+    const task = { kind: "task" as const, id: "t1", name: "Export Stats as CSV" };
+    const initiative = { kind: "initiative" as const, id: "i1", name: "Usage reports" };
+    expect(endedStateOf({ work: { ...task, state: "done" } })).toBe("done");
+    expect(endedStateOf({ work: { ...initiative, state: "dropped" } })).toBe("dropped");
+    expect(endedStateOf({ work: { ...task, state: "waiting-on-you" } })).toBeNull();
+    expect(endedStateOf({ work: { ...initiative, state: "active" } })).toBeNull();
+    expect(endedStateOf({ work: null })).toBeNull();
+  });
+
   it("marks a person let go, and falls back to the key for a Role not read", () => {
-    expect(movedReferencePlace({ roleKey: "reviewer", project: null }, ROLES)).toBe(
+    expect(movedReferencePlace({ roleKey: "reviewer", project: null, work: null }, ROLES)).toBe(
       "The Role override of Rex · Reviewer (let go)",
     );
-    expect(movedReferencePlace({ roleKey: "planner", project: null }, undefined)).toBe(
+    expect(movedReferencePlace({ roleKey: "planner", project: null, work: null }, undefined)).toBe(
       "The Role override of planner",
     );
   });

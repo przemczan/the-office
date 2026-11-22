@@ -1,5 +1,10 @@
 import type { EngineCapability, EngineModel } from "../../engine/index.js";
-import { engineInCascade, type ProjectCascadeLevels } from "./engine-cascade.js";
+import {
+  engineInCascade,
+  NO_WORK_LEVELS,
+  type ProjectCascadeLevels,
+  type WorkCascadeLevels,
+} from "./engine-cascade.js";
 
 /**
  * What a Role a Pipeline names needs of its engine: an Agent Stage gives its session Office tools
@@ -26,18 +31,19 @@ export interface RoleOnIncapableEngine {
 }
 
 /**
- * The Roles of `roles` whose engine in the cascade, in `project` or in no Project, lacks a
- * capability their Agent Stages need; a Role on no engine, with none listed, lacks nothing here.
- * `missingCapabilities` gives what an engine can't do.
+ * The Roles of `roles` whose engine in the cascade, in `project` or in no Project, and on a Task or
+ * an Initiative setting `work`, lacks a capability their Agent Stages need; a Role on no engine,
+ * with none listed, lacks nothing here. `missingCapabilities` gives what an engine can't do.
  */
 export function rolesOnIncapableEngines(
   roles: readonly PipelineRole[],
   officeDefault: EngineModel | null,
   project: ProjectCascadeLevels | undefined,
   missingCapabilities: (engineId: string) => readonly EngineCapability[],
+  work: WorkCascadeLevels = NO_WORK_LEVELS,
 ): RoleOnIncapableEngine[] {
   return roles.flatMap(({ roleKey, roleOverride }) => {
-    const applying = engineInCascade(roleKey, { officeDefault, roleOverride, project });
+    const applying = engineInCascade(roleKey, { officeDefault, roleOverride, project, work });
     if (applying === null) return [];
     const { engineId } = applying;
     const missing = PIPELINE_ROLE_CAPABILITIES.filter((capability) =>
@@ -56,12 +62,27 @@ export function newlyOnIncapableEngines(
   return after.filter(({ roleKey }) => !already.has(roleKey));
 }
 
+/** Those of `found` once each: the same Role on the same engine, found on several Tasks. */
+export function eachRoleOnEngineOnce(
+  found: readonly RoleOnIncapableEngine[],
+): RoleOnIncapableEngine[] {
+  const seen = new Set<string>();
+  return found.filter(({ roleKey, engineId }) => {
+    const key = JSON.stringify([roleKey, engineId]);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 /** How the refusal names Roles, engines and the place they would run in. */
 export interface IncapableEngineNames {
   readonly roleTitle: (roleKey: string) => string;
   readonly engineName: (engineId: string) => string;
   /** The Project's name, or undefined outside any Project. */
   readonly projectName: string | undefined;
+  /** The place in words, as "On “Fix the login”", in place of the Project's. */
+  readonly place?: string;
 }
 
 const MISSING_CAPABILITY_WORDS: Readonly<Record<PipelineRoleCapability, string>> = {
@@ -75,9 +96,10 @@ const OR = new Intl.ListFormat("en", { type: "disjunction" });
 /** One refusal for each engine, naming the Roles that would run on it and what it lacks. */
 export function incapableEngineProblems(
   found: readonly RoleOnIncapableEngine[],
-  { roleTitle, engineName, projectName }: IncapableEngineNames,
+  { roleTitle, engineName, projectName, place: placeWords }: IncapableEngineNames,
 ): string[] {
-  const place = projectName === undefined ? "Outside any Project" : `In ${projectName}`;
+  const place =
+    placeWords ?? (projectName === undefined ? "Outside any Project" : `In ${projectName}`);
   const engineIds = [...new Set(found.map(({ engineId }) => engineId))];
   return engineIds.map((engineId) => {
     const onEngine = found.filter((each) => each.engineId === engineId);

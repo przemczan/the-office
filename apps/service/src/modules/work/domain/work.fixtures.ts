@@ -47,6 +47,7 @@ export function anInitiative(fields: Partial<Initiative> = {}): Initiative {
     planningWithUser: false,
     pipelines: [],
     branches: [],
+    engine: null,
     ...fields,
   };
 }
@@ -102,6 +103,7 @@ export function aTask(fields: Partial<Task> = {}): Task {
     foundWhileWorkingOn: undefined,
     dropReason: undefined,
     createdByTheOffice: false,
+    engine: null,
     ...fields,
   };
 }

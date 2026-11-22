@@ -89,7 +89,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 ### E
 
 - **End, Final Stage**: [2.3.1 How a Stage ends](2.3.1-stages.md#how-a-stage-ends); [2.3.2 The Pipeline's order](2.3.2-flows.md#the-pipelines-order)
-- **Engine, Office default, Project default, Role override**: [5.4.5 Engines are a list](5.4.5-engines-and-cascade.md#engines-are-a-list); [5.4.5 The engine cascade](5.4.5-engines-and-cascade.md#the-engine-cascade); screen: [Settings › Engines](screens/settings.md#engines)
+- **Engine, Office default, Project default, Task's engine, Initiative's engine, Role override**: [5.4.5 Engines are a list](5.4.5-engines-and-cascade.md#engines-are-a-list); [5.4.5 The engine cascade](5.4.5-engines-and-cascade.md#the-engine-cascade); [2.1.3 A Task's engine](2.1.3-tasks.md#a-tasks-engine); [2.1.4 An Initiative's engine](2.1.4-initiatives.md#an-initiatives-engine); screen: [Settings › Engines](screens/settings.md#engines)
 
 ### F
 
@@ -430,6 +430,7 @@ Where each default lives, by page:
   - [The user writes the outcome](2.1.4-initiatives.md#the-user-writes-the-outcome)
   - [An Initiative is done](2.1.4-initiatives.md#an-initiative-is-done)
   - [An Initiative's Pipeline](2.1.4-initiatives.md#an-initiatives-pipeline)
+  - [An Initiative's engine](2.1.4-initiatives.md#an-initiatives-engine)
   - [Back to Shaping](2.1.4-initiatives.md#back-to-shaping)
   - [Publishing Tasks](2.1.4-initiatives.md#publishing-tasks)
   - [Start Ready Tasks](2.1.4-initiatives.md#start-ready-tasks)

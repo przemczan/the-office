@@ -70,7 +70,12 @@ import {
   type MessageDraft,
   type MessageImage,
 } from "../domain/message.js";
-import type { SessionStandIn, Thread, ThreadSession } from "../domain/thread.js";
+import {
+  cascadeLocationOf,
+  type SessionStandIn,
+  type Thread,
+  type ThreadSession,
+} from "../domain/thread.js";
 import type { UserRef } from "../domain/user.js";
 import {
   answerDecision,
@@ -920,9 +925,9 @@ export class ThreadRunner implements OnModuleDestroy {
 
   /**
    * The Context policy's move for the Thread's next message, the session it opens, if any, and the
-   * model it runs on: the engine cascade's for the Thread's Project, where it has one. A resumed
-   * session keeps its engine, card version and Office instructions; a changed engine starts the
-   * Thread fresh.
+   * model it runs on: the engine cascade's resolved for the Thread's home (its Task or Initiative)
+   * and Project, where it has one. A resumed session keeps its engine, card version and Office
+   * instructions and takes the cascade's model; a changed engine starts the Thread fresh.
    */
   private async moveFor(
     thread: Thread,
@@ -937,7 +942,7 @@ export class ThreadRunner implements OnModuleDestroy {
     readonly newSession: ThreadSession | undefined;
   }> {
     const applying = await this.engineCascade
-      .of(thread.roleKey, place.project?.id)
+      .of(thread.roleKey, cascadeLocationOf(thread.home, place.project?.id))
       .catch(refusedWithoutEngine);
     const decision = decideContext(
       {

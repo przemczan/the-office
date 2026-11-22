@@ -34,6 +34,7 @@ import {
   startCheckSchema,
   taskMoveCheckSchema,
   taskListSchema,
+  taskEngineCascadeSchema,
   taskSchema,
   taskUsageEstimateListSchema,
   usageSettingsSchema,
@@ -47,6 +48,7 @@ import {
   type IdeaEdit,
   type IdeaShaping,
   type DropReason,
+  type EngineModel,
   type TaskKind,
   type MarkReadyRequest,
   type NewIdea,
@@ -95,6 +97,7 @@ import {
 import { attachmentCopiesOf } from "./attachment-copies.ts";
 import { pagedQueryOptions } from "./pages.ts";
 import type { EventCacheUpdates, EventInvalidations } from "./event-stream-provider.tsx";
+import { ENGINE_CASCADE, taskEngineCascadeKey } from "./people.ts";
 import { RUN_ENVIRONMENTS, TEST_TARGETS_SET_UPS } from "./projects.ts";
 
 const IDEAS = ["ideas"] as const;
@@ -309,6 +312,13 @@ export const taskQueries = {
     queryOptions({
       queryKey: [...TASKS, id],
       queryFn: ({ signal }) => getFromApi(taskPath(id), taskSchema, signal),
+    }),
+  /** What the Planner and each Role the Task's Stages name run on for it, and the level it comes from. */
+  engineCascade: (id: string) =>
+    queryOptions({
+      queryKey: taskEngineCascadeKey(id),
+      queryFn: ({ signal }) =>
+        getFromApi(`${taskPath(id)}/engine-cascade`, taskEngineCascadeSchema, signal),
     }),
   /**
    * The queue for Start, first place first; under the Tasks' key, so any Task event refreshes it.
@@ -608,6 +618,19 @@ export function changeCommitMessage(id: string, message: string): Promise<Task> 
   return sendToApi("PUT", `${taskPath(id)}/commit-message`, { message }, taskSchema);
 }
 
+/** The Task's engine and model, until Done or Dropped; null leaves none. */
+export function changeTaskEngine(id: string, engine: EngineModel | null): Promise<Task> {
+  return sendToApi("PUT", `${taskPath(id)}/engine`, { engine }, taskSchema);
+}
+
+/** The Initiative's engine and model, until Done or Dropped; null leaves none. */
+export function changeInitiativeEngine(
+  id: string,
+  engine: EngineModel | null,
+): Promise<Initiative> {
+  return sendToApi("PUT", `${initiativePath(id)}/engine`, { engine }, initiativeSchema);
+}
+
 /** Plan with whoever holds Plans: the Task moves to Planning, and its planning Thread opens. */
 export function planTask(id: string): Promise<Task> {
   return sendToApi("POST", `${taskPath(id)}/planning`, {}, taskSchema);
@@ -847,6 +870,8 @@ export const workEventInvalidations: Readonly<
   "initiative.outcome-written": () => [INITIATIVES],
   "initiative.pipeline-chosen": () => [INITIATIVES],
   "initiative.pipelines-set": () => [INITIATIVES],
+  // Its Tasks that set none take it, and so does what their Roles run on.
+  "initiative.engine-set": () => [INITIATIVES, TASKS, ENGINE_CASCADE],
   "initiative.short-name-written": () => [INITIATIVES],
   "initiative.branch-made": () => [INITIATIVES],
   "initiative.branch-deleted": () => [INITIATIVES],
@@ -890,18 +915,26 @@ export const workEventInvalidations: Readonly<
   "task.dependency-added": () => [TASKS],
   "task.dependency-removed": () => [TASKS],
   // An Initiative's Tasks and Projects are its Tasks'.
-  "task.added-to-initiative": () => [TASKS, INITIATIVES],
-  "task.taken-out-of-initiative": () => [TASKS, INITIATIVES],
-  // An Initiative's Projects are its Tasks'.
-  "task.moved-to-project": () => [TASKS, INITIATIVES],
+  // An Initiative's engine applies to its Tasks, so what their Roles run on changes too.
+  "task.added-to-initiative": () => [TASKS, INITIATIVES, ENGINE_CASCADE],
+  "task.taken-out-of-initiative": () => [TASKS, INITIATIVES, ENGINE_CASCADE],
+  // An Initiative's Projects are its Tasks', and a Project's levels apply to them.
+  "task.moved-to-project": () => [TASKS, INITIATIVES, ENGINE_CASCADE],
   "task.plan-proposed": () => [TASKS],
   "task.plan-saved": () => [TASKS],
+  "task.engine-set": (event) => [
+    TASKS,
+    "taskId" in event && typeof event.taskId === "string"
+      ? taskEngineCascadeKey(event.taskId)
+      : ENGINE_CASCADE,
+  ],
   "task.plan-confirmed": () => [TASKS],
   "task.definition-of-done-proposed": () => [TASKS],
   "task.definition-of-done-saved": () => [TASKS],
   "task.definition-of-done-confirmed": () => [TASKS],
   "task.pipeline-proposed": () => [TASKS],
-  "task.pipeline-confirmed": () => [TASKS],
+  // Its Pipeline names the Roles that run on it.
+  "task.pipeline-confirmed": () => [TASKS, ENGINE_CASCADE],
   "attachment.added": () => [ATTACHMENTS, SEARCH],
   "attachment.moved": () => [ATTACHMENTS, SEARCH],
   "attachment.removed": () => [ATTACHMENTS, SEARCH],

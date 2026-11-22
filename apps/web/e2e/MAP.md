@@ -68,6 +68,7 @@
 - `top-bar.ts`: createFromTopBar, openUserMenu
 - `updates.e2e.ts`
 - `users.e2e.ts`
+- `work-engine.e2e.ts`
 - `work.e2e.ts`
 - `workers.ts`: e2eWorkers
 

@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { EngineReferenceLock } from "../../engine/index.js";
 import type { Author } from "../domain/author.js";
 import type { Initiative } from "../domain/initiative.js";
 import {
@@ -11,11 +12,18 @@ import {
 import { InitiativeNotFound } from "../domain/initiative-not-found.js";
 import type { Task } from "../domain/task.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
-import type { TaskAddedToInitiative, TaskTakenOutOfInitiative } from "../domain/task-events.js";
+import {
+  TaskInitiativeEngineChanged,
+  type TaskAddedToInitiative,
+  type TaskTakenOutOfInitiative,
+} from "../domain/task-events.js";
+import { TaskRefused } from "../domain/task-refused.js";
+import { inheritedEngineMoves, inInitiative } from "../domain/work-engine.js";
 import { InitiativeRepository } from "../ports/initiative-repository.js";
 import { ProjectWorktrees } from "../ports/project-worktrees.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { InitiativeBranching } from "./initiative-branching.js";
+import { TaskEngineChecks } from "./task-engine-checks.js";
 
 /**
  * An existing Task joins an Initiative or leaves it (spec 2.1, "Initiatives"), by the user's click
@@ -31,6 +39,8 @@ export class InitiativeMembership {
     private readonly branching: InitiativeBranching,
     private readonly worktrees: ProjectWorktrees,
     private readonly events: EventBus,
+    private readonly engineChecks: TaskEngineChecks,
+    private readonly engineReferences: EngineReferenceLock,
   ) {}
 
   /**
@@ -45,8 +55,9 @@ export class InitiativeMembership {
     const grounds = { worktreeExists: await this.worktreeExists(task) };
     // Every Task: the Publishing Task's new dependency is checked for a cycle across the board.
     addToInitiative(initiative, task, await this.tasks.list(), grounds, by);
+    await this.refuseEngineMove(initiative, task, "joins");
     await this.branching.forNewProject(initiativeId, task.projectId);
-    return this.change(initiativeId, taskId, async (held, heldTask, everyTask) =>
+    return this.change(initiativeId, taskId, "joins", async (held, heldTask, everyTask) =>
       addToInitiative(
         held,
         heldTask,
@@ -59,7 +70,7 @@ export class InitiativeMembership {
 
   /** The Task leaves the Initiative, judged holding both, with the worktree read in the hold. */
   async takeOut(initiativeId: string, taskId: string, by: Author): Promise<Task> {
-    return this.change(initiativeId, taskId, async (held, heldTask, everyTask) =>
+    return this.change(initiativeId, taskId, "leaves", async (held, heldTask, everyTask) =>
       takeOutOfInitiative(
         held,
         heldTask,
@@ -70,23 +81,63 @@ export class InitiativeMembership {
     );
   }
 
+  /**
+   * Saves the join or the leave under Engine's `EngineReferenceLock`, so an engine's removal or a
+   * change of the Initiative's engine can't come in between the capability check, weighed on the
+   * Initiative and the Task read again in the hold, and the write; the events are published after.
+   */
   private async change<Event extends TaskAddedToInitiative | TaskTakenOutOfInitiative>(
     initiativeId: string,
     taskId: string,
+    move: "joins" | "leaves",
     change: (
       initiative: Initiative,
       task: Task,
       tasks: readonly Task[],
     ) => Promise<InitiativeMembershipChange<Event> | undefined>,
   ): Promise<Task> {
-    const changed = await this.initiatives.changeMembership(initiativeId, taskId, change);
+    const { changed, initiative } = await this.engineReferences.holding(async () => {
+      const [held, heldTask] = await Promise.all([
+        this.initiative(initiativeId),
+        this.task(taskId),
+      ]);
+      if (move === "joins" || heldTask.initiativeId === initiativeId) {
+        await this.refuseEngineMove(held, heldTask, move);
+      }
+      const saved = await this.initiatives.changeMembership(initiativeId, taskId, change);
+      return { changed: saved, initiative: saved && (await this.initiatives.find(initiativeId)) };
+    });
     if (!changed) return this.task(taskId);
     const { task, publishing } = changed;
     const events: DomainEvent[] = [task.event];
     if (task.event.stateChanged) events.push(task.event.stateChanged);
     if (publishing) events.push(publishing.event);
+    if (initiative?.engine) {
+      const inherited = task.task.initiativeId === initiativeId ? initiative.engine : null;
+      events.push(new TaskInitiativeEngineChanged(taskId, inherited));
+    }
     for (const event of events) await this.events.publish(event);
     return task.task;
+  }
+
+  /**
+   * Refuses the Task joining or leaving the Initiative with the capability check's reasons when
+   * the Initiative's engine, which it runs on while it sets none, would leave a Role of its
+   * Pipeline on an engine that can't run it (spec 5.4.5). Nothing to check when the Initiative sets
+   * no engine, or the Task sets its own or is Done or Dropped.
+   */
+  private async refuseEngineMove(
+    initiative: Initiative,
+    task: Task,
+    move: "joins" | "leaves",
+  ): Promise<void> {
+    const [before, after] =
+      move === "joins" ? [null, initiative.engine] : [initiative.engine, null];
+    const problems = await this.engineChecks.problemsOf({
+      place: inInitiative(initiative),
+      moves: inheritedEngineMoves([task], before, after),
+    });
+    if (problems.length > 0) throw new TaskRefused([...problems]);
   }
 
   private async initiative(id: string): Promise<Initiative> {

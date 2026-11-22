@@ -16,6 +16,7 @@ import { aRoleCard } from "../../domain/role.fixtures.js";
 import { ANN_LEE } from "../../domain/user.fixtures.js";
 import { EngineCascadeModule } from "../../engine-cascade.module.js";
 import { KnownProjectLevels } from "../../ports/known-project-levels.js";
+import { WorkLevelsForTests } from "../../ports/known-work-levels.fixtures.js";
 import { ProjectLevelsSaves } from "../../ports/project-levels-saves.js";
 
 const haiku = { engineId: "claude-code", model: "claude-haiku-5-5" };
@@ -56,7 +57,10 @@ class NoChecks implements ProjectLevelsSaves {
   register(): void {}
 }
 
-@Module({ providers: [TwoProjects, NoChecks], exports: [TwoProjects, NoChecks] })
+@Module({
+  providers: [TwoProjects, NoChecks, WorkLevelsForTests],
+  exports: [TwoProjects, NoChecks, WorkLevelsForTests],
+})
 class TwoProjectsModule {}
 
 let officeData: string;
@@ -75,6 +79,7 @@ beforeEach(async () => {
       EngineCascadeModule.register({
         imports: [TwoProjectsModule],
         knownProjectLevels: TwoProjects,
+        knownWorkLevels: WorkLevelsForTests,
         projectLevelsSaves: NoChecks,
       }),
     ],

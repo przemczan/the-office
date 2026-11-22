@@ -29,6 +29,7 @@ function anInitiative(id: string, state: Initiative["state"]): Initiative {
     planningAutoMode: false,
     pipelines: [],
     shortName: null,
+    engine: null,
     branches: [],
   };
 }

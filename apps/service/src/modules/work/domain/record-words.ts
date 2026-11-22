@@ -20,6 +20,7 @@ import { pullRequestEndWords } from "./task-pull-request.js";
 import { TASK_KIND_NAMES } from "./task-kind-words.js";
 import { TASK_STATE_NAMES } from "./task-states.js";
 import { confirmationWords } from "./written-parts.js";
+import { initiativeEngineLines, taskEngineLines, type EngineNames } from "./work-engine.js";
 
 /** A Handover note with the Stage and the Role whose person wrote it. */
 export interface HandoverNote {
@@ -61,6 +62,8 @@ export interface TaskRecordParts {
   readonly decisionsWaiting: readonly DecisionWaitingOnTheUser[];
   /** One line per Connected device that isn't Disconnected; none when it has none. */
   readonly connectedDeviceLines: readonly string[];
+  /** The engines' names its engine is named by; by its id when left out. */
+  readonly engineNames?: EngineNames;
 }
 
 function pipelineWords({ pipelineId }: Task): string {
@@ -83,12 +86,14 @@ export function taskRecordText(
     stateChanges,
     decisionsWaiting,
     connectedDeviceLines,
+    engineNames = new Map(),
   }: TaskRecordParts,
 ): string {
   return [
     `${task.title} (Task ${task.id})`,
     `- Project ${task.projectId}; ${TASK_STATE_NAMES[task.state]}; ${TASK_KIND_NAMES[task.kind]}; ${task.priority} priority; ${pipelineWords(task)}`,
     ...(task.foundInVersion === undefined ? [] : [`- Found in version ${task.foundInVersion}`]),
+    ...taskEngineLines(task, links.initiative?.engine ?? null, engineNames),
     ...(task.state === "planning" && task.autoMode ? ["- Planning in auto mode"] : []),
     ...publishingTaskLines(task, links),
     ...(task.tags.length > 0 ? [`- Tags: ${task.tags.join(", ")}`] : []),
@@ -232,6 +237,8 @@ export interface InitiativeRecord {
   readonly attachments: readonly Attachment[];
   /** The names of the Pipelines it has in its Projects, by id, those the library still has. */
   readonly pipelineNames: ReadonlyMap<string, string>;
+  /** The engines' names its engine is named by; by its id when left out. */
+  readonly engineNames?: EngineNames;
 }
 
 /**
@@ -246,6 +253,7 @@ export function initiativeRecordText({
   blockers,
   attachments,
   pipelineNames,
+  engineNames = new Map(),
 }: InitiativeRecord): string {
   const ordinary = tasks.filter((task) => !isPublishingTask(task));
   const publishing = tasks.filter(isPublishingTask);
@@ -260,6 +268,7 @@ export function initiativeRecordText({
         ]
       : []),
     ...archiveLines(initiative),
+    ...initiativeEngineLines(initiative, engineNames),
     ...initiativePipelineLines(initiative, initiativeProjectIds(tasks), pipelineNames),
     "",
     "Outcome:",

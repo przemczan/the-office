@@ -4513,3 +4513,120 @@ button.initiative-track-body:hover .stage-mark {
   align-items: center;
   gap: 6px;
 }
+
+/* ---- the Task's and the Initiative's Engine fold */
+.work-engine {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 72ch;
+}
+
+.work-engine-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@container page (max-width: 639px) {
+  .work-engine-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.work-engine-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.work-engine-list-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.work-engine-list-title {
+  margin: 0;
+  color: var(--fg-1);
+  font: var(--type-body-sm);
+  font-weight: 600;
+}
+
+.work-engine-list ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.work-engine-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  min-height: 28px;
+}
+
+.work-engine-task-row {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.work-engine-row-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-1);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.work-engine-row-what {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.work-engine-row-engine {
+  color: var(--fg-1);
+}
+
+.work-engine-row-source {
+  color: var(--fg-3);
+  font: var(--type-caption);
+}
+
+.work-engine-row-source.here {
+  color: var(--info-fg);
+}
+
+.work-engine-kept {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+}
+
+.work-engine-kept-row {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.work-engine-kept-row dt {
+  color: var(--fg-2);
+}
+
+.work-engine-kept-row dd {
+  margin: 0;
+}
+
+.work-engine-lock {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}

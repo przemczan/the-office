@@ -18,6 +18,7 @@ import {
   initiativePlanningSchema,
   newInitiativeTaskSchema,
   outcomeChangeSchema,
+  workEngineChangeSchema,
   searchQuerySchema,
   shortNameChangeSchema,
   type ArchivedInitiativesPage,
@@ -29,6 +30,7 @@ import {
   type InitiativePlanningRequest,
   type NewInitiativeTask,
   type OutcomeChange,
+  type WorkEngineChange,
   type ReadyTasksStarted,
   type SearchQuery,
   type ShortNameChange,
@@ -125,6 +127,18 @@ export class InitiativesController {
     @Body(new ContractPipe(outcomeChangeSchema)) { outcome }: OutcomeChange,
   ): Promise<InitiativeResponse> {
     return this.respond(await this.initiatives.writeOutcome(id, outcome, "straight"));
+  }
+
+  /**
+   * The Initiative's engine and model (spec 5.4.5), null for none, while it is shaping or active;
+   * refused when a Role of an open Task's Pipeline couldn't run on it.
+   */
+  @Put(":id/engine")
+  async setEngine(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(workEngineChangeSchema)) { engine }: WorkEngineChange,
+  ): Promise<InitiativeResponse> {
+    return this.respond(await this.initiatives.setEngine(id, engine));
   }
 
   /**
@@ -300,7 +314,8 @@ export class InitiativesController {
     @Body(new ContractPipe(newInitiativeTaskSchema)) { blockedBy, ...given }: NewInitiativeTask,
     @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.initiatives.addTask(id, given, blockedBy, authorOf(signedIn)));
+    const task = await this.initiatives.addTask(id, given, blockedBy, authorOf(signedIn));
+    return toTaskResponse(task, (await this.initiatives.read(id)).engine);
   }
 
   private async respondToPause({

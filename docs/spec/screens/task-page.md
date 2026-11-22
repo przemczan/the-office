@@ -1,6 +1,6 @@
 # Task page
 
-Covers: the Task page's head and actions, the Kind, the drop note, Start and the queue, planning actions, the Needs you card and Before Ready, the Pipeline rail and Stage history, the record's tabs (Overview, Changes, Attachments), the record blocks (the Bug section, the GitHub issue and the Devices section with Use a Project device among them), the Task menu, the Delete branch window, run controls, Gate actions, Conflict resolution, publishing, and the Task's conversation.
+Covers: the Task page's head and actions, the Kind, the drop note, Start and the queue, planning actions, the Needs you card and Before Ready, the Pipeline rail and Stage history, the record's tabs (Overview, Changes, Attachments), the record blocks (the Bug section, the GitHub issue, the Engine fold and the Devices section with Use a Project device among them), the Task menu, the Delete branch window, run controls, Gate actions, Conflict resolution, publishing, and the Task's conversation.
 
 ## Where it is
 
@@ -243,9 +243,9 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 
 ## Overview
 
-- Blocks, top to bottom: **Description**, **Plan**, **Commit message**, **Definition of Done**, **Devices**.
+- Blocks, top to bottom: **Description**, **Plan**, **Commit message**, **Definition of Done**, **Engine**, **Devices**.
 - Each is a fold remembered per Task in this browser; a folded body stays mounted, so an editor keeps what was typed, and **Edit** opens the fold first.
-- Open at the start: Description always; Plan and Definition of Done in Planning; Commit message folded.
+- Open at the start: Description always; Plan and Definition of Done in Planning; Commit message and Engine folded.
 - Each fold's header has an icon, title, a summary line while folded, and its actions.
 
 ### Description
@@ -335,6 +335,17 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - From Start on: the badge and summary "<n> of <m> Reported met", read from the Task's Stages, never worked out here.
 - Empty: "Not written yet." with "<Planner> proposes it while planning, or write it yourself; a Task can't be Ready without one."
 - Refusals: "The Definition of Done wasn't saved", "The Definition of Done wasn't confirmed".
+
+### Engine
+
+- A fold "Engine" (cpu icon), after Definition of Done and before Devices, starting folded.
+- Summary: the engine and model it sets ("<model> on <engine> · set for this Task"), else "Initiative's engine · <model> on <engine>" or "Project's engine · <model> on <engine>".
+- The engine and model pair as on the Role card; the empty choice reads "Project's engine", or "Initiative's engine (<model> on <engine>)" when the Task's Initiative sets one, shown as the placeholder.
+- It saves at once with a toast; a refusal shows under the field, headed "The engine wasn't saved".
+- Read-only once the Task is Done or Dropped, with "Kept as it was: the engine of a Done or Dropped Task doesn't change."
+- While a Stage runs, a note says that session finishes on the engine it started on and a change applies from each next session; a new engine starts the next session fresh, a new model alone resumes it.
+- A "Runs on" list names the Planner and each Role its Stages name, the engine and model each lands on, and the level that gave it: "from the Task's engine", "from the Initiative's engine", "from the Project default", "from the Office default", "from the Role override" or "from the Project's Role override".
+- Rules: [2.1.3](../2.1.3-tasks.md#a-tasks-engine), [5.4.5](../5.4.5-engines-and-cascade.md#the-engine-cascade).
 
 ### Devices
 

@@ -47,6 +47,8 @@ const BACKLOG_TASK: Task = {
   proposedPipeline: null,
   blockedBy: [],
   originIdeaId: null,
+  engine: null,
+  initiativeEngine: null,
   initiativeId: null,
   madeFor: null,
   resolvesTaskId: null,

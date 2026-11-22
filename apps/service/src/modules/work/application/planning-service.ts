@@ -55,6 +55,7 @@ import { TaskDecisions } from "../ports/task-decisions.js";
 import { TaskThreads } from "../ports/task-threads.js";
 import { WorkSettings } from "../ports/work-settings.js";
 import { IdeaService } from "./idea-service.js";
+import { pipelineChoiceProblems, TaskEngineChecks } from "./task-engine-checks.js";
 
 /**
  * Planning a Task as a conversation with whoever holds Plans (spec §2.1): its own worktree on the
@@ -96,6 +97,7 @@ export class PlanningService {
     private readonly settings: WorkSettings,
     private readonly events: EventBus,
     private readonly promptTemplates: PromptTemplates,
+    private readonly engineChecks: TaskEngineChecks,
   ) {}
 
   /**
@@ -397,22 +399,27 @@ export class PlanningService {
   /**
    * Refuses a Pipeline the Task can't follow (`taskPipelineProblems`): one neither the library nor
    * its Project has, another Project's, a Broken one, or one running a command the Task's Project
-   * lacks, whose Stage would fail, so it is refused here rather than skipped (spec §2.3).
+   * lacks, whose Stage would fail, so it is refused here rather than skipped (spec §2.3); and, while
+   * the Task or its Initiative sets an engine, one whose Agent Stages name a Role that engine can't
+   * run them on (spec 5.4.5).
    */
-  private async refusePipelineFor(
-    task: Pick<Task, "projectId">,
-    pipelineId: string,
-  ): Promise<void> {
+  private async refusePipelineFor(task: Task, pipelineId: string): Promise<void> {
     const [choice, project] = await Promise.all([
       pipelineChoiceIn(task.projectId, pipelineId, this.pipelines, this.projects),
       this.projects.find(task.projectId),
     ]);
-    if (!project) {
-      if (!choice.pipeline) throw new TaskRefused([`There is no Pipeline "${pipelineId}".`]);
-      return;
+    if (!project && !choice.pipeline) {
+      throw new TaskRefused([`There is no Pipeline "${pipelineId}".`]);
     }
-    const problems = taskPipelineProblems(choice, project);
+    const problems = project ? taskPipelineProblems(choice, project) : [];
     if (problems.length > 0) throw new TaskRefused(problems);
+    const engineProblems = await pipelineChoiceProblems(
+      this.engineChecks,
+      this.initiatives,
+      task,
+      pipelineId,
+    );
+    if (engineProblems.length > 0) throw new TaskRefused([...engineProblems]);
   }
 
   private async read(taskId: string): Promise<Task> {

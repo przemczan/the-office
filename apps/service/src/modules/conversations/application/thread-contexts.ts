@@ -5,7 +5,7 @@ import { Duties, EngineCascade, RoleCards } from "../../people/index.js";
 import { SkillCommands, type SkillCommand } from "../../skills/index.js";
 import type { Brief } from "../domain/brief.js";
 import { decideContext, type ContextDecision } from "../domain/context-policy.js";
-import type { Thread } from "../domain/thread.js";
+import { cascadeLocationOf, type SessionCascadeLocation, type Thread } from "../domain/thread.js";
 import { AllowChanges } from "./allow-changes.js";
 import { Briefs } from "./briefs.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
@@ -37,7 +37,7 @@ export interface ThreadReading {
 /**
  * What the Threads of one reading share, each read once however many Threads ask: a Task's setup
  * by what its Thread asks, the Briefs' common parts, a person's Role card, duties and skills, the
- * engine each person gets in each Project, and the settings.
+ * engine each person gets at each Task, Initiative and Project, and the settings.
  */
 interface SharedReads {
   readonly changesAllowedIn: (thread: Thread) => Promise<boolean | undefined>;
@@ -46,7 +46,7 @@ interface SharedReads {
   readonly dutiesOf: (roleKey: string) => ReturnType<Duties["heldBy"]>;
   readonly engineOf: (place: {
     roleKey: string;
-    projectId: string | undefined;
+    location: SessionCascadeLocation;
   }) => ReturnType<EngineCascade["applying"]>;
   readonly reportsContext: (engineId: EngineId) => Promise<boolean>;
   readonly roleSkillCommands: (roleKey: string) => Promise<readonly SkillCommand[]>;
@@ -115,8 +115,8 @@ export class ThreadContexts {
       settings: () => (settings ??= this.settings.current()),
       roleOf: onceByKey((roleKey: string) => this.roleCards.find(roleKey), byRoleKey),
       dutiesOf: onceByKey((roleKey: string) => this.duties.heldBy(roleKey), byRoleKey),
-      engineOf: onceByKey(({ roleKey, projectId }) =>
-        this.engineCascade.applying(roleKey, projectId),
+      engineOf: onceByKey(({ roleKey, location }) =>
+        this.engineCascade.applying(roleKey, location),
       ),
       reportsContext: onceByKey(
         (engineId: EngineId) => this.engine.reportsContext(engineId),
@@ -161,7 +161,12 @@ export class ThreadContexts {
     ]);
     // Nobody fills the Role any more, or no engine is listed: its Threads stay readable, and
     // nobody answers.
-    const applying = role && (await shared.engineOf({ roleKey: thread.roleKey, projectId }));
+    const applying =
+      role &&
+      (await shared.engineOf({
+        roleKey: thread.roleKey,
+        location: cascadeLocationOf(thread.home, projectId),
+      }));
     return decideContext(
       {
         now,

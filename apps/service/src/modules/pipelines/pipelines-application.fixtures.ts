@@ -31,6 +31,7 @@ import {
   ProjectDefaultsForTests,
   PipelinesPortsForTestsModule,
   ProposalDraftsForTests,
+  RoleEngineCascadeForTests,
   RunEnvironmentDefinitionsForTests,
   StageRoleEnginesForTests,
   StageDecisionsForTests,
@@ -69,6 +70,7 @@ export interface PipelinesApplication {
   readonly contextLimitDefaults: StageContextLimitDefaultsForTests;
   readonly threadSessions: TaskThreadSessionsForTests;
   readonly roleEngines: StageRoleEnginesForTests;
+  readonly cascade: RoleEngineCascadeForTests;
   readonly definitions: RunEnvironmentDefinitionsForTests;
   readonly initiatives: PipelineInitiativesForTests;
   readonly published: DomainEvent[];
@@ -161,6 +163,7 @@ async function startOn(
         taskThreadSessions: TaskThreadSessionsForTests,
         proposalDrafts: ProposalDraftsForTests,
         stageRoleEngines: StageRoleEnginesForTests,
+        roleEngineCascade: RoleEngineCascadeForTests,
         runEnvironmentDefinitions: RunEnvironmentDefinitionsForTests,
         pipelineInitiatives: PipelineInitiativesForTests,
       }),
@@ -189,6 +192,7 @@ async function startOn(
     contextLimitDefaults: app.get(StageContextLimitDefaultsForTests, { strict: false }),
     threadSessions: app.get(TaskThreadSessionsForTests, { strict: false }),
     roleEngines: app.get(StageRoleEnginesForTests, { strict: false }),
+    cascade: app.get(RoleEngineCascadeForTests, { strict: false }),
     definitions: app.get(RunEnvironmentDefinitionsForTests, { strict: false }),
     initiatives: app.get(PipelineInitiativesForTests, { strict: false }),
     published,

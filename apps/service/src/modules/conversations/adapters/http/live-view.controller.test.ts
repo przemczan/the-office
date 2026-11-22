@@ -14,7 +14,12 @@ import { EventStreamModule } from "../../../../platform/websocket/event-stream.m
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import { GitHubModule } from "../../../github/index.js";
 import { EngineCascadeModule, RoleHired } from "../../../people/index.js";
-import { aRole, RoleRepository } from "../../../people/index.fixtures.js";
+import {
+  aRole,
+  RoleRepository,
+  WorkLevelsForTests,
+  WorkLevelsForTestsModule,
+} from "../../../people/index.fixtures.js";
 import { PipelineLibrary, PipelineLibraryModule } from "../../../pipelines/index.js";
 import {
   BaseCheckouts,
@@ -38,8 +43,9 @@ beforeAll(async () => {
     knownPipelines: PipelineLibrary,
   });
   const engineCascade = EngineCascadeModule.register({
-    imports: [projects, PipelineLibraryModule],
+    imports: [projects, PipelineLibraryModule, WorkLevelsForTestsModule],
     knownProjectLevels: ProjectService,
+    knownWorkLevels: WorkLevelsForTests,
     projectLevelsSaves: EngineLevelsChecks,
   });
   ({ app, url } = await startTestApplication({

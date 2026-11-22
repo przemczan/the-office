@@ -168,6 +168,8 @@ export function worksWithText(
 export const ENGINE_CASCADE_LEVEL_WORDS: Readonly<Record<EngineCascadeLevel, string>> = {
   "office-default": "the Office default",
   "project-default": "the Project default",
+  "initiative-engine": "the Initiative's engine",
+  "task-engine": "the Task's engine",
   "role-override": "the Role override",
   "project-role-override": "the Project's Role override",
 };

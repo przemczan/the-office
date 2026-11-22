@@ -2229,6 +2229,114 @@ describe("a Thread on an Initiative", () => {
   });
 });
 
+describe("the engine cascade a Thread's session resolves", () => {
+  const HAIKU = { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-haiku-5-5" };
+
+  beforeEach(() => {
+    // No Role override, so the Task's and the Initiative's engines apply.
+    cascade = new EngineCascadeStandIn();
+  });
+
+  it("resolves a Task's planning Thread at the Task in its Project, on the Task's engine", async () => {
+    const taskId = randomUUID();
+    cascade.setForTask(taskId, HAIKU);
+    await startWith(started(...aTurn("brief", "What must be true when it is done?")));
+    const opened = await planningThread(taskId);
+
+    await runner.send(opened.id, PLAN_IT, ANN_LEE);
+    await answered(opened.id, 3);
+
+    expect(cascade.asked).toContainEqual({
+      roleKey,
+      location: { projectId: "admin-panel", taskId },
+    });
+    expect(engine.sessions[0]?.options).toMatchObject(HAIKU_ON_CLAUDE_CODE);
+  });
+
+  it("resolves a Consultation on a Task at the Task", async () => {
+    const taskId = randomUUID();
+    cascade.setForTask(taskId, HAIKU);
+    await startWith(started(...aTurn("brief", "Every Project, I'd say.")));
+    const consultation = aThread({
+      id: randomUUID(),
+      home: { kind: "task", taskId },
+      roleKey,
+      title: "Ann asks Ada",
+      consultation: {
+        decisionId: randomUUID(),
+        askerThreadId: randomUUID(),
+        askerRoleKey: undefined,
+      },
+    });
+    await repository.add(consultation);
+
+    await runner.open(consultation.id, "Which Projects does the export cover?");
+    await vi.waitFor(() => expect(engine.sessions).toHaveLength(1));
+
+    expect(cascade.asked).toContainEqual({
+      roleKey,
+      location: { projectId: "admin-panel", taskId },
+    });
+    expect(engine.sessions[0]?.options).toMatchObject(HAIKU_ON_CLAUDE_CODE);
+  });
+
+  it("resolves an Initiative's Thread at the Initiative, on the Initiative's engine", async () => {
+    const initiativeId = randomUUID();
+    cascade.setForInitiative(initiativeId, HAIKU);
+    await startWith(started(...aTurn("brief", "What outcome do you want?")));
+
+    const opened = await threads.startOnInitiative({
+      initiativeId,
+      roleKey,
+      title: "Shaping",
+      opening: "Shape the Initiative with the user.",
+    });
+    await answered(opened.id, 2);
+
+    expect(cascade.asked).toContainEqual({ roleKey, location: { initiativeId } });
+    expect(engine.sessions[0]?.options).toMatchObject(HAIKU_ON_CLAUDE_CODE);
+  });
+
+  it("starts a Task's Thread fresh once the Task's engine changed, and resumes it on a changed model alone", async () => {
+    const taskId = randomUUID();
+    cascade.setForTask(taskId, HAIKU);
+    await startWith(started(...aTurn("brief", "What must be true when it is done?")), [
+      { step: "resume" },
+      sent("m-2"),
+      ...aTurn("m-2", "Back again."),
+    ]);
+    const opened = await planningThread(taskId);
+    await runner.send(opened.id, PLAN_IT, ANN_LEE);
+    await answered(opened.id, 3);
+    await runner.onModuleDestroy();
+    await cooled(opened.id, 12_000);
+    const contexts = app.get(ThreadContexts);
+
+    cascade.setForTask(taskId, { engineId: "lab", model: "llama" });
+    expect(await contexts.of(await threads.read(opened.id))).toMatchObject({
+      move: "fresh",
+      reason: "engine-changed",
+    });
+
+    cascade.setForTask(taskId, { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-opus-5-5" });
+    expect(await contexts.of(await threads.read(opened.id))).toMatchObject({ move: "resume" });
+    await runner.send(opened.id, "Still there?", ANN_LEE);
+    await answered(opened.id, 6);
+
+    const [first, resumed] = engine.sessions;
+    expect(resumed?.id).toBe(first?.id);
+    expect(resumed?.options).toMatchObject({
+      engine: { id: FIRST_CLAUDE_CODE_ENGINE.id },
+      model: "claude-opus-5-5",
+    });
+  });
+});
+
+const HAIKU_ON_CLAUDE_CODE = {
+  engine: { id: FIRST_CLAUDE_CODE_ENGINE.id },
+  model: "claude-haiku-5-5",
+};
+
 /** A person's own Thread on a Task of its own, waiting for the user's first message. */
 async function aPersonsThread(): Promise<Thread> {
   const taskId = randomUUID();

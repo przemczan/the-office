@@ -21,8 +21,11 @@ afterEach(async () => {
 });
 
 /** A Task in its own Project, with own Stages naming the Role, in the state given. */
-async function aTaskNaming(roleKey: string, state: string): Promise<string> {
-  const taskId = randomUUID();
+async function aTaskNaming(
+  roleKey: string,
+  state: string,
+  taskId: string = randomUUID(),
+): Promise<string> {
   const projectId = randomUUID();
   await pipelines.app.get(TaskStagesRepository, { strict: false }).save({
     taskId,
@@ -50,6 +53,23 @@ describe("RolesNamedInStages", () => {
     expect(library.duties.has("implements")).toBe(true);
     expect(named.byProject.get(open)).toEqual(new Set(["designer"]));
     expect(named.byProject.has(dropped)).toBe(false);
+  });
+});
+
+describe("RolesNamedInStages, for one Task", () => {
+  it("tells People whom the Stages a Task works name, and nothing for a Task it doesn't know", async () => {
+    const taskId = randomUUID();
+    await aTaskNaming("designer", "in-progress", taskId);
+    const sources = pipelines.app.get(PipelineRoleSources, { strict: false });
+
+    await expect(sources.rolesNamedByTask(taskId)).resolves.toEqual({
+      roleKeys: ["designer"],
+      dutyKeys: [],
+    });
+    await expect(sources.rolesNamedByTask(randomUUID())).resolves.toEqual({
+      roleKeys: [],
+      dutyKeys: [],
+    });
   });
 });
 

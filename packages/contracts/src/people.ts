@@ -189,6 +189,8 @@ export type RoleCardOptions = z.infer<typeof roleCardOptionsSchema>;
 export const engineCascadeLevelSchema = z.enum([
   "office-default",
   "project-default",
+  "initiative-engine",
+  "task-engine",
   "role-override",
   "project-role-override",
 ]);
@@ -197,6 +199,22 @@ export type EngineCascadeLevel = z.infer<typeof engineCascadeLevelSchema>;
 /** An engine and model a Role runs on, and the level of the cascade they come from. */
 export const engineInCascadeSchema = engineModelSchema.extend({ level: engineCascadeLevelSchema });
 export type EngineInCascade = z.infer<typeof engineInCascadeSchema>;
+
+/**
+ * GET /tasks/:id/engine-cascade: what the Planner and each Role the Task's Stages name run on for
+ * the Task, and the level it comes from; `engine` null while no engine is listed. Planner first,
+ * then in the Stages' order, each Role once.
+ */
+export const taskEngineCascadeSchema = z.object({
+  roles: z.array(
+    z.object({
+      roleKey: z.string(),
+      roleName: z.string(),
+      engine: engineInCascadeSchema.nullable(),
+    }),
+  ),
+});
+export type TaskEngineCascade = z.infer<typeof taskEngineCascadeSchema>;
 
 /** GET /roles/:key/engine-cascade: what the Role card says applies, for a Role someone fills. */
 export const roleEngineCascadeSchema = z.object({

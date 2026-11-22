@@ -15,6 +15,7 @@ import type {
   UsageEstimate as UsageEstimateResponse,
   UsageSettings as UsageSettingsResponse,
 } from "@the-office/contracts";
+import type { EngineModel } from "../../../engine/index.js";
 import type { SearchResults } from "../../application/search-service.js";
 import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
 import type { Author } from "../../domain/author.js";
@@ -75,7 +76,12 @@ export function toInitiativeResponse(
     })),
     shortName: initiative.shortName ?? null,
     branches: initiativeBranchesOf(initiative),
+    engine: toEngineModelResponse(initiative.engine),
   };
+}
+
+function toEngineModelResponse(engine: EngineModel | null): TaskResponse["engine"] {
+  return engine && { engineId: engine.engineId, model: engine.model };
 }
 
 /** Each Project's Initiative's branch, named by the Short name it was made under. */
@@ -110,9 +116,13 @@ export function toArchivedInitiativesPageResponse(
   };
 }
 
-export function toTaskResponse(task: Task): TaskResponse {
+/**
+ * With its Initiative's engine, which it runs on while it sets none (`TaskResponses` reads it):
+ * null for none or no Initiative.
+ */
+export function toTaskResponse(task: Task, initiativeEngine: EngineModel | null): TaskResponse {
   return {
-    ...toTaskSummaryResponse(task),
+    ...toTaskSummaryResponse(task, initiativeEngine),
     description: task.description,
     plan: task.plan,
     definitionOfDone: [...task.definitionOfDone],
@@ -122,8 +132,11 @@ export function toTaskResponse(task: Task): TaskResponse {
   };
 }
 
-/** What the board and the lists read of a Task, without its long texts. */
-export function toTaskSummaryResponse(task: TaskSummary): TaskSummaryResponse {
+/** What the board and the lists read of a Task, without its long texts, as `toTaskResponse`. */
+export function toTaskSummaryResponse(
+  task: TaskSummary,
+  initiativeEngine: EngineModel | null,
+): TaskSummaryResponse {
   return {
     id: task.id,
     title: task.title,
@@ -165,6 +178,8 @@ export function toTaskSummaryResponse(task: TaskSummary): TaskSummaryResponse {
     foundInVersion: task.foundInVersion ?? null,
     foundWhileWorkingOn: task.foundWhileWorkingOn ?? null,
     dropReason: task.dropReason ? { ...task.dropReason } : null,
+    engine: toEngineModelResponse(task.engine),
+    initiativeEngine: toEngineModelResponse(initiativeEngine),
   };
 }
 

@@ -260,5 +260,9 @@
 }
 
 .engine-removal-place {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   color: var(--fg-2);
 }

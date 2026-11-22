@@ -51,6 +51,16 @@ describe("the Role card's words", () => {
     ).toBe("Haiku 5.5 on Work account, from the Project's Role override");
   });
 
+  it("names a Task's and an Initiative's engine as the levels they are", () => {
+    const applies = { engineId: "claude-code", model: "claude-opus-5-5" };
+    expect(engineInCascadeText({ ...applies, level: "task-engine" }, names.engineName)).toBe(
+      "Opus 5.5 on Work account, from the Task's engine",
+    );
+    expect(engineInCascadeText({ ...applies, level: "initiative-engine" }, names.engineName)).toBe(
+      "Opus 5.5 on Work account, from the Initiative's engine",
+    );
+  });
+
   it("names what an engine can't do, and nothing when it can do everything", () => {
     expect(missingCapabilitiesWords(["usageWindows"])).toBe(
       "It has no usage windows, so the 5-hour window doesn't count it.",

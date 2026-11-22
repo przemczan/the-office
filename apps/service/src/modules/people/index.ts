@@ -18,7 +18,12 @@ export {
 } from "./application/duty-change-checks.js";
 export { DUTIES, type DutyHolding, type DutyKey } from "./domain/duties.js";
 export { DutyHolderChanged } from "./domain/duty-events.js";
-export { EngineCascade } from "./application/engine-cascade.js";
+export { EngineCascade, type EngineCascadeLocation } from "./application/engine-cascade.js";
+export {
+  KnownWorkLevels,
+  type TaskOnWorkLevels,
+  type WorkLevelsOf,
+} from "./ports/known-work-levels.js";
 export {
   PipelineRoleCapabilityChecks,
   type NewlyNamedRoles,
@@ -26,12 +31,14 @@ export {
 export {
   PipelineRoleSources,
   type PipelineRoleSource,
+  type TaskRoleSource,
 } from "./application/pipeline-role-sources.js";
 export type { PipelineRolesNamed } from "./domain/pipeline-roles-named.js";
 export type {
   EngineCascadeLevel,
   EngineInCascade,
   ProjectCascadeLevels,
+  WorkCascadeLevels,
 } from "./domain/engine-cascade.js";
 export { MemoryService } from "./application/memory-service.js";
 export { MemoryTaskTitles, type MemoryTaskTitleSource } from "./application/memory-task-titles.js";

@@ -20,6 +20,7 @@ import {
   InitiativeBranchDeleted,
   InitiativeBranchMade,
   InitiativeCreated,
+  InitiativeEngineSet,
   InitiativeOutcomeWritten,
   InitiativePipelineChosen,
   InitiativePipelinesSet,
@@ -72,6 +73,8 @@ import {
   TaskTitleChanged,
   TaskKindChanged,
   TaskBugDetailsChanged,
+  TaskEngineSet,
+  TaskInitiativeEngineChanged,
   TaskTagsChanged,
   TaskReordered,
   TaskResumed,
@@ -178,6 +181,10 @@ export class WorkWebEvents implements OnModuleInit {
         initiativeId: event.initiativeId,
       }),
     );
+    this.forwarding.forward(InitiativeEngineSet, (event): WebEventOf<"initiative.engine-set"> => ({
+      type: "initiative.engine-set",
+      initiativeId: event.initiativeId,
+    }));
     this.forwarding.forward(
       InitiativePipelinesSet,
       (event): WebEventOf<"initiative.pipelines-set"> => ({
@@ -297,6 +304,14 @@ export class WorkWebEvents implements OnModuleInit {
       type: "task.title-changed",
       taskId: event.taskId,
     }));
+    this.forwarding.forward(TaskEngineSet, (event): WebEventOf<"task.engine-set"> => ({
+      type: "task.engine-set",
+      taskId: event.taskId,
+    }));
+    this.forwarding.forward(
+      TaskInitiativeEngineChanged,
+      (event): WebEventOf<"task.engine-set"> => ({ type: "task.engine-set", taskId: event.taskId }),
+    );
     this.forwarding.forward(TaskKindChanged, (event): WebEventOf<"task.kind-changed"> => ({
       type: "task.kind-changed",
       taskId: event.taskId,

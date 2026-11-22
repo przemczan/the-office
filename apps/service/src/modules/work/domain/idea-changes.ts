@@ -149,6 +149,7 @@ export function shapeIdeaIntoInitiative(
     planningWithUser: false,
     pipelines: [],
     branches: [],
+    engine: null,
   };
   return {
     ideaShaped: {

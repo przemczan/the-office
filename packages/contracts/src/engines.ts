@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { webEventSchema } from "./events.js";
+import { initiativeStateSchema, taskStateSchema } from "./work-states.js";
 
 /** What an engine can do beyond starting a session and taking messages; the Role card names those it can't. */
 export const engineCapabilitySchema = z.enum([
@@ -276,11 +277,29 @@ export type EngineRemoval = z.infer<typeof engineRemovalSchema>;
  * A level naming the engine being removed, where it stands and where the removal puts it (none
  * when the only engine goes). What it belongs to tells the level: a Role and a Project for a
  * Project's Role override, a Project alone for its Project default, a Role alone for its Role
- * override, neither for the Office default.
+ * override, neither for the Office default; a Task or an Initiative for its engine, with its
+ * Project, Done and Dropped ones too, and its state, which marks those.
  */
 export const movedEngineReferenceSchema = z.object({
   roleKey: z.string().nullable(),
   project: z.object({ id: z.string(), name: z.string() }).nullable(),
+  /** The Task or Initiative whose engine it is, with its state; null for every other level. */
+  work: z
+    .discriminatedUnion("kind", [
+      z.object({
+        kind: z.literal("task"),
+        id: z.string(),
+        name: z.string(),
+        state: taskStateSchema,
+      }),
+      z.object({
+        kind: z.literal("initiative"),
+        id: z.string(),
+        name: z.string(),
+        state: initiativeStateSchema,
+      }),
+    ])
+    .nullable(),
   from: engineModelSchema,
   to: engineModelSchema.nullable(),
 });

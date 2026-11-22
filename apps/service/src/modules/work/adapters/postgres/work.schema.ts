@@ -155,6 +155,10 @@ export const initiatives = pgTable(
       .$type<InitiativeBranchRow[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
+    /** The Initiative's engine (spec 5.4.5), kept by Engine, so no foreign key; null for none. */
+    engineId: text("engine_id"),
+    /** Its engine's model; null exactly when `engine_id` is. */
+    model: text("model"),
   },
   (table) => [
     uniqueIndex("initiatives_short_name_unique")
@@ -275,6 +279,10 @@ export const tasks = pgTable(
      * previous release reads.
      */
     createdByTheOffice: boolean("created_by_the_office").notNull().default(false),
+    /** The Task's engine (spec 5.4.5), kept by Engine, so no foreign key; null for none. */
+    engineId: text("engine_id"),
+    /** Its engine's model; null exactly when `engine_id` is. */
+    model: text("model"),
   },
   (table) => [
     uniqueIndex("tasks_order_key").on(table.order),

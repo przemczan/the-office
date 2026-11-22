@@ -33,6 +33,8 @@ function aTask(fields: Partial<Task>): Task {
     proposedPipeline: null,
     blockedBy: [],
     originIdeaId: null,
+    engine: null,
+    initiativeEngine: null,
     initiativeId: null,
     madeFor: null,
     resolvesTaskId: null,

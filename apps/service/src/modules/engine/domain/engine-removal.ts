@@ -14,20 +14,50 @@ export interface EngineRemoval {
  * A level naming the engine being removed: where it stands and where the removal puts it. Which
  * level it is follows from what it belongs to: a Role and a Project for a Project's Role override,
  * a Project alone for its Project default, a Role alone for its Role override, neither for the
- * Office default.
+ * Office default; a Task or an Initiative (`work`) for its engine.
  */
 export interface MovedEngineReference {
   readonly roleKey: string | null;
   readonly project: { readonly id: string; readonly name: string } | null;
+  /** The Task or the Initiative whose engine it is, with its Project; null for every other level. */
+  readonly work: MovedWork | null;
   readonly from: EngineModel;
   readonly to: EngineModel | null;
 }
+
+/**
+ * A Task or an Initiative naming the removed engine, Done and Dropped ones too, with its state as
+ * Work names it, so the Remove engine window marks those.
+ */
+export type MovedWork =
+  | (MovedWorkRecord & { readonly kind: "task"; readonly state: MovedTaskState })
+  | (MovedWorkRecord & { readonly kind: "initiative"; readonly state: MovedInitiativeState });
+
+interface MovedWorkRecord {
+  readonly id: string;
+  readonly name: string;
+}
+
+/** A Task's state, as Work names it. */
+export type MovedTaskState =
+  | "shaping"
+  | "backlog"
+  | "planning"
+  | "ready"
+  | "in-progress"
+  | "waiting-on-you"
+  | "paused"
+  | "done"
+  | "dropped";
+
+/** An Initiative's state, as Work names it. */
+export type MovedInitiativeState = "shaping" | "active" | "done" | "dropped";
 
 /** What `removal` does to `reference`, when it names the removed engine. */
 export function movedEngineReference(
   reference: EngineModel,
   removal: EngineRemoval,
-  where: Pick<MovedEngineReference, "roleKey" | "project">,
+  where: Pick<MovedEngineReference, "roleKey" | "project" | "work">,
 ): MovedEngineReference[] {
   if (reference.engineId !== removal.engineId) return [];
   const from = { engineId: reference.engineId, model: reference.model };

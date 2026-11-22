@@ -3,6 +3,7 @@ import {
   engineInCascade,
   movedProjectLevels,
   roleEngineCascade,
+  NO_WORK_LEVELS,
   type ProjectCascadeLevels,
 } from "./engine-cascade.js";
 
@@ -10,6 +11,8 @@ const officeDefault = { engineId: "claude-code", model: "claude-sonnet-5-5" };
 const roleOverride = { engineId: "claude-code", model: "claude-opus-5-5" };
 const projectDefault = { engineId: "second-account", model: "claude-haiku-5-5" };
 const projectRoleOverride = { engineId: "local", model: "qwen3-coder" };
+const taskEngine = { engineId: "codex", model: "gpt-6" };
+const initiativeEngine = { engineId: "gemini", model: "gemini-4-pro" };
 
 function aProject(levels: Partial<ProjectCascadeLevels> = {}): ProjectCascadeLevels {
   return { projectDefault: null, useForEveryRole: false, roleOverrides: [], ...levels };
@@ -108,5 +111,116 @@ describe("movedProjectLevels", () => {
       useForEveryRole: false,
       roleOverrides: [{ roleKey: "reviewer", ...roleOverride }],
     });
+  });
+});
+
+describe("the engine cascade on a Task or an Initiative", () => {
+  it("takes the Task's engine over the Initiative's, the Project default and the Office default", () => {
+    const project = aProject({ projectDefault });
+    expect(
+      engineInCascade("developer", {
+        officeDefault,
+        roleOverride: null,
+        project,
+        work: { taskEngine, initiativeEngine },
+      }),
+    ).toEqual({ ...taskEngine, level: "task-engine" });
+  });
+
+  it("takes the Initiative's engine while the Task sets none", () => {
+    const project = aProject({ projectDefault });
+    expect(
+      engineInCascade("developer", {
+        officeDefault,
+        roleOverride: null,
+        project,
+        work: { taskEngine: null, initiativeEngine },
+      }),
+    ).toEqual({ ...initiativeEngine, level: "initiative-engine" });
+  });
+
+  it("takes the Initiative's engine in no Project too", () => {
+    expect(
+      engineInCascade("developer", {
+        officeDefault,
+        roleOverride: null,
+        work: { taskEngine: null, initiativeEngine },
+      }),
+    ).toEqual({ ...initiativeEngine, level: "initiative-engine" });
+  });
+
+  it("falls back to the Project default, then the Office default, with neither set", () => {
+    expect(
+      engineInCascade("developer", {
+        officeDefault,
+        roleOverride: null,
+        project: aProject({ projectDefault }),
+        work: NO_WORK_LEVELS,
+      }),
+    ).toEqual({ ...projectDefault, level: "project-default" });
+    expect(
+      engineInCascade("developer", { officeDefault, roleOverride: null, work: NO_WORK_LEVELS }),
+    ).toEqual({ ...officeDefault, level: "office-default" });
+  });
+
+  it("lets both Role overrides win over the Task's engine", () => {
+    const work = { taskEngine, initiativeEngine };
+    expect(
+      engineInCascade("developer", { officeDefault, roleOverride, project: aProject(), work }),
+    ).toEqual({ ...roleOverride, level: "role-override" });
+    const project = aProject({
+      roleOverrides: [{ roleKey: "developer", ...projectRoleOverride }],
+    });
+    expect(engineInCascade("developer", { officeDefault, roleOverride, project, work })).toEqual({
+      ...projectRoleOverride,
+      level: "project-role-override",
+    });
+  });
+
+  it("takes the Task's and the Initiative's engine over the Role override under Use for every Role", () => {
+    const project = aProject({ projectDefault, useForEveryRole: true });
+    expect(
+      engineInCascade("developer", {
+        officeDefault,
+        roleOverride,
+        project,
+        work: { taskEngine, initiativeEngine },
+      }),
+    ).toEqual({ ...taskEngine, level: "task-engine" });
+    expect(
+      engineInCascade("developer", {
+        officeDefault,
+        roleOverride,
+        project,
+        work: { taskEngine: null, initiativeEngine },
+      }),
+    ).toEqual({ ...initiativeEngine, level: "initiative-engine" });
+  });
+
+  it("keeps the Project's Role override first under Use for every Role", () => {
+    const project = aProject({
+      projectDefault,
+      useForEveryRole: true,
+      roleOverrides: [{ roleKey: "developer", ...projectRoleOverride }],
+    });
+    expect(
+      engineInCascade("developer", {
+        officeDefault,
+        roleOverride,
+        project,
+        work: { taskEngine, initiativeEngine: null },
+      }),
+    ).toEqual({ ...projectRoleOverride, level: "project-role-override" });
+  });
+
+  it("lets the Office-wide Role override win in a Project with no default", () => {
+    expect(
+      engineInCascade("developer", {
+        officeDefault,
+        roleOverride,
+        project: aProject(),
+        work: { taskEngine, initiativeEngine },
+      }),
+    ).toEqual({ ...roleOverride, level: "role-override" });
   });
 });

@@ -398,7 +398,8 @@ export class StageThreads {
    * The Context policy's move for the Stage's session (spec §2.5): going on in its Thread, the
    * Stage takes the user's choice in that Thread's context label, which Resume's label shows; at a
    * Stage boundary the declared session wins. The engine and model come from the engine cascade
-   * for the Task's Project; a changed engine starts the session fresh.
+   * resolved for the Task (its own engine, its Initiative's and its Project's levels); a changed
+   * engine starts the session fresh, a changed model alone resumes it.
    */
   private async decide(
     request: StageSessionRequest,
@@ -411,7 +412,10 @@ export class StageThreads {
   > {
     const current = await this.roleCards.forNewSession(request.roleKey);
     const held = await this.duties.heldBy(request.roleKey);
-    const cascade = await this.engineCascade.of(request.roleKey, request.projectId);
+    const cascade = await this.engineCascade.of(request.roleKey, {
+      projectId: request.projectId,
+      taskId: request.taskId,
+    });
     // Mapped before the Context policy compares it with the session's engine, so a session is
     // never resumed on another engine; a stand-in removed since gives the cascade's back.
     const applying = engineThroughStandIns(

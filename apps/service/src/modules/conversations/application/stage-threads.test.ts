@@ -634,6 +634,83 @@ describe("StageThreads", () => {
   });
 });
 
+/** The same person's next Stage on the Task, declared to go on in the Thread `first` ran in. */
+function theNextStage(first: { readonly stageThread: StageThread }, request: StageThreadRequest) {
+  return {
+    ...request,
+    stageName: "Review & fix",
+    declared: "continue" as const,
+    previousThreadId: first.stageThread.threadId,
+    work: "## The Stage: Review & fix",
+  };
+}
+
+describe("a Stage on the engine the Task sets", () => {
+  const OTHER = { ...FIRST_CLAUDE_CODE_ENGINE, id: "other", name: "Other" };
+
+  it("resolves the cascade for the Task in its Project, and opens on the Task's engine", async () => {
+    await startWith(started(...aTurn({ status: "done" })));
+    const request = aStage({ roleKey: aPerson("Ada") });
+    cascade.setForTask(request.taskId, {
+      engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+      model: "claude-haiku-5-5",
+    });
+
+    const { stageThread } = await aStageRun(request);
+
+    expect(cascade.asked).toContainEqual({
+      roleKey: request.roleKey,
+      location: { projectId: "admin-panel", taskId: request.taskId },
+    });
+    expect(stageThread).toMatchObject({
+      engine: FIRST_CLAUDE_CODE_ENGINE.id,
+      model: "claude-haiku-5-5",
+    });
+    expect(engine.sessions[0]?.options).toMatchObject({ model: "claude-haiku-5-5" });
+  });
+
+  it("goes on in the session on the model the Task changed to alone", async () => {
+    await startWith(
+      started(...aTurn({ status: "done" })),
+      resumed(...aTurn({ status: "done" }, "Reviewing.")),
+    );
+    const request = aStage({ roleKey: aPerson("Ada") });
+    cascade.setForTask(request.taskId, {
+      engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+      model: "claude-haiku-5-5",
+    });
+    const first = await aStageRun(request);
+    cascade.setForTask(request.taskId, {
+      engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+      model: "claude-opus-5-5",
+    });
+
+    const second = await aStageRun(theNextStage(first, request));
+
+    expect(second.stageThread.move).toMatchObject({ move: "resume", reason: "stage-declared" });
+    const [opened, resumedSession] = engine.sessions;
+    expect(resumedSession?.id).toBe(opened?.id);
+    expect(resumedSession?.options).toMatchObject({ model: "claude-opus-5-5" });
+  });
+
+  it("starts the next Stage fresh once the Task's engine changed, even when it declares going on", async () => {
+    await startWith(
+      started(...aTurn({ status: "done" })),
+      started(...aTurn({ status: "done" }, "Reviewing.")),
+    );
+    vi.spyOn(app.get(EngineModels), "engines").mockResolvedValue([FIRST_CLAUDE_CODE_ENGINE, OTHER]);
+    const request = aStage({ roleKey: aPerson("Ada") });
+    const first = await aStageRun(request);
+    cascade.setForTask(request.taskId, { engineId: OTHER.id, model: "claude-haiku-5-5" });
+
+    const second = await aStageRun(theNextStage(first, request));
+
+    expect(second.stageThread.move).toMatchObject({ move: "fresh", reason: "engine-changed" });
+    expect(second.stageThread.engine).toBe(OTHER.id);
+    expect(receivedSteps()).not.toContain("resume");
+  });
+});
+
 describe("barge-in", () => {
   it("sends the user's message with priority next, and marks it delivered once the turn took it", async () => {
     const command = aCommand("npm-test");

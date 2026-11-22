@@ -35,6 +35,7 @@ import {
 } from "@the-office/contracts";
 import { deleteFromApi, getFromApi, sendToApi } from "./api-client.ts";
 import { OFF_BOARD_TASKS } from "./off-board-tasks.ts";
+import { taskEngineCascadeKey } from "./people.ts";
 import { taskChangesKey } from "./projects.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 import { PIPELINES_KEY, PROJECT_PIPELINES_KEY, STAGE_TEMPLATES_KEY } from "./pipeline-keys.ts";
@@ -332,6 +333,11 @@ function staleTaskStages(event: unknown): readonly (readonly unknown[])[] {
   return [taskStagesKey(taskIdOf(event)), OFF_BOARD_TASKS];
 }
 
+/** A change of a Task's Stages changes the Roles they name, so what each runs on for the Task too. */
+function staleTaskStagesAndRoles(event: unknown): readonly (readonly unknown[])[] {
+  return [...staleTaskStages(event), taskEngineCascadeKey(taskIdOf(event))];
+}
+
 /**
  * A run's end also makes the Task's Changes stale, as The Office commits the Stage's work then, and
  * its commands' outputs, saved then.
@@ -366,9 +372,9 @@ export const pipelineEventInvalidations: Readonly<
   "stage-template.added": staleStageTemplates,
   "stage-template.saved": staleStageTemplates,
   "stage-template.removed": staleStageTemplates,
-  "task-stages.made": staleTaskStages,
-  "task-stages.edited": staleTaskStages,
-  "task-stages.reset": staleTaskStages,
+  "task-stages.made": staleTaskStagesAndRoles,
+  "task-stages.edited": staleTaskStagesAndRoles,
+  "task-stages.reset": staleTaskStagesAndRoles,
   "stage-run.started": staleTaskStages,
   "stage-run.thread-opened": staleTaskStages,
   "stage-run.waiting": staleTaskStages,

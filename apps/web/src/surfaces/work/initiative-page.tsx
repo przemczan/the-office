@@ -35,6 +35,7 @@ import { OriginBlock } from "./origin-block.tsx";
 import { OutcomeBlock } from "./outcome-block.tsx";
 import { RecordFold } from "./record-fold.tsx";
 import { useFold } from "./record-folds.ts";
+import { InitiativeEngineBlock } from "./work-engine-block.tsx";
 import { StartReadyTasksNote } from "./start-ready-tasks.tsx";
 import { TaskGraph } from "./task-graph.tsx";
 
@@ -106,6 +107,11 @@ export function InitiativePage(): ReactNode {
             <InitiativePipelineBlock
               initiative={record}
               tasks={tasks.data}
+              projects={projects.data}
+            />
+            <InitiativeEngineBlock
+              initiative={record}
+              tasks={initiativeTasks}
               projects={projects.data}
             />
             <InitiativeTestInstancesBlock

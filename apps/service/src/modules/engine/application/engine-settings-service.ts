@@ -96,7 +96,15 @@ export class EngineSettingsService {
     // Where `settingsWithoutEngine` puts the Office default, as `remove` keeps it.
     const officeDefault: MovedEngineReference[] =
       stored.officeDefault?.engineId === engineId
-        ? [{ roleKey: null, project: null, from: stored.officeDefault, to: changed.officeDefault }]
+        ? [
+            {
+              roleKey: null,
+              project: null,
+              work: null,
+              from: stored.officeDefault,
+              to: changed.officeDefault,
+            },
+          ]
         : [];
     return { moves: [...officeDefault, ...(await this.referenceMoves.movesOf(removal))], problems };
   }

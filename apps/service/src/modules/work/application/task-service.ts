@@ -4,6 +4,7 @@ import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { TaskLocks } from "../../../platform/locks/task-locks.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
+import { EngineModels, EngineReferenceLock, type EngineModel } from "../../engine/index.js";
 import type { Author } from "../domain/author.js";
 import { boardOrder, orderAfter } from "../domain/manual-order.js";
 import { BY_THE_PIPELINE, type StateChange } from "../domain/state-change.js";
@@ -57,6 +58,7 @@ import { moveProblems, moveTask, type MoveGrounds } from "../domain/task-move.js
 import { changeCommitMessage, publishCommitMessage } from "../domain/task-commit-message.js";
 import { changeDescription, changeTitle } from "../domain/task-description.js";
 import { changeTags } from "../domain/task-tags.js";
+import { changeTaskEngine, onTask, taskEngineMoves } from "../domain/work-engine.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import { TaskRefused } from "../domain/task-refused.js";
 import { OPEN_STATES, STARTED_STATES } from "../domain/task-states.js";
@@ -73,6 +75,8 @@ import { KnownProjects } from "../ports/known-projects.js";
 import { ProjectWorktrees } from "../ports/project-worktrees.js";
 import { TaskRepository, type NeighbourIds, type TaskUpdate } from "../ports/task-repository.js";
 import { publishDependencyChanges } from "./dependency-events.js";
+import { engineModelProblems } from "./engine-model-choice.js";
+import { TaskEngineChecks } from "./task-engine-checks.js";
 import { InitiativeBranching } from "./initiative-branching.js";
 
 /**
@@ -111,6 +115,9 @@ export class TaskService {
     private readonly events: EventBus,
     private readonly schedule: Schedule,
     private readonly taskLocks: TaskLocks,
+    private readonly engineChecks: TaskEngineChecks,
+    private readonly engineModels: EngineModels,
+    private readonly engineReferences: EngineReferenceLock,
   ) {}
 
   /**
@@ -278,6 +285,34 @@ export class TaskService {
   /** Feature, Bug or Chore, in any state but Done and Dropped; the Task never moves for it. */
   async changeKind(id: string, kind: TaskKind): Promise<Task> {
     return this.update(id, (task) => changeKind(task, kind));
+  }
+
+  /**
+   * The Task's own engine and model (spec 5.4.5), null for none, in any state but Done and Dropped;
+   * refused for an engine Settings › Engines doesn't list or a model it doesn't offer, and with the
+   * capability check's reasons when a Role of its Pipeline couldn't run on it. Held under Engine's
+   * `EngineReferenceLock` from reading the engines through the save, so a removal can't come in
+   * between; the event is published after.
+   */
+  async setEngine(id: string, engine: EngineModel | null): Promise<Task> {
+    const { task, event } = await this.engineReferences.holding(async () => {
+      const stored = await this.read(id);
+      if (!changeTaskEngine(stored, engine)) return { task: stored, event: undefined };
+      const unlisted = await engineModelProblems(this.engineModels, engine);
+      if (unlisted.length > 0) throw new TaskRefused(unlisted);
+      const initiative =
+        stored.initiativeId === undefined
+          ? undefined
+          : await this.initiatives.find(stored.initiativeId);
+      const problems = await this.engineChecks.problemsOf({
+        place: onTask(stored),
+        moves: taskEngineMoves(stored, initiative?.engine ?? null, engine),
+      });
+      if (problems.length > 0) throw new TaskRefused([...problems]);
+      return this.repository.update(id, (current) => changeTaskEngine(current, engine));
+    });
+    if (event) await this.events.publish(event);
+    return task;
   }
 
   /**

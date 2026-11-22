@@ -5,10 +5,12 @@ import { CommitMessageBlock } from "./commit-message-block.tsx";
 import { DescriptionBlock } from "./description-block.tsx";
 import { DevicesBlock } from "./devices-block.tsx";
 import { DefinitionOfDoneBlock, PlanBlock } from "./planning-parts.tsx";
+import { TaskEngineBlock } from "./work-engine-block.tsx";
 
 /**
  * The Task's Overview: what the user wants, with its Dependencies and Origin, how, the message of
- * the one commit it lands as, what must be true, and the devices its run environment reaches.
+ * the one commit it lands as, what must be true, what it runs on, and the devices its run
+ * environment reaches.
  */
 export function TaskRecord({ task }: { readonly task: Task }): ReactNode {
   // It starts a sentence here.
@@ -19,6 +21,7 @@ export function TaskRecord({ task }: { readonly task: Task }): ReactNode {
       <PlanBlock task={task} planner={planner} />
       <CommitMessageBlock task={task} />
       <DefinitionOfDoneBlock task={task} planner={planner} />
+      <TaskEngineBlock task={task} />
       <DevicesBlock task={task} />
     </section>
   );

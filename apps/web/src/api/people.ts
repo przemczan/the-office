@@ -33,6 +33,11 @@ import { staleStaffing } from "./pipeline-keys.ts";
 const ROLES = ["roles"] as const;
 /** Apart from ROLES, since Projects and the Office default change it too. */
 export const ENGINE_CASCADE = ["engine-cascade"] as const;
+
+/** What each Role runs on for a Task: under ENGINE_CASCADE, so the cascade's other levels refresh it. */
+export function taskEngineCascadeKey(taskId: string): readonly unknown[] {
+  return [...ENGINE_CASCADE, "task", taskId];
+}
 /** Apart from ROLES: hiring and letting go change who holds each duty too. */
 export const DUTIES = ["duties"] as const;
 /** The Roles a Consult value may name and where MCP tools start change with hires and duties. */
@@ -158,19 +163,20 @@ export function clearMemory(key: string): Promise<void> {
 /**
  * Every People event makes the Roles stale; ["roles"] also covers each Role's own queries. A hire
  * also changes who the other Roles' Consult values reach and who holds each duty; that and a duty
- * change also change who works the Stages naming it, and what the Stage editor flags. A card change
- * renames a holder or changes their Task limit, which the duties and the Stage editor show too.
+ * change also change who works the Stages naming it, what the Stage editor flags and what each
+ * Task's Roles run on. A card change renames a holder or changes their Task limit, which the duties
+ * and the Stage editor show too.
  */
 export const roleEventInvalidations: Readonly<
   Record<RoleWebEvent["type"], EventInvalidations[string]>
 > = {
-  "role.hired": () => [ROLES, DUTIES, ROLE_CARD_OPTIONS, ...staleStaffing()],
-  "role.let-go": () => [ROLES, DUTIES, ROLE_CARD_OPTIONS, ...staleStaffing()],
-  "role.hired-back": () => [ROLES, DUTIES, ROLE_CARD_OPTIONS, ...staleStaffing()],
+  "role.hired": () => [ROLES, DUTIES, ROLE_CARD_OPTIONS, ENGINE_CASCADE, ...staleStaffing()],
+  "role.let-go": () => [ROLES, DUTIES, ROLE_CARD_OPTIONS, ENGINE_CASCADE, ...staleStaffing()],
+  "role.hired-back": () => [ROLES, DUTIES, ROLE_CARD_OPTIONS, ENGINE_CASCADE, ...staleStaffing()],
   "role.card-changed": () => [ROLES, ENGINE_CASCADE, DUTIES, ...staleStaffing()],
   "role.avatar-changed": () => [ROLES],
   "role.memory-changed": () => [ROLES],
-  "duty.changed": () => [DUTIES, ROLES, ROLE_CARD_OPTIONS, ...staleStaffing()],
+  "duty.changed": () => [DUTIES, ROLES, ROLE_CARD_OPTIONS, ENGINE_CASCADE, ...staleStaffing()],
 };
 
 function rolePath(key: string): `/${string}` {

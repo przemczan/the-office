@@ -10,6 +10,7 @@ import { TelemetryModule } from "../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../platform/websocket/event-stream.module.js";
 import { PipelineLibrary, PipelineLibraryModule } from "../pipelines/index.js";
 import { EngineCascadeModule } from "../people/index.js";
+import { WorkLevelsForTests, WorkLevelsForTestsModule } from "../people/index.fixtures.js";
 import {
   BaseCheckouts,
   EngineLevelsChecks,
@@ -32,8 +33,9 @@ beforeAll(async () => {
     knownPipelines: PipelineLibrary,
   });
   const engineCascade = EngineCascadeModule.register({
-    imports: [projects, PipelineLibraryModule],
+    imports: [projects, PipelineLibraryModule, WorkLevelsForTestsModule],
     knownProjectLevels: ProjectService,
+    knownWorkLevels: WorkLevelsForTests,
     projectLevelsSaves: EngineLevelsChecks,
   });
   ({ app } = await startTestApplication({

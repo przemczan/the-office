@@ -1,6 +1,6 @@
 # Initiative page
 
-Covers: the Initiative page's head and actions (Confirm, Back to Shaping, Plan the Initiative, Plan with…, Start Ready Tasks, Pause, Resume, Add a Task, Drop, Archive), the Tasks block and its graph, membership (Add an existing Task, Take out), the Pipelines block and its editor, the Test instances block (Launch, states, Open, Download and the QR code, Stop, Log), the record's folds (Outcome, Attachments, Origin), and the shaping and planning Threads.
+Covers: the Initiative page's head and actions (Confirm, Back to Shaping, Plan the Initiative, Plan with…, Start Ready Tasks, Pause, Resume, Add a Task, Drop, Archive), the Tasks block and its graph, membership (Add an existing Task, Take out), the Pipelines block and its editor, the Engine fold, the Test instances block (Launch, states, Open, Download and the QR code, Stop, Log), the record's folds (Outcome, Attachments, Origin), and the shaping and planning Threads.
 
 ## Where it is
 
@@ -149,6 +149,17 @@ Covers: the Initiative page's head and actions (Confirm, Back to Shaping, Plan t
   3. **Pipeline**: a picker "<Project>'s Pipeline" per Project switched on, placeholder "Choose a Pipeline", no None; switching a Project on picks its Project default Pipeline.
 - Save checks before sending: the Short name's form ("Name the branch: the Initiative works on it in each Project switched on." / "Use only lower-case a–z, 0–9 and -, with no - at either end or two in a row.") and a Pipeline for each Project on ("Choose a Pipeline: a Project on an Initiative's branch publishes through one.").
 - **Save** sends it all at once; **Cancel** throws the draft away; a refusal shows as "The Pipelines weren't saved" (a Short name another Initiative holds is refused).
+
+## Engine fold
+
+- A fold "Engine" (cpu icon) right after Pipelines, starting folded; remembered per Initiative.
+- Summary: the engine and model it sets, else "Project's engine · <model> on <engine>" ("Each Project's engine" across several Projects).
+- The engine and model pair as on the Role card; the empty choice reads "Project's engine" ("Each Project's engine" across several Projects).
+- While it sets none, the hint under the field reads "A Task in it that sets no engine runs on its Project default, or the Office default where its Project has none."
+- It saves at once with a toast ("<name> has no engine of its own now: its Threads and Tasks run on their Project's engine from their next session." when cleared); a refusal shows under the field, headed "The engine wasn't saved".
+- Read-only once Done or Dropped.
+- An "Its Tasks" list shows which of its Tasks follow its engine and which set their own.
+- Rules: [2.1.4](../2.1.4-initiatives.md#an-initiatives-engine), [5.4.5](../5.4.5-engines-and-cascade.md#the-engine-cascade).
 
 ## Test instances
 

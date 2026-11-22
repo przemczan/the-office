@@ -12,6 +12,34 @@ export type Home =
   | { readonly kind: "task"; readonly taskId: string }
   | { readonly kind: "initiative"; readonly initiativeId: string };
 
+/** Where the engine cascade is resolved for a session (spec §5.4), as `EngineCascade` takes it. */
+export interface SessionCascadeLocation {
+  readonly projectId?: string;
+  readonly taskId?: string;
+  readonly initiativeId?: string;
+}
+
+/**
+ * Where a session in a Thread at `home` resolves the engine cascade: a Task's Threads (its Stage
+ * Threads, its planning Thread and the Consultations on it) at the Task, whose Initiative's engine
+ * comes with it; an Initiative's shaping and planning Threads at the Initiative; a chat, a
+ * Consultation there included, at no Task and no Initiative. `projectId` is the Project it runs in.
+ */
+export function cascadeLocationOf(
+  home: Home,
+  projectId: string | undefined,
+): SessionCascadeLocation {
+  const project = projectId === undefined ? {} : { projectId };
+  switch (home.kind) {
+    case "task":
+      return { ...project, taskId: home.taskId };
+    case "initiative":
+      return { ...project, initiativeId: home.initiativeId };
+    case "chat":
+      return project;
+  }
+}
+
 /** Whether the person is answering in the Thread, or it waits for the user's next message. */
 export type ThreadState = "waiting" | "answering";
 

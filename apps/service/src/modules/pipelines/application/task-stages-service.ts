@@ -12,6 +12,7 @@ import {
   newlyNamedWorkers,
   NO_STAGE_WORKERS,
   type Stage,
+  type StageWorkers,
 } from "../domain/stage.js";
 import { reportedMet, reportedOutOfReach } from "../domain/definition-of-done-reports.js";
 import { gateChecksDefinitionOfDone } from "../domain/pipeline-walk.js";
@@ -34,7 +35,7 @@ import {
 import { TaskStagesReset } from "../domain/task-stages-events.js";
 import { commandsWords, missingCommandsOnStages } from "../domain/stage-commands.js";
 import { ProjectDefaults } from "../ports/project-defaults.js";
-import { StageRoleEngines } from "../ports/stage-role-engines.js";
+import { StageRoleEngines, type StageRolesNamed } from "../ports/stage-role-engines.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { StartedTasks } from "../ports/started-tasks.js";
 import { TaskStagesRepository } from "../ports/task-stages-repository.js";
@@ -218,7 +219,7 @@ export class TaskStagesService implements OnModuleInit {
       : [
           ...editProblems(own, edited, runs, await this.roleFillings.of(edited)),
           ...(await this.roleFillings.permissionProblems(edited, started)),
-          ...(await this.roleEngineProblems(edited, own, projectId)),
+          ...(await this.roleEngineProblems(taskId, edited, own, projectId)),
           ...(await this.missingCommandProblems(edited, started, projectId)),
         ];
     return { own, runs, problems };
@@ -243,9 +244,11 @@ export class TaskStagesService implements OnModuleInit {
   /**
    * Only Roles neither the Task's Stages, the library nor its Project's Project Pipelines name yet
    * are weighed, in the Task's Project, the only place its sessions run: the others already passed
-   * the check (spec §5.4).
+   * the check (spec §5.4). While the Task or its Initiative sets an engine, People weighs whom the
+   * edit names against whom the Task's Stages name now, at that engine (`task`).
    */
   private async roleEngineProblems(
+    taskId: string,
     edited: readonly Stage[],
     own: TaskStages,
     projectId: string,
@@ -262,8 +265,26 @@ export class TaskStagesService implements OnModuleInit {
     const problems = await this.roleEngines.newlyNamedRolesProblems({
       ...newlyNamedWorkers(agentStageWorkers(edited), named),
       projectId,
+      task: {
+        taskId,
+        before: namedRoles(agentStageWorkers(own.stages)),
+        after: namedRoles(agentStageWorkers(edited)),
+      },
     });
     return problems.map(pipelineProblem);
+  }
+
+  /**
+   * The Stages the Task works: its own when it has them for its Pipeline, else its Pipeline's as
+   * built now; undefined while it has no Pipeline, or one Broken or not found.
+   */
+  async stagesToWork(taskId: string): Promise<readonly Stage[] | undefined> {
+    const { pipelineId, projectId } = await this.tasks.read(taskId);
+    if (pipelineId === undefined) return undefined;
+    const own = await this.repository.find(taskId);
+    if (own && followsPipeline(own, pipelineId)) return own.stages;
+    const found = await this.library.forTask(pipelineId, projectId);
+    return found.kind === "found" ? found.pipeline.stages : undefined;
   }
 
   private async ownOrCopied(
@@ -298,6 +319,11 @@ export class TaskStagesService implements OnModuleInit {
         ]);
     }
   }
+}
+
+/** Whom Stage workers name, as People's capability check takes them. */
+export function namedRoles(workers: StageWorkers): StageRolesNamed {
+  return { roleKeys: [...workers.roles], dutyKeys: [...workers.duties] };
 }
 
 /** The user's edit weighed against the Task's own Stages and their runs. */

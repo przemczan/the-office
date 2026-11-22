@@ -3,7 +3,7 @@ import { readEach } from "../../../platform/database/fan-out.js";
 import { mapPage, pageOf, type Page, type PageRequest } from "../../../platform/paging/page.js";
 import { Duties, EngineCascade, RoleCards } from "../../people/index.js";
 import { summarizeContext, type ContextMoveSummary } from "../domain/context-policy.js";
-import type { Thread } from "../domain/thread.js";
+import { cascadeLocationOf, type Thread } from "../domain/thread.js";
 import { ThreadRepository, type PersonsThreads } from "../ports/thread-repository.js";
 import { AllowChanges } from "./allow-changes.js";
 import { ChatActivity, type ThreadActivity } from "./chat-activity.js";
@@ -92,7 +92,10 @@ export class ThreadSummaries {
     return pageOf(read.threads, page, read.total, ({ startedAt, id }) => ({ at: startedAt, id }));
   }
 
-  /** Each Thread's context by its id: all of them the person's, in the Project `projectOf` names. */
+  /**
+   * Each Thread's context by its id: all of them the person's, in the Project `projectOf` names and
+   * at their Task or Initiative.
+   */
   private async contextsOf(
     roleKey: string,
     threads: readonly Thread[],
@@ -104,15 +107,25 @@ export class ThreadSummaries {
       this.duties.heldBy(roleKey),
       this.allowChanges.inThreads(threads),
     ]);
-    const projectIds = [...new Set(threads.map(projectOf))];
+    // Each Thread's engine is resolved where its session runs: its Task's, its Initiative's or none,
+    // in its Project; read once per place.
+    const locationKey = (thread: Thread): string =>
+      JSON.stringify(cascadeLocationOf(thread.home, projectOf(thread)));
+    const places = new Map(threads.map((thread) => [locationKey(thread), thread]));
     // Nobody fills the Role any more, or no engine is listed: its Threads stay readable.
     const engines = new Map(
       await readEach(
-        projectIds,
-        async (projectId) =>
+        [...places],
+        async ([key, thread]) =>
           [
-            projectId,
-            role && (await this.engineCascade.applying(roleKey, projectId))?.engineId,
+            key,
+            role &&
+              (
+                await this.engineCascade.applying(
+                  roleKey,
+                  cascadeLocationOf(thread.home, projectOf(thread)),
+                )
+              )?.engineId,
           ] as const,
       ),
     );
@@ -126,7 +139,7 @@ export class ThreadSummaries {
             session: thread.session,
             roleKey: thread.roleKey,
             sessionDefault: role?.card.sessionDefault ?? "context-policy",
-            engineId: engines.get(projectOf(thread)),
+            engineId: engines.get(locationKey(thread)),
             override: thread.override,
             changesAllowed: changesAllowed.get(thread.id),
             heldDuties,

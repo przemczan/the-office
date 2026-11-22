@@ -3,6 +3,7 @@ import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { readEach } from "../../../platform/database/fan-out.js";
 import { PromptTemplates } from "../../prompt-templates/index.js";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
+import { EngineModels, EngineReferenceLock, type EngineModel } from "../../engine/index.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { moveAttachment } from "../domain/attachment-changes.js";
 import type { Author } from "../domain/author.js";
@@ -73,7 +74,12 @@ import {
 import { isPublishingTask, newTaskProblems, type NewTask, type Task } from "../domain/task.js";
 import type { TaskChange } from "../domain/task-changes.js";
 import { createdWaitingFor } from "../domain/task-dependencies.js";
-import { TaskStateChanged } from "../domain/task-events.js";
+import { TaskInitiativeEngineChanged, TaskStateChanged } from "../domain/task-events.js";
+import {
+  changeInitiativeEngine,
+  inheritedEngineMoves,
+  inInitiative,
+} from "../domain/work-engine.js";
 import { NOT_STARTED_STATES } from "../domain/task-states.js";
 import { AttachmentRepository } from "../ports/attachment-repository.js";
 import { IdeaRepository } from "../ports/idea-repository.js";
@@ -89,7 +95,9 @@ import { TaskRepository } from "../ports/task-repository.js";
 import { WorkSearch } from "../ports/work-search.js";
 import { publishDependencyChanges } from "./dependency-events.js";
 import { InitiativeBranching } from "./initiative-branching.js";
+import { engineModelProblems } from "./engine-model-choice.js";
 import { pipelineChoiceIn } from "./pipeline-choice.js";
+import { pipelineChoiceProblems, TaskEngineChecks } from "./task-engine-checks.js";
 import { TaskStageEdits } from "./task-stage-edits.js";
 
 function requiredProject(
@@ -159,6 +167,9 @@ export class InitiativeService implements OnModuleInit {
     private readonly search: WorkSearch,
     private readonly events: EventBus,
     private readonly promptTemplates: PromptTemplates,
+    private readonly engineChecks: TaskEngineChecks,
+    private readonly engineModels: EngineModels,
+    private readonly engineReferences: EngineReferenceLock,
   ) {}
 
   onModuleInit(): void {
@@ -322,7 +333,14 @@ export class InitiativeService implements OnModuleInit {
       ]),
     );
     const pipelineNames = await this.pipelineNamesOf(initiative);
-    return { initiative, idea, tasks, blockers, attachments, pipelineNames };
+    const engineNames = new Map(
+      initiative.engine === null
+        ? []
+        : (await this.engineModels.engines()).map(
+            ({ id: engineId, name }) => [engineId, name] as const,
+          ),
+    );
+    return { initiative, idea, tasks, blockers, attachments, pipelineNames, engineNames };
   }
 
   /** The names of the Pipelines the Initiative has in its Projects, by id, those still known. */
@@ -516,6 +534,35 @@ export class InitiativeService implements OnModuleInit {
     return taskPipelineProblems(choice, project);
   }
 
+  /**
+   * The Initiative's engine and model (spec 5.4.5), null for none, while it is shaping or active:
+   * its Threads and each of its Tasks that sets none run on it. Refused for an engine Settings ›
+   * Engines doesn't list or a model it doesn't offer, and with the capability check's reasons for
+   * its open Tasks that would run on it; each of its Tasks' pages refresh. Held under Engine's
+   * `EngineReferenceLock` from reading the engines through the save, so a removal can't come in
+   * between; the events are published after.
+   */
+  async setEngine(id: string, engine: EngineModel | null): Promise<Initiative> {
+    const { initiative, event } = await this.engineReferences.holding(async () => {
+      const stored = await this.read(id);
+      if (!changeInitiativeEngine(stored, engine)) return { initiative: stored, event: undefined };
+      const unlisted = await engineModelProblems(this.engineModels, engine);
+      if (unlisted.length > 0) throw new InitiativeRefused(unlisted);
+      const problems = await this.engineChecks.problemsOf({
+        place: inInitiative(stored),
+        moves: inheritedEngineMoves(await this.tasksOf(id), stored.engine, engine),
+      });
+      if (problems.length > 0) throw new InitiativeRefused([...problems]);
+      return this.repository.update(id, (held) => changeInitiativeEngine(held, engine));
+    });
+    if (!event) return initiative;
+    await this.events.publish(event);
+    for (const task of await this.tasksOf(id)) {
+      await this.events.publish(new TaskInitiativeEngineChanged(task.id, initiative.engine));
+    }
+    return initiative;
+  }
+
   /** The user's own Short name, while it is being shaped with a Pipeline chosen. */
   async writeShortName(id: string, shortName: string): Promise<Initiative> {
     const { initiative, event } = await this.repository.updateNaming(id, (held, taken) =>
@@ -541,7 +588,9 @@ export class InitiativeService implements OnModuleInit {
       pipelineId === null
         ? undefined
         : await pipelineChoiceIn(projectId, pipelineId, this.pipelines, this.projects);
-    return initiativePipelineChangeProblems(initiative, project, choice, tasks);
+    const problems = initiativePipelineChangeProblems(initiative, project, choice, tasks);
+    if (problems.length > 0 || pipelineId === null) return problems;
+    return [...(await this.publishingSwapProblems(initiative.id, projectId, pipelineId))];
   }
 
   /** A Project the Initiative's Tasks span, still known; refused otherwise. */
@@ -910,6 +959,10 @@ export class InitiativeService implements OnModuleInit {
     route: InitiativeChangeRoute,
   ): Promise<void> {
     if (route === "by-proposal") await this.refuseOncePipelineStarted(id, projectId);
+    if (pipelineId !== null) {
+      const problems = await this.publishingSwapProblems(id, projectId, pipelineId);
+      if (problems.length > 0) throw new InitiativeRefused([...problems]);
+    }
     await this.branching.givingPipeline(id, projectId, () =>
       this.choosePipeline(id, projectId, pipelineId, route),
     );
@@ -937,14 +990,7 @@ export class InitiativeService implements OnModuleInit {
     projectId: string,
     pipelineId: string,
   ): Promise<void> {
-    const waiting = (await this.tasksOf(id)).filter(
-      (task) =>
-        isPublishingTask(task) &&
-        task.projectId === projectId &&
-        NOT_STARTED_STATES.includes(task.state),
-    );
-    for (const publishing of waiting) {
-      if (await this.stageEdits.editedForTask(publishing.id)) continue;
+    for (const publishing of await this.publishingTasksToSwap(id, projectId)) {
       const { event } = await this.repository.changeTask(id, publishing.id, (_, held) =>
         isPublishingTask(held) && NOT_STARTED_STATES.includes(held.state)
           ? swapPublishingPipeline(held, pipelineId)
@@ -952,6 +998,34 @@ export class InitiativeService implements OnModuleInit {
       );
       if (event) await this.events.publish(event);
     }
+  }
+
+  /** The Project's Publishing Tasks not yet started whose Stages weren't edited for them. */
+  private async publishingTasksToSwap(id: string, projectId: string): Promise<Task[]> {
+    const waiting = (await this.tasksOf(id)).filter(
+      (task) =>
+        isPublishingTask(task) &&
+        task.projectId === projectId &&
+        NOT_STARTED_STATES.includes(task.state),
+    );
+    const edited = await readEach(waiting, (task) => this.stageEdits.editedForTask(task.id));
+    return waiting.filter((_, index) => !edited[index]);
+  }
+
+  /**
+   * Why swapping `pipelineId` onto the Project's Publishing Tasks would put a Role its Stages name
+   * on an engine that can't work them, while the Task or the Initiative sets one (spec 5.4.5).
+   */
+  private async publishingSwapProblems(
+    id: string,
+    projectId: string,
+    pipelineId: string,
+  ): Promise<readonly string[]> {
+    const swapped = await this.publishingTasksToSwap(id, projectId);
+    const problems = await readEach(swapped, (task) =>
+      pipelineChoiceProblems(this.engineChecks, this.repository, task, pipelineId),
+    );
+    return problems.flat();
   }
 
   /** The Initiative once done, or undefined while it isn't. */

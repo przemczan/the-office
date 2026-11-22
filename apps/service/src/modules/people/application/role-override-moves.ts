@@ -35,7 +35,11 @@ export class RoleOverrideMoves implements OnModuleInit {
   async roleOverrideMovesOf(removal: EngineRemoval): Promise<MovedEngineReference[]> {
     return (await this.rolesNaming(removal.engineId)).flatMap(({ key, card }) =>
       card.roleOverride
-        ? movedEngineReference(card.roleOverride, removal, { roleKey: key, project: null })
+        ? movedEngineReference(card.roleOverride, removal, {
+            roleKey: key,
+            project: null,
+            work: null,
+          })
         : [],
     );
   }

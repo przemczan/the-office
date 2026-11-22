@@ -5,17 +5,31 @@ import { personName } from "../../../shell/person-name.ts";
 /**
  * The level a removal moves, in the glossary's terms: "The Office default", "The Project default
  * of Shop", "The Role override of Mia · Data Analyst", "The Role override of Mia · Data Analyst
- * in Shop".
+ * in Shop", "The engine of the Task “Export Stats as CSV”", "The engine of the Initiative “Usage
+ * reports”".
  */
 export function movedReferencePlace(
-  { roleKey, project }: Pick<MovedEngineReference, "roleKey" | "project">,
+  { roleKey, project, work }: Pick<MovedEngineReference, "roleKey" | "project" | "work">,
   roles: readonly Role[] | undefined,
 ): string {
+  if (work !== null) {
+    return `The engine of the ${work.kind === "task" ? "Task" : "Initiative"} “${work.name}”`;
+  }
   if (roleKey === null) {
     return project === null ? "The Office default" : `The Project default of ${project.name}`;
   }
   const override = `The Role override of ${removalRoleName(roleKey, roles)}`;
   return project === null ? override : `${override} in ${project.name}`;
+}
+
+/**
+ * The state the window marks a Task's or an Initiative's row with: Done or Dropped, which read and
+ * look the same on both; none for an open one, or a level of no Task or Initiative.
+ */
+export function endedStateOf({
+  work,
+}: Pick<MovedEngineReference, "work">): "done" | "dropped" | null {
+  return work?.state === "done" || work?.state === "dropped" ? work.state : null;
 }
 
 /** "Haiku 5.5 on Second account → Haiku 5.5 on Claude Code", or "… → none" for the only engine. */

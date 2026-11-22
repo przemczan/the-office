@@ -32,6 +32,7 @@ function anInitiative(id: string, fields: Partial<Initiative> = {}): Initiative 
     planningAutoMode: false,
     pipelines: [],
     shortName: null,
+    engine: null,
     branches: [],
     ...fields,
   };
@@ -66,6 +67,8 @@ function aTask(id: string, fields: Partial<Task> = {}): Task {
     hasPlanningThread: false,
     blockedBy: [],
     originIdeaId: null,
+    engine: null,
+    initiativeEngine: null,
     initiativeId: "initiative",
     madeFor: null,
     resolvesTaskId: null,

@@ -44,6 +44,8 @@ function aTask(id: string, fields: Partial<Task> = {}): Task {
     proposedPipeline: null,
     blockedBy: [],
     originIdeaId: null,
+    engine: null,
+    initiativeEngine: null,
     initiativeId: INITIATIVE_ID,
     madeFor: null,
     resolvesTaskId: null,

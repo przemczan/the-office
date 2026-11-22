@@ -91,6 +91,8 @@ import {
   StageScreenshots,
   TaskRecords,
   TaskService,
+  WorkEngineLevels,
+  WorkEngineLevelsModule,
   WorkModule,
 } from "./modules/work/index.js";
 import type { OfficeConfig } from "./platform/config/office-config.js";
@@ -142,8 +144,9 @@ export class AppModule {
       knownPipelines: PipelineLibrary,
     });
     const engineCascade = EngineCascadeModule.register({
-      imports: [projects, PipelineLibraryModule],
+      imports: [projects, PipelineLibraryModule, WorkEngineLevelsModule],
       knownProjectLevels: ProjectService,
+      knownWorkLevels: WorkEngineLevels,
       projectLevelsSaves: EngineLevelsChecks,
     });
     const conversations = ConversationsModule.register({
@@ -213,6 +216,7 @@ export class AppModule {
       taskThreadSessions: ThreadRunner,
       proposalDrafts: ProposalService,
       stageRoleEngines: PipelineRoleCapabilityChecks,
+      roleEngineCascade: EngineCascade,
       runEnvironmentDefinitions: RunEnvironmentDefinitions,
       pipelineInitiatives: InitiativeService,
     });

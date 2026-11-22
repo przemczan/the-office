@@ -365,6 +365,7 @@ describe("GET /api/settings/engines/:engineId/removal", () => {
   const developerOnStrata = {
     roleKey: "developer",
     project: null,
+    work: null,
     from: strataDefault,
     to: FIRST_OFFICE_DEFAULT,
   };
@@ -390,7 +391,7 @@ describe("GET /api/settings/engines/:engineId/removal", () => {
     expect(preview.status).toBe(200);
     expect(engineRemovalPreviewSchema.parse(await preview.json())).toEqual({
       moves: [
-        { roleKey: null, project: null, from: strataDefault, to: FIRST_OFFICE_DEFAULT },
+        { roleKey: null, project: null, work: null, from: strataDefault, to: FIRST_OFFICE_DEFAULT },
         developerOnStrata,
       ],
       problems: [refusal],
@@ -417,7 +418,7 @@ describe("GET /api/settings/engines/:engineId/removal", () => {
     const preview = await previewOf("strata");
 
     expect(engineRemovalPreviewSchema.parse(await preview.json()).moves).toEqual([
-      { roleKey: null, project: null, from: strataDefault, to: null },
+      { roleKey: null, project: null, work: null, from: strataDefault, to: null },
     ]);
   });
 

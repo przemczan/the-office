@@ -1,11 +1,24 @@
 import { z } from "zod";
 import { webEventSchema } from "./events.js";
-import { engineIdSchema } from "./engines.js";
+import { engineIdSchema, engineModelSchema } from "./engines.js";
 import { officeAction } from "./office-actions.js";
 import { pageQuerySchema, pageSchemaOf } from "./paging.js";
 import { projectFilterParamSchema } from "./project-filter.js";
 import { mergeMethodSchema } from "./pull-requests.js";
 import { userRefSchema } from "./users.js";
+import {
+  initiativeStateSchema,
+  taskStateSchema,
+  type InitiativeState,
+  type TaskState,
+} from "./work-states.js";
+
+export {
+  initiativeStateSchema,
+  taskStateSchema,
+  type InitiativeState,
+  type TaskState,
+} from "./work-states.js";
 
 /**
  * Who captured, created or attached something: a user, or a person by their Role's key. `user` is
@@ -78,9 +91,6 @@ export const ideaShapingSchema = z.object({
   description: z.string().optional(),
 });
 export type IdeaShaping = z.infer<typeof ideaShapingSchema>;
-
-export const initiativeStateSchema = z.enum(["shaping", "active", "done", "dropped"]);
-export type InitiativeState = z.infer<typeof initiativeStateSchema>;
 
 /** The Initiative's branch in one Project it spans, made at Confirm or when it first spans it. */
 export const initiativeBranchSchema = z.object({
@@ -163,8 +173,20 @@ export const initiativeSchema = z.object({
   shortName: z.string().nullable(),
   /** The Initiative's branch in each Project, as The Office made it; kept after a Drop. */
   branches: z.array(initiativeBranchSchema),
+  /**
+   * The Initiative's engine (spec 5.4.5): its Threads and every Task in it that sets none run on
+   * it in the Project default's place; null for none.
+   */
+  engine: engineModelSchema.nullable(),
 });
 export type Initiative = z.infer<typeof initiativeSchema>;
+
+/**
+ * PUT /tasks/:id/engine and PUT /initiatives/:id/engine: the Task's or the Initiative's engine and
+ * model, null to clear it; refused once it is Done or Dropped, and by the capability check.
+ */
+export const workEngineChangeSchema = z.object({ engine: engineModelSchema.nullable() });
+export type WorkEngineChange = z.infer<typeof workEngineChangeSchema>;
 
 /**
  * PUT /initiatives/:id/pipeline: the Initiative's Pipeline in one Project it spans, chosen while
@@ -260,19 +282,6 @@ export type ArchivedInitiativesPage = z.infer<typeof archivedInitiativesPageSche
 /** PUT /initiatives/:id/outcome: the user's outcome, written while the Initiative is being shaped. */
 export const outcomeChangeSchema = z.object({ outcome: z.string() });
 export type OutcomeChange = z.infer<typeof outcomeChangeSchema>;
-
-export const taskStateSchema = z.enum([
-  "shaping",
-  "backlog",
-  "planning",
-  "ready",
-  "in-progress",
-  "waiting-on-you",
-  "paused",
-  "done",
-  "dropped",
-]);
-export type TaskState = z.infer<typeof taskStateSchema>;
 
 /** What holds a Paused Task apart from a Pause of the user's own. */
 export const taskHolderSchema = z.enum(["alarm", "initiative", "usage-window"]);
@@ -460,6 +469,13 @@ export const taskSchema = newTaskSchema.extend({
   originIdeaId: z.uuid().nullable(),
   /** The Initiative it is part of (POST /initiatives/:id/tasks). */
   initiativeId: z.uuid().nullable(),
+  /**
+   * The Task's engine (spec 5.4.5): every session about it runs on it in the Project default's
+   * place; null for none.
+   */
+  engine: engineModelSchema.nullable(),
+  /** Its Initiative's engine, which it runs on while it sets none; null for none or no Initiative. */
+  initiativeEngine: engineModelSchema.nullable(),
   /**
    * What The Office made it for: a Project's Onboard Task, its "Set up the run environment" Task,
    * an Initiative's Publishing Task, or a Conflict resolution Task; null for any other Task.
@@ -1329,6 +1345,7 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("initiative.outcome-written"), initiativeId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("initiative.pipeline-chosen"), initiativeId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("initiative.pipelines-set"), initiativeId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("initiative.engine-set"), initiativeId: z.uuid() }),
   webEventSchema.extend({
     type: z.literal("initiative.short-name-written"),
     initiativeId: z.uuid(),
@@ -1421,6 +1438,8 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
   }),
   webEventSchema.extend({ type: z.literal("task.plan-proposed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.plan-saved"), taskId: z.uuid() }),
+  /** Its own engine was set, or its Initiative's, which it inherits. */
+  webEventSchema.extend({ type: z.literal("task.engine-set"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.plan-confirmed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.definition-of-done-proposed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.definition-of-done-saved"), taskId: z.uuid() }),

@@ -9,6 +9,7 @@ import { PipelineLibraryController } from "./adapters/http/pipeline-library.cont
 import { ProjectPipelineLibraryController } from "./adapters/http/project-pipeline-library.controller.js";
 import { StageTemplateLibraryController } from "./adapters/http/stage-template-library.controller.js";
 import { TaskGateController } from "./adapters/http/task-gate.controller.js";
+import { TaskEngineCascadeController } from "./adapters/http/task-engine-cascade.controller.js";
 import { TaskStagesController } from "./adapters/http/task-stages.controller.js";
 import { PostgresStaffingHoldRepository } from "./adapters/postgres/postgres-staffing-hold-repository.js";
 import { PipelineOfficeTools } from "./adapters/office-tools/pipeline-office-tools.js";
@@ -43,12 +44,14 @@ import { StageRunsRunningNow } from "./application/stage-runs-running-now.js";
 import { DroppedTaskWorktrees } from "./application/dropped-task-worktrees.js";
 import { InitiativeBranchStages } from "./application/initiative-branch-stages.js";
 import { StageRunners } from "./application/stage-runners.js";
+import { TaskRoleEngines } from "./application/task-role-engines.js";
 import { TaskStagesService } from "./application/task-stages-service.js";
 import { PipelineLibraryModule } from "./pipeline-library.module.js";
 import { KnownPeople } from "./ports/known-people.js";
 import { PipelineInitiatives } from "./ports/pipeline-initiatives.js";
 import { ProjectDefaults } from "./ports/project-defaults.js";
 import { ProposalDrafts } from "./ports/proposal-drafts.js";
+import { RoleEngineCascade } from "./ports/role-engine-cascade.js";
 import { StageDecisions } from "./ports/stage-decisions.js";
 import { StageRoleEngines } from "./ports/stage-role-engines.js";
 import { StageThreadMessages } from "./ports/stage-thread-messages.js";
@@ -90,6 +93,8 @@ export interface PipelinesModuleOptions {
   readonly taskThreadSessions: Type<TaskThreadSessions>;
   readonly proposalDrafts: Type<ProposalDrafts>;
   readonly stageRoleEngines: Type<StageRoleEngines>;
+  /** People's engine cascade, for the engines a Task's Roles run on. */
+  readonly roleEngineCascade: Type<RoleEngineCascade>;
   readonly runEnvironmentDefinitions: Type<RunEnvironmentDefinitions>;
   readonly pipelineInitiatives: Type<PipelineInitiatives>;
 }
@@ -118,6 +123,7 @@ export class PipelinesModule {
     taskThreadSessions,
     proposalDrafts,
     stageRoleEngines,
+    roleEngineCascade,
     runEnvironmentDefinitions,
     pipelineInitiatives,
   }: PipelinesModuleOptions): DynamicModule {
@@ -135,6 +141,7 @@ export class PipelinesModule {
       ],
       controllers: [
         TaskStagesController,
+        TaskEngineCascadeController,
         TaskGateController,
         PipelineLibraryController,
         ProjectPipelineLibraryController,
@@ -158,11 +165,13 @@ export class PipelinesModule {
         { provide: TaskThreadSessions, useExisting: taskThreadSessions },
         { provide: ProposalDrafts, useExisting: proposalDrafts },
         { provide: StageRoleEngines, useExisting: stageRoleEngines },
+        { provide: RoleEngineCascade, useExisting: roleEngineCascade },
         { provide: RunEnvironmentDefinitions, useExisting: runEnvironmentDefinitions },
         { provide: PipelineInitiatives, useExisting: pipelineInitiatives },
         { provide: StaffingHoldRepository, useClass: PostgresStaffingHoldRepository },
         RoleFillings,
         TaskStagesService,
+        TaskRoleEngines,
         RolesNamedInStages,
         PipelineLibraryEditor,
         StageTemplateLibraryEditor,

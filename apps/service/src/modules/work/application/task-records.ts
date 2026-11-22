@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { EngineModels } from "../../engine/index.js";
 import { PromptTemplates } from "../../prompt-templates/index.js";
 import { attachmentLines } from "../domain/attachment.js";
 import { linkedRecordsSection, type TaskLinks } from "../domain/linked-records.js";
@@ -78,6 +79,7 @@ export class TaskRecords {
     private readonly decisions: TaskDecisions,
     private readonly promptTemplates: PromptTemplates,
     private readonly connectedDevices: TaskConnectedDevices,
+    private readonly engineModels: EngineModels,
   ) {}
 
   /**
@@ -143,6 +145,7 @@ export class TaskRecords {
         this.decisions.waitingOnTheUserOn(taskId),
         this.connectedDevices.linesOf(taskId),
       ]);
+    const namesEngine = task.engine !== null || links.initiative?.engine;
     return taskRecordText(task, {
       attachments,
       links,
@@ -150,6 +153,7 @@ export class TaskRecords {
       stateChanges,
       decisionsWaiting,
       connectedDeviceLines,
+      engineNames: namesEngine ? await engineNamesOf(this.engineModels) : new Map(),
     });
   }
 
@@ -162,4 +166,9 @@ export class TaskRecords {
     ]);
     return { ...dependencies, idea, initiative };
   }
+}
+
+/** The engines listed, their names by id, which a record names an engine by. */
+async function engineNamesOf(engineModels: EngineModels): Promise<Map<string, string>> {
+  return new Map((await engineModels.engines()).map(({ id, name }) => [id, name] as const));
 }

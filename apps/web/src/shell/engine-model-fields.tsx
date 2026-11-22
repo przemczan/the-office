@@ -20,12 +20,15 @@ export function EngineModelFields({
   value,
   engines,
   noneLabel,
+  noneHint,
   disabled = false,
   onChange,
 }: {
   readonly value: EngineModel | null;
   readonly engines: readonly OfferedEngine[];
   readonly noneLabel?: string;
+  /** What the Engine field's hint says while nothing is set at this level, such as what applies. */
+  readonly noneHint?: string;
   readonly disabled?: boolean;
   readonly onChange: (value: EngineModel | null) => void;
 }): ReactNode {
@@ -35,7 +38,13 @@ export function EngineModelFields({
     <>
       <Select
         label="Engine"
-        hint={picked && missingCapabilitiesWords(picked.missingCapabilities)}
+        hint={
+          picked
+            ? missingCapabilitiesWords(picked.missingCapabilities)
+            : value
+              ? undefined
+              : noneHint
+        }
         value={value?.engineId ?? NO_ENGINE}
         options={[
           ...(noneLabel === undefined ? [] : [{ value: NO_ENGINE, label: noneLabel }]),

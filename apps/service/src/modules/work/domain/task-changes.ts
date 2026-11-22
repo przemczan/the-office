@@ -164,6 +164,7 @@ export function createTask(
     foundWhileWorkingOn: setting.foundWhileWorkingOn,
     dropReason: undefined,
     createdByTheOffice: setting.createdByTheOffice ?? false,
+    engine: null,
   };
   return {
     task,

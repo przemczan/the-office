@@ -4,6 +4,8 @@ import type { EngineModel } from "../../engine/index.js";
 export const ENGINE_CASCADE_LEVELS = [
   "office-default",
   "project-default",
+  "initiative-engine",
+  "task-engine",
   "role-override",
   "project-role-override",
 ] as const;
@@ -41,25 +43,43 @@ export function movedProjectLevels(
   };
 }
 
+/**
+ * The levels a Task or an Initiative sets, which the Work module keeps: a Task's engine, and the
+ * engine of the Initiative it is in (or the Initiative's own, for its Threads). They take the
+ * Project default's place (spec §5.4.5).
+ */
+export interface WorkCascadeLevels {
+  readonly taskEngine: EngineModel | null;
+  readonly initiativeEngine: EngineModel | null;
+}
+
+export const NO_WORK_LEVELS: WorkCascadeLevels = { taskEngine: null, initiativeEngine: null };
+
 /** What the cascade weighs for one Role: in no Project, only the Office levels. */
 export interface EngineCascadeLevels {
   /** None only while no engine is listed. */
   readonly officeDefault: EngineModel | null;
   readonly roleOverride: EngineModel | null;
   readonly project?: ProjectCascadeLevels;
+  /** A session about a Task or an Initiative. */
+  readonly work?: WorkCascadeLevels;
 }
 
 /**
  * The most specific level set for the Role `roleKey` wins; none when no level is, which happens
- * only while no engine is listed, as the Office default is set whenever one is.
+ * only while no engine is listed, as the Office default is set whenever one is. A Task's and an
+ * Initiative's engine take the Project default's place, so "Use for every Role", which needs a
+ * Project default, lets them win over the Office-wide Role override too.
  */
 export function engineInCascade(
   roleKey: string,
-  { officeDefault, roleOverride, project }: EngineCascadeLevels,
+  { officeDefault, roleOverride, project, work }: EngineCascadeLevels,
 ): EngineInCascade | null {
   const projectRoleOverride = project?.roleOverrides.find((each) => each.roleKey === roleKey);
   if (projectRoleOverride) return at("project-role-override", projectRoleOverride);
   if (roleOverride && !project?.useForEveryRole) return at("role-override", roleOverride);
+  if (work?.taskEngine) return at("task-engine", work.taskEngine);
+  if (work?.initiativeEngine) return at("initiative-engine", work.initiativeEngine);
   if (project?.projectDefault) return at("project-default", project.projectDefault);
   return officeDefault && at("office-default", officeDefault);
 }

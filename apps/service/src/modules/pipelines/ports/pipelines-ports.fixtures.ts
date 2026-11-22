@@ -10,8 +10,19 @@ import {
   type EngineId,
   type EngineModel,
 } from "../../engine/index.js";
-import { DUTIES, permissionNarrowingProblems, PipelineRoleSources } from "../../people/index.js";
-import { TaskPaused, TaskResumed, TaskStageEdits, TaskStateChanged } from "../../work/index.js";
+import {
+  DUTIES,
+  permissionNarrowingProblems,
+  PipelineRoleSources,
+  type EngineInCascade,
+} from "../../people/index.js";
+import {
+  TaskEngineChecks,
+  TaskPaused,
+  TaskResumed,
+  TaskStageEdits,
+  TaskStateChanged,
+} from "../../work/index.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
 import { PipelineInitiatives, type PipelineInitiative } from "./pipeline-initiatives.js";
 import { ProjectDefaults, type ProjectDefault } from "./project-defaults.js";
@@ -30,7 +41,12 @@ import {
   type StageThreadRequest,
   type StageTurn,
 } from "./stage-threads.js";
-import { StageRoleEngines, type NewlyNamedStageRoles } from "./stage-role-engines.js";
+import {
+  StageRoleEngines,
+  type NewlyNamedStageRoles,
+  type TaskEnginesChange,
+} from "./stage-role-engines.js";
+import { RoleEngineCascade, type TaskSessionPlace } from "./role-engine-cascade.js";
 import { StageThreadMessages, type StageRunThreadWindow } from "./stage-thread-messages.js";
 import {
   StartedTasks,
@@ -109,12 +125,59 @@ export class StageRoleEnginesForTests extends StageRoleEngines {
   readonly incapableRoles = new Set<string>();
   /** Every question asked, in order. */
   readonly asked: NewlyNamedStageRoles[] = [];
+  /** Every change of Tasks' engines asked about, in order. */
+  readonly changesAsked: TaskEnginesChange[] = [];
 
   async newlyNamedRolesProblems(roles: NewlyNamedStageRoles): Promise<readonly string[]> {
     this.asked.push(roles);
     return roles.roleKeys
       .filter((roleKey) => this.incapableRoles.has(roleKey))
       .map((roleKey) => `The ${roleKey}'s engine can't work an Agent Stage.`);
+  }
+
+  /**
+   * Each Role in `incapableRoles` a moved Task names, once, in `place`; for a Task whose Pipeline
+   * the change chooses, only those its Stages didn't name before.
+   */
+  async workLevelsChangeProblems(change: TaskEnginesChange): Promise<readonly string[]> {
+    this.changesAsked.push(change);
+    const roleKeys = new Set(
+      change.tasks.flatMap((task) =>
+        task.roleKeys.filter((roleKey) => !task.namedBefore?.roleKeys.includes(roleKey)),
+      ),
+    );
+    return [...roleKeys]
+      .filter((roleKey) => this.incapableRoles.has(roleKey))
+      .map((roleKey) => `${change.place}, the ${roleKey}'s engine can't work an Agent Stage.`);
+  }
+}
+
+/**
+ * People's engine cascade as a test sets it: every Role on `officeDefault`, unless a test gives
+ * the Role, or the Task, an engine with `set`. Every question asked is kept.
+ */
+@Injectable()
+export class RoleEngineCascadeForTests extends RoleEngineCascade {
+  officeDefault: EngineInCascade | null = {
+    engineId: "claude-code",
+    model: "claude-sonnet-5-5",
+    level: "office-default",
+  };
+  readonly asked: { readonly roleKey: string; readonly place: TaskSessionPlace }[] = [];
+  private readonly set = new Map<string, EngineInCascade>();
+
+  /** The Role runs on `engine` on every Task, or on the Task `taskId` only. */
+  setFor(roleKey: string, engine: EngineInCascade, taskId?: string): void {
+    this.set.set(JSON.stringify([roleKey, taskId ?? null]), engine);
+  }
+
+  async applying(roleKey: string, place: TaskSessionPlace): Promise<EngineInCascade | null> {
+    this.asked.push({ roleKey, place });
+    return (
+      this.set.get(JSON.stringify([roleKey, place.taskId])) ??
+      this.set.get(JSON.stringify([roleKey, null])) ??
+      this.officeDefault
+    );
   }
 }
 
@@ -1296,10 +1359,12 @@ export class PipelinesPortsForTestsModule {
       TaskThreadSessionsForTests,
       ProposalDraftsForTests,
       StageRoleEnginesForTests,
+      RoleEngineCascadeForTests,
       RunEnvironmentDefinitionsForTests,
       ProposalAppliers,
       PipelineRoleSources,
       TaskStageEdits,
+      TaskEngineChecks,
     ];
     return { module: PipelinesPortsForTestsModule, imports, providers, exports: providers };
   }

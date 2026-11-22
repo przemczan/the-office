@@ -144,7 +144,7 @@ describe("removing an engine a Role override names", () => {
     const moved = (await roles.read(role.key)).role.card.roleOverride;
     expect(moved).toEqual({ engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-haiku-5-5" });
     expect(preview).toEqual({
-      moves: [{ roleKey: role.key, project: null, from: ON_RACING, to: moved }],
+      moves: [{ roleKey: role.key, project: null, work: null, from: ON_RACING, to: moved }],
       problems: [],
     });
   });

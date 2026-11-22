@@ -16,6 +16,13 @@ export interface PipelineRolesNamed extends NamedWhere<string> {
   readonly duties?: NamedWhere<DutyKey>;
 }
 
+/** The Roles and duties some Agent Stages name. */
+export interface RolesAndDuties {
+  readonly roleKeys: readonly string[];
+  /** Weighed by their holders; a duty nobody holds names no Role. */
+  readonly dutyKeys: readonly DutyKey[];
+}
+
 export const NO_PIPELINE_ROLES: PipelineRolesNamed = {
   everywhere: new Set(),
   byProject: new Map(),

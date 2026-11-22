@@ -12,7 +12,8 @@ import { SignedIn } from "../../../../platform/http/signed-in-requests.js";
 import { ConflictResolutions } from "../../application/conflict-resolutions.js";
 import { QueueService } from "../../application/queue-service.js";
 import { authorOf } from "./signed-in-author.js";
-import { toQueueResponse, toTaskResponse } from "./work-responses.js";
+import { TaskResponses } from "./task-responses.js";
+import { toQueueResponse } from "./work-responses.js";
 import { WorkRefusalsFilter } from "./work-refusals.filter.js";
 
 @Controller("tasks")
@@ -21,6 +22,7 @@ export class ConflictResolutionsController {
   constructor(
     private readonly conflictResolutions: ConflictResolutions,
     private readonly queue: QueueService,
+    private readonly responses: TaskResponses,
   ) {}
 
   /**
@@ -38,7 +40,7 @@ export class ConflictResolutionsController {
       ({ taskId }) => taskId === task.id,
     );
     return {
-      task: toTaskResponse(task),
+      task: await this.responses.task(task),
       queued: queued ?? null,
       startRefusal: startRefusal === undefined ? null : [...startRefusal],
     };

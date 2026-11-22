@@ -60,10 +60,18 @@ function projectLevelMoves(project: Project, removal: EngineRemoval): MovedEngin
   const where = { id: project.id, name: project.name };
   return [
     ...(project.projectDefault
-      ? movedEngineReference(project.projectDefault, removal, { roleKey: null, project: where })
+      ? movedEngineReference(project.projectDefault, removal, {
+          roleKey: null,
+          project: where,
+          work: null,
+        })
       : []),
     ...project.roleOverrides.flatMap((override) =>
-      movedEngineReference(override, removal, { roleKey: override.roleKey, project: where }),
+      movedEngineReference(override, removal, {
+        roleKey: override.roleKey,
+        project: where,
+        work: null,
+      }),
     ),
   ];
 }

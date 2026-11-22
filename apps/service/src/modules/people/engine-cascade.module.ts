@@ -6,12 +6,14 @@ import { PipelineRoleCapabilityChecks } from "./application/pipeline-role-capabi
 import { PipelineRoleSources } from "./application/pipeline-role-sources.js";
 import { PeopleModule } from "./people.module.js";
 import { KnownProjectLevels } from "./ports/known-project-levels.js";
+import { KnownWorkLevels } from "./ports/known-work-levels.js";
 import { ProjectLevelsSaves } from "./ports/project-levels-saves.js";
 
 export interface EngineCascadeModuleOptions {
   /** The modules that provide the ports below. */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
   readonly knownProjectLevels: Type<KnownProjectLevels>;
+  readonly knownWorkLevels: Type<KnownWorkLevels>;
   readonly projectLevelsSaves: Type<ProjectLevelsSaves>;
 }
 
@@ -25,6 +27,7 @@ export class EngineCascadeModule {
   static register({
     imports,
     knownProjectLevels,
+    knownWorkLevels,
     projectLevelsSaves,
   }: EngineCascadeModuleOptions): DynamicModule {
     return {
@@ -33,6 +36,7 @@ export class EngineCascadeModule {
       controllers: [EngineCascadeController],
       providers: [
         { provide: KnownProjectLevels, useExisting: knownProjectLevels },
+        { provide: KnownWorkLevels, useExisting: knownWorkLevels },
         { provide: ProjectLevelsSaves, useExisting: projectLevelsSaves },
         EngineCascade,
         PipelineRoleCapabilityChecks,

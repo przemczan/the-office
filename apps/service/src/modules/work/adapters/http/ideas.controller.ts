@@ -88,7 +88,8 @@ export class IdeasController {
       ...(kind !== undefined && { kind }),
       ...(description !== undefined && { description }),
     };
-    return toTaskResponse(await this.ideas.shape(id, projectId, authorOf(signedIn), given));
+    // A Task shaped from an Idea is in no Initiative.
+    return toTaskResponse(await this.ideas.shape(id, projectId, authorOf(signedIn), given), null);
   }
 
   /** Shape into an Initiative: the Initiative the Idea became, being shaped, with no Tasks yet. */
@@ -109,7 +110,10 @@ export class IdeasController {
     @Body(new ContractPipe(ideaShapingSchema)) { projectId }: IdeaShaping,
     @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.planning.shapeAndPlan(id, projectId, authorOf(signedIn)));
+    return toTaskResponse(
+      await this.planning.shapeAndPlan(id, projectId, authorOf(signedIn)),
+      null,
+    );
   }
 
   @Post(":id/drop")

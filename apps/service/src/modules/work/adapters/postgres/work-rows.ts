@@ -1,4 +1,5 @@
 import { and, eq, getTableColumns, inArray, sql } from "drizzle-orm";
+import type { EngineModel } from "../../../engine/index.js";
 import type { Database } from "../../../../platform/database/database.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
@@ -247,9 +248,10 @@ export function toIdea(row: IdeaRow): Idea {
   };
 }
 
-export function toInitiativeRow(initiative: Initiative): InitiativeRow {
+export function toInitiativeRow({ engine, ...initiative }: Initiative): InitiativeRow {
   return {
     ...initiative,
+    ...engineColumns(engine),
     originIdeaId: initiative.originIdeaId ?? null,
     endedAt: initiative.endedAt ?? null,
     archivedAt: initiative.archivedAt ?? null,
@@ -273,9 +275,10 @@ export function toInitiativeRow(initiative: Initiative): InitiativeRow {
   };
 }
 
-export function toInitiative(row: InitiativeRow): Initiative {
+export function toInitiative({ engineId, model, ...row }: InitiativeRow): Initiative {
   return {
     ...row,
+    engine: engineOf({ engineId, model }),
     originIdeaId: row.originIdeaId ?? undefined,
     createdBy: authorOf(row.createdBy),
     endedAt: row.endedAt ?? undefined,
@@ -350,7 +353,26 @@ export function toTaskRow(task: Task): TaskRow {
     foundInVersion: task.foundInVersion ?? null,
     foundWhileWorkingOnTaskId: task.foundWhileWorkingOn ?? null,
     createdByTheOffice: task.createdByTheOffice,
+    ...engineColumns(task.engine),
   };
+}
+
+/** A Task's or an Initiative's engine as its two columns keep it, both null for none. */
+function engineColumns(engine: EngineModel | null): {
+  readonly engineId: string | null;
+  readonly model: string | null;
+} {
+  return { engineId: engine?.engineId ?? null, model: engine?.model ?? null };
+}
+
+/** The engine its two columns keep; none unless both are set. */
+function engineOf(row: {
+  readonly engineId: string | null;
+  readonly model: string | null;
+}): EngineModel | null {
+  return row.engineId !== null && row.model !== null
+    ? { engineId: row.engineId, model: row.model }
+    : null;
 }
 
 /** A drop reason as its three columns keep it: its kind, Other's words and Duplicate's Task. */
@@ -484,6 +506,7 @@ export function toTaskSummary(row: TaskSummaryRow): TaskSummary {
     foundWhileWorkingOn: row.foundWhileWorkingOnTaskId ?? undefined,
     dropReason: dropReasonOf(row),
     createdByTheOffice: row.createdByTheOffice,
+    engine: engineOf(row),
   };
 }
 

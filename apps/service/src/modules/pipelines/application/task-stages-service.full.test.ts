@@ -6,7 +6,7 @@ import { TaskMovedToProject, TaskPipelineConfirmed } from "../../work/index.js";
 import { straightLineFlow } from "../domain/flow.js";
 import { agentStage, scriptStage } from "../domain/stage.fixtures.js";
 import type { Pipeline } from "../domain/pipeline.js";
-import type { Stage } from "../domain/stage.js";
+import { agentStageWorkers, type Stage } from "../domain/stage.js";
 import { TaskStagesReset } from "../domain/task-stages-events.js";
 import {
   startPipelinesApplication,
@@ -15,7 +15,7 @@ import {
 import { aPerson } from "../ports/pipelines-ports.fixtures.js";
 import { PipelineLibrary } from "./pipeline-library.js";
 import { PipelineLibraryEditor } from "./pipeline-library-editor.js";
-import { TaskStagesService } from "./task-stages-service.js";
+import { namedRoles, TaskStagesService } from "./task-stages-service.js";
 import { builtIn, quickFix, withGate, refusalOf } from "./task-stages-service.fixtures.js";
 
 let pipelines: PipelinesApplication;
@@ -102,7 +102,13 @@ describe("Edit for this Task", () => {
       roleKeys: ["translator"],
       dutyKeys: [],
       projectId: "billing",
+      task: {
+        taskId,
+        before: namedRoles(agentStageWorkers(quickFix)),
+        after: namedRoles(agentStageWorkers(edited)),
+      },
     });
+    expect(pipelines.roleEngines.asked.at(-1)?.task?.after.roleKeys).toEqual(["translator"]);
   });
 
   it("weighs only Roles neither the library nor the Task's Stages name yet", async () => {

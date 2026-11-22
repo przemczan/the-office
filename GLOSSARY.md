@@ -680,7 +680,7 @@ One text The Office gives an Agent or a session, such as Resolve's Brief, with a
 _Avoid_: system prompt, template (alone)
 
 **Engine**:
-What a session runs on, listed by the user in Settings › Engines with a name and a default model: a Claude Code account, signed in in its own folder, with the `-p` fallback as its switch; a Codex account (ChatGPT or an OpenAI API key), signed in in its own folder; a GitHub account with Copilot on the Copilot CLI (a **Copilot CLI engine**), signed in in its own folder or by a pasted token; a Gemini API key on the Gemini CLI (a **Gemini CLI engine**), with its own folder; or an API endpoint of the OpenAI-compatible API. Caps and usage are kept per Engine. The one a session runs on comes from the cascade of the Office default, the Project default and the Role overrides.
+What a session runs on, listed by the user in Settings › Engines with a name and a default model: a Claude Code account, signed in in its own folder, with the `-p` fallback as its switch; a Codex account (ChatGPT or an OpenAI API key), signed in in its own folder; a GitHub account with Copilot on the Copilot CLI (a **Copilot CLI engine**), signed in in its own folder or by a pasted token; a Gemini API key on the Gemini CLI (a **Gemini CLI engine**), with its own folder; or an API endpoint of the OpenAI-compatible API. Caps and usage are kept per Engine. The one a session runs on comes from the cascade of the Office default, the Project default, the Initiative's engine, the Task's engine and the Role overrides.
 _Avoid_: Provider, backend, account (as the thing picked), engine id; Copilot, Copilot engine, GitHub engine (for a Copilot CLI engine); Gemini, Gemini engine, Google engine (for a Gemini CLI engine)
 
 **Office default**:
@@ -694,6 +694,14 @@ _Avoid_: Fallback engine, backup engine, failover
 **Project default**:
 The Engine and model a Project's sessions run on, set in the Project page's Engine block; with "Use for every Role" it applies to every Role in the Project over their Office-wide Role overrides.
 _Avoid_: Project engine, project override
+
+**Initiative's engine**:
+The Engine and model an Initiative sets on its page: its shaping and planning Threads run on it, and so does every Task in it that sets no engine of its own. It takes the Project default's place in the cascade.
+_Avoid_: Initiative engine setting, Initiative default
+
+**Task's engine**:
+The Engine and model a Task sets on its page: every session about it (its Stage runs, its planning Thread, Consultations on it) runs on it. It takes the Project default's place in the cascade, ahead of its Initiative's engine.
+_Avoid_: Task engine setting, Task override
 
 **Role override**:
 An Engine and model a Role runs on in place of the default: Office-wide on the Role card, or a Project's own in the Project page's Engine block, which wins in that Project. With none, the Role card reads "Office default".

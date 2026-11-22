@@ -18,7 +18,7 @@ import type { DependencyChanges } from "../../domain/task-dependencies.js";
 import { TaskDependencyRemoved } from "../../domain/task-events.js";
 import { TASK_STATE_NAMES } from "../../domain/task-states.js";
 import { SessionPeople } from "../../ports/session-people.js";
-import { toTaskResponse } from "../http/work-responses.js";
+import { TaskResponses } from "../http/task-responses.js";
 import { answered, personInSession } from "../office-tools/work-tool-answers.js";
 
 /**
@@ -29,7 +29,7 @@ import { answered, personInSession } from "../office-tools/work-tool-answers.js"
 interface WorkActionHandler<Action extends OfficeAction, Result> {
   readonly action: Action;
   handle(input: z.output<Action["input"]>, by: Author): Promise<Result>;
-  response(result: Result): z.input<Action["answer"]>;
+  response(result: Result): Promise<z.input<Action["answer"]>>;
   words(result: Result, input: z.output<Action["input"]>): Promise<string>;
 }
 
@@ -57,6 +57,7 @@ export class WorkOfficeActions implements OnModuleInit {
     private readonly initiatives: InitiativeService,
     private readonly membership: InitiativeMembership,
     private readonly sessionPeople: SessionPeople,
+    private readonly responses: TaskResponses,
   ) {
     this.handlers = new Map(
       [
@@ -92,14 +93,14 @@ export class WorkOfficeActions implements OnModuleInit {
   async answer(action: OfficeAction, input: unknown, by: Author): Promise<unknown> {
     const each = this.handlers.get(action.name);
     if (!each) throw new Error(`Work carries out no Office action ${action.name}.`);
-    return each.response(await each.handle(input as never, by));
+    return await each.response(await each.handle(input as never, by));
   }
 
   private addDependency(): AnyWorkActionHandler {
     return handler({
       action: ADD_DEPENDENCY_ACTION,
       handle: ({ taskId, blockerId }) => this.tasks.addDependency(taskId, blockerId),
-      response: (changes: DependencyChanges) => toTaskResponse(changes.task),
+      response: (changes: DependencyChanges) => this.responses.task(changes.task),
       words: (changes, { blockerId }) => this.dependencyWords(changes, blockerId),
     });
   }
@@ -139,7 +140,7 @@ export class WorkOfficeActions implements OnModuleInit {
     return handler({
       action: REMOVE_DEPENDENCY_ACTION,
       handle: ({ taskId, blockerId }) => this.tasks.removeDependency(taskId, blockerId),
-      response: toTaskResponse,
+      response: (task) => this.responses.task(task),
       words: async (task, { blockerId }) => {
         const blocker = await this.tasks.read(blockerId);
         return `"${task.title}" no longer waits for "${blocker.title}".`;
@@ -151,7 +152,7 @@ export class WorkOfficeActions implements OnModuleInit {
     return handler({
       action: ADD_TO_INITIATIVE_ACTION,
       handle: ({ initiativeId, taskId }, by) => this.membership.add(initiativeId, taskId, by),
-      response: toTaskResponse,
+      response: (task) => this.responses.task(task),
       words: async (task, { initiativeId }) =>
         `"${task.title}" is in the Initiative "${await this.initiativeName(initiativeId)}" now, ${stateWords(task)}.`,
     });
@@ -161,7 +162,7 @@ export class WorkOfficeActions implements OnModuleInit {
     return handler({
       action: TAKE_OUT_OF_INITIATIVE_ACTION,
       handle: ({ initiativeId, taskId }, by) => this.membership.takeOut(initiativeId, taskId, by),
-      response: toTaskResponse,
+      response: (task) => this.responses.task(task),
       words: async (task, { initiativeId }) =>
         `"${task.title}" is out of the Initiative "${await this.initiativeName(initiativeId)}" now, ${stateWords(task)}.`,
     });

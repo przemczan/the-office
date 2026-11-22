@@ -51,7 +51,7 @@ import {
   type InitiativeThreadOpening,
   type InitiativeThreadWaiting,
 } from "./initiative-threads.js";
-import { KnownEngineCascade } from "./known-engine-cascade.js";
+import { KnownEngineCascade, type EngineCascadePlace } from "./known-engine-cascade.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
 import {
   KnownProjects,
@@ -474,15 +474,20 @@ export class KnownPeopleForTests extends KnownPeople {
 }
 
 /**
- * Every Role runs on the first Claude Code engine on Haiku, unless `inProject` gives the Project's
- * own engine and model.
+ * Every Role runs on the first Claude Code engine on Haiku, unless `onTask` gives the Task's
+ * engine and model or `inProject` the Project's own.
  */
 @Injectable()
 export class KnownEngineCascadeForTests extends KnownEngineCascade {
   readonly inProject = new Map<string, EngineModel>();
+  readonly onTask = new Map<string, EngineModel>();
 
-  async applying(_roleKey: string, projectId: string): Promise<EngineModel | null> {
+  async applying(
+    _roleKey: string,
+    { projectId, taskId }: EngineCascadePlace,
+  ): Promise<EngineModel | null> {
     return (
+      (taskId === undefined ? undefined : this.onTask.get(taskId)) ??
       this.inProject.get(projectId) ?? {
         engineId: FIRST_CLAUDE_CODE_ENGINE.id,
         model: "claude-haiku-5-5",

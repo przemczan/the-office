@@ -58,6 +58,8 @@ import {
   TaskWorktrees,
 } from "../../projects/index.js";
 import { SkillsModule } from "../../skills/index.js";
+import { WorkEngineLevels } from "../adapters/people/work-engine-levels.js";
+import { WorkEngineLevelsModule } from "../work-engine-levels.module.js";
 import { WorkModule } from "../work.module.js";
 import { GitHubModule } from "../../github/index.js";
 
@@ -97,8 +99,9 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
             knownPipelines: PipelineLibrary,
           });
           const engineCascade = EngineCascadeModule.register({
-            imports: [projects, PipelineLibraryModule],
+            imports: [projects, PipelineLibraryModule, WorkEngineLevelsModule],
             knownProjectLevels: ProjectService,
+            knownWorkLevels: WorkEngineLevels,
             projectLevelsSaves: EngineLevelsChecks,
           });
           const conversations = ConversationsModule.register({

@@ -61,6 +61,7 @@ import { QueueController } from "./adapters/http/queue.controller.js";
 import { TasksController } from "./adapters/http/tasks.controller.js";
 import { ConflictResolutionsController } from "./adapters/http/conflict-resolutions.controller.js";
 import { TestTargetsSetUpsController } from "./adapters/http/test-targets-set-ups.controller.js";
+import { TaskResponses } from "./adapters/http/task-responses.js";
 import { PostgresAttachmentRepository } from "./adapters/postgres/postgres-attachment-repository.js";
 import { PostgresFireAlarmRepository } from "./adapters/postgres/postgres-fire-alarm-repository.js";
 import { PostgresIdeaRepository } from "./adapters/postgres/postgres-idea-repository.js";
@@ -105,6 +106,8 @@ import { UsageEstimates } from "./application/usage-estimates.js";
 import { TaskConnectedDevices } from "./application/task-connected-devices.js";
 import { TaskRecords } from "./application/task-records.js";
 import { TaskStageEdits } from "./application/task-stage-edits.js";
+import { TaskEngineChecks } from "./application/task-engine-checks.js";
+import { WorkEngineLevelMoves } from "./application/work-engine-level-moves.js";
 import { TaskArchiving } from "./application/task-archiving.js";
 import { InitiativeArchiving } from "./application/initiative-archiving.js";
 import { BranchDeletionsController } from "./adapters/http/branch-deletions.controller.js";
@@ -336,9 +339,12 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         TaskConnectedDevices,
         TaskRecords,
         TaskStageEdits,
+        TaskEngineChecks,
+        WorkEngineLevelMoves,
         IdeaRecords,
         StageScreenshots,
         WorkWebEvents,
+        TaskResponses,
         WorkPromptTemplates,
         WorkOfficeTools,
         PlanningOfficeTools,
@@ -384,6 +390,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         TaskConnectedDevices,
         TaskRecords,
         TaskStageEdits,
+        TaskEngineChecks,
         StageScreenshots,
       ],
     };

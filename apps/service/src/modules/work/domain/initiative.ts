@@ -1,3 +1,4 @@
+import type { EngineModel } from "../../engine/index.js";
 import type { ArchivedBy, Author } from "./author.js";
 import type { BranchDeletionRecord } from "./branch-deletion.js";
 
@@ -74,6 +75,11 @@ export interface Initiative {
    * them; kept after a Drop, as the branches are (spec 5.5).
    */
   readonly branches: readonly InitiativeBranch[];
+  /**
+   * The Initiative's engine and model (spec 5.4.5): its Threads, and every Task in it that sets none,
+   * run on it in the Project default's place; null for none.
+   */
+  readonly engine: EngineModel | null;
 }
 
 /** The Initiative's branch in one Project, `initiative/<short name>` (initiativeBranchOf). */
