@@ -369,7 +369,8 @@ export type BugTaskFields = z.infer<typeof bugTaskFieldsSchema>;
 
 /**
  * One question of a Decision's form (spec §2.4): a choice, its options with the recommended one, by
- * its index, and why; or an open question, answered in words, `why` saying why a request asks it.
+ * its index, and why; a choice of several, its options with every recommended one, by their indexes
+ * in order, and why; or an open question, answered in words, `why` saying why a request asks it.
  */
 export const decisionQuestionSchema = z.discriminatedUnion("kind", [
   z.object({
@@ -378,18 +379,33 @@ export const decisionQuestionSchema = z.discriminatedUnion("kind", [
     options: z.array(z.string()),
     recommendation: z.object({ option: z.number().int().nonnegative(), reason: z.string() }),
   }),
+  z.object({
+    kind: z.literal("choice-of-several"),
+    question: z.string(),
+    options: z.array(z.string()),
+    recommendation: z.object({
+      options: z.array(z.number().int().nonnegative()),
+      reason: z.string(),
+    }),
+  }),
   z.object({ kind: z.literal("open"), question: z.string(), why: z.string().optional() }),
 ]);
 export type DecisionQuestion = z.infer<typeof decisionQuestionSchema>;
 
 /**
- * The answer to one question: an option of a choice, by its index, or words, which answer an open
- * question or a choice with no option picked; each with an optional comment.
+ * The answer to one question: an option of a choice, by its index; the options of a choice of
+ * several, by their indexes in order, one or more; or words, which answer an open question or a
+ * choice with no option picked; each with an optional comment.
  */
 export const questionAnswerSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("option"),
     option: z.number().int().nonnegative(),
+    comment: z.string().optional(),
+  }),
+  z.object({
+    kind: z.literal("options"),
+    options: z.array(z.number().int().nonnegative()),
     comment: z.string().optional(),
   }),
   z.object({ kind: z.literal("words"), text: z.string(), comment: z.string().optional() }),

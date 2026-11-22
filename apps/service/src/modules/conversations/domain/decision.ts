@@ -66,6 +66,23 @@ export interface ChoiceQuestion {
   readonly recommendation: Recommendation;
 }
 
+/**
+ * A question answered by picking every option that applies, one or more, the Agent's recommended
+ * ones preselected.
+ */
+export interface ChoiceOfSeveralQuestion {
+  readonly kind: "choice-of-several";
+  readonly question: string;
+  readonly options: readonly string[];
+  readonly recommendation: RecommendationOfSeveral;
+}
+
+/** The options an Agent recommends in a choice of several, by their indexes in order, and why. */
+export interface RecommendationOfSeveral {
+  readonly options: readonly number[];
+  readonly reason: string;
+}
+
 /** A question answered in words; for a request, `why` says why the asker needs it done. */
 export interface OpenQuestion {
   readonly kind: "open";
@@ -75,7 +92,26 @@ export interface OpenQuestion {
 }
 
 /** One question of a Decision's form (spec §2.4). */
-export type DecisionQuestion = ChoiceQuestion | OpenQuestion;
+export type DecisionQuestion = ChoiceQuestion | ChoiceOfSeveralQuestion | OpenQuestion;
+
+/** A question with options to pick: a choice or a choice of several. */
+export function hasOptions(
+  question: DecisionQuestion,
+): question is ChoiceQuestion | ChoiceOfSeveralQuestion {
+  return question.kind !== "open";
+}
+
+/** The options a question's asker recommends, by their indexes in order; none for an open one. */
+export function recommendedOptions(question: DecisionQuestion): readonly number[] {
+  switch (question.kind) {
+    case "choice":
+      return [question.recommendation.option];
+    case "choice-of-several":
+      return question.recommendation.options;
+    case "open":
+      return [];
+  }
+}
 
 /** What the Agent asks, as it opens a Decision. */
 export interface DecisionDraft {
@@ -140,11 +176,17 @@ export function bugTaskToCreate(
 }
 
 /**
- * The answer to one question: an option of a choice, by its index, or words, which answer an open
- * question, or a choice with no option picked (its comment alone). Each takes an optional comment.
+ * The answer to one question: an option of a choice, by its index; the options of a choice of
+ * several, by their indexes in order, one or more; or words, which answer an open question, or a
+ * choice with no option picked (its comment alone). Each takes an optional comment.
  */
 export type QuestionAnswer =
   | { readonly kind: "option"; readonly option: number; readonly comment?: string | undefined }
+  | {
+      readonly kind: "options";
+      readonly options: readonly number[];
+      readonly comment?: string | undefined;
+    }
   | { readonly kind: "words"; readonly text: string; readonly comment?: string | undefined };
 
 /**
@@ -346,7 +388,7 @@ export function decisionProblems(draft: DecisionDraft): string[] {
 function requestProblems({ questions }: DecisionDraft): string[] {
   const [asked, ...others] = questions;
   if (asked === undefined || others.length > 0) return ["A request asks one thing."];
-  if (asked.kind === "choice") {
+  if (hasOptions(asked)) {
     return ["A request has no options: they answer in their own words."];
   }
   const problems: string[] = [];
@@ -371,11 +413,35 @@ function questionProblems(question: DecisionQuestion): string[] {
   if (options.some((option) => option.trim() === "")) problems.push("Name every option.");
   const named = options.map((option) => option.trim().toLowerCase());
   if (new Set(named).size !== named.length) problems.push("Give each option a name of its own.");
-  if (!Number.isInteger(recommendation.option) || options[recommendation.option] === undefined) {
-    problems.push("Recommend one of the options.");
+  if (question.kind === "choice") {
+    if (!isOptionOf(question, question.recommendation.option)) {
+      problems.push("Recommend one of the options.");
+    }
+    if (recommendation.reason.trim() === "") problems.push("Say why you recommend it.");
+    return problems;
   }
-  if (recommendation.reason.trim() === "") problems.push("Say why you recommend it.");
+  if (!areOptionsOf(question, question.recommendation.options)) {
+    problems.push("Recommend one or more of the options, each once.");
+  }
+  if (recommendation.reason.trim() === "") problems.push("Say why you recommend them.");
   return problems;
+}
+
+/** Whether `option` is the index of one of the question's options. */
+function isOptionOf(
+  { options }: ChoiceQuestion | ChoiceOfSeveralQuestion,
+  option: number,
+): boolean {
+  return Number.isInteger(option) && options[option] !== undefined;
+}
+
+/** Whether `picked` names one or more of the question's options, each once. */
+function areOptionsOf(question: ChoiceOfSeveralQuestion, picked: readonly number[]): boolean {
+  return (
+    picked.length > 0 &&
+    new Set(picked).size === picked.length &&
+    picked.every((option) => isOptionOf(question, option))
+  );
 }
 
 /** A problem with the question at `index`, named when the form asks several. */
@@ -539,9 +605,14 @@ function questionAnswerProblems(
       ? ["A request has no options: answer in your own words, saying what you did or why not."]
       : ["It is an open question: answer in your own words."];
   }
-  return Number.isInteger(answer.option) && question.options[answer.option] !== undefined
+  if (question.kind === "choice") {
+    return answer.kind === "option" && isOptionOf(question, answer.option)
+      ? []
+      : ["Choose one of the Decision's options."];
+  }
+  return answer.kind === "options" && areOptionsOf(question, answer.options)
     ? []
-    : ["Choose one of the Decision's options."];
+    : ["Choose one or more of the question's options, each once."];
 }
 
 /**
@@ -583,7 +654,9 @@ export function answerForUserProblems(decision: Decision, caller: Thread): strin
 /** The answer to one question in words: the option picked, or the words given. */
 export function questionAnswerWords(question: DecisionQuestion, answer: QuestionAnswer): string {
   if (answer.kind === "words") return answer.text.trim();
-  return question.kind === "choice" ? (question.options[answer.option] ?? "") : "";
+  if (!hasOptions(question)) return "";
+  const picked = answer.kind === "option" ? [answer.option] : answer.options;
+  return picked.map((option) => question.options[option] ?? "").join("; ");
 }
 
 /**
@@ -642,7 +715,7 @@ function questionWithAnswer(
   if (answer !== undefined) {
     const words = questionAnswerWords(question, answer);
     lines.push(
-      answer.kind === "option" ? `   Answer: ${words}` : `   Answer, in their own words: ${words}`,
+      answer.kind === "words" ? `   Answer, in their own words: ${words}` : `   Answer: ${words}`,
     );
     const comment = answer.comment?.trim();
     if (comment) lines.push(`   Comment: ${comment}`);
@@ -664,8 +737,22 @@ export interface OneQuestionView {
 export function oneQuestionView({ questions }: Pick<DecisionDraft, "questions">): OneQuestionView {
   const first = questions[0];
   if (first === undefined) return { question: "", options: [], recommendation: NO_RECOMMENDATION };
-  return first.kind === "choice"
-    ? { question: first.question, options: first.options, recommendation: first.recommendation }
+  if (first.kind === "choice") {
+    return {
+      question: first.question,
+      options: first.options,
+      recommendation: first.recommendation,
+    };
+  }
+  return first.kind === "choice-of-several"
+    ? {
+        question: first.question,
+        options: first.options,
+        recommendation: {
+          option: first.recommendation.options[0] ?? 0,
+          reason: first.recommendation.reason,
+        },
+      }
     : {
         question: first.question,
         options: [],

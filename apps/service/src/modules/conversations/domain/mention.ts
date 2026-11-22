@@ -1,5 +1,10 @@
 import { estimatedTokens, type Brief } from "./brief.js";
-import { formAnswerWords, type Decision, type DecisionQuestion } from "./decision.js";
+import {
+  formAnswerWords,
+  recommendedOptions,
+  type Decision,
+  type DecisionQuestion,
+} from "./decision.js";
 import { userWords } from "./user.js";
 
 /**
@@ -90,11 +95,14 @@ function questionLines(question: DecisionQuestion, index: number): string[] {
     ];
   }
   const { options, recommendation } = question;
+  const recommended = recommendedOptions(question)
+    .map((option) => options[option] ?? "")
+    .join("; ");
   return [
     heading,
-    "Options:",
+    question.kind === "choice" ? "Options:" : "Options, every one that applies picked:",
     ...options.map((option, place) => `${place + 1}. ${option}`),
-    `Recommended: ${options[recommendation.option] ?? ""}, because ${recommendation.reason}`,
+    `Recommended: ${recommended}, because ${recommendation.reason}`,
   ];
 }
 

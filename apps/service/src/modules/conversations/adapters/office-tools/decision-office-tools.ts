@@ -55,7 +55,7 @@ export class DecisionOfficeTools implements OnModuleInit {
     this.registry.register({
       name: OPEN_DECISION_TOOL,
       description:
-        "Opens a Decision in this Thread when something is the user's to decide: ask everything you need in one Decision, as a form of one or more questions, each with its options and the one you recommend, or with none for a question they answer in their own words. The user answers each question, with an optional comment on each and a general comment, then Submits, or asks you again instead; they may ask you a follow-up first. It returns at once; then end your turn without asking the questions again. Their answer comes as your next message. In your chat it shows inline, and the user answers it there. In an Initiative's shaping Thread leave taskId out: the Decision is on the Initiative, one at a time. In its planning Thread name the Task it is on with taskId: several can be open there, one per Task, and you plan on meanwhile; or leave taskId out for the Initiative as a whole, one at a time.",
+        "Opens a Decision in this Thread when something is the user's to decide: ask everything you need in one Decision, as a form of one or more questions, each with its options and the one you recommend (set several when they may pick more than one, and recommend each you would pick), or with none for a question they answer in their own words. The user answers each question, with an optional comment on each and a general comment, then Submits, or asks you again instead; they may ask you a follow-up first. It returns at once; then end your turn without asking the questions again. Their answer comes as your next message. In your chat it shows inline, and the user answers it there. In an Initiative's shaping Thread leave taskId out: the Decision is on the Initiative, one at a time. In its planning Thread name the Task it is on with taskId: several can be open there, one per Task, and you plan on meanwhile; or leave taskId out for the Initiative as a whole, one at a time.",
       input: z.object({
         context: z
           .string()
@@ -86,7 +86,7 @@ export class DecisionOfficeTools implements OnModuleInit {
   private registerConsult(): void {
     this.registry.register({
       name: CONSULT_TOOL,
-      description: `Consults or calls a person when your brief or your authority says to consult them first, or the user asks you to call them, or the user when your brief says to ask the user. Ask questions, everything you need in one form, each with its options and the one you recommend, or with none for one they answer in words: they answer each, with an optional comment on each and a general comment, or ask you again; ask approval of a call past a Hard switch, whose answer is ${APPROVAL_OPTIONS.join(" or ")}, never "always"; or make a request, asking them to do what you can't, such as "ask a colleague to set that up": they work with their own tools and permissions, never yours, and answer in their own words. A hired Consultant answers in a Consultation: on the Task, or in their own chat when you call from a chat or from an Initiative's Thread on no Task. On a Task, if nobody who can be consulted fills that Role, the user answers in their place; from a chat, the user answers it inline in your chat. Nobody is asked twice down one chain of calls, and at most ${CALL_STEPS} people are. The call shows as a Decision card in this Thread. It returns at once; then end your turn without asking again. The answer comes as your next message.`,
+      description: `Consults or calls a person when your brief or your authority says to consult them first, or the user asks you to call them, or the user when your brief says to ask the user. Ask questions, everything you need in one form, each with its options and the one you recommend (set several when they may pick more than one, and recommend each you would pick), or with none for one they answer in words: they answer each, with an optional comment on each and a general comment, or ask you again; ask approval of a call past a Hard switch, whose answer is ${APPROVAL_OPTIONS.join(" or ")}, never "always"; or make a request, asking them to do what you can't, such as "ask a colleague to set that up": they work with their own tools and permissions, never yours, and answer in their own words. A hired Consultant answers in a Consultation: on the Task, or in their own chat when you call from a chat or from an Initiative's Thread on no Task. On a Task, if nobody who can be consulted fills that Role, the user answers in their place; from a chat, the user answers it inline in your chat. Nobody is asked twice down one chain of calls, and at most ${CALL_STEPS} people are. The call shows as a Decision card in this Thread. It returns at once; then end your turn without asking again. The answer comes as your next message.`,
       input: z.object({
         person: z
           .string()
@@ -144,7 +144,7 @@ export class DecisionOfficeTools implements OnModuleInit {
   private registerAnswerConsultation(): void {
     this.registry.register({
       name: ANSWER_CONSULTATION_TOOL,
-      description: `Gives your answer in this Consultation: it answers the Decision the person who asked is waiting on, and reaches them as their next message. Answer each of its questions, in order: choose one of its options by its number, or answer in your own words, with a comment if you like; add a general comment if you like. Or ask them again instead, answering none of the questions, saying why in the general comment. A request you answer in your own words: what you did, such as a Proposal you drafted, or why you can't. To approve a call, choose ${APPROVAL_OPTIONS.map((option, index) => `${index + 1} for "${option}"`).join(" or ")}, with no comment, or pass it on when the call isn't yours to decide: to the person your authority names, or to the user. At most ${CALL_STEPS} people are asked down one chain of calls and passes-on, then it is the user's; nobody already in it can be asked again. A question The Office put to you first, you answer in your own words, or pass on to the user.`,
+      description: `Gives your answer in this Consultation: it answers the Decision the person who asked is waiting on, and reaches them as their next message. Answer each of its questions, in order: choose one of its options by its number (for a choice of several, every option that applies, in options), or answer in your own words, with a comment if you like; add a general comment if you like. Or ask them again instead, answering none of the questions, saying why in the general comment. A request you answer in your own words: what you did, such as a Proposal you drafted, or why you can't. To approve a call, choose ${APPROVAL_OPTIONS.map((option, index) => `${index + 1} for "${option}"`).join(" or ")}, with no comment, or pass it on when the call isn't yours to decide: to the person your authority names, or to the user. At most ${CALL_STEPS} people are asked down one chain of calls and passes-on, then it is the user's; nobody already in it can be asked again. A question The Office put to you first, you answer in your own words, or pass on to the user.`,
       input: z.object({
         ...ANSWER_INPUT,
         passOn: z
@@ -181,7 +181,7 @@ export class DecisionOfficeTools implements OnModuleInit {
     this.registry.register({
       name: ANSWER_DECISION_TOOL,
       description:
-        "Answers a Decision waiting on the user, for the user, when they asked you to in this Thread: use it only then, with the answers they gave or agreed to. Answer each of its questions, in order: choose one of its options by its number, or answer in the user's own words, with their comment if they gave one; add their general comment if they gave one. Or ask again for them, answering none of the questions, with their general comment. The card shows it as answered by you at the user's request, and the answer reaches the person who asked as their next message. read_task lists a Task's Decisions waiting on the user, with their ids, their questions and numbered options. An approval of a call stays the user's own click, a Decision put to a Consultant is theirs, and one in this Thread the user answers on its card.",
+        "Answers a Decision waiting on the user, for the user, when they asked you to in this Thread: use it only then, with the answers they gave or agreed to. Answer each of its questions, in order: choose one of its options by its number (for a choice of several, every option they picked, in options), or answer in the user's own words, with their comment if they gave one; add their general comment if they gave one. Or ask again for them, answering none of the questions, with their general comment. The card shows it as answered by you at the user's request, and the answer reaches the person who asked as their next message. read_task lists a Task's Decisions waiting on the user, with their ids, their questions and numbered options. An approval of a call stays the user's own click, a Decision put to a Consultant is theirs, and one in this Thread the user answers on its card.",
       input: z.object({
         decisionId: z.string().describe("The Decision's id, as read_task or a mention gives it."),
         ...ANSWER_INPUT,
@@ -293,7 +293,7 @@ function consultOf(input: {
   }
 }
 
-/** One question as a tool takes it, its recommended option counted from 1. */
+/** One question as a tool takes it, its recommended options counted from 1. */
 const QUESTION_INPUT = z.object({
   question: z.string().describe("The question, as the person answering reads it."),
   options: z
@@ -302,12 +302,22 @@ const QUESTION_INPUT = z.object({
     .describe(
       "Two or more options, each a short line they can choose. Leave them out for a question answered in their own words.",
     ),
-  recommended: z
-    .number()
-    .int()
+  several: z
+    .boolean()
     .optional()
-    .describe("With options: the one you recommend, by its number in the list, counting from 1."),
-  why: z.string().optional().describe("With options: why you recommend it, in a sentence."),
+    .describe(
+      "With options: true when they pick every option that applies, one or more, shown as checkboxes; left out, they pick one.",
+    ),
+  recommended: z
+    .union([z.number().int(), z.array(z.number().int())])
+    .optional()
+    .describe(
+      "With options: the one you recommend, by its number in the list, counting from 1; with several, every one you recommend, as a list of their numbers.",
+    ),
+  why: z
+    .string()
+    .optional()
+    .describe("With options: why you recommend it, or them, in a sentence."),
 });
 
 type QuestionInput = z.infer<typeof QUESTION_INPUT>;
@@ -318,22 +328,33 @@ const QUESTIONS_INPUT = z
     "Everything you ask, in one form, in the order it is answered: one question or more, each with its options or none.",
   );
 
-/** A question as the tool's input gives it: a choice with options, an open question without. */
+/**
+ * A question as the tool's input gives it: a choice with options, a choice of several with options
+ * and several set, an open question without options.
+ */
 function questionFromToolInput({
   question,
   options,
+  several,
   recommended,
   why,
 }: QuestionInput): DecisionQuestion {
   if (options === undefined || options.length === 0) {
     return { kind: "open", question, ...(why === undefined ? {} : { why }) };
   }
-  return {
-    kind: "choice",
-    question,
-    options,
-    recommendation: { option: (recommended ?? 0) - 1, reason: why ?? "" },
-  };
+  const numbers = recommended === undefined ? [] : [recommended].flat();
+  const reason = why ?? "";
+  if (several) {
+    return {
+      kind: "choice-of-several",
+      question,
+      options,
+      recommendation: { options: numbers.map((number) => number - 1), reason },
+    };
+  }
+  // A list for a choice of one recommends its one number; anything else fails as no option.
+  const option = numbers.length === 1 ? numbers[0]! - 1 : -1;
+  return { kind: "choice", question, options, recommendation: { option, reason } };
 }
 
 /** How answer_consultation and answer_decision take an answer: one per question, or ask again. */
@@ -346,6 +367,12 @@ const ANSWER_INPUT = {
           .int()
           .optional()
           .describe("The option chosen, by its number in the question's list, counting from 1."),
+        options: z
+          .array(z.number().int())
+          .optional()
+          .describe(
+            "For a choice of several instead: every option chosen, one or more, by their numbers in the question's list, counting from 1.",
+          ),
         answer: z
           .string()
           .optional()
@@ -356,7 +383,9 @@ const ANSWER_INPUT = {
       }),
     )
     .optional()
-    .describe("One answer per question, in the Decision's order, each an option or words."),
+    .describe(
+      "One answer per question, in the Decision's order, each an option, options or words.",
+    ),
   generalComment: z
     .string()
     .optional()
@@ -390,24 +419,23 @@ function answerFromToolInput({
   if (answers === undefined || answers.length === 0) {
     return { problems: ["Answer each question in answers, in order, or ask again with askAgain."] };
   }
-  const problems = answers.flatMap(({ option, answer }, index) => {
+  const problems = answers.flatMap(({ option, options, answer }, index) => {
     const named = answers.length > 1 ? `Question ${index + 1}: ` : "";
-    if (option !== undefined && answer !== undefined) {
-      return [`${named}Choose an option or answer in words, not both.`];
-    }
-    if (option === undefined && answer === undefined) {
-      return [`${named}Choose an option or answer in words.`];
-    }
+    const given = [option, options, answer].filter((part) => part !== undefined).length;
+    if (given > 1) return [`${named}Choose an option (or options) or answer in words, not both.`];
+    if (given === 0) return [`${named}Choose an option (or options) or answer in words.`];
     return [];
   });
   if (problems.length > 0) return { problems };
   return {
     kind: "submitted",
-    answers: answers.map(({ option, answer, comment }): QuestionAnswer => {
+    answers: answers.map(({ option, options, answer, comment }): QuestionAnswer => {
       const commented = comment === undefined ? {} : { comment };
-      return option !== undefined
-        ? { kind: "option", option: option - 1, ...commented }
-        : { kind: "words", text: answer ?? "", ...commented };
+      if (option !== undefined) return { kind: "option", option: option - 1, ...commented };
+      if (options !== undefined) {
+        return { kind: "options", options: options.map((number) => number - 1), ...commented };
+      }
+      return { kind: "words", text: answer ?? "", ...commented };
     }),
     ...(generalComment === undefined ? {} : { generalComment }),
   };

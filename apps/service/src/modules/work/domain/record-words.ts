@@ -37,13 +37,15 @@ export interface AllStageResults {
 /**
  * A Decision on a Task waiting on the user, which Conversations keeps: by its id, which a person
  * answers it for the user by when they ask (spec §2.4), with its questions in order, each with its
- * options, none for a question answered in words.
+ * options, none for a question answered in words, and whether every option that applies is picked.
  */
 export interface DecisionWaitingOnTheUser {
   readonly id: string;
   readonly questions: readonly {
     readonly question: string;
     readonly options: readonly string[];
+    /** Whether it is a choice of several: every option that applies is picked, one or more. */
+    readonly ofSeveral: boolean;
   }[];
   /** Whether it asks approval of a call, which only the user gives. */
   readonly approval: boolean;
@@ -194,8 +196,8 @@ function publishingTaskLines(task: Task, { initiative }: TaskLinks): string[] {
 function waitingDecisionLines({ id, questions, approval }: DecisionWaitingOnTheUser) {
   return [
     `- Decision ${id}${approval ? ": an approval of a call, which only the user gives, on its card" : ""}`,
-    ...questions.flatMap(({ question, options }, index) => [
-      `  Question ${index + 1}: ${question}`,
+    ...questions.flatMap(({ question, options, ofSeveral }, index) => [
+      `  Question ${index + 1}: ${question}${ofSeveral ? " (a choice of several: every option that applies, by their numbers)" : ""}`,
       ...options.map((option, number) => `    ${number + 1}. ${option}`),
     ]),
   ];

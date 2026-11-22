@@ -25,7 +25,6 @@ import {
   type ProposedTestTargetFields,
 } from "../../../projects/index.js";
 import {
-  type DecisionAnswer,
   formAnswerFromOne,
   formFromOne,
   oneAnswerView,
@@ -60,10 +59,15 @@ import {
   proposals,
   threadMessages,
   threads,
-  type SavedFormAnswer,
   type SavedMessage,
   type ThreadSessionRow,
 } from "./threads.schema.js";
+import {
+  fromSavedFormAnswer,
+  fromSavedQuestions,
+  toSavedFormAnswer,
+  toSavedQuestions,
+} from "./saved-decision-forms.js";
 
 type ThreadRow = typeof threads.$inferSelect;
 type MessageRow = typeof threadMessages.$inferSelect;
@@ -634,19 +638,9 @@ function toMessageRow(
     body: {
       ...line,
       answer: oneAnswerView(decision, answer),
-      formAnswer: toSavedFormAnswer(answer),
+      formAnswer: toSavedFormAnswer(answer, decision.questions),
     },
   };
-}
-
-function toSavedFormAnswer(answer: DecisionAnswer): SavedFormAnswer {
-  return answer.kind === "dismissed" ? { ...answer, kind: "asked-again", dismissed: true } : answer;
-}
-
-function fromSavedFormAnswer(saved: SavedFormAnswer): DecisionAnswer {
-  if (!("dismissed" in saved)) return saved;
-  const { dismissed: _dismissed, ...answer } = saved;
-  return { ...answer, kind: "dismissed" };
 }
 
 /** A Decision not among those at hand, read as a form of no questions: its answer reads alone. */
@@ -691,7 +685,7 @@ function toDecisionRow({
     bugTask: bugTask ?? null,
     ...oneQuestionView({ questions }),
     kind: oneQuestionKind(kind),
-    questions,
+    questions: toSavedQuestions(questions),
     closedAt: closedAt ?? null,
     taskId: taskId ?? null,
     roleKey: roleKey ?? null,
@@ -712,7 +706,7 @@ function toDecisionRow({
   return {
     ...decision,
     answer: { ...oneAnswerView({ kind, questions }, formAnswer), ...givenBy },
-    formAnswer: toSavedFormAnswer(formAnswer),
+    formAnswer: toSavedFormAnswer(formAnswer, questions),
     answeredAt,
   };
 }
@@ -754,7 +748,7 @@ function toDecision({
     ...row,
     inStageThread,
     ...(bugTask === null ? { kind: asked.kind } : { kind: "bug-task", bugTask }),
-    questions: questions ?? asked.questions,
+    questions: questions ? fromSavedQuestions(questions) : asked.questions,
     ...(closedAt === null ? {} : { closedAt }),
     taskId: taskId ?? undefined,
     roleKey: roleKey ?? undefined,

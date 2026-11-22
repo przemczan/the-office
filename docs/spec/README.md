@@ -49,7 +49,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **CI run, Workflow**: [2.1.6 The CI tab](2.1.6-board-and-search.md#the-ci-tab); screen: [CI tab › Start a workflow window](screens/ci-runs.md#start-a-workflow-window)
 - **Chat drawer**: [4.1 The chat drawer](4.1-ui-rules.md#the-chat-drawer); screen: [Shell › The chat drawer](screens/shell.md#the-chat-drawer)
 - **Checks**: [2.3.3 Gates](2.3.3-gates-and-checks.md#gates); [2.3.4 Publish](2.3.4-publish.md#publish); screen: [Pull requests › Table](screens/pull-requests.md#table)
-- **Choice, Question, Open question, Comment, General comment, Submit**: [2.4.2 The Decision form](2.4.2-decisions.md#the-decision-form); screen: [Decision card › Submit](screens/decision-card.md#submit)
+- **Choice, Choice of several, Question, Open question, Comment, General comment, Submit**: [2.4.2 The Decision form](2.4.2-decisions.md#the-decision-form); screen: [Decision card › Submit](screens/decision-card.md#submit)
 - **Command kind, Project command**: [2.1.1 Project commands](2.1.1-projects.md#project-commands); screen: [Project page › Commands](screens/project-page.md#commands)
 - **Commit message**: [2.1.3 Commit message](2.1.3-tasks.md#commit-message); [2.3.4 The Task's commit message](2.3.4-publish.md#the-tasks-commit-message); screen: [Task page › Commit message](screens/task-page.md#commit-message)
 - **Compose install, Direct install**: [5.1.1 Installing with Docker Compose](5.1.1-releases-and-installs.md#installing-with-docker-compose); [5.1.1 Installing on Debian/Ubuntu](5.1.1-releases-and-installs.md#installing-on-debianubuntu)

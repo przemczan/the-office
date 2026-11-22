@@ -61,6 +61,13 @@ export const COLUMNS: DecisionQuestion = {
   recommendation: { option: 1, reason: "Totals are what people read." },
 };
 
+export const STORES: DecisionQuestion = {
+  kind: "choice-of-several",
+  question: "Where should the draft be kept?",
+  options: ["IndexedDB", "Cookies", "Local storage"],
+  recommendation: { options: [0, 2], reason: "Both survive a reload." },
+};
+
 export function aDecision(fields: Partial<Decision> = {}): Decision {
   return {
     id: DECISION_ID,
@@ -241,6 +248,25 @@ export function radio(
   );
   const input = line?.querySelector("input");
   if (!input) throw new Error(`No option "${option}" in "${question}".`);
+  return input;
+}
+
+/** The checkbox of `option` in the choice of several named `question`. */
+export function checkbox(
+  question: string,
+  option: string,
+  within: ParentNode = document.body,
+): HTMLInputElement {
+  const group = [...within.querySelectorAll("[role='group']")].find(
+    (shown) => shown.getAttribute("aria-label") === question,
+  );
+  const line = [...(group?.querySelectorAll("label") ?? [])].find((shown) =>
+    shown.textContent?.startsWith(option),
+  );
+  const input = line?.querySelector("input[type='checkbox']");
+  if (!(input instanceof HTMLInputElement)) {
+    throw new Error(`No option "${option}" in "${question}".`);
+  }
   return input;
 }
 

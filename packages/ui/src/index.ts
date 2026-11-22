@@ -197,6 +197,7 @@ export {
 } from "./pick-list.tsx";
 export { TextButton } from "./text-button.tsx";
 export { RadioList, type RadioListOption, type RadioListProps } from "./radio-list.tsx";
+export { CheckboxList, type CheckboxListOption, type CheckboxListProps } from "./checkbox-list.tsx";
 export {
   Menu,
   type MenuItem,

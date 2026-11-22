@@ -30,6 +30,12 @@ const STORE: DecisionQuestion = {
   recommendation: { option: 1, reason: "Drafts can hold pictures." },
 };
 const NAME: DecisionQuestion = { kind: "open", question: "What do we call it?" };
+const PLACES: DecisionQuestion = {
+  kind: "choice-of-several",
+  question: "Where else may drafts live?",
+  options: ["Cookies", "IndexedDB", "The server"],
+  recommendation: { options: [2, 1], reason: "Both hold pictures." },
+};
 const KEEP: DecisionQuestion = {
   kind: "choice",
   question: "Keep drafts after sending?",
@@ -57,9 +63,9 @@ describe("a fresh draft", () => {
   it("picks every choice's recommended option and writes nothing", () => {
     expect(initialDraft(MIXED)).toEqual({
       questions: [
-        { option: 1, words: "", comment: "" },
-        { option: null, words: "", comment: "" },
-        { option: 1, words: "", comment: "" },
+        { option: 1, options: [], words: "", comment: "" },
+        { option: null, options: [], words: "", comment: "" },
+        { option: 1, options: [], words: "", comment: "" },
       ],
       generalComment: "",
     });
@@ -215,17 +221,19 @@ describe("the Decision in short", () => {
   });
 
   it("says each question's answer so far", () => {
-    expect(draftAnswerWords(STORE, { option: 1, words: "", comment: "" })).toBe(
+    expect(draftAnswerWords(STORE, { option: 1, options: [], words: "", comment: "" })).toBe(
       "IndexedDB (recommended)",
     );
-    expect(draftAnswerWords(STORE, { option: 0, words: "", comment: "" })).toBe("localStorage");
-    expect(draftAnswerWords(STORE, { option: null, words: "", comment: "" })).toBe(
+    expect(draftAnswerWords(STORE, { option: 0, options: [], words: "", comment: "" })).toBe(
+      "localStorage",
+    );
+    expect(draftAnswerWords(STORE, { option: null, options: [], words: "", comment: "" })).toBe(
       "Needs an answer in words",
     );
-    expect(draftAnswerWords(STORE, { option: null, words: "", comment: "SQLite" })).toBe(
-      "In words: SQLite",
-    );
-    expect(draftAnswerWords(NAME, { option: null, words: "", comment: "" })).toBe(
+    expect(
+      draftAnswerWords(STORE, { option: null, options: [], words: "", comment: "SQLite" }),
+    ).toBe("In words: SQLite");
+    expect(draftAnswerWords(NAME, { option: null, options: [], words: "", comment: "" })).toBe(
       "Needs an answer",
     );
   });
@@ -293,5 +301,94 @@ describe("an answered form", () => {
     expect(formAnswerWords(MIXED, { kind: "asked-again" })).toBe("Asked again, with no comment.");
     expect(formAnswerWords(MIXED, dismissedAnswer(" Not needed "))).toBe("Dismissed: Not needed");
     expect(formAnswerWords(MIXED, dismissedAnswer(""))).toBe("Dismissed, with no comment.");
+  });
+});
+
+describe("a choice of several", () => {
+  const SEVERAL: Form = { questions: [PLACES, NAME], attachmentIds: [] };
+  const ONE = { questions: [PLACES] };
+
+  it("starts with its recommended options checked, in order, and counts as answered", () => {
+    const draft = initialDraft(SEVERAL);
+    expect(draft.questions[0]).toEqual({ option: null, options: [1, 2], words: "", comment: "" });
+    expect(answeredCount(SEVERAL, draft)).toBe(1);
+    expect(draftChanges(SEVERAL, draft)).toBe(0);
+    expect(allChoices(ONE)).toBe(true);
+    expect(allChoices(SEVERAL)).toBe(false);
+  });
+
+  it("counts a change once its checked options differ from the recommended ones", () => {
+    const draft = initialDraft(ONE);
+    expect(draftChanges(ONE, changed(draft, 0, { options: [2, 1] }))).toBe(0);
+    expect(draftChanges(ONE, changed(draft, 0, { options: [0, 1, 2] }))).toBe(1);
+    expect(draftChanges(ONE, changed(draft, 0, { options: [1] }))).toBe(1);
+  });
+
+  it("asks for words once no box is checked, and sends them", () => {
+    const draft = changed(initialDraft(ONE), 0, { options: [] });
+    expect(submitBlockedWords(ONE, draft)).toBe("Pick an option or write your answer first.");
+    const several = { questions: [NAME, PLACES] };
+    expect(
+      submitBlockedWords(
+        several,
+        changed(changed(initialDraft(several), 0, { words: "Drafts" }), 1, { options: [] }),
+      ),
+    ).toBe("Answer question 2 in its words first.");
+    expect(draftAnswerWords(PLACES, draft.questions[0]!)).toBe("Needs an answer in words");
+    const worded = changed(draft, 0, { comment: " Only memory " });
+    expect(draftAnswerWords(PLACES, worded.questions[0]!)).toBe("In words: Only memory");
+    expect(submittedAnswer(ONE, worded)).toEqual({
+      kind: "submitted",
+      answers: [{ kind: "words", text: "Only memory" }],
+    });
+  });
+
+  it("Submit sends the checked options in ascending order with the comment", () => {
+    const draft = changed(initialDraft(ONE), 0, { options: [2, 0], comment: " Fine. " });
+    expect(submittedAnswer(ONE, draft)).toEqual({
+      kind: "submitted",
+      answers: [{ kind: "options", options: [0, 2], comment: "Fine." }],
+    });
+    expect(draftAnswerWords(PLACES, draft.questions[0]!)).toBe("Cookies, The server (recommended)");
+  });
+
+  it("Accept sends the recommended options", () => {
+    expect(acceptAnswer({ questions: [PLACES, STORE] })).toEqual({
+      kind: "submitted",
+      answers: [
+        { kind: "options", options: [1, 2] },
+        { kind: "option", option: 1 },
+      ],
+    });
+  });
+
+  it("reads its answer as the picks, each recommended one marked", () => {
+    const answer = {
+      kind: "submitted" as const,
+      answers: [{ kind: "options" as const, options: [1, 0] }],
+    };
+    expect(answeredLines(ONE, answer)).toEqual([
+      {
+        number: 1,
+        question: PLACES.question,
+        answer: "Cookies, IndexedDB",
+        recommended: false,
+        picks: [
+          { option: "Cookies", recommended: false },
+          { option: "IndexedDB", recommended: true },
+        ],
+        inWords: false,
+        comment: undefined,
+      },
+    ]);
+    expect(formAnswerWords(ONE, answer)).toBe("Cookies, IndexedDB");
+  });
+
+  it("reads one option, as the release before answers it, by its name", () => {
+    const answer = {
+      kind: "submitted" as const,
+      answers: [{ kind: "option" as const, option: 2 }],
+    };
+    expect(formAnswerWords(ONE, answer)).toBe("The server");
   });
 });

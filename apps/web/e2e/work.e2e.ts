@@ -2146,11 +2146,16 @@ function aChoice(
 function decisionColumns(questions: readonly DecisionQuestion[]): readonly string[] {
   const [first] = questions;
   if (first === undefined) throw new Error("A Decision asks a question.");
+  if (questions.some((question) => question.kind === "choice-of-several")) {
+    throw new Error(
+      "Seed choices and open questions only: a choice of several is kept as a choice.",
+    );
+  }
   const recommendation =
-    first.kind === "choice" ? first.recommendation : { option: 0, reason: first.why ?? "" };
+    first.kind === "open" ? { option: 0, reason: first.why ?? "" } : first.recommendation;
   return [
     first.question,
-    JSON.stringify(first.kind === "choice" ? first.options : []),
+    JSON.stringify(first.kind === "open" ? [] : first.options),
     JSON.stringify(recommendation),
     JSON.stringify(questions),
   ];

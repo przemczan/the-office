@@ -5,6 +5,7 @@ import {
   type Decision,
   type DecisionAnswer,
   type DecisionDraft,
+  recommendedOptions,
   type DecisionQuestion,
 } from "./decision.js";
 
@@ -243,7 +244,7 @@ export function consultationOpening(
     ...passedOn,
     `What they found: ${decision.context}`,
     `Their questions:\n\n${decision.questions.map(questionForTheConsultant).join("\n\n")}`,
-    "Answer with the answer_consultation tool, as the user would answer the form: Submit gives `answers`, one per question in order, each an option by its number or an answer in your own words (a choice's words alone stand for picking none), with an optional comment, plus an optional `generalComment`; or set `askAgain` with only a `generalComment` saying what they should explain or change. It reaches them as their next message.",
+    "Answer with the answer_consultation tool, as the user would answer the form: Submit gives `answers`, one per question in order, each an option by its number (for a choice of several, every option that applies, by their numbers) or an answer in your own words (a choice's words alone stand for picking none), with an optional comment, plus an optional `generalComment`; or set `askAgain` with only a `generalComment` saying what they should explain or change. It reaches them as their next message.",
   ].join("\n\n");
 }
 
@@ -257,13 +258,19 @@ function questionForTheConsultant(question: DecisionQuestion, index: number): st
       ...(question.why ? [`Why they ask: ${question.why}`] : []),
     ].join("\n");
   }
+  const recommended = recommendedOptions(question);
   const options = question.options.map(
     (option, place) =>
-      `${place + 1}. ${option}${place === question.recommendation.option ? " (recommended)" : ""}`,
+      `${place + 1}. ${option}${recommended.includes(place) ? " (recommended)" : ""}`,
   );
-  return [heading, ...options, `Why they recommend it: ${question.recommendation.reason}`].join(
-    "\n",
-  );
+  return question.kind === "choice"
+    ? [heading, ...options, `Why they recommend it: ${question.recommendation.reason}`].join("\n")
+    : [
+        heading,
+        "A choice of several: pick every option that applies, one or more.",
+        ...options,
+        `Why they recommend them: ${question.recommendation.reason}`,
+      ].join("\n");
 }
 
 /** What the Consultant asked to approve a call is asked: the call, why, and their three answers. */

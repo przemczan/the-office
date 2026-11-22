@@ -13,12 +13,14 @@ import {
 import type { EngineId } from "../../../engine/index.js";
 import type {
   AnswerGivenBy,
+  ChoiceQuestion,
   DecisionAnswer,
   DecisionQuestion,
   OneQuestionAnswer,
   OneQuestionKind,
   PassedOn,
   ProposedBugTask,
+  QuestionAnswer,
   Recommendation,
 } from "../../domain/decision.js";
 import type { MessageDraft } from "../../domain/message.js";
@@ -53,12 +55,39 @@ export type SavedDecisionAnswerLine = Omit<
 };
 
 /**
- * A form's answer as kept: a dismissal is kept as Ask me again marked `dismissed`, since the release
- * before reads every kind but `asked-again` as submitted (spec: migrations keep the previous
- * release working); it shows there as asked again.
+ * A question as kept: a choice of several is kept as a choice marked `several`, with the options it
+ * recommends there and its first recommended option as the choice's, since the release before reads
+ * only choices and open questions (spec: migrations keep the previous release working); it shows
+ * there as a choice of one.
+ */
+export type SavedQuestion =
+  | Exclude<DecisionQuestion, { readonly kind: "choice-of-several" }>
+  | (ChoiceQuestion & { readonly several: { readonly recommended: readonly number[] } });
+
+/**
+ * An answer to one question as kept: the options of a choice of several are kept as words, the
+ * options' names, marked with the options picked, since the release before reads only an option
+ * and words; it shows there as answered in words.
+ */
+export type SavedQuestionAnswer =
+  | Exclude<QuestionAnswer, { readonly kind: "options" }>
+  | {
+      readonly kind: "words";
+      readonly text: string;
+      readonly comment?: string | undefined;
+      readonly options: readonly number[];
+    };
+
+/**
+ * A form's answer as kept: its answers as `SavedQuestionAnswer`, and a dismissal kept as Ask me
+ * again marked `dismissed`, since the release before reads every kind but `asked-again` as
+ * submitted (spec: migrations keep the previous release working); it shows there as asked again.
  */
 export type SavedFormAnswer =
-  | Exclude<DecisionAnswer, { readonly kind: "dismissed" }>
+  | (Omit<Extract<DecisionAnswer, { readonly kind: "submitted" }>, "answers"> & {
+      readonly answers: readonly SavedQuestionAnswer[];
+    })
+  | Extract<DecisionAnswer, { readonly kind: "asked-again" }>
   | {
       readonly kind: "asked-again";
       readonly generalComment?: string | undefined;
@@ -176,7 +205,7 @@ export const decisions = pgTable(
     options: jsonb("options").$type<readonly string[]>().notNull(),
     recommendation: jsonb("recommendation").$type<Recommendation>().notNull(),
     /** The form's questions, in order; null on a Decision kept before the form, read as one. */
-    questions: jsonb("questions").$type<readonly DecisionQuestion[]>(),
+    questions: jsonb("questions").$type<readonly SavedQuestion[]>(),
     askedAt: timestamp("asked_at", { withTimezone: true }).notNull(),
     /** The Task's Attachments it is about; Work keeps them, so no foreign key holds them. */
     attachmentIds: jsonb("attachment_ids").$type<readonly string[]>().notNull().default([]),

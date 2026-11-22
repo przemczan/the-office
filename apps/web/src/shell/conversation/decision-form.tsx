@@ -2,6 +2,7 @@ import type { Attachment, Decision, DecisionQuestion } from "@the-office/contrac
 import {
   Badge,
   Button,
+  CheckboxList,
   Dialog,
   FoldButton,
   Icon,
@@ -21,6 +22,8 @@ import {
   canBeDismissed,
   dismissedAnswer,
   draftAnswerWords,
+  EMPTY_QUESTION_DRAFT,
+  inWords as answersInWords,
   isAnswered,
   missingAnswer,
   progressWords,
@@ -44,10 +47,11 @@ import {
 
 /**
  * The Decision form (spec §2.4, the Decision form card's design): each question, a choice picked
- * from its options with the recommended one picked at first, or an open question answered in
- * words, each with its comment; the general comment; then Submit, Ask me again, or Dismiss. In place
- * it is the card's body; in a window (Open details), the questions listed beside the picked one,
- * with Submit, Ask me again and Dismiss in the bar. Its draft is the Decision's, wherever it shows.
+ * from its options with the recommended one picked at first, a choice of several with its
+ * recommended ones checked at first, or an open question answered in words, each with its comment;
+ * the general comment; then Submit, Ask me again, or Dismiss. In place it is the card's body; in a
+ * window (Open details), the questions listed beside the picked one, with Submit, Ask me again and
+ * Dismiss in the bar. Its draft is the Decision's, wherever it shows.
  */
 export type DecisionFormProps = DecisionAnsweringProps &
   (
@@ -430,8 +434,6 @@ function FormWindow({
   );
 }
 
-const EMPTY_QUESTION_DRAFT: QuestionDraft = { option: null, words: "", comment: "" };
-
 /** The context, who passed it on and the Attachments, folded above the picked question. */
 function WindowContext({
   decision,
@@ -483,7 +485,7 @@ function QuestionBlock({
 }): ReactNode {
   const draft = form.handle.draft.questions[index] ?? EMPTY_QUESTION_DRAFT;
   const update = (change: Partial<QuestionDraft>): void => form.handle.update(index, change);
-  const inWords = question.kind === "choice" && draft.option === null;
+  const inWords = answersInWords(question, draft);
   return (
     <div
       id={questionElementId(form.formId, index)}
@@ -499,6 +501,9 @@ function QuestionBlock({
             <MarkdownText text={question.question} inline />
             {question.kind === "open" && (
               <span className="decision-form-question-kind">Answered in words</span>
+            )}
+            {question.kind === "choice-of-several" && (
+              <span className="decision-form-question-kind">Pick every option that applies.</span>
             )}
           </div>
         </div>
@@ -534,17 +539,33 @@ function QuestionBlock({
               {form.asker} recommends “{question.options[question.recommendation.option]}”:{" "}
               <MarkdownText text={question.recommendation.reason} inline />
             </p>
-            {inWords && (
-              <Textarea
-                label="Your answer in words"
-                required
-                rows={2}
-                placeholder="None of the options: say what you want instead"
-                value={draft.comment}
-                disabled={form.disabled}
-                onChange={(event) => update({ comment: event.target.value })}
-              />
-            )}
+            {inWords && <WordsInstead draft={draft} form={form} update={update} />}
+          </>
+        ) : question.kind === "choice-of-several" ? (
+          <>
+            <CheckboxList
+              label={question.question}
+              values={draft.options.map(String)}
+              disabled={form.disabled}
+              onChange={(values) => update({ options: values.map(Number) })}
+              options={question.options.map((option, at) => ({
+                value: String(at),
+                label: option,
+                aside: question.recommendation.options.includes(at) && (
+                  <Badge tone="accent" size="sm">
+                    Recommended
+                  </Badge>
+                ),
+              }))}
+            />
+            <p className="decision-recommendation">
+              {form.asker} recommends{" "}
+              {question.recommendation.options
+                .map((at) => `“${question.options[at] ?? ""}”`)
+                .join(", ")}
+              : <MarkdownText text={question.recommendation.reason} inline />
+            </p>
+            {inWords && <WordsInstead draft={draft} form={form} update={update} />}
           </>
         ) : (
           <>
@@ -577,6 +598,29 @@ function QuestionBlock({
         )}
       </div>
     </div>
+  );
+}
+
+/** A choice's answer in words, once none of its options is picked: its comment, required then. */
+function WordsInstead({
+  draft,
+  form,
+  update,
+}: {
+  readonly draft: QuestionDraft;
+  readonly form: DecisionFormState;
+  readonly update: (change: Partial<QuestionDraft>) => void;
+}): ReactNode {
+  return (
+    <Textarea
+      label="Your answer in words"
+      required
+      rows={2}
+      placeholder="None of the options: say what you want instead"
+      value={draft.comment}
+      disabled={form.disabled}
+      onChange={(event) => update({ comment: event.target.value })}
+    />
   );
 }
 
@@ -865,7 +909,8 @@ function focusQuestion(elementId: string): void {
   const block = document.getElementById(elementId);
   if (block === null) return;
   block.scrollIntoView?.({ block: "center" });
-  // A missing answer is in words: an open question's, or a choice's after "None of these".
+  // A missing answer is in words: an open question's, a choice's after "None of these", or a choice
+  // of several's with no box checked.
   (
     block.querySelector<HTMLElement>("textarea") ?? block.querySelector<HTMLElement>("input")
   )?.focus();

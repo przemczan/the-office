@@ -2625,6 +2625,56 @@ describe("a Decision", () => {
     );
   });
 
+  it("asks a choice of several, answered with every option that applies", async () => {
+    await startWith(
+      started(
+        ...opensForm("c-1", {
+          context: "The export runs nightly.",
+          questions: [
+            {
+              question: COLUMNS_QUESTION,
+              options: ["Name", "Owner", "Size"],
+              several: true,
+              recommended: [1, 3],
+              why: "The audit reads them.",
+            },
+          ],
+        }),
+        ...aTurn("brief", "I asked."),
+        sent("answer"),
+        ...aTurn("answer", "Clear."),
+      ),
+    );
+    const opened = await plannerAnswering();
+    await answered(opened.id, 5);
+    const open = (await threads.read(opened.id)).openDecisions[0];
+    if (!open) throw new Error("No Decision was opened.");
+
+    expect(open.questions).toEqual([
+      {
+        kind: "choice-of-several",
+        question: COLUMNS_QUESTION,
+        options: ["Name", "Owner", "Size"],
+        recommendation: { options: [0, 2], reason: "The audit reads them." },
+      },
+    ]);
+    await decisions.answer(
+      open.id,
+      { kind: "submitted", answers: [{ kind: "options", options: [0, 1] }] },
+      ANSWERED_BY_ANN_LEE,
+    );
+    await answered(opened.id, 7);
+
+    expect((await repository.decision(open.id))?.answer).toMatchObject({
+      kind: "submitted",
+      answers: [{ kind: "options", options: [0, 1] }],
+    });
+    const answer = engine.sessions[0]?.received.find((step) => step.step === "send");
+    expect(answer?.step === "send" && answer.message.text).toBe(
+      `The user Ann Lee answered your Decision:\n\n1. ${COLUMNS_QUESTION}\n   Answer: Name; Owner`,
+    );
+  });
+
   it("refuses a form with problems, naming the question each is in", async () => {
     await startWith(started(...aTurn("brief", "Hello.")));
     const opened = await plannerAnswering();
@@ -3256,7 +3306,7 @@ describe("a Decision answered for the user, at their request", () => {
         answers: [{ option: 2 }, { option: 1, answer: "The visible ones." }],
       }),
     ).resolves.toEqual({
-      text: "Question 2: Choose an option or answer in words, not both.",
+      text: "Question 2: Choose an option (or options) or answer in words, not both.",
       isError: true,
     });
     const result = await answerDecisionWith(chat.sessionId, {

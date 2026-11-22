@@ -294,12 +294,16 @@ A Decision an Agent opens with `propose_bug_task` on its own Task, for a big iss
 _Avoid_: Bug report, Bug Task proposal
 
 **Question**:
-One part of a Decision's form: a choice or an open question, with an optional comment. A Decision recorded before the form reads as a form of one question.
+One part of a Decision's form: a choice, a choice of several or an open question, with an optional comment. A Decision recorded before the form reads as a form of one question.
 _Avoid_: Item, field, prompt
 
 **Choice**:
 A question answered by picking one of its options, the Agent's recommended option preselected with the reason it gives; picking none, its comment alone is the answer, in words.
 _Avoid_: Multiple choice, select, poll
+
+**Choice of several**:
+A question answered by picking every option that applies, one or more, as checkboxes, the Agent's recommended options checked at first with the reason it gives; picking none, its words are the answer, as for a choice (`choice-of-several` in code).
+_Avoid_: Multiple choice, multi-select, checklist
 
 **Open question**:
 A question answered in words, with no options; a Request is a Decision of one open question.

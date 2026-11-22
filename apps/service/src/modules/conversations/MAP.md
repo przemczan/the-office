@@ -130,10 +130,11 @@ ContextPolicySettingsService, StageContextLimits, DecisionService, DecisionWaiti
 - `postgres-sub-agent-and-process-repository.ts`: PostgresSubAgentAndProcessRepository
 - `postgres-thread-repository.fixtures.ts`: app, repository, aThreadOfItsOwn, AT, setUpEachTest
 - `postgres-thread-repository.ts`: PostgresThreadRepository
+- `saved-decision-forms.ts`: toSavedQuestions, fromSavedQuestions, toSavedFormAnswer, fromSavedFormAnswer
 - `sub-agents-and-processes.schema.ts`: subAgentsAndProcesses, subAgentMessages, processOutput
 - `thread-seen.schema.ts`: threadSeen
-- `threads.schema.ts`: SavedPassedOn, SavedMessage, SavedDecisionAnswerLine, SavedFormAnswer, ThreadSessionRow, threads, threadMessages, decisions, proposals
-- Tests: conversations-earlier-records.test.ts, postgres-chat-activity-repository.full.test.ts, postgres-chat-activity-repository.test.ts, postgres-conversations-settings.test.ts, postgres-office-instructions-repository.full.test.ts, postgres-office-instructions-repository.test.ts, postgres-sub-agent-and-process-repository.test.ts, postgres-thread-repository.full.test.ts, postgres-thread-repository.test.ts
+- `threads.schema.ts`: SavedPassedOn, SavedMessage, SavedDecisionAnswerLine, SavedQuestion, SavedQuestionAnswer, SavedFormAnswer, ThreadSessionRow, threads, threadMessages, decisions, proposals
+- Tests: conversations-earlier-records.test.ts, postgres-chat-activity-repository.full.test.ts, postgres-chat-activity-repository.test.ts, postgres-conversations-settings.test.ts, postgres-office-instructions-repository.full.test.ts, postgres-office-instructions-repository.test.ts, postgres-sub-agent-and-process-repository.test.ts, postgres-thread-repository.full.test.ts, postgres-thread-repository.test.ts, saved-decision-forms.test.ts
 
 ### adapters/prompt-templates/
 
@@ -229,7 +230,7 @@ ContextPolicySettingsService, StageContextLimits, DecisionService, DecisionWaiti
 - `conversations-prompts.golden.ts`: GOLDEN_OUTPUTS
 - `decision-not-found.ts`: DecisionNotFound
 - `decision.fixtures.ts`: aDecision, AT, TASK_HOME, SESSION, DRAFT, THREE_QUESTIONS, WARM, refusalOf
-- `decision.ts`: isApproval, Recommendation, isBugTask, DecisionKind, ProposedBugTask, BugTaskFields, BUG_TASK_OPTIONS, CREATE_THE_BUG_TASK, ChoiceQuestion, OpenQuestion, DecisionQuestion, DecisionDraft, bugTaskDraft, proposedBugTaskProblems, bugTaskToCreate, QuestionAnswer, DecisionAnswer, isDismissal, oneOptionAnswer, oneWordsAnswer, AtUsersRequest, AnswerGivenBy, GivenAnswer, Answerer, answerGivenBy, PassedOn, Decision, closedDecisionRefusal, isOpen, isTheOfficesOwn, DecisionOnTask, isOnTask, onlyChoice, decisionSummary, decisionProblems, attachmentProblems, answerProblems, createsTheBugTask, bugTaskAnswerProblems, dismissProblems, answerForUserProblems, questionAnswerWords, formAnswerWords, OneQuestionView, oneQuestionView, OneQuestionKind, formFromOne, oneQuestionKind, OneQuestionAnswer, oneAnswerView, formAnswerFromOne
+- `decision.ts`: isApproval, Recommendation, isBugTask, DecisionKind, ProposedBugTask, BugTaskFields, BUG_TASK_OPTIONS, CREATE_THE_BUG_TASK, ChoiceQuestion, ChoiceOfSeveralQuestion, RecommendationOfSeveral, OpenQuestion, DecisionQuestion, hasOptions, recommendedOptions, DecisionDraft, bugTaskDraft, proposedBugTaskProblems, bugTaskToCreate, QuestionAnswer, DecisionAnswer, isDismissal, oneOptionAnswer, oneWordsAnswer, AtUsersRequest, AnswerGivenBy, GivenAnswer, Answerer, answerGivenBy, PassedOn, Decision, closedDecisionRefusal, isOpen, isTheOfficesOwn, DecisionOnTask, isOnTask, onlyChoice, decisionSummary, decisionProblems, attachmentProblems, answerProblems, createsTheBugTask, bugTaskAnswerProblems, dismissProblems, answerForUserProblems, questionAnswerWords, formAnswerWords, OneQuestionView, oneQuestionView, OneQuestionKind, formFromOne, oneQuestionKind, OneQuestionAnswer, oneAnswerView, formAnswerFromOne
 - `held-call.ts`: HeldCallRuling, heldCallRuling
 - `link-card.ts`: LinkedTask, linkCardNote
 - `live-view.ts`: HiredPerson, LiveViewState, LiveAgent, LiveAgentEngine, LiveConsulting, LiveWaitingOnYou, LivePerson, LiveView, LiveViewRecords, liveViewOf
