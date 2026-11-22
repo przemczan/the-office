@@ -353,7 +353,7 @@ One page per screen, as built. Where a [design](../design/README.md) differs, th
 - [Settings](screens/settings.md)
 - [Stats](screens/stats.md)
 - [Live view](screens/live-view.md)
-- [Activity](screens/activity.md): opened from the status strip's Activity figure.
+- [Activity](screens/activity.md): a panel over any page, opened from the status strip's Activity figure.
 - [Account](screens/account.md)
 - [Sign in](screens/sign-in.md): the sign-in pages and First-run setup.
 

@@ -1,10 +1,8 @@
 /* ---- Activity: one column of groups, each a heading over its cards */
-.activity-page {
+.activity-feed {
   display: flex;
   flex-direction: column;
   gap: var(--gap-panel);
-  max-width: 960px;
-  padding: var(--pad-page);
 }
 
 .activity-empty-title {
@@ -62,13 +60,6 @@
 
 .activity-item-time {
   font-variant-numeric: tabular-nums;
-}
-
-@container page (max-width: 664px) {
-  .activity-page {
-    gap: 16px;
-    padding: 14px;
-  }
 }
 
 /* Which Off-board Task an item is, after its state. */

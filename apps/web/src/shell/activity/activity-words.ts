@@ -3,19 +3,19 @@ import type {
   ActivityItemKind,
   ActivityOffBoardTaskState,
 } from "@the-office/contracts";
-import { CI_RUN_STATUS_WORDS } from "../../shell/ci-run-status-words.ts";
-import { tokensShort } from "../../shell/conversation/context-words.ts";
-import { DEVICE_STATE_TONES, DEVICE_STATE_WORDS } from "../../shell/device-state-words.ts";
-import { ENVIRONMENT_CHECK_STATE_WORDS } from "../../shell/environment-check-words.ts";
+import { CI_RUN_STATUS_WORDS } from "../ci-run-status-words.ts";
+import { tokensShort } from "../conversation/context-words.ts";
+import { DEVICE_STATE_TONES, DEVICE_STATE_WORDS } from "../device-state-words.ts";
+import { ENVIRONMENT_CHECK_STATE_WORDS } from "../environment-check-words.ts";
 import {
   TEST_INSTANCE_STATE_TONES,
   TEST_INSTANCE_STATE_WORDS,
-} from "../../shell/test-instances/test-instance-words.ts";
-import { durationWords } from "../../shell/time.ts";
-import type { Tone } from "../../shell/tone-words.ts";
-import { TASK_STATE_NAMES, TASK_STATE_TONES } from "../../shell/work/work-words.ts";
+} from "../test-instances/test-instance-words.ts";
+import { durationWords } from "../time.ts";
+import type { Tone } from "../tone-words.ts";
+import { TASK_STATE_NAMES, TASK_STATE_TONES } from "../work/work-words.ts";
 
-/** One section of the Activity page: the kinds it lists, under its icon and name. */
+/** One section of the Activity panel: the kinds it lists, under its icon and name. */
 export interface ActivityGroup {
   readonly key: string;
   readonly title: string;
@@ -216,6 +216,13 @@ export function activityPlaceOf(item: ActivityItem): ActivityPlace {
     case "pull-request":
       return { kind: "pull-requests", url: item.url };
   }
+}
+
+/** "3 running, 2 ended not yet seen": what the strip's figure and the panel's description count. */
+export function activityCountWords(items: readonly ActivityItem[]): string {
+  const ended = items.filter((item) => item.ended).length;
+  const running = items.length - ended;
+  return `${running} running${ended > 0 ? `, ${ended} ended not yet seen` : ""}`;
 }
 
 export const NOTHING_RUNNING = "Nothing is running.";

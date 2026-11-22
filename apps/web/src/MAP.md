@@ -18,7 +18,9 @@
 
 **A session's Sub-agents and Processes** (`shell/sub-agents-and-processes/`, spec 2.9, docs/design/sub-agents-and-processes.html): `ThreadComposer` draws `SubAgentsAndProcessesLine` right above the message input (or the read-only note, where `person-tab.tsx`, `timeline-foot.tsx` and `run-details.tsx` draw one themselves; `SubAgentsAndProcessesLineOf` for a Thread known by its id), once the session has had any, its words in `sub-agents-and-processes-words.ts`; pressing it opens `SubAgentsAndProcessesWindow`, a large `Dialog` that keeps one height, unless the place gives its own `onShow` (the Stage history's run switches to its tab). `SubAgentsAndProcessesView` is the list and details, laid out by its own width (`@container`, stacked under 640px with `data-pane` and "‹ All sub-agents and processes"); a Sub-agent's row gives its context size beside its time ("3m 12s · 45k context", `timeWords` with `tokensShort`), live from its `totalTokens` while it runs, and nothing without a figure, never a 0; a Sub-agent's messages are mapped to the Thread's message shape and drawn by `MessageList` with the Details switch, a Process's output follows its end until the reader scrolls up. Nothing in it stops anything. The list is `threadQueries.subAgentsAndProcesses`, under the Thread's key so its events read it again (a fresh session takes the old ones away), kept live by `useSubAgentsAndProcesses`: the five start, change and end events subscribed to for that Thread through `useThreadEvents` (`api/event-stream-provider.tsx`, over `subscribeToThread`, nothing received outside a provider, so a test gives `ThreadEventsContext` its own), each put in by `withSubAgentOrProcess`, and read again on every `onSubscribed`. **Traps:** a Process's output and a Sub-agent's messages are caught up by sequence in `catch-up.ts`, a pure rule, through `useCaughtUpStream`: subscribe first, read only once the subscription is in place (`onSubscribed`, also after every reconnect, from the last sequence held), hold what arrives meanwhile and apply only what comes after the read's `lastSequence`; a part that skips ahead reads again. Reading before the subscription is in place would miss what is sent between the two. Those two thread-scoped streams are subscribed to only by the details of the item shown, which are keyed by its `callId`, so they go as it does and the next starts anew. In code a Process is never a variable named `process`. A Decision's `taskId` is null for a call made from a chat (`decisionSchema.kind` `request` among them): its card in the caller's chat has no Needs you link and no copy link, and links to its Consultation, as a Decision put to a Consultant on a Task does, found among the Task's or the callee's chat Threads by `consultation.decisionId` (`LinkToConsultation`); a request reads "Asked Nina to: …" with no options; a Consultation's own lines are `consultation-line` messages, The Office's.
 
-**The status strip** (`shell/status-strip.tsx`, spec §4, `docs/design/status-strip.html`): each figure a `StripFigure` (`shell/strip-figure.tsx`), a label over its value, a button when it opens something; Needs you, the 5-hour window (`usage-figure.tsx`, its words and `usageTone` in `notifications/now-words.ts`), Desks in use, Activity (`activity-figure.tsx`: Office-wide from `GET /activity`, a live dot while anything runs, the count, a button that goes to `/activity`, its `StripFigure` action `opensPage`, so no `aria-haspopup`) and Tokens today on the left, the Fire alarm figure while it is on, then the Workstation figure and the slot (`notifications/office-messages-slot.tsx`, a `Popover`), whose messages and their order are `officeMessages` (`notifications/office-messages.ts`). The strip is its own container (`@container strip`): its widths (1,180 / 900 / 600px) hide words, never a figure, through `.shell-strip-roomy`/`-tight` (under 900px) and `-long`/`-short` (under 600px, two rows); its height (52px, 94px) sets the shell's second row. A word hidden by width stays in the DOM, so an e2e test reads a figure by its accessible name, its title or one visible part, not the whole figure's text.
+**The status strip** (`shell/status-strip.tsx`, spec §4, `docs/design/status-strip.html`): each figure a `StripFigure` (`shell/strip-figure.tsx`), a label over its value, a button when it opens something; Needs you, the 5-hour window (`usage-figure.tsx`, its words and `usageTone` in `notifications/now-words.ts`), Desks in use, Activity (`activity/activity-figure.tsx`: Office-wide from `GET /activity`, a live dot while anything runs, the count, a button that opens the Activity panel) and Tokens today on the left, the Fire alarm figure while it is on, then the Workstation figure and the slot (`notifications/office-messages-slot.tsx`, a `Popover`), whose messages and their order are `officeMessages` (`notifications/office-messages.ts`). The strip is its own container (`@container strip`): its widths (1,180 / 900 / 600px) hide words, never a figure, through `.shell-strip-roomy`/`-tight` (under 900px) and `-long`/`-short` (under 600px, two rows); its height (52px, 94px) sets the shell's second row. A word hidden by width stays in the DOM, so an e2e test reads a figure by its accessible name, its title or one visible part, not the whole figure's text.
+
+**The Activity panel** (`shell/activity/`, spec 2.14, [screens/activity.md](../../../docs/spec/screens/activity.md)): a `Drawer` over any page while the address has `?activity=true` (`use-activity-panel.ts`, beside `needsYou` in the router's `OverPageSearch`; opening one of the two panels closes the other; the router's `/activity` redirects to `/now?activity=true`), resized by its left edge like the Needs you panel, both through `shell/side-panel-layout.ts`. Its body, `activity-feed.tsx`, lists what The Office is running and the ended items the user hasn't seen, in seven groups (`ACTIVITY_GROUPS` in `activity-words.ts`, with each item's state, time in state, detail line and where it links), each card marked New until seen; Off-board Tasks (`onboarding` and `run-environment-set-up`, never in Stalled Tasks) share "Off-board Tasks and environment checks" with the environment checks, each naming its kind after its state (`kindWords`) and adding its queue place and short reasons, or its Stage and tokens (`tokensShort`), to its line, narrowed by the Project filter with its "in other Projects" note. **Traps:** `use-marking-seen.ts`' `SeenWatcher` counts a card seen once half of it has been in view for `SEEN_AFTER_MS` while the tab shows and the window has focus, and sends at most once every `SEND_EVERY_MS`; it uses the global `setTimeout`, so tests' fake timers reach it. The feed keeps the ended items it showed while the panel is open (`useItemsThisVisit`, reset as the panel closes and unmounts it): the re-read after marking seen no longer lists them, and without that the row would vanish from under the reader. Only an item in the last read can be New.
 
 **Words more than one surface draws** live in the shell, as a surface never imports another: `shell/tone-words.ts` (`Tone`, `ToneWords`), `shell/ci-run-status-words.ts` (a CI run's status, for Work's CI tab and Activity), `shell/device-state-words.ts` (a Connected device's state, for a Task's Devices and Activity) and `shell/environment-check-words.ts` (an environment check's state, for a Project's Environment and Activity).
 
@@ -107,7 +109,6 @@
 ### shell/
 
 - `account-appearance.tsx`: adoptAccountAppearance, AccountAppearance
-- `activity-figure.tsx`: ActivityFigure, activityFigureName
 - `ask-devops.tsx`: AskDevopsButton, useDevops, useAskDevops
 - `block-loader.tsx`: BlockLoaderShape, BlockLoaderProps, BlockLoader, BlockRead, BlockLoaderOrProblem
 - `brand-tone.ts`: useBrandTone
@@ -164,6 +165,7 @@
 - `shell.tsx`: Shell
 - `show-more.tsx`: ShowMore
 - `shown-image.ts`: ShownImage, useShownImage
+- `side-panel-layout.ts`: SidePanelLayout, sidePanelLayout, useSidePanelLayout
 - `skill-chip.tsx`: SkillChip
 - `skill-update-diff.tsx`: SkillUpdateDiff
 - `skill-uses.ts`: skillUsesLabel
@@ -198,7 +200,19 @@
 - `user-activity.ts`: pageAt, useReportingActivity
 - `user-menu.tsx`: UserMenu
 - `user.fixtures.ts`: SIGNED_IN, BY_YOU, BY_ANN, signIn
-- Tests: activity-figure.test.tsx, ask-devops.test.tsx, duty-unheld-note.test.tsx, duty-words.full.test.ts, engine-words.full.test.ts, mark-colours.full.test.ts, markdown-text.full.test.tsx, markdown-text.test.tsx, menu-placement.full.test.ts, office-mark.test.tsx, person-avatar.full.test.tsx, project-mark.full.test.tsx, rail-store.full.test.ts, role-card-words.full.test.ts, secret-value.test.ts, skill-uses.full.test.ts, status-strip.full.test.tsx, time.full.test.ts, token-words.full.test.ts, try-again-words.full.test.ts, unified-diff.full.test.ts, usage-window-words.test.ts, user-activity.full.test.ts, user-menu.test.tsx
+- Tests: ask-devops.test.tsx, duty-unheld-note.test.tsx, duty-words.full.test.ts, engine-words.full.test.ts, mark-colours.full.test.ts, markdown-text.full.test.tsx, markdown-text.test.tsx, menu-placement.full.test.ts, office-mark.test.tsx, person-avatar.full.test.tsx, project-mark.full.test.tsx, rail-store.full.test.ts, role-card-words.full.test.ts, secret-value.test.ts, side-panel-layout.test.ts, skill-uses.full.test.ts, status-strip.full.test.tsx, time.full.test.ts, token-words.full.test.ts, try-again-words.full.test.ts, unified-diff.full.test.ts, usage-window-words.test.ts, user-activity.full.test.ts, user-menu.test.tsx
+
+### shell/activity/
+
+- `activity-feed.tsx`: ActivityFeed
+- `activity-figure.tsx`: ActivityFigure, activityFigureName
+- `activity-panel-width.ts`: ACTIVITY_PANEL_WIDTH_STORAGE_KEY, ACTIVITY_PANEL_WIDTHS, showActivityPanelWidth, rememberActivityPanelWidth, useActivityPanelLayout
+- `activity-panel.tsx`: ActivityPanel
+- `activity-words.ts`: ActivityGroup, ACTIVITY_GROUPS, GroupedActivity, groupedActivity, StateWords, stateWords, kindWords, inStateWords, spanWords, detailWords, ActivityPlace, activityPlaceOf, activityCountWords, NOTHING_RUNNING, NOTHING_RUNNING_HERE, WHAT_SHOWS_HERE
+- `activity.fixtures.ts`: TASK_ID, INITIATIVE_ID, NOW, taskItem, environmentCheckItem, ciRunItem, testInstanceItem, failedTaskItem, OFF_BOARD_TASK_ID, offBoardTaskItem, minutesAgo
+- `use-activity-panel.ts`: ActivityPanelControls, useActivityPanel
+- `use-marking-seen.ts`: SEEN_AFTER_MS, SEND_EVERY_MS, useMarkingSeen, SeenWatcher
+- Tests: activity-feed.test.tsx, activity-figure.test.tsx, activity-words.full.test.ts, use-marking-seen.full.test.ts
 
 ### shell/attachments/
 
@@ -322,7 +336,7 @@
 - `desktop-channel.ts`: DesktopPermission, desktopPermission, askForDesktopPermission, DesktopChannel
 - `in-app-channel.tsx`: useInAppChannel
 - `needs-you-feed.tsx`: NeedsYouFeed
-- `needs-you-panel-width.ts`: NEEDS_YOU_PANEL_WIDTH_STORAGE_KEY, NEEDS_YOU_PANEL_WIDTHS, NeedsYouPanelLayout, showNeedsYouPanelWidth, rememberNeedsYouPanelWidth, needsYouPanelLayout, useNeedsYouPanelLayout
+- `needs-you-panel-width.ts`: NEEDS_YOU_PANEL_WIDTH_STORAGE_KEY, NEEDS_YOU_PANEL_WIDTHS, showNeedsYouPanelWidth, rememberNeedsYouPanelWidth, useNeedsYouPanelLayout
 - `needs-you-panel.tsx`: NeedsYouPanel
 - `needs-you-tab.ts`: useNeedsYouTab
 - `notification-channel.ts`: NotificationPerson, ShownNotification, NotificationChannel
@@ -340,7 +354,7 @@
 - `use-waiting-for-you.ts`: useWaitingForYou
 - `waiting-for-you-feed.tsx`: WaitingForYouGroup, WaitingForYouFeed
 - `waiting-for-you-words.ts`: WAITING_FOR_YOU_KIND_NAMES, WAITING_FOR_YOU_KIND_TONES, pullRequestTroubleWords, skillUpdatesWords, officeUpdateWords
-- Tests: needs-you-feed.full.test.tsx, needs-you-panel-width.test.ts, needs-you-tab.full.test.tsx, notification-channels.full.test.tsx, notification-words.full.test.ts, now-words.full.test.ts, office-messages.test.ts, stand-in-choice-card.full.test.tsx, stand-in-choice-words.full.test.ts, waiting-for-you-feed.full.test.tsx
+- Tests: needs-you-feed.full.test.tsx, needs-you-tab.full.test.tsx, notification-channels.full.test.tsx, notification-words.full.test.ts, now-words.full.test.ts, office-messages.test.ts, stand-in-choice-card.full.test.tsx, stand-in-choice-words.full.test.ts, waiting-for-you-feed.full.test.tsx
 
 ### shell/pipelines/
 

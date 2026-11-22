@@ -7,15 +7,21 @@ export interface NeedsYouPanelControls {
   close(): void;
 }
 
-/** The panel lives in the address (`?needsYou=true`), so it opens over any page. */
+/**
+ * The panel lives in the address (`?needsYou=true`), so it opens over any page; opening it takes
+ * the Activity panel's place, as the two lie over the page in the same spot.
+ */
 export function useNeedsYouPanel(): NeedsYouPanelControls {
   const { needsYou } = useSearch({ strict: false });
   const navigate = useNavigate();
-  const go = (open: true | undefined): void =>
-    void navigate({ to: ".", search: (current) => ({ ...current, needsYou: open }) });
   return {
     isOpen: needsYou === true,
-    open: () => go(true),
-    close: () => go(undefined),
+    open: () =>
+      void navigate({
+        to: ".",
+        search: (current) => ({ ...current, needsYou: true, activity: undefined }),
+      }),
+    close: () =>
+      void navigate({ to: ".", search: (current) => ({ ...current, needsYou: undefined }) }),
   };
 }

@@ -2,8 +2,8 @@ import { focusManager } from "@tanstack/react-query";
 import type { Activity, ActivityItem } from "@the-office/contracts";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { closePage, openPage, stubService, until } from "../../shell/page.fixtures.tsx";
-import { PROJECT_FILTER_STORAGE_KEY } from "../../shell/project-filter/project-filter-store.ts";
+import { closePage, openPage, stubService, until } from "../page.fixtures.tsx";
+import { PROJECT_FILTER_STORAGE_KEY } from "../project-filter/project-filter-store.ts";
 import {
   environmentCheckItem,
   failedTaskItem,
@@ -11,10 +11,10 @@ import {
   offBoardTaskItem,
   taskItem,
 } from "./activity.fixtures.ts";
-import { ActivityPage } from "./activity-page.tsx";
+import { ActivityFeed } from "./activity-feed.tsx";
 import { SEEN_AFTER_MS } from "./use-marking-seen.ts";
 
-/** The page's IntersectionObserver: what it calls, and the cards it watches. */
+/** The feed's IntersectionObserver: what it calls, and the cards it watches. */
 let viewChanged: IntersectionObserverCallback;
 const watchedCards = new Set<Element>();
 
@@ -68,7 +68,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  // While the page still listens, so the next test starts on every Project.
+  // While the feed still listens, so the next test starts on every Project.
   localStorage.removeItem(PROJECT_FILTER_STORAGE_KEY);
   act(() => {
     window.dispatchEvent(new StorageEvent("storage", { key: PROJECT_FILTER_STORAGE_KEY }));
@@ -78,7 +78,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("the Activity page", () => {
+describe("the Activity feed", () => {
   it("groups the items by kind, leaving out the groups with none", async () => {
     stubService({
       "GET /api/activity": () => ({
@@ -87,7 +87,7 @@ describe("the Activity page", () => {
       }),
     });
 
-    const { page } = await openPage("/activity", { activity: ActivityPage });
+    const { page } = await openPage("/now", { now: ActivityFeed });
 
     await until(() => expect(cards(page)).toHaveLength(3));
     expect(sectionTitles(page)).toEqual([
@@ -117,7 +117,7 @@ describe("the Activity page", () => {
       }),
     });
 
-    const { page } = await openPage("/activity", { activity: ActivityPage });
+    const { page } = await openPage("/now", { now: ActivityFeed });
 
     await until(() => expect(cards(page)).toHaveLength(1));
     expect(sectionTitles(page)).toEqual(["Off-board Tasks and environment checks1"]);
@@ -140,7 +140,7 @@ describe("the Activity page", () => {
       }),
     });
 
-    const { page } = await openPage("/activity", { activity: ActivityPage });
+    const { page } = await openPage("/now", { now: ActivityFeed });
     act(() => {
       window.dispatchEvent(new StorageEvent("storage", { key: PROJECT_FILTER_STORAGE_KEY }));
     });
@@ -156,7 +156,7 @@ describe("the Activity page", () => {
       "GET /api/activity": () => ({ status: 200, body: activityOf([taskItem()]) }),
     });
 
-    const { page } = await openPage("/activity", { activity: ActivityPage });
+    const { page } = await openPage("/now", { now: ActivityFeed });
     act(() => {
       window.dispatchEvent(new StorageEvent("storage", { key: PROJECT_FILTER_STORAGE_KEY }));
     });
@@ -172,7 +172,7 @@ describe("the Activity page", () => {
       "POST /api/activity/seen": () => ({ status: 204 }),
     });
 
-    const { page } = await openPage("/activity", { activity: ActivityPage });
+    const { page } = await openPage("/now", { now: ActivityFeed });
 
     await until(() => expect(page.querySelectorAll(".activity-card.unseen")).toHaveLength(1));
     const unseen = page.querySelector(".activity-card.unseen");
@@ -190,7 +190,7 @@ describe("the Activity page", () => {
     );
     expect(page.querySelectorAll(".activity-card.unseen")).toHaveLength(0);
 
-    // The service no longer lists what was seen; the page keeps it for the rest of the visit.
+    // The service no longer lists what was seen; the feed keeps it while the panel stays open.
     listed = [taskItem()];
     act(() => {
       focusManager.setFocused(false);

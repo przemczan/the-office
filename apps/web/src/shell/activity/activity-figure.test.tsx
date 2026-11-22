@@ -3,7 +3,7 @@ import type { Activity, ActivityItem } from "@the-office/contracts";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { activityQueries } from "../api/activity.ts";
+import { activityQueries } from "../../api/activity.ts";
 import { ActivityFigure } from "./activity-figure.tsx";
 
 declare global {
@@ -12,8 +12,10 @@ declare global {
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 notifyManager.setScheduler((notify) => notify());
 
-const navigate = vi.fn<(options: { readonly to: string }) => void>();
-vi.mock("@tanstack/react-router", () => ({ useNavigate: () => navigate }));
+const openPanel = vi.fn<() => void>();
+vi.mock("./use-activity-panel.ts", () => ({
+  useActivityPanel: () => ({ isOpen: false, open: openPanel, close: () => undefined }),
+}));
 
 function item(id: string, ended: boolean): ActivityItem {
   return {
@@ -57,7 +59,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   queryClient.clear();
-  navigate.mockReset();
+  openPanel.mockReset();
   vi.unstubAllGlobals();
 });
 
@@ -72,7 +74,8 @@ it("shows the count with a live dot while anything runs, and says it all in its 
   expect(figure?.querySelector(".live-dot")).not.toBeNull();
   expect(figure?.querySelector("b")?.textContent).toBe("2");
   expect(figure?.getAttribute("aria-label")).toBe("Activity: 1 running, 1 ended not yet seen");
-  expect(figure?.hasAttribute("aria-haspopup")).toBe(false);
+  expect(figure?.getAttribute("aria-haspopup")).toBe("dialog");
+  expect(figure?.getAttribute("aria-expanded")).toBe("false");
 });
 
 it("has no live dot once nothing runs", () => {
@@ -82,11 +85,11 @@ it("has no live dot once nothing runs", () => {
   expect(figure?.getAttribute("aria-label")).toBe("Activity: 0 running, 1 ended not yet seen");
 });
 
-it("opens the Activity page", () => {
+it("opens the Activity panel", () => {
   const figure = shown({ items: [], count: 0 });
 
   act(() => figure?.click());
 
-  expect(navigate).toHaveBeenCalledWith({ to: "/activity" });
+  expect(openPanel).toHaveBeenCalledOnce();
   expect(figure?.getAttribute("aria-label")).toBe("Activity: 0 running");
 });

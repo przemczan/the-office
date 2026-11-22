@@ -26,7 +26,6 @@ import { NotificationsSection } from "./surfaces/account/notifications/notificat
 import { PasskeysSection } from "./surfaces/account/passkeys-section.tsx";
 import { ProfileSection } from "./surfaces/account/profile-section.tsx";
 import { SignedInDevicesSection } from "./surfaces/account/signed-in-devices-section.tsx";
-import { ActivityPage } from "./surfaces/activity/activity-page.tsx";
 import { LiveViewPage } from "./surfaces/live-view/live-view-page.tsx";
 import { statsRangeOf } from "./surfaces/stats/full-stats.tsx";
 import { StatsPage } from "./surfaces/stats/stats-page.tsx";
@@ -108,13 +107,15 @@ declare module "@tanstack/react-router" {
 }
 
 /**
- * What opens from any address (spec §4): the Needs you panel, and the chat drawer on a person, by
- * their Role's key, and a Thread, which the shell takes out of the address as it opens.
+ * What opens from any address (spec §4): the Needs you panel, the Activity panel, and the chat
+ * drawer on a person, by their Role's key, and a Thread, which the shell takes out of the address as
+ * it opens.
  */
 export interface OverPageSearch {
   readonly chat?: string;
   readonly thread?: string;
   readonly needsYou?: true;
+  readonly activity?: true;
 }
 
 // The sign-in page opens bare, every other page in the shell (`RootLayout`).
@@ -124,6 +125,7 @@ const rootRoute = createRootRoute({
     ...(typeof search["chat"] === "string" && { chat: search["chat"] }),
     ...(typeof search["thread"] === "string" && { thread: search["thread"] }),
     ...(search["needsYou"] === true && { needsYou: true as const }),
+    ...(search["activity"] === true && { activity: true as const }),
   }),
   // Like the click-through, an address that names no page opens Now.
   notFoundComponent: () => <Navigate to="/now" replace />,
@@ -510,12 +512,13 @@ const liveViewRoute = createRoute({
   staticData: { title: "Live view" },
 });
 
-/** Everything The Office is running, opened from the status strip's Activity figure (spec 2.14). */
+// Activity was a page before it was a panel over any page; its address opens the panel on Now.
 const activityRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "activity",
-  component: ActivityPage,
-  staticData: { title: "Activity" },
+  beforeLoad: () => {
+    throw redirect({ to: "/now", search: { activity: true }, replace: true });
+  },
 });
 
 const projectRoute = createRoute({

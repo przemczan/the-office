@@ -5,14 +5,14 @@ import { Badge, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { activityQueries } from "../../api/activity.ts";
 import { projectQueries } from "../../api/projects.ts";
-import { BlockLoader } from "../../shell/block-loader.tsx";
-import { Feed, Panel, PanelHeading } from "../../shell/desk.tsx";
-import { EmptyCard, ItemCard, type CardEdge } from "../../shell/item-card.tsx";
-import { ProjectChip } from "../../shell/project-chip.tsx";
-import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
-import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
-import type { Tone } from "../../shell/tone-words.ts";
-import { useClock } from "../../shell/use-clock.ts";
+import { BlockLoader } from "../block-loader.tsx";
+import { Feed, Panel, PanelHeading } from "../desk.tsx";
+import { EmptyCard, ItemCard, type CardEdge } from "../item-card.tsx";
+import { ProjectChip } from "../project-chip.tsx";
+import { InOtherProjectsNote } from "../project-filter/in-other-projects-note.tsx";
+import { useProjectFilter } from "../project-filter/use-project-filter.ts";
+import type { Tone } from "../tone-words.ts";
+import { useClock } from "../use-clock.ts";
 import {
   activityPlaceOf,
   detailWords,
@@ -31,9 +31,10 @@ import "./activity.css";
 
 /**
  * Everything The Office is running, by kind, and what ended that the user hasn't seen yet, each
- * marked New until its card has been looked at (spec 2.14); narrowed by the Project filter.
+ * marked New until its card has been looked at (spec 2.14); narrowed by the Project filter. A
+ * visit lasts while the Activity panel stays open.
  */
-export function ActivityPage(): ReactNode {
+export function ActivityFeed(): ReactNode {
   const activity = useQuery(activityQueries.list()).data;
   const projects = useQuery(projectQueries.list()).data;
   const { shows } = useProjectFilter();
@@ -44,7 +45,7 @@ export function ActivityPage(): ReactNode {
   const elsewhere = items.length - shown.length;
   const groups = groupedActivity(shown);
   return (
-    <div className="activity-page">
+    <div className="activity-feed">
       {groups.length === 0 && (
         <EmptyCard>
           <p className="activity-empty-title">

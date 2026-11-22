@@ -1,18 +1,22 @@
 # Activity
 
-Covers: the Activity page, its groups (Off-board Tasks and environment checks among them), an item and its time in state, the New mark and how an item is seen, the Project filter on it, states.
+Covers: the Activity panel, its groups (Off-board Tasks and environment checks among them), an item and its time in state, the New mark and how an item is seen, the Project filter on it, states.
 
 ## Where it is
 
-- Route: `/activity`; the page title is "Activity".
-- Open it from the status strip's [Activity figure](shell.md#status-strip); it has no rail entry.
+- A drawer titled "Activity" over any page, opened from the status strip's [Activity figure](shell.md#status-strip); it has no rail entry and no page of its own.
+- It lives in the address as `?activity=true` on the page under it; the old address `/activity` opens Now with the panel.
+- Its description counts Office-wide, as the figure does: "N running[, M ended not yet seen]".
+- Its left edge resizes it (handle "Resize the Activity panel"); its width is kept in this browser, and at a narrow window it fills the window.
+- It takes the [Needs you panel](shell.md#needs-you-panel)'s place, and the Needs you panel its place: one of the two is open at a time.
+- Esc, a press outside it or its × closes it; following an item's link closes it too.
 - It reads `GET /activity` and follows `activity.changed` without a reload.
 
 ## Layout
 
 - One panel per group that has items, headed by the group's icon, its name and its count; a group with no items is left out.
 - In each group the running items come first, then the newest by when it entered its state.
-- At the foot, the "N more items in other Projects" note while the [Project filter](shell.md#project-filter) leaves items out.
+- At the panel's foot, the "N more items in other Projects" note while the [Project filter](shell.md#project-filter) leaves items out.
 
 ## Groups
 
@@ -43,8 +47,8 @@ Covers: the Activity page, its groups (Off-board Tasks and environment checks am
 
 - An ended item the user hasn't [seen](../2.14-activity.md#seen-per-user) has the New badge and an accent tint.
 - It counts as seen once at least half its card has been in view for 1 s while the tab shows and the window has focus.
-- The page sends the seen items in batches, at most one `POST /activity/seen` a second; a failed send goes again with the next.
-- An ended item shown during this visit stays on the page, without its New badge, though a re-read no longer lists it; the next visit leaves it out.
+- The panel sends the seen items in batches, at most one `POST /activity/seen` a second; a failed send goes again with the next.
+- An ended item shown while the panel is open stays in it, without its New badge, though a re-read no longer lists it; the next opening leaves it out.
 
 ## States
 

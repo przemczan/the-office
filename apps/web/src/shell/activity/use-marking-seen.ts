@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useEffectEvent, useRef, useSyncExternalStore } from "react";
 import { markActivitySeen } from "../../api/activity.ts";
-import { useTabVisible } from "../../shell/use-tab-visible.ts";
+import { useTabVisible } from "../use-tab-visible.ts";
 
 /** How long a card is in view before its item counts as seen. */
 export const SEEN_AFTER_MS = 1000;
