@@ -1,0 +1,139 @@
+/* A Project's Actions section: the list beside the open Action, as its Pipelines lay out
+   (pipelines/project-pipelines.css). */
+.project-actions {
+  display: grid;
+  grid-template-columns: 380px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.project-actions-list,
+.project-actions-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+  min-width: 0;
+}
+
+/* "‹ the-office's Actions": back from the open one to the list, on a narrow pane alone. */
+.project-actions-back {
+  display: none;
+  align-items: center;
+  align-self: flex-start;
+  gap: 4px;
+  font: var(--type-label);
+  color: var(--fg-2);
+  text-decoration: none;
+}
+
+.project-actions-back:hover {
+  color: var(--fg-1);
+}
+
+@container page (max-width: 952px) {
+  .project-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .project-actions.showing-detail > .project-actions-list,
+  .project-actions:not(.showing-detail) > .project-actions-detail {
+    display: none;
+  }
+
+  .project-actions-back {
+    display: inline-flex;
+  }
+}
+
+.actions-proposals {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* A row: its link, then its pencil and trash beside it, its warnings under both. */
+.actions-list .pick-list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.action-tools {
+  display: inline-flex;
+  gap: 2px;
+  padding-right: var(--space-2);
+}
+
+.action-warnings {
+  display: flex;
+  flex-direction: column;
+  grid-column: 1 / -1;
+  gap: 4px;
+  padding: 0 var(--space-3) var(--space-2);
+  font: var(--type-caption);
+}
+
+.action-name {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.open-action {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.open-action-runs {
+  color: var(--fg-2);
+}
+
+.open-action .action-warnings {
+  padding: 0;
+}
+
+/* The editor's Key and Name side by side, stacked when the window is narrow. */
+.action-editor-head {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px 14px;
+  align-items: start;
+}
+
+.action-editor-kind {
+  align-items: stretch;
+}
+
+.action-editor-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.action-kind-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.action-kind-choice-name {
+  font: var(--type-label);
+}
+
+.action-kind-choice-line {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+/* The list is narrow: Add an Action and Ask (or its note) take their own line under the title. */
+.actions-list .pick-list-head {
+  flex-wrap: wrap;
+}
+
+.actions-list .pick-list-action {
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  min-width: 0;
+}

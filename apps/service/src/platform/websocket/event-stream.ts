@@ -33,9 +33,10 @@ export const SIGNED_IN_CHECK_EVERY_MS = 60 * 1000;
 
 /**
  * A client's subscriptions: the event types without a scope, and those scoped to each Thread; and
- * the signed-in device it connected from.
+ * the user and signed-in device it connected from.
  */
 interface Subscriptions {
+  readonly userId: string;
   readonly signedInDeviceId: string;
   readonly unscoped: Set<string>;
   readonly byThread: Map<string, Set<string>>;
@@ -47,7 +48,8 @@ interface Subscriptions {
  * scoped to a Thread: it then receives the events of its type whose `threadId` is that Thread's.
  * A thread-scoped type (THREAD_SCOPED_EVENT_TYPES) goes only to subscriptions scoped to its
  * event's Thread, never to one without a scope; every other type goes to the subscriptions of its
- * type without a scope, and to those scoped to its `threadId` when it has one. Only a signed-in
+ * type without a scope, and to those scoped to its `threadId` when it has one. An event forwarded
+ * to one user (`WebEventForwarding.forwardToUser`) goes only to that user's clients. Only a signed-in
  * device connects (spec §2.10), and its clients close once it is signed out.
  */
 @Injectable()
@@ -139,13 +141,14 @@ export class EventStream implements OnApplicationBootstrap, BeforeApplicationShu
     }
     const signedInUser = signedIn;
     this.webSocketServer.handleUpgrade(request, socket, head, (client) => {
-      if (route === undefined) this.connect(client, signedInUser.signedInDeviceId);
+      if (route === undefined) this.connect(client, signedInUser);
       else this.connectRoute(client, signedInUser, route);
     });
   }
 
-  private connect(client: WebSocket, signedInDeviceId: string): void {
+  private connect(client: WebSocket, { userId, signedInDeviceId }: SignedIn): void {
     this.subscriptions.set(client, {
+      userId,
       signedInDeviceId,
       unscoped: new Set(),
       byThread: new Map(),
@@ -235,7 +238,9 @@ export class EventStream implements OnApplicationBootstrap, BeforeApplicationShu
   private send(event: DomainEvent): void {
     const webEvent = this.webEventForwarding.toWebEvent(event);
     if (webEvent === undefined) return;
+    const recipient = this.webEventForwarding.recipientOf(event);
     for (const [client, subscriptions] of this.subscriptions) {
+      if (recipient !== undefined && subscriptions.userId !== recipient) continue;
       if (receives(subscriptions, webEvent)) sendTo(client, { type: "event", event: webEvent });
     }
   }

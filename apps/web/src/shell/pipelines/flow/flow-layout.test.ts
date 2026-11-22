@@ -9,6 +9,7 @@ import {
   gridCellOf,
   loopLanes,
   loopPaths,
+  markSpot,
   type FlowBox,
   type FlowMeasure,
   needsDetour,
@@ -58,6 +59,31 @@ function measureOf(
     ),
     end: { x: columns * 140, y: 0, width: 60, height: 40 },
   };
+}
+
+type Pt = readonly [number, number];
+
+/** Every point of a path's data, in order: its corners' curves keep it orthogonal. */
+function pointsOf(d: string): Pt[] {
+  return [...d.matchAll(/(-?[\d.]+),(-?[\d.]+)/g)].map((m): Pt => [Number(m[1]), Number(m[2])]);
+}
+
+const startOf = (d: string): Pt => pointsOf(d)[0]!;
+const arrowTip = (arrow: string): Pt => pointsOf(arrow)[0]!;
+
+function pairs<T>(items: readonly T[]): [T, T][] {
+  return items.slice(1).map((item, index): [T, T] => [items[index]!, item]);
+}
+
+const overlaps = (a: number, b: number, lo: number, hi: number): boolean =>
+  Math.max(a, b) > lo && Math.min(a, b) < hi;
+
+/** Whether a level or upright segment runs through a box's inside, not just along its edge. */
+function crossesInside([x1, y1]: Pt, [x2, y2]: Pt, box: FlowBox): boolean {
+  return (
+    overlaps(x1, x2 === x1 ? x1 + 0.001 : x2, box.x, box.x + box.width) &&
+    overlaps(y1, y2 === y1 ? y1 + 0.001 : y2, box.y, box.y + box.height)
+  );
 }
 
 describe("the canvas's orientation", () => {
@@ -145,7 +171,7 @@ describe("the routes' lines", () => {
     expect(needsDetour(flow, skipping, publish)).toBe(true);
     expect(needsDetour(flow, flow[1]!, publish)).toBe(false);
     expect(needsDetour(flow, publish, skipping)).toBe(true);
-    const room = flowRoom(flow, flowLines(flow, new Set()), []);
+    const room = flowRoom(flow, flowLines(flow, new Set()), [], "across");
     expect(room.detours).toBeGreaterThan(0);
   });
 });
@@ -166,7 +192,115 @@ describe("the On failure loops", () => {
     const paths = loopPaths(lanes, measureOf(stages), "across");
     expect(paths).toHaveLength(2);
     expect(paths[0]?.lane).toBe(0);
-    expect(flowRoom(stages, [], lanes).loops).toBe(2 * 11 + 14);
+    // The nearest lane 24 off the cards' tops (y 0), the next 22 further: a mark's height apart.
+    expect(paths.map(({ mark }) => mark.y)).toEqual([-24, -46]);
+    expect(flowRoom(stages, [], lanes, "across").loops).toBe(24 + 22 + 9);
+    expect(flowRoom(stages, [], lanes, "down").loops).toBe(24 + 22 + 20);
+  });
+
+  it("enter and leave a Stage they share at points of their own across its top", () => {
+    const stages = [
+      gate("plan", { column: 0, row: 0 }),
+      script("implement", { column: 1, row: 0 }, [], "plan"),
+      script("tests", { column: 2, row: 0 }, [], "implement"),
+      script("review", { column: 3, row: 0 }, [], "implement"),
+    ];
+    const paths = loopPaths(loopLanes(stages), measureOf(stages), "across");
+    const atImplement = paths.flatMap((path) => [
+      ...(path.toKey === "implement" ? [arrowTip(path.arrow)] : []),
+      ...(path.fromKey === "implement" ? [startOf(path.d)] : []),
+    ]);
+    expect(atImplement).toHaveLength(3);
+    const xs = atImplement.map(([x]) => x);
+    expect(new Set(xs).size).toBe(3);
+    // Spread across Implement's top edge, x 140 to 240.
+    for (const x of xs) expect(x > 140 && x < 240).toBe(true);
+    for (const [a, b] of pairs(xs.toSorted((p, q) => p - q))) expect(b - a).toBeGreaterThan(20);
+  });
+
+  it("go up the gutter beside a Stage with another above it, never through a card", () => {
+    const stages = [
+      gate("plan", { column: 0, row: 0 }),
+      script("a", { column: 1, row: 0 }, []),
+      script("b", { column: 1, row: 1 }, [], "plan"),
+      script("c", { column: 2, row: 1 }, [], "b"),
+    ];
+    const measure = measureOf(stages);
+    // Down, the same places laid out as bands: a column's rows side by side.
+    const down: FlowMeasure = {
+      stages: new Map(
+        [...measure.stages].map(([key, { box, rowCentres }]) => [
+          key,
+          { box: { x: box.y, y: box.x, width: box.height, height: box.width }, rowCentres },
+        ]),
+      ),
+      end: undefined,
+    };
+    for (const [orientation, laidOut] of [
+      ["across", measure],
+      ["down", down],
+    ] as const) {
+      const paths = loopPaths(loopLanes(stages), laidOut, orientation);
+      expect(paths).toHaveLength(2);
+      const boxes = [...laidOut.stages.values()].map(({ box }) => box);
+      for (const path of paths)
+        for (const [p, q] of pairs(pointsOf(path.d)))
+          for (const box of boxes) expect(crossesInside(p, q, box)).toBe(false);
+    }
+    // Across, B leaves its left side (x 140) and turns up in the gutter's middle (x 120).
+    const across = loopPaths(loopLanes(stages), measure, "across");
+    const fromB = pointsOf(across.find(({ fromKey }) => fromKey === "b")!.d);
+    expect(fromB[0]).toEqual([140, 72]);
+    expect(fromB).toContainEqual([120, 72]);
+  });
+
+  it("sit their marks clear of the legs that cross their runs", () => {
+    const stages = [
+      gate("a", { column: 0, row: 0 }),
+      script("b", { column: 1, row: 0 }, []),
+      script("c", { column: 2, row: 0 }, [], "a"),
+      script("d", { column: 3, row: 0 }, [], "b"),
+    ];
+    const paths = loopPaths(loopLanes(stages), measureOf(stages), "across");
+    const low = paths.find(({ fromKey }) => fromKey === "c")!;
+    const high = paths.find(({ fromKey }) => fromKey === "d")!;
+    expect(low.lane).toBeLessThan(high.lane);
+    // D's line comes down into B at x 190, the middle of C's run from x 50 to 330.
+    expect(arrowTip(high.arrow)[0]).toBe(190);
+    expect(Math.abs(low.mark.x - 190)).toBeGreaterThanOrEqual(24);
+    expect(low.mark.x > 50 && low.mark.x < 330).toBe(true);
+  });
+
+  it("keep the marks of loops on lanes side by side apart, down where a mark is wider than a lane", () => {
+    const stages = [
+      gate("a", { column: 0, row: 0 }),
+      script("b", { column: 1, row: 0 }, []),
+      script("c", { column: 2, row: 0 }, [], "b"),
+      script("d", { column: 3, row: 0 }, [], "a"),
+    ];
+    // Down, each Stage a wide card under the one before: D's loop round C's, both centred alike.
+    const down: FlowMeasure = {
+      stages: new Map(
+        stages.map((stage, index) => [
+          stage.key,
+          { box: { x: 0, y: index * 100, width: 300, height: 56 }, rowCentres: [] },
+        ]),
+      ),
+      end: undefined,
+    };
+    const [inner, outer] = loopPaths(loopLanes(stages), down, "down").map(({ mark }) => mark);
+    // A mark is 40 by 18: side by side 22 apart, they must sit a mark's height apart along.
+    expect(Math.abs(inner!.x - outer!.x)).toBeLessThan(40);
+    expect(Math.abs(inner!.y - outer!.y)).toBeGreaterThanOrEqual(18);
+    // Across, lanes are a mark's height apart already, so both keep the middle.
+    const across = loopPaths(loopLanes(stages), measureOf(stages), "across");
+    expect(across.map(({ mark }) => mark.x)).toEqual([260, 260]);
+  });
+
+  it("take the free spot nearest the middle, or the widest stretch when none is free", () => {
+    expect(markSpot({ from: 0, to: 200 }, [], 20)).toBe(100);
+    expect(markSpot({ from: 0, to: 200 }, [100], 20)).toBe(76);
+    expect(markSpot({ from: 0, to: 60 }, [20], 20)).toBe(40);
   });
 
   it("share a lane when they don't overlap, and skip a loop to a Stage that's gone", () => {

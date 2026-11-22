@@ -155,4 +155,15 @@ describe("the built-in Pipelines", () => {
     expect(stages[0].brief).toContain("entry points spec 2.12 allows");
     expect(stages[0].brief).toContain("End with propose_test_targets");
   });
+
+  it("onboards a Project proposing its Actions with propose_actions once its commands and test targets are set", () => {
+    const onboard = builtInPipelines.find(({ id }) => id === ONBOARD_PIPELINE)!.stages[0];
+
+    expect(onboard).toMatchObject({ kind: "agent", key: "onboard" });
+    if (onboard?.kind !== "agent") return;
+    expect(onboard.brief).toContain("Propose its commands when they are missing or wrong.");
+    expect(onboard.brief).toContain(
+      "Once its commands and test targets are set, propose with propose_actions the Actions its repository suggests",
+    );
+  });
 });

@@ -1,4 +1,5 @@
 import type { ArchivedBy, Author } from "./author.js";
+import type { BranchDeletionRecord } from "./branch-deletion.js";
 
 /**
  * Shaping with whoever shapes Initiatives → active on "Confirm the Initiative" → done once its
@@ -79,6 +80,8 @@ export interface Initiative {
 export interface InitiativeBranch {
   readonly projectId: string;
   readonly madeAt: Date;
+  /** Its deletion, by hand or by Delete branches once merged; undefined while it is kept. */
+  readonly deletion?: BranchDeletionRecord;
 }
 
 /**

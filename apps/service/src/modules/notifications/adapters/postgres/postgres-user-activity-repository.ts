@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { desc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { UserActivity } from "../../domain/user-activity.js";
 import { UserActivityRepository } from "../../ports/user-activity-repository.js";
@@ -18,15 +18,6 @@ export class PostgresUserActivityRepository extends UserActivityRepository {
       .select()
       .from(userActivity)
       .where(eq(userActivity.userId, userId));
-    return row && activityOf(row);
-  }
-
-  async findLatest(): Promise<UserActivity | undefined> {
-    const [row] = await this.database
-      .select()
-      .from(userActivity)
-      .orderBy(desc(userActivity.lastActiveAt))
-      .limit(1);
     return row && activityOf(row);
   }
 

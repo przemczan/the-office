@@ -2,7 +2,8 @@ import type { TaskState } from "@the-office/contracts";
 
 /**
  * One mark in a board card's row (docs/design/task-card-icons.html, Foot row): what needs the user,
- * then what holds the Task, then the quiet ones, then who works on it or Plan at the right end.
+ * then what holds the Task, then the quiet ones, then its current Stage with who works on it, or
+ * Plan, at the right end.
  */
 export type CardMark =
   | { readonly kind: "waiting-on-you" }
@@ -23,9 +24,14 @@ export interface CardFacts {
   readonly queued: boolean;
   readonly hasUsageEstimate: boolean;
   readonly someoneWorking: boolean;
+  /** Whether the Task's Pipeline has a current Stage, from its latest Stage run. */
+  readonly atStage: boolean;
   /** Whether someone is the Planner, as Plan is refused otherwise. */
   readonly hasPlanner: boolean;
 }
+
+/** The states of a started Task, which shows its current Stage. */
+const STARTED: readonly TaskState[] = ["in-progress", "waiting-on-you", "paused"];
 
 /** The card's marks after its Project's, in their order; a state its column names shows none. */
 export function cardMarks(facts: CardFacts): readonly CardMark[] {
@@ -34,8 +40,9 @@ export function cardMarks(facts: CardFacts): readonly CardMark[] {
   if (facts.queued) marks.push({ kind: "queued" });
   if (facts.state === "planning" && !facts.waiting) marks.push({ kind: "planning" });
   if (facts.hasUsageEstimate) marks.push({ kind: "usage-estimate" });
-  if (facts.someoneWorking) marks.push({ kind: "working" });
-  else if (facts.state === "backlog" && facts.hasPlanner) marks.push({ kind: "plan" });
+  if (facts.someoneWorking || (facts.atStage && STARTED.includes(facts.state))) {
+    marks.push({ kind: "working" });
+  } else if (facts.state === "backlog" && facts.hasPlanner) marks.push({ kind: "plan" });
   return marks;
 }
 

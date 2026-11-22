@@ -62,10 +62,14 @@ export const MERGE_REFUSED = "The pull request wasn't merged";
 export const MERGE_METHODS_UNREAD = "The merge methods can't be read";
 
 /**
- * Whether the branch goes once merged: GitHub deletes it, it stays, or GitHub didn't say; The
- * Office never deletes it.
+ * Whether the branch goes once merged: The Office deletes it when its Project's Delete branches
+ * once merged is On; otherwise GitHub deletes it, it stays, or GitHub didn't say.
  */
-export function branchDeletionWords(deletesBranchOnMerge: boolean | null): string {
+export function branchDeletionWords(
+  deletesBranchOnMerge: boolean | null,
+  officeDeletesMergedBranches: boolean,
+): string {
+  if (officeDeletesMergedBranches) return "The Office deletes the branch once it is merged.";
   if (deletesBranchOnMerge === true) return "GitHub deletes the branch once it is merged.";
   if (deletesBranchOnMerge === false) return "The branch stays after the merge.";
   return "The Office doesn't delete the branch; GitHub deletes it only if the repository is set to.";

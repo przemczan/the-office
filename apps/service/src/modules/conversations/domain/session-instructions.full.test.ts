@@ -12,6 +12,7 @@ import {
   PROPOSE_PROMPT_TEMPLATE_TOOL as CONTRACT_PROPOSE_PROMPT_TEMPLATE_TOOL,
   PROPOSE_STAGE_TEMPLATE_TOOL as CONTRACT_PROPOSE_STAGE_TEMPLATE_TOOL,
   PROPOSE_TEST_TARGETS_TOOL as CONTRACT_PROPOSE_TEST_TARGETS_TOOL,
+  PROPOSE_ACTIONS_TOOL as CONTRACT_PROPOSE_ACTIONS_TOOL,
   SHOW_OFFICE_STATUS_TOOL as CONTRACT_SHOW_OFFICE_STATUS_TOOL,
 } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
@@ -37,6 +38,7 @@ import {
   PROPOSE_PROMPT_TEMPLATE_TOOL,
   PROPOSE_STAGE_TEMPLATE_TOOL,
   PROPOSE_TEST_TARGETS_TOOL,
+  PROPOSE_ACTIONS_TOOL,
   READ_REPOSITORY_TOOL,
   READ_SKILL_UPDATE_TOOL,
   READING_OFFICE_TOOLS,
@@ -222,11 +224,12 @@ describe("chatOfficeTools", () => {
     expect(chatOfficeTools(OFFICE_MANAGER)).toContain(PROPOSE_SKILL_TOOL);
   });
 
-  it("gives Devops drafting Project commands, test targets, Pipelines, Project Pipelines, Stage templates, Projects and skill installs and updates as Proposals", () => {
+  it("gives Devops drafting Project commands, test targets, Actions, Pipelines, Project Pipelines, Stage templates, Projects and skill installs and updates as Proposals", () => {
     expect(chatOfficeTools(DEVOPS)).toEqual([
       ...CHAT_OFFICE_TOOLS,
       PROPOSE_PROJECT_COMMANDS_TOOL,
       PROPOSE_TEST_TARGETS_TOOL,
+      PROPOSE_ACTIONS_TOOL,
       PROPOSE_LIBRARY_PIPELINE_TOOL,
       PROPOSE_PROJECT_PIPELINE_TOOL,
       PROPOSE_STAGE_TEMPLATE_TOOL,
@@ -248,6 +251,7 @@ describe("chatOfficeTools", () => {
   it("names the Proposal tools as the web does", () => {
     expect(PROPOSE_PROJECT_COMMANDS_TOOL).toBe(CONTRACT_PROPOSE_PROJECT_COMMANDS_TOOL);
     expect(PROPOSE_TEST_TARGETS_TOOL).toBe(CONTRACT_PROPOSE_TEST_TARGETS_TOOL);
+    expect(PROPOSE_ACTIONS_TOOL).toBe(CONTRACT_PROPOSE_ACTIONS_TOOL);
     expect(PROPOSE_LIBRARY_PIPELINE_TOOL).toBe(CONTRACT_PROPOSE_LIBRARY_PIPELINE_TOOL);
     expect(PROPOSE_PROJECT_PIPELINE_TOOL).toBe(CONTRACT_PROPOSE_PROJECT_PIPELINE_TOOL);
     expect(PROPOSE_STAGE_TEMPLATE_TOOL).toBe(CONTRACT_PROPOSE_STAGE_TEMPLATE_TOOL);

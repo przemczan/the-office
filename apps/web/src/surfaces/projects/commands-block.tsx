@@ -6,13 +6,14 @@ import {
   type ProjectCommandKind,
   type PublishingMode,
 } from "@the-office/contracts";
-import { Badge, Button, Dialog, Icon, IconButton, Input, Select } from "@the-office/ui";
+import { Badge, Button, Dialog, Icon, IconButton, Input, Select, Switch } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
 import {
   addCommand,
   changeAfterPublishingCommand,
   changeBeforePublishingCommand,
   changeCommand,
+  changeDeleteMergedBranches,
   changeInstallCommand,
   changeInstallInputs,
   changePublishingMode,
@@ -127,6 +128,7 @@ export function CommandsBlock({ project }: { readonly project: Project }): React
       <h3 className="commands-group-title">Publish</h3>
       <div className="commands" role="group" aria-label="Publish">
         <PublishingModeRow project={project} />
+        <DeleteMergedBranchesRow project={project} />
         {publishLineRowsOf(project).map((row) =>
           editing === row.id ? (
             <LineEditor key={row.id} row={row} onDone={done} />
@@ -270,6 +272,39 @@ function PublishingModeRow({ project }: { readonly project: Project }): ReactNod
       {choosing.error && (
         <p className="command-error" role="alert">
           {choosing.error.message}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Delete branches once merged (spec §5.5, "Deleting merged branches"), saved at once. */
+function DeleteMergedBranchesRow({ project }: { readonly project: Project }): ReactNode {
+  const keep = useSavedProject();
+  const showToast = useToast();
+  const switching = useMutation({
+    mutationFn: (on: boolean) => changeDeleteMergedBranches(project.id, on),
+    onSuccess: (saved) => {
+      keep(saved);
+      showToast(
+        saved.deleteMergedBranches
+          ? `Branches of ${saved.name} are deleted once merged.`
+          : `Branches of ${saved.name} are kept after merge.`,
+      );
+    },
+  });
+  return (
+    <div className="command-row">
+      <Switch
+        checked={project.deleteMergedBranches}
+        disabled={switching.isPending}
+        onChange={(on) => switching.mutate(on)}
+        label="Delete branches once merged"
+        description="Deletes a Task's branch here and on the remote once it is merged, and an Initiative's once it is Done and published. A branch holding work the base lacks is never deleted."
+      />
+      {switching.error && (
+        <p className="command-error" role="alert">
+          {switching.error.message}
         </p>
       )}
     </div>

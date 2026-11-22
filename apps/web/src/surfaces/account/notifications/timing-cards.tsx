@@ -3,7 +3,8 @@ import { TIMING_MINUTES_MAX, type NotificationTiming } from "@the-office/contrac
 import { Card } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { notificationQueries, setTiming } from "../../../api/notifications.ts";
-import { SettingsCardTitle, SettingsProblem } from "../settings-card-parts.tsx";
+import { AccountCardTitle } from "../account-card-title.tsx";
+import { NotificationsProblem } from "./notifications-problem.tsx";
 
 /** Quiet hours as the click-through turns them on, for the user to move. */
 const QUIET_HOURS_FIRST_SET = { from: "22:00", to: "07:00" } as const;
@@ -12,8 +13,8 @@ type Minutes = "holdPhoneMinutes" | "awayMinutes" | "batchOutcomesMinutes";
 
 /**
  * "At the desk" and "Quiet hours and batching" (prototypes/app/settings.js
- * `notificationsSection`): when Notifications reach the desktop and the phone. Each change keeps
- * the whole timing at once.
+ * `notificationsSection`): when the signed-in user's Notifications reach their desktop and phone.
+ * Each change keeps the whole timing at once.
  */
 export function TimingCards(): ReactNode {
   const queryClient = useQueryClient();
@@ -32,7 +33,7 @@ export function TimingCards(): ReactNode {
   });
   const current = edited ?? timing.data;
   if (!current) {
-    return <SettingsProblem title="The timing can't be read" error={timing.error} />;
+    return <NotificationsProblem title="The timing can't be read" error={timing.error} />;
   }
   const change = (changed: Partial<NotificationTiming>): void => {
     const next = { ...current, ...changed };
@@ -51,22 +52,22 @@ export function TimingCards(): ReactNode {
 
   return (
     <>
-      <Card title={<SettingsCardTitle icon="monitor">At the desk</SettingsCardTitle>}>
+      <Card title={<AccountCardTitle icon="monitor">At the desk</AccountCardTitle>}>
         <div className="timing">
           <label>
-            Hold phone pushes while The Office is focused or was used in the last{" "}
+            Hold phone pushes while you are at the desk: The Office focused or used in the last{" "}
             {minutes("holdPhoneMinutes", "Minutes the phone is held after use")} minutes
           </label>
           <label>
-            Send anything still unhandled to the phone{" "}
+            Send anything still unhandled to your phone{" "}
             {minutes("awayMinutes", "Minutes after you leave")} minutes after you leave
           </label>
-          <p className="settings-note">
+          <p className="account-note">
             Desktop notifications show only when the tab isn&apos;t focused; otherwise a toast does.
           </p>
         </div>
       </Card>
-      <Card title={<SettingsCardTitle icon="moon">Quiet hours and batching</SettingsCardTitle>}>
+      <Card title={<AccountCardTitle icon="moon">Quiet hours and batching</AccountCardTitle>}>
         <div className="timing">
           <div className="timing-quiet">
             <label>
@@ -98,20 +99,20 @@ export function TimingCards(): ReactNode {
               </>
             )}
           </div>
-          <p className="settings-note">
+          <p className="account-note">
             {quietHours
-              ? "Nothing is pushed inside the window except “the service or an Agent engine down”; one summary comes when it ends."
+              ? "Nothing is pushed to you inside the window except “the service or an Agent engine down”; one summary comes when it ends."
               : "Off until you set them."}
           </p>
           <label>
             Collapse Outcomes that land within{" "}
             {minutes("batchOutcomesMinutes", "Minutes Outcomes collapse within")} minutes into one
           </label>
-          <p className="settings-note">
+          <p className="account-note">
             Needs you is pushed once per item and never batched. There are no repeat reminders.
           </p>
         </div>
-        <SettingsProblem title="The change can't be saved" error={saving.error} />
+        <NotificationsProblem title="The change can't be saved" error={saving.error} />
       </Card>
     </>
   );

@@ -13,6 +13,7 @@ import {
   TestInstances,
 } from "./modules/test-instances/index.js";
 import {
+  BranchCleanup,
   DroppedInitiativeTasks,
   DroppedTaskDecisions,
   FireAlarmService,
@@ -136,6 +137,7 @@ async function takeUpWhereTheOfficeStopped(app: INestApplication): Promise<void>
   await app.get(QueueService).release();
   app.get(TaskArchiving).start();
   app.get(InitiativeArchiving).start();
+  app.get(BranchCleanup).start();
   app.get(TestBuildRetention).start();
   // A restart dropped every relay socket, so every open Connected device ends as tab closed.
   void app

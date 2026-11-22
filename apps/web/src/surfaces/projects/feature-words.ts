@@ -26,6 +26,11 @@ export const FEATURE_ROWS: readonly {
     name: "Run environment",
     line: "Checks run in the containers .devcontainer/ defines.",
   },
+  {
+    feature: "actions",
+    name: "Actions",
+    line: "Things to run on demand, outside the Task queue.",
+  },
 ];
 
 /** The feature each one needs on before it can be switched on. */

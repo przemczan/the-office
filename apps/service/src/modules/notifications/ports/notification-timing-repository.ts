@@ -1,7 +1,7 @@
 import type { NotificationTiming } from "../domain/notification-timing.js";
 
-/** The timing, in one row: the migration that made it stored ticket 20's defaults. */
+/** Each user's timing, set in Account › Notifications: spec 2.7's defaults until the user sets it. */
 export abstract class NotificationTimingRepository {
-  abstract read(): Promise<NotificationTiming>;
-  abstract save(timing: NotificationTiming): Promise<void>;
+  abstract read(userId: string): Promise<NotificationTiming>;
+  abstract save(userId: string, timing: NotificationTiming): Promise<void>;
 }

@@ -122,11 +122,11 @@ Covers: the Initiative page's head and actions (Confirm, Back to Shaping, Plan t
 
 - A fold "Pipelines" (route icon), the first block of the record.
 - Open at the start unless it was confirmed with None in every Project; remembered per Initiative.
-- Summary: Project by Project what each publishes through (while shaping "<Project>: <Pipeline> · …"); "None: each Task publishes on its own" (shaping) or "None: publishes Task by Task"; once active, where each Publishing Task is ("<Project> at <Stage>, waiting on you", "ready to start", "published", "has no Publishing Task yet"); "Published in <n> Projects"; "Done · no Publishing Task was needed"; "Dropped · <n> branches kept for you to delete" or "Dropped · no Initiative's branch was made".
+- Summary: Project by Project what each publishes through (while shaping "<Project>: <Pipeline> · …"); "None: each Task publishes on its own" (shaping) or "None: publishes Task by Task"; once active, where each Publishing Task is ("<Project> at <Stage>, waiting on you", "ready to start", "published", "has no Publishing Task yet"); "Published in <n> Projects"; "Done · no Publishing Task was needed"; "Dropped · <n> branches kept", "Dropped · branches deleted" once none is known here, or "Dropped · no Initiative's branch was made".
 - With no Project on an Initiative's branch:
   - shaping: "**No Initiative's branch.** Each Task publishes into its Project's base branch on its own, as it is done. Press Edit to work on an Initiative's branch instead and publish the whole change at once, through a Pipeline."
   - confirmed: "None: publishes Task by Task." and "Each Task publishes on its own, as it is done. Whether its Projects have a Pipeline was fixed at Confirm."
-- Facts: **Initiative's branch** with the branch in `code` (`initiative/<Short name>`), a note ("made at Confirm" while shaping; "kept for you to delete" once Done or Dropped) and, for several Projects, "in <A and B>"; **Task by Task** with the Projects that publish each Task on its own.
+- Facts: **Initiative's branch** with the branch in `code` (`initiative/<Short name>`), a note ("made at Confirm" while shaping) and, for several Projects, "in <A and B>"; once Done or Dropped, per Project, **Delete branch…** while the branch is known here (`GET /initiatives/:id/branches`, no fetch), opening the Task page's [Delete branch window](task-page.md#delete-branch-window), or "deleted" once it is gone; **Task by Task** with the Projects that publish each Task on its own.
 - Then a block per Project with a Pipeline (a list "Projects"):
   - its head: Project mark and name, the Pipeline's name and its shape ("5 Stages, 1 Gate", "3 Stages, no Gate");
   - once active: its Publishing Task's link, state badge, how it published when Done ("Merged into <base>" or "By a pull request into <base>") and "Stages edited for this Task"; "No Publishing Task yet" before it is added;
@@ -234,6 +234,6 @@ Covers: the Initiative page's head and actions (Confirm, Back to Shaping, Plan t
 - [Initiative](../2.1.4-initiatives.md#initiative), [Initiative states](../2.1.4-initiatives.md#initiative-states)
 - [Plan the Initiative](../2.1.4-initiatives.md#plan-the-initiative), [Plan with…](../2.1.4-initiatives.md#plan-with-on-an-initiative), [Auto mode](../2.1.5-planning-and-start.md#auto-mode)
 - [Joining and leaving an Initiative](../2.1.3-tasks.md#joining-and-leaving-an-initiative)
-- [The Initiative's branch](../5.5-git-and-isolation.md#the-initiatives-branch), [Publish](../2.3.4-publish.md)
+- [The Initiative's branch](../5.5-git-and-isolation.md#the-initiatives-branch), [Deleting merged branches](../5.5-git-and-isolation.md#deleting-merged-branches), [Publish](../2.3.4-publish.md)
 - [Test instance](../2.12-test-instances.md#test-instance), [its states](../2.12-test-instances.md#test-instance-states), [reaching a Hosted instance](../2.12-test-instances.md#reaching-a-hosted-instance), [Build to install](../2.12-test-instances.md#build-to-install)
 - Related screens: [initiatives-tab.md](initiatives-tab.md), [work-board.md](work-board.md), [task-page.md](task-page.md), [thread.md](thread.md), [decision-card.md](decision-card.md), [archived.md](archived.md)

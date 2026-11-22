@@ -50,6 +50,7 @@ import {
 } from "./modules/pipelines/index.js";
 import {
   BaseCheckouts,
+  BranchDeletions,
   CiRunWatch,
   EngineLevelsChecks,
   EnvironmentChecks,
@@ -78,6 +79,7 @@ import {
   GitHubIdentityProvider,
   GoogleIdentityProvider,
   OpenIdConnectIdentityProvider,
+  Users,
   UsersModule,
 } from "./modules/users/index.js";
 import {
@@ -164,6 +166,7 @@ export class AppModule {
       projectWorktrees: TaskWorktrees,
       taskPullRequests: PullRequestRecords,
       projectInitiativeBranches: InitiativeBranches,
+      projectBranchDeletions: BranchDeletions,
       knownPeople: RoleCards,
       knownEngineCascade: EngineCascade,
       knownPipelines: PipelineLibrary,
@@ -232,6 +235,7 @@ export class AppModule {
         projects,
         SkillsModule,
         officeUpdates,
+        users,
       ],
       officeTasks: TaskService,
       officeInitiatives: InitiativeService,
@@ -250,6 +254,7 @@ export class AppModule {
       skillUpdatesFound: SkillLibrary,
       officeUpdateAvailable: OfficeUpdates,
       shapingReplies: ThreadService,
+      officeUsers: Users,
     });
     // Work's Tasks and the run environments their devices are relayed into.
     const devices = DevicesModule.register({ imports: [work, projects, runEnvironments] });

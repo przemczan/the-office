@@ -2,6 +2,7 @@ import type { ProjectPipelineCheck, Stage, StageChange } from "@the-office/contr
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
+  ProposedActionChanges,
   ProposedCommandChanges,
   ProposedProjectPipelineFields,
   ProposedTestTargetChanges,
@@ -423,5 +424,72 @@ describe("ProposedProjectPipelineFields with routes", () => {
         "→ Review & fix when Implement changed files | → Publish otherwise",
       ],
     ]);
+  });
+});
+
+describe("ProposedActionChanges", () => {
+  const install = {
+    key: "install-phone",
+    name: "Install on my phone",
+    kind: "test-target",
+    leavesTheWorkstation: false,
+    settings: { targetKey: "android" },
+  } as const;
+
+  it("shows each value changed, flagging one the user set and a Leaves the workstation it adds", () => {
+    const rows = rowsOf(
+      renderToStaticMarkup(
+        <ProposedActionChanges
+          changes={{
+            actions: [
+              {
+                key: "install-phone",
+                from: install,
+                to: { ...install, name: "Install on a phone", leavesTheWorkstation: true },
+                userSet: ["name"],
+              },
+            ],
+          }}
+        />,
+      ),
+    );
+
+    expect(rows).toEqual([
+      "NameInstall on my phoneInstall on a phoneYou set this",
+      "Leaves the workstationNoYesMarks it Leaves the workstation",
+    ]);
+  });
+
+  it("shows an Action added from nothing, and strikes a removed one through", () => {
+    const markup = renderToStaticMarkup(
+      <ProposedActionChanges
+        changes={{
+          actions: [
+            {
+              key: "release",
+              from: null,
+              to: {
+                key: "release",
+                name: "Release",
+                kind: "workflow",
+                leavesTheWorkstation: true,
+                settings: { file: "release.yml", inputs: { channel: "beta" } },
+              },
+              userSet: [],
+            },
+            { key: "install-phone", from: install, to: null, userSet: [] },
+          ],
+        }}
+      />,
+    );
+
+    expect(rowsOf(markup).slice(0, 4)).toEqual([
+      "NameRelease",
+      "KindWorkflow",
+      "What it runsrelease.yml with channel=beta",
+      "Leaves the workstationYesMarks it Leaves the workstation",
+    ]);
+    expect(markup).toContain("<s>Install on my phone (install-phone)</s>");
+    expect(rowsOf(markup)[4]).toBe("NameInstall on my phoneRemoved");
   });
 });

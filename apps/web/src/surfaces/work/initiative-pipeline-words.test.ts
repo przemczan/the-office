@@ -96,13 +96,13 @@ describe("a Project's track", () => {
 
 describe("the Pipelines card's folded line", () => {
   it("names each Project's Pipeline while shaping and before the Publishing Tasks", () => {
-    expect(pipelinesFoldedLine("shaping", [SHIPPING, STRAIGHT, ON_NONE], 0)).toBe(
-      "not-astray: Ship an Initiative · notnullsoft: Publish straight away · docs: None",
-    );
-    expect(pipelinesFoldedLine("shaping", [ON_NONE], 0)).toBe(
+    expect(
+      pipelinesFoldedLine("shaping", [SHIPPING, STRAIGHT, ON_NONE], { made: 0, kept: 0 }),
+    ).toBe("not-astray: Ship an Initiative · notnullsoft: Publish straight away · docs: None");
+    expect(pipelinesFoldedLine("shaping", [ON_NONE], { made: 0, kept: 0 })).toBe(
       "None: each Task publishes on its own",
     );
-    expect(pipelinesFoldedLine("active", [SHIPPING, STRAIGHT], 2)).toBe(
+    expect(pipelinesFoldedLine("active", [SHIPPING, STRAIGHT], { made: 2, kept: 2 })).toBe(
       "not-astray: Ship an Initiative · notnullsoft: Publish straight away · start once every Task is Done or Dropped",
     );
   });
@@ -123,19 +123,30 @@ describe("the Pipelines card's folded line", () => {
       },
     };
 
-    expect(pipelinesFoldedLine("active", [waiting, integrating, ON_NONE], 2)).toBe(
-      "not-astray at Your review, waiting on you · notnullsoft at Integrate",
-    );
+    expect(
+      pipelinesFoldedLine("active", [waiting, integrating, ON_NONE], { made: 2, kept: 2 }),
+    ).toBe("not-astray at Your review, waiting on you · notnullsoft at Integrate");
   });
 
   it("says how it ended, and None once confirmed with None everywhere", () => {
-    expect(pipelinesFoldedLine("done", [published(SHIPPING), published(STRAIGHT)], 2)).toBe(
-      "Published in 2 Projects",
+    expect(
+      pipelinesFoldedLine("done", [published(SHIPPING), published(STRAIGHT)], { made: 2, kept: 2 }),
+    ).toBe("Published in 2 Projects");
+    expect(pipelinesFoldedLine("dropped", [SHIPPING, STRAIGHT], { made: 2, kept: 2 })).toBe(
+      "Dropped · 2 branches kept",
     );
-    expect(pipelinesFoldedLine("dropped", [SHIPPING, STRAIGHT], 2)).toBe(
-      "Dropped · 2 branches kept for you to delete",
+    expect(pipelinesFoldedLine("dropped", [SHIPPING, STRAIGHT], { made: 2, kept: 1 })).toBe(
+      "Dropped · 1 branch kept",
     );
-    expect(pipelinesFoldedLine("active", [ON_NONE], 0)).toBe("None: publishes Task by Task");
+    expect(pipelinesFoldedLine("dropped", [SHIPPING, STRAIGHT], { made: 2, kept: 0 })).toBe(
+      "Dropped · branches deleted",
+    );
+    expect(pipelinesFoldedLine("dropped", [SHIPPING, STRAIGHT], { made: 0, kept: 0 })).toBe(
+      "Dropped · no Initiative's branch was made",
+    );
+    expect(pipelinesFoldedLine("active", [ON_NONE], { made: 0, kept: 0 })).toBe(
+      "None: publishes Task by Task",
+    );
   });
 });
 

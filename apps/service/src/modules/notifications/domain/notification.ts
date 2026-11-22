@@ -1,11 +1,9 @@
 import type { StandInChoiceWaiting } from "./now.js";
 import {
-  channelsOf,
   levelsOf,
   WINDOW_NEARLY_USED_PERCENT,
   type Channel,
   type NotificationKind,
-  type Routing,
 } from "./notification-kinds.js";
 
 /** What a Notification opens: the thing that waits or happened (spec §2.7). */
@@ -53,8 +51,9 @@ export type Pointer =
 export type GatheringKind = "collapsed-outcomes" | "quiet-hours-summary";
 
 /**
- * A pointer to something that waits on the user or happened, sent to the channels its kind routes
- * to and cleared on every channel once the user handles that thing, never by reading it.
+ * A pointer to something that waits on the user or happened, one fact shared by every user and
+ * cleared for all of them once the user handles that thing, never by reading it. Each user receives
+ * it on the channels their own routing gives it (`Delivery`).
  */
 export interface Notification {
   readonly id: string;
@@ -79,17 +78,38 @@ export interface Notification {
    */
   readonly at: Date | undefined;
   readonly pointsTo: Pointer;
-  /** Where its kind's routing sends it. */
-  readonly channels: readonly Channel[];
   readonly raisedAt: Date;
   /**
    * The Notifications it stands for, when it gathers others; it is cleared once none of them is
-   * open. Collapsed Outcomes also take their place in the list.
+   * open. Collapsed Outcomes also take their place in its user's list.
    */
   readonly gathers: readonly string[];
-  /** The channels quiet hours hold it from, until their summary goes. */
+  /**
+   * The one user it is for, by id, when it gathers what their own batching or quiet hours held;
+   * undefined for the shared Notifications every user sees.
+   */
+  readonly forUser: string | undefined;
+}
+
+/** How a Notification reaches one user: the channels their routing gives it, and what is held. */
+export interface Delivery {
+  readonly notificationId: string;
+  readonly userId: string;
+  /** Where the user's routing sends it; never empty, as a user with nothing routed has none. */
+  readonly channels: readonly Channel[];
+  /** The channels the user's quiet hours hold it from, until their summary goes. */
   readonly held: readonly Channel[];
-  /** When it went to the phone; undefined until it does. */
+  /** When it went to the user's phone; undefined until it does. */
+  readonly phonePushedAt: Date | undefined;
+}
+
+/**
+ * A Notification as one user receives it: with their delivery's channels, held and phone push, or
+ * none of them when their routing gives it no channel.
+ */
+export interface ReceivedNotification extends Notification {
+  readonly channels: readonly Channel[];
+  readonly held: readonly Channel[];
   readonly phonePushedAt: Date | undefined;
 }
 
@@ -104,23 +124,9 @@ export interface NotificationDraft {
   readonly pointsTo: Pointer;
 }
 
-/** The draft raised now, to the channels the routing sends its kind to. */
-export function notificationOf(
-  draft: NotificationDraft,
-  id: string,
-  raisedAt: Date,
-  routing: Routing,
-): Notification {
-  return {
-    ...draft,
-    at: draft.at,
-    id,
-    channels: channelsOf(draft.kind, routing),
-    raisedAt,
-    gathers: [],
-    held: [],
-    phonePushedAt: undefined,
-  };
+/** The draft raised now, shared by every user. */
+export function notificationOf(draft: NotificationDraft, id: string, raisedAt: Date): Notification {
+  return { ...draft, at: draft.at, id, raisedAt, gathers: [], forUser: undefined };
 }
 
 /** A Decision waits on the user: its asker's question, or The Office's. */

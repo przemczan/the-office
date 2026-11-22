@@ -50,7 +50,7 @@ export interface BoardCardProps {
   readonly blockers: readonly TaskSummary[];
   /** The names of the people working on it now. */
   readonly peopleWorking: readonly PersonWorking[];
-  /** The current Stage's name while one of them works it. */
+  /** The current Stage's name on a started Task; undefined before its first Stage run. */
   readonly stageName: string | undefined;
   readonly dragging: boolean;
   readonly dropBefore: boolean;
@@ -92,6 +92,7 @@ export function BoardCard({
     queued: queued !== undefined,
     hasUsageEstimate: usageEstimate !== undefined,
     someoneWorking: peopleWorking.length > 0,
+    atStage: stageName !== undefined,
     hasPlanner: planner !== undefined,
   });
   const classes = [

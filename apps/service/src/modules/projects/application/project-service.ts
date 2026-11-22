@@ -35,6 +35,7 @@ import {
   changeProjectLimit,
   changePublishingLine,
   changePublishingMode,
+  changeDeleteMergedBranches,
   changeRoleOverride,
   changeRunEnvironment,
   changeUseForEveryRole,
@@ -60,6 +61,8 @@ import {
   removedCommandKeys,
   type ProposedCommands,
 } from "../domain/proposed-commands.js";
+import { reservedEnvironmentProblems } from "../domain/action.js";
+import { ActionRepository } from "../ports/action-repository.js";
 import { CLONE_REMOTE, Git } from "../ports/git.js";
 import { ProjectRepository } from "../ports/project-repository.js";
 import { EngineLevelsChecks } from "./engine-levels-checks.js";
@@ -89,6 +92,7 @@ export class ProjectService {
     private readonly engineLevelsChecks: EngineLevelsChecks,
     private readonly engineReferences: EngineReferenceLock,
     private readonly runEnvironmentSetUp: RunEnvironmentSetUpRegistry,
+    private readonly actions: ActionRepository,
   ) {}
 
   /**
@@ -254,12 +258,18 @@ export class ProjectService {
 
   /**
    * The user's Save of the environment (spec §5.5): a Secret variable given without a value keeps
-   * the Project's. Refuses with every reason, saving nothing, when it breaks a rule.
+   * the Project's. Refuses with every reason, saving nothing, when it breaks a rule, a variable
+   * named as one The Office sets in an Action's run among them while the Project has a Project
+   * command Action (spec §2.15, "What The Office sets").
    */
   async changeEnvironment(id: string, edit: ProjectEnvironmentEdit): Promise<Project> {
+    const actions = await this.actions.listOf(id);
     return this.update(id, (project) => {
       const environment = trimmedEnvironment(editedEnvironment(edit, project.environment));
-      const problems = this.checks.environmentProblems(environment);
+      const problems = [
+        ...this.checks.environmentProblems(environment),
+        ...reservedEnvironmentProblems(environment.set, actions),
+      ];
       if (problems.length > 0) throw new ProjectRefused(problems);
       return changeEnvironment(project, environment);
     });
@@ -272,6 +282,10 @@ export class ProjectService {
     commandLine: string,
   ): Promise<Project> {
     return this.update(id, (project) => changePublishingLine(project, line, commandLine));
+  }
+
+  async changeDeleteMergedBranches(id: string, on: boolean): Promise<Project> {
+    return this.update(id, (project) => changeDeleteMergedBranches(project, on));
   }
 
   async changePublishingMode(id: string, publishingMode: PublishingMode): Promise<Project> {

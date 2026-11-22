@@ -37,6 +37,7 @@ export * from "./stats.js";
 export * from "./telemetry.js";
 export * from "./test-instances.js";
 export * from "./test-targets.js";
+export * from "./actions.js";
 export * from "./users.js";
 export * from "./work.js";
 export * from "./workstation.js";

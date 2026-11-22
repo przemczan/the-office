@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import {
   initiativeBranchOf,
   type Initiative,
+  type KnownBranch,
   type Pipeline,
   type Project,
   type ProjectPipeline,
@@ -10,8 +11,9 @@ import {
   type TaskStages,
   type TaskSummary,
 } from "@the-office/contracts";
-import { Alert, Button, Icon } from "@the-office/ui";
+import { Alert, Button, Icon, TextButton } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
+import { branchQueries } from "../../api/branch-deletions.ts";
 import { roleQueries } from "../../api/people.ts";
 import { pipelineQueries, projectPipelineQueries } from "../../api/pipelines.ts";
 import {
@@ -23,6 +25,7 @@ import { ProjectMark } from "../../shell/project-mark.tsx";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
 import {
+  BRANCH_DELETED,
   branchNoteWords,
   hasGate,
   hasStarted,
@@ -36,6 +39,7 @@ import {
   type PipelineShown,
   type ProjectPublishing,
 } from "./initiative-pipeline-words.ts";
+import { DeleteBranchDialog } from "./delete-branch-dialog.tsx";
 import { InitiativePipelineTrack } from "./initiative-pipeline-track.tsx";
 import { InitiativePipelinesEditor } from "./initiative-pipelines-editor.tsx";
 import {
@@ -128,12 +132,18 @@ export function InitiativePipelineBlock({
   const [editing, setEditing] = useState(false);
   const withPipeline = blocks.filter(({ pipelineId }) => pipelineId !== null);
   const foot = pipelinesFootWords(initiative.state, read);
+  const knownBranches = useKnownBranches(initiative);
+  const kept = knownBranches?.filter(({ known }) => known).length;
   return (
     <RecordFold
       fold={fold}
       icon="route"
       title="Pipelines"
-      summary={pipelinesFoldedLine(initiative.state, read, initiative.branches.length)}
+      summary={pipelinesFoldedLine(initiative.state, read, {
+        made: initiative.branches.length,
+        // Until it is read, each branch made counts as kept.
+        kept: kept ?? initiative.branches.length,
+      })}
       side={
         editable && !editing ? (
           <Button
@@ -174,6 +184,10 @@ export function InitiativePipelineBlock({
             <>
               <PipelinesFacts
                 initiative={initiative}
+                knownBranches={knownBranches}
+                projectNameOf={(projectId) =>
+                  blocks.find((block) => block.projectId === projectId)?.projectName ?? projectId
+                }
                 withPipeline={withPipeline}
                 taskByTask={blocks.filter(({ pipelineId }) => pipelineId === null)}
                 manyProjects={blocks.length > 1}
@@ -196,6 +210,57 @@ export function InitiativePipelineBlock({
         </div>
       )}
     </RecordFold>
+  );
+}
+
+/** An ended Initiative's branches and whether each is known here; undefined until then, or read. */
+function useKnownBranches(initiative: Initiative): readonly KnownBranch[] | undefined {
+  const asked =
+    (initiative.state === "done" || initiative.state === "dropped") &&
+    initiative.branches.length > 0;
+  const known = useQuery({ ...branchQueries.ofInitiative(initiative.id), enabled: asked }).data;
+  return asked ? known?.branches : undefined;
+}
+
+/**
+ * An ended Initiative's branch in one Project: Delete branch… while it is known here, "deleted"
+ * once it isn't (spec 5.5, "Deleting merged branches"); the Project named when it spans several.
+ */
+function BranchLeft({
+  initiative,
+  branch,
+  projectName,
+}: {
+  readonly initiative: Initiative;
+  readonly branch: KnownBranch;
+  readonly projectName?: string;
+}): ReactNode {
+  const [deleting, setDeleting] = useState(false);
+  return (
+    <span className="initiative-pipelines-branch-left">
+      {projectName !== undefined && (
+        <span className="initiative-pipelines-quiet">in {projectName}</span>
+      )}
+      {branch.known ? (
+        <TextButton
+          aria-label={
+            projectName === undefined ? "Delete branch…" : `Delete branch in ${projectName}…`
+          }
+          onClick={() => setDeleting(true)}
+        >
+          Delete branch…
+        </TextButton>
+      ) : (
+        <span className="initiative-pipelines-quiet">{BRANCH_DELETED}</span>
+      )}
+      {deleting && (
+        <DeleteBranchDialog
+          owner={{ kind: "initiative", initiativeId: initiative.id, projectId: branch.projectId }}
+          branch={branch.branch}
+          onClose={() => setDeleting(false)}
+        />
+      )}
+    </span>
   );
 }
 
@@ -222,11 +287,16 @@ function NoBranch({ shaping }: { readonly shaping: boolean }): ReactNode {
  */
 function PipelinesFacts({
   initiative,
+  knownBranches,
+  projectNameOf,
   withPipeline,
   taskByTask,
   manyProjects,
 }: {
   readonly initiative: Initiative;
+  /** Once ended, its branch in each Project and whether it is still known here. */
+  readonly knownBranches: readonly KnownBranch[] | undefined;
+  readonly projectNameOf: (projectId: string) => string;
   readonly withPipeline: readonly ProjectBlockData[];
   readonly taskByTask: readonly ProjectBlockData[];
   readonly manyProjects: boolean;
@@ -246,7 +316,15 @@ function PipelinesFacts({
           </code>
         )}
         {note !== undefined && <span className="initiative-pipelines-quiet">{note}</span>}
-        {manyProjects && (
+        {knownBranches?.map((branch) => (
+          <BranchLeft
+            key={branch.projectId}
+            initiative={initiative}
+            branch={branch}
+            {...(manyProjects && { projectName: projectNameOf(branch.projectId) })}
+          />
+        ))}
+        {manyProjects && knownBranches === undefined && (
           <span className="initiative-pipelines-quiet">
             in {PROJECT_NAMES.format(withPipeline.map(({ projectName }) => projectName))}
           </span>

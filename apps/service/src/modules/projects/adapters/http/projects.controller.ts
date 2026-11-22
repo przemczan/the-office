@@ -14,6 +14,7 @@ import {
   markChangeSchema,
   projectCommandSchema,
   publishingModeChangeSchema,
+  deleteMergedBranchesChangeSchema,
   projectDefaultChangeSchema,
   projectLimitSchema,
   projectSkillListSchema,
@@ -42,6 +43,7 @@ import {
   type RemoteNeeds as RemoteNeedsResponse,
   type ProjectCommand,
   type PublishingModeChange,
+  type DeleteMergedBranchesChange,
   type ProjectSkill,
   type ProjectSkillUseChange,
   type UseProjectSkillsChange,
@@ -152,6 +154,14 @@ export class ProjectsController {
     @Body(new ContractPipe(publishingModeChangeSchema)) { publishingMode }: PublishingModeChange,
   ): Promise<ProjectResponse> {
     return this.respond(await this.projects.changePublishingMode(id, publishingMode));
+  }
+
+  @Put(":id/delete-merged-branches")
+  async changeDeleteMergedBranches(
+    @Param("id") id: string,
+    @Body(new ContractPipe(deleteMergedBranchesChangeSchema)) { on }: DeleteMergedBranchesChange,
+  ): Promise<ProjectResponse> {
+    return this.respond(await this.projects.changeDeleteMergedBranches(id, on));
   }
 
   @Put(":id/before-publishing-command")

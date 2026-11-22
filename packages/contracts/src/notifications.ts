@@ -335,8 +335,8 @@ export const routedChannelSchema = z.object({ on: z.boolean(), from: z.string().
 export type RoutedChannel = z.infer<typeof routedChannelSchema>;
 
 /**
- * What goes where, the grid in Settings › Notifications: each level of the kinds tree (a group,
- * the levels below it and its kinds) with every channel as it routes there.
+ * Your What goes where, the grid in Account › Notifications: each level of the kinds tree (a
+ * group, the levels below it and its kinds) with every channel as it routes there for you.
  */
 export const notificationRoutingSchema = z.record(
   z.string(),
@@ -417,9 +417,9 @@ export const notificationSchema = z.object({
    */
   at: z.iso.datetime().optional(),
   pointsTo: pointerSchema,
-  /** Where its kind's routing sends it. */
+  /** Where your routing of its kind sends it; empty when it reaches you on no channel. */
   channels: z.array(channelSchema),
-  /** The channels quiet hours hold it from: their summary brings it when they end. */
+  /** The channels your quiet hours hold it from: their summary brings it when they end. */
   held: z.array(channelSchema),
   raisedAt: z.iso.datetime(),
 });
@@ -436,15 +436,18 @@ export const timeOfDaySchema = z
 export const TIMING_MINUTES_MAX = 60;
 const timingMinutesSchema = z.number().int().min(1).max(TIMING_MINUTES_MAX);
 
-/** When Notifications reach the desktop and the phone: "At the desk", "Quiet hours and batching". */
+/**
+ * When Notifications reach your desktop and your phone, in Account › Notifications: "At the desk",
+ * "Quiet hours and batching".
+ */
 export const notificationTimingSchema = z.object({
-  /** Phone pushes wait while The Office was used in the last this many minutes. */
+  /** Your phone pushes wait while you used The Office in the last this many minutes. */
   holdPhoneMinutes: timingMinutesSchema,
-  /** Then anything still unhandled goes to the phone after this many minutes more. */
+  /** Then anything still unhandled goes to your phone after this many minutes more. */
   awayMinutes: timingMinutesSchema,
-  /** Outcomes landing within this many minutes collapse into one. */
+  /** Your Outcomes landing within this many minutes collapse into one. */
   batchOutcomesMinutes: timingMinutesSchema,
-  /** Null while off; a window ending earlier than it starts runs across midnight. */
+  /** Your quiet hours, null while off; a window ending earlier than it starts runs across midnight. */
   quietHours: z
     .object({ from: timeOfDaySchema, to: timeOfDaySchema })
     .refine(({ from, to }) => from !== to, "Quiet hours end at another time than they start.")

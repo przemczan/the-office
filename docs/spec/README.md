@@ -77,6 +77,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Daily cap, Window cap, Usage window**: [2.1.5 A pause by the usage window](2.1.5-planning-and-start.md#a-pause-by-the-usage-window); [5.4.6 Checking the usage windows](5.4.6-stand-in-engines-and-usage-windows.md#checking-the-usage-windows)
 - **Decision**: [2.4.2 The Decision form](2.4.2-decisions.md#the-decision-form); screen: [Decision card](screens/decision-card.md#decision-card)
 - **Definition of Done, Plan**: [2.1.5 Plan and Definition of Done](2.1.5-planning-and-start.md#plan-and-definition-of-done); screen: [Task page › Definition of Done](screens/task-page.md#definition-of-done)
+- **Deleting merged branches, Delete branches once merged, Delete branch…**: [5.5 Deleting merged branches](5.5-git-and-isolation.md#deleting-merged-branches); screens: [Project page › Commands](screens/project-page.md#commands), [Task page › Delete branch window](screens/task-page.md#delete-branch-window)
 - **Density**: [4 Densities](4-ux-direction.md#densities); [4 Density](4-ux-direction.md#density)
 - **Description**: [2.1.3 Description](2.1.3-tasks.md#description)
 - **Details**: [2.9.3 The details](2.9.3-streaming-and-ui.md#the-details); screen: [Decision card › The details window](screens/decision-card.md#the-details-window-open-details)
@@ -198,7 +199,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 ### Q
 
 - **Queue, Short reason**: [2.1.5 A queue for Start](2.1.5-planning-and-start.md#a-queue-for-start); screen: [Work board › Queue for Start](screens/work-board.md#queue-for-start)
-- **Quiet hours**: [2.7 Quiet hours hold the desktop](2.7-notifications.md#quiet-hours-hold-the-desktop); screen: [Settings › Notifications](screens/settings.md#notifications)
+- **Quiet hours**: [2.7 Quiet hours hold the desktop](2.7-notifications.md#quiet-hours-hold-the-desktop); screen: [Account › Notifications](screens/account.md#notifications)
 
 ### R
 
@@ -278,6 +279,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Migrations keep the previous release working**: [5.1.2 Updating The Office](5.1.2-updates-and-restarts.md#updating-the-office)
 - **Modules and boundaries**: [5.3 Architecture](5.3-modules.md#architecture); [5.3 The modules](5.3-modules.md#the-modules)
 - **Notification kinds and channels**: [2.7 Kinds](2.7-notifications.md#kinds); [2.7 Channels](2.7-notifications.md#channels); [2.7 Office kinds](2.7-notifications.md#office-kinds)
+- **Notification settings, each user's own (routing, at the desk, quiet hours, batching)**: [2.7 Each user's own settings](2.7-notifications.md#each-users-own-settings); [2.7 A user's settings start from the defaults](2.7-notifications.md#a-users-settings-start-from-the-defaults); screen: [Account › Notifications](screens/account.md#notifications)
 - **Office data directory**: [5.2 Data](5.2-stack.md#data); [5.1 The service](5.1-shape.md#the-service)
 - **Operating systems (Windows and Linux)**: [5.1 Operating systems](5.1-shape.md#operating-systems); [5.1 Windows and Linux](5.1-shape.md#windows-and-linux)
 - **Only hashes are stored**: [6 Only hashes are stored](6-permissions-and-safety.md#only-hashes-are-stored)
@@ -333,7 +335,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
   - [2.4.6 Reading records](2.4.6-reading-records.md): reading the Stage history and the Threads.
 - [2.5 Context policy](2.5-context-policy.md): resume, fresh or hand off; the Brief, the Handover note, overrides, a Stage's context limits.
 - [2.6 Skills](2.6-skills.md): the library, adding skills, Project skills, what a session gets.
-- [2.7 Notifications](2.7-notifications.md): kinds, channels, content, routing defaults.
+- [2.7 Notifications](2.7-notifications.md): kinds, channels, content, routing defaults, each user's own settings.
 - [2.8 Fire alarm](2.8-fire-alarm.md): the alarm, its three ways and the all clear.
 - [2.9 Sub-agents and processes](2.9-sub-agents-and-processes.md): index of the pages below.
   - [2.9.1 The model](2.9.1-the-model.md): Sub-agents and Processes, what is kept and for how long.
@@ -390,7 +392,7 @@ One page per screen, as built. Where a [design](../design/README.md) differs, th
   - [5.4.5 Engines and the engine cascade](5.4.5-engines-and-cascade.md)
   - [5.4.6 Stand-in Engines and usage windows](5.4.6-stand-in-engines-and-usage-windows.md)
   - [5.4.7 The Gemini CLI engine](5.4.7-gemini-cli-engine.md)
-- [5.5 Git and isolation](5.5-git-and-isolation.md): a worktree per Task, guards, environment as data, the Office identity, run environments, test instances' checkouts.
+- [5.5 Git and isolation](5.5-git-and-isolation.md): a worktree per Task, guards, deleting merged branches, environment as data, the Office identity, run environments, test instances' checkouts.
 - [5.6 Skills per session](5.6-skills-per-session.md): what a session lists at start.
 
 ### Safety and risks
@@ -526,6 +528,7 @@ Where each default lives, by page:
   - [A usage window used up](2.7-notifications.md#a-usage-window-used-up)
   - [Stages waiting for a Stand-in Engine](2.7-notifications.md#stages-waiting-for-a-stand-in-engine)
   - [Opening what a Notification points to handles it](2.7-notifications.md#opening-what-a-notification-points-to-handles-it)
+  - [A user's settings start from the defaults](2.7-notifications.md#a-users-settings-start-from-the-defaults)
   - [Quiet hours hold the desktop](2.7-notifications.md#quiet-hours-hold-the-desktop)
   - [Batching Outcomes](2.7-notifications.md#batching-outcomes)
   - [The grid's rows](2.7-notifications.md#the-grids-rows)
@@ -697,6 +700,7 @@ Where each default lives, by page:
   - [Gemini CLI: usage](5.4.7-gemini-cli-engine.md#gemini-cli-usage)
   - [Gemini CLI: capabilities as the engine check showed them](5.4.7-gemini-cli-engine.md#gemini-cli-capabilities-as-the-engine-check-showed-them)
 - 5.5 Git and isolation
+  - [Merged branches kept](5.5-git-and-isolation.md#merged-branches-kept)
   - [Install inputs](5.5-git-and-isolation.md#install-inputs)
   - [The base branch's upstream](5.5-git-and-isolation.md#the-base-branchs-upstream)
   - [Clones](5.5-git-and-isolation.md#clones)

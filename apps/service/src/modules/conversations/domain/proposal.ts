@@ -3,6 +3,7 @@ import type { DutyKey, RoleCard, SetUpDuty, SetUpHire } from "../../people/index
 import type {
   NewProject,
   ProjectFeatureSwitches,
+  ProposedActions,
   ProposedCommands,
   ProposedTestTargets,
 } from "../../projects/index.js";
@@ -27,6 +28,7 @@ export interface ProposedChanges {
   readonly initiative: ProposedInitiativeChange;
   readonly "project-commands": ProposedProjectCommands;
   readonly "test-targets": ProposedTestTargetsChange;
+  readonly actions: ProposedActionsChange;
   readonly pipeline: ProposedPipelineChange;
   readonly "stage-template": ProposedStageTemplateChange;
   readonly "project-pipeline": ProposedProjectPipelineChange;
@@ -211,6 +213,17 @@ export interface ProposedTestTargetsChange {
   readonly kind: "test-targets";
   readonly projectId: string;
   readonly changes: ProposedTestTargets;
+}
+
+/**
+ * A change, by whoever onboards Projects, to a Project's Actions (spec §2.15, "Defining Actions"):
+ * each Action it adds, changes or removes as the Project had it when drafted and as proposed.
+ * Projects refuses to apply it once one of them changed, or when it clears Leaves the workstation.
+ */
+export interface ProposedActionsChange {
+  readonly kind: "actions";
+  readonly projectId: string;
+  readonly changes: ProposedActions;
 }
 
 /**

@@ -849,6 +849,8 @@ export const workEventInvalidations: Readonly<
   "initiative.pipelines-set": () => [INITIATIVES],
   "initiative.short-name-written": () => [INITIATIVES],
   "initiative.branch-made": () => [INITIATIVES],
+  "initiative.branch-deleted": () => [INITIATIVES],
+  "task.branch-deleted": () => [TASKS],
   "initiative.archived": () => [INITIATIVES],
   "initiative.restored": () => [INITIATIVES],
   // A Task's Start check and its place in the queue wait on the Initiative's Pause.

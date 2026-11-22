@@ -164,6 +164,11 @@ describe("rerun_ci_run", REAL_GIT_TEST, () => {
   });
 });
 
+/** The refusal of release.yml while the Action Release, leaving the workstation, starts it. */
+function releaseRefusal(): string {
+  return `release.yml is started by the Action Release, from «${project.name}»'s Actions.`;
+}
+
 describe("start_workflow", REAL_GIT_TEST, () => {
   beforeEach(() => {
     github.workflows.addWorkflow(REPOSITORY, {
@@ -244,6 +249,60 @@ describe("start_workflow", REAL_GIT_TEST, () => {
       "ci.yml can't be started by hand on main: it has no workflow_dispatch there.",
     ]);
     expect(github.workflows.dispatches()).toEqual([]);
+  });
+
+  describe("a Workflow an Action that leaves the workstation starts", () => {
+    beforeEach(() => {
+      github.installations.grant("office", { actions: "write" });
+      testbed.actions.keep(project.id, [
+        {
+          key: "release",
+          name: "Release",
+          kind: "workflow",
+          settings: { file: ".github/workflows/release.yml", inputs: { channel: "stable" } },
+          leavesTheWorkstation: true,
+          setBy: {},
+        },
+      ]);
+    });
+
+    it("is refused to the user's Start a workflow, whatever its inputs, asking GitHub nothing", async () => {
+      const reasons = await refusalOf(
+        await start("release.yml", "main", { channel: "beta", "dry-run": "true" }),
+      );
+
+      expect(reasons).toEqual([releaseRefusal()]);
+      expect(github.workflows.dispatches()).toEqual([]);
+    });
+
+    it("is refused to an Agent's start_workflow, naming the Action", async () => {
+      const answer = await testbed
+        .tool(START_WORKFLOW_ACTION.name)
+        .run(
+          { projectId: project.id, workflow: "release.yml", ref: "main", inputs: {} },
+          anOfficeToolCall("s-1"),
+        );
+
+      expect(answer).toEqual({ isError: true, text: releaseRefusal() });
+      expect(github.workflows.dispatches()).toEqual([]);
+    });
+
+    it("starts once the Action no longer leaves the workstation", async () => {
+      testbed.actions.keep(project.id, [
+        {
+          key: "release",
+          name: "Release",
+          kind: "workflow",
+          settings: { file: "release.yml", inputs: {} },
+          leavesTheWorkstation: false,
+          setBy: {},
+        },
+      ]);
+
+      const response = await start("release.yml", "main", { channel: "beta" });
+
+      expect(response.status).toBe(200);
+    });
   });
 
   it("refuses in GitHub's plain words when the App can't write Actions", async () => {

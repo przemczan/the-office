@@ -144,6 +144,8 @@ export class ProposalAppliers {
         return this.applierOf("project-commands").problemsWith(change);
       case "test-targets":
         return this.applierOf("test-targets").problemsWith(change);
+      case "actions":
+        return this.applierOf("actions").problemsWith(change);
       case "pipeline":
         return this.applierOf("pipeline").problemsWith(change);
       case "stage-template":
@@ -192,6 +194,8 @@ export class ProposalAppliers {
         return this.applierOf("project-commands").apply(change, proposedBy, appliedBy);
       case "test-targets":
         return this.applierOf("test-targets").apply(change, proposedBy, appliedBy, proposalId);
+      case "actions":
+        return this.applierOf("actions").apply(change, proposedBy, appliedBy, proposalId);
       case "pipeline":
         return this.applierOf("pipeline").apply(change, proposedBy, appliedBy);
       case "stage-template":

@@ -13,8 +13,8 @@ export type SignedInState = Awaited<ReturnType<APIRequestContext["storageState"]
 
 /**
  * A user of the test's own, added by the shared e2e user and signed in once with their one-time
- * password, their own password set: what is theirs alone (their appearance) changes for no other
- * test running beside it.
+ * password, their own password set: what is theirs alone (their appearance, their Notifications
+ * settings) changes for no other test running beside it.
  */
 export interface OwnUser {
   readonly id: string;

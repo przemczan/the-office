@@ -1,8 +1,18 @@
-import { Container, Graphics, Sprite, Texture } from "pixi.js";
+import { Container, Graphics, Sprite, Texture, TilingSprite } from "pixi.js";
 import { type FigureBounds, figureBoundsOf, paintedFigure } from "./art/figures.ts";
 import { seedOf } from "./seeded.ts";
 import { glanceOfSeed, sippingOfSeed } from "./glances.ts";
-import { paintFloorLayer, paintSunPatches, paintWalls } from "./art/floor-art.ts";
+import {
+  BOARDS_REPEAT,
+  SLAB_H,
+  SLAB_SHADOW_PAD,
+  paintBoardsRepeat,
+  paintFloorLayer,
+  paintSlab,
+  paintSlabShadow,
+  paintSunPatches,
+  paintWalls,
+} from "./art/floor-art.ts";
 import {
   beanbagShape,
   bookshelfShape,
@@ -356,9 +366,17 @@ function settledPose(
 }
 
 /**
- * The office's sprites: the still floor and walls as one texture, the sky in the windows and the
- * sunlight on the floor, then desks, chairs, furniture, glows and figures sorted by depth (each glow
- * added to what is under it, just over what gives it off), and the overlays (signs, Zs, bubbles,
+ * How far the open floor reaches past the office's art, in art pixels: more than a 4K canvas shows
+ * past the room at the smallest zoom (half a device pixel per art pixel at 2 device pixels per CSS
+ * pixel), the pan's clamp keeping a little of the room in view.
+ */
+const OPEN_FLOOR_REACH = 16384;
+
+/**
+ * The office's sprites: the open floor round the room and the slab's shadow on it, the still floor,
+ * slab and walls as one texture, the sky in the windows and the sunlight on the floor, then desks,
+ * chairs, furniture, glows and figures sorted by depth (each glow added to what is under it, just
+ * over what gives it off), and the overlays (signs, Zs, bubbles,
  * tags, sparkles) over them all. Everything takes the hour's tint but what gives off its own light
  * (design decision 2): lit screens, the lamps' bulbs, the sky, the exit sign, the coffee machine's
  * LED, the "+N" tag and the overlays. Built again whenever someone sets off or arrives; in between,
@@ -367,7 +385,10 @@ function settledPose(
 export class OfficeScene {
   /** Placed and scaled by the stage: one unit is one art pixel. */
   readonly world = new Container();
-  /** The floor and walls, the sky in the windows over them, and the sunlight on the floor. */
+  /**
+   * The open floor round the room and the slab's shadow on it, then the room's floor, its slab and
+   * walls, the sky in the windows over them, and the sunlight on the floor.
+   */
   private readonly backdrop = new Container();
   private readonly items = new Container({ sortableChildren: true });
   /** Screens', lamps' and signs' glows, sorted in with the items; hidden by day. */
@@ -380,6 +401,10 @@ export class OfficeScene {
   private readonly doorwayMask = new Graphics();
   private floor: Sprite | null = null;
   private floorCanvas: HTMLCanvasElement | null = null;
+  /** One repeat of the open floor's boards, painted once. */
+  private boardsCanvas: HTMLCanvasElement | null = null;
+  private openFloorSprite: TilingSprite | null = null;
+  private shadowCanvas: HTMLCanvasElement | null = null;
   private floorWidth = -1;
   /** The floor and walls' grid, painted again with only the sky's indexes for each sky. */
   private floorGrid: PixelGrid | null = null;
@@ -391,7 +416,7 @@ export class OfficeScene {
   /** The tint shown now, which the stage eases towards the hour's; null before the first drawing. */
   private tint: number | null = null;
   /** Every sprite that takes the hour's tint, the floor's included. */
-  private tinted: Sprite[] = [];
+  private tinted: (Sprite | TilingSprite)[] = [];
   private door: Sprite | null = null;
   private doorOpen = false;
   private ringCanvas: HTMLCanvasElement | null = null;
@@ -588,17 +613,25 @@ export class OfficeScene {
     const { layout, geometry } = input;
     if (this.floor && this.floorWidth === layout.width) {
       this.shaded(this.floor);
+      if (this.openFloorSprite) this.shaded(this.openFloorSprite);
       return;
     }
     const grid = new PixelGrid(geometry.width, geometry.height);
     const pen = isoPen(grid, geometry.origin.x, geometry.origin.y);
     paintFloorLayer(pen, layout);
+    paintSlab(pen, layout);
     paintWalls(pen, layout);
     const canvas = paintGrid(grid, ART_PALETTE);
     const sunGrid = new PixelGrid(geometry.width, geometry.height);
     paintSunPatches(isoPen(sunGrid, geometry.origin.x, geometry.origin.y), layout);
     const sunCanvas = paintGrid(sunGrid, [null, 0xffffff]);
-    for (const old of [this.floorCanvas, this.sunCanvas, ...this.skyCanvases.values()]) {
+    const shadowCanvas = paintSlabShadow(geometry.width, geometry.height, geometry.origin, layout);
+    for (const old of [
+      this.floorCanvas,
+      this.sunCanvas,
+      this.shadowCanvas,
+      ...this.skyCanvases.values(),
+    ]) {
       if (old) this.textures.forget(old);
     }
     this.skyCanvases.clear();
@@ -606,11 +639,38 @@ export class OfficeScene {
     this.floorGrid = grid;
     this.floorCanvas = canvas;
     this.sunCanvas = sunCanvas;
+    this.shadowCanvas = shadowCanvas;
     this.floorWidth = layout.width;
+    const shadow = new Sprite(this.textures.ofCanvas(shadowCanvas));
+    shadow.position.set(-SLAB_SHADOW_PAD, -SLAB_SHADOW_PAD);
     this.floor = this.shaded(new Sprite(this.textures.ofCanvas(canvas)));
     this.sky = new Sprite(this.textures.ofCanvas(this.skyCanvas(input.light.sky)));
     this.sun = new Sprite(this.textures.ofCanvas(sunCanvas));
-    this.backdrop.addChild(this.floor, this.sky, this.sun);
+    this.openFloorSprite = this.openFloor(geometry);
+    this.backdrop.addChild(this.openFloorSprite, shadow, this.floor, this.sky, this.sun);
+  }
+
+  /**
+   * The open floor round the room, its boards in line with the room's a slab lower, reaching far
+   * enough past the room that no pan or zoom finds its edge.
+   */
+  private openFloor(geometry: OfficeGeometry): TilingSprite {
+    this.boardsCanvas ??= paintGrid(paintBoardsRepeat(), ART_PALETTE);
+    const reach = OPEN_FLOOR_REACH;
+    const open = this.shaded(
+      new TilingSprite({
+        texture: this.textures.ofCanvas(this.boardsCanvas),
+        width: geometry.width + reach * 2,
+        height: geometry.height + reach * 2,
+      }),
+    );
+    open.position.set(-reach, -reach);
+    // The floor's (0, 0) a slab lower, as seen from the sprite's own corner.
+    open.tilePosition.set(
+      (geometry.origin.x + reach) % BOARDS_REPEAT.width,
+      (geometry.origin.y + SLAB_H + reach) % BOARDS_REPEAT.height,
+    );
+    return open;
   }
 
   /** The windows' glass (with night's stars) and the exit sign, in the sky's palette, the rest clear. */
@@ -635,7 +695,7 @@ export class OfficeScene {
   }
 
   /** Takes the hour's tint, now and as it eases. */
-  private shaded<T extends Sprite>(sprite: T): T {
+  private shaded<T extends Sprite | TilingSprite>(sprite: T): T {
     sprite.tint = this.tint ?? 0xffffff;
     this.tinted.push(sprite);
     return sprite;

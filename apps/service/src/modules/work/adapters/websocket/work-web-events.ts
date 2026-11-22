@@ -17,6 +17,7 @@ import {
 } from "../../domain/idea-events.js";
 import {
   InitiativeArchived,
+  InitiativeBranchDeleted,
   InitiativeBranchMade,
   InitiativeCreated,
   InitiativeOutcomeWritten,
@@ -65,6 +66,7 @@ import {
   TaskRestored,
   TaskDescriptionChanged,
   TaskCommitMessageChanged,
+  TaskBranchDeleted,
   TaskPullRequestEnded,
   TaskPullRequestReopened,
   TaskTitleChanged,
@@ -198,6 +200,18 @@ export class WorkWebEvents implements OnModuleInit {
         projectId: event.projectId,
       }),
     );
+    this.forwarding.forward(
+      InitiativeBranchDeleted,
+      (event): WebEventOf<"initiative.branch-deleted"> => ({
+        type: "initiative.branch-deleted",
+        initiativeId: event.initiativeId,
+        projectId: event.projectId,
+      }),
+    );
+    this.forwarding.forward(TaskBranchDeleted, (event): WebEventOf<"task.branch-deleted"> => ({
+      type: "task.branch-deleted",
+      taskId: event.taskId,
+    }));
     this.forwarding.forward(InitiativeArchived, (event): WebEventOf<"initiative.archived"> => ({
       type: "initiative.archived",
       initiativeId: event.initiativeId,

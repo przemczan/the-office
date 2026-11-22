@@ -68,6 +68,14 @@ export interface PullRequestEndRow {
   readonly by: AuthorRow | { readonly kind: "code-host"; readonly name: string };
 }
 
+/** A branch's deletion as jsonb keeps it: its time as an ISO string. */
+export interface BranchDeletionRow {
+  readonly branch: string;
+  readonly copies: readonly { readonly kind: "local" | "remote"; readonly name: string }[];
+  readonly by: AuthorRow | { readonly kind: "office" };
+  readonly at: string;
+}
+
 export const ideas = pgTable("ideas", {
   id: uuid("id").primaryKey(),
   title: text("title").notNull(),
@@ -92,6 +100,8 @@ export interface InitiativePipelineRow {
 export interface InitiativeBranchRow {
   readonly projectId: string;
   readonly madeAt: string;
+  /** Absent while the branch is kept. */
+  readonly deletion?: BranchDeletionRow;
 }
 
 /** Its Tasks name it; the Projects it spans are theirs. */
@@ -242,6 +252,8 @@ export const tasks = pgTable(
     endedAt: timestamp("ended_at", { withTimezone: true }),
     /** Null while its pull request hasn't ended, or is open again. */
     pullRequestEnd: jsonb("pull_request_end").$type<PullRequestEndRow>(),
+    /** Null while The Office deleted none of its branch. */
+    branchDeletion: jsonb("branch_deletion").$type<BranchDeletionRow>(),
     /** Feature, Bug or Chore; a row from before Kinds is a Feature, or a Chore when The Office made it. */
     kind: text("kind").$type<TaskKind>().notNull().default("feature"),
     /** Null unless it was Dropped with a reason. */

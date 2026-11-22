@@ -100,7 +100,7 @@ Covers: the rail and its two states, the top bar (title and crumb, Project filte
 
 ## Fire alarm control
 
-- While off: a danger-ghost menu button with the siren icon, label "Sound the alarm", title "Fire alarm: pause automated work", opening a menu 400px wide of the three ways ([2.8](../2.8-fire-alarm.md)), each with a one-line hint:
+- While off: a danger-ghost menu button with the siren icon, label "Sound the alarm", title "Fire alarm: pause automated work", opening a menu 400px wide of the three ways ([2.8](../2.8-fire-alarm.md)), each a tall item with room around it and a gap between items, its name over a one-line hint:
   - **Safe pause ASAP**: "Every Stage stops at its next safe point; chats lose their tools."
   - **Safe pause after the current Stages**: "Running Stages finish; no new Stage starts."
   - **Safe pause after the current Tasks**: "Started Tasks finish; no new Task starts."
@@ -202,7 +202,7 @@ Covers: the rail and its two states, the top bar (title and crumb, Project filte
 
 ### A person's chat
 
-- The head: the person's avatar and their name as a switch (title "Chat with someone else") with their title and a chevron; a line "Reads, and changes only in a Thread where you allow changes" for the Caretaker, "Reads every Project and changes no file" for everyone else; the close button.
+- The head: one switch to someone else (title "Chat with someone else"), the whole person: their avatar, name, title and a chevron, and a line "Reads, and changes only in a Thread where you allow changes" for the Caretaker, "Reads every Project and changes no file" for everyone else; all of it shows hover and focus. The close button stands apart, beside it.
 - The switch opens a menu "Chat with": each person as a radio with their avatar, name, title and a standing dot (title: their standing), and a foot "Open <name>'s page for their Role card and Memory." linking to `/people/<role>`.
 - Under the head, tabs, one per person opened (a tablist "People open in the chat", each with a × to close and a title "<name> · <standing>"); opening a person adds a tab or shows the one open; closing one shows its right-hand neighbour, else the left, else the picker. Each tab keeps the Thread or Thread list the user left it on. A person no longer offered has no tab.
 - One column: the open Thread fills the drawer; the Thread list is a step back from it.

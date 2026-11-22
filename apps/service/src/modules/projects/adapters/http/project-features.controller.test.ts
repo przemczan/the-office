@@ -54,6 +54,7 @@ describe("PUT /api/projects/:id/features", () => {
       "test-targets": true,
       "github-issues": false,
       "run-environment": false,
+      actions: true,
     };
     expect(projectSchema.parse(await response.json()).features).toEqual(expected);
     const read = projectSchema.parse(

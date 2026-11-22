@@ -451,12 +451,37 @@ describe("the full stats", () => {
 });
 
 describe("the full stats' states", () => {
-  it.each([
-    [
-      { state: "starting", address: "http://127.0.0.1:3300" },
-      "Grafana is starting…",
+  it("keeps the full stats' loaders while Grafana starts, then goes straight to the full stats", async () => {
+    let starting = true;
+    const { opened } = openStats(() =>
+      starting ? { state: "starting", address: "http://127.0.0.1:3300" } : FULL,
+    );
+    const { page } = await opened;
+    await until(() => expect(page.textContent).toContain("Grafana is starting…"));
+
+    expect(page.textContent).toContain(
       "The first start pulls its image, which can take a few minutes.",
-    ],
+    );
+    expect(headings(page)).toEqual([
+      "Tokens and estimated cost over time",
+      "The most expensive",
+      "Usage windows over time",
+      "Usage windows now",
+      "This week",
+    ]);
+    expect(block(page, "The most expensive").querySelector("[role='status']")).not.toBeNull();
+    expect(page.textContent).not.toContain("Add a filter");
+    expect(page.querySelector("[aria-label='The full stats']")).toBeNull();
+
+    // Grafana has started: the next read, here of another range, answers the full stats.
+    starting = false;
+    act(() => tab(page, "Range", "24 h").click());
+    await until(() => expect(page.textContent).toContain("Add a filter"));
+    expect(headings(page)).not.toContain("Tokens per day");
+    expect(page.textContent).not.toContain("Grafana is starting…");
+  });
+
+  it.each([
     [
       { state: "failed", address: "http://127.0.0.1:3300", problem: "Docker isn't installed." },
       "The bundled Grafana couldn't start",

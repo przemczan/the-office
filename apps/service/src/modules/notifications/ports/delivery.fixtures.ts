@@ -1,24 +1,22 @@
+import { receivedBy } from "../domain/delivery.js";
 import type { Channel } from "../domain/notification-kinds.js";
 import { DEFAULT_TIMING, type NotificationTiming } from "../domain/notification-timing.js";
-import type { Notification } from "../domain/notification.js";
+import type { Delivery, Notification, ReceivedNotification } from "../domain/notification.js";
 import type { UserActivity } from "../domain/user-activity.js";
 import { NotificationRepository } from "./notification-repository.js";
 import { NotificationTimingRepository } from "./notification-timing-repository.js";
 import { UserActivityRepository } from "./user-activity-repository.js";
 
-/**
- * The timing kept by one test alone: the stored row is one for every test file, which run at once,
- * and quiet hours set there would hold the others' Notifications.
- */
+/** Each user's timing kept by one test alone, by their id; the defaults for a user with none. */
 export class NotificationTimingForTests extends NotificationTimingRepository {
-  timing: NotificationTiming = DEFAULT_TIMING;
+  readonly timings = new Map<string, NotificationTiming>();
 
-  async read(): Promise<NotificationTiming> {
-    return this.timing;
+  async read(userId: string): Promise<NotificationTiming> {
+    return this.timings.get(userId) ?? DEFAULT_TIMING;
   }
 
-  async save(timing: NotificationTiming): Promise<void> {
-    this.timing = timing;
+  async save(userId: string, timing: NotificationTiming): Promise<void> {
+    this.timings.set(userId, timing);
   }
 }
 
@@ -31,16 +29,6 @@ export class UserActivityForTests extends UserActivityRepository {
 
   async find(userId: string): Promise<UserActivity | undefined> {
     return this.activities.get(userId);
-  }
-
-  async findLatest(): Promise<UserActivity | undefined> {
-    return [...this.activities.values()].reduce<UserActivity | undefined>(
-      (latest, activity) =>
-        latest && latest.lastActiveAt.getTime() >= activity.lastActiveAt.getTime()
-          ? latest
-          : activity,
-      undefined,
-    );
   }
 
   async update(
@@ -61,9 +49,29 @@ export class UserActivityForTests extends UserActivityRepository {
  */
 export class NotificationsForTests extends NotificationRepository {
   private readonly open = new Map<string, Notification>();
+  /** Each delivery, by the user's id, then by the Notification's. */
+  private readonly deliveries = new Map<string, Map<string, Delivery>>();
 
-  async add(notification: Notification): Promise<void> {
-    this.open.set(notification.id, notification);
+  async add({
+    id,
+    kind,
+    roleKey,
+    line,
+    shortLine,
+    at,
+    pointsTo,
+    raisedAt,
+    gathers,
+    forUser,
+  }: Notification): Promise<void> {
+    const notification = { id, kind, roleKey, line, shortLine, at, pointsTo, raisedAt, gathers };
+    this.open.set(id, { ...notification, forUser });
+  }
+
+  async deliver(delivery: Delivery): Promise<void> {
+    const byNotification = this.deliveries.get(delivery.userId) ?? new Map<string, Delivery>();
+    byNotification.set(delivery.notificationId, delivery);
+    this.deliveries.set(delivery.userId, byNotification);
   }
 
   async listOpen(): Promise<readonly Notification[]> {
@@ -72,22 +80,34 @@ export class NotificationsForTests extends NotificationRepository {
     );
   }
 
+  async listReceived(userId: string): Promise<readonly ReceivedNotification[]> {
+    return receivedBy(userId, await this.listOpen(), [
+      ...(this.deliveries.get(userId)?.values() ?? []),
+    ]);
+  }
+
+  /** The user's delivery of the Notification, undefined when it reached them on no channel. */
+  deliveryTo(userId: string, notificationId: string): Delivery | undefined {
+    return this.deliveries.get(userId)?.get(notificationId);
+  }
+
   async clear(ids: readonly string[]): Promise<void> {
     for (const id of ids) this.open.delete(id);
   }
 
-  async hold(ids: readonly string[], held: readonly Channel[]): Promise<void> {
-    this.change(ids, { held });
+  async hold(userId: string, ids: readonly string[], held: readonly Channel[]): Promise<void> {
+    this.change(userId, ids, { held });
   }
 
-  async phonePushed(id: string, pushedAt: Date): Promise<void> {
-    this.change([id], { phonePushedAt: pushedAt });
+  async phonePushed(userId: string, id: string, pushedAt: Date): Promise<void> {
+    this.change(userId, [id], { phonePushedAt: pushedAt });
   }
 
-  private change(ids: readonly string[], changed: Partial<Notification>): void {
+  private change(userId: string, ids: readonly string[], changed: Partial<Delivery>): void {
+    const byNotification = this.deliveries.get(userId);
     for (const id of ids) {
-      const notification = this.open.get(id);
-      if (notification) this.open.set(id, { ...notification, ...changed });
+      const delivery = byNotification?.get(id);
+      if (delivery) byNotification?.set(id, { ...delivery, ...changed });
     }
   }
 }

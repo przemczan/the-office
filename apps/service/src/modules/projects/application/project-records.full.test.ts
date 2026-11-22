@@ -4,6 +4,8 @@ import type { EnvironmentCheck } from "../domain/environment-check.js";
 import { aProject } from "../domain/project.fixtures.js";
 import type { Project } from "../domain/project.js";
 import type { TestTarget } from "../domain/test-target.js";
+import type { Action } from "../domain/action.js";
+import type { ActionRepository } from "../ports/action-repository.js";
 import type { TestTargetRepository } from "../ports/test-target-repository.js";
 import type { BaseCheckouts } from "./base-checkouts.js";
 import type { EnvironmentChecks } from "./environment-checks.js";
@@ -14,6 +16,7 @@ interface Surroundings {
   readonly checks?: Readonly<Record<string, EnvironmentCheck>>;
   readonly serverValues?: Readonly<Record<string, readonly ProjectMcpServerValues[]>>;
   readonly testTargets?: Readonly<Record<string, readonly TestTarget[]>>;
+  readonly actions?: Readonly<Record<string, readonly Action[]>>;
 }
 
 function recordsOver(projects: Project[], surroundings: Surroundings = {}): ProjectRecords {
@@ -41,12 +44,16 @@ function recordsOver(projects: Project[], surroundings: Surroundings = {}): Proj
   const testTargets: Pick<TestTargetRepository, "listOf"> = {
     listOf: (id) => Promise.resolve(surroundings.testTargets?.[id] ?? []),
   };
+  const actions: Pick<ActionRepository, "listOf"> = {
+    listOf: (id) => Promise.resolve(surroundings.actions?.[id] ?? []),
+  };
   return new ProjectRecords(
     service as ProjectService,
     bases as BaseCheckouts,
     checks as EnvironmentChecks,
     serverValues as ProjectServerValues,
     testTargets as TestTargetRepository,
+    actions as ActionRepository,
   );
 }
 
@@ -86,10 +93,11 @@ describe("ProjectRecords.of", () => {
         "- Publishing: push and open a pull request",
         "- Before publishing: `none`",
         "- After publishing: `none`",
+        "- Delete branches once merged: off",
         "- Default Pipeline: full",
         "- Project limit: 1 Task started at once",
         "- Run environment: not decided yet",
-        "- Features: Connected devices off (needs Run environment), Test targets on, GitHub issues on, Run environment off",
+        "- Features: Connected devices off (needs Run environment), Test targets on, GitHub issues on, Run environment off, Actions on",
         "- Variables to set: none",
         "- Secret variables (values never shown): none",
         "- Variables to remove: none",
@@ -100,6 +108,7 @@ describe("ProjectRecords.of", () => {
         "- Project skills: used",
         "- Server values: none",
         "- Test targets: none",
+        "- Actions: none",
       ].join("\n"),
     );
   });
@@ -162,7 +171,7 @@ describe("ProjectRecords.of", () => {
         "- Path: /work/admin-panel, cloned from https://github.com/acme/admin-panel.git",
         "- Project limit: 2 Tasks started at once",
         "- Run environment: on",
-        "- Features: Connected devices on, Test targets on, GitHub issues off, Run environment on",
+        "- Features: Connected devices on, Test targets on, GitHub issues off, Run environment on, Actions on",
         "- Variables to set: `JAVA_HOME=/opt/java-21`",
         "- Secret variables (values never shown): NPM_TOKEN (value set)",
         "- Variables to remove: CI",
@@ -234,10 +243,58 @@ describe("ProjectRecords.of", () => {
     const record = (await records.of("admin-panel")) ?? "";
 
     expect(record).not.toContain("api-s3cret");
-    expect(record.split("\n").slice(-3)).toEqual([
+    expect(record.split("\n").slice(-4, -1)).toEqual([
       "- Test targets:",
       "  - web (Web app, Hosted): script start of package.json; port 3000 in `WEB_PORT`; variables `MODE=test`; Secret variables (values never shown) API_KEY (value set), MAPS_KEY (no value); commands before the entry point build, seed; memory per service 2 GB; set by: name the user Ann, kind a Proposal by Dana (devops), entry point a Proposal by Dana (devops), port the user Ann, variables a Proposal by Dana (devops), Secret variables unknown, commands before the entry point a Proposal by Dana (devops), port variable unknown, memory per service the user Ann",
       "  - android (Android, Build to install): Gradle task assembleDebug; output files app/build/outputs/apk/debug/*.apk; variables none; Secret variables (values never shown) none; commands before the entry point none; memory per service the Office-wide value; set by: name unknown, kind unknown, entry point unknown, output files unknown, variables unknown, Secret variables unknown, commands before the entry point unknown, memory per service unknown",
+    ]);
+  });
+
+  it("gives each Action with its kind's settings, whether it leaves the workstation and who set each value", async () => {
+    const ann = { by: "user", user: { userId: "user-ann", name: "Ann" } } as const;
+    const devops = {
+      by: "proposal",
+      proposalId: "proposal-2",
+      agent: { roleKey: "devops", name: "Dana" },
+    } as const;
+    const records = recordsOver([aProject()], {
+      actions: {
+        "admin-panel": [
+          {
+            key: "build-web",
+            name: "Build web",
+            kind: "project-command",
+            settings: { commandKey: "build", commandsBefore: ["install"], timeLimitMinutes: null },
+            leavesTheWorkstation: false,
+            setBy: { name: ann, kind: ann, settings: ann, leavesTheWorkstation: ann },
+          },
+          {
+            key: "phone",
+            name: "Install on my phone",
+            kind: "test-target",
+            settings: { targetKey: "android" },
+            leavesTheWorkstation: false,
+            setBy: {},
+          },
+          {
+            key: "release",
+            name: "Release",
+            kind: "workflow",
+            settings: { file: "release.yml", inputs: { channel: "stable" } },
+            leavesTheWorkstation: true,
+            setBy: { name: devops, kind: devops, settings: devops, leavesTheWorkstation: devops },
+          },
+        ],
+      },
+    });
+
+    const record = (await records.of("admin-panel")) ?? "";
+
+    expect(record.split("\n").slice(-4)).toEqual([
+      "- Actions:",
+      "  - build-web (Build web, Project command): command build; commands before it install; time limit the default 60 minutes; stays on the workstation; set by: name the user Ann, kind the user Ann, settings the user Ann, leaves the workstation the user Ann",
+      "  - phone (Install on my phone, Test target): test target android; stays on the workstation; set by: name unknown, kind unknown, settings unknown, leaves the workstation unknown",
+      "  - release (Release, Workflow): Workflow release.yml; inputs `channel=stable`; leaves the workstation; set by: name a Proposal by Dana (devops), kind a Proposal by Dana (devops), settings a Proposal by Dana (devops), leaves the workstation a Proposal by Dana (devops)",
     ]);
   });
 

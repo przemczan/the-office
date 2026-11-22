@@ -8,7 +8,8 @@ import {
   setRoutingChannel,
 } from "../../../api/notifications.ts";
 import { desktopPermission } from "../../../shell/notifications/desktop-channel.ts";
-import { SettingsCardTitle, SettingsProblem } from "../settings-card-parts.tsx";
+import { AccountCardTitle } from "../account-card-title.tsx";
+import { NotificationsProblem } from "./notifications-problem.tsx";
 import {
   cellTitle,
   columnNote,
@@ -26,7 +27,7 @@ interface CellChange {
 }
 
 /**
- * "What goes where": the kinds tree × the channels (prototypes/app/settings.js
+ * "What goes where", the signed-in user's own: the kinds tree × the channels (prototypes/app/settings.js
  * `notificationsSection`). A click sets a cell on its row; a kind's row inherits from its group
  * until set, and Reset gives it back.
  */
@@ -45,8 +46,8 @@ export function RoutingCard(): ReactNode {
   const saving = setting.isPending || resetting.isPending;
 
   return (
-    <Card title={<SettingsCardTitle icon="bell">What goes where</SettingsCardTitle>}>
-      <p className="settings-note routing-intro">
+    <Card title={<AccountCardTitle icon="bell">What goes where</AccountCardTitle>}>
+      <p className="account-note routing-intro">
         A row inherits from its group until you set it. Splitting a kind later keeps every setting.
         The Project filter never silences anything.
       </p>
@@ -58,7 +59,7 @@ export function RoutingCard(): ReactNode {
               {ROUTING_COLUMNS.map(({ channel, label }) => (
                 <th key={channel} scope="col">
                   <div>{label}</div>
-                  <div className="settings-note">{columnNote(channel, desktop)}</div>
+                  <div className="account-note">{columnNote(channel, desktop)}</div>
                 </th>
               ))}
             </tr>
@@ -75,7 +76,7 @@ export function RoutingCard(): ReactNode {
           ))}
         </table>
       )}
-      <p className="settings-note routing-legend">
+      <p className="account-note routing-legend">
         <span className="routing-cell set on" aria-hidden>
           <Icon name="check" size={11} />
         </span>
@@ -87,12 +88,15 @@ export function RoutingCard(): ReactNode {
         <span className="routing-cell" aria-hidden />
         off
       </p>
-      <p className="settings-note">
+      <p className="account-note">
         Never notified: Stage progress, Tasks starting, consultations you&apos;re not in, Agents
         talking to each other.
       </p>
-      <SettingsProblem title="What goes where can't be read" error={routing.error} />
-      <SettingsProblem title="The change can't be saved" error={setting.error ?? resetting.error} />
+      <NotificationsProblem title="What goes where can't be read" error={routing.error} />
+      <NotificationsProblem
+        title="The change can't be saved"
+        error={setting.error ?? resetting.error}
+      />
     </Card>
   );
 }
@@ -121,7 +125,7 @@ function GroupRows({
         <tr key={kind.level}>
           <th scope="row" className="routing-kind">
             {kind.label}
-            {kind.hint && <span className="settings-note">{kind.hint}</span>}
+            {kind.hint && <span className="account-note">{kind.hint}</span>}
             {setsAnything(kind.level, rows.routing) && (
               <Button
                 variant="secondary"

@@ -15,6 +15,7 @@ import {
 } from "@the-office/contracts";
 import { Alert, Badge, Button, Icon, Input } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
+import { actionQueries } from "../../api/actions.ts";
 import { officeInstructionsQuery, sizeThresholdQuery } from "../../api/conversations.ts";
 import { dutyQueries, roleCardQueries, roleQueries } from "../../api/people.ts";
 import { fallbackWords, holderNameOf } from "../duty-words.ts";
@@ -70,6 +71,7 @@ import {
   ProposedSkillUpdateFields,
   ProposedStageChanges,
   ProposedStageFieldChanges,
+  ProposedActionChanges,
   ProposedTestTargetChanges,
 } from "./devops-proposal-changes.tsx";
 import { officeSetupApplyLabel, ProposedOfficeSetup } from "./office-setup-changes.tsx";
@@ -270,6 +272,22 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
             proposal={proposal}
             changes={[projectQueries.testTargets(change.projectId).queryKey]}
             appliedToast={`${name}'s test targets changed.`}
+            openNote={`All or nothing. ${STALE_NOTE}`}
+            applyLabel="Apply"
+            declineLabel="Dismiss"
+          />
+        </ProposalFrame>
+      );
+    }
+    case "actions": {
+      const name = projects?.find(({ id }) => id === change.projectId)?.name ?? change.projectId;
+      return (
+        <ProposalFrame proposalId={proposal.id} title={`Change ${name}'s Actions`}>
+          <ProposedActionChanges changes={change.changes} />
+          <AnswerFoot
+            proposal={proposal}
+            changes={[actionQueries.list(change.projectId).queryKey]}
+            appliedToast={`${name}'s Actions changed.`}
             openNote={`All or nothing. ${STALE_NOTE}`}
             applyLabel="Apply"
             declineLabel="Dismiss"

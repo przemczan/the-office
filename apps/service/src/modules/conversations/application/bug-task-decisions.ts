@@ -74,7 +74,8 @@ export class BugTaskDecisions {
   /**
    * Answers the Decision as `answerer`, as `DecisionService.answer` does. For a bug-task Decision
    * answered Create the Bug Task, the user's alone, Work first creates the Task with the fields as
-   * edited, and the answer records them with its id; a refusal creates nothing and leaves the
+   * edited, and the answer records them with its id; Don't create it and Fix now (the Agent fixes
+   * the issue within its own Task) create nothing; a refusal creates nothing and leaves the
    * Decision open, the refusal in its words. No answer gives the created Task's id itself. The
    * Decision is held from its read to its answer, so two answers at once create one Task at most,
    * and the second is refused as answered already.
@@ -84,7 +85,8 @@ export class BugTaskDecisions {
     const decision = await this.repository.decision(id);
     if (!decision) throw new DecisionNotFound(id);
     if (!isBugTask(decision)) return this.decisions.answer(id, answer, answerer);
-    // Every answer of it is held, so Don't create it can't land while its Task is being created.
+    // Every answer of it is held, so Don't create it or Fix now can't land while its Task is being
+    // created.
     return this.repository.holdingDecision(id, async (held) => {
       if (!held) throw new DecisionNotFound(id);
       if (answer.kind !== "submitted" || !createsTheBugTask(answer)) {

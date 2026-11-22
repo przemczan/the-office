@@ -1,5 +1,9 @@
-/* Settings › Notifications (prototypes/app/settings.js `notificationsSection`). Colours are
-   aliases only. */
+/* Account › Notifications (prototypes/app/settings.js `notificationsSection`), the signed-in
+   user's own. Colours are aliases only. */
+
+.notifications-banner {
+  margin-top: 12px;
+}
 
 .routing-intro {
   margin-bottom: 12px;
@@ -24,7 +28,7 @@
   width: auto;
 }
 
-.routing-grid thead .settings-note {
+.routing-grid thead .account-note {
   font-weight: 400;
 }
 
@@ -47,7 +51,7 @@
   padding-left: 24px;
 }
 
-.routing-kind .settings-note {
+.routing-kind .account-note {
   display: block;
 }
 

@@ -11,16 +11,29 @@
   color: var(--warning-fg);
 }
 
-/* ---- a way to sound the alarm, in the top bar's menu: its name over its one-line hint */
+/* ---- a way to sound the alarm, in the top bar's menu: its name over its one-line hint, each way a
+   tall item with room around and between them. !important: the design system's Menu sizes its
+   items inline, one line high. */
+[role="menu"]:has(.alarm-way) {
+  display: grid;
+  gap: var(--space-1);
+}
+
+[role="menu"] > button:has(.alarm-way) {
+  height: auto !important;
+  min-height: var(--row-default);
+  padding: var(--space-2) !important;
+}
+
 .alarm-way {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0-5);
+  line-height: var(--leading-snug);
 }
 
 .alarm-way-hint {
   font: var(--type-caption);
-  line-height: 1.2;
   color: var(--fg-3);
   white-space: nowrap;
 }

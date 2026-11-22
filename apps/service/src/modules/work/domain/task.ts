@@ -1,5 +1,6 @@
 import type { EngineId } from "../../engine/index.js";
 import type { ArchivedBy, Author } from "./author.js";
+import type { BranchDeletionRecord } from "./branch-deletion.js";
 import type { DropReason } from "./drop-reason.js";
 import type { EngineStandIn } from "./stand-ins-at-start.js";
 import type { PullRequestEnd } from "./task-pull-request.js";
@@ -213,6 +214,8 @@ export interface Task {
    * pull request is open again.
    */
   readonly pullRequestEnd: PullRequestEnd | undefined;
+  /** Its branch's deletion (branch-deletion.ts); undefined while The Office deleted none. */
+  readonly branchDeletion: BranchDeletionRecord | undefined;
   /** Feature, Bug or Chore (spec §2.1): its default Pipeline and its commit type follow it. */
   readonly kind: TaskKind;
   /** The Task whose work caused this Bug, in any Project; undefined for none. */

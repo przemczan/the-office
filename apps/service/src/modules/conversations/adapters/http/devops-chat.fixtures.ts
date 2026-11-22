@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
 import {
+  PROPOSE_ACTIONS_TOOL,
   PROPOSE_LIBRARY_PIPELINE_TOOL,
   PROPOSE_PROJECT_COMMANDS_TOOL,
   PROPOSE_PROJECT_PIPELINE_TOOL,
@@ -212,6 +213,7 @@ async function expectStatus(response: Response, status: number): Promise<void> {
 const KIND_OF_TOOL: Readonly<Record<string, Proposal["change"]["kind"]>> = {
   [PROPOSE_PROJECT_COMMANDS_TOOL]: "project-commands",
   [PROPOSE_TEST_TARGETS_TOOL]: "test-targets",
+  [PROPOSE_ACTIONS_TOOL]: "actions",
   [PROPOSE_LIBRARY_PIPELINE_TOOL]: "pipeline",
   [PROPOSE_STAGE_TEMPLATE_TOOL]: "stage-template",
   [PROPOSE_PROJECT_PIPELINE_TOOL]: "project-pipeline",

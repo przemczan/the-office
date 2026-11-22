@@ -37,6 +37,7 @@ export const projects = pgTable(
     publishingMode: text("publishing_mode").$type<PublishingMode>().notNull(),
     beforePublishingCommand: text("before_publishing_command").notNull().default(""),
     afterPublishingCommand: text("after_publishing_command").notNull().default(""),
+    deleteMergedBranches: boolean("delete_merged_branches").notNull().default(false),
     defaultPipeline: text("default_pipeline").notNull(),
     environment: jsonb("environment")
       .$type<StoredEnvironment>()

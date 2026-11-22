@@ -97,6 +97,16 @@ export class ProjectEnvironmentChanged extends DomainEvent {
   }
 }
 
+/** Delete branches once merged turned On or Off; On has Work sweep the Project's leftovers. */
+export class ProjectDeleteMergedBranchesChanged extends DomainEvent {
+  constructor(
+    readonly projectId: string,
+    readonly on: boolean,
+  ) {
+    super();
+  }
+}
+
 export class ProjectPublishingModeChanged extends DomainEvent {
   constructor(
     readonly projectId: string,
@@ -242,6 +252,19 @@ export class ProjectSkillUseChanged extends DomainEvent {
 /** The Project's test targets changed, on its page or by an applied Proposal; read them anew. */
 export class ProjectTestTargetsChanged extends DomainEvent {
   constructor(readonly projectId: string) {
+    super();
+  }
+}
+
+/**
+ * The Project's Actions changed, on its page or by an applied Proposal; read them anew.
+ * `removedKeys` names the Actions removed, whose runs go with them.
+ */
+export class ProjectActionsChanged extends DomainEvent {
+  constructor(
+    readonly projectId: string,
+    readonly removedKeys: readonly string[],
+  ) {
     super();
   }
 }

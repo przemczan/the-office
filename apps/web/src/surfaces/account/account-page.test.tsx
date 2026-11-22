@@ -14,6 +14,7 @@ import {
 } from "../../shell/page.fixtures.tsx";
 import { PageHeadingProvider } from "../../shell/page-heading.tsx";
 import { ThemeMenu } from "../../shell/theme-menu.tsx";
+import { AccountPage } from "./account-page.tsx";
 import { AuthenticatorSection } from "./authenticator-section.tsx";
 import { ProfileSection } from "./profile-section.tsx";
 import { SignedInDevicesSection } from "./signed-in-devices-section.tsx";
@@ -77,6 +78,29 @@ function submitButton(page: HTMLElement, form: string): HTMLButtonElement | null
 }
 
 afterEach(closePage);
+
+describe("the account's menu", () => {
+  it("lists Notifications after Appearance, as each user's own", async () => {
+    stubAccount();
+
+    const { page } = await openPage("/account", { account: AccountPage });
+
+    const links = (): HTMLAnchorElement[] => [
+      ...page.querySelectorAll<HTMLAnchorElement>('nav[aria-label="Account"] a'),
+    ];
+    await until(() => expect(links()).toHaveLength(7));
+    expect(links().map((link) => shownText(link))).toEqual([
+      "Profile",
+      "Authenticator",
+      "Appearance",
+      "Notifications",
+      "Passkeys",
+      "Linked identities",
+      "Signed-in devices",
+    ]);
+    expect(links()[3]?.getAttribute("href")).toBe("/account/notifications");
+  });
+});
 
 describe("Account › Signed-in devices", () => {
   const pages = {

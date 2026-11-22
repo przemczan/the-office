@@ -17,6 +17,7 @@ describe("a Project's features", () => {
       "test-targets": true,
       "github-issues": true,
       "run-environment": true,
+      actions: true,
     });
     for (const runEnvironment of ["off", "not-decided"] as const) {
       expect(featureStatesOf(aProject({ runEnvironment }))).toEqual({
@@ -24,6 +25,7 @@ describe("a Project's features", () => {
         "test-targets": true,
         "github-issues": true,
         "run-environment": false,
+        actions: true,
       });
     }
   });
@@ -69,6 +71,7 @@ describe("changeFeatures", () => {
         "test-targets": true,
         "github-issues": false,
         "run-environment": true,
+        actions: true,
       },
     });
   });

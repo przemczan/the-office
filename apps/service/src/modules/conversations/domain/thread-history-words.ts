@@ -223,6 +223,8 @@ function proposedWords(change: ProposedChange): string {
       return `change Project ${change.projectId}'s commands`;
     case "test-targets":
       return `change Project ${change.projectId}'s test targets`;
+    case "actions":
+      return `change Project ${change.projectId}'s Actions`;
     case "pipeline":
       return `change the Pipeline ${change.pipelineId}`;
     case "stage-template":

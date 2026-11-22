@@ -25,10 +25,12 @@ import {
   ProjectLimitChanged,
   ProjectMarkChanged,
   ProjectPublishingModeChanged,
+  ProjectDeleteMergedBranchesChanged,
   ProjectRunEnvironmentChanged,
   ProjectRoleOverrideChanged,
   ProjectSkillUseChanged,
   ProjectTestTargetsChanged,
+  ProjectActionsChanged,
   ProjectUseForEveryRoleChanged,
   ProjectUseProjectSkillsChanged,
 } from "../../domain/project-events.js";
@@ -123,6 +125,13 @@ export class ProjectWebEvents implements OnModuleInit {
       }),
     );
     this.forwarding.forward(
+      ProjectDeleteMergedBranchesChanged,
+      (event): WebEventOf<"project.delete-merged-branches-changed"> => ({
+        type: "project.delete-merged-branches-changed",
+        projectId: event.projectId,
+      }),
+    );
+    this.forwarding.forward(
       ProjectRunEnvironmentChanged,
       (event): WebEventOf<"project.run-environment-changed"> => ({
         type: "project.run-environment-changed",
@@ -179,6 +188,13 @@ export class ProjectWebEvents implements OnModuleInit {
       ProjectTestTargetsChanged,
       (event): WebEventOf<"project.test-targets-changed"> => ({
         type: "project.test-targets-changed",
+        projectId: event.projectId,
+      }),
+    );
+    this.forwarding.forward(
+      ProjectActionsChanged,
+      (event): WebEventOf<"project.actions-changed"> => ({
+        type: "project.actions-changed",
         projectId: event.projectId,
       }),
     );

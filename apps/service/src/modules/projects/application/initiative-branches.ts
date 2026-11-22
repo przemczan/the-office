@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import type { Project } from "../domain/project.js";
 import { InitiativeBranchUnusable } from "../domain/task-base.js";
 import { Git, GitCommandFailed, type GitVariables, type Upstream } from "../ports/git.js";
+import { BranchDeletions } from "./branch-deletions.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { ProjectRemotes } from "./project-remotes.js";
 import { ProjectService } from "./project-service.js";
@@ -33,6 +34,7 @@ export class InitiativeBranches {
     private readonly commands: ProjectCommandRunner,
     private readonly remotes: ProjectRemotes,
     private readonly taskBases: TaskBases,
+    private readonly deletions: BranchDeletions,
   ) {}
 
   /**
@@ -50,7 +52,7 @@ export class InitiativeBranches {
     } catch (error) {
       if (!(error instanceof Error)) throw error;
       return refused(
-        `The base branch of ${project.name} couldn't be fetched: ${await this.reasonOf(project, error)}`,
+        `The base branch of ${project.name} couldn't be fetched: ${await this.remotes.reasonOf(project, error)}`,
       );
     }
     if (base.fetchedFrom) {
@@ -81,42 +83,22 @@ export class InitiativeBranches {
 
   /**
    * Removes `branch`, here and on the base branch's remote, only while neither copy holds a commit
-   * the freshly fetched base branch doesn't have (Back to Shaping); refused, with the Project
-   * named, when one does or git fails. A copy that is gone already is left gone. Never run inside a
-   * database hold: it fetches and pushes.
+   * the freshly fetched base branch doesn't have (Back to Shaping), as `BranchDeletions` judges it;
+   * refused, with the Project named, when one does or git fails. A copy that is gone already is
+   * left gone. Never run inside a database hold: it fetches and pushes.
    */
   async removeEmpty(projectId: string, branch: string): Promise<InitiativeBranchRemoval> {
     const project = await this.projects.read(projectId);
-    const variables = this.commands.variablesFor(project.environment);
     try {
-      return await this.git.exclusively(project.path, async () => {
-        const base = await this.worktrees.freshBase(project, variables);
-        const local = await this.git.findCommit(project.path, refOf(branch));
-        const upstream = base.fetchedFrom && { remote: base.fetchedFrom.remote, branch };
-        const pushed =
-          upstream && (await this.git.remoteHasBranch(project.path, upstream, variables))
-            ? await this.git.fetch(project.path, upstream, variables)
-            : undefined;
-        for (const commit of [local, pushed]) {
-          if (
-            commit !== undefined &&
-            !(await this.git.contains(project.path, base.commit, commit))
-          ) {
-            return refused(
-              `The branch ${branch} in ${project.name} holds commits ${project.baseBranch} doesn't have, so it stays.`,
-            );
-          }
-        }
-        if (upstream && pushed !== undefined) {
-          await this.git.deleteRemoteBranch(project.path, upstream, pushed, variables);
-        }
-        if (local !== undefined) await this.git.removeRef(project.path, refOf(branch), local);
-        return { kind: "removed" } as const;
+      const deletion = await this.deletions.deleteHoldingNothing(project, branch, {
+        kind: "initiative",
+        tasks: [],
       });
+      return deletion.kind === "deleted" ? { kind: "removed" } : deletion;
     } catch (error) {
       if (!(error instanceof Error)) throw error;
       return refused(
-        `The branch ${branch} couldn't be removed from ${project.name}: ${await this.reasonOf(project, error)}`,
+        `The branch ${branch} couldn't be removed from ${project.name}: ${await this.remotes.reasonOf(project, error)}`,
       );
     }
   }
@@ -174,19 +156,12 @@ export class InitiativeBranches {
     } catch (error) {
       if (!(error instanceof Error)) throw error;
       return refused(
-        `The remote of ${project.name} couldn't be asked for the branch ${upstream.branch}: ${await this.reasonOf(project, error)}`,
+        `The remote of ${project.name} couldn't be asked for the branch ${upstream.branch}: ${await this.remotes.reasonOf(project, error)}`,
       );
     }
     return refused(
       `The branch ${upstream.branch} already exists on the remote of ${project.name}.`,
     );
-  }
-
-  /** git's own words, after what the Office identity lacks for the remote when it lacks something. */
-  private async reasonOf(project: Project, failure: Error): Promise<string> {
-    const problem = failure instanceof GitCommandFailed ? failure.detail : failure.message;
-    const lacking = await this.remotes.whyFetchFailed(project);
-    return lacking === undefined ? problem : `${lacking} ${problem}`;
   }
 }
 

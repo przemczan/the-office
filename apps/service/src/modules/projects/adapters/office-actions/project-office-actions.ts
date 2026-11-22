@@ -12,12 +12,14 @@ import {
   type OfficeToolResult,
 } from "../../../engine/index.js";
 import { CiRunWatch } from "../../application/ci-run-watch.js";
+import { workflowFileName } from "../../domain/action.js";
 import { ensureRerunnable, type CiRunJobs } from "../../domain/ci-run.js";
 import { inputsToSend, type ManualWorkflow } from "../../domain/manual-workflow.js";
 import type { Project } from "../../domain/project.js";
 import { ProjectNotFound } from "../../domain/project-not-found.js";
 import { ProjectRefused } from "../../domain/project-refused.js";
 import { CodeHostRefused, type CiRunOnHost } from "../../ports/code-host.js";
+import { ActionRepository } from "../../ports/action-repository.js";
 import { ProjectRepository } from "../../ports/project-repository.js";
 
 /**
@@ -69,6 +71,7 @@ export class ProjectOfficeActions implements OnModuleInit {
     private readonly registry: OfficeToolRegistry,
     private readonly projects: ProjectRepository,
     private readonly ciRuns: CiRunWatch,
+    private readonly actions: ActionRepository,
   ) {
     this.handlers = new Map(
       [this.rerunCiRun(), this.startWorkflow()].map((each) => [each.action.name, each]),
@@ -124,7 +127,10 @@ export class ProjectOfficeActions implements OnModuleInit {
   /**
    * Starts a Workflow by hand on the Project's code host, with the inputs its file declares at
    * `ref`, defaults filling the rest, then lists the Project's runs every round for a while, as the
-   * host answers the start with no run.
+   * host answers the start with no run. Refuses, whatever its inputs, a Workflow that an Action
+   * of the Project marked Leaves the workstation starts, so neither the user's Start a workflow nor
+   * an Agent's start_workflow goes around the Action's base branch and confirm step (spec §6,
+   * "Actions").
    */
   private async start(
     projectId: string,
@@ -134,6 +140,17 @@ export class ProjectOfficeActions implements OnModuleInit {
   ): Promise<WorkflowStarted> {
     const project = await this.projects.find(projectId);
     if (project === undefined) throw new ProjectNotFound(projectId);
+    const guarding = (await this.actions.listOf(project.id)).find(
+      (action) =>
+        action.kind === "workflow" &&
+        action.leavesTheWorkstation &&
+        workflowFileName(action.settings.file) === workflowFileName(workflowId),
+    );
+    if (guarding !== undefined) {
+      throw new ProjectRefused([
+        `${workflowId} is started by the Action ${guarding.name}, from «${project.name}»'s Actions.`,
+      ]);
+    }
     const onHost = await this.ciRuns.onHost(project);
     if (onHost === undefined) {
       throw new ProjectRefused([

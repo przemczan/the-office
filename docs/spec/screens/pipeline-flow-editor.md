@@ -73,6 +73,10 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
   - A card with only routes that have conditions shows "When none holds, you're asked" (a warning icon; its tooltip the check's warnings).
   - A picked route is highlighted; a route with a problem is red.
 - **On failure loops**: a dashed red line from a Stage back to an earlier one, with a mark "↺ N×" (named "On failure, <Stage> goes back to <target>, at most N times"); pressing it opens the Stage at On failure.
+  - Each loop runs in a lane of its own above the Stages (beside them, down); lanes sit a mark's height apart and clear of the cards, and loops that only meet at a column share one.
+  - Loops that leave or enter the same Stage each take a point of their own, spread across its top edge (its left edge, down).
+  - A Stage with another card above it (beside it, down) sends its loops out of its side and up the gutter between columns, never through a card.
+  - The mark sits on its loop's own run, at the free spot nearest the middle where no other loop's line crosses and clear of the marks on the lanes beside it; with none free, in the middle of the run's widest stretch between crossings.
 - **Dragging** (wide canvas, a Stage that can be moved):
   - A Stage is dragged to a cell; dropping into a taken cell puts it on the first free row below; dropping between columns makes a new column and the later columns shift right. The drop target shows a ghost.
   - A drag starts after 5px of movement; a press without it picks the Stage.

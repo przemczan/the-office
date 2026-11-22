@@ -196,4 +196,41 @@ describe("SearchableSelect", () => {
     act(() => page.querySelector<HTMLButtonElement>('[aria-label="Remove the version"]')?.click());
     expect(onChange).toHaveBeenCalledWith("");
   });
+
+  it("lists its matches in their groups, found by other words too, with no clear button when unasked", () => {
+    act(() =>
+      root.render(
+        <SearchableSelect
+          label="Branch"
+          value="b:main"
+          options={[
+            { value: "b:main", label: "main", group: "Branches" },
+            { value: "b:fix", label: "initiative/checkout", group: "Branches" },
+            {
+              value: "i:1",
+              label: "Checkout",
+              group: "Initiatives",
+              alsoMatches: ["initiative/checkout"],
+              line: "initiative/checkout",
+              title: "Its branch",
+            },
+          ]}
+          onChange={vi.fn<(value: string) => void>()}
+          noMatches="No branch matches"
+        />,
+      ),
+    );
+    expect(page.querySelector(".searchable-select-clear")).toBeNull();
+
+    type("checkout");
+    const groups = [...document.querySelectorAll('[role="listbox"] [role="group"]')];
+    expect(
+      groups.map((group) => group.querySelector(".grouped-select-group")?.textContent),
+    ).toEqual(["Branches", "Initiatives"]);
+    const initiative = groups[1]?.querySelector<HTMLElement>('[role="option"]');
+    expect(initiative?.title).toBe("Its branch");
+    expect(initiative?.querySelector(".grouped-select-line")?.textContent).toBe(
+      "initiative/checkout",
+    );
+  });
 });

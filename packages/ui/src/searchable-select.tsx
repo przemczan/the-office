@@ -1,7 +1,7 @@
 // A select you type in to find an option among many, as a native `<select>` can't: the editable
 // combobox pattern (ARIA 1.2) with a list popup. The focus stays in the box while the list shows the
 // best matches; the list opens under the box, over everything, as `GroupedSelect`'s does, in its
-// styles.
+// styles, its options in named groups when they name one, each with a second line and badges.
 import {
   useCallback,
   useId,
@@ -22,6 +22,19 @@ export interface SearchableSelectOption {
   readonly value: string;
   /** The option's name: what the text typed is matched against, and the box's text once chosen. */
   readonly label: string;
+  /** Other words the text typed is matched against, such as what the option means. */
+  readonly alsoMatches?: readonly string[];
+  /**
+   * The group it is listed under, by its name; the groups show in the order their first option
+   * comes in `options`, each with its matches.
+   */
+  readonly group?: string;
+  /** The second line, such as what it holds. */
+  readonly line?: ReactNode;
+  /** What marks it at the first line's end, such as a badge. */
+  readonly aside?: ReactNode;
+  /** A note shown on hover. */
+  readonly title?: string;
 }
 
 export interface SearchableSelectProps {
@@ -32,8 +45,11 @@ export interface SearchableSelectProps {
   readonly value: string;
   readonly options: readonly SearchableSelectOption[];
   readonly onChange: (value: string) => void;
-  /** The clear button's accessible name, such as "Clear the Initiative filter". */
-  readonly clearLabel: string;
+  /**
+   * The clear button's accessible name, such as "Clear the Initiative filter"; left out, there is
+   * no clear button, as for a select always holding a choice.
+   */
+  readonly clearLabel?: string;
   /** What the list says when nothing matches the text, such as "No Initiative matches". */
   readonly noMatches: string;
   /** How many matches the list shows at most. */
@@ -79,6 +95,9 @@ export function SearchableSelect({
   const field = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
+  const groupNames = [
+    ...new Set(options.flatMap(({ group }) => (group === undefined ? [] : [group]))),
+  ];
   const ownRowOf = (text: string): SearchableSelectOption | undefined => {
     const words = text.trim();
     if (ownValue === undefined || words === "") return undefined;
@@ -87,7 +106,7 @@ export function SearchableSelect({
   };
   const rowsOf = (text: string): readonly SearchableSelectOption[] => {
     const ownRow = ownRowOf(text);
-    const found = bestMatches(options, text, limit);
+    const found = inGroups(bestMatches(options, text, limit), groupNames);
     return ownRow ? [...found, ownRow] : found;
   };
   const matches = rowsOf(typed ?? "");
@@ -172,7 +191,7 @@ export function SearchableSelect({
         // A press in the list keeps the focus here, so a blur is a press outside or Tab.
         onBlur={closeQuietly}
       />
-      {(chosen || ownChosen) && (
+      {clearLabel !== undefined && (chosen || ownChosen) && (
         <button
           type="button"
           className="searchable-select-clear"
@@ -203,28 +222,28 @@ export function SearchableSelect({
               {noMatches}
             </div>
           ) : (
-            matches.map((option) => (
-              <div
-                key={option.value}
-                id={optionId(option.value)}
-                role="option"
-                className={
-                  option.value === active ? "grouped-select-option active" : "grouped-select-option"
-                }
-                aria-selected={option.value === value}
-                onClick={() => choose(option)}
-                onMouseEnter={() => setActive(option.value)}
-              >
-                <span className="grouped-select-tick" aria-hidden="true">
-                  {option.value === value && option.value !== OWN_VALUE_ROW && (
-                    <svg width="13" height="13" viewBox="0 0 24 24">
-                      <path d="M20 6 9 17l-5-5" />
-                    </svg>
-                  )}
-                </span>
-                <span className="grouped-select-label">{option.label}</span>
-              </div>
-            ))
+            groupsOf(matches).map(({ group, options: grouped }, index) => {
+              const rows = grouped.map((option) => (
+                <SearchableSelectRow
+                  key={option.value}
+                  id={optionId(option.value)}
+                  option={option}
+                  selected={option.value === value && option.value !== OWN_VALUE_ROW}
+                  active={option.value === active}
+                  onChoose={() => choose(option)}
+                  onHover={() => setActive(option.value)}
+                />
+              ));
+              if (group === undefined) return rows;
+              return (
+                <div key={group} role="group" aria-labelledby={`${id}-group-${index}`}>
+                  <div id={`${id}-group-${index}`} className="grouped-select-group">
+                    {group}
+                  </div>
+                  {rows}
+                </div>
+              );
+            })
           )}
         </SearchableSelectList>
       )}
@@ -235,6 +254,78 @@ export function SearchableSelect({
     <Field label={label} hint={hint} htmlFor={`${id}-box`}>
       {select}
     </Field>
+  );
+}
+
+/** The options in their groups' order, each group's in the order found. */
+function inGroups(
+  found: readonly SearchableSelectOption[],
+  groupNames: readonly string[],
+): SearchableSelectOption[] {
+  if (groupNames.length === 0) return [...found];
+  const at = (option: SearchableSelectOption): number =>
+    option.group === undefined ? groupNames.length : groupNames.indexOf(option.group);
+  return found.toSorted((first, second) => at(first) - at(second));
+}
+
+/** The rows as listed, each run of one group's together. */
+function groupsOf(rows: readonly SearchableSelectOption[]): {
+  readonly group: string | undefined;
+  readonly options: readonly SearchableSelectOption[];
+}[] {
+  const runs: { group: string | undefined; options: SearchableSelectOption[] }[] = [];
+  for (const row of rows) {
+    const last = runs.at(-1);
+    if (last !== undefined && last.group === row.group) last.options.push(row);
+    else runs.push({ group: row.group, options: [row] });
+  }
+  return runs;
+}
+
+function SearchableSelectRow({
+  id,
+  option,
+  selected,
+  active,
+  onChoose,
+  onHover,
+}: {
+  readonly id: string;
+  readonly option: SearchableSelectOption;
+  readonly selected: boolean;
+  readonly active: boolean;
+  readonly onChoose: () => void;
+  readonly onHover: () => void;
+}): ReactNode {
+  return (
+    <div
+      id={id}
+      role="option"
+      className={active ? "grouped-select-option active" : "grouped-select-option"}
+      aria-selected={selected}
+      aria-labelledby={`${id}-label`}
+      aria-describedby={option.line === undefined ? undefined : `${id}-line`}
+      title={option.title}
+      onClick={onChoose}
+      onMouseEnter={onHover}
+    >
+      <span className="grouped-select-tick" aria-hidden="true">
+        {selected && (
+          <svg width="13" height="13" viewBox="0 0 24 24">
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
+        )}
+      </span>
+      <span id={`${id}-label`} className="grouped-select-label">
+        {option.label}
+      </span>
+      {option.aside !== undefined && <span className="grouped-select-aside">{option.aside}</span>}
+      {option.line !== undefined && (
+        <span id={`${id}-line`} className="grouped-select-line">
+          {option.line}
+        </span>
+      )}
+    </div>
   );
 }
 

@@ -661,6 +661,7 @@ describe("disconnecting", () => {
       "test-targets": true,
       "github-issues": true,
       "run-environment": true,
+      actions: true,
     };
 
     await testbed.environments.events.publish(new ProjectFeaturesChanged(PROJECT_ID, features));
@@ -678,6 +679,7 @@ describe("disconnecting", () => {
       "test-targets": false,
       "github-issues": true,
       "run-environment": true,
+      actions: true,
     };
 
     await testbed.environments.events.publish(new ProjectFeaturesChanged(PROJECT_ID, features));

@@ -158,6 +158,7 @@ export function createTask(
     restoredBy: undefined,
     endedAt: undefined,
     pullRequestEnd: undefined,
+    branchDeletion: undefined,
     causedBy: setting.causedBy,
     foundInVersion: undefined,
     foundWhileWorkingOn: setting.foundWhileWorkingOn,

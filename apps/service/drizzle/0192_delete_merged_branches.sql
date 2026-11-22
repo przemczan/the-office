@@ -1,0 +1,1 @@
+ALTER TABLE "projects" ADD COLUMN "delete_merged_branches" boolean DEFAULT false NOT NULL;

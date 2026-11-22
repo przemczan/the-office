@@ -38,6 +38,7 @@ import { PipelineLibrary, PipelineLibraryModule } from "../../pipelines/index.js
 import {
   IssueTasks,
   IssueWriteBack,
+  ProjectActions,
   ProjectFeatures,
   ProjectService,
   TaskBases,
@@ -54,6 +55,7 @@ import {
   TaskTokensForTests,
   ModelPricesForTests,
   ProjectInitiativeBranchesForTests,
+  ProjectBranchDeletionsForTests,
   ProjectWorktreesForTests,
   TaskPullRequestsForTests,
   StageResultsForTests,
@@ -216,6 +218,7 @@ const STAND_INS = [
   ProjectWorktreesForTests,
   TaskPullRequestsForTests,
   ProjectInitiativeBranchesForTests,
+  ProjectBranchDeletionsForTests,
   StageResultsForTests,
   TaskGatesForTests,
   UsageHistoryForTests,
@@ -239,6 +242,9 @@ const NO_PROJECT_SERVICE = { provide: ProjectService, useValue: {} };
 /** Projects' test targets, which Conversations judges their Proposals by; none is drafted here. */
 const NO_TEST_TARGETS = { provide: TestTargets, useValue: {} };
 
+/** Projects' Actions, which Conversations judges their Proposals by; none is drafted here. */
+const NO_ACTIONS = { provide: ProjectActions, useValue: {} };
+
 const ENGINE_CASCADE = { provide: EngineCascade, useValue: new EngineCascadeStandIn() };
 
 @Module({
@@ -247,10 +253,11 @@ const ENGINE_CASCADE = { provide: EngineCascade, useValue: new EngineCascadeStan
     ...STAND_INS,
     NO_PROJECT_SERVICE,
     NO_TEST_TARGETS,
+    NO_ACTIONS,
     ENGINE_CASCADE,
     ListProjectsStandIn,
   ],
-  exports: [...STAND_INS, ProjectService, TestTargets, EngineCascade],
+  exports: [...STAND_INS, ProjectService, TestTargets, ProjectActions, EngineCascade],
 })
 class StandInsModule {}
 
@@ -295,6 +302,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
         projectWorktrees: ProjectWorktreesForTests,
         taskPullRequests: TaskPullRequestsForTests,
         projectInitiativeBranches: ProjectInitiativeBranchesForTests,
+        projectBranchDeletions: ProjectBranchDeletionsForTests,
         knownPeople: RoleCards,
         knownEngineCascade: KnownEngineCascadeForTests,
         knownPipelines: PipelineLibrary,

@@ -49,7 +49,6 @@ export const NO_REF_MATCHES = "No branch or tag matches";
 
 export const WORKFLOW_LABEL = "Workflow";
 export const CHOOSE_WORKFLOW = "Choose a workflow";
-export const CHOOSE_OPTION = "Choose one";
 export const LOADING_WORKFLOWS = "Reading the workflows…";
 
 /** A tag in the branch or tag list: "v1.2.0 (tag)". */

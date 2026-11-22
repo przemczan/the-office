@@ -27,6 +27,8 @@ import { CodeHosts } from "./application/code-hosts.js";
 import { ManualWorkflows } from "./application/manual-workflows.js";
 import { aProject } from "./domain/project.fixtures.js";
 import type { Project } from "./domain/project.js";
+import { ActionRepository } from "./ports/action-repository.js";
+import { InMemoryActionRepository } from "./ports/action-repository.fixtures.js";
 import { Git } from "./ports/git.js";
 import { ProjectRepository } from "./ports/project-repository.js";
 import { OwnProjects, REPOSITORY, type SignedInGitHub } from "./pull-request-watch.fixtures.js";
@@ -50,10 +52,13 @@ export class CiRunTestbed {
     readonly schedule: ManualSchedule,
     /** Every event the watch published, in order. */
     readonly published: DomainEvent[],
+    /** The test's Projects' Actions. */
+    readonly actions: InMemoryActionRepository,
   ) {}
 
   static async create(github: SignedInGitHub): Promise<CiRunTestbed> {
     const projects = new OwnProjects([]);
+    const actions = new InMemoryActionRepository();
     const { app, url } = await startTestApplication({
       database: true,
       imports: [
@@ -65,6 +70,7 @@ export class CiRunTestbed {
       controllers: [CiRunsController, ProjectOfficeActionsController],
       providers: [
         { provide: ProjectRepository, useValue: projects },
+        { provide: ActionRepository, useValue: actions },
         {
           provide: Git,
           useValue: new CommandLineGit(new RepositoryLocks(), officeIdentityForTests()),
@@ -93,6 +99,7 @@ export class CiRunTestbed {
       app.get(CiRunWatch),
       app.get(Schedule) as ManualSchedule,
       published,
+      actions,
     );
   }
 

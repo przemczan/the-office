@@ -408,6 +408,7 @@ describe("Test targets switched off for the Project", () => {
     "test-targets": false,
     "github-issues": true,
     "run-environment": true,
+    actions: true,
   } as const;
 
   it("refuses a launch, adding no instance", async () => {

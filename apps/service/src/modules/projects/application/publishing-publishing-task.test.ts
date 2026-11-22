@@ -16,11 +16,13 @@ import {
 import { ShellCommandRunner } from "../adapters/shell/shell-command-runner.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
 import type { Project } from "../domain/project.js";
+import { BranchDeletions } from "./branch-deletions.js";
 import { BranchUpdates } from "./branch-updates.js";
 import { InitiativeBranches } from "./initiative-branches.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { ProjectRemotes } from "./project-remotes.js";
 import type { ProjectService } from "./project-service.js";
+import { PullRequestRecords } from "./pull-request-records.js";
 import { Resolving } from "./resolving.js";
 
 // A Publishing Task on real git (spec §2.3, "A Publishing Task's Publish"): its worktree holds the
@@ -44,13 +46,23 @@ beforeAll(async () => {
         ? Promise.resolve(projectInUse)
         : Promise.reject(new ProjectNotFound(id)),
   } as unknown as ProjectService;
+  const remotes = new ProjectRemotes(testbed.git, officeIdentityForTests());
   branches = new InitiativeBranches(
     projects,
     testbed.git,
     testbed.worktrees,
     commands,
-    new ProjectRemotes(testbed.git, officeIdentityForTests()),
+    remotes,
     testbed.taskBases,
+    new BranchDeletions(
+      projects,
+      testbed.git,
+      testbed.worktrees,
+      commands,
+      remotes,
+      testbed.taskBases,
+      new PullRequestRecords(testbed.records),
+    ),
   );
 });
 

@@ -1,17 +1,17 @@
 # Account page
 
-Covers: the Account page and its sections (Profile and Password, Authenticator and recovery codes, Appearance, Passkeys, Linked identities, Signed-in devices).
+Covers: the Account page and its sections (Profile and Password, Authenticator and recovery codes, Appearance, Notifications, Passkeys, Linked identities, Signed-in devices).
 
 ## Where it is
 
 - Route: `/account`, which opens Profile; opened from the top bar's user menu ([shell.md](shell.md)).
-- Sections: `/account/profile`, `/account/authenticator`, `/account/appearance`, `/account/passkeys`, `/account/linked-identities`, `/account/signed-in-devices`.
+- Sections: `/account/profile`, `/account/authenticator`, `/account/appearance`, `/account/notifications`, `/account/passkeys`, `/account/linked-identities`, `/account/signed-in-devices`.
 - The page title is "Account"; its crumb is the open section's name.
 
 ## Layout
 
 - A section menu (label "Account"), then the open section's cards.
-- Menu items, in order, with their icons: **Profile**, **Authenticator**, **Appearance**, **Passkeys**, **Linked identities**, **Signed-in devices**.
+- Menu items, in order, with their icons: **Profile**, **Authenticator**, **Appearance**, **Notifications**, **Passkeys**, **Linked identities**, **Signed-in devices**.
 
 ## Profile
 
@@ -71,6 +71,15 @@ Covers: the Account page and its sections (Profile and Password, Authenticator a
 - Card **Palette**: a choice per palette, each with a preview of it and its name, then **Follow the system**; the chosen one is pressed. Note: "A palette changes colours only, never the layout. It is yours: it follows you to every browser you sign in on."
 - Card **Density**: a choice per density, each previewed. Note: "A density changes spacing and sizes only, never the colours. It is yours: it follows you to every browser you sign in on."
 - A choice applies at once and is saved to the account.
+
+## Notifications
+
+- Every card here is yours: it decides only what reaches you, on every browser you sign in on ([2.7](../2.7-notifications.md#each-users-own-settings)).
+- **What goes where** card: "A row inherits from its group until you set it. Splitting a kind later keeps every setting. The Project filter never silences anything." A grid of the kinds tree by the channels **In-app**, **Desktop** and **Phone** (each column with a note); a click sets a cell on its row, an unset cell is inherited from its group, and a group's reset button ("Inherit everything from <group> again") gives its kinds back.
+- **At the desk** card: "Hold phone pushes while you are at the desk: The Office focused or used in the last N minutes" and "Send anything still unhandled to your phone N minutes after you leave"; note "Desktop notifications show only when the tab isn't focused; otherwise a toast does."
+- **Quiet hours and batching** card: **Quiet hours** (a checkbox with "from" and "to" times; "Nothing is pushed to you inside the window except "the service or an Agent engine down"; one summary comes when it ends."; "Off until you set them."), "Collapse Outcomes that land within N minutes into one", and "Needs you is pushed once per item and never batched. There are no repeat reminders."
+- Each change is sent at once; a refusal shows as "The change can't be saved".
+- `/settings/notifications` goes here ([settings.md](settings.md#where-it-is)).
 
 ## Passkeys
 
@@ -138,4 +147,5 @@ Covers: the Account page and its sections (Profile and Password, Authenticator a
 ## Domain facts
 
 - [Users and signing in](../2.10-users-and-signing-in.md).
+- [Notifications](../2.7-notifications.md).
 - [Permissions and safety](../6-permissions-and-safety.md).

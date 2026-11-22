@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { ManualWorkflow, Project, RefList, WorkflowInput } from "@the-office/contracts";
-import { Alert, Button, Dialog, Input, SearchableSelect, Select, Switch } from "@the-office/ui";
+import type { ManualWorkflow, Project, RefList } from "@the-office/contracts";
+import { Alert, Button, Dialog, SearchableSelect, Select } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { ciRunQueries, startWorkflow } from "../../api/ci-runs.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
+import { WorkflowInputControl, workflowInputValuesOf } from "../../shell/workflow-inputs.tsx";
 import {
-  CHOOSE_OPTION,
   CHOOSE_PROJECT,
   CHOOSE_WORKFLOW,
   CLEAR_REF,
@@ -58,7 +58,7 @@ export function StartWorkflowDialog({
   const workflow = workflows.data?.workflows.find(({ id }) => id === workflowId);
   // What the user entered, by input name, over the inputs' defaults; emptied on another workflow.
   const [entered, setEntered] = useState<Readonly<Record<string, string>>>({});
-  const values = workflow ? valuesOf(workflow, entered) : {};
+  const values = workflow ? workflowInputValuesOf(workflow, entered) : {};
   const missing = (workflow?.inputs ?? [])
     .filter(({ name, required }) => required && (values[name] ?? "").trim() === "")
     .map(({ name }) => name);
@@ -147,7 +147,7 @@ export function StartWorkflowDialog({
             />
           )}
         {workflow?.inputs.map((input) => (
-          <InputControl
+          <WorkflowInputControl
             key={`${workflow.id}/${input.name}`}
             input={input}
             value={values[input.name] ?? ""}
@@ -189,68 +189,6 @@ function WorkflowChoice({
       options={workflows.map(({ id, name }) => ({ value: id, label: name || id }))}
       onChange={onChange}
     />
-  );
-}
-
-/** One input's control: a text field, a switch, a choice of its options or a number field. */
-function InputControl({
-  input,
-  value,
-  onChange,
-}: {
-  readonly input: WorkflowInput;
-  readonly value: string;
-  readonly onChange: (value: string) => void;
-}): ReactNode {
-  const hint = input.description === "" ? undefined : input.description;
-  switch (input.kind) {
-    case "yes-no":
-      return (
-        <Switch
-          label={input.name}
-          description={hint}
-          checked={value === "true"}
-          onChange={(checked) => onChange(String(checked))}
-        />
-      );
-    case "choice":
-      return (
-        <Select
-          label={input.name}
-          hint={hint}
-          required={input.required}
-          placeholder={CHOOSE_OPTION}
-          value={value}
-          options={[...input.options]}
-          onChange={onChange}
-        />
-      );
-    case "number":
-    case "text":
-    case "environment":
-      return (
-        <Input
-          label={input.name}
-          hint={hint}
-          required={input.required}
-          type={input.kind === "number" ? "number" : "text"}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-        />
-      );
-  }
-}
-
-/** Each input's value: what the user entered, else its default; a yes-no is "false" with neither. */
-function valuesOf(
-  workflow: ManualWorkflow,
-  entered: Readonly<Record<string, string>>,
-): Record<string, string> {
-  return Object.fromEntries(
-    workflow.inputs.map(({ name, kind, default: byDefault }) => [
-      name,
-      entered[name] ?? byDefault ?? (kind === "yes-no" ? "false" : ""),
-    ]),
   );
 }
 

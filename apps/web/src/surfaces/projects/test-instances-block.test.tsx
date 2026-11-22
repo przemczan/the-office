@@ -10,15 +10,16 @@ import type {
   Project,
   ProjectBranches,
   ProjectTestInstances,
+  TaskSummary,
   TestInstance,
 } from "@the-office/contracts";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { testInstanceQueries } from "../../api/test-instances.ts";
+import { taskQueries } from "../../api/work.ts";
 import { ToastProvider } from "../../shell/toasts.tsx";
 import { TestInstancesBlock } from "./test-instances-block.tsx";
-import { branchChoicesOf } from "./test-instances-words.ts";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -40,6 +41,8 @@ const PROJECT = {
 } as unknown as Project;
 
 const INITIATIVE_ID = "7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f";
+
+const TASK_ID = "9d8c7b6a-5f4e-4d3c-8b2a-1f0e9d8c7b6a";
 
 const OFFICE: LaunchableTestTarget = {
   key: "office",
@@ -123,6 +126,7 @@ async function rendered(
   shown: ProjectTestInstances,
   answer: (url: string, method: string) => Response,
   linkedTo?: string,
+  tasks?: readonly TaskSummary[],
 ): Promise<{ page: HTMLElement; fetched: ReturnType<typeof vi.fn<typeof fetch>> }> {
   const fetched = vi.fn<typeof fetch>((input, request) =>
     Promise.resolve(answer(String(input), request?.method ?? "GET")),
@@ -132,6 +136,7 @@ async function rendered(
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   });
   queryClient.setQueryData(testInstanceQueries.ofProject(PROJECT.id).queryKey, shown);
+  if (tasks) queryClient.setQueryData(taskQueries.list().queryKey, [...tasks]);
   const router = createRouter({
     routeTree: createRootRoute({
       component: () => (
@@ -173,12 +178,12 @@ function buttonOf(place: Element, name: string): HTMLButtonElement | undefined {
   );
 }
 
-function branchPicker(): HTMLButtonElement {
+function branchPicker(): HTMLInputElement {
   const label = [...document.querySelectorAll("label")].find(
     ({ textContent }) => textContent.trim() === "Branch",
   );
   const picker = label && document.getElementById(label.htmlFor);
-  if (!(picker instanceof HTMLButtonElement)) throw new Error("No Branch picker.");
+  if (!(picker instanceof HTMLInputElement)) throw new Error("No Branch picker.");
   return picker;
 }
 
@@ -212,16 +217,17 @@ describe("a Project's Test instances", () => {
     document.body.replaceChildren();
   });
 
-  it("shows the branch launched on last, then the other branches' instances", async () => {
+  it("shows the base branch until another is picked, then the other branches' instances", async () => {
     const { page } = await rendered(LAUNCHED, notFound);
 
-    expect(branchPicker().textContent).toContain("initiative/checkout");
+    expect(branchPicker().value).toBe("main");
+    expect(rowOf(groupOf(page, "main"), "Office").textContent).toContain("Not launched yet");
     const picked = groupOf(page, "initiative/checkout");
     const office = rowOf(picked, "Office");
     expect(office.textContent).toContain("Running");
     expect(office.textContent).toContain("Newer commits on the branch");
     expect(office.textContent).toContain("1 earlier");
-    expect(rowOf(picked, "Android app").textContent).toContain("Not launched yet");
+    expect(picked.querySelector('li[aria-label="Android app"]')).toBeNull();
     const fix = groupOf(page, "fix-login");
     expect(rowOf(fix, "Office").textContent).toContain("Stopped");
     expect(fix.querySelector('li[aria-label="Android app"]')).toBeNull();
@@ -233,7 +239,7 @@ describe("a Project's Test instances", () => {
 
     const { page } = await rendered(LAUNCHED, notFound, ON_FIX.id);
 
-    expect(branchPicker().textContent).toContain("fix-login");
+    expect(branchPicker().value).toBe("fix-login");
     expect(scrolled).toHaveBeenCalledOnce();
     expect(scrolled.mock.contexts[0]).toBe(rowOf(groupOf(page, "fix-login"), "Office"));
   });
@@ -308,10 +314,55 @@ describe("a Project's Test instances", () => {
     });
   });
 
+  it("launches on a Task choice's branch and lists that branch's instances", async () => {
+    const task = {
+      id: TASK_ID,
+      title: "Fix the login form",
+      projectId: "website",
+      state: "in-progress",
+    } as unknown as TaskSummary;
+    const taskBranches: ProjectBranches = {
+      ...BRANCHES,
+      branches: [
+        ...BRANCHES.branches,
+        { name: `office/${TASK_ID}`, kind: "local", commit: "dddd" },
+      ],
+    };
+    const { page, fetched } = await rendered(
+      LAUNCHED,
+      (url, method) => {
+        if (url.includes("/branches")) return Response.json(taskBranches);
+        if (method === "POST")
+          return Response.json({ ...ON_FIX, state: "building" }, { status: 201 });
+        return notFound();
+      },
+      undefined,
+      [task],
+    );
+    act(() => branchPicker().click());
+    await branchesListed();
+    const taskChoice = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+      ({ textContent }) => textContent.startsWith("Fix the login form"),
+    );
+    act(() => taskChoice?.click());
+    await settled();
+
+    expect(branchPicker().value).toBe("Fix the login form");
+    const row = rowOf(groupOf(page, `office/${TASK_ID}`), "Android app");
+    act(() => buttonOf(row, "Launch")?.click());
+    await settled();
+
+    const launch = fetched.mock.calls.find(([, request]) => request?.method === "POST");
+    expect(JSON.parse(String(launch?.[1]?.body))).toEqual({
+      branch: `office/${TASK_ID}`,
+      targetKey: "app",
+    });
+  });
+
   it("starts on the base branch when nothing was launched", async () => {
     const { page } = await rendered(shownWith([]), notFound);
 
-    expect(branchPicker().textContent).toContain("main");
+    expect(branchPicker().value).toBe("main");
     expect(rowOf(groupOf(page, "main"), "Office").textContent).toContain("Not launched yet");
   });
 
@@ -336,18 +387,5 @@ describe("a Project's Test instances", () => {
     );
     expect(link?.getAttribute("href")).toBe("/projects/website/test-targets#test-targets");
     expect(page.querySelector('[role="combobox"]')).toBeNull();
-  });
-});
-
-describe("the Branch picker's choices", () => {
-  it("puts the base branch first, the rest by name, each once", () => {
-    expect(branchChoicesOf("main", BRANCHES, ["zeta", "fix-login"])).toEqual({
-      baseBranch: "main",
-      others: ["add-search", "fix-login", "zeta"],
-    });
-    expect(branchChoicesOf("main", undefined, ["main"])).toEqual({
-      baseBranch: "main",
-      others: [],
-    });
   });
 });

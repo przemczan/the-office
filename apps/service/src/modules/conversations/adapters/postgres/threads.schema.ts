@@ -224,7 +224,8 @@ export const decisions = pgTable(
     approvalSpentAt: timestamp("approval_spent_at", { withTimezone: true }),
     /**
      * The Bug Task a bug-task Decision proposes, which makes it one: `kind` keeps it a question for
-     * the release before, its one choice Create the Bug Task or Don't create it. Null otherwise.
+     * the release before, its one choice Create the Bug Task, Don't create it or Fix now. Null
+     * otherwise.
      */
     bugTask: jsonb("bug_task").$type<ProposedBugTask>(),
   },

@@ -1,5 +1,5 @@
 {
-  "id": "af523f8c-c676-4768-8be2-6a68d2a61c9c",
+  "id": "2b84f469-e495-4897-8b40-1f2952b0e6c5",
   "prevId": "073f8690-6966-4a8d-80bc-15567985d4dd",
   "version": "7",
   "dialect": "postgresql",
@@ -2104,6 +2104,88 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.notification_deliveries": {
+      "name": "notification_deliveries",
+      "schema": "",
+      "columns": {
+        "notification_id": {
+          "name": "notification_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "channels": {
+          "name": "channels",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "held": {
+          "name": "held",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "phone_pushed_at": {
+          "name": "phone_pushed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "notification_deliveries_user_id": {
+          "name": "notification_deliveries_user_id",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "notification_deliveries_notification_id_notifications_id_fk": {
+          "name": "notification_deliveries_notification_id_notifications_id_fk",
+          "tableFrom": "notification_deliveries",
+          "tableTo": "notifications",
+          "columnsFrom": [
+            "notification_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "notification_deliveries_notification_id_user_id_pk": {
+          "name": "notification_deliveries_notification_id_user_id_pk",
+          "columns": [
+            "notification_id",
+            "user_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.notification_routing": {
       "name": "notification_routing",
       "schema": "",
@@ -2248,12 +2330,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "channels": {
-          "name": "channels",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
         "raised_at": {
           "name": "raised_at",
           "type": "timestamp with time zone",
@@ -2268,6 +2344,19 @@
         },
         "gathers": {
           "name": "gathers",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "for_user": {
+          "name": "for_user",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "channels": {
+          "name": "channels",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true,
@@ -2437,6 +2526,106 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.user_notification_routing": {
+      "name": "user_notification_routing",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "level": {
+          "name": "level",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "channel": {
+          "name": "channel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "on": {
+          "name": "on",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "user_notification_routing_user_id_level_channel_pk": {
+          "name": "user_notification_routing_user_id_level_channel_pk",
+          "columns": [
+            "user_id",
+            "level",
+            "channel"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.user_notification_timing": {
+      "name": "user_notification_timing",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "hold_phone_minutes": {
+          "name": "hold_phone_minutes",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "away_minutes": {
+          "name": "away_minutes",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "batch_outcomes_minutes": {
+          "name": "batch_outcomes_minutes",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quiet_from": {
+          "name": "quiet_from",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "quiet_to": {
+          "name": "quiet_to",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "user_notification_timing_quiet_hours_both_ends": {
+          "name": "user_notification_timing_quiet_hours_both_ends",
+          "value": "(\"user_notification_timing\".\"quiet_from\" IS NULL) = (\"user_notification_timing\".\"quiet_to\" IS NULL)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.duty_assignments": {
@@ -3696,13 +3885,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
-        },
-        "features": {
-          "name": "features",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::jsonb"
         }
       },
       "indexes": {},

@@ -8,6 +8,7 @@ const READY: CardFacts = {
   queued: false,
   hasUsageEstimate: false,
   someoneWorking: false,
+  atStage: false,
   hasPlanner: true,
 };
 
@@ -32,6 +33,25 @@ describe("cardMarks", () => {
         someoneWorking: true,
       }),
     ).toEqual(["waiting-on-you", "paused", "blocked", "queued", "usage-estimate", "working"]);
+  });
+
+  it("shows the current Stage on a started Task, with nobody working, between runs too", () => {
+    expect(kinds({ state: "in-progress", atStage: true })).toEqual(["working"]);
+    expect(kinds({ state: "waiting-on-you", atStage: true })).toEqual([
+      "waiting-on-you",
+      "working",
+    ]);
+    expect(kinds({ state: "paused", waiting: true, atStage: true })).toEqual([
+      "waiting-on-you",
+      "paused",
+      "working",
+    ]);
+  });
+
+  it("shows no Stage on a Task that isn't started", () => {
+    expect(kinds({ state: "done", atStage: true })).toEqual([]);
+    expect(kinds({ state: "dropped", atStage: true })).toEqual(["dropped"]);
+    expect(kinds({ state: "ready", atStage: true })).toEqual([]);
   });
 
   it("counts the blockers", () => {

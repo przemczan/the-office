@@ -4,11 +4,6 @@ import type { UserActivity } from "../domain/user-activity.js";
 export abstract class UserActivityRepository {
   abstract find(userId: string): Promise<UserActivity | undefined>;
   /**
-   * The activity of the user active last, undefined while nobody has been seen: The Office is away
-   * only while every user is.
-   */
-  abstract findLatest(): Promise<UserActivity | undefined>;
-  /**
    * Applies the change to what is kept of the user, holding it meanwhile, and returns what was
    * kept before and after.
    */

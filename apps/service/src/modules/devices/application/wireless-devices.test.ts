@@ -351,6 +351,7 @@ describe("a paired phone over wireless debugging", () => {
         "test-targets": true,
         "github-issues": true,
         "run-environment": true,
+        actions: true,
       }),
     );
 

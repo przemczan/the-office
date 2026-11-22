@@ -31,6 +31,7 @@ import { ProjectImagesController } from "./adapters/http/project-images.controll
 import { ProjectOfficeActionsController } from "./adapters/http/project-office-actions.controller.js";
 import { ProjectServerValuesController } from "./adapters/http/project-server-values.controller.js";
 import { ProjectTestTargetsController } from "./adapters/http/project-test-targets.controller.js";
+import { ProjectActionsController } from "./adapters/http/project-actions.controller.js";
 import { ProjectsController } from "./adapters/http/projects.controller.js";
 import { PullRequestsController } from "./adapters/http/pull-requests.controller.js";
 import { RepositoryClonesController } from "./adapters/http/repository-clones.controller.js";
@@ -40,6 +41,7 @@ import { PostgresEnvironmentCheckRepository } from "./adapters/postgres/postgres
 import { PostgresProjectRepository } from "./adapters/postgres/postgres-project-repository.js";
 import { PostgresPullRequestRepository } from "./adapters/postgres/postgres-pull-request-repository.js";
 import { PostgresTestTargetRepository } from "./adapters/postgres/postgres-test-target-repository.js";
+import { PostgresActionRepository } from "./adapters/postgres/postgres-action-repository.js";
 import { ShellCommandRunner } from "./adapters/shell/shell-command-runner.js";
 import { CiRunWebEvents } from "./adapters/websocket/ci-run-web-events.js";
 import { IssueWebEvents } from "./adapters/websocket/issue-web-events.js";
@@ -57,12 +59,15 @@ import { EngineLevelsChecks } from "./application/engine-levels-checks.js";
 import { RunEnvironmentSetUpRegistry } from "./application/run-environment-set-up-registry.js";
 import { DevcontainerServices } from "./application/devcontainer-services.js";
 import { TestTargets } from "./application/test-targets.js";
+import { ProjectActions } from "./application/project-actions.js";
 import { TestInstanceCheckouts } from "./application/test-instance-checkouts.js";
 import { TestTargetRepository } from "./ports/test-target-repository.js";
+import { ActionRepository } from "./ports/action-repository.js";
 import { TaskCommandRunner } from "./application/task-command-runner.js";
 import { TaskRunEnvironments } from "./application/task-run-environments.js";
 import { EnvironmentChecks } from "./application/environment-checks.js";
 import { InitiativeBranches } from "./application/initiative-branches.js";
+import { BranchDeletions } from "./application/branch-deletions.js";
 import { LocalRepositories } from "./application/local-repositories.js";
 import { RepositoriesByUrl } from "./application/repositories-by-url.js";
 import { ProjectChecks } from "./application/project-checks.js";
@@ -137,6 +142,7 @@ export class ProjectsModule implements NestModule {
         ProjectImagesController,
         ProjectServerValuesController,
         ProjectTestTargetsController,
+        ProjectActionsController,
         EnvironmentChecksController,
         TaskChangesController,
         RepositoryFilesController,
@@ -160,6 +166,7 @@ export class ProjectsModule implements NestModule {
         { provide: PullRequestRepository, useClass: PostgresPullRequestRepository },
         { provide: IssueLinkRepository, useClass: PostgresIssueLinkRepository },
         { provide: TestTargetRepository, useClass: PostgresTestTargetRepository },
+        { provide: ActionRepository, useClass: PostgresActionRepository },
         GitHubCodeHost,
         // Each remote's pull requests and CI runs go to the first host that reaches its URL; another host,
         // such as GitLab, is one more adapter of `CodeHost` in this list.
@@ -185,6 +192,7 @@ export class ProjectsModule implements NestModule {
         RunEnvironmentSetUpRegistry,
         DevcontainerServices,
         TestTargets,
+        ProjectActions,
         TestInstanceCheckouts,
         LocalRepositories,
         RepositoriesByUrl,
@@ -214,6 +222,7 @@ export class ProjectsModule implements NestModule {
         RepositoryFiles,
         CommittedFiles,
         InitiativeBranches,
+        BranchDeletions,
         ProjectWebEvents,
         PullRequestWebEvents,
         CiRunWebEvents,
@@ -227,9 +236,11 @@ export class ProjectsModule implements NestModule {
         CommittedFiles,
         EngineLevelsChecks,
         InitiativeBranches,
+        BranchDeletions,
         RunEnvironmentSetUpRegistry,
         DevcontainerServices,
         TestTargets,
+        ProjectActions,
         TestInstanceCheckouts,
         ProjectRecords,
         ProjectService,

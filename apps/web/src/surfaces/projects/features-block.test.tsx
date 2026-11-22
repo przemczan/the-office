@@ -18,6 +18,7 @@ const ALL_ON: ProjectFeatures = {
   "test-targets": true,
   "github-issues": true,
   "run-environment": true,
+  actions: true,
 };
 
 const PROJECT: Project = {
@@ -36,6 +37,7 @@ const PROJECT: Project = {
   repositoryUrl: null,
   beforePublishingCommand: "",
   afterPublishingCommand: "",
+  deleteMergedBranches: false,
   environment: { set: [], unset: [], prependPath: [] },
   useProjectSkills: true,
   projectSkillsOff: [],
@@ -129,7 +131,12 @@ describe("the Features tab", () => {
       "Test targets",
       "GitHub issues",
       "Run environment",
+      "Actions",
     ]);
+    expect(shownText(rowOf(page, "Actions"))).toContain(
+      "Things to run on demand, outside the Task queue.",
+    );
+    expect(switchOf(page, "Actions").getAttribute("aria-checked")).toBe("true");
     expect(shownText(rowOf(page, "Test targets"))).toContain(
       "What can be launched on an Initiative's branch to try the work.",
     );

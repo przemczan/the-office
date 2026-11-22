@@ -17,6 +17,16 @@ export class LampLit extends DomainEvent {
 
 export class LampDimmed extends DomainEvent {}
 
+/** A lamp lit for one user alone, which the web gets as `lamp.lit` on their connections only. */
+export class LampLitFor extends DomainEvent {
+  constructor(
+    readonly userId: string,
+    readonly room: string,
+  ) {
+    super(new Date("2026-10-25T09:00:00.000Z"));
+  }
+}
+
 /** Events naming a Thread: two of the thread-scoped types and one sent as any other. */
 class ThreadEvent extends DomainEvent {
   constructor(readonly threadId: string) {

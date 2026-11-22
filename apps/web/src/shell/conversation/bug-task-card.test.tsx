@@ -1,5 +1,9 @@
 import type { Decision, Thread } from "@the-office/contracts";
-import { BUG_TASK_CREATE_OPTION, BUG_TASK_DONT_CREATE_OPTION } from "@the-office/contracts";
+import {
+  BUG_TASK_CREATE_OPTION,
+  BUG_TASK_DONT_CREATE_OPTION,
+  BUG_TASK_FIX_NOW_OPTION,
+} from "@the-office/contracts";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { answerDecision } from "../../api/conversations.ts";
@@ -37,7 +41,7 @@ const BUG_TASK = aDecision({
     {
       kind: "choice",
       question: "Create the Bug Task?",
-      options: ["Create the Bug Task", "Don't create it"],
+      options: ["Create the Bug Task", "Don't create it", "Fix now"],
       recommendation: { option: 0, reason: "" },
     },
   ],
@@ -60,7 +64,7 @@ afterEach(() => {
 });
 
 describe("a bug-task Decision", () => {
-  it("shows the proposal as editable fields, with three actions and no Dismiss", async () => {
+  it("shows the proposal as editable fields, with four actions and no Dismiss", async () => {
     const page = await rendered(card(BUG_TASK));
 
     expect(page.textContent).toContain("Kai proposes a Bug Task");
@@ -70,8 +74,28 @@ describe("a bug-task Decision", () => {
     );
     expect(buttonsNamed("Create the Bug Task")).toHaveLength(1);
     expect(buttonsNamed("Don't create it")).toHaveLength(1);
+    expect(buttonsNamed("Fix now")).toHaveLength(1);
     expect(buttonsNamed("Ask me again")).toHaveLength(1);
     expect(buttonsNamed("Dismiss")).toHaveLength(0);
+  });
+
+  it("offers no Fix now on one opened before it was offered", async () => {
+    await rendered(
+      card({
+        ...BUG_TASK,
+        questions: [
+          {
+            kind: "choice",
+            question: "Create the Bug Task?",
+            options: ["Create the Bug Task", "Don't create it"],
+            recommendation: { option: 0, reason: "" },
+          },
+        ],
+      }),
+    );
+
+    expect(buttonsNamed("Don't create it")).toHaveLength(1);
+    expect(buttonsNamed("Fix now")).toHaveLength(0);
   });
 
   it("creates the Bug Task from the form as edited, with the general comment", async () => {
@@ -105,6 +129,36 @@ describe("a bug-task Decision", () => {
       kind: "submitted",
       answers: [{ kind: "option", option: BUG_TASK_DONT_CREATE_OPTION }],
     });
+  });
+
+  it("answers Fix now, sending no fields, with the general comment", async () => {
+    await rendered(card(BUG_TASK));
+    type(fieldLabelled("General comment"), "It's two lines.");
+
+    await click(buttonNamed("Fix now"));
+    await settle();
+
+    expect(answerDecision).toHaveBeenCalledWith(DECISION_ID, {
+      kind: "submitted",
+      answers: [{ kind: "option", option: BUG_TASK_FIX_NOW_OPTION }],
+      generalComment: "It's two lines.",
+    });
+  });
+
+  it("says it is fixed in this Task once answered Fix now", async () => {
+    const page = await rendered(
+      card({
+        ...BUG_TASK,
+        answeredAt: "2026-11-10T14:10:00.000Z",
+        formAnswer: {
+          kind: "submitted",
+          answers: [{ kind: "option", option: BUG_TASK_FIX_NOW_OPTION }],
+        },
+      }),
+    );
+
+    expect(page.textContent).toContain("Chose to fix it in this Task");
+    expect(page.textContent).not.toContain("Didn't create the Bug Task");
   });
 
   it("asks again in a step, sending the comment alone", async () => {

@@ -6,12 +6,14 @@ import {
   stageSchema,
   type ChatActivity as ChatActivityResponse,
   type DecisionFormAnswer as DecisionFormAnswerResponse,
+  type EditedAction as EditedActionResponse,
   type DecisionQuestion as DecisionQuestionResponse,
   type QuestionAnswer as QuestionAnswerResponse,
   type Decision as DecisionResponse,
   type Message as MessageResponse,
   type NewProject as NewProjectResponse,
   type PeopleWorking,
+  type ProposedActions as ProposedActionsResponse,
   type ProposedProjectCommands as ProposedProjectCommandsResponse,
   type Proposal as ProposalResponse,
   type ProposedChange as ProposedChangeResponse,
@@ -36,7 +38,11 @@ import {
   type QuestionAnswer,
 } from "../../domain/decision.js";
 import { hiredKeyOf } from "../../../people/index.js";
-import type { NewProject, ProposedTestTargetFields } from "../../../projects/index.js";
+import type {
+  ActionFields,
+  NewProject,
+  ProposedTestTargetFields,
+} from "../../../projects/index.js";
 import type { Message } from "../../domain/message.js";
 import { DEFAULT_CONTEXT_POLICY_SETTINGS } from "../../domain/context-policy.js";
 import { stageLimitsWithin } from "../../domain/stage-context-limits.js";
@@ -44,6 +50,7 @@ import type { TaskPeopleWorking } from "../../domain/people-working.js";
 import type {
   PipelineRoutes,
   Proposal,
+  ProposedActionsChange,
   ProposedChange,
   ProposedFeatureSwitches,
   ProposedProjectCommands,
@@ -331,6 +338,12 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
         projectId: change.projectId,
         changes: toProposedTestTargetsResponse(change.changes),
       };
+    case "actions":
+      return {
+        kind: "actions",
+        projectId: change.projectId,
+        changes: toProposedActionsResponse(change.changes),
+      };
     case "pipeline":
       return {
         kind: "pipeline",
@@ -464,6 +477,47 @@ function toProposedTestTargetsResponse({
       userSet: [...userSet],
     })),
   };
+}
+
+function toProposedActionsResponse({
+  actions,
+}: ProposedActionsChange["changes"]): ProposedActionsResponse {
+  return {
+    actions: actions.map(({ key, from, to, userSet }) => ({
+      key,
+      from: from && toEditedActionResponse(from),
+      to: to && toEditedActionResponse(to),
+      userSet: [...userSet],
+    })),
+  };
+}
+
+function toEditedActionResponse(action: ActionFields): EditedActionResponse {
+  const head = {
+    key: action.key,
+    name: action.name,
+    leavesTheWorkstation: action.leavesTheWorkstation,
+  };
+  switch (action.kind) {
+    case "project-command":
+      return {
+        ...head,
+        kind: action.kind,
+        settings: {
+          commandKey: action.settings.commandKey,
+          commandsBefore: [...action.settings.commandsBefore],
+          timeLimitMinutes: action.settings.timeLimitMinutes,
+        },
+      };
+    case "test-target":
+      return { ...head, kind: action.kind, settings: { targetKey: action.settings.targetKey } };
+    case "workflow":
+      return {
+        ...head,
+        kind: action.kind,
+        settings: { file: action.settings.file, inputs: { ...action.settings.inputs } },
+      };
+  }
 }
 
 function toProposedTestTargetFieldsResponse(

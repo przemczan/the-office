@@ -1,6 +1,8 @@
-/** What a searchable select ranks: an option by its name. */
+/** What a searchable select ranks: an option by its name, and by any other words it is found by. */
 export interface Named {
   readonly label: string;
+  /** Other words the option is found by, such as the branch it means; its best match ranks it. */
+  readonly alsoMatches?: readonly string[];
 }
 
 /** How well a name matches the text typed, the lower the better. */
@@ -18,7 +20,7 @@ function rankOf(label: string, text: string): MatchRank | undefined {
 }
 
 /**
- * At most `limit` of the options whose name holds the text, case-insensitive, best match first: the
+ * At most `limit` of the options whose name (or other words) holds the text, case-insensitive, best match first: the
  * name starting with it, then a word in it starting with it, then the name containing it, ties kept
  * in the order given. With no text, the first `limit` options.
  */
@@ -31,8 +33,10 @@ export function bestMatches<Option extends Named>(
   if (typed === "") return options.slice(0, limit);
   return options
     .flatMap((option) => {
-      const rank = rankOf(option.label, typed);
-      return rank === undefined ? [] : [{ option, rank }];
+      const ranks = [option.label, ...(option.alsoMatches ?? [])]
+        .map((words) => rankOf(words, typed))
+        .filter((found) => found !== undefined);
+      return ranks.length === 0 ? [] : [{ option, rank: Math.min(...ranks) }];
     })
     .toSorted((first, second) => first.rank - second.rank)
     .slice(0, limit)

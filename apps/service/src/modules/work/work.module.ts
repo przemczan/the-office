@@ -104,6 +104,8 @@ import { TaskRecords } from "./application/task-records.js";
 import { TaskStageEdits } from "./application/task-stage-edits.js";
 import { TaskArchiving } from "./application/task-archiving.js";
 import { InitiativeArchiving } from "./application/initiative-archiving.js";
+import { BranchDeletionsController } from "./adapters/http/branch-deletions.controller.js";
+import { BranchCleanup } from "./application/branch-cleanup.js";
 import { DroppedInitiativeTasks } from "./application/dropped-initiative-tasks.js";
 import { DroppedTaskDecisions } from "./application/dropped-task-decisions.js";
 import { PlanningAfterRestart } from "./application/planning-after-restart.js";
@@ -129,6 +131,7 @@ import { DayUsage } from "./ports/day-usage.js";
 import { KnownProjects } from "./ports/known-projects.js";
 import { ProjectFeatureChecks } from "./ports/project-feature-checks.js";
 import { NewProjects } from "./ports/new-projects.js";
+import { ProjectBranchDeletions } from "./ports/project-branch-deletions.js";
 import { ProjectInitiativeBranches } from "./ports/project-initiative-branches.js";
 import { ProjectWorktrees } from "./ports/project-worktrees.js";
 import { StageResults } from "./ports/stage-results.js";
@@ -165,6 +168,7 @@ export interface WorkModuleOptions {
   readonly projectWorktrees: Type<ProjectWorktrees>;
   readonly taskPullRequests: Type<TaskPullRequests>;
   readonly projectInitiativeBranches: Type<ProjectInitiativeBranches>;
+  readonly projectBranchDeletions: Type<ProjectBranchDeletions>;
   readonly knownPeople: Type<KnownPeople>;
   readonly knownEngineCascade: Type<KnownEngineCascade>;
   readonly knownPipelines: Type<KnownPipelines>;
@@ -199,6 +203,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
     projectWorktrees,
     taskPullRequests,
     projectInitiativeBranches,
+    projectBranchDeletions,
     knownPeople,
     knownEngineCascade,
     knownPipelines,
@@ -234,6 +239,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         IdeasController,
         InitiativesController,
         TasksController,
+        BranchDeletionsController,
         ConflictResolutionsController,
         TestTargetsSetUpsController,
         QueueController,
@@ -269,6 +275,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         { provide: ProjectWorktrees, useExisting: projectWorktrees },
         { provide: TaskPullRequests, useExisting: taskPullRequests },
         { provide: ProjectInitiativeBranches, useExisting: projectInitiativeBranches },
+        { provide: ProjectBranchDeletions, useExisting: projectBranchDeletions },
         { provide: KnownPeople, useExisting: knownPeople },
         { provide: KnownEngineCascade, useExisting: knownEngineCascade },
         { provide: KnownPipelines, useExisting: knownPipelines },
@@ -295,6 +302,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         PersonTasks,
         TaskArchiving,
         InitiativeArchiving,
+        BranchCleanup,
         DroppedInitiativeTasks,
         DroppedTaskDecisions,
         PullRequestOutcomes,
@@ -357,6 +365,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         TaskService,
         TaskArchiving,
         InitiativeArchiving,
+        BranchCleanup,
         DroppedInitiativeTasks,
         DroppedTaskDecisions,
         PlanningAfterRestart,

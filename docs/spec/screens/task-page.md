@@ -1,6 +1,6 @@
 # Task page
 
-Covers: the Task page's head and actions, the Kind, the drop note, Start and the queue, planning actions, the Needs you card and Before Ready, the Pipeline rail and Stage history, the record's tabs (Overview, Changes, Attachments), the record blocks (the Bug section, the GitHub issue and the Devices section with Use a Project device among them), the Task menu, run controls, Gate actions, Conflict resolution, publishing, and the Task's conversation.
+Covers: the Task page's head and actions, the Kind, the drop note, Start and the queue, planning actions, the Needs you card and Before Ready, the Pipeline rail and Stage history, the record's tabs (Overview, Changes, Attachments), the record blocks (the Bug section, the GitHub issue and the Devices section with Use a Project device among them), the Task menu, the Delete branch window, run controls, Gate actions, Conflict resolution, publishing, and the Task's conversation.
 
 ## Where it is
 
@@ -58,6 +58,7 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - **Archive**: on a Done or Dropped Task that isn't archived.
 - **Edit Stages for this Task**: until it ends, never in Shaping; opens the Stage editor (see Edit for this Task).
 - **Move to another Project…**: until it ends; shown even where it is refused, as its window says why.
+- **Delete branch…**: on a Done or Dropped Task while its branch `office/<task id>` is known here, locally or as a remote-tracking ref (`GET /tasks/:id/branch`, no fetch); a Publishing Task and a Conflict resolution Task show none (see Delete branch window).
 - A divider, then **Drop…** (danger), until it ends.
 - Drop… opens "Drop <title>?" (Small) with the button **Drop the Task**; it says the Task moves to Done as dropped, stays readable there, and can't be picked up again; a refusal shows as "The Task can't be dropped"; success toasts "Task dropped."
 - Its optional **Reason** (hint "Optional."): a radio list of **Won't fix**, **Duplicate**, **Can't reproduce** and **Other**, none picked at first; pressing the picked one again clears it ([2.1.3](../2.1.3-tasks.md#drop-reason)).
@@ -66,6 +67,16 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
   - Other shows a required box of three rows, up to 500 characters; Drop the Task waits with "Write the reason first".
   - When the Task has a GitHub issue and its Project closes issues of dropped Tasks: "GitHub issue #<n> will be closed with this reason, as <Project> closes issues of dropped Tasks."
   - A picked reason is unsaved input, so closing asks first.
+
+## Delete branch window
+
+- "Delete <branch>?" (Small), shared with the Initiative page; it judges the branch as it opens (`GET …/branch-deletion`, fetching first), with "Checking the branch…" meanwhile ([5.5](../5.5-git-and-isolation.md#deleting-merged-branches)).
+- It lists what goes: the local branch, the remote copy (`origin/<branch>`), and the worktree when one holds it.
+- **Safe:** "Everything on it is in <base branch>." with the button **Delete branch** (danger).
+- **Holds work:** a warning "It holds <n> commits <base branch> doesn't have; they are lost once it's deleted:" with up to 5 commit subjects and "and <m> more"; for an Initiative's branch also the Tasks landed on it that no Publish took to the base, by title; the button **Delete anyway** (danger).
+- **Refused:** the reason as a danger alert, and no button.
+- The delete sends the commits it judged; a branch that moved meanwhile is refused "The branch changed since it was checked; check again."
+- A refusal of the delete shows in the window as a danger alert; success closes it and toasts "Branch <branch> deleted."
 
 ## Move to another Project
 
@@ -381,6 +392,7 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - A diff cut short says "The diff stops here: the rest is too long to show." (a file after the cut: "The diff stops before this file: the rest is too long to show.").
 - "Tests:" with a badge per test result, or "not run".
 - Empty: "No changes yet."; unreadable: "The changes can't be read: <reason>".
+- After the Task's branch is deleted, it still shows what the Task changed, read from the tip The Office kept ([5.5](../5.5-git-and-isolation.md#what-a-deletion-does)).
 
 ## Attachments tab
 
@@ -430,6 +442,6 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - [Stages](../2.3.1-stages.md), [Gates](../2.3.3-gates-and-checks.md), [Publish](../2.3.4-publish.md)
 - [Decisions](../2.4.2-decisions.md), [Consultations](../2.4.3-consultations.md), [Threads](../2.4.1-threads.md)
 - [Stop and Pause](../2.4.5-stopping-and-restarts.md#stop-and-pause)
-- [A worktree per Task](../5.5-git-and-isolation.md#a-worktree-per-task)
+- [A worktree per Task](../5.5-git-and-isolation.md#a-worktree-per-task), [Deleting merged branches](../5.5-git-and-isolation.md#deleting-merged-branches)
 - [Connected devices](../2.13-connected-devices.md)
 - Related screens: [work-board.md](work-board.md), [initiative-page.md](initiative-page.md), [thread.md](thread.md), [decision-card.md](decision-card.md), [pull-requests.md](pull-requests.md)

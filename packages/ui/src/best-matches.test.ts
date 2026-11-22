@@ -43,4 +43,14 @@ describe("bestMatches", () => {
   it("gives none when no name holds the text", () => {
     expect(bestMatches(named("Offline sync"), "invoice", 10)).toEqual([]);
   });
+
+  it("finds an option by its other words too, ranked by its best match", () => {
+    const options = [
+      { label: "Checkout", alsoMatches: ["initiative/checkout"] },
+      { label: "Fix the form", alsoMatches: ["office/abc"] },
+    ];
+
+    expect(bestMatches(options, "office", 10)).toEqual([options[1]]);
+    expect(bestMatches(options, "check", 10)).toEqual([options[0]]);
+  });
 });

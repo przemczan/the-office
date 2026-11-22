@@ -7,7 +7,8 @@ import { toNowResponse } from "../http/now-responses.js";
 
 /**
  * Now reaches the web whole on each change, so the page and the strip need no refetch; each
- * Notification reaches it as raised and as cleared, for the channels that live there.
+ * Notification reaches each user's browsers as raised for them, and every browser as cleared, for
+ * the channels that live there.
  */
 @Injectable()
 export class NotificationsWebEvents implements OnModuleInit {
@@ -18,11 +19,16 @@ export class NotificationsWebEvents implements OnModuleInit {
       type: "now.changed",
       now: toNowResponse(event.now),
     }));
-    this.forwarding.forward(NotificationRaised, (event) => ({
-      type: "notification.raised",
-      notification: toNotificationResponse(event.notification),
-      replaces: [...event.replaces],
-    }));
+    // Each user's own: on their channels, in place of what they were shown.
+    this.forwarding.forwardToUser(
+      NotificationRaised,
+      ({ userId }) => userId,
+      (event) => ({
+        type: "notification.raised",
+        notification: toNotificationResponse(event.notification),
+        replaces: [...event.replaces],
+      }),
+    );
     this.forwarding.forward(NotificationsCleared, (event) => ({
       type: "notifications.cleared",
       notificationIds: [...event.notificationIds],

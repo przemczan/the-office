@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   BUG_TASK_CREATE_OPTION,
   BUG_TASK_DONT_CREATE_OPTION,
+  BUG_TASK_FIX_NOW_OPTION,
   type BugTaskFields,
   type Decision,
   type DecisionFormAnswer,
@@ -60,6 +61,9 @@ interface BugTaskForm {
   readonly createBlocked: string | undefined;
   create(onSent?: () => void): void;
   dontCreate(onSent?: () => void): void;
+  /** Whether the Decision offers Fix now: one opened before it was offered doesn't. */
+  readonly offersFixNow: boolean;
+  fixNow(onSent?: () => void): void;
   askAgain(onSent?: () => void): void;
   readonly asker: string;
 }
@@ -85,6 +89,9 @@ function useBugTaskForm({ decision, personName, answering }: DecisionAnsweringPr
   const withComment = comment === "" ? {} : { generalComment: comment };
   const send = (answer: DecisionFormAnswer, onSent?: () => void): void =>
     sending.mutate(answer, { onSuccess: () => onSent?.() });
+  const sendOption = (option: number, onSent?: () => void): void =>
+    send({ kind: "submitted", answers: [{ kind: "option", option }], ...withComment }, onSent);
+  const [asked] = decision.questions;
   return {
     fields,
     setFields,
@@ -105,15 +112,12 @@ function useBugTaskForm({ decision, personName, answering }: DecisionAnsweringPr
         },
         onSent,
       ),
-    dontCreate: (onSent) =>
-      send(
-        {
-          kind: "submitted",
-          answers: [{ kind: "option", option: BUG_TASK_DONT_CREATE_OPTION }],
-          ...withComment,
-        },
-        onSent,
-      ),
+    dontCreate: (onSent) => sendOption(BUG_TASK_DONT_CREATE_OPTION, onSent),
+    offersFixNow:
+      asked !== undefined &&
+      asked.kind !== "open" &&
+      asked.options[BUG_TASK_FIX_NOW_OPTION] !== undefined,
+    fixNow: (onSent) => sendOption(BUG_TASK_FIX_NOW_OPTION, onSent),
     askAgain: (onSent) =>
       send({ kind: "asked-again", ...withComment }, () => {
         setAskingAgain(false);
@@ -125,8 +129,8 @@ function useBugTaskForm({ decision, personName, answering }: DecisionAnsweringPr
 
 /**
  * A bug-task Decision (docs/design/issues-as-tasks.html, "Bug Task Decision"): the Agent's
- * proposal as editable fields, the general comment, and Create the Bug Task, Don't create it and
- * Ask me again; never Dismiss. In the shared feed it is compact, its form in a Large window.
+ * proposal as editable fields, the general comment, and Create the Bug Task, Don't create it, Fix
+ * now and Ask me again; never Dismiss. In the shared feed it is compact, its form in a Large window.
  */
 export function BugTaskCard({
   compact,
@@ -186,7 +190,7 @@ export function BugTaskWindowOf({
   return <BugTaskWindow decision={answering.decision} form={form} onClose={onClose} />;
 }
 
-/** The compact card's window, Large: the same form, with its three actions in the bar. */
+/** The compact card's window, Large: the same form, with its actions in the bar. */
 function BugTaskWindow({
   decision,
   form,
@@ -302,7 +306,10 @@ function BugTaskGeneralComment({ form }: { readonly form: BugTaskForm }): ReactN
   );
 }
 
-/** Create the Bug Task, Don't create it and Ask me again; no Dismiss, as in any Stage Thread. */
+/**
+ * Create the Bug Task, Don't create it, Fix now (when the Decision offers it) and Ask me again; no
+ * Dismiss, as in any Stage Thread.
+ */
 function BugTaskActions({
   form,
   onSent,
@@ -310,9 +317,11 @@ function BugTaskActions({
   readonly form: BugTaskForm;
   readonly onSent?: () => void;
 }): ReactNode {
-  // Both are a Submit: Create sends the fields, Don't create it sends none.
+  // Each is a Submit: Create sends the fields, Don't create it and Fix now send none.
   const sent = form.sending.isPending ? form.sending.variables : undefined;
   const submitted = sent?.kind === "submitted" ? sent : undefined;
+  const sentOption =
+    submitted?.answers[0]?.kind === "option" ? submitted.answers[0].option : undefined;
   return (
     <>
       <Button
@@ -327,11 +336,22 @@ function BugTaskActions({
         variant="secondary"
         disabled={form.waits !== undefined}
         title={form.waits}
-        loading={submitted !== undefined && submitted.bugTask === undefined}
+        loading={sentOption === BUG_TASK_DONT_CREATE_OPTION}
         onClick={() => form.dontCreate(onSent)}
       >
         Don't create it
       </Button>
+      {form.offersFixNow && (
+        <Button
+          variant="secondary"
+          disabled={form.waits !== undefined}
+          title={form.waits}
+          loading={sentOption === BUG_TASK_FIX_NOW_OPTION}
+          onClick={() => form.fixNow(onSent)}
+        >
+          Fix now
+        </Button>
+      )}
       <Button
         variant="secondary"
         iconLeft={<Icon name="rotate-ccw" size={13} />}
@@ -401,8 +421,8 @@ function BugTaskAskAgain({ form }: { readonly form: BugTaskForm }): ReactNode {
 }
 
 /**
- * An answered bug-task Decision's line: "Created the Bug Task <Task>" with its state, or "Didn't
- * create the Bug Task".
+ * An answered bug-task Decision's line: "Created the Bug Task <Task>" with its state, "Chose to fix
+ * it in this Task" for Fix now, or "Didn't create the Bug Task".
  */
 export function BugTaskAnswered({ decision }: { readonly decision: Decision }): ReactNode {
   const answer = decision.formAnswer;
@@ -410,7 +430,13 @@ export function BugTaskAnswered({ decision }: { readonly decision: Decision }): 
   const task = useQuery({ ...taskQueries.one(created ?? ""), enabled: created !== undefined }).data;
   if (answer?.kind !== "submitted") return null;
   if (created === undefined) {
-    return <p className="decision-answer-words">Didn't create the Bug Task</p>;
+    const [given] = answer.answers;
+    const fixedNow = given?.kind === "option" && given.option === BUG_TASK_FIX_NOW_OPTION;
+    return (
+      <p className="decision-answer-words">
+        {fixedNow ? "Chose to fix it in this Task" : "Didn't create the Bug Task"}
+      </p>
+    );
   }
   return (
     <p className="decision-answer-words bug-task-created">

@@ -269,6 +269,12 @@ export const PROPOSE_PROJECT_COMMANDS_TOOL = "propose_project_commands";
 export const PROPOSE_TEST_TARGETS_TOOL = "propose_test_targets";
 
 /**
+ * The Office tool whoever onboards Projects drafts a Proposal of a Project's Actions with; named
+ * as above.
+ */
+export const PROPOSE_ACTIONS_TOOL = "propose_actions";
+
+/**
  * The Office tool whoever onboards Projects and the Caretaker draft a Proposal of a library
  * Pipeline's Stages with, which Pipelines registers.
  */
@@ -418,7 +424,7 @@ function draftingOfficeTools(held: HeldDuties): readonly string[] {
 
 /**
  * The Office tools a person has in their chat and their Stage Threads alike, for the duties they
- * hold: whoever onboards and repairs Projects proposes Project commands, test targets, library
+ * hold: whoever onboards and repairs Projects proposes Project commands, test targets, Actions, library
  * Pipelines, Project Pipelines and Stage templates, drafts a Project to onboard, and installs and
  * updates skills from a Source (spec §2.1, §2.2, §2.3, §2.6).
  */
@@ -427,6 +433,7 @@ export function roleOfficeTools(held: HeldDuties): readonly string[] {
     ? [
         PROPOSE_PROJECT_COMMANDS_TOOL,
         PROPOSE_TEST_TARGETS_TOOL,
+        PROPOSE_ACTIONS_TOOL,
         ...PIPELINE_PROPOSAL_OFFICE_TOOLS,
         PROPOSE_PROJECT_TOOL,
         LIST_SOURCE_SKILLS_TOOL,

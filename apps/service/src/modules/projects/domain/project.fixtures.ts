@@ -47,6 +47,7 @@ export function aProject(fields: Partial<Project> = {}): Project {
     logo: NO_PROJECT_IMAGE,
     beforePublishingCommand: "",
     afterPublishingCommand: "",
+    deleteMergedBranches: false,
     environment: UNCHANGED_ENVIRONMENT,
     useProjectSkills: true,
     projectSkillsOff: [],

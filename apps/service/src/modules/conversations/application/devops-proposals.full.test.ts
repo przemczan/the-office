@@ -6,7 +6,9 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import type { INestApplication } from "@nestjs/common";
 import {
+  actionListSchema,
   markLabelFor,
+  PROPOSE_ACTIONS_TOOL,
   PROPOSE_LIBRARY_PIPELINE_TOOL,
   PROPOSE_PROJECT_COMMANDS_TOOL,
   PROPOSE_PROJECT_PIPELINE_TOOL,
@@ -27,6 +29,7 @@ import {
   stageTemplateSchema,
   taskSchema,
   testTargetListSchema,
+  type Action,
   type Pipeline,
   type Project,
   type ProjectPipeline,
@@ -416,6 +419,8 @@ describe("Devops' Proposals, through the scripted engine", () => {
       "test-targets": false,
       "github-issues": false,
       "run-environment": false,
+      // Not among those proposed, so on, as for any Project added.
+      actions: true,
     });
     // The whole app, a real repository and a chat session: slow under a full run.
   }, 30_000);
@@ -1131,6 +1136,190 @@ describe("Devops' Proposals of test targets, through the scripted engine", () =>
     // The whole app, a real repository and a chat session: slow under a full run.
   }, 30_000);
 });
+
+describe("Devops' Proposals of Actions, through the scripted engine", () => {
+  const BUILD = {
+    key: "build-web",
+    name: "Build web",
+    leavesTheWorkstation: false,
+    kind: "project-command",
+    settings: { commandKey: "build", commandsBefore: ["install"], timeLimitMinutes: null },
+  } as const;
+  const LINT = {
+    key: "lint",
+    name: "Lint",
+    leavesTheWorkstation: false,
+    kind: "project-command",
+    settings: { commandKey: "lint", commandsBefore: [], timeLimitMinutes: 10 },
+  } as const;
+
+  it("drafts Actions that change nothing until applied, a value the user set only when named, and applies them as set by the Proposal", async () => {
+    const project = await aProject();
+    await putActions(project, [BUILD]);
+    const before = await actionsOf(project);
+
+    const unnamed = await chat.ninaCalls(PROPOSE_ACTIONS_TOOL, {
+      project: project.id,
+      actions: [{ ...BUILD, name: "Build the web app" }],
+    });
+    expect(unnamed.isError).toBe(true);
+    expect(unnamed.text).toContain("The user set build-web.name");
+
+    const refused = await chat.ninaCalls(PROPOSE_ACTIONS_TOOL, {
+      project: project.id,
+      actions: [{ ...LINT, settings: { ...LINT.settings, commandKey: "deploy" } }],
+    });
+    expect(refused.isError).toBe(true);
+    expect(refused.text).toContain("deploy");
+
+    const [drafted] = await chat.ninaProposes([
+      PROPOSE_ACTIONS_TOOL,
+      {
+        project: project.id,
+        actions: [{ ...BUILD, name: "Build the web app" }, LINT],
+        changeUserSet: ["build-web.name"],
+      },
+    ]);
+    if (!drafted) throw new Error("A Proposal of Actions.");
+    expect(drafted.change).toEqual({
+      kind: "actions",
+      projectId: project.id,
+      changes: {
+        actions: [
+          {
+            key: "build-web",
+            from: BUILD,
+            to: { ...BUILD, name: "Build the web app" },
+            userSet: ["name"],
+          },
+          { key: "lint", from: null, to: LINT, userSet: [] },
+        ],
+      },
+    });
+    expect(await actionsOf(project)).toEqual(before);
+
+    const applied = await chat.api("POST", `/proposals/${drafted.id}/apply`, {});
+    expect(applied.status).toBe(200);
+    const setter = setterOf(drafted.id);
+    const [build, lint] = await actionsOf(project);
+    expect(build).toMatchObject({
+      name: "Build the web app",
+      setBy: { name: setter, settings: { by: "user" } },
+    });
+    expect(lint).toMatchObject({
+      ...LINT,
+      setBy: { name: setter, kind: setter, settings: setter },
+    });
+    // The whole app, a real repository and three chat sessions: slow under a full run.
+  }, 60_000);
+
+  it("refuses to apply Actions whose values changed since they were drafted, changing nothing", async () => {
+    const project = await aProject();
+    await putActions(project, [BUILD]);
+    const [drafted] = await chat.ninaProposes([
+      PROPOSE_ACTIONS_TOOL,
+      {
+        project: project.id,
+        actions: [{ ...BUILD, name: "Build the web app" }],
+        changeUserSet: ["build-web.name"],
+      },
+    ]);
+    if (!drafted) throw new Error("A Proposal of Actions.");
+    await putActions(project, [
+      { ...BUILD, settings: { ...BUILD.settings, timeLimitMinutes: 30 } },
+    ]);
+    const before = await actionsOf(project);
+
+    const applied = await chat.api("POST", `/proposals/${drafted.id}/apply`, {});
+
+    expect(await chat.reasonsOf(applied)).toEqual([
+      `Action "build-web" changed since this was proposed.`,
+    ]);
+    expect(await actionsOf(project)).toEqual(before);
+    expect((await chat.readProposal(drafted.id)).status.kind).toBe("open");
+    // The whole app, a real repository and a chat session: slow under a full run.
+  }, 30_000);
+
+  it("marks an Action Leaves the workstation by a Proposal, and refuses one that clears the mark", async () => {
+    const project = await aProject();
+    await putActions(project, [BUILD, { ...LINT, leavesTheWorkstation: true }]);
+
+    const cleared = await chat.ninaCalls(PROPOSE_ACTIONS_TOOL, {
+      project: project.id,
+      actions: [LINT],
+      changeUserSet: ["lint.leavesTheWorkstation"],
+    });
+    expect(cleared.isError).toBe(true);
+    expect(cleared.text).toContain(
+      `Action "lint": A Proposal may mark an Action Leaves the workstation, never clear the mark; only the user clears it.`,
+    );
+
+    const [drafted] = await chat.ninaProposes([
+      PROPOSE_ACTIONS_TOOL,
+      {
+        project: project.id,
+        actions: [{ ...BUILD, leavesTheWorkstation: true }],
+        changeUserSet: ["build-web.leavesTheWorkstation"],
+      },
+    ]);
+    if (!drafted) throw new Error("A Proposal of Actions.");
+    expect(drafted.change).toMatchObject({
+      kind: "actions",
+      changes: { actions: [{ key: "build-web", userSet: ["leavesTheWorkstation"] }] },
+    });
+
+    const applied = await chat.api("POST", `/proposals/${drafted.id}/apply`, {});
+    expect(applied.status).toBe(200);
+    const [build, lint] = await actionsOf(project);
+    expect(build).toMatchObject({
+      leavesTheWorkstation: true,
+      setBy: { leavesTheWorkstation: setterOf(drafted.id), name: { by: "user" } },
+    });
+    expect(lint).toMatchObject({ leavesTheWorkstation: true });
+    // The whole app, a real repository and two chat sessions: slow under a full run.
+  }, 60_000);
+
+  it("refuses drafting and applying Actions while the Project has them switched off", async () => {
+    const project = await aProject();
+    const [drafted] = await chat.ninaProposes([
+      PROPOSE_ACTIONS_TOOL,
+      { project: project.id, actions: [BUILD] },
+    ]);
+    if (!drafted) throw new Error("A Proposal of Actions.");
+    const off = await chat.api("PUT", `/projects/${project.id}/features`, {
+      features: { actions: false },
+    });
+    expect(off.status).toBe(200);
+    const switchedOff = `Actions are switched off for «${project.name}».`;
+
+    const applied = await chat.api("POST", `/proposals/${drafted.id}/apply`, {});
+    expect(await chat.reasonsOf(applied)).toEqual([switchedOff]);
+    expect((await chat.readProposal(drafted.id)).status.kind).toBe("open");
+
+    const refused = await chat.ninaCalls(PROPOSE_ACTIONS_TOOL, {
+      project: project.id,
+      actions: [LINT],
+    });
+    expect(refused).toEqual({ text: expect.stringContaining(switchedOff), isError: true });
+    expect(await actionsOf(project)).toEqual([]);
+    // The whole app, a real repository and two chat sessions: slow under a full run.
+  }, 60_000);
+});
+
+/** Who set a value an applied Proposal of Nina's changed. */
+function setterOf(proposalId: string) {
+  return { by: "proposal", proposalId, agent: { roleKey: DEVOPS, name: "Nina" } };
+}
+
+/** Saves the Project's Actions as the user does on the Project page. */
+async function putActions(project: Project, actions: readonly unknown[]): Promise<void> {
+  const response = await chat.api("PUT", `/projects/${project.id}/actions`, { actions });
+  expect(response.status).toBe(200);
+}
+
+async function actionsOf(project: Project): Promise<Action[]> {
+  return actionListSchema.parse(await chat.read(`/projects/${project.id}/actions`)).actions;
+}
 
 /** A repository as aRepository's, with a package manifest whose scripts test targets name. */
 async function aRepositoryWithScripts(): Promise<string> {

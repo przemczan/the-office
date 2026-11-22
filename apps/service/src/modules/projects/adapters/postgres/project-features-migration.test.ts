@@ -24,7 +24,7 @@ afterAll(async () => {
 describe("migration 0191", () => {
   it("leaves a Project added before it with every feature on, as it was", async () => {
     const migration = await readFile(
-      new URL("../../../../../drizzle/0191_project_features.sql", import.meta.url),
+      new URL("../../../../../drizzle/0194_project_features.sql", import.meta.url),
       "utf8",
     );
     const id = `project-${randomUUID()}`;
@@ -59,6 +59,7 @@ describe("migration 0191", () => {
       "test-targets": true,
       "github-issues": true,
       "run-environment": true,
+      actions: true,
     });
   });
 });

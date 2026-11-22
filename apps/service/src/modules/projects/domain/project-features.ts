@@ -10,6 +10,7 @@ export const PROJECT_FEATURES = [
   "test-targets",
   "github-issues",
   "run-environment",
+  "actions",
 ] as const;
 export type ProjectFeature = (typeof PROJECT_FEATURES)[number];
 
@@ -43,6 +44,7 @@ export const PROJECT_FEATURE_REGISTRY: Readonly<Record<ProjectFeature, ProjectFe
     name: "Run environment",
     plural: false,
   },
+  actions: { needs: [], whenUnset: true, name: "Actions", plural: true },
 };
 
 /** A feature whose switch is kept in the Project's switches, not by a setting of its own. */

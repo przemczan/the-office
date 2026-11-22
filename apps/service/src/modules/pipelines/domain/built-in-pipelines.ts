@@ -2,7 +2,7 @@ import {
   RUN_PROJECT_COMMAND_TOOL,
   WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL,
 } from "../../engine/index.js";
-import { PROPOSE_TEST_TARGETS_TOOL } from "../../conversations/index.js";
+import { PROPOSE_ACTIONS_TOOL, PROPOSE_TEST_TARGETS_TOOL } from "../../conversations/index.js";
 import type { DutyKey } from "../../people/index.js";
 import type { Pipeline } from "./pipeline.js";
 import { UPDATE_BRANCH_TOOL } from "./stage-commit.js";
@@ -143,8 +143,7 @@ const onboard: Pipeline = {
       key: "onboard",
       name: "Onboard",
       duty: ONBOARDS_PROJECTS,
-      brief:
-        "Make the Project build and test in a fresh worktree. Propose its commands when they are missing or wrong.",
+      brief: `Make the Project build and test in a fresh worktree. Propose its commands when they are missing or wrong. Once its commands and test targets are set, propose with ${PROPOSE_ACTIONS_TOOL} the Actions its repository suggests, such as a manual release Workflow or an install of a debug build.`,
       session: "fresh",
       budget: 150_000,
       optional: false,

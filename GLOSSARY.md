@@ -90,7 +90,7 @@ The Pipeline an Initiative has in one of the Projects it spans, an office-wide P
 _Avoid_: Initiative workflow, release Pipeline
 
 **Initiative's branch**:
-`initiative/<short name>`, made from the base branch in each Project where an Initiative has a Pipeline. Its Tasks start from it and publish into it, it keeps up with the base, and it is kept until the user deletes it.
+`initiative/<short name>`, made from the base branch in each Project where an Initiative has a Pipeline. Its Tasks start from it and publish into it, it keeps up with the base, and it is kept until deleted by hand or by Delete branches once merged.
 _Avoid_: Feature branch, integration branch, epic branch
 
 **Short name** (an Initiative's):
@@ -294,7 +294,7 @@ A form an Agent puts to the user, or to a Consultant, and waits on before contin
 _Avoid_: Approval (its own card), prompt, questionnaire, survey, question (one part of it)
 
 **Bug Task Decision**:
-A Decision an Agent opens with `propose_bug_task` on its own Task, for a big issue outside its scope. "Create the Bug Task" makes a Bug Task in Backlog from the form as edited. It isn't a Proposal: it waits on the user as a Decision does.
+A Decision an Agent opens with `propose_bug_task` on its own Task, for a big issue outside its scope. "Create the Bug Task" makes a Bug Task in Backlog from the form as edited; "Fix now" makes none, and the Agent fixes the issue within its own Task. It isn't a Proposal: it waits on the user as a Decision does.
 _Avoid_: Bug report, Bug Task proposal
 
 **Question**:
@@ -438,7 +438,7 @@ The short-lived container a container install's Office update runs in: started b
 _Avoid_: Watchtower, update container, sidecar
 
 **Notification**:
-A signal outside the page the user is on that something waits for them or has happened; it opens that thing and is cleared by handling it, never by reading the Notification itself.
+A signal outside the page the user is on that something waits for them or has happened; it opens that thing and is cleared for everyone by handling it, never by reading the Notification itself; each user's own settings decide where it reaches them.
 _Avoid_: Alert, inbox item, notice
 
 **Waiting for you**:
@@ -446,7 +446,7 @@ Now's list, beside Needs you, of what waits on the user without blocking anyone:
 _Avoid_: To do, backlog, reminders, FYI
 
 **Quiet hours**:
-A daily window, off until the user sets it, in which no Notification goes to the desktop except "an Agent engine down"; one summary comes when it ends.
+A daily window of each user's own, off until they set it, in which no Notification goes to their desktop except "the service or an Agent engine down"; one summary comes when it ends.
 _Avoid_: Do not disturb, silent mode, mute
 
 **Pipeline**:
@@ -734,6 +734,10 @@ _Avoid_: Capacity, slots, concurrency
 **Project limit**:
 How many of a Project's Tasks may be started at once (In progress, Waiting on you or Paused), 1 unless the user raises it on the Project page; only the Project's own Tasks count against it.
 _Avoid_: Project capacity, parallelism, concurrency
+
+**Delete branches once merged**:
+A Project's setting, Off by default: with it On, The Office deletes a Task's branch, here and on the remote, once it is merged, and an Initiative's once it is Done and its work is in the base; a branch holding work the base lacks is never deleted by it. **Delete branch…** deletes one by hand.
+_Avoid_: Branch cleanup, prune, auto-delete
 
 **Hard limit**:
 The context size, 180k tokens by default, past which The Office stops an Agent Stage's turn and asks for a Handover note alone, so a fresh session carries the Stage on; set Office-wide in Settings, or per Stage.

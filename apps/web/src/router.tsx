@@ -22,6 +22,7 @@ import { AccountPage } from "./surfaces/account/account-page.tsx";
 import { AppearanceSection } from "./surfaces/account/appearance-section.tsx";
 import { AuthenticatorSection } from "./surfaces/account/authenticator-section.tsx";
 import { LinkedIdentitiesSection } from "./surfaces/account/linked-identities-section.tsx";
+import { NotificationsSection } from "./surfaces/account/notifications/notifications-section.tsx";
 import { PasskeysSection } from "./surfaces/account/passkeys-section.tsx";
 import { ProfileSection } from "./surfaces/account/profile-section.tsx";
 import { SignedInDevicesSection } from "./surfaces/account/signed-in-devices-section.tsx";
@@ -56,7 +57,6 @@ import {
 } from "./surfaces/projects/project-sections.tsx";
 import { ProjectOverviewSection } from "./surfaces/projects/overview/overview-section.tsx";
 import { NoProjectOpen, ProjectsPage } from "./surfaces/projects/projects-page.tsx";
-import { NotificationsSection } from "./surfaces/settings/notifications/notifications-section.tsx";
 import { EnginesSection } from "./surfaces/settings/engines/engines-section.tsx";
 import { FirstRunSetupPage } from "./surfaces/settings/first-run-setup/first-run-setup-page.tsx";
 import {
@@ -76,6 +76,7 @@ import { OfficeLimitsSection } from "./surfaces/settings/office-limits/office-li
 import { SettingsPage } from "./surfaces/settings/settings-page.tsx";
 import { CodePage } from "./surfaces/sign-in/code-page.tsx";
 import { SignInPage } from "./surfaces/sign-in/sign-in-page.tsx";
+import { ProjectActionsSection } from "./surfaces/projects/actions/project-actions-section.tsx";
 import { ProjectPipelinesSection } from "./surfaces/projects/pipelines/project-pipelines-section.tsx";
 import { PipelinesSection } from "./surfaces/settings/pipelines/pipelines-section.tsx";
 import { SkillsSection } from "./surfaces/settings/skills/skills-section.tsx";
@@ -164,8 +165,8 @@ const signInCodeRoute = createRoute({
   staticData: { title: "Authenticator code" },
 });
 
-// The signed-in user's own: their profile, password, authenticator, appearance and signed-in
-// devices.
+// The signed-in user's own: their profile, password, authenticator, appearance, Notifications
+// settings, passkeys, linked identities and signed-in devices.
 const accountRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "account",
@@ -200,6 +201,13 @@ const accountAppearanceRoute = createRoute({
   getParentRoute: () => accountRoute,
   path: "appearance",
   component: AppearanceSection,
+  staticData: { title: "Account" },
+});
+
+const accountNotificationsRoute = createRoute({
+  getParentRoute: () => accountRoute,
+  path: "notifications",
+  component: NotificationsSection,
   staticData: { title: "Account" },
 });
 
@@ -599,6 +607,21 @@ const projectTestTargetsRoute = createRoute({
   staticData: { title: "Projects" },
 });
 
+// The Project's Actions; an open Action has its address.
+const projectActionsRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: "actions",
+  component: ProjectActionsSection,
+  staticData: { title: "Projects" },
+});
+
+const projectActionRoute = createRoute({
+  getParentRoute: () => projectRoute,
+  path: "actions/$actionKey",
+  component: ProjectActionsSection,
+  staticData: { title: "Projects" },
+});
+
 const projectEngineRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: "engine",
@@ -771,13 +794,6 @@ const settingsPromptTemplatesRoute = createRoute({
   staticData: { title: "Settings" },
 });
 
-const settingsNotificationsRoute = createRoute({
-  getParentRoute: () => settingsRoute,
-  path: "notifications",
-  component: NotificationsSection,
-  staticData: { title: "Settings" },
-});
-
 const settingsUpdatesRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: "updates",
@@ -836,6 +852,16 @@ const settingsAppearanceRoute = createRoute({
   },
 });
 
+// Notifications settings are each user's own (spec §2.10): an old link lands there. Kept for one
+// release, then removed.
+const settingsNotificationsRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "notifications",
+  beforeLoad: () => {
+    throw redirect({ to: "/account/notifications", replace: true });
+  },
+});
+
 export const router = createRouter({
   routeTree: rootRoute.addChildren([
     signInRoute,
@@ -846,6 +872,7 @@ export const router = createRouter({
       accountProfileRoute,
       accountAuthenticatorRoute,
       accountAppearanceRoute,
+      accountNotificationsRoute,
       accountPasskeysRoute,
       accountLinkedIdentitiesRoute,
       accountSignedInDevicesRoute,
@@ -884,6 +911,8 @@ export const router = createRouter({
         projectIssuesRoute,
         projectRunEnvironmentRoute,
         projectTestTargetsRoute,
+        projectActionsRoute,
+        projectActionRoute,
         projectEngineRoute,
         projectSkillsRoute,
         projectServerValuesRoute,
@@ -909,12 +938,12 @@ export const router = createRouter({
       settingsOfficeLimitsRoute,
       settingsOfficeInstructionsRoute,
       settingsPromptTemplatesRoute,
-      settingsNotificationsRoute,
       settingsUsersRoute,
       settingsSigningInRoute,
       settingsTelemetryRoute,
       settingsUpdatesRoute,
       settingsAppearanceRoute,
+      settingsNotificationsRoute,
     ]),
   ]),
 });

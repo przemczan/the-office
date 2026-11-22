@@ -1,6 +1,6 @@
 # Project page
 
-Covers: a Project's page and its head, the section tabs, Overview (the dashboard: the Actions tile, Onboarding, Work, the Project limit, the tiles for Initiatives, Ideas, CI, Pull requests, Test instances, Environment, Remote sign-in and Recent activity), Files, Commands (install, install inputs, commands, Publish), Environment (variables, Secret variables, environment check), Pipelines (Default Pipeline and its rows by Kind, Project Pipelines), GitHub issues (the Import issues window, auto-import, write-back), Run environment, Devices (the Project's devices, Add a device, pairing, Change Port, Pair again, Remove), Test targets (the list, the editor, Install on a device, Set up test targets, the open Proposal), Test instances (Launch on a branch, instances by branch), the Branch picker, Actions (the list, the editor, the open Proposal, the Run window and its confirm step, an Action's History, a run's log), Engine, Skills, Server values, Features (the switches, the tabs a switched-off feature hides), Appearance (Mark, Icon and Logo, How it looks).
+Covers: a Project's page and its head, the section tabs, Overview (the dashboard: the Actions tile, Onboarding, Work, the Project limit, the tiles for Initiatives, Ideas, CI, Pull requests, Test instances, Environment, Remote sign-in and Recent activity), Files, Commands (install, install inputs, commands, Publish, Delete branches once merged), Environment (variables, Secret variables, environment check), Pipelines (Default Pipeline and its rows by Kind, Project Pipelines), GitHub issues (the Import issues window, auto-import, write-back), Run environment, Devices (the Project's devices, Add a device, pairing, Change Port, Pair again, Remove), Test targets (the list, the editor, Install on a device, Set up test targets, the open Proposal), Test instances (Launch on a branch, instances by branch), the Branch picker, Actions (the list, the editor, the open Proposal, the Run window and its confirm step, an Action's History, a run's log), Engine, Skills, Server values, Features (the switches, the tabs a switched-off feature hides), Appearance (Mark, Icon and Logo, How it looks).
 
 ## Where it is
 
@@ -23,7 +23,7 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
   - **Server values**: `/projects/$projectId/server-values`.
   - **Features**: `/projects/$projectId/features`.
   - **Appearance**: `/projects/$projectId/appearance`.
-- A switched-off feature's tab (GitHub issues, Run environment, Test targets) is gone from the tabs; its address shows a note ([Features](#features)).
+- A switched-off feature's tab (GitHub issues, Run environment, Test targets, Actions) is gone from the tabs; its address shows a note ([Features](#features)).
 - An unknown Project says so at every section's address ([States](#states)).
 
 ## Layout
@@ -220,6 +220,7 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
   - **Publishing**: a select saved at once, "Push and open a pull request" or "Merge into <base branch>"; toast "Publishing saved. Tasks in <name> <mode in lower case>."
   - **Before publishing**: placeholder `npm run changelog`; blank shows "None"; saving blank clears it; hint "Runs in the Task's worktree before anything leaves; what it changes is committed and published."; toasts "Before publishing line saved." / "Before publishing line cleared."
   - **After publishing**: placeholder `./scripts/notify.sh`; blank shows "None"; hint "Runs in the Task's worktree once the pull request opens or the merge lands, with OFFICE_PUBLISHED_BRANCH, OFFICE_PUBLISHED_COMMIT, OFFICE_PULL_REQUEST_URL when there is one, and OFFICE_PUBLISHING_MODE."; toasts "After publishing line saved." / "After publishing line cleared."
+  - **Delete branches once merged**: a switch saved at once, Off by default; hint "Deletes a Task's branch here and on the remote once it is merged, and an Initiative's once it is Done and published. A branch holding work the base lacks is never deleted."; toasts "Branches of <Project> are deleted once merged." / "Branches of <Project> are kept after merge." ([5.5](../5.5-git-and-isolation.md#delete-branches-once-merged)).
   - Note: "Publish runs both lines with the Project's own variables, never The Office's credentials: keep a token in a Secret variable. Each runs again every time Publish runs, so it must be safe to run twice, and the Script Stage time limit of 30 minutes applies."
 - Only one row is edited at a time.
 
@@ -483,13 +484,14 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
   - **Command**, a select of the Project's commands, each its key (monospace) and name;
   - **Commands before it**, as the test target editor's Commands before the entry point ([Test targets](#test-targets)), hint "Run in the checkout before the command, in this order.";
   - **Device**, a select of **None** and the Project's devices, each with its kind badge (hint "Held by the run while it runs. Needs Run environment On."); with none, "<Project> has no devices yet." with a link "Add one under Devices";
-  - **Time limit**: empty, it reads "Default (60 minutes)" with **Set its own limit**; set, a stepper in minutes, 1 to 240, with **Use the default**; hint "Its commands before it included.";
+  - **Time limit**: empty, it reads "Default (60 minutes)" with **Set its own limit**; set, a stepper in minutes, 1 to 240, a minute a press up to 10 and 5 above, with **Use the default**; hint "Its commands before it included.";
   - the note "It gets <Project>'s variables and Secret variables, and `OFFICE_ACTION`, `OFFICE_ACTION_BRANCH` and `OFFICE_ACTION_COMMIT`; never The Office's own sign-ins. A token it needs goes in a Secret variable."
 - Test target: **Test target**, a select of the Project's test targets, each with its kind badge (hint "Build to install and Install on a device are what it is meant for; a Hosted target runs as long as its instance does."); with none, "<Project> has no test targets yet." with a link "Add one under Test targets".
 - Workflow:
   - **Workflow file**, a select of the workflows on the base branch whose file declares a start by hand, read as the Start a workflow window reads them ([ci-runs.md](ci-runs.md#start-a-workflow-window)): "Reading the workflows on <base branch>…", or "No workflow on <base branch> can be started by hand.";
-  - one control per input it declares there, as that window's, hint "Fixed with the Action: nothing is asked at its start."
-- **Leaves the workstation**, a checkbox with the hint "It pushes, publishes, deploys or releases: anything that reaches people or systems outside this Office. It then runs from <base branch> only, after a confirm step."; ticked when Workflow is chosen for a new Action, and the user may clear it.
+  - one control per input it declares there, as that window's, hint "Fixed with the Action: nothing is asked at its start.";
+  - an input the Action fixed that the file no longer declares is a warning, "<input> isn't an input <file> declares on <base branch> anymore; saving leaves it out."
+- **Leaves the workstation**, a checkbox with the hint "It pushes, publishes, deploys or releases: anything that reaches people or systems outside this Office. It then runs from <base branch> only, after a confirm step."; ticked when Workflow is chosen, for a new Action or one changed to it, and the user may clear it before saving or later; the service keeps what the editor saves.
 - Each value the editor saves is marked set by you; in the editor each value shows who set it last.
 - Toasts "<name> added.", "<name> saved. It applies from its next run."; a refusal shows in the window as the service words it (**The Action wasn't saved**), naming the value: a key taken, a command, target, device or Workflow the Project doesn't have, an input the file doesn't declare, a Project variable named as one The Office sets.
 - Rules: [2.15](../2.15-actions.md#kinds), [2.15](../2.15-actions.md#leaves-the-workstation), [2.15](../2.15-actions.md#what-the-office-sets).
@@ -581,12 +583,13 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
   - **Connected devices**, hint "Devices connected to a Task's run environment.";
   - **Test targets**, hint "What can be launched on an Initiative's branch to try the work.";
   - **GitHub issues**, hint "Import issues as Tasks and write back to them.";
-  - **Run environment**, hint "Checks run in the containers .devcontainer/ defines."; it shows and writes the Project's Run environment setting ([Run environment](#run-environment)), "Not decided" showing as off.
+  - **Run environment**, hint "Checks run in the containers .devcontainer/ defines."; it shows and writes the Project's Run environment setting ([Run environment](#run-environment)), "Not decided" showing as off;
+  - **Actions**, hint "Things to run on demand, outside the Task queue."; on unless set.
 - A switch whose needed feature is off is disabled, saying "Needs Run environment".
 - Turning one off turns off the features that need it; a refused change shows the service's reasons under the block.
 - The tab sits before Appearance.
-- A switched-off feature's tab (GitHub issues, Run environment, Test targets) is gone from the tabs; Run environment's only while it is Off, so Not decided yet still shows its tab.
-  - Its address shows a note, "GitHub issues are switched off for <name>.", "Run environment is switched off for <name>." or "Test targets are switched off for <name>.", with a link to Features; it doesn't redirect.
+- A switched-off feature's tab (GitHub issues, Run environment, Test targets, Actions) is gone from the tabs; Run environment's only while it is Off, so Not decided yet still shows its tab.
+  - Its address shows a note, "GitHub issues are switched off for <name>.", "Run environment is switched off for <name>.", "Test targets are switched off for <name>." or "Actions are switched off for <name>.", with a link to Features; it doesn't redirect.
 
 ## Appearance
 
@@ -632,6 +635,7 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
 - Which Pipeline a Task follows: [2.3.5](../2.3.5-library.md#which-pipeline-a-task-follows).
 - GitHub issues: [2.1.1](../2.1.1-projects.md#github-issues).
 - Publishing, Publish's before and after lines: [2.3.4](../2.3.4-publish.md#publishs-before-and-after-lines).
+- Delete branches once merged: [5.5](../5.5-git-and-isolation.md#deleting-merged-branches).
 - Project skills: [2.6](../2.6-skills.md#project-skills), [2.6](../2.6-skills.md#project-skills-turn-off-one-by-one).
 - The engine cascade: [5.4.5](../5.4.5-engines-and-cascade.md#the-engine-cascade).
 - Test targets and their Proposal: [2.12](../2.12-test-instances.md#test-target), [2.12](../2.12-test-instances.md#writing-test-targets).

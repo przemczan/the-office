@@ -25,7 +25,7 @@ import { placementAmong } from "./board-placement.ts";
 import { blockingTasksOf } from "../../shell/work/initiative-progress.ts";
 import { FilterBar } from "./filter-bar.tsx";
 import { useBoardFilters, useBoardGrouping } from "./use-board-filters.ts";
-import { stageWorkedNow, useCurrentStage, usePeopleWorking } from "./working-mark.tsx";
+import { useCurrentStage, usePeopleWorking } from "./working-mark.tsx";
 
 /** Where a dragged card would land: before a card, or at the end of its list. */
 type DropTarget = { readonly before: string } | { readonly endOf: string };
@@ -156,7 +156,7 @@ export function Board(): ReactNode {
         queuedBehind={tasksAmong(queued?.behind ?? [], tasks.data ?? [])}
         blockers={blockingTasksOf(task, tasks.data ?? [])}
         peopleWorking={peopleWorking}
-        stageName={stageWorkedNow(peopleWorking, currentStageOf(task.id))}
+        stageName={currentStageOf(task.id)?.name}
         dragging={dragged?.id === task.id}
         dropBefore={target !== undefined && "before" in target && target.before === task.id}
         onDragStart={() => setDragged(task)}

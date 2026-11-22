@@ -40,6 +40,7 @@ const SECTIONS = [
     feature: "run-environment",
   },
   { to: "/projects/$projectId/test-targets", label: "Test targets", feature: "test-targets" },
+  { to: "/projects/$projectId/actions", label: "Actions", feature: "actions" },
   { to: "/projects/$projectId/engine", label: "Engine" },
   { to: "/projects/$projectId/skills", label: "Skills" },
   { to: "/projects/$projectId/server-values", label: "Server values" },

@@ -5,6 +5,7 @@ import type {
   ProjectPipelineCheck,
   ProjectPipelineFields,
   ProposedChange,
+  ProposedActions,
   ProposedProjectCommands,
   ProposedTestTargets,
   Role,
@@ -21,6 +22,7 @@ import {
   stagesLine,
   type StageChange,
 } from "../pipelines/pipeline-words.ts";
+import { ACTION_FIELD_LABELS, ACTION_FIELDS, actionFieldWords } from "../action-words.ts";
 import { COMMAND_KIND_LABELS, INSTALL_INPUTS_LABEL, installInputsLine } from "../project-words.ts";
 import {
   TEST_TARGET_FIELD_LABELS,
@@ -163,6 +165,70 @@ export function ProposedTestTargetChanges({
                         <Badge tone="warning" size="sm">
                           You set this
                         </Badge>
+                      )
+                    }
+                  />,
+                ];
+              })}
+            </ul>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+/**
+ * Each Action a Proposal adds, changes or removes, by key, as the test targets' card shows them:
+ * every value it changes from now to as proposed (one added from nothing, one removed struck
+ * through), each value the user set flagged "You set this", and a Leaves the workstation mark it
+ * adds flagged "Marks it Leaves the workstation".
+ */
+export function ProposedActionChanges({
+  changes,
+}: {
+  readonly changes: ProposedActions;
+}): ReactNode {
+  return (
+    <>
+      {changes.actions.map(({ key, from, to, userSet }) => {
+        const shown = to ?? from;
+        if (!shown) return null;
+        const change = from === null ? "Added" : to === null ? "Removed" : "Changed";
+        const label = `${shown.name} (${key})`;
+        const marks = to !== null && to.leavesTheWorkstation && from?.leavesTheWorkstation !== true;
+        return (
+          <div className="proposal-section" role="group" aria-label={label} key={key}>
+            <span className="proposal-section-title">
+              {to === null ? <s>{label}</s> : label} · {change}
+            </span>
+            <ul className="proposal-changes">
+              {ACTION_FIELDS.flatMap((field) => {
+                const was = from && actionFieldWords(from, field);
+                const proposed = to && actionFieldWords(to, field);
+                if (was === proposed) return [];
+                const youSet = userSet.includes(field);
+                const marking = marks && field === "leavesTheWorkstation";
+                return [
+                  <ChangeRow
+                    key={field}
+                    label={ACTION_FIELD_LABELS[field]}
+                    from={was ?? undefined}
+                    to={proposed ?? "Removed"}
+                    flag={
+                      (youSet || marking) && (
+                        <>
+                          {youSet && (
+                            <Badge tone="warning" size="sm">
+                              You set this
+                            </Badge>
+                          )}
+                          {marking && (
+                            <Badge tone="warning" size="sm">
+                              Marks it Leaves the workstation
+                            </Badge>
+                          )}
+                        </>
                       )
                     }
                   />,

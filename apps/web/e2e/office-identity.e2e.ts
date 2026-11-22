@@ -715,6 +715,59 @@ test.describe.serial("Sign in with GitHub", () => {
     }
   });
 
+  // Needs the sign-in, as the editor reads the workflow files with its token and Start a workflow
+  // reaches the code host.
+  test("a Workflow Action is marked Leaves the workstation, and Start a workflow then refuses its file", async ({
+    page,
+  }) => {
+    const repository = await createTemporaryRepositoryWithRemote();
+    const fullName = `office-user/release-action-${Date.now()}`;
+    try {
+      await installApp("office-user", [{ fullName }]);
+      await grantPermissions("office-user", {
+        checks: "read",
+        statuses: "read",
+        actions: "write",
+        issues: "write",
+      });
+      const project = await addProjectOnGitHub(page, repository, fullName, "Release action");
+      await addWorkflow(fullName, { file: "release.yml", name: "Release", yaml: RELEASE_YAML });
+
+      await page.goto(`/projects/${project.id}/actions`);
+      await page.getByRole("button", { name: "Add an Action" }).first().click();
+      const editor = page.getByRole("dialog");
+      await editor.getByLabel("Key").fill("release");
+      await editor.getByLabel("Name").fill("Release stable");
+      await editor.getByRole("radio", { name: /^Workflow/ }).check();
+      await editor.getByLabel("Workflow file").selectOption("release.yml");
+      await editor.getByLabel("channel").selectOption("stable");
+      await expect(
+        editor.locator("label").filter({ hasText: "Leaves the workstation" }).getByRole("checkbox"),
+      ).toHaveAttribute("aria-checked", "true");
+      await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "workflow-action-editor.png") });
+      await editor.getByRole("button", { name: "Add the Action" }).click();
+      await expect(editor).toBeHidden();
+      const row = page
+        .getByRole("navigation", { name: `${project.name}'s Actions` })
+        .getByRole("listitem")
+        .filter({ hasText: "Release stable" });
+      await expect(row).toContainText("Workflow · release.yml");
+      await expect(row).toContainText("Leaves the workstation");
+
+      await page.goto("/work/ci");
+      await page.getByRole("button", { name: "Start a workflow" }).click();
+      const dialog = page.getByRole("dialog");
+      await dialog.getByLabel("Project", { exact: true }).selectOption({ label: project.name });
+      await dialog.getByLabel("Workflow", { exact: true }).selectOption({ label: "Release" });
+      await dialog.getByLabel("channel").selectOption("stable");
+      await dialog.getByRole("button", { name: "Start", exact: true }).click();
+      await expect(dialog).toContainText("release.yml is started by the Action Release stable");
+      expect((await dispatches()).filter((each) => each.repository === fullName)).toEqual([]);
+    } finally {
+      await repository.remove();
+    }
+  });
+
   // Needs the sign-in, as the service lists and reads the issues with its token.
   test("Import issues from the Work board picks two open issues, and they show in Backlog with their GitHub issue records", async ({
     page,

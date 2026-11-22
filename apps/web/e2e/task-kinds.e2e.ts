@@ -248,7 +248,7 @@ test(
 );
 
 test(
-  "a Bug Task Decision shows the proposal's fields to edit, with Create the Bug Task, Don't create it and Ask me again",
+  "a Bug Task Decision shows the proposal's fields to edit, with Create the Bug Task, Don't create it, Fix now and Ask me again",
   { tag: "@full" },
   async ({ page }) => {
     const project = await addedProject(page, "Bug proposals", "BP");
@@ -257,7 +257,7 @@ test(
     const task = await createdTask(page, project, `Export Stats as CSV ${stamp}`);
     const title = `Stats page crashes on an empty month ${stamp}`;
     const question = `Create the Bug Task "${title}"?`;
-    const options = ["Create the Bug Task", "Don't create it"];
+    const options = ["Create the Bug Task", "Don't create it", "Fix now"];
     const recommendation = { option: 0, reason: "" };
     const why =
       "The Stats page throws on a month with no runs. It is outside this Task's change, so it should be a Task of its own.";
@@ -298,6 +298,7 @@ test(
       await expect(card.getByLabel("Title")).toHaveValue(title);
       await expect(card.getByRole("button", { name: "Create the Bug Task" })).toBeEnabled();
       await expect(card.getByRole("button", { name: "Don't create it" })).toBeVisible();
+      await expect(card.getByRole("button", { name: "Fix now" })).toBeVisible();
       await expect(card.getByRole("button", { name: "Ask me again" })).toBeVisible();
       await screenshotScenario(page, "bug-task-decision", { inView: card });
     } finally {

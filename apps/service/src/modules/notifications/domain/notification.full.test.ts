@@ -1,6 +1,7 @@
 import { NOTIFICATION_TIME } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_ROUTING } from "./notification-kinds.js";
+import { receivedOn } from "./delivery.js";
+import { channelsOf, DEFAULT_ROUTING } from "./notification-kinds.js";
 import {
   decisionWaiting,
   engineDown,
@@ -48,8 +49,9 @@ const UNLINKED = {
   branch: "feature/search",
 };
 
+/** Raised now, as a user on the default routing receives it. */
 function raised(draft: NotificationDraft) {
-  return notificationOf(draft, "n1", AT, DEFAULT_ROUTING);
+  return receivedOn(notificationOf(draft, "n1", AT), channelsOf(draft.kind, DEFAULT_ROUTING));
 }
 
 /** What a Notification says: its kind, who speaks (null for The Office), and its line. */

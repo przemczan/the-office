@@ -115,6 +115,11 @@ export interface Project {
   readonly beforePublishingCommand: string;
   /** Run in the Task's worktree once Publish opened a pull request or merged; blank runs nothing. */
   readonly afterPublishingCommand: string;
+  /**
+   * Delete branches once merged (spec §5.5, "Deleting merged branches"): a merged Task's branch and
+   * a Done, published Initiative's are deleted here and on the remote. Off by default.
+   */
+  readonly deleteMergedBranches: boolean;
   /** The id of the Pipeline a new Task starts from. */
   readonly defaultPipeline: string;
   readonly environment: ProjectEnvironment;

@@ -7,12 +7,10 @@ import type {
   ProjectTestInstances,
   TestInstance,
 } from "@the-office/contracts";
-import { Badge, GroupedSelect, Icon, type GroupedSelectGroup } from "@the-office/ui";
+import { Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
-import { projectQueries } from "../../api/projects.ts";
 import { launchOnBranch, testInstanceQueries } from "../../api/test-instances.ts";
 import { BlockLoaderOrProblem } from "../../shell/block-loader.tsx";
-import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import {
   TestBuildQrDialog,
   type ShownTestBuildLink,
@@ -28,11 +26,10 @@ import {
   type TestInstanceActions,
 } from "../../shell/test-instances/use-test-instance-actions.ts";
 import { useTestInstanceIntoView } from "../../shell/test-instances/use-test-instance-into-view.ts";
+import { BranchPicker, type BranchChoice } from "./branch-picker.tsx";
 import { ProjectBlock } from "./project-block.tsx";
 import { TEST_TARGETS_ANCHOR } from "./test-targets-block.tsx";
 import {
-  branchChoicesOf,
-  firstBranchOf,
   LAUNCH_FOOT,
   nothingToLaunchWords,
   OTHER_BRANCHES,
@@ -41,8 +38,8 @@ import {
 
 /**
  * A Project's Test instances, under its Test targets: the Branch picker and a row per Hosted or
- * Build to install test target on the branch picked, as the Initiative page's rows, launching on
- * that branch; then the other branches launched on, each with its instances, the earlier folded.
+ * Build to install test target on the branch its choice means (an Initiative's or a Task's), as
+ * the Initiative page's rows, launching on that branch; then the other branches launched on, each with its instances, the earlier folded.
  * An instance linked to an Initiative says so, linking to its page. A link to an instance
  * (`?testInstance=`, a Notification's) picks its branch and brings its row into view.
  */
@@ -89,7 +86,7 @@ function Launchable({
   readonly shown: ProjectTestInstances;
   readonly linkedTo: string | undefined;
 }): ReactNode {
-  const [picked, setPicked] = useState<string>();
+  const [picked, setPicked] = useState<BranchChoice>();
   // The linked instance's branch is picked once, when it is listed; the user may pick another.
   const [pickedFor, setPickedFor] = useState<string>();
   const linkedBranch = shown.branches.find(({ instances }) =>
@@ -97,10 +94,11 @@ function Launchable({
   )?.name;
   if (linkedBranch !== undefined && pickedFor !== linkedTo) {
     setPickedFor(linkedTo);
-    setPicked(linkedBranch);
+    setPicked({ kind: "branch", branch: linkedBranch });
   }
   const place = useTestInstanceIntoView(linkedTo, true);
-  const branch = picked ?? firstBranchOf(shown, project.baseBranch);
+  const choice: BranchChoice = picked ?? { kind: "branch", branch: project.baseBranch };
+  const branch = choice.branch;
   const [qrShown, setQrShown] = useState<ShownTestBuildLink>();
   const [logShown, setLogShown] = useState<string>();
   const queryClient = useQueryClient();
@@ -143,9 +141,9 @@ function Launchable({
     <div className="test-instances project-test-instances" ref={place}>
       <BranchPicker
         project={project}
-        launchedOn={shown.branches.map(({ name }) => name)}
-        branch={branch}
-        onPick={setPicked}
+        alsoOffer={shown.branches.map(({ name }) => name)}
+        value={choice}
+        onChange={setPicked}
       />
       {!shown.runEnvironmentOn && shown.targets.some(needsRunEnvironment) && (
         <NeedsRunEnvironmentNote projectId={project.id} projectName={project.name} />
@@ -171,69 +169,6 @@ function Launchable({
         />
       )}
       {qrShown && <TestBuildQrDialog shown={qrShown} onClose={() => setQrShown(undefined)} />}
-    </div>
-  );
-}
-
-/**
- * The Branch picker: the base branch first, then the others by name. The Project's branches are
- * fetched only once it is opened, so until then it offers the branches launched on.
- */
-function BranchPicker({
-  project,
-  launchedOn,
-  branch,
-  onPick,
-}: {
-  readonly project: Project;
-  readonly launchedOn: readonly string[];
-  readonly branch: string;
-  readonly onPick: (branch: string) => void;
-}): ReactNode {
-  const [opened, setOpened] = useState(false);
-  const branches = useQuery({
-    ...projectQueries.branches(project.id, { fetch: true }),
-    enabled: opened,
-  });
-  const choices = branchChoicesOf(project.baseBranch, branches.data, [...launchedOn, branch]);
-  const groups: GroupedSelectGroup[] = [
-    {
-      label: "Base branch",
-      options: [
-        {
-          value: choices.baseBranch,
-          label: choices.baseBranch,
-          aside: <Badge tone="neutral">base branch</Badge>,
-        },
-      ],
-    },
-    {
-      label: "Branches",
-      options: choices.others.map((name) => ({ value: name, label: name })),
-    },
-  ];
-  return (
-    <div
-      className="project-test-instances-branch"
-      onPointerDownCapture={() => setOpened(true)}
-      onFocusCapture={() => setOpened(true)}
-      onClickCapture={() => setOpened(true)}
-    >
-      <GroupedSelect
-        label="Branch"
-        size="sm"
-        value={branch}
-        groups={groups}
-        hint={branches.isFetching ? "Fetching branches…" : undefined}
-        onChange={onPick}
-      />
-      {branches.error && <RefusalAlert title="The branches can't be read" error={branches.error} />}
-      {branches.data?.fetchProblem != null && (
-        <p className="project-block-note">
-          The branches couldn&apos;t be fetched, so some may be missing:{" "}
-          {branches.data.fetchProblem}
-        </p>
-      )}
     </div>
   );
 }

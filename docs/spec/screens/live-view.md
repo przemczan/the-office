@@ -21,6 +21,7 @@ Covers: the Live view page, the office floor (isometric pixel-art office drawn w
 - The figure is drawn from the person's Role key, so the same Role is the same figure everywhere; its clothes' tint matches the person's Avatar.
 - Desks are grouped: the front desk, the Consultants, everyone else, each in hire order. A hire takes a free desk of their group or a new pod at the right end; nobody else moves while the page is open.
 - Furniture blocks the tiles it stands on; people walk round it (4 directions, 2.4 tiles a second).
+- The room stands on a slab, its two front sides showing, on an open floor whose boards, in line with the room's, run on to the canvas's edges, with the slab's soft shadow on it; only the room's back and left walls stand. The open floor takes the hour's tint with the room; the shadow doesn't change with the hour.
 - The floor has a door, windows, desk lamps, an entertainment area (a big TV on a low stand with a games console and three floor pillows), a chill area (sofa, beanbags, coffee table), an exercise mat, a coffee machine, a water cooler, plants and bookshelves.
 - The canvas is an image named by a summary: "8 people: 2 working, 1 waiting on you, 5 gone home. Night, 22:30." While the fire alarm is on: "8 people: the fire alarm is on, everyone is out of the office. Day, 10:00." (or "nobody is in the office" with no one).
 - Keyboard help, read to screen readers: "Drag or use the arrow keys to move round the office; the wheel, + and − zoom; 0 shows the whole office."
@@ -67,7 +68,9 @@ Covers: the Live view page, the office floor (isometric pixel-art office drawn w
 ## Zoom and moving
 
 - Group "Zoom" at the floor's corner: **Zoom out** (minus), the percentage, **Zoom in** (plus), then **Fit the whole office**; each button is disabled at its limit.
-- Zoom is always a whole number of device pixels per art pixel (half only when the office doesn't fit at one), so pixels stay crisp.
+- Fit the whole office, `0` and opening the page show the whole office at the largest zoom that fits inside the floor's margins, which may fall between steps (e.g. 367%); then it is drawn at the next whole step and scaled down smoothly, so every art pixel is the same size and nothing shimmers on a pan.
+- Every other zoom is a whole number of device pixels per art pixel (half only when the office doesn't fit at one), so pixels stay crisp.
+- Zoom in, zoom out, the wheel and pinch go from the whole-office zoom to the whole steps either side; zooming out stops at the whole-office zoom, never below half a device pixel per art pixel.
 - Drag to move; arrow keys move; wheel, `+` and `−` zoom; `0` shows the whole office; pinch zooms on touch.
 - The List's locate button ("Show <name> on the floor") brings that person's figure into view.
 

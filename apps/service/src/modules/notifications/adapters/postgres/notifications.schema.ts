@@ -57,7 +57,10 @@ function tokenKindColumns() {
   };
 }
 
-/** Each Notification raised; cleared once the user handled what it points to. */
+/**
+ * Each Notification raised, shared by every user unless it is one user's own; cleared once the
+ * user handled what it points to. How it reaches each user is in `notification_deliveries`.
+ */
 export const notifications = pgTable(
   "notifications",
   {
@@ -74,12 +77,21 @@ export const notifications = pgTable(
      */
     at: timestamp("at", { withTimezone: true }),
     pointsTo: jsonb("points_to").$type<Pointer>().notNull(),
-    channels: jsonb("channels").$type<readonly Channel[]>().notNull(),
     raisedAt: timestamp("raised_at", { withTimezone: true }).notNull(),
     clearedAt: timestamp("cleared_at", { withTimezone: true }),
     /** The Notifications it stands for, when it gathers others. */
     gathers: jsonb("gathers").$type<readonly string[]>().notNull().default([]),
-    /** The channels quiet hours hold it from, until their summary goes. */
+    /**
+     * The one user it is for, by id, when it gathers what their batching or quiet hours held; null
+     * when shared.
+     */
+    forUser: text("for_user"),
+    /**
+     * The office-wide channels, held and phone push of the release before 2026-11-22, which reads
+     * them; nothing writes them since `notification_deliveries` keeps them for each user. Drop
+     * them in a later release.
+     */
+    channels: jsonb("channels").$type<readonly Channel[]>().notNull().default([]),
     held: jsonb("held").$type<readonly Channel[]>().notNull().default([]),
     phonePushedAt: timestamp("phone_pushed_at", { withTimezone: true }),
   },
@@ -87,8 +99,30 @@ export const notifications = pgTable(
 );
 
 /**
- * The routing, a row per level and channel it sets; a level with no row for a channel takes it
- * from the level above. The migration that made it stored ticket 20's defaults.
+ * How each Notification reaches each user its routing gives a channel: none for a user with
+ * nothing routed.
+ */
+export const notificationDeliveries = pgTable(
+  "notification_deliveries",
+  {
+    notificationId: uuid("notification_id")
+      .notNull()
+      .references(() => notifications.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+    channels: jsonb("channels").$type<readonly Channel[]>().notNull(),
+    /** The channels the user's quiet hours hold it from, until their summary goes. */
+    held: jsonb("held").$type<readonly Channel[]>().notNull().default([]),
+    phonePushedAt: timestamp("phone_pushed_at", { withTimezone: true }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.notificationId, table.userId] }),
+    index("notification_deliveries_user_id").on(table.userId),
+  ],
+);
+
+/**
+ * The office-wide routing of the release before 2026-11-22, which reads it; each user's is in
+ * `user_notification_routing` since, seeded from it. Drop it in a later release.
  */
 export const notificationRouting = pgTable(
   "notification_routing",
@@ -101,8 +135,45 @@ export const notificationRouting = pgTable(
 );
 
 /**
- * When Notifications reach the desktop and the phone, in one row; quiet hours are off while both
- * their ends are null. The migration that made it stored ticket 20's defaults.
+ * Each user's routing, a row per level and channel they set; a level with no row for a channel
+ * takes it from the level above, and a user with no row at all has spec 2.7's defaults.
+ */
+export const userNotificationRouting = pgTable(
+  "user_notification_routing",
+  {
+    userId: text("user_id").notNull(),
+    level: text("level").notNull(),
+    channel: text("channel").$type<Channel>().notNull(),
+    on: boolean("on").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.level, table.channel] })],
+);
+
+/**
+ * Each user's timing, a row once they set it, spec 2.7's defaults until then; quiet hours are off
+ * while both their ends are null.
+ */
+export const userNotificationTiming = pgTable(
+  "user_notification_timing",
+  {
+    userId: text("user_id").primaryKey(),
+    holdPhoneMinutes: smallint("hold_phone_minutes").notNull(),
+    awayMinutes: smallint("away_minutes").notNull(),
+    batchOutcomesMinutes: smallint("batch_outcomes_minutes").notNull(),
+    quietFrom: text("quiet_from"),
+    quietTo: text("quiet_to"),
+  },
+  (table) => [
+    check(
+      "user_notification_timing_quiet_hours_both_ends",
+      sql`(${table.quietFrom} IS NULL) = (${table.quietTo} IS NULL)`,
+    ),
+  ],
+);
+
+/**
+ * The office-wide timing of the release before 2026-11-22, which reads it, in one row; each
+ * user's is in `user_notification_timing` since, seeded from it. Drop it in a later release.
  */
 export const notificationTiming = pgTable(
   "notification_timing",

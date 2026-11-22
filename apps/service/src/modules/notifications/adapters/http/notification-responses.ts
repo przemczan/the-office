@@ -4,7 +4,7 @@ import type {
   NotificationTiming as NotificationTimingResponse,
   RoutedChannel as RoutedChannelResponse,
 } from "@the-office/contracts";
-import type { Notification } from "../../domain/notification.js";
+import type { ReceivedNotification } from "../../domain/notification.js";
 import type { NotificationTiming } from "../../domain/notification-timing.js";
 import {
   ROUTING_LEVELS,
@@ -24,7 +24,7 @@ export function toNotificationResponse({
   channels,
   held,
   raisedAt,
-}: Notification): NotificationResponse {
+}: ReceivedNotification): NotificationResponse {
   return {
     id,
     kind,

@@ -220,30 +220,66 @@ export function loopLanes(stages: readonly Stage[]): readonly LaidLoop[] {
   const lanes: Loop[][] = [];
   return loops.map((loop) => {
     let lane = 0;
-    while ((lanes[lane] ?? []).some((other) => !(other.hi <= loop.lo || other.lo >= loop.hi)))
-      lane += 1;
+    while ((lanes[lane] ?? []).some((other) => lanesClash(other, loop))) lane += 1;
     (lanes[lane] ??= []).push(loop);
     return { ...loop, lane };
   });
 }
 
-const LOOP_LANE = 11;
-const LOOP_CLEARANCE = 12;
-const DETOUR_LANE = 8;
+/**
+ * Loops that only meet at a column share a lane, as their ends there take separate points; a loop
+ * within one column runs over that column, so it can't share it.
+ */
+function lanesClash(a: Loop, b: Loop): boolean {
+  if (a.lo === a.hi || b.lo === b.hi) return a.lo <= b.hi && b.lo <= a.hi;
+  return a.lo < b.hi && b.lo < a.hi;
+}
+
+/** The ↺ N× mark's size at --text-2xs, its border included (flow-canvas.css). */
+const MARK_WIDTH = 40;
+const MARK_HEIGHT = 18;
+/** Parallel lines closer than this blur into one at the canvas's stroke. */
+const LINE_GAP = 20;
+/** Lanes a mark's height and some air apart, so a mark on one never touches the next. */
+const LOOP_LANE = MARK_HEIGHT + 4;
+/** The nearest lane stays off the cards by half a mark lying across it (down, its width). */
+const LOOP_CLEARANCE = MARK_WIDTH / 2 + 4;
+const DETOUR_LANE = LINE_GAP;
 const DETOUR_CLEARANCE = 12;
+/** A loop leaving a card's side does so this far below its top, a next one a step lower. */
+const SIDE_INSET = 12;
+const SIDE_STEP = 10;
+/** The air a mark keeps from a line crossing its run, and the run's rounded corners. */
+const MARK_AIR = 4;
+const CORNER = 6;
 
 /** The room the canvas keeps for the loops' lanes and for the lines that go round, in px. */
 export function flowRoom(
   stages: readonly Stage[],
   lines: readonly FlowLine[],
   loops: readonly LaidLoop[],
+  orientation: FlowOrientation,
 ): { readonly loops: number; readonly detours: number } {
   const laneCount = loops.reduce((most, { lane }) => Math.max(most, lane + 1), 0);
   const detours = lines.filter((line) => lineDetours(stages, line)).length;
   return {
-    loops: laneCount ? laneCount * LOOP_LANE + 14 : 0,
-    detours: detours ? detours * DETOUR_LANE + 16 : 0,
+    loops: laneCount
+      ? LOOP_CLEARANCE + (laneCount - 1) * LOOP_LANE + markHalf(orientation).across
+      : 0,
+    detours: detours ? DETOUR_CLEARANCE + detours * DETOUR_LANE : 0,
   };
+}
+
+interface MarkHalf {
+  readonly along: number;
+  readonly across: number;
+}
+
+/** Half a mark along its loop's run and across it: across, the run is level; down, upright. */
+function markHalf(orientation: FlowOrientation): MarkHalf {
+  return orientation === "across"
+    ? { along: MARK_WIDTH / 2, across: MARK_HEIGHT / 2 }
+    : { along: MARK_HEIGHT / 2, across: MARK_WIDTH / 2 };
 }
 
 function lineDetours(stages: readonly Stage[], line: FlowLine): boolean {
@@ -277,12 +313,29 @@ function corner([px, py]: Pt, [x, y]: Pt, [nx, ny]: Pt, radius: number): string 
   return `L${ax},${ay} Q${x},${y} ${bx},${by}`;
 }
 
-/** An arrow head's points, its tip at (x, y), pointing right or down. */
-export function arrowHead(x: number, y: number, direction: "right" | "down"): string {
-  return direction === "down"
-    ? `${x},${y} ${x - 4},${y - 7} ${x + 4},${y - 7}`
-    : `${x},${y} ${x - 7},${y - 4} ${x - 7},${y + 4}`;
+type ArrowDirection = "right" | "down" | "left";
+
+/** An arrow head's points, its tip at (x, y), pointing the way given. */
+export function arrowHead(x: number, y: number, direction: ArrowDirection): string {
+  return polygon(arrowPoints([x, y], direction));
 }
+
+function arrowPoints([x, y]: Pt, direction: ArrowDirection): readonly Pt[] {
+  if (direction === "down")
+    return [
+      [x, y],
+      [x - 4, y - 7],
+      [x + 4, y - 7],
+    ];
+  const back = direction === "right" ? -7 : 7;
+  return [
+    [x, y],
+    [x + back, y - 4],
+    [x + back, y + 4],
+  ];
+}
+
+const polygon = (points: readonly Pt[]): string => points.map(([x, y]) => `${x},${y}`).join(" ");
 
 const middleX = (box: FlowBox): number => box.x + box.width / 2;
 const middleY = (box: FlowBox): number => box.y + box.height / 2;
@@ -403,56 +456,318 @@ export function drawingStart(box: FlowBox, orientation: FlowOrientation): FlowPo
     : { x: middleX(box), y: box.y + box.height };
 }
 
-/** The On failure loops' paths, dashed above the Stages (beside them, down), with their marks. */
+/**
+ * The On failure loops' paths, dashed above the Stages (beside them, down), with their marks.
+ * Worked out across; down is the same drawing with x and y swapped.
+ */
 export function loopPaths(
   loops: readonly LaidLoop[],
   measure: FlowMeasure,
   orientation: FlowOrientation,
 ): readonly FlowLoopPath[] {
-  const outer = outerEdges(measure);
-  return loops.flatMap((loop) => {
-    const a = measure.stages.get(loop.from.key)?.box;
-    const b = measure.stages.get(loop.to.key)?.box;
-    if (!a || !b) return [];
-    const facts = {
+  const swap = orientation === "down";
+  const frame = swap ? swappedMeasure(measure) : measure;
+  const laid = loops.flatMap((loop): DrawnLoop[] => {
+    const leave = frame.stages.get(loop.from.key)?.box;
+    const enter = frame.stages.get(loop.to.key)?.box;
+    return leave && enter ? [{ loop, leave, enter }] : [];
+  });
+  const anchors = loopAnchors(laid, [
+    ...[...frame.stages.values()].map(({ box }) => box),
+    ...(frame.end ? [frame.end] : []),
+  ]);
+  const top = outerEdges(frame).top;
+  const runs = laid.map(({ loop }, index): Run => {
+    const legs = [anchors.get(endId(index, "leave"))!.leg, anchors.get(endId(index, "enter"))!.leg];
+    return {
+      y: top - LOOP_CLEARANCE - loop.lane * LOOP_LANE,
+      from: Math.min(...legs),
+      to: Math.max(...legs),
+      lane: loop.lane,
+      legs,
+    };
+  });
+  const out = (point: Pt): Pt => (swap ? [point[1], point[0]] : point);
+  const marks = markSpots(runs, markHalf(orientation));
+  return laid.map(({ loop }, index) => {
+    const run = runs[index]!;
+    const leave = anchors.get(endId(index, "leave"))!;
+    const enter = anchors.get(endId(index, "enter"))!;
+    const points = [...legPoints(leave, run.y), ...legPoints(short(enter), run.y).toReversed()];
+    const [x, y] = out([marks[index]!, run.y]);
+    return {
       fromKey: loop.from.key,
       toKey: loop.to.key,
       rounds: loop.from.kind === "gate" ? 0 : (loop.from.onFailure?.rounds ?? 0),
       lane: loop.lane,
+      d: orthogonalPath(points.map(out)),
+      arrow: polygon(arrowPoints(enter.edge, enter.into).map(out)),
+      mark: { x, y },
     };
-    if (orientation === "across") {
-      const y = outer.top - LOOP_CLEARANCE - loop.lane * LOOP_LANE;
-      const points: Pt[] = [
-        [middleX(a) + 6, a.y],
-        [middleX(a) + 6, y],
-        [middleX(b) - 6, y],
-        [middleX(b) - 6, b.y - 6],
-      ];
-      return [
-        {
-          ...facts,
-          d: orthogonalPath(points),
-          arrow: arrowHead(middleX(b) - 6, b.y, "down"),
-          mark: { x: (middleX(a) + middleX(b)) / 2, y },
-        },
-      ];
-    }
-    const x = outer.left - LOOP_CLEARANCE - loop.lane * LOOP_LANE;
-    const points: Pt[] = [
-      [a.x, middleY(a) - 4],
-      [x, middleY(a) - 4],
-      [x, middleY(b) + 4],
-      [b.x - 6, middleY(b) + 4],
-    ];
-    return [
-      {
-        ...facts,
-        d: orthogonalPath(points),
-        arrow: arrowHead(b.x, middleY(b) + 4, "right"),
-        mark: { x, y: (middleY(a) + middleY(b)) / 2 },
-      },
-    ];
   });
+}
+
+interface DrawnLoop {
+  readonly loop: LaidLoop;
+  readonly leave: FlowBox;
+  readonly enter: FlowBox;
+}
+
+type EndRole = "leave" | "enter";
+type Side = "before" | "after";
+
+/** One end of a loop on its card, and which way its other end lies. */
+interface LoopEnd {
+  readonly id: string;
+  readonly box: FlowBox;
+  readonly toward: Side;
+  readonly lane: number;
+}
+
+/** Where a loop meets its card, and its leg from there up to its lane. */
+interface Anchor {
+  readonly edge: Pt;
+  readonly leg: number;
+  /** The way an arrow points into the card there. */
+  readonly into: ArrowDirection;
+}
+
+/** A loop's level run along its lane, between its legs. */
+interface Run {
+  readonly y: number;
+  readonly from: number;
+  readonly to: number;
+  readonly lane: number;
+  readonly legs: readonly number[];
+}
+
+const endId = (index: number, role: EndRole): string => `${index}:${role}`;
+
+const swapBox = ({ x, y, width, height }: FlowBox): FlowBox => ({
+  x: y,
+  y: x,
+  width: height,
+  height: width,
+});
+
+function swappedMeasure(measure: FlowMeasure): FlowMeasure {
+  return {
+    stages: new Map(
+      [...measure.stages].map(([key, stage]) => [key, { ...stage, box: swapBox(stage.box) }]),
+    ),
+    end: measure.end && swapBox(measure.end),
+  };
+}
+
+function loopEnds(laid: readonly DrawnLoop[]): readonly LoopEnd[] {
+  return laid.flatMap(({ loop, leave, enter }, index) => [
+    {
+      id: endId(index, "leave"),
+      box: leave,
+      toward: towards(leave, enter, "after"),
+      lane: loop.lane,
+    },
+    {
+      id: endId(index, "enter"),
+      box: enter,
+      toward: towards(enter, leave, "before"),
+      lane: loop.lane,
+    },
+  ]);
+}
+
+/** A loop within one column leaves on the right of its card and comes back in on the left. */
+function towards(box: FlowBox, other: FlowBox, level: Side): Side {
+  const gap = middleX(other) - middleX(box);
+  return Math.abs(gap) < 1 ? level : gap < 0 ? "before" : "after";
+}
+
+/**
+ * Each loop end's own point: spread across its card's top edge, or, for a card with another above
+ * it, out of its side into the gutter beside it, so no leg runs through a card.
+ */
+function loopAnchors(laid: readonly DrawnLoop[], boxes: readonly FlowBox[]): Map<string, Anchor> {
+  const ends = loopEnds(laid);
+  const covered = ends.filter(({ box }) => hasCardAbove(box, boxes));
+  const open = ends.filter((end) => !covered.includes(end));
+  return new Map([...topAnchors(open), ...sideAnchors(covered, boxes)]);
+}
+
+function hasCardAbove(box: FlowBox, boxes: readonly FlowBox[]): boolean {
+  return boxes.some(
+    (other) =>
+      other.y + other.height <= box.y &&
+      other.x < box.x + box.width &&
+      other.x + other.width > box.x,
+  );
+}
+
+/**
+ * Ends whose lines turn back (toward the earlier side) come first, the lower lanes outermost, so a
+ * leg never crosses the run of a line beside it.
+ */
+function byTurn(a: LoopEnd, b: LoopEnd): number {
+  if (a.toward !== b.toward) return a.toward === "before" ? -1 : 1;
+  return a.toward === "before" ? a.lane - b.lane : b.lane - a.lane;
+}
+
+/** Spread n points evenly between lo and hi, none at either. */
+const spread = (lo: number, hi: number, index: number, count: number): number =>
+  lo + ((hi - lo) * (index + 1)) / (count + 1);
+
+function topAnchors(ends: readonly LoopEnd[]): [string, Anchor][] {
+  return [...groupBy(ends, ({ box }) => boxKey(box)).values()].flatMap((group) =>
+    group.toSorted(byTurn).map((end, index, sorted): [string, Anchor] => {
+      const x = spread(end.box.x, end.box.x + end.box.width, index, sorted.length);
+      return [end.id, { edge: [x, end.box.y], leg: x, into: "down" }];
+    }),
+  );
+}
+
+interface SideEnd extends LoopEnd {
+  readonly side: Side;
+  readonly gutter: readonly [number, number];
+}
+
+/** Where a side end's line leaves its card: the card's edge on that side. */
+const edgeX = (end: SideEnd): number =>
+  end.side === "before" ? end.box.x : end.box.x + end.box.width;
+
+/** Legs sharing a gutter take a place of their own across it; on one card's side, nearest first. */
+function sideAnchors(ends: readonly LoopEnd[], boxes: readonly FlowBox[]): [string, Anchor][] {
+  const placed = ends.map((end) => gutterOf(end, boxes));
+  const legs = new Map(
+    [...groupBy(placed, ({ gutter }) => gutter.join(":")).values()].flatMap((group) =>
+      group
+        .toSorted(byTurn)
+        .map(
+          (end, index, sorted) => [end.id, spread(...end.gutter, index, sorted.length)] as const,
+        ),
+    ),
+  );
+  const reach = (end: SideEnd): number => Math.abs(legs.get(end.id)! - edgeX(end));
+  return [...groupBy(placed, (end) => `${boxKey(end.box)}:${end.side}`).values()].flatMap((group) =>
+    group
+      .toSorted((a, b) => reach(a) - reach(b))
+      .map((end, index): [string, Anchor] => [
+        end.id,
+        {
+          edge: [edgeX(end), end.box.y + SIDE_INSET + index * SIDE_STEP],
+          leg: legs.get(end.id)!,
+          into: end.side === "before" ? "right" : "left",
+        },
+      ]),
+  );
+}
+
+/** The gap beside the card toward the loop's other end; the first column has none before it. */
+function gutterOf(end: LoopEnd, boxes: readonly FlowBox[]): SideEnd {
+  const right = end.box.x + end.box.width;
+  const before = boxes.filter((box) => box.x + box.width <= end.box.x);
+  if (end.toward === "before" && before.length > 0) {
+    const lo = Math.max(...before.map((box) => box.x + box.width));
+    return { ...end, side: "before", gutter: [lo, end.box.x] };
+  }
+  const after = boxes.filter((box) => box.x >= right).map(({ x }) => x);
+  const hi = after.length > 0 ? Math.min(...after) : right + 2 * LINE_GAP;
+  return { ...end, side: "after", gutter: [right, hi] };
+}
+
+const boxKey = ({ x, y }: FlowBox): string => `${x}:${y}`;
+
+function groupBy<T>(items: readonly T[], keyOf: (item: T) => string): Map<string, T[]> {
+  const groups = new Map<string, T[]>();
+  for (const item of items) {
+    const key = keyOf(item);
+    groups.set(key, [...(groups.get(key) ?? []), item]);
+  }
+  return groups;
+}
+
+/** From where a loop meets its card to its lane, by the gutter when it leaves from a side. */
+function legPoints({ edge, leg }: Anchor, laneY: number): Pt[] {
+  return [edge, [leg, edge[1]], [leg, laneY]];
+}
+
+/** The line stops short of the card, where the arrow head takes over. */
+function short(anchor: Anchor): Anchor {
+  const [x, y] = anchor.edge;
+  const edge: Pt =
+    anchor.into === "down" ? [x, y - 6] : anchor.into === "right" ? [x - 6, y] : [x + 6, y];
+  return { ...anchor, edge };
+}
+
+/** Where the legs of loops in higher lanes cross a run on their way up. */
+function crossingsOf(run: Run, runs: readonly Run[]): number[] {
+  return runs
+    .filter((other) => other.lane > run.lane)
+    .flatMap(({ legs }) => legs)
+    .filter((x) => x > run.from && x < run.to);
+}
+
+/**
+ * Each run's mark along it, lane by lane from the cards out, each clear of the crossings on its run
+ * and of the marks already placed on lanes too near to pass beside (down, where a mark is wider
+ * than the gap between lanes).
+ */
+function markSpots(runs: readonly Run[], half: MarkHalf): number[] {
+  const spots = new Map<number, number>();
+  const order = runs.map((_, index) => index).toSorted((a, b) => runs[a]!.lane - runs[b]!.lane);
+  for (const index of order) {
+    const run = runs[index]!;
+    const near = [...spots]
+      .filter(([other]) => Math.abs(runs[other]!.y - run.y) < 2 * half.across + MARK_AIR)
+      .map(([, spot]) => spot);
+    spots.set(index, markSpot(run, crossingsOf(run, runs), half.along, near));
+  }
+  return runs.map((_, index) => spots.get(index)!);
+}
+
+/**
+ * Where along its run a mark sits, `half` its size along the run: the free spot nearest the
+ * middle, clear of every crossing, of the `marks` beside it and of the corners; with none, the
+ * middle of the widest stretch between crossings.
+ */
+export function markSpot(
+  run: { readonly from: number; readonly to: number },
+  crossings: readonly number[],
+  half: number,
+  marks: readonly number[] = [],
+): number {
+  const middle = (run.from + run.to) / 2;
+  const reach = half + MARK_AIR;
+  const apart = 2 * half + MARK_AIR;
+  const blocked = [
+    ...crossings.map((x): Pt => [x - reach, x + reach]),
+    ...marks.map((x): Pt => [x - apart, x + apart]),
+  ];
+  const free = freeStretches(run.from + CORNER + half, run.to - CORNER - half, blocked);
+  const nearest = free
+    .map(([lo, hi]) => Math.min(hi, Math.max(lo, middle)))
+    .toSorted((a, b) => Math.abs(a - middle) - Math.abs(b - middle))[0];
+  return nearest ?? widestMiddle(run.from, run.to, crossings);
+}
+
+function freeStretches(lo: number, hi: number, blocked: readonly Pt[]): Pt[] {
+  const free: Pt[] = [];
+  let start = lo;
+  for (const [a, b] of blocked.toSorted((p, q) => p[0] - q[0])) {
+    if (a > start) free.push([start, Math.min(a, hi)]);
+    start = Math.max(start, b);
+  }
+  if (start <= hi) free.push([start, hi]);
+  return free.filter(([a, b]) => a <= b);
+}
+
+function widestMiddle(from: number, to: number, crossings: readonly number[]): number {
+  const stops = [from, ...crossings.toSorted((a, b) => a - b), to];
+  let best: Pt = [from, to];
+  let width = -1;
+  for (let i = 1; i < stops.length; i += 1) {
+    const gap = stops[i]! - stops[i - 1]!;
+    if (gap > width) [best, width] = [[stops[i - 1]!, stops[i]!], gap];
+  }
+  return (best[0] + best[1]) / 2;
 }
 
 /** Where the walk starts: a dot and a short line into the first Stage. */

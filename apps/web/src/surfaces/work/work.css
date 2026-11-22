@@ -302,6 +302,11 @@
   white-space: nowrap;
 }
 
+/* With nobody working, the Stage's name keeps the mark's right end alone. */
+.working-mark-stage:last-child {
+  margin-right: 0;
+}
+
 /* Positioned, so the live dot's ring pulses under the avatars. */
 .working-mark-avatars {
   position: relative;
@@ -4642,4 +4647,29 @@ button.initiative-track-body:hover .stage-mark {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 14px;
   align-items: start;
+}
+
+/* The Delete branch window's lists: what goes, the commits lost and the Tasks not published. */
+.branch-deletion-list {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-5);
+  font: 400 var(--text-body) / 1.5 var(--font-sans);
+  color: var(--fg-2);
+  overflow-wrap: anywhere;
+}
+
+.branch-deletion-more {
+  list-style: none;
+  color: var(--fg-3);
+}
+
+.branch-deletion-tasks-title {
+  margin: var(--space-2) 0 0;
+}
+
+/* An ended Initiative's branch in one Project: Delete branch… or "deleted". */
+.initiative-pipelines-branch-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }

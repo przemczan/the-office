@@ -37,6 +37,7 @@ const PROJECT: Project = {
   repositoryUrl: null,
   beforePublishingCommand: "",
   afterPublishingCommand: "",
+  deleteMergedBranches: false,
   environment: { set: [], unset: [], prependPath: [] },
   useProjectSkills: true,
   projectSkillsOff: [],
@@ -49,6 +50,7 @@ const PROJECT: Project = {
     "test-targets": false,
     "github-issues": true,
     "run-environment": false,
+    actions: true,
   },
   projectLimit: 1,
   addedAt: "2026-11-01T10:00:00.000Z",
@@ -100,6 +102,7 @@ async function open(address: string): Promise<HTMLElement> {
         section("issues"),
         section("run-environment"),
         section("test-targets"),
+        section("actions"),
         section("features"),
       ]),
     ]),
@@ -153,6 +156,20 @@ describe("a Project's tabs and its switched-off features", () => {
     );
     expect(link?.getAttribute("href")).toBe("/projects/shop/features");
     expect(router.state.location.pathname).toBe("/projects/shop/test-targets");
+  });
+
+  it("shows the Actions tab after Test targets, and says so at its address once switched off", async () => {
+    shownProject = { ...PROJECT, features: { ...PROJECT.features, "test-targets": true } };
+    const on = await open("/projects/shop/actions");
+    expect(tabs(on).indexOf("Actions")).toBe(tabs(on).indexOf("Test targets") + 1);
+    expect(on.querySelector(".shown-section")?.textContent).toBe("actions");
+    act(() => root?.unmount());
+    document.body.replaceChildren();
+
+    shownProject = { ...PROJECT, features: { ...PROJECT.features, actions: false } };
+    const off = await open("/projects/shop/actions");
+    expect(tabs(off)).not.toContain("Actions");
+    expect(off.textContent).toContain("Actions are switched off for «Shop».");
   });
 
   it("says Run environment is switched off at its address", async () => {

@@ -35,21 +35,9 @@ export function useCurrentStage(): (taskId: string) => CurrentStage | undefined 
 }
 
 /**
- * The name of the Task's current Stage while one of the people working on it is the one working
- * that Stage; undefined in Planning, at a Script Stage or a Gate, or while someone else is working.
- */
-export function stageWorkedNow(
-  people: readonly PersonWorking[],
-  stage: CurrentStage | undefined,
-): string | undefined {
-  const worker = stage?.role;
-  return worker && people.some(({ roleKey }) => roleKey === worker) ? stage.name : undefined;
-}
-
-/**
- * Who is working on the Task now: their avatars with the live dot, the Stage's name just before
- * them when it is theirs (cut with an ellipsis when the row is narrow), and on hover the names with
- * that Stage's name.
+ * Who is working on the Task now and the Stage it is at: the Stage's name as a short label (cut with
+ * an ellipsis when the row is narrow), then, while someone works, the live dot and their avatars.
+ * On hover, the names with the Stage's name while someone works, else the current Stage alone.
  */
 export function WorkingMark({
   people,
@@ -59,7 +47,10 @@ export function WorkingMark({
   readonly stageName?: string | undefined;
 }): ReactNode {
   const names = people.map(({ name }) => name).join(", ");
-  const words = `Working now: ${stageName ? `${names} · ${stageName}` : names}`;
+  const working = people.length > 0;
+  const words = working
+    ? `Working now: ${stageName ? `${names} · ${stageName}` : names}`
+    : `Current Stage: ${stageName ?? ""}`;
   const others = people.length - AVATARS_SHOWN;
   return (
     <Tooltip content={words}>
@@ -73,12 +64,16 @@ export function WorkingMark({
             {stageName}
           </span>
         )}
-        <span className="live-dot" />
-        <span className="working-mark-avatars">
-          {people.slice(0, AVATARS_SHOWN).map(({ roleKey, name }) => (
-            <PersonAvatar key={roleKey} roleKey={roleKey} name={name} size="xs" />
-          ))}
-        </span>
+        {working && (
+          <>
+            <span className="live-dot" />
+            <span className="working-mark-avatars">
+              {people.slice(0, AVATARS_SHOWN).map(({ roleKey, name }) => (
+                <PersonAvatar key={roleKey} roleKey={roleKey} name={name} size="xs" />
+              ))}
+            </span>
+          </>
+        )}
         {others > 0 && <span className="working-mark-others">+{others}</span>}
       </span>
     </Tooltip>

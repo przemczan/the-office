@@ -105,6 +105,7 @@ const SECTIONS = [
   { name: "GitHub issues", address: "/issues", blocks: ["GitHub issues"] },
   { name: "Run environment", address: "/run-environment", blocks: ["Run environment"] },
   { name: "Test targets", address: "/test-targets", blocks: ["Test targets", "Test instances"] },
+  { name: "Actions", address: "/actions", blocks: [] },
   { name: "Engine", address: "/engine", blocks: ["Engine"] },
   { name: "Skills", address: "/skills", blocks: [/^Skills in the repository/] },
   { name: "Server values", address: "/server-values", blocks: ["Server values"] },
@@ -2376,6 +2377,55 @@ test(
     await expect(list.locator("a.active")).toHaveCount(0);
   },
 );
+
+test("a Project command Action is added, marked Leaves the workstation, and removed, in the Actions section", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Actions defined");
+  await page.goto(`/projects/${project.id}/actions`);
+  const list = page.getByRole("navigation", { name: `${project.name}'s Actions` });
+  await expect(page.getByText(/^No Actions yet\./)).toBeVisible();
+
+  await page.getByRole("button", { name: "Add an Action" }).first().click();
+  const editor = page.getByRole("dialog");
+  await editor.getByLabel("Key").fill("build-web");
+  await editor.getByLabel("Name").fill("Build web");
+  await editor.getByRole("radio", { name: /^Project command/ }).check();
+  await editor.getByLabel("Command", { exact: true }).selectOption("build");
+  await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "light-1600-action-editor.png") });
+  await editor.getByRole("button", { name: "Add the Action" }).click();
+  await expect(editor).toBeHidden();
+  await expect(page.getByText("Build web added.")).toBeVisible();
+  const row = list.getByRole("listitem").filter({ hasText: "Build web" });
+  await expect(row).toContainText("build-web");
+  await expect(row).toContainText("Project command · build");
+  await expect(row).toContainText("Set by you");
+  await expect(row).not.toContainText("Leaves the workstation");
+
+  await row.getByRole("button", { name: "Change Build web" }).click();
+  await expect(editor.getByText("build-web", { exact: true })).toBeVisible();
+  await expect(editor.getByLabel("Key")).toHaveCount(0);
+  const mark = editor
+    .locator("label")
+    .filter({ hasText: "Leaves the workstation" })
+    .getByRole("checkbox");
+  await expect(mark).toHaveAttribute("aria-checked", "false");
+  await mark.click();
+  await expect(mark).toHaveAttribute("aria-checked", "true");
+  await editor.getByRole("button", { name: "Save" }).click();
+  await expect(editor).toBeHidden();
+  await expect(row).toContainText("Leaves the workstation");
+
+  // The mark and who set it outlive a reload: they are kept in The Office.
+  await page.reload();
+  await expect(row).toContainText("Leaves the workstation");
+  await row.getByRole("link").first().click();
+  await expect(page).toHaveURL(`/projects/${project.id}/actions/build-web`);
+  await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "light-1600-project-actions.png") });
+  await row.getByRole("button", { name: "Remove Build web" }).click();
+  await expect(page.getByText("Build web removed.")).toBeVisible();
+  await expect(page.getByText(/^No Actions yet\./)).toBeVisible();
+});
 
 test("the Files tab shows a branch's files, a folder read as it unfolds, and opens from a Task's and an Initiative's Browse files", async ({
   page,

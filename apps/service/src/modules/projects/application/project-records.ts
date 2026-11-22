@@ -18,6 +18,15 @@ import {
   type TestTargetField,
   type TestTargetSetter,
 } from "../domain/test-target.js";
+import {
+  ACTION_FIELDS,
+  ACTION_KIND_NAMES,
+  ACTION_TIME_LIMIT_MINUTES,
+  type Action,
+  type ActionField,
+  type ActionSetter,
+} from "../domain/action.js";
+import { ActionRepository } from "../ports/action-repository.js";
 import { TestTargetRepository } from "../ports/test-target-repository.js";
 import { BaseCheckouts } from "./base-checkouts.js";
 import { EnvironmentChecks } from "./environment-checks.js";
@@ -29,6 +38,7 @@ interface ProjectSurroundings {
   readonly environmentCheck: EnvironmentCheck | undefined;
   readonly serverValues: readonly ProjectMcpServerValues[];
   readonly testTargets: readonly TestTarget[];
+  readonly actions: readonly Action[];
 }
 
 const RUN_ENVIRONMENT_WORDS: Readonly<Record<RunEnvironmentSetting, string>> = {
@@ -50,6 +60,7 @@ export class ProjectRecords {
     private readonly environmentChecks: EnvironmentChecks,
     private readonly serverValues: ProjectServerValues,
     private readonly testTargets: TestTargetRepository,
+    private readonly actions: ActionRepository,
   ) {}
 
   /** Every Project's record, or that there is none. */
@@ -74,12 +85,19 @@ export class ProjectRecords {
     project: Project,
     checkouts: ReadonlyMap<string, string>,
   ): Promise<ProjectSurroundings> {
-    const [environmentCheck, serverValues, testTargets] = await Promise.all([
+    const [environmentCheck, serverValues, testTargets, actions] = await Promise.all([
       this.environmentChecks.latest(project.id),
       this.serverValues.of(project.id),
       this.testTargets.listOf(project.id),
+      this.actions.listOf(project.id),
     ]);
-    return { checkout: checkouts.get(project.id), environmentCheck, serverValues, testTargets };
+    return {
+      checkout: checkouts.get(project.id),
+      environmentCheck,
+      serverValues,
+      testTargets,
+      actions,
+    };
   }
 
   private async checkoutFolders(): Promise<ReadonlyMap<string, string>> {
@@ -90,7 +108,7 @@ export class ProjectRecords {
 }
 
 function projectRecord(project: Project, surroundings: ProjectSurroundings): string {
-  const { checkout, environmentCheck, serverValues, testTargets } = surroundings;
+  const { checkout, environmentCheck, serverValues, testTargets, actions } = surroundings;
   const commands = project.commands.map(
     ({ key, name, kind, commandLine }) => `${key} (${name}, ${kind}) \`${commandLine || "none"}\``,
   );
@@ -104,6 +122,7 @@ function projectRecord(project: Project, surroundings: ProjectSurroundings): str
     `- Publishing: ${project.publishingMode === "merge" ? `merge into ${project.baseBranch}` : "push and open a pull request"}`,
     `- Before publishing: \`${project.beforePublishingCommand || "none"}\``,
     `- After publishing: \`${project.afterPublishingCommand || "none"}\``,
+    `- Delete branches once merged: ${project.deleteMergedBranches ? "on" : "off"}`,
     `- Default Pipeline: ${project.defaultPipeline}`,
     `- Project limit: ${project.projectLimit} Task${project.projectLimit === 1 ? "" : "s"} started at once`,
     `- Run environment: ${RUN_ENVIRONMENT_WORDS[project.runEnvironment]}`,
@@ -114,6 +133,7 @@ function projectRecord(project: Project, surroundings: ProjectSurroundings): str
     `- Project skills: ${projectSkillsWords(project)}`,
     `- Server values: ${serverValuesWords(serverValues)}`,
     ...testTargetLines(testTargets),
+    ...actionLines(actions),
   ].join("\n");
 }
 
@@ -166,6 +186,53 @@ function testTargetLines(targets: readonly TestTarget[]): string[] {
   ];
 }
 
+const ACTION_FIELD_WORDS: Readonly<Record<ActionField, string>> = {
+  name: "name",
+  kind: "kind",
+  settings: "settings",
+  leavesTheWorkstation: "leaves the workstation",
+};
+
+/** Each Action with its settings and who set each value last (spec §2.15, "Action"). */
+function actionLines(actions: readonly Action[]): string[] {
+  if (actions.length === 0) return ["- Actions: none"];
+  return [
+    "- Actions:",
+    ...actions.map((action) => {
+      const setBy = ACTION_FIELDS.map((field) => {
+        const setter = action.setBy[field];
+        return `${ACTION_FIELD_WORDS[field]} ${setter ? setterWords(setter) : "unknown"}`;
+      }).join(", ");
+      return [
+        `  - ${action.key} (${action.name}, ${ACTION_KIND_NAMES[action.kind]}): ${actionSettingsWords(action)}`,
+        action.leavesTheWorkstation ? "leaves the workstation" : "stays on the workstation",
+        `set by: ${setBy}`,
+      ].join("; ");
+    }),
+  ];
+}
+
+function actionSettingsWords(action: Action): string {
+  switch (action.kind) {
+    case "project-command": {
+      const { commandKey, commandsBefore, timeLimitMinutes } = action.settings;
+      const limit =
+        timeLimitMinutes === null
+          ? `the default ${ACTION_TIME_LIMIT_MINUTES.default} minutes`
+          : `${timeLimitMinutes} minutes`;
+      return `command ${commandKey}; commands before it ${listed(commandsBefore)}; time limit ${limit}`;
+    }
+    case "test-target":
+      return `test target ${action.settings.targetKey}`;
+    case "workflow": {
+      const inputs = Object.entries(action.settings.inputs).map(
+        ([name, value]) => `\`${name}=${value}\``,
+      );
+      return `Workflow ${action.settings.file}; inputs ${listed(inputs)}`;
+    }
+  }
+}
+
 function setByWords(target: TestTarget): string {
   const setters = fieldsOfKind(target.kind).map((field) => {
     const setter = target.setBy[field];
@@ -174,7 +241,7 @@ function setByWords(target: TestTarget): string {
   return setters.join(", ");
 }
 
-function setterWords(setter: TestTargetSetter): string {
+function setterWords(setter: TestTargetSetter | ActionSetter): string {
   return setter.by === "user"
     ? `the user ${setter.user.name}`
     : `a Proposal by ${setter.agent.name} (${setter.agent.roleKey})`;

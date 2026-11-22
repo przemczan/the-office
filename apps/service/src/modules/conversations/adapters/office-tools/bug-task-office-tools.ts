@@ -25,7 +25,7 @@ export class BugTaskOfficeTools implements OnModuleInit {
     this.registry.register({
       name: PROPOSE_BUG_TASK_TOOL,
       description:
-        "Proposes a Bug Task for an issue you found that is too big for this Task or outside its scope, instead of fixing it here. It opens a Decision on this Task: the user may edit the Bug Task, then creates it in Backlog, found while working on this Task, or doesn't. It returns at once; then end the Stage with needs_decision and your Handover note. The answer, naming the new Task or saying no with the user's comment, comes as your next message: go on with your own work then, whichever it is.",
+        "Proposes a Bug Task for an issue you found that is too big for this Task or outside its scope, instead of fixing it here. It opens a Decision on this Task: the user may edit the Bug Task, then creates it in Backlog, found while working on this Task, doesn't, or answers Fix now, which creates none and has you fix it within this Task. It returns at once; then end the Stage with needs_decision and your Handover note. The answer, naming the new Task, saying no, or saying to fix it now, with the user's comment, comes as your next message: go on with your own work then, first fixing it within this Task when the answer is Fix now.",
       input: z.object({
         title: z.string().describe("The Bug Task's title: what is wrong, in a line."),
         description: z

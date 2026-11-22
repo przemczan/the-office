@@ -115,8 +115,10 @@
   color: var(--fg-3);
 }
 
+/* Room between the summary and the two buttons, and between the buttons, so none crowds. */
 .alarm-panel-actions {
-  gap: 8px;
+  gap: var(--space-2) var(--space-3);
+  padding-top: var(--space-1);
 }
 
 .alarm-list,
@@ -201,8 +203,8 @@
 }
 
 .alarm-choices button {
-  height: var(--control-h);
-  padding: 0 10px;
+  min-height: calc(var(--control-h) + var(--space-1));
+  padding: var(--space-1) var(--space-3);
   border: 0;
   border-left: 1px solid var(--border);
   background: var(--surface);

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { proposedActionsSchema } from "./actions.js";
 import { skillCommandSchema } from "./commands.js";
 import { webEventSchema } from "./events.js";
 import { messageImageSchema } from "./message-images.js";
@@ -336,10 +337,12 @@ export const DECISION_TOOLS: readonly string[] = [
 
 /**
  * A bug-task Decision's one choice, by its index in its options: "Create the Bug Task", sent with
- * the form's fields as edited, or "Don't create it".
+ * the form's fields as edited, "Don't create it", or "Fix now", which creates no Task and has the
+ * Agent fix the issue within its own Task (offered only by a Decision whose options name it).
  */
 export const BUG_TASK_CREATE_OPTION = 0;
 export const BUG_TASK_DONT_CREATE_OPTION = 1;
+export const BUG_TASK_FIX_NOW_OPTION = 2;
 
 /**
  * The Bug Task an Agent proposes in a bug-task Decision, as the card's form starts from: its title,
@@ -452,8 +455,8 @@ export type AtUsersRequest = z.infer<typeof atUsersRequestSchema>;
  * What a Decision asks (spec §2.2, §2.4): a form of one or more questions, approval of a call past a
  * Hard switch, a request, asking a person to do something: a form of one open question, or a Bug
  * Task an Agent proposes in a Stage, whose `bugTask` the card's form edits: one choice, "Create the
- * Bug Task" (`BUG_TASK_CREATE_OPTION`, sent with the form's `bugTask`) or "Don't create it", or Ask
- * me again; never Dismiss.
+ * Bug Task" (`BUG_TASK_CREATE_OPTION`, sent with the form's `bugTask`), "Don't create it" or "Fix
+ * now" (`BUG_TASK_FIX_NOW_OPTION`), or Ask me again; never Dismiss.
  */
 export const decisionKindSchema = z.enum(["form", "approval", "request", "bug-task"]);
 export type DecisionKind = z.infer<typeof decisionKindSchema>;
@@ -562,6 +565,9 @@ export const PROPOSE_PROJECT_COMMANDS_TOOL = "propose_project_commands";
 
 /** The Office tool Devops drafts a Proposal of a Project's test targets with, hidden alike. */
 export const PROPOSE_TEST_TARGETS_TOOL = "propose_test_targets";
+
+/** The Office tool Devops drafts a Proposal of a Project's Actions with, hidden alike. */
+export const PROPOSE_ACTIONS_TOOL = "propose_actions";
 
 /** The Office tool Devops drafts a Proposal of a library Pipeline's Stages with, hidden alike. */
 export const PROPOSE_LIBRARY_PIPELINE_TOOL = "propose_library_pipeline";
@@ -755,6 +761,15 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
     kind: z.literal("test-targets"),
     projectId: z.string(),
     changes: proposedTestTargetsSchema,
+  }),
+  /**
+   * Devops' change to a Project's Actions: each Action now and as proposed. Applying is refused
+   * once one changed or an Action fails the page's rules.
+   */
+  z.object({
+    kind: z.literal("actions"),
+    projectId: z.string(),
+    changes: proposedActionsSchema,
   }),
   /**
    * Devops' new Stages for a library Pipeline, its whole flow, and its Stages when drafted (now).

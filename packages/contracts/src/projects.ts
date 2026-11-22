@@ -337,6 +337,7 @@ export const PROJECT_FEATURES = [
   "test-targets",
   "github-issues",
   "run-environment",
+  "actions",
 ] as const;
 export const projectFeatureSchema = z.enum(PROJECT_FEATURES);
 export type ProjectFeature = z.infer<typeof projectFeatureSchema>;
@@ -347,6 +348,7 @@ export const projectFeaturesSchema = z.object({
   "test-targets": z.boolean(),
   "github-issues": z.boolean(),
   "run-environment": z.boolean(),
+  actions: z.boolean(),
 });
 export type ProjectFeatures = z.infer<typeof projectFeaturesSchema>;
 
@@ -360,6 +362,7 @@ export const projectFeaturesChangeSchema = z.object({
       "connected-devices": z.boolean(),
       "test-targets": z.boolean(),
       "github-issues": z.boolean(),
+      actions: z.boolean(),
     })
     .partial(),
 });
@@ -393,6 +396,11 @@ export const projectSchema = newProjectSchema.extend({
   beforePublishingCommand: z.string(),
   /** Run in the Task's worktree once Publish opened a pull request or merged; blank runs nothing. */
   afterPublishingCommand: z.string(),
+  /**
+   * Delete branches once merged (spec §5.5, "Deleting merged branches"): a merged Task's branch and
+   * a Done, published Initiative's are deleted here and on the remote. Off by default.
+   */
+  deleteMergedBranches: z.boolean(),
   environment: projectEnvironmentSchema,
   useProjectSkills: z.boolean(),
   /** The keys of the repository's skills and commands turned off, each by itself; any other is on. */
@@ -471,6 +479,60 @@ export type EnvironmentChange = z.infer<typeof environmentChangeSchema>;
 /** PUT /projects/:id/publishing-mode */
 export const publishingModeChangeSchema = z.object({ publishingMode: publishingModeSchema });
 export type PublishingModeChange = z.infer<typeof publishingModeChangeSchema>;
+
+/** PUT /projects/:id/delete-merged-branches */
+export const deleteMergedBranchesChangeSchema = z.object({ on: z.boolean() });
+export type DeleteMergedBranchesChange = z.infer<typeof deleteMergedBranchesChangeSchema>;
+
+/** One copy of a branch a deletion takes: the local branch, or the remote's (`origin/<branch>`). */
+export const branchCopySchema = z.object({
+  kind: z.enum(["local", "remote"]),
+  /** As the window names it: the branch, or `<remote>/<branch>`. */
+  name: z.string(),
+  /** The commit judged; the deletion goes only while the copy is still at it. */
+  commit: z.string(),
+});
+export type BranchCopy = z.infer<typeof branchCopySchema>;
+
+/** What a branch holds that its base lacks, lost once it is deleted. */
+export const branchWorkSchema = z.object({
+  /** Commits on the branch the base doesn't have. */
+  commitCount: z.int().min(0),
+  /** The newest of their subjects, at most 5. */
+  subjects: z.array(z.string()),
+  /** For an Initiative's branch: the titles of its Tasks landed on it that no Publish took to the base. */
+  unpublishedTaskTitles: z.array(z.string()),
+});
+export type BranchWork = z.infer<typeof branchWorkSchema>;
+
+/**
+ * GET /tasks/:id/branch-deletion and GET /initiatives/:id/projects/:projectId/branch-deletion
+ * (spec §5.5, "Deleting merged branches"): what Delete branch… would delete, judged against the
+ * freshly fetched base. `holdsWork` is null when everything on it is in the base; `refusal`, when
+ * given, is why it can't be deleted at all.
+ */
+export const branchDeletionPreviewSchema = z.object({
+  branch: z.string(),
+  /** The base branch it was judged against, as the window names it. */
+  baseBranch: z.string(),
+  copies: z.array(branchCopySchema),
+  /** The Task's own worktree a deletion removes with it; null when none holds the branch. */
+  worktreePath: z.string().nullable(),
+  holdsWork: branchWorkSchema.nullable(),
+  refusal: z.string().nullable(),
+});
+export type BranchDeletionPreview = z.infer<typeof branchDeletionPreviewSchema>;
+
+/** POST …/branch-deletion: the copies as judged, and whether to delete work the base lacks. */
+export const branchDeletionRequestSchema = z.object({
+  expected: z.array(branchCopySchema.pick({ kind: true, commit: true })),
+  deleteUnmerged: z.boolean(),
+});
+export type BranchDeletionRequest = z.infer<typeof branchDeletionRequestSchema>;
+
+/** A refused deletion's 409 body. */
+export const branchDeletionRefusalSchema = z.object({ reason: z.string() });
+export type BranchDeletionRefusal = z.infer<typeof branchDeletionRefusalSchema>;
 
 /** The Project page's stepper: more could never be started at once across The Office. */
 export const PROJECT_LIMIT_MAX = OFFICE_WIDE_LIMIT_MAX;
@@ -698,6 +760,10 @@ export const projectWebEventSchema = z.discriminatedUnion("type", [
     projectId: z.string(),
   }),
   webEventSchema.extend({
+    type: z.literal("project.delete-merged-branches-changed"),
+    projectId: z.string(),
+  }),
+  webEventSchema.extend({
     /** The Run environment setting changed, or a set-up Task's Done left it as it was. */
     type: z.literal("project.run-environment-changed"),
     projectId: z.string(),
@@ -742,6 +808,11 @@ export const projectWebEventSchema = z.discriminatedUnion("type", [
   }),
   webEventSchema.extend({
     type: z.literal("project.test-targets-changed"),
+    projectId: z.string(),
+  }),
+  /** The Project's Actions were added, changed or removed. */
+  webEventSchema.extend({
+    type: z.literal("project.actions-changed"),
     projectId: z.string(),
   }),
   /** The Project's GitHub issue switches changed. */

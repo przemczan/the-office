@@ -316,6 +316,11 @@ export function changePublishingMode(id: string, publishingMode: PublishingMode)
   return sendToApi("PUT", `${projectPath(id)}/publishing-mode`, { publishingMode }, projectSchema);
 }
 
+/** Turns Delete branches once merged on or off (spec §5.5, "Deleting merged branches"). */
+export function changeDeleteMergedBranches(id: string, on: boolean): Promise<Project> {
+  return sendToApi("PUT", `${projectPath(id)}/delete-merged-branches`, { on }, projectSchema);
+}
+
 export function changeRunEnvironment(
   id: string,
   runEnvironment: RunEnvironmentChange["runEnvironment"],
@@ -541,6 +546,7 @@ export const projectEventInvalidations: Readonly<
   "project.environment-check-changed": () => [PROJECTS],
   "project.install-inputs-changed": () => [PROJECTS],
   "project.publishing-mode-changed": () => [PROJECTS],
+  "project.delete-merged-branches-changed": () => [PROJECTS],
   "project.run-environment-changed": () => [PROJECTS, RUN_ENVIRONMENTS],
   "project.project-limit-changed": () => [PROJECTS],
   "project.mark-changed": () => [PROJECTS],
@@ -555,6 +561,8 @@ export const projectEventInvalidations: Readonly<
   "project.features-changed": () => [PROJECTS],
   "project.issues-imported": () => [PROJECTS, OPEN_ISSUES],
   "project.test-targets-changed": () => [PROJECTS],
+  // The Project's Actions (actions.ts) are under its key.
+  "project.actions-changed": () => [PROJECTS],
   "issue-link.changed": () => [ISSUE_LINKS],
 };
 

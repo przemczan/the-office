@@ -1,6 +1,6 @@
 import type { BasicStats, StatsDay, TelemetrySettings } from "@the-office/contracts";
 import { act } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { closePage, openPage, stubService, until } from "../../shell/page.fixtures.tsx";
 import { PROJECT_FILTER_STORAGE_KEY } from "../../shell/project-filter/project-filter-store.ts";
 import { PageHeadingProvider } from "../../shell/page-heading.tsx";
@@ -105,6 +105,31 @@ function block(page: HTMLElement, heading: string): HTMLElement {
 afterEach(closePage);
 
 describe("Stats", () => {
+  it("shows the loaders, never the basic charts, until the telemetry settings are known", async () => {
+    const { sent, opened } = openStats();
+    // The basic stats answer, but the telemetry settings never do, as on a slow first read.
+    const answering = globalThis.fetch;
+    vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
+      String(input).startsWith("/api/settings/telemetry")
+        ? new Promise<Response>(() => {})
+        : answering(input, init),
+    );
+    const { page } = await opened;
+    await until(() => expect(sent.map(({ request }) => request)).toContain("GET /api/stats/basic"));
+    // Long enough for the basic stats' answer to be drawn, were it drawn.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(page.querySelectorAll("[role='status']").length).toBeGreaterThan(0);
+
+    expect(page.textContent).not.toContain("Add a filter");
+    expect(page.textContent).not.toContain("Tasks done");
+    expect(page.querySelector("[role='img']")).toBeNull();
+    expect(page.querySelector("[aria-label='The full stats']")).toBeNull();
+    expect(page.querySelector("[role='group'][aria-label='Range']")).toBeNull();
+  });
+
   it("shows the basic stats' blocks, reading them from the service", async () => {
     const { sent, opened } = openStats();
     const { page } = await opened;

@@ -1342,8 +1342,43 @@
     {
       "idx": 191,
       "version": "7",
-      "when": 1795342264557,
-      "tag": "0191_project_features",
+      "when": 1795350150816,
+      "tag": "0191_notifications_for_each_user",
+      "breakpoints": true
+    },
+    {
+      "idx": 192,
+      "version": "7",
+      "when": 1795352377469,
+      "tag": "0192_delete_merged_branches",
+      "breakpoints": true
+    },
+    {
+      "idx": 193,
+      "version": "7",
+      "when": 1795352852972,
+      "tag": "0193_task_branch_deletion",
+      "breakpoints": true
+    },
+    {
+      "idx": 194,
+      "version": "7",
+      "when": 1795354232768,
+      "tag": "0194_project_features",
+      "breakpoints": true
+    },
+    {
+      "idx": 195,
+      "version": "7",
+      "when": 1795354681158,
+      "tag": "0195_actions",
+      "breakpoints": true
+    },
+    {
+      "idx": 196,
+      "version": "7",
+      "when": 1795360000000,
+      "tag": "0196_onboard_actions_brief",
       "breakpoints": true
     }
   ]

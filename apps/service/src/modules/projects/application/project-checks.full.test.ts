@@ -59,6 +59,7 @@ class FakeGit extends Git {
   writeCommit = notUsed;
   mergedTree = notUsed;
   contains = notUsed;
+  commitsNotIn = notUsed;
   addsNothing = notUsed;
   conflictsOf = notUsed;
   exclusively = notUsed;

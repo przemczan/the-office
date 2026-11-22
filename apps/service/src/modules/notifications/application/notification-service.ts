@@ -69,25 +69,30 @@ import {
   type Handling,
   type Notification,
   type NotificationDraft,
+  type ReceivedNotification,
   type TestInstanceWords,
   type WindowReading,
 } from "../domain/notification.js";
 import {
   collapsedOutcomes,
+  deliveryOf,
   emptiedGatherings,
   isOutcome,
   outcomeToJoin,
   outcomesOf,
+  receivedOn,
   shownOf,
   withQuietHours,
 } from "../domain/delivery.js";
 import { NotificationsCleared } from "../domain/notification-events.js";
+import { channelsOf, type Channel } from "../domain/notification-kinds.js";
 import { KnownPeople } from "../ports/known-people.js";
 import { NotificationRoutingRepository } from "../ports/notification-routing-repository.js";
 import { NotificationRepository } from "../ports/notification-repository.js";
 import { NotificationTimingRepository } from "../ports/notification-timing-repository.js";
 import { OfficeInitiatives } from "../ports/office-initiatives.js";
 import { OfficeTasks } from "../ports/office-tasks.js";
+import { OfficeUsers } from "../ports/office-users.js";
 import { StandInChoicesWaiting } from "../ports/stand-in-choices-waiting.js";
 import { TaskStageProgress } from "../ports/task-stage-progress.js";
 import { NotificationDelivery } from "./notification-delivery.js";
@@ -106,11 +111,12 @@ export type Page =
   | { readonly kind: "elsewhere" };
 
 /**
- * Raises a Notification for each thing that waits on the user or happened (spec §2.7), routed to
- * its kind's channels by the routing the user keeps in Settings, and clears it once the user handles
- * that thing. Both reach the web as events, where the browser's channels live; a Notification
- * already open for the same thing is not raised again, and an Outcome landing soon after another
- * collapses with it into one. `NotificationDelivery` sends each when the delivery rules say.
+ * Raises a Notification for each thing that waits on the user or happened (spec §2.7), one shared by
+ * every user, delivered to each on the channels their own routing in Account gives its kind, and
+ * clears it for everyone once the user handles that thing. Both reach the web as events, where the
+ * browser's channels live; a Notification already open for the same thing is not raised again, and
+ * an Outcome landing soon after another collapses with it into one for each user by their own
+ * batching. `NotificationDelivery` sends each when the delivery rules say.
  */
 @Injectable()
 export class NotificationService implements OnModuleInit {
@@ -127,6 +133,7 @@ export class NotificationService implements OnModuleInit {
     private readonly initiatives: OfficeInitiatives,
     private readonly stages: TaskStageProgress,
     private readonly people: KnownPeople,
+    private readonly users: OfficeUsers,
     private readonly standInChoices: StandInChoicesWaiting,
     private readonly routing: NotificationRoutingRepository,
     private readonly timing: NotificationTimingRepository,
@@ -142,9 +149,12 @@ export class NotificationService implements OnModuleInit {
     this.subscribeToOffice();
   }
 
-  /** The open Notifications as the list shows them: collapsed Outcomes in place of theirs. */
-  async listOpen(): Promise<readonly Notification[]> {
-    return shownOf(await this.repository.listOpen());
+  /**
+   * The open Notifications as the user's list shows them: the shared ones and their own, on their
+   * channels, their collapsed Outcomes in place of theirs.
+   */
+  async listOpen(userId: string): Promise<readonly ReceivedNotification[]> {
+    return shownOf(await this.repository.listReceived(userId));
   }
 
   /** The user opened a page: opening what a Notification points to handles it. */
@@ -397,20 +407,49 @@ export class NotificationService implements OnModuleInit {
     const at = this.schedule.now();
     const open = await this.repository.listOpen();
     if (open.some((notification) => samePointer(notification, draft))) return;
-    const [routing, timing] = await Promise.all([this.routing.read(), this.timing.read()]);
-    const raised = withQuietHours(notificationOf(draft, randomUUID(), at, routing), timing, at);
+    const raised = notificationOf(draft, randomUUID(), at);
     await this.repository.add(raised);
-    const joined = isOutcome(raised) ? outcomeToJoin(shownOf(open), timing, at) : undefined;
+    for (const { id: userId } of await this.users.list()) {
+      await this.deliver(userId, raised, channelsOf(draft.kind, await this.routing.read(userId)));
+    }
+  }
+
+  /**
+   * The Notification just raised, to one user on the channels their routing gives it, by their
+   * own quiet hours and batching; a user with no channel for it gets nothing.
+   */
+  private async deliver(
+    userId: string,
+    raised: Notification,
+    channels: readonly Channel[],
+  ): Promise<void> {
+    if (channels.length === 0) return;
+    const at = raised.raisedAt;
+    const [timing, received] = await Promise.all([
+      this.timing.read(userId),
+      this.repository.listReceived(userId),
+    ]);
+    const delivered = withQuietHours(receivedOn(raised, channels), timing, at);
+    await this.repository.deliver(deliveryOf(delivered, userId));
+    // Only what reached the user joins: an Outcome on none of their channels was never shown them.
+    const open = received.filter((each) => each.id !== raised.id && each.channels.length > 0);
+    const joined = isOutcome(delivered) ? outcomeToJoin(shownOf(open), timing, at) : undefined;
     if (!joined) {
-      await this.delivery.send(raised);
+      await this.delivery.send(userId, delivered);
       return;
     }
-    const outcomes = [...outcomesOf(joined, open), raised];
-    const collapsed = withQuietHours(collapsedOutcomes(outcomes, randomUUID(), at), timing, at);
+    const outcomes = [...outcomesOf(joined, open), delivered];
+    const collapsed = withQuietHours(
+      collapsedOutcomes(outcomes, userId, randomUUID(), at),
+      timing,
+      at,
+    );
     await this.repository.add(collapsed);
-    // An earlier collapse is replaced for good; a single Outcome waits, gathered, to be handled.
+    await this.repository.deliver(deliveryOf(collapsed, userId));
+    // The user's earlier collapse is replaced for good; a single Outcome waits, gathered, to be
+    // handled.
     if (joined.kind === "collapsed-outcomes") await this.repository.clear([joined.id], at);
-    await this.delivery.send(collapsed, [joined.id]);
+    await this.delivery.send(userId, collapsed, [joined.id]);
   }
 
   private async handle(handling: Handling): Promise<void> {

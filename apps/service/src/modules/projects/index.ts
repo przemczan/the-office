@@ -1,4 +1,5 @@
 export { BaseCheckouts, type BaseCheckout } from "./application/base-checkouts.js";
+export { BranchDeletions } from "./application/branch-deletions.js";
 export { CommittedFiles } from "./application/committed-files.js";
 export {
   InitiativeBranches,
@@ -40,6 +41,19 @@ export {
   type TestTargetSetter,
 } from "./domain/test-target.js";
 export type { EntryPoint } from "./domain/entry-point.js";
+export { ProjectActions } from "./application/project-actions.js";
+export type {
+  Action,
+  ActionField,
+  ActionFields,
+  ActionKind,
+  ActionSetter,
+} from "./domain/action.js";
+export type {
+  ActionsToPropose,
+  ProposedAction,
+  ProposedActions,
+} from "./domain/proposed-actions.js";
 export type {
   ProposedTestTarget,
   ProposedTestTargetFields,
@@ -87,10 +101,12 @@ export {
   ProjectLimitChanged,
   ProjectMarkChanged,
   ProjectPublishingModeChanged,
+  ProjectDeleteMergedBranchesChanged,
   ProjectRoleOverrideChanged,
   ProjectRunEnvironmentChanged,
   ProjectSkillUseChanged,
   ProjectTestTargetsChanged,
+  ProjectActionsChanged,
   ProjectUseForEveryRoleChanged,
   ProjectUseProjectSkillsChanged,
   ProjectFeaturesChanged,

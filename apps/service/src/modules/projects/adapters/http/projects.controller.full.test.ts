@@ -412,6 +412,25 @@ describe("PUT /api/projects/:id/publishing-mode and /default-pipeline", () => {
   });
 });
 
+describe("PUT /api/projects/:id/delete-merged-branches", () => {
+  it("is Off for a new Project, and turns On and Off again, saying so each time", async () => {
+    const project = await addProject();
+    expect(project.deleteMergedBranches).toBe(false);
+    published = [];
+
+    const on = await send("PUT", `/projects/${project.id}/delete-merged-branches`, { on: true });
+    expect(projectSchema.parse(await on.json())).toMatchObject({ deleteMergedBranches: true });
+    await send("PUT", `/projects/${project.id}/delete-merged-branches`, { on: true });
+    const off = await send("PUT", `/projects/${project.id}/delete-merged-branches`, { on: false });
+
+    expect(projectSchema.parse(await off.json())).toMatchObject({ deleteMergedBranches: false });
+    expect(webEvents()).toEqual([
+      { type: "project.delete-merged-branches-changed", projectId: project.id },
+      { type: "project.delete-merged-branches-changed", projectId: project.id },
+    ]);
+  });
+});
+
 describe("PUT /api/projects/:id/project-limit", () => {
   it("sends no event for the limit the Project already has", async () => {
     const project = await addProject();
