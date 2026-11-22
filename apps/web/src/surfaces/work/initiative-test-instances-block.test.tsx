@@ -18,7 +18,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { testInstanceQueries } from "../../api/test-instances.ts";
 import { ToastProvider } from "../../shell/toasts.tsx";
 import { InitiativeTestInstancesBlock } from "./initiative-test-instances-block.tsx";
-import { testInstancesStartOpen } from "./initiative-test-instances-words.ts";
+import { NO_INITIATIVE_BRANCH, testInstancesStartOpen } from "./initiative-test-instances-words.ts";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -31,12 +31,45 @@ const INITIATIVE = {
   state: "active",
   projectIds: ["website", "admin-panel"],
   shortName: "usage-exports",
+  branches: [
+    {
+      projectId: "website",
+      branch: "initiative/usage-exports",
+      madeAt: "2026-05-01T09:00:00.000Z",
+    },
+    {
+      projectId: "admin-panel",
+      branch: "initiative/usage-exports",
+      madeAt: "2026-05-01T09:00:00.000Z",
+    },
+  ],
 } as unknown as Initiative;
 
+const ALL_ON = {
+  "connected-devices": true,
+  "test-targets": true,
+  "github-issues": true,
+  "run-environment": true,
+};
+
 const PROJECTS = [
-  { id: "website", name: "Website", mark: { label: "WE", colour: "amber" } },
-  { id: "admin-panel", name: "Admin panel", mark: { label: "AP", colour: "teal" } },
+  { id: "website", name: "Website", mark: { label: "WE", colour: "amber" }, features: ALL_ON },
+  {
+    id: "admin-panel",
+    name: "Admin panel",
+    mark: { label: "AP", colour: "teal" },
+    features: ALL_ON,
+  },
 ] as unknown as Project[];
+
+/** The Projects with Test targets switched off for those named. */
+function withTestTargetsOff(...projectIds: readonly string[]): Project[] {
+  return PROJECTS.map((project) =>
+    projectIds.includes(project.id)
+      ? { ...project, features: { ...project.features, "test-targets": false } }
+      : project,
+  );
+}
 
 const OFFICE: InitiativeTestTarget = {
   key: "office",
@@ -133,6 +166,8 @@ async function rendered(
   shown: InitiativeTestInstances,
   answer: (url: string, method: string) => Response,
   linkedTo?: string,
+  projects: readonly Project[] = PROJECTS,
+  initiative: Initiative = INITIATIVE,
 ): Promise<{ page: HTMLElement; fetched: ReturnType<typeof vi.fn<typeof fetch>> }> {
   const fetched = vi.fn<typeof fetch>((input, request) =>
     Promise.resolve(answer(String(input), request?.method ?? "GET")),
@@ -147,8 +182,8 @@ async function rendered(
       component: () => (
         <ToastProvider>
           <InitiativeTestInstancesBlock
-            initiative={INITIATIVE}
-            projects={PROJECTS}
+            initiative={initiative}
+            projects={projects}
             linkedTo={linkedTo}
           />
         </ToastProvider>
@@ -197,6 +232,45 @@ describe("the Initiative page's Test instances", () => {
     vi.unstubAllGlobals();
     localStorage.clear();
     document.body.replaceChildren();
+  });
+
+  it("leaves out a Project with Test targets switched off", async () => {
+    const both: InitiativeTestInstances = {
+      projects: [
+        ...listed([]).projects,
+        { projectId: "admin-panel", runEnvironmentOn: true, branchCommit: null, targets: [APP] },
+      ],
+    };
+    const { page } = await rendered(both, notFound, undefined, withTestTargetsOff("website"));
+    await settled();
+
+    expect(page.textContent).toContain("Admin panel");
+    expect(page.textContent).not.toContain("Website");
+    expect(page.querySelector('li[aria-label="Office"]')).toBeNull();
+    expect(rowOf(page, "Android app")).toBeDefined();
+  });
+
+  it("is hidden while no Project of the Initiative has Test targets switched on", async () => {
+    const { page } = await rendered(
+      listed([RUNNING]),
+      notFound,
+      undefined,
+      withTestTargetsOff("website", "admin-panel"),
+    );
+    await settled();
+
+    expect(page.textContent).not.toContain("Test instances");
+  });
+
+  it("says where test instances launch while no Project is on an Initiative's branch", async () => {
+    const { page } = await rendered({ projects: [] }, notFound, undefined, PROJECTS, {
+      ...INITIATIVE,
+      branches: [],
+    });
+    await settled();
+
+    expect(page.textContent).toContain("Test instances");
+    expect(page.textContent).toContain(NO_INITIATIVE_BRANCH);
   });
 
   it("opens the fold at a linked instance and brings its row into view", async () => {

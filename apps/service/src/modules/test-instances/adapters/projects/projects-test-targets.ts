@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { DEFAULT_PORT_VARIABLE } from "@the-office/contracts";
 import {
+  ProjectFeatures,
   ProjectNotFound,
   ProjectRefused,
   ProjectService,
@@ -27,6 +28,7 @@ export class ProjectsTestTargets extends ProjectTestTargets {
     private readonly projects: ProjectService,
     private readonly testTargets: TestTargets,
     private readonly checkouts: TestInstanceCheckouts,
+    private readonly features: ProjectFeatures,
   ) {
     super();
   }
@@ -40,6 +42,10 @@ export class ProjectsTestTargets extends ProjectTestTargets {
         entryPoint,
       })),
     );
+  }
+
+  testTargetsOn(projectId: string): Promise<boolean> {
+    return this.features.isOn(projectId, "test-targets");
   }
 
   runEnvironmentOn(projectId: string): Promise<boolean> {

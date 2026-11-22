@@ -1,6 +1,7 @@
 import {
   officeCommandClash,
   projectPipelineFieldsSchema,
+  proposedFeatureSwitchSchema,
   proposedRoutesSchema,
   stageSchema,
   type ChatActivity as ChatActivityResponse,
@@ -14,6 +15,7 @@ import {
   type ProposedProjectCommands as ProposedProjectCommandsResponse,
   type Proposal as ProposalResponse,
   type ProposedChange as ProposedChangeResponse,
+  type ProposedFeatureSwitch as ProposedFeatureSwitchResponse,
   type ProposedRoutes as ProposedRoutesResponse,
   type ProposedTestTargetFields as ProposedTestTargetFieldsResponse,
   type ProposedTestTargets as ProposedTestTargetsResponse,
@@ -43,6 +45,7 @@ import type {
   PipelineRoutes,
   Proposal,
   ProposedChange,
+  ProposedFeatureSwitches,
   ProposedProjectCommands,
   ProposedTestTargetsChange,
 } from "../../domain/proposal.js";
@@ -358,6 +361,7 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
       return {
         kind: "project",
         project: toNewProjectResponse(change.project),
+        features: toProposedFeatureSwitchesResponse(change.features ?? {}),
         projectId: change.projectId ?? null,
         taskId: change.taskId ?? null,
       };
@@ -393,6 +397,16 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
         instructions: change.instructions,
       };
   }
+}
+
+/** In the features' order, only those proposed. */
+function toProposedFeatureSwitchesResponse(
+  features: ProposedFeatureSwitches,
+): ProposedFeatureSwitchResponse[] {
+  return proposedFeatureSwitchSchema.shape.feature.options.flatMap((feature) => {
+    const proposed = features[feature];
+    return proposed ? [{ feature, on: proposed.on, reason: proposed.reason }] : [];
+  });
 }
 
 function toNewProjectResponse(project: NewProject): NewProjectResponse {

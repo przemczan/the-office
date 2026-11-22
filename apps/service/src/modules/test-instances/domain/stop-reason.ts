@@ -3,10 +3,13 @@ export type StopReason =
   | { readonly kind: "by-user" }
   | { readonly kind: "idle"; readonly minutes: number }
   | { readonly kind: "initiative-ended"; readonly state: "done" | "dropped" }
-  | { readonly kind: "restart" };
+  | { readonly kind: "restart" }
+  | { readonly kind: "test-targets-off" };
 
 export const BY_USER: StopReason = { kind: "by-user" };
 export const BY_RESTART: StopReason = { kind: "restart" };
+/** The Project's Test targets were switched off (spec §2.1.1, "Feature switches"). */
+export const BY_TEST_TARGETS_OFF: StopReason = { kind: "test-targets-off" };
 
 /** The log's last line for a stop. */
 export function stopWords(reason: StopReason): string {
@@ -19,6 +22,8 @@ export function stopWords(reason: StopReason): string {
       return `Stopped because the Initiative is ${reason.state === "done" ? "Done" : "Dropped"}.`;
     case "restart":
       return "Stopped because The Office restarted.";
+    case "test-targets-off":
+      return "Stopped because Test targets were switched off for the Project.";
   }
 }
 

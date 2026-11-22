@@ -6,7 +6,11 @@ import { taskSchema, testTargetsSetUpSchema, type TestTargetsSetUp } from "@the-
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { TaskStateChanged } from "../../domain/task-events.js";
 import { TaskRepository } from "../../ports/task-repository.js";
-import { ProjectWorktreesForTests, UNKNOWN_PROJECT } from "../../ports/work-ports.fixtures.js";
+import {
+  ProjectFeaturesForTests,
+  ProjectWorktreesForTests,
+  UNKNOWN_PROJECT,
+} from "../../ports/work-ports.fixtures.js";
 import {
   sendJson,
   startWorkApplication,
@@ -104,6 +108,19 @@ describe("POST /projects/:id/test-targets/set-up", () => {
       reasons: [`There is no Project "${UNKNOWN_PROJECT}".`],
     });
     expect(await openSetUpTask(UNKNOWN_PROJECT)).toEqual({ setUpTask: null });
+  });
+
+  it("refuses a Project with Test targets switched off, adding nothing", async () => {
+    const projectId = `project-${randomUUID()}`;
+    work.app.get(ProjectFeaturesForTests).off.add(`${projectId}/test-targets`);
+
+    const response = await sendJson(work, "POST", `/projects/${projectId}/test-targets/set-up`);
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({
+      reasons: [`Test targets are switched off for «The ${projectId}».`],
+    });
+    expect(await openSetUpTask(projectId)).toEqual({ setUpTask: null });
   });
 
   it("says why when the worktree can't be made, and makes it when asked again", async () => {

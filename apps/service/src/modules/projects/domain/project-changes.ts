@@ -42,6 +42,7 @@ import {
   ProjectCommandRemoved,
   ProjectDefaultChanged,
   ProjectDefaultPipelineChanged,
+  ProjectFeaturesChanged,
   ProjectIssueSettingsChanged,
   ProjectKindDefaultPipelineChanged,
   ProjectEnvironmentChanged,
@@ -69,6 +70,12 @@ import {
   type ProjectImageKey,
   type ProjectImagePalette,
 } from "./project-image.js";
+import {
+  changedFeatureSwitches,
+  featureStatesOf,
+  sameFeatureSwitches,
+  type ProjectFeatureSwitches,
+} from "./project-features.js";
 import { ProjectRefused } from "./project-refused.js";
 import { proposedCommandsProblems, type ProposedCommands } from "./proposed-commands.js";
 
@@ -190,6 +197,7 @@ export function addProject(
     addedAt,
     kindDefaultPipelines: NO_KIND_DEFAULT_PIPELINES,
     issueSettings: DEFAULT_ISSUE_SETTINGS,
+    features: newProject.features ?? {},
   };
   return { project, event: new ProjectAdded(project) };
 }
@@ -485,6 +493,23 @@ export function changeIssueSettings(
   return {
     project: { ...project, issueSettings },
     event: new ProjectIssueSettingsChanged(project.id, issueSettings),
+  };
+}
+
+/**
+ * The Project's feature switches after `changes` (project-features.ts' rules), announced with every
+ * feature as it reads after. Undefined when no switch changed.
+ */
+export function changeFeatures(
+  project: Project,
+  changes: ProjectFeatureSwitches,
+): ProjectChange<ProjectFeaturesChanged> | undefined {
+  const features = changedFeatureSwitches(project, project.name, changes);
+  if (sameFeatureSwitches(features, project.features)) return undefined;
+  const changed = { ...project, features };
+  return {
+    project: changed,
+    event: new ProjectFeaturesChanged(project.id, featureStatesOf(changed)),
   };
 }
 

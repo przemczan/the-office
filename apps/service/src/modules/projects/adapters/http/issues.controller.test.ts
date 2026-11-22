@@ -135,6 +135,34 @@ describe("GitHub issues of a Project", () => {
     }
   });
 
+  it("are refused, issue switches too, while the Project's GitHub issues are switched off", async () => {
+    const project = await addProject();
+    const off = await send("PUT", `/projects/${project.id}/features`, {
+      features: { "github-issues": false },
+    });
+    expect(off.status).toBe(200);
+    published = [];
+
+    const listed = await fetch(`${url}/api/projects/${project.id}/issues`);
+    const imported = await send("POST", `/projects/${project.id}/issues/import`, {
+      numbers: [1],
+    });
+    const settings = await send("PUT", `/projects/${project.id}/issue-settings`, {
+      autoImportLabel: "office",
+      closeOnDone: true,
+      commentOnStartAndDone: false,
+      closeOnDrop: false,
+    });
+
+    for (const response of [listed, imported, settings]) {
+      expect(response.status).toBe(422);
+      expect(projectRefusalSchema.parse(await response.json()).reasons).toEqual([
+        `GitHub issues are switched off for «${project.name}».`,
+      ]);
+    }
+    expect(webEvents()).toEqual([]);
+  });
+
   it("answers null for a Task not imported from an issue", async () => {
     const response = await fetch(`${url}/api/issue-links?taskId=${randomUUID()}`);
 

@@ -94,11 +94,12 @@ const SECTIONS = [
   { name: "Engine", address: "/engine", blocks: ["Engine"] },
   { name: "Skills", address: "/skills", blocks: [/^Skills in the repository/] },
   { name: "Server values", address: "/server-values", blocks: ["Server values"] },
+  { name: "Features", address: "/features", blocks: ["Features"] },
   { name: "Appearance", address: "/appearance", blocks: APPEARANCE_BLOCKS },
 ];
 
 const ANY_BLOCK =
-  /^(Onboarding|Environment variables|Environment check|Work|Commands|Default Pipeline|GitHub issues|Run environment|Test targets|Test instances|Engine|Skills in the repository.*|Server values|How it looks|Mark|Images)$/;
+  /^(Onboarding|Environment variables|Environment check|Work|Commands|Default Pipeline|GitHub issues|Run environment|Test targets|Test instances|Engine|Skills in the repository.*|Server values|Features|How it looks|Mark|Images)$/;
 
 let repository: TemporaryRepository;
 

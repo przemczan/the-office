@@ -3,10 +3,12 @@ import { join } from "node:path";
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule, type Wait } from "../../../platform/schedule/schedule.js";
+import { ProjectFeaturesChanged } from "../../projects/index.js";
 import { HostedServices, RunEnvironmentRefused } from "../../run-environments/index.js";
 import { InitiativeStateChanged } from "../../work/index.js";
 import {
   BY_RESTART,
+  BY_TEST_TARGETS_OFF,
   BY_USER,
   INITIATIVE_NOT_ACTIVE,
   missingCommands,
@@ -185,11 +187,17 @@ export class TestInstances implements OnModuleInit {
         () => this.stopEachOf(initiativeId, { kind: "initiative-ended", state: to }),
       );
     });
+    this.events.subscribe(ProjectFeaturesChanged, ({ projectId, features }) => {
+      if (features["test-targets"]) return;
+      this.inBackground(`The test instances of the Project ${projectId} were not stopped.`, () =>
+        this.stopEachOfProject(projectId, BY_TEST_TARGETS_OFF),
+      );
+    });
   }
 
   /**
    * A group per Project where the Initiative has a branch, each with its Hosted and Build to install
-   * test targets.
+   * test targets; none for a Project with Test targets switched off.
    */
   async listFor(initiativeId: string): Promise<InitiativeTestProject[]> {
     const initiative = await this.initiatives.find(initiativeId);
@@ -198,7 +206,7 @@ export class TestInstances implements OnModuleInit {
     return Promise.all(
       initiative.branches.map(async ({ projectId, branch }) => {
         const [targets, runEnvironmentOn, branchCommit] = await Promise.all([
-          this.targets.targetsOf(projectId),
+          this.launchableTargetsOf(projectId),
           this.targets.runEnvironmentOn(projectId),
           this.targets.branchCommitOf(projectId, branch),
         ]);
@@ -206,7 +214,7 @@ export class TestInstances implements OnModuleInit {
           projectId,
           runEnvironmentOn,
           branchCommit,
-          targets: launchableOf(targets).map((target) => ({
+          targets: targets.map((target) => ({
             ...target,
             instances: instances.filter(
               (instance) => instance.projectId === projectId && instance.targetKey === target.key,
@@ -224,11 +232,11 @@ export class TestInstances implements OnModuleInit {
 
   /**
    * The Project's Hosted and Build to install test targets and every instance launched on it,
-   * linked to an Initiative or not, by branch.
+   * linked to an Initiative or not, by branch; no targets while it has Test targets switched off.
    */
   async listForProject(projectId: string): Promise<ProjectTestInstances> {
     const [targets, runEnvironmentOn, rows] = await Promise.all([
-      this.targets.targetsOf(projectId),
+      this.launchableTargetsOf(projectId),
       this.targets.runEnvironmentOn(projectId),
       this.repository.listOfProject(projectId),
     ]);
@@ -245,7 +253,7 @@ export class TestInstances implements OnModuleInit {
     const initiatives = await Promise.all(linked.map((id) => this.initiatives.find(id)));
     return {
       runEnvironmentOn,
-      targets: launchableOf(targets),
+      targets,
       branches,
       initiatives: initiatives.flatMap((initiative) =>
         initiative === undefined ? [] : [{ id: initiative.id, name: initiative.name }],
@@ -700,6 +708,22 @@ export class TestInstances implements OnModuleInit {
     for (const instance of await this.repository.listOf(initiativeId)) {
       if (isActive(instance)) await this.stop(instance.id, reason);
     }
+  }
+
+  /** Every Building or Running instance of the Project, linked to an Initiative or not. */
+  private async stopEachOfProject(projectId: string, reason: StopReason): Promise<void> {
+    for (const instance of await this.repository.active()) {
+      if (instance.projectId === projectId) await this.stop(instance.id, reason);
+    }
+  }
+
+  /** The Project's Hosted and Build to install targets; none while Test targets are off. */
+  private async launchableTargetsOf(projectId: string): Promise<LaunchableTarget[]> {
+    const [on, targets] = await Promise.all([
+      this.targets.testTargetsOn(projectId),
+      this.targets.targetsOf(projectId),
+    ]);
+    return on ? launchableOf(targets) : [];
   }
 
   /**

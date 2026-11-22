@@ -328,6 +328,43 @@ export const issueSettingsSchema = z.object({
 });
 export type IssueSettings = z.infer<typeof issueSettingsSchema>;
 
+/**
+ * The Office's features a Project switches on or off (spec §2.1.1, "Feature switches"). Run
+ * environment is the Project's Run environment setting, changed through its own route.
+ */
+export const PROJECT_FEATURES = [
+  "connected-devices",
+  "test-targets",
+  "github-issues",
+  "run-environment",
+] as const;
+export const projectFeatureSchema = z.enum(PROJECT_FEATURES);
+export type ProjectFeature = z.infer<typeof projectFeatureSchema>;
+
+/** Each feature on or off as the Project reads it now, Run environment's from its setting. */
+export const projectFeaturesSchema = z.object({
+  "connected-devices": z.boolean(),
+  "test-targets": z.boolean(),
+  "github-issues": z.boolean(),
+  "run-environment": z.boolean(),
+});
+export type ProjectFeatures = z.infer<typeof projectFeaturesSchema>;
+
+/**
+ * PUT /projects/:id/features: the switches to change, others kept. Turning one on is refused while
+ * a feature it needs is off; turning one off turns off those that need it.
+ */
+export const projectFeaturesChangeSchema = z.object({
+  features: z
+    .object({
+      "connected-devices": z.boolean(),
+      "test-targets": z.boolean(),
+      "github-issues": z.boolean(),
+    })
+    .partial(),
+});
+export type ProjectFeaturesChange = z.infer<typeof projectFeaturesChangeSchema>;
+
 /** Each Kind's own default Pipeline; null follows the Project's default Pipeline. */
 export const kindDefaultPipelinesSchema = z.object({
   feature: z.string().nullable(),
@@ -379,6 +416,7 @@ export const projectSchema = newProjectSchema.extend({
   kindDefaultPipelines: kindDefaultPipelinesSchema,
   defaultPipelineOfKind: defaultPipelineOfKindSchema,
   issueSettings: issueSettingsSchema,
+  features: projectFeaturesSchema,
 });
 export type Project = z.infer<typeof projectSchema>;
 
@@ -709,6 +747,11 @@ export const projectWebEventSchema = z.discriminatedUnion("type", [
   /** The Project's GitHub issue switches changed. */
   webEventSchema.extend({
     type: z.literal("project.issue-settings-changed"),
+    projectId: z.string(),
+  }),
+  /** The Project's feature switches changed. */
+  webEventSchema.extend({
+    type: z.literal("project.features-changed"),
     projectId: z.string(),
   }),
   /** Issues were imported as Tasks, by hand or by the auto-import. */

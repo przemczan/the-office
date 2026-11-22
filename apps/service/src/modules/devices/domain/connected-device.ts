@@ -16,6 +16,7 @@ export type DisconnectedBecause =
   | "task-ended"
   | "device-unplugged"
   | "run-environment-turned-off"
+  | "connected-devices-switched-off"
   | "error";
 
 /** What the helper notices about a serial board (spec §2.13, "Serial boards"). */

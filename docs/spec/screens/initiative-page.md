@@ -156,6 +156,7 @@ Covers: the Initiative page's head and actions (Confirm, Back to Shaping, Plan t
 - Summary: "<n> running · <n> building · <n> built" (each only when not 0), "None running" once every instance has ended, or "None launched yet".
 - With no Project on an Initiative's branch: "Test instances launch on an Initiative's branch, and this Initiative publishes Task by Task."
 - A group per Project with a branch, its mark and name; one with no test target says "No test targets in <Project>." with a link to its Test targets section.
+- A Project with Test targets switched off ([Feature switches](../2.1.1-projects.md#feature-switches)) has no group, and the fold is hidden when no Project on the Initiative's branches has them on.
 - A Project whose Run environment isn't On says "Needs Run environment On to launch." on its group, with a link to its Run environment section; its **Launch** is disabled, saying why (the service refuses it too).
 - It also shows the instances launched from the Project page on the Initiative's branch ([project-page.md](project-page.md#test-instances)), which are linked to it ([2.12](../2.12-test-instances.md#linking-to-an-initiative)).
 - A row per test target: its name, its kind badge, and its newest instance:

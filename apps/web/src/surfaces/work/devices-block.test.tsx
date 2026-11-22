@@ -91,6 +91,12 @@ const PROJECT: Project = {
   useForEveryRole: false,
   roleOverrides: [],
   runEnvironment: "on",
+  features: {
+    "connected-devices": true,
+    "test-targets": true,
+    "github-issues": true,
+    "run-environment": true,
+  },
   projectLimit: 1,
   addedAt: "2026-11-01T10:00:00.000Z",
   codeHost: null,
@@ -195,6 +201,21 @@ describe("the Devices section", () => {
 
   it("isn't shown while the Project's Run environment is Off", async () => {
     const sent = stubService(answers({ ...PROJECT, runEnvironment: "off" }, [PHONE]));
+    const page = await blockOf();
+
+    await until(() =>
+      expect(sent.map(({ request }) => request)).toContain(`GET /api/projects/${PROJECT.id}`),
+    );
+    expect(page.querySelector('[aria-label="Devices"]')).toBeNull();
+    expect(sent.map(({ request }) => request)).not.toContain(`GET /api/tasks/${TASK.id}/devices`);
+  });
+
+  it("isn't shown while the Project's Connected devices are switched off", async () => {
+    const sent = stubService(
+      answers({ ...PROJECT, features: { ...PROJECT.features, "connected-devices": false } }, [
+        PHONE,
+      ]),
+    );
     const page = await blockOf();
 
     await until(() =>

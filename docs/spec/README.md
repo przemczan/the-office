@@ -97,6 +97,8 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Safe pause ASAP, Safe pause after the current Stages, Safe pause after the current Tasks (the fire alarm's ways)**: [2.8 Safe pause ASAP](2.8-fire-alarm.md#safe-pause-asap); [2.8 Safe pause after the current Stages](2.8-fire-alarm.md#safe-pause-after-the-current-stages); [2.8 Safe pause after the current Tasks](2.8-fire-alarm.md#safe-pause-after-the-current-tasks); [2.8 Making it stricter](2.8-fire-alarm.md#making-it-stricter); screen: [Shell › Fire alarm control](screens/shell.md#fire-alarm-control)
 - **First-run setup**: [2.10 First-run setup](2.10-users-and-signing-in.md#first-run-setup); screen: [Sign in › First user](screens/sign-in.md#first-user)
 
+- **Feature switch, Connected devices / Test targets / GitHub issues / Run environment switches**: [2.1.1 Feature switches](2.1.1-projects.md#feature-switches); [2.1.1 Onboarding a Project](2.1.1-projects.md#onboarding-a-project); screen: [Project page › Features](screens/project-page.md#features)
+
 ### G
 
 - **Gate**: [2.3.3 Gates](2.3.3-gates-and-checks.md#gates); screen: [Task page › Gate](screens/task-page.md#gate)
@@ -308,7 +310,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 ### 2. Domain model
 
 - [2.1 Work](2.1-work.md): index of the pages below.
-  - [2.1.1 Projects](2.1.1-projects.md): Project, its settings, a Kind's default Pipeline, test targets, Project limit, Icon and Logo, Project commands, the re-run command, GitHub issues.
+  - [2.1.1 Projects](2.1.1-projects.md): Project, its settings, a Kind's default Pipeline, test targets, Project limit, Icon and Logo, Project commands, the re-run command, feature switches, GitHub issues.
   - [2.1.2 Ideas and Attachments](2.1.2-ideas-and-attachments.md): Idea, Attachment, text files and PDFs, pasted images.
   - [2.1.3 Tasks](2.1.3-tasks.md): Task, its Kind and bug details, its states, Ready, Description, Commit message, dependencies, Drop reason, GitHub issue, priority, archive, moving.
   - [2.1.4 Initiatives](2.1.4-initiatives.md): Initiative, its states, shaping, Plan the Initiative, its Pipeline, Back to Shaping, Publishing Tasks, Pause, its test instances.
@@ -401,6 +403,7 @@ Where each default lives, by page:
 
 - 2.1.1 Projects
   - [No re-run command](2.1.1-projects.md#no-re-run-command)
+  - [Feature switches](2.1.1-projects.md#feature-switches-1)
   - [GitHub issues switches](2.1.1-projects.md#github-issues-switches)
   - [Onboarding a Project](2.1.1-projects.md#onboarding-a-project)
 - 2.1.2 Ideas and Attachments

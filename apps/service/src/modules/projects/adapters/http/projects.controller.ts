@@ -7,6 +7,7 @@ import {
   defaultPipelineChangeSchema,
   environmentChangeSchema,
   issueSettingsSchema,
+  projectFeaturesChangeSchema,
   kindDefaultPipelineChangeSchema,
   installCommandChangeSchema,
   installInputsChangeSchema,
@@ -33,6 +34,7 @@ import {
   type MarkChange,
   type Project as ProjectResponse,
   type ProjectDefaultChange,
+  type ProjectFeaturesChange,
   type ProjectLimitChange,
   type RoleOverrideChange,
   type UseForEveryRoleChange,
@@ -48,6 +50,7 @@ import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import { ProjectSkills } from "../../../skills/index.js";
 import type { RemoteNeeds } from "../../../../platform/git-identity/remote-needs.js";
+import { ProjectFeatures } from "../../application/project-features.js";
 import { ProjectIssueHosts } from "../../application/project-issue-hosts.js";
 import { ProjectRemotes } from "../../application/project-remotes.js";
 import { ProjectService } from "../../application/project-service.js";
@@ -63,6 +66,7 @@ export class ProjectsController {
     private readonly projectSkills: ProjectSkills,
     private readonly remotes: ProjectRemotes,
     private readonly issueHosts: ProjectIssueHosts,
+    private readonly features: ProjectFeatures,
   ) {}
 
   /** The Project as the API shows it, with its code host read from git's config. */
@@ -248,6 +252,15 @@ export class ProjectsController {
     @SignedIn() signedIn: SignedIn,
   ): Promise<ProjectResponse> {
     return this.respond(await this.projects.changeIssueSettings(id, settings, userOf(signedIn)));
+  }
+
+  /** The feature switches named, others kept; Run environment changes through its own route. */
+  @Put(":id/features")
+  async changeFeatures(
+    @Param("id") id: string,
+    @Body(new ContractPipe(projectFeaturesChangeSchema)) { features }: ProjectFeaturesChange,
+  ): Promise<ProjectResponse> {
+    return this.respond(await this.features.change(id, features));
   }
 
   @Put(":id/project-default")

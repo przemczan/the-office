@@ -140,6 +140,25 @@ describe("Fixes #n in what Publish lands", PUBLISHING_TEST, () => {
     ]);
   });
 
+  it("is not there with the Project's GitHub issues switched off, the switch on", async () => {
+    const project = testbed.pullRequestProject();
+    const task = await testbed.aTaskWithACommit(project);
+    await linked(project, task.taskId, 13);
+
+    await testbed.publishing.publish(
+      {
+        ...project,
+        issueSettings: { ...DEFAULT_ISSUE_SETTINGS, closeOnDone: true },
+        features: { "github-issues": false },
+      },
+      task.taskId,
+      commitMessage,
+      "publishing-mode",
+    );
+
+    expect(testbed.pullRequests.requests.map(({ body }) => body)).toEqual([commitMessage.body]);
+  });
+
   it("names the Initiative's Tasks' issues on the Publishing Task's pull request", async () => {
     const project = testbed.pullRequestProject();
     const branch = testbed.anInitiativeBranch(`publishing-${randomUUID().slice(0, 8)}`);

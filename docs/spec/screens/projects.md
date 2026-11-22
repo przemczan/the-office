@@ -47,6 +47,7 @@ Covers: the Projects page (the Projects list beside the open Project, a list ite
 - Closing it with anything typed or chosen (a folder, a URL, a picked repository, or a finished source) asks before discarding.
 - Its columns lay out by the window's own width: two columns, one at a window width of 620px and under.
 - **Add the Project** saves the Project, shows the toast "<name> added.", closes the window and opens the new Project's page.
+- A Project added by hand leaves Connected devices, Test targets and GitHub issues on ([Feature switches](../2.1.1-projects.md#feature-switches)).
 - The service checks the path and the base branch before anything is saved; its refusal shows in step 2.
 
 ## Step 1: Where it is

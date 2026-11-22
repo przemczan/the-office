@@ -4,6 +4,7 @@ import { entryPointProblems, sameEntryPoint, type EntryPointTree } from "../doma
 import { OutputMask } from "../domain/output-mask.js";
 import { INSTALL_COMMAND_KEY, type Project } from "../domain/project.js";
 import type { ProjectVariable } from "../domain/project-environment.js";
+import { isFeatureOn, switchedOffWords } from "../domain/project-features.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import { ProjectTestTargetsChanged } from "../domain/project-events.js";
@@ -29,6 +30,7 @@ import {
 import { TestTargetRepository } from "../ports/test-target-repository.js";
 import { CommittedFiles } from "./committed-files.js";
 import { DevcontainerServices } from "./devcontainer-services.js";
+import { ensureFeatureOn } from "./project-features.js";
 import { ProjectService } from "./project-service.js";
 
 /**
@@ -84,7 +86,7 @@ export class TestTargets {
     private readonly events: EventBus,
   ) {}
 
-  /** The Project's test targets, in the order added. */
+  /** The Project's test targets, in the order added; answered while Test targets are off too. */
   async list(projectId: string): Promise<readonly TestTarget[]> {
     await this.projects.read(projectId);
     return this.repository.listOf(projectId);
@@ -92,7 +94,8 @@ export class TestTargets {
 
   /**
    * Saves the page's whole list: a target left out is removed, a Secret variable sent without a
-   * value keeps its own, and each field that changed is marked set by `user`.
+   * value keeps its own, and each field that changed is marked set by `user`. Refused
+   * (FeatureSwitchedOff) while the Project has Test targets switched off.
    */
   async change(
     projectId: string,
@@ -100,7 +103,9 @@ export class TestTargets {
     user: { userId: string; name: string },
   ): Promise<readonly TestTarget[]> {
     const setter: TestTargetSetter = { by: "user", user: { userId: user.userId, name: user.name } };
-    const commandKeys = keysOf(await this.projects.read(projectId));
+    const project = await this.projects.read(projectId);
+    ensureFeatureOn(project, "test-targets");
+    const commandKeys = keysOf(project);
     // Fetched before the Project is held, so no fetch runs while other changes wait.
     const before = await this.repository.listOf(projectId);
     const freshBase =
@@ -135,9 +140,12 @@ export class TestTargets {
   /**
    * A Proposal of `given` against the Project's targets now, checked by the page's rules and its
    * entry points against the base branch's fresh tree; nothing changes until it is applied.
+   * Refused (FeatureSwitchedOff) while the Project has Test targets switched off.
    */
   async propose(projectId: string, given: TestTargetsToPropose): Promise<ProposedTestTargets> {
-    const commandKeys = keysOf(await this.projects.read(projectId));
+    const project = await this.projects.read(projectId);
+    ensureFeatureOn(project, "test-targets");
+    const commandKeys = keysOf(project);
     const current = await this.repository.listOf(projectId);
     const proposed = proposedTestTargets(current, given);
     const problems = proposedTestTargetsProblems(current, proposed, commandKeys);
@@ -151,6 +159,8 @@ export class TestTargets {
   async proposedProblems(projectId: string, proposed: ProposedTestTargets): Promise<string[]> {
     const project = await this.projects.find(projectId);
     if (!project) return [new ProjectNotFound(projectId).message];
+    if (!isFeatureOn(project, "test-targets"))
+      return [switchedOffWords("test-targets", project.name)];
     const problems = proposedTestTargetsProblems(
       await this.repository.listOf(projectId),
       proposed,
@@ -162,7 +172,8 @@ export class TestTargets {
   /**
    * Applies the Proposal all or nothing, checked again against the targets as they are held: a
    * Secret variable kept by name keeps its value, a new one waits for the user's, and each field it
-   * changes is marked set by the Proposal.
+   * changes is marked set by the Proposal. Refused (FeatureSwitchedOff) while the Project has
+   * Test targets switched off.
    */
   async changeAsProposed(
     projectId: string,
@@ -174,7 +185,9 @@ export class TestTargets {
       proposalId: setter.proposalId,
       agent: { roleKey: setter.agent.roleKey, name: setter.agent.name },
     };
-    const commandKeys = keysOf(await this.projects.read(projectId));
+    const project = await this.projects.read(projectId);
+    ensureFeatureOn(project, "test-targets");
+    const commandKeys = keysOf(project);
     const toCheck = entryPointsProposed(proposed);
     const commit = toCheck.length > 0 ? await this.files.freshBase(projectId) : undefined;
     await this.repository.update(projectId, async (current) => {
@@ -201,10 +214,12 @@ export class TestTargets {
 
   /**
    * What a launch of the target `key` needs, its Secret variables' values among them, which never
-   * leave the service. Refused (ProjectRefused) when the Project has no such target.
+   * leave the service. Refused (ProjectRefused) when the Project has no such target, and
+   * (FeatureSwitchedOff) while it has Test targets switched off.
    */
   async launchSettingsOf(projectId: string, key: string): Promise<TestTargetLaunchSettings> {
     const project = await this.projects.read(projectId);
+    ensureFeatureOn(project, "test-targets");
     const target = (await this.repository.listOf(projectId)).find((each) => each.key === key);
     if (!target)
       throw new ProjectRefused([`The Project has no test target with the key "${key}".`]);

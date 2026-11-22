@@ -323,7 +323,7 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 
 ### Devices
 
-- The Devices section (plug icon), shown only while the Project's Run environment is On; open at the start while the Task has a device not Disconnected.
+- The Devices section (plug icon), shown only while the Project's Run environment is On and its Connected devices are switched on ([Feature switches](../2.1.1-projects.md#feature-switches)); open at the start while the Task has a device not Disconnected.
 - Summary: "<n> connected", or "None connected".
 - A list, one row per device not Disconnected: its name, a badge for its kind (**Android phone over USB**, **Serial board over USB**, **Android phone over wireless debugging**), its state (**Connecting**, **Connected**, **Waiting for the run environment**), "connected by <user> · <when>" (<user> reads "you" for yourself), its endpoint in monospace once Connected (`127.0.0.1:<port>` for an Android phone over USB, the serial path such as `/dev/ttyACM0` for a serial board, then " · " and its RFC 2217 address such as `rfc2217://127.0.0.1:2217`), for a serial board "<baud> baud · round trip <n> ms" once each is known, and **Disconnect**.
 - An Android phone over USB's endpoint reads "adb serial 127.0.0.1:<port>", as `adb devices` lists it.

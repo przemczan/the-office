@@ -8,6 +8,7 @@ import type { IssueDropReason } from "../domain/issue-link.js";
 import { DEFAULT_ISSUE_SETTINGS, type IssueSettings } from "../domain/issue-settings.js";
 import type { Project } from "../domain/project.js";
 import { aProject } from "../domain/project.fixtures.js";
+import { FeatureSwitchedOff } from "../domain/project-features.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import { openedPullRequest } from "../domain/pull-request.js";
 import { OwnProjects } from "../pull-request-watch.fixtures.js";
@@ -58,11 +59,12 @@ let issueImport: IssueImport;
 let writeBacks: IssueWriteBacks;
 let watch: IssueWatch;
 
-function setUp(settings: Partial<IssueSettings> = {}): Project {
+function setUp(settings: Partial<IssueSettings> = {}, fields: Partial<Project> = {}): Project {
   const project = aProject({
     id: "tools",
     name: "Tools",
     issueSettings: { ...DEFAULT_ISSUE_SETTINGS, ...settings },
+    ...fields,
   });
   projects = new OwnProjects([project]);
   const events = new EventBus();
@@ -445,5 +447,79 @@ describe("writing back on the issue", () => {
     await schedule.advanceBy(WRITE_BACK_RETRIED_FOR + 60_000);
     await watch.check();
     expect(host.writes.filter(({ number }) => number === 4)).toEqual([]);
+  });
+});
+
+/** The Project as it reads once GitHub issues are switched off; its links stay. */
+function switchOff(project: Project): void {
+  projects.remove(project.id);
+  projects.include({ ...project, features: { "github-issues": false } });
+}
+
+describe("with the Project's GitHub issues switched off", () => {
+  /** Every issue switch on, so whatever stays quiet does so for the feature alone. */
+  const ALL_ON = {
+    autoImportLabel: "office",
+    autoImportLabelSetBy: BOB,
+    commentOnStartAndDone: true,
+    closeOnDrop: true,
+  };
+
+  it("refuses listing and importing issues, naming the feature", async () => {
+    setUp(ALL_ON, { features: { "github-issues": false } });
+    host.addIssue({ number: 1 });
+
+    await expect(issueImport.openIssues("tools")).rejects.toEqual(
+      new FeatureSwitchedOff("github-issues", "Tools"),
+    );
+    await expect(issueImport.importByHand("tools", [1], ANN)).rejects.toBeInstanceOf(
+      FeatureSwitchedOff,
+    );
+    expect(host.listings).toEqual([]);
+    expect(created).toEqual([]);
+  });
+
+  it("the watch imports, reads and retries nothing, and the links stay", async () => {
+    const project = setUp(ALL_ON);
+    host.addIssue({ number: 1 });
+    const taskId = await imported(1);
+    host.refusal = "GitHub couldn't be reached.";
+    await writeBacks.taskStarted(taskId, "Live view freezes");
+    host.refusal = undefined;
+    switchOff(project);
+    host.addIssue({ number: 2, labels: ["office"] });
+    host.closeOnHost(1);
+
+    await watch.check();
+
+    expect(host.listings).toEqual([]);
+    expect(created).toHaveLength(1);
+    expect(host.writes).toEqual([]);
+    expect((await issueImport.linkOf(taskId))?.link).toMatchObject({
+      number: 1,
+      taskId,
+      closedOnHostAt: null,
+    });
+  });
+
+  it("writes nothing back on start, Done or Drop, and keeps none for later", async () => {
+    const project = setUp(ALL_ON);
+    host.addIssue({ number: 1 });
+    host.addIssue({ number: 2 });
+    const done = await imported(1);
+    const dropped = await imported(2);
+    switchOff(project);
+
+    await writeBacks.taskStarted(done, "One");
+    await writeBacks.taskDone(done);
+    await writeBacks.taskDropped(dropped, { kind: "wont-fix" });
+
+    expect(host.writes).toEqual([]);
+    expect(links.writeBacks.size).toBe(0);
+    // Their ends are still kept, so the watch reads neither issue once the feature is on again.
+    expect([...links.links.values()].map(({ taskEndedAt }) => taskEndedAt)).toEqual([
+      expect.any(Date),
+      expect.any(Date),
+    ]);
   });
 });

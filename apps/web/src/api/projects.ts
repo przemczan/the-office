@@ -28,6 +28,7 @@ import {
   type Mark,
   type Project,
   type ProjectEnvironmentEdit,
+  type ProjectFeaturesChange,
   type CommandChange,
   type InstallCommandChange,
   type IssueImportResult,
@@ -411,6 +412,17 @@ export function changeIssueSettings(id: string, settings: IssueSettings): Promis
   return sendToApi("PUT", `${projectPath(id)}/issue-settings`, settings, projectSchema);
 }
 
+/**
+ * Switches the Project's features named on or off, the others kept; turning one on is refused
+ * while a feature it needs is off, and turning one off turns off those that need it.
+ */
+export function changeFeatures(
+  id: string,
+  features: ProjectFeaturesChange["features"],
+): Promise<Project> {
+  return sendToApi("PUT", `${projectPath(id)}/features`, { features }, projectSchema);
+}
+
 /** Imports the issues as Tasks in Backlog; one imported meanwhile is skipped and named. */
 export function importIssues(id: string, numbers: readonly number[]): Promise<IssueImportResult> {
   return sendToApi(
@@ -540,6 +552,7 @@ export const projectEventInvalidations: Readonly<
   "project.use-for-every-role-changed": () => [PROJECTS, ENGINE_CASCADE],
   "project.role-override-changed": () => [PROJECTS, ENGINE_CASCADE],
   "project.issue-settings-changed": () => [PROJECTS],
+  "project.features-changed": () => [PROJECTS],
   "project.issues-imported": () => [PROJECTS, OPEN_ISSUES],
   "project.test-targets-changed": () => [PROJECTS],
   "issue-link.changed": () => [ISSUE_LINKS],

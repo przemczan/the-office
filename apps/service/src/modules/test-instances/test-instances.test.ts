@@ -8,6 +8,7 @@ import {
   ScriptedContainerRuntime,
   type RunEnvironmentsTestbed,
 } from "../run-environments/index.fixtures.js";
+import { ProjectFeaturesChanged } from "../projects/index.js";
 import { InitiativeStateChanged } from "../work/index.js";
 import { TestInstanceRefused } from "./domain/test-instance-refused.js";
 import type { TestInstance } from "./domain/test-instance.js";
@@ -398,6 +399,63 @@ describe("the target's commands before the entry point, port variable and Memory
     });
     expect(runtime.executions).toHaveLength(1);
     await expectRemoved(instance.id);
+  });
+});
+
+describe("Test targets switched off for the Project", () => {
+  const OFF = {
+    "connected-devices": true,
+    "test-targets": false,
+    "github-issues": true,
+    "run-environment": true,
+  } as const;
+
+  it("refuses a launch, adding no instance", async () => {
+    testbed.project.testTargetsOn = false;
+
+    const refusal = await refusalOf(launch());
+
+    expect(refusal.reasons).toEqual(["Test targets are switched off for «shop»."]);
+    expect(testbed.repository.rows.size).toBe(0);
+  });
+
+  it("lists no targets to launch, on the Project's page or the Initiative's", async () => {
+    testbed.project.testTargetsOn = false;
+
+    expect((await testbed.instances.listForProject("shop")).targets).toEqual([]);
+    const [project] = await testbed.instances.listFor(testbed.initiativeId);
+    expect(project?.targets).toEqual([]);
+  });
+
+  it("stops the Project's Building and Running instances, linked or not, saying why last in each log", async () => {
+    const running = await launchOn("feature/search");
+    await testbed.instances.settled();
+    const building = await launch();
+    expect((await testbed.instances.read(building.id)).state).toBe("building");
+
+    testbed.project.testTargetsOn = false;
+    await testbed.events.publish(new ProjectFeaturesChanged("shop", OFF));
+    await testbed.instances.settled();
+
+    for (const { id } of [running, building]) {
+      expect((await testbed.instances.read(id)).state).toBe("stopped");
+      expect((await logOf(id)).trimEnd()).toMatch(
+        /Stopped because Test targets were switched off for the Project\.$/,
+      );
+      await expectRemoved(id);
+    }
+  });
+
+  it("stops nothing when another Project's are switched off, or the switch stays on", async () => {
+    const instance = await testbed.launchAndSettle();
+
+    await testbed.events.publish(new ProjectFeaturesChanged("another", OFF));
+    await testbed.events.publish(
+      new ProjectFeaturesChanged("shop", { ...OFF, "test-targets": true }),
+    );
+    await testbed.instances.settled();
+
+    expect((await testbed.instances.read(instance.id)).state).toBe("running");
   });
 });
 

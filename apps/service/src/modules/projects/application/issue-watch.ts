@@ -3,6 +3,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import { IssueLinkChanged } from "../domain/issue-link-events.js";
 import type { Project } from "../domain/project.js";
+import { isFeatureOn } from "../domain/project-features.js";
 import { IssueLinkRepository } from "../ports/issue-link-repository.js";
 import { ProjectRepository } from "../ports/project-repository.js";
 import { IssueImport } from "./issue-import.js";
@@ -14,8 +15,9 @@ export const ISSUE_WATCH = "issues";
 export const ISSUE_WATCH_EVERY = 5 * 60 * 1000;
 
 /**
- * Every `ISSUE_WATCH_EVERY`, for each Project whose repository is on a code host, while The Office
- * is signed in to it with a token valid now (else the Project is passed over, saying nothing):
+ * Every `ISSUE_WATCH_EVERY`, for each Project with its GitHub issues on whose repository is on a
+ * code host, while The Office is signed in to it with a token valid now (else the Project is passed
+ * over, saying nothing):
  * imports the open issues with the Project's auto-import label not yet linked (`IssueImport`),
  * reads the state of each issue whose Task hasn't ended and keeps when it closed on the host, or
  * clears it once opened again (the Task doesn't move), and tries again the write-backs the host
@@ -61,6 +63,8 @@ export class IssueWatch implements OnApplicationBootstrap {
   }
 
   private async checkProject(project: Project): Promise<void> {
+    // Switched off: nothing imported, read or written back; its links stay for when it is on again.
+    if (!isFeatureOn(project, "github-issues")) return;
     const onHost = await this.hosts.of(project);
     if (onHost === undefined) return;
     // Signed out, or the token can't be renewed now: nothing to ask, and nothing to say.

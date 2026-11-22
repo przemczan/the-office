@@ -50,6 +50,7 @@ import { BaseCheckouts } from "./application/base-checkouts.js";
 import { CiRunWatch } from "./application/ci-run-watch.js";
 import { CodeHosts } from "./application/code-hosts.js";
 import { ManualWorkflows } from "./application/manual-workflows.js";
+import { ProjectFeatures } from "./application/project-features.js";
 import { ProjectRecords } from "./application/project-records.js";
 import { CommittedFiles } from "./application/committed-files.js";
 import { EngineLevelsChecks } from "./application/engine-levels-checks.js";
@@ -188,6 +189,7 @@ export class ProjectsModule implements NestModule {
         LocalRepositories,
         RepositoriesByUrl,
         ProjectService,
+        ProjectFeatures,
         ProjectImages,
         ProjectLevelMoves,
         ProjectsFromRepositories,
@@ -231,6 +233,7 @@ export class ProjectsModule implements NestModule {
         TestInstanceCheckouts,
         ProjectRecords,
         ProjectService,
+        ProjectFeatures,
         ProjectsFromRepositories,
         PullRequestRecords,
         TaskRunEnvironments,

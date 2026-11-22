@@ -344,6 +344,7 @@ describe("Devops' Proposals, through the scripted engine", () => {
     expect(proposal?.change).toEqual({
       kind: "project",
       project: { ...drafted, mark: { label: markLabelFor(name), colour: "teal" } },
+      features: [],
       projectId: null,
       taskId: null,
     });
@@ -373,6 +374,48 @@ describe("Devops' Proposals, through the scripted engine", () => {
       projectId: change.projectId,
       taskId: change.taskId,
       state: "onboarding",
+    });
+    // The whole app, a real repository and a chat session: slow under a full run.
+  }, 30_000);
+
+  it("drafts a Project to onboard with its feature switches; applied, the Project is added with them", async () => {
+    const repository = await aRepository();
+    const name = `Switched ${randomUUID().slice(0, 8)}`;
+    const features = {
+      "github-issues": { on: false, reason: "Its issues are tracked elsewhere." },
+      "connected-devices": { on: true, reason: "An Android app." },
+      "test-targets": { on: false, reason: "A library, with nothing to try by hand." },
+    };
+
+    const [proposal] = await chat.ninaProposes([
+      PROPOSE_PROJECT_TOOL,
+      { ...ONBOARDED, name, path: repository, features },
+    ]);
+
+    // In the features' order, whatever order they were given in.
+    expect(proposal?.change).toMatchObject({
+      kind: "project",
+      features: [
+        { feature: "connected-devices", on: true, reason: "An Android app." },
+        { feature: "test-targets", on: false, reason: "A library, with nothing to try by hand." },
+        { feature: "github-issues", on: false, reason: "Its issues are tracked elsewhere." },
+      ],
+    });
+    const response = await chat.api("POST", `/proposals/${proposal?.id}/apply`, {});
+    expect(response.status).toBe(200);
+    const { change } = proposalSchema.parse(await response.json());
+    if (change.kind !== "project" || !change.projectId) {
+      throw new Error("The applied Proposal names no Project.");
+    }
+    expect(change.features).toHaveLength(3);
+    const project = projectSchema.parse(await chat.read(`/projects/${change.projectId}`));
+    expect(project.features).toEqual({
+      // Proposed on, and stored, but read off while the Project's Run environment is not decided.
+      "connected-devices": false,
+      // Off as proposed, where a Project added without them reads them on.
+      "test-targets": false,
+      "github-issues": false,
+      "run-environment": false,
     });
     // The whole app, a real repository and a chat session: slow under a full run.
   }, 30_000);
@@ -488,6 +531,7 @@ describe("Devops' Proposals, through the scripted engine", () => {
           repositoryUrl,
           mark: { label: markLabelFor(name), colour: "teal" },
         },
+        features: [],
         projectId: null,
         taskId: null,
       });

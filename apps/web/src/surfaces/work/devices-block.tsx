@@ -50,13 +50,16 @@ registerDeviceTransport(serialUsbTransport());
 
 /**
  * The Task's Devices section (spec screens/task-page.md, "Devices"; 2.13): shown only while the
- * Project's Run environment is On. A row per device not Disconnected with Disconnect, the earlier
- * ones below as history, and Connect for each kind this build has a transport for, greyed with why
- * for a kind this browser can't reach, and for pairing a phone over wireless debugging.
+ * Project's Run environment is On and its Connected devices are switched on. A row per device not
+ * Disconnected with Disconnect, the earlier ones below as history, and Connect for each kind this
+ * build has a transport for, greyed with why for a kind this browser can't reach, and for pairing a
+ * phone over wireless debugging.
  */
 export function DevicesBlock({ task }: { readonly task: Task }): ReactNode {
   const project = useQuery(projectQueries.one(task.projectId)).data;
-  return project?.runEnvironment === "on" ? <DevicesFold task={task} /> : null;
+  return project?.runEnvironment === "on" && project.features["connected-devices"] ? (
+    <DevicesFold task={task} />
+  ) : null;
 }
 
 function DevicesFold({ task }: { readonly task: Task }): ReactNode {

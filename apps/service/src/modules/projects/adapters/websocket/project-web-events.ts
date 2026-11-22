@@ -16,6 +16,7 @@ import {
   ProjectDefaultChanged,
   ProjectDefaultPipelineChanged,
   ProjectEnvironmentChanged,
+  ProjectFeaturesChanged,
   ProjectIssueSettingsChanged,
   ProjectKindDefaultPipelineChanged,
   ProjectImageChanged,
@@ -185,6 +186,13 @@ export class ProjectWebEvents implements OnModuleInit {
       ProjectIssueSettingsChanged,
       (event): WebEventOf<"project.issue-settings-changed"> => ({
         type: "project.issue-settings-changed",
+        projectId: event.projectId,
+      }),
+    );
+    this.forwarding.forward(
+      ProjectFeaturesChanged,
+      (event): WebEventOf<"project.features-changed"> => ({
+        type: "project.features-changed",
         projectId: event.projectId,
       }),
     );

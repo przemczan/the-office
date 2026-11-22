@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { withFixes } from "../domain/issue-fixes.js";
 import type { Project } from "../domain/project.js";
+import { isFeatureOn } from "../domain/project-features.js";
 import type { CommitMessage } from "../domain/publication.js";
 import type { TaskBase } from "../domain/task-base.js";
 import { Git } from "../ports/git.js";
@@ -22,14 +23,19 @@ export class IssueFixes {
     private readonly issueTasks: IssueTasks,
   ) {}
 
-  /** The message with the Task's `Fixes #n` lines; as it is with the switch off or no issue. */
+  /**
+   * The message with the Task's `Fixes #n` lines; as it is with the switch off, the Project's GitHub
+   * issues switched off, or no issue.
+   */
   async of(
     project: Project,
     taskId: string,
     taskBase: TaskBase,
     message: CommitMessage,
   ): Promise<CommitMessage> {
-    if (!project.issueSettings.closeOnDone) return message;
+    if (!project.issueSettings.closeOnDone || !isFeatureOn(project, "github-issues")) {
+      return message;
+    }
     const upstream = await this.git.upstreamOf(project.path, project.baseBranch);
     if (!upstream) return message;
     const remoteUrl = await this.git.fetchUrlOf(project.path, upstream.remote);

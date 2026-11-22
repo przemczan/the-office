@@ -4,6 +4,7 @@ export {
   InitiativeBranches,
   type InitiativeBranchMaking,
 } from "./application/initiative-branches.js";
+export { ProjectFeatures } from "./application/project-features.js";
 export { ProjectRecords } from "./application/project-records.js";
 export { ProjectService } from "./application/project-service.js";
 export { PullRequestRecords } from "./application/pull-request-records.js";
@@ -92,6 +93,7 @@ export {
   ProjectTestTargetsChanged,
   ProjectUseForEveryRoleChanged,
   ProjectUseProjectSkillsChanged,
+  ProjectFeaturesChanged,
 } from "./domain/project-events.js";
 export type {
   NewProject,
@@ -119,6 +121,13 @@ export {
 export type { MergeMethod } from "./domain/merge-method.js";
 export { ProjectNotFound } from "./domain/project-not-found.js";
 export { ProjectRefused } from "./domain/project-refused.js";
+export {
+  FeatureSwitchedOff,
+  PROJECT_FEATURES,
+  type ProjectFeature,
+  type ProjectFeatureStates,
+  type ProjectFeatureSwitches,
+} from "./domain/project-features.js";
 export { TestInstanceRefused, type RefusedInTestInstance } from "./domain/test-instance-refused.js";
 export {
   proposedCommands,

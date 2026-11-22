@@ -8,7 +8,7 @@ import {
   textFrame,
 } from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ProjectRunEnvironmentChanged } from "../../projects/index.js";
+import { ProjectFeaturesChanged, ProjectRunEnvironmentChanged } from "../../projects/index.js";
 import {
   NO_MASK,
   runEnvironmentsTestbed,
@@ -527,6 +527,25 @@ describe("refusing a connect", () => {
     expect(await testbed.devices.list(TASK_ID)).toEqual([]);
   });
 
+  it("is refused while Connected devices is switched off for the Project, naming it", async () => {
+    testbed.deviceFeature.off.add(PROJECT_ID);
+
+    await expect(testbed.devices.connect(TASK_ID, PHONE, ANN)).rejects.toMatchObject({
+      reasons: [`Connected devices are switched off for «${PROJECT_ID}».`],
+      otherTask: undefined,
+    });
+    expect(await testbed.devices.list(TASK_ID)).toEqual([]);
+  });
+
+  it("gives only the Run environment's reason while it is Off, Connected devices reading off with it", async () => {
+    testbed.settings.off.add(PROJECT_ID);
+    testbed.deviceFeature.off.add(PROJECT_ID);
+
+    await expect(testbed.devices.connect(TASK_ID, PHONE, ANN)).rejects.toMatchObject({
+      reasons: ["The Project's Run environment is Off."],
+    });
+  });
+
   it("is refused for an Android phone over wireless debugging, which is paired instead", async () => {
     await expect(
       testbed.devices.connect(
@@ -633,6 +652,37 @@ describe("disconnecting", () => {
     );
 
     expect((await testbed.devices.read(id)).disconnectedBecause).toBe("run-environment-turned-off");
+  });
+
+  it("ends every device of the Project's Tasks as Connected devices is switched off", async () => {
+    const { id, socket } = await connectWithRelay();
+    const features = {
+      "connected-devices": false,
+      "test-targets": true,
+      "github-issues": true,
+      "run-environment": true,
+    };
+
+    await testbed.environments.events.publish(new ProjectFeaturesChanged(PROJECT_ID, features));
+
+    expect((await testbed.devices.read(id)).disconnectedBecause).toBe(
+      "connected-devices-switched-off",
+    );
+    expect(socket.closedWith?.code).toBe(DEVICE_RELAY_ENDED_CLOSE_CODE);
+  });
+
+  it("keeps its devices as another feature is switched off", async () => {
+    const { id } = await connectWithRelay();
+    const features = {
+      "connected-devices": true,
+      "test-targets": false,
+      "github-issues": true,
+      "run-environment": true,
+    };
+
+    await testbed.environments.events.publish(new ProjectFeaturesChanged(PROJECT_ID, features));
+
+    expect((await testbed.devices.read(id)).state).not.toBe("disconnected");
   });
 
   it("closes a second socket for the device as taken, and one for a Disconnected device as ended", async () => {

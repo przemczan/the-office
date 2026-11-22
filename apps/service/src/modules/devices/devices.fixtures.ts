@@ -31,6 +31,7 @@ import { AdbKeysForTests } from "./ports/adb-key-repository.fixtures.js";
 import { ConnectedDeviceRepository } from "./ports/connected-device-repository.js";
 import { ConnectedDevicesForTests } from "./ports/connected-device-repository.fixtures.js";
 import { DeviceTasks, type DeviceTask } from "./ports/device-tasks.js";
+import { ProjectDeviceFeature } from "./ports/project-features.js";
 import { ProjectRunEnvironmentSettings } from "./ports/project-run-environment-settings.js";
 import { RunEnvironmentStart } from "./ports/run-environment-start.js";
 
@@ -59,6 +60,19 @@ export class RunEnvironmentSettingsForTests extends ProjectRunEnvironmentSetting
 
   isOn(projectId: string): Promise<boolean> {
     return Promise.resolve(!this.off.has(projectId));
+  }
+}
+
+/** Connected devices switched on for every Project but those in `off`, refused in Projects' words. */
+export class DeviceFeatureForTests extends ProjectDeviceFeature {
+  readonly off = new Set<string>();
+
+  switchedOffReasonOf(projectId: string): Promise<string | undefined> {
+    return Promise.resolve(
+      this.off.has(projectId)
+        ? `Connected devices are switched off for «${projectId}».`
+        : undefined,
+    );
   }
 }
 
@@ -289,6 +303,7 @@ export interface DevicesTestbed<Environments extends RunEnvironmentsOfTestbed> {
   readonly repository: ConnectedDeviceRepository;
   readonly tasks: DeviceTasksForTests;
   readonly settings: RunEnvironmentSettingsForTests;
+  readonly deviceFeature: DeviceFeatureForTests;
   readonly taskDevices: TaskConnectedDevices;
   readonly runtime: ScriptedContainerRuntime;
   readonly environments: Environments;
@@ -300,7 +315,8 @@ export interface DevicesTestbed<Environments extends RunEnvironmentsOfTestbed> {
 /**
  * Connected devices on the run environments' testbed and its scripted runtime, each helper
  * attached a loopback one and each adb step answered by `ScriptedAdb`, the helper built at
- * `HELPER_VERSION` for both machines, every Project's Run environment On unless turned off.
+ * `HELPER_VERSION` for both machines, every Project's Run environment On and Connected devices
+ * switched on unless turned off.
  */
 export async function devicesTestbed<Environments extends RunEnvironmentsOfTestbed>(
   runtime: ScriptedContainerRuntime,
@@ -318,6 +334,7 @@ export async function devicesTestbed<Environments extends RunEnvironmentsOfTestb
   await helperFiles.copy();
   const tasks = new DeviceTasksForTests();
   const settings = new RunEnvironmentSettingsForTests();
+  const deviceFeature = new DeviceFeatureForTests();
   const taskDevices = new TaskConnectedDevices();
   const adbKeys = new AdbKeysForTests();
   const adbInRunEnvironment = new AdbInRunEnvironment(
@@ -345,6 +362,7 @@ export async function devicesTestbed<Environments extends RunEnvironmentsOfTestb
     androidUsb,
     new WirelessDevices(adbInRunEnvironment, environments.schedule),
     environmentStart,
+    deviceFeature,
   );
   devices.onModuleInit();
   return {
@@ -354,6 +372,7 @@ export async function devicesTestbed<Environments extends RunEnvironmentsOfTestb
     repository,
     tasks,
     settings,
+    deviceFeature,
     taskDevices,
     runtime,
     environments,

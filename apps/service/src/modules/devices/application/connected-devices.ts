@@ -3,7 +3,7 @@ import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
-import { ProjectRunEnvironmentChanged } from "../../projects/index.js";
+import { ProjectFeaturesChanged, ProjectRunEnvironmentChanged } from "../../projects/index.js";
 import {
   DEVICE_HELPER_NOT_BUILT,
   DeviceHelperFiles,
@@ -51,7 +51,8 @@ import {
 import type { ConnectedDeviceChanged } from "../domain/connected-device-events.js";
 import { wirelessAddressOf, wirelessDeviceKeyOf } from "../domain/wireless-address.js";
 import { ConnectedDeviceRepository } from "../ports/connected-device-repository.js";
-import { DeviceTasks } from "../ports/device-tasks.js";
+import { DeviceTasks, type DeviceTask } from "../ports/device-tasks.js";
+import { ProjectDeviceFeature } from "../ports/project-features.js";
 import { ProjectRunEnvironmentSettings } from "../ports/project-run-environment-settings.js";
 import type { HelperOpening, HelperProcess, RelayClose, RelayLink } from "../ports/relay-link.js";
 import { RunEnvironmentStart } from "../ports/run-environment-start.js";
@@ -122,6 +123,7 @@ export class ConnectedDevices implements OnModuleInit {
     private readonly androidUsb: AndroidUsbDevices,
     private readonly wireless: WirelessDevices,
     private readonly environmentStart: RunEnvironmentStart,
+    private readonly deviceFeature: ProjectDeviceFeature,
   ) {}
 
   onModuleInit(): void {
@@ -148,10 +150,12 @@ export class ConnectedDevices implements OnModuleInit {
     });
     this.events.subscribe(ProjectRunEnvironmentChanged, ({ projectId, runEnvironment }) => {
       if (runEnvironment === "on") return;
-      return this.disconnectAll(
-        this.repository.openOfProject(projectId),
-        "run-environment-turned-off",
-      );
+      return this.projectSwitchedOff(projectId, "run-environment-turned-off");
+    });
+    // Connected devices reads off whenever Run environment isn't On, so both events may come.
+    this.events.subscribe(ProjectFeaturesChanged, ({ projectId, features }) => {
+      if (features["connected-devices"]) return;
+      return this.projectSwitchedOff(projectId, "connected-devices-switched-off");
     });
   }
 
@@ -174,18 +178,20 @@ export class ConnectedDevices implements OnModuleInit {
 
   /**
    * Keeps a Connecting record for the device the browser reached, whose relay it opens next.
-   * Refused, with every reason, unless the Task is open, its Project's Run environment On, the
-   * kind relayed and the helper built; then refused naming the other Task when an open record
-   * holds the device key. Never starts the run environment.
+   * Refused, with every reason, unless the Task is open, its Project's Run environment On and
+   * Connected devices switched on, the kind relayed and the helper built; then refused naming the
+   * other Task when an open record holds the device key. Never starts the run environment.
    */
   async connect(taskId: string, given: DeviceToConnect, by: DeviceUser): Promise<ConnectedDevice> {
     const task = await this.tasks.find(taskId);
     if (task === undefined) throw ConnectedDeviceNotFound.task(taskId);
+    const runEnvironmentOn = await this.runEnvironmentSettings.isOn(task.projectId);
     const problems = connectProblemsOf({
       taskState: task.state,
-      runEnvironmentOn: await this.runEnvironmentSettings.isOn(task.projectId),
+      runEnvironmentOn,
       kind: given.kind,
     });
+    problems.push(...(await this.switchedOffReasons(task, runEnvironmentOn)));
     if (
       problems.length === 0 &&
       (await this.helperFiles.executableFor(hostHelperArchitecture())) === undefined
@@ -212,17 +218,16 @@ export class ConnectedDevices implements OnModuleInit {
    * background: the run environment started first when it isn't running (the one start a device
    * makes), then adb's check, the Project's key, `adb pair` with the code on its standard input and
    * `adb connect`, Connected or ended as an error with adb's words. Refused, with every reason,
-   * unless the Task is open, its Project's Run environment On, the address one the run environment
-   * can reach and the helper built (it writes the key); then refused naming the other Task when an
-   * open record holds the address. The code is never kept.
+   * unless the Task is open, its Project's Run environment On and Connected devices switched on,
+   * the address one the run environment can reach and the helper built (it writes the key); then
+   * refused naming the other Task when an open record holds the address. The code is never kept.
    */
   async pair(taskId: string, given: WirelessPhoneToPair, by: DeviceUser): Promise<ConnectedDevice> {
     const task = await this.tasks.find(taskId);
     if (task === undefined) throw ConnectedDeviceNotFound.task(taskId);
-    const problems = taskProblemsOf({
-      taskState: task.state,
-      runEnvironmentOn: await this.runEnvironmentSettings.isOn(task.projectId),
-    });
+    const runEnvironmentOn = await this.runEnvironmentSettings.isOn(task.projectId);
+    const problems = taskProblemsOf({ taskState: task.state, runEnvironmentOn });
+    problems.push(...(await this.switchedOffReasons(task, runEnvironmentOn)));
     const reading = wirelessAddressOf(given.address);
     if ("problem" in reading) problems.push(reading.problem);
     if (
@@ -246,6 +251,30 @@ export class ConnectedDevices implements OnModuleInit {
     const target = { address: reading.address, port: given.port, pairingPort: given.pairingPort };
     this.followPairing(device, target, given.pairingCode);
     return device;
+  }
+
+  /**
+   * Connected devices switched off for the Project, in the words naming it; asked only while the
+   * Run environment is On, as Connected devices reads off without it and that reason is given.
+   */
+  private async switchedOffReasons(
+    task: DeviceTask,
+    runEnvironmentOn: boolean,
+  ): Promise<readonly string[]> {
+    if (!runEnvironmentOn) return [];
+    const reason = await this.deviceFeature.switchedOffReasonOf(task.projectId);
+    return reason === undefined ? [] : [reason];
+  }
+
+  /**
+   * The Project's Run environment turned Off or its Connected devices switched off: every open
+   * device of its Tasks ends, for that reason.
+   */
+  private projectSwitchedOff(
+    projectId: string,
+    because: "run-environment-turned-off" | "connected-devices-switched-off",
+  ): Promise<void> {
+    return this.disconnectAll(this.repository.openOfProject(projectId), because);
   }
 
   /** Disconnects the device by a user, or for the reason given; one Disconnected stays as it is. */

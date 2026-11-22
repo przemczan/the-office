@@ -1562,6 +1562,13 @@
   white-space: pre-wrap;
 }
 
+/* A proposed feature switch: On or Off, then why. */
+.proposal-feature {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
 .proposal-files {
   margin: 0;
   padding: 0;

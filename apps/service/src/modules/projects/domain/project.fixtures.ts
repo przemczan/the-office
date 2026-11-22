@@ -59,6 +59,7 @@ export function aProject(fields: Partial<Project> = {}): Project {
     addedAt: new Date("2026-10-25T09:00:00.000Z"),
     kindDefaultPipelines: NO_KIND_DEFAULT_PIPELINES,
     issueSettings: DEFAULT_ISSUE_SETTINGS,
+    features: {},
     ...fields,
   };
 }

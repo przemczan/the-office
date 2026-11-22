@@ -49,6 +49,12 @@ const PROJECT: Project = {
   useForEveryRole: false,
   roleOverrides: [],
   runEnvironment: "not-decided",
+  features: {
+    "connected-devices": false,
+    "test-targets": true,
+    "github-issues": true,
+    "run-environment": false,
+  },
   projectLimit: 1,
   addedAt: "2026-11-01T10:00:00.000Z",
   codeHost: null,

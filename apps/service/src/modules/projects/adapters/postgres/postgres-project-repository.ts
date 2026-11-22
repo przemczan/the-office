@@ -5,6 +5,7 @@ import { forgettingReads, readKey, readOnce } from "../../../../platform/databas
 import type { EngineModel } from "../../../engine/index.js";
 import type { Project, ProjectCommand } from "../../domain/project.js";
 import type { ProjectChanges } from "../../domain/project-changes.js";
+import { featureSwitchesOfStored } from "../../domain/project-features.js";
 import { ProjectNotFound } from "../../domain/project-not-found.js";
 import { ProjectRepository } from "../../ports/project-repository.js";
 import { projects, type StoredProjectCommand } from "./projects.schema.js";
@@ -94,6 +95,7 @@ function toRow(project: Project): ProjectRow {
     closeIssueOnDone: project.issueSettings.closeOnDone,
     commentOnIssue: project.issueSettings.commentOnStartAndDone,
     closeIssueOnDrop: project.issueSettings.closeOnDrop,
+    features: { ...project.features },
   };
 }
 
@@ -136,6 +138,7 @@ function toProject(row: ProjectRow): Project {
       commentOnStartAndDone: row.commentOnIssue,
       closeOnDrop: row.closeIssueOnDrop,
     },
+    features: featureSwitchesOfStored(row.features),
   };
 }
 

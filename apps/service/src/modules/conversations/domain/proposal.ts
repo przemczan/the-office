@@ -1,6 +1,11 @@
 import { isDeepStrictEqual } from "node:util";
 import type { DutyKey, RoleCard, SetUpDuty, SetUpHire } from "../../people/index.js";
-import type { NewProject, ProposedCommands, ProposedTestTargets } from "../../projects/index.js";
+import type {
+  NewProject,
+  ProjectFeatureSwitches,
+  ProposedCommands,
+  ProposedTestTargets,
+} from "../../projects/index.js";
 import type { PinnedVersion } from "../../skills/index.js";
 import { ProposalRefused } from "./proposal-refused.js";
 import type { UserRef } from "./user.js";
@@ -261,6 +266,17 @@ export interface ProjectPipelineFields {
   readonly stageChanges: readonly PipelineStageChange[];
 }
 
+/** A feature switch proposed for a Project to onboard (spec §2.1.1): on or off, and why. */
+export interface ProposedFeatureSwitch {
+  readonly on: boolean;
+  readonly reason: string;
+}
+
+/** The proposed switches by feature, only those proposed; Run environment is asked apart. */
+export type ProposedFeatureSwitches = Readonly<
+  Partial<Record<keyof ProjectFeatureSwitches, ProposedFeatureSwitch>>
+>;
+
 /**
  * A Project whoever onboards Projects drafted to onboard (spec §2.1 Defaults): applying it adds the
  * Project and its Onboard Task, Ready on the Onboard Pipeline.
@@ -268,6 +284,11 @@ export interface ProjectPipelineFields {
 export interface ProposedProject {
   readonly kind: "project";
   readonly project: NewProject;
+  /**
+   * The feature switches proposed, each with its reason; a feature left out is added on. Undefined
+   * on a Proposal drafted before Proposals carried them, which proposed none.
+   */
+  readonly features?: ProposedFeatureSwitches;
   /** The Project added, once the user applied it; undefined before. */
   readonly projectId: string | undefined;
   /** Its Onboard Task, once the user applied it; undefined before. */

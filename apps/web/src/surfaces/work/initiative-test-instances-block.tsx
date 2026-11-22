@@ -47,7 +47,9 @@ import { openFold, useFold } from "./record-folds.ts";
  * branch with a row per Hosted or Build to install test target, its newest instance and the earlier
  * ones folded under it. Launch, Stop, Open and Log act from the row, and a Built instance's files
  * each have Download and a QR code; Done or Dropped, it is read-only. A link to an instance
- * (`?testInstance=`, a Notification's) opens the fold at its row.
+ * (`?testInstance=`, a Notification's) opens the fold at its row. A Project with Test targets
+ * switched off is left out, and the fold is hidden while none of the Projects on its branches has
+ * them on.
  */
 export function InitiativeTestInstancesBlock({
   initiative,
@@ -59,9 +61,15 @@ export function InitiativeTestInstancesBlock({
   /** The instance a link leads to, by its id. */
   readonly linkedTo?: string;
 }): ReactNode {
-  return testInstancesShown(initiative) ? (
-    <TestInstancesFold initiative={initiative} projects={projects} linkedTo={linkedTo} />
-  ) : null;
+  if (!testInstancesShown(initiative) || projects === undefined) return null;
+  const onBranches = projects.filter(({ id }) =>
+    initiative.branches.some(({ projectId }) => projectId === id),
+  );
+  const withTestTargets = onBranches.filter(({ features }) => features["test-targets"]);
+  // With no Project on a branch yet, the fold still says where test instances launch.
+  return onBranches.length > 0 && withTestTargets.length === 0 ? null : (
+    <TestInstancesFold initiative={initiative} projects={withTestTargets} linkedTo={linkedTo} />
+  );
 }
 
 function TestInstancesFold({
@@ -70,11 +78,14 @@ function TestInstancesFold({
   linkedTo,
 }: {
   readonly initiative: Initiative;
-  readonly projects: readonly Project[] | undefined;
+  /** The Projects on its branches with Test targets switched on; the others' groups are left out. */
+  readonly projects: readonly Project[];
   readonly linkedTo: string | undefined;
 }): ReactNode {
   const query = useQuery(testInstanceQueries.ofInitiative(initiative.id));
-  const groups = query.data?.projects;
+  const groups = query.data?.projects.filter(({ projectId }) =>
+    projects.some(({ id }) => id === projectId),
+  );
   const fold = useFold(
     { kind: "initiative", id: initiative.id },
     "test-instances",
@@ -97,7 +108,7 @@ function TestInstancesFold({
   });
   const [logShown, setLogShown] = useState<string>();
   const projectOf = (projectId: string): Project | undefined =>
-    projects?.find(({ id }) => id === projectId);
+    projects.find(({ id }) => id === projectId);
   const shownInstance = logShown === undefined ? undefined : findInstance(groups, logShown);
   const branch =
     initiative.shortName === null ? undefined : initiativeBranchOf(initiative.shortName);

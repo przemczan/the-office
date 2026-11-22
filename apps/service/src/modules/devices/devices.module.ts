@@ -4,6 +4,7 @@ import { DevicesController } from "./adapters/http/devices.controller.js";
 import { AdbKeyFrames } from "./adapters/device-helper/adb-key-frames.js";
 import { PostgresAdbKeyRepository } from "./adapters/postgres/postgres-adb-key-repository.js";
 import { PostgresConnectedDeviceRepository } from "./adapters/postgres/postgres-connected-device-repository.js";
+import { ProjectsDeviceFeature } from "./adapters/projects/projects-device-feature.js";
 import { ProjectsRunEnvironmentStart } from "./adapters/projects/projects-run-environment-start.js";
 import { RunEnvironmentsSettings } from "./adapters/run-environments/run-environments-settings.js";
 import { ConnectedDeviceWebEvents } from "./adapters/websocket/connected-device-web-events.js";
@@ -17,13 +18,14 @@ import { AdbKeyInput } from "./ports/adb-key-input.js";
 import { AdbKeyRepository } from "./ports/adb-key-repository.js";
 import { ConnectedDeviceRepository } from "./ports/connected-device-repository.js";
 import { DeviceTasks } from "./ports/device-tasks.js";
+import { ProjectDeviceFeature } from "./ports/project-features.js";
 import { ProjectRunEnvironmentSettings } from "./ports/project-run-environment-settings.js";
 import { RunEnvironmentStart } from "./ports/run-environment-start.js";
 
 export interface DevicesModuleOptions {
   /**
    * Work, Projects and Run environments: Work's `TaskService` and `TaskConnectedDevices`, Projects'
-   * `TaskWorktrees`, Run environments' `RunEnvironments`, `DeviceHelperFiles`,
+   * `TaskWorktrees` and `ProjectFeatures`, Run environments' `RunEnvironments`, `DeviceHelperFiles`,
    * `RunEnvironmentCommandVariables` and `ProjectRunEnvironments`.
    */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
@@ -43,6 +45,7 @@ export class DevicesModule {
         { provide: DeviceTasks, useClass: WorkDeviceTasks },
         { provide: ProjectRunEnvironmentSettings, useClass: RunEnvironmentsSettings },
         { provide: RunEnvironmentStart, useClass: ProjectsRunEnvironmentStart },
+        { provide: ProjectDeviceFeature, useClass: ProjectsDeviceFeature },
         AdbInRunEnvironment,
         AndroidUsbDevices,
         WirelessDevices,

@@ -15,6 +15,7 @@ import {
   type IssueWriteBackEntry,
 } from "../domain/issue-link.js";
 import type { Project } from "../domain/project.js";
+import { isFeatureOn } from "../domain/project-features.js";
 import { IssueLinkRepository } from "../ports/issue-link-repository.js";
 import { ProjectRepository } from "../ports/project-repository.js";
 import { PullRequestRepository } from "../ports/pull-request-repository.js";
@@ -56,7 +57,7 @@ export class IssueWriteBacks extends IssueWriteBack {
 
   async taskStarted(taskId: string, title: string): Promise<void> {
     const found = await this.linked(taskId);
-    if (!found || !found.project.issueSettings.commentOnStartAndDone) return;
+    if (!found || !writesBack(found.project, "commentOnStartAndDone")) return;
     await this.write(found.link, [["comment", startedComment(title)]]);
   }
 
@@ -64,7 +65,7 @@ export class IssueWriteBacks extends IssueWriteBack {
     const found = await this.linked(taskId);
     if (!found) return;
     await this.links.endTask(found.link.id, this.schedule.now());
-    if (!found.project.issueSettings.commentOnStartAndDone) return;
+    if (!writesBack(found.project, "commentOnStartAndDone")) return;
     const doneIn = await this.doneIn(found.project, taskId);
     await this.write(found.link, [["comment", doneComment(doneIn)]]);
   }
@@ -73,7 +74,7 @@ export class IssueWriteBacks extends IssueWriteBack {
     const found = await this.linked(taskId);
     if (!found) return;
     await this.links.endTask(found.link.id, this.schedule.now());
-    if (!found.project.issueSettings.closeOnDrop) return;
+    if (!writesBack(found.project, "closeOnDrop")) return;
     const duplicateOf = await this.duplicateOf(found.link, dropReason);
     await this.write(found.link, [
       ["comment", droppedComment(dropReason, duplicateOf)],
@@ -190,4 +191,13 @@ export class IssueWriteBacks extends IssueWriteBack {
       await this.events.publish(new IssueLinkChanged(link.projectId, link.taskId));
     }
   }
+}
+
+/**
+ * Whether the Project's switch asks for the write-back. With its GitHub issues switched off none is
+ * even kept in the outbox, so nothing reaches the issue once they are on again; the Task's end is
+ * still kept on the link, which stays.
+ */
+function writesBack(project: Project, setting: "commentOnStartAndDone" | "closeOnDrop"): boolean {
+  return isFeatureOn(project, "github-issues") && project.issueSettings[setting];
 }

@@ -11,7 +11,9 @@ import { IssueLinkRepository } from "../ports/issue-link-repository.js";
 import { ProjectRepository } from "../ports/project-repository.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
 import { ProjectRefused } from "../domain/project-refused.js";
+import { isFeatureOn } from "../domain/project-features.js";
 import { IssueTasks } from "./issue-tasks.js";
+import { ensureFeatureOn } from "./project-features.js";
 import { ProjectIssueHosts, type ProjectIssueHost } from "./project-issue-hosts.js";
 
 /** The most open issues the Import issues window lists, newest first. */
@@ -65,7 +67,7 @@ export class IssueImport {
   /**
    * The Project's open issues not yet imported, newest first, up to `OPEN_ISSUES_LISTED` of them,
    * each with the Kind it would import as. Refused (ProjectRefused) when its repository isn't on a
-   * code host or can't be read now.
+   * code host or can't be read now, and `FeatureSwitchedOff` while its GitHub issues are off.
    */
   async openIssues(projectId: string): Promise<readonly OpenIssue[]> {
     const project = await this.project(projectId);
@@ -82,7 +84,7 @@ export class IssueImport {
   /**
    * Imports the issues by number as Tasks created by `by`, in the order given, each once. An
    * issue the host doesn't have, a closed one, one already imported, or one whose Task Work
-   * refuses is skipped, saying why.
+   * refuses is skipped, saying why. Refused as `openIssues` is.
    */
   async importByHand(
     projectId: string,
@@ -108,6 +110,8 @@ export class IssueImport {
    * the label. Gives how many it imported.
    */
   async importLabelled(project: Project, { remoteUrl, host }: ProjectIssueHost): Promise<number> {
+    // The watch passes such a Project over already; kept here too, so no caller imports past it.
+    if (!isFeatureOn(project, "github-issues")) return 0;
     const { autoImportLabel, autoImportLabelSetBy } = project.issueSettings;
     if (autoImportLabel === null || autoImportLabelSetBy === null) return 0;
     const [issues, linked] = await Promise.all([
@@ -229,9 +233,11 @@ export class IssueImport {
     if (imported.length > 0) await this.events.publish(new IssuesImported(projectId, imported));
   }
 
+  /** The Project, refused while its GitHub issues are switched off. */
   private async project(projectId: string): Promise<Project> {
     const project = await this.projects.find(projectId);
     if (!project) throw new ProjectNotFound(projectId);
+    ensureFeatureOn(project, "github-issues");
     return project;
   }
 }

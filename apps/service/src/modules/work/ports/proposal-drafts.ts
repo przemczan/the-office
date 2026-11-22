@@ -1,4 +1,4 @@
-import type { NewProject } from "../../projects/index.js";
+import type { NewProject, ProjectFeatureSwitches } from "../../projects/index.js";
 import type { InitiativeEdit } from "../domain/initiative-edit.js";
 
 /** A change whoever shapes Initiatives wants to an active Initiative, as a Proposal carries it. */
@@ -12,6 +12,10 @@ export interface ProposedInitiativeChange {
 export interface ProposedProject {
   readonly kind: "project";
   readonly project: NewProject;
+  /** The feature switches proposed, by feature, each with its reason; one left out is added on. */
+  readonly features: Readonly<
+    Partial<Record<keyof ProjectFeatureSwitches, { readonly on: boolean; readonly reason: string }>>
+  >;
   readonly projectId: undefined;
   readonly taskId: undefined;
 }

@@ -13,6 +13,10 @@ _Avoid_: Repo (in the UI), workspace
 **Project command**:
 One of a Project's named commands, beside its install command: a key, fixed once added, by which Pipelines and Agents name it, a name, a Command kind and a command line. Every Project starts with Build, Lint and Test.
 
+**Feature switch**:
+A Project's on/off setting for one of The Office's features: Connected devices, Test targets, GitHub issues and Run environment (its Run environment setting). Connected devices, Test targets and GitHub issues are on unless set; a feature that needs another can't be on while that is off. A Project has no kind, so any mix is possible. Set on the Project page's Features tab or proposed by Devops at onboarding.
+_Avoid_: Project kind, toggle, flag
+
 **Command kind**:
 What a Project command does: build, lint or test. A run of a test command, under any key, gets the test handling: the worktree restored, the files it wrote moved out of it, and its Re-run command run in its place once when it fails.
 _Avoid_: Command type

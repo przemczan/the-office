@@ -5,6 +5,7 @@ import type {
 } from "@the-office/contracts";
 import { defaultPipelineOfKind } from "../../domain/kind-default-pipeline.js";
 import type { Project } from "../../domain/project.js";
+import { featureStatesOf } from "../../domain/project-features.js";
 import type { ProjectImageVersions } from "../../domain/project-image.js";
 import { shownEnvironment, type ProjectEnvironment } from "../../domain/project-environment.js";
 
@@ -61,6 +62,7 @@ export function toProjectResponse(project: Project, codeHost: string | null): Pr
       commentOnStartAndDone: project.issueSettings.commentOnStartAndDone,
       closeOnDrop: project.issueSettings.closeOnDrop,
     },
+    features: { ...featureStatesOf(project) },
   };
 }
 

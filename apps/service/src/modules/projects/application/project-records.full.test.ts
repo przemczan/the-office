@@ -89,6 +89,7 @@ describe("ProjectRecords.of", () => {
         "- Default Pipeline: full",
         "- Project limit: 1 Task started at once",
         "- Run environment: not decided yet",
+        "- Features: Connected devices off (needs Run environment), Test targets on, GitHub issues on, Run environment off",
         "- Variables to set: none",
         "- Secret variables (values never shown): none",
         "- Variables to remove: none",
@@ -108,6 +109,7 @@ describe("ProjectRecords.of", () => {
       repositoryUrl: "https://github.com/acme/admin-panel.git",
       projectLimit: 2,
       runEnvironment: "on",
+      features: { "github-issues": false },
       environment: {
         set: [
           { name: "JAVA_HOME", value: "/opt/java-21", secret: false },
@@ -160,6 +162,7 @@ describe("ProjectRecords.of", () => {
         "- Path: /work/admin-panel, cloned from https://github.com/acme/admin-panel.git",
         "- Project limit: 2 Tasks started at once",
         "- Run environment: on",
+        "- Features: Connected devices on, Test targets on, GitHub issues off, Run environment on",
         "- Variables to set: `JAVA_HOME=/opt/java-21`",
         "- Secret variables (values never shown): NPM_TOKEN (value set)",
         "- Variables to remove: CI",

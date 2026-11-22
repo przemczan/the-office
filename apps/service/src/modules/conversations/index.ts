@@ -80,6 +80,7 @@ export type {
   ProjectPipelineFields,
   ProposedInitiativeChange,
   ProposedPipelineChange,
+  ProposedFeatureSwitches,
   ProposedProject,
   ProposedProjectPipelineChange,
   ProposedSettingChange,

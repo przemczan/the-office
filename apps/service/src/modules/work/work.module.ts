@@ -1,5 +1,6 @@
 import { IssueWriteBackForwarding } from "./adapters/projects/issue-write-back-forwarding.js";
 import { ProjectsIssueTaskRegistration } from "./adapters/projects/projects-issue-task-registration.js";
+import { ProjectsFeatureChecks } from "./adapters/projects/projects-feature-checks.js";
 import { ProjectsTaskBaseRegistration } from "./adapters/projects/projects-task-base-registration.js";
 import {
   Logger,
@@ -126,6 +127,7 @@ import { AccountWindowRatios } from "./ports/account-window-ratios.js";
 import { AccountWindows } from "./ports/account-windows.js";
 import { DayUsage } from "./ports/day-usage.js";
 import { KnownProjects } from "./ports/known-projects.js";
+import { ProjectFeatureChecks } from "./ports/project-feature-checks.js";
 import { NewProjects } from "./ports/new-projects.js";
 import { ProjectInitiativeBranches } from "./ports/project-initiative-branches.js";
 import { ProjectWorktrees } from "./ports/project-worktrees.js";
@@ -261,6 +263,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         { provide: SavedViewRepository, useClass: PostgresSavedViewRepository },
         { provide: WorkSettings, useClass: PostgresWorkSettings },
         { provide: FireAlarmRepository, useClass: PostgresFireAlarmRepository },
+        { provide: ProjectFeatureChecks, useClass: ProjectsFeatureChecks },
         { provide: KnownProjects, useExisting: knownProjects },
         { provide: NewProjects, useExisting: newProjects },
         { provide: ProjectWorktrees, useExisting: projectWorktrees },

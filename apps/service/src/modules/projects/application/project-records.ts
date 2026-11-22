@@ -7,6 +7,11 @@ import type { Project, RunEnvironmentSetting } from "../domain/project.js";
 import type { ProjectEnvironment } from "../domain/project-environment.js";
 import { entryPointWords } from "../domain/entry-point.js";
 import {
+  isFeatureOn,
+  PROJECT_FEATURE_REGISTRY,
+  PROJECT_FEATURES,
+} from "../domain/project-features.js";
+import {
   fieldsOfKind,
   TEST_TARGET_KIND_NAMES,
   type TestTarget,
@@ -102,6 +107,7 @@ function projectRecord(project: Project, surroundings: ProjectSurroundings): str
     `- Default Pipeline: ${project.defaultPipeline}`,
     `- Project limit: ${project.projectLimit} Task${project.projectLimit === 1 ? "" : "s"} started at once`,
     `- Run environment: ${RUN_ENVIRONMENT_WORDS[project.runEnvironment]}`,
+    `- Features: ${featuresWords(project)}`,
     ...environmentLines(project.environment),
     `- Environment check: ${environmentCheckWords(environmentCheck)}`,
     ...engineLines(project),
@@ -109,6 +115,17 @@ function projectRecord(project: Project, surroundings: ProjectSurroundings): str
     `- Server values: ${serverValuesWords(serverValues)}`,
     ...testTargetLines(testTargets),
   ].join("\n");
+}
+
+/** Every feature on or off as read now; one off for a feature it needs says so. */
+function featuresWords(project: Project): string {
+  return PROJECT_FEATURES.map((feature) => {
+    const { name, needs } = PROJECT_FEATURE_REGISTRY[feature];
+    if (isFeatureOn(project, feature)) return `${name} on`;
+    const missing = needs.filter((needed) => !isFeatureOn(project, needed));
+    const why = missing.map((needed) => PROJECT_FEATURE_REGISTRY[needed].name).join(", ");
+    return missing.length > 0 ? `${name} off (needs ${why})` : `${name} off`;
+  }).join(", ");
 }
 
 const TEST_TARGET_FIELD_WORDS: Readonly<Record<TestTargetField, string>> = {

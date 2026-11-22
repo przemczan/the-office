@@ -19,14 +19,16 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Where Import issues… imports from the Work board: the Projects whose repository is on a code
- * host (GitHub today), which its picker lists, starting on the first one `shown`; undefined when
- * no Project shown is on one, and the button doesn't show.
+ * host (GitHub today) and that have GitHub issues switched on, which its picker lists, starting on
+ * the first one `shown`; undefined when no Project shown is one, and the button doesn't show.
  */
 export function issueImportOf(
   projects: readonly Project[],
   shown: (projectId: string) => boolean,
 ): { readonly projects: readonly Project[]; readonly projectId: string } | undefined {
-  const onCodeHost = projects.filter(({ codeHost }) => codeHost !== null);
+  const onCodeHost = projects.filter(
+    ({ codeHost, features }) => codeHost !== null && features["github-issues"],
+  );
   const first = onCodeHost.find(({ id }) => shown(id));
   return first && { projects: onCodeHost, projectId: first.id };
 }

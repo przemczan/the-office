@@ -9,6 +9,7 @@ import {
   type Proposal,
   type ProposalStatus,
   type ProposedChange,
+  type ProposedFeatureSwitch,
   type Role,
   type RoleCard,
 } from "@the-office/contracts";
@@ -339,6 +340,14 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
               {publishingLabel(project.publishingMode, project.baseBranch)}
             </ProposedField>
             <ProposedField label="Default Pipeline">{pipelineName}</ProposedField>
+            {change.features.map(({ feature, on, reason }) => (
+              <ProposedField key={feature} label={PROPOSED_FEATURE_NAMES[feature]}>
+                <span className="proposal-feature">
+                  <Badge tone={on ? "success" : "neutral"}>{on ? "On" : "Off"}</Badge>
+                  <span>{reason}</span>
+                </span>
+              </ProposedField>
+            ))}
           </dl>
           <AnswerFoot
             proposal={proposal}
@@ -654,6 +663,13 @@ function ProposedCard({
     </dl>
   );
 }
+
+/** The feature switches a Project to onboard is proposed with, by their names in the UI. */
+const PROPOSED_FEATURE_NAMES: Readonly<Record<ProposedFeatureSwitch["feature"], string>> = {
+  "connected-devices": "Connected devices",
+  "test-targets": "Test targets",
+  "github-issues": "GitHub issues",
+};
 
 function ProposedField({
   label,

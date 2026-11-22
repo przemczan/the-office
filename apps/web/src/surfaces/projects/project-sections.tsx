@@ -5,6 +5,7 @@ import { CommandsBlock } from "./commands-block.tsx";
 import { EngineBlock } from "./engine-block.tsx";
 import { EnvironmentCheckBlock } from "./environment-check-block.tsx";
 import { EnvironmentVariablesBlock } from "./environment-variables-block.tsx";
+import { FeaturesBlock } from "./features-block.tsx";
 import { GitHubIssuesBlock } from "./issues/github-issues-block.tsx";
 import { OnboardingBlock } from "./onboarding-block.tsx";
 import { useOpenProject } from "./project-page.tsx";
@@ -75,6 +76,10 @@ export function ProjectSkillsSection(): ReactNode {
 
 export function ProjectServerValuesSection(): ReactNode {
   return <ServerValuesBlock project={useOpenProject()} />;
+}
+
+export function ProjectFeaturesSection(): ReactNode {
+  return <FeaturesBlock project={useOpenProject()} />;
 }
 
 export function ProjectAppearanceSection(): ReactNode {

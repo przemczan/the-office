@@ -24,6 +24,7 @@ export const disconnectedBecauseSchema = z.enum([
   "task-ended",
   "device-unplugged",
   "run-environment-turned-off",
+  "connected-devices-switched-off",
   "error",
 ]);
 export type DisconnectedBecause = z.infer<typeof disconnectedBecauseSchema>;

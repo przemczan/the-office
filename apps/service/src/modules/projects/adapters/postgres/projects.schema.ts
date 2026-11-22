@@ -76,6 +76,8 @@ export const projects = pgTable(
     closeIssueOnDone: boolean("close_issue_on_done").notNull().default(true),
     commentOnIssue: boolean("comment_on_issue").notNull().default(false),
     closeIssueOnDrop: boolean("close_issue_on_drop").notNull().default(false),
+    /** Only the feature switches the Project set; read through `featureSwitchesOfStored`. */
+    features: jsonb("features").$type<Record<string, unknown>>().notNull().default({}),
   },
   (table) => [check("projects_project_limit", sql`${table.projectLimit} > 0`)],
 );

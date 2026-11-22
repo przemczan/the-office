@@ -100,9 +100,12 @@ export abstract class ProjectTestTargets {
   /** The Project's test targets, in the order added. */
   abstract targetsOf(projectId: string): Promise<readonly ListedTarget[]>;
 
+  /** Whether the Project has Test targets switched on (spec §2.1.1); false for one not there. */
+  abstract testTargetsOn(projectId: string): Promise<boolean>;
+
   abstract runEnvironmentOn(projectId: string): Promise<boolean>;
 
-  /** Refused when the Project has no such target. */
+  /** Refused when the Project has no such target, or has Test targets switched off. */
   abstract launchOf(projectId: string, key: string): Promise<TargetLaunch>;
 
   /** Why the target's entry point isn't one of the repository's at `commit`; empty when it is. */

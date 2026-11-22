@@ -1,6 +1,6 @@
 # Project page
 
-Covers: a Project's page and its head, the section tabs, Overview (Onboarding, Work, the Project limit, the Actions tile), Files, Commands (install, install inputs, commands, Publish), Environment (variables, Secret variables, environment check), Pipelines (Default Pipeline and its rows by Kind, Project Pipelines), GitHub issues (the Import issues window, auto-import, write-back), Run environment, Devices (the Project's devices, Add a device, pairing, Change Port, Pair again, Remove), Test targets (the list, the editor, Install on a device, Set up test targets, the open Proposal), Test instances (Launch on a branch, instances by branch), the Branch picker, Actions (the list, the editor, the open Proposal, the Run window and its confirm step, an Action's History, a run's log), Engine, Skills, Server values, Appearance (Mark, Icon and Logo, How it looks).
+Covers: a Project's page and its head, the section tabs, Overview (Onboarding, Work, the Project limit, the Actions tile), Files, Commands (install, install inputs, commands, Publish), Environment (variables, Secret variables, environment check), Pipelines (Default Pipeline and its rows by Kind, Project Pipelines), GitHub issues (the Import issues window, auto-import, write-back), Run environment, Devices (the Project's devices, Add a device, pairing, Change Port, Pair again, Remove), Test targets (the list, the editor, Install on a device, Set up test targets, the open Proposal), Test instances (Launch on a branch, instances by branch), the Branch picker, Actions (the list, the editor, the open Proposal, the Run window and its confirm step, an Action's History, a run's log), Engine, Skills, Server values, Features (the switches, the tabs a switched-off feature hides), Appearance (Mark, Icon and Logo, How it looks).
 
 ## Where it is
 
@@ -21,7 +21,9 @@ Covers: a Project's page and its head, the section tabs, Overview (Onboarding, W
   - **Engine**: `/projects/$projectId/engine`.
   - **Skills**: `/projects/$projectId/skills`.
   - **Server values**: `/projects/$projectId/server-values`.
+  - **Features**: `/projects/$projectId/features`.
   - **Appearance**: `/projects/$projectId/appearance`.
+- A switched-off feature's tab (GitHub issues, Run environment, Test targets) is gone from the tabs; its address shows a note ([Features](#features)).
 - An unknown Project says so at every section's address ([States](#states)).
 
 ## Layout
@@ -482,6 +484,19 @@ Covers: a Project's page and its head, the section tabs, Overview (Onboarding, W
 - A section per MCP server, "MCP server <name>": its name and a pencil ("Change <name>'s values for this Project"), then a row per value: its name, **Office-wide** (the value, "Set" for a secret, or "Not set") and **This Project** (the value, "Set" for a secret, or "The Office-wide value"); a required value set nowhere shows "Required: sessions leave the server out until it has a value."
 - Editing one server (Save and Cancel; one at a time): a field "<name> for this Project" per value; a plain value's hint is "Empty: the Office-wide value applies, <value>." or "Empty: no value, as none is set Office-wide."; a secret uses the secret box (shows set or not, never the value). Every value is sent back, a kept secret by its name alone, and one left out is cleared.
 - Toast "Server values saved. Sessions in <name> get them from their next start." A refusal shows under the block.
+
+## Features
+
+- One row per feature, each with a switch and a one-line hint, saved at once ([Feature switches](../2.1.1-projects.md#feature-switches)):
+  - **Connected devices**, hint "Devices connected to a Task's run environment.";
+  - **Test targets**, hint "What can be launched on an Initiative's branch to try the work.";
+  - **GitHub issues**, hint "Import issues as Tasks and write back to them.";
+  - **Run environment**, hint "Checks run in the containers .devcontainer/ defines."; it shows and writes the Project's Run environment setting ([Run environment](#run-environment)), "Not decided" showing as off.
+- A switch whose needed feature is off is disabled, saying "Needs Run environment".
+- Turning one off turns off the features that need it; a refused change shows the service's reasons under the block.
+- The tab sits before Appearance.
+- A switched-off feature's tab (GitHub issues, Run environment, Test targets) is gone from the tabs; Run environment's only while it is Off, so Not decided yet still shows its tab.
+  - Its address shows a note, "GitHub issues are switched off for <name>.", "Run environment is switched off for <name>." or "Test targets are switched off for <name>.", with a link to Features; it doesn't redirect.
 
 ## Appearance
 

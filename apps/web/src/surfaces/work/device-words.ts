@@ -74,6 +74,8 @@ export function disconnectedWhy(
       return device.problem === null ? "device unplugged" : `device unplugged: ${device.problem}`;
     case "run-environment-turned-off":
       return "Run environment turned Off";
+    case "connected-devices-switched-off":
+      return "Connected devices switched off";
     case "error":
       return device.problem === null ? "error" : `error: ${device.problem}`;
     case null:

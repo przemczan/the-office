@@ -2,7 +2,7 @@ import { readdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { Logger } from "@nestjs/common";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ProjectRunEnvironmentChanged } from "../../projects/index.js";
+import { ProjectFeaturesChanged, ProjectRunEnvironmentChanged } from "../../projects/index.js";
 import {
   NO_MASK,
   runEnvironmentsTestbed,
@@ -253,6 +253,16 @@ describe("pairing an Android phone over wireless debugging", () => {
     });
     expect(testbed.environmentStart.starts).toEqual([]);
   });
+
+  it("is refused while Connected devices is switched off for the Project, naming it", async () => {
+    testbed.deviceFeature.off.add(PROJECT_ID);
+
+    await expect(testbed.devices.pair(TASK_ID, PHONE, ANN)).rejects.toMatchObject({
+      reasons: [`Connected devices are switched off for «${PROJECT_ID}».`],
+    });
+    expect(await testbed.devices.list(TASK_ID)).toEqual([]);
+    expect(testbed.environmentStart.starts).toEqual([]);
+  });
 });
 
 describe("a paired phone over wireless debugging", () => {
@@ -329,6 +339,23 @@ describe("a paired phone over wireless debugging", () => {
 
     expect(await testbed.devices.read(id)).toMatchObject({
       disconnectedBecause: "run-environment-turned-off",
+    });
+  });
+
+  it("is disconnected as the Project's Connected devices is switched off", async () => {
+    const id = await pairedPhone();
+
+    await testbed.environments.events.publish(
+      new ProjectFeaturesChanged(PROJECT_ID, {
+        "connected-devices": false,
+        "test-targets": true,
+        "github-issues": true,
+        "run-environment": true,
+      }),
+    );
+
+    expect(await testbed.devices.read(id)).toMatchObject({
+      disconnectedBecause: "connected-devices-switched-off",
     });
   });
 

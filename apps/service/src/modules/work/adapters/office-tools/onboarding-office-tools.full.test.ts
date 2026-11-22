@@ -67,6 +67,7 @@ describe("propose_project", () => {
         change: {
           kind: "project",
           project: { ...KEPT, path: "/code/shop", mark },
+          features: {},
           projectId: undefined,
           taskId: undefined,
         },
@@ -84,10 +85,61 @@ describe("propose_project", () => {
       {
         kind: "project",
         project: { ...KEPT, path: "/repositories/shop", repositoryUrl: url, mark },
+        features: {},
         projectId: undefined,
         taskId: undefined,
       },
     ]);
+  });
+
+  it("drafts the proposed feature switches with their reasons, a feature left out proposing none", async () => {
+    const answer = await proposeProject({
+      ...DRAFTED,
+      path: "/code/shop",
+      features: {
+        "connected-devices": {
+          on: true,
+          reason: " An Android app: app/src/main/AndroidManifest.xml. ",
+        },
+        "github-issues": { on: false, reason: "Its issues are tracked elsewhere." },
+      },
+    });
+
+    expect(answer.isError).toBe(false);
+    expect(work.app.get(ProposalDraftsForTests).drafted.map(({ change }) => change)).toEqual([
+      {
+        kind: "project",
+        project: { ...KEPT, path: "/code/shop", mark },
+        features: {
+          "connected-devices": {
+            on: true,
+            reason: "An Android app: app/src/main/AndroidManifest.xml.",
+          },
+          "github-issues": { on: false, reason: "Its issues are tracked elsewhere." },
+        },
+        projectId: undefined,
+        taskId: undefined,
+      },
+    ]);
+  });
+
+  it("drafts no feature switches when none are given", async () => {
+    await proposeProject({ ...DRAFTED, path: "/code/shop" });
+
+    const [draft] = work.app.get(ProposalDraftsForTests).drafted;
+    expect(draft?.change).toHaveProperty("features", {});
+  });
+
+  it("refuses a feature switch without a reason", () => {
+    const [tool] = work.app.get(OfficeToolRegistry).named([PROPOSE_PROJECT_TOOL]);
+
+    expect(
+      tool?.input.safeParse({
+        ...DRAFTED,
+        path: "/code/shop",
+        features: { "test-targets": { on: true, reason: "" } },
+      }).success,
+    ).toBe(false);
   });
 
   it("refuses both a path and a URL, and neither, drafting nothing", async () => {

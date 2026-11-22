@@ -5,7 +5,13 @@ import {
   createRouter,
   RouterProvider,
 } from "@tanstack/react-router";
-import type { Preset, Proposal, ProposalStatus, Stage } from "@the-office/contracts";
+import type {
+  Preset,
+  Proposal,
+  ProposalStatus,
+  ProposedFeatureSwitch,
+  Stage,
+} from "@the-office/contracts";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi, type Mock } from "vitest";
@@ -340,6 +346,58 @@ describe("ProposalCard on a Project Pipeline", () => {
 
     expect(card.textContent).toContain("Change the-office's Full with Linux check");
     expect(card.textContent).toContain("DescriptionThen Linux.Linux, then publish.");
+  });
+});
+
+function onboarded(features: readonly ProposedFeatureSwitch[]): Proposal {
+  return proposalOf({
+    kind: "project",
+    project: {
+      name: "Shop",
+      path: "/code/shop",
+      baseBranch: "main",
+      mark: { label: "SH", colour: "teal" },
+      installCommand: "npm ci",
+      commands: [],
+      installInputs: [],
+      publishingMode: "merge",
+      defaultPipeline: "quick-fix",
+    },
+    features: [...features],
+    projectId: null,
+    taskId: null,
+  });
+}
+
+/** The proposed switches' fields, by their label: the badge's word and the reason. */
+function featureFields(card: HTMLElement): string[] {
+  return [...card.querySelectorAll(".proposal-field")]
+    .filter((field) => field.querySelector(".proposal-feature"))
+    .map((field) => field.textContent);
+}
+
+describe("ProposalCard on a Project to onboard", () => {
+  it("shows each proposed feature switch On or Off with its reason, in the features' order", async () => {
+    serviceReading({});
+    const card = await cardOf(
+      onboarded([
+        { feature: "connected-devices", on: true, reason: "An Android app." },
+        { feature: "github-issues", on: false, reason: "Its issues are tracked elsewhere." },
+      ]),
+    );
+
+    expect(featureFields(card)).toEqual([
+      "Connected devicesOnAn Android app.",
+      "GitHub issuesOffIts issues are tracked elsewhere.",
+    ]);
+  });
+
+  it("shows no switches for a Proposal that proposes none", async () => {
+    serviceReading({});
+    const card = await cardOf(onboarded([]));
+
+    expect(card.textContent).toContain("Onboard Shop");
+    expect(featureFields(card)).toEqual([]);
   });
 });
 

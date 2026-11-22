@@ -11,9 +11,12 @@ import {
 import { FIRST_CLAUDE_CODE_ENGINE, type EngineId, type EngineModel } from "../../engine/index.js";
 import { DUTIES, MemoryTaskTitles } from "../../people/index.js";
 import {
+  FeatureSwitchedOff,
   IssueTasks,
   IssueWriteBack,
+  ProjectFeatures,
   TaskBases,
+  type ProjectFeature,
   type IssueDropReason,
   type NewProject,
   type TaskBaseLookup,
@@ -773,6 +776,26 @@ export class IssueWriteBackForTests extends IssueWriteBack {
   }
 }
 
+/**
+ * Projects' feature switches, every feature on for every Project unless a test switches it off;
+ * the refusal names the Project as KnownProjectsForTests does.
+ */
+@Injectable()
+export class ProjectFeaturesForTests {
+  /** `<projectId>/<feature>` for each feature a test switched off. */
+  readonly off = new Set<string>();
+
+  async isOn(projectId: string, feature: ProjectFeature): Promise<boolean> {
+    return !this.off.has(`${projectId}/${feature}`);
+  }
+
+  async ensureOn(projectId: string, feature: ProjectFeature): Promise<void> {
+    if (!(await this.isOn(projectId, feature))) {
+      throw new FeatureSwitchedOff(feature, `The ${projectId}`);
+    }
+  }
+}
+
 const PORTS = [
   UsageHistoryForTests,
   ModelPricesForTests,
@@ -809,6 +832,8 @@ const PORTS = [
   IssueTasks,
   IssueWriteBackForTests,
   { provide: IssueWriteBack, useExisting: IssueWriteBackForTests },
+  ProjectFeaturesForTests,
+  { provide: ProjectFeatures, useExisting: ProjectFeaturesForTests },
 ];
 
 /** Provides them all, for `WorkModule.register({ imports: [this module] })`. */

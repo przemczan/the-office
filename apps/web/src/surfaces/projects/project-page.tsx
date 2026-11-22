@@ -7,34 +7,48 @@ import {
   useParams,
   type LinkProps,
 } from "@tanstack/react-router";
-import { OFFICE_IDENTITY_SETTINGS_PATH, type Project } from "@the-office/contracts";
+import {
+  OFFICE_IDENTITY_SETTINGS_PATH,
+  type Project,
+  type ProjectFeature,
+} from "@the-office/contracts";
 import { EmptyState, Tabs } from "@the-office/ui";
 import { createContext, useContext, type ReactNode } from "react";
 import { ApiError } from "../../api/api-client.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { ProjectLogo } from "../../shell/project-logo.tsx";
+import { switchedOffWords } from "./feature-words.ts";
 import { OnboardingBadge } from "./onboarding-block.tsx";
 import { remoteNeedsLine } from "./remote-needs-words.ts";
 import "./projects.css";
 
-/** A Project's sections, each a page of its own; Overview keeps the Project's bare address. */
+/**
+ * A Project's sections, each a page of its own; Overview keeps the Project's bare address. A
+ * section with a `feature` is left out of the tabs while the Project has it switched off.
+ */
 const SECTIONS = [
   { to: "/projects/$projectId", label: "Overview" },
   { to: "/projects/$projectId/files", label: "Files" },
   { to: "/projects/$projectId/commands", label: "Commands" },
   { to: "/projects/$projectId/environment", label: "Environment" },
   { to: "/projects/$projectId/pipelines", label: "Pipelines" },
-  { to: "/projects/$projectId/issues", label: "GitHub issues" },
-  { to: "/projects/$projectId/run-environment", label: "Run environment" },
-  { to: "/projects/$projectId/test-targets", label: "Test targets" },
+  { to: "/projects/$projectId/issues", label: "GitHub issues", feature: "github-issues" },
+  {
+    to: "/projects/$projectId/run-environment",
+    label: "Run environment",
+    feature: "run-environment",
+  },
+  { to: "/projects/$projectId/test-targets", label: "Test targets", feature: "test-targets" },
   { to: "/projects/$projectId/engine", label: "Engine" },
   { to: "/projects/$projectId/skills", label: "Skills" },
   { to: "/projects/$projectId/server-values", label: "Server values" },
+  { to: "/projects/$projectId/features", label: "Features" },
   { to: "/projects/$projectId/appearance", label: "Appearance" },
 ] as const satisfies readonly {
   readonly to: NonNullable<LinkProps["to"]>;
   readonly label: string;
+  readonly feature?: ProjectFeature;
 }[];
 
 const OpenProjectContext = createContext<Project | undefined>(undefined);
@@ -63,10 +77,10 @@ export function ProjectPage(): ReactNode {
   return (
     <div className="project-page">
       <ProjectHead project={project.data} />
-      <ProjectTabs projectId={projectId} />
+      <ProjectTabs project={project.data} />
       <div className="project-section">
         <OpenProjectContext value={project.data}>
-          <Outlet />
+          <OpenSection project={project.data} />
         </OpenProjectContext>
       </div>
     </div>
@@ -78,18 +92,17 @@ export function ProjectPage(): ReactNode {
  * its own sub-addresses, such as an open Pipeline. Like the links they replace, they drop the
  * search: the shell has already taken in a link's chat and Thread.
  */
-function ProjectTabs({ projectId }: { readonly projectId: string }): ReactNode {
-  const matchRoute = useMatchRoute();
+function ProjectTabs({ project }: { readonly project: Project }): ReactNode {
   const navigate = useNavigate();
-  const params = { projectId };
-  // Overview's address starts every other one's, so only an exact match chooses it.
-  const open =
-    SECTIONS.slice(1).find(({ to }) => matchRoute({ to, params, fuzzy: true }) !== false)?.to ??
-    SECTIONS[0].to;
+  const params = { projectId: project.id };
+  const open = useOpenSection(project.id).to;
   return (
     <div className="project-tabs">
       <Tabs
-        tabs={SECTIONS.map(({ to, label }) => ({ value: to, label }))}
+        tabs={SECTIONS.filter((section) => switchedOn(project, section)).map(({ to, label }) => ({
+          value: to,
+          label,
+        }))}
         value={open}
         onChange={(value) => {
           const picked = SECTIONS.find(({ to }) => to === value);
@@ -99,6 +112,48 @@ function ProjectTabs({ projectId }: { readonly projectId: string }): ReactNode {
         }}
       />
     </div>
+  );
+}
+
+type Section = (typeof SECTIONS)[number];
+
+/** The section the address is on; Overview's starts every other one's, so only exactly. */
+function useOpenSection(projectId: string): Section {
+  const matchRoute = useMatchRoute();
+  const params = { projectId };
+  return (
+    SECTIONS.slice(1).find(({ to }) => matchRoute({ to, params, fuzzy: true }) !== false) ??
+    SECTIONS[0]
+  );
+}
+
+/**
+ * Whether a section's feature is on. Run environment's tab hides only once it is set Off: while it
+ * is Not decided yet its tab is where that shows and where it is decided.
+ */
+function switchedOn(project: Project, section: Section): boolean {
+  if (!("feature" in section)) return true;
+  if (section.feature === "run-environment") return project.runEnvironment !== "off";
+  return project.features[section.feature];
+}
+
+/**
+ * The open section, or, at the address of one whose feature is switched off, a note saying so with
+ * a link to Features; it doesn't redirect.
+ */
+function OpenSection({ project }: { readonly project: Project }): ReactNode {
+  const section = useOpenSection(project.id);
+  if (!("feature" in section) || switchedOn(project, section)) return <Outlet />;
+  return (
+    <EmptyState
+      icon="toggle-left"
+      title={switchedOffWords(section.feature, project.name)}
+      action={
+        <Link to="/projects/$projectId/features" params={{ projectId: project.id }}>
+          Open Features
+        </Link>
+      }
+    />
   );
 }
 

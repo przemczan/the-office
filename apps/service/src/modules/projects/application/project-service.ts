@@ -64,6 +64,7 @@ import { CLONE_REMOTE, Git } from "../ports/git.js";
 import { ProjectRepository } from "../ports/project-repository.js";
 import { EngineLevelsChecks } from "./engine-levels-checks.js";
 import { ProjectChecks } from "./project-checks.js";
+import { ensureFeatureOn } from "./project-features.js";
 import { RunEnvironmentSetUpRegistry } from "./run-environment-set-up-registry.js";
 
 /**
@@ -332,13 +333,19 @@ export class ProjectService {
     return this.update(id, (project) => changeKindDefaultPipeline(project, kind, pipelineId));
   }
 
-  /** The Project's GitHub issue switches; a label set records `by` as who set it. */
+  /**
+   * The Project's GitHub issue switches; a label set records `by` as who set it. Refused
+   * (`FeatureSwitchedOff`) while its GitHub issues are switched off.
+   */
   async changeIssueSettings(
     id: string,
     settings: IssueSettingsChange,
     by: IssueUser,
   ): Promise<Project> {
-    return this.update(id, (project) => changeIssueSettings(project, settings, by));
+    return this.update(id, (project) => {
+      ensureFeatureOn(project, "github-issues");
+      return changeIssueSettings(project, settings, by);
+    });
   }
 
   /** The Project's levels of the engine cascade; throws ProjectNotFound when there is none. */

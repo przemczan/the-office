@@ -628,6 +628,17 @@ export type ProposedRoutes = z.infer<typeof proposedRoutesSchema>;
 export const dutyHoldersSchema = z.partialRecord(dutyKeySchema, z.string().nullable());
 export type DutyHolders = z.infer<typeof dutyHoldersSchema>;
 
+/**
+ * A feature switch Devops proposes for a Project to onboard (spec §2.1.1, "Feature switches"): on
+ * or off, with why it judged so from the repository. Run environment isn't one: it is asked apart.
+ */
+export const proposedFeatureSwitchSchema = z.object({
+  feature: z.enum(["connected-devices", "test-targets", "github-issues"]),
+  on: z.boolean(),
+  reason: z.string(),
+});
+export type ProposedFeatureSwitch = z.infer<typeof proposedFeatureSwitchSchema>;
+
 /** What a Proposal changes, by kind; the module that owns each kind applies it. */
 export const proposedChangeSchema = z.discriminatedUnion("kind", [
   /** A new Role, hired from scratch on this card (with its skills) when the user applies it. */
@@ -789,6 +800,11 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("project"),
     project: newProjectSchema,
+    /**
+     * The feature switches proposed, in the features' order; a feature not among them is added on.
+     * Empty for a Proposal drafted before Proposals carried them.
+     */
+    features: z.array(proposedFeatureSwitchSchema),
     projectId: z.string().nullable(),
     taskId: z.uuid().nullable(),
   }),

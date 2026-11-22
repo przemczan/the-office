@@ -38,6 +38,7 @@ import { PipelineLibrary, PipelineLibraryModule } from "../../pipelines/index.js
 import {
   IssueTasks,
   IssueWriteBack,
+  ProjectFeatures,
   ProjectService,
   TaskBases,
   TestTargets,
@@ -59,6 +60,7 @@ import {
   TaskGatesForTests,
   TaskBasesForTests,
   IssueWriteBackForTests,
+  ProjectFeaturesForTests,
   UsageHistoryForTests,
 } from "../ports/work-ports.fixtures.js";
 import { ADD_TASK, WRITE_OUTCOME } from "../adapters/office-tools/shaping-office-tools.js";
@@ -227,6 +229,8 @@ const STAND_INS = [
   IssueTasks,
   IssueWriteBackForTests,
   { provide: IssueWriteBack, useExisting: IssueWriteBackForTests },
+  ProjectFeaturesForTests,
+  { provide: ProjectFeatures, useExisting: ProjectFeaturesForTests },
 ];
 
 /** Projects' service, which Conversations judges Devops' Proposals by; none is drafted here. */

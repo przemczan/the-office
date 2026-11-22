@@ -9,6 +9,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { DevcontainerServices } from "../../application/devcontainer-services.js";
 import { TestTargets } from "../../application/test-targets.js";
+import { FeatureSwitchedOff } from "../../domain/project-features.js";
 import { ProjectRefused } from "../../domain/project-refused.js";
 import { TEST_TARGET_MEMORY_MEGABYTES } from "../../domain/test-target.js";
 import { projectsHttp, startProjectsApplication } from "../../projects.controller.fixtures.js";
@@ -343,5 +344,59 @@ describe("A Proposal of test targets", REAL_GIT_TEST, () => {
         `Test target "web": The command seed in its commands before the entry point isn't one of the Project's commands.`,
       ]),
     );
+  });
+});
+
+describe("Test targets switched off", REAL_GIT_TEST, () => {
+  const DEVOPS = { proposalId: "proposal-1", agent: { roleKey: "devops", name: "Dana" } };
+
+  it("refuse the page's save, a Proposal and a launch, naming the Project, and still list the targets", async () => {
+    const project = await addProject();
+    await send("PUT", `/projects/${project.id}/test-targets`, { targets: [aHostedTarget()] });
+    const testTargets = app.get(TestTargets);
+    const proposed = await testTargets.propose(project.id, {
+      targets: [
+        {
+          ...aHostedTarget(),
+          port: 3000,
+          secretVariables: ["API_KEY"],
+        } as Parameters<TestTargets["propose"]>[1]["targets"][number],
+      ],
+      changeUserSet: ["web.port"],
+    });
+    const off = await send("PUT", `/projects/${project.id}/features`, {
+      features: { "test-targets": false },
+    });
+    expect(off.status).toBe(200);
+    const words = `Test targets are switched off for «${project.name}».`;
+    const refusal = new FeatureSwitchedOff("test-targets", project.name);
+
+    const response = await send("PUT", `/projects/${project.id}/test-targets`, {
+      targets: [aHostedTarget({ port: 4000 })],
+    });
+    expect(response.status).toBe(422);
+    expect(projectRefusalSchema.parse(await response.json()).reasons).toEqual([words]);
+
+    await expect(
+      testTargets.propose(project.id, {
+        targets: [
+          {
+            ...aHostedTarget(),
+            secretVariables: [],
+          } as Parameters<TestTargets["propose"]>[1]["targets"][number],
+        ],
+      }),
+    ).rejects.toThrow(refusal);
+    expect(await testTargets.proposedProblems(project.id, proposed)).toEqual([words]);
+    await expect(testTargets.changeAsProposed(project.id, proposed, DEVOPS)).rejects.toThrow(
+      refusal,
+    );
+    await expect(testTargets.launchSettingsOf(project.id, "web")).rejects.toThrow(refusal);
+
+    const listed = await fetch(`${url}/api/projects/${project.id}/test-targets`);
+    expect(listed.status).toBe(200);
+    expect(testTargetListSchema.parse(await listed.json()).targets).toMatchObject([
+      { key: "web", port: 5173 },
+    ]);
   });
 });

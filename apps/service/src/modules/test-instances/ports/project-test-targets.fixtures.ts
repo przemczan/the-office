@@ -11,6 +11,7 @@ import {
   type WorkstationBuildEnd,
 } from "./project-test-targets.js";
 import type { TargetEntryPoint } from "../domain/entry-point.js";
+import { TestInstanceRefused } from "../domain/test-instance-refused.js";
 
 /** A Hosted or Build to install test target as a test writes it, with its Secret variables' values. */
 export interface TargetForTests {
@@ -38,6 +39,8 @@ export interface TargetForTests {
 export interface ProjectForTests {
   readonly id: string;
   runEnvironmentOn: boolean;
+  /** Whether Test targets are switched on; on when left out. */
+  testTargetsOn?: boolean;
   targets: TargetForTests[];
   /** The branch tip's files, by their paths, which a checkout writes. */
   files: Record<string, string>;
@@ -79,12 +82,24 @@ export class ProjectTestTargetsForTests extends ProjectTestTargets {
     );
   }
 
+  testTargetsOn(projectId: string): Promise<boolean> {
+    return Promise.resolve(
+      this.projects.get(projectId)?.testTargetsOn ?? this.projects.has(projectId),
+    );
+  }
+
   runEnvironmentOn(projectId: string): Promise<boolean> {
     return Promise.resolve(this.project(projectId).runEnvironmentOn);
   }
 
+  /** Refused as Projects' refusal comes out of the adapter while Test targets are off. */
   launchOf(projectId: string, key: string): Promise<TargetLaunch> {
     const project = this.project(projectId);
+    if (project.testTargetsOn === false) {
+      return Promise.reject(
+        new TestInstanceRefused([`Test targets are switched off for «${projectId}».`]),
+      );
+    }
     const target = project.targets.find((each) => each.key === key);
     if (!target) return Promise.reject(new Error(`No test target ${key}.`));
     const secrets = target.secretVariables.flatMap(({ name, value }) =>

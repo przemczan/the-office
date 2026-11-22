@@ -2,9 +2,14 @@ import { Injectable, type OnModuleInit } from "@nestjs/common";
 import {
   ProposalAppliers,
   ProposalRefused,
+  type ProposedFeatureSwitches,
   type ProposedProject,
 } from "../../../conversations/index.js";
-import { ProjectRefused, type NewProject } from "../../../projects/index.js";
+import {
+  ProjectRefused,
+  type NewProject,
+  type ProjectFeatureSwitches,
+} from "../../../projects/index.js";
 import { OnboardingService } from "../../application/onboarding-service.js";
 import { TaskRefused } from "../../domain/task-refused.js";
 import { NewProjects, type AddedProject } from "../../ports/new-projects.js";
@@ -48,7 +53,9 @@ export class ProjectProposals implements OnModuleInit {
     if (problems.length > 0) throw new ProposalRefused(problems);
     const project =
       (await this.addedWithoutOnboarding(change.project)) ??
-      (await this.projects.add(change.project).catch(refusedAsProposal));
+      (await this.projects
+        .add({ ...change.project, features: switchesOf(change.features ?? {}) })
+        .catch(refusedAsProposal));
     const task = await this.onboarding
       .addOnboardTask(project.id, { kind: "person", roleKey: proposedBy })
       .catch((error: unknown) => {
@@ -75,6 +82,18 @@ export class ProjectProposals implements OnModuleInit {
     // Its Onboard Task was kept but its worktree couldn't be made.
     return (await this.onboarding.waitingOnboardTaskOf(project.id)) ? project : undefined;
   }
+}
+
+/**
+ * The switches as proposed, stored as they are: Connected devices proposed on is stored on while
+ * the new Project's Run environment is not decided yet, and reads on once it is On.
+ */
+function switchesOf(features: ProposedFeatureSwitches): ProjectFeatureSwitches {
+  return Object.fromEntries(
+    Object.entries(features).flatMap(([feature, proposed]) =>
+      proposed ? [[feature, proposed.on]] : [],
+    ),
+  );
 }
 
 function refusedAsProposal(error: unknown): never {

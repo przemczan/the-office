@@ -8,6 +8,7 @@ import type {
   RunEnvironmentSetting,
 } from "./project.js";
 import type { IssueSettings } from "./issue-settings.js";
+import type { ProjectFeatureStates } from "./project-features.js";
 import type { TaskKind } from "./kind-default-pipeline.js";
 import type { ShownEnvironment } from "./project-environment.js";
 import type { ProjectImage, ProjectImageKey, ProjectImagePalette } from "./project-image.js";
@@ -172,6 +173,16 @@ export class ProjectIssueSettingsChanged extends DomainEvent {
   constructor(
     readonly projectId: string,
     readonly issueSettings: IssueSettings,
+  ) {
+    super();
+  }
+}
+
+/** The Project's feature switches changed; `features` is every feature as it reads now. */
+export class ProjectFeaturesChanged extends DomainEvent {
+  constructor(
+    readonly projectId: string,
+    readonly features: ProjectFeatureStates,
   ) {
     super();
   }

@@ -14,6 +14,7 @@ import {
 } from "../domain/test-targets-set-up.js";
 import { KnownPipelines } from "../ports/known-pipelines.js";
 import { KnownProjects } from "../ports/known-projects.js";
+import { ProjectFeatureChecks } from "../ports/project-feature-checks.js";
 import { ProjectWorktrees } from "../ports/project-worktrees.js";
 import { TaskRepository } from "../ports/task-repository.js";
 
@@ -28,6 +29,7 @@ export class TestTargetsSetUps {
     private readonly projects: KnownProjects,
     private readonly pipelines: KnownPipelines,
     private readonly worktrees: ProjectWorktrees,
+    private readonly features: ProjectFeatureChecks,
     private readonly events: EventBus,
   ) {}
 
@@ -41,9 +43,11 @@ export class TestTargetsSetUps {
    * a worktree of its own, since the Task skips Planning. The worktree is made once the Task is
    * kept, as Projects reads which branch it starts from through the Task; opening it again makes
    * only one that is missing, so asking again mends a failed first try. Refused when the Project
-   * lacks a command that Pipeline runs, or the worktree can't be made.
+   * lacks a command that Pipeline runs, has Test targets switched off, or the worktree can't be
+   * made.
    */
   async add(projectId: string, createdBy: Author): Promise<Task> {
+    await this.features.ensureOn(projectId, "test-targets");
     const task = await this.locks.run(
       projectId,
       async () => (await this.openOf(projectId)) ?? this.create(projectId, createdBy),

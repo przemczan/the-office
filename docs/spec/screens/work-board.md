@@ -39,7 +39,7 @@ Covers: the Work page and its tabs, the Task board (filters, the Kind filter, Im
 - Initiative select: named "Initiative", label hidden, placeholder "Any Initiative", "No Initiative matches" when typing finds none, clear button "Clear the Initiative filter". Typed in, it lists at most 10 Initiatives, best matches first. It offers the Initiatives in the Projects the Project filter shows, and the chosen one wherever it is.
 - **Blocked** chip (lock icon): keeps the Tasks that still have a blocker.
 - **Clear** drops every filter at once. It keeps Group by Initiative.
-- **Import issues…** (secondary, github icon): opens the Import issues window ([project-page.md](project-page.md#import-issues-window)) on the first Project on GitHub the Project filter shows; its Project picker changes it. It shows only while the filter shows a Project on GitHub.
+- **Import issues…** (secondary, github icon): opens the Import issues window ([project-page.md](project-page.md#import-issues-window)) on the first Project on GitHub the Project filter shows; its Project picker changes it. It and its picker count only the Projects on GitHub with GitHub issues switched on ([Feature switches](../2.1.1-projects.md#feature-switches)); it shows only while the filter shows one.
 - The filters are kept in the address (`query`, `priority`, `kind`, `initiative`, `blocked`), so a reload or a link reopens the same board; a filter left empty isn't in the address.
 - Changing a filter replaces the address entry rather than adding one, and keeps whatever opens over the page.
 - The filters narrow the cards, the column counts, and the Initiatives, Ideas and counts shown elsewhere on the bar only as stated here: blockers and drag placement still read every Task.

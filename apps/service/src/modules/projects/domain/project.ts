@@ -1,5 +1,6 @@
 import type { EngineModel } from "../../engine/index.js";
 import type { IssueSettings } from "./issue-settings.js";
+import type { ProjectFeatureSwitches } from "./project-features.js";
 import type { KindDefaultPipelines } from "./kind-default-pipeline.js";
 import type { ProjectEnvironment } from "./project-environment.js";
 import type { ProjectImageVersions } from "./project-image.js";
@@ -143,6 +144,8 @@ export interface Project {
   readonly kindDefaultPipelines: KindDefaultPipelines;
   /** Its GitHub issue switches. */
   readonly issueSettings: IssueSettings;
+  /** The feature switches it set; one left out reads as its feature's default (project-features.ts). */
+  readonly features: ProjectFeatureSwitches;
 }
 
 /** Every Project starts with one Task at a time; the user raises it on the Project page. */
@@ -177,6 +180,8 @@ export type NewProject = Pick<
 > & {
   /** Given only for a clone, whose folder `path` then is. */
   readonly repositoryUrl?: string | undefined;
+  /** The switches set as it is added, such as a Proposal's; none leaves every feature at its default. */
+  readonly features?: ProjectFeatureSwitches | undefined;
 };
 
 const NAME_LENGTH = 60;
@@ -199,6 +204,7 @@ export function trimmedNewProject(project: NewProject): NewProject {
     installInputs: trimmedInstallInputs(project.installInputs),
     publishingMode: project.publishingMode,
     defaultPipeline: project.defaultPipeline,
+    features: project.features,
   };
 }
 
