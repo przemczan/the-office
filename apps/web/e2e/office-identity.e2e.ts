@@ -65,7 +65,7 @@ jobs:
 /** Add a Project open on step 1 From GitHub. */
 async function openFromGitHub(page: Page): Promise<Locator> {
   await page.goto("/projects");
-  await page.getByRole("button", { name: "Add it yourself" }).click();
+  await page.getByRole("button", { name: "Add a Project", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("tab", { name: "From GitHub" }).click();
   return dialog;
@@ -256,7 +256,7 @@ test.describe.serial("Sign in with GitHub", () => {
         await route.continue();
       });
       await page.goto("/projects");
-      await page.getByRole("button", { name: "Add it yourself" }).click();
+      await page.getByRole("button", { name: "Add a Project", exact: true }).click();
       await expect.poll(() => asked).toBe(true);
       const dialog = page.getByRole("dialog");
       await dialog.getByRole("tab", { name: "From GitHub" }).click();
@@ -750,7 +750,7 @@ test.describe.serial("Sign in with GitHub", () => {
         page.getByRole("combobox", { name: "Default Pipeline for Features", exact: true }),
       ).toHaveText("Same as every Task");
       await screenshotScenario(page, "project-default-pipeline-by-kind");
-      await page.getByRole("navigation", { name: "Project" }).getByText("GitHub issues").click();
+      await page.locator(".project-tabs").getByRole("tab", { name: "GitHub issues" }).click();
       await expect(page).toHaveURL(`/projects/${project.id}/issues`);
       await expect(page.getByText("3 open issues not yet imported")).toBeVisible();
       await expect(page.getByText("Signed in with GitHub", { exact: true })).toBeVisible();

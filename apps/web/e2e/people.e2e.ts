@@ -4903,7 +4903,7 @@ test(
 );
 
 test(
-  "a chat opens over each section of a Project, whose address and menu stay on it",
+  "a chat opens over each section of a Project, whose address and tabs stay on it",
   { tag: "@full" },
   async ({ page }) => {
     const repository = await createTemporaryRepository();
@@ -4911,9 +4911,7 @@ test(
       const project = await addedProject(page, repository, "Chat over sections", "CS");
       const started = await page.request.post("/api/chats/office-manager/threads");
       const { id: threadId } = threadSchema.parse(await started.json());
-      const openSection = page
-        .getByRole("navigation", { name: "Project", exact: true })
-        .locator("a[aria-current='page']");
+      const openSection = page.locator(".project-tabs").getByRole("tab", { selected: true });
       const sections = [
         { name: "Overview", address: `/projects/${project.id}` },
         { name: "Commands", address: `/projects/${project.id}/commands` },
@@ -5548,7 +5546,11 @@ test(
       const nina = chatWith(page, "Nina");
 
       await page.goto("/projects");
-      await page.getByRole("button", { name: "Ask Nina to onboard one" }).click();
+      // The list's foot; the empty pane beside it offers the same.
+      await page
+        .locator(".section-foot")
+        .getByRole("button", { name: "Ask Nina to onboard one" })
+        .click();
       await expect(nina.getByRole("textbox", { name: "Message" })).toHaveValue(
         "Can you onboard a new Project? The repository is ",
       );
@@ -5581,8 +5583,10 @@ test(
       await expect(
         page.getByText(`${name} added, with its Onboard Task Ready to start.`),
       ).toBeVisible();
-      const projectCard = page.locator(".project-card", { hasText: name });
-      await expect(projectCard).toContainText("Onboarding");
+      const projectItem = page
+        .getByRole("navigation", { name: "Projects", exact: true })
+        .getByRole("link", { name });
+      await expect(projectItem).toContainText("Onboarding");
 
       await card.getByRole("link", { name: `Open ${name}` }).click();
       // The Onboarding block, from the Onboard Task.
@@ -5611,7 +5615,11 @@ test(
     const nina = chatWith(page, "Nina");
 
     await page.goto("/projects");
-    await page.getByRole("button", { name: "Ask Nina to onboard one" }).click();
+    // The list's foot; the empty pane beside it offers the same.
+    await page
+      .locator(".section-foot")
+      .getByRole("button", { name: "Ask Nina to onboard one" })
+      .click();
     await expect(nina.getByRole("textbox", { name: "Message" })).toHaveValue(
       "Can you onboard a new Project? The repository is ",
     );

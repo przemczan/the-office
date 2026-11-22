@@ -1,41 +1,44 @@
 # Projects page and Add a Project
 
-Covers: the Projects page (a card per Project, the Add a Project card, Ask Devops), the Add a Project window (step 1 Where it is: a folder, a git URL, From GitHub; step 2 the Project's fields), the Mark picker, the clone's progress, the GitHub repository list.
+Covers: the Projects page (the Projects list beside the open Project, a list item per Project, Add a Project at the list's foot, the empty pane, Ask Devops), the Add a Project window (step 1 Where it is: a folder, a git URL, From GitHub; step 2 the Project's fields), the Mark picker, the clone's progress, the GitHub repository list.
 
 ## Where it is
 
-- Route: `/projects`.
+- Route: `/projects`, the parent of every Project's page at `/projects/$projectId/…` ([project-page.md](project-page.md)).
 - Open it from the Projects item in the rail ([shell.md](shell.md)).
-- The page title is "Projects"; its crumb is the count of every Project: "1 Project" or "N Projects". The Project filter never changes the count.
-- A card opens the Project's page at `/projects/$projectId` ([project-page.md](project-page.md)).
+- At `/projects` the page title is "Projects"; its crumb is the count of every Project: "1 Project" or "N Projects". The Project filter never changes the count.
+- On a Project's page the title is the Project's, with "Projects" as its parent ([project-page.md](project-page.md#where-it-is)).
+- A list item opens the Project's page in the pane beside the list.
 - Add a Project is a window over the page; it has no route of its own.
 
 ## Layout
 
-- A grid of cards: 3 columns, 2 at a page width of 1224px and under, 1 at 664px and under.
-- The cards of the Projects the Project filter shows come first, in the service's order ([shell.md](shell.md)).
-- The **Add a Project** card is the last in the grid.
-- Under the grid, the note of Projects hidden by the Project filter.
-- A read error of the Projects shows above the grid as a danger alert with the service's words.
+- Two panes, as Settings has: the Projects list on the left (about 260px wide), the open Project or the empty pane on the right.
+- The list is a navigation landmark labelled "Projects".
+- The items of the Projects the Project filter shows, in the service's order ([shell.md](shell.md)).
+- The list's foot, under the items:
+  - the note of Projects hidden by the Project filter;
+  - **Add a Project** and Ask Devops ([Add a Project](#add-a-project)).
+- A read error of the Projects shows above both panes as a danger alert with the service's words.
 
-## Project card
+## Project item
 
-- The whole card is a link to the Project's page.
-- Head: the Project's Logo, its name, and its folder path in monospace.
-- At the head's end: the onboarding badge, **Onboarding** (info) or **Onboarded** (success), only for a Project with an Onboard Task.
-- Foot line (route icon): "Default Pipeline <name> · <publishing words>".
-  - The Pipeline is the Project's default Pipeline by name; while the Pipeline list loads, or if the Pipeline is gone, its id.
-  - Publishing words: "Merge into <base branch>" or "Push and open a pull request".
-- The Logo is the Project's Logo, else its Icon, else its mark ([project-page.md](project-page.md#appearance)).
+- The whole item is a link to the Project's page, about 52px tall.
+- It shows the Project's Logo, else its Icon, else its mark ([project-page.md](project-page.md#appearance)), then its name.
+- At its end: the onboarding badge, **Onboarding** (info) or **Onboarded** (success), only for a Project with an Onboard Task.
+- The open Project's item is marked active on every section and sub-address of its page.
+- A Project the Project filter hides still opens beside the list, from a link or an address, with no item marked.
 
-## Add a Project card
+## Add a Project
 
-- Title **Add a Project**, sub line "A repository on the workstation or a git URL", a folder-plus icon.
-- Text while someone holds Onboards and repairs Projects (the Devops duty) and can chat: "<name> prepares it until it builds and tests in a fresh worktree, and asks before installing anything. Or give its folder or git URL, base branch and commands yourself."
-- Text otherwise: "Give its folder or git URL, base branch and commands. Script Stages run the commands in each Task's worktree."
-- Actions:
-  - **Ask <name> to onboard one** (the Ask Devops button): opens a new Thread in the holder's chat with the draft "Can you onboard a new Project? The repository is " waiting. While nobody holds the duty, a note says so instead of the button.
-  - **Add it yourself**: opens the Add a Project window.
+- The list's foot:
+  - **Add a Project** (folder-plus icon): opens the Add a Project window.
+  - **Ask <name> to onboard one** (the Ask Devops button): opens a new Thread in the holder's chat of Onboards and repairs Projects (the Devops duty) with the draft "Can you onboard a new Project? The repository is " waiting. While nobody holds the duty, a note says so instead of the button.
+- The empty pane, at the bare `/projects` beside the list:
+  - Title "Open a Project from the list, or add one", a folder icon.
+  - Text while someone holds the Devops duty and can chat: "<name> prepares it until it builds and tests in a fresh worktree, and asks before installing anything. Or give its folder or git URL, base branch and commands yourself."
+  - Text otherwise: "Give its folder or git URL, base branch and commands. Script Stages run the commands in each Task's worktree."
+  - Actions: **Add it yourself** (opens the Add a Project window) and the same Ask Devops button.
 
 ## Add a Project window
 
@@ -105,10 +108,13 @@ Covers: the Projects page (a card per Project, the Add a Project card, Ask Devop
 
 ## States
 
-- Projects page loading: the grid shows the Add a Project card only; a read error shows the alert.
-- No Project: the Add a Project card alone.
-- Every Project hidden by the Project filter: the Add a Project card and the hidden note.
-- Narrow page: 2 columns at 1224px and under, 1 at 664px and under (the page padding shrinks to 14px).
+- Projects page loading: the list shows its foot only; a read error shows the alert.
+- No Project: the list's foot alone, beside the empty pane.
+- Every Project hidden by the Project filter: the list's foot with the hidden note.
+- Narrow page, at a page width of 1224px and under:
+  - `/projects` shows the list alone.
+  - A Project's page shows alone, with a **‹ All Projects** link above it back to the list.
+- At 664px and under the page padding shrinks to 14px.
 - The Add a Project button shows loading while the add runs.
 - From GitHub:
   - Loading: rows of loaders labelled "Loading your repositories…".

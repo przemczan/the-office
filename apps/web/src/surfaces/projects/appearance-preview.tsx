@@ -60,15 +60,10 @@ export function AppearancePreview({
             </div>
           </div>
         </Sample>
-        <Sample label="On the Projects page" palette={palette}>
-          <div className="project-tile">
-            <div className="project-tile-head">
-              <ProjectLogo project={project} size="xl" palette={palette} />
-              <div className="project-tile-grow">
-                <div className="project-tile-name">{project.name}</div>
-                <div className="project-tile-sub project-path">{project.path}</div>
-              </div>
-            </div>
+        <Sample label="In the Projects list" palette={palette}>
+          <div className="appearance-sample-item">
+            <ProjectLogo project={project} size="xl" palette={palette} />
+            <span className="appearance-sample-item-name">{project.name}</span>
           </div>
         </Sample>
         <Sample label="Beside an item, as on a Task card" palette={palette}>

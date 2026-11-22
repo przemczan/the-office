@@ -54,7 +54,7 @@ import {
   ProjectSkillsSection,
   ProjectTestTargetsSection,
 } from "./surfaces/projects/project-sections.tsx";
-import { ProjectsPage } from "./surfaces/projects/projects-page.tsx";
+import { NoProjectOpen, ProjectsPage } from "./surfaces/projects/projects-page.tsx";
 import { NotificationsSection } from "./surfaces/settings/notifications/notifications-section.tsx";
 import { EnginesSection } from "./surfaces/settings/engines/engines-section.tsx";
 import { FirstRunSetupPage } from "./surfaces/settings/first-run-setup/first-run-setup-page.tsx";
@@ -457,10 +457,18 @@ const hireFromScratchRoute = createRoute({
   staticData: { title: "People" },
 });
 
+// The Projects list beside the open Project, which is its child.
 const projectsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "projects",
   component: ProjectsPage,
+  staticData: { title: "Projects" },
+});
+
+const projectsHomeRoute = createRoute({
+  getParentRoute: () => projectsRoute,
+  path: "/",
+  component: NoProjectOpen,
   staticData: { title: "Projects" },
 });
 
@@ -512,8 +520,8 @@ const activityRoute = createRoute({
 });
 
 const projectRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "projects/$projectId",
+  getParentRoute: () => projectsRoute,
+  path: "$projectId",
   component: ProjectPage,
   // Until the Project is read; the page then names it.
   staticData: { title: "Projects" },
@@ -856,21 +864,23 @@ export const router = createRouter({
       roleCardEditRoute,
     ]),
     hireFromScratchRoute,
-    projectsRoute,
-    projectRoute.addChildren([
-      projectOverviewRoute,
-      projectFilesRoute,
-      projectCommandsRoute,
-      projectEnvironmentRoute,
-      projectPipelinesRoute,
-      projectPipelineRoute,
-      projectIssuesRoute,
-      projectRunEnvironmentRoute,
-      projectTestTargetsRoute,
-      projectEngineRoute,
-      projectSkillsRoute,
-      projectServerValuesRoute,
-      projectAppearanceRoute,
+    projectsRoute.addChildren([
+      projectsHomeRoute,
+      projectRoute.addChildren([
+        projectOverviewRoute,
+        projectFilesRoute,
+        projectCommandsRoute,
+        projectEnvironmentRoute,
+        projectPipelinesRoute,
+        projectPipelineRoute,
+        projectIssuesRoute,
+        projectRunEnvironmentRoute,
+        projectTestTargetsRoute,
+        projectEngineRoute,
+        projectSkillsRoute,
+        projectServerValuesRoute,
+        projectAppearanceRoute,
+      ]),
     ]),
     statsRoute,
     systemHealthRoute,

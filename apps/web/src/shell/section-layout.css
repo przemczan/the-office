@@ -1,5 +1,6 @@
 /* A page of sections (prototypes/app/settings.js): the left-hand menu beside the open one, a row
-   above it on a narrow window. Colours are aliases only. */
+   above it on a narrow window, or with list-or-open the menu or the open item alone. Colours are
+   aliases only. */
 
 .section-layout {
   display: grid;
@@ -8,9 +9,16 @@
   align-items: start;
 }
 
-.section-menu {
+.section-side {
   position: sticky;
   top: var(--pad-page);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.section-menu {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -28,6 +36,14 @@
   text-decoration: none;
 }
 
+.section-menu-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .section-menu a:hover {
   background: var(--control-hover);
   color: var(--fg-1);
@@ -38,6 +54,12 @@
   color: var(--fg-1);
 }
 
+.section-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .section-body {
   display: flex;
   flex-direction: column;
@@ -46,18 +68,76 @@
   max-width: 1100px;
 }
 
+/* "‹ All Projects": back from the open item to the menu, on a narrow page alone. */
+.section-back {
+  display: none;
+  align-items: center;
+  align-self: flex-start;
+  gap: 4px;
+  font: var(--type-label);
+  color: var(--fg-2);
+  text-decoration: none;
+}
+
+.section-back:hover {
+  color: var(--fg-1);
+}
+
+/* ---- size large: a list of records, each item taller with room for its Logo */
+.section-layout.size-large {
+  grid-template-columns: 260px minmax(0, 1fr);
+}
+
+/* As long as the list may be, it scrolls with the page rather than sticking. */
+.section-layout.size-large > .section-side {
+  position: static;
+}
+
+.section-layout.size-large .section-menu a {
+  gap: 12px;
+  height: 52px;
+  padding: 0 12px;
+  font: 500 var(--text-item) / 1.3 var(--font-sans);
+}
+
+.section-layout.size-large .section-body {
+  max-width: none;
+}
+
 @container page (max-width: 924px) {
-  .section-layout {
+  .section-layout:not(.narrow-list-or-open) {
     grid-template-columns: 1fr;
   }
 
-  .section-menu {
+  .section-layout:not(.narrow-list-or-open) > .section-side {
     position: static;
+  }
+
+  .section-layout:not(.narrow-list-or-open) .section-menu {
     flex-direction: row;
     overflow-x: auto;
   }
 
-  .section-menu a {
+  .section-layout:not(.narrow-list-or-open) .section-menu a {
     white-space: nowrap;
+  }
+}
+
+@container page (max-width: 1224px) {
+  .section-layout.narrow-list-or-open {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .section-layout.narrow-list-or-open:not(.showing-open) > .section-body,
+  .section-layout.narrow-list-or-open.showing-open > .section-side {
+    display: none;
+  }
+
+  .section-layout.narrow-list-or-open > .section-side {
+    position: static;
+  }
+
+  .section-back {
+    display: inline-flex;
   }
 }

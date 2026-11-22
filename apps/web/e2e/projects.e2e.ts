@@ -88,7 +88,9 @@ const SECTIONS = [
     blocks: ["Environment variables", "Environment check"],
   },
   { name: "Pipelines", address: "/pipelines", blocks: ["Default Pipeline"] },
+  { name: "GitHub issues", address: "/issues", blocks: ["GitHub issues"] },
   { name: "Run environment", address: "/run-environment", blocks: ["Run environment"] },
+  { name: "Test targets", address: "/test-targets", blocks: ["Test targets", "Test instances"] },
   { name: "Engine", address: "/engine", blocks: ["Engine"] },
   { name: "Skills", address: "/skills", blocks: [/^Skills in the repository/] },
   { name: "Server values", address: "/server-values", blocks: ["Server values"] },
@@ -96,7 +98,7 @@ const SECTIONS = [
 ];
 
 const ANY_BLOCK =
-  /^(Onboarding|Environment variables|Environment check|Work|Commands|Default Pipeline|Run environment|Engine|Skills in the repository.*|Server values|How it looks|Mark|Images)$/;
+  /^(Onboarding|Environment variables|Environment check|Work|Commands|Default Pipeline|GitHub issues|Run environment|Test targets|Test instances|Engine|Skills in the repository.*|Server values|How it looks|Mark|Images)$/;
 
 let repository: TemporaryRepository;
 
@@ -241,21 +243,27 @@ async function addedProject(
   return projectSchema.parse(await response.json());
 }
 
-function projectMenu(page: Page) {
-  return page.getByRole("navigation", { name: "Project", exact: true });
+/** The tabs of the open Project's sections, under its head. */
+function projectTabs(page: Page): Locator {
+  return page.locator(".project-tabs").getByRole("tablist");
 }
 
-/** Appearance's How it looks: the page head, the card and the mark beside an item. */
+/** The Projects list, beside the open Project on a wide page. */
+function projectsList(page: Page): Locator {
+  return page.getByRole("navigation", { name: "Projects", exact: true });
+}
+
+/** Appearance's How it looks: the page head, the list item and the mark beside an item. */
 function howItLooks(page: Page): Locator {
   return page.locator(".appearance-preview");
 }
 
-/** The section is open: marked in the menu, its blocks alone showing, under the Project's head. */
+/** The section is open: its tab chosen, its blocks alone showing, under the Project's head. */
 async function expectOpenSection(page: Page, project: Project, section: (typeof SECTIONS)[number]) {
-  await expect(projectMenu(page).locator("a[aria-current='page']")).toHaveText(section.name);
-  await expect(page.locator(".section-body").getByRole("heading", { name: ANY_BLOCK })).toHaveText(
-    section.blocks,
-  );
+  await expect(projectTabs(page).getByRole("tab", { selected: true })).toHaveText(section.name);
+  await expect(
+    page.locator(".project-section").getByRole("heading", { name: ANY_BLOCK }),
+  ).toHaveText(section.blocks);
   const head = page.locator(".project-head");
   await expect(head.getByRole("heading", { name: project.name })).toBeVisible();
   await expect(head).toContainText(project.path);
@@ -302,7 +310,7 @@ async function fillTheForm(page: Page, fields: { name: string; path: string; bra
 
 test("the user adds a Project from the Projects page and lands on its page", async ({ page }) => {
   await page.goto("/projects");
-  await page.getByRole("button", { name: "Add it yourself" }).click();
+  await page.getByRole("button", { name: "Add a Project", exact: true }).click();
   await fillTheForm(page, { name: "Billing service", path: repository.path, branch: "main" });
   await page.getByRole("dialog").getByLabel("Install inputs").fill("package-lock.json,");
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-projects-add.png") });
@@ -321,7 +329,7 @@ test("the user adds a Project from the Projects page and lands on its page", asy
   await expect(page.getByText("Billing service added.")).toBeVisible();
   await expect(page.getByText(repository.path)).toBeVisible();
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project.png") });
-  await projectMenu(page).getByRole("link", { name: "Commands" }).click();
+  await projectTabs(page).getByRole("tab", { name: "Commands" }).click();
   await expect(page.getByText("package-lock.json")).toBeVisible();
 
   await page.getByRole("link", { name: "Projects", exact: true }).first().click();
@@ -334,7 +342,7 @@ test(
   { tag: "@full" },
   async ({ page }) => {
     await page.goto("/projects");
-    await page.getByRole("button", { name: "Add it yourself" }).click();
+    await page.getByRole("button", { name: "Add a Project", exact: true }).click();
     await fillTheForm(page, { name: "Nowhere", path: repository.folder, branch: "main" });
     const add = page.getByRole("button", { name: "Add the Project" });
 
@@ -362,7 +370,7 @@ test(
   { tag: "@full" },
   async ({ page }) => {
     await page.goto("/projects");
-    await page.getByRole("button", { name: "Add it yourself" }).click();
+    await page.getByRole("button", { name: "Add a Project", exact: true }).click();
     const dialog = page.getByRole("dialog");
     const bar = dialog.locator(".dialog-bar");
     const box = await dialog.boundingBox();
@@ -406,7 +414,7 @@ test(
     const url = serveRepository(repository, "acme", "storefront");
     branchOnHost("acme", "storefront", "release");
     await page.goto("/projects");
-    await page.getByRole("button", { name: "Add it yourself" }).click();
+    await page.getByRole("button", { name: "Add a Project", exact: true }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByRole("tab", { name: "A git URL" }).click();
     const repositoryUrl = dialog.getByLabel("Repository URL");
@@ -1666,7 +1674,7 @@ for (const colorScheme of ["light", "dark"] as const) {
         await page.setViewportSize({ width, height: 900 });
         await page.emulateMedia({ colorScheme });
         await page.goto("/projects");
-        await page.getByRole("button", { name: "Add it yourself" }).click();
+        await page.getByRole("button", { name: "Add a Project", exact: true }).click();
         await chooseFolder(page, repository.path);
         const dialog = page.getByRole("dialog");
         await dialog.getByLabel("Name").fill("Swatched");
@@ -1692,9 +1700,9 @@ for (const colorScheme of ["light", "dark"] as const) {
  * one, with nothing scrolling sideways.
  */
 async function expectAppearanceLaidOut(page: Page, width: number): Promise<void> {
-  await expect(page.locator(".section-body").getByRole("heading", { name: ANY_BLOCK })).toHaveText(
-    APPEARANCE_BLOCKS,
-  );
+  await expect(
+    page.locator(".project-section").getByRole("heading", { name: ANY_BLOCK }),
+  ).toHaveText(APPEARANCE_BLOCKS);
   const preview = await howItLooks(page).boundingBox();
   const mark = await page.locator(".appearance-edit").boundingBox();
   expect(preview && mark).toBeTruthy();
@@ -1811,7 +1819,7 @@ test(
 
 test("a Project is added with a custom colour", { tag: "@full" }, async ({ page }) => {
   await page.goto("/projects");
-  await page.getByRole("button", { name: "Add it yourself" }).click();
+  await page.getByRole("button", { name: "Add a Project", exact: true }).click();
   await fillTheForm(page, { name: "Own colour", path: repository.path, branch: "main" });
   const form = page.getByRole("dialog");
 
@@ -1937,7 +1945,7 @@ test(
   { tag: "@full" },
   async ({ page }) => {
     await page.goto("/projects");
-    await page.getByRole("button", { name: "Add it yourself" }).click();
+    await page.getByRole("button", { name: "Add a Project", exact: true }).click();
     await chooseFolder(page, repository.path);
     const form = page.getByRole("dialog");
     const label = form.getByLabel("Mark label");
@@ -1962,7 +1970,7 @@ const VALID_RUN_ENVIRONMENT = {
 };
 
 function runEnvironmentBlock(page: Page): Locator {
-  return page.locator(".section-body");
+  return page.locator(".project-section");
 }
 
 test(
@@ -2062,7 +2070,7 @@ async function addAnswering(
   answer: "Yes" | "No" | "Decide later",
 ): Promise<Project> {
   await page.goto("/projects");
-  await page.getByRole("button", { name: "Add it yourself" }).click();
+  await page.getByRole("button", { name: "Add a Project", exact: true }).click();
   await fillTheForm(page, { name, path: folder, branch: "main" });
   const question = page
     .getByRole("dialog")
@@ -2129,18 +2137,18 @@ test(
 );
 
 test(
-  "a Project's menu opens each section at its own address, which survives a reload",
+  "a Project's tabs open each section at its own address, which survives a reload",
   { tag: "@full" },
   async ({ page }) => {
     const project = await addedProject(page, "Menu sections");
     await page.goto(`/projects/${project.id}`);
-    await expect(projectMenu(page).getByRole("link")).toHaveText(
+    await expect(projectTabs(page).getByRole("tab")).toHaveText(
       SECTIONS.map((section) => section.name),
     );
 
-    // Overview last, as it opens first and its link must also come back from a section.
+    // Overview last, as it opens first and its tab must also come back from a section.
     for (const section of [...SECTIONS.slice(1), SECTIONS[0]!]) {
-      await projectMenu(page).getByRole("link", { name: section.name, exact: true }).click();
+      await projectTabs(page).getByRole("tab", { name: section.name, exact: true }).click();
       await expect(page).toHaveURL(`/projects/${project.id}${section.address}`);
       await expectOpenSection(page, project, section);
 
@@ -2158,10 +2166,144 @@ test(
       await page.goto(`/projects/nowhere${section.address}`);
 
       await expect(page.getByText('There is no Project "nowhere".')).toBeVisible();
-      await expect(projectMenu(page)).toHaveCount(0);
+      await expect(projectTabs(page)).toHaveCount(0);
       await page.getByRole("link", { name: "Back to Projects" }).click();
       await expect(page).toHaveURL(/\/projects$/);
     }
+  },
+);
+
+test("on a wide page the Projects list sits beside the open Project, and switches it", async ({
+  page,
+}) => {
+  const first = await addedProject(page, "Listed first");
+  const second = await addedProject(page, "Listed second");
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.goto("/projects");
+
+  const list = projectsList(page);
+  const item = (project: Project): Locator =>
+    list.getByRole("link", { name: project.name, exact: true });
+  await expect(item(first)).toBeVisible();
+  await expect(item(second)).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Projects");
+  await expect(page.getByText("Open a Project from the list, or add one")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add it yourself" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "‹ All Projects" })).toHaveCount(0);
+  await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "light-1600-projects-list.png") });
+
+  await page.getByRole("button", { name: "Add a Project", exact: true }).click();
+  await expect(
+    page.getByRole("dialog").getByRole("heading", { name: "Add a Project" }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  await item(first).click();
+  await expect(page).toHaveURL(`/projects/${first.id}`);
+  await expect(list).toBeVisible();
+  await expect(item(first)).toHaveClass(/active/);
+  await expect(item(second)).not.toHaveClass(/active/);
+  await expect(
+    page.locator(".project-head").getByRole("heading", { name: first.name }),
+  ).toBeVisible();
+
+  await projectTabs(page).getByRole("tab", { name: "Pipelines" }).click();
+  await expect(page).toHaveURL(`/projects/${first.id}/pipelines`);
+  await expect(item(first)).toHaveClass(/active/);
+  const listBox = await list.boundingBox();
+  const headBox = await page.locator(".project-head").boundingBox();
+  expect(listBox && headBox).toBeTruthy();
+  if (listBox && headBox) expect(headBox.x).toBeGreaterThanOrEqual(listBox.x + listBox.width);
+  await page.screenshot({
+    path: path.join(TASK_SCREENSHOTS, "light-1600-project-beside-list.png"),
+  });
+
+  await item(second).click();
+  await expect(page).toHaveURL(`/projects/${second.id}`);
+  await expect(item(second)).toHaveClass(/active/);
+  await expect(item(first)).not.toHaveClass(/active/);
+  await expect(projectTabs(page).getByRole("tab", { selected: true })).toHaveText("Overview");
+});
+
+test("on a narrow page the Projects list shows alone, then the Project with the way back", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Narrow listed");
+  await page.setViewportSize({ width: 1000, height: 900 });
+  await page.goto("/projects");
+
+  const list = projectsList(page);
+  await expect(list).toBeVisible();
+  await expect(page.getByText("Open a Project from the list, or add one")).toBeHidden();
+  await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "light-1000-projects-list.png") });
+
+  await list.getByRole("link", { name: project.name, exact: true }).click();
+  await expect(page).toHaveURL(`/projects/${project.id}`);
+  await expect(list).toBeHidden();
+  await expect(
+    page.locator(".project-head").getByRole("heading", { name: project.name }),
+  ).toBeVisible();
+  const back = page.getByRole("link", { name: "‹ All Projects" });
+  await expect(back).toBeVisible();
+  await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "light-1000-project.png") });
+
+  await back.click();
+  await expect(page).toHaveURL(/\/projects$/);
+  await expect(list).toBeVisible();
+});
+
+test(
+  "a Project's deep addresses open the same section after a reload, beside the list",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Deep linked");
+    const base = await addedBasePipeline(page, "Deep base");
+    const own = await addedProjectPipeline(page, project.id, base, "Deep own");
+    await page.setViewportSize({ width: 1600, height: 900 });
+    const item = projectsList(page).getByRole("link", { name: project.name, exact: true });
+
+    const files = `/projects/${project.id}/files?branch=main&path=README.md`;
+    await page.goto(files);
+    await page.reload();
+    await expect(page).toHaveURL(files);
+    await expect(projectTabs(page).getByRole("tab", { selected: true })).toHaveText("Files");
+    await expect(
+      page.getByRole("tree", { name: "Files on main" }).locator('[data-path="README.md"]'),
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(item).toHaveClass(/active/);
+
+    const pipeline = `/projects/${project.id}/pipelines/${own.id}`;
+    await page.goto(pipeline);
+    await page.reload();
+    await expect(page).toHaveURL(pipeline);
+    await expect(projectTabs(page).getByRole("tab", { selected: true })).toHaveText("Pipelines");
+    await expect(page.getByLabel("Name", { exact: true })).toHaveValue(own.name);
+    await expect(item).toHaveClass(/active/);
+  },
+);
+
+test(
+  "a Project the Project filter hides still opens beside the list, with no item marked",
+  { tag: "@full" },
+  async ({ page }) => {
+    const shown = await addedProject(page, "Filter shown");
+    const hidden = await addedProject(page, "Filter hidden");
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await page.goto("/projects");
+    await page.getByRole("button", { name: /^Project filter:/ }).click();
+    await page.getByRole("button", { name: `Show only ${shown.name}` }).click();
+    await page.keyboard.press("Escape");
+    const list = projectsList(page);
+    await expect(list.getByRole("link", { name: shown.name, exact: true })).toBeVisible();
+    await expect(list.getByRole("link", { name: hidden.name, exact: true })).toHaveCount(0);
+    await expect(page.getByText(/hidden by the Project filter/)).toBeVisible();
+
+    await page.goto(`/projects/${hidden.id}`);
+    await expect(
+      page.locator(".project-head").getByRole("heading", { name: hidden.name }),
+    ).toBeVisible();
+    await expect(list.locator("a.active")).toHaveCount(0);
   },
 );
 

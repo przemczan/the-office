@@ -1,37 +1,41 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, Outlet, useParams } from "@tanstack/react-router";
+import {
+  Link,
+  Outlet,
+  useMatchRoute,
+  useNavigate,
+  useParams,
+  type LinkProps,
+} from "@tanstack/react-router";
 import { OFFICE_IDENTITY_SETTINGS_PATH, type Project } from "@the-office/contracts";
-import { EmptyState } from "@the-office/ui";
+import { EmptyState, Tabs } from "@the-office/ui";
 import { createContext, useContext, type ReactNode } from "react";
 import { ApiError } from "../../api/api-client.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { ProjectLogo } from "../../shell/project-logo.tsx";
-import { SectionLayout, type MenuSection } from "../../shell/section-layout.tsx";
 import { OnboardingBadge } from "./onboarding-block.tsx";
 import { remoteNeedsLine } from "./remote-needs-words.ts";
 import "./projects.css";
 
 /** A Project's sections, each a page of its own; Overview keeps the Project's bare address. */
-const SECTIONS: readonly MenuSection[] = [
-  {
-    to: "/projects/$projectId",
-    icon: "layout-dashboard",
-    label: "Overview",
-    onlyAtItsAddress: true,
-  },
-  { to: "/projects/$projectId/files", icon: "folder-tree", label: "Files" },
-  { to: "/projects/$projectId/commands", icon: "terminal", label: "Commands" },
-  { to: "/projects/$projectId/environment", icon: "hard-drive", label: "Environment" },
-  { to: "/projects/$projectId/pipelines", icon: "route", label: "Pipelines" },
-  { to: "/projects/$projectId/issues", icon: "circle-dot", label: "GitHub issues" },
-  { to: "/projects/$projectId/run-environment", icon: "container", label: "Run environment" },
-  { to: "/projects/$projectId/test-targets", icon: "flask-conical", label: "Test targets" },
-  { to: "/projects/$projectId/engine", icon: "cpu", label: "Engine" },
-  { to: "/projects/$projectId/skills", icon: "sparkles", label: "Skills" },
-  { to: "/projects/$projectId/server-values", icon: "plug", label: "Server values" },
-  { to: "/projects/$projectId/appearance", icon: "palette", label: "Appearance" },
-];
+const SECTIONS = [
+  { to: "/projects/$projectId", label: "Overview" },
+  { to: "/projects/$projectId/files", label: "Files" },
+  { to: "/projects/$projectId/commands", label: "Commands" },
+  { to: "/projects/$projectId/environment", label: "Environment" },
+  { to: "/projects/$projectId/pipelines", label: "Pipelines" },
+  { to: "/projects/$projectId/issues", label: "GitHub issues" },
+  { to: "/projects/$projectId/run-environment", label: "Run environment" },
+  { to: "/projects/$projectId/test-targets", label: "Test targets" },
+  { to: "/projects/$projectId/engine", label: "Engine" },
+  { to: "/projects/$projectId/skills", label: "Skills" },
+  { to: "/projects/$projectId/server-values", label: "Server values" },
+  { to: "/projects/$projectId/appearance", label: "Appearance" },
+] as const satisfies readonly {
+  readonly to: NonNullable<LinkProps["to"]>;
+  readonly label: string;
+}[];
 
 const OpenProjectContext = createContext<Project | undefined>(undefined);
 
@@ -42,7 +46,10 @@ export function useOpenProject(): Project {
   return project;
 }
 
-/** A Project's own page: its head above the menu of its sections, beside the open one. */
+/**
+ * A Project's own page, beside the Projects list: its head, the tabs of its sections under it, then
+ * the open section. The page is its sections' `page` container, so they lay out by its width.
+ */
 export function ProjectPage(): ReactNode {
   const { projectId } = useParams({ from: "/projects/$projectId" });
   const project = useQuery(projectQueries.one(projectId));
@@ -56,11 +63,41 @@ export function ProjectPage(): ReactNode {
   return (
     <div className="project-page">
       <ProjectHead project={project.data} />
-      <SectionLayout label="Project" sections={SECTIONS} params={{ projectId }}>
+      <ProjectTabs projectId={projectId} />
+      <div className="project-section">
         <OpenProjectContext value={project.data}>
           <Outlet />
         </OpenProjectContext>
-      </SectionLayout>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * packages/ui's Tabs, one per section, each going to its address; a section's tab stays chosen on
+ * its own sub-addresses, such as an open Pipeline. Like the links they replace, they drop the
+ * search: the shell has already taken in a link's chat and Thread.
+ */
+function ProjectTabs({ projectId }: { readonly projectId: string }): ReactNode {
+  const matchRoute = useMatchRoute();
+  const navigate = useNavigate();
+  const params = { projectId };
+  // Overview's address starts every other one's, so only an exact match chooses it.
+  const open =
+    SECTIONS.slice(1).find(({ to }) => matchRoute({ to, params, fuzzy: true }) !== false)?.to ??
+    SECTIONS[0].to;
+  return (
+    <div className="project-tabs">
+      <Tabs
+        tabs={SECTIONS.map(({ to, label }) => ({ value: to, label }))}
+        value={open}
+        onChange={(value) => {
+          const picked = SECTIONS.find(({ to }) => to === value);
+          if (picked !== undefined && picked.to !== open) {
+            void navigate({ to: picked.to, params });
+          }
+        }}
+      />
     </div>
   );
 }

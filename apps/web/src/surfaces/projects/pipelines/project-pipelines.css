@@ -36,7 +36,8 @@
   color: var(--fg-1);
 }
 
-@container page (max-width: 1224px) {
+/* Measured on the Project's pane (projects.css), which the Projects list leaves narrower than the page. */
+@container page (max-width: 952px) {
   .project-pipelines {
     grid-template-columns: minmax(0, 1fr);
   }

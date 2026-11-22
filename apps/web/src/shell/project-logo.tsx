@@ -5,7 +5,7 @@ import { useShownProjectImage } from "./project-image.ts";
 
 /**
  * A Project's Logo at its own proportions, in the version for the palette, where the Project stands
- * alone: its page and its card. Without one, or when it can't be loaded, the mark in its place.
+ * alone: its page and its item in the Projects list. Without one, or when it can't be loaded, the mark in its place.
  */
 export function ProjectLogo({
   project,
@@ -13,7 +13,7 @@ export function ProjectLogo({
   palette,
 }: {
   readonly project: Project;
-  /** xl on a Project's card, page on its page's head. */
+  /** xl on a Project's item in the Projects list, page on its page's head. */
   readonly size: "xl" | "page";
   /** The palette whose version shows, when not the base of the one shown, as in a preview. */
   readonly palette?: ProjectImagePalette;

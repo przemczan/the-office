@@ -1,9 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
-import type { Pipeline, Project } from "@the-office/contracts";
-import { Alert, Button, Icon } from "@the-office/ui";
-import { useState, type ReactNode } from "react";
-import { useEveryPipeline } from "../../shell/pipelines/use-pipelines.ts";
+import { Outlet, useParams } from "@tanstack/react-router";
+import type { Project } from "@the-office/contracts";
+import { Alert, Button, EmptyState, Icon } from "@the-office/ui";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
 import { AskDevopsButton, useDevops } from "../../shell/ask-devops.tsx";
 import { usePageHeading } from "../../shell/page-heading.tsx";
@@ -11,96 +10,112 @@ import { InOtherProjectsNote } from "../../shell/project-filter/in-other-project
 import { narrowed } from "../../shell/project-filter/project-filter-choices.ts";
 import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
 import { ProjectLogo } from "../../shell/project-logo.tsx";
-import { publishingLabel } from "../../shell/project-words.ts";
+import { SectionLayout, type MenuSection } from "../../shell/section-layout.tsx";
 import { AddProjectDialog } from "./add-project-dialog.tsx";
 import { OnboardingBadge } from "./onboarding-block.tsx";
 import "./projects.css";
 
+/** Opens the Add a Project window, from the list's foot or the empty pane beside it. */
+const AddProjectContext = createContext<(() => void) | undefined>(undefined);
+
 /**
- * The Projects The Office works on, a card each for those the Project filter shows with its
- * onboarding, and adding one: by asking Devops to onboard it, or by hand. The count in the heading
- * is every Project.
+ * The Projects The Office works on: an item each for those the Project filter shows, with adding one
+ * at the list's foot, beside the open Project (spec screens/projects.md). A Project the filter
+ * hides still opens beside the list, with no item marked.
  */
 export function ProjectsPage(): ReactNode {
   const projects = useQuery(projectQueries.list());
-  const pipelines = useEveryPipeline();
   const projectFilter = useProjectFilter();
+  const { projectId } = useParams({ strict: false });
   const [adding, setAdding] = useState(false);
-  const devops = useDevops();
-  usePageHeading({ title: "Projects", crumb: projects.data && countOf(projects.data) });
   const { shown, elsewhere } = narrowed(projects.data ?? [], ({ id }) => projectFilter.shows([id]));
+  const openAdding = (): void => setAdding(true);
   return (
     <div className="projects-page">
       {projects.error && <Alert tone="danger" title={projects.error.message} />}
-      <div className="projects-grid">
-        {shown.map((project) => (
-          <ProjectCard key={project.id} project={project} pipelines={pipelines} />
-        ))}
-        <article className="project-tile add-project-tile">
-          <div className="project-tile-head">
-            <span className="add-project-icon">
-              <Icon name="folder-plus" size={16} />
-            </span>
-            <div>
-              <h2 className="project-tile-name">Add a Project</h2>
-              <div className="project-tile-sub">A repository on the workstation or a git URL</div>
-            </div>
-          </div>
-          <p className="project-tile-text">
-            {devops?.card.capabilities.chat
-              ? `${devops.card.name} prepares it until it builds and tests in a fresh worktree, and asks before installing anything. Or give its folder or git URL, base branch and commands yourself.`
-              : "Give its folder or git URL, base branch and commands. Script Stages run the commands in each Task's worktree."}
-          </p>
-          <div className="add-project-actions">
-            <AskDevopsButton
-              label={(name) => `Ask ${name} to onboard one`}
-              draft="Can you onboard a new Project? The repository is "
+      <SectionLayout
+        label="Projects"
+        sections={shown.map(projectItem)}
+        size="large"
+        narrow="list-or-open"
+        showingOpen={projectId !== undefined}
+        back={{ label: "All Projects", to: "/projects" }}
+        foot={
+          <>
+            <InOtherProjectsNote
+              count={elsewhere}
+              one="Project"
+              many="Projects"
+              where="hidden by the Project filter"
             />
-            <Button variant="secondary" onClick={() => setAdding(true)}>
-              Add it yourself
-            </Button>
-          </div>
-        </article>
-      </div>
-      <InOtherProjectsNote
-        count={elsewhere}
-        one="Project"
-        many="Projects"
-        where="hidden by the Project filter"
-      />
+            <AddProjectActions addLabel="Add a Project" onAdd={openAdding} />
+          </>
+        }
+      >
+        <AddProjectContext value={openAdding}>
+          <Outlet />
+        </AddProjectContext>
+      </SectionLayout>
       {adding && <AddProjectDialog onClose={() => setAdding(false)} />}
     </div>
   );
 }
 
-function ProjectCard({
-  project,
-  pipelines,
+function projectItem(project: Project): MenuSection {
+  return {
+    key: project.id,
+    to: "/projects/$projectId",
+    params: { projectId: project.id },
+    leading: <ProjectLogo project={project} size="xl" />,
+    label: project.name,
+    trailing: <OnboardingBadge projectId={project.id} />,
+  };
+}
+
+/**
+ * Adding a Project: by hand, or by asking Devops to onboard it (or the note while nobody can). The
+ * empty pane's words offer Devops first, so its button reads "Add it yourself".
+ */
+function AddProjectActions({
+  addLabel,
+  onAdd,
 }: {
-  readonly project: Project;
-  readonly pipelines: readonly Pipeline[] | undefined;
+  readonly addLabel: string;
+  readonly onAdd: () => void;
 }): ReactNode {
-  const pipeline = pipelines?.find((candidate) => candidate.id === project.defaultPipeline);
   return (
-    <Link
-      to="/projects/$projectId"
-      params={{ projectId: project.id }}
-      className="project-tile project-card"
-    >
-      <div className="project-tile-head">
-        <ProjectLogo project={project} size="xl" />
-        <div className="project-tile-grow">
-          <h2 className="project-tile-name">{project.name}</h2>
-          <div className="project-tile-sub project-path">{project.path}</div>
-        </div>
-        <OnboardingBadge projectId={project.id} />
-      </div>
-      <div className="project-tile-sub">
-        <Icon name="route" size={13} />
-        Default Pipeline {pipeline?.name ?? project.defaultPipeline} ·{" "}
-        {publishingLabel(project.publishingMode, project.baseBranch)}
-      </div>
-    </Link>
+    <div className="add-project-actions">
+      <Button variant="secondary" iconLeft={<Icon name="folder-plus" size={14} />} onClick={onAdd}>
+        {addLabel}
+      </Button>
+      <AskDevopsButton
+        label={(name) => `Ask ${name} to onboard one`}
+        draft="Can you onboard a new Project? The repository is "
+      />
+    </div>
+  );
+}
+
+/** The pane beside the list at the bare /projects, inviting to open a Project or add one. */
+export function NoProjectOpen(): ReactNode {
+  const projects = useQuery(projectQueries.list());
+  const openAdding = useContext(AddProjectContext);
+  const devops = useDevops();
+  usePageHeading({ title: "Projects", crumb: projects.data && countOf(projects.data) });
+  if (openAdding === undefined) throw new Error("No ProjectsPage above NoProjectOpen");
+  return (
+    <div className="projects-empty-pane">
+      <EmptyState
+        icon="folder-open"
+        title="Open a Project from the list, or add one"
+        description={
+          devops?.card.capabilities.chat
+            ? `${devops.card.name} prepares it until it builds and tests in a fresh worktree, and asks before installing anything. Or give its folder or git URL, base branch and commands yourself.`
+            : "Give its folder or git URL, base branch and commands. Script Stages run the commands in each Task's worktree."
+        }
+        action={<AddProjectActions addLabel="Add it yourself" onAdd={openAdding} />}
+      />
+    </div>
   );
 }
 

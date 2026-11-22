@@ -1,13 +1,13 @@
 # Project page
 
-Covers: a Project's page and its head, the section menu, Overview (Onboarding, Work, the Project limit), Files, Commands (install, install inputs, commands, Publish), Environment (variables, Secret variables, environment check), Pipelines (Default Pipeline and its rows by Kind, Project Pipelines), GitHub issues (the Import issues window, auto-import, write-back), Run environment, Test targets (the list, the editor, Set up test targets, the open Proposal), Test instances (the Branch picker, Launch on a branch, instances by branch), Engine, Skills, Server values, Appearance (Mark, Icon and Logo, How it looks).
+Covers: a Project's page and its head, the section tabs, Overview (Onboarding, Work, the Project limit), Files, Commands (install, install inputs, commands, Publish), Environment (variables, Secret variables, environment check), Pipelines (Default Pipeline and its rows by Kind, Project Pipelines), GitHub issues (the Import issues window, auto-import, write-back), Run environment, Test targets (the list, the editor, Set up test targets, the open Proposal), Test instances (the Branch picker, Launch on a branch, instances by branch), Engine, Skills, Server values, Appearance (Mark, Icon and Logo, How it looks).
 
 ## Where it is
 
-- Route: `/projects/$projectId`, a parent with one child route per section.
-- Open it from a card on the Projects page ([projects.md](projects.md)), or from any link to a Project.
+- Route: `/projects/$projectId`, a parent with one child route per section, under the Projects page's `/projects`.
+- It opens in the pane beside the Projects list ([projects.md](projects.md#layout)), from its item there or from any link to a Project.
 - The page title is the Project's name; its crumb is the name, with "Projects" as its parent (back to `/projects`).
-- Sections and their routes, in the menu's order:
+- Sections and their routes, in the tabs' order:
   - **Overview**: `/projects/$projectId` (no redirect; a redirect would drop a link's `?chat=…&thread=…`).
   - **Files**: `/projects/$projectId/files?branch=&path=`.
   - **Commands**: `/projects/$projectId/commands`.
@@ -24,11 +24,16 @@ Covers: a Project's page and its head, the section menu, Overview (Onboarding, W
 
 ## Layout
 
+- The page fills the pane beside the Projects list.
 - The head, at the top.
-- Below it the section layout: the left-hand menu, a navigation named "Project", beside the open section.
-- At a page width of 924px and under, the menu becomes a row above the section, scrolling sideways.
-- The section's blocks are cards stacked in one column, 1100px at most wide.
-- At a page width of 664px and under, the page padding shrinks to 14px and two-column rows stack.
+- Below it a row of tabs, one per section, labelled as in [Where it is](#where-it-is); choosing one opens its address.
+- A section's tab stays chosen on its sub-addresses, such as an open Project Pipeline.
+- On a narrow pane the tabs scroll sideways.
+- Below the tabs the open section: its blocks are cards stacked in one column, 1100px at most wide.
+- The section breakpoints below are measured on the pane's width, not the page's.
+- At a page width of 1224px and under the page shows alone, with **‹ All Projects** above it back to the list ([projects.md](projects.md#states)).
+- At a page width of 664px and under, the page padding shrinks to 14px.
+- At a pane width of 664px and under, two-column rows stack.
 
 ## Head
 
@@ -78,7 +83,7 @@ Covers: a Project's page and its head, the section menu, Overview (Onboarding, W
 - A fetch failure shows the warning **Showing the last commits known on this workstation**: "The branches couldn't be fetched, so newer commits may be missing: <problem>".
 - A `branch` the Project doesn't have shows the warning "<name> has no branch <branch>" with "It may have been deleted, or not be known on this workstation." and a link **Show <base branch>**.
 - Beside each other: the file tree (named "Files on <branch>", the selected path revealed and selected) and the **Preview** section.
-  - At a page width of 900px and under they stack.
+  - At a pane width of 900px and under they stack.
   - The tree and preview are keyed by the branch, so switching a branch keeps no path or open folder.
   - Selecting a path sets `path` in the address, replacing the entry.
 - What the path names is told by its folder's entries:
@@ -143,7 +148,7 @@ Covers: a Project's page and its head, the section menu, Overview (Onboarding, W
 ## Pipelines
 
 - Route `/projects/$projectId/pipelines`, and `/projects/$projectId/pipelines/$projectPipelineId` for an open Project Pipeline.
-- Layout: the lists on the left (the Default Pipeline card above the Project Pipelines list) and the detail on the right; at a page width of 1224px and under only the lists or the open one show, the detail with a back link "‹ <Project>'s Pipelines".
+- Layout: the lists on the left (the Default Pipeline card above the Project Pipelines list) and the detail on the right; at a pane width of 952px and under only the lists or the open one show, the detail with a back link "‹ <Project>'s Pipelines".
 - While the Pipelines, Roles, duties or Role card options load the section shows nothing; a read error shows "<Project>'s Pipelines can't be read".
 
 ### Default Pipeline
@@ -191,7 +196,7 @@ Covers: a Project's page and its head, the section menu, Overview (Onboarding, W
 
 ## GitHub issues
 
-- Route `/projects/$projectId/issues`, after Pipelines in the section menu (circle-dot icon). Rules: [2.1.1](../2.1.1-projects.md#github-issues).
+- Route `/projects/$projectId/issues`, the tab after Pipelines. Rules: [2.1.1](../2.1.1-projects.md#github-issues).
 - Card **GitHub issues** (circle-dot icon) with **Import issues…** (secondary, github icon) in its head.
 - When the repository isn't on GitHub, the card holds only an empty state with the service's words: "GitHub issues need a repository on GitHub. This Project's is at <host>."
 - When the GitHub App lacks the Issues permission, the permissions prompt shows at the card's top ([pull-requests.md](pull-requests.md#github-app-permissions-prompt)).
@@ -309,7 +314,7 @@ Covers: a Project's page and its head, the section menu, Overview (Onboarding, W
 
 ## Appearance
 
-- At a page width of 1225px and over, two columns: the Mark and Images cards on the left, **How it looks** on the right, staying in view while the cards scroll.
+- At a pane width of 953px and over, two columns: the Mark and Images cards on the left, **How it looks** on the right, staying in view while the cards scroll.
 - Under that, one column with **How it looks** first.
 - **Mark** card (palette icon): the Mark picker, **Save** and, while there is a draft, **Discard**.
   - The Mark picker: a tile with the letters on the colour; the **Mark label** field (3 characters at most); a radio group "Colour" of round swatches **Teal**, **Violet**, **Gray**, **Ink** and **Custom**, shown on hover by name.
@@ -319,7 +324,7 @@ Covers: a Project's page and its head, the section menu, Overview (Onboarding, W
   - Note, once an Icon is held: "The Icon shows in place of these letters. They come back if it is removed."
   - The Add a Project window uses the same picker ([projects.md](projects.md#step-2-the-projects-fields)).
 - **Images** card (image icon): "A light and a dark version each, shown with the palette. One version alone shows in both. PNG, JPEG, WebP or SVG, at most <limit> MB. Saved as soon as picked."
-  - A section each for **Icon** ("Shows in place of the mark's letters and colour, wherever the mark shows.") and **Logo** ("Stands for the Project on its page and its card, in place of the mark.").
+  - A section each for **Icon** ("Shows in place of the mark's letters and colour, wherever the mark shows.") and **Logo** ("Stands for the Project on its page and its item in the Projects list, in place of the mark.").
   - Each has a **Light** and a **Dark** version tile, shown on that palette's own page.
   - A tile: a drop zone that is also the button for the file picker ("Upload a <Palette> <Image>" / "Replace the <Palette> <Image>"); an empty one says "Drop an image or browse", and when the other version is held "Uses the <other> version"; a held one shows the image, or "The image can't be loaded."
   - Once held, **Replace** and **Remove** show in the tile's head.
@@ -328,14 +333,14 @@ Covers: a Project's page and its head, the section menu, Overview (Onboarding, W
   - A refusal stays in the tile: "An image may be at most <limit> MB." or "The file isn't a PNG, JPEG, WebP or SVG image." (both checked before sending), or the service's words; the version stays as it was.
 - **How it looks** card (eye icon): the Project as the app draws it, with the draft mark over the saved images, a **Not saved** badge while the mark is a draft, and a **Light** / **Dark** segmented control (the palette names; tooltip "Show it in the <Palette> palette"; the base of the shown palette first). Three samples, each on that palette's page with its versions of the images:
   - "On its page": the page head.
-  - "On the Projects page": the card.
+  - "In the Projects list": the list item.
   - "Beside an item, as on a Task card": the Project chip.
 - The page head above keeps the saved mark until **Save**.
 
 ## States
 
 - The Project is read: nothing shows until it is.
-- Unknown Project (404): an empty state with the service's message, a folder-x icon and the link **Back to Projects**.
+- Unknown Project (404): in the pane beside the list, an empty state with the service's message, a folder-x icon and the link **Back to Projects**.
 - Another error: the empty state "The Project can't be shown." with the error and **Back to Projects**.
 - Every section's own loading and error states are given above; a save in a block shows loading on its button.
 - A block's saved answer is put in the Project's query, so the head and other blocks follow it.
