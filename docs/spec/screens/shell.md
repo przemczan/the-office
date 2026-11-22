@@ -1,6 +1,6 @@
 # The shell
 
-Covers: the rail and its two states, the top bar (title and crumb, Project filter, search, Create, fire alarm control, user menu, Chat button), the Theme menu, the status strip and its figures, the Needs you panel, the chat drawer, toasts, the Office messages slot, the Workstation figure, the Test instance banner.
+Covers: the rail and its two states, the top bar (title and crumb, Project filter, search, Create, fire alarm control, user menu, Chat button), the Theme menu, the status strip and its figures (the Activity figure among them), the Needs you panel, the chat drawer, toasts, the Office messages slot, the Workstation figure, the Test instance banner.
 
 ## Where it is
 
@@ -131,13 +131,14 @@ Covers: the rail and its two states, the top bar (title and crumb, Project filte
 ## Status strip
 
 - A `status` region named "Status strip", under the top bar, live from `now.changed`; it is its own container (`@container strip`).
-- Left, never hidden: **Needs you**, the **5-hour window**, **Desks in use**, **Tokens today**; then **Fire alarm** while the alarm is on.
+- Left, never hidden: **Needs you**, the **5-hour window**, **Desks in use**, **Activity**, **Tokens today**; then **Fire alarm** while the alarm is on.
 - Right: the Workstation figure and the Office messages slot.
 - Each figure is a small label over its value; one that opens something is a button, the rest are plain.
 - Widths (by the strip's own width): under 1,180px the Workstation's cores and a narrower slot (260px); under 900px shorter words, gaps of 12px and a slot of 216px; under 600px two rows (93px high), labels shortened ("Desks in use" to "Desks", "Tokens today" to "Tokens", "5-hour window" to "5h window"). A figure is never hidden by width, only words. Words hidden by width stay in the DOM.
 - Needs you: label "Needs you" with a live dot while the count is above 0, then the count of items in the Projects shown, and "+N in other Projects" ("+N" when tight, title "N more in other Projects") while more wait elsewhere. A button named "<N> need(s) you[, N more in other Projects]", which opens the [Needs you panel](#needs-you-panel). It is an alert while something waits in the Projects shown, a softer tint while only other Projects have something, and quiet otherwise; it pops once each time the count goes up (not on the first load; reduced motion has no pop).
 - 5-hour window: nothing until an engine's windows are read. One engine: its % with a meter, "resets 14:20" (or "used up until 14:20" / "used up"), and "7d N%". Two or three engines: each engine's meter and %. More than three: the highest, and the word "highest". The % and meter turn amber from 90% (nearly used) and red at 100% (used up). A button named "5-hour window: <engine> N%, …" that opens a list "Usage by engine": per engine, the 5h and 7d windows each with a meter, % and "resets …"; engines in Settings › Engines' order, one no longer listed last by its id. The list is drawn on the body, placed under the figure.
 - Desks in use: a dot (running while above 0, idle otherwise), the count and "/ <limit>"; title "N of M desks in use". While the fire alarm is on ASAP it reads 0, though its Tasks keep their desks; under a softer way it counts as usual.
+- Activity: label "Activity" with a live dot while anything runs, then in bold the count `GET /activity` answers (what runs and the ended items not yet seen, [2.14 The count](../2.14-activity.md#the-count)); shown once it has answered, and live from `activity.changed`. A button named "Activity: N running[, M ended not yet seen]", which opens the [Activity page](activity.md).
 - Tokens today: the count of input, output and cache writes (cache reads left out) with an info icon giving each kind and its cost.
 - Fire alarm figure: a siren icon and "Fire alarm", then "Stopping at safe points" or "On since 14:02" ("On" when tight) under ASAP, "Stopping after Stages" or "Stopping after Tasks" under a softer way. A button named "Fire alarm: <words>. See what will resume, then give the all clear", which opens the review on Now.
 - See [2.11.3](../2.11.3-system-health.md) for Stats; the strip's figures are Office-wide whatever the Project filter shows, except Needs you.

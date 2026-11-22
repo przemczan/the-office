@@ -14,6 +14,7 @@ import { serialUsbTransport } from "../../api/device-transports/serial-usb.ts";
 import { connectDevice, deviceQueries, disconnectDevice } from "../../api/devices.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { BlockLoaderOrProblem } from "../../shell/block-loader.tsx";
+import { DEVICE_STATE_TONES, DEVICE_STATE_WORDS } from "../../shell/device-state-words.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { momentWords } from "../../shell/time.ts";
 import { useToast } from "../../shell/toasts.tsx";
@@ -25,8 +26,6 @@ import {
   connectedToastWords,
   DEVICE_KIND_WORDS,
   DEVICE_NOTICE_TONES,
-  DEVICE_STATE_TONES,
-  DEVICE_STATE_WORDS,
   deviceNoticeWords,
   devicesSummary,
   DISCONNECT_REFUSED,

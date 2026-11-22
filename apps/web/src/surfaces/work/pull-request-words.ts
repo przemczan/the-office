@@ -8,17 +8,8 @@ import type {
   Role,
 } from "@the-office/contracts";
 import { clockOf, dayAndClockOf, durationWords, momentWords } from "../../shell/time.ts";
+import type { ToneWords } from "../../shell/tone-words.ts";
 import { authorName } from "../../shell/work/work-words.ts";
-
-type Tone = "neutral" | "success" | "warning" | "danger" | "info";
-
-/** A status as a badge: its label, the badge's tone and what it means. */
-export interface ToneWords {
-  readonly label: string;
-  readonly tone: Tone;
-  /** What the label means, on hover. */
-  readonly title: string;
-}
 
 /** A pull request's checks, taken together, as the Checks column shows them. */
 export const CHECKS_WORDS: Readonly<Record<PullRequestChecks, ToneWords>> = {

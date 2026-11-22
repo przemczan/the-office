@@ -1,33 +1,10 @@
-import type {
-  ConnectedDevice,
-  ConnectedDeviceKind,
-  ConnectedDeviceState,
-  DeviceNotice,
-} from "@the-office/contracts";
-import type { BadgeProps } from "@the-office/ui";
+import type { ConnectedDevice, ConnectedDeviceKind, DeviceNotice } from "@the-office/contracts";
 
 /** Each kind's name (spec 2.13, "Connected device"). */
 export const DEVICE_KIND_WORDS: Readonly<Record<ConnectedDeviceKind, string>> = {
   "android-usb": "Android phone over USB",
   "serial-usb": "Serial board over USB",
   "android-wireless": "Android phone over wireless debugging",
-};
-
-/** Each state's name (spec 2.13, "States"). */
-export const DEVICE_STATE_WORDS: Readonly<Record<ConnectedDeviceState, string>> = {
-  connecting: "Connecting",
-  connected: "Connected",
-  "waiting-for-run-environment": "Waiting for the run environment",
-  disconnected: "Disconnected",
-};
-
-export const DEVICE_STATE_TONES: Readonly<
-  Record<ConnectedDeviceState, NonNullable<BadgeProps["tone"]>>
-> = {
-  connecting: "info",
-  connected: "success",
-  "waiting-for-run-environment": "warning",
-  disconnected: "neutral",
 };
 
 export const KEEP_TAB_OPEN = "Keep this tab open: closing it disconnects the device.";

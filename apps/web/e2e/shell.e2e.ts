@@ -628,11 +628,15 @@ test.describe("the status strip on a phone", () => {
     raisedAt: new Date().toISOString(),
   };
 
-  test("keeps the four figures whole and in view, and a long Office Notification moves none of them", async ({
+  test("keeps the five figures whole and in view, and a long Office Notification moves none of them", async ({
     page,
   }) => {
     let open: Notification[] = [];
     await page.route(/\/api\/notifications$/, (route) => route.fulfill({ json: open }));
+    // Fixed too, as other tests' work comes and goes in Activity.
+    await page.route(/\/api\/activity$/, (route) =>
+      route.fulfill({ json: { items: [], count: 12 } }),
+    );
     await stubEngines(
       page,
       [claudeCode("home", "Home account")],
@@ -657,12 +661,13 @@ test.describe("the status strip on a phone", () => {
       ["Needs you", strip.getByRole("button", { name: /^\d+ needs? you/ })],
       ["5h window", strip.getByRole("button", { name: /^5-hour window: / })],
       ["Desks", strip.getByTitle(/ desks in use$/)],
+      ["Activity", strip.getByRole("button", { name: /^Activity: / })],
       ["Tokens", strip.locator(".shell-strip-figure").filter({ hasText: "Tokens" })],
     ]);
     const boxes = async () =>
       Promise.all([...figures.values()].map(async (figure) => figure.boundingBox()));
 
-    // Two rows, 94px in all: the four figures alone on the first, with short labels.
+    // Two rows, 94px in all: the five figures alone on the first, with short labels.
     await expect.poll(async () => (await strip.boundingBox())?.height).toBe(94);
     for (const [label, figure] of figures) {
       await expect(figure).toBeInViewport({ ratio: 1 });

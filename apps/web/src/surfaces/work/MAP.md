@@ -58,7 +58,7 @@ An Initiative's block is a `group`, never a region or a heading: the e2e tests f
 - `bug-words.ts`: FOUND_IN_VERSION_MAX, foundInVersionTags
 - `card-marks.ts`: CardMark, CardFacts, cardMarks
 - `changes-words.ts`: fileLineWords, TEST_RESULT_WORDS, editorLink, diffsOfFiles
-- `ci-run-words.ts`: CI_RUN_STATUS_WORDS, canRerun, ciRunName, shortCommit, startedWords, REFRESH_HINT, OUT_OF_DATE, OUT_OF_DATE_TITLE, NO_CI_RUNS, IN_OTHER_PROJECTS, RERUN_ALL, RERUN_FAILED, problemTitle, problemWords, START_A_WORKFLOW, START_A_WORKFLOW_HINT, START, START_REFUSED, PROJECT_LABEL, CHOOSE_PROJECT, NO_PROJECT_TO_START_IN, REF_LABEL, REF_HINT, REF_PLACEHOLDER, CLEAR_REF, NO_REF_MATCHES, WORKFLOW_LABEL, CHOOSE_WORKFLOW, CHOOSE_OPTION, LOADING_WORKFLOWS, tagLabel, noWorkflowOn, whyStartDisabled, startedToast
+- `ci-run-words.ts`: canRerun, ciRunName, shortCommit, startedWords, REFRESH_HINT, OUT_OF_DATE, OUT_OF_DATE_TITLE, NO_CI_RUNS, IN_OTHER_PROJECTS, RERUN_ALL, RERUN_FAILED, problemTitle, problemWords, START_A_WORKFLOW, START_A_WORKFLOW_HINT, START, START_REFUSED, PROJECT_LABEL, CHOOSE_PROJECT, NO_PROJECT_TO_START_IN, REF_LABEL, REF_HINT, REF_PLACEHOLDER, CLEAR_REF, NO_REF_MATCHES, WORKFLOW_LABEL, CHOOSE_WORKFLOW, CHOOSE_OPTION, LOADING_WORKFLOWS, tagLabel, noWorkflowOn, whyStartDisabled, startedToast
 - `ci-runs-page.tsx`: CiRunsPage
 - `close-pull-request-dialog.tsx`: ClosePullRequestDialog
 - `commit-message-block.tsx`: NO_COMMIT_MESSAGE, COMMIT_MESSAGE_PUBLISHED, CommitMessageBlock, commitMessageSummary
@@ -75,7 +75,7 @@ An Initiative's block is a `group`, never a region or a heading: the e2e tests f
 - `dependency-words.ts`: blockersOf, blockingTasksOf, canHoldBack, waitingFor, dependenciesSummary, blockerCandidates
 - `description-block.tsx`: DescriptionBlock
 - `device-relays.ts`: keepDeviceRelay, keepsDeviceRelay, deviceNotice, subscribeToDeviceNotices, closeEveryDeviceRelay
-- `device-words.ts`: DEVICE_KIND_WORDS, DEVICE_STATE_WORDS, DEVICE_STATE_TONES, KEEP_TAB_OPEN, NO_DEVICES, CONNECT_REFUSED, DISCONNECT_REFUSED, CONNECT_DEVICE, PAIR_WIRELESS, PAIR_WIRELESS_HINTS, PAIRING_STARTS_RUN_ENVIRONMENT, PAIR_WIRELESS_ERRORS, wirelessPhoneWords, devicesSummary, openDevicesOf, disconnectedDevicesOf, disconnectedWhy, connectedToastWords, pairingToastWords, disconnectedToastWords, serialLineWords, DEVICE_NOTICE_TONES, deviceNoticeWords
+- `device-words.ts`: DEVICE_KIND_WORDS, KEEP_TAB_OPEN, NO_DEVICES, CONNECT_REFUSED, DISCONNECT_REFUSED, CONNECT_DEVICE, PAIR_WIRELESS, PAIR_WIRELESS_HINTS, PAIRING_STARTS_RUN_ENVIRONMENT, PAIR_WIRELESS_ERRORS, wirelessPhoneWords, devicesSummary, openDevicesOf, disconnectedDevicesOf, disconnectedWhy, connectedToastWords, pairingToastWords, disconnectedToastWords, serialLineWords, DEVICE_NOTICE_TONES, deviceNoticeWords
 - `devices-block.tsx`: DevicesBlock
 - `drop-initiative-dialog.tsx`: DropInitiativeDialog
 - `drop-note.tsx`: DropNote
@@ -124,7 +124,7 @@ An Initiative's block is a `group`, never a region or a heading: the e2e tests f
 - `planning-words.ts`: statementsOf, leavesReadyWords, definitionOfDoneSummary, NO_DESCRIPTION, descriptionSummary, planSummary
 - `pull-request-button.tsx`: pullRequestAction, PullRequestEndBadge
 - `pull-request-parts.tsx`: ToneBadge, PullRequestRefusalAlert
-- `pull-request-words.ts`: ToneWords, CHECKS_WORDS, MERGEABLE_WORDS, TASK_NOT_FOUND, REFRESH_HINT, OUT_OF_DATE, OUT_OF_DATE_TITLE, NO_PULL_REQUESTS, pullRequestName, branchWords, checkedWords, problemTitle, problemWords, IN_OTHER_PROJECTS, MERGE_ACTION, CLOSE_ACTION, MERGE_METHOD_WORDS, mergeTitle, mergeIntoWords, MERGE_BUTTON, MERGE_METHOD_LABEL, MERGE_REFUSED, MERGE_METHODS_UNREAD, branchDeletionWords, mergeCautionTitle, MERGE_CAUTION, closeTitle, closeQuestion, CLOSE_BUTTON, CLOSE_REFUSED, endedToast, PULL_REQUEST_END_BADGE, pullRequestEndWords
+- `pull-request-words.ts`: CHECKS_WORDS, MERGEABLE_WORDS, TASK_NOT_FOUND, REFRESH_HINT, OUT_OF_DATE, OUT_OF_DATE_TITLE, NO_PULL_REQUESTS, pullRequestName, branchWords, checkedWords, problemTitle, problemWords, IN_OTHER_PROJECTS, MERGE_ACTION, CLOSE_ACTION, MERGE_METHOD_WORDS, mergeTitle, mergeIntoWords, MERGE_BUTTON, MERGE_METHOD_LABEL, MERGE_REFUSED, MERGE_METHODS_UNREAD, branchDeletionWords, mergeCautionTitle, MERGE_CAUTION, closeTitle, closeQuestion, CLOSE_BUTTON, CLOSE_REFUSED, endedToast, PULL_REQUEST_END_BADGE, pullRequestEndWords
 - `pull-requests-page.tsx`: PullRequestsPage
 - `queue-parts.tsx`: useQueued, QueuedMark, QueuedCardMark, QueueActions, useQueueActions
 - `queue-reasons.ts`: QueueReason, reasonsBesideBlockers, distinctShortReasons

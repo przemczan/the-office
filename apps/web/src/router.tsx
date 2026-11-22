@@ -25,6 +25,7 @@ import { LinkedIdentitiesSection } from "./surfaces/account/linked-identities-se
 import { PasskeysSection } from "./surfaces/account/passkeys-section.tsx";
 import { ProfileSection } from "./surfaces/account/profile-section.tsx";
 import { SignedInDevicesSection } from "./surfaces/account/signed-in-devices-section.tsx";
+import { ActivityPage } from "./surfaces/activity/activity-page.tsx";
 import { LiveViewPage } from "./surfaces/live-view/live-view-page.tsx";
 import { statsRangeOf } from "./surfaces/stats/full-stats.tsx";
 import { StatsPage } from "./surfaces/stats/stats-page.tsx";
@@ -497,6 +498,14 @@ const liveViewRoute = createRoute({
   staticData: { title: "Live view" },
 });
 
+/** Everything The Office is running, opened from the status strip's Activity figure (spec 2.14). */
+const activityRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "activity",
+  component: ActivityPage,
+  staticData: { title: "Activity" },
+});
+
 const projectRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "projects/$projectId",
@@ -861,6 +870,7 @@ export const router = createRouter({
     statsRoute,
     systemHealthRoute,
     liveViewRoute,
+    activityRoute,
     settingsRoute.addChildren([
       settingsHomeRoute,
       settingsPipelinesRoute,

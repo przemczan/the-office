@@ -7,6 +7,7 @@ import { notificationQueries, nowQueries } from "../api/notifications.ts";
 import { officeUpdateQueries } from "../api/office-updates.ts";
 import { useEventStreamStatus } from "../api/event-stream-provider.tsx";
 import { roleQueries } from "../api/people.ts";
+import { ActivityFigure } from "./activity-figure.tsx";
 import { tokensShort } from "./conversation/context-words.ts";
 import { alarmFigureWords } from "./fire-alarm/fire-alarm-words.ts";
 import { useFireAlarmReview } from "./fire-alarm/fire-alarm-review.tsx";
@@ -28,10 +29,11 @@ import { WorkstationFigure } from "./workstation/workstation-figure.tsx";
 /**
  * The Office-wide figures under the top bar (spec §4, docs/design/status-strip.html), live from
  * `now.changed`, each a label over its value. On the left, never hidden: Needs you in the Projects
- * shown, which opens the Needs you panel, the engines' 5-hour windows, desks in use and tokens
- * today, then the fire alarm while it is on, its desks at 0. On the right the Workstation figure
- * (polled on its own, so it shows while Now loads) and one slot of a fixed width for what The
- * Office tells the user. The strip lays itself out by its own width (`@container strip`).
+ * shown, which opens the Needs you panel, the engines' 5-hour windows, desks in use, Activity,
+ * which opens its page, and tokens today, then the fire alarm while it is on, its desks at 0. On
+ * the right the Workstation figure (polled on its own, so it shows while Now loads) and one slot
+ * of a fixed width for what The Office tells the user. The strip lays itself out by its own width
+ * (`@container strip`).
  */
 export function StatusStrip(): ReactNode {
   const now = useQuery(nowQueries.now()).data;
@@ -70,6 +72,7 @@ function Figures({ now }: { readonly now: Now }): ReactNode {
         action={{ kind: "text", title: `${inUse} of ${now.desks.limit} desks in use` }}
       />
       <span className="shell-strip-separator" />
+      <ActivityFigure />
       <StripFigure
         label={<StripLabel long="Tokens today" short="Tokens" />}
         value={

@@ -8,27 +8,18 @@ import type {
   ProjectEnvironmentEdit,
   WorktreeCheck,
 } from "@the-office/contracts";
+import { ENVIRONMENT_CHECK_STATE_WORDS } from "../../shell/environment-check-words.ts";
 import { INSTALL_LABEL } from "../../shell/project-words.ts";
-
-type Tone = "neutral" | "success" | "warning" | "danger" | "info";
+import type { Tone } from "../../shell/tone-words.ts";
 
 /** The Environment check block's badge: how the Project's last environment check went. */
 export function checkBadge(check: EnvironmentCheck | null | undefined): {
   readonly tone: Tone;
   readonly label: string;
 } {
-  switch (check?.state) {
-    case undefined:
-      return { tone: "neutral", label: "Not checked" };
-    case "running":
-      return { tone: "info", label: "Checking" };
-    case "passed":
-      return { tone: "success", label: "Ready" };
-    case "failed":
-      return { tone: "danger", label: "Failed" };
-    case "stopped":
-      return { tone: "warning", label: "Stopped" };
-  }
+  return check
+    ? ENVIRONMENT_CHECK_STATE_WORDS[check.state]
+    : { tone: "neutral", label: "Not checked" };
 }
 
 /** "A fresh worktree of origin/main", or of the local branch when it tracks none. */

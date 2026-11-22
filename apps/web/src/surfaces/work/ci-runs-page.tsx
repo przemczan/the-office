@@ -14,6 +14,7 @@ import { useState, type ReactNode } from "react";
 import { ciRunQueries, refreshCiRuns, rerunCiRun } from "../../api/ci-runs.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { BlockLoader } from "../../shell/block-loader.tsx";
+import { CI_RUN_STATUS_WORDS } from "../../shell/ci-run-status-words.ts";
 import { FloatingMenu } from "../../shell/floating-menu.tsx";
 import { GitHubPermissionsPrompt } from "../../shell/github-permissions-prompt.tsx";
 import { ProjectChip } from "../../shell/project-chip.tsx";
@@ -23,7 +24,6 @@ import { useProjectFilter } from "../../shell/project-filter/use-project-filter.
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import {
   canRerun,
-  CI_RUN_STATUS_WORDS,
   ciRunName,
   IN_OTHER_PROJECTS,
   NO_CI_RUNS,
