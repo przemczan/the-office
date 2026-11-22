@@ -185,6 +185,7 @@ export function useQueueActions(
     key: "take-out-of-queue",
     label: "Take out of the queue",
     icon: "x",
+    tone: "stop",
     variant: "ghost",
     pending: takingOut.isPending,
     onSelect: () => takingOut.mutate(queued.taskId),

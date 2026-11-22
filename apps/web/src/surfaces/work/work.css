@@ -2950,6 +2950,71 @@
   visibility: hidden;
 }
 
+/* An action's tone (record-actions.tsx, docs/spec/4.1-ui-rules.md "Action tones"): the status
+   tokens it colours with. */
+.action-tone-go {
+  --action-tone-fg: var(--success-fg);
+  --action-tone-subtle: var(--success-subtle);
+  --action-tone-border: var(--success-border);
+  --action-tone-base: var(--success);
+}
+
+.action-tone-plan {
+  --action-tone-fg: var(--info-fg);
+  --action-tone-subtle: var(--info-subtle);
+  --action-tone-border: var(--info-border);
+  --action-tone-base: var(--info);
+}
+
+.action-tone-hold {
+  --action-tone-fg: var(--warning-fg);
+  --action-tone-subtle: var(--warning-subtle);
+  --action-tone-border: var(--warning-border);
+  --action-tone-base: var(--warning);
+}
+
+.action-tone-stop {
+  --action-tone-fg: var(--danger-fg);
+  --action-tone-subtle: var(--danger-subtle);
+  --action-tone-border: var(--danger-border);
+  --action-tone-base: var(--danger);
+}
+
+/* !important: the design system's Button styles itself inline, hover and press included. A link
+   drawn as a button (.link-button) takes the same. */
+.action-tone-on-secondary {
+  border-color: var(--action-tone-border) !important;
+  background: var(--action-tone-subtle) !important;
+  color: var(--action-tone-fg) !important;
+}
+
+.action-tone-on-secondary:not(:disabled):is(:hover, :active) {
+  background: var(--action-tone-border) !important;
+}
+
+.action-tone-on-ghost {
+  color: var(--action-tone-fg) !important;
+}
+
+.action-tone-on-ghost:not(:disabled):is(:hover, :active) {
+  background: var(--action-tone-subtle) !important;
+}
+
+/* A primary button keeps its fill and label; its icon takes the tone's base colour. */
+.action-tone-on-primary > svg {
+  color: var(--action-tone-base);
+}
+
+/* An icon alone in its tone, as in the More menu; a disabled item's stays as the menu draws it. */
+.action-tone-icon {
+  display: contents;
+  color: var(--action-tone-fg);
+}
+
+:disabled .action-tone-icon {
+  color: inherit;
+}
+
 /* A row of the head to itself, under the title and the actions: a line per note. */
 .task-head-notes {
   display: flex;

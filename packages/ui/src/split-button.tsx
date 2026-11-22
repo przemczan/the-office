@@ -16,6 +16,8 @@ export interface SplitButtonProps {
   readonly size?: ButtonProps["size"];
   readonly loading?: boolean;
   readonly menuWidth?: number;
+  /** Given to both halves, such as a colour for the action. */
+  readonly className?: string;
 }
 
 const ARROW_PADDING = { sm: "0 6px", md: "0 8px", lg: "0 10px" } as const;
@@ -34,6 +36,7 @@ export function SplitButton({
   size = "md",
   loading = false,
   menuWidth = 180,
+  className,
 }: SplitButtonProps): ReactNode {
   const [open, setOpen] = useState(false);
   return (
@@ -41,6 +44,7 @@ export function SplitButton({
       <Button
         variant={variant}
         size={size}
+        className={className}
         iconLeft={iconLeft}
         loading={loading}
         onClick={onClick}
@@ -60,6 +64,7 @@ export function SplitButton({
           <Button
             variant={variant}
             size={size}
+            className={className}
             disabled={loading}
             aria-label={menuLabel}
             title={menuLabel}

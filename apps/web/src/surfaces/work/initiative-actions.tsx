@@ -29,7 +29,12 @@ import { tasksToAdd } from "./initiative-membership-words.ts";
 import { tasksOfInitiative } from "./initiative-words.ts";
 import { useArchivingInitiative } from "./use-initiative-archive.ts";
 import { useInitiativeChange } from "./use-initiative-change.ts";
-import { RecordActions, withActionItems, type RecordAction } from "./record-actions.tsx";
+import {
+  actionToneClassName,
+  RecordActions,
+  withActionItems,
+  type RecordAction,
+} from "./record-actions.tsx";
 import { useStartReadyTasksAction } from "./start-ready-tasks.tsx";
 import { useRememberedAutoMode } from "./use-planning.ts";
 
@@ -148,6 +153,7 @@ function useConfirmAction(initiative: Initiative): RecordAction | undefined {
     key: "confirm",
     label: "Confirm the Initiative",
     icon: "check",
+    tone: "go",
     variant: "primary",
     pending: confirming.isPending,
     onSelect: () => confirming.mutate(undefined, { onError: (error) => showToast(error.message) }),
@@ -186,6 +192,7 @@ export function usePlanTheInitiativeAction(
     key: "plan-the-initiative",
     label: "Plan the Initiative",
     icon: "map",
+    tone: "plan",
     variant: "primary",
     pending: planning.isPending,
     onSelect: plan,
@@ -193,6 +200,7 @@ export function usePlanTheInitiativeAction(
       <div className="make-a-plan">
         <Button
           variant="primary"
+          className={actionToneClassName("plan", "primary")}
           iconLeft={<Icon name="map" size={14} />}
           loading={planning.isPending}
           onClick={plan}
@@ -227,9 +235,10 @@ function usePlanningThreadAction(initiative: Initiative): RecordAction | undefin
     key: "planning-thread",
     label: "Planning Thread",
     icon: "messages-square",
+    tone: "plan",
     onSelect: () => void navigate(to),
     control: (
-      <Link className="link-button" {...to}>
+      <Link className={`link-button ${actionToneClassName("plan", "secondary")}`} {...to}>
         Planning Thread
       </Link>
     ),

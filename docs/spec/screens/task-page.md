@@ -40,6 +40,7 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - One line of buttons; whatever wraps past it is hidden, the last first, and the **More** menu always holds every action as its first items.
 - The line keeps room for its first button and **More**: when the title leaves less, the actions go under the title, never a blank where a hidden button was.
 - In order: planning actions, Start or the queue's actions, run controls, **Open pull request**, **Browse files**, **Restore**.
+- Each is coloured by its tone, in the buttons and in **More** ([Action tones](../4.1-ui-rules.md#action-tones)).
 - Planning actions: **Plan with <Planner>** and **Mark Ready** (see Planning actions).
 - Run controls: **Pause**, **Stop**, **Resume** (see Run controls).
 - **Open pull request**: a link in a new tab, shown once the newest finished Publish opened a pull request, or the ended pull request's address is known.

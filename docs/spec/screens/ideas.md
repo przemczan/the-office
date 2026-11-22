@@ -39,6 +39,7 @@ Covers: the Ideas tab of Work, New Ideas and their cards, shaping an Idea into a
 
 ### Idea actions
 
+- Each is coloured by its tone, in the buttons and in the More menu ([Action tones](../4.1-ui-rules.md#action-tones)).
 - **Shape into a Task** (list-checks icon): makes a Feature Task in Backlog in the Idea's Project; toast "<title> is a Task in Backlog."
   - It is a split button: its arrow, "Shape into a Task of another Kind", offers **Shape into a Feature Task**, **Shape into a Bug Task** and **Shape into a Chore Task**, each with its Kind's glyph ([2.1.2](../2.1.2-ideas-and-attachments.md#idea)).
   - Shaping a Bug from an Idea with no notes gives the Task the Bug outline as its Description ([shell.md](shell.md#create)); an Idea with notes keeps its notes, whatever the Kind.

@@ -2,6 +2,15 @@ import { Button, Icon, type ButtonProps, type MenuItem } from "@the-office/ui";
 import { Fragment, useLayoutEffect, useRef, type ReactNode, type RefObject } from "react";
 
 /**
+ * What kind of thing an action does, which colours it (docs/spec/4.1-ui-rules.md, Action tones):
+ * go moves the work forward, plan talks it through with someone, hold pauses it or has it wait,
+ * stop stops it or takes it out. An action that opens or rearranges something has none.
+ */
+export type ActionTone = "go" | "plan" | "hold" | "stop";
+
+export type RecordActionVariant = "primary" | "secondary" | "ghost";
+
+/**
  * One action on a Task, an Initiative or an Idea, defined once: a button in its row of actions,
  * as long as it fits there, and an item of its More menu always.
  */
@@ -10,7 +19,8 @@ export interface RecordAction {
   readonly key: string;
   readonly label: string;
   readonly icon: string;
-  readonly variant?: "primary" | "secondary" | "ghost";
+  readonly variant?: RecordActionVariant;
+  readonly tone?: ActionTone;
   /** What it does, on hover over its button. */
   readonly hint?: string;
   readonly ariaLabel?: string;
@@ -38,10 +48,12 @@ export function RecordActionButton({
   readonly size?: ButtonProps["size"];
 }): ReactNode {
   if (action.control !== undefined) return action.control;
+  const variant = action.variant ?? "secondary";
   return (
     <Button
-      variant={action.variant ?? "secondary"}
+      variant={variant}
       {...(size && { size })}
+      {...(action.tone && { className: actionToneClassName(action.tone, variant) })}
       iconLeft={<Icon name={action.icon} size={14} />}
       title={action.hint}
       aria-label={action.ariaLabel}
@@ -55,6 +67,29 @@ export function RecordActionButton({
 }
 
 /**
+ * The classes that colour a button, or a link drawn as one, by its action's tone (work.css): a
+ * primary one keeps its fill and only its icon takes the tone.
+ */
+export function actionToneClassName(tone: ActionTone, variant: RecordActionVariant): string {
+  return `action-tone-${tone} action-tone-on-${variant}`;
+}
+
+/** An action's icon in its tone, where only the icon shows it, as in a menu. */
+export function ActionToneIcon({
+  tone,
+  name,
+  size,
+}: {
+  readonly tone: ActionTone | undefined;
+  readonly name: string;
+  readonly size: number;
+}): ReactNode {
+  const icon = <Icon name={name} size={size} />;
+  if (!tone) return icon;
+  return <span className={`action-tone-${tone} action-tone-icon`}>{icon}</span>;
+}
+
+/**
  * The actions as the More menu's first items, a divider between them and the menu's own items; a
  * pending action can't be chosen again.
  */
@@ -63,7 +98,7 @@ export function withActionItems(
   menuItems: readonly MenuItem[],
 ): MenuItem[] {
   const actionItems = actions.map((action) => ({
-    icon: <Icon name={action.icon} size={14} />,
+    icon: <ActionToneIcon tone={action.tone} name={action.icon} size={14} />,
     label: action.label,
     disabled: (action.disabled ?? false) || (action.pending ?? false),
     onSelect: action.onSelect,

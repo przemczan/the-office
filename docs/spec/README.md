@@ -16,6 +16,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 ### A
 
 - **Account, Users, User**: [2.10 Users](2.10-users-and-signing-in.md#users); screen: [Account](screens/account.md#account-page)
+- **Action tone, go, plan, hold, stop**: [4.1 Action tones](4.1-ui-rules.md#action-tones); screen: [Task page › Head actions](screens/task-page.md#head-actions)
 - **Activity, Activity item, seen, activity.changed**: [2.14 Activity](2.14-activity.md#activity); [2.14 What is listed](2.14-activity.md#what-is-listed); [2.14 Running and ended](2.14-activity.md#running-and-ended); [2.14 Seen per user](2.14-activity.md#seen-per-user); [2.14 The count](2.14-activity.md#the-count); screen: [Activity](screens/activity.md#activity); [Shell › Status strip](screens/shell.md#status-strip); [5.3 Activity reads through ports of its own](5.3-modules.md#activity-reads-through-ports-of-its-own)
 - **Android phone over USB, adb connect, adb serial**: [2.13 Android phone over USB](2.13-connected-devices.md#android-phone-over-usb); screen: [Task page › Devices](screens/task-page.md#devices)
 - **Android phone over wireless debugging, adb pair, pairing code, pairing port**: [2.13 Android phone over wireless debugging](2.13-connected-devices.md#android-phone-over-wireless-debugging); [2.13 The run environment's network](2.13-connected-devices.md#the-run-environments-network); [6 Connected devices](6-permissions-and-safety.md#connected-devices); screen: [Task page › Devices](screens/task-page.md#devices)
@@ -330,7 +331,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 ### 4. UX
 
 - [4. UX direction](4-ux-direction.md): the shell, themes, brand, copy, and the list of screens.
-- [4.1 UI rules](4.1-ui-rules.md): how every screen is built: `packages/ui` components, windows, list and details, long text, words.
+- [4.1 UI rules](4.1-ui-rules.md): how every screen is built: `packages/ui` components, action tones, windows, list and details, long text, words.
 
 ### Screens
 

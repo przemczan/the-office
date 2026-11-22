@@ -1,0 +1,1474 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Action colours · design proposal · The Office</title>
+    <style>
+      /* ---------- Tokens: design-system/tokens/colors.css, radius.css and elevation.css, as used here ---------- */
+      :root {
+        --ember-50: #fff2ed;
+        --ember-300: #ff9370;
+        --ember-500: #f23d0f;
+        --ember-700: #9e2406;
+        --flare-300: #ffc266;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-700: #106a3b;
+        --amber-50: #fff8e6;
+        --amber-100: #ffedc2;
+        --amber-500: #e5a00d;
+        --amber-700: #865b05;
+        --red-50: #fdeef0;
+        --red-100: #fad9dd;
+        --red-500: #c8102e;
+        --red-700: #8e0b20;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+        --teal-500: #14a38b;
+        --violet-500: #7c5cd6;
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 8px;
+        --radius-control: var(--radius-md);
+        --radius-card: 10px;
+        --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --duration-fast: 120ms;
+      }
+
+      /* Light: the design system's light aliases, then packages/ui/src/appearance/palettes/light.css */
+      :root,
+      .pal-light {
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-raised: var(--white);
+        --fg-1: var(--gray-800);
+        --fg-2: var(--gray-500);
+        --fg-3: var(--gray-400);
+        --border: var(--gray-100);
+        --border-subtle: #efefec;
+        --border-strong: var(--gray-150);
+        --primary: var(--gray-900);
+        --primary-hover: var(--gray-700);
+        --primary-press: var(--gray-600);
+        --primary-fg: var(--white);
+        --control-hover: var(--gray-50);
+        --control-press: var(--gray-100);
+        --accent: var(--ember-500);
+        --success: var(--green-500);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --success-border: var(--green-100);
+        --warning: var(--amber-500);
+        --warning-subtle: var(--amber-50);
+        --warning-fg: var(--amber-700);
+        --warning-border: var(--amber-100);
+        --danger: var(--red-500);
+        --danger-subtle: var(--red-50);
+        --danger-fg: var(--red-700);
+        --danger-border: var(--red-100);
+        --info: var(--blue-500);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+        --neutral-subtle: var(--gray-50);
+        --neutral-fg: var(--gray-500);
+        --neutral-border: var(--gray-100);
+        --shadow-1: 0 1px 2px rgba(16, 16, 15, 0.05);
+        --shadow-3: 0 16px 40px -8px rgba(16, 16, 15, 0.18), 0 2px 6px rgba(16, 16, 15, 0.06);
+        color-scheme: light;
+      }
+      /* Dark: the design system's [data-theme="dark"] aliases, then palettes/dark.css */
+      .pal-dark {
+        --bg: #161615;
+        --surface: #1d1d1b;
+        --surface-raised: #242422;
+        --fg-1: #d9d9d5;
+        --fg-2: #9a9a94;
+        --fg-3: #6f6f69;
+        --border: #262624;
+        --border-subtle: #222220;
+        --border-strong: #33332f;
+        --primary: #d9d9d5;
+        --primary-hover: #e6e6e2;
+        --primary-press: var(--gray-200);
+        --primary-fg: #161615;
+        --control-hover: #262624;
+        --control-press: #2e2e2b;
+        --success-subtle: color-mix(in oklab, var(--green-500) 16%, transparent);
+        --success-fg: #6fd69b;
+        --success-border: color-mix(in oklab, var(--green-500) 30%, transparent);
+        --warning-subtle: color-mix(in oklab, var(--amber-500) 16%, transparent);
+        --warning-fg: var(--flare-300);
+        --warning-border: color-mix(in oklab, var(--amber-500) 30%, transparent);
+        --danger-subtle: color-mix(in oklab, var(--red-500) 20%, transparent);
+        --danger-fg: #ff8a97;
+        --danger-border: color-mix(in oklab, var(--red-500) 36%, transparent);
+        --info-subtle: color-mix(in oklab, var(--blue-500) 18%, transparent);
+        --info-fg: #93b5f5;
+        --info-border: color-mix(in oklab, var(--blue-500) 34%, transparent);
+        --neutral-subtle: #242422;
+        --neutral-fg: #9a9a94;
+        --neutral-border: #2e2e2b;
+        --shadow-1: 0 0 0 1px rgba(255, 255, 255, 0.04);
+        --shadow-3: 0 16px 40px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+        color-scheme: dark;
+      }
+
+      /* ---------- The tones: what the build adds (work.css), named by what the action means ---------- */
+      [data-tone="go"] {
+        --tone-fg: var(--success-fg);
+        --tone-subtle: var(--success-subtle);
+        --tone-border: var(--success-border);
+        --tone-base: var(--success);
+      }
+      [data-tone="plan"] {
+        --tone-fg: var(--info-fg);
+        --tone-subtle: var(--info-subtle);
+        --tone-border: var(--info-border);
+        --tone-base: var(--info);
+      }
+      [data-tone="hold"] {
+        --tone-fg: var(--warning-fg);
+        --tone-subtle: var(--warning-subtle);
+        --tone-border: var(--warning-border);
+        --tone-base: var(--warning);
+      }
+      [data-tone="stop"] {
+        --tone-fg: var(--danger-fg);
+        --tone-subtle: var(--danger-subtle);
+        --tone-border: var(--danger-border);
+        --tone-base: var(--danger);
+      }
+
+      /* Version A: only the icon takes the tone. */
+      [data-version="a"] :is(.btn-secondary, .btn-ghost)[data-tone] > .ico,
+      [data-version="a"] .split[data-tone] .split-main > .ico {
+        color: var(--tone-fg);
+      }
+
+      /* Version B: the button takes the tone's surface, border, label and icon. */
+      [data-version="b"] .btn-secondary[data-tone],
+      [data-version="b"] .split[data-tone] .btn {
+        background: var(--tone-subtle);
+        border-color: var(--tone-border);
+        color: var(--tone-fg);
+        box-shadow: none;
+      }
+      [data-version="b"] .btn-secondary[data-tone]:hover,
+      [data-version="b"] .split[data-tone] .btn:hover {
+        background: var(--tone-border);
+      }
+      [data-version="b"] .split[data-tone] .split-arrow {
+        border-left-color: var(--tone-border);
+      }
+      [data-version="b"] .btn-ghost[data-tone] {
+        color: var(--tone-fg);
+      }
+      [data-version="b"] .btn-ghost[data-tone]:hover {
+        background: var(--tone-subtle);
+      }
+
+      /* Primary buttons keep their fill; their icon takes the tone's base colour only when asked. */
+      body[data-primary="toned"] :is([data-version="a"], [data-version="b"]) .btn-primary[data-tone] > .ico {
+        color: var(--tone-base);
+      }
+
+      /* The More menu, in both versions: the icon takes the tone. */
+      .menu[data-version="ab"] .menu-item[data-tone] > .ico {
+        color: var(--tone-fg);
+      }
+
+      /* ---------- Base ---------- */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      html {
+        background: var(--gray-50);
+      }
+      body {
+        margin: 0;
+        font: 400 14px/1.5 var(--font-sans);
+        color: var(--fg-1);
+        background: var(--bg);
+        -webkit-font-smoothing: antialiased;
+      }
+      button,
+      input {
+        font: inherit;
+        color: inherit;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      :is(button, a, [tabindex]):focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+      code {
+        font: 400 12px/1.4 var(--font-mono);
+        background: var(--neutral-subtle);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 0 4px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+        }
+      }
+      .ico {
+        flex: none;
+        display: block;
+      }
+
+      /* ---------- packages/ui, re-drawn: Button, SplitButton, IconButton, Badge, Switch, Menu ---------- */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 12px;
+        font: 500 13px/1 var(--font-sans);
+        border: 1px solid transparent;
+        border-radius: var(--radius-control);
+        white-space: nowrap;
+        flex: none;
+        cursor: pointer;
+        transition: background var(--duration-fast) var(--ease-out);
+      }
+      .btn:active {
+        transform: translateY(1px);
+      }
+      .btn.sm {
+        height: 28px;
+        padding: 0 10px;
+      }
+      .btn-secondary {
+        background: var(--surface);
+        color: var(--fg-1);
+        border-color: var(--border-strong);
+        box-shadow: var(--shadow-1);
+      }
+      .btn-secondary:hover {
+        background: var(--control-hover);
+      }
+      .btn-primary {
+        background: var(--primary);
+        color: var(--primary-fg);
+      }
+      .btn-primary:hover {
+        background: var(--primary-hover);
+      }
+      .btn-ghost {
+        background: transparent;
+        color: var(--fg-1);
+      }
+      .btn-ghost:hover {
+        background: var(--control-hover);
+      }
+      .split {
+        display: inline-flex;
+        flex: none;
+      }
+      .split .split-main {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+      }
+      .split .split-arrow {
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+        border-left-color: var(--border);
+        margin-left: -1px;
+        padding: 0 7px;
+      }
+      .icon-btn {
+        display: inline-grid;
+        place-items: center;
+        width: 24px;
+        height: 24px;
+        flex: none;
+        border: 0;
+        border-radius: var(--radius-control);
+        background: transparent;
+        color: var(--fg-2);
+        cursor: pointer;
+      }
+      .icon-btn:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: 20px;
+        padding: 0 7px;
+        font: 500 12px/1 var(--font-sans);
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--neutral-border);
+        background: var(--neutral-subtle);
+        color: var(--neutral-fg);
+        white-space: nowrap;
+      }
+      .badge.info {
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+      }
+      .badge.warning {
+        border-color: var(--warning-border);
+        background: var(--warning-subtle);
+        color: var(--warning-fg);
+      }
+      .badge.success {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+      .with-switch {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        flex: none;
+      }
+      .switch {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font: 400 12px/1 var(--font-sans);
+        color: var(--fg-2);
+        white-space: nowrap;
+      }
+      .switch-track {
+        width: 26px;
+        height: 16px;
+        border-radius: 999px;
+        background: var(--primary);
+        position: relative;
+      }
+      .switch-track::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 12px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--primary-fg);
+      }
+      .menu {
+        width: 264px;
+        padding: 4px;
+        background: var(--surface-raised);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-3);
+      }
+      .menu-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 32px;
+        padding: 0 10px;
+        border-radius: var(--radius-md);
+        font: 400 13px/1 var(--font-sans);
+        color: var(--fg-1);
+        cursor: default;
+      }
+      .menu-item:hover {
+        background: var(--control-hover);
+      }
+      .menu-item > .ico {
+        color: var(--fg-3);
+      }
+      .menu-item.danger,
+      .menu-item.danger > .ico {
+        color: var(--danger-fg);
+      }
+      .menu-item.danger:hover {
+        background: var(--danger-subtle);
+      }
+      .menu-item .check {
+        margin-left: auto;
+        color: var(--fg-2);
+      }
+      .menu-heading {
+        padding: 8px 10px 4px;
+        font: 500 11px/1.2 var(--font-mono);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+      .menu-divider {
+        height: 1px;
+        margin: 4px 6px;
+        background: var(--border);
+      }
+
+      /* ---------- The record heads, re-drawn from task-page.tsx and initiative-page.tsx ---------- */
+      .head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 10px 16px;
+      }
+      .head-main {
+        flex: 1 1 420px;
+        min-width: 0;
+        display: grid;
+        gap: 6px;
+      }
+      .head-title {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+      .project-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font: 500 12px/1 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .project-mark {
+        display: inline-grid;
+        place-items: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        font: 600 9px/1 var(--font-sans);
+        color: var(--white);
+        background: var(--ember-500);
+      }
+      .head h4 {
+        margin: 0;
+        font: 600 18px/1.3 var(--font-sans);
+        letter-spacing: -0.01em;
+        color: var(--fg-1);
+      }
+      .facts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 14px;
+        font: 400 12px/1.4 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .facts span {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .facts span:not(:first-child)::before {
+        content: "·";
+        margin-right: 9px;
+        color: var(--border-strong);
+      }
+      /* As work.css lays out .task-head-actions and .record-actions */
+      .head-actions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex: 100 1 0;
+        max-width: max-content;
+        min-width: min(100%, 200px);
+        padding-top: 18px;
+      }
+      /* As RecordActions keeps the row to its first line: what wraps past it is hidden. */
+      .actions-row {
+        display: flex;
+        flex: 0 1 auto;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 14px 6px;
+        height: 34px;
+        padding-top: 1px;
+        overflow: clip;
+        overflow-clip-margin: 4px;
+        min-width: 0;
+      }
+      .head-notes {
+        flex-basis: 100%;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font: 400 12px/1.4 var(--font-sans);
+        color: var(--fg-2);
+      }
+
+      /* Idea card, re-drawn from ideas-page.tsx */
+      .idea-card {
+        max-width: 780px;
+        padding: 14px 16px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        display: grid;
+        gap: 8px;
+      }
+      .idea-card-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font: 600 14px/1.4 var(--font-sans);
+      }
+      .idea-card-head > .ico:first-child {
+        color: var(--warning);
+      }
+      .idea-card-head span {
+        flex: 1;
+      }
+      .idea-card p {
+        margin: 0;
+        font: 400 13px/1.45 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .idea-card .actions-row {
+        justify-content: flex-start;
+        height: 30px;
+      }
+
+      /* ---------- The page ---------- */
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px 24px;
+        padding: 14px 32px;
+        background: color-mix(in oklab, var(--surface) 92%, transparent);
+        backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--border);
+      }
+      .topbar h1 {
+        margin: 0;
+        font: 600 16px/1.3 var(--font-sans);
+      }
+      .topbar h1 small {
+        display: block;
+        font: 400 12px/1.4 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 20px;
+        margin-left: auto;
+      }
+      .control {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font: 500 12px/1 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .segmented {
+        display: inline-flex;
+        padding: 2px;
+        background: var(--control-press);
+        border-radius: 8px;
+      }
+      .segmented button {
+        height: 26px;
+        padding: 0 10px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        font: 500 12px/1 var(--font-sans);
+        color: var(--fg-2);
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .segmented button[aria-pressed="true"] {
+        background: var(--surface);
+        color: var(--fg-1);
+        box-shadow: var(--shadow-1), 0 0 0 1px var(--border);
+      }
+      main {
+        max-width: 1480px;
+        margin: 0 auto;
+        padding: 28px 32px 80px;
+        display: grid;
+        gap: 40px;
+      }
+      section > h2 {
+        margin: 0 0 4px;
+        font: 600 16px/1.3 var(--font-sans);
+      }
+      section > .lede {
+        margin: 0 0 16px;
+        max-width: 860px;
+        font: 400 13px/1.5 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .scenarios {
+        display: grid;
+        gap: 20px;
+      }
+      .scenario {
+        display: grid;
+        gap: 10px;
+      }
+      .scenario-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 4px 12px;
+      }
+      .scenario-head h3 {
+        margin: 0;
+        font: 600 14px/1.3 var(--font-sans);
+      }
+      .scenario-head p {
+        margin: 0;
+        font: 400 12px/1.4 var(--font-sans);
+        color: var(--fg-2);
+      }
+      /* A head needs the page's width to show its row as the app does, so the palettes stack. */
+      .panels {
+        display: grid;
+        gap: 12px;
+      }
+      .panels.side {
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 560px), 1fr));
+      }
+      .panel {
+        background: var(--bg);
+        color: var(--fg-1);
+        border: 1px solid var(--border-strong);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .panel-name {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        font: 500 11px/1.2 var(--font-mono);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--fg-3);
+        border-bottom: 1px solid var(--border);
+      }
+      .variant {
+        padding: 14px 18px 16px;
+        background: var(--surface);
+        display: grid;
+        gap: 10px;
+      }
+      .variant + .variant {
+        border-top: 1px solid var(--border);
+      }
+      .variant-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font: 500 12px/1 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .variant-label b {
+        display: inline-grid;
+        place-items: center;
+        min-width: 20px;
+        height: 18px;
+        padding: 0 5px;
+        border-radius: 4px;
+        font: 600 11px/1 var(--font-mono);
+        background: var(--neutral-subtle);
+        border: 1px solid var(--neutral-border);
+        color: var(--fg-1);
+      }
+      .variant[data-version="today"] .variant-label b {
+        font-weight: 500;
+        color: var(--fg-3);
+      }
+      .menus {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px 28px;
+        padding: 18px;
+        background: var(--surface);
+      }
+      .menu-column {
+        display: grid;
+        gap: 8px;
+        align-content: start;
+      }
+      .tone-dots {
+        display: inline-flex;
+        gap: 6px;
+      }
+      .tone-dot {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font: 500 11px/1 var(--font-sans);
+        color: var(--fg-2);
+      }
+      .tone-dot::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--tone-fg);
+      }
+
+      /* Show only what the controls ask for */
+      body[data-palette="light"] .pal-dark,
+      body[data-palette="dark"] .pal-light {
+        display: none;
+      }
+      body[data-show="today"] .variant:not([data-version="today"]),
+      body[data-show="a"] .variant:not([data-version="a"]),
+      body[data-show="b"] .variant:not([data-version="b"]),
+      body[data-show="ab"] .variant[data-version="today"] {
+        display: none;
+      }
+      body[data-show="today"] .sample,
+      body[data-show="a"] .sample:not([data-version="a"]),
+      body[data-show="b"] .sample:not([data-version="b"]),
+      body[data-show="today"] .menu-column:not([data-for="today"]),
+      body:is([data-show="a"], [data-show="b"], [data-show="ab"]) .menu-column[data-for="today"] {
+        display: none;
+      }
+
+      /* The tones table */
+      .tones {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        background: var(--surface);
+        border: 1px solid var(--border-strong);
+        border-radius: 12px;
+        overflow: hidden;
+        font: 400 13px/1.45 var(--font-sans);
+      }
+      .tones th,
+      .tones td {
+        padding: 12px 14px;
+        text-align: left;
+        vertical-align: top;
+        border-bottom: 1px solid var(--border);
+      }
+      .tones tr:last-child td {
+        border-bottom: 0;
+      }
+      .tones th {
+        font: 500 11px/1.2 var(--font-mono);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--fg-3);
+        background: var(--bg);
+      }
+      .tone-name {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .tone-name::before {
+        content: "";
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--tone-fg, var(--fg-3));
+      }
+      .tone-meaning {
+        display: block;
+        font-weight: 400;
+        color: var(--fg-2);
+        margin: 2px 0 0 18px;
+        white-space: normal;
+      }
+      .tones .actions-list {
+        color: var(--fg-1);
+      }
+      .tones .tokens code {
+        display: inline-block;
+        margin: 0 4px 4px 0;
+      }
+      .samples {
+        display: flex;
+        gap: 8px;
+      }
+      .sample {
+        display: grid;
+        gap: 6px;
+        padding: 10px;
+        border-radius: 8px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        justify-items: start;
+      }
+      .sample small {
+        font: 500 10px/1 var(--font-mono);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+
+      /* Notes */
+      .notes {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+        gap: 16px;
+      }
+      .note {
+        padding: 16px 18px;
+        background: var(--surface);
+        border: 1px solid var(--border-strong);
+        border-radius: 12px;
+        font: 400 13px/1.55 var(--font-sans);
+      }
+      .note h3 {
+        margin: 0 0 6px;
+        font: 600 14px/1.3 var(--font-sans);
+      }
+      .note p {
+        margin: 0 0 8px;
+      }
+      .note ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+      .note li + li {
+        margin-top: 4px;
+      }
+      .note.recommend {
+        border-color: var(--success-border);
+        background: color-mix(in oklab, var(--success-subtle) 60%, var(--surface));
+      }
+      .note pre {
+        margin: 8px 0 0;
+        padding: 12px 14px;
+        white-space: pre-wrap;
+        font: 400 12px/1.55 var(--font-mono);
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+      }
+      .contrast {
+        width: 100%;
+        border-collapse: collapse;
+        font: 400 12px/1.4 var(--font-sans);
+        margin-top: 6px;
+      }
+      .contrast td,
+      .contrast th {
+        padding: 5px 6px;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+      }
+      .contrast th {
+        font-weight: 500;
+        color: var(--fg-2);
+      }
+      .toast {
+        position: fixed;
+        left: 50%;
+        bottom: 24px;
+        transform: translate(-50%, 16px);
+        opacity: 0;
+        pointer-events: none;
+        padding: 10px 14px;
+        border-radius: 8px;
+        background: var(--gray-900);
+        color: var(--white);
+        font: 400 13px/1.3 var(--font-sans);
+        box-shadow: var(--shadow-3);
+        transition:
+          opacity 160ms var(--ease-out),
+          transform 160ms var(--ease-out);
+      }
+      .toast.shown {
+        opacity: 1;
+        transform: translate(-50%, 0);
+      }
+    </style>
+  </head>
+  <body data-palette="both" data-show="all" data-primary="plain">
+    <header class="topbar">
+      <h1>
+        Action colours
+        <small>The buttons above a Task, an Initiative and an Idea, coloured by what each one does.</small>
+      </h1>
+      <div class="controls">
+        <div class="control">
+          Palette
+          <div class="segmented" data-control="palette">
+            <button type="button" data-value="light" aria-pressed="false">Light</button>
+            <button type="button" data-value="dark" aria-pressed="false">Dark</button>
+            <button type="button" data-value="both" aria-pressed="true">Both</button>
+          </div>
+        </div>
+        <div class="control">
+          Show
+          <div class="segmented" data-control="show">
+            <button type="button" data-value="all" aria-pressed="true">Today, A and B</button>
+            <button type="button" data-value="ab" aria-pressed="false">A and B</button>
+            <button type="button" data-value="a" aria-pressed="false">A · Coloured icons</button>
+            <button type="button" data-value="b" aria-pressed="false">B · Coloured buttons</button>
+            <button type="button" data-value="today" aria-pressed="false">Today</button>
+          </div>
+        </div>
+        <div class="control">
+          Primary icon
+          <div class="segmented" data-control="primary">
+            <button type="button" data-value="plain" aria-pressed="true">Plain (proposed)</button>
+            <button type="button" data-value="toned" aria-pressed="false">Toned</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>Four tones, by what an action does</h2>
+        <p class="lede">
+          Each action names its tone once, by what it means, never by its colour. The colours are the design system&#39;s status tokens, which already have light and dark values, so no colour is
+          written anywhere. Actions that open something or rearrange it have no tone and look as they do today, so the coloured ones stand out.
+        </p>
+        <div id="tones"></div>
+      </section>
+
+      <section>
+        <h2>Task page head</h2>
+        <p class="lede">
+          The head&#39;s actions in the states that show the most of them. The row is as it is in the app: one line, ending with More; what doesn&#39;t fit is hidden, and More always lists it.
+          Hover the buttons to see B&#39;s hover.
+        </p>
+        <div class="scenarios" id="task-scenarios"></div>
+      </section>
+
+      <section>
+        <h2>Initiative page head</h2>
+        <p class="lede">An active Initiative has the longest row of all, so it shows best how the tones help: the planning actions read blue, Start Ready Tasks green, Pause amber.</p>
+        <div class="scenarios" id="initiative-scenarios"></div>
+      </section>
+
+      <section>
+        <h2>Idea card</h2>
+        <p class="lede">The Ideas page shares the same actions row, at the small size.</p>
+        <div class="scenarios" id="idea-scenarios"></div>
+      </section>
+
+      <section>
+        <h2>More menu</h2>
+        <p class="lede">
+          Menus have no buttons, so both versions show the menu the same way: its actions keep their tone on the icon, the label stays plain. Drop keeps its danger look, as today.
+        </p>
+        <div class="scenarios" id="menus"></div>
+      </section>
+
+      <section>
+        <h2>Notes for the review</h2>
+        <div class="notes">
+          <div class="note recommend">
+            <h3>Recommendation: Version A, coloured icons</h3>
+            <ul>
+              <li>B&#39;s tinted buttons use the same tokens as the status badges, so in a head beside &#8220;In progress&#8221; or &#8220;Queued&#8221; they read like more badges, not like things to press.</li>
+              <li>With four or five toned buttons, B gets loud and competes with the one primary button, which is meant to be the strongest thing in the row.</li>
+              <li>A keeps the row&#39;s order of weight (primary, then secondary), and the hue is still enough to find Stop or Pause at a glance.</li>
+              <li>A looks the same on the buttons as in the More menu, so you learn one set of colours.</li>
+              <li>B&#39;s strength: it&#39;s easier to find at a glance, Stop most of all. If that matters more, choose B.</li>
+            </ul>
+          </div>
+
+          <div class="note">
+            <h3>Primary buttons keep their icon plain</h3>
+            <p>
+              Start, Start anyway, Resume, Mark Ready, Confirm the Initiative and Plan the Initiative are primary. They keep their fill in both versions, and I propose their icon stays in the
+              button&#39;s own text colour. The fill already makes them the strongest button in the row.
+            </p>
+            <p>
+              The palettes set their own primary fill: Cobalt&#39;s is blue (<code>#2343b0</code>), Lagoon&#39;s teal and Emerald&#39;s gold. A blue Plan icon disappears on Cobalt&#39;s
+              fill, and a green Go icon fades on Lagoon&#39;s. Their tone still shows in the More menu.
+            </p>
+            <p>&#8220;Primary icon: Toned&#8221; in the top bar shows the other option, the icon in the tone&#39;s base token. How it reads on Light&#39;s and Dark&#39;s fill (3:1 is the least for an icon):</p>
+            <table class="contrast">
+              <tr>
+                <th>Icon</th>
+                <th>Light fill <code>gray-900</code></th>
+                <th>Dark fill <code>#d9d9d5</code></th>
+              </tr>
+              <tr>
+                <td><code>--success</code></td>
+                <td>5.2 : 1</td>
+                <td>2.4 : 1</td>
+              </tr>
+              <tr>
+                <td><code>--info</code></td>
+                <td>3.6 : 1</td>
+                <td>3.5 : 1</td>
+              </tr>
+            </table>
+            <p style="margin-top: 8px">Green on Dark&#39;s light fill falls under 3:1, which is one more reason to keep it plain.</p>
+          </div>
+
+          <div class="note">
+            <h3>Buttons that have their own control</h3>
+            <ul>
+              <li><b>Split buttons</b> (Move up, Shape into a Task): the tone is on the whole button. In A only the main half&#39;s icon is coloured, not the arrow. Both are neutral or green here.</li>
+              <li><b>Links drawn as buttons</b> (Open pull request, Planning Thread, Browse files) take the tone like a button does. Only Planning Thread has one: plan.</li>
+              <li><b>Ghost buttons</b> (Take out of the queue): in A the icon is red; in B the label and icon are red, with the red tint on hover. That is the design system&#39;s <code>danger-ghost</code> look, so the build can reuse it.</li>
+              <li><b>Plan the Initiative&#39;s Auto mode switch</b> stays neutral; only the button takes the tone.</li>
+              <li><b>Board card&#39;s Plan icon button</b> (<code>PlanOnCardButton</code>) gets the same plan tone on its icon, so the board and the Task page match.</li>
+              <li><b>Disabled</b> buttons keep their tone, faded to the Button&#39;s 45% like everything else.</li>
+            </ul>
+          </div>
+
+          <div class="note">
+            <h3>Choices I made that the Plan left open</h3>
+            <ul>
+              <li><b>Shape into a Task</b> (Ideas) is <b>go</b>: it turns the Idea into a Task at once, with nobody to talk to first. <b>Plan as a Task with &lt;Planner&gt;</b> and <b>Shape into an Initiative with &lt;Shaper&gt;</b> are <b>plan</b>.</li>
+              <li><b>Add a Task</b>, <b>Add an existing Task</b>, <b>Back to Shaping</b> and <b>Restore</b> stay neutral: they change what the record holds or where it is, not how the work goes.</li>
+              <li>The More menu&#39;s own items (Priority, Kind, Edit Stages, Move to another Project, Archive, Copy link, Edit, Attach) stay as they are. Drop keeps its danger red label.</li>
+              <li>The toned icon uses each tone&#39;s <code>-fg</code> token. On Light and Dark it reads at 6:1 or better on the button&#39;s surface. The palettes leave the status tokens alone, so every palette gets the same tones.</li>
+            </ul>
+          </div>
+
+          <div class="note">
+            <h3>The rule for docs/spec/4.1-ui-rules.md</h3>
+            <p>The Implement Stage adds this once, and the Task page, Initiative page and Ideas screen pages link to it:</p>
+            <pre id="rule-a">## Action tones
+
+- An action on a record&#39;s head names one tone, by what it does: go, plan, hold or stop; an action that opens or rearranges something has none.
+- go (Start, Start anyway, Resume, Mark Ready, Start Ready Tasks, Confirm the Initiative, Resume the Initiative, Shape into a Task); plan (Plan with &lt;Planner&gt;, Plan the Initiative, Planning Thread, Plan as a Task, Shape into an Initiative); hold (Pause, Pause the Initiative, Queue behind it); stop (Stop, Take out of the queue).
+- Colours: go --success-fg, plan --info-fg, hold --warning-fg, stop --danger-fg; never a colour value.
+- A toned button colours only its icon; its surface, border and label stay. [Version B: a toned button takes the tone&#39;s -subtle surface, -border border and -fg label and icon, the -border surface on hover.]
+- A primary button keeps its fill and its icon in its own text colour.
+- The More menu shows each action&#39;s icon in its tone; Drop keeps its danger look.</pre>
+          </div>
+
+          <div class="note">
+            <h3>About the mock</h3>
+            <p>
+              Its tokens are copied from <code>design-system/tokens/</code> with the Light and Dark palettes of <code>packages/ui/src/appearance/palettes/</code>. Its words, icons (Lucide, as
+              <code>Icon</code> draws them), button variants and order come from <code>apps/web/src/surfaces/work/</code> and the Task, Initiative and Ideas screen pages. Buttons only show a
+              toast. It uses the Geist fonts only where they are installed, and makes no network requests.
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script>
+      /* ---------- Icons (Lucide, as packages/ui's Icon draws them) ---------- */
+      const PATHS = {
+        play: '<polygon points="6 3 20 12 6 21 6 3"/>',
+        pause: '<rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/>',
+        square: '<rect width="18" height="18" x="3" y="3" rx="2"/>',
+        check: '<path d="M20 6 9 17l-5-5"/>',
+        x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+        map: '<path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/>',
+        clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+        "arrow-up": '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+        "arrow-up-to-line": '<path d="M5 3h14"/><path d="m18 13-6-6-6 6"/><path d="M12 7v14"/>',
+        "chevron-down": '<path d="m6 9 6 6 6-6"/>',
+        "external-link": '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+        "folder-tree": '<path d="M20 10a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2.5a1 1 0 0 1-.8-.4l-.9-1.2A1 1 0 0 0 15 3h-2a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z"/><path d="M20 21a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1h-2.9a1 1 0 0 1-.88-.55l-.42-.85a1 1 0 0 0-.92-.6H13a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z"/><path d="M3 5a2 2 0 0 0 2 2h3"/><path d="M3 3v13a2 2 0 0 0 2 2h3"/>',
+        "message-circle": '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+        "messages-square": '<path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z"/><path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"/>',
+        plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+        "list-plus": '<path d="M11 12H3"/><path d="M16 6H3"/><path d="M16 18H3"/><path d="M18 9v6"/><path d="M21 12h-6"/>',
+        "list-checks": '<path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/>',
+        "undo-2": '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/>',
+        flag: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>',
+        ellipsis: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+        route: '<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>',
+        "folder-input": '<path d="M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-1"/><path d="M2 13h10"/><path d="m9 16 3-3-3-3"/>',
+        link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+        archive: '<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>',
+        pencil: '<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>',
+        paperclip: '<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
+        lightbulb: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
+        sparkles: '<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>',
+        bug: '<path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/>',
+        wrench: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+        "signal-medium": '<path d="M2 20h.01"/><path d="M7 20v-4"/><path d="M12 20v-8"/>',
+        files: '<path d="M20 7h-3a2 2 0 0 1-2-2V2"/><path d="M9 18a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h7l4 4v10a2 2 0 0 1-2 2Z"/><path d="M3 7.6v12.8A1.6 1.6 0 0 0 4.6 22h9.8"/>',
+        sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
+        moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+      };
+      const icon = (name, size = 14) =>
+        `<svg class="ico" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PATHS[name]}</svg>`;
+      const esc = (text) => String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+      const toneAttr = (tone) => (tone ? ` data-tone="${tone}"` : "");
+
+      /* ---------- The tones ---------- */
+      const TONES = {
+        go: { name: "Go", meaning: "Moves the work forward", token: "success" },
+        plan: { name: "Plan", meaning: "Talks it through with someone first", token: "info" },
+        hold: { name: "Hold", meaning: "Pauses the work, or has it wait", token: "warning" },
+        stop: { name: "Stop", meaning: "Stops it, or takes it out", token: "danger" },
+      };
+      const TONE_ACTIONS = {
+        go: "Start, Start anyway, Resume, Mark Ready, Start Ready Tasks, Confirm the Initiative, Resume the Initiative, Shape into a Task",
+        plan: "Plan with <Planner>, Plan the Initiative, Plan with <Planner> on an Initiative, Planning Thread, Plan as a Task with <Planner>, Shape into an Initiative",
+        hold: "Pause, Pause the Initiative, Queue behind it, Queue behind them",
+        stop: "Stop, Take out of the queue",
+        none: "Open pull request, Browse files, Restore, Move up, Move to top, Add a Task, Add an existing Task, Back to Shaping, and the More menu’s own items",
+      };
+      const TONE_SAMPLES = { go: ["play", "Start Ready Tasks"], plan: ["map", "Plan with Angela"], hold: ["pause", "Pause"], stop: ["square", "Stop"], none: ["folder-tree", "Browse files"] };
+
+      /* ---------- Mock data: the actions as RecordAction has them (record-actions.tsx), plus the tone ---------- */
+      const A = {
+        planWith: { label: "Plan with Angela", icon: "map", tone: "plan" },
+        markReady: { label: "Mark Ready", icon: "check", tone: "go", variant: "primary" },
+        start: { label: "Start", icon: "play", tone: "go", variant: "primary" },
+        startAnyway: { label: "Start anyway", icon: "play", tone: "go", variant: "primary" },
+        queueBehind: { label: "Queue behind it", icon: "clock", tone: "hold" },
+        pause: { label: "Pause", icon: "pause", tone: "hold" },
+        stop: { label: "Stop", icon: "square", tone: "stop" },
+        resume: { label: "Resume", icon: "play", tone: "go", variant: "primary" },
+        pullRequest: { label: "Open pull request", icon: "external-link", link: true },
+        browseFiles: { label: "Browse files", icon: "folder-tree", link: true },
+        moveUp: { label: "Move up", icon: "arrow-up", split: true },
+        takeOut: { label: "Take out of the queue", icon: "x", tone: "stop", variant: "ghost" },
+        confirm: { label: "Confirm the Initiative", icon: "check", tone: "go", variant: "primary" },
+        planningThread: { label: "Planning Thread", icon: "messages-square", tone: "plan", link: true },
+        planInitiative: { label: "Plan the Initiative", icon: "map", tone: "plan", variant: "primary", autoMode: true },
+        planInitiativeWith: { label: "Plan with Angela", icon: "message-circle", tone: "plan" },
+        startReady: { label: "Start Ready Tasks", icon: "play", tone: "go" },
+        pauseInitiative: { label: "Pause the Initiative", icon: "pause", tone: "hold" },
+        resumeInitiative: { label: "Resume the Initiative", icon: "play", tone: "go" },
+        addTask: { label: "Add a Task", icon: "plus" },
+        addExisting: { label: "Add an existing Task", icon: "list-plus" },
+        backToShaping: { label: "Back to Shaping", icon: "undo-2" },
+        shapeTask: { label: "Shape into a Task", icon: "list-checks", tone: "go", split: true },
+        planAsTask: { label: "Plan as a Task with Angela", icon: "map", tone: "plan" },
+        shapeInitiative: { label: "Shape into an Initiative with Michael", icon: "flag", tone: "plan" },
+      };
+
+      const TASK_SCENARIOS = [
+        {
+          name: "Backlog",
+          note: "Planning actions: Plan with the Planner (plan) and Mark Ready (go, primary).",
+          title: "Show the usage caps on the Stats page",
+          badges: [["Backlog", ""]],
+          actions: [A.planWith, A.markReady],
+        },
+        {
+          name: "Ready",
+          note: "Start (go, primary) is the only action.",
+          title: "Show the usage caps on the Stats page",
+          badges: [["Ready", ""]],
+          actions: [A.start],
+        },
+        {
+          name: "Ready, with an Overlap",
+          note: "Start anyway (go, primary) beside Queue behind it (hold).",
+          title: "Group the Stage history by run",
+          badges: [["Ready", ""]],
+          actions: [A.startAnyway, A.queueBehind],
+          notes: ["files", "Overlap: “Tidy the Task page head” is in progress and expects to change some of the same files."],
+        },
+        {
+          name: "In progress, with a pull request",
+          note: "The busiest row: Pause (hold), Stop (stop), then Open pull request and Browse files (neutral).",
+          title: "Let a Stage stopped by the fire alarm start again after the all clear",
+          badges: [["In progress", "info"], ["Waiting on you", "warning"]],
+          actions: [A.pause, A.stop, A.pullRequest, A.browseFiles],
+          menu: "task",
+        },
+        {
+          name: "Ready and queued",
+          note: "Move up (neutral split button) and Take out of the queue (stop, ghost).",
+          title: "Import GitHub issues as Bug Tasks",
+          badges: [["Ready", ""], ["Queued", "info"]],
+          actions: [A.moveUp, A.takeOut],
+          notes: ["clock", "Place 2 · Jim is at the Task limit (1)."],
+        },
+        {
+          name: "Paused",
+          note: "Resume (go, primary), with the neutral links after it.",
+          title: "Let a Stage stopped by the fire alarm start again after the all clear",
+          badges: [["Paused", "warning"]],
+          actions: [A.resume, A.pullRequest, A.browseFiles],
+        },
+      ];
+
+      const INITIATIVE_SCENARIOS = [
+        {
+          name: "Active, with Tasks in Backlog and Ready",
+          note: "Planning Thread, Plan the Initiative and Plan with Angela (plan), Start Ready Tasks (go), Pause the Initiative (hold), then the neutral ones, which the row hides when narrow.",
+          title: "Hosted test instances",
+          badges: [["Active", "info"]],
+          facts: ["the-office, not-astray", "7 Tasks", "2 Ready", "3 in Backlog"],
+          actions: [A.planningThread, A.planInitiative, A.planInitiativeWith, A.startReady, A.pauseInitiative, A.addTask, A.addExisting, A.browseFiles, A.backToShaping],
+          menu: "initiative",
+        },
+        {
+          name: "Shaping",
+          note: "Confirm the Initiative (go, primary), then Add a Task and Add an existing Task (neutral).",
+          title: "Issues tracked as Tasks",
+          badges: [["Shaping", ""]],
+          facts: ["the-office", "4 Tasks"],
+          actions: [A.confirm, A.addTask, A.addExisting],
+        },
+        {
+          name: "Paused",
+          note: "Resume the Initiative (go, secondary) shows the tone on a plain button.",
+          title: "Hosted test instances",
+          badges: [["Active", "info"], ["Paused", "warning"]],
+          facts: ["the-office, not-astray", "7 Tasks", "2 paused"],
+          actions: [A.resumeInitiative, A.addTask, A.addExisting, A.browseFiles],
+        },
+      ];
+
+      const IDEA = {
+        name: "An Idea in the-office",
+        note: "Shape into a Task (go, split button), Plan as a Task and Shape into an Initiative (plan).",
+        title: "A dark mode for the Live view",
+        text: "The Live view is shown on a wall screen at night; a dark version would be easier on the eyes.",
+        actions: [A.shapeTask, A.planAsTask, A.shapeInitiative],
+      };
+
+      const MENUS = [
+        {
+          name: "A Task in progress",
+          items: [
+            { ...A.pause },
+            { ...A.stop },
+            { ...A.pullRequest },
+            { ...A.browseFiles },
+            { divider: true },
+            { heading: "Kind" },
+            { label: "Feature", icon: "sparkles", checked: true },
+            { label: "Bug", icon: "bug" },
+            { label: "Chore", icon: "wrench" },
+            { label: "Edit Stages for this Task", icon: "route" },
+            { label: "Move to another Project…", icon: "folder-input" },
+            { divider: true },
+            { label: "Drop…", icon: "x", danger: true },
+          ],
+        },
+        {
+          name: "An active Initiative",
+          items: [
+            { ...A.planningThread },
+            { ...A.planInitiative },
+            { ...A.planInitiativeWith },
+            { ...A.startReady },
+            { ...A.pauseInitiative },
+            { ...A.addTask },
+            { ...A.addExisting },
+            { ...A.browseFiles },
+            { ...A.backToShaping },
+            { divider: true },
+            { label: "Copy link", icon: "link" },
+            { divider: true },
+            { label: "Drop the Initiative", icon: "x", danger: true },
+          ],
+        },
+      ];
+
+      /* ---------- Rendering ---------- */
+      const PALETTES = [
+        { key: "light", name: "Light", icon: "sun" },
+        { key: "dark", name: "Dark", icon: "moon" },
+      ];
+      const VERSIONS = [
+        { key: "today", badge: "Today", name: "as it is now" },
+        { key: "a", badge: "A", name: "Coloured icons" },
+        { key: "b", badge: "B", name: "Coloured buttons" },
+      ];
+
+      function button(action, size = "") {
+        const sizeClass = size ? ` ${size}` : "";
+        const onClick = `data-toast="${esc(action.label)}"`;
+        if (action.split) {
+          return `<span class="split"${toneAttr(action.tone)}><button type="button" class="btn btn-secondary split-main${sizeClass}" ${onClick}>${icon(action.icon)}${esc(action.label)}</button><button type="button" class="btn btn-secondary split-arrow${sizeClass}" aria-label="${action.icon === "arrow-up" ? "Move to top" : "Shape into a Task of another Kind"}" data-toast="${action.icon === "arrow-up" ? "Move to top" : "Shape into a Task of another Kind"}">${icon("chevron-down")}</button></span>`;
+        }
+        const variant = action.variant ?? "secondary";
+        const inner = `${icon(action.icon)}${esc(action.label)}`;
+        const element = action.link
+          ? `<a href="#" class="btn btn-${variant}${sizeClass}"${toneAttr(action.tone)} ${onClick}>${inner}</a>`
+          : `<button type="button" class="btn btn-${variant}${sizeClass}"${toneAttr(action.tone)} ${onClick}>${inner}</button>`;
+        if (!action.autoMode) return element;
+        return `<span class="with-switch">${element}<span class="switch"><span class="switch-track" aria-hidden="true"></span>Auto mode</span></span>`;
+      }
+
+      const moreButton = (title) => `<button type="button" class="icon-btn" aria-label="More for ${esc(title)}" data-toast="More for ${esc(title)}">${icon("ellipsis")}</button>`;
+      const badges = (list) => list.map(([text, tone]) => `<span class="badge ${tone}">${esc(text)}</span>`).join("");
+
+      function taskHead(scenario) {
+        const notes = scenario.notes ? `<div class="head-notes">${icon(scenario.notes[0], 13)}${esc(scenario.notes[1])}</div>` : "";
+        return `<header class="head">
+          <div class="head-main">
+            <div class="head-title"><span class="project-chip"><span class="project-mark">TO</span>the-office</span></div>
+            <div class="head-title"><h4>${esc(scenario.title)}</h4>${badges(scenario.badges)}</div>
+            <div class="facts"><span>${icon("sparkles", 12)}Feature</span><span>${icon("signal-medium", 12)}Normal priority</span><span>Pipeline Feature</span><span>182k tokens</span></div>
+          </div>
+          <div class="head-actions"><div class="actions-row">${scenario.actions.map((action) => button(action)).join("")}</div>${moreButton(scenario.title)}</div>
+          ${notes}
+        </header>`;
+      }
+
+      function initiativeHead(scenario) {
+        return `<header class="head">
+          <div class="head-main">
+            <div class="head-title"><span class="project-chip">${icon("flag", 13)}Initiative</span></div>
+            <div class="head-title"><h4>${esc(scenario.title)}</h4>${badges(scenario.badges)}</div>
+            <div class="facts">${scenario.facts.map((fact) => `<span>${esc(fact)}</span>`).join("")}</div>
+          </div>
+          <div class="head-actions"><div class="actions-row">${scenario.actions.map((action) => button(action)).join("")}</div>${moreButton(scenario.title)}</div>
+        </header>`;
+      }
+
+      function ideaCard(idea) {
+        return `<article class="idea-card">
+          <div class="idea-card-head">${icon("lightbulb", 15)}<span>${esc(idea.title)}</span>${moreButton(idea.title)}</div>
+          <p>${esc(idea.text)}</p>
+          <div class="actions-row">${idea.actions.map((action) => button(action, "sm")).join("")}</div>
+        </article>`;
+      }
+
+      const usedTones = (actions) => [...new Set(actions.map((action) => action.tone).filter(Boolean))];
+      const toneDots = (actions) =>
+        `<span class="tone-dots">${usedTones(actions)
+          .map((tone) => `<span class="tone-dot" data-tone="${tone}">${TONES[tone].name}</span>`)
+          .join("")}</span>`;
+
+      function panels(draw) {
+        return PALETTES.map(
+          (palette) => `<div class="panel pal-${palette.key}">
+            <div class="panel-name">${icon(palette.icon, 12)}${palette.name}</div>
+            ${VERSIONS.map(
+              (version) => `<div class="variant" data-version="${version.key}">
+                <div class="variant-label"><b>${version.badge}</b>${version.key === "today" ? "As it is now" : version.name}</div>
+                ${draw()}
+              </div>`,
+            ).join("")}
+          </div>`,
+        ).join("");
+      }
+
+      function scenario(item, draw) {
+        return `<article class="scenario">
+          <div class="scenario-head"><h3>${esc(item.name)}</h3>${toneDots(item.actions)}<p>${esc(item.note)}</p></div>
+          <div class="panels">${panels(draw)}</div>
+        </article>`;
+      }
+
+      function menuItems(items, toned) {
+        return items
+          .map((item) => {
+            if (item.divider) return `<div class="menu-divider" role="separator"></div>`;
+            if (item.heading) return `<div class="menu-heading">${esc(item.heading)}</div>`;
+            const check = item.checked ? `<span class="check">${icon("check")}</span>` : "";
+            const tone = toned ? toneAttr(item.tone) : "";
+            return `<div class="menu-item${item.danger ? " danger" : ""}" role="menuitem" tabindex="-1"${tone}>${icon(item.icon)}<span>${esc(item.label)}</span>${check}</div>`;
+          })
+          .join("");
+      }
+
+      function menus(menu) {
+        return PALETTES.map(
+          (palette) => `<div class="panel pal-${palette.key}">
+            <div class="panel-name">${icon(palette.icon, 12)}${palette.name}</div>
+            <div class="menus">
+              <div class="menu-column" data-for="today">
+                <div class="variant-label"><b>Today</b>As it is now</div>
+                <div class="menu" role="menu">${menuItems(menu.items, false)}</div>
+              </div>
+              <div class="menu-column" data-for="ab">
+                <div class="variant-label"><b>A</b><b>B</b>Both versions</div>
+                <div class="menu" role="menu" data-version="ab">${menuItems(menu.items, true)}</div>
+              </div>
+            </div>
+          </div>`,
+        ).join("");
+      }
+
+      function tonesTable() {
+        const sample = (tone, palette, version) => {
+          const [name, label] = TONE_SAMPLES[tone];
+          return `<div class="sample pal-${palette}" data-version="${version}"><small>${palette === "light" ? "Light" : "Dark"} · ${version.toUpperCase()}</small>${button({ label, icon: name, tone: tone === "none" ? undefined : tone })}</div>`;
+        };
+        const row = (tone) => {
+          const info = TONES[tone];
+          const name = info
+            ? `<span class="tone-name" data-tone="${tone}">${info.name}</span><span class="tone-meaning">${info.meaning}</span>`
+            : `<span class="tone-name">No tone</span><span class="tone-meaning">Opens or rearranges something</span>`;
+          const tokens = info
+            ? ["fg", "subtle", "border"].map((part) => `<code>--${info.token}-${part}</code>`).join("")
+            : `<span style="color: var(--fg-2)">none: as today</span>`;
+          return `<tr>
+            <td style="width: 210px">${name}</td>
+            <td class="actions-list">${esc(TONE_ACTIONS[tone])}</td>
+            <td class="tokens" style="width: 190px">${tokens}</td>
+            <td style="width: 1%"><div class="samples">${sample(tone, "light", "a")}${sample(tone, "light", "b")}${sample(tone, "dark", "a")}${sample(tone, "dark", "b")}</div></td>
+          </tr>`;
+        };
+        return `<table class="tones">
+          <thead><tr><th>Tone</th><th>Actions</th><th>Tokens</th><th>A and B, light and dark</th></tr></thead>
+          <tbody>${["go", "plan", "hold", "stop", "none"].map(row).join("")}</tbody>
+        </table>`;
+      }
+
+      document.getElementById("tones").innerHTML = tonesTable();
+      document.getElementById("task-scenarios").innerHTML = TASK_SCENARIOS.map((item) => scenario(item, () => taskHead(item))).join("");
+      document.getElementById("initiative-scenarios").innerHTML = INITIATIVE_SCENARIOS.map((item) => scenario(item, () => initiativeHead(item))).join("");
+      document.getElementById("idea-scenarios").innerHTML = scenario(IDEA, () => ideaCard(IDEA));
+      document.getElementById("menus").innerHTML = MENUS.map(
+        (menu) => `<article class="scenario">
+          <div class="scenario-head"><h3>${esc(menu.name)}</h3>${toneDots(menu.items.filter((item) => item.label))}</div>
+          <div class="panels side">${menus(menu)}</div>
+        </article>`,
+      ).join("");
+
+      /* ---------- Controls ---------- */
+      for (const group of document.querySelectorAll("[data-control]")) {
+        group.addEventListener("click", (event) => {
+          const choice = event.target.closest("button[data-value]");
+          if (!choice) return;
+          document.body.dataset[group.dataset.control] = choice.dataset.value;
+          for (const option of group.querySelectorAll("button")) option.setAttribute("aria-pressed", String(option === choice));
+        });
+      }
+
+      const toast = document.getElementById("toast");
+      let toastTimer = 0;
+      document.addEventListener("click", (event) => {
+        const target = event.target.closest("[data-toast]");
+        if (!target) return;
+        event.preventDefault();
+        toast.textContent = `${target.dataset.toast}: in the app this would run the action.`;
+        toast.classList.add("shown");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove("shown"), 1800);
+      });
+    </script>
+  </body>
+</html>

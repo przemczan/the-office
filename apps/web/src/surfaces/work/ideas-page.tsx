@@ -45,7 +45,13 @@ import { useIdeaPlanning } from "../../shell/work/use-idea-planning.ts";
 import { useShaper } from "../../shell/work/use-shaper.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { authorName, projectIdsOfIdea } from "../../shell/work/work-words.ts";
-import { RecordActions, withActionItems, type RecordAction } from "./record-actions.tsx";
+import {
+  actionToneClassName,
+  RecordActions,
+  withActionItems,
+  type ActionTone,
+  type RecordAction,
+} from "./record-actions.tsx";
 import { useShaping, useShapingIntoInitiative } from "./use-shaping.ts";
 
 /**
@@ -142,6 +148,7 @@ type IdeaAction = "shape" | "plan";
 interface IdeaActionWords {
   readonly label: string;
   readonly icon: string;
+  readonly tone: ActionTone;
   /** Takes the Project's id, and for shaping the Kind. */
   readonly mutation: UseMutationResult<Task, Error, IdeaShapeChoice>;
 }
@@ -184,10 +191,11 @@ function IdeaCard({
   const signedInUserId = useSignedInUserId();
   const shapingIntoInitiative = useShapingIntoInitiative(idea);
   const actions: Readonly<Record<IdeaAction, IdeaActionWords>> = {
-    shape: { label: "Shape into a Task", icon: "list-checks", mutation: shaping },
+    shape: { label: "Shape into a Task", icon: "list-checks", tone: "go", mutation: shaping },
     plan: {
       label: `Plan as a Task with ${planner?.card.name ?? "whoever holds Plans"}`,
       icon: "map",
+      tone: "plan",
       mutation: planning,
     },
   };
@@ -211,11 +219,12 @@ function IdeaCard({
   };
   const options: RecordAction[] = [
     ...offered.map((action): RecordAction => {
-      const { label, icon, mutation } = actions[action];
+      const { label, icon, tone, mutation } = actions[action];
       return {
         key: action,
         label,
         icon,
+        tone,
         pending: mutation.isPending,
         onSelect: () => choose(action, action === "shape" ? "feature" : undefined),
         // One click still shapes a Feature; the arrow offers every Kind.
@@ -223,6 +232,7 @@ function IdeaCard({
           control: (
             <SplitButton
               size="sm"
+              className={actionToneClassName(tone, "secondary")}
               iconLeft={<Icon name={icon} size={14} />}
               loading={mutation.isPending}
               onClick={() => choose("shape", "feature")}
@@ -246,6 +256,7 @@ function IdeaCard({
         ? `Shape into an Initiative with ${shaper.card.name}`
         : "Shape into an Initiative",
       icon: "flag",
+      tone: "plan",
       pending: shapingIntoInitiative.isPending,
       onSelect: () => shapingIntoInitiative.mutate(),
     },

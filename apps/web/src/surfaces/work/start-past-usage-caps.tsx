@@ -25,6 +25,7 @@ export function useStartPastUsageCapsAction(
     key: "start-past-usage-caps",
     label: "Start anyway",
     icon: "play",
+    tone: "go",
     variant: "primary",
     hint: cannot ? pastUsageCaps.refusals.join(" ") : "Start it now, past its usage caps",
     disabled: cannot,
