@@ -1,4 +1,5 @@
 import { initiativeBranchOf } from "./short-name.js";
+import { branchDeletionWords } from "./branch-deletion.js";
 import { attachmentLines, type Attachment } from "./attachment.js";
 import { archivedByWords, authorWords, type ArchivedBy, type Author } from "./author.js";
 import type { Idea } from "./idea.js";
@@ -94,6 +95,7 @@ export function taskRecordText(
     `- Created by ${authorWords(task.createdBy)} on ${task.createdAt.toISOString()}`,
     ...archiveLines(task),
     ...(task.pullRequestEnd ? [`- ${pullRequestEndWords(task.pullRequestEnd)}`] : []),
+    ...(task.branchDeletion ? [`- ${branchDeletionWords(task.branchDeletion)}`] : []),
     ...task.projectMoves.map(
       ({ from, to, at, by }) =>
         `- Moved from Project ${from} to Project ${to} by ${authorWords(by)} on ${at.toISOString()}`,
@@ -304,10 +306,10 @@ export function initiativePipelineLines(
   const branchLines =
     shortName === undefined
       ? []
-      : initiative.branches.map(
-          ({ projectId, madeAt }) =>
-            `- Initiative's branch ${initiativeBranchOf(shortName)} in the Project ${projectId}, made on ${madeAt.toISOString()}`,
-        );
+      : initiative.branches.flatMap(({ projectId, madeAt, deletion }) => [
+          `- Initiative's branch ${initiativeBranchOf(shortName)} in the Project ${projectId}, made on ${madeAt.toISOString()}`,
+          ...(deletion ? [`  ${branchDeletionWords(deletion)}`] : []),
+        ]);
   return [
     ...pipelineLines,
     ...(shortName === undefined ? [] : [`- Short name: ${shortName}`]),

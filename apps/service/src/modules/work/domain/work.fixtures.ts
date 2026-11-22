@@ -95,6 +95,7 @@ export function aTask(fields: Partial<Task> = {}): Task {
     restoredBy: undefined,
     endedAt: undefined,
     pullRequestEnd: undefined,
+    branchDeletion: undefined,
     kind: "feature",
     causedBy: undefined,
     foundInVersion: undefined,

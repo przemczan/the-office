@@ -18,6 +18,7 @@ import type {
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { branchQueries } from "../../api/branch-deletions.ts";
 import { roleQueries } from "../../api/people.ts";
 import { pipelineQueries, projectPipelineQueries } from "../../api/pipelines.ts";
 import { initiativeQueries } from "../../api/work.ts";
@@ -180,9 +181,17 @@ async function rendered(
   initiative: Initiative,
   tasks: readonly Task[] = [],
   taskStages: Readonly<Record<string, TaskStages>> = {},
+  branchesKnown = true,
 ): Promise<HTMLElement> {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
+  });
+  queryClient.setQueryData(branchQueries.ofInitiative(initiative.id).queryKey, {
+    branches: initiative.branches.map(({ projectId, branch }) => ({
+      projectId,
+      branch,
+      known: branchesKnown,
+    })),
   });
   queryClient.setQueryData(pipelineQueries.list().queryKey, [REVIEWED, UNREVIEWED]);
   queryClient.setQueryData(projectPipelineQueries.every().queryKey, [ADMINS_OWN]);
@@ -519,9 +528,20 @@ describe("the Initiative's Pipelines card", () => {
       state: "dropped",
       endedAt: "2026-11-12T11:00:00.000Z",
     });
-    expect(dropped.textContent).toContain("kept for you to delete");
+    expect(dropped.querySelector("dl")?.textContent).toContain("Delete branch…");
     expect(dropped.textContent).toContain("Dropped: no Publishing Task is added any more.");
     expect(editButton(dropped)).toBeUndefined();
+
+    document.body.replaceChildren();
+    const deleted = await rendered(
+      { ...ACTIVE, state: "dropped", endedAt: "2026-11-12T11:00:00.000Z" },
+      [],
+      {},
+      false,
+    );
+    expect(deleted.querySelector("dl")?.textContent).toContain("deleted");
+    expect(deleted.querySelector("dl")?.textContent).not.toContain("Delete branch…");
+    expect(deleted.textContent).toContain("Dropped · branches deleted");
   });
 
   it("once confirmed, Edit changes only the Pipeline of a Project on its branch; the switches and the branch name are fixed", async () => {

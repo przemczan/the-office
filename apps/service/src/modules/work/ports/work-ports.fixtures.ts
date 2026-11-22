@@ -57,6 +57,13 @@ import {
 } from "./known-projects.js";
 import { NewProjects, type AddedProject } from "./new-projects.js";
 import {
+  ProjectBranchDeletions,
+  type BranchDeletion,
+  type BranchDeletionPreview,
+  type BranchDeletionRequest,
+  type BranchOwner,
+} from "./project-branch-deletions.js";
+import {
   ProjectInitiativeBranches,
   type InitiativeBranchMaking,
   type InitiativeBranchRemoval,
@@ -156,6 +163,90 @@ export class NewProjectsForTests extends NewProjects {
     const project = { id: name.toLowerCase().replaceAll(" ", "-"), name };
     this.byPath.set(path, project);
     return project;
+  }
+}
+
+/**
+ * Branches as a set of `projectId/branch` the repository knows, each judged safe at the commit
+ * `tip-of-<branch>` here and on origin unless a test sets its judgement; `judged` and `deleted`
+ * list what was asked, in order.
+ */
+@Injectable()
+export class ProjectBranchDeletionsForTests extends ProjectBranchDeletions {
+  /** The Projects whose setting Delete branches once merged is On. */
+  readonly on = new Set<string>();
+  readonly known = new Set<string>();
+  /** What a test says a branch's judgement differs in, by `projectId/branch`. */
+  readonly judgements = new Map<string, Partial<BranchDeletionPreview>>();
+  readonly judged: { readonly key: string; readonly owner: BranchOwner }[] = [];
+  readonly deleted: string[] = [];
+
+  async deletesMergedBranches(projectId: string): Promise<boolean> {
+    return this.on.has(projectId);
+  }
+
+  async projectsDeletingMergedBranches(): Promise<readonly string[]> {
+    return [...this.on];
+  }
+
+  async knownBranches(projectId: string): Promise<readonly string[]> {
+    return [...this.known]
+      .filter((key) => key.startsWith(`${projectId}/`))
+      .map((key) => key.slice(projectId.length + 1));
+  }
+
+  async isKnown(projectId: string, branch: string): Promise<boolean> {
+    return this.known.has(`${projectId}/${branch}`);
+  }
+
+  async judge(
+    projectId: string,
+    branch: string,
+    owner: BranchOwner,
+  ): Promise<BranchDeletionPreview> {
+    const key = `${projectId}/${branch}`;
+    this.judged.push({ key, owner });
+    const commit = `tip-of-${branch}`;
+    return {
+      branch,
+      baseBranch: "main",
+      copies: [
+        { kind: "local", name: branch, commit },
+        { kind: "remote", name: `origin/${branch}`, commit },
+      ],
+      worktreePath: null,
+      holdsWork: null,
+      refusal: null,
+      ...this.judgements.get(key),
+    };
+  }
+
+  async delete(
+    projectId: string,
+    branch: string,
+    owner: BranchOwner,
+    request: BranchDeletionRequest,
+  ): Promise<BranchDeletion> {
+    const preview = await this.judge(projectId, branch, owner);
+    if (preview.refusal !== null) return { kind: "refused", reason: preview.refusal };
+    const moved = preview.copies.some(
+      (copy) =>
+        !request.expected.some(({ kind, commit }) => kind === copy.kind && commit === copy.commit),
+    );
+    if (moved) {
+      return { kind: "refused", reason: "The branch changed since it was checked; check again." };
+    }
+    if (preview.holdsWork !== null && !request.deleteUnmerged) {
+      return { kind: "refused", reason: `The branch ${branch} holds work the base lacks.` };
+    }
+    const key = `${projectId}/${branch}`;
+    this.known.delete(key);
+    this.deleted.push(key);
+    return {
+      kind: "deleted",
+      copies: preview.copies,
+      ...(preview.worktreePath === null ? {} : { worktreePath: preview.worktreePath }),
+    };
   }
 }
 
@@ -785,6 +876,7 @@ const PORTS = [
   ProjectWorktreesForTests,
   TaskPullRequestsForTests,
   ProjectInitiativeBranchesForTests,
+  ProjectBranchDeletionsForTests,
   StageResultsForTests,
   TaskGatesForTests,
   KnownPeopleForTests,

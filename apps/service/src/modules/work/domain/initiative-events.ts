@@ -17,6 +17,17 @@ export class InitiativeStateChanged extends DomainEvent {
   }
 }
 
+/** The Initiative's branch in a Project was deleted, by hand or by Delete branches once merged. */
+export class InitiativeBranchDeleted extends DomainEvent {
+  constructor(
+    readonly initiativeId: string,
+    readonly projectId: string,
+    occurredAt: Date,
+  ) {
+    super(occurredAt);
+  }
+}
+
 /** Taken off the Initiatives board into the Archive, by the user or the daily run; its state stays. */
 export class InitiativeArchived extends DomainEvent {
   constructor(

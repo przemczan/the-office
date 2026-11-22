@@ -15,7 +15,10 @@ import { ShellCommandRunner } from "../adapters/shell/shell-command-runner.js";
 import { aProject } from "../domain/project.fixtures.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
 import type { Project } from "../domain/project.js";
+import { PullRequestRepositoryForTests } from "../ports/pull-request-repository.fixtures.js";
+import { BranchDeletions } from "./branch-deletions.js";
 import { InitiativeBranches } from "./initiative-branches.js";
+import { PullRequestRecords } from "./pull-request-records.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { ProjectRemotes } from "./project-remotes.js";
 import type { ProjectService } from "./project-service.js";
@@ -52,19 +55,30 @@ async function branchesOnARepository(tracking: boolean): Promise<{
       id === project.id ? Promise.resolve(project) : Promise.reject(new ProjectNotFound(id)),
   } as unknown as ProjectService;
   const taskBases = new TaskBasesForTests(git);
+  const worktrees = new Worktrees(
+    git,
+    commands,
+    taskCommandsOver(commands, git),
+    new OfficeDataDirectory(officeData),
+    taskBases,
+  );
+  const remotes = new ProjectRemotes(git, identity);
   const branches = new InitiativeBranches(
     projects,
     git,
-    new Worktrees(
-      git,
-      commands,
-      taskCommandsOver(commands, git),
-      new OfficeDataDirectory(officeData),
-      taskBases,
-    ),
+    worktrees,
     commands,
-    new ProjectRemotes(git, identity),
+    remotes,
     taskBases,
+    new BranchDeletions(
+      projects,
+      git,
+      worktrees,
+      commands,
+      remotes,
+      taskBases,
+      new PullRequestRecords(new PullRequestRepositoryForTests()),
+    ),
   );
   return { repository, branches, project };
 }

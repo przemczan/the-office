@@ -1,4 +1,5 @@
 export { BaseCheckouts, type BaseCheckout } from "./application/base-checkouts.js";
+export { BranchDeletions } from "./application/branch-deletions.js";
 export { CommittedFiles } from "./application/committed-files.js";
 export {
   InitiativeBranches,
@@ -86,6 +87,7 @@ export {
   ProjectLimitChanged,
   ProjectMarkChanged,
   ProjectPublishingModeChanged,
+  ProjectDeleteMergedBranchesChanged,
   ProjectRoleOverrideChanged,
   ProjectRunEnvironmentChanged,
   ProjectSkillUseChanged,

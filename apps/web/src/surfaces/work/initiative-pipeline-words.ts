@@ -59,6 +59,12 @@ export interface ProjectPublishing {
     { readonly state: TaskState; readonly stages: readonly TaskStage[] } | undefined;
 }
 
+/** How many Initiative's branches The Office made, and how many of them this repository still knows. */
+export interface BranchesLeft {
+  readonly made: number;
+  readonly kept: number;
+}
+
 /**
  * The card's folded line, Project by Project: what each publishes through while shaping and before
  * the Publishing Tasks, where each Publishing Task is once they are added, then how it ended.
@@ -66,7 +72,7 @@ export interface ProjectPublishing {
 export function pipelinesFoldedLine(
   state: InitiativeState,
   projects: readonly ProjectPublishing[],
-  branchesKept: number,
+  branches: BranchesLeft,
 ): string {
   const withPipeline = projects.filter(({ pipelineName }) => pipelineName !== null);
   if (withPipeline.length === 0) {
@@ -77,9 +83,10 @@ export function pipelinesFoldedLine(
     .join(" · ");
   if (state === "shaping") return named;
   if (state === "dropped") {
-    return branchesKept === 0
-      ? "Dropped · no Initiative's branch was made"
-      : `Dropped · ${counted(branchesKept, "branch", "branches")} kept for you to delete`;
+    if (branches.made === 0) return "Dropped · no Initiative's branch was made";
+    return branches.kept === 0
+      ? "Dropped · branches deleted"
+      : `Dropped · ${counted(branches.kept, "branch", "branches")} kept`;
   }
   if (state === "done") {
     const published = withPipeline.filter(
@@ -203,11 +210,16 @@ export function shortNameFormProblem(shortName: string): string | undefined {
     : "Use only lower-case a–z, 0–9 and -, with no - at either end or two in a row.";
 }
 
-/** Beside the Initiative's branch: "made at Confirm" while shaping, "kept for you to delete" once ended. */
+/**
+ * Beside the Initiative's branch while shaping: "made at Confirm". Once it has ended, each Project's
+ * branch offers Delete branch… instead, or says it was deleted.
+ */
 export function branchNoteWords(state: InitiativeState): string | undefined {
-  if (state === "shaping") return "made at Confirm";
-  return state === "done" || state === "dropped" ? "kept for you to delete" : undefined;
+  return state === "shaping" ? "made at Confirm" : undefined;
 }
+
+/** Beside an ended Initiative's branch in a Project this repository no longer knows. */
+export const BRANCH_DELETED = "deleted";
 
 /** How a Done Publishing Task published, by its Project's publishing mode. */
 export function publishedWords(project: Pick<Project, "publishingMode" | "baseBranch">): string {

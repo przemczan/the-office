@@ -85,6 +85,16 @@ export class TaskCommitMessageChanged extends DomainEvent {
   }
 }
 
+/** The Task's branch was deleted, by hand or by Delete branches once merged (branch-deletion.ts). */
+export class TaskBranchDeleted extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    occurredAt: Date,
+  ) {
+    super(occurredAt);
+  }
+}
+
 /** The Task's pull request was merged or closed, and the Task records how (task-pull-request.ts). */
 export class TaskPullRequestEnded extends DomainEvent {
   constructor(

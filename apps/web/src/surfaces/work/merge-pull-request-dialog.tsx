@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { MergeMethod, PullRequest } from "@the-office/contracts";
 import { Alert, Button, Dialog, Field, RadioGroup, Skeleton } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
+import { projectQueries } from "../../api/projects.ts";
 import { mergePullRequest, pullRequestQueries } from "../../api/pull-requests.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
@@ -25,8 +26,8 @@ import {
 /**
  * Merge…: the pull request merges on its code host by the method chosen, of those it allows, the
  * recommended one picked at first. Failing checks or conflicts are a caution, not a block: the code
- * host refuses what its rules don't allow, and the window shows its words. The Office never deletes
- * the branch.
+ * host refuses what its rules don't allow, and the window shows its words. The Office deletes the
+ * branch once merged only when its Project's Delete branches once merged is On.
  */
 export function MergePullRequestDialog({
   pullRequest,
@@ -37,6 +38,8 @@ export function MergePullRequestDialog({
 }): ReactNode {
   const formId = useId();
   const methods = useQuery(pullRequestQueries.mergeMethods(pullRequest.id));
+  const officeDeletesMergedBranches =
+    useQuery(projectQueries.one(pullRequest.projectId)).data?.deleteMergedBranches ?? false;
   const [chosen, setChosen] = useState<MergeMethod | undefined>();
   const method = chosen ?? methods.data?.recommended;
   const merging = useMerging(pullRequest, onClose);
@@ -101,7 +104,9 @@ export function MergePullRequestDialog({
               />
             </Field>
             {methods.data.warning !== null && <Alert tone="warning" title={methods.data.warning} />}
-            <p className="dialog-text">{branchDeletionWords(methods.data.deletesBranchOnMerge)}</p>
+            <p className="dialog-text">
+              {branchDeletionWords(methods.data.deletesBranchOnMerge, officeDeletesMergedBranches)}
+            </p>
           </>
         )}
       </form>

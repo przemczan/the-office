@@ -96,6 +96,16 @@ export class ProjectEnvironmentChanged extends DomainEvent {
   }
 }
 
+/** Delete branches once merged turned On or Off; On has Work sweep the Project's leftovers. */
+export class ProjectDeleteMergedBranchesChanged extends DomainEvent {
+  constructor(
+    readonly projectId: string,
+    readonly on: boolean,
+  ) {
+    super();
+  }
+}
+
 export class ProjectPublishingModeChanged extends DomainEvent {
   constructor(
     readonly projectId: string,

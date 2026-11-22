@@ -91,6 +91,28 @@ export const initiativeBranchSchema = z.object({
 export type InitiativeBranch = z.infer<typeof initiativeBranchSchema>;
 
 /**
+ * A branch of a Task or an Initiative and whether this repository still knows it, as its local
+ * branch or a remote-tracking ref, without fetching (spec 5.5, "Deleting merged branches").
+ */
+export const knownBranchSchema = z.object({
+  projectId: z.string(),
+  branch: z.string(),
+  known: z.boolean(),
+});
+export type KnownBranch = z.infer<typeof knownBranchSchema>;
+
+/**
+ * GET /tasks/:id/branch: the Task's own branch; null for a Publishing Task or a Conflict resolution
+ * Task, which hold none.
+ */
+export const taskBranchSchema = z.object({ branch: knownBranchSchema.nullable() });
+export type TaskBranch = z.infer<typeof taskBranchSchema>;
+
+/** GET /initiatives/:id/branches: the Initiative's branch in each Project, in `branches`' order. */
+export const initiativeKnownBranchesSchema = z.object({ branches: z.array(knownBranchSchema) });
+export type InitiativeKnownBranches = z.infer<typeof initiativeKnownBranchesSchema>;
+
+/**
  * The Initiative's Pipeline in one Project it spans (spec 2.1): an office-wide Pipeline or that
  * Project's own, which its Publishing Task there follows; null for None, which publishes Task by Task.
  */
@@ -1220,6 +1242,13 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
     initiativeId: z.uuid(),
     projectId: z.string(),
   }),
+  webEventSchema.extend({
+    /** Deleted by hand or by Delete branches once merged (spec 5.5). */
+    type: z.literal("initiative.branch-deleted"),
+    initiativeId: z.uuid(),
+    projectId: z.string(),
+  }),
+  webEventSchema.extend({ type: z.literal("task.branch-deleted"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("initiative.archived"), initiativeId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("initiative.restored"), initiativeId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("initiative.paused"), initiativeId: z.uuid() }),

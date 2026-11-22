@@ -50,6 +50,7 @@ import {
 } from "./modules/pipelines/index.js";
 import {
   BaseCheckouts,
+  BranchDeletions,
   CiRunWatch,
   EngineLevelsChecks,
   EnvironmentChecks,
@@ -165,6 +166,7 @@ export class AppModule {
       projectWorktrees: TaskWorktrees,
       taskPullRequests: PullRequestRecords,
       projectInitiativeBranches: InitiativeBranches,
+      projectBranchDeletions: BranchDeletions,
       knownPeople: RoleCards,
       knownEngineCascade: EngineCascade,
       knownPipelines: PipelineLibrary,

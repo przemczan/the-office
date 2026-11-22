@@ -1,6 +1,6 @@
 # Project page
 
-Covers: a Project's page and its head, the section menu, Overview (Onboarding, Work, the Project limit), Files, Commands (install, install inputs, commands, Publish), Environment (variables, Secret variables, environment check), Pipelines (Default Pipeline and its rows by Kind, Project Pipelines), GitHub issues (the Import issues window, auto-import, write-back), Run environment, Test targets (the list, the editor, Set up test targets, the open Proposal), Test instances (the Branch picker, Launch on a branch, instances by branch), Engine, Skills, Server values, Appearance (Mark, Icon and Logo, How it looks).
+Covers: a Project's page and its head, the section menu, Overview (Onboarding, Work, the Project limit), Files, Commands (install, install inputs, commands, Publish, Delete branches once merged), Environment (variables, Secret variables, environment check), Pipelines (Default Pipeline and its rows by Kind, Project Pipelines), GitHub issues (the Import issues window, auto-import, write-back), Run environment, Test targets (the list, the editor, Set up test targets, the open Proposal), Test instances (the Branch picker, Launch on a branch, instances by branch), Engine, Skills, Server values, Appearance (Mark, Icon and Logo, How it looks).
 
 ## Where it is
 
@@ -111,6 +111,7 @@ Covers: a Project's page and its head, the section menu, Overview (Onboarding, W
   - **Publishing**: a select saved at once, "Push and open a pull request" or "Merge into <base branch>"; toast "Publishing saved. Tasks in <name> <mode in lower case>."
   - **Before publishing**: placeholder `npm run changelog`; blank shows "None"; saving blank clears it; hint "Runs in the Task's worktree before anything leaves; what it changes is committed and published."; toasts "Before publishing line saved." / "Before publishing line cleared."
   - **After publishing**: placeholder `./scripts/notify.sh`; blank shows "None"; hint "Runs in the Task's worktree once the pull request opens or the merge lands, with OFFICE_PUBLISHED_BRANCH, OFFICE_PUBLISHED_COMMIT, OFFICE_PULL_REQUEST_URL when there is one, and OFFICE_PUBLISHING_MODE."; toasts "After publishing line saved." / "After publishing line cleared."
+  - **Delete branches once merged**: a switch saved at once, Off by default; hint "Deletes a Task's branch here and on the remote once it is merged, and an Initiative's once it is Done and published. A branch holding work the base lacks is never deleted."; toasts "Branches of <Project> are deleted once merged." / "Branches of <Project> are kept after merge." ([5.5](../5.5-git-and-isolation.md#delete-branches-once-merged)).
   - Note: "Publish runs both lines with the Project's own variables, never The Office's credentials: keep a token in a Secret variable. Each runs again every time Publish runs, so it must be safe to run twice, and the Script Stage time limit of 30 minutes applies."
 - Only one row is edited at a time.
 
@@ -351,6 +352,7 @@ Covers: a Project's page and its head, the section menu, Overview (Onboarding, W
 - Which Pipeline a Task follows: [2.3.5](../2.3.5-library.md#which-pipeline-a-task-follows).
 - GitHub issues: [2.1.1](../2.1.1-projects.md#github-issues).
 - Publishing, Publish's before and after lines: [2.3.4](../2.3.4-publish.md#publishs-before-and-after-lines).
+- Delete branches once merged: [5.5](../5.5-git-and-isolation.md#deleting-merged-branches).
 - Project skills: [2.6](../2.6-skills.md#project-skills), [2.6](../2.6-skills.md#project-skills-turn-off-one-by-one).
 - The engine cascade: [5.4.5](../5.4.5-engines-and-cascade.md#the-engine-cascade).
 - Test targets and their Proposal: [2.12](../2.12-test-instances.md#test-target), [2.12](../2.12-test-instances.md#writing-test-targets).

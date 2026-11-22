@@ -119,6 +119,13 @@ export interface BranchTip {
   readonly commit: string;
 }
 
+/** What `commitsNotIn` counts: the commits a tip has that its bases lack. */
+export interface CommitsNotIn {
+  readonly count: number;
+  /** The newest commits' subjects, newest first. */
+  readonly subjects: readonly string[];
+}
+
 /** The most git may print for one command, so a file over it can't be read through git at all. */
 export const GIT_OUTPUT_LIMIT_BYTES = 64 * 1024 * 1024;
 
@@ -388,6 +395,17 @@ export abstract class Git {
    * leave `base`'s tree as it is, as after Publish landed its changes as one commit of their own.
    */
   abstract addsNothing(repositoryPath: string, base: string, revision: string): Promise<boolean>;
+
+  /**
+   * The commits `tip` has that none of `bases` has: how many, and the subjects of the newest
+   * `limit` of them, newest first.
+   */
+  abstract commitsNotIn(
+    repositoryPath: string,
+    tip: string,
+    bases: readonly string[],
+    limit: number,
+  ): Promise<CommitsNotIn>;
 
   /** Whether `ancestor` is `revision` or one of the commits it was made on. */
   abstract contains(repositoryPath: string, revision: string, ancestor: string): Promise<boolean>;

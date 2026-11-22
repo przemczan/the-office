@@ -223,7 +223,10 @@ async function answerOf<Schema extends z.ZodType>(
   return schema.parse(await response.json());
 }
 
-/** Nest answers errors with `{ message }`, refusals also with `reasons`; anything else by its status. */
+/**
+ * Nest answers errors with `{ message }`, refusals also with `reasons`, and a refusal of one reason,
+ * such as a branch deletion's, with `{ reason }`; anything else by its status.
+ */
 async function refusalOf(response: Response): Promise<ApiError> {
   if (response.status === 401) return new SignedOut(await messageOf(response));
   try {
@@ -231,6 +234,9 @@ async function refusalOf(response: Response): Promise<ApiError> {
     if (typeof body === "object" && body !== null && "message" in body) {
       const message = String(body.message);
       return new ApiError(response.status, message, reasonsIn(body) ?? [message]);
+    }
+    if (typeof body === "object" && body !== null && "reason" in body) {
+      return new ApiError(response.status, String(body.reason));
     }
   } catch {
     // Not JSON: fall through to the status.

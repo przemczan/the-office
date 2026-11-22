@@ -24,6 +24,7 @@ import {
   ProjectLimitChanged,
   ProjectMarkChanged,
   ProjectPublishingModeChanged,
+  ProjectDeleteMergedBranchesChanged,
   ProjectRunEnvironmentChanged,
   ProjectRoleOverrideChanged,
   ProjectSkillUseChanged,
@@ -118,6 +119,13 @@ export class ProjectWebEvents implements OnModuleInit {
       ProjectPublishingModeChanged,
       (event): WebEventOf<"project.publishing-mode-changed"> => ({
         type: "project.publishing-mode-changed",
+        projectId: event.projectId,
+      }),
+    );
+    this.forwarding.forward(
+      ProjectDeleteMergedBranchesChanged,
+      (event): WebEventOf<"project.delete-merged-branches-changed"> => ({
+        type: "project.delete-merged-branches-changed",
         projectId: event.projectId,
       }),
     );

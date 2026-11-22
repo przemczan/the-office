@@ -4273,3 +4273,78 @@ test(
     await expect(page.getByRole("button", { name: "Start", exact: true })).toBeDisabled();
   },
 );
+
+const OFFICE_SCREENSHOTS = path.resolve(import.meta.dirname, "../../../.office/screenshots");
+
+/** Whether the repository at `cwd` has the ref; `git show-ref` exits 1 when it hasn't. */
+function hasRef(cwd: string, ref: string): boolean {
+  try {
+    execFileSync("git", ["show-ref", "--verify", "--quiet", ref], { cwd, stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+test(
+  "the user deletes a Done Task's branch, here and on origin, from the Task menu's Delete branch…",
+  { tag: "@full" },
+  async ({ page }) => {
+    const own = await createTemporaryRepositoryWithRemote();
+    try {
+      const project = await addedProject(page, "Branch cleanup", "BC", own.path);
+      const task = await createdTask(page, project, "Tidy the branch of a finished export");
+      const branch = `office/${task.id}`;
+      // Its branch holds nothing main lacks, here and on origin, as after a merge.
+      execFileSync("git", ["branch", branch, "main"], { cwd: own.path, stdio: "ignore" });
+      execFileSync("git", ["push", "--quiet", "origin", branch], {
+        cwd: own.path,
+        stdio: "ignore",
+      });
+      await queryOfficeDatabase(`update tasks set state = 'done' where id = $1`, [task.id]);
+
+      await page.goto(`/tasks/${task.id}`);
+      await page.getByRole("button", { name: `More for ${task.title}` }).click();
+      await page.getByRole("menu").getByRole("button", { name: "Delete branch…" }).click();
+      const dialog = page.getByRole("dialog", { name: `Delete ${branch}?` });
+      await expect(dialog.getByText("Everything on it is in main.")).toBeVisible();
+      await expect(dialog.getByText(branch, { exact: true })).toBeVisible();
+      await expect(dialog.getByText(`origin/${branch}`, { exact: true })).toBeVisible();
+      await dialog.screenshot({ path: path.join(OFFICE_SCREENSHOTS, "delete-branch-window.png") });
+
+      await dialog.getByRole("button", { name: "Delete branch", exact: true }).click();
+      await expect(page.getByText(`Branch ${branch} deleted.`)).toBeVisible();
+      await expect(dialog).toBeHidden();
+      expect(hasRef(own.path, `refs/heads/${branch}`)).toBe(false);
+      expect(hasRef(own.remote, `refs/heads/${branch}`)).toBe(false);
+      await page.getByRole("button", { name: `More for ${task.title}` }).click();
+      await expect(
+        page.getByRole("menu").getByRole("button", { name: "Delete branch…" }),
+      ).toHaveCount(0);
+      await page.keyboard.press("Escape");
+
+      // The Project page's Publish group turns Delete branches once merged On and Off.
+      await page.goto(`/projects/${project.id}/commands`);
+      const publish = page.getByRole("group", { name: "Publish", exact: true });
+      // The group's one switch, beside its label (the design system's Switch carries no name).
+      await expect(publish.getByText("Delete branches once merged", { exact: true })).toBeVisible();
+      const setting = publish.getByRole("switch");
+      await expect(setting).not.toBeChecked();
+      await publish.screenshot({
+        path: path.join(OFFICE_SCREENSHOTS, "project-delete-merged-branches.png"),
+      });
+      await setting.click();
+      await expect(
+        page.getByText(`Branches of ${project.name} are deleted once merged.`),
+      ).toBeVisible();
+      await expect(setting).toBeChecked();
+      await setting.click();
+      await expect(
+        page.getByText(`Branches of ${project.name} are kept after merge.`),
+      ).toBeVisible();
+      await expect(setting).not.toBeChecked();
+    } finally {
+      await own.remove();
+    }
+  },
+);

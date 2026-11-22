@@ -38,6 +38,7 @@ export function toProjectResponse(project: Project, codeHost: string | null): Pr
     publishingMode: project.publishingMode,
     beforePublishingCommand: project.beforePublishingCommand,
     afterPublishingCommand: project.afterPublishingCommand,
+    deleteMergedBranches: project.deleteMergedBranches,
     defaultPipeline: project.defaultPipeline,
     environment: toEnvironmentResponse(project.environment),
     useProjectSkills: project.useProjectSkills,

@@ -1,4 +1,4 @@
-import type { PullRequest, PullRequestMergeMethods } from "@the-office/contracts";
+import type { Project, PullRequest, PullRequestMergeMethods } from "@the-office/contracts";
 import { act } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -27,6 +27,43 @@ const PULL_REQUEST: PullRequest = {
   mergeable: "yes",
   checkedAt: "2026-11-10T10:05:00.000Z",
   stale: false,
+};
+
+const PROJECT: Project = {
+  id: "admin-panel",
+  name: "Admin panel",
+  path: "/projects/admin-panel",
+  baseBranch: "main",
+  mark: { label: "AP", colour: "teal" },
+  installCommand: "",
+  commands: [],
+  installInputs: [],
+  publishingMode: "push-and-pull-request",
+  defaultPipeline: "full",
+  icon: { light: null, dark: null },
+  logo: { light: null, dark: null },
+  repositoryUrl: null,
+  beforePublishingCommand: "",
+  afterPublishingCommand: "",
+  deleteMergedBranches: false,
+  environment: { set: [], unset: [], prependPath: [] },
+  useProjectSkills: false,
+  projectSkillsOff: [],
+  projectDefault: null,
+  useForEveryRole: false,
+  roleOverrides: [],
+  runEnvironment: "not-decided",
+  projectLimit: 1,
+  addedAt: "2026-11-01T10:00:00.000Z",
+  codeHost: "GitHub",
+  kindDefaultPipelines: { feature: null, bug: null, chore: null },
+  defaultPipelineOfKind: { feature: "full", bug: "full", chore: "full" },
+  issueSettings: {
+    autoImportLabel: null,
+    closeOnDone: true,
+    commentOnStartAndDone: false,
+    closeOnDrop: false,
+  },
 };
 
 const METHODS = `GET /api/pull-requests/${PULL_REQUEST.id}/merge-methods`;
@@ -126,6 +163,21 @@ describe("the Merge window", () => {
     });
 
     await until(() => expect(page.textContent).toContain(words));
+  });
+
+  it("says The Office deletes the branch once merged when its Project's setting is On", async () => {
+    const page = await openMerge({
+      [METHODS]: () => ({ status: 200, body: methods({ deletesBranchOnMerge: false }) }),
+      [`GET /api/projects/${PULL_REQUEST.projectId}`]: () => ({
+        status: 200,
+        body: { ...PROJECT, deleteMergedBranches: true },
+      }),
+    });
+
+    await until(() =>
+      expect(page.textContent).toContain("The Office deletes the branch once it is merged."),
+    );
+    expect(page.textContent).not.toContain("The branch stays after the merge.");
   });
 
   it("shows a refusal in GitHub's words, with Refresh when the pull request changed", async () => {

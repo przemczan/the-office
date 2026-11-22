@@ -35,6 +35,7 @@ import {
   changeProjectLimit,
   changePublishingLine,
   changePublishingMode,
+  changeDeleteMergedBranches,
   changeRoleOverride,
   changeRunEnvironment,
   changeUseForEveryRole,
@@ -271,6 +272,10 @@ export class ProjectService {
     commandLine: string,
   ): Promise<Project> {
     return this.update(id, (project) => changePublishingLine(project, line, commandLine));
+  }
+
+  async changeDeleteMergedBranches(id: string, on: boolean): Promise<Project> {
+    return this.update(id, (project) => changeDeleteMergedBranches(project, on));
   }
 
   async changePublishingMode(id: string, publishingMode: PublishingMode): Promise<Project> {

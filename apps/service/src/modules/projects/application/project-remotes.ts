@@ -34,6 +34,13 @@ export class ProjectRemotes {
     }
   }
 
+  /** git's own words, after what the Office identity lacks for the remote when it lacks something. */
+  async reasonOf(project: Project, failure: Error): Promise<string> {
+    const problem = failure instanceof GitCommandFailed ? failure.detail : failure.message;
+    const lacking = await this.whyFetchFailed(project);
+    return lacking === undefined ? problem : `${lacking} ${problem}`;
+  }
+
   /** What a failed fetch of the base branch may lack, in the user's words; undefined if nothing. */
   async whyFetchFailed(project: Project): Promise<string | undefined> {
     const needs = await this.needsOf(project);

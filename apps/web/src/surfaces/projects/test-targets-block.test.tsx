@@ -41,6 +41,7 @@ const PROJECT: Project = {
   repositoryUrl: null,
   beforePublishingCommand: "",
   afterPublishingCommand: "",
+  deleteMergedBranches: false,
   environment: { set: [], unset: [], prependPath: [] },
   useProjectSkills: true,
   projectSkillsOff: [],

@@ -86,7 +86,7 @@ The Pipeline an Initiative has in one of the Projects it spans, an office-wide P
 _Avoid_: Initiative workflow, release Pipeline
 
 **Initiative's branch**:
-`initiative/<short name>`, made from the base branch in each Project where an Initiative has a Pipeline. Its Tasks start from it and publish into it, it keeps up with the base, and it is kept until the user deletes it.
+`initiative/<short name>`, made from the base branch in each Project where an Initiative has a Pipeline. Its Tasks start from it and publish into it, it keeps up with the base, and it is kept until deleted by hand or by Delete branches once merged.
 _Avoid_: Feature branch, integration branch, epic branch
 
 **Short name** (an Initiative's):
@@ -714,6 +714,10 @@ _Avoid_: Capacity, slots, concurrency
 **Project limit**:
 How many of a Project's Tasks may be started at once (In progress, Waiting on you or Paused), 1 unless the user raises it on the Project page; only the Project's own Tasks count against it.
 _Avoid_: Project capacity, parallelism, concurrency
+
+**Delete branches once merged**:
+A Project's setting, Off by default: with it On, The Office deletes a Task's branch, here and on the remote, once it is merged, and an Initiative's once it is Done and its work is in the base; a branch holding work the base lacks is never deleted by it. **Delete branch…** deletes one by hand.
+_Avoid_: Branch cleanup, prune, auto-delete
 
 **Hard limit**:
 The context size, 180k tokens by default, past which The Office stops an Agent Stage's turn and asks for a Handover note alone, so a fresh session carries the Stage on; set Office-wide in Settings, or per Stage.

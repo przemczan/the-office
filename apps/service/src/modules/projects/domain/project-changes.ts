@@ -51,6 +51,7 @@ import {
   ProjectLimitChanged,
   ProjectMarkChanged,
   ProjectPublishingModeChanged,
+  ProjectDeleteMergedBranchesChanged,
   ProjectRoleOverrideChanged,
   ProjectRunEnvironmentChanged,
   ProjectSkillUseChanged,
@@ -178,6 +179,7 @@ export function addProject(
     logo: NO_PROJECT_IMAGE,
     beforePublishingCommand: "",
     afterPublishingCommand: "",
+    deleteMergedBranches: false,
     environment: UNCHANGED_ENVIRONMENT,
     useProjectSkills: true,
     projectSkillsOff: [],
@@ -317,6 +319,18 @@ export function changeEnvironment(
   return {
     project: { ...project, environment },
     event: new ProjectEnvironmentChanged(project.id, shownEnvironment(environment)),
+  };
+}
+
+/** Undefined when the setting is already so. */
+export function changeDeleteMergedBranches(
+  project: Project,
+  on: boolean,
+): ProjectChange<ProjectDeleteMergedBranchesChanged> | undefined {
+  if (project.deleteMergedBranches === on) return undefined;
+  return {
+    project: { ...project, deleteMergedBranches: on },
+    event: new ProjectDeleteMergedBranchesChanged(project.id, on),
   };
 }
 

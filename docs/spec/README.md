@@ -66,6 +66,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Daily cap, Window cap, Usage window**: [2.1.5 A pause by the usage window](2.1.5-planning-and-start.md#a-pause-by-the-usage-window); [5.4.6 Checking the usage windows](5.4.6-stand-in-engines-and-usage-windows.md#checking-the-usage-windows)
 - **Decision**: [2.4.2 The Decision form](2.4.2-decisions.md#the-decision-form); screen: [Decision card](screens/decision-card.md#decision-card)
 - **Definition of Done, Plan**: [2.1.5 Plan and Definition of Done](2.1.5-planning-and-start.md#plan-and-definition-of-done); screen: [Task page › Definition of Done](screens/task-page.md#definition-of-done)
+- **Deleting merged branches, Delete branches once merged, Delete branch…**: [5.5 Deleting merged branches](5.5-git-and-isolation.md#deleting-merged-branches); screens: [Project page › Commands](screens/project-page.md#commands), [Task page › Delete branch window](screens/task-page.md#delete-branch-window)
 - **Density**: [4 Densities](4-ux-direction.md#densities); [4 Density](4-ux-direction.md#density)
 - **Description**: [2.1.3 Description](2.1.3-tasks.md#description)
 - **Details**: [2.9.3 The details](2.9.3-streaming-and-ui.md#the-details); screen: [Decision card › The details window](screens/decision-card.md#the-details-window-open-details)
@@ -370,7 +371,7 @@ One page per screen, as built. Where a [design](../design/README.md) differs, th
   - [5.4.5 Engines and the engine cascade](5.4.5-engines-and-cascade.md)
   - [5.4.6 Stand-in Engines and usage windows](5.4.6-stand-in-engines-and-usage-windows.md)
   - [5.4.7 The Gemini CLI engine](5.4.7-gemini-cli-engine.md)
-- [5.5 Git and isolation](5.5-git-and-isolation.md): a worktree per Task, guards, environment as data, the Office identity, run environments, test instances' checkouts.
+- [5.5 Git and isolation](5.5-git-and-isolation.md): a worktree per Task, guards, deleting merged branches, environment as data, the Office identity, run environments, test instances' checkouts.
 - [5.6 Skills per session](5.6-skills-per-session.md): what a session lists at start.
 
 ### Safety and risks
@@ -668,6 +669,7 @@ Where each default lives, by page:
   - [Gemini CLI: usage](5.4.7-gemini-cli-engine.md#gemini-cli-usage)
   - [Gemini CLI: capabilities as the engine check showed them](5.4.7-gemini-cli-engine.md#gemini-cli-capabilities-as-the-engine-check-showed-them)
 - 5.5 Git and isolation
+  - [Merged branches kept](5.5-git-and-isolation.md#merged-branches-kept)
   - [Install inputs](5.5-git-and-isolation.md#install-inputs)
   - [The base branch's upstream](5.5-git-and-isolation.md#the-base-branchs-upstream)
   - [Clones](5.5-git-and-isolation.md#clones)

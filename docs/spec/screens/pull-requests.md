@@ -75,7 +75,7 @@ Covers: the Pull requests tab of Work, the list of open pull requests, Refresh, 
 - A warning when checks fail or it conflicts: "Checks are failing and it has conflicts", "Checks are failing" or "It has conflicts with its base", with "The merge can still be tried; GitHub refuses it when the base branch's rules don't allow it." Failing checks and conflicts are a caution, not a block.
 - **Merge method**, a radio of the methods the repository allows, the recommended one picked at first, in GitHub's words: "Create a merge commit", "Squash and merge", "Rebase and merge". A skeleton shows while they are read; the alert "The merge methods can't be read" shows a failure.
 - A warning with the service's words when it has one.
-- A line on the branch: "GitHub deletes the branch once it is merged.", "The branch stays after the merge.", or "The Office doesn't delete the branch; GitHub deletes it only if the repository is set to."
+- A line on the branch: with the Project's Delete branches once merged On, "The Office deletes the branch once it is merged."; Off, "GitHub deletes the branch once it is merged.", "The branch stays after the merge.", or "The Office doesn't delete the branch; GitHub deletes it only if the repository is set to."
 - Button **Merge pull request**, disabled until a method is known.
 - A refusal shows as the alert "The pull request wasn't merged" with the code host's words; when the pull request changed since The Office read it, the alert carries **Refresh**, which reads it again so the merge can be tried once more.
 - Done: toast "#42 merged." and the window closes.

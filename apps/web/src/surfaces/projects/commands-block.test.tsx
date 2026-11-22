@@ -42,6 +42,7 @@ const PROJECT: Project = {
   repositoryUrl: null,
   beforePublishingCommand: "",
   afterPublishingCommand: "",
+  deleteMergedBranches: false,
   environment: { set: [], unset: [], prependPath: [] },
   useProjectSkills: true,
   projectSkillsOff: [],
@@ -319,6 +320,27 @@ describe("the Project page's Commands block", () => {
     expect(document.body.textContent).toContain(
       "Publishing saved. Tasks in Admin panel push and open a pull request.",
     );
+  });
+
+  it("holds Delete branches once merged in its Publish group, off, and saves it on at once", async () => {
+    const fetched = answering(() => Response.json({ ...PROJECT, deleteMergedBranches: true }));
+    const { page, queryClient } = blockOf(PROJECT);
+    const publish = page.querySelector<HTMLElement>('[role="group"][aria-label="Publish"]');
+    if (!publish) throw new Error("There is no Publish group.");
+
+    const deleting = [...publish.querySelectorAll<HTMLElement>('[role="switch"]')].find((control) =>
+      control.closest("label, div")?.textContent?.includes("Delete branches once merged"),
+    );
+    if (!deleting) throw new Error("There is no Delete branches once merged switch.");
+    expect(deleting.getAttribute("aria-checked")).toBe("false");
+    expect(publish.textContent).toContain("A branch holding work the base lacks is never deleted.");
+    await settled(queryClient, () => deleting.click());
+
+    const [url, request] = fetched.mock.calls[0] ?? [];
+    expect(url).toBe("/api/projects/admin-panel/delete-merged-branches");
+    expect(request?.method).toBe("PUT");
+    expect(request?.body).toBe(JSON.stringify({ on: true }));
+    expect(document.body.textContent).toContain("Branches of Admin panel are deleted once merged.");
   });
 
   it("shows None for a publishing line not set, with what each line is for", () => {

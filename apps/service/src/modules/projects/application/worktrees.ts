@@ -35,6 +35,7 @@ const PUBLISHED_FROM_BASE_PREFIX = "refs/office/published-from-base/";
 const PUBLISHED_PREFIX = "refs/office/published/";
 const MOVED_TO_PREFIX = "refs/office/moved-to/";
 const LANDED_PREFIX = "refs/office/landed/";
+const BRANCH_TIP_PREFIX = "refs/office/branch-tip/";
 /** A throwaway worktree's folder starts with it, which no Task id does. */
 const THROWAWAY_PREFIX = "_";
 const INSTALL_RECORD = "office-install";
@@ -202,6 +203,14 @@ export class Worktrees {
    */
   landedRefOf(taskId: string): string {
     return `${LANDED_PREFIX}${taskId}`;
+  }
+
+  /**
+   * The tip of the Task's branch when it was deleted (spec §5.5, "Deleting merged branches"), which
+   * its changes are read up to after that.
+   */
+  branchTipRefOf(taskId: string): string {
+    return `${BRANCH_TIP_PREFIX}${taskId}`;
   }
 
   /** The commit a Publish by merge landed the Task as; undefined when none did. */
@@ -377,6 +386,7 @@ export class Worktrees {
   /**
    * What the Task's changes are read up to: its branch, or, for a Publishing Task once published,
    * the Initiative's branch's tip it published, as fix Tasks may move the branch on after that.
+   * Once its branch is deleted, the tip kept then.
    */
   private async changedRevisionOf(project: Project, taskId: string): Promise<string | undefined> {
     const branch = await this.branchOf(project, taskId);
@@ -390,7 +400,9 @@ export class Worktrees {
         return this.publishedRefOf(taskId);
       }
     }
-    return (await this.git.hasBranch(project.path, branch)) ? branch : undefined;
+    if (await this.git.hasBranch(project.path, branch)) return branch;
+    const tip = this.branchTipRefOf(taskId);
+    return (await this.git.findCommit(project.path, tip)) === undefined ? undefined : tip;
   }
 
   /**

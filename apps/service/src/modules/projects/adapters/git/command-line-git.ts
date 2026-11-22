@@ -10,6 +10,7 @@ import {
   type ChangedFile,
   type CloneRequest,
   type CommitTree,
+  type CommitsNotIn,
   type FolderInspection,
   type GitVariables,
   type Head,
@@ -413,6 +414,29 @@ export class CommandLineGit extends Git {
       }),
     ]);
     return merged === baseTree.trim();
+  }
+
+  async commitsNotIn(
+    repositoryPath: string,
+    tip: string,
+    bases: readonly string[],
+    limit: number,
+  ): Promise<CommitsNotIn> {
+    const excluded = bases.map((base) => `^${base}`);
+    const [count, subjects] = await Promise.all([
+      this.process.output({
+        folder: repositoryPath,
+        gitArguments: ["rev-list", "--count", tip, ...excluded, "--"],
+      }),
+      this.process.output({
+        folder: repositoryPath,
+        gitArguments: ["log", `--max-count=${limit}`, "--format=%s", tip, ...excluded, "--"],
+      }),
+    ]);
+    return {
+      count: Number(count.trim()),
+      subjects: subjects.split("\n").filter((line) => line !== ""),
+    };
   }
 
   async contains(repositoryPath: string, revision: string, ancestor: string): Promise<boolean> {

@@ -1,7 +1,8 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { TASK_KINDS, type Priority, type TaskKind, type TaskSummary } from "@the-office/contracts";
 import { Icon, IconButton, type MenuItem } from "@the-office/ui";
 import { Fragment, useState, type ReactNode } from "react";
+import { branchQueries } from "../../api/branch-deletions.ts";
 import { changeKind, changePriority, taskQueries } from "../../api/work.ts";
 import { FloatingMenu } from "../../shell/floating-menu.tsx";
 import { useToast } from "../../shell/toasts.tsx";
@@ -13,6 +14,7 @@ import {
   PRIORITY_NAMES,
 } from "../../shell/work/work-words.ts";
 import { DropTaskDialog } from "../../shell/work/drop-task-dialog.tsx";
+import { DeleteBranchDialog } from "./delete-branch-dialog.tsx";
 import { EditTaskStagesDialog } from "./edit-task-stages-dialog.tsx";
 import { MoveTaskDialog } from "./move-task-dialog.tsx";
 import { usePlanningActions } from "./planning-actions.tsx";
@@ -25,16 +27,22 @@ const PRIORITIES: readonly Priority[] = ["high", "normal", "low"];
  * A Task's "More" menu: first its actions, every button of its page's head (`useTaskActions`), or
  * on its board card what moves it along in planning; then its priority while it hasn't started,
  * its Kind until it has ended, its Stages to edit, Move and Drop until it has ended, and Archive once it has. Move shows even
- * where it is refused, as its window says why.
+ * where it is refused, as its window says why. On the Task's page, an ended Task's menu offers
+ * Delete branch… too while its branch is known here (spec 5.5, "Deleting merged branches").
  */
 export function TaskMenu({
   task,
   actions,
+  offersBranchDeletion = false,
 }: {
   readonly task: TaskSummary;
   readonly actions?: readonly RecordAction[];
+  /** Whether the menu asks for the Task's branch, which only its page does. */
+  readonly offersBranchDeletion?: boolean;
 }): ReactNode {
   const [open, setOpen] = useState(false);
+  // The branch whose window is open, kept while the deletion it makes takes it off the menu.
+  const [deletingBranch, setDeletingBranch] = useState<string>();
   const [dropping, setDropping] = useState(false);
   const [editingStages, setEditingStages] = useState(false);
   const [moving, setMoving] = useState(false);
@@ -61,6 +69,12 @@ export function TaskMenu({
     onSettled: () => queryClient.invalidateQueries(taskQueries.list()),
   });
   const ended = task.state === "done" || task.state === "dropped";
+  const branch = useQuery({
+    ...branchQueries.ofTask(task.id),
+    enabled: offersBranchDeletion && ended,
+  }).data?.branch;
+  const deletableBranch =
+    offersBranchDeletion && ended && branch?.known === true ? branch : undefined;
   const ownItems: MenuItem[] = [
     ...(NOT_STARTED.includes(task.state)
       ? [
@@ -101,6 +115,16 @@ export function TaskMenu({
             icon: <Icon name="archive" size={14} />,
             label: "Archive",
             onSelect: () => archiving.mutate(task),
+          },
+        ]
+      : []),
+    ...(deletableBranch
+      ? [
+          {
+            icon: <Icon name="git-branch" size={14} />,
+            label: "Delete branch…",
+            danger: true,
+            onSelect: () => setDeletingBranch(deletableBranch.branch),
           },
         ]
       : []),
@@ -153,6 +177,13 @@ export function TaskMenu({
         (action) => action.dialog && <Fragment key={action.key}>{action.dialog}</Fragment>,
       )}
       {dropping && <DropTaskDialog task={task} onClose={() => setDropping(false)} />}
+      {deletingBranch !== undefined && (
+        <DeleteBranchDialog
+          owner={{ kind: "task", taskId: task.id }}
+          branch={deletingBranch}
+          onClose={() => setDeletingBranch(undefined)}
+        />
+      )}
       {moving && <MoveTaskDialog task={task} onClose={() => setMoving(false)} />}
       {editingStages && (
         <EditTaskStagesDialog task={task} onClose={() => setEditingStages(false)} />

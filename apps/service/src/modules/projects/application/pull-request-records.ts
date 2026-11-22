@@ -27,6 +27,18 @@ export class PullRequestRecords {
     );
   }
 
+  /** The Project's open pull request from `branch`, as last read; undefined when none is open. */
+  async openFromBranch(projectId: string, branch: string): Promise<PullRequest | undefined> {
+    return (await this.pullRequests.listOpen(projectId)).find(
+      (pullRequest) => pullRequest.branch === branch,
+    );
+  }
+
+  /** Whether the newest pull request the Task opened is recorded merged. */
+  async isMerged(taskId: string): Promise<boolean> {
+    return (await this.pullRequests.ofTask(taskId))?.state === "merged";
+  }
+
   /** The open pull requests whose checks fail or which have conflicts, as last read, oldest first. */
   async needingAttention(): Promise<readonly PullRequestNeedingAttention[]> {
     return (await this.pullRequests.listOpen())

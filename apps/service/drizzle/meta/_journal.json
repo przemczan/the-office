@@ -1345,6 +1345,20 @@
       "when": 1795350150816,
       "tag": "0191_notifications_for_each_user",
       "breakpoints": true
+    },
+    {
+      "idx": 192,
+      "version": "7",
+      "when": 1795352377469,
+      "tag": "0192_delete_merged_branches",
+      "breakpoints": true
+    },
+    {
+      "idx": 193,
+      "version": "7",
+      "when": 1795352852972,
+      "tag": "0193_task_branch_deletion",
+      "breakpoints": true
     }
   ]
 }

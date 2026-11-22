@@ -245,7 +245,7 @@ function TaskHead({
       </div>
       <RecordActions
         actions={actions}
-        menu={<TaskMenu task={task} actions={actions} />}
+        menu={<TaskMenu task={task} actions={actions} offersBranchDeletion />}
         className="task-head-actions"
       />
       <StartNotes task={task} />

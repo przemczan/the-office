@@ -130,7 +130,7 @@ export class RepositoryFiles {
       } catch (error) {
         // Any Error, as `fresh` takes it.
         if (!(error instanceof Error)) throw error;
-        fetchProblem = await this.reasonOf(project, error);
+        fetchProblem = await this.remotes.reasonOf(project, error);
       }
     }
     const commit = await this.lastKnownCommit(project, upstream);
@@ -255,7 +255,7 @@ export class RepositoryFiles {
   }
 
   private async lastKnown(project: Project, failure: Error): Promise<BaseBranchCommit> {
-    const reason = await this.reasonOf(project, failure);
+    const reason = await this.remotes.reasonOf(project, failure);
     const commit = await this.lastKnownCommit(project, await this.upstreamOf(project));
     if (commit === undefined) {
       throw new ProjectRefused([
@@ -263,13 +263,6 @@ export class RepositoryFiles {
       ]);
     }
     return { commit, fetchProblem: reason };
-  }
-
-  /** git's own words, after what the Office identity lacks for the remote when it lacks something. */
-  private async reasonOf(project: Project, failure: Error): Promise<string> {
-    const problem = failure instanceof GitCommandFailed ? failure.detail : failure.message;
-    const lacking = await this.remotes.whyFetchFailed(project);
-    return lacking === undefined ? problem : `${lacking} ${problem}`;
   }
 
   /** The remote branch the base branch tracks; undefined when none, or no repository is there. */

@@ -99,6 +99,7 @@ function projectRecord(project: Project, surroundings: ProjectSurroundings): str
     `- Publishing: ${project.publishingMode === "merge" ? `merge into ${project.baseBranch}` : "push and open a pull request"}`,
     `- Before publishing: \`${project.beforePublishingCommand || "none"}\``,
     `- After publishing: \`${project.afterPublishingCommand || "none"}\``,
+    `- Delete branches once merged: ${project.deleteMergedBranches ? "on" : "off"}`,
     `- Default Pipeline: ${project.defaultPipeline}`,
     `- Project limit: ${project.projectLimit} Task${project.projectLimit === 1 ? "" : "s"} started at once`,
     `- Run environment: ${RUN_ENVIRONMENT_WORDS[project.runEnvironment]}`,

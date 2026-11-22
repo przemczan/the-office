@@ -2,6 +2,7 @@ export { FireAlarmService } from "./application/fire-alarm-service.js";
 export { IdeaService } from "./application/idea-service.js";
 export { InitiativeService } from "./application/initiative-service.js";
 export { InitiativeArchiving } from "./application/initiative-archiving.js";
+export { BranchCleanup } from "./application/branch-cleanup.js";
 export { DroppedInitiativeTasks } from "./application/dropped-initiative-tasks.js";
 export { DroppedTaskDecisions } from "./application/dropped-task-decisions.js";
 export { PlanningAfterRestart } from "./application/planning-after-restart.js";

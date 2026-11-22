@@ -86,6 +86,7 @@ describe("ProjectRecords.of", () => {
         "- Publishing: push and open a pull request",
         "- Before publishing: `none`",
         "- After publishing: `none`",
+        "- Delete branches once merged: off",
         "- Default Pipeline: full",
         "- Project limit: 1 Task started at once",
         "- Run environment: not decided yet",

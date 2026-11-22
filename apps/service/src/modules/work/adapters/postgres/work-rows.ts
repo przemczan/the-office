@@ -3,6 +3,7 @@ import type { Database } from "../../../../platform/database/database.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
 import type { Author } from "../../domain/author.js";
+import type { BranchDeletionRecord } from "../../domain/branch-deletion.js";
 import type { DropReason } from "../../domain/drop-reason.js";
 import type { Idea } from "../../domain/idea.js";
 import type { Initiative } from "../../domain/initiative.js";
@@ -23,6 +24,7 @@ import {
   taskStateChanges,
   type AuthorRow,
   type PullRequestEndRow,
+  type BranchDeletionRow,
   type StateChangeCauseRow,
 } from "./work.schema.js";
 
@@ -263,9 +265,10 @@ export function toInitiativeRow(initiative: Initiative): InitiativeRow {
       pipelineId: pipelineId ?? null,
     })),
     shortName: initiative.shortName ?? null,
-    branches: initiative.branches.map((branch) => ({
+    branches: initiative.branches.map(({ deletion, ...branch }) => ({
       ...branch,
       madeAt: branch.madeAt.toISOString(),
+      ...(deletion ? { deletion: toBranchDeletionRow(deletion) } : {}),
     })),
   };
 }
@@ -288,7 +291,11 @@ export function toInitiative(row: InitiativeRow): Initiative {
       pipelineId: pipelineId ?? undefined,
     })),
     shortName: row.shortName ?? undefined,
-    branches: row.branches.map((branch) => ({ ...branch, madeAt: new Date(branch.madeAt) })),
+    branches: row.branches.map(({ deletion, ...branch }) => ({
+      ...branch,
+      madeAt: new Date(branch.madeAt),
+      ...(deletion ? { deletion: branchDeletionOf(deletion) } : {}),
+    })),
   };
 }
 
@@ -336,6 +343,7 @@ export function toTaskRow(task: Task): TaskRow {
     restoredBy: task.restoredBy ?? null,
     endedAt: task.endedAt ?? null,
     pullRequestEnd: task.pullRequestEnd ? toPullRequestEndRow(task.pullRequestEnd) : null,
+    branchDeletion: task.branchDeletion ? toBranchDeletionRow(task.branchDeletion) : null,
     kind: task.kind,
     ...dropReasonColumns(task.dropReason),
     causedByTaskId: task.causedBy ?? null,
@@ -373,6 +381,18 @@ function dropReasonOf(
     default:
       return undefined;
   }
+}
+
+function toBranchDeletionRow(deletion: BranchDeletionRecord): BranchDeletionRow {
+  return { ...deletion, at: deletion.at.toISOString() };
+}
+
+function branchDeletionOf(row: BranchDeletionRow): BranchDeletionRecord {
+  return {
+    ...row,
+    at: new Date(row.at),
+    by: row.by.kind === "office" ? row.by : authorOf(row.by),
+  };
 }
 
 function toPullRequestEndRow(end: PullRequestEnd): PullRequestEndRow {
@@ -457,6 +477,7 @@ export function toTaskSummary(row: TaskSummaryRow): TaskSummary {
     restoredBy: row.restoredBy ? authorOf(row.restoredBy) : undefined,
     endedAt: row.endedAt ?? undefined,
     pullRequestEnd: row.pullRequestEnd ? pullRequestEndOf(row.pullRequestEnd) : undefined,
+    branchDeletion: row.branchDeletion ? branchDeletionOf(row.branchDeletion) : undefined,
     kind: row.kind,
     causedBy: row.causedByTaskId ?? undefined,
     foundInVersion: row.foundInVersion ?? undefined,

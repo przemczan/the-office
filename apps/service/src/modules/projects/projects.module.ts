@@ -62,6 +62,7 @@ import { TaskCommandRunner } from "./application/task-command-runner.js";
 import { TaskRunEnvironments } from "./application/task-run-environments.js";
 import { EnvironmentChecks } from "./application/environment-checks.js";
 import { InitiativeBranches } from "./application/initiative-branches.js";
+import { BranchDeletions } from "./application/branch-deletions.js";
 import { LocalRepositories } from "./application/local-repositories.js";
 import { RepositoriesByUrl } from "./application/repositories-by-url.js";
 import { ProjectChecks } from "./application/project-checks.js";
@@ -212,6 +213,7 @@ export class ProjectsModule implements NestModule {
         RepositoryFiles,
         CommittedFiles,
         InitiativeBranches,
+        BranchDeletions,
         ProjectWebEvents,
         PullRequestWebEvents,
         CiRunWebEvents,
@@ -225,6 +227,7 @@ export class ProjectsModule implements NestModule {
         CommittedFiles,
         EngineLevelsChecks,
         InitiativeBranches,
+        BranchDeletions,
         RunEnvironmentSetUpRegistry,
         DevcontainerServices,
         TestTargets,
