@@ -93,12 +93,12 @@ Covers: the Decision card and its forms (the form in place, the compact card, th
 - For a Bug Task Decision ([2.4.2](../2.4.2-decisions.md#the-bug-task-decision)): under the top line, "<asker> proposes a Bug Task", then the Agent's why as the context.
 - The proposed Task's fields, editable: **Title** (required), **Description**, **Project** (the Agent's Task's at first) and **Caused by** ("Optional.", a Task picker, "Find a Task by its title").
 - The **General comment** ("Optional.", placeholder "Anything about the form as a whole").
-- Actions: **Create the Bug Task** (waits with "Write a title first." while the title is empty), **Don't create it** and **Ask me again**, with the hint "It goes to Backlog as a Bug, found while working on this Task."
+- Actions: **Create the Bug Task** (waits with "Write a title first." while the title is empty), **Don't create it**, **Fix now** (on a Decision that offers it) and **Ask me again**, with the hint "It goes to Backlog as a Bug, found while working on this Task."
 - Ask me again is a step asking "What should <asker> explain or change?", as on any form.
 - No Dismiss, as on any Stage Thread's Decision.
 - A Create that is refused keeps the card open with its refusal shown.
-- In the shared feed (Now, the Needs you panel): the context's first line, "Bug Task: <title>" and **Open details**, which opens a Large window "<asker> proposes a Bug Task" with the same form and the three actions in its bar.
-- Answered: "Created the Bug Task <Task>", linked with its state, or "Didn't create the Bug Task", then the outcome line and "General comment: …".
+- In the shared feed (Now, the Needs you panel): the context's first line, "Bug Task: <title>" and **Open details**, which opens a Large window "<asker> proposes a Bug Task" with the same form and its actions in the bar.
+- Answered: "Created the Bug Task <Task>", linked with its state, "Chose to fix it in this Task" for Fix now, or "Didn't create the Bug Task", then the outcome line and "General comment: …".
 
 ## The details window (Open details)
 

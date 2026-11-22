@@ -24,7 +24,8 @@ export function isBugTask(
  * What a Decision asks (spec §2.2, §2.4): a form of one or more questions, approval of a call past a
  * Hard switch (one choice, Allow once or Deny), a request, a call asking someone to do something:
  * a form of one open question, answered in their own words, or a Bug Task an Agent proposes from a
- * Stage, one choice of Create the Bug Task or Don't create it, with the Task's fields to edit.
+ * Stage, one choice of Create the Bug Task, Don't create it or Fix now, with the Task's fields to
+ * edit.
  */
 export type DecisionKind = "form" | "approval" | "request" | "bug-task";
 
@@ -52,11 +53,17 @@ export interface BugTaskFields {
   readonly causedBy?: string | null | undefined;
 }
 
-/** A bug-task Decision's options, in order: the first creates the Task. */
-export const BUG_TASK_OPTIONS = ["Create the Bug Task", "Don't create it"] as const;
+/**
+ * A bug-task Decision's options, in order: the first creates the Task, the third has the Agent fix
+ * the issue within its own Task, creating none. One opened before Fix now has the first two only.
+ */
+export const BUG_TASK_OPTIONS = ["Create the Bug Task", "Don't create it", "Fix now"] as const;
 
 /** The option of a bug-task Decision that creates the Bug Task. */
 export const CREATE_THE_BUG_TASK = 0;
+
+/** The option of a bug-task Decision that has the Agent fix the issue within its own Task. */
+export const FIX_THE_BUG_NOW = 2;
 
 /** A question answered by picking one of its options, the Agent's recommended one preselected. */
 export interface ChoiceQuestion {
@@ -504,23 +511,34 @@ export function createsTheBugTask(answer: DecisionAnswer): boolean {
   return answer.kind === "submitted" && chosenOption(answer) === CREATE_THE_BUG_TASK;
 }
 
+/** Whether the answer is Fix now: no Task, and the Agent fixes the issue within its own Task. */
+export function fixesTheBugNow(answer: DecisionAnswer): boolean {
+  return answer.kind === "submitted" && chosenOption(answer) === FIX_THE_BUG_NOW;
+}
+
 function chosenOption(answer: Extract<DecisionAnswer, { kind: "submitted" }>): number | undefined {
   const [given, ...others] = answer.answers;
   return given?.kind === "option" && others.length === 0 ? given.option : undefined;
 }
 
 /**
- * What's wrong with a bug-task Decision's answer, before the Task is created: one of its two
- * options, and with Create the Bug Task a title and a Project. Each answer takes the general
- * comment alone.
+ * What's wrong with a bug-task Decision's answer, before the Task is created: one of its options
+ * (Fix now only on one that offers it), and with Create the Bug Task a title and a Project. Each
+ * answer takes the general comment alone.
  */
 export function bugTaskAnswerProblems(
-  decision: Pick<Decision, "kind" | "bugTask">,
+  decision: Pick<Decision, "kind" | "bugTask"> & Partial<Pick<Decision, "questions">>,
   answer: Extract<DecisionAnswer, { kind: "submitted" }>,
 ): string[] {
   const option = chosenOption(answer);
-  if (option === undefined || BUG_TASK_OPTIONS[option] === undefined) {
-    return ["Choose Create the Bug Task or Don't create it."];
+  const [asked] = decision.questions ?? [];
+  const options = asked !== undefined && hasOptions(asked) ? asked.options : BUG_TASK_OPTIONS;
+  if (option === undefined || options[option] === undefined) {
+    return [
+      options.length > FIX_THE_BUG_NOW
+        ? "Choose Create the Bug Task, Don't create it or Fix now."
+        : "Choose Create the Bug Task or Don't create it.",
+    ];
   }
   if (option !== CREATE_THE_BUG_TASK || !isBugTask(decision)) return [];
   const { title, projectId } = bugTaskToCreate(decision.bugTask, answer.bugTask);
@@ -555,7 +573,7 @@ export function dismissProblems(decision: Decision): string[] {
     return ["The Office's own Decisions can't be dismissed: its Task waits on the answer."];
   }
   if (isBugTask(decision)) {
-    return ["A proposed Bug Task can't be dismissed: create it or not, or ask again."];
+    return ["A proposed Bug Task can't be dismissed: create it, don't, fix it now, or ask again."];
   }
   if (decision.inStageThread) {
     return ["A Decision in a Stage Thread can't be dismissed: its Stage waits on the answer."];
@@ -689,8 +707,8 @@ export function formAnswerWords(
 }
 
 /**
- * A bug-task Decision's answer as the Agent reads it: the Task created, as a link with its id, or
- * that none was, then the general comment.
+ * A bug-task Decision's answer as the Agent reads it: the Task created, as a link with its id, that
+ * none was, or that none was as the Agent fixes it within this Task now, then the general comment.
  */
 function bugTaskAnswerWords(
   { bugTask }: Partial<Pick<Decision, "bugTask">>,
@@ -701,7 +719,9 @@ function bugTaskAnswerWords(
   const outcome =
     createsTheBugTask(answer) && id !== undefined
       ? `Created the Bug Task [${title.replace(/[[\]\\]/g, "\\$&")}](/tasks/${id}) (Task ${id}), in Backlog, found while working on this Task.`
-      : `Didn't create the Bug Task "${title}".`;
+      : fixesTheBugNow(answer)
+        ? `Fix now: don't create the Bug Task "${title}", fix it within this Task now, then go on with your own work.`
+        : `Didn't create the Bug Task "${title}".`;
   const general = answer.generalComment?.trim();
   return [outcome, ...(general ? [`General comment: ${general}`] : [])].join("\n\n");
 }
@@ -782,7 +802,7 @@ export function formFromOne(
 
 /**
  * The kind as recorded before the form, which the previous release reads: a proposed Bug Task is a
- * question there, its one choice Create the Bug Task or Don't create it.
+ * question there, its one choice Create the Bug Task, Don't create it or Fix now.
  */
 export function oneQuestionKind(kind: DecisionKind): OneQuestionKind {
   return kind === "form" || kind === "bug-task" ? "question" : kind;

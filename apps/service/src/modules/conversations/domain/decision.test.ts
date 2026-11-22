@@ -10,10 +10,13 @@ import {
   answerForUserProblems,
   answerGivenBy,
   answerProblems,
+  BUG_TASK_OPTIONS,
+  bugTaskDraft,
   closedDecisionRefusal,
   decisionProblems,
   decisionSummary,
   dismissProblems,
+  fixesTheBugNow,
   formAnswerWords,
   isOpen,
   oneAnswerView,
@@ -898,5 +901,52 @@ describe("a choice of several", () => {
       kind: "free-answer",
       text: "1. Where should drafts be kept?\n   Answer: IndexedDB; The server",
     });
+  });
+});
+
+describe("a bug-task Decision", () => {
+  const proposed = {
+    title: "Two token refreshes at once sign The Office out",
+    description: "Open Pull requests and CI at once.",
+    why: "The token refresh runs twice. It is outside this Task.",
+    projectId: "admin-panel",
+  };
+  const bugTask = aDecision({ ...bugTaskDraft(proposed), kind: "bug-task", bugTask: proposed });
+
+  it("offers Create the Bug Task, Don't create it and Fix now", () => {
+    expect(BUG_TASK_OPTIONS).toEqual(["Create the Bug Task", "Don't create it", "Fix now"]);
+    expect(bugTask.questions[0]).toMatchObject({ options: [...BUG_TASK_OPTIONS] });
+  });
+
+  it("takes Fix now, creating nothing, and tells the Agent to fix it within its Task", () => {
+    const fixNow = oneOptionAnswer(2);
+    expect(answerProblems(bugTask, fixNow)).toEqual([]);
+    expect(fixesTheBugNow(fixNow)).toBe(true);
+    expect(fixesTheBugNow(oneOptionAnswer(1))).toBe(false);
+    expect(
+      formAnswerWords(bugTask, submitted([{ kind: "option", option: 2 }], "It's two lines.")),
+    ).toBe(
+      `Fix now: don't create the Bug Task "${proposed.title}", fix it within this Task now, then go on with your own work.\n\nGeneral comment: It's two lines.`,
+    );
+  });
+
+  it("refuses an option it hasn't, and Fix now on one opened before it was offered", () => {
+    expect(answerProblems(bugTask, oneOptionAnswer(3))).toEqual([
+      "Choose Create the Bug Task, Don't create it or Fix now.",
+    ]);
+    const before = aDecision({
+      ...bugTask,
+      questions: [
+        {
+          kind: "choice",
+          question: `Create the Bug Task "${proposed.title}"?`,
+          options: ["Create the Bug Task", "Don't create it"],
+          recommendation: { option: 0, reason: proposed.why },
+        },
+      ],
+    });
+    expect(answerProblems(before, oneOptionAnswer(2))).toEqual([
+      "Choose Create the Bug Task or Don't create it.",
+    ]);
   });
 });

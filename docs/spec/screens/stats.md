@@ -15,6 +15,7 @@ Covers: the Stats page and its two tabs (Tokens and cost, System health), the ba
 - The tab strip: **Tokens and cost**, **System health**; the open tab's range picker sits at the right end of the row, wrapping under the tabs on a narrow page.
 - Then the tab's blocks on a 12-column grid.
 - Each block is a card named by its heading; until its first answer it shows a loader (rows, bars or lines); a failed read shows an alert in its place.
+- Until the telemetry settings are read, the blocks show their loaders, never the basic stats; the full or basic layout is chosen only once the settings are known.
 - Pressing the other tab goes to its route without keeping the range.
 
 ## Pickers and charts
@@ -68,7 +69,7 @@ Covers: the Stats page and its two tabs (Tokens and cost, System health), the ba
 - The range picker "Range": **24 h**, **7 d**, **30 d**, kept in the address as `?range=` (7 d left out).
 - Under it the coverage line: "The full stats cover what The Office has sent Grafana since it started sending it." (it names no date).
 - Then, in order: Tokens and estimated cost over time, The most expensive, Usage windows over time, then Usage windows now and This week side by side.
-- Until the first answer, the full layout shows loaders ("Loading the full stats…"); a new range or split keeps the last answer with loaders over the blocks.
+- Until the first answer, and while Grafana is starting, the full layout shows loaders ("Loading the full stats…"), going from them straight to the full stats; a new range or split keeps the last answer with loaders over the blocks.
 - The full stats are read every minute, every 3 s while Grafana starts.
 
 ## Tokens and estimated cost over time
@@ -100,7 +101,7 @@ Covers: the Stats page and its two tabs (Tokens and cost, System health), the ba
 
 ## Grafana states of Tokens and cost
 
-- The basic stats stay in every state; the alert shows above them:
+- The alert shows above the blocks: while starting, above the full layout's loaders; in every other state, above the basic stats:
   - starting: "Grafana is starting…", "The first start pulls its image, which can take a few minutes.";
   - couldn't start: "The bundled Grafana couldn't start", with a link to Settings › Telemetry;
   - unreachable: "Couldn't reach Grafana at <address>" (or "No answer from Grafana."), a link to Settings › Telemetry and **Try again**;

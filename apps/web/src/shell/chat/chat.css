@@ -71,26 +71,49 @@
   color: var(--fg-2);
 }
 
-/* ---- the person switch */
+/* ---- the person switch: the whole person in the head, avatar to description, is one button. Its
+   padding sits in the head's own, so the avatar stays where the head's padding puts it. */
 .person-switch {
-  display: inline-flex;
-  align-items: baseline;
-  justify-self: start;
-  gap: 6px;
-  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   min-width: 0;
-  margin-left: -6px;
-  padding: 1px 6px;
+  margin: calc(-1 * var(--space-1)) 0 calc(-1 * var(--space-1)) calc(-1 * var(--space-2));
+  padding: var(--space-1) var(--space-2);
   border: 0;
   border-radius: var(--radius-md);
   background: none;
   color: var(--fg-1);
+  text-align: left;
   cursor: pointer;
 }
 
 .person-switch:hover,
 .person-switch[aria-expanded="true"] {
   background: var(--control-hover);
+}
+
+.person-switch:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.person-switch-avatar {
+  display: inline-flex;
+  flex: none;
+}
+
+.person-switch-who {
+  display: grid;
+  gap: var(--space-px);
+  min-width: 0;
+}
+
+.person-switch-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1-5);
+  min-width: 0;
 }
 
 .person-switch-name {
@@ -107,7 +130,7 @@
   text-overflow: ellipsis;
 }
 
-.person-switch svg {
+.person-switch-line svg {
   flex: none;
   align-self: center;
   color: var(--fg-2);
@@ -117,7 +140,7 @@
   position: absolute;
   top: calc(100% + 6px);
   right: -46px;
-  left: -46px;
+  left: 0;
   z-index: 2;
   display: grid;
   gap: 1px;

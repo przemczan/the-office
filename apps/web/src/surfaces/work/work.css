@@ -302,6 +302,11 @@
   white-space: nowrap;
 }
 
+/* With nobody working, the Stage's name keeps the mark's right end alone. */
+.working-mark-stage:last-child {
+  margin-right: 0;
+}
+
 /* Positioned, so the live dot's ring pulses under the avatars. */
 .working-mark-avatars {
   position: relative;

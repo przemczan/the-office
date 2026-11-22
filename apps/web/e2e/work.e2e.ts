@@ -1354,7 +1354,7 @@ test(
 );
 
 test(
-  "a card names the current Stage before the avatars of the person working it, cut when narrow",
+  "a card names the current Stage, before the avatars of the person working it, cut when narrow",
   { tag: "@full" },
   async ({ page }) => {
     const project = await addedProject(page, "Stage worked now", "SW");
@@ -1396,6 +1396,10 @@ test(
     await page.getByRole("button", { name: "Show only Stage worked now" }).click();
     const card = page.getByRole("article", { name: task.title });
     await expect(card).toBeVisible();
+    // Between runs, with nobody working, the Stage's name shows alone.
+    const idle = card.getByRole("img", { name: `Current Stage: ${stageName}` });
+    await expect(idle.locator(".working-mark-stage")).toHaveText(stageName);
+    await expect(idle.locator(".live-dot")).toHaveCount(0);
 
     await moveThreadTo(page, stageThread, "answering", "Implementing");
     const mark = card.getByRole("img", { name: words });
@@ -1432,7 +1436,9 @@ test(
     await page.emulateMedia({ colorScheme: "light" });
 
     // Nothing stays behind for the tests alongside: nobody answering, no Task at a desk.
-    await queryOfficeDatabase(`update threads set state = 'waiting' where id = $1`, [stageThread]);
+    await moveThreadTo(page, stageThread, "waiting", "Stopped");
+    await expect(mark).toHaveCount(0);
+    await expect(idle).toBeVisible();
     await queryOfficeDatabase(`update tasks set state = 'done' where id = $1`, [task.id]);
   },
 );

@@ -1078,6 +1078,21 @@ describe("propose_bug_task on a Stage", () => {
     });
   });
 
+  it("creates nothing on Fix now, and tells the Agent to fix it within its Task", async () => {
+    const { asked } = await aProposingStage();
+    const id = asked?.id ?? "";
+
+    await app.get(BugTaskDecisions).answer(id, answered(2), ANSWERED_BY_ANN_LEE);
+
+    expect(created).toEqual([]);
+    const decision = await repository.decision(id);
+    expect(decision?.answer).not.toHaveProperty("createdTaskId");
+    expect(decision && stageAnswerOf(decision)).toEqual({
+      kind: "free-answer",
+      text: `Fix now: don't create the Bug Task "${PROPOSED.title}", fix it within this Task now, then go on with your own work.`,
+    });
+  });
+
   it("keeps the Decision open with Work's refusal, creating nothing", async () => {
     const { asked } = await aProposingStage();
     const id = asked?.id ?? "";

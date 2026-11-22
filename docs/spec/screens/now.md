@@ -105,9 +105,9 @@ Covers: Now (the home), Needs you and its Waiting for you group, Running, Queue,
 - Section named "Before the all clear", heading "Before the all clear", text "Each Task continues from where it stopped, through the Context policy. Hold or drop any of them first."; shown while the alarm is no longer stopping.
 - One row per paused Task: Project chip, title, Stage and person, then how it goes on: a pill (**Continues**, **Fresh**, **Script**) and a line.
 - Lines: "Continues the same session · cache still warm · 41k read from cache"; "Continues the same session · cache expired · re-caches 41k"; "Starts fresh · brief and Handover note ~3k"; "Runs the <Stage> script again · no model call"; "Its push finished during the alarm; Publish records the result · no model call"; "Waits on you again · no model call"; "Goes on with <Stage> · no model call".
-- Each row has a group named "What happens to <title>": **Resume** (the default), **Hold**, **Drop**; a row not resuming is dimmed.
+- Each row has a group named "What happens to <title>": **Resume** (the default), **Hold**, **Drop**, joined, each a little taller than a control with room on either side of its word; a row not resuming is dimmed.
 - Empty: "Nothing to resume."
-- The foot: "N to resume · about 41k tokens before work continues" plus " · N held or dropped"; the buttons **Keep the alarm on** (secondary) and **All clear: resume N** (or **All clear** when none resume).
+- The foot: "N to resume · about 41k tokens before work continues" plus " · N held or dropped"; the buttons **Keep the alarm on** (secondary) and **All clear: resume N** (or **All clear** when none resume), with room between the summary and each button.
 - A refusal shows "The all clear wasn't given". On success the toast "All clear. N Tasks resume." ("1 Task resumes") and the review closes.
 - See [2.8](../2.8-fire-alarm.md#all-clear).
 

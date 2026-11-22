@@ -290,7 +290,7 @@ A form an Agent puts to the user, or to a Consultant, and waits on before contin
 _Avoid_: Approval (its own card), prompt, questionnaire, survey, question (one part of it)
 
 **Bug Task Decision**:
-A Decision an Agent opens with `propose_bug_task` on its own Task, for a big issue outside its scope. "Create the Bug Task" makes a Bug Task in Backlog from the form as edited. It isn't a Proposal: it waits on the user as a Decision does.
+A Decision an Agent opens with `propose_bug_task` on its own Task, for a big issue outside its scope. "Create the Bug Task" makes a Bug Task in Backlog from the form as edited; "Fix now" makes none, and the Agent fixes the issue within its own Task. It isn't a Proposal: it waits on the user as a Decision does.
 _Avoid_: Bug report, Bug Task proposal
 
 **Question**:

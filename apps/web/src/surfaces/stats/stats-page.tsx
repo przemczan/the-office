@@ -96,15 +96,20 @@ export function StatsPage(): ReactNode {
   const telemetry = useQuery(telemetryQueries.settings());
   const projects = useQuery(projectQueries.list());
   const filtered = filter !== "all";
+  // Until the telemetry settings are known, neither layout is chosen: the blocks show their loaders,
+  // never the basic charts, so the page doesn't flash them before the full stats.
+  const settingsPending = telemetry.data === undefined && !telemetry.error;
   const message = telemetry.data ? statsMessageOf(telemetry.data) : null;
   const answered = full.data;
-  // Until the first answer, the full stats' loaders show where a Grafana is chosen.
+  // Where a Grafana is chosen, the full stats' loaders show until it answers with the full stats,
+  // through a Grafana that is still starting, so it goes from loaders straight to the data.
+  const waitingForFull = !full.error && (answered === undefined || answered.state === "starting");
   const showsFull =
-    answered?.state === "full" ||
-    (answered === undefined && !full.error && telemetry.data !== undefined && message === null);
-  const fullLoading = answered === undefined || full.isPlaceholderData;
+    answered?.state === "full" || (!settingsPending && message === null && waitingForFull);
+  const fullLoading = waitingForFull || full.isPlaceholderData;
   const showsMessage = message !== null && (answered === undefined || answered.state === "not-on");
-  const basicLoading = !stats.data && !stats.error;
+  const basic = settingsPending ? undefined : stats.data;
+  const basicLoading = settingsPending || (!stats.data && !stats.error);
   const windowsNow = (className: string): ReactNode => (
     <StatsBlock
       id="windows-now"
@@ -114,7 +119,7 @@ export function StatsPage(): ReactNode {
       loading={basicLoading}
       loaderLabel={LOADING}
     >
-      {stats.data && <UsageWindowsNow engines={stats.data.engines} />}
+      {basic && <UsageWindowsNow engines={basic.engines} />}
     </StatsBlock>
   );
   const thisWeek = (className: string): ReactNode => (
@@ -122,11 +127,11 @@ export function StatsPage(): ReactNode {
       id="week"
       className={className}
       title={THIS_WEEK}
-      when={stats.data && sinceWords(stats.data.weekStartsAt)}
+      when={basic && sinceWords(basic.weekStartsAt)}
       loading={basicLoading}
       loaderLabel={LOADING}
     >
-      {stats.data && <ThisWeek stats={stats.data} />}
+      {basic && <ThisWeek stats={basic} />}
     </StatsBlock>
   );
   return (
@@ -174,14 +179,14 @@ export function StatsPage(): ReactNode {
               loading={basicLoading}
               loaderLabel={LOADING}
             >
-              {stats.data && <TokensPerDay days={stats.data.days} />}
+              {basic && <TokensPerDay days={basic.days} />}
             </StatsBlock>
             {windowsNow("stats-span-4")}
             <StatsBlock
               id="top"
               className="stats-span-8"
               title={TOP_TASKS}
-              when={stats.data && sinceWords(stats.data.weekStartsAt)}
+              when={basic && sinceWords(basic.weekStartsAt)}
               loading={basicLoading}
               loaderLabel={LOADING}
               foot={
@@ -191,7 +196,7 @@ export function StatsPage(): ReactNode {
                 </span>
               }
             >
-              {stats.data && <TopTasks tasks={stats.data.topTasks} projects={projects.data} />}
+              {basic && <TopTasks tasks={basic.topTasks} projects={projects.data} />}
             </StatsBlock>
             {thisWeek("stats-span-4")}
             {showsMessage && message !== null && <FullStatsMessage message={message} />}

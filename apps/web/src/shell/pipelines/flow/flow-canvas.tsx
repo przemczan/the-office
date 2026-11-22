@@ -109,7 +109,7 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
     [stages, removed, props.overlay],
   );
   const loops = useMemo(() => loopLanes(live), [live]);
-  const room = flowRoom(stages, lines, loops);
+  const room = flowRoom(stages, lines, loops, orientation);
   const loopLines = loopPaths(loops, view.measure, orientation);
   const size = flowGridSize(stages);
   const canDrag = (key: string): boolean =>

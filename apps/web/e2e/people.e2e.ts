@@ -6492,7 +6492,8 @@ test.describe("the chat drawer", { tag: "@full" }, () => {
     await expect(jan.getByRole("button", { name: "New thread", exact: true })).toBeVisible();
 
     const menu = page.getByRole("menu", { name: "Chat with" });
-    await jan.getByRole("button", { name: /^Jan/ }).click();
+    // The whole person head is the switch, its description line too.
+    await jan.getByText("Reads every Project and changes no file").click();
     await menu.getByRole("menuitemradio", { name: /^Marta/ }).click();
     const marta = chatWith(page, "Marta");
     await expect(marta).toBeVisible();

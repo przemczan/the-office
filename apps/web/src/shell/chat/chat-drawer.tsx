@@ -158,13 +158,15 @@ function PersonPicker(): ReactNode {
   );
 }
 
-/** The person's name is the switch to someone else, with the drawer staying open. */
+/**
+ * The whole person (avatar, name, title and what they may change) is the switch to someone else,
+ * with the drawer staying open. The close button stays apart from it.
+ */
 function PersonHead({ role }: { readonly role: Role }): ReactNode {
   const [switching, setSwitching] = useState(false);
   const place = useClosedFromOutside(switching, setSwitching);
   return (
     <header className="chat-head">
-      <PersonAvatar roleKey={role.key} name={role.card.name} size="lg" />
       <div ref={place} className="chat-head-main">
         <button
           type="button"
@@ -174,16 +176,23 @@ function PersonHead({ role }: { readonly role: Role }): ReactNode {
           title="Chat with someone else"
           onClick={() => setSwitching(!switching)}
         >
-          <span className="person-switch-name">{role.card.name}</span>
-          <span className="person-switch-title">{role.card.title}</span>
-          <Icon name="chevron-down" size={14} />
+          <span aria-hidden="true" className="person-switch-avatar">
+            <PersonAvatar roleKey={role.key} name={role.card.name} size="lg" />
+          </span>
+          <span className="person-switch-who">
+            <span className="person-switch-line">
+              <span className="person-switch-name">{role.card.name}</span>
+              <span className="person-switch-title">{role.card.title}</span>
+              <Icon name="chevron-down" size={14} />
+            </span>
+            {/* The Caretaker's chat changes the workstation in a Thread with Allow changes on. */}
+            <span className="chat-head-sub">
+              {role.builtIn
+                ? "Reads, and changes only in a Thread where you allow changes"
+                : "Reads every Project and changes no file"}
+            </span>
+          </span>
         </button>
-        {/* The Caretaker's chat changes the workstation in a Thread with Allow changes on. */}
-        <span className="chat-head-sub">
-          {role.builtIn
-            ? "Reads, and changes only in a Thread where you allow changes"
-            : "Reads every Project and changes no file"}
-        </span>
         {switching && <PersonSwitchMenu role={role} onDone={() => setSwitching(false)} />}
       </div>
       <CloseButton />
