@@ -17,6 +17,7 @@ import { notificationEventCacheUpdates } from "./api/notifications.ts";
 import { roleEventInvalidations } from "./api/people.ts";
 import { pipelineEventInvalidations } from "./api/pipelines.ts";
 import { projectEventInvalidations, repositoryCloneEventInvalidations } from "./api/projects.ts";
+import { activityEventInvalidations } from "./api/activity.ts";
 import { ciRunEventInvalidations } from "./api/ci-runs.ts";
 import { pullRequestEventInvalidations } from "./api/pull-requests.ts";
 import { officeUpdateEventInvalidations } from "./api/office-updates.ts";
@@ -40,6 +41,7 @@ const EVENT_INVALIDATIONS: EventInvalidations = {
   ...gitHubEventInvalidations,
   ...pullRequestEventInvalidations,
   ...ciRunEventInvalidations,
+  ...activityEventInvalidations,
   ...runEnvironmentEventInvalidations,
   ...testInstanceEventInvalidations,
   ...deviceEventInvalidations,

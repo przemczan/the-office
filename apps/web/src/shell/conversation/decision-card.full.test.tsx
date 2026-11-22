@@ -19,6 +19,7 @@ import {
   buttonNamed,
   buttonsNamed,
   CHAT_THREAD,
+  checkbox,
   click,
   COLUMNS,
   CONSULTATION_ON_TASK,
@@ -33,6 +34,7 @@ import {
   rendered,
   REVIEWER,
   settle,
+  STORES,
   TASK,
   TASK_THREAD,
   type,
@@ -684,6 +686,100 @@ describe("Dismiss", () => {
     await rendered(card(decision));
 
     expect(buttonsNamed("Dismiss")).toHaveLength(0);
+  });
+});
+
+describe("a choice of several", () => {
+  const SEVERAL = aDecision({ questions: [STORES] });
+  const QUESTION = "Where should the draft be kept?";
+  const checked = (): boolean[] =>
+    ["IndexedDB", "Cookies", "Local storage"].map((option) => checkbox(QUESTION, option).checked);
+
+  it("starts with its recommended options checked and badged, with the hint and recommendation", async () => {
+    const page = await rendered(card(SEVERAL));
+
+    expect(checked()).toEqual([true, false, true]);
+    const lines = [
+      ...(page
+        .querySelector(`[role='group'][aria-label='${QUESTION}']`)
+        ?.querySelectorAll("label") ?? []),
+    ].map((line) => line.textContent);
+    expect(lines).toEqual(["IndexedDBRecommended", "Cookies", "Local storageRecommended"]);
+    expect(page.textContent).toContain("Pick every option that applies.");
+    expect(page.textContent).toContain(
+      "Angela recommends “IndexedDB”, “Local storage”: Both survive a reload.",
+    );
+    expect(buttonsNamed("Add a comment")).toHaveLength(1);
+  });
+
+  it("sends the checked options in ascending order", async () => {
+    await rendered(card(SEVERAL));
+
+    await click(checkbox(QUESTION, "Local storage"));
+    await click(checkbox(QUESTION, "Cookies"));
+    expect(checked()).toEqual([true, true, false]);
+    await click(buttonNamed("Submit"));
+    await settle();
+
+    expect(answerDecision).toHaveBeenCalledWith(DECISION_ID, {
+      kind: "submitted",
+      answers: [{ kind: "options", options: [0, 1] }],
+    });
+  });
+
+  it("asks for words once no box is checked, and sends them", async () => {
+    await rendered(card(SEVERAL));
+
+    await click(checkbox(QUESTION, "IndexedDB"));
+    await click(checkbox(QUESTION, "Local storage"));
+    expect(buttonNamed("Submit").title).toBe("Pick an option or write your answer first.");
+    expect(buttonsNamed("Add a comment")).toHaveLength(0);
+    type(fieldLabelled("Your answer in words"), "Only in memory");
+    await click(buttonNamed("Submit"));
+    await settle();
+
+    expect(answerDecision).toHaveBeenCalledWith(DECISION_ID, {
+      kind: "submitted",
+      answers: [{ kind: "words", text: "Only in memory" }],
+    });
+  });
+
+  it("is accepted on the compact card with its recommended options", async () => {
+    const page = await rendered(card(aDecision({ questions: [STORES, FORMAT, COLUMNS, FORMAT] })));
+
+    expect(
+      [...page.querySelectorAll(".decision-compact-recommended")].map((line) => line.textContent),
+    ).toEqual(["IndexedDBRecommended", "Local storageRecommended"]);
+    expect(page.textContent).toContain("Angela recommends them: Both survive a reload.");
+    await click(buttonNamed("Accept"));
+    await settle();
+
+    expect(answerDecision).toHaveBeenCalledWith(DECISION_ID, {
+      kind: "submitted",
+      answers: [
+        { kind: "options", options: [0, 2] },
+        { kind: "option", option: 0 },
+        { kind: "option", option: 1 },
+        { kind: "option", option: 0 },
+      ],
+    });
+  });
+
+  it("lists the picks once answered, each recommended one marked", async () => {
+    const page = await rendered(
+      inThread(
+        aDecision({
+          questions: [STORES],
+          formAnswer: { kind: "submitted", answers: [{ kind: "options", options: [0, 1] }] },
+          answeredAt: "2026-11-10T14:30:00.000Z",
+          answeredByUser: BY_YOU,
+        }),
+      ),
+    );
+
+    expect(page.querySelector(".decision-answer-words")?.textContent).toBe(
+      "IndexedDB (recommended), Cookies",
+    );
   });
 });
 

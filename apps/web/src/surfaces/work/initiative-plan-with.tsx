@@ -58,6 +58,7 @@ export function usePlanWithAction(
     key: "plan-initiative-with",
     label: `Plan with ${planner}`,
     icon: "message-circle",
+    tone: "plan",
     variant: "secondary",
     hint: `Open a planning Thread where ${planner} waits for you to say how to plan it`,
     pending: planning.isPending,

@@ -18,9 +18,11 @@ import {
   isOpen,
   oneAnswerView,
   oneOptionAnswer,
+  oneQuestionView,
   oneWordsAnswer,
   type Decision,
   type DecisionAnswer,
+  type DecisionQuestion,
 } from "./decision.js";
 import {
   answerDecision,
@@ -826,5 +828,75 @@ describe("dismissing a Decision", () => {
     expect(dismissalNote(open, { generalComment: " " })).toBe(
       `You dismissed the Decision “${decisionSummary(open)}”. Its questions no longer apply; don't ask them again.`,
     );
+  });
+});
+
+describe("a choice of several", () => {
+  const stores: DecisionQuestion = {
+    kind: "choice-of-several",
+    question: "Where should drafts be kept?",
+    options: ["IndexedDB", "Cookies", "The server"],
+    recommendation: { options: [0, 2], reason: "They survive a reload." },
+  };
+  const form = aDecision({ questions: [stores] });
+
+  it("gives two or more options of their own, one or more recommended each once, with a reason", () => {
+    expect(decisionProblems({ context: "", questions: [stores] })).toEqual([]);
+    expect(
+      decisionProblems({
+        context: "",
+        questions: [{ ...stores, recommendation: { options: [], reason: " " } }],
+      }),
+    ).toEqual(["Recommend one or more of the options, each once.", "Say why you recommend them."]);
+    expect(
+      decisionProblems({
+        context: "",
+        questions: [{ ...stores, recommendation: { options: [1, 1], reason: "Twice." } }],
+      }),
+    ).toEqual(["Recommend one or more of the options, each once."]);
+    expect(
+      decisionProblems({
+        context: "",
+        questions: [{ ...stores, recommendation: { options: [0, 3], reason: "Past the end." } }],
+      }),
+    ).toEqual(["Recommend one or more of the options, each once."]);
+  });
+
+  it("is answered with one or more of its options, each once, or in words", () => {
+    expect(answerProblems(form, submitted([{ kind: "options", options: [1] }]))).toEqual([]);
+    expect(answerProblems(form, submitted([{ kind: "options", options: [0, 1, 2] }]))).toEqual([]);
+    expect(answerProblems(form, submitted([{ kind: "words", text: "Nowhere." }]))).toEqual([]);
+    for (const options of [[], [0, 0], [3]]) {
+      expect(answerProblems(form, submitted([{ kind: "options", options }]))).toEqual([
+        "Choose one or more of the question's options, each once.",
+      ]);
+    }
+    expect(answerProblems(form, oneOptionAnswer(0))).toEqual([
+      "Choose one or more of the question's options, each once.",
+    ]);
+  });
+
+  it("takes no options as an answer to a choice of one", () => {
+    expect(answerProblems(aDecision(), submitted([{ kind: "options", options: [0] }]))).toEqual([
+      "Choose one of the Decision's options.",
+    ]);
+  });
+
+  it("reads its answer as every option picked, in order", () => {
+    expect(
+      formAnswerWords(form, submitted([{ kind: "options", options: [0, 2], comment: "Both." }])),
+    ).toBe("1. Where should drafts be kept?\n   Answer: IndexedDB; The server\n   Comment: Both.");
+  });
+
+  it("gives the release before its first recommended option as the one question's", () => {
+    expect(oneQuestionView({ questions: [stores] })).toEqual({
+      question: "Where should drafts be kept?",
+      options: ["IndexedDB", "Cookies", "The server"],
+      recommendation: { option: 0, reason: "They survive a reload." },
+    });
+    expect(oneAnswerView(form, submitted([{ kind: "options", options: [0, 2] }]))).toEqual({
+      kind: "free-answer",
+      text: "1. Where should drafts be kept?\n   Answer: IndexedDB; The server",
+    });
   });
 });

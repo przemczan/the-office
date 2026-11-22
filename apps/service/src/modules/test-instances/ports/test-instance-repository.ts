@@ -23,6 +23,9 @@ export abstract class TestInstanceRepository {
   /** Every instance Building or Running, across The Office. */
   abstract active(): Promise<readonly TestInstance[]>;
 
+  /** Every instance Built or Failed across The Office that ended at or after `at`, newest first. */
+  abstract endedSince(at: Date): Promise<readonly TestInstance[]>;
+
   /**
    * Every Built instance whose files are still kept, across The Office, or only one target's
    * builds when named; newest first.

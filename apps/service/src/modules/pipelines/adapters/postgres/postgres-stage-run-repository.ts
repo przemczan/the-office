@@ -36,6 +36,7 @@ import {
   StageRunRepository,
   type LeftBranch,
   type RanAgentStageRun,
+  type KeptStageRunEngines,
   type StageRunThread,
   type StartedStageRun,
 } from "../../ports/stage-run-repository.js";
@@ -320,6 +321,42 @@ export class PostgresStageRunRepository extends StageRunRepository {
               endedAt: endedAt ?? undefined,
             },
           ],
+    );
+  }
+
+  async enginesOfTasks(taskIds: readonly string[]): Promise<readonly KeptStageRunEngines[]> {
+    if (taskIds.length === 0) return [];
+    const rows = await this.database
+      .select({
+        taskId: stageRuns.taskId,
+        number: stageRuns.number,
+        engineId: stageRuns.engineId,
+        engineName: stageRuns.engineName,
+        standInForEngineId: stageRuns.standInForEngineId,
+        standInForEngineName: stageRuns.standInForEngineName,
+        switches: stageRuns.engineSwitches,
+      })
+      .from(stageRuns)
+      .where(and(inArray(stageRuns.taskId, [...taskIds]), isNotNull(stageRuns.engineId)))
+      .orderBy(asc(stageRuns.taskId), asc(stageRuns.number));
+    return rows.flatMap(
+      ({ engineId, engineName, standInForEngineId, standInForEngineName, ...row }) =>
+        engineId === null
+          ? []
+          : [
+              {
+                ...row,
+                engineId,
+                engineName: engineName ?? undefined,
+                standInFor:
+                  standInForEngineId === null
+                    ? undefined
+                    : {
+                        engineId: standInForEngineId,
+                        engineName: standInForEngineName ?? undefined,
+                      },
+              },
+            ],
     );
   }
 

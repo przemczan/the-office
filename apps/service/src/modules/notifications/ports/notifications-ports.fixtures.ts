@@ -6,8 +6,12 @@ import type {
   NowFireAlarm,
   OfficeInitiative,
   OfficeTask,
+  OfficeUpdateFound,
   OpenDecision,
+  OpenProposal,
+  PullRequestNeedingAttention,
   QueuedOnNow,
+  ShapingReply,
   StageOfTask,
   StandInChoiceWaiting,
   TaskResume,
@@ -19,8 +23,13 @@ import { OfficeFireAlarm } from "./office-fire-alarm.js";
 import { OfficeInitiatives } from "./office-initiatives.js";
 import { OfficeStatusCards } from "./office-status-cards.js";
 import { OfficeTasks } from "./office-tasks.js";
+import { OfficeUpdateAvailable } from "./office-update-available.js";
 import { OpenDecisions } from "./open-decisions.js";
+import { OpenProposals } from "./open-proposals.js";
+import { PullRequestsWaiting } from "./pull-requests-waiting.js";
 import { ResumePlans } from "./resume-plans.js";
+import { ShapingReplies } from "./shaping-replies.js";
+import { SkillUpdatesFound } from "./skill-updates-found.js";
 import { StandInChoicesWaiting } from "./stand-in-choices-waiting.js";
 import { StartQueue } from "./start-queue.js";
 import { TaskStageProgress } from "./task-stage-progress.js";
@@ -141,6 +150,54 @@ export class StandInChoicesWaitingForTests extends StandInChoicesWaiting {
   }
 }
 
+/** The open Proposals, as a test sets them; none unless set. */
+export class OpenProposalsForTests extends OpenProposals {
+  open: OpenProposal[] = [];
+
+  async waitingOnTheUser(): Promise<readonly OpenProposal[]> {
+    return this.open;
+  }
+}
+
+/** The pull requests needing attention, as a test sets them; none unless set. */
+export class PullRequestsWaitingForTests extends PullRequestsWaiting {
+  pullRequests: PullRequestNeedingAttention[] = [];
+
+  async needingAttention(): Promise<readonly PullRequestNeedingAttention[]> {
+    return this.pullRequests;
+  }
+}
+
+/** The Skills with an update, by name, as a test sets them; none unless set. */
+export class SkillUpdatesFoundForTests extends SkillUpdatesFound {
+  names: string[] = [];
+
+  async withUpdate(): Promise<readonly string[]> {
+    return this.names;
+  }
+}
+
+/** The Office update found, as a test sets it; none unless set. */
+export class OfficeUpdateAvailableForTests extends OfficeUpdateAvailable {
+  found: OfficeUpdateFound | undefined;
+
+  async available(): Promise<OfficeUpdateFound | undefined> {
+    return this.found;
+  }
+}
+
+/** The shapers' answers waiting on the user's reply, as a test sets them; none unless set. */
+export class ShapingRepliesForTests extends ShapingReplies {
+  replies: ShapingReply[] = [];
+  /** The Initiatives each read asked about, in order. */
+  readonly asked: (readonly string[])[] = [];
+
+  async waitingForReply(initiativeIds: readonly string[]): Promise<readonly ShapingReply[]> {
+    this.asked.push(initiativeIds);
+    return this.replies.filter(({ initiativeId }) => initiativeIds.includes(initiativeId));
+  }
+}
+
 const PORTS = [
   OfficeTasksForTests,
   OfficeInitiativesForTests,
@@ -154,6 +211,11 @@ const PORTS = [
   OfficeFireAlarmForTests,
   ResumePlansForTests,
   StandInChoicesWaitingForTests,
+  OpenProposalsForTests,
+  PullRequestsWaitingForTests,
+  SkillUpdatesFoundForTests,
+  OfficeUpdateAvailableForTests,
+  ShapingRepliesForTests,
   OfficeToolRegistry,
 ];
 

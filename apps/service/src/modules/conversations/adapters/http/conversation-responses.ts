@@ -5,6 +5,8 @@ import {
   stageSchema,
   type ChatActivity as ChatActivityResponse,
   type DecisionFormAnswer as DecisionFormAnswerResponse,
+  type DecisionQuestion as DecisionQuestionResponse,
+  type QuestionAnswer as QuestionAnswerResponse,
   type Decision as DecisionResponse,
   type Message as MessageResponse,
   type NewProject as NewProjectResponse,
@@ -25,7 +27,12 @@ import type { ThreadReading } from "../../application/thread-contexts.js";
 import type { TaskThreadSummary, ThreadSummary } from "../../application/thread-summaries.js";
 import type { PersonChatActivity } from "../../domain/chat-activity.js";
 import type { ConversationTab } from "../../domain/conversation-tabs.js";
-import { type Decision, type DecisionAnswer } from "../../domain/decision.js";
+import {
+  type Decision,
+  type DecisionAnswer,
+  type DecisionQuestion,
+  type QuestionAnswer,
+} from "../../domain/decision.js";
 import { hiredKeyOf } from "../../../people/index.js";
 import type { NewProject, ProposedTestTargetFields } from "../../../projects/index.js";
 import type { Message } from "../../domain/message.js";
@@ -507,15 +514,7 @@ export function toDecisionResponse({
       ...passing,
       passedOnAt: passedOnAt.toISOString(),
     })),
-    questions: questions.map((question) =>
-      question.kind === "choice"
-        ? {
-            ...question,
-            options: [...question.options],
-            recommendation: { ...question.recommendation },
-          }
-        : { ...question },
-    ),
+    questions: questions.map(toQuestionResponse),
     attachmentIds: [...decision.attachmentIds],
     askedAt: askedAt.toISOString(),
     formAnswer: answer ? toFormAnswerResponse(answer) : null,
@@ -535,6 +534,40 @@ export function toDecisionResponse({
   };
 }
 
+function toQuestionResponse(question: DecisionQuestion): DecisionQuestionResponse {
+  switch (question.kind) {
+    case "choice":
+      return {
+        ...question,
+        options: [...question.options],
+        recommendation: { ...question.recommendation },
+      };
+    case "choice-of-several":
+      return {
+        ...question,
+        options: [...question.options],
+        recommendation: {
+          options: [...question.recommendation.options],
+          reason: question.recommendation.reason,
+        },
+      };
+    case "open":
+      return { ...question };
+  }
+}
+
+function toQuestionAnswerResponse(given: QuestionAnswer): QuestionAnswerResponse {
+  const comment = given.comment === undefined ? {} : { comment: given.comment };
+  switch (given.kind) {
+    case "option":
+      return { kind: "option", option: given.option, ...comment };
+    case "options":
+      return { kind: "options", options: [...given.options], ...comment };
+    case "words":
+      return { kind: "words", text: given.text, ...comment };
+  }
+}
+
 function toFormAnswerResponse(answer: DecisionAnswer): DecisionFormAnswerResponse {
   if (answer.kind === "asked-again" || answer.kind === "dismissed") {
     return {
@@ -544,12 +577,7 @@ function toFormAnswerResponse(answer: DecisionAnswer): DecisionFormAnswerRespons
   }
   return {
     kind: "submitted",
-    answers: answer.answers.map((given) => {
-      const comment = given.comment === undefined ? {} : { comment: given.comment };
-      return given.kind === "option"
-        ? { kind: "option", option: given.option, ...comment }
-        : { kind: "words", text: given.text, ...comment };
-    }),
+    answers: answer.answers.map(toQuestionAnswerResponse),
     ...(answer.generalComment === undefined ? {} : { generalComment: answer.generalComment }),
     ...(answer.bugTask === undefined
       ? {}

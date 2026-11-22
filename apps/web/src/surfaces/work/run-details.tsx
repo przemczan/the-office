@@ -14,6 +14,7 @@ import { DetailsSwitch } from "../../shell/conversation/details-switch.tsx";
 import { ReadOnlyNote, ThreadComposer } from "../../shell/conversation/thread-composer.tsx";
 import { ThreadLoader, ThreadLog } from "../../shell/conversation/thread-view.tsx";
 import { takesMessages } from "../../shell/conversation/thread-writing.ts";
+import { runEngineWords, standInForWords } from "../../shell/engine-words.ts";
 import { MarkdownText } from "../../shell/markdown-text.tsx";
 import { PersonAvatar } from "../../shell/person-avatar.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
@@ -38,7 +39,7 @@ import {
   type RunTab,
 } from "./stage-history-words.ts";
 import { stageWorkerWords } from "./stage-rail-words.ts";
-import { runEngineWords, SESSION_WORDS, standInForWords, type StageNames } from "./stage-words.ts";
+import { SESSION_WORDS, type StageNames } from "./stage-words.ts";
 import { chapterWork } from "./timeline-words.ts";
 
 /** Everything about the run picked in the Stage history. */

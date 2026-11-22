@@ -31,12 +31,15 @@ export interface UsageSeries {
 }
 
 /**
- * A Stage run's calls within a Task, `stageRun` an opaque id (`office.stage.run`); `stageName` and
- * `stageRun` are "" for the calls outside a Stage. `firstAt` is when its first record came.
+ * A Stage run's calls within a Task on one engine and model, `stageRun` the run's number on its
+ * Task as the records carry it (`office.stage.run`); `stageName` and `stageRun` are "" for the
+ * calls outside a Stage. `firstAt` is when its first record came.
  */
 export interface StageRunSpend extends Spend {
   readonly stageName: string;
   readonly stageRun: string;
+  readonly engineId: string;
+  readonly model: string;
   readonly firstAt: Date;
 }
 
@@ -46,10 +49,21 @@ export interface TaskSpend extends Spend {
   readonly runs: readonly StageRunSpend[];
 }
 
-/** An Initiative's totals in the range, with each Task's, "" for its own Threads. */
+/**
+ * An Initiative's calls on one of its Tasks ("" for its own Threads), in one Stage run of it ("" for
+ * the calls outside a Stage), on one engine and model.
+ */
+export interface InitiativeTaskSpend extends Spend {
+  readonly taskId: string;
+  readonly stageRun: string;
+  readonly engineId: string;
+  readonly model: string;
+}
+
+/** An Initiative's totals in the range, with its Tasks'. */
 export interface InitiativeSpend extends Spend {
   readonly initiativeId: string;
-  readonly tasks: readonly (Spend & { readonly taskId: string })[];
+  readonly tasks: readonly InitiativeTaskSpend[];
 }
 
 /** The most expensive Tasks and Initiatives in the range, as the logs total them. */
@@ -81,6 +95,34 @@ export interface StatsInitiative {
   readonly initiativeId: string;
   readonly title: string;
   readonly projectIds: readonly string[];
+}
+
+/** An engine as Pipelines' records name it: its id and its name at the time, if one was kept. */
+export interface StatsNamedEngine {
+  readonly engineId: string;
+  readonly engineName: string | undefined;
+}
+
+/**
+ * The engines a Stage run ran on, as Pipelines keeps it: `number` its number on its Task, the
+ * engine it ran on last, the cascade's engine it stood in for, and each switch of engine mid-run.
+ */
+export interface StatsStageRunEngines extends StatsNamedEngine {
+  readonly taskId: string;
+  readonly number: number;
+  readonly standInFor: StatsNamedEngine | undefined;
+  readonly switches: readonly {
+    readonly fromEngineId: string;
+    readonly fromEngineName: string;
+    readonly toEngineId: string;
+    readonly toEngineName: string;
+  }[];
+}
+
+/** An engine's id and its name now (Settings › Engines). */
+export interface StatsEngineName {
+  readonly engineId: string;
+  readonly name: string;
 }
 
 /** A Project's id and its name, which the metrics and logs carry. */
@@ -193,9 +235,24 @@ export function usageBucketsOf(
   }));
 }
 
+/**
+ * What some calls ran on: the engine by its name ("Removed engine" when no longer known) and the
+ * model, with the engine it stood in for when they were a Stage run's on a Stand-in Engine.
+ */
+export interface RanOn extends Spend {
+  readonly engineName: string;
+  readonly model: string;
+  readonly standInForEngineName: string | undefined;
+}
+
+/** What an engine no longer known reads as. */
+export const REMOVED_ENGINE = "Removed engine";
+
 /** One try of a Stage: 1, then 2 for its first Stage retry, and so on. */
 export interface StageTry extends Spend {
   readonly try: number;
+  /** Most estimated cost first. */
+  readonly ranOn: readonly RanOn[];
 }
 
 export interface StageSpend {
@@ -220,8 +277,15 @@ export interface CostliestInitiative extends Spend {
   readonly title: string;
   readonly projectIds: readonly string[];
   /** Most estimated cost first. */
-  readonly tasks: readonly (Spend & { readonly taskId: string; readonly title: string })[];
+  readonly tasks: readonly CostliestInitiativeTask[];
   readonly ownThreads: Spend;
+}
+
+export interface CostliestInitiativeTask extends Spend {
+  readonly taskId: string;
+  readonly title: string;
+  /** Most estimated cost first. */
+  readonly ranOn: readonly RanOn[];
 }
 
 export interface Costliest {
@@ -231,47 +295,132 @@ export interface Costliest {
 
 /**
  * The most expensive Tasks and Initiatives, up to `COSTLIEST` each, most estimated cost first. A
- * Task or Initiative The Office no longer knows is left out, and so is an Initiative's Task.
+ * Task or Initiative The Office no longer knows is left out, and so is an Initiative's Task. What
+ * each try and each Initiative's Task ran on is named from its Stage runs' engines, then from the
+ * engines now.
  */
 export function costliestOf({
   spend,
   tasks,
   initiatives,
+  stageRunEngines,
+  engines,
 }: {
   readonly spend: CostliestSpend;
   readonly tasks: readonly StatsTask[];
   readonly initiatives: readonly StatsInitiative[];
+  readonly stageRunEngines: readonly StatsStageRunEngines[];
+  readonly engines: readonly StatsEngineName[];
 }): Costliest {
   const knownTasks = new Map(tasks.map((task) => [task.id, task]));
   const knownInitiatives = new Map(initiatives.map((one) => [one.initiativeId, one]));
+  const ranOn = ranOnOf(stageRunEngines, engines);
   return {
     tasks: spend.tasks
       .flatMap((taskSpend) => {
         const task = knownTasks.get(taskSpend.taskId);
-        return task ? [costliestTaskOf(taskSpend, task)] : [];
+        return task ? [costliestTaskOf(taskSpend, task, ranOn)] : [];
       })
       .toSorted(byCost((task) => task.taskId))
       .slice(0, COSTLIEST),
     initiatives: spend.initiatives
       .flatMap((initiativeSpend) => {
         const initiative = knownInitiatives.get(initiativeSpend.initiativeId);
-        return initiative ? [costliestInitiativeOf(initiativeSpend, initiative, knownTasks)] : [];
+        return initiative
+          ? [costliestInitiativeOf(initiativeSpend, initiative, knownTasks, ranOn)]
+          : [];
       })
       .toSorted(byCost((initiative) => initiative.initiativeId))
       .slice(0, COSTLIEST),
   };
 }
 
-function costliestTaskOf(spend: TaskSpend, task: StatsTask): CostliestTask {
+/** Some of a Task's calls, in one Stage run of it or none (""), on one engine and model. */
+interface CallsOnEngine extends Spend {
+  readonly taskId: string;
+  readonly stageRun: string;
+  readonly engineId: string;
+  readonly model: string;
+}
+
+/** What the calls ran on, added up by engine name, model and stand-in, most estimated cost first. */
+type RanOnOf = (calls: readonly CallsOnEngine[]) => RanOn[];
+
+/**
+ * Calls are on a Stand-in Engine when their Stage run stood in for the cascade's engine and they
+ * didn't run on that one. An engine is named as its Stage run named it at the time, else by its
+ * name now, else `REMOVED_ENGINE`.
+ */
+function ranOnOf(
+  stageRunEngines: readonly StatsStageRunEngines[],
+  engines: readonly StatsEngineName[],
+): RanOnOf {
+  const namesNow = new Map(engines.map(({ engineId, name }) => [engineId, name]));
+  const runs = new Map(
+    stageRunEngines.map((run) => [
+      stageRunKey(run.taskId, String(run.number)),
+      { run, names: engineNamesIn(run) },
+    ]),
+  );
+  return (calls) => {
+    const pieces = new Map<string, RanOn>();
+    for (const call of calls) {
+      const known =
+        call.stageRun === "" ? undefined : runs.get(stageRunKey(call.taskId, call.stageRun));
+      const nameOf = (engineId: string) =>
+        known?.names.get(engineId) ?? namesNow.get(engineId) ?? REMOVED_ENGINE;
+      const standInFor = known?.run.standInFor;
+      const piece = {
+        engineName: nameOf(call.engineId),
+        model: call.model,
+        standInForEngineName:
+          standInFor !== undefined && call.engineId !== standInFor.engineId
+            ? nameOf(standInFor.engineId)
+            : undefined,
+      };
+      const key = JSON.stringify([piece.engineName, piece.model, piece.standInForEngineName]);
+      pieces.set(key, { ...piece, ...sum([pieces.get(key) ?? NO_SPEND, call]) });
+    }
+    return [...pieces.values()].toSorted(
+      byCost(({ engineName, model, standInForEngineName }) =>
+        [engineName, model, standInForEngineName ?? ""].join("\n"),
+      ),
+    );
+  };
+}
+
+function stageRunKey(taskId: string, stageRun: string): string {
+  return JSON.stringify([taskId, stageRun]);
+}
+
+/** The names a Stage run's records gave its engines. */
+function engineNamesIn(run: StatsStageRunEngines): Map<string, string> {
+  const names = new Map<string, string>();
+  const named = ({ engineId, engineName }: StatsNamedEngine) => {
+    if (engineName !== undefined) names.set(engineId, engineName);
+  };
+  for (const one of run.switches) {
+    named({ engineId: one.fromEngineId, engineName: one.fromEngineName });
+    named({ engineId: one.toEngineId, engineName: one.toEngineName });
+  }
+  if (run.standInFor) named(run.standInFor);
+  named(run);
+  return names;
+}
+
+function costliestTaskOf(spend: TaskSpend, task: StatsTask, ranOn: RanOnOf): CostliestTask {
   const inStages = spend.runs
     .filter(({ stageName }) => stageName !== "")
     .toSorted((one, other) => one.firstAt.getTime() - other.firstAt.getTime());
-  const stages = new Map<string, Map<string, Spend>>();
+  // A Stage's tries in the order each run's first call came, each with its calls on every engine.
+  const stages = new Map<string, Map<string, StageRunSpend[]>>();
   for (const run of inStages) {
-    const runs = stages.get(run.stageName) ?? new Map<string, Spend>();
-    runs.set(run.stageRun, sum([runs.get(run.stageRun) ?? NO_SPEND, run]));
+    const runs = stages.get(run.stageName) ?? new Map<string, StageRunSpend[]>();
+    runs.set(run.stageRun, [...(runs.get(run.stageRun) ?? []), run]);
     stages.set(run.stageName, runs);
   }
+  const callsOf = (parts: readonly StageRunSpend[]) =>
+    parts.map((part) => ({ ...part, taskId: spend.taskId }));
   return {
     taskId: spend.taskId,
     title: task.title,
@@ -280,7 +429,11 @@ function costliestTaskOf(spend: TaskSpend, task: StatsTask): CostliestTask {
     estimatedCostUsd: spend.estimatedCostUsd,
     stages: [...stages].map(([stageName, runs]) => ({
       stageName,
-      tries: [...runs.values()].map((run, index) => ({ try: index + 1, ...run })),
+      tries: [...runs.values()].map((parts, index) => ({
+        try: index + 1,
+        ...sum(parts),
+        ranOn: ranOn(callsOf(parts)),
+      })),
     })),
     outsideStages: sum(spend.runs.filter(({ stageName }) => stageName === "")),
   };
@@ -290,20 +443,24 @@ function costliestInitiativeOf(
   spend: InitiativeSpend,
   initiative: StatsInitiative,
   knownTasks: ReadonlyMap<string, StatsTask>,
+  ranOn: RanOnOf,
 ): CostliestInitiative {
+  const byTask = new Map<string, InitiativeTaskSpend[]>();
+  for (const part of spend.tasks)
+    byTask.set(part.taskId, [...(byTask.get(part.taskId) ?? []), part]);
   return {
     initiativeId: initiative.initiativeId,
     title: initiative.title,
     projectIds: initiative.projectIds,
     tokens: spend.tokens,
     estimatedCostUsd: spend.estimatedCostUsd,
-    tasks: spend.tasks
-      .flatMap(({ taskId, tokens, estimatedCostUsd }) => {
+    tasks: [...byTask]
+      .flatMap(([taskId, parts]) => {
         const task = taskId === "" ? undefined : knownTasks.get(taskId);
-        return task ? [{ taskId, title: task.title, tokens, estimatedCostUsd }] : [];
+        return task ? [{ taskId, title: task.title, ...sum(parts), ranOn: ranOn(parts) }] : [];
       })
       .toSorted(byCost(({ taskId }) => taskId)),
-    ownThreads: sum(spend.tasks.filter(({ taskId }) => taskId === "")),
+    ownThreads: sum(byTask.get("") ?? []),
   };
 }
 

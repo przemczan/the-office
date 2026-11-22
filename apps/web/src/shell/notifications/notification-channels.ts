@@ -107,7 +107,10 @@ async function shownNotification(
     id: notification.id,
     person: personOf(notification, roles),
     line: notificationLineOf(notification.line, notification),
-    about: aboutLine(task, projects),
+    about: aboutLine(
+      pointsTo.kind === "test-instance" ? { projectId: pointsTo.projectId } : task,
+      projects,
+    ),
     open: () => open(targetOf(notification)),
   };
 }

@@ -7,6 +7,7 @@ import {
   answerGivenBy,
   closedDecisionRefusal,
   decisionSummary,
+  hasOptions,
   isApproval,
   isOnTask,
   type Answerer,
@@ -254,6 +255,7 @@ export class DecisionService {
       readonly questions: readonly {
         readonly question: string;
         readonly options: readonly string[];
+        readonly ofSeveral: boolean;
       }[];
       readonly approval: boolean;
     }[]
@@ -265,7 +267,8 @@ export class DecisionService {
         id: decision.id,
         questions: decision.questions.map((asked) => ({
           question: asked.question,
-          options: asked.kind === "choice" ? asked.options : [],
+          options: hasOptions(asked) ? asked.options : [],
+          ofSeveral: asked.kind === "choice-of-several",
         })),
         approval: isApproval(decision),
       }));

@@ -26,6 +26,7 @@
 
 ### ./
 
+- `activity.e2e.ts`
 - `authenticator.e2e.ts`
 - `desktop-notifications.ts`: DesktopRecord, recordDesktopNotifications, desktopShown, focusTab
 - `e2e-user.ts`: E2E_USER, E2E_STORAGE_STATE, NOT_SIGNED_IN, signInWithPassword

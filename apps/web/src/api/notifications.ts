@@ -6,7 +6,7 @@ import {
   notificationsWebEventSchema,
   nowSchema,
   sinceYouLeftSchema,
-  type Activity,
+  type UserActivityReport,
   type ChannelSetting,
   type Notification,
   type NotificationRouting,
@@ -80,7 +80,7 @@ export function resetRouting(level: string): Promise<NotificationRouting> {
  * Tells the service the user is active, and on which page: where Since you left begins, and what
  * the user opened, which handles the Notifications pointing at it.
  */
-export function reportActivity(activity: Activity): Promise<void> {
+export function reportActivity(activity: UserActivityReport): Promise<void> {
   return sendToApiWithNoAnswer("POST", "/activity", activity);
 }
 

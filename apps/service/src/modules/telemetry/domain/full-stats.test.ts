@@ -11,6 +11,7 @@ import {
   usageBucketsOf,
   windowsOverTimeOf,
   type StageRunSpend,
+  type StatsStageRunEngines,
   type StatsStageRunSpan,
   type TaskSpend,
 } from "./full-stats.js";
@@ -30,12 +31,69 @@ function aTaskSpend(
   return { taskId, tokens: estimatedCostUsd * 1000, estimatedCostUsd, runs };
 }
 
-function aRun(stageName: string, stageRun: string, minute: number, cost: number): StageRunSpend {
+function aRun(
+  stageName: string,
+  stageRun: string,
+  minute: number,
+  cost: number,
+  { engineId = "work", model = "claude-opus-5-5" } = {},
+): StageRunSpend {
   return {
     stageName,
     stageRun,
+    engineId,
+    model,
     firstAt: new Date(Date.UTC(2026, 10, 17, 9, minute)),
-    tokens: cost * 100,
+    tokens: Math.round(cost * 100),
+    estimatedCostUsd: cost,
+  };
+}
+
+function aRunOnEngines(
+  taskId: string,
+  number: number,
+  engineId: string,
+  engineName: string,
+  more: Partial<Pick<StatsStageRunEngines, "standInFor" | "switches">> = {},
+): StatsStageRunEngines {
+  return { taskId, number, engineId, engineName, standInFor: undefined, switches: [], ...more };
+}
+
+/** No Stage run kept an engine, and no engine is known now. */
+const NO_ENGINES = { stageRunEngines: [], engines: [] };
+
+/** Run 1 of t1 ran on Personal, standing in for Work, after its session moved there from Work. */
+const SWITCHED_RUN = aRunOnEngines("t1", 1, "personal", "Personal", {
+  standInFor: { engineId: "work", engineName: "Work" },
+  switches: [
+    {
+      fromEngineId: "work",
+      fromEngineName: "Work",
+      toEngineId: "personal",
+      toEngineName: "Personal",
+    },
+  ],
+});
+
+/** An Initiative's spend on one Task's Stage run, on an engine, with Opus 5.5. */
+function anInitiativePart(taskId: string, stageRun: string, engineId: string, cost: number) {
+  return {
+    taskId,
+    stageRun,
+    engineId,
+    model: "claude-opus-5-5",
+    tokens: Math.round(cost * 100),
+    estimatedCostUsd: cost,
+  };
+}
+
+/** What a piece of spend on Work with Opus 5.5 ran on. */
+function onWork(cost: number) {
+  return {
+    engineName: "Work",
+    model: "claude-opus-5-5",
+    standInForEngineName: undefined,
+    tokens: Math.round(cost * 100),
     estimatedCostUsd: cost,
   };
 }
@@ -129,6 +187,7 @@ describe("costliestOf", () => {
       spend: { tasks: spend, initiatives: [] },
       tasks,
       initiatives: [],
+      ...NO_ENGINES,
     });
 
     expect(costliest).toHaveLength(COSTLIEST);
@@ -159,6 +218,7 @@ describe("costliestOf", () => {
       spend: { tasks: [spend], initiatives: [] },
       tasks: [aTask("t1")],
       initiatives: [],
+      ...NO_ENGINES,
     }).tasks;
 
     expect(task).toMatchObject({
@@ -178,7 +238,127 @@ describe("costliestOf", () => {
     });
   });
 
-  it("gives an Initiative its known Tasks, most first, and its own Threads; unknown ones are left out", () => {
+  it("names a plain try's model and engine as its Stage run named the engine", () => {
+    const [task] = costliestOf({
+      spend: { tasks: [aTaskSpend("t1", 3, [aRun("Implement", "1", 10, 3)])], initiatives: [] },
+      tasks: [aTask("t1")],
+      initiatives: [],
+      stageRunEngines: [aRunOnEngines("t1", 1, "work", "Work")],
+      engines: [{ engineId: "work", name: "Work renamed" }],
+    }).tasks;
+
+    expect(task?.stages[0]?.tries).toEqual([
+      {
+        try: 1,
+        tokens: 300,
+        estimatedCostUsd: 3,
+        ranOn: [
+          {
+            engineName: "Work",
+            model: "claude-opus-5-5",
+            standInForEngineName: undefined,
+            tokens: 300,
+            estimatedCostUsd: 3,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("marks a try on a Stand-in Engine with the engine it stood in for", () => {
+    const [task] = costliestOf({
+      spend: {
+        tasks: [aTaskSpend("t1", 1, [aRun("Implement", "2", 10, 1, { engineId: "personal" })])],
+        initiatives: [],
+      },
+      tasks: [aTask("t1")],
+      initiatives: [],
+      stageRunEngines: [
+        aRunOnEngines("t1", 2, "personal", "Personal", {
+          standInFor: { engineId: "work", engineName: "Work" },
+        }),
+      ],
+      engines: [],
+    }).tasks;
+
+    expect(task?.stages[0]?.tries[0]?.ranOn).toEqual([
+      expect.objectContaining({ engineName: "Personal", standInForEngineName: "Work" }),
+    ]);
+  });
+
+  it("lists each engine and model a switched try ran on, most cost first, as one try", () => {
+    const [task] = costliestOf({
+      spend: {
+        tasks: [
+          aTaskSpend("t1", 1.4, [
+            aRun("Implement", "1", 10, 0.4, { engineId: "personal" }),
+            aRun("Implement", "1", 5, 1, { engineId: "work" }),
+          ]),
+        ],
+        initiatives: [],
+      },
+      tasks: [aTask("t1")],
+      initiatives: [],
+      stageRunEngines: [SWITCHED_RUN],
+      engines: [],
+    }).tasks;
+
+    expect(task?.stages).toEqual([
+      {
+        stageName: "Implement",
+        tries: [
+          {
+            try: 1,
+            tokens: 140,
+            estimatedCostUsd: 1.4,
+            ranOn: [
+              {
+                engineName: "Work",
+                model: "claude-opus-5-5",
+                standInForEngineName: undefined,
+                tokens: 100,
+                estimatedCostUsd: 1,
+              },
+              {
+                engineName: "Personal",
+                model: "claude-opus-5-5",
+                standInForEngineName: "Work",
+                tokens: 40,
+                estimatedCostUsd: 0.4,
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("names an engine its Stage run kept no name for by its name now, else as a removed engine", () => {
+    const [task] = costliestOf({
+      spend: {
+        tasks: [
+          aTaskSpend("t1", 3, [
+            aRun("Implement", "1", 10, 2, { engineId: "work" }),
+            aRun("Implement", "1", 10, 1, { engineId: "gone", model: "claude-sonnet-5-5" }),
+          ]),
+        ],
+        initiatives: [],
+      },
+      tasks: [aTask("t1")],
+      initiatives: [],
+      ...NO_ENGINES,
+      engines: [{ engineId: "work", name: "Work" }],
+    }).tasks;
+
+    expect(
+      task?.stages[0]?.tries[0]?.ranOn.map(({ engineName, model }) => [engineName, model]),
+    ).toEqual([
+      ["Work", "claude-opus-5-5"],
+      ["Removed engine", "claude-sonnet-5-5"],
+    ]);
+  });
+
+  it("gives an Initiative its known Tasks, most first, with what each ran on, and its own Threads; unknown ones are left out", () => {
     const { initiatives } = costliestOf({
       spend: {
         tasks: [],
@@ -188,10 +368,11 @@ describe("costliestOf", () => {
             tokens: 900,
             estimatedCostUsd: 9,
             tasks: [
-              { taskId: "t1", tokens: 100, estimatedCostUsd: 1 },
-              { taskId: "gone", tokens: 300, estimatedCostUsd: 3 },
-              { taskId: "t2", tokens: 400, estimatedCostUsd: 4 },
-              { taskId: "", tokens: 100, estimatedCostUsd: 1 },
+              anInitiativePart("t1", "1", "personal", 0.4),
+              anInitiativePart("t1", "1", "work", 0.6),
+              anInitiativePart("gone", "1", "work", 3),
+              anInitiativePart("t2", "", "work", 4),
+              anInitiativePart("", "", "work", 1),
             ],
           },
           { initiativeId: "forgotten", tokens: 9_000, estimatedCostUsd: 90, tasks: [] },
@@ -199,6 +380,8 @@ describe("costliestOf", () => {
       },
       tasks: [aTask("t1"), aTask("t2")],
       initiatives: [{ initiativeId: "i1", title: "Stats", projectIds: ["office", "web"] }],
+      stageRunEngines: [SWITCHED_RUN],
+      engines: [{ engineId: "work", name: "Work" }],
     });
 
     expect(initiatives).toEqual([
@@ -209,8 +392,23 @@ describe("costliestOf", () => {
         tokens: 900,
         estimatedCostUsd: 9,
         tasks: [
-          { taskId: "t2", title: "Task t2", tokens: 400, estimatedCostUsd: 4 },
-          { taskId: "t1", title: "Task t1", tokens: 100, estimatedCostUsd: 1 },
+          { taskId: "t2", title: "Task t2", tokens: 400, estimatedCostUsd: 4, ranOn: [onWork(4)] },
+          {
+            taskId: "t1",
+            title: "Task t1",
+            tokens: 100,
+            estimatedCostUsd: 1,
+            ranOn: [
+              onWork(0.6),
+              {
+                engineName: "Personal",
+                model: "claude-opus-5-5",
+                standInForEngineName: "Work",
+                tokens: 40,
+                estimatedCostUsd: 0.4,
+              },
+            ],
+          },
         ],
         ownThreads: { tokens: 100, estimatedCostUsd: 1 },
       },

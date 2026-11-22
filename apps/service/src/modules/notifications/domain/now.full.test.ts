@@ -6,7 +6,9 @@ import {
   waitingGateOf,
   type NeedsYouItem,
   type NowParts,
+  type OfficeInitiative,
   type OfficeTask,
+  type OpenProposal,
   type StageOfTask,
   type TaskResume,
 } from "./now.js";
@@ -51,6 +53,11 @@ const PARTS: NowParts = {
   fireAlarm: { on: false },
   resumes: new Map(),
   standInChoices: [],
+  openProposals: [],
+  pullRequests: [],
+  skillUpdates: [],
+  officeUpdate: undefined,
+  shapingReplies: [],
 };
 
 describe("currentStageOf", () => {
@@ -454,5 +461,185 @@ describe("nowOf's Shaping", () => {
     });
 
     expect(now.shaping).toMatchObject([{ initiativeId: "i1", shapedBy: undefined }]);
+  });
+});
+
+function proposal(
+  id: string,
+  home: OpenProposal["home"],
+  draftedAt: Date,
+  skillUpdate?: string,
+): OpenProposal {
+  return { id, threadId: `thread-${id}`, draftedBy: "planner", draftedAt, home, skillUpdate };
+}
+
+describe("nowOf's Waiting for you", () => {
+  const INITIATIVE: OfficeInitiative = {
+    id: "i1",
+    name: "Search",
+    state: "shaping",
+    createdAt: at(0),
+  };
+
+  const OFFICE_UPDATE = {
+    target: {
+      kind: "release" as const,
+      version: "1.4.0",
+      name: "v1.4.0",
+      publishedAt: at(0),
+      url: "https://github.com/office/releases/v1.4.0",
+    },
+    foundAt: at(6),
+  };
+
+  /** Every kind at once, each with its own time. */
+  const EVERY_KIND: NowParts = {
+    ...PARTS,
+    tasks: [{ ...TASK, id: "t2", projectId: "p2", state: "ready" }],
+    initiatives: [INITIATIVE],
+    initiativeTasks: new Map([["i1", [{ projectId: "p3", state: "ready" }]]]),
+    openProposals: [
+      proposal("chat", { kind: "chat", roleKey: "office-manager" }, at(5)),
+      proposal("task", { kind: "task", taskId: "t2" }, at(3)),
+      proposal("initiative", { kind: "initiative", initiativeId: "i1" }, at(4)),
+    ],
+    pullRequests: [
+      {
+        id: "pr1",
+        projectId: "p1",
+        taskId: "t9",
+        number: 12,
+        url: "https://github.com/office/pull/12",
+        checksFailing: true,
+        conflicts: false,
+        waitingSince: at(2),
+      },
+    ],
+    skillUpdates: ["pdf", "docx"],
+    officeUpdate: OFFICE_UPDATE,
+    shapingReplies: [
+      { initiativeId: "i1", threadId: "shaping-thread", roleKey: "cto", answeredAt: at(1) },
+    ],
+  };
+
+  it("lists each kind oldest first, the undated Skill updates last", () => {
+    const { waitingForYou } = nowOf(EVERY_KIND);
+
+    expect(waitingForYou).toEqual([
+      {
+        kind: "shaping-reply",
+        initiativeId: "i1",
+        threadId: "shaping-thread",
+        roleKey: "cto",
+        projectIds: ["p3"],
+        waitingSince: at(1),
+      },
+      {
+        kind: "pull-request",
+        pullRequestId: "pr1",
+        taskId: "t9",
+        number: 12,
+        url: "https://github.com/office/pull/12",
+        checksFailing: true,
+        conflicts: false,
+        projectIds: ["p1"],
+        waitingSince: at(2),
+      },
+      {
+        kind: "proposal",
+        proposalId: "task",
+        threadId: "thread-task",
+        draftedBy: "planner",
+        home: { kind: "task", taskId: "t2" },
+        projectIds: ["p2"],
+        waitingSince: at(3),
+      },
+      expect.objectContaining({ proposalId: "initiative", projectIds: ["p3"] }),
+      expect.objectContaining({ proposalId: "chat", projectIds: [] }),
+      {
+        kind: "office-update",
+        target: OFFICE_UPDATE.target,
+        projectIds: [],
+        waitingSince: at(6),
+      },
+      {
+        kind: "skill-updates",
+        skillNames: ["pdf", "docx"],
+        count: 2,
+        projectIds: [],
+        waitingSince: undefined,
+      },
+    ]);
+  });
+
+  it("never adds to Needs you", () => {
+    expect(nowOf(EVERY_KIND).needsYou).toEqual([]);
+  });
+
+  it("leaves out a Proposal whose Task is unknown, Done or Dropped", () => {
+    for (const tasks of [
+      [],
+      [{ ...TASK, id: "t2", state: "done" }],
+      [{ ...TASK, id: "t2", state: "dropped" }],
+    ]) {
+      const { waitingForYou } = nowOf({
+        ...PARTS,
+        tasks,
+        openProposals: [proposal("task", { kind: "task", taskId: "t2" }, at(3))],
+      });
+
+      expect(waitingForYou).toEqual([]);
+    }
+  });
+
+  it("leaves out a Proposal whose Initiative is unknown or ended", () => {
+    for (const initiatives of [
+      [],
+      [{ ...INITIATIVE, state: "done" }],
+      [{ ...INITIATIVE, state: "dropped" }],
+    ]) {
+      const { waitingForYou } = nowOf({
+        ...PARTS,
+        initiatives,
+        openProposals: [proposal("initiative", { kind: "initiative", initiativeId: "i1" }, at(4))],
+      });
+
+      expect(waitingForYou).toEqual([]);
+    }
+  });
+
+  it("leaves a Skill already drafted as an open Proposal of its update out of the Skill updates", () => {
+    const chat = { kind: "chat", roleKey: "office-manager" } as const;
+    const { waitingForYou } = nowOf({
+      ...PARTS,
+      skillUpdates: ["pdf", "docx"],
+      openProposals: [proposal("update", chat, at(1), "pdf")],
+    });
+
+    expect(waitingForYou).toMatchObject([
+      { kind: "proposal", proposalId: "update" },
+      { kind: "skill-updates", skillNames: ["docx"], count: 1 },
+    ]);
+  });
+
+  it("lists no Skill updates once every one is drafted", () => {
+    const chat = { kind: "chat", roleKey: "office-manager" } as const;
+    const { waitingForYou } = nowOf({
+      ...PARTS,
+      skillUpdates: ["pdf"],
+      openProposals: [proposal("update", chat, at(1), "pdf")],
+    });
+
+    expect(waitingForYou.map(({ kind }) => kind)).toEqual(["proposal"]);
+  });
+
+  it("lists a shaper's answer only while its Initiative is in Shaping", () => {
+    const { waitingForYou } = nowOf({
+      ...EVERY_KIND,
+      initiatives: [{ ...INITIATIVE, state: "active" }],
+      openProposals: [],
+    });
+
+    expect(waitingForYou.map(({ kind }) => kind)).not.toContain("shaping-reply");
   });
 });

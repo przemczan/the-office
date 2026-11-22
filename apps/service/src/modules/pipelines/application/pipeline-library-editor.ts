@@ -223,17 +223,34 @@ export class PipelineLibraryEditor {
     pipelineId: string | undefined,
   ): Promise<OfficeWidePipelineCheck> {
     const library = await this.repository.list();
-    const others = library.filter(({ id }) => id !== pipelineId);
     const saved = library.find(({ id }) => id === pipelineId);
     return {
-      problems: [
-        ...pipelineEditProblems(edit, others, await this.projectPipelineNames()),
-        ...(await this.roleEngineProblems(edit.stages, library)),
-        ...(await this.missingCommandProblems(pipelineId, edit.name, edit.stages)),
-      ],
-      flags: await this.flagsOf(edit.stages),
+      ...(await this.checkAgainst(edit, pipelineId, library, await this.projectPipelineNames())),
       breaks: saved ? await this.breaks(saved, { ...saved, ...edit }) : [],
     };
+  }
+
+  /**
+   * The library Pipelines whose saved Stages their own check lists a problem or a flag for, all
+   * checked in one go, the library and the names it may not take read once.
+   */
+  async needingFixing(): Promise<string[]> {
+    const [library, takenNames] = await Promise.all([
+      this.repository.list(),
+      this.projectPipelineNames(),
+    ]);
+    const needing = await Promise.all(
+      library.map(async (pipeline) => {
+        const { problems, flags } = await this.checkAgainst(
+          pipeline,
+          pipeline.id,
+          library,
+          takenNames,
+        );
+        return problems.length + flags.length > 0 ? [pipeline.id] : [];
+      }),
+    );
+    return needing.flat();
   }
 
   async addProjectPipeline(
@@ -366,6 +383,22 @@ export class PipelineLibraryEditor {
     await this.repository.save(pipeline);
     await this.events.publish(event);
     return pipeline;
+  }
+
+  private async checkAgainst(
+    edit: PipelineEdit,
+    pipelineId: string | undefined,
+    library: readonly Pipeline[],
+    takenNames: readonly TakenName[],
+  ): Promise<PipelineCheck> {
+    return {
+      problems: [
+        ...pipelineEditProblems(edit, othersThan(pipelineId, library), takenNames),
+        ...(await this.roleEngineProblems(edit.stages, library)),
+        ...(await this.missingCommandProblems(pipelineId, edit.name, edit.stages)),
+      ],
+      flags: await this.flagsOf(edit.stages),
+    };
   }
 
   private async refuseProblems(
@@ -605,6 +638,6 @@ function projectNameOf(projectId: string, projects: readonly ProjectDefault[]): 
   return projects.find(({ id }) => id === projectId)?.name ?? projectId;
 }
 
-function othersThan(id: string, library: readonly Pipeline[]): readonly Pipeline[] {
+function othersThan(id: string | undefined, library: readonly Pipeline[]): readonly Pipeline[] {
   return library.filter((pipeline) => pipeline.id !== id);
 }

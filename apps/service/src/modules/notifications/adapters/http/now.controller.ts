@@ -1,7 +1,7 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Post } from "@nestjs/common";
 import {
-  activitySchema,
-  type Activity,
+  userActivityReportSchema,
+  type UserActivityReport,
   type Now as NowResponse,
   type SinceYouLeft as SinceYouLeftResponse,
 } from "@the-office/contracts";
@@ -38,7 +38,7 @@ export class NowController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async recordActivity(
     @SignedIn() { userId }: SignedIn,
-    @Body(new ContractPipe(activitySchema)) { page }: Activity,
+    @Body(new ContractPipe(userActivityReportSchema)) { page }: UserActivityReport,
   ): Promise<void> {
     await this.now.recordActivity(userId);
     await this.notifications.opened(page);

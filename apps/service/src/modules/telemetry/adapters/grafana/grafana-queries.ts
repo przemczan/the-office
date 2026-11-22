@@ -61,6 +61,7 @@ const HEALTH_METRICS = {
 /** The labels the answers are read by. */
 export const LABELS = {
   engine: "office_engine",
+  model: "office_engine_model",
   usageWindow: "office_usage_window",
   task: "office_task",
   initiative: "office_initiative",
@@ -73,7 +74,7 @@ export const LABELS = {
 } as const;
 
 export const SPLIT_LABELS: Readonly<Record<FullStatsSplit, string>> = {
-  model: "office_engine_model",
+  model: LABELS.model,
   role: "office_role",
   stage: "office_stage",
   pipeline: "office_pipeline",
@@ -192,10 +193,11 @@ export function costliestTopQueryBody(loki: DataSourceRef, query: CostliestQuery
 }
 
 /**
- * The named Tasks broken down by Stage and run, and the named Initiatives by Task (`office_task`
- * absent for their own Threads): cost, then each counted kind of tokens as a query of its own (the
- * answers are added up here, which never loses a kind the way a LogQL `+` drops a series missing
- * on one side), and for the Tasks when each Stage run's first record came.
+ * The named Tasks broken down by Stage, run, engine and model, and the named Initiatives by Task,
+ * Stage run, engine and model (`office_task` absent for their own Threads): cost, then each counted
+ * kind of tokens as a query of its own (the answers are added up here, which never loses a kind the
+ * way a LogQL `+` drops a series missing on one side), and for the Tasks when each Stage run's
+ * first record came.
  *
  * That first time is exact: `label_format` puts each record's own timestamp, in milliseconds, in a
  * label (`__timestamp__ | unixEpochMillis`), which `min_over_time` unwraps over the whole range.
@@ -215,7 +217,7 @@ export function costliestBreakdownQueryBody(
   const sumOf = (by: string, filter: string, field: string) =>
     `sum by (${by}) (sum_over_time(${calls([filter])} | unwrap ${field} | __error__="" ${range}))`;
   if (taskIds.length > 0) {
-    const by = `${LABELS.task}, ${LABELS.stage}, ${LABELS.stageRun}`;
+    const by = `${LABELS.task}, ${LABELS.stage}, ${LABELS.stageRun}, ${LABELS.engine}, ${LABELS.model}`;
     const filter = `${LABELS.task}=~"${alternatives(taskIds)}"`;
     queries.push(instantQuery(loki, REF.taskCost, sumOf(by, filter, COST_FIELD)));
     TOKEN_FIELDS.forEach((field, index) =>
@@ -225,7 +227,7 @@ export function costliestBreakdownQueryBody(
     queries.push(instantQuery(loki, REF.taskFirst, first));
   }
   if (initiativeIds.length > 0) {
-    const by = `${LABELS.initiative}, ${LABELS.task}`;
+    const by = `${LABELS.initiative}, ${LABELS.task}, ${LABELS.stageRun}, ${LABELS.engine}, ${LABELS.model}`;
     const filter = `${LABELS.initiative}=~"${alternatives(initiativeIds)}"`;
     queries.push(instantQuery(loki, REF.initiativeCost, sumOf(by, filter, COST_FIELD)));
     TOKEN_FIELDS.forEach((field, index) =>

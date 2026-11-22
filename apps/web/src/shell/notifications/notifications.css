@@ -23,3 +23,38 @@
 .needs-you-title:hover {
   text-decoration: underline;
 }
+
+/* ---- Waiting for you, Needs you's second group, under its Decisions and Gates */
+.waiting-for-you {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+  margin-top: 12px;
+}
+
+.waiting-for-you-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 2px 0;
+  font: 600 var(--text-body) / 1 var(--font-sans);
+  color: var(--fg-2);
+}
+
+.waiting-for-you-count {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.waiting-for-you-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.waiting-for-you-sub a {
+  color: inherit;
+}

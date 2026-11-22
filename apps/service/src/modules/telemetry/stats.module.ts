@@ -17,6 +17,7 @@ import { OfficeTasks } from "./ports/office-tasks.js";
 import { ProjectNames } from "./ports/project-names.js";
 import { RunningStageRuns } from "./ports/running-stage-runs.js";
 import { SessionsRunning } from "./ports/sessions-running.js";
+import { StageRunEngines } from "./ports/stage-run-engines.js";
 import { StageRunTotals } from "./ports/stage-run-totals.js";
 import { StageRunsRunning } from "./ports/stage-runs-running.js";
 import { StatsSource } from "./ports/stats-source.js";
@@ -32,6 +33,7 @@ export interface StatsModuleOptions {
   readonly engineWindows: Type<EngineWindows>;
   readonly stageRunTotals: Type<StageRunTotals>;
   readonly runningStageRuns: Type<RunningStageRuns>;
+  readonly stageRunEngines: Type<StageRunEngines>;
   readonly officeTasks: Type<OfficeTasks>;
   readonly officeInitiatives: Type<OfficeInitiatives>;
   readonly projectNames: Type<ProjectNames>;
@@ -59,6 +61,7 @@ export class StatsModule {
     engineWindows,
     stageRunTotals,
     runningStageRuns,
+    stageRunEngines,
     officeTasks,
     officeInitiatives,
     projectNames,
@@ -77,6 +80,7 @@ export class StatsModule {
         { provide: EngineWindows, useExisting: engineWindows },
         { provide: StageRunTotals, useExisting: stageRunTotals },
         { provide: RunningStageRuns, useExisting: runningStageRuns },
+        { provide: StageRunEngines, useExisting: stageRunEngines },
         { provide: OfficeTasks, useExisting: officeTasks },
         { provide: OfficeInitiatives, useExisting: officeInitiatives },
         { provide: ProjectNames, useExisting: projectNames },

@@ -1,7 +1,9 @@
 import { randomBytes } from "node:crypto";
+import { sql, TransactionRollbackError } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Client, Pool } from "pg";
 import { inject } from "vitest";
+import type { Database } from "../src/platform/database/database.js";
 import { runPendingMigrations } from "../src/platform/database/migrations.js";
 
 declare module "vitest" {
@@ -45,6 +47,34 @@ export async function freshTestDatabase(): Promise<FreshTestDatabase> {
     await pool.end();
   }
   return { url, drop };
+}
+
+type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
+
+/**
+ * What a migration test's `replay` found on the shared database, with its changes undone. A
+ * replay writes rows and then changes the columns of tables every test file shares, which waits
+ * for every other transaction on them; two replays at once each held the table the other waited
+ * for (a deadlock), so replays take turns, one advisory lock held until the rollback.
+ */
+export async function rolledBackMigration<Result>(
+  database: Database,
+  replay: (transaction: Transaction) => Promise<Result>,
+): Promise<Result> {
+  let result: Result | undefined;
+  await database
+    .transaction(async (transaction) => {
+      await transaction.execute(
+        sql`select pg_advisory_xact_lock(hashtext('test.migration-replay'))`,
+      );
+      result = await replay(transaction);
+      transaction.rollback();
+    })
+    .catch((error: unknown) => {
+      if (!(error instanceof TransactionRollbackError)) throw error;
+    });
+  if (result === undefined) throw new Error("Nothing was read.");
+  return result;
 }
 
 async function onSharedDatabase(work: (client: Client) => Promise<unknown>): Promise<void> {

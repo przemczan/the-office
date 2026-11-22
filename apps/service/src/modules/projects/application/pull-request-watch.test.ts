@@ -13,6 +13,7 @@ import {
 } from "../domain/pull-request-events.js";
 import { PostgresPullRequestRepository } from "../adapters/postgres/postgres-pull-request-repository.js";
 import { REPOSITORY, PullRequestWatchTestbed } from "../pull-request-watch.fixtures.js";
+import { PullRequestRecords } from "./pull-request-records.js";
 
 let github: FakeGitHub;
 let testbed: PullRequestWatchTestbed;
@@ -222,5 +223,46 @@ describe("the pull request watch", REAL_GIT_TEST, () => {
     await testbed.runRound();
 
     expect((await testbed.watch.list(testbed.project.id)).problems).toEqual([]);
+  });
+});
+
+describe("the pull requests needing attention, for Now", REAL_GIT_TEST, () => {
+  it("lists the open ones whose checks fail or which have conflicts, oldest first", async () => {
+    const failing = await aPublishedPullRequest();
+    const conflicting = await aPublishedPullRequest();
+    const passing = await aPublishedPullRequest();
+    const merged = await aPublishedPullRequest();
+    const closed = await aPublishedPullRequest();
+    github.pullRequests.setChecks(REPOSITORY, failing.number, "failing");
+    github.pullRequests.setMergeable(REPOSITORY, conflicting.number, false);
+    github.pullRequests.setChecks(REPOSITORY, passing.number, "passing");
+    for (const { number } of [merged, closed]) {
+      github.pullRequests.setChecks(REPOSITORY, number, "failing");
+    }
+    await testbed.runRound();
+    github.pullRequests.merge(REPOSITORY, merged.number);
+    github.pullRequests.close(REPOSITORY, closed.number);
+    await testbed.runRound();
+
+    const ours = new Set([failing, conflicting, passing, merged, closed].map(({ id }) => id));
+    const listed = (await new PullRequestRecords(testbed.records).needingAttention()).filter(
+      ({ id }) => ours.has(id),
+    );
+
+    expect(listed.map(({ id }) => id).toSorted()).toEqual([failing.id, conflicting.id].toSorted());
+    expect(listed.find(({ id }) => id === failing.id)).toMatchObject({
+      projectId: testbed.project.id,
+      taskId: failing.taskId,
+      number: failing.number,
+      checksFailing: true,
+      conflicts: false,
+      waitingSince: expect.any(Date),
+    });
+    expect(listed.find(({ id }) => id === conflicting.id)).toMatchObject({
+      checksFailing: false,
+      conflicts: true,
+    });
+    const since = listed.map(({ waitingSince }) => waitingSince.getTime());
+    expect(since).toEqual(since.toSorted((one, other) => one - other));
   });
 });

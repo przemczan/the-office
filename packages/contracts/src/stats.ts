@@ -117,9 +117,23 @@ export const statsUsageBucketSchema = z.object({
 });
 export type StatsUsageBucket = z.infer<typeof statsUsageBucketSchema>;
 
+/**
+ * What some of a run's calls ran on, as the Task page names it: the model on the engine, by the
+ * engine's name ("Removed engine" when no longer known), with the engine it stood in for when the
+ * calls were a Stage run's on a Stand-in Engine.
+ */
+export const statsRanOnSchema = statsSpendSchema.extend({
+  engineName: z.string(),
+  model: z.string(),
+  standInForEngineName: z.string().optional(),
+});
+export type StatsRanOn = z.infer<typeof statsRanOnSchema>;
+
 /** One try of a Stage: Run 1, Run 2 (a Stage retry), and so on, in the order they first ran. */
 export const statsStageTrySchema = statsSpendSchema.extend({
   try: z.number().int().positive(),
+  /** Each engine and model its calls ran on, most estimated cost first. */
+  ranOn: z.array(statsRanOnSchema),
 });
 export type StatsStageTry = z.infer<typeof statsStageTrySchema>;
 
@@ -146,7 +160,14 @@ export const statsCostliestInitiativeSchema = statsSpendSchema.extend({
   title: z.string(),
   projectIds: z.array(z.string()),
   /** Most estimated cost first; a Task that no longer exists is left out. */
-  tasks: z.array(statsSpendSchema.extend({ taskId: z.uuid(), title: z.string() })),
+  tasks: z.array(
+    statsSpendSchema.extend({
+      taskId: z.uuid(),
+      title: z.string(),
+      /** Each engine and model its calls ran on, most estimated cost first. */
+      ranOn: z.array(statsRanOnSchema),
+    }),
+  ),
   /** The Initiative's own Threads, outside any of its Tasks. */
   ownThreads: statsSpendSchema,
 });

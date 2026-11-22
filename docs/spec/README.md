@@ -16,6 +16,8 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 ### A
 
 - **Account, Users, User**: [2.10 Users](2.10-users-and-signing-in.md#users); screen: [Account](screens/account.md#account-page)
+- **Action tone, go, plan, hold, stop**: [4.1 Action tones](4.1-ui-rules.md#action-tones); screen: [Task page › Head actions](screens/task-page.md#head-actions)
+- **Activity, Activity item, seen, activity.changed**: [2.14 Activity](2.14-activity.md#activity); [2.14 What is listed](2.14-activity.md#what-is-listed); [2.14 Running and ended](2.14-activity.md#running-and-ended); [2.14 Seen per user](2.14-activity.md#seen-per-user); [2.14 The count](2.14-activity.md#the-count); screen: [Activity](screens/activity.md#activity); [Shell › Status strip](screens/shell.md#status-strip); [5.3 Activity reads through ports of its own](5.3-modules.md#activity-reads-through-ports-of-its-own)
 - **Android phone over USB, adb connect, adb serial**: [2.13 Android phone over USB](2.13-connected-devices.md#android-phone-over-usb); screen: [Task page › Devices](screens/task-page.md#devices)
 - **Android phone over wireless debugging, adb pair, pairing code, pairing port**: [2.13 Android phone over wireless debugging](2.13-connected-devices.md#android-phone-over-wireless-debugging); [2.13 The run environment's network](2.13-connected-devices.md#the-run-environments-network); [6 Connected devices](6-permissions-and-safety.md#connected-devices); screen: [Task page › Devices](screens/task-page.md#devices)
 - **adb key**: [2.13 The adb key](2.13-connected-devices.md#the-adb-key); [6 Connected devices](6-permissions-and-safety.md#connected-devices)
@@ -47,7 +49,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **CI run, Workflow**: [2.1.6 The CI tab](2.1.6-board-and-search.md#the-ci-tab); screen: [CI tab › Start a workflow window](screens/ci-runs.md#start-a-workflow-window)
 - **Chat drawer**: [4.1 The chat drawer](4.1-ui-rules.md#the-chat-drawer); screen: [Shell › The chat drawer](screens/shell.md#the-chat-drawer)
 - **Checks**: [2.3.3 Gates](2.3.3-gates-and-checks.md#gates); [2.3.4 Publish](2.3.4-publish.md#publish); screen: [Pull requests › Table](screens/pull-requests.md#table)
-- **Choice, Question, Open question, Comment, General comment, Submit**: [2.4.2 The Decision form](2.4.2-decisions.md#the-decision-form); screen: [Decision card › Submit](screens/decision-card.md#submit)
+- **Choice, Choice of several, Question, Open question, Comment, General comment, Submit**: [2.4.2 The Decision form](2.4.2-decisions.md#the-decision-form); screen: [Decision card › Submit](screens/decision-card.md#submit)
 - **Command kind, Project command**: [2.1.1 Project commands](2.1.1-projects.md#project-commands); screen: [Project page › Commands](screens/project-page.md#commands)
 - **Commit message**: [2.1.3 Commit message](2.1.3-tasks.md#commit-message); [2.3.4 The Task's commit message](2.3.4-publish.md#the-tasks-commit-message); screen: [Task page › Commit message](screens/task-page.md#commit-message)
 - **Compose install, Direct install**: [5.1.1 Installing with Docker Compose](5.1.1-releases-and-installs.md#installing-with-docker-compose); [5.1.1 Installing on Debian/Ubuntu](5.1.1-releases-and-installs.md#installing-on-debianubuntu)
@@ -213,7 +215,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Tag**: [2.1.3 Tags](2.1.3-tasks.md#tags)
 - **Test target, Hosted, Build to install, Install on a device, Deployed elsewhere, entry points only**: [2.12 Test target](2.12-test-instances.md#test-target); [2.12 Kinds](2.12-test-instances.md#kinds); [2.12 Entry points only](2.12-test-instances.md#entry-points-only); screen: [Project page › Test targets](screens/project-page.md#test-targets)
 - **propose_test_targets, Set up test targets**: [2.12 Writing test targets](2.12-test-instances.md#writing-test-targets); [2.12 Set up test targets](2.12-test-instances.md#set-up-test-targets); [2.3.5 Built-ins](2.3.5-library.md#built-ins)
-- **Test instance, launching on a branch, linked to an Initiative, Building, Running, Stopped, Built, Failed**: [2.12 Test instance](2.12-test-instances.md#test-instance); [2.12 Linking to an Initiative](2.12-test-instances.md#linking-to-an-initiative); [2.12 Test instance states](2.12-test-instances.md#test-instance-states); [2.1.4 Test instances of an Initiative](2.1.4-initiatives.md#test-instances-of-an-initiative); screens: [Initiative page › Test instances](screens/initiative-page.md#test-instances), [Project page › Test instances](screens/project-page.md#test-instances)
+- **Test instance, launching on a branch, linked to an Initiative, Building, Running, Stopped, Built, Failed**: [2.12 Test instance](2.12-test-instances.md#test-instance); [2.12 Linking to an Initiative](2.12-test-instances.md#linking-to-an-initiative); [2.12 Test instance states](2.12-test-instances.md#test-instance-states); [2.1.4 Test instances of an Initiative](2.1.4-initiatives.md#test-instances-of-an-initiative); [2.7 Test instance Outcomes](2.7-notifications.md#test-instance-outcomes); screens: [Initiative page › Test instances](screens/initiative-page.md#test-instances), [Project page › Test instances](screens/project-page.md#test-instances)
 - **Test instance proxy, hand-off link, Proxy ports**: [2.12 Reaching a Hosted instance](2.12-test-instances.md#reaching-a-hosted-instance); [5.1 The test instance proxy](5.1-shape.md#the-test-instance-proxy); [2.10 Signing in to a test instance](2.10-users-and-signing-in.md#signing-in-to-a-test-instance)
 - **Build to install files, QR code link, build time, Kept Build to install files (linked and unlinked builds)**: [2.12 Build to install](2.12-test-instances.md#build-to-install); [2.12 Kept Build to install files](2.12-test-instances.md#kept-build-to-install-files); [2.12 Build time](2.12-test-instances.md#build-time); [5.5 The build cache volume](5.5-git-and-isolation.md#the-build-cache-volume)
 - **Build cache volume**: [5.5 The build cache volume](5.5-git-and-isolation.md#the-build-cache-volume)
@@ -235,6 +237,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 
 ### W
 
+- **Waiting for you**: [2.4.2 Waiting for you](2.4.2-decisions.md#waiting-for-you); [2.7 The tab counts Needs you and blinks for a new item](2.7-notifications.md#the-tab-counts-needs-you-and-blinks-for-a-new-item)
 - **Workstation figure**: [4 Densities](4-ux-direction.md#densities); screen: [Shell › Workstation figure](screens/shell.md#workstation-figure)
 
 ### Questions Agents ask
@@ -303,7 +306,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
   - [2.3.5 Library and Project Pipelines](2.3.5-library.md): built-in Pipelines, the library, Stage templates, Project Pipelines.
 - [2.4 Conversations](2.4-conversations.md): index of the pages below.
   - [2.4.1 Threads](2.4.1-threads.md): homes, Threads, what a Thread reads, Allow changes.
-  - [2.4.2 Decisions](2.4.2-decisions.md): the form, Submit and Ask me again, the Bug Task Decision, where it shows.
+  - [2.4.2 Decisions](2.4.2-decisions.md): the form, Submit and Ask me again, the Bug Task Decision, where it shows, Waiting for you.
   - [2.4.3 Consultations](2.4.3-consultations.md): Consultation, calls from chats.
   - [2.4.4 Messages](2.4.4-messages.md): barge-in, Office actions, Mentions, images, Open page, commands.
   - [2.4.5 Stopping and restarts](2.4.5-stopping-and-restarts.md): Stop, Pause, shutdown, restarts, refused turns.
@@ -323,11 +326,12 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
   - [2.11.3 System health](2.11.3-system-health.md): health readings, slow routes and queries.
 - [2.12 Test instances](2.12-test-instances.md): test targets and their kinds, what runs before the entry point and what The Office sets, the Proposal that writes them, test instances, their states, the proxy, Build to install files, safety, limits.
 - [2.13 Connected devices](2.13-connected-devices.md): a device connected to a Task's run environment over USB through the browser or over Android wireless debugging, one to one Task, the relay and the Office device helper, states and lifecycle, what the image needs, the adb key, pairing a phone over wireless debugging, the run environment's network, what Agents see, who connects.
+- [2.14 Activity](2.14-activity.md): everything The Office is running in one list, what is listed, running and ended items, since, seen per user, the count, live updates.
 
 ### 4. UX
 
 - [4. UX direction](4-ux-direction.md): the shell, themes, brand, copy, and the list of screens.
-- [4.1 UI rules](4.1-ui-rules.md): how every screen is built: `packages/ui` components, windows, list and details, long text, words.
+- [4.1 UI rules](4.1-ui-rules.md): how every screen is built: `packages/ui` components, action tones, windows, list and details, long text, words.
 
 ### Screens
 
@@ -346,6 +350,7 @@ One page per screen, as built. Where a [design](../design/README.md) differs, th
 - [Settings](screens/settings.md)
 - [Stats](screens/stats.md)
 - [Live view](screens/live-view.md)
+- [Activity](screens/activity.md): opened from the status strip's Activity figure.
 - [Account](screens/account.md)
 - [Sign in](screens/sign-in.md): the sign-in pages and First-run setup.
 
@@ -501,6 +506,7 @@ Where each default lives, by page:
   - [Quiet hours hold the desktop](2.7-notifications.md#quiet-hours-hold-the-desktop)
   - [Batching Outcomes](2.7-notifications.md#batching-outcomes)
   - [The grid's rows](2.7-notifications.md#the-grids-rows)
+  - [Test instance Outcomes](2.7-notifications.md#test-instance-outcomes)
   - [Initiatives being shaped on Now](2.7-notifications.md#initiatives-being-shaped-on-now)
   - [Today's figures](2.7-notifications.md#todays-figures)
   - [The tab counts Needs you and blinks for a new item](2.7-notifications.md#the-tab-counts-needs-you-and-blinks-for-a-new-item)
@@ -564,6 +570,9 @@ Where each default lives, by page:
   - [The adb key's size](2.13-connected-devices.md#the-adb-keys-size)
   - [A dropped relay socket](2.13-connected-devices.md#a-dropped-relay-socket)
   - [Browsers supported](2.13-connected-devices.md#browsers-supported)
+- 2.14 Activity
+  - [Ended items kept](2.14-activity.md#ended-items-kept)
+  - [Seen items kept](2.14-activity.md#seen-items-kept)
 - 4 UX direction
   - [Palette](4-ux-direction.md#palette)
   - [Density](4-ux-direction.md#density)
@@ -596,6 +605,7 @@ Where each default lives, by page:
   - [The Live view's read model lives in Conversations](5.3-modules.md#the-live-views-read-model-lives-in-conversations)
   - [Users is its own module](5.3-modules.md#users-is-its-own-module)
   - [Telemetry owns Stats](5.3-modules.md#telemetry-owns-stats)
+  - [Activity reads through ports of its own](5.3-modules.md#activity-reads-through-ports-of-its-own)
   - [The System health recorder sits in the platform layer](5.3-modules.md#the-system-health-recorder-sits-in-the-platform-layer)
   - [Test instances uses Run environments through their public interface](5.3-modules.md#test-instances-uses-run-environments-through-their-public-interface)
   - [Devices uses Run environments through their public interface](5.3-modules.md#devices-uses-run-environments-through-their-public-interface)

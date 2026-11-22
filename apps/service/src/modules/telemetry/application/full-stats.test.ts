@@ -5,6 +5,7 @@ import type { StatsTask } from "../domain/basic-stats.js";
 import type {
   StatsInitiative,
   StatsProjectName,
+  StatsStageRunEngines,
   StatsStageRunSpan,
   UsageSeries,
 } from "../domain/full-stats.js";
@@ -14,6 +15,7 @@ import { OfficeInitiatives } from "../ports/office-initiatives.js";
 import { OfficeTasks } from "../ports/office-tasks.js";
 import { ProjectNames } from "../ports/project-names.js";
 import { RunningStageRuns } from "../ports/running-stage-runs.js";
+import { StageRunEngines } from "../ports/stage-run-engines.js";
 import { FullStats, type FullStatsFigures, type FullStatsRead } from "./full-stats.js";
 
 const NOW = new Date("2026-11-17T10:25:00.000Z");
@@ -57,6 +59,15 @@ class RunsForTests extends RunningStageRuns {
   }
 }
 
+class StageRunEnginesForTests extends StageRunEngines {
+  readonly asked: (readonly string[])[] = [];
+  runs: StatsStageRunEngines[] = [];
+  of(taskIds: readonly string[]): Promise<readonly StatsStageRunEngines[]> {
+    this.asked.push(taskIds);
+    return Promise.resolve(this.runs.filter(({ taskId }) => taskIds.includes(taskId)));
+  }
+}
+
 class TasksForTests extends OfficeTasks {
   readonly tasks: StatsTask[] = [
     { id: "ours", title: "Show the Stats", projectId: "office" },
@@ -92,6 +103,7 @@ function fullOf(read: FullStatsRead): FullStatsFigures {
 let grafana: GrafanaForTests;
 let source: ScriptedStatsSource;
 let runs: RunsForTests;
+let runEngines: StageRunEnginesForTests;
 let stats: FullStats;
 
 beforeEach(() => {
@@ -100,17 +112,32 @@ beforeEach(() => {
   grafana = new GrafanaForTests();
   source = new ScriptedStatsSource();
   runs = new RunsForTests();
+  runEngines = new StageRunEnginesForTests();
   stats = new FullStats(
     schedule,
     grafana,
     source,
     new EnginesForTests(),
     runs,
+    runEngines,
     new TasksForTests(),
     new InitiativesForTests(),
     new ProjectNamesForTests(),
   );
 });
+
+/** One Implement run's spend, on an engine, starting at 09:<minute> on 17 November. */
+function aRunSpend(stageRun: string, engineId: string, minute: number, cost: number) {
+  return {
+    stageName: "Implement",
+    stageRun,
+    engineId,
+    model: "claude-opus-5-5",
+    firstAt: new Date(Date.UTC(2026, 10, 17, 9, minute)),
+    tokens: cost * 100,
+    estimatedCostUsd: cost,
+  };
+}
 
 describe("FullStats.read", () => {
   it("answers not-on without reading Grafana while none is in use", async () => {
@@ -166,7 +193,16 @@ describe("FullStats.read", () => {
             initiativeId: "stats",
             tokens: 100,
             estimatedCostUsd: 1.5,
-            tasks: [{ taskId: "ours", tokens: 100, estimatedCostUsd: 1.5 }],
+            tasks: [
+              {
+                taskId: "ours",
+                stageRun: "",
+                engineId: "claude",
+                model: "claude-opus-5-5",
+                tokens: 100,
+                estimatedCostUsd: 1.5,
+              },
+            ],
           },
         ],
       },
@@ -256,6 +292,66 @@ describe("FullStats.read", () => {
       groups: [{ name: "opus", tokens: 100, estimatedCostUsd: 1.5 }],
     });
     expect(fullOf(read).running).toHaveLength(1);
+  });
+
+  it("names what each try ran on from its Stage run's engines, then the engines now, asking only for the most expensive Tasks", async () => {
+    source.set({
+      usage: USAGE,
+      costliest: {
+        tasks: [
+          {
+            taskId: "ours",
+            tokens: 300,
+            estimatedCostUsd: 3,
+            runs: [aRunSpend("1", "claude", 0, 2), aRunSpend("2", "codex", 10, 1)],
+          },
+        ],
+        initiatives: [],
+      },
+    });
+    runs.spans = [
+      {
+        engineId: "claude",
+        taskId: "theirs",
+        stageName: "Review",
+        startedAt: NOW,
+        endedAt: undefined,
+      },
+    ];
+    runEngines.runs = [
+      {
+        taskId: "ours",
+        number: 2,
+        engineId: "codex",
+        engineName: "Codex then",
+        standInFor: { engineId: "claude", engineName: "Claude Code" },
+        switches: [],
+      },
+    ];
+
+    const [task] = fullOf(await stats.read(QUERY, "all")).costliestTasks;
+
+    expect(runEngines.asked).toEqual([["ours"]]);
+    expect(task?.stages[0]?.tries.map(({ ranOn }) => ranOn)).toEqual([
+      [
+        {
+          engineName: "Claude Code",
+          model: "claude-opus-5-5",
+          standInForEngineName: undefined,
+          tokens: 200,
+          estimatedCostUsd: 2,
+        },
+      ],
+      [
+        {
+          engineName: "Codex then",
+          model: "claude-opus-5-5",
+          standInForEngineName: "Claude Code",
+          tokens: 100,
+          estimatedCostUsd: 1,
+        },
+      ],
+    ]);
   });
 
   it("narrows usage and the most expensive by the Projects' names and the lane by each Task's Project, the windows staying Office-wide", async () => {

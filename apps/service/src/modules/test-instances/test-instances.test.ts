@@ -401,6 +401,36 @@ describe("the target's commands before the entry point, port variable and Memory
   });
 });
 
+describe("the activity", () => {
+  it("lists the active instances, then those that ended since a time", async () => {
+    const running = await testbed.launchAndSettle();
+    const failedOne = await launch();
+    await testbed.instances.stop(failedOne.id);
+    await testbed.instances.settled();
+    const at = new Date(0);
+
+    const activity = await testbed.instances.activity(at);
+    expect(activity.map(({ id }) => id)).toEqual([running.id]);
+
+    await testbed.repository.add({
+      ...running,
+      id: randomUUID(),
+      state: "built",
+      port: undefined,
+      endedAt: new Date(2000, 0, 2),
+    });
+    await testbed.repository.add({
+      ...running,
+      id: "old-failed",
+      state: "failed",
+      port: undefined,
+      endedAt: new Date(2000, 0, 1),
+    });
+    const later = await testbed.instances.activity(new Date(2000, 0, 2));
+    expect(later.map(({ state }) => state)).toEqual(["running", "built"]);
+  });
+});
+
 describe("when an instance stops", () => {
   it("stops when the user presses Stop, saying so last in its log, and again changes nothing", async () => {
     const instance = await testbed.launchAndSettle();

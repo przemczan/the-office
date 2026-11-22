@@ -4,7 +4,7 @@ import { Button, Dialog, Icon, IconButton, Switch, Tooltip } from "@the-office/u
 import { useState, type ReactNode } from "react";
 import { taskQueries } from "../../api/work.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
-import type { RecordAction } from "./record-actions.tsx";
+import { ActionToneIcon, type RecordAction } from "./record-actions.tsx";
 import {
   useMakingAPlan,
   useMarkingReady,
@@ -32,6 +32,7 @@ function usePlanWithAction(task: TaskSummary): RecordAction | undefined {
     key: "plan-with",
     label: `Plan with ${planner.card.name}`,
     icon: "map",
+    tone: "plan",
     pending: planning.isPending,
     onSelect: () => planning.mutate(task),
   };
@@ -84,7 +85,7 @@ export function PlanOnCardButton({ task }: { readonly task: TaskSummary }): Reac
       <IconButton
         variant="secondary"
         size="xs"
-        icon={<Icon name="map" size={13} />}
+        icon={<ActionToneIcon tone="plan" name="map" size={13} />}
         label="Plan"
         // The tooltip names it, rather than the browser's own title.
         title={undefined}
@@ -125,6 +126,7 @@ function useMarkReadyAction(task: TaskSummary): RecordAction | undefined {
     key: "mark-ready",
     label: "Mark Ready",
     icon: "check",
+    tone: "go",
     variant: "primary",
     disabled: !offered,
     pending: marking.isPending || (asking && texts === undefined),

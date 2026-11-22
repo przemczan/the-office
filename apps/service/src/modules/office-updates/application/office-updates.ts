@@ -3,7 +3,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import type { BusyItem } from "../domain/busy-item.js";
 import type { InstallKind } from "../domain/install-kind.js";
-import type { OfficeCommit } from "../domain/office-commit.js";
+import { shortCommit, type OfficeCommit } from "../domain/office-commit.js";
 import { imageRepository } from "../domain/office-container.js";
 import { releaseWords, type OfficeRelease } from "../domain/office-release.js";
 import {
@@ -52,6 +52,17 @@ export interface OfficeUpdateCheck {
   readonly state: UpdateState;
 }
 
+/** What an update would install, as other modules read it: a commit with its short form. */
+export type OfficeUpdateTargetFound =
+  | ({ readonly kind: "commit"; readonly shortCommit: string } & OfficeCommit)
+  | Extract<OfficeUpdateTarget, { kind: "release" }>;
+
+/** The update the last check found, and when that target was first found. */
+export interface OfficeUpdateFound {
+  readonly target: OfficeUpdateTargetFound;
+  readonly foundAt: Date;
+}
+
 /** Settings › Updates, as the service sees it now. */
 export interface OfficeUpdateView {
   readonly install: InstallKind;
@@ -78,6 +89,8 @@ export class OfficeUpdates implements OnModuleInit, OnApplicationBootstrap {
   private found: OfficeUpdateCheck | undefined;
   private checking: Promise<OfficeUpdateCheck> | undefined;
   private currentCommit: Promise<OfficeCommit> | undefined;
+  /** The target the checks have found since, by its words, and the first check that found it. */
+  private firstFound: { readonly words: string; readonly at: Date } | undefined;
 
   constructor(
     private readonly checkout: OfficeCheckout,
@@ -126,6 +139,21 @@ export class OfficeUpdates implements OnModuleInit, OnApplicationBootstrap {
       scheduled: scheduled && { ...scheduled, busy: this.busyWork.list() },
       lastResult: await this.folder.lastResult(),
     };
+  }
+
+  /**
+   * The newest target the last check found, with when it was first found (in memory, so since the
+   * service started). Undefined when none is found, and while an update or a restart is scheduled:
+   * either way The Office is about to stop, so nothing asks the user to update meanwhile.
+   */
+  available(): Promise<OfficeUpdateFound | undefined> {
+    const target = this.found && targetOf(this.found);
+    if (!target || !this.firstFound || this.exits.scheduled) return Promise.resolve(undefined);
+    return Promise.resolve({
+      target:
+        target.kind === "commit" ? { ...target, shortCommit: shortCommit(target.commit) } : target,
+      foundAt: this.firstFound.at,
+    });
   }
 
   /** The log of the last update, as the launcher or the Office updater left it. */
@@ -183,6 +211,10 @@ export class OfficeUpdates implements OnModuleInit, OnApplicationBootstrap {
       install === "checkout" ? await this.checkUpstream() : await this.checkReleases(install);
     if (this.found.problem) this.logger.warn(`The Office update check: ${this.found.problem}`);
     const available = targetOf(this.found);
+    const words = available && targetWords(available);
+    if (words !== this.firstFound?.words) {
+      this.firstFound = words === undefined ? undefined : { words, at: this.found.checkedAt };
+    }
     await this.events.publish(
       new OfficeUpdateChecked(
         available,

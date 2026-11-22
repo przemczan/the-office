@@ -1,6 +1,7 @@
 import { countedTokens, type Role, type StageRun, type TaskStage } from "@the-office/contracts";
 import { Badge, Dialog, Icon, isTopmost } from "@the-office/ui";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { runEngineWords, standInForWords } from "../../shell/engine-words.ts";
 import { TokenFigure } from "../../shell/token-count.tsx";
 import { useClock } from "../../shell/use-clock.ts";
 import { PipelineInSmall } from "./pipeline-in-small.tsx";
@@ -15,12 +16,7 @@ import {
 } from "./stage-history-words.ts";
 import { railStateWords } from "./stage-rail-words.ts";
 import { StageWorker } from "./stage-worker.tsx";
-import {
-  runEngineWords,
-  standInForWords,
-  waitsForRunEnvironment,
-  type StageNames,
-} from "./stage-words.ts";
+import { waitsForRunEnvironment, type StageNames } from "./stage-words.ts";
 
 /**
  * A Stage's history (spec 4.1): the Pipeline in small to move between Stages, the runs on the left

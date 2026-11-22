@@ -660,6 +660,26 @@ describe("disconnecting", () => {
   });
 });
 
+describe("the open devices", () => {
+  it("lists every device not Disconnected, across Tasks", async () => {
+    await testbed.addTask(OTHER_TASK_ID, "Flash the board");
+    const first = await testbed.devices.connect(TASK_ID, PHONE, ANN);
+    const other = await testbed.devices.connect(
+      OTHER_TASK_ID,
+      { ...PHONE, deviceKey: "18d1:4ee7:DEF456" },
+      ANN,
+    );
+    const ended = await testbed.devices.connect(
+      TASK_ID,
+      { ...PHONE, deviceKey: "18d1:4ee7:GHI789" },
+      ANN,
+    );
+    await testbed.devices.disconnect(ended.id, "by-user", ANN);
+
+    expect((await testbed.devices.open()).map(({ id }) => id)).toEqual([first.id, other.id]);
+  });
+});
+
 describe("OFFICE_CONNECTED_DEVICES", () => {
   it("reaches every check in the run environment, read as it runs", async () => {
     const command = {

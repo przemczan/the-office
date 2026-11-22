@@ -1,0 +1,103 @@
+import type { ActivityItem } from "@the-office/contracts";
+
+/** The item of one kind. */
+type ItemOf<Kind extends ActivityItem["kind"]> = Extract<ActivityItem, { readonly kind: Kind }>;
+
+export const TASK_ID = "3f2a1b0c-4d5e-4f6a-8b7c-9d0e1f2a3b4c";
+export const INITIATIVE_ID = "7a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
+export const NOW = new Date("2026-11-22T12:00:00.000Z");
+
+/** An item of each kind, `minutesAgo` in its state, running unless said. */
+export function taskItem(overrides: Partial<ItemOf<"task">> = {}): ItemOf<"task"> {
+  return {
+    kind: "task",
+    id: `task:${TASK_ID}`,
+    projectId: "p1",
+    title: "Add a filter",
+    since: minutesAgo(18),
+    ended: false,
+    endedAt: null,
+    link: { kind: "task", taskId: TASK_ID },
+    taskId: TASK_ID,
+    state: "in-progress",
+    ...overrides,
+  };
+}
+
+export function environmentCheckItem(
+  overrides: Partial<ItemOf<"environment-check">> = {},
+): ItemOf<"environment-check"> {
+  return {
+    kind: "environment-check",
+    id: "environment-check:p1:1",
+    projectId: "p1",
+    title: "Environment check",
+    since: minutesAgo(130),
+    ended: true,
+    endedAt: minutesAgo(130),
+    link: { kind: "project", projectId: "p1" },
+    state: "failed",
+    ...overrides,
+  };
+}
+
+export function ciRunItem(overrides: Partial<ItemOf<"ci-run">> = {}): ItemOf<"ci-run"> {
+  return {
+    kind: "ci-run",
+    id: "ci-run:p1:118",
+    projectId: "p1",
+    title: "CI run 118 · Add a filter",
+    since: minutesAgo(3),
+    ended: false,
+    endedAt: null,
+    link: { kind: "url", url: "https://github.com/acme/app/actions/runs/118" },
+    runId: 118,
+    status: "running",
+    url: "https://github.com/acme/app/actions/runs/118",
+    taskId: null,
+    ...overrides,
+  };
+}
+
+export function testInstanceItem(
+  overrides: Partial<ItemOf<"test-instance">> = {},
+): ItemOf<"test-instance"> {
+  return {
+    kind: "test-instance",
+    id: "test-instance:1:running",
+    projectId: "p1",
+    title: "Web preview",
+    since: minutesAgo(5),
+    ended: false,
+    endedAt: null,
+    link: { kind: "project", projectId: "p1" },
+    instanceId: "5d0c8a2e-3f6b-4a8e-9c1d-7b2e4f6a8c10",
+    testInstanceKind: "hosted",
+    state: "running",
+    branch: "office/add-a-filter",
+    initiativeId: null,
+    ...overrides,
+  };
+}
+
+export function failedTaskItem(
+  overrides: Partial<ItemOf<"failed-task">> = {},
+): ItemOf<"failed-task"> {
+  return {
+    kind: "failed-task",
+    id: "failed-task:run-1",
+    projectId: "p1",
+    title: "Fix the header",
+    since: minutesAgo(60 * 50),
+    ended: true,
+    endedAt: minutesAgo(60 * 50),
+    link: { kind: "task", taskId: TASK_ID },
+    taskId: TASK_ID,
+    stageName: "Tests",
+    ...overrides,
+  };
+}
+
+export function minutesAgo(minutes: number): string {
+  return new Date(NOW.getTime() - minutes * 60_000).toISOString();
+}

@@ -18,6 +18,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { testInstanceQueries } from "../../api/test-instances.ts";
 import { ToastProvider } from "../../shell/toasts.tsx";
 import { InitiativeTestInstancesBlock } from "./initiative-test-instances-block.tsx";
+import { testInstancesStartOpen } from "./initiative-test-instances-words.ts";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -131,6 +132,7 @@ function listed(
 async function rendered(
   shown: InitiativeTestInstances,
   answer: (url: string, method: string) => Response,
+  linkedTo?: string,
 ): Promise<{ page: HTMLElement; fetched: ReturnType<typeof vi.fn<typeof fetch>> }> {
   const fetched = vi.fn<typeof fetch>((input, request) =>
     Promise.resolve(answer(String(input), request?.method ?? "GET")),
@@ -144,7 +146,11 @@ async function rendered(
     routeTree: createRootRoute({
       component: () => (
         <ToastProvider>
-          <InitiativeTestInstancesBlock initiative={INITIATIVE} projects={PROJECTS} />
+          <InitiativeTestInstancesBlock
+            initiative={INITIATIVE}
+            projects={PROJECTS}
+            linkedTo={linkedTo}
+          />
         </ToastProvider>
       ),
     }),
@@ -191,6 +197,19 @@ describe("the Initiative page's Test instances", () => {
     vi.unstubAllGlobals();
     localStorage.clear();
     document.body.replaceChildren();
+  });
+
+  it("opens the fold at a linked instance and brings its row into view", async () => {
+    const scrolled = vi.fn<(this: Element) => void>(function (this: Element) {});
+    Element.prototype.scrollIntoView = scrolled;
+
+    // Nothing is running, so the fold would start closed.
+    expect(testInstancesStartOpen(builds([BUILT]).projects)).toBe(false);
+    const { page } = await rendered(builds([BUILT]), notFound, BUILT.id);
+    await settled();
+
+    expect(page.querySelector(".record-fold-body")?.hasAttribute("hidden")).toBe(false);
+    expect(scrolled.mock.contexts).toEqual([rowOf(page, "Android app")]);
   });
 
   it("says when the branch has moved past the running instance's commit, and not before", async () => {

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { tokenTotalsSchema } from "./conversations.js";
 import { engineIdSchema } from "./engines.js";
+import { officeUpdateTargetSchema } from "./office-updates.js";
 import { webEventSchema } from "./events.js";
 import { fireAlarmWaySchema, taskHolderSchema, taskStateSchema } from "./work.js";
 
@@ -47,6 +48,77 @@ export const needsYouItemSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 export type NeedsYouItem = z.infer<typeof needsYouItemSchema>;
+
+/** Where an open Proposal's Thread lives: a chat, a Task or an Initiative. */
+export const proposalHomeSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("chat"), roleKey: z.string().min(1) }),
+  z.object({ kind: z.literal("task"), taskId: z.uuid() }),
+  z.object({ kind: z.literal("initiative"), initiativeId: z.uuid() }),
+]);
+export type ProposalHome = z.infer<typeof proposalHomeSchema>;
+
+/**
+ * Something that waits on the user without blocking anyone (spec §2.4.2, "Waiting for you"). Each
+ * names the Projects the Project filter narrows by: none for an Office-wide item, shown whatever
+ * the filter.
+ */
+export const waitingForYouItemSchema = z.discriminatedUnion("kind", [
+  /** An open Proposal in any Thread, until it is applied or declined. */
+  z.object({
+    kind: z.literal("proposal"),
+    proposalId: z.uuid(),
+    threadId: z.uuid(),
+    /** Who drafted it, by their Role's key. */
+    draftedBy: z.string().min(1),
+    home: proposalHomeSchema,
+    projectIds: z.array(z.string()),
+    waitingSince: z.iso.datetime(),
+  }),
+  /** An open pull request whose checks fail or which has conflicts. */
+  z.object({
+    kind: z.literal("pull-request"),
+    pullRequestId: z.uuid(),
+    /** The Task that opened it. */
+    taskId: z.uuid(),
+    number: z.int().positive(),
+    url: z.url(),
+    checksFailing: z.boolean(),
+    conflicts: z.boolean(),
+    projectIds: z.array(z.string()),
+    /** When its status was last read, or when it was opened before the first read. */
+    waitingSince: z.iso.datetime(),
+  }),
+  /** Every installed Skill with an update available, as one item. */
+  z.object({
+    kind: z.literal("skill-updates"),
+    skillNames: z.array(z.string().min(1)).min(1),
+    count: z.int().positive(),
+    projectIds: z.array(z.string()),
+    /** An update has no time it was found. */
+    waitingSince: z.null(),
+  }),
+  /** An Office update found, until it is scheduled or applied. */
+  z.object({
+    kind: z.literal("office-update"),
+    target: officeUpdateTargetSchema,
+    projectIds: z.array(z.string()),
+    /** When this target was first found. */
+    waitingSince: z.iso.datetime(),
+  }),
+  /** An Initiative in Shaping whose shaper has answered and waits on the user's reply. */
+  z.object({
+    kind: z.literal("shaping-reply"),
+    initiativeId: z.uuid(),
+    /** Its shaping Thread, where the user replies. */
+    threadId: z.uuid(),
+    /** The shaper, by their Role's key. */
+    roleKey: z.string().min(1),
+    projectIds: z.array(z.string()),
+    /** The shaper's last message. */
+    waitingSince: z.iso.datetime(),
+  }),
+]);
+export type WaitingForYouItem = z.infer<typeof waitingForYouItemSchema>;
 
 /** The Stage a started Task is at: the one with its latest run. */
 export const currentStageSchema = z.object({
@@ -204,6 +276,12 @@ export type SinceYouLeft = z.infer<typeof sinceYouLeftSchema>;
 /** Now and the status strip: what needs the user, what runs, and the Office's figures. */
 export const nowSchema = z.object({
   needsYou: z.array(needsYouItemSchema),
+  /**
+   * What waits on the user without blocking anyone, oldest first, undated items last. Its count is
+   * its own length, narrowed by the Project filter; it never adds to Needs you's count or the tab
+   * title.
+   */
+  waitingForYou: z.array(waitingForYouItemSchema),
   running: z.array(runningTaskSchema),
   /** The queue for Start, first place first. */
   queue: z.array(queuedOnNowSchema),
@@ -234,6 +312,9 @@ export const notificationKindSchema = z.enum([
   "outcomes.task-failed",
   "outcomes.task-paused",
   "outcomes.initiative-done",
+  "outcomes.test-instance.running",
+  "outcomes.test-instance.built",
+  "outcomes.test-instance.failed",
   "office.window.nearly-used",
   "office.window.used-up",
   "office.window.reset",
@@ -290,6 +371,16 @@ export const pointerSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("office-update") }),
   /** Now's Needs you, with the card of the Stages waiting for a Stand-in Engine. */
   z.object({ kind: z.literal("stand-in-choice") }),
+  /**
+   * A test instance, in the Test instances fold of its Initiative's page, or of its Project's Test
+   * targets when it is linked to none.
+   */
+  z.object({
+    kind: z.literal("test-instance"),
+    instanceId: z.uuid(),
+    projectId: z.string().min(1),
+    initiativeId: z.uuid().optional(),
+  }),
 ]);
 export type Pointer = z.infer<typeof pointerSchema>;
 
@@ -362,16 +453,18 @@ export const notificationTimingSchema = z.object({
 export type NotificationTiming = z.infer<typeof notificationTimingSchema>;
 
 /** The user is active on this page; opening what a Notification points to handles it. */
-export const activitySchema = z.object({
+export const userActivityReportSchema = z.object({
   page: z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("now") }),
     z.object({ kind: z.literal("task"), taskId: z.uuid() }),
     z.object({ kind: z.literal("initiative"), initiativeId: z.uuid() }),
     z.object({ kind: z.literal("office-update") }),
+    /** A Project's Test targets, with its Test instances. */
+    z.object({ kind: z.literal("test-instances"), projectId: z.string().min(1) }),
     z.object({ kind: z.literal("elsewhere") }),
   ]),
 });
-export type Activity = z.infer<typeof activitySchema>;
+export type UserActivityReport = z.infer<typeof userActivityReportSchema>;
 
 export const notificationsWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("now.changed"), now: nowSchema }),

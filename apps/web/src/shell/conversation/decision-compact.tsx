@@ -28,8 +28,8 @@ import { DecisionWindow } from "./decision-window.tsx";
 /**
  * A long form, or one with Attachments, in brief (the Decision form card's design): the context's
  * first line, question 1 with its recommendation, how many more, the progress line, Accept while
- * every question is a choice and the draft is the recommendations, Open details, the window the
- * form is answered in, and Dismiss where the user can close it unanswered.
+ * every question is a choice or a choice of several and the draft is the recommendations, Open
+ * details, the window the form is answered in, and Dismiss where the user can close it unanswered.
  */
 export function CompactDecision({
   decision,
@@ -74,15 +74,18 @@ export function CompactDecision({
           </p>
           {first.kind === "choice" ? (
             <>
-              <p className="decision-compact-recommended">
-                <Icon name="check" size={14} />
-                {first.options[first.recommendation.option]}
-                <Badge tone="accent" size="sm">
-                  Recommended
-                </Badge>
-              </p>
+              <RecommendedOption option={first.options[first.recommendation.option]} />
               <p className="decision-recommendation">
                 {asker} recommends it: <MarkdownText text={first.recommendation.reason} inline />
+              </p>
+            </>
+          ) : first.kind === "choice-of-several" ? (
+            <>
+              {first.recommendation.options.map((at) => (
+                <RecommendedOption key={at} option={first.options[at]} />
+              ))}
+              <p className="decision-recommendation">
+                {asker} recommends them: <MarkdownText text={first.recommendation.reason} inline />
               </p>
             </>
           ) : (
@@ -140,5 +143,17 @@ export function CompactDecision({
         />
       )}
     </div>
+  );
+}
+
+function RecommendedOption({ option }: { readonly option: string | undefined }): ReactNode {
+  return (
+    <p className="decision-compact-recommended">
+      <Icon name="check" size={14} />
+      {option}
+      <Badge tone="accent" size="sm">
+        Recommended
+      </Badge>
+    </p>
   );
 }

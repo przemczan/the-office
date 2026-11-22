@@ -161,6 +161,11 @@ export class ConnectedDevices implements OnModuleInit {
     return this.repository.listOfTask(taskId);
   }
 
+  /** Every device not Disconnected, across The Office, the earliest connected first. */
+  async open(): Promise<readonly ConnectedDevice[]> {
+    return this.repository.allOpen();
+  }
+
   async read(id: string): Promise<ConnectedDevice> {
     const device = await this.repository.find(id);
     if (device === undefined) throw ConnectedDeviceNotFound.device(id);

@@ -55,6 +55,35 @@ describe("targetOf", () => {
     });
   });
 
+  it("opens a test instance's row on its Initiative, or on its Project's Test targets", () => {
+    const instanceId = "2d8c6b3a-8c77-4e3e-9f73-4b2f7c3e9a32";
+    expect(
+      targetOf({
+        pointsTo: {
+          kind: "test-instance",
+          instanceId,
+          projectId: "billing",
+          initiativeId: TASK_ID,
+        },
+        roleKey: null,
+      }),
+    ).toEqual({
+      to: "/work/initiatives/$initiativeId",
+      params: { initiativeId: TASK_ID },
+      search: { testInstance: instanceId },
+    });
+    expect(
+      targetOf({
+        pointsTo: { kind: "test-instance", instanceId, projectId: "billing" },
+        roleKey: null,
+      }),
+    ).toEqual({
+      to: "/projects/$projectId/test-targets",
+      params: { projectId: "billing" },
+      search: { testInstance: instanceId },
+    });
+  });
+
   it("opens the chat of whoever speaks an Office kind over Now", () => {
     expect(targetOf({ pointsTo: { kind: "office" }, roleKey: "receptionist" })).toEqual({
       to: "/now",
@@ -150,6 +179,13 @@ describe("aboutLine", () => {
       "Add a filter · Billing",
     );
     expect(aboutLine(undefined, projects)).toBeUndefined();
+  });
+
+  it("names the Project alone for a record with no title, as a test instance", () => {
+    const projects = [{ id: "p1", name: "Billing" }] as unknown as Project[];
+
+    expect(aboutLine({ projectId: "p1" }, projects)).toBe("Billing");
+    expect(aboutLine({ projectId: "p2" }, projects)).toBeUndefined();
   });
 });
 

@@ -217,6 +217,11 @@ export class TestInstances implements OnModuleInit {
     );
   }
 
+  /** Every active instance, then those Built or Failed since `since`, newest first. */
+  async activity(since: Date): Promise<readonly TestInstance[]> {
+    return [...(await this.repository.active()), ...(await this.repository.endedSince(since))];
+  }
+
   /**
    * The Project's Hosted and Build to install test targets and every instance launched on it,
    * linked to an Initiative or not, by branch.
@@ -357,7 +362,7 @@ export class TestInstances implements OnModuleInit {
     held?.building.abort();
     const words = stopWords(reason);
     const change = await this.repository.update(id, (kept) =>
-      stopped(kept, words, this.schedule.now()),
+      stopped(kept, reason, this.schedule.now()),
     );
     if (!change?.event) return this.read(id);
     await this.files.note(id, words, held?.mask);
@@ -393,9 +398,7 @@ export class TestInstances implements OnModuleInit {
     for (const instance of await this.repository.active()) {
       const building = instance.state === "building";
       const change = await this.repository.update(instance.id, (kept) =>
-        building
-          ? failed(kept, RESTARTED_WHILE_BUILDING, at)
-          : stopped(kept, stopWords(BY_RESTART), at),
+        building ? failed(kept, RESTARTED_WHILE_BUILDING, at) : stopped(kept, BY_RESTART, at),
       );
       if (!change?.event) continue;
       await this.files.note(

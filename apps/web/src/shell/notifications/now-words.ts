@@ -32,6 +32,11 @@ export function needsYouWords(count: number): string {
   return count === 1 ? "needs you" : "need you";
 }
 
+/** "1 waits for you", "3 wait for you". */
+export function waitingForYouWords(count: number): string {
+  return count === 1 ? "waits for you" : "wait for you";
+}
+
 /** "2 of 3 desks": the running Tasks against the Office-wide limit. */
 export function desksWords({ desks }: Pick<Now, "desks">): string {
   return `${desks.inUse} of ${desks.limit} desks`;

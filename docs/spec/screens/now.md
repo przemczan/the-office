@@ -1,6 +1,6 @@
 # Now
 
-Covers: Now (the home), Needs you, Running, Queue, Shaping, Since you left, today's tokens, the fire alarm panel and the all clear's review.
+Covers: Now (the home), Needs you and its Waiting for you group, Running, Queue, Shaping, Since you left, today's tokens, the fire alarm panel and the all clear's review.
 
 ## Where it is
 
@@ -12,7 +12,7 @@ Covers: Now (the home), Needs you, Running, Queue, Shaping, Since you left, toda
 ## Layout
 
 - The fire alarm panel above, only while the alarm is on.
-- Below it two panels side by side: left **Needs you**; right **Running**, then **Queue** (only while a Task is queued), **Shaping** (only while an Initiative is in Shaping), **Since you left**, and the line of today's tokens.
+- Below it two panels side by side: left **Needs you**, with **Waiting for you** under its cards; right **Running**, then **Queue** (only while a Task is queued), **Shaping** (only while an Initiative is in Shaping), **Since you left**, and the line of today's tokens.
 - Each section is a heading (icon, title, a count or words) over a feed of cards.
 - Panels are named "Needs you" and "Running and since you left".
 - At 1,224px of page width and under the panels are 1.2fr and 1fr; at 664px and under one column, with 14px padding.
@@ -30,6 +30,21 @@ Covers: Now (the home), Needs you, Running, Queue, Shaping, Since you left, toda
 - Counted once in the tab and the strip.
 - Empty: "Nothing needs you. Enjoy it." or, while other Projects have items, "Nothing needs you in these Projects."
 - The note "N more need you in other Projects" ("1 more needs you…") with **Show all projects** ([shell.md](shell.md#project-filter)).
+
+### Waiting for you
+
+- A group under Needs you's cards, shown only while it holds an item in the Projects shown: what waits on the user without blocking anyone ([2.4.2](../2.4.2-decisions.md#waiting-for-you)).
+- Heading: **Waiting for you** and its own count of the items shown.
+- Oldest first; Skill updates come last.
+- Each item is a card with the message edge: a badge naming its kind, a link to where it is handled, its Project chips, and under them what else it says and since when it has waited (none for Skill updates).
+- **Proposal**: "Drafted by <first name>", opening its Thread at the Proposal's card: the chat drawer for a chat's, `/tasks/<id>?taskThread=<thread>&proposal=<id>` for a Task Thread's, `/work/initiatives/<id>?initiativeThread=<thread>&proposal=<id>` for an Initiative Thread's.
+- **Pull request**: the Task's title, linking to the Task's page, then "#N on GitHub" (the pull request, in a new tab) and "Checks failing", "Conflicts" or both.
+- **Skill updates**: "N Skills have updates" ("1 Skill has an update"), their names under it, linking to Settings › Skills.
+- **Office update**: "Version X is available" or "Commit abc1234 is available", linking to Settings › Updates.
+- **Shaping reply**: "<shaper> answered", linking to `/work/initiatives/<id>?initiativeThread=<thread>`.
+- An Office-wide item (Skill updates, the Office update, a chat's Proposal) shows whatever the Project filter.
+- The note "N more wait for you in other Projects" ("1 more waits for you…") with **Show all projects**.
+- Never counted in Needs you's heading, the strip's main Needs you count, the tab title or the favicon; the strip shows its own small count ([shell.md](shell.md#status-strip)).
 
 ## Running
 
@@ -107,6 +122,7 @@ Covers: Now (the home), Needs you, Running, Queue, Shaping, Since you left, toda
 ## Domain facts
 
 - Needs you, Decisions, Gates: [2.4.2](../2.4.2-decisions.md#where-a-decision-shows), [2.3.3](../2.3.3-gates-and-checks.md).
+- Waiting for you: [2.4.2](../2.4.2-decisions.md#waiting-for-you).
 - Task states and outcomes: [2.1.3](../2.1.3-tasks.md#task-states).
 - Queue for Start: [2.1.5](../2.1.5-planning-and-start.md).
 - Fire alarm: [2.8](../2.8-fire-alarm.md); Context policy's moves: [2.5](../2.5-context-policy.md).

@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import type { INestApplication } from "@nestjs/common";
-import { inArray, sql, TransactionRollbackError } from "drizzle-orm";
+import { inArray, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { rolledBackMigration } from "../../../../../test/test-database.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { Task } from "../../domain/task.js";
 import { aTask } from "../../domain/work.fixtures.js";
@@ -21,21 +22,6 @@ beforeAll(async () => {
 afterAll(async () => {
   await app.close();
 });
-
-/** What `read` found, with its changes undone: every test file shares the database. */
-async function rolledBack<Result>(read: (transaction: Transaction) => Promise<Result>) {
-  let result: Result | undefined;
-  await database
-    .transaction(async (transaction) => {
-      result = await read(transaction);
-      transaction.rollback();
-    })
-    .catch((error: unknown) => {
-      if (!(error instanceof TransactionRollbackError)) throw error;
-    });
-  if (result === undefined) throw new Error("Nothing was read.");
-  return result;
-}
 
 /** The two columns as they were before migration 0128, every row's hold forgotten. */
 async function columnsBefore(transaction: Transaction): Promise<void> {
@@ -57,7 +43,7 @@ describe("migration 0128", () => {
       aTask({ id: randomUUID(), projectId, state: "paused", order: `zz${randomUUID()}` });
     const [byTheAlarm, usersOwn] = [paused(), paused()];
 
-    const after = await rolledBack(async (transaction) => {
+    const after = await rolledBackMigration(database, async (transaction) => {
       await transaction.insert(tasks).values([toTaskRow(byTheAlarm), toTaskRow(usersOwn)]);
       await columnsBefore(transaction);
       await transaction.execute(

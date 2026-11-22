@@ -273,6 +273,7 @@ Covers: a Project's page and its head, the section menu, Overview (Onboarding, W
 - A Project whose Run environment isn't On says "Needs Run environment On to launch." on a Hosted target, and its **Launch** is disabled.
 - Below, the other branches launched on, under "Other branches", each with its instances, the earlier ones folded.
 - An instance linked to an Initiative shows "in <Initiative>", linking to its page ([2.12](../2.12-test-instances.md#linking-to-an-initiative)).
+- A Notification of an instance linked to none opens Test targets with `testInstance=<id>`: its branch is picked, an earlier instance's fold opens, and its row scrolls into view ([2.7](../2.7-notifications.md#test-instance-outcomes)).
 - A refusal is a toast "<name> can't launch" with the service's reason, as on the Initiative page; a branch that isn't in the Project or on its remote is refused naming it.
 - Rules: [2.12](../2.12-test-instances.md#test-instance).
 

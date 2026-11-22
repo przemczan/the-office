@@ -5,6 +5,7 @@ import { Button, Card, Dialog, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import {
   addStageTemplate,
+  refreshStageTemplateList,
   removeStageTemplate,
   saveStageTemplate,
   stageTemplateQueries,
@@ -77,7 +78,7 @@ export function StageTemplateForm({
   const saving = useMutation({
     mutationFn: () => (template ? saveStageTemplate(template.id, draft) : addStageTemplate(draft)),
     onSuccess: async (result) => {
-      await queryClient.invalidateQueries(stageTemplateQueries.list());
+      await refreshStageTemplateList(queryClient);
       if (template) {
         setDraft(result.stage);
         showToast("Stage template saved. Pipelines and Tasks that added it keep their copy.");
@@ -184,7 +185,7 @@ function RemoveStageTemplateDialog({
   const removing = useMutation({
     mutationFn: () => removeStageTemplate(template.id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries(stageTemplateQueries.list());
+      await refreshStageTemplateList(queryClient);
       showToast(`${name} removed from the Stage templates.`);
       onClose();
       await navigate({ to: "/settings/pipelines" });

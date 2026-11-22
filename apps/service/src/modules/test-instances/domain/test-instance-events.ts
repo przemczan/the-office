@@ -1,4 +1,5 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
+import type { StopReason } from "./stop-reason.js";
 import type { TestInstanceState } from "./test-instance.js";
 
 /**
@@ -20,6 +21,7 @@ export class TestInstanceLaunched extends DomainEvent {
 /**
  * An instance moved from one state to another (spec §2.12, "Test instance states"). `port` is the
  * Proxy port it held as it moved: the proxy opens it on Running and closes it on Stopped or Failed.
+ * It carries what a Notification of the move says (spec §2.7, "Test instance Outcomes").
  */
 export class TestInstanceStateChanged extends DomainEvent {
   constructor(
@@ -30,6 +32,15 @@ export class TestInstanceStateChanged extends DomainEvent {
     readonly from: TestInstanceState,
     readonly to: TestInstanceState,
     readonly port: number | undefined,
+    readonly targetName: string,
+    /** Undefined only on a row launched before branches were recorded, always linked. */
+    readonly branch: string | undefined,
+    /** Why it failed, in the user's words; undefined unless it moved to Failed. */
+    readonly failedReason: string | undefined,
+    /** How it was stopped, when a stop moved it; undefined otherwise. */
+    readonly stoppedBy: StopReason["kind"] | undefined,
+    /** A Built instance's files by name; empty otherwise. */
+    readonly files: readonly string[],
   ) {
     super();
   }

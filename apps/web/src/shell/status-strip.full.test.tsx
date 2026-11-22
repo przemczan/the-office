@@ -1,9 +1,15 @@
 import { notifyManager, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { Notification, Role } from "@the-office/contracts";
+import type {
+  NeedsYouItem,
+  Notification,
+  Now,
+  Role,
+  WaitingForYouItem,
+} from "@the-office/contracts";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { notificationQueries } from "../api/notifications.ts";
+import { notificationQueries, nowQueries } from "../api/notifications.ts";
 import { roleQueries } from "../api/people.ts";
 import { StatusStrip } from "./status-strip.tsx";
 import { momentWords } from "./time.ts";
@@ -22,7 +28,11 @@ globalThis.ResizeObserver = class {
 notifyManager.setScheduler((notify) => notify());
 
 vi.mock("../api/event-stream-provider.tsx", () => ({ useEventStreamStatus: () => "connected" }));
-vi.mock("@tanstack/react-router", () => ({ Link: () => null, useNavigate: () => () => undefined }));
+vi.mock("@tanstack/react-router", () => ({
+  Link: () => null,
+  useNavigate: () => () => undefined,
+  useSearch: () => ({}),
+}));
 
 const WINDOW_RESET: Notification = {
   id: "5d0c8a2e-3f6b-4a8e-9c1d-7b2e4f6a8c10",
@@ -163,4 +173,87 @@ it("follows the open Office Notifications as they clear, and is gone with none",
 
   act(() => queryClient.setQueryData(notificationQueries.open().queryKey, []));
   expect(slot()).toBeNull();
+});
+
+const NOW: Now = {
+  needsYou: [],
+  waitingForYou: [],
+  running: [],
+  queue: [],
+  shaping: [],
+  tokensToday: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
+  desks: { inUse: 0, limit: 3 },
+  usageWindows: [],
+  fireAlarm: null,
+};
+const A_DECISION: NeedsYouItem = {
+  kind: "decision",
+  decisionId: "0b6a4f1e-6a55-4c1c-9d51-2f0d5a1c7e10",
+  taskId: "6820f3e0-132c-414a-9d26-ed497c7ea9bf",
+  projectId: "billing",
+  waitingSince: "2026-11-13T09:00:00.000Z",
+};
+const SKILL_UPDATES: WaitingForYouItem = {
+  kind: "skill-updates",
+  skillNames: ["pdf"],
+  count: 1,
+  projectIds: [],
+  waitingSince: null,
+};
+const OFFICE_UPDATE: WaitingForYouItem = {
+  kind: "office-update",
+  target: {
+    kind: "commit",
+    commit: "abc1234def5678",
+    shortCommit: "abc1234",
+    subject: "fix: a thing",
+    committedAt: "2026-11-13T09:00:00.000Z",
+  },
+  projectIds: [],
+  waitingSince: "2026-11-13T09:00:00.000Z",
+};
+
+function needsYouFigure(): HTMLButtonElement | null {
+  return strip.querySelector<HTMLButtonElement>("button.shell-strip-needs-you");
+}
+
+it("shows a small count of what is Waiting for you beside Needs you's, said in the figure's name", () => {
+  queryClient.setQueryData(nowQueries.now().queryKey, {
+    ...NOW,
+    needsYou: [A_DECISION],
+    waitingForYou: [SKILL_UPDATES, OFFICE_UPDATE],
+  });
+  renderWith([]);
+
+  const figure = needsYouFigure();
+  expect(figure?.querySelector(".shell-strip-value b")?.textContent).toBe("1");
+  const waiting = figure?.querySelector(".shell-strip-faint.shell-strip-waiting");
+  expect(waiting?.getAttribute("title")).toBe("2 waiting for you");
+  expect(waiting?.querySelector(".shell-strip-roomy")?.textContent).toBe("· 2 waiting");
+  expect(waiting?.querySelector(".shell-strip-tight")?.textContent).toBe("·2");
+  expect(figure?.getAttribute("aria-label")).toMatch(/, 2 waiting for you$/);
+  expect(figure?.className).toContain("alert");
+});
+
+it("stays quiet with only what is Waiting for you: no alert, no live dot, Needs you at 0", () => {
+  queryClient.setQueryData(nowQueries.now().queryKey, { ...NOW, waitingForYou: [SKILL_UPDATES] });
+  renderWith([]);
+
+  const figure = needsYouFigure();
+  expect(figure?.className).not.toContain("alert");
+  expect(figure?.querySelector(".live-dot")).toBeNull();
+  expect(figure?.querySelector(".shell-strip-value b")?.textContent).toBe("0");
+  expect(figure?.querySelector(".shell-strip-waiting")?.getAttribute("title")).toBe(
+    "1 waiting for you",
+  );
+});
+
+it("shows no Waiting for you count while nothing waits", () => {
+  queryClient.setQueryData(nowQueries.now().queryKey, { ...NOW, needsYou: [A_DECISION] });
+  renderWith([]);
+
+  const figure = needsYouFigure();
+  expect(figure?.querySelector(".shell-strip-waiting")).toBeNull();
+  expect(figure?.getAttribute("aria-label")).not.toContain("waiting");
+  expect(figure?.querySelector(".live-dot")).not.toBeNull();
 });

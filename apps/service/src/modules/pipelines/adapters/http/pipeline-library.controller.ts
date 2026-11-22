@@ -19,6 +19,7 @@ import {
   type PipelineCheckRequest,
   type Pipeline as PipelineResponse,
   type PipelineEdit,
+  type PipelinesNeedingFixing,
   type PipelineUse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
@@ -66,6 +67,15 @@ export class PipelineLibraryController {
       problems: [...problems, ...flags].map(toStageProblemResponse),
       breaks: breaks.map(toProjectPipelineBreakResponse),
     };
+  }
+
+  /**
+   * The list's "Needs fixing" flags, one answer for the whole library rather than a check per row.
+   * Two segments, so `PipelinesController`'s `GET :id` never reads "library" as a Pipeline's id.
+   */
+  @Get("library/needs-fixing")
+  async needingFixing(): Promise<PipelinesNeedingFixing> {
+    return { pipelineIds: await this.editor.needingFixing() };
   }
 
   @Put(":id")

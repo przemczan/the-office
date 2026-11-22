@@ -6,8 +6,35 @@ import { startTestApplication } from "../../../../test/test-application.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
-import { DecisionClosed, DecisionOpened } from "../../conversations/index.js";
+import type { DomainEvent, DomainEventClass } from "../../../platform/events/domain-event.js";
+import {
+  DecisionClosed,
+  DecisionOpened,
+  MessagesLogged,
+  ProposalApplied,
+  ProposalDeclined,
+  ProposalDrafted,
+} from "../../conversations/index.js";
+import {
+  OfficeRestartScheduled,
+  OfficeUpdateChecked,
+  OfficeUpdateScheduled,
+  ScheduledExitCancelled,
+} from "../../office-updates/index.js";
 import { StandInChoicesChanged } from "../../pipelines/index.js";
+import {
+  PullRequestClosed,
+  PullRequestMerged,
+  PullRequestOpened,
+  PullRequestReopened,
+  PullRequestsChecked,
+} from "../../projects/index.js";
+import {
+  SkillRemoved,
+  SkillUpdated,
+  SkillUpdateFound,
+  SkillUpdateGone,
+} from "../../skills/index.js";
 import { InitiativeStateChanged } from "../../work/index.js";
 import { NowChanged } from "../domain/now-events.js";
 import { NotificationsModule } from "../notifications.module.js";
@@ -21,6 +48,11 @@ import {
   OfficeStatusCardsForTests,
   ResumePlansForTests,
   StandInChoicesWaitingForTests,
+  OpenProposalsForTests,
+  PullRequestsWaitingForTests,
+  SkillUpdatesFoundForTests,
+  OfficeUpdateAvailableForTests,
+  ShapingRepliesForTests,
   OfficeInitiativesForTests,
   OfficeTasksForTests,
   OpenDecisionsForTests,
@@ -54,6 +86,11 @@ describe("NowService", () => {
           officeFireAlarm: OfficeFireAlarmForTests,
           resumePlans: ResumePlansForTests,
           standInChoicesWaiting: StandInChoicesWaitingForTests,
+          openProposals: OpenProposalsForTests,
+          pullRequestsWaiting: PullRequestsWaitingForTests,
+          skillUpdatesFound: SkillUpdatesFoundForTests,
+          officeUpdateAvailable: OfficeUpdateAvailableForTests,
+          shapingReplies: ShapingRepliesForTests,
         }),
       ],
     }));
@@ -345,7 +382,172 @@ describe("NowService", () => {
 
     await vi.waitFor(() => expect(announced.at(-1)?.now.shaping).toEqual([]));
   });
+
+  describe("Waiting for you", () => {
+    it("reads each kind from the modules that own it, apart from Needs you", async () => {
+      const [taskId, initiativeId, shapingThread] = [randomUUID(), randomUUID(), randomUUID()];
+      const [proposalId, pullRequestId] = [randomUUID(), randomUUID()];
+      tasks.tasks = [
+        {
+          id: taskId,
+          title: "Add a filter",
+          projectId: "p1",
+          state: "ready",
+          pausedBy: undefined,
+          resumesAt: undefined,
+        },
+      ];
+      const initiatives = app.get(OfficeInitiativesForTests);
+      initiatives.initiatives = [
+        { id: initiativeId, name: "Search", state: "shaping", createdAt: new Date("2026-11-01") },
+        { id: randomUUID(), name: "Billing", state: "active", createdAt: new Date("2026-11-01") },
+      ];
+      initiatives.tasks.set(initiativeId, [{ projectId: "p2", state: "ready" }]);
+      app.get(OpenProposalsForTests).open = [
+        {
+          id: proposalId,
+          threadId: randomUUID(),
+          draftedBy: "planner",
+          draftedAt: new Date("2026-11-20T09:03:00Z"),
+          home: { kind: "task", taskId },
+          skillUpdate: undefined,
+        },
+      ];
+      app.get(PullRequestsWaitingForTests).pullRequests = [
+        {
+          id: pullRequestId,
+          projectId: "p1",
+          taskId,
+          number: 7,
+          url: "https://github.com/office/the-office/pull/7",
+          checksFailing: false,
+          conflicts: true,
+          waitingSince: new Date("2026-11-20T09:02:00Z"),
+        },
+      ];
+      app.get(SkillUpdatesFoundForTests).names = ["pdf"];
+      app.get(OfficeUpdateAvailableForTests).found = {
+        target: {
+          kind: "commit",
+          commit: "0123456789abcdef",
+          shortCommit: "0123456",
+          subject: "feat: faster Now",
+          committedAt: new Date("2026-11-19T12:00:00Z"),
+        },
+        foundAt: new Date("2026-11-20T09:04:00Z"),
+      };
+      const replies = app.get(ShapingRepliesForTests);
+      replies.replies = [
+        {
+          initiativeId,
+          threadId: shapingThread,
+          roleKey: "cto",
+          answeredAt: new Date("2026-11-20T09:01:00Z"),
+        },
+      ];
+
+      const now = await readNow();
+
+      expect(now.needsYou).toEqual([]);
+      expect(now.waitingForYou).toEqual([
+        {
+          kind: "shaping-reply",
+          initiativeId,
+          threadId: shapingThread,
+          roleKey: "cto",
+          projectIds: ["p2"],
+          waitingSince: "2026-11-20T09:01:00.000Z",
+        },
+        {
+          kind: "pull-request",
+          pullRequestId,
+          taskId,
+          number: 7,
+          url: "https://github.com/office/the-office/pull/7",
+          checksFailing: false,
+          conflicts: true,
+          projectIds: ["p1"],
+          waitingSince: "2026-11-20T09:02:00.000Z",
+        },
+        expect.objectContaining({ kind: "proposal", proposalId, projectIds: ["p1"] }),
+        {
+          kind: "office-update",
+          target: {
+            kind: "commit",
+            commit: "0123456789abcdef",
+            shortCommit: "0123456",
+            subject: "feat: faster Now",
+            committedAt: "2026-11-19T12:00:00.000Z",
+          },
+          projectIds: [],
+          waitingSince: "2026-11-20T09:04:00.000Z",
+        },
+        {
+          kind: "skill-updates",
+          skillNames: ["pdf"],
+          count: 1,
+          projectIds: [],
+          waitingSince: null,
+        },
+      ]);
+      // Shaping replies are asked for the Initiatives in Shaping alone.
+      expect(replies.asked.at(-1)).toEqual([initiativeId]);
+    });
+
+    // Now reads nothing off these events, so a bare instance of each class stands in for one.
+    it.each<DomainEventClass>([
+      ProposalDrafted,
+      ProposalApplied,
+      ProposalDeclined,
+      PullRequestOpened,
+      PullRequestsChecked,
+      PullRequestMerged,
+      PullRequestClosed,
+      PullRequestReopened,
+      SkillUpdateFound,
+      SkillUpdateGone,
+      SkillUpdated,
+      SkillRemoved,
+      OfficeUpdateChecked,
+      OfficeUpdateScheduled,
+      OfficeRestartScheduled,
+      ScheduledExitCancelled,
+    ])("announces Now on %O", async (eventClass) => {
+      const name = randomUUID();
+      app.get(SkillUpdatesFoundForTests).names = [name];
+
+      await events.publish(bareEvent(eventClass));
+
+      await vi.waitFor(() =>
+        expect(announced.at(-1)?.now.waitingForYou).toEqual([
+          expect.objectContaining({ kind: "skill-updates", skillNames: [name] }),
+        ]),
+      );
+    });
+
+    it("announces Now on the user's message in an Initiative's Thread", async () => {
+      const name = randomUUID();
+      app.get(SkillUpdatesFoundForTests).names = [name];
+
+      await events.publish(
+        Object.assign(bareEvent(MessagesLogged), {
+          thread: { home: { kind: "initiative", initiativeId: randomUUID() } },
+          messages: [{ kind: "user" }],
+        }),
+      );
+
+      await vi.waitFor(() =>
+        expect(announced.at(-1)?.now.waitingForYou).toEqual([
+          expect.objectContaining({ skillNames: [name] }),
+        ]),
+      );
+    });
+  });
 });
+
+function bareEvent(eventClass: DomainEventClass): DomainEvent {
+  return Object.create(eventClass.prototype) as DomainEvent;
+}
 
 type DecisionEventParameters = ConstructorParameters<typeof DecisionOpened>;
 

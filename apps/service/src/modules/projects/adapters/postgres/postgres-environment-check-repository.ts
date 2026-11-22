@@ -22,6 +22,11 @@ export class PostgresEnvironmentCheckRepository extends EnvironmentCheckReposito
       .onConflictDoUpdate({ target: environmentChecks.projectId, set: row });
   }
 
+  async listAll(): Promise<readonly EnvironmentCheck[]> {
+    const rows = await this.database.select().from(environmentChecks);
+    return rows.map(toEnvironmentCheck);
+  }
+
   async find(projectId: string): Promise<EnvironmentCheck | undefined> {
     const [row] = await this.database
       .select()

@@ -36,7 +36,9 @@
                   "labels": {
                     "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
                     "office_stage": "Implement",
-                    "office_stage_run": "b1f0c6e2-7a3d-4c58-9e14-3f2a8d6c1e44"
+                    "office_stage_run": "1",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-sonnet-5"
                   },
                   "config": {}
                 }
@@ -72,7 +74,9 @@
                   "labels": {
                     "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
                     "office_stage": "Implement",
-                    "office_stage_run": "e9d3a7b5-2c1f-4e86-a0b4-7d5c9f3e2a55"
+                    "office_stage_run": "2",
+                    "office_engine": "claude-code-personal",
+                    "office_engine_model": "claude-sonnet-5"
                   },
                   "config": {}
                 }
@@ -106,7 +110,9 @@
                     "frame": "float64"
                   },
                   "labels": {
-                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11"
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-sonnet-5"
                   },
                   "config": {}
                 }
@@ -142,7 +148,9 @@
                   "labels": {
                     "office_task": "8a4b2e6f-93c1-4d7a-b5e0-6c1f3d8a2b22",
                     "office_stage": "Review",
-                    "office_stage_run": "4c8e2a6d-1b9f-4f73-8e25-0a6d4b9c7f66"
+                    "office_stage_run": "1",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-haiku-5"
                   },
                   "config": {}
                 }
@@ -183,7 +191,9 @@
                   "labels": {
                     "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
                     "office_stage": "Implement",
-                    "office_stage_run": "b1f0c6e2-7a3d-4c58-9e14-3f2a8d6c1e44"
+                    "office_stage_run": "1",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-sonnet-5"
                   },
                   "config": {}
                 }
@@ -219,7 +229,9 @@
                   "labels": {
                     "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
                     "office_stage": "Implement",
-                    "office_stage_run": "e9d3a7b5-2c1f-4e86-a0b4-7d5c9f3e2a55"
+                    "office_stage_run": "2",
+                    "office_engine": "claude-code-personal",
+                    "office_engine_model": "claude-sonnet-5"
                   },
                   "config": {}
                 }
@@ -253,7 +265,9 @@
                     "frame": "float64"
                   },
                   "labels": {
-                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11"
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-sonnet-5"
                   },
                   "config": {}
                 }
@@ -289,7 +303,9 @@
                   "labels": {
                     "office_task": "8a4b2e6f-93c1-4d7a-b5e0-6c1f3d8a2b22",
                     "office_stage": "Review",
-                    "office_stage_run": "4c8e2a6d-1b9f-4f73-8e25-0a6d4b9c7f66"
+                    "office_stage_run": "1",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-haiku-5"
                   },
                   "config": {}
                 }
@@ -330,7 +346,9 @@
                   "labels": {
                     "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
                     "office_stage": "Implement",
-                    "office_stage_run": "b1f0c6e2-7a3d-4c58-9e14-3f2a8d6c1e44"
+                    "office_stage_run": "1",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-sonnet-5"
                   },
                   "config": {}
                 }
@@ -366,7 +384,9 @@
                   "labels": {
                     "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
                     "office_stage": "Implement",
-                    "office_stage_run": "e9d3a7b5-2c1f-4e86-a0b4-7d5c9f3e2a55"
+                    "office_stage_run": "2",
+                    "office_engine": "claude-code-personal",
+                    "office_engine_model": "claude-sonnet-5"
                   },
                   "config": {}
                 }
@@ -400,7 +420,9 @@
                     "frame": "float64"
                   },
                   "labels": {
-                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11"
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-sonnet-5"
                   },
                   "config": {}
                 }
@@ -436,7 +458,9 @@
                   "labels": {
                     "office_task": "8a4b2e6f-93c1-4d7a-b5e0-6c1f3d8a2b22",
                     "office_stage": "Review",
-                    "office_stage_run": "4c8e2a6d-1b9f-4f73-8e25-0a6d4b9c7f66"
+                    "office_stage_run": "1",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-haiku-5"
                   },
                   "config": {}
                 }
@@ -477,7 +501,9 @@
                   "labels": {
                     "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
                     "office_stage": "Implement",
-                    "office_stage_run": "b1f0c6e2-7a3d-4c58-9e14-3f2a8d6c1e44"
+                    "office_stage_run": "1",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-sonnet-5"
                   },
                   "config": {}
                 }
@@ -513,7 +539,9 @@
                   "labels": {
                     "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
                     "office_stage": "Implement",
-                    "office_stage_run": "e9d3a7b5-2c1f-4e86-a0b4-7d5c9f3e2a55"
+                    "office_stage_run": "2",
+                    "office_engine": "claude-code-personal",
+                    "office_engine_model": "claude-sonnet-5"
                   },
                   "config": {}
                 }
@@ -547,7 +575,9 @@
                     "frame": "float64"
                   },
                   "labels": {
-                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11"
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-sonnet-5"
                   },
                   "config": {}
                 }
@@ -583,7 +613,9 @@
                   "labels": {
                     "office_task": "8a4b2e6f-93c1-4d7a-b5e0-6c1f3d8a2b22",
                     "office_stage": "Review",
-                    "office_stage_run": "4c8e2a6d-1b9f-4f73-8e25-0a6d4b9c7f66"
+                    "office_stage_run": "1",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-haiku-5"
                   },
                   "config": {}
                 }
@@ -624,7 +656,9 @@
                   "labels": {
                     "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
                     "office_stage": "Implement",
-                    "office_stage_run": "b1f0c6e2-7a3d-4c58-9e14-3f2a8d6c1e44"
+                    "office_stage_run": "1",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-sonnet-5"
                   },
                   "config": {}
                 }
@@ -660,7 +694,9 @@
                   "labels": {
                     "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
                     "office_stage": "Implement",
-                    "office_stage_run": "e9d3a7b5-2c1f-4e86-a0b4-7d5c9f3e2a55"
+                    "office_stage_run": "2",
+                    "office_engine": "claude-code-personal",
+                    "office_engine_model": "claude-sonnet-5"
                   },
                   "config": {}
                 }
@@ -694,7 +730,9 @@
                     "frame": "float64"
                   },
                   "labels": {
-                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11"
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-sonnet-5"
                   },
                   "config": {}
                 }
@@ -730,7 +768,9 @@
                   "labels": {
                     "office_task": "8a4b2e6f-93c1-4d7a-b5e0-6c1f3d8a2b22",
                     "office_stage": "Review",
-                    "office_stage_run": "4c8e2a6d-1b9f-4f73-8e25-0a6d4b9c7f66"
+                    "office_stage_run": "1",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-haiku-5"
                   },
                   "config": {}
                 }
@@ -770,14 +810,17 @@
                   },
                   "labels": {
                     "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33",
-                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11"
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_stage_run": "1",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-sonnet-5"
                   },
                   "config": {}
                 }
               ]
             },
             "data": {
-              "values": [[1794913200000], [2.5]]
+              "values": [[1794913200000], [1.5]]
             }
           },
           {
@@ -804,7 +847,84 @@
                     "frame": "float64"
                   },
                   "labels": {
-                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33"
+                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33",
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_stage_run": "2",
+                    "office_engine": "claude-code-personal",
+                    "office_engine_model": "claude-sonnet-5"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [0.75]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "initiativeCost",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33",
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-sonnet-5"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [0.25]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "initiativeCost",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-sonnet-5"
                   },
                   "config": {}
                 }
@@ -844,14 +964,17 @@
                   },
                   "labels": {
                     "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33",
-                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11"
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_stage_run": "1",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-sonnet-5"
                   },
                   "config": {}
                 }
               ]
             },
             "data": {
-              "values": [[1794913200000], [1600]]
+              "values": [[1794913200000], [1000]]
             }
           },
           {
@@ -878,7 +1001,84 @@
                     "frame": "float64"
                   },
                   "labels": {
-                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33"
+                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33",
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_stage_run": "2",
+                    "office_engine": "claude-code-personal",
+                    "office_engine_model": "claude-sonnet-5"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [500]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "initiativeInput",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33",
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-sonnet-5"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [100]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "initiativeInput",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-sonnet-5"
                   },
                   "config": {}
                 }
@@ -918,14 +1118,17 @@
                   },
                   "labels": {
                     "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33",
-                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11"
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_stage_run": "1",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-sonnet-5"
                   },
                   "config": {}
                 }
               ]
             },
             "data": {
-              "values": [[1794913200000], [350]]
+              "values": [[1794913200000], [200]]
             }
           },
           {
@@ -952,7 +1155,84 @@
                     "frame": "float64"
                   },
                   "labels": {
-                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33"
+                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33",
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_stage_run": "2",
+                    "office_engine": "claude-code-personal",
+                    "office_engine_model": "claude-sonnet-5"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [100]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "initiativeOutput",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33",
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-sonnet-5"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [50]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "initiativeOutput",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-sonnet-5"
                   },
                   "config": {}
                 }
@@ -992,7 +1272,10 @@
                   },
                   "labels": {
                     "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33",
-                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11"
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_stage_run": "1",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-sonnet-5"
                   },
                   "config": {}
                 }
@@ -1026,7 +1309,84 @@
                     "frame": "float64"
                   },
                   "labels": {
-                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33"
+                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33",
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_stage_run": "2",
+                    "office_engine": "claude-code-personal",
+                    "office_engine_model": "claude-sonnet-5"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [0]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "initiativeCacheCreation",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33",
+                    "office_task": "5d0e7c3a-1f42-4b8e-9c61-2a7f0b9d4e11",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-sonnet-5"
+                  },
+                  "config": {}
+                }
+              ]
+            },
+            "data": {
+              "values": [[1794913200000], [0]]
+            }
+          },
+          {
+            "schema": {
+              "refId": "initiativeCacheCreation",
+              "meta": {
+                "type": "numeric-multi",
+                "typeVersion": [0, 1],
+                "executedQueryString": ""
+              },
+              "fields": [
+                {
+                  "name": "Time",
+                  "type": "time",
+                  "typeInfo": {
+                    "frame": "time.Time"
+                  },
+                  "config": {}
+                },
+                {
+                  "name": "Value",
+                  "type": "number",
+                  "typeInfo": {
+                    "frame": "float64"
+                  },
+                  "labels": {
+                    "office_initiative": "c7e1f9a2-4b6d-4e3f-8a1c-9d2b5e7f0a33",
+                    "office_engine": "claude-code",
+                    "office_engine_model": "claude-sonnet-5"
                   },
                   "config": {}
                 }

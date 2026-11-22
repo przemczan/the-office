@@ -13,11 +13,24 @@ import {
 import { applyProposal, declineProposal, type ProposalChange } from "../domain/proposal-changes.js";
 import { ProposalNotFound } from "../domain/proposal-not-found.js";
 import { ProposalRefused } from "../domain/proposal-refused.js";
-import type { Thread } from "../domain/thread.js";
+import type { Home, Thread } from "../domain/thread.js";
 import type { UserRef } from "../domain/user.js";
 import { draftProposal } from "../domain/thread-changes.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { ProposalAppliers } from "./proposal-appliers.js";
+
+/** An open Proposal, where it waits on the user. */
+export interface ProposalWaitingOnTheUser {
+  readonly id: string;
+  readonly threadId: string;
+  /** Who drafted it, by the key of their Role. */
+  readonly draftedBy: string;
+  readonly draftedAt: Date;
+  /** The home of the Thread it was drafted in. */
+  readonly home: Home;
+  /** The skill whose update it drafts, by name, for a skill update; undefined for any other. */
+  readonly skillUpdate: string | undefined;
+}
 
 /**
  * The Proposals use cases (spec §2.2): a person drafts one in the Thread they talk in, and the user
@@ -90,6 +103,19 @@ export class ProposalService {
   /** Every open Proposal, the newest first, for a page that offers what waits on the user. */
   listOpen(): Promise<readonly Proposal[]> {
     return this.repository.openProposals();
+  }
+
+  /** Every open Proposal with its Thread's home, the oldest first, for what waits on the user. */
+  async waitingOnTheUser(): Promise<readonly ProposalWaitingOnTheUser[]> {
+    const open = await this.repository.openProposalsInHomes();
+    return open.map(({ proposal: { id, threadId, draftedBy, draftedAt, change }, home }) => ({
+      id,
+      threadId,
+      draftedBy,
+      draftedAt,
+      home,
+      skillUpdate: change.kind === "skill-update" ? change.name : undefined,
+    }));
   }
 
   /**

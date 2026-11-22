@@ -21,6 +21,16 @@ export interface ChatPlace {
   readonly onThreadList: boolean;
   /** Every person open in the drawer, in the order they were opened. */
   readonly tabs: readonly ChatTab[];
+  /**
+   * The Proposal card the drawer was opened at, marked until the user moves on; never kept for a
+   * reload.
+   */
+  readonly proposalId: string | undefined;
+}
+
+/** Where in the Thread the drawer opens: at a Proposal's card. */
+export interface ChatLanding {
+  readonly proposal: string;
 }
 
 /** Per browser tab, so a reload keeps the drawer and another tab has its own. */
@@ -40,9 +50,10 @@ export interface ChatStore {
   place(): ChatPlace;
   /**
    * Opens on the person, adding their tab if it isn't open; a tab already open keeps where the user
-   * left off unless a Thread is named. With no person named, opens where the user left off.
+   * left off unless a Thread is named. With no person named, opens where the user left off. A
+   * landing opens the Thread at that card.
    */
-  open(roleKey?: string, threadId?: string): void;
+  open(roleKey?: string, threadId?: string, landing?: ChatLanding): void;
   showThread(threadId: string): void;
   showThreadList(): void;
   /** Closing the tab shown shows its neighbour, the one on its right first; the last leaves the person picker. */
@@ -68,7 +79,7 @@ export function tabStorage(): Pick<Storage, "getItem" | "setItem"> {
 /** Kept in `storage`, or for this page alone where storage is blocked. */
 export function createChatStore(storage: Pick<Storage, "getItem" | "setItem">): ChatStore {
   let stored = storedPlace(storage);
-  let place = placeOf(stored);
+  let place = placeOf(stored, undefined);
   // Lasts the page only: the page open after a reload is looked at afresh.
   let leftOut: OpenPage | undefined;
   const listeners = new Set<() => void>();
@@ -76,9 +87,10 @@ export function createChatStore(storage: Pick<Storage, "getItem" | "setItem">): 
     for (const listener of listeners) listener();
   };
 
-  const update = (changes: Partial<StoredPlace>): void => {
+  // Any move but the opening itself leaves the landing behind.
+  const update = (changes: Partial<StoredPlace>, landing?: ChatLanding): void => {
     stored = { ...stored, ...changes };
-    place = placeOf(stored);
+    place = placeOf(stored, landing?.proposal);
     try {
       storage.setItem(CHAT_STORAGE_KEY, JSON.stringify(stored));
     } catch {
@@ -96,11 +108,12 @@ export function createChatStore(storage: Pick<Storage, "getItem" | "setItem">): 
 
   return {
     place: () => place,
-    open: (roleKey, threadId) =>
+    open: (roleKey, threadId, landing) =>
       update(
         roleKey === undefined
           ? { isOpen: true }
           : { isOpen: true, roleKey, tabs: withTabOpen(stored.tabs, roleKey, threadId) },
+        landing,
       ),
     showThread: (threadId) => updateShownTab({ threadId, onThreadList: false }),
     showThreadList: () => updateShownTab({ onThreadList: true }),
@@ -149,7 +162,10 @@ function withTabOpen(
   );
 }
 
-function placeOf({ isOpen, roleKey, tabs }: StoredPlace): ChatPlace {
+function placeOf(
+  { isOpen, roleKey, tabs }: StoredPlace,
+  proposalId: string | undefined,
+): ChatPlace {
   const shown = tabs.find((tab) => tab.roleKey === roleKey);
   return {
     isOpen,
@@ -157,6 +173,7 @@ function placeOf({ isOpen, roleKey, tabs }: StoredPlace): ChatPlace {
     threadId: shown?.threadId,
     onThreadList: shown?.onThreadList ?? false,
     tabs,
+    proposalId,
   };
 }
 

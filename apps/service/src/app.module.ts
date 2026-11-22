@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Module, type DynamicModule } from "@nestjs/common";
+import { ActivityModule } from "./modules/activity/index.js";
 import {
   ContextPolicySettingsService,
   ConversationsModule,
@@ -37,6 +38,7 @@ import {
   PipelineLibraryModule,
   PipelinesModule,
   RunningStageRuns,
+  StageRunEngines,
   StageRunsRunningNow,
   TaskStagesService,
   StageResultWords,
@@ -48,26 +50,29 @@ import {
 } from "./modules/pipelines/index.js";
 import {
   BaseCheckouts,
+  CiRunWatch,
   EngineLevelsChecks,
+  EnvironmentChecks,
   InitiativeBranches,
   ProjectRecords,
   ProjectService,
   ProjectsFromRepositories,
   ProjectsModule,
   PullRequestRecords,
+  PullRequestWatch,
   TaskWorktrees,
 } from "./modules/projects/index.js";
 import { McpServersModule } from "./modules/mcp-servers/index.js";
-import { DevicesModule } from "./modules/devices/index.js";
+import { ConnectedDevices, DevicesModule } from "./modules/devices/index.js";
 import {
   RunEnvironmentDefinitions,
   RunEnvironmentsModule,
 } from "./modules/run-environments/index.js";
-import { OfficeUpdatesModule } from "./modules/office-updates/index.js";
+import { OfficeUpdates, OfficeUpdatesModule } from "./modules/office-updates/index.js";
 import { PromptTemplatesModule } from "./modules/prompt-templates/index.js";
-import { SkillsModule } from "./modules/skills/index.js";
+import { SkillLibrary, SkillsModule } from "./modules/skills/index.js";
 import { GrafanaStatsSource, StatsModule } from "./modules/telemetry/index.js";
-import { TestInstancesModule } from "./modules/test-instances/index.js";
+import { TestInstances, TestInstancesModule } from "./modules/test-instances/index.js";
 import {
   CookieSignedInRequests,
   GitHubIdentityProvider,
@@ -79,6 +84,7 @@ import {
   FireAlarmService,
   InitiativeService,
   OfficeLimits,
+  OnboardingService,
   QueueService,
   StageScreenshots,
   TaskRecords,
@@ -207,9 +213,26 @@ export class AppModule {
       runEnvironmentDefinitions: RunEnvironmentDefinitions,
       pipelineInitiatives: InitiativeService,
     });
+    // One instance, so Now and Settings › Updates read the same update found.
+    const officeUpdates = OfficeUpdatesModule.register({
+      checkout: officeCheckout,
+      updateFolder: config.officeUpdateFolder,
+      install: config.officeInstall,
+      officeDataDirectory: config.officeDataDirectory,
+      gitHubApiUrl: config.gitHub.apiUrl,
+    });
     // One instance, so Stats reads the same day figures Now counts.
     const notifications = NotificationsModule.register({
-      imports: [work, conversations, pipelines, PeopleModule, EngineModule],
+      imports: [
+        work,
+        conversations,
+        pipelines,
+        PeopleModule,
+        EngineModule,
+        projects,
+        SkillsModule,
+        officeUpdates,
+      ],
       officeTasks: TaskService,
       officeInitiatives: InitiativeService,
       openDecisions: DecisionService,
@@ -222,14 +245,39 @@ export class AppModule {
       officeFireAlarm: FireAlarmService,
       resumePlans: AlarmResumes,
       standInChoicesWaiting: StandInChoices,
+      openProposals: ProposalService,
+      pullRequestsWaiting: PullRequestRecords,
+      skillUpdatesFound: SkillLibrary,
+      officeUpdateAvailable: OfficeUpdates,
+      shapingReplies: ThreadService,
+    });
+    // Work's Tasks and the run environments their devices are relayed into.
+    const devices = DevicesModule.register({ imports: [work, projects, runEnvironments] });
+    // Initiatives' branches from Work, test targets and checkouts from Projects, and Hosted
+    // instances from Run environments, which take no run environment slot.
+    const testInstances = TestInstancesModule.register({
+      imports: [work, projects, runEnvironments],
+      officePort: config.port,
+      officeHost: config.host,
     });
     return {
       module: AppModule,
       imports: [
+        ActivityModule.register({
+          imports: [work, pipelines, conversations, testInstances, projects, devices],
+          tasks: TaskService,
+          stages: TaskStagesService,
+          decisions: DecisionService,
+          onboardings: OnboardingService,
+          testInstances: TestInstances,
+          ciRuns: CiRunWatch,
+          environmentChecks: EnvironmentChecks,
+          pullRequests: PullRequestWatch,
+          devices: ConnectedDevices,
+        }),
         conversations,
         DatabaseModule.forRoot({ url: config.databaseUrl }),
-        // Work's Tasks and the run environments their devices are relayed into.
-        DevicesModule.register({ imports: [work, projects, runEnvironments] }),
+        devices,
         EarlierRecordsModule,
         EngineAccountsModule,
         engineCascade,
@@ -244,13 +292,7 @@ export class AppModule {
         OfficeDataModule.forRoot(config.officeDataDirectory),
         OfficeTestInstanceModule.forRoot(config.testInstance ?? false),
         OfficeIdentityHttpModule,
-        OfficeUpdatesModule.register({
-          checkout: officeCheckout,
-          updateFolder: config.officeUpdateFolder,
-          install: config.officeInstall,
-          officeDataDirectory: config.officeDataDirectory,
-          gitHubApiUrl: config.gitHub.apiUrl,
-        }),
+        officeUpdates,
         notifications,
         PeopleModule,
         pipelines,
@@ -277,6 +319,7 @@ export class AppModule {
           engineWindows: UsageWindowsNow,
           stageRunTotals: StageRunTotals,
           runningStageRuns: RunningStageRuns,
+          stageRunEngines: StageRunEngines,
           officeTasks: TaskService,
           officeInitiatives: InitiativeService,
           projectNames: ProjectService,
@@ -290,13 +333,7 @@ export class AppModule {
         SystemHealthMetricsModule,
         TelemetryModule,
         TelemetryHttpModule,
-        // Initiatives' branches from Work, test targets and checkouts from Projects, and Hosted
-        // instances from Run environments, which take no run environment slot.
-        TestInstancesModule.register({
-          imports: [work, projects, runEnvironments],
-          officePort: config.port,
-          officeHost: config.host,
-        }),
+        testInstances,
         users,
         WebAppModule.register(webApp),
         work,

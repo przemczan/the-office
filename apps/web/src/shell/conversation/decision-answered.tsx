@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Decision } from "@the-office/contracts";
 import { Icon, TextButton } from "@the-office/ui";
-import { useState, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { roleQueries } from "../../api/people.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import { roleFirstName } from "../person-name.ts";
@@ -61,9 +61,23 @@ export function DecisionAnswered({ decision }: { readonly decision: Decision }):
               ) : (
                 <>
                   <p className="decision-answer-words">
-                    {line.answer}
-                    {line.recommended && (
-                      <span className="decision-answer-tag"> (recommended)</span>
+                    {line.picks === undefined ? (
+                      <>
+                        {line.answer}
+                        {line.recommended && (
+                          <span className="decision-answer-tag"> (recommended)</span>
+                        )}
+                      </>
+                    ) : (
+                      line.picks.map((pick, at) => (
+                        <Fragment key={at}>
+                          {at > 0 && ", "}
+                          {pick.option}
+                          {pick.recommended && (
+                            <span className="decision-answer-tag"> (recommended)</span>
+                          )}
+                        </Fragment>
+                      ))
                     )}
                   </p>
                   {line.comment !== undefined && (

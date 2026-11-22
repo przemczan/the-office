@@ -30,3 +30,19 @@ export function modelLabel(model: string): string {
   const [, family = "", major, minor] = match;
   return `${family.charAt(0).toUpperCase()}${family.slice(1)} ${major}.${minor}`;
 }
+
+/** "Opus 5.5 on Personal": the model a run's session ran and the engine it ran on. */
+export function runEngineWords({
+  model,
+  engineName,
+}: {
+  readonly model: string;
+  readonly engineName: string;
+}): string {
+  return `${modelLabel(model)} on ${engineName}`;
+}
+
+/** "Stand-in for Work": a run's badge when its engine stood in for the cascade's. */
+export function standInForWords(engineName: string): string {
+  return `Stand-in for ${engineName}`;
+}

@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import type {
   CostliestSpend,
   InitiativeSpend,
+  InitiativeTaskSpend,
   NamedSeries,
   SeriesPoint,
   Spend,
@@ -401,7 +402,7 @@ function spendBy(
 
 /** Each Task's spend by its Stage runs, the first run first; the costliest Task first. */
 function tasksOf(results: QueryResults, taskIds: readonly string[], from: Date): TaskSpend[] {
-  const runLabels = [LABELS.task, LABELS.stage, LABELS.stageRun];
+  const runLabels = [LABELS.task, LABELS.stage, LABELS.stageRun, LABELS.engine, LABELS.model];
   const firstAt = new Map<string, number>();
   for (const series of results.get(REF.taskFirst) ?? []) {
     const key = JSON.stringify(runLabels.map((label) => labelOf(series, label)));
@@ -409,10 +410,12 @@ function tasksOf(results: QueryResults, taskIds: readonly string[], from: Date):
   }
   const runs = new Map<string, StageRunSpend[]>();
   for (const [id, spend] of spendBy(results, REF.taskCost, REF.taskTokens, runLabels)) {
-    const [taskId = "", stageName = "", stageRun = ""] = spend.key;
+    const [taskId = "", stageName = "", stageRun = "", engineId = "", model = ""] = spend.key;
     const run: StageRunSpend = {
       stageName,
       stageRun,
+      engineId,
+      model,
       firstAt: new Date(firstAt.get(id) ?? from.getTime()),
       tokens: Math.round(spend.tokens),
       estimatedCostUsd: spend.estimatedCostUsd,
@@ -429,14 +432,20 @@ function tasksOf(results: QueryResults, taskIds: readonly string[], from: Date):
     .toSorted((a, b) => b.estimatedCostUsd - a.estimatedCostUsd);
 }
 
-/** Each Initiative's spend by its Tasks, "" its own Threads; the costliest Initiative first. */
+/**
+ * Each Initiative's spend by its Tasks' Stage runs, engines and models, "" its own Threads; the
+ * costliest Initiative first.
+ */
 function initiativesOf(results: QueryResults, initiativeIds: readonly string[]): InitiativeSpend[] {
-  const tasks = new Map<string, (Spend & { readonly taskId: string })[]>();
-  const labels = [LABELS.initiative, LABELS.task];
+  const tasks = new Map<string, InitiativeTaskSpend[]>();
+  const labels = [LABELS.initiative, LABELS.task, LABELS.stageRun, LABELS.engine, LABELS.model];
   for (const spend of spendBy(results, REF.initiativeCost, REF.initiativeTokens, labels).values()) {
-    const [initiativeId = "", taskId = ""] = spend.key;
-    const task = {
+    const [initiativeId = "", taskId = "", stageRun = "", engineId = "", model = ""] = spend.key;
+    const task: InitiativeTaskSpend = {
       taskId,
+      stageRun,
+      engineId,
+      model,
       tokens: Math.round(spend.tokens),
       estimatedCostUsd: spend.estimatedCostUsd,
     };

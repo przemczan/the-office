@@ -77,11 +77,13 @@ export async function sendToApi<Schema extends z.ZodType>(
   path: `/${string}`,
   body: unknown,
   schema: Schema,
+  signal?: AbortSignal,
 ): Promise<z.infer<Schema>> {
   const response = await fetch(`${API_PATH}${path}`, {
     method,
     headers: { Accept: "application/json", "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal,
   });
   return answerOf(response, schema);
 }

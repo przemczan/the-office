@@ -31,7 +31,8 @@ Covers: the Decision card and its forms (the form in place, the compact card, th
 
 - Per question, a group named "Question N": the question as Markdown, numbered when there are several (the number turns to a check once answered).
 - A choice (radio list, native radios): each option with a **Recommended** badge on the recommended one, and the last line **None of these: answer in words**. The recommended option is picked at first. Under the list: "<asker> recommends “<option>”: <reason>".
-- With None of these picked, a required box **Your answer in words** (placeholder "None of the options: say what you want instead"), which is the answer; no comment link then.
+- A choice of several (checkbox list, native checkboxes, the group named by the question): the hint "Pick every option that applies." under the question, each option with a **Recommended** badge on each recommended one, no None of these line. The recommended options are checked at first. Under the list: "<asker> recommends “<option>”, “<option>”: <reason>".
+- With None of these picked, or a choice of several with no box checked, a required box **Your answer in words** (placeholder "None of the options: say what you want instead"), which is the answer; no comment link then.
 - An open question: the label "Answered in words" and, when the asker gave why, "Why <asker> needs it: <why>"; a required box **Your answer** (placeholder "Your answer in words"; for a request "Say what you did, or why you can't").
 - A request (`kind` request) has no question text of its own: the card's line reads "Asked <you|name> to: <the request>".
 - Each answer's comment is folded behind **Add a comment** (plus icon) until opened or written, then a box **Comment** ("Optional.", placeholder "Anything to add to this answer"). An approval has none.
@@ -44,8 +45,8 @@ Covers: the Decision card and its forms (the form in place, the compact card, th
 
 ### Submit
 
-- Submit sends each question's answer in order with its comment, a choice with no option as its comment's words, and the general comment when written.
-- It is disabled, with the reason as its title, while: the asker is still answering ("<name> is still answering. Answer once they finish."); an answer is being sent ("Sending your answer…"); a question has no answer: "Pick an option or write your answer first." / "Write your answer first." (one question), "Answer question N in its words first." (a choice on None of these), "Answer question N first."
+- Submit sends each question's answer in order with its comment, a choice with no option (or a choice of several with no box checked) as its words, and the general comment when written.
+- It is disabled, with the reason as its title, while: the asker is still answering ("<name> is still answering. Answer once they finish."); an answer is being sent ("Sending your answer…"); a question has no answer: "Pick an option or write your answer first." / "Write your answer first." (one question), "Answer question N in its words first." (a choice on None of these, or a choice of several with no box checked), "Answer question N first."
 - A refusal shows "The answer wasn't sent" and the draft stays.
 - Once sent the draft goes, the Thread takes the answer as the person's next message, and the card becomes the answered card.
 
@@ -64,7 +65,7 @@ Covers: the Decision card and its forms (the form in place, the compact card, th
 
 ### Progress line
 
-- "5 of 8 answered" with a bar, an untouched recommendation counting as answered; then "Ready to submit" or the link "Question N needs an answer", which jumps to (and focuses) the first unanswered question.
+- "5 of 8 answered" with a bar, an untouched recommendation (a choice of several's recommended options as checked at first) counting as answered; then "Ready to submit" or the link "Question N needs an answer", which jumps to (and focuses) the first unanswered question.
 
 ### Hints
 
@@ -74,10 +75,10 @@ Covers: the Decision card and its forms (the form in place, the compact card, th
 
 ## The compact card
 
-- For a long form or one with Attachments: the context's first line; "Question 1 of N" (or "The question" for one), the question, the recommended option with a **Recommended** badge and "<asker> recommends it: <reason>" (or "Answered in words." for an open question).
+- For a long form or one with Attachments: the context's first line; "Question 1 of N" (or "The question" for one), the question, the recommended option with a **Recommended** badge and "<asker> recommends it: <reason>" (for a choice of several each recommended option with its badge and "<asker> recommends them: <reason>"; "Answered in words." for an open question).
 - Notes: "N more questions, M of them open questions" and "N Attachments to look at in Open details" joined by " · ".
 - Actions: **Accept** (check icon), **Open details**, **Dismiss** (where allowed), the badge "Draft kept · N changes" once the draft differs from the recommendations (a general comment counts as one), and the progress line (several questions).
-- **Accept** shows only while every question is a choice and the draft is untouched; it sends every recommended option with no comments. It waits while the asker answers.
+- **Accept** shows only while every question is a choice or a choice of several and the draft is untouched; it sends every recommended option with no comments. It waits while the asker answers.
 - **Open details** (primary when Accept isn't shown) opens the window; it is disabled with "Reading the Attachments…" while they load. The progress line's "Question N needs an answer" opens the window at that question.
 - The hints and the follow-up hint show under the actions.
 
@@ -103,7 +104,7 @@ Covers: the Decision card and its forms (the form in place, the compact card, th
 
 - A Large window, kept at one height when there are several questions, titled with the Decision badge, who asks and "· N questions". Its bar: **Submit** (closes the window once sent), **Ask me again** and, where allowed, **Dismiss**; each of the two is a step: the field, the button and **Cancel**.
 - Closing keeps the draft and asks nothing first.
-- With several questions: the progress line on top; the list "Questions" on the left, each row its number (check once answered), the question and its answer so far ("IndexedDB (recommended)", "In words: …", "Needs an answer in words", "Needs an answer"); on the right the context and Attachments, "Question N of M", the question, and **Previous** / **Next**; the last question shows **Submit** in Next's place (not while asking again). Under 900px the list is a row of numbers ("Questions by number", each "Question N", answered or missing) above the question.
+- With several questions: the progress line on top; the list "Questions" on the left, each row its number (check once answered), the question and its answer so far ("IndexedDB (recommended)", for a choice of several the picks joined by ", " ("IndexedDB (recommended), Cookies"), "In words: …", "Needs an answer in words", "Needs an answer"); on the right the context and Attachments, "Question N of M", the question, and **Previous** / **Next**; the last question shows **Submit** in Next's place (not while asking again). Under 900px the list is a row of numbers ("Questions by number", each "Question N", answered or missing) above the question.
 - The fold at the top of the details reads **Context** or "Context and N Attachments", open at first, with the context, the passed-on lines, the Consultation note and the Attachment gallery (images open the viewer).
 - With one question: the context and the question alone, scrolling.
 - The general comment and the hints are at the window's foot.
@@ -111,7 +112,7 @@ Covers: the Decision card and its forms (the form in place, the compact card, th
 
 ## The answered card
 
-- Read-only, where it was asked: the context's first line, then each question (numbered when several) with its answer (with "(recommended)" after the recommended option), "Comment: …", and "General comment: …".
+- Read-only, where it was asked: the context's first line, then each question (numbered when several) with its answer (with "(recommended)" after the recommended option; a choice of several's picks joined by ", ", each recommended one marked so), "Comment: …", and "General comment: …".
 - Past 3 questions it shows the first 3 and **Show all N**.
 - The outcome line: "Answered" or "Answered by you" / "Answered by <user>"; "Answered by <person> at your request" (or "at <user>'s request") with a link to the Thread asked in; "Answered by <Consultant> in a Consultation" with **Open the Consultation**; "Answered by The Office[: <comment>]"; "Asked again[ by …]: <comment>" or "Asked again, with no comment" (its questions read "Not answered"); "Dismissed by you" / "Dismissed by you: <comment>" (or "by <user name>" for another user; its questions read "Not answered"); or the closed line. A Thread's short form shows the same.
 - Closed: "Closed: the Task was dropped." or "Closed: the Initiative ended."

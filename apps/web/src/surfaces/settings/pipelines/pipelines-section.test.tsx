@@ -43,7 +43,16 @@ const TEMPLATES: StageTemplate[] = [
   },
 ];
 
-async function rendered(address: string): Promise<HTMLElement> {
+function answerOf(path: string, needingFixing: readonly string[]): unknown {
+  if (path.endsWith("/check")) return { problems: [], breaks: [] };
+  if (path.endsWith("/needs-fixing")) return { pipelineIds: needingFixing };
+  return [];
+}
+
+async function rendered(
+  address: string,
+  needingFixing: readonly string[] = [],
+): Promise<HTMLElement> {
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -55,9 +64,7 @@ async function rendered(address: string): Promise<HTMLElement> {
   vi.stubGlobal(
     "fetch",
     vi.fn<typeof fetch>((input) =>
-      Promise.resolve(
-        Response.json(String(input).endsWith("/check") ? { problems: [], breaks: [] } : []),
-      ),
+      Promise.resolve(Response.json(answerOf(String(input), needingFixing))),
     ),
   );
   const queryClient = new QueryClient({
@@ -122,6 +129,25 @@ describe("Settings › Pipelines as two tabs", () => {
     expect(page.textContent).toContain("Office-wide Pipelines");
     expect(page.textContent).not.toContain("Run the tests");
     expect(page.textContent).toContain("All Pipelines");
+  });
+
+  it("flags the Pipelines the library's one check names, sending no check for each row", async () => {
+    const page = await rendered("/settings/pipelines/full", ["quick"]);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    const flagged = (pipelineId: string): boolean =>
+      page.querySelector(
+        `a[href="/settings/pipelines/${pipelineId}"] [aria-label="Needs fixing"]`,
+      ) !== null;
+    expect(flagged("quick")).toBe(true);
+    expect(flagged("full")).toBe(false);
+    const checked = vi
+      .mocked(fetch)
+      .mock.calls.filter(([input]) => String(input).endsWith("/pipelines/check"))
+      .map(([, init]) => JSON.parse(String(init?.body)) as { readonly pipelineId?: string });
+    expect(checked.map(({ pipelineId }) => pipelineId)).toEqual(["full"]);
   });
 
   it("opens the first Stage template when none is in the address", async () => {

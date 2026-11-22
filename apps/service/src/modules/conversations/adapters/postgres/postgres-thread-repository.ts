@@ -15,6 +15,7 @@ import {
   sql,
   type SQL,
 } from "drizzle-orm";
+import { alias, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { afterCursor, newestFirst } from "../../../../platform/database/page-sql.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
@@ -24,7 +25,6 @@ import {
   type ProposedTestTargetFields,
 } from "../../../projects/index.js";
 import {
-  type DecisionAnswer,
   formAnswerFromOne,
   formFromOne,
   oneAnswerView,
@@ -47,6 +47,8 @@ import {
   type LoggedMessage,
   type LoggedMessagesRange,
   type NewestFirstAfter,
+  type NewestInitiativeThread,
+  type ProposalInHome,
   type PersonsThreads,
   type PersonsThreadsRead,
   type TaskThreadTitle,
@@ -57,10 +59,15 @@ import {
   proposals,
   threadMessages,
   threads,
-  type SavedFormAnswer,
   type SavedMessage,
   type ThreadSessionRow,
 } from "./threads.schema.js";
+import {
+  fromSavedFormAnswer,
+  fromSavedQuestions,
+  toSavedFormAnswer,
+  toSavedQuestions,
+} from "./saved-decision-forms.js";
 
 type ThreadRow = typeof threads.$inferSelect;
 type MessageRow = typeof threadMessages.$inferSelect;
@@ -68,6 +75,9 @@ type DecisionRow = typeof decisions.$inferSelect;
 type ProposalRow = typeof proposals.$inferSelect;
 /** The client or a transaction on it: whichever reads the Threads' open Decisions. */
 type Reader = Pick<Database, "select">;
+
+/** A Thread's logged message, read back from the log's end in a scalar subquery. */
+const logged = alias(threadMessages, "logged");
 
 /** A Decision still open: neither answered nor closed. */
 const unanswered = and(isNull(decisions.answeredAt), isNull(decisions.closedAt));
@@ -411,6 +421,54 @@ export class PostgresThreadRepository extends ThreadRepository {
     return rows.map(toProposal);
   }
 
+  async openProposalsInHomes(): Promise<readonly ProposalInHome[]> {
+    const rows = await this.database
+      .select({ proposal: proposals, homeKind: threads.homeKind, homeId: threads.homeId })
+      .from(proposals)
+      .innerJoin(threads, eq(threads.id, proposals.threadId))
+      .where(eq(proposals.status, "open"))
+      .orderBy(asc(proposals.draftedAt), asc(proposals.id));
+    return rows.map(({ proposal, homeKind, homeId }) => ({
+      proposal: toProposal(proposal),
+      home: toHome(homeKind, homeId),
+    }));
+  }
+
+  async newestInitiativeThreads(
+    initiativeIds: readonly string[],
+  ): Promise<readonly NewestInitiativeThread[]> {
+    if (initiativeIds.length === 0) return [];
+    // Each scalar reads back from the log's end by its index, so a long log costs nothing here.
+    const newestOfKind = (kind: Message["kind"], column: AnyPgColumn) =>
+      sql`(select ${column} from ${threadMessages} as ${sql.identifier("logged")} where ${logged.threadId} = ${threads.id} and ${logged.body}->>'kind' = ${kind} order by ${logged.position} desc limit 1)`;
+    const rows = await this.database
+      .selectDistinctOn([threads.homeId], {
+        initiativeId: threads.homeId,
+        threadId: threads.id,
+        roleKey: threads.roleKey,
+        state: threads.state,
+        hasSession: sql<boolean>`${threads.session} is not null`,
+        holdsOpenDecision: sql<boolean>`exists (select 1 from ${decisions} where ${and(eq(decisions.threadId, threads.id), unanswered)})`,
+        lastPersonMessageAt: sql<Date | null>`${newestOfKind("person", logged.at)}`.mapWith(
+          threads.startedAt,
+        ),
+        personSpokeLast: sql<boolean>`coalesce(${newestOfKind("person", logged.position)}, 0) > coalesce(${newestOfKind("user", logged.position)}, 0)`,
+      })
+      .from(threads)
+      .where(
+        and(
+          eq(threads.homeKind, "initiative"),
+          inArray(threads.homeId, [...initiativeIds]),
+          isNull(threads.consultation),
+        ),
+      )
+      .orderBy(threads.homeId, desc(threads.startedAt), desc(threads.id));
+    return rows.map(({ lastPersonMessageAt, ...row }) => ({
+      ...row,
+      lastPersonMessageAt: lastPersonMessageAt ?? undefined,
+    }));
+  }
+
   async updateProposal<Event extends DomainEvent>(
     id: string,
     change: (proposal: Proposal) => Promise<ProposalChange<Event>>,
@@ -580,19 +638,9 @@ function toMessageRow(
     body: {
       ...line,
       answer: oneAnswerView(decision, answer),
-      formAnswer: toSavedFormAnswer(answer),
+      formAnswer: toSavedFormAnswer(answer, decision.questions),
     },
   };
-}
-
-function toSavedFormAnswer(answer: DecisionAnswer): SavedFormAnswer {
-  return answer.kind === "dismissed" ? { ...answer, kind: "asked-again", dismissed: true } : answer;
-}
-
-function fromSavedFormAnswer(saved: SavedFormAnswer): DecisionAnswer {
-  if (!("dismissed" in saved)) return saved;
-  const { dismissed: _dismissed, ...answer } = saved;
-  return { ...answer, kind: "dismissed" };
 }
 
 /** A Decision not among those at hand, read as a form of no questions: its answer reads alone. */
@@ -637,7 +685,7 @@ function toDecisionRow({
     bugTask: bugTask ?? null,
     ...oneQuestionView({ questions }),
     kind: oneQuestionKind(kind),
-    questions,
+    questions: toSavedQuestions(questions),
     closedAt: closedAt ?? null,
     taskId: taskId ?? null,
     roleKey: roleKey ?? null,
@@ -658,7 +706,7 @@ function toDecisionRow({
   return {
     ...decision,
     answer: { ...oneAnswerView({ kind, questions }, formAnswer), ...givenBy },
-    formAnswer: toSavedFormAnswer(formAnswer),
+    formAnswer: toSavedFormAnswer(formAnswer, questions),
     answeredAt,
   };
 }
@@ -700,7 +748,7 @@ function toDecision({
     ...row,
     inStageThread,
     ...(bugTask === null ? { kind: asked.kind } : { kind: "bug-task", bugTask }),
-    questions: questions ?? asked.questions,
+    questions: questions ? fromSavedQuestions(questions) : asked.questions,
     ...(closedAt === null ? {} : { closedAt }),
     taskId: taskId ?? undefined,
     roleKey: roleKey ?? undefined,

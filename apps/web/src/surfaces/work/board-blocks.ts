@@ -69,7 +69,8 @@ export function blockCount(
   if (column.key === "queued") {
     const places = cards.flatMap((card) => queuedEntryOf(card, queue)?.place ?? []);
     return {
-      shown: places.map((place) => `#${place}`).join(" · "),
+      // A no-break space before each dot, so a wrapped list never starts a line with one.
+      shown: places.map((place) => `#${place}`).join(" · "),
       words: `${places.length === 1 ? "Place" : "Places"} ${new Intl.ListFormat("en").format(places.map(String))} in the queue`,
     };
   }

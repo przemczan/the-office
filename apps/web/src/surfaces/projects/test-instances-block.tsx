@@ -27,6 +27,7 @@ import {
   useTestInstanceActions,
   type TestInstanceActions,
 } from "../../shell/test-instances/use-test-instance-actions.ts";
+import { useTestInstanceIntoView } from "../../shell/test-instances/use-test-instance-into-view.ts";
 import { ProjectBlock } from "./project-block.tsx";
 import { TEST_TARGETS_ANCHOR } from "./test-targets-block.tsx";
 import {
@@ -42,9 +43,17 @@ import {
  * A Project's Test instances, under its Test targets: the Branch picker and a row per Hosted or
  * Build to install test target on the branch picked, as the Initiative page's rows, launching on
  * that branch; then the other branches launched on, each with its instances, the earlier folded.
- * An instance linked to an Initiative says so, linking to its page.
+ * An instance linked to an Initiative says so, linking to its page. A link to an instance
+ * (`?testInstance=`, a Notification's) picks its branch and brings its row into view.
  */
-export function TestInstancesBlock({ project }: { readonly project: Project }): ReactNode {
+export function TestInstancesBlock({
+  project,
+  linkedTo,
+}: {
+  readonly project: Project;
+  /** The instance a link leads to, by its id. */
+  readonly linkedTo?: string;
+}): ReactNode {
   const query = useQuery(testInstanceQueries.ofProject(project.id));
   const shown = query.data;
   return (
@@ -65,7 +74,7 @@ export function TestInstancesBlock({ project }: { readonly project: Project }): 
           .
         </p>
       ) : (
-        <Launchable project={project} shown={shown} />
+        <Launchable project={project} shown={shown} linkedTo={linkedTo} />
       )}
     </ProjectBlock>
   );
@@ -74,11 +83,23 @@ export function TestInstancesBlock({ project }: { readonly project: Project }): 
 function Launchable({
   project,
   shown,
+  linkedTo,
 }: {
   readonly project: Project;
   readonly shown: ProjectTestInstances;
+  readonly linkedTo: string | undefined;
 }): ReactNode {
   const [picked, setPicked] = useState<string>();
+  // The linked instance's branch is picked once, when it is listed; the user may pick another.
+  const [pickedFor, setPickedFor] = useState<string>();
+  const linkedBranch = shown.branches.find(({ instances }) =>
+    instances.some(({ id }) => id === linkedTo),
+  )?.name;
+  if (linkedBranch !== undefined && pickedFor !== linkedTo) {
+    setPickedFor(linkedTo);
+    setPicked(linkedBranch);
+  }
+  const place = useTestInstanceIntoView(linkedTo, true);
   const branch = picked ?? firstBranchOf(shown, project.baseBranch);
   const [qrShown, setQrShown] = useState<ShownTestBuildLink>();
   const [logShown, setLogShown] = useState<string>();
@@ -115,10 +136,11 @@ function Launchable({
       testBranch={testBranch}
       launchedOnly={launchedOnly}
       actions={withLog}
+      linkedTo={linkedTo}
     />
   );
   return (
-    <div className="test-instances project-test-instances">
+    <div className="test-instances project-test-instances" ref={place}>
       <BranchPicker
         project={project}
         launchedOn={shown.branches.map(({ name }) => name)}
@@ -226,12 +248,14 @@ function BranchGroup({
   testBranch,
   launchedOnly,
   actions,
+  linkedTo,
 }: {
   readonly project: Project;
   readonly shown: ProjectTestInstances;
   readonly testBranch: ProjectTestBranch;
   readonly launchedOnly: boolean;
   readonly actions: TestInstanceActions;
+  readonly linkedTo: string | undefined;
 }): ReactNode {
   const rows = shown.targets
     .map((target) => ({ target, instances: instancesOf(testBranch, target) }))
@@ -282,6 +306,7 @@ function BranchGroup({
               }
               actions={actions}
               aboutInstance={initiativeOf}
+              linkedTo={linkedTo}
             />
           );
         })}

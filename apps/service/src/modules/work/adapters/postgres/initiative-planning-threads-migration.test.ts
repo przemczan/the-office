@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import type { INestApplication } from "@nestjs/common";
-import { inArray, sql, TransactionRollbackError } from "drizzle-orm";
+import { inArray, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { rolledBackMigration } from "../../../../../test/test-database.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { Initiative } from "../../domain/initiative.js";
 import { anInitiative, aTask } from "../../domain/work.fixtures.js";
@@ -21,21 +22,6 @@ beforeAll(async () => {
 afterAll(async () => {
   await app.close();
 });
-
-/** What `read` found, with its changes undone: every test file shares the database. */
-async function rolledBack<Result>(read: (transaction: Transaction) => Promise<Result>) {
-  let result: Result | undefined;
-  await database
-    .transaction(async (transaction) => {
-      result = await read(transaction);
-      transaction.rollback();
-    })
-    .catch((error: unknown) => {
-      if (!(error instanceof TransactionRollbackError)) throw error;
-    });
-  if (result === undefined) throw new Error("Nothing was read.");
-  return result;
-}
 
 /** An active Initiative of its own, from no Idea. */
 function initiative(planningThreadId?: string): Initiative {
@@ -87,7 +73,7 @@ describe("migration 0150", () => {
       initiativePlanningThreadId: planned,
     });
 
-    const { after, threads } = await rolledBack(async (transaction) => {
+    const { after, threads } = await rolledBackMigration(database, async (transaction) => {
       await transaction.insert(initiatives).values([twice, neverPlanned].map(toInitiativeRow));
       await transaction.insert(tasks).values(toTaskRow(plannedInIts));
       const earliest = await threadOn(transaction, twice, "planner", 9);

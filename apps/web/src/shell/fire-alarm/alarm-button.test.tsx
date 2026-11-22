@@ -15,6 +15,7 @@ import { FireAlarmReviewProvider } from "./fire-alarm-review.tsx";
 
 const OFF: Now = {
   needsYou: [],
+  waitingForYou: [],
   running: [],
   queue: [],
   shaping: [],

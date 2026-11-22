@@ -60,6 +60,26 @@ describe("the chat's place", () => {
     expect(chat.place()).toMatchObject({ onThreadList: false, threadId: "another" });
   });
 
+  it("opens at a Proposal's card until the user moves on, never keeping it for a reload", () => {
+    const storage = aStorage();
+    const chat = createChatStore(storage);
+
+    chat.open("devops", "a-thread", { proposal: "a-proposal" });
+    expect(chat.place()).toMatchObject({ threadId: "a-thread", proposalId: "a-proposal" });
+    expect(createChatStore(storage).place().proposalId).toBeUndefined();
+
+    chat.showThread("another");
+    expect(chat.place().proposalId).toBeUndefined();
+
+    chat.open("devops", "a-thread", { proposal: "a-proposal" });
+    chat.showThreadList();
+    expect(chat.place().proposalId).toBeUndefined();
+
+    chat.open("devops", "a-thread", { proposal: "a-proposal" });
+    chat.close();
+    expect(chat.place().proposalId).toBeUndefined();
+  });
+
   it("keeps a place stored before the tabs as its person's tab", () => {
     const stored = { isOpen: true, roleKey: "planner", threadId: "a-thread", onThreadList: true };
 

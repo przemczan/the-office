@@ -1,4 +1,5 @@
-/* One boxed line per radio, the picked one marked: see radio-list.tsx. */
+/* One boxed line per radio, the picked one marked: see radio-list.tsx. checkbox-list.tsx draws its
+   checkboxes with these classes too. */
 .radio-list {
   display: grid;
   gap: var(--space-2);

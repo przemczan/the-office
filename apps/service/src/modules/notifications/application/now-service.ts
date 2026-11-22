@@ -10,10 +10,20 @@ import {
   DecisionClosed,
   DecisionOpened,
   DecisionReopened,
+  MessagesLogged,
+  ProposalApplied,
+  ProposalDeclined,
+  ProposalDrafted,
   TokensCounted,
   TurnEnded,
 } from "../../conversations/index.js";
 import { UsageWindowsChanged } from "../../engine/index.js";
+import {
+  OfficeRestartScheduled,
+  OfficeUpdateChecked,
+  OfficeUpdateScheduled,
+  ScheduledExitCancelled,
+} from "../../office-updates/index.js";
 import { DutyHolderChanged, RoleHired, RoleHiredBack, RoleLetGo } from "../../people/index.js";
 import {
   DefinitionOfDoneNotMet,
@@ -27,6 +37,19 @@ import {
   StandInChoicesChanged,
   TaskStagesEdited,
 } from "../../pipelines/index.js";
+import {
+  PullRequestClosed,
+  PullRequestMerged,
+  PullRequestOpened,
+  PullRequestReopened,
+  PullRequestsChecked,
+} from "../../projects/index.js";
+import {
+  SkillRemoved,
+  SkillUpdated,
+  SkillUpdateFound,
+  SkillUpdateGone,
+} from "../../skills/index.js";
 import {
   AlarmSounded,
   AllClearGiven,
@@ -66,8 +89,13 @@ import { OfficeDayFigures } from "../ports/office-day-figures.js";
 import { OfficeFireAlarm } from "../ports/office-fire-alarm.js";
 import { OfficeInitiatives } from "../ports/office-initiatives.js";
 import { OfficeTasks } from "../ports/office-tasks.js";
+import { OfficeUpdateAvailable } from "../ports/office-update-available.js";
 import { OpenDecisions } from "../ports/open-decisions.js";
+import { OpenProposals } from "../ports/open-proposals.js";
+import { PullRequestsWaiting } from "../ports/pull-requests-waiting.js";
 import { ResumePlans } from "../ports/resume-plans.js";
+import { ShapingReplies } from "../ports/shaping-replies.js";
+import { SkillUpdatesFound } from "../ports/skill-updates-found.js";
 import { StandInChoicesWaiting } from "../ports/stand-in-choices-waiting.js";
 import { StartQueue } from "../ports/start-queue.js";
 import { TaskOutcomeRepository } from "../ports/task-outcome-repository.js";
@@ -113,6 +141,24 @@ const NOW_CHANGES: readonly DomainEventClass[] = [
   RoleHired,
   RoleHiredBack,
   RoleLetGo,
+  // Waiting for you: Proposals, pull requests, Skill updates and the Office update. A shaper's
+  // answer ends its turn, which `TurnEnded` announces; the user's reply is `MessagesLogged`'s.
+  ProposalDrafted,
+  ProposalApplied,
+  ProposalDeclined,
+  PullRequestOpened,
+  PullRequestsChecked,
+  PullRequestMerged,
+  PullRequestClosed,
+  PullRequestReopened,
+  SkillUpdateFound,
+  SkillUpdateGone,
+  SkillUpdated,
+  SkillRemoved,
+  OfficeUpdateChecked,
+  OfficeUpdateScheduled,
+  OfficeRestartScheduled,
+  ScheduledExitCancelled,
 ];
 
 /** What an event can have changed of Now: all of it, or only today's tokens. */
@@ -150,6 +196,11 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
     private readonly fireAlarm: OfficeFireAlarm,
     private readonly resumePlans: ResumePlans,
     private readonly standInChoices: StandInChoicesWaiting,
+    private readonly proposals: OpenProposals,
+    private readonly pullRequests: PullRequestsWaiting,
+    private readonly skillUpdates: SkillUpdatesFound,
+    private readonly officeUpdate: OfficeUpdateAvailable,
+    private readonly shapingReplies: ShapingReplies,
     private readonly schedule: Schedule,
     private readonly events: EventBus,
   ) {}
@@ -160,6 +211,7 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
     }
     this.subscribeToOutcomes();
     this.subscribeToFigures();
+    this.subscribeToShapingReplies();
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -169,10 +221,15 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
   async now(): Promise<Now> {
     const at = new Date();
     const day = officeDayOf(at);
-    const decisionsAndQueue = Promise.all([this.decisions.listOpen(), this.queue.list()]);
+    const waitingOnTasks = Promise.all([
+      this.decisions.listOpen(),
+      this.queue.list(),
+      this.proposals.waitingOnTheUser(),
+    ]);
+    const initiativesNow = this.initiatives.list();
     const [
       started,
-      [openDecisions, queued],
+      [openDecisions, queued, openProposals],
       tasks,
       tokensToday,
       officeWideLimit,
@@ -181,24 +238,37 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       initiativeTasks,
       shaper,
       standInChoices,
+      pullRequests,
+      skillUpdates,
+      officeUpdate,
+      shapingReplies,
     ] = await Promise.all([
       this.startedTasks(),
-      decisionsAndQueue,
-      decisionsAndQueue.then(([decisions, queue]) =>
+      waitingOnTasks,
+      waitingOnTasks.then(([decisions, queue, proposals]) =>
         this.tasks.findAll([
           ...new Set([
             ...decisions.flatMap(({ taskId }) => taskId ?? []),
             ...queue.map(({ taskId }) => taskId),
+            ...proposals.flatMap(({ home }) => (home.kind === "task" ? home.taskId : [])),
           ]),
         ]),
       ),
       this.figures.tokensOn(day),
       this.deskLimit.officeWideLimit(),
       this.fireAlarm.read(),
-      this.initiatives.list(),
+      initiativesNow,
       this.initiatives.tasksByInitiative(),
       this.people.holderOf(SHAPES_INITIATIVES),
       this.standInChoices.waiting(),
+      this.pullRequests.needingAttention(),
+      this.skillUpdates.withUpdate(),
+      this.officeUpdate.available(),
+      initiativesNow.then((all) =>
+        this.shapingReplies.waitingForReply(
+          all.filter(({ state }) => state === "shaping").map(({ id }) => id),
+        ),
+      ),
     ]);
     return nowOf({
       started,
@@ -218,6 +288,11 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       fireAlarm,
       resumes: fireAlarm.on ? await this.resumesOf(started) : new Map(),
       standInChoices,
+      openProposals,
+      pullRequests,
+      skillUpdates,
+      officeUpdate,
+      shapingReplies,
     });
   }
 
@@ -303,6 +378,18 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
         this.announceInBackground(false, event instanceof TokensCounted ? "tokens today" : "whole");
       });
     }
+  }
+
+  /**
+   * The user's reply in an Initiative's Thread ends the shaper's wait on it; the shaper's own
+   * answer is announced on its turn's end.
+   */
+  private subscribeToShapingReplies(): void {
+    this.events.subscribe(MessagesLogged, ({ thread, messages }) => {
+      if (thread.home.kind === "initiative" && messages.some(({ kind }) => kind === "user")) {
+        this.announceInBackground();
+      }
+    });
   }
 
   private async keepOutcome(

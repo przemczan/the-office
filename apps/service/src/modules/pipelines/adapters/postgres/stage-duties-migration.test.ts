@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import type { INestApplication } from "@nestjs/common";
-import { sql, TransactionRollbackError } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { rolledBackMigration } from "../../../../../test/test-database.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { builtInPipelines as allBuiltInPipelines } from "../../domain/built-in-pipelines.js";
 import { builtInStageTemplates as allBuiltInStageTemplates } from "../../domain/built-in-stage-templates.js";
@@ -31,21 +32,6 @@ afterAll(async () => {
 });
 
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
-
-/** What `read` found, with its changes undone: every test file shares the database. */
-async function rolledBack<Result>(read: (transaction: Transaction) => Promise<Result>) {
-  let result: Result | undefined;
-  await database
-    .transaction(async (transaction) => {
-      result = await read(transaction);
-      transaction.rollback();
-    })
-    .catch((error: unknown) => {
-      if (!(error instanceof TransactionRollbackError)) throw error;
-    });
-  if (result === undefined) throw new Error("Nothing was read.");
-  return result;
-}
 
 /** The Roles the built-in Agent Stages named before they named duties. */
 const ROLE_OF_DUTY: Readonly<Record<string, string>> = {
@@ -122,7 +108,7 @@ async function applyMigration(transaction: Transaction): Promise<void> {
 
 describe("migration 0151", () => {
   it("moves the built-in Pipelines and Stage templates from Roles to duties", async () => {
-    const after = await rolledBack(async (transaction) => {
+    const after = await rolledBackMigration(database, async (transaction) => {
       await keepAsBefore(transaction);
       await applyMigration(transaction);
       const pipelines = await Promise.all(
@@ -143,7 +129,7 @@ describe("migration 0151", () => {
   });
 
   it("leaves a Stage the user gave another Role, the user's own Pipelines and Tasks' own Stages", async () => {
-    const after = await rolledBack(async (transaction) => {
+    const after = await rolledBackMigration(database, async (transaction) => {
       await transaction.execute(
         sql`UPDATE "pipelines" SET "stages" = ${JSON.stringify(FULL_REVIEWED_BY_THE_REVIEWER)}::jsonb WHERE "id" = 'full'`,
       );

@@ -69,6 +69,12 @@ const BUNDLED: TelemetrySettings = {
 
 const PROJECTS: Project[] = [];
 
+const OPUS_ON_PERSONAL = {
+  tokens: 100_000,
+  estimatedCostUsd: 0.5,
+  engineName: "Personal",
+  model: "claude-opus-5-5",
+};
 const TASK_ID = "3f2a1b0c-4d5e-4f6a-8b7c-9d0e1f2a3b4c";
 const OTHER_TASK_ID = "5b4c3d2e-6f7a-4b8c-9d0e-1f2a3b4c5d6e";
 const INITIATIVE_ID = "6c5d4e3f-7a8b-4c9d-8e0f-2a3b4c5d6e7f";
@@ -106,11 +112,29 @@ const FULL: FullStatsRead = {
         {
           stageName: "Implement",
           tries: [
-            { try: 1, tokens: 300_000, estimatedCostUsd: 1.2 },
-            { try: 2, tokens: 200_000, estimatedCostUsd: 0.9 },
+            { try: 1, tokens: 300_000, estimatedCostUsd: 1.2, ranOn: [OPUS_ON_PERSONAL] },
+            {
+              try: 2,
+              tokens: 200_000,
+              estimatedCostUsd: 0.9,
+              ranOn: [{ ...OPUS_ON_PERSONAL, standInForEngineName: "Work" }],
+            },
           ],
         },
-        { stageName: "Review", tries: [{ try: 1, tokens: 100_000, estimatedCostUsd: 0.4 }] },
+        {
+          stageName: "Review",
+          tries: [
+            {
+              try: 1,
+              tokens: 100_000,
+              estimatedCostUsd: 0.4,
+              ranOn: [
+                { ...OPUS_ON_PERSONAL, engineName: "Work", estimatedCostUsd: 0.3 },
+                { ...OPUS_ON_PERSONAL, estimatedCostUsd: 0.1, standInForEngineName: "Work" },
+              ],
+            },
+          ],
+        },
       ],
       outsideStages: { tokens: 300_000, estimatedCostUsd: 2.5 },
     },
@@ -131,7 +155,15 @@ const FULL: FullStatsRead = {
       projectIds: ["p1"],
       tokens: 1_300_000,
       estimatedCostUsd: 9,
-      tasks: [{ taskId: TASK_ID, title: "Add a filter", tokens: 900_000, estimatedCostUsd: 5 }],
+      tasks: [
+        {
+          taskId: TASK_ID,
+          title: "Add a filter",
+          tokens: 900_000,
+          estimatedCostUsd: 5,
+          ranOn: [OPUS_ON_PERSONAL],
+        },
+      ],
       ownThreads: { tokens: 100_000, estimatedCostUsd: 1.5 },
     },
   ],
@@ -350,7 +382,11 @@ describe("the full stats", () => {
     act(() => fold.click());
     expect(fold.getAttribute("aria-expanded")).toBe("true");
     const runs = [...costliest.querySelectorAll(".stats-run")].map((run) => run.textContent);
-    expect(runs).toEqual(["Run 1 · $1.20", "Run 2 · retry · $0.90", "Run 1 · $0.40"]);
+    expect(runs).toEqual([
+      "Run 1 · $1.20 · Opus 5.5 on Personal",
+      "Run 2 · retry · $0.90 · Opus 5.5 on Personal Stand-in for Work",
+      "Run 1 · $0.40 · Opus 5.5 on Work, Opus 5.5 on Personal Stand-in for Work",
+    ]);
     expect(costliest.textContent).toContain("Outside a Stage$2.50");
   });
 
@@ -371,6 +407,7 @@ describe("the full stats", () => {
       (each) => each.textContent === "Add a filter",
     );
     expect(task?.getAttribute("href")).toBe(`/tasks/${TASK_ID}`);
+    expect(task?.closest(".stats-cs-row")?.textContent).toContain("900k · Opus 5.5 on Personal");
   });
 
   it("says when nothing is among the most expensive", async () => {

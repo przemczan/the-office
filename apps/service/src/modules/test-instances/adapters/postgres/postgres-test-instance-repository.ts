@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, desc, eq, inArray, isNull, type SQL } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, type SQL } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import {
   ACTIVE_STATES,
@@ -50,6 +50,15 @@ export class PostgresTestInstanceRepository extends TestInstanceRepository {
       .from(testInstances)
       .where(inArray(testInstances.state, [...ACTIVE_STATES]))
       .orderBy(testInstances.launchedAt);
+    return rows.map(instanceOf);
+  }
+
+  async endedSince(at: Date): Promise<readonly TestInstance[]> {
+    const rows = await this.database
+      .select()
+      .from(testInstances)
+      .where(and(inArray(testInstances.state, ["built", "failed"]), gte(testInstances.endedAt, at)))
+      .orderBy(desc(testInstances.endedAt), desc(testInstances.id));
     return rows.map(instanceOf);
   }
 

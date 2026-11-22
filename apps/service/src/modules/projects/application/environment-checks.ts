@@ -92,6 +92,16 @@ export class EnvironmentChecks implements BeforeApplicationShutdown {
     return this.repository.find(projectId);
   }
 
+  /**
+   * For every Project, the check running now, or else its last finished one; one repository read,
+   * no Project is read.
+   */
+  async latestOfAll(): Promise<readonly EnvironmentCheck[]> {
+    const finished = await this.repository.listAll();
+    const running = [...this.running.values()].map((each) => each.check);
+    return [...running, ...finished.filter(({ projectId }) => !this.running.has(projectId))];
+  }
+
   /** Stops the running checks and waits for them to finish, while the database is still open. */
   async beforeApplicationShutdown(): Promise<void> {
     const running = [...this.running.values()];

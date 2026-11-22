@@ -83,7 +83,12 @@ Covers: the Stats page and its two tabs (Tokens and cost, System health), the ba
 
 - Control **Show**: **Tasks** or **Initiatives**; a line says "the N with the most estimated cost in <range>" (10 when none is set).
 - Each row: a link to the Task (`/tasks/<id>`) or Initiative (`/work/initiatives/<id>`), its Project chips, the estimated cost, tokens and a bar against the first; its Stage runs and retries ("N Stage runs · M retries") and "Retries: $4.10, 18%" counted from its tries.
-- A fold on each row (button with `aria-expanded`, label "Cost per Stage: <title>") shows each Stage's tries ("Run 2 · retry · $0.90") and "Outside a Stage"; an Initiative's fold shows its Tasks and "The Initiative's Threads".
+- A fold on each row (button with `aria-expanded`, label "Cost per Stage: <title>") shows each Stage's tries and "Outside a Stage"; an Initiative's fold shows its Tasks and "The Initiative's Threads".
+- Each try names the model and engine its calls ran on, in the Task page's words: "Run 2 · retry · $0.90 · Opus 5.5 on Personal".
+- A try that ran on a Stand-in Engine adds the badge "Stand-in for <engine>" after that engine.
+- A try whose session switched engine lists each model and engine, most estimated cost first, joined by ", ": "Run 1 · $1.40 · Opus 5.5 on Work, Opus 5.5 on Personal · Stand-in for Work".
+- Each Task row of an Initiative's fold names its models and engines the same way, with the same badge; "Outside a Stage" and "The Initiative's Threads" name none.
+- An engine is named as its Stage run kept it, else by its name in Settings › Engines, else "Removed engine"; never by its id.
 - Empty: "No Task has had an engine call in the last <range>." (or "No Initiative …").
 - The Project filter narrows it.
 

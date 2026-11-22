@@ -7,6 +7,7 @@ import { dutyQueries, roleCardQueries, roleQueries } from "../../../api/people.t
 import {
   duplicatePipeline,
   pipelineQueries,
+  refreshPipelineList,
   stageTemplateQueries,
 } from "../../../api/pipelines.ts";
 import { usePageHeading } from "../../../shell/page-heading.tsx";
@@ -207,10 +208,11 @@ function LibraryList({
 }): ReactNode {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const needingFixing = useQuery(pipelineQueries.needingFixing()).data;
   const duplicating = useMutation({
     mutationFn: duplicatePipeline,
     onSuccess: async (copy) => {
-      await queryClient.invalidateQueries(pipelineQueries.list());
+      await refreshPipelineList(queryClient);
       onOpen();
       await navigate({ to: "/settings/pipelines/$pipelineId", params: { pipelineId: copy.id } });
     },
@@ -255,6 +257,7 @@ function LibraryList({
           key={pipeline.id}
           pipeline={pipeline}
           picked={pipeline.id === open?.id}
+          needsFixing={needingFixing?.has(pipeline.id) ?? false}
           onOpen={onOpen}
         />
       ))}
@@ -269,17 +272,15 @@ function LibraryList({
 function LibraryItem({
   pipeline,
   picked,
+  needsFixing,
   onOpen,
 }: {
   readonly pipeline: OfficeWidePipeline;
   readonly picked: boolean;
+  readonly needsFixing: boolean;
   readonly onOpen: () => void;
 }): ReactNode {
-  const { id, name, description, stages } = pipeline;
-  const check = useQuery(
-    pipelineQueries.libraryCheck({ name, description, stages, pipelineId: id }),
-  );
-  const needsFixing = (check.data?.problems.length ?? 0) > 0;
+  const { id, name } = pipeline;
   const builtOn = builtOnByTotal(pipeline);
   const broken = brokenBuiltOnByTotal(pipeline);
   return (

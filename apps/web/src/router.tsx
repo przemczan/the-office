@@ -25,6 +25,7 @@ import { LinkedIdentitiesSection } from "./surfaces/account/linked-identities-se
 import { PasskeysSection } from "./surfaces/account/passkeys-section.tsx";
 import { ProfileSection } from "./surfaces/account/profile-section.tsx";
 import { SignedInDevicesSection } from "./surfaces/account/signed-in-devices-section.tsx";
+import { ActivityPage } from "./surfaces/activity/activity-page.tsx";
 import { LiveViewPage } from "./surfaces/live-view/live-view-page.tsx";
 import { statsRangeOf } from "./surfaces/stats/full-stats.tsx";
 import { StatsPage } from "./surfaces/stats/stats-page.tsx";
@@ -316,12 +317,24 @@ const ciRunsRoute = createRoute({
 });
 
 /**
- * An Initiative's page, showing one of its Threads first, as a Task's page does; a Decision's link
- * also lands on its card in that Thread.
+ * An Initiative's page, showing one of its Threads first, as a Task's page does; a Decision's or a
+ * Proposal's link also lands on its card in that Thread, and a test instance's on its row in the
+ * Test instances fold.
  */
 export interface InitiativeSearch {
   readonly initiativeThread?: string;
   readonly decision?: string;
+  readonly proposal?: string;
+  readonly testInstance?: string;
+}
+
+/** A test instance's row to open the Test instances fold at, by its id. */
+export interface TestInstanceSearch {
+  readonly testInstance?: string;
+}
+
+function testInstanceSearchOf(search: Record<string, unknown>): TestInstanceSearch {
+  return typeof search["testInstance"] === "string" ? { testInstance: search["testInstance"] } : {};
 }
 
 // An Initiative's page, at the path its links name (`recordPath`), outside Work's tabs as a Task's is.
@@ -334,6 +347,8 @@ const initiativeRoute = createRoute({
       initiativeThread: search["initiativeThread"],
     }),
     ...(typeof search["decision"] === "string" && { decision: search["decision"] }),
+    ...(typeof search["proposal"] === "string" && { proposal: search["proposal"] }),
+    ...testInstanceSearchOf(search),
   }),
   // Until the Initiative is read; the page then names it.
   staticData: { title: "Work" },
@@ -341,12 +356,13 @@ const initiativeRoute = createRoute({
 
 /**
  * A Task's page, showing one of its Threads first, as one opened from a person's page, and a tab
- * of its record instead of Overview; a Decision's link also scrolls to its card.
+ * of its record instead of Overview; a Decision's or a Proposal's link also scrolls to its card.
  */
 export interface TaskSearch {
   readonly taskThread?: string;
   readonly recordTab?: RecordTab;
   readonly decision?: string;
+  readonly proposal?: string;
 }
 
 // A Task's page, in Work; the rail marks Work while it is open.
@@ -360,6 +376,7 @@ const taskRoute = createRoute({
       ...(typeof search["taskThread"] === "string" && { taskThread: search["taskThread"] }),
       ...(recordTab !== undefined && { recordTab }),
       ...(typeof search["decision"] === "string" && { decision: search["decision"] }),
+      ...(typeof search["proposal"] === "string" && { proposal: search["proposal"] }),
     };
   },
   // Until the Task is read; the page then names it.
@@ -486,6 +503,14 @@ const liveViewRoute = createRoute({
   staticData: { title: "Live view" },
 });
 
+/** Everything The Office is running, opened from the status strip's Activity figure (spec 2.14). */
+const activityRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "activity",
+  component: ActivityPage,
+  staticData: { title: "Activity" },
+});
+
 const projectRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "projects/$projectId",
@@ -556,10 +581,12 @@ const projectRunEnvironmentRoute = createRoute({
   staticData: { title: "Projects" },
 });
 
+// The Project's test targets; a test instance's link opens its row in the Test instances fold.
 const projectTestTargetsRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: "test-targets",
   component: ProjectTestTargetsSection,
+  validateSearch: testInstanceSearchOf,
   staticData: { title: "Projects" },
 });
 
@@ -848,6 +875,7 @@ export const router = createRouter({
     statsRoute,
     systemHealthRoute,
     liveViewRoute,
+    activityRoute,
     settingsRoute.addChildren([
       settingsHomeRoute,
       settingsPipelinesRoute,

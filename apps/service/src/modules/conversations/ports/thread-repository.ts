@@ -3,7 +3,7 @@ import type { Decision } from "../domain/decision.js";
 import type { Message } from "../domain/message.js";
 import type { Proposal } from "../domain/proposal.js";
 import type { ProposalChange } from "../domain/proposal-changes.js";
-import type { Home, Thread } from "../domain/thread.js";
+import type { Home, Thread, ThreadState } from "../domain/thread.js";
 import type { ThreadChange } from "../domain/thread-changes.js";
 
 /** The Thread after a change, with its event, or undefined when nothing changed. */
@@ -49,6 +49,30 @@ export interface TaskThreadTitle {
 export interface LoggedMessage {
   readonly thread: Thread;
   readonly message: Message;
+}
+
+/** An open Proposal with the home of the Thread it was drafted in. */
+export interface ProposalInHome {
+  readonly proposal: Proposal;
+  readonly home: Home;
+}
+
+/**
+ * An Initiative's newest Thread that isn't a Consultation, with what tells whether its person has
+ * answered and waits on the user's reply.
+ */
+export interface NewestInitiativeThread {
+  readonly initiativeId: string;
+  readonly threadId: string;
+  readonly roleKey: string;
+  readonly state: ThreadState;
+  readonly hasSession: boolean;
+  /** Whether it holds a Decision neither answered nor closed. */
+  readonly holdsOpenDecision: boolean;
+  /** When its person's last message was logged; undefined before any. */
+  readonly lastPersonMessageAt: Date | undefined;
+  /** Whether its person's last message was logged after the user's last, or the user wrote none. */
+  readonly personSpokeLast: boolean;
 }
 
 /**
@@ -171,6 +195,17 @@ export abstract class ThreadRepository {
 
   /** Every open Proposal, in any Thread, the newest first. */
   abstract openProposals(): Promise<readonly Proposal[]>;
+
+  /** Every open Proposal, in any Thread, with its Thread's home, the oldest first, in one read. */
+  abstract openProposalsInHomes(): Promise<readonly ProposalInHome[]>;
+
+  /**
+   * The newest Thread that isn't a Consultation of each of the Initiatives `initiativeIds`, the
+   * ones with a Thread, in one read.
+   */
+  abstract newestInitiativeThreads(
+    initiativeIds: readonly string[],
+  ): Promise<readonly NewestInitiativeThread[]>;
 
   /**
    * Applies `change` to the Proposal as stored, holding it against other changes until the change

@@ -9,6 +9,8 @@ export type StripFigureAction =
       readonly name: string;
       /** Whether what it opens is open, for a figure that opens a list or a panel. */
       readonly expanded?: boolean;
+      /** It goes to a page rather than opening something over it. */
+      readonly opensPage?: boolean;
     }
   | { readonly kind: "text"; readonly title?: string };
 
@@ -47,7 +49,7 @@ export function StripFigure({
       type="button"
       className={classes}
       aria-label={action.name}
-      aria-haspopup="dialog"
+      aria-haspopup={action.opensPage ? undefined : "dialog"}
       aria-expanded={action.expanded}
       onClick={action.onClick}
     >

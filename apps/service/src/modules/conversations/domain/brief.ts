@@ -317,7 +317,7 @@ function answeredEntry(decision: Decision, answer: DecisionAnswer): string {
   if (given !== undefined) {
     const words = questionAnswerWords(only, given);
     lines.push(
-      given.kind === "option" ? `Answer: ${words}` : `Answer, in their own words: ${words}`,
+      given.kind === "words" ? `Answer, in their own words: ${words}` : `Answer: ${words}`,
     );
     const comment = given.comment?.trim();
     if (comment) lines.push(`Comment: ${comment}`);

@@ -54,6 +54,7 @@ export function useStartReadyTasksAction(
     key: "start-ready-tasks",
     label: "Start Ready Tasks",
     icon: "play",
+    tone: "go",
     pending: starting.isPending,
     onSelect: () => starting.mutate(),
   };

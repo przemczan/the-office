@@ -6,9 +6,7 @@ import {
   engineStandInsWords,
   pipelineLabel,
   pullRequestUrlOf,
-  runEngineWords,
   scriptCommandLine,
-  standInForWords,
   taskTokens,
 } from "./stage-words.ts";
 import { NO_TOKENS } from "../../shell/token-words.ts";
@@ -125,23 +123,6 @@ describe("pipelineLabel", () => {
   it("names the Pipeline, and says when its Stages were edited for the Task", () => {
     expect(pipelineLabel("Quick fix", false)).toBe("Quick fix");
     expect(pipelineLabel("Quick fix", true)).toBe("Quick fix · edited for this Task");
-  });
-});
-
-describe("a run's engine", () => {
-  it("names the model and the engine", () => {
-    expect(
-      runEngineWords({
-        engineId: "personal",
-        engineName: "Personal",
-        model: "claude-opus-5-5",
-        standInFor: null,
-      }),
-    ).toBe("Opus 5.5 on Personal");
-  });
-
-  it("names the cascade's engine a Stand-in Engine stood in for", () => {
-    expect(standInForWords("Work")).toBe("Stand-in for Work");
   });
 });
 

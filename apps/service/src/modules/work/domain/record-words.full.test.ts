@@ -166,13 +166,17 @@ describe("taskRecordText", () => {
       decisionsWaiting: [
         {
           id: "d-1",
-          questions: [{ question: "Which page?", options: ["Login", "Logout"] }],
+          questions: [{ question: "Which page?", options: ["Login", "Logout"], ofSeveral: false }],
           approval: false,
         },
         {
           id: "d-2",
           questions: [
-            { question: "Allow this call? Install ffmpeg", options: ["Allow once", "Deny"] },
+            {
+              question: "Allow this call? Install ffmpeg",
+              options: ["Allow once", "Deny"],
+              ofSeveral: false,
+            },
           ],
           approval: true,
         },
@@ -192,6 +196,27 @@ describe("taskRecordText", () => {
     ]);
   });
 
+  it("marks a choice of several, whose options are answered by their numbers", () => {
+    const record = taskRecordText(aTask(), {
+      ...NOTHING,
+      decisionsWaiting: [
+        {
+          id: "d-4",
+          questions: [{ question: "Which pages?", options: ["Login", "Logout"], ofSeveral: true }],
+          approval: false,
+        },
+      ],
+    });
+
+    expect(part(record, "Decisions waiting on the user:")).toEqual([
+      "Decisions waiting on the user:",
+      "- Decision d-4",
+      "  Question 1: Which pages? (a choice of several: every option that applies, by their numbers)",
+      "    1. Login",
+      "    2. Logout",
+    ]);
+  });
+
   it("lists every question of a Decision waiting on the user, in order", () => {
     const record = taskRecordText(aTask(), {
       ...NOTHING,
@@ -199,9 +224,13 @@ describe("taskRecordText", () => {
         {
           id: "d-3",
           questions: [
-            { question: "Which page?", options: ["Login", "Logout"] },
-            { question: "What should its title say?", options: [] },
-            { question: "Keep the old route?", options: ["Keep it", "Remove it"] },
+            { question: "Which page?", options: ["Login", "Logout"], ofSeveral: false },
+            { question: "What should its title say?", options: [], ofSeveral: false },
+            {
+              question: "Keep the old route?",
+              options: ["Keep it", "Remove it"],
+              ofSeveral: false,
+            },
           ],
           approval: false,
         },

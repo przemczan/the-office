@@ -6,6 +6,7 @@ export { DroppedInitiativeTasks } from "./application/dropped-initiative-tasks.j
 export { DroppedTaskDecisions } from "./application/dropped-task-decisions.js";
 export { PlanningAfterRestart } from "./application/planning-after-restart.js";
 export { OfficeLimits } from "./application/office-limits.js";
+export { OnboardingService } from "./application/onboarding-service.js";
 export { QueueService } from "./application/queue-service.js";
 export { RunEnvironmentSetUps } from "./application/run-environment-set-ups.js";
 export { StageScreenshots } from "./application/stage-screenshots.js";

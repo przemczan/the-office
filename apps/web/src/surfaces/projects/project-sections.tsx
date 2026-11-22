@@ -1,3 +1,4 @@
+import { useSearch } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { AppearanceBlock } from "./appearance-block.tsx";
 import { CommandsBlock } from "./commands-block.tsx";
@@ -49,13 +50,17 @@ export function ProjectRunEnvironmentSection(): ReactNode {
   return <RunEnvironmentBlock project={useOpenProject()} />;
 }
 
-/** The Project's test targets, then its Test instances, launched on any branch. */
+/**
+ * The Project's test targets, then its Test instances, launched on any branch; a link to an
+ * instance lands on its row.
+ */
 export function ProjectTestTargetsSection(): ReactNode {
   const project = useOpenProject();
+  const { testInstance } = useSearch({ from: "/projects/$projectId/test-targets" });
   return (
     <>
       <TestTargetsBlock project={project} />
-      <TestInstancesBlock project={project} />
+      <TestInstancesBlock project={project} linkedTo={testInstance} />
     </>
   );
 }

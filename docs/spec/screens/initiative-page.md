@@ -31,7 +31,9 @@ Covers: the Initiative page's head and actions (Confirm, Back to Shaping, Plan t
 ## Head actions
 
 - One line of buttons; whatever wraps past it is hidden, the last first, and **More** always holds every action as its first items.
+- The line keeps room for its first button and **More**: when the title leaves less, the actions go under the title, never a blank where a hidden button was.
 - In order: **Confirm the Initiative**, **Planning Thread**, **Plan the Initiative**, **Plan with <Planner>**, **Start Ready Tasks**, **Pause the Initiative** or **Resume the Initiative**, **Add a Task**, **Add an existing Task**, **Browse files**, **Back to Shaping**, **Restore**.
+- Each is coloured by its tone, in the buttons and in **More** ([Action tones](../4.1-ui-rules.md#action-tones)).
 - **Confirm the Initiative** (check, primary): while shaping; toast "Initiative confirmed. Its Tasks moved to Backlog, to wait until <Planner> plans them." or "Initiative confirmed, and done: its Tasks are."
 - **Planning Thread**: a link to the Initiative's latest planning Thread (`?initiativeThread=`), once it has one.
 - **Plan the Initiative** (map, primary) beside an **Auto mode** switch: offered while it is active with a Task in Backlog and someone holds Plans.
@@ -174,6 +176,7 @@ Covers: the Initiative page's head and actions (Confirm, Back to Shaping, Plan t
 - **QR code** opens a window "Install <file> on a phone": the QR code, "Works for this file only, for 1 hour." and the link with **Copy link**.
   - At `localhost`: "A phone can't reach localhost. Open The Office at its LAN address to make a QR code that works there." in place of the code.
 - Earlier instances of a target fold under its row, "<n> earlier", each with its state, commit, time and **Log**.
+- A test instance's Notification opens the page with `testInstance=<id>`: the fold opens, an earlier instance's fold too, and its row scrolls into view ([2.7](../2.7-notifications.md#test-instance-outcomes)).
 - Done or Dropped: read-only; Launch is gone, and Built files show until removed ("Removed 7 days after the Initiative ended.").
 - A Built instance whose files were removed (an older build past the newest 3, or after the Initiative ended) shows no Download or QR code, and says "Its files were removed.", with its **Log**.
 - Rules: [2.12](../2.12-test-instances.md).

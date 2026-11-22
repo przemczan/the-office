@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { BY_USER } from "../../domain/stop-reason.js";
 import {
   built,
   failed,
@@ -82,13 +83,13 @@ describe("PostgresTestInstanceRepository", () => {
     });
 
     await repository.update(older.id, (kept) =>
-      stopped(kept, "Stopped by you.", new Date("2003-01-01T12:00:00Z")),
+      stopped(kept, BY_USER, new Date("2003-01-01T12:00:00Z")),
     );
     expect(
-      await repository.update(older.id, (kept) => stopped(kept, "Stopped by you.", new Date())),
+      await repository.update(older.id, (kept) => stopped(kept, BY_USER, new Date())),
     ).toBeUndefined();
     expect(
-      await repository.update(randomUUID(), (kept) => stopped(kept, "Stopped by you.", new Date())),
+      await repository.update(randomUUID(), (kept) => stopped(kept, BY_USER, new Date())),
     ).toBeUndefined();
   });
 
@@ -204,6 +205,41 @@ describe("PostgresTestInstanceRepository", () => {
     expect((await repository.active()).map(({ id }) => id)).toContain(building.id);
   });
 
+  it("lists the instances Built or Failed since a time, newest first, across Initiatives", async () => {
+    const initiativeId = randomUUID();
+    const base = anInstance(initiativeId, 61_020, new Date("2004-01-01T09:00:00Z"));
+    const aBuild = (at: string): TestInstance => ({
+      ...base,
+      id: randomUUID(),
+      port: undefined,
+      kind: "build-to-install",
+      launchedAt: new Date(at),
+    });
+    const early = aBuild("2004-01-01T09:00:00Z");
+    const late = aBuild("2004-01-01T09:10:00Z");
+    const failing = aBuild("2004-01-01T09:20:00Z");
+    const stillBuilding = aBuild("2004-01-01T09:30:00Z");
+    const stoppedOne = anInstance(initiativeId, 61_021, new Date("2004-01-01T09:40:00Z"));
+    for (const each of [early, late, failing, stillBuilding, stoppedOne])
+      await repository.add(each);
+    await repository.update(early.id, (kept) => built(kept, [], new Date("2004-01-02T10:00:00Z")));
+    await repository.update(late.id, (kept) => built(kept, [], new Date("2004-01-02T12:00:00Z")));
+    await repository.update(failing.id, (kept) =>
+      failed(kept, "The build failed.", new Date("2004-01-02T11:00:00Z")),
+    );
+    await repository.update(stoppedOne.id, (kept) =>
+      stopped(kept, BY_USER, new Date("2004-01-02T13:00:00Z")),
+    );
+
+    const since = async (at: string): Promise<string[]> =>
+      (await repository.endedSince(new Date(at)))
+        .filter((each) => each.initiativeId === initiativeId)
+        .map(({ id }) => id);
+    expect(await since("2004-01-02T10:00:00Z")).toEqual([late.id, failing.id, early.id]);
+    expect(await since("2004-01-02T10:30:00Z")).toEqual([late.id, failing.id]);
+    expect(await since("2004-01-03T00:00:00Z")).toEqual([]);
+  });
+
   it("refuses two active instances on one Proxy port", async () => {
     const initiativeId = randomUUID();
     const first = anInstance(initiativeId, 61_010, new Date());
@@ -212,7 +248,7 @@ describe("PostgresTestInstanceRepository", () => {
     await expect(
       repository.add(anInstance(initiativeId, 61_010, new Date())),
     ).rejects.toMatchObject({ cause: { constraint: "test_instances_active_port" } });
-    await repository.update(first.id, (kept) => stopped(kept, "Stopped by you.", new Date()));
+    await repository.update(first.id, (kept) => stopped(kept, BY_USER, new Date()));
     await repository.add(anInstance(initiativeId, 61_010, new Date()));
   });
 });

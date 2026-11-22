@@ -6,6 +6,7 @@ import { useState, type ReactNode } from "react";
 import {
   addPipeline,
   pipelineQueries,
+  refreshPipelineList,
   removePipeline,
   savePipeline,
 } from "../../../api/pipelines.ts";
@@ -70,7 +71,7 @@ export function LibraryPipelineForm({
     // The refusal shows above the save bar, so the warning window closes either way.
     onSettled: () => setWarning(false),
     onSuccess: async (result) => {
-      await queryClient.invalidateQueries(pipelineQueries.list());
+      await refreshPipelineList(queryClient);
       if (pipeline) {
         setDraft(editOf(result));
         showToast("Pipeline saved. Tasks not started yet follow it; running ones keep their copy.");
@@ -172,7 +173,7 @@ export function LibraryPipelineForm({
           remove={() => removePipeline(pipeline.id)}
           removedToast={`${pipeline.name} removed from the library.`}
           onRemoved={async () => {
-            await queryClient.invalidateQueries(pipelineQueries.list());
+            await refreshPipelineList(queryClient);
             await navigate({ to: "/settings/pipelines" });
           }}
           onClose={() => setRemoving(false)}

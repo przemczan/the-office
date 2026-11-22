@@ -5,10 +5,12 @@ import type {
   Project,
   StatsCostliestInitiative,
   StatsCostliestTask,
+  StatsRanOn,
 } from "@the-office/contracts";
-import { Icon } from "@the-office/ui";
-import { useId, useState, type ReactNode } from "react";
+import { Badge, Icon } from "@the-office/ui";
+import { Fragment, useId, useState, type ReactNode } from "react";
 import { tokensShort } from "../../shell/conversation/context-words.ts";
+import { runEngineWords, standInForWords } from "../../shell/engine-words.ts";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { Picker, StatsBlock } from "./stats-parts.tsx";
 import {
@@ -171,9 +173,10 @@ function TaskRow({
         <div key={`${index}-${stage.stageName}`} className="stats-cs-row">
           <span className="stats-cs-name">{stage.stageName}</span>
           <span className="stats-cs-runs">
-            {stage.tries.map(({ try: run, estimatedCostUsd }) => (
+            {stage.tries.map(({ try: run, estimatedCostUsd, ranOn }) => (
               <span key={run} className="stats-run" data-retry={run > 1 || undefined}>
                 {runWords(run, usdWords(estimatedCostUsd))}
+                <RanOn ranOn={ranOn} />
               </span>
             ))}
           </span>
@@ -190,6 +193,31 @@ function TaskRow({
         </div>
       )}
     </CostliestRow>
+  );
+}
+
+/**
+ * " · Opus 5.5 on Work, Opus 5.5 on Personal", with a "Stand-in for Work" badge after the piece
+ * that stood in.
+ */
+function RanOn({ ranOn }: { readonly ranOn: readonly StatsRanOn[] }): ReactNode {
+  if (ranOn.length === 0) return null;
+  return (
+    <>
+      {" · "}
+      {ranOn.map((each, index) => (
+        <Fragment key={`${each.engineName}/${each.model}/${each.standInForEngineName ?? ""}`}>
+          {index > 0 && ", "}
+          {runEngineWords(each)}
+          {each.standInForEngineName !== undefined && (
+            <>
+              {" "}
+              <Badge tone="info">{standInForWords(each.standInForEngineName)}</Badge>
+            </>
+          )}
+        </Fragment>
+      ))}
+    </>
   );
 }
 
@@ -237,7 +265,10 @@ function InitiativeRow({
               {task.title}
             </Link>
           </span>
-          <span className="stats-cs-runs">{tokensShort(Math.round(task.tokens))}</span>
+          <span className="stats-cs-runs">
+            {tokensShort(Math.round(task.tokens))}
+            <RanOn ranOn={task.ranOn} />
+          </span>
           <span className="stats-cs-cost">{usdWords(task.estimatedCostUsd)}</span>
         </div>
       ))}

@@ -236,7 +236,7 @@ body,
 }
 
 /* ---- status strip (docs/design/status-strip.html, adopted): each figure a label over its value,
-   the four figures on the left, the Workstation figure and the slot for what The Office tells the
+   the five figures on the left, the Workstation figure and the slot for what The Office tells the
    user on the right. It lays itself out by its own width, so the rail expanded or the chat drawer
    beside the page counts as a narrower window would. 52px in all, 94px in two rows under 600px. */
 .shell-strip {
@@ -383,6 +383,12 @@ button.shell-strip-figure:hover {
 .shell-strip-needs-you.elsewhere .shell-strip-label,
 .shell-strip-needs-you.elsewhere .shell-strip-faint {
   color: inherit;
+}
+
+/* Waiting for you's count, smaller than Needs you's and never its tone. */
+.shell-strip-waiting {
+  font-size: 0.85em;
+  font-weight: 400;
 }
 
 .shell-strip-needs-you.alert {
@@ -797,7 +803,7 @@ button.shell-strip-alarm:hover {
   }
 }
 
-/* Two rows: the four figures alone, spread across with short labels, then the Workstation figure,
+/* Two rows: the five figures alone, spread across with short labels, then the Workstation figure,
    the alarm while on, and the slot filling the rest of the row. */
 @container strip (max-width: 599px) {
   .shell-strip-row {

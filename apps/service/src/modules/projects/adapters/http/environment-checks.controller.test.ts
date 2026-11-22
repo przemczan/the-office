@@ -26,6 +26,7 @@ import {
   PASSES,
   SLEEPS,
 } from "./environment-checks.controller.fixtures.js";
+import { EnvironmentChecks } from "../../application/environment-checks.js";
 import { startProjectsApplication } from "../../projects.controller.fixtures.js";
 
 // Real git and real commands, in the default shell of the system the tests run on.
@@ -122,6 +123,28 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
     expect(projectRefusalSchema.parse(await second.json()).reasons).toEqual([
       "An environment check is already running for this Project.",
     ]);
+  });
+
+  it("answers every Project's check at once: the one running now, else its last finished one", async () => {
+    const finishedProject = await addProject({ installCommand: PASSES });
+    const runningProject = await addProject({
+      installCommand: PASSES,
+      commands: [
+        { key: "test", name: "Test", kind: "test", commandLine: SLEEPS, rerunCommandLine: "" },
+      ],
+    });
+    const idle = await addProject();
+    const finished = await checked(finishedProject);
+    await send("POST", `/projects/${runningProject.id}/environment-check`);
+
+    const all = await app.get(EnvironmentChecks).latestOfAll();
+
+    const of = (id: string) => all.filter(({ projectId }) => projectId === id);
+    expect(of(finishedProject.id)).toMatchObject([
+      { state: finished.state, projectId: finishedProject.id },
+    ]);
+    expect(of(runningProject.id)).toMatchObject([{ state: "running" }]);
+    expect(of(idle.id)).toEqual([]);
   });
 
   it("gives a Secret variable to the commands, hides it in their output and never sends it back", async () => {

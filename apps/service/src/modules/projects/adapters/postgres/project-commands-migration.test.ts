@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import type { INestApplication } from "@nestjs/common";
-import { sql, TransactionRollbackError } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { rolledBackMigration } from "../../../../../test/test-database.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 
 let app: INestApplication;
@@ -19,21 +20,6 @@ afterAll(async () => {
 });
 
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
-
-/** What `read` found, with its changes undone: every test file shares the database. */
-async function rolledBack<Result>(read: (transaction: Transaction) => Promise<Result>) {
-  let result: Result | undefined;
-  await database
-    .transaction(async (transaction) => {
-      result = await read(transaction);
-      transaction.rollback();
-    })
-    .catch((error: unknown) => {
-      if (!(error instanceof TransactionRollbackError)) throw error;
-    });
-  if (result === undefined) throw new Error("Nothing was read.");
-  return result;
-}
 
 /** The projects table as it was before the migration: a column for each fixed command. */
 async function theFixedColumnsBack(transaction: Transaction): Promise<void> {
@@ -101,7 +87,7 @@ describe("migration 0121", () => {
       "utf8",
     );
 
-    const after = await rolledBack(async (transaction) => {
+    const after = await rolledBackMigration(database, async (transaction) => {
       await theFixedColumnsBack(transaction);
       const projectId = await aProjectBefore(transaction, "npm test");
       await aCheckBefore(transaction, projectId);

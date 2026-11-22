@@ -243,9 +243,11 @@ function TaskHead({
           <TaskTags task={task} />
         </div>
       </div>
-      <div className="task-head-actions">
-        <RecordActions actions={actions} menu={<TaskMenu task={task} actions={actions} />} />
-      </div>
+      <RecordActions
+        actions={actions}
+        menu={<TaskMenu task={task} actions={actions} />}
+        className="task-head-actions"
+      />
       <StartNotes task={task} />
       <DropNote task={task} />
     </header>

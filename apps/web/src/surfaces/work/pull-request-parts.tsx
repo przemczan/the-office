@@ -7,7 +7,7 @@ import {
   refreshPullRequests,
 } from "../../api/pull-requests.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
-import type { ToneWords } from "./pull-request-words.ts";
+import type { ToneWords } from "../../shell/tone-words.ts";
 
 /** A pull request's status as a badge, with what it means on hover. */
 export function ToneBadge({ words }: { readonly words: ToneWords }): ReactNode {

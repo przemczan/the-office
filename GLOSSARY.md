@@ -294,12 +294,16 @@ A Decision an Agent opens with `propose_bug_task` on its own Task, for a big iss
 _Avoid_: Bug report, Bug Task proposal
 
 **Question**:
-One part of a Decision's form: a choice or an open question, with an optional comment. A Decision recorded before the form reads as a form of one question.
+One part of a Decision's form: a choice, a choice of several or an open question, with an optional comment. A Decision recorded before the form reads as a form of one question.
 _Avoid_: Item, field, prompt
 
 **Choice**:
 A question answered by picking one of its options, the Agent's recommended option preselected with the reason it gives; picking none, its comment alone is the answer, in words.
 _Avoid_: Multiple choice, select, poll
+
+**Choice of several**:
+A question answered by picking every option that applies, one or more, as checkboxes, the Agent's recommended options checked at first with the reason it gives; picking none, its words are the answer, as for a choice (`choice-of-several` in code).
+_Avoid_: Multiple choice, multi-select, checklist
 
 **Open question**:
 A question answered in words, with no options; a Request is a Decision of one open question.
@@ -433,6 +437,10 @@ _Avoid_: Watchtower, update container, sidecar
 A signal outside the page the user is on that something waits for them or has happened; it opens that thing and is cleared by handling it, never by reading the Notification itself.
 _Avoid_: Alert, inbox item, notice
 
+**Waiting for you**:
+Now's list, beside Needs you, of what waits on the user without blocking anyone: open Proposals, pull requests with failing checks or conflicts, Skill updates, an Office update found, and Initiatives whose shaper waits on the user's reply; it has its own count, never in the tab title, and raises no Notification.
+_Avoid_: To do, backlog, reminders, FYI
+
 **Quiet hours**:
 A daily window, off until the user sets it, in which no Notification goes to the desktop except "an Agent engine down"; one summary comes when it ends.
 _Avoid_: Do not disturb, silent mode, mute
@@ -544,6 +552,10 @@ _Avoid_: Offline, Paused device
 **Devices section**:
 The Task page's Overview block, shown while the Project's Run environment is On, where any signed-in user connects a device over USB or pairs a phone over wireless debugging, sees the Task's Connected devices and disconnects them.
 _Avoid_: Devices panel, device manager
+
+**Activity**:
+Everything The Office is running, in one list: Tasks at a desk, Onboarding runs, Failed and Stopped Tasks with nothing open on them, test instances, CI runs, environment checks, Connected devices and pull requests ready to merge. An ended item stays listed for each user until that user has seen it. Not the user being active, which Now's Since you left reads.
+_Avoid_: running list, jobs, processes, dashboard
 
 **Office device helper**:
 The Office's own program, one static Linux executable mounted read-only into a Task's run environment, that the relay of a device over USB ends in: it listens on `127.0.0.1` for adb, or makes a pseudo-terminal for a serial board. Shipped with The Office, never with the Project.

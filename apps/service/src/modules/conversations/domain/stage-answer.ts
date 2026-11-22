@@ -21,7 +21,8 @@ export function stageAnswerOf(decision: Decision): StageAnswer | undefined {
   if (!answer || isDismissal(answer)) return undefined;
   const answeredBy = answer.answeredBy === undefined ? {} : { answeredBy: answer.answeredBy };
   const [given] = answer.kind === "submitted" ? answer.answers : [];
-  if (!isTheOfficesOwn(decision) || given === undefined) {
+  // The Office's own forms ask one choice, never a choice of several.
+  if (!isTheOfficesOwn(decision) || given === undefined || given.kind === "options") {
     return { kind: "free-answer", text: formAnswerWords(decision, answer), ...answeredBy };
   }
   const generalComment = answer.kind === "submitted" ? answer.generalComment : undefined;

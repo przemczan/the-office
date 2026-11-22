@@ -238,7 +238,7 @@ describe("blockCount", () => {
     const queue = [queued("sync-1", 1), queued("sync-2", 3)];
 
     expect(blockCount(cards, column("queued"), queue)).toEqual({
-      shown: "#1 · #3",
+      shown: "#1 · #3",
       words: "Places 1 and 3 in the queue",
     });
     expect(blockCount(cards.slice(0, 1), column("queued"), queue)).toEqual({

@@ -28,6 +28,7 @@ import { OfficeInitiatives } from "../ports/office-initiatives.js";
 import { OfficeTasks } from "../ports/office-tasks.js";
 import { ProjectNames } from "../ports/project-names.js";
 import { RunningStageRuns } from "../ports/running-stage-runs.js";
+import { StageRunEngines } from "../ports/stage-run-engines.js";
 import { StatsSource, type GrafanaAccess, type ProjectNamesFilter } from "../ports/stats-source.js";
 import {
   answered,
@@ -72,6 +73,7 @@ export class FullStats {
     private readonly source: StatsSource,
     private readonly engineWindows: EngineWindows,
     private readonly runningStageRuns: RunningStageRuns,
+    private readonly stageRunEngines: StageRunEngines,
     private readonly tasks: OfficeTasks,
     private readonly initiatives: OfficeInitiatives,
     private readonly projectNames: ProjectNames,
@@ -124,8 +126,14 @@ export class FullStats {
     }
     const read = { usage: usage.value, costliest: costliest.value, windows: windows.value };
     if (holdsNoData(read)) return { state: "no-data", address };
-    const [tasks, initiatives] = await this.titlesOf(read.costliest, spans);
-    const costliestNow = costliestOf({ spend: read.costliest, tasks, initiatives });
+    const [tasks, initiatives, stageRunEngines] = await this.recordsOf(read.costliest, spans);
+    const costliestNow = costliestOf({
+      spend: read.costliest,
+      tasks,
+      initiatives,
+      stageRunEngines,
+      engines: engines.map(({ engineId, name }) => ({ engineId, name })),
+    });
     return {
       state: "full",
       address,
@@ -157,17 +165,22 @@ export class FullStats {
     return known.length === 0 ? "none-known" : known.map(({ name }) => name);
   }
 
-  private async titlesOf(costliest: CostliestSpend, spans: readonly { readonly taskId: string }[]) {
-    const taskIds = new Set([
+  /** The titles of the Tasks and Initiatives shown, and what the costliest ones' Stage runs ran on. */
+  private async recordsOf(
+    costliest: CostliestSpend,
+    spans: readonly { readonly taskId: string }[],
+  ) {
+    const costliestTaskIds = new Set([
       ...costliest.tasks.map(({ taskId }) => taskId),
       ...costliest.initiatives.flatMap(({ tasks }) => tasks.map(({ taskId }) => taskId)),
-      ...spans.map(({ taskId }) => taskId),
     ]);
-    taskIds.delete("");
+    costliestTaskIds.delete("");
+    const taskIds = new Set([...costliestTaskIds, ...spans.map(({ taskId }) => taskId)]);
     const initiativeIds = costliest.initiatives.map(({ initiativeId }) => initiativeId);
     return Promise.all([
       this.tasks.findAll([...taskIds]),
       initiativeIds.length === 0 ? [] : this.initiatives.titlesOf(initiativeIds),
+      costliestTaskIds.size === 0 ? [] : this.stageRunEngines.of([...costliestTaskIds]),
     ]);
   }
 }

@@ -101,8 +101,10 @@ export function messageLine(message: Message): string {
 
 function questionLine(question: DecisionQuestion): string {
   if (question.kind === "open") return `${question.question} (open)`;
-  const { option, reason } = question.recommendation;
-  return `${question.question} [${question.options.join(" | ")}], recommends ${option + 1}: ${reason}`;
+  const recommended =
+    question.kind === "choice" ? [question.recommendation.option] : question.recommendation.options;
+  const numbers = recommended.map((option) => option + 1).join(", ");
+  return `${question.question} [${question.options.join(" | ")}]${question.kind === "choice" ? "" : " (several)"}, recommends ${numbers}: ${question.recommendation.reason}`;
 }
 
 /** A Decision's first question as the checks read it; an open question's options are none. */
@@ -113,9 +115,22 @@ export function firstQuestion(decision: Decision): {
 } {
   const [first] = decision.questions;
   if (!first) throw new Error(`Decision ${decision.id} asks no question.`);
-  return first.kind === "choice"
-    ? { question: first.question, options: first.options, recommended: first.recommendation.option }
-    : { question: first.question, options: [], recommended: -1 };
+  switch (first.kind) {
+    case "choice":
+      return {
+        question: first.question,
+        options: first.options,
+        recommended: first.recommendation.option,
+      };
+    case "choice-of-several":
+      return {
+        question: first.question,
+        options: first.options,
+        recommended: first.recommendation.options[0] ?? -1,
+      };
+    case "open":
+      return { question: first.question, options: [], recommended: -1 };
+  }
 }
 
 /** What a check answers an open question with, leaving the call to the person who asked. */
@@ -128,6 +143,12 @@ const OPEN_QUESTION_ANSWER = "Your call: go with what you think best.";
 export async function submitDecision(api: Api, decision: Decision, option?: number): Promise<void> {
   const answers = decision.questions.map((question, index): QuestionAnswer => {
     if (question.kind === "open") return { kind: "words", text: OPEN_QUESTION_ANSWER };
+    if (question.kind === "choice-of-several") {
+      return {
+        kind: "options",
+        options: index === 0 && option !== undefined ? [option] : question.recommendation.options,
+      };
+    }
     return {
       kind: "option",
       option: index === 0 && option !== undefined ? option : question.recommendation.option,

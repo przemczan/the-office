@@ -1,5 +1,5 @@
 import { notifyManager, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { Notification, Task } from "@the-office/contracts";
+import type { Notification, Project, Task } from "@the-office/contracts";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -141,4 +141,28 @@ it("shows the time a Notification names worded in the browser's time zone", asyn
   expect(inApp.show.mock.calls[0]?.[0]).toMatchObject({
     line: `Paused: Claude Code's 5-hour window is used up. Resumes at ${clock}.`,
   });
+});
+
+it("names a test instance's Project as what it is about", async () => {
+  queryClient.setQueryData(projectQueries.list().queryKey, [
+    { id: "billing", name: "Billing" },
+  ] as unknown as Project[]);
+
+  setOpen([
+    {
+      ...NOTIFICATION,
+      kind: "outcomes.test-instance.built",
+      line: "Built web from main.",
+      pointsTo: {
+        kind: "test-instance",
+        instanceId: "2d8c6b3a-8c77-4e3e-9f73-4b2f7c3e9a32",
+        projectId: "billing",
+      },
+    },
+  ]);
+  await act(async () => {
+    await new Promise((settled) => setTimeout(settled, 0));
+  });
+
+  expect(inApp.show.mock.calls[0]?.[0]).toMatchObject({ about: "Billing" });
 });
