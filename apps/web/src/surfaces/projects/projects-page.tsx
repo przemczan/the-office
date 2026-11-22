@@ -9,10 +9,10 @@ import { usePageHeading } from "../../shell/page-heading.tsx";
 import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
 import { narrowed } from "../../shell/project-filter/project-filter-choices.ts";
 import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
-import { ProjectLogo } from "../../shell/project-logo.tsx";
+import { ProjectMark } from "../../shell/project-mark.tsx";
 import { SectionLayout, type MenuSection } from "../../shell/section-layout.tsx";
 import { AddProjectDialog } from "./add-project-dialog.tsx";
-import { OnboardingBadge } from "./onboarding-block.tsx";
+import { ProjectItemLine } from "./project-item-line.tsx";
 import "./projects.css";
 
 /** Opens the Add a Project window, from the list's foot or the empty pane beside it. */
@@ -66,9 +66,9 @@ function projectItem(project: Project): MenuSection {
     key: project.id,
     to: "/projects/$projectId",
     params: { projectId: project.id },
-    leading: <ProjectLogo project={project} size="xl" />,
+    leading: <ProjectMark project={project} size="xl" />,
     label: project.name,
-    trailing: <OnboardingBadge projectId={project.id} />,
+    description: <ProjectItemLine project={project} />,
   };
 }
 

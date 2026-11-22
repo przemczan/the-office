@@ -24,8 +24,12 @@ Covers: the Projects page (the Projects list beside the open Project, a list ite
 ## Project item
 
 - The whole item is a link to the Project's page, about 52px tall.
-- It shows the Project's Logo, else its Icon, else its mark ([project-page.md](project-page.md#appearance)), then its name.
-- At its end: the onboarding badge, **Onboarding** (info) or **Onboarded** (success), only for a Project with an Onboard Task, read from its latest one ([2.1.1](../2.1.1-projects.md#onboarding-a-project)).
+- At its start, the Project's mark at 32px: its Icon, else its letters on its colour ([project-page.md](project-page.md#appearance)). The Logo shows only on the Project's page.
+- Beside the mark, two lines, each one line ending in an ellipsis:
+  - the Project's name, its whole name on hover; the item is named by it;
+  - where it lives: its repository as owner/repository from its Repository URL, else its folder's name, then "·" and its base branch.
+- While the Project's latest Onboard Task is in flight, the second line starts with **Onboarding** (info, with a dot) ([2.1.1](../2.1.1-projects.md#onboarding-a-project)). An onboarded Project shows nothing more; its page says it.
+- Nothing sits at the item's end.
 - The open Project's item is marked active on every section and sub-address of its page.
 - A Project the Project filter hides still opens beside the list, from a link or an address, with no item marked.
 

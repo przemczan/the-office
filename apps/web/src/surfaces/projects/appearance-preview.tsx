@@ -4,7 +4,9 @@ import { useState, type ReactNode } from "react";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { IMAGE_PALETTES } from "../../shell/project-image.ts";
 import { ProjectLogo } from "../../shell/project-logo.tsx";
+import { ProjectMark } from "../../shell/project-mark.tsx";
 import { ProjectBlock } from "./project-block.tsx";
+import { ProjectItemLine } from "./project-item-line.tsx";
 
 /**
  * The Project where it shows, drawn by the app's own mark and Logo so it can't drift from them.
@@ -50,7 +52,7 @@ export function AppearancePreview({
       <div className="appearance-samples">
         <Sample label="On its page" palette={palette}>
           <div className="appearance-sample-head">
-            <ProjectLogo project={project} size="page" palette={palette} />
+            <ProjectLogo project={project} palette={palette} />
             <div className="appearance-sample-words">
               <div className="appearance-sample-name">{project.name}</div>
               <div className="project-head-meta">
@@ -62,8 +64,13 @@ export function AppearancePreview({
         </Sample>
         <Sample label="In the Projects list" palette={palette}>
           <div className="appearance-sample-item">
-            <ProjectLogo project={project} size="xl" palette={palette} />
-            <span className="appearance-sample-item-name">{project.name}</span>
+            <ProjectMark project={project} size="xl" palette={palette} />
+            <span className="appearance-sample-item-words">
+              <span className="appearance-sample-item-name">{project.name}</span>
+              <span className="appearance-sample-item-line">
+                <ProjectItemLine project={project} />
+              </span>
+            </span>
           </div>
         </Sample>
         <Sample label="Beside an item, as on a Task card" palette={palette}>

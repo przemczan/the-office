@@ -1139,7 +1139,7 @@ test(
 );
 
 test(
-  "a Logo stands for the Project on its page and card, and the mark comes back without it",
+  "a Logo stands for the Project on its page, the list keeps the mark, and the mark comes back without it",
   { tag: "@full" },
   async ({ page }) => {
     const project = await addedProject(page, "Logoed");
@@ -1149,7 +1149,7 @@ test(
     await expect(row.getByText("Drop an image or browse")).toBeVisible();
     await expect(row.locator("img")).toHaveCount(0);
     await expect(
-      imageSection(page, "Logo").getByText("Stands for the Project on its page and its card"),
+      imageSection(page, "Logo").getByText("Stands for the Project on its page, in place"),
     ).toBeVisible();
 
     await versionFile(page, "Logo").setInputFiles(LOGO_FILE);
@@ -1159,9 +1159,9 @@ test(
     await expectLoadedImage(headLogo);
     await expectLoadedImage(row.locator(".version-tile-image"));
     await expect(row.getByText("Drop an image or browse")).toBeHidden();
-    // How it looks shows the Logo on the page head and the card, and the mark beside an item.
-    await expect(howItLooks(page).locator(".project-logo")).toHaveCount(2);
-    await expect(howItLooks(page).locator(".project-mark")).toHaveText(["AP"]);
+    // How it looks shows the Logo on the page head only, and the mark in the list and beside an item.
+    await expect(howItLooks(page).locator(".project-logo")).toHaveCount(1);
+    await expect(howItLooks(page).locator(".project-mark")).toHaveText(["AP", "AP"]);
     await expect(page.locator(".project-head .project-mark")).toBeHidden();
     // Its own proportions, 4 to 1, inside the head's limit.
     await expect(headLogo).toHaveJSProperty("naturalWidth", 400);
@@ -1169,17 +1169,17 @@ test(
     expect(box && Math.round(box.width / box.height)).toBe(4);
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-logo.png") });
 
+    // The Projects list keeps the mark, so every name starts at the same place.
     await page.goto("/projects");
     const card = page.getByRole("link", { name: /Logoed/ });
-    await expectLoadedImage(card.locator(".project-logo"));
+    await expect(card.locator(".project-mark")).toHaveText("AP");
+    await expect(card.locator(".project-logo")).toHaveCount(0);
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-projects-logo.png") });
 
     await page.goto(`/projects/${project.id}/appearance`);
     await versionTile(page, "Logo").getByRole("button", { name: "Remove" }).click();
 
     await expect(page.locator(".project-head .project-mark")).toHaveText("AP");
-    await page.goto("/projects");
-    await expect(card.locator(".project-mark")).toHaveText("AP");
   },
 );
 
@@ -1325,9 +1325,10 @@ test(
       await expect(page.getByText("Light Logo saved for Chosen images.")).toBeVisible();
       await expectLoadedImage(page.locator(".project-head .project-logo"));
 
+      // The Projects list shows the Icon whether or not the Project holds a Logo.
       await page.goto("/projects");
       const card = page.getByRole("link", { name: /Chosen images/ });
-      await expectLoadedImage(card.locator(".project-logo"));
+      await expectLoadedImage(card.locator(".project-mark img"));
 
       await page.goto(`/projects/${project.id}/appearance`);
       await page
@@ -1335,8 +1336,6 @@ test(
         .getByRole("button", { name: "Remove" })
         .click();
       await expectLoadedImage(page.locator(".project-head .project-mark img"));
-      await page.goto("/projects");
-      await expectLoadedImage(card.locator(".project-mark img"));
     } finally {
       await imaged.remove();
     }
@@ -1446,7 +1445,7 @@ asOwnUser(
     const headLogo = page.locator(".project-head .project-logo");
     await expect(headLogo).toHaveAttribute("src", lightAddress);
     const previewLogos = howItLooks(page).locator(".project-logo");
-    await expect(previewLogos).toHaveCount(2);
+    await expect(previewLogos).toHaveCount(1);
     for (const logo of await previewLogos.all())
       await expect(logo).toHaveAttribute("src", lightAddress);
 
@@ -1467,9 +1466,6 @@ asOwnUser(
     await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
     await expect(headLogo).toHaveAttribute("src", darkAddress);
     await expectLoadedImage(headLogo);
-    await page.goto("/projects");
-    const card = page.getByRole("link", { name: /Two-toned/ });
-    await expect(card.locator(".project-logo")).toHaveAttribute("src", darkAddress);
 
     // Graphite, Midnight, Mocha, Aubergine, Lagoon and Emerald count as dark, and Paper, Mist, Sage,
     // Lavender, Cobalt and Citrine as light, on the page and in How it looks, which opens on the version
@@ -1490,7 +1486,6 @@ asOwnUser(
     ] as const) {
       await settings.getByRole("group", { name: "Palette" }).getByRole("button", { name }).click();
       await expect(page.locator("html")).toHaveAttribute("data-palette", name.toLowerCase());
-      await expect(card.locator(".project-logo")).toHaveAttribute("src", address);
       await page.goto(`/projects/${project.id}/appearance`);
       await expect(headLogo).toHaveAttribute("src", address);
       await expect(howItLooks(page).getByRole("tab", { name: base })).toHaveAttribute(
@@ -1502,7 +1497,6 @@ asOwnUser(
       await page.screenshot({
         path: path.join(SCREENSHOTS, `${name.toLowerCase()}-1600-project-appearance.png`),
       });
-      await page.goto("/projects");
     }
 
     await page.goto(`/projects/${project.id}/appearance`);

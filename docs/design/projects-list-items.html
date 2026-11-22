@@ -1,0 +1,1365 @@
+<!doctype html>
+<html lang="en" data-palette="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Projects list items · The Office design</title>
+    <style>
+      :root {
+        --ember-50: #fff2ed;
+        --ember-500: #f23d0f;
+        --white: #ffffff;
+        --gray-25: #fafaf9;
+        --gray-50: #f4f4f2;
+        --gray-100: #e9e9e6;
+        --gray-150: #dededa;
+        --gray-200: #d1d1cc;
+        --gray-300: #b1b1ab;
+        --gray-400: #8a8a84;
+        --gray-500: #6b6b66;
+        --gray-600: #50504c;
+        --gray-700: #3a3a37;
+        --gray-800: #262624;
+        --gray-900: #181817;
+        --gray-950: #0f0f0e;
+        --green-50: #edf8f1;
+        --green-100: #d5f0df;
+        --green-500: #1e9e57;
+        --green-700: #106a3b;
+        --blue-50: #eef3fd;
+        --blue-100: #dae5fa;
+        --blue-500: #2f6bdb;
+        --blue-700: #1d4699;
+        --teal-500: #14a38b;
+        --violet-500: #7c5cd6;
+
+        --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        --text-item: 14px;
+        --type-caption: 400 12px / 1.4 var(--font-sans);
+        --type-label: 500 13px / 1.4 var(--font-sans);
+        --type-overline: 500 11px / 1.2 var(--font-mono);
+        --type-card-title: 600 14px / 1.4 var(--font-sans);
+        --tracking-caps: 0.06em;
+        --tracking-tight: -0.01em;
+        --radius-badge: 4px;
+        --radius-card: 10px;
+
+        /* Light palette (packages/ui/src/appearance/palettes/light.css over the design system) */
+        --bg: var(--gray-50);
+        --surface: var(--white);
+        --surface-sunken: var(--gray-50);
+        --surface-selected: var(--ember-50);
+        --fg-1: var(--gray-800);
+        --fg-2: var(--gray-500);
+        --fg-3: var(--gray-400);
+        --border: var(--gray-100);
+        --border-subtle: #efefec;
+        --border-strong: var(--gray-150);
+        --control-hover: var(--gray-50);
+        --success-subtle: var(--green-50);
+        --success-fg: var(--green-700);
+        --success-border: var(--green-100);
+        --success: var(--green-500);
+        --info-subtle: var(--blue-50);
+        --info-fg: var(--blue-700);
+        --info-border: var(--blue-100);
+        --info: var(--blue-500);
+        --note-bg: #fffaf0;
+        --note-border: #f3e3c0;
+      }
+
+      :root[data-palette="dark"] {
+        --bg: #161615;
+        --surface: #1d1d1b;
+        --surface-sunken: #131312;
+        --surface-selected: #2a2420;
+        --fg-1: #d9d9d5;
+        --fg-2: #9a9a94;
+        --fg-3: #6f6f69;
+        --border: #262624;
+        --border-subtle: #222220;
+        --border-strong: #33332f;
+        --control-hover: #262624;
+        --success-subtle: color-mix(in oklab, var(--green-500) 16%, transparent);
+        --success-fg: #6fd69b;
+        --success-border: color-mix(in oklab, var(--green-500) 30%, transparent);
+        --info-subtle: color-mix(in oklab, var(--blue-500) 18%, transparent);
+        --info-fg: #93b5f5;
+        --info-border: color-mix(in oklab, var(--blue-500) 34%, transparent);
+        --note-bg: #211d16;
+        --note-border: #3a3122;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg-1);
+        font: 400 13px / 1.45 var(--font-sans);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* ---- the design page's own frame */
+      .doc {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 40px 32px 80px;
+      }
+
+      .doc-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 32px;
+      }
+
+      .doc-kicker {
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+
+      .doc h1 {
+        margin: 6px 0 6px;
+        font: 600 24px / 1.25 var(--font-sans);
+        letter-spacing: var(--tracking-tight);
+      }
+
+      .doc-lede {
+        max-width: 72ch;
+        margin: 0;
+        color: var(--fg-2);
+        font-size: 14px;
+      }
+
+      .segmented {
+        display: inline-flex;
+        padding: 2px;
+        border: 1px solid var(--border-strong);
+        border-radius: 8px;
+        background: var(--surface);
+      }
+
+      .segmented button {
+        height: 28px;
+        padding: 0 12px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--fg-2);
+        font: var(--type-label);
+        cursor: pointer;
+      }
+
+      .segmented button[aria-pressed="true"] {
+        background: var(--control-hover);
+        color: var(--fg-1);
+        box-shadow: inset 0 0 0 1px var(--border-strong);
+      }
+
+      .doc-section {
+        margin-top: 44px;
+      }
+
+      .doc-section > h2 {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0 0 6px;
+        font: 600 17px / 1.3 var(--font-sans);
+        letter-spacing: var(--tracking-tight);
+      }
+
+      .doc-section > p {
+        max-width: 80ch;
+        margin: 0 0 16px;
+        color: var(--fg-2);
+      }
+
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        height: 20px;
+        padding: 0 7px;
+        border-radius: var(--radius-badge);
+        font: 500 11px / 1 var(--font-sans);
+        border: 1px solid var(--border-strong);
+        color: var(--fg-2);
+      }
+
+      .tag.recommended {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+
+      .compare {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 20px;
+      }
+
+      @media (max-width: 900px) {
+        .compare {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .frame {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--surface);
+        overflow: hidden;
+      }
+
+      .frame-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--border-subtle);
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+
+      .frame-body {
+        padding: 20px;
+        background: var(--bg);
+      }
+
+      .notes {
+        margin: 0;
+        padding: 14px 18px 14px 34px;
+        border-top: 1px solid var(--border-subtle);
+        color: var(--fg-2);
+      }
+
+      .notes li + li {
+        margin-top: 4px;
+      }
+
+      .notes strong {
+        color: var(--fg-1);
+        font-weight: 600;
+      }
+
+      /* ---- the app: the page with the Projects list beside the open Project */
+      .app {
+        display: grid;
+        grid-template-columns: 260px minmax(0, 1fr);
+        gap: 20px;
+        padding: 24px;
+        background: var(--bg);
+      }
+
+      .app.list-only {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .side {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-width: 0;
+      }
+
+      .menu {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      /* As section-layout.css draws a large item; the change is inside it. */
+      .menu a {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: 52px;
+        padding: 0 12px;
+        border-radius: 8px;
+        color: var(--fg-2);
+        text-decoration: none;
+        font: 500 var(--text-item) / 1.3 var(--font-sans);
+      }
+
+      .menu a:hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+
+      .menu a.active {
+        background: var(--surface-selected);
+        color: var(--fg-1);
+      }
+
+      .menu a.is-hover {
+        background: var(--control-hover);
+        color: var(--fg-1);
+      }
+
+      .menu-label {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .side-foot {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .note-hidden {
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+
+      .buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: 6px;
+        background: var(--surface);
+        color: var(--fg-1);
+        font: var(--type-label);
+        white-space: nowrap;
+      }
+
+      .button.ghost {
+        border-color: transparent;
+        background: transparent;
+        color: var(--fg-2);
+      }
+
+      .button svg {
+        width: 14px;
+        height: 14px;
+      }
+
+      /* ---- a Project's mark, as shell.css draws it at size xl */
+      .mark {
+        display: inline-grid;
+        place-items: center;
+        flex: none;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: var(--mark-bg);
+        color: var(--mark-fg, var(--white));
+        font: 700 11px / 1 var(--font-sans);
+        letter-spacing: 0.02em;
+      }
+
+      .mark.teal {
+        --mark-bg: var(--teal-500);
+      }
+
+      .mark.violet {
+        --mark-bg: var(--violet-500);
+      }
+
+      .mark.gray {
+        --mark-bg: var(--gray-500);
+      }
+
+      .mark.ink {
+        --mark-bg: var(--fg-1);
+        --mark-fg: var(--bg);
+      }
+
+      .mark.icon {
+        background: transparent;
+      }
+
+      .mark svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      .logo {
+        display: block;
+        flex: none;
+        max-width: 96px;
+        max-height: 32px;
+      }
+
+      .logo svg {
+        display: block;
+        height: 100%;
+        width: auto;
+      }
+
+      /* ---- today: the badge as it sits at the item's end */
+      .badge {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 6px;
+        height: 22px;
+        padding: 0 8px;
+        border: 1px solid;
+        border-radius: var(--radius-badge);
+        font: 500 12px / 1 var(--font-sans);
+        white-space: nowrap;
+      }
+
+      .badge::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+
+      .badge.info {
+        border-color: var(--info-border);
+        background: var(--info-subtle);
+        color: var(--info-fg);
+      }
+
+      .badge.success {
+        border-color: var(--success-border);
+        background: var(--success-subtle);
+        color: var(--success-fg);
+      }
+
+      /* ---- proposed: name over one quiet line */
+      .item-words {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        gap: 1px;
+        min-width: 0;
+      }
+
+      .item-name {
+        overflow: hidden;
+        color: var(--fg-1);
+        font: 500 var(--text-item) / 1.3 var(--font-sans);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .item-line {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        overflow: hidden;
+        color: var(--fg-3);
+        font: var(--type-caption);
+        white-space: nowrap;
+      }
+
+      .item-source {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .item-status {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 5px;
+        font-weight: 500;
+      }
+
+      .item-status::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+
+      .item-status.onboarding {
+        color: var(--info-fg);
+      }
+
+      .item-status.onboarded {
+        color: var(--success-fg);
+      }
+
+      .item-sep {
+        flex: none;
+      }
+
+      /* ---- alternative B: a fixed frame the Logo is fitted into */
+      .logo-frame {
+        display: inline-grid;
+        flex: none;
+        place-items: center;
+        width: 64px;
+        height: 36px;
+        padding: 5px 7px;
+        border: 1px solid var(--border-subtle);
+        border-radius: 8px;
+        background: var(--surface);
+      }
+
+      .logo-frame .logo {
+        max-width: 100%;
+        max-height: 100%;
+      }
+
+      .logo-frame .mark {
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        font-size: 9px;
+      }
+
+      .menu.alt-b a {
+        gap: 10px;
+        padding: 0 10px;
+      }
+
+      /* ---- the open Project's pane, as a sketch */
+      .pane {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-width: 0;
+      }
+
+      .project-head {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .project-head .logo {
+        max-width: 200px;
+        max-height: 48px;
+      }
+
+      .project-head h3 {
+        margin: 0;
+        font: 600 20px / 1.3 var(--font-sans);
+        letter-spacing: var(--tracking-tight);
+      }
+
+      .project-head-meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 6px;
+        color: var(--fg-2);
+        font: var(--type-caption);
+      }
+
+      .tabs {
+        display: flex;
+        gap: 18px;
+        border-bottom: 1px solid var(--border);
+        font: var(--type-label);
+        color: var(--fg-2);
+      }
+
+      .tabs span {
+        padding: 0 0 9px;
+      }
+
+      .tabs span:first-child {
+        color: var(--fg-1);
+        box-shadow: inset 0 -2px 0 var(--fg-1);
+      }
+
+      .placeholder-cards {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .placeholder-card {
+        height: 112px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+        padding: 16px 18px;
+      }
+
+      .placeholder-card i {
+        display: block;
+        height: 8px;
+        border-radius: 4px;
+        background: var(--border);
+      }
+
+      .placeholder-card i + i {
+        margin-top: 10px;
+      }
+
+      /* ---- callouts on today's list */
+      .callout-wrap {
+        position: relative;
+      }
+
+      .pin {
+        display: inline-grid;
+        place-items: center;
+        flex: none;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--ember-500);
+        color: var(--white);
+        font: 700 10px / 1 var(--font-sans);
+      }
+
+      .pin.on-item {
+        position: absolute;
+        z-index: 1;
+        box-shadow: 0 0 0 2px var(--bg);
+      }
+
+      .guide {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 0;
+        border-left: 1px dashed var(--ember-500);
+        opacity: 0.55;
+        pointer-events: none;
+      }
+
+      .problems {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin: 0;
+        padding: 16px 18px;
+        border-top: 1px solid var(--border-subtle);
+        list-style: none;
+        color: var(--fg-2);
+      }
+
+      .problems li {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+      }
+
+      .problems strong {
+        color: var(--fg-1);
+        font-weight: 600;
+      }
+
+      /* ---- anatomy */
+      .anatomy {
+        display: grid;
+        grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+        gap: 28px;
+        align-items: start;
+      }
+
+      @media (max-width: 900px) {
+        .anatomy {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .anatomy-stage {
+        padding: 40px 28px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--bg);
+      }
+
+      .anatomy-item {
+        position: relative;
+        width: 260px;
+        outline: 1px dashed var(--border-strong);
+        outline-offset: 0;
+        border-radius: 8px;
+      }
+
+      .anatomy-item .menu a {
+        background: var(--surface-selected);
+        color: var(--fg-1);
+      }
+
+      .measure {
+        position: absolute;
+        font: 500 10px / 1 var(--font-mono);
+        color: var(--ember-500);
+        white-space: nowrap;
+      }
+
+      .measure.height {
+        top: 0;
+        bottom: 0;
+        left: -22px;
+        display: flex;
+        align-items: center;
+        border-left: 1px solid var(--ember-500);
+        padding-left: 4px;
+        writing-mode: vertical-rl;
+        transform: rotate(180deg);
+      }
+
+      .measure.tile {
+        top: -18px;
+        left: 12px;
+        width: 32px;
+        border-bottom: 1px solid var(--ember-500);
+        padding-bottom: 3px;
+        text-align: center;
+      }
+
+      .measure.gap {
+        top: -18px;
+        left: 44px;
+        width: 12px;
+        border-bottom: 1px solid var(--ember-500);
+        padding-bottom: 3px;
+        text-align: center;
+      }
+
+      .measure.width {
+        bottom: -20px;
+        left: 0;
+        right: 0;
+        border-top: 1px solid var(--ember-500);
+        padding-top: 4px;
+        text-align: center;
+      }
+
+      .spec-table {
+        width: 100%;
+        border-collapse: collapse;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+        background: var(--surface);
+      }
+
+      .spec-table th,
+      .spec-table td {
+        padding: 9px 14px;
+        border-bottom: 1px solid var(--border-subtle);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .spec-table tr:last-child th,
+      .spec-table tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .spec-table th {
+        width: 34%;
+        font: var(--type-label);
+        color: var(--fg-1);
+      }
+
+      .spec-table td {
+        color: var(--fg-2);
+      }
+
+      .spec-table code,
+      .copy code {
+        font: 400 12px / 1.45 var(--font-mono);
+        color: var(--fg-1);
+      }
+
+      /* ---- the line under the name, case by case */
+      .cases {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 12px;
+      }
+
+      .case {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--surface);
+        overflow: hidden;
+      }
+
+      .case-item {
+        padding: 10px;
+        background: var(--bg);
+        border-bottom: 1px solid var(--border-subtle);
+      }
+
+      .case-item .menu {
+        max-width: 260px;
+      }
+
+      .case-words {
+        padding: 10px 14px 12px;
+        color: var(--fg-2);
+        font: var(--type-caption);
+      }
+
+      .case-words strong {
+        display: block;
+        margin-bottom: 2px;
+        color: var(--fg-1);
+        font: var(--type-label);
+      }
+
+      /* ---- Appearance's sample */
+      .sample-card {
+        max-width: 420px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+        padding: 16px 18px;
+      }
+
+      .sample-card h4 {
+        margin: 0 0 12px;
+        font: var(--type-card-title);
+      }
+
+      .sample-caption {
+        margin: 0 0 8px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+
+      .sample-stage {
+        padding: 12px;
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-card);
+        background: var(--bg);
+      }
+
+      .sample-stage .menu a {
+        max-width: 260px;
+      }
+
+      /* ---- wording to copy, and the questions for the Gate */
+      .copy {
+        margin: 0;
+        padding: 14px 16px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--surface);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+
+      .copy + .copy {
+        margin-top: 10px;
+      }
+
+      .copy-title {
+        display: block;
+        margin-bottom: 6px;
+        font: var(--type-overline);
+        letter-spacing: var(--tracking-caps);
+        text-transform: uppercase;
+        color: var(--fg-3);
+      }
+
+      .questions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        counter-reset: question;
+      }
+
+      .questions li {
+        padding: 14px 16px;
+        border: 1px solid var(--note-border);
+        border-radius: 10px;
+        background: var(--note-bg);
+        color: var(--fg-2);
+      }
+
+      .questions strong {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--fg-1);
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Images used by the samples: stand-ins for Logos and Icons of different shapes. -->
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <defs>
+        <symbol id="logo-the-office" viewBox="0 0 168 40">
+          <rect x="0" y="4" width="32" height="32" rx="8" fill="#f23d0f" />
+          <path d="M10 30V12h12v18M16 21.5h2.5" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+          <text x="42" y="27.5" font-family="ui-sans-serif, system-ui, sans-serif" font-size="19" font-weight="700" fill="currentColor" letter-spacing="-0.4">The Office</text>
+        </symbol>
+        <symbol id="logo-not-astray" viewBox="0 0 230 40">
+          <circle cx="18" cy="20" r="15" fill="none" stroke="#14a38b" stroke-width="3" />
+          <path d="M18 9l4.5 11L18 31l-4.5-11z" fill="#14a38b" />
+          <text x="42" y="28" font-family="ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="600" fill="currentColor" letter-spacing="1.5">not astray</text>
+        </symbol>
+        <symbol id="logo-notnullsoft" viewBox="0 0 120 64">
+          <rect x="0" y="0" width="120" height="64" rx="10" fill="#7c5cd6" />
+          <text x="60" y="30" text-anchor="middle" font-family="ui-monospace, monospace" font-size="20" font-weight="700" fill="#fff">!null</text>
+          <text x="60" y="50" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="600" fill="#fff" letter-spacing="2">SOFT</text>
+        </symbol>
+        <symbol id="icon-the-office" viewBox="0 0 32 32">
+          <rect width="32" height="32" rx="8" fill="#f23d0f" />
+          <path d="M10 25V8h12v17M16 17h2.5" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+        </symbol>
+        <symbol id="icon-not-astray" viewBox="0 0 32 32">
+          <rect width="32" height="32" rx="8" fill="#e8f6f3" />
+          <circle cx="16" cy="16" r="10" fill="none" stroke="#14a38b" stroke-width="2.4" />
+          <path d="M16 8.5l3.4 7.5L16 23.5l-3.4-7.5z" fill="#14a38b" />
+        </symbol>
+        <symbol id="i-folder-plus" viewBox="0 0 24 24">
+          <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M12 10v6 M9 13h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </symbol>
+        <symbol id="i-message" viewBox="0 0 24 24">
+          <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+        </symbol>
+        <symbol id="i-branch" viewBox="0 0 24 24">
+          <path d="M6 3v12 M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M18 9a9 9 0 0 1-9 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+        </symbol>
+      </defs>
+    </svg>
+
+    <main class="doc">
+      <header class="doc-head">
+        <div>
+          <div class="doc-kicker">Design · Projects page</div>
+          <h1>Projects list items</h1>
+          <p class="doc-lede">
+            Every item starts its name at the same place: a square mark at the start, the name on top, one quiet line
+            under it with where the Project lives and, while it runs, its onboarding. The Logo stays on the Project&#39;s
+            page, where it has room.
+          </p>
+        </div>
+        <div class="segmented" role="group" aria-label="Palette">
+          <button type="button" data-palette-choice="light" aria-pressed="true">Light</button>
+          <button type="button" data-palette-choice="dark" aria-pressed="false">Dark</button>
+        </div>
+      </header>
+
+      <!-- ================================================================ today -->
+      <section class="doc-section">
+        <h2>Before and after</h2>
+        <p>The same five Projects. On the left as the list draws them today, on the right as proposed.</p>
+        <div class="compare">
+          <div class="frame">
+            <div class="frame-head"><span>Today</span><span>260px list</span></div>
+            <div class="frame-body callout-wrap">
+              <nav class="menu" aria-label="Projects, today" style="position: relative; max-width: 260px">
+                <span class="guide" style="left: 56px"></span>
+                <span class="guide" style="left: 120px"></span>
+                <a class="active" href="#">
+                  <span class="logo" style="height: 32px"><svg viewBox="0 0 168 40" style="width: 96px; height: auto; max-height: 32px"><use href="#logo-the-office" /></svg></span>
+                  <span class="menu-label">The Office</span>
+                </a>
+                <a href="#">
+                  <span class="logo" style="height: 32px"><svg viewBox="0 0 230 40" style="width: 96px; height: auto"><use href="#logo-not-astray" /></svg></span>
+                  <span class="menu-label">not-astray</span>
+                  <span class="badge success">Onboarded</span>
+                </a>
+                <a href="#">
+                  <span class="logo" style="height: 32px"><svg viewBox="0 0 120 64" style="height: 32px; width: auto"><use href="#logo-notnullsoft" /></svg></span>
+                  <span class="menu-label">NotNullSoft website</span>
+                  <span class="badge info">Onboarding</span>
+                </a>
+                <a href="#">
+                  <span class="mark gray">CP</span>
+                  <span class="menu-label">Customer portal (legacy billing)</span>
+                </a>
+                <a href="#">
+                  <span class="mark ink">TP</span>
+                  <span class="menu-label">Test Project</span>
+                </a>
+              </nav>
+              <span class="pin on-item" style="top: 12px; left: 131px">1</span>
+              <span class="pin on-item" style="top: 66px; left: 100px">2</span>
+              <span class="pin on-item" style="top: 120px; left: 255px">3</span>
+            </div>
+            <ul class="problems">
+              <li>
+                <span class="pin">1</span>
+                <span><strong>Names start anywhere.</strong> A Logo is drawn at its own width (up to 96px), a mark at 32px, so each name starts at another place and the column can&#39;t be scanned.</span>
+              </li>
+              <li>
+                <span class="pin">2</span>
+                <span><strong>The name is said twice.</strong> Most Logos are wordmarks holding the name already, drawn too small to read, then the name again beside them.</span>
+              </li>
+              <li>
+                <span class="pin">3</span>
+                <span><strong>The badge eats the name.</strong> In 260px, Logo, name and badge on one row leave the name a few letters, and &ldquo;Onboarded&rdquo; stays there for good.</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="frame">
+            <div class="frame-head"><span>Proposed</span><span class="tag recommended">Recommended</span></div>
+            <div class="frame-body">
+              <nav class="menu" aria-label="Projects, proposed" id="proposed-list" style="max-width: 260px"></nav>
+            </div>
+            <ul class="notes">
+              <li><strong>One column for the names:</strong> the mark is always a 32px square (the Icon when the Project has one, else the letters on the colour).</li>
+              <li><strong>Two lines, same height as today (52px):</strong> the name, then where it lives (repository or folder, and its base branch).</li>
+              <li><strong>Onboarding moves under the name</strong> as a dot and a word, so it never takes the name&#39;s room. &ldquo;Onboarded&rdquo; isn&#39;t shown in the list: it is the normal state, and the Project&#39;s page still says it.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================ the page -->
+      <section class="doc-section">
+        <h2>On the page <span class="tag recommended">Recommended</span></h2>
+        <p>
+          The list beside the open Project, at a wide page. The open Project&#39;s page head keeps its Logo at its own
+          proportions, so a Logo still stands for the Project where there is room for it. The second item shows hover.
+        </p>
+        <div class="frame">
+          <div class="frame-head"><span>/projects/the-office</span><span>1440px page</span></div>
+          <div class="app">
+            <aside class="side">
+              <nav class="menu" aria-label="Projects" id="page-list"></nav>
+              <div class="side-foot">
+                <span class="note-hidden">1 more Project hidden by the Project filter</span>
+                <div class="buttons">
+                  <span class="button"><svg><use href="#i-folder-plus" /></svg>Add a Project</span>
+                  <span class="button ghost"><svg><use href="#i-message" /></svg>Ask Dwight to onboard one</span>
+                </div>
+              </div>
+            </aside>
+            <div class="pane">
+              <div class="project-head">
+                <span class="logo"><svg viewBox="0 0 168 40" style="height: 48px; width: auto"><use href="#logo-the-office" /></svg></span>
+                <div>
+                  <h3>The Office</h3>
+                  <div class="project-head-meta">
+                    <span>przemczan/the-office</span><span>·</span>
+                    <span style="display: inline-flex; align-items: center; gap: 4px"><svg width="12" height="12"><use href="#i-branch" /></svg>main</span>
+                  </div>
+                </div>
+              </div>
+              <div class="tabs"><span>Overview</span><span>Settings</span><span>Pipelines</span><span>Appearance</span><span>Environment</span></div>
+              <div class="placeholder-cards">
+                <div class="placeholder-card"><i style="width: 40%"></i><i style="width: 80%"></i><i style="width: 65%"></i></div>
+                <div class="placeholder-card"><i style="width: 35%"></i><i style="width: 70%"></i><i style="width: 55%"></i></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================ anatomy -->
+      <section class="doc-section">
+        <h2>The item</h2>
+        <p>Only the inside of a large item changes; its size, hover and active colours stay those of section-layout.css.</p>
+        <div class="anatomy">
+          <div class="anatomy-stage">
+            <div class="anatomy-item">
+              <span class="measure tile">32</span>
+              <span class="measure gap">12</span>
+              <span class="measure height">52</span>
+              <span class="measure width">260</span>
+              <nav class="menu" aria-label="One item" id="anatomy-list"></nav>
+            </div>
+          </div>
+          <table class="spec-table">
+            <tr>
+              <th>Item</th>
+              <td>The whole item a link, 52px tall, padding 0 12px, gap 12px, radius 8px. Hover <code>--control-hover</code>, open <code>--surface-selected</code>, as today.</td>
+            </tr>
+            <tr>
+              <th>Mark</th>
+              <td>The Project&#39;s mark at size xl, 32px square: its Icon when it holds one, else its letters on its colour. Never the Logo.</td>
+            </tr>
+            <tr>
+              <th>Name</th>
+              <td><code>500 14px/1.3</code>, <code>--fg-1</code>, one line, ending in an ellipsis; the full name in the item&#39;s tooltip when cut.</td>
+            </tr>
+            <tr>
+              <th>Line under it</th>
+              <td><code>--type-caption</code> (12px), <code>--fg-3</code>, one line, ending in an ellipsis; 1px under the name. The two lines sit centred against the mark.</td>
+            </tr>
+            <tr>
+              <th>Where it lives</th>
+              <td>Its repository as <code>owner/repository</code> from its Repository URL; for a Project added by folder, the folder&#39;s name. Then <code>·</code> and its base branch.</td>
+            </tr>
+            <tr>
+              <th>Onboarding</th>
+              <td>While its latest Onboard Task is in flight: a 6px dot and <strong>Onboarding</strong> in <code>--info-fg</code> (500), first on the line, then <code>·</code> and where it lives.</td>
+            </tr>
+            <tr>
+              <th>Trailing</th>
+              <td>Nothing at the item&#39;s end: the name takes the whole width.</td>
+            </tr>
+          </table>
+        </div>
+      </section>
+
+      <!-- ================================================================ cases -->
+      <section class="doc-section">
+        <h2>Case by case</h2>
+        <p>What the line under the name says, and how a long name or source ends.</p>
+        <div class="cases" id="cases"></div>
+      </section>
+
+      <!-- ================================================================ narrow -->
+      <section class="doc-section">
+        <h2>A narrow page</h2>
+        <p>At a page width of 1224px and under, <code>/projects</code> shows the list alone. The items take the width, so the line under the name rarely needs its ellipsis.</p>
+        <div class="frame" style="max-width: 640px">
+          <div class="frame-head"><span>/projects</span><span>640px page</span></div>
+          <div class="app list-only">
+            <aside class="side">
+              <nav class="menu" aria-label="Projects, narrow page" id="narrow-list"></nav>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================ alternative -->
+      <section class="doc-section">
+        <h2>Alternative: keep the Logo, in a frame <span class="tag">Not recommended</span></h2>
+        <p>
+          If the Logo should stay in the list: every item gets the same 64&times;36 frame, the Logo fitted inside it and
+          the mark centred in it for a Project without one. The names line up, but a wordmark at 50px is still hard to
+          read and the name loses another 30px.
+        </p>
+        <div class="frame" style="max-width: 420px">
+          <div class="frame-head"><span>Alternative</span><span>260px list</span></div>
+          <div class="frame-body">
+            <nav class="menu alt-b" aria-label="Projects, alternative" id="alt-list" style="max-width: 260px"></nav>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================ appearance -->
+      <section class="doc-section">
+        <h2>Appearance follows</h2>
+        <p>
+          A Project&#39;s Appearance section previews the list item in <strong>How it looks</strong>, so its sample
+          draws the new item, and the Images card says where each image shows.
+        </p>
+        <div class="compare">
+          <div class="sample-card">
+            <h4>How it looks</h4>
+            <p class="sample-caption">In the Projects list</p>
+            <div class="sample-stage"><nav class="menu" aria-label="Sample" id="sample-list"></nav></div>
+          </div>
+          <div>
+            <pre class="copy"><span class="copy-title">Images card · Icon (unchanged)</span>Shows in place of the mark&#39;s letters and colour, wherever the mark shows.</pre>
+            <pre class="copy"><span class="copy-title">Images card · Logo (was: &ldquo;on its page and its item in the Projects list&rdquo;)</span>Stands for the Project on its page, in place of the mark.</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================ spec -->
+      <section class="doc-section">
+        <h2>Spec wording</h2>
+        <p>The Project item section of <code>docs/spec/screens/projects.md</code> would read:</p>
+        <pre class="copy">## Project item
+
+- The whole item is a link to the Project&#39;s page, about 52px tall.
+- At its start, the Project&#39;s mark at 32px: its Icon, else its letters on its colour ([project-page.md](project-page.md#appearance)). The Logo shows only on the Project&#39;s page.
+- Beside the mark, two lines, each one line ending in an ellipsis:
+  - the Project&#39;s name, its whole name in the item&#39;s tooltip;
+  - where it lives: its repository as owner/repository from its Repository URL, else its folder&#39;s name, then &ldquo;·&rdquo; and its base branch.
+- While the Project&#39;s latest Onboard Task is in flight, the second line starts with **Onboarding** (info, with a dot) ([2.1.1](../2.1.1-projects.md#onboarding-a-project)). An onboarded Project shows nothing more; its page says it.
+- The open Project&#39;s item is marked active on every section and sub-address of its page.
+- A Project the Project filter hides still opens beside the list, from a link or an address, with no item marked.</pre>
+        <p style="margin-top: 12px">
+          And in <code>project-page.md</code>, Appearance: the Logo line reads &ldquo;Stands for the Project on its page, in place of the mark.&rdquo; and the
+          &ldquo;In the Projects list&rdquo; sample draws this item.
+        </p>
+      </section>
+
+      <!-- ================================================================ questions -->
+      <section class="doc-section">
+        <h2>For you to decide at the review</h2>
+        <ol class="questions">
+          <li>
+            <strong>1. The Logo leaves the list. Fine?</strong>
+            Recommended: yes, the mark (or the Icon) in the list, the Logo on the Project&#39;s page. Otherwise the framed alternative above.
+          </li>
+          <li>
+            <strong>2. &ldquo;Onboarded&rdquo; is dropped from the list. Fine?</strong>
+            Recommended: yes, only &ldquo;Onboarding&rdquo; shows while it runs. Otherwise &ldquo;Onboarded&rdquo; shows in green in the same place, for every onboarded Project.
+          </li>
+          <li>
+            <strong>3. The line under the name: where it lives and the base branch?</strong>
+            Recommended: yes. It tells apart two Projects of one name and costs no height. The other choice is the name alone on one line.
+          </li>
+        </ol>
+      </section>
+    </main>
+
+    <script>
+      (function () {
+        var projects = [
+          { name: "The Office", mark: { kind: "icon", icon: "icon-the-office" }, source: "przemczan/the-office", branch: "main" },
+          { name: "not-astray", mark: { kind: "icon", icon: "icon-not-astray" }, source: "przemczan/not-astray", branch: "main", onboarded: true },
+          { name: "NotNullSoft website", mark: { kind: "letters", letters: "NN", colour: "violet" }, source: "notnullsoft-web", branch: "develop", onboarding: true },
+          { name: "Customer portal (legacy billing)", mark: { kind: "letters", letters: "CP", colour: "gray" }, source: "acme-corp/customer-portal-legacy-billing", branch: "release/2026" },
+          { name: "Test Project", mark: { kind: "letters", letters: "TP", colour: "ink" }, source: "the-office-test-project", branch: "main" }
+        ];
+
+        var logos = {
+          "The Office": { symbol: "logo-the-office", viewBox: "0 0 168 40" },
+          "not-astray": { symbol: "logo-not-astray", viewBox: "0 0 230 40" },
+          "NotNullSoft website": { symbol: "logo-notnullsoft", viewBox: "0 0 120 64" }
+        };
+
+        function element(tag, className, text) {
+          var node = document.createElement(tag);
+          if (className) node.className = className;
+          if (text !== undefined) node.textContent = text;
+          return node;
+        }
+
+        function symbol(id, viewBox, style) {
+          var namespace = "http://www.w3.org/2000/svg";
+          var svg = document.createElementNS(namespace, "svg");
+          svg.setAttribute("viewBox", viewBox);
+          if (style) svg.setAttribute("style", style);
+          var use = document.createElementNS(namespace, "use");
+          use.setAttribute("href", "#" + id);
+          svg.appendChild(use);
+          return svg;
+        }
+
+        function mark(project) {
+          if (project.mark.kind === "icon") {
+            var tile = element("span", "mark icon");
+            tile.appendChild(symbol(project.mark.icon, "0 0 32 32"));
+            return tile;
+          }
+          return element("span", "mark " + project.mark.colour, project.mark.letters);
+        }
+
+        function line(project, options) {
+          var words = element("span", "item-line");
+          if (project.onboarding) {
+            words.appendChild(element("span", "item-status onboarding", "Onboarding"));
+            words.appendChild(element("span", "item-sep", "·"));
+          } else if (project.onboarded && options.showOnboarded) {
+            words.appendChild(element("span", "item-status onboarded", "Onboarded"));
+            words.appendChild(element("span", "item-sep", "·"));
+          }
+          words.appendChild(element("span", "item-source", project.source + " · " + project.branch));
+          return words;
+        }
+
+        function item(project, options) {
+          var link = element("a");
+          link.href = "#";
+          link.title = project.name;
+          link.addEventListener("click", function (event) {
+            event.preventDefault();
+          });
+          if (options.active) link.classList.add("active");
+          if (options.hover) link.classList.add("is-hover");
+          link.appendChild(options.leading ? options.leading(project) : mark(project));
+          var words = element("span", "item-words");
+          words.appendChild(element("span", "item-name", project.name));
+          words.appendChild(line(project, options));
+          link.appendChild(words);
+          return link;
+        }
+
+        function fill(id, list, options) {
+          var menu = document.getElementById(id);
+          if (!menu) return;
+          list.forEach(function (project, index) {
+            menu.appendChild(
+              item(project, {
+                active: options.activeIndex === index,
+                hover: options.hoverIndex === index,
+                leading: options.leading,
+                showOnboarded: options.showOnboarded
+              })
+            );
+          });
+        }
+
+        function framedLogo(project) {
+          var frame = element("span", "logo-frame");
+          var logo = logos[project.name];
+          if (logo) {
+            var holder = element("span", "logo");
+            holder.style.height = "100%";
+            holder.appendChild(symbol(logo.symbol, logo.viewBox, "height: 100%; width: auto; max-width: 48px"));
+            frame.appendChild(holder);
+          } else {
+            frame.appendChild(mark(project));
+          }
+          return frame;
+        }
+
+        fill("proposed-list", projects, { activeIndex: 0 });
+        fill("page-list", projects, { activeIndex: 0, hoverIndex: 1 });
+        fill("anatomy-list", [projects[2]], {});
+        fill("narrow-list", projects, {});
+        fill("alt-list", projects, { activeIndex: 0, leading: framedLogo });
+        fill("sample-list", [projects[0]], { activeIndex: 0 });
+
+        var cases = [
+          { title: "Cloned from a repository", words: "owner/repository from its Repository URL, then its base branch.", project: projects[0] },
+          { title: "Added by its folder", words: "The folder&#39;s name, then its base branch.", project: projects[4] },
+          { title: "Onboarding", words: "Onboarding first, in info blue with a dot, while its latest Onboard Task is in flight.", project: projects[2] },
+          { title: "Onboarded", words: "Nothing more than any other Project. The Project&#39;s page shows its onboarding.", project: projects[1] },
+          { title: "A long name and source", words: "Each line ends in an ellipsis on its own; the tooltip holds the whole name.", project: projects[3] },
+          { title: "Open", words: "The open Project&#39;s item, on every section of its page.", project: projects[0], active: true }
+        ];
+
+        var casesRoot = document.getElementById("cases");
+        cases.forEach(function (entry) {
+          var card = element("div", "case");
+          var stage = element("div", "case-item");
+          var menu = element("nav", "menu");
+          menu.setAttribute("aria-label", entry.title);
+          menu.appendChild(item(entry.project, { active: entry.active }));
+          stage.appendChild(menu);
+          card.appendChild(stage);
+          var words = element("div", "case-words");
+          words.appendChild(element("strong", "", entry.title));
+          var text = element("span");
+          text.innerHTML = entry.words;
+          words.appendChild(text);
+          card.appendChild(words);
+          casesRoot.appendChild(card);
+        });
+
+        var choices = document.querySelectorAll("[data-palette-choice]");
+        choices.forEach(function (button) {
+          button.addEventListener("click", function () {
+            document.documentElement.setAttribute("data-palette", button.getAttribute("data-palette-choice"));
+            choices.forEach(function (other) {
+              other.setAttribute("aria-pressed", String(other === button));
+            });
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>

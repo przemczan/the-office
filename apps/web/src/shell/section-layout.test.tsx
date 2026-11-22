@@ -90,9 +90,37 @@ describe("SectionLayout", () => {
     expect(link?.querySelector("svg")).toBeNull();
     expect([...(link?.children ?? [])].map((child) => child.className)).toEqual([
       "thing-logo",
-      "section-menu-label",
+      "section-menu-words",
       "thing-badge",
     ]);
+    expect(link?.querySelector(".section-menu-description")).toBeNull();
+    expect(link?.querySelector(".section-menu-label")?.getAttribute("title")).toBeNull();
+  });
+
+  it("with size large, draws the description under the label and names the item whole on hover", async () => {
+    const page = await rendered("/projects", () => (
+      <SectionLayout
+        label="Things"
+        sections={[{ ...thing("a"), description: "acme/thing · main" }]}
+        size="large"
+      >
+        open
+      </SectionLayout>
+    ));
+    const words = page.querySelector(".section-menu a .section-menu-words");
+    expect([...(words?.children ?? [])].map((child) => child.textContent)).toEqual([
+      "Thing a",
+      "acme/thing · main",
+    ]);
+    const label = words?.querySelector(".section-menu-label");
+    expect(label?.getAttribute("title")).toBe("Thing a");
+    // Named by its label alone, described by the line under it.
+    const link = page.querySelector(".section-menu a");
+    expect(label?.id).toMatch(/-label$/);
+    expect(link?.getAttribute("aria-labelledby")).toBe(label?.id);
+    expect(link?.getAttribute("aria-describedby")).toBe(
+      words?.querySelector(".section-menu-description")?.id,
+    );
   });
 
   it("with size large, a foot and list-or-open, marks the layout and draws the foot and back link", async () => {

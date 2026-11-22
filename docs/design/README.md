@@ -7,6 +7,7 @@ Each file here is an interactive mock-up, one self-contained page you open in a 
 - [chat-drawer.html](chat-drawer.html): the chat drawer. Screen page: [Shell](../spec/screens/shell.md).
 - [decision-form.html](decision-form.html): the Decision card. Screen page: [Decision card](../spec/screens/decision-card.md).
 - [add-project.html](add-project.html): Add a Project, with Recent first as the GitHub list. Screen page: [Projects](../spec/screens/projects.md).
+- [projects-list-items.html](projects-list-items.html): the Projects list's items (the mark, the name over where it lives, Onboarding under the name). Screen page: [Projects](../spec/screens/projects.md).
 - [project-appearance.html](project-appearance.html): a Project page's Appearance block (Icon and Logo, with How it looks). Screen page: [Project page](../spec/screens/project-page.md).
 - [board-by-initiative.html](board-by-initiative.html): Group by Initiative on the Work board. Screen page: [Work board](../spec/screens/work-board.md).
 - [board-initiative-blocks.html](board-initiative-blocks.html): the Work board's columns with Group by Initiative off. Screen page: [Work board](../spec/screens/work-board.md).

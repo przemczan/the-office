@@ -1066,14 +1066,6 @@ button.shell-strip-alarm:hover {
   display: block;
   flex: none;
   object-fit: contain;
-}
-
-.project-logo.size-xl {
-  max-width: 96px;
-  max-height: 32px;
-}
-
-.project-logo.size-page {
   max-width: 200px;
   max-height: 72px;
 }

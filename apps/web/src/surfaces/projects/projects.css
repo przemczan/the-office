@@ -1489,11 +1489,41 @@ button.github-repository.selected:hover:not(:disabled) {
   color: var(--fg-1);
 }
 
-.appearance-sample-item-name {
+.appearance-sample-item-words {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
   min-width: 0;
+}
+
+.appearance-sample-item-name,
+.appearance-sample-item-line {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.appearance-sample-item-line {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+/* "Onboarding" leading a Project item's second line, with its dot. */
+.project-item-onboarding {
+  font-weight: 500;
+  color: var(--info-fg);
+}
+
+.project-item-onboarding::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: 1px;
 }
 
 .appearance-images-intro {

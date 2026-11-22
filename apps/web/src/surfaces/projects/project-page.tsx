@@ -166,7 +166,7 @@ function OpenSection({ project }: { readonly project: Project }): ReactNode {
 function ProjectHead({ project }: { readonly project: Project }): ReactNode {
   return (
     <header className="project-head">
-      <ProjectLogo project={project} size="page" />
+      <ProjectLogo project={project} />
       <div>
         <h2>{project.name}</h2>
         <div className="project-head-meta">

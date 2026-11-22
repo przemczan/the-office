@@ -57,16 +57,20 @@ function pushedTime(repository: GitHubRepository): number {
  * `.git`, so a Project cloned by its ssh URL still marks the repository GitHub lists by https.
  */
 export function repositoryKeyOf(url: string): string {
+  return repositoryAddressOf(url).toLowerCase();
+}
+
+/** A Repository URL as `host/owner/name`, in its own case: no scheme, user, port or `.git`. */
+export function repositoryAddressOf(url: string): string {
   return (
     url
       .trim()
-      .toLowerCase()
-      .replace(/^[a-z+]+:\/\//, "")
+      .replace(/^[a-z+]+:\/\//i, "")
       .replace(/^[^@/]+@/, "")
       // The host's port, or scp-like `host:owner/name`, both become `host/`.
       .replace(/^([^/:]+):(\d+\/)?/, "$1/")
       .replace(/\/+$/, "")
-      .replace(/\.git$/, "")
+      .replace(/\.git$/i, "")
   );
 }
 

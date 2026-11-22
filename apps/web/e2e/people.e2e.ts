@@ -5696,7 +5696,11 @@ test(
       const projectItem = page
         .getByRole("navigation", { name: "Projects", exact: true })
         .getByRole("link", { name });
-      await expect(projectItem).toContainText("Onboarding");
+      // Under its name, Onboarding leads where it lives: its folder's name and its base branch.
+      await expect(projectItem.locator(".section-menu-description")).toHaveText(
+        `Onboarding · ${path.basename(repository.path)} · main`,
+      );
+      await screenshotScenario(page, "projects-list-onboarding", { inView: projectItem });
 
       await card.getByRole("link", { name: "follow it on the Project page" }).click();
       // The Onboarding card follows the Onboard Task, an Off-board Task: no Ready, no Start.

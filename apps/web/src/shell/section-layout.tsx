@@ -1,6 +1,6 @@
 import { Link, type LinkProps } from "@tanstack/react-router";
 import { Icon } from "@the-office/ui";
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import "./section-layout.css";
 
 export interface MenuSection {
@@ -10,9 +10,11 @@ export interface MenuSection {
   /** Tells apart sections that share an address and differ by their `params`. */
   readonly key?: string;
   readonly icon?: string;
-  /** In place of the icon, such as a Project's Logo. */
+  /** In place of the icon, such as a Project's mark. */
   readonly leading?: ReactNode;
   readonly label: string;
+  /** A second line under the label, such as where a Project lives. */
+  readonly description?: ReactNode;
   /** At the item's far end, such as a badge. */
   readonly trailing?: ReactNode;
   /** For a section at its parent's own address, which every other section's address starts with. */
@@ -68,21 +70,12 @@ export function SectionLayout({
       <div className="section-side">
         <nav className="section-menu" aria-label={label}>
           {sections.map((section) => (
-            <Link
+            <SectionMenuItem
               key={section.key ?? section.to}
-              to={section.to}
-              params={section.params ?? params}
-              activeProps={{ className: "active" }}
-              // An exact match compares the search too, and the Needs you panel adds to it.
-              activeOptions={{ exact: section.onlyAtItsAddress ?? false, includeSearch: false }}
-            >
-              {section.leading ??
-                (section.icon !== undefined && (
-                  <Icon name={section.icon} size={16} strokeWidth={1.6} />
-                ))}
-              <span className="section-menu-label">{section.label}</span>
-              {section.trailing}
-            </Link>
+              section={section}
+              params={params}
+              namedOnHover={size === "large"}
+            />
           ))}
         </nav>
         {foot !== undefined && <div className="section-foot">{foot}</div>}
@@ -96,5 +89,52 @@ export function SectionLayout({
         {children}
       </div>
     </div>
+  );
+}
+
+/**
+ * One item of the menu. With a description, the item is named by its label alone and described by
+ * the second line, so it reads as the record's name.
+ */
+function SectionMenuItem({
+  section,
+  params,
+  namedOnHover,
+}: {
+  readonly section: MenuSection;
+  readonly params: LinkProps["params"];
+  /** A record's name may be cut, so its item names it whole on hover. */
+  readonly namedOnHover: boolean;
+}): ReactNode {
+  const id = useId();
+  const described = section.description !== undefined;
+  return (
+    <Link
+      to={section.to}
+      params={section.params ?? params}
+      activeProps={{ className: "active" }}
+      // An exact match compares the search too, and the Needs you panel adds to it.
+      activeOptions={{ exact: section.onlyAtItsAddress ?? false, includeSearch: false }}
+      aria-labelledby={described ? `${id}-label` : undefined}
+      aria-describedby={described ? `${id}-description` : undefined}
+    >
+      {section.leading ??
+        (section.icon !== undefined && <Icon name={section.icon} size={16} strokeWidth={1.6} />)}
+      <span className="section-menu-words">
+        <span
+          id={`${id}-label`}
+          className="section-menu-label"
+          title={namedOnHover ? section.label : undefined}
+        >
+          {section.label}
+        </span>
+        {described && (
+          <span id={`${id}-description`} className="section-menu-description">
+            {section.description}
+          </span>
+        )}
+      </span>
+      {section.trailing}
+    </Link>
   );
 }

@@ -629,7 +629,7 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
   - Note, once an Icon is held: "The Icon shows in place of these letters. They come back if it is removed."
   - The Add a Project window uses the same picker ([projects.md](projects.md#step-2-the-projects-fields)).
 - **Images** card (image icon): "A light and a dark version each, shown with the palette. One version alone shows in both. PNG, JPEG, WebP or SVG, at most <limit> MB. Saved as soon as picked."
-  - A section each for **Icon** ("Shows in place of the mark's letters and colour, wherever the mark shows.") and **Logo** ("Stands for the Project on its page and its item in the Projects list, in place of the mark.").
+  - A section each for **Icon** ("Shows in place of the mark's letters and colour, wherever the mark shows.") and **Logo** ("Stands for the Project on its page, in place of the mark.").
   - Each has a **Light** and a **Dark** version tile, shown on that palette's own page.
   - A tile: a drop zone that is also the button for the file picker ("Upload a <Palette> <Image>" / "Replace the <Palette> <Image>"); an empty one says "Drop an image or browse", and when the other version is held "Uses the <other> version"; a held one shows the image, or "The image can't be loaded."
   - Once held, **Replace** and **Remove** show in the tile's head.
@@ -638,7 +638,7 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
   - A refusal stays in the tile: "An image may be at most <limit> MB." or "The file isn't a PNG, JPEG, WebP or SVG image." (both checked before sending), or the service's words; the version stays as it was.
 - **How it looks** card (eye icon): the Project as the app draws it, with the draft mark over the saved images, a **Not saved** badge while the mark is a draft, and a **Light** / **Dark** segmented control (the palette names; tooltip "Show it in the <Palette> palette"; the base of the shown palette first). Three samples, each on that palette's page with its versions of the images:
   - "On its page": the page head.
-  - "In the Projects list": the list item.
+  - "In the Projects list": the list item, its mark with the name and the line under it ([projects.md](projects.md#project-item)).
   - "Beside an item, as on a Task card": the Project chip.
 - The page head above keeps the saved mark until **Save**.
 

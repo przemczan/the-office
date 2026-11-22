@@ -7,7 +7,7 @@ const IMAGE_NAMES: Readonly<Record<ProjectImageKey, string>> = { icon: "Icon", l
 
 const WHERE_IT_SHOWS: Readonly<Record<ProjectImageKey, string>> = {
   icon: "Shows in place of the mark's letters and colour, wherever the mark shows.",
-  logo: "Stands for the Project on its page and its card, in place of the mark.",
+  logo: "Stands for the Project on its page, in place of the mark.",
 };
 
 /** One image of the Project in its light and dark versions, each changed on its own. */
