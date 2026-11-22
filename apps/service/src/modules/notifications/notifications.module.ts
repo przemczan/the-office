@@ -1,5 +1,6 @@
 import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
+import { AccountNotificationsController } from "./adapters/http/account-notifications.controller.js";
 import { NotificationsController } from "./adapters/http/notifications.controller.js";
 import { NowController } from "./adapters/http/now.controller.js";
 import { PostgresNotificationRepository } from "./adapters/postgres/postgres-notification-repository.js";
@@ -29,6 +30,7 @@ import { OfficeFireAlarm } from "./ports/office-fire-alarm.js";
 import { OfficeInitiatives } from "./ports/office-initiatives.js";
 import { OfficeTasks } from "./ports/office-tasks.js";
 import { OfficeUpdateAvailable } from "./ports/office-update-available.js";
+import { OfficeUsers } from "./ports/office-users.js";
 import { OpenDecisions } from "./ports/open-decisions.js";
 import { OpenProposals } from "./ports/open-proposals.js";
 import { PullRequestsWaiting } from "./ports/pull-requests-waiting.js";
@@ -44,7 +46,7 @@ import { UserActivityRepository } from "./ports/user-activity-repository.js";
 export interface NotificationsModuleOptions {
   /**
    * The modules that provide the ports below: Work, Conversations, Pipelines, People, Projects,
-   * Skills, Office-updates and the Engine, whose Office tool registry takes the Office Manager's
+   * Skills, Office-updates, Users and the Engine, whose Office tool registry takes the Office Manager's
    * Office status.
    */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
@@ -65,6 +67,7 @@ export interface NotificationsModuleOptions {
   readonly skillUpdatesFound: Type<SkillUpdatesFound>;
   readonly officeUpdateAvailable: Type<OfficeUpdateAvailable>;
   readonly shapingReplies: Type<ShapingReplies>;
+  readonly officeUsers: Type<OfficeUsers>;
 }
 
 /**
@@ -93,11 +96,12 @@ export class NotificationsModule {
     skillUpdatesFound,
     officeUpdateAvailable,
     shapingReplies,
+    officeUsers,
   }: NotificationsModuleOptions): DynamicModule {
     return {
       module: NotificationsModule,
       imports: [ScheduleModule, ...imports],
-      controllers: [NowController, NotificationsController],
+      controllers: [NowController, NotificationsController, AccountNotificationsController],
       providers: [
         { provide: TaskOutcomeRepository, useClass: PostgresTaskOutcomeRepository },
         { provide: UserActivityRepository, useClass: PostgresUserActivityRepository },
@@ -124,6 +128,7 @@ export class NotificationsModule {
         { provide: SkillUpdatesFound, useExisting: skillUpdatesFound },
         { provide: OfficeUpdateAvailable, useExisting: officeUpdateAvailable },
         { provide: ShapingReplies, useExisting: shapingReplies },
+        { provide: OfficeUsers, useExisting: officeUsers },
         NowService,
         NotificationService,
         NotificationDelivery,

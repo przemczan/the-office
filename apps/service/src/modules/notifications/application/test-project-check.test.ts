@@ -35,7 +35,7 @@ import { testDatabaseUrl } from "../../../../test/test-database.js";
 import { AppModule } from "../../../app.module.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { NotificationRaised, NotificationsCleared } from "../domain/notification-events.js";
-import type { Notification } from "../domain/notification.js";
+import type { ReceivedNotification } from "../domain/notification.js";
 import { NowChanged } from "../domain/now-events.js";
 import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
@@ -118,7 +118,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
             ],
           }));
           const { api } = checkApi(url);
-          const raised = new Map<string, Notification>();
+          const raised = new Map<string, ReceivedNotification>();
           const cleared = new Set<string>();
           let nowChanges = 0;
           const events = app.get(EventBus);
@@ -232,7 +232,7 @@ function editedForTheCheck(stages: readonly Stage[], budget: number): Stage[] {
   });
 }
 
-function notificationLine({ kind, channels, roleKey, line }: Notification): string {
+function notificationLine({ kind, channels, roleKey, line }: ReceivedNotification): string {
   return `${kind} to ${channels.join(" and ")}, ${roleKey ?? "The Office"}: "${line}"`;
 }
 

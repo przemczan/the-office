@@ -78,6 +78,7 @@ import {
   GitHubIdentityProvider,
   GoogleIdentityProvider,
   OpenIdConnectIdentityProvider,
+  Users,
   UsersModule,
 } from "./modules/users/index.js";
 import {
@@ -232,6 +233,7 @@ export class AppModule {
         projects,
         SkillsModule,
         officeUpdates,
+        users,
       ],
       officeTasks: TaskService,
       officeInitiatives: InitiativeService,
@@ -250,6 +252,7 @@ export class AppModule {
       skillUpdatesFound: SkillLibrary,
       officeUpdateAvailable: OfficeUpdates,
       shapingReplies: ThreadService,
+      officeUsers: Users,
     });
     // Work's Tasks and the run environments their devices are relayed into.
     const devices = DevicesModule.register({ imports: [work, projects, runEnvironments] });

@@ -11,6 +11,8 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import type { SignedIn } from "../../../platform/http/signed-in-requests.js";
+import { signedInAs } from "../../../platform/http/signed-in-requests.fixtures.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import type { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
@@ -66,6 +68,7 @@ import {
   SkillUpdatesFoundForTests,
   OfficeUpdateAvailableForTests,
   ShapingRepliesForTests,
+  OfficeUsersForTests,
   OfficeInitiativesForTests,
   OfficeTasksForTests,
   OpenDecisionsForTests,
@@ -191,6 +194,11 @@ function moved(
   );
 }
 
+/** A user of the test's own, as a request signs them in. */
+function aUser(id: string = randomUUID()): SignedIn {
+  return { userId: id, name: "Ada", signedInDeviceId: randomUUID() };
+}
+
 async function routingOf(response: Response): Promise<NotificationRouting> {
   expect(response.status).toBe(200);
   return notificationRoutingSchema.parse(await response.json());
@@ -207,6 +215,9 @@ describe("NotificationService", () => {
   let url: string;
   let events: EventBus;
   let schedule: ManualSchedule;
+  let users: OfficeUsersForTests;
+  /** The test's one user, whom every Notification reaches and every request signs in. */
+  let user: SignedIn;
   let raised: NotificationRaised[];
   let cleared: string[];
 
@@ -235,10 +246,13 @@ describe("NotificationService", () => {
           skillUpdatesFound: SkillUpdatesFoundForTests,
           officeUpdateAvailable: OfficeUpdateAvailableForTests,
           shapingReplies: ShapingRepliesForTests,
+          officeUsers: OfficeUsersForTests,
         }),
       ],
     }));
     events = app.get(EventBus);
+    users = app.get(OfficeUsersForTests);
+    user = aUser(users.firstUserId);
     schedule = app.get(Schedule, { strict: false }) as ManualSchedule;
     testDay += 1;
     schedule.setTime(new Date(2001, 0, testDay, 12));
@@ -252,8 +266,8 @@ describe("NotificationService", () => {
     await app.close();
   });
 
-  async function openNotifications(): Promise<Notification[]> {
-    const response = await fetch(`${url}/api/notifications`);
+  async function openNotifications(as: SignedIn = user): Promise<Notification[]> {
+    const response = await fetch(`${url}/api/notifications`, { headers: signedInAs(as) });
     expect(response.status).toBe(200);
     return notificationListSchema.parse(await response.json());
   }
@@ -267,24 +281,27 @@ describe("NotificationService", () => {
   async function reportActivity(page: unknown): Promise<void> {
     const response = await fetch(`${url}/api/activity`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...signedInAs(user) },
       body: JSON.stringify({ page }),
     });
     expect(response.status).toBe(204);
   }
 
-  async function readRouting(): Promise<NotificationRouting> {
-    return routingOf(await fetch(`${url}/api/notifications/routing`));
+  async function readRouting(as: SignedIn = user): Promise<NotificationRouting> {
+    return routingOf(
+      await fetch(`${url}/api/account/notifications/routing`, { headers: signedInAs(as) }),
+    );
   }
 
   async function changeRouting(
     method: "PUT" | "DELETE",
     level: string,
     body?: unknown,
+    as: SignedIn = user,
   ): Promise<Response> {
-    return fetch(`${url}/api/notifications/routing/${level}`, {
+    return fetch(`${url}/api/account/notifications/routing/${level}`, {
       method,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...signedInAs(as) },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   }
@@ -926,16 +943,22 @@ describe("NotificationService", () => {
   });
 
   describe("the routing", () => {
-    // The routing is one table for every test file, which run at once: these tests change only
-    // levels no other file raises, and give each back.
-    afterEach(async () => {
-      for (const level of ["office.window", "office.alarm-lifted"]) {
-        await changeRouting("DELETE", level);
-      }
+    // Each test's user is its own, so their routing is apart from every other file's.
+
+    it("starts a user with no routing of their own from ticket 20's defaults", async () => {
+      expect(await readRouting()).toEqual(toRoutingResponse(DEFAULT_ROUTING));
+      expect(await readRouting(aUser())).toEqual(toRoutingResponse(DEFAULT_ROUTING));
     });
 
-    it("starts from ticket 20's defaults, as the migration stored them", async () => {
-      expect(await readRouting()).toEqual(toRoutingResponse(DEFAULT_ROUTING));
+    it("keeps each user's routing their own", async () => {
+      const other = aUser();
+
+      await routingOf(
+        await changeRouting("PUT", "office.alarm-lifted", { channel: "phone", on: true }),
+      );
+
+      expect((await readRouting())["office.alarm-lifted"]?.phone.on).toBe(true);
+      expect(await readRouting(other)).toEqual(toRoutingResponse(DEFAULT_ROUTING));
     });
 
     it("sets a channel at a kind, shows where each channel comes from, and resets it", async () => {
@@ -954,6 +977,7 @@ describe("NotificationService", () => {
       expect(changed.map(({ routing }) => routing["office.alarm-lifted"])).toEqual([
         { phone: true },
       ]);
+      expect(changed.map(({ userId }) => userId)).toEqual([user.userId]);
 
       const reset = await routingOf(await changeRouting("DELETE", "office.alarm-lifted"));
 
@@ -982,17 +1006,59 @@ describe("NotificationService", () => {
         ["in-app", "phone"],
       ]);
     });
+
+    it("delivers to each user on their own channels, and to none whose routing gives it none", async () => {
+      const [other, unrouted] = [aUser(), aUser()];
+      users.users = [{ id: user.userId }, { id: other.userId }, { id: unrouted.userId }];
+      await routingOf(await changeRouting("PUT", "office.window", { channel: "phone", on: true }));
+      await routingOf(
+        await changeRouting("PUT", "office.window", { channel: "in-app", on: false }, unrouted),
+      );
+
+      await reportActivity({ kind: "now" });
+      await events.publish(reading(91));
+
+      expect(raised.map(({ userId, notification }) => [userId, notification.channels])).toEqual([
+        [user.userId, ["in-app", "phone"]],
+        [other.userId, ["in-app"]],
+      ]);
+      const id = raised[0]?.notification.id;
+      expect(raised[1]?.notification.id).toBe(id);
+      // The shared Notification is in each one's list, on no channel for whom it reached nowhere.
+      const [mine, theirs, none] = await Promise.all(
+        [user, other, unrouted].map(async (as) =>
+          (await openNotifications(as)).find((notification) => notification.id === id),
+        ),
+      );
+      expect(mine?.channels).toEqual(["in-app", "phone"]);
+      expect(theirs?.channels).toEqual(["in-app"]);
+      expect(none?.channels).toEqual([]);
+      await reportActivity({ kind: "now" });
+    });
+
+    it("never collapses a new Outcome with one that reached the user on no channel", async () => {
+      for (const channel of ["in-app", "desktop"]) {
+        await routingOf(await changeRouting("PUT", "outcomes.task-done", { channel, on: false }));
+      }
+      const [done, paused] = [randomUUID(), randomUUID()];
+
+      await events.publish(new TaskStateChanged(done, "in-progress", "done"));
+      await schedule.advanceBy(60_000);
+      await events.publish(new TaskPaused(paused, "in-progress"));
+
+      expect(raised.map(({ notification }) => notification.kind)).toEqual(["outcomes.task-paused"]);
+      expect(raised[0]?.replaces).toEqual([]);
+      await reportActivity({ kind: "task", taskId: done });
+      await reportActivity({ kind: "task", taskId: paused });
+    });
   });
 
   describe("the timing", () => {
-    // The timing is one row for every test file, which run at once: this test sets quiet hours
-    // the system's clock is outside of for a while, and gives the defaults back.
-    afterEach(async () => {
-      await changeTiming(url, TIMING_DEFAULTS);
-    });
+    // Each test's user is its own, so their timing is apart from every other file's.
 
-    it("starts from ticket 20's defaults, as the migration stored them", async () => {
-      expect(await readTiming(url)).toEqual(TIMING_DEFAULTS);
+    it("starts a user with no timing of their own from ticket 20's defaults", async () => {
+      expect(await readTiming(url, user)).toEqual(TIMING_DEFAULTS);
+      expect(await readTiming(url, aUser())).toEqual(TIMING_DEFAULTS);
     });
 
     it("keeps the minutes and quiet hours the user sets", async () => {
@@ -1003,10 +1069,11 @@ describe("NotificationService", () => {
         quietHours: { from: hoursFromNow(3), to: hoursFromNow(4) },
       };
 
-      const response = await changeTiming(url, timing);
+      const response = await changeTiming(url, timing, user);
 
       expect(response.status).toBe(200);
-      expect(await readTiming(url)).toEqual(timing);
+      expect(await readTiming(url, user)).toEqual(timing);
+      expect(await readTiming(url, aUser())).toEqual(TIMING_DEFAULTS);
     });
 
     it("refuses minutes under one, a time that isn't one and quiet hours ending as they start", async () => {
@@ -1015,7 +1082,7 @@ describe("NotificationService", () => {
         { ...TIMING_DEFAULTS, quietHours: { from: "25:00", to: "07:00" } },
         { ...TIMING_DEFAULTS, quietHours: { from: "22:00", to: "22:00" } },
       ]) {
-        expect((await changeTiming(url, timing)).status).toBe(400);
+        expect((await changeTiming(url, timing, user)).status).toBe(400);
       }
     });
   });
@@ -1030,16 +1097,18 @@ const TIMING_DEFAULTS = {
   quietHours: null,
 };
 
-async function changeTiming(url: string, timing: unknown): Promise<Response> {
-  return fetch(`${url}/api/notifications/timing`, {
+async function changeTiming(url: string, timing: unknown, as: SignedIn): Promise<Response> {
+  return fetch(`${url}/api/account/notifications/timing`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...signedInAs(as) },
     body: JSON.stringify(timing),
   });
 }
 
-async function readTiming(url: string): Promise<NotificationTiming> {
-  const response = await fetch(`${url}/api/notifications/timing`);
+async function readTiming(url: string, as: SignedIn): Promise<NotificationTiming> {
+  const response = await fetch(`${url}/api/account/notifications/timing`, {
+    headers: signedInAs(as),
+  });
   expect(response.status).toBe(200);
   return notificationTimingSchema.parse(await response.json());
 }

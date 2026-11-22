@@ -8,6 +8,7 @@ const SECTIONS: readonly MenuSection[] = [
   { to: "/account/profile", icon: "user-round", label: "Profile" },
   { to: "/account/authenticator", icon: "smartphone", label: "Authenticator" },
   { to: "/account/appearance", icon: "palette", label: "Appearance" },
+  { to: "/account/notifications", icon: "bell", label: "Notifications" },
   { to: "/account/passkeys", icon: "key-round", label: "Passkeys" },
   { to: "/account/linked-identities", icon: "link", label: "Linked identities" },
   { to: "/account/signed-in-devices", icon: "monitor-smartphone", label: "Signed-in devices" },
@@ -15,7 +16,8 @@ const SECTIONS: readonly MenuSection[] = [
 
 /**
  * The signed-in user's account (spec §2.10): their own profile, password, authenticator,
- * appearance, passkeys, linked identities and signed-in devices, each a section beside the open one.
+ * appearance, Notifications settings, passkeys, linked identities and signed-in devices, each a
+ * section beside the open one.
  */
 export function AccountPage(): ReactNode {
   return (

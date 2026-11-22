@@ -434,7 +434,7 @@ The short-lived container a container install's Office update runs in: started b
 _Avoid_: Watchtower, update container, sidecar
 
 **Notification**:
-A signal outside the page the user is on that something waits for them or has happened; it opens that thing and is cleared by handling it, never by reading the Notification itself.
+A signal outside the page the user is on that something waits for them or has happened; it opens that thing and is cleared for everyone by handling it, never by reading the Notification itself; each user's own settings decide where it reaches them.
 _Avoid_: Alert, inbox item, notice
 
 **Waiting for you**:
@@ -442,7 +442,7 @@ Now's list, beside Needs you, of what waits on the user without blocking anyone:
 _Avoid_: To do, backlog, reminders, FYI
 
 **Quiet hours**:
-A daily window, off until the user sets it, in which no Notification goes to the desktop except "an Agent engine down"; one summary comes when it ends.
+A daily window of each user's own, off until they set it, in which no Notification goes to their desktop except "the service or an Agent engine down"; one summary comes when it ends.
 _Avoid_: Do not disturb, silent mode, mute
 
 **Pipeline**:

@@ -1,10 +1,10 @@
 # Settings
 
-Covers: the Settings page and its sections (Pipelines list and Stage templates, Duties, Skills, MCP servers, Engines, Users, Signing in, Office identity, Office limits, Office instructions, Prompt templates, Notifications, Telemetry, Updates), First-run setup.
+Covers: the Settings page and its sections (Pipelines list and Stage templates, Duties, Skills, MCP servers, Engines, Users, Signing in, Office identity, Office limits, Office instructions, Prompt templates, Telemetry, Updates), First-run setup.
 
 ## Where it is
 
-- Routes: `/settings/<section>`; `/settings` opens Pipelines. `/settings/appearance` goes to `/account/appearance` ([account.md](account.md)).
+- Routes: `/settings/<section>`; `/settings` opens Pipelines. `/settings/appearance` goes to `/account/appearance`, and for one release `/settings/notifications` goes to `/account/notifications` ([account.md](account.md#notifications)): notification settings are each user's own.
 - Open it from the Settings item in the rail ([shell.md](shell.md)).
 - The page title is "Settings"; its crumb is the open section's name.
 - The Project filter in the top bar doesn't narrow Settings: it holds Office-wide settings.
@@ -12,8 +12,8 @@ Covers: the Settings page and its sections (Pipelines list and Stage templates, 
 ## Layout
 
 - A left-hand menu named "Settings" beside the open section.
-- Menu items, in order, each with an icon: **Pipelines**, **Duties**, **Skills**, **MCP servers**, **Engines**, **Users**, **Signing in**, **Office identity**, **Office limits**, **Office instructions**, **Prompt templates**, **Notifications**, **Telemetry**, **Updates**.
-- Each section is a page of its own at its route: `/settings/pipelines`, `/settings/duties`, `/settings/skills`, `/settings/mcp-servers`, `/settings/engines`, `/settings/users`, `/settings/signing-in`, `/settings/office-identity`, `/settings/office-limits`, `/settings/office-instructions`, `/settings/prompt-templates`, `/settings/notifications`, `/settings/telemetry`, `/settings/updates`.
+- Menu items, in order, each with an icon: **Pipelines**, **Duties**, **Skills**, **MCP servers**, **Engines**, **Users**, **Signing in**, **Office identity**, **Office limits**, **Office instructions**, **Prompt templates**, **Telemetry**, **Updates**.
+- Each section is a page of its own at its route: `/settings/pipelines`, `/settings/duties`, `/settings/skills`, `/settings/mcp-servers`, `/settings/engines`, `/settings/users`, `/settings/signing-in`, `/settings/office-identity`, `/settings/office-limits`, `/settings/office-instructions`, `/settings/prompt-templates`, `/settings/telemetry`, `/settings/updates`.
 - Most sections are cards. A card with a draft has **Save** and **Discard** (disabled while nothing changed; titles "No changes to save", "No changes to discard"); a refusal shows as an alert under the card with the service's reasons.
 - A section that can't read its data shows a problem alert named "The <thing> can't be read".
 
@@ -139,14 +139,6 @@ Covers: the Settings page and its sections (Pipelines list and Stage templates, 
 - A refused save names each problem's line and column and keeps the typed text. Toasts: "Prompt template saved", "Prompt template reset to default".
 - Facts: [2.2](../2.2-people.md#prompt-templates).
 
-## Notifications
-
-- **What goes where** card: "A row inherits from its group until you set it. Splitting a kind later keeps every setting. The Project filter never silences anything." A grid of the kinds tree by the channels **In-app**, **Desktop** and **Phone** (each column with a note); a click sets a cell on its row, an unset cell is inherited from its group, and a group's reset button ("Inherit everything from <group> again") gives its kinds back.
-- **At the desk** card: "Hold phone pushes while The Office is focused or was used in the last N minutes" and "Send anything still unhandled to the phone N minutes after you leave"; note "Desktop notifications show only when the tab isn't focused; otherwise a toast does."
-- **Quiet hours and batching** card: **Quiet hours** (a checkbox with "from" and "to" times; "Nothing is pushed inside the window except "the service or an Agent engine down"; one summary comes when it ends."; "Off until you set them."), "Collapse Outcomes that land within N minutes into one", and "Needs you is pushed once per item and never batched. There are no repeat reminders."
-- Each change is sent at once; a refusal shows as "The change can't be saved".
-- Facts: [2.7](../2.7-notifications.md).
-
 ## Telemetry
 
 - Card "Telemetry": "Where The Office sends its traces, metrics and logs, for a dashboard such as Grafana." Radio **Where telemetry goes**: **Off: nothing is exported**, **Bundled Grafana, on this computer at <endpoint>**, **Your own endpoint, over OTLP/HTTP**.
@@ -182,5 +174,5 @@ Covers: the Settings page and its sections (Pipelines list and Stage templates, 
 ## Domain facts
 
 - Duties and Roles: [2.2](../2.2-people.md). Pipelines and Stage templates: [2.3](../2.3-pipelines.md).
-- Skills: [2.6](../2.6-skills.md). Notifications: [2.7](../2.7-notifications.md). Users and signing in: [2.10](../2.10-users-and-signing-in.md).
+- Skills: [2.6](../2.6-skills.md). Users and signing in: [2.10](../2.10-users-and-signing-in.md).
 - Engines: [5.4](../5.4-the-engine.md). Updates and installs: [5.1](../5.1-shape.md).

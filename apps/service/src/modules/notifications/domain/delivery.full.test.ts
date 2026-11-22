@@ -1,22 +1,26 @@
 import { describe, expect, it } from "vitest";
 import {
   collapsedOutcomes,
+  deliveryOf,
   emptiedGatherings,
   isOutcome,
   outcomeToJoin,
   outcomesLine,
   phoneDeliveryOf,
   quietHoursSummary,
+  receivedBy,
   shownOf,
   withQuietHours,
 } from "./delivery.js";
 import { DEFAULT_TIMING, type NotificationTiming } from "./notification-timing.js";
-import type { Notification } from "./notification.js";
+import type { Notification, ReceivedNotification } from "./notification.js";
 
 /** On the service's local clock, as quiet hours are. */
 const at = (hours: number, minutes = 0): Date => new Date(2026, 9, 29, hours, minutes);
 
-function notification(overrides: Partial<Notification> & Pick<Notification, "id">): Notification {
+function notification(
+  overrides: Partial<ReceivedNotification> & Pick<ReceivedNotification, "id">,
+): ReceivedNotification {
   return {
     kind: "needs-you.decision",
     roleKey: undefined,
@@ -27,6 +31,7 @@ function notification(overrides: Partial<Notification> & Pick<Notification, "id"
     channels: ["in-app", "desktop", "phone"],
     raisedAt: at(12),
     gathers: [],
+    forUser: undefined,
     held: [],
     phonePushedAt: undefined,
     ...overrides,
@@ -38,7 +43,7 @@ const away = (minutesAgo: number): { lastActiveAt: Date; leftAt: Date } => ({
   leftAt: at(9),
 });
 
-const done = (id: string, raisedAt: Date): Notification =>
+const done = (id: string, raisedAt: Date): ReceivedNotification =>
   notification({ id, kind: "outcomes.task-done", channels: ["in-app", "desktop"], raisedAt });
 
 const QUIET: NotificationTiming = { ...DEFAULT_TIMING, quietHours: { from: "22:00", to: "07:00" } };
@@ -71,18 +76,19 @@ describe("quiet hours", () => {
       notification({ id: "n2", held: ["desktop", "phone"] }),
       outcome,
       notification({ id: "o2", kind: "outcomes.task-done", held: ["desktop"] }),
-      { ...collapsedOutcomes([outcome], "c1", at(1)), held: ["desktop" as const] },
+      { ...collapsedOutcomes([outcome], "u1", "c1", at(1)), held: ["desktop" as const] },
       notification({ id: "n3", kind: "office.window.reset", channels: ["in-app"] }),
     ];
 
-    expect(quietHoursSummary(open, "s1", at(7))).toMatchObject({
+    expect(quietHoursSummary(open, "u1", "s1", at(7))).toMatchObject({
       kind: "quiet-hours-summary",
       line: "During quiet hours: 2 need you, 2 Outcomes.",
       pointsTo: { kind: "since-you-left" },
       channels: ["desktop", "phone"],
       gathers: ["n1", "n2", "o2", "o1"],
+      forUser: "u1",
     });
-    expect(quietHoursSummary([open[5] as Notification], "s1", at(7))).toBeUndefined();
+    expect(quietHoursSummary([open[5] as ReceivedNotification], "u1", "s1", at(7))).toBeUndefined();
   });
 });
 
@@ -153,15 +159,18 @@ describe("batching", () => {
       held: ["desktop"],
     });
 
-    expect(quietHoursSummary([failed], "s1", at(7))?.line).toBe("During quiet hours: 1 Outcome.");
+    expect(quietHoursSummary([failed], "u1", "s1", at(7))?.line).toBe(
+      "During quiet hours: 1 Outcome.",
+    );
   });
 
   it("collapses Outcomes into one in the UI's voice, sent where any of them goes", () => {
     const failed = notification({ id: "o3", kind: "outcomes.task-failed" });
 
     expect(
-      collapsedOutcomes([done("o1", at(12)), done("o2", at(12)), failed], "c1", at(12)),
+      collapsedOutcomes([done("o1", at(12)), done("o2", at(12)), failed], "u1", "c1", at(12)),
     ).toMatchObject({
+      forUser: "u1",
       line: "2 Tasks done, 1 Task failed",
       roleKey: undefined,
       pointsTo: { kind: "since-you-left" },
@@ -178,10 +187,56 @@ describe("batching", () => {
 
   it("shows the collapse in place of its Outcomes, and clears it once none of them is open", () => {
     const outcomes = [done("o1", at(12)), done("o2", at(12))];
-    const collapsed = collapsedOutcomes(outcomes, "c1", at(12));
+    const collapsed = collapsedOutcomes(outcomes, "u1", "c1", at(12));
 
     expect(shownOf([...outcomes, collapsed]).map(({ id }) => id)).toEqual(["c1"]);
     expect(emptiedGatherings([outcomes[0] as Notification, collapsed])).toEqual([]);
     expect(emptiedGatherings([collapsed])).toEqual([collapsed]);
+  });
+
+  it("keeps a collapse to its one user: another sees the shared Outcomes under it", () => {
+    const outcomes = [done("o1", at(12)), done("o2", at(12))];
+    const collapsed = collapsedOutcomes(outcomes, "u1", "c1", at(12));
+    const open: Notification[] = [...outcomes, collapsed];
+    const deliveries = [
+      ...outcomes.map((outcome) => deliveryOf(outcome, "u1")),
+      deliveryOf(collapsed, "u1"),
+      ...outcomes.map((outcome) => deliveryOf(outcome, "u2")),
+    ];
+
+    expect(shownOf(receivedBy("u1", open, deliveries)).map(({ id }) => id)).toEqual(["c1"]);
+    expect(shownOf(receivedBy("u2", open, deliveries)).map(({ id }) => id)).toEqual(["o1", "o2"]);
+  });
+});
+
+describe("each user's delivery", () => {
+  it("gives each user the channels of their own delivery, and none without one", () => {
+    const shared = notification({ id: "n1" });
+    const deliveries = [
+      deliveryOf({ ...shared, channels: ["in-app", "desktop", "phone"] }, "u1"),
+      deliveryOf({ ...shared, channels: ["in-app"], held: [] }, "u2"),
+    ];
+
+    const [forOne] = receivedBy("u1", [shared], deliveries);
+    const [forOther] = receivedBy("u2", [shared], deliveries);
+    const [forThird] = receivedBy("u3", [shared], deliveries);
+
+    expect(forOne?.channels).toEqual(["in-app", "desktop", "phone"]);
+    expect(forOther?.channels).toEqual(["in-app"]);
+    expect(forThird).toMatchObject({ id: "n1", channels: [], held: [] });
+  });
+
+  it("holds only the user whose quiet hours it is in", () => {
+    const shared = notification({ id: "n1" });
+
+    expect(withQuietHours(shared, QUIET, at(23)).held).toEqual(["desktop", "phone"]);
+    expect(withQuietHours(shared, DEFAULT_TIMING, at(23)).held).toEqual([]);
+  });
+
+  it("waits the phone only on its own user's activity", () => {
+    const shared = notification({ id: "n1" });
+
+    expect(phoneDeliveryOf(shared, DEFAULT_TIMING, away(2), at(12)).kind).toBe("wait");
+    expect(phoneDeliveryOf(shared, DEFAULT_TIMING, undefined, at(12)).kind).toBe("now");
   });
 });

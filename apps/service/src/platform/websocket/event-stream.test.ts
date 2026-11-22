@@ -5,6 +5,12 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../test/test-application.js";
 import { EventBus } from "../events/event-bus.js";
 import { EventsModule } from "../events/events.module.js";
+import {
+  ANOTHER_SIGNED_IN_FOR_TESTS,
+  SIGNED_IN_FOR_TESTS,
+  signedInAs,
+} from "../http/signed-in-requests.fixtures.js";
+import type { SignedIn } from "../http/signed-in-requests.js";
 import { Schedule } from "../schedule/schedule.js";
 import type { ManualSchedule } from "../schedule/schedule.fixtures.js";
 import { EventStream, SIGNED_IN_CHECK_EVERY_MS, SIGNED_OUT } from "./event-stream.js";
@@ -15,6 +21,7 @@ import {
   devicesForTests,
   DevicesForTests,
   LampLit,
+  LampLitFor,
   LampDimmed,
   messageSchema,
   type Message,
@@ -30,6 +37,7 @@ let app: INestApplication;
 let bus: EventBus;
 let port: number;
 const clients: WebSocket[] = [];
+const wsClients: WsClient[] = [];
 
 beforeEach(async () => {
   ({ app, port } = await startTestApplication({ imports: [EventsModule, EventStreamModule] }));
@@ -37,11 +45,17 @@ beforeEach(async () => {
   const forwarding = app.get(WebEventForwarding);
   forwarding.forward(LampLit, (event) => ({ type: "lamp.lit", room: event.room }));
   forwarding.forward(LampDimmed, () => ({ type: "lamp.dimmed" }));
+  forwarding.forwardToUser(
+    LampLitFor,
+    (event) => event.userId,
+    (event) => ({ type: "lamp.lit", room: event.room }),
+  );
   forwardThreadEvents(forwarding);
 });
 
 afterEach(async () => {
   for (const client of clients.splice(0)) client.close();
+  for (const client of wsClients.splice(0)) client.close();
   await app.close();
 });
 
@@ -68,6 +82,39 @@ async function connect(): Promise<{ client: WebSocket; next: () => Promise<Messa
     return message ? Promise.resolve(message) : new Promise((resolve) => waiting.push(resolve));
   };
   return { client, next };
+}
+
+/** A client signed in as `user`, subscribed to `events`, every frame parsed with the contract. */
+async function connectSignedInAs(
+  user: SignedIn,
+  events: string[],
+): Promise<() => Promise<Message>> {
+  const client = new WsClient(`ws://localhost:${port}${EVENTS_PATH}`, {
+    headers: signedInAs(user),
+  });
+  const received: Message[] = [];
+  const waiting: ((message: Message) => void)[] = [];
+  client.on("message", (data: Buffer) => {
+    const message = messageSchema.parse(JSON.parse(data.toString()));
+    const resolve = waiting.shift();
+    if (resolve) resolve(message);
+    else received.push(message);
+  });
+  await new Promise((resolve) => client.once("open", resolve));
+  wsClients.push(client);
+  const next = (): Promise<Message> => {
+    const message = received.shift();
+    return message ? Promise.resolve(message) : new Promise((resolve) => waiting.push(resolve));
+  };
+  client.send(JSON.stringify({ type: "subscribe", events }));
+  expect(await next()).toEqual({ type: "subscriptions", events });
+  return next;
+}
+
+/** The room of the next lamp lit, or the message when it is another. */
+async function room(next: () => Promise<Message>): Promise<unknown> {
+  const message = await next();
+  return message.type === "event" && "room" in message.event ? message.event.room : message;
 }
 
 describe("the event stream", () => {
@@ -115,6 +162,22 @@ describe("the event stream", () => {
     });
     // Subscribed without a Thread, the page gets no Thread's output, and other types as before.
     expect(await unscoped.next()).toMatchObject({ type: "event", event: { type: "lamp.dimmed" } });
+  });
+
+  it("sends an event forwarded to one user only to that user's connections, and others to all", async () => {
+    const ann = await connectSignedInAs(SIGNED_IN_FOR_TESTS, ["lamp.lit"]);
+    const ben = await connectSignedInAs(ANOTHER_SIGNED_IN_FOR_TESTS, ["lamp.lit"]);
+    const bensOtherTab = await connectSignedInAs(ANOTHER_SIGNED_IN_FOR_TESTS, ["lamp.lit"]);
+
+    await bus.publish(new LampLitFor(ANOTHER_SIGNED_IN_FOR_TESTS.userId, "study"));
+    await bus.publish(new LampLit("hall"));
+
+    // Frames arrive in order, so Ann's first being the hall shows the study's was not sent to her.
+    expect(await room(ann)).toBe("hall");
+    for (const next of [ben, bensOtherTab]) {
+      expect(await room(next)).toBe("study");
+      expect(await room(next)).toBe("hall");
+    }
   });
 
   it("refuses a message that is not a subscribe or unsubscribe", async () => {

@@ -1,8 +1,9 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { eq } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { DEFAULT_TIMING, type NotificationTiming } from "../../domain/notification-timing.js";
 import { NotificationTimingRepository } from "../../ports/notification-timing-repository.js";
-import { notificationTiming } from "./notifications.schema.js";
+import { userNotificationTiming } from "./notifications.schema.js";
 
 @Injectable()
 export class PostgresNotificationTimingRepository extends NotificationTimingRepository {
@@ -10,8 +11,11 @@ export class PostgresNotificationTimingRepository extends NotificationTimingRepo
     super();
   }
 
-  async read(): Promise<NotificationTiming> {
-    const [row] = await this.database.select().from(notificationTiming).limit(1);
+  async read(userId: string): Promise<NotificationTiming> {
+    const [row] = await this.database
+      .select()
+      .from(userNotificationTiming)
+      .where(eq(userNotificationTiming.userId, userId));
     if (!row) return DEFAULT_TIMING;
     const { holdPhoneMinutes, awayMinutes, batchOutcomesMinutes, quietFrom, quietTo } = row;
     return {
@@ -23,15 +27,15 @@ export class PostgresNotificationTimingRepository extends NotificationTimingRepo
     };
   }
 
-  async save({ quietHours, ...minutes }: NotificationTiming): Promise<void> {
+  async save(userId: string, { quietHours, ...minutes }: NotificationTiming): Promise<void> {
     const row = {
       ...minutes,
       quietFrom: quietHours?.from ?? null,
       quietTo: quietHours?.to ?? null,
     };
     await this.database
-      .insert(notificationTiming)
-      .values(row)
-      .onConflictDoUpdate({ target: notificationTiming.id, set: row });
+      .insert(userNotificationTiming)
+      .values({ userId, ...row })
+      .onConflictDoUpdate({ target: userNotificationTiming.userId, set: row });
   }
 }

@@ -42,38 +42,52 @@ export const notificationQueries = {
       queryKey: ["notifications"],
       queryFn: ({ signal }) => getFromApi("/notifications", notificationListSchema, signal),
     }),
-  /** What goes where: each level of the kinds tree with every channel as it routes there. */
+  /**
+   * The signed-in user's own What goes where: each level of the kinds tree with every channel as it
+   * routes there.
+   */
   routing: () =>
     queryOptions({
       queryKey: ["notification-routing"],
       queryFn: ({ signal }) =>
-        getFromApi("/notifications/routing", notificationRoutingSchema, signal),
+        getFromApi("/account/notifications/routing", notificationRoutingSchema, signal),
     }),
-  /** When Notifications reach the desktop and the phone: the at-desk hold, quiet hours, batching. */
+  /**
+   * When the signed-in user's Notifications reach the desktop and the phone: the at-desk hold,
+   * quiet hours, batching.
+   */
   timing: () =>
     queryOptions({
       queryKey: ["notification-timing"],
       queryFn: ({ signal }) =>
-        getFromApi("/notifications/timing", notificationTimingSchema, signal),
+        getFromApi("/account/notifications/timing", notificationTimingSchema, signal),
     }),
 };
 
-/** Keeps the whole timing; the answer is what the service kept. */
+/** Keeps the signed-in user's whole timing; the answer is what the service kept. */
 export function setTiming(timing: NotificationTiming): Promise<NotificationTiming> {
-  return sendToApi("PUT", "/notifications/timing", timing, notificationTimingSchema);
+  return sendToApi("PUT", "/account/notifications/timing", timing, notificationTimingSchema);
 }
 
-/** Sets a channel at a level of the kinds tree; the answer is the whole routing. */
+/** Sets a channel at a level of the signed-in user's kinds tree; the answer is their whole routing. */
 export function setRoutingChannel(
   level: string,
   setting: ChannelSetting,
 ): Promise<NotificationRouting> {
-  return sendToApi("PUT", `/notifications/routing/${level}`, setting, notificationRoutingSchema);
+  return sendToApi(
+    "PUT",
+    `/account/notifications/routing/${level}`,
+    setting,
+    notificationRoutingSchema,
+  );
 }
 
-/** Gives a kind back to its group; the answer is the whole routing. */
+/** Gives one of the signed-in user's kinds back to its group; the answer is their whole routing. */
 export function resetRouting(level: string): Promise<NotificationRouting> {
-  return deleteFromApiReturning(`/notifications/routing/${level}`, notificationRoutingSchema);
+  return deleteFromApiReturning(
+    `/account/notifications/routing/${level}`,
+    notificationRoutingSchema,
+  );
 }
 
 /**

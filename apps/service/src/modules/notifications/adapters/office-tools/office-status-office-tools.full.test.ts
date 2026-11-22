@@ -22,6 +22,7 @@ import {
   SkillUpdatesFoundForTests,
   OfficeUpdateAvailableForTests,
   ShapingRepliesForTests,
+  OfficeUsersForTests,
   OfficeInitiativesForTests,
   OfficeTasksForTests,
   OpenDecisionsForTests,
@@ -57,6 +58,7 @@ describe("the show_office_status tool", () => {
           skillUpdatesFound: SkillUpdatesFoundForTests,
           officeUpdateAvailable: OfficeUpdateAvailableForTests,
           shapingReplies: ShapingRepliesForTests,
+          officeUsers: OfficeUsersForTests,
         }),
       ],
     }));

@@ -320,6 +320,15 @@ describe("the account", () => {
     await until(() => expect(where(router).pathname).toBe("/account/appearance"));
   });
 
+  it("is where Settings › Notifications went, since Notifications settings are each user's own", async () => {
+    stubService();
+    answer({ "GET /api/account": () => ({ status: 200, body: ADA }) });
+
+    const { router } = await opened("/settings/notifications");
+
+    await until(() => expect(where(router).pathname).toBe("/account/notifications"));
+  });
+
   it("opens at its profile", async () => {
     stubService();
     answer({ "GET /api/account": () => ({ status: 200, body: ADA }) });

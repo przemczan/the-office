@@ -1338,6 +1338,13 @@
       "when": 1795301050165,
       "tag": "0190_activity_seen",
       "breakpoints": true
+    },
+    {
+      "idx": 191,
+      "version": "7",
+      "when": 1795350150816,
+      "tag": "0191_notifications_for_each_user",
+      "breakpoints": true
     }
   ]
 }

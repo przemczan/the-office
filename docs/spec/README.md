@@ -179,7 +179,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 ### Q
 
 - **Queue, Short reason**: [2.1.5 A queue for Start](2.1.5-planning-and-start.md#a-queue-for-start); screen: [Work board › Queue for Start](screens/work-board.md#queue-for-start)
-- **Quiet hours**: [2.7 Quiet hours hold the desktop](2.7-notifications.md#quiet-hours-hold-the-desktop); screen: [Settings › Notifications](screens/settings.md#notifications)
+- **Quiet hours**: [2.7 Quiet hours hold the desktop](2.7-notifications.md#quiet-hours-hold-the-desktop); screen: [Account › Notifications](screens/account.md#notifications)
 
 ### R
 
@@ -258,6 +258,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Migrations keep the previous release working**: [5.1.2 Updating The Office](5.1.2-updates-and-restarts.md#updating-the-office)
 - **Modules and boundaries**: [5.3 Architecture](5.3-modules.md#architecture); [5.3 The modules](5.3-modules.md#the-modules)
 - **Notification kinds and channels**: [2.7 Kinds](2.7-notifications.md#kinds); [2.7 Channels](2.7-notifications.md#channels); [2.7 Office kinds](2.7-notifications.md#office-kinds)
+- **Notification settings, each user's own (routing, at the desk, quiet hours, batching)**: [2.7 Each user's own settings](2.7-notifications.md#each-users-own-settings); [2.7 A user's settings start from the defaults](2.7-notifications.md#a-users-settings-start-from-the-defaults); screen: [Account › Notifications](screens/account.md#notifications)
 - **Office data directory**: [5.2 Data](5.2-stack.md#data); [5.1 The service](5.1-shape.md#the-service)
 - **Operating systems (Windows and Linux)**: [5.1 Operating systems](5.1-shape.md#operating-systems); [5.1 Windows and Linux](5.1-shape.md#windows-and-linux)
 - **Only hashes are stored**: [6 Only hashes are stored](6-permissions-and-safety.md#only-hashes-are-stored)
@@ -313,7 +314,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
   - [2.4.6 Reading records](2.4.6-reading-records.md): reading the Stage history and the Threads.
 - [2.5 Context policy](2.5-context-policy.md): resume, fresh or hand off; the Brief, the Handover note, overrides, a Stage's context limits.
 - [2.6 Skills](2.6-skills.md): the library, adding skills, Project skills, what a session gets.
-- [2.7 Notifications](2.7-notifications.md): kinds, channels, content, routing defaults.
+- [2.7 Notifications](2.7-notifications.md): kinds, channels, content, routing defaults, each user's own settings.
 - [2.8 Fire alarm](2.8-fire-alarm.md): the alarm, its three ways and the all clear.
 - [2.9 Sub-agents and processes](2.9-sub-agents-and-processes.md): index of the pages below.
   - [2.9.1 The model](2.9.1-the-model.md): Sub-agents and Processes, what is kept and for how long.
@@ -503,6 +504,7 @@ Where each default lives, by page:
   - [A usage window used up](2.7-notifications.md#a-usage-window-used-up)
   - [Stages waiting for a Stand-in Engine](2.7-notifications.md#stages-waiting-for-a-stand-in-engine)
   - [Opening what a Notification points to handles it](2.7-notifications.md#opening-what-a-notification-points-to-handles-it)
+  - [A user's settings start from the defaults](2.7-notifications.md#a-users-settings-start-from-the-defaults)
   - [Quiet hours hold the desktop](2.7-notifications.md#quiet-hours-hold-the-desktop)
   - [Batching Outcomes](2.7-notifications.md#batching-outcomes)
   - [The grid's rows](2.7-notifications.md#the-grids-rows)

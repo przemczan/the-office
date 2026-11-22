@@ -1,12 +1,13 @@
 import type { UserActivity } from "./user-activity.js";
 import { CHANNELS, levelsOf, type Channel } from "./notification-kinds.js";
-import type { Notification } from "./notification.js";
+import type { Delivery, Notification, ReceivedNotification } from "./notification.js";
 import { inQuietHours, minutesMs, type NotificationTiming } from "./notification-timing.js";
 
 /**
- * The delivery rules (spec §2.7 and its Defaults): when a Notification reaches the desktop and the
- * phone. In-app is never held: quiet hours hold the desktop and the phone, the at-desk hold and the
- * away delay hold the phone, and Outcomes landing close together collapse into one.
+ * The delivery rules (spec §2.7 and its Defaults): when a Notification reaches each user's desktop
+ * and phone, by that user's own routing, timing and activity. In-app is never held: quiet hours hold
+ * the desktop and the phone, the at-desk hold and the away delay hold the phone, and Outcomes
+ * landing close together collapse into one for the user.
  */
 
 /** The channels outside the page, which quiet hours hold. */
@@ -17,12 +18,23 @@ export function passesQuietHours({ kind }: Pick<Notification, "kind">): boolean 
   return levelsOf(kind).includes("office.down");
 }
 
-/** The Notification as raised at `at`: inside quiet hours, held from the desktop and the phone. */
-export function withQuietHours(
+/** The Notification as a user receives it on these channels, before any rule holds it. */
+export function receivedOn(
   notification: Notification,
+  channels: readonly Channel[],
+): ReceivedNotification {
+  return { ...notification, channels, held: [], phonePushedAt: undefined };
+}
+
+/**
+ * The Notification as the user receives it raised at `at`: inside their quiet hours, held from the
+ * desktop and the phone.
+ */
+export function withQuietHours(
+  notification: ReceivedNotification,
   timing: NotificationTiming,
   at: Date,
-): Notification {
+): ReceivedNotification {
   if (!inQuietHours(timing.quietHours, at) || passesQuietHours(notification)) return notification;
   return {
     ...notification,
@@ -30,13 +42,51 @@ export function withQuietHours(
   };
 }
 
+/** The user's delivery of what they receive. */
+export function deliveryOf(
+  { id, channels, held, phonePushedAt }: ReceivedNotification,
+  userId: string,
+): Delivery {
+  return { notificationId: id, userId, channels, held, phonePushedAt };
+}
+
+/**
+ * The open Notifications one user sees: the shared ones and their own, each with their delivery, or
+ * on no channel when they have none.
+ */
+export function receivedBy(
+  userId: string,
+  open: readonly Notification[],
+  deliveries: readonly Delivery[],
+): ReceivedNotification[] {
+  const byNotification = new Map(
+    deliveries
+      .filter((delivery) => delivery.userId === userId)
+      .map((delivery) => [delivery.notificationId, delivery]),
+  );
+  return open
+    .filter(({ forUser }) => forUser === undefined || forUser === userId)
+    .map((notification) => {
+      const delivery = byNotification.get(notification.id);
+      return {
+        ...notification,
+        channels: delivery?.channels ?? [],
+        held: delivery?.held ?? [],
+        phonePushedAt: delivery?.phonePushedAt,
+      };
+    });
+}
+
 /** What the clock has reached: a Notification is delivered only once it has been raised. */
 export function raisedBy(at: Date): (notification: Notification) => boolean {
   return ({ raisedAt }) => raisedAt.getTime() <= at.getTime();
 }
 
-/** The open Notifications as the list shows them: those collapsed Outcomes stand for leave it. */
-export function shownOf(open: readonly Notification[]): Notification[] {
+/**
+ * The open Notifications as one user's list shows them: those their collapsed Outcomes stand for
+ * leave it.
+ */
+export function shownOf<Open extends Notification>(open: readonly Open[]): Open[] {
   const collapsed = new Set(
     open.filter(({ kind }) => kind === "collapsed-outcomes").flatMap(({ gathers }) => gathers),
   );
@@ -57,11 +107,11 @@ export function isOutcome({ kind }: Pick<Notification, "kind">): boolean {
  * The shown Outcome a new one at `at` joins: the latest landing within the batching window before
  * it. Needs you is never batched.
  */
-export function outcomeToJoin(
-  shown: readonly Notification[],
+export function outcomeToJoin<Shown extends Notification>(
+  shown: readonly Shown[],
   timing: NotificationTiming,
   at: Date,
-): Notification | undefined {
+): Shown | undefined {
   const windowMs = minutesMs(timing.batchOutcomesMinutes);
   return shown
     .filter((notification) => {
@@ -72,59 +122,53 @@ export function outcomeToJoin(
 }
 
 /** The Outcomes what joins stands for, still open: itself, or what it collapsed. */
-export function outcomesOf(joined: Notification, open: readonly Notification[]): Notification[] {
+export function outcomesOf<Open extends Notification>(joined: Open, open: readonly Open[]): Open[] {
   if (joined.kind !== "collapsed-outcomes") return [joined];
   return open.filter(({ id }) => joined.gathers.includes(id));
 }
 
 /**
- * Outcomes collapsed into one, in the UI's voice ("3 Tasks done"), opening Since you left and sent
- * where any of them goes.
+ * One user's Outcomes collapsed into one, in the UI's voice ("3 Tasks done"), opening Since you left
+ * and sent where any of them goes for them.
  */
 export function collapsedOutcomes(
-  outcomes: readonly Notification[],
+  outcomes: readonly ReceivedNotification[],
+  forUser: string,
   id: string,
   at: Date,
-): Notification {
-  return gathering(
-    "collapsed-outcomes",
-    idsOf(outcomes),
-    outcomesLine(outcomes),
-    id,
-    at,
+): ReceivedNotification {
+  return receivedOn(
+    gathering("collapsed-outcomes", idsOf(outcomes), outcomesLine(outcomes), forUser, id, at),
     channelsOfAll(outcomes, "channels"),
   );
 }
 
 /**
- * The one summary when quiet hours end, of the shown Notifications they held, sent where those were
- * held from; undefined when they held nothing still open.
+ * The one summary when a user's quiet hours end, of the shown Notifications they held from that
+ * user, sent where those were held from; undefined when they held nothing still open.
  */
 export function quietHoursSummary(
-  open: readonly Notification[],
+  open: readonly ReceivedNotification[],
+  forUser: string,
   id: string,
   at: Date,
-): Notification | undefined {
+): ReceivedNotification | undefined {
   const heldOnes = shownOf(open).filter(isHeld);
   if (heldOnes.length === 0) return undefined;
   const members = heldOnes.flatMap((notification) => outcomesOf(notification, open));
-  return gathering(
-    "quiet-hours-summary",
-    idsOf(members),
-    summaryLine(members),
-    id,
-    at,
+  return receivedOn(
+    gathering("quiet-hours-summary", idsOf(members), summaryLine(members), forUser, id, at),
     channelsOfAll(heldOnes, "held"),
   );
 }
 
 /** Whether quiet hours hold it from some channel, until their summary. */
-export function isHeld({ held }: Pick<Notification, "held">): boolean {
+export function isHeld({ held }: Pick<ReceivedNotification, "held">): boolean {
   return held.length > 0;
 }
 
 /** The gathering Notifications none of whose members is open any more: they clear too. */
-export function emptiedGatherings(open: readonly Notification[]): Notification[] {
+export function emptiedGatherings<Open extends Notification>(open: readonly Open[]): Open[] {
   const openIds = new Set(open.map(({ id }) => id));
   return open.filter(
     ({ gathers }) => gathers.length > 0 && !gathers.some((member) => openIds.has(member)),
@@ -141,13 +185,13 @@ export type PhoneDelivery =
   | { readonly kind: "none" };
 
 /**
- * The phone at `at`: inside quiet hours it is held; while the user is at the desk it waits, and it
- * goes once the hold since their last activity and then the away delay have passed (the away delay
- * counts from when the hold ends, spec §2.7 Defaults). `activity` is the user active last's, so it
- * goes only once every user is away.
+ * A user's phone at `at`: inside their quiet hours it is held; while they are at the desk it waits,
+ * and it goes once the hold since their last activity and then the away delay have passed (the away
+ * delay counts from when the hold ends, spec §2.7 Defaults). `activity` is that user's own, so
+ * another user at the desk holds nothing.
  */
 export function phoneDeliveryOf(
-  notification: Notification,
+  notification: ReceivedNotification,
   timing: NotificationTiming,
   activity: UserActivity | undefined,
   at: Date,
@@ -168,9 +212,9 @@ function gathering(
   kind: Notification["kind"],
   gathers: readonly string[],
   line: string,
+  forUser: string,
   id: string,
   at: Date,
-  channels: readonly Channel[],
 ): Notification {
   return {
     id,
@@ -180,11 +224,9 @@ function gathering(
     shortLine: undefined,
     at: undefined,
     pointsTo: { kind: "since-you-left" },
-    channels,
     raisedAt: at,
     gathers,
-    held: [],
-    phonePushedAt: undefined,
+    forUser,
   };
 }
 
@@ -193,7 +235,7 @@ function idsOf(notifications: readonly Notification[]): string[] {
 }
 
 function channelsOfAll(
-  notifications: readonly Notification[],
+  notifications: readonly ReceivedNotification[],
   field: "channels" | "held",
 ): Channel[] {
   return CHANNELS.filter((channel) => notifications.some((each) => each[field].includes(channel)));

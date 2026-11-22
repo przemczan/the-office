@@ -9,7 +9,7 @@ export interface QuietHours {
 
 /**
  * When Notifications reach the desktop and the phone (spec §2.7), the cards "At the desk" and
- * "Quiet hours and batching" in Settings › Notifications.
+ * "Quiet hours and batching" in Account › Notifications, each user's own.
  */
 export interface NotificationTiming {
   /** Phone pushes wait while The Office was used in the last this many minutes. */

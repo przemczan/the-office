@@ -32,6 +32,7 @@ import {
   SkillUpdatesFoundForTests,
   OfficeUpdateAvailableForTests,
   ShapingRepliesForTests,
+  OfficeUsersForTests,
   OfficeInitiativesForTests,
   OfficeTasksForTests,
   OpenDecisionsForTests,
@@ -91,6 +92,7 @@ describe("NowService", () => {
           skillUpdatesFound: SkillUpdatesFoundForTests,
           officeUpdateAvailable: OfficeUpdateAvailableForTests,
           shapingReplies: ShapingRepliesForTests,
+          officeUsers: OfficeUsersForTests,
         }),
       ],
     }));

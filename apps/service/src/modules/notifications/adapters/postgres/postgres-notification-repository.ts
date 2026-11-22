@@ -1,10 +1,14 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import { receivedBy } from "../../domain/delivery.js";
 import type { Channel } from "../../domain/notification-kinds.js";
-import type { Notification } from "../../domain/notification.js";
+import type { Delivery, Notification, ReceivedNotification } from "../../domain/notification.js";
 import { NotificationRepository } from "../../ports/notification-repository.js";
-import { notifications } from "./notifications.schema.js";
+import { notificationDeliveries, notifications } from "./notifications.schema.js";
+
+type NotificationRow = typeof notifications.$inferSelect;
+type DeliveryRow = typeof notificationDeliveries.$inferSelect;
 
 @Injectable()
 export class PostgresNotificationRepository extends NotificationRepository {
@@ -12,14 +16,42 @@ export class PostgresNotificationRepository extends NotificationRepository {
     super();
   }
 
-  async add(notification: Notification): Promise<void> {
+  async add({
+    id,
+    kind,
+    roleKey,
+    line,
+    shortLine,
+    at,
+    pointsTo,
+    raisedAt,
+    gathers,
+    forUser,
+  }: Notification): Promise<void> {
     await this.database.insert(notifications).values({
-      ...notification,
-      roleKey: notification.roleKey ?? null,
-      shortLine: notification.shortLine ?? null,
-      at: notification.at ?? null,
-      phonePushedAt: notification.phonePushedAt ?? null,
+      id,
+      kind,
+      roleKey: roleKey ?? null,
+      line,
+      shortLine: shortLine ?? null,
+      at: at ?? null,
+      pointsTo,
+      raisedAt,
+      gathers,
+      forUser: forUser ?? null,
     });
+  }
+
+  async deliver({
+    notificationId,
+    userId,
+    channels,
+    held,
+    phonePushedAt,
+  }: Delivery): Promise<void> {
+    await this.database
+      .insert(notificationDeliveries)
+      .values({ notificationId, userId, channels, held, phonePushedAt: phonePushedAt ?? null });
   }
 
   async listOpen(): Promise<readonly Notification[]> {
@@ -28,14 +60,22 @@ export class PostgresNotificationRepository extends NotificationRepository {
       .from(notifications)
       .where(isNull(notifications.clearedAt))
       .orderBy(asc(notifications.raisedAt));
-    return rows.map(
-      ({ clearedAt: _clearedAt, roleKey, shortLine, at, phonePushedAt, ...notification }) => ({
-        ...notification,
-        roleKey: roleKey ?? undefined,
-        shortLine: shortLine ?? undefined,
-        at: at ?? undefined,
-        phonePushedAt: phonePushedAt ?? undefined,
-      }),
+    return rows.map(notificationOf);
+  }
+
+  async listReceived(userId: string): Promise<readonly ReceivedNotification[]> {
+    const [open, deliveries] = await Promise.all([
+      this.listOpen(),
+      this.database
+        .select({ delivery: notificationDeliveries })
+        .from(notificationDeliveries)
+        .innerJoin(notifications, eq(notifications.id, notificationDeliveries.notificationId))
+        .where(and(eq(notificationDeliveries.userId, userId), isNull(notifications.clearedAt))),
+    ]);
+    return receivedBy(
+      userId,
+      open,
+      deliveries.map(({ delivery }) => deliveryOf(delivery)),
     );
   }
 
@@ -47,18 +87,58 @@ export class PostgresNotificationRepository extends NotificationRepository {
       .where(and(inArray(notifications.id, [...ids]), isNull(notifications.clearedAt)));
   }
 
-  async hold(ids: readonly string[], held: readonly Channel[]): Promise<void> {
+  async hold(userId: string, ids: readonly string[], held: readonly Channel[]): Promise<void> {
     if (ids.length === 0) return;
     await this.database
-      .update(notifications)
+      .update(notificationDeliveries)
       .set({ held })
-      .where(inArray(notifications.id, [...ids]));
+      .where(
+        and(
+          eq(notificationDeliveries.userId, userId),
+          inArray(notificationDeliveries.notificationId, [...ids]),
+        ),
+      );
   }
 
-  async phonePushed(id: string, pushedAt: Date): Promise<void> {
+  async phonePushed(userId: string, id: string, pushedAt: Date): Promise<void> {
     await this.database
-      .update(notifications)
+      .update(notificationDeliveries)
       .set({ phonePushedAt: pushedAt })
-      .where(eq(notifications.id, id));
+      .where(
+        and(
+          eq(notificationDeliveries.userId, userId),
+          eq(notificationDeliveries.notificationId, id),
+        ),
+      );
   }
+}
+
+function notificationOf({
+  id,
+  kind,
+  roleKey,
+  line,
+  shortLine,
+  at,
+  pointsTo,
+  raisedAt,
+  gathers,
+  forUser,
+}: NotificationRow): Notification {
+  return {
+    id,
+    kind,
+    roleKey: roleKey ?? undefined,
+    line,
+    shortLine: shortLine ?? undefined,
+    at: at ?? undefined,
+    pointsTo,
+    raisedAt,
+    gathers,
+    forUser: forUser ?? undefined,
+  };
+}
+
+function deliveryOf({ phonePushedAt, ...delivery }: DeliveryRow): Delivery {
+  return { ...delivery, phonePushedAt: phonePushedAt ?? undefined };
 }

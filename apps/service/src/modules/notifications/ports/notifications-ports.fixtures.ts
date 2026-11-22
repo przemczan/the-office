@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
 import { OfficeToolRegistry } from "../../engine/index.js";
 import type {
@@ -24,6 +25,7 @@ import { OfficeInitiatives } from "./office-initiatives.js";
 import { OfficeStatusCards } from "./office-status-cards.js";
 import { OfficeTasks } from "./office-tasks.js";
 import { OfficeUpdateAvailable } from "./office-update-available.js";
+import { OfficeUsers } from "./office-users.js";
 import { OpenDecisions } from "./open-decisions.js";
 import { OpenProposals } from "./open-proposals.js";
 import { PullRequestsWaiting } from "./pull-requests-waiting.js";
@@ -198,6 +200,25 @@ export class ShapingRepliesForTests extends ShapingReplies {
   }
 }
 
+/**
+ * The users, as a test sets them: one of the test's own unless set, so the Notifications it raises
+ * reach somebody whose routing and timing no other test file shares.
+ */
+export class OfficeUsersForTests extends OfficeUsers {
+  users: { readonly id: string }[] = [{ id: randomUUID() }];
+
+  /** The first user's id, whom a test with one user looks at. */
+  get firstUserId(): string {
+    const [first] = this.users;
+    if (!first) throw new Error("The test set no user.");
+    return first.id;
+  }
+
+  async list(): Promise<readonly { readonly id: string }[]> {
+    return this.users;
+  }
+}
+
 const PORTS = [
   OfficeTasksForTests,
   OfficeInitiativesForTests,
@@ -216,6 +237,7 @@ const PORTS = [
   SkillUpdatesFoundForTests,
   OfficeUpdateAvailableForTests,
   ShapingRepliesForTests,
+  OfficeUsersForTests,
   OfficeToolRegistry,
 ];
 

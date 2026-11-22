@@ -40,6 +40,7 @@ import {
   SkillUpdatesFoundForTests,
   OfficeUpdateAvailableForTests,
   ShapingRepliesForTests,
+  OfficeUsersForTests,
   StartQueueForTests,
   TaskStageProgressForTests,
 } from "../ports/notifications-ports.fixtures.js";
@@ -65,6 +66,7 @@ const NOTIFICATIONS_FOR_TESTS = NotificationsModule.register({
   skillUpdatesFound: SkillUpdatesFoundForTests,
   officeUpdateAvailable: OfficeUpdateAvailableForTests,
   shapingReplies: ShapingRepliesForTests,
+  officeUsers: OfficeUsersForTests,
 });
 
 /** A user of this test alone: the stored activity is one row a user for every test file. */
@@ -239,12 +241,14 @@ describe("The phone, with two users", () => {
     expect(response.status).toBe(204);
   }
 
-  it("goes only once every user is away", async () => {
-    const raised: string[] = [];
-    events.subscribe(NotificationRaised, ({ notification }) => void raised.push(notification.id));
-    await active(aUser("Ann Lee"));
+  it("goes to each user's phone once that user is away, whoever else is at the desk", async () => {
+    const [ann, ben] = [aUser("Ann Lee"), aUser("Ben Ito")];
+    app.get(OfficeUsersForTests).users = [{ id: ann.userId }, { id: ben.userId }];
+    const raised: NotificationRaised[] = [];
+    events.subscribe(NotificationRaised, (event) => void raised.push(event));
+    await active(ann);
     await schedule.advanceTo(noon(3));
-    await active(aUser("Ben Ito"));
+    await active(ben);
     const [thread, asked] = [
       { home: { kind: "task" } },
       {
@@ -256,17 +260,22 @@ describe("The phone, with two users", () => {
       },
     ] as unknown as ConstructorParameters<typeof DecisionOpened>;
     await events.publish(new DecisionOpened(thread, asked));
-    expect(raised).toHaveLength(1);
-    const pushed = (): string[] =>
-      (app.get(PhonePush) as RecordingPhonePush).pushed
-        .map(({ id }) => id)
-        .filter((id) => raised.includes(id));
+    // One Notification, reaching each of them.
+    expect(raised.map(({ userId }) => userId)).toEqual([ann.userId, ben.userId]);
+    const id = raised[0]?.notification.id;
+    expect(raised[1]?.notification.id).toBe(id);
+    const pushedTo = (user: SignedIn): string[] =>
+      (app.get(PhonePush) as RecordingPhonePush)
+        .pushedTo(user.userId)
+        .map((notification) => notification.id)
+        .filter((pushed) => pushed === id);
 
-    // Ann has been away the hold and the away delay by 12:10, but Ben is still at the desk.
-    await schedule.advanceTo(noon(12));
-    expect(pushed()).toEqual([]);
+    // Ann has been away the hold and the away delay by 12:10; Ben, at the desk at 12:03, not yet.
+    await schedule.advanceTo(noon(10));
+    expect(pushedTo(ann)).toEqual([id]);
+    expect(pushedTo(ben)).toEqual([]);
 
     await schedule.advanceTo(noon(13));
-    expect(pushed()).toEqual(raised);
+    expect(pushedTo(ben)).toEqual([id]);
   });
 });
