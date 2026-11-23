@@ -1,20 +1,26 @@
 import { Injectable } from "@nestjs/common";
 import type { EngineRemoval } from "../domain/engine-removal.js";
 import { officeDefaultEngineModel, type EngineSettings } from "../domain/engine-settings.js";
-import type { Engine, EngineModel } from "../domain/engines.js";
+import type { Engine, EngineId, EngineModel } from "../domain/engines.js";
 
 /**
  * What a save of Settings › Engines changes for the engine cascade, as the checks read it: the
- * engines, and the Office default as the engine and model it gives (`officeDefaultEngineModel`).
+ * engines, the Office default as the engine and model it gives (`officeDefaultEngineModel`), and
+ * the Office's Stand-in Engine list.
  */
 export interface EngineCascadeSettings {
   readonly engines: readonly Engine[];
   readonly officeDefault: EngineModel | null;
+  readonly standInEngines: readonly EngineId[];
 }
 
 /** The engine cascade's view of `settings`, which the checks weigh. */
 export function engineCascadeSettingsOf(settings: EngineSettings): EngineCascadeSettings {
-  return { engines: settings.engines, officeDefault: officeDefaultEngineModel(settings) };
+  return {
+    engines: settings.engines,
+    officeDefault: officeDefaultEngineModel(settings),
+    standInEngines: settings.standInEngines,
+  };
 }
 
 /**

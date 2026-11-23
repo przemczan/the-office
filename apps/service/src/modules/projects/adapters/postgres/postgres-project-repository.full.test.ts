@@ -48,6 +48,7 @@ describe("PostgresProjectRepository", () => {
           },
           { roleKey: "reviewer", engineSettings: { codex: { model: null, effort: "low" } } },
         ],
+        standIns: { useOwnList: true, engineIds: ["codex", "claude-code"] },
       },
     } as const;
 

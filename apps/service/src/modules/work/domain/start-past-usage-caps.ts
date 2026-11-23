@@ -46,7 +46,7 @@ export function startPastUsageCaps(
   const nameOf = (engineId: EngineId): string => engineNames.get(engineId) ?? engineId;
   return {
     passes: exceededCaps(past.usage).map(({ engineId, short }) => `${nameOf(engineId)}: ${short}`),
-    engines: [...conditions.standIns.modelsOn.keys()].map((engineId) => {
+    engines: conditions.standIns.cascadeEngines.map((engineId) => {
       const standIn = past.standIns.find((chosen) => chosen.engineId === engineId);
       return standIn
         ? { name: standIn.standInName, standingInFor: standIn.engineName }

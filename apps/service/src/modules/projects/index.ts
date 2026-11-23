@@ -138,6 +138,7 @@ export type {
   ProjectEngine,
   ProjectEngineDefault,
   ProjectEnginePerson,
+  ProjectStandIns,
   RunEnvironmentAnswer,
   RunEnvironmentSetting,
 } from "./domain/project.js";

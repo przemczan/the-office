@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { officeDefaultSchema } from "./engines.js";
+import { engineIdSchema, officeDefaultSchema } from "./engines.js";
 import { webEventSchema } from "./events.js";
 import { imageSchema } from "./images.js";
 import { engineTypeSettingSchema, personEngineSettingsSchema } from "./people.js";
@@ -306,7 +306,17 @@ export const projectEnginePersonSchema = z.object({
 });
 export type ProjectEnginePerson = z.infer<typeof projectEnginePersonSchema>;
 
-/** A Project's levels of both cascades (spec §5.4.5). */
+/**
+ * A Project's own Stand-in Engine list (spec §5.4.6): while `useOwnList` is on it replaces the
+ * Office's in the Project; turned off, `engineIds` is kept, unused.
+ */
+export const projectStandInsSchema = z.object({
+  useOwnList: z.boolean(),
+  engineIds: z.array(engineIdSchema),
+});
+export type ProjectStandIns = z.infer<typeof projectStandInsSchema>;
+
+/** A Project's levels of both cascades (spec §5.4.5), and its Stand-in Engines. */
 export const projectEngineSchema = z.object({
   /** Null is "Office's default" for both the engine type and the account. */
   default: projectEngineDefaultSchema.nullable(),
@@ -314,6 +324,7 @@ export const projectEngineSchema = z.object({
   force: modelEffortSchema.nullable(),
   /** At most one per person; a person with nothing set on any type isn't kept. */
   people: z.array(projectEnginePersonSchema),
+  standIns: projectStandInsSchema,
 });
 export type ProjectEngine = z.infer<typeof projectEngineSchema>;
 

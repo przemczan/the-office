@@ -62,7 +62,12 @@ export const PROJECT: Project = {
   environment: { set: [], unset: [], prependPath: [] },
   useProjectSkills: true,
   projectSkillsOff: [],
-  engine: { default: null, force: null, people: [] },
+  engine: {
+    default: null,
+    force: null,
+    people: [],
+    standIns: { useOwnList: false, engineIds: [] },
+  },
   runEnvironment: "not-decided",
   projectLimit: 1,
   addedAt: "2026-11-01T10:00:00.000Z",

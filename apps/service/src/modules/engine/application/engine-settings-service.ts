@@ -3,6 +3,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { EngineAdded, EngineRemoved } from "../domain/engine-events.js";
 import {
   engineRemovalAmong,
+  movedStandInList,
   type EngineRemoval,
   type MovedEngineReference,
 } from "../domain/engine-removal.js";
@@ -112,7 +113,12 @@ export class EngineSettingsService {
             },
           ]
         : [];
-    return { moves: [...officeDefault, ...(await this.referenceMoves.movesOf(removal))], problems };
+    const removed = stored.engines.find(({ id }) => id === engineId);
+    const officeStandIns = movedStandInList(stored.standInEngines, removal, removed, null);
+    return {
+      moves: [...officeDefault, ...officeStandIns, ...(await this.referenceMoves.movesOf(removal))],
+      problems,
+    };
   }
 
   private async removedWithReferencesMoved(

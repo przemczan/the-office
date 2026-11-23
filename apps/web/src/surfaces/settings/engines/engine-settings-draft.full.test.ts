@@ -26,7 +26,6 @@ import {
   standInsOf,
   switchSizeOf,
   withOfficeDefaultType,
-  withStandInMoved,
   type EngineSettingsDraft,
 } from "./engine-settings-draft.ts";
 import { NO_PRICE_TEXT, type ModelPriceText } from "./model-price-fields.ts";
@@ -409,17 +408,10 @@ describe("Settings › Engines' draft", () => {
       };
 
       expect(standInsOf(draft)).toEqual({
-        listed: [{ id: "strata", name: "Strata" }],
-        addable: [{ id: "claude-code", name: "Claude Code" }],
+        listed: [{ id: "strata", name: "Strata", kind: "openai-compatible-api" }],
+        addable: [{ id: "claude-code", name: "Claude Code", kind: "claude-code" }],
       });
       expect(standInsOf({ ...draft, standInEngines: [] }).addable).toHaveLength(2);
-    });
-
-    it("moves a Stand-in Engine up or down, never past either end", () => {
-      expect(withStandInMoved(["a", "b", "c"], 1, -1)).toEqual(["b", "a", "c"]);
-      expect(withStandInMoved(["a", "b", "c"], 1, 1)).toEqual(["a", "c", "b"]);
-      expect(withStandInMoved(["a", "b"], 0, -1)).toEqual(["a", "b"]);
-      expect(withStandInMoved(["a", "b"], 1, 1)).toEqual(["a", "b"]);
     });
   });
 

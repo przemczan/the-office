@@ -8,6 +8,7 @@ import {
   EngineSettingsChecks,
   type Engine,
   type EngineCapability,
+  type EngineCascadeSettings,
 } from "../../engine/index.js";
 import type { ProjectCascadeLevels, ProjectWithCascadeLevels } from "../domain/engine-cascade.js";
 import type { PipelineRolesNamed } from "../domain/pipeline-roles-named.js";
@@ -28,7 +29,12 @@ const local = { engineId: "local", model: "gpt-oss" };
 /** Local models as a Project default: an engine type and the account. */
 const localDefault = { engineType: "claude-code", engineId: "local" } as const;
 const claudeCodeDefault = { engineType: "claude-code", engineId: "claude-code" } as const;
-const noProjectLevels: ProjectCascadeLevels = { default: null, force: null, people: [] };
+const noProjectLevels: ProjectCascadeLevels = {
+  default: null,
+  force: null,
+  people: [],
+  standIns: { useOwnList: false, engineIds: [] },
+};
 const engines: readonly Engine[] = [
   {
     id: "claude-code",
@@ -84,6 +90,8 @@ const projectLevels = [
   { projectId: "billing", projectName: "Billing", ...noProjectLevels },
 ];
 
+/** The Office's Stand-in Engine list as stored: none until a test sets it. */
+let officeStandIns: string[];
 /** Projects a test adds after the two above. */
 let moreProjects: ProjectWithCascadeLevels[];
 let check: (save: ProjectLevelsSave) => Promise<readonly string[]>;
@@ -108,9 +116,14 @@ beforeEach(async () => {
   const roleCards: Pick<RoleCards, "roleTitle"> = {
     roleTitle: (roleKey) => roleKey.charAt(0).toUpperCase() + roleKey.slice(1),
   };
-  const engineModels: Pick<EngineModels, "engines" | "officeDefault"> = {
+  const engineModels: Pick<EngineModels, "engines" | "officeDefault" | "standIns"> = {
     engines: async () => [...engines, codex, gemini],
     officeDefault: async () => officeDefault,
+    standIns: async () => ({
+      engines: [...engines, codex, gemini],
+      standInEngines: officeStandIns,
+      askBeforeSwitchAbove: 100_000,
+    }),
   };
   const engineSessions: Pick<EngineSessions, "missingCapabilitiesOf"> = {
     missingCapabilitiesOf: (engine): readonly EngineCapability[] =>
@@ -125,6 +138,7 @@ beforeEach(async () => {
   rolesNamed = { everywhere: new Set(["developer", "reviewer"]), byProject: new Map() };
   dutyHolders = new Map([["implements", "developer"]]);
   moreProjects = [];
+  officeStandIns = [];
   workLevels = new WorkLevelsForTests();
   namedByTasks = new Map();
   const projects: KnownProjectLevels = {
@@ -225,7 +239,7 @@ describe("PipelineRoleCapabilityChecks on a save of a Project's levels", () => {
 });
 
 describe("PipelineRoleCapabilityChecks on a save of Settings › Engines", () => {
-  const settings = { engines, officeDefault };
+  const settings = { engines, officeDefault, standInEngines: [] };
 
   it("weighs a removal's moved Project levels", async () => {
     const spare: Engine = { ...engines[0]!, id: "spare", name: "Spare" };
@@ -240,7 +254,7 @@ describe("PipelineRoleCapabilityChecks on a save of Settings › Engines", () =>
 
     await expect(
       engineSettingsChecks.problemsOf({
-        before: { engines: [...engines, spare], officeDefault },
+        before: { engines: [...engines, spare], officeDefault, standInEngines: [] },
         after: settings,
         removal: { engineId: "spare", replacement: engines[1]! },
       }),
@@ -269,7 +283,7 @@ describe("PipelineRoleCapabilityChecks on a save of Settings › Engines", () =>
     await expect(
       engineSettingsChecks.problemsOf({
         before: settings,
-        after: { engines: renamed, officeDefault: local },
+        after: { engines: renamed, officeDefault: local, standInEngines: [] },
       }),
     ).resolves.toContain(
       "Workstation models can't use Office tools, which the Agent Stages of the Developer and the Reviewer need outside any Project.",
@@ -291,7 +305,7 @@ describe("PipelineRoleCapabilityChecks on a save of Settings › Engines", () =>
   });
 
   it("lets through an Office default on a Codex engine, which has Office tools and output schemas", async () => {
-    const withCodex = { engines: [...engines, codex], officeDefault };
+    const withCodex = { engines: [...engines, codex], officeDefault, standInEngines: [] };
 
     await expect(
       engineSettingsChecks.problemsOf({
@@ -302,7 +316,7 @@ describe("PipelineRoleCapabilityChecks on a save of Settings › Engines", () =>
   });
 
   it("lets through an Office default on a Gemini CLI engine, which lacks only what no Pipeline Role needs", async () => {
-    const withGemini = { engines: [...engines, gemini], officeDefault };
+    const withGemini = { engines: [...engines, gemini], officeDefault, standInEngines: [] };
 
     await expect(
       engineSettingsChecks.problemsOf({
@@ -627,8 +641,12 @@ describe("PipelineRoleCapabilityChecks on a save above a Task that sets an engin
     // The Reviewer already runs on the Task's engine; the Office default doesn't reach the Task.
     await expect(
       engineSettingsChecks.problemsOf({
-        before: { engines, officeDefault },
-        after: { engines, officeDefault: { ...officeDefault, model: "claude-haiku-5-5" } },
+        before: { engines, officeDefault, standInEngines: [] },
+        after: {
+          engines,
+          officeDefault: { ...officeDefault, model: "claude-haiku-5-5" },
+          standInEngines: [],
+        },
       }),
     ).resolves.toEqual([]);
   });
@@ -638,8 +656,8 @@ describe("PipelineRoleCapabilityChecks on a save above a Task that sets an engin
     const [claudeCode, localModels] = engines;
 
     const problems = await engineSettingsChecks.problemsOf({
-      before: { engines, officeDefault },
-      after: { engines: [claudeCode!], officeDefault },
+      before: { engines, officeDefault, standInEngines: [] },
+      after: { engines: [claudeCode!], officeDefault, standInEngines: [] },
       removal: { engineId: localModels!.id, replacement: claudeCode! },
     });
 
@@ -652,5 +670,179 @@ describe("PipelineRoleCapabilityChecks on a save above a Task that sets an engin
     await expect(check(aSave({}, { default: localDefault }))).resolves.toEqual([
       "Local models can't use Office tools, which the Agent Stages of the Developer and the Reviewer need in Admin panel.",
     ]);
+  });
+});
+
+/**
+ * Settings › Engines' side of a save with the Office's Stand-in Engine list `standInEngines`, over
+ * the engines `engines` and Codex.
+ */
+function withOfficeList(standInEngines: readonly string[]): EngineCascadeSettings {
+  const side = { engines: [...engines, codex], officeDefault, standInEngines };
+  return side;
+}
+
+/** A Project's own list, used or kept unused. */
+function ownList(engineIds: readonly string[], useOwnList = true) {
+  return { standIns: { useOwnList, engineIds } };
+}
+
+describe("PipelineRoleCapabilityChecks on Stand-in Engine lists", () => {
+  const OUTSIDE_STAND_IN =
+    "Local models can't stand in: it can't use Office tools, which the Agent Stages of the Developer and the Reviewer need outside any Project.";
+  const BILLING_STAND_IN =
+    "Local models can't stand in: it can't use Office tools, which the Agent Stages of the Developer and the Reviewer need in Billing.";
+  const ADMIN_PANEL_STAND_IN =
+    "Local models can't stand in: it can't use Office tools, which the Agent Stages of the Developer and the Reviewer need in Admin panel.";
+
+  it("refuses an Office list naming an incapable engine outside any Project and in each Project using it", async () => {
+    // Admin panel already runs on Local models, which never stands in for itself.
+    await expect(
+      engineSettingsChecks.problemsOf({
+        before: withOfficeList([]),
+        after: withOfficeList(["local"]),
+      }),
+    ).resolves.toEqual([OUTSIDE_STAND_IN, BILLING_STAND_IN]);
+  });
+
+  it("leaves out of an Office list's save each Project using its own list", async () => {
+    moreProjects = [
+      { projectId: "shop", projectName: "Shop", ...noProjectLevels, ...ownList([]) },
+      {
+        projectId: "tools",
+        projectName: "Tools",
+        ...noProjectLevels,
+        ...ownList(["codex"], false),
+      },
+    ];
+
+    await expect(
+      engineSettingsChecks.problemsOf({
+        before: withOfficeList([]),
+        after: withOfficeList(["local"]),
+      }),
+    ).resolves.toEqual([
+      OUTSIDE_STAND_IN,
+      BILLING_STAND_IN,
+      "Local models can't stand in: it can't use Office tools, which the Agent Stages of the Developer and the Reviewer need in Tools.",
+    ]);
+  });
+
+  it("lets through a capable stand-in of another engine type, and an incapable one already listed", async () => {
+    await expect(
+      engineSettingsChecks.problemsOf({
+        before: withOfficeList([]),
+        after: withOfficeList(["codex"]),
+      }),
+    ).resolves.toEqual([]);
+    await expect(
+      engineSettingsChecks.problemsOf({
+        before: withOfficeList(["local"]),
+        after: withOfficeList(["codex", "local"]),
+      }),
+    ).resolves.toEqual([]);
+  });
+
+  it("weighs a removal's moved Project list, used or not used, where it applies", async () => {
+    const spare: Engine = { ...engines[0]!, id: "spare", name: "Spare" };
+    moreProjects = [
+      { projectId: "shop", projectName: "Shop", ...noProjectLevels, ...ownList(["spare"]) },
+      {
+        projectId: "tools",
+        projectName: "Tools",
+        ...noProjectLevels,
+        ...ownList(["spare"], false),
+      },
+    ];
+
+    await expect(
+      engineSettingsChecks.problemsOf({
+        before: { engines: [...engines, spare], officeDefault, standInEngines: [] },
+        after: { engines, officeDefault, standInEngines: [] },
+        removal: { engineId: "spare", replacement: engines[1]! },
+      }),
+    ).resolves.toEqual([
+      "Local models can't stand in: it can't use Office tools, which the Agent Stages of the Developer and the Reviewer need in Shop.",
+    ]);
+  });
+
+  it("refuses a Project's own list naming an incapable engine as it is turned on or changed", async () => {
+    await expect(check(aSave({}, ownList(["local"])))).resolves.toEqual([ADMIN_PANEL_STAND_IN]);
+    await expect(check(aSave(ownList(["codex"]), ownList(["codex", "local"])))).resolves.toEqual([
+      ADMIN_PANEL_STAND_IN,
+    ]);
+  });
+
+  it("weighs the Office's list as a Project's own is turned off", async () => {
+    officeStandIns = ["local"];
+
+    await expect(check(aSave(ownList([]), ownList([], false)))).resolves.toEqual([
+      ADMIN_PANEL_STAND_IN,
+    ]);
+  });
+
+  it("never weighs a Project's list kept unused, nor one already standing", async () => {
+    await expect(check(aSave(ownList(["local"]), ownList(["local"], false)))).resolves.toEqual([]);
+    await expect(check(aSave(ownList([], false), ownList(["local"], false)))).resolves.toEqual([]);
+    await expect(check(aSave(ownList(["local"]), ownList(["local"])))).resolves.toEqual([]);
+  });
+
+  it("weighs a Role a library Stage newly names on the list that applies in each place", async () => {
+    officeStandIns = ["local"];
+    moreProjects = [{ projectId: "shop", projectName: "Shop", ...noProjectLevels, ...ownList([]) }];
+
+    await expect(
+      checks.newlyNamedRolesProblems({ roleKeys: ["cto"], projectId: undefined }),
+    ).resolves.toEqual([
+      "Local models can't stand in: it can't use Office tools, which the Agent Stages of the Cto need outside any Project.",
+      "Local models can't use Office tools, which the Agent Stages of the Cto need in Admin panel.",
+      "Local models can't stand in: it can't use Office tools, which the Agent Stages of the Cto need in Billing.",
+    ]);
+  });
+
+  it("weighs a duty change on the list that applies", async () => {
+    officeStandIns = ["local"];
+    dutyNamedByTheLibrary("implements");
+    rolesNamed = { ...rolesNamed, everywhere: new Set() };
+
+    await expect(
+      dutyChangeChecks.problemsOf({ duty: "implements", from: "developer", to: "cto" }),
+    ).resolves.toContain(
+      "Local models can't stand in: it can't use Office tools, which the Agent Stages of the Cto need in Billing.",
+    );
+  });
+
+  it("weighs a Pipeline chosen for a Task on the list in its reach, on the Task", async () => {
+    officeStandIns = ["local"];
+
+    await expect(
+      checks.workLevelsChangeProblems({
+        place: "On “Fix the login”",
+        tasks: [
+          {
+            projectId: "billing",
+            roleKeys: ["reviewer", "cto"],
+            dutyKeys: [],
+            namedBefore: { roleKeys: ["reviewer"], dutyKeys: [] },
+            before: { taskEngine: null, initiativeEngine: null },
+            after: { taskEngine: null, initiativeEngine: null },
+          },
+        ],
+      }),
+    ).resolves.toEqual([
+      "On “Fix the login”, Local models can't stand in: it can't use Office tools, which the Agent Stages of the Cto need.",
+    ]);
+  });
+
+  it("weighs a list once in a Task's Project, never again on a Task setting an engine", async () => {
+    aTaskOnLocalIn("billing", { roleKeys: ["reviewer"] });
+    workLevels.setForTask("the-task", officeDefault);
+
+    await expect(
+      engineSettingsChecks.problemsOf({
+        before: withOfficeList([]),
+        after: withOfficeList(["local"]),
+      }),
+    ).resolves.toEqual([OUTSIDE_STAND_IN, BILLING_STAND_IN]);
   });
 });

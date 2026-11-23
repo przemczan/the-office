@@ -9,7 +9,11 @@ import type {
   EngineCascadeLocation,
   EngineCascadeWork,
 } from "./application/engine-cascade.js";
-import type { EngineCascadeLevel, EngineInCascade } from "./domain/engine-cascade.js";
+import type {
+  EngineCascadeLevel,
+  EngineInCascade,
+  StandInsApplying,
+} from "./domain/engine-cascade.js";
 import { consult, type HardSwitchValue } from "./domain/hard-switches.js";
 import { DEVOPS } from "./domain/known-roles.js";
 
@@ -42,10 +46,11 @@ export type StandInWork = EngineModel &
  * gave it in the Project (at the Project default's level), then what `set` gave it everywhere, the
  * Task's engine, the Initiative's, the Office default. Every engine is a
  * Claude Code one unless `set` says otherwise; the effort is `effort` unless `set` or a Stage's own
- * effort says otherwise. Every location asked is kept in `asked`, for a test to check where a
- * session resolved the cascade.
+ * effort says otherwise. The Stand-in Engine list that applies is `standIns` (the Office's, empty)
+ * unless `setStandIns` gave the Project one. Every location asked is kept in `asked`, for a test to
+ * check where a session resolved the cascade.
  */
-export class EngineCascadeStandIn implements Pick<EngineCascade, "of" | "applying"> {
+export class EngineCascadeStandIn implements Pick<EngineCascade, "of" | "applying" | "onEngine"> {
   /** Null only while no engine is listed (`removeEveryEngine`). */
   officeDefault: EngineModel | null = {
     engineId: FIRST_CLAUDE_CODE_ENGINE.id,
@@ -53,6 +58,8 @@ export class EngineCascadeStandIn implements Pick<EngineCascade, "of" | "applyin
   };
   /** The effort every person works with unless `set` or a Stage gives another. */
   effort: Effort | null = "high";
+  /** The Stand-in Engine list that applies wherever `setStandIns` gave none. */
+  standIns: StandInsApplying = { from: "office", engineIds: [] };
   /** Each Role, location and Stage's effort the cascade was asked for, in order. */
   readonly asked: {
     readonly roleKey: string;
@@ -62,6 +69,8 @@ export class EngineCascadeStandIn implements Pick<EngineCascade, "of" | "applyin
   private readonly overrides = new Map<string, StandInWork>();
   private readonly tasks = new Map<string, EngineModel>();
   private readonly initiatives = new Map<string, EngineModel>();
+  private readonly projectStandIns = new Map<string, StandInsApplying>();
+  private readonly onEngines = new Map<string, Omit<StandInWork, "engineId">>();
 
   /** The Role `roleKey` runs on `work`, in the Project `projectId` or in every one. */
   set(roleKey: string, work: StandInWork, projectId?: string): void {
@@ -78,6 +87,20 @@ export class EngineCascadeStandIn implements Pick<EngineCascade, "of" | "applyin
   setForInitiative(initiativeId: string, engineModel: EngineModel | null): void {
     if (engineModel === null) this.initiatives.delete(initiativeId);
     else this.initiatives.set(initiativeId, engineModel);
+  }
+
+  /** The Project `projectId` uses `standIns`, or what applies everywhere again. */
+  setStandIns(projectId: string, standIns: StandInsApplying | null): void {
+    if (standIns === null) this.projectStandIns.delete(projectId);
+    else this.projectStandIns.set(projectId, standIns);
+  }
+
+  /**
+   * The Role `roleKey` works with `work` on `engineId` when its session lands there as a Stand-in
+   * Engine (`onEngine`); unset, with the cascade's model and effort.
+   */
+  setOnEngine(roleKey: string, engineId: string, work: Omit<StandInWork, "engineId">): void {
+    this.onEngines.set(JSON.stringify([roleKey, engineId]), work);
   }
 
   /** As removing the only engine leaves it: every level moved to none. */
@@ -105,7 +128,25 @@ export class EngineCascadeStandIn implements Pick<EngineCascade, "of" | "applyin
   ): Promise<EngineInCascade | null> {
     this.asked.push({ roleKey, location, work });
     const found = this.found(roleKey, location);
-    return Promise.resolve(found && this.working(found.at, found.level, work));
+    const standIns =
+      (location.projectId === undefined
+        ? undefined
+        : this.projectStandIns.get(location.projectId)) ?? this.standIns;
+    return Promise.resolve(found && this.working(found.at, found.level, work, standIns));
+  }
+
+  /** As `of`, on `engineId`: what `setOnEngine` gave the Role there, else the cascade's work. */
+  async onEngine(
+    roleKey: string,
+    engineId: string,
+    location: EngineCascadeLocation = {},
+    work: EngineCascadeWork = {},
+  ): Promise<EngineInCascade> {
+    const cascade = await this.of(roleKey, location, work);
+    const there = this.onEngines.get(JSON.stringify([roleKey, engineId]));
+    return there
+      ? this.working({ ...there, engineId }, cascade.level, work, cascade.standIns)
+      : { ...cascade, engineId };
   }
 
   private found(
@@ -132,6 +173,7 @@ export class EngineCascadeStandIn implements Pick<EngineCascade, "of" | "applyin
     { engineId, model, engineType = "claude-code", effort, gaveWay }: StandInWork,
     level: EngineCascadeLevel,
     { stageEffort }: EngineCascadeWork,
+    standIns: StandInsApplying,
   ): EngineInCascade {
     const ownEffort = effort === undefined ? this.effort : effort;
     return {
@@ -143,6 +185,7 @@ export class EngineCascadeStandIn implements Pick<EngineCascade, "of" | "applyin
       effort: stageEffort ?? ownEffort,
       effortLevel: stageEffort ? "stage" : "person",
       ...(gaveWay !== undefined && { gaveWay }),
+      standIns,
     };
   }
 }

@@ -212,6 +212,7 @@ describe("/api/settings/engines", () => {
     expect(saves[0]?.before).toEqual({
       engines: DEFAULT_ENGINE_SETTINGS.engines,
       officeDefault: CLAUDE_CODE_ON_ITS_MODEL,
+      standInEngines: [],
     });
     expect(saves[0]?.after).toMatchObject({
       engines: [FIRST_CLAUDE_CODE_ENGINE, { id: "strata", name: "Strata" }],
@@ -452,6 +453,39 @@ describe("GET /api/settings/engines/:engineId/removal", () => {
     });
     expect(removals).toEqual([{ engineId: "strata", replacement: FIRST_CLAUDE_CODE_ENGINE }]);
     expect((await repository.read()).officeDefault).toEqual(strataDefault);
+  });
+
+  it("lists the Office's Stand-in Engine list's move, which the removal makes", async () => {
+    const [claudeCode, strata] = strataEdit.engines;
+    const saved = await put({
+      ...strataEdit,
+      engines: [claudeCode!, { ...strata!, id: "strata" }],
+      officeDefault: strataDefault,
+      standInEngines: ["strata"],
+    });
+    expect(saved.status).toBe(200);
+
+    const preview = await previewOf("strata", "claude-code");
+
+    expect(engineRemovalPreviewSchema.parse(await preview.json()).moves).toEqual([
+      {
+        roleKey: null,
+        project: null,
+        work: null,
+        from: STRATA_ON_ITS_MODEL,
+        to: CLAUDE_CODE_ON_ITS_MODEL,
+      },
+      {
+        roleKey: null,
+        project: null,
+        work: null,
+        standInList: true,
+        from: STRATA_ON_ITS_MODEL,
+        to: CLAUDE_CODE_ON_ITS_MODEL,
+      },
+    ]);
+    expect((await remove("strata", "claude-code")).status).toBe(200);
+    expect((await repository.read()).standInEngines).toEqual(["claude-code"]);
   });
 
   it("lists no move of the Office default when it names another engine", async () => {

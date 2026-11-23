@@ -804,6 +804,17 @@ button.github-repository.selected:hover:not(:disabled) {
   gap: 10px;
 }
 
+/* Stand-in Engines: Add a stand-in under the Project's list, the Office's list under its link. */
+.project-engine-add-stand-in {
+  max-width: 360px;
+}
+
+.project-engine-office-stand-ins {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .project-engine-type-row {
   display: flex;
   flex-direction: column;

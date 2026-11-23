@@ -471,8 +471,17 @@ const CTO = {
   engineSettings: { "claude-code": { model: "claude-opus-5-5", effort: "high" } },
 } as const;
 
-/** Sets the Project's engine levels past the checks, as an engine's removal or a move-over may. */
-async function storeEngine(projectId: string, engine: ProjectEngine): Promise<void> {
+const NO_STAND_INS = { useOwnList: false, engineIds: [] };
+
+/**
+ * Sets the Project's engine levels past the checks, as an engine's removal or a move-over may; no
+ * Stand-in Engine list of its own unless given.
+ */
+async function storeEngine(
+  projectId: string,
+  levels: Omit<ProjectEngine, "standIns"> & Partial<Pick<ProjectEngine, "standIns">>,
+): Promise<void> {
+  const engine: ProjectEngine = { standIns: NO_STAND_INS, ...levels };
   await app.get(ProjectRepository).update(projectId, (stored) => ({
     project: { ...stored, engine },
     // The repository keeps a change that has an event.
@@ -483,7 +492,9 @@ async function storeEngine(projectId: string, engine: ProjectEngine): Promise<vo
 describe("the Project's engine levels", () => {
   it("saves each level sent, keeps each left out, with one event a save", async () => {
     const project = await addProject();
-    expect(project).toMatchObject({ engine: { default: null, force: null, people: [] } });
+    expect(project).toMatchObject({
+      engine: { default: null, force: null, people: [], standIns: NO_STAND_INS },
+    });
     published = [];
 
     await send("PUT", `/projects/${project.id}/engine`, { default: ON_CLAUDE, people: [CTO] });
@@ -571,6 +582,7 @@ describe("the Project's engine levels", () => {
       default: { engineType: "claude-code", engineId: "second" },
       force: { model: "claude-opus-5-5", effort: null },
       people: [CTO],
+      standIns: NO_STAND_INS,
     });
     expect(webEvents()).toEqual([{ type: "project.engine-changed", projectId: project.id }]);
   });
@@ -592,8 +604,99 @@ describe("the Project's engine levels", () => {
       default: null,
       force: null,
       people: [CTO],
+      standIns: NO_STAND_INS,
     });
     expect(webEvents()).toEqual([{ type: "project.engine-changed", projectId: project.id }]);
+  });
+
+  it("saves the Project's own Stand-in Engine list, and keeps it when the list is turned off", async () => {
+    const project = await addProject();
+    published = [];
+
+    const turnedOn = await send("PUT", `/projects/${project.id}/engine`, {
+      standIns: { useOwnList: true, engineIds: ["claude-code"] },
+    });
+    const turnedOff = await send("PUT", `/projects/${project.id}/engine`, {
+      standIns: { useOwnList: false, engineIds: ["claude-code"] },
+    });
+    const peopleSaved = await send("PUT", `/projects/${project.id}/engine`, { people: [CTO] });
+
+    expect(turnedOn.status).toBe(200);
+    expect(projectSchema.parse(await turnedOn.json()).engine.standIns).toEqual({
+      useOwnList: true,
+      engineIds: ["claude-code"],
+    });
+    expect(turnedOff.status).toBe(200);
+    expect(peopleSaved.status).toBe(200);
+    const read = await fetch(`${url}/api/projects/${project.id}`);
+    expect(projectSchema.parse(await read.json()).engine.standIns).toEqual({
+      useOwnList: false,
+      engineIds: ["claude-code"],
+    });
+    expect(webEvents()).toEqual([
+      { type: "project.engine-changed", projectId: project.id },
+      { type: "project.engine-changed", projectId: project.id },
+      { type: "project.engine-changed", projectId: project.id },
+    ]);
+  });
+
+  it("refuses a Stand-in Engine not listed and one named twice, whether the list is used or not", async () => {
+    const project = await addProject();
+
+    const responses = await Promise.all([
+      send("PUT", `/projects/${project.id}/engine`, {
+        standIns: { useOwnList: true, engineIds: ["gone"] },
+      }),
+      send("PUT", `/projects/${project.id}/engine`, {
+        standIns: { useOwnList: false, engineIds: ["claude-code", "claude-code"] },
+      }),
+    ]);
+
+    expect(responses.map((response) => response.status)).toEqual([422, 422]);
+    expect(await Promise.all(responses.map((response) => response.json()))).toMatchObject([
+      { reasons: ["Pick each Stand-in Engine among the engines listed."] },
+      { reasons: [`"${FIRST_CLAUDE_CODE_ENGINE.name}" is listed twice as a Stand-in Engine.`] },
+    ]);
+    const read = await fetch(`${url}/api/projects/${project.id}`);
+    expect(projectSchema.parse(await read.json()).engine.standIns).toEqual(NO_STAND_INS);
+  });
+
+  it("puts the replacement in a removed engine's place in the Project's own list, used or not", async () => {
+    const project = await addProject();
+    const removed = `removed-${randomUUID()}`;
+    await storeEngine(project.id, {
+      default: null,
+      force: null,
+      people: [],
+      standIns: { useOwnList: false, engineIds: [removed, "claude-code"] },
+    });
+    published = [];
+    const second = { ...FIRST_CLAUDE_CODE_ENGINE, id: "second" };
+
+    await app.get(ProjectLevelMoves).moveProjectLevels({ engineId: removed, replacement: second });
+
+    const read = await fetch(`${url}/api/projects/${project.id}`);
+    expect(projectSchema.parse(await read.json()).engine.standIns).toEqual({
+      useOwnList: false,
+      engineIds: ["second", "claude-code"],
+    });
+    expect(webEvents()).toEqual([{ type: "project.engine-changed", projectId: project.id }]);
+  });
+
+  it("weighs a change of the Stand-in Engine list in the registered checks", async () => {
+    const project = await addProject();
+    const refusal =
+      "Claude Code can't stand in: it can't use Office tools, which the Agent Stages of the Developer need in this Project.";
+    app
+      .get(EngineLevelsChecks)
+      .register(async ({ after }) => (after.standIns.useOwnList ? [refusal] : []));
+
+    const refused = await send("PUT", `/projects/${project.id}/engine`, {
+      standIns: { useOwnList: true, engineIds: ["claude-code"] },
+    });
+
+    expect(refused.status).toBe(422);
+    expect(await refused.json()).toMatchObject({ reasons: [refusal] });
   });
 
   it("refuses a change of the default a registered check refuses, before keeping it, and weighs no other save", async () => {
@@ -619,7 +722,7 @@ describe("the Project's engine levels", () => {
       ],
     });
     expect(peopleSaved.status).toBe(200);
-    const levels = { default: null, force: null, people: [] };
+    const levels = { default: null, force: null, people: [], standIns: NO_STAND_INS };
     expect(saves).toEqual([
       {
         projectId: project.id,

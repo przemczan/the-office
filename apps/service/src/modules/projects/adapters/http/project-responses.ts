@@ -80,6 +80,7 @@ function toEngineResponse({
   default: projectDefault,
   force,
   people,
+  standIns,
 }: ProjectEngine): ProjectEngineResponse {
   return {
     default: projectDefault && { ...projectDefault },
@@ -90,5 +91,6 @@ function toEngineResponse({
         Object.entries(engineSettings).map(([type, setting]) => [type, { ...setting }]),
       ),
     })),
+    standIns: { useOwnList: standIns.useOwnList, engineIds: [...standIns.engineIds] },
   };
 }

@@ -6,6 +6,7 @@ import {
   offeredModels,
   type Effort,
   type Engine,
+  type EngineId,
   type EngineKind,
 } from "../../engine/index.js";
 import {
@@ -86,8 +87,37 @@ export class EngineCascade {
   }
 
   /**
+   * As `of`, but on `engineId`, the engine the session landed on instead of the cascade's, as a
+   * Stand-in Engine (spec §5.4.6): the model and effort its person works with on that engine's
+   * type, the cascade's level and stand-in list kept. The cascade's engine when `engineId` is no
+   * longer listed.
+   */
+  async onEngine(
+    roleKey: string,
+    engineId: EngineId,
+    { projectId, taskId, initiativeId }: EngineCascadeLocation = {},
+    { stageEffort }: EngineCascadeWork = {},
+  ): Promise<EngineInCascade> {
+    const { card } = await this.roleCards.forNewSession(roleKey);
+    const project =
+      projectId === undefined ? undefined : await this.projects.engineLevelsOf(projectId);
+    const engines = await this.engineModels.engines();
+    const found = await this.inPlace(engines, project, await this.workLevels(taskId, initiativeId));
+    if (found === null) throw new NoEngineListed();
+    const engine = engines.find(({ id }) => id === engineId) ?? found.engine;
+    return workInCascade({
+      roleKey,
+      engine: landed(engine),
+      inPlace: found.inPlace,
+      person: card.engineSettings,
+      project,
+      stageEffort,
+    });
+  }
+
+  /**
    * The one engine every session at `location` runs on, whatever its Role, with the level that gave
-   * it; none while no engine is listed.
+   * it and the Stand-in Engine list that applies there; none while no engine is listed.
    */
   async engineAt({
     projectId,
@@ -154,6 +184,7 @@ export class EngineCascade {
   ): Promise<{ readonly inPlace: EngineInPlace; readonly engine: Engine } | null> {
     const inPlace = engineInCascade({
       officeDefault: await this.engineModels.officeDefault(),
+      officeStandIns: (await this.engineModels.standIns()).standInEngines,
       project,
       work,
     });

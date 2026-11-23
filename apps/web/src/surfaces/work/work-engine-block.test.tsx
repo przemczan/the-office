@@ -119,6 +119,7 @@ const TASK: Task = {
 
 const CASCADE: TaskEngineCascade = {
   engine: { engineId: "work", engineType: "claude-code", level: "project-default" },
+  standIns: { from: "office", engineIds: [] },
   people: [
     {
       roleKey: "planner",

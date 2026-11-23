@@ -12,6 +12,7 @@ import {
   OfficeToolRegistry,
   ScriptedEngine,
   WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL,
+  type Engine,
   type SessionScript,
   ScriptedEngineModule,
 } from "../../engine/index.js";
@@ -709,6 +710,78 @@ describe("a Stage on the engine the Task sets", () => {
     expect(second.stageThread.move).toMatchObject({ move: "fresh", reason: "engine-changed" });
     expect(second.stageThread.engine).toBe(OTHER.id);
     expect(receivedSteps()).not.toContain("resume");
+  });
+
+  describe("on the Stand-in Engine the Start chose", () => {
+    const CODEX: Engine = {
+      id: "codex",
+      name: "Codex",
+      kind: "codex",
+      defaultModel: "gpt-6-luna",
+      defaultEffort: null,
+      apiKey: null,
+    };
+    const REASON = "Claude Code's 5-hour window would be passed.";
+
+    /** Ada's Stage, whose Start chose Codex for the cascade's Claude Code engine. */
+    function onCodex() {
+      const ada = aPerson("Ada");
+      cascade.setOnEngine(ada, CODEX.id, {
+        model: "gpt-6-luna",
+        engineType: "codex",
+        effort: "low",
+      });
+      return aStage({
+        roleKey: ada,
+        engineStandIns: [
+          {
+            engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+            standInId: CODEX.id,
+            engineName: FIRST_CLAUDE_CODE_ENGINE.name,
+            reason: REASON,
+          },
+        ],
+      });
+    }
+
+    it("opens on a stand-in of another type while the list that applies names it, with the person's model and effort for its type", async () => {
+      await startWith(started(...aTurn({ status: "done" })));
+      vi.spyOn(app.get(EngineModels), "engines").mockResolvedValue([
+        FIRST_CLAUDE_CODE_ENGINE,
+        CODEX,
+      ]);
+      cascade.standIns = { from: "project", engineIds: [CODEX.id] };
+
+      const { stageThread } = await aStageRun(onCodex());
+
+      expect(stageThread).toMatchObject({
+        engine: CODEX.id,
+        model: "gpt-6-luna",
+        standInFor: { engineId: FIRST_CLAUDE_CODE_ENGINE.id, reason: REASON },
+      });
+      expect(engine.sessions[0]?.options).toMatchObject({
+        engine: { id: CODEX.id },
+        model: "gpt-6-luna",
+        effort: "low",
+      });
+    });
+
+    it("opens on the cascade's engine once the list that applies no longer names the stand-in", async () => {
+      await startWith(started(...aTurn({ status: "done" })));
+      vi.spyOn(app.get(EngineModels), "engines").mockResolvedValue([
+        FIRST_CLAUDE_CODE_ENGINE,
+        CODEX,
+      ]);
+      cascade.standIns = { from: "office", engineIds: [] };
+
+      const { stageThread } = await aStageRun(onCodex());
+
+      expect(stageThread).toMatchObject({
+        engine: FIRST_CLAUDE_CODE_ENGINE.id,
+        model: cascade.officeDefault?.model,
+      });
+      expect(stageThread.standInFor).toBeUndefined();
+    });
   });
 });
 

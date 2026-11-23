@@ -269,6 +269,16 @@ export const workInCascadeSchema = engineInCascadeSchema.pick({
 export type WorkInCascade = z.infer<typeof workInCascadeSchema>;
 
 /**
+ * The Stand-in Engine list that applies in a place (spec §5.4.6): the Project's own while it uses
+ * it, else the Office's.
+ */
+export const standInsApplyingSchema = z.object({
+  from: z.enum(["office", "project"]),
+  engineIds: z.array(engineIdSchema),
+});
+export type StandInsApplying = z.infer<typeof standInsApplyingSchema>;
+
+/**
  * GET /tasks/:id/engine-cascade: the one engine the Task's sessions run on, and the model and effort
  * the Planner and each Role the Task's Stages name work with there, with the level that gave each;
  * `engine` and each `work` null while no engine is listed. Planner first, then in the Stages' order,
@@ -276,6 +286,7 @@ export type WorkInCascade = z.infer<typeof workInCascadeSchema>;
  */
 export const taskEngineCascadeSchema = z.object({
   engine: placeEngineInCascadeSchema.nullable(),
+  standIns: standInsApplyingSchema,
   people: z.array(
     z.object({
       roleKey: z.string(),

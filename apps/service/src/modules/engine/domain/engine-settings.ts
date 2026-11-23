@@ -1,5 +1,6 @@
 import type { EngineRemoval } from "./engine-removal.js";
 import { EngineSettingsRefused, ENGINES_CHANGED_MEANWHILE } from "./engine-settings-refused.js";
+import { standInListProblems, standInListWithout } from "./stand-in-engines.js";
 import {
   CLAUDE_CODE_MODELS,
   CODEX_MODELS,
@@ -199,8 +200,9 @@ export function officeDefaultEngineModel(settings: EngineSettings): EngineModel 
 
 /**
  * The settings once the removal is done: the engine gone and the Office default moved to the
- * replacement, with its engine type, or to none with the only engine, the engine dropped from the
- * Stand-in Engines, the rest kept. Refuses with every reason when they break a rule.
+ * replacement, with its engine type, or to none with the only engine, the replacement in the
+ * engine's place among the Stand-in Engines (`standInListWithout`), the rest kept. Refuses with
+ * every reason when they break a rule.
  */
 export function settingsWithoutEngine(
   stored: EngineSettings,
@@ -211,7 +213,11 @@ export function settingsWithoutEngine(
     officeDefault: stored.officeDefault && movedOfficeDefault(stored.officeDefault, removal),
     searchEndpoint: stored.searchEndpoint,
     modelPrices: stored.modelPrices,
-    standInEngines: stored.standInEngines.filter((engineId) => engineId !== removal.engineId),
+    standInEngines: standInListWithout(
+      stored.standInEngines,
+      removal.engineId,
+      removal.replacement?.id ?? null,
+    ),
     askBeforeSwitchAbove: stored.askBeforeSwitchAbove,
   };
   return settingsOf(stored, edit, []);
@@ -248,7 +254,7 @@ function settingsOf(
     offeredNow,
   );
   const standInEngines = edit.standInEngines ?? stored.standInEngines;
-  problems.push(...standInEngineProblems(standInEngines, engines));
+  problems.push(...standInListProblems(standInEngines, engines));
   const askBeforeSwitchAbove = edit.askBeforeSwitchAbove ?? stored.askBeforeSwitchAbove;
   if (
     !Number.isInteger(askBeforeSwitchAbove) ||
@@ -268,24 +274,6 @@ function settingsOf(
     standInEngines: [...standInEngines],
     askBeforeSwitchAbove,
   };
-}
-
-function standInEngineProblems(
-  standInEngines: readonly EngineId[],
-  engines: readonly Engine[],
-): string[] {
-  const problems: string[] = [];
-  const seen = new Set<EngineId>();
-  for (const engineId of standInEngines) {
-    const engine = engines.find(({ id }) => id === engineId);
-    if (engine === undefined) {
-      problems.push("Pick each Stand-in Engine among the engines listed.");
-    } else if (seen.has(engineId)) {
-      problems.push(`"${engine.name}" is listed twice as a Stand-in Engine.`);
-    }
-    seen.add(engineId);
-  }
-  return problems;
 }
 
 function changedEnginesOf(

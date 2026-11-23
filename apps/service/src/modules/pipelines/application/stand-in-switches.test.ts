@@ -27,6 +27,14 @@ const HOME: Engine = { ...FIRST_CLAUDE_CODE_ENGINE, id: "home", name: "Home" };
 const SPARE: Engine = { ...FIRST_CLAUDE_CODE_ENGINE, id: "spare", name: "Spare" };
 const ON_HOME: EngineModel = { engineId: HOME.id, model: "scripted" };
 const ON_SPARE: EngineModel = { engineId: SPARE.id, model: "scripted" };
+const CODEX: Engine = {
+  id: "codex",
+  name: "Codex",
+  kind: "codex",
+  defaultModel: "gpt-6-luna",
+  defaultEffort: null,
+  apiKey: null,
+};
 const ANN_LEE = { userId: "ann", name: "Ann Lee" };
 
 let pipelines: PipelinesApplication;
@@ -45,7 +53,7 @@ afterEach(async () => {
  */
 async function start(scripts: readonly SessionScript[]): Promise<void> {
   const settings = new EngineSettingsForTests({
-    engines: [FIRST_CLAUDE_CODE_ENGINE, HOME, SPARE],
+    engines: [FIRST_CLAUDE_CODE_ENGINE, HOME, SPARE, CODEX],
     standInEngines: [HOME.id, SPARE.id],
     askBeforeSwitchAbove: 100_000,
   });
@@ -61,7 +69,17 @@ async function start(scripts: readonly SessionScript[]): Promise<void> {
   pipelines.tasks.whenWentOnOnStandIn = (taskId, standIn) => {
     pipelines.records.put(taskId, aTaskRecord({ engineStandIns: [standIn] }));
   };
-  standInFor = vi.spyOn(EngineSessions.prototype, "standInFor").mockResolvedValue(ON_HOME);
+  standInFor = vi.spyOn(EngineSessions.prototype, "standInFor").mockResolvedValue(HOME.id);
+}
+
+/** The cascade answers `engineIds` as the Project's own Stand-in Engine list for every Task. */
+function projectStandIns(engineIds: readonly string[]): void {
+  const { officeDefault } = pipelines.cascade;
+  if (officeDefault === null) throw new Error("The cascade lists no engine.");
+  pipelines.cascade.officeDefault = {
+    ...officeDefault,
+    standIns: { from: "project", engineIds: [...engineIds] },
+  };
 }
 
 /** A Task whose Implement Stage was held waiting for the user's choice; its held run's id. */
@@ -118,7 +136,7 @@ describe("StandInSwitches, Switch now on a Stage waiting for a Stand-in Engine (
     await start([A_REFUSED_SESSION, anAgentSession(aDoneResult())]);
     const { taskId, runId } = await heldForChoice();
     // Home ran out meanwhile, so Engine answers the next with room.
-    standInFor.mockResolvedValue(ON_SPARE);
+    standInFor.mockResolvedValue(SPARE.id);
 
     const [result] = await switches().switch([runId], ANN_LEE);
     await walked(taskId);
@@ -145,6 +163,33 @@ describe("StandInSwitches, Switch now on a Stage waiting for a Stand-in Engine (
     });
     expect(pipelines.stageThreads.movedToStandIn).toEqual([]);
     expect(await choices().waiting()).toMatchObject([{ runId, standInNow: null }]);
+  });
+
+  it("asks for a Stand-in Engine of the session's type from the Project's own list", async () => {
+    await start([A_REFUSED_SESSION, anAgentSession(aDoneResult())]);
+    const { taskId, runId } = await heldForChoice();
+    projectStandIns([CODEX.id, SPARE.id]);
+    standInFor.mockRestore();
+
+    const [result] = await switches().switch([runId], ANN_LEE);
+    await walked(taskId);
+
+    // Codex, of another type, is passed over: the session is carried on its model.
+    expect(result).toMatchObject({ outcome: "switched", words: "It goes on on Spare." });
+    expect(pipelines.stageThreads.movedToStandIn).toMatchObject([{ standIn: ON_SPARE }]);
+  });
+
+  it("leaves the Stage paused when only a Stand-in Engine of another type has room", async () => {
+    await start([A_REFUSED_SESSION]);
+    const { taskId, runId } = await heldForChoice();
+    projectStandIns([CODEX.id]);
+    standInFor.mockRestore();
+
+    const [result] = await switches().switch([runId], ANN_LEE);
+
+    expect(result).toMatchObject({ runId, outcome: "no-room" });
+    expect(await pipelines.tasks.read(taskId)).toMatchObject({ state: "paused" });
+    expect(pipelines.stageThreads.movedToStandIn).toEqual([]);
   });
 
   it("leaves the Stage paused on its own Engine when its session can't be moved", async () => {

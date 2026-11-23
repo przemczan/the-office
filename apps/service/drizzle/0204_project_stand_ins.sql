@@ -1,0 +1,2 @@
+ALTER TABLE "projects" ADD COLUMN "stand_ins_use_own_list" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "projects" ADD COLUMN "stand_in_engine_ids" jsonb DEFAULT '[]'::jsonb NOT NULL;

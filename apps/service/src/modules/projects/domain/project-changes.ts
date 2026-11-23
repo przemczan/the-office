@@ -1,5 +1,5 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
-import type { EngineRemoval } from "../../engine/index.js";
+import { standInListWithout, type EngineRemoval } from "../../engine/index.js";
 import {
   DEFAULT_ISSUE_SETTINGS,
   type IssueSettings,
@@ -140,27 +140,44 @@ export function changeCommandsAsProposed(
 }
 
 /**
- * Moves the Project default naming the engine being removed to the replacement, which gives it its
- * type (spec §5.4.5, "Removing an engine"); a forced model or effort a new type doesn't offer goes
- * back to "Engine's default". Moved to none, with the only engine, the default and the force clear.
- * People's settings name engine types, so they stay. None when the default names another engine.
+ * Moves the Project's levels naming the engine being removed (spec §5.4.5, "Removing an engine"):
+ * the Project default to the replacement, which gives it its type, a forced model or effort a new
+ * type doesn't offer going back to "Engine's default", or, moved to none with the only engine, the
+ * default and the force clear; and its Stand-in Engine list, used or not, with the replacement in
+ * the engine's place (`standInListWithout`). People's settings name engine types, so they stay.
+ * None when no level names the engine.
  */
 export function moveEngineLevels(project: Project, removal: EngineRemoval): ProjectChanges {
-  const { default: projectDefault, force } = project.engine;
-  if (projectDefault?.engineId !== removal.engineId) return asProjectChanges(project, undefined);
   const { replacement } = removal;
-  const engine: ProjectEngine =
-    replacement === null
-      ? { ...project.engine, default: null, force: null }
-      : {
-          ...project.engine,
-          default: { engineType: replacement.kind, engineId: replacement.id },
-          force:
-            force && replacement.kind !== projectDefault.engineType
-              ? forceOfferedBy(force, replacement.kind, engineTypeOffersOf([replacement]))
-              : force,
-        };
+  const engine: ProjectEngine = {
+    ...project.engine,
+    ...movedDefault(project.engine, removal),
+    standIns: {
+      ...project.engine.standIns,
+      engineIds: standInListWithout(
+        project.engine.standIns.engineIds,
+        removal.engineId,
+        replacement?.id ?? null,
+      ),
+    },
+  };
   return asProjectChanges(project, engineChange(project, engine));
+}
+
+/** The Project default and force once the removal is done; as they are when it names another. */
+function movedDefault(
+  { default: projectDefault, force }: ProjectEngine,
+  { engineId, replacement }: EngineRemoval,
+): Pick<ProjectEngine, "default" | "force"> {
+  if (projectDefault?.engineId !== engineId) return { default: projectDefault, force };
+  if (replacement === null) return { default: null, force: null };
+  return {
+    default: { engineType: replacement.kind, engineId: replacement.id },
+    force:
+      force && replacement.kind !== projectDefault.engineType
+        ? forceOfferedBy(force, replacement.kind, engineTypeOffersOf([replacement]))
+        : force,
+  };
 }
 
 /** Each change applied to the Project the one before left, kept together. */
@@ -540,8 +557,9 @@ export function changeFeatures(
  * the default clears the force; a default changed to another type keeps the force on with what the
  * new type doesn't offer, among `offers`, back to "Engine's default". That the engines are listed
  * and offer what is set is checked by the caller (`projectEngineProblems`); that a Role is filled
- * under a person's key is not, since People reads these levels and not the other way round.
- * Undefined when nothing changes.
+ * under a person's key is not, since People reads these levels and not the other way round. The
+ * Stand-in Engine list sent replaces the Project's whole; turned off, its engines are kept as sent
+ * (spec §5.4.6, "A Project's own list"). Undefined when nothing changes.
  */
 export function changeProjectEngine(
   project: Project,
@@ -564,7 +582,8 @@ export function changeProjectEngine(
     force = forceOfferedBy(force, projectDefault.engineType, offers);
   }
   const people = change.people === undefined ? stored.people : keptPeople(change.people);
-  return engineChange(project, { default: projectDefault, force, people });
+  const standIns = change.standIns ?? stored.standIns;
+  return engineChange(project, { default: projectDefault, force, people, standIns });
 }
 
 /** The people sent, without those that set nothing; refused for a person named twice or by none. */

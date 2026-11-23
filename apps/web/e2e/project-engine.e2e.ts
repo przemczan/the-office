@@ -8,6 +8,7 @@ import {
   type Task,
 } from "@the-office/contracts";
 import { queryOfficeDatabase } from "./office-database.ts";
+import { screenshotScenario } from "./task-screenshots.ts";
 import { createTemporaryRepository, type TemporaryRepository } from "./temporary-repository.ts";
 
 // A Project's Engine card (spec §5.4.5; screens/project-page.md "Engine"), and where the Role card
@@ -182,6 +183,7 @@ test(
         default: { engineType: "claude-code", engineId: "claude-code" },
         force: { model: "claude-haiku-5-5", effort: "low" },
         people: [],
+        standIns: { useOwnList: false, engineIds: [] },
       });
 
       // The Role card and the Task's Runs on say the force gives it.
@@ -293,6 +295,85 @@ test(
     } finally {
       await page.request.put(`/api/projects/${project.id}/engine`, {
         data: { default: null, force: null, people: [] },
+      });
+    }
+  },
+);
+
+test(
+  "the user turns on a Project's own Stand-in Engines, adds one and goes back to the Office's list, greyed out",
+  { tag: "@full" },
+  async ({ page }) => {
+    const word = aWordOfItsOwn();
+    const project = await addedProject(page, `Stand-in shop ${word}`);
+    const officeList = (
+      (await (await page.request.get("/api/settings/engines")).json()) as {
+        readonly standInEngines: readonly string[];
+      }
+    ).standInEngines;
+    try {
+      await page.goto(`/projects/${project.id}/engine`);
+      const standIns = page.getByRole("region", { name: "Stand-in Engines" });
+      // The group's one switch, as the force's is (see above).
+      const ownList = standIns.getByRole("switch");
+      const rows = standIns.getByRole("list", { name: "Stand-in Engines" }).getByRole("listitem");
+
+      // Off: the Office's list under its link, read-only.
+      await expect(ownList).toHaveAttribute("aria-checked", "false");
+      await expect(standIns.getByRole("link", { name: "From Settings › Engines" })).toHaveAttribute(
+        "href",
+        "/settings/engines",
+      );
+      if (officeList.length === 0) {
+        await expect(standIns).toContainText("The Office has no Stand-in Engine.");
+      } else {
+        await expect(rows).toHaveCount(officeList.length);
+      }
+      await expect(standIns.getByLabel("Add a stand-in")).toHaveCount(0);
+      await screenshotScenario(page, "project-engine-stand-ins-office", { inView: standIns });
+
+      // On: the Project's own list, empty at first, then a stand-in added.
+      await ownList.click();
+      await expect(page.getByText(`${project.name} uses its own Stand-in Engines.`)).toBeVisible();
+      await expect(ownList).toHaveAttribute("aria-checked", "true");
+      await expect(standIns).toContainText(
+        `No Stand-in Engine in ${project.name}, so its work waits for its own engine's usage window to free up.`,
+      );
+      const add = standIns.getByLabel("Add a stand-in");
+      await add.selectOption({ index: 1 });
+      await expect(rows).toHaveCount(1);
+      const added = projectSchema.parse(
+        await (await page.request.get(`/api/projects/${project.id}`)).json(),
+      ).engine.standIns;
+      expect(added.useOwnList).toBe(true);
+      expect(added.engineIds).toHaveLength(1);
+      await expect(
+        standIns.getByRole("button", { name: /Remove .* from the Stand-in Engines/ }),
+      ).toBeEnabled();
+      await screenshotScenario(page, "project-engine-stand-ins-own", { inView: standIns });
+
+      // Kept on a reload.
+      await page.reload();
+      await expect(ownList).toHaveAttribute("aria-checked", "true");
+      await expect(rows).toHaveCount(1);
+
+      // Off again: the Office's list, greyed out; the Project's list kept for next time.
+      await ownList.click();
+      await expect(
+        page.getByText(`${project.name} uses the Office's Stand-in Engines again.`),
+      ).toBeVisible();
+      await expect(standIns.getByLabel("Add a stand-in")).toHaveCount(0);
+      await expect(standIns.getByRole("button", { name: /Remove/ })).toHaveCount(0);
+      if (officeList.length > 0) {
+        await expect(standIns.locator("ol[data-read-only]")).toBeVisible();
+      }
+      expect(
+        projectSchema.parse(await (await page.request.get(`/api/projects/${project.id}`)).json())
+          .engine.standIns,
+      ).toEqual({ useOwnList: false, engineIds: added.engineIds });
+    } finally {
+      await page.request.put(`/api/projects/${project.id}/engine`, {
+        data: { standIns: { useOwnList: false, engineIds: [] } },
       });
     }
   },

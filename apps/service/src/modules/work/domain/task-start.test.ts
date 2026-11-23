@@ -12,7 +12,7 @@ import {
 import type { Wait } from "./wait.js";
 import { ANN_LEE, aTask, NO_USAGE_AT_START } from "./work.fixtures.js";
 import { NO_STAND_INS } from "./stand-ins-at-start.js";
-import { onWorkWithPersonal } from "./stand-ins-at-start.fixtures.js";
+import { onWorkWithPersonal, onWorkWithStandIns } from "./stand-ins-at-start.fixtures.js";
 
 const ready = aTask({ id: "task-ready", state: "ready", projectId: "admin-panel" });
 
@@ -29,6 +29,9 @@ const conditions: StartConditions = {
   standIns: NO_STAND_INS,
   scheduledExitWait: undefined,
 };
+
+/** Every engine but Lab has what the Task's Agent Stages need. */
+const labIncapable = (engineId: string): boolean => engineId !== "lab";
 
 /** A Task already started elsewhere, by default on another Project and another person. */
 function started(id: string, fields: Partial<Task> = {}): Task {
@@ -99,6 +102,59 @@ describe("startTask", () => {
     );
 
     expect(task.engineStandIns).toEqual([]);
+  });
+
+  it("starts on a Stand-in Engine of another engine type", () => {
+    const { task } = startTask(
+      ready,
+      { ...conditions, ...onWorkWithStandIns(60, [["lab", 10]]) },
+      held([]),
+      ANN_LEE,
+    );
+
+    expect(task.engineStandIns).toEqual([
+      expect.objectContaining({ engineId: "work", standInId: "lab", standInName: "Lab" }),
+    ]);
+  });
+
+  it("passes over a Stand-in Engine lacking what the Agent Stages need", () => {
+    const { task } = startTask(
+      ready,
+      {
+        ...conditions,
+        ...onWorkWithStandIns(
+          60,
+          [
+            ["lab", 10],
+            ["personal", 10],
+          ],
+          { capable: labIncapable },
+        ),
+      },
+      held([]),
+      ANN_LEE,
+    );
+
+    expect(task.engineStandIns).toEqual([
+      expect.objectContaining({ engineId: "work", standInId: "personal" }),
+    ]);
+  });
+
+  it("starts on the first Stand-in Engine of the list that applies, the Project's own", () => {
+    const listed = onWorkWithStandIns(60, [
+      ["personal", 10],
+      ["lab", 10],
+    ]);
+    const projectsOwn = { ...listed.standIns, order: ["lab"] };
+
+    const { task } = startTask(
+      ready,
+      { ...conditions, ...listed, standIns: projectsOwn },
+      held([]),
+      ANN_LEE,
+    );
+
+    expect(task.engineStandIns).toEqual([expect.objectContaining({ standInId: "lab" })]);
   });
 
   it("waits with the added reason when no Stand-in Engine has room either", () => {

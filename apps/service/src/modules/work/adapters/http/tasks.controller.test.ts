@@ -43,6 +43,7 @@ import { Schedule } from "../../../../platform/schedule/schedule.js";
 import type { ManualSchedule } from "../../../../platform/schedule/schedule.fixtures.js";
 import {
   FireAlarmRepositoryForTests,
+  KnownEngineCascadeForTests,
   KnownProjectsForTests,
   ProjectInitiativeBranchesForTests,
   ProjectWorktreesForTests,
@@ -1151,6 +1152,18 @@ describe("Window caps", () => {
         expect.stringMatching(CASCADE_CAP),
         expect.stringMatching(/^No Stand-in Engine has room either: Personal: .+\.$/),
       ]);
+      expect((await readTask(task.id)).engineStandIns).toEqual([]);
+    });
+
+    it("weighs the Project's own Stand-in Engine list over the Office's", async () => {
+      await windowRead(95, 3 * HOUR);
+      await windowRead(10, 3 * HOUR, PERSONAL.id);
+      work.app.get(KnownEngineCascadeForTests).ownStandIns.set(projectId, []);
+      const task = await sixPercentTask();
+
+      const answer = startAnswerSchema.parse(await (await requestStart(task.id)).json());
+
+      expect(answer.queued?.reasons).toEqual([expect.stringMatching(CASCADE_CAP)]);
       expect((await readTask(task.id)).engineStandIns).toEqual([]);
     });
 

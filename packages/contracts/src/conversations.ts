@@ -1033,6 +1033,12 @@ export const messageSchema = z.discriminatedUnion("kind", [
     window: z.string(),
     resetsAt: z.iso.datetime(),
     personName: z.string().optional(),
+    /**
+     * The stand-in started the Thread fresh, being of another engine type or one whose session
+     * can't be carried: "…, so Pam went on on Codex, starting fresh". Absent on a carried session
+     * and on lines before it, which read as false.
+     */
+    fresh: z.boolean().optional(),
   }),
   /**
    * A model a level of the model and effort cascade set isn't offered by the engine the session

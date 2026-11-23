@@ -2,6 +2,7 @@ import {
   effortsTakenBy,
   ENGINE_TYPE_NAMES,
   offeredModels,
+  standInListProblems,
   type Effort,
   type Engine,
   type EngineKind,
@@ -11,6 +12,7 @@ import type {
   ProjectEngine,
   ProjectEngineDefault,
   ProjectEnginePerson,
+  ProjectStandIns,
 } from "./project.js";
 
 /** A save of the Project page's Engine block: a level sent replaces it, one left out stays. */
@@ -18,6 +20,7 @@ export interface ProjectEngineChange {
   readonly default?: ProjectEngineDefault | null;
   readonly force?: ModelEffort | null;
   readonly people?: readonly ProjectEnginePerson[];
+  readonly standIns?: ProjectStandIns;
 }
 
 /** What an engine type offers among the engines listed now: their models together, its efforts. */
@@ -41,8 +44,10 @@ export function engineTypeOffersOf(engines: readonly Engine[]): EngineTypeOffers
 /**
  * Why the Project can't run on `after` with the engines listed now, in the spec's words (§5.4.5,
  * "The API"): a default on an engine not listed or of another type than it names, a forced model
- * or effort its type doesn't offer, a person's model or effort their type doesn't offer. What is
- * already stored in `before` passes, so a setting for a type no engine is listed of can stay.
+ * or effort its type doesn't offer, a person's model or effort their type doesn't offer, and a
+ * changed Stand-in Engine list naming an engine not listed or one twice (`standInListProblems`),
+ * whether the Project uses it or not. What is already stored in `before` passes, so a setting for
+ * a type no engine is listed of can stay.
  */
 export function projectEngineProblems(
   after: ProjectEngine,
@@ -72,6 +77,9 @@ export function projectEngineProblems(
       const type = key as EngineKind;
       problems.push(...modelEffortProblems(type, setting, stored?.[type] ?? null, offers));
     }
+  }
+  if (!sameEngineIds(after.standIns.engineIds, before.standIns.engineIds)) {
+    problems.push(...standInListProblems(after.standIns.engineIds, engines));
   }
   return [...new Set(problems)];
 }
@@ -114,8 +122,18 @@ export function sameProjectEngine(first: ProjectEngine, second: ProjectEngine): 
     sameDefault(first.default, second.default) &&
     sameModelEffort(first.force, second.force) &&
     first.people.length === second.people.length &&
-    first.people.every((person, index) => samePerson(person, second.people[index]!))
+    first.people.every((person, index) => samePerson(person, second.people[index]!)) &&
+    sameStandIns(first.standIns, second.standIns)
   );
+}
+
+/** Whether two Stand-in Engine lists are the same, the toggle and the engines in order. */
+export function sameStandIns(first: ProjectStandIns, second: ProjectStandIns): boolean {
+  return first.useOwnList === second.useOwnList && sameEngineIds(first.engineIds, second.engineIds);
+}
+
+function sameEngineIds(first: readonly string[], second: readonly string[]): boolean {
+  return first.length === second.length && first.every((id, index) => id === second[index]);
 }
 
 export function sameDefault(

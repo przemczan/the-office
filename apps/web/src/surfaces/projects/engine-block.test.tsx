@@ -200,3 +200,138 @@ describe("the Engine card's Model and effort for everyone", () => {
     );
   });
 });
+
+function standIns(page: HTMLElement): HTMLElement {
+  return groupOf(page, "Stand-in Engines");
+}
+
+function ownListSwitch(page: HTMLElement): HTMLElement {
+  const found = standIns(page).querySelector<HTMLElement>('[role="switch"]');
+  if (!found) throw new Error("There is no own-list switch.");
+  return found;
+}
+
+function rowsOf(page: HTMLElement): HTMLOListElement | null {
+  return standIns(page).querySelector<HTMLOListElement>('ol[aria-label="Stand-in Engines"]');
+}
+
+const OWN = (engineIds: string[]) => ({ standIns: { useOwnList: true, engineIds } });
+
+describe("the Engine card's Stand-in Engines", () => {
+  afterEach(closeCard);
+
+  it("shows the Office's list greyed out and read-only under its link while off", async () => {
+    const { page } = await engineCard(projectWith({}));
+
+    expect(ownListSwitch(page).getAttribute("aria-checked")).toBe("false");
+    const link = standIns(page).querySelector("a");
+    expect(link?.textContent).toBe("From Settings › Engines");
+    expect(link?.getAttribute("href")).toBe("/settings/engines");
+    const rows = rowsOf(page);
+    expect(rows?.hasAttribute("data-read-only")).toBe(true);
+    expect([...(rows?.querySelectorAll("li") ?? [])].map((row) => row.textContent)).toEqual([
+      "1Personal",
+      "2Codex account",
+    ]);
+    expect(rows?.querySelector('[role="img"]')?.getAttribute("aria-label")).toBe("Claude Code");
+    expect(buttonNamed(standIns(page), "Move Personal up")).toBeUndefined();
+    expect(() => selectIn(standIns(page), "Add a stand-in")).toThrow(
+      "There is no field Add a stand-in.",
+    );
+  });
+
+  it("shows no list, nor an empty one, until the engines are read", async () => {
+    const { page } = await engineCard(
+      projectWith({ standIns: { useOwnList: true, engineIds: ["codex-1"] } }),
+      {},
+      { settingsRead: false },
+    );
+
+    expect(rowsOf(page)).toBeNull();
+    expect(shownText(standIns(page))).not.toContain("codex-1");
+  });
+
+  it("turns the Project's own list on, keeping its list, with the toast", async () => {
+    const { page, sent } = await engineCard(
+      projectWith({ standIns: { useOwnList: false, engineIds: ["codex-1"] } }),
+      { [PUT_ENGINE]: savedAs(projectWith(OWN(["codex-1"]))) },
+    );
+
+    click(ownListSwitch(page));
+
+    await until(() => expect(shownText(page)).toContain("Shop uses its own Stand-in Engines."));
+    expect(sent.find(({ request }) => request === PUT_ENGINE)?.body).toEqual(OWN(["codex-1"]));
+    expect(rowsOf(page)?.hasAttribute("data-read-only")).toBe(false);
+    expect(shownText(standIns(page))).toContain(
+      "Another engine type: a running Stage waits for the reset rather than switch to it.",
+    );
+  });
+
+  it("says when the Project's own list is empty, and adds an engine of any type", async () => {
+    const { page, sent } = await engineCard(projectWith(OWN([])), {
+      [PUT_ENGINE]: savedAs(projectWith(OWN(["personal"]))),
+    });
+
+    expect(shownText(standIns(page))).toContain(
+      "No Stand-in Engine in Shop, so its work waits for its own engine's usage window to free up.",
+    );
+    const add = selectIn(standIns(page), "Add a stand-in");
+    expect(optionLabels(add).slice(1)).toEqual(["Codex account", "Work account", "Personal"]);
+    await pick(add, "personal");
+
+    await until(() => expect(rowsOf(page)).not.toBeNull());
+    expect(sent.find(({ request }) => request === PUT_ENGINE)?.body).toEqual(OWN(["personal"]));
+    expect(shownText(page)).not.toContain("uses its own Stand-in Engines.");
+  });
+
+  it("notes only a row of another type than the Project's engine", async () => {
+    const { page } = await engineCard(
+      projectWith({ default: ON_CODEX, ...OWN(["personal", "codex-1"]) }),
+    );
+
+    const [personal, codex] = [...(rowsOf(page)?.querySelectorAll("li") ?? [])];
+    expect(personal?.textContent).toContain("Another engine type");
+    expect(codex?.textContent).not.toContain("Another engine type");
+  });
+
+  it("moves and removes a stand-in, sending the whole list", async () => {
+    const { page, sent } = await engineCard(projectWith(OWN(["personal", "codex-1"])), {
+      [PUT_ENGINE]: savedAs(projectWith(OWN(["codex-1", "personal"]))),
+    });
+
+    click(buttonNamed(standIns(page), "Move Codex account up"));
+
+    await until(() => expect(sent.some(({ request }) => request === PUT_ENGINE)).toBe(true));
+    expect(sent.find(({ request }) => request === PUT_ENGINE)?.body).toEqual(
+      OWN(["codex-1", "personal"]),
+    );
+  });
+
+  it("goes back to the Office's list with its toast, keeping the Project's", async () => {
+    const { page } = await engineCard(projectWith(OWN(["personal"])), {
+      [PUT_ENGINE]: savedAs(
+        projectWith({ standIns: { useOwnList: false, engineIds: ["personal"] } }),
+      ),
+    });
+
+    click(ownListSwitch(page));
+    await until(() =>
+      expect(shownText(page)).toContain("Shop uses the Office's Stand-in Engines again."),
+    );
+    expect(rowsOf(page)?.hasAttribute("data-read-only")).toBe(true);
+  });
+
+  it("shows a refusal under its group", async () => {
+    const { page } = await engineCard(projectWith(OWN(["personal"])), {
+      [PUT_ENGINE]: refused("Pick each Stand-in Engine among the engines listed."),
+    });
+
+    click(buttonNamed(standIns(page), "Remove Personal from the Stand-in Engines"));
+
+    await until(() =>
+      expect(shownText(standIns(page))).toContain(
+        "Pick each Stand-in Engine among the engines listed.",
+      ),
+    );
+  });
+});

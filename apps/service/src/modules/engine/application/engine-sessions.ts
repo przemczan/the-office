@@ -204,27 +204,59 @@ export class EngineSessions {
 
   /**
    * The Stand-in Engine a session running on `running` goes on on once its turn was refused for a
-   * used-up usage window: the first in the order of Settings › Engines that serves the same model
-   * and has room (`engineToRunOn`), never `running` itself; null when none has, or when a session
-   * on `running` can't be carried. An engine has room when it is a Claude Code engine with the
-   * `carrySession` capability, its usage window isn't used up and its latest reading shows it free
-   * or it hasn't been read yet.
+   * used-up usage window (spec §5.4.6): the first of `standIns`, the list that applies where the
+   * session runs (the caller's to give), that has every capability of `needs` and has room
+   * (`engineToRunOn`), never `running` itself; null when none has. With `sameEngineType`, as a
+   * running Stage, Switch now and a carried Thread ask, only stand-ins of `running`'s type that can
+   * carry its session count, and none when a session on `running` can't be carried. An engine has
+   * room when its usage window isn't used up and its latest reading shows it free or it hasn't been
+   * read yet.
    */
-  async standInFor(running: EngineModel): Promise<EngineModel | null> {
-    const settings = await this.engineModels.standIns();
-    const engineOf = (engineId: EngineId) => settings.engines.find(({ id }) => id === engineId);
-    const runningEngine = engineOf(running.engineId);
-    if (runningEngine === undefined || !this.carriesSessions(runningEngine)) return null;
-    return engineToRunOn(running, settings, (engineId) => {
-      if (engineId === running.engineId) return false;
-      const engine = engineOf(engineId);
-      return (
-        engine !== undefined &&
-        this.carriesSessions(engine) &&
-        this.usageWindows.usedUpUntil(engineId) === undefined &&
-        this.usageWindows.latestShowsFree(engineId)
-      );
-    });
+  async standInFor(running: EngineId, options: StandInOptions): Promise<EngineId | null> {
+    const { standIns, sameEngineType = false, needs = [] } = options;
+    const { engines } = await this.engineModels.standIns();
+    const engineOf = (engineId: EngineId) => engines.find(({ id }) => id === engineId);
+    const runningEngine = engineOf(running);
+    if (runningEngine === undefined) return null;
+    if (sameEngineType && !this.carriesSessions(runningEngine)) return null;
+    return engineToRunOn(
+      running,
+      standIns,
+      engines,
+      (engineId) => {
+        if (engineId === running) return false;
+        const engine = engineOf(engineId);
+        return (
+          engine !== undefined &&
+          (!sameEngineType || this.carriesSessions(engine)) &&
+          this.usageWindows.usedUpUntil(engineId) === undefined &&
+          this.usageWindows.latestShowsFree(engineId)
+        );
+      },
+      { sameEngineType, capable: this.capableOf(engines, needs) },
+    );
+  }
+
+  /**
+   * Whether an engine among `engines` has every capability of `needs`, for `engineToRunOn`; an
+   * engine no longer listed has none.
+   */
+  capableOf(
+    engines: readonly Engine[],
+    needs: readonly EngineCapability[],
+  ): (engineId: EngineId) => boolean {
+    return (engineId) => {
+      const engine = engines.find(({ id }) => id === engineId);
+      if (engine === undefined) return false;
+      const { capabilities } = this.engines.of(engine);
+      return needs.every((capability) => capabilities[capability]);
+    };
+  }
+
+  /** Whether a session on `engineId` can be carried to or from another: Claude Code's alone. */
+  async carriesSessionsOf(engineId: EngineId): Promise<boolean> {
+    const engine = await this.find(engineId);
+    return engine !== undefined && this.carriesSessions(engine);
   }
 
   /**
@@ -516,4 +548,14 @@ function isRefusal(error: unknown): boolean {
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/** What `EngineSessions.standInFor` weighs besides the running engine. */
+export interface StandInOptions {
+  /** The Stand-in Engine list that applies where the session runs: the Project's own or the Office's. */
+  readonly standIns: readonly EngineId[];
+  /** Only stand-ins of the running engine's type that can carry its session count. */
+  readonly sameEngineType?: boolean;
+  /** The capabilities the session needs of a stand-in. */
+  readonly needs?: readonly EngineCapability[];
 }

@@ -5,6 +5,7 @@ import {
   type ModelEffort,
   type Project,
   type ProjectEngineChange,
+  type ProjectStandIns,
   type RoleCardOptions,
 } from "@the-office/contracts";
 import { Button, Dialog, Select, Switch } from "@the-office/ui";
@@ -27,6 +28,7 @@ import {
   EnginePeople,
   modelChoices,
 } from "./engine-people.tsx";
+import { EngineStandIns } from "./engine-stand-ins.tsx";
 import { ProjectBlock } from "./project-block.tsx";
 import {
   FORCE_LABEL,
@@ -40,6 +42,7 @@ import {
   forceOnType,
   forceToast,
   personTypesOf,
+  standInsToast,
   turnOffTheForceWords,
   typeChoicesOf,
   typeOfferOf,
@@ -48,8 +51,9 @@ import {
 
 /**
  * A Project's Engine card (spec §5.4.5; screens/project-page.md "Engine"): where its sessions run,
- * the model and effort forced for everyone on that engine type, and each person's own here. Each
- * group saves at once, sending only its own level; a person's settings save from their window.
+ * the model and effort forced for everyone on that engine type, each person's own here, and its
+ * Stand-in Engines. Each group saves at once, sending only its own level; a person's settings save
+ * from their window.
  */
 export function EngineBlock({ project }: { readonly project: Project }): ReactNode {
   const settings = useQuery(engineSettingsQuery());
@@ -79,16 +83,26 @@ export function EngineBlock({ project }: { readonly project: Project }): ReactNo
       if (type) showToast(forceToast(saved.name, type, force));
     },
   });
+  const standingIn = useMutation({
+    // `turned` is weighed as the change is made: by the answer the Project may be read again.
+    mutationFn: ({ standIns }: { readonly standIns: ProjectStandIns; readonly turned: boolean }) =>
+      changeProjectEngine(project.id, { standIns }),
+    onSuccess: (saved, { turned }) => {
+      keep(saved);
+      if (turned) showToast(standInsToast(saved.name, saved.engine.standIns.useOwnList));
+    },
+  });
   const choices = typeChoicesOf(settings.data?.engines ?? []);
   const officeDefault = settings.data?.officeDefault ?? null;
   const { default: projectDefault, force } = project.engine;
   const projectType = projectDefault?.engineType ?? null;
-  const saving = choosingDefault.isPending || forcing.isPending;
+  const saving = choosingDefault.isPending || forcing.isPending || standingIn.isPending;
   const disabled = settings.data === undefined || options.data === undefined || saving;
   // A refusal says why the last change wasn't saved, so the next change clears it.
   const clearRefusals = (): void => {
     choosingDefault.reset();
     forcing.reset();
+    standingIn.reset();
   };
   const pickDefault = (picked: EngineTypeAccount | null): void => {
     clearRefusals();
@@ -159,6 +173,21 @@ export function EngineBlock({ project }: { readonly project: Project }): ReactNo
           options={options.data}
           roles={roles}
           disabled={disabled}
+        />
+        <EngineStandIns
+          projectName={project.name}
+          standIns={project.engine.standIns}
+          settings={settings.data}
+          projectType={projectType ?? officeDefault?.engineType ?? null}
+          disabled={disabled}
+          error={standingIn.error}
+          onChange={(standIns) => {
+            clearRefusals();
+            standingIn.mutate({
+              standIns,
+              turned: standIns.useOwnList !== project.engine.standIns.useOwnList,
+            });
+          }}
         />
       </div>
       {confirming && (

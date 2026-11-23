@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { boolean, check, integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
-import type { EngineKind } from "../../../engine/index.js";
+import type { EngineId, EngineKind } from "../../../engine/index.js";
 import type {
   ModelEffort,
   ProjectCommand,
@@ -79,6 +79,13 @@ export const projects = pgTable(
     /** The Project's setting for each person, at most one per Role key. */
     enginePeople: jsonb("engine_people")
       .$type<readonly ProjectEnginePerson[]>()
+      .notNull()
+      .default([]),
+    /** Whether the Project uses its own Stand-in Engine list rather than the Office's. */
+    standInsUseOwnList: boolean("stand_ins_use_own_list").notNull().default(false),
+    /** The Project's own Stand-in Engine list, in order; kept while the toggle is off. */
+    standInEngineIds: jsonb("stand_in_engine_ids")
+      .$type<readonly EngineId[]>()
       .notNull()
       .default([]),
     runEnvironment: text("run_environment")

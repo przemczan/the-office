@@ -163,7 +163,22 @@ describe("changedEngineSettings", () => {
 });
 
 describe("settingsWithoutEngine", () => {
-  it("drops the removed engine from the Stand-in Engines, keeping the others' order", () => {
+  it("puts the replacement in the removed engine's place among the Stand-in Engines", () => {
+    const settings = {
+      ...stored,
+      engines: [...stored.engines, codex],
+      standInEngines: ["codex", "strata"],
+    };
+
+    const changed = settingsWithoutEngine(settings, {
+      engineId: "strata",
+      replacement: FIRST_CLAUDE_CODE_ENGINE,
+    });
+
+    expect(changed.standInEngines).toEqual(["codex", "claude-code"]);
+  });
+
+  it("drops the removed engine from Stand-in Engines already naming the replacement, keeping the others' order", () => {
     const settings = {
       ...stored,
       engines: [...stored.engines, codex],

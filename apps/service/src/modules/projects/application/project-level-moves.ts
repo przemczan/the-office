@@ -3,6 +3,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import {
   EngineModels,
   EngineReferenceMoves,
+  movedStandInList,
   type Engine,
   type EngineRemoval,
   type MovedEngineReference,
@@ -13,7 +14,8 @@ import { ProjectRepository } from "../ports/project-repository.js";
 
 /**
  * Moves each Project default naming an engine being removed to the replacement, which gives it its
- * type; people's settings name engine types, so they stay (spec §5.4.5, "Removing an engine").
+ * type, and puts the replacement in its place in each Project's own Stand-in Engine list, used or
+ * not; people's settings name engine types, so they stay (spec §5.4.5, "Removing an engine").
  * Engine's check of the removal has weighed the moved levels already, so they aren't checked again
  * here, as `ProjectService.changeEngine` would.
  */
@@ -51,7 +53,8 @@ export class ProjectLevelMoves implements OnModuleInit {
 
   private async projectsNaming(engineId: string): Promise<Project[]> {
     return (await this.repository.list()).filter(
-      ({ engine }) => engine.default?.engineId === engineId,
+      ({ engine }) =>
+        engine.default?.engineId === engineId || engine.standIns.engineIds.includes(engineId),
     );
   }
 }
@@ -59,22 +62,29 @@ export class ProjectLevelMoves implements OnModuleInit {
 /**
  * Where the removal puts the Project's default, when it names the engine: an account, shown on
  * each engine's default model as the Office default's move is, since a Project default names no
- * model.
+ * model; then its own Stand-in Engine list's move, when the list names it (`movedStandInList`).
  */
 function projectLevelMoves(
   project: Project,
   removal: EngineRemoval,
   removed: Engine | undefined,
 ): MovedEngineReference[] {
-  if (project.engine.default?.engineId !== removal.engineId) return [];
+  const where = { id: project.id, name: project.name };
   const { replacement } = removal;
+  const projectDefault: MovedEngineReference[] =
+    project.engine.default?.engineId === removal.engineId
+      ? [
+          {
+            roleKey: null,
+            project: where,
+            work: null,
+            from: { engineId: removal.engineId, model: removed?.defaultModel ?? "" },
+            to: replacement && { engineId: replacement.id, model: replacement.defaultModel },
+          },
+        ]
+      : [];
   return [
-    {
-      roleKey: null,
-      project: { id: project.id, name: project.name },
-      work: null,
-      from: { engineId: removal.engineId, model: removed?.defaultModel ?? "" },
-      to: replacement && { engineId: replacement.id, model: replacement.defaultModel },
-    },
+    ...projectDefault,
+    ...movedStandInList(project.engine.standIns.engineIds, removal, removed, where),
   ];
 }

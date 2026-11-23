@@ -414,23 +414,30 @@ export class StageThreads {
   > {
     const current = await this.roleCards.forNewSession(request.roleKey);
     const held = await this.duties.heldBy(request.roleKey);
-    const cascade = await this.engineCascade.of(
-      request.roleKey,
-      { projectId: request.projectId, taskId: request.taskId },
-      { stageEffort: request.effort },
-    );
+    const location = { projectId: request.projectId, taskId: request.taskId };
+    const work = { stageEffort: request.effort };
+    const cascade = await this.engineCascade.of(request.roleKey, location, work);
     // Mapped before the Context policy compares it with the session's engine, so a session is
-    // never resumed on another engine; a stand-in removed since gives the cascade's back.
+    // never resumed on another engine; a stand-in removed since, or no longer in the list that
+    // applies, gives the cascade's back.
     const through = engineThroughStandIns(
-      cascade,
+      cascade.engineId,
       request.engineStandIns,
       await this.engineModels.engines(),
+      cascade.standIns.engineIds,
     );
+    // On a Stand-in Engine, of the same type or another, the person works with their model and
+    // effort for its type.
+    const landed =
+      through === cascade.engineId
+        ? cascade
+        : await this.engineCascade.onEngine(request.roleKey, through, location, work);
     const applying: StageEngine = {
-      ...through,
-      effort: cascade.effort,
-      // On a Stand-in Engine the model is the stand-in's, so nothing gave way there.
-      ...(through.engineId === cascade.engineId &&
+      engineId: landed.engineId,
+      model: landed.model,
+      effort: landed.effort,
+      // A model giving way is logged only on the cascade's own engine, never on a stand-in.
+      ...(through === cascade.engineId &&
         cascade.gaveWay !== undefined && { gaveWay: cascade.gaveWay }),
     };
     const standIn =

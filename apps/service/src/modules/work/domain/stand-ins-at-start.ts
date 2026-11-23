@@ -1,4 +1,4 @@
-import { engineToRunOn, offeredModels, type Engine, type EngineId } from "../../engine/index.js";
+import { engineToRunOn, type Engine, type EngineId } from "../../engine/index.js";
 import {
   dailyWithStarted,
   exceededCaps,
@@ -17,8 +17,10 @@ import type { Wait } from "./wait.js";
 /*
  * Stand-in Engines at Start (spec §2.1, "A queue for Start"; §5.4): a cascade's engine whose Window
  * cap the Start would pass, or whose usage window is used up, hands the Task's Stages on it to the
- * first Stand-in Engine that serves every model they use and has room for its estimate. A Daily cap
- * is a spending limit, not a used-up subscription, so it never hands a Task on: it queues it.
+ * first Stand-in Engine of the list that applies that has every capability its Agent Stages need
+ * and room for its estimate, whatever its engine type: the person's model and effort for that type
+ * apply there. A Daily cap is a spending limit, not a used-up subscription, so it never hands a
+ * Task on: it queues it.
  */
 
 /** A Stand-in Engine a Task's run works on in place of a cascade's engine, and why. */
@@ -50,18 +52,23 @@ export interface StandInEngineAtStart {
 export interface StandInsAtStart {
   /** The engines listed now. */
   readonly engines: readonly Engine[];
-  /** The Stand-in Engines' ids, in their order. */
+  /** The ids of the Stand-in Engine list that applies to the Task (its Project's own or the Office's), in order. */
   readonly order: readonly EngineId[];
-  /** The models the Task's Stages use on each of the cascade's engines. */
-  readonly modelsOn: ReadonlyMap<EngineId, readonly string[]>;
-  /** Each listed Stand-in Engine, in no particular order. */
+  /** The cascade's engines the Task's Agent Stages run on, each once, in the Stages' order. */
+  readonly cascadeEngines: readonly EngineId[];
+  /**
+   * Whether an engine has every capability the Task's Agent Stages need (Office tools, a held
+   * answer); any engine has when left out.
+   */
+  readonly capable?: (engineId: EngineId) => boolean;
+  /** Each listed Stand-in Engine of `order`, in no particular order. */
   readonly standIns: readonly StandInEngineAtStart[];
 }
 
 export const NO_STAND_INS: StandInsAtStart = {
   engines: [],
   order: [],
-  modelsOn: new Map(),
+  cascadeEngines: [],
   standIns: [],
 };
 
@@ -83,10 +90,10 @@ export interface UsageOnStandIns {
 export type UsageCapsChoice = "wait" | "start-anyway";
 
 /**
- * Hands each of the cascade's engines with no room to the first Stand-in Engine with room, then
- * weighs the caps as a Start does. With none with room, a Stand-in Engine that serves the models
- * adds its own wait and resets; with none that serves them, the waits are the caps' alone. Past the
- * caps, room is only a window not used up: the caps neither hand a Task on nor hold it.
+ * Hands each of the cascade's engines with no room to the first capable Stand-in Engine with room,
+ * then weighs the caps as a Start does. With none with room, each capable Stand-in Engine adds its
+ * own wait and resets; with none capable, the waits are the caps' alone. Past the caps, room is
+ * only a window not used up: the caps neither hand a Task on nor hold it.
  */
 export function onStandIns(
   usage: UsageAtStart,
@@ -98,24 +105,27 @@ export function onStandIns(
   let weighed = usage;
   const chosen: EngineStandIn[] = [];
   const full: { readonly standIn: EngineId; readonly caps: readonly ExceededCap[] }[] = [];
-  for (const [engineId, models] of standIns.modelsOn) {
+  const { capable = () => true } = standIns;
+  for (const engineId of standIns.cascadeEngines) {
     const noRoom = noRoomOn(holding(weighed), engineId);
     if (noRoom.length === 0) continue;
-    const serving = standIns.standIns.filter((standIn) =>
-      servesEvery(standIns, standIn.engineId, engineId, models),
+    const candidates = standIns.standIns.filter((standIn) =>
+      couldTakeOn(standIns, standIn.engineId, engineId),
     );
     const capsOf = new Map(
-      serving.map((standIn) => [
+      candidates.map((standIn) => [
         standIn.engineId,
         standInCaps(holding(weighed), engineId, holdingStandIn(standIn, choice)),
       ]),
     );
     const runOn = engineToRunOn(
-      { engineId, model: models[0] ?? "" },
-      { engines: standIns.engines, standInEngines: standIns.order },
-      (candidate) => capsOf.get(candidate)?.length === 0,
+      engineId,
+      standIns.order,
+      standIns.engines,
+      (candidate) => candidate !== engineId && capsOf.get(candidate)?.length === 0,
+      { capable },
     );
-    const standIn = serving.find(({ engineId: id }) => id === runOn?.engineId);
+    const standIn = candidates.find(({ engineId: id }) => id === runOn);
     if (standIn) {
       weighed = movedOnto(weighed, engineId, standIn);
       chosen.push({
@@ -187,17 +197,21 @@ function holdingStandIn(
   return choice === "wait" ? standIn : { ...standIn, windows: undefined, daily: undefined };
 }
 
-/** Whether the Stand-in Engine is another listed engine serving every model the Task uses. */
-function servesEvery(
-  { engines }: StandInsAtStart,
+/**
+ * Whether the Stand-in Engine could take on the Task's Stages on `engineId`, room aside: another
+ * engine, listed, in the list that applies and with every capability the Stages need, of any type.
+ */
+function couldTakeOn(
+  { engines, order, capable = () => true }: StandInsAtStart,
   standInId: EngineId,
   engineId: EngineId,
-  models: readonly string[],
 ): boolean {
-  const engine = engines.find(({ id }) => id === standInId);
-  if (standInId === engineId || engine === undefined) return false;
-  const offered = offeredModels(engine);
-  return models.every((model) => offered.includes(model));
+  return (
+    standInId !== engineId &&
+    order.includes(standInId) &&
+    engines.some(({ id }) => id === standInId) &&
+    capable(standInId)
+  );
 }
 
 /**
@@ -265,8 +279,8 @@ function movedOnto(
 }
 
 /**
- * "No Stand-in Engine has room either", with what holds each Stand-in Engine that serves the
- * Task's models.
+ * "No Stand-in Engine has room either", with what holds each Stand-in Engine that could take the
+ * Task on, of any type, as it has every capability its Agent Stages need.
  */
 function noStandInWait(
   { engineNames }: UsageAtStart,

@@ -76,4 +76,18 @@ describe("a Thread's line for a session that went on on a Stand-in Engine (spec 
       `Claude Code's 5-hour window was used up until ${clockOf(LATER_TODAY)}, so Pam went on on Claude Code 2`,
     );
   });
+
+  it("says the session started fresh on another engine type", () => {
+    expect(
+      engineSwitchedWords(
+        { ...switched, toName: "Codex", resetsAt: LATER_TODAY, personName: "Pam", fresh: true },
+        NOW,
+      ),
+    ).toBe(
+      `Claude Code's 5-hour window was used up until ${clockOf(LATER_TODAY)}, so Pam went on on Codex, starting fresh`,
+    );
+    expect(
+      engineSwitchedWords({ ...switched, resetsAt: LATER_TODAY, fresh: false }, NOW),
+    ).not.toContain("starting fresh");
+  });
 });

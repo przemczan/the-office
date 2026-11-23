@@ -637,8 +637,12 @@ const OPUS_ON_CLAUDE = {
   engineSettings: { "claude-code": { model: "claude-opus-5-5", effort: "high" } },
 } as const;
 
+const NO_STAND_INS = { useOwnList: false, engineIds: [] };
+
 function withEngine(engine: Partial<ProjectEngine>) {
-  return aProject({ engine: { default: null, force: null, people: [], ...engine } });
+  return aProject({
+    engine: { default: null, force: null, people: [], standIns: NO_STAND_INS, ...engine },
+  });
 }
 
 describe("changeProjectEngine", () => {
@@ -651,6 +655,7 @@ describe("changeProjectEngine", () => {
       default: CLAUDE,
       force: { model: null, effort: "max" },
       people: [OPUS_ON_CLAUDE],
+      standIns: NO_STAND_INS,
     });
     expect(change?.event).toBeInstanceOf(ProjectEngineChanged);
     expect(change?.event).toMatchObject({
@@ -691,6 +696,7 @@ describe("changeProjectEngine", () => {
       default: null,
       force: null,
       people: [],
+      standIns: NO_STAND_INS,
     });
   });
 
@@ -735,6 +741,36 @@ describe("changeProjectEngine", () => {
 
     expect(change?.project.engine.people).toEqual([OPUS_ON_CLAUDE]);
   });
+
+  it("replaces the Stand-in Engine list with the one sent, and keeps its engines when it is turned off", () => {
+    const own = withEngine({ standIns: { useOwnList: true, engineIds: ["codex", "claude-code"] } });
+
+    const turnedOff = changeProjectEngine(
+      own,
+      { standIns: { useOwnList: false, engineIds: ["codex", "claude-code"] } },
+      OFFERS,
+    );
+    const reordered = changeProjectEngine(
+      own,
+      { standIns: { useOwnList: true, engineIds: ["claude-code", "codex"] } },
+      OFFERS,
+    );
+
+    expect(turnedOff?.project.engine.standIns).toEqual({
+      useOwnList: false,
+      engineIds: ["codex", "claude-code"],
+    });
+    expect(turnedOff?.event).toBeInstanceOf(ProjectEngineChanged);
+    expect(reordered?.project.engine.standIns.engineIds).toEqual(["claude-code", "codex"]);
+    expect(changeProjectEngine(own, { default: null }, OFFERS)).toBeUndefined();
+    expect(
+      changeProjectEngine(
+        own,
+        { standIns: { useOwnList: true, engineIds: ["codex", "claude-code"] } },
+        OFFERS,
+      ),
+    ).toBeUndefined();
+  });
 });
 
 describe("moveEngineLevels", () => {
@@ -764,6 +800,7 @@ describe("moveEngineLevels", () => {
       default: { engineType: "claude-code", engineId: "second" },
       force: { model: "claude-opus-5-5", effort: "max" },
       people: [OPUS_ON_CLAUDE],
+      standIns: NO_STAND_INS,
     });
     expect(events).toEqual([
       expect.objectContaining({ projectId: "admin-panel", engine: moved.engine }),
@@ -786,6 +823,7 @@ describe("moveEngineLevels", () => {
       default: CODEX,
       force: { model: null, effort: null },
       people: [OPUS_ON_CLAUDE],
+      standIns: NO_STAND_INS,
     });
   });
 
@@ -801,12 +839,52 @@ describe("moveEngineLevels", () => {
       replacement: null,
     });
 
-    expect(moved.engine).toEqual({ default: null, force: null, people: [OPUS_ON_CLAUDE] });
+    expect(moved.engine).toEqual({
+      default: null,
+      force: null,
+      people: [OPUS_ON_CLAUDE],
+      standIns: NO_STAND_INS,
+    });
     expect(events).toHaveLength(1);
   });
 
-  it("changes nothing when the default names another engine", () => {
-    const project = withEngine({ default: CODEX, people: [OPUS_ON_CLAUDE] });
+  it("puts the replacement in the engine's place in the Project's own list, used or not", () => {
+    for (const useOwnList of [true, false]) {
+      const listed = withEngine({ standIns: { useOwnList, engineIds: ["claude-code", "codex"] } });
+      const { project: moved, events } = moveEngineLevels(listed, {
+        engineId: "claude-code",
+        replacement: SECOND_CLAUDE,
+      });
+
+      expect(moved.engine.standIns).toEqual({ useOwnList, engineIds: ["second", "codex"] });
+      expect(events).toHaveLength(1);
+    }
+  });
+
+  it("drops the engine from a list already naming the replacement, or with none", () => {
+    const project = withEngine({
+      default: CODEX,
+      standIns: { useOwnList: true, engineIds: ["claude-code", "codex"] },
+    });
+
+    expect(
+      moveEngineLevels(project, { engineId: "claude-code", replacement: CODEX_ENGINE }).project
+        .engine,
+    ).toMatchObject({ default: CODEX, standIns: { useOwnList: true, engineIds: ["codex"] } });
+    expect(
+      moveEngineLevels(withEngine({ standIns: { useOwnList: true, engineIds: ["claude-code"] } }), {
+        engineId: "claude-code",
+        replacement: null,
+      }).project.engine.standIns,
+    ).toEqual({ useOwnList: true, engineIds: [] });
+  });
+
+  it("changes nothing when no level names the engine", () => {
+    const project = withEngine({
+      default: CODEX,
+      people: [OPUS_ON_CLAUDE],
+      standIns: { useOwnList: true, engineIds: ["codex"] },
+    });
 
     expect(
       moveEngineLevels(project, { engineId: "claude-code", replacement: SECOND_CLAUDE }),

@@ -23,10 +23,39 @@ export const WORK_CASCADE_LEVELS = [
 ] as const;
 export type WorkCascadeLevel = (typeof WORK_CASCADE_LEVELS)[number];
 
-/** The engine everyone in a place runs on, and the level that gave it. */
+/** The engine everyone in a place runs on, the level that gave it, and the stand-ins there. */
 export interface EngineInPlace {
   readonly engineId: EngineId;
   readonly level: EngineCascadeLevel;
+  readonly standIns: StandInsApplying;
+}
+
+/**
+ * The Stand-in Engine list that applies in a place (spec §5.4.6), and whose it is: the Project's
+ * own while it uses it, else the Office's.
+ */
+export interface StandInsApplying {
+  readonly from: "office" | "project";
+  readonly engineIds: readonly EngineId[];
+}
+
+/** A Project's own Stand-in Engine list; kept while `useOwnList` is off, unused. */
+export interface ProjectStandIns {
+  readonly useOwnList: boolean;
+  readonly engineIds: readonly EngineId[];
+}
+
+/**
+ * The one answer to which Stand-in Engine list applies in a place: the Project's own while it uses
+ * it, else the Office's, as outside any Project.
+ */
+export function standInsApplying(
+  officeStandIns: readonly EngineId[],
+  project: Pick<ProjectCascadeLevels, "standIns"> | undefined,
+): StandInsApplying {
+  return project?.standIns.useOwnList
+    ? { from: "project", engineIds: project.standIns.engineIds }
+    : { from: "office", engineIds: officeStandIns };
 }
 
 /**
@@ -41,6 +70,7 @@ export interface EngineInCascade extends EngineModel {
   readonly modelLevel: WorkCascadeLevel;
   readonly effortLevel: WorkCascadeLevel;
   readonly gaveWay?: string;
+  readonly standIns: StandInsApplying;
 }
 
 /** A Project default: an engine type and one of its accounts. */
@@ -69,19 +99,29 @@ export interface ProjectCascadeLevels {
     readonly roleKey: string;
     readonly engineSettings: PersonEngineSettings;
   }[];
+  readonly standIns: ProjectStandIns;
 }
 
 /**
  * The levels with the Project default where `move` puts it; the force goes with a default moved to
- * none, as it is on only while the default names an engine type. The settings for people name
- * engine types, so they stay.
+ * none, as it is on only while the default names an engine type. The Project's own Stand-in Engine
+ * list, kept whether used or not, goes through `moveStandIns` when given (an engine's removal,
+ * Engine's `standInListWithout`). The settings for people name engine types, so they stay.
  */
 export function movedProjectLevels(
   levels: ProjectCascadeLevels,
   move: (reference: ProjectDefaultEngine) => ProjectDefaultEngine | null,
+  moveStandIns?: (standIns: readonly EngineId[]) => readonly EngineId[],
 ): ProjectCascadeLevels {
   const moved = levels.default && move(levels.default);
-  return { ...levels, default: moved, force: moved === null ? null : levels.force };
+  return {
+    ...levels,
+    default: moved,
+    force: moved === null ? null : levels.force,
+    ...(moveStandIns && {
+      standIns: { ...levels.standIns, engineIds: moveStandIns(levels.standIns.engineIds) },
+    }),
+  };
 }
 
 /**
@@ -100,6 +140,8 @@ export const NO_WORK_LEVELS: WorkCascadeLevels = { taskEngine: null, initiativeE
 export interface EngineCascadeLevels {
   /** None only while no engine is listed. */
   readonly officeDefault: EngineModel | null;
+  /** The Office's Stand-in Engine list, which applies unless the Project uses its own. */
+  readonly officeStandIns: readonly EngineId[];
   readonly project?: ProjectCascadeLevels;
   /** A session about a Task or an Initiative. */
   readonly work?: WorkCascadeLevels;
@@ -112,9 +154,16 @@ export interface EngineCascadeLevels {
  */
 export function engineInCascade({
   officeDefault,
+  officeStandIns,
   project,
   work,
 }: EngineCascadeLevels): EngineInPlace | null {
+  const standIns = standInsApplying(officeStandIns, project);
+  const at = (level: EngineCascadeLevel, { engineId }: { readonly engineId: EngineId }) => ({
+    engineId,
+    level,
+    standIns,
+  });
   if (work?.taskEngine) return at("task-engine", work.taskEngine);
   if (work?.initiativeEngine) return at("initiative-engine", work.initiativeEngine);
   if (project?.default) return at("project-default", project.default);
@@ -197,6 +246,7 @@ export function workInCascade({
     effort,
     effortLevel,
     ...(givesWay && { gaveWay: model }),
+    standIns: inPlace.standIns,
   };
 }
 
@@ -250,11 +300,4 @@ function sameWork(one: EngineInCascade, other: EngineInCascade | null): boolean 
   return (
     one.engineId === other?.engineId && one.model === other.model && one.effort === other.effort
   );
-}
-
-function at(
-  level: EngineCascadeLevel,
-  { engineId }: { readonly engineId: EngineId },
-): EngineInPlace {
-  return { engineId, level };
 }

@@ -4,13 +4,17 @@ import {
   EngineModels,
   EngineSessions,
   EngineSettingsChecks,
+  standInListWithout,
   type Engine,
   type EngineCapability,
+  type EngineCascadeSettings,
+  type EngineId,
   type EngineModel,
   type EngineSettingsSave,
 } from "../../engine/index.js";
 import {
   movedProjectLevels,
+  standInsApplying,
   type ProjectCascadeLevels,
   type ProjectDefaultEngine,
   type ProjectWithCascadeLevels,
@@ -40,12 +44,16 @@ import { Duties } from "./duties.js";
 import { PipelineRoleSources } from "./pipeline-role-sources.js";
 import { RoleCards } from "./role-cards.js";
 
-/** The Roles Agent Stages name, each duty's holder among them, the Office levels of the cascade for them, and the engines listed. */
+/**
+ * The Roles Agent Stages name, each duty's holder among them, the Office levels of the cascade for
+ * them (the Office default and the Office's Stand-in Engine list), and the engines listed.
+ */
 interface OfficeCascade {
   readonly rolesNamed: PipelineRolesNamed;
   /** Each duty's holder, by whom a Task's Stages naming the duty are weighed. */
   readonly holders: ReadonlyMap<DutyKey, string>;
   readonly officeDefault: EngineModel | null;
+  readonly officeStandIns: readonly EngineId[];
   readonly engines: readonly Engine[];
 }
 
@@ -128,8 +136,10 @@ const OUTSIDE_ANY_PROJECT: Place = {
 
 /**
  * Refuses a save of the engine cascade that would newly put a Role a Pipeline names on an engine
- * lacking what its Agent Stages need (spec §5.4.5). It registers with each level's save as it
- * starts: the Office default's (Settings › Engines) and a Project's levels'; and with each duty
+ * lacking what its Agent Stages need (spec §5.4.5), the cascade's engine or a Stand-in Engine of the
+ * list that applies in the place, which may take over any session there (refused as "<engine>
+ * can't stand in: …"). It registers with each level's save as it
+ * starts: the Office default's and list's (Settings › Engines) and a Project's levels'; and with each duty
  * change, which moves the Stages naming the duty to its new holder. The other way round,
  * Pipelines asks it about the Roles and duties a save of Stages newly names. A Stage naming a duty
  * counts as naming its holder's Role (`withDutiesResolved`). Each save is also weighed at every open
@@ -174,7 +184,9 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
 
   /**
    * Only the saved Project's sessions change, so only it is weighed; and only its default's account
-   * names an engine, so a save leaving it as it is (the force, the settings for people) never is.
+   * and the Stand-in Engine list that applies in it name engines, so a save leaving both as they are
+   * (the force, the settings for people, a list kept unused) never is. Turning its own list on
+   * weighs that list, turning it off the Office's.
    */
   async projectLevelsSaveProblems({
     projectId,
@@ -182,15 +194,22 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
     before,
     after,
   }: ProjectLevelsSave): Promise<readonly string[]> {
-    if (before.default?.engineId === after.default?.engineId) return [];
     const office = await this.officeCascadeNow();
+    const listBefore = standInsApplying(office.officeStandIns, before);
+    const listAfter = standInsApplying(office.officeStandIns, after);
+    const sameList =
+      listBefore.from === listAfter.from &&
+      listBefore.engineIds.length === listAfter.engineIds.length &&
+      listBefore.engineIds.every((engineId, at) => listAfter.engineIds[at] === engineId);
+    if (before.default?.engineId === after.default?.engineId && sameList) return [];
     return this.newlyIncapableProblems(office, office, [{ projectId, projectName, before, after }]);
   }
 
   /**
-   * The Office default and the engines change every Role's sessions everywhere; each side is
-   * weighed on its own engines, so a rename or a switch saved with it counts. A removal also
-   * moves the Projects' levels naming the engine, weighed as moved; the
+   * The Office default and the engines change every Role's sessions everywhere, and the Office's
+   * Stand-in Engine list those outside any Project and in every Project not using its own; each
+   * side is weighed on its own engines, so a rename or a switch saved with it counts. A removal also
+   * moves the Projects' levels and own lists naming the engine, weighed as moved; the
    * Tasks' and Initiatives' engines it moves are weighed by Work's own check of the removal, so
    * here a Task stays at the levels it has, which name no listed engine once moved.
    */
@@ -205,12 +224,22 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
       const { replacement } = removal;
       return replacement && { engineType: replacement.kind, engineId: replacement.id };
     };
+    const moveStandIns =
+      removal &&
+      ((standIns: readonly EngineId[]) =>
+        standInListWithout(standIns, removal.engineId, removal.replacement?.id ?? null));
+    const sideOf = (settings: EngineCascadeSettings): OfficeCascade => ({
+      ...office,
+      officeDefault: settings.officeDefault,
+      officeStandIns: settings.standInEngines,
+      engines: settings.engines,
+    });
     return this.newlyIncapableProblems(
-      { ...office, officeDefault: before.officeDefault, engines: before.engines },
-      { ...office, officeDefault: after.officeDefault, engines: after.engines },
+      sideOf(before),
+      sideOf(after),
       (await this.everyPlace()).map((place) => ({
         ...place,
-        after: place.after && movedProjectLevels(place.after, move),
+        after: place.after && movedProjectLevels(place.after, move, moveStandIns),
       })),
     );
   }
@@ -310,15 +339,14 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
     place?: string,
   ): Promise<readonly string[]> {
     const officeDefault = await this.engineModels.officeDefault();
+    const officeStandIns = (await this.engineModels.standIns()).standInEngines;
     const engines = await this.engineModels.engines();
     const projects = await this.projects.engineLevelsOfEveryProject();
     const onIncapableEngines = (side: TaskSide, project: ProjectCascadeLevels | undefined) =>
       rolesOnIncapableEngines(
         side.roleKeys,
-        officeDefault,
-        project,
+        { officeDefault, officeStandIns, project, work: side.work },
         (engineId) => this.missingCapabilitiesAmong(engines, engineId),
-        side.work,
       );
     const found = tasks.map(({ projectId, taskTitle, before, after }) => {
       const project = projects.find((each) => each.projectId === projectId);
@@ -381,8 +409,7 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
     ) =>
       rolesOnIncapableEngines(
         rolesNamedIn(office.rolesNamed, projectId),
-        office.officeDefault,
-        project,
+        { officeDefault: office.officeDefault, officeStandIns: office.officeStandIns, project },
         (engineId) => this.missingCapabilitiesAmong(office.engines, engineId),
       );
     return places.flatMap((place) =>
@@ -406,6 +433,8 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
    * Project's default (spec 5.4.5), so a save above it is weighed at its levels too: by the Roles
    * its Agent Stages name that the save weighs in the place, and after it those `namedByEveryTask`
    * names in its Project; each side at its own Office levels and Project levels; "On “<Task>”".
+   * Only the cascade's engine is weighed here: the list that applies doesn't hang on a Task's
+   * levels, so its Project's place weighs it, over these same Roles, once.
    */
   private async workLevelsProblems(
     before: OfficeCascade,
@@ -426,10 +455,14 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
       ) =>
         rolesOnIncapableEngines(
           taskRolesIn(office, task, new Set([...rolesOf(named, office.holders), ...alsoNamed])),
-          office.officeDefault,
-          project,
+          {
+            officeDefault: office.officeDefault,
+            officeStandIns: office.officeStandIns,
+            project,
+            work: task.work,
+          },
           (engineId) => this.missingCapabilitiesAmong(office.engines, engineId),
-          task.work,
+          { standIns: false },
         );
       return incapableEngineProblems(
         newlyOnIncapableEngines(
@@ -475,6 +508,7 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
       rolesNamed,
       holders,
       officeDefault: await this.engineModels.officeDefault(),
+      officeStandIns: (await this.engineModels.standIns()).standInEngines,
       engines: await this.engineModels.engines(),
     };
   }

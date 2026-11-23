@@ -35,6 +35,25 @@ export const EVERYONE_HAS_A_ROW = "Everyone has a row already.";
 export const NOBODY_HAS_A_SETTING =
   "Nobody has a setting of their own here, so each person works with their Role card's.";
 export const TURN_OFF_THE_FORCE_TOO = "Turn off the force too?";
+export const STAND_IN_ENGINES = "Stand-in Engines";
+export const STAND_IN_ENGINES_NOTE =
+  "Take over when an engine's usage window is used up. A Task or Initiative with its own engine uses none.";
+export const USE_OWN_LIST = "Use this Project's own list";
+export const FROM_SETTINGS_ENGINES = "From Settings › Engines";
+export const OFFICE_HAS_NO_STAND_IN = "The Office has no Stand-in Engine.";
+export const ANOTHER_ENGINE_TYPE_NOTE =
+  "Another engine type: a running Stage waits for the reset rather than switch to it.";
+
+/** The Project's own list while it is empty. */
+export function noStandInWords(projectName: string): string {
+  return `No Stand-in Engine in ${projectName}, so its work waits for its own engine's usage window to free up.`;
+}
+
+export function standInsToast(projectName: string, useOwnList: boolean): string {
+  return useOwnList
+    ? `${projectName} uses its own Stand-in Engines.`
+    : `${projectName} uses the Office's Stand-in Engines again.`;
+}
 
 /** The force's note: which sessions it reaches. */
 export function forceNote(type: EngineKind): string {

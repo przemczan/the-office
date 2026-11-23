@@ -1,4 +1,4 @@
-import type { Effort, EngineKind } from "../../engine/index.js";
+import type { Effort, EngineId, EngineKind } from "../../engine/index.js";
 import type { IssueSettings } from "./issue-settings.js";
 import type { ProjectFeatureSwitches } from "./project-features.js";
 import type { KindDefaultPipelines } from "./kind-default-pipeline.js";
@@ -181,10 +181,26 @@ export interface ProjectEngine {
   readonly force: ModelEffort | null;
   /** At most one per person, each with something set on some type. */
   readonly people: readonly ProjectEnginePerson[];
+  /** The Project's own Stand-in Engine list (spec §5.4.6, "A Project's own list"). */
+  readonly standIns: ProjectStandIns;
+}
+
+/**
+ * A Project's own Stand-in Engine list, in order, and whether it replaces the Office's in the
+ * Project; turned off, the list is kept, unused.
+ */
+export interface ProjectStandIns {
+  readonly useOwnList: boolean;
+  readonly engineIds: readonly EngineId[];
 }
 
 /** A Project that sets no level of either cascade, as every Project starts. */
-export const NO_PROJECT_ENGINE: ProjectEngine = { default: null, force: null, people: [] };
+export const NO_PROJECT_ENGINE: ProjectEngine = {
+  default: null,
+  force: null,
+  people: [],
+  standIns: { useOwnList: false, engineIds: [] },
+};
 
 /** What the user gives when adding a Project; the rest is set by The Office. */
 export type NewProject = Pick<

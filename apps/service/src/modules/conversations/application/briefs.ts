@@ -12,6 +12,7 @@ import {
   type Brief,
 } from "../domain/brief.js";
 import { BRIEF_TEMPLATES } from "../domain/brief-templates.js";
+import type { Message } from "../domain/message.js";
 import type { Thread } from "../domain/thread.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
@@ -37,16 +38,20 @@ export class Briefs {
     private readonly knowledgeBase: KnowledgeBase,
   ) {}
 
-  /** The Brief of the Thread's next session. Read before the message it answers is logged. */
-  async forThread(thread: Thread): Promise<Brief> {
+  /**
+   * The Brief of the Thread's next session. Read before the message it answers is logged, or with
+   * `logBefore`, that message's id, once it is.
+   */
+  async forThread(thread: Thread, logBefore?: string): Promise<Brief> {
     const { home } = thread;
     switch (home.kind) {
       case "chat":
-        return this.forChatThread(thread);
+        return this.forChatThread(thread, logBefore);
       case "task":
         return this.forTaskThread(
           thread,
           await this.taskThreads.of(taskThreadRequest(thread, home.taskId)),
+          logBefore,
         );
       case "initiative":
         return this.forInitiativeThread(
@@ -63,10 +68,11 @@ export class Briefs {
   /**
    * As `forThread`, from the setup the session is about to start with: the Task's record with the
    * Decisions answered on the Task and the one the Thread waits on. A later session of a person's
-   * Thread has no record: its Brief is the Context policy's, from the Thread's own log.
+   * Thread has no record: its Brief is the Context policy's, from the Thread's own log, up to
+   * `logBefore` when given.
    */
-  async forTaskThread(thread: Thread, setup: TaskThreadSetup): Promise<Brief> {
-    return this.taskThreadBriefing()(thread, setup);
+  async forTaskThread(thread: Thread, setup: TaskThreadSetup, logBefore?: string): Promise<Brief> {
+    return this.taskThreadBriefing()(thread, setup, logBefore);
   }
 
   /**
@@ -74,19 +80,23 @@ export class Briefs {
    * templates' texts, each Task's answered Decisions and each person's Memory in each Project.
    * Only a later session of a person's Thread reads its own log.
    */
-  taskThreadBriefing(): (thread: Thread, setup: TaskThreadSetup) => Promise<Brief> {
+  taskThreadBriefing(): (
+    thread: Thread,
+    setup: TaskThreadSetup,
+    logBefore?: string,
+  ) => Promise<Brief> {
     let prompts: Promise<PromptTexts> | undefined;
     const answeredOn = onceByKey((taskId: string) => this.repository.answeredOn(taskId));
     const memoryOf = onceByKey(({ roleKey, projectId }: { roleKey: string; projectId: string }) =>
       this.memory.forBrief(roleKey, { kind: "project", projectId }),
     );
-    return async (thread, setup) => {
+    return async (thread, setup, logBefore) => {
       const { home } = thread;
       if (home.kind !== "task") throw new Error(`Thread ${thread.id} is not on a Task.`);
       const texts = await (prompts ??= this.texts());
       const memory = await memoryOf({ roleKey: thread.roleKey, projectId: setup.projectId });
       if (setup.brief === undefined) {
-        const log = await this.repository.messages(thread.id);
+        const log = await this.logOf(thread, logBefore);
         const removedImages = await this.images.removedIn(log);
         return this.led(
           freshPersonsThreadBrief(texts, { title: thread.title, log, removedImages, memory }),
@@ -149,18 +159,29 @@ export class Briefs {
   }
 
   /** A new chat Thread's, or the one it continues fresh with from its log so far. */
-  private async forChatThread(thread: Thread): Promise<Brief> {
+  private async forChatThread(thread: Thread, logBefore: string | undefined): Promise<Brief> {
     const prompts = await this.texts();
     const projects = await this.bases.list();
     // A chat reads every Project, so it reads every note.
     const memory = await this.memory.forBrief(thread.roleKey, { kind: "every-note", projects });
     if (thread.session === undefined)
       return this.led(newChatThreadBrief(prompts, projects, memory));
-    const log = await this.repository.messages(thread.id);
+    const log = await this.logOf(thread, logBefore);
     const removedImages = await this.images.removedIn(log);
     return this.led(
       freshChatThreadBrief(prompts, { title: thread.title, log, removedImages, projects, memory }),
     );
+  }
+
+  /**
+   * The Thread's log a fresh session's Brief reads: up to `logBefore`, the message the session
+   * answers, left out with every message after it, as the session is sent those; the whole log
+   * without it, or when no message logged has that id.
+   */
+  private async logOf(thread: Thread, logBefore: string | undefined): Promise<readonly Message[]> {
+    const log = await this.repository.messages(thread.id);
+    const at = logBefore === undefined ? -1 : log.findIndex(({ id }) => id === logBefore);
+    return at === -1 ? log : log.slice(0, at);
   }
 
   /** Every session's Brief names the knowledge base, which it reads about The Office itself. */

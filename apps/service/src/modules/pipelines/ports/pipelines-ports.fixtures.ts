@@ -168,6 +168,7 @@ export class RoleEngineCascadeForTests extends RoleEngineCascade {
     effort: null,
     modelLevel: "engine",
     effortLevel: "engine",
+    standIns: { from: "office", engineIds: [] },
   };
   readonly asked: { readonly roleKey: string; readonly place: TaskSessionPlace }[] = [];
   readonly askedForEngine: TaskSessionPlace[] = [];
@@ -189,8 +190,8 @@ export class RoleEngineCascadeForTests extends RoleEngineCascade {
     const set = this.engines.get(place.taskId);
     if (set) return set;
     if (this.officeDefault === null) return null;
-    const { engineId, engineType, level } = this.officeDefault;
-    return { engineId, engineType, level };
+    const { engineId, engineType, level, standIns } = this.officeDefault;
+    return { engineId, engineType, level, standIns };
   }
 
   async applying(roleKey: string, place: TaskSessionPlace): Promise<EngineInCascade | null> {

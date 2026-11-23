@@ -48,7 +48,12 @@ function aProject(fields: Partial<Project> = {}): Project {
     environment: { set: [], unset: [], prependPath: [] },
     useProjectSkills: false,
     projectSkillsOff: [],
-    engine: { default: null, force: null, people: [] },
+    engine: {
+      default: null,
+      force: null,
+      people: [],
+      standIns: { useOwnList: false, engineIds: [] },
+    },
     runEnvironment: "not-decided",
     projectLimit: 1,
     addedAt: "2026-11-01T10:00:00.000Z",

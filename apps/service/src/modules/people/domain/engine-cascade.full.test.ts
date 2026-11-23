@@ -17,8 +17,12 @@ const projectDefault = { engineType: "claude-code", engineId: "second-account" }
 const taskEngine = { engineId: "codex", model: "gpt-6" };
 const initiativeEngine = { engineId: "gemini", model: "gemini-4-pro" };
 
+const NO_OWN_LIST = { useOwnList: false, engineIds: [] } as const;
+const officeStandIns = ["claude-code-2", "codex"];
+const fromOffice = { from: "office", engineIds: officeStandIns } as const;
+
 function aProject(levels: Partial<ProjectCascadeLevels> = {}): ProjectCascadeLevels {
-  return { default: null, force: null, people: [], ...levels };
+  return { default: null, force: null, people: [], standIns: NO_OWN_LIST, ...levels };
 }
 
 function forDeveloper(
@@ -29,16 +33,26 @@ function forDeveloper(
 
 describe("the engine cascade", () => {
   it("runs on the Office default when no other level is set", () => {
-    const onOfficeDefault = { engineId: "claude-code", level: "office-default" };
+    const onOfficeDefault = {
+      engineId: "claude-code",
+      level: "office-default",
+      standIns: fromOffice,
+    };
 
-    expect(engineInCascade({ officeDefault })).toEqual(onOfficeDefault);
-    expect(engineInCascade({ officeDefault, project: aProject() })).toEqual(onOfficeDefault);
+    expect(engineInCascade({ officeDefault, officeStandIns })).toEqual(onOfficeDefault);
+    expect(engineInCascade({ officeDefault, officeStandIns, project: aProject() })).toEqual(
+      onOfficeDefault,
+    );
   });
 
   it("takes the Project default's account over the Office default", () => {
     expect(
-      engineInCascade({ officeDefault, project: aProject({ default: projectDefault }) }),
-    ).toEqual({ engineId: "second-account", level: "project-default" });
+      engineInCascade({
+        officeDefault,
+        officeStandIns,
+        project: aProject({ default: projectDefault }),
+      }),
+    ).toEqual({ engineId: "second-account", level: "project-default", standIns: fromOffice });
   });
 
   it("puts everyone in the place on the same engine, whatever the Project sets for a person", () => {
@@ -50,9 +64,10 @@ describe("the engine cascade", () => {
       ],
     });
 
-    expect(engineInCascade({ officeDefault, project })).toEqual({
+    expect(engineInCascade({ officeDefault, officeStandIns, project })).toEqual({
       engineId: "second-account",
       level: "project-default",
+      standIns: fromOffice,
     });
   });
 
@@ -60,18 +75,57 @@ describe("the engine cascade", () => {
     const project = aProject({ default: projectDefault });
 
     expect(
-      engineInCascade({ officeDefault, project, work: { taskEngine, initiativeEngine } }),
-    ).toEqual({ engineId: "codex", level: "task-engine" });
+      engineInCascade({
+        officeDefault,
+        officeStandIns,
+        project,
+        work: { taskEngine, initiativeEngine },
+      }),
+    ).toMatchObject({ engineId: "codex", level: "task-engine" });
     expect(
-      engineInCascade({ officeDefault, project, work: { taskEngine: null, initiativeEngine } }),
-    ).toEqual({ engineId: "gemini", level: "initiative-engine" });
-    expect(engineInCascade({ officeDefault, project, work: NO_WORK_LEVELS })).toMatchObject({
+      engineInCascade({
+        officeDefault,
+        officeStandIns,
+        project,
+        work: { taskEngine: null, initiativeEngine },
+      }),
+    ).toMatchObject({ engineId: "gemini", level: "initiative-engine" });
+    expect(
+      engineInCascade({ officeDefault, officeStandIns, project, work: NO_WORK_LEVELS }),
+    ).toMatchObject({
       level: "project-default",
     });
   });
 
+  it("gives the Project's own Stand-in Engine list while it uses it", () => {
+    const project = aProject({ standIns: { useOwnList: true, engineIds: ["gemini"] } });
+
+    expect(engineInCascade({ officeDefault, officeStandIns, project })?.standIns).toEqual({
+      from: "project",
+      engineIds: ["gemini"],
+    });
+  });
+
+  it("gives the Office's list in a Project with its own list turned off, keeping it unused", () => {
+    const project = aProject({ standIns: { useOwnList: false, engineIds: ["gemini"] } });
+
+    expect(engineInCascade({ officeDefault, officeStandIns, project })?.standIns).toEqual(
+      fromOffice,
+    );
+  });
+
+  it("gives the Office's list outside any Project, and with an empty one an empty list", () => {
+    expect(engineInCascade({ officeDefault, officeStandIns })?.standIns).toEqual(fromOffice);
+    expect(engineInCascade({ officeDefault, officeStandIns: [] })?.standIns).toEqual({
+      from: "office",
+      engineIds: [],
+    });
+  });
+
   it("gives none when no level is set, as while no engine is listed", () => {
-    expect(engineInCascade({ officeDefault: null, project: aProject() })).toBeNull();
+    expect(
+      engineInCascade({ officeDefault: null, officeStandIns, project: aProject() }),
+    ).toBeNull();
   });
 });
 
@@ -87,13 +141,30 @@ describe("movedProjectLevels", () => {
       engineId: "codex",
     }));
 
-    expect(moved).toEqual({ default: { engineType: "codex", engineId: "codex" }, force, people });
+    expect(moved).toEqual({
+      default: { engineType: "codex", engineId: "codex" },
+      force,
+      people,
+      standIns: NO_OWN_LIST,
+    });
   });
 
   it("drops the force with a Project default moved to none", () => {
     expect(
       movedProjectLevels(aProject({ default: projectDefault, force, people }), () => null),
-    ).toEqual({ default: null, force: null, people });
+    ).toEqual({ default: null, force: null, people, standIns: NO_OWN_LIST });
+  });
+
+  it("moves the Project's own list through the removal's move, used or not", () => {
+    const standIns = { useOwnList: false, engineIds: ["codex", "gemini"] };
+
+    expect(
+      movedProjectLevels(
+        aProject({ standIns }),
+        (reference) => reference,
+        (engineIds) => engineIds.filter((engineId) => engineId !== "codex"),
+      ).standIns,
+    ).toEqual({ useOwnList: false, engineIds: ["gemini"] });
   });
 });
 
@@ -106,7 +177,11 @@ describe("the model and effort cascade", () => {
     models: ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"],
     efforts: ["low", "medium", "high", "xhigh", "max"],
   };
-  const onOfficeDefault: EngineInPlace = { engineId: "claude-code", level: "office-default" };
+  const onOfficeDefault: EngineInPlace = {
+    engineId: "claude-code",
+    level: "office-default",
+    standIns: fromOffice,
+  };
   const onClaudeCode = { ...projectDefault, engineId: "claude-code" };
 
   function working(levels: Partial<WorkInCascadeLevels> = {}): EngineInCascade {
@@ -123,6 +198,7 @@ describe("the model and effort cascade", () => {
     expect(working()).toEqual({
       engineId: "claude-code",
       level: "office-default",
+      standIns: fromOffice,
       engineType: "claude-code",
       model: "claude-sonnet-5-5",
       modelLevel: "engine",
@@ -158,7 +234,7 @@ describe("the model and effort cascade", () => {
   it("names no model at an engine override: the person's setting for its type applies", () => {
     expect(
       working({
-        inPlace: { engineId: "claude-code", level: "task-engine" },
+        inPlace: { engineId: "claude-code", level: "task-engine", standIns: fromOffice },
         person: { "claude-code": { model: "claude-opus-5-5", effort: null } },
       }),
     ).toMatchObject({ level: "task-engine", model: "claude-opus-5-5", modelLevel: "person" });
@@ -311,6 +387,7 @@ describe("roleEngineCascade", () => {
   const outside: EngineInCascade = {
     engineId: "claude-code",
     level: "office-default",
+    standIns: fromOffice,
     engineType: "claude-code",
     model: "claude-sonnet-5-5",
     modelLevel: "engine",

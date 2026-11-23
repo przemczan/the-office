@@ -1,0 +1,67 @@
+/* A Stand-in Engine list: an ordered row per engine, its type's icon, its name and its tools. */
+.stand-in-engine-rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+}
+
+/* The Office's list shown on a Project: greyed out and read-only. */
+.stand-in-engine-rows[data-read-only] {
+  background: var(--surface-sunken);
+  opacity: 0.7;
+}
+
+.stand-in-engine-row {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--control-h);
+  padding: 6px 8px 6px 12px;
+}
+
+.stand-in-engine-row + .stand-in-engine-row {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.stand-in-engine-place {
+  font: var(--type-caption);
+  color: var(--fg-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.stand-in-engine-kind {
+  display: inline-grid;
+  place-items: center;
+  color: var(--fg-2);
+}
+
+.stand-in-engine-name {
+  font: 400 var(--text-body) / 1.45 var(--font-sans);
+  color: var(--fg-1);
+  overflow-wrap: anywhere;
+}
+
+.stand-in-engine-tools {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.stand-in-engine-note {
+  grid-column: 3 / -1;
+  margin: -4px 0 0;
+  font: var(--type-caption);
+  line-height: 1.5;
+  color: var(--fg-3);
+}
+
+.stand-in-engine-empty {
+  margin: 0;
+  font: var(--type-caption);
+  line-height: 1.5;
+  color: var(--fg-3);
+}

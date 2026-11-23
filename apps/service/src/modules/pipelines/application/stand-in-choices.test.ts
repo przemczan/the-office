@@ -24,6 +24,14 @@ import { StandInChoices } from "./stand-in-choices.js";
 import { StandInSwitches } from "./stand-in-switches.js";
 
 const HOME: Engine = { ...FIRST_CLAUDE_CODE_ENGINE, id: "home", name: "Home" };
+const CODEX: Engine = {
+  id: "codex",
+  name: "Codex",
+  kind: "codex",
+  defaultModel: "gpt-6-luna",
+  defaultEffort: null,
+  apiKey: null,
+};
 
 let pipelines: PipelinesApplication;
 
@@ -34,11 +42,15 @@ afterEach(async () => {
 
 /**
  * Agent Stages' sessions replay `scripts`, each turn's context over the 100,000 tokens Settings ›
- * Engines asks first above, Home the Stand-in Engine with room.
+ * Engines asks first above, Home the Stand-in Engine with room; `{ engines: "as listed" }` leaves
+ * Engine to answer it from the list the cascade applies, Codex listed beside Home.
  */
-async function start(scripts: readonly SessionScript[]): Promise<void> {
+async function start(
+  scripts: readonly SessionScript[],
+  { engines }: { readonly engines?: "as listed" } = {},
+): Promise<void> {
   const settings = new EngineSettingsForTests({
-    engines: [FIRST_CLAUDE_CODE_ENGINE, HOME],
+    engines: [FIRST_CLAUDE_CODE_ENGINE, HOME, CODEX],
     standInEngines: [HOME.id],
     askBeforeSwitchAbove: 100_000,
   });
@@ -51,10 +63,18 @@ async function start(scripts: readonly SessionScript[]): Promise<void> {
     scripts,
   );
   pipelines.stageThreads.contextAfterTurn = { tokens: 182_000, window: 200_000 };
-  vi.spyOn(EngineSessions.prototype, "standInFor").mockResolvedValue({
-    engineId: HOME.id,
-    model: "scripted",
-  });
+  if (engines === "as listed") return;
+  vi.spyOn(EngineSessions.prototype, "standInFor").mockResolvedValue(HOME.id);
+}
+
+/** The cascade answers `engineIds` as the Project's own Stand-in Engine list for every Task. */
+function projectStandIns(engineIds: readonly string[]): void {
+  const { officeDefault } = pipelines.cascade;
+  if (officeDefault === null) throw new Error("The cascade lists no engine.");
+  pipelines.cascade.officeDefault = {
+    ...officeDefault,
+    standIns: { from: "project", engineIds: [...engineIds] },
+  };
 }
 
 function choices(): StandInChoices {
@@ -121,5 +141,25 @@ describe("StandInChoices, the Stages waiting for the user's choice of a Stand-in
       .switch([held?.id ?? ""], { userId: "ann", name: "Ann Lee" });
 
     expect(await choices().waiting()).toEqual([]);
+  });
+});
+
+describe("StandInChoices, the Stand-in Engine a held Stage would move to now (spec 5.4.6)", () => {
+  it("offers only a Stand-in Engine of the session's type from the Project's own list", async () => {
+    await start([A_REFUSED_SESSION], { engines: "as listed" });
+    projectStandIns([CODEX.id, HOME.id]);
+    const taskId = await walkStages(pipelines, [implement]);
+
+    expect(await choices().waiting()).toMatchObject([
+      {
+        taskId,
+        asked: { engineId: HOME.id },
+        standInNow: { engineId: HOME.id, engineName: "Home" },
+      },
+    ]);
+
+    projectStandIns([CODEX.id]);
+
+    expect(await choices().waiting()).toMatchObject([{ taskId, standInNow: null }]);
   });
 });

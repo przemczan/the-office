@@ -48,7 +48,7 @@ import { defaultPipelineFor, type TaskKind } from "../domain/kind-default-pipeli
 import type { IssueSettingsChange, IssueUser } from "../domain/issue-settings.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
 import { ProjectRefused } from "../domain/project-refused.js";
-import { sameDefault, type ProjectEngineChange } from "../domain/project-engine.js";
+import { sameDefault, sameStandIns, type ProjectEngineChange } from "../domain/project-engine.js";
 import { OutputMask } from "../domain/output-mask.js";
 import {
   editedEnvironment,
@@ -381,7 +381,7 @@ export class ProjectService {
    * Saves the Project page's Engine block, each level sent replacing the Project's (spec §5.4.5,
    * "The API"); sessions already running keep what they started with. Refused, before saving, for
    * an engine Settings › Engines doesn't list or a model or effort a type doesn't offer, and, when
-   * the default changes, for what a registered check refuses. Held under Engine's
+   * the default or the Stand-in Engine list changes, for what a registered check refuses. Held under Engine's
    * `EngineReferenceLock` from reading the engines through the save, so a removal can't come in
    * between; the event is published after. The check weighs the Project as read just before, so
    * another change to it made in between goes unchecked.
@@ -393,7 +393,10 @@ export class ProjectService {
       const changed = changeProjectEngine(stored, change, offers)?.project;
       if (changed) {
         await this.checks.checkProjectEngine(changed.engine, stored.engine);
-        if (!sameDefault(stored.engine.default, changed.engine.default)) {
+        if (
+          !sameDefault(stored.engine.default, changed.engine.default) ||
+          !sameStandIns(stored.engine.standIns, changed.engine.standIns)
+        ) {
           const problems = await this.engineLevelsChecks.problemsOf({
             projectId: id,
             projectName: stored.name,

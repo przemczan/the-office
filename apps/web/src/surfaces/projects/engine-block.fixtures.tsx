@@ -1,4 +1,10 @@
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterProvider,
+} from "@tanstack/react-router";
 import type {
   EngineSettings,
   Project,
@@ -38,7 +44,12 @@ export const PROJECT: Project = {
   environment: { set: [], unset: [], prependPath: [] },
   useProjectSkills: true,
   projectSkillsOff: [],
-  engine: { default: null, force: null, people: [] },
+  engine: {
+    default: null,
+    force: null,
+    people: [],
+    standIns: { useOwnList: false, engineIds: [] },
+  },
   runEnvironment: "on",
   features: {
     "connected-devices": true,
@@ -72,6 +83,7 @@ const SETTINGS = {
     { id: "personal", name: "Personal", kind: "claude-code" },
   ],
   officeDefault: { engineType: "claude-code", engineId: "work" },
+  standInEngines: ["personal", "codex-1"],
 } as unknown as EngineSettings;
 
 const OPTIONS = {
@@ -128,32 +140,42 @@ function Shown(): ReactNode {
 }
 
 /**
- * The card over `project`, its readings already in hand; the service answers `answers` and every
- * request sent is recorded.
+ * The card over `project`, its readings already in hand, Settings › Engines' too unless
+ * `settingsRead` is false; the service answers `answers` and every request sent is recorded.
  */
 export async function engineCard(
   project: Project,
   answers: Answers = {},
+  { settingsRead = true }: { readonly settingsRead?: boolean } = {},
 ): Promise<{ readonly page: HTMLElement; readonly sent: Sent[] }> {
   const sent = stubService(answers);
   const queryClient = new QueryClient({
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   });
   queryClient.setQueryData(projectQueries.one(PROJECT.id).queryKey, project);
-  queryClient.setQueryData(engineSettingsQuery().queryKey, SETTINGS);
+  if (settingsRead) queryClient.setQueryData(engineSettingsQuery().queryKey, SETTINGS);
   queryClient.setQueryData(roleCardQueries.options().queryKey, OPTIONS);
   queryClient.setQueryData(roleQueries.list().queryKey, [...ROLES]);
+  const router = createRouter({
+    routeTree: createRootRoute({
+      component: () => (
+        <ToastProvider>
+          <Shown />
+        </ToastProvider>
+      ),
+    }),
+    history: createMemoryHistory({ initialEntries: ["/"] }),
+  });
   const page = document.createElement("div");
   document.body.append(page);
   await act(async () => {
     root = createRoot(page);
     root.render(
       <QueryClientProvider client={queryClient}>
-        <ToastProvider>
-          <Shown />
-        </ToastProvider>
+        <RouterProvider router={router} />
       </QueryClientProvider>,
     );
+    await router.load();
   });
   return { page, sent };
 }

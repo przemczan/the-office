@@ -596,6 +596,11 @@ describe("StageThreads", () => {
       reason: STAND_IN.reason,
     };
 
+    beforeEach(() => {
+      // The list that applies in the Task's Project names the stand-in.
+      cascade.standIns = { from: "office", engineIds: [SPARE.id] };
+    });
+
     it("opens the Stage Thread's session on the stand-in with the cascade's model", async () => {
       await startWith(started(...aTurn({ status: "done" })));
       const ada = adaOnTheCascade(FIRST_CLAUDE_CODE_ENGINE, SPARE);

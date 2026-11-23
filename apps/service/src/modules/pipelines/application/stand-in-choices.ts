@@ -1,15 +1,19 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { readEach } from "../../../platform/database/fan-out.js";
-import { EngineSessions, type EngineModel } from "../../engine/index.js";
+import { EngineSessions, type EngineCapability, type EngineModel } from "../../engine/index.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { TaskPaused, TaskResumed, TaskStateChanged, TaskStopped } from "../../work/index.js";
 import { walkedStages } from "../domain/resolve-stages.js";
 import type { StageRun, StageRunStandIn, StandInChoice } from "../domain/stage-run.js";
 import { StandInChoicesChanged, StageRunEnded } from "../domain/stage-run-events.js";
+import { RoleEngineCascade } from "../ports/role-engine-cascade.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { StartedTasks, type StartedTask } from "../ports/started-tasks.js";
 import { TaskRecords } from "../ports/task-records.js";
 import { TaskStagesService } from "./task-stages-service.js";
+
+/** What a Stage's session needs of the Stand-in Engine it goes on on: an Agent Stage's capabilities. */
+export const STAGE_STAND_IN_NEEDS: readonly EngineCapability[] = ["officeTools", "outputSchema"];
 
 /**
  * A Stage run held as its engine refused a turn for a used-up usage window, though a Stand-in
@@ -64,6 +68,7 @@ export class StandInChoices implements OnModuleInit {
     private readonly records: TaskRecords,
     private readonly taskStages: TaskStagesService,
     private readonly engineSessions: EngineSessions,
+    private readonly cascade: RoleEngineCascade,
     private readonly events: EventBus,
   ) {}
 
@@ -98,10 +103,22 @@ export class StandInChoices implements OnModuleInit {
     return (await this.held()).find(({ choice }) => choice.runId === runId);
   }
 
-  /** The Stand-in Engine a held run's session would move to now; null while none has room. */
-  async standInNow(choice: HeldForStandInChoice): Promise<EngineModel | null> {
-    if (choice.fromEngineId === undefined || choice.model === undefined) return null;
-    return this.engineSessions.standInFor({ engineId: choice.fromEngineId, model: choice.model });
+  /**
+   * The Stand-in Engine a held run's session would move to now, on the session's model: the first
+   * with room of the list that applies for the Task in `projectId` (its Project's own or the
+   * Office's), of the type of the engine that refused it, as the session is carried there (spec
+   * 5.4.6); null while none has room.
+   */
+  async standInNow(choice: HeldForStandInChoice, projectId: string): Promise<EngineModel | null> {
+    const { fromEngineId, model } = choice;
+    if (fromEngineId === undefined || model === undefined) return null;
+    const engine = await this.cascade.engineAt({ projectId, taskId: choice.taskId });
+    const engineId = await this.engineSessions.standInFor(fromEngineId, {
+      standIns: engine?.standIns.engineIds ?? [],
+      sameEngineType: true,
+      needs: STAGE_STAND_IN_NEEDS,
+    });
+    return engineId === null ? null : { engineId, model };
   }
 
   private async held(): Promise<
@@ -127,7 +144,7 @@ export class StandInChoices implements OnModuleInit {
     const [record, stageName, standIn] = await Promise.all([
       this.records.read(task.id),
       this.stageNameOf(choice),
-      this.standInNow(choice),
+      this.standInNow(choice, task.projectId),
     ]);
     return {
       ...choice,

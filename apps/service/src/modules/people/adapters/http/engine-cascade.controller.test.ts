@@ -31,6 +31,7 @@ class TwoProjects implements KnownProjectLevels {
       default: { engineType: "claude-code", engineId: "claude-code" },
       force: forced,
       people: [],
+      standIns: { useOwnList: false, engineIds: [] },
     },
     {
       projectId: "quiet",
@@ -38,6 +39,7 @@ class TwoProjects implements KnownProjectLevels {
       default: null,
       force: null,
       people: [],
+      standIns: { useOwnList: false, engineIds: [] },
     },
   ];
 

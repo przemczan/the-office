@@ -37,6 +37,7 @@ const CODEX: Engine = {
   defaultEffort: null,
   apiKey: null,
 };
+const NO_STAND_INS = { useOwnList: false, engineIds: [] };
 const ON_RACING = { default: { engineType: "claude-code", engineId: RACING.id } } as const;
 const CTO_ON_CLAUDE = {
   roleKey: "cto",
@@ -195,6 +196,7 @@ describe("removing an engine a Project's default names", () => {
       default: { engineType: "claude-code", engineId: FIRST_CLAUDE_CODE_ENGINE.id },
       force: null,
       people: [CTO_ON_CLAUDE],
+      standIns: NO_STAND_INS,
     });
   });
 
@@ -212,6 +214,57 @@ describe("removing an engine a Project's default names", () => {
       default: { engineType: "codex", engineId: CODEX.id },
       force: { model: null, effort: "high" },
       people: [CTO_ON_CLAUDE],
+      standIns: NO_STAND_INS,
+    });
+  });
+});
+
+describe("removing an engine a Project's own Stand-in Engine list names", () => {
+  it("previews the list's move, then puts the replacement in its place, the list used or not", async () => {
+    const used = await aProjectOfItsOwn();
+    const unused = await aProjectOfItsOwn();
+    await projects.changeEngine(used.id, {
+      standIns: { useOwnList: true, engineIds: [CODEX.id, RACING.id] },
+    });
+    await projects.changeEngine(unused.id, {
+      standIns: { useOwnList: false, engineIds: [RACING.id] },
+    });
+    const settings = app.get(EngineSettingsService);
+
+    const preview = await settings.removalPreview(RACING.id, FIRST_CLAUDE_CODE_ENGINE.id);
+    await removeRacing();
+
+    const listMove = (project: Project) => ({
+      roleKey: null,
+      project: { id: project.id, name: project.name },
+      work: null,
+      standInList: true,
+      from: { engineId: RACING.id, model: RACING.defaultModel },
+      to: { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: FIRST_CLAUDE_CODE_ENGINE.defaultModel },
+    });
+    expect(preview.moves).toEqual(expect.arrayContaining([listMove(used), listMove(unused)]));
+    expect(preview.moves).toHaveLength(2);
+    expect((await projects.read(used.id)).engine.standIns).toEqual({
+      useOwnList: true,
+      engineIds: [CODEX.id, FIRST_CLAUDE_CODE_ENGINE.id],
+    });
+    expect((await projects.read(unused.id)).engine.standIns).toEqual({
+      useOwnList: false,
+      engineIds: [FIRST_CLAUDE_CODE_ENGINE.id],
+    });
+  });
+
+  it("just drops the engine from a list already naming the replacement", async () => {
+    const { id } = await aProjectOfItsOwn();
+    await projects.changeEngine(id, {
+      standIns: { useOwnList: true, engineIds: [RACING.id, CODEX.id] },
+    });
+
+    await removeRacing(CODEX.id);
+
+    expect((await projects.read(id)).engine.standIns).toEqual({
+      useOwnList: true,
+      engineIds: [CODEX.id],
     });
   });
 });

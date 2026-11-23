@@ -51,6 +51,15 @@ describe("where a removal moves a reference", () => {
     );
   });
 
+  it("names the Office's Stand-in Engine list and a Project's own", () => {
+    expect(
+      movedReferencePlace({ roleKey: null, project: null, work: null, standInList: true }, ROLES),
+    ).toBe("The Office's Stand-in Engine list");
+    expect(
+      movedReferencePlace({ roleKey: null, project: SHOP, work: null, standInList: true }, ROLES),
+    ).toBe("The Stand-in Engine list of Shop");
+  });
+
   it("marks a Task or an Initiative Done or Dropped, and no open one", () => {
     const task = { kind: "task" as const, id: "t1", name: "Export Stats as CSV" };
     const initiative = { kind: "initiative" as const, id: "i1", name: "Usage reports" };
@@ -95,6 +104,29 @@ describe("what a removal moves a reference to", () => {
         engineName,
       ),
     ).toBe("Sonnet 5.5 on Claude Code → none");
+  });
+
+  it("gives a Stand-in Engine list's engines alone", () => {
+    expect(
+      movedReferenceChange(
+        {
+          standInList: true,
+          from: { engineId: "second", model: "claude-haiku-5-5" },
+          to: { engineId: "claude-code", model: "claude-sonnet-5-5" },
+        },
+        engineName,
+      ),
+    ).toBe("Second account → Claude Code");
+    expect(
+      movedReferenceChange(
+        {
+          standInList: true,
+          from: { engineId: "claude-code", model: "claude-sonnet-5-5" },
+          to: null,
+        },
+        engineName,
+      ),
+    ).toBe("Claude Code → none");
   });
 });
 

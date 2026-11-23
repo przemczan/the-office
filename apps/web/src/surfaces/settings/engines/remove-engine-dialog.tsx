@@ -138,7 +138,9 @@ function RemovalMoves({
           {preview.moves.map((move) => {
             const ended = endedStateOf(move);
             return (
-              <li key={`${move.work?.id ?? ""}/${move.roleKey ?? ""}/${move.project?.id ?? ""}`}>
+              <li
+                key={`${move.work?.id ?? ""}/${move.roleKey ?? ""}/${move.project?.id ?? ""}/${move.standInList ? "stand-ins" : ""}`}
+              >
                 <span className="engine-removal-place">
                   {describePlace(move)}
                   {ended && <TaskStateBadge state={ended} />}

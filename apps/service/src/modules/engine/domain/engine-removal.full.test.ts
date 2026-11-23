@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { engineRemovalAmong, movedEngineModel, type EngineRemoval } from "./engine-removal.js";
+import {
+  engineRemovalAmong,
+  movedEngineModel,
+  movedStandInList,
+  type EngineRemoval,
+} from "./engine-removal.js";
 import { EngineSettingsRefused } from "./engine-settings-refused.js";
 import {
   FIRST_CLAUDE_CODE_ENGINE,
@@ -91,6 +96,61 @@ describe("movedEngineModel", () => {
         { engineId: "claude-code", replacement: null },
       ),
     ).toBeNull();
+  });
+});
+
+describe("movedStandInList", () => {
+  const shop = { id: "shop", name: "Shop" };
+
+  it("moves a list naming the removed engine to the replacement, each on its engine's default model", () => {
+    const removal: EngineRemoval = { engineId: "strata", replacement: second };
+
+    expect(movedStandInList(["claude-code", "strata"], removal, strata, shop)).toEqual([
+      {
+        roleKey: null,
+        project: shop,
+        work: null,
+        standInList: true,
+        from: { engineId: "strata", model: "qwen3.8-flash" },
+        to: { engineId: "second-account", model: "claude-haiku-5-5" },
+      },
+    ]);
+  });
+
+  it("moves the Office's list, with no Project, to none when the only engine goes", () => {
+    const removal: EngineRemoval = { engineId: "strata", replacement: null };
+
+    expect(movedStandInList(["strata"], removal, strata, null)).toEqual([
+      {
+        roleKey: null,
+        project: null,
+        work: null,
+        standInList: true,
+        from: { engineId: "strata", model: "qwen3.8-flash" },
+        to: null,
+      },
+    ]);
+  });
+
+  it("moves a list already naming the replacement to none, as the removed engine is just dropped", () => {
+    const removal: EngineRemoval = { engineId: "strata", replacement: second };
+
+    expect(movedStandInList(["strata", "second-account"], removal, strata, shop)).toEqual([
+      {
+        roleKey: null,
+        project: shop,
+        work: null,
+        standInList: true,
+        from: { engineId: "strata", model: "qwen3.8-flash" },
+        to: null,
+      },
+    ]);
+  });
+
+  it("moves nothing for a list not naming the removed engine", () => {
+    const removal: EngineRemoval = { engineId: "strata", replacement: second };
+
+    expect(movedStandInList(["claude-code"], removal, strata, shop)).toEqual([]);
   });
 });
 

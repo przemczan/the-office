@@ -117,6 +117,7 @@ describe("ProjectRecords.of", () => {
         "- Default engine: the Office's default",
         "- Forced model and effort: none",
         "- Model and effort per person: none",
+        "- Stand-in Engines: the Office's",
         "- Project skills: used",
         "- Server values: none",
         "- Test targets: none",
@@ -153,6 +154,7 @@ describe("ProjectRecords.of", () => {
           },
           { roleKey: "reviewer", engineSettings: { codex: { model: "gpt-5.5", effort: null } } },
         ],
+        standIns: { useOwnList: true, engineIds: ["claude"] },
       },
       projectSkillsOff: ["deploy"],
     });
@@ -204,6 +206,7 @@ describe("ProjectRecords.of", () => {
         "- Default engine: Claude Code, account Ann's Claude",
         "- Forced model and effort: Claude Code: claude-sonnet-5-5 · Engine's default",
         "- Model and effort per person: cto: Claude Code claude-opus-5-5 · high, Codex Person's setting · low; reviewer: Codex gpt-5.5 · Person's setting",
+        "- Stand-in Engines: the Project's own (Ann's Claude)",
         "- Project skills: used, but off: deploy",
         "- Server values: sentry TOKEN: the Project's own secret value, sentry ORG: the Office-wide value, sentry REGION: the Project's own `eu`",
       ]),

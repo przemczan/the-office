@@ -8,7 +8,12 @@ import {
 } from "../../engine/index.js";
 import { ProjectServerValues, type ProjectMcpServerValues } from "../../mcp-servers/index.js";
 import type { EnvironmentCheck } from "../domain/environment-check.js";
-import type { ModelEffort, Project, RunEnvironmentSetting } from "../domain/project.js";
+import type {
+  ModelEffort,
+  Project,
+  ProjectStandIns,
+  RunEnvironmentSetting,
+} from "../domain/project.js";
 import type { ProjectEnvironment } from "../domain/project-environment.js";
 import { entryPointWords } from "../domain/entry-point.js";
 import {
@@ -313,7 +318,20 @@ function engineLines({ engine }: Project, engines: readonly Engine[]): string[] 
     `- Default engine: ${projectDefault ? `${ENGINE_TYPE_NAMES[projectDefault.engineType]}, account ${account}` : "the Office's default"}`,
     `- Forced model and effort: ${projectDefault && force ? `${ENGINE_TYPE_NAMES[projectDefault.engineType]}: ${modelEffortWords(force, "Engine's default")}` : "none"}`,
     `- Model and effort per person: ${people.length > 0 ? people.join("; ") : "none"}`,
+    `- Stand-in Engines: ${standInsWords(engine.standIns, engines)}`,
   ];
+}
+
+/** Whose Stand-in Engine list applies in the Project, the Project's own by engine name in order. */
+function standInsWords(
+  { useOwnList, engineIds }: ProjectStandIns,
+  engines: readonly Engine[],
+): string {
+  if (!useOwnList) return "the Office's";
+  const names = engineIds.map(
+    (engineId) => engines.find(({ id }) => id === engineId)?.name ?? engineId,
+  );
+  return `the Project's own (${names.length > 0 ? names.join(", ") : "none"})`;
 }
 
 /** "<model> · <effort>", each unset one in the words of the level below. */

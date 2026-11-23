@@ -384,7 +384,7 @@ describe("removing an engine", () => {
     expect((await setInitiativeEngine(initiative, removed)).status).toBe(200);
     const removal = { engineId: removed.engineId, replacement };
     const to = movedEngineModel(removed, removal);
-    const settings = { engines: listedEngines, officeDefault: null };
+    const settings = { engines: listedEngines, officeDefault: null, standInEngines: [] };
     checked = [];
     refusal = ["the Developer would run on Claude Code."];
 
@@ -425,7 +425,7 @@ describe("removing an engine", () => {
     const done = await createTask();
     expect((await setTaskEngine(done, removed)).status).toBe(200);
     await end(done, "done");
-    const settings = { engines: listedEngines, officeDefault: null };
+    const settings = { engines: listedEngines, officeDefault: null, standInEngines: [] };
     checked = [];
     refusal = ["Never asked."];
     const checks = work.app.get(EngineSettingsChecks);

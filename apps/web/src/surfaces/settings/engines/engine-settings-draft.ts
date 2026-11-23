@@ -270,10 +270,11 @@ export function switchSizeOf(text: string): number | undefined {
   return switchSizeProblem(text) === undefined ? Number(text.trim()) : undefined;
 }
 
-/** An engine that may be listed as a Stand-in Engine, by its name. */
+/** An engine that may be listed as a Stand-in Engine, by its name, with its type once saved. */
 export interface StandInChoice {
   readonly id: EngineId;
   readonly name: string;
+  readonly kind: EngineKind | null;
 }
 
 /**
@@ -284,26 +285,13 @@ export function standInsOf(draft: EngineSettingsDraft): {
   readonly listed: readonly StandInChoice[];
   readonly addable: readonly StandInChoice[];
 } {
-  const choices = savedEnginesOf(draft).map(({ id, name }) => ({ id, name }));
+  const choices = savedEnginesOf(draft).map(({ id, kind, name }) => ({ id, kind, name }));
   return {
     listed: draft.standInEngines.map(
-      (id) => choices.find((choice) => choice.id === id) ?? { id, name: id },
+      (id) => choices.find((choice) => choice.id === id) ?? { id, name: id, kind: null },
     ),
     addable: choices.filter(({ id }) => !draft.standInEngines.includes(id)),
   };
-}
-
-/** The Stand-in Engines with the one at `index` moved by `by` places, kept within the list. */
-export function withStandInMoved(
-  standInEngines: readonly EngineId[],
-  index: number,
-  by: -1 | 1,
-): readonly EngineId[] {
-  const to = index + by;
-  if (index < 0 || to < 0 || to >= standInEngines.length) return standInEngines;
-  const moved = [...standInEngines];
-  [moved[index], moved[to]] = [moved[to] as EngineId, moved[index] as EngineId];
-  return moved;
 }
 
 function withOfferedDefaultModel(endpoint: ApiEngineEdit): ApiEngineEdit {

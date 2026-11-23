@@ -1,4 +1,4 @@
-import { FIRST_CLAUDE_CODE_ENGINE } from "../../engine/index.js";
+import { FIRST_CLAUDE_CODE_ENGINE, type Engine } from "../../engine/index.js";
 import type { UsageAtStart, WindowsAtStart } from "./cap-waits.js";
 import type { StandInsAtStart } from "./stand-ins-at-start.js";
 import type { EngineUsage } from "./usage-estimate.js";
@@ -31,13 +31,37 @@ export function estimateOn(engineId: string, fiveHour: number): EngineUsage {
   return { engineId, tokens: 1000, windows: { fiveHour, sevenDay: undefined }, cost: undefined };
 }
 
+/** Lab, a Codex engine: a Stand-in Engine of another engine type. */
+export const LAB: Engine = {
+  kind: "codex",
+  id: "lab",
+  name: "Lab",
+  defaultModel: "gpt-5.5",
+  defaultEffort: null,
+  apiKey: null,
+};
+
+const ENGINES: readonly Engine[] = [...WORK_AND_PERSONAL, LAB];
+
 /**
- * A Task spending 30% of Work's 5-hour window on Opus, Work at `workUsed`% and Personal, its
- * Stand-in Engine with the same ratios, at `personalUsed`%.
+ * A Task spending 30% of Work's 5-hour window, Work at `workUsed`% and Personal, its Stand-in
+ * Engine with the same ratios, at `personalUsed`%.
  */
 export function onWorkWithPersonal(
   workUsed: number,
   personalUsed: number,
+): { readonly usage: UsageAtStart; readonly standIns: StandInsAtStart } {
+  return onWorkWithStandIns(workUsed, [["personal", personalUsed]]);
+}
+
+/**
+ * As `onWorkWithPersonal`, with `listed` the Stand-in Engines (Personal or Lab, each at its own %
+ * used), the list that applies in that order unless `fields` gives another.
+ */
+export function onWorkWithStandIns(
+  workUsed: number,
+  listed: readonly (readonly [engineId: string, percentUsed: number])[],
+  fields: Partial<StandInsAtStart> = {},
 ): { readonly usage: UsageAtStart; readonly standIns: StandInsAtStart } {
   return {
     usage: {
@@ -46,22 +70,21 @@ export function onWorkWithPersonal(
       estimate: [estimateOn("work", 30)],
       windows: [fiveHourAt("work", workUsed)],
       daily: [],
-      engineNames: new Map(WORK_AND_PERSONAL.map(({ id, name }) => [id, name] as const)),
+      engineNames: new Map(ENGINES.map(({ id, name }) => [id, name] as const)),
       usedUp: [],
     },
     standIns: {
-      engines: WORK_AND_PERSONAL,
-      order: ["personal"],
-      modelsOn: new Map([["work", ["claude-opus-5-5"]]]),
-      standIns: [
-        {
-          engineId: "personal",
-          windows: fiveHourAt("personal", personalUsed),
-          daily: undefined,
-          usedUp: undefined,
-          windowRatios: { fiveHour: 0.03, sevenDay: undefined },
-        },
-      ],
+      engines: ENGINES,
+      order: listed.map(([engineId]) => engineId),
+      cascadeEngines: ["work"],
+      standIns: listed.map(([engineId, percentUsed]) => ({
+        engineId,
+        windows: fiveHourAt(engineId, percentUsed),
+        daily: undefined,
+        usedUp: undefined,
+        windowRatios: { fiveHour: 0.03, sevenDay: undefined },
+      })),
+      ...fields,
     },
   };
 }

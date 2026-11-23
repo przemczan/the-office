@@ -1183,6 +1183,90 @@ export function moveSessionToEngine(
 }
 
 /**
+ * Replaces the Thread's session with `fresh`, a new session on the Stand-in Engine `to` that stands
+ * in for the engine the old one first ran on, and logs the `engine-switched` line saying it starts
+ * fresh (spec §5.4.6): the stand-in is of another engine type, or of one whose session can't be
+ * carried, so it can't take the old session. The new session opens after, with a fresh Brief.
+ */
+export function startSessionFreshOnEngine(
+  thread: Thread,
+  {
+    messageId,
+    from,
+    to,
+    fromName,
+    toName,
+    window,
+    resetsAt,
+    personName,
+    fresh,
+  }: SessionMoveToEngine & { readonly fresh: ThreadSession },
+  movedAt: Date,
+): ThreadChange<ThreadSessionMovedToEngine> {
+  const { session } = thread;
+  if (session?.engineId !== from) {
+    throw new Error(`Thread ${thread.id}'s session doesn't run on the engine ${from}.`);
+  }
+  const words = {
+    fromName,
+    toName,
+    window,
+    resetsAt: resetsAt.toISOString(),
+    ...(personName !== undefined && { personName }),
+    fresh: true,
+  };
+  const line: Message = {
+    id: messageId,
+    threadId: thread.id,
+    at: movedAt,
+    kind: "engine-switched",
+    ...words,
+  };
+  // A switch from a stand-in still stands in for the engine the old session first ran on.
+  const original = session.standInFor ?? { engineId: from, engineName: fromName };
+  const { standInFor: _none, ...started } = fresh;
+  const moved: Thread = {
+    ...thread,
+    session: {
+      ...started,
+      engineId: to,
+      ...(original.engineId !== to && {
+        standInFor: {
+          engineId: original.engineId,
+          engineName: original.engineName,
+          reason: engineSwitchedWords(words),
+        },
+      }),
+    },
+  };
+  return {
+    thread: moved,
+    logged: [line],
+    event: new ThreadSessionMovedToEngine(moved, from, to, [line], movedAt),
+  };
+}
+
+/**
+ * Puts back `previous`, the session `startSessionFreshOnEngine` replaced, when the fresh one never
+ * opened on its Stand-in Engine: it is resumed later. Logs nothing. Undefined once the Thread's
+ * session is no longer `sessionId`.
+ */
+export function putBackReplacedSession(
+  thread: Thread,
+  { sessionId, previous }: { readonly sessionId: string; readonly previous: ThreadSession },
+  movedAt: Date,
+): ThreadChange<ThreadSessionMovedToEngine> | undefined {
+  const { session } = thread;
+  if (session?.id !== sessionId) return undefined;
+  const back: Thread = { ...thread, session: previous };
+  return {
+    thread: back,
+    logged: [],
+    event: new ThreadSessionMovedToEngine(back, session.engineId, previous.engineId, [], movedAt),
+  };
+}
+
+/**
  * Puts the Thread's session back on the engine it ran on before `moveSessionToEngine`, with the
  * Stand-in it recorded then, when its resume on the Stand-in Engine failed: it is resumed there
  * later. Logs nothing. Undefined when the session is no longer on `from`.

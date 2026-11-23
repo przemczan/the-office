@@ -44,6 +44,8 @@ export type {
   EngineInCascade,
   WorkCascadeLevel,
   ProjectCascadeLevels,
+  ProjectStandIns,
+  StandInsApplying,
   WorkCascadeLevels,
 } from "./domain/engine-cascade.js";
 export { MemoryService } from "./application/memory-service.js";

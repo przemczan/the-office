@@ -5,6 +5,7 @@ import {
   EngineSessions,
   FIRST_CLAUDE_CODE_ENGINE,
   type Engine,
+  type EngineId,
   type EngineModel,
   type SessionScript,
 } from "../../engine/index.js";
@@ -34,7 +35,16 @@ import { StandInChoices } from "./stand-in-choices.js";
 const HOME: Engine = { ...FIRST_CLAUDE_CODE_ENGINE, id: "home", name: "Home" };
 const SPARE: Engine = { ...FIRST_CLAUDE_CODE_ENGINE, id: "spare", name: "Spare" };
 const ON_HOME: EngineModel = { engineId: HOME.id, model: "scripted" };
-const ON_SPARE: EngineModel = { engineId: SPARE.id, model: "scripted" };
+const CODEX: Engine = {
+  id: "codex",
+  name: "Codex",
+  kind: "codex",
+  defaultModel: "gpt-6-luna",
+  defaultEffort: null,
+  apiKey: null,
+};
+/** What a running Stage asks of its Stand-in Engine: one of its type, able to work an Agent Stage. */
+const STAGE_ASKS = { sameEngineType: true, needs: ["officeTools", "outputSchema"] };
 
 let pipelines: PipelinesApplication;
 
@@ -44,17 +54,17 @@ afterEach(async () => {
 });
 
 /**
- * Agent Stages' sessions replay `scripts` on the first Claude Code engine, with Home and Spare
- * listed beside it, Settings › Engines asking first above 100,000 tokens; `standIns` are what
- * Engine answers for the Stand-in Engine with room, in order, then none.
+ * Agent Stages' sessions replay `scripts` on the first Claude Code engine, with Home, Spare and
+ * Codex listed beside it, Settings › Engines asking first above 100,000 tokens, its Stand-in
+ * Engines `officeStandIns`; the cascade answers that list as the one applying for every Task.
  */
-async function start(
+async function startOn(
   scripts: readonly SessionScript[],
-  standIns: readonly EngineModel[],
-): Promise<MockInstance<EngineSessions["standInFor"]>> {
+  officeStandIns: readonly EngineId[] = [HOME.id, SPARE.id],
+): Promise<void> {
   const settings = new EngineSettingsForTests({
-    engines: [FIRST_CLAUDE_CODE_ENGINE, HOME, SPARE],
-    standInEngines: [HOME.id, SPARE.id],
+    engines: [FIRST_CLAUDE_CODE_ENGINE, HOME, SPARE, CODEX],
+    standInEngines: [...officeStandIns],
     askBeforeSwitchAbove: 100_000,
   });
   pipelines = await startPipelinesApplicationOn(
@@ -65,6 +75,30 @@ async function start(
     },
     scripts,
   );
+  applyingStandIns({ from: "office", engineIds: officeStandIns });
+}
+
+/** The cascade answers `standIns` as the Stand-in Engine list that applies for every Task. */
+function applyingStandIns(standIns: {
+  readonly from: "office" | "project";
+  readonly engineIds: readonly EngineId[];
+}): void {
+  const { officeDefault } = pipelines.cascade;
+  if (officeDefault === null) throw new Error("The cascade lists no engine.");
+  pipelines.cascade.officeDefault = {
+    ...officeDefault,
+    standIns: { from: standIns.from, engineIds: [...standIns.engineIds] },
+  };
+}
+
+/**
+ * As `startOn`, Engine answering `standIns` for the Stand-in Engine with room, in order, then none.
+ */
+async function start(
+  scripts: readonly SessionScript[],
+  standIns: readonly EngineId[],
+): Promise<MockInstance<EngineSessions["standInFor"]>> {
+  await startOn(scripts);
   const answers = [...standIns];
   return vi
     .spyOn(EngineSessions.prototype, "standInFor")
@@ -95,7 +129,7 @@ const TO_HOME_WORDS =
 
 describe("AgentStageRunner, a turn refused for a used-up usage window with a Stand-in Engine (spec 5.4)", () => {
   it("goes on on the Stand-in Engine in the same run after a refused first turn, sent the work again", async () => {
-    const standInFor = await start([refusedThenDone()], [ON_HOME]);
+    const standInFor = await start([refusedThenDone()], [HOME.id]);
 
     const taskId = await walkStages(pipelines, [implement]);
 
@@ -118,7 +152,10 @@ describe("AgentStageRunner, a turn refused for a used-up usage window with a Sta
         },
       ],
     });
-    expect(standInFor).toHaveBeenCalledWith({ engineId: "claude-code", model: "scripted" });
+    expect(standInFor).toHaveBeenCalledWith("claude-code", {
+      standIns: [HOME.id, SPARE.id],
+      ...STAGE_ASKS,
+    });
     expect(pipelines.stageThreads.switched).toEqual([
       {
         threadId: run?.threadId,
@@ -169,7 +206,7 @@ describe("AgentStageRunner, a turn refused for a used-up usage window with a Sta
           { step: "end" },
         ],
       ],
-      [ON_HOME],
+      [HOME.id],
     );
 
     const taskId = await walkStages(pipelines, [implement]);
@@ -186,7 +223,7 @@ describe("AgentStageRunner, a turn refused for a used-up usage window with a Sta
   });
 
   it("opens the run's next Stage on the Stand-in Engine", async () => {
-    await start([refusedThenDone(), anAgentSession(aDoneResult())], [ON_HOME]);
+    await start([refusedThenDone(), anAgentSession(aDoneResult())], [HOME.id]);
     pipelines.tasks.whenWentOnOnStandIn = (taskId, standIn) => {
       pipelines.records.put(taskId, aTaskRecord({ engineStandIns: [standIn] }));
     };
@@ -218,15 +255,15 @@ describe("AgentStageRunner, a turn refused for a used-up usage window with a Sta
           { step: "end" },
         ],
       ],
-      [ON_HOME, ON_SPARE],
+      [HOME.id, SPARE.id],
     );
 
     const taskId = await walkStages(pipelines, [implement]);
 
     expect(standInFor.mock.calls).toEqual([
-      [{ engineId: "claude-code", model: "scripted" }],
-      [{ engineId: HOME.id, model: "scripted" }],
-      [{ engineId: SPARE.id, model: "scripted" }],
+      ["claude-code", { standIns: [HOME.id, SPARE.id], ...STAGE_ASKS }],
+      [HOME.id, { standIns: [HOME.id, SPARE.id], ...STAGE_ASKS }],
+      [SPARE.id, { standIns: [HOME.id, SPARE.id], ...STAGE_ASKS }],
     ]);
     const [held] = await runsOf(pipelines, taskId);
     expect(
@@ -268,7 +305,7 @@ describe("AgentStageRunner, a turn refused for a used-up usage window with a Sta
   });
 
   it("pauses, not fails, when the session can't be moved to the Stand-in Engine", async () => {
-    await start([A_REFUSED_SESSION], [ON_HOME]);
+    await start([A_REFUSED_SESSION], [HOME.id]);
     pipelines.stageThreads.switchFails = new Error("The session couldn't be carried over.");
 
     const taskId = await walkStages(pipelines, [implement]);
@@ -286,7 +323,7 @@ describe("AgentStageRunner, a turn refused for a used-up usage window with a Sta
   });
 
   it("leaves a run the user paused first held by them, moving nothing", async () => {
-    const standInFor = await start([A_REFUSED_SESSION], [ON_HOME]);
+    const standInFor = await start([A_REFUSED_SESSION], [HOME.id]);
     const taskId = randomUUID();
     pipelines.stageThreads.whileTurnRuns = async () => {
       pipelines.stageThreads.whileTurnRuns = undefined;
@@ -304,7 +341,7 @@ describe("AgentStageRunner, a turn refused for a used-up usage window with a Sta
   });
 
   it("holds a run the user paused while it switched on the Stand-in Engine, the refused message still to send", async () => {
-    await start([A_REFUSED_SESSION], [ON_HOME]);
+    await start([A_REFUSED_SESSION], [HOME.id]);
     const taskId = randomUUID();
     pipelines.stageThreads.whileSwitching = async () => {
       pipelines.tasks.put(taskId, { state: "paused", pipelineId: "for-tests" });
@@ -327,9 +364,48 @@ describe("AgentStageRunner, a turn refused for a used-up usage window with a Sta
   });
 });
 
+describe("AgentStageRunner, the Stand-in Engines a refused turn goes on on (spec 5.4.6)", () => {
+  it("passes over a Stand-in Engine of another type, going on on the next of the session's type", async () => {
+    await startOn([refusedThenDone()], [CODEX.id, HOME.id]);
+
+    const taskId = await walkStages(pipelines, [implement]);
+
+    const [run] = await runsOf(pipelines, taskId);
+    expect(run).toMatchObject({ engineId: HOME.id, outcome: { status: "done" } });
+    // The stand-in carries the session on its model.
+    expect(pipelines.stageThreads.switched).toMatchObject([{ standIn: ON_HOME }]);
+  });
+
+  it("pauses until the reset when the only Stand-in Engine with room is of another type", async () => {
+    await startOn([A_REFUSED_SESSION], [CODEX.id]);
+
+    const taskId = await walkStages(pipelines, [implement]);
+
+    const [held] = await runsOf(pipelines, taskId);
+    expect(held).toMatchObject({ engineId: "claude-code", heldBy: "usage-window" });
+    expect(held?.outcome).not.toHaveProperty("refused.standInChoice");
+    expect(pipelines.stageThreads.switched).toEqual([]);
+    expect(pipelines.tasks.usageWindowPauses).toHaveLength(1);
+  });
+
+  it("goes on on the Project's own list, not the Office's", async () => {
+    await startOn([refusedThenDone()], [HOME.id]);
+    applyingStandIns({ from: "project", engineIds: [SPARE.id] });
+
+    const taskId = await walkStages(pipelines, [implement]);
+
+    const [run] = await runsOf(pipelines, taskId);
+    expect(run).toMatchObject({ engineId: SPARE.id, outcome: { status: "done" } });
+    expect(pipelines.cascade.askedForEngine).toContainEqual({
+      projectId: expect.any(String),
+      taskId,
+    });
+  });
+});
+
 describe("AgentStageRunner, a refused turn whose context is over the size to ask first above", () => {
   it("pauses with the Stand-in Engine's choice and tells of it, which waits until the Task resumes", async () => {
-    await start([A_REFUSED_SESSION, anAgentSession(aDoneResult())], [ON_HOME]);
+    await start([A_REFUSED_SESSION, anAgentSession(aDoneResult())], [HOME.id]);
     pipelines.stageThreads.contextAfterTurn = { tokens: 182_000, window: 200_000 };
 
     const taskId = await walkStages(pipelines, [implement]);

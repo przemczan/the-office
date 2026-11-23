@@ -91,7 +91,12 @@ const PROJECT: Project = {
   environment: { set: [], unset: [], prependPath: [] },
   useProjectSkills: true,
   projectSkillsOff: [],
-  engine: { default: null, force: null, people: [] },
+  engine: {
+    default: null,
+    force: null,
+    people: [],
+    standIns: { useOwnList: false, engineIds: [] },
+  },
   runEnvironment: "on",
   features: {
     "connected-devices": true,

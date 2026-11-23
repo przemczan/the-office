@@ -1,10 +1,5 @@
-import type { EngineCapability, EngineModel } from "../../engine/index.js";
-import {
-  engineInCascade,
-  NO_WORK_LEVELS,
-  type ProjectCascadeLevels,
-  type WorkCascadeLevels,
-} from "./engine-cascade.js";
+import type { EngineCapability, EngineId } from "../../engine/index.js";
+import { engineInCascade, type EngineCascadeLevels, type EngineInPlace } from "./engine-cascade.js";
 
 /**
  * What a Role a Pipeline names needs of its engine: an Agent Stage gives its session Office tools
@@ -17,44 +12,91 @@ export const PIPELINE_ROLE_CAPABILITIES = [
 ] as const satisfies readonly EngineCapability[];
 export type PipelineRoleCapability = (typeof PIPELINE_ROLE_CAPABILITIES)[number];
 
-/** A Role a Pipeline names that the cascade puts on an engine lacking what its Stages need. */
+/**
+ * A Role a Pipeline names that the cascade puts on an engine lacking what its Stages need, or that
+ * a Stand-in Engine of the list that applies there would take over on.
+ */
 export interface RoleOnIncapableEngine {
   readonly roleKey: string;
   readonly engineId: string;
   readonly missing: readonly PipelineRoleCapability[];
   /** In an Initiative's refusal, the Task the Role was found on. */
   readonly taskTitle?: string;
+  /** Reached as a Stand-in Engine of the list that applies, not as the cascade's engine. */
+  readonly standIn?: true;
+}
+
+/** Which engines in reach `rolesOnIncapableEngines` weighs besides the cascade's. */
+export interface EnginesInReach {
+  /**
+   * Whether the Stand-in Engine list that applies is weighed; on unless left to another place's
+   * check, as a Task's Project weighs the list a save above the Task changes.
+   */
+  readonly standIns?: boolean;
 }
 
 /**
- * The Roles of `roleKeys` whose engine in the cascade, the one everyone in the place runs on, in `project` or in no Project, and on a Task or
- * an Initiative setting `work`, lacks a capability their Agent Stages need; a Role on no engine,
- * with none listed, lacks nothing here. `missingCapabilities` gives what an engine can't do.
+ * The Stand-in Engines in reach in a place (spec §5.4.5): the list the cascade says applies there,
+ * the Project's own or the Office's, less the cascade's own engine, which never stands in for
+ * itself. Which list applies is the cascade's `standInsApplying` alone, so a place with an engine
+ * override, which uses no Stand-in Engine (spec §5.4.5), is to weigh none once it answers so.
+ */
+export function standInsInReach(inPlace: EngineInPlace): readonly EngineId[] {
+  return [...new Set(inPlace.standIns.engineIds)].filter(
+    (engineId) => engineId !== inPlace.engineId,
+  );
+}
+
+/**
+ * The Roles of `roleKeys` whose engine in the cascade, the one everyone in the place runs on, at
+ * `levels` (in a Project or in none, on a Task or an Initiative setting an engine), lacks a
+ * capability their Agent Stages need, then the Roles again on each Stand-in Engine in reach there
+ * that lacks one (`standInsInReach`); a Role on no engine, with none listed, lacks nothing here.
+ * `missingCapabilities` gives what an engine can't do.
  */
 export function rolesOnIncapableEngines(
   roleKeys: Iterable<string>,
-  officeDefault: EngineModel | null,
-  project: ProjectCascadeLevels | undefined,
+  levels: EngineCascadeLevels,
   missingCapabilities: (engineId: string) => readonly EngineCapability[],
-  work: WorkCascadeLevels = NO_WORK_LEVELS,
+  { standIns = true }: EnginesInReach = {},
 ): RoleOnIncapableEngine[] {
-  const applying = engineInCascade({ officeDefault, project, work });
+  const applying = engineInCascade(levels);
   if (applying === null) return [];
-  const { engineId } = applying;
-  const missing = PIPELINE_ROLE_CAPABILITIES.filter((capability) =>
-    missingCapabilities(engineId).includes(capability),
-  );
-  if (missing.length === 0) return [];
-  return [...roleKeys].map((roleKey) => ({ roleKey, engineId, missing }));
+  const roles = [...roleKeys];
+  const missingOf = (engineId: string) =>
+    PIPELINE_ROLE_CAPABILITIES.filter((capability) =>
+      missingCapabilities(engineId).includes(capability),
+    );
+  const onEngine = (engineId: string, standIn: boolean): RoleOnIncapableEngine[] => {
+    const missing = missingOf(engineId);
+    if (missing.length === 0) return [];
+    return roles.map((roleKey) => ({
+      roleKey,
+      engineId,
+      missing,
+      ...(standIn && { standIn: true as const }),
+    }));
+  };
+  return [
+    ...onEngine(applying.engineId, false),
+    ...(standIns ? standInsInReach(applying).flatMap((engineId) => onEngine(engineId, true)) : []),
+  ];
 }
 
-/** Those of `after` that `before` didn't hold: what a save would newly cause. */
+/**
+ * Those of `after` that `before` didn't hold: what a save would newly cause. On the cascade's
+ * engine a Role counts once, whichever engine; as a stand-in, once on each engine.
+ */
 export function newlyOnIncapableEngines(
   before: readonly RoleOnIncapableEngine[],
   after: readonly RoleOnIncapableEngine[],
 ): RoleOnIncapableEngine[] {
-  const already = new Set(before.map(({ roleKey }) => roleKey));
-  return after.filter(({ roleKey }) => !already.has(roleKey));
+  const already = new Set(before.map(keyOf));
+  return after.filter((each) => !already.has(keyOf(each)));
+}
+
+function keyOf({ roleKey, engineId, standIn }: RoleOnIncapableEngine): string {
+  return JSON.stringify(standIn ? [roleKey, engineId] : [roleKey]);
 }
 
 /** How the refusal names Roles, engines and the place they would run in. */
@@ -79,15 +121,25 @@ const OR = new Intl.ListFormat("en", { type: "disjunction" });
  * One refusal for each engine, naming what it lacks and the Roles that would run on it, once each
  * (spec §5.4.5): "<engine> can't use Office tools, which the Agent Stages of the Developer need in
  * <Project>." ("outside any Project"); in a `place`, "On “<Task>”, <engine> can't …, which … need.",
- * and in an Initiative's, the Tasks they were found on: "… need on “<Task>”.".
+ * and in an Initiative's, the Tasks they were found on: "… need on “<Task>”.". An engine reached as
+ * a Stand-in Engine is refused apart: "<engine> can't stand in: it can't use Office tools, …".
  */
 export function incapableEngineProblems(
   found: readonly RoleOnIncapableEngine[],
   { roleTitle, engineName, projectName, place }: IncapableEngineNames,
 ): string[] {
-  const engineIds = [...new Set(found.map(({ engineId }) => engineId))];
-  return engineIds.map((engineId) => {
-    const onEngine = found.filter((each) => each.engineId === engineId);
+  const engines = [
+    ...new Map(
+      found.map(({ engineId, standIn }) => [
+        JSON.stringify([engineId, standIn === true]),
+        { engineId, standIn: standIn === true },
+      ]),
+    ).values(),
+  ];
+  return engines.map(({ engineId, standIn }) => {
+    const onEngine = found.filter(
+      (each) => each.engineId === engineId && (each.standIn === true) === standIn,
+    );
     const roles = AND.format(
       [...new Set(onEngine.map(({ roleKey }) => roleKey))].map(
         (roleKey) => `the ${roleTitle(roleKey)}`,
@@ -98,7 +150,8 @@ export function incapableEngineProblems(
         onEngine.some((each) => each.missing.includes(capability)),
       ).map((capability) => MISSING_CAPABILITY_WORDS[capability]),
     );
-    const refusal = `${engineName(engineId)} can't ${missing}, which the Agent Stages of ${roles} need`;
+    const cant = standIn ? `can't stand in: it can't ${missing}` : `can't ${missing}`;
+    const refusal = `${engineName(engineId)} ${cant}, which the Agent Stages of ${roles} need`;
     if (place === undefined) {
       return `${refusal} ${projectName === undefined ? "outside any Project" : `in ${projectName}`}.`;
     }

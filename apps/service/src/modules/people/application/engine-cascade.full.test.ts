@@ -47,9 +47,13 @@ const gemini: Engine = {
   defaultEffort: null,
   apiKey: null,
 };
+/** The Office's Stand-in Engine list as stored, which applies unless a Project uses its own. */
+const fromOffice = { from: "office", engineIds: ["codex"] } as const;
+const NO_OWN_LIST = { useOwnList: false, engineIds: [] } as const;
 /** Where the Office default puts the Developer with no settings of their own. */
 const onOfficeDefault = {
   ...officeDefault,
+  standIns: fromOffice,
   level: "office-default",
   engineType: "claude-code",
   modelLevel: "engine",
@@ -107,19 +111,33 @@ async function cascadeWith(
     default: projectDefault,
     force: { model: forcedModel, effort: null },
     people: [],
+    standIns: NO_OWN_LIST,
   };
-  const quietProject: ProjectCascadeLevels = { default: null, force: null, people: [] };
+  const quietProject: ProjectCascadeLevels = {
+    default: null,
+    force: null,
+    people: [],
+    standIns: { useOwnList: false, engineIds: ["gemini"] },
+  };
+  const ownListProject: ProjectCascadeLevels = {
+    default: null,
+    force: null,
+    people: [],
+    standIns: { useOwnList: true, engineIds: ["gemini"] },
+  };
   const personProject: ProjectCascadeLevels = {
     default: null,
     force: null,
     people: [
       { roleKey: "developer", engineSettings: { "claude-code": { model: null, effort: "low" } } },
     ],
+    standIns: NO_OWN_LIST,
   };
   const byId: Readonly<Record<string, ProjectCascadeLevels>> = {
     "the-project": forcedProject,
     "a-quiet-project": quietProject,
     "a-person-project": personProject,
+    "an-own-list-project": ownListProject,
   };
   const projects: KnownProjectLevels = {
     engineLevelsOf: async (projectId) => byId[projectId] ?? quietProject,
@@ -146,6 +164,7 @@ async function cascadeWith(
                     gemini,
                   ],
                   officeDefault: { engineType: "claude-code", engineId: office.engineId },
+                  standInEngines: ["codex"],
                 },
           ),
         ),
@@ -202,16 +221,39 @@ describe("EngineCascade", () => {
       engineId: "claude-code",
       engineType: "claude-code",
       level: "office-default",
+      standIns: fromOffice,
     });
     await expect(cascade.engineAt({ projectId: "the-project" })).resolves.toEqual({
       engineId: "claude-code",
       engineType: "claude-code",
       level: "project-default",
+      standIns: fromOffice,
     });
     await expect(
       cascade.engineAt({ projectId: "the-project", taskId: "the-task" }),
-    ).resolves.toEqual({ engineId: "codex", engineType: "codex", level: "task-engine" });
+    ).resolves.toEqual({
+      engineId: "codex",
+      engineType: "codex",
+      level: "task-engine",
+      standIns: fromOffice,
+    });
     await expect((await cascadeWith({}, null)).engineAt()).resolves.toBeNull();
+  });
+
+  it("gives the Stand-in Engine list that applies in a place: a Project's own while it uses it, else the Office's", async () => {
+    const cascade = await cascadeWith({});
+
+    await expect(cascade.engineAt({ projectId: "an-own-list-project" })).resolves.toMatchObject({
+      standIns: { from: "project", engineIds: ["gemini"] },
+    });
+    await expect(
+      cascade.of("developer", { projectId: "an-own-list-project" }),
+    ).resolves.toMatchObject({ standIns: { from: "project", engineIds: ["gemini"] } });
+    // Turned off, the Project's list is kept unused.
+    await expect(cascade.engineAt({ projectId: "a-quiet-project" })).resolves.toMatchObject({
+      standIns: fromOffice,
+    });
+    await expect(cascade.applying("developer")).resolves.toMatchObject({ standIns: fromOffice });
   });
 
   it("weighs a Task's engine, and its Initiative's, in the Project default's place, the force on its type only", async () => {
@@ -228,6 +270,7 @@ describe("EngineCascade", () => {
       modelLevel: "engine",
       effort: "medium",
       effortLevel: "engine",
+      standIns: fromOffice,
     });
     await expect(
       cascade.of("developer", { projectId: "the-project", initiativeId: "the-initiative" }),
@@ -239,6 +282,7 @@ describe("EngineCascade", () => {
       modelLevel: "engine",
       effort: null,
       effortLevel: "engine",
+      standIns: fromOffice,
     });
     await expect(
       cascade.applying("developer", { projectId: "the-project", taskId: "a-plain-task" }),
@@ -285,6 +329,27 @@ describe("EngineCascade", () => {
     await expect(cascade.applying("developer")).resolves.toBeNull();
     await expect(cascade.acrossProjects("developer")).resolves.toMatchObject({
       outsideProjects: null,
+    });
+  });
+
+  it("resolves the person's model and effort on a Stand-in Engine of another type, the cascade's level kept", async () => {
+    const cascade = await cascadeWith({
+      "claude-code": { model: "claude-opus-5-5", effort: "high" },
+      codex: { model: null, effort: "low" },
+    });
+
+    await expect(cascade.onEngine("developer", "codex")).resolves.toMatchObject({
+      engineId: "codex",
+      engineType: "codex",
+      level: "office-default",
+      model: codex.defaultModel,
+      modelLevel: "engine",
+      effort: "low",
+      effortLevel: "person",
+    });
+    await expect(cascade.onEngine("developer", "gone")).resolves.toMatchObject({
+      engineId: "claude-code",
+      model: "claude-opus-5-5",
     });
   });
 

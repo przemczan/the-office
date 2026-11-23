@@ -2,9 +2,10 @@ import { Injectable } from "@nestjs/common";
 import type { ProjectEngine } from "../domain/project.js";
 
 /**
- * A save of a Project's engine levels that changes its default: the levels it holds and those the
- * save would leave. A save of only the force or the people names no engine, so it isn't weighed
- * (spec §5.4.5, "Roles that need Office tools and a held answer").
+ * A save of a Project's engine levels that changes its default or its Stand-in Engine list (the
+ * toggle or the engines): the levels it holds and those the save would leave. A save of only the
+ * force or the people names no engine, so it isn't weighed (spec §5.4.5, "Roles that need Office
+ * tools and a held answer").
  */
 export interface EngineLevelsSave {
   readonly projectId: string;

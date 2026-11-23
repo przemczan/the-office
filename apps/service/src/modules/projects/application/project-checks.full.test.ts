@@ -376,13 +376,19 @@ describe("ProjectChecks.checkCommandRemoval", () => {
 
 describe("ProjectChecks.checkProjectEngine", () => {
   const engineId = FIRST_CLAUDE_CODE_ENGINE.id;
-  const NONE = { default: null, force: null, people: [] } as const;
+  const NONE = {
+    default: null,
+    force: null,
+    people: [],
+    standIns: { useOwnList: false, engineIds: [] },
+  } as const;
   const onClaude = { engineType: "claude-code", engineId } as const;
 
   it("passes a listed engine of its type with a force and people's settings its types offer", async () => {
     await expect(
       checksWith().checkProjectEngine(
         {
+          ...NONE,
           default: onClaude,
           force: { model: "claude-haiku-5-5", effort: "max" },
           people: [
@@ -435,6 +441,28 @@ describe("ProjectChecks.checkProjectEngine", () => {
         ),
       ),
     ).toEqual(["Choose a model Codex offers.", "Choose an effort Codex takes."]);
+  });
+
+  it("refuses a changed Stand-in Engine list naming an engine not listed or one twice, used or not", async () => {
+    expect(
+      await reasonsOf(
+        checksWith().checkProjectEngine(
+          { ...NONE, standIns: { useOwnList: false, engineIds: ["gone", engineId, engineId] } },
+          NONE,
+        ),
+      ),
+    ).toEqual([
+      "Pick each Stand-in Engine among the engines listed.",
+      '"Claude Code" is listed twice as a Stand-in Engine.',
+    ]);
+  });
+
+  it("passes a Stand-in Engine list as it is stored", async () => {
+    const standIns = { useOwnList: true, engineIds: ["gone"] };
+
+    await expect(
+      checksWith().checkProjectEngine({ ...NONE, standIns }, { ...NONE, standIns }),
+    ).resolves.toBeUndefined();
   });
 
   it("passes a person's setting for a type as it is stored, though no engine of the type is listed", async () => {

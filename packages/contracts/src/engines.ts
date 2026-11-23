@@ -337,7 +337,8 @@ export type EngineRemoval = z.infer<typeof engineRemovalSchema>;
  * when the only engine goes). What it belongs to tells the level: a Role and a Project for a
  * Project's Role override, a Project alone for its Project default, a Role alone for its Role
  * override, neither for the Office default; a Task or an Initiative for its engine, with its
- * Project, Done and Dropped ones too, and its state, which marks those.
+ * Project, Done and Dropped ones too, and its state, which marks those; `standInList` for a
+ * Stand-in Engine list, the Office's with no Project, a Project's own (used or not) with it.
  */
 export const movedEngineReferenceSchema = z.object({
   roleKey: z.string().nullable(),
@@ -359,6 +360,12 @@ export const movedEngineReferenceSchema = z.object({
       }),
     ])
     .nullable(),
+  /**
+   * Set on a Stand-in Engine list's move, from the removed engine to the replacement taking its
+   * place (or none), each on its engine's default model since a list names no model; left out
+   * for every other level.
+   */
+  standInList: z.literal(true).optional(),
   from: engineModelSchema,
   to: engineModelSchema.nullable(),
 });
