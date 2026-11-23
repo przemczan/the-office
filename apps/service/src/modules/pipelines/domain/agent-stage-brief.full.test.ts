@@ -10,7 +10,8 @@ import { allowedCommands } from "./allowed-commands.js";
 import { hardSwitchesSection, type FollowedHardSwitches } from "./followed-hard-switches.js";
 import { GATE_REACHED } from "./gate.js";
 import type { AgentStage, Stage } from "./stage.js";
-import { goingBackOnFailure } from "./stage.fixtures.js";
+import { asFlow, pipelineOrder } from "./flow.js";
+import { goingBackOnFailure, keptPublishStage, publishStage } from "./stage.fixtures.js";
 import { aStageRun } from "./stage-run.fixtures.js";
 import { defaultPromptTexts } from "../../prompt-templates/index.js";
 import { PIPELINES_PROMPT_TEMPLATES } from "./pipelines-prompt-templates.js";
@@ -361,13 +362,7 @@ describe("agentStageWork's Later Stages", () => {
       "While you iterate, run only the tests that cover the files you change: a later Stage runs the Project's full command.";
 
     expect(workIn(implement, [implement, lint])).toContain(line);
-    expect(
-      workIn(implement, [
-        implement,
-        review,
-        { ...lint, key: "publish", name: "Publish", command: "publish" },
-      ]),
-    ).not.toContain(line);
+    expect(workIn(implement, [implement, review, publishStage()])).not.toContain(line);
     expect(workIn(implement, [implement, { ...lint, command: "lint" }])).not.toContain(line);
     expect(workIn(review, [lint, implement, review])).not.toContain(line);
   });
@@ -396,13 +391,28 @@ describe("agentStageWork's Later Stages", () => {
     const work = workIn(implement, [
       implement,
       { ...lint, name: "Lint", command: "lint" },
-      { ...lint, key: "publish", name: "Publish", command: "publish" },
+      publishStage(),
     ]);
 
     expect(work).toContain(
       "- Lint (Script Stage): runs the Project's command lint, which isn't set.",
     );
-    expect(work).toContain("- Publish (Script Stage): The Office publishes the Task's work.");
+    expect(work).toContain("- Publish (Publish Stage): The Office publishes the Task's work.");
+  });
+
+  it("says a Stage of the conflict chain runs only after a conflict at Publish", () => {
+    const work = workIn(implement, pipelineOrder(asFlow([implement, lint, keptPublishStage()])));
+
+    expect(work).toContain(
+      "- Resolve (Agent Stage, Developer): Resolve the conflicts the merge of the base left in the Task's branch.",
+    );
+    expect(work).toContain(
+      "If you can't resolve a conflict, end the Stage failed and say why. It runs only after a conflict at Publish.",
+    );
+    expect(work).toContain(
+      "- Test after Resolve (Script Stage): runs `npm test`. It runs only after a conflict at Publish.",
+    );
+    expect(work).toContain("- Lint after review (Script Stage): runs `npm run build`.\n");
   });
 
   it("tells the last Stage that no Stage comes after it", () => {

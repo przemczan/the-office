@@ -45,8 +45,7 @@ export function sendBackTargets(stages: readonly Stage[], gateKey: string): Stag
 }
 
 function isSendBackTarget(stage: Stage): boolean {
-  if (stage.kind === "gate") return false;
-  return stage.kind !== "script" || stage.command !== "publish";
+  return stage.kind !== "gate" && stage.kind !== "publish";
 }
 
 /**

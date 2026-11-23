@@ -16,12 +16,19 @@ import {
   type StageWorkReasons,
 } from "./agent-stage-brief.js";
 import { GATE_REACHED } from "./gate.js";
-import { PUBLISH_COMMAND, type Stage } from "./stage.js";
-import { agentStage, dutyStage, gate, goingBackOnFailure, scriptStage } from "./stage.fixtures.js";
+import type { Stage } from "./stage.js";
+import {
+  agentStage,
+  dutyStage,
+  gate,
+  goingBackOnFailure,
+  publishStage,
+  scriptStage,
+} from "./stage.fixtures.js";
 import type { StageOutcome } from "./stage-run.js";
 import { allowedCommands, type RunPermission } from "./allowed-commands.js";
 import { hardSwitchesSection, type FollowedHardSwitchValue } from "./followed-hard-switches.js";
-import { RESOLVE_AFTER_GATE, RESOLVE_AFTER_TEST } from "./resolve-stages.js";
+import { MERGE_BASE_CLEAN, RESOLVE_AFTER_GATE, RESOLVE_AFTER_TEST } from "./merge-base-first.js";
 import { branchMovedWords, branchUpdateWords, type BranchUpdate } from "./stage-commit.js";
 import { correctionMessage } from "./stage-result.js";
 import { defaultPromptTexts } from "../../prompt-templates/index.js";
@@ -240,6 +247,14 @@ describe("pipelines.stage-thread-instructions", () => {
   it("is what an Agent is told in a Stage Thread, as before", () => {
     expect(prompts.render(AGENT_STAGE_THREAD_INSTRUCTIONS, {})).toBe(
       "In this Thread you work Stages of a Task's Pipeline, in the Task's worktree. Each Stage comes as a message saying what it asks, after the Task's Brief when your session is new. Work it through, checking your work with run_project_command: it runs one of the Project's commands by its key, or a command line you may run, such as one test file, where the Project's commands run (in the Task's run environment when the Project has one), and answers with the exit code and a file with the whole output. Your own shell runs on this computer, outside the run environment, so run the Project's checks with run_project_command, never by hand in your shell, and don't write a .env or start a database to make them run there. The Brief names the commands you may run. The Office commits your work after each Stage: you never commit, push or switch branches. The Stage ends when your turn ends, with your result, so finish within the turn whatever work you need: your sub-agents run in the foreground and answer within it, and you wait in it for anything else, such as a background command's output, never ending the turn to wait. Stop the background commands you no longer need before you end it. End the Stage with your result: done, with a summary, the numbers of the Definition of Done statements the work meets, and your Handover note (where you are, what is left, what to watch); needs_decision, once you asked and wait for the answer; or failed, with the reason, when you can't finish it. A Definition of Done statement you can't verify where you work, however many rounds you get, such as a live check on the user's workstation, you report as out of reach with why, never as met. A statement reported met, by you or an earlier Stage, stays met: the Brief marks those Reported met so far. One your work no longer meets, such as a regression you found, you list as no longer met, which takes it back. When a choice is the user's to make, open a Decision with open_decision, asking every question you have in that one Decision; when your brief or your authority says to consult someone first, use consult. Either returns at once: then end the Stage with needs_decision and your Handover note, and the answer comes as your next message. Small issues you find along the way, such as a typo, a missing check or a broken test beside your change, fix within this Task and name them in your Handover note. An issue too big for this Task or outside its scope, don't fix: propose a Bug Task with propose_bug_task, end the Stage with needs_decision, and go on with your own work once the answer comes, whichever it is. An answer of Fix now creates no Task: fix the issue within this Task, naming it in your Handover note, then go on. Write a screenshot of each screen you changed into the screenshots folder the Brief names and list it in your result's screenshots: The Office attaches exactly those. Attach anything else the user should see with the Task, such as a report, with attach_file or attach_link. Attach a design the user is to approve before its Gate, as one self-contained .html file: the preview loads nothing from outside the file. When your work needs something the base branch has and the Task's branch doesn't, call update_branch rather than asking anyone: The Office commits your work so far and brings the branch up to date. The Task's commit message is the message of the one commit Publish lands the Task as: when your work changes what it should say, update it with write_commit_message.",
+    );
+  });
+});
+
+describe("pipelines.merge-base-clean", () => {
+  it("tells the Agent the base came in cleanly and the merge is committed", () => {
+    expect(prompts.render(MERGE_BASE_CLEAN, { baseBranch: "initiative/x, then main" })).toBe(
+      "The Office merged initiative/x, then main into the Task's branch as the Stage started, and it came in cleanly, with no conflict: the merge is committed already. Check that the Task's work and what the base changed still fit together, and fix what doesn't. Don't run git: The Office commits your changes.",
     );
   });
 });
@@ -574,7 +589,7 @@ const LATER: readonly Stage[] = [
   gate({ key: "look", name: "Look" }),
   goingBackOnFailure(scriptStage({ key: "tests", name: "Tests", command: "test" }), "implement", 3),
   goingBackOnFailure(scriptStage({ key: "lint", name: "Lint", command: "lint" }), "review", 1),
-  scriptStage({ key: "publish", name: "Publish", command: PUBLISH_COMMAND }),
+  publishStage({ name: "Publish" }),
 ];
 const PIPELINE: StagePipeline = {
   stages: LATER,
@@ -584,7 +599,7 @@ const PIPELINE: StagePipeline = {
 const LAST: StagePipeline = { ...PIPELINE, stages: [IMPLEMENT] };
 const BEFORE_PUBLISH: StagePipeline = {
   ...PIPELINE,
-  stages: [IMPLEMENT, scriptStage(), scriptStage({ key: "publish", command: PUBLISH_COMMAND })],
+  stages: [IMPLEMENT, scriptStage(), publishStage()],
 };
 const RECHECKED: RecheckedCommitMessage = {
   text: "Rename a device\n\nAdds a rename dialog.",
@@ -631,12 +646,12 @@ describe("pipelines.stage-message", () => {
     [
       "Stages of every kind after it, with a commit message it doesn't recheck",
       () => work({ pipeline: PIPELINE, commitMessage: RECHECKED }),
-      "## The Stage: Implement\n\nBuild it.\nKeep it small.\n\n## Later Stages\n\nThese Stages come after this one in the Task's Pipeline, in order:\n\n- Review (Agent Stage, Reviewer): Review it.\n  Carefully. If it fails, the work comes back here.\n- Ask (Agent Stage, Asked first when a Stage runs out of tries, nobody holds it): Ask.\n- Nobody (Agent Stage, nobody chosen yet): Nobody's.\n- Look (Gate): the user looks at the work there and lets it continue or sends it back.\n- Tests (Script Stage): runs `npm test`. If it fails, the work comes back here.\n- Lint (Script Stage): runs the Project's command lint, which isn't set.\n- Publish (Script Stage): The Office publishes the Task's work.\n\nWhile you iterate, run only the tests that cover the files you change: a later Stage runs the Project's full command.",
+      "## The Stage: Implement\n\nBuild it.\nKeep it small.\n\n## Later Stages\n\nThese Stages come after this one in the Task's Pipeline, in order:\n\n- Review (Agent Stage, Reviewer): Review it.\n  Carefully. If it fails, the work comes back here.\n- Ask (Agent Stage, Asked first when a Stage runs out of tries, nobody holds it): Ask.\n- Nobody (Agent Stage, nobody chosen yet): Nobody's.\n- Look (Gate): the user looks at the work there and lets it continue or sends it back.\n- Tests (Script Stage): runs `npm test`. If it fails, the work comes back here.\n- Lint (Script Stage): runs the Project's command lint, which isn't set.\n- Publish (Publish Stage): The Office publishes the Task's work.\n\nWhile you iterate, run only the tests that cover the files you change: a later Stage runs the Project's full command.",
     ],
     [
       "the last Agent Stage before Publish, its commit message written",
       () => work({ pipeline: BEFORE_PUBLISH, commitMessage: RECHECKED }),
-      "## The Stage: Implement\n\nBuild it.\nKeep it small.\n\n## Later Stages\n\nThese Stages come after this one in the Task's Pipeline, in order:\n\n- Tests (Script Stage): runs `npm test`.\n- Tests (Script Stage): The Office publishes the Task's work.\n\nWhile you iterate, run only the tests that cover the files you change: a later Stage runs the Project's full command.\n\n## Recheck the commit message\n\nYours is the last Agent Stage before Publish, which lands the Task on main as one commit with the Task's commit message. Before you end the Stage, read the Task's whole diff (`git diff origin/main...HEAD`; the Brief's \"What changed so far\" summarises it), check the message against that diff and the commit convention the Project's own docs define (CLAUDE.md, AGENTS.md, README, CONTRIBUTING and the like), and fix it with write_commit_message where it no longer fits. It reads now:\n\n```\nRename a device\n\nAdds a rename dialog.\n```",
+      "## The Stage: Implement\n\nBuild it.\nKeep it small.\n\n## Later Stages\n\nThese Stages come after this one in the Task's Pipeline, in order:\n\n- Tests (Script Stage): runs `npm test`.\n- Publish (Publish Stage): The Office publishes the Task's work.\n\nWhile you iterate, run only the tests that cover the files you change: a later Stage runs the Project's full command.\n\n## Recheck the commit message\n\nYours is the last Agent Stage before Publish, which lands the Task on main as one commit with the Task's commit message. Before you end the Stage, read the Task's whole diff (`git diff origin/main...HEAD`; the Brief's \"What changed so far\" summarises it), check the message against that diff and the commit convention the Project's own docs define (CLAUDE.md, AGENTS.md, README, CONTRIBUTING and the like), and fix it with write_commit_message where it no longer fits. It reads now:\n\n```\nRename a device\n\nAdds a rename dialog.\n```",
     ],
     [
       "the last Agent Stage before Publish, no commit message written, no base",
@@ -650,7 +665,7 @@ describe("pipelines.stage-message", () => {
             changesFrom: [],
           },
         }),
-      "## The Stage: Implement\n\nBuild it.\nKeep it small.\n\n## Later Stages\n\nThese Stages come after this one in the Task's Pipeline, in order:\n\n- Tests (Script Stage): runs `npm test`.\n- Tests (Script Stage): The Office publishes the Task's work.\n\nWhile you iterate, run only the tests that cover the files you change: a later Stage runs the Project's full command.\n\n## Recheck the commit message\n\nYours is the last Agent Stage before Publish, which lands the Task on main as one commit with the Task's commit message. Before you end the Stage, read the Task's whole diff (`git diff HEAD`; the Brief's \"What changed so far\" summarises it), check the message against that diff and the commit convention the Project's own docs define (CLAUDE.md, AGENTS.md, README, CONTRIBUTING and the like), and fix it with write_commit_message where it no longer fits. None is written, so Publish would use the default:\n\n````\nUse ``` fences\n````",
+      "## The Stage: Implement\n\nBuild it.\nKeep it small.\n\n## Later Stages\n\nThese Stages come after this one in the Task's Pipeline, in order:\n\n- Tests (Script Stage): runs `npm test`.\n- Publish (Publish Stage): The Office publishes the Task's work.\n\nWhile you iterate, run only the tests that cover the files you change: a later Stage runs the Project's full command.\n\n## Recheck the commit message\n\nYours is the last Agent Stage before Publish, which lands the Task on main as one commit with the Task's commit message. Before you end the Stage, read the Task's whole diff (`git diff HEAD`; the Brief's \"What changed so far\" summarises it), check the message against that diff and the commit convention the Project's own docs define (CLAUDE.md, AGENTS.md, README, CONTRIBUTING and the like), and fix it with write_commit_message where it no longer fits. None is written, so Publish would use the default:\n\n````\nUse ``` fences\n````",
     ],
     [
       "the last Agent Stage before Publish, on two bases",
@@ -663,7 +678,7 @@ describe("pipelines.stage-message", () => {
             changesFrom: ["refs/heads/initiative/sign-in", "refs/remotes/origin/main"],
           },
         }),
-      "## The Stage: Implement\n\nBuild it.\nKeep it small.\n\n## Later Stages\n\nThese Stages come after this one in the Task's Pipeline, in order:\n\n- Tests (Script Stage): runs `npm test`.\n- Tests (Script Stage): The Office publishes the Task's work.\n\nWhile you iterate, run only the tests that cover the files you change: a later Stage runs the Project's full command.\n\n## Recheck the commit message\n\nYours is the last Agent Stage before Publish, which lands the Task on initiative/sign-in as one commit with the Task's commit message. Before you end the Stage, read the Task's whole diff (`git log -p --no-merges HEAD --not initiative/sign-in origin/main`, its own commits without what the bases brought in; the Brief's \"What changed so far\" summarises it), check the message against that diff and the commit convention the Project's own docs define (CLAUDE.md, AGENTS.md, README, CONTRIBUTING and the like), and fix it with write_commit_message where it no longer fits. It reads now:\n\n```\nRename a device\n\nAdds a rename dialog.\n```",
+      "## The Stage: Implement\n\nBuild it.\nKeep it small.\n\n## Later Stages\n\nThese Stages come after this one in the Task's Pipeline, in order:\n\n- Tests (Script Stage): runs `npm test`.\n- Publish (Publish Stage): The Office publishes the Task's work.\n\nWhile you iterate, run only the tests that cover the files you change: a later Stage runs the Project's full command.\n\n## Recheck the commit message\n\nYours is the last Agent Stage before Publish, which lands the Task on initiative/sign-in as one commit with the Task's commit message. Before you end the Stage, read the Task's whole diff (`git log -p --no-merges HEAD --not initiative/sign-in origin/main`, its own commits without what the bases brought in; the Brief's \"What changed so far\" summarises it), check the message against that diff and the commit convention the Project's own docs define (CLAUDE.md, AGENTS.md, README, CONTRIBUTING and the like), and fix it with write_commit_message where it no longer fits. It reads now:\n\n```\nRename a device\n\nAdds a rename dialog.\n```",
     ],
     [
       "a question answered",
@@ -692,7 +707,7 @@ describe("pipelines.stage-message", () => {
           sentBack: { gateKey: "look", gateName: "Look", feedback: NOTES },
           installProblem: "npm ci failed.",
         }),
-      "## The Stage: Implement\n\nBuild it.\nKeep it small.\n\n## Later Stages\n\nThese Stages come after this one in the Task's Pipeline, in order:\n\n- Tests (Script Stage): runs `npm test`.\n- Tests (Script Stage): The Office publishes the Task's work.\n\nWhile you iterate, run only the tests that cover the files you change: a later Stage runs the Project's full command.\n\n## Recheck the commit message\n\nYours is the last Agent Stage before Publish, which lands the Task on main as one commit with the Task's commit message. Before you end the Stage, read the Task's whole diff (`git diff origin/main...HEAD`; the Brief's \"What changed so far\" summarises it), check the message against that diff and the commit convention the Project's own docs define (CLAUDE.md, AGENTS.md, README, CONTRIBUTING and the like), and fix it with write_commit_message where it no longer fits. It reads now:\n\n```\nRename a device\n\nAdds a rename dialog.\n```\n\n## Paused by the user Ben Ito\n\nThe user Ben Ito paused this Stage after your last turn, and has resumed it. Your edits are in the worktree as you left them: go on with the Stage's work from there, and end with its result.\n\n## Your question, answered\n\nYou asked the user: Which page?\n\nTheir answer: The device page.\n\nGo on with the Stage from there.\n\n## Why this Stage runs again\n\n\"Tests\" failed after it, so the Pipeline went back here (round 2 of at most 3):\n\nIt broke.\nTwice.\n\n## Sent back from Look\n\nThe user looked at the work so far at the Gate and sent it back to this Stage with their feedback. It is no failure: act on it, then end the Stage with its result.\n\nBuild version B.\nKeep the colours.\n\n## The install before this Stage\n\nnpm ci failed.\n\nCommands that need the dependencies may fail until it passes. If the Task's changes broke it, fix that first; The Office installs again before the next Stage.",
+      "## The Stage: Implement\n\nBuild it.\nKeep it small.\n\n## Later Stages\n\nThese Stages come after this one in the Task's Pipeline, in order:\n\n- Tests (Script Stage): runs `npm test`.\n- Publish (Publish Stage): The Office publishes the Task's work.\n\nWhile you iterate, run only the tests that cover the files you change: a later Stage runs the Project's full command.\n\n## Recheck the commit message\n\nYours is the last Agent Stage before Publish, which lands the Task on main as one commit with the Task's commit message. Before you end the Stage, read the Task's whole diff (`git diff origin/main...HEAD`; the Brief's \"What changed so far\" summarises it), check the message against that diff and the commit convention the Project's own docs define (CLAUDE.md, AGENTS.md, README, CONTRIBUTING and the like), and fix it with write_commit_message where it no longer fits. It reads now:\n\n```\nRename a device\n\nAdds a rename dialog.\n```\n\n## Paused by the user Ben Ito\n\nThe user Ben Ito paused this Stage after your last turn, and has resumed it. Your edits are in the worktree as you left them: go on with the Stage's work from there, and end with its result.\n\n## Your question, answered\n\nYou asked the user: Which page?\n\nTheir answer: The device page.\n\nGo on with the Stage from there.\n\n## Why this Stage runs again\n\n\"Tests\" failed after it, so the Pipeline went back here (round 2 of at most 3):\n\nIt broke.\nTwice.\n\n## Sent back from Look\n\nThe user looked at the work so far at the Gate and sent it back to this Stage with their feedback. It is no failure: act on it, then end the Stage with its result.\n\nBuild version B.\nKeep the colours.\n\n## The install before this Stage\n\nnpm ci failed.\n\nCommands that need the dependencies may fail until it passes. If the Task's changes broke it, fix that first; The Office installs again before the next Stage.",
     ],
     [
       "held, not started, with no words, and nothing else",

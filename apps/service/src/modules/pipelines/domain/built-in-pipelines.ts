@@ -5,7 +5,21 @@ import {
 import { PROPOSE_ACTIONS_TOOL, PROPOSE_TEST_TARGETS_TOOL } from "../../conversations/index.js";
 import type { DutyKey } from "../../people/index.js";
 import type { Pipeline } from "./pipeline.js";
-import { ENDED_FAILED, plainRoute, type Route, type RouteLimit } from "./route.js";
+import {
+  CONFLICT_ROUTE_LIMIT,
+  ENDED_CONFLICT,
+  RESOLVE_KEY,
+  RESOLVE_TEST_COMMAND,
+  RESOLVE_TEST_KEY,
+} from "./publish-stages.js";
+import {
+  RESOLVE_BUDGET_ABOVE,
+  RESOLVE_TEMPLATE_BRIEF,
+  RESOLVE_TEMPLATE_ID,
+  RESOLVE_TEMPLATE_NAME,
+} from "./resolve-template.js";
+import { ENDED_FAILED, plainRoute, type Route, type RouteLimit, type StagePlace } from "./route.js";
+import type { Stage } from "./stage.js";
 import { UPDATE_BRANCH_TOOL } from "./stage-commit.js";
 
 /**
@@ -31,13 +45,61 @@ export const RESOLVE_CONFLICTS_PIPELINE = "resolve-conflicts";
 // budgets of the Stages before it plus its own, written as that sum.
 
 // Each built-in is a straight line of Stages, a column each, with a failure route back placed first
-// where the previous releases' "On failure go back" was, its rounds the route's limit: the flow
-// `asFlow` reads those releases' built-ins as, so an Office seeded before and one seeded now walk
-// alike.
+// where the previous releases' "On failure go back" was, its rounds the route's limit, and a Publish
+// by the publishing mode with the conflict chain on a row under it: the flow `asFlow` reads those
+// releases' built-ins as, so an Office seeded before and one seeded now walk alike.
 
 /** A failure route back to the Stage `to`, named `toName`, at most `limit` times. */
 function backOnFailure(to: string, toName: string, limit: RouteLimit): Route {
   return { to, toName, condition: ENDED_FAILED, limit };
+}
+
+/** Publish's Conflict route to Resolve, at most 3 times, placed after its failure route. */
+const CONFLICT_ROUTE: Route = {
+  to: RESOLVE_KEY,
+  toName: RESOLVE_TEMPLATE_NAME,
+  condition: ENDED_CONFLICT,
+  limit: CONFLICT_ROUTE_LIMIT,
+};
+
+const RESOLVE_TEST_NAME = "Test after Resolve";
+
+/**
+ * The conflict chain before the Publish `publish` (spec §2.3.4, "Conflicts in the flow"): Resolve,
+ * linked to the Resolve template, worked by `duty` with the Pipeline's largest Agent Stage budget
+ * plus 250k (`largestBudget`), then Test after Resolve, going back to Resolve when it fails at most
+ * 2 times and on to Publish; on row 1 from `column`.
+ */
+function conflictChain(duty: DutyKey, largestBudget: number, column: number): Stage[] {
+  const at = (offset: number): StagePlace => ({ column: column + offset, row: 1 });
+  return [
+    {
+      kind: "agent",
+      key: RESOLVE_KEY,
+      name: RESOLVE_TEMPLATE_NAME,
+      duty,
+      brief: RESOLVE_TEMPLATE_BRIEF,
+      session: "fresh",
+      budget: largestBudget + RESOLVE_BUDGET_ABOVE,
+      optional: false,
+      mergeBaseFirst: true,
+      templateId: RESOLVE_TEMPLATE_ID,
+      routes: [{ ...plainRoute(RESOLVE_TEST_KEY), toName: RESOLVE_TEST_NAME }],
+      place: at(0),
+    },
+    {
+      kind: "script",
+      key: RESOLVE_TEST_KEY,
+      name: RESOLVE_TEST_NAME,
+      command: RESOLVE_TEST_COMMAND,
+      optional: false,
+      routes: [
+        backOnFailure(RESOLVE_KEY, RESOLVE_TEMPLATE_NAME, 2),
+        { ...plainRoute("publish"), toName: "Publish" },
+      ],
+      place: at(1),
+    },
+  ];
 }
 
 const full: Pipeline = {
@@ -80,13 +142,17 @@ const full: Pipeline = {
       routes: [backOnFailure("implement", "Implement", 1), plainRoute("publish")],
       place: { column: 2, row: 0 },
     },
+    ...conflictChain(IMPLEMENTS, 370_000, 1),
     {
-      kind: "script",
+      kind: "publish",
       key: "publish",
       name: "Publish",
-      command: "publish",
       optional: false,
-      routes: [backOnFailure("review-and-fix", "Review & fix", 1), plainRoute(null)],
+      routes: [
+        backOnFailure("review-and-fix", "Review & fix", 1),
+        CONFLICT_ROUTE,
+        plainRoute(null),
+      ],
       place: { column: 3, row: 0 },
     },
   ],
@@ -118,13 +184,13 @@ const quickFix: Pipeline = {
       routes: [backOnFailure("implement", "Implement", 2), plainRoute("publish")],
       place: { column: 1, row: 0 },
     },
+    ...conflictChain(IMPLEMENTS, 200_000, 0),
     {
-      kind: "script",
+      kind: "publish",
       key: "publish",
       name: "Publish",
-      command: "publish",
       optional: false,
-      routes: [plainRoute(null)],
+      routes: [CONFLICT_ROUTE, plainRoute(null)],
       place: { column: 2, row: 0 },
     },
   ],
@@ -190,13 +256,13 @@ const onboard: Pipeline = {
       routes: [backOnFailure("onboard", "Onboard", 2), plainRoute("publish")],
       place: { column: 1, row: 0 },
     },
+    ...conflictChain(ONBOARDS_PROJECTS, 150_000, 0),
     {
-      kind: "script",
+      kind: "publish",
       key: "publish",
       name: "Publish",
-      command: "publish",
       optional: false,
-      routes: [plainRoute(null)],
+      routes: [CONFLICT_ROUTE, plainRoute(null)],
       place: { column: 2, row: 0 },
     },
   ],
@@ -230,10 +296,9 @@ const proofOfConcept: Pipeline = {
       place: { column: 1, row: 0 },
     },
     {
-      kind: "script",
+      kind: "publish",
       key: "publish",
       name: "Publish",
-      command: "publish",
       publishTarget: "branch-only",
       optional: false,
       routes: [plainRoute(null)],
@@ -273,13 +338,13 @@ const setUpRunEnvironment: Pipeline = {
       routes: [backOnFailure("set-up", "Set up", 2), plainRoute("publish")],
       place: { column: 1, row: 0 },
     },
+    ...conflictChain(ONBOARDS_PROJECTS, 150_000, 0),
     {
-      kind: "script",
+      kind: "publish",
       key: "publish",
       name: "Publish",
-      command: "publish",
       optional: false,
-      routes: [plainRoute(null)],
+      routes: [CONFLICT_ROUTE, plainRoute(null)],
       place: { column: 2, row: 0 },
     },
   ],
@@ -318,10 +383,9 @@ const resolveConflicts: Pipeline = {
       place: { column: 1, row: 0 },
     },
     {
-      kind: "script",
+      kind: "publish",
       key: "publish",
       name: "Publish",
-      command: "publish",
       publishTarget: "branch-only",
       optional: false,
       routes: [plainRoute(null)],

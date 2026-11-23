@@ -263,20 +263,15 @@ describe("the branch-moved Decision", () => {
 });
 
 describe("the base-moved Decision", () => {
-  it("offers to run Publish again, to continue without publishing, or to drop the Task", () => {
-    const publish: Stage = {
-      kind: "script",
-      key: "publish",
-      name: "Publish",
-      optional: false,
-      command: "publish",
-    };
+  it("offers to publish again, or to drop the Task, for a Conflict no route of Publish takes", () => {
+    const publish: Stage = { kind: "publish", key: "publish", name: "Publish", optional: false };
     const error =
       "office/task-1 no longer applies cleanly on main on origin: merging it would conflict in\n- src/index.ts";
     const run = aRun("publish", {
       status: "failed",
       error,
       baseMoved: { conflictedFiles: ["src/index.ts"] },
+      publishResult: "conflict",
     });
 
     expect(walkDecision(run, { kind: "base-moved", stage: publish, error })).toEqual({
@@ -284,19 +279,16 @@ describe("the base-moved Decision", () => {
       draft: {
         question:
           "\"Publish\" can't publish: the Task's branch conflicts with the base branch. What now?",
-        context: `${error}\n\nThe Task has no Agent Stage whose person could resolve the conflict, and no Agent can merge or rebase. "Publish" can run again once the base branch no longer conflicts with the branch.`,
-        options: ['Run "Publish" again', "Continue without publishing", "Drop the Task"],
+        context: `${error}\n\nNo route of "Publish" takes a conflict. Resolve it yourself in the Task's worktree, then publish again: "Publish" runs again and publishes once the branch no longer conflicts with the base branch.`,
+        options: ["Publish again", "Drop the Task"],
         recommendation: {
           option: 0,
           reason: "The branch keeps the Task's work; it publishes once the conflict is gone.",
         },
       },
-      options: [
-        { kind: "one-more-round", guidance: undefined },
-        { kind: "accept-issues" },
-        { kind: "drop" },
-      ],
+      options: [{ kind: "one-more-round", guidance: undefined }, { kind: "drop" }],
     });
+    expect(asksAConsultantFirst({ kind: "base-moved", stage: publish, error }, [run])).toBe(false);
   });
 });
 

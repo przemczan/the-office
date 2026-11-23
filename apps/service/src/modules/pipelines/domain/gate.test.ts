@@ -28,7 +28,7 @@ const stages: readonly Stage[] = [
   { kind: "script", key: "tests", name: "Tests", optional: false, command: "test" },
   { kind: "gate", key: "first-look", name: "First look", optional: false },
   agentStage("review"),
-  { kind: "script", key: "publish", name: "Publish", optional: false, command: "publish" },
+  { kind: "publish", key: "publish", name: "Publish", optional: false },
   { kind: "gate", key: "look", name: "Look", optional: false },
   agentStage("document"),
 ];

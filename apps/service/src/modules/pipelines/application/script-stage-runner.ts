@@ -1,6 +1,5 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { installFailure, scriptStageOutcome } from "../domain/script-stage-outcome.js";
-import { PUBLISH_COMMAND } from "../domain/stage.js";
 import { stageCommitMessage, withPushWords } from "../domain/stage-commit.js";
 import { acceptedIssues } from "../domain/walk-decisions.js";
 import type { ExpectedHead } from "../domain/stage-commit.js";
@@ -16,7 +15,6 @@ import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { TaskCommands } from "../ports/task-commands.js";
 import { TaskRecords, type TaskRecord } from "../ports/task-records.js";
 import { BusyWork } from "../../office-updates/index.js";
-import { PublishStage } from "./publish-stage.js";
 import { StageGit } from "./stage-git.js";
 import { StageRunWaits } from "./stage-run-waits.js";
 import type { StageRunner, StageWork } from "./stage-runner.js";
@@ -30,7 +28,7 @@ import { StageRunners } from "./stage-runners.js";
  * checked before and after (spec §5.5); a run of a test-kind command, under any key, leaves the
  * worktree restored, so only a build or lint one commits what it changed. A command can't be
  * stopped by the user (spec §2.4): only The Office shutting down stops it, which ends the run
- * interrupted. Publish is The Office's own git (PublishStage).
+ * interrupted. Publishing is a Publish Stage's (`PublishStage`).
  */
 @Injectable()
 export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
@@ -40,7 +38,6 @@ export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
     private readonly commands: TaskCommands,
     private readonly stageGit: StageGit,
     private readonly runs: StageRunRepository,
-    private readonly publish: PublishStage,
     private readonly busyWork: BusyWork,
     private readonly waits: StageRunWaits,
   ) {}
@@ -49,22 +46,17 @@ export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
     this.runners.register("script", this);
   }
 
-  /** A Publish, or the Stage's command, is busy work a scheduled Office update waits for. */
+  /** The Stage's command is busy work a scheduled Office update waits for. */
   run(work: StageWork<"script">): Promise<StageOutcome> {
-    const { name, command } = work.stage;
-    return command === PUBLISH_COMMAND
-      ? this.busyWork.during({ kind: "publish", label: `Publish in the Stage ${name}` }, () =>
-          this.publish.run(work),
-        )
-      : this.busyWork.during({ kind: "script-stage", label: `The Script Stage ${name}` }, () =>
-          this.runCommand(work),
-        );
+    return this.busyWork.during(
+      { kind: "script-stage", label: `The Script Stage ${work.stage.name}` },
+      () => this.runCommand(work),
+    );
   }
 
   private async runCommand(work: StageWork<"script">): Promise<StageOutcome> {
     const { stage, run } = work;
     const command = stage.command;
-    if (command === PUBLISH_COMMAND) throw new Error("A Publish runs no Project command.");
     const task = await this.records.read(run.taskId);
     const { expected, refusal } = await this.stageGit.start(work, task);
     if (refusal) return refusal;

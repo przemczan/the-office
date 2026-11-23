@@ -23,7 +23,7 @@ export const projectCommandFieldsSchema = z.object({
 });
 export type ProjectCommandFields = z.infer<typeof projectCommandFieldsSchema>;
 
-/** Keys a command can't take: install's, and Publish's, which isn't a Project command. */
+/** Keys a command can't take: install's, and `publish`, as publishing is the Publish Stage's. */
 const RESERVED_PROJECT_COMMAND_KEYS: readonly string[] = ["install", "publish"];
 
 /**

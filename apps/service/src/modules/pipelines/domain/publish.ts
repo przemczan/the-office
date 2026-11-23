@@ -78,6 +78,8 @@ export type Publication =
   | {
       readonly kind: "base-moved";
       readonly error: string;
+      /** The base branch it conflicts with. */
+      readonly base: RemoteBranch;
       /** The files it would conflict in. */
       readonly conflictedFiles: readonly string[];
       /** Where a clean take-in of an earlier base, the Initiative's branch, left the branch. */
@@ -120,27 +122,34 @@ export function publishOutcome(publication: Publication): StageOutcome {
         status: "done",
         summary: `Pushed ${publication.branch} and opened the pull request ${publication.url}`,
         pullRequestUrl: publication.url,
+        publishResult: "published",
       };
     case "merged":
-      return { status: "done", summary: mergedWords(publication) };
+      return { status: "done", summary: mergedWords(publication), publishResult: "published" };
     case "branch-pushed":
       return {
         status: "done",
         summary: `Pushed ${publication.branch} to ${publication.remote}, with no pull request and no merge, as this Publish pushes the branch only.`,
+        publishResult: "published",
       };
     case "nothing-to-publish":
       return {
         status: "done",
         summary: `${publication.branch} adds nothing to ${publication.base.branch} on ${publication.base.remote}, so there was nothing to publish.`,
+        publishResult: "nothing-to-publish",
       };
     case "base-moved":
       return {
         status: "failed",
         error: publication.error,
-        baseMoved: { conflictedFiles: publication.conflictedFiles },
+        baseMoved: {
+          conflictedFiles: publication.conflictedFiles,
+          baseBranch: publication.base.branch,
+        },
+        publishResult: "conflict",
       };
     case "failed":
-      return { status: "failed", error: publication.error };
+      return { status: "failed", error: publication.error, publishResult: "failed" };
   }
 }
 
@@ -236,6 +245,7 @@ export function afterPublishingFailedOutcome(
     status: "failed",
     error: `Published; after publishing failed: ${lineError}`,
     afterPublishingFailed: published,
+    publishResult: "after-publishing-failed",
   };
 }
 
@@ -254,6 +264,7 @@ export function shippedOutcome(
   return {
     status: "done",
     summary: afterLineRan ? `${summary}\n\nThe after publishing line passed.` : summary,
+    publishResult: "published",
     ...(published.pullRequestUrl !== undefined && { pullRequestUrl: published.pullRequestUrl }),
   };
 }
@@ -263,6 +274,7 @@ export function continuedOutcome({ published, error }: UnfinishedPublication): S
   return {
     status: "done",
     summary: `${error ?? `${publishedSummary(published)} The after publishing line didn't pass.`}\n\nThe Task went on with this failure noted.`,
+    publishResult: "published",
     ...(published.pullRequestUrl !== undefined && { pullRequestUrl: published.pullRequestUrl }),
   };
 }

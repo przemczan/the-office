@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { baseWords } from "../domain/base-words.js";
-import { RESOLVE_KEY } from "../domain/resolve-stages.js";
+import { asFlow } from "../domain/flow.js";
 import { installFailure } from "../domain/script-stage-outcome.js";
 import { failedInstall } from "../domain/stage-command-run.js";
 import type { BranchUpdate } from "../domain/stage-commit.js";
@@ -11,6 +11,7 @@ import { StageThreads } from "../ports/stage-threads.js";
 import { TaskCommands } from "../ports/task-commands.js";
 import { TaskGit } from "../ports/task-git.js";
 import { TaskRecords, type TaskRecord } from "../ports/task-records.js";
+import { TaskStagesRepository } from "../ports/task-stages-repository.js";
 
 /** What the Agent who asked is answered. */
 export interface StageBranchUpdateAnswer {
@@ -34,6 +35,7 @@ export class StageBranchUpdate {
     private readonly threads: StageThreads,
     private readonly runs: StageRunRepository,
     private readonly records: TaskRecords,
+    private readonly taskStages: TaskStagesRepository,
     private readonly git: TaskGit,
     private readonly commands: TaskCommands,
     private readonly waits: StageRunWaits,
@@ -46,7 +48,7 @@ export class StageBranchUpdate {
         ? undefined
         : (await this.runs.list(taskId)).findLast(({ outcome }) => outcome === undefined);
     if (!run) return { text: NOT_IN_A_STAGE, isError: true };
-    if (run.stageKey === RESOLVE_KEY) return { text: RESOLVING, isError: true };
+    if (await this.mergesTheBaseFirst(run)) return { text: RESOLVING, isError: true };
     const task = await this.records.read(run.taskId);
     const projectId = task.project.id;
     if (!(await this.git.mergeInProgress(projectId, run.taskId))) {
@@ -63,6 +65,13 @@ export class StageBranchUpdate {
       text: `${answerTo(update, baseWords(task))}${await this.installed(update, task, run)}`,
       isError: update.kind === "failed",
     };
+  }
+
+  /** Whether the running Stage merges the base itself as it starts (spec §2.3.1). */
+  private async mergesTheBaseFirst(run: StageRun): Promise<boolean> {
+    const own = await this.taskStages.find(run.taskId);
+    const stage = asFlow(own?.stages ?? []).find(({ key }) => key === run.stageKey);
+    return stage?.kind === "agent" && stage.mergeBaseFirst === true;
   }
 
   /** Installs again after an update, whose changes may be the install inputs'. */

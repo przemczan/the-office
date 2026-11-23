@@ -715,6 +715,7 @@ function conflicting(
   return {
     kind: "base-moved",
     error: baseMovedError(branch, base, conflictedFiles),
+    base,
     conflictedFiles,
   };
 }

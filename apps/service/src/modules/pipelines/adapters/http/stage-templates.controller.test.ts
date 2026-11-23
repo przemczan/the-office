@@ -5,7 +5,7 @@ import {
 } from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { builtInStageTemplates } from "../../domain/built-in-stage-templates.js";
-import { gate, scriptStage } from "../../domain/stage.fixtures.js";
+import { agentStage, gate } from "../../domain/stage.fixtures.js";
 import {
   StageTemplateAdded,
   StageTemplateRemoved,
@@ -92,7 +92,7 @@ describe("POST /api/stage-templates", () => {
   it("refuses a blank name, a name another template has in any case, and a broken Stage rule", async () => {
     const blank = await send("POST", "/stage-templates", { stage: gate({ name: " " }) });
     const taken = await send("POST", "/stage-templates", {
-      stage: scriptStage({ name: "review & FIX", command: "build", publishTarget: "branch-only" }),
+      stage: agentStage({ name: "review & FIX", role: "developer", duty: "implements" }),
     });
 
     expect(await refusal(blank)).toEqual([
@@ -109,7 +109,7 @@ describe("POST /api/stage-templates", () => {
         stageKey: null,
         at: null,
         level: "problem",
-        text: "Only a Publish Stage has a publish target.",
+        text: "Name a Role or a duty, not both.",
       },
     ]);
   });

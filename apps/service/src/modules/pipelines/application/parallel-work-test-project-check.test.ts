@@ -41,6 +41,7 @@ import { startTestApplication } from "../../../../test/test-application.js";
 import { testDatabaseUrl } from "../../../../test/test-database.js";
 import { AppModule } from "../../../app.module.js";
 import { builtInPipelines } from "../domain/built-in-pipelines.js";
+import { builtInPipelinesBeforeFlows } from "../domain/built-in-pipelines-before-flows.fixtures.js";
 import type { Stage } from "../domain/stage.js";
 import { makeTaskStages } from "../domain/task-stages.js";
 import { TaskStagesRepository } from "../ports/task-stages-repository.js";
@@ -355,14 +356,15 @@ async function seedGateBeforePublish(
   taskId: string,
 ): Promise<void> {
   const quickFix = builtInPipelines.find(({ id }) => id === "quick-fix");
-  if (!quickFix) throw new Error("There is no built-in Quick fix.");
-  const publishAt = quickFix.stages.findIndex(({ key }) => key === "publish");
-  const stages = quickFix.stages
+  // Seeded as a plain list, so the Gate stands in the walk's order and the conflict chain, drawn in
+  // as it is read, has its Gate too.
+  const seeded = builtInPipelinesBeforeFlows.find(({ id }) => id === "quick-fix");
+  if (!quickFix || !seeded) throw new Error("There is no built-in Quick fix.");
+  const publishAt = seeded.stages.findIndex(({ key }) => key === "publish");
+  const stages = seeded.stages
     .toSpliced(publishAt, 0, GATE)
     .map((stage) =>
-      stage.kind === "script" && stage.command === "publish"
-        ? { ...stage, afterConflict: "review" as const }
-        : stage,
+      stage.key === "publish" ? { ...stage, afterConflict: "review" as const } : stage,
     );
   await repository.save(makeTaskStages(taskId, { ...quickFix, stages }, new Date()).taskStages);
 }

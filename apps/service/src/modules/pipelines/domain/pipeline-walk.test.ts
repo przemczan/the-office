@@ -2,13 +2,14 @@ import { describe, expect, it } from "vitest";
 import { reportedMet, reportedOutOfReach, unmetStatements } from "./definition-of-done-reports.js";
 import { GATE_REACHED } from "./gate.js";
 import { gateChecksDefinitionOfDone, nextMove, routesFollowed } from "./pipeline-walk.js";
+import { asFlow, pipelineOrder, type FlowStage } from "./flow.js";
 import {
+  CONFLICT_ROUTE_LIMIT,
+  ENDED_CONFLICT,
   RESOLVE_GATE_KEY,
   RESOLVE_KEY,
   RESOLVE_TEST_KEY,
-  resolvedByTheUser,
-  walkedStages,
-} from "./resolve-stages.js";
+} from "./publish-stages.js";
 import { type ConditionGroup, type ConditionTest, plainRoute, type Route } from "./route.js";
 import type { KeptOnFailure, KeptStage } from "./routes-back.js";
 import type { Stage } from "./stage.js";
@@ -51,6 +52,19 @@ function scriptStage(key: string, onFailure?: KeptOnFailure): KeptStage {
     command: "test",
     ...(onFailure && { onFailure }),
   };
+}
+
+/** A Publish Stage, with a kept on-failure setting as `agentStage` takes it. */
+function publishOf(key: string, onFailure?: KeptOnFailure): KeptStage {
+  return { kind: "publish", key, name: key, optional: false, ...(onFailure && { onFailure }) };
+}
+
+/**
+ * The `publish` Stage as the releases before Publish was a kind of its own kept it, a Script Stage
+ * running `publish`, which `asFlow` reads as a Publish Stage with its conflict chain drawn in.
+ */
+function keptPublish(fields: { readonly afterConflict?: "publish" | "review" } = {}): KeptStage {
+  return { ...scriptStage("publish"), command: "publish", ...fields } as KeptStage;
 }
 
 /** No statements, so no run needs to report any met. */
@@ -363,12 +377,13 @@ describe("nextMove", () => {
     ).toMatchObject({ move: "ask", question: { kind: "restart" } });
   });
 
-  it("asks of a conflict at Publish asked about before Resolve, or with no Agent Stage to resolve it, then runs it again, continues or drops", () => {
+  it("asks of a conflict at Publish asked about before the conflict chain, or with no Conflict route, then runs it again, continues or drops", () => {
     const publishing = [
       agentStage("write"),
-      { ...scriptStage("publish", { goBackTo: "write", rounds: 2 }), command: "publish" } as const,
+      { ...keptPublish(), onFailure: { goBackTo: "write", rounds: 2 } },
       agentStage("after"),
     ];
+    const asPublished = expect.objectContaining({ kind: "publish", key: "publish" });
     const error = "office/task-1 no longer applies cleanly on main on origin.";
     const moved: StageOutcome = {
       status: "failed",
@@ -383,7 +398,7 @@ describe("nextMove", () => {
     ).toEqual({
       move: "ask",
       run: expect.objectContaining({ id: "run-2" }),
-      question: { kind: "base-moved", stage: publishing[1], error },
+      question: { kind: "base-moved", stage: asPublished, error },
     });
     const waiting = runs(before, ["publish", moved, decided("base-moved")]);
     expect(nextMove(publishing, waiting, NO_DEFINITION_OF_DONE)).toMatchObject({ move: "wait" });
@@ -392,7 +407,7 @@ describe("nextMove", () => {
       nextMove(publishing, runs(before, ["publish", moved, again]), NO_DEFINITION_OF_DONE),
     ).toEqual({
       move: "run",
-      stage: publishing[1],
+      stage: asPublished,
       carriedFailure: undefined,
       sentBack: undefined,
     });
@@ -451,13 +466,17 @@ describe("nextMove", () => {
   });
 
   describe("a conflict at Publish", () => {
-    const publish = {
-      ...scriptStage("publish"),
-      command: "publish",
-      afterConflict: "review",
-    } as const;
+    const publish = keptPublish({ afterConflict: "review" });
     const pipeline = [agentStage("write"), scriptStage("check"), publish];
+    const flow = pipelineOrder(asFlow(pipeline));
+    const drawn = (key: string): FlowStage => {
+      const stage = flow.find((candidate) => candidate.key === key);
+      if (!stage) throw new Error(`No "${key}" was drawn in.`);
+      return stage;
+    };
+    const asPublished = expect.objectContaining({ kind: "publish", key: "publish" });
     const error = "office/task-1 no longer applies cleanly on main on origin.";
+    /** A conflict as the releases before Publish's results kept it: failed, with the base moved. */
     const conflicted: StageOutcome = {
       status: "failed",
       error,
@@ -474,56 +493,68 @@ describe("nextMove", () => {
       [RESOLVE_TEST_KEY, done],
       [RESOLVE_GATE_KEY, done],
     ];
+    /** `times` conflicts, each resolved, tested and continued at the Gate, then one more. */
+    function conflictedTimes(times: number): StageRun[] {
+      const rounds = Array.from({ length: times }, (): readonly Ran[] => [
+        ["publish", conflicted],
+        [RESOLVE_KEY, done],
+        [RESOLVE_TEST_KEY, done],
+        [RESOLVE_GATE_KEY, done],
+      ]).flat();
+      const ran = runs(...before, ...rounds, ["publish", conflicted]);
+      return ran.map((run) =>
+        run.stageKey === RESOLVE_GATE_KEY ? { ...run, gateAction: { kind: "continue" } } : run,
+      );
+    }
 
-    it("puts Resolve, the Project's Test and a Gate before the Publish, and goes to Resolve", () => {
+    it("replays an older Task's conflict along the Conflict route to the drawn Resolve, carrying it", () => {
       const ran = runs(...before, ["publish", conflicted]);
 
-      const walked = walkedStages(pipeline, ran);
-
-      expect(walked.map(({ key }) => key)).toEqual([
+      expect(flow.map(({ key }) => key)).toEqual([
         "write",
-        "check",
         RESOLVE_KEY,
+        "check",
         RESOLVE_TEST_KEY,
         RESOLVE_GATE_KEY,
         "publish",
       ]);
-      expect(walked[2]).toMatchObject({ kind: "agent", role: "developer", session: "fresh" });
-      expect(walked[3]).toMatchObject({
-        kind: "script",
-        command: "test",
-        routes: [
-          { to: RESOLVE_KEY, condition: { tests: [{ is: "failed" }] }, limit: 2 },
-          { to: RESOLVE_GATE_KEY, condition: null },
-        ],
-      });
-      expect(walked[4]).toMatchObject({ kind: "gate" });
       expect(nextMove(pipeline, ran, NO_DEFINITION_OF_DONE)).toEqual({
         move: "run",
-        stage: walked[2],
-        carriedFailure: { stageKey: "publish", error, round: 1, rounds: 3 },
+        stage: drawn(RESOLVE_KEY),
+        carriedFailure: { stageKey: "publish", error, round: 1, rounds: CONFLICT_ROUTE_LIMIT },
         sentBack: undefined,
       });
     });
 
-    it("publishes automatically after the Test when the Publish asks for no review", () => {
-      const automatic = { ...scriptStage("publish"), command: "publish" } as const;
-      const automaticPipeline = [agentStage("write"), scriptStage("check"), automatic];
+    it("follows a Conflict route of a Publish Stage's own on its Conflict result", () => {
+      const own = [
+        routed(agentStage("write"), plainRoute("publish")),
+        routed(agentStage("fix"), plainRoute("publish")),
+        routed(
+          publishOf("publish"),
+          { to: "fix", condition: ENDED_CONFLICT, limit: 1 },
+          plainRoute(null),
+        ),
+      ];
+      const conflict: StageOutcome = { ...conflicted, publishResult: "conflict" };
+
+      expect(
+        nextMove(own, runs(["write", done], ["publish", conflict]), NO_DEFINITION_OF_DONE),
+      ).toMatchObject({
+        move: "run",
+        stage: { key: "fix" },
+        carriedFailure: { stageKey: "publish", error, round: 1, rounds: 1 },
+      });
+    });
+
+    it("publishes automatically after the Test when the Publish asked for no review", () => {
+      const automaticPipeline = [agentStage("write"), scriptStage("check"), keptPublish()];
       const conflictedRuns: readonly Ran[] = [...before, ["publish", conflicted]];
 
-      const walked = walkedStages(automaticPipeline, runs(...conflictedRuns));
-
-      expect(walked.map(({ key }) => key)).toEqual([
-        "write",
-        "check",
-        RESOLVE_KEY,
-        RESOLVE_TEST_KEY,
-        "publish",
-      ]);
       const tested = runs(...conflictedRuns, [RESOLVE_KEY, done], [RESOLVE_TEST_KEY, done]);
       expect(nextMove(automaticPipeline, tested, NO_DEFINITION_OF_DONE)).toMatchObject({
         move: "run",
-        stage: automatic,
+        stage: { kind: "publish", key: "publish" },
       });
       const published = runs(
         ...conflictedRuns,
@@ -536,6 +567,53 @@ describe("nextMove", () => {
       });
     });
 
+    it("doesn't check the Definition of Done again at the Publish conflict handling returns to", () => {
+      const automaticPipeline = [agentStage("write"), scriptStage("check"), keptPublish()];
+      const ran = runs(
+        ["write", meeting(1, 2)],
+        ["check", done],
+        ["publish", conflicted],
+        [RESOLVE_KEY, takingBack([], 2)],
+        [RESOLVE_TEST_KEY, done],
+      );
+
+      expect(nextMove(automaticPipeline, ran, DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: { key: "publish" },
+      });
+      const notMet = runs(["write", meeting(1)], ["check", done]);
+      expect(nextMove(automaticPipeline, notMet, DEFINITION_OF_DONE)).toMatchObject({
+        move: "ask",
+        question: { kind: "definition-of-done", before: { key: "publish" } },
+      });
+    });
+
+    it("never runs a Stage of conflict handling as the Definition of Done's one more round", () => {
+      const twoPublishes = [...pipeline, publishOf("publish-2")];
+      const ran = continuedAtTheGate(
+        runs(
+          ["write", meeting(1)],
+          ["check", done],
+          ["publish", conflicted],
+          [RESOLVE_KEY, done],
+          [RESOLVE_TEST_KEY, done],
+          [RESOLVE_GATE_KEY, done],
+          ["publish", done],
+        ),
+        2,
+      );
+
+      expect(nextMove(twoPublishes, ran, DEFINITION_OF_DONE)).toMatchObject({
+        move: "ask",
+        run: { id: ran.at(-1)?.id },
+        question: {
+          kind: "definition-of-done",
+          again: { key: "write" },
+          before: { key: "publish-2" },
+        },
+      });
+    });
+
     it("walks the Test, then waits at the Gate, then runs Publish again", () => {
       const tested = runs(...resolvedOnce.slice(0, -1));
       expect(nextMove(pipeline, tested, NO_DEFINITION_OF_DONE)).toMatchObject({
@@ -545,31 +623,14 @@ describe("nextMove", () => {
       const atGate = runs(...resolvedOnce.slice(0, -1), [RESOLVE_GATE_KEY, GATE_REACHED]);
       expect(nextMove(pipeline, atGate, NO_DEFINITION_OF_DONE)).toMatchObject({ move: "wait" });
       const continued = continuedAtTheGate(runs(...resolvedOnce));
-      expect(nextMove(pipeline, continued, NO_DEFINITION_OF_DONE)).toMatchObject({
+      expect(nextMove(pipeline, continued, NO_DEFINITION_OF_DONE)).toEqual({
         move: "run",
-        stage: publish,
+        stage: asPublished,
+        carriedFailure: undefined,
+        sentBack: undefined,
       });
       const published = continuedAtTheGate(runs(...resolvedOnce, ["publish", done]), 2);
       expect(nextMove(pipeline, published, NO_DEFINITION_OF_DONE)).toEqual({ move: "complete" });
-    });
-
-    it("gives Resolve the duty the first Agent Stage names, and no Role", () => {
-      const write: Stage = {
-        kind: "agent",
-        key: "write",
-        name: "write",
-        optional: false,
-        duty: "implements",
-        brief: "Do write.",
-        session: "fresh",
-        budget: 100_000,
-      };
-      const naming = [write, scriptStage("check"), publish];
-
-      const resolve = walkedStages(naming, runs(...before, ["publish", conflicted]))[2];
-
-      expect(resolve).toMatchObject({ key: RESOLVE_KEY, duty: "implements" });
-      expect(resolve).not.toHaveProperty("role");
     });
 
     it("goes back to Resolve when the Test fails, at most twice", () => {
@@ -588,19 +649,69 @@ describe("nextMove", () => {
     });
 
     it("goes back to Resolve each time the conflict comes back, counting it", () => {
-      const ran = continuedAtTheGate(runs(...resolvedOnce, ["publish", conflicted]), 2);
-
-      expect(nextMove(pipeline, ran, NO_DEFINITION_OF_DONE)).toMatchObject({
+      expect(nextMove(pipeline, conflictedTimes(1), NO_DEFINITION_OF_DONE)).toMatchObject({
         move: "run",
         stage: { key: RESOLVE_KEY },
         carriedFailure: { stageKey: "publish", round: 2, rounds: 3 },
       });
     });
 
-    it("asks the user directly when Resolve gives up, then commits what they resolved, guides one more round or drops", () => {
+    it("asks at the Conflict route's limit, the older conflicts counted, as every route's limit asks", () => {
+      const ran = conflictedTimes(3);
+      const move = nextMove(pipeline, ran, NO_DEFINITION_OF_DONE);
+
+      expect(move).toMatchObject({
+        move: "ask",
+        run: { id: ran.at(-1)?.id },
+        question: {
+          kind: "route-limit",
+          stage: asPublished,
+          atLimit: { route: { to: RESOLVE_KEY }, times: 3, limit: 3, back: true },
+        },
+      });
+      const last = ran.at(-1);
+      if (!last) throw new Error("No conflict came.");
+      const once = {
+        id: "decision-route-limit",
+        kind: "route-limit",
+        options: [{ kind: "one-more-round", guidance: undefined, to: RESOLVE_KEY }],
+        answer: { kind: "one-more-round", guidance: undefined, to: RESOLVE_KEY },
+      } as const;
+      const answered = [...ran.slice(0, -1), { ...last, decisions: [once] }];
+      expect(nextMove(pipeline, answered, NO_DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: { key: RESOLVE_KEY },
+        carriedFailure: { stageKey: "publish", error, round: 4, rounds: 4 },
+      });
+    });
+
+    it("replays an older Task whose fourth conflict Resolve left to the user", () => {
+      const ran = conflictedTimes(3);
+      const leftToYou = failed("The conflict at Publish came back after Resolve too often.");
+      const resolved = decided("base-moved", { kind: "resolved-in-worktree" });
+
+      expect(
+        nextMove(
+          pipeline,
+          [...ran, ...runs([RESOLVE_KEY, leftToYou, resolved])].map((run, index) => ({
+            ...run,
+            id: `run-${index + 1}`,
+            number: index + 1,
+          })),
+          NO_DEFINITION_OF_DONE,
+        ),
+      ).toEqual({
+        move: "run",
+        stage: drawn(RESOLVE_KEY),
+        carriedFailure: undefined,
+        sentBack: undefined,
+      });
+    });
+
+    it("asks the user directly when a Stage of conflict handling fails with no failure route, then runs it again, guided, or drops", () => {
       const gaveUp = failed("These files still hold conflict markers.");
       const asked = runs(...before, ["publish", conflicted], [RESOLVE_KEY, gaveUp]);
-      const resolve = walkedStages(pipeline, asked)[2];
+      const resolve = drawn(RESOLVE_KEY);
 
       expect(nextMove(pipeline, asked, NO_DEFINITION_OF_DONE)).toEqual({
         move: "ask",
@@ -622,7 +733,6 @@ describe("nextMove", () => {
         carriedFailure: undefined,
         sentBack: undefined,
       });
-      expect(resolvedByTheUser(resolvedByUser)).toBe(true);
       const guided = runs(
         ...before,
         ["publish", conflicted],
@@ -643,6 +753,114 @@ describe("nextMove", () => {
         [RESOLVE_KEY, gaveUp, decided("base-moved", { kind: "drop" })],
       );
       expect(nextMove(pipeline, dropped, NO_DEFINITION_OF_DONE)).toEqual({ move: "drop" });
+    });
+
+    it("asks a Stage failing with no failure route outside conflict handling as usual", () => {
+      const ran = runs(["write", failed("It broke.")]);
+
+      expect(nextMove(pipeline, ran, NO_DEFINITION_OF_DONE)).toMatchObject({
+        move: "ask",
+        question: { kind: "no-retries-left" },
+      });
+    });
+
+    it("asks to publish again or drop when no route takes Conflict, and publishes again as answered", () => {
+      const noChain = [agentStage("write"), publishOf("publish")];
+      const conflict: StageOutcome = { ...conflicted, publishResult: "conflict" };
+
+      expect(
+        nextMove(noChain, runs(["write", done], ["publish", conflict]), NO_DEFINITION_OF_DONE),
+      ).toEqual({
+        move: "ask",
+        run: expect.objectContaining({ stageKey: "publish" }),
+        question: { kind: "base-moved", stage: noChain[1], error },
+      });
+      const again = decided("base-moved", { kind: "one-more-round", guidance: undefined });
+      expect(
+        nextMove(
+          noChain,
+          runs(["write", done], ["publish", conflict, again]),
+          NO_DEFINITION_OF_DONE,
+        ),
+      ).toMatchObject({ move: "run", stage: noChain[1] });
+    });
+  });
+
+  describe("after publishing failed", () => {
+    const shipped = { kind: "merged", branch: "office/task-1", commit: "c0ffee" } as const;
+    const afterFailed: StageOutcome = {
+      status: "failed",
+      error: "Published; after publishing failed: deploy failed.",
+      afterPublishingFailed: shipped,
+      publishResult: "after-publishing-failed",
+    };
+
+    it("asks as it always did when no route takes it, and stays at Publish as answered", () => {
+      const pipeline = [agentStage("write"), publishOf("publish"), agentStage("after")];
+
+      expect(
+        nextMove(pipeline, runs(["write", done], ["publish", afterFailed]), NO_DEFINITION_OF_DONE),
+      ).toMatchObject({
+        move: "ask",
+        question: { kind: "after-publishing-failed", stage: { key: "publish" } },
+      });
+      const retry = decided("after-publishing-failed", {
+        kind: "one-more-round",
+        guidance: undefined,
+      });
+      expect(
+        nextMove(
+          pipeline,
+          runs(["write", done], ["publish", afterFailed, retry]),
+          NO_DEFINITION_OF_DONE,
+        ),
+      ).toMatchObject({ move: "run", stage: { key: "publish" } });
+    });
+
+    it("follows a route that takes it, carrying the error", () => {
+      const pipeline = [
+        routed(agentStage("write"), plainRoute("publish")),
+        routed(
+          publishOf("publish"),
+          when("notify", { kind: "stage", stage: null, is: "after-publishing-failed" }),
+          plainRoute(null),
+        ),
+        routed(agentStage("notify"), plainRoute(null)),
+      ];
+
+      expect(
+        nextMove(pipeline, runs(["write", done], ["publish", afterFailed]), NO_DEFINITION_OF_DONE),
+      ).toMatchObject({
+        move: "run",
+        stage: { key: "notify" },
+        carriedFailure: {
+          stageKey: "publish",
+          error: afterFailed.status === "failed" ? afterFailed.error : "",
+        },
+      });
+    });
+
+    it("never takes a Failed Publish as a Conflict or After publishing failed, nor those as Failed", () => {
+      const pipeline = [
+        routed(agentStage("write"), plainRoute("publish")),
+        routed(publishOf("publish"), when("write", endedFailed), plainRoute(null)),
+      ];
+
+      expect(
+        nextMove(pipeline, runs(["write", done], ["publish", afterFailed]), NO_DEFINITION_OF_DONE),
+      ).toMatchObject({ move: "ask", question: { kind: "after-publishing-failed" } });
+      const refused: StageOutcome = {
+        status: "failed",
+        error: "Push refused.",
+        publishResult: "failed",
+      };
+      expect(
+        nextMove(pipeline, runs(["write", done], ["publish", refused]), NO_DEFINITION_OF_DONE),
+      ).toMatchObject({
+        move: "run",
+        stage: { key: "write" },
+        carriedFailure: { stageKey: "publish" },
+      });
     });
   });
 
@@ -920,11 +1138,13 @@ describe("nextMove", () => {
   });
 
   describe("before Publish", () => {
-    const publish = {
-      ...scriptStage("publish", { goBackTo: "write", rounds: 1 }),
-      command: "publish",
-    } as const;
+    const publish = publishOf("publish", { goBackTo: "write", rounds: 1 });
     const publishing = [agentStage("write"), scriptStage("check"), agentStage("review"), publish];
+    /** The Pipeline as an older release kept it, its conflict chain drawn in as it is read. */
+    const keptPublishing = [
+      ...publishing.slice(0, 3),
+      { ...keptPublish(), onFailure: { goBackTo: "write", rounds: 1 } },
+    ];
 
     it("asks on the last run before the walk enters Publish, offering the last Agent Stage again", () => {
       const ran = runs(...reviewed(meeting()));
@@ -1045,11 +1265,12 @@ describe("nextMove", () => {
       });
     });
 
-    it("still checks a Publish-first Pipeline at the end after Resolve's Stages went before it", () => {
-      const publishFirst = [
-        { ...scriptStage("publish"), command: "publish", afterConflict: "review" } as const,
-        agentStage("notes"),
-      ];
+    it("still checks a Publish-first Pipeline at the end after its conflict chain ran, which it starts after", () => {
+      const publishFirst = [keptPublish({ afterConflict: "review" }), agentStage("notes")];
+      expect(nextMove(publishFirst, [], DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: { kind: "publish", key: "publish" },
+      });
       const conflicted: StageOutcome = {
         status: "failed",
         error: "office/task-1 no longer applies cleanly on main on origin.",
@@ -1104,9 +1325,9 @@ describe("nextMove", () => {
         [RESOLVE_TEST_KEY, done],
       );
 
-      expect(nextMove(publishing, ran, DEFINITION_OF_DONE)).toMatchObject({
+      expect(nextMove(keptPublishing, ran, DEFINITION_OF_DONE)).toMatchObject({
         move: "run",
-        stage: publish,
+        stage: { kind: "publish", key: "publish" },
       });
     });
 
@@ -1145,7 +1366,7 @@ describe("nextMove", () => {
           ["publish", done, decided("definition-of-done", answer)],
         );
 
-        expect(nextMove(publishing, ran, DEFINITION_OF_DONE)).toMatchObject({
+        expect(nextMove(keptPublishing, ran, DEFINITION_OF_DONE)).toMatchObject({
           move: "run",
           stage: publishing[2],
           carriedFailure: {
@@ -1331,13 +1552,7 @@ function gateStage(key: string): Stage {
   return { kind: "gate", key, name: key, optional: false };
 }
 
-const publishStage: Stage = {
-  kind: "script",
-  key: "publish",
-  name: "publish",
-  optional: false,
-  command: "publish",
-};
+const publishStage: Stage = { kind: "publish", key: "publish", name: "publish", optional: false };
 
 /** The write meeting the first statement of two, the Gate continued, then `after`. */
 function continuedThen(...after: readonly Ran[]): StageRun[] {
@@ -1445,13 +1660,7 @@ function changing(ran: readonly StageRun[], stageKey: string, files: string[]): 
   return ran.map((run) => (run.stageKey === stageKey ? { ...run, changedFiles: files } : run));
 }
 
-const PUBLISH: Stage = {
-  kind: "script",
-  key: "publish",
-  name: "publish",
-  optional: false,
-  command: "publish",
-};
+const PUBLISH: Stage = { kind: "publish", key: "publish", name: "publish", optional: false };
 
 const withFix = (checkRoutes: Route[]) => [
   routed(agentStage("write"), plainRoute("check")),
@@ -2043,39 +2252,44 @@ describe("routesFollowed", () => {
   });
 });
 
+function flowOf(pipelineStages: readonly Stage[]): FlowStage[] {
+  return pipelineOrder(asFlow(pipelineStages));
+}
+
 describe("gateChecksDefinitionOfDone", () => {
   const gate = gateStage;
   const publish = publishStage;
 
   it("is true for a Gate with only Script Stages, or none, before the Publish after it", () => {
-    expect(gateChecksDefinitionOfDone([agentStage("write"), gate("look"), publish], 1)).toBe(true);
-    const withCheck = [agentStage("write"), gate("look"), scriptStage("check"), publish];
+    expect(
+      gateChecksDefinitionOfDone(flowOf([agentStage("write"), gate("look"), publish]), 1),
+    ).toBe(true);
+    const withCheck = flowOf([agentStage("write"), gate("look"), scriptStage("check"), publish]);
     expect(gateChecksDefinitionOfDone(withCheck, 1)).toBe(true);
   });
 
-  it("passes over Resolve's Stages put before Publish", () => {
-    const resolving = walkedStages(
-      [agentStage("write"), gate("look"), publish],
-      runs(
-        ["write", done],
-        ["look", GATE_REACHED],
-        [
-          "publish",
-          { status: "failed", error: "Conflict.", baseMoved: { conflictedFiles: ["a.ts"] } },
-        ],
-      ),
-    );
+  it("passes over the conflict chain's Stages before Publish, and its Gate is never the check", () => {
+    const resolving = flowOf([
+      agentStage("write"),
+      gate("look"),
+      keptPublish({ afterConflict: "review" }),
+    ]);
     const lookAt = resolving.findIndex(({ key }) => key === "look");
+    const chainGateAt = resolving.findIndex(({ key }) => key === RESOLVE_GATE_KEY);
+
     expect(resolving.some(({ key }) => key === RESOLVE_KEY)).toBe(true);
     expect(gateChecksDefinitionOfDone(resolving, lookAt)).toBe(true);
+    expect(gateChecksDefinitionOfDone(resolving, chainGateAt)).toBe(false);
   });
 
   it("is false with an Agent Stage or a later Gate before Publish, with no Publish after it, or for any other Stage", () => {
-    const withReview = [gate("look"), agentStage("review"), publish];
+    const withReview = flowOf([gate("look"), agentStage("review"), publish]);
     expect(gateChecksDefinitionOfDone(withReview, 0)).toBe(false);
-    expect(gateChecksDefinitionOfDone([gate("look"), gate("again"), publish], 0)).toBe(false);
-    expect(gateChecksDefinitionOfDone([agentStage("write"), gate("look")], 1)).toBe(false);
-    expect(gateChecksDefinitionOfDone([agentStage("write"), publish], 0)).toBe(false);
+    expect(gateChecksDefinitionOfDone(flowOf([gate("look"), gate("again"), publish]), 0)).toBe(
+      false,
+    );
+    expect(gateChecksDefinitionOfDone(flowOf([agentStage("write"), gate("look")]), 1)).toBe(false);
+    expect(gateChecksDefinitionOfDone(flowOf([agentStage("write"), publish]), 0)).toBe(false);
   });
 });
 

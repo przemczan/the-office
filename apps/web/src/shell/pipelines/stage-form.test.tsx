@@ -215,3 +215,24 @@ describe("Effort", () => {
     expect(stage?.kind === "agent" ? stage.effort : "not an Agent Stage").toBeUndefined();
   });
 });
+
+function mergeBaseFirst(): HTMLElement | null {
+  const label = [...page.querySelectorAll("label")].find(({ textContent }) =>
+    textContent?.startsWith("Merge the base first"),
+  );
+  return label?.querySelector<HTMLElement>('[role="checkbox"]') ?? null;
+}
+
+describe("Merge the base first", () => {
+  it("is off for a Stage that leaves it out, and is set, then left out again", () => {
+    const changed = rendered(implement);
+    expect(mergeBaseFirst()?.getAttribute("aria-checked")).toBe("false");
+    act(() => mergeBaseFirst()?.click());
+    expect(changed.at(-1)?.[0]).toEqual({ ...implement, mergeBaseFirst: true });
+
+    const unset = rendered({ ...implement, mergeBaseFirst: true });
+    expect(mergeBaseFirst()?.getAttribute("aria-checked")).toBe("true");
+    act(() => mergeBaseFirst()?.click());
+    expect(unset.at(-1)?.[0]).toEqual(implement);
+  });
+});

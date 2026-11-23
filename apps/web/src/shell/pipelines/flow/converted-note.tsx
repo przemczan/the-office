@@ -7,8 +7,9 @@ import { isConvertedFlow, optionalStageSentences } from "./converted-flow.ts";
 const HIDDEN_PREFIX = "the-office.converted-note-hidden.";
 
 /**
- * "Full is now drawn as a flow" (docs/design/pipeline-flow.html): said once while the Pipeline reads
- * as the update converted it, until Hide this note, which this browser keeps by the Pipeline's id.
+ * The moved-flow note, "Full now goes back by routes" (docs/spec/screens/pipeline-flow-editor.md):
+ * said while the Pipeline reads as The Office's move left it, until Hide this note, which this
+ * browser keeps by the Pipeline's id.
  */
 export function ConvertedNote({
   pipelineId,
@@ -32,7 +33,7 @@ export function ConvertedNote({
   return (
     <Alert
       tone="info"
-      title={`${name} is now drawn as a flow`}
+      title={`${name} now goes back by routes`}
       action={
         <Button size="sm" variant="secondary" onClick={hide}>
           Hide this note
@@ -40,10 +41,9 @@ export function ConvertedNote({
       }
     >
       <p>
-        As The Office updated, every Pipeline became the same flow drawn as a straight line: its
-        Stages in the same order, one route with no condition from each to the next and from the
-        last to End, and each On failure setting as a route back with the same limit. Nothing else
-        changed, and Tasks walk it as before.
+        As The Office updated, each On failure setting became a route back with the same limit,
+        Publish became a Publish Stage, and a conflict at Publish now goes by the conflict chain
+        drawn in: Resolve, Test after Resolve, then Publish again. Tasks walk it as before.
       </p>
       {optionalStageSentences(stages).map((sentence) => (
         <p key={sentence}>{sentence}</p>

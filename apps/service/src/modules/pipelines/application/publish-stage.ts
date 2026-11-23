@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import {
   afterPublishingFailedOutcome,
   continuedOutcome,
@@ -32,7 +32,9 @@ import { InitiativeBranchStages } from "./initiative-branch-stages.js";
 import { StageGit } from "./stage-git.js";
 import { StageRunWaits } from "./stage-run-waits.js";
 import { StageRunsFiles } from "./stage-runs-files.js";
-import type { StageWork } from "./stage-runner.js";
+import { BusyWork } from "../../office-updates/index.js";
+import type { StageRunner, StageWork } from "./stage-runner.js";
+import { StageRunners } from "./stage-runners.js";
 
 /**
  * How a publishing line ended: passed, `ran` false for a blank line, which runs nothing; failed; or
@@ -44,13 +46,13 @@ type LineEnd =
   | { readonly kind: "stopped"; readonly outcome: StageOutcome };
 
 /**
- * Runs a Publish Stage (spec §2.3): a Script Stage The Office runs with its own git rather than a
- * Project command, with no model call. It publishes the Task's committed branch by the Project's
- * publishing mode, landing the Task as one commit with its commit message or opening a pull request
- * worded from it, after which the message no longer changes, or pushes the branch only when the
- * Stage's target says so (a proof of concept); once it has published, the
- * worktree goes; the branch keeps the work for any Stage after it. Its failures go where any
- * Script Stage's go; a branch that conflicts with the base goes to Resolve (`afterBaseMoved`).
+ * Runs Publish Stages (spec §2.3.4): The Office publishes with its own git rather than a Project
+ * command, with no model call. It publishes the Task's committed branch by the Project's publishing
+ * mode, landing the Task as one commit with its commit message or opening a pull request worded
+ * from it, after which the message no longer changes, or pushes the branch only when the Stage's
+ * target says so (a proof of concept); once it has published, the worktree goes; the branch keeps
+ * the work for any Stage after it. Every run that ends carries its Publish result (`publishResult`),
+ * which the routes test: a branch that conflicts with the base ends Conflict.
  *
  * Shipping by the publishing mode, as an ordinary Task or a Publishing Task does, it runs the
  * Project's before publishing line first, committing what it changed, and the after publishing
@@ -58,10 +60,11 @@ type LineEnd =
  * the run before the after line runs, so a run again after that line failed runs only the line.
  */
 @Injectable()
-export class PublishStage {
+export class PublishStage implements StageRunner<"publish">, OnModuleInit {
   private readonly logger = new Logger(PublishStage.name);
 
   constructor(
+    private readonly runners: StageRunners,
     private readonly records: TaskRecords,
     private readonly publishing: TaskPublishing,
     private readonly git: TaskGit,
@@ -73,9 +76,23 @@ export class PublishStage {
     private readonly waits: StageRunWaits,
     private readonly tasks: StartedTasks,
     private readonly stageRunsFiles: StageRunsFiles,
+    private readonly busyWork: BusyWork,
   ) {}
 
-  async run(work: StageWork<"script">): Promise<StageOutcome> {
+  onModuleInit(): void {
+    this.runners.register("publish", this);
+  }
+
+  /** A Publish is busy work a scheduled Office update waits for. */
+  async run(work: StageWork<"publish">): Promise<StageOutcome> {
+    const outcome = await this.busyWork.during(
+      { kind: "publish", label: `Publish in the Stage ${work.stage.name}` },
+      () => this.publishWork(work),
+    );
+    return withPublishResult(outcome);
+  }
+
+  private async publishWork(work: StageWork<"publish">): Promise<StageOutcome> {
     const { stage, run, earlierRuns } = work;
     const task = await this.records.read(run.taskId);
     const { expected, refusal } = await this.stageGit.start(work, task);
@@ -93,7 +110,7 @@ export class PublishStage {
   }
 
   private async publish(
-    work: StageWork<"script">,
+    work: StageWork<"publish">,
     task: TaskRecord,
     expected: ExpectedHead,
     ran: readonly StageCommandRunWithOutput[],
@@ -139,7 +156,7 @@ export class PublishStage {
    * still, as a failed build-kind command's is, for the Stage it goes back to.
    */
   private async beforePublishing(
-    work: StageWork<"script">,
+    work: StageWork<"publish">,
     task: TaskRecord,
     expected: ExpectedHead,
   ): Promise<
@@ -186,7 +203,7 @@ export class PublishStage {
    * keeps the worktree and ends the run with its own outcome, which the walk escalates.
    */
   private async afterPublishing(
-    work: StageWork<"script">,
+    work: StageWork<"publish">,
     task: TaskRecord,
     published: PublishedWork,
     ranBefore: readonly StageCommandRunWithOutput[],
@@ -221,7 +238,7 @@ export class PublishStage {
    * line runs nothing and passes.
    */
   private async runLine(
-    work: StageWork<"script">,
+    work: StageWork<"publish">,
     task: TaskRecord,
     line: PublishingLine,
     variables: Readonly<Record<string, string>>,
@@ -257,7 +274,7 @@ export class PublishStage {
   }
 
   private async lineStopped(
-    { run, interruption }: StageWork<"script">,
+    { run, interruption }: StageWork<"publish">,
     ran: readonly StageCommandRunWithOutput[],
   ): Promise<LineEnd> {
     const stoppedBy = interruption.requested;
@@ -276,7 +293,7 @@ export class PublishStage {
    * left uncommitted is kept after a shutdown and after the alarm, as for a Script Stage.
    */
   private async stopped(
-    { run, interruption }: StageWork<"script">,
+    { run, interruption }: StageWork<"publish">,
     task: TaskRecord,
     expected: ExpectedHead,
     held: StageOutcome,
@@ -345,7 +362,7 @@ export class PublishStage {
  * an ordinary Task's or a Publishing Task's, never a fix Task's into its Initiative's branch nor the
  * proof of concept's branch-only push.
  */
-function shipsByPublishingMode({ stage }: StageWork<"script">, task: TaskRecord): boolean {
+function shipsByPublishingMode({ stage }: StageWork<"publish">, task: TaskRecord): boolean {
   const target = stage.publishTarget ?? "publishing-mode";
   return (
     target === "publishing-mode" &&
@@ -362,6 +379,17 @@ function landedCommitMessage(publication: Publication): boolean {
     publication.kind === "pull-request-opened" ||
     (publication.kind === "merged" && publication.subject !== undefined)
   );
+}
+
+/**
+ * `outcome` with its Publish result: a failure The Office found itself, such as the before
+ * publishing line's or a branch moved outside it, is Failed, as `publishOutcome` already words what
+ * the publication answered. A run The Office interrupted has none: it runs again.
+ */
+function withPublishResult(outcome: StageOutcome): StageOutcome {
+  if (outcome.status !== "failed" || outcome.publishResult !== undefined) return outcome;
+  if (outcome.interrupted !== undefined) return outcome;
+  return { ...outcome, publishResult: "failed" };
 }
 
 function beforePublishingFailed(error: string): StageOutcome {

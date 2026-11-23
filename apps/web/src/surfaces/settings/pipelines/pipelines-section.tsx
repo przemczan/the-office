@@ -356,7 +356,7 @@ function NewStageTemplateMenu({
           New template
         </Button>
       }
-      items={(["agent", "script", "gate"] as const).map((kind) => ({
+      items={(["agent", "script", "gate", "publish"] as const).map((kind) => ({
         label: STAGE_KIND_NAMES[kind],
         icon: <Icon name={STAGE_KIND_ICONS[kind]} size={14} />,
         onSelect: () => onMake(kind),

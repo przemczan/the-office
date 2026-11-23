@@ -44,7 +44,11 @@ export class PostgresTaskStagesRepository extends TaskStagesRepository {
   }
 }
 
-/** A row's Task's Stages, a flow even when a rolled-back release wrote them as a list. */
+/**
+ * A row's Task's Stages, a flow even when a rolled-back release wrote them as a list, and unlinked:
+ * the Resolve Stages `asFlow` draws in come linked to their template, which a Task's never are.
+ */
 function taskStagesOf(row: typeof taskStages.$inferSelect): TaskStages {
-  return { ...row, stages: asFlow(row.stages), trace: row.trace ?? undefined };
+  const stages = asFlow(row.stages).map(({ templateId: _templateId, ...stage }) => stage);
+  return { ...row, stages, trace: row.trace ?? undefined };
 }

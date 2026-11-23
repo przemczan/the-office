@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
+import { asFlow, pipelineOrder } from "../domain/flow.js";
 import { taskResumeOf, walkAhead, type TaskResume } from "../domain/alarm-resume.js";
-import { walkedStages } from "../domain/resolve-stages.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { TaskRecords } from "../ports/task-records.js";
 import { AgentStageRunner } from "./agent-stage-runner.js";
@@ -30,7 +30,7 @@ export class AlarmResumes {
     const own = await this.taskStages.find(taskId);
     if (!own) return taskResumeOf({ kind: "goes-on", stage: undefined }, undefined);
     const runs = await this.runs.list(taskId);
-    const stages = walkedStages(await this.roleFillings.staffed(own.stages, runs), runs);
+    const stages = pipelineOrder(asFlow(await this.roleFillings.staffed(own.stages, runs)));
     const { definitionOfDone } = await this.records.read(taskId);
     const ahead = walkAhead(stages, runs, definitionOfDone);
     const session =

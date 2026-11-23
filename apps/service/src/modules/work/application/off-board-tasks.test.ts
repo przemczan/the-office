@@ -74,7 +74,7 @@ describe("OffBoardTasks.start", () => {
         title: "Onboard",
         kind: "onboard",
         status: { state: "running" },
-        stages: ["Onboard", "Verify", "Publish"],
+        stages: ["Onboard", "Verify", "Resolve", "Test after Resolve", "Publish"],
       },
     });
     const task = await work.app.get(TaskService).read(taskIdOf(start));

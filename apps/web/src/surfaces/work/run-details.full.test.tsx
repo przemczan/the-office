@@ -59,6 +59,7 @@ function aRun(fields: Pick<StageRun, "id" | "number" | "startedAt" | "endedAt">)
       skipped: false,
       definitionOfDoneMet: null,
       pullRequestUrl: null,
+      publishResult: null,
       handoverNote: null,
     },
     ...fields,

@@ -152,10 +152,10 @@ describe("an office-wide Pipeline in the flow editor", () => {
     expect(page.textContent).toContain("Stages and routes");
     expect(page.textContent).toContain("2 Stages · 2 routes · 0 routes back");
     expect(page.querySelector('[role="region"][aria-label="Flow"]')).not.toBeNull();
-    expect(page.textContent).toContain("Full is now drawn as a flow");
+    expect(page.textContent).toContain("Full now goes back by routes");
 
     await press("Hide this note");
-    expect(page.textContent).not.toContain("Full is now drawn as a flow");
+    expect(page.textContent).not.toContain("Full now goes back by routes");
     expect(localStorage.getItem("the-office.converted-note-hidden.full")).toBe("true");
   });
 

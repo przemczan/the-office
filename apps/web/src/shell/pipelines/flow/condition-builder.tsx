@@ -21,6 +21,7 @@ import {
 import {
   DEFINITION_OF_DONE_TEST_WORDS,
   previousStageLabel,
+  PUBLISH_ONLY_TESTS,
   STAGE_TEST_WORDS,
   stageNameOrGone,
 } from "./condition-words.ts";
@@ -191,6 +192,8 @@ function SecondSelect({
   path,
   condition,
   onChange,
+  from,
+  stages,
   commands,
   readOnly = false,
   error,
@@ -202,7 +205,7 @@ function SecondSelect({
           size="sm"
           aria-label="Test"
           value={test.is}
-          options={Object.entries(STAGE_TEST_WORDS).map(([value, label]) => ({ value, label }))}
+          options={stageTestChoices(test, from, stages)}
           disabled={readOnly}
           onChange={(is) => onChange(withTestIs(condition, path, is as StageTestIs))}
         />
@@ -234,6 +237,22 @@ function SecondSelect({
         />
       );
   }
+}
+
+/**
+ * The tests of a Stage: those of every Stage, and a Publish Stage's results besides. A result test
+ * on another kind of Stage stays listed, so the check's problem shows instead of the test changing.
+ */
+function stageTestChoices(
+  test: Extract<ConditionTest, { kind: "stage" }>,
+  from: Stage,
+  stages: readonly Stage[],
+): { value: StageTestIs; label: string }[] {
+  const tested = test.stage === null ? from : stages.find(({ key }) => key === test.stage);
+  const publishes = tested?.kind === "publish";
+  return (Object.keys(STAGE_TEST_WORDS) as StageTestIs[])
+    .filter((is) => publishes || is === test.is || !PUBLISH_ONLY_TESTS.includes(is))
+    .map((is) => ({ value: is, label: STAGE_TEST_WORDS[is] }));
 }
 
 function subjectValue(test: ConditionTest, from: Stage): string {

@@ -55,14 +55,8 @@ describe("stageTemplateProblems", () => {
       { level: "problem", text: "Choose who works it." },
       { level: "problem", text: "Its budget must be a whole number of tokens above 0." },
     ]);
-    expect(
-      stageTemplateProblems(
-        scriptStage({ publishTarget: "branch-only", afterConflict: "review" }),
-        [],
-      ),
-    ).toEqual([
-      { level: "problem", text: "Only a Publish Stage has a publish target." },
-      { level: "problem", text: "Only a Publish Stage says what follows a conflict." },
+    expect(stageTemplateProblems(scriptStage({ command: "publish" }), [])).toEqual([
+      { level: "problem", text: `Runs "publish", which is kept for The Office's own use.` },
     ]);
   });
 

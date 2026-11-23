@@ -20,7 +20,7 @@ import {
   walkStages,
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
-import { aTaskRecord } from "../ports/pipelines-ports.fixtures.js";
+import { aTaskRecord, RESOLVED_COMMIT } from "../ports/pipelines-ports.fixtures.js";
 import {
   PromptTemplateRepository,
   PromptTemplateRepositoryForTests,
@@ -481,5 +481,130 @@ describe("AgentStageRunner after the session", () => {
     });
     expect(again?.changedFiles).toEqual([]);
     expect(pipelines.stageThreads.requests).toHaveLength(2);
+  });
+});
+
+describe("An Agent Stage with Merge the base first", () => {
+  const resolve = anAgentStage("resolve", {
+    name: "Resolve",
+    brief: "Keep what both sides meant.",
+    mergeBaseFirst: true,
+  });
+  const MERGED = "d".repeat(40);
+
+  it("leaves the conflicts for its Agent, its Brief naming the base and each file on top of the Stage's own, then commits the merge", async () => {
+    pipelines = await startPipelinesApplication([
+      anAgentSession(aDoneResult()),
+      anAgentSession(aDoneResult("Kept both renames.")),
+    ]);
+    const taskId = randomUUID();
+    pipelines.publishing.resolveStarts.push({
+      kind: "conflicted",
+      base: { remote: "origin", branch: "main" },
+      conflictedFiles: ["src/index.ts", "src/rename.ts"],
+    });
+
+    await walkStages(pipelines, [implement, resolve], taskId);
+
+    const work = pipelines.stageThreads.requests.at(-1)?.work;
+    expect(work).toContain(
+      "Keep what both sides meant.\n\nThe Task's branch conflicts with main as it now is, which other work moved on. The Office merged main into the branch and left the conflicts in these files:\n\n- src/index.ts\n- src/rename.ts\n",
+    );
+    expect(pipelines.publishing.resolveCalls).toEqual([
+      { call: "start", taskId },
+      { call: "finish", taskId },
+    ]);
+    const [, resolved] = await runsOf(pipelines, taskId);
+    expect(resolved?.outcome?.status).toBe("done");
+    expect(resolved?.headCommit).toBe(RESOLVED_COMMIT);
+  });
+
+  it("commits a clean merge at once and still runs its Agent, whose Brief says the base came in cleanly", async () => {
+    pipelines = await startPipelinesApplication([
+      anAgentSession(aDoneResult()),
+      anAgentSession(aDoneResult("Nothing to fix.")),
+    ]);
+    const taskId = randomUUID();
+    pipelines.publishing.resolveStarts.push({
+      kind: "merged",
+      base: { remote: "origin", branch: "main" },
+      commit: MERGED,
+    });
+    pipelines.stageThreads.whileWorking = ({ stageName }) => {
+      if (stageName === "Resolve") pipelines.git.unchanged.add(taskId);
+    };
+
+    await walkStages(pipelines, [implement, resolve], taskId);
+
+    expect(pipelines.stageThreads.requests).toHaveLength(2);
+    expect(pipelines.stageThreads.requests.at(-1)?.work).toContain(
+      "Keep what both sides meant.\n\nThe Office merged main into the Task's branch as the Stage started, and it came in cleanly, with no conflict: the merge is committed already.",
+    );
+    expect(pipelines.publishing.resolveCalls).toEqual([{ call: "start", taskId }]);
+    const [, resolved] = await runsOf(pipelines, taskId);
+    expect(resolved?.outcome).toMatchObject({ status: "done", summary: "Nothing to fix." });
+    expect(resolved?.headCommit).toBe(MERGED);
+  });
+
+  it("fails the Stage when a conflict marker is left, naming the file, and commits nothing", async () => {
+    pipelines = await startPipelinesApplication([
+      anAgentSession(aDoneResult()),
+      anAgentSession(aDoneResult("Resolved it.")),
+    ]);
+    pipelines.publishing.resolveEnds.push({ kind: "markers-left", files: ["src/index.ts"] });
+
+    const taskId = await walkStages(pipelines, [implement, resolve]);
+
+    const [implemented, resolved] = await runsOf(pipelines, taskId);
+    expect(resolved?.outcome).toMatchObject({
+      status: "failed",
+      error:
+        "These files still hold conflict markers, so The Office didn't commit the merge:\n- src/index.ts",
+    });
+    expect(resolved?.headCommit).toBe(implemented?.headCommit);
+  });
+
+  it("brought back by a Script Stage's failure, merges only what the base gained since and briefs its Agent with the failure", async () => {
+    pipelines = await startPipelinesApplication([
+      anAgentSession(aDoneResult()),
+      anAgentSession(aDoneResult("Kept both renames.")),
+      anAgentSession(aDoneResult("Fixed the rename's test.")),
+    ]);
+    pipelines.commands.commandRuns.push([failing, failing], [passing]);
+    // Nothing new on the base: the merge leaves the branch where the committed merge is.
+    pipelines.publishing.resolveStarts.push(
+      {
+        kind: "conflicted",
+        base: { remote: "origin", branch: "main" },
+        conflictedFiles: ["src/index.ts"],
+      },
+      { kind: "merged", base: { remote: "origin", branch: "main" }, commit: RESOLVED_COMMIT },
+    );
+
+    const taskId = await walkStages(pipelines, [
+      implement,
+      resolve,
+      goingBackOnFailure(aScriptStage("test"), "resolve", 1),
+    ]);
+
+    expect(pipelines.publishing.resolveCalls.map(({ call }) => call)).toEqual([
+      "start",
+      "finish",
+      "start",
+    ]);
+    const again = pipelines.stageThreads.requests.at(-1)?.work;
+    expect(again).toContain(
+      "Keep what both sides meant.\n\nThe Project's Test failed after The Office merged the base branch into the Task's branch.",
+    );
+    expect(again).not.toContain("came in cleanly");
+    expect(again).not.toContain("left the conflicts in these files");
+    const runs = await runsOf(pipelines, taskId);
+    expect(runs.map(({ stageKey, outcome }) => [stageKey, outcome?.status])).toEqual([
+      ["implement", "done"],
+      ["resolve", "done"],
+      ["test", "failed"],
+      ["resolve", "done"],
+      ["test", "done"],
+    ]);
   });
 });

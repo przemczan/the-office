@@ -1,3 +1,4 @@
+import { conflictOnlyStages } from "./conflict-handling.js";
 import { asFlow, pipelineOrder, reachableFrom, type FlowStage } from "./flow.js";
 import {
   isFailureRoute,
@@ -7,7 +8,15 @@ import {
   type Route,
 } from "./route.js";
 import {
+  isPublishResultTest,
+  PUBLISH_RESULT_NAMES,
+  PUBLISH_RESULTS,
+  type PublishResult,
+} from "./publish-result.js";
+import {
+  isPublishStage,
   PUBLISH_COMMAND,
+  publishesByThePublishingMode,
   sameWorkerNamed,
   stageWorker,
   type AgentStage,
@@ -80,11 +89,15 @@ function flowChecks(stages: readonly Stage[]): StageProblem[] {
   const reachable = reachableFrom(ordered, first.key);
   const reachingEnd = stagesReachingEnd(ordered);
   const loops = loopsWithNoLimit(ordered);
+  const conflictOnly = conflictOnlyStages(ordered);
   return ordered.flatMap((stage, stageIndex) => {
     const located = (problem: LocatedProblem) =>
       problemOnStage(stage, stageIndex, problem.text, problem.at, problem.level);
+    const earlierStages = ordered.slice(0, stageIndex);
     return [
-      ...problemsOfStage(stage, ordered.slice(0, stageIndex)).map((text) => located({ text })),
+      ...problemsOfStage(stage, earlierStages, stageBefore(stage, earlierStages, conflictOnly)).map(
+        (text) => located({ text }),
+      ),
       ...(reachable.has(stage.key)
         ? []
         : [located({ text: "no path of routes leads to it from the first Stage." })]),
@@ -128,13 +141,17 @@ export function singleStageProblems(stage: Stage): string[] {
   return [...nameProblems(stage, []), ...kindProblems(stage)];
 }
 
-function problemsOfStage(stage: Stage, earlierStages: readonly Stage[]): string[] {
+function problemsOfStage(
+  stage: Stage,
+  earlierStages: readonly Stage[],
+  before: Stage | undefined,
+): string[] {
   const problems = [
     ...keyProblems(stage, earlierStages),
     ...nameProblems(stage, earlierStages),
     ...kindProblems(stage),
   ];
-  if (stage.kind === "agent") problems.push(...continueProblems(stage, earlierStages.at(-1)));
+  if (stage.kind === "agent") problems.push(...continueProblems(stage, before));
   return problems;
 }
 
@@ -159,19 +176,41 @@ function kindProblems(stage: Stage): string[] {
       problems.push("its budget must be a whole number of tokens above 0.");
     }
   }
-  if (stage.kind === "script" && stage.command !== "publish" && stage.publishTarget) {
+  if (stage.kind === "script" && RESERVED_COMMAND_KEYS.has(stage.command)) {
+    problems.push(`runs "${stage.command}", which is kept for The Office's own use.`);
+  }
+  // Neither field is on another kind's type, but a Stage given by an agent or kept may carry it.
+  if (stage.kind !== "publish" && "publishTarget" in stage && stage.publishTarget !== undefined) {
     problems.push("only a Publish Stage has a publish target.");
   }
-  if (stage.kind === "script" && stage.command !== "publish" && stage.afterConflict) {
-    problems.push("only a Publish Stage says what follows a conflict.");
+  if (stage.kind !== "agent" && "mergeBaseFirst" in stage && stage.mergeBaseFirst === true) {
+    problems.push("only an Agent Stage merges the base first.");
   }
   return problems;
 }
+
+/** The keys no Project command, Script Stage or condition names (spec §2.1). */
+const RESERVED_COMMAND_KEYS: ReadonlySet<string> = new Set(["install", PUBLISH_COMMAND]);
 
 function workerProblems(stage: AgentStage): string[] {
   const namesRole = stage.role !== undefined && stage.role.trim() !== "";
   if (namesRole && stage.duty !== undefined) return ["name a Role or a duty, not both."];
   return stageWorker(stage) ? [] : ["choose who works it."];
+}
+
+/**
+ * The Stage before `stage` in the Pipeline's order, whose session "continue" goes on. The conflict
+ * chain's Stages (`conflictOnlyStages`), drawn in a row under their Publish, run only after a
+ * conflict, so they are never on a path into a Stage outside the chain (spec §2.3.5, "Library")
+ * and are passed over.
+ */
+function stageBefore(
+  stage: Stage,
+  earlierStages: readonly Stage[],
+  conflictOnly: ReadonlySet<string>,
+): Stage | undefined {
+  if (conflictOnly.has(stage.key)) return earlierStages.at(-1);
+  return earlierStages.findLast(({ key }) => !conflictOnly.has(key));
 }
 
 function continueProblems(stage: AgentStage, previous: Stage | undefined): string[] {
@@ -192,10 +231,16 @@ function flowProblems(stage: FlowStage, ordered: readonly FlowStage[]): LocatedP
       level: "warning",
     });
   }
+  if (publishesByThePublishingMode(stage) && routesTaking(stage, "conflict").length === 0) {
+    problems.push({ text: "no route takes Conflict, so a conflict asks you.", level: "warning" });
+  }
   stage.routes.forEach((route, routeIndex) => {
     const at: StageProblemAt = { kind: "route", routeIndex };
     for (const text of routeProblems(stage, route, routeIndex, ordered))
       problems.push({ text, at });
+    for (const text of publishResultProblems(stage, route, routeIndex, ordered)) {
+      problems.push({ text, at });
+    }
     for (const { testPath, text } of conditionProblems(stage, route, ordered)) {
       problems.push({ text, at: { ...at, testPath } });
     }
@@ -237,6 +282,45 @@ function routeProblems(
   return problems;
 }
 
+/**
+ * A Publish Stage's result leads to one place at most (spec §2.3.2, "The route forms"): the route
+ * at `routeIndex` may not take a result an earlier route takes elsewhere.
+ */
+function publishResultProblems(
+  stage: FlowStage,
+  route: Route,
+  routeIndex: number,
+  ordered: readonly FlowStage[],
+): string[] {
+  if (!isPublishStage(stage)) return [];
+  const earlierRoutes = stage.routes.slice(0, routeIndex);
+  return PUBLISH_RESULTS.filter(
+    (result) =>
+      takesResult(stage, route, result) &&
+      earlierRoutes.some(
+        (earlier) => earlier.to !== route.to && takesResult(stage, earlier, result),
+      ),
+  ).map(
+    (result) =>
+      `its route to ${placeName(route.to, route.toName, ordered)} takes ${PUBLISH_RESULT_NAMES[result]}, which an earlier route takes elsewhere; a result leads to one place.`,
+  );
+}
+
+/** The routes of `stage` that take `result`, testing it on their own Stage. */
+function routesTaking(stage: FlowStage, result: PublishResult): Route[] {
+  return stage.routes.filter((route) => takesResult(stage, route, result));
+}
+
+function takesResult(stage: FlowStage, { condition }: Route, result: PublishResult): boolean {
+  if (!condition) return false;
+  return testsOf(condition).some(
+    ({ test }) =>
+      test.kind === "stage" &&
+      (test.stage === null || test.stage === stage.key) &&
+      test.is === result,
+  );
+}
+
 /** "At most N times", N from 1 to `ROUTE_LIMIT_MAX`, or No limit. */
 function isRouteLimit(limit: Route["limit"]): boolean {
   return limit === null || (Number.isInteger(limit) && limit >= 1 && limit <= ROUTE_LIMIT_MAX);
@@ -272,6 +356,12 @@ function testProblems(
     );
   }
   const testsItsOwnStage = test.stage === null || test.stage === stage.key;
+  const tested = testsItsOwnStage ? stage : ordered.find(({ key }) => key === test.stage);
+  if (tested && !isPublishStage(tested) && isPublishResultTest(test.is)) {
+    problems.push(
+      `tests whether ${tested.name.trim() || tested.key} ended ${PUBLISH_RESULT_NAMES[test.is]}, which only a Publish Stage ends.`,
+    );
+  }
   if (stage.kind === "gate" && testsItsOwnStage && test.is === "failed") {
     problems.push("tests whether this Gate failed, and a Gate never fails.");
   }
@@ -283,7 +373,7 @@ function testProblems(
 
 /** A command test's key follows the Project command key rules (spec §2.1), and is never install or publish. */
 function commandTestProblems(key: string): string[] {
-  if (key === "install" || key === PUBLISH_COMMAND) {
+  if (RESERVED_COMMAND_KEYS.has(key)) {
     return [`runs "${key}", which is kept for The Office's own use.`];
   }
   return COMMAND_KEY.test(key) && key.length <= COMMAND_KEY_LENGTH

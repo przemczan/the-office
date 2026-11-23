@@ -1,12 +1,14 @@
 import { isDeepStrictEqual } from "node:util";
 import type { DutyKey } from "../../people/index.js";
-import { RESOLVE_TEST_COMMAND } from "./resolve-stages.js";
 import { commandKeysOfRoutes, type Route, type StagePlace } from "./route.js";
 import type { StageContextLimitsOverride } from "./stage-context-limits.js";
 import type { StagePermissions } from "./stage-permissions.js";
 
-/** One step of a Pipeline (spec §2.3): work by an Agent in a Role, a Project command, or a Gate. */
-export type Stage = AgentStage | ScriptStage | Gate;
+/**
+ * One step of a Pipeline (spec §2.3.1): work by an Agent in a Role, a Project command, a Gate, or
+ * The Office publishing the Task's work.
+ */
+export type Stage = AgentStage | ScriptStage | Gate | PublishStage;
 
 export type StageKind = Stage["kind"];
 
@@ -15,20 +17,27 @@ export const STAGE_KIND_NAMES: Readonly<Record<StageKind, string>> = {
   agent: "Agent Stage",
   script: "Script Stage",
   gate: "Gate",
+  publish: "Publish Stage",
 };
 
-/**
- * What a Script Stage runs: a Project command by its key, or `PUBLISH_COMMAND`, the Project's
- * publishing mode, run by The Office's own git code rather than a command line (spec §9).
- */
+/** What a Script Stage runs: a Project command by its key. */
 export type ScriptStageCommand = string;
 
-/** The command of a Publish Stage, kept from every Project command's keys. */
+/**
+ * A key no Project command takes, as publishing is the Publish Stage's (spec §2.3.4); a Pipeline
+ * stored before Publish was a kind of its own names it as a Script Stage's command, which
+ * `withPublishStages` reads as a Publish Stage.
+ */
 export const PUBLISH_COMMAND = "publish";
 
-/** Whether `stage` is a Publish Stage: a Script Stage running `PUBLISH_COMMAND`. */
-export function isPublishStage(stage: Stage | undefined): stage is ScriptStage {
-  return stage?.kind === "script" && stage.command === PUBLISH_COMMAND;
+/** Whether `stage` is a Publish Stage. */
+export function isPublishStage(stage: Stage | undefined): stage is PublishStage {
+  return stage?.kind === "publish";
+}
+
+/** Whether `stage` publishes by the Project's publishing mode, so it can end Conflict. */
+export function publishesByThePublishingMode(stage: Stage | undefined): stage is PublishStage {
+  return isPublishStage(stage) && stage.publishTarget !== "branch-only";
 }
 
 /**
@@ -36,12 +45,6 @@ export function isPublishStage(stage: Stage | undefined): stage is ScriptStage {
  * the Project's publishing mode, or pushed as a branch only, with no pull request and no merge.
  */
 export type PublishTarget = "publishing-mode" | "branch-only";
-
-/**
- * What a Publish Stage does once a conflict is resolved and tested (spec §2.3, "Conflicts at
- * Publish"): publish automatically, or wait at a Gate for the user's review first.
- */
-export type AfterConflict = "publish" | "review";
 
 /** Fresh with a Brief, or continuing the previous Stage's session when the same person worked it. */
 export type StageSession = "fresh" | "continue";
@@ -92,15 +95,23 @@ export interface AgentStage extends StageFields {
   readonly permissions?: StagePermissions;
   /** Its own context limits, or No limit; absent takes the Office defaults (spec §2.5). */
   readonly contextLimits?: StageContextLimitsOverride;
+  /**
+   * Merge the base first (spec §2.3.1): The Office merges the base into the Task's branch as the
+   * Stage starts and leaves the conflicted files for its Agent. Absent is off.
+   */
+  readonly mergeBaseFirst?: boolean;
 }
 
 export interface ScriptStage extends StageFields {
   readonly kind: "script";
   readonly command: ScriptStageCommand;
-  /** A Publish Stage's alone; absent means the Project's publishing mode. */
+}
+
+/** The Office publishes the Task's work by its own git code (spec §2.3.4). */
+export interface PublishStage extends StageFields {
+  readonly kind: "publish";
+  /** Absent means the Project's publishing mode. */
   readonly publishTarget?: PublishTarget;
-  /** A Publish Stage's alone; absent publishes automatically. */
-  readonly afterConflict?: AfterConflict;
 }
 
 /** The Task waits for the user to look at the work so far and let it continue. */
@@ -146,28 +157,23 @@ export function sameWorkerNamed(one: Stage, other: Stage): boolean {
 }
 
 /**
- * The Project commands, by key, that `stage` among `stages` may run: a Script Stage's own, the
- * Project's `test` for a Publish by the publishing mode, whose conflict Resolve and its Test take
- * when an Agent Stage can work Resolve, the keys an Agent Stage narrows its Project commands to,
- * and those its routes' command tests run (spec §2.3). The one source every missing-command check
- * reads.
+ * The Project commands, by key, that `stage` may run: a Script Stage's own, the keys an Agent Stage
+ * narrows its Project commands to, and those its routes' command tests run (spec §2.3). The one
+ * source every missing-command check reads.
  */
-export function commandKeysOfStage(stage: Stage, stages: readonly Stage[]): readonly string[] {
-  return [...ownCommandKeys(stage, stages), ...commandKeysOfRoutes(stage.routes ?? [])];
+export function commandKeysOfStage(stage: Stage): readonly string[] {
+  return [...ownCommandKeys(stage), ...commandKeysOfRoutes(stage.routes ?? [])];
 }
 
-function ownCommandKeys(stage: Stage, stages: readonly Stage[]): readonly string[] {
+function ownCommandKeys(stage: Stage): readonly string[] {
   if (stage.kind === "agent") return stage.permissions?.commands ?? [];
-  if (stage.kind !== "script") return [];
-  if (stage.command !== PUBLISH_COMMAND) return [stage.command];
-  const resolvable =
-    stage.publishTarget !== "branch-only" && stages.some(({ kind }) => kind === "agent");
-  return resolvable ? [RESOLVE_TEST_COMMAND] : [];
+  if (stage.kind === "script") return [stage.command];
+  return [];
 }
 
 /** The Project commands, by key, that `stages` may run, each once. */
 export function commandKeysNamedBy(stages: readonly Stage[]): readonly string[] {
-  return [...new Set(stages.flatMap((stage) => commandKeysOfStage(stage, stages)))];
+  return [...new Set(stages.flatMap(commandKeysOfStage))];
 }
 
 /** The Roles and duties a save of Stages newly names. */

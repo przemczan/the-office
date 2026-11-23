@@ -15,13 +15,13 @@ import {
   type ConditionTest,
   type Route,
 } from "./route.js";
+import type { KeptPublishStage } from "./publish-stages.js";
 import type { KeptOnFailure, KeptStage } from "./routes-back.js";
 import type { StageContextLimitsOverride } from "./stage-context-limits.js";
 import type { StagePermissions } from "./stage-permissions.js";
 import {
   sameAsKept,
   STAGE_KIND_NAMES,
-  type AfterConflict,
   type Effort,
   type PublishTarget,
   type ScriptStageCommand,
@@ -54,7 +54,11 @@ export interface StageFieldChanges {
   readonly onFailure?: KeptOnFailure | null;
   readonly command?: ScriptStageCommand;
   readonly publishTarget?: PublishTarget | null;
-  readonly afterConflict?: AfterConflict | null;
+  /**
+   * What followed a conflict before the conflict chain was the Pipeline's own: taken on a Publish
+   * Stage and read as nothing, as the chain `asFlow` drew in for it stands for it now.
+   */
+  readonly afterConflict?: KeptPublishStage["afterConflict"] | null;
 }
 
 export type StageField = keyof StageFieldChanges;
@@ -92,9 +96,13 @@ const FIELDS_OF_KIND: Readonly<Record<StageKind, readonly StageField[]>> = {
     "contextLimits",
     "onFailure",
   ],
-  script: ["name", "optional", "command", "publishTarget", "afterConflict", "onFailure"],
+  script: ["name", "optional", "command", "onFailure"],
   gate: ["name", "optional"],
+  publish: ["name", "optional", "publishTarget", "afterConflict", "onFailure"],
 };
+
+/** Fields a Change may give that the Stage no longer keeps. */
+const FIELDS_READ_AS_NOTHING: ReadonlySet<StageField> = new Set(["afterConflict"]);
 
 /**
  * One Stage change of a Project Pipeline (spec §2.3): it names its Stage by key, one of the base
@@ -595,7 +603,7 @@ function withFields(
       lacked.push(field);
       continue;
     }
-    if (value === null) delete changed[field];
+    if (value === null || FIELDS_READ_AS_NOTHING.has(field)) delete changed[field];
     else {
       changed[field] = value;
       const named = WORKER_FIELD_CLEARED[field];

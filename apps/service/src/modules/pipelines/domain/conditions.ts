@@ -7,6 +7,7 @@ import {
   type Route,
   type StageTest,
 } from "./route.js";
+import { DONE_PUBLISH_RESULTS, publishResultOf } from "./publish-result.js";
 import type { StageRun } from "./stage-run.js";
 
 /**
@@ -42,6 +43,8 @@ export interface Weighing {
   readonly stageKey: string;
   /** The Task's Stage runs so far, oldest first, the leaving Stage's ended run last. */
   readonly runs: readonly StageRun[];
+  /** The keys of the Publish Stages, whose runs a Stage test reads by their result. */
+  readonly publishStageKeys: ReadonlySet<string>;
   readonly definitionOfDone: readonly string[];
   readonly commands: CommandResults;
 }
@@ -135,22 +138,36 @@ function weighTest(test: ConditionTest, weighing: Weighing, at: GroupPlace): Gro
 
 /**
  * A Stage test reads its Stage's latest run that ended by itself, held and interrupted runs left
- * out, or counts every run of it; a Stage that never ran holds no outcome or file test.
+ * out, or counts every run of it; a Stage that never ran holds no outcome or file test. A Publish
+ * Stage's run is read by its result alone (`publishResultOf`, spec §2.3.4): Done holds for Published
+ * and Nothing to publish, Failed for Failed alone, and each result for itself.
  */
-function weighStageTest(test: StageTest, { stageKey, runs }: Weighing): Weight {
+function weighStageTest(test: StageTest, { stageKey, runs, publishStageKeys }: Weighing): Weight {
   const key = test.stage ?? stageKey;
   const runsOfStage = runs.filter((run) => run.stageKey === key);
   if (test.is === "ran") return weightOf(runsOfStage.length >= test.times);
   const latest = runsOfStage.findLast(endedByItself);
   if (!latest?.outcome) return DOES_NOT_HOLD;
   const { outcome, changedFiles } = latest;
+  const skipped = outcome.status === "done" && outcome.skipped === true;
+  // A Publish run an older release recorded skipped shipped nothing, so it has no result.
+  const result = publishStageKeys.has(key) && !skipped ? publishResultOf(latest) : undefined;
   switch (test.is) {
     case "done":
-      return weightOf(outcome.status === "done" && !outcome.skipped);
+      return weightOf(
+        result === undefined
+          ? outcome.status === "done" && !skipped
+          : DONE_PUBLISH_RESULTS.has(result),
+      );
     case "failed":
-      return weightOf(outcome.status === "failed");
+      return weightOf(result === undefined ? outcome.status === "failed" : result === "failed");
     case "skipped":
-      return weightOf(outcome.status === "done" && outcome.skipped === true);
+      return weightOf(skipped);
+    case "published":
+    case "nothing-to-publish":
+    case "conflict":
+    case "after-publishing-failed":
+      return weightOf(result === test.is);
     // A run kept before changed files were recorded holds neither.
     case "changed":
       return weightOf(changedFiles !== undefined && changedFiles.length > 0);

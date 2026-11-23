@@ -1,4 +1,5 @@
 import type { StageCommandRun } from "./stage-command-run.js";
+import type { PublishResult } from "./publish-result.js";
 
 /** The option an Agent recommends to the user, by its place among the options, and why. */
 export interface StageRecommendation {
@@ -48,6 +49,11 @@ export type StageOutcome = (
       /** The pull request a Publish opened. Undefined on runs stored before it was kept. */
       readonly pullRequestUrl?: string;
       /**
+       * A Publish Stage's result, Published or Nothing to publish; undefined for any other run, and
+       * on a Publish run stored before results were kept. Read it through `publishResultOf`.
+       */
+      readonly publishResult?: PublishResult;
+      /**
        * Set on a run recorded as skipped, which ran nothing: an optional Stage's, as the previous
        * release recorded them.
        */
@@ -85,6 +91,12 @@ export type StageOutcome = (
        * (spec §2.3 Loops).
        */
       readonly afterPublishingFailed?: PublishedWork;
+      /**
+       * A Publish Stage's result, Conflict, After publishing failed or Failed; undefined for any
+       * other run, and on a Publish run stored before results were kept, whose `baseMoved` and
+       * `afterPublishingFailed` say it. Read it through `publishResultOf`.
+       */
+      readonly publishResult?: PublishResult;
       /**
        * Set on a run The Office refused as it found the branch moved somewhere other than along
        * the base: the user is asked, and no round goes (spec §2.3).
@@ -202,6 +214,8 @@ export interface PublishedWork {
 export interface BaseMoved {
   /** The files a merge would conflict in; none when only a fast-forward can't take it. */
   readonly conflictedFiles: readonly string[];
+  /** The base branch it conflicts with; undefined on a run kept before it was. */
+  readonly baseBranch?: string;
 }
 
 /** The Task's tokens so far against the Stage's budget, when they reached it. */

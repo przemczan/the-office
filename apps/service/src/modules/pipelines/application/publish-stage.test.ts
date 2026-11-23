@@ -13,12 +13,8 @@ import {
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
 import { aTaskRecord, PLANNED_COMMIT, RESOLVED_COMMIT } from "../ports/pipelines-ports.fixtures.js";
-import {
-  RESOLVE_BRIEF,
-  RESOLVE_GATE_KEY,
-  RESOLVE_KEY,
-  RESOLVE_TEST_KEY,
-} from "../domain/resolve-stages.js";
+import { RESOLVE_BRIEF } from "../domain/merge-base-first.js";
+import { RESOLVE_GATE_KEY, RESOLVE_KEY, RESOLVE_TEST_KEY } from "../domain/publish-stages.js";
 import { PromptTemplates } from "../../prompt-templates/index.js";
 import {
   PromptTemplateRepository,
@@ -26,10 +22,20 @@ import {
 } from "../../prompt-templates/index.fixtures.js";
 import { SIGNED_IN_FOR_TESTS } from "../../../platform/http/signed-in-requests.fixtures.js";
 import { userOf } from "../../../platform/http/signed-in-requests.js";
+import { publishStage } from "../domain/stage.fixtures.js";
 import { GateService } from "./gate-service.js";
+import { PublishStage } from "./publish-stage.js";
+import { ScriptStageRunner } from "./script-stage-runner.js";
+import { StageRunners } from "./stage-runners.js";
 import { StageInterpreter } from "./stage-interpreter.js";
 import { StageRunsFiles } from "./stage-runs-files.js";
-import { implement, publish, reviewedPublish, PULL_REQUEST } from "../publish-stage.fixtures.js";
+import {
+  branchOnlyPublish,
+  implement,
+  publish,
+  reviewedPublish,
+  PULL_REQUEST,
+} from "../publish-stage.fixtures.js";
 
 const ANN = userOf(SIGNED_IN_FOR_TESTS);
 
@@ -62,6 +68,7 @@ describe("A Publish Stage", () => {
       status: "done",
       summary: `Pushed office/task and opened the pull request ${PULL_REQUEST}`,
       pullRequestUrl: PULL_REQUEST,
+      publishResult: "published",
     });
     expect(published?.headCommit).toBe(implemented?.headCommit);
     expect(pipelines.commands.ran).toEqual([]);
@@ -73,7 +80,7 @@ describe("A Publish Stage", () => {
     pipelines = await startPipelinesApplication([anAgentSession(aDoneResult("Added the dialog."))]);
     const taskId = randomUUID();
     const file = await pipelines.app.get(StageRunsFiles, { strict: false }).write(taskId, {
-      version: 1,
+      version: 2,
       task: { id: taskId, title: "", project: "" },
       route: { from: "implement", to: null, times: 0, limit: null },
       definitionOfDone: [],
@@ -94,10 +101,7 @@ describe("A Publish Stage", () => {
       remote: "origin",
     });
 
-    const taskId = await walkStages(pipelines, [
-      implement,
-      { ...publish, publishTarget: "branch-only" },
-    ]);
+    const taskId = await walkStages(pipelines, [implement, branchOnlyPublish]);
 
     expect(pipelines.publishing.published.map(({ target }) => target)).toEqual(["branch-only"]);
     expect(pipelines.tasks.commitMessagesPublished).toEqual([]);
@@ -105,6 +109,7 @@ describe("A Publish Stage", () => {
       status: "done",
       summary:
         "Pushed office/task to origin, with no pull request and no merge, as this Publish pushes the branch only.",
+      publishResult: "published",
     });
     expect(pipelines.git.removedWorktrees).toEqual([taskId]);
     expect(pipelines.tasks.changes).toEqual([{ taskId, state: "done" }]);
@@ -133,7 +138,7 @@ describe("A Publish Stage", () => {
       ["implement", "done"],
       ["publish", "done"],
     ]);
-    expect(runs[1]?.outcome).toEqual({ status: "failed", error });
+    expect(runs[1]?.outcome).toEqual({ status: "failed", error, publishResult: "failed" });
     expect(runs[2]?.carriedFailure).toEqual({ stageKey: "publish", error, round: 1, rounds: 1 });
     // Removed once, after the second Publish.
     expect(removedBefore).toEqual(["2"]);
@@ -148,6 +153,7 @@ describe("A Publish Stage", () => {
       "office/task no longer applies cleanly on main on origin: merging it would conflict in\n- src/index.ts";
     pipelines.publishing.publications.push({
       kind: "base-moved",
+      base: { remote: "origin", branch: "main" },
       error,
       conflictedFiles: ["src/index.ts"],
     });
@@ -164,6 +170,7 @@ describe("A Publish Stage", () => {
       [RESOLVE_TEST_KEY, "done"],
       [RESOLVE_GATE_KEY, "done"],
     ]);
+    expect(runs[1]?.outcome).toMatchObject({ publishResult: "conflict" });
     expect(runs[2]?.carriedFailure).toEqual({ stageKey: "publish", error, round: 1, rounds: 3 });
     expect(runs[2]?.headCommit).toBe(RESOLVED_COMMIT);
     // The merge commit records only what its resolution changed.
@@ -212,6 +219,7 @@ describe("A Publish Stage", () => {
       );
     pipelines.publishing.publications.push({
       kind: "base-moved",
+      base: { remote: "origin", branch: "main" },
       error: "office/task no longer applies cleanly on main on origin",
       conflictedFiles: ["src/index.ts"],
     });
@@ -240,6 +248,7 @@ describe("A Publish Stage", () => {
     pipelines.publishing.publications.push(
       {
         kind: "base-moved",
+        base: { remote: "origin", branch: "main" },
         error:
           "office/task no longer applies cleanly on main on origin: it would conflict in\n- src/index.ts",
         conflictedFiles: ["src/index.ts"],
@@ -302,6 +311,7 @@ describe("A Publish Stage", () => {
     ]);
     pipelines.publishing.publications.push({
       kind: "base-moved",
+      base: { remote: "origin", branch: "main" },
       error: "office/task no longer applies cleanly on main on origin.",
       conflictedFiles: ["src/index.ts"],
     });
@@ -346,7 +356,75 @@ describe("A Publish Stage", () => {
       error:
         "The Task's worktree isn't where The Office left it: the worktree is on the branch main, not the Task's branch office/task. The Stage didn't start.",
       branchMoved: true,
+      publishResult: "failed",
     });
     expect(pipelines.publishing.published).toEqual([]);
+  });
+});
+
+describe("The Publish Stage's runner", () => {
+  it("is the runner of the Publish kind, and the Script Stage's runs only Project commands", async () => {
+    pipelines = await startPipelinesApplication();
+    const runners = pipelines.app.get(StageRunners, { strict: false });
+
+    expect(runners.runnerOf("publish")).toBe(pipelines.app.get(PublishStage, { strict: false }));
+    expect(runners.runnerOf("script")).toBe(
+      pipelines.app.get(ScriptStageRunner, { strict: false }),
+    );
+  });
+
+  it("runs a Stage of the Publish kind, by its target, ending Published", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult("Tried it out."))]);
+    pipelines.publishing.publications.push({
+      kind: "branch-pushed",
+      branch: "office/task",
+      remote: "origin",
+    });
+
+    const taskId = await walkStages(pipelines, [
+      implement,
+      publishStage({ publishTarget: "branch-only" }),
+    ]);
+
+    expect(pipelines.publishing.published.map(({ target }) => target)).toEqual(["branch-only"]);
+    expect(pipelines.commands.ran).toEqual([]);
+    expect((await runsOf(pipelines, taskId)).at(-1)?.outcome).toMatchObject({
+      status: "done",
+      publishResult: "published",
+    });
+  });
+
+  it("ends Nothing to publish when the branch adds nothing to the base", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+    pipelines.publishing.publications.push({
+      kind: "nothing-to-publish",
+      branch: "office/task",
+      base: { remote: "origin", branch: "main" },
+    });
+
+    const taskId = await walkStages(pipelines, [implement, publishStage()]);
+
+    expect((await runsOf(pipelines, taskId)).at(-1)?.outcome).toEqual({
+      status: "done",
+      summary: "office/task adds nothing to main on origin, so there was nothing to publish.",
+      publishResult: "nothing-to-publish",
+    });
+    expect(pipelines.tasks.changes).toEqual([{ taskId, state: "done" }]);
+  });
+
+  it("ends Failed when Push + PR is refused before the push, as without Sign in with GitHub", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+    const error =
+      "Push + PR needs Sign in with GitHub: sign in on Settings › GitHub, then run Publish again.";
+    pipelines.publishing.publications.push({ kind: "failed", error });
+
+    const taskId = await walkStages(pipelines, [implement, publishStage()]);
+
+    expect((await runsOf(pipelines, taskId))[1]?.outcome).toEqual({
+      status: "failed",
+      error,
+      publishResult: "failed",
+    });
+    expect(pipelines.git.removedWorktrees).toEqual([]);
   });
 });

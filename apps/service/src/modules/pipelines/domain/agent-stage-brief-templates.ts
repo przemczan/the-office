@@ -506,6 +506,7 @@ export const STAGE_MESSAGE = promptTemplate({
         commandLine: "The command line a Script Stage runs; empty when its command isn't set.",
         unsetCommand: "The key of a Script Stage's command that isn't set.",
         comesBack: "Not empty when the work comes back to this Stage if that Stage fails.",
+        afterConflict: "Not empty when the Stage runs only after a conflict at Publish.",
       },
     },
     recheck: {
@@ -570,7 +571,7 @@ export const STAGE_MESSAGE = promptTemplate({
 These Stages come after this one in the Task's Pipeline, in order:
 
 {{#laterStages}}
-- {{name}} ({{kindName}}{{#agent}}, {{#roleTitle}}{{roleTitle}}{{/roleTitle}}{{^roleTitle}}{{#dutyLabel}}{{dutyLabel}}, nobody holds it{{/dutyLabel}}{{^dutyLabel}}nobody chosen yet{{/dutyLabel}}{{/roleTitle}}{{/agent}}): {{#agent}}{{brief}}{{/agent}}{{#gate}}the user looks at the work there and lets it continue or sends it back.{{/gate}}{{#publish}}The Office publishes the Task's work.{{/publish}}{{#commandLine}}runs \`{{commandLine}}\`.{{/commandLine}}{{#unsetCommand}}runs the Project's command {{unsetCommand}}, which isn't set.{{/unsetCommand}}{{#comesBack}} If it fails, the work comes back here.{{/comesBack}}
+- {{name}} ({{kindName}}{{#agent}}, {{#roleTitle}}{{roleTitle}}{{/roleTitle}}{{^roleTitle}}{{#dutyLabel}}{{dutyLabel}}, nobody holds it{{/dutyLabel}}{{^dutyLabel}}nobody chosen yet{{/dutyLabel}}{{/roleTitle}}{{/agent}}): {{#agent}}{{brief}}{{/agent}}{{#gate}}the user looks at the work there and lets it continue or sends it back.{{/gate}}{{#publish}}The Office publishes the Task's work.{{/publish}}{{#commandLine}}runs \`{{commandLine}}\`.{{/commandLine}}{{#unsetCommand}}runs the Project's command {{unsetCommand}}, which isn't set.{{/unsetCommand}}{{#comesBack}} If it fails, the work comes back here.{{/comesBack}}{{#afterConflict}} It runs only after a conflict at Publish.{{/afterConflict}}
 {{/laterStages}}
 {{#fullCommandLater}}
 

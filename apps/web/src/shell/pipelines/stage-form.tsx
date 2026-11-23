@@ -1,5 +1,4 @@
 import {
-  afterConflictSchema,
   dutyKeySchema,
   effortSchema,
   publishTargetSchema,
@@ -10,16 +9,22 @@ import {
   type RoleCardOptions,
   type Stage,
 } from "@the-office/contracts";
-import { GroupedSelect, Input, Select, Textarea, type GroupedSelectOption } from "@the-office/ui";
+import {
+  Checkbox,
+  GroupedSelect,
+  Input,
+  Select,
+  Textarea,
+  type GroupedSelectOption,
+} from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { DUTY_LABELS, dutyHolder, STAGE_DUTIES } from "../duty-words.ts";
 import { EFFORT_LABELS } from "../engine-words.ts";
-import { AFTER_CONFLICT_NAMES, PUBLISH_TARGET_NAMES, thousands } from "./pipeline-words.ts";
+import { PUBLISH_TARGET_NAMES, thousands } from "./pipeline-words.ts";
 import {
   ANOTHER_KEY,
   commandChoices,
   commandKeysOf,
-  PUBLISH_COMMAND,
   type StageCommandSource,
 } from "./stage-commands.ts";
 import {
@@ -30,6 +35,7 @@ import {
   withDuty,
   withRole,
   type AgentStage,
+  type PublishStage,
   type ScriptStage,
 } from "./stage-edits.ts";
 import { StageContextLimitFields } from "./stage-context-limit-fields.tsx";
@@ -45,7 +51,7 @@ const PERSONS_EFFORT = "";
  */
 const DUTY_CHOICE = "duty:";
 
-/** The library's choices while the Projects load: Publish, and another key. */
+/** The library's choices while the Projects load: another key alone. */
 const NO_PROJECTS: StageCommandSource = { kind: "library", projects: [] };
 
 export interface StageFormProps {
@@ -93,9 +99,7 @@ function StageFields(props: StageFormProps & { readonly stage: Stage }): ReactNo
       {stage.kind === "script" && (
         <CommandFields stage={stage} change={change} source={props.commands ?? NO_PROJECTS} />
       )}
-      {stage.kind === "script" && stage.command === PUBLISH_COMMAND && (
-        <PublishFields stage={stage} change={change} />
-      )}
+      {stage.kind === "publish" && <PublishFields stage={stage} change={change} />}
       {stage.kind === "gate" && (
         <Input
           label="What you see"
@@ -219,6 +223,12 @@ function AgentFields({
           change({ ...stage, session: session === "continue" ? "continue" : "fresh" })
         }
       />
+      <Checkbox
+        label="Merge the base first"
+        description="As it starts, The Office merges the base into the Task's branch and leaves any conflicts for the Agent to resolve."
+        checked={stage.mergeBaseFirst === true}
+        onChange={(checked) => change(withMergeBaseFirst(stage, checked))}
+      />
       <BudgetInput stage={stage} change={change} />
       <Select
         label="Effort"
@@ -289,11 +299,18 @@ function BudgetInput({
   );
 }
 
+/** Merge the base first set, or left out when off, as a Stage without it reads the same. */
+function withMergeBaseFirst(stage: AgentStage, on: boolean): AgentStage {
+  const { mergeBaseFirst: _mergeBaseFirst, ...rest } = stage;
+  return on ? { ...rest, mergeBaseFirst: true } : rest;
+}
+
+/** A Publish Stage's one field, what it publishes by, and a note that nothing else runs in it. */
 function PublishFields({
   stage,
   change,
 }: {
-  readonly stage: Extract<Stage, { kind: "script" }>;
+  readonly stage: PublishStage;
   readonly change: (changed: Stage) => void;
 }): ReactNode {
   return (
@@ -310,21 +327,10 @@ function PublishFields({
           if (chosen) change({ ...stage, publishTarget: chosen });
         }}
       />
-      {stage.publishTarget !== "branch-only" && (
-        <Select
-          label="After a conflict"
-          hint="The Task's person resolves it and the Project's Test runs first"
-          value={stage.afterConflict ?? "publish"}
-          options={afterConflictSchema.options.map((afterConflict) => ({
-            value: afterConflict,
-            label: AFTER_CONFLICT_NAMES[afterConflict],
-          }))}
-          onChange={(afterConflict) => {
-            const chosen = afterConflictSchema.options.find((offered) => offered === afterConflict);
-            if (chosen) change({ ...stage, afterConflict: chosen });
-          }}
-        />
-      )}
+      <p className="stage-form-wide stage-form-note">
+        The Office publishes with its own git and credentials: no Agent and no Project command runs
+        here. Before and After publishing are set on the Project page.
+      </p>
     </>
   );
 }
@@ -367,7 +373,7 @@ function CommandFields({
           error={
             typed.trim() === "" || typedKey.success
               ? undefined
-              : `"${typed.trim()}" isn't a command key: lower-case letters, digits and -, starting with a letter, and not install.`
+              : `"${typed.trim()}" isn't a command key: lower-case letters, digits and -, starting with a letter, and not install or publish.`
           }
           onChange={(event) => {
             setTyped(event.target.value);

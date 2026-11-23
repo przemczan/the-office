@@ -6,7 +6,6 @@ import {
   type StageProblem,
   type StageProblemAt,
 } from "./pipeline.js";
-import { isResolveStage } from "./resolve-stages.js";
 import { unnamedRoutes, type Route, type StagePlace } from "./route.js";
 import {
   agentStageWorkers,
@@ -52,7 +51,7 @@ export function makeTaskStages(
   const taskStages: TaskStages = {
     taskId,
     pipelineId: pipeline.id,
-    stages: unlinked(pipeline.stages),
+    stages: pipelineOrder(asFlow(unlinked(pipeline.stages))),
     madeAt,
     editedForTask: false,
     trace: undefined,
@@ -139,12 +138,10 @@ export function firstStageToWork(stages: readonly Stage[], runs: readonly StageR
 
 /**
  * The keys of the Stages that have started (spec §2.3): every Stage with a run of the Task's, ended
- * or not, held, interrupted or skipped. Resolve's Stages aren't the Task's own and are left aside.
+ * or not, held, interrupted or skipped.
  */
 export function startedStageKeys(runs: readonly StageRun[]): ReadonlySet<string> {
-  return new Set(
-    runs.map(({ stageKey }) => stageKey).filter((stageKey) => !isResolveStage({ key: stageKey })),
-  );
+  return new Set(runs.map(({ stageKey }) => stageKey));
 }
 
 /**

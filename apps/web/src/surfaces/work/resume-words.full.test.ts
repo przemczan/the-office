@@ -37,6 +37,7 @@ function held(interrupted: "pause" | "stop" | "restart"): StageRun {
       interrupted,
       refusedTurn: null,
       afterPublishingFailed: null,
+      publishResult: null,
       handoverNote: null,
     },
   });
@@ -51,6 +52,7 @@ function refused(sessionLeft: boolean): StageRun {
       budgetReached: null,
       interrupted: "usage-window",
       afterPublishingFailed: null,
+      publishResult: null,
       refusedTurn: {
         engineName: "Claude Code",
         windowWords: "5-hour window",
@@ -167,6 +169,7 @@ describe("resumeWords", () => {
         skipped: false,
         definitionOfDoneMet: null,
         pullRequestUrl: null,
+        publishResult: null,
         handoverNote: "Left: nothing.",
       },
     });

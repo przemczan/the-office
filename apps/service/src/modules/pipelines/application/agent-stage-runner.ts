@@ -1,4 +1,3 @@
-import { isResolveStage } from "../domain/resolve-stages.js";
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import {
   EngineModels,
@@ -188,9 +187,9 @@ const SENT_AGAIN =
  * screenshots that can't be attached, and becomes the run's outcome with its Handover note; the
  * screenshots it lists are attached to the Task (research §8). Then The Office
  * ends the session with what it left running, checks git is where it left it, and commits the
- * Stage's work (spec §5.5); a Resolve Stage's merge is The Office's around the Agent's turn
- * (`ResolveStageGit`). An interrupted run (spec §2.4) ends its session uncommitted instead:
- * a Stop stops the running turn now and discards the Stage's uncommitted edits; The Office
+ * Stage's work (spec §5.5); a Stage with Merge the base first has The Office's merge of the base
+ * around the Agent's turn (`ResolveStageGit`). An interrupted run (spec §2.4) ends its session
+ * uncommitted instead: a Stop stops the running turn now and discards the Stage's uncommitted edits; The Office
  * shutting down stops it now too but keeps them, and a Pause waits for the turn to end and keeps
  * them, for the Stage to go on with.
  * A turn the engine refuses for a used-up usage window, its first or the correction, moves the
@@ -252,25 +251,26 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     const { expected, refusal, branchNews } = await this.stageGit.start(work, task);
     if (refusal) return refusal;
     if (work.interruption.requested) return this.holdWork(work, task, expected);
-    const resolving = isResolveStage(work.stage)
+    const merge = work.stage.mergeBaseFirst
       ? await this.resolveGit.begin(work, task, expected)
       : undefined;
-    if (resolving?.kind === "ended") return resolving.outcome;
-    const brief = [resolving?.brief ?? work.stage.brief, branchNews]
-      .filter((part) => part !== undefined)
+    if (merge?.kind === "ended") return merge.outcome;
+    // The merge's section comes on top of the Stage's own brief.
+    const brief = [work.stage.brief, merge?.brief, branchNews]
+      .filter((part) => part !== undefined && part !== "")
       .join("\n\n");
     return this.work(
       { ...work, stage: { ...work.stage, brief } },
       person,
       task,
-      expected,
-      resolving?.merging ?? false,
+      merge?.expected ?? expected,
+      merge?.merging ?? false,
     );
   }
 
   /**
    * The Agent's turn: the Project's dependencies installed, the Stage Thread opened and its result
-   * read, then the work committed, or Resolve's merge when `merging`.
+   * read, then the work committed, or the base's merge when `merging`.
    */
   private async work(
     work: StageWork<"agent">,
@@ -362,7 +362,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
   ): Promise<StageOutcome> {
     const after = await this.stageGit.checkHead(run, task, expected);
     if (after) return changedGitItself(after, result.handoverNote);
-    // A merge left by the Agent's own branch update ends as Resolve's does.
+    // A merge left by the Agent's own branch update ends as Merge the base first's does.
     if (merging || (await this.git.mergeInProgress(task.project.id, run.taskId))) {
       return this.resolveGit.finish(run, task, expected, result);
     }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { agentStage, gate } from "./stage.fixtures.js";
+import { agentStage, gate, publishStage } from "./stage.fixtures.js";
 import { GATE_REACHED } from "./gate.js";
-import type { GateAction } from "./stage-run.js";
+import type { GateAction, StageOutcome } from "./stage-run.js";
 import { aStageRun } from "./stage-run.fixtures.js";
 import { stageRunWords } from "./stage-history-words.js";
 
@@ -100,5 +100,60 @@ describe("a Stand-in Engine in the Stage history (spec 5.4)", () => {
     expect(words).toContain("the engine refused the Stage's work");
     expect(words).not.toContain("Settings › Engines");
     expect(words).not.toContain("Engine switch");
+  });
+});
+
+describe("a Publish Stage's result in the Stage history", () => {
+  const publish = publishStage();
+
+  function resultOf(outcome: StageOutcome, stageKey = "publish"): string[] {
+    const words = stageRunWords(
+      [implement, publish],
+      aStageRun({ stageKey, outcome }),
+      [],
+      undefined,
+    );
+    return words.split("\n").filter((line) => line.startsWith("Result: "));
+  }
+
+  it("names the pull request a Published run opened", () => {
+    expect(
+      resultOf({
+        status: "done",
+        summary: "Pushed it.",
+        pullRequestUrl: "https://github.com/notnullsoft/admin/pull/212",
+        publishResult: "published",
+      }),
+    ).toEqual(["Result: Published: pull request #212 opened."]);
+    expect(resultOf({ status: "done", summary: "Merged.", publishResult: "published" })).toEqual([
+      "Result: Published.",
+    ]);
+  });
+
+  it("counts a Conflict's files, read from a run kept before results were", () => {
+    expect(
+      resultOf({
+        status: "failed",
+        error: "The branch conflicts.",
+        baseMoved: { conflictedFiles: ["a.ts", "b.ts", "c.ts"] },
+      }),
+    ).toEqual(["Result: Conflict with the base branch in 3 files."]);
+  });
+
+  it("names the other results, and a run kept of a Publish Stage the Task no longer has", () => {
+    expect(
+      resultOf({
+        status: "done",
+        summary: "Nothing.",
+        publishResult: "nothing-to-publish",
+      }),
+    ).toEqual(["Result: Nothing to publish."]);
+    expect(
+      resultOf({ status: "failed", error: "Refused.", publishResult: "failed" }, "gone"),
+    ).toEqual(["Result: Failed."]);
+  });
+
+  it("gives no result for another Stage's run", () => {
+    expect(resultOf({ status: "done", summary: "Done." }, "implement")).toEqual([]);
   });
 });

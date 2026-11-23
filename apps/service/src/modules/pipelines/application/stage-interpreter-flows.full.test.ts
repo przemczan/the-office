@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import { TaskPaused } from "../../work/index.js";
-import { builtInPipelines } from "../domain/built-in-pipelines.js";
+import { builtInPipelinesBeforeFlows } from "../domain/built-in-pipelines-before-flows.fixtures.js";
 import { straightLineFlow } from "../domain/flow.js";
 import type { ConditionGroup, Route } from "../domain/route.js";
 import type { Stage } from "../domain/stage.js";
@@ -47,8 +47,9 @@ function placed(stage: Stage, column: number, row: number, routes: Route[]): Sta
   return { ...stage, routes, place: { column, row } };
 }
 
+/** The built-in Pipeline's Stages as the list the migrations seeded, before flows. */
 function pipelineNamed(name: string): readonly Stage[] {
-  const pipeline = builtInPipelines.find((each) => each.name === name);
+  const pipeline = builtInPipelinesBeforeFlows.find((each) => each.id === name);
   if (!pipeline) throw new Error(`There is no built-in Pipeline "${name}".`);
   return pipeline.stages;
 }
@@ -95,7 +96,7 @@ async function progressStates(pipelines: PipelinesApplication, taskId: string) {
 }
 
 describe("A converted Pipeline's Stages", () => {
-  it.each(["Full", "Quick fix"])("of %s walk as the list did", async (name) => {
+  it.each(["full", "quick-fix"])("of %s walk as the list did", async (name) => {
     const stages = pipelineNamed(name);
 
     const asTheList = await walked(stages, [1, 2]);
@@ -322,7 +323,7 @@ describe("A route whose condition runs a Project command", () => {
         join(pipelines.app.get(OfficeDataDirectory).stageRunsFolder(taskId), "stage-runs.json"),
       );
       expect(JSON.parse(file?.text ?? "")).toMatchObject({
-        version: 1,
+        version: 2,
         task: { id: taskId },
         route: { from: "implement", to: "review", times: 0, limit: null },
         stageRuns: [{ stage: "implement", kind: "agent", run: 1, outcome: "done" }],

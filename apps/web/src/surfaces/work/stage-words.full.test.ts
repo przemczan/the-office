@@ -68,13 +68,7 @@ describe("scriptCommandLine", () => {
 });
 
 describe("pullRequestUrlOf", () => {
-  const publish: Stage = {
-    kind: "script",
-    key: "publish",
-    name: "Publish",
-    optional: false,
-    command: "publish",
-  };
+  const publish: Stage = { kind: "publish", key: "publish", name: "Publish", optional: false };
   const opened = "https://github.com/acme/site/pull/7";
 
   it("takes the pull request of a Publish whose after publishing line failed once it shipped", () => {
@@ -92,6 +86,7 @@ describe("pullRequestUrlOf", () => {
           commit: "4b1e2c3",
           pullRequestUrl: opened,
         },
+        publishResult: "after-publishing-failed",
         handoverNote: null,
       },
     });
@@ -104,6 +99,7 @@ describe("pullRequestUrlOf", () => {
         interrupted: null,
         refusedTurn: null,
         afterPublishingFailed: null,
+        publishResult: "failed",
         handoverNote: null,
       },
     });

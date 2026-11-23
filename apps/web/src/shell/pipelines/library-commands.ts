@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Project } from "@the-office/contracts";
 import { projectQueries } from "../../api/projects.ts";
-import { publishingLabel } from "../project-words.ts";
 import type { StageCommandSource } from "./stage-commands.ts";
 
 /**
@@ -18,10 +17,5 @@ export function useLibraryCommands(): StageCommandSource {
  * that Project's Tasks run it.
  */
 export function projectCommandsOf(project: Project): StageCommandSource {
-  return {
-    kind: "project",
-    commands: project.commands,
-    publishing: publishingLabel(project.publishingMode, project.baseBranch).toLowerCase(),
-    publishingLines: project,
-  };
+  return { kind: "project", commands: project.commands };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agentStage, dutyStage, gate, scriptStage } from "./stage.fixtures.js";
+import { agentStage, dutyStage, gate, publishStage, scriptStage } from "./stage.fixtures.js";
 import {
   fieldsDiffering,
   templateFields,
@@ -38,7 +38,7 @@ describe("templateFields", () => {
   });
 
   it("covers any field a Stage carries, as kept", () => {
-    expect(templateFields(scriptStage({ publishTarget: undefined }))).toEqual({ command: "test" });
+    expect(templateFields(publishStage({ publishTarget: undefined }))).toEqual({});
     expect(templateFields(agentStage({ effort: "high" })).effort).toBe("high");
   });
 });

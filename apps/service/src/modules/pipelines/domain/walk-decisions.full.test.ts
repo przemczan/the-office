@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RESOLVE_KEY } from "./resolve-stages.js";
+import { RESOLVE_KEY } from "./publish-stages.js";
 import type { Stage } from "./stage.js";
 import { type StageOutcome, type StageRunDecision } from "./stage-run.js";
 import {
@@ -208,13 +208,7 @@ describe("acceptedIssues", () => {
   });
 
   it("lists a Publish the user continued without, as the base had moved on", () => {
-    const publish: Stage = {
-      kind: "script",
-      key: "publish",
-      name: "Publish",
-      optional: false,
-      command: "publish",
-    };
+    const publish: Stage = { kind: "publish", key: "publish", name: "Publish", optional: false };
     const moved: StageOutcome = {
       status: "failed",
       error: "main on origin moved on.",
@@ -257,7 +251,7 @@ describe("the branch-moved Decision", () => {
 });
 
 describe("the base-moved Decision", () => {
-  it("asks the user, after Resolve gave up, to resolve it in the worktree or drop the Task", () => {
+  it("asks the user, after a Stage of conflict handling gave up, to resolve it in the worktree or drop the Task", () => {
     const resolve: Stage = {
       kind: "agent",
       key: RESOLVE_KEY,

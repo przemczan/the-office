@@ -32,11 +32,10 @@ describe("commandChoices in the library", () => {
     ],
   };
 
-  it("suggests every key the Projects have, naming which have it, then Publish and another key", () => {
+  it("suggests every key the Projects have, naming which have it, then another key, never Publish", () => {
     expect(commandChoices("test", library)).toEqual([
       { value: "test", label: "test · Test (every Project)" },
       { value: "test-full", label: "test-full · Full tests (the-office)" },
-      { value: "publish", label: "Publish" },
       { value: ANOTHER_KEY, label: "Another key…" },
     ]);
   });
@@ -53,33 +52,13 @@ describe("commandChoices in a Task's own editor", () => {
   const project = {
     kind: "project" as const,
     commands: [test, { ...fullTests, commandLine: "" }],
-    publishing: "push and open a pull request",
   };
-  const publishOf = (beforePublishingCommand: string, afterPublishingCommand: string) =>
-    commandChoices("test", {
-      ...project,
-      publishingLines: { beforePublishingCommand, afterPublishingCommand },
-    }).at(-1)?.label;
 
-  it("offers the Project's commands by name and line, and Publish as it ships there", () => {
+  it("offers the Project's commands by name and line, never Publish", () => {
     expect(commandChoices("test", project)).toEqual([
       { value: "test", label: "Test · npm test" },
       { value: "test-full", label: "Full tests · not set" },
-      { value: "publish", label: "Publish · push and open a pull request" },
     ]);
-  });
-
-  it("says when Publish runs the Project's before or after publishing lines", () => {
-    expect(publishOf("npm run changelog", "./notify.sh")).toBe(
-      "Publish · push and open a pull request, with before and after publishing lines",
-    );
-    expect(publishOf("npm run changelog", "")).toBe(
-      "Publish · push and open a pull request, with a before publishing line",
-    );
-    expect(publishOf("", "./notify.sh")).toBe(
-      "Publish · push and open a pull request, with an after publishing line",
-    );
-    expect(publishOf("", "")).toBe("Publish · push and open a pull request");
   });
 
   it("shows a key the Project lacks as not in this Project", () => {
@@ -102,9 +81,7 @@ describe("namedCommands", () => {
 
     expect(commandWords("test", namedCommands(library))).toBe("Test");
     expect(commandWords("test-full", namedCommands(library))).toBe("Full tests");
-    expect(namedCommands({ kind: "project", commands: [fullTests], publishing: "merge" })).toEqual([
-      fullTests,
-    ]);
+    expect(namedCommands({ kind: "project", commands: [fullTests] })).toEqual([fullTests]);
   });
 });
 
@@ -119,15 +96,12 @@ describe("commandKeysOf", () => {
     };
 
     expect(commandKeysOf(library)).toEqual(["build", "test", "test-full"]);
-    expect(commandKeysOf({ kind: "project", commands: [test], publishing: "merge" })).toEqual([
-      "test",
-    ]);
+    expect(commandKeysOf({ kind: "project", commands: [test] })).toEqual(["test"]);
   });
 });
 
 describe("commandWords", () => {
-  it("reads Publish, the command's name when the Project is known, and the key otherwise", () => {
-    expect(commandWords("publish")).toBe("Publish");
+  it("reads the command's name when the Project is known, and the key otherwise", () => {
     expect(commandWords("test-full", [fullTests])).toBe("Full tests");
     expect(commandWords("test-full")).toBe("test-full");
   });

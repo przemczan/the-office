@@ -1,5 +1,5 @@
 import type { DutyKey, Stage, StageTemplate } from "@the-office/contracts";
-import { PUBLISH_COMMAND } from "./stage-commands.ts";
+import { conflictOnlyStages } from "./flow/conflict-chain.ts";
 import { withPermissions } from "./stage-permissions.ts";
 
 /**
@@ -10,12 +10,14 @@ import { withPermissions } from "./stage-permissions.ts";
 export type StageKind = Stage["kind"];
 export type AgentStage = Extract<Stage, { kind: "agent" }>;
 export type ScriptStage = Extract<Stage, { kind: "script" }>;
+export type PublishStage = Extract<Stage, { kind: "publish" }>;
 export type StageCommand = ScriptStage["command"];
 
 export const STAGE_KIND_NAMES: Readonly<Record<StageKind, string>> = {
   agent: "Agent Stage",
   script: "Script Stage",
   gate: "Gate",
+  publish: "Publish Stage",
 };
 
 /** Each kind's icon, in the flow editor and the Stage templates' list. */
@@ -23,6 +25,7 @@ export const STAGE_KIND_ICONS: Readonly<Record<StageKind, string>> = {
   agent: "user",
   script: "terminal",
   gate: "hand",
+  publish: "upload",
 };
 
 /** Tokens an added Agent Stage may spend, as the click-through's default. */
@@ -32,6 +35,7 @@ const NEW_STAGE_NAMES: Readonly<Record<StageKind, string>> = {
   agent: "New Stage",
   script: "Script",
   gate: "Gate",
+  publish: "Publish",
 };
 
 /**
@@ -154,28 +158,36 @@ function withWorker(stages: readonly Stage[], index: number, stage: AgentStage):
     : changed;
 }
 
-/**
- * The Script Stage running another command, Publish or any Project command's key; only a Publish
- * Stage keeps what Publish alone says.
- */
+/** The Script Stage running another Project command, by its key. */
 export function withCommand(stage: ScriptStage, command: StageCommand): ScriptStage {
-  if (command === PUBLISH_COMMAND) return { ...stage, command };
-  const { publishTarget: _publishTarget, afterConflict: _afterConflict, ...rest } = stage;
-  return { ...rest, command };
+  return { ...stage, command };
 }
 
 /**
  * Whether the Agent Stage may continue the session of the Stage before: both name the same Role,
- * or the same duty.
+ * or the same duty. `stages` are in the Pipeline's order.
  */
 export function canContinue(stages: readonly Stage[], index: number): boolean {
   const stage = stages[index];
-  const previous = stages[index - 1];
+  const previous = stageBefore(stages, index);
   return (
     stage?.kind === "agent" &&
     previous?.kind === "agent" &&
     sameWorker(stageWorker(stage), stageWorker(previous))
   );
+}
+
+/**
+ * The Stage before the one at `index`, as the service's check reads it: the conflict chain's Stages,
+ * drawn in a row under their Publish, run only after a conflict, so they are never on a path into a
+ * Stage outside the chain (spec §2.3.5, "Library") and are passed over.
+ */
+function stageBefore(stages: readonly Stage[], index: number): Stage | undefined {
+  const chain = conflictOnlyStages(stages);
+  const earlier = stages.slice(0, index);
+  const key = stages[index]?.key;
+  if (key === undefined || chain.has(key)) return earlier.at(-1);
+  return earlier.findLast((stage) => !chain.has(stage.key));
 }
 
 function sameWorker(one: StageWorker | undefined, other: StageWorker | undefined): boolean {
@@ -200,6 +212,9 @@ function newStage(kind: StageKind, key: string, name: string): Stage {
     case "script":
       return { kind, key, name, optional: false, command: "test" };
     case "gate":
+      return { kind, key, name, optional: false };
+    case "publish":
+      // A new Publish Stage publishes by the Project's publishing mode, its target left out.
       return { kind, key, name, optional: false };
   }
 }

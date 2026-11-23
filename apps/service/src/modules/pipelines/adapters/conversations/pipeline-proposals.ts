@@ -2,6 +2,9 @@ import { Injectable, type OnModuleInit } from "@nestjs/common";
 import {
   projectPipelineFieldsSchema,
   proposedRoutesSchema,
+  publishTargetSchema,
+  routeSchema,
+  stagePlaceSchema,
   stageSchema,
   type Route,
 } from "@the-office/contracts";
@@ -35,16 +38,38 @@ import type {
 import { routeChangesOf } from "../../domain/proposed-routes.js";
 import { defaultRouteLimit } from "../../domain/route.js";
 import type { KeptStage } from "../../domain/routes-back.js";
-import type { Stage } from "../../domain/stage.js";
+import { PUBLISH_COMMAND, type Stage } from "../../domain/stage.js";
 import { StagesEditRefused } from "../../domain/stages-edit-refused.js";
+import { storedTemplateStage } from "../../domain/stage-template.js";
 import { givenStage } from "../http/given-stages.js";
+
+/**
+ * A Publish Stage as a Proposal drafted before Publish was a kind of its own keeps it: a Script
+ * Stage running `publish`, with its target and what followed a conflict, which `asFlow` reads as a
+ * Publish Stage with its conflict chain (`withPublishStages`).
+ */
+const KEPT_PUBLISH_STAGE = z.object({
+  kind: z.literal("script"),
+  key: z.string().min(1),
+  name: z.string(),
+  optional: z.boolean(),
+  routes: z.array(routeSchema).optional(),
+  place: stagePlaceSchema.optional(),
+  command: z.literal(PUBLISH_COMMAND),
+  publishTarget: publishTargetSchema.optional(),
+  afterConflict: z.enum(["publish", "review"]).optional(),
+});
+
+/** A Stage of any kind as a Proposal keeps it, its Publish Stage as `KEPT_PUBLISH_STAGE` reads it. */
+const KEPT_TEMPLATE_STAGE = z.union([KEPT_PUBLISH_STAGE, stageSchema]);
 
 /**
  * A Stage as a Proposal keeps it: one drafted by a previous release may hold its on-failure
  * setting, which the contract no longer has, so it is read here rather than stripped, for `asFlow`
- * to read as a failure route back (`withRoutesBack`).
+ * to read as a failure route back (`withRoutesBack`), and its Publish Stage as a Script Stage
+ * running `publish` (`KEPT_PUBLISH_STAGE`).
  */
-const KEPT_STAGE = stageSchema.and(
+const KEPT_STAGE = KEPT_TEMPLATE_STAGE.and(
   z.object({
     onFailure: z.object({ goBackTo: z.string().min(1), rounds: z.int().positive() }).optional(),
   }),
@@ -156,9 +181,12 @@ function stagesOf(stages: readonly PipelineStage[]): KeptStage[] {
   return keptStages(KEPT_STAGES.parse(stages));
 }
 
-/** A Stage template's Stage, whose on-failure setting, never kept on a template, is dropped. */
+/**
+ * A Stage template's Stage, whose on-failure setting, never kept on a template, is dropped, and a
+ * Publish Stage kept as a Script Stage running `publish` read as the library reads it.
+ */
 function stageOf(stage: PipelineStage): Stage {
-  return givenStage(stageSchema.parse(stage));
+  return storedTemplateStage(givenStage(KEPT_TEMPLATE_STAGE.parse(stage)));
 }
 
 /** `stages` as the domain takes them, each keeping its on-failure setting. */

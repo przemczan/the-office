@@ -11,6 +11,7 @@ describe("publishOutcome", () => {
       }),
     ).toEqual({
       status: "done",
+      publishResult: "nothing-to-publish",
       summary: "office/task-1 adds nothing to main on origin, so there was nothing to publish.",
     });
   });

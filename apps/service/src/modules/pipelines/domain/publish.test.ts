@@ -31,6 +31,7 @@ describe("publishOutcome", () => {
       }),
     ).toEqual({
       status: "done",
+      publishResult: "published",
       summary:
         "Pushed office/task-1 and opened the pull request https://github.com/notnullsoft/admin/pull/7",
       pullRequestUrl: "https://github.com/notnullsoft/admin/pull/7",
@@ -50,6 +51,7 @@ describe("publishOutcome", () => {
       }),
     ).toEqual({
       status: "done",
+      publishResult: "published",
       summary: 'Landed office/task-1 on main on origin as one commit, 01234567 "Rename a device".',
     });
   });
@@ -67,6 +69,7 @@ describe("publishOutcome", () => {
       }),
     ).toEqual({
       status: "done",
+      publishResult: "published",
       summary:
         'Merged main, which had moved on, into office/task-1, then landed office/task-1 on main on origin as one commit, 01234567 "Rename a device".',
     });
@@ -84,6 +87,7 @@ describe("publishOutcome", () => {
       }),
     ).toEqual({
       status: "done",
+      publishResult: "published",
       summary: "Merged initiative/usage-exports into main on origin, which is now at 01234567.",
     });
   });
@@ -102,6 +106,7 @@ describe("publishOutcome", () => {
       }),
     ).toEqual({
       status: "done",
+      publishResult: "published",
       summary:
         'Merged main, which had moved on, into office/task-1, then landed office/task-1 on initiative/usage-exports on origin as one commit, 01234567 "Rename a device".',
     });
@@ -109,15 +114,22 @@ describe("publishOutcome", () => {
 
   it("fails with the base moved on, which asks the user, or with the error, which goes back", () => {
     expect(
-      publishOutcome({ kind: "base-moved", error: "It conflicts.", conflictedFiles: ["a.ts"] }),
+      publishOutcome({
+        kind: "base-moved",
+        error: "It conflicts.",
+        base: { remote: "origin", branch: "main" },
+        conflictedFiles: ["a.ts"],
+      }),
     ).toEqual({
       status: "failed",
       error: "It conflicts.",
-      baseMoved: { conflictedFiles: ["a.ts"] },
+      baseMoved: { conflictedFiles: ["a.ts"], baseBranch: "main" },
+      publishResult: "conflict",
     });
     expect(publishOutcome({ kind: "failed", error: "Pushing failed." })).toEqual({
       status: "failed",
       error: "Pushing failed.",
+      publishResult: "failed",
     });
   });
 });

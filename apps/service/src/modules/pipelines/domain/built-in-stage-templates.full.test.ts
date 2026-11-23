@@ -4,7 +4,7 @@ import { builtInStageTemplates } from "./built-in-stage-templates.js";
 import { stageWorker } from "./stage.js";
 
 describe("builtInStageTemplates", () => {
-  it("are the built-in Pipelines' Stages in library order, the first of each name", () => {
+  it("are the built-in Pipelines' Stages in library order, the first of each name but the conflict chain's, then Resolve", () => {
     expect(builtInStageTemplates.map(({ id, stage }) => [id, stage.name])).toEqual([
       ["implement", "Implement"],
       ["tests", "Tests"],
@@ -17,7 +17,27 @@ describe("builtInStageTemplates", () => {
       ["resolve-conflicts", "Resolve conflicts"],
       ["test", "Test"],
       ["set-up-test-targets", "Set up test targets"],
+      ["resolve", "Resolve"],
     ]);
+  });
+
+  it("keep Publish as a Publish Stage, and Resolve as the Agent Stage the chain's Resolve is linked to", () => {
+    const full = builtInPipelines[0]?.stages ?? [];
+    const resolve = full.find(({ templateId }) => templateId === "resolve");
+
+    expect(builtInStageTemplates[3]?.stage).toEqual({
+      kind: "publish",
+      key: "publish",
+      name: "Publish",
+      optional: false,
+    });
+    expect(builtInStageTemplates.at(-1)?.stage).toEqual({
+      ...resolve,
+      key: "resolve",
+      routes: undefined,
+      place: undefined,
+      templateId: undefined,
+    });
   });
 
   it("keep the first Pipeline's Stage of the name, without its routes and place", () => {
@@ -49,6 +69,7 @@ describe("builtInStageTemplates", () => {
       ["set-up", { duty: "onboards-projects" }],
       ["resolve-conflicts", { duty: "implements" }],
       ["set-up-test-targets", { duty: "onboards-projects" }],
+      ["resolve", { duty: "implements" }],
     ]);
   });
 });

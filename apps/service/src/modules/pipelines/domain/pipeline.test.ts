@@ -1,33 +1,65 @@
 import { describe, expect, it } from "vitest";
-import { stageProblems, stageWarnings } from "./pipeline.js";
-import { ENDED_FAILED, type ConditionGroup, type ConditionTest, type Route } from "./route.js";
+import { singleStageProblems, stageProblems, stageWarnings } from "./pipeline.js";
+import {
+  ENDED_FAILED,
+  type ConditionGroup,
+  type ConditionTest,
+  type Route,
+  type StageTestOutcome,
+} from "./route.js";
 import type { KeptStage } from "./routes-back.js";
 import type { Stage } from "./stage.js";
-import { agentStage, dutyStage, gate, scriptStage } from "./stage.fixtures.js";
+import {
+  agentStage,
+  dutyStage,
+  gate,
+  keptPublishStage,
+  publishStage,
+  scriptStage,
+} from "./stage.fixtures.js";
 
 function problemTexts(stages: readonly Stage[]): string[] {
   return stageProblems(stages).map((problem) => problem.text);
 }
 
 describe("stageProblems", () => {
-  it("passes a straight list of Agent, Script and Gate Stages", () => {
-    const stages = [
-      agentStage(),
-      scriptStage(),
-      gate(),
-      scriptStage({ key: "publish", name: "Publish", command: "publish", optional: false }),
-    ];
-
-    expect(stageProblems(stages)).toEqual([]);
+  it("passes a straight list of Agent, Script, Gate and Publish Stages", () => {
+    expect(stageProblems([agentStage(), scriptStage(), gate(), publishStage()])).toEqual([]);
   });
 
-  it("takes a Publish Stage's target, and refuses one on another Script Stage", () => {
-    const publish = scriptStage({ key: "publish", name: "Publish", command: "publish" });
+  it("passes a kept Script publish Stage, read as a Publish Stage with its conflict chain", () => {
+    const stages = [agentStage(), scriptStage(), keptPublishStage({ afterConflict: "review" })];
 
-    expect(stageProblems([{ ...publish, publishTarget: "branch-only" }])).toEqual([]);
-    expect(stageProblems([{ ...publish, publishTarget: "publishing-mode" }])).toEqual([]);
-    expect(problemTexts([scriptStage({ publishTarget: "branch-only" })])).toEqual([
+    expect(stageProblems(stages)).toEqual([]);
+    expect(stageWarnings(stages)).toEqual([]);
+  });
+
+  it("takes a Publish Stage's target, and refuses one on another Stage", () => {
+    expect(stageProblems([publishStage({ publishTarget: "branch-only" })])).toEqual([]);
+    expect(stageProblems([publishStage({ publishTarget: "publishing-mode" })])).toEqual([]);
+    const targeted = { ...scriptStage(), publishTarget: "branch-only" } as Stage;
+    expect(problemTexts([targeted])).toEqual([
       "Stage 1 · Tests: only a Publish Stage has a publish target.",
+    ]);
+  });
+
+  it("refuses a Script Stage running install", () => {
+    expect(problemTexts([scriptStage({ command: "install" })])).toEqual([
+      `Stage 1 · Tests: runs "install", which is kept for The Office's own use.`,
+    ]);
+  });
+
+  it.each(["install", "publish"])("refuses a single Script Stage running %s", (command) => {
+    expect(singleStageProblems(scriptStage({ command }))).toEqual([
+      `runs "${command}", which is kept for The Office's own use.`,
+    ]);
+  });
+
+  it("takes Merge the base first on an Agent Stage, and refuses it on another kind", () => {
+    expect(stageProblems([agentStage({ mergeBaseFirst: true })])).toEqual([]);
+    const merging = { ...gate(), mergeBaseFirst: true } as Stage;
+    expect(problemTexts([merging])).toEqual([
+      "Stage 1 · Gate: only an Agent Stage merges the base first.",
     ]);
   });
 
@@ -73,6 +105,18 @@ describe("stageProblems", () => {
       });
 
       expect(stageProblems([dutyStage("implements"), reviewing])).toEqual([]);
+    });
+
+    it("passes over the conflict chain drawn in before it, which runs only after a conflict", () => {
+      // Resolve, worked as Implement is, lands under Review, just before Fix in the order.
+      const stages = [
+        agentStage(),
+        agentStage({ key: "review", name: "Review", role: "reviewer" }),
+        agentStage({ key: "fix", name: "Fix", role: "reviewer", session: "continue" }),
+        keptPublishStage(),
+      ];
+
+      expect(stageProblems(stages)).toEqual([]);
     });
   });
 
@@ -467,5 +511,75 @@ describe("stageProblems of a flow", () => {
         text: "Stage 1 · Implement: every route out of it carries a condition, so when none holds the walk stops and asks.",
       },
     ]);
+  });
+});
+
+function ended(is: StageTestOutcome, stage: string | null = null): ConditionTest {
+  return { kind: "stage", stage, is };
+}
+
+describe("a Publish Stage's results", () => {
+  const resolve = agentStage({ key: "resolve", name: "Resolve" });
+
+  /** Implement, Resolve and Publish, Publish's routes `routes`. */
+  function publishing(routes: Route[], publish = publishStage()): Stage[] {
+    return [
+      placed(implement, 0, [to("publish")]),
+      placed(resolve, 1, [to("publish")], 1),
+      placed(publish, 2, routes),
+    ];
+  }
+
+  it("passes routes that take each result to one place", () => {
+    const stages = publishing([
+      onFailure("implement"),
+      { ...when("resolve", ended("conflict")), limit: 3 },
+      {
+        ...when("implement", { combine: "any", tests: [ended("after-publishing-failed")] }),
+        limit: 3,
+      },
+      to(null),
+    ]);
+
+    expect(stageProblems(stages)).toEqual([]);
+    expect(stageWarnings(stages)).toEqual([]);
+  });
+
+  it("refuses a result that leads to two places", () => {
+    const stages = publishing([
+      { ...when("resolve", ended("conflict")), limit: 3 },
+      { ...when("implement", ended("conflict")), limit: 3 },
+      to(null),
+    ]);
+
+    expect(stageProblems(stages)).toContainEqual({
+      stageKey: "publish",
+      at: { kind: "route", routeIndex: 1 },
+      level: "problem",
+      text: "Stage 3 · Publish: its route to Implement takes Conflict, which an earlier route takes elsewhere; a result leads to one place.",
+    });
+  });
+
+  it("refuses a result test on a Stage that isn't a Publish Stage", () => {
+    expect(problemTexts(testing(ended("published")))).toEqual([
+      "Stage 2 · Tests: a condition of its route to Lint tests whether Tests ended Published, which only a Publish Stage ends.",
+    ]);
+    expect(problemTexts(testing(ended("conflict", "implement")))).toEqual([
+      "Stage 2 · Tests: a condition of its route to Lint tests whether Implement ended Conflict, which only a Publish Stage ends.",
+    ]);
+  });
+
+  it("warns about a Publish Stage by the publishing mode with no route taking Conflict", () => {
+    expect(stageWarnings(publishing([onFailure("implement"), to(null)]))).toEqual([
+      {
+        stageKey: "publish",
+        at: { kind: "stage" },
+        level: "warning",
+        text: "Stage 3 · Publish: no route takes Conflict, so a conflict asks you.",
+      },
+    ]);
+    expect(
+      stageWarnings(publishing([to(null)], publishStage({ publishTarget: "branch-only" }))),
+    ).toEqual([]);
   });
 });

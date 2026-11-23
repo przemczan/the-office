@@ -2,16 +2,30 @@ import { describe, expect, it } from "vitest";
 import { scriptStageCommandSchema, stageSchema } from "./stages.js";
 
 describe("a Script Stage's command", () => {
-  it.each(["publish", "test", "test-full", "e2e2"])("takes %s", (command) => {
+  it.each(["test", "test-full", "e2e2"])("takes %s", (command) => {
     expect(scriptStageCommandSchema.safeParse(command).success).toBe(true);
   });
 
-  it.each(["install", "Test", "1x", "", "a".repeat(41)])("refuses %j", (command) => {
+  it.each(["install", "publish", "Test", "1x", "", "a".repeat(41)])("refuses %j", (command) => {
     expect(scriptStageCommandSchema.safeParse(command).success).toBe(false);
   });
 
   it("reads a Script Stage stored with a starting command as before", () => {
     const stage = { kind: "script", key: "test", name: "Test", optional: false, command: "test" };
+
+    expect(stageSchema.parse(stage)).toEqual(stage);
+  });
+});
+
+describe("a Publish Stage", () => {
+  it("is a kind of its own, with its target", () => {
+    const stage = {
+      kind: "publish",
+      key: "publish",
+      name: "Publish",
+      optional: false,
+      publishTarget: "branch-only",
+    };
 
     expect(stageSchema.parse(stage)).toEqual(stage);
   });

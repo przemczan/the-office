@@ -60,11 +60,10 @@ const INITIATIVE: Initiative = {
 const TEST: Stage = { kind: "script", key: "test", name: "Test", optional: false, command: "test" };
 const REVIEW: Stage = { kind: "gate", key: "review", name: "Review", optional: false };
 const PUBLISH: Stage = {
-  kind: "script",
+  kind: "publish",
   key: "publish",
   name: "Publish",
   optional: false,
-  command: "publish",
 };
 
 const REVIEWED: OfficeWidePipeline = {

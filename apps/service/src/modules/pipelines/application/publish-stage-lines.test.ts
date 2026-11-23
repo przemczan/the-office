@@ -10,7 +10,7 @@ import {
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
 import { aCommandRun, aPerson, aTaskRecord } from "../ports/pipelines-ports.fixtures.js";
-import { implement, publish, PULL_REQUEST } from "../publish-stage.fixtures.js";
+import { branchOnlyPublish, implement, publish, PULL_REQUEST } from "../publish-stage.fixtures.js";
 
 const BEFORE = "npx changeset version";
 const AFTER = "gh workflow run release.yml";
@@ -78,6 +78,7 @@ describe("A Publish Stage's before publishing line", () => {
     expect(failure?.status === "failed" && failure.error).toMatch(
       /^The before publishing line failed, so nothing was published: `npx changeset version` failed with exit code 1\./,
     );
+    expect(failure).toMatchObject({ publishResult: "failed" });
     expect(runs[2]?.carriedFailure?.stageKey).toBe("publish");
     const failedLineCommit = pipelines.git.commits.find(({ message }) =>
       message.includes(`\`${BEFORE}\` failed`),
@@ -102,7 +103,7 @@ describe("A Publish Stage's publishing lines", () => {
       remote: "origin",
     });
 
-    await walkStages(pipelines, [implement, { ...publish, publishTarget: "branch-only" }]);
+    await walkStages(pipelines, [implement, branchOnlyPublish]);
 
     expect(pipelines.commands.publishingLinesRan).toEqual([]);
   });
@@ -186,6 +187,7 @@ describe("A Publish Stage's after publishing line", () => {
       status: "done",
       summary: `Pushed office/task and opened the pull request ${PULL_REQUEST}\n\nThe after publishing line passed.`,
       pullRequestUrl: PULL_REQUEST,
+      publishResult: "published",
     });
     expect(pipelines.git.removedWorktrees).toEqual([taskId]);
   });
@@ -228,6 +230,7 @@ describe("A Publish Stage's after publishing line", () => {
     expect(runs[1]?.outcome).toMatchObject({
       status: "failed",
       afterPublishingFailed: { kind: "pull-request-opened", pullRequestUrl: PULL_REQUEST },
+      publishResult: "after-publishing-failed",
     });
     const outcome = runs[1]?.outcome;
     expect(outcome?.status === "failed" && outcome.error).toMatch(
@@ -265,6 +268,7 @@ describe("A Publish Stage's after publishing line", () => {
       status: "done",
       summary: `Pushed office/task and opened the pull request ${PULL_REQUEST}\n\nThe after publishing line passed.`,
       pullRequestUrl: PULL_REQUEST,
+      publishResult: "published",
     });
     expect(pipelines.git.removedWorktrees).toEqual([taskId]);
     expect(pipelines.tasks.changes.at(-1)).toEqual({ taskId, state: "done" });

@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { asc, eq } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
-import type { StageTemplate } from "../../domain/stage-template.js";
+import { storedStageTemplate, type StageTemplate } from "../../domain/stage-template.js";
 import { StageTemplateRepository } from "../../ports/stage-template-repository.js";
 import { stageTemplates } from "./stage-templates.schema.js";
 
@@ -14,10 +14,11 @@ export class PostgresStageTemplateRepository extends StageTemplateRepository {
   }
 
   async list(): Promise<readonly StageTemplate[]> {
-    return this.database
+    const rows = await this.database
       .select(STAGE_TEMPLATE_COLUMNS)
       .from(stageTemplates)
       .orderBy(asc(stageTemplates.position));
+    return rows.map(storedStageTemplate);
   }
 
   async find(id: string): Promise<StageTemplate | undefined> {
@@ -25,7 +26,7 @@ export class PostgresStageTemplateRepository extends StageTemplateRepository {
       .select(STAGE_TEMPLATE_COLUMNS)
       .from(stageTemplates)
       .where(eq(stageTemplates.id, id));
-    return row;
+    return row && storedStageTemplate(row);
   }
 
   async add({ id, stage }: StageTemplate): Promise<void> {

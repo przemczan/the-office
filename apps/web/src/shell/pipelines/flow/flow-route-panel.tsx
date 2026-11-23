@@ -1,6 +1,7 @@
-import type { ConditionGroup, Stage } from "@the-office/contracts";
+import type { ConditionGroup, PublishResult, Route, Stage } from "@the-office/contracts";
 import { Button, Icon, RadioList } from "@the-office/ui";
 import type { ReactNode } from "react";
+import { PUBLISH_RESULT_NAMES } from "../pipeline-words.ts";
 import { ConditionBuilder } from "./condition-builder.tsx";
 import { commandNote, conditionCommandKeys } from "./condition-commands.ts";
 import { NEW_CONDITION } from "./condition-edits.ts";
@@ -9,8 +10,11 @@ import { FlowAddMenu } from "./flow-add-menu.tsx";
 import { FlowLockedFields, FlowLockedNote } from "./flow-locked.tsx";
 import { NO_LOCKS } from "./flow-marks.ts";
 import {
+  endedResults,
+  endsCondition,
   FAILED_CONDITION,
   isRouteBack,
+  PUBLISH_RESULTS,
   type RouteForm,
   routeFormOf,
   withRouteCondition,
@@ -26,7 +30,8 @@ import { routeRemoved, stageOnRoute } from "./office-flow-edits.ts";
 /**
  * The picked route's panel (docs/spec/screens/pipeline-flow-editor.md): where it goes, any Stage or
  * End, its limit, and its form: When it fails (an Agent Stage's), "When these hold" in the
- * condition builder, or Otherwise, read in plain words under it with its limit. Insert a Stage on
+ * condition builder, When it ends… (a Publish Stage's) with a checkbox per result, or Otherwise,
+ * read in plain words under it with its limit. Insert a Stage on
  * this route and Remove route head it. A route out of a locked Stage (a Task's started one) reads
  * only, each control disabled with why.
  */
@@ -86,7 +91,11 @@ export function FlowRoutePanel(
       </div>
       <div className="flow-panel-body">
         {note !== undefined && <FlowLockedNote note={note} />}
-        <FlowProblemAlert problems={all.filter(({ at }) => at?.kind === "route" && !at.testPath)} />
+        <FlowProblemAlert
+          problems={all.filter(
+            ({ at }) => at?.kind === "route" && (form === "ends" || !at.testPath),
+          )}
+        />
         <FlowLockedFields note={note}>
           <div className="flow-route-panel-fields">
             <FlowRouteTarget
@@ -111,7 +120,7 @@ export function FlowRoutePanel(
             label="Condition"
             name={`condition-${stage.key}-${routeIndex}`}
             value={form}
-            options={formChoices(stage, failsElsewhere)}
+            options={formChoices(stage, failsElsewhere, form)}
             onChange={(value) =>
               onEdited({
                 stages: withRouteCondition(
@@ -124,6 +133,18 @@ export function FlowRoutePanel(
             }
           />
           {form === "fails" && <p className="flow-panel-hint">When {stage.name} ends Failed.</p>}
+          {form === "ends" && (
+            <EndedResults
+              routes={routes}
+              routeIndex={routeIndex}
+              stages={stages}
+              onChange={(results) =>
+                onEdited({
+                  stages: withRouteCondition(stages, stage.key, routeIndex, endsCondition(results)),
+                })
+              }
+            />
+          )}
           {form === "holds" && route.condition && (
             <ConditionBuilder
               condition={route.condition}
@@ -147,10 +168,65 @@ export function FlowRoutePanel(
 }
 
 /**
- * The forms a route may take: When it fails only on an Agent Stage with no other failure row, then
- * When these hold and Otherwise.
+ * When it ends…: a checkbox per result of the Publish Stage, those another row takes disabled with
+ * where they go, as each result leads to one place.
  */
-function formChoices(stage: Stage, failsElsewhere: boolean): FormChoice[] {
+function EndedResults({
+  routes,
+  routeIndex,
+  stages,
+  onChange,
+}: {
+  readonly routes: readonly Route[];
+  readonly routeIndex: number;
+  readonly stages: readonly Stage[];
+  readonly onChange: (results: readonly PublishResult[]) => void;
+}): ReactNode {
+  const ticked = endedResults(routes[routeIndex] ?? { condition: null }) ?? [];
+  const takenBy = (result: PublishResult): Route | undefined =>
+    routes.find(
+      (other, index) => index !== routeIndex && (endedResults(other) ?? []).includes(result),
+    );
+  return (
+    <fieldset className="flow-route-results">
+      <legend className="flow-route-limit-label">When it ends</legend>
+      {PUBLISH_RESULTS.map((result) => {
+        const other = takenBy(result);
+        const checked = ticked.includes(result);
+        return (
+          <label key={result} className="flow-route-result">
+            <input
+              type="checkbox"
+              checked={checked}
+              disabled={other !== undefined && !checked}
+              onChange={(event) =>
+                onChange(
+                  event.target.checked
+                    ? [...ticked, result]
+                    : ticked.filter((each) => each !== result),
+                )
+              }
+            />
+            {PUBLISH_RESULT_NAMES[result]}
+            {other && (
+              <span className="flow-panel-hint">
+                Goes to {routeTargetName(other, stages)} by another route
+              </span>
+            )}
+          </label>
+        );
+      })}
+    </fieldset>
+  );
+}
+
+/**
+ * The forms a route may take: When it fails only on an Agent Stage with no other failure row; When
+ * it ends… on a Publish Stage, and When these hold on any other, or one whose route has it already;
+ * then Otherwise.
+ */
+function formChoices(stage: Stage, failsElsewhere: boolean, form: RouteForm): FormChoice[] {
+  const publishes = stage.kind === "publish";
   return [
     ...(stage.kind === "agent" && !failsElsewhere
       ? [
@@ -161,11 +237,24 @@ function formChoices(stage: Stage, failsElsewhere: boolean): FormChoice[] {
           ),
         ]
       : []),
-    choice(
-      "holds",
-      "When these hold",
-      "Built-in tests of a Stage or the Definition of Done, or a Project command that exits 0, in All of and Any of groups.",
-    ),
+    ...(publishes
+      ? [
+          choice(
+            "ends",
+            "When it ends…",
+            `Followed when ${stage.name} ends with one of the results ticked; each result leads to one place.`,
+          ),
+        ]
+      : []),
+    ...(!publishes || form === "holds"
+      ? [
+          choice(
+            "holds",
+            "When these hold",
+            "Built-in tests of a Stage or the Definition of Done, or a Project command that exits 0, in All of and Any of groups.",
+          ),
+        ]
+      : []),
     choice(
       "otherwise",
       "Otherwise",
@@ -191,7 +280,7 @@ function choice(value: RouteForm, words: string, more: string): FormChoice {
   };
 }
 
-/** The route's condition once its form is picked: a condition kept while it stays When these hold. */
+/** The route's condition once its form is picked: a condition kept while its form stays. */
 function conditionOf(
   picked: RouteForm,
   was: RouteForm,
@@ -200,6 +289,8 @@ function conditionOf(
   switch (picked) {
     case "fails":
       return FAILED_CONDITION;
+    case "ends":
+      return was === "ends" && condition ? condition : endsCondition([]);
     case "otherwise":
       return null;
     case "holds":

@@ -16,7 +16,13 @@ import { projectPipelinesForTests } from "../project-pipelines.fixtures.js";
 import { PipelineLibrary } from "./pipeline-library.js";
 import { PipelineLibraryEditor } from "./pipeline-library-editor.js";
 import { namedRoles, TaskStagesService } from "./task-stages-service.js";
-import { builtIn, quickFix, withGate, refusalOf } from "./task-stages-service.fixtures.js";
+import {
+  builtIn,
+  quickFix,
+  withGate,
+  refusalOf,
+  taskCopyOf,
+} from "./task-stages-service.fixtures.js";
 
 let pipelines: PipelinesApplication;
 let service: TaskStagesService;
@@ -79,6 +85,8 @@ describe("Edit for this Task", () => {
 
     expect(await refusalOf(service.edit(aTask(), quickFix))).toEqual([
       "Stage 1 · Implement: Ada holds Implements, but their Task limit is none, so developer only talks and can't work a Stage; choose who holds it in Settings › Duties, or choose who works it.",
+      // The conflict chain's Resolve names the duty Implements too.
+      "Stage 2 · Resolve: Ada holds Implements, but their Task limit is none, so developer only talks and can't work a Stage; choose who holds it in Settings › Duties, or choose who works it.",
     ]);
   });
 
@@ -141,7 +149,7 @@ describe("swapping the Pipeline before Start", () => {
 
     expect(await service.progress(taskId)).toBeUndefined();
     expect(eventsOf(TaskStagesReset)).toMatchObject([{ taskId, pipelineId: "quick-fix" }]);
-    expect((await service.make(taskId, "full")).stages).toEqual(asFlow(builtIn("full")));
+    expect((await service.make(taskId, "full")).stages).toEqual(taskCopyOf(builtIn("full")));
   });
 
   it("starts with the new Pipeline even when the copy wasn't set aside", async () => {
@@ -151,7 +159,7 @@ describe("swapping the Pipeline before Start", () => {
 
     expect(await service.find(taskId)).toBeUndefined();
     expect(await service.make(taskId, "full")).toMatchObject({
-      stages: asFlow(builtIn("full")),
+      stages: taskCopyOf(builtIn("full")),
       editedForTask: false,
     });
   });
@@ -209,7 +217,9 @@ describe("moving the Task to another Project", () => {
 
     expect(await service.progress(taskId)).toBeUndefined();
     expect(eventsOf(TaskStagesReset)).toMatchObject([{ taskId, pipelineId: "quick-fix" }]);
-    expect((await service.make(taskId, "quick-fix")).stages).toEqual(asFlow(builtIn("quick-fix")));
+    expect((await service.make(taskId, "quick-fix")).stages).toEqual(
+      taskCopyOf(builtIn("quick-fix")),
+    );
   });
 });
 
@@ -250,7 +260,7 @@ describe("a Task on a Project Pipeline", () => {
     pipelines.tasks.put(taskId, { state: "in-progress", pipelineId: id, projectId });
 
     expect((await service.make(taskId, id)).stages).toEqual(
-      asFlow([agentStage(), scriptStage(), linux]),
+      taskCopyOf([agentStage(), scriptStage(), linux]),
     );
   });
 

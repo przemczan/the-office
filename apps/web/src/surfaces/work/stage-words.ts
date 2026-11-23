@@ -117,7 +117,7 @@ export function pullRequestUrlOf(
   taskStages: readonly TaskStage[] | null | undefined,
 ): string | undefined {
   const newest = (taskStages ?? [])
-    .filter(({ stage }) => stage.kind === "script" && stage.command === "publish")
+    .filter(({ stage }) => stage.kind === "publish")
     .flatMap(({ runs }) => runs)
     .flatMap(({ number, outcome }) => {
       if (outcome?.status === "done" && !outcome.skipped) {

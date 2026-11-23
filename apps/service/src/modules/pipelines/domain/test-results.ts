@@ -14,15 +14,15 @@ export interface TestResult {
 }
 
 /**
- * The latest result of each Script Stage that checks the code (build, lint, tests), in the Stages'
- * order; Publish ships the code rather than checking it.
+ * The latest result of each Script Stage, as each checks the code (build, lint, tests), in the
+ * Stages' order; a Publish Stage ships the code rather than checking it.
  */
 export function latestTestResults(
   stages: readonly Stage[],
   runs: readonly StageRun[],
 ): TestResult[] {
   return stages.flatMap((stage): TestResult[] => {
-    if (stage.kind !== "script" || stage.command === "publish") return [];
+    if (stage.kind !== "script") return [];
     const outcome = runs.findLast(
       ({ stageKey, outcome: ended }) =>
         stageKey === stage.key &&

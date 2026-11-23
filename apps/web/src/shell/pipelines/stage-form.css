@@ -17,6 +17,13 @@
   grid-column: 1 / -1;
 }
 
+/* A note under a Stage's fields, such as what a Publish Stage runs. */
+.stage-form-note {
+  margin: 0;
+  color: var(--fg-2);
+  font: var(--type-caption);
+}
+
 @media (max-width: 720px) {
   .stage-form,
   .stage-form-permissions {

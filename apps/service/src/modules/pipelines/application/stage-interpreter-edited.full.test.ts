@@ -48,19 +48,21 @@ async function statusesOf(taskId: string): Promise<[string, string | undefined][
 }
 
 describe("A Task's Stages edited for the Task", () => {
-  it("are what the walk goes on with: an Agent Stage with its own effort, and a Gate before the last", async () => {
+  // The started Gate keeps its routes out (spec §2.3), so the new Stages come after Ship.
+  it("are what the walk goes on with: an Agent Stage with its own effort, and a Gate after it", async () => {
     pipelines = await startPipelinesApplication([
       anAgentSession(aDoneResult()),
       anAgentSession(aDoneResult()),
     ]);
     const taskId = await walkStages(pipelines, [draft, look, ship]);
 
-    await pipelines.app.get(TaskStagesService).edit(taskId, [draft, look, polish, lookAgain, ship]);
+    await pipelines.app.get(TaskStagesService).edit(taskId, [draft, look, ship, polish, lookAgain]);
     await continueAt(taskId);
 
     expect(await statusesOf(taskId)).toEqual([
       ["draft", "done"],
       ["look", "done"],
+      ["ship", "done"],
       ["polish", "done"],
       ["look-again", "done"],
     ]);
@@ -68,9 +70,5 @@ describe("A Task's Stages edited for the Task", () => {
       stageName: "polish",
       effort: "low",
     });
-
-    await continueAt(taskId);
-
-    expect((await statusesOf(taskId)).at(-1)).toEqual(["ship", "done"]);
   });
 });

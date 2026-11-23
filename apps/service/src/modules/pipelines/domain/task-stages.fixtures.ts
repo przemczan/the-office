@@ -1,5 +1,5 @@
 import type { Stage } from "./stage.js";
-import { agentStage, goingBackOnFailure, scriptStage } from "./stage.fixtures.js";
+import { agentStage, goingBackOnFailure, publishStage, scriptStage } from "./stage.fixtures.js";
 import { aStageRun } from "./stage-run.fixtures.js";
 import type { RoleFilling } from "./stage-staffing.js";
 import { makeTaskStages, type TaskStages } from "./task-stages.js";
@@ -9,7 +9,7 @@ import { makeTaskStages, type TaskStages } from "./task-stages.js";
 export const implement = agentStage();
 export const tests = goingBackOnFailure(scriptStage(), "implement", 2);
 export const review = agentStage({ key: "review", name: "Review & fix" });
-export const publish = scriptStage({ key: "publish", name: "Publish", command: "publish" });
+export const publish = publishStage();
 export const stages: readonly Stage[] = [implement, tests, review, publish];
 
 export const own: TaskStages = makeTaskStages(

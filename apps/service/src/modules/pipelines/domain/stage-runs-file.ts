@@ -1,4 +1,5 @@
 import { reportedMet, reportedOutOfReach } from "./definition-of-done-reports.js";
+import { publishResultOf, type PublishResult } from "./publish-result.js";
 import type { Stage, StageKind } from "./stage.js";
 import type { StageRun } from "./stage-run.js";
 
@@ -26,19 +27,30 @@ export interface StageRunsFileRun {
   readonly startedAt: string;
   readonly endedAt: string;
   readonly outcome: StageRunsFileOutcome;
+  /**
+   * A Publish run's result but Failed, its `outcome` then done; a Failed one is null with its
+   * `outcome` failed, and so is any other run.
+   */
+  readonly result: Exclude<PublishResult, "failed"> | null;
+  /** The route an Agent chose with its reason; null until Agents choose routes. */
+  readonly choice: { readonly to: string | null; readonly reason: string } | null;
   readonly changedFiles: readonly string[];
   readonly handoverNote: string | null;
   readonly error: string | null;
-  /** A Script Stage's key and its command's exit code, null when it didn't run; null for others. */
+  /**
+   * A Script Stage's command key and its exit code, null when it didn't run; null for others, a
+   * Publish Stage's among them.
+   */
   readonly command: { readonly key: string; readonly exitCode: number | null } | null;
 }
 
 /**
  * The file of the Task's earlier Stage runs a condition command reads from `OFFICE_STAGE_RUNS_FILE`
- * (spec §2.3, "The Project-command condition"), version 1, which later versions only add to.
+ * (spec §2.3.2, "The stage runs file"), version 2, which adds to version 1 the `publish` kind, a
+ * Publish run's `result` and an Agent's `choice`; later versions only add to it.
  */
 export interface StageRunsFile {
-  readonly version: 1;
+  readonly version: 2;
   readonly task: { readonly id: string; readonly title: string; readonly project: string };
   /**
    * The route being weighed: `to` is a Stage's key, or null for End; `times` counts the times the
@@ -63,9 +75,9 @@ export interface StageRunsFileTask {
 }
 
 /**
- * The file for the route being weighed: every run of the Task that ended, Resolve's among them, in
- * the order they started, so the run the route leaves is last. `stages` are the Stages the walk
- * walked, Resolve's included, which name each run's Stage and kind.
+ * The file for the route being weighed: every run of the Task that ended, in the order they started,
+ * so the run the route leaves is last. `stages` are the Task's Stages as the walk reads them
+ * (`asFlow`), which name each run's Stage and kind.
  */
 export function stageRunsFile(
   task: StageRunsFileTask,
@@ -84,7 +96,7 @@ export function stageRunsFile(
     if (ended) stageRuns.push(ended);
   }
   return {
-    version: 1,
+    version: 2,
     task,
     route,
     definitionOfDone: statementsOf(definitionOfDone, runs),
@@ -118,6 +130,10 @@ function fileRunOf(
   const { outcome, endedAt } = run;
   if (!outcome || !endedAt) return undefined;
   const kind = stage?.kind ?? kindOfRun(run);
+  const result = kind === "publish" ? fileResultOf(run) : null;
+  // A Publish run that ended with a named result ran through, whatever status it was stored with:
+  // its `result` says how it went (spec §2.3.2, "The stage runs file").
+  const ranThrough = result !== null;
   return {
     stage: run.stageKey,
     name: stage?.name ?? run.stageKey,
@@ -125,21 +141,33 @@ function fileRunOf(
     run: count,
     startedAt: run.startedAt.toISOString(),
     endedAt: endedAt.toISOString(),
-    outcome: outcomeOf(outcome),
+    outcome: ranThrough ? "done" : outcomeOf(outcome),
+    result,
+    choice: null,
     changedFiles: run.changedFiles ?? [],
     handoverNote: outcome.handoverNote ?? null,
-    error: outcome.status === "failed" && !outcome.interrupted ? outcome.error : null,
+    error:
+      outcome.status === "failed" && !outcome.interrupted && !ranThrough ? outcome.error : null,
     command: stage?.kind === "script" ? { key: stage.command, exitCode: exitCodeOf(run) } : null,
   };
 }
 
 /**
  * A run kept for a Stage the Task's Stages no longer have: an Agent's has a Role, a Gate's an
- * action, and any other is a Script Stage's.
+ * action, a Publish Stage's a result, and any other is a Script Stage's.
  */
 function kindOfRun(run: StageRun): StageKind {
   if (run.roleKey !== undefined) return "agent";
-  return run.gateAction ? "gate" : "script";
+  if (run.gateAction) return "gate";
+  return run.outcome?.status !== "needs-decision" && run.outcome?.publishResult !== undefined
+    ? "publish"
+    : "script";
+}
+
+/** A Publish run's result in the file's words: Failed is its `outcome`'s, so null. */
+function fileResultOf(run: StageRun): StageRunsFileRun["result"] {
+  const result = publishResultOf(run);
+  return result === undefined || result === "failed" ? null : result;
 }
 
 /** An interrupted run is never counted a failure: its Stage runs again, so it was held. */

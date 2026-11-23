@@ -1,4 +1,4 @@
-import type { Stage } from "@the-office/contracts";
+import type { ConditionGroup, Stage } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
   addStage,
@@ -9,6 +9,7 @@ import {
   withDuty,
   withRole,
   type ScriptStage,
+  standaloneStage,
 } from "./stage-edits.ts";
 
 const implement: Stage = {
@@ -36,13 +37,7 @@ const tests: Stage = {
     { to: null, condition: null, limit: null },
   ],
 };
-const publish: Stage = {
-  kind: "script",
-  key: "publish",
-  name: "Publish",
-  optional: false,
-  command: "publish",
-};
+const publish: Stage = { kind: "publish", key: "publish", name: "Publish", optional: false };
 const quickFix: readonly Stage[] = [implement, tests, publish];
 
 const keysOf = (stages: readonly Stage[]): string[] => stages.map(({ key }) => key);
@@ -111,6 +106,42 @@ describe("the Stage editor's changes", () => {
     expect(withRole(stages, 1, "developer")).toMatchObject({ session: "continue" });
   });
 
+  it("passes over the conflict chain before the Stage, which runs only after a conflict", () => {
+    const conflict: ConditionGroup = {
+      combine: "all",
+      tests: [{ kind: "stage", stage: null, is: "conflict" }],
+    };
+    const chainedPublish: Stage = {
+      ...publish,
+      routes: [
+        { to: "office:resolve", condition: conflict, limit: 3 },
+        { to: null, condition: null, limit: null },
+      ],
+    };
+    const resolve: Stage = {
+      ...implement,
+      key: "office:resolve",
+      name: "Resolve",
+      role: "reviewer",
+      routes: [{ to: "publish", condition: null, limit: null }],
+    };
+    const review: Stage = {
+      ...implement,
+      key: "review",
+      name: "Review",
+      session: "continue",
+      routes: [{ to: "publish", condition: null, limit: null }],
+    };
+    const leading: Stage = {
+      ...implement,
+      routes: [{ to: "review", condition: null, limit: null }],
+    };
+    // In the Pipeline's order Resolve, drawn under Implement, comes just before Review.
+    const stages = [leading, resolve, review, chainedPublish];
+    expect(canContinue(stages, 2)).toBe(true);
+    expect(canContinue(stages, 1)).toBe(false);
+  });
+
   it("gives a Stage a Role or a duty, each clearing the other", () => {
     const toDuty = withDuty([implement], 0, "implements");
     expect(toDuty).toMatchObject({ duty: "implements" });
@@ -141,23 +172,25 @@ describe("the Stage editor's changes", () => {
 });
 
 describe("withCommand", () => {
-  const pushingTheBranch: ScriptStage = {
-    kind: "script",
-    key: "publish",
-    name: "Publish",
-    optional: false,
-    command: "publish",
-    publishTarget: "branch-only",
-    afterConflict: "review",
-  };
+  it("runs another Project command, the rest of the Stage kept", () => {
+    const testing: ScriptStage = {
+      kind: "script",
+      key: "tests",
+      name: "Tests",
+      optional: false,
+      command: "test",
+    };
+    expect(withCommand(testing, "lint")).toEqual({ ...testing, command: "lint" });
+  });
+});
 
-  it("keeps what a Publish Stage alone says while it publishes, and drops it for another command", () => {
-    expect(withCommand(pushingTheBranch, "publish")).toEqual(pushingTheBranch);
-    const {
-      publishTarget: _droppedTarget,
-      afterConflict: _droppedConflict,
-      ...commandStage
-    } = pushingTheBranch;
-    expect(withCommand(pushingTheBranch, "test")).toEqual({ ...commandStage, command: "test" });
+describe("standaloneStage", () => {
+  it("starts a Publish Stage named Publish, publishing by the Project's publishing mode", () => {
+    expect(standaloneStage("publish")).toEqual({
+      kind: "publish",
+      key: "publish",
+      name: "Publish",
+      optional: false,
+    });
   });
 });

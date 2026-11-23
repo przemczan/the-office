@@ -2,15 +2,14 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PromptTemplates } from "../../prompt-templates/index.js";
 import { baseWords } from "../domain/base-words.js";
 import {
-  afterResolveTestFailed,
-  conflictCameBackTooOften,
+  broughtBackBy,
+  MERGE_BASE_CLEAN,
+  MERGE_BASE_FIRST_TEMPLATES,
   RESOLVE_AFTER_GATE,
   RESOLVE_AFTER_TEST,
-  RESOLVE_BRIEF,
-  RESOLVE_KEY,
   resolveBrief,
   resolvedByTheUser,
-} from "../domain/resolve-stages.js";
+} from "../domain/merge-base-first.js";
 import type { ExpectedHead } from "../domain/stage-commit.js";
 import type { StageOutcome, StageRun } from "../domain/stage-run.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
@@ -20,21 +19,27 @@ import { TaskRecords, type TaskRecord } from "../ports/task-records.js";
 import { StageGit } from "./stage-git.js";
 import type { StageWork } from "./stage-runner.js";
 
-/** How Resolve goes on before its Agent: ended already, or the Agent's turn with its Brief. */
+/** How a Stage that merges the base first goes on before its Agent: ended already, or its turn. */
 export type ResolveBegun =
   | { readonly kind: "ended"; readonly outcome: StageOutcome }
   | {
       readonly kind: "agent";
+      /** What the Brief says of the merge, on top of the Stage's own brief. */
       readonly brief: string;
       /** Whether a merge is in progress, which The Office commits after the Agent. */
       readonly merging: boolean;
+      /** Where the Agent's turn begins: after a clean merge, at its merge commit. */
+      readonly expected: ExpectedHead;
     };
 
 /**
- * The git of a Resolve Stage around its Agent (spec §2.3, "Conflicts at Publish"; §5.5): The
- * Office merges the base in and leaves the conflicted files for the Agent, then commits the merge
- * once no conflict marker is left. A merge that can't be committed stays in progress, for the
- * Agent's next round or for the user, whom the walk asks; dropping the Task gives it back.
+ * The git of an Agent Stage with Merge the base first around its Agent (spec §2.3.1, "An Agent
+ * Stage may merge the base first"; §5.5): The Office merges the base in as the Stage starts and
+ * leaves the conflicted files for the Agent, then commits the merge once no conflict marker is
+ * left; a clean merge is committed at once, and the Agent's turn runs all the same. A merge that
+ * can't be committed stays in progress, for the Agent's next round or for the user, whom the walk
+ * asks; dropping the Task gives it back. `finish` also commits a merge an Agent's own branch update
+ * left, on any Stage.
  */
 @Injectable()
 export class ResolveStageGit {
@@ -50,7 +55,7 @@ export class ResolveStageGit {
   ) {}
 
   /**
-   * Gives a dropped Task's worktree back from a merge Resolve or an Agent's branch update left in
+   * Gives a dropped Task's worktree back from a merge a Stage or an Agent's branch update left in
    * progress, so its branch stays as its last commit left it. A Task nothing ran on is left alone.
    * `DroppedTaskWorktrees` calls it on the Drop, before it removes any worktree.
    */
@@ -59,71 +64,67 @@ export class ResolveStageGit {
     if (runs.length === 0) return;
     try {
       const task = await this.records.read(taskId);
-      const resolved = runs.some(({ stageKey }) => stageKey === RESOLVE_KEY);
-      if (!resolved && !(await this.git.mergeInProgress(task.project.id, taskId))) return;
+      if (!(await this.git.mergeInProgress(task.project.id, taskId))) return;
       await this.publishing.abandonResolve(task.project.id, taskId);
     } catch (error) {
       // The Drop stands all the same; the merge is left in the worktree for the user to see.
-      this.logger.warn(`Resolve's merge stays in Task ${taskId}'s worktree: ${String(error)}`);
+      this.logger.warn(`The merge stays in Task ${taskId}'s worktree: ${String(error)}`);
     }
   }
 
+  /**
+   * Merges the freshly fetched base into the Task's branch as the Stage starts. A run the walk
+   * brought back after its merge was committed merges only what the base gained since, and is
+   * briefed with why it came back; one whose previous run the user answered with "I resolved it in
+   * the worktree" only commits the merge.
+   */
   async begin(
-    { run, earlierRuns }: StageWork<"agent">,
+    { stage, run, stages, earlierRuns }: StageWork<"agent">,
     task: TaskRecord,
     expected: ExpectedHead,
   ): Promise<ResolveBegun> {
-    if (resolvedByTheUser(earlierRuns)) {
+    if (resolvedByTheUser(stage, earlierRuns)) {
       const outcome = await this.finish(run, task, expected, {
         status: "done",
         summary: "Committed the merge of the base branch as the user resolved it in the worktree.",
       });
       return { kind: "ended", outcome };
     }
-    const prompts = await this.promptTemplates.textsOf([
-      RESOLVE_AFTER_TEST,
-      RESOLVE_AFTER_GATE,
-      RESOLVE_BRIEF,
-    ]);
-    if (afterResolveTestFailed(run.carriedFailure)) {
-      return { kind: "agent", brief: prompts.render(RESOLVE_AFTER_TEST, {}), merging: false };
-    }
-    // The merge is committed already: the Gate's feedback is an ordinary round on the merged branch.
-    if (run.sentBack) {
-      return { kind: "agent", brief: prompts.render(RESOLVE_AFTER_GATE, {}), merging: false };
-    }
+    const prompts = await this.promptTemplates.textsOf(MERGE_BASE_FIRST_TEMPLATES);
+    const broughtBack = broughtBackBy(run, stages);
+    // The merge is committed already: the failure or the Gate's feedback is a round on the merged branch.
+    const why =
+      broughtBack === "script-failure"
+        ? prompts.render(RESOLVE_AFTER_TEST, {})
+        : broughtBack === "send-back"
+          ? prompts.render(RESOLVE_AFTER_GATE, {})
+          : undefined;
     const start = await this.publishing.startResolve(task.project.id, run.taskId);
     switch (start.kind) {
       case "failed":
         return { kind: "ended", outcome: { status: "failed", error: start.error } };
-      case "merged":
-        await this.stageGit.leaveAt(run, { ...expected, commit: start.commit });
-        return {
-          kind: "ended",
-          outcome: {
-            status: "done",
-            summary: `Merged ${task.initiativeBranch === undefined ? `${start.base.branch} from ${start.base.remote}` : baseWords(task)} into the Task's branch with no conflict left to resolve.`,
-          },
-        };
+      case "merged": {
+        const merged = { ...expected, commit: start.commit };
+        await this.stageGit.leaveAt(run, merged);
+        // Brought back with nothing new on the base, there is no merge to tell of.
+        const cameIn =
+          broughtBack === undefined || start.commit !== expected.commit
+            ? prompts.render(MERGE_BASE_CLEAN, {
+                baseBranch:
+                  task.initiativeBranch === undefined ? start.base.branch : baseWords(task),
+              })
+            : undefined;
+        return { kind: "agent", brief: sections(why, cameIn), merging: false, expected: merged };
+      }
       case "conflicted": {
         // A clean merge of the Initiative's branch before the conflict with the base moved HEAD.
-        if (start.commit !== undefined) {
-          await this.stageGit.leaveAt(run, { ...expected, commit: start.commit });
-        }
-        const files = start.conflictedFiles.map((file) => `- ${file}`).join("\n");
-        if (conflictCameBackTooOften(run.carriedFailure)) {
-          return {
-            kind: "ended",
-            outcome: {
-              status: "failed",
-              error: `The conflict at Publish came back after Resolve too often, so The Office leaves it to you. The conflicted files:\n${files}`,
-            },
-          };
-        }
+        const left = start.commit === undefined ? expected : { ...expected, commit: start.commit };
+        if (start.commit !== undefined) await this.stageGit.leaveAt(run, left);
         return {
           kind: "agent",
-          brief: resolveBrief(prompts, start.base.branch, start.conflictedFiles),
+          brief: sections(why, resolveBrief(prompts, start.base.branch, start.conflictedFiles)),
           merging: true,
+          expected: left,
         };
       }
     }
@@ -160,4 +161,8 @@ export class ResolveStageGit {
       ...(result.handoverNote !== undefined && { handoverNote: result.handoverNote }),
     };
   }
+}
+
+function sections(...parts: readonly (string | undefined)[]): string {
+  return parts.filter((part) => part !== undefined).join("\n\n");
 }

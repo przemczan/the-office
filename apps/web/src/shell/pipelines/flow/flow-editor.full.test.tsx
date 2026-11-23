@@ -35,11 +35,10 @@ const TESTS: Stage = {
   routes: [{ to: "publish", condition: null }],
 };
 const PUBLISH: Stage = {
-  kind: "script",
+  kind: "publish",
   key: "publish",
   name: "Publish",
   optional: false,
-  command: "publish",
   place: { column: 2, row: 0 },
   routes: [{ to: null, condition: null }],
 };
@@ -434,6 +433,70 @@ describe("the flow editor's routes and their limits", () => {
     // When it fails stays first and Otherwise last.
     expect(buttonNamed("Move the route to Publish down").disabled).toBe(true);
     expect(buttonNamed("Move the route to Tests up").disabled).toBe(true);
+  });
+
+  it("routes a Publish Stage by its results, each result leading to one place", async () => {
+    const conflict: ConditionGroup = {
+      combine: "all",
+      tests: [{ kind: "stage", stage: null, is: "conflict" }],
+    };
+    const publishing: Stage = {
+      ...PUBLISH,
+      routes: [
+        { to: "implement", condition: conflict, limit: 3 },
+        { to: null, condition: null, limit: null },
+      ],
+    };
+    await rendered([IMPLEMENT, TESTS, publishing]);
+    expect(document.body.textContent).toContain("publishes by the Project's mode");
+    await press("Publish");
+    const routesOut = document.querySelector<HTMLElement>('section[aria-label="Routes out"]');
+    expect(routesOut?.textContent).toContain("When it ends Conflict→ Implement");
+    await press("Add a route");
+    expect(buttonsNamed("When these hold")).toEqual([]);
+    await press("When it ends…");
+    expect(routesOf("publish")?.[1]).toEqual({
+      to: null,
+      condition: { combine: "all", tests: [] },
+      limit: null,
+    });
+    const results = [...routePanel().querySelectorAll<HTMLLabelElement>(".flow-route-result")];
+    expect(results.map((result) => result.textContent)).toEqual([
+      "Published",
+      "Nothing to publish",
+      "ConflictGoes to Implement by another route",
+      "After publishing failed",
+      "Failed",
+    ]);
+    expect(results[2]?.querySelector("input")?.disabled).toBe(true);
+    await act(async () => results[3]?.querySelector("input")?.click());
+    await act(async () => results[4]?.querySelector("input")?.click());
+    expect(conditionOf("publish", 1)).toEqual({
+      combine: "any",
+      tests: [
+        { kind: "stage", stage: null, is: "after-publishing-failed" },
+        { kind: "stage", stage: null, is: "failed" },
+      ],
+    });
+    expect(routePanel().textContent).toContain(
+      "Followed when it ends After publishing failed or Failed, with no limit.",
+    );
+  });
+
+  it("adds a Publish Stage, publishing by the Project's publishing mode, its panel only Publishes", async () => {
+    await rendered();
+    await press("Add a Stage");
+    await press("Publish Stage");
+    expect(seen.stages.find(({ name }) => name === "Publish 2")).toMatchObject({
+      kind: "publish",
+      key: "publish-2",
+    });
+    const panel = document.querySelector<HTMLElement>('section[aria-label="Publish 2"]');
+    expect(panel?.textContent).toContain("Publish Stage · 4 of 4 in the Pipeline's order");
+    expect(panel?.querySelector<HTMLSelectElement>("select")?.value).toBe("publishing-mode");
+    expect(panel?.textContent).toContain(
+      "The Office publishes with its own git and credentials: no Agent and no Project command runs here.",
+    );
   });
 
   it("draws a route back with its ≤N× mark, names its limit and counts the routes back", async () => {

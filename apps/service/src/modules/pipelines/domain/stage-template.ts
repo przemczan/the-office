@@ -1,3 +1,4 @@
+import { asFlow } from "./flow.js";
 import { pipelineProblem, singleStageProblems, type StageProblem } from "./pipeline.js";
 import { sameAsKept, type Stage } from "./stage.js";
 import { StageTemplateAdded, StageTemplateSaved } from "./stage-template-events.js";
@@ -20,6 +21,24 @@ export interface StageTemplate {
 export function templateStage(stage: Stage): Stage {
   const { routes: _routes, place: _place, templateId: _templateId, ...unplaced } = stage;
   return { ...unplaced, name: stage.name.trim() };
+}
+
+/**
+ * A template as the library reads it from storage, which is never rewritten: its Stage read by
+ * `storedTemplateStage`.
+ */
+export function storedStageTemplate({ id, stage }: StageTemplate): StageTemplate {
+  return { id, stage: storedTemplateStage(stage) };
+}
+
+/**
+ * A template's Stage as kept, in storage or a Proposal: one kept before Publish was a kind of its
+ * own (the built-in Publish template's Script Stage running `publish`) read as `asFlow` reads it, a
+ * Publish Stage.
+ */
+export function storedTemplateStage(stage: Stage): Stage {
+  const [read] = asFlow([stage]);
+  return read ? templateStage(read) : stage;
 }
 
 /**

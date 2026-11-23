@@ -26,6 +26,7 @@ const WHO_PARTS: readonly string[] = ["role", "duty"];
 const FIELD_LABELS: Readonly<Record<string, string>> = {
   [WHO_FIELD]: "Who works it",
   session: "Session",
+  mergeBaseFirst: "Merge the base first",
   effort: "Effort",
   brief: "Brief",
   budget: "Budget",
@@ -33,7 +34,6 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
   contextLimits: "Context limits",
   command: "Project command",
   publishTarget: "Publishes",
-  afterConflict: "After a conflict",
 };
 
 export type TemplateFields = Readonly<Record<string, unknown>>;

@@ -3,13 +3,7 @@ import { describe, expect, it } from "vitest";
 import { stageChanges, stageFieldChanges, stagesLine, whoWorks } from "./pipeline-words.ts";
 
 const LOOK: Stage = { kind: "gate", key: "look", name: "Look", optional: false };
-const PUBLISH: Stage = {
-  kind: "script",
-  key: "publish",
-  name: "Publish",
-  optional: false,
-  command: "publish",
-};
+const PUBLISH: Stage = { kind: "publish", key: "publish", name: "Publish", optional: false };
 
 describe("stagesLine", () => {
   it("joins the Stages' names in order", () => {
@@ -124,6 +118,13 @@ describe("stageFieldChanges", () => {
     });
   });
 
+  it("reads Merge the base first as On or Off, left out reading Off", () => {
+    expect(stageFieldChanges(implement, { ...implement, mergeBaseFirst: true }, [])).toEqual([
+      { label: "Merge the base first", from: "Off", to: "On" },
+    ]);
+    expect(stageFieldChanges(implement, { ...implement, mergeBaseFirst: false }, [])).toEqual([]);
+  });
+
   it("finds nothing changed in a Stage alike", () => {
     expect(stageFieldChanges(implement, { ...implement }, roles)).toEqual([]);
   });
@@ -151,6 +152,13 @@ describe("whoWorks", () => {
     expect(
       whoWorks(implementing, roles, undefined, [{ key: "implements", holder: null }] as Duty[]),
     ).toBe("Implements · nobody yet");
+  });
+
+  it("says what a Publish Stage does, by its target", () => {
+    expect(whoWorks(PUBLISH, roles)).toBe("publishes by the Project's mode");
+    expect(whoWorks({ ...PUBLISH, publishTarget: "branch-only" }, roles)).toBe(
+      "pushes the branch only",
+    );
   });
 
   it("names the Role's person for a Stage naming a Role", () => {

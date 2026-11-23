@@ -8,9 +8,10 @@ import {
   walkStages,
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
-import { RESOLVE_GATE_KEY, RESOLVE_KEY, RESOLVE_TEST_KEY } from "../domain/resolve-stages.js";
+import { RESOLVE_GATE_KEY, RESOLVE_KEY, RESOLVE_TEST_KEY } from "../domain/publish-stages.js";
 import { SIGNED_IN_FOR_TESTS } from "../../../platform/http/signed-in-requests.fixtures.js";
 import { userOf } from "../../../platform/http/signed-in-requests.js";
+import { RESOLVED_COMMIT } from "../ports/pipelines-ports.fixtures.js";
 import { GateService } from "./gate-service.js";
 import { StageInterpreter } from "./stage-interpreter.js";
 import { implement, publish, reviewedPublish, PULL_REQUEST } from "../publish-stage.fixtures.js";
@@ -44,6 +45,7 @@ describe("A Publish Stage", () => {
     ]);
     pipelines.publishing.publications.push({
       kind: "base-moved",
+      base: { remote: "origin", branch: "main" },
       error: "office/task no longer applies cleanly on main on origin.",
       conflictedFiles: ["src/index.ts"],
     });
@@ -70,9 +72,19 @@ describe("A Publish Stage", () => {
     ]);
     pipelines.publishing.publications.push({
       kind: "base-moved",
+      base: { remote: "origin", branch: "main" },
       error: "office/task no longer applies cleanly on main on origin.",
       conflictedFiles: ["src/index.ts"],
     });
+    // Brought back, Resolve merges again: the base gained nothing since, so the branch stays.
+    pipelines.publishing.resolveStarts.push(
+      {
+        kind: "conflicted",
+        base: { remote: "origin", branch: "main" },
+        conflictedFiles: ["src/index.ts"],
+      },
+      { kind: "merged", base: { remote: "origin", branch: "main" }, commit: RESOLVED_COMMIT },
+    );
     const taskId = await walkStages(pipelines, [implement, reviewedPublish]);
 
     await pipelines.app
@@ -89,12 +101,18 @@ describe("A Publish Stage", () => {
       [RESOLVE_TEST_KEY, "done"],
       [RESOLVE_GATE_KEY, "done"],
     ]);
-    // No second merge: the Gate's round is the Agent's, committed as an ordinary Stage commit.
-    expect(pipelines.publishing.resolveCalls.map(({ call }) => call)).toEqual(["start", "finish"]);
+    // The second merge takes in only what the base gained since, here nothing, so no merge commit
+    // is left to make: the Gate's round is the Agent's, committed as an ordinary Stage commit.
+    expect(pipelines.publishing.resolveCalls.map(({ call }) => call)).toEqual([
+      "start",
+      "finish",
+      "start",
+    ]);
     expect(pipelines.git.commits).toHaveLength(2);
     const work = pipelines.stageThreads.requests.at(-1)?.work;
     expect(work).toContain("The merge is committed already");
     expect(work).toContain("Keep the longer of the two names.");
+    expect(work).not.toContain("came in cleanly");
   });
 
   it("gives the worktree back from Resolve's merge when the user drops the Task", async () => {
@@ -104,6 +122,7 @@ describe("A Publish Stage", () => {
     ]);
     pipelines.publishing.publications.push({
       kind: "base-moved",
+      base: { remote: "origin", branch: "main" },
       error: "office/task no longer applies cleanly on main on origin.",
       conflictedFiles: ["src/index.ts"],
     });
@@ -120,7 +139,7 @@ describe("A Publish Stage", () => {
     ]);
   });
 
-  it("leaves git alone when a Task Resolve never ran on is dropped", async () => {
+  it("leaves git alone when a Task with no merge in progress is dropped", async () => {
     pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
     const taskId = await walkStages(pipelines, [implement, publish]);
 
@@ -150,6 +169,7 @@ describe("A Publish Stage", () => {
       status: "done",
       summary:
         'Merged main, which had moved on, into office/task, then landed office/task on main on origin as one commit, ffffffff "Rename a device".',
+      publishResult: "published",
     });
   });
 
@@ -164,6 +184,7 @@ describe("A Publish Stage", () => {
       status: "done",
       summary: `Pushed office/task and opened the pull request ${PULL_REQUEST}\n\nThe Office couldn't remove the Task's worktree, which stays: EBUSY: resource busy or locked, rmdir 'D:\\office\\worktrees\\task'`,
       pullRequestUrl: PULL_REQUEST,
+      publishResult: "published",
     });
   });
 });

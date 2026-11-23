@@ -3,7 +3,7 @@ import { readEach } from "../../../platform/database/fan-out.js";
 import { EngineSessions, type EngineCapability, type EngineModel } from "../../engine/index.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { TaskPaused, TaskResumed, TaskStateChanged, TaskStopped } from "../../work/index.js";
-import { walkedStages } from "../domain/resolve-stages.js";
+import { asFlow } from "../domain/flow.js";
 import type { StageRun, StageRunStandIn, StandInChoice } from "../domain/stage-run.js";
 import { StandInChoicesChanged, StageRunEnded } from "../domain/stage-run-events.js";
 import { RoleEngineCascade } from "../ports/role-engine-cascade.js";
@@ -161,8 +161,7 @@ export class StandInChoices implements OnModuleInit {
   private async stageNameOf({ taskId, stageKey }: HeldForStandInChoice): Promise<string> {
     const own = await this.taskStages.find(taskId);
     if (!own) return stageKey;
-    const stages = walkedStages(own.stages, await this.runs.listOfTasks([taskId]));
-    return stages.find(({ key }) => key === stageKey)?.name ?? stageKey;
+    return asFlow(own.stages).find(({ key }) => key === stageKey)?.name ?? stageKey;
   }
 
   /**

@@ -23,8 +23,14 @@ import {
 import { ANN_LEE } from "../../../conversations/index.fixtures.js";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
+import {
+  ENDED_CONFLICT,
+  RESOLVE_GATE_KEY,
+  RESOLVE_KEY,
+  RESOLVE_TEST_KEY,
+} from "../../domain/publish-stages.js";
 import { ENDED_FAILED, type Route as DomainRoute } from "../../domain/route.js";
-import { agentStage, scriptStage } from "../../domain/stage.fixtures.js";
+import { agentStage, publishStage, scriptStage } from "../../domain/stage.fixtures.js";
 import {
   startPipelinesApplication,
   type PipelinesApplication,
@@ -130,7 +136,7 @@ function reviewOnlyWhenNeeded(base: Pipeline): Stage[] {
     { ...implement, routes: [always("tests")] },
     { ...tests, routes: REVIEW_WHEN_TESTS_CHANGED_OR_FAILED },
     agentStage({ key: "review", name: "Review", routes: [always("publish")] }),
-    scriptStage({ key: "publish", name: "Publish", command: "publish", routes: [always(null)] }),
+    publishStage({ routes: [always(null)] }),
   ];
 }
 
@@ -339,6 +345,62 @@ describe("propose_library_pipeline", () => {
       check: [],
     });
     expect((await readPipeline(base.id)).stages[1]?.routes).toEqual([failureRoute, always(null)]);
+  });
+
+  it("shows and applies a Proposal kept with a Script Stage running publish as a Publish Stage with its conflict chain", async () => {
+    const base = await anOfficeWidePipeline();
+    const [implement, tests] = base.stages;
+    if (!implement || !tests) throw new Error("The base Pipeline has Implement and Tests.");
+    // As a previous release kept it: Publish a Script Stage, waiting at a Gate after a conflict.
+    const keptPublish = {
+      kind: "script",
+      key: "publish",
+      name: "Publish",
+      optional: false,
+      command: "publish",
+      afterConflict: "review",
+      routes: [always(null)],
+      place: { column: 2, row: 0 },
+    };
+    const kept: KeptChange = {
+      kind: "pipeline",
+      pipelineId: base.id,
+      from: base.stages,
+      to: [implement, { ...tests, routes: [always("publish")] }, keptPublish],
+      routes: { stages: [], check: [] },
+    };
+
+    const shown = pipelines.app.get(ProposalAppliers).shown(kept);
+    await apply(kept);
+
+    if (shown.kind !== "pipeline") throw new Error("A Proposal of the library Pipeline.");
+    const conflictRoute = {
+      to: RESOLVE_KEY,
+      toName: "Resolve",
+      condition: ENDED_CONFLICT,
+      limit: 3,
+    };
+    const shownStages = shown.to as Stage[];
+    expect(shownStages.map(({ key, kind }) => [key, kind])).toEqual([
+      ["implement", "agent"],
+      ["tests", "script"],
+      [RESOLVE_KEY, "agent"],
+      [RESOLVE_TEST_KEY, "script"],
+      [RESOLVE_GATE_KEY, "gate"],
+      ["publish", "publish"],
+    ]);
+    expect(shownStages[5]).not.toHaveProperty("afterConflict");
+    expect(shownStages[5]?.routes).toEqual([conflictRoute, always(null)]);
+    // Saved in the Pipeline's order, the chain before Publish.
+    const saved = await readPipeline(base.id);
+    expect(saved.stages.map(({ key }) => key)).toEqual([
+      "implement",
+      RESOLVE_KEY,
+      "tests",
+      RESOLVE_TEST_KEY,
+      RESOLVE_GATE_KEY,
+      "publish",
+    ]);
   });
 
   it("applies a Proposal still open from before flows, holding plain lists, as its straight line", async () => {

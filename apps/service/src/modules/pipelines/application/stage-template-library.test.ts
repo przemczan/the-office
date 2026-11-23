@@ -47,6 +47,7 @@ describe("StageTemplateLibrary", () => {
         "0107_stage_templates.sql",
         "0172_conflict_resolution_tasks.sql",
         "0179_test_targets_set_up.sql",
+        "0207_resolve_stage_template.sql",
       ].map((file) => readFile(new URL(`../../../../drizzle/${file}`, import.meta.url), "utf8")),
     );
     const seed = migrations

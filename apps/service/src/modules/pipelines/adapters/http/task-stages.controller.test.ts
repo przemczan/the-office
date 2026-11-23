@@ -106,6 +106,7 @@ describe("GET /api/tasks/:id/stages", () => {
           skipped: false,
           definitionOfDoneMet: [1, 2],
           pullRequestUrl: null,
+          publishResult: null,
           handoverNote: "The form is done; check the list.",
         },
       },

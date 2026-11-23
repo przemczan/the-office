@@ -1,4 +1,3 @@
-import { walkedStages, withoutResolveStages } from "../domain/resolve-stages.js";
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
@@ -124,7 +123,7 @@ export class TaskStagesService implements OnModuleInit {
     return this.changes.run(taskId, async () => {
       const { own, runs, problems } = await this.review(taskId, edited);
       if (problems.length > 0) throw new StagesEditRefused(problems);
-      const { taskStages, event } = editTaskStages(own, withoutResolveStages(edited));
+      const { taskStages, event } = editTaskStages(own, edited);
       await this.repository.save(taskStages);
       await this.events.publish(event);
       return progressOf(taskStages, runs, await this.roleFillings.holders(taskStages.stages));
@@ -152,7 +151,7 @@ export class TaskStagesService implements OnModuleInit {
     const own = await this.find(taskId);
     if (!own) return [];
     const runs = await this.runs.list(taskId);
-    const stages = walkedStages(await this.roleFillings.staffed(own.stages, runs), runs);
+    const stages = pipelineOrder(asFlow(await this.roleFillings.staffed(own.stages, runs)));
     const before = stages.slice(0, firstStageToWork(stages, runs)).map(({ key }) => key);
     return staffingProblems(stages, new Set(before), await this.roleFillings.of(stages));
   }
@@ -191,17 +190,13 @@ export class TaskStagesService implements OnModuleInit {
     });
   }
 
-  /**
-   * The edit is weighed as the Task's own Stages alone: the editor shows Resolve's too, which The
-   * Office puts back as the walk goes. `followed` weighs it against that Pipeline in place of the
-   * Task's own.
-   */
+  /** The edit is weighed as given. `followed` weighs it against that Pipeline in place of the Task's own. */
   private async review(
     taskId: string,
     shown: readonly Stage[],
     followed?: string,
   ): Promise<ReviewedEdit> {
-    const edited = pipelineOrder(asFlow(withoutResolveStages(shown)));
+    const edited = pipelineOrder(asFlow(shown));
     const task = await this.tasks.read(taskId);
     const { state, projectId } = task;
     const pipelineId = followed ?? task.pipelineId;
@@ -340,7 +335,7 @@ function progressOf(
   runs: readonly StageRun[],
   holders: ReadonlyMap<DutyKey, string>,
 ): TaskProgress {
-  const stages = walkedStages(own.stages, runs);
+  const stages = pipelineOrder(asFlow(own.stages));
   return {
     stages: stagesProgress(stages, runs, holders),
     editedForTask: own.editedForTask,

@@ -1450,6 +1450,13 @@
       "when": 1795453620825,
       "tag": "0206_project_pipeline_flows",
       "breakpoints": true
+    },
+    {
+      "idx": 207,
+      "version": "7",
+      "when": 1795464576176,
+      "tag": "0207_resolve_stage_template",
+      "breakpoints": true
     }
   ]
 }

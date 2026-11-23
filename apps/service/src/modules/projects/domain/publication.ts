@@ -61,6 +61,8 @@ export type Publication =
   | {
       readonly kind: "base-moved";
       readonly error: string;
+      /** The base branch it conflicts with. */
+      readonly base: RemoteBranch;
       /** The files it would conflict in. */
       readonly conflictedFiles: readonly string[];
       /** Where a clean take-in of an earlier base, the Initiative's branch, left the branch. */

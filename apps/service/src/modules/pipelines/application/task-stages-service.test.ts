@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
-import { asFlow } from "../domain/flow.js";
 import type { Stage } from "../domain/stage.js";
 import type { StagePermissions } from "../domain/stage-permissions.js";
 import { aStageRun } from "../domain/stage-run.fixtures.js";
@@ -14,7 +13,7 @@ import { KnownPeople } from "../ports/known-people.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { TaskStagesRepository } from "../ports/task-stages-repository.js";
 import { TaskStagesService } from "./task-stages-service.js";
-import { quickFix, withGate, refusalOf } from "./task-stages-service.fixtures.js";
+import { quickFix, withGate, refusalOf, taskCopyOf } from "./task-stages-service.fixtures.js";
 
 let pipelines: PipelinesApplication;
 let service: TaskStagesService;
@@ -47,7 +46,7 @@ describe("TaskStagesService", () => {
     expect(await service.find(taskId)).toMatchObject({
       taskId,
       pipelineId: "quick-fix",
-      stages: asFlow(quickFix),
+      stages: taskCopyOf(quickFix),
       editedForTask: false,
     });
     expect(eventsOf(TaskStagesMade)).toMatchObject([{ taskId, pipelineId: "quick-fix" }]);
@@ -75,9 +74,11 @@ describe("Edit for this Task", () => {
     const progress = await service.edit(taskId, withGate);
 
     expect(progress.editedForTask).toBe(true);
-    expect(progress.stages.map(({ stage }) => stage.key)).toEqual(withGate.map(({ key }) => key));
+    expect(progress.stages.map(({ stage }) => stage.key)).toEqual(
+      taskCopyOf(withGate).map(({ key }) => key),
+    );
     expect(eventsOf(TaskStagesEdited)).toMatchObject([{ taskId, pipelineId: "quick-fix" }]);
-    expect((await service.make(taskId, "quick-fix")).stages).toEqual(asFlow(withGate));
+    expect((await service.make(taskId, "quick-fix")).stages).toEqual(taskCopyOf(withGate));
   });
 
   it("changes a running Task's Stages after the started ones, and refuses changing those", async () => {
@@ -128,7 +129,7 @@ describe("Edit for this Task", () => {
       mcpTools: { "github/merge": { kind: "never" } },
     });
     await service.edit(taskId, narrowing);
-    expect((await service.find(taskId))?.stages).toEqual(asFlow(narrowing));
+    expect((await service.find(taskId))?.stages).toEqual(taskCopyOf(narrowing));
   });
 
   it("refuses a Script Stage whose command the Task's Project lacks", async () => {
@@ -146,8 +147,9 @@ describe("Edit for this Task", () => {
       command: "test-full",
     };
 
-    expect(await refusalOf(service.edit(aTask(), [...quickFix, fullTests]))).toEqual([
-      `Stage ${quickFix.length + 1} · Full tests: its Project, Site, has no command test-full.`,
+    const edited = [...quickFix, fullTests];
+    expect(await refusalOf(service.edit(aTask(), edited))).toEqual([
+      `Stage ${taskCopyOf(edited).length} · Full tests: its Project, Site, has no command test-full.`,
     ]);
   });
 
@@ -166,7 +168,7 @@ describe("Edit for this Task", () => {
     ];
     const taskId = aTask("in-progress");
     const own = await service.make(taskId, "quick-fix");
-    await pipelines.app.get(TaskStagesRepository).save({ ...own, stages: asFlow(kept) });
+    await pipelines.app.get(TaskStagesRepository).save({ ...own, stages: taskCopyOf(kept) });
     await pipelines.app
       .get(StageRunRepository)
       .saveNew(aStageRun({ id: randomUUID(), taskId, stageKey: "implement" }));

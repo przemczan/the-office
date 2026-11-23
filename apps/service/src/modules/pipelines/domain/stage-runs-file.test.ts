@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { RESOLVE_KEY, RESOLVE_TEST_KEY, walkedStages } from "./resolve-stages.js";
-import { plainRoute } from "./route.js";
+import { asFlow } from "./flow.js";
+import { RESOLVE_KEY, RESOLVE_TEST_KEY } from "./publish-stages.js";
 import type { Stage } from "./stage.js";
-import { agentStage, gate, scriptStage } from "./stage.fixtures.js";
+import { agentStage, gate, keptPublishStage, publishStage, scriptStage } from "./stage.fixtures.js";
 import type { StageCommandRun } from "./stage-command-run.js";
 import type { StageRun } from "./stage-run.js";
 import { aStageRun } from "./stage-run.fixtures.js";
@@ -17,7 +17,7 @@ const DEFINITION_OF_DONE = ["Routes are kept", "Conditions are weighed", "The do
 const implement = agentStage();
 const tests = scriptStage();
 const review = gate({ key: "review", name: "Review" });
-const publish = scriptStage({ key: "publish", name: "Publish", command: "publish" });
+const publish = publishStage();
 const stages: Stage[] = [implement, tests, review, publish];
 
 function testRun(exitCode: number | undefined): StageCommandRun {
@@ -36,7 +36,7 @@ function at(minute: number): Date {
 }
 
 describe("stageRunsFile", () => {
-  it("is version 1 in the spec's shape, the run the route leaves last", () => {
+  it("is version 2 in the spec's shape, the run the route leaves last", () => {
     const runs: StageRun[] = [
       aStageRun({
         roleKey: "developer",
@@ -72,7 +72,7 @@ describe("stageRunsFile", () => {
         stages,
       ),
     ).toEqual({
-      version: 1,
+      version: 2,
       task: TASK,
       route: { from: "tests", to: "review", times: 1, limit: null },
       definitionOfDone: [
@@ -94,6 +94,8 @@ describe("stageRunsFile", () => {
           startedAt: "2026-11-17T10:00:00.000Z",
           endedAt: "2026-11-17T10:40:00.000Z",
           outcome: "done",
+          result: null,
+          choice: null,
           changedFiles: ["docs/spec/2.3-pipelines.md"],
           handoverNote: "Routes are in.",
           error: null,
@@ -107,6 +109,8 @@ describe("stageRunsFile", () => {
           startedAt: "2026-11-17T10:41:00.000Z",
           endedAt: "2026-11-17T10:49:00.000Z",
           outcome: "failed",
+          result: null,
+          choice: null,
           changedFiles: [],
           handoverNote: null,
           error: "1 test failed.",
@@ -137,12 +141,7 @@ describe("stageRunsFile", () => {
     expect(file.stageRuns.at(-1)?.command).toEqual({ key: "test", exitCode: 0 });
   });
 
-  it("holds Resolve's runs, by the Stages the walk walked", () => {
-    const flow = [
-      { ...implement, routes: [plainRoute("tests")] },
-      { ...tests, routes: [plainRoute("publish")] },
-      { ...publish, routes: [plainRoute(null)] },
-    ];
+  it("holds a Publish run's result, done when it names one, and no command, and the conflict chain's runs by the Stages as read", () => {
     const conflicted = aStageRun({
       number: 2,
       stageKey: "publish",
@@ -152,29 +151,63 @@ describe("stageRunsFile", () => {
         baseMoved: { conflictedFiles: ["a.ts"] },
       },
     });
+    const published = aStageRun({
+      number: 5,
+      stageKey: "publish",
+      outcome: { status: "done", summary: "Merged.", publishResult: "published" },
+    });
     const runs = [
       aStageRun({ number: 1, stageKey: "tests", commandRuns: [testRun(0)] }),
       conflicted,
       aStageRun({ number: 3, stageKey: RESOLVE_KEY, roleKey: "developer" }),
-      aStageRun({ number: 4, stageKey: RESOLVE_TEST_KEY }),
+      aStageRun({ number: 4, stageKey: RESOLVE_TEST_KEY, commandRuns: [testRun(0)] }),
+      published,
     ];
 
     const file = stageRunsFile(
       TASK,
-      { from: RESOLVE_TEST_KEY, to: "publish", times: 0, limit: null },
+      { from: "publish", to: null, times: 0, limit: null },
       [],
       runs,
-      walkedStages(flow, runs),
+      asFlow([implement, tests, keptPublishStage()]),
     );
 
-    expect(file.stageRuns.map(({ stage, kind }) => `${stage} ${kind}`)).toEqual([
-      "tests script",
-      "publish script",
-      `${RESOLVE_KEY} agent`,
-      `${RESOLVE_TEST_KEY} script`,
+    expect(
+      file.stageRuns.map(({ stage, kind, outcome, result, command }) => [
+        stage,
+        kind,
+        outcome,
+        result,
+        command,
+      ]),
+    ).toEqual([
+      ["tests", "script", "done", null, { key: "test", exitCode: 0 }],
+      ["publish", "publish", "done", "conflict", null],
+      [RESOLVE_KEY, "agent", "done", null, null],
+      [RESOLVE_TEST_KEY, "script", "done", null, { key: "test", exitCode: 0 }],
+      ["publish", "publish", "done", "published", null],
     ]);
-    // Publish runs no Project command, so it never has an exit code.
-    expect(file.stageRuns[1]?.command).toEqual({ key: "publish", exitCode: null });
+  });
+
+  it("gives a failed Publish run no result, as its outcome says it, and keeps a removed Publish Stage's kind", () => {
+    const runs = [
+      aStageRun({
+        stageKey: "publish",
+        outcome: { status: "failed", error: "Push refused.", publishResult: "failed" },
+      }),
+      aStageRun({
+        number: 2,
+        stageKey: "gone",
+        outcome: { status: "done", summary: "Pushed.", publishResult: "nothing-to-publish" },
+      }),
+    ];
+
+    const file = stageRunsFile(TASK, AT_END, [], runs, stages);
+
+    expect(file.stageRuns.map(({ kind, outcome, result }) => [kind, outcome, result])).toEqual([
+      ["publish", "failed", null],
+      ["publish", "done", "nothing-to-publish"],
+    ]);
   });
 
   it("says held for a run a Pause or the usage window held, and skipped for a skipped one", () => {

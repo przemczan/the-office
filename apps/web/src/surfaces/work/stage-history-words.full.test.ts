@@ -83,6 +83,7 @@ const done = (fields: { summary: string; handoverNote: string | null }) =>
     skipped: false,
     definitionOfDoneMet: null,
     pullRequestUrl: null,
+    publishResult: null,
     ...fields,
   }) as const;
 
@@ -94,6 +95,7 @@ const failed = (fields: Partial<Extract<StageRun["outcome"], { status: "failed" 
     interrupted: null,
     refusedTurn: null,
     afterPublishingFailed: null,
+    publishResult: null,
     handoverNote: null,
     ...fields,
   }) as const;
@@ -214,11 +216,27 @@ describe("runBadge", () => {
         commit: "4b1e2c3",
         pullRequestUrl: null,
       },
+      publishResult: "after-publishing-failed",
     });
     expect(runBadge(aRun({ outcome }), "failed")).toEqual({
-      words: "Published; after publishing failed",
+      words: "After publishing failed",
       tone: "warning",
     });
+  });
+
+  it("names a Publish run by its result", () => {
+    const conflict = failed({ error: "Conflict with main in 3 files", publishResult: "conflict" });
+    expect(runBadge(aRun({ outcome: conflict }), "failed")).toEqual({
+      words: "Conflict",
+      tone: "warning",
+    });
+    const shipped = done({ summary: "Published: pull request #57 opened", handoverNote: null });
+    expect(runBadge(aRun({ outcome: { ...shipped, publishResult: "published" } }), "done")).toEqual(
+      { words: "Published", tone: "success" },
+    );
+    expect(
+      runBadge(aRun({ outcome: { ...shipped, publishResult: "nothing-to-publish" } }), "done"),
+    ).toEqual({ words: "Nothing to publish", tone: "neutral" });
   });
 });
 

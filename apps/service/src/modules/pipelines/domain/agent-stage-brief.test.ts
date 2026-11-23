@@ -8,7 +8,9 @@ import {
   type StagePipeline,
 } from "./agent-stage-brief.js";
 import { allowedCommands } from "./allowed-commands.js";
-import { RESOLVE_KEY } from "./resolve-stages.js";
+import { asFlow, pipelineOrder } from "./flow.js";
+import { RESOLVE_KEY } from "./publish-stages.js";
+import { keptPublishStage, publishStage } from "./stage.fixtures.js";
 import type { AgentStage, Stage } from "./stage.js";
 import { defaultPromptTexts } from "../../prompt-templates/index.js";
 import { PIPELINES_PROMPT_TEMPLATES } from "./pipelines-prompt-templates.js";
@@ -144,15 +146,8 @@ function anAgentStage(key: string): AgentStage {
 const implement = anAgentStage("implement");
 const review = anAgentStage("review");
 const lint: Stage = { kind: "script", key: "lint", name: "Lint", optional: false, command: "lint" };
-const publish: Stage = {
-  kind: "script",
-  key: "publish",
-  name: "Publish",
-  optional: false,
-  command: "publish",
-};
-const branchOnly: Stage = { ...publish, key: "try-out", publishTarget: "branch-only" };
-const resolve = anAgentStage(RESOLVE_KEY);
+const publish: Stage = publishStage();
+const branchOnly: Stage = publishStage({ key: "try-out", publishTarget: "branch-only" });
 
 function pipelineOf(stages: readonly Stage[]): StagePipeline {
   return { stages, commands: [], roleTitle: () => "Developer" };
@@ -235,11 +230,12 @@ describe("isLastAgentStageBeforePublish", () => {
     expect(isLastAgentStageBeforePublish(review, [review, branchOnly, publish])).toBe(true);
   });
 
-  it("passes over Resolve, which is never it", () => {
-    const stages = [implement, review, resolve, lint, publish];
+  it("passes over the conflict chain's Resolve, which is never it", () => {
+    const stages = pipelineOrder(asFlow([implement, review, lint, keptPublishStage()]));
 
+    expect(stages.map(({ key }) => key)).toContain(RESOLVE_KEY);
     expect(isLastAgentStageBeforePublish(review, stages)).toBe(true);
-    expect(isLastAgentStageBeforePublish(resolve, stages)).toBe(false);
+    expect(isLastAgentStageBeforePublish({ key: RESOLVE_KEY }, stages)).toBe(false);
   });
 
   it("isn't one with no Publish after it", () => {

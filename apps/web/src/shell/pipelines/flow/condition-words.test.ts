@@ -1,6 +1,6 @@
 import type { ConditionGroup, ConditionTest, Route, Stage } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { FAILED_CONDITION } from "./flow-model.ts";
+import { endsCondition, FAILED_CONDITION } from "./flow-model.ts";
 import {
   atMostWords,
   followedWhen,
@@ -167,5 +167,39 @@ describe("a route in words", () => {
     expect(limitMark(1)).toBe("≤1×");
     expect(limitMark(null)).toBe("");
     expect(atMostWords(1)).toBe("at most 1 time");
+  });
+
+  it("says a Publish Stage's results, joined by or", () => {
+    const resolve: Stage = {
+      ...implement,
+      key: "resolve",
+      name: "Resolve",
+      place: { column: 0, row: 1 },
+    };
+    const conflict: Route = { to: "resolve", condition: endsCondition(["conflict"]), limit: 3 };
+    const failing: Route = {
+      to: "resolve",
+      condition: endsCondition(["after-publishing-failed", "failed"]),
+      limit: 3,
+    };
+    const publish: Stage = {
+      kind: "publish",
+      key: "publish",
+      name: "Publish",
+      optional: false,
+      place: { column: 1, row: 0 },
+      routes: [conflict, failing, { to: null, condition: null, limit: null }],
+    };
+    const flow = [resolve, publish];
+    expect(routeWhen(conflict, publish, flow)).toBe("when it ends Conflict");
+    expect(routeWhen(failing, publish, flow)).toBe(
+      "when it ends After publishing failed or Failed",
+    );
+    expect(followedWhen(conflict, publish, flow)).toBe(
+      "Followed when it ends Conflict, at most 3 times in a walk; then you're asked (or the CTO first).",
+    );
+    expect(words({ kind: "stage", stage: null, is: "nothing-to-publish" })).toBe(
+      "Tests ended Nothing to publish",
+    );
   });
 });

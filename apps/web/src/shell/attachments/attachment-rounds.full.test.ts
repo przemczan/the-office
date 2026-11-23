@@ -175,6 +175,7 @@ const GATE_REACHED = {
   skipped: false,
   definitionOfDoneMet: null,
   pullRequestUrl: null,
+  publishResult: null,
   handoverNote: null,
 } satisfies StageRun["outcome"];
 
@@ -274,6 +275,7 @@ describe("attachmentsOfGateRun", () => {
         interrupted: null,
         refusedTurn: null,
         afterPublishingFailed: null,
+        publishResult: null,
         handoverNote: null,
       },
     ],

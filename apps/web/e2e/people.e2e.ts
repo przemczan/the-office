@@ -2025,18 +2025,19 @@ test(
       });
 
       // An Agent Stage added beside Implement comes unconnected: the check's problems hold Save.
+      // Resolve, under Implement in the conflict chain's row, comes before it in the order.
       const save = dialog.getByRole("button", { name: "Save for this Task" });
       const problems = dialog.getByRole("list", { name: "Problems" });
       await addAStage("Agent Stage");
       const added = panel("New Stage");
-      await expect(added).toContainText("2 of 5 in the Pipeline's order");
+      await expect(added).toContainText("3 of 7 in the Pipeline's order");
       await expect(problems).toContainText("New Stage: give it a route out");
       await expect(save).toBeDisabled();
       // Moved later it goes after Tests, earlier back before it, and up into Implement's row.
       await added.getByRole("button", { name: "Move New Stage later" }).click();
-      await expect(added).toContainText("3 of 5 in the Pipeline's order");
+      await expect(added).toContainText("5 of 7 in the Pipeline's order");
       await added.getByRole("button", { name: "Move New Stage earlier" }).click();
-      await expect(added).toContainText("2 of 5 in the Pipeline's order");
+      await expect(added).toContainText("3 of 7 in the Pipeline's order");
       await added.getByRole("button", { name: "Move New Stage up" }).click();
       await expect(added.getByRole("button", { name: "Move New Stage up" })).toBeDisabled();
       // Implement's route leads to it, and it on to Tests.
@@ -2078,7 +2079,9 @@ test(
         "End",
       ]);
       await failureGoesTo.selectOption({ label: "Review" });
-      await expect(failureRoute.getByLabel("times on the route to Review")).toHaveText("2");
+      await expect(
+        failureRoute.getByLabel("times on the route to Review", { exact: true }),
+      ).toHaveText("2");
       await tests.getByLabel("Project command").selectOption("lint");
 
       // A Script Stage added and removed again leaves nothing behind.
@@ -2106,8 +2109,24 @@ test(
       );
       const ownStages = own.stages?.map(({ stage }) => stage) ?? [];
       const quickFix = library.find(({ id }) => id === "quick-fix")?.stages ?? [];
-      const [libraryImplement, libraryTests, libraryPublish] = asStageList(quickFix);
-      expect(asStageList(ownStages)).toEqual([
+      const libraryStages = asStageList(quickFix);
+      const libraryStage = (key: string): (typeof libraryStages)[number] => {
+        const stage = libraryStages.find((candidate) => candidate.key === key);
+        if (!stage) throw new Error(`Quick fix has no ${key} Stage.`);
+        return stage;
+      };
+      const libraryImplement = libraryStage("implement");
+      const libraryTests = libraryStage("tests");
+      const libraryPublish = libraryStage("publish");
+      // Quick fix's conflict chain is kept as the library draws it, apart from the line edited here;
+      // a Task's own Stages link to no Stage template.
+      const conflictChain = new Set(["office:resolve", "office:resolve-test"]);
+      const isInTheChain = ({ key }: { key: string }): boolean => conflictChain.has(key);
+      expect(asStageList(ownStages.filter(isInTheChain))).toEqual(
+        libraryStages.filter(isInTheChain).map(({ templateId: _templateId, ...stage }) => stage),
+      );
+      const editedLine = ownStages.filter((stage) => !isInTheChain(stage));
+      expect(asStageList(editedLine)).toEqual([
         {
           ...libraryImplement,
           // Choosing the Reviewer clears the Implements duty the library's Stage names.
@@ -2132,13 +2151,14 @@ test(
         { kind: "gate", key: "gate", name: "UI acceptance", optional: false },
         libraryPublish,
       ]);
-      // The routes are the line drawn: Implement, Review, Tests, UI acceptance, Publish, End.
-      expect(ownStages.map(({ key, routes }) => [key, routes?.map(({ to }) => to)])).toEqual([
+      // The routes are the line drawn: Implement, Review, Tests, UI acceptance, Publish, End, with
+      // Publish's Conflict route to Resolve.
+      expect(editedLine.map(({ key, routes }) => [key, routes?.map(({ to }) => to)])).toEqual([
         ["implement", ["new-stage"]],
         ["new-stage", ["tests"]],
         ["tests", ["new-stage", "gate"]],
         ["gate", ["publish"]],
-        ["publish", [null]],
+        ["publish", ["office:resolve", null]],
       ]);
       // The library's Quick fix stays as it was.
       expect(
@@ -5337,8 +5357,15 @@ test(
         })
       ).json(),
     );
-    const [implement, tests, publish] = pipeline.stages;
-    if (!implement || !tests || !publish) throw new Error("Quick fix has three Stages.");
+    // Quick fix's own Stages, beside the conflict chain drawn in before its Publish.
+    const stageOf = (key: string): (typeof pipeline.stages)[number] => {
+      const stage = pipeline.stages.find((candidate) => candidate.key === key);
+      if (!stage) throw new Error(`Quick fix has no ${key} Stage.`);
+      return stage;
+    };
+    const implement = stageOf("implement");
+    const tests = stageOf("tests");
+    const publish = stageOf("publish");
     const nina = chatWith(page, "Nina");
     await page.goto(`/settings/pipelines/${pipeline.id}`);
     await page.getByRole("button", { name: "Ask Nina", exact: true }).click();
@@ -5361,7 +5388,9 @@ test(
         kind: "pipeline",
         pipelineId: pipeline.id,
         from: pipeline.stages,
-        to: [{ ...implement, routes: proposedRoutes }, tests, publish],
+        to: pipeline.stages.map((stage) =>
+          stage.key === implement.key ? { ...implement, routes: proposedRoutes } : stage,
+        ),
         routes: {
           stages: [
             {

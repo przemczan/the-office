@@ -33,11 +33,10 @@ const tests: Stage = {
 const review = agentStage("review", "Review & fix");
 const look: Stage = { kind: "gate", key: "look", name: "UI acceptance", optional: false };
 const publish: Stage = {
-  kind: "script",
+  kind: "publish",
   key: "publish",
   name: "Publish",
   optional: false,
-  command: "publish",
 };
 
 function aRun(gateAction: StageRun["gateAction"]): StageRun {

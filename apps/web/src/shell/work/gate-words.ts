@@ -40,8 +40,7 @@ export function waitingGateOf(taskStages: readonly TaskStage[]): WaitingGate | u
 }
 
 function isSendBackTarget(stage: Stage): boolean {
-  if (stage.kind === "gate") return false;
-  return stage.kind !== "script" || stage.command !== "publish";
+  return stage.kind !== "gate" && stage.kind !== "publish";
 }
 
 /** The last Agent Stage before the Gate, as the click-through sends back; else the last Stage. */

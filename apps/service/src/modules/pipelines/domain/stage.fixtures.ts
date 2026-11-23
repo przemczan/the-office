@@ -1,6 +1,7 @@
 import type { DutyKey } from "../../people/index.js";
 import type { KeptStage } from "./routes-back.js";
-import type { AgentStage, Gate, ScriptStage, Stage } from "./stage.js";
+import type { KeptPublishStage } from "./publish-stages.js";
+import type { AgentStage, Gate, PublishStage, ScriptStage, Stage } from "./stage.js";
 
 /** The Developer's `implement` Stage, unless `fields` say otherwise. */
 export function agentStage(fields: Partial<AgentStage> = {}): AgentStage {
@@ -33,6 +34,19 @@ export function scriptStage(fields: Partial<ScriptStage> = {}): ScriptStage {
     optional: false,
     ...fields,
   };
+}
+
+/** The `publish` Stage, by the Project's publishing mode, unless `fields` say otherwise. */
+export function publishStage(fields: Partial<PublishStage> = {}): PublishStage {
+  return { kind: "publish", key: "publish", name: "Publish", optional: false, ...fields };
+}
+
+/**
+ * The `publish` Stage as the releases before Publish was a kind of its own kept it, a Script Stage
+ * running `publish`, unless `fields` say otherwise: `asFlow` reads it as a Publish Stage.
+ */
+export function keptPublishStage(fields: Partial<KeptPublishStage> = {}): KeptPublishStage {
+  return scriptStage({ key: "publish", name: "Publish", command: "publish", ...fields });
 }
 
 export function gate(fields: Partial<Gate> = {}): Gate {

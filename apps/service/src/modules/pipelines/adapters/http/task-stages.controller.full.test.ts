@@ -9,6 +9,7 @@ import {
 import { afterEach, describe, expect, it } from "vitest";
 import { ENDED_FAILED } from "../../domain/route.js";
 import type { Stage } from "../../domain/stage.js";
+import { publishStage } from "../../domain/stage.fixtures.js";
 import type { StageOutcome } from "../../domain/stage-run.js";
 import {
   aDoneResult,
@@ -23,13 +24,7 @@ import { aCommandRun } from "../../ports/pipelines-ports.fixtures.js";
 import { StageRunRepository } from "../../ports/stage-run-repository.js";
 import { tests } from "./task-stages.controller.fixtures.js";
 
-const publish: Stage = {
-  kind: "script",
-  key: "publish",
-  name: "Publish",
-  optional: false,
-  command: "publish",
-};
+const publish: Stage = publishStage();
 
 let pipelines: PipelinesApplication | undefined;
 
@@ -131,6 +126,7 @@ describe("GET /api/tasks/:id/stages", () => {
     expect(stages?.[0]?.runs[0]?.outcome).toMatchObject({
       status: "done",
       pullRequestUrl: "https://github.com/notnullsoft/admin/pull/7",
+      publishResult: "published",
     });
   });
 
@@ -149,7 +145,11 @@ describe("GET /api/tasks/:id/stages", () => {
 
     const { stages } = await stagesOf(taskId);
 
-    expect(stages?.[0]?.runs[0]?.outcome).toMatchObject({ status: "done", pullRequestUrl: null });
+    expect(stages?.[0]?.runs[0]?.outcome).toMatchObject({
+      status: "done",
+      pullRequestUrl: null,
+      publishResult: "published",
+    });
   });
 });
 

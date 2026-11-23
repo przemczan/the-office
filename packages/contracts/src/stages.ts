@@ -12,9 +12,18 @@ import { stageContextLimitsOverrideSchema } from "./stage-context-limits.js";
 export const publishTargetSchema = z.enum(["publishing-mode", "branch-only"]);
 export type PublishTarget = z.infer<typeof publishTargetSchema>;
 
-/** What a Publish Stage does once a conflict is resolved and tested (spec §2.3). */
-export const afterConflictSchema = z.enum(["publish", "review"]);
-export type AfterConflict = z.infer<typeof afterConflictSchema>;
+/**
+ * How a Publish Stage's run ended (spec §2.3.4, "Publish's results"): its routes test each, and the
+ * Stage history names it.
+ */
+export const publishResultSchema = z.enum([
+  "published",
+  "nothing-to-publish",
+  "conflict",
+  "after-publishing-failed",
+  "failed",
+]);
+export type PublishResult = z.infer<typeof publishResultSchema>;
 
 /**
  * What an Agent Stage states of its Role card's permission profile (spec §6), each absent where the
@@ -38,13 +47,26 @@ export const stagePermissionsSchema = z.object({
 export type StagePermissions = z.infer<typeof stagePermissionsSchema>;
 
 /**
- * What a Script Stage runs: `publish`, kept for Publish, or a Project command by its key. Install is
- * never a Stage's, as it runs before every Stage on its own (spec §2.3).
+ * What a Script Stage runs: a Project command by its key. Install is never a Stage's, as it runs
+ * before every Stage on its own, and publishing is the Publish Stage's (spec §2.3.1).
  */
-export const scriptStageCommandSchema = z.union([z.literal("publish"), projectCommandKeySchema]);
+export const scriptStageCommandSchema = projectCommandKeySchema;
 
-/** What a Stage test says of its Stage's latest run, or of all its runs with `ran` (spec §2.3). */
-export const stageTestOutcomeSchema = z.enum(["done", "failed", "skipped", "changed", "unchanged"]);
+/**
+ * What a Stage test says of its Stage's latest run, or of all its runs with `ran` (spec §2.3); a
+ * Publish Stage's results besides Failed are tested on a Publish Stage alone.
+ */
+export const stageTestOutcomeSchema = z.enum([
+  "done",
+  "failed",
+  "skipped",
+  "changed",
+  "unchanged",
+  "published",
+  "nothing-to-publish",
+  "conflict",
+  "after-publishing-failed",
+]);
 export type StageTestOutcome = z.infer<typeof stageTestOutcomeSchema>;
 
 const testedStageFields = {
@@ -165,20 +187,23 @@ export const stageSchema = z.discriminatedUnion("kind", [
     permissions: stagePermissionsSchema.optional(),
     /** Absent takes the Office defaults of Settings › Office limits (spec §2.5). */
     contextLimits: stageContextLimitsOverrideSchema.optional(),
-  }),
-  z.object({
-    kind: z.literal("script"),
-    ...stageFields,
-    command: scriptStageCommandSchema,
     /**
-     * A Publish Stage's alone: by the Project's publishing mode, or pushing the Task's branch only,
-     * for a proof of concept. Absent means the publishing mode.
+     * Merge the base first (spec §2.3.1): The Office merges the base into the Task's branch as the
+     * Stage starts and leaves the conflicted files for its Agent. Absent is off.
+     */
+    mergeBaseFirst: z.boolean().optional(),
+  }),
+  z.object({ kind: z.literal("script"), ...stageFields, command: scriptStageCommandSchema }),
+  z.object({ kind: z.literal("gate"), ...stageFields }),
+  z.object({
+    kind: z.literal("publish"),
+    ...stageFields,
+    /**
+     * By the Project's publishing mode, or pushing the Task's branch only, for a proof of concept.
+     * Absent means the publishing mode.
      */
     publishTarget: publishTargetSchema.optional(),
-    /** A Publish Stage's alone: absent publishes automatically. */
-    afterConflict: afterConflictSchema.optional(),
   }),
-  z.object({ kind: z.literal("gate"), ...stageFields }),
 ]);
 export type Stage = z.infer<typeof stageSchema>;
 

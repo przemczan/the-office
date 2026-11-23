@@ -7,9 +7,8 @@ import {
   type WalkQuestion,
 } from "./pipeline-walk.js";
 import { routesWords } from "./proposed-routes.js";
-import { isResolveStage } from "./resolve-stages.js";
 import type { Route } from "./route.js";
-import type { Stage } from "./stage.js";
+import { isPublishStage, type Stage } from "./stage.js";
 import { tokensWords } from "./stage-budget.js";
 import type {
   AgentRunDecision,
@@ -414,17 +413,17 @@ function restartDecision(stage: Stage, { id, outcome }: StageRun): WalkDecision 
 const RESTART_TIMES: Readonly<Record<number, string>> = { 2: "twice", 3: "three times" };
 
 /**
- * A conflict at Publish the user decides about (spec §2.3, "Conflicts at Publish"): after Resolve
- * gave up, or left a conflict that came back too often, they resolve it in the worktree, where The
- * Office left it, or drop the Task.
+ * A conflict the user decides about directly (spec §2.3.4, "Conflicts in the flow"): a Publish
+ * Stage's Conflict that none of its routes takes, or a Stage of conflict handling that failed with
+ * no failure route, whose merge they resolve in the worktree, where The Office left it.
  */
 function baseMovedDecision(stage: Stage, error: string): WalkDecision {
-  if (!isResolveStage(stage)) return conflictWithNobodyToResolve(stage, error);
+  if (isPublishStage(stage)) return conflictWithNobodyToResolve(stage, error);
   return {
     kind: "base-moved",
     draft: {
       question: `"${stage.name}" couldn't resolve the Task's conflict with the base branch. What now?`,
-      context: `${error}\n\nThe Office merged the base branch into the Task's branch and left the conflicted files in the Task's worktree. Resolve them there yourself, removing every conflict marker without committing, then choose the first option: The Office commits the merge and runs the Project's Test before Publish. Or answer in your own words: your answer guides one more round of "${stage.name}".`,
+      context: `${error}\n\nThe Office merged the base branch into the Task's branch and left the conflicted files in the Task's worktree. Resolve them there yourself, removing every conflict marker without committing, then choose the first option: The Office commits the merge and the Pipeline goes on to Publish. Or answer in your own words: your answer guides one more round of "${stage.name}".`,
       options: ["I resolved it in the worktree", DROP_THE_TASK],
       recommendation: {
         option: 0,
@@ -436,26 +435,23 @@ function baseMovedDecision(stage: Stage, error: string): WalkDecision {
 }
 
 /**
- * A Task with no Agent Stage has nobody to resolve a conflict at Publish: the user chooses to
- * publish again once the base no longer conflicts, finish without publishing, or drop the Task.
+ * A Publish Stage ended Conflict and none of its routes takes it (spec §2.3.4, "Publish's
+ * results"): the user resolves it themselves in the worktree and publishes again, or drops the
+ * Task. An older Decision's Continue without publishing still replays.
  */
 function conflictWithNobodyToResolve(stage: Stage, error: string): WalkDecision {
   return {
     kind: "base-moved",
     draft: {
       question: `"${stage.name}" can't publish: the Task's branch conflicts with the base branch. What now?`,
-      context: `${error}\n\nThe Task has no Agent Stage whose person could resolve the conflict, and no Agent can merge or rebase. "${stage.name}" can run again once the base branch no longer conflicts with the branch.`,
-      options: [`Run "${stage.name}" again`, "Continue without publishing", DROP_THE_TASK],
+      context: `${error}\n\nNo route of "${stage.name}" takes a conflict. Resolve it yourself in the Task's worktree, then publish again: "${stage.name}" runs again and publishes once the branch no longer conflicts with the base branch.`,
+      options: ["Publish again", DROP_THE_TASK],
       recommendation: {
         option: 0,
         reason: "The branch keeps the Task's work; it publishes once the conflict is gone.",
       },
     },
-    options: [
-      { kind: "one-more-round", guidance: undefined },
-      { kind: "accept-issues" },
-      { kind: "drop" },
-    ],
+    options: [{ kind: "one-more-round", guidance: undefined }, { kind: "drop" }],
   };
 }
 

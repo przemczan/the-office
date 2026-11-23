@@ -20,7 +20,7 @@ import { hardSwitchesSection, type FollowedHardSwitches } from "./followed-hard-
 import { correctionMessage } from "./stage-result.js";
 import { dutyLabel, staffedRole } from "./stage-staffing.js";
 import {
-  PUBLISH_COMMAND,
+  publishesByThePublishingMode,
   STAGE_KIND_NAMES,
   type AgentStage,
   type Stage,
@@ -28,7 +28,7 @@ import {
 } from "./stage.js";
 import { reportedMetIn } from "./definition-of-done-reports.js";
 import { asFlow } from "./flow.js";
-import { isResolveStage } from "./resolve-stages.js";
+import { conflictOnlyStages } from "./conflict-handling.js";
 import { isFailureRoute } from "./route.js";
 import { holdingUserWords } from "./stage-interruption.js";
 import type {
@@ -342,27 +342,22 @@ export function restartedSessionWork(
 
 /**
  * Whether `stage` is the last Agent Stage before a Publish that lands the Task's commit message: a
- * Publish by the publishing mode comes later, with no Agent Stage of the Task's own between them.
- * The Resolve Stages The Office puts in are passed over, and are never it themselves; a branch-only
- * Publish lands no commit message.
+ * Publish by the publishing mode comes later, with no other Agent Stage between them. The conflict
+ * chain's Stages (`conflictOnlyStages`) are passed over, and are never it themselves (spec §2.3.4,
+ * "Conflicts in the flow"); a branch-only Publish lands no commit message.
  */
 export function isLastAgentStageBeforePublish(
   stage: Pick<Stage, "key">,
   stages: readonly Stage[],
 ): boolean {
-  if (isResolveStage(stage)) return false;
+  const chain = conflictOnlyStages(asFlow(stages));
+  if (chain.has(stage.key)) return false;
   const index = stages.findIndex(({ key }) => key === stage.key);
   if (index === -1) return false;
   for (const later of stages.slice(index + 1)) {
-    if (isResolveStage(later)) continue;
+    if (chain.has(later.key)) continue;
     if (later.kind === "agent") return false;
-    if (
-      later.kind === "script" &&
-      later.command === PUBLISH_COMMAND &&
-      later.publishTarget !== "branch-only"
-    ) {
-      return true;
-    }
+    if (publishesByThePublishingMode(later)) return true;
   }
   return false;
 }
@@ -385,13 +380,12 @@ function laterStages(
 ): LaterStage[] {
   const later = stages.slice(stages.findIndex(({ key }) => key === stage.key) + 1);
   // A kept on-failure setting reads as a failure route back (`asFlow`), as every route does here.
-  const routes = new Map(asFlow(stages).map(({ key, routes: out }) => [key, out]));
+  const flow = asFlow(stages);
+  const routes = new Map(flow.map(({ key, routes: out }) => [key, out]));
+  const chain = conflictOnlyStages(flow);
   return later.map((laterStage) => {
     const agent = laterStage.kind === "agent" ? laterStage : undefined;
-    const script =
-      laterStage.kind === "script" && laterStage.command !== PUBLISH_COMMAND
-        ? laterStage
-        : undefined;
+    const script = laterStage.kind === "script" ? laterStage : undefined;
     const roleKey = agent && staffedRole(agent);
     const commandLine = script
       ? (commands.find(({ key }) => key === script.command)?.commandLine ?? "")
@@ -405,7 +399,7 @@ function laterStages(
       // A brief's later lines stay within its item.
       brief: agent ? withinItem(agent.brief) : "",
       gate: flagField(laterStage.kind === "gate"),
-      publish: flagField(laterStage.kind === "script" && script === undefined),
+      publish: flagField(laterStage.kind === "publish"),
       commandLine,
       unsetCommand: script && commandLine === "" ? script.command : "",
       comesBack: flagField(
@@ -413,6 +407,7 @@ function laterStages(
           (route) => route.to === stage.key && isFailureRoute(route, laterStage.key),
         ),
       ),
+      afterConflict: flagField(chain.has(laterStage.key)),
     };
   });
 }

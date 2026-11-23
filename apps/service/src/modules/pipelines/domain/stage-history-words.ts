@@ -1,5 +1,6 @@
 import { routesFollowed, type FollowedRoute } from "./pipeline-walk.js";
-import { STAGE_KIND_NAMES, type Stage } from "./stage.js";
+import { PUBLISH_RESULT_NAMES, publishResultOf } from "./publish-result.js";
+import { isPublishStage, STAGE_KIND_NAMES, type Stage } from "./stage.js";
 import { holdingUserWords } from "./stage-interruption.js";
 import type { CommandOutcome, StageCommandPurpose, StageCommandRun } from "./stage-command-run.js";
 import type {
@@ -180,6 +181,7 @@ function runParts(
     timesLine(run),
     ...whyItRanLines(stages, run),
     outcomeWords(run.outcome),
+    ...publishResultLines(stages, run),
     ...routeLines(stages, route),
     ...handoverNoteLines(run.outcome),
     ...gateActionLines(stages, run.gateAction),
@@ -272,6 +274,41 @@ function outcomeWords(outcome: StageOutcome | undefined): string {
       return `Outcome: needs a decision. The Agent asked: "${outcome.question}"${optionWords(outcome)}`;
     case "failed":
       return `Outcome: failed${failedWhy(outcome)}.\n${outcome.error}`;
+  }
+}
+
+/**
+ * A Publish Stage's run's result (spec §2.3.4, "Publish's results"): "Result: Published: pull
+ * request #212 opened.", "Result: Conflict with main in 3 files." A run of a Stage the
+ * Task's Stages no longer have is a Publish run when it kept a result.
+ */
+function publishResultLines(stages: readonly Stage[], run: StageRun): string[] {
+  const stage = stages.find(({ key }) => key === run.stageKey);
+  const keptResult = run.outcome?.status !== "needs-decision" && run.outcome?.publishResult;
+  if (stage ? !isPublishStage(stage) : !keptResult) return [];
+  const result = publishResultOf(run);
+  if (result === undefined || run.outcome === undefined) return [];
+  const { outcome } = run;
+  switch (result) {
+    case "published": {
+      const url = outcome.status === "done" ? outcome.pullRequestUrl : undefined;
+      const number = url === undefined ? undefined : /\/pull\/(\d+)/.exec(url)?.[1];
+      return [
+        number === undefined
+          ? `Result: ${PUBLISH_RESULT_NAMES.published}.`
+          : `Result: ${PUBLISH_RESULT_NAMES.published}: pull request #${number} opened.`,
+      ];
+    }
+    case "conflict": {
+      const baseMoved = outcome.status === "failed" ? outcome.baseMoved : undefined;
+      const files = baseMoved?.conflictedFiles ?? [];
+      const where =
+        files.length === 0 ? "" : ` in ${files.length} ${files.length === 1 ? "file" : "files"}`;
+      const base = baseMoved?.baseBranch ?? "the base branch";
+      return [`Result: ${PUBLISH_RESULT_NAMES.conflict} with ${base}${where}.`];
+    }
+    default:
+      return [`Result: ${PUBLISH_RESULT_NAMES[result]}.`];
   }
 }
 

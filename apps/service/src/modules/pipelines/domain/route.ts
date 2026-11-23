@@ -1,3 +1,5 @@
+import type { PublishResult } from "./publish-result.js";
+
 /**
  * A route out of a Stage (spec §2.3, "A Pipeline is a flow"): to any Stage by its key, its own
  * included, or to the Pipeline's End (`null`), a condition that must hold for the walk to follow
@@ -44,8 +46,12 @@ export interface ConditionGroup {
 
 export type ConditionTest = StageTest | DefinitionOfDoneTest | CommandTest;
 
-/** What a Stage test says of its Stage's latest run. */
-export type StageTestOutcome = "done" | "failed" | "skipped" | "changed" | "unchanged";
+/**
+ * What a Stage test says of its Stage's latest run: a Publish Stage's results besides Failed are
+ * tested on a Publish Stage alone (spec §2.3.4, "Publish's results").
+ */
+export type StageTestOutcome =
+  "done" | "failed" | "skipped" | "changed" | "unchanged" | Exclude<PublishResult, "failed">;
 
 interface TestedStage {
   readonly kind: "stage";

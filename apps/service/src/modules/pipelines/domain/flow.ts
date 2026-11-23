@@ -6,8 +6,9 @@ import {
   type Route,
   type StagePlace,
 } from "./route.js";
+import { withPublishStages } from "./publish-stages.js";
 import { withRoutesBack } from "./routes-back.js";
-import type { AgentStage, Gate, ScriptStage, Stage } from "./stage.js";
+import type { AgentStage, Gate, PublishStage, ScriptStage, Stage } from "./stage.js";
 
 /** A Stage of a flow: one that carries its routes and its place, as a Pipeline's always do. */
 export type FlowStage<Of extends Stage = Stage> = Of & {
@@ -53,7 +54,8 @@ function straightLineRoutes(stages: readonly Stage[], index: number): Route[] {
  * rolled-back release rewrote or a Proposal still sending a plain list gives them; otherwise as they
  * are, a Stage missing its routes getting none (which the check refuses) and one missing its place
  * its index's column on row 0. Then a kept on-failure setting reads as a failure route back
- * (`withRoutesBack`), and a route given without a limit takes the default for where it leads.
+ * (`withRoutesBack`), a kept Script `publish` Stage as a Publish Stage with its conflict chain
+ * (`withPublishStages`), and a route given without a limit takes the default for where it leads.
  */
 export function asFlow<Of extends Stage>(stages: readonly Of[]): FlowStage<Of>[] {
   const given: readonly Stage[] = stages;
@@ -64,8 +66,8 @@ export function asFlow<Of extends Stage>(stages: readonly Of[]): FlowStage<Of>[]
         routes: stage.routes ?? [],
         place: stage.place ?? { column: index, row: 0 },
       }));
-  // Both only change routes, so each Stage keeps its own kind's fields.
-  return withRouteLimits(withRoutesBack(placed)) as FlowStage<Of>[];
+  // The conflict chain it draws in are Stages of their own kinds; the others keep their fields.
+  return withRouteLimits(withPublishStages(withRoutesBack(placed))) as FlowStage<Of>[];
 }
 
 /**
@@ -79,7 +81,7 @@ function withRouteLimits(stages: readonly FlowStage[]): FlowStage[] {
 }
 
 /** A Stage as the editor or an agent gives it, before its routes' missing limits are set. */
-export type GivenStage = Given<AgentStage> | Given<ScriptStage> | Given<Gate>;
+export type GivenStage = Given<AgentStage> | Given<ScriptStage> | Given<Gate> | Given<PublishStage>;
 
 type Given<Of extends Stage> = Omit<Of, "routes"> & { readonly routes?: readonly GivenRoute[] };
 

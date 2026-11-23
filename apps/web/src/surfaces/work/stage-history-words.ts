@@ -2,6 +2,7 @@ import {
   countedTokens,
   type EngineSwitch,
   type GateAction,
+  type PublishResult,
   type Role,
   type Stage,
   type StageRun,
@@ -10,6 +11,10 @@ import {
 import type { BadgeProps } from "@the-office/ui";
 import { tokensShort } from "../../shell/conversation/context-words.ts";
 import { isRouteBack } from "../../shell/pipelines/flow/flow-model.ts";
+import {
+  PUBLISH_RESULT_NAMES,
+  PUBLISH_TARGET_WORDS,
+} from "../../shell/pipelines/pipeline-words.ts";
 import { momentWords, shortDurationWords } from "../../shell/time.ts";
 import { workingRoleKey } from "./stage-rail-words.ts";
 import {
@@ -73,6 +78,9 @@ function stageKindWords(
   const { stage } = taskStage;
   if (stage.kind === "gate") return "Gate · waits for you";
   if (stage.kind === "script") return `Project command · ${stage.command}`;
+  if (stage.kind === "publish") {
+    return `Publish Stage · ${PUBLISH_TARGET_WORDS[stage.publishTarget ?? "publishing-mode"]}`;
+  }
   const roleKey = workingRoleKey(taskStage);
   const role = roles?.find(({ key }) => key === roleKey);
   const who = role ? `${role.card.name} · ${role.card.title}` : "Nobody yet";
@@ -89,7 +97,26 @@ export function runTimeWords({ startedAt, endedAt }: StageRun, now: Date): strin
 
 type FailedOutcome = Extract<NonNullable<StageRun["outcome"]>, { status: "failed" }>;
 
-/** How a run stands, as its badge says it. The Stage's state speaks for a run still going. */
+/** How a Publish Stage's run's badge says each result (spec §2.3.4, "Publish's results"). */
+const PUBLISH_RESULT_TONES: Readonly<Record<PublishResult, BadgeProps["tone"]>> = {
+  published: "success",
+  "nothing-to-publish": "neutral",
+  conflict: "warning",
+  "after-publishing-failed": "warning",
+  failed: "danger",
+};
+
+function publishResultBadge(result: PublishResult): {
+  readonly words: string;
+  readonly tone: BadgeProps["tone"];
+} {
+  return { words: PUBLISH_RESULT_NAMES[result], tone: PUBLISH_RESULT_TONES[result] };
+}
+
+/**
+ * How a run stands, as its badge says it: a Publish Stage's run by its result. The Stage's state
+ * speaks for a run still going.
+ */
 export function runBadge(
   run: StageRun,
   state: TaskStage["state"],
@@ -103,9 +130,9 @@ export function runBadge(
   }
   switch (outcome.status) {
     case "done":
-      return outcome.skipped
-        ? { words: STAGE_STATE_WORDS.skipped, tone: "neutral" }
-        : { words: STAGE_STATE_WORDS.done, tone: "success" };
+      if (outcome.skipped) return { words: STAGE_STATE_WORDS.skipped, tone: "neutral" };
+      if (outcome.publishResult) return publishResultBadge(outcome.publishResult);
+      return { words: STAGE_STATE_WORDS.done, tone: "success" };
     // The Decision may long be answered, so this says what the run came to, not what waits now.
     case "needs-decision":
       return { words: "Opened a Decision", tone: "warning" };
@@ -122,10 +149,7 @@ export function runBadge(
       }
       // No failure: the Stage went on with its edits (spec 2.4).
       if (outcome.interrupted === "restart") return { words: "Restarted", tone: "warning" };
-      // The work shipped; only the Project's after publishing line failed.
-      if (outcome.afterPublishingFailed) {
-        return { words: "Published; after publishing failed", tone: "warning" };
-      }
+      if (outcome.publishResult) return publishResultBadge(outcome.publishResult);
       return { words: STAGE_STATE_WORDS.failed, tone: "danger" };
   }
 }

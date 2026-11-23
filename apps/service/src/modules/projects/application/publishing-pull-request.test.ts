@@ -141,6 +141,7 @@ describe("Publishing in push + PR mode", PUBLISHING_TEST, () => {
     ).resolves.toEqual({
       kind: "base-moved",
       error: `${task.branch} no longer applies cleanly on main on origin: it would conflict in\n- ${file}`,
+      base: { remote: "origin", branch: "main" },
       conflictedFiles: [file],
     });
     expect(testbed.originCommitOf(task.branch)).toBeUndefined();

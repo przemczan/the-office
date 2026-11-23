@@ -21,7 +21,8 @@ import type { Pipeline, StageProblem, StageProblemAt } from "../../domain/pipeli
 import type { FollowedRoute } from "../../domain/pipeline-walk.js";
 import { isConditionGroup, type ConditionGroup, type Route } from "../../domain/route.js";
 import type { ProjectPipeline } from "../../domain/project-pipeline.js";
-import type { Stage } from "../../domain/stage.js";
+import { publishResultOf, type PublishResult } from "../../domain/publish-result.js";
+import { isPublishStage, type Stage } from "../../domain/stage.js";
 import type { StageProgress, TaskProgress } from "../../domain/stage-progress.js";
 import type { GateAction, StageOutcome, StageRun } from "../../domain/stage-run.js";
 import type { StageTemplate } from "../../domain/stage-template.js";
@@ -161,7 +162,9 @@ function toTaskStageResponse(progress: StageProgress): TaskStageResponse {
     ...(progress.stage.kind === "agent" && progress.stage.duty !== undefined
       ? { workedBy: progress.workedBy ?? null }
       : {}),
-    runs: progress.runs.map((run) => toStageRunResponse(run, progress.routes.get(run.id))),
+    runs: progress.runs.map((run) =>
+      toStageRunResponse(run, progress.routes.get(run.id), isPublishStage(progress.stage)),
+    ),
   };
 }
 
@@ -187,21 +190,23 @@ function toStageResponse(stage: Stage): StageResponse {
         effort: stage.effort,
         permissions: stage.permissions,
         contextLimits: stage.contextLimits,
+        mergeBaseFirst: stage.mergeBaseFirst,
       };
     case "script":
-      return {
-        kind: "script",
-        ...fields,
-        command: stage.command,
-        publishTarget: stage.publishTarget,
-        afterConflict: stage.afterConflict,
-      };
+      return { kind: "script", ...fields, command: stage.command };
     case "gate":
       return { kind: "gate", ...fields };
+    case "publish":
+      return { kind: "publish", ...fields, publishTarget: stage.publishTarget };
   }
 }
 
-function toStageRunResponse(run: StageRun, route: FollowedRoute | undefined): StageRunResponse {
+/** A run of a Stage, `ofPublish` when the Stage is a Publish Stage, whose outcome names its result. */
+function toStageRunResponse(
+  run: StageRun,
+  route: FollowedRoute | undefined,
+  ofPublish: boolean,
+): StageRunResponse {
   const carried = run.carriedFailure;
   return {
     id: run.id,
@@ -237,7 +242,9 @@ function toStageRunResponse(run: StageRun, route: FollowedRoute | undefined): St
       }),
     ),
     gateAction: run.gateAction ? toGateActionResponse(run.gateAction) : null,
-    outcome: run.outcome ? toOutcomeResponse(run.outcome) : null,
+    outcome: run.outcome
+      ? toOutcomeResponse(run.outcome, ofPublish ? (publishResultOf(run) ?? null) : null)
+      : null,
   };
 }
 
@@ -276,7 +283,10 @@ function toGateActionResponse(action: GateAction): GateActionResponse {
   }
 }
 
-function toOutcomeResponse(outcome: StageOutcome): StageRunOutcomeResponse {
+function toOutcomeResponse(
+  outcome: StageOutcome,
+  publishResult: PublishResult | null,
+): StageRunOutcomeResponse {
   const handoverNote = outcome.handoverNote ?? null;
   switch (outcome.status) {
     case "done":
@@ -286,6 +296,7 @@ function toOutcomeResponse(outcome: StageOutcome): StageRunOutcomeResponse {
         skipped: outcome.skipped ?? false,
         definitionOfDoneMet: outcome.definitionOfDoneMet ? [...outcome.definitionOfDoneMet] : null,
         pullRequestUrl: outcome.pullRequestUrl ?? null,
+        publishResult,
         handoverNote,
       };
     case "needs-decision":
@@ -320,6 +331,7 @@ function toOutcomeResponse(outcome: StageOutcome): StageRunOutcomeResponse {
               pullRequestUrl: outcome.afterPublishingFailed.pullRequestUrl ?? null,
             }
           : null,
+        publishResult,
         handoverNote,
       };
   }

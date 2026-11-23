@@ -337,6 +337,36 @@
   accent-color: var(--accent);
 }
 
+/* When it ends…: a Publish Stage's results, a checkbox each */
+.flow-route-results {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.flow-route-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  color: var(--fg-1);
+  font: var(--type-body-sm);
+  cursor: pointer;
+}
+
+.flow-route-result input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.flow-route-result:has(input:disabled) {
+  color: var(--fg-disabled);
+  cursor: not-allowed;
+}
+
 .flow-condition-reads {
   margin: 0;
   color: var(--fg-1);

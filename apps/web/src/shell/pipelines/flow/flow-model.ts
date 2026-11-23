@@ -1,5 +1,14 @@
-import type { ConditionGroup, Route, RouteLimit, Stage, StagePlace } from "@the-office/contracts";
+import {
+  publishResultSchema,
+  type ConditionGroup,
+  type PublishResult,
+  type Route,
+  type RouteLimit,
+  type Stage,
+  type StagePlace,
+} from "@the-office/contracts";
 import { namedAmong, removeStage } from "../stage-edits.ts";
+import { isGroup } from "./condition-edits.ts";
 
 /**
  * The flow editor's edits of a Pipeline's Stages (docs/design/pipeline-flow.html), each answering
@@ -26,11 +35,15 @@ export const FAILED_CONDITION: ConditionGroup = {
   tests: [{ kind: "stage", stage: null, is: "failed" }],
 };
 
+/** A Publish Stage's results, in the order When it ends… lists them (spec §2.3.4). */
+export const PUBLISH_RESULTS: readonly PublishResult[] = publishResultSchema.options;
+
 /**
  * The forms of a row of Routes out (spec §2.3, "The route forms"): When it fails, an Agent Stage's
- * alone; When these hold; and Otherwise, with no condition.
+ * alone; When these hold; When it ends…, a Publish Stage's, naming its results; and Otherwise, with
+ * no condition.
  */
-export type RouteForm = "fails" | "holds" | "otherwise";
+export type RouteForm = "fails" | "holds" | "ends" | "otherwise";
 
 export type MoveDirection = "earlier" | "later" | "up" | "down";
 
@@ -269,35 +282,76 @@ export function isFailureRoute({ condition }: Pick<Route, "condition">): boolean
   );
 }
 
-/** A row's form: When it fails only on an Agent Stage, which has it apart from its conditions. */
+/**
+ * The Publish Stage's results a route takes, when its condition is a When it ends… row's: each test
+ * one of its own Stage's results, Failed being the "ended Failed" test. Undefined for any other
+ * condition.
+ */
+export function endedResults({
+  condition,
+}: Pick<Route, "condition">): readonly PublishResult[] | undefined {
+  if (condition === null) return undefined;
+  const results = condition.tests.flatMap((test) =>
+    !isGroup(test) && test.kind === "stage" && test.stage === null
+      ? (publishResultSchema.safeParse(test.is).data ?? [])
+      : [],
+  );
+  return results.length === condition.tests.length ? results : undefined;
+}
+
+/**
+ * A When it ends… row's condition taking `results`, in the order they are listed: one alone as
+ * "All of", as the service draws a Conflict route, several as "Any of", none yet as an empty group,
+ * which the check asks to fill.
+ */
+export function endsCondition(results: readonly PublishResult[]): ConditionGroup {
+  const taken = PUBLISH_RESULTS.filter((result) => results.includes(result));
+  return {
+    combine: taken.length > 1 ? "any" : "all",
+    tests: taken.map((result) => ({ kind: "stage", stage: null, is: result })),
+  };
+}
+
+/**
+ * A row's form: When it fails only on an Agent Stage, which has it apart from its conditions; When
+ * it ends… only on a Publish Stage, for a condition of its results alone.
+ */
 export function routeFormOf(
   stage: Pick<Stage, "kind">,
   route: Pick<Route, "condition">,
 ): RouteForm {
   if (route.condition === null) return "otherwise";
+  if (stage.kind === "publish" && endedResults(route) !== undefined) return "ends";
   return stage.kind === "agent" && isFailureRoute(route) ? "fails" : "holds";
+}
+
+/** The form a route drawn beside others takes on a Stage: When it ends… on a Publish Stage. */
+function drawnForm(stage: Pick<Stage, "kind">): "holds" | "ends" {
+  return stage.kind === "publish" ? "ends" : "holds";
 }
 
 /**
  * The routes with one drawn to `to` (a Stage's key, or null for End), at `limit`. The first route
  * needs no condition; a later one goes in before the first route with none, as that one always
- * holds and must go last, with a condition still to set. A route to where one already leads is
- * that one.
+ * holds and must go last, with a condition still to set (of `form`, When it ends… on a Publish
+ * Stage). A route to where one already leads is that one.
  */
 export function routesWithDrawn(
   routes: readonly Route[],
   to: string | null,
   limit: RouteLimit,
+  form: "holds" | "ends" = "holds",
 ): RoutesDrawn {
   const existing = routes.findIndex((route) => route.to === to);
   if (existing >= 0) return { routes, routeIndex: existing };
   if (routes.length === 0) return { routes: [{ to, condition: null, limit }], routeIndex: 0 };
-  return routesWithAdded(routes, "holds", to, limit);
+  return routesWithAdded(routes, form, to, limit);
 }
 
 /**
- * The routes with a row of `form` added (Add a route): When it fails first, When these hold before
- * the first route with no condition, with a condition still to set, and Otherwise last.
+ * The routes with a row of `form` added (Add a route): When it fails first, When these hold and When
+ * it ends… before the first route with no condition, with a condition still to set, and Otherwise
+ * last.
  */
 export function routesWithAdded(
   routes: readonly Route[],
@@ -310,25 +364,30 @@ export function routesWithAdded(
       return { routes: [{ to, condition: FAILED_CONDITION, limit }, ...routes], routeIndex: 0 };
     case "otherwise":
       return { routes: [...routes, { to, condition: null, limit }], routeIndex: routes.length };
-    case "holds": {
+    case "holds":
+    case "ends": {
       const open = routes.findIndex((route) => route.condition === null);
       const routeIndex = open >= 0 ? open : routes.length;
+      const condition = form === "ends" ? endsCondition([]) : UNSET_CONDITION;
       return {
-        routes: routes.toSpliced(routeIndex, 0, { to, condition: UNSET_CONDITION, limit }),
+        routes: routes.toSpliced(routeIndex, 0, { to, condition, limit }),
         routeIndex,
       };
     }
   }
 }
 
-/** The forms Add a route offers a Stage: When it fails and Otherwise only while it has none. */
+/**
+ * The forms Add a route offers a Stage: on a Publish Stage When it ends…, on any other When these
+ * hold, with When it fails on an Agent Stage, and Otherwise, each only while it has none.
+ */
 export function formsToAdd(stage: Stage): readonly RouteForm[] {
   const routes = stage.routes ?? [];
   const has = (form: RouteForm): boolean =>
     routes.some((route) => routeFormOf(stage, route) === form);
   return [
     ...(stage.kind === "agent" && !has("fails") ? (["fails"] as const) : []),
-    "holds",
+    drawnForm(stage),
     ...(has("otherwise") ? [] : (["otherwise"] as const)),
   ];
 }
@@ -350,7 +409,10 @@ export function canMoveRouteAmong(
   const route = routes[index];
   const other = routes[index + by];
   if (!route || !other) return false;
-  return [route, other].every((each) => routeFormOf(stage, each) === "holds");
+  return [route, other].every((each) => {
+    const form = routeFormOf(stage, each);
+    return form === "holds" || form === "ends";
+  });
 }
 
 export function routesMoved(routes: readonly Route[], index: number, by: -1 | 1): readonly Route[] {
@@ -402,7 +464,12 @@ export function withRouteDrawn(
 ): RouteDrawn {
   const from = stageNamed(stages, fromKey);
   if (!from) return { stages, routeIndex: -1 };
-  const drawn = routesWithDrawn(from.routes ?? [], to, defaultLimit(stages, fromKey, to));
+  const drawn = routesWithDrawn(
+    from.routes ?? [],
+    to,
+    defaultLimit(stages, fromKey, to),
+    drawnForm(from),
+  );
   return { stages: withRoutes(stages, fromKey, () => drawn.routes), routeIndex: drawn.routeIndex };
 }
 

@@ -14,7 +14,7 @@ export function missingCommandsOnStages(
   const keys = new Set(commands.map(({ key }) => key));
   return stages.flatMap((stage, stageIndex) => {
     if (skipped.has(stage.key)) return [];
-    const missing = commandKeysOfStage(stage, stages).filter((key) => !keys.has(key));
+    const missing = commandKeysOfStage(stage).filter((key) => !keys.has(key));
     return missing.length > 0 ? [problemOnStage(stage, stageIndex, words(missing))] : [];
   });
 }

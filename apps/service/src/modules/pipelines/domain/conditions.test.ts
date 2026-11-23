@@ -6,7 +6,7 @@ import {
   weighRoutes,
   type Weighing,
 } from "./conditions.js";
-import type { ConditionGroup, ConditionTest, Route } from "./route.js";
+import type { ConditionGroup, ConditionTest, Route, StageTestOutcome } from "./route.js";
 import { NO_STAGE_TOKENS, type StageOutcome, type StageRun } from "./stage-run.js";
 
 const done: StageOutcome = { status: "done", summary: "Done." };
@@ -57,7 +57,13 @@ const DEFINITION_OF_DONE = ["The name shows", "The name persists"];
 const NONE_WEIGHED: CommandResults = () => undefined;
 
 function weighing(runs: readonly StageRun[], commands = NONE_WEIGHED): Weighing {
-  return { stageKey: "tests", runs, definitionOfDone: DEFINITION_OF_DONE, commands };
+  return {
+    stageKey: "tests",
+    runs,
+    publishStageKeys: new Set(["publish"]),
+    definitionOfDone: DEFINITION_OF_DONE,
+    commands,
+  };
 }
 
 function all(...tests: ConditionGroup["tests"]): ConditionGroup {
@@ -68,7 +74,7 @@ function any(...tests: ConditionGroup["tests"]): ConditionGroup {
   return { combine: "any", tests };
 }
 
-function previousIs(is: "done" | "failed" | "skipped" | "changed" | "unchanged"): ConditionTest {
+function previousIs(is: StageTestOutcome): ConditionTest {
   return { kind: "stage", stage: null, is };
 }
 
@@ -145,6 +151,82 @@ describe("weighing a Stage test", () => {
     expect(holds({ kind: "stage", stage: "review", is: "ran", times: 1 }, ran)).toBe(
       "does-not-hold",
     );
+  });
+});
+
+describe("weighing a test of a Publish Stage", () => {
+  const published: StageOutcome = {
+    status: "done",
+    summary: "Merged.",
+    publishResult: "published",
+  };
+  const nothing: StageOutcome = {
+    status: "done",
+    summary: "Nothing to publish.",
+    publishResult: "nothing-to-publish",
+  };
+  const conflict: StageOutcome = {
+    status: "failed",
+    error: "Conflicts.",
+    baseMoved: { conflictedFiles: ["a.ts"] },
+    publishResult: "conflict",
+  };
+  const afterFailed: StageOutcome = {
+    status: "failed",
+    error: "After publishing failed.",
+    publishResult: "after-publishing-failed",
+  };
+  const publishFailed: StageOutcome = {
+    status: "failed",
+    error: "Push refused.",
+    publishResult: "failed",
+  };
+  const results: readonly StageTestOutcome[] = [
+    "done",
+    "failed",
+    "published",
+    "nothing-to-publish",
+    "conflict",
+    "after-publishing-failed",
+  ];
+
+  /** The tests of `results` that hold on the Publish run ending `outcome`. */
+  function holding(outcome: StageOutcome): StageTestOutcome[] {
+    return results.filter(
+      (is) =>
+        holds({ kind: "stage", stage: "publish", is }, [aRun("publish", outcome)]) === "holds",
+    );
+  }
+
+  it("reads the run's result: Done for Published and Nothing to publish, Failed for Failed alone", () => {
+    expect(holding(published)).toEqual(["done", "published"]);
+    expect(holding(nothing)).toEqual(["done", "nothing-to-publish"]);
+    expect(holding(conflict)).toEqual(["conflict"]);
+    expect(holding(afterFailed)).toEqual(["after-publishing-failed"]);
+    expect(holding(publishFailed)).toEqual(["failed"]);
+  });
+
+  it("reads a run kept before results were by its status", () => {
+    const keptConflict: StageOutcome = {
+      status: "failed",
+      error: "Conflicts.",
+      baseMoved: { conflictedFiles: ["a.ts"] },
+    };
+    const keptAfterFailed: StageOutcome = {
+      status: "failed",
+      error: "After publishing failed.",
+      afterPublishingFailed: { kind: "merged", branch: "office/task-1", commit: "c0ffee" },
+    };
+
+    expect(holding(done)).toEqual(["done", "published"]);
+    expect(holding(keptConflict)).toEqual(["conflict"]);
+    expect(holding(keptAfterFailed)).toEqual(["after-publishing-failed"]);
+    expect(holding(failed)).toEqual(["failed"]);
+  });
+
+  it("holds no result on a Stage that isn't a Publish Stage", () => {
+    expect(holds(previousIs("published"), [aRun("tests", done)])).toBe("does-not-hold");
+    expect(holds(previousIs("conflict"), [aRun("tests", failed)])).toBe("does-not-hold");
   });
 });
 

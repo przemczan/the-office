@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { contextMoveSchema, tokenTotalsSchema } from "./conversations.js";
 import { webEventSchema } from "./events.js";
-import { stageProblemSchema, stageSchema } from "./stages.js";
+import { publishResultSchema, stageProblemSchema, stageSchema } from "./stages.js";
 
 export const pipelineSchema = z.object({
   id: z.string().min(1),
@@ -111,6 +111,8 @@ export const stageRunOutcomeSchema = z.discriminatedUnion("status", [
     definitionOfDoneMet: z.array(z.int().positive()).nullable(),
     /** The pull request a Publish opened; null for any other run, and a Publish before it was kept. */
     pullRequestUrl: z.url().nullable(),
+    /** A Publish Stage's run's result; null for any other run. */
+    publishResult: publishResultSchema.nullable(),
     ...handoverNoteField,
   }),
   z.object({ status: z.literal("needs-decision"), question: z.string(), ...handoverNoteField }),
@@ -157,6 +159,8 @@ export const stageRunOutcomeSchema = z.discriminatedUnion("status", [
      * did ship, so this is no plain failure.
      */
     afterPublishingFailed: publishedWorkSchema.nullable(),
+    /** A Publish Stage's run's result (Conflict, After publishing failed or Failed); null otherwise. */
+    publishResult: publishResultSchema.nullable(),
     ...handoverNoteField,
   }),
 ]);

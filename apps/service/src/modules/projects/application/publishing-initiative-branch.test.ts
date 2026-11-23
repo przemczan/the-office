@@ -145,6 +145,7 @@ describe("Publishing into the Initiative's branch", PUBLISHING_TEST, () => {
     expect(publication).toEqual({
       kind: "base-moved",
       error: `${task.branch} no longer applies cleanly on ${branch} on origin: it would conflict in\n- ${file}`,
+      base: { remote: "origin", branch },
       conflictedFiles: [file],
     });
     expect(testbed.originCommitOf(branch)).toBe(initiativeTip);

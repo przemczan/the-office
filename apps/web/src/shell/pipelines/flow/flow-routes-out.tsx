@@ -20,6 +20,7 @@ import { routeAdded, routeRemoved } from "./office-flow-edits.ts";
 const FORM_WORDS: Readonly<Record<RouteForm, string>> = {
   fails: "When it fails",
   holds: "When these hold",
+  ends: "When it ends…",
   otherwise: "Otherwise",
 };
 

@@ -1,7 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   Duty,
-  Initiative,
   Project,
   Role,
   RoleCardOptions,
@@ -14,7 +13,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { dutyQueries, roleCardQueries, roleQueries } from "../../api/people.ts";
 import { editTaskStages, pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
-import { initiativeQueries, setPipeline } from "../../api/work.ts";
+import { setPipeline } from "../../api/work.ts";
 import {
   choiceById,
   openingChoice,
@@ -24,7 +23,6 @@ import {
 import { PipelinePicker } from "../../shell/pipelines/pipeline-picker.tsx";
 import { asWholeFlow } from "../../shell/pipelines/flow/flow-model.ts";
 import { TaskFlowEditor } from "../../shell/pipelines/flow/task-flow-editor.tsx";
-import type { StageCommandSource } from "../../shell/pipelines/stage-commands.ts";
 import { byLevel, checkAwaited } from "../../shell/pipelines/stages-check.ts";
 import { useProjectPipelineChoices } from "../../shell/pipelines/use-pipelines.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
@@ -32,7 +30,6 @@ import { useToast } from "../../shell/toasts.tsx";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
 import { useRecordChange } from "./planning-parts.tsx";
 import { STAGE_STATE_WORDS } from "./stage-words.ts";
-import { taskPublishingWords } from "./task-publishing.ts";
 
 /**
  * "Edit for this Task": the flow editor on the Task's own copy of its Pipeline, and the Pipeline
@@ -52,10 +49,6 @@ export function EditTaskStagesDialog({
   const duties = useQuery(dutyQueries.list());
   const options = useQuery(roleCardQueries.options());
   const project = useQuery(projectQueries.one(task.projectId));
-  const initiative = useQuery({
-    ...initiativeQueries.one(task.initiativeId ?? ""),
-    enabled: task.initiativeId !== null,
-  });
   if (
     !taskStages.data ||
     !library ||
@@ -72,7 +65,6 @@ export function EditTaskStagesDialog({
     library.projectPipelines,
     task.kind,
   );
-  if (task.initiativeId !== null && !initiative.data) return null;
   return (
     <EditTaskStagesForm
       task={task}
@@ -82,7 +74,6 @@ export function EditTaskStagesDialog({
       duties={duties.data}
       options={options.data}
       project={project.data}
-      initiative={initiative.data}
       onClose={onClose}
     />
   );
@@ -101,7 +92,6 @@ function EditTaskStagesForm({
   duties,
   options,
   project,
-  initiative,
   onClose,
 }: {
   readonly task: TaskSummary;
@@ -112,8 +102,6 @@ function EditTaskStagesForm({
   readonly duties: readonly Duty[];
   readonly options: RoleCardOptions;
   readonly project: Project;
-  /** The Initiative the Task is part of, if it is. */
-  readonly initiative: Initiative | undefined;
   readonly onClose: () => void;
 }): ReactNode {
   const stagesOf = (pipelineId: string): readonly Stage[] =>
@@ -246,7 +234,7 @@ function EditTaskStagesForm({
             roles={roles}
             duties={duties}
             options={options}
-            commands={commandsOf(task, project, initiative)}
+            commands={{ kind: "project", commands: project.commands }}
             fullScreenName={`${task.title} ·`}
             fullScreenBar={saveActions}
           />
@@ -263,18 +251,4 @@ function startedStages({ stages }: TaskStages): ReadonlyMap<string, string> {
       .filter(({ runs }) => runs.length > 0)
       .map(({ stage, state }): [string, string] => [stage.key, STAGE_STATE_WORDS[state]]),
   );
-}
-
-/** What a Script Stage may run in the Task's Project: its commands, and Publish as it ships there. */
-function commandsOf(
-  task: TaskSummary,
-  project: Project,
-  initiative: Initiative | undefined,
-): StageCommandSource {
-  return {
-    kind: "project",
-    commands: project.commands,
-    publishing: taskPublishingWords(task, project, initiative),
-    publishingLines: project,
-  };
 }

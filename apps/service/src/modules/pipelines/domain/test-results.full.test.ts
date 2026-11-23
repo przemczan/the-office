@@ -22,13 +22,7 @@ const tests: Stage = {
   command: "test",
 };
 const lint: Stage = { kind: "script", key: "lint", name: "Lint", optional: true, command: "lint" };
-const publish: Stage = {
-  kind: "script",
-  key: "publish",
-  name: "Publish",
-  optional: false,
-  command: "publish",
-};
+const publish: Stage = { kind: "publish", key: "publish", name: "Publish", optional: false };
 
 function aRun(number: number, stageKey: string, outcome: StageOutcome | undefined) {
   return aStageRun({ number, stageKey, outcome });

@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import { asFlow } from "./flow.js";
 import { ENDED_FAILED, plainRoute, type Route } from "./route.js";
 import { buildStages, type BaseStages } from "./stage-change.js";
-import { agentStage, gate, goingBackOnFailure, scriptStage } from "./stage.fixtures.js";
+import {
+  agentStage,
+  gate,
+  goingBackOnFailure,
+  keptPublishStage,
+  scriptStage,
+} from "./stage.fixtures.js";
 
 const IMPLEMENT = agentStage();
 const TESTS = goingBackOnFailure(scriptStage(), "implement", 2);
@@ -50,6 +56,23 @@ describe("buildStages", () => {
     expect(built.stages).toEqual(FULL_LINE);
     expect(built.broken).toEqual([]);
     expect(built.rows.map(({ origin }) => origin)).toEqual(["base", "base", "base"]);
+  });
+
+  it("reads a kept Publish Stage's Changes of its target and what followed a conflict on the Publish Stage it is now", () => {
+    const shipping: BaseStages = { name: "Shipping", stages: [IMPLEMENT, keptPublishStage()] };
+
+    const built = buildStages(shipping, [
+      {
+        kind: "change",
+        stageKey: "publish",
+        fields: { publishTarget: "branch-only", afterConflict: "review" },
+      },
+    ]);
+
+    expect(built.broken).toEqual([]);
+    const publish = built.stages.find(({ key }) => key === "publish");
+    expect(publish).toMatchObject({ kind: "publish", publishTarget: "branch-only" });
+    expect(publish).not.toHaveProperty("afterConflict");
   });
 
   it("inserts a Stage before or after the Stage it names by key", () => {

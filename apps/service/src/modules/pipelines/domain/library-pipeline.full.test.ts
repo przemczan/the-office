@@ -50,12 +50,12 @@ describe("pipelineEditProblems", () => {
     const stages = [
       agentStage(),
       agentStage({ key: "review", name: "Review", role: "reviewer", session: "continue" }),
-      scriptStage({ publishTarget: "branch-only" }),
+      scriptStage({ command: "install" }),
     ];
 
     expect(pipelineEditProblems(anEdit({ stages }), [], []).map(({ text }) => text)).toEqual([
       "Stage 2 · Review: continuing a session needs the same Role or the same duty in the Stage before.",
-      "Stage 3 · Tests: only a Publish Stage has a publish target.",
+      'Stage 3 · Tests: runs "install", which is kept for The Office\'s own use.',
     ]);
     expect(pipelineEditProblems(anEdit({ stages: [] }), [], [])).toEqual([
       { level: "problem", text: "A Pipeline needs at least one Stage." },

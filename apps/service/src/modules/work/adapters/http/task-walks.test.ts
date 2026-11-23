@@ -161,12 +161,21 @@ const REVIEW_GATE = {
   optional: false,
 } as const;
 const PUBLISH = {
-  kind: "script",
+  kind: "publish",
   key: "publish",
   name: "Publish",
   optional: false,
-  command: "publish",
 } as const;
+
+/** A route on to the Stage `to`, or out of the Pipeline when `null`, whatever the Stage ended. */
+function onTo(to: string | null): object {
+  return { to, condition: null, limit: null };
+}
+
+/** A route to the Stage `to` when the Stage ended `is`, at most `limit` times. */
+function whenEnded(is: "failed" | "conflict", to: string, limit: number): object {
+  return { to, condition: { combine: "all", tests: [{ kind: "stage", stage: null, is }] }, limit };
+}
 
 interface Office {
   readonly app: INestApplication;
@@ -183,7 +192,8 @@ interface Office {
   readonly originPath: string;
   send(method: string, path: string, body?: unknown): Promise<Response>;
   /** A library Pipeline of the test's own: its Developer's Agent Stage, then `after`. */
-  aPipeline(after?: readonly object[]): Promise<Pipeline>;
+  /** Build, given `buildFlow`'s routes and place when the Stages `after` it carry theirs. */
+  aPipeline(after?: readonly object[], buildFlow?: object): Promise<Pipeline>;
   readyTask(pipelineId: string): Promise<Task>;
   untilState(taskId: string, state: Task["state"]): Promise<void>;
   stagesOf(taskId: string): Promise<readonly TaskStage[]>;
@@ -281,7 +291,7 @@ async function startOffice({ taskLimit } = { taskLimit: 1 }): Promise<Office> {
     repository,
     originPath,
     send,
-    async aPipeline(after = [REVIEW_GATE]) {
+    async aPipeline(after = [REVIEW_GATE], buildFlow = {}) {
       const response = await send("POST", "/pipelines", {
         name: `Queue ${randomUUID().slice(0, 8)}`,
         description: "Its Developer's work, then what follows.",
@@ -295,6 +305,7 @@ async function startOffice({ taskLimit } = { taskLimit: 1 }): Promise<Office> {
             brief: "Build it.",
             session: "fresh",
             budget: 100_000,
+            ...buildFlow,
           },
           ...after,
         ],
@@ -554,10 +565,48 @@ describe("Conflicts at Publish", () => {
         expect((await office.send("POST", `/tasks/${taskId}/gate/continue`)).ok).toBe(true);
       };
       try {
-        const pipeline = await office.aPipeline([
-          REVIEW_GATE,
-          { ...PUBLISH, afterConflict: "review" },
-        ]);
+        // The conflict chain as the move to Publish Stages draws it, with its Review Gate.
+        const pipeline = await office.aPipeline(
+          [
+            { ...REVIEW_GATE, routes: [onTo("publish")], place: { column: 1, row: 0 } },
+            {
+              kind: "agent",
+              key: "resolve",
+              name: "Resolve",
+              optional: false,
+              role: office.developerKey,
+              brief: "Resolve the conflicts.",
+              session: "fresh",
+              budget: 350_000,
+              mergeBaseFirst: true,
+              routes: [onTo("resolve-test")],
+              place: { column: 0, row: 1 },
+            },
+            {
+              kind: "script",
+              key: "resolve-test",
+              name: "Test after Resolve",
+              optional: false,
+              command: "test",
+              routes: [whenEnded("failed", "resolve", 2), onTo("resolve-gate")],
+              place: { column: 1, row: 1 },
+            },
+            {
+              kind: "gate",
+              key: "resolve-gate",
+              name: "Review the resolved conflict",
+              optional: false,
+              routes: [onTo("publish")],
+              place: { column: 2, row: 1 },
+            },
+            {
+              ...PUBLISH,
+              routes: [whenEnded("conflict", "resolve", 3), onTo(null)],
+              place: { column: 2, row: 0 },
+            },
+          ],
+          { routes: [onTo("review")], place: { column: 0, row: 0 } },
+        );
         const first = await office.readyTask(pipeline.id);
         const second = await office.readyTask(pipeline.id);
         // Both in progress before either publishes, each changing the same line.

@@ -5,10 +5,13 @@ import {
   canDropAt,
   canMoveRoute,
   canMoveStage,
+  endedResults,
+  endsCondition,
   FAILED_CONDITION,
   formsToAdd,
   isRouteBack,
   laterStages,
+  routeFormOf,
   routesMoved,
   stepInOrder,
   withRouteAdded,
@@ -35,13 +38,7 @@ const tests: Stage = {
   command: "test",
 };
 const review: Stage = { kind: "gate", key: "review", name: "Review", optional: false };
-const publish: Stage = {
-  kind: "script",
-  key: "publish",
-  name: "Publish",
-  optional: false,
-  command: "publish",
-};
+const publish: Stage = { kind: "publish", key: "publish", name: "Publish", optional: false };
 const gate: Stage = { kind: "gate", key: "", name: "Gate", optional: false };
 const changed: ConditionGroup = {
   combine: "all",
@@ -85,6 +82,49 @@ describe("a flow", () => {
 
   it("isn't the converted line once a Stage stands on another row", () => {
     expect(isConvertedFlow(withStageMoved(line, "tests", "down"))).toBe(false);
+  });
+
+  it("is the moved line with the conflict chain drawn in under its Publish", () => {
+    const resolve: Stage = {
+      kind: "agent",
+      key: "office:resolve",
+      name: "Resolve",
+      optional: false,
+      role: "developer",
+      brief: "",
+      session: "fresh",
+      budget: 620_000,
+      mergeBaseFirst: true,
+      place: { column: 1, row: 1 },
+      routes: [{ to: "office:resolve-test", condition: null, limit: null }],
+    };
+    const resolveTest: Stage = {
+      kind: "script",
+      key: "office:resolve-test",
+      name: "Test after Resolve",
+      optional: false,
+      command: "test",
+      place: { column: 2, row: 1 },
+      routes: [
+        { to: "office:resolve", condition: FAILED_CONDITION, limit: 2 },
+        { to: "publish", condition: null, limit: null },
+      ],
+    };
+    const moved = [
+      { ...plan, place: { column: 0, row: 0 }, routes: [{ to: "tests", condition: null }] },
+      { ...tests, place: { column: 2, row: 0 }, routes: [{ to: "publish", condition: null }] },
+      {
+        ...publish,
+        place: { column: 3, row: 0 },
+        routes: [
+          { to: "office:resolve", condition: endsCondition(["conflict"]), limit: 3 },
+          { to: null, condition: null, limit: null },
+        ],
+      },
+      resolve,
+      resolveTest,
+    ];
+    expect(isConvertedFlow(moved)).toBe(true);
   });
 
   it("says which Stages come later by column", () => {
@@ -254,6 +294,18 @@ describe("adding a route by its form", () => {
     expect(routesOf(withRouteAdded(bare, "plan", "otherwise").stages, "plan")).toEqual([
       { to: null, condition: null, limit: null },
     ]);
+  });
+
+  it("offers a Publish Stage When it ends…, a later route drawn on it taking no result yet", () => {
+    const publishing = asFlow([plan, publish]);
+    expect(formsToAdd(publishing[1]!)).toEqual(["ends"]);
+    const drawn = withRouteDrawn(publishing, "publish", "plan");
+    expect(routesOf(drawn.stages, "publish")?.[drawn.routeIndex]).toEqual({
+      to: "plan",
+      condition: { combine: "all", tests: [] },
+      limit: 3,
+    });
+    expect(routeFormOf(publish, { condition: { combine: "all", tests: [] } })).toBe("ends");
   });
 
   it("never moves a row above When it fails or below Otherwise", () => {
@@ -439,5 +491,37 @@ describe("a Task's flow, its started Stages locked", () => {
     expect(canMoveStage(flow, "tests", "later", started)).toBe(false);
     expect(canMoveStage(flow, "review", "earlier", started)).toBe(false);
     expect(canMoveStage(flow, "review", "later", started)).toBe(true);
+  });
+});
+
+describe("a Publish Stage's results", () => {
+  it("are one test alone as All of, several as Any of, in the order When it ends… lists them", () => {
+    expect(endsCondition(["conflict"])).toEqual({
+      combine: "all",
+      tests: [{ kind: "stage", stage: null, is: "conflict" }],
+    });
+    expect(endsCondition(["failed", "after-publishing-failed"])).toEqual({
+      combine: "any",
+      tests: [
+        { kind: "stage", stage: null, is: "after-publishing-failed" },
+        { kind: "stage", stage: null, is: "failed" },
+      ],
+    });
+  });
+
+  it("are read back from a condition of the route's own Stage's results alone", () => {
+    expect(endedResults({ condition: endsCondition(["published", "failed"]) })).toEqual([
+      "published",
+      "failed",
+    ]);
+    expect(endedResults({ condition: FAILED_CONDITION })).toEqual(["failed"]);
+    expect(
+      endedResults({
+        condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "changed" }] },
+      }),
+    ).toBeUndefined();
+    expect(endedResults({ condition: null })).toBeUndefined();
+    expect(routeFormOf(publish, { condition: FAILED_CONDITION })).toBe("ends");
+    expect(routeFormOf(tests, { condition: endsCondition(["conflict"]) })).toBe("holds");
   });
 });

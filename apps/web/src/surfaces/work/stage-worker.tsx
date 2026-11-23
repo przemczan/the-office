@@ -1,6 +1,8 @@
 import type { Role, TaskStage } from "@the-office/contracts";
+import { Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { NamedTag, PersonTag } from "../../shell/person-tag.tsx";
+import { STAGE_KIND_ICONS } from "../../shell/pipelines/stage-edits.ts";
 import { stageWorkerWords, workingRoleKey } from "./stage-rail-words.ts";
 
 /** Who works a Stage, as the rail and the Stage history draw them. */
@@ -14,6 +16,16 @@ export function StageWorker({
   const { stage } = taskStage;
   const words = stageWorkerWords(taskStage, roles);
   if (stage.kind === "gate") return <NamedTag name={words} />;
+  if (stage.kind === "publish") {
+    return (
+      <span className="person-tag">
+        <span className="person-tag-command" aria-hidden="true">
+          <Icon name={STAGE_KIND_ICONS.publish} size={11} />
+        </span>
+        <span className="person-tag-name">{words}</span>
+      </span>
+    );
+  }
   if (stage.kind === "script") {
     return (
       <span className="person-tag">

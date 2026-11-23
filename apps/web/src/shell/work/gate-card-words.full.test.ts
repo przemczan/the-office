@@ -185,7 +185,7 @@ describe("unmetAtTheCheck", () => {
 describe("continueAtGateLabel", () => {
   const waiting = {
     gate: { kind: "gate", key: "look", name: "Look", optional: false },
-    next: { kind: "script", key: "publish", name: "Publish", optional: false, command: "publish" },
+    next: { kind: "publish", key: "publish", name: "Publish", optional: false },
   } as WaitingGate;
 
   it("says Continue publishes anyway over unmet statements", () => {
@@ -205,6 +205,7 @@ describe("attachmentsOfThisRound", () => {
     skipped: false,
     definitionOfDoneMet: null,
     pullRequestUrl: null,
+    publishResult: null,
     handoverNote: null,
   };
   const gate: Stage = { kind: "gate", key: "look", name: "Look", optional: false };

@@ -55,7 +55,7 @@ export interface SessionAhead {
  */
 const CACHE_READ_SHARE = 0.1;
 
-/** What the walk does first once the Task resumes, from its Stages, walked, and runs. */
+/** What the walk does first once the Task resumes, from its Stages, as `asFlow` reads them, and runs. */
 export function walkAhead(
   stages: readonly Stage[],
   runs: readonly StageRun[],
@@ -86,7 +86,9 @@ function runAhead(stage: Stage): WalkAhead {
   switch (stage.kind) {
     case "agent":
       return { kind: "agent", stage };
+    // A Publish Stage, as a Script Stage, calls no model.
     case "script":
+    case "publish":
       return { kind: "script", stage };
     case "gate":
       return { kind: "waits-on-you" };

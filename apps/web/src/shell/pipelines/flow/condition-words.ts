@@ -5,8 +5,9 @@ import type {
   RouteLimit,
   Stage,
 } from "@the-office/contracts";
+import { PUBLISH_RESULT_NAMES } from "../pipeline-words.ts";
 import { isGroup, type DefinitionOfDoneIs, type StageTestIs } from "./condition-edits.ts";
-import { isFailureRoute, limitOf } from "./flow-model.ts";
+import { endedResults, isFailureRoute, limitOf } from "./flow-model.ts";
 
 /**
  * A route's condition in plain words (docs/design/pipeline-flow.html): "Followed when Implement changed files and either the Definition of Done has
@@ -16,7 +17,8 @@ import { isFailureRoute, limitOf } from "./flow-model.ts";
 
 /**
  * What words need of the Stage a route leaves: its name, its routes for their order, and its kind
- * when known, as an Agent Stage's failure route reads "when it fails".
+ * when known, as an Agent Stage's failure route reads "when it fails" and a Publish Stage's results
+ * "when it ends Conflict".
  */
 export type RouteSource = Pick<Stage, "name" | "routes"> & { readonly kind?: Stage["kind"] };
 
@@ -28,7 +30,19 @@ export const STAGE_TEST_WORDS: Readonly<Record<StageTestIs, string>> = {
   changed: "changed files",
   unchanged: "changed no files",
   ran: "ran N or more times",
+  published: "ended Published",
+  "nothing-to-publish": "ended Nothing to publish",
+  conflict: "ended Conflict",
+  "after-publishing-failed": "ended After publishing failed",
 };
+
+/** The tests only a Publish Stage's run answers (spec §2.3.4, "Publish's results"). */
+export const PUBLISH_ONLY_TESTS: readonly StageTestIs[] = [
+  "published",
+  "nothing-to-publish",
+  "conflict",
+  "after-publishing-failed",
+];
 
 /** The second select of a Definition of Done test, and its words after "the Definition of Done". */
 export const DEFINITION_OF_DONE_TEST_WORDS: Readonly<Record<DefinitionOfDoneIs, string>> = {
@@ -101,8 +115,8 @@ export function routeTargetName(route: Route, stages: readonly Stage[]): string 
 
 /**
  * When a route is followed, as its line inside its Stage reads: "when …" ("when it fails" for an
- * Agent Stage's failure route), or with no condition "always" when it is the first route,
- * "otherwise" after another.
+ * Agent Stage's failure route, "when it ends Conflict or Failed" for a Publish Stage's results), or
+ * with no condition "always" when it is the first route, "otherwise" after another.
  */
 export function routeWhen(
   route: Route,
@@ -111,6 +125,8 @@ export function routeWhen(
   routeIndex = indexOf(route, from),
 ): string {
   if (from.kind === "agent" && isFailureRoute(route)) return "when it fails";
+  const ends = endsWords(route, from);
+  if (ends !== undefined) return ends;
   if (route.condition !== null) {
     return `when ${groupWords(route.condition, from, stages, { short: true })}`;
   }
@@ -144,6 +160,8 @@ export function followedWhen(
   if (from.kind === "agent" && isFailureRoute(route)) {
     return `Followed when ${from.name} fails${withLimit}`;
   }
+  const ends = endsWords(route, from);
+  if (ends !== undefined) return `Followed ${ends}${withLimit}`;
   if (route.condition !== null) {
     return `Followed when ${groupWords(route.condition, from, stages)}${withLimit}`;
   }
@@ -152,6 +170,21 @@ export function followedWhen(
   return routeIndex === count - 1
     ? `Followed otherwise, when no route before it holds${withLimit}`
     : "Always holds, so no route after it can be followed.";
+}
+
+/**
+ * A Publish Stage's When it ends… row in words, "when it ends Conflict or Failed"; undefined for
+ * any other route.
+ */
+function endsWords(route: Route, from: RouteSource): string | undefined {
+  if (from.kind !== "publish") return undefined;
+  const results = endedResults(route);
+  if (results === undefined) return undefined;
+  if (results.length === 0) return "when it ends with no result ticked yet";
+  return `when it ends ${listJoin(
+    results.map((result) => PUBLISH_RESULT_NAMES[result]),
+    "or",
+  )}`;
 }
 
 function nestedWords(

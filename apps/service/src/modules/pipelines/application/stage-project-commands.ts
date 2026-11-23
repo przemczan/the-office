@@ -2,9 +2,9 @@ import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { Injectable } from "@nestjs/common";
 import type { OfficeToolCall, OfficeToolResult } from "../../engine/index.js";
+import { asFlow } from "../domain/flow.js";
 import { agentCommandAnswer, type AgentCommand } from "../domain/agent-command.js";
 import { commandKeyRefusal } from "../domain/allowed-commands.js";
-import { walkedStages } from "../domain/resolve-stages.js";
 import type { StageRun } from "../domain/stage-run.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { StageThreads } from "../ports/stage-threads.js";
@@ -48,7 +48,7 @@ export class StageProjectCommands {
       const judgement = await call.judgeCommand(command.commandLine);
       if (!judgement.allowed) return { text: judgement.reason, isError: true };
     } else {
-      const narrowing = await this.narrowingOf(run, runs);
+      const narrowing = await this.narrowingOf(run);
       const refusal = commandKeyRefusal(command.key, project.commands, narrowing);
       if (refusal !== undefined) return { text: refusal, isError: true };
     }
@@ -65,12 +65,9 @@ export class StageProjectCommands {
   }
 
   /** The running Stage's narrowing of the Project's commands, as `allowedCommands` briefed it. */
-  private async narrowingOf(
-    run: StageRun,
-    runs: readonly StageRun[],
-  ): Promise<readonly string[] | undefined> {
+  private async narrowingOf(run: StageRun): Promise<readonly string[] | undefined> {
     const own = await this.taskStages.find(run.taskId);
-    const stage = walkedStages(own?.stages ?? [], runs).find(({ key }) => key === run.stageKey);
+    const stage = asFlow(own?.stages ?? []).find(({ key }) => key === run.stageKey);
     return stage?.kind === "agent" ? stage.permissions?.commands : undefined;
   }
 }

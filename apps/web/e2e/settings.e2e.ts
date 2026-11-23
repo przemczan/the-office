@@ -339,7 +339,7 @@ test(
 );
 
 // The e2e files share one database, and work.e2e.ts walks Full and Quick fix: this test makes
-// Pipelines of its own, with Script Stages and Gates only, as nobody may fill the Developer yet.
+// Pipelines of its own, with Publish Stages and Gates only, as nobody may fill the Developer yet.
 test("the user makes a Pipeline, edits it, duplicates it and removes the copy; Onboard stays", async ({
   page,
 }) => {
@@ -366,28 +366,26 @@ test("the user makes a Pipeline, edits it, duplicates it and removes the copy; O
 
   // Added from the keyboard, a Stage is picked and unconnected: its missing route out holds Save.
   await page.getByRole("button", { name: "Add a Stage" }).press("Enter");
-  await page.getByRole("menu").getByRole("button", { name: "Script Stage" }).press("Enter");
-  const script = page.getByRole("region", { name: "Script", exact: true });
-  await script.getByLabel("Project command").selectOption({ label: "Publish" });
-  const afterConflict = script.getByLabel("After a conflict");
-  await expect(afterConflict).toHaveValue("publish");
-  await afterConflict.selectOption({ label: "Wait at a Gate for your review" });
-  await script
+  await page.getByRole("menu").getByRole("button", { name: "Publish Stage" }).press("Enter");
+  const publish = page.getByRole("region", { name: "Publish", exact: true });
+  // A Publish Stage has no command and no Agent: only what it publishes by.
+  await expect(publish.getByLabel("Project command")).toHaveCount(0);
+  await expect(publish.getByLabel("Publishes")).toHaveValue("publishing-mode");
+  await publish
     .getByLabel("Publishes")
     .selectOption({ label: "Push the branch only (proof of concept)" });
-  await expect(afterConflict).toHaveCount(0);
   await expect(held).toBeVisible();
   await expect(add).toBeDisabled();
   await expect(page.getByText("give it a route out").first()).toBeVisible();
-  await script.getByRole("button", { name: "Add a route" }).click();
+  await publish.getByRole("button", { name: "Add a route" }).click();
   await page.getByRole("menu").getByRole("button", { name: "Otherwise" }).click();
   await expect(page.getByRole("region", { name: "Route" })).toContainText(
-    "Route from Script to End",
+    "Route from Publish to End",
   );
   await expect(held).toHaveCount(0);
 
-  // A Gate added beside Script, then moved before it by the keyboard on the canvas.
-  await flow.getByRole("button", { name: "Script", exact: true }).click();
+  // A Gate added beside Publish, then moved before it by the keyboard on the canvas.
+  await flow.getByRole("button", { name: "Publish", exact: true }).click();
   await page.getByRole("button", { name: "Add a Stage" }).click();
   await page.getByRole("menu").getByRole("button", { name: "Gate", exact: true }).click();
   const gate = page.getByRole("region", { name: "Gate", exact: true });
@@ -396,7 +394,7 @@ test("the user makes a Pipeline, edits it, duplicates it and removes the copy; O
   await expect(gate).toContainText("1 of 2 in the Pipeline's order");
   await expect(flow.getByRole("button", { name: "Gate", exact: true })).toBeFocused();
 
-  // Gate's routes: Otherwise to Script, then When these hold to End, added before it.
+  // Gate's routes: Otherwise to Publish, then When these hold to End, added before it.
   await gate.getByRole("button", { name: "Add a route" }).click();
   await page.getByRole("menu").getByRole("button", { name: "Otherwise" }).click();
   await expect(held).toHaveCount(0);
@@ -423,10 +421,10 @@ test("the user makes a Pipeline, edits it, duplicates it and removes the copy; O
   // Otherwise always goes last: no row moves below it, and it moves up past none.
   await flow.getByRole("button", { name: "Gate", exact: true }).click();
   await expect(gate.getByRole("button", { name: "Move the route to End down" })).toBeDisabled();
-  await expect(gate.getByRole("button", { name: "Move the route to Script up" })).toBeDisabled();
+  await expect(gate.getByRole("button", { name: "Move the route to Publish up" })).toBeDisabled();
   // Each row has its Goes to and At most: a route on starts at No limit.
   await expect(
-    gate.getByRole("group", { name: "At most, route to Script" }).getByRole("checkbox", {
+    gate.getByRole("group", { name: "At most, route to Publish" }).getByRole("checkbox", {
       name: "No limit",
     }),
   ).toBeChecked();
@@ -445,18 +443,18 @@ test("the user makes a Pipeline, edits it, duplicates it and removes the copy; O
             condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "skipped" }] },
             limit: null,
           },
-          { to: "script", condition: null, limit: null },
+          { to: "publish", condition: null, limit: null },
         ],
       }),
       expect.objectContaining({
-        kind: "script",
-        afterConflict: "review",
+        kind: "publish",
+        publishTarget: "branch-only",
         routes: [{ to: null, condition: null, limit: null }],
       }),
     ]),
   });
   const item = library.getByRole("link", { name: new RegExp(`^${name}`) });
-  await expect(item).toContainText("Gate → Script");
+  await expect(item).toContainText("Gate → Publish");
   await page.reload();
   await expect(flow.getByRole("button", { name: "Route from Gate to End" })).toBeVisible();
   await expect(
@@ -641,11 +639,10 @@ test(
     const added = await page.request.post("/api/stage-templates", {
       data: {
         stage: {
-          kind: "script",
+          kind: "publish",
           key: "publish-preview",
           name: templateName,
           optional: true,
-          command: "publish",
           publishTarget: "branch-only",
         },
       },
@@ -655,10 +652,9 @@ test(
       { kind: "script", key: "tests", name: "Tests", optional: false, command: "test" },
     ]);
     const copied = {
-      kind: "script",
+      kind: "publish",
       name: templateName,
       optional: true,
-      command: "publish",
       publishTarget: "branch-only",
     };
 
@@ -669,7 +665,6 @@ test(
     await page.getByRole("button", { name: "Add a Stage" }).click();
     await page.getByRole("menu").getByRole("button", { name: templateName }).click();
     const panel = page.getByRole("region", { name: templateName, exact: true });
-    await expect(panel.getByLabel("Project command")).toHaveValue("publish");
     await expect(panel.getByLabel("Publishes")).toHaveValue("branch-only");
     // Added unconnected: Tests' route leads to it, and it to End.
     await flow.getByRole("button", { name: "Tests", exact: true }).click();

@@ -2,6 +2,8 @@ import type { INestApplication } from "@nestjs/common";
 import { pipelineListSchema, pipelineSchema } from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { ENDED_CONFLICT, RESOLVE_KEY, RESOLVE_TEST_KEY } from "../../domain/publish-stages.js";
+import { RESOLVE_TEMPLATE_BRIEF } from "../../domain/resolve-template.js";
 import { PipelineLibraryModule } from "../../pipeline-library.module.js";
 
 let app: INestApplication;
@@ -68,12 +70,47 @@ describe("GET /api/pipelines/:id", () => {
         place: { column: 1, row: 0 },
       },
       {
+        kind: "agent",
+        key: RESOLVE_KEY,
+        name: "Resolve",
+        optional: false,
+        duty: "implements",
+        brief: RESOLVE_TEMPLATE_BRIEF,
+        session: "fresh",
+        budget: 450_000,
+        mergeBaseFirst: true,
+        templateId: "resolve",
+        routes: [
+          { to: RESOLVE_TEST_KEY, toName: "Test after Resolve", condition: null, limit: null },
+        ],
+        place: { column: 0, row: 1 },
+      },
+      {
         kind: "script",
+        key: RESOLVE_TEST_KEY,
+        name: "Test after Resolve",
+        optional: false,
+        command: "test",
+        routes: [
+          {
+            to: RESOLVE_KEY,
+            toName: "Resolve",
+            condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "failed" }] },
+            limit: 2,
+          },
+          { to: "publish", toName: "Publish", condition: null, limit: null },
+        ],
+        place: { column: 1, row: 1 },
+      },
+      {
+        kind: "publish",
         key: "publish",
         name: "Publish",
         optional: false,
-        command: "publish",
-        routes: [{ to: null, condition: null, limit: null }],
+        routes: [
+          { to: RESOLVE_KEY, toName: "Resolve", condition: ENDED_CONFLICT, limit: 3 },
+          { to: null, condition: null, limit: null },
+        ],
         place: { column: 2, row: 0 },
       },
     ]);
@@ -83,6 +120,7 @@ describe("GET /api/pipelines/:id", () => {
     const response = await fetch(`${url}/api/pipelines/proof-of-concept`);
 
     expect(pipelineSchema.parse(await response.json()).stages.at(-1)).toMatchObject({
+      kind: "publish",
       key: "publish",
       publishTarget: "branch-only",
     });

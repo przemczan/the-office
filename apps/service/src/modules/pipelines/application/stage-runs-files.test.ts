@@ -8,7 +8,7 @@ import { StageRunsFiles } from "./stage-runs-files.js";
 
 function aFile(title: string): StageRunsFile {
   return {
-    version: 1,
+    version: 2,
     task: { id: "task-1", title, project: "the-office" },
     route: { from: "tests", to: "review", times: 0, limit: null },
     definitionOfDone: [],

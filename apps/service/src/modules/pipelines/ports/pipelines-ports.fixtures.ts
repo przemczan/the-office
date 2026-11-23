@@ -1322,6 +1322,8 @@ export class TaskPublishingForTests extends TaskPublishing {
     if (start.kind === "conflicted" && start.commit !== undefined) {
       this.mergedAt(taskId, start.commit);
     }
+    // A conflict leaves the merge in progress, as git's does, until it is committed or given back.
+    if (start.kind === "conflicted") this.git.merging.add(taskId);
     return Promise.resolve(start);
   }
 
@@ -1342,6 +1344,7 @@ export class TaskPublishingForTests extends TaskPublishing {
 
   abandonResolve(_projectId: string, taskId: string): Promise<void> {
     this.resolveCalls.push({ call: "abandon", taskId });
+    this.git.merging.delete(taskId);
     return Promise.resolve();
   }
 }

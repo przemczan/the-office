@@ -20,6 +20,7 @@ import { projectCommandsOf } from "../../../shell/pipelines/library-commands.ts"
 import { projectPipelineUseLine } from "../../../shell/pipelines/pipeline-use-words.ts";
 import { copiedFromWords } from "../../../shell/pipelines/pipeline-words.ts";
 import { RemovePipelineDialog } from "../../../shell/pipelines/remove-pipeline-dialog.tsx";
+import { ConvertedNote } from "../../../shell/pipelines/flow/converted-note.tsx";
 import { flowProblems } from "../../../shell/pipelines/flow/flow-checks.ts";
 import { asFlow } from "../../../shell/pipelines/flow/flow-model.ts";
 import { OfficeFlowEditor } from "../../../shell/pipelines/flow/office-flow-editor.tsx";
@@ -113,6 +114,12 @@ export function ProjectPipelineForm({
           <p>Tasks can choose it once you save it.</p>
         </Alert>
       )}
+      <ConvertedNote
+        key={projectPipeline.id}
+        pipelineId={projectPipeline.id}
+        name={projectPipeline.name}
+        stages={draft.stages}
+      />
       <Card>
         <div className="project-pipeline-form">
           <Input

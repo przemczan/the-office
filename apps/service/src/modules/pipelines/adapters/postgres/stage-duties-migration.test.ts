@@ -6,7 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { rolledBackMigration } from "../../../../../test/test-database.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
-import { builtInPipelines as allBuiltInPipelines } from "../../domain/built-in-pipelines.js";
+import { builtInPipelinesBeforeFlows } from "../../domain/built-in-pipelines-before-flows.fixtures.js";
 import { builtInStageTemplates as allBuiltInStageTemplates } from "../../domain/built-in-stage-templates.js";
 import type { Stage } from "../../domain/stage.js";
 
@@ -15,8 +15,10 @@ const LATER_BUILT_INS: ReadonlySet<string> = new Set([
   "resolve-conflicts",
   "test",
   "set-up-test-targets",
+  "resolve",
 ]);
-const builtInPipelines = allBuiltInPipelines.filter(({ id }) => !LATER_BUILT_INS.has(id));
+/** The built-ins as kept when the migration ran: lists of Stages, a Script Stage publishing. */
+const builtInPipelines = builtInPipelinesBeforeFlows.filter(({ id }) => !LATER_BUILT_INS.has(id));
 const builtInStageTemplates = allBuiltInStageTemplates.filter(({ id }) => !LATER_BUILT_INS.has(id));
 
 let app: INestApplication;

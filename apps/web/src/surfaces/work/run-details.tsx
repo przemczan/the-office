@@ -88,7 +88,7 @@ export function RunDetails({
         {head}
         <div className="run-details-body">
           {summary}
-          {(stage.kind === "script" || weighedConditions(run)) && (
+          {(stage.kind === "script" || stage.kind === "publish" || weighedConditions(run)) && (
             <CommandLog taskId={taskId} run={run} names={names} />
           )}
           {stage.kind === "gate" && (

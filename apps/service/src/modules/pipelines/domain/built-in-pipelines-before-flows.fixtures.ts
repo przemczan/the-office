@@ -10,16 +10,18 @@ import {
   SET_UP_RUN_ENVIRONMENT_PIPELINE,
   SET_UP_TEST_TARGETS_PIPELINE,
 } from "./built-in-pipelines.js";
+import type { KeptPublishStage } from "./publish-stages.js";
 import type { KeptStage } from "./routes-back.js";
 import { UPDATE_BRANCH_TOOL } from "./stage-commit.js";
 
 /**
  * The built-ins as the releases before routes had limits seeded them: plain lists of Stages, each
- * failure going back by its on-failure setting. Stored Pipelines seeded then still read so.
+ * failure going back by its on-failure setting, publishing by a Script Stage running `publish`.
+ * Stored Pipelines seeded then still read so.
  */
 interface SeededPipeline {
   readonly id: string;
-  readonly stages: readonly KeptStage[];
+  readonly stages: readonly (KeptStage | KeptStage<KeptPublishStage>)[];
 }
 
 const IMPLEMENTS: DutyKey = "implements";

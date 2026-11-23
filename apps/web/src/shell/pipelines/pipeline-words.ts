@@ -1,9 +1,9 @@
 import type {
-  AfterConflict,
   Duty,
   DutyKey,
   ProjectCommand,
   ProjectPipeline,
+  PublishResult,
   PublishTarget,
   Role,
   Stage,
@@ -13,7 +13,7 @@ import { DUTY_LABELS, dutyHolder } from "../duty-words.ts";
 import { EFFORT_LABELS } from "../engine-words.ts";
 import { editLabel, hardSwitchValueLabel, RUN_LABELS, webLabel } from "../role-card-words.ts";
 import { dayOf } from "../time.ts";
-import { commandWords, PUBLISH_COMMAND } from "./stage-commands.ts";
+import { commandWords } from "./stage-commands.ts";
 import { stageWorker } from "./stage-edits.ts";
 
 export const PUBLISH_TARGET_NAMES: Readonly<Record<PublishTarget, string>> = {
@@ -21,9 +21,19 @@ export const PUBLISH_TARGET_NAMES: Readonly<Record<PublishTarget, string>> = {
   "branch-only": "Push the branch only (proof of concept)",
 };
 
-export const AFTER_CONFLICT_NAMES: Readonly<Record<AfterConflict, string>> = {
-  publish: "Publish automatically",
-  review: "Wait at a Gate for your review",
+/** A Publish Stage's results (spec §2.3.4, "Publish's results"), as its routes and runs name them. */
+export const PUBLISH_RESULT_NAMES: Readonly<Record<PublishResult, string>> = {
+  published: "Published",
+  "nothing-to-publish": "Nothing to publish",
+  conflict: "Conflict",
+  "after-publishing-failed": "After publishing failed",
+  failed: "Failed",
+};
+
+/** A Publish Stage's second line on the canvas and its rows: what it does, by its target. */
+export const PUBLISH_TARGET_WORDS: Readonly<Record<PublishTarget, string>> = {
+  "publishing-mode": "publishes by the Project's mode",
+  "branch-only": "pushes the branch only",
 };
 
 const SESSION_NAMES: Readonly<Record<Extract<Stage, { kind: "agent" }>["session"], string>> = {
@@ -43,7 +53,9 @@ const STAGE_FIELDS: readonly { readonly label: string; readonly words: StageFiel
   { label: "Name", words: ({ name }) => name },
   {
     label: "Who works it",
-    words: (stage, roles, duties) => whoWorks(stage, roles, undefined, duties),
+    // A Publish Stage's line is its Publishes field's, said there.
+    words: (stage, roles, duties) =>
+      stage.kind === "publish" ? undefined : whoWorks(stage, roles, undefined, duties),
   },
   { label: "Session", words: (stage) => agentOnly(stage, ({ session }) => SESSION_NAMES[session]) },
   { label: "Budget", words: (stage) => agentOnly(stage, ({ budget }) => budgetWords(budget)) },
@@ -51,6 +63,10 @@ const STAGE_FIELDS: readonly { readonly label: string; readonly words: StageFiel
     label: "Effort",
     words: (stage) =>
       agentOnly(stage, ({ effort }) => (effort ? EFFORT_LABELS[effort] : "Person's effort")),
+  },
+  {
+    label: "Merge the base first",
+    words: (stage) => agentOnly(stage, ({ mergeBaseFirst }) => (mergeBaseFirst ? "On" : "Off")),
   },
   { label: "Brief", words: (stage) => agentOnly(stage, ({ brief }) => brief) },
   {
@@ -65,11 +81,6 @@ const STAGE_FIELDS: readonly { readonly label: string; readonly words: StageFiel
         stage,
         ({ publishTarget }) => PUBLISH_TARGET_NAMES[publishTarget ?? "publishing-mode"],
       ),
-  },
-  {
-    label: "After a conflict",
-    words: (stage) =>
-      publishOnly(stage, ({ afterConflict }) => AFTER_CONFLICT_NAMES[afterConflict ?? "publish"]),
   },
 ];
 
@@ -103,9 +114,9 @@ function agentOnly(
 
 function publishOnly(
   stage: Stage,
-  words: (stage: Extract<Stage, { kind: "script" }>) => string,
+  words: (stage: Extract<Stage, { kind: "publish" }>) => string,
 ): string | undefined {
-  return stage.kind === "script" && stage.command === PUBLISH_COMMAND ? words(stage) : undefined;
+  return stage.kind === "publish" ? words(stage) : undefined;
 }
 
 function budgetWords(budget: number): string {
@@ -151,8 +162,8 @@ export function copiedFromWords(
 
 /**
  * Who works the Stage, as its row says: the Role's person, the duty with its holder ("Implements ·
- * Ada"), its command (by its name when `commands` has its key, else the key), or "waits for you"
- * for a Gate.
+ * Ada"), its command (by its name when `commands` has its key, else the key), "waits for you" for a
+ * Gate, or what a Publish Stage does ("publishes by the Project's mode", "pushes the branch only").
  */
 export function whoWorks(
   stage: Stage,
@@ -162,6 +173,8 @@ export function whoWorks(
 ): string {
   if (stage.kind === "gate") return "waits for you";
   if (stage.kind === "script") return commandWords(stage.command, commands);
+  if (stage.kind === "publish")
+    return PUBLISH_TARGET_WORDS[stage.publishTarget ?? "publishing-mode"];
   const worker = stageWorker(stage);
   if (worker && "duty" in worker) return dutyWorkerWords(worker.duty, duties);
   return roles.find(({ key }) => key === stage.role)?.card.name ?? "nobody yet";

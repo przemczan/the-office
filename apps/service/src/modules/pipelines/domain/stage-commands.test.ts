@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { missingCommandProblems } from "./library-pipeline.js";
 import { missingCommandsOnStages } from "./stage-commands.js";
+import { asFlow } from "./flow.js";
 import { commandKeysNamedBy } from "./stage.js";
-import { agentStage, gate, scriptStage } from "./stage.fixtures.js";
+import { agentStage, gate, keptPublishStage, publishStage, scriptStage } from "./stage.fixtures.js";
 
-const publish = scriptStage({ key: "publish", name: "Publish", command: "publish" });
+const publish = publishStage();
 const fullTests = scriptStage({ key: "full", name: "Full tests", command: "test-full" });
 
 describe("commandKeysNamedBy", () => {
@@ -14,8 +15,11 @@ describe("commandKeysNamedBy", () => {
     expect(commandKeysNamedBy(stages)).toEqual(["lint", "test-full"]);
   });
 
-  it("names test for a Publish by the publishing mode beside an Agent Stage, as Resolve's Test runs it", () => {
-    expect(commandKeysNamedBy([agentStage(), fullTests, publish])).toEqual(["test-full", "test"]);
+  it("names test for a kept Publish by the publishing mode beside an Agent Stage, as the Test after Resolve drawn in runs it", () => {
+    expect(commandKeysNamedBy(asFlow([agentStage(), fullTests, keptPublishStage()]))).toEqual([
+      "test-full",
+      "test",
+    ]);
   });
 
   it("names the keys an Agent Stage narrows its Project commands to, and none for one that keeps every one", () => {
@@ -28,11 +32,11 @@ describe("commandKeysNamedBy", () => {
     ]);
   });
 
-  it("names no test for a branch-only Publish, or one with no Agent Stage to work Resolve", () => {
-    const branchOnly = { ...publish, publishTarget: "branch-only" as const };
+  it("names no test for a kept branch-only Publish, or one with no Agent Stage to work Resolve", () => {
+    const branchOnly = keptPublishStage({ publishTarget: "branch-only" });
 
-    expect(commandKeysNamedBy([agentStage(), branchOnly])).toEqual([]);
-    expect(commandKeysNamedBy([fullTests, publish])).toEqual(["test-full"]);
+    expect(commandKeysNamedBy(asFlow([agentStage(), branchOnly]))).toEqual([]);
+    expect(commandKeysNamedBy(asFlow([fullTests, keptPublishStage()]))).toEqual(["test-full"]);
   });
 
   it("names the key of each command test in a route's condition, nested ones too, once", () => {

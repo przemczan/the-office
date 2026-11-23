@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import type { FlowStage } from "./flow.js";
 import type { StageProblem, StageProblemAt, StageProblemLevel } from "./pipeline.js";
+import { PUBLISH_RESULT_NAMES } from "./publish-result.js";
 import {
   isConditionGroup,
   unnamedRoutes,
@@ -158,5 +159,10 @@ function stageOutcomeWords(test: StageTest): string {
       return "changed no files";
     case "ran":
       return `ran ${test.times} or more times`;
+    case "published":
+    case "nothing-to-publish":
+    case "conflict":
+    case "after-publishing-failed":
+      return `ended ${PUBLISH_RESULT_NAMES[test.is]}`;
   }
 }

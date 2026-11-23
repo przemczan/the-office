@@ -56,10 +56,15 @@ const PROJECT_PIPELINE_DRAFTED =
 /** How a Stage's routes, their conditions and their limits are given, which both propose tools take. */
 const ROUTES_WORDS = [
   "Each Stage's routes are weighed in order, and the walk follows the first whose condition holds: a route leads to any Stage by its key (`to`), the route's own Stage and earlier ones included, or to End with `to` null, and a condition null holds always, so the last route usually carries none.",
-  'A condition is a group, `combine` "all" (every test in it holds) or "any" (one does), of tests and nested groups: a Stage test `{ "kind": "stage", "stage": <key>, "is": … }`, where the key is any Stage of the Pipeline, or null for the route\'s own, testing its latest run, and `is` is "done" (it ended Done), "failed" (it ended Failed), "skipped", "changed" (it changed files), "unchanged" (it changed no files), or "ran" with `times`, holding once it ran that many times or more; a Definition of Done test `{ "kind": "definitionOfDone", "is": "all-met" | "some-not-met" }`; or a Project command test `{ "kind": "command", "key": <the Project\'s command key> }`, which holds when that command exits 0.',
+  'A condition is a group, `combine` "all" (every test in it holds) or "any" (one does), of tests and nested groups: a Stage test `{ "kind": "stage", "stage": <key>, "is": … }`, where the key is any Stage of the Pipeline, or null for the route\'s own, testing its latest run, and `is` is "done" (it ended Done), "failed" (it ended Failed), "skipped", "changed" (it changed files), "unchanged" (it changed no files), or "ran" with `times`, holding once it ran that many times or more, and for a Publish Stage alone one of its results, "published", "nothing-to-publish", "conflict" or "after-publishing-failed"; a Definition of Done test `{ "kind": "definitionOfDone", "is": "all-met" | "some-not-met" }`; or a Project command test `{ "kind": "command", "key": <the Project\'s command key> }`, which holds when that command exits 0.',
   "Each route has its `limit`, the most times the walk follows it in one walk, 1 to 9, or null for No limit; left out, it is 3 for a route back (to its own Stage or one before it in the Pipeline's order) and No limit for a route on (to a later Stage or End). A route at its limit stops the walk and asks. Every loop of routes must pass through a route with a limit, so the walk always ends.",
+  "A Publish Stage's routes each take one or more of its results, each result leading to one place at most: Published and Nothing to publish end it Done, so its Otherwise takes them, and \"failed\" holds only for Failed; Conflict and After publishing failed are results of their own, and one no route takes asks (Conflict the user directly). Its Conflict route leads to the conflict chain, before it in the Pipeline's order: Resolve, an Agent Stage with `mergeBaseFirst` on, then Test after Resolve, a Script Stage running test that goes back to Resolve when it fails, then the Publish again; with no route taking Conflict, the check warns.",
   'Only a failure route carries a Stage\'s failure on (an Agent Stage\'s "When it fails"): a route whose condition is `{ "combine": "all", "tests": [{ "kind": "stage", "stage": null, "is": "failed" }] }`, placed first among the Stage\'s routes, usually back to the Stage that fixes the work; it may lead where another of its routes leads. A Stage that fails with none is asked about.',
 ].join(" ");
+
+/** The Stage kinds' own fields, which both propose tools' Stages take. */
+const STAGE_KINDS_WORDS =
+  'A Stage\'s `kind` is "agent", "script", "gate" or "publish". An Agent Stage with `mergeBaseFirst` true has The Office merge the base into the Task\'s branch as it starts, leaving any conflicts for its Agent. A Script Stage\'s command is a Project command by its key, never install or publish. A Publish Stage publishes the Task\'s work by the Project\'s publishing mode, or with `publishTarget` "branch-only" pushes the branch only, with no pull request and no merge.';
 
 /** The worked example both propose tools give. */
 const ROUTES_EXAMPLE =
@@ -135,7 +140,7 @@ export class PipelineOfficeTools implements OnModuleInit {
   private registerReadStageHistory(): void {
     this.registry.register({
       name: READ_STAGE_HISTORY_TOOL,
-      description: `Reads a Task's Stage history, as the user sees it on the Task: every Stage run in the order they ran, with its Stage, start and end, outcome, Handover note, Decisions and their answers, engine, model and tokens, every Project command it ran with its outcome, exit code, duration and filtered output, and for an Agent Stage's run how many messages its Stage Thread logged. Give a run's number as well to read that run with each command's whole output and, for an Agent Stage, its Stage Thread's messages from the run's start to its end: what the Agent said and tried, with its speakers, tool activity as one line each, and Decisions. One answer holds at most ${STAGE_HISTORY_READ_LIMIT} characters. It reads only The Office's records, never a file or an engine's transcript.`,
+      description: `Reads a Task's Stage history, as the user sees it on the Task: every Stage run in the order they ran, with its Stage, start and end, outcome, a Publish Stage's result (such as "Published: pull request #212 opened"), Handover note, Decisions and their answers, engine, model and tokens, every Project command it ran with its outcome, exit code, duration and filtered output, and for an Agent Stage's run how many messages its Stage Thread logged. Give a run's number as well to read that run with each command's whole output and, for an Agent Stage, its Stage Thread's messages from the run's start to its end: what the Agent said and tried, with its speakers, tool activity as one line each, and Decisions. One answer holds at most ${STAGE_HISTORY_READ_LIMIT} characters. It reads only The Office's records, never a file or an engine's transcript.`,
       input: z.object({
         taskId: z.string().describe("The Task's id, as list_tasks gives it."),
         runNumber: z
@@ -263,7 +268,7 @@ export class PipelineOfficeTools implements OnModuleInit {
         stages: z
           .array(stageSchema)
           .describe(
-            "The Pipeline's Stages as they should be, all of them, each with its routes and place, in the shape list_pipelines gives them. A Script Stage's command is publish, for Publish, or a Project command by its key, never install; every Project with the Pipeline as default, or with a Task on it that hasn't started, must have each key it names, a command test's among them.",
+            `The Pipeline's Stages as they should be, all of them, each with its routes and place, in the shape list_pipelines gives them. ${STAGE_KINDS_WORDS} Every Project with the Pipeline as default, or with a Task on it that hasn't started, must have each key it names, a command test's among them.`,
           ),
       }),
       run: async ({ pipeline: pipelineId, stages }, { sessionId }) => {
@@ -330,7 +335,7 @@ export class PipelineOfficeTools implements OnModuleInit {
           .array(stageSchema)
           .optional()
           .describe(
-            "Its Stages as they should be, all of them, each with its routes and place, in the shape list_pipelines gives them; a new one takes the copied Pipeline's, and a change keeps its own, when left out. A Script Stage's command is publish, for Publish, or a Project command by its key, never install; the Project must have each key it names, a command test's among them.",
+            `Its Stages as they should be, all of them, each with its routes and place, in the shape list_pipelines gives them; a new one takes the copied Pipeline's, and a change keeps its own, when left out. ${STAGE_KINDS_WORDS} The Project must have each key it names, a command test's among them.`,
           ),
       }),
       run: async (input, { sessionId }) => {

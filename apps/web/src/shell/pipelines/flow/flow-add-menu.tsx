@@ -11,10 +11,10 @@ import {
   type StageKind,
 } from "../stage-edits.ts";
 
-const KINDS: readonly StageKind[] = ["agent", "script", "gate"];
+const KINDS: readonly StageKind[] = ["agent", "script", "gate", "publish"];
 
 /**
- * A menu of a new Stage's kinds (Agent Stage, Script Stage, Gate) and, with `templates`, the Stage
+ * A menu of a new Stage's kinds (Agent Stage, Script Stage, Gate, Publish Stage) and, with `templates`, the Stage
  * templates, each linked to its template with `links` (a Pipeline's Stages) or else a copy (a
  * Task's own): the head's Add a Stage, and a route's Insert a Stage on this route.
  */

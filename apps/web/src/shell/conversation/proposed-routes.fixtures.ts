@@ -26,7 +26,14 @@ const WHEN_IMPLEMENT_CHANGED: Route = {
 };
 
 const IMPLEMENT = script("implement", "Implement", 0, [always("tests")]);
-const PUBLISH = script("publish", "Publish", 4, [always(null)]);
+const PUBLISH: Stage = {
+  kind: "publish",
+  key: "publish",
+  name: "Publish",
+  optional: false,
+  place: { column: 4, row: 0 },
+  routes: [always(null)],
+};
 
 /** Full as it is. */
 export const FULL_NOW: readonly Stage[] = [

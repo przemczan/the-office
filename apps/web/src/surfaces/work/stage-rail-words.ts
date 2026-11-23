@@ -84,9 +84,12 @@ export function railCaption(stages: readonly TaskStage[], taskState: TaskState):
   return `${finished} of ${taken.length} Stages finished`;
 }
 
+/** Who works a Publish Stage: The Office, with its own git and credentials (spec §2.3.4). */
+export const PUBLISH_WORKER = "The Office";
+
 /**
- * Who works a Stage: its person, the user at a Gate, or its command once it has run it. A Stage
- * naming a duty shows `workedBy`'s person, or says nobody holds the duty.
+ * Who works a Stage: its person, the user at a Gate, its command once it has run it, or The Office
+ * at a Publish Stage. A Stage naming a duty shows `workedBy`'s person, or says nobody holds the duty.
  */
 export function stageWorkerWords(
   taskStage: TaskStage,
@@ -95,6 +98,7 @@ export function stageWorkerWords(
   const { stage } = taskStage;
   if (stage.kind === "gate") return "You";
   if (stage.kind === "script") return scriptCommandLine(taskStage) ?? "Project command";
+  if (stage.kind === "publish") return PUBLISH_WORKER;
   const worker = stageWorker(stage);
   if (worker && "duty" in worker && !taskStage.workedBy) {
     const label = DUTY_LABELS[worker.duty];

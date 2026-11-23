@@ -10,7 +10,7 @@ import {
   type FlowStage,
 } from "./flow.js";
 import type { Route } from "./route.js";
-import { agentStage, gate, scriptStage } from "./stage.fixtures.js";
+import { agentStage, gate, publishStage, scriptStage } from "./stage.fixtures.js";
 
 const WHILE_SOME_NOT_MET: Route["condition"] = {
   combine: "all",
@@ -20,7 +20,7 @@ const WHILE_SOME_NOT_MET: Route["condition"] = {
 const implement = agentStage();
 const tests = scriptStage();
 const look = gate({ key: "look", name: "Look" });
-const publish = scriptStage({ key: "publish", name: "Publish", command: "publish" });
+const publish = publishStage();
 
 /** The routes and place of each Stage of `stages`, by its key. */
 function flowOf(stages: readonly FlowStage[]) {

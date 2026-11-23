@@ -1861,17 +1861,18 @@ test("the user adds a Task with a Description, writes its Plan and Definition of
   expect(listBox?.width).toBeGreaterThanOrEqual(fieldBox?.width ?? Infinity);
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-choose-a-pipeline-open.png") });
   await pipelines.getByRole("option", { name: "Quick fix", exact: true }).click();
-  // Its Stages show at once, to edit for this Task in the same window before Save.
+  // Its Stages show at once, to edit for this Task in the same window before Save: Implement, Tests,
+  // its conflict chain (Resolve and Test after Resolve) and Publish.
   const draftFlow = choosing.getByRole("region", { name: "Flow" });
   const draftStages = draftFlow.locator("[data-flow-stage]");
-  await expect(draftStages).toHaveCount(3);
+  await expect(draftStages).toHaveCount(5);
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-choose-a-pipeline.png") });
   // The edit is checked against the chosen Pipeline as it goes, before the Task follows it.
   const checked = page.waitForRequest(
     (request) =>
       request.method() === "POST" &&
       request.url().endsWith("/stages/check") &&
-      request.postDataJSON()?.stages?.length === 2,
+      request.postDataJSON()?.stages?.length === 4,
   );
   const removeStage = async (name: string): Promise<void> => {
     await draftFlow.getByRole("button", { name, exact: true }).click();
@@ -1885,16 +1886,19 @@ test("the user adds a Task with a Description, writes its Plan and Definition of
       .click();
   };
   await removeStage("Tests");
-  await expect(draftStages).toHaveCount(2);
+  await expect(draftStages).toHaveCount(4);
   expect((await checked).postDataJSON()).toMatchObject({ pipelineId: "quick-fix" });
   await removeStage("Implement");
-  await expect(draftStages).toHaveCount(1);
+  await expect(draftStages).toHaveCount(3);
   await choosing.getByRole("button", { name: "Save for this Task" }).click();
   await expect(page.getByText("Export keeps the filters follows Quick fix.")).toBeVisible();
   const quickFixRail = page.getByRole("region", { name: /^Pipeline · Quick fix/ });
   const railStages = quickFixRail.getByRole("list", { name: "Stages" });
-  await expect(railStages.getByRole("listitem")).toHaveCount(1);
-  await expect(railStages).toContainText("Publish");
+  await expect(railStages.getByRole("listitem")).toHaveText([
+    /Resolve/,
+    /Test after Resolve/,
+    /Publish/,
+  ]);
   await expect(page.locator(".task-head-meta")).toContainText("Pipeline Quick fix");
   await expect(readinessLine("Pipeline chosen")).toHaveClass(/task-checklist-met/);
 
@@ -3268,6 +3272,7 @@ test("selecting a Stage opens its history window, to move between Stages and run
     skipped: false,
     definitionOfDoneMet: null,
     pullRequestUrl: null,
+    publishResult: null,
     handoverNote: null,
   } as const;
   const briefedWithTheFailure: StageRun = {
@@ -3330,6 +3335,7 @@ test("selecting a Stage opens its history window, to move between Stages and run
               interrupted: null,
               refusedTurn: null,
               afterPublishingFailed: null,
+              publishResult: null,
               handoverNote: null,
             },
           },
@@ -3568,6 +3574,7 @@ test("Continue with notes at a Gate sends them on, and the Gate's run shows them
     skipped: false,
     definitionOfDoneMet: null,
     pullRequestUrl: null,
+    publishResult: null,
     handoverNote: null,
   };
   const designed: TaskStage = {
@@ -3661,11 +3668,10 @@ test("a Gate just before Publish is the Definition of Done check: it lists what 
   const implement = anAgentStage("implement", "Implement");
   const look: Stage = { kind: "gate", key: "look", name: "Review", optional: false };
   const publish: Stage = {
-    kind: "script",
+    kind: "publish",
     key: "publish",
     name: "Publish",
     optional: false,
-    command: "publish",
   };
   const noTokens = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
   const gateReached: StageRun["outcome"] = {
@@ -3674,6 +3680,7 @@ test("a Gate just before Publish is the Definition of Done check: it lists what 
     skipped: false,
     definitionOfDoneMet: null,
     pullRequestUrl: null,
+    publishResult: null,
     handoverNote: null,
   };
   const stages: TaskStages = {
@@ -3767,6 +3774,7 @@ test(
       skipped: false,
       definitionOfDoneMet: null,
       pullRequestUrl: null,
+      publishResult: null,
       handoverNote: null,
     };
     const stages: TaskStages = {
@@ -4065,11 +4073,10 @@ test(
     try {
       const stamp = Date.now();
       const publishStage: Stage = {
-        kind: "script",
+        kind: "publish",
         key: "publish",
         name: "Publish",
         optional: false,
-        command: "publish",
       };
       const reviewStage: Stage = { kind: "gate", key: "review", name: "Review", optional: false };
       const publishOnly = await addedPipeline(page, `Publish only ${stamp}`, [publishStage]);

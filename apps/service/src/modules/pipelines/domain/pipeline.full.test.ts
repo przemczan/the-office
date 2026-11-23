@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { stageProblems } from "./pipeline.js";
 import type { KeptStage } from "./routes-back.js";
 import type { Stage } from "./stage.js";
-import { agentStage, scriptStage } from "./stage.fixtures.js";
+import { agentStage, publishStage, scriptStage } from "./stage.fixtures.js";
 
 function problemTexts(stages: readonly Stage[]): string[] {
   return stageProblems(stages).map((problem) => problem.text);
@@ -10,23 +10,10 @@ function problemTexts(stages: readonly Stage[]): string[] {
 
 /** Implement, then Tests going back to `goBackTo` on failure at most `rounds` times, then Publish. */
 function goingBack(goBackTo: string, rounds: number): KeptStage[] {
-  return [
-    agentStage(),
-    { ...scriptStage(), onFailure: { goBackTo, rounds } },
-    scriptStage({ key: "publish", name: "Publish", command: "publish" }),
-  ];
+  return [agentStage(), { ...scriptStage(), onFailure: { goBackTo, rounds } }, publishStage()];
 }
 
 describe("stageProblems", () => {
-  it("takes what follows a conflict on a Publish Stage, and refuses it on another Script Stage", () => {
-    const publish = scriptStage({ key: "publish", name: "Publish", command: "publish" });
-
-    expect(stageProblems([{ ...publish, afterConflict: "review" }])).toEqual([]);
-    expect(problemTexts([scriptStage({ afterConflict: "review" })])).toEqual([
-      "Stage 1 · Tests: only a Publish Stage says what follows a conflict.",
-    ]);
-  });
-
   it("takes a Stage's own effort", () => {
     expect(stageProblems([agentStage({ effort: "low" })])).toEqual([]);
   });

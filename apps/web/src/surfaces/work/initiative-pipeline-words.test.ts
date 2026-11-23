@@ -23,11 +23,10 @@ const INTEGRATE: Stage = {
 };
 const REVIEW: Stage = { kind: "gate", key: "review", name: "Your review", optional: false };
 const PUBLISH: Stage = {
-  kind: "script",
+  kind: "publish",
   key: "publish",
   name: "Publish",
   optional: true,
-  command: "publish",
 };
 
 function aTaskStage(stage: Stage, state: TaskStage["state"]): TaskStage {

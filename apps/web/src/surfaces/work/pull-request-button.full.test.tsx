@@ -20,6 +20,7 @@ function published(pullRequestUrl: string | null, skipped = false): StageRun["ou
     skipped,
     definitionOfDoneMet: null,
     pullRequestUrl,
+    publishResult: null,
     handoverNote: null,
   };
 }
@@ -27,7 +28,7 @@ function published(pullRequestUrl: string | null, skipped = false): StageRun["ou
 /** A Publish Stage with a run for each outcome, oldest first. */
 function publishStage(...outcomes: readonly StageRun["outcome"][]): TaskStage {
   return {
-    stage: { kind: "script", key: "publish", name: "Publish", optional: false, command: "publish" },
+    stage: { kind: "publish", key: "publish", name: "Publish", optional: false },
     state: "done",
     tokens: NO_TOKENS,
     wentBack: null,
