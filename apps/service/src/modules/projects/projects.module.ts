@@ -57,6 +57,7 @@ import { ProjectRecords } from "./application/project-records.js";
 import { ProjectDeviceLines } from "./application/project-device-lines.js";
 import { CommittedFiles } from "./application/committed-files.js";
 import { EngineLevelsChecks } from "./application/engine-levels-checks.js";
+import { FirstCommits } from "./application/first-commits.js";
 import { RunEnvironmentSetUpRegistry } from "./application/run-environment-set-up-registry.js";
 import { DevcontainerServices } from "./application/devcontainer-services.js";
 import { TestTargets } from "./application/test-targets.js";
@@ -198,6 +199,7 @@ export class ProjectsModule implements NestModule {
         EnvironmentChecks,
         RepositoryClones,
         ProjectChecks,
+        FirstCommits,
         EngineLevelsChecks,
         RunEnvironmentSetUpRegistry,
         DevcontainerServices,

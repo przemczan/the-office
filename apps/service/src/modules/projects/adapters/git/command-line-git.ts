@@ -157,6 +157,75 @@ export class CommandLineGit extends Git {
     );
   }
 
+  async setUpstream(repositoryPath: string, branch: string, upstream: Upstream): Promise<void> {
+    await this.locked(repositoryPath, () =>
+      this.process.output({
+        folder: repositoryPath,
+        gitArguments: [
+          "branch",
+          `--set-upstream-to=${upstream.remote}/${upstream.branch}`,
+          "--",
+          branch,
+        ],
+      }),
+    );
+  }
+
+  async hasCommits(repositoryPath: string): Promise<boolean> {
+    const output = await this.process.output({
+      folder: repositoryPath,
+      gitArguments: [
+        "for-each-ref",
+        "--count=1",
+        "--format=%(refname)",
+        "refs/heads",
+        "refs/remotes",
+      ],
+    });
+    return output.trim() !== "";
+  }
+
+  async isBranchName(name: string): Promise<boolean> {
+    const result = await this.process.run({
+      folder: tmpdir(),
+      gitArguments: ["check-ref-format", "--branch", name],
+    });
+    return result.exitCode === 0;
+  }
+
+  async makeFirstCommit(repositoryPath: string, branch: string, message: string): Promise<string> {
+    return this.locked(repositoryPath, async () => {
+      // `mktree` of nothing is the empty tree, in whichever hash the repository uses.
+      const tree = await this.process.output({
+        folder: repositoryPath,
+        gitArguments: ["mktree"],
+        input: "",
+      });
+      const commit = await this.process.output({
+        folder: repositoryPath,
+        gitArguments: ["commit-tree", tree.trim(), "-F", "-"],
+        input: message,
+      });
+      const first = commit.trim();
+      // An empty old value makes git refuse a branch that is already there.
+      await this.process.output({
+        folder: repositoryPath,
+        gitArguments: ["update-ref", `refs/heads/${branch}`, first, ""],
+      });
+      const head = await this.process.run({
+        folder: repositoryPath,
+        gitArguments: ["rev-parse", "--verify", "--quiet", "HEAD^{commit}"],
+      });
+      if (head.exitCode !== 0) {
+        await this.process.output({
+          folder: repositoryPath,
+          gitArguments: ["symbolic-ref", "HEAD", `refs/heads/${branch}`],
+        });
+      }
+      return first;
+    });
+  }
+
   async setFetchUrl(repositoryPath: string, remote: string, url: string): Promise<void> {
     await this.locked(repositoryPath, () =>
       this.process.output({

@@ -52,6 +52,11 @@ export class ProjectRemotes {
     return fetchFailureReason(await this.identity.needsOf(await this.git.reachedUrlOf(url)));
   }
 
+  /** What a failed push to `url` may lack, in the user's words; undefined if nothing. */
+  async whyPushFailed(url: string): Promise<string | undefined> {
+    return pushFailureReason(await this.identity.needsOf(await this.git.reachedUrlOf(url)));
+  }
+
   /**
    * Why `url` can't be reached at all yet: an ssh host without the Office ssh key or a trusted host
    * key. GitHub over https without the sign-in still reaches a public repository.
@@ -87,6 +92,22 @@ function fetchFailureReason(needs: RemoteNeeds): string | undefined {
       return `The Office reaches remotes over https and ssh only, not ${needs.scheme}.`;
     case "local":
       return undefined;
+  }
+}
+
+/** A push needs more than a fetch: GitHub's sign-in even for a public repository. */
+function pushFailureReason(needs: RemoteNeeds): string | undefined {
+  switch (needs.kind) {
+    case "github-https":
+      return needs.missing.length > 0
+        ? `Pushing to GitHub over https takes Sign in with GitHub, in ${SETTINGS}.`
+        : undefined;
+    case "anonymous-https":
+      return `${needs.host} is reached anonymously over https, so The Office can't push there.`;
+    case "ssh":
+    case "refused":
+    case "local":
+      return fetchFailureReason(needs);
   }
 }
 

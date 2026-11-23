@@ -171,8 +171,18 @@ export class ProjectChecks {
     if (path === "") return [];
     const problem = await this.repositoryFolderProblem(path);
     if (problem !== undefined) return [problem];
-    if (baseBranch === "" || (await this.hasBaseBranch(newProject))) return [];
+    if (baseBranch === "") return [];
+    // An empty repository's base branch is made with its first commit as it is added.
+    if (!(await this.git.hasCommits(path))) return this.newBaseBranchProblems(baseBranch);
+    if (await this.hasBaseBranch(newProject)) return [];
     return [`The repository has no branch "${baseBranch}".`];
+  }
+
+  /** Why `baseBranch`, to be made in a repository without commits, can't be a branch's name. */
+  async newBaseBranchProblems(baseBranch: string): Promise<string[]> {
+    return (await this.git.isBranchName(baseBranch))
+      ? []
+      : [`"${baseBranch}" can't be a branch's name in git.`];
   }
 
   /** A clone's base branch may still be only the remote's, made locally as the Project is added. */

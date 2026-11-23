@@ -88,6 +88,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 
 ### E
 
+- **Empty repository, empty clone, first commit**: [2.1.1 Empty repositories](2.1.1-projects.md#empty-repositories); [5.5 An empty repository's first commit](5.5-git-and-isolation.md#an-empty-repositorys-first-commit); screen: [Projects › Add a Project](screens/projects.md#add-a-project)
 - **End, Final Stage**: [2.3.1 How a Stage ends](2.3.1-stages.md#how-a-stage-ends); [2.3.2 The Pipeline's order](2.3.2-flows.md#the-pipelines-order)
 - **Engine, Engine type, an engine's default model and effort**: [5.4.5 Engines are a list](5.4.5-engines-and-cascade.md#engines-are-a-list); [5.4.5 Models and efforts of an engine type](5.4.5-engines-and-cascade.md#models-and-efforts-of-an-engine-type); [5.4.1 Engine kinds](5.4.1-engine-kinds.md#engine-kinds); screen: [Settings › Engines](screens/settings.md#engines)
 - **Engine cascade, Office default, Project default**: [5.4.5 Two cascades](5.4.5-engines-and-cascade.md#two-cascades); [5.4.5 The engine cascade](5.4.5-engines-and-cascade.md#the-engine-cascade); screens: [Settings › Engines](screens/settings.md#engines), [Project page › Engine](screens/project-page.md#engine)
@@ -724,6 +725,7 @@ Where each default lives, by page:
   - [Install inputs](5.5-git-and-isolation.md#install-inputs)
   - [The base branch's upstream](5.5-git-and-isolation.md#the-base-branchs-upstream)
   - [Clones](5.5-git-and-isolation.md#clones)
+  - [An empty repository's first commit](5.5-git-and-isolation.md#an-empty-repositorys-first-commit)
   - [The Office identity](5.5-git-and-isolation.md#the-office-identity)
   - [The CPU limit](5.5-git-and-isolation.md#the-cpu-limit)
   - [The other limits of run environments](5.5-git-and-isolation.md#the-other-limits-of-run-environments)

@@ -891,8 +891,11 @@ export const repositoryCloneSchema = z.discriminatedUnion("state", [
   }),
   repositoryCloneFieldsSchema.extend({
     state: z.literal("cloned"),
-    defaultBranch: z.string(),
+    /** Null for an empty repository, whose base branch is made with its first commit as it is added. */
+    defaultBranch: z.string().nullable(),
     branches: z.array(z.string()),
+    /** The repository has no commits yet, so no branches. */
+    empty: z.boolean(),
   }),
   repositoryCloneFieldsSchema.extend({ state: z.literal("failed"), problem: z.string() }),
 ]);

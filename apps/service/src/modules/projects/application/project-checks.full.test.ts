@@ -35,7 +35,17 @@ class FakeGit extends Git {
     return this.remoteTrackingBranches.includes(`${upstream.remote}/${upstream.branch}`);
   }
 
+  async hasCommits(): Promise<boolean> {
+    return this.branches.length > 0 || this.remoteTrackingBranches.length > 0;
+  }
+
+  async isBranchName(name: string): Promise<boolean> {
+    return !name.includes("..");
+  }
+
   // The checks only ask what a folder is and which branches it has.
+  setUpstream = notUsed;
+  makeFirstCommit = notUsed;
   remoteBranches = notUsed;
   clone = notUsed;
   readBranchTip = notUsed;
@@ -202,6 +212,17 @@ describe("ProjectChecks.checkNewProject", () => {
 
     expect(await reasonsOf(checks.checkNewProject(aNewProject({ baseBranch: " main " })))).toEqual([
       'The repository has no branch "main".',
+    ]);
+  });
+
+  it("passes a repository without commits with any base branch git can name, and refuses one it can't", async () => {
+    const checks = checksWith(new FakeGit({ kind: "repository" }, []));
+
+    await expect(
+      checks.checkNewProject(aNewProject({ baseBranch: "develop" })),
+    ).resolves.toBeUndefined();
+    expect(await reasonsOf(checks.checkNewProject(aNewProject({ baseBranch: "a..b" })))).toEqual([
+      `"a..b" can't be a branch's name in git.`,
     ]);
   });
 

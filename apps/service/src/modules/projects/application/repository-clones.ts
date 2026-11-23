@@ -22,7 +22,9 @@ import { ProjectRemotes } from "./project-remotes.js";
 import { ProjectService } from "./project-service.js";
 import { clonePathOf, readRepositoryUrl, type RepositoryUrl } from "./repository-url.js";
 
-export const NO_BRANCH_YET = "The repository has no commits yet, so no branch to work from.";
+/** A repository with branches whose HEAD names none of them: nothing says where to start. */
+export const NO_DEFAULT_BRANCH =
+  "The repository's HEAD names no branch, so there is no default branch to start from.";
 
 /** A clone under way: what it has done so far, and how to stop it. */
 interface RunningClone {
@@ -151,8 +153,10 @@ export class RepositoryClones implements BeforeApplicationShutdown {
   private async cloned(running: RunningClone): Promise<RepositoryCloneOutcome> {
     const { url, path } = running.clone;
     const { defaultBranch, branches } = await this.git.remoteBranches(url);
-    if (defaultBranch === undefined) {
-      return { state: "failed", problem: NO_BRANCH_YET };
+    // git clones an empty repository too, with a warning; its base branch is made as it is added.
+    const empty = branches.length === 0;
+    if (!empty && defaultBranch === undefined) {
+      return { state: "failed", problem: NO_DEFAULT_BRANCH };
     }
     const found = await this.git.inspect(path);
     if (found.kind === "repository") {
@@ -170,7 +174,7 @@ export class RepositoryClones implements BeforeApplicationShutdown {
         signal: running.stop.signal,
       });
     }
-    return { state: "cloned", defaultBranch, branches };
+    return { state: "cloned", defaultBranch: empty ? undefined : defaultBranch, branches, empty };
   }
 
   /** An empty folder makes way for the clone; anything else there is the user's to remove. */

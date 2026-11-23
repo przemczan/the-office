@@ -31,6 +31,14 @@ const COMMAND_EXAMPLES: Readonly<Record<string, string>> = {
 const COMMANDS_HINT =
   "Optional. Leave any you don't know yet: set them later on the Project's page, or ask whoever onboards Projects.";
 
+const BASE_BRANCH_HINT = "Tasks branch from it and publish to it.";
+
+/** Under an empty clone's Base branch: what adding the Project does to the repository. */
+function emptyCloneNote(baseBranch: string): string {
+  const branch = baseBranch.trim() === "" ? "the base branch" : baseBranch.trim();
+  return `The repository has no commits yet. Adding the Project makes ${branch} with an empty first commit and pushes it to the repository.`;
+}
+
 const SOURCE_ICONS: Readonly<Record<ProjectSource["whereItIs"], string>> = {
   folder: "folder",
   "git-url": "link",
@@ -74,7 +82,9 @@ export function ProjectDetailsStep({
 }): ReactNode {
   const pipelines = useQuery(pipelineQueries.list());
   const defaultPipeline = pipelines.data?.find((pipeline) => pipeline.id === draft.defaultPipeline);
-  const branches = source.whereItIs === "folder" ? undefined : source.clone.branches;
+  const emptyClone = source.whereItIs !== "folder" && source.clone.empty;
+  // A folder's branches aren't read before Continue, and an empty clone has none: both are typed.
+  const branches = source.whereItIs === "folder" || emptyClone ? undefined : source.clone.branches;
   return (
     <form
       id={formId}
@@ -101,7 +111,7 @@ export function ProjectDetailsStep({
         {branches ? (
           <Select
             label="Base branch"
-            hint="Tasks branch from it and publish to it."
+            hint={BASE_BRANCH_HINT}
             value={draft.baseBranch}
             options={branches.map((branch) => ({ value: branch, label: branch }))}
             onChange={(branch) => onChange({ baseBranch: branch })}
@@ -109,7 +119,7 @@ export function ProjectDetailsStep({
         ) : (
           <Input
             label="Base branch"
-            hint="Tasks branch from it and publish to it."
+            hint={emptyClone ? emptyCloneNote(draft.baseBranch) : BASE_BRANCH_HINT}
             value={draft.baseBranch}
             onChange={(event) => onChange({ baseBranch: event.target.value })}
             inputStyle={{ fontFamily: "var(--font-mono)" }}

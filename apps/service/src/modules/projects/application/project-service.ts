@@ -65,6 +65,7 @@ import { ActionRepository } from "../ports/action-repository.js";
 import { CLONE_REMOTE, Git } from "../ports/git.js";
 import { ProjectRepository } from "../ports/project-repository.js";
 import { EngineLevelsChecks } from "./engine-levels-checks.js";
+import { FirstCommits } from "./first-commits.js";
 import { ProjectChecks } from "./project-checks.js";
 import { ensureFeatureOn } from "./project-features.js";
 import { RunEnvironmentSetUpRegistry } from "./run-environment-set-up-registry.js";
@@ -92,6 +93,7 @@ export class ProjectService {
     private readonly engineReferences: EngineReferenceLock,
     private readonly runEnvironmentSetUp: RunEnvironmentSetUpRegistry,
     private readonly actions: ActionRepository,
+    private readonly firstCommits: FirstCommits,
   ) {}
 
   /**
@@ -102,6 +104,8 @@ export class ProjectService {
   async add(given: NewProject, answered?: RunEnvironmentAnswered): Promise<Project> {
     const newProject = withResolvedPath(trimmedNewProject(given));
     await this.checks.checkNewProject(newProject);
+    // Before it is saved, so a first commit that couldn't be pushed adds nothing.
+    await this.firstCommits.makeWhenEmpty(newProject);
     await this.trackBaseBranchOfClone(newProject);
     const takenIds = new Set((await this.repository.list()).map((project) => project.id));
     const { project, event } = addProject(

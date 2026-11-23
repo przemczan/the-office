@@ -6,7 +6,7 @@ import { ProjectRefused } from "../domain/project-refused.js";
 import { ProjectChecks } from "./project-checks.js";
 import { ProjectService } from "./project-service.js";
 import { RepositoriesByUrl } from "./repositories-by-url.js";
-import { NO_BRANCH_YET, RepositoryClones } from "./repository-clones.js";
+import { NO_DEFAULT_BRANCH, RepositoryClones } from "./repository-clones.js";
 import { clonePathOf, readRepositoryUrl } from "./repository-url.js";
 
 /**
@@ -55,11 +55,12 @@ export class ProjectsFromRepositories {
   private async remoteProblems(url: string, baseBranch: string): Promise<string[]> {
     try {
       const { defaultBranch, branches } = await this.repositoriesByUrl.remoteBranchesOf(url);
-      if (defaultBranch === undefined) return [NO_BRANCH_YET];
       const branch = baseBranch.trim();
-      return branch === "" || branches.includes(branch)
-        ? []
-        : [`The repository has no branch "${branch}".`];
+      if (branch === "") return [];
+      // An empty repository's base branch is made with its first commit as it is added.
+      if (branches.length === 0) return this.checks.newBaseBranchProblems(branch);
+      if (defaultBranch === undefined) return [NO_DEFAULT_BRANCH];
+      return branches.includes(branch) ? [] : [`The repository has no branch "${branch}".`];
     } catch (error) {
       if (error instanceof ProjectRefused) return [...error.reasons];
       throw error;

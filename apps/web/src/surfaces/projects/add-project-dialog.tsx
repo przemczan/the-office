@@ -15,6 +15,7 @@ import { useToast } from "../../shell/toasts.tsx";
 import {
   WHERE_IT_IS_OPTIONS,
   draftFromSource,
+  NEW_BASE_BRANCH,
   sourceKeyOf,
   sourceNameOf,
   whereItIsOf,
@@ -29,7 +30,7 @@ import { RepositoryCloneStep, useRepositoryCloning } from "./repository-clone-st
 const EMPTY: NewProject = {
   name: "",
   path: "",
-  baseBranch: "main",
+  baseBranch: NEW_BASE_BRANCH,
   mark: { label: "", colour: "teal" },
   installCommand: "",
   commands: STARTING_COMMANDS.map((command) => ({

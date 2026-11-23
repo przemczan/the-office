@@ -30,6 +30,61 @@ afterAll(async () => {
   await repository.remove();
 });
 
+async function anEmptyRepository(): Promise<string> {
+  const path = join(repository.folder, `empty-${randomUUID().slice(0, 8)}`);
+  gitIn(repository.folder, "init", "--quiet", "--initial-branch", "master", path);
+  gitIn(path, "config", "user.name", "The Office");
+  gitIn(path, "config", "user.email", "office@localhost");
+  return path;
+}
+
+describe("CommandLineGit's first commit", REAL_GIT_TEST, () => {
+  it("tells a repository without commits from one with them", async () => {
+    await expect(git.hasCommits(await anEmptyRepository())).resolves.toBe(false);
+    await expect(git.hasCommits(repository.path)).resolves.toBe(true);
+  });
+
+  it("counts a remote-tracking branch as commits, as a clone made while its remote was empty has", async () => {
+    const path = await anEmptyRepository();
+    gitIn(path, "fetch", "--quiet", repository.originPath, "+refs/heads/*:refs/remotes/origin/*");
+
+    await expect(git.hasCommits(path)).resolves.toBe(true);
+  });
+
+  it("takes the names git takes for a branch", async () => {
+    await expect(git.isBranchName("feature/new-shop")).resolves.toBe(true);
+    for (const name of ["two..dots", "-leading", "ends.lock", "with space"]) {
+      await expect(git.isBranchName(name)).resolves.toBe(false);
+    }
+  });
+
+  it("makes the branch at one commit of the empty tree, with HEAD on it, running no hooks", async () => {
+    const path = await anEmptyRepository();
+    const hook = join(path, ".git", "hooks", "pre-commit");
+    await writeFile(hook, "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+
+    const commit = await git.makeFirstCommit(path, "main", "Initial commit");
+
+    expect(gitIn(path, "rev-parse", "main")).toBe(commit);
+    expect(gitIn(path, "log", "--format=%s|%P", "main")).toBe("Initial commit|");
+    expect(gitIn(path, "ls-tree", "main")).toBe("");
+    expect(gitIn(path, "symbolic-ref", "HEAD")).toBe("refs/heads/main");
+    expect(gitIn(path, "status", "--porcelain")).toBe("");
+  });
+
+  it("refuses a branch that is already there and leaves HEAD on a commit as it is", async () => {
+    const path = await anEmptyRepository();
+    const first = await git.makeFirstCommit(path, "main", "Initial commit");
+
+    await expect(git.makeFirstCommit(path, "main", "Initial commit")).rejects.toBeInstanceOf(
+      GitCommandFailed,
+    );
+    await git.makeFirstCommit(path, "other", "Initial commit");
+    expect(gitIn(path, "rev-parse", "main")).toBe(first);
+    expect(gitIn(path, "symbolic-ref", "HEAD")).toBe("refs/heads/main");
+  });
+});
+
 describe("CommandLineGit.inspect", REAL_GIT_TEST, () => {
   it("knows a repository's top-level folder", async () => {
     await expect(git.inspect(repository.path)).resolves.toEqual({ kind: "repository" });

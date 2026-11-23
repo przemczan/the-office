@@ -108,6 +108,26 @@ describe("POST /api/projects", () => {
     expect(published).toEqual([]);
   });
 
+  it("adds a repository without commits, making its base branch with an empty first commit it doesn't push", async () => {
+    const path = join(repository.folder, `fresh-${randomUUID().slice(0, 8)}`);
+    const remote = `${path}.git`;
+    gitIn(repository.folder, "init", "--quiet", "--initial-branch", "master", path);
+    gitIn(repository.folder, "init", "--quiet", "--bare", remote);
+    gitIn(path, "config", "user.name", "The Office");
+    gitIn(path, "config", "user.email", "office@localhost");
+    gitIn(path, "remote", "add", "origin", remote);
+
+    const response = await send("POST", "/projects", aNewProject({ path, baseBranch: "main" }));
+
+    expect(response.status).toBe(201);
+    expect(gitIn(path, "log", "--format=%s|%an <%ae>", "main")).toBe(
+      "Initial commit|The Office <office@localhost>",
+    );
+    expect(gitIn(path, "ls-tree", "main")).toBe("");
+    expect(gitIn(path, "symbolic-ref", "HEAD")).toBe("refs/heads/main");
+    expect(gitIn(remote, "for-each-ref")).toBe("");
+  });
+
   it("answers 400 to a body that breaks the contract", async () => {
     const response = await send("POST", "/projects", { ...aNewProject(), publishingMode: "fax" });
 
