@@ -81,6 +81,7 @@ Covers: threat models, stored hashes, the two layers, language servers, Hard swi
 - Every session also reads the Pipelines, office-wide and Project Pipelines, all or one by its id (`list_pipelines`), and the Stage templates (`list_stage_templates`), each Stage whole: its brief, duty, session, budget and routes.
 - `read_attachment` reads a text file, a document among them, and a PDF's text by numbered lines, in slices, a search for a phrase, and a line too long for one answer read on from a character.
 - It gives an image as a picture on an engine that shows pictures (Claude Code), up to the size its answer passes, else in words saying why it isn't shown.
+- It unzips a zip (by its media type or a `.zip` name) as it reads it, in memory, never to disk: the files it holds by path and size, read as lines are, and one of them, by its path (`entry`), as that file would be read as an Attachment of its own, up to 50 MB unpacked; a zip in a zip, an encrypted file or a broken zip isn't read.
 - It gives any other file by its name, kind and size, saying it can't be read, and a link by its address.
 - A person's chat, Thread on a Task and Consultation, and every Agent Stage, also read a Task's Stage history, from its Stage run records and, for one Agent Stage's run, its Stage Thread's messages, from The Office's log alone ([2.4.6](2.4.6-reading-records.md)).
 - A person's chat, Thread on a Task and Consultation also read the Threads' messages with `read_threads`, from The Office's log alone; an Agent Stage doesn't.

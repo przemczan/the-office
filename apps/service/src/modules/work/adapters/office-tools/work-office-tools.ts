@@ -14,6 +14,7 @@ import { TaskService } from "../../application/task-service.js";
 import {
   attachmentKindWords,
   fileReadingOf,
+  zipEntryLine,
   type Attachment,
   type StoredFileAttachment,
 } from "../../domain/attachment.js";
@@ -68,6 +69,9 @@ export const ATTACHMENT_ANSWER_BUDGET = 25_000;
  */
 const LINES_HEADING_ROOM = ", its text in 99,999,999 lines, a marker line before each page:\n\n"
   .length;
+
+/** Room for the words naming a file in a zip, besides its path: a 50 MB file's size the longest. */
+const ZIP_ENTRY_HEADING_ROOM = ", a zip.\n\nIn it,  (99999999 bytes)".length;
 
 /**
  * The Office tools sessions work with Work's records by (spec §6): every session reads every Task,
@@ -158,12 +162,19 @@ export class WorkOfficeTools implements OnModuleInit {
     this.registry.register({
       name: READ_ATTACHMENT,
       description:
-        "Reads any Attachment by its id, whether a Task's (archived ones too), an Idea's or an Initiative's, names what it belongs to, and answers by what it holds. A text file (a document, a CSS or JSON file, a log: any file whose bytes are text) is read by its lines, each with its number, like a file with Read and Grep: give fromLine and lineCount for a slice of it, or a search phrase for the lines that hold it with a few lines around each. A PDF's text is read the same way, with a marker line before each page. One answer holds only so much, so a long file is read in slices: every answer ends by saying where the file goes on and which fromLine reads on, and a line too long for one answer is cut, its note giving the fromLine and fromCharacter to read on with. A search's line numbers are a slice's, so a match's line given as fromLine reads on from it. An image comes as the picture itself on an engine that shows pictures, else with words saying why it isn't shown. Any other file answers its name, kind and size, as it can't be read; a link its address.",
+        "Reads any Attachment by its id, whether a Task's (archived ones too), an Idea's or an Initiative's, names what it belongs to, and answers by what it holds. A text file (a document, a CSS or JSON file, a log: any file whose bytes are text) is read by its lines, each with its number, like a file with Read and Grep: give fromLine and lineCount for a slice of it, or a search phrase for the lines that hold it with a few lines around each. A PDF's text is read the same way, with a marker line before each page. One answer holds only so much, so a long file is read in slices: every answer ends by saying where the file goes on and which fromLine reads on, and a line too long for one answer is cut, its note giving the fromLine and fromCharacter to read on with. A search's line numbers are a slice's, so a match's line given as fromLine reads on from it. An image comes as the picture itself on an engine that shows pictures, else with words saying why it isn't shown. A zip is unzipped as it is read: it lists the files it holds, by path and size, read like a text file's lines; give entry, a path from that list, to read that one file as any of these. Any other file answers its name, kind and size, as it can't be read; a link its address.",
       input: z.object({
         attachmentId: z
           .string()
           .describe(
             "The Attachment's id, as your Brief, read_task, read_idea or read_initiative lists it.",
+          ),
+        entry: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            "For a zip: the path of one file in it, as its list gives it, to read that file instead of the list. The other fields then read that file.",
           ),
         fromLine: z
           .number()
@@ -207,20 +218,30 @@ export class WorkOfficeTools implements OnModuleInit {
             `For a search: how many lines to show before and after each match, ${DEFAULT_CONTEXT_LINES} when left out.`,
           ),
       }),
-      run: ({ attachmentId, ...reading }) =>
+      run: ({ attachmentId, entry, ...reading }) =>
         answered(async () => {
           const attachment = await this.attachments.read(attachmentId);
           const opening = `${await this.ownerWords(attachment)}\n\n${attachment.name} (${attachmentKindWords(attachment)})`;
           if (attachment.kind === "link") {
             return `${opening}. The Office keeps its address only; fetch it if you need what it says.`;
           }
-          switch (fileReadingOf(attachment)) {
+          const fileReading = fileReadingOf(attachment);
+          if (entry !== undefined && fileReading !== "zip") {
+            throw new WorkToolRefused(
+              "entry reads one file in a zip, and this Attachment is no zip; leave entry out.",
+            );
+          }
+          switch (fileReading) {
             case "lines":
               return this.linesAnswer(attachment, opening, reading);
             case "pdf-text":
               return this.pdfTextAnswer(attachment, opening, reading);
             case "picture":
               return this.pictureAnswer(attachment, opening);
+            case "zip":
+              return entry === undefined
+                ? this.zipEntriesAnswer(attachment, opening, reading)
+                : this.zipEntryAnswer(attachment, opening, entry, reading);
             case "unreadable":
               return `${opening}. It is neither text, a PDF nor an image, so it can't be read; ask the user what it holds if you need to know.`;
           }
@@ -247,6 +268,56 @@ export class WorkOfficeTools implements OnModuleInit {
       return `${opening}. This PDF has no text to read, as a scanned one has none; ask the user what it holds if you need to know.`;
     }
     return `${opening}, its text in ${lineCountWords(lineCount)}, a marker line before each page:\n\n${text}`;
+  }
+
+  private async zipEntriesAnswer(
+    file: StoredFileAttachment,
+    opening: string,
+    reading: ReadingAsked,
+  ): Promise<string> {
+    const { lineCount, text } = await this.attachments.readZipEntries(
+      file.id,
+      lineReading(reading),
+      ATTACHMENT_ANSWER_BUDGET - opening.length - LINES_HEADING_ROOM,
+    );
+    if (lineCount === 0) return `${opening}. This zip holds no file.`;
+    return `${opening}, a zip of ${fileCountWords(lineCount)}, each by its path and size; read one with entry:\n\n${text}`;
+  }
+
+  private async zipEntryAnswer(
+    file: StoredFileAttachment,
+    opening: string,
+    path: string,
+    reading: ReadingAsked,
+  ): Promise<string | OfficeToolResult> {
+    const read = await this.attachments.readZipEntry(
+      file.id,
+      path,
+      lineReading(reading),
+      ATTACHMENT_ANSWER_BUDGET -
+        opening.length -
+        path.length -
+        ZIP_ENTRY_HEADING_ROOM -
+        LINES_HEADING_ROOM,
+    );
+    const entryOpening = `${opening}, a zip.\n\nIn it, ${zipEntryLine(read.entry)}`;
+    switch (read.reading) {
+      case "lines":
+        return `${entryOpening}, ${lineCountWords(read.part.lineCount)}:\n\n${read.part.text}`;
+      case "pdf-text":
+        if (read.part.lineCount === 0) {
+          return `${entryOpening}. This PDF has no text to read, as a scanned one has none.`;
+        }
+        return `${entryOpening}, its text in ${lineCountWords(read.part.lineCount)}, a marker line before each page:\n\n${read.part.text}`;
+      case "picture":
+        return {
+          text: `${entryOpening}.`,
+          isError: false,
+          pictures: [{ name: baseNameOf(path), mediaType: read.mediaType, content: read.content }],
+        };
+      case "unreadable":
+        return `${entryOpening}. It is neither text, a PDF nor an image, so it can't be read.`;
+    }
   }
 
   private readLines(
@@ -446,6 +517,16 @@ function lineReading({
         fromLine: fromLine ?? 1,
         contextLines: contextLines ?? DEFAULT_CONTEXT_LINES,
       };
+}
+
+/** "1 file", "1,312 files". */
+function fileCountWords(count: number): string {
+  return count === 1 ? "1 file" : `${count.toLocaleString("en-US")} files`;
+}
+
+/** A path's last part, as a picture is named. */
+function baseNameOf(path: string): string {
+  return path.slice(path.lastIndexOf("/") + 1);
 }
 
 function taskLine(task: TaskSummary): string {

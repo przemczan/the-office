@@ -155,17 +155,53 @@ export function isPdf(file: { readonly name: string; readonly mediaType: string 
 /** An Attachment that is a file, kept in the Office data directory. */
 export type StoredFileAttachment = Exclude<Attachment, { readonly kind: "link" }>;
 
+/** Windows browsers upload a zip as application/x-zip-compressed. */
+const ZIP_MEDIA_TYPES: ReadonlySet<string> = new Set([
+  "application/zip",
+  "application/x-zip-compressed",
+]);
+
+/** A zip, by its media type or its name, as a browser may upload one as plain bytes. */
+export function isZip(file: { readonly name: string; readonly mediaType: string }): boolean {
+  return ZIP_MEDIA_TYPES.has(file.mediaType.toLowerCase()) || /\.zip$/i.test(file.name.trim());
+}
+
 /**
  * How an Agent reads a file Attachment (spec §6): a text file by its lines, an image as a picture,
- * a PDF by the lines of its text, and any other file not at all.
+ * a PDF by the lines of its text, a zip by the files it holds, and any other file not at all.
  */
-export type FileReading = "picture" | "pdf-text" | "lines" | "unreadable";
+export type FileReading = "picture" | "pdf-text" | "lines" | "zip" | "unreadable";
 
 export function fileReadingOf(file: StoredFileAttachment): FileReading {
   if (file.text) return "lines";
   if (file.kind === "image") return "picture";
   if (isPdf(file)) return "pdf-text";
+  if (isZip(file)) return "zip";
   return "unreadable";
+}
+
+/** A file in a zip Attachment: its path as the zip names it (`/` between folders) and its size. */
+export interface ZipEntry {
+  readonly path: string;
+  /** Unpacked, in bytes. */
+  readonly size: number;
+}
+
+/** A file in a zip is read as a file Attachment of its own would be, except another zip. */
+export type ZipEntryReading = Exclude<FileReading, "zip">;
+
+export function zipEntryReadingOf(entry: ZipEntry, content: Uint8Array): ZipEntryReading {
+  const mediaType = mediaTypeOf(entry.path);
+  const kind = storedFileKind({ name: entry.path, mediaType });
+  if (isTextFile({ kind, name: entry.path, mediaType }, isText(content))) return "lines";
+  if (kind === "image") return "picture";
+  if (isPdf({ name: entry.path, mediaType })) return "pdf-text";
+  return "unreadable";
+}
+
+/** A zip's file as an Agent reads its list: its path and size, on a line of its own. */
+export function zipEntryLine(entry: ZipEntry): string {
+  return `${entry.path} (${entry.size} bytes)`;
 }
 
 /**

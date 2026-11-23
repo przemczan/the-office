@@ -21,6 +21,7 @@ import { EngineModule } from "../engine/index.js";
 import { PromptTemplatesModule } from "../prompt-templates/index.js";
 import { FilesystemAttachmentFiles } from "./adapters/filesystem/filesystem-attachment-files.js";
 import { UnpdfPdfPages } from "./adapters/pdf/unpdf-pdf-pages.js";
+import { YauzlZipFiles } from "./adapters/zip/yauzl-zip-files.js";
 import { FilesystemWorktreeFiles } from "./adapters/filesystem/worktree-files.js";
 import {
   ATTACHMENT_UPLOAD_ROUTES,
@@ -121,6 +122,7 @@ import { PersonTasks } from "./application/person-tasks.js";
 import { ATTACHMENT_SIZE_LIMIT } from "./domain/attachment.js";
 import { AttachmentFiles } from "./ports/attachment-files.js";
 import { PdfPages } from "./ports/pdf-pages.js";
+import { ZipFiles } from "./ports/zip-files.js";
 import { AttachmentRepository } from "./ports/attachment-repository.js";
 import { FireAlarmRepository } from "./ports/fire-alarm-repository.js";
 import { IdeaCards } from "./ports/idea-cards.js";
@@ -270,6 +272,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         { provide: AttachmentRepository, useClass: PostgresAttachmentRepository },
         { provide: AttachmentFiles, useClass: FilesystemAttachmentFiles },
         { provide: PdfPages, useClass: UnpdfPdfPages },
+        { provide: ZipFiles, useClass: YauzlZipFiles },
         { provide: WorktreeFiles, useClass: FilesystemWorktreeFiles },
         { provide: WorkSearch, useClass: PostgresWorkSearch },
         { provide: SavedViewRepository, useClass: PostgresSavedViewRepository },
