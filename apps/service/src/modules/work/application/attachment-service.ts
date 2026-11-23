@@ -5,14 +5,19 @@ import { Injectable, Logger } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
 import {
+  ATTACHMENT_SIZE_LIMIT,
   fileReadingOf,
   isText,
   isTextFile,
+  mediaTypeOf,
+  zipEntryLine,
+  zipEntryReadingOf,
   type Attachment,
   type AttachmentOwner,
   type NewFile,
   type NewLink,
   type StoredFileAttachment,
+  type ZipEntry,
 } from "../domain/attachment.js";
 import {
   addFile,
@@ -40,6 +45,7 @@ import { InitiativeRepository } from "../ports/initiative-repository.js";
 import { PdfPages } from "../ports/pdf-pages.js";
 import { TaskGates } from "../ports/task-gates.js";
 import { TaskRepository } from "../ports/task-repository.js";
+import { ZipFiles } from "../ports/zip-files.js";
 
 /** A file as it is uploaded: its name, media type and bytes. */
 export interface UploadedFile {
@@ -73,6 +79,21 @@ export interface Picture {
   readonly content: Uint8Array;
 }
 
+/** A file in a zip Attachment, read as a file Attachment of its own would be. */
+export type ZipEntryRead =
+  | {
+      readonly reading: "lines" | "pdf-text";
+      readonly entry: ZipEntry;
+      readonly part: LinesPart;
+    }
+  | {
+      readonly reading: "picture";
+      readonly entry: ZipEntry;
+      readonly mediaType: string;
+      readonly content: Uint8Array;
+    }
+  | { readonly reading: "unreadable"; readonly entry: ZipEntry };
+
 /**
  * The Attachments use cases. A file's bytes, and a PDF's text, are written before its record and
  * removed after it, so a record never names a file that isn't there; a replaced file's old copy is
@@ -88,6 +109,7 @@ export class AttachmentService {
     private readonly repository: AttachmentRepository,
     private readonly files: AttachmentFiles,
     private readonly pdfPages: PdfPages,
+    private readonly zipFiles: ZipFiles,
     private readonly ideas: IdeaRepository,
     private readonly initiatives: InitiativeRepository,
     private readonly tasks: TaskRepository,
@@ -163,21 +185,58 @@ export class AttachmentService {
   }
 
   /**
-   * Reads a text file, or a PDF's text, by its lines, as UTF-8, within `budget` characters. The
-   * text is streamed line by line, as it can be far larger than any answer, and every line is
-   * counted. Any other file is refused.
+   * Reads a text file, or a PDF's text, by its lines (`linesPartOf`). Any other file is refused.
    */
   async readLines(id: string, reading: LineReading, budget: number): Promise<LinesPart> {
-    const reader = lineReader(reading, budget);
-    const content = await this.linesOf(await this.readFile(id));
-    const lines = createInterface({ input: content, crlfDelay: Infinity });
-    try {
-      for await (const line of lines) reader.take(line);
-    } finally {
-      lines.close();
-      content.destroy();
+    return linesPartOf(await this.linesOf(await this.readFile(id)), reading, budget);
+  }
+
+  /**
+   * Reads the files a zip holds, one per line with its path and size, as a text file's lines are
+   * read; any other Attachment is refused.
+   */
+  async readZipEntries(id: string, reading: LineReading, budget: number): Promise<LinesPart> {
+    const entries = await this.zipFiles.entriesOf(await this.zipOf(id));
+    return linesPartOf(Readable.from([entries.map(zipEntryLine).join("\n")]), reading, budget);
+  }
+
+  /**
+   * Reads one file in a zip, in memory, by what it holds: a text file or a PDF's text by its lines
+   * within `budget` characters, an image as a picture. Refused when the zip holds no file at
+   * `path`, or the Attachment is no zip.
+   */
+  async readZipEntry(
+    id: string,
+    path: string,
+    reading: LineReading,
+    budget: number,
+  ): Promise<ZipEntryRead> {
+    const file = await this.zipFiles.contentOf(await this.zipOf(id), path, ATTACHMENT_SIZE_LIMIT);
+    if (!file) {
+      throw new AttachmentRefused([
+        `This zip holds no file "${path}"; read it without entry for the files it holds.`,
+      ]);
     }
-    return reader.part();
+    const { entry, content } = file;
+    const entryReading = zipEntryReadingOf(entry, content);
+    switch (entryReading) {
+      case "lines":
+        return {
+          reading: entryReading,
+          entry,
+          part: await linesPartOf(Readable.from([Buffer.from(content)]), reading, budget),
+        };
+      case "pdf-text":
+        return {
+          reading: entryReading,
+          entry,
+          part: await linesPartOf(Readable.from([await this.pdfTextIn(content)]), reading, budget),
+        };
+      case "picture":
+        return { reading: entryReading, entry, mediaType: mediaTypeOf(entry.path), content };
+      case "unreadable":
+        return { reading: entryReading, entry };
+    }
   }
 
   /** An image's picture, whole; any other Attachment is refused. */
@@ -282,6 +341,24 @@ export class AttachmentService {
     return attachment;
   }
 
+  private async zipOf(id: string): Promise<Uint8Array> {
+    if (fileReadingOf(await this.readFile(id)) !== "zip") {
+      throw new AttachmentRefused(["Only a zip is read by the files it holds."]);
+    }
+    return wholeOf(await this.files.open(id));
+  }
+
+  /** The text of a PDF in a zip, pulled out as it is read, as nothing keeps it. */
+  private async pdfTextIn(content: Uint8Array): Promise<string> {
+    try {
+      return pdfTextOf(await this.pdfPages.textOf(content));
+    } catch {
+      throw new AttachmentRefused([
+        "The Office couldn't pull the text out of this PDF, so it can't be read.",
+      ]);
+    }
+  }
+
   private async linesOf(file: StoredFileAttachment): Promise<Readable> {
     switch (fileReadingOf(file)) {
       case "lines":
@@ -295,6 +372,7 @@ export class AttachmentService {
           ]);
         }
       case "picture":
+      case "zip":
       case "unreadable":
         throw new AttachmentRefused(["Only a text file or a PDF is read by its lines."]);
     }
@@ -370,6 +448,26 @@ async function documentTextOf(
   content: Uint8Array,
 ): Promise<string | undefined> {
   return file.kind === "document" ? searchedTextOf(Readable.from([content])) : undefined;
+}
+
+/**
+ * Reads a text by its lines, as UTF-8, within `budget` characters. The text is streamed line by
+ * line, as it can be far larger than any answer, and every line is counted.
+ */
+async function linesPartOf(
+  content: Readable,
+  reading: LineReading,
+  budget: number,
+): Promise<LinesPart> {
+  const reader = lineReader(reading, budget);
+  const lines = createInterface({ input: content, crlfDelay: Infinity });
+  try {
+    for await (const line of lines) reader.take(line);
+  } finally {
+    lines.close();
+    content.destroy();
+  }
+  return reader.part();
 }
 
 async function wholeOf(content: Readable): Promise<Uint8Array> {

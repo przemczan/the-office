@@ -28,6 +28,7 @@ import { DATABASE, type Database } from "../../../../platform/database/database.
 import { AttachmentFiles } from "../../ports/attachment-files.js";
 import { AttachmentRepository } from "../../ports/attachment-repository.js";
 import { aPdf } from "../pdf/pdf.fixtures.js";
+import { aZip } from "../zip/zip.fixtures.js";
 import { attachments as attachmentRows } from "../postgres/work.schema.js";
 import {
   INITIATIVE_PLANNING_OFFICE_TOOLS,
@@ -869,8 +870,8 @@ describe("read_attachment", () => {
     const image = await addFile({ kind: "task", taskId: task.id }, "screen.png", "image/png", png);
     const archive = await addFile(
       { kind: "task", taskId: task.id },
-      "export.zip",
-      "application/zip",
+      "export.bin",
+      "application/octet-stream",
       new Uint8Array([80, 75, 3, 4, 0, 0]),
     );
 
@@ -887,8 +888,94 @@ describe("read_attachment", () => {
       pictures: [{ name: "screen.png", mediaType: "image/png", content: Buffer.from(png) }],
     });
     expect(fileRead.text).toBe(
-      `Attached to Task ${task.id}: Mockups.\n\nexport.zip (file, application/zip, 6 bytes). It is neither text, a PDF nor an image, so it can't be read; ask the user what it holds if you need to know.`,
+      `Attached to Task ${task.id}: Mockups.\n\nexport.bin (file, application/octet-stream, 6 bytes). It is neither text, a PDF nor an image, so it can't be read; ask the user what it holds if you need to know.`,
     );
+  });
+
+  it("unzips a zip as it reads it: the files it holds, then one of them by its path", async () => {
+    const task = await aTaskNamed("Exports");
+    const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13]);
+    const zip = await aZip({
+      "logs/": "",
+      "logs/run.log": "started\nfailed: timeout\nstopped\n",
+      "manual.pdf": aPdf(["Open the shutter."]),
+      "logs/screen.png": png,
+      "data.bin": new Uint8Array([0, 1, 2]),
+    });
+    const archive = await addFile(
+      { kind: "task", taskId: task.id },
+      "export.zip",
+      "application/x-zip-compressed",
+      zip,
+    );
+    const opening = `Attached to Task ${task.id}: Exports.\n\nexport.zip (file, application/x-zip-compressed, ${zip.byteLength} bytes)`;
+
+    const list = await call(READ_ATTACHMENT, { attachmentId: archive.id });
+    const log = await call(READ_ATTACHMENT, {
+      attachmentId: archive.id,
+      entry: "logs/run.log",
+      search: "failed",
+      contextLines: 0,
+    });
+    const manual = await call(READ_ATTACHMENT, { attachmentId: archive.id, entry: "manual.pdf" });
+    const screen = await call(READ_ATTACHMENT, {
+      attachmentId: archive.id,
+      entry: "logs/screen.png",
+    });
+    const data = await call(READ_ATTACHMENT, { attachmentId: archive.id, entry: "data.bin" });
+
+    expect(list.text).toBe(
+      `${opening}, a zip of 4 files, each by its path and size; read one with entry:\n\n     1→logs/run.log (32 bytes)\n     2→manual.pdf (${aPdf(["Open the shutter."]).byteLength} bytes)\n     3→logs/screen.png (12 bytes)\n     4→data.bin (3 bytes)\n\nLines 1–4 of 4: the end of the file.`,
+    );
+    expect(log.text).toContain(
+      `${opening}, a zip.\n\nIn it, logs/run.log (32 bytes), 3 lines:\n\n`,
+    );
+    expect(log.text).toContain("     2:failed: timeout");
+    expect(manual.text).toContain("In it, manual.pdf (");
+    expect(manual.text).toContain("     1→--- Page 1 of 1 ---\n     2→Open the shutter.");
+    expect(screen).toEqual({
+      text: `${opening}, a zip.\n\nIn it, logs/screen.png (12 bytes).`,
+      isError: false,
+      pictures: [{ name: "screen.png", mediaType: "image/png", content: png }],
+    });
+    expect(data.text).toBe(
+      `${opening}, a zip.\n\nIn it, data.bin (3 bytes). It is neither text, a PDF nor an image, so it can't be read.`,
+    );
+  });
+
+  it("refuses a path the zip doesn't hold, entry on a file that is no zip, and a broken zip", async () => {
+    const task = await aTaskNamed("Broken");
+    const owner = { kind: "task", taskId: task.id } as const;
+    const archive = await addFile(
+      owner,
+      "export.zip",
+      "application/zip",
+      await aZip({ "a.txt": "a" }),
+    );
+    const notes = await addDocument(owner, "notes.md", "Notes.");
+    const broken = await addFile(
+      owner,
+      "broken.zip",
+      "application/zip",
+      new Uint8Array([80, 75, 3, 4, 0, 0]),
+    );
+
+    await expect(
+      call(READ_ATTACHMENT, { attachmentId: archive.id, entry: "b.txt" }),
+    ).resolves.toEqual({
+      text: 'This zip holds no file "b.txt"; read it without entry for the files it holds.',
+      isError: true,
+    });
+    await expect(
+      call(READ_ATTACHMENT, { attachmentId: notes.id, entry: "a.txt" }),
+    ).resolves.toEqual({
+      text: "entry reads one file in a zip, and this Attachment is no zip; leave entry out.",
+      isError: true,
+    });
+    await expect(call(READ_ATTACHMENT, { attachmentId: broken.id })).resolves.toEqual({
+      text: "The Office can't open this zip, so it can't be read.",
+      isError: true,
+    });
   });
 
   it("refuses an Attachment that isn't there", async () => {
