@@ -13,7 +13,6 @@ const NOW = new Date(2026, 10, 2, 9, 0);
 const IN_THREE_HOURS = new Date(2026, 10, 2, 12, 0);
 const IN_FOUR_HOURS = new Date(2026, 10, 2, 13, 0);
 const IN_HALF_AN_HOUR = new Date(2026, 10, 2, 9, 30);
-const OPUS = "claude-opus-5-5";
 
 const engine = (id: string, name: string): Engine => ({ ...FIRST_CLAUDE_CODE_ENGINE, id, name });
 const ENGINES: readonly Engine[] = [
@@ -21,7 +20,14 @@ const ENGINES: readonly Engine[] = [
   engine("personal", "Personal"),
   engine("spare", "Spare"),
   engine("home", "Home"),
-  { kind: "codex", id: "lab", name: "Lab", defaultModel: "gpt-5.5", apiKey: null },
+  {
+    kind: "codex",
+    id: "lab",
+    name: "Lab",
+    defaultModel: "gpt-5.5",
+    defaultEffort: null,
+    apiKey: null,
+  },
 ];
 const ENGINE_NAMES = new Map(ENGINES.map(({ id, name }) => [id, name] as const));
 
@@ -83,15 +89,20 @@ function standIn(
 
 function standIns(
   listed: readonly StandInEngineAtStart[],
-  modelsOn: ReadonlyMap<string, readonly string[]> = new Map([["work", [OPUS]]]),
+  cascadeEngines: readonly string[] = ["work"],
+  capable?: (engineId: string) => boolean,
 ): StandInsAtStart {
   return {
     engines: ENGINES,
     order: listed.map(({ engineId }) => engineId),
-    modelsOn,
+    cascadeEngines,
+    ...(capable && { capable }),
     standIns: listed,
   };
 }
+
+/** Every engine but Lab has what the Task's Agent Stages need. */
+const labIncapable = (engineId: string): boolean => engineId !== "lab";
 
 const WORK_CAP_WORDS =
   "The Work engine's 5-hour window would pass its 80% cap: 75% used, 0% expected of the Tasks started since it was read and 10% of this Task. It resets at 12:00.";
@@ -149,7 +160,7 @@ describe("onStandIns", () => {
     expect(weighed.waits).toEqual([]);
   });
 
-  it("skips a Stand-in Engine over a cap, used up, over its Daily cap or not serving every model", () => {
+  it("skips a Stand-in Engine over a cap, used up, over its Daily cap or lacking a capability", () => {
     const weighed = onStandIns(
       usage(),
       standIns(
@@ -161,11 +172,38 @@ describe("onStandIns", () => {
           standIn("personal", { daily: daily("personal", 9500) }),
           standIn("home", { windows: windows("home", 75) }),
         ],
-        new Map([["work", [OPUS, "claude-haiku-5-5"]]]),
+        ["work"],
+        labIncapable,
       ),
     );
 
     expect(weighed.standIns).toEqual([]);
+  });
+
+  it("hands the Stages to a Stand-in Engine of another engine type", () => {
+    const weighed = onStandIns(usage(), standIns([standIn("lab")]));
+
+    expect(weighed.standIns).toEqual([
+      expect.objectContaining({ engineId: "work", standInId: "lab", standInName: "Lab" }),
+    ]);
+    expect(weighed.waits).toEqual([]);
+  });
+
+  it("passes over an incapable Stand-in Engine for the next capable one with room", () => {
+    const weighed = onStandIns(
+      usage(),
+      standIns([standIn("lab"), standIn("personal")], ["work"], labIncapable),
+    );
+
+    expect(weighed.standIns.map(({ standInId }) => standInId)).toEqual(["personal"]);
+  });
+
+  it("weighs only the stand-ins of the list that applies", () => {
+    const listed = standIns([standIn("personal"), standIn("spare")]);
+
+    const weighed = onStandIns(usage(), { ...listed, order: ["spare"] });
+
+    expect(weighed.standIns.map(({ standInId }) => standInId)).toEqual(["spare"]);
   });
 
   it("counts a Daily cap on the Stand-in Engine with the Task's tokens moved onto it", () => {
@@ -199,12 +237,7 @@ describe("onStandIns", () => {
       estimate: [estimate("work", 10), estimate("personal", 50)],
       windows: [windows("work", 75), windows("personal", 20)],
     });
-    const modelsOn = new Map([
-      ["work", [OPUS]],
-      ["personal", [OPUS]],
-    ]);
-
-    const weighed = onStandIns(both, standIns([standIn("personal")], modelsOn));
+    const weighed = onStandIns(both, standIns([standIn("personal")], ["work", "personal"]));
 
     expect(weighed.standIns).toEqual([]);
     expect(weighed.waits.map(({ short }) => short)).toContain("No stand-in with room");
@@ -215,12 +248,7 @@ describe("onStandIns", () => {
       estimate: [estimate("work", 10), estimate("personal", 5)],
       windows: [windows("work", 75), windows("personal", 20)],
     });
-    const modelsOn = new Map([
-      ["work", [OPUS]],
-      ["personal", [OPUS]],
-    ]);
-
-    const weighed = onStandIns(both, standIns([standIn("personal")], modelsOn));
+    const weighed = onStandIns(both, standIns([standIn("personal")], ["work", "personal"]));
 
     expect(weighed.standIns.map(({ standInId }) => standInId)).toEqual(["personal"]);
     expect(weighed.usage.estimate).toEqual([
@@ -246,9 +274,9 @@ describe("onStandIns", () => {
     expect(weighed.resets).toEqual([IN_THREE_HOURS, IN_FOUR_HOURS]);
   });
 
-  it("leaves the reasons as they are with no Stand-in Engine serving the model", () => {
+  it("leaves the reasons as they are with no capable Stand-in Engine", () => {
     const withoutStandIns = onStandIns(usage(), standIns([]));
-    const withLabOnly = onStandIns(usage(), standIns([standIn("lab")]));
+    const withLabOnly = onStandIns(usage(), standIns([standIn("lab")], ["work"], labIncapable));
 
     expect(withoutStandIns.waits).toEqual([
       { reason: WORK_CAP_WORDS, short: "5-hour window cap (80%) · resets 12:00" },
@@ -320,5 +348,97 @@ describe("standInsWithStarted", () => {
 
     expect(counted.standIns[0]?.windows?.startedSinceReading.fiveHour).toBe(30);
     expect(counted.standIns[0]?.daily?.inProgress).toEqual({ tokens: 1000, dollars: 0.5 });
+  });
+});
+
+/** The Task's engine forced by an override, with no list, as the cascade gives it then. */
+function forced(forcedBy: "task" | "initiative"): StandInsAtStart {
+  return { ...standIns([]), forcedBy };
+}
+
+describe("onStandIns under an engine override", () => {
+  it("keeps the forced engine while it has room", () => {
+    const weighed = onStandIns(usage({ windows: [windows("work", 20)] }), forced("task"));
+
+    expect(weighed).toMatchObject({ standIns: [], waits: [], resets: [] });
+  });
+
+  it("waits for the forced engine's reset, naming the override, with no stand-in", () => {
+    const weighed = onStandIns(usage(), forced("task"));
+
+    expect(weighed.standIns).toEqual([]);
+    expect(weighed.waits).toEqual([
+      { reason: WORK_CAP_WORDS, short: "5-hour window cap (80%) · resets 12:00" },
+      {
+        reason:
+          "Work is set for this Task (it uses no Stand-in Engine) and waits for the reset at 12:00.",
+        short: "Work is set for this Task · resets 12:00",
+      },
+    ]);
+    expect(weighed.resets).toEqual([IN_THREE_HOURS]);
+  });
+
+  it("names the Initiative when its override forces the engine", () => {
+    const weighed = onStandIns(usage(), forced("initiative"));
+
+    expect(weighed.waits.at(-1)).toEqual({
+      reason:
+        "Work is set for its Initiative (it uses no Stand-in Engine) and waits for the reset at 12:00.",
+      short: "Work is set for its Initiative · resets 12:00",
+    });
+  });
+
+  it("hands nothing on even to a listed Stand-in Engine with room, as the override forces it", () => {
+    const listed = standIns([standIn("personal")]);
+
+    const weighed = onStandIns(usage(), { ...listed, forcedBy: "task" });
+
+    expect(weighed.standIns).toEqual([]);
+    expect(weighed.resets).toEqual([IN_THREE_HOURS]);
+  });
+
+  it("waits with the day of a reset on another day", () => {
+    const usedUp = usage({
+      windows: [],
+      usedUp: [
+        { engineId: "work", windowWords: "7-day window", until: new Date(2026, 10, 5, 14, 30) },
+      ],
+    });
+
+    const weighed = onStandIns(usedUp, forced("task"));
+
+    expect(weighed.waits.at(-1)).toEqual({
+      reason:
+        "Work is set for this Task (it uses no Stand-in Engine) and waits for the reset on Thu 5 Nov at 14:30.",
+      short: "Work is set for this Task · resets Thu 5 Nov 14:30",
+    });
+  });
+
+  it("tries only the forced engine past the usage caps: a used-up window still holds it", () => {
+    const usedUp = usage({
+      usedUp: [{ engineId: "work", windowWords: "7-day window", until: IN_FOUR_HOURS }],
+    });
+
+    const weighed = onStandIns(usedUp, forced("task"), "start-anyway");
+
+    expect(weighed.standIns).toEqual([]);
+    expect(weighed.waits).toEqual([
+      { reason: "Work's 7-day window is used up until 13:00.", short: expect.any(String) },
+      {
+        reason:
+          "Work is set for this Task (it uses no Stand-in Engine) and waits for the reset at 13:00.",
+        short: "Work is set for this Task · resets 13:00",
+      },
+    ]);
+    expect(onStandIns(usage(), forced("task"), "start-anyway").waits).toEqual([]);
+  });
+
+  it("queues for a Daily cap alone, with no word of the override", () => {
+    const dailyOnly = usage({ windows: [windows("work", 20)], daily: [daily("work", 9500)] });
+
+    const weighed = onStandIns(dailyOnly, forced("task"));
+
+    expect(weighed.waits).toHaveLength(1);
+    expect(weighed.waits[0]?.reason).not.toContain("is set for");
   });
 });

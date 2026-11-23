@@ -244,8 +244,8 @@ export class TaskStagesService implements OnModuleInit {
   /**
    * Only Roles neither the Task's Stages, the library nor its Project's Project Pipelines name yet
    * are weighed, in the Task's Project, the only place its sessions run: the others already passed
-   * the check (spec §5.4). While the Task or its Initiative sets an engine, People weighs whom the
-   * edit names against whom the Task's Stages name now, at that engine (`task`).
+   * the check (spec §5.4). While the Task or its Initiative has an engine override, People weighs whom
+   * the edit names against whom the Task's Stages name now, at that override alone (`task`).
    */
   private async roleEngineProblems(
     taskId: string,

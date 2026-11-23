@@ -401,8 +401,13 @@ test(
     await expect(permissions).toContainText("Asks you until someone is hired");
     await expect(permissions).toContainText("Change RolesNever");
     await expect(roleCardGroup(page, "Work")).toContainText("3 at once");
-    await expect(roleCardGroup(page, "Engine")).toContainText("Office default · effort high");
-    await expect(roleCardGroup(page, "Engine")).toContainText("from the Office default");
+    const worksWith = roleCardGroup(page, "Engine").getByRole("table");
+    await expect(worksWith.getByRole("row", { name: /Claude Code/ })).toContainText(
+      "Claude CodeEngine's defaultHigh",
+    );
+    await expect(roleCardGroup(page, "Engine")).toContainText(
+      "Sonnet 5.5 · effort high on Claude Code",
+    );
     await expect(page.getByText("Hired", { exact: true })).toBeVisible();
     await page.screenshot({
       path: path.join(SCREENSHOTS, "light-1600-person-role-card.png"),
@@ -440,10 +445,12 @@ test("the user edits every field of a Role card, and it holds after a reload", a
   await form.getByLabel("Instructions").fill("Work from the Plan.\n\nAsk the user: a public API.");
   await form.getByLabel("Task limit").selectOption("4");
   await form.getByText("Prefer to continue", { exact: true }).click();
-  await form.getByRole("combobox", { name: "Engine" }).selectOption({ label: "Claude Code" });
-  // Picking an engine fills in its default model.
-  await expect(form.getByLabel("Model")).toHaveValue("claude-sonnet-5-5");
-  await form.getByRole("tab", { name: "Max" }).click();
+  const claudeCode = form.getByRole("group", { name: "Claude Code" });
+  // The preset works with the engine's default model, at effort High.
+  await expect(claudeCode.getByLabel("Model")).toHaveValue("");
+  await expect(claudeCode.getByLabel("Effort")).toHaveValue("high");
+  await claudeCode.getByLabel("Model").selectOption({ label: "Sonnet 5.5" });
+  await claudeCode.getByLabel("Effort").selectOption({ label: "Max" });
   await form.getByText("Chat", { exact: true }).click();
   await form.getByText("Consultant", { exact: true }).click();
   await form.getByText("Run environment", { exact: true }).click();
@@ -474,11 +481,11 @@ test("the user edits every field of a Role card, and it holds after a reload", a
   await expect(roleCardGroup(page, "Work")).toContainText("Ask the user: a public API.");
   await expect(roleCardGroup(page, "Work")).toContainText("4 at once");
   await expect(roleCardGroup(page, "Work")).toContainText("Prefer to continue");
+  await expect(
+    roleCardGroup(page, "Engine").getByRole("row", { name: /Claude Code/ }),
+  ).toContainText("Claude CodeSonnet 5.5Max");
   await expect(roleCardGroup(page, "Engine")).toContainText(
-    "Sonnet 5.5 · effort max · Claude Code",
-  );
-  await expect(roleCardGroup(page, "Engine")).toContainText(
-    "Sonnet 5.5 on Claude Code, from the Role override",
+    "Sonnet 5.5 · effort max on Claude Code",
   );
   const capabilities = roleCardGroup(page, "Capabilities").getByRole("listitem");
   await expect(capabilities.filter({ hasText: "Chat" })).toHaveClass("on");
@@ -495,13 +502,18 @@ test("the user edits every field of a Role card, and it holds after a reload", a
   await expect(roleCardGroup(page, "Skills")).toContainText(SKILL);
 
   const changes = page.getByRole("listitem").filter({ hasText: "Role card version 2" });
-  await expect(changes).toContainText("Engine and model Office default → Claude Code · Sonnet 5.5");
+  await expect(changes).toContainText("Model and effort");
+  await expect(changes).toContainText("→ Claude Code: Sonnet 5.5 · effort max");
   await expect(changes).toContainText("Task limit 3 → 4");
   await expect(page.getByText(`Skills gained ${SKILL}`)).toBeVisible();
   await page.screenshot({
     path: path.join(SCREENSHOTS, "light-1600-role-card-changed.png"),
     fullPage: true,
   });
+
+  // The Overview's Works with names the type's model and effort.
+  await page.goto("/people/developer");
+  await expect(page.getByText("Claude Code: Sonnet 5.5 · effort max")).toBeVisible();
 });
 
 test(
@@ -509,113 +521,38 @@ test(
   { tag: "@full" },
   async ({ page }) => {
     const repository = await createTemporaryRepository();
-    const haiku = { engineId: "claude-code", model: "claude-haiku-5-5" };
     let project: Project | undefined;
     try {
       project = await addedProject(page, repository, "Cascade shop", "CS");
       await page.goto("/people/developer/role");
       const engine = roleCardGroup(page, "Engine");
-      await expect(engine).toContainText("Sonnet 5.5 on Claude Code, from the Role override");
-      const elsewhere = engine.getByRole("list", { name: "Projects where something else applies" });
-      await expect(elsewhere).toHaveCount(0);
+      await expect(engine).toContainText("Sonnet 5.5 · effort max on Claude Code");
+      // project-engine.e2e.ts's force may list its own Project meanwhile, so only this one's is read.
+      const inTheShop = engine
+        .getByRole("list", { name: "Projects where something else applies" })
+        .getByRole("listitem")
+        .filter({ hasText: "In Cascade shop:" });
+      await expect(inTheShop).toHaveCount(0);
 
-      // The card follows a Project's change as it lands.
-      const overridden = await page.request.put(
-        `/api/projects/${project.id}/role-overrides/developer`,
-        { data: { roleOverride: haiku } },
-      );
-      expect(overridden.ok()).toBe(true);
-      await expect(elsewhere).toHaveText(
-        "In Cascade shop: Haiku 5.5 on Claude Code, from the Project's Role override",
-      );
-    } finally {
-      if (project) {
-        await page.request.put(`/api/projects/${project.id}/role-overrides/developer`, {
-          data: { roleOverride: null },
-        });
-      }
-      await repository.remove();
-    }
-  },
-);
-
-test(
-  "the Project page's Engine block sets the Project default, uses it for every Role, and gives a Role an override there",
-  { tag: "@full" },
-  async ({ page }) => {
-    const repository = await createTemporaryRepository();
-    let project: Project | undefined;
-    try {
-      project = await addedProject(page, repository, "Engine shop", "ES");
-      await page.goto(`/projects/${project.id}/engine`);
-      const block = page
-        .locator("section")
-        .filter({ has: page.getByRole("heading", { name: "Engine", exact: true }) });
-      const projectDefault = block.getByRole("group", { name: "Project default" });
-      const useForEveryRole = block.getByRole("switch");
-      await expect(projectDefault.getByLabel("Engine")).toHaveValue("");
-      await expect(block).toContainText("Pick a Project default first.");
-
-      // Picking an engine fills in its default model.
-      await projectDefault.getByLabel("Engine").selectOption({ label: "Claude Code" });
-      await expect(projectDefault.getByLabel("Model")).toHaveValue("claude-sonnet-5-5");
-      await projectDefault.getByLabel("Model").selectOption({ label: "Haiku 5.5" });
-      // The field shows the saved Project, so this waits for the save, which the switch ignores clicks during.
-      await expect(projectDefault.getByLabel("Model")).toHaveValue("claude-haiku-5-5");
-      await useForEveryRole.click();
-      await expect(useForEveryRole).toHaveAttribute("aria-checked", "true");
-      // While it is on, the Project default can't be cleared.
-      await expect(
-        projectDefault.getByLabel("Engine").getByRole("option", { name: "Office default" }),
-      ).toHaveCount(0);
-
-      // The force wins over the Developer's Role override on his card.
-      const elsewhere = roleCardGroup(page, "Engine").getByRole("list", {
-        name: "Projects where something else applies",
+      // The card follows a Project's change as it lands: a model of Adam's own there, his effort
+      // still his Role card's.
+      const setHere = await page.request.put(`/api/projects/${project.id}/engine`, {
+        data: {
+          people: [
+            {
+              roleKey: "developer",
+              engineSettings: { "claude-code": { model: "claude-haiku-5-5", effort: null } },
+            },
+          ],
+        },
       });
-      await page.goto("/people/developer/role");
-      await expect(elsewhere).toContainText(
-        "In Engine shop: Haiku 5.5 on Claude Code, from the Project default",
+      expect(setHere.ok()).toBe(true);
+      await expect(inTheShop).toHaveText(
+        "In Cascade shop: Haiku 5.5 · effort max on Claude Code, from the Project's setting for Adam",
       );
-
-      await page.goto(`/projects/${project.id}/engine`);
-      const adding = block.getByRole("group", { name: "Add a Role override" });
-      await adding.getByLabel("Role").selectOption("developer");
-      await adding.getByLabel("Model").selectOption({ label: "Haiku 5.5" });
-      await adding.getByRole("button", { name: "Add" }).click();
-      const overrides = block.getByRole("list", { name: "Role overrides in this Project" });
-      await expect(overrides.getByRole("listitem")).toHaveCount(1);
-      await expect(overrides.getByRole("listitem")).toContainText("Adam · Senior developer");
-
-      await page.reload();
-      await expect(projectDefault.getByLabel("Model")).toHaveValue("claude-haiku-5-5");
-      await expect(useForEveryRole).toHaveAttribute("aria-checked", "true");
-      await expect(overrides.getByLabel("Model")).toHaveValue("claude-haiku-5-5");
-
-      // The Project's Role override wins over the force.
-      await page.goto("/people/developer/role");
-      await expect(elsewhere).toContainText(
-        "In Engine shop: Haiku 5.5 on Claude Code, from the Project's Role override",
-      );
-
-      await page.goto(`/projects/${project.id}/engine`);
-      await overrides.getByRole("button", { name: "Remove" }).click();
-      await expect(overrides).toHaveCount(0);
-      await expect(
-        adding.getByLabel("Role").getByRole("option", { name: "Adam · Senior developer" }),
-      ).toHaveCount(1);
     } finally {
       if (project) {
-        const projectPath = `/api/projects/${project.id}`;
-        await page.request.put(`${projectPath}/role-overrides/developer`, {
-          data: { roleOverride: null },
-        });
-        await page.request.put(`${projectPath}/use-for-every-role`, {
-          data: { useForEveryRole: false },
-        });
-        await page.request.put(`${projectPath}/project-default`, {
-          data: { projectDefault: null },
-        });
+        await page.request.put(`/api/projects/${project.id}/engine`, { data: { people: [] } });
       }
       await repository.remove();
     }
@@ -744,23 +681,22 @@ test(
 
     await page.goto("/people/data-analyst/role/edit");
     const form = page.locator("form.role-card-form");
-    await form.getByRole("combobox", { name: "Engine" }).selectOption({ label: "People Strata" });
-    await expect(
-      form.getByText("It has no usage windows, so the 5-hour window doesn't count it."),
-    ).toBeVisible();
-    await form.getByLabel("Model").selectOption({ label: "org/coder:q4" });
+    // An API endpoint takes no effort, so its row has a Model only.
+    const apiEndpoint = form.getByRole("group", { name: "API endpoint" });
+    await expect(apiEndpoint.getByLabel("Effort")).toHaveCount(0);
+    await apiEndpoint.getByLabel("Model").selectOption({ label: "org/coder:q4" });
     await page.getByRole("button", { name: "Save changes" }).click();
 
     await expect(page).toHaveURL(/\/people\/data-analyst\/role$/);
     await page.reload();
-    await expect(roleCardGroup(page, "Engine")).toContainText(
-      "org/coder:q4 · effort medium · People Strata",
-    );
-    await expect(roleCardGroup(page, "Engine")).toContainText("It has no usage windows");
+    await expect(
+      roleCardGroup(page, "Engine").getByRole("row", { name: /API endpoint/ }),
+    ).toContainText("API endpointorg/coder:q4");
     await expect(
       page
         .getByRole("listitem")
-        .filter({ hasText: "Engine and model Office default → People Strata · org/coder:q4" }),
+        .filter({ hasText: "Model and effort" })
+        .filter({ hasText: "API endpoint: org/coder:q4" }),
     ).toBeVisible();
 
     // An API engine has Daily caps only: it has no usage windows.
@@ -906,17 +842,23 @@ test(
     ).toHaveValue("org/coder:q4");
 
     const officeDefault = page.getByRole("group", { name: "Office default" });
-    const engine = officeDefault.getByRole("combobox", { name: "Engine" });
-    const model = officeDefault.getByRole("combobox", { name: "Model" });
-    await expect(engine).toHaveValue("claude-code");
-    await expect(model).toHaveValue("claude-sonnet-5-5");
-    await engine.selectOption({ label: "Second account" });
-    // Picking an engine fills in its default model.
-    await expect(model).toHaveValue("claude-haiku-5-5");
-    await engine.selectOption({ label: "People Strata" });
-    await expect(model).toHaveValue("org/coder:q4");
+    const engineType = officeDefault.getByRole("combobox", { name: "Engine type" });
+    const account = officeDefault.getByRole("combobox", { name: "Account" });
+    await expect(engineType).toHaveValue("claude-code");
+    await expect(account).toHaveValue("claude-code");
+    // The Account offers the engine type's engines only.
+    await expect(account.getByRole("option", { name: "People Strata" })).toHaveCount(0);
+    await account.selectOption({ label: "Second account" });
+    await expect(page.getByText("Unsaved changes")).toBeVisible();
+    // Picking an engine type picks its first account.
+    await engineType.selectOption({ label: "API endpoint" });
+    await expect(account.getByRole("option", { name: "Second account" })).toHaveCount(0);
+    const firstEndpoint = await account.getByRole("option").first().getAttribute("value");
+    await expect(account).toHaveValue(firstEndpoint ?? "");
+    await account.selectOption({ label: "People Strata" });
     await page.getByRole("button", { name: "Discard" }).click();
-    await expect(engine).toHaveValue("claude-code");
+    await expect(engineType).toHaveValue("claude-code");
+    await expect(account).toHaveValue("claude-code");
 
     await removeEngine(page, "Second account");
   },
@@ -927,9 +869,6 @@ test(
   { tag: "@full" },
   async ({ page }) => {
     const repository = await createTemporaryRepository();
-    const miasCard = roleSchema.parse(
-      await (await page.request.get("/api/roles/data-analyst")).json(),
-    ).card;
     let project: Project | undefined;
     try {
       // An engine of the test's own: removing one moves every reference to it, whoever made it.
@@ -944,12 +883,15 @@ test(
       ]);
       const leaving = await engineIdOf(page, "Leaving account");
       project = await addedProject(page, repository, "Removal shop", "RS");
-      const overridden = await page.request.put("/api/roles/data-analyst/card", {
-        data: { ...miasCard, roleOverride: { engineId: leaving, model: "claude-haiku-5-5" } },
-      });
-      expect(overridden.ok()).toBe(true);
-      const defaulted = await page.request.put(`/api/projects/${project.id}/project-default`, {
-        data: { projectDefault: { engineId: leaving, model: "claude-sonnet-5-5" } },
+      const ownSettings = {
+        roleKey: "developer",
+        engineSettings: { "claude-code": { model: "claude-haiku-5-5", effort: "low" } },
+      } as const;
+      const defaulted = await page.request.put(`/api/projects/${project.id}/engine`, {
+        data: {
+          default: { engineType: "claude-code", engineId: leaving },
+          people: [ownSettings],
+        },
       });
       expect(defaulted.ok()).toBe(true);
 
@@ -962,20 +904,18 @@ test(
       const confirm = dialog.getByRole("button", { name: "Remove Leaving account" });
       // The Office default's engine is suggested.
       await expect(replacement).toHaveValue("claude-code");
-      await expect(moves.getByRole("listitem")).toHaveCount(2);
-      await expect(
-        moves.getByRole("listitem").filter({ hasText: "The Role override of Mia · Data Analyst" }),
-      ).toContainText("Haiku 5.5 on Leaving account → Haiku 5.5 on Claude Code");
+      // A person's model and effort name engine types, so only the Project default moves.
+      await expect(moves.getByRole("listitem")).toHaveCount(1);
       await expect(
         moves.getByRole("listitem").filter({ hasText: "The Project default of Removal shop" }),
       ).toContainText("Sonnet 5.5 on Leaving account → Sonnet 5.5 on Claude Code");
       await expect(confirm).toBeEnabled();
 
-      // A replacement without a model a reference named gives its default model.
+      // A Project default names no model, so the move names each engine's default model.
       await replacement.selectOption({ label: "People Strata" });
       await expect(
-        moves.getByRole("listitem").filter({ hasText: "The Role override of Mia · Data Analyst" }),
-      ).toContainText("Haiku 5.5 on Leaving account → org/coder:q4 on People Strata");
+        moves.getByRole("listitem").filter({ hasText: "The Project default of Removal shop" }),
+      ).toContainText("Sonnet 5.5 on Leaving account → org/coder:q4 on People Strata");
 
       await replacement.selectOption({ label: "Claude Code" });
       await expect(confirm).toBeEnabled();
@@ -987,19 +927,16 @@ test(
       // Another engine shows in its place.
       await expect(shownEngine(page)).toHaveCount(1);
 
-      const mia = roleSchema.parse(
-        await (await page.request.get("/api/roles/data-analyst")).json(),
-      );
-      expect(mia.card.roleOverride).toEqual({ engineId: "claude-code", model: "claude-haiku-5-5" });
       const shop = projectSchema.parse(
         await (await page.request.get(`/api/projects/${project.id}`)).json(),
       );
-      expect(shop.projectDefault).toEqual({ engineId: "claude-code", model: "claude-sonnet-5-5" });
+      // The Project default takes the replacement and its type; the person's settings stay.
+      expect(shop.engine.default).toEqual({ engineType: "claude-code", engineId: "claude-code" });
+      expect(shop.engine.people).toEqual([ownSettings]);
     } finally {
-      await page.request.put("/api/roles/data-analyst/card", { data: miasCard });
       if (project) {
-        await page.request.put(`/api/projects/${project.id}/project-default`, {
-          data: { projectDefault: null },
+        await page.request.put(`/api/projects/${project.id}/engine`, {
+          data: { default: null, people: [] },
         });
       }
       if (await engineIdOf(page, "Leaving account")) await removeEngine(page, "Leaving account");
@@ -4797,8 +4734,16 @@ test(
     await seedProposal(threadId, {
       kind: "change",
       roleKey: "reviewer",
-      from: { effort: reviewer.effort },
-      to: { effort: reviewer.effort === "low" ? "medium" : "low" },
+      from: { engineSettings: reviewer.engineSettings },
+      to: {
+        engineSettings: {
+          ...reviewer.engineSettings,
+          "claude-code": {
+            model: reviewer.engineSettings["claude-code"]?.model ?? null,
+            effort: reviewer.engineSettings["claude-code"]?.effort === "low" ? "medium" : "low",
+          },
+        },
+      },
     });
     const consultantLine = `Consultant ${onOrOff(reviewer.capabilities.consultant)} → ${onOrOff(consultantNow.consultant)}`;
 
@@ -4828,7 +4773,7 @@ test(
     await expect(change).toContainText("Ola works with it from the next session");
 
     // "Not now": nothing changes.
-    const effort = changes.filter({ hasText: "Effort" });
+    const effort = changes.filter({ hasText: "Model and effort" });
     await effort.getByRole("button", { name: "Not now" }).click();
     await expect(effort).toContainText("Not applied");
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-proposals.png") });
@@ -4852,7 +4797,7 @@ test(
       page.getByText(`${consultantLine} · proposed by Marta, applied by you`),
     ).toBeVisible();
     // The declined change saved no version of its own.
-    await expect(page.getByText(/Effort .* proposed by Marta/)).toHaveCount(0);
+    await expect(page.getByText(/Model and effort .* proposed by Marta/)).toHaveCount(0);
 
     await page.goto(`/people?chat=office-manager&thread=${threadId}`);
     await expect(proposalCard(page, "New Role · Iga · Designer")).toContainText("Hired");

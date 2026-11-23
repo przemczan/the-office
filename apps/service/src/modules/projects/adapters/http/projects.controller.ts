@@ -15,11 +15,9 @@ import {
   projectCommandSchema,
   publishingModeChangeSchema,
   deleteMergedBranchesChangeSchema,
-  projectDefaultChangeSchema,
+  projectEngineChangeSchema,
   projectLimitSchema,
   projectSkillListSchema,
-  roleOverrideChangeSchema,
-  useForEveryRoleChangeSchema,
   projectSkillUseChangeSchema,
   useProjectSkillsChangeSchema,
   type AddProject,
@@ -34,11 +32,9 @@ import {
   type KindDefaultPipelineChange,
   type MarkChange,
   type Project as ProjectResponse,
-  type ProjectDefaultChange,
+  type ProjectEngineChange,
   type ProjectFeaturesChange,
   type ProjectLimitChange,
-  type RoleOverrideChange,
-  type UseForEveryRoleChange,
   type ProjectRemoteNeeds,
   type RemoteNeeds as RemoteNeedsResponse,
   type ProjectCommand,
@@ -273,29 +269,13 @@ export class ProjectsController {
     return this.respond(await this.features.change(id, features));
   }
 
-  @Put(":id/project-default")
-  async changeProjectDefault(
+  /** Each level sent replaces the Project's; one left out stays (spec §5.4.5, "The API"). */
+  @Put(":id/engine")
+  async changeEngine(
     @Param("id") id: string,
-    @Body(new ContractPipe(projectDefaultChangeSchema)) { projectDefault }: ProjectDefaultChange,
+    @Body(new ContractPipe(projectEngineChangeSchema)) change: ProjectEngineChange,
   ): Promise<ProjectResponse> {
-    return this.respond(await this.projects.changeProjectDefault(id, projectDefault));
-  }
-
-  @Put(":id/use-for-every-role")
-  async changeUseForEveryRole(
-    @Param("id") id: string,
-    @Body(new ContractPipe(useForEveryRoleChangeSchema)) { useForEveryRole }: UseForEveryRoleChange,
-  ): Promise<ProjectResponse> {
-    return this.respond(await this.projects.changeUseForEveryRole(id, useForEveryRole));
-  }
-
-  @Put(":id/role-overrides/:roleKey")
-  async changeRoleOverride(
-    @Param("id") id: string,
-    @Param("roleKey") roleKey: string,
-    @Body(new ContractPipe(roleOverrideChangeSchema)) { roleOverride }: RoleOverrideChange,
-  ): Promise<ProjectResponse> {
-    return this.respond(await this.projects.changeRoleOverride(id, roleKey, roleOverride));
+    return this.respond(await this.projects.changeEngine(id, change));
   }
 }
 

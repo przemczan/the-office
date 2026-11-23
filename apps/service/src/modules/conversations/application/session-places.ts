@@ -140,10 +140,12 @@ export class SessionPlaces {
    * duties cover (spec 5.4); a Stage's Thread does its Stage's work only, so gets none. Its
    * instructions render with the templates' texts as they are now, so a resumed session gets the
    * current text too. Every session reads the knowledge base its Brief names, never changing it.
+   * `logBefore` is the id of the message the session answers, once it is logged
+   * (`Briefs.forThread`).
    */
-  async of(thread: Thread): Promise<SessionPlace> {
+  async of(thread: Thread, logBefore?: string): Promise<SessionPlace> {
     const held = await this.duties.heldBy(thread.roleKey);
-    const home = await this.homePlace(thread, held);
+    const home = await this.homePlace(thread, held, logBefore);
     const prompts = await this.promptTemplates.textsOf(SESSION_INSTRUCTION_TEMPLATES);
     const actionTools = thread.stageThread
       ? []
@@ -157,19 +159,28 @@ export class SessionPlaces {
     };
   }
 
-  private async homePlace(thread: Thread, held: HeldDuties): Promise<HomePlace> {
+  private async homePlace(
+    thread: Thread,
+    held: HeldDuties,
+    logBefore: string | undefined,
+  ): Promise<HomePlace> {
     const { home } = thread;
     switch (home.kind) {
       case "chat":
-        return this.chat(thread, held);
+        return this.chat(thread, held, logBefore);
       case "task":
-        return this.task(thread, home.taskId, held);
+        return this.task(thread, home.taskId, held, logBefore);
       case "initiative":
         return this.initiative(thread, home.initiativeId);
     }
   }
 
-  private async task(thread: Thread, taskId: string, held: HeldDuties): Promise<HomePlace> {
+  private async task(
+    thread: Thread,
+    taskId: string,
+    held: HeldDuties,
+    logBefore: string | undefined,
+  ): Promise<HomePlace> {
     const setup = await this.taskThreads.of(taskThreadRequest(thread, taskId));
     if (setup.sessionRefusal !== undefined) throw new ThreadRefused([setup.sessionRefusal]);
     return {
@@ -181,7 +192,7 @@ export class SessionPlaces {
       workstation: false,
       readsEngineTranscripts: false,
       refusalAdvice: undefined,
-      brief: await this.briefs.forTaskThread(thread, setup),
+      brief: await this.briefs.forTaskThread(thread, setup, logBefore),
       span: { "office.task": taskId, "office.initiative": setup.initiativeId ?? "" },
       metric: { "office.project": setup.projectName, "office.pipeline": setup.pipelineName },
       ...(thread.consultation
@@ -258,8 +269,12 @@ export class SessionPlaces {
     };
   }
 
-  private async chat(thread: Thread, held: HeldDuties): Promise<HomePlace> {
-    const brief = await this.briefs.forThread(thread);
+  private async chat(
+    thread: Thread,
+    held: HeldDuties,
+    logBefore: string | undefined,
+  ): Promise<HomePlace> {
+    const brief = await this.briefs.forThread(thread, logBefore);
     if (thread.consultation) {
       return {
         ...this.basesPlace(thread),

@@ -37,6 +37,7 @@ const LOCAL_MODELS: ApiEngine = {
   name: "Local models",
   kind: "openai-compatible-api",
   defaultModel: "coder:q4",
+  defaultEffort: null,
   baseUrl: "http://127.0.0.1:8090/v1",
   keySet: false,
   models: [{ id: "coder:q4", contextWindow: 100_000, seesImages: false }],

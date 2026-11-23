@@ -1,9 +1,10 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { forgettingReads, readKey, readOnce } from "../../../../platform/database/read-scope.js";
 import type { Role, RoleCardVersion } from "../../domain/role.js";
-import type { RoleChange } from "../../domain/role-changes.js";
+import type { RoleCard } from "../../domain/role-card.js";
+import type { EarlierEngineFields, RoleChange } from "../../domain/role-changes.js";
 import type {
   RoleAvatarChanged,
   RoleCardChanged,
@@ -12,11 +13,17 @@ import type {
 } from "../../domain/role-events.js";
 import { RoleNotFound } from "../../domain/role-not-found.js";
 import { RoleRepository, type RoleUpdate } from "../../ports/role-repository.js";
-import { roleCardVersions, roles } from "./roles.schema.js";
+import { roleCardVersions, roles, type StoredRoleCard } from "./roles.schema.js";
 
 export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 type RoleRow = typeof roles.$inferSelect;
 type RoleCardVersionRow = typeof roleCardVersions.$inferSelect;
+
+/**
+ * The earlier fields a new hire's card keeps, as the release before would have saved it: no Role
+ * override and its default effort.
+ */
+const HIRED_EARLIER: Required<EarlierEngineFields> = { roleOverride: null, effort: "high" };
 
 /** A Role's row joined with its current card version. */
 const currentCard = and(
@@ -64,13 +71,39 @@ export class PostgresRoleRepository extends RoleRepository {
   ): Promise<RoleUpdate> {
     return forgettingReads(() =>
       this.database.transaction(async (transaction) => {
-        const role = await heldRole(transaction, key);
+        const { role, stored } = await heldRole(transaction, key);
         const changed = change(role);
         if (!changed) return { role, event: undefined };
-        await transaction.update(roles).set(toRow(changed.role)).where(eq(roles.key, key));
-        await transaction
-          .insert(roleCardVersions)
-          .values({ ...currentVersionRow(changed.role), changes: [...changed.event.changes] });
+        await saveVersion(transaction, changed, earlierFieldsOf(stored));
+        return changed;
+      }),
+    );
+  }
+
+  rolesToMoveOver(): Promise<readonly string[]> {
+    return readOnce(readKey("roles.toMoveOver"), async () => {
+      const rows = await this.database
+        .select({ key: roles.key })
+        .from(roles)
+        .innerJoin(roleCardVersions, currentCard)
+        .where(sql`${roleCardVersions.card} -> 'engineSettings' is null`)
+        .orderBy(asc(roles.hiredAt), asc(roles.key));
+      return rows.map((row) => row.key);
+    });
+  }
+
+  async moveOver(
+    key: string,
+    change: (role: Role, earlier: EarlierEngineFields) => RoleChange<RoleCardChanged>,
+  ): Promise<RoleUpdate> {
+    return forgettingReads(() =>
+      this.database.transaction(async (transaction) => {
+        const { role, stored } = await heldRole(transaction, key);
+        // Moved over meanwhile, by another start of the service.
+        if (stored.engineSettings !== undefined) return { role, event: undefined };
+        const earlier = earlierFieldsOf(stored);
+        const changed = change(role, earlier);
+        await saveVersion(transaction, changed, earlier);
         return changed;
       }),
     );
@@ -82,7 +115,7 @@ export class PostgresRoleRepository extends RoleRepository {
   ): Promise<RoleChange<Event>> {
     return forgettingReads(() =>
       this.database.transaction(async (transaction) => {
-        const changed = change(await heldRole(transaction, key));
+        const changed = change((await heldRole(transaction, key)).role);
         await transaction
           .update(roles)
           .set({ letGoAt: changed.role.letGoAt ?? null })
@@ -98,7 +131,7 @@ export class PostgresRoleRepository extends RoleRepository {
   ): Promise<RoleUpdate<RoleAvatarChanged>> {
     return forgettingReads(() =>
       this.database.transaction(async (transaction) => {
-        const role = await heldRole(transaction, key);
+        const { role } = await heldRole(transaction, key);
         const changed = change(role);
         if (!changed) return { role, event: undefined };
         await transaction
@@ -143,12 +176,29 @@ export async function addRole(transaction: Transaction, role: Role): Promise<boo
     .onConflictDoNothing()
     .returning({ key: roles.key });
   if (added.length === 0) return false;
-  await transaction.insert(roleCardVersions).values({ ...currentVersionRow(role), changes: [] });
+  await transaction
+    .insert(roleCardVersions)
+    .values({ ...currentVersionRow(role, HIRED_EARLIER), changes: [] });
   return true;
 }
 
-/** The Role as stored, locked until `transaction` ends. */
-async function heldRole(transaction: Transaction, key: string): Promise<Role> {
+/** Saves the changed Role's row and its card's new version, keeping the `earlier` fields. */
+async function saveVersion(
+  transaction: Transaction,
+  { role, event }: RoleChange<RoleCardChanged>,
+  earlier: EarlierEngineFields,
+): Promise<void> {
+  await transaction.update(roles).set(toRow(role)).where(eq(roles.key, role.key));
+  await transaction
+    .insert(roleCardVersions)
+    .values({ ...currentVersionRow(role, earlier), changes: [...event.changes] });
+}
+
+/** The Role as stored, with its current card as kept, locked until `transaction` ends. */
+async function heldRole(
+  transaction: Transaction,
+  key: string,
+): Promise<{ readonly role: Role; readonly stored: StoredRoleCard }> {
   // Locked on its own: Postgres re-checks a locked row against a join after waiting for the lock,
   // and the version joined before the other change would no longer match.
   const [locked] = await transaction
@@ -163,7 +213,7 @@ async function heldRole(transaction: Transaction, key: string): Promise<Role> {
     .innerJoin(roleCardVersions, currentCard)
     .where(eq(roles.key, key));
   if (!row) throw new RoleNotFound(key);
-  return toRole(row.roles, row.role_card_versions);
+  return { role: toRole(row.roles, row.role_card_versions), stored: row.role_card_versions.card };
 }
 
 function toRow(role: Role): RoleRow {
@@ -176,21 +226,45 @@ function toRow(role: Role): RoleRow {
   };
 }
 
-function currentVersionRow(role: Role): Omit<RoleCardVersionRow, "changes"> {
+/**
+ * The Role's current card version as kept, carrying `earlier` forward unread so a rollback to the
+ * release before finds them as they were (spec §5.4.5, "Moving the earlier engine settings over").
+ */
+function currentVersionRow(
+  role: Role,
+  earlier: EarlierEngineFields,
+): Omit<RoleCardVersionRow, "changes"> {
   return {
     roleKey: role.key,
     version: role.cardVersion,
-    card: role.card,
+    card: { ...role.card, ...earlier },
     savedAt: role.cardSavedAt,
     proposedBy: role.cardProposedBy ?? null,
     savedBy: role.cardSavedBy,
   };
 }
 
+/** The earlier fields a kept card has, none on a card saved without them. */
+function earlierFieldsOf({ roleOverride, effort }: StoredRoleCard): EarlierEngineFields {
+  return {
+    ...(roleOverride !== undefined && { roleOverride }),
+    ...(effort !== undefined && { effort }),
+  };
+}
+
+/** The card as the domain reads it: the earlier fields left out, no engine settings read as none. */
+function cardOf({
+  roleOverride: _roleOverride,
+  effort: _effort,
+  ...card
+}: StoredRoleCard): RoleCard {
+  return { ...card, engineSettings: card.engineSettings ?? {} };
+}
+
 function toRole(row: RoleRow, version: RoleCardVersionRow): Role {
   return {
     key: row.key,
-    card: version.card,
+    card: cardOf(version.card),
     cardVersion: row.cardVersion,
     hiredAt: row.hiredAt,
     cardSavedAt: version.savedAt,
@@ -204,7 +278,7 @@ function toRole(row: RoleRow, version: RoleCardVersionRow): Role {
 function toVersion(row: RoleCardVersionRow): RoleCardVersion {
   return {
     version: row.version,
-    card: row.card,
+    card: cardOf(row.card),
     changes: row.changes,
     savedAt: row.savedAt,
     proposedBy: row.proposedBy ?? undefined,

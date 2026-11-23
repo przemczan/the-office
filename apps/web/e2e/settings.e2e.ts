@@ -8,7 +8,9 @@ import {
   stageTemplateSchema,
   taskSchema,
   taskStagesSchema,
+  type Effort,
   type EngineSettings,
+  type EngineSettingsEdit,
   type NewProject,
   type Pipeline,
   type Project,
@@ -1144,7 +1146,7 @@ test(
     });
     await page.reload();
     await expect(list).toHaveText(
-      "No engine yet. Add a Claude Code engine, a Codex engine or an API endpoint with Add an engine.",
+      "No engine yet. Add a Claude Code, Codex, Copilot CLI or Gemini CLI engine or an API endpoint with Add an engine.",
     );
     await page.screenshot({
       path: path.join(SCREENSHOTS, "light-1600-settings-engines-empty.png"),
@@ -1163,6 +1165,7 @@ test(
       name: "Night runs",
       kind: "claude-code",
       defaultModel: "claude-sonnet-5-5",
+      defaultEffort: null,
       claudeCodeP: false,
     } as const;
     let stored: Pick<EngineSettings, "standInEngines" | "askBeforeSwitchAbove"> | undefined;
@@ -1251,6 +1254,141 @@ test(
   },
 );
 
+// The engines' settings are routed, never saved, as above: two engines of the test's own are shown
+// beside the saved ones, and the PUT is checked and answered as the service answers it.
+test(
+  "Settings › Engines' Office default is an engine type and one of its accounts, and a Default effort shows in the row's line",
+  { tag: "@full" },
+  async ({ page }) => {
+    const nightRuns = {
+      id: "night-runs",
+      name: "Night runs",
+      kind: "claude-code",
+      defaultModel: "claude-sonnet-5-5",
+      defaultEffort: "max",
+      claudeCodeP: false,
+    } as const;
+    const lunaRuns = {
+      id: "luna-runs",
+      name: "Luna runs",
+      kind: "codex",
+      defaultModel: "gpt-6-luna",
+      defaultEffort: null,
+    } as const;
+    let stored: Pick<EngineSettings, "engines" | "officeDefault"> | undefined;
+    const sent: EngineSettingsEdit[] = [];
+    await page.route("**/api/settings/engines", async (route) => {
+      const saved = (await (
+        await page.request.get("/api/settings/engines")
+      ).json()) as EngineSettings;
+      const shown: EngineSettings = {
+        ...saved,
+        engines: [...saved.engines, nightRuns, lunaRuns],
+        ...stored,
+      };
+      if (route.request().method() === "PUT") {
+        const edit = route.request().postDataJSON() as EngineSettingsEdit;
+        sent.push(edit);
+        const effortOf = (id: string): Effort | null | undefined =>
+          edit.engines.find((engine) => engine.id === id)?.defaultEffort;
+        stored = {
+          engines: shown.engines.map((engine) =>
+            engine.id === lunaRuns.id
+              ? { ...engine, defaultEffort: effortOf(engine.id) ?? null }
+              : engine,
+          ),
+          officeDefault: edit.officeDefault,
+        };
+        return route.fulfill({ json: { ...shown, ...stored } });
+      }
+      return route.fulfill({ json: shown });
+    });
+    // Neither of the test's own engines has a folder to read: both read as signed out.
+    await page.route(/\/api\/settings\/engines\/(night|luna)-runs\/account$/, (route) =>
+      route.fulfill({
+        json: { signedIn: false, pastedToken: false, apiKey: false, email: null, plan: null },
+      }),
+    );
+    await page.goto("/settings/engines");
+    await page.setViewportSize({ width: 1600, height: 1100 });
+
+    const officeDefault = page.getByRole("group", { name: "Office default" });
+    const engineType = officeDefault.getByRole("combobox", { name: "Engine type" });
+    const account = officeDefault.getByRole("combobox", { name: "Account" });
+    await expect(engineType).toHaveValue("claude-code");
+    await expect(account.getByRole("option", { name: nightRuns.name })).toHaveCount(1);
+    await expect(account.getByRole("option", { name: lunaRuns.name })).toHaveCount(0);
+    // Picking a type picks its first account, and offers that type's engines only.
+    await engineType.selectOption({ label: "Codex" });
+    await expect(account.getByRole("option", { name: lunaRuns.name })).toHaveCount(1);
+    await expect(account.getByRole("option", { name: nightRuns.name })).toHaveCount(0);
+    const firstCodex = await account.getByRole("option").first().getAttribute("value");
+    await expect(account).toHaveValue(firstCodex ?? "");
+    await account.selectOption({ label: lunaRuns.name });
+    await expect(
+      page.getByText(
+        "Where every session runs unless a Project, an Initiative or a Task sets another.",
+      ),
+    ).toBeVisible();
+
+    // The list's rows sit under a heading per engine type, Claude Code first.
+    const list = page.getByRole("navigation", { name: "Engines" });
+    await expect(list.getByRole("heading", { level: 4 }).first()).toHaveText("Claude Code");
+    await expect(list.getByRole("list", { name: "Codex" })).toContainText(lunaRuns.name);
+    const nightRow = list.getByRole("button", { name: /^Night runs/ });
+    await expect(nightRow).toContainText("Signed out · Sonnet 5.5 · effort max");
+    const lunaRow = list.getByRole("button", { name: /^Luna runs/ });
+    await expect(lunaRow).toContainText("Signed out · gpt-6-luna");
+    await expect(lunaRow).not.toContainText("effort");
+
+    await lunaRow.click();
+    const luna = page.getByRole("group", { name: lunaRuns.name, exact: true });
+    const effort = luna.getByRole("combobox", { name: "Default effort" });
+    await expect(effort).toHaveValue("");
+    await expect(luna.getByText("Left to Codex.")).toBeVisible();
+    // Codex takes no Max.
+    await expect(effort.getByRole("option")).toHaveText([
+      "Not set",
+      "Low",
+      "Medium",
+      "High",
+      "Extra high",
+    ]);
+    await effort.selectOption({ label: "High" });
+    await expect(lunaRow).toContainText("Signed out · gpt-6-luna · effort high");
+    await expect(luna.getByText("Left to Codex.")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.officeDefault).toEqual({ engineType: "codex", engineId: lunaRuns.id });
+    expect(sent[0]?.engines.find(({ id }) => id === lunaRuns.id)?.defaultEffort).toBe("high");
+    expect(sent[0]?.engines.find(({ id }) => id === nightRuns.id)?.defaultEffort).toBe("max");
+
+    await page.reload();
+    await expect(engineType).toHaveValue("codex");
+    await expect(account).toHaveValue(lunaRuns.id);
+    await expect(lunaRow).toContainText("effort high");
+    await expect(lunaRow).toContainText("Office default");
+    await lunaRow.click();
+    await expect(effort).toHaveValue("high");
+
+    for (const colorScheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme });
+      await expect(page.locator("html")).toHaveAttribute("data-palette", colorScheme);
+      await page.screenshot({
+        path: path.join(TASK_SCREENSHOTS, `settings-engines-office-default-${colorScheme}.png`),
+        fullPage: true,
+      });
+    }
+    await page.setViewportSize({ width: 600, height: 1100 });
+    await page.screenshot({
+      path: path.join(TASK_SCREENSHOTS, "settings-engines-office-default-600.png"),
+      fullPage: true,
+    });
+  },
+);
+
 /**
  * For each palette and at 1600 and 600 wide: the list's rows of as many lines all one height, each
  * mark inside its row, nothing scrolling sideways, then a screenshot of the list beside its detail.
@@ -1266,7 +1404,7 @@ async function screenshotEachLook(
     await expect(page.locator("html")).toHaveAttribute("data-palette", colorScheme);
     for (const width of [1600, 600]) {
       await page.setViewportSize({ width, height: 900 });
-      const rows = await list.locator("li > *").evaluateAll((items) =>
+      const rows = await list.locator(".pick-list-row > *").evaluateAll((items) =>
         items.map((item) => {
           const row = item.getBoundingClientRect();
           return {

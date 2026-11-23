@@ -1,9 +1,19 @@
 import { Injectable } from "@nestjs/common";
 import { readEach } from "../../../platform/database/fan-out.js";
-import type { EngineModel } from "../../engine/index.js";
+import {
+  ENGINE_TYPE_NAMES,
+  EngineModels,
+  type Engine,
+  type EngineKind,
+} from "../../engine/index.js";
 import { ProjectServerValues, type ProjectMcpServerValues } from "../../mcp-servers/index.js";
 import type { EnvironmentCheck } from "../domain/environment-check.js";
-import type { Project, RunEnvironmentSetting } from "../domain/project.js";
+import type {
+  ModelEffort,
+  Project,
+  ProjectStandIns,
+  RunEnvironmentSetting,
+} from "../domain/project.js";
 import type { ProjectEnvironment } from "../domain/project-environment.js";
 import { entryPointWords } from "../domain/entry-point.js";
 import {
@@ -41,6 +51,8 @@ interface ProjectSurroundings {
   readonly testTargets: readonly TestTarget[];
   readonly actions: readonly Action[];
   readonly devices: readonly ProjectDeviceLine[];
+  /** The engines listed now, which name the Project default's account. */
+  readonly engines: readonly Engine[];
 }
 
 const RUN_ENVIRONMENT_WORDS: Readonly<Record<RunEnvironmentSetting, string>> = {
@@ -64,6 +76,7 @@ export class ProjectRecords {
     private readonly testTargets: TestTargetRepository,
     private readonly actions: ActionRepository,
     private readonly devices: ProjectDeviceLines,
+    private readonly engines: EngineModels,
   ) {}
 
   /** Every Project's record, or that there is none. */
@@ -88,13 +101,15 @@ export class ProjectRecords {
     project: Project,
     checkouts: ReadonlyMap<string, string>,
   ): Promise<ProjectSurroundings> {
-    const [environmentCheck, serverValues, testTargets, actions, devices] = await Promise.all([
-      this.environmentChecks.latest(project.id),
-      this.serverValues.of(project.id),
-      this.testTargets.listOf(project.id),
-      this.actions.listOf(project.id),
-      this.devices.of(project.id),
-    ]);
+    const [environmentCheck, serverValues, testTargets, actions, devices, engines] =
+      await Promise.all([
+        this.environmentChecks.latest(project.id),
+        this.serverValues.of(project.id),
+        this.testTargets.listOf(project.id),
+        this.actions.listOf(project.id),
+        this.devices.of(project.id),
+        this.engines.engines(),
+      ]);
     return {
       checkout: checkouts.get(project.id),
       environmentCheck,
@@ -102,6 +117,7 @@ export class ProjectRecords {
       testTargets,
       actions,
       devices,
+      engines,
     };
   }
 
@@ -134,7 +150,7 @@ function projectRecord(project: Project, surroundings: ProjectSurroundings): str
     `- Features: ${featuresWords(project)}`,
     ...environmentLines(project.environment),
     `- Environment check: ${environmentCheckWords(environmentCheck)}`,
-    ...engineLines(project),
+    ...engineLines(project, surroundings.engines),
     `- Project skills: ${projectSkillsWords(project)}`,
     `- Server values: ${serverValuesWords(serverValues)}`,
     ...testTargetLines(testTargets),
@@ -285,18 +301,42 @@ function environmentCheckWords(check: EnvironmentCheck | undefined): string {
   return failed.length > 0 ? `${finished}; failed: ${failed.join(", ")}` : finished;
 }
 
-function engineLines(project: Project): string[] {
-  const overrides = project.roleOverrides.map(
-    (override) => `${override.roleKey} on ${engineModelWords(override)}`,
-  );
+/** The Project's levels of both cascades (spec §5.4.5), as its Engine block shows them. */
+function engineLines({ engine }: Project, engines: readonly Engine[]): string[] {
+  const { default: projectDefault, force } = engine;
+  const account =
+    projectDefault &&
+    (engines.find(({ id }) => id === projectDefault.engineId)?.name ?? projectDefault.engineId);
+  const people = engine.people.map(({ roleKey, engineSettings }) => {
+    const types = Object.entries(engineSettings).map(
+      ([type, setting]) =>
+        `${ENGINE_TYPE_NAMES[type as EngineKind]} ${modelEffortWords(setting, "Person's setting")}`,
+    );
+    return `${roleKey}: ${types.join(", ")}`;
+  });
   return [
-    `- Project default engine: ${project.projectDefault ? engineModelWords(project.projectDefault) : "none, the Office default applies"}${project.useForEveryRole ? ", used for every Role" : ""}`,
-    `- Role overrides: ${listed(overrides)}`,
+    `- Default engine: ${projectDefault ? `${ENGINE_TYPE_NAMES[projectDefault.engineType]}, account ${account}` : "the Office's default"}`,
+    `- Forced model and effort: ${projectDefault && force ? `${ENGINE_TYPE_NAMES[projectDefault.engineType]}: ${modelEffortWords(force, "Engine's default")}` : "none"}`,
+    `- Model and effort per person: ${people.length > 0 ? people.join("; ") : "none"}`,
+    `- Stand-in Engines: ${standInsWords(engine.standIns, engines)}`,
   ];
 }
 
-function engineModelWords({ engineId, model }: EngineModel): string {
-  return `engine ${engineId}, model ${model}`;
+/** Whose Stand-in Engine list applies in the Project, the Project's own by engine name in order. */
+function standInsWords(
+  { useOwnList, engineIds }: ProjectStandIns,
+  engines: readonly Engine[],
+): string {
+  if (!useOwnList) return "the Office's";
+  const names = engineIds.map(
+    (engineId) => engines.find(({ id }) => id === engineId)?.name ?? engineId,
+  );
+  return `the Project's own (${names.length > 0 ? names.join(", ") : "none"})`;
+}
+
+/** "<model> · <effort>", each unset one in the words of the level below. */
+function modelEffortWords({ model, effort }: ModelEffort, unset: string): string {
+  return `${model ?? unset} · ${effort ?? unset}`;
 }
 
 function projectSkillsWords({ useProjectSkills, projectSkillsOff }: Project): string {

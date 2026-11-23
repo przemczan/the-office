@@ -11,6 +11,8 @@ import { boardOrder } from "../../domain/manual-order.js";
 import { taskMatchOf } from "../../domain/search.js";
 import type { Priority } from "../../domain/task.js";
 import { ANN_LEE, anInitiative } from "../../domain/work.fixtures.js";
+import { changeInitiativeEngine, changeTaskEngine } from "../../domain/work-engine.js";
+import { InitiativeRepository } from "../../ports/initiative-repository.js";
 import { TaskRepository } from "../../ports/task-repository.js";
 import { startWorkApplication, type WorkApplication } from "../../work-application.fixtures.js";
 import { initiatives, tasks } from "./work.schema.js";
@@ -388,5 +390,55 @@ describe("PostgresTaskRepository", () => {
     expect(inUse.filter((each) => each === tag || each === other).toSorted()).toEqual(
       [tag, other].toSorted(),
     );
+  });
+});
+
+/** The `model` column the earlier engine and model kept, which nothing reads any more. */
+async function taskModel(id: string): Promise<string | null | undefined> {
+  const [row] = await database().select({ model: tasks.model }).from(tasks).where(eq(tasks.id, id));
+  return row?.model;
+}
+
+async function initiativeModel(id: string): Promise<string | null | undefined> {
+  const [row] = await database()
+    .select({ model: initiatives.model })
+    .from(initiatives)
+    .where(eq(initiatives.id, id));
+  return row?.model;
+}
+
+describe("a Task's and an Initiative's engine override as their rows keep it", () => {
+  it("reads a Task's earlier engine and model as an override of the engine alone", async () => {
+    const { id } = await aTask(`project-${randomUUID()}`);
+    await withColumns(id, { engineId: "claude-code", model: "claude-opus-5-5" });
+
+    expect((await repository().find(id))?.engineOverride).toBe("claude-code");
+  });
+
+  it("keeps the model while a save leaves the engine, and clears it as the engine changes", async () => {
+    const { id } = await aTask(`project-${randomUUID()}`);
+    await withColumns(id, { engineId: "claude-code", model: "claude-opus-5-5" });
+
+    await work.app.get(TaskService).changeTitle(id, "Export button, renamed");
+    expect(await taskModel(id)).toBe("claude-opus-5-5");
+
+    await repository().update(id, (task) => changeTaskEngine(task, "strata"));
+    expect(await taskModel(id)).toBeNull();
+    expect((await repository().find(id))?.engineOverride).toBe("strata");
+  });
+
+  it("does the same for an Initiative's", async () => {
+    const id = await anInitiativeId();
+    await database()
+      .update(initiatives)
+      .set({ engineId: "claude-code", model: "claude-opus-5-5" })
+      .where(eq(initiatives.id, id));
+    const initiativeRepository = work.app.get(InitiativeRepository);
+
+    expect((await initiativeRepository.find(id))?.engineOverride).toBe("claude-code");
+
+    await initiativeRepository.update(id, (initiative) => changeInitiativeEngine(initiative, null));
+    expect(await initiativeModel(id)).toBeNull();
+    expect((await initiativeRepository.find(id))?.engineOverride).toBeNull();
   });
 });

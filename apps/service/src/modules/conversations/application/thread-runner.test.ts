@@ -33,6 +33,7 @@ import {
   OfficeToolRegistry,
   ScriptedEngine,
   ScriptedEngineModule,
+  type Engine,
   type SessionScript,
 } from "../../engine/index.js";
 import {
@@ -284,9 +285,25 @@ const HOME = {
   claudeCodeP: true,
 };
 
-/** The engine settings with `HOME` beside the Claude Code engine, as its Stand-in Engine. */
+/** A Codex engine, of another type than the Claude Code engines, which can't carry a session. */
+const CODEX: Engine = {
+  id: "codex",
+  name: "Codex",
+  kind: "codex",
+  defaultModel: "gpt-6-luna",
+  defaultEffort: null,
+  apiKey: null,
+};
+
+/**
+ * The engine settings with `HOME` and `CODEX` beside the Claude Code engine, `HOME` its Stand-in
+ * Engine.
+ */
 function standInListing() {
-  const settings = { engines: [FIRST_CLAUDE_CODE_ENGINE, HOME], standInEngines: [HOME.id] };
+  const settings = {
+    engines: [FIRST_CLAUDE_CODE_ENGINE, HOME, CODEX],
+    standInEngines: [HOME.id],
+  };
   return {
     provide: EngineModels,
     useValue: new EngineModels(new EngineSettingsForTests(settings)),
@@ -301,6 +318,7 @@ async function startOn(
   scripts: readonly SessionScript[],
   api?: ApiEngineOnFakeServer,
   standIn?: ScriptedEngine,
+  codex?: ScriptedEngine,
 ): Promise<void> {
   engine = new ScriptedEngine(scripts);
   promptTexts = new PromptTemplateRepositoryForTests();
@@ -344,7 +362,7 @@ async function startOn(
         "agent-sdk": engine,
         "claude-code-p": standIn ?? new ScriptedEngine([]),
         "openai-compatible-api": api?.engine ?? new ScriptedEngine([]),
-        codex: new ScriptedEngine([]),
+        codex: codex ?? new ScriptedEngine([]),
         "copilot-cli": new ScriptedEngine([]),
         "gemini-cli": new ScriptedEngine([]),
       }),
@@ -1414,7 +1432,7 @@ describe("continuing a Thread", () => {
     // The service restarts, the cache cools, and the card changes meanwhile.
     await runner.onModuleDestroy();
     await cooled(thread.id, 12_000);
-    versions.push({ ...PLANNER, effort: "low" });
+    versions.push({ ...PLANNER, instructions: "Plan in French." });
 
     await runner.send(thread.id, "Still there?", ANN_LEE);
     const log = await answered(thread.id, 6);
@@ -1542,8 +1560,12 @@ describe("continuing a Thread", () => {
     await runner.send(thread.id, "Read the deploy workflow.", ANN_LEE);
     await answered(thread.id, 3);
     await cooled(thread.id, 80_000);
-    versions.push({ ...PLANNER, effort: "low" });
-    cascade.set(roleKey, { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-sonnet-5-5" });
+    versions.push({ ...PLANNER, instructions: "Plan in French." });
+    cascade.set(roleKey, {
+      engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+      model: "claude-sonnet-5-5",
+      effort: "low",
+    });
 
     await runner.send(thread.id, "And the tests?", ANN_LEE);
     const log = await answered(thread.id, 6);
@@ -1552,6 +1574,7 @@ describe("continuing a Thread", () => {
     expect(fresh?.id).not.toBe(first?.id);
     expect(forgotten).toEqual([first?.id]);
     expect(fresh?.options).toMatchObject({ model: "claude-sonnet-5-5", effort: "low" });
+    expect(fresh?.options.instructions).toContain("Plan in French.");
     const brief = fresh?.received[0];
     expect(brief?.step === "start" && brief.brief.text).toMatch(
       /in a fresh session[\s\S]*## The Thread\n\nRead the deploy workflow[\s\S]*The user Ann Lee: Read the deploy workflow\.\n\nYou: It deploys on push\.[\s\S]*## The message from the user Ann Lee\n\nAnd the tests\?$/,
@@ -1702,6 +1725,38 @@ describe("a Thread on the OpenAI-compatible API, its own sessions on a fake serv
       model: "claude-haiku-5-5",
     });
     expect(label).toMatchObject({ move: "resume", reason: "cache-warm" });
+  });
+
+  it("works with the cascade's effort, leaving none to the runtime, and says once when a model gave way", async () => {
+    await startWith(started(...aTurn("brief", "Hello.")), [
+      { step: "resume" },
+      sent("m-2"),
+      ...aTurn("m-2", "Still here."),
+    ]);
+    cascade.set(roleKey, {
+      engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+      model: "claude-sonnet-5-5",
+      effort: null,
+      gaveWay: "claude-opus-4-1",
+    });
+    const thread = await threads.startInChat(roleKey);
+    await runner.send(thread.id, "Hello.", ANN_LEE);
+    await answered(thread.id, 4);
+    await runner.onModuleDestroy();
+    await cooled(thread.id, 12_000);
+    await runner.send(thread.id, "Still there?", ANN_LEE);
+    const log = await answered(thread.id, 7);
+
+    expect(engine.sessions.map(({ options }) => options.effort)).toEqual([undefined, undefined]);
+    expect(drafts(log).filter(({ kind }) => kind === "model-gave-way")).toEqual([
+      {
+        kind: "model-gave-way",
+        personName: "Jan",
+        model: "claude-sonnet-5-5",
+        engineName: "Claude Code",
+        notOffered: "claude-opus-4-1",
+      },
+    ]);
   });
 
   it("resumes a cooled Thread with a small context from the conversation the engine kept", async () => {
@@ -2249,6 +2304,7 @@ describe("the engine cascade a Thread's session resolves", () => {
     expect(cascade.asked).toContainEqual({
       roleKey,
       location: { projectId: "admin-panel", taskId },
+      work: {},
     });
     expect(engine.sessions[0]?.options).toMatchObject(HAIKU_ON_CLAUDE_CODE);
   });
@@ -2276,6 +2332,7 @@ describe("the engine cascade a Thread's session resolves", () => {
     expect(cascade.asked).toContainEqual({
       roleKey,
       location: { projectId: "admin-panel", taskId },
+      work: {},
     });
     expect(engine.sessions[0]?.options).toMatchObject(HAIKU_ON_CLAUDE_CODE);
   });
@@ -2293,7 +2350,7 @@ describe("the engine cascade a Thread's session resolves", () => {
     });
     await answered(opened.id, 2);
 
-    expect(cascade.asked).toContainEqual({ roleKey, location: { initiativeId } });
+    expect(cascade.asked).toContainEqual({ roleKey, location: { initiativeId }, work: {} });
     expect(engine.sessions[0]?.options).toMatchObject(HAIKU_ON_CLAUDE_CODE);
   });
 
@@ -4092,7 +4149,16 @@ describe("a person's Thread going on on a Stand-in Engine (spec 5.4)", () => {
     personName: PLANNER.name,
   };
 
+  /** The line a switch to `CODEX` logs: the Thread starts fresh there. */
+  const SWITCHED_FRESH: MessageDraft = { ...SWITCHED, toName: CODEX.name, fresh: true };
+
   let home: ScriptedEngine;
+  let codex: ScriptedEngine;
+
+  beforeEach(() => {
+    // The list that applies where the Thread works, as the cascade gives it.
+    cascade.standIns = { from: "office", engineIds: [HOME.id] };
+  });
 
   afterEach(() => {
     vi.restoreAllMocks();
@@ -4119,9 +4185,24 @@ describe("a person's Thread going on on a Stand-in Engine (spec 5.4)", () => {
   }
 
   /** Boots the runner with the work engine's `scripts`, and `homeScripts` on the stand-in. */
-  async function startOnBoth(scripts: SessionScript[], homeScripts: SessionScript[]) {
+  async function startOnBoth(
+    scripts: SessionScript[],
+    homeScripts: SessionScript[],
+    codexScripts: SessionScript[] = [],
+  ) {
     home = new ScriptedEngine(homeScripts);
-    await startOn(scripts, undefined, home);
+    codex = new ScriptedEngine(codexScripts);
+    await startOn(scripts, undefined, home, codex);
+  }
+
+  /** Codex is the Stand-in Engine that applies, where the Planner works with its model at low. */
+  function codexStandsIn(): void {
+    cascade.standIns = { from: "office", engineIds: [CODEX.id] };
+    cascade.setOnEngine(roleKey, CODEX.id, {
+      model: "gpt-6-luna",
+      engineType: "codex",
+      effort: "low",
+    });
   }
 
   /** The work engine's 5-hour window known used up, as a turn it refused made it. */
@@ -4282,6 +4363,30 @@ describe("a person's Thread going on on a Stand-in Engine (spec 5.4)", () => {
     expect(log.map(({ kind }) => kind)).not.toContain("engine-switched");
   });
 
+  /** The line saying the Planner works with `model` on `landed`, which doesn't offer `notOffered`. */
+  const gaveWayOn = (landed: Engine, model: string, notOffered: string): MessageDraft => ({
+    kind: "model-gave-way",
+    personName: PLANNER.name,
+    model,
+    engineName: landed.name,
+    notOffered,
+  });
+
+  it("says so when the person's model gave way on the stand-in a new session opens on", async () => {
+    cascade.setOnEngine(roleKey, HOME.id, { model: "claude-sonnet-5-5", gaveWay: "claude-opus-9" });
+    await startOnBoth([], [started(...aTurn("brief", "Hi."))]);
+    workUsedUp();
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Hello.", ANN_LEE);
+    const log = await answered(thread.id, 4);
+
+    expect(home.sessions[0]?.options).toMatchObject({ model: "claude-sonnet-5-5" });
+    expect(drafts(log).filter(({ kind }) => kind === "model-gave-way")).toEqual([
+      gaveWayOn(HOME, "claude-sonnet-5-5", "claude-opus-9"),
+    ]);
+  });
+
   it("carries a resumed session to the stand-in before the message is sent, once its engine is used up", async () => {
     await startOnBoth(
       [started(...aTurn("brief", "Hi."))],
@@ -4302,6 +4407,318 @@ describe("a person's Thread going on on a Stand-in Engine (spec 5.4)", () => {
       message: { text: expect.stringContaining("And now?") },
     });
     expect(log.at(-1)).toMatchObject({ kind: "person", text: "From the stand-in." });
+  });
+
+  it("starts a chat fresh on a stand-in of another type when its turn is refused, with the person's model and effort there, the message sent again", async () => {
+    codexStandsIn();
+    await startOnBoth(
+      [started(...aRefusedTurn("brief"))],
+      [],
+      [started(...aTurn("brief", "Hello from Codex."))],
+    );
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Hello.", ANN_LEE);
+    const log = await answered(thread.id, 4);
+
+    const [onWork] = engine.sessions;
+    const [onCodex] = codex.sessions;
+    expect(engine.carried).toEqual([]);
+    expect(home.sessions).toEqual([]);
+    expect(onCodex?.id).not.toBe(onWork?.id);
+    expect(onCodex?.options).toMatchObject({
+      engine: { id: CODEX.id },
+      model: "gpt-6-luna",
+      effort: "low",
+    });
+    // The refused Brief goes again whole, under a new id.
+    const refused = onWork?.received[0];
+    const again = onCodex?.received[0];
+    expect(again).toMatchObject({
+      step: "start",
+      brief: { text: expect.stringContaining("Hello.") as string },
+    });
+    expect(again?.step === "start" && again.brief.id).not.toBe(
+      refused?.step === "start" && refused.brief.id,
+    );
+    expect(exchanges(log).slice(-2)).toEqual([
+      SWITCHED_FRESH,
+      { kind: "person", roleKey, text: "Hello from Codex." },
+    ]);
+    expect(log.map(({ kind }) => kind)).not.toContain("usage-window-used-up");
+    expect((await threads.read(thread.id)).session).toMatchObject({
+      id: onCodex?.id,
+      engineId: CODEX.id,
+      standInFor: {
+        engineId: WORK.id,
+        engineName: WORK.name,
+        reason: `${WORK.name}'s 5-hour window was used up until 2099-11-13 14:00 UTC, so ${PLANNER.name} went on on ${CODEX.name}, starting fresh.`,
+      },
+    });
+    expect(forgotten).toContain(onWork?.id);
+  });
+
+  it("says so when the person's model gave way on a stand-in of another type it starts fresh on", async () => {
+    codexStandsIn();
+    cascade.setOnEngine(roleKey, CODEX.id, {
+      model: "gpt-6-luna",
+      engineType: "codex",
+      gaveWay: "gpt-7",
+    });
+    await startOnBoth(
+      [started(...aRefusedTurn("brief"))],
+      [],
+      [started(...aTurn("brief", "Hello from Codex."))],
+    );
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Hello.", ANN_LEE);
+    const log = await answered(thread.id, 5);
+
+    expect(drafts(log).filter(({ kind }) => kind === "model-gave-way")).toEqual([
+      gaveWayOn(CODEX, "gpt-6-luna", "gpt-7"),
+    ]);
+  });
+
+  it("starts a resumed session fresh on a stand-in of another type before the message is sent, with the Brief first", async () => {
+    codexStandsIn();
+    await startOnBoth(
+      [started(...aTurn("brief", "Hi."))],
+      [],
+      [started(...aTurn("brief", "From Codex."))],
+    );
+    const thread = await threads.startInChat(roleKey);
+    await runner.send(thread.id, "Hello.", ANN_LEE);
+    await answered(thread.id, 3);
+    workUsedUp();
+
+    await runner.send(thread.id, "And now?", ANN_LEE);
+    const log = await answered(thread.id, 6);
+
+    expect(engine.sessions).toHaveLength(1);
+    expect(engine.carried).toEqual([]);
+    const brief = codex.sessions[0]?.received[0];
+    expect(brief?.step).toBe("start");
+    const text = brief?.step === "start" ? brief.brief.text : "";
+    // The fresh start's Brief, from the Thread's log so far, then the user's message.
+    expect(text).toContain("Hi.");
+    expect(text.trimEnd().endsWith("And now?")).toBe(true);
+    expect(codex.sessions[0]?.options).toMatchObject({ model: "gpt-6-luna", effort: "low" });
+    expect(drafts(log)).toContainEqual(SWITCHED_FRESH);
+    expect(log.at(-1)).toMatchObject({ kind: "person", text: "From Codex." });
+    expect((await threads.read(thread.id)).session).toMatchObject({ engineId: CODEX.id });
+  });
+
+  it("starts fresh on a stand-in of another type when a later turn is refused, its Brief reading the log up to the refused message", async () => {
+    codexStandsIn();
+    await startOnBoth(
+      [started(...aTurn("brief", "Hi."), sent("next"), ...aRefusedTurn("next"))],
+      [],
+      [started(...aTurn("brief", "From Codex."))],
+    );
+    const thread = await threads.startInChat(roleKey);
+    await runner.send(thread.id, "Hello.", ANN_LEE);
+    await answered(thread.id, 3);
+
+    await runner.send(thread.id, "And now?", ANN_LEE);
+    const log = await answered(thread.id, 6);
+
+    const brief = codex.sessions[0]?.received[0];
+    expect(brief?.step).toBe("start");
+    const text = brief?.step === "start" ? brief.brief.text : "";
+    // The log up to the refused message, which follows it once.
+    expect(text).toContain("Hi.");
+    expect(text.match(/And now\?/g)).toHaveLength(1);
+    expect(text.trimEnd().endsWith("And now?")).toBe(true);
+    expect(drafts(log)).toContainEqual(SWITCHED_FRESH);
+    expect(log.at(-1)).toMatchObject({ kind: "person", text: "From Codex." });
+  });
+
+  it("gives a Codex Thread a stand-in, which starts it fresh as Codex can't carry its session", async () => {
+    cascade.set(roleKey, { engineId: CODEX.id, model: "gpt-6-luna", engineType: "codex" });
+    cascade.setOnEngine(roleKey, HOME.id, { model: "claude-sonnet-5-5", effort: "medium" });
+    await startOnBoth(
+      [],
+      [started(...aTurn("brief", "Hello from Claude Code 2."))],
+      [started(...aRefusedTurn("brief"))],
+    );
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Hello.", ANN_LEE);
+    const log = await answered(thread.id, 4);
+
+    expect(home.carried).toEqual([]);
+    expect(codex.carried).toEqual([]);
+    expect(home.sessions[0]?.id).not.toBe(codex.sessions[0]?.id);
+    expect(home.sessions[0]?.options).toMatchObject({
+      engine: { id: HOME.id },
+      model: "claude-sonnet-5-5",
+      effort: "medium",
+    });
+    expect(exchanges(log).slice(-2)).toEqual([
+      { ...SWITCHED, fromName: CODEX.name, fresh: true },
+      { kind: "person", roleKey, text: "Hello from Claude Code 2." },
+    ]);
+    expect((await threads.read(thread.id)).session).toMatchObject({
+      engineId: HOME.id,
+      standInFor: { engineId: CODEX.id, engineName: CODEX.name },
+    });
+  });
+
+  it("puts the session back and says so when the fresh session didn't start on the stand-in", async () => {
+    codexStandsIn();
+    // No script on Codex: it refuses to start the session.
+    await startOnBoth([started(...aRefusedTurn("brief"))], [], []);
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Hello.", ANN_LEE);
+    const after = await waiting(thread.id);
+
+    expect(after.session).toMatchObject({ id: engine.sessions[0]?.id, engineId: WORK.id });
+    expect(after.session?.standInFor).toBeUndefined();
+    const log = drafts(await threads.messages(thread.id));
+    expect(log).toContainEqual(SWITCHED_FRESH);
+    expect(log.at(-1)).toMatchObject({
+      kind: "failure",
+      reason: expect.stringContaining(
+        `The session didn't start fresh on ${CODEX.name}, so it stays on ${WORK.name}: `,
+      ) as string,
+    });
+  });
+
+  /** The work engine refuses the first turn; Home and Codex would both take it, as stand-ins. */
+  async function refusedWithStandInsReady(): Promise<void> {
+    cascade.standIns = { from: "office", engineIds: [HOME.id, CODEX.id] };
+    await startOnBoth(
+      [started(...aRefusedTurn("brief"))],
+      [[{ step: "resume" }, sent("again"), ...aTurn("again", "From Home.")]],
+      [started(...aTurn("brief", "From Codex."))],
+    );
+  }
+
+  describe("under an engine override, which has no stand-ins (spec 5.4.6)", () => {
+    const ON_WORK = { engineId: WORK.id, model: "claude-opus-5-5" };
+    /** The notice of the refused turn, which stays: the user writes again after the reset. */
+    const NOTICE: MessageDraft = {
+      kind: "usage-window-used-up",
+      engineName: WORK.name,
+      window: "five-hour",
+      resetsAt: RESETS_AT.toISOString(),
+    };
+    /** Where a Thread kept on the forced engine ends: the notice last, no switch, no stand-in session. */
+    const STAYED_ON_WORK = {
+      lastMessage: NOTICE,
+      engineId: WORK.id,
+      standInFor: undefined,
+      switched: false,
+      carriedOver: 0,
+      standInSessions: 0,
+    };
+
+    /** Where the Thread ended once the refused turn's notice is its last message. */
+    async function whereItEnded(
+      threadId: string,
+    ): Promise<Record<keyof typeof STAYED_ON_WORK, unknown>> {
+      const log = await vi.waitFor(async () => {
+        const drafted = drafts(await threads.messages(threadId));
+        expect(drafted.at(-1)).toEqual(NOTICE);
+        return drafted;
+      });
+      const after = await waiting(threadId);
+      return {
+        lastMessage: log.at(-1),
+        engineId: after.session?.engineId,
+        standInFor: after.session?.standInFor,
+        switched: log.some(({ kind }) => kind === "engine-switched"),
+        carriedOver: engine.carried.length,
+        standInSessions: home.sessions.length + codex.sessions.length,
+      };
+    }
+
+    it("keeps a Task's planning Thread on the Task's engine, showing the notice", async () => {
+      await refusedWithStandInsReady();
+      const taskId = randomUUID();
+      cascade.setForTask(taskId, ON_WORK);
+
+      const opened = await planningThread(taskId);
+      await runner.send(opened.id, PLAN_IT, ANN_LEE);
+
+      expect(await whereItEnded(opened.id)).toEqual(STAYED_ON_WORK);
+    });
+
+    it("keeps an Initiative's planning Thread on the Initiative's engine, showing the notice", async () => {
+      await refusedWithStandInsReady();
+      const initiativeId = randomUUID();
+      cascade.setForInitiative(initiativeId, ON_WORK);
+
+      const opened = await threads.startOnInitiative({
+        initiativeId,
+        roleKey,
+        title: "Planning the Initiative",
+        opening: "Plan the Initiative with the user.",
+      });
+
+      expect(await whereItEnded(opened.id)).toEqual(STAYED_ON_WORK);
+    });
+
+    it("keeps a Consultation on the Task on the Task's engine, showing the notice", async () => {
+      await refusedWithStandInsReady();
+      const taskId = randomUUID();
+      cascade.setForTask(taskId, ON_WORK);
+      const consultation = aThread({
+        id: randomUUID(),
+        home: { kind: "task", taskId },
+        roleKey,
+        title: "Ann asks Ada",
+        consultation: {
+          decisionId: randomUUID(),
+          askerThreadId: randomUUID(),
+          askerRoleKey: undefined,
+        },
+      });
+      await repository.add(consultation);
+
+      await runner.open(consultation.id, "Which Projects does the export cover?");
+
+      expect(await whereItEnded(consultation.id)).toEqual(STAYED_ON_WORK);
+    });
+
+    it("keeps a session going on since before the override on the forced engine, the list it opened with left behind", async () => {
+      cascade.standIns = { from: "office", engineIds: [HOME.id, CODEX.id] };
+      await startOnBoth(
+        [started(...aTurn("brief", "Hi."), sent("next"), ...aRefusedTurn("next"))],
+        [[{ step: "resume" }, sent("again"), ...aTurn("again", "From Home.")]],
+        [started(...aTurn("brief", "From Codex."))],
+      );
+      const taskId = randomUUID();
+      const opened = await planningThread(taskId);
+      await runner.send(opened.id, PLAN_IT, ANN_LEE);
+      await answered(opened.id, 3);
+      // On the engine the session already runs on: the next message goes on in it.
+      cascade.setForTask(taskId, ON_WORK);
+
+      await runner.send(opened.id, "And the archived ones?", ANN_LEE);
+
+      expect(engine.sessions).toHaveLength(1);
+      expect(await whereItEnded(opened.id)).toEqual(STAYED_ON_WORK);
+    });
+
+    it("opens a new session on the forced engine while its window is known used up", async () => {
+      cascade.standIns = { from: "office", engineIds: [HOME.id] };
+      await startOnBoth([started(...aTurn("brief", "On the forced engine."))], []);
+      workUsedUp();
+      const taskId = randomUUID();
+      cascade.setForTask(taskId, ON_WORK);
+
+      const opened = await planningThread(taskId);
+      await runner.send(opened.id, PLAN_IT, ANN_LEE);
+      await answered(opened.id, 3);
+
+      expect(engine.sessions).toHaveLength(1);
+      expect(home.sessions).toEqual([]);
+      expect((await threads.read(opened.id)).session).toMatchObject({ engineId: WORK.id });
+      expect((await threads.read(opened.id)).session?.standInFor).toBeUndefined();
+    });
   });
 });
 

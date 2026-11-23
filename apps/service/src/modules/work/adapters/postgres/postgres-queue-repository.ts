@@ -18,7 +18,7 @@ import {
   holdStarts,
   keepStateChange,
   toTask,
-  toTaskRow,
+  taskRowUpdate,
   type Transaction,
 } from "./work-rows.js";
 
@@ -172,7 +172,7 @@ async function saveStarted(
   started: TaskChange<TaskStarted>,
 ): Promise<void> {
   const { task } = started;
-  await transaction.update(tasks).set(toTaskRow(task)).where(eq(tasks.id, task.id));
+  await transaction.update(tasks).set(taskRowUpdate(task)).where(eq(tasks.id, task.id));
   await keepStateChange(transaction, started);
   await removeQueued(transaction, task.id);
 }

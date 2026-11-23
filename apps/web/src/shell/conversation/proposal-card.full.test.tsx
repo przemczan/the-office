@@ -592,8 +592,7 @@ describe("ProposalCard on the set-up of The Office", () => {
           title: "Data Analyst",
           responsibilities: "Reads the numbers.",
           instructions: "Say where each number comes from.",
-          roleOverride: null,
-          effort: "medium",
+          engineSettings: {},
           capabilities: {
             sharedMemory: false,
             chat: true,

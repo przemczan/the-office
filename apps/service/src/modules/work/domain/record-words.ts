@@ -62,7 +62,7 @@ export interface TaskRecordParts {
   readonly decisionsWaiting: readonly DecisionWaitingOnTheUser[];
   /** One line per Connected device that isn't Disconnected; none when it has none. */
   readonly connectedDeviceLines: readonly string[];
-  /** The engines' names its engine is named by; by its id when left out. */
+  /** The engines' names its engine override is named by; by its id when left out. */
   readonly engineNames?: EngineNames;
 }
 
@@ -93,7 +93,7 @@ export function taskRecordText(
     `${task.title} (Task ${task.id})`,
     `- Project ${task.projectId}; ${TASK_STATE_NAMES[task.state]}; ${TASK_KIND_NAMES[task.kind]}; ${task.priority} priority; ${pipelineWords(task)}`,
     ...(task.foundInVersion === undefined ? [] : [`- Found in version ${task.foundInVersion}`]),
-    ...taskEngineLines(task, links.initiative?.engine ?? null, engineNames),
+    ...taskEngineLines(task, links.initiative?.engineOverride ?? null, engineNames),
     ...(task.state === "planning" && task.autoMode ? ["- Planning in auto mode"] : []),
     ...publishingTaskLines(task, links),
     ...(task.tags.length > 0 ? [`- Tags: ${task.tags.join(", ")}`] : []),
@@ -237,7 +237,7 @@ export interface InitiativeRecord {
   readonly attachments: readonly Attachment[];
   /** The names of the Pipelines it has in its Projects, by id, those the library still has. */
   readonly pipelineNames: ReadonlyMap<string, string>;
-  /** The engines' names its engine is named by; by its id when left out. */
+  /** The engines' names its engine override is named by; by its id when left out. */
   readonly engineNames?: EngineNames;
 }
 

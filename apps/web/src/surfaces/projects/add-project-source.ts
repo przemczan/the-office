@@ -57,7 +57,13 @@ function folderNameOf(path: string): string {
   );
 }
 
-/** The source's path and Repository URL, and a clone's default branch. */
+/** The base branch a new Project starts with when its repository names none. */
+export const NEW_BASE_BRANCH = "main";
+
+/**
+ * The source's path and Repository URL, and a clone's default branch, or `main` for an empty
+ * clone, whose base branch is made as it is added.
+ */
 export function draftFromSource(draft: NewProject, source: ProjectSource): NewProject {
   if (source.whereItIs === "folder") {
     return { ...draft, path: source.path, repositoryUrl: undefined };
@@ -66,6 +72,6 @@ export function draftFromSource(draft: NewProject, source: ProjectSource): NewPr
     ...draft,
     path: source.clone.path,
     repositoryUrl: source.clone.url,
-    baseBranch: source.clone.defaultBranch,
+    baseBranch: source.clone.defaultBranch ?? NEW_BASE_BRANCH,
   };
 }

@@ -14,11 +14,42 @@ export type EngineId = string;
 export type EngineKind =
   "claude-code" | "openai-compatible-api" | "codex" | "copilot-cli" | "gemini-cli";
 
+/** Each engine type as the user reads it, in words such as a refusal's. */
+export const ENGINE_TYPE_NAMES: Readonly<Record<EngineKind, string>> = {
+  "claude-code": "Claude Code",
+  codex: "Codex",
+  "copilot-cli": "Copilot CLI",
+  "gemini-cli": "Gemini CLI",
+  "openai-compatible-api": "API endpoint",
+};
+
+/** How hard the model thinks. */
+export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
+
+/**
+ * The efforts each engine type takes, in order, as its runtime takes them (spec §5.4.5, "Models and
+ * efforts of an engine type"); a type that takes none shows no Effort anywhere. Contracts'
+ * `ENGINE_TYPE_EFFORTS` mirrors it for the web; a change here goes there too.
+ */
+const EFFORTS_BY_ENGINE_TYPE: Readonly<Record<EngineKind, readonly Effort[]>> = {
+  "claude-code": ["low", "medium", "high", "xhigh", "max"],
+  codex: ["low", "medium", "high", "xhigh"],
+  "copilot-cli": [],
+  "gemini-cli": [],
+  "openai-compatible-api": [],
+};
+
+export function effortsTakenBy(kind: EngineKind): readonly Effort[] {
+  return EFFORTS_BY_ENGINE_TYPE[kind];
+}
+
 interface EngineBase {
   readonly id: EngineId;
   readonly name: string;
   /** One of the models the engine offers, which picking the engine fills in. */
   readonly defaultModel: string;
+  /** One of the efforts its type takes; null, Not set, leaves it to the engine type. */
+  readonly defaultEffort: Effort | null;
 }
 
 /** A Claude Code account, which may run on the `-p` fallback instead of the Agent SDK. */
@@ -120,6 +151,7 @@ export const FIRST_CLAUDE_CODE_ENGINE: ClaudeCodeEngine = {
   name: "Claude Code",
   kind: "claude-code",
   defaultModel: "claude-sonnet-5-5",
+  defaultEffort: null,
   claudeCodeP: false,
 };
 
@@ -191,4 +223,13 @@ export function pricedPerEngine(engine: Engine): boolean {
 export interface EngineModel {
   readonly engineId: EngineId;
   readonly model: string;
+}
+
+/**
+ * The Office default: an engine type and one of its accounts, an engine of that type, whose own
+ * default model it runs on (spec §5.4.5, "The engine cascade").
+ */
+export interface OfficeDefault {
+  readonly engineType: EngineKind;
+  readonly engineId: EngineId;
 }

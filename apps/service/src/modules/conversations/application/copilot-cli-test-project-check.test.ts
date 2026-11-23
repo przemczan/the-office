@@ -37,7 +37,8 @@ import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
  * The Copilot CLI engine's check on the Test Project: a Copilot CLI engine added in Settings ›
- * Engines, signed in by a pasted token, and the Developer's Role card on it. In the Developer's
+ * Engines, signed in by a pasted token, made the Office default, and the Developer's Role card
+ * working with its model. In the Developer's
  * chat, a question only reading the Test Project answers, replied to in one message; then a Task
  * the user plans (the Planner never runs) runs Implement on that engine, as Quick fix edited with a
  * Gate before Publish, and is dropped at the Gate. Its base is a local branch that tracks no
@@ -121,24 +122,30 @@ async function startOffice(): Promise<Api> {
 
 /**
  * The Office with a Copilot CLI engine added and signed in by the pasted token, as the web does,
- * and the Developer on it, with Chat on.
+ * made the Office default, and the Developer working with its model there, with Chat on.
  */
 async function officeOnCopilot(): Promise<OfficeOnCopilot> {
   const api = await startOffice();
   const saved = engineSettingsSchema.parse(await api("GET", "/settings/engines"));
-  const settings = engineSettingsSchema.parse(
+  const claudeCode = saved.engines.filter(({ kind }) => kind === "claude-code");
+  const edit = { name: "Copilot", kind: "copilot-cli", defaultModel: MODEL } as const;
+  const added = engineSettingsSchema.parse(
     await api("PUT", "/settings/engines", {
-      engines: [
-        ...saved.engines.filter(({ kind }) => kind === "claude-code"),
-        { name: "Copilot", kind: "copilot-cli", defaultModel: MODEL },
-      ],
+      engines: [...claudeCode, edit],
       officeDefault: saved.officeDefault,
       searchEndpoint: null,
       modelPrices: [],
     }),
   );
-  const copilot = settings.engines.find(({ kind }) => kind === "copilot-cli");
+  const copilot = added.engines.find(({ kind }) => kind === "copilot-cli");
   if (!copilot) throw new Error("Settings › Engines lists no Copilot CLI engine after the Save.");
+  // A second Save, as only a saved engine has the id the Office default names it by.
+  await api("PUT", "/settings/engines", {
+    engines: [...claudeCode, { ...edit, id: copilot.id }],
+    officeDefault: { engineType: "copilot-cli", engineId: copilot.id },
+    searchEndpoint: null,
+    modelPrices: [],
+  });
   await api("PUT", `/settings/engines/${copilot.id}/token`, { token: TOKEN });
   const account = engineAccountSchema.parse(
     await api("GET", `/settings/engines/${copilot.id}/account`),
@@ -150,7 +157,7 @@ async function officeOnCopilot(): Promise<OfficeOnCopilot> {
   );
   await api("PUT", "/roles/developer/card", {
     ...hired.card,
-    roleOverride: { engineId: copilot.id, model: MODEL },
+    engineSettings: { "copilot-cli": { model: MODEL, effort: null } },
     skills: [],
     capabilities: { ...hired.card.capabilities, chat: true },
   });
@@ -159,7 +166,7 @@ async function officeOnCopilot(): Promise<OfficeOnCopilot> {
 }
 
 /**
- * Removes the Copilot CLI engine, the Developer's override moving to the Claude Code engine. Its
+ * Removes the Copilot CLI engine, the Office default moving to the Claude Code engine. Its
  * folder goes once its sessions have ended, and an open chat's session lives on, so The Office
  * restarts, ending them, and its start removes the folder of every engine no longer listed.
  */

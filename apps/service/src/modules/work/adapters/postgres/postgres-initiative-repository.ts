@@ -61,6 +61,7 @@ import {
   saveTask,
   takenOrders,
   toInitiative,
+  initiativeRowUpdate,
   toInitiativeRow,
   toTask,
   type Transaction,
@@ -390,7 +391,7 @@ async function heldInitiative(transaction: Transaction, id: string): Promise<Ini
 async function saveInitiative(transaction: Transaction, initiative: Initiative): Promise<void> {
   await transaction
     .update(initiatives)
-    .set(toInitiativeRow(initiative))
+    .set(initiativeRowUpdate(initiative))
     .where(eq(initiatives.id, initiative.id));
 }
 

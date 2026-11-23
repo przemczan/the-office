@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import type { EngineModel } from "../../engine/index.js";
+import type { EngineId } from "../../engine/index.js";
 import type { Task } from "../domain/task.js";
 import { onTask, pipelineChoiceMoves, type TaskEngineChange } from "../domain/work-engine.js";
 import type { InitiativeRepository } from "../ports/initiative-repository.js";
@@ -31,7 +31,7 @@ export class TaskEngineChecks {
 
 /**
  * Why choosing `pipelineId` for the Task would put a Role its Stages name on an engine that can't
- * work them (spec 5.4.5): weighed while the Task, or its Initiative, sets an engine, "On “<Task>”".
+ * work them (spec 5.4.5): weighed while the Task, or its Initiative, has an engine override, "On “<Task>”".
  */
 export async function pipelineChoiceProblems(
   checks: TaskEngineChecks,
@@ -39,12 +39,12 @@ export async function pipelineChoiceProblems(
   task: Task,
   pipelineId: string,
 ): Promise<readonly string[]> {
-  const initiativeEngine: EngineModel | null =
+  const initiativeEngineOverride: EngineId | null =
     task.initiativeId === undefined
       ? null
-      : ((await initiatives.find(task.initiativeId))?.engine ?? null);
+      : ((await initiatives.find(task.initiativeId))?.engineOverride ?? null);
   return checks.problemsOf({
     place: onTask(task),
-    moves: pipelineChoiceMoves(task, initiativeEngine, pipelineId),
+    moves: pipelineChoiceMoves(task, initiativeEngineOverride, pipelineId),
   });
 }

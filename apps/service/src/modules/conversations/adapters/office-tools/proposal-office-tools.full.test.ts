@@ -22,6 +22,8 @@ import { ProposalOfficeTools } from "./proposal-office-tools.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 
 const tester = { role: { key: "tester", card: aProposedCard() } };
+/** The person's effort High on Claude Code, with its default model. */
+const HIGH_ON_CLAUDE_CODE = { "claude-code": { model: null, effort: "high" as const } };
 
 /**
  * The tool named `name` as registered, over Proposals that keep what is drafted, refusing with
@@ -98,7 +100,10 @@ describe("the propose_role tool", () => {
     const { tool, drafted } = toolDrafting();
 
     await expect(
-      tool.run({ preset: "developer", card: { name: "Ada", effort: "high" } }, session),
+      tool.run(
+        { preset: "developer", card: { name: "Ada", engineSettings: HIGH_ON_CLAUDE_CODE } },
+        session,
+      ),
     ).resolves.toMatchObject({ isError: true });
     await expect(
       tool.run({ preset: "developer", card: { name: "Ada" }, skills: [] }, session),
@@ -123,6 +128,19 @@ describe("the propose_role tool", () => {
     ]);
   });
 
+  it("drafts a new Role left without engine settings on each engine's defaults", async () => {
+    const { tool, drafted } = toolDrafting();
+    const { engineSettings: _left, ...card } = aProposedCard({
+      engineSettings: HIGH_ON_CLAUDE_CODE,
+    });
+
+    await tool.run({ card, skills: [] }, session);
+
+    expect(drafted).toEqual([
+      { kind: "hire", card: aProposedCard({ engineSettings: {} }), skills: [], roleKey: undefined },
+    ]);
+  });
+
   it("names what a new Role's card is missing", async () => {
     const { tool, drafted } = toolDrafting();
 
@@ -136,19 +154,28 @@ describe("the propose_role tool", () => {
   it("drafts a change of the fields that differ, with what the card has now", async () => {
     const { tool, drafted } = toolDrafting();
 
-    await tool.run({ role: "tester", card: { name: "Tess", effort: "high" } }, session);
+    await tool.run(
+      { role: "tester", card: { name: "Tess", engineSettings: HIGH_ON_CLAUDE_CODE } },
+      session,
+    );
 
     expect(drafted).toEqual([
-      { kind: "change", roleKey: "tester", from: { effort: "medium" }, to: { effort: "high" } },
+      {
+        kind: "change",
+        roleKey: "tester",
+        from: { engineSettings: {} },
+        to: { engineSettings: HIGH_ON_CLAUDE_CODE },
+      },
     ]);
   });
 
   it("refuses a change to a Role that isn't there, or to its skills", async () => {
     const { tool, drafted } = toolDrafting();
 
-    await expect(tool.run({ role: "janitor", card: { effort: "high" } }, session)).resolves.toEqual(
-      { text: 'The Office has no Role "janitor".', isError: true },
-    );
+    await expect(tool.run({ role: "janitor", card: { taskLimit: 2 } }, session)).resolves.toEqual({
+      text: 'The Office has no Role "janitor".',
+      isError: true,
+    });
     await expect(
       tool.run({ role: "tester", card: {}, skills: ["playwright"] }, session),
     ).resolves.toMatchObject({ isError: true });
@@ -363,7 +390,7 @@ describe("the propose_office_setup tool", () => {
           { kind: "hire-from-preset", roleKey: "planner", name: "Jan" },
           {
             kind: "hire",
-            card: { ...aProposedCard({ name: "Max", title: "Builder" }), roleOverride: null },
+            card: aProposedCard({ name: "Max", title: "Builder" }),
             skills: ["playwright"],
           },
         ],
@@ -381,7 +408,7 @@ describe("the propose_office_setup tool", () => {
     ).resolves.toEqual(namedByTheTitle("Developer"));
     await expect(
       tool.run(
-        { hires: [{ preset: "developer", name: "Ada", card: { effort: "high" } }], duties: [] },
+        { hires: [{ preset: "developer", name: "Ada", card: { taskLimit: 2 } }], duties: [] },
         session,
       ),
     ).resolves.toMatchObject({ isError: true });

@@ -133,7 +133,7 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
     - **Who works it**: grouped choices, **Duties** ("<duty> · <holder name · title>" or "… · nobody holds it"; hint "A duty's holder when the Stage starts, as Settings › Duties sets, or a person with a Task limit") and **People** ("<name> · <title>", only those hired with a Task limit; one the Stage names that no longer qualifies stays listed with "(nobody fills it)", "(let go)" or "(talks only)").
     - **Session**: "Fresh, with a brief" or "Continue the previous Stage's session" (only with the same Role or duty in the Stage before; hint "Continuing needs the same Role or the same duty in the Stage before").
     - **Budget**: a number, suffix "k tokens", hint "Reaching it asks you"; kept as typed until it is a number above 0.
-    - **Effort**: "Role default" or one of the efforts.
+    - **Effort**: "Person's effort" or one of the efforts; hint "Wins over the person's and the Project's; one the engine type doesn't take gives way to the person's".
     - **Context limits**: "Office default (100k / 180k)", "Set for this Stage" (a **Soft limit** and a **Hard limit**, in k tokens) or "No limit" (never restarts on context size).
     - **Brief**: hint "Filled with the Task's Plan, Definition of Done and earlier results".
     - **Permission profile**, hint "Narrows the Role card's for this Stage, never widens it" (shown once a Role is known): **Files** (the Role default, or reads only), **Runs**, **Web**, an **MCP tool <key>** select per tool of the Role's MCP servers, and **Project commands** (tags; hint "Only these of the Project's commands; never install"). Each offers only what is narrower than the Role card ("Role default: <words>").
@@ -269,6 +269,7 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
 
 - A Pipeline is a flow, its order, routes, conditions, On failure, validation: [2.3.2](../2.3.2-flows.md#a-pipeline-is-a-flow), [2.3.2](../2.3.2-flows.md#which-route-the-walk-follows), [2.3.2](../2.3.2-flows.md#built-in-conditions), [2.3.2](../2.3.2-flows.md#the-project-command-condition), [2.3.2](../2.3.2-flows.md#on-failure), [2.3.2](../2.3.2-flows.md#validation), [2.3.2](../2.3.2-flows.md#route-and-condition-proposals).
 - Stage kinds and fields: [2.3.1](../2.3.1-stages.md#stage-kinds), [2.3.1](../2.3.1-stages.md#what-a-stage-declares).
+- A Stage's effort in the model and effort cascade: [5.4.5](../5.4.5-engines-and-cascade.md#the-model-and-effort-cascade).
 - Gates: [2.3.3](../2.3.3-gates-and-checks.md#gates).
 - Publish Stage: [2.3.4](../2.3.4-publish.md#publish).
 - The library editor, Stage templates, Project Pipelines, a Broken Project Pipeline: [2.3.5](../2.3.5-library.md#the-library-editor), [2.3.5](../2.3.5-library.md#stage-templates), [2.3.5](../2.3.5-library.md#project-pipelines), [2.3.5](../2.3.5-library.md#a-broken-project-pipeline).

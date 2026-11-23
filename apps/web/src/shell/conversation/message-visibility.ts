@@ -54,6 +54,7 @@ const SHOWS: { readonly [Kind in Message["kind"]]: "always" | "with-details" } =
   failure: "always",
   "usage-window-used-up": "always",
   "engine-switched": "always",
+  "model-gave-way": "always",
   held: "always",
   decision: "always",
   "decision-answer": "always",

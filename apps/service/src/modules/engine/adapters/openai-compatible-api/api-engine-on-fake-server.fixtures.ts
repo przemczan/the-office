@@ -27,6 +27,7 @@ export async function apiEngineOnFakeServer(officeData: string): Promise<ApiEngi
     name: "Fake",
     kind: "openai-compatible-api",
     defaultModel: "coder:q4",
+    defaultEffort: null,
     baseUrl: server.baseUrl,
     key: "",
     models: [{ id: "coder:q4", contextWindow: 100_000 }],

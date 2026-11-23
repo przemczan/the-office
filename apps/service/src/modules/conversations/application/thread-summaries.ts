@@ -120,12 +120,10 @@ export class ThreadSummaries {
           [
             key,
             role &&
-              (
-                await this.engineCascade.applying(
-                  roleKey,
-                  cascadeLocationOf(thread.home, projectOf(thread)),
-                )
-              )?.engineId,
+              (await this.engineCascade.applying(
+                roleKey,
+                cascadeLocationOf(thread.home, projectOf(thread)),
+              )),
           ] as const,
       ),
     );
@@ -139,7 +137,8 @@ export class ThreadSummaries {
             session: thread.session,
             roleKey: thread.roleKey,
             sessionDefault: role?.card.sessionDefault ?? "context-policy",
-            engineId: engines.get(locationKey(thread)),
+            engineId: engines.get(locationKey(thread))?.engineId,
+            forced: engines.get(locationKey(thread))?.standIns.from === "none",
             override: thread.override,
             changesAllowed: changesAllowed.get(thread.id),
             heldDuties,

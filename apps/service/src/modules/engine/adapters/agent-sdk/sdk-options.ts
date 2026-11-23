@@ -61,7 +61,7 @@ export function sdkOptions({
   return {
     cwd: options.folder,
     model: options.model,
-    effort: options.effort,
+    ...(options.effort !== undefined && { effort: options.effort }),
     tools: sessionTools(agentShells),
     settingSources: ["project"],
     plugins: [options.skills?.folder, languageServerPlugin]

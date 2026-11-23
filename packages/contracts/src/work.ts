@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { webEventSchema } from "./events.js";
-import { engineIdSchema, engineModelSchema } from "./engines.js";
+import { engineIdSchema } from "./engines.js";
 import { officeAction } from "./office-actions.js";
 import { pageQuerySchema, pageSchemaOf } from "./paging.js";
 import { projectFilterParamSchema } from "./project-filter.js";
@@ -174,18 +174,19 @@ export const initiativeSchema = z.object({
   /** The Initiative's branch in each Project, as The Office made it; kept after a Drop. */
   branches: z.array(initiativeBranchSchema),
   /**
-   * The Initiative's engine (spec 5.4.5): its Threads and every Task in it that sets none run on
-   * it in the Project default's place; null for none.
+   * The Initiative's engine override (spec 5.4.5): its Threads and every Task in it with no
+   * override of its own run on this engine, with no Stand-in Engines; null for none.
    */
-  engine: engineModelSchema.nullable(),
+  engineOverride: engineIdSchema.nullable(),
 });
 export type Initiative = z.infer<typeof initiativeSchema>;
 
 /**
- * PUT /tasks/:id/engine and PUT /initiatives/:id/engine: the Task's or the Initiative's engine and
- * model, null to clear it; refused once it is Done or Dropped, and by the capability check.
+ * PUT /tasks/:id/engine and PUT /initiatives/:id/engine: the Task's or the Initiative's engine
+ * override, an engine only, null to clear it; refused for an engine not listed, once it is Done or
+ * Dropped, and by the capability check.
  */
-export const workEngineChangeSchema = z.object({ engine: engineModelSchema.nullable() });
+export const workEngineChangeSchema = z.object({ engineId: engineIdSchema.nullable() });
 export type WorkEngineChange = z.infer<typeof workEngineChangeSchema>;
 
 /**
@@ -470,12 +471,12 @@ export const taskSchema = newTaskSchema.extend({
   /** The Initiative it is part of (POST /initiatives/:id/tasks). */
   initiativeId: z.uuid().nullable(),
   /**
-   * The Task's engine (spec 5.4.5): every session about it runs on it in the Project default's
-   * place; null for none.
+   * The Task's engine override (spec 5.4.5): every session about it runs on this engine, with no
+   * Stand-in Engines; null for none.
    */
-  engine: engineModelSchema.nullable(),
-  /** Its Initiative's engine, which it runs on while it sets none; null for none or no Initiative. */
-  initiativeEngine: engineModelSchema.nullable(),
+  engineOverride: engineIdSchema.nullable(),
+  /** Its Initiative's engine override, which applies while it has none; null for none or no Initiative. */
+  initiativeEngineOverride: engineIdSchema.nullable(),
   /**
    * What The Office made it for: a Project's Onboard Task, its "Set up the run environment" Task,
    * an Initiative's Publishing Task, or a Conflict resolution Task; null for any other Task.
@@ -1345,7 +1346,10 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("initiative.outcome-written"), initiativeId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("initiative.pipeline-chosen"), initiativeId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("initiative.pipelines-set"), initiativeId: z.uuid() }),
-  webEventSchema.extend({ type: z.literal("initiative.engine-set"), initiativeId: z.uuid() }),
+  webEventSchema.extend({
+    type: z.literal("initiative.engine-override-set"),
+    initiativeId: z.uuid(),
+  }),
   webEventSchema.extend({
     type: z.literal("initiative.short-name-written"),
     initiativeId: z.uuid(),
@@ -1438,8 +1442,8 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
   }),
   webEventSchema.extend({ type: z.literal("task.plan-proposed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.plan-saved"), taskId: z.uuid() }),
-  /** Its own engine was set, or its Initiative's, which it inherits. */
-  webEventSchema.extend({ type: z.literal("task.engine-set"), taskId: z.uuid() }),
+  /** Its own engine override was set, or its Initiative's, which applies while it has none. */
+  webEventSchema.extend({ type: z.literal("task.engine-override-set"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.plan-confirmed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.definition-of-done-proposed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.definition-of-done-saved"), taskId: z.uuid() }),

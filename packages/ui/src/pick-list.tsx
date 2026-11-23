@@ -2,7 +2,7 @@
 // details"): one card with a head naming the list, how many it holds and its main action, rows edge
 // to edge split by hairlines, and a foot for what isn't a row. Settings' Engines and Pipelines are
 // drawn with it.
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { Icon } from "../../../design-system/components/core/Icon.jsx";
 import { Tooltip } from "./overlays.tsx";
 
@@ -19,7 +19,7 @@ export interface PickListProps {
   readonly foot?: ReactNode;
   /** Words about the list, under the card. */
   readonly note?: ReactNode;
-  /** The rows, each a `PickListItem`. */
+  /** The rows, each a `PickListItem`, or groups of them, each a `PickListGroup`. */
   readonly children?: ReactNode;
 }
 
@@ -53,6 +53,28 @@ export function PickList({
       </section>
       {note && <p className="pick-list-note">{note}</p>}
     </div>
+  );
+}
+
+export interface PickListGroupProps {
+  /** The small heading over the group's rows, such as an engine type. */
+  readonly title: string;
+  /** The group's rows, each a `PickListItem`. */
+  readonly children?: ReactNode;
+}
+
+/** Rows of a `PickList` that belong together, under a small heading; the list names it. */
+export function PickListGroup({ title, children }: PickListGroupProps): ReactNode {
+  const id = useId();
+  return (
+    <li className="pick-list-group">
+      <h4 className="pick-list-group-title" id={id}>
+        {title}
+      </h4>
+      <ul className="pick-list-rows" aria-labelledby={id}>
+        {children}
+      </ul>
+    </li>
   );
 }
 

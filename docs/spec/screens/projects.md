@@ -80,6 +80,7 @@ Covers: the Projects page (the Projects list beside the open Project, a list ite
 - A refusal to start it (every reason, nothing cloned) shows as **The repository can't be cloned**.
 - The clone's progress is read live from the `repository-clone.changed` event.
 - A finished clone goes on to step 2.
+- A repository with no commits yet clones too, as an empty clone, and goes on to step 2.
 
 ### From GitHub
 
@@ -105,6 +106,8 @@ Covers: the Projects page (the Projects list beside the open Project, a list ite
   - **Name**, focused.
   - **Mark**: the Mark picker ([project-page.md](project-page.md#appearance)); its label follows the name until the user writes one of their own.
   - **Base branch**, hint "Tasks branch from it and publish to it.": a text field (monospace) for a folder, a select of the clone's branches for a clone. Default `main`.
+    - An empty clone has a text field (monospace, default `main`) instead, with the hint "The repository has no commits yet. Adding the Project makes <base branch> with an empty first commit and pushes it to the repository." ("the base branch" while it is blank).
+    - A folder with no commits yet keeps the text field and its hint: its branches aren't read before Add the Project.
   - **Default Pipeline**, hint the chosen Pipeline's Stages line: a select of the office-wide Pipelines. Default `full`.
   - **Commands**, hint "Optional. Leave any you don't know yet: set them later on the Project's page, or ask whoever onboards Projects.": inputs **Install** (placeholder `npm ci`), **Build** (`npm run build`), **Lint** (`npm run lint`), **Test** (`npm test`), all monospace and optional.
   - **Install inputs**, hint "Files whose change makes a worktree install again, separated by commas. With none, a worktree installs once.", placeholder `package-lock.json`.
@@ -134,6 +137,7 @@ Covers: the Projects page (the Projects list beside the open Project, a list ite
 ## Domain facts
 
 - A Project, its settings, the Project limit: [2.1.1](../2.1.1-projects.md#project).
+- An empty repository and its first commit: [2.1.1](../2.1.1-projects.md#empty-repositories).
 - Project commands and Install inputs: [2.1.1](../2.1.1-projects.md#project-commands).
 - Onboarding a Project: [2.1.1](../2.1.1-projects.md#onboarding-a-project).
 - Publishing modes: [2.3.4](../2.3.4-publish.md#publish).

@@ -1,6 +1,5 @@
 import {
   CODEX_MODELS,
-  COPILOT_CLI_MODELS,
   type ApiEngine,
   type ClaudeCodeEngine,
   type CodexEngine,
@@ -18,6 +17,7 @@ import {
   newClaudeCodeEngine,
   newCodexEngine,
   newCopilotCliEngine,
+  newGeminiCliEngine,
   officeDefaultChoicesOf,
   offeredDefaultModel,
   offeredModelKey,
@@ -25,7 +25,7 @@ import {
   searchEndpointOf,
   standInsOf,
   switchSizeOf,
-  withStandInMoved,
+  withOfficeDefaultType,
   type EngineSettingsDraft,
 } from "./engine-settings-draft.ts";
 import { NO_PRICE_TEXT, type ModelPriceText } from "./model-price-fields.ts";
@@ -35,6 +35,7 @@ const CLAUDE_CODE: ClaudeCodeEngine = {
   name: "Claude Code",
   kind: "claude-code",
   defaultModel: "claude-sonnet-5-5",
+  defaultEffort: "high",
   claudeCodeP: false,
 };
 
@@ -43,6 +44,7 @@ const STRATA: ApiEngine = {
   name: "Strata",
   kind: "openai-compatible-api",
   defaultModel: "qwen3",
+  defaultEffort: null,
   baseUrl: "http://127.0.0.1:8080/v1",
   keySet: true,
   models: [{ id: "qwen3", contextWindow: 100_000, seesImages: true }],
@@ -59,7 +61,7 @@ const MODEL_PRICES = [
 
 const SAVED: EngineSettings = {
   engines: [CLAUDE_CODE, STRATA],
-  officeDefault: { engineId: "claude-code", model: "claude-sonnet-5-5" },
+  officeDefault: { engineType: "claude-code", engineId: "claude-code" },
   searchEndpoint: null,
   modelPrices: MODEL_PRICES,
   standInEngines: ["strata"],
@@ -73,6 +75,7 @@ const CODEX: CodexEngine = {
   name: "Codex",
   kind: "codex",
   defaultModel: "gpt-5.6-terra",
+  defaultEffort: null,
 };
 
 const COPILOT_CLI: CopilotCliEngine = {
@@ -80,6 +83,7 @@ const COPILOT_CLI: CopilotCliEngine = {
   name: "Copilot",
   kind: "copilot-cli",
   defaultModel: "auto",
+  defaultEffort: null,
 };
 
 /** Saved with a Copilot CLI engine: its models are priced on the engine, after the endpoints'. */
@@ -127,11 +131,12 @@ describe("Settings › Engines' draft", () => {
           name: "Strata",
           kind: "openai-compatible-api",
           defaultModel: "qwen3",
+          defaultEffort: null,
           baseUrl: "http://127.0.0.1:8080/v1",
           models: [{ id: "qwen3", contextWindow: 100_000, seesImages: true }],
         },
       ],
-      officeDefault: { engineId: "claude-code", model: "claude-sonnet-5-5" },
+      officeDefault: { engineType: "claude-code", engineId: "claude-code" },
       searchEndpoint: null,
       modelPrices: {
         [offeredModelKey({ engineId: null, model: "claude-sonnet-5-5" })]: {
@@ -197,6 +202,7 @@ describe("Settings › Engines' draft", () => {
       name: "",
       kind: "claude-code",
       defaultModel: "claude-sonnet-5-5",
+      defaultEffort: null,
       claudeCodeP: false,
     });
   });
@@ -213,7 +219,7 @@ describe("Settings › Engines' draft", () => {
     expect(offeredDefaultModel({ ...endpoint, models: [] })).toBe("");
   });
 
-  it("offers the saved engines still drafted for the Office default, each with its models", () => {
+  it("offers the engine types with a saved engine still drafted for the Office default, each with its accounts", () => {
     const draft = {
       ...draftOf(SAVED),
       claudeCodeEngines: [
@@ -222,15 +228,46 @@ describe("Settings › Engines' draft", () => {
       ],
     };
 
-    expect(officeDefaultChoicesOf(draft, SAVED)).toEqual([
-      {
-        id: "claude-code",
-        name: "Claude Code",
-        defaultModel: "claude-sonnet-5-5",
-        models: ["claude-sonnet-5-5"],
-      },
-      { id: "strata", name: "Strata", defaultModel: "qwen3", models: ["qwen3"] },
+    expect(officeDefaultChoicesOf(draft)).toEqual([
+      { engineType: "claude-code", accounts: [{ id: "claude-code", name: "Claude Code" }] },
+      { engineType: "openai-compatible-api", accounts: [{ id: "strata", name: "Strata" }] },
     ]);
+  });
+
+  it("puts the Office default on a type's first account when the type changes, and sends it", () => {
+    const second = { ...CLAUDE_CODE, id: "second", name: "Second" };
+    const saved = { ...SAVED, engines: [CLAUDE_CODE, second, STRATA] };
+    const onStrata = withOfficeDefaultType(draftOf(saved), "openai-compatible-api");
+
+    expect(onStrata.officeDefault).toEqual({
+      engineType: "openai-compatible-api",
+      engineId: "strata",
+    });
+    expect(withOfficeDefaultType(onStrata, "claude-code").officeDefault).toEqual({
+      engineType: "claude-code",
+      engineId: "claude-code",
+    });
+    // A type with no saved engine leaves it as it was.
+    expect(withOfficeDefaultType(onStrata, "codex")).toBe(onStrata);
+    expect(engineSettingsEditOf(onStrata, saved)?.officeDefault).toEqual(onStrata.officeDefault);
+    expect(draftChanged(onStrata, saved)).toBe(true);
+  });
+
+  it("starts a new engine of every type on Not set and sends each engine's Default effort", () => {
+    expect(newClaudeCodeEngine(SAVED).defaultEffort).toBeNull();
+    expect(newCodexEngine(SAVED).defaultEffort).toBeNull();
+    expect(newCopilotCliEngine().defaultEffort).toBeNull();
+    expect(newGeminiCliEngine().defaultEffort).toBeNull();
+    expect(NEW_API_ENDPOINT.defaultEffort).toBeNull();
+    const draft = {
+      ...draftOf(SAVED),
+      claudeCodeEngines: [{ ...CLAUDE_CODE, defaultEffort: "max" as const }],
+    };
+
+    expect(
+      engineSettingsEditOf(draft, SAVED)?.engines.map(({ defaultEffort }) => defaultEffort),
+    ).toEqual(["max", null]);
+    expect(draftChanged(draft, SAVED)).toBe(true);
   });
 
   it("sends every engine, the Claude Code ones as saved and an endpoint with a default model it offers", () => {
@@ -370,18 +407,11 @@ describe("Settings › Engines' draft", () => {
         ],
       };
 
-      expect(standInsOf(draft, SAVED)).toEqual({
-        listed: [{ id: "strata", name: "Strata" }],
-        addable: [{ id: "claude-code", name: "Claude Code" }],
+      expect(standInsOf(draft)).toEqual({
+        listed: [{ id: "strata", name: "Strata", kind: "openai-compatible-api" }],
+        addable: [{ id: "claude-code", name: "Claude Code", kind: "claude-code" }],
       });
-      expect(standInsOf({ ...draft, standInEngines: [] }, SAVED).addable).toHaveLength(2);
-    });
-
-    it("moves a Stand-in Engine up or down, never past either end", () => {
-      expect(withStandInMoved(["a", "b", "c"], 1, -1)).toEqual(["b", "a", "c"]);
-      expect(withStandInMoved(["a", "b", "c"], 1, 1)).toEqual(["a", "c", "b"]);
-      expect(withStandInMoved(["a", "b"], 0, -1)).toEqual(["a", "b"]);
-      expect(withStandInMoved(["a", "b"], 1, 1)).toEqual(["a", "b"]);
+      expect(standInsOf({ ...draft, standInEngines: [] }).addable).toHaveLength(2);
     });
   });
 
@@ -402,11 +432,13 @@ describe("Settings › Engines' draft", () => {
         name: "",
         kind: "codex",
         defaultModel: "gpt-5.6-terra",
+        defaultEffort: null,
       });
       expect(newCodexEngine(SAVED)).toEqual({
         name: "",
         kind: "codex",
         defaultModel: "gpt-6-luna",
+        defaultEffort: null,
       });
     });
 
@@ -454,6 +486,7 @@ describe("Settings › Engines' draft", () => {
         name: "Work",
         kind: "codex",
         defaultModel: "gpt-5.6-terra",
+        defaultEffort: null,
       });
       expect(edit?.modelPrices.filter(({ engineId }) => engineId === null)).toEqual([
         MODEL_PRICES[0],
@@ -477,22 +510,18 @@ describe("Settings › Engines' draft", () => {
       expect(drafted.apiEndpoints.map(({ id }) => id)).toEqual(["work-3"]);
     });
 
-    it("offers a saved Codex engine for the Office default with the Codex models", () => {
+    it("offers Codex for the Office default, between Claude Code and the API endpoints, once one is saved", () => {
       const draft = {
         ...draftOf(SAVED_WITH_CODEX),
         codexEngines: [...draftOf(SAVED_WITH_CODEX).codexEngines, newCodexEngine(SAVED)],
       };
 
-      expect(officeDefaultChoicesOf(draft, SAVED_WITH_CODEX)).toEqual([
-        {
-          id: "claude-code",
-          name: "Claude Code",
-          defaultModel: "claude-sonnet-5-5",
-          models: ["claude-sonnet-5-5"],
-        },
-        { id: "codex", name: "Codex", defaultModel: "gpt-5.6-terra", models: CODEX_MODELS },
-        { id: "strata", name: "Strata", defaultModel: "qwen3", models: ["qwen3"] },
+      expect(officeDefaultChoicesOf(draft).map(({ engineType }) => engineType)).toEqual([
+        "claude-code",
+        "codex",
+        "openai-compatible-api",
       ]);
+      expect(officeDefaultChoicesOf(draft)[1]?.accounts).toEqual([{ id: "codex", name: "Codex" }]);
     });
   });
 
@@ -503,6 +532,7 @@ describe("Settings › Engines' draft", () => {
         name: "",
         kind: "copilot-cli",
         defaultModel: "auto",
+        defaultEffort: null,
       });
     });
 
@@ -565,14 +595,10 @@ describe("Settings › Engines' draft", () => {
       expect(drafted.apiEndpoints.map(({ id }) => id)).toEqual(["work-3"]);
     });
 
-    it("offers a saved Copilot CLI engine for the Office default with Auto", () => {
-      expect(
-        officeDefaultChoicesOf(draftOf(SAVED_WITH_COPILOT_CLI), SAVED_WITH_COPILOT_CLI),
-      ).toContainEqual({
-        id: "copilot",
-        name: "Copilot",
-        defaultModel: "auto",
-        models: COPILOT_CLI_MODELS,
+    it("offers Copilot CLI for the Office default with its saved engine as its account", () => {
+      expect(officeDefaultChoicesOf(draftOf(SAVED_WITH_COPILOT_CLI))).toContainEqual({
+        engineType: "copilot-cli",
+        accounts: [{ id: "copilot", name: "Copilot" }],
       });
     });
   });

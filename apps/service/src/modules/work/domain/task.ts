@@ -1,4 +1,4 @@
-import type { EngineId, EngineModel } from "../../engine/index.js";
+import type { EngineId } from "../../engine/index.js";
 import type { ArchivedBy, Author } from "./author.js";
 import type { BranchDeletionRecord } from "./branch-deletion.js";
 import type { DropReason } from "./drop-reason.js";
@@ -233,10 +233,10 @@ export interface Task {
    */
   readonly createdByTheOffice: boolean;
   /**
-   * The Task's engine and model (spec 5.4.5): every session about it runs on it in the Project
-   * default's place; null for none, when it runs on its Initiative's engine, if any.
+   * The Task's engine override (spec 5.4.5): every session about it runs on this engine, with no
+   * Stand-in Engines; null for none, when its Initiative's override applies, if any.
    */
-  readonly engine: EngineModel | null;
+  readonly engineOverride: EngineId | null;
 }
 
 /** The fields of a Task that hold its long texts, which most reads of many Tasks never need. */

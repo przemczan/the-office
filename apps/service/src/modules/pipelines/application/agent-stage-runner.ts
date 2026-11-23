@@ -72,6 +72,7 @@ import { acceptedIssues, agentDecision } from "../domain/walk-decisions.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { StartedTasks } from "../ports/started-tasks.js";
 import { StageContextLimitDefaults } from "../ports/stage-context-limit-defaults.js";
+import { RoleEngineCascade, type TaskSessionPlace } from "../ports/role-engine-cascade.js";
 import {
   StageThreads,
   type AskedDecision,
@@ -90,6 +91,7 @@ import { ResolveStageGit } from "./resolve-stage-git.js";
 import { StageCommandRuns } from "./stage-command-runs.js";
 import { StageRunWaits } from "./stage-run-waits.js";
 import { StageGit } from "./stage-git.js";
+import { STAGE_STAND_IN_NEEDS } from "./stand-in-choices.js";
 import type { StageRunner, StageWork } from "./stage-runner.js";
 import { StageRunners } from "./stage-runners.js";
 
@@ -137,6 +139,8 @@ interface RunningEngine {
   engineId: string;
   engineName: string;
   readonly cascade: NamedEngine;
+  /** The Project and the Task the session is about, whose Stand-in Engine list applies. */
+  readonly place: TaskSessionPlace;
 }
 
 /** What a refused turn's switch works on: the run, its Stage Thread, and the engine it runs on. */
@@ -220,6 +224,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     private readonly engineSessions: EngineSessions,
     private readonly promptTemplates: PromptTemplates,
     private readonly contextLimitDefaults: StageContextLimitDefaults,
+    private readonly cascade: RoleEngineCascade,
   ) {}
 
   onModuleInit(): void {
@@ -309,6 +314,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         engineId: engine,
         engineName,
         cascade: cascadeEngineOf(task, thread, engineName),
+        place: { projectId: task.project.id, taskId: work.run.taskId },
       };
       const reading = await this.resultOf(work, thread, running, {
         statementCount: task.definitionOfDone.length,
@@ -822,10 +828,13 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
 
   /**
    * After the engine refused a turn for a used-up usage window (spec 5.4): the session goes on on
-   * the first Stand-in Engine with room, unless the user's Pause or Stop, or the fire alarm, asked
-   * to hold the run first, none has room, or the session's context is over the size Settings ›
-   * Engines asks first above, whose Stand-in Engine the hold names for the user's choice. A switch
-   * that fails holds the run too: it is never the Stage's failure.
+   * the first Stand-in Engine with room of the list that applies for the Task (its Project's own or
+   * the Office's; none under an engine override, which holds the run with no Stand-in choice until
+   * the reset), of the running engine's type so the session is carried with its model, unless
+   * the user's Pause or Stop, or the fire alarm, asked to hold the run first, none has room, or the
+   * session's context is over the size Settings › Engines asks first above, whose Stand-in Engine
+   * the hold names for the user's choice. A switch that fails holds the run too: it is never the
+   * Stage's failure.
    */
   private async switchOrHold(
     on: OnStandIns,
@@ -833,14 +842,19 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
   ): Promise<AfterRefusal> {
     const { work, thread } = on;
     if (work.interruption.requested) return HOLD;
-    const standIn = await this.engineSessions.standInFor({
-      engineId: thread.engine,
-      model: thread.model,
+    // No engine listed any more, or an engine override (the cascade's `standIns` from "none"),
+    // leaves no list to stand in from: the run holds until the reset, asking no choice.
+    const standIns = (await this.cascade.engineAt(on.running.place))?.standIns.engineIds ?? [];
+    const standInId = await this.engineSessions.standInFor(thread.engine, {
+      standIns,
+      sameEngineType: true,
+      needs: STAGE_STAND_IN_NEEDS,
     });
-    if (!standIn) return HOLD;
+    if (!standInId) return HOLD;
+    const standIn = { engineId: standInId, model: thread.model };
     const to = {
-      engineId: standIn.engineId,
-      engineName: await this.engineSessions.nameOf(standIn.engineId),
+      engineId: standInId,
+      engineName: await this.engineSessions.nameOf(standInId),
     };
     const standInChoice = await this.choiceAsked(thread, to);
     if (standInChoice) return { kind: "hold", standInChoice };

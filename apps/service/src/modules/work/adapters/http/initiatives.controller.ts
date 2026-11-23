@@ -130,15 +130,16 @@ export class InitiativesController {
   }
 
   /**
-   * The Initiative's engine and model (spec 5.4.5), null for none, while it is shaping or active;
-   * refused when a Role of an open Task's Pipeline couldn't run on it.
+   * The Initiative's engine override (spec 5.4.5), an engine only, null for none, while it is
+   * shaping or active; refused for an engine not listed, and when a Role of an open Task's Pipeline
+   * couldn't run on it.
    */
   @Put(":id/engine")
   async setEngine(
     @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(workEngineChangeSchema)) { engine }: WorkEngineChange,
+    @Body(new ContractPipe(workEngineChangeSchema)) { engineId }: WorkEngineChange,
   ): Promise<InitiativeResponse> {
-    return this.respond(await this.initiatives.setEngine(id, engine));
+    return this.respond(await this.initiatives.setEngine(id, engineId));
   }
 
   /**
@@ -315,7 +316,7 @@ export class InitiativesController {
     @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
     const task = await this.initiatives.addTask(id, given, blockedBy, authorOf(signedIn));
-    return toTaskResponse(task, (await this.initiatives.read(id)).engine);
+    return toTaskResponse(task, (await this.initiatives.read(id)).engineOverride);
   }
 
   private async respondToPause({

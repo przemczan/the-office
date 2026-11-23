@@ -146,8 +146,9 @@ export function plannerUsage(
 }
 
 /**
- * What `usage` comes to on another engine id, `engineId`, such as a Stand-in Engine running the
- * same model: the same tokens and cost, its windows by that engine id's ratios.
+ * What `usage` comes to on another engine id, `engineId`, such as the Stand-in Engine Start moves a
+ * Task to: the same tokens and cost, its windows by that engine id's ratios. On a stand-in of
+ * another type the cost stays the cascade model's, as Start weighs it before the Task runs there.
  */
 export function movedTo(
   usage: EngineUsage,

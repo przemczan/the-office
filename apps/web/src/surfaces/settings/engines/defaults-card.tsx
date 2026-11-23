@@ -1,13 +1,20 @@
-import type { EngineModel, SearchEndpoint } from "@the-office/contracts";
-import { Card, Input, Select } from "@the-office/ui";
+import type { EngineKind, OfficeDefault, SearchEndpoint } from "@the-office/contracts";
+import { Card, Input } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { modelLabel } from "../../../shell/engine-words.ts";
+import {
+  EngineTypeAccountFields,
+  type EngineTypeChoice,
+} from "../../../shell/engine-type-account-fields.tsx";
 import { SettingsCardTitle } from "../settings-card-parts.tsx";
-import { searchEndpointOf, type OfficeDefaultChoice } from "./engine-settings-draft.ts";
+import { searchEndpointOf } from "./engine-settings-draft.ts";
+
+/** What the Office default is for, under its two fields. */
+export const OFFICE_DEFAULT_HINT =
+  "Where every session runs unless a Project, an Initiative or a Task sets another. How each person works there comes from their Role card.";
 
 /**
- * Settings › Engines' Defaults: the Office default, an engine and one of its models, picking an
- * engine filling in its default model (none while no engine is listed, until the first one saved
+ * Settings › Engines' Defaults: the Office default, an engine type and one of its accounts, picking
+ * a type picking its first account (none while no engine is saved, until the first one saved
  * takes it), beside the Search endpoint.
  */
 export function DefaultsCard({
@@ -15,12 +22,14 @@ export function DefaultsCard({
   choices,
   searchEndpoint,
   changeOfficeDefault,
+  changeOfficeDefaultType,
   changeSearchEndpoint,
 }: {
-  readonly officeDefault: EngineModel | null;
-  readonly choices: readonly OfficeDefaultChoice[];
+  readonly officeDefault: OfficeDefault | null;
+  readonly choices: readonly EngineTypeChoice[];
   readonly searchEndpoint: SearchEndpoint | null;
-  readonly changeOfficeDefault: (officeDefault: EngineModel) => void;
+  readonly changeOfficeDefault: (officeDefault: OfficeDefault) => void;
+  readonly changeOfficeDefaultType: (engineType: EngineKind) => void;
   readonly changeSearchEndpoint: (searchEndpoint: SearchEndpoint | null) => void;
 }): ReactNode {
   return (
@@ -31,21 +40,23 @@ export function DefaultsCard({
             Office default
           </h3>
           {officeDefault ? (
-            <OfficeDefaultFields
-              officeDefault={officeDefault}
+            <EngineTypeAccountFields
+              name="Office default"
+              value={officeDefault}
               choices={choices}
-              change={changeOfficeDefault}
+              hint={OFFICE_DEFAULT_HINT}
+              onChange={(picked) =>
+                picked.engineType === officeDefault.engineType
+                  ? changeOfficeDefault(picked)
+                  : changeOfficeDefaultType(picked.engineType)
+              }
             />
           ) : (
             <p className="settings-note">
               No engine is listed, so no session starts. The first engine saved becomes the Office
-              default, on its default model.
+              default.
             </p>
           )}
-          <p className="settings-note">
-            What every session runs on unless something more specific names another. A new engine
-            can be picked once saved.
-          </p>
         </section>
         <section className="engine-default" aria-labelledby="engine-defaults-search">
           <h3 id="engine-defaults-search" className="engine-default-title">
@@ -61,41 +72,5 @@ export function DefaultsCard({
         </section>
       </div>
     </Card>
-  );
-}
-
-function OfficeDefaultFields({
-  officeDefault,
-  choices,
-  change,
-}: {
-  readonly officeDefault: EngineModel;
-  readonly choices: readonly OfficeDefaultChoice[];
-  readonly change: (officeDefault: EngineModel) => void;
-}): ReactNode {
-  const engine = choices.find(({ id }) => id === officeDefault.engineId);
-  return (
-    <div className="engine-default-fields" role="group" aria-label="Office default">
-      <Select
-        label="Engine"
-        options={choices.map(({ id, name }) => ({ value: id, label: name }))}
-        value={officeDefault.engineId}
-        onChange={(engineId) =>
-          change({
-            engineId,
-            model: choices.find(({ id }) => id === engineId)?.defaultModel ?? "",
-          })
-        }
-      />
-      <Select
-        label="Model"
-        options={(engine?.models ?? []).map((model) => ({
-          value: model,
-          label: modelLabel(model),
-        }))}
-        value={officeDefault.model}
-        onChange={(model) => change({ ...officeDefault, model })}
-      />
-    </div>
   );
 }

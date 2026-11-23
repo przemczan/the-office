@@ -24,7 +24,8 @@ import {
   type EngineLevelsSave,
 } from "../../application/engine-levels-checks.js";
 import { ProjectLevelMoves } from "../../application/project-level-moves.js";
-import { ProjectDefaultChanged } from "../../domain/project-events.js";
+import { ProjectEngineChanged } from "../../domain/project-events.js";
+import type { ProjectEngine } from "../../domain/project.js";
 import { ProjectRepository } from "../../ports/project-repository.js";
 import {
   createTemporaryRepository,
@@ -105,6 +106,26 @@ describe("POST /api/projects", () => {
       reasons: [reason],
     });
     expect(published).toEqual([]);
+  });
+
+  it("adds a repository without commits, making its base branch with an empty first commit it doesn't push", async () => {
+    const path = join(repository.folder, `fresh-${randomUUID().slice(0, 8)}`);
+    const remote = `${path}.git`;
+    gitIn(repository.folder, "init", "--quiet", "--initial-branch", "master", path);
+    gitIn(repository.folder, "init", "--quiet", "--bare", remote);
+    gitIn(path, "config", "user.name", "The Office");
+    gitIn(path, "config", "user.email", "office@localhost");
+    gitIn(path, "remote", "add", "origin", remote);
+
+    const response = await send("POST", "/projects", aNewProject({ path, baseBranch: "main" }));
+
+    expect(response.status).toBe(201);
+    expect(gitIn(path, "log", "--format=%s|%an <%ae>", "main")).toBe(
+      "Initial commit|The Office <office@localhost>",
+    );
+    expect(gitIn(path, "ls-tree", "main")).toBe("");
+    expect(gitIn(path, "symbolic-ref", "HEAD")).toBe("refs/heads/main");
+    expect(gitIn(remote, "for-each-ref")).toBe("");
   });
 
   it("answers 400 to a body that breaks the contract", async () => {
@@ -464,163 +485,275 @@ describe("PUT /api/projects/:id/project-limit", () => {
 });
 
 // `claude-code` is listed in the database every test file shares, so no test removes it or lists its own.
-const SONNET = { engineId: "claude-code", model: "claude-sonnet-5-5" };
-const HAIKU = { engineId: "claude-code", model: "claude-haiku-5-5" };
+const ON_CLAUDE = { engineType: "claude-code", engineId: "claude-code" } as const;
+const CTO = {
+  roleKey: "cto",
+  engineSettings: { "claude-code": { model: "claude-opus-5-5", effort: "high" } },
+} as const;
+
+const NO_STAND_INS = { useOwnList: false, engineIds: [] };
+
+/**
+ * Sets the Project's engine levels past the checks, as an engine's removal or a move-over may; no
+ * Stand-in Engine list of its own unless given.
+ */
+async function storeEngine(
+  projectId: string,
+  levels: Omit<ProjectEngine, "standIns"> & Partial<Pick<ProjectEngine, "standIns">>,
+): Promise<void> {
+  const engine: ProjectEngine = { standIns: NO_STAND_INS, ...levels };
+  await app.get(ProjectRepository).update(projectId, (stored) => ({
+    project: { ...stored, engine },
+    // The repository keeps a change that has an event.
+    events: [new ProjectEngineChanged(stored.id, engine)],
+  }));
+}
 
 describe("the Project's engine levels", () => {
-  it("keeps the Project default, its use for every Role and the Role overrides", async () => {
+  it("saves each level sent, keeps each left out, with one event a save", async () => {
     const project = await addProject();
     expect(project).toMatchObject({
-      projectDefault: null,
-      useForEveryRole: false,
-      roleOverrides: [],
+      engine: { default: null, force: null, people: [], standIns: NO_STAND_INS },
     });
     published = [];
 
-    await send("PUT", `/projects/${project.id}/project-default`, { projectDefault: SONNET });
-    await send("PUT", `/projects/${project.id}/use-for-every-role`, { useForEveryRole: true });
-    await send("PUT", `/projects/${project.id}/role-overrides/cto`, { roleOverride: HAIKU });
-    await send("PUT", `/projects/${project.id}/role-overrides/reviewer`, { roleOverride: SONNET });
-    const response = await send("PUT", `/projects/${project.id}/role-overrides/reviewer`, {
-      roleOverride: null,
+    await send("PUT", `/projects/${project.id}/engine`, { default: ON_CLAUDE, people: [CTO] });
+    const response = await send("PUT", `/projects/${project.id}/engine`, {
+      force: { model: "claude-sonnet-5-5", effort: null },
     });
 
     expect(response.status).toBe(200);
     const expected = {
-      projectDefault: SONNET,
-      useForEveryRole: true,
-      roleOverrides: [{ roleKey: "cto", ...HAIKU }],
+      engine: {
+        default: ON_CLAUDE,
+        force: { model: "claude-sonnet-5-5", effort: null },
+        people: [CTO],
+      },
     };
     expect(projectSchema.parse(await response.json())).toMatchObject(expected);
     const read = await fetch(`${url}/api/projects/${project.id}`);
     expect(projectSchema.parse(await read.json())).toMatchObject(expected);
     expect(webEvents()).toEqual([
-      { type: "project.project-default-changed", projectId: project.id },
-      { type: "project.use-for-every-role-changed", projectId: project.id },
-      { type: "project.role-override-changed", projectId: project.id },
-      { type: "project.role-override-changed", projectId: project.id },
-      { type: "project.role-override-changed", projectId: project.id },
+      { type: "project.engine-changed", projectId: project.id },
+      { type: "project.engine-changed", projectId: project.id },
     ]);
   });
 
-  it("moves the levels naming a removed engine to the replacement, each with its event", async () => {
+  it("keeps a person's settings for a type no engine is listed of, as they are stored", async () => {
+    const project = await addProject();
+    const onCodex = {
+      roleKey: "reviewer",
+      engineSettings: { codex: { model: "gpt-5.5", effort: "xhigh" } },
+    } as const;
+    await storeEngine(project.id, { default: null, force: null, people: [onCodex] });
+
+    const response = await send("PUT", `/projects/${project.id}/engine`, {
+      people: [onCodex, CTO],
+    });
+
+    expect(response.status).toBe(200);
+    expect(projectSchema.parse(await response.json()).engine.people).toEqual([onCodex, CTO]);
+  });
+
+  it("refuses an engine not listed, an account of another type, a force without a default, a model the type doesn't offer and a person named twice", async () => {
+    const project = await addProject();
+
+    const responses = await Promise.all([
+      send("PUT", `/projects/${project.id}/engine`, {
+        default: { engineType: "claude-code", engineId: "gone" },
+      }),
+      send("PUT", `/projects/${project.id}/engine`, {
+        default: { engineType: "codex", engineId: "claude-code" },
+      }),
+      send("PUT", `/projects/${project.id}/engine`, { force: { model: null, effort: null } }),
+      send("PUT", `/projects/${project.id}/engine`, {
+        default: ON_CLAUDE,
+        force: { model: "gpt-oss", effort: null },
+      }),
+      send("PUT", `/projects/${project.id}/engine`, { people: [CTO, CTO] }),
+    ]);
+
+    expect(responses.map((response) => response.status)).toEqual([422, 422, 422, 422, 422]);
+    expect(await Promise.all(responses.map((response) => response.json()))).toMatchObject([
+      { reasons: ['There is no engine "gone".'] },
+      { reasons: [`${FIRST_CLAUDE_CODE_ENGINE.name} isn't a Codex account.`] },
+      { reasons: ["Pick an engine type first."] },
+      { reasons: ["Choose a model Claude Code offers."] },
+      { reasons: ['"cto" is named twice.'] },
+    ]);
+  });
+
+  it("moves a default naming a removed engine to the replacement, the people staying", async () => {
     const project = await addProject();
     // An engine of this test's own, set past the checks, so other test files' Projects stay.
     const removed = `removed-${randomUUID()}`;
-    const projectDefault = { engineId: removed, model: "claude-sonnet-5-5" };
-    await app.get(ProjectRepository).update(project.id, (stored) => ({
-      project: {
-        ...stored,
-        projectDefault,
-        roleOverrides: [
-          { roleKey: "cto", engineId: removed, model: "gpt-oss" },
-          { roleKey: "reviewer", ...SONNET },
-        ],
-      },
-      // The repository keeps a change that has an event.
-      events: [new ProjectDefaultChanged(stored.id, projectDefault)],
-    }));
+    await storeEngine(project.id, {
+      default: { engineType: "claude-code", engineId: removed },
+      force: { model: "claude-opus-5-5", effort: null },
+      people: [CTO],
+    });
     published = [];
-    const second = { ...FIRST_CLAUDE_CODE_ENGINE, id: "second", defaultModel: "claude-haiku-5-5" };
+    const second = { ...FIRST_CLAUDE_CODE_ENGINE, id: "second" };
 
     await app.get(ProjectLevelMoves).moveProjectLevels({ engineId: removed, replacement: second });
 
     const read = await fetch(`${url}/api/projects/${project.id}`);
-    expect(projectSchema.parse(await read.json())).toMatchObject({
-      projectDefault: { engineId: "second", model: "claude-sonnet-5-5" },
-      roleOverrides: [
-        // The replacement doesn't offer the model, so the override takes its default model.
-        { roleKey: "cto", engineId: "second", model: "claude-haiku-5-5" },
-        { roleKey: "reviewer", ...SONNET },
-      ],
+    expect(projectSchema.parse(await read.json()).engine).toEqual({
+      default: { engineType: "claude-code", engineId: "second" },
+      force: { model: "claude-opus-5-5", effort: null },
+      people: [CTO],
+      standIns: NO_STAND_INS,
     });
-    expect(webEvents()).toEqual([
-      { type: "project.project-default-changed", projectId: project.id },
-      { type: "project.role-override-changed", projectId: project.id },
-    ]);
+    expect(webEvents()).toEqual([{ type: "project.engine-changed", projectId: project.id }]);
   });
 
-  it("moves the levels naming the only engine, removed, to none, the force going with the default", async () => {
+  it("moves a default naming the only engine, removed, to none, the force going with it", async () => {
     const project = await addProject();
     const removed = `removed-${randomUUID()}`;
-    const projectDefault = { engineId: removed, model: "claude-sonnet-5-5" };
-    await app.get(ProjectRepository).update(project.id, (stored) => ({
-      project: {
-        ...stored,
-        projectDefault,
-        useForEveryRole: true,
-        roleOverrides: [{ roleKey: "cto", engineId: removed, model: "gpt-oss" }],
-      },
-      events: [new ProjectDefaultChanged(stored.id, projectDefault)],
-    }));
+    await storeEngine(project.id, {
+      default: { engineType: "claude-code", engineId: removed },
+      force: { model: null, effort: "max" },
+      people: [CTO],
+    });
     published = [];
 
     await app.get(ProjectLevelMoves).moveProjectLevels({ engineId: removed, replacement: null });
 
     const read = await fetch(`${url}/api/projects/${project.id}`);
-    expect(projectSchema.parse(await read.json())).toMatchObject({
-      projectDefault: null,
-      useForEveryRole: false,
-      roleOverrides: [],
+    expect(projectSchema.parse(await read.json()).engine).toEqual({
+      default: null,
+      force: null,
+      people: [CTO],
+      standIns: NO_STAND_INS,
+    });
+    expect(webEvents()).toEqual([{ type: "project.engine-changed", projectId: project.id }]);
+  });
+
+  it("saves the Project's own Stand-in Engine list, and keeps it when the list is turned off", async () => {
+    const project = await addProject();
+    published = [];
+
+    const turnedOn = await send("PUT", `/projects/${project.id}/engine`, {
+      standIns: { useOwnList: true, engineIds: ["claude-code"] },
+    });
+    const turnedOff = await send("PUT", `/projects/${project.id}/engine`, {
+      standIns: { useOwnList: false, engineIds: ["claude-code"] },
+    });
+    const peopleSaved = await send("PUT", `/projects/${project.id}/engine`, { people: [CTO] });
+
+    expect(turnedOn.status).toBe(200);
+    expect(projectSchema.parse(await turnedOn.json()).engine.standIns).toEqual({
+      useOwnList: true,
+      engineIds: ["claude-code"],
+    });
+    expect(turnedOff.status).toBe(200);
+    expect(peopleSaved.status).toBe(200);
+    const read = await fetch(`${url}/api/projects/${project.id}`);
+    expect(projectSchema.parse(await read.json()).engine.standIns).toEqual({
+      useOwnList: false,
+      engineIds: ["claude-code"],
     });
     expect(webEvents()).toEqual([
-      { type: "project.use-for-every-role-changed", projectId: project.id },
-      { type: "project.project-default-changed", projectId: project.id },
-      { type: "project.role-override-changed", projectId: project.id },
+      { type: "project.engine-changed", projectId: project.id },
+      { type: "project.engine-changed", projectId: project.id },
+      { type: "project.engine-changed", projectId: project.id },
     ]);
   });
 
-  it("refuses an engine that isn't listed, a model it doesn't offer, and a force without a default", async () => {
+  it("refuses a Stand-in Engine not listed and one named twice, whether the list is used or not", async () => {
     const project = await addProject();
 
     const responses = await Promise.all([
-      send("PUT", `/projects/${project.id}/project-default`, {
-        projectDefault: { engineId: "gone", model: "claude-sonnet-5-5" },
+      send("PUT", `/projects/${project.id}/engine`, {
+        standIns: { useOwnList: true, engineIds: ["gone"] },
       }),
-      send("PUT", `/projects/${project.id}/role-overrides/cto`, {
-        roleOverride: { engineId: "claude-code", model: "gpt-oss" },
+      send("PUT", `/projects/${project.id}/engine`, {
+        standIns: { useOwnList: false, engineIds: ["claude-code", "claude-code"] },
       }),
-      send("PUT", `/projects/${project.id}/use-for-every-role`, { useForEveryRole: true }),
     ]);
 
-    expect(responses.map((response) => response.status)).toEqual([422, 422, 422]);
+    expect(responses.map((response) => response.status)).toEqual([422, 422]);
     expect(await Promise.all(responses.map((response) => response.json()))).toMatchObject([
-      { reasons: ['There is no engine "gone".'] },
-      { reasons: ["Choose a model the engine offers."] },
-      { reasons: ["Choose a Project default before using it for every Role."] },
+      { reasons: ["Pick each Stand-in Engine among the engines listed."] },
+      { reasons: [`"${FIRST_CLAUDE_CODE_ENGINE.name}" is listed twice as a Stand-in Engine.`] },
     ]);
+    const read = await fetch(`${url}/api/projects/${project.id}`);
+    expect(projectSchema.parse(await read.json()).engine.standIns).toEqual(NO_STAND_INS);
   });
-  it("refuses a save a registered check refuses, before keeping it", async () => {
+
+  it("puts the replacement in a removed engine's place in the Project's own list, used or not", async () => {
+    const project = await addProject();
+    const removed = `removed-${randomUUID()}`;
+    await storeEngine(project.id, {
+      default: null,
+      force: null,
+      people: [],
+      standIns: { useOwnList: false, engineIds: [removed, "claude-code"] },
+    });
+    published = [];
+    const second = { ...FIRST_CLAUDE_CODE_ENGINE, id: "second" };
+
+    await app.get(ProjectLevelMoves).moveProjectLevels({ engineId: removed, replacement: second });
+
+    const read = await fetch(`${url}/api/projects/${project.id}`);
+    expect(projectSchema.parse(await read.json()).engine.standIns).toEqual({
+      useOwnList: false,
+      engineIds: ["second", "claude-code"],
+    });
+    expect(webEvents()).toEqual([{ type: "project.engine-changed", projectId: project.id }]);
+  });
+
+  it("weighs a change of the Stand-in Engine list in the registered checks", async () => {
+    const project = await addProject();
+    const refusal =
+      "Claude Code can't stand in: it can't use Office tools, which the Agent Stages of the Developer need in this Project.";
+    app
+      .get(EngineLevelsChecks)
+      .register(async ({ after }) => (after.standIns.useOwnList ? [refusal] : []));
+
+    const refused = await send("PUT", `/projects/${project.id}/engine`, {
+      standIns: { useOwnList: true, engineIds: ["claude-code"] },
+    });
+
+    expect(refused.status).toBe(422);
+    expect(await refused.json()).toMatchObject({ reasons: [refusal] });
+  });
+
+  it("refuses a change of the default a registered check refuses, before keeping it, and weighs no other save", async () => {
     const project = await addProject();
     const saves: EngineLevelsSave[] = [];
     app.get(EngineLevelsChecks).register(async (save) => {
       saves.push(save);
-      return save.after.projectDefault
-        ? ["In this Project, the Developer would run on Local models."]
+      return save.after.default
+        ? [
+            "Local models can't use Office tools, which the Agent Stages of the Developer need in this Project.",
+          ]
         : [];
     });
     published = [];
 
-    const response = await send("PUT", `/projects/${project.id}/project-default`, {
-      projectDefault: SONNET,
-    });
+    const refused = await send("PUT", `/projects/${project.id}/engine`, { default: ON_CLAUDE });
+    const peopleSaved = await send("PUT", `/projects/${project.id}/engine`, { people: [CTO] });
 
-    expect(response.status).toBe(422);
-    expect(await response.json()).toMatchObject({
-      reasons: ["In this Project, the Developer would run on Local models."],
+    expect(refused.status).toBe(422);
+    expect(await refused.json()).toMatchObject({
+      reasons: [
+        "Local models can't use Office tools, which the Agent Stages of the Developer need in this Project.",
+      ],
     });
-    const levels = { projectDefault: null, useForEveryRole: false, roleOverrides: [] };
+    expect(peopleSaved.status).toBe(200);
+    const levels = { default: null, force: null, people: [], standIns: NO_STAND_INS };
     expect(saves).toEqual([
       {
         projectId: project.id,
         projectName: project.name,
         before: levels,
-        after: { ...levels, projectDefault: SONNET },
+        after: { ...levels, default: ON_CLAUDE },
       },
     ]);
     const read = await fetch(`${url}/api/projects/${project.id}`);
-    expect(projectSchema.parse(await read.json())).toMatchObject({ projectDefault: null });
-    expect(published).toEqual([]);
+    expect(projectSchema.parse(await read.json()).engine).toEqual({ ...levels, people: [CTO] });
+    expect(webEvents()).toEqual([{ type: "project.engine-changed", projectId: project.id }]);
   });
 });
 

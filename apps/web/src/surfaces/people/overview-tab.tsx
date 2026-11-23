@@ -5,8 +5,7 @@ import { roleQueries } from "../../api/people.ts";
 import { skillQueries } from "../../api/skills.ts";
 import { SkillChip } from "../../shell/skill-chip.tsx";
 import { PersonBlock } from "./role-card-layout.tsx";
-import { SESSION_DEFAULTS, taskLimitLabel, worksWithText } from "../../shell/role-card-words.ts";
-import { useEngineName } from "../../shell/use-engine-name.ts";
+import { SESSION_DEFAULTS, taskLimitLabel, worksWithLines } from "../../shell/role-card-words.ts";
 import { AvatarBlock } from "./avatar-block.tsx";
 import { sessionSkillsOf } from "./session-skills.ts";
 
@@ -15,7 +14,6 @@ export function OverviewTab(): ReactNode {
   const { roleKey } = useParams({ from: "/people/$roleKey/" });
   const role = useQuery(roleQueries.one(roleKey));
   const library = useQuery(skillQueries.list());
-  const engineName = useEngineName();
   if (!role.data) return null;
   const { card } = role.data;
   const skills = library.data ? sessionSkillsOf(role.data, library.data) : [];
@@ -27,9 +25,12 @@ export function OverviewTab(): ReactNode {
           <p className="person-text">{card.responsibilities}</p>
         </PersonBlock>
         <PersonBlock icon="cpu" title="Works with">
-          <p className="person-text">
-            {worksWithText(card, engineName)} · {taskLimitLabel(card.taskLimit)}
-          </p>
+          {worksWithLines(card).map((line) => (
+            <p key={line} className="person-text">
+              {line}
+            </p>
+          ))}
+          <p className="person-text">{taskLimitLabel(card.taskLimit)}</p>
           <p className="person-note">
             Session default: {SESSION_DEFAULTS[card.sessionDefault].label}
           </p>

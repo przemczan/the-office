@@ -1,12 +1,16 @@
 import { z } from "zod";
-import { engineCapabilitySchema, engineIdSchema, engineModelSchema } from "./engines.js";
+import {
+  effortSchema,
+  engineCapabilitySchema,
+  engineIdSchema,
+  engineModelSchema,
+  engineTypeSchema,
+} from "./engines.js";
 import { webEventSchema } from "./events.js";
 import { imageSchema } from "./images.js";
 import { userRefSchema } from "./users.js";
 
-/** How hard the model thinks. */
-export const effortSchema = z.enum(["low", "medium", "high", "xhigh", "max"]);
-export type Effort = z.infer<typeof effortSchema>;
+export { effortSchema, type Effort } from "./engines.js";
 
 /** The Role's default for continuing a Thread. */
 export const sessionDefaultSchema = z.enum([
@@ -67,15 +71,28 @@ export type HardSwitches = z.infer<typeof hardSwitchesSchema>;
 export const taskLimitSchema = z.union([z.number(), z.literal("none")]);
 export type TaskLimit = z.infer<typeof taskLimitSchema>;
 
+/** How a person works on one engine type: each null is "Engine's default". */
+export const engineTypeSettingSchema = z.object({
+  model: z.string().nullable(),
+  effort: effortSchema.nullable(),
+});
+export type EngineTypeSetting = z.infer<typeof engineTypeSettingSchema>;
+
+/** A person's model and effort for each engine type they set; a type left out is the engine's default. */
+export const personEngineSettingsSchema = z.partialRecord(
+  engineTypeSchema,
+  engineTypeSettingSchema,
+);
+export type PersonEngineSettings = z.infer<typeof personEngineSettingsSchema>;
+
 /** A Role card, as PUT /roles/:key/card saves it and POST /roles hires from scratch with it. */
 export const roleCardSchema = z.object({
   name: z.string(),
   title: z.string(),
   responsibilities: z.string(),
   instructions: z.string(),
-  /** The engine and model the Role runs on outside a Project's own levels; null: the Office default. */
-  roleOverride: engineModelSchema.nullable(),
-  effort: effortSchema,
+  /** The model and effort the person works with on each engine type (spec §5.4.5). */
+  engineSettings: personEngineSettingsSchema,
   capabilities: capabilitiesSchema,
   permissionProfile: permissionProfileSchema,
   hardSwitches: hardSwitchesSchema,
@@ -163,14 +180,24 @@ export const presetListSchema = z.array(presetSchema);
 
 /** GET /role-card-options: the choices the Role card form offers, and how each switch is seen to. */
 export const roleCardOptionsSchema = z.object({
+  /** Every engine type, in Settings › Engines' order of their first engine, then the types none lists. */
+  engineTypes: z.array(
+    z.object({
+      type: engineTypeSchema,
+      /** Whether Settings › Engines lists an engine of the type. */
+      listed: z.boolean(),
+      /** The models its listed engines offer together, each telling whether all of them offer it. */
+      models: z.array(z.object({ model: z.string(), onEveryAccount: z.boolean() })),
+      /** The efforts the type takes, in its order; none hides Effort. */
+      efforts: z.array(effortSchema),
+    }),
+  ),
+  /** Each engine Settings › Engines lists, with what it declares it can't do. */
   engines: z.array(
     z.object({
-      /** Each engine Settings › Engines lists, by its id. */
+      /** The engine, by its id. */
       engine: engineIdSchema,
-      models: z.array(z.string()),
-      /** One of `models`: what picking the engine fills in. */
-      defaultModel: z.string(),
-      /** What the engine declares it can't do, which the card names under its Engine field. */
+      /** What the engine declares it can't do, which the card names under Runs on. */
       missingCapabilities: z.array(engineCapabilitySchema),
     }),
   ),
@@ -185,32 +212,82 @@ export const roleCardOptionsSchema = z.object({
 });
 export type RoleCardOptions = z.infer<typeof roleCardOptionsSchema>;
 
-/** The levels of the engine cascade, least specific first (spec §5.4). */
-export const engineCascadeLevelSchema = z.enum([
-  "office-default",
-  "project-default",
-  "initiative-engine",
-  "task-engine",
-  "role-override",
-  "project-role-override",
-]);
+/** The levels of the engine cascade, least specific first (spec §5.4.5): where a session runs. */
+export const engineCascadeLevelSchema = z.enum(["office", "project", "initiative", "task"]);
 export type EngineCascadeLevel = z.infer<typeof engineCascadeLevelSchema>;
 
-/** An engine and model a Role runs on, and the level of the cascade they come from. */
-export const engineInCascadeSchema = engineModelSchema.extend({ level: engineCascadeLevelSchema });
-export type EngineInCascade = z.infer<typeof engineInCascadeSchema>;
+/**
+ * The levels of the model and effort cascade, least specific first (spec §5.4.5): the engine's
+ * default, the person's setting, the Project's setting for the person, the Project's force, and the
+ * Stage's effort.
+ */
+export const workCascadeLevelSchema = z.enum([
+  "engine",
+  "person",
+  "projectPerson",
+  "projectForce",
+  "stage",
+]);
+export type WorkCascadeLevel = z.infer<typeof workCascadeLevelSchema>;
 
 /**
- * GET /tasks/:id/engine-cascade: what the Planner and each Role the Task's Stages name run on for
- * the Task, and the level it comes from; `engine` null while no engine is listed. Planner first,
- * then in the Stages' order, each Role once.
+ * The engine a Role's session runs on (its id, type and name), with the level that gave it, and the
+ * model and effort the person works with there, each with the level that gave it; `effort` null
+ * leaves it to the runtime.
+ */
+export const engineInCascadeSchema = engineModelSchema.extend({
+  level: engineCascadeLevelSchema,
+  engineType: engineTypeSchema,
+  engineName: z.string(),
+  effort: effortSchema.nullable(),
+  modelLevel: workCascadeLevelSchema,
+  effortLevel: workCascadeLevelSchema,
+});
+export type EngineInCascade = z.infer<typeof engineInCascadeSchema>;
+
+/** The engine everyone in a place runs on (its id, type and name), with the level that gave it. */
+export const placeEngineInCascadeSchema = z.object({
+  engineId: engineModelSchema.shape.engineId,
+  engineType: engineTypeSchema,
+  engineName: z.string(),
+  level: engineCascadeLevelSchema,
+});
+export type PlaceEngineInCascade = z.infer<typeof placeEngineInCascadeSchema>;
+
+/** The model and effort a person works with on the place's engine, each with the level that gave it. */
+export const workInCascadeSchema = engineInCascadeSchema.pick({
+  model: true,
+  effort: true,
+  modelLevel: true,
+  effortLevel: true,
+});
+export type WorkInCascade = z.infer<typeof workInCascadeSchema>;
+
+/**
+ * The Stand-in Engine list that applies in a place (spec §5.4.6): the Project's own while it uses
+ * it, else the Office's; `none`, with no engines, under an engine override, which never gives way.
+ */
+export const standInsApplyingSchema = z.object({
+  from: z.enum(["office", "project", "none"]),
+  engineIds: z.array(engineIdSchema),
+});
+export type StandInsApplying = z.infer<typeof standInsApplyingSchema>;
+
+/**
+ * GET /tasks/:id/engine-cascade: the one engine the Task's sessions run on, and the model and effort
+ * the Planner and each Role the Task's Stages name work with there, with the level that gave each;
+ * `engine` and each `work` null while no engine is listed. Planner first, then in the Stages' order,
+ * each Role once, with each of its Stages that sets its own effort.
  */
 export const taskEngineCascadeSchema = z.object({
-  roles: z.array(
+  engine: placeEngineInCascadeSchema.nullable(),
+  standIns: standInsApplyingSchema,
+  people: z.array(
     z.object({
       roleKey: z.string(),
       roleName: z.string(),
-      engine: engineInCascadeSchema.nullable(),
+      work: workInCascadeSchema.nullable(),
+      stages: z.array(z.object({ stageName: z.string(), effort: effortSchema })),
     }),
   ),
 });
@@ -220,14 +297,17 @@ export type TaskEngineCascade = z.infer<typeof taskEngineCascadeSchema>;
 export const roleEngineCascadeSchema = z.object({
   /** Null while no engine is listed, so nothing runs. */
   outsideProjects: engineInCascadeSchema.nullable(),
-  /** Only the Projects whose engine or model differs from `outsideProjects`. */
+  /** Only the Projects whose engine, model or effort differs from `outsideProjects`. */
   elsewhereInProjects: z.array(engineInCascadeSchema.extend({ projectId: z.string() })),
 });
 export type RoleEngineCascade = z.infer<typeof roleEngineCascadeSchema>;
 
 /**
  * A part of a Role card as its change history names it, down to each capability and switch.
- * `engine` and `model` are named only by entries saved before the card had a Role override.
+ * `engine` and `model` are named only by entries saved before the card had a Role override, and
+ * `roleOverride` and `effort` only by entries saved before it had `engineSettings`.
+ * `engineSettingsMovedOver` says a card moved over to `engineSettings`: from its Role override, or
+ * none, to the engine type the override's model moved to, or none when it had none or it was dropped.
  */
 export const roleCardFieldSchema = z.enum([
   "name",
@@ -238,6 +318,8 @@ export const roleCardFieldSchema = z.enum([
   "model",
   "roleOverride",
   "effort",
+  "engineSettings",
+  "engineSettingsMovedOver",
   "taskLimit",
   "sessionDefault",
   "capabilities.sharedMemory",
@@ -258,6 +340,7 @@ const roleCardValueSchema = z.union([
   permissionProfileSchema,
   hardSwitchValueSchema,
   engineModelSchema,
+  personEngineSettingsSchema,
   z.null(),
 ]);
 

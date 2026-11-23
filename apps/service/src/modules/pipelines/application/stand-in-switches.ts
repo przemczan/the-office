@@ -74,7 +74,7 @@ export class StandInSwitches {
     const result = await this.locks.run(taskId, async () => {
       const waiting = await this.choices.stillWaiting(runId);
       if (!waiting) return this.noLongerWaiting(taskId, runId);
-      return this.switchHeld(waiting.choice, user);
+      return this.switchHeld(waiting, user);
     });
     await this.events.publish(new StandInChoicesChanged(taskId));
     return result;
@@ -105,11 +105,11 @@ export class StandInSwitches {
 
   /** Steps 2 to 6 of the switch, for a run still waiting under its Task's lock. */
   private async switchHeld(
-    choice: HeldForStandInChoice,
+    { task, choice }: { readonly task: StartedTask; readonly choice: HeldForStandInChoice },
     user: HoldingUser,
   ): Promise<Omit<StandInSwitchResult, "runId">> {
     const waitsWords = `it waits for the reset at ${resetWords(choice.resetsAt)}`;
-    const standIn = await this.choices.standInNow(choice);
+    const standIn = await this.choices.standInNow(choice, task.projectId);
     if (!standIn) {
       return { outcome: "no-room", words: `No Stand-in Engine has room now; ${waitsWords}.` };
     }

@@ -13,7 +13,6 @@ import {
   ProjectCommandAdded,
   ProjectCommandChanged,
   ProjectCommandRemoved,
-  ProjectDefaultChanged,
   ProjectDefaultPipelineChanged,
   ProjectEnvironmentChanged,
   ProjectFeaturesChanged,
@@ -26,12 +25,11 @@ import {
   ProjectMarkChanged,
   ProjectPublishingModeChanged,
   ProjectDeleteMergedBranchesChanged,
+  ProjectEngineChanged,
   ProjectRunEnvironmentChanged,
-  ProjectRoleOverrideChanged,
   ProjectSkillUseChanged,
   ProjectTestTargetsChanged,
   ProjectActionsChanged,
-  ProjectUseForEveryRoleChanged,
   ProjectUseProjectSkillsChanged,
 } from "../../domain/project-events.js";
 import {
@@ -213,23 +211,9 @@ export class ProjectWebEvents implements OnModuleInit {
       }),
     );
     this.forwarding.forward(
-      ProjectDefaultChanged,
-      (event): WebEventOf<"project.project-default-changed"> => ({
-        type: "project.project-default-changed",
-        projectId: event.projectId,
-      }),
-    );
-    this.forwarding.forward(
-      ProjectUseForEveryRoleChanged,
-      (event): WebEventOf<"project.use-for-every-role-changed"> => ({
-        type: "project.use-for-every-role-changed",
-        projectId: event.projectId,
-      }),
-    );
-    this.forwarding.forward(
-      ProjectRoleOverrideChanged,
-      (event): WebEventOf<"project.role-override-changed"> => ({
-        type: "project.role-override-changed",
+      ProjectEngineChanged,
+      (event): WebEventOf<"project.engine-changed"> => ({
+        type: "project.engine-changed",
         projectId: event.projectId,
       }),
     );

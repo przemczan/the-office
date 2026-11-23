@@ -82,6 +82,7 @@ const LAB: ApiEngine = {
   name: "Lab",
   kind: "openai-compatible-api",
   defaultModel: "coder",
+  defaultEffort: null,
   baseUrl: "http://localhost:11434/v1",
   key: "",
   models: [{ id: "coder", contextWindow: 32_000 }],
@@ -332,6 +333,7 @@ const COPILOT: CopilotCliEngine = {
   name: "Copilot",
   kind: "copilot-cli",
   defaultModel: "auto",
+  defaultEffort: null,
   token: null,
 };
 
@@ -410,6 +412,7 @@ const GEMINI: GeminiCliEngine = {
   name: "Gemini",
   kind: "gemini-cli",
   defaultModel: "auto",
+  defaultEffort: null,
   apiKey: null,
 };
 

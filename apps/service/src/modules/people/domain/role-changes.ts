@@ -1,18 +1,27 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
-import type { EngineModel } from "../../engine/index.js";
+import {
+  effortsTakenBy,
+  type Engine,
+  type EngineKind,
+  type EngineModel,
+} from "../../engine/index.js";
 import type { Avatar } from "./avatar.js";
 import { isBuiltIn } from "./caretaker.js";
 import { mcpToolDefault } from "./duties.js";
+import { ENGINE_TYPES } from "./engine-type-offers.js";
 import { presetFor, presetTitle } from "./presets.js";
 import type { Role } from "./role.js";
 import {
   personNameProblems,
   roleCardProblems,
   trimmedRoleCard,
+  type Effort,
+  type EngineTypeSetting,
+  type PersonEngineSettings,
   type RoleCard,
   type RoleCardContext,
 } from "./role-card.js";
-import { roleCardChanges } from "./role-card-changes.js";
+import { roleCardChanges, type RoleCardFieldChange } from "./role-card-changes.js";
 import {
   RoleAvatarChanged,
   RoleCardChanged,
@@ -171,33 +180,78 @@ export function changeRoleCard(
 }
 
 /**
- * Saves the card as its next version with its Role override where `move` puts it, as the user
- * removing an engine moves it (spec §5.4), to none with the only engine; undefined when the
- * override stays. A let-go Role's card moves too, as hiring the person back restores it. The
- * version names no user: Engine's removal doesn't say who removed the engine.
+ * What a card saved before it had `engineSettings` held of how its person worked: the Role override
+ * (an engine and model, none for the Office default) and one effort. Stored still, unread, so a
+ * rollback to the release before finds them (spec §5.4.5, "Moving the earlier engine settings over").
  */
-export function moveRoleOverride(
+export interface EarlierEngineFields {
+  readonly roleOverride?: EngineModel | null;
+  readonly effort?: Effort;
+}
+
+/** The engine settings the earlier fields move over to, with the Changes entries saying so. */
+export interface EngineSettingsMove {
+  readonly engineSettings: PersonEngineSettings;
+  readonly changes: readonly RoleCardFieldChange[];
+}
+
+/**
+ * Moves `earlier` over to engine settings, with `engines` the engines listed now: the effort goes
+ * on every engine type that takes it, listed or not, and a Role override on a listed engine becomes
+ * the person's model on its type, its account dropped; one on an engine no longer listed has no
+ * type to move to and is dropped. Changes says the settings moved over, first, and then names the
+ * whole settings. The moved-over entry goes from the Role override, or none, to the engine type its
+ * model moved to, or none when there was no override or it was dropped.
+ */
+export function moveEngineSettingsOver(
+  earlier: EarlierEngineFields,
+  engines: readonly Engine[],
+): EngineSettingsMove {
+  const { roleOverride = null, effort } = earlier;
+  const takingEffort = (type: EngineKind): Effort | null =>
+    effort !== undefined && effortsTakenBy(type).includes(effort) ? effort : null;
+  const settings: Partial<Record<EngineKind, EngineTypeSetting>> = {};
+  for (const type of ENGINE_TYPES) {
+    const typeEffort = takingEffort(type);
+    if (typeEffort !== null) settings[type] = { model: null, effort: typeEffort };
+  }
+  const overridden = roleOverride && engines.find(({ id }) => id === roleOverride.engineId);
+  if (roleOverride && overridden) {
+    settings[overridden.kind] = {
+      model: roleOverride.model,
+      effort: takingEffort(overridden.kind),
+    };
+  }
+  return {
+    engineSettings: settings,
+    changes: [
+      { field: "engineSettingsMovedOver", from: roleOverride, to: overridden?.kind ?? null },
+      { field: "engineSettings", from: {}, to: settings },
+    ],
+  };
+}
+
+/**
+ * Saves the card as its next version with `earlier` moved over to engine settings, as the service
+ * starting after the update does, a let-go Role's and the Caretaker's too. The version names no user
+ * and nobody proposed it.
+ */
+export function engineSettingsMovedOver(
   role: Role,
-  move: (reference: EngineModel) => EngineModel | null,
+  earlier: EarlierEngineFields,
+  engines: readonly Engine[],
   savedAt: Date,
-): RoleChange<RoleCardChanged> | undefined {
-  const { roleOverride } = role.card;
-  if (roleOverride === null) return undefined;
-  const moved = move(roleOverride);
-  if (moved && sameEngineModel(moved, roleOverride)) return undefined;
-  const card = { ...role.card, roleOverride: moved };
+): RoleChange<RoleCardChanged> {
+  const { engineSettings, changes } = moveEngineSettingsOver(earlier, engines);
   const changed: Role = {
     ...role,
-    card,
+    card: { ...role.card, engineSettings },
     cardVersion: role.cardVersion + 1,
     cardSavedAt: savedAt,
     cardProposedBy: undefined,
     cardSavedBy: null,
   };
-  return {
-    role: changed,
-    event: new RoleCardChanged(changed, [{ field: "roleOverride", from: roleOverride, to: moved }]),
-  };
+  return { role: changed, event: new RoleCardChanged(changed, changes) };
 }
 
 /**
@@ -218,8 +272,4 @@ export function changeAvatar(
   if (role.avatar?.id === avatar?.id) return undefined;
   const changed: Role = { ...role, avatar };
   return { role: changed, event: new RoleAvatarChanged(changed, changedAt) };
-}
-
-function sameEngineModel(one: EngineModel, other: EngineModel | null): boolean {
-  return one.engineId === other?.engineId && one.model === other.model;
 }

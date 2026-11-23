@@ -174,6 +174,7 @@ export class ThreadContexts {
         roleKey: thread.roleKey,
         sessionDefault: role?.card.sessionDefault ?? "context-policy",
         engineId: applying?.engineId,
+        forced: applying?.standIns.from === "none",
         override: thread.override,
         briefTokens: brief.tokens,
         changesAllowed: allowed,

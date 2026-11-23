@@ -16,6 +16,7 @@ const CODEX: CodexEngine = {
   name: "Codex",
   kind: "codex",
   defaultModel: "gpt-6-luna",
+  defaultEffort: null,
   apiKey: null,
 };
 const CHANGED = { id: CODEX.id, name: CODEX.name };

@@ -1,11 +1,11 @@
 import { Injectable } from "@nestjs/common";
-import type { EngineSettings } from "../domain/engine-settings.js";
-import { offeredModels, type Engine, type EngineId, type EngineModel } from "../domain/engines.js";
+import { officeDefaultEngineModel, type EngineSettings } from "../domain/engine-settings.js";
+import type { Engine, EngineId, EngineModel } from "../domain/engines.js";
 import { EngineSettingsRepository } from "../ports/engine-settings-repository.js";
 
 /**
  * The engines listed now, each Claude Code engine telling whether an API key signs it in, the
- * models each offers, by their ids there, the Office default and the Stand-in Engines.
+ * Office default and the Stand-in Engines.
  */
 @Injectable()
 export class EngineModels {
@@ -50,26 +50,12 @@ export class EngineModels {
     return (await this.engines()).find(({ id }) => id === engineId);
   }
 
-  /** The models the engine listed as `engineId` offers; none when Settings › Engines lists none. */
-  async offeredOn(engineId: EngineId): Promise<readonly string[]> {
-    const engine = await this.find(engineId);
-    return engine === undefined ? [] : offeredModels(engine);
-  }
-
-  /** A lookup of the models each engine listed now offers, giving none for an engine not listed. */
-  async modelsOffered(): Promise<(engineId: EngineId) => readonly string[]> {
-    const offered = new Map(
-      (await this.engines()).map((engine) => [engine.id, offeredModels(engine)]),
-    );
-    return (engineId) => offered.get(engineId) ?? [];
-  }
-
   /**
-   * The engine and model of the engine cascade's least specific level (spec §5.4); none only while
-   * no engine is listed.
+   * The engine and model of the engine cascade's least specific level (spec §5.4): the Office
+   * default's engine on its default model; none only while no engine is listed.
    */
   async officeDefault(): Promise<EngineModel | null> {
-    return (await this.settings.read()).officeDefault;
+    return officeDefaultEngineModel(await this.settings.read());
   }
 }
 

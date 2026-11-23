@@ -7,8 +7,7 @@ export function aPlannerCard(fields: Partial<SessionRole["card"]> = {}): Session
     title: "Planner",
     responsibilities: "Writes each Task's Plan and Definition of Done with you.",
     instructions: "Plan in conversation: ask what is unclear.",
-    roleOverride: null,
-    effort: "high",
+    engineSettings: {},
     capabilities: { sharedMemory: false, chat: true, consultant: true, runEnvironment: false },
     permissionProfile: { edit: false, run: "read-only-git", web: true, mcpTools: {} },
     hardSwitches: {

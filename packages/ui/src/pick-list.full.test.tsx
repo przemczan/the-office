@@ -1,7 +1,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PickList, PickListItem } from "./index.ts";
+import { PickList, PickListGroup, PickListItem } from "./index.ts";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -128,5 +128,41 @@ describe("PickList", () => {
     expect(row?.querySelector("[role=img]")?.getAttribute("aria-label")).toBe(
       "It has no folder to sign in yet",
     );
+  });
+
+  it("groups rows under a small heading that names each group's rows", () => {
+    act(() =>
+      root.render(
+        <PickList name="Engines" count={3}>
+          <PickListGroup title="Claude Code">
+            <PickListItem picked name="Work" line="Signed in" onPick={vi.fn<() => void>()} />
+            <PickListItem
+              picked={false}
+              name="Night"
+              line="Signed out"
+              onPick={vi.fn<() => void>()}
+            />
+          </PickListGroup>
+          <PickListGroup title="API endpoints">
+            <PickListItem
+              picked={false}
+              name="Local"
+              line="3 models"
+              onPick={vi.fn<() => void>()}
+            />
+          </PickListGroup>
+        </PickList>,
+      ),
+    );
+
+    const groups = [...page.querySelectorAll<HTMLElement>("nav > ul > li.pick-list-group")];
+    expect(groups.map((group) => group.querySelector("h4")?.textContent)).toEqual([
+      "Claude Code",
+      "API endpoints",
+    ]);
+    const [claudeCode] = groups;
+    const list = claudeCode?.querySelector("ul");
+    expect(list?.getAttribute("aria-labelledby")).toBe(claudeCode?.querySelector("h4")?.id);
+    expect(list?.querySelectorAll("button")).toHaveLength(2);
   });
 });

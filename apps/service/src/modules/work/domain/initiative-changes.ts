@@ -117,7 +117,7 @@ export function createInitiative(
     planningWithUser: false,
     pipelines: [],
     branches: [],
-    engine: null,
+    engineOverride: null,
   };
   return { initiative, event: new InitiativeCreated(initiative) };
 }

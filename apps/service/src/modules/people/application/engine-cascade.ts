@@ -1,19 +1,34 @@
 import { Injectable } from "@nestjs/common";
-import { EngineModels, NoEngineListed } from "../../engine/index.js";
+import {
+  effortsTakenBy,
+  EngineModels,
+  NoEngineListed,
+  offeredModels,
+  type Effort,
+  type Engine,
+  type EngineId,
+  type EngineKind,
+} from "../../engine/index.js";
 import {
   engineInCascade,
   roleEngineCascade,
+  workInCascade,
   type EngineInCascade,
+  type EngineInPlace,
+  type LandedEngine,
+  type NamedEngineInCascade,
+  type ProjectCascadeLevels,
   type RoleEngineCascade,
   type WorkCascadeLevels,
 } from "../domain/engine-cascade.js";
+import type { PersonEngineSettings } from "../domain/role-card.js";
 import { KnownProjectLevels } from "../ports/known-project-levels.js";
 import { KnownWorkLevels } from "../ports/known-work-levels.js";
 import { RoleCards } from "./role-cards.js";
 
 /**
- * Where a session runs: in a Project or in none, and about a Task (whose Initiative's engine comes
- * with it) or an Initiative, or neither. A Task's id wins over an Initiative's.
+ * Where a session runs: in a Project or in none, and about a Task (whose Initiative's engine override
+ * comes with it) or an Initiative, or neither. A Task's id wins over an Initiative's.
  */
 export interface EngineCascadeLocation {
   readonly projectId?: string;
@@ -21,7 +36,18 @@ export interface EngineCascadeLocation {
   readonly initiativeId?: string;
 }
 
-/** Resolves the engine cascade (spec §5.4) for every session The Office starts. */
+/** What a session brings to the model and effort cascade besides its place: a Stage's own effort. */
+export interface EngineCascadeWork {
+  readonly stageEffort?: Effort | null;
+}
+
+/** The engine everyone in a place runs on, its type, its name and the level that gave it. */
+export interface EngineAtPlace extends EngineInPlace {
+  readonly engineType: EngineKind;
+  readonly engineName: string;
+}
+
+/** Resolves both cascades (spec §5.4.5) for every session The Office starts. */
 @Injectable()
 export class EngineCascade {
   constructor(
@@ -32,12 +58,16 @@ export class EngineCascade {
   ) {}
 
   /**
-   * The engine and model a session of the Role `roleKey` runs on at `location`: in no Project and
-   * about nothing, the Office levels only. Throws RoleNotFound when nobody fills the Role, and
-   * NoEngineListed, in words, while no engine is listed.
+   * The engine a session of the Role `roleKey` runs on at `location`, with the model and effort its
+   * person works with there: in no Project and about nothing, the Office levels only. Throws
+   * RoleNotFound when nobody fills the Role, and NoEngineListed, in words, while no engine is listed.
    */
-  async of(roleKey: string, location: EngineCascadeLocation = {}): Promise<EngineInCascade> {
-    const applying = await this.applying(roleKey, location);
+  async of(
+    roleKey: string,
+    location: EngineCascadeLocation = {},
+    work: EngineCascadeWork = {},
+  ): Promise<EngineInCascade> {
+    const applying = await this.applying(roleKey, location, work);
     if (applying === null) throw new NoEngineListed();
     return applying;
   }
@@ -46,27 +76,126 @@ export class EngineCascade {
   async applying(
     roleKey: string,
     { projectId, taskId, initiativeId }: EngineCascadeLocation = {},
+    { stageEffort }: EngineCascadeWork = {},
   ): Promise<EngineInCascade | null> {
     const { card } = await this.roleCards.forNewSession(roleKey);
-    return engineInCascade(roleKey, {
-      officeDefault: await this.engineModels.officeDefault(),
-      roleOverride: card.roleOverride,
-      project: projectId === undefined ? undefined : await this.projects.engineLevelsOf(projectId),
+    const project =
+      projectId === undefined ? undefined : await this.projects.engineLevelsOf(projectId);
+    return this.resolved(roleKey, card.engineSettings, await this.engineModels.engines(), {
+      project,
       work: await this.workLevels(taskId, initiativeId),
+      stageEffort,
     });
   }
 
   /**
-   * What the Role `roleKey` runs on outside any Project, and the Projects where something else
+   * As `of`, but on `engineId`, the engine the session landed on instead of the cascade's, as a
+   * Stand-in Engine (spec §5.4.6): the model and effort its person works with on that engine's
+   * type, the cascade's level and stand-in list kept. The cascade's engine when `engineId` is no
+   * longer listed.
+   */
+  async onEngine(
+    roleKey: string,
+    engineId: EngineId,
+    { projectId, taskId, initiativeId }: EngineCascadeLocation = {},
+    { stageEffort }: EngineCascadeWork = {},
+  ): Promise<EngineInCascade> {
+    const { card } = await this.roleCards.forNewSession(roleKey);
+    const project =
+      projectId === undefined ? undefined : await this.projects.engineLevelsOf(projectId);
+    const engines = await this.engineModels.engines();
+    const found = await this.inPlace(engines, project, await this.workLevels(taskId, initiativeId));
+    if (found === null) throw new NoEngineListed();
+    const engine = engines.find(({ id }) => id === engineId) ?? found.engine;
+    return workInCascade({
+      roleKey,
+      engine: landed(engine),
+      inPlace: found.inPlace,
+      person: card.engineSettings,
+      project,
+      stageEffort,
+    });
+  }
+
+  /**
+   * The one engine every session at `location` runs on, whatever its Role, with the level that gave
+   * it and the Stand-in Engine list that applies there; none while no engine is listed.
+   */
+  async engineAt({
+    projectId,
+    taskId,
+    initiativeId,
+  }: EngineCascadeLocation = {}): Promise<EngineAtPlace | null> {
+    const project =
+      projectId === undefined ? undefined : await this.projects.engineLevelsOf(projectId);
+    const found = await this.inPlace(
+      await this.engineModels.engines(),
+      project,
+      await this.workLevels(taskId, initiativeId),
+    );
+    return (
+      found && { ...found.inPlace, engineType: found.engine.kind, engineName: found.engine.name }
+    );
+  }
+
+  /**
+   * What the Role `roleKey` works with outside any Project, and the Projects where something else
    * applies, as its card says. Throws RoleNotFound when nobody fills the Role.
    */
   async acrossProjects(roleKey: string): Promise<RoleEngineCascade> {
     const { card } = await this.roleCards.forNewSession(roleKey);
-    return roleEngineCascade(
-      roleKey,
-      { officeDefault: await this.engineModels.officeDefault(), roleOverride: card.roleOverride },
-      await this.projects.engineLevelsOfEveryProject(),
+    const engines = await this.engineModels.engines();
+    const named = (applying: EngineInCascade | null): NamedEngineInCascade | null =>
+      applying && { ...applying, engineName: engineNameOf(engines, applying.engineId) };
+    const outsideProjects = named(await this.resolved(roleKey, card.engineSettings, engines, {}));
+    const projects = await this.projects.engineLevelsOfEveryProject();
+    const inProjects = await Promise.all(
+      projects.map(async (project) => ({
+        projectId: project.projectId,
+        applying: named(await this.resolved(roleKey, card.engineSettings, engines, { project })),
+      })),
     );
+    return roleEngineCascade(outsideProjects, inProjects);
+  }
+
+  private async resolved(
+    roleKey: string,
+    person: PersonEngineSettings,
+    engines: readonly Engine[],
+    place: {
+      readonly project?: ProjectCascadeLevels;
+      readonly work?: WorkCascadeLevels;
+      readonly stageEffort?: Effort | null;
+    },
+  ): Promise<EngineInCascade | null> {
+    const { project, work, stageEffort } = place;
+    const found = await this.inPlace(engines, project, work);
+    if (!found) return null;
+    const { inPlace, engine } = found;
+    return workInCascade({
+      roleKey,
+      engine: landed(engine),
+      inPlace,
+      person,
+      project,
+      stageEffort,
+    });
+  }
+
+  /** The engine listed that everyone in the place runs on; none while no engine is listed. */
+  private async inPlace(
+    engines: readonly Engine[],
+    project: ProjectCascadeLevels | undefined,
+    work: WorkCascadeLevels | undefined,
+  ): Promise<{ readonly inPlace: EngineInPlace; readonly engine: Engine } | null> {
+    const inPlace = engineInCascade({
+      officeDefault: await this.engineModels.officeDefault(),
+      officeStandIns: (await this.engineModels.standIns()).standInEngines,
+      project,
+      work,
+    });
+    const engine = inPlace && engines.find(({ id }) => id === inPlace.engineId);
+    return inPlace && engine ? { inPlace, engine } : null;
   }
 
   private async workLevels(
@@ -77,4 +206,20 @@ export class EngineCascade {
     if (initiativeId !== undefined) return this.work.engineLevelsOf({ initiativeId });
     return undefined;
   }
+}
+
+/** The name of the engine listed as `engineId`, which the cascade only lands on; its id otherwise. */
+function engineNameOf(engines: readonly Engine[], engineId: EngineId): string {
+  return engines.find(({ id }) => id === engineId)?.name ?? engineId;
+}
+
+function landed(engine: Engine): LandedEngine {
+  return {
+    id: engine.id,
+    kind: engine.kind,
+    defaultModel: engine.defaultModel,
+    defaultEffort: engine.defaultEffort,
+    models: offeredModels(engine),
+    efforts: effortsTakenBy(engine.kind),
+  };
 }

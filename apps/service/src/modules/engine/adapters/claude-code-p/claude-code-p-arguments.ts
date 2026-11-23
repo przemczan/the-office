@@ -62,7 +62,7 @@ export function claudeCodePArguments(session: ClaudeCodePSession): string[] {
     "--output-format=stream-json",
     "--verbose",
     `--model=${options.model}`,
-    `--effort=${options.effort}`,
+    ...(options.effort === undefined ? [] : [`--effort=${options.effort}`]),
     `--tools=${sessionTools(session.agentShells).join(",")}`,
     "--setting-sources=project",
     // Ticket 22's public flag; the session folder holds skills only, so no plugin MCP server starts.

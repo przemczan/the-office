@@ -1,4 +1,5 @@
 import {
+  NO_PROJECT_ENGINE,
   STARTING_COMMANDS,
   type NewProject,
   type Project,
@@ -51,9 +52,7 @@ export function aProject(fields: Partial<Project> = {}): Project {
     environment: UNCHANGED_ENVIRONMENT,
     useProjectSkills: true,
     projectSkillsOff: [],
-    projectDefault: null,
-    useForEveryRole: false,
-    roleOverrides: [],
+    engine: NO_PROJECT_ENGINE,
     runEnvironment: "not-decided",
     runEnvironmentSetUpProblems: [],
     projectLimit: 1,

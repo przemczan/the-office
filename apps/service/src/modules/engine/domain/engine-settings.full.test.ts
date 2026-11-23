@@ -4,6 +4,7 @@ import {
   DEFAULT_ENGINE_SETTINGS,
   FIRST_OFFICE_DEFAULT,
   offeredModelPrices,
+  officeDefaultEngineModel,
   settingsWithoutEngine,
   type EngineEdit,
   type EngineSettings,
@@ -73,8 +74,8 @@ describe("changedEngineSettings", () => {
     ]);
   });
 
-  it("keeps an Office default on an API engine's model", () => {
-    const officeDefault = { engineId: "strata", model: "qwen3.8-flash" };
+  it("keeps an Office default on an API engine, its type and account", () => {
+    const officeDefault = { engineType: "openai-compatible-api", engineId: "strata" } as const;
 
     expect(
       changedEngineSettings(stored, editOf([strataEdit()], { officeDefault })).officeDefault,
@@ -100,8 +101,8 @@ describe("changedEngineSettings", () => {
     ]);
   });
 
-  it("keeps an Office default on a Codex model of a Codex engine, and refuses a Claude model there", () => {
-    const officeDefault = { engineId: "codex", model: "gpt-5.6-terra" };
+  it("keeps an Office default on a Codex engine, and refuses one whose type isn't its account's", () => {
+    const officeDefault = { engineType: "codex", engineId: "codex" } as const;
 
     expect(
       changedEngineSettings(
@@ -113,25 +114,84 @@ describe("changedEngineSettings", () => {
       refusal(
         stored,
         editOf([strataEdit(), codexEdit({ id: undefined })], {
-          officeDefault: { engineId: "codex", model: "claude-sonnet-5-5" },
+          officeDefault: { engineType: "claude-code", engineId: "codex" },
         }),
       ),
-    ).toEqual(['Pick the Office default\'s model among the models of "Codex".']);
+    ).toEqual(["Pick the Office default's account among the Claude Code engines."]);
   });
 
-  it("refuses an Office default on an engine not listed, or on a model its engine doesn't offer", () => {
+  it("refuses an Office default on an engine not listed", () => {
     expect(
       refusal(
         DEFAULT_ENGINE_SETTINGS,
-        editOf([], { officeDefault: { engineId: "strata", model: "qwen3.8-flash" } }),
+        editOf([], { officeDefault: { engineType: "openai-compatible-api", engineId: "strata" } }),
       ),
     ).toEqual(["Pick the Office default among the engines listed."]);
+  });
+
+  it("keeps each engine's default effort, Not set or one its type takes", () => {
+    const changed = changedEngineSettings(
+      stored,
+      editOf([], {
+        engines: [
+          claudeCodeEdit({ defaultEffort: "max" }),
+          strataEdit({ defaultEffort: null }),
+          codexEdit({ id: undefined, defaultEffort: "xhigh" }),
+        ],
+      }),
+    );
+
+    expect(changed.engines.map(({ defaultEffort }) => defaultEffort)).toEqual([
+      "max",
+      null,
+      "xhigh",
+    ]);
+  });
+
+  it("refuses a default effort the engine's type doesn't take", () => {
+    const gemini = {
+      name: "Gemini",
+      kind: "gemini-cli",
+      defaultModel: "auto",
+      defaultEffort: "low",
+    } as const;
+
     expect(
       refusal(
-        DEFAULT_ENGINE_SETTINGS,
-        editOf([], { officeDefault: { engineId: "claude-code", model: "qwen3" } }),
+        stored,
+        editOf([
+          strataEdit({ defaultEffort: "high" }),
+          codexEdit({ id: undefined, defaultEffort: "max" }),
+          gemini,
+        ]),
       ),
-    ).toEqual([`Pick the Office default's model among the models of "Claude Code".`]);
+    ).toEqual([
+      'Pick the default effort of "Strata" among the efforts API endpoint takes.',
+      'Pick the default effort of "Codex" among the efforts Codex takes.',
+      'Pick the default effort of "Gemini" among the efforts Gemini CLI takes.',
+    ]);
+  });
+
+  it("keeps the stored default effort when the edit leaves it out, and gives a new engine Not set", () => {
+    const withEffort: EngineSettings = {
+      ...stored,
+      engines: [{ ...FIRST_CLAUDE_CODE_ENGINE, defaultEffort: "high" }, strata],
+    };
+    const { id, name, kind, defaultModel, claudeCodeP } = FIRST_CLAUDE_CODE_ENGINE;
+    const leftOut = { id, name, kind, defaultModel, claudeCodeP };
+
+    const changed = changedEngineSettings(
+      withEffort,
+      editOf([], {
+        engines: [leftOut, strataEdit(), { ...leftOut, id: undefined, name: "Second account" }],
+      }),
+    );
+
+    expect(changed.engines.map((engine) => [engine.id, engine.defaultEffort])).toEqual([
+      ["claude-code", "high"],
+      ["strata", null],
+      ["second-account", null],
+    ]);
   });
 
   it("refuses no Office default while an engine is listed", () => {
@@ -140,7 +200,7 @@ describe("changedEngineSettings", () => {
     ]);
   });
 
-  it("gives the first engine saved after none the Office default, on its default model", () => {
+  it("gives the first engine saved after none the Office default, with its type", () => {
     const none: EngineSettings = { ...DEFAULT_ENGINE_SETTINGS, engines: [], officeDefault: null };
 
     expect(
@@ -152,7 +212,7 @@ describe("changedEngineSettings", () => {
         engines: [strataEdit({ id: undefined })],
         officeDefault: null,
       }).officeDefault,
-    ).toEqual({ engineId: "strata", model: "qwen3.8-flash" });
+    ).toEqual({ engineType: "openai-compatible-api", engineId: "strata" });
   });
 
   it("adds a second Claude Code engine, with an id of its own", () => {
@@ -197,7 +257,7 @@ describe("settingsWithoutEngine", () => {
   it("drops the engine and moves the Office default, keeping the rest", () => {
     const settings: EngineSettings = {
       ...stored,
-      officeDefault: { engineId: "strata", model: "qwen3.8-flash" },
+      officeDefault: { engineType: "openai-compatible-api", engineId: "strata" },
       searchEndpoint: { baseUrl: "http://127.0.0.1:8888" },
     };
 
@@ -216,25 +276,32 @@ describe("settingsWithoutEngine", () => {
     });
   });
 
-  it("gives the moved Office default the replacement's default model, keeping its key", () => {
+  it("moves the Office default to the replacement's type and account, keeping its key", () => {
     const changed = settingsWithoutEngine(stored, { engineId: "claude-code", replacement: strata });
 
     expect(changed.engines).toEqual([strata]);
-    expect(changed.officeDefault).toEqual({ engineId: "strata", model: "qwen3.8-flash" });
+    expect(changed.officeDefault).toEqual({
+      engineType: "openai-compatible-api",
+      engineId: "strata",
+    });
+    expect(officeDefaultEngineModel(changed)).toEqual({
+      engineId: "strata",
+      model: "qwen3.8-flash",
+    });
   });
 
-  it("removes a Codex engine, its Office default moving to another Codex engine on its model, which keeps its API key", () => {
+  it("removes a Codex engine, its Office default moving to another Codex engine, which keeps its API key", () => {
     const second = { ...codex, id: "second-codex", name: "Second Codex" };
     const settings: EngineSettings = {
       ...stored,
       engines: [...stored.engines, codex, second],
-      officeDefault: { engineId: "codex", model: "gpt-5.6-luna" },
+      officeDefault: { engineType: "codex", engineId: "codex" },
     };
 
     const changed = settingsWithoutEngine(settings, { engineId: "codex", replacement: second });
 
     expect(changed.engines.map(({ id }) => id)).toEqual(["claude-code", "strata", "second-codex"]);
-    expect(changed.officeDefault).toEqual({ engineId: "second-codex", model: "gpt-5.6-luna" });
+    expect(changed.officeDefault).toEqual({ engineType: "codex", engineId: "second-codex" });
     const kept = changed.engines[2];
     expect(kept?.kind === "codex" && kept.apiKey).toBe(codex.apiKey);
   });
@@ -250,6 +317,26 @@ describe("settingsWithoutEngine", () => {
       engines: [],
       officeDefault: null,
     });
+  });
+});
+
+describe("officeDefaultEngineModel", () => {
+  it("gives the Office default's engine on its default model", () => {
+    const settings: EngineSettings = {
+      ...stored,
+      engines: [...stored.engines, { ...codex, defaultModel: "gpt-5.6-terra" }],
+      officeDefault: { engineType: "codex", engineId: "codex" },
+    };
+
+    expect(officeDefaultEngineModel(settings)).toEqual({
+      engineId: "codex",
+      model: "gpt-5.6-terra",
+    });
+    expect(officeDefaultEngineModel(DEFAULT_ENGINE_SETTINGS)).toEqual({
+      engineId: "claude-code",
+      model: FIRST_CLAUDE_CODE_ENGINE.defaultModel,
+    });
+    expect(officeDefaultEngineModel({ ...settings, officeDefault: null })).toBeNull();
   });
 });
 
@@ -427,6 +514,7 @@ describe("Model prices", () => {
       name: "Copilot",
       kind: "copilot-cli",
       defaultModel: "auto",
+      defaultEffort: null,
       token: CopilotCliToken.of("github_pat_11A_kept"),
     };
     const withCopilot: EngineSettings = { ...stored, engines: [...stored.engines, copilot] };
@@ -532,6 +620,7 @@ function geminiOf(id: string, key: string | null): GeminiCliEngine {
     name: id,
     kind: "gemini-cli",
     defaultModel: "auto",
+    defaultEffort: null,
     apiKey: key === null ? null : GeminiApiKey.of(key),
   };
 }

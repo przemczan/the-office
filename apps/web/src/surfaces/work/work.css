@@ -4522,16 +4522,15 @@ button.initiative-track-body:hover .stage-mark {
   max-width: 72ch;
 }
 
-.work-engine-pair {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+/* The override's switch, its Engine select and its note, one under another. */
+.work-engine-override {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-@container page (max-width: 639px) {
-  .work-engine-pair {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.work-engine-field {
+  max-width: 360px;
 }
 
 .work-engine-list {

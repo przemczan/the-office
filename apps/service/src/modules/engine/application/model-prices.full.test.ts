@@ -13,6 +13,7 @@ const lab: ApiEngine = {
   name: "Lab",
   kind: "openai-compatible-api",
   defaultModel: "coder",
+  defaultEffort: null,
   baseUrl: "http://lab",
   key: "",
   models: [{ id: "coder", contextWindow: 32_000 }],
@@ -23,6 +24,7 @@ const codex: CodexEngine = {
   name: "Codex",
   kind: "codex",
   defaultModel: "gpt-6-luna",
+  defaultEffort: null,
   apiKey: null,
 };
 

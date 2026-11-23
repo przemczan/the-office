@@ -6,7 +6,7 @@ Duties (`shell/duty-words.ts`, from `dutyQueries.list()`): the Role card view's 
 
 While nobody is hired (`isNobodyHired`, `people-order.ts`: no Role but the Caretaker filled by someone not let go), the Hire tile gives way to the set-up hint (`office-setup-hint.tsx`), a whole row under the Caretaker's card: each preset with the duties it suits (`GET /presets`' `duties`, by their labels from the duties list), its capabilities and its Task limit, how an unheld duty falls back, and Hire a Role, Start from scratch and "Set up The Office with <Caretaker>" (`useAskInChat`: a new Caretaker Thread with a draft in its composer, nothing sent). The Hire dialog's presets say "Suits: …" (`suitsWords`, `shell/duty-words.ts`) before the Task limit. The Caretaker's `office-setup` Proposal is a chat card (`shell/conversation/office-setup-changes.tsx`): each hire, linked once applied, and every duty's holder after it.
 
-The Role card's Engine and Model (`EngineFields` in `role-card-form.tsx`, its pair `EngineModelFields` in `shell/engine-model-fields.tsx`, shared with the Project page's Engine block and the Task's and Initiative's Engine folds) set the Role override, "Office default" being none, picking an engine filling in its default model (`/role-card-options`' `defaultModel`); the view, the Overview and a Proposal's card say it through `worksWithText`. The view's "Runs on" (`EngineThatApplies`, for a Role someone fills) says what the cascade gives outside any Project and where it comes from, and lists the Projects where another engine or model applies (`roleQueries.engineCascade`, under its own `ENGINE_CASCADE` key, invalidated by `role.card-changed`, the Projects' engine events and a Settings › Engines save).
+The Role card's Engine group (spec §5.4.5 "The model and effort cascade") holds the person's model and effort for each engine type (`engineSettings`, a type left out being the engine's default). The form's `EngineFields` (`role-card-form.tsx`) and the view's "Works with" table both lay out `engineTypeRows` (`engine-type-rows.ts`): each type `/role-card-options`' `engineTypes` lists, in Settings › Engines' order, then each type the person sets with none listed ("No <type> engine is listed", Clear in the form); a type set back to "Engine's default" for both is dropped from the card, and a type taking no effort has no Effort. The Overview and a Proposal's card say it through the shell's `worksWithLines`. The view's "Runs on" (`EngineThatApplies`, for a Role someone fills) says the model and effort on the engine the cascade gives outside any Project, with what that engine can't do, and lists the Projects where another engine, model or effort applies, naming a Project's setting or force (`roleQueries.engineCascade`, under its own `ENGINE_CASCADE` key, invalidated by `role.card-changed`, the Projects' engine events and a Settings › Engines save).
 
 The Role card's MCP servers (`role-card-mcp-server-fields.tsx`, `role-mcp-servers.ts`): the form ticks the library's servers and sets each tool of a ticked server that is on, its names too long for sessions left out (the library's `toolsTooLong`); the view shows the Role's `mcpServers`, on with each tool's setting, or off.
 
@@ -23,6 +23,7 @@ The Caretaker (`role.builtIn`) has no Let go action, and its card's capabilities
 - `avatar-block.tsx`: AvatarBlock
 - `blank-role-card.ts`: blankRoleCard
 - `conversations-tab.tsx`: ConversationsTab
+- `engine-type-rows.ts`: EngineTypeRow, engineTypeRows, noEngineListedWords
 - `hire-dialog.tsx`: HireDialog
 - `let-go-dialog.tsx`: LetGoDialog
 - `memory-groups.ts`: MemoryGroup, ALL_PROJECTS, memoryGroups
@@ -33,7 +34,7 @@ The Caretaker (`role.builtIn`) has no Let go action, and its card's capabilities
 - `people-page.tsx`: PeoplePage
 - `person-page.tsx`: PersonPage
 - `person-tasks.ts`: WORK_FILTERS
-- `role-card-form.tsx`: RoleCardEditPage, HireFromScratchPage
+- `role-card-form.tsx`: RoleCardEditPage, HireFromScratchPage, EngineFields
 - `role-card-layout.tsx`: ROLE_CARD_GROUPS, RoleCardGroup, RoleCardValue, FixedForTheCaretaker, PersonBlock
 - `role-card-mcp-server-fields.tsx`: McpServerFields
 - `role-card-tab.tsx`: RoleCardTab
@@ -41,4 +42,4 @@ The Caretaker (`role.builtIn`) has no Let go action, and its card's capabilities
 - `role-mcp-servers.ts`: assignedMcpServersOf, mcpServerAssignments, sessionToolsOf, mcpToolSettingOf, withMcpToolSetting, withoutServerToolSettings
 - `session-skills.ts`: sessionSkillsOf
 - `work-tab.tsx`: WorkTab
-- Tests: conversations-tab.full.test.tsx, memory-groups.full.test.ts, memory-tab.full.test.tsx, people-order.full.test.ts, role-mcp-servers.full.test.ts
+- Tests: conversations-tab.full.test.tsx, memory-groups.full.test.ts, memory-tab.full.test.tsx, people-order.full.test.ts, role-card-engine.full.test.tsx, role-mcp-servers.full.test.ts

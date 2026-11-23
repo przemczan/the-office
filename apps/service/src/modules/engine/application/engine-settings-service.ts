@@ -3,6 +3,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { EngineAdded, EngineRemoved } from "../domain/engine-events.js";
 import {
   engineRemovalAmong,
+  movedStandInList,
   type EngineRemoval,
   type MovedEngineReference,
 } from "../domain/engine-removal.js";
@@ -17,7 +18,7 @@ import type { Engine, EngineId } from "../domain/engines.js";
 import { EngineSettingsRepository } from "../ports/engine-settings-repository.js";
 import { EngineReferenceLock } from "./engine-reference-lock.js";
 import { EngineReferenceMoves } from "./engine-reference-moves.js";
-import { EngineSettingsChecks } from "./engine-settings-checks.js";
+import { engineCascadeSettingsOf, EngineSettingsChecks } from "./engine-settings-checks.js";
 
 /**
  * Settings › Engines: the engines, the Office default and the search endpoint, Office-wide.
@@ -56,7 +57,10 @@ export class EngineSettingsService {
   }> {
     const stored = await this.repository.read();
     const changed = changedEngineSettings(stored, edit);
-    const problems = await this.checks.problemsOf({ before: stored, after: changed });
+    const problems = await this.checks.problemsOf({
+      before: engineCascadeSettingsOf(stored),
+      after: engineCascadeSettingsOf(changed),
+    });
     if (problems.length > 0) throw new EngineSettingsRefused(problems);
     await this.repository.replace(changed);
     return { stored, changed };
@@ -98,15 +102,18 @@ export class EngineSettingsService {
       stored.officeDefault?.engineId === engineId
         ? [
             {
-              roleKey: null,
               project: null,
               work: null,
-              from: stored.officeDefault,
-              to: changed.officeDefault,
+              from: engineId,
+              to: changed.officeDefault?.engineId ?? null,
             },
           ]
         : [];
-    return { moves: [...officeDefault, ...(await this.referenceMoves.movesOf(removal))], problems };
+    const officeStandIns = movedStandInList(stored.standInEngines, removal, null);
+    return {
+      moves: [...officeDefault, ...officeStandIns, ...(await this.referenceMoves.movesOf(removal))],
+      problems,
+    };
   }
 
   private async removedWithReferencesMoved(
@@ -136,7 +143,11 @@ export class EngineSettingsService {
     const stored = await this.repository.read();
     const removal = engineRemovalAmong(stored.engines, engineId, replacementId);
     const changed = settingsWithoutEngine(stored, removal);
-    const problems = await this.checks.problemsOf({ before: stored, after: changed, removal });
+    const problems = await this.checks.problemsOf({
+      before: engineCascadeSettingsOf(stored),
+      after: engineCascadeSettingsOf(changed),
+      removal,
+    });
     return { stored, removal, changed, problems };
   }
 }

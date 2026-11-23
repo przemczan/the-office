@@ -37,6 +37,7 @@ const CODEX: CodexEngine = {
   name: "Codex",
   kind: "codex",
   defaultModel: "gpt-6-luna",
+  defaultEffort: null,
   apiKey: null,
 };
 const LAB: ApiEngine = {
@@ -44,16 +45,16 @@ const LAB: ApiEngine = {
   name: "Lab",
   kind: "openai-compatible-api",
   defaultModel: "coder",
+  defaultEffort: null,
   baseUrl: "http://localhost:11434/v1",
   key: "",
   models: [{ id: "coder", contextWindow: 32_000 }],
 };
 
-const ON_WORK = { engineId: WORK.id, model: "claude-haiku-5-5" };
-
 /**
  * Sessions over the scripted engines, the Agent SDK's and the fallback's carrying sessions, the
- * Codex and API engines' not, with the Stand-in Engines in `standIns`' order.
+ * Codex and API engines' not, the API engine without Office tools, with the Office's Stand-in
+ * Engines in `standIns`' order.
  */
 function setUp(
   standIns: readonly string[],
@@ -70,7 +71,7 @@ function setUp(
     new AgentEngines({
       "agent-sdk": agentSdk,
       "claude-code-p": claudeCodeP,
-      "openai-compatible-api": new ScriptedEngine([], { carrySession: false }),
+      "openai-compatible-api": new ScriptedEngine([], { carrySession: false, officeTools: false }),
       codex: new ScriptedEngine([], { carrySession: false }),
       "copilot-cli": new ScriptedEngine([], { carrySession: false }),
       "gemini-cli": new ScriptedEngine([], { carrySession: false }),
@@ -123,65 +124,88 @@ function windows(fiveHour: number): UsageWindows {
 }
 
 describe("EngineSessions.standInFor, the engine a refused session goes on on", () => {
-  it("takes the first Stand-in Engine in order that has room, on the same model", async () => {
-    const { sessions } = setUp([HOME.id, SPARE.id]);
+  it("takes the first Stand-in Engine in order that has room", async () => {
+    const { sessions } = setUp([]);
 
-    await expect(sessions.standInFor(ON_WORK)).resolves.toEqual({
-      engineId: HOME.id,
-      model: ON_WORK.model,
-    });
+    await expect(sessions.standInFor(WORK.id, { standIns: [HOME.id, SPARE.id] })).resolves.toBe(
+      HOME.id,
+    );
+  });
+
+  it("weighs the list it is given, not the Office's", async () => {
+    const { sessions } = setUp([HOME.id]);
+
+    await expect(sessions.standInFor(WORK.id, { standIns: [SPARE.id] })).resolves.toBe(SPARE.id);
+    await expect(sessions.standInFor(WORK.id, { standIns: [] })).resolves.toBeNull();
   });
 
   it("never gives the running engine, though it is listed as a Stand-in Engine and shows free", async () => {
-    const { sessions, read } = setUp([WORK.id]);
+    const { sessions, read } = setUp([]);
     await read(WORK, 10);
 
-    await expect(sessions.standInFor(ON_WORK)).resolves.toBeNull();
+    await expect(sessions.standInFor(WORK.id, { standIns: [WORK.id] })).resolves.toBeNull();
   });
 
   it("skips an engine whose window is used up", async () => {
-    const { sessions, usedUp } = setUp([HOME.id, SPARE.id]);
+    const { sessions, usedUp } = setUp([]);
     await usedUp(HOME);
 
-    await expect(sessions.standInFor(ON_WORK)).resolves.toEqual({
-      engineId: SPARE.id,
-      model: ON_WORK.model,
-    });
+    await expect(sessions.standInFor(WORK.id, { standIns: [HOME.id, SPARE.id] })).resolves.toBe(
+      SPARE.id,
+    );
   });
 
   it("skips an engine whose latest reading isn't free, and takes one not read yet", async () => {
-    const { sessions, read } = setUp([HOME.id, SPARE.id]);
+    const { sessions, read } = setUp([]);
     await read(HOME, 100);
 
-    await expect(sessions.standInFor(ON_WORK)).resolves.toEqual({
-      engineId: SPARE.id,
-      model: ON_WORK.model,
-    });
+    await expect(sessions.standInFor(WORK.id, { standIns: [HOME.id, SPARE.id] })).resolves.toBe(
+      SPARE.id,
+    );
   });
 
-  it("skips Codex and an engine that doesn't serve the model", async () => {
-    const { sessions } = setUp([CODEX.id, LAB.id, SPARE.id]);
+  it("takes a stand-in of another engine type unless sameEngineType is set", async () => {
+    const { sessions } = setUp([]);
+    const standIns = [CODEX.id, LAB.id, SPARE.id];
 
-    await expect(sessions.standInFor(ON_WORK)).resolves.toEqual({
-      engineId: SPARE.id,
-      model: ON_WORK.model,
-    });
+    await expect(sessions.standInFor(WORK.id, { standIns })).resolves.toBe(CODEX.id);
+    await expect(sessions.standInFor(WORK.id, { standIns, sameEngineType: true })).resolves.toBe(
+      SPARE.id,
+    );
+  });
+
+  it("passes over a stand-in lacking a capability the session needs", async () => {
+    const { sessions } = setUp([]);
+
+    await expect(
+      sessions.standInFor(WORK.id, { standIns: [LAB.id, CODEX.id], needs: ["officeTools"] }),
+    ).resolves.toBe(CODEX.id);
   });
 
   it("gives none when no Stand-in Engine has room", async () => {
-    const { sessions, read, usedUp } = setUp([HOME.id, SPARE.id, CODEX.id]);
+    const { sessions, read, usedUp } = setUp([]);
     await usedUp(HOME);
     await read(SPARE, 100);
-
-    await expect(sessions.standInFor(ON_WORK)).resolves.toBeNull();
-  });
-
-  it("gives none for a session on an engine whose sessions can't be carried", async () => {
-    const { sessions } = setUp([HOME.id]);
+    await usedUp(CODEX);
 
     await expect(
-      sessions.standInFor({ engineId: CODEX.id, model: "gpt-6-luna" }),
+      sessions.standInFor(WORK.id, { standIns: [HOME.id, SPARE.id, CODEX.id] }),
     ).resolves.toBeNull();
+  });
+
+  it("gives a running Codex engine a stand-in that starts fresh, and none with sameEngineType", async () => {
+    const { sessions } = setUp([]);
+
+    await expect(sessions.standInFor(CODEX.id, { standIns: [HOME.id] })).resolves.toBe(HOME.id);
+    await expect(
+      sessions.standInFor(CODEX.id, { standIns: [HOME.id], sameEngineType: true }),
+    ).resolves.toBeNull();
+  });
+
+  it("gives none for an engine no longer listed", async () => {
+    const { sessions } = setUp([]);
+
+    await expect(sessions.standInFor("gone", { standIns: [HOME.id] })).resolves.toBeNull();
   });
 });
 

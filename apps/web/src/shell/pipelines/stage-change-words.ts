@@ -193,7 +193,7 @@ export function fieldWords(stage: Stage, field: StageField, context: FieldWordsC
       return stage.kind === "agent" ? `${thousands(stage.budget)}k tokens` : "None";
     case "effort":
       if (stage.kind !== "agent") return "None";
-      return stage.effort ? EFFORT_LABELS[stage.effort] : "Role default";
+      return stage.effort ? EFFORT_LABELS[stage.effort] : "Person's effort";
     case "permissions":
       return stage.kind === "agent" && stage.permissions ? "Narrowed" : "The Role card's";
     case "contextLimits":

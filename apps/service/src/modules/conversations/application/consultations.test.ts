@@ -224,7 +224,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
     providers: [
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
       { provide: RoleCards, useValue: roleCards },
-      { provide: EngineCascade, useValue: new EngineCascadeStandIn() },
+      { provide: EngineCascade, useValue: cascadeWith(standIn) },
       { provide: ProjectBases, useValue: bases },
       { provide: ProjectOutputMasks, useValue: outputMasks },
       { provide: SessionSkills, useValue: sessionSkills },
@@ -343,6 +343,13 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
   threads = app.get(ThreadService);
   decisions = app.get(DecisionService);
   consultations = app.get(Consultations);
+}
+
+/** The engine cascade, giving `HOME` as the Stand-in Engine list that applies when it stands in. */
+function cascadeWith(home: ScriptedEngine | undefined): EngineCascadeStandIn {
+  const cascade = new EngineCascadeStandIn();
+  if (home !== undefined) cascade.standIns = { from: "office", engineIds: [HOME.id] };
+  return cascade;
 }
 
 /** Boots as `startWith` does, with `HOME` replaying `homeScripts` as the Stand-in Engine. */

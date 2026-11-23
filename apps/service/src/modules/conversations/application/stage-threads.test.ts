@@ -12,6 +12,7 @@ import {
   OfficeToolRegistry,
   ScriptedEngine,
   WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL,
+  type Engine,
   type SessionScript,
   ScriptedEngineModule,
 } from "../../engine/index.js";
@@ -661,6 +662,7 @@ describe("a Stage on the engine the Task sets", () => {
     expect(cascade.asked).toContainEqual({
       roleKey: request.roleKey,
       location: { projectId: "admin-panel", taskId: request.taskId },
+      work: { stageEffort: undefined },
     });
     expect(stageThread).toMatchObject({
       engine: FIRST_CLAUDE_CODE_ENGINE.id,
@@ -708,6 +710,134 @@ describe("a Stage on the engine the Task sets", () => {
     expect(second.stageThread.move).toMatchObject({ move: "fresh", reason: "engine-changed" });
     expect(second.stageThread.engine).toBe(OTHER.id);
     expect(receivedSteps()).not.toContain("resume");
+  });
+
+  describe("on the Stand-in Engine the Start chose", () => {
+    const CODEX: Engine = {
+      id: "codex",
+      name: "Codex",
+      kind: "codex",
+      defaultModel: "gpt-6-luna",
+      defaultEffort: null,
+      apiKey: null,
+    };
+    const REASON = "Claude Code's 5-hour window would be passed.";
+
+    /** Ada's Stage, whose Start chose Codex for the cascade's Claude Code engine. */
+    function onCodex() {
+      const ada = aPerson("Ada");
+      cascade.setOnEngine(ada, CODEX.id, {
+        model: "gpt-6-luna",
+        engineType: "codex",
+        effort: "low",
+      });
+      return aStage({
+        roleKey: ada,
+        engineStandIns: [
+          {
+            engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+            standInId: CODEX.id,
+            engineName: FIRST_CLAUDE_CODE_ENGINE.name,
+            reason: REASON,
+          },
+        ],
+      });
+    }
+
+    it("opens on a stand-in of another type while the list that applies names it, with the person's model and effort for its type", async () => {
+      await startWith(started(...aTurn({ status: "done" })));
+      vi.spyOn(app.get(EngineModels), "engines").mockResolvedValue([
+        FIRST_CLAUDE_CODE_ENGINE,
+        CODEX,
+      ]);
+      cascade.standIns = { from: "project", engineIds: [CODEX.id] };
+
+      const { stageThread } = await aStageRun(onCodex());
+
+      expect(stageThread).toMatchObject({
+        engine: CODEX.id,
+        model: "gpt-6-luna",
+        standInFor: { engineId: FIRST_CLAUDE_CODE_ENGINE.id, reason: REASON },
+      });
+      expect(engine.sessions[0]?.options).toMatchObject({
+        engine: { id: CODEX.id },
+        model: "gpt-6-luna",
+        effort: "low",
+      });
+    });
+
+    it("says so in the Stage Thread when the person's model gave way on the stand-in", async () => {
+      await startWith(started(...aTurn({ status: "done" })));
+      vi.spyOn(app.get(EngineModels), "engines").mockResolvedValue([
+        FIRST_CLAUDE_CODE_ENGINE,
+        CODEX,
+      ]);
+      cascade.standIns = { from: "project", engineIds: [CODEX.id] };
+      const request = onCodex();
+      cascade.setOnEngine(request.roleKey, CODEX.id, {
+        model: "gpt-6-luna",
+        engineType: "codex",
+        gaveWay: "gpt-7",
+      });
+
+      const { stageThread } = await aStageRun(request);
+
+      const log = drafts(await repository.messages(stageThread.threadId));
+      expect(log.filter(({ kind }) => kind === "model-gave-way")).toEqual([
+        {
+          kind: "model-gave-way",
+          personName: "Ada",
+          model: "gpt-6-luna",
+          engineName: CODEX.name,
+          notOffered: "gpt-7",
+        },
+      ]);
+    });
+
+    it("opens on the cascade's engine once the list that applies no longer names the stand-in", async () => {
+      await startWith(started(...aTurn({ status: "done" })));
+      vi.spyOn(app.get(EngineModels), "engines").mockResolvedValue([
+        FIRST_CLAUDE_CODE_ENGINE,
+        CODEX,
+      ]);
+      cascade.standIns = { from: "office", engineIds: [] };
+
+      const { stageThread } = await aStageRun(onCodex());
+
+      expect(stageThread).toMatchObject({
+        engine: FIRST_CLAUDE_CODE_ENGINE.id,
+        model: cascade.officeDefault?.model,
+      });
+      expect(stageThread.standInFor).toBeUndefined();
+    });
+
+    it("starts the next Stage fresh on the forced engine once an engine override is turned on, though the list names the stand-in", async () => {
+      await startWith(
+        started(...aTurn({ status: "done" })),
+        started(...aTurn({ status: "done" }, "Reviewing.")),
+      );
+      vi.spyOn(app.get(EngineModels), "engines").mockResolvedValue([
+        FIRST_CLAUDE_CODE_ENGINE,
+        CODEX,
+      ]);
+      cascade.standIns = { from: "project", engineIds: [CODEX.id] };
+      const request = onCodex();
+      const first = await aStageRun(request);
+      expect(first.stageThread.engine).toBe(CODEX.id);
+
+      cascade.setForTask(request.taskId, {
+        engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+        model: "claude-opus-5-5",
+      });
+      const second = await aStageRun(theNextStage(first, request));
+
+      expect(second.stageThread.move).toMatchObject({ move: "fresh", reason: "engine-changed" });
+      expect(second.stageThread).toMatchObject({
+        engine: FIRST_CLAUDE_CODE_ENGINE.id,
+        model: "claude-opus-5-5",
+      });
+      expect(second.stageThread.standInFor).toBeUndefined();
+    });
   });
 });
 

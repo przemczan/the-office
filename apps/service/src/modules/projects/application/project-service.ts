@@ -3,7 +3,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import type { SignedInUser } from "../../../platform/http/signed-in-requests.js";
-import { EngineReferenceLock, type EngineModel } from "../../engine/index.js";
+import { EngineReferenceLock } from "../../engine/index.js";
 import {
   projectIdFor,
   trimmedNewProject,
@@ -11,7 +11,7 @@ import {
   type Project,
   type ProjectCommand,
   type ProjectCommandFields,
-  type ProjectEngineLevels,
+  type ProjectEngine,
   type ProjectMark,
   type PublishingLine,
   type PublishingMode,
@@ -31,14 +31,12 @@ import {
   changeEnvironment,
   changeInstallInputs,
   changeMark,
-  changeProjectDefault,
+  changeProjectEngine,
   changeProjectLimit,
   changePublishingLine,
   changePublishingMode,
   changeDeleteMergedBranches,
-  changeRoleOverride,
   changeRunEnvironment,
-  changeUseForEveryRole,
   changeProjectSkillUse,
   changeUseProjectSkills,
   finishRunEnvironmentSetUp,
@@ -50,6 +48,7 @@ import { defaultPipelineFor, type TaskKind } from "../domain/kind-default-pipeli
 import type { IssueSettingsChange, IssueUser } from "../domain/issue-settings.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
 import { ProjectRefused } from "../domain/project-refused.js";
+import { sameDefault, sameStandIns, type ProjectEngineChange } from "../domain/project-engine.js";
 import { OutputMask } from "../domain/output-mask.js";
 import {
   editedEnvironment,
@@ -66,6 +65,7 @@ import { ActionRepository } from "../ports/action-repository.js";
 import { CLONE_REMOTE, Git } from "../ports/git.js";
 import { ProjectRepository } from "../ports/project-repository.js";
 import { EngineLevelsChecks } from "./engine-levels-checks.js";
+import { FirstCommits } from "./first-commits.js";
 import { ProjectChecks } from "./project-checks.js";
 import { ensureFeatureOn } from "./project-features.js";
 import { RunEnvironmentSetUpRegistry } from "./run-environment-set-up-registry.js";
@@ -93,6 +93,7 @@ export class ProjectService {
     private readonly engineReferences: EngineReferenceLock,
     private readonly runEnvironmentSetUp: RunEnvironmentSetUpRegistry,
     private readonly actions: ActionRepository,
+    private readonly firstCommits: FirstCommits,
   ) {}
 
   /**
@@ -103,6 +104,8 @@ export class ProjectService {
   async add(given: NewProject, answered?: RunEnvironmentAnswered): Promise<Project> {
     const newProject = withResolvedPath(trimmedNewProject(given));
     await this.checks.checkNewProject(newProject);
+    // Before it is saved, so a first commit that couldn't be pushed adds nothing.
+    await this.firstCommits.makeWhenEmpty(newProject);
     await this.trackBaseBranchOfClone(newProject);
     const takenIds = new Set((await this.repository.list()).map((project) => project.id));
     const { project, event } = addProject(
@@ -362,72 +365,54 @@ export class ProjectService {
     });
   }
 
-  /** The Project's levels of the engine cascade; throws ProjectNotFound when there is none. */
-  async engineLevelsOf(id: string): Promise<ProjectEngineLevels> {
-    return engineLevelsOf(await this.read(id));
+  /** The Project's levels of both cascades; throws ProjectNotFound when there is none. */
+  async engineLevelsOf(id: string): Promise<ProjectEngine> {
+    return (await this.read(id)).engine;
   }
 
-  /** Every Project's levels of the engine cascade, with its id and name, in the list's order. */
+  /** Every Project's levels of both cascades, with its id and name, in the list's order. */
   async engineLevelsOfEveryProject(): Promise<
-    readonly (ProjectEngineLevels & { readonly projectId: string; readonly projectName: string })[]
+    readonly (ProjectEngine & { readonly projectId: string; readonly projectName: string })[]
   > {
     return (await this.repository.list()).map((project) => ({
       projectId: project.id,
       projectName: project.name,
-      ...engineLevelsOf(project),
+      ...project.engine,
     }));
   }
 
-  /** Sessions already running keep the engine and model they started on. */
-  async changeProjectDefault(id: string, projectDefault: EngineModel | null): Promise<Project> {
-    return this.changeEngineLevels(id, projectDefault, (project) =>
-      changeProjectDefault(project, projectDefault),
-    );
-  }
-
-  async changeUseForEveryRole(id: string, useForEveryRole: boolean): Promise<Project> {
-    return this.changeEngineLevels(id, null, (project) =>
-      changeUseForEveryRole(project, useForEveryRole),
-    );
-  }
-
-  /** Sets the Role's override in the Project, or removes it when `roleOverride` is null. */
-  async changeRoleOverride(
-    id: string,
-    roleKey: string,
-    roleOverride: EngineModel | null,
-  ): Promise<Project> {
-    return this.changeEngineLevels(id, roleOverride, (project) =>
-      changeRoleOverride(project, roleKey, roleOverride),
-    );
-  }
-
   /**
-   * Refuses, before saving, a change of the engine levels naming `named`, an engine and model
-   * Settings › Engines must list, or that a registered check refuses. Held under Engine's
+   * Saves the Project page's Engine block, each level sent replacing the Project's (spec §5.4.5,
+   * "The API"); sessions already running keep what they started with. Refused, before saving, for
+   * an engine Settings › Engines doesn't list or a model or effort a type doesn't offer, and, when
+   * the default or the Stand-in Engine list changes, for what a registered check refuses. Held under Engine's
    * `EngineReferenceLock` from reading the engines through the save, so a removal can't come in
-   * between; the events are published after. The check weighs the Project as read just before,
-   * so another change to it made in between goes unchecked.
+   * between; the event is published after. The check weighs the Project as read just before, so
+   * another change to it made in between goes unchecked.
    */
-  private async changeEngineLevels(
-    id: string,
-    named: EngineModel | null,
-    change: (project: Project) => ProjectChange<DomainEvent> | undefined,
-  ): Promise<Project> {
+  async changeEngine(id: string, change: ProjectEngineChange): Promise<Project> {
     const { project, events } = await this.engineReferences.holding(async () => {
-      if (named !== null) await this.checks.checkEngineModel(named);
+      const offers = await this.checks.engineTypeOffers();
       const stored = await this.read(id);
-      const changed = change(stored)?.project;
+      const changed = changeProjectEngine(stored, change, offers)?.project;
       if (changed) {
-        const problems = await this.engineLevelsChecks.problemsOf({
-          projectId: id,
-          projectName: stored.name,
-          before: engineLevelsOf(stored),
-          after: engineLevelsOf(changed),
-        });
-        if (problems.length > 0) throw new ProjectRefused(problems);
+        await this.checks.checkProjectEngine(changed.engine, stored.engine);
+        if (
+          !sameDefault(stored.engine.default, changed.engine.default) ||
+          !sameStandIns(stored.engine.standIns, changed.engine.standIns)
+        ) {
+          const problems = await this.engineLevelsChecks.problemsOf({
+            projectId: id,
+            projectName: stored.name,
+            before: stored.engine,
+            after: changed.engine,
+          });
+          if (problems.length > 0) throw new ProjectRefused(problems);
+        }
       }
-      return this.repository.update(id, (current) => asProjectChanges(current, change(current)));
+      return this.repository.update(id, (current) =>
+        asProjectChanges(current, changeProjectEngine(current, change, offers)),
+      );
     });
     await this.publish(events);
     return project;
@@ -462,14 +447,6 @@ export class ProjectService {
   private async publish(events: readonly DomainEvent[]): Promise<void> {
     for (const event of events) await this.events.publish(event);
   }
-}
-
-function engineLevelsOf({
-  projectDefault,
-  useForEveryRole,
-  roleOverrides,
-}: ProjectEngineLevels): ProjectEngineLevels {
-  return { projectDefault, useForEveryRole, roleOverrides };
 }
 
 function withResolvedPath(newProject: NewProject): NewProject {

@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { engineModelSchema } from "./engines.js";
+import { engineIdSchema, officeDefaultSchema } from "./engines.js";
 import { webEventSchema } from "./events.js";
 import { imageSchema } from "./images.js";
+import { engineTypeSettingSchema, personEngineSettingsSchema } from "./people.js";
 import { OFFICE_WIDE_LIMIT_MAX, taskCreatorSchema, taskKindSchema } from "./work.js";
 
 /** What a Project command does; a test command also gets the test handling (spec §5.5). */
@@ -287,9 +288,45 @@ export type RepositoryFilePreview = z.infer<typeof repositoryFilePreviewSchema>;
 export const projectRemoteNeedsSchema = z.object({ remoteNeeds: remoteNeedsSchema.nullable() });
 export type ProjectRemoteNeeds = z.infer<typeof projectRemoteNeedsSchema>;
 
-/** The engine and model a Role runs on in a Project, winning over every other level. */
-export const projectRoleOverrideSchema = engineModelSchema.extend({ roleKey: z.string() });
-export type ProjectRoleOverride = z.infer<typeof projectRoleOverrideSchema>;
+/** The Project default (spec §5.4.5, "The engine cascade"): an engine type and one of its accounts. */
+export const projectEngineDefaultSchema = officeDefaultSchema;
+export type ProjectEngineDefault = z.infer<typeof projectEngineDefaultSchema>;
+
+/** A model and an effort, each null for "Engine's default": the Project's force. */
+export const modelEffortSchema = engineTypeSettingSchema;
+export type ModelEffort = z.infer<typeof modelEffortSchema>;
+
+/**
+ * The Project's setting for one person, on each engine type, in the Role card's shape; each null is
+ * "Person's setting".
+ */
+export const projectEnginePersonSchema = z.object({
+  roleKey: z.string(),
+  engineSettings: personEngineSettingsSchema,
+});
+export type ProjectEnginePerson = z.infer<typeof projectEnginePersonSchema>;
+
+/**
+ * A Project's own Stand-in Engine list (spec §5.4.6): while `useOwnList` is on it replaces the
+ * Office's in the Project; turned off, `engineIds` is kept, unused.
+ */
+export const projectStandInsSchema = z.object({
+  useOwnList: z.boolean(),
+  engineIds: z.array(engineIdSchema),
+});
+export type ProjectStandIns = z.infer<typeof projectStandInsSchema>;
+
+/** A Project's levels of both cascades (spec §5.4.5), and its Stand-in Engines. */
+export const projectEngineSchema = z.object({
+  /** Null is "Office's default" for both the engine type and the account. */
+  default: projectEngineDefaultSchema.nullable(),
+  /** Force this model and effort for everyone, on the default's engine type; null is off. */
+  force: modelEffortSchema.nullable(),
+  /** At most one per person; a person with nothing set on any type isn't kept. */
+  people: z.array(projectEnginePersonSchema),
+  standIns: projectStandInsSchema,
+});
+export type ProjectEngine = z.infer<typeof projectEngineSchema>;
 
 /** A Project's Icon and Logo, by the name they go by in `/projects/:id/images/:image`. */
 export const projectImageKeySchema = z.enum(["icon", "logo"]);
@@ -405,12 +442,8 @@ export const projectSchema = newProjectSchema.extend({
   useProjectSkills: z.boolean(),
   /** The keys of the repository's skills and commands turned off, each by itself; any other is on. */
   projectSkillsOff: z.array(z.string()),
-  /** The engine cascade's Project levels (spec §5.4); null when the Project has no default. */
-  projectDefault: engineModelSchema.nullable(),
-  /** Only with a Project default: it wins over the Office-wide Role overrides. */
-  useForEveryRole: z.boolean(),
-  /** At most one per Role. */
-  roleOverrides: z.array(projectRoleOverrideSchema),
+  /** The Project's levels of the engine cascade and the model and effort cascade (spec §5.4.5). */
+  engine: projectEngineSchema,
   runEnvironment: runEnvironmentSettingSchema,
   /** How many of the Project's Tasks may be started at once (spec §2.1). */
   projectLimit: z.int(),
@@ -612,19 +645,12 @@ export type UseProjectSkillsChange = z.infer<typeof useProjectSkillsChangeSchema
 export const projectSkillUseChangeSchema = z.object({ key: z.string().min(1), use: z.boolean() });
 export type ProjectSkillUseChange = z.infer<typeof projectSkillUseChangeSchema>;
 
-/** PUT /projects/:id/project-default; null leaves the Project without one. */
-export const projectDefaultChangeSchema = z.object({
-  projectDefault: engineModelSchema.nullable(),
-});
-export type ProjectDefaultChange = z.infer<typeof projectDefaultChangeSchema>;
-
-/** PUT /projects/:id/use-for-every-role */
-export const useForEveryRoleChangeSchema = z.object({ useForEveryRole: z.boolean() });
-export type UseForEveryRoleChange = z.infer<typeof useForEveryRoleChangeSchema>;
-
-/** PUT /projects/:id/role-overrides/:roleKey; null removes the Role's override. */
-export const roleOverrideChangeSchema = z.object({ roleOverride: engineModelSchema.nullable() });
-export type RoleOverrideChange = z.infer<typeof roleOverrideChangeSchema>;
+/**
+ * PUT /projects/:id/engine: a field sent replaces that level, a field left out keeps what the Project
+ * has, so each group of the Engine block saves on its own.
+ */
+export const projectEngineChangeSchema = projectEngineSchema.partial();
+export type ProjectEngineChange = z.infer<typeof projectEngineChangeSchema>;
 
 /** How a Project command ended. */
 export const commandOutcomeSchema = z.enum([
@@ -787,15 +813,7 @@ export const projectWebEventSchema = z.discriminatedUnion("type", [
     projectId: z.string(),
   }),
   webEventSchema.extend({
-    type: z.literal("project.project-default-changed"),
-    projectId: z.string(),
-  }),
-  webEventSchema.extend({
-    type: z.literal("project.use-for-every-role-changed"),
-    projectId: z.string(),
-  }),
-  webEventSchema.extend({
-    type: z.literal("project.role-override-changed"),
+    type: z.literal("project.engine-changed"),
     projectId: z.string(),
   }),
   webEventSchema.extend({
@@ -873,8 +891,11 @@ export const repositoryCloneSchema = z.discriminatedUnion("state", [
   }),
   repositoryCloneFieldsSchema.extend({
     state: z.literal("cloned"),
-    defaultBranch: z.string(),
+    /** Null for an empty repository, whose base branch is made with its first commit as it is added. */
+    defaultBranch: z.string().nullable(),
     branches: z.array(z.string()),
+    /** The repository has no commits yet, so no branches. */
+    empty: z.boolean(),
   }),
   repositoryCloneFieldsSchema.extend({ state: z.literal("failed"), problem: z.string() }),
 ]);

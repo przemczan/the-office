@@ -1,4 +1,4 @@
-import type { EngineInCascade } from "../../people/index.js";
+import type { EngineAtPlace, EngineInCascade } from "../../people/index.js";
 
 /** The Project and the Task a session is about. */
 export interface TaskSessionPlace {
@@ -12,8 +12,15 @@ export interface TaskSessionPlace {
  */
 export abstract class RoleEngineCascade {
   /**
-   * The engine and model a session of the Role runs on about the Task, with the level that gave
-   * it; none while no engine is listed. For a Role someone fills.
+   * The one engine every session about the Task runs on, whatever its Role, with the level that
+   * gave it; none while no engine is listed.
+   */
+  abstract engineAt(place: TaskSessionPlace): Promise<EngineAtPlace | null>;
+
+  /**
+   * The engine a session of the Role runs on about the Task, with the level that gave it, and the
+   * model and effort its person works with there, each with its level; none while no engine is
+   * listed. For a Role someone fills.
    */
   abstract applying(roleKey: string, place: TaskSessionPlace): Promise<EngineInCascade | null>;
 }

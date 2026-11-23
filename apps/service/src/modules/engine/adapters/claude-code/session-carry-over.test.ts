@@ -16,6 +16,7 @@ const WORK: ClaudeCodeEngine = {
   name: "Work",
   kind: "claude-code",
   defaultModel: "claude-sonnet-5-5",
+  defaultEffort: null,
   claudeCodeP: false,
 };
 const HOME: ClaudeCodeEngine = { ...WORK, id: "home", name: "Home" };

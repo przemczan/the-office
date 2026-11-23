@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { chmod, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { INestApplication } from "@nestjs/common";
 import {
@@ -23,21 +24,24 @@ export const UNANSWERED = "https://127.0.0.1:1/acme/missing";
 /**
  * Git config, as the user's global config could hold it, that reads a URL on the made-up host as
  * the bare repository of that name beside the test's repository, since a Repository URL is never
- * a local path.
+ * a local path, and gives the identity a clone's first commit is written by, as the Linux check's
+ * container has none.
  */
 function madeUpHostConfig(folder: string): Record<string, string> {
   const local = `${folder.replaceAll("\\", "/")}/`;
-  const insteadOf: [string, string][] = [
-    [local, HOST],
+  const settings: [string, string][] = [
+    [`url.${local}.insteadOf`, HOST],
     // insteadOf is case-sensitive, as Linux's file names are.
-    [`${local}origin.git`, `${HOST}Origin.git`],
-    [UNANSWERED, `${HOST}missing`],
+    [`url.${local}origin.git.insteadOf`, `${HOST}Origin.git`],
+    [`url.${UNANSWERED}.insteadOf`, `${HOST}missing`],
+    ["user.name", "The Office"],
+    ["user.email", "office@localhost"],
   ];
   return Object.fromEntries([
-    ["GIT_CONFIG_COUNT", String(insteadOf.length)],
-    ...insteadOf.flatMap(([to, from], index) => [
-      [`GIT_CONFIG_KEY_${index}`, `url.${to}.insteadOf`],
-      [`GIT_CONFIG_VALUE_${index}`, from],
+    ["GIT_CONFIG_COUNT", String(settings.length)],
+    ...settings.flatMap(([key, value], index) => [
+      [`GIT_CONFIG_KEY_${index}`, key],
+      [`GIT_CONFIG_VALUE_${index}`, value],
     ]),
   ]);
 }
@@ -53,7 +57,13 @@ export async function aClonesRepository(): Promise<{
 }> {
   const repository = await createTemporaryRepository();
   const officeData = join(repository.folder, "office-data");
-  gitIn(repository.folder, "init", "--quiet", "--bare", "empty.git");
+  for (const empty of ["empty.git", "unborn.git", "closed.git", "filled.git"]) {
+    gitIn(repository.folder, "init", "--quiet", "--bare", empty);
+  }
+  // A remote that refuses every push, as one the Office identity may not write to.
+  const refusing = join(repository.folder, "closed.git", "hooks", "pre-receive");
+  await writeFile(refusing, '#!/bin/sh\necho "Pushes are closed here." >&2\nexit 1\n');
+  await chmod(refusing, 0o755);
   gitIn(repository.folder, "clone", "--quiet", "--bare", repository.path, "shop.git");
   gitIn(join(repository.folder, "shop.git"), "branch", "release", "main");
   gitIn(repository.folder, "clone", "--quiet", "--bare", repository.path, "store.git");

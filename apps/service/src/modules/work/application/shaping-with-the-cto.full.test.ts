@@ -95,8 +95,7 @@ const CTO_ROLE: SessionRole = {
     title: "CTO",
     responsibilities: "Shapes Initiatives across Projects with you.",
     instructions: "Agree the outcome first, then the Tasks.",
-    roleOverride: null,
-    effort: "low",
+    engineSettings: { "claude-code": { model: null, effort: "low" } },
     capabilities: { sharedMemory: true, chat: true, consultant: true, runEnvironment: false },
     permissionProfile: { edit: false, run: "read-only-git", web: true, mcpTools: {} },
     hardSwitches: {

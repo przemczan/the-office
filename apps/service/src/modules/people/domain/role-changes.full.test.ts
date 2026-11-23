@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { FIRST_CLAUDE_CODE_ENGINE, type Engine } from "../../engine/index.js";
 import { presetFor } from "./presets.js";
 import { aRole, aRoleCard, CARD_CONTEXT } from "./role.fixtures.js";
 import {
@@ -7,8 +8,9 @@ import {
   hire,
   hireBack,
   hireFromScratch,
+  engineSettingsMovedOver,
   letGo,
-  moveRoleOverride,
+  moveEngineSettingsOver,
 } from "./role-changes.js";
 import {
   RoleAvatarChanged,
@@ -97,7 +99,10 @@ describe("hireFromScratch", () => {
 
     expect(role.cardProposedBy).toBe("office-manager");
     expect(role.cardSavedBy).toEqual(BEN_ITO);
-    const edit = { ...role.card, effort: "low" } as const;
+    const edit = {
+      ...role.card,
+      engineSettings: { "claude-code": { model: null, effort: "low" } },
+    } as const;
     expect(changeRoleCard(role, edit, CARD_CONTEXT, at, ANN_LEE)?.role).toMatchObject({
       cardProposedBy: undefined,
       cardSavedBy: ANN_LEE,
@@ -217,61 +222,116 @@ describe("changeRoleCard", () => {
   });
 });
 
-describe("moveRoleOverride", () => {
-  const onStrata = { engineId: "strata", model: "qwen3" };
-  const onClaudeCode = { engineId: "claude-code", model: "claude-haiku-5-5" };
-  const toClaudeCode = (reference: typeof onStrata) =>
-    reference.engineId === "strata" ? onClaudeCode : reference;
+describe("moveEngineSettingsOver", () => {
+  const gemini: Engine = {
+    id: "gemini",
+    name: "Gemini",
+    kind: "gemini-cli",
+    defaultModel: "auto",
+    defaultEffort: null,
+    apiKey: null,
+  };
+  const engines = [FIRST_CLAUDE_CODE_ENGINE, gemini];
+  const opusOnClaudeCode = { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-opus-5-5" };
 
-  it("saves the moved override as the next version naming no user, a let-go Role's too", () => {
-    const role = aRole({
-      card: aRoleCard({ roleOverride: onStrata }),
-      cardProposedBy: "cto",
-      cardSavedBy: ANN_LEE,
-      letGoAt: at,
+  it("puts the effort on every engine type that takes it, listed or not", () => {
+    expect(moveEngineSettingsOver({ roleOverride: null, effort: "high" }, engines)).toEqual({
+      engineSettings: {
+        "claude-code": { model: null, effort: "high" },
+        codex: { model: null, effort: "high" },
+      },
+      changes: [
+        { field: "engineSettingsMovedOver", from: null, to: null },
+        {
+          field: "engineSettings",
+          from: {},
+          to: {
+            "claude-code": { model: null, effort: "high" },
+            codex: { model: null, effort: "high" },
+          },
+        },
+      ],
     });
-    const change = moveRoleOverride(role, toClaudeCode, at);
+    expect(
+      moveEngineSettingsOver({ roleOverride: null, effort: "max" }, []).engineSettings,
+    ).toEqual({ "claude-code": { model: null, effort: "max" } });
+  });
 
-    expect(change?.role).toEqual({
+  it("makes a Role override the model on its engine's type, naming the type it moved to", () => {
+    const moved = moveEngineSettingsOver(
+      { roleOverride: opusOnClaudeCode, effort: "low" },
+      engines,
+    );
+
+    expect(moved.engineSettings).toEqual({
+      "claude-code": { model: "claude-opus-5-5", effort: "low" },
+      codex: { model: null, effort: "low" },
+    });
+    expect(moved.changes[0]).toEqual({
+      field: "engineSettingsMovedOver",
+      from: opusOnClaudeCode,
+      to: "claude-code",
+    });
+  });
+
+  it("gives a Role override on a type taking no effort its model only", () => {
+    const onGemini = { engineId: "gemini", model: "pro" };
+
+    expect(
+      moveEngineSettingsOver({ roleOverride: onGemini, effort: "medium" }, engines).engineSettings,
+    ).toEqual({
+      "claude-code": { model: null, effort: "medium" },
+      codex: { model: null, effort: "medium" },
+      "gemini-cli": { model: "pro", effort: null },
+    });
+  });
+
+  it("drops a Role override on an engine no longer listed, still naming it", () => {
+    const onRemoved = { engineId: "removed", model: "qwen3" };
+    const moved = moveEngineSettingsOver({ roleOverride: onRemoved, effort: "high" }, engines);
+
+    expect(moved.engineSettings).toEqual({
+      "claude-code": { model: null, effort: "high" },
+      codex: { model: null, effort: "high" },
+    });
+    expect(moved.changes[0]).toEqual({
+      field: "engineSettingsMovedOver",
+      from: onRemoved,
+      to: null,
+    });
+  });
+});
+
+describe("engineSettingsMovedOver", () => {
+  it("saves the moved settings as the next version naming no user, a let-go Role's too", () => {
+    const role = aRole({ cardProposedBy: "cto", cardSavedBy: ANN_LEE, letGoAt: at });
+    const { role: moved, event } = engineSettingsMovedOver(
+      role,
+      { roleOverride: null, effort: "low" },
+      [FIRST_CLAUDE_CODE_ENGINE],
+      at,
+    );
+
+    expect(moved).toEqual({
       ...role,
-      card: aRoleCard({ roleOverride: onClaudeCode }),
+      card: {
+        ...role.card,
+        engineSettings: {
+          "claude-code": { model: null, effort: "low" },
+          codex: { model: null, effort: "low" },
+        },
+      },
       cardVersion: 2,
       cardSavedAt: at,
       cardProposedBy: undefined,
       cardSavedBy: null,
     });
-    expect(change?.event).toEqual(
-      new RoleCardChanged(change!.role, [
-        { field: "roleOverride", from: onStrata, to: onClaudeCode },
+    expect(event).toEqual(
+      new RoleCardChanged(moved, [
+        { field: "engineSettingsMovedOver", from: null, to: null },
+        { field: "engineSettings", from: {}, to: moved.card.engineSettings },
       ]),
     );
-  });
-
-  it("saves an override moved to none, as the only engine goes, as the next version", () => {
-    const change = moveRoleOverride(
-      aRole({ card: aRoleCard({ roleOverride: onStrata }) }),
-      () => null,
-      at,
-    );
-
-    expect(change?.role.card.roleOverride).toBeNull();
-    expect(change?.role.cardVersion).toBe(2);
-    expect(change?.event).toEqual(
-      new RoleCardChanged(change!.role, [{ field: "roleOverride", from: onStrata, to: null }]),
-    );
-  });
-
-  it("changes nothing when the override stays, or there is none", () => {
-    expect(
-      moveRoleOverride(
-        aRole({ card: aRoleCard({ roleOverride: onClaudeCode }) }),
-        toClaudeCode,
-        at,
-      ),
-    ).toBeUndefined();
-    expect(
-      moveRoleOverride(aRole({ card: aRoleCard({ roleOverride: null }) }), toClaudeCode, at),
-    ).toBeUndefined();
   });
 });
 

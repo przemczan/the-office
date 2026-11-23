@@ -69,7 +69,7 @@ describe("stageFieldChanges", () => {
     expect(stageFieldChanges(implement, proposed, roles)).toEqual([
       { label: "Who works it", from: "Jim", to: "Dwight" },
       { label: "Budget", from: "100k tokens", to: "150k tokens" },
-      { label: "Effort", from: "Role default", to: "High" },
+      { label: "Effort", from: "Person's effort", to: "High" },
       { label: "Permissions", from: "The Role card's", to: "Runs read-only git only; No web" },
     ]);
   });

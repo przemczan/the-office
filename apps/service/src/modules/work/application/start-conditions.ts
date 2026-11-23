@@ -3,7 +3,9 @@ import { onceByKey, readEach } from "../../../platform/database/fan-out.js";
 import { ScheduledExitHold } from "../../office-updates/index.js";
 import {
   EngineModels,
+  EngineSessions,
   usageWindowWords,
+  type EngineCapability,
   type EngineId,
   type StandInEngineSettings,
 } from "../../engine/index.js";
@@ -40,18 +42,33 @@ import { DailyCaps } from "./daily-caps.js";
 import { withDutiesHeld } from "./duty-holders.js";
 import { StartsSinceReading } from "./starts-since-reading.js";
 import { TaskStageEdits } from "./task-stage-edits.js";
-import { UsageEstimates, type TaskEstimator } from "./usage-estimates.js";
+import { UsageEstimates, type TaskCascade, type TaskEstimator } from "./usage-estimates.js";
 
 const NOTHING_SINCE_READING = { fiveHour: 0, sevenDay: 0 };
+
+/**
+ * What a Stand-in Engine needs to take on a Task's Agent Stages (spec §5.4.5): each gives its
+ * session Office tools and holds its answer to the Stage result's schema.
+ */
+const AGENT_STAGE_NEEDS = [
+  "officeTools",
+  "outputSchema",
+] as const satisfies readonly EngineCapability[];
 
 /** What every Task's Start weighs alike, read once for them all. */
 interface OfficeUsageAtStart {
   readonly daily: readonly DailyCapsAtStart[];
   readonly engineNames: ReadonlyMap<EngineId, string>;
   readonly now: Date;
+  /** The engines listed and the Office's Stand-in Engine list. */
   readonly standIns: StandInEngineSettings;
-  /** Each listed Stand-in Engine as a Start weighs it, but for the Task's estimate. */
-  readonly standInEngines: readonly StandInEngineAtStart[];
+  /**
+   * A listed engine as a Start weighs it as a Stand-in Engine, but for the Task's estimate; read
+   * once whichever lists (the Office's, the Projects' own) name it.
+   */
+  readonly standInEngineOf: (engineId: EngineId) => Promise<StandInEngineAtStart>;
+  /** Whether an engine has every capability an Agent Stage needs. */
+  readonly capable: (engineId: EngineId) => boolean;
 }
 
 /** What the Tasks weighed together share, each read once for them all. */
@@ -61,7 +78,7 @@ interface StartReads {
   readonly projectOf: (projectId: string) => Promise<KnownProject | undefined>;
   readonly initiativeOf: (initiativeId: string) => Promise<Initiative | undefined>;
   readonly personOf: (roleKey: string) => Promise<KnownPerson | undefined>;
-  readonly modelsOf: (task: Task) => Promise<ReadonlyMap<EngineId, readonly string[]>>;
+  readonly cascadeOf: (task: Task) => Promise<TaskCascade>;
 }
 
 /**
@@ -87,6 +104,7 @@ export class StartConditionsReader {
     private readonly initiatives: InitiativeRepository,
     private readonly initiativeBranches: ProjectInitiativeBranches,
     private readonly stageEdits: TaskStageEdits,
+    private readonly engineSessions: EngineSessions,
   ) {}
 
   async of(task: Task): Promise<StartConditions> {
@@ -114,8 +132,12 @@ export class StartConditionsReader {
     const daily = await this.dailyCaps.of(usageSettings.caps, weighed, estimateOf);
     const engineNames = new Map(standIns.engines.map(({ id, name }) => [id, name] as const));
     const scheduledExitWait = this.exitHold.waitWords();
-    const standInEngines = await this.standInEngines(standIns, usageSettings.caps, daily);
-    const office = { daily, engineNames, now, standIns, standInEngines };
+    const standInEngineOf = onceByKey(
+      (engineId: EngineId) => this.standInEngine(engineId, usageSettings.caps, daily),
+      (engineId) => engineId,
+    );
+    const capable = this.engineSessions.capableOf(standIns.engines, AGENT_STAGE_NEEDS);
+    const office = { daily, engineNames, now, standIns, standInEngineOf, capable };
     const reads = this.sharedReads();
     return async (task) => {
       const [pipeline, project, { usage, standIns: taskStandIns }] = await Promise.all([
@@ -147,7 +169,7 @@ export class StartConditionsReader {
 
   /**
    * A Pipeline, its Stages with their duties' holders, a Project, an Initiative, a person and the
-   * models a Task's Stages use.
+   * cascade's engines a Task's Stages run on, with the Stand-in Engine list that applies.
    */
   private sharedReads(): StartReads {
     return {
@@ -171,7 +193,7 @@ export class StartConditionsReader {
         (roleKey: string) => this.people.find(roleKey),
         (roleKey) => roleKey,
       ),
-      modelsOf: this.estimates.modelsReader(),
+      cascadeOf: this.estimates.cascadeReader(),
     };
   }
 
@@ -218,11 +240,15 @@ export class StartConditionsReader {
     task: Task,
     estimateOf: TaskEstimator,
     { measures, caps }: UsageSettings,
-    { daily, engineNames, now, standIns, standInEngines }: OfficeUsageAtStart,
+    { daily, engineNames, now, standIns, standInEngineOf, capable }: OfficeUsageAtStart,
     reads: StartReads,
   ): Promise<{ readonly usage: UsageAtStart; readonly standIns: StandInsAtStart }> {
-    const [estimate, modelsOn] = await Promise.all([estimateOf(task), reads.modelsOf(task)]);
-    const engineIds = [...modelsOn.keys()];
+    const [estimate, cascade] = await Promise.all([estimateOf(task), reads.cascadeOf(task)]);
+    const engineIds = cascade.cascadeEngines;
+    // With no Agent Stage on an engine nothing is handed on, so the Office's list stands in; an
+    // engine override gives an empty list, so none stands in for a forced engine.
+    const order = cascade.forcedBy ? [] : (cascade.standIns ?? standIns.standInEngines);
+    const listed = order.filter((engineId) => standIns.engines.some(({ id }) => id === engineId));
     const usage = {
       now,
       measures,
@@ -236,27 +262,28 @@ export class StartConditionsReader {
       usage,
       standIns: {
         engines: standIns.engines,
-        order: standIns.standInEngines,
-        modelsOn,
-        standIns: standInEngines,
+        order,
+        cascadeEngines: engineIds,
+        ...(engineIds.length > 0 && { capable }),
+        standIns: engineIds.length === 0 ? [] : await readEach(listed, standInEngineOf),
+        ...(cascade.forcedBy && { forcedBy: cascade.forcedBy }),
       },
     };
   }
 
-  /** Each listed Stand-in Engine's windows, Daily caps, used-up windows and window ratios. */
-  private async standInEngines(
-    { engines, standInEngines }: StandInEngineSettings,
+  /** A listed Stand-in Engine's windows, Daily caps, used-up windows and window ratios. */
+  private async standInEngine(
+    engineId: EngineId,
     caps: readonly EngineCaps[],
     daily: readonly DailyCapsAtStart[],
-  ): Promise<StandInEngineAtStart[]> {
-    const listed = standInEngines.filter((engineId) => engines.some(({ id }) => id === engineId));
-    return readEach(listed, async (engineId) => ({
+  ): Promise<StandInEngineAtStart> {
+    return {
       engineId,
       windows: this.windowsOf(engineId, caps),
       daily: daily.find((engineDaily) => engineDaily.engineId === engineId),
       usedUp: this.usedUpOf(engineId),
       windowRatios: await this.estimates.windowRatiosOf(engineId),
-    }));
+    };
   }
 
   /** The engine id's windows as a Start weighs them; undefined while no Window cap is set for it. */

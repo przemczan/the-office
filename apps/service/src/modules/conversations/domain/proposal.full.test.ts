@@ -78,7 +78,7 @@ describe("a change to a Role", () => {
     expect(
       proposedRoleChange("tester", card, {
         name: "Tess",
-        effort: "high",
+        engineSettings: { "claude-code": { model: null, effort: "high" } },
         // The same switches, in another order, as a stored card may have them.
         hardSwitches: {
           changeRoles: { kind: "never" },
@@ -90,8 +90,8 @@ describe("a change to a Role", () => {
     ).toEqual({
       kind: "change",
       roleKey: "tester",
-      from: { effort: "medium", capabilities: card.capabilities },
-      to: { effort: "high", capabilities },
+      from: { engineSettings: {}, capabilities: card.capabilities },
+      to: { engineSettings: { "claude-code": { model: null, effort: "high" } }, capabilities },
     });
   });
 });
@@ -106,7 +106,7 @@ describe("applying a Proposal", () => {
   });
 
   it("refuses an edit of anything but a new Role, or of another kind of hire", () => {
-    const change = proposedRoleChange("tester", aProposedCard(), { effort: "high" });
+    const change = proposedRoleChange("tester", aProposedCard(), { taskLimit: 2 });
     const edited = { kind: "hire", card: aProposedCard(), skills: [] } as const;
     const refusal = "Only a new Role is edited before hiring, as it was proposed.";
 

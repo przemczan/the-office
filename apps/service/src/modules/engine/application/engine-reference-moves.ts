@@ -3,7 +3,7 @@ import type { EngineRemoval, MovedEngineReference } from "../domain/engine-remov
 
 /**
  * What a module keeps naming engines, as a removal moves it to the replacement
- * (`movedEngineModel`). Both go through the same functions, so what `movesOf` tells the user is
+ * (`movedEngineId`). Both go through the same functions, so what `movesOf` tells the user is
  * what `move` does.
  */
 export interface EngineReferences {
@@ -14,8 +14,8 @@ export interface EngineReferences {
 }
 
 /**
- * What moves the references to an engine being removed, filled by People (Role overrides) and
- * Projects (their levels) as they start: they read the engines from Engine, so Engine can't call
+ * What moves the references to an engine being removed, filled by Projects (their levels) and
+ * Work (engine overrides) as they start: they read the engines from Engine, so Engine can't call
  * them directly (the module template's registry).
  */
 @Injectable()

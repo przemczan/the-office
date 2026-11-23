@@ -1,36 +1,18 @@
-import type { Role } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
   endedStateOf,
   movedReferenceChange,
   movedReferencePlace,
+  removalTypeNotes,
   suggestedReplacement,
 } from "./engine-removal-words.ts";
 
-function role(key: string, name: string, title: string, letGoAt: string | null): Role {
-  return { key, card: { name, title }, letGoAt } as unknown as Role;
-}
-
-const ROLES = [
-  role("data-analyst", "Mia", "Data Analyst", null),
-  role("reviewer", "Rex", "Reviewer", "2026-11-01T10:00:00.000Z"),
-];
 const SHOP = { id: "p1", name: "Shop" };
 
 describe("where a removal moves a reference", () => {
   it("names each level", () => {
-    expect(movedReferencePlace({ roleKey: null, project: null, work: null }, ROLES)).toBe(
-      "The Office default",
-    );
-    expect(movedReferencePlace({ roleKey: null, project: SHOP, work: null }, ROLES)).toBe(
-      "The Project default of Shop",
-    );
-    expect(movedReferencePlace({ roleKey: "data-analyst", project: null, work: null }, ROLES)).toBe(
-      "The Role override of Mia · Data Analyst",
-    );
-    expect(movedReferencePlace({ roleKey: "data-analyst", project: SHOP, work: null }, ROLES)).toBe(
-      "The Role override of Mia · Data Analyst in Shop",
-    );
+    expect(movedReferencePlace({ project: null, work: null })).toBe("The Office default");
+    expect(movedReferencePlace({ project: SHOP, work: null })).toBe("The Project default of Shop");
   });
 
   it("names a Task's and an Initiative's engine by the record", () => {
@@ -46,11 +28,20 @@ describe("where a removal moves a reference", () => {
       name: "Usage reports",
       state: "active" as const,
     };
-    expect(movedReferencePlace({ roleKey: null, project: SHOP, work: task }, ROLES)).toBe(
-      "The engine of the Task “Export Stats as CSV”",
+    expect(movedReferencePlace({ project: SHOP, work: task })).toBe(
+      "The engine override of the Task “Export Stats as CSV”",
     );
-    expect(movedReferencePlace({ roleKey: null, project: SHOP, work: initiative }, ROLES)).toBe(
-      "The engine of the Initiative “Usage reports”",
+    expect(movedReferencePlace({ project: SHOP, work: initiative })).toBe(
+      "The engine override of the Initiative “Usage reports”",
+    );
+  });
+
+  it("names the Office's Stand-in Engine list and a Project's own", () => {
+    expect(movedReferencePlace({ project: null, work: null, standInList: true })).toBe(
+      "The Office's Stand-in Engine list",
+    );
+    expect(movedReferencePlace({ project: SHOP, work: null, standInList: true })).toBe(
+      "The Stand-in Engine list of Shop",
     );
   });
 
@@ -63,15 +54,6 @@ describe("where a removal moves a reference", () => {
     expect(endedStateOf({ work: { ...initiative, state: "active" } })).toBeNull();
     expect(endedStateOf({ work: null })).toBeNull();
   });
-
-  it("marks a person let go, and falls back to the key for a Role not read", () => {
-    expect(movedReferencePlace({ roleKey: "reviewer", project: null, work: null }, ROLES)).toBe(
-      "The Role override of Rex · Reviewer (let go)",
-    );
-    expect(movedReferencePlace({ roleKey: "planner", project: null, work: null }, undefined)).toBe(
-      "The Role override of planner",
-    );
-  });
 });
 
 function engineName(engineId: string): string {
@@ -79,44 +61,60 @@ function engineName(engineId: string): string {
 }
 
 describe("what a removal moves a reference to", () => {
-  it("gives the engine and model on both sides", () => {
-    expect(
-      movedReferenceChange(
-        {
-          from: { engineId: "second", model: "claude-haiku-5-5" },
-          to: { engineId: "claude-code", model: "claude-haiku-5-5" },
-        },
-        engineName,
-      ),
-    ).toBe("Haiku 5.5 on Second account → Haiku 5.5 on Claude Code");
-  });
-
-  it("says none when the only engine goes", () => {
-    expect(
-      movedReferenceChange(
-        { from: { engineId: "claude-code", model: "claude-sonnet-5-5" }, to: null },
-        engineName,
-      ),
-    ).toBe("Sonnet 5.5 on Claude Code → none");
-  });
-});
-
-describe("the replacement suggested", () => {
-  const officeDefault = { engineId: "claude-code", model: "claude-sonnet-5-5" };
-
-  it("is the Office default's engine", () => {
-    expect(suggestedReplacement(["second", "claude-code"], "second", officeDefault)).toBe(
-      "claude-code",
+  it("gives the engines alone, as no level names a model", () => {
+    expect(movedReferenceChange({ from: "second", to: "claude-code" }, engineName)).toBe(
+      "Second account → Claude Code",
     );
   });
 
+  it("says none when the only engine goes, or a list already names the replacement", () => {
+    expect(movedReferenceChange({ from: "claude-code", to: null }, engineName)).toBe(
+      "Claude Code → none",
+    );
+  });
+});
+
+const CLAUDE_CODE = { id: "claude-code", kind: "claude-code", name: "Claude Code" } as const;
+const SECOND = { id: "second", kind: "claude-code", name: "Second account" } as const;
+const CODEX = { id: "codex", kind: "codex", name: "Codex" } as const;
+
+describe("the replacement suggested", () => {
+  const officeDefault = { engineId: "codex" };
+
+  it("is the first other engine of the removed one's type", () => {
+    expect(suggestedReplacement([CODEX, CLAUDE_CODE, SECOND], "claude-code", officeDefault)).toBe(
+      "second",
+    );
+  });
+
+  it("is the Office default's engine when no other engine is of its type", () => {
+    expect(suggestedReplacement([CLAUDE_CODE, CODEX], "claude-code", officeDefault)).toBe("codex");
+  });
+
   it("is the first other engine when the Office default's is the one going", () => {
-    expect(
-      suggestedReplacement(["claude-code", "second", "third"], "claude-code", officeDefault),
-    ).toBe("second");
+    expect(suggestedReplacement([CODEX, CLAUDE_CODE], "codex", officeDefault)).toBe("claude-code");
   });
 
   it("is none for the only engine", () => {
-    expect(suggestedReplacement(["claude-code"], "claude-code", officeDefault)).toBeNull();
+    expect(suggestedReplacement([CODEX], "codex", officeDefault)).toBeNull();
+  });
+});
+
+describe("the notes on the engine type", () => {
+  it("says nothing for a replacement of the same type, the type keeping an engine", () => {
+    expect(removalTypeNotes([CLAUDE_CODE, SECOND], "claude-code", "second")).toEqual([]);
+  });
+
+  it("says a replacement of another type takes its type to the defaults it takes over, and the type's last engine leaves its settings unused", () => {
+    expect(removalTypeNotes([CLAUDE_CODE, CODEX], "claude-code", "codex")).toEqual([
+      "Codex is of another engine type, Codex: the Office default and the Project defaults it takes over take its type with it, and each person works there with their model and effort for it.",
+      "Claude Code is the last Claude Code engine: people's and Projects' settings for Claude Code are kept, unused until a Claude Code engine is listed again.",
+    ]);
+  });
+
+  it("says the type's last engine leaves its settings unused when the only engine goes", () => {
+    expect(removalTypeNotes([CODEX], "codex", null)).toEqual([
+      "Codex is the last Codex engine: people's and Projects' settings for Codex are kept, unused until a Codex engine is listed again.",
+    ]);
   });
 });

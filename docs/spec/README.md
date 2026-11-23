@@ -88,8 +88,12 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 
 ### E
 
+- **Empty repository, empty clone, first commit**: [2.1.1 Empty repositories](2.1.1-projects.md#empty-repositories); [5.5 An empty repository's first commit](5.5-git-and-isolation.md#an-empty-repositorys-first-commit); screen: [Projects › Add a Project](screens/projects.md#add-a-project)
 - **End, Final Stage**: [2.3.1 How a Stage ends](2.3.1-stages.md#how-a-stage-ends); [2.3.2 The Pipeline's order](2.3.2-flows.md#the-pipelines-order)
-- **Engine, Office default, Project default, Task's engine, Initiative's engine, Role override**: [5.4.5 Engines are a list](5.4.5-engines-and-cascade.md#engines-are-a-list); [5.4.5 The engine cascade](5.4.5-engines-and-cascade.md#the-engine-cascade); [2.1.3 A Task's engine](2.1.3-tasks.md#a-tasks-engine); [2.1.4 An Initiative's engine](2.1.4-initiatives.md#an-initiatives-engine); screen: [Settings › Engines](screens/settings.md#engines)
+- **Engine, Engine type, an engine's default model and effort**: [5.4.5 Engines are a list](5.4.5-engines-and-cascade.md#engines-are-a-list); [5.4.5 Models and efforts of an engine type](5.4.5-engines-and-cascade.md#models-and-efforts-of-an-engine-type); [5.4.1 Engine kinds](5.4.1-engine-kinds.md#engine-kinds); screen: [Settings › Engines](screens/settings.md#engines)
+- **Engine cascade, Office default, Project default**: [5.4.5 Two cascades](5.4.5-engines-and-cascade.md#two-cascades); [5.4.5 The engine cascade](5.4.5-engines-and-cascade.md#the-engine-cascade); screens: [Settings › Engines](screens/settings.md#engines), [Project page › Engine](screens/project-page.md#engine)
+- **Engine override (a Task's, an Initiative's), a forced engine with no stand-ins**: [5.4.5 The engine cascade](5.4.5-engines-and-cascade.md#the-engine-cascade); [2.1.3 A Task's engine](2.1.3-tasks.md#a-tasks-engine); [2.1.4 An Initiative's engine](2.1.4-initiatives.md#an-initiatives-engine); [5.4.6 A forced engine has no stand-ins](5.4.6-stand-in-engines-and-usage-windows.md#a-forced-engine-has-no-stand-ins); screens: [Task page › Engine](screens/task-page.md#engine), [Initiative page › Engine fold](screens/initiative-page.md#engine-fold)
+- **Engine settings moved over (Role override, Project's Role overrides, Use for every Role)**: [5.4.5 Moving the earlier engine settings over](5.4.5-engines-and-cascade.md#moving-the-earlier-engine-settings-over)
 
 ### F
 
@@ -97,6 +101,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Fire alarm, Sound the alarm**: [2.8 The alarm](2.8-fire-alarm.md#the-alarm); screen: [Shell › Fire alarm control](screens/shell.md#fire-alarm-control)
 - **Safe pause ASAP, Safe pause after the current Stages, Safe pause after the current Tasks (the fire alarm's ways)**: [2.8 Safe pause ASAP](2.8-fire-alarm.md#safe-pause-asap); [2.8 Safe pause after the current Stages](2.8-fire-alarm.md#safe-pause-after-the-current-stages); [2.8 Safe pause after the current Tasks](2.8-fire-alarm.md#safe-pause-after-the-current-tasks); [2.8 Making it stricter](2.8-fire-alarm.md#making-it-stricter); screen: [Shell › Fire alarm control](screens/shell.md#fire-alarm-control)
 - **First-run setup**: [2.10 First-run setup](2.10-users-and-signing-in.md#first-run-setup); screen: [Sign in › First user](screens/sign-in.md#first-user)
+- **Forced model and effort (Force this model and effort for everyone), a Project's setting for a person**: [5.4.5 The model and effort cascade](5.4.5-engines-and-cascade.md#the-model-and-effort-cascade); screen: [Project page › Engine](screens/project-page.md#engine)
 
 - **Feature switch, Connected devices / Test targets / GitHub issues / Run environment switches**: [2.1.1 Feature switches](2.1.1-projects.md#feature-switches); [2.1.1 Onboarding a Project](2.1.1-projects.md#onboarding-a-project); screen: [Project page › Features](screens/project-page.md#features)
 
@@ -148,6 +153,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Memory, Memory note**: [2.2 Shared memory](2.2-people.md#shared-memory); screen: [People › Memory tab](screens/people.md#memory-tab)
 - **Mention**: [2.4.4 Mentions](2.4.4-messages.md#mentions); screen: [Thread › Mentions](screens/thread.md#mentions)
 - **Merge method**: [2.3.4 Publish](2.3.4-publish.md#publish); screen: [Pull requests › Merge window](screens/pull-requests.md#merge-window)
+- **Model and effort cascade, a person's Model and effort per engine type, the Stage's effort**: [5.4.5 Two cascades](5.4.5-engines-and-cascade.md#two-cascades); [5.4.5 The model and effort cascade](5.4.5-engines-and-cascade.md#the-model-and-effort-cascade); [5.4.5 A session whose engine changes](5.4.5-engines-and-cascade.md#a-session-whose-engine-changes); screens: [People › Role card tab](screens/people.md#role-card-tab), [Pipeline flow editor › Stage panel](screens/pipeline-flow-editor.md#stage-panel)
 - **Model price**: [2.11.2 Estimated cost](2.11.2-tokens-and-cost.md#estimated-cost); [5.2 Estimated cost](5.2-stack.md#estimated-cost)
 - **Move**: [2.1.3 Moving a Task](2.1.3-tasks.md#moving-a-task); screen: [Task page › Move to another Project](screens/task-page.md#move-to-another-project)
 
@@ -191,6 +197,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Project filter**: [2.1.6 Saved views and the Project filter](2.1.6-board-and-search.md#saved-views-and-the-project-filter); screen: [Shell › Project filter](screens/shell.md#project-filter)
 - **Project limit, Task limit**: [2.1.1 Project limit](2.1.1-projects.md#project-limit); [2.2 Limits](2.2-people.md#limits)
 - **Project Pipeline**: [2.3.5 Project Pipelines](2.3.5-library.md#project-pipelines); screen: [Project page › Pipelines](screens/project-page.md#pipelines)
+- **Project's own stand-in list, Use this Project's own list**: [5.4.6 A Project's own list](5.4.6-stand-in-engines-and-usage-windows.md#a-projects-own-list); screen: [Project page › Engine](screens/project-page.md#engine)
 - **Prompt template**: [2.2 Prompt templates](2.2-people.md#prompt-templates); [5.3 Prompt templates is its own module](5.3-modules.md#prompt-templates-is-its-own-module); screen: [Settings › Prompt templates](screens/settings.md#prompt-templates)
 - **Proposal**: [2.3.2 Route and condition Proposals](2.3.2-flows.md#route-and-condition-proposals); [2.3.5 Project commands by Proposal and by hand](2.3.5-library.md#project-commands-by-proposal-and-by-hand); screen: [Task page › Pipeline proposal](screens/task-page.md#pipeline-proposal)
 - **Public address**: [5.1 The public address](5.1-shape.md#the-public-address); [2.10 Which ways work on which address](2.10-users-and-signing-in.md#which-ways-work-on-which-address)
@@ -227,6 +234,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Stage retry**: [2.3.2 When a Stage fails](2.3.2-flows.md#when-a-stage-fails); [2.3.2 On failure](2.3.2-flows.md#on-failure)
 - **Stage template**: [2.3.5 Stage templates](2.3.5-library.md#stage-templates); screen: [Pipeline flow editor › Stage templates](screens/pipeline-flow-editor.md#stage-templates)
 - **Stand-in Engine**: [5.4.6 Stand-in Engines](5.4.6-stand-in-engines-and-usage-windows.md#stand-in-engines); [5.4.6 A person's Thread switches](5.4.6-stand-in-engines-and-usage-windows.md#a-persons-thread-switches)
+- **Stand-ins of another engine type**: [5.4.6 Stand-ins of another engine type](5.4.6-stand-in-engines-and-usage-windows.md#stand-ins-of-another-engine-type); [5.4.6 A running Stage switches](5.4.6-stand-in-engines-and-usage-windows.md#a-running-stage-switches)
 - **Start anyway past the usage caps**: [2.1.5 Start anyway past the usage caps](2.1.5-planning-and-start.md#start-anyway-past-the-usage-caps); screen: [Task page › Start and the queue](screens/task-page.md#start-and-the-queue)
 - **Start Ready Tasks**: [2.1.4 Start Ready Tasks](2.1.4-initiatives.md#start-ready-tasks); screen: [Work board › Start Ready Tasks](screens/work-board.md#start-ready-tasks)
 - **Stats**: [2.11.1 What Stats shows](2.11.1-the-stats-page.md#what-stats-shows); screen: [Stats](screens/stats.md#stats)
@@ -271,7 +279,8 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Context limits (Soft limit, Hard limit)**: [2.5 A Stage's session has a Soft limit and a Hard limit](2.5-context-policy.md#a-stages-session-has-a-soft-limit-and-a-hard-limit); [2.3.1 A Stage run restarts in a fresh session at its limits](2.3.1-stages.md#a-stage-run-restarts-in-a-fresh-session-at-its-limits); screen: [Settings › Office limits](screens/settings.md#office-limits)
 - **Crash loop**: [2.4.5 Crash loop](2.4.5-stopping-and-restarts.md#crash-loop)
 - **Dependencies between Tasks**: [2.1.3 Dependencies](2.1.3-tasks.md#dependencies); [2.1.3 A Dropped blocker](2.1.3-tasks.md#a-dropped-blocker)
-- **Engine kinds**: [5.4.1 Engine kinds](5.4.1-engine-kinds.md#engine-kinds); [5.4.1 The AgentEngine port](5.4.1-engine-kinds.md#the-agentengine-port)
+- **Engine types**: [5.4.1 Engine kinds](5.4.1-engine-kinds.md#engine-kinds); [5.4.1 The AgentEngine port](5.4.1-engine-kinds.md#the-agentengine-port)
+- **Which engine, model and effort a session gets**: [5.4.5 Two cascades](5.4.5-engines-and-cascade.md#two-cascades); [5.4.5 The engine cascade](5.4.5-engines-and-cascade.md#the-engine-cascade); [5.4.5 The model and effort cascade](5.4.5-engines-and-cascade.md#the-model-and-effort-cascade); `GET /tasks/:id/engine-cascade`: [5.4.5 The API](5.4.5-engines-and-cascade.md#the-api)
 - **Escalation and calls between people**: [2.2 Escalation](2.2-people.md#escalation); [2.2 Chains of calls](2.2-people.md#chains-of-calls)
 - **Hard switches by Role**: [6 Hard switches by role](6-permissions-and-safety.md#hard-switches-by-role); [6 Default profiles](6-permissions-and-safety.md#default-profiles)
 - **How a Stage ends**: [2.3.1 How a Stage ends](2.3.1-stages.md#how-a-stage-ends)
@@ -386,12 +395,12 @@ One page per screen, as built. Where a [design](../design/README.md) differs, th
 - [5.2 Stack](5.2-stack.md): TypeScript on Node 22, backend, web, data, infrastructure, telemetry.
 - [5.3 Modules](5.3-modules.md): the bounded contexts and how they talk.
 - [5.4 The engine](5.4-the-engine.md): index of the pages below.
-  - [5.4.1 Engine port and kinds](5.4.1-engine-kinds.md): the `AgentEngine` port, the engine kinds, native features, cache breakers, pinned versions.
+  - [5.4.1 Engine port and kinds](5.4.1-engine-kinds.md): the `AgentEngine` port, the engine types, native features, cache breakers, pinned versions.
   - [5.4.2 The OpenAI-compatible API engine](5.4.2-openai-compatible-api-engine.md)
   - [5.4.3 The Codex engine](5.4.3-codex-engine.md)
   - [5.4.4 The Copilot CLI engine](5.4.4-copilot-cli-engine.md)
-  - [5.4.5 Engines and the engine cascade](5.4.5-engines-and-cascade.md)
-  - [5.4.6 Stand-in Engines and usage windows](5.4.6-stand-in-engines-and-usage-windows.md)
+  - [5.4.5 Engines and the engine cascade](5.4.5-engines-and-cascade.md): the engine list, engine types, the engine cascade, the model and effort cascade, engine overrides, moving the earlier engine settings over.
+  - [5.4.6 Stand-in Engines and usage windows](5.4.6-stand-in-engines-and-usage-windows.md): Stand-in Engines, a Project's own list, stand-ins of another engine type, a forced engine, switching, usage windows.
   - [5.4.7 The Gemini CLI engine](5.4.7-gemini-cli-engine.md)
 - [5.5 Git and isolation](5.5-git-and-isolation.md): a worktree per Task, guards, deleting merged branches, environment as data, the Office identity, run environments, test instances' checkouts.
 - [5.6 Skills per session](5.6-skills-per-session.md): what a session lists at start.
@@ -675,15 +684,25 @@ Where each default lives, by page:
   - [Copilot CLI: capabilities as the engine check showed them](5.4.4-copilot-cli-engine.md#copilot-cli-capabilities-as-the-engine-check-showed-them)
 - 5.4.5 Engines and the engine cascade
   - [Engines are a list](5.4.5-engines-and-cascade.md#engines-are-a-list)
+  - [Models and efforts of an engine type](5.4.5-engines-and-cascade.md#models-and-efforts-of-an-engine-type)
   - [A Claude Code engine](5.4.5-engines-and-cascade.md#a-claude-code-engine)
   - [A Copilot CLI engine](5.4.5-engines-and-cascade.md#a-copilot-cli-engine)
   - [A Gemini CLI engine](5.4.5-engines-and-cascade.md#a-gemini-cli-engine)
   - [An OpenAI-compatible API engine](5.4.5-engines-and-cascade.md#an-openai-compatible-api-engine)
+  - [Two cascades](5.4.5-engines-and-cascade.md#two-cascades)
   - [The engine cascade](5.4.5-engines-and-cascade.md#the-engine-cascade)
+  - [The model and effort cascade](5.4.5-engines-and-cascade.md#the-model-and-effort-cascade)
+  - [A session whose engine changes](5.4.5-engines-and-cascade.md#a-session-whose-engine-changes)
+  - [Roles that need Office tools and a held answer](5.4.5-engines-and-cascade.md#roles-that-need-office-tools-and-a-held-answer)
+  - [The API](5.4.5-engines-and-cascade.md#the-api)
   - [Removing an engine](5.4.5-engines-and-cascade.md#removing-an-engine)
+  - [Moving the earlier engine settings over](5.4.5-engines-and-cascade.md#moving-the-earlier-engine-settings-over)
 - 5.4.6 Stand-in Engines and usage windows
   - [Stand-in Engines](5.4.6-stand-in-engines-and-usage-windows.md#stand-in-engines)
+  - [A Project's own list](5.4.6-stand-in-engines-and-usage-windows.md#a-projects-own-list)
+  - [Stand-ins of another engine type](5.4.6-stand-in-engines-and-usage-windows.md#stand-ins-of-another-engine-type)
   - [Picking the engine to run on](5.4.6-stand-in-engines-and-usage-windows.md#picking-the-engine-to-run-on)
+  - [A forced engine has no stand-ins](5.4.6-stand-in-engines-and-usage-windows.md#a-forced-engine-has-no-stand-ins)
   - [Stand-ins at Start](5.4.6-stand-in-engines-and-usage-windows.md#stand-ins-at-start)
   - [A running Stage switches](5.4.6-stand-in-engines-and-usage-windows.md#a-running-stage-switches)
   - [A person's Thread switches](5.4.6-stand-in-engines-and-usage-windows.md#a-persons-thread-switches)
@@ -706,6 +725,7 @@ Where each default lives, by page:
   - [Install inputs](5.5-git-and-isolation.md#install-inputs)
   - [The base branch's upstream](5.5-git-and-isolation.md#the-base-branchs-upstream)
   - [Clones](5.5-git-and-isolation.md#clones)
+  - [An empty repository's first commit](5.5-git-and-isolation.md#an-empty-repositorys-first-commit)
   - [The Office identity](5.5-git-and-isolation.md#the-office-identity)
   - [The CPU limit](5.5-git-and-isolation.md#the-cpu-limit)
   - [The other limits of run environments](5.5-git-and-isolation.md#the-other-limits-of-run-environments)

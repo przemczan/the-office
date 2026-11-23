@@ -125,7 +125,7 @@ describe("a Change's fields beside the base Pipeline's values", () => {
   it("reads each field as the Stage form does", () => {
     const context = { roles: ROLES, stages: [IMPLEMENT] };
     const changed: Stage = { ...IMPLEMENT, effort: "high", budget: 300_000 };
-    expect(fieldWords(IMPLEMENT, "effort", context)).toBe("Role default");
+    expect(fieldWords(IMPLEMENT, "effort", context)).toBe("Person's effort");
     expect(fieldWords(changed, "effort", context)).toBe("High");
     expect(fieldWords(changed, "budget", context)).toBe("300k tokens");
     expect(fieldWords(IMPLEMENT, "role", context)).toBe("Jim");

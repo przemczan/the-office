@@ -189,7 +189,9 @@ export { SplitButton, type SplitButtonProps } from "./split-button.tsx";
 export { Stepper, type StepperProps } from "./stepper.tsx";
 export {
   PickList,
+  PickListGroup,
   PickListItem,
+  type PickListGroupProps,
   type PickListItemProps,
   type PickListProps,
   type PickListRowParts,

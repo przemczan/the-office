@@ -106,8 +106,7 @@ function roleOf(person: OfficePerson): Role {
       title: person.title,
       responsibilities: "",
       instructions: "",
-      roleOverride: null,
-      effort: "medium",
+      engineSettings: {},
       capabilities: {
         sharedMemory: false,
         chat: person.chat,

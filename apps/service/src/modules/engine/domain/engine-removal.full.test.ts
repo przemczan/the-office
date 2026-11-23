@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { engineRemovalAmong, movedEngineModel, type EngineRemoval } from "./engine-removal.js";
+import {
+  engineRemovalAmong,
+  movedEngineId,
+  movedEngineOverride,
+  movedStandInList,
+  type EngineRemoval,
+} from "./engine-removal.js";
 import { EngineSettingsRefused } from "./engine-settings-refused.js";
 import {
   FIRST_CLAUDE_CODE_ENGINE,
@@ -13,6 +19,7 @@ const strata: ApiEngine = {
   name: "Strata",
   kind: "openai-compatible-api",
   defaultModel: "qwen3.8-flash",
+  defaultEffort: null,
   baseUrl: "http://127.0.0.1:8080/v1",
   key: "",
   models: [
@@ -37,58 +44,113 @@ function refusal(...removal: Parameters<typeof engineRemovalAmong>): unknown {
   throw new Error("The removal was allowed.");
 }
 
-describe("movedEngineModel", () => {
-  const removal: EngineRemoval = { engineId: "claude-code", replacement: strata };
-
-  it("keeps the model the replacement offers too", () => {
-    expect(
-      movedEngineModel({ engineId: "claude-code", model: "claude-opus-5-5" }, removal),
-    ).toEqual({ engineId: "strata", model: "claude-opus-5-5" });
+describe("movedEngineId", () => {
+  it("moves the removed engine to the replacement, or to none when the only engine goes", () => {
+    expect(movedEngineId("claude-code", { engineId: "claude-code", replacement: strata })).toBe(
+      "strata",
+    );
+    expect(movedEngineId("claude-code", { engineId: "claude-code", replacement: null })).toBeNull();
   });
 
-  it("takes the replacement's default model in place of one it doesn't offer", () => {
-    expect(
-      movedEngineModel({ engineId: "claude-code", model: "claude-sonnet-5-5" }, removal),
-    ).toEqual({ engineId: "strata", model: "qwen3.8-flash" });
+  it("leaves another engine as it is", () => {
+    expect(movedEngineId("second-account", { engineId: "claude-code", replacement: strata })).toBe(
+      "second-account",
+    );
   });
 
-  it("leaves a reference to another engine as it is", () => {
-    const reference = { engineId: "second-account", model: "claude-haiku-5-5" };
-
-    expect(movedEngineModel(reference, removal)).toBe(reference);
-  });
-
-  it("moves a Codex engine's reference to another Codex engine on its model, or a Claude Code engine on its default", () => {
+  it("moves across engine types", () => {
     const codex: CodexEngine = {
       id: "codex",
       name: "Codex",
       kind: "codex",
       defaultModel: "gpt-6-luna",
+      defaultEffort: null,
       apiKey: null,
     };
-    const otherCodex: CodexEngine = { ...codex, id: "other-codex", name: "Other Codex" };
-    const reference = { engineId: "codex", model: "gpt-5.6-terra" };
 
-    expect(movedEngineModel(reference, { engineId: "codex", replacement: otherCodex })).toEqual({
-      engineId: "other-codex",
-      model: "gpt-5.6-terra",
-    });
-    expect(
-      movedEngineModel(reference, { engineId: "codex", replacement: FIRST_CLAUDE_CODE_ENGINE }),
-    ).toEqual({ engineId: "claude-code", model: "claude-sonnet-5-5" });
-    expect(engineRemovalAmong([FIRST_CLAUDE_CODE_ENGINE, codex], "codex", "claude-code")).toEqual({
-      engineId: "codex",
-      replacement: FIRST_CLAUDE_CODE_ENGINE,
-    });
+    const removal = engineRemovalAmong([FIRST_CLAUDE_CODE_ENGINE, codex], "codex", "claude-code");
+
+    expect(removal).toEqual({ engineId: "codex", replacement: FIRST_CLAUDE_CODE_ENGINE });
+    expect(movedEngineId("codex", removal)).toBe("claude-code");
+  });
+});
+
+describe("movedEngineOverride", () => {
+  const work = { kind: "task", id: "task-1", name: "Fix it", state: "backlog" } as const;
+  const shop = { id: "shop", name: "Shop" };
+
+  it("moves an override naming the removed engine to the replacement", () => {
+    const removal: EngineRemoval = { engineId: "strata", replacement: second };
+
+    expect(movedEngineOverride("strata", removal, { project: shop, work })).toEqual([
+      {
+        project: shop,
+        work,
+        from: "strata",
+        to: "second-account",
+      },
+    ]);
   });
 
-  it("moves a reference to none when the only engine goes", () => {
-    expect(
-      movedEngineModel(
-        { engineId: "claude-code", model: "claude-sonnet-5-5" },
-        { engineId: "claude-code", replacement: null },
-      ),
-    ).toBeNull();
+  it("moves it to none when the only engine goes, and leaves an override of another engine out", () => {
+    const removal: EngineRemoval = { engineId: "strata", replacement: null };
+
+    expect(movedEngineOverride("strata", removal, { project: null, work })).toEqual([
+      expect.objectContaining({ to: null }),
+    ]);
+    expect(movedEngineOverride("claude-code", removal, { project: null, work })).toEqual([]);
+  });
+});
+
+describe("movedStandInList", () => {
+  const shop = { id: "shop", name: "Shop" };
+
+  it("moves a list naming the removed engine to the replacement", () => {
+    const removal: EngineRemoval = { engineId: "strata", replacement: second };
+
+    expect(movedStandInList(["claude-code", "strata"], removal, shop)).toEqual([
+      {
+        project: shop,
+        work: null,
+        standInList: true,
+        from: "strata",
+        to: "second-account",
+      },
+    ]);
+  });
+
+  it("moves the Office's list, with no Project, to none when the only engine goes", () => {
+    const removal: EngineRemoval = { engineId: "strata", replacement: null };
+
+    expect(movedStandInList(["strata"], removal, null)).toEqual([
+      {
+        project: null,
+        work: null,
+        standInList: true,
+        from: "strata",
+        to: null,
+      },
+    ]);
+  });
+
+  it("moves a list already naming the replacement to none, as the removed engine is just dropped", () => {
+    const removal: EngineRemoval = { engineId: "strata", replacement: second };
+
+    expect(movedStandInList(["strata", "second-account"], removal, shop)).toEqual([
+      {
+        project: shop,
+        work: null,
+        standInList: true,
+        from: "strata",
+        to: null,
+      },
+    ]);
+  });
+
+  it("moves nothing for a list not naming the removed engine", () => {
+    const removal: EngineRemoval = { engineId: "strata", replacement: second };
+
+    expect(movedStandInList(["claude-code"], removal, shop)).toEqual([]);
   });
 });
 

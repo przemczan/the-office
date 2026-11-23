@@ -1,6 +1,7 @@
 import type { ApiEngine, EngineEdit, EngineId } from "@the-office/contracts";
 import { Button, Card, Tabs } from "@the-office/ui";
 import type { ReactNode } from "react";
+import { ENGINE_KIND_ICONS, ENGINE_KIND_LABELS } from "../../../shell/engine-words.ts";
 import { SettingsCardTitle } from "../settings-card-parts.tsx";
 import { ApiEndpointFields } from "./api-endpoint-fields.tsx";
 import { ClaudeCodeEngineAccount } from "./claude-code-engine-account.tsx";
@@ -12,8 +13,6 @@ import { CopilotCliEngineFields } from "./copilot-cli-engine-fields.tsx";
 import { GeminiCliEngineAccount } from "./gemini-cli-engine-account.tsx";
 import { GeminiCliEngineFields } from "./gemini-cli-engine-fields.tsx";
 import {
-  ENGINE_KIND_ICONS,
-  ENGINE_KIND_LABELS,
   ENGINE_TAB_LABELS,
   engineCalled,
   engineTabsOf,

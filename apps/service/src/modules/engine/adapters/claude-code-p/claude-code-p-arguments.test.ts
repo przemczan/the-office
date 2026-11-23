@@ -32,6 +32,12 @@ describe("claudeCodePArguments", () => {
     expect(flag(args, "resume")).toBeUndefined();
   });
 
+  it("passes no --effort when the session sets none, leaving it to the runtime", () => {
+    const args = argumentsFor({ options: { ...OPTIONS, effort: undefined } });
+
+    expect(args.some((arg) => arg.startsWith("--effort"))).toBe(false);
+  });
+
   it("gives the SDK adapter's settings, with a hook that asks the service and blocks when it can't", () => {
     const options = { ...OPTIONS, skills: SKILLS };
     const settings = settingsOf(argumentsFor({ options }));

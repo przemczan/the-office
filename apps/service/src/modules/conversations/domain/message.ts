@@ -37,6 +37,7 @@ export type MessageDraft =
   | ChangesAllowedLine
   | UsageWindowUsedUpLine
   | EngineSwitchedLine
+  | ModelGaveWayLine
   | StageContextLimitLine
   | StageSessionRestartedLine
   | StageWorkClosing;
@@ -118,6 +119,31 @@ export function usageWindowUsedUpWords({
 }
 
 /**
+ * A model a level of the model and effort cascade set isn't offered by the engine the session landed
+ * on, so the person works with the engine's default (spec §5.4.5): The Office's line, written as the
+ * session starts. The engine by its name then.
+ */
+export interface ModelGaveWayLine {
+  readonly kind: "model-gave-way";
+  readonly personName: string;
+  /** The engine's default model, which the session works with. */
+  readonly model: string;
+  readonly engineName: string;
+  /** The model the cascade set, which the engine doesn't offer. */
+  readonly notOffered: string;
+}
+
+/** "Pam works with gpt-6 on Codex, which doesn't offer gpt-5.", the line in words. */
+export function modelGaveWayWords({
+  personName,
+  model,
+  engineName,
+  notOffered,
+}: Omit<ModelGaveWayLine, "kind">): string {
+  return `${personName} works with ${model} on ${engineName}, which doesn't offer ${notOffered}.`;
+}
+
+/**
  * A Stage session's context passed its soft or hard limit, and The Office asked the person for a
  * Handover note (spec §2.5): The Office's line.
  */
@@ -152,11 +178,17 @@ export interface EngineSwitchedLine {
   readonly resetsAt: string;
   /** Who went on, in a person's Thread; absent in a Stage Thread, where the Stage did. */
   readonly personName?: string;
+  /**
+   * The stand-in started the Thread fresh, as it is of another engine type or one whose session
+   * can't be carried (spec §5.4.6); absent on a carried session, and on every line before it.
+   */
+  readonly fresh?: boolean;
 }
 
 /**
  * "Claude Code's 5-hour window was used up until 2026-11-13 14:00 UTC, so the Stage went on on
- * Claude Code 2.", the line in words; "…, so Pam went on on Claude Code 2." in a person's Thread.
+ * Claude Code 2.", the line in words; "…, so Pam went on on Claude Code 2." in a person's Thread,
+ * and "…, so Pam went on on Codex, starting fresh." when the stand-in started the Thread fresh.
  */
 export function engineSwitchedWords({
   fromName,
@@ -164,8 +196,9 @@ export function engineSwitchedWords({
   window,
   resetsAt,
   personName,
+  fresh = false,
 }: Omit<EngineSwitchedLine, "kind">): string {
-  return `${fromName}'s ${usageWindowWords(window)} was used up until ${resetsAt.slice(0, 10)} ${resetsAt.slice(11, 16)} UTC, so ${personName ?? "the Stage"} went on on ${toName}.`;
+  return `${fromName}'s ${usageWindowWords(window)} was used up until ${resetsAt.slice(0, 10)} ${resetsAt.slice(11, 16)} UTC, so ${personName ?? "the Stage"} went on on ${toName}${fresh ? ", starting fresh" : ""}.`;
 }
 
 /**

@@ -145,7 +145,7 @@ export class TaskRecords {
         this.decisions.waitingOnTheUserOn(taskId),
         this.connectedDevices.linesOf(taskId),
       ]);
-    const namesEngine = task.engine !== null || links.initiative?.engine;
+    const namesEngine = task.engineOverride !== null || links.initiative?.engineOverride;
     return taskRecordText(task, {
       attachments,
       links,

@@ -1,21 +1,24 @@
 import { DEVOPS } from "./known-roles.js";
 import { consultableRoleKeys, presetFor } from "./presets.js";
 import type { Role } from "./role.js";
-import type { ModelsOffered, RoleCard, RoleCardContext } from "./role-card.js";
+import { effortsTakenBy } from "../../engine/index.js";
+import type { EngineTypesOffered, RoleCard, RoleCardContext } from "./role-card.js";
 
-/** The models every fixture engine offers: the Claude Code engines' list (`EngineModels`). */
-export const OFFERED_MODELS: ModelsOffered = () => [
-  "claude-opus-5-5",
-  "claude-sonnet-5-5",
-  "claude-haiku-5-5",
-];
+/** The models the fixture Claude Code engines offer. */
+export const OFFERED_MODELS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"];
+
+/** Claude Code listed with the fixture models; every other type listed by no engine. */
+export const ENGINE_TYPES_OFFERED: EngineTypesOffered = (type) =>
+  type === "claude-code"
+    ? { listed: true, models: OFFERED_MODELS, efforts: effortsTakenBy(type) }
+    : { listed: false, models: [], efforts: effortsTakenBy(type) };
 
 /**
- * A card checked as with no duty set and nobody hired from scratch: the fixture models, the presets'
- * Roles to consult, and Devops holding Default Consultant for MCP tool hard switches.
+ * A card checked as with no duty set and nobody hired from scratch: Claude Code listed with the fixture
+ * models, the presets' Roles to consult, and Devops holding Default Consultant for MCP tool hard switches.
  */
 export const CARD_CONTEXT: RoleCardContext = {
-  modelsOffered: OFFERED_MODELS,
+  engineTypes: ENGINE_TYPES_OFFERED,
   consultable: consultableRoleKeys([]),
   mcpConsultant: DEVOPS,
 };

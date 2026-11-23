@@ -54,6 +54,35 @@ describe("RolesNamedInStages", () => {
     expect(named.byProject.get(open)).toEqual(new Set(["designer"]));
     expect(named.byProject.has(dropped)).toBe(false);
   });
+
+  it("leaves a Task under an engine override out of its Project's, as it is weighed at its override alone", async () => {
+    const ownOverride = randomUUID();
+    const initiativeOverride = randomUUID();
+    const onProject = await aTaskNaming("designer", "in-progress");
+    const forced = await aTaskNaming("tester", "in-progress", ownOverride);
+    const forcedByInitiative = await aTaskNaming("tester", "in-progress", initiativeOverride);
+    const none = { from: "none", engineIds: [] } as const;
+    pipelines.cascade.setEngineFor(ownOverride, {
+      engineId: "codex",
+      engineType: "codex",
+      engineName: "Codex",
+      level: "task",
+      standIns: none,
+    });
+    pipelines.cascade.setEngineFor(initiativeOverride, {
+      engineId: "codex",
+      engineType: "codex",
+      engineName: "Codex",
+      level: "initiative",
+      standIns: none,
+    });
+
+    const named = await pipelines.app.get(PipelineRoleSources, { strict: false }).rolesNamed();
+
+    expect(named.byProject.get(onProject)).toEqual(new Set(["designer"]));
+    expect(named.byProject.has(forced)).toBe(false);
+    expect(named.byProject.has(forcedByInitiative)).toBe(false);
+  });
 });
 
 describe("RolesNamedInStages, for one Task", () => {

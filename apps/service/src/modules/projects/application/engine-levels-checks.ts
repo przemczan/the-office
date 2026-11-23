@@ -1,12 +1,17 @@
 import { Injectable } from "@nestjs/common";
-import type { ProjectEngineLevels } from "../domain/project.js";
+import type { ProjectEngine } from "../domain/project.js";
 
-/** A save of a Project's engine levels: the levels it holds and those the save would leave. */
+/**
+ * A save of a Project's engine levels that changes its default or its Stand-in Engine list (the
+ * toggle or the engines): the levels it holds and those the save would leave. A save of only the
+ * force or the people names no engine, so it isn't weighed (spec §5.4.5, "Roles that need Office
+ * tools and a held answer").
+ */
 export interface EngineLevelsSave {
   readonly projectId: string;
   readonly projectName: string;
-  readonly before: ProjectEngineLevels;
-  readonly after: ProjectEngineLevels;
+  readonly before: ProjectEngine;
+  readonly after: ProjectEngine;
 }
 
 /** What makes a save refused, in the UI's words; none lets it through. */

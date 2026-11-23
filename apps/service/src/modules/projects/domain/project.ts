@@ -1,4 +1,4 @@
-import type { EngineModel } from "../../engine/index.js";
+import type { Effort, EngineId, EngineKind } from "../../engine/index.js";
 import type { IssueSettings } from "./issue-settings.js";
 import type { ProjectFeatureSwitches } from "./project-features.js";
 import type { KindDefaultPipelines } from "./kind-default-pipeline.js";
@@ -130,12 +130,8 @@ export interface Project {
    * other is on, so one added later starts on (spec §2.6).
    */
   readonly projectSkillsOff: readonly string[];
-  /** The engine cascade's Project levels (spec §5.4), set in the Project page's Engine block. */
-  readonly projectDefault: EngineModel | null;
-  /** Whether the Project default wins over the Office-wide Role overrides; set only with one. */
-  readonly useForEveryRole: boolean;
-  /** At most one per Role, winning over every other level in this Project. */
-  readonly roleOverrides: readonly ProjectRoleOverride[];
+  /** The Project's levels of both cascades (spec §5.4.5), set in the Project page's Engine block. */
+  readonly engine: ProjectEngine;
   readonly runEnvironment: RunEnvironmentSetting;
   /**
    * Why the last "Set up the run environment" Task's Done left the setting as it was: each problem
@@ -159,16 +155,52 @@ export const DEFAULT_PROJECT_LIMIT = 1;
 /** The Office-wide limit's maximum, as more could never be started at once. */
 export const PROJECT_LIMIT_MAX = 12;
 
-/** The Project's levels of the engine cascade, which People resolves. */
-export type ProjectEngineLevels = Pick<
-  Project,
-  "projectDefault" | "useForEveryRole" | "roleOverrides"
->;
-
-/** The engine and model the Role `roleKey` runs on in a Project. */
-export interface ProjectRoleOverride extends EngineModel {
-  readonly roleKey: string;
+/** The Project default (spec §5.4.5, "The engine cascade"): an engine type and one of its accounts. */
+export interface ProjectEngineDefault {
+  readonly engineType: EngineKind;
+  readonly engineId: string;
 }
+
+/** A model and an effort, each null for the level below it. */
+export interface ModelEffort {
+  readonly model: string | null;
+  readonly effort: Effort | null;
+}
+
+/** The Project's setting for one person on each engine type it sets, in the Role card's shape. */
+export interface ProjectEnginePerson {
+  readonly roleKey: string;
+  readonly engineSettings: Readonly<Partial<Record<EngineKind, ModelEffort>>>;
+}
+
+/** A Project's levels of both cascades (spec §5.4.5). */
+export interface ProjectEngine {
+  /** Null is "Office's default" for both the engine type and the account. */
+  readonly default: ProjectEngineDefault | null;
+  /** Force this model and effort for everyone on the default's engine type; null is off. */
+  readonly force: ModelEffort | null;
+  /** At most one per person, each with something set on some type. */
+  readonly people: readonly ProjectEnginePerson[];
+  /** The Project's own Stand-in Engine list (spec §5.4.6, "A Project's own list"). */
+  readonly standIns: ProjectStandIns;
+}
+
+/**
+ * A Project's own Stand-in Engine list, in order, and whether it replaces the Office's in the
+ * Project; turned off, the list is kept, unused.
+ */
+export interface ProjectStandIns {
+  readonly useOwnList: boolean;
+  readonly engineIds: readonly EngineId[];
+}
+
+/** A Project that sets no level of either cascade, as every Project starts. */
+export const NO_PROJECT_ENGINE: ProjectEngine = {
+  default: null,
+  force: null,
+  people: [],
+  standIns: { useOwnList: false, engineIds: [] },
+};
 
 /** What the user gives when adding a Project; the rest is set by The Office. */
 export type NewProject = Pick<

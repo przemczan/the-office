@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { consult } from "./hard-switches.js";
-import { aRoleCard, CARD_CONTEXT, OFFERED_MODELS } from "./role.fixtures.js";
-import { roleCardProblems, trimmedRoleCard } from "./role-card.js";
+import { aRoleCard, CARD_CONTEXT, ENGINE_TYPES_OFFERED } from "./role.fixtures.js";
+import { roleCardProblems, trimmedRoleCard, type RoleCardContext } from "./role-card.js";
 
-/** The fixture engines, and a local one offering one model of its own. */
-const WITH_LOCAL_ENGINE = {
+/** The fixture engines, and an API endpoint offering one model of its own. */
+const WITH_AN_API_ENDPOINT: RoleCardContext = {
   ...CARD_CONTEXT,
-  modelsOffered: (engineId: string): readonly string[] =>
-    engineId === "local" ? ["qwen3-coder"] : OFFERED_MODELS(engineId),
+  engineTypes: (type) =>
+    type === "openai-compatible-api"
+      ? { listed: true, models: ["qwen3-coder"], efforts: [] }
+      : ENGINE_TYPES_OFFERED(type),
 };
 
 describe("trimmedRoleCard", () => {
@@ -29,7 +31,7 @@ describe("roleCardProblems", () => {
       title: "",
       responsibilities: "",
       instructions: "",
-      roleOverride: { engineId: "claude-code", model: "claude-opus-4" },
+      engineSettings: { "claude-code": { model: "claude-opus-4", effort: "high" } },
       capabilities: { sharedMemory: true, chat: false, consultant: false, runEnvironment: false },
       taskLimit: 7,
       hardSwitches: { ...aRoleCard().hardSwitches, runInstalls: consult("developer") },
@@ -44,7 +46,7 @@ describe("roleCardProblems", () => {
       "Give the Role a title.",
       "Give the Role's responsibilities in one paragraph.",
       "Give the instructions the Agent works from.",
-      "Choose an engine Settings › Engines lists, and a model it offers.",
+      "Choose a model Claude Code offers.",
       "A Task limit is 1 to 6 Tasks at once, or none.",
       "Run installs can't consult the Role itself.",
       "The MCP tool github/merge consults a Role The Office doesn't know.",
@@ -73,28 +75,45 @@ describe("roleCardProblems", () => {
     );
   });
 
-  it("accepts a Role override on a listed engine, with a model it offers", () => {
-    const card = aRoleCard({ roleOverride: { engineId: "local", model: "qwen3-coder" } });
+  it("accepts a model each type's listed engines offer and an effort it takes", () => {
+    const card = aRoleCard({
+      engineSettings: {
+        "claude-code": { model: "claude-haiku-5-5", effort: "max" },
+        "openai-compatible-api": { model: "qwen3-coder", effort: null },
+      },
+    });
 
-    expect(roleCardProblems("developer", card, WITH_LOCAL_ENGINE)).toEqual([]);
+    expect(roleCardProblems("developer", card, WITH_AN_API_ENDPOINT)).toEqual([]);
   });
 
-  it("refuses a Role override on an engine not listed, or with a model it doesn't offer", () => {
-    const refusal = ["Choose an engine Settings › Engines lists, and a model it offers."];
+  it("refuses a model the type doesn't offer and an effort it doesn't take", () => {
+    const card = aRoleCard({
+      engineSettings: {
+        "claude-code": { model: "qwen3-coder", effort: null },
+        "openai-compatible-api": { model: null, effort: "high" },
+      },
+    });
 
-    expect(
-      roleCardProblems(
-        "developer",
-        aRoleCard({ roleOverride: { engineId: "removed", model: "qwen3-coder" } }),
-        WITH_LOCAL_ENGINE,
-      ),
-    ).toEqual(refusal);
-    expect(
-      roleCardProblems(
-        "developer",
-        aRoleCard({ roleOverride: { engineId: "local", model: "claude-opus-5-5" } }),
-        WITH_LOCAL_ENGINE,
-      ),
-    ).toEqual(refusal);
+    expect(roleCardProblems("developer", card, WITH_AN_API_ENDPOINT)).toEqual([
+      "Choose a model Claude Code offers.",
+      "Choose an effort API endpoint takes.",
+    ]);
+  });
+
+  it("refuses a new model on a type no engine lists, keeping the one the card has", () => {
+    const stored = { codex: { model: "gpt-6-luna", effort: "low" } } as const;
+    const kept = aRoleCard({ engineSettings: stored });
+    const changed = aRoleCard({
+      engineSettings: { codex: { model: "gpt-5.6-terra", effort: "high" } },
+    });
+    const withStored = { ...CARD_CONTEXT, storedEngineSettings: stored };
+
+    expect(roleCardProblems("developer", kept, withStored)).toEqual([]);
+    expect(roleCardProblems("developer", kept, CARD_CONTEXT)).toEqual([
+      "Choose a model Codex offers.",
+    ]);
+    expect(roleCardProblems("developer", changed, withStored)).toEqual([
+      "Choose a model Codex offers.",
+    ]);
   });
 });

@@ -1,17 +1,28 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { EngineModel, Initiative, Project, Task, TaskSummary } from "@the-office/contracts";
-import { Alert, Icon } from "@the-office/ui";
+import type {
+  Engine,
+  EngineId,
+  Initiative,
+  Project,
+  Task,
+  TaskSummary,
+} from "@the-office/contracts";
+import { Alert, GroupedSelect, Icon, Switch, type GroupedSelectGroup } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { engineSettingsQuery } from "../../api/engine.ts";
-import { roleCardQueries, roleQueries, taskEngineCascadeKey } from "../../api/people.ts";
+import { roleQueries, taskEngineCascadeKey } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { changeInitiativeEngine, changeTaskEngine, taskQueries } from "../../api/work.ts";
-import { EngineModelFields, type OfferedEngine } from "../../shell/engine-model-fields.tsx";
-import { modelLabel } from "../../shell/engine-words.ts";
+import {
+  EFFORT_LABELS,
+  ENGINE_KINDS,
+  ENGINE_KIND_ICONS,
+  ENGINE_KIND_LABELS,
+} from "../../shell/engine-words.ts";
 import { roleName } from "../../shell/person-name.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
-import { ENGINE_CASCADE_LEVEL_WORDS } from "../../shell/role-card-words.ts";
+import { modelAndEffortText, workSourceText } from "../../shell/role-card-words.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { useEngineName } from "../../shell/use-engine-name.ts";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
@@ -20,52 +31,56 @@ import { RecordFold } from "./record-fold.tsx";
 import { useFold } from "./record-folds.ts";
 import { useInitiativeChange } from "./use-initiative-change.ts";
 import {
-  ENGINE_CHANGE_NOTE,
   ENGINE_REFUSED,
-  INITIATIVE_ENGINE_INTRO,
   INITIATIVE_ENGINE_KEPT,
-  INITIATIVE_NONE_HINT,
+  INITIATIVE_OFF_HINT,
   ITS_TASKS_NOTE,
+  NO_ENGINE_LISTED,
+  OVERRIDE_THE_ENGINE,
   RUNNING_STAGE_NOTE,
   RUNS_ON_NOTE,
-  TASK_ENGINE_INTRO,
   TASK_ENGINE_KEPT,
+  TASK_FOLLOWS_INITIATIVE_HINT,
   initiativeEngineSummary,
   initiativeEngineToast,
-  initiativeNoneLabel,
   initiativeTaskEngine,
   isOpenTask,
-  onEngine,
+  noStandInsNote,
   projectEngineOf,
   taskEngineSummary,
   taskEngineToast,
-  taskNoneHint,
-  taskNoneLabel,
+  taskFollowedEngine,
+  taskFollowsLine,
+  type FollowedEngine,
 } from "./work-engine-words.ts";
 
-const NO_ENGINES: readonly OfferedEngine[] = [];
-
 /**
- * The Task's engine (spec §2.1.3, "A Task's engine"): an engine and model taking the Project
- * default's place for every session about it, saved at once; read-only once Done or Dropped. Its
+ * The Task's engine override (spec §2.1.3, "A Task's engine"): one engine, no model and no
+ * Stand-in Engines, for every session about it, saved at once; read-only once Done or Dropped. Its
  * "Runs on" list says what the cascade gives each Role its Stages name. Starts folded.
  */
 export function TaskEngineBlock({ task }: { readonly task: Task }): ReactNode {
   const engineName = useEngineName();
   const showToast = useToast();
   const queryClient = useQueryClient();
-  const engines = useQuery(roleCardQueries.options()).data?.engines;
   const project = useQuery(projectQueries.one(task.projectId)).data;
-  const officeDefault = useQuery(engineSettingsQuery()).data?.officeDefault;
-  const projectEngine = projectEngineOf(project, officeDefault);
+  const engineSettings = useQuery(engineSettingsQuery()).data;
+  const projectEngine = projectEngineOf(project, engineSettings);
+  const followed = taskFollowedEngine(task, projectEngine);
   const fold = useFold({ kind: "task", id: task.id }, "engine", false);
-  const changing = useRecordChange(task, (engine: EngineModel | null) =>
-    changeTaskEngine(task.id, engine),
+  const changing = useRecordChange(task, (engineId: EngineId | null) =>
+    changeTaskEngine(task.id, engineId),
   );
   const editable = task.state !== "done" && task.state !== "dropped";
-  const noneLabel = taskNoneLabel(task, engineName);
   // While it saves, the fields show the choice; a refusal puts them back to what is saved.
-  const shown = changing.isPending ? (changing.variables ?? null) : task.engine;
+  const shown = changing.isPending ? (changing.variables ?? null) : task.engineOverride;
+  const save = (engineId: EngineId | null): void =>
+    changing.mutate(engineId, {
+      onSuccess: (saved) => {
+        void queryClient.invalidateQueries({ queryKey: taskEngineCascadeKey(task.id) });
+        showToast(taskEngineToast(saved, saved.engineOverride, engineName));
+      },
+    });
   return (
     <RecordFold
       fold={fold}
@@ -74,58 +89,117 @@ export function TaskEngineBlock({ task }: { readonly task: Task }): ReactNode {
       summary={taskEngineSummary(task, projectEngine, engineName)}
     >
       <div className="work-engine">
-        <p className="task-quiet">{TASK_ENGINE_INTRO}</p>
         {editable ? (
           <>
             {task.state === "in-progress" && task.pausedBy === null && (
               <Alert tone="info">{RUNNING_STAGE_NOTE}</Alert>
             )}
-            <div className="work-engine-pair" role="group" aria-label="Task's engine">
-              <EngineModelFields
-                value={shown}
-                engines={engines ?? NO_ENGINES}
-                noneLabel={noneLabel}
-                noneHint={taskNoneHint(task, project)}
-                disabled={engines === undefined || changing.isPending}
-                onChange={(engine) => {
-                  const before = task.engine;
-                  changing.mutate(engine, {
-                    onSuccess: (saved) => {
-                      void queryClient.invalidateQueries({
-                        queryKey: taskEngineCascadeKey(task.id),
-                      });
-                      showToast(
-                        taskEngineToast(
-                          saved,
-                          before,
-                          saved.engine,
-                          task.initiativeEngine ?? projectEngine,
-                          engineName,
-                        ),
-                      );
-                    },
-                  });
-                }}
-              />
-            </div>
+            <EngineOverride
+              of="task"
+              value={shown}
+              startOn={followed?.engineId ?? null}
+              hint={task.initiativeEngineOverride ? TASK_FOLLOWS_INITIATIVE_HINT : undefined}
+              offLine={taskFollowsLine(
+                followed,
+                project?.engine.standIns.useOwnList ?? false,
+                engineName,
+              )}
+              disabled={engineSettings === undefined || changing.isPending}
+              onChange={save}
+            />
             {changing.error && <RefusalAlert title={ENGINE_REFUSED} error={changing.error} />}
-            <p className="task-quiet">{ENGINE_CHANGE_NOTE}</p>
             <TaskRunsOn task={task} />
           </>
         ) : (
-          <KeptEngine value={task.engine} noneLabel={noneLabel} kept={TASK_ENGINE_KEPT} />
+          <KeptEngine value={task.engineOverride} kept={TASK_ENGINE_KEPT} />
         )}
       </div>
     </RecordFold>
   );
 }
 
-/** What the Planner and each Role the Task's Stages name run on for it, and where it comes from. */
+/**
+ * The switch "Override the engine", and while it is on the Engine select over the listed engines,
+ * grouped by engine type, with the note that an override has no stand-ins. Turning it on saves the
+ * engine the record followed; off, `offLine` names that engine.
+ */
+function EngineOverride({
+  of,
+  value,
+  startOn,
+  hint,
+  offLine,
+  disabled,
+  onChange,
+}: {
+  readonly of: "task" | "initiative";
+  readonly value: EngineId | null;
+  /** The engine the record follows with the switch off, which turning it on starts on. */
+  readonly startOn: EngineId | null;
+  /** The switch's hint. */
+  readonly hint?: string;
+  /** The line under the switch while it is off. */
+  readonly offLine?: string;
+  readonly disabled: boolean;
+  readonly onChange: (engineId: EngineId | null) => void;
+}): ReactNode {
+  const engineName = useEngineName();
+  const engines = useQuery(engineSettingsQuery()).data?.engines;
+  const noEngine = value === null && startOn === null;
+  return (
+    <div className="work-engine-override">
+      <Switch
+        checked={value !== null}
+        disabled={disabled || noEngine}
+        onChange={(on) => onChange(on ? startOn : null)}
+        label={OVERRIDE_THE_ENGINE}
+        description={noEngine ? NO_ENGINE_LISTED : hint}
+      />
+      {value === null ? (
+        offLine !== undefined && !noEngine && <p className="task-quiet">{offLine}</p>
+      ) : (
+        <>
+          <div className="work-engine-field">
+            <GroupedSelect
+              label="Engine"
+              value={value}
+              placeholder={engineName(value)}
+              groups={engineGroups(engines ?? [])}
+              disabled={disabled}
+              onChange={(engineId) => {
+                if (engineId !== value) onChange(engineId);
+              }}
+            />
+          </div>
+          <Alert tone="info">{noStandInsNote(value, engineName, of)}</Alert>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** The listed engines, grouped by engine type in the spec's order, each with its type's icon. */
+function engineGroups(engines: readonly Engine[]): GroupedSelectGroup[] {
+  return ENGINE_KINDS.map((kind) => ({
+    label: ENGINE_KIND_LABELS[kind],
+    options: engines
+      .filter((engine) => engine.kind === kind)
+      .map((engine) => ({
+        value: engine.id,
+        label: engine.name,
+        aside: <Icon name={ENGINE_KIND_ICONS[kind]} size={14} />,
+      })),
+  })).filter((group) => group.options.length > 0);
+}
+
+/**
+ * The model and effort the Planner and each Role the Task's Stages name work with on the Task's
+ * engine, where each comes from, and each Stage that sets its own effort.
+ */
 function TaskRunsOn({ task }: { readonly task: Task }): ReactNode {
   const cascade = useQuery(taskQueries.engineCascade(task.id)).data;
   const roles = useQuery(roleQueries.list()).data;
-  const engineName = useEngineName();
-  if (!cascade || cascade.roles.length === 0) return null;
+  if (!cascade || cascade.people.length === 0) return null;
   return (
     <div className="work-engine-list">
       <div className="work-engine-list-head">
@@ -133,33 +207,27 @@ function TaskRunsOn({ task }: { readonly task: Task }): ReactNode {
         <span className="task-quiet">{RUNS_ON_NOTE}</span>
       </div>
       <ul aria-label="Runs on">
-        {cascade.roles.map((role) => {
-          const name = roles?.some(({ key }) => key === role.roleKey)
-            ? roleName(role.roleKey, roles)
-            : role.roleName;
+        {cascade.people.map((person) => {
+          const filled = roles?.find(({ key }) => key === person.roleKey);
+          const name = filled ? roleName(person.roleKey, roles) : person.roleName;
+          const firstName = filled?.card.name ?? person.roleName;
           return (
-            <li key={role.roleKey} className="work-engine-row">
+            <li key={person.roleKey} className="work-engine-row">
               <span className="work-engine-row-name">{name}</span>
-              {role.engine ? (
+              {cascade.engine && person.work ? (
                 <span className="work-engine-row-what">
-                  <span className="work-engine-row-engine">
-                    {onEngine(role.engine, engineName)}
+                  <span className="work-engine-row-engine">{modelAndEffortText(person.work)}</span>
+                  <span className="work-engine-row-source">
+                    {workSourceText(person.work, firstName)}
                   </span>
-                  <span
-                    className={
-                      role.engine.level === "task-engine" ||
-                      role.engine.level === "initiative-engine"
-                        ? "work-engine-row-source here"
-                        : "work-engine-row-source"
-                    }
-                  >
-                    from {ENGINE_CASCADE_LEVEL_WORDS[role.engine.level]}
-                  </span>
+                  {person.stages.map(({ stageName, effort }) => (
+                    <span key={stageName} className="work-engine-row-source here">
+                      {EFFORT_LABELS[effort]} on {stageName}
+                    </span>
+                  ))}
                 </span>
               ) : (
-                <span className="work-engine-row-what task-quiet">
-                  No engine: add one in Settings › Engines
-                </span>
+                <span className="work-engine-row-what task-quiet">{NO_ENGINE_LISTED}</span>
               )}
             </li>
           );
@@ -170,9 +238,10 @@ function TaskRunsOn({ task }: { readonly task: Task }): ReactNode {
 }
 
 /**
- * The Initiative's engine (spec §2.1.4, "An Initiative's engine"): what its Threads run on and
- * every Task in it that sets none, saved at once; read-only once Done or Dropped. "Its Tasks" says
- * the level each open Task takes, from the Task list the page has. Starts folded.
+ * The Initiative's engine override (spec §2.1.4, "An Initiative's engine"): one engine, no model
+ * and no Stand-in Engines, for its Threads and every Task in it with no override of its own, saved
+ * at once; read-only once Done or Dropped. "Its Tasks" says which open Task follows it, from the
+ * Task list the page has. Starts folded.
  */
 export function InitiativeEngineBlock({
   initiative,
@@ -186,22 +255,20 @@ export function InitiativeEngineBlock({
 }): ReactNode {
   const engineName = useEngineName();
   const showToast = useToast();
-  const engines = useQuery(roleCardQueries.options()).data?.engines;
-  const officeDefault = useQuery(engineSettingsQuery()).data?.officeDefault;
-  const projectEngine = (projectId: string): EngineModel | null =>
+  const engineSettings = useQuery(engineSettingsQuery()).data;
+  const projectEngine = (projectId: string | undefined): FollowedEngine | null =>
     projectEngineOf(
       projects?.find(({ id }) => id === projectId),
-      officeDefault,
+      engineSettings,
     );
   const onlyProject = initiative.projectIds.length === 1 ? initiative.projectIds[0] : undefined;
   const fold = useFold({ kind: "initiative", id: initiative.id }, "engine", false);
-  const changing = useInitiativeChange(initiative, (engine: EngineModel | null) =>
-    changeInitiativeEngine(initiative.id, engine),
+  const changing = useInitiativeChange(initiative, (engineId: EngineId | null) =>
+    changeInitiativeEngine(initiative.id, engineId),
   );
   const editable = initiative.state !== "done" && initiative.state !== "dropped";
   const openTasks = tasks.filter(isOpenTask);
-  const noneLabel = initiativeNoneLabel(initiative);
-  const shown = changing.isPending ? (changing.variables ?? null) : initiative.engine;
+  const shown = changing.isPending ? (changing.variables ?? null) : initiative.engineOverride;
   return (
     <RecordFold
       fold={fold}
@@ -214,32 +281,22 @@ export function InitiativeEngineBlock({
       )}
     >
       <div className="work-engine">
-        <p className="task-quiet">{INITIATIVE_ENGINE_INTRO}</p>
         {editable ? (
           <>
-            <div className="work-engine-pair" role="group" aria-label="Initiative's engine">
-              <EngineModelFields
-                value={shown}
-                engines={engines ?? NO_ENGINES}
-                noneLabel={noneLabel}
-                noneHint={INITIATIVE_NONE_HINT}
-                disabled={engines === undefined || changing.isPending}
-                onChange={(engine) => {
-                  const before = initiative.engine;
-                  const taking = openTasks.filter((task) => task.engine === null).length;
-                  changing.mutate(engine, {
-                    onSuccess: (saved) =>
-                      showToast(
-                        initiativeEngineToast(saved, before, saved.engine, taking, engineName),
-                      ),
-                  });
-                }}
-              />
-            </div>
+            <EngineOverride
+              of="initiative"
+              value={shown}
+              startOn={projectEngine(initiative.projectIds[0])?.engineId ?? null}
+              hint={shown === null ? INITIATIVE_OFF_HINT : undefined}
+              disabled={engineSettings === undefined || changing.isPending}
+              onChange={(engineId) =>
+                changing.mutate(engineId, {
+                  onSuccess: (saved) =>
+                    showToast(initiativeEngineToast(saved, saved.engineOverride, engineName)),
+                })
+              }
+            />
             {changing.error && <RefusalAlert title={ENGINE_REFUSED} error={changing.error} />}
-            <p className="task-quiet">
-              {ENGINE_CHANGE_NOTE} Its Tasks' pages show the change at once.
-            </p>
             {openTasks.length > 0 && (
               <div className="work-engine-list">
                 <div className="work-engine-list-head">
@@ -248,7 +305,7 @@ export function InitiativeEngineBlock({
                 </div>
                 <ul aria-label="Its Tasks">
                   {openTasks.map((task) => {
-                    const { engine, source } = initiativeTaskEngine(
+                    const { engineId, source } = initiativeTaskEngine(
                       task,
                       initiative,
                       projectEngine(task.projectId),
@@ -268,14 +325,12 @@ export function InitiativeEngineBlock({
                           resumesAt={task.resumesAt}
                         />
                         <span className="work-engine-row-what">
-                          {engine && (
-                            <span className="work-engine-row-engine">
-                              {onEngine(engine, engineName)}
-                            </span>
+                          {engineId && (
+                            <span className="work-engine-row-engine">{engineName(engineId)}</span>
                           )}
                           <span
                             className={
-                              source === "the Initiative's engine"
+                              source === "follows the Initiative's override"
                                 ? "work-engine-row-source here"
                                 : "work-engine-row-source"
                             }
@@ -291,25 +346,19 @@ export function InitiativeEngineBlock({
             )}
           </>
         ) : (
-          <KeptEngine
-            value={initiative.engine}
-            noneLabel={noneLabel}
-            kept={INITIATIVE_ENGINE_KEPT}
-          />
+          <KeptEngine value={initiative.engineOverride} kept={INITIATIVE_ENGINE_KEPT} />
         )}
       </div>
     </RecordFold>
   );
 }
 
-/** A Done or Dropped record's engine, kept as history. */
+/** A Done or Dropped record's engine override, kept as history. */
 function KeptEngine({
   value,
-  noneLabel,
   kept,
 }: {
-  readonly value: EngineModel | null;
-  readonly noneLabel: string;
+  readonly value: EngineId | null;
   readonly kept: string;
 }): ReactNode {
   const engineName = useEngineName();
@@ -317,15 +366,9 @@ function KeptEngine({
     <>
       <dl className="work-engine-kept">
         <div className="work-engine-kept-row">
-          <dt>Engine</dt>
-          <dd>{value ? engineName(value.engineId) : noneLabel}</dd>
+          <dt>{OVERRIDE_THE_ENGINE}</dt>
+          <dd>{value ? engineName(value) : "Off"}</dd>
         </div>
-        {value && (
-          <div className="work-engine-kept-row">
-            <dt>Model</dt>
-            <dd>{modelLabel(value.model)}</dd>
-          </div>
-        )}
       </dl>
       <p className="task-quiet work-engine-lock">
         <Icon name="lock" size={13} />

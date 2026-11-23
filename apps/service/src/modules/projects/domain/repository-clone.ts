@@ -9,9 +9,14 @@ export type RepositoryCloneOutcome =
   | { readonly state: "cloning"; readonly progress: CloneProgress | undefined }
   | {
       readonly state: "cloned";
-      /** What the remote's HEAD names, the base branch a new Project starts with. */
-      readonly defaultBranch: string;
+      /**
+       * What the remote's HEAD names, the base branch a new Project starts with; undefined for an
+       * empty repository, whose base branch is made as the Project is added.
+       */
+      readonly defaultBranch: string | undefined;
       readonly branches: readonly string[];
+      /** The repository has no commits yet, so no branches. */
+      readonly empty: boolean;
     }
   | { readonly state: "failed"; readonly problem: string };
 

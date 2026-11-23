@@ -1,11 +1,17 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { z } from "zod";
-import { OfficeToolRegistry, type OfficeTool } from "../../../engine/index.js";
+import {
+  ENGINE_TYPE_NAMES,
+  OfficeToolRegistry,
+  type EngineKind,
+  type OfficeTool,
+} from "../../../engine/index.js";
 import { Duties } from "../../application/duties.js";
 import { PersonRecords } from "../../application/person-records.js";
 import { RoleService, type RoleWithAssignments } from "../../application/role-service.js";
 import type { HardSwitchValue } from "../../domain/hard-switches.js";
 import { mcpToolSetting, type McpToolSettings } from "../../domain/mcp-tool-settings.js";
+import type { PersonEngineSettings } from "../../domain/role-card.js";
 import { RoleNotFound } from "../../domain/role-not-found.js";
 
 export const LIST_PEOPLE = "list_people";
@@ -82,8 +88,7 @@ function wholeCard(
     `responsibilities: ${card.responsibilities}`,
     `instructions:\n${card.instructions}`,
     [
-      `effort: ${card.effort}`,
-      `Role override: ${card.roleOverride ? `${card.roleOverride.engineId}, ${card.roleOverride.model}` : "none, so the Office default"}`,
+      `engineSettings: ${engineSettingsInWords(card.engineSettings)}`,
       `capabilities: ${JSON.stringify(card.capabilities)}`,
       `permissionProfile: ${JSON.stringify(card.permissionProfile)}`,
       `hardSwitches: ${JSON.stringify(card.hardSwitches)}`,
@@ -93,6 +98,23 @@ function wholeCard(
       `MCP servers: ${mcpServers.length > 0 ? mcpServers.map((server) => mcpServerRecord(server, card.permissionProfile.mcpTools, mcpToolDefault)).join("; ") : "none"}`,
     ].join("\n"),
   ].join("\n\n");
+}
+
+const ENGINE_DEFAULT = "Engine's default";
+
+/** The person's model and effort on each engine type they set one for, by the type's name. */
+function engineSettingsInWords(settings: PersonEngineSettings): string {
+  const types = (Object.keys(ENGINE_TYPE_NAMES) as EngineKind[]).flatMap((type) => {
+    const setting = settings[type];
+    return setting === undefined
+      ? []
+      : [
+          `${ENGINE_TYPE_NAMES[type]}: ${setting.model ?? ENGINE_DEFAULT} · ${setting.effort ?? ENGINE_DEFAULT}`,
+        ];
+  });
+  return types.length > 0
+    ? types.join("; ")
+    : "none set, so each engine's default model and effort";
 }
 
 function mcpServerRecord(

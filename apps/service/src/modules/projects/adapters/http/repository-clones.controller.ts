@@ -62,8 +62,9 @@ function toRepositoryCloneResponse(clone: RepositoryClone): RepositoryCloneRespo
       return {
         ...fields,
         state: clone.state,
-        defaultBranch: clone.defaultBranch,
+        defaultBranch: clone.defaultBranch ?? null,
         branches: [...clone.branches],
+        empty: clone.empty,
       };
     case "failed":
       return { ...fields, state: clone.state, problem: clone.problem };

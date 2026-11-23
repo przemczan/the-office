@@ -430,6 +430,7 @@ const claudeCode = (id: string, name: string): Engine => ({
   name,
   kind: "claude-code",
   defaultModel: "claude-sonnet-5-5",
+  defaultEffort: null,
   claudeCodeP: false,
 });
 
@@ -484,6 +485,7 @@ test.describe("the usage figure", { tag: "@full" }, () => {
     name: "Local models",
     kind: "openai-compatible-api",
     defaultModel: "a-model",
+    defaultEffort: null,
     baseUrl: "https://models.example.test/v1",
     keySet: true,
     models: [{ id: "a-model", contextWindow: 100_000, seesImages: false }],

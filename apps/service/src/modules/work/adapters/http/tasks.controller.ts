@@ -179,15 +179,15 @@ export class TasksController {
   }
 
   /**
-   * The Task's own engine and model (spec 5.4.5), null for none, in any state but Done and Dropped;
-   * refused when a Role of its Pipeline couldn't run on it.
+   * The Task's engine override (spec 5.4.5), an engine only, null for none, in any state but Done
+   * and Dropped; refused for an engine not listed, and when a Role of its Pipeline couldn't run on it.
    */
   @Put(":id/engine")
   async setEngine(
     @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(workEngineChangeSchema)) { engine }: WorkEngineChange,
+    @Body(new ContractPipe(workEngineChangeSchema)) { engineId }: WorkEngineChange,
   ): Promise<TaskResponse> {
-    return this.responses.task(await this.tasks.setEngine(id, engine));
+    return this.responses.task(await this.tasks.setEngine(id, engineId));
   }
 
   @Put(":id/tags")

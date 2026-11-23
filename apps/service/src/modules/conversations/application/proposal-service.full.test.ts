@@ -125,6 +125,8 @@ import { ConversationsPromptTemplatesForTests } from "../adapters/prompt-templat
 
 /** The Role holding Default person to talk to by default. */
 const OFFICE_MANAGER = "office-manager";
+/** The effort High on Claude Code, with its default model. */
+const HIGH_ON_CLAUDE_CODE = { "claude-code": { model: null, effort: "high" as const } };
 
 // What proposal-service.test.ts and proposal-service.full.test.ts share.
 
@@ -854,7 +856,7 @@ describe("a Proposal of a change to a Role", () => {
   });
 
   it("changes only the fields it names, when the user applies it, saying who proposed it and who applied it", async () => {
-    await startWith(proposes({ role: roleKey, card: { effort: "high" } }));
+    await startWith(proposes({ role: roleKey, card: { engineSettings: HIGH_ON_CLAUDE_CODE } }));
     await roles.hireFromScratch(aProposedCard({ title }), [], ANN_LEE);
 
     const { drafted } = await askOfficeManager("Let the tester think harder.");
@@ -864,21 +866,24 @@ describe("a Proposal of a change to a Role", () => {
     expect(proposal.change).toEqual({
       kind: "change",
       roleKey,
-      from: { effort: "medium" },
-      to: { effort: "high" },
+      from: { engineSettings: {} },
+      to: { engineSettings: HIGH_ON_CLAUDE_CODE },
     });
-    expect((await roles.read(roleKey)).role.card.effort).toBe("medium");
+    expect((await roles.read(roleKey)).role.card.engineSettings).toEqual({});
     // The user renames the person meanwhile: applying keeps that.
     const { role: renamed, skills } = await roles.read(roleKey);
     await roles.changeCard(roleKey, { ...renamed.card, name: "Tom" }, skills, ANN_LEE);
 
     await proposals.apply(proposal.id, BEN_ITO);
 
-    expect((await roles.read(roleKey)).role.card).toMatchObject({ name: "Tom", effort: "high" });
+    expect((await roles.read(roleKey)).role.card).toMatchObject({
+      name: "Tom",
+      engineSettings: HIGH_ON_CLAUDE_CODE,
+    });
     const [latest, byTheUser] = await roles.history(roleKey);
     expect(latest).toMatchObject({
       kind: "card-changed",
-      changes: [{ field: "effort", from: "medium", to: "high" }],
+      changes: [{ field: "engineSettings", from: {}, to: HIGH_ON_CLAUDE_CODE }],
       proposedBy: OFFICE_MANAGER,
       savedBy: BEN_ITO,
     });
@@ -890,7 +895,7 @@ describe("a Proposal of a change to a Role", () => {
   });
 
   it("changes nothing when the user declines it", async () => {
-    await startWith(proposes({ role: roleKey, card: { effort: "high" } }));
+    await startWith(proposes({ role: roleKey, card: { engineSettings: HIGH_ON_CLAUDE_CODE } }));
     await roles.hireFromScratch(aProposedCard({ title }), [], ANN_LEE);
     const { drafted } = await askOfficeManager("Let the tester think harder.");
     const [proposal] = drafted;

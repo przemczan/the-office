@@ -1,10 +1,9 @@
-import type { Engine } from "../domain/engines.js";
+import type { Effort, Engine } from "../domain/engines.js";
 import type { LanguageServer } from "../domain/language-servers.js";
 import type { ApprovalSetting, PermissionProfile } from "../domain/permission-profile.js";
 import type { OfficeTool } from "./office-tool.js";
 
-/** How hard the model thinks, as a Role card names it. */
-export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
+export type { Effort } from "../domain/engines.js";
 
 /** A session's skills, as the Skills module prepared them (spec §5.6). */
 export interface SessionSkills {
@@ -110,7 +109,8 @@ export interface SessionOptions {
   readonly engine: Engine;
   /** One of the engine's models, by its id there. */
   readonly model: string;
-  readonly effort: Effort;
+  /** The effort the person works with; undefined leaves it to the engine's runtime. */
+  readonly effort: Effort | undefined;
   /**
    * The Agent's standing instructions, such as its Role card's, added to the engine's system
    * prompt. The same for every session of a card version, so they stay in the cached prefix.

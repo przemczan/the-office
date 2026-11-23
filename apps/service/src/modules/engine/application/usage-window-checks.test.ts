@@ -37,6 +37,7 @@ const LAB: ApiEngine = {
   name: "Lab",
   kind: "openai-compatible-api",
   defaultModel: "coder",
+  defaultEffort: null,
   baseUrl: "http://localhost:11434/v1",
   key: "",
   models: [{ id: "coder", contextWindow: 32_000 }],

@@ -119,11 +119,87 @@ describe("POST /api/repositories/clones", REAL_GIT_TEST, () => {
     ]);
   });
 
-  it("fails on a repository without commits", async () => {
-    await expect(cloned(`${HOST}empty`)).resolves.toMatchObject({
-      state: "failed",
-      problem: "The repository has no commits yet, so no branch to work from.",
+  it("clones a repository without commits, then adds it with its first commit pushed to the base branch", async () => {
+    const clone = await cloned(`${HOST}empty`);
+    expect(clone).toMatchObject({
+      state: "cloned",
+      empty: true,
+      defaultBranch: null,
+      branches: [],
     });
+
+    const added = await send(
+      "POST",
+      "/projects",
+      aClonedProject(clone.path, `${HOST}empty`, "trunk"),
+    );
+
+    expect(added.status).toBe(201);
+    const remote = join(repository.folder, "empty.git");
+    expect(gitIn(remote, "log", "--format=%s|%an <%ae>", "trunk")).toBe(
+      "Initial commit|The Office <office@localhost>",
+    );
+    expect(gitIn(remote, "ls-tree", "trunk")).toBe("");
+    expect(gitIn(clone.path, "rev-parse", "trunk")).toBe(gitIn(remote, "rev-parse", "trunk"));
+    expect(gitIn(clone.path, "rev-parse", "--abbrev-ref", "trunk@{upstream}")).toBe("origin/trunk");
+    expect(gitIn(clone.path, "symbolic-ref", "HEAD")).toBe("refs/heads/trunk");
+  });
+
+  it("adds nothing when the first commit can't be pushed, and leaves the clone empty", async () => {
+    const clone = await cloned(`${HOST}closed`);
+
+    const response = await send(
+      "POST",
+      "/projects",
+      aClonedProject(clone.path, `${HOST}closed`, "main"),
+    );
+
+    expect(response.status).toBe(422);
+    const [reason] = projectRefusalSchema.parse(await response.json()).reasons;
+    expect(reason).toMatch(
+      new RegExp(
+        `^The first commit couldn't be pushed to ${HOST}closed: .*Pushes are closed here\\.`,
+        "s",
+      ),
+    );
+    expect(gitIn(clone.path, "for-each-ref", "refs/heads")).toBe("");
+    expect(gitIn(join(repository.folder, "closed.git"), "for-each-ref", "refs/heads")).toBe("");
+    expect(await app.get(ProjectsFromRepositories).findByPath(clone.path)).toBeUndefined();
+  });
+
+  it("adds a clone made while its remote was empty by the remote's commits, once it has some", async () => {
+    const filled = join(repository.folder, "filled.git");
+    expect(await cloned(`${HOST}filled`)).toMatchObject({ state: "cloned", empty: true });
+    gitIn(repository.path, "push", "--quiet", filled, "main");
+    // As a host names its default branch.
+    gitIn(filled, "symbolic-ref", "HEAD", "refs/heads/main");
+
+    const again = await cloned(`${HOST}filled`);
+    expect(again).toMatchObject({ state: "cloned", empty: false, defaultBranch: "main" });
+    const added = await send(
+      "POST",
+      "/projects",
+      aClonedProject(again.path, `${HOST}filled`, "main"),
+    );
+
+    expect(added.status).toBe(201);
+    expect(gitIn(again.path, "rev-parse", "main")).toBe(gitIn(filled, "rev-parse", "main"));
+    expect(gitIn(again.path, "rev-parse", "--abbrev-ref", "main@{upstream}")).toBe("origin/main");
+  });
+
+  it("refuses a base branch git can't name in a repository without commits", async () => {
+    const clone = await cloned(`${HOST}unborn`);
+
+    const response = await send(
+      "POST",
+      "/projects",
+      aClonedProject(clone.path, `${HOST}unborn`, "two..dots"),
+    );
+
+    expect(response.status).toBe(422);
+    expect(projectRefusalSchema.parse(await response.json()).reasons).toEqual([
+      `"two..dots" can't be a branch's name in git.`,
+    ]);
   });
 
   it("refuses another transport, and ssh before the Office ssh key is made", async () => {
@@ -159,6 +235,18 @@ describe(
         await projects.newProjectProblems(aClonedProject(path, `${HOST}depot`, "develop")),
       ).toEqual(['The repository has no branch "develop".']);
       expect(await stat(path).catch(() => undefined)).toBeUndefined();
+    });
+
+    it("judges a Project by the URL of a repository without commits by its base branch's name alone", async () => {
+      const projects = app.get(ProjectsFromRepositories);
+      const path = projects.clonePathOf(`${HOST}unborn`);
+
+      expect(
+        await projects.newProjectProblems(aClonedProject(path, `${HOST}unborn`, "develop")),
+      ).toEqual([]);
+      expect(
+        await projects.newProjectProblems(aClonedProject(path, `${HOST}unborn`, "-develop")),
+      ).toEqual([`"-develop" can't be a branch's name in git.`]);
     });
 
     it("clones a Project by Repository URL, waits for the clone, then adds it", async () => {

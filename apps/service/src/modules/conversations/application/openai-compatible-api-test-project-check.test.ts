@@ -34,8 +34,8 @@ import { AppModule } from "../../../app.module.js";
 import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
- * Task 35's check on the Test Project: an API endpoint set in Settings › Engines and the
- * Developer's Role card on one of its models. In the Developer's chat, a question only reading the
+ * Task 35's check on the Test Project: an API endpoint set in Settings › Engines, made the Office
+ * default, and the Developer's Role card on one of its models. In the Developer's chat, a question only reading the
  * Test Project answers, replied to in one message; then a Task the user plans (the Planner never
  * runs) runs Implement on that model, as Quick fix edited with a Gate before Publish, and is
  * dropped at the Gate. Its base is a local branch that tracks no remote, so nothing leaves the
@@ -107,35 +107,42 @@ async function officeOnTheEndpoint(): Promise<Api> {
   }));
   const { api } = checkApi(url);
   const saved = engineSettingsSchema.parse(await api("GET", "/settings/engines"));
+  const claudeCode = saved.engines.filter(({ kind }) => kind === "claude-code");
+  const edit = {
+    name: "Strata",
+    kind: "openai-compatible-api",
+    defaultModel: MODEL,
+    baseUrl: BASE_URL,
+    key: "",
+    models: [{ id: MODEL, contextWindow: CONTEXT_WINDOW }],
+  } as const;
   const settings = engineSettingsSchema.parse(
     await api("PUT", "/settings/engines", {
-      engines: [
-        ...saved.engines.filter(({ kind }) => kind === "claude-code"),
-        {
-          name: "Strata",
-          kind: "openai-compatible-api",
-          defaultModel: MODEL,
-          baseUrl: BASE_URL,
-          key: "",
-          models: [{ id: MODEL, contextWindow: CONTEXT_WINDOW }],
-        },
-      ],
+      engines: [...claudeCode, edit],
       officeDefault: saved.officeDefault,
       searchEndpoint: null,
       modelPrices: [],
     }),
   );
   const strata = settings.engines.find(({ kind }) => kind === "openai-compatible-api");
+  if (!strata) throw new Error("Settings › Engines lists no API endpoint after the Save.");
+  // A second Save, as only a saved engine has the id the Office default names it by.
+  await api("PUT", "/settings/engines", {
+    engines: [...claudeCode, { ...edit, id: strata.id }],
+    officeDefault: { engineType: "openai-compatible-api", engineId: strata.id },
+    searchEndpoint: null,
+    modelPrices: [],
+  });
   const hired = roleSchema.parse(
     await api("POST", "/roles", { roleKey: "developer", name: "Ada" }),
   );
   await api("PUT", "/roles/developer/card", {
     ...hired.card,
-    roleOverride: strata && { engineId: strata.id, model: MODEL },
+    engineSettings: { "openai-compatible-api": { model: MODEL, effort: null } },
     skills: [],
     capabilities: { ...hired.card.capabilities, chat: true },
   });
-  await note(`The Developer on ${strata?.id}/${MODEL}`);
+  await note(`The Developer on ${strata.id}/${MODEL}`);
   return api;
 }
 

@@ -4,10 +4,13 @@ import {
   EngineModels,
   engineThroughStandIns,
   hasUsageWindows,
+  offeredModels,
   type Engine,
   type EngineId,
   type EngineModel,
 } from "../../engine/index.js";
+import type { EngineForcedBy } from "../domain/stand-ins-at-start.js";
+import type { EngineInCascade } from "../ports/known-engine-cascade.js";
 import { hasPipeline, type TaskSummary } from "../domain/task.js";
 import { STARTED_STATES } from "../domain/task-states.js";
 import {
@@ -100,18 +103,22 @@ export class UsageEstimates {
   }
 
   /**
-   * The models a Task's Pipeline's Agent Stages use on each engine id they spend on, estimated or
-   * not, in the Stages' order; what the Tasks asked share is read once for them all.
+   * The cascade's engines a Task's Pipeline's Agent Stages run on, each once in the Stages' order,
+   * estimated or not, and the Stand-in Engine list that applies to the Task (none without an Agent
+   * Stage the cascade puts on an engine, empty under an engine override, which says whose it is);
+   * what the Tasks asked share is read once for them all.
    */
-  modelsReader(): (task: TaskSummary) => Promise<ReadonlyMap<EngineId, readonly string[]>> {
+  cascadeReader(): (task: TaskSummary) => Promise<TaskCascade> {
     const reads = this.stageReads();
     return async (task) => {
-      const models = new Map<EngineId, string[]>();
-      for (const { engineId, model } of await this.estimatedStages(task, reads)) {
-        const onEngine = models.get(engineId) ?? [];
-        if (!onEngine.includes(model)) models.set(engineId, [...onEngine, model]);
-      }
-      return models;
+      const stages = await this.cascadeStages(task, reads);
+      const first = stages[0]?.applying;
+      const forcedBy = first && forcedByOf(first);
+      return {
+        cascadeEngines: [...new Set(stages.map(({ applying }) => applying.engineId))],
+        standIns: first?.standIns.engineIds,
+        ...(forcedBy && { forcedBy }),
+      };
     };
   }
 
@@ -179,30 +186,58 @@ export class UsageEstimates {
   /**
    * The Task's Pipeline's Agent Stages with the engine and model the cascade gives each in the
    * Task's Project, a started Task's on the Stand-in Engines its Start chose, as its Stage Threads
-   * open on them (`engineThroughStandIns`); a vacant Role's and an unheld duty's are left out, and
-   * every Stage while no engine is listed. None while the Task has no Pipeline.
+   * open on them (`engineThroughStandIns`, through the list that applies to the Task), and a Task
+   * under an engine override on its engine alone, as it uses no Stand-in Engine; a vacant Role's
+   * and an unheld duty's are left out, and every Stage while no engine is listed. None while the
+   * Task has no Pipeline.
+   *
+   * On a stand-in the Stage counts the cascade's model while the stand-in offers it (another
+   * account of the same type), else the stand-in's default model: the person's model for another
+   * type is the People module's, which the cascade answers for its own engine alone, and the model
+   * only prices the Stage, the window % being the engine's.
    */
   private async estimatedStages(
     task: TaskSummary,
     reads: StageReads,
   ): Promise<readonly EstimatedStage[]> {
+    const stages = await this.cascadeStages(task, reads);
+    const engines = await this.enginesForStandIns(task, reads);
+    return stages.map(({ key, applying }) => {
+      if (!engines || forcedByOf(applying)) {
+        return { key, engineId: applying.engineId, model: applying.model };
+      }
+      const engineId = engineThroughStandIns(
+        applying.engineId,
+        task.engineStandIns,
+        engines,
+        applying.standIns.engineIds,
+      );
+      return { key, engineId, model: modelOn(engines, engineId, applying) };
+    });
+  }
+
+  /**
+   * The Task's Pipeline's Agent Stages with what the cascade gives each in the Task's Project; a
+   * vacant Role's and an unheld duty's are left out, and every Stage while no engine is listed.
+   * None while the Task has no Pipeline.
+   */
+  private async cascadeStages(
+    task: TaskSummary,
+    reads: StageReads,
+  ): Promise<readonly CascadeStage[]> {
     if (!hasPipeline(task)) return [];
     const { projectId } = task;
-    // A Task that sets no engine and is in no Initiative reads its Project's, shared by many Tasks.
-    const taskId = task.engine !== null || task.initiativeId !== undefined ? task.id : undefined;
+    // A Task with no override of its own and in no Initiative reads its Project's, shared by many.
+    const taskId =
+      task.engineOverride !== null || task.initiativeId !== undefined ? task.id : undefined;
     const held = await reads.heldStagesOf(task.pipelineId);
-    const engines = await this.enginesForStandIns(task, reads);
     const stages = await readEach(
       held,
       async (stage) => {
         const person = stage.role === undefined ? undefined : await reads.personOf(stage.role);
         if (!person) return [];
         const applying = await reads.engineOf({ roleKey: person.roleKey, projectId, taskId });
-        if (!applying) return [];
-        const { engineId, model } = engines
-          ? engineThroughStandIns(applying, task.engineStandIns, engines)
-          : applying;
-        return [{ key: stage.key, engineId, model }];
+        return applying ? [{ key: stage.key, applying }] : [];
       },
       STAGES_AT_ONCE,
     );
@@ -269,10 +304,42 @@ interface StageReads {
   readonly engineOf: (place: {
     readonly roleKey: string;
     readonly projectId: string;
-    /** Only for a Task whose own or Initiative's engine may take the Project default's place. */
+    /** Only for a Task whose own or Initiative's engine override may apply. */
     readonly taskId: string | undefined;
-  }) => Promise<EngineModel | null>;
+  }) => Promise<EngineInCascade | null>;
   readonly engines: () => Promise<readonly Engine[]>;
+}
+
+/** What the cascade gives a Task's Agent Stages, for Start to weigh its Stand-in Engines. */
+export interface TaskCascade {
+  /** The cascade's engines the Agent Stages run on, each once, in the Stages' order. */
+  readonly cascadeEngines: readonly EngineId[];
+  /** The Stand-in Engine list that applies to the Task; none without such a Stage. */
+  readonly standIns: readonly EngineId[] | undefined;
+  /** Whose engine override forces its engine, which leaves `standIns` empty; none when none does. */
+  readonly forcedBy?: EngineForcedBy;
+}
+
+/** Whose engine override gave the cascade's engine; none when the Project or the Office did. */
+function forcedByOf({ level }: Pick<EngineInCascade, "level">): EngineForcedBy | undefined {
+  return level === "task" || level === "initiative" ? level : undefined;
+}
+
+/** An Agent Stage with the engine, model and Stand-in Engine list the cascade gives it. */
+interface CascadeStage {
+  readonly key: string;
+  readonly applying: EngineInCascade;
+}
+
+/**
+ * The model a Stage counts on `engineId`: the cascade's on its own engine, or on a stand-in that
+ * offers it; else the stand-in's default.
+ */
+function modelOn(engines: readonly Engine[], engineId: EngineId, applying: EngineModel): string {
+  if (engineId === applying.engineId) return applying.model;
+  const engine = engines.find(({ id }) => id === engineId);
+  if (engine === undefined) return applying.model;
+  return offeredModels(engine).includes(applying.model) ? applying.model : engine.defaultModel;
 }
 
 /** Each Stage's median tokens at the current Model prices, by Stage key. */

@@ -1,14 +1,18 @@
 import {
+  ENGINE_TYPE_EFFORTS,
   effortSchema,
   sessionDefaultSchema,
   type Capabilities,
+  type Effort,
   type EngineCascadeLevel,
   type EngineInCascade,
   type EngineCapability,
   type EngineId,
+  type EngineKind,
   type HardSwitchKey,
   type HardSwitchValue,
   type PermissionProfile,
+  type PersonEngineSettings,
   type ProposedChange,
   type Role,
   type RoleCard,
@@ -18,9 +22,10 @@ import {
   type RunPermission,
   type SessionDefault,
   type TaskLimit,
+  type WorkCascadeLevel,
 } from "@the-office/contracts";
 import type { z } from "zod";
-import { EFFORT_LABELS, modelLabel } from "./engine-words.ts";
+import { EFFORT_LABELS, ENGINE_KIND_LABELS, ENGINE_KINDS, modelLabel } from "./engine-words.ts";
 import type { UserNamer } from "./use-user-name.ts";
 
 /**
@@ -122,6 +127,8 @@ const FIELD_LABELS: Readonly<Record<RoleCardField, string>> = {
   model: "Model",
   roleOverride: "Engine and model",
   effort: "Effort",
+  engineSettings: "Model and effort",
+  engineSettingsMovedOver: "Engine settings moved over",
   taskLimit: "Task limit",
   sessionDefault: "Session default",
   "capabilities.sharedMemory": "Shared memory",
@@ -150,36 +157,96 @@ export interface FieldValueNames {
   readonly engineName: (engineId: EngineId) => string;
 }
 
-/**
- * The model, effort and engine the card names, "Sonnet 5.5 · effort max · Work account", or
- * "Office default · effort high" when it has no Role override.
- */
-export function worksWithText(
-  { roleOverride, effort }: Pick<RoleCard, "roleOverride" | "effort">,
-  engineName: (engineId: EngineId) => string,
-): string {
-  const effortText = `effort ${EFFORT_LABELS[effort].toLowerCase()}`;
-  return roleOverride
-    ? `${modelLabel(roleOverride.model)} · ${effortText} · ${engineName(roleOverride.engineId)}`
-    : `Office default · ${effortText}`;
+/** What an unset model or effort reads as: the engine's own. */
+export const ENGINES_DEFAULT = "Engine's default";
+
+/** When the person sets no model or effort on any engine type. */
+export const EACH_ENGINES_DEFAULT = "Each engine's default model and effort";
+
+/** "effort high"; null: the engine's default. */
+export function effortText(effort: Effort | null): string {
+  return effort === null ? ENGINES_DEFAULT : `effort ${EFFORT_LABELS[effort].toLowerCase()}`;
 }
 
-/** Where the engine and model a Role runs on come from, in the glossary's terms. */
+/** Whether the engine type takes an effort at all. */
+export function takesEffort(type: EngineKind): boolean {
+  return ENGINE_TYPE_EFFORTS[type].length > 0;
+}
+
+/**
+ * The model and effort the person works with on each engine type they set, one line each in the
+ * spec's order of types, "Claude Code: Sonnet 5.5 · effort max", an unset part "Engine's default";
+ * a type taking no effort names its model only.
+ */
+export function engineSettingsLines(engineSettings: PersonEngineSettings): string[] {
+  return ENGINE_KINDS.flatMap((type) => {
+    const setting = engineSettings[type];
+    if (!setting || (setting.model === null && setting.effort === null)) return [];
+    const model = setting.model === null ? ENGINES_DEFAULT : modelLabel(setting.model);
+    const parts = takesEffort(type) ? [model, effortText(setting.effort)] : [model];
+    return [`${ENGINE_KIND_LABELS[type]}: ${parts.join(" · ")}`];
+  });
+}
+
+/** The card's "Works with" lines, or "Each engine's default model and effort" when it sets none. */
+export function worksWithLines({ engineSettings }: Pick<RoleCard, "engineSettings">): string[] {
+  const lines = engineSettingsLines(engineSettings);
+  return lines.length > 0 ? lines : [EACH_ENGINES_DEFAULT];
+}
+
+/** Where the engine a Role runs on comes from, in the glossary's terms. */
 export const ENGINE_CASCADE_LEVEL_WORDS: Readonly<Record<EngineCascadeLevel, string>> = {
-  "office-default": "the Office default",
-  "project-default": "the Project default",
-  "initiative-engine": "the Initiative's engine",
-  "task-engine": "the Task's engine",
-  "role-override": "the Role override",
-  "project-role-override": "the Project's Role override",
+  office: "the Office default",
+  project: "the Project default",
+  initiative: "the Initiative's engine override",
+  task: "the Task's engine override",
 };
 
-/** "Sonnet 5.5 on Work account, from the Office default". */
-export function engineInCascadeText(
-  { engineId, model, level }: EngineInCascade,
-  engineName: (engineId: EngineId) => string,
+/** Where a model or effort comes from, "from Pam's Role card", for the person named. */
+export function workCascadeLevelWords(level: WorkCascadeLevel, personName: string): string {
+  switch (level) {
+    case "engine":
+      return "the engine's default";
+    case "person":
+      return `from ${personName}'s Role card`;
+    case "projectPerson":
+      return `from the Project's setting for ${personName}`;
+    case "projectForce":
+      return "forced by the Project";
+    case "stage":
+      return "from the Stage";
+  }
+}
+
+/** "Sonnet 5.5 · effort high": the model and effort a person works with where they run. */
+export function modelAndEffortText({
+  model,
+  effort,
+}: Pick<EngineInCascade, "model" | "effort">): string {
+  return effort === null ? modelLabel(model) : `${modelLabel(model)} · ${effortText(effort)}`;
+}
+
+/** "Sonnet 5.5 · effort high on Work account"; an effort left to the runtime is left out. */
+export function engineInCascadeText(applies: EngineInCascade): string {
+  return `${modelAndEffortText(applies)} on ${applies.engineName}`;
+}
+
+/**
+ * Where the model and effort come from: one phrase when both come from one level ("from Pam's Role
+ * card"), else each its own ("model: from Pam's Role card; effort: forced by the Project").
+ */
+export function workSourceText(
+  {
+    modelLevel,
+    effortLevel,
+    effort,
+  }: Pick<EngineInCascade, "modelLevel" | "effortLevel" | "effort">,
+  personName: string,
 ): string {
-  return `${modelLabel(model)} on ${engineName(engineId)}, from ${ENGINE_CASCADE_LEVEL_WORDS[level]}`;
+  if (effort === null || modelLevel === effortLevel) {
+    return workCascadeLevelWords(modelLevel, personName);
+  }
+  return `model: ${workCascadeLevelWords(modelLevel, personName)}; effort: ${workCascadeLevelWords(effortLevel, personName)}`;
 }
 
 export function taskLimitLabel(limit: TaskLimit): string {
@@ -279,7 +346,22 @@ export function fieldLabel(field: RoleCardField): string {
 export function changeLine(change: RoleCardFieldChange, names: FieldValueNames): string {
   const label = FIELD_LABELS[change.field];
   if (LONG_TEXT_FIELDS.has(change.field)) return `${label} edited`;
+  if (change.field === "engineSettingsMovedOver") return movedOverLine(change, names);
   return `${label} ${fieldValueText(change.field, change.from, names)} → ${fieldValueText(change.field, change.to, names)}`;
+}
+
+/**
+ * The line of a card moved over to engine settings: a Role override's model kept on the engine type
+ * it moved to, naming the account its sessions no longer run on, or one on an engine no longer
+ * listed dropped (spec §5.4.5, "Moving the earlier engine settings over").
+ */
+function movedOverLine({ from, to }: RoleCardFieldChange, names: FieldValueNames): string {
+  const label = FIELD_LABELS.engineSettingsMovedOver;
+  if (from === null || typeof from !== "object" || !("engineId" in from)) return label;
+  const movedTo = ENGINE_KINDS.find((type) => type === to);
+  return movedTo
+    ? `${label}, ${modelLabel(from.model)} kept on ${ENGINE_KIND_LABELS[movedTo]}; sessions no longer run on ${names.engineName(from.engineId)}`
+    : `${label}, the Role override ${fieldValueText("roleOverride", from, names)} dropped`;
 }
 
 /**
@@ -365,14 +447,22 @@ export function fieldValueText(
 ): string {
   if (typeof value === "boolean") return value ? "on" : "off";
   if (typeof value === "number") return String(value);
+  if (field === "engineSettings") {
+    const settings = value !== null && typeof value === "object" ? value : {};
+    const lines = engineSettingsLines(settings as PersonEngineSettings);
+    return lines.length > 0 ? lines.join("; ") : EACH_ENGINES_DEFAULT;
+  }
   if (value === null) return "Office default";
   if (typeof value === "object") {
     if ("engineId" in value) return `${engineName(value.engineId)} · ${modelLabel(value.model)}`;
-    return "kind" in value
-      ? hardSwitchValueLabel(value, roleTitles)
-      : [...permissionProfileLines(value), ...mcpToolSettingLines(value.mcpTools, roleTitles)].join(
-          ", ",
-        );
+    if ("kind" in value) return hardSwitchValueLabel(value, roleTitles);
+    if ("mcpTools" in value) {
+      return [
+        ...permissionProfileLines(value),
+        ...mcpToolSettingLines(value.mcpTools, roleTitles),
+      ].join(", ");
+    }
+    return engineSettingsLines(value as PersonEngineSettings).join("; ") || EACH_ENGINES_DEFAULT;
   }
   switch (field) {
     case "engine":

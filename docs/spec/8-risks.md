@@ -5,7 +5,7 @@ Covers: subscription terms, undocumented internals, unseen refusals, no sandbox,
 ## Subscription terms
 
 - Terms for programmatic use change; a multi-agent office running all day is a gray zone under "ordinary, individual usage".
-- Mitigation: the engine boundary, pinned versions, the `-p` switch on each Claude Code engine, and engines of other kinds (Codex, Copilot CLI, the OpenAI-compatible API) ([5.4](5.4-the-engine.md)).
+- Mitigation: the engine boundary, pinned versions, the `-p` switch on each Claude Code engine, and engines of other engine types (Codex, Copilot CLI, the OpenAI-compatible API) ([5.4](5.4-the-engine.md)).
 
 ## Undocumented internals
 
@@ -38,6 +38,7 @@ Covers: subscription terms, undocumented internals, unseen refusals, no sandbox,
 
 - It copies Claude Code's transcript files by their layout, which a Claude Code update may change.
 - The engine check's carry-over cases guard it.
+- Only Claude Code is carried: on a stand-in of another engine type a Thread goes on fresh, without its context ([5.4.6](5.4.6-stand-in-engines-and-usage-windows.md#stand-ins-of-another-engine-type)).
 
 ## The PowerShell tool
 

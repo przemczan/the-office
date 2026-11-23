@@ -26,7 +26,8 @@ export function usageWindowUsedUpWords(
 /**
  * A Thread's line for a session that went on on a Stand-in Engine (spec 5.4): "Claude Code's
  * 5-hour window was used up until 14:00, so the Stage went on on Claude Code 2", or in a person's
- * Thread "…, so Pam went on on Claude Code 2".
+ * Thread "…, so Pam went on on Claude Code 2". On another engine type the session started afresh
+ * (`fresh`): "…, so Pam went on on Codex, starting fresh".
  */
 export function engineSwitchedWords(
   {
@@ -35,14 +36,16 @@ export function engineSwitchedWords(
     window,
     resetsAt,
     personName,
+    fresh,
   }: {
     readonly fromName: string;
     readonly toName: string;
     readonly window: string;
     readonly resetsAt: string;
     readonly personName?: string;
+    readonly fresh?: boolean;
   },
   now: Date = new Date(),
 ): string {
-  return `${fromName}'s ${usageWindowWords(window)} was used up until ${momentWords(resetsAt, now)}, so ${personName ?? "the Stage"} went on on ${toName}`;
+  return `${fromName}'s ${usageWindowWords(window)} was used up until ${momentWords(resetsAt, now)}, so ${personName ?? "the Stage"} went on on ${toName}${fresh === true ? ", starting fresh" : ""}`;
 }

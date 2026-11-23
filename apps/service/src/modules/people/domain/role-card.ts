@@ -1,4 +1,4 @@
-import type { EngineId, EngineModel } from "../../engine/index.js";
+import { ENGINE_TYPE_NAMES, type EngineKind } from "../../engine/index.js";
 import { builtInCardProblems } from "./caretaker.js";
 import { hardSwitchesProblems, type HardSwitches } from "./hard-switches.js";
 import { mcpToolSettingsProblems } from "./mcp-tool-settings.js";
@@ -47,12 +47,8 @@ export interface RoleCard {
   readonly responsibilities: string;
   /** What the Agent works from. */
   readonly instructions: string;
-  /**
-   * The engine and model the Role runs on wherever no Project sets its own (the engine cascade,
-   * spec §5.4); none means the Office default.
-   */
-  readonly roleOverride: EngineModel | null;
-  readonly effort: Effort;
+  /** How the person works on each engine type they set; any other works with the engine's default. */
+  readonly engineSettings: PersonEngineSettings;
   readonly capabilities: Capabilities;
   readonly permissionProfile: PermissionProfile;
   readonly hardSwitches: HardSwitches;
@@ -77,25 +73,51 @@ export function trimmedRoleCard<Card extends RoleCard>(card: Card): Card {
   };
 }
 
-/** The models the engine listed as `engineId` offers now, none when it isn't listed; Engine answers. */
-export type ModelsOffered = (engineId: EngineId) => readonly string[];
+/** How a person works on one engine type: each null is "Engine's default" (spec §5.4.5). */
+export interface EngineTypeSetting {
+  readonly model: string | null;
+  readonly effort: Effort | null;
+}
 
 /**
- * What a card is checked against beyond itself: the models each engine offers, the Roles a Hard
+ * A person's model and effort for each engine type they set, never per account, so they work the
+ * same on whichever engine of the type a session lands on.
+ */
+export type PersonEngineSettings = Partial<Readonly<Record<EngineKind, EngineTypeSetting>>>;
+
+/**
+ * What an engine type offers now: whether Settings › Engines lists an engine of it, the models its
+ * listed engines offer together and the efforts it takes; Engine answers.
+ */
+export interface EngineTypeOffer {
+  readonly listed: boolean;
+  readonly models: readonly string[];
+  readonly efforts: readonly Effort[];
+}
+
+export type EngineTypesOffered = (type: EngineKind) => EngineTypeOffer;
+
+/**
+ * What a card is checked against beyond itself: what each engine type offers, the Roles a Hard
  * switch or an MCP tool may consult (`consultableRoleKeys`), and who holds Default Consultant for
  * MCP tool hard switches, if anyone.
  */
 export interface RoleCardContext {
-  readonly modelsOffered: ModelsOffered;
+  readonly engineTypes: EngineTypesOffered;
   readonly consultable: ReadonlySet<string>;
   readonly mcpConsultant: string | undefined;
+  /**
+   * The settings the card has now, none for a hire: a type with no engine listed keeps them, as
+   * its models can't be told until one is.
+   */
+  readonly storedEngineSettings?: PersonEngineSettings;
 }
 
 /** Why the card of the Role `roleKey` can't be saved, in the UI's words; empty when it can. */
 export function roleCardProblems(
   roleKey: string,
   card: RoleCard,
-  { modelsOffered, consultable, mcpConsultant }: RoleCardContext,
+  { engineTypes, consultable, mcpConsultant, storedEngineSettings = {} }: RoleCardContext,
 ): string[] {
   const problems = [
     ...personNameProblems(card.name),
@@ -115,10 +137,7 @@ export function roleCardProblems(
   ];
   if (/\n\s*\n/.test(card.responsibilities.trim()))
     problems.push("The responsibilities are one paragraph.");
-  const { roleOverride } = card;
-  if (roleOverride && !modelsOffered(roleOverride.engineId).includes(roleOverride.model)) {
-    problems.push("Choose an engine Settings › Engines lists, and a model it offers.");
-  }
+  problems.push(...engineSettingsProblems(card.engineSettings, engineTypes, storedEngineSettings));
   const limitProblem = taskLimitProblem(card.taskLimit);
   if (limitProblem) problems.push(limitProblem);
   problems.push(...hardSwitchesProblems(roleKey, card.hardSwitches, consultable));
@@ -132,6 +151,32 @@ export function roleCardProblems(
   );
   problems.push(...builtInCardProblems(roleKey, card));
   return problems;
+}
+
+/**
+ * Why the person can't work with `settings`: a model the type doesn't offer or an effort it doesn't
+ * take, each refused unless it is what `stored` already has.
+ */
+export function engineSettingsProblems(
+  settings: PersonEngineSettings,
+  engineTypes: EngineTypesOffered,
+  stored: PersonEngineSettings,
+): string[] {
+  return Object.entries(settings).flatMap(([key, setting]) => {
+    const type = key as EngineKind;
+    const offer = engineTypes(type);
+    const kept = stored[type];
+    const name = ENGINE_TYPE_NAMES[type];
+    const problems: string[] = [];
+    const { model, effort } = setting;
+    if (model !== null && model !== kept?.model && !offer.models.includes(model)) {
+      problems.push(`Choose a model ${name} offers.`);
+    }
+    if (effort !== null && effort !== kept?.effort && !offer.efforts.includes(effort)) {
+      problems.push(`Choose an effort ${name} takes.`);
+    }
+    return problems;
+  });
 }
 
 /** Why a person can't be called `name`; empty when they can. */

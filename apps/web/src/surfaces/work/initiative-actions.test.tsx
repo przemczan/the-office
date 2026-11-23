@@ -45,7 +45,7 @@ const INITIATIVE: Initiative = {
   planningAutoMode: false,
   pipelines: [],
   shortName: null,
-  engine: null,
+  engineOverride: null,
   branches: [],
 };
 

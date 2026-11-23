@@ -2,8 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { asc, eq } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { forgettingReads, readKey, readOnce } from "../../../../platform/database/read-scope.js";
-import type { EngineModel } from "../../../engine/index.js";
-import type { Project, ProjectCommand } from "../../domain/project.js";
+import type { Project, ProjectCommand, ProjectEngineDefault } from "../../domain/project.js";
 import type { ProjectChanges } from "../../domain/project-changes.js";
 import { featureSwitchesOfStored } from "../../domain/project-features.js";
 import { ProjectNotFound } from "../../domain/project-not-found.js";
@@ -12,6 +11,15 @@ import { projects, type StoredProjectCommand } from "./projects.schema.js";
 import { environmentOfStored } from "./stored-environment.js";
 
 type ProjectRow = typeof projects.$inferSelect;
+
+/**
+ * A row as it is written: the earlier engine levels (`project_default_*`, `use_for_every_role`,
+ * `role_overrides`) are left as migration 0203 found them, for a rollback.
+ */
+type WrittenProjectRow = Omit<
+  typeof projects.$inferInsert,
+  "projectDefaultEngineId" | "projectDefaultModel" | "useForEveryRole" | "roleOverrides"
+>;
 
 @Injectable()
 export class PostgresProjectRepository extends ProjectRepository {
@@ -58,7 +66,7 @@ export class PostgresProjectRepository extends ProjectRepository {
   }
 }
 
-function toRow(project: Project): ProjectRow {
+function toRow(project: Project): WrittenProjectRow {
   return {
     id: project.id,
     name: project.name,
@@ -80,10 +88,12 @@ function toRow(project: Project): ProjectRow {
     environment: project.environment,
     useProjectSkills: project.useProjectSkills,
     projectSkillsOff: [...project.projectSkillsOff],
-    projectDefaultEngineId: project.projectDefault?.engineId ?? null,
-    projectDefaultModel: project.projectDefault?.model ?? null,
-    useForEveryRole: project.useForEveryRole,
-    roleOverrides: project.roleOverrides,
+    engineDefaultType: project.engine.default?.engineType ?? null,
+    engineDefaultEngineId: project.engine.default?.engineId ?? null,
+    engineForce: project.engine.force,
+    enginePeople: project.engine.people,
+    standInsUseOwnList: project.engine.standIns.useOwnList,
+    standInEngineIds: project.engine.standIns.engineIds,
     runEnvironment: project.runEnvironment,
     runEnvironmentSetUpProblems: [...project.runEnvironmentSetUpProblems],
     projectLimit: project.projectLimit,
@@ -121,9 +131,12 @@ function toProject(row: ProjectRow): Project {
     environment: environmentOfStored(row.environment),
     useProjectSkills: row.useProjectSkills,
     projectSkillsOff: row.projectSkillsOff,
-    projectDefault: projectDefaultOf(row),
-    useForEveryRole: row.useForEveryRole,
-    roleOverrides: row.roleOverrides,
+    engine: {
+      default: engineDefaultOf(row),
+      force: row.engineForce,
+      people: row.enginePeople,
+      standIns: { useOwnList: row.standInsUseOwnList, engineIds: row.standInEngineIds },
+    },
     runEnvironment: row.runEnvironment,
     runEnvironmentSetUpProblems: row.runEnvironmentSetUpProblems,
     projectLimit: row.projectLimit,
@@ -148,7 +161,7 @@ function commandOfStored(command: StoredProjectCommand): ProjectCommand {
   return { ...command, rerunCommandLine: command.rerunCommandLine ?? "" };
 }
 
-function projectDefaultOf(row: ProjectRow): EngineModel | null {
-  const { projectDefaultEngineId: engineId, projectDefaultModel: model } = row;
-  return engineId === null || model === null ? null : { engineId, model };
+function engineDefaultOf(row: ProjectRow): ProjectEngineDefault | null {
+  const { engineDefaultType: engineType, engineDefaultEngineId: engineId } = row;
+  return engineType === null || engineId === null ? null : { engineType, engineId };
 }

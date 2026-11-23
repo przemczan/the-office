@@ -153,13 +153,14 @@ Covers: the Initiative page's head and actions (Confirm, Back to Shaping, Plan t
 ## Engine fold
 
 - A fold "Engine" (cpu icon) right after Pipelines, starting folded; remembered per Initiative.
-- Summary: the engine and model it sets, else "Project's engine · <model> on <engine>" ("Each Project's engine" across several Projects).
-- The engine and model pair as on the Role card; the empty choice reads "Project's engine" ("Each Project's engine" across several Projects).
-- While it sets none, the hint under the field reads "A Task in it that sets no engine runs on its Project default, or the Office default where its Project has none."
-- It saves at once with a toast ("<name> has no engine of its own now: its Threads and Tasks run on their Project's engine from their next session." when cleared); a refusal shows under the field, headed "The engine wasn't saved".
+- Summary: the engine it forces, "<engine> · set for this Initiative · no stand-ins", else "<engine> · from the Project" or "<engine> · from the Office default" ("Each Project's engine" across several Projects).
+- A switch **Override the engine**; off, the hint reads "Its Threads and Tasks run on their Project's engine, or the Office default where the Project sets none, with that Project's Stand-in Engines."
+- On, an **Engine** select over the listed engines, grouped by engine type with each type's icon, starting on the first Project's engine; no model: each person works with their own model and effort for its type.
+- Under it, an info note: "No stand-ins: when <engine>'s usage window is used up, its Tasks wait for the reset."
+- Each change saves at once with a toast ("<name> runs on <engine>, with no stand-ins." / "<name> has no engine of its own now: its Threads and Tasks run on their Project's engine from their next session."); a refusal shows under the field, headed "The engine wasn't saved".
 - Read-only once Done or Dropped.
-- An "Its Tasks" list shows which of its Tasks follow its engine and which set their own.
-- Rules: [2.1.4](../2.1.4-initiatives.md#an-initiatives-engine), [5.4.5](../5.4.5-engines-and-cascade.md#the-engine-cascade).
+- An "Its Tasks" list shows which of its Tasks follow its override and which override it with their own engine.
+- Rules: [2.1.4](../2.1.4-initiatives.md#an-initiatives-engine), [5.4.5](../5.4.5-engines-and-cascade.md#the-engine-cascade), [5.4.6](../5.4.6-stand-in-engines-and-usage-windows.md#a-forced-engine-has-no-stand-ins).
 
 ## Test instances
 

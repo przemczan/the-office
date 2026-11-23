@@ -1,4 +1,4 @@
-export { EngineSessions } from "./application/engine-sessions.js";
+export { EngineSessions, type StandInOptions } from "./application/engine-sessions.js";
 export { EngineRefused } from "./domain/engine-refused.js";
 export type { EngineCapability } from "./ports/agent-engine.js";
 export { OfficeToolRegistry } from "./application/office-tool-registry.js";
@@ -50,23 +50,32 @@ export {
 } from "./application/engine-reference-moves.js";
 export { EngineReferenceLock } from "./application/engine-reference-lock.js";
 export {
-  movedEngineModel,
-  movedEngineReference,
+  movedEngineId,
+  movedEngineOverride,
+  movedStandInList,
   type EngineRemoval,
   type MovedEngineReference,
 } from "./domain/engine-removal.js";
 export {
+  effortsTakenBy,
+  ENGINE_TYPE_NAMES,
   FIRST_CLAUDE_CODE_ENGINE,
   hasUsageWindows,
   offeredModels,
+  type Effort,
   type Engine,
   type EngineId,
+  type EngineKind,
   type EngineModel,
+  type OfficeDefault,
 } from "./domain/engines.js";
 export {
   engineThroughStandIns,
   engineToRunOn,
+  standInListProblems,
+  standInListWithout,
   type EngineStandInChoice,
+  type StandInNeeds,
 } from "./domain/stand-in-engines.js";
 export { DayUsage } from "./application/day-usage.js";
 export type { ModelDayUsage } from "./ports/day-usage-repository.js";

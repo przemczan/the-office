@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
+import { asc, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { CARETAKER_FIXED_PARTS } from "../../domain/caretaker.js";
 import { CARETAKER } from "../../domain/known-roles.js";
 import { roleCardProblems } from "../../domain/role-card.js";
@@ -10,6 +12,7 @@ import type { Role } from "../../domain/role.js";
 import { changeAvatar, changeRoleCard } from "../../domain/role-changes.js";
 import { RoleNotFound } from "../../domain/role-not-found.js";
 import { PostgresRoleRepository } from "./postgres-role-repository.js";
+import { roleCardVersions } from "./roles.schema.js";
 
 let app: INestApplication;
 let repository: PostgresRoleRepository;
@@ -35,9 +38,9 @@ describe("PostgresRoleRepository", () => {
   it("holds the built-in Caretaker on a fresh database, their card's fixed parts as fixed", async () => {
     const caretaker = await repository.find(CARETAKER);
 
+    // Its card version is the seed's until a start moves its engine settings over.
     expect(caretaker).toMatchObject({
       key: CARETAKER,
-      cardVersion: 1,
       letGoAt: undefined,
       card: {
         title: "Caretaker",
@@ -96,13 +99,22 @@ describe("PostgresRoleRepository", () => {
         changeRoleCard(stored, { ...stored.card, taskLimit: 1 }, CARD_CONTEXT, savedAt, null),
       ),
       repository.update(role.key, (stored) =>
-        changeRoleCard(stored, { ...stored.card, effort: "max" }, CARD_CONTEXT, savedAt, null),
+        changeRoleCard(
+          stored,
+          { ...stored.card, engineSettings: { "claude-code": { model: null, effort: "max" } } },
+          CARD_CONTEXT,
+          savedAt,
+          null,
+        ),
       ),
     ]);
 
     const stored = await repository.find(role.key);
     expect(stored?.cardVersion).toBe(3);
-    expect(stored?.card).toMatchObject({ taskLimit: 1, effort: "max" });
+    expect(stored?.card).toMatchObject({
+      taskLimit: 1,
+      engineSettings: { "claude-code": { model: null, effort: "max" } },
+    });
   });
 
   it("refuses to change a Role nobody fills", async () => {
@@ -146,5 +158,27 @@ describe("PostgresRoleRepository", () => {
     await repository.add(role);
 
     await expect(repository.version(role.key, 2)).resolves.toBeUndefined();
+  });
+
+  it("keeps a new hire's earlier fields for a rollback, carried to each version, unread", async () => {
+    const role = aRoleOfItsOwn();
+    await repository.add(role);
+    await repository.update(role.key, (stored) =>
+      changeRoleCard(stored, { ...stored.card, title: "Tester" }, CARD_CONTEXT, new Date(), null),
+    );
+
+    const kept = await app
+      .get<Database>(DATABASE)
+      .select({ card: roleCardVersions.card })
+      .from(roleCardVersions)
+      .where(eq(roleCardVersions.roleKey, role.key))
+      .orderBy(asc(roleCardVersions.version));
+
+    expect(kept.map(({ card }) => [card.roleOverride, card.effort])).toEqual([
+      [null, "high"],
+      [null, "high"],
+    ]);
+    expect(await repository.find(role.key)).not.toHaveProperty("card.effort");
+    expect(await repository.find(role.key)).not.toHaveProperty("card.roleOverride");
   });
 });

@@ -19,7 +19,8 @@ import { KnownProjectLevels } from "../../ports/known-project-levels.js";
 import { WorkLevelsForTests } from "../../ports/known-work-levels.fixtures.js";
 import { ProjectLevelsSaves } from "../../ports/project-levels-saves.js";
 
-const haiku = { engineId: "claude-code", model: "claude-haiku-5-5" };
+/** The Project "forced" forces Haiku at low effort on Claude Code, its default's type. */
+const forced = { model: "claude-haiku-5-5", effort: "low" } as const;
 
 @Injectable()
 class TwoProjects implements KnownProjectLevels {
@@ -27,16 +28,18 @@ class TwoProjects implements KnownProjectLevels {
     {
       projectId: "forced",
       projectName: "Forced",
-      projectDefault: haiku,
-      useForEveryRole: true,
-      roleOverrides: [],
+      default: { engineType: "claude-code", engineId: "claude-code" },
+      force: forced,
+      people: [],
+      standIns: { useOwnList: false, engineIds: [] },
     },
     {
       projectId: "quiet",
       projectName: "Quiet",
-      projectDefault: null,
-      useForEveryRole: false,
-      roleOverrides: [],
+      default: null,
+      force: null,
+      people: [],
+      standIns: { useOwnList: false, engineIds: [] },
     },
   ];
 
@@ -93,16 +96,38 @@ afterEach(async () => {
 
 describe("GET /api/roles/:key/engine-cascade", () => {
   it("says what applies outside any Project and lists the Projects where something else does", async () => {
-    const opus = { engineId: "claude-code", model: "claude-opus-5-5" };
-    const card = aRoleCard({ title: `Cascade ${randomUUID().slice(0, 8)}`, roleOverride: opus });
+    const engineSettings = { "claude-code": { model: "claude-opus-5-5", effort: "high" } } as const;
+    const title = `Cascade ${randomUUID().slice(0, 8)}`;
+    const card = aRoleCard({ title, engineSettings });
     const { role } = await app.get(RoleService).hireFromScratch(card, [], ANN_LEE);
 
     const response = await fetch(`${url}/api/roles/${role.key}/engine-cascade`);
 
+    const onClaudeCode = {
+      engineId: "claude-code",
+      engineType: "claude-code",
+      engineName: "Claude Code",
+    };
     expect(response.status).toBe(200);
     expect(roleEngineCascadeSchema.parse(await response.json())).toEqual({
-      outsideProjects: { ...opus, level: "role-override" },
-      elsewhereInProjects: [{ projectId: "forced", ...haiku, level: "project-default" }],
+      outsideProjects: {
+        ...onClaudeCode,
+        model: "claude-opus-5-5",
+        level: "office",
+        modelLevel: "person",
+        effort: "high",
+        effortLevel: "person",
+      },
+      elsewhereInProjects: [
+        {
+          projectId: "forced",
+          ...onClaudeCode,
+          ...forced,
+          level: "project",
+          modelLevel: "projectForce",
+          effortLevel: "projectForce",
+        },
+      ],
     });
   });
 

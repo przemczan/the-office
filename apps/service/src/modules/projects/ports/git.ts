@@ -213,6 +213,30 @@ export abstract class Git {
   /** Makes the local branch `upstream.branch` at the remote-tracking branch, tracking it. */
   abstract trackRemoteBranch(repositoryPath: string, upstream: Upstream): Promise<void>;
 
+  /** Has the local `branch` track the remote-tracking branch `upstream`, which must be there. */
+  abstract setUpstream(repositoryPath: string, branch: string, upstream: Upstream): Promise<void>;
+
+  /**
+   * Whether the repository has any branch, local or remote-tracking, which a repository without
+   * commits hasn't. A clone of a then-empty remote, fetched since the remote got commits, has
+   * only remote-tracking ones, and has commits.
+   */
+  abstract hasCommits(repositoryPath: string): Promise<boolean>;
+
+  /** Whether git takes `name` as a branch's name (`check-ref-format --branch`). */
+  abstract isBranchName(name: string): Promise<boolean>;
+
+  /**
+   * Makes `branch` in a repository without commits, at one commit of the empty tree in `message`,
+   * written as `writeCommit` writes one, with no hooks run; git refuses a branch already there.
+   * HEAD names `branch` afterwards when it named no commit before. Returns the commit.
+   */
+  abstract makeFirstCommit(
+    repositoryPath: string,
+    branch: string,
+    message: string,
+  ): Promise<string>;
+
   /** Points `remote` at `url` for fetching. */
   abstract setFetchUrl(repositoryPath: string, remote: string, url: string): Promise<void>;
 

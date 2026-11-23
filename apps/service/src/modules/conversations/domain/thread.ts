@@ -22,7 +22,7 @@ export interface SessionCascadeLocation {
 /**
  * Where a session in a Thread at `home` resolves the engine cascade: a Task's Threads (its Stage
  * Threads, its planning Thread and the Consultations on it) at the Task, whose Initiative's engine
- * comes with it; an Initiative's shaping and planning Threads at the Initiative; a chat, a
+ * override comes with it; an Initiative's shaping and planning Threads at the Initiative; a chat, a
  * Consultation there included, at no Task and no Initiative. `projectId` is the Project it runs in.
  */
 export function cascadeLocationOf(

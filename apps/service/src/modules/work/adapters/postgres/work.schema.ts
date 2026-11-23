@@ -155,9 +155,15 @@ export const initiatives = pgTable(
       .$type<InitiativeBranchRow[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
-    /** The Initiative's engine (spec 5.4.5), kept by Engine, so no foreign key; null for none. */
+    /**
+     * The Initiative's engine override (spec 5.4.5), an engine kept by Engine, so no foreign key; null
+     * for none.
+     */
     engineId: text("engine_id"),
-    /** Its engine's model; null exactly when `engine_id` is. */
+    /**
+     * The model the earlier engine and model kept beside `engine_id`: no longer read or written, kept
+     * for the release before, and set null by any update that changes `engine_id`.
+     */
     model: text("model"),
   },
   (table) => [
@@ -279,9 +285,15 @@ export const tasks = pgTable(
      * previous release reads.
      */
     createdByTheOffice: boolean("created_by_the_office").notNull().default(false),
-    /** The Task's engine (spec 5.4.5), kept by Engine, so no foreign key; null for none. */
+    /**
+     * The Task's engine override (spec 5.4.5), an engine kept by Engine, so no foreign key; null
+     * for none.
+     */
     engineId: text("engine_id"),
-    /** Its engine's model; null exactly when `engine_id` is. */
+    /**
+     * The model the earlier engine and model kept beside `engine_id`: no longer read or written, kept
+     * for the release before, and set null by any update that changes `engine_id`.
+     */
     model: text("model"),
   },
   (table) => [

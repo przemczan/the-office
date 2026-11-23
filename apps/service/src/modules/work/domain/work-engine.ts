@@ -1,24 +1,25 @@
-import type { EngineModel } from "../../engine/index.js";
+import type { EngineId } from "../../engine/index.js";
 import type { Initiative } from "./initiative.js";
 import type { InitiativeChange } from "./initiative-changes.js";
-import { InitiativeEngineSet } from "./initiative-events.js";
+import { InitiativeEngineOverrideSet } from "./initiative-events.js";
 import { InitiativeRefused } from "./initiative-refused.js";
 import type { Task, TaskSummary } from "./task.js";
 import type { TaskChange } from "./task-changes.js";
-import { TaskEngineSet } from "./task-events.js";
+import { TaskEngineOverrideSet } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
 
 /**
- * A Task's and an Initiative's engine (spec 5.4.5): each sets an engine and model that takes the
- * Project default's place in the engine cascade, and a Task that sets none runs on its
- * Initiative's. Which Roles the change leaves on an engine that can't run them is Pipelines' check,
+ * A Task's and an Initiative's engine override (spec 5.4.5): each names one engine, which wins over
+ * the Project default and the Office default and never gives way to a Stand-in Engine; a Task's
+ * wins over its Initiative's. It names no model: each person works with their own for its type.
+ * Which Roles the change leaves on an engine that can't run them is Pipelines' check,
  * `TaskEngineChecks`, weighed before the change is saved.
  */
 
-/** A Task's levels of the engine cascade: its own engine and its Initiative's. */
+/** A Task's engine overrides: its own and its Initiative's. */
 export interface TaskEngineLevels {
-  readonly taskEngine: EngineModel | null;
-  readonly initiativeEngine: EngineModel | null;
+  readonly taskEngineOverride: EngineId | null;
+  readonly initiativeEngineOverride: EngineId | null;
 }
 
 /**
@@ -27,6 +28,8 @@ export interface TaskEngineLevels {
  */
 export interface TaskEngineMove {
   readonly taskId: string;
+  /** In an Initiative's change, the Task's title, which its refusal names ("… need on “<Task>”"). */
+  readonly taskTitle?: string;
   readonly projectId: string;
   readonly before: TaskEngineLevels;
   readonly after: TaskEngineLevels;
@@ -38,8 +41,8 @@ export interface TaskEngineMove {
 }
 
 /**
- * A change that moves Tasks' engines, or the Stages they work: setting a Task's engine or an
- * Initiative's, adding a Task to an Initiative or taking it out, choosing a Task's Pipeline, or
+ * A change that moves Tasks' engines, or the Stages they work: setting a Task's engine override or
+ * an Initiative's, adding a Task to an Initiative or taking it out, choosing a Task's Pipeline, or
  * removing an engine. `place` names where, in a refusal's first words: "On “<Task>”" or
  * "In <Initiative>".
  */
@@ -49,140 +52,148 @@ export interface TaskEngineChange {
   readonly moves: readonly TaskEngineMove[];
 }
 
-export function sameEngine(one: EngineModel | null, other: EngineModel | null): boolean {
-  if (one === null || other === null) return one === other;
-  return one.engineId === other.engineId && one.model === other.model;
+export function sameEngine(one: EngineId | null, other: EngineId | null): boolean {
+  return one === other;
 }
 
 function isEnded({ state }: Pick<Task | Initiative, "state">): boolean {
   return state === "done" || state === "dropped";
 }
 
-/** The Task's own engine, null for none, in any state but Done and Dropped; undefined when it is already. */
+/** The Task's engine override, null for none, in any state but Done and Dropped; undefined when it is already. */
 export function changeTaskEngine(
   task: Task,
-  engine: EngineModel | null,
-): TaskChange<TaskEngineSet> | undefined {
+  engineId: EngineId | null,
+): TaskChange<TaskEngineOverrideSet> | undefined {
   if (isEnded(task)) {
-    throw new TaskRefused(["A Task keeps its engine once it is Done or Dropped."]);
+    throw new TaskRefused(["A Task keeps its engine override once it is Done or Dropped."]);
   }
-  if (sameEngine(task.engine, engine)) return undefined;
-  const set = engine && { engineId: engine.engineId, model: engine.model };
-  return { task: { ...task, engine: set }, event: new TaskEngineSet(task.id, set) };
-}
-
-/** The Initiative's engine, null for none, while it is shaping or active; undefined when it is already. */
-export function changeInitiativeEngine(
-  initiative: Initiative,
-  engine: EngineModel | null,
-): InitiativeChange<InitiativeEngineSet> | undefined {
-  if (isEnded(initiative)) {
-    throw new InitiativeRefused([`The Initiative is ${initiative.state}: it keeps its engine.`]);
-  }
-  if (sameEngine(initiative.engine, engine)) return undefined;
-  const set = engine && { engineId: engine.engineId, model: engine.model };
+  if (sameEngine(task.engineOverride, engineId)) return undefined;
   return {
-    initiative: { ...initiative, engine: set },
-    event: new InitiativeEngineSet(initiative.id, set),
+    task: { ...task, engineOverride: engineId },
+    event: new TaskEngineOverrideSet(task.id, engineId),
   };
 }
 
-/** The move of setting the Task's own engine: none for a Task Done or Dropped, or no change. */
+/** The Initiative's engine override, null for none, while it is shaping or active; undefined when it is already. */
+export function changeInitiativeEngine(
+  initiative: Initiative,
+  engineId: EngineId | null,
+): InitiativeChange<InitiativeEngineOverrideSet> | undefined {
+  if (isEnded(initiative)) {
+    throw new InitiativeRefused([
+      `The Initiative is ${initiative.state}: it keeps its engine override.`,
+    ]);
+  }
+  if (sameEngine(initiative.engineOverride, engineId)) return undefined;
+  return {
+    initiative: { ...initiative, engineOverride: engineId },
+    event: new InitiativeEngineOverrideSet(initiative.id, engineId),
+  };
+}
+
+/** The move of setting the Task's engine override: none for a Task Done or Dropped, or no change. */
 export function taskEngineMoves(
   task: Task,
-  initiativeEngine: EngineModel | null,
-  engine: EngineModel | null,
+  initiativeEngineOverride: EngineId | null,
+  engineId: EngineId | null,
 ): TaskEngineMove[] {
-  if (isEnded(task) || sameEngine(task.engine, engine)) return [];
+  if (isEnded(task) || sameEngine(task.engineOverride, engineId)) return [];
   return [
     {
       taskId: task.id,
       projectId: task.projectId,
-      before: { taskEngine: task.engine, initiativeEngine },
-      after: { taskEngine: engine, initiativeEngine },
+      before: { taskEngineOverride: task.engineOverride, initiativeEngineOverride },
+      after: { taskEngineOverride: engineId, initiativeEngineOverride },
     },
   ];
 }
 
 /**
- * The moves of its Initiative's engine changing from `before` to `after` for each of `tasks`: every
- * open Task that sets no engine of its own, Publishing Tasks included; none when it doesn't change.
+ * The moves of its Initiative's engine override changing from `before` to `after` for each of
+ * `tasks`: every open Task with no override of its own, Publishing Tasks included; none when it
+ * doesn't change.
  */
 export function inheritedEngineMoves(
-  tasks: readonly Pick<TaskSummary, "id" | "projectId" | "state" | "engine">[],
-  before: EngineModel | null,
-  after: EngineModel | null,
+  tasks: readonly Pick<TaskSummary, "id" | "title" | "projectId" | "state" | "engineOverride">[],
+  before: EngineId | null,
+  after: EngineId | null,
 ): TaskEngineMove[] {
   if (sameEngine(before, after)) return [];
   return tasks
-    .filter((task) => !isEnded(task) && task.engine === null)
+    .filter((task) => !isEnded(task) && task.engineOverride === null)
     .map((task) => ({
       taskId: task.id,
+      taskTitle: task.title,
       projectId: task.projectId,
-      before: { taskEngine: null, initiativeEngine: before },
-      after: { taskEngine: null, initiativeEngine: after },
+      before: { taskEngineOverride: null, initiativeEngineOverride: before },
+      after: { taskEngineOverride: null, initiativeEngineOverride: after },
     }));
 }
 
 /**
  * The move of choosing `pipelineId` for the Task, at the levels it runs on now: none for a Task Done
- * or Dropped, one following that Pipeline already, or one that neither sets an engine nor runs on
- * its Initiative's, as its Project's levels have weighed every Pipeline its Tasks may follow.
+ * or Dropped, one following that Pipeline already, or one with no engine override of its own or its
+ * Initiative's, as its Project's levels have weighed every Pipeline its Tasks may follow.
  */
 export function pipelineChoiceMoves(
-  task: Pick<Task, "id" | "projectId" | "state" | "engine" | "pipelineId">,
-  initiativeEngine: EngineModel | null,
+  task: Pick<Task, "id" | "projectId" | "state" | "engineOverride" | "pipelineId">,
+  initiativeEngineOverride: EngineId | null,
   pipelineId: string,
 ): TaskEngineMove[] {
   if (isEnded(task) || task.pipelineId === pipelineId) return [];
-  if (task.engine === null && initiativeEngine === null) return [];
-  const levels = { taskEngine: task.engine, initiativeEngine };
+  if (task.engineOverride === null && initiativeEngineOverride === null) return [];
+  const levels = { taskEngineOverride: task.engineOverride, initiativeEngineOverride };
   return [
     { taskId: task.id, projectId: task.projectId, before: levels, after: levels, pipelineId },
   ];
 }
 
 /**
- * What an engine's removal moves for open Tasks, as `move` (Engine's `movedEngineModel`) moves each
- * level naming it: each Task whose own engine names it, "On “<Task>”", then each Initiative whose
- * engine names it, over its open Tasks that set none, "In <Initiative>". Done and Dropped Tasks are
- * skipped, as the checks skip them.
+ * What an engine's removal moves for open Tasks, as `move` moves each override naming it (to the
+ * replacement, or none): each Task whose own override names it, "On “<Task>”", then each
+ * Initiative whose override names it, over its open Tasks with none of their own,
+ * "In <Initiative>". Done and Dropped Tasks are skipped, as the checks skip them.
  */
 export function removedEngineChanges(
-  engineId: string,
+  engineId: EngineId,
   tasks: readonly Task[],
   initiatives: readonly Initiative[],
-  move: (engine: EngineModel) => EngineModel | null,
+  move: (engineId: EngineId) => EngineId | null,
 ): TaskEngineChange[] {
-  const engineOf = new Map(initiatives.map(({ id, engine }) => [id, engine]));
+  const overrideOf = new Map(initiatives.map(({ id, engineOverride }) => [id, engineOverride]));
   const open = tasks.filter((task) => !isEnded(task));
   const ownChanges = open.flatMap((task): TaskEngineChange[] => {
-    if (task.engine?.engineId !== engineId) return [];
-    const initiativeEngine =
-      task.initiativeId === undefined ? null : (engineOf.get(task.initiativeId) ?? null);
+    if (task.engineOverride !== engineId) return [];
+    const initiativeEngineOverride =
+      task.initiativeId === undefined ? null : (overrideOf.get(task.initiativeId) ?? null);
     const moves = [
       {
         taskId: task.id,
         projectId: task.projectId,
-        before: { taskEngine: task.engine, initiativeEngine },
+        before: { taskEngineOverride: task.engineOverride, initiativeEngineOverride },
         after: {
-          taskEngine: move(task.engine),
-          initiativeEngine: initiativeEngine && move(initiativeEngine),
+          taskEngineOverride: move(task.engineOverride),
+          initiativeEngineOverride: initiativeEngineOverride && move(initiativeEngineOverride),
         },
       },
     ];
     return [{ place: onTask(task), moves }];
   });
   const inheritedChanges = initiatives.flatMap((initiative): TaskEngineChange[] => {
-    if (initiative.engine?.engineId !== engineId) return [];
+    if (initiative.engineOverride !== engineId) return [];
     const itsTasks = open.filter(({ initiativeId }) => initiativeId === initiative.id);
-    const moves = inheritedEngineMoves(itsTasks, initiative.engine, move(initiative.engine));
+    const moves = inheritedEngineMoves(
+      itsTasks,
+      initiative.engineOverride,
+      move(initiative.engineOverride),
+    );
     return moves.length === 0 ? [] : [{ place: inInitiative(initiative), moves }];
   });
   return [...ownChanges, ...inheritedChanges];
 }
 
-/** An open Task that sets an engine, or whose Initiative does, with its levels and its place. */
+/** An open Task with an engine override, its own or its Initiative's, with its levels and its place. */
 export interface TaskOnItsEngine {
   readonly task: Task;
   readonly place: string;
@@ -190,89 +201,97 @@ export interface TaskOnItsEngine {
 }
 
 /**
- * Each of `tasks` neither Done nor Dropped whose sessions run on its own engine or its Initiative's
+ * Each of `tasks` neither Done nor Dropped under an engine override, its own or its Initiative's
  * (spec 5.4.5), as the capability checks of saves above a Task weigh them.
  */
 export function tasksOnTheirEngines(
   tasks: readonly Task[],
   initiatives: readonly Initiative[],
 ): TaskOnItsEngine[] {
-  const engineOf = new Map(initiatives.map(({ id, engine }) => [id, engine]));
+  const overrideOf = new Map(initiatives.map(({ id, engineOverride }) => [id, engineOverride]));
   return tasks.flatMap((task) => {
     if (isEnded(task)) return [];
-    const initiativeEngine =
-      task.initiativeId === undefined ? null : (engineOf.get(task.initiativeId) ?? null);
-    if (task.engine === null && initiativeEngine === null) return [];
-    return [{ task, place: onTask(task), levels: { taskEngine: task.engine, initiativeEngine } }];
+    const initiativeEngineOverride =
+      task.initiativeId === undefined ? null : (overrideOf.get(task.initiativeId) ?? null);
+    if (task.engineOverride === null && initiativeEngineOverride === null) return [];
+    const levels = { taskEngineOverride: task.engineOverride, initiativeEngineOverride };
+    return [{ task, place: onTask(task), levels }];
   });
 }
 
-/** Where a refusal of a Task's engine says it is: `On “<Task>”`. */
+/** Where a refusal of a Task's engine override says it is: `On “<Task>”`. */
 export function onTask({ title }: Pick<Task, "title">): string {
   return `On “${title}”`;
 }
 
-/** Where a refusal of an Initiative's engine says it is: `In <Initiative>`. */
+/** Where a refusal of an Initiative's engine override says it is: `In <Initiative>`. */
 export function inInitiative({ name }: Pick<Initiative, "name">): string {
   return `In ${name}`;
 }
 
 /**
- * The Task's own engine moved by an engine's removal (`move`, Engine's `movedEngineModel`), in any
- * state, Done and Dropped too: never refused, as the engine it names is going. Undefined when it
- * names another engine, or none.
+ * The Task's engine override moved by an engine's removal (`move`: to the replacement, or none), in
+ * any state, Done and Dropped too: never refused, as the engine it names is going. Undefined when
+ * it names another engine, or none.
  */
 export function moveTaskEngine(
   task: Task,
-  move: (engine: EngineModel) => EngineModel | null,
-): TaskChange<TaskEngineSet> | undefined {
-  if (task.engine === null) return undefined;
-  const moved = move(task.engine);
-  if (sameEngine(task.engine, moved)) return undefined;
-  return { task: { ...task, engine: moved }, event: new TaskEngineSet(task.id, moved) };
+  move: (engineId: EngineId) => EngineId | null,
+): TaskChange<TaskEngineOverrideSet> | undefined {
+  if (task.engineOverride === null) return undefined;
+  const moved = move(task.engineOverride);
+  if (sameEngine(task.engineOverride, moved)) return undefined;
+  return {
+    task: { ...task, engineOverride: moved },
+    event: new TaskEngineOverrideSet(task.id, moved),
+  };
 }
 
-/** As `moveTaskEngine`, for the Initiative's engine, in any state. */
+/** As `moveTaskEngine`, for the Initiative's engine override, in any state. */
 export function moveInitiativeEngine(
   initiative: Initiative,
-  move: (engine: EngineModel) => EngineModel | null,
-): InitiativeChange<InitiativeEngineSet> | undefined {
-  if (initiative.engine === null) return undefined;
-  const moved = move(initiative.engine);
-  if (sameEngine(initiative.engine, moved)) return undefined;
+  move: (engineId: EngineId) => EngineId | null,
+): InitiativeChange<InitiativeEngineOverrideSet> | undefined {
+  if (initiative.engineOverride === null) return undefined;
+  const moved = move(initiative.engineOverride);
+  if (sameEngine(initiative.engineOverride, moved)) return undefined;
   return {
-    initiative: { ...initiative, engine: moved },
-    event: new InitiativeEngineSet(initiative.id, moved),
+    initiative: { ...initiative, engineOverride: moved },
+    event: new InitiativeEngineOverrideSet(initiative.id, moved),
   };
 }
 
 /** The engines' names by id, which a record names an engine by; its id for one not listed. */
 export type EngineNames = ReadonlyMap<string, string>;
 
-function engineModelWords({ engineId, model }: EngineModel, names: EngineNames): string {
-  return `${model} on ${names.get(engineId) ?? engineId}`;
-}
-
 /**
- * The record's line of the engine a Task sets, or the Initiative's it runs on while it sets none;
- * none when neither is set, as it runs on the Project's engine cascade then.
+ * The record's line of the Task's engine override, or its Initiative's that applies while it has
+ * none; none when neither is set, as it runs on the Project's engine cascade then.
  */
 export function taskEngineLines(
-  task: Pick<Task, "engine">,
-  initiativeEngine: EngineModel | null,
+  task: Pick<Task, "engineOverride">,
+  initiativeEngineOverride: EngineId | null,
   names: EngineNames,
 ): string[] {
-  if (task.engine) return [`- Engine: ${engineModelWords(task.engine, names)}`];
-  if (initiativeEngine) {
-    return [`- Engine: the Initiative's engine (${engineModelWords(initiativeEngine, names)})`];
+  const name = (engineId: EngineId) => names.get(engineId) ?? engineId;
+  if (task.engineOverride) {
+    return [`- Engine override: ${name(task.engineOverride)}, set for this Task, no stand-ins`];
+  }
+  if (initiativeEngineOverride) {
+    return [
+      `- Engine override: ${name(initiativeEngineOverride)}, from its Initiative, no stand-ins`,
+    ];
   }
   return [];
 }
 
-/** The record's line of the engine an Initiative sets; none when it sets none. */
+/** The record's line of the Initiative's engine override; none when it has none. */
 export function initiativeEngineLines(
-  initiative: Pick<Initiative, "engine">,
+  initiative: Pick<Initiative, "engineOverride">,
   names: EngineNames,
 ): string[] {
-  return initiative.engine ? [`- Engine: ${engineModelWords(initiative.engine, names)}`] : [];
+  const { engineOverride } = initiative;
+  return engineOverride
+    ? [`- Engine override: ${names.get(engineOverride) ?? engineOverride}, no stand-ins`]
+    : [];
 }

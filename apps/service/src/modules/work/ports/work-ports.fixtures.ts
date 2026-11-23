@@ -8,7 +8,13 @@ import {
   TaskThreadSetups,
   WorkRecords,
 } from "../../conversations/index.js";
-import { FIRST_CLAUDE_CODE_ENGINE, type EngineId, type EngineModel } from "../../engine/index.js";
+import {
+  EngineModels,
+  EngineModule,
+  FIRST_CLAUDE_CODE_ENGINE,
+  type EngineId,
+  type EngineModel,
+} from "../../engine/index.js";
 import { DUTIES, MemoryTaskTitles } from "../../people/index.js";
 import {
   FeatureSwitchedOff,
@@ -51,7 +57,12 @@ import {
   type InitiativeThreadOpening,
   type InitiativeThreadWaiting,
 } from "./initiative-threads.js";
-import { KnownEngineCascade, type EngineCascadePlace } from "./known-engine-cascade.js";
+import {
+  KnownEngineCascade,
+  type EngineCascadePlace,
+  type EngineInCascade,
+  type StandInsApplying,
+} from "./known-engine-cascade.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
 import {
   KnownProjects,
@@ -474,25 +485,42 @@ export class KnownPeopleForTests extends KnownPeople {
 }
 
 /**
- * Every Role runs on the first Claude Code engine on Haiku, unless `onTask` gives the Task's
- * engine and model or `inProject` the Project's own.
+ * Every Role runs on the first Claude Code engine on Haiku, unless `onTask` gives the engine and
+ * model of the Task's engine override (its own, or its Initiative's with `level` "initiative"),
+ * with no Stand-in Engines, or `inProject` the Project's own; the Stand-in Engine list that applies
+ * elsewhere is the Project's own in `ownStandIns`, else the Office's, as Engine's settings list it.
  */
 @Injectable()
 export class KnownEngineCascadeForTests extends KnownEngineCascade {
   readonly inProject = new Map<string, EngineModel>();
-  readonly onTask = new Map<string, EngineModel>();
+  readonly onTask = new Map<string, EngineModel & { readonly level?: "task" | "initiative" }>();
+  readonly ownStandIns = new Map<string, readonly EngineId[]>();
+
+  constructor(private readonly engineModels: EngineModels) {
+    super();
+  }
 
   async applying(
     _roleKey: string,
     { projectId, taskId }: EngineCascadePlace,
-  ): Promise<EngineModel | null> {
-    return (
-      (taskId === undefined ? undefined : this.onTask.get(taskId)) ??
-      this.inProject.get(projectId) ?? {
-        engineId: FIRST_CLAUDE_CODE_ENGINE.id,
-        model: "claude-haiku-5-5",
-      }
-    );
+  ): Promise<EngineInCascade | null> {
+    const forced = taskId === undefined ? undefined : this.onTask.get(taskId);
+    if (forced) {
+      const { level = "task", engineId, model } = forced;
+      return { engineId, model, level, standIns: { from: "none", engineIds: [] } };
+    }
+    const own = this.ownStandIns.get(projectId);
+    const standIns: StandInsApplying = own
+      ? { from: "project", engineIds: own }
+      : { from: "office", engineIds: (await this.engineModels.standIns()).standInEngines };
+    const inProject = this.inProject.get(projectId);
+    if (inProject) return { ...inProject, level: "project", standIns };
+    return {
+      engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+      model: "claude-haiku-5-5",
+      level: "office",
+      standIns,
+    };
   }
 }
 
@@ -946,5 +974,5 @@ const PORTS = [
 ];
 
 /** Provides them all, for `WorkModule.register({ imports: [this module] })`. */
-@Module({ providers: PORTS, exports: PORTS })
+@Module({ imports: [EngineModule], providers: PORTS, exports: PORTS })
 export class WorkPortsForTestsModule {}

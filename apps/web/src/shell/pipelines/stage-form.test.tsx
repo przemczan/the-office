@@ -199,3 +199,19 @@ describe("Context limits", () => {
     expect(stage).not.toHaveProperty("contextLimits");
   });
 });
+
+describe("Effort", () => {
+  it("leaves the effort to the person until the Stage sets its own, and back", () => {
+    const changed = rendered({ ...implement, effort: "high" });
+    const field = [...page.querySelectorAll("label")].find(
+      ({ textContent }) => textContent === "Effort",
+    );
+    const select = page.querySelector<HTMLSelectElement>(`select[id="${field?.htmlFor ?? ""}"]`);
+    expect(select?.options[0]?.text).toBe("Person's effort");
+    expect(select?.value).toBe("high");
+    choose("Effort", "Person's effort");
+    const [stage] = changed.at(-1) ?? [];
+    expect(stage).toBeDefined();
+    expect(stage?.kind === "agent" ? stage.effort : "not an Agent Stage").toBeUndefined();
+  });
+});

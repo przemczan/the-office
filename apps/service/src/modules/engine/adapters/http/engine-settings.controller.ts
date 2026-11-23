@@ -44,12 +44,12 @@ export class EngineSettingsController {
   ): Promise<EngineRemovalPreviewResponse> {
     const { moves, problems } = await this.settings.removalPreview(engineId, replacement ?? null);
     return {
-      moves: moves.map(({ roleKey, project, work, from, to }) => ({
-        roleKey,
+      moves: moves.map(({ project, work, standInList, from, to }) => ({
         project: project && { ...project },
         work: work && { ...work },
-        from: { ...from },
-        to: to && { ...to },
+        ...(standInList ? { standInList } : {}),
+        from,
+        to,
       })),
       problems: [...problems],
     };
@@ -83,20 +83,28 @@ function response(settings: EngineSettings): EngineSettingsResponse {
 
 /** Each field named, never the engine spread, so no key it keeps is ever sent back. */
 function engineResponse(engine: Engine): EngineResponse {
-  const { id, name, defaultModel } = engine;
+  const { id, name, defaultModel, defaultEffort } = engine;
   switch (engine.kind) {
     case "claude-code":
-      return { id, name, kind: engine.kind, defaultModel, claudeCodeP: engine.claudeCodeP };
+      return {
+        id,
+        name,
+        kind: engine.kind,
+        defaultModel,
+        defaultEffort,
+        claudeCodeP: engine.claudeCodeP,
+      };
     case "codex":
     case "copilot-cli":
     case "gemini-cli":
-      return { id, name, kind: engine.kind, defaultModel };
+      return { id, name, kind: engine.kind, defaultModel, defaultEffort };
     case "openai-compatible-api":
       return {
         id,
         name,
         kind: engine.kind,
         defaultModel,
+        defaultEffort,
         baseUrl: engine.baseUrl,
         keySet: engine.key !== "",
         models: engine.models.map(({ id: modelId, contextWindow, seesImages }) => ({

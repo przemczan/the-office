@@ -70,6 +70,8 @@ export function messageLine(message: Message): string {
       return `usage window used up: ${message.engineName}'s ${message.window} until ${message.resetsAt}`;
     case "engine-switched":
       return `engine switched: ${message.fromName}'s ${message.window} until ${message.resetsAt}, on ${message.toName}`;
+    case "model-gave-way":
+      return `model gave way: ${message.personName} works with ${message.model} on ${message.engineName}, which doesn't offer ${message.notOffered}`;
     case "held":
       return `held (${message.heldBy}): ${message.text}`;
     case "stage-context-limit":
@@ -182,28 +184,37 @@ export function tokensOf(tokens: Readonly<Record<string, number>>): number {
   return Object.values(tokens).reduce((sum, part) => sum + part, 0);
 }
 
-/** The engine a check's Roles work with, when OFFICE_CHECK_ENGINE names one. */
+/** The engine a check's Roles run on, when OFFICE_CHECK_ENGINE names one: the Office default's. */
 const CHECK_ENGINE = engineIdSchema.optional().parse(process.env["OFFICE_CHECK_ENGINE"]);
 
 /**
- * Hires each Role from its preset on Haiku at low effort, the cheapest that proves a check, as a
- * Role override on the engine OFFICE_CHECK_ENGINE names, else the Office default's.
+ * Hires each Role from its preset to work with Haiku at low effort, the cheapest that proves a
+ * check, on the type of the Office default's engine. No Role names an engine of its own, so the
+ * engine OFFICE_CHECK_ENGINE names has to be the Office default.
  */
 export async function hireOnHaiku(
   api: Api,
   hires: readonly (readonly [roleKey: string, name: string])[],
 ): Promise<void> {
-  const { officeDefault } = engineSettingsSchema.parse(await api("GET", "/settings/engines"));
-  const engineId = CHECK_ENGINE ?? officeDefault?.engineId;
-  if (engineId === undefined) {
+  const { engines, officeDefault } = engineSettingsSchema.parse(
+    await api("GET", "/settings/engines"),
+  );
+  if (officeDefault === null) {
     throw new Error("Settings › Engines lists no engine; add one before a live check.");
   }
+  if (CHECK_ENGINE !== undefined && CHECK_ENGINE !== officeDefault.engineId) {
+    throw new Error(`Make ${CHECK_ENGINE} the Office default before the live check.`);
+  }
+  const engineType = engines.find(({ id }) => id === officeDefault.engineId)?.kind;
+  if (engineType === undefined) throw new Error("The Office default names no listed engine.");
   for (const [roleKey, name] of hires) {
     const hired = roleSchema.parse(await api("POST", "/roles", { roleKey, name }));
     await api("PUT", `/roles/${roleKey}/card`, {
       ...hired.card,
-      roleOverride: { engineId, model: "claude-haiku-5-5" },
-      effort: "low",
+      engineSettings: {
+        ...hired.card.engineSettings,
+        [engineType]: { model: "claude-haiku-5-5", effort: "low" },
+      },
       skills: [],
     });
   }

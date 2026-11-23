@@ -9,7 +9,6 @@ import type {
   EngineSettings,
   Initiative,
   Project,
-  RoleCardOptions,
   Task,
   TaskEngineCascade,
 } from "@the-office/contracts";
@@ -17,57 +16,49 @@ import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { engineSettingsQuery } from "../../api/engine.ts";
-import { roleCardQueries, roleQueries } from "../../api/people.ts";
+import { roleQueries } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { initiativeQueries, taskQueries } from "../../api/work.ts";
 import { ToastProvider } from "../../shell/toasts.tsx";
 import { InitiativeEngineBlock, TaskEngineBlock } from "./work-engine-block.tsx";
-import { ENGINE_REFUSED, INITIATIVE_ENGINE_KEPT, TASK_ENGINE_KEPT } from "./work-engine-words.ts";
+import {
+  ENGINE_REFUSED,
+  INITIATIVE_ENGINE_KEPT,
+  INITIATIVE_OFF_HINT,
+  TASK_ENGINE_KEPT,
+  TASK_FOLLOWS_INITIATIVE_HINT,
+} from "./work-engine-words.ts";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
-const OPUS_ON_PERSONAL = { engineId: "personal", model: "claude-opus-5-5" };
-const SONNET_ON_WORK = { engineId: "work", model: "claude-sonnet-5-5" };
-
-const OPTIONS = {
-  engines: [
-    {
-      engine: "work",
-      models: ["claude-opus-5-5", "claude-sonnet-5-5"],
-      defaultModel: "claude-sonnet-5-5",
-      missingCapabilities: [],
-    },
-    {
-      engine: "personal",
-      models: ["claude-opus-5-5", "claude-sonnet-5-5"],
-      defaultModel: "claude-opus-5-5",
-      missingCapabilities: [],
-    },
-    {
-      engine: "gemini",
-      models: ["auto", "flash"],
-      defaultModel: "auto",
-      missingCapabilities: ["officeTools"],
-    },
-  ],
-} as unknown as RoleCardOptions;
+// jsdom has no layout, so the Engine select's list never resizes.
+globalThis.ResizeObserver = class {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+};
 
 const SETTINGS = {
   engines: [
-    { id: "work", name: "Work account" },
-    { id: "personal", name: "Personal" },
-    { id: "gemini", name: "Gemini" },
+    { id: "work", name: "Work account", kind: "claude-code", defaultModel: "claude-sonnet-5-5" },
+    { id: "personal", name: "Personal", kind: "claude-code", defaultModel: "claude-opus-5-5" },
+    { id: "gemini", name: "Gemini", kind: "gemini-cli", defaultModel: "auto" },
   ],
-  officeDefault: SONNET_ON_WORK,
+  officeDefault: { engineType: "claude-code", engineId: "work" },
 } as unknown as EngineSettings;
 
 const PROJECT = {
   id: "the-office",
   name: "The Office",
-  projectDefault: SONNET_ON_WORK,
+  engine: {
+    default: { engineType: "claude-code", engineId: "work" },
+    force: null,
+    people: [],
+    standIns: { useOwnList: false, engineIds: [] },
+  },
 } as unknown as Project;
 
 const TASK: Task = {
@@ -98,8 +89,8 @@ const TASK: Task = {
   proposedPipeline: null,
   blockedBy: [],
   originIdeaId: null,
-  engine: null,
-  initiativeEngine: null,
+  engineOverride: null,
+  initiativeEngineOverride: null,
   initiativeId: null,
   madeFor: null,
   resolvesTaskId: null,
@@ -117,16 +108,35 @@ const TASK: Task = {
 };
 
 const CASCADE: TaskEngineCascade = {
-  roles: [
+  engine: {
+    engineId: "work",
+    engineType: "claude-code",
+    engineName: "Work account",
+    level: "project",
+  },
+  standIns: { from: "office", engineIds: [] },
+  people: [
     {
       roleKey: "planner",
       roleName: "Pam",
-      engine: { ...SONNET_ON_WORK, level: "project-default" },
+      work: {
+        model: "claude-sonnet-5-5",
+        effort: "high",
+        modelLevel: "engine",
+        effortLevel: "person",
+      },
+      stages: [],
     },
     {
       roleKey: "developer",
       roleName: "Dwight",
-      engine: { ...OPUS_ON_PERSONAL, level: "role-override" },
+      work: {
+        model: "claude-opus-5-5",
+        effort: "medium",
+        modelLevel: "person",
+        effortLevel: "person",
+      },
+      stages: [{ stageName: "Implement", effort: "max" }],
     },
   ],
 };
@@ -147,7 +157,7 @@ const INITIATIVE: Initiative = {
   planningAutoMode: false,
   pipelines: [],
   shortName: null,
-  engine: null,
+  engineOverride: null,
   branches: [],
 };
 
@@ -155,7 +165,6 @@ function queryClientWithOptions(): QueryClient {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   });
-  queryClient.setQueryData(roleCardQueries.options().queryKey, OPTIONS);
   queryClient.setQueryData(engineSettingsQuery().queryKey, SETTINGS);
   queryClient.setQueryData(projectQueries.one(PROJECT.id).queryKey, PROJECT);
   queryClient.setQueryData(roleQueries.list().queryKey, []);
@@ -221,23 +230,36 @@ async function initiativePage(
   ));
 }
 
-function selectNamed(page: HTMLElement, label: string): HTMLSelectElement {
-  const found = [...page.querySelectorAll("label")].find(
-    ({ textContent }) => textContent.trim() === label,
-  );
-  const control = found && document.getElementById(found.htmlFor);
-  if (!(control instanceof HTMLSelectElement)) throw new Error(`There is no field "${label}".`);
-  return control;
+function overrideSwitch(page: HTMLElement): HTMLElement {
+  const found = page.querySelector<HTMLElement>('[role="switch"]');
+  if (!found) throw new Error("There is no switch.");
+  return found;
 }
 
-async function pick(control: HTMLSelectElement, value: string): Promise<void> {
+async function click(element: Element): Promise<void> {
   await act(async () => {
-    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set?.call(
-      control,
-      value,
-    );
-    control.dispatchEvent(new Event("change", { bubbles: true }));
+    element.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve));
+  });
+}
+
+function engineField(page: HTMLElement): HTMLElement | null {
+  return page.querySelector<HTMLElement>('[role="combobox"]');
+}
+
+/** Opens the Engine select and picks the engine named. */
+async function pickEngine(page: HTMLElement, name: string): Promise<void> {
+  const field = engineField(page);
+  if (!field) throw new Error("There is no Engine field.");
+  await click(field);
+  const option = [...document.querySelectorAll('[role="option"]')].find(
+    (row) => row.querySelector(".grouped-select-label")?.textContent === name,
+  );
+  if (!option) throw new Error(`There is no option "${name}".`);
+  await click(option);
+  // The save's answer lands a few ticks later.
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
   });
 }
 
@@ -252,54 +274,103 @@ describe("the Task's Engine fold", () => {
     localStorage.clear();
   });
 
-  it("starts folded, summing up the Project's engine it takes", async () => {
+  it("starts folded, its switch off, naming the Project's engine it follows", async () => {
     const page = await taskPage(TASK);
 
     expect(page.querySelector(".record-fold-body")?.hasAttribute("hidden")).toBe(true);
-    expect(summaryOf(page)).toBe("Project's engine · Sonnet 5.5 on Work account");
+    expect(summaryOf(page)).toBe("Work account · from the Project");
+    expect(overrideSwitch(page).getAttribute("aria-checked")).toBe("false");
+    expect(engineField(page)).toBeNull();
+    expect(page.textContent).toContain(
+      "Runs on Work account, from the Project, with the Office's Stand-in Engines.",
+    );
   });
 
-  it("offers its Initiative's engine as the empty choice while its Initiative sets one", async () => {
-    const page = await taskPage({ ...TASK, initiativeEngine: OPUS_ON_PERSONAL });
+  it("names its Initiative's override while it follows one", async () => {
+    const page = await taskPage({ ...TASK, initiativeEngineOverride: "personal" });
 
-    const engine = selectNamed(page, "Engine");
-    expect(engine.value).toBe("");
-    expect(engine.options[0]?.textContent).toBe("Initiative's engine (Opus 5.5 on Personal)");
-    expect(summaryOf(page)).toBe("Initiative's engine · Opus 5.5 on Personal");
+    expect(summaryOf(page)).toBe("Personal · from its Initiative · no stand-ins");
+    expect(page.textContent).toContain(TASK_FOLLOWS_INITIATIVE_HINT);
+    expect(page.textContent).toContain("Runs on Personal, from its Initiative, with no stand-ins.");
   });
 
-  it("lists what each Role runs on for it, and the level it comes from", async () => {
+  it("shows its override in the Engine select, grouped by engine type, with the no stand-ins note", async () => {
+    const page = await taskPage({ ...TASK, engineOverride: "gemini" });
+
+    expect(summaryOf(page)).toBe("Gemini · set for this Task · no stand-ins");
+    expect(overrideSwitch(page).getAttribute("aria-checked")).toBe("true");
+    expect(engineField(page)?.textContent).toBe("Gemini");
+    expect(page.textContent).toContain(
+      "No stand-ins: when Gemini's usage window is used up, the Task waits for the reset.",
+    );
+    await click(engineField(page) as HTMLElement);
+    const groups = [...document.querySelectorAll('[role="listbox"] [role="group"]')].map(
+      (group) => [
+        group.querySelector(".grouped-select-group")?.textContent,
+        [...group.querySelectorAll(".grouped-select-label")].map(({ textContent }) => textContent),
+      ],
+    );
+    expect(groups).toEqual([
+      ["Claude Code", ["Work account", "Personal"]],
+      ["Gemini CLI", ["Gemini"]],
+    ]);
+  });
+
+  it("lists the model and effort each person works with, where each comes from, and a Stage's own effort", async () => {
     const page = await taskPage(TASK);
 
     const rows = [...page.querySelectorAll('[aria-label="Runs on"] li')].map(
       ({ textContent }) => textContent,
     );
     expect(rows).toEqual([
-      "PamSonnet 5.5 on Work accountfrom the Project default",
-      "DwightOpus 5.5 on Personalfrom the Role override",
+      "PamSonnet 5.5 · effort highmodel: the engine's default; effort: from Pam's Role card",
+      "DwightOpus 5.5 · effort mediumfrom Dwight's Role cardMax on Implement",
     ]);
   });
 
-  it("saves a picked engine at once with its default model, and toasts it", async () => {
+  it("turned on, saves the engine it followed at once, an engine only, and toasts it", async () => {
     const fetched = vi.fn<typeof fetch>(() =>
-      Promise.resolve(Response.json({ ...TASK, engine: OPUS_ON_PERSONAL })),
+      Promise.resolve(Response.json({ ...TASK, engineOverride: "work" })),
     );
     vi.stubGlobal("fetch", fetched);
     const page = await taskPage(TASK);
 
-    await pick(selectNamed(page, "Engine"), "personal");
+    await click(overrideSwitch(page));
 
     const [url, request] = fetched.mock.calls[0] ?? [];
     expect(url).toBe(`/api/tasks/${TASK.id}/engine`);
     expect(request?.method).toBe("PUT");
-    expect(JSON.parse(String(request?.body))).toEqual({ engine: OPUS_ON_PERSONAL });
-    expect(summaryOf(page)).toBe("Opus 5.5 on Personal · set for this Task");
+    expect(JSON.parse(String(request?.body))).toEqual({ engineId: "work" });
+    expect(summaryOf(page)).toBe("Work account · set for this Task · no stand-ins");
     expect(document.body.textContent).toContain(
-      "Engine saved for Export Stats as CSV: its next sessions start fresh, on Opus 5.5 on Personal.",
+      "Export Stats as CSV runs on Work account, with no stand-ins.",
     );
   });
 
-  it("shows the service's refusal under the fields and keeps what is saved", async () => {
+  it("saves a picked engine, and turned off follows its Project's engine again", async () => {
+    const sent: unknown[] = [];
+    const fetched = vi.fn<typeof fetch>((_url, request) => {
+      if (request?.method !== "PUT") return Promise.resolve(Response.json([]));
+      const { engineId } = JSON.parse(String(request.body)) as { engineId: string | null };
+      sent.push({ engineId });
+      return Promise.resolve(Response.json({ ...TASK, engineOverride: engineId }));
+    });
+    vi.stubGlobal("fetch", fetched);
+    const page = await taskPage({ ...TASK, engineOverride: "work" });
+
+    await pickEngine(page, "Personal");
+    expect(sent).toEqual([{ engineId: "personal" }]);
+    expect(summaryOf(page)).toBe("Personal · set for this Task · no stand-ins");
+
+    await click(overrideSwitch(page));
+    expect(sent).toEqual([{ engineId: "personal" }, { engineId: null }]);
+    expect(document.body.textContent).toContain(
+      "Export Stats as CSV follows its Project's engine again.",
+    );
+    expect(summaryOf(page)).toBe("Work account · from the Project");
+  });
+
+  it("shows the service's refusal under the field and keeps what is saved", async () => {
     const refusal =
       "On “Export Stats as CSV”, the Developer would run on Gemini, which can't use Office tools, as their Pipelines' Agent Stages need.";
     vi.stubGlobal("fetch", () =>
@@ -307,23 +378,31 @@ describe("the Task's Engine fold", () => {
         Response.json({ statusCode: 422, message: refusal, reasons: [refusal] }, { status: 422 }),
       ),
     );
-    const page = await taskPage(TASK);
+    const page = await taskPage({ ...TASK, engineOverride: "work" });
 
-    await pick(selectNamed(page, "Engine"), "gemini");
+    await pickEngine(page, "Gemini");
 
     expect(page.textContent).toContain(ENGINE_REFUSED);
     expect(page.textContent).toContain(refusal);
-    expect(selectNamed(page, "Engine").value).toBe("");
+    expect(engineField(page)?.textContent).toBe("Work account");
   });
 
-  it("is read-only once the Task is Done", async () => {
-    const page = await taskPage({ ...TASK, state: "done", engine: OPUS_ON_PERSONAL });
+  it("says a running Stage's session finishes on its engine", async () => {
+    const page = await taskPage({ ...TASK, state: "in-progress" });
 
-    expect(page.querySelector("select")).toBeNull();
+    expect(page.textContent).toContain("That session finishes on the engine it started on");
+  });
+
+  it.each(["done", "dropped"] as const)("is read-only once the Task is %s", async (state) => {
+    const page = await taskPage({ ...TASK, state, engineOverride: "personal" });
+
+    expect(page.querySelector('[role="switch"]')).toBeNull();
+    expect(engineField(page)).toBeNull();
     expect(page.querySelector(".work-engine-kept")?.textContent).toBe(
-      "EnginePersonalModelOpus 5.5",
+      "Override the enginePersonal",
     );
     expect(page.textContent).toContain(TASK_ENGINE_KEPT);
+    expect(page.textContent).not.toContain("Opus");
   });
 });
 
@@ -339,7 +418,7 @@ describe("the Initiative's Engine fold", () => {
     id: "00000000-0000-4000-8000-000000000042",
     title: "Usage report page",
     state: "in-progress",
-    engine: SONNET_ON_WORK,
+    engineOverride: "work",
   } satisfies Task;
   const FINISHED = {
     ...TASK,
@@ -348,48 +427,60 @@ describe("the Initiative's Engine fold", () => {
     state: "done",
   } satisfies Task;
 
-  it("lists its open Tasks with the level each takes, leaving out finished ones", async () => {
-    const page = await initiativePage({ ...INITIATIVE, engine: OPUS_ON_PERSONAL }, [
+  it("off, hints that its Threads and Tasks run on their Project's engine", async () => {
+    const page = await initiativePage(INITIATIVE, [TASK]);
+
+    expect(summaryOf(page)).toBe("Work account · from the Project");
+    expect(overrideSwitch(page).getAttribute("aria-checked")).toBe("false");
+    expect(page.textContent).toContain(INITIATIVE_OFF_HINT);
+  });
+
+  it("lists its open Tasks, which follow its override and which have their own", async () => {
+    const page = await initiativePage({ ...INITIATIVE, engineOverride: "personal" }, [
       TASK,
       OWN,
       FINISHED,
     ]);
 
+    expect(summaryOf(page)).toBe("Personal · set for this Initiative · no stand-ins");
+    expect(page.textContent).toContain(
+      "No stand-ins: when Personal's usage window is used up, its Tasks wait for the reset.",
+    );
     const rows = [...page.querySelectorAll('[aria-label="Its Tasks"] li')];
     expect(rows.map((row) => row.querySelector("a")?.textContent)).toEqual([
       "Export Stats as CSV",
       "Usage report page",
     ]);
     expect(rows[0]?.querySelector(".work-engine-row-what")?.textContent).toBe(
-      "Opus 5.5 on Personalthe Initiative's engine",
+      "Personalfollows the Initiative's override",
     );
     expect(rows[1]?.querySelector(".work-engine-row-what")?.textContent).toBe(
-      "Sonnet 5.5 on Work accountits own engine",
+      "Work accountits own override",
     );
   });
 
-  it("saves a picked engine and toasts how many of its open Tasks take it", async () => {
+  it("turned on, saves its first Project's engine and toasts it", async () => {
     const fetched = vi.fn<typeof fetch>(() =>
-      Promise.resolve(Response.json({ ...INITIATIVE, engine: OPUS_ON_PERSONAL })),
+      Promise.resolve(Response.json({ ...INITIATIVE, engineOverride: "work" })),
     );
     vi.stubGlobal("fetch", fetched);
     const page = await initiativePage(INITIATIVE, [TASK, OWN, FINISHED]);
 
-    await pick(selectNamed(page, "Engine"), "personal");
+    await click(overrideSwitch(page));
 
     const [url, request] = fetched.mock.calls[0] ?? [];
     expect(url).toBe(`/api/initiatives/${INITIATIVE.id}/engine`);
-    expect(JSON.parse(String(request?.body))).toEqual({ engine: OPUS_ON_PERSONAL });
+    expect(JSON.parse(String(request?.body))).toEqual({ engineId: "work" });
     expect(document.body.textContent).toContain(
-      "Engine saved for Usage reports: its Threads and its 1 open Task that sets none runs on Opus 5.5 on Personal from their next session.",
+      "Usage reports runs on Work account, with no stand-ins.",
     );
   });
 
-  it("is read-only once Done", async () => {
-    const page = await initiativePage({ ...INITIATIVE, state: "done" }, [FINISHED]);
+  it.each(["done", "dropped"] as const)("is read-only once %s", async (state) => {
+    const page = await initiativePage({ ...INITIATIVE, state }, [FINISHED]);
 
-    expect(page.querySelector("select")).toBeNull();
-    expect(page.querySelector(".work-engine-kept")?.textContent).toBe("EngineProject's engine");
+    expect(page.querySelector('[role="switch"]')).toBeNull();
+    expect(page.querySelector(".work-engine-kept")?.textContent).toBe("Override the engineOff");
     expect(page.textContent).toContain(INITIATIVE_ENGINE_KEPT);
   });
 });

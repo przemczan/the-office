@@ -1,5 +1,5 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
-import type { EngineModel } from "../../engine/index.js";
+import type { EngineId } from "../../engine/index.js";
 import type { Initiative, InitiativeState } from "./initiative.js";
 
 export class InitiativeCreated extends DomainEvent {
@@ -87,11 +87,11 @@ export class InitiativePipelinesSet extends DomainEvent {
   }
 }
 
-/** The Initiative's engine and model was set, or cleared with null (spec 5.4.5). */
-export class InitiativeEngineSet extends DomainEvent {
+/** The Initiative's engine override was set, or cleared with null (spec 5.4.5). */
+export class InitiativeEngineOverrideSet extends DomainEvent {
   constructor(
     readonly initiativeId: string,
-    readonly engine: EngineModel | null,
+    readonly engineOverride: EngineId | null,
   ) {
     super();
   }

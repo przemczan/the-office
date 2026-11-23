@@ -8,6 +8,7 @@ import {
   asProjectChanges,
   changeCommandsAsProposed,
   changeImage,
+  changeProjectEngine,
 } from "../../domain/project-changes.js";
 import { aProject, startingCommands } from "../../domain/project.fixtures.js";
 import { ProjectNotFound } from "../../domain/project-not-found.js";
@@ -37,17 +38,59 @@ describe("PostgresProjectRepository", () => {
   it("keeps the Project's engine levels", async () => {
     const project = {
       ...aProjectOfItsOwn(),
-      projectDefault: { engineId: "claude-code", model: "claude-sonnet-5-5" },
-      useForEveryRole: true,
-      roleOverrides: [
-        { roleKey: "cto", engineId: "claude-code", model: "claude-opus-5-5" },
-        { roleKey: "reviewer", engineId: "strata", model: "qwen3-coder" },
-      ],
-    };
+      engine: {
+        default: { engineType: "claude-code", engineId: "claude-code" },
+        force: { model: "claude-sonnet-5-5", effort: null },
+        people: [
+          {
+            roleKey: "cto",
+            engineSettings: { "claude-code": { model: "claude-opus-5-5", effort: "high" } },
+          },
+          { roleKey: "reviewer", engineSettings: { codex: { model: null, effort: "low" } } },
+        ],
+        standIns: { useOwnList: true, engineIds: ["codex", "claude-code"] },
+      },
+    } as const;
 
     await repository.add(project);
 
     await expect(repository.find(project.id)).resolves.toEqual(project);
+  });
+
+  it("leaves the earlier engine levels as they were stored, for a rollback", async () => {
+    const id = `project-${randomUUID()}`;
+    const database = app.get<Database>(DATABASE);
+    await database.execute(sql`
+      insert into projects (id, name, path, base_branch, mark_label, mark_colour, install_command,
+        publishing_mode, default_pipeline, use_project_skills, added_at,
+        project_default_engine_id, project_default_model, use_for_every_role, role_overrides)
+      values (${id}, 'Older', '/work/older', 'main', 'OL', 'teal', 'npm ci', 'merge', 'full', true,
+        now(), 'claude-code', 'claude-opus-5-5', true,
+        '[{"roleKey":"cto","engineId":"claude-code","model":"claude-haiku-5-5"}]'::jsonb)`);
+
+    await repository.update(id, (stored) =>
+      asProjectChanges(
+        stored,
+        changeProjectEngine(
+          stored,
+          { default: { engineType: "codex", engineId: "codex" } },
+          () => ({ models: [], efforts: [] }),
+        ),
+      ),
+    );
+
+    const { rows } = await database.execute(sql`
+      select project_default_engine_id, project_default_model, use_for_every_role, role_overrides,
+        engine_default_type, engine_default_engine_id
+      from projects where id = ${id}`);
+    expect(rows[0]).toEqual({
+      project_default_engine_id: "claude-code",
+      project_default_model: "claude-opus-5-5",
+      use_for_every_role: true,
+      role_overrides: [{ roleKey: "cto", engineId: "claude-code", model: "claude-haiku-5-5" }],
+      engine_default_type: "codex",
+      engine_default_engine_id: "codex",
+    });
   });
 
   it("keeps the skills the Project turned off", async () => {

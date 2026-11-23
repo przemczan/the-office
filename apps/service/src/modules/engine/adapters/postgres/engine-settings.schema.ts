@@ -15,7 +15,12 @@ import {
   DEFAULT_ASK_BEFORE_SWITCH_ABOVE,
   FIRST_OFFICE_DEFAULT,
 } from "../../domain/engine-settings.js";
-import type { EngineId, EngineKind } from "../../domain/engines.js";
+import {
+  FIRST_CLAUDE_CODE_ENGINE,
+  type Effort,
+  type EngineId,
+  type EngineKind,
+} from "../../domain/engines.js";
 
 /**
  * The engines Settings › Engines lists, in its order. The `-p` switch is a Claude Code engine's;
@@ -31,6 +36,8 @@ export const engines = pgTable(
     name: text("name").notNull(),
     kind: text("kind").$type<EngineKind>().notNull(),
     defaultModel: text("default_model").notNull(),
+    /** Null while Not set, which leaves the effort to the engine type. */
+    defaultEffort: text("default_effort").$type<Effort>(),
     claudeCodeP: boolean("claude_code_p").notNull().default(false),
     baseUrl: text("base_url"),
     /** Empty when the server asks for none. */
@@ -53,11 +60,15 @@ export const engineSettings = pgTable(
     id: smallint("id").primaryKey().default(1),
     /** Null until the user sets the search endpoint. */
     searchEndpointUrl: text("search_endpoint_url"),
-    /** The Office default: an engine and one of its models, both null while no engine is listed. */
+    /** The Office default's engine, its type the engine's kind; null while no engine is listed. */
     officeDefaultEngineId: text("office_default_engine_id")
       .$type<EngineId>()
       .default(FIRST_OFFICE_DEFAULT.engineId),
-    officeDefaultModel: text("office_default_model").default(FIRST_OFFICE_DEFAULT.model),
+    /**
+     * No longer read: written as the Office default engine's default model, so the release before,
+     * which read the Office default as an engine and a model, still reads a whole one after a rollback.
+     */
+    officeDefaultModel: text("office_default_model").default(FIRST_CLAUDE_CODE_ENGINE.defaultModel),
     /** The Stand-in Engines in order; an id no longer listed is left out as it is read. */
     standInEngineIds: text("stand_in_engine_ids")
       .$type<EngineId>()
