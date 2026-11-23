@@ -19,7 +19,9 @@ import {
   SessionSkillsDiffer,
   type EngineCapabilities,
   type NewSession,
+  type UsageWindowStart,
 } from "../../ports/agent-engine.js";
+import { WINDOW_START_MODEL } from "../claude-code/usage-window-start.js";
 import type {
   ContextUsage,
   EngineSession,
@@ -52,6 +54,13 @@ const EVERY_CAPABILITY: EngineCapabilities = {
   outputSchema: true,
   languageServers: true,
   carrySession: true,
+  startsUsageWindow: true,
+};
+
+/** What `startUsageWindow` answers unless a test sets another answer. */
+export const DEFAULT_WINDOW_START: UsageWindowStart = {
+  tokens: { input: 10, output: 2, cacheRead: 0, cacheCreation: 0 },
+  model: WINDOW_START_MODEL,
 };
 
 /** A session `carrySession` carried over, by the ids of the engines it went from and to. */
@@ -103,6 +112,12 @@ export class ScriptedEngine extends AgentEngine {
   private readonly mcpClient: McpClient = new SdkMcpClient();
   /** What a read of each engine's usage windows answers, or fails with; none unless a test sets it. */
   private readonly engineWindows = new Map<EngineId, UsageWindows | Error>();
+  /** The engines whose 5-hour window `startUsageWindow` was asked to start, by id, in order. */
+  readonly windowStarts: EngineId[] = [];
+  /** What a start of each engine's window answers, or fails with; `DEFAULT_WINDOW_START` unless set. */
+  private readonly windowStartAnswers = new Map<EngineId, UsageWindowStart | Error>();
+  /** What each engine's reading becomes once a start of its window succeeds. */
+  private readonly windowsAfterStart = new Map<EngineId, UsageWindows>();
 
   constructor(
     scripts: readonly SessionScript[],
@@ -148,6 +163,45 @@ export class ScriptedEngine extends AgentEngine {
     const set = this.engineWindows.get(engine.id);
     if (set instanceof Error) throw set;
     return set;
+  }
+
+  /**
+   * What `startUsageWindow` answers for the engine from now on: `start`, or `DEFAULT_WINDOW_START`
+   * when undefined. Not part of the port: a test calls it.
+   */
+  setWindowStart(engineId: EngineId, start: UsageWindowStart | undefined): void {
+    if (start === undefined) this.windowStartAnswers.delete(engineId);
+    else this.windowStartAnswers.set(engineId, start);
+  }
+
+  /** Makes `startUsageWindow` fail with `error` for the engine from now on. Not part of the port. */
+  failWindowStarts(engineId: EngineId, error: Error): void {
+    this.windowStartAnswers.set(engineId, error);
+  }
+
+  /**
+   * What `readUsageWindows` answers for the engine once a `startUsageWindow` of it succeeds, as
+   * `setUsageWindows` would set it then; undefined leaves the reading as it is. Not part of the port.
+   */
+  setWindowsAfterStart(engineId: EngineId, windows: UsageWindows | undefined): void {
+    if (windows === undefined) this.windowsAfterStart.delete(engineId);
+    else this.windowsAfterStart.set(engineId, windows);
+  }
+
+  /**
+   * Counts the start in `windowStarts` and answers what a test set (`setWindowStart`,
+   * `failWindowStarts`), `DEFAULT_WINDOW_START` unless it set any; once it succeeds, the engine's
+   * reading becomes what `setWindowsAfterStart` set. It opens no session, so none is left to resume.
+   */
+  override async startUsageWindow(engine: Engine, signal: AbortSignal): Promise<UsageWindowStart> {
+    this.require("startsUsageWindow");
+    signal.throwIfAborted();
+    this.windowStarts.push(engine.id);
+    const answer = this.windowStartAnswers.get(engine.id) ?? DEFAULT_WINDOW_START;
+    if (answer instanceof Error) throw answer;
+    const after = this.windowsAfterStart.get(engine.id);
+    if (after !== undefined) this.engineWindows.set(engine.id, after);
+    return answer;
   }
 
   /**

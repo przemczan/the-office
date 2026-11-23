@@ -255,6 +255,7 @@
       }
     }
   },
+  "codex.window-start": {},
   "engine.api-key-sign-in": {},
   "engine.auto-memory": {
     "win32": {
@@ -675,6 +676,7 @@
       }
     }
   },
+  "engine.window-start": {},
   "fallback.hook-unreachable": {
     "win32": {
       "read": {
@@ -947,6 +949,7 @@
       "requestsToHost": []
     }
   },
+  "fallback.window-start": {},
   "gemini.context-usage": {
     "linux": {
       "stopReason": "end_turn",

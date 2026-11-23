@@ -9,8 +9,8 @@ import type { CodexRateLimitSnapshot, CodexRateLimitWindow } from "./codex-proto
 export const FIVE_HOURS_MINUTES = 5 * 60;
 export const SEVEN_DAYS_MINUTES = 7 * 24 * 60;
 
-/** A window not begun yet, which counts as unused. */
-const NOT_BEGUN: UsageWindow = { percentUsed: 0, resetsAt: undefined };
+/** A window the snapshot doesn't hold, which counts as unused. */
+const MISSING: UsageWindow = { percentUsed: 0, resetsAt: undefined, missing: true };
 
 /** The snapshot's windows of a length the port doesn't name, by their lengths in minutes. */
 export function unknownWindowLengths(snapshot: CodexRateLimitSnapshot): readonly (number | null)[] {
@@ -20,7 +20,7 @@ export function unknownWindowLengths(snapshot: CodexRateLimitSnapshot): readonly
 }
 
 /**
- * The snapshot's 5-hour and 7-day windows in the port's terms, a missing one read as not begun;
+ * The snapshot's 5-hour and 7-day windows in the port's terms, a missing one marked so and unused;
  * undefined when it holds a window of another length, which is never read as unused.
  */
 export function codexUsageWindows(
@@ -31,7 +31,7 @@ export function codexUsageWindows(
   const windows = codexWindowsOf(snapshot);
   const read = (name: PortWindow): UsageWindow => {
     const window = windows.find((each) => portWindowOf(each) === name);
-    return window === undefined ? NOT_BEGUN : usageWindow(window);
+    return window === undefined ? MISSING : usageWindow(window);
   };
   return { fiveHour: read("fiveHour"), sevenDay: read("sevenDay"), source };
 }

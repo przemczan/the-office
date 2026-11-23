@@ -47,6 +47,7 @@ export const CONTRACT_SCENARIOS = [
   "usage-window-used-up",
   "failed-after-allowed",
   "skill-command",
+  "window-start",
 ] as const;
 
 export type ContractScenario = (typeof CONTRACT_SCENARIOS)[number];
@@ -55,7 +56,10 @@ export type ContractScenario = (typeof CONTRACT_SCENARIOS)[number];
  * The scenarios that open no session, so leave no recording: a scripted engine answers them from
  * what its test sets, such as `ScriptedEngine.setUsageWindows`.
  */
-export const SESSIONLESS_SCENARIOS: readonly ContractScenario[] = ["engine-usage-windows"];
+export const SESSIONLESS_SCENARIOS: readonly ContractScenario[] = [
+  "engine-usage-windows",
+  "window-start",
+];
 
 export interface EngineUnderContract {
   /** What the adapter declares; scenarios for a missing capability check its refusal instead. */
@@ -89,6 +93,15 @@ export interface EngineUnderContract {
   readonly backgroundCommands?: boolean;
   /** The fake local MCP server `mcp-tool` runs on; undefined skips it, for an engine without them yet. */
   readonly mcpServer?: ContractMcpServer;
+  /**
+   * How `window-start` sees what a 5-hour window's start leaves: the sessions the engine keeps,
+   * by id, before and after it. Undefined skips the start, which costs a model call on a live
+   * engine and has no recording on a replaying one; an engine without `startsUsageWindow` is
+   * checked for its refusal either way.
+   */
+  readonly windowStart?: {
+    sessionsKept(engine: AgentEngine): Promise<readonly string[]>;
+  };
 }
 
 /** The platform's fake local MCP server, which the ports layer can't reach itself. */
@@ -614,6 +627,34 @@ export function describeAgentEngineContract(adapter: string, under: EngineUnderC
         await expect(
           engine.readUsageWindows(under.engine, new AbortController().signal),
         ).resolves.toBeUndefined();
+      }),
+      under.timeoutMs,
+    );
+
+    const windowStart = under.windowStart;
+    it.runIf(can.startsUsageWindow && windowStart !== undefined)(
+      "starts the account's 5-hour window with one turn that leaves no session",
+      scenario("window-start", async (engine) => {
+        if (windowStart === undefined) return;
+        const before = await windowStart.sessionsKept(engine);
+        const started = await engine.startUsageWindow(under.engine, new AbortController().signal);
+        expect(started.model).toMatch(/\S/);
+        expect(started.tokens.output).toBeGreaterThan(0);
+        expect(
+          started.tokens.input + started.tokens.cacheRead + started.tokens.cacheCreation,
+        ).toBeGreaterThan(0);
+        expect(await windowStart.sessionsKept(engine)).toEqual(before);
+      }),
+      under.timeoutMs,
+    );
+
+    it.skipIf(can.startsUsageWindow)(
+      "refuses to start a usage window without the startsUsageWindow capability",
+      scenario("window-start", async (engine) => {
+        const start = Promise.resolve().then(() =>
+          engine.startUsageWindow(under.engine, new AbortController().signal),
+        );
+        await expect(start).rejects.toEqual(new CapabilityMissing("startsUsageWindow"));
       }),
       under.timeoutMs,
     );

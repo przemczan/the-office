@@ -37,7 +37,7 @@ describe("a ChatGPT account's usage windows from Codex", () => {
     });
   });
 
-  it("reads a window missing from the snapshot as not begun", () => {
+  it("marks a window missing from the snapshot missing, and unused", () => {
     expect(
       codexUsageWindows(
         {
@@ -48,7 +48,23 @@ describe("a ChatGPT account's usage windows from Codex", () => {
       ),
     ).toEqual({
       fiveHour: { percentUsed: 12, resetsAt: new Date(FIVE_HOUR_RESET * 1000) },
-      sevenDay: { percentUsed: 0, resetsAt: undefined },
+      sevenDay: { percentUsed: 0, resetsAt: undefined, missing: true },
+      source: "usage-endpoint",
+    });
+  });
+
+  it("marks the 5-hour window missing when the snapshot holds the 7-day one alone", () => {
+    expect(
+      codexUsageWindows(
+        {
+          primary: { usedPercent: 30, windowDurationMins: 10_080, resetsAt: SEVEN_DAY_RESET },
+          secondary: null,
+        },
+        "usage-endpoint",
+      ),
+    ).toEqual({
+      fiveHour: { percentUsed: 0, resetsAt: undefined, missing: true },
+      sevenDay: { percentUsed: 30, resetsAt: new Date(SEVEN_DAY_RESET * 1000) },
       source: "usage-endpoint",
     });
   });

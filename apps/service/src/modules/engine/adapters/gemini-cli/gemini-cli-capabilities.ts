@@ -15,4 +15,5 @@ export const GEMINI_CLI_CAPABILITIES: EngineCapabilities = {
   outputSchema: true,
   languageServers: false,
   carrySession: false,
+  startsUsageWindow: false,
 };

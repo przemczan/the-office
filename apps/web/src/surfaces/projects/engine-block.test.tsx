@@ -83,7 +83,8 @@ describe("the Engine card's Where sessions run", () => {
       default: null,
       force: null,
     });
-    expect(forceSwitch(page).getAttribute("aria-checked")).toBe("false");
+    // The dialog can close before the saved Project renders with the force off.
+    await until(() => expect(forceSwitch(page).getAttribute("aria-checked")).toBe("false"));
   });
 
   it("keeps the force on a new type, sending a model it doesn't offer as the engine's default", async () => {
@@ -142,11 +143,13 @@ describe("the Engine card's Model and effort for everyone", () => {
 
     click(forceSwitch(page));
 
-    await until(() =>
+    // The toast can show before the saved Project renders with the force on.
+    await until(() => {
       expect(shownText(page)).toContain(
         "Everyone in Shop works with Engine's default · Engine's default on Claude Code.",
-      ),
-    );
+      );
+      selectIn(groupOf(page, "Model and effort for everyone"), "Model");
+    });
     expect(sent.find(({ request }) => request === PUT_ENGINE)?.body).toEqual({
       force: { model: null, effort: null },
     });

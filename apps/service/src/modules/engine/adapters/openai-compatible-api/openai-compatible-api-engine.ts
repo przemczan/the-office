@@ -52,6 +52,7 @@ export const OPENAI_COMPATIBLE_API_CAPABILITIES: EngineCapabilities = {
   outputSchema: true,
   languageServers: false,
   carrySession: false,
+  startsUsageWindow: false,
 };
 
 /** An API endpoint and the id of the model there that a session runs on. */

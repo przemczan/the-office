@@ -66,6 +66,8 @@ const SAVED: EngineSettings = {
   modelPrices: MODEL_PRICES,
   standInEngines: ["strata"],
   askBeforeSwitchAbove: 100_000,
+  windowStarts: [],
+  timeZone: "UTC",
 };
 
 const STRATA_QWEN = offeredModelKey({ engineId: "strata", model: "qwen3" });

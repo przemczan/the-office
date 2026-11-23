@@ -52,6 +52,7 @@ export const COPILOT_CLI_CAPABILITIES: EngineCapabilities = {
   outputSchema: true,
   languageServers: false,
   carrySession: false,
+  startsUsageWindow: false,
 };
 
 /** Binds the `OpenCopilotSession` sessions run on for tests; the service binds none: the SDK's. */

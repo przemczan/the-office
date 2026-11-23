@@ -1,6 +1,7 @@
 import type { Engine } from "../domain/engines.js";
 import type { UsageWindows } from "../domain/usage-windows.js";
 import type { EngineSession, UserMessage } from "./engine-session.js";
+import type { TokenUsage } from "./session-events.js";
 import type { SessionOptions } from "./session-options.js";
 
 /** What an engine can do beyond starting a session and taking messages; The Office degrades where one is missing. */
@@ -26,6 +27,8 @@ export interface EngineCapabilities {
    * a Stand-in Engine takes over a Stage whose engine's usage window is used up.
    */
   readonly carrySession: boolean;
+  /** It starts its account's 5-hour window with one small turn that keeps no session (spec §5.4.6). */
+  readonly startsUsageWindow: boolean;
 }
 
 export type EngineCapability = keyof EngineCapabilities;
@@ -114,6 +117,12 @@ export class EngineReadTimedOut extends Error {
   }
 }
 
+/** The turn that started an engine's 5-hour window: its tokens and the model it ran on. */
+export interface UsageWindowStart {
+  readonly tokens: TokenUsage;
+  readonly model: string;
+}
+
 export interface NewSession {
   /** Chosen by the caller, so what is named after the session, such as its skills folder, exists before it starts. */
   readonly id: string;
@@ -163,6 +172,21 @@ export abstract class AgentEngine {
     this.require("carrySession");
     // An engine declaring the capability overrides this.
     return Promise.reject(new CapabilityMissing("carrySession"));
+  }
+
+  /**
+   * Starts `engine`'s 5-hour window (spec §5.4.6, "Starting the 5-hour window"): one turn with a
+   * one-line prompt on the engine type's cheapest model, no tools, keeping no session, transcript
+   * or thread. Needs the `startsUsageWindow` capability. Whatever process or query it opens ends
+   * before it answers, on failure too, and within `ENGINE_READ_TIMEOUT_MS`, after which it throws
+   * `EngineReadTimedOut`; `signal` ends it sooner, as the service stops, throwing its reason.
+   */
+  startUsageWindow(engine: Engine, signal: AbortSignal): Promise<UsageWindowStart> {
+    void engine;
+    void signal;
+    this.require("startsUsageWindow");
+    // An engine declaring the capability overrides this.
+    return Promise.reject(new CapabilityMissing("startsUsageWindow"));
   }
 
   /** Throws `CapabilityMissing` unless the engine has `capability`. */

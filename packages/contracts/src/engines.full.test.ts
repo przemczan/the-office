@@ -8,7 +8,9 @@ import {
   engineSettingsSchema,
   engineSignInSchema,
   engineTokenSchema,
+  engineWebEventSchema,
   officeDefaultSchema,
+  windowStartTimeSchema,
 } from "./engines.js";
 
 // The same cases as the Engine module's own `engineIdFor`, which this mirrors.
@@ -139,6 +141,8 @@ describe("the Office default", () => {
       modelPrices: [],
       standInEngines: [],
       askBeforeSwitchAbove: 0,
+      windowStarts: [],
+      timeZone: "Europe/Warsaw",
     };
     expect(engineSettingsSchema.parse(settings).officeDefault).toBeNull();
     expect(
@@ -149,5 +153,85 @@ describe("the Office default", () => {
         modelPrices: [],
       }).officeDefault,
     ).toEqual(officeDefault);
+  });
+});
+
+describe("an engine's Window start", () => {
+  const settings = {
+    engines: [],
+    officeDefault: null,
+    searchEndpoint: null,
+    modelPrices: [],
+    standInEngines: [],
+    askBeforeSwitchAbove: 0,
+    timeZone: "Europe/Warsaw",
+  };
+
+  it("is read with its next start and its last start, skip or failure", () => {
+    const windowStart = {
+      engineId: "claude-code",
+      startAtTimes: ["07:00", "12:00"],
+      startAfterReset: true,
+      nextStartAt: "2026-11-23T11:00:00.000Z",
+      last: {
+        at: "2026-11-23T06:00:00.000Z",
+        outcome: "skipped",
+        reason: "window-running",
+        error: null,
+        trigger: "set-time",
+        fiveHourResetsAt: null,
+      },
+    };
+    const read = engineSettingsSchema.parse({ ...settings, windowStarts: [windowStart] });
+    expect(read.windowStarts).toEqual([windowStart]);
+    expect(read.timeZone).toBe("Europe/Warsaw");
+  });
+
+  it("refuses a skip reason the service doesn't give", () => {
+    const last = {
+      at: "2026-11-23T06:00:00.000Z",
+      outcome: "skipped",
+      reason: "too-early",
+      error: null,
+      trigger: "set-time",
+      fiveHourResetsAt: null,
+    };
+    const windowStart = {
+      engineId: "claude-code",
+      startAtTimes: [],
+      startAfterReset: false,
+      nextStartAt: null,
+      last,
+    };
+    expect(
+      engineSettingsSchema.safeParse({ ...settings, windowStarts: [windowStart] }).success,
+    ).toBe(false);
+  });
+
+  it("is saved with the settings, or left out to keep the stored ones", () => {
+    const edit = { engines: [], officeDefault: null, searchEndpoint: null, modelPrices: [] };
+    expect(engineSettingsEditSchema.parse(edit).windowStarts).toBeUndefined();
+    const windowStarts = [
+      { engineId: "claude-code", startAtTimes: ["07:00"], startAfterReset: false },
+    ];
+    expect(engineSettingsEditSchema.parse({ ...edit, windowStarts }).windowStarts).toEqual(
+      windowStarts,
+    );
+  });
+
+  it("takes set times as HH:MM, 00:00 to 23:59", () => {
+    expect(windowStartTimeSchema.safeParse("07:00").success).toBe(true);
+    expect(windowStartTimeSchema.safeParse("23:59").success).toBe(true);
+    expect(windowStartTimeSchema.safeParse("7:00").success).toBe(false);
+    expect(windowStartTimeSchema.safeParse("24:00").success).toBe(false);
+  });
+
+  it("tells the web when it changed", () => {
+    const event = {
+      type: "engine.window-start-changed",
+      engineId: "claude-code",
+      occurredAt: "2026-11-23T06:00:00.000Z",
+    };
+    expect(engineWebEventSchema.parse(event)).toEqual(event);
   });
 });

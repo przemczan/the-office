@@ -268,6 +268,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 
 - **Waiting for you**: [2.4.2 Waiting for you](2.4.2-decisions.md#waiting-for-you); [2.7 The tab counts Needs you and blinks for a new item](2.7-notifications.md#the-tab-counts-needs-you-and-blinks-for-a-new-item)
 - **What an Action runs from (a branch, a Task or an Initiative)**: [2.15 What it runs from](2.15-actions.md#what-it-runs-from); screen: [Project page › The Branch picker](screens/project-page.md#the-branch-picker)
+- **Window start, Start at set times, Start again after each reset**: [5.4.6 Starting the 5-hour window](5.4.6-stand-in-engines-and-usage-windows.md#starting-the-5-hour-window); [5.4.6 When it is skipped](5.4.6-stand-in-engines-and-usage-windows.md#when-it-is-skipped); screen: [Settings › Engines](screens/settings.md#engines)
 - **Workstation figure**: [4 Densities](4-ux-direction.md#densities); screen: [Shell › Workstation figure](screens/shell.md#workstation-figure)
 
 ### Questions Agents ask
@@ -400,7 +401,7 @@ One page per screen, as built. Where a [design](../design/README.md) differs, th
   - [5.4.3 The Codex engine](5.4.3-codex-engine.md)
   - [5.4.4 The Copilot CLI engine](5.4.4-copilot-cli-engine.md)
   - [5.4.5 Engines and the engine cascade](5.4.5-engines-and-cascade.md): the engine list, engine types, the engine cascade, the model and effort cascade, engine overrides, moving the earlier engine settings over.
-  - [5.4.6 Stand-in Engines and usage windows](5.4.6-stand-in-engines-and-usage-windows.md): Stand-in Engines, a Project's own list, stand-ins of another engine type, a forced engine, switching, usage windows.
+  - [5.4.6 Stand-in Engines and usage windows](5.4.6-stand-in-engines-and-usage-windows.md): Stand-in Engines, a Project's own list, stand-ins of another engine type, a forced engine, switching, usage windows, Window start.
   - [5.4.7 The Gemini CLI engine](5.4.7-gemini-cli-engine.md)
 - [5.5 Git and isolation](5.5-git-and-isolation.md): a worktree per Task, guards, deleting merged branches, environment as data, the Office identity, run environments, test instances' checkouts.
 - [5.6 Skills per session](5.6-skills-per-session.md): what a session lists at start.
@@ -709,6 +710,7 @@ Where each default lives, by page:
   - [Carrying a session](5.4.6-stand-in-engines-and-usage-windows.md#carrying-a-session)
   - [A turn refused for a used-up usage window](5.4.6-stand-in-engines-and-usage-windows.md#a-turn-refused-for-a-used-up-usage-window)
   - [Checking the usage windows](5.4.6-stand-in-engines-and-usage-windows.md#checking-the-usage-windows)
+  - [Window start](5.4.6-stand-in-engines-and-usage-windows.md#window-start)
 - 5.4.7 The Gemini CLI engine
   - [The Gemini CLI engine](5.4.7-gemini-cli-engine.md#the-gemini-cli-engine)
   - [Gemini CLI: sign-in](5.4.7-gemini-cli-engine.md#gemini-cli-sign-in)

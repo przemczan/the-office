@@ -7,11 +7,18 @@ import {
   type EngineRemovalPreview as EngineRemovalPreviewResponse,
   type EngineSettings as EngineSettingsResponse,
   type EngineSettingsEdit as EngineSettingsEditRequest,
+  type EngineWindowStart as EngineWindowStartResponse,
+  type WindowStartRecord as WindowStartRecordResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
-import { EngineSettingsService } from "../../application/engine-settings-service.js";
+import {
+  EngineSettingsService,
+  type EngineWindowStart,
+  type EngineWindowStarts,
+} from "../../application/engine-settings-service.js";
 import { offeredModelPrices, type EngineSettings } from "../../domain/engine-settings.js";
 import type { Engine } from "../../domain/engines.js";
+import type { WindowStartRecord } from "../../domain/window-starts.js";
 import { EngineSettingsRefusalFilter } from "./engine-settings-refusal.filter.js";
 
 /**
@@ -26,14 +33,14 @@ export class EngineSettingsController {
 
   @Get()
   async read(): Promise<EngineSettingsResponse> {
-    return response(await this.settings.current());
+    return this.response(await this.settings.current());
   }
 
   @Put()
   async change(
     @Body(new ContractPipe(engineSettingsEditSchema)) edit: EngineSettingsEditRequest,
   ): Promise<EngineSettingsResponse> {
-    return response(await this.settings.change(edit));
+    return this.response(await this.settings.change(edit));
   }
 
   /** What removing the engine with this replacement would move, and why it would be refused. */
@@ -61,11 +68,18 @@ export class EngineSettingsController {
     @Param("engineId") engineId: string,
     @Query(new ContractPipe(engineRemovalSchema)) { replacement }: EngineRemovalRequest,
   ): Promise<EngineSettingsResponse> {
-    return response(await this.settings.remove(engineId, replacement ?? null));
+    return this.response(await this.settings.remove(engineId, replacement ?? null));
+  }
+
+  private async response(settings: EngineSettings): Promise<EngineSettingsResponse> {
+    return settingsResponse(settings, await this.settings.windowStartsOf(settings));
   }
 }
 
-function response(settings: EngineSettings): EngineSettingsResponse {
+function settingsResponse(
+  settings: EngineSettings,
+  { windowStarts, timeZone }: EngineWindowStarts,
+): EngineSettingsResponse {
   const { engines, officeDefault, searchEndpoint, standInEngines, askBeforeSwitchAbove } = settings;
   return {
     engines: engines.map(engineResponse),
@@ -78,7 +92,55 @@ function response(settings: EngineSettings): EngineSettingsResponse {
     })),
     standInEngines: [...standInEngines],
     askBeforeSwitchAbove,
+    windowStarts: windowStarts.map(windowStartResponse),
+    timeZone,
   };
+}
+
+function windowStartResponse({
+  engineId,
+  startAtTimes,
+  startAfterReset,
+  nextStartAt,
+  last,
+}: EngineWindowStart): EngineWindowStartResponse {
+  return {
+    engineId,
+    startAtTimes: [...startAtTimes],
+    startAfterReset,
+    nextStartAt: nextStartAt?.toISOString() ?? null,
+    last: last === undefined ? null : windowStartRecordResponse(last),
+  };
+}
+
+function windowStartRecordResponse(record: WindowStartRecord): WindowStartRecordResponse {
+  const common = { at: record.at.toISOString(), trigger: record.trigger };
+  switch (record.outcome) {
+    case "started":
+      return {
+        ...common,
+        outcome: record.outcome,
+        reason: null,
+        error: null,
+        fiveHourResetsAt: record.fiveHourResetsAt?.toISOString() ?? null,
+      };
+    case "skipped":
+      return {
+        ...common,
+        outcome: record.outcome,
+        reason: record.reason,
+        error: null,
+        fiveHourResetsAt: null,
+      };
+    case "failed":
+      return {
+        ...common,
+        outcome: record.outcome,
+        reason: null,
+        error: record.error,
+        fiveHourResetsAt: null,
+      };
+  }
 }
 
 /** Each field named, never the engine spread, so no key it keeps is ever sent back. */

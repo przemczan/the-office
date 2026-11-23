@@ -31,7 +31,8 @@ export class EngineModels {
     return { engines: this.listed(engines), standInEngines, askBeforeSwitchAbove };
   }
 
-  private listed(engines: readonly Engine[]): readonly Engine[] {
+  /** `engines`, each Claude Code engine telling whether an API key signs it in. */
+  listed(engines: readonly Engine[]): readonly Engine[] {
     return engines.map((engine) =>
       engine.kind === "claude-code" && this.signedInByApiKey.has(engine.id)
         ? { ...engine, signedInByApiKey: true }

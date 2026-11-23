@@ -70,6 +70,8 @@ const SAVED: EngineSettings = {
   ],
   standInEngines: [],
   askBeforeSwitchAbove: 100_000,
+  windowStarts: [],
+  timeZone: "UTC",
 };
 
 const CLAUDE_CODE_FIRST = { kind: "claude-code", index: 0 } as const;

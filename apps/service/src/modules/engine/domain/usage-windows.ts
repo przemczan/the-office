@@ -4,6 +4,11 @@ export interface UsageWindow {
   readonly percentUsed: number;
   /** Undefined while the window has not begun, which counts as unused: its use is then 0. */
   readonly resetsAt: Date | undefined;
+  /**
+   * The account has no such window, as when a Codex snapshot holds the other one alone; read as
+   * unused, as one not begun is.
+   */
+  readonly missing?: true;
 }
 
 /**

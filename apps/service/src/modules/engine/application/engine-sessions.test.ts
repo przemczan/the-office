@@ -403,6 +403,7 @@ describe("EngineSessions on a Copilot CLI engine", () => {
       "usageWindows",
       "languageServers",
       "carrySession",
+      "startsUsageWindow",
     ]);
   });
 });
@@ -435,6 +436,7 @@ describe("EngineSessions on a Gemini CLI engine", () => {
       "usageWindows",
       "languageServers",
       "carrySession",
+      "startsUsageWindow",
     ]);
   });
 });

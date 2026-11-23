@@ -24,6 +24,8 @@ import { CopilotCliAccounts } from "../../ports/copilot-cli-accounts.js";
 import { GeminiCliHomes } from "../../ports/gemini-cli-homes.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
 import { EngineSettingsForTests } from "../../ports/engine-settings-repository.fixtures.js";
+import { WindowStartRepository } from "../../ports/window-start-repository.js";
+import { WindowStartsForTests } from "../../ports/window-start-repository.fixtures.js";
 import { StandInCodexAccounts } from "../scripted/stand-in-codex-accounts.js";
 import { StandInCopilotCliAccounts } from "../scripted/stand-in-copilot-cli-accounts.js";
 
@@ -180,6 +182,7 @@ function setUpEachTest(): void {
       imports: [EventsModule, EventStreamModule, EngineAccountsModule],
       overrides: [
         { provide: EngineSettingsRepository, useValue: repository },
+        { provide: WindowStartRepository, useValue: new WindowStartsForTests() },
         { provide: ClaudeCodeAccounts, useValue: accounts },
         { provide: CodexAccounts, useValue: codexAccounts },
         { provide: CopilotCliAccounts, useValue: copilotCliAccounts },

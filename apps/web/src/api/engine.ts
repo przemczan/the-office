@@ -134,7 +134,8 @@ export function useEngineAccountChanged(engineId: string, onChanged: () => void)
 /**
  * An engine's account that changed is read again by its id, and with it what shows its usage
  * windows: an engine an API key signs in has none, so Now's readings and its Window caps in the
- * usage settings come and go with the account.
+ * usage settings come and go with the account. An engine's Window start that changed is read again
+ * with the engines' settings.
  */
 export const engineEventInvalidations: Readonly<
   Record<EngineWebEvent["type"], EventInvalidations[string]>
@@ -144,6 +145,7 @@ export const engineEventInvalidations: Readonly<
     nowQueries.now().queryKey,
     usageSettingsQuery().queryKey,
   ],
+  "engine.window-start-changed": () => [ENGINE_SETTINGS],
 };
 
 function enginePath(engineId: string): `/${string}` {
