@@ -22,22 +22,13 @@ export function flowSummary(stages: readonly Stage[]): string {
   ].join(" · ");
 }
 
-export type FlowEditorView = "flow" | "list";
-
 /** How to move around the canvas (docs/design/pipeline-editor.html), after how to edit on it. */
 const MOVE_AROUND =
   " Drag the canvas with the right mouse button to move around; Ctrl/⌘ + scroll zooms, and F fits the whole Pipeline.";
 
 /** How to use the editor, when no edit has just said something else. */
-export function howToHint(
-  view: FlowEditorView,
-  orientation: FlowOrientation,
-  readOnly: boolean,
-): string {
+export function howToHint(orientation: FlowOrientation, readOnly: boolean): string {
   if (readOnly) return `Pick a Stage or a route to read it below.${MOVE_AROUND}`;
-  if (view === "list") {
-    return "The same flow as a list, in the Pipeline's order: move a Stage with its arrows, and add or edit its routes under Routes out.";
-  }
   if (orientation === "down") {
     return "Press a Stage or a route to edit it below. Move and Routes out do everything without dragging; drag from a Stage's + to draw a route.";
   }
@@ -77,10 +68,7 @@ export function drawnHint(from: Stage, to: string | null, stages: readonly Stage
 }
 
 /** How to use a Project Pipeline's editor, where Stages keep the base Pipeline's places. */
-export function projectHowToHint(view: FlowEditorView, orientation: FlowOrientation): string {
-  if (view === "list") {
-    return "The same flow as a list, in the Pipeline's order: pick a Stage to edit it below, and its routes under Routes out. Each edit becomes a Stage change.";
-  }
+export function projectHowToHint(orientation: FlowOrientation): string {
   if (orientation === "down") {
     return "Press a Stage or a route to edit it below: a route's edit becomes a Change routes Stage change, with its Undo. Drag from a Stage's + to draw a route.";
   }

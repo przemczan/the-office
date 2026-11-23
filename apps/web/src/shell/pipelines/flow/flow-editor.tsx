@@ -1,5 +1,5 @@
 import type { Stage, StageProblem } from "@the-office/contracts";
-import { Button, Icon, SegmentedControl, useCloseOnEscape } from "@the-office/ui";
+import { Button, Icon, useCloseOnEscape } from "@the-office/ui";
 import {
   type ReactNode,
   type RefObject,
@@ -12,9 +12,8 @@ import {
 import { createPortal } from "react-dom";
 import { StageCheckAlerts } from "../stage-check-alerts.tsx";
 import { FlowCanvas, type FlowCanvasEdit } from "./flow-canvas.tsx";
-import { type FlowEditorView, howToHint } from "./flow-editor-words.ts";
+import { howToHint } from "./flow-editor-words.ts";
 import { type FlowOrientation, orientationFor } from "./flow-layout.ts";
-import { FlowList } from "./flow-list.tsx";
 import type { FlowLocks, FlowOverlay, FlowStageMarks } from "./flow-marks.ts";
 import { type FlowPick, pickOfProblem } from "./flow-pick.ts";
 import { FlowViewport } from "./flow-viewport.tsx";
@@ -71,10 +70,10 @@ export interface FlowEditorProps {
   /** Under the head, what the lines mean; the office-wide legend without. */
   readonly legend?: ReactNode;
   /** The hint's words when no edit has said anything; the office-wide words without. */
-  readonly howTo?: (view: FlowEditorView, orientation: FlowOrientation) => string;
+  readonly howTo?: (orientation: FlowOrientation) => string;
   /** What is picked and what the hint says, from `useFlowEditorControls`. */
   readonly controls: FlowEditorControls;
-  /** Applies a canvas's or List's edit, as the host keeps its Stages. */
+  /** Applies a canvas's edit, as the host keeps its Stages. */
   readonly onEdit?: (edit: FlowCanvasEdit) => void;
   /** The head's menu, such as Add a Stage, or Insert after the picked Stage. */
   readonly head?: ReactNode;
@@ -90,11 +89,11 @@ export interface FlowEditorProps {
 
 /**
  * The Pipeline flow editor (docs/design/pipeline-flow.html, docs/design/pipeline-editor.html): a head
- * with the host's menu and Flow / List, the hint, the canvas in its viewport (pan, zoom, Fit, the
- * Overview, full screen) or List, the host's panel for what is picked, and the check's problems, each
- * a link that picks where it is. The host keeps the Stages and applies every edit: an office-wide
- * Pipeline with flow-model (Settings › Pipelines), a Task's Stages, a Project Pipeline as Stage
- * changes; a Proposal shows on it read-only.
+ * with the host's menu, the hint, the canvas in its viewport (pan, zoom, Fit, the Overview, full
+ * screen), the host's panel for what is picked, and the check's problems, each a link that picks
+ * where it is. The host keeps the Stages and applies every edit: an office-wide Pipeline with
+ * flow-model (Settings › Pipelines), a Task's Stages, a Project Pipeline as Stage changes; a
+ * Proposal shows on it read-only.
  */
 export function FlowEditor(props: FlowEditorProps): ReactNode {
   const [fullScreen, setFullScreen] = useState(false);
@@ -120,7 +119,6 @@ function FlowEditorBody(
   },
 ): ReactNode {
   const { stages, problems, warnings, controls, readOnly = false, fullScreen } = props;
-  const [view, setView] = useState<FlowEditorView>("flow");
   const root = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const orientation = orientationFor(useWidth(root));
@@ -137,7 +135,7 @@ function FlowEditorBody(
     locked: props.locked,
     onEdit: props.onEdit,
   };
-  const words = controls.hint ?? (props.howTo ?? defaultHowTo(readOnly))(view, orientation);
+  const words = controls.hint ?? (props.howTo ?? defaultHowTo(readOnly))(orientation);
   return (
     <div ref={root} className={`flow-editor${fullScreen ? " flow-editor--full-screen" : ""}`}>
       <div className="flow-editor-head">
@@ -150,17 +148,6 @@ function FlowEditorBody(
           <span>{props.summary}</span>
         </div>
         {!readOnly && props.head}
-        <span role="group" aria-label="View">
-          <SegmentedControl
-            size="sm"
-            options={[
-              { value: "flow", label: "Flow", icon: <Icon name="workflow" size={12} /> },
-              { value: "list", label: "List", icon: <Icon name="list" size={12} /> },
-            ]}
-            value={view}
-            onChange={(next) => setView(next === "list" ? "list" : "flow")}
-          />
-        </span>
         {fullScreen && (
           <Button
             size="sm"
@@ -177,13 +164,9 @@ function FlowEditorBody(
         <Icon name="info" size={13} />
         <span>{words}</span>
       </p>
-      {view === "flow" ? (
-        <FlowViewport fullScreen={fullScreen} onFullScreen={props.onFullScreen}>
-          <FlowCanvas {...shared} overlay={props.overlay} whyItStays={props.whyItStays} />
-        </FlowViewport>
-      ) : (
-        <FlowList {...shared} />
-      )}
+      <FlowViewport fullScreen={fullScreen} onFullScreen={props.onFullScreen}>
+        <FlowCanvas {...shared} overlay={props.overlay} whyItStays={props.whyItStays} />
+      </FlowViewport>
       <div ref={panel} className="flow-editor-panel">
         {props.panel}
       </div>
@@ -254,8 +237,7 @@ function placeEditor(place: HTMLElement, slot: HTMLElement | null, fullScreen: b
 }
 
 function defaultHowTo(readOnly: boolean) {
-  return (view: FlowEditorView, orientation: FlowOrientation): string =>
-    howToHint(view, orientation, readOnly);
+  return (orientation: FlowOrientation): string => howToHint(orientation, readOnly);
 }
 
 function OfficeLegend(): ReactNode {

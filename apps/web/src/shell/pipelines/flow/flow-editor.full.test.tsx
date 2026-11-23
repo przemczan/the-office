@@ -469,11 +469,8 @@ describe("the flow editor for a Task, its started Stages locked", () => {
     );
     expect([loop?.disabled, loop?.title]).toEqual([true, DONE]);
 
-    await press("List");
-    const list = document.querySelector('[aria-label="Stages in the Pipeline\'s order"]');
-    expect(list?.querySelector(`[role="img"][aria-label="${DONE}"]`)).not.toBeNull();
-    for (const move of buttonsNamed("Move Implement later")) expect(move.disabled).toBe(true);
-    expect(buttonsNamed("Move Tests later").some(({ disabled }) => !disabled)).toBe(true);
+    await press("Tests");
+    expect(buttonNamed("Move Tests later").disabled).toBe(false);
   });
 
   it("draws a route from a Stage that hasn't started into a locked one", async () => {
@@ -549,6 +546,13 @@ describe("the flow editor's canvas, which pans and zooms", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     document.body.replaceChildren();
+  });
+
+  it("is the only view of the Pipeline, with no View switch", async () => {
+    await rendered();
+    expect(document.querySelector('[aria-label="Flow"]')).not.toBeNull();
+    expect(document.querySelector('[role="group"][aria-label="View"]')).toBeNull();
+    expect(buttonsNamed("List")).toEqual([]);
   });
 
   it("opens at 100%, the largest, and steps out to 90% and back", async () => {

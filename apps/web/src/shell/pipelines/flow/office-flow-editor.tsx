@@ -27,7 +27,7 @@ export interface OfficeFlowEditorProps {
 
 /**
  * The flow editor as Settings › Pipelines hosts it for an office-wide Pipeline: every edit, from
- * the canvas, the List, the head's Add a Stage or the panel, applied to its Stages with flow-model.
+ * the canvas, the head's Add a Stage or the panel, applied to its Stages with flow-model.
  */
 export function OfficeFlowEditor(props: OfficeFlowEditorProps): ReactNode {
   const { stages, onChange, roles, duties, commands } = props;

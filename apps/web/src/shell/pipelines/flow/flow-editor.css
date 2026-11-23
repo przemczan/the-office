@@ -37,12 +37,6 @@
   min-height: 0;
 }
 
-.flow-editor--full-screen .flow-list {
-  flex: 1 1 58%;
-  min-height: 0;
-  overflow: auto;
-}
-
 .flow-editor--full-screen .flow-editor-panel {
   flex: 0 1 auto;
   max-height: 36vh;

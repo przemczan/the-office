@@ -264,8 +264,8 @@ function canvasClass(readOnly: boolean, namesOnly: boolean, drag: FlowDrag | und
 }
 
 /**
- * Gives the viewport the Stages' blocks for its Overview, and brings a newly picked Stage (by Tab, a
- * problem's link or the List) into view.
+ * Gives the viewport the Stages' blocks for its Overview, and brings a newly picked Stage (by Tab or
+ * a problem's link) into view.
  */
 function useOverviewAndPick(
   view: FlowView,
