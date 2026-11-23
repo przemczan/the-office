@@ -226,11 +226,11 @@ The top bar's choice of which Projects every surface shows; Office-wide numbers,
 _Avoid_: Scope, workspace switcher, Project picker (for the choice itself)
 
 **Queue**:
-The one Office-wide line of Tasks that Start couldn't run yet because a blocker wasn't Done or Dropped yet, a desk, their Project limit or their person's Task limit wasn't free or a Window cap or Daily cap would be passed (a Window cap only when no Stand-in Engine has room either, which its reason then says), each with its reason; they start by themselves, oldest first, and hold no desk until they do. They stay Ready, and the board shows them in a Queued column of their own.
+The one Office-wide line of Tasks that Start couldn't run yet because a blocker wasn't Done or Dropped yet, a desk, their Project limit or their person's Task limit wasn't free or a Window cap or Daily cap would be passed (a Window cap only when no Stand-in Engine has room either, which its reason then says; a Task with an Engine override gets no stand-in, so it waits for the reset), each with its reason; they start by themselves, oldest first, and hold no desk until they do. They stay Ready, and the board shows them in a Queued column of their own.
 _Avoid_: Backlog (a Task state), waiting list, pending
 
 **Short reason**:
-A queued Task's reason in a few words, such as "Office-wide limit reached (3)", "5-hour window cap (80%) · resets 14:30" or "No stand-in with room", which its board card shows, with the full reason on hover.
+A queued Task's reason in a few words, such as "Office-wide limit reached (3)", "5-hour window cap (80%) · resets 14:30", "No stand-in with room" or "Work is set for this Task · resets 14:30", which its board card shows, with the full reason on hover.
 _Avoid_: label, summary, short form
 
 **Overlap**:
@@ -656,7 +656,7 @@ A job the user hires for, filled by one named person: its responsibilities, inst
 _Avoid_: Persona, profile, agent type
 
 **Role card**:
-Everything that defines a Role: its person's name and title, responsibilities, instructions, effort, Role override, capabilities (shared memory, chat, Consultant, Run environment: in an Agent Stage, writing a Project's run environment definition through The Office's `write_run_environment_definition`), permission profile, authority, Task limit and Skills.
+Everything that defines a Role: its person's name and title, responsibilities, instructions, model and effort for each engine type, capabilities (shared memory, chat, Consultant, Run environment: in an Agent Stage, writing a Project's run environment definition through The Office's `write_run_environment_definition`), permission profile, authority, Task limit and Skills.
 _Avoid_: Role config, definition, settings
 
 **Duty**:
@@ -680,35 +680,51 @@ One text The Office gives an Agent or a session, such as Resolve's Brief, with a
 _Avoid_: system prompt, template (alone)
 
 **Engine**:
-What a session runs on, listed by the user in Settings › Engines with a name and a default model: a Claude Code account, signed in in its own folder, with the `-p` fallback as its switch; a Codex account (ChatGPT or an OpenAI API key), signed in in its own folder; a GitHub account with Copilot on the Copilot CLI (a **Copilot CLI engine**), signed in in its own folder or by a pasted token; a Gemini API key on the Gemini CLI (a **Gemini CLI engine**), with its own folder; or an API endpoint of the OpenAI-compatible API. Caps and usage are kept per Engine. The one a session runs on comes from the cascade of the Office default, the Project default, the Initiative's engine, the Task's engine and the Role overrides.
+What a session runs on, listed by the user in Settings › Engines with a name, a default model and a default effort: one account of an Engine type. A Claude Code account, signed in in its own folder, with the `-p` fallback as its switch; a Codex account (ChatGPT or an OpenAI API key), signed in in its own folder; a GitHub account with Copilot on the Copilot CLI (a **Copilot CLI engine**), signed in in its own folder or by a pasted token; a Gemini API key on the Gemini CLI (a **Gemini CLI engine**), with its own folder; or an API endpoint of the OpenAI-compatible API. Caps and usage are kept per Engine. The one a session runs on comes from the Engine cascade.
 _Avoid_: Provider, backend, account (as the thing picked), engine id; Copilot, Copilot engine, GitHub engine (for a Copilot CLI engine); Gemini, Gemini engine, Google engine (for a Gemini CLI engine)
 
+**Engine type**:
+What an Engine runs on: Claude Code, Codex, Copilot CLI, Gemini CLI or the OpenAI-compatible API. Each Engine is one account of its type; a person's Model and effort are set per type, never per account, and its models are those its Engines offer together.
+_Avoid_: Engine kind, provider, engine family
+
+**Engine cascade**:
+Where a session runs: an Engine type and one of its accounts, from the most specific level set of the Office default, the Project default, the Initiative's engine override and the Task's engine override. Every person in a place runs on the same Engine there.
+_Avoid_: Engine resolution, engine chain
+
+**Model and effort cascade**:
+How a person works on the Engine a session landed on: the model and the effort each from the most specific level set of the Engine's default, the person's Model and effort for its Engine type, the Project's setting for the person, the Project's Forced model and effort, and the Stage's effort.
+_Avoid_: Model cascade, model override
+
 **Office default**:
-The Engine and model every session runs on unless a more specific level names another; set in Settings › Engines.
+The Engine type and one of its accounts every session runs on unless a more specific level names another; set in Settings › Engines.
 _Avoid_: Global engine, default engine setting
 
 **Stand-in Engine**:
-An Engine in the one Office-wide ordered list in Settings › Engines, which takes over for another Engine that has run out of its 5-hour or 7-day Usage window: the first in order that serves the same model and has room. A switch keeps the model, so in practice Claude Code Engines stand in for each other on a Claude model. Beside the list, the context size above which a switch of a running Stage asks the user first.
+An Engine in an ordered list, the Office-wide one in Settings › Engines or a Project's own, which takes over for another Engine that has run out of its 5-hour or 7-day Usage window: the first in order that has room, of any Engine type. On the same type a session is carried over; on another type a Thread or a new session starts fresh with the person's Model and effort for it, and a running Stage pauses until the reset instead. An Engine override uses none. Beside the Office's list, the context size above which a switch of a running Stage asks the user first.
 _Avoid_: Fallback engine, backup engine, failover
 
+**Project's own stand-in list**:
+A Project's ordered list of Stand-in Engines, turned on in its Engine block with "Use this Project's own list", which replaces the Office's list in that Project; empty unless filled, so then its work gets no stand-in. While it is off the Office's list applies, shown greyed out there.
+_Avoid_: Project stand-ins override, project fallback list
+
 **Project default**:
-The Engine and model a Project's sessions run on, set in the Project page's Engine block; with "Use for every Role" it applies to every Role in the Project over their Office-wide Role overrides.
+The Engine type and one of its accounts a Project's sessions run on, each "Office's default" unless set, set in the Project page's Engine block.
 _Avoid_: Project engine, project override
 
-**Initiative's engine**:
-The Engine and model an Initiative sets on its page: its shaping and planning Threads run on it, and so does every Task in it that sets no engine of its own. It takes the Project default's place in the cascade.
-_Avoid_: Initiative engine setting, Initiative default
+**Engine override**:
+One Engine an Initiative or a Task forces on its page, turned on with "Override the engine": an Initiative's covers its shaping and planning Threads and every Task in it with no override of its own; a Task's covers every session about it (its Stage runs, its planning Thread, Consultations on it). It names no model, uses no Stand-in Engine, and when its Usage window is used up the Task pauses until the reset.
+_Avoid_: Task's engine, Initiative's engine (as a setting), forced engine setting
 
-**Task's engine**:
-The Engine and model a Task sets on its page: every session about it (its Stage runs, its planning Thread, Consultations on it) runs on it. It takes the Project default's place in the cascade, ahead of its Initiative's engine.
-_Avoid_: Task engine setting, Task override
+**Model and effort**:
+What a person works with on one Engine type, set on their Role card per type, each "Engine's default" unless set; a Project can set its own for a person and type, and its Forced model and effort win over both there.
+_Avoid_: Role override, Role engine, model override, Stage model
 
-**Role override**:
-An Engine and model a Role runs on in place of the default: Office-wide on the Role card, or a Project's own in the Project page's Engine block, which wins in that Project. With none, the Role card reads "Office default".
-_Avoid_: Role engine, model override, Stage model
+**Forced model and effort**:
+A Project's "Force this model and effort for everyone", which sets the model and the effort of every person in the Project on its default's Engine type, past their own and the Project's settings for them; it needs the Project default to name an Engine type, and a Stage's effort still wins.
+_Avoid_: Use for every Role, project model override
 
 **OpenAI-compatible API**:
-The API that an Engine of this kind works on, a model served on it such as a local LLM; The Office runs the agent loop itself.
+The API that an Engine of this Engine type works on, a model served on it such as a local LLM; The Office runs the agent loop itself.
 _Avoid_: API engine, local engine, LLM provider
 
 **API endpoint**:

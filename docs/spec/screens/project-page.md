@@ -574,12 +574,38 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
 
 ## Engine
 
-- Card **Engine** (cpu icon); note "The most specific level wins: the Project's Role overrides, then the Role overrides on the Role cards, then a Task's engine, then its Initiative's engine, then the Project default, then the Office default."
-- Every change saves at once; while one saves, the controls are disabled; a refusal shows under the block until the next change.
-- **Project default**: the engine and model pair (the same fields as the Role card); the "Office default" choice clears it and is offered only while **Use for every Role** is off. Toasts "Project default saved for <name>." / "<name> has no Project default now."
-- **Use for every Role** switch: disabled with "Pick a Project default first." while there is no Project default; otherwise "The Project default wins over the Role overrides on the Role cards, and so does a Task's or an Initiative's engine set in its place; the Project's Role overrides still apply." Toasts "Every Role in <name> runs on its Project default, past their Role overrides." / "Role overrides apply in <name> again."
-- **Role overrides in this Project**: a list of rows, each a Role name, its engine and model pair and **Remove**; below it **Add a Role override** (a group: **Role** select, "Pick a Role"; the engine and model pair, starting from the first engine's default model; **Add**), offering only Roles not let go and not already overridden. Toasts "<Role> has a Role override in <name>." / "<Role>'s Role override in <name> is removed."
-- The engines offered are the Role card's options.
+- Card **Engine** (cpu icon), in four groups, each with its title and a one-line description: **Where sessions run**, **Model and effort for everyone**, **Model and effort per person**, **Stand-in Engines**.
+- Every change saves at once, but for a person's settings, which save with their window's **Add** or **Save**; while one saves, the controls are disabled; a refusal shows under the group, or in the window above its bar, until the next change.
+- **Where sessions run** ("A Task's or its Initiative's engine override wins over this."):
+  - **Engine type**: "Office's default (<type>)" first, then each type with an engine listed, with its icon.
+  - **Account**: while the type is the Office's default, disabled and reading "Office's default (<engine>)"; once a type is picked, that type's engines only, the first in Settings › Engines' order picked.
+  - Toasts "<name> runs on <engine> by default." / "<name> runs on the Office default again."
+- **Model and effort for everyone** ("Past each person's own settings and the ones below. A Stage's effort still wins."):
+  - Switch **Force this model and effort for everyone**: disabled with "Pick an engine type first." while the type is the Office's default.
+  - On, it shows **Model** and **Effort** for the Project's engine type, each "Engine's default" first, and the note "Only for sessions on <type>: one that lands on another type, through an override or a stand-in, works with the settings below."
+  - Turning the type back to the Office's default turns the force off, after a confirm "Turn off the force too?".
+  - Toasts "Everyone in <name> works with <model> · <effort> on <type>." / "People in <name> work with their own settings again."
+- **Model and effort per person** ("Wins over the person's Role card in this Project."):
+  - A table, one row per person: **Person** (avatar and name), then a column for each engine type with an engine listed (its icon and name, the Project's type first), then **Edit** and **Remove**.
+  - Each cell reads "<model> · <effort>", a value left unset reading "Person's setting" in muted text; a type that takes no effort shows only the model.
+  - While the force is on, the forced type's column is dimmed, its head adding "Forced above".
+  - Below the table **Add a person** (plus icon), off with "Everyone has a row already." once every person not let go has one.
+  - Empty: "Nobody has a setting of their own here, so each person works with their Role card's."
+  - A person's settings for a type with no engine listed aren't shown, and stay stored ([5.4.5](../5.4.5-engines-and-cascade.md#removing-an-engine)).
+- **Add a person** opens a medium window "Model and effort for a person in <name>":
+  - **Person** ("Pick a person"; people not let go and without a row).
+  - Then a row for each engine type with an engine listed, in the table's order: its icon and name, **Model** and **Effort** ("Person's setting" first, then the type's; a type that takes no effort has no Effort).
+  - Once a person is picked, each row's hint reads "Role card: <model> · <effort>", so "Person's setting" shows what it stands for.
+  - While the force is on, the forced type's row is dimmed with "Forced above: <model> · <effort> wins while the force is on."; its values stay settable for when it is off.
+  - Bar: **Cancel** and **Add** (primary), off until a person is picked and at least one model or effort is set.
+  - Toast "<person> has their own model and effort in <name>."
+- **Edit** opens the same window, titled "<person>'s model and effort in <name>", with the person fixed and **Save** for **Add**; Save is off while every value reads "Person's setting", with the hint "Nothing is set: Remove <person> instead."; toast "<person>'s model and effort in <name> are saved."
+- **Remove** asks in a small window "Remove <person>'s settings in <name>?" ("They work with their Role card's model and effort here again.", **Remove**, danger); toast "<person>'s model and effort in <name> are removed."
+- **Stand-in Engines** ("Take over when an engine's usage window is used up. A Task or Initiative with its own engine uses none."):
+  - Switch **Use this Project's own list**.
+  - Off: the Office's list, greyed out and read-only, each row with its type's icon, under "From Settings › Engines" (a link); "The Office has no Stand-in Engine." when it is empty.
+  - On: the Project's ordered list, each row with its type's icon, **Move up**, **Move down** and **Remove**; **Add a stand-in** over the saved engines not listed, of every type; a row of another type than the Project's engine notes "Another engine type: a running Stage waits for the reset rather than switch to it." Empty: "No Stand-in Engine in <name>, so its work waits for its own engine's usage window to free up."
+  - Toasts "<name> uses its own Stand-in Engines." / "<name> uses the Office's Stand-in Engines again."; turning it off keeps the Project's list for next time.
 
 ## Skills
 
@@ -664,7 +690,7 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
 - Publishing, Publish's before and after lines: [2.3.4](../2.3.4-publish.md#publishs-before-and-after-lines).
 - Delete branches once merged: [5.5](../5.5-git-and-isolation.md#deleting-merged-branches).
 - Project skills: [2.6](../2.6-skills.md#project-skills), [2.6](../2.6-skills.md#project-skills-turn-off-one-by-one).
-- The engine cascade: [5.4.5](../5.4.5-engines-and-cascade.md#the-engine-cascade).
+- The engine cascade and the model and effort cascade: [5.4.5](../5.4.5-engines-and-cascade.md#two-cascades); a Project's own Stand-in Engine list: [5.4.6](../5.4.6-stand-in-engines-and-usage-windows.md#a-projects-own-list).
 - Test targets and their Proposal: [2.12](../2.12-test-instances.md#test-target), [2.12](../2.12-test-instances.md#writing-test-targets).
 - Test instances, their branch and Initiative link: [2.12](../2.12-test-instances.md#test-instance), [2.12](../2.12-test-instances.md#linking-to-an-initiative).
 - Install on a device: [2.12](../2.12-test-instances.md#install-on-a-device).

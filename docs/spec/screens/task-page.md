@@ -339,13 +339,15 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 ### Engine
 
 - A fold "Engine" (cpu icon), after Definition of Done and before Devices, starting folded.
-- Summary: the engine and model it sets ("<model> on <engine> · set for this Task"), else "Initiative's engine · <model> on <engine>" or "Project's engine · <model> on <engine>".
-- The engine and model pair as on the Role card; the empty choice reads "Project's engine", or "Initiative's engine (<model> on <engine>)" when the Task's Initiative sets one, shown as the placeholder.
-- It saves at once with a toast; a refusal shows under the field, headed "The engine wasn't saved".
+- Summary: the engine it runs on and where it comes from: "<engine> · set for this Task · no stand-ins", "<engine> · from its Initiative · no stand-ins", "<engine> · from the Project" or "<engine> · from the Office default".
+- A switch **Override the engine**; off, a line names the engine the Task follows ("Runs on <engine>, from the Project, with the Project's Stand-in Engines." or "… from its Initiative, with no stand-ins."); while its Initiative has an override, the switch's hint reads "Turn it on to run this Task on another engine than its Initiative's."
+- On, an **Engine** select over the listed engines, grouped by engine type with each type's icon, starting on the engine it followed; no model: each person works with their own model and effort for its type.
+- Under it, an info note: "No stand-ins: when <engine>'s usage window is used up, the Task waits for the reset."
+- Each change saves at once with a toast ("<title> runs on <engine>, with no stand-ins." / "<title> follows its <Initiative's or Project's> engine again."); a refusal shows under the field, headed "The engine wasn't saved".
 - Read-only once the Task is Done or Dropped, with "Kept as it was: the engine of a Done or Dropped Task doesn't change."
-- While a Stage runs, a note says that session finishes on the engine it started on and a change applies from each next session; a new engine starts the next session fresh, a new model alone resumes it.
-- A "Runs on" list names the Planner and each Role its Stages name, the engine and model each lands on, and the level that gave it: "from the Task's engine", "from the Initiative's engine", "from the Project default", "from the Office default", "from the Role override" or "from the Project's Role override".
-- Rules: [2.1.3](../2.1.3-tasks.md#a-tasks-engine), [5.4.5](../5.4.5-engines-and-cascade.md#the-engine-cascade).
+- While a Stage runs, a note says that session finishes on the engine it started on and a change applies from each next session, which starts fresh on a new engine.
+- A "Runs on" list names the Planner and each Role its Stages name, with the model and effort each works with on the Task's engine and where each came from: "<model> · <effort>", then "from <person>'s Role card", "from the Project's setting for <person>", "forced by the Project" or "the engine's default"; a Stage that sets its own effort adds "<effort> on <Stage>".
+- Rules: [2.1.3](../2.1.3-tasks.md#a-tasks-engine), [5.4.5](../5.4.5-engines-and-cascade.md#the-engine-cascade), [5.4.6](../5.4.6-stand-in-engines-and-usage-windows.md#a-forced-engine-has-no-stand-ins).
 
 ### Devices
 
