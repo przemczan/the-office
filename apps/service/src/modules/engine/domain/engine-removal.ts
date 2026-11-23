@@ -1,5 +1,5 @@
 import { EngineSettingsRefused, ENGINES_CHANGED_MEANWHILE } from "./engine-settings-refused.js";
-import { offeredModels, type Engine, type EngineId, type EngineModel } from "./engines.js";
+import type { Engine, EngineId, EngineModel } from "./engines.js";
 
 /**
  * An engine being removed and the one that takes over everything naming it, or none when it is
@@ -59,15 +59,32 @@ export type MovedTaskState =
 /** An Initiative's state, as Work names it. */
 export type MovedInitiativeState = "shaping" | "active" | "done" | "dropped";
 
-/** What `removal` does to `reference`, when it names the removed engine. */
-export function movedEngineReference(
-  reference: EngineModel,
+/**
+ * What `removal` does to an engine override, a Task's or an Initiative's (`work`), when it names
+ * the removed engine: from it to the replacement, or none. An override names an engine, not a
+ * model, so each side is on its engine's default model, as a Stand-in Engine list's move is.
+ */
+export function movedEngineOverride(
+  engineOverride: EngineId,
   removal: EngineRemoval,
-  where: Pick<MovedEngineReference, "roleKey" | "project" | "work">,
+  removed: Engine | undefined,
+  where: Pick<MovedEngineReference, "project" | "work">,
 ): MovedEngineReference[] {
-  if (reference.engineId !== removal.engineId) return [];
-  const from = { engineId: reference.engineId, model: reference.model };
-  return [{ ...where, from, to: movedEngineModel(from, removal) }];
+  if (engineOverride !== removal.engineId) return [];
+  const { replacement } = removal;
+  return [
+    {
+      roleKey: null,
+      ...where,
+      from: { engineId: removal.engineId, model: removed?.defaultModel ?? "" },
+      to: replacement && { engineId: replacement.id, model: replacement.defaultModel },
+    },
+  ];
+}
+
+/** Where an engine id stands once the removal is done: the replacement's, or none, for the removed engine. */
+export function movedEngineId(engineId: EngineId, removal: EngineRemoval): EngineId | null {
+  return engineId === removal.engineId ? (removal.replacement?.id ?? null) : engineId;
 }
 
 /**
@@ -98,26 +115,6 @@ export function movedStandInList(
       to: replacement && { engineId: replacement.id, model: replacement.defaultModel },
     },
   ];
-}
-
-/**
- * Where `reference` stands once the removal is done: on the replacement when it named the removed
- * engine, keeping its model when the replacement offers it and else taking the replacement's
- * default model, or none with no replacement; as it was otherwise.
- */
-export function movedEngineModel(
-  reference: EngineModel,
-  removal: EngineRemoval,
-): EngineModel | null {
-  if (reference.engineId !== removal.engineId) return reference;
-  const { replacement } = removal;
-  if (replacement === null) return null;
-  return {
-    engineId: replacement.id,
-    model: offeredModels(replacement).includes(reference.model)
-      ? reference.model
-      : replacement.defaultModel,
-  };
 }
 
 /**

@@ -1,173 +1,189 @@
 import type {
   EngineId,
-  EngineModel,
   EngineSettings,
   Initiative,
   Project,
   Task,
   TaskSummary,
 } from "@the-office/contracts";
-import { modelLabel, officeDefaultEngineModel } from "../../shell/engine-words.ts";
 
 /** An engine's name as Settings › Engines lists it. */
 type EngineNamer = (engineId: EngineId) => string;
 
 /** The Engine fold's words on the Task page and the Initiative page (spec §2.1.3, §2.1.4). */
-export const TASK_ENGINE_INTRO =
-  "What every session about this Task runs on: its Stages, its planning Thread and Consultations on it. It takes the Project default's place; a Role override still wins.";
-export const INITIATIVE_ENGINE_INTRO =
-  "What its shaping and planning Threads run on, and every Task in it that sets no engine of its own. It takes the Project default's place; a Role override still wins.";
+export const OVERRIDE_THE_ENGINE = "Override the engine";
 export const TASK_ENGINE_KEPT =
   "Kept as it was: the engine of a Done or Dropped Task doesn't change.";
 export const INITIATIVE_ENGINE_KEPT =
   "Kept as it was: the engine of a Done or Dropped Initiative doesn't change.";
-export const ENGINE_CHANGE_NOTE =
-  "A new engine starts each next session fresh; a new model alone resumes it.";
 export const RUNNING_STAGE_NOTE =
-  "A Stage is running now. That session finishes on the engine it started on; a change applies from each next session.";
+  "A Stage is running now. That session finishes on the engine it started on; a change applies from each next session, which starts fresh on the new engine.";
 export const ENGINE_REFUSED = "The engine wasn't saved";
-export const PROJECTS_ENGINE = "Project's engine";
 export const EACH_PROJECTS_ENGINE = "Each Project's engine";
+export const NO_ENGINE_LISTED = "No engine: add one in Settings › Engines";
 export const RUNS_ON_NOTE =
   "Its Planner and the Roles its Stages name, with the model and effort each works with on its engine now. A Consultant on it works the same way.";
-export const INITIATIVE_NONE_HINT =
-  "A Task in it that sets no engine runs on its Project default, or the Office default where its Project has none.";
+export const TASK_FOLLOWS_INITIATIVE_HINT =
+  "Turn it on to run this Task on another engine than its Initiative's.";
+export const INITIATIVE_OFF_HINT =
+  "Its Threads and Tasks run on their Project's engine, or the Office default where the Project sets none, with that Project's Stand-in Engines.";
 export const ITS_TASKS_NOTE =
-  "The level each open Task takes; its Role overrides still win. Done and Dropped Tasks run no more sessions, so they aren't listed.";
+  "Which of its open Tasks follow its override and which override it with their own engine. Done and Dropped Tasks run no more sessions, so they aren't listed.";
 
-/** "Opus 5.5 on Work account". */
-export function onEngine({ engineId, model }: EngineModel, engineName: EngineNamer): string {
-  return `${modelLabel(model)} on ${engineName(engineId)}`;
+/** The engine a record follows while it has no override of its own, and the level that gives it. */
+export interface FollowedEngine {
+  readonly engineId: EngineId;
+  readonly from: "initiative" | "project" | "office";
 }
 
 /**
- * What a Project's Tasks run on while nothing more specific is set: the account its default names,
- * else the Office default's, on that engine's own default model.
+ * What a Project's Tasks run on while nothing more specific is set: the engine its default names,
+ * else the Office default's; none while neither is listed or the settings aren't read yet.
  */
 export function projectEngineOf(
   project: { readonly engine: Pick<Project["engine"], "default"> } | undefined,
   engineSettings: Pick<EngineSettings, "engines" | "officeDefault"> | undefined,
-): EngineModel | null {
-  const engineId = project?.engine.default?.engineId;
-  const engine = engineSettings?.engines.find(({ id }) => id === engineId);
-  if (engine) return { engineId: engine.id, model: engine.defaultModel };
-  return officeDefaultEngineModel(engineSettings);
-}
-
-/** The Engine fold's summary: what the Task sets, else what it takes. */
-export function taskEngineSummary(
-  task: Pick<Task, "engine" | "initiativeEngine">,
-  projectEngine: EngineModel | null,
-  engineName: EngineNamer,
-): string {
-  if (task.engine) return `${onEngine(task.engine, engineName)} · set for this Task`;
-  if (task.initiativeEngine) {
-    return `Initiative's engine · ${onEngine(task.initiativeEngine, engineName)}`;
+): FollowedEngine | null {
+  const listed = (engineId: EngineId | undefined): boolean =>
+    engineId !== undefined && (engineSettings?.engines ?? []).some(({ id }) => id === engineId);
+  const projectEngineId = project?.engine.default?.engineId;
+  if (listed(projectEngineId) && projectEngineId !== undefined) {
+    return { engineId: projectEngineId, from: "project" };
   }
-  return projectEngine
-    ? `${PROJECTS_ENGINE} · ${onEngine(projectEngine, engineName)}`
-    : PROJECTS_ENGINE;
+  const officeEngineId = engineSettings?.officeDefault?.engineId;
+  if (listed(officeEngineId) && officeEngineId !== undefined) {
+    return { engineId: officeEngineId, from: "office" };
+  }
+  return null;
 }
 
-/** The Task's Engine field's empty choice, which names what it takes then. */
-export function taskNoneLabel(
-  task: Pick<Task, "initiativeEngine">,
+/** What the Task follows with its own override off: its Initiative's override, else its Project's. */
+export function taskFollowedEngine(
+  task: Pick<Task, "initiativeEngineOverride">,
+  projectEngine: FollowedEngine | null,
+): FollowedEngine | null {
+  if (task.initiativeEngineOverride) {
+    return { engineId: task.initiativeEngineOverride, from: "initiative" };
+  }
+  return projectEngine;
+}
+
+/** "· from the Project": where an engine a record follows comes from, in the summary. */
+function fromWords({ from }: FollowedEngine): string {
+  switch (from) {
+    case "initiative":
+      return "from its Initiative · no stand-ins";
+    case "project":
+      return "from the Project";
+    case "office":
+      return "from the Office default";
+  }
+}
+
+/** The Task's Engine fold's summary: its override, else what it follows. */
+export function taskEngineSummary(
+  task: Pick<Task, "engineOverride" | "initiativeEngineOverride">,
+  projectEngine: FollowedEngine | null,
   engineName: EngineNamer,
 ): string {
-  return task.initiativeEngine
-    ? `Initiative's engine (${onEngine(task.initiativeEngine, engineName)})`
-    : PROJECTS_ENGINE;
+  if (task.engineOverride) {
+    return `${engineName(task.engineOverride)} · set for this Task · no stand-ins`;
+  }
+  const followed = taskFollowedEngine(task, projectEngine);
+  return followed ? `${engineName(followed.engineId)} · ${fromWords(followed)}` : NO_ENGINE_LISTED;
 }
 
-/** The hint under the Task's Engine field while it sets none. */
-export function taskNoneHint(
-  task: Pick<Task, "initiativeEngine">,
-  project:
-    (Pick<Project, "name"> & { readonly engine: Pick<Project["engine"], "default"> }) | undefined,
+/**
+ * The line under the switch while it is off, naming the engine the Task follows and the stand-ins
+ * it has there: the Project's own list while it uses one, else the Office's.
+ */
+export function taskFollowsLine(
+  followed: FollowedEngine | null,
+  projectUsesOwnStandIns: boolean,
+  engineName: EngineNamer,
 ): string {
-  const pick = "Pick an engine to run this Task on its own.";
-  if (task.initiativeEngine) return `Set on its Initiative. ${pick}`;
-  if (project === undefined) return pick;
-  return project.engine.default
-    ? `${project.name}'s Project default. ${pick}`
-    : `The Office default, as ${project.name} has no Project default. ${pick}`;
+  if (followed === null) return NO_ENGINE_LISTED;
+  const name = engineName(followed.engineId);
+  if (followed.from === "initiative") {
+    return `Runs on ${name}, from its Initiative, with no stand-ins.`;
+  }
+  const standIns = projectUsesOwnStandIns
+    ? "the Project's Stand-in Engines"
+    : "the Office's Stand-in Engines";
+  const from = followed.from === "project" ? "the Project" : "the Office default";
+  return `Runs on ${name}, from ${from}, with ${standIns}.`;
 }
 
-/** The toast once the Task's engine is saved; `inherited` is what it took before setting one. */
+/** The info note under the Engine select. */
+export function noStandInsNote(
+  engineId: EngineId,
+  engineName: EngineNamer,
+  of: "task" | "initiative",
+): string {
+  const waits = of === "task" ? "the Task waits" : "its Tasks wait";
+  return `No stand-ins: when ${engineName(engineId)}'s usage window is used up, ${waits} for the reset.`;
+}
+
+/** The toast once the Task's engine override is saved, or turned off. */
 export function taskEngineToast(
-  task: Pick<Task, "title" | "initiativeEngine">,
-  before: EngineModel | null,
-  after: EngineModel | null,
-  inherited: EngineModel | null,
+  task: Pick<Task, "title" | "initiativeEngineOverride">,
+  after: EngineId | null,
   engineName: EngineNamer,
 ): string {
   if (after === null) {
-    const whose = task.initiativeEngine ? "Initiative's" : "Project's";
-    return `${task.title} has no engine of its own now: it runs on its ${whose} engine from its next session.`;
+    const whose = task.initiativeEngineOverride ? "Initiative's" : "Project's";
+    return `${task.title} follows its ${whose} engine again.`;
   }
-  const was = before ?? inherited;
-  if (was?.engineId === after.engineId) {
-    return `Model saved for ${task.title}: its next sessions resume, on ${modelLabel(after.model)}.`;
-  }
-  return `Engine saved for ${task.title}: its next sessions start fresh, on ${onEngine(after, engineName)}.`;
+  return `${task.title} runs on ${engineName(after)}, with no stand-ins.`;
 }
 
-/** The Initiative's empty choice: its Project's engine, or each Project's across several. */
-export function initiativeNoneLabel(initiative: Pick<Initiative, "projectIds">): string {
-  return initiative.projectIds.length > 1 ? EACH_PROJECTS_ENGINE : PROJECTS_ENGINE;
-}
-
-/** The Initiative's Engine fold's summary. */
+/** The Initiative's Engine fold's summary: its override, else its Project's engine. */
 export function initiativeEngineSummary(
-  initiative: Pick<Initiative, "engine" | "projectIds">,
-  projectEngine: EngineModel | null,
+  initiative: Pick<Initiative, "engineOverride" | "projectIds">,
+  projectEngine: FollowedEngine | null,
   engineName: EngineNamer,
 ): string {
-  if (initiative.engine) return onEngine(initiative.engine, engineName);
+  if (initiative.engineOverride) {
+    return `${engineName(initiative.engineOverride)} · set for this Initiative · no stand-ins`;
+  }
   if (initiative.projectIds.length > 1) return EACH_PROJECTS_ENGINE;
   return projectEngine
-    ? `${PROJECTS_ENGINE} · ${onEngine(projectEngine, engineName)}`
-    : PROJECTS_ENGINE;
+    ? `${engineName(projectEngine.engineId)} · ${fromWords(projectEngine)}`
+    : NO_ENGINE_LISTED;
 }
 
-/** The toast once the Initiative's engine is saved; `taking` counts its open Tasks that set none. */
+/** The toast once the Initiative's engine override is saved, or turned off. */
 export function initiativeEngineToast(
   initiative: Pick<Initiative, "name">,
-  before: EngineModel | null,
-  after: EngineModel | null,
-  taking: number,
+  after: EngineId | null,
   engineName: EngineNamer,
 ): string {
   if (after === null) {
     return `${initiative.name} has no engine of its own now: its Threads and Tasks run on their Project's engine from their next session.`;
   }
-  if (before?.engineId === after.engineId) {
-    return `Model saved for ${initiative.name}: its next sessions resume, on ${modelLabel(after.model)}.`;
-  }
-  const tasks =
-    taking === 1
-      ? "its 1 open Task that sets none runs"
-      : `its ${taking} open Tasks that set none run`;
-  return `Engine saved for ${initiative.name}: its Threads and ${tasks} on ${onEngine(after, engineName)} from their next session.`;
+  return `${initiative.name} runs on ${engineName(after)}, with no stand-ins.`;
 }
 
-/** Whether the Task runs sessions still, so the Initiative's engine can apply to it. */
+/** Whether the Task runs sessions still, so the Initiative's override can apply to it. */
 export function isOpenTask({ state }: Pick<TaskSummary, "state">): boolean {
   return state !== "done" && state !== "dropped";
 }
 
 /** What one of an Initiative's open Tasks runs on, and the level it takes it from. */
 export interface InitiativeTaskEngine {
-  readonly engine: EngineModel | null;
-  readonly source: "its own engine" | "the Initiative's engine" | "its Project's engine";
+  readonly engineId: EngineId | null;
+  readonly source:
+    "its own override" | "follows the Initiative's override" | "its Project's engine";
 }
 
 export function initiativeTaskEngine(
-  task: Pick<TaskSummary, "engine">,
-  initiative: Pick<Initiative, "engine">,
-  projectEngine: EngineModel | null,
+  task: Pick<TaskSummary, "engineOverride">,
+  initiative: Pick<Initiative, "engineOverride">,
+  projectEngine: FollowedEngine | null,
 ): InitiativeTaskEngine {
-  if (task.engine) return { engine: task.engine, source: "its own engine" };
-  if (initiative.engine) return { engine: initiative.engine, source: "the Initiative's engine" };
-  return { engine: projectEngine, source: "its Project's engine" };
+  if (task.engineOverride) return { engineId: task.engineOverride, source: "its own override" };
+  if (initiative.engineOverride) {
+    return { engineId: initiative.engineOverride, source: "follows the Initiative's override" };
+  }
+  return { engineId: projectEngine?.engineId ?? null, source: "its Project's engine" };
 }

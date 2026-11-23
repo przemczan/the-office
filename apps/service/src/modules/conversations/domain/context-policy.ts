@@ -85,6 +85,12 @@ export interface Continuation {
   readonly sessionDefault: SessionDefault;
   /** The engine that card picks; undefined when nobody fills the Role, so nobody answers. */
   readonly engineId: EngineId | undefined;
+  /**
+   * Whether `engineId` is forced by a Task's or an Initiative's engine override, which has no
+   * stand-ins (spec §5.4.6): a session on a Stand-in Engine then no longer counts as on it, so it
+   * starts fresh on the forced engine. The cascade's `standIns` from "none" says so.
+   */
+  readonly forced?: boolean;
   readonly override: ContextOverride | undefined;
   /**
    * At a Stage boundary, the session the Stage declares: fresh, or continuing the previous Stage's
@@ -147,7 +153,10 @@ export function decideContext(
       reason: "context-full",
     };
   }
-  if (continuation.engineId !== undefined && !onEngine(session, continuation.engineId)) {
+  if (
+    continuation.engineId !== undefined &&
+    !onEngine(session, continuation.engineId, continuation.forced ?? false)
+  ) {
     return {
       ...withoutSession(briefTokens),
       contextTokens: session.contextTokens,
@@ -191,13 +200,15 @@ export function decideContext(
 
 /**
  * Whether the session runs on `engineId`, or stands in for it: a Stage's session moved to a Stand-in
- * Engine as its own ran out of its usage window goes on there (spec 5.4).
+ * Engine as its own ran out of its usage window goes on there (spec 5.4), unless `forced`, as an
+ * engine override never gives way to a stand-in (spec §5.4.6).
  */
 function onEngine(
   { engineId, standInFor }: Pick<ThreadSession, "engineId" | "standInFor">,
   wanted: EngineId,
+  forced: boolean,
 ): boolean {
-  return engineId === wanted || standInFor?.engineId === wanted;
+  return engineId === wanted || (!forced && standInFor?.engineId === wanted);
 }
 
 /** The move a list's row shows: what `decideContext` decides, without what a Brief would take. */

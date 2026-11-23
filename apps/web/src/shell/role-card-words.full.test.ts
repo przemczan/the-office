@@ -61,7 +61,7 @@ describe("the Role card's words", () => {
     const applies = {
       engineId: "claude-code",
       model: "claude-haiku-5-5",
-      level: "office-default",
+      level: "office",
       engineType: "claude-code",
       effort: "high",
       modelLevel: "person",

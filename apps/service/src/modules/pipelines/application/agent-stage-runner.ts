@@ -829,7 +829,8 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
   /**
    * After the engine refused a turn for a used-up usage window (spec 5.4): the session goes on on
    * the first Stand-in Engine with room of the list that applies for the Task (its Project's own or
-   * the Office's), of the running engine's type so the session is carried with its model, unless
+   * the Office's; none under an engine override, which holds the run with no Stand-in choice until
+   * the reset), of the running engine's type so the session is carried with its model, unless
    * the user's Pause or Stop, or the fire alarm, asked to hold the run first, none has room, or the
    * session's context is over the size Settings › Engines asks first above, whose Stand-in Engine
    * the hold names for the user's choice. A switch that fails holds the run too: it is never the
@@ -841,7 +842,8 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
   ): Promise<AfterRefusal> {
     const { work, thread } = on;
     if (work.interruption.requested) return HOLD;
-    // No engine listed any more leaves no list to stand in from: the run holds until the reset.
+    // No engine listed any more, or an engine override (the cascade's `standIns` from "none"),
+    // leaves no list to stand in from: the run holds until the reset, asking no choice.
     const standIns = (await this.cascade.engineAt(on.running.place))?.standIns.engineIds ?? [];
     const standInId = await this.engineSessions.standInFor(thread.engine, {
       standIns,

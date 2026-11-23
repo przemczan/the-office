@@ -782,6 +782,34 @@ describe("a Stage on the engine the Task sets", () => {
       });
       expect(stageThread.standInFor).toBeUndefined();
     });
+
+    it("starts the next Stage fresh on the forced engine once an engine override is turned on, though the list names the stand-in", async () => {
+      await startWith(
+        started(...aTurn({ status: "done" })),
+        started(...aTurn({ status: "done" }, "Reviewing.")),
+      );
+      vi.spyOn(app.get(EngineModels), "engines").mockResolvedValue([
+        FIRST_CLAUDE_CODE_ENGINE,
+        CODEX,
+      ]);
+      cascade.standIns = { from: "project", engineIds: [CODEX.id] };
+      const request = onCodex();
+      const first = await aStageRun(request);
+      expect(first.stageThread.engine).toBe(CODEX.id);
+
+      cascade.setForTask(request.taskId, {
+        engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+        model: "claude-opus-5-5",
+      });
+      const second = await aStageRun(theNextStage(first, request));
+
+      expect(second.stageThread.move).toMatchObject({ move: "fresh", reason: "engine-changed" });
+      expect(second.stageThread).toMatchObject({
+        engine: FIRST_CLAUDE_CODE_ENGINE.id,
+        model: "claude-opus-5-5",
+      });
+      expect(second.stageThread.standInFor).toBeUndefined();
+    });
   });
 });
 

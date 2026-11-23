@@ -353,13 +353,13 @@ const MONTHS = [
 ] as const;
 
 /** On the service's clock, as "today" is (spec §2.7): "at 14:30", or "on Thu 5 Nov at 14:30". */
-function resetWords(resetsAt: Date, now: Date): string {
+export function resetWords(resetsAt: Date, now: Date): string {
   const time = `at ${clockTime(resetsAt)}`;
   return isSameDay(resetsAt, now) ? time : `on ${dayWords(resetsAt)} ${time}`;
 }
 
 /** As `resetWords`, for a short reason: "14:30", or "Thu 5 Nov 14:30". */
-function shortResetWords(resetsAt: Date, now: Date): string {
+export function shortResetWords(resetsAt: Date, now: Date): string {
   const time = clockTime(resetsAt);
   return isSameDay(resetsAt, now) ? time : `${dayWords(resetsAt)} ${time}`;
 }

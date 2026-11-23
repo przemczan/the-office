@@ -8,10 +8,11 @@ import {
   type EngineModel,
 } from "../../engine/index.js";
 import { EngineSettingsForTests } from "../../engine/index.fixtures.js";
-import type {
-  ProjectCascadeLevels,
-  ProjectWithCascadeLevels,
-  WorkCascadeLevels,
+import {
+  NO_STAND_INS,
+  type ProjectCascadeLevels,
+  type ProjectWithCascadeLevels,
+  type WorkCascadeLevels,
 } from "../domain/engine-cascade.js";
 import type { PersonEngineSettings } from "../domain/role-card.js";
 import { aRoleCard } from "../domain/role.fixtures.js";
@@ -29,8 +30,8 @@ import { MCP_TOOL_DEFAULT_STAND_IN } from "../index.fixtures.js";
 const officeDefault = { engineId: "claude-code", model: "claude-sonnet-5-5" };
 const projectDefault = { engineType: "claude-code", engineId: "claude-code" } as const;
 const forcedModel = "claude-haiku-5-5";
-const taskEngine = { engineId: "codex", model: "gpt-6-luna" };
-const initiativeEngine = { engineId: "gemini", model: "pro" };
+const taskEngineOverride = "codex";
+const initiativeEngineOverride = "gemini";
 const codex: Engine = {
   id: "codex",
   name: "Codex",
@@ -54,7 +55,7 @@ const NO_OWN_LIST = { useOwnList: false, engineIds: [] } as const;
 const onOfficeDefault = {
   ...officeDefault,
   standIns: fromOffice,
-  level: "office-default",
+  level: "office",
   engineType: "claude-code",
   modelLevel: "engine",
   effort: null,
@@ -64,25 +65,31 @@ const onOfficeDefault = {
 const forcedInTheProject = {
   ...onOfficeDefault,
   model: forcedModel,
-  level: "project-default",
+  level: "project",
   modelLevel: "projectForce",
   effortLevel: "projectForce",
 } as const;
 
-/** The Task "the-task" sets its own engine and is in "the-initiative", which sets another. */
+/**
+ * The Task "the-task" has its own engine override and is in "the-initiative", which has another;
+ * "a-claude-task" is overridden to the Project default's engine type.
+ */
 class WorkLevelsForTests implements KnownWorkLevels {
   readonly asked: WorkLevelsOf[] = [];
 
   async engineLevelsOf(of: WorkLevelsOf): Promise<WorkCascadeLevels> {
     this.asked.push(of);
     if ("taskId" in of) {
-      return of.taskId === "the-task"
-        ? { taskEngine, initiativeEngine }
-        : { taskEngine: null, initiativeEngine: null };
+      if (of.taskId === "the-task") return { taskEngineOverride, initiativeEngineOverride };
+      if (of.taskId === "a-claude-task") {
+        return { taskEngineOverride: "claude-code", initiativeEngineOverride: null };
+      }
+      return { taskEngineOverride: null, initiativeEngineOverride: null };
     }
     return {
-      taskEngine: null,
-      initiativeEngine: of.initiativeId === "the-initiative" ? initiativeEngine : null,
+      taskEngineOverride: null,
+      initiativeEngineOverride:
+        of.initiativeId === "the-initiative" ? initiativeEngineOverride : null,
     };
   }
 
@@ -220,13 +227,13 @@ describe("EngineCascade", () => {
     await expect(cascade.engineAt()).resolves.toEqual({
       engineId: "claude-code",
       engineType: "claude-code",
-      level: "office-default",
+      level: "office",
       standIns: fromOffice,
     });
     await expect(cascade.engineAt({ projectId: "the-project" })).resolves.toEqual({
       engineId: "claude-code",
       engineType: "claude-code",
-      level: "project-default",
+      level: "project",
       standIns: fromOffice,
     });
     await expect(
@@ -234,8 +241,14 @@ describe("EngineCascade", () => {
     ).resolves.toEqual({
       engineId: "codex",
       engineType: "codex",
-      level: "task-engine",
-      standIns: fromOffice,
+      level: "task",
+      standIns: NO_STAND_INS,
+    });
+    await expect(cascade.engineAt({ initiativeId: "the-initiative" })).resolves.toEqual({
+      engineId: "gemini",
+      engineType: "gemini-cli",
+      level: "initiative",
+      standIns: NO_STAND_INS,
     });
     await expect((await cascadeWith({}, null)).engineAt()).resolves.toBeNull();
   });
@@ -256,7 +269,7 @@ describe("EngineCascade", () => {
     await expect(cascade.applying("developer")).resolves.toMatchObject({ standIns: fromOffice });
   });
 
-  it("weighs a Task's engine, and its Initiative's, in the Project default's place, the force on its type only", async () => {
+  it("weighs a Task's engine override over its Initiative's over the Project default, with no stand-ins and the force on the default's type only", async () => {
     const work = new WorkLevelsForTests();
     const cascade = await cascadeWith({}, officeDefault, work);
 
@@ -265,24 +278,24 @@ describe("EngineCascade", () => {
     ).resolves.toEqual({
       engineId: "codex",
       model: codex.defaultModel,
-      level: "task-engine",
+      level: "task",
       engineType: "codex",
       modelLevel: "engine",
       effort: "medium",
       effortLevel: "engine",
-      standIns: fromOffice,
+      standIns: NO_STAND_INS,
     });
     await expect(
       cascade.of("developer", { projectId: "the-project", initiativeId: "the-initiative" }),
     ).resolves.toEqual({
       engineId: "gemini",
       model: gemini.defaultModel,
-      level: "initiative-engine",
+      level: "initiative",
       engineType: "gemini-cli",
       modelLevel: "engine",
       effort: null,
       effortLevel: "engine",
-      standIns: fromOffice,
+      standIns: NO_STAND_INS,
     });
     await expect(
       cascade.applying("developer", { projectId: "the-project", taskId: "a-plain-task" }),
@@ -300,8 +313,36 @@ describe("EngineCascade", () => {
 
     await expect(
       cascade.of("developer", { taskId: "the-task", initiativeId: "the-initiative" }),
-    ).resolves.toMatchObject({ engineId: taskEngine.engineId, level: "task-engine" });
+    ).resolves.toMatchObject({ engineId: taskEngineOverride, level: "task" });
     expect(work.asked).toEqual([{ taskId: "the-task" }]);
+  });
+
+  it("works with the person's model and effort for the override's engine type", async () => {
+    const cascade = await cascadeWith({
+      "claude-code": { model: "claude-opus-5-5", effort: "high" },
+      codex: { model: "gpt-5.6-terra", effort: "low" },
+    });
+
+    await expect(
+      cascade.of("developer", { projectId: "the-project", taskId: "the-task" }),
+    ).resolves.toMatchObject({
+      engineId: "codex",
+      level: "task",
+      model: "gpt-5.6-terra",
+      modelLevel: "person",
+      effort: "low",
+      effortLevel: "person",
+    });
+  });
+
+  it("applies the Project's force at an override on the Project default's engine type", async () => {
+    const cascade = await cascadeWith({
+      "claude-code": { model: "claude-opus-5-5", effort: "high" },
+    });
+
+    await expect(
+      cascade.of("developer", { projectId: "the-project", taskId: "a-claude-task" }),
+    ).resolves.toEqual({ ...forcedInTheProject, level: "task", standIns: NO_STAND_INS });
   });
 
   it("takes a Stage's effort over the person's", async () => {
@@ -341,7 +382,7 @@ describe("EngineCascade", () => {
     await expect(cascade.onEngine("developer", "codex")).resolves.toMatchObject({
       engineId: "codex",
       engineType: "codex",
-      level: "office-default",
+      level: "office",
       model: codex.defaultModel,
       modelLevel: "engine",
       effort: "low",

@@ -23,14 +23,12 @@ afterEach(async () => {
   await pipelines.app.close();
 });
 
-const onLocal = { engineId: "local", model: "gpt-oss" };
-
 function aMove(taskId: string): TaskEngineMove {
   return {
     taskId,
     projectId: "billing",
-    before: { taskEngine: null, initiativeEngine: null },
-    after: { taskEngine: onLocal, initiativeEngine: null },
+    before: { taskEngineOverride: null, initiativeEngineOverride: null },
+    after: { taskEngineOverride: "local", initiativeEngineOverride: null },
   };
 }
 
@@ -76,7 +74,7 @@ describe("TaskRoleEngines as a check on a change of Tasks' engines", () => {
     pipelines.tasks.put(taskId, { state: "ready", pipelineId: "quick-fix", projectId: "billing" });
     await pipelines.app.get(TaskStagesService).edit(taskId, translatedQuickFix());
     pipelines.roleEngines.incapableRoles.add("translator");
-    const levels = { taskEngine: onLocal, initiativeEngine: null };
+    const levels = { taskEngineOverride: "local", initiativeEngineOverride: null };
     const choosing = { taskId, projectId: "billing", before: levels, after: levels };
 
     // The chosen Pipeline's Stages name the Implements duty in place of the translator.

@@ -26,20 +26,11 @@ export interface RoleOnIncapableEngine {
   readonly standIn?: true;
 }
 
-/** Which engines in reach `rolesOnIncapableEngines` weighs besides the cascade's. */
-export interface EnginesInReach {
-  /**
-   * Whether the Stand-in Engine list that applies is weighed; on unless left to another place's
-   * check, as a Task's Project weighs the list a save above the Task changes.
-   */
-  readonly standIns?: boolean;
-}
-
 /**
  * The Stand-in Engines in reach in a place (spec §5.4.5): the list the cascade says applies there,
  * the Project's own or the Office's, less the cascade's own engine, which never stands in for
  * itself. Which list applies is the cascade's `standInsApplying` alone, so a place with an engine
- * override, which uses no Stand-in Engine (spec §5.4.5), is to weigh none once it answers so.
+ * override, which uses no Stand-in Engine (spec §5.4.6), weighs none.
  */
 export function standInsInReach(inPlace: EngineInPlace): readonly EngineId[] {
   return [...new Set(inPlace.standIns.engineIds)].filter(
@@ -49,16 +40,15 @@ export function standInsInReach(inPlace: EngineInPlace): readonly EngineId[] {
 
 /**
  * The Roles of `roleKeys` whose engine in the cascade, the one everyone in the place runs on, at
- * `levels` (in a Project or in none, on a Task or an Initiative setting an engine), lacks a
+ * `levels` (in a Project or in none, on a Task or an Initiative with an engine override), lacks a
  * capability their Agent Stages need, then the Roles again on each Stand-in Engine in reach there
- * that lacks one (`standInsInReach`); a Role on no engine, with none listed, lacks nothing here.
- * `missingCapabilities` gives what an engine can't do.
+ * that lacks one (`standInsInReach`: none under an override); a Role on no engine, with none
+ * listed, lacks nothing here. `missingCapabilities` gives what an engine can't do.
  */
 export function rolesOnIncapableEngines(
   roleKeys: Iterable<string>,
   levels: EngineCascadeLevels,
   missingCapabilities: (engineId: string) => readonly EngineCapability[],
-  { standIns = true }: EnginesInReach = {},
 ): RoleOnIncapableEngine[] {
   const applying = engineInCascade(levels);
   if (applying === null) return [];
@@ -79,7 +69,7 @@ export function rolesOnIncapableEngines(
   };
   return [
     ...onEngine(applying.engineId, false),
-    ...(standIns ? standInsInReach(applying).flatMap((engineId) => onEngine(engineId, true)) : []),
+    ...standInsInReach(applying).flatMap((engineId) => onEngine(engineId, true)),
   ];
 }
 

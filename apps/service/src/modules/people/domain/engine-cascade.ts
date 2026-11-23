@@ -2,12 +2,7 @@ import type { Effort, EngineId, EngineKind, EngineModel } from "../../engine/ind
 import type { PersonEngineSettings } from "./role-card.js";
 
 /** The levels of the engine cascade, least specific first (spec §5.4.5): where a session runs. */
-export const ENGINE_CASCADE_LEVELS = [
-  "office-default",
-  "project-default",
-  "initiative-engine",
-  "task-engine",
-] as const;
+export const ENGINE_CASCADE_LEVELS = ["office", "project", "initiative", "task"] as const;
 export type EngineCascadeLevel = (typeof ENGINE_CASCADE_LEVELS)[number];
 
 /**
@@ -32,10 +27,10 @@ export interface EngineInPlace {
 
 /**
  * The Stand-in Engine list that applies in a place (spec §5.4.6), and whose it is: the Project's
- * own while it uses it, else the Office's.
+ * own while it uses it, else the Office's; none under an engine override, which never gives way.
  */
 export interface StandInsApplying {
-  readonly from: "office" | "project";
+  readonly from: "office" | "project" | "none";
   readonly engineIds: readonly EngineId[];
 }
 
@@ -45,14 +40,19 @@ export interface ProjectStandIns {
   readonly engineIds: readonly EngineId[];
 }
 
+export const NO_STAND_INS: StandInsApplying = { from: "none", engineIds: [] };
+
 /**
- * The one answer to which Stand-in Engine list applies in a place: the Project's own while it uses
- * it, else the Office's, as outside any Project.
+ * The one answer to which Stand-in Engine list applies in a place: none under an engine override
+ * (spec §5.4.6, "A forced engine has no stand-ins"), else the Project's own while it uses it, else
+ * the Office's, as outside any Project.
  */
 export function standInsApplying(
   officeStandIns: readonly EngineId[],
   project: Pick<ProjectCascadeLevels, "standIns"> | undefined,
+  work?: WorkCascadeLevels,
 ): StandInsApplying {
+  if (isOverridden(work)) return NO_STAND_INS;
   return project?.standIns.useOwnList
     ? { from: "project", engineIds: project.standIns.engineIds }
     : { from: "office", engineIds: officeStandIns };
@@ -125,16 +125,24 @@ export function movedProjectLevels(
 }
 
 /**
- * The levels a Task or an Initiative sets, which the Work module keeps: a Task's engine, and the
- * engine of the Initiative it is in (or the Initiative's own, for its Threads). They take the
- * Project default's place (spec §5.4.5); the model they still name is never read.
+ * The engine overrides a Task or an Initiative sets, which the Work module keeps: a Task's, and the
+ * one of the Initiative it is in (or the Initiative's own, for its Threads). They win over the
+ * Project default and the Office default, and the Task's over its Initiative's (spec §5.4.5).
  */
 export interface WorkCascadeLevels {
-  readonly taskEngine: EngineModel | null;
-  readonly initiativeEngine: EngineModel | null;
+  readonly taskEngineOverride: EngineId | null;
+  readonly initiativeEngineOverride: EngineId | null;
 }
 
-export const NO_WORK_LEVELS: WorkCascadeLevels = { taskEngine: null, initiativeEngine: null };
+export const NO_WORK_LEVELS: WorkCascadeLevels = {
+  taskEngineOverride: null,
+  initiativeEngineOverride: null,
+};
+
+/** Whether an engine override applies, so the place uses no Stand-in Engine. */
+export function isOverridden(work: WorkCascadeLevels | undefined): boolean {
+  return (work?.taskEngineOverride ?? work?.initiativeEngineOverride ?? null) !== null;
+}
 
 /** What the engine cascade weighs in a place: in no Project, only the Office level. */
 export interface EngineCascadeLevels {
@@ -148,9 +156,10 @@ export interface EngineCascadeLevels {
 }
 
 /**
- * Where every session in a place runs, whatever its Role: the most specific level set wins; none
- * when no level is, which happens only while no engine is listed, as the Office default is set
- * whenever one is. A Task's and an Initiative's engine take the Project default's place.
+ * Where every session in a place runs, whatever its Role: the most specific level set wins, a
+ * Task's engine override over its Initiative's over the Project default over the Office default;
+ * none when no level is, which happens only while no engine is listed, as the Office default is set
+ * whenever one is.
  */
 export function engineInCascade({
   officeDefault,
@@ -158,16 +167,12 @@ export function engineInCascade({
   project,
   work,
 }: EngineCascadeLevels): EngineInPlace | null {
-  const standIns = standInsApplying(officeStandIns, project);
-  const at = (level: EngineCascadeLevel, { engineId }: { readonly engineId: EngineId }) => ({
-    engineId,
-    level,
-    standIns,
-  });
-  if (work?.taskEngine) return at("task-engine", work.taskEngine);
-  if (work?.initiativeEngine) return at("initiative-engine", work.initiativeEngine);
-  if (project?.default) return at("project-default", project.default);
-  return officeDefault && at("office-default", officeDefault);
+  const standIns = standInsApplying(officeStandIns, project, work);
+  const at = (level: EngineCascadeLevel, engineId: EngineId) => ({ engineId, level, standIns });
+  if (work?.taskEngineOverride) return at("task", work.taskEngineOverride);
+  if (work?.initiativeEngineOverride) return at("initiative", work.initiativeEngineOverride);
+  if (project?.default) return at("project", project.default.engineId);
+  return officeDefault && at("office", officeDefault.engineId);
 }
 
 /** The engine a session landed on, as the model and effort cascade reads it. */

@@ -170,6 +170,53 @@ describe("startTask", () => {
     ]);
   });
 
+  it("waits for the reset under the Task's engine override, with no Stand-in Engine", () => {
+    const forced = onWorkWithStandIns(60, [], { forcedBy: "task" });
+
+    const { waits } = startReasons(ready, { ...conditions, ...forced }, held([]));
+
+    expect(waits.map(({ short }) => short)).toEqual([
+      "5-hour window cap (80%) · resets 12:00",
+      "Work is set for this Task · resets 12:00",
+    ]);
+    expect(waits.at(-1)?.reason).toBe(
+      "Work is set for this Task (it uses no Stand-in Engine) and waits for the reset at 12:00.",
+    );
+  });
+
+  it("waits naming the Initiative when its engine override gives the engine", () => {
+    const forced = onWorkWithStandIns(60, [], { forcedBy: "initiative" });
+
+    const { waits } = startReasons(ready, { ...conditions, ...forced }, held([]));
+
+    expect(waits.at(-1)?.short).toBe("Work is set for its Initiative · resets 12:00");
+  });
+
+  it("starts on the forced engine with room, clearing the Stand-in Engines of an earlier run", () => {
+    const earlier = {
+      ...ready,
+      engineStandIns: [
+        {
+          engineId: "work",
+          standInId: "personal",
+          engineName: "Work",
+          standInName: "Personal",
+          reason: "",
+          short: "",
+        },
+      ],
+    };
+
+    const { task } = startTask(
+      earlier,
+      { ...conditions, ...onWorkWithStandIns(10, [], { forcedBy: "task" }) },
+      held([]),
+      ANN_LEE,
+    );
+
+    expect(task.engineStandIns).toEqual([]);
+  });
+
   it("refuses with every reason, the refusals before the waits", () => {
     const others = [
       started("a"),

@@ -1,5 +1,4 @@
-import { and, eq, getTableColumns, inArray, sql } from "drizzle-orm";
-import type { EngineModel } from "../../../engine/index.js";
+import { and, eq, getTableColumns, inArray, sql, type Column, type SQL } from "drizzle-orm";
 import type { Database } from "../../../../platform/database/database.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
@@ -113,7 +112,7 @@ export async function changeEveryDependencyHeld(
   const saved: DependencyChange[] = [];
   for (const each of changes.changed) {
     if (each.task.id === task.id) {
-      await transaction.update(tasks).set(toTaskRow(each.task)).where(eq(tasks.id, task.id));
+      await transaction.update(tasks).set(taskRowUpdate(each.task)).where(eq(tasks.id, task.id));
       saved.push(each);
       continue;
     }
@@ -145,7 +144,7 @@ export async function saveTask<Event extends DomainEvent>(
   changed: TaskChange<Event> | undefined,
 ): Promise<TaskUpdate<Event>> {
   if (!changed) return { task, event: undefined };
-  await transaction.update(tasks).set(toTaskRow(changed.task)).where(eq(tasks.id, task.id));
+  await transaction.update(tasks).set(taskRowUpdate(changed.task)).where(eq(tasks.id, task.id));
   await keepStateChange(transaction, changed);
   return changed;
 }
@@ -248,10 +247,14 @@ export function toIdea(row: IdeaRow): Idea {
   };
 }
 
-export function toInitiativeRow({ engine, ...initiative }: Initiative): InitiativeRow {
+/** The Initiative as its row keeps it, all but the unread `model`, which an insert leaves null. */
+export function toInitiativeRow({
+  engineOverride,
+  ...initiative
+}: Initiative): WrittenInitiativeRow {
   return {
     ...initiative,
-    ...engineColumns(engine),
+    engineId: engineOverride,
     originIdeaId: initiative.originIdeaId ?? null,
     endedAt: initiative.endedAt ?? null,
     archivedAt: initiative.archivedAt ?? null,
@@ -275,10 +278,10 @@ export function toInitiativeRow({ engine, ...initiative }: Initiative): Initiati
   };
 }
 
-export function toInitiative({ engineId, model, ...row }: InitiativeRow): Initiative {
+export function toInitiative({ engineId, model: _model, ...row }: InitiativeRow): Initiative {
   return {
     ...row,
-    engine: engineOf({ engineId, model }),
+    engineOverride: engineId,
     originIdeaId: row.originIdeaId ?? undefined,
     createdBy: authorOf(row.createdBy),
     endedAt: row.endedAt ?? undefined,
@@ -302,7 +305,8 @@ export function toInitiative({ engineId, model, ...row }: InitiativeRow): Initia
   };
 }
 
-export function toTaskRow(task: Task): TaskRow {
+/** The Task as its row keeps it, all but the unread `model`, which an insert leaves null. */
+export function toTaskRow(task: Task): WrittenTaskRow {
   return {
     id: task.id,
     title: task.title,
@@ -353,26 +357,40 @@ export function toTaskRow(task: Task): TaskRow {
     foundInVersion: task.foundInVersion ?? null,
     foundWhileWorkingOnTaskId: task.foundWhileWorkingOn ?? null,
     createdByTheOffice: task.createdByTheOffice,
-    ...engineColumns(task.engine),
+    engineId: task.engineOverride,
   };
 }
 
-/** A Task's or an Initiative's engine as its two columns keep it, both null for none. */
-function engineColumns(engine: EngineModel | null): {
-  readonly engineId: string | null;
-  readonly model: string | null;
-} {
-  return { engineId: engine?.engineId ?? null, model: engine?.model ?? null };
+/** A Task's row as it is written: every column but `model`, which no release reads any more. */
+export type WrittenTaskRow = Omit<TaskRow, "model">;
+/** An Initiative's row as it is written: every column but `model`, which no release reads any more. */
+export type WrittenInitiativeRow = Omit<InitiativeRow, "model">;
+
+/**
+ * The `model` an update leaves beside the engine override (spec 5.4.5): the one the row keeps
+ * while the engine stays, else none, so the release before, which still reads it, never pairs a
+ * model with another engine after a rollback.
+ */
+function modelKeptBeside(
+  columns: { readonly engineId: Column; readonly model: Column },
+  engineOverride: string | null,
+): SQL {
+  return sql`case when ${columns.engineId} is not distinct from ${engineOverride} then ${columns.model} end`;
 }
 
-/** The engine its two columns keep; none unless both are set. */
-function engineOf(row: {
-  readonly engineId: string | null;
-  readonly model: string | null;
-}): EngineModel | null {
-  return row.engineId !== null && row.model !== null
-    ? { engineId: row.engineId, model: row.model }
-    : null;
+/** The Task's row as an update writes it: its `model` kept only while its engine override stays. */
+export function taskRowUpdate(task: Task): WrittenTaskRow & { readonly model: SQL } {
+  return { ...toTaskRow(task), model: modelKeptBeside(tasks, task.engineOverride) };
+}
+
+/** The Initiative's row as an update writes it: its `model` kept only while its engine override stays. */
+export function initiativeRowUpdate(
+  initiative: Initiative,
+): WrittenInitiativeRow & { readonly model: SQL } {
+  return {
+    ...toInitiativeRow(initiative),
+    model: modelKeptBeside(initiatives, initiative.engineOverride),
+  };
 }
 
 /** A drop reason as its three columns keep it: its kind, Other's words and Duplicate's Task. */
@@ -506,7 +524,8 @@ export function toTaskSummary(row: TaskSummaryRow): TaskSummary {
     foundWhileWorkingOn: row.foundWhileWorkingOnTaskId ?? undefined,
     dropReason: dropReasonOf(row),
     createdByTheOffice: row.createdByTheOffice,
-    engine: engineOf(row),
+    // The engine override alone: a row from the release before keeps its engine, its model unread.
+    engineOverride: row.engineId,
   };
 }
 

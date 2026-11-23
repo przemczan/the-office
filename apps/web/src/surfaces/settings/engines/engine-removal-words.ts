@@ -10,9 +10,9 @@ import { personName } from "../../../shell/person-name.ts";
 
 /**
  * The level a removal moves, in the glossary's terms: "The Office default", "The Project default
- * of Shop", "The Role override of Mia · Data Analyst in Shop", "The engine of the Task “Export
- * Stats as CSV”", "The engine of the Initiative “Usage reports”", "The Office's Stand-in Engine
- * list", "The Stand-in Engine list of Shop". A person's model and effort name engine types, not
+ * of Shop", "The Role override of Mia · Data Analyst in Shop", "The engine override of the Task
+ * “Export Stats as CSV”", "The engine override of the Initiative “Usage reports”", "The Office's
+ * Stand-in Engine list", "The Stand-in Engine list of Shop". A person's model and effort name engine types, not
  * engines, so no level of a person's own is among them.
  */
 export function movedReferencePlace(
@@ -30,7 +30,7 @@ export function movedReferencePlace(
       : `The Stand-in Engine list of ${project.name}`;
   }
   if (work !== null) {
-    return `The engine of the ${work.kind === "task" ? "Task" : "Initiative"} “${work.name}”`;
+    return `The engine override of the ${work.kind === "task" ? "Task" : "Initiative"} “${work.name}”`;
   }
   if (project === null) return "The Office default";
   return roleKey === null
@@ -50,14 +50,21 @@ export function endedStateOf({
 
 /**
  * "Haiku 5.5 on Second account → Haiku 5.5 on Claude Code", or "… → none" for the only engine; a
- * Stand-in Engine list names engines alone, "Second account → Claude Code".
+ * Stand-in Engine list and a Task's or an Initiative's engine override name engines alone, "Second
+ * account → Claude Code".
  */
 export function movedReferenceChange(
-  { from, to, standInList }: Pick<MovedEngineReference, "from" | "to" | "standInList">,
+  {
+    from,
+    to,
+    standInList,
+    work,
+  }: Pick<MovedEngineReference, "from" | "to" | "standInList" | "work">,
   engineName: (engineId: EngineId) => string,
 ): string {
+  const enginesAlone = standInList === true || work !== null;
   const where = ({ engineId, model }: EngineModel): string =>
-    standInList ? engineName(engineId) : `${modelLabel(model)} on ${engineName(engineId)}`;
+    enginesAlone ? engineName(engineId) : `${modelLabel(model)} on ${engineName(engineId)}`;
   return `${where(from)} → ${to === null ? "none" : where(to)}`;
 }
 

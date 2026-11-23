@@ -13,7 +13,7 @@ import { InitiativeNotFound } from "../domain/initiative-not-found.js";
 import type { Task } from "../domain/task.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import {
-  TaskInitiativeEngineChanged,
+  TaskInitiativeEngineOverrideChanged,
   type TaskAddedToInitiative,
   type TaskTakenOutOfInitiative,
 } from "../domain/task-events.js";
@@ -83,7 +83,7 @@ export class InitiativeMembership {
 
   /**
    * Saves the join or the leave under Engine's `EngineReferenceLock`, so an engine's removal or a
-   * change of the Initiative's engine can't come in between the capability check, weighed on the
+   * change of the Initiative's engine override can't come in between the capability check, weighed on the
    * Initiative and the Task read again in the hold, and the write; the events are published after.
    */
   private async change<Event extends TaskAddedToInitiative | TaskTakenOutOfInitiative>(
@@ -112,9 +112,9 @@ export class InitiativeMembership {
     const events: DomainEvent[] = [task.event];
     if (task.event.stateChanged) events.push(task.event.stateChanged);
     if (publishing) events.push(publishing.event);
-    if (initiative?.engine) {
-      const inherited = task.task.initiativeId === initiativeId ? initiative.engine : null;
-      events.push(new TaskInitiativeEngineChanged(taskId, inherited));
+    if (initiative?.engineOverride) {
+      const inherited = task.task.initiativeId === initiativeId ? initiative.engineOverride : null;
+      events.push(new TaskInitiativeEngineOverrideChanged(taskId, inherited));
     }
     for (const event of events) await this.events.publish(event);
     return task.task;
@@ -122,9 +122,9 @@ export class InitiativeMembership {
 
   /**
    * Refuses the Task joining or leaving the Initiative with the capability check's reasons when
-   * the Initiative's engine, which it runs on while it sets none, would leave a Role of its
-   * Pipeline on an engine that can't run it (spec 5.4.5). Nothing to check when the Initiative sets
-   * no engine, or the Task sets its own or is Done or Dropped.
+   * the Initiative's engine override, which applies while it has none of its own, would leave a
+   * Role of its Pipeline on an engine that can't run it (spec 5.4.5). Nothing to check when the
+   * Initiative has no override, or the Task has its own or is Done or Dropped.
    */
   private async refuseEngineMove(
     initiative: Initiative,
@@ -132,7 +132,7 @@ export class InitiativeMembership {
     move: "joins" | "leaves",
   ): Promise<void> {
     const [before, after] =
-      move === "joins" ? [null, initiative.engine] : [initiative.engine, null];
+      move === "joins" ? [null, initiative.engineOverride] : [initiative.engineOverride, null];
     const problems = await this.engineChecks.problemsOf({
       place: inInitiative(initiative),
       moves: inheritedEngineMoves([task], before, after),

@@ -79,7 +79,7 @@ describe("rolesOnIncapableEngines", () => {
     ).toEqual([]);
   });
 
-  it("weighs a Task's engine over the Project's default", () => {
+  it("weighs a Task's engine override over the Project's default", () => {
     const project = aProject({ default: onClaudeCode });
 
     expect(
@@ -89,7 +89,7 @@ describe("rolesOnIncapableEngines", () => {
           officeDefault,
           officeStandIns: [],
           project,
-          work: { taskEngine: local, initiativeEngine: null },
+          work: { taskEngineOverride: local.engineId, initiativeEngineOverride: null },
         },
         missingCapabilities,
       ),
@@ -143,13 +143,30 @@ describe("rolesOnIncapableEngines", () => {
     ).toEqual([{ roleKey: "developer", engineId: "local", missing: ["outputSchema"] }]);
   });
 
-  it("leaves the list out when it is weighed in another place", () => {
+  it("weighs no Stand-in Engine at an engine override, a Task's or its Initiative's", () => {
+    const ownList = { useOwnList: true, engineIds: ["local"] };
+
     expect(
       rolesOnIncapableEngines(
         ["developer"],
-        { officeDefault, officeStandIns: ["local"] },
+        {
+          officeDefault,
+          officeStandIns: ["local"],
+          project: aProject({ standIns: ownList }),
+          work: { taskEngineOverride: "claude-code", initiativeEngineOverride: null },
+        },
         missingCapabilities,
-        { standIns: false },
+      ),
+    ).toEqual([]);
+    expect(
+      rolesOnIncapableEngines(
+        ["developer"],
+        {
+          officeDefault,
+          officeStandIns: ["local"],
+          work: { taskEngineOverride: null, initiativeEngineOverride: "claude-code" },
+        },
+        missingCapabilities,
       ),
     ).toEqual([]);
   });
@@ -160,7 +177,7 @@ describe("standInsInReach", () => {
     expect(
       standInsInReach({
         engineId: "claude-code",
-        level: "office-default",
+        level: "office",
         standIns: { from: "office", engineIds: ["codex", "claude-code", "codex", "local"] },
       }),
     ).toEqual(["codex", "local"]);

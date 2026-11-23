@@ -245,8 +245,9 @@ export class StartConditionsReader {
   ): Promise<{ readonly usage: UsageAtStart; readonly standIns: StandInsAtStart }> {
     const [estimate, cascade] = await Promise.all([estimateOf(task), reads.cascadeOf(task)]);
     const engineIds = cascade.cascadeEngines;
-    // With no Agent Stage on an engine nothing is handed on, so the Office's list stands in.
-    const order = cascade.standIns ?? standIns.standInEngines;
+    // With no Agent Stage on an engine nothing is handed on, so the Office's list stands in; an
+    // engine override gives an empty list, so none stands in for a forced engine.
+    const order = cascade.forcedBy ? [] : (cascade.standIns ?? standIns.standInEngines);
     const listed = order.filter((engineId) => standIns.engines.some(({ id }) => id === engineId));
     const usage = {
       now,
@@ -265,6 +266,7 @@ export class StartConditionsReader {
         cascadeEngines: engineIds,
         ...(engineIds.length > 0 && { capable }),
         standIns: engineIds.length === 0 ? [] : await readEach(listed, standInEngineOf),
+        ...(cascade.forcedBy && { forcedBy: cascade.forcedBy }),
       },
     };
   }

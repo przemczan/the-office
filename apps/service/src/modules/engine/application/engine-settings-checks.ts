@@ -25,7 +25,7 @@ export function engineCascadeSettingsOf(settings: EngineSettings): EngineCascade
 
 /**
  * A save of Settings › Engines: what it holds before and what the save would leave. A removal also
- * moves every other level naming the engine (`movedEngineModel`), which a check weighs too.
+ * moves every other level naming the engine (`movedEngineId`), which a check weighs too.
  */
 export interface EngineSettingsSave {
   readonly before: EngineCascadeSettings;

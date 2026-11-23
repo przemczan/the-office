@@ -13,6 +13,7 @@ import {
   type EngineSettingsSave,
 } from "../../engine/index.js";
 import {
+  isOverridden,
   movedProjectLevels,
   standInsApplying,
   type ProjectCascadeLevels,
@@ -68,8 +69,8 @@ export interface NewlyNamedRoles {
   readonly projectId: string | undefined;
   /**
    * For a Task's own Stages: the Task, and whom its Agent Stages name before the save and after.
-   * While the Task or its Initiative sets an engine, its sessions run there rather than at its
-   * Project's default, so the Roles it newly names are weighed at those levels instead.
+   * While the Task or its Initiative has an engine override, its sessions run there rather than at
+   * its Project's default, so the Roles it newly names are weighed at the override alone instead.
    */
   readonly task?: TaskStagesSave;
 }
@@ -143,7 +144,7 @@ const OUTSIDE_ANY_PROJECT: Place = {
  * change, which moves the Stages naming the duty to its new holder. The other way round,
  * Pipelines asks it about the Roles and duties a save of Stages newly names. A Stage naming a duty
  * counts as naming its holder's Role (`withDutiesResolved`). Each save is also weighed at every open
- * Task that sets an engine, or whose Initiative does (`workLevelsProblems`). A person names no
+ * Task with an engine override, or whose Initiative has one (`workLevelsProblems`). A person names no
  * engine, so no save of a Role card nor a hire is weighed.
  */
 @Injectable()
@@ -248,8 +249,9 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
    * Roles newly named in Agent Stages are weighed where their sessions would run: a Task's in its
    * Project, the library's outside any Project and in every Project. A Role other Stages already
    * name in a place passed the check there. A duty is weighed by its holder's Role. A Task's own
-   * Stages on a Task or Initiative setting an engine are weighed at its levels (`taskStagesProblems`).
-   * A Pipeline's Roles are also weighed at each open Task in the place that sets an engine, as
+   * Stages on a Task or Initiative with an engine override are weighed at the override alone
+   * (`taskStagesProblems`). A Pipeline's Roles are also weighed at each open Task in the place with
+   * an engine override, as
    * though it named them, whichever Pipeline it follows.
    */
   async newlyNamedRolesProblems({
@@ -260,7 +262,7 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
   }: NewlyNamedRoles): Promise<readonly string[]> {
     if (task !== undefined && projectId !== undefined) {
       const work = await this.work.engineLevelsOf({ taskId: task.taskId });
-      if (setsAnEngine(work)) return this.taskStagesProblems(projectId, task, work);
+      if (isOverridden(work)) return this.taskStagesProblems(projectId, task, work);
     }
     if (roleKeys.length === 0 && dutyKeys.length === 0) return [];
     const holders = await this.duties.holders();
@@ -383,7 +385,8 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
 
   /**
    * In each place, what `after` puts on an incapable engine that `before` didn't, named by `after`;
-   * then the same at each open Task in a Project weighed that sets an engine (`workLevelsProblems`).
+   * then the same at each open Task in a Project weighed that has an engine override
+   * (`workLevelsProblems`).
    */
   private async newlyIncapableProblems(
     before: OfficeCascade,
@@ -429,12 +432,11 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
   }
 
   /**
-   * A Task setting an engine, or whose Initiative does, runs its sessions there rather than at its
-   * Project's default (spec 5.4.5), so a save above it is weighed at its levels too: by the Roles
-   * its Agent Stages name that the save weighs in the place, and after it those `namedByEveryTask`
-   * names in its Project; each side at its own Office levels and Project levels; "On “<Task>”".
-   * Only the cascade's engine is weighed here: the list that applies doesn't hang on a Task's
-   * levels, so its Project's place weighs it, over these same Roles, once.
+   * A Task with an engine override, or whose Initiative has one, runs its sessions there rather
+   * than at its Project's default (spec 5.4.5), so a save above it is weighed at its levels too: by
+   * the Roles its Agent Stages name that the save weighs in the place, and after it those
+   * `namedByEveryTask` names in its Project; each side at its own Office levels and Project levels;
+   * "On “<Task>”". Only its override is weighed: it uses no Stand-in Engine (`standInsApplying`).
    */
   private async workLevelsProblems(
     before: OfficeCascade,
@@ -462,7 +464,6 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
             work: task.work,
           },
           (engineId) => this.missingCapabilitiesAmong(office.engines, engineId),
-          { standIns: false },
         );
       return incapableEngineProblems(
         newlyOnIncapableEngines(
@@ -528,11 +529,6 @@ function taskRolesIn(
 ): string[] {
   const weighed = rolesNamedIn(office.rolesNamed, projectId);
   return [...named].filter((roleKey) => weighed.has(roleKey));
-}
-
-/** Whether a Task or an Initiative sets an engine, so its sessions run there. */
-function setsAnEngine(work: WorkCascadeLevels): boolean {
-  return work.taskEngine !== null || work.initiativeEngine !== null;
 }
 
 /** The Roles named, each duty by its holder's Role; a duty nobody holds names none. */

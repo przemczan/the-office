@@ -1,10 +1,4 @@
-import {
-  COPILOT_CLI_AUTO_MODEL,
-  type Effort,
-  type EngineKind,
-  type EngineModel,
-  type EngineSettings,
-} from "@the-office/contracts";
+import { COPILOT_CLI_AUTO_MODEL, type Effort, type EngineKind } from "@the-office/contracts";
 
 /** The words for an engine type, a model and its effort, wherever the web names them. */
 
@@ -72,16 +66,4 @@ export function runEngineWords({
 /** "Stand-in for Work": a run's badge when its engine stood in for the cascade's. */
 export function standInForWords(engineName: string): string {
   return `Stand-in for ${engineName}`;
-}
-
-/**
- * The Office default as the engine cascade's lowest level gives it: its account on that engine's
- * own default model; none while no engine is listed or the settings aren't read yet.
- */
-export function officeDefaultEngineModel(
-  settings: Pick<EngineSettings, "engines" | "officeDefault"> | undefined,
-): EngineModel | null {
-  const engineId = settings?.officeDefault?.engineId;
-  const engine = settings?.engines.find(({ id }) => id === engineId);
-  return engine ? { engineId: engine.id, model: engine.defaultModel } : null;
 }

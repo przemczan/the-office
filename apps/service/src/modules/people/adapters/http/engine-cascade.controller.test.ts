@@ -109,7 +109,7 @@ describe("GET /api/roles/:key/engine-cascade", () => {
       outsideProjects: {
         ...onClaudeCode,
         model: "claude-opus-5-5",
-        level: "office-default",
+        level: "office",
         modelLevel: "person",
         effort: "high",
         effortLevel: "person",
@@ -119,7 +119,7 @@ describe("GET /api/roles/:key/engine-cascade", () => {
           projectId: "forced",
           ...onClaudeCode,
           ...forced,
-          level: "project-default",
+          level: "project",
           modelLevel: "projectForce",
           effortLevel: "projectForce",
         },

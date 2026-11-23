@@ -191,6 +191,14 @@ describe("a session whose context filled up", () => {
       move: "fresh",
       reason: "engine-changed",
     });
+    // An engine override forces its engine, which a stand-in never counts as (spec §5.4.6).
+    expect(decideContext({ ...onStandIn, forced: true })).toMatchObject({
+      move: "fresh",
+      reason: "engine-changed",
+    });
+    expect(decideContext({ ...onStandIn, engineId: "home-account", forced: true })).toMatchObject({
+      move: "resume",
+    });
   });
 
   it("starts fresh once changes are allowed in the Thread or switched off, whatever would resume", () => {

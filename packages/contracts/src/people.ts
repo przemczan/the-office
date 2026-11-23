@@ -216,12 +216,7 @@ export const roleCardOptionsSchema = z.object({
 export type RoleCardOptions = z.infer<typeof roleCardOptionsSchema>;
 
 /** The levels of the engine cascade, least specific first (spec §5.4.5): where a session runs. */
-export const engineCascadeLevelSchema = z.enum([
-  "office-default",
-  "project-default",
-  "initiative-engine",
-  "task-engine",
-]);
+export const engineCascadeLevelSchema = z.enum(["office", "project", "initiative", "task"]);
 export type EngineCascadeLevel = z.infer<typeof engineCascadeLevelSchema>;
 
 /**
@@ -270,10 +265,10 @@ export type WorkInCascade = z.infer<typeof workInCascadeSchema>;
 
 /**
  * The Stand-in Engine list that applies in a place (spec §5.4.6): the Project's own while it uses
- * it, else the Office's.
+ * it, else the Office's; `none`, with no engines, under an engine override, which never gives way.
  */
 export const standInsApplyingSchema = z.object({
-  from: z.enum(["office", "project"]),
+  from: z.enum(["office", "project", "none"]),
   engineIds: z.array(engineIdSchema),
 });
 export type StandInsApplying = z.infer<typeof standInsApplyingSchema>;

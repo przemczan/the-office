@@ -107,7 +107,7 @@ export class StandInChoices implements OnModuleInit {
    * The Stand-in Engine a held run's session would move to now, on the session's model: the first
    * with room of the list that applies for the Task in `projectId` (its Project's own or the
    * Office's), of the type of the engine that refused it, as the session is carried there (spec
-   * 5.4.6); null while none has room.
+   * 5.4.6); null while none has room, and always under an engine override, where no list applies.
    */
   async standInNow(choice: HeldForStandInChoice, projectId: string): Promise<EngineModel | null> {
     const { fromEngineId, model } = choice;

@@ -88,7 +88,7 @@ const CASCADE: RoleEngineCascade = {
   outsideProjects: {
     engineId: "work",
     model: "claude-opus-5-5",
-    level: "office-default",
+    level: "office",
     engineType: "claude-code",
     effort: "medium",
     modelLevel: "person",
@@ -99,7 +99,7 @@ const CASCADE: RoleEngineCascade = {
       projectId: "shop",
       engineId: "work",
       model: "claude-sonnet-5-5",
-      level: "project-default",
+      level: "project",
       engineType: "claude-code",
       effort: "low",
       modelLevel: "person",

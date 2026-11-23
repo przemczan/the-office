@@ -400,8 +400,8 @@ export class StageThreads {
    * The Context policy's move for the Stage's session (spec §2.5): going on in its Thread, the
    * Stage takes the user's choice in that Thread's context label, which Resume's label shows; at a
    * Stage boundary the declared session wins. The engine and model come from the engine cascade
-   * resolved for the Task (its own engine, its Initiative's and its Project's levels); a changed
-   * engine starts the session fresh, a changed model alone resumes it.
+   * resolved for the Task (its own engine override, its Initiative's, its Project's and the
+   * Office's levels); a changed engine starts the session fresh, a changed model alone resumes it.
    */
   private async decide(
     request: StageSessionRequest,
@@ -419,7 +419,8 @@ export class StageThreads {
     const cascade = await this.engineCascade.of(request.roleKey, location, work);
     // Mapped before the Context policy compares it with the session's engine, so a session is
     // never resumed on another engine; a stand-in removed since, or no longer in the list that
-    // applies, gives the cascade's back.
+    // applies, gives the cascade's back. Under an engine override no list applies (spec §5.4.6),
+    // so an override turned on while the Task ran on a stand-in starts the next Stage fresh on it.
     const through = engineThroughStandIns(
       cascade.engineId,
       request.engineStandIns,
@@ -471,6 +472,7 @@ export class StageThreads {
         roleKey: request.roleKey,
         sessionDefault: current.card.sessionDefault,
         engineId: applying.engineId,
+        forced: cascade.standIns.from === "none",
         override: request.declared === undefined ? previous?.override : undefined,
         declared: request.declared,
         briefTokens: brief.tokens,

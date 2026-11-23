@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   engineRemovalAmong,
-  movedEngineModel,
+  movedEngineId,
+  movedEngineOverride,
   movedStandInList,
   type EngineRemoval,
 } from "./engine-removal.js";
@@ -43,28 +44,21 @@ function refusal(...removal: Parameters<typeof engineRemovalAmong>): unknown {
   throw new Error("The removal was allowed.");
 }
 
-describe("movedEngineModel", () => {
-  const removal: EngineRemoval = { engineId: "claude-code", replacement: strata };
-
-  it("keeps the model the replacement offers too", () => {
-    expect(
-      movedEngineModel({ engineId: "claude-code", model: "claude-opus-5-5" }, removal),
-    ).toEqual({ engineId: "strata", model: "claude-opus-5-5" });
+describe("movedEngineId", () => {
+  it("moves the removed engine to the replacement, or to none when the only engine goes", () => {
+    expect(movedEngineId("claude-code", { engineId: "claude-code", replacement: strata })).toBe(
+      "strata",
+    );
+    expect(movedEngineId("claude-code", { engineId: "claude-code", replacement: null })).toBeNull();
   });
 
-  it("takes the replacement's default model in place of one it doesn't offer", () => {
-    expect(
-      movedEngineModel({ engineId: "claude-code", model: "claude-sonnet-5-5" }, removal),
-    ).toEqual({ engineId: "strata", model: "qwen3.8-flash" });
+  it("leaves another engine as it is", () => {
+    expect(movedEngineId("second-account", { engineId: "claude-code", replacement: strata })).toBe(
+      "second-account",
+    );
   });
 
-  it("leaves a reference to another engine as it is", () => {
-    const reference = { engineId: "second-account", model: "claude-haiku-5-5" };
-
-    expect(movedEngineModel(reference, removal)).toBe(reference);
-  });
-
-  it("moves a Codex engine's reference to another Codex engine on its model, or a Claude Code engine on its default", () => {
+  it("moves across engine types", () => {
     const codex: CodexEngine = {
       id: "codex",
       name: "Codex",
@@ -73,29 +67,41 @@ describe("movedEngineModel", () => {
       defaultEffort: null,
       apiKey: null,
     };
-    const otherCodex: CodexEngine = { ...codex, id: "other-codex", name: "Other Codex" };
-    const reference = { engineId: "codex", model: "gpt-5.6-terra" };
 
-    expect(movedEngineModel(reference, { engineId: "codex", replacement: otherCodex })).toEqual({
-      engineId: "other-codex",
-      model: "gpt-5.6-terra",
-    });
-    expect(
-      movedEngineModel(reference, { engineId: "codex", replacement: FIRST_CLAUDE_CODE_ENGINE }),
-    ).toEqual({ engineId: "claude-code", model: "claude-sonnet-5-5" });
-    expect(engineRemovalAmong([FIRST_CLAUDE_CODE_ENGINE, codex], "codex", "claude-code")).toEqual({
-      engineId: "codex",
-      replacement: FIRST_CLAUDE_CODE_ENGINE,
-    });
+    const removal = engineRemovalAmong([FIRST_CLAUDE_CODE_ENGINE, codex], "codex", "claude-code");
+
+    expect(removal).toEqual({ engineId: "codex", replacement: FIRST_CLAUDE_CODE_ENGINE });
+    expect(movedEngineId("codex", removal)).toBe("claude-code");
+  });
+});
+
+describe("movedEngineOverride", () => {
+  const work = { kind: "task", id: "task-1", name: "Fix it", state: "backlog" } as const;
+  const shop = { id: "shop", name: "Shop" };
+
+  it("moves an override naming the removed engine to the replacement, each on its engine's default model", () => {
+    const removal: EngineRemoval = { engineId: "strata", replacement: second };
+
+    expect(movedEngineOverride("strata", removal, strata, { project: shop, work })).toEqual([
+      {
+        roleKey: null,
+        project: shop,
+        work,
+        from: { engineId: "strata", model: "qwen3.8-flash" },
+        to: { engineId: "second-account", model: second.defaultModel },
+      },
+    ]);
   });
 
-  it("moves a reference to none when the only engine goes", () => {
-    expect(
-      movedEngineModel(
-        { engineId: "claude-code", model: "claude-sonnet-5-5" },
-        { engineId: "claude-code", replacement: null },
-      ),
-    ).toBeNull();
+  it("moves it to none when the only engine goes, and leaves an override of another engine out", () => {
+    const removal: EngineRemoval = { engineId: "strata", replacement: null };
+
+    expect(movedEngineOverride("strata", removal, strata, { project: null, work })).toEqual([
+      expect.objectContaining({ to: null }),
+    ]);
+    expect(movedEngineOverride("claude-code", removal, strata, { project: null, work })).toEqual(
+      [],
+    );
   });
 });
 

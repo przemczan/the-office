@@ -44,10 +44,10 @@ async function aTaskWith(stages: readonly Stage[]): Promise<string> {
 }
 
 const onTheTask = {
-  standIns: { from: "office", engineIds: [] },
+  standIns: { from: "none", engineIds: [] },
   engineId: "codex",
   model: "gpt-6",
-  level: "task-engine",
+  level: "task",
   engineType: "codex",
   effort: "medium",
   modelLevel: "person",
@@ -65,7 +65,7 @@ describe("GET /api/tasks/:id/engine-cascade", () => {
   it("gives the one engine the Task's sessions run on, resolved once", async () => {
     pipelines.people.people.set("planner", aPerson("Pat"));
     const taskId = await aTaskWith([anAgentStage("implement")]);
-    const onCodex = { engineId: "codex", engineType: "codex", level: "task-engine" } as const;
+    const onCodex = { engineId: "codex", engineType: "codex", level: "project" } as const;
     pipelines.cascade.setEngineFor(taskId, {
       ...onCodex,
       standIns: { from: "office", engineIds: [] },
@@ -75,13 +75,31 @@ describe("GET /api/tasks/:id/engine-cascade", () => {
     expect(pipelines.cascade.askedForEngine).toEqual([{ projectId: "billing", taskId }]);
   });
 
+  it.each(["task", "initiative"] as const)(
+    "gives the %s's engine override, with no Stand-in Engine list, as the cascade gives it",
+    async (level) => {
+      const taskId = await aTaskWith([anAgentStage("implement")]);
+      pipelines.cascade.setEngineFor(taskId, {
+        engineId: "codex",
+        engineType: "codex",
+        level,
+        standIns: { from: "none", engineIds: [] },
+      });
+
+      const cascade = await cascadeOf(taskId);
+
+      expect(cascade.engine).toEqual({ engineId: "codex", engineType: "codex", level });
+      expect(cascade.standIns).toEqual({ from: "none", engineIds: [] });
+    },
+  );
+
   it("names the Stand-in Engine list that applies where the Task runs, as the cascade gives it", async () => {
     const taskId = await aTaskWith([anAgentStage("implement")]);
     const ownList = { from: "project", engineIds: ["claude-code-2", "codex"] } as const;
     pipelines.cascade.setEngineFor(taskId, {
       engineId: "claude-code",
       engineType: "claude-code",
-      level: "project-default",
+      level: "project",
       standIns: ownList,
     });
 
@@ -102,7 +120,7 @@ describe("GET /api/tasks/:id/engine-cascade", () => {
     pipelines.cascade.setFor("developer", onTheTask, taskId);
 
     expect(await cascadeOf(taskId)).toEqual({
-      engine: { engineId: "claude-code", engineType: "claude-code", level: "office-default" },
+      engine: { engineId: "claude-code", engineType: "claude-code", level: "office" },
       standIns: { from: "office", engineIds: [] },
       people: [
         { roleKey: "planner", roleName: "Planner", work: officeDefaultWork, stages: [] },

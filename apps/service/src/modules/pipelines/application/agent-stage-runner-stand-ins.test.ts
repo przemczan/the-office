@@ -91,6 +91,17 @@ function applyingStandIns(standIns: {
   };
 }
 
+/** The cascade answers every Task as under its own engine override: no Stand-in Engine list applies. */
+function underAnOverride(): void {
+  const { officeDefault } = pipelines.cascade;
+  if (officeDefault === null) throw new Error("The cascade lists no engine.");
+  pipelines.cascade.officeDefault = {
+    ...officeDefault,
+    level: "task",
+    standIns: { from: "none", engineIds: [] },
+  };
+}
+
 /**
  * As `startOn`, Engine answering `standIns` for the Stand-in Engine with room, in order, then none.
  */
@@ -457,5 +468,37 @@ describe("AgentStageRunner, a refused turn whose context is over the size to ask
     await resume(taskId);
 
     expect(await choices.waiting()).toEqual([]);
+  });
+});
+
+describe("AgentStageRunner, a refused turn under an engine override (spec 5.4.6)", () => {
+  it("pauses until the reset with no switch and no Stand-in choice, though a Stand-in Engine has room", async () => {
+    const standInFor = vi.spyOn(EngineSessions.prototype, "standInFor");
+    await startOn([A_REFUSED_SESSION], [HOME.id, SPARE.id]);
+    underAnOverride();
+    // Over the size to ask first above, which would otherwise hold for the user's choice.
+    pipelines.stageThreads.contextAfterTurn = { tokens: 182_000, window: 200_000 };
+
+    const taskId = await walkStages(pipelines, [implement]);
+
+    const [held] = await runsOf(pipelines, taskId);
+    expect(held).toMatchObject({
+      engineId: "claude-code",
+      heldBy: "usage-window",
+      engineSwitches: [],
+      outcome: { interrupted: "usage-window", refused: { message: "work" } },
+    });
+    expect(held?.outcome).not.toHaveProperty("refused.standInChoice");
+    expect(standInFor).toHaveBeenCalledWith("claude-code", { standIns: [], ...STAGE_ASKS });
+    expect(pipelines.stageThreads.switched).toEqual([]);
+    expect(pipelines.tasks.standInsTakenOver).toEqual([]);
+    expect(pipelines.tasks.usageWindowPauses).toMatchObject([
+      { taskId, refusal: { engineId: "claude-code", resetsAt: WINDOW_RESET } },
+    ]);
+    expect(pipelines.tasks.usageWindowPauses[0]?.refusal).not.toHaveProperty("awaitsStandInChoice");
+    expect(pipelines.published.some((event) => event instanceof StageAwaitsStandInChoice)).toBe(
+      false,
+    );
+    expect(await pipelines.app.get(StandInChoices, { strict: false }).waiting()).toEqual([]);
   });
 });

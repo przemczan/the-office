@@ -2,6 +2,8 @@ import { engineToRunOn, type Engine, type EngineId } from "../../engine/index.js
 import {
   dailyWithStarted,
   exceededCaps,
+  resetWords,
+  shortResetWords,
   startWaitsForUsage,
   usedUpWindows,
   windowsWithStarted,
@@ -20,7 +22,9 @@ import type { Wait } from "./wait.js";
  * first Stand-in Engine of the list that applies that has every capability its Agent Stages need
  * and room for its estimate, whatever its engine type: the person's model and effort for that type
  * apply there. A Daily cap is a spending limit, not a used-up subscription, so it never hands a
- * Task on: it queues it.
+ * Task on: it queues it. An engine override, the Task's or its Initiative's, forces its engine: no
+ * list applies, so the Task waits for that engine's reset (spec §5.4.6, "A forced engine has no
+ * stand-ins").
  */
 
 /** A Stand-in Engine a Task's run works on in place of a cascade's engine, and why. */
@@ -63,7 +67,15 @@ export interface StandInsAtStart {
   readonly capable?: (engineId: EngineId) => boolean;
   /** Each listed Stand-in Engine of `order`, in no particular order. */
   readonly standIns: readonly StandInEngineAtStart[];
+  /**
+   * Whose engine override forces the cascade's engine, the Task's own or its Initiative's, which
+   * leaves `order` and `standIns` empty; left out when none does.
+   */
+  readonly forcedBy?: EngineForcedBy;
 }
+
+/** Whose engine override forces a Task's engine: its own (`task`) or its Initiative's. */
+export type EngineForcedBy = "task" | "initiative";
 
 export const NO_STAND_INS: StandInsAtStart = {
   engines: [],
@@ -105,10 +117,15 @@ export function onStandIns(
   let weighed = usage;
   const chosen: EngineStandIn[] = [];
   const full: { readonly standIn: EngineId; readonly caps: readonly ExceededCap[] }[] = [];
+  const forced: { readonly engineId: EngineId; readonly caps: readonly ExceededCap[] }[] = [];
   const { capable = () => true } = standIns;
   for (const engineId of standIns.cascadeEngines) {
     const noRoom = noRoomOn(holding(weighed), engineId);
     if (noRoom.length === 0) continue;
+    if (standIns.forcedBy) {
+      forced.push({ engineId, caps: noRoom });
+      continue;
+    }
     const candidates = standIns.standIns.filter((standIn) =>
       couldTakeOn(standIns, standIn.engineId, engineId),
     );
@@ -143,10 +160,14 @@ export function onStandIns(
   const caps = startWaitsForUsage(holding(weighed));
   const fullWaits =
     caps.waits.length === 0 || full.length === 0 ? [] : [noStandInWait(usage, full)];
+  const forcedWaits =
+    caps.waits.length === 0 || !standIns.forcedBy
+      ? []
+      : forced.map((held) => forcedEngineWait(usage, held, standIns.forcedBy ?? "task"));
   return {
     usage: weighed,
     standIns: chosen,
-    waits: [...caps.waits, ...fullWaits],
+    waits: [...caps.waits, ...fullWaits, ...forcedWaits],
     resets: [
       ...(caps.resetsAt ? [caps.resetsAt] : []),
       ...(fullWaits.length === 0 ? [] : full.flatMap(({ caps: held }) => lastReset(held))),
@@ -293,6 +314,24 @@ function noStandInWait(
   return {
     reason: `No Stand-in Engine has room either: ${[...new Set(held)].join("; ")}.`,
     short: "No stand-in with room",
+  };
+}
+
+/**
+ * "<engine> is set for this Task (it uses no Stand-in Engine) and waits for the reset at 14:30.",
+ * short "<engine> is set for this Task · resets 14:30" ("… for its Initiative …" when its
+ * Initiative's override gives it), at the last reset of what holds the forced engine.
+ */
+function forcedEngineWait(
+  { engineNames, now }: UsageAtStart,
+  { engineId, caps }: { readonly engineId: EngineId; readonly caps: readonly ExceededCap[] },
+  forcedBy: EngineForcedBy,
+): Wait {
+  const [resetsAt = now] = lastReset(caps);
+  const setFor = `${engineNames.get(engineId) ?? engineId} is set for ${forcedBy === "task" ? "this Task" : "its Initiative"}`;
+  return {
+    reason: `${setFor} (it uses no Stand-in Engine) and waits for the reset ${resetWords(resetsAt, now)}.`,
+    short: `${setFor} · resets ${shortResetWords(resetsAt, now)}`,
   };
 }
 

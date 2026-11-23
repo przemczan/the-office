@@ -48,7 +48,7 @@ import {
   type IdeaEdit,
   type IdeaShaping,
   type DropReason,
-  type EngineModel,
+  type EngineId,
   type TaskKind,
   type MarkReadyRequest,
   type NewIdea,
@@ -618,17 +618,14 @@ export function changeCommitMessage(id: string, message: string): Promise<Task> 
   return sendToApi("PUT", `${taskPath(id)}/commit-message`, { message }, taskSchema);
 }
 
-/** The Task's engine and model, until Done or Dropped; null leaves none. */
-export function changeTaskEngine(id: string, engine: EngineModel | null): Promise<Task> {
-  return sendToApi("PUT", `${taskPath(id)}/engine`, { engine }, taskSchema);
+/** The Task's engine override, an engine only, until Done or Dropped; null turns it off. */
+export function changeTaskEngine(id: string, engineId: EngineId | null): Promise<Task> {
+  return sendToApi("PUT", `${taskPath(id)}/engine`, { engineId }, taskSchema);
 }
 
-/** The Initiative's engine and model, until Done or Dropped; null leaves none. */
-export function changeInitiativeEngine(
-  id: string,
-  engine: EngineModel | null,
-): Promise<Initiative> {
-  return sendToApi("PUT", `${initiativePath(id)}/engine`, { engine }, initiativeSchema);
+/** The Initiative's engine override, an engine only, until Done or Dropped; null turns it off. */
+export function changeInitiativeEngine(id: string, engineId: EngineId | null): Promise<Initiative> {
+  return sendToApi("PUT", `${initiativePath(id)}/engine`, { engineId }, initiativeSchema);
 }
 
 /** Plan with whoever holds Plans: the Task moves to Planning, and its planning Thread opens. */
@@ -870,8 +867,8 @@ export const workEventInvalidations: Readonly<
   "initiative.outcome-written": () => [INITIATIVES],
   "initiative.pipeline-chosen": () => [INITIATIVES],
   "initiative.pipelines-set": () => [INITIATIVES],
-  // Its Tasks that set none take it, and so does what their Roles run on.
-  "initiative.engine-set": () => [INITIATIVES, TASKS, ENGINE_CASCADE],
+  // Its Tasks with no override of their own take it, and so does what their Roles run on.
+  "initiative.engine-override-set": () => [INITIATIVES, TASKS, ENGINE_CASCADE],
   "initiative.short-name-written": () => [INITIATIVES],
   "initiative.branch-made": () => [INITIATIVES],
   "initiative.branch-deleted": () => [INITIATIVES],
@@ -915,14 +912,14 @@ export const workEventInvalidations: Readonly<
   "task.dependency-added": () => [TASKS],
   "task.dependency-removed": () => [TASKS],
   // An Initiative's Tasks and Projects are its Tasks'.
-  // An Initiative's engine applies to its Tasks, so what their Roles run on changes too.
+  // An Initiative's engine override applies to its Tasks, so what their Roles run on changes too.
   "task.added-to-initiative": () => [TASKS, INITIATIVES, ENGINE_CASCADE],
   "task.taken-out-of-initiative": () => [TASKS, INITIATIVES, ENGINE_CASCADE],
   // An Initiative's Projects are its Tasks', and a Project's levels apply to them.
   "task.moved-to-project": () => [TASKS, INITIATIVES, ENGINE_CASCADE],
   "task.plan-proposed": () => [TASKS],
   "task.plan-saved": () => [TASKS],
-  "task.engine-set": (event) => [
+  "task.engine-override-set": (event) => [
     TASKS,
     "taskId" in event && typeof event.taskId === "string"
       ? taskEngineCascadeKey(event.taskId)

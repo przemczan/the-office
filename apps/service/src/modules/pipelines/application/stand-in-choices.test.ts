@@ -162,4 +162,19 @@ describe("StandInChoices, the Stand-in Engine a held Stage would move to now (sp
 
     expect(await choices().waiting()).toMatchObject([{ taskId, standInNow: null }]);
   });
+
+  it("offers none once an engine override is turned on for the Task while it waits", async () => {
+    await start([A_REFUSED_SESSION], { engines: "as listed" });
+    projectStandIns([HOME.id]);
+    const taskId = await walkStages(pipelines, [implement]);
+    const { officeDefault } = pipelines.cascade;
+    if (officeDefault === null) throw new Error("The cascade lists no engine.");
+    pipelines.cascade.officeDefault = {
+      ...officeDefault,
+      level: "task",
+      standIns: { from: "none", engineIds: [] },
+    };
+
+    expect(await choices().waiting()).toMatchObject([{ taskId, standInNow: null }]);
+  });
 });

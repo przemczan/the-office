@@ -44,10 +44,10 @@ describe("where a removal moves a reference", () => {
       state: "active" as const,
     };
     expect(movedReferencePlace({ roleKey: null, project: SHOP, work: task }, ROLES)).toBe(
-      "The engine of the Task “Export Stats as CSV”",
+      "The engine override of the Task “Export Stats as CSV”",
     );
     expect(movedReferencePlace({ roleKey: null, project: SHOP, work: initiative }, ROLES)).toBe(
-      "The engine of the Initiative “Usage reports”",
+      "The engine override of the Initiative “Usage reports”",
     );
   });
 
@@ -89,6 +89,7 @@ describe("what a removal moves a reference to", () => {
     expect(
       movedReferenceChange(
         {
+          work: null,
           from: { engineId: "second", model: "claude-haiku-5-5" },
           to: { engineId: "claude-code", model: "claude-haiku-5-5" },
         },
@@ -100,7 +101,7 @@ describe("what a removal moves a reference to", () => {
   it("says none when the only engine goes", () => {
     expect(
       movedReferenceChange(
-        { from: { engineId: "claude-code", model: "claude-sonnet-5-5" }, to: null },
+        { work: null, from: { engineId: "claude-code", model: "claude-sonnet-5-5" }, to: null },
         engineName,
       ),
     ).toBe("Sonnet 5.5 on Claude Code → none");
@@ -111,6 +112,7 @@ describe("what a removal moves a reference to", () => {
       movedReferenceChange(
         {
           standInList: true,
+          work: null,
           from: { engineId: "second", model: "claude-haiku-5-5" },
           to: { engineId: "claude-code", model: "claude-sonnet-5-5" },
         },
@@ -121,12 +123,36 @@ describe("what a removal moves a reference to", () => {
       movedReferenceChange(
         {
           standInList: true,
+          work: null,
           from: { engineId: "claude-code", model: "claude-sonnet-5-5" },
           to: null,
         },
         engineName,
       ),
     ).toBe("Claude Code → none");
+  });
+
+  it("gives a Task's or an Initiative's engine override as engines alone, with no model", () => {
+    expect(
+      movedReferenceChange(
+        {
+          work: { kind: "task", id: "t1", name: "Export Stats as CSV", state: "ready" },
+          from: { engineId: "second", model: "claude-haiku-5-5" },
+          to: { engineId: "claude-code", model: "claude-sonnet-5-5" },
+        },
+        engineName,
+      ),
+    ).toBe("Second account → Claude Code");
+    expect(
+      movedReferenceChange(
+        {
+          work: { kind: "initiative", id: "i1", name: "Usage reports", state: "active" },
+          from: { engineId: "second", model: "claude-haiku-5-5" },
+          to: null,
+        },
+        engineName,
+      ),
+    ).toBe("Second account → none");
   });
 });
 

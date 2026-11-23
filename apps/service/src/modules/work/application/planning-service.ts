@@ -400,8 +400,8 @@ export class PlanningService {
    * Refuses a Pipeline the Task can't follow (`taskPipelineProblems`): one neither the library nor
    * its Project has, another Project's, a Broken one, or one running a command the Task's Project
    * lacks, whose Stage would fail, so it is refused here rather than skipped (spec §2.3); and, while
-   * the Task or its Initiative sets an engine, one whose Agent Stages name a Role that engine can't
-   * run them on (spec 5.4.5).
+   * the Task or its Initiative has an engine override, one whose Agent Stages name a Role that
+   * engine can't run them on (spec 5.4.5).
    */
   private async refusePipelineFor(task: Task, pipelineId: string): Promise<void> {
     const [choice, project] = await Promise.all([

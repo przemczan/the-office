@@ -4539,6 +4539,121 @@ describe("a person's Thread going on on a Stand-in Engine (spec 5.4)", () => {
       ) as string,
     });
   });
+
+  /** The work engine refuses the first turn; Home and Codex would both take it, as stand-ins. */
+  async function refusedWithStandInsReady(): Promise<void> {
+    cascade.standIns = { from: "office", engineIds: [HOME.id, CODEX.id] };
+    await startOnBoth(
+      [started(...aRefusedTurn("brief"))],
+      [[{ step: "resume" }, sent("again"), ...aTurn("again", "From Home.")]],
+      [started(...aTurn("brief", "From Codex."))],
+    );
+  }
+
+  describe("under an engine override, which has no stand-ins (spec 5.4.6)", () => {
+    const ON_WORK = { engineId: WORK.id, model: "claude-opus-5-5" };
+    /** The notice of the refused turn, which stays: the user writes again after the reset. */
+    const NOTICE: MessageDraft = {
+      kind: "usage-window-used-up",
+      engineName: WORK.name,
+      window: "five-hour",
+      resetsAt: RESETS_AT.toISOString(),
+    };
+    /** Where a Thread kept on the forced engine ends: the notice last, no switch, no stand-in session. */
+    const STAYED_ON_WORK = {
+      lastMessage: NOTICE,
+      engineId: WORK.id,
+      standInFor: undefined,
+      switched: false,
+      carriedOver: 0,
+      standInSessions: 0,
+    };
+
+    /** Where the Thread ended once the refused turn's notice is its last message. */
+    async function whereItEnded(
+      threadId: string,
+    ): Promise<Record<keyof typeof STAYED_ON_WORK, unknown>> {
+      const log = await vi.waitFor(async () => {
+        const drafted = drafts(await threads.messages(threadId));
+        expect(drafted.at(-1)).toEqual(NOTICE);
+        return drafted;
+      });
+      const after = await waiting(threadId);
+      return {
+        lastMessage: log.at(-1),
+        engineId: after.session?.engineId,
+        standInFor: after.session?.standInFor,
+        switched: log.some(({ kind }) => kind === "engine-switched"),
+        carriedOver: engine.carried.length,
+        standInSessions: home.sessions.length + codex.sessions.length,
+      };
+    }
+
+    it("keeps a Task's planning Thread on the Task's engine, showing the notice", async () => {
+      await refusedWithStandInsReady();
+      const taskId = randomUUID();
+      cascade.setForTask(taskId, ON_WORK);
+
+      const opened = await planningThread(taskId);
+      await runner.send(opened.id, PLAN_IT, ANN_LEE);
+
+      expect(await whereItEnded(opened.id)).toEqual(STAYED_ON_WORK);
+    });
+
+    it("keeps an Initiative's planning Thread on the Initiative's engine, showing the notice", async () => {
+      await refusedWithStandInsReady();
+      const initiativeId = randomUUID();
+      cascade.setForInitiative(initiativeId, ON_WORK);
+
+      const opened = await threads.startOnInitiative({
+        initiativeId,
+        roleKey,
+        title: "Planning the Initiative",
+        opening: "Plan the Initiative with the user.",
+      });
+
+      expect(await whereItEnded(opened.id)).toEqual(STAYED_ON_WORK);
+    });
+
+    it("keeps a Consultation on the Task on the Task's engine, showing the notice", async () => {
+      await refusedWithStandInsReady();
+      const taskId = randomUUID();
+      cascade.setForTask(taskId, ON_WORK);
+      const consultation = aThread({
+        id: randomUUID(),
+        home: { kind: "task", taskId },
+        roleKey,
+        title: "Ann asks Ada",
+        consultation: {
+          decisionId: randomUUID(),
+          askerThreadId: randomUUID(),
+          askerRoleKey: undefined,
+        },
+      });
+      await repository.add(consultation);
+
+      await runner.open(consultation.id, "Which Projects does the export cover?");
+
+      expect(await whereItEnded(consultation.id)).toEqual(STAYED_ON_WORK);
+    });
+
+    it("opens a new session on the forced engine while its window is known used up", async () => {
+      cascade.standIns = { from: "office", engineIds: [HOME.id] };
+      await startOnBoth([started(...aTurn("brief", "On the forced engine."))], []);
+      workUsedUp();
+      const taskId = randomUUID();
+      cascade.setForTask(taskId, ON_WORK);
+
+      const opened = await planningThread(taskId);
+      await runner.send(opened.id, PLAN_IT, ANN_LEE);
+      await answered(opened.id, 3);
+
+      expect(engine.sessions).toHaveLength(1);
+      expect(home.sessions).toEqual([]);
+      expect((await threads.read(opened.id)).session).toMatchObject({ engineId: WORK.id });
+      expect((await threads.read(opened.id)).session?.standInFor).toBeUndefined();
+    });
+  });
 });
 
 describe("near the context limit", () => {

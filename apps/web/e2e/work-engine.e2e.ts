@@ -4,7 +4,6 @@ import {
   projectSchema,
   taskEngineCascadeSchema,
   taskSchema,
-  type EngineModel,
   type NewProject,
   type Project,
   type Task,
@@ -13,12 +12,11 @@ import { queryOfficeDatabase } from "./office-database.ts";
 import { screenshotScenario } from "./task-screenshots.ts";
 import { createTemporaryRepository, type TemporaryRepository } from "./temporary-repository.ts";
 
-// A Task's and an Initiative's engine (spec §2.1.3, §2.1.4). Only the fresh Office's own Claude
+// A Task's and an Initiative's engine override (spec §2.1.3, §2.1.4): one engine, no model. Only the fresh Office's own Claude
 // Code engine is named, never one added: a Settings › Engines Save sends every engine, so engines
 // are added only in people.e2e.ts. Nothing here removes an engine; the Remove window is cancelled.
 
 const CLAUDE_CODE = "claude-code";
-const HAIKU: EngineModel = { engineId: CLAUDE_CODE, model: "claude-haiku-5-5" };
 
 let repository: TemporaryRepository;
 
@@ -95,18 +93,18 @@ async function putInInitiative(task: Task, initiativeId: string): Promise<void> 
   ]);
 }
 
-async function setTaskEngine(page: Page, task: Task, engine: EngineModel | null): Promise<void> {
-  const saved = await page.request.put(`/api/tasks/${task.id}/engine`, { data: { engine } });
+async function setTaskEngine(page: Page, task: Task, engineId: string | null): Promise<void> {
+  const saved = await page.request.put(`/api/tasks/${task.id}/engine`, { data: { engineId } });
   expect(saved.ok()).toBe(true);
 }
 
 async function setInitiativeEngine(
   page: Page,
   initiativeId: string,
-  engine: EngineModel | null,
+  engineId: string | null,
 ): Promise<void> {
   const saved = await page.request.put(`/api/initiatives/${initiativeId}/engine`, {
-    data: { engine },
+    data: { engineId },
   });
   expect(saved.ok()).toBe(true);
 }
@@ -121,6 +119,10 @@ async function rolesWorking(page: Page, task: Task): Promise<number> {
   return taskEngineCascadeSchema.parse(await cascade.json()).people.length;
 }
 
+async function savedTask(page: Page, task: Task): Promise<Task> {
+  return taskSchema.parse(await (await page.request.get(`/api/tasks/${task.id}`)).json());
+}
+
 /** The record's Engine fold, unfolded. */
 async function openEngineFold(page: Page): Promise<Locator> {
   const fold = page.getByRole("region", { name: "Engine", exact: true });
@@ -131,8 +133,8 @@ async function openEngineFold(page: Page): Promise<Locator> {
   return fold;
 }
 
-test.describe("a Task's and an Initiative's engine", { tag: "@full" }, () => {
-  test("the user sets a Task's engine and model in its Engine fold, and Runs on follows", async ({
+test.describe("a Task's and an Initiative's engine override", { tag: "@full" }, () => {
+  test("the user overrides a Task's engine in its Engine fold, with no model and no stand-ins", async ({
     page,
   }) => {
     const word = aWordOfItsOwn();
@@ -141,14 +143,15 @@ test.describe("a Task's and an Initiative's engine", { tag: "@full" }, () => {
 
     await page.goto(`/tasks/${task.id}`);
     const fold = await openEngineFold(page);
-    const pair = fold.getByRole("group", { name: "Task's engine" });
-    const engine = pair.getByRole("combobox", { name: "Engine" });
-    const model = pair.getByRole("combobox", { name: "Model" });
-    // Nothing set: the empty choice is the Project's engine, and no Model field shows.
-    await expect(engine.locator("option:checked")).toHaveText("Project's engine");
-    await expect(model).toHaveCount(0);
+    const head = fold.getByRole("button", { name: /^Engine/ });
+    const override = fold.getByRole("switch");
+    const engine = fold.getByRole("combobox", { name: "Engine" });
+    // Off: it follows the Office default, as its Project sets none, and no Engine field shows.
+    await expect(head).toContainText("Claude Code · from the Office default");
+    await expect(override).toHaveAttribute("aria-checked", "false");
+    await expect(engine).toHaveCount(0);
     await expect(fold).toContainText(
-      `The Office default, as ${project.name} has no Project default. Pick an engine to run this Task on its own.`,
+      "Runs on Claude Code, from the Office default, with the Office's Stand-in Engines.",
     );
     const runsOn = fold.getByRole("list", { name: "Runs on" });
     const working = await rolesWorking(page, task);
@@ -160,47 +163,39 @@ test.describe("a Task's and an Initiative's engine", { tag: "@full" }, () => {
       await expect(runsOn).toHaveCount(0);
     }
 
-    // Picking the engine fills in its default model and saves at once.
-    await engine.selectOption({ label: "Claude Code" });
+    // On: it saves at once, starting on the engine it followed.
+    await override.click();
     await expect(
-      page.getByText(new RegExp(`^(Engine|Model) saved for ${task.title}: its next sessions`)),
+      page.getByText(`${task.title} runs on Claude Code, with no stand-ins.`),
     ).toBeVisible();
-    await expect(model).toBeVisible();
-
-    // A new model alone resumes the next session.
-    await model.selectOption({ label: "Haiku 5.5" });
-    await expect(
-      page.getByText(`Model saved for ${task.title}: its next sessions resume, on Haiku 5.5.`),
-    ).toBeVisible();
-    await expect(model).toHaveValue("claude-haiku-5-5");
-    if (working > 0) await expect(runsOn).toContainText("effort high");
-    await expect(fold.getByRole("button", { name: /^Engine/ })).toContainText(
-      "Haiku 5.5 on Claude Code · set for this Task",
+    await expect(override).toHaveAttribute("aria-checked", "true");
+    await expect(engine).toHaveText("Claude Code");
+    await expect(fold).toContainText(
+      "No stand-ins: when Claude Code's usage window is used up, the Task waits for the reset.",
     );
-    expect(
-      taskSchema.parse(await (await page.request.get(`/api/tasks/${task.id}`)).json()).engine,
-    ).toEqual(HAIKU);
+    await expect(fold.getByRole("combobox", { name: "Model" })).toHaveCount(0);
+    await expect(head).toContainText("Claude Code · set for this Task · no stand-ins");
+    expect((await savedTask(page, task)).engineOverride).toBe(CLAUDE_CODE);
+    // The Engine select groups the listed engines by engine type.
+    await engine.click();
+    const list = page.getByRole("listbox", { name: "Engine" });
+    await expect(list.getByRole("group", { name: "Claude Code" })).toBeVisible();
+    await page.keyboard.press("Escape");
     // Kept on a reload.
     await page.reload();
-    await expect(fold.getByRole("button", { name: /^Engine/ })).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
-    await expect(model).toHaveValue("claude-haiku-5-5");
+    await expect(head).toHaveAttribute("aria-expanded", "true");
+    await expect(override).toHaveAttribute("aria-checked", "true");
     await screenshotScenario(page, "task-engine-fold", { inView: fold });
 
-    // Back to the empty choice: the Task takes its Project's engine again.
-    await engine.selectOption({ label: "Project's engine" });
-    await expect(
-      page.getByText(
-        `${task.title} has no engine of its own now: it runs on its Project's engine from its next session.`,
-      ),
-    ).toBeVisible();
-    await expect(model).toHaveCount(0);
+    // Off again: the Task follows its Project's engine.
+    await override.click();
+    await expect(page.getByText(`${task.title} follows its Project's engine again.`)).toBeVisible();
+    await expect(engine).toHaveCount(0);
+    expect((await savedTask(page, task)).engineOverride).toBeNull();
     if (working > 0) await expect(runsOn.getByRole("listitem")).toHaveCount(working);
   });
 
-  test("a Task in an Initiative that sets an engine offers the Initiative's engine as its empty choice", async ({
+  test("a Task in an Initiative with an override follows it, and its own override wins", async ({
     page,
   }) => {
     const word = aWordOfItsOwn();
@@ -208,30 +203,40 @@ test.describe("a Task's and an Initiative's engine", { tag: "@full" }, () => {
     const initiativeId = await seedActiveInitiative(page, `Engine inherit release ${word}`);
     const task = await createdTask(page, project, `Engine inherit banner ${word}`);
     await putInInitiative(task, initiativeId);
-    await setInitiativeEngine(page, initiativeId, HAIKU);
+    await setInitiativeEngine(page, initiativeId, CLAUDE_CODE);
 
     await page.goto(`/tasks/${task.id}`);
-    await expect(
-      page
-        .getByRole("region", { name: "Engine", exact: true })
-        .getByRole("button", { name: /^Engine/ }),
-    ).toContainText("Initiative's engine · Haiku 5.5 on Claude Code");
+    const head = page
+      .getByRole("region", { name: "Engine", exact: true })
+      .getByRole("button", { name: /^Engine/ });
+    await expect(head).toContainText("Claude Code · from its Initiative · no stand-ins");
     const fold = await openEngineFold(page);
-    const pair = fold.getByRole("group", { name: "Task's engine" });
-    await expect(
-      pair.getByRole("combobox", { name: "Engine" }).locator("option:checked"),
-    ).toHaveText("Initiative's engine (Haiku 5.5 on Claude Code)");
-    await expect(pair.getByRole("combobox", { name: "Model" })).toHaveCount(0);
+    await expect(fold.getByRole("switch")).toHaveAttribute("aria-checked", "false");
     await expect(fold).toContainText(
-      "Set on its Initiative. Pick an engine to run this Task on its own.",
+      "Turn it on to run this Task on another engine than its Initiative's.",
     );
-    if ((await rolesWorking(page, task)) > 0) {
-      await expect(fold.getByRole("list", { name: "Runs on" })).toContainText("Role card");
-    }
+    await expect(fold).toContainText(
+      "Runs on Claude Code, from its Initiative, with no stand-ins.",
+    );
     await screenshotScenario(page, "task-engine-inherited", { inView: fold });
+
+    // Its own override wins over its Initiative's.
+    await fold.getByRole("switch").click();
+    await expect(head).toContainText("Claude Code · set for this Task · no stand-ins");
+    const saved = await savedTask(page, task);
+    expect(saved.engineOverride).toBe(CLAUDE_CODE);
+    expect(saved.initiativeEngineOverride).toBe(CLAUDE_CODE);
+    await expect(
+      page.getByText(`${task.title} runs on Claude Code, with no stand-ins.`),
+    ).toBeVisible();
+    await expect(fold.getByRole("switch")).toBeEnabled();
+    await fold.getByRole("switch").click();
+    await expect(
+      page.getByText(`${task.title} follows its Initiative's engine again.`),
+    ).toBeVisible();
   });
 
-  test("the user sets an Initiative's engine, and Its Tasks says which follow it", async ({
+  test("the user overrides an Initiative's engine, and Its Tasks says which follow it", async ({
     page,
   }) => {
     const word = aWordOfItsOwn();
@@ -242,64 +247,53 @@ test.describe("a Task's and an Initiative's engine", { tag: "@full" }, () => {
     const own = await createdTask(page, project, `Engine initiative cache ${word}`);
     await putInInitiative(following, initiativeId);
     await putInInitiative(own, initiativeId);
-    await setTaskEngine(page, own, { engineId: CLAUDE_CODE, model: "claude-opus-5-5" });
+    await setTaskEngine(page, own, CLAUDE_CODE);
 
     await page.goto(`/work/initiatives/${initiativeId}`);
     const fold = await openEngineFold(page);
-    const pair = fold.getByRole("group", { name: "Initiative's engine" });
-    const engine = pair.getByRole("combobox", { name: "Engine" });
-    const model = pair.getByRole("combobox", { name: "Model" });
-    await expect(engine.locator("option:checked")).toHaveText("Project's engine");
+    const override = fold.getByRole("switch");
+    await expect(override).toHaveAttribute("aria-checked", "false");
     await expect(fold).toContainText(
-      "A Task in it that sets no engine runs on its Project default, or the Office default where its Project has none.",
+      "Its Threads and Tasks run on their Project's engine, or the Office default where the Project sets none, with that Project's Stand-in Engines.",
     );
     const itsTasks = fold.getByRole("list", { name: "Its Tasks" });
     const followingRow = itsTasks.getByRole("listitem").filter({ hasText: following.title });
     const ownRow = itsTasks.getByRole("listitem").filter({ hasText: own.title });
     await expect(followingRow).toContainText("its Project's engine");
-    await expect(ownRow).toContainText("Opus 5.5 on Claude Code");
-    await expect(ownRow).toContainText("its own engine");
+    await expect(ownRow).toContainText("its own override");
 
-    await engine.selectOption({ label: "Claude Code" });
-    await expect(
-      page.getByText(
-        new RegExp(
-          `^Engine saved for ${name}: its Threads and its 1 open Task that sets none runs on .+ on Claude Code from their next session\\.$`,
-        ),
-      ),
-    ).toBeVisible();
-    await model.selectOption({ label: "Haiku 5.5" });
-    const modelSaved = page.getByText(
-      `Model saved for ${name}: its next sessions resume, on Haiku 5.5.`,
+    await override.click();
+    const saved = page.getByText(`${name} runs on Claude Code, with no stand-ins.`);
+    await expect(saved).toBeVisible();
+    await expect(fold.getByRole("combobox", { name: "Engine" })).toHaveText("Claude Code");
+    await expect(fold.getByRole("combobox", { name: "Model" })).toHaveCount(0);
+    await expect(fold).toContainText(
+      "No stand-ins: when Claude Code's usage window is used up, its Tasks wait for the reset.",
     );
-    await expect(modelSaved).toBeVisible();
-    await expect(followingRow).toContainText("Haiku 5.5 on Claude Code");
-    await expect(followingRow).toContainText("the Initiative's engine");
-    await expect(ownRow).toContainText("its own engine");
+    await expect(followingRow).toContainText("follows the Initiative's override");
+    await expect(ownRow).toContainText("its own override");
     await expect(fold.getByRole("button", { name: /^Engine/ })).toContainText(
-      "Haiku 5.5 on Claude Code",
+      "Claude Code · set for this Initiative · no stand-ins",
     );
     // Its Task's page shows the change.
-    expect(
-      taskSchema.parse(await (await page.request.get(`/api/tasks/${following.id}`)).json())
-        .initiativeEngine,
-    ).toEqual(HAIKU);
+    expect((await savedTask(page, following)).initiativeEngineOverride).toBe(CLAUDE_CODE);
     // The toasts go by themselves, out of the screenshots' way.
-    await expect(modelSaved).toBeHidden();
+    await expect(saved).toBeHidden();
     await screenshotScenario(page, "initiative-engine-fold", { inView: fold });
   });
 
-  test("a Done Task's Engine fold keeps its engine read-only", async ({ page }) => {
+  test("a Done Task's Engine fold keeps its override read-only", async ({ page }) => {
     const word = aWordOfItsOwn();
     const project = await addedProject(page, `Engine kept shop ${word}`, "EK");
     const task = await createdTask(page, project, `Engine kept report ${word}`);
-    await setTaskEngine(page, task, HAIKU);
+    await setTaskEngine(page, task, CLAUDE_CODE);
     await queryOfficeDatabase(`update tasks set state = 'done' where id = $1`, [task.id]);
 
     await page.goto(`/tasks/${task.id}`);
     const fold = await openEngineFold(page);
+    await expect(fold.getByRole("switch")).toHaveCount(0);
     await expect(fold.getByRole("combobox")).toHaveCount(0);
-    await expect(fold.getByRole("definition")).toHaveText(["Claude Code", "Haiku 5.5"]);
+    await expect(fold.getByRole("definition")).toHaveText(["Claude Code"]);
     await expect(fold).toContainText(
       "Kept as it was: the engine of a Done or Dropped Task doesn't change.",
     );
@@ -307,7 +301,7 @@ test.describe("a Task's and an Initiative's engine", { tag: "@full" }, () => {
     await screenshotScenario(page, "task-engine-read-only", { inView: fold });
   });
 
-  test("the Remove engine window lists the Tasks and Initiatives naming the engine, a Done one with its state", async ({
+  test("the Remove engine window lists the Tasks and Initiatives whose override names the engine, a Done one with its state", async ({
     page,
   }) => {
     const word = aWordOfItsOwn();
@@ -316,9 +310,9 @@ test.describe("a Task's and an Initiative's engine", { tag: "@full" }, () => {
     const done = await createdTask(page, project, `Engine removal done ${word}`);
     const initiativeName = `Engine removal release ${word}`;
     const initiativeId = await seedActiveInitiative(page, initiativeName);
-    await setTaskEngine(page, open, HAIKU);
-    await setTaskEngine(page, done, HAIKU);
-    await setInitiativeEngine(page, initiativeId, HAIKU);
+    await setTaskEngine(page, open, CLAUDE_CODE);
+    await setTaskEngine(page, done, CLAUDE_CODE);
+    await setInitiativeEngine(page, initiativeId, CLAUDE_CODE);
     await queryOfficeDatabase(`update tasks set state = 'done' where id = $1`, [done.id]);
 
     try {
@@ -333,27 +327,27 @@ test.describe("a Task's and an Initiative's engine", { tag: "@full" }, () => {
       const moves = dialog.getByRole("list", { name: "What moves" });
       const openRow = moves
         .getByRole("listitem")
-        .filter({ hasText: `The engine of the Task “${open.title}”` });
+        .filter({ hasText: `The engine override of the Task “${open.title}”` });
       const doneRow = moves
         .getByRole("listitem")
-        .filter({ hasText: `The engine of the Task “${done.title}”` });
+        .filter({ hasText: `The engine override of the Task “${done.title}”` });
       const initiativeRow = moves
         .getByRole("listitem")
-        .filter({ hasText: `The engine of the Initiative “${initiativeName}”` });
-      await expect(openRow).toContainText("Haiku 5.5 on Claude Code →");
+        .filter({ hasText: `The engine override of the Initiative “${initiativeName}”` });
+      // An override names an engine alone, no model.
+      await expect(openRow).toContainText("Claude Code →");
       await expect(openRow).not.toContainText("Done");
+      await expect(openRow).not.toContainText(" on Claude Code");
       await expect(doneRow).toContainText("Done");
-      await expect(doneRow).toContainText("Haiku 5.5 on Claude Code →");
-      await expect(initiativeRow).toContainText("Haiku 5.5 on Claude Code →");
+      await expect(doneRow).toContainText("Claude Code →");
+      await expect(initiativeRow).toContainText("Claude Code →");
       await doneRow.scrollIntoViewIfNeeded();
       await screenshotScenario(page, "remove-engine-work-rows", { inView: doneRow });
 
       // Cancelled: nothing moves, and the engine stays.
       await page.keyboard.press("Escape");
       await expect(dialog).toHaveCount(0);
-      expect(
-        taskSchema.parse(await (await page.request.get(`/api/tasks/${open.id}`)).json()).engine,
-      ).toEqual(HAIKU);
+      expect((await savedTask(page, open)).engineOverride).toBe(CLAUDE_CODE);
     } finally {
       await setTaskEngine(page, open, null);
       await setInitiativeEngine(page, initiativeId, null);

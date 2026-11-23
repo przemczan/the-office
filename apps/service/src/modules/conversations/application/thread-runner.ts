@@ -174,7 +174,8 @@ interface Answer {
   readonly place: SessionPlace;
   /**
    * The Stand-in Engine list that applies where the Thread works, as the cascade gives it: its
-   * Project's own or the Office's (spec §5.4.6).
+   * Project's own or the Office's, and none under an engine override, which never gives way (spec
+   * §5.4.6).
    */
   readonly standIns: readonly EngineId[];
   /** The Decisions the message answers, which open again if the answers never reach a session. */
@@ -991,6 +992,7 @@ export class ThreadRunner implements OnModuleDestroy {
         roleKey: thread.roleKey,
         sessionDefault: current.card.sessionDefault,
         engineId: applying.engineId,
+        forced: applying.standIns.from === "none",
         override: thread.override,
         briefTokens: place.brief.tokens,
         changesAllowed: place.workstation,
@@ -1061,7 +1063,8 @@ export class ThreadRunner implements OnModuleDestroy {
   /**
    * The engine a new session in a person's Thread opens on, with the person's model and effort
    * there: the cascade's, or while its usage window is known used up, the first Stand-in Engine with
-   * room of the list that applies, of any engine type, standing in for it (spec §5.4.6).
+   * room of the list that applies, of any engine type, standing in for it (spec §5.4.6). Under an
+   * engine override the list is empty, so the session opens on the forced engine whatever its window.
    */
   private async engineForNewSession(
     applying: EngineInCascade,
@@ -1106,7 +1109,8 @@ export class ThreadRunner implements OnModuleDestroy {
   /**
    * The Stand-in Engine a session on `running` goes on on before it takes the next message, while
    * that engine's usage window is known used up: the first with room of the list that applies, of
-   * any engine type; undefined while it has room or no stand-in has.
+   * any engine type; undefined while it has room or no stand-in has, as under an engine override,
+   * where no list applies.
    */
   private async standInAhead(
     running: EngineId,
@@ -1472,7 +1476,8 @@ export class ThreadRunner implements OnModuleDestroy {
    * message sent again, and the user's messages it never took after it (spec §5.4.6). On one of
    * the same type the session is carried there and resumed; on another type, or one whose session
    * can't be carried, the Thread starts fresh there with the Brief. False, with the session where
-   * it was, when there is none or the carry failed.
+   * it was, when there is none (as under an engine override, where no list applies) or the carry
+   * failed: the refused turn's notice stays, and the user writes again after the reset.
    */
   private async goOnOnStandIn(
     threadId: string,

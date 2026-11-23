@@ -163,7 +163,7 @@ export class RoleEngineCascadeForTests extends RoleEngineCascade {
   officeDefault: EngineInCascade | null = {
     engineId: "claude-code",
     model: "claude-sonnet-5-5",
-    level: "office-default",
+    level: "office",
     engineType: "claude-code",
     effort: null,
     modelLevel: "engine",

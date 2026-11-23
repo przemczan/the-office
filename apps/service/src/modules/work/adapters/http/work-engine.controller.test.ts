@@ -13,7 +13,6 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import {
   EngineSettingsChecks,
   FIRST_CLAUDE_CODE_ENGINE,
-  movedEngineModel,
   type Engine,
 } from "../../../engine/index.js";
 import {
@@ -45,10 +44,10 @@ const { capture, shape, end, post } = initiativesHttp(() => work);
  * An engine of the test's own, listed in Settings › Engines, so no other file's Tasks name it as
  * it is removed.
  */
-function anEngine(model = "claude-haiku-5-5") {
+function anEngine(): string {
   const engineId = `engine-${randomUUID()}`;
   listedEngines.push({ ...FIRST_CLAUDE_CODE_ENGINE, id: engineId, name: `Racing ${engineId}` });
-  return { engineId, model };
+  return engineId;
 }
 
 beforeAll(async () => {
@@ -97,12 +96,12 @@ async function readInitiative({ id }: Initiative): Promise<Initiative> {
   return initiativeSchema.parse(await (await sendJson(work, "GET", `/initiatives/${id}`)).json());
 }
 
-function setTaskEngine(task: Task, engine: Task["engine"]): Promise<Response> {
-  return sendJson(work, "PUT", `/tasks/${task.id}/engine`, { engine });
+function setTaskEngine(task: Task, engineId: string | null): Promise<Response> {
+  return sendJson(work, "PUT", `/tasks/${task.id}/engine`, { engineId });
 }
 
-function setInitiativeEngine(initiative: Initiative, engine: Task["engine"]): Promise<Response> {
-  return sendJson(work, "PUT", `/initiatives/${initiative.id}/engine`, { engine });
+function setInitiativeEngine(initiative: Initiative, engineId: string | null): Promise<Response> {
+  return sendJson(work, "PUT", `/initiatives/${initiative.id}/engine`, { engineId });
 }
 
 async function reasonsOf(response: Response): Promise<readonly string[]> {
@@ -119,15 +118,17 @@ async function addToInitiative(initiative: Initiative, task: Task): Promise<Resp
 }
 
 describe("PUT /api/tasks/:id/engine", () => {
-  it("sets the Task's engine, weighed by the check, and clears it with null", async () => {
+  it("sets the Task's engine override, weighed by the check, and clears it with null", async () => {
     const task = await createTask();
     const engine = anEngine();
 
     const response = await setTaskEngine(task, engine);
 
     expect(response.status).toBe(200);
-    expect(taskSchema.parse(await response.json()).engine).toEqual(engine);
-    expect((await readTask(task)).engine).toEqual(engine);
+    const answered = await response.json();
+    expect(taskSchema.parse(answered).engineOverride).toBe(engine);
+    expect(answered).not.toHaveProperty("engine");
+    expect((await readTask(task)).engineOverride).toBe(engine);
     expect(checked).toEqual([
       {
         place: "On “Export the usage”",
@@ -135,19 +136,22 @@ describe("PUT /api/tasks/:id/engine", () => {
           {
             taskId: task.id,
             projectId: task.projectId,
-            before: { taskEngine: null, initiativeEngine: null },
-            after: { taskEngine: engine, initiativeEngine: null },
+            before: { taskEngineOverride: null, initiativeEngineOverride: null },
+            after: { taskEngineOverride: engine, initiativeEngineOverride: null },
           },
         ],
       },
     ]);
-    expect(webEventsOf(work)).toContainEqual({ type: "task.engine-set", taskId: task.id });
+    expect(webEventsOf(work)).toContainEqual({
+      type: "task.engine-override-set",
+      taskId: task.id,
+    });
 
     expect((await setTaskEngine(task, null)).status).toBe(200);
-    expect((await readTask(task)).engine).toBeNull();
+    expect((await readTask(task)).engineOverride).toBeNull();
   });
 
-  it("refuses with the check's reasons, keeping the engine it had", async () => {
+  it("refuses with the check's reasons, keeping the override it had", async () => {
     const task = await createTask();
     refusal = [
       "On “Export the usage”, Racing can't use Office tools, which the Agent Stages of the Developer need.",
@@ -156,22 +160,28 @@ describe("PUT /api/tasks/:id/engine", () => {
     const reasons = await reasonsOf(await setTaskEngine(task, anEngine()));
 
     expect(reasons).toEqual(refusal);
-    expect((await readTask(task)).engine).toBeNull();
+    expect((await readTask(task)).engineOverride).toBeNull();
   });
 
-  it("refuses an engine Settings › Engines doesn't list, or a model it doesn't offer", async () => {
+  it("refuses an engine Settings › Engines doesn't list, before any check", async () => {
     const task = await createTask();
 
-    expect(
-      await reasonsOf(
-        await setTaskEngine(task, { engineId: "unlisted", model: "claude-haiku-5-5" }),
-      ),
-    ).toEqual(['There is no engine "unlisted".']);
-    expect(await reasonsOf(await setTaskEngine(task, anEngine("not-a-model")))).toEqual([
-      "Choose a model the engine offers.",
+    expect(await reasonsOf(await setTaskEngine(task, "unlisted"))).toEqual([
+      'There is no engine "unlisted".',
     ]);
-    expect((await readTask(task)).engine).toBeNull();
+    expect((await readTask(task)).engineOverride).toBeNull();
     expect(checked).toEqual([]);
+  });
+
+  it("takes an engine only, refusing a model beside it", async () => {
+    const task = await createTask();
+
+    const response = await sendJson(work, "PUT", `/tasks/${task.id}/engine`, {
+      engine: { engineId: anEngine(), model: "claude-haiku-5-5" },
+    });
+
+    expect(response.status).toBe(400);
+    expect((await readTask(task)).engineOverride).toBeNull();
   });
 
   it("refuses once the Task is Done or Dropped", async () => {
@@ -180,13 +190,22 @@ describe("PUT /api/tasks/:id/engine", () => {
 
     const reasons = await reasonsOf(await setTaskEngine(task, anEngine()));
 
-    expect(reasons).toEqual(["A Task keeps its engine once it is Done or Dropped."]);
+    expect(reasons).toEqual(["A Task keeps its engine override once it is Done or Dropped."]);
     expect(checked).toEqual([]);
+  });
+
+  it("refuses once the Task is Dropped", async () => {
+    const task = await createTask();
+    await end(task, "dropped");
+
+    const reasons = await reasonsOf(await setTaskEngine(task, null));
+
+    expect(reasons).toEqual(["A Task keeps its engine override once it is Done or Dropped."]);
   });
 });
 
 describe("PUT /api/initiatives/:id/engine", () => {
-  it("sets the Initiative's engine, which its Tasks that set none run on", async () => {
+  it("sets the Initiative's engine override, which its Tasks with none of their own run on", async () => {
     const initiative = await anInitiative();
     const inheriting = await createTask();
     const own = await createTask();
@@ -201,10 +220,16 @@ describe("PUT /api/initiatives/:id/engine", () => {
     const response = await setInitiativeEngine(initiative, engine);
 
     expect(response.status).toBe(200);
-    expect(initiativeSchema.parse(await response.json()).engine).toEqual(engine);
-    expect((await readInitiative(initiative)).engine).toEqual(engine);
-    expect(await readTask(inheriting)).toMatchObject({ engine: null, initiativeEngine: engine });
-    expect(await readTask(own)).toMatchObject({ engine: ownEngine, initiativeEngine: engine });
+    expect(initiativeSchema.parse(await response.json()).engineOverride).toBe(engine);
+    expect((await readInitiative(initiative)).engineOverride).toBe(engine);
+    expect(await readTask(inheriting)).toMatchObject({
+      engineOverride: null,
+      initiativeEngineOverride: engine,
+    });
+    expect(await readTask(own)).toMatchObject({
+      engineOverride: ownEngine,
+      initiativeEngineOverride: engine,
+    });
     expect(checked).toEqual([
       {
         place: `In ${initiative.name}`,
@@ -213,30 +238,28 @@ describe("PUT /api/initiatives/:id/engine", () => {
             taskId: inheriting.id,
             taskTitle: inheriting.title,
             projectId: inheriting.projectId,
-            before: { taskEngine: null, initiativeEngine: null },
-            after: { taskEngine: null, initiativeEngine: engine },
+            before: { taskEngineOverride: null, initiativeEngineOverride: null },
+            after: { taskEngineOverride: null, initiativeEngineOverride: engine },
           },
         ],
       },
     ]);
     const events = webEventsOf(work);
-    expect(events).toContainEqual({ type: "initiative.engine-set", initiativeId: initiative.id });
-    expect(events).toContainEqual({ type: "task.engine-set", taskId: inheriting.id });
-    expect(events).toContainEqual({ type: "task.engine-set", taskId: own.id });
+    expect(events).toContainEqual({
+      type: "initiative.engine-override-set",
+      initiativeId: initiative.id,
+    });
+    expect(events).toContainEqual({ type: "task.engine-override-set", taskId: inheriting.id });
+    expect(events).toContainEqual({ type: "task.engine-override-set", taskId: own.id });
   });
 
-  it("refuses an engine Settings › Engines doesn't list, or a model it doesn't offer", async () => {
+  it("refuses an engine Settings › Engines doesn't list, before any check", async () => {
     const initiative = await anInitiative();
 
-    expect(
-      await reasonsOf(
-        await setInitiativeEngine(initiative, { engineId: "unlisted", model: "claude-haiku-5-5" }),
-      ),
-    ).toEqual(['There is no engine "unlisted".']);
-    expect(await reasonsOf(await setInitiativeEngine(initiative, anEngine("not-a-model")))).toEqual(
-      ["Choose a model the engine offers."],
-    );
-    expect((await readInitiative(initiative)).engine).toBeNull();
+    expect(await reasonsOf(await setInitiativeEngine(initiative, "unlisted"))).toEqual([
+      'There is no engine "unlisted".',
+    ]);
+    expect((await readInitiative(initiative)).engineOverride).toBeNull();
     expect(checked).toEqual([]);
   });
 
@@ -246,18 +269,18 @@ describe("PUT /api/initiatives/:id/engine", () => {
     refusal = ["Export the usage: the Developer would run on Racing."];
 
     expect(await reasonsOf(await setInitiativeEngine(initiative, anEngine()))).toEqual(refusal);
-    expect((await readInitiative(initiative)).engine).toBeNull();
+    expect((await readInitiative(initiative)).engineOverride).toBeNull();
 
     refusal = [];
     expect((await post(initiative, "drop")).status).toBe(200);
     expect(await reasonsOf(await setInitiativeEngine(initiative, anEngine()))).toEqual([
-      "The Initiative is dropped: it keeps its engine.",
+      "The Initiative is dropped: it keeps its engine override.",
     ]);
   });
 });
 
-describe("a Task joining or leaving an Initiative with an engine", () => {
-  it("weighs the Initiative's engine for it and refuses with the check's reasons", async () => {
+describe("a Task joining or leaving an Initiative with an engine override", () => {
+  it("weighs the Initiative's override for it and refuses with the check's reasons", async () => {
     const initiative = await anInitiative();
     const engine = anEngine();
     expect((await setInitiativeEngine(initiative, engine)).status).toBe(200);
@@ -273,8 +296,8 @@ describe("a Task joining or leaving an Initiative with an engine", () => {
           taskId: task.id,
           taskTitle: task.title,
           projectId: task.projectId,
-          before: { taskEngine: null, initiativeEngine: null },
-          after: { taskEngine: null, initiativeEngine: engine },
+          before: { taskEngineOverride: null, initiativeEngineOverride: null },
+          after: { taskEngineOverride: null, initiativeEngineOverride: engine },
         },
       ],
     });
@@ -282,8 +305,11 @@ describe("a Task joining or leaving an Initiative with an engine", () => {
     refusal = [];
     work.published.length = 0;
     expect((await addToInitiative(initiative, task)).status).toBe(200);
-    expect((await readTask(task)).initiativeEngine).toEqual(engine);
-    expect(webEventsOf(work)).toContainEqual({ type: "task.engine-set", taskId: task.id });
+    expect((await readTask(task)).initiativeEngineOverride).toBe(engine);
+    expect(webEventsOf(work)).toContainEqual({
+      type: "task.engine-override-set",
+      taskId: task.id,
+    });
 
     refusal = ["Export the usage: the Developer would run on the Project's engine."];
     const leaving = await sendJson(
@@ -292,10 +318,13 @@ describe("a Task joining or leaving an Initiative with an engine", () => {
       `/initiatives/${initiative.id}/tasks/${task.id}`,
     );
     expect(await reasonsOf(leaving)).toEqual(refusal);
-    expect(checked.at(-1)?.moves[0]?.after).toEqual({ taskEngine: null, initiativeEngine: null });
+    expect(checked.at(-1)?.moves[0]?.after).toEqual({
+      taskEngineOverride: null,
+      initiativeEngineOverride: null,
+    });
   });
 
-  it("checks nothing for an Initiative that sets no engine", async () => {
+  it("checks nothing for an Initiative with no engine override", async () => {
     const initiative = await anInitiative();
     refusal = ["Never asked."];
 
@@ -309,7 +338,7 @@ function choosePipeline(task: Task, pipelineId: string): Promise<Response> {
 }
 
 describe("choosing a Task's Pipeline", () => {
-  it("weighs the Pipeline at the Task's engine and refuses with the check's reasons", async () => {
+  it("weighs the Pipeline at the Task's engine override and refuses with the check's reasons", async () => {
     const task = await createTask();
     const engine = anEngine();
     expect((await setTaskEngine(task, engine)).status).toBe(200);
@@ -320,7 +349,7 @@ describe("choosing a Task's Pipeline", () => {
 
     expect(await reasonsOf(await choosePipeline(task, "full"))).toEqual(refusal);
     expect((await readTask(task)).pipelineId).toBeNull();
-    const levels = { taskEngine: engine, initiativeEngine: null };
+    const levels = { taskEngineOverride: engine, initiativeEngineOverride: null };
     expect(checked).toEqual([
       {
         place: "On “Export the usage”",
@@ -341,7 +370,7 @@ describe("choosing a Task's Pipeline", () => {
     expect((await readTask(task)).pipelineId).toBe("full");
   });
 
-  it("weighs it at the Initiative's engine for a Task that sets none", async () => {
+  it("weighs it at the Initiative's engine override for a Task with none of its own", async () => {
     const initiative = await anInitiative();
     const task = await createTask();
     expect((await addToInitiative(initiative, task)).status).toBe(200);
@@ -354,13 +383,13 @@ describe("choosing a Task's Pipeline", () => {
     expect((await choosePipeline(task, "full")).status).toBe(200);
     expect(checked.at(-1)?.moves).toEqual([
       expect.objectContaining({
-        before: { taskEngine: null, initiativeEngine: engine },
+        before: { taskEngineOverride: null, initiativeEngineOverride: engine },
         pipelineId: "full",
       }),
     ]);
   });
 
-  it("checks nothing while neither the Task nor its Initiative sets an engine", async () => {
+  it("checks nothing while neither the Task nor its Initiative has an engine override", async () => {
     const task = await createTask();
     refusal = ["Never asked."];
 
@@ -382,8 +411,8 @@ describe("removing an engine", () => {
     const inheriting = await createTask();
     expect((await addToInitiative(initiative, inheriting)).status).toBe(200);
     expect((await setInitiativeEngine(initiative, removed)).status).toBe(200);
-    const removal = { engineId: removed.engineId, replacement };
-    const to = movedEngineModel(removed, removal);
+    const removal = { engineId: removed, replacement };
+    const to = replacement.id;
     const settings = { engines: listedEngines, officeDefault: null, standInEngines: [] };
     checked = [];
     refusal = ["the Developer would run on Claude Code."];
@@ -400,8 +429,8 @@ describe("removing an engine", () => {
           {
             taskId: own.id,
             projectId: own.projectId,
-            before: { taskEngine: removed, initiativeEngine: null },
-            after: { taskEngine: to, initiativeEngine: null },
+            before: { taskEngineOverride: removed, initiativeEngineOverride: null },
+            after: { taskEngineOverride: to, initiativeEngineOverride: null },
           },
         ],
       },
@@ -412,15 +441,15 @@ describe("removing an engine", () => {
             taskId: inheriting.id,
             taskTitle: inheriting.title,
             projectId: inheriting.projectId,
-            before: { taskEngine: null, initiativeEngine: removed },
-            after: { taskEngine: null, initiativeEngine: to },
+            before: { taskEngineOverride: null, initiativeEngineOverride: removed },
+            after: { taskEngineOverride: null, initiativeEngineOverride: to },
           },
         ],
       },
     ]);
   });
 
-  it("lets through a removal no open Task's engine names, and a save that removes nothing", async () => {
+  it("lets through a removal no open Task's engine override names, and a save that removes nothing", async () => {
     const removed = anEngine();
     const done = await createTask();
     expect((await setTaskEngine(done, removed)).status).toBe(200);
@@ -434,14 +463,14 @@ describe("removing an engine", () => {
       await checks.problemsOf({
         before: settings,
         after: settings,
-        removal: { engineId: removed.engineId, replacement: FIRST_CLAUDE_CODE_ENGINE },
+        removal: { engineId: removed, replacement: FIRST_CLAUDE_CODE_ENGINE },
       }),
     ).toEqual([]);
     expect(await checks.problemsOf({ before: settings, after: settings })).toEqual([]);
     expect(checked).toEqual([]);
   });
 
-  it("moves every Task's and Initiative's engine naming it, Done ones too", async () => {
+  it("moves every Task's and Initiative's engine override naming it, Done ones too", async () => {
     const removed = anEngine();
     const done = await createTask();
     expect((await setTaskEngine(done, removed)).status).toBe(200);
@@ -450,8 +479,13 @@ describe("removing an engine", () => {
     const inheriting = await createTask();
     expect((await addToInitiative(initiative, inheriting)).status).toBe(200);
     expect((await setInitiativeEngine(initiative, removed)).status).toBe(200);
-    const removal = { engineId: removed.engineId, replacement: FIRST_CLAUDE_CODE_ENGINE };
-    const to = movedEngineModel(removed, removal);
+    const removal = { engineId: removed, replacement: FIRST_CLAUDE_CODE_ENGINE };
+    // An override names no model, so each side shows on its engine's default model.
+    const from = { engineId: removed, model: FIRST_CLAUDE_CODE_ENGINE.defaultModel };
+    const to = {
+      engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+      model: FIRST_CLAUDE_CODE_ENGINE.defaultModel,
+    };
     const moves = work.app.get(WorkEngineLevelMoves);
 
     expect(await moves.movesOf(removal)).toEqual([
@@ -459,7 +493,7 @@ describe("removing an engine", () => {
         roleKey: null,
         project: { id: done.projectId, name: `The ${done.projectId}` },
         work: { kind: "task", id: done.id, name: done.title, state: "done" },
-        from: removed,
+        from,
         to,
       },
       {
@@ -471,7 +505,7 @@ describe("removing an engine", () => {
           name: initiative.name,
           state: initiative.state,
         },
-        from: removed,
+        from,
         to,
       },
     ]);
@@ -479,14 +513,14 @@ describe("removing an engine", () => {
     work.published.length = 0;
     await moves.move(removal);
 
-    expect((await readTask(done)).engine).toEqual(to);
-    expect((await readInitiative(initiative)).engine).toEqual(to);
-    expect((await readTask(inheriting)).initiativeEngine).toEqual(to);
+    expect((await readTask(done)).engineOverride).toBe(to.engineId);
+    expect((await readInitiative(initiative)).engineOverride).toBe(to.engineId);
+    expect((await readTask(inheriting)).initiativeEngineOverride).toBe(to.engineId);
     expect(webEventsOf(work)).toEqual(
       expect.arrayContaining([
-        { type: "task.engine-set", taskId: done.id },
-        { type: "initiative.engine-set", initiativeId: initiative.id },
-        { type: "task.engine-set", taskId: inheriting.id },
+        { type: "task.engine-override-set", taskId: done.id },
+        { type: "initiative.engine-override-set", initiativeId: initiative.id },
+        { type: "task.engine-override-set", taskId: inheriting.id },
       ]),
     );
     expect(await moves.movesOf(removal)).toEqual([]);
@@ -497,10 +531,8 @@ describe("removing an engine", () => {
     const task = await createTask();
     expect((await setTaskEngine(task, removed)).status).toBe(200);
 
-    await work.app
-      .get(WorkEngineLevelMoves)
-      .move({ engineId: removed.engineId, replacement: null });
+    await work.app.get(WorkEngineLevelMoves).move({ engineId: removed, replacement: null });
 
-    expect((await readTask(task)).engine).toBeNull();
+    expect((await readTask(task)).engineOverride).toBeNull();
   });
 });

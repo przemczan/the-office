@@ -10,8 +10,8 @@ import { InitiativeRepository } from "../../ports/initiative-repository.js";
 import { TaskRepository } from "../../ports/task-repository.js";
 
 /**
- * Gives People's engine cascade the engines a Task and an Initiative set (spec 5.4.5): for a Task,
- * its own and its Initiative's; for an Initiative, its own; none for one there is none of. Read
+ * Gives People's engine cascade the engine overrides a Task and an Initiative set (spec 5.4.5): for
+ * a Task, its own and its Initiative's; for an Initiative, its own; none for one there is none of. Read
  * straight from Work's tables, in `WorkEngineLevelsModule`, as Work reaches the cascade itself.
  */
 @Injectable()
@@ -26,13 +26,19 @@ export class WorkEngineLevels extends KnownWorkLevels {
   async engineLevelsOf(of: WorkLevelsOf): Promise<WorkCascadeLevels> {
     if ("initiativeId" in of) {
       const initiative = await this.initiatives.find(of.initiativeId);
-      return { taskEngine: null, initiativeEngine: initiative?.engine ?? null };
+      return {
+        taskEngineOverride: null,
+        initiativeEngineOverride: initiative?.engineOverride ?? null,
+      };
     }
     const task = await this.tasks.find(of.taskId);
-    if (!task) return { taskEngine: null, initiativeEngine: null };
+    if (!task) return { taskEngineOverride: null, initiativeEngineOverride: null };
     const initiative =
       task.initiativeId === undefined ? undefined : await this.initiatives.find(task.initiativeId);
-    return { taskEngine: task.engine, initiativeEngine: initiative?.engine ?? null };
+    return {
+      taskEngineOverride: task.engineOverride,
+      initiativeEngineOverride: initiative?.engineOverride ?? null,
+    };
   }
 
   async openTasksOnWorkLevels(): Promise<readonly TaskOnWorkLevels[]> {

@@ -1,4 +1,4 @@
-import type { EngineModel } from "../../engine/index.js";
+import type { EngineId } from "../../engine/index.js";
 import type { ArchivedBy, Author } from "./author.js";
 import type { BranchDeletionRecord } from "./branch-deletion.js";
 
@@ -76,10 +76,10 @@ export interface Initiative {
    */
   readonly branches: readonly InitiativeBranch[];
   /**
-   * The Initiative's engine and model (spec 5.4.5): its Threads, and every Task in it that sets none,
-   * run on it in the Project default's place; null for none.
+   * The Initiative's engine override (spec 5.4.5): its Threads, and every Task in it with no
+   * override of its own, run on this engine, with no Stand-in Engines; null for none.
    */
-  readonly engine: EngineModel | null;
+  readonly engineOverride: EngineId | null;
 }
 
 /** The Initiative's branch in one Project, `initiative/<short name>` (initiativeBranchOf). */

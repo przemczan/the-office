@@ -196,10 +196,10 @@ export function worksWithLines({ engineSettings }: Pick<RoleCard, "engineSetting
 
 /** Where the engine a Role runs on comes from, in the glossary's terms. */
 export const ENGINE_CASCADE_LEVEL_WORDS: Readonly<Record<EngineCascadeLevel, string>> = {
-  "office-default": "the Office default",
-  "project-default": "the Project default",
-  "initiative-engine": "the Initiative's engine",
-  "task-engine": "the Task's engine",
+  office: "the Office default",
+  project: "the Project default",
+  initiative: "the Initiative's engine override",
+  task: "the Task's engine override",
 };
 
 /** Where a model or effort comes from, "from Pam's Role card", for the person named. */

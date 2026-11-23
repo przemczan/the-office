@@ -50,8 +50,8 @@ export {
 } from "./application/engine-reference-moves.js";
 export { EngineReferenceLock } from "./application/engine-reference-lock.js";
 export {
-  movedEngineModel,
-  movedEngineReference,
+  movedEngineId,
+  movedEngineOverride,
   movedStandInList,
   type EngineRemoval,
   type MovedEngineReference,

@@ -15,7 +15,7 @@ export interface NewlyNamedStageRoles extends StageRolesNamed {
   readonly projectId: string | undefined;
   /**
    * For a Task's own Stages: the Task, and whom its Agent Stages name before the save and after,
-   * weighed at the Task's engine, or its Initiative's, while either sets one.
+   * weighed at the Task's engine override, or its Initiative's, while either sets one.
    */
   readonly task?: {
     readonly taskId: string;

@@ -26,8 +26,8 @@ import { KnownWorkLevels } from "../ports/known-work-levels.js";
 import { RoleCards } from "./role-cards.js";
 
 /**
- * Where a session runs: in a Project or in none, and about a Task (whose Initiative's engine comes
- * with it) or an Initiative, or neither. A Task's id wins over an Initiative's.
+ * Where a session runs: in a Project or in none, and about a Task (whose Initiative's engine override
+ * comes with it) or an Initiative, or neither. A Task's id wins over an Initiative's.
  */
 export interface EngineCascadeLocation {
   readonly projectId?: string;

@@ -15,7 +15,7 @@ import type {
   UsageEstimate as UsageEstimateResponse,
   UsageSettings as UsageSettingsResponse,
 } from "@the-office/contracts";
-import type { EngineModel } from "../../../engine/index.js";
+import type { EngineId } from "../../../engine/index.js";
 import type { SearchResults } from "../../application/search-service.js";
 import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
 import type { Author } from "../../domain/author.js";
@@ -76,12 +76,8 @@ export function toInitiativeResponse(
     })),
     shortName: initiative.shortName ?? null,
     branches: initiativeBranchesOf(initiative),
-    engine: toEngineModelResponse(initiative.engine),
+    engineOverride: initiative.engineOverride,
   };
-}
-
-function toEngineModelResponse(engine: EngineModel | null): TaskResponse["engine"] {
-  return engine && { engineId: engine.engineId, model: engine.model };
 }
 
 /** Each Project's Initiative's branch, named by the Short name it was made under. */
@@ -117,12 +113,15 @@ export function toArchivedInitiativesPageResponse(
 }
 
 /**
- * With its Initiative's engine, which it runs on while it sets none (`TaskResponses` reads it):
- * null for none or no Initiative.
+ * With its Initiative's engine override, which applies while it has none (`TaskResponses` reads
+ * it): null for none or no Initiative.
  */
-export function toTaskResponse(task: Task, initiativeEngine: EngineModel | null): TaskResponse {
+export function toTaskResponse(
+  task: Task,
+  initiativeEngineOverride: EngineId | null,
+): TaskResponse {
   return {
-    ...toTaskSummaryResponse(task, initiativeEngine),
+    ...toTaskSummaryResponse(task, initiativeEngineOverride),
     description: task.description,
     plan: task.plan,
     definitionOfDone: [...task.definitionOfDone],
@@ -135,7 +134,7 @@ export function toTaskResponse(task: Task, initiativeEngine: EngineModel | null)
 /** What the board and the lists read of a Task, without its long texts, as `toTaskResponse`. */
 export function toTaskSummaryResponse(
   task: TaskSummary,
-  initiativeEngine: EngineModel | null,
+  initiativeEngineOverride: EngineId | null,
 ): TaskSummaryResponse {
   return {
     id: task.id,
@@ -178,8 +177,8 @@ export function toTaskSummaryResponse(
     foundInVersion: task.foundInVersion ?? null,
     foundWhileWorkingOn: task.foundWhileWorkingOn ?? null,
     dropReason: task.dropReason ? { ...task.dropReason } : null,
-    engine: toEngineModelResponse(task.engine),
-    initiativeEngine: toEngineModelResponse(initiativeEngine),
+    engineOverride: task.engineOverride,
+    initiativeEngineOverride,
   };
 }
 

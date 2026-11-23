@@ -102,7 +102,7 @@ let rolesNamed: PipelineRolesNamed;
 /** Who holds each duty: the Developer Implements; a test sets others. */
 let dutyHolders: Map<DutyKey, string>;
 let dutyChangeChecks: DutyChangeChecks;
-/** Tasks' and Initiatives' engines: none set until a test sets them. */
+/** Tasks' and Initiatives' engine overrides: none set until a test sets them. */
 let workLevels: WorkLevelsForTests;
 /** Whom each Task's Agent Stages name, as Pipelines would tell it: none until a test sets them. */
 let namedByTasks: Map<string, RolesAndDuties>;
@@ -428,10 +428,10 @@ describe("PipelineRoleCapabilityChecks on Stages naming a duty", () => {
   });
 });
 
-describe("PipelineRoleCapabilityChecks on a change of Tasks' engines", () => {
-  const noEngine = { taskEngine: null, initiativeEngine: null };
+describe("PipelineRoleCapabilityChecks on a change of Tasks' engine overrides", () => {
+  const noEngine = { taskEngineOverride: null, initiativeEngineOverride: null };
 
-  it("refuses a Task's engine that puts a Role its Stages name on an incapable engine, naming the Role", async () => {
+  it("refuses a Task's engine override that puts a Role its Stages name on an incapable engine, naming the Role", async () => {
     await expect(
       checks.workLevelsChangeProblems({
         place: "On “Fix the login”",
@@ -441,7 +441,7 @@ describe("PipelineRoleCapabilityChecks on a change of Tasks' engines", () => {
             roleKeys: ["reviewer"],
             dutyKeys: [],
             before: noEngine,
-            after: { taskEngine: local, initiativeEngine: null },
+            after: { taskEngineOverride: "local", initiativeEngineOverride: null },
           },
         ],
       }),
@@ -460,7 +460,7 @@ describe("PipelineRoleCapabilityChecks on a change of Tasks' engines", () => {
             roleKeys: ["reviewer"],
             dutyKeys: [],
             before: noEngine,
-            after: { taskEngine: local, initiativeEngine: null },
+            after: { taskEngineOverride: "local", initiativeEngineOverride: null },
           },
         ],
       }),
@@ -473,7 +473,7 @@ describe("PipelineRoleCapabilityChecks on a change of Tasks' engines", () => {
       projectId: "billing",
       roleKeys: [],
       before: noEngine,
-      after: { taskEngine: null, initiativeEngine: local },
+      after: { taskEngineOverride: null, initiativeEngineOverride: "local" },
     };
 
     await expect(
@@ -490,7 +490,7 @@ describe("PipelineRoleCapabilityChecks on a change of Tasks' engines", () => {
   });
 
   it("weighs a Pipeline chosen at the Task's engine by whom it newly names", async () => {
-    const onLocal = { taskEngine: local, initiativeEngine: null };
+    const onLocal = { taskEngineOverride: "local", initiativeEngineOverride: null };
 
     await expect(
       checks.workLevelsChangeProblems({
@@ -511,7 +511,7 @@ describe("PipelineRoleCapabilityChecks on a change of Tasks' engines", () => {
     ]);
   });
 
-  it("lets a Task's own engine win over an incapable Initiative's", async () => {
+  it("lets a Task's own override win over an incapable Initiative's", async () => {
     await expect(
       checks.workLevelsChangeProblems({
         place: "In Payments",
@@ -520,8 +520,8 @@ describe("PipelineRoleCapabilityChecks on a change of Tasks' engines", () => {
             projectId: "billing",
             roleKeys: ["reviewer"],
             dutyKeys: [],
-            before: { taskEngine: officeDefault, initiativeEngine: null },
-            after: { taskEngine: officeDefault, initiativeEngine: local },
+            before: { taskEngineOverride: "claude-code", initiativeEngineOverride: null },
+            after: { taskEngineOverride: "claude-code", initiativeEngineOverride: "local" },
           },
         ],
       }),
@@ -538,10 +538,10 @@ function save(after: readonly string[], before: readonly string[] = []) {
   };
 }
 
-describe("PipelineRoleCapabilityChecks on a Task's own Stages while it sets an engine", () => {
-  it("weighs the Roles the Stages newly name at the Task's engine", async () => {
+describe("PipelineRoleCapabilityChecks on a Task's own Stages while it has an engine override", () => {
+  it("weighs the Roles the Stages newly name at the Task's override", async () => {
     workLevels.setOpenTask("the-task", "billing", "Fix the login");
-    workLevels.setForTask("the-task", local);
+    workLevels.setForTask("the-task", "local");
 
     await expect(
       checks.newlyNamedRolesProblems({
@@ -554,8 +554,8 @@ describe("PipelineRoleCapabilityChecks on a Task's own Stages while it sets an e
     ]);
   });
 
-  it("weighs them at the Initiative's engine while the Task sets none", async () => {
-    workLevels.setForInitiative("payments", local);
+  it("weighs them at the Initiative's override while the Task has none", async () => {
+    workLevels.setForInitiative("payments", "local");
     workLevels.setInitiativeOf("the-task", "payments");
 
     await expect(
@@ -563,8 +563,8 @@ describe("PipelineRoleCapabilityChecks on a Task's own Stages while it sets an e
     ).resolves.toHaveLength(1);
   });
 
-  it("lets a capable Task engine through where the Project default is incapable", async () => {
-    workLevels.setForTask("the-task", officeDefault);
+  it("lets a capable Task override through where the Project default is incapable", async () => {
+    workLevels.setForTask("the-task", "claude-code");
 
     await expect(
       checks.newlyNamedRolesProblems({
@@ -575,7 +575,7 @@ describe("PipelineRoleCapabilityChecks on a Task's own Stages while it sets an e
     ).resolves.toEqual([]);
   });
 
-  it("weighs the Project's levels as before while neither sets an engine", async () => {
+  it("weighs the Project's levels as before while neither has an override", async () => {
     await expect(
       checks.newlyNamedRolesProblems({
         roleKeys: ["cto"],
@@ -596,19 +596,19 @@ describe("PipelineRoleCapabilityChecks on a Task's own Stages while it sets an e
 /** "Fix the login", open in `projectId` on Local models, whose Stages name the Developer. */
 function aTaskOnLocalIn(projectId: string, named: Partial<RolesAndDuties> = {}): void {
   workLevels.setOpenTask("the-task", projectId, "Fix the login");
-  workLevels.setForTask("the-task", local);
+  workLevels.setForTask("the-task", "local");
   namedByTasks.set("the-task", { roleKeys: ["developer"], dutyKeys: [], ...named });
 }
 
-describe("PipelineRoleCapabilityChecks on a save above a Task that sets an engine", () => {
+describe("PipelineRoleCapabilityChecks on a save above a Task with an engine override", () => {
   const TASK_CTO_ON_LOCAL =
     "On “Fix the login”, Local models can't use Office tools, which the Agent Stages of the Cto need.";
   const ADMIN_PANEL_CTO_ON_LOCAL =
     "Local models can't use Office tools, which the Agent Stages of the Cto need in Admin panel.";
 
-  it("weighs the Initiative's engine while the Task sets none", async () => {
+  it("weighs the Initiative's override while the Task has none", async () => {
     workLevels.setOpenTask("the-task", "billing", "Fix the login");
-    workLevels.setForInitiative("payments", local);
+    workLevels.setForInitiative("payments", "local");
     workLevels.setInitiativeOf("the-task", "payments");
     namedByTasks.set("the-task", { roleKeys: [], dutyKeys: ["implements"] });
     dutyNamedByTheLibrary("implements");
@@ -633,6 +633,21 @@ describe("PipelineRoleCapabilityChecks on a save above a Task that sets an engin
     await expect(
       checks.newlyNamedRolesProblems({ roleKeys: ["cto"], projectId: undefined }),
     ).resolves.toEqual([ADMIN_PANEL_CTO_ON_LOCAL, TASK_CTO_ON_LOCAL]);
+  });
+
+  it("skips the Task for an Office default, which doesn't reach it", async () => {
+    aTaskOnLocalIn("billing", { roleKeys: ["reviewer"] });
+    workLevels.setForTask("the-task", "claude-code");
+
+    await expect(
+      engineSettingsChecks.problemsOf({
+        before: { engines, officeDefault, standInEngines: [] },
+        after: { engines, officeDefault: local, standInEngines: [] },
+      }),
+    ).resolves.toEqual([
+      "Local models can't use Office tools, which the Agent Stages of the Developer and the Reviewer need outside any Project.",
+      "Local models can't use Office tools, which the Agent Stages of the Developer and the Reviewer need in Billing.",
+    ]);
   });
 
   it("lets through a save that leaves the Task's sessions where they are", async () => {
@@ -824,8 +839,8 @@ describe("PipelineRoleCapabilityChecks on Stand-in Engine lists", () => {
             roleKeys: ["reviewer", "cto"],
             dutyKeys: [],
             namedBefore: { roleKeys: ["reviewer"], dutyKeys: [] },
-            before: { taskEngine: null, initiativeEngine: null },
-            after: { taskEngine: null, initiativeEngine: null },
+            before: { taskEngineOverride: null, initiativeEngineOverride: null },
+            after: { taskEngineOverride: null, initiativeEngineOverride: null },
           },
         ],
       }),
@@ -834,9 +849,9 @@ describe("PipelineRoleCapabilityChecks on Stand-in Engine lists", () => {
     ]);
   });
 
-  it("weighs a list once in a Task's Project, never again on a Task setting an engine", async () => {
+  it("weighs a list in a Task's Project, never on a Task with an engine override", async () => {
     aTaskOnLocalIn("billing", { roleKeys: ["reviewer"] });
-    workLevels.setForTask("the-task", officeDefault);
+    workLevels.setForTask("the-task", "claude-code");
 
     await expect(
       engineSettingsChecks.problemsOf({
@@ -844,5 +859,59 @@ describe("PipelineRoleCapabilityChecks on Stand-in Engine lists", () => {
         after: withOfficeList(["local"]),
       }),
     ).resolves.toEqual([OUTSIDE_STAND_IN, BILLING_STAND_IN]);
+  });
+
+  it("skips a Task with an override for a save of its Project's own list", async () => {
+    aTaskOnLocalIn("admin-panel", { roleKeys: ["reviewer"] });
+    workLevels.setForTask("the-task", "claude-code");
+
+    await expect(check(aSave({}, ownList(["local"])))).resolves.toEqual([ADMIN_PANEL_STAND_IN]);
+  });
+
+  it("weighs a Task given an override at its override alone, no list in its reach", async () => {
+    officeStandIns = ["local"];
+    const move = { projectId: "billing", roleKeys: ["reviewer"], dutyKeys: [] };
+
+    await expect(
+      checks.workLevelsChangeProblems({
+        place: "On “Fix the login”",
+        tasks: [
+          {
+            ...move,
+            before: { taskEngineOverride: "claude-code", initiativeEngineOverride: null },
+            after: { taskEngineOverride: "codex", initiativeEngineOverride: null },
+          },
+        ],
+      }),
+    ).resolves.toEqual([]);
+    // Its override cleared, the Office's list is in its reach again.
+    await expect(
+      checks.workLevelsChangeProblems({
+        place: "On “Fix the login”",
+        tasks: [
+          {
+            ...move,
+            before: { taskEngineOverride: "claude-code", initiativeEngineOverride: null },
+            after: { taskEngineOverride: null, initiativeEngineOverride: null },
+          },
+        ],
+      }),
+    ).resolves.toEqual([
+      "On “Fix the login”, Local models can't stand in: it can't use Office tools, which the Agent Stages of the Reviewer need.",
+    ]);
+  });
+
+  it("weighs a Task's own Stages under an override at the override alone, no list", async () => {
+    officeStandIns = ["local"];
+    workLevels.setOpenTask("the-task", "billing", "Fix the login");
+    workLevels.setForTask("the-task", "claude-code");
+
+    await expect(
+      checks.newlyNamedRolesProblems({
+        roleKeys: [],
+        projectId: "billing",
+        task: save(["developer", "cto"], ["developer"]),
+      }),
+    ).resolves.toEqual([]);
   });
 });

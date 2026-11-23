@@ -4,6 +4,7 @@ import {
   movedProjectLevels,
   roleEngineCascade,
   workInCascade,
+  NO_STAND_INS,
   NO_WORK_LEVELS,
   type EngineInCascade,
   type EngineInPlace,
@@ -14,8 +15,8 @@ import {
 
 const officeDefault = { engineId: "claude-code", model: "claude-sonnet-5-5" };
 const projectDefault = { engineType: "claude-code", engineId: "second-account" } as const;
-const taskEngine = { engineId: "codex", model: "gpt-6" };
-const initiativeEngine = { engineId: "gemini", model: "gemini-4-pro" };
+const taskEngineOverride = "codex";
+const initiativeEngineOverride = "gemini";
 
 const NO_OWN_LIST = { useOwnList: false, engineIds: [] } as const;
 const officeStandIns = ["claude-code-2", "codex"];
@@ -35,7 +36,7 @@ describe("the engine cascade", () => {
   it("runs on the Office default when no other level is set", () => {
     const onOfficeDefault = {
       engineId: "claude-code",
-      level: "office-default",
+      level: "office",
       standIns: fromOffice,
     };
 
@@ -52,7 +53,7 @@ describe("the engine cascade", () => {
         officeStandIns,
         project: aProject({ default: projectDefault }),
       }),
-    ).toEqual({ engineId: "second-account", level: "project-default", standIns: fromOffice });
+    ).toEqual({ engineId: "second-account", level: "project", standIns: fromOffice });
   });
 
   it("puts everyone in the place on the same engine, whatever the Project sets for a person", () => {
@@ -66,12 +67,12 @@ describe("the engine cascade", () => {
 
     expect(engineInCascade({ officeDefault, officeStandIns, project })).toEqual({
       engineId: "second-account",
-      level: "project-default",
+      level: "project",
       standIns: fromOffice,
     });
   });
 
-  it("takes the Task's engine over the Initiative's, and the Initiative's over the Project default", () => {
+  it("takes the Task's engine override over the Initiative's, and the Initiative's over the Project default", () => {
     const project = aProject({ default: projectDefault });
 
     expect(
@@ -79,22 +80,43 @@ describe("the engine cascade", () => {
         officeDefault,
         officeStandIns,
         project,
-        work: { taskEngine, initiativeEngine },
+        work: { taskEngineOverride, initiativeEngineOverride },
       }),
-    ).toMatchObject({ engineId: "codex", level: "task-engine" });
+    ).toMatchObject({ engineId: "codex", level: "task" });
     expect(
       engineInCascade({
         officeDefault,
         officeStandIns,
         project,
-        work: { taskEngine: null, initiativeEngine },
+        work: { taskEngineOverride: null, initiativeEngineOverride },
       }),
-    ).toMatchObject({ engineId: "gemini", level: "initiative-engine" });
+    ).toMatchObject({ engineId: "gemini", level: "initiative" });
     expect(
       engineInCascade({ officeDefault, officeStandIns, project, work: NO_WORK_LEVELS }),
     ).toMatchObject({
-      level: "project-default",
+      level: "project",
     });
+  });
+
+  it("gives no Stand-in Engine list under an engine override, a Task's or its Initiative's", () => {
+    const project = aProject({ standIns: { useOwnList: true, engineIds: ["gemini"] } });
+    const none = { from: "none", engineIds: [] };
+
+    expect(
+      engineInCascade({
+        officeDefault,
+        officeStandIns,
+        project,
+        work: { taskEngineOverride, initiativeEngineOverride: null },
+      })?.standIns,
+    ).toEqual(none);
+    expect(
+      engineInCascade({
+        officeDefault,
+        officeStandIns,
+        work: { taskEngineOverride: null, initiativeEngineOverride },
+      })?.standIns,
+    ).toEqual(none);
   });
 
   it("gives the Project's own Stand-in Engine list while it uses it", () => {
@@ -179,7 +201,7 @@ describe("the model and effort cascade", () => {
   };
   const onOfficeDefault: EngineInPlace = {
     engineId: "claude-code",
-    level: "office-default",
+    level: "office",
     standIns: fromOffice,
   };
   const onClaudeCode = { ...projectDefault, engineId: "claude-code" };
@@ -197,7 +219,7 @@ describe("the model and effort cascade", () => {
   it("works with the engine's default model and effort when no level sets them", () => {
     expect(working()).toEqual({
       engineId: "claude-code",
-      level: "office-default",
+      level: "office",
       standIns: fromOffice,
       engineType: "claude-code",
       model: "claude-sonnet-5-5",
@@ -234,10 +256,46 @@ describe("the model and effort cascade", () => {
   it("names no model at an engine override: the person's setting for its type applies", () => {
     expect(
       working({
-        inPlace: { engineId: "claude-code", level: "task-engine", standIns: fromOffice },
+        inPlace: { engineId: "claude-code", level: "task", standIns: NO_STAND_INS },
         person: { "claude-code": { model: "claude-opus-5-5", effort: null } },
       }),
-    ).toMatchObject({ level: "task-engine", model: "claude-opus-5-5", modelLevel: "person" });
+    ).toMatchObject({
+      level: "task",
+      model: "claude-opus-5-5",
+      modelLevel: "person",
+      standIns: NO_STAND_INS,
+    });
+  });
+
+  it("forces nothing at an override of another type than the Project default's", () => {
+    expect(
+      working({
+        inPlace: { engineId: "claude-code", level: "task", standIns: NO_STAND_INS },
+        person: { "claude-code": { model: "claude-opus-5-5", effort: "max" } },
+        project: aProject({
+          default: { engineType: "codex", engineId: "codex" },
+          force: { model: "gpt-6", effort: "low" },
+        }),
+      }),
+    ).toMatchObject({
+      model: "claude-opus-5-5",
+      modelLevel: "person",
+      effort: "max",
+      effortLevel: "person",
+    });
+  });
+
+  it("forces at an override of the Project default's engine type", () => {
+    expect(
+      working({
+        inPlace: { engineId: "claude-code", level: "initiative", standIns: NO_STAND_INS },
+        person: { "claude-code": { model: "claude-opus-5-5", effort: "max" } },
+        project: aProject({
+          default: onClaudeCode,
+          force: { model: "claude-haiku-5-5", effort: null },
+        }),
+      }),
+    ).toMatchObject({ model: "claude-haiku-5-5", modelLevel: "projectForce" });
   });
 
   it("takes the Project's setting for the person over the person's own, each field apart", () => {
@@ -386,7 +444,7 @@ describe("the model and effort cascade", () => {
 describe("roleEngineCascade", () => {
   const outside: EngineInCascade = {
     engineId: "claude-code",
-    level: "office-default",
+    level: "office",
     standIns: fromOffice,
     engineType: "claude-code",
     model: "claude-sonnet-5-5",

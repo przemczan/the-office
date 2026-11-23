@@ -3,7 +3,7 @@ import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { readEach } from "../../../platform/database/fan-out.js";
 import { PromptTemplates } from "../../prompt-templates/index.js";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
-import { EngineModels, EngineReferenceLock, type EngineModel } from "../../engine/index.js";
+import { EngineModels, EngineReferenceLock, type EngineId } from "../../engine/index.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { moveAttachment } from "../domain/attachment-changes.js";
 import type { Author } from "../domain/author.js";
@@ -74,7 +74,7 @@ import {
 import { isPublishingTask, newTaskProblems, type NewTask, type Task } from "../domain/task.js";
 import type { TaskChange } from "../domain/task-changes.js";
 import { createdWaitingFor } from "../domain/task-dependencies.js";
-import { TaskInitiativeEngineChanged, TaskStateChanged } from "../domain/task-events.js";
+import { TaskInitiativeEngineOverrideChanged, TaskStateChanged } from "../domain/task-events.js";
 import {
   changeInitiativeEngine,
   inheritedEngineMoves,
@@ -95,7 +95,7 @@ import { TaskRepository } from "../ports/task-repository.js";
 import { WorkSearch } from "../ports/work-search.js";
 import { publishDependencyChanges } from "./dependency-events.js";
 import { InitiativeBranching } from "./initiative-branching.js";
-import { engineModelProblems } from "./engine-model-choice.js";
+import { engineOverrideProblems } from "./engine-override-choice.js";
 import { pipelineChoiceIn } from "./pipeline-choice.js";
 import { pipelineChoiceProblems, TaskEngineChecks } from "./task-engine-checks.js";
 import { TaskStageEdits } from "./task-stage-edits.js";
@@ -334,7 +334,7 @@ export class InitiativeService implements OnModuleInit {
     );
     const pipelineNames = await this.pipelineNamesOf(initiative);
     const engineNames = new Map(
-      initiative.engine === null
+      initiative.engineOverride === null
         ? []
         : (await this.engineModels.engines()).map(
             ({ id: engineId, name }) => [engineId, name] as const,
@@ -535,30 +535,33 @@ export class InitiativeService implements OnModuleInit {
   }
 
   /**
-   * The Initiative's engine and model (spec 5.4.5), null for none, while it is shaping or active:
-   * its Threads and each of its Tasks that sets none run on it. Refused for an engine Settings ›
-   * Engines doesn't list or a model it doesn't offer, and with the capability check's reasons for
-   * its open Tasks that would run on it; each of its Tasks' pages refresh. Held under Engine's
+   * The Initiative's engine override (spec 5.4.5), null for none, while it is shaping or active:
+   * its Threads and each of its Tasks with no override of its own run on it. Refused for an engine
+   * Settings › Engines doesn't list, and with the capability check's reasons for its open Tasks
+   * that would run on it; each of its Tasks' pages refresh. Held under Engine's
    * `EngineReferenceLock` from reading the engines through the save, so a removal can't come in
    * between; the events are published after.
    */
-  async setEngine(id: string, engine: EngineModel | null): Promise<Initiative> {
+  async setEngine(id: string, engineId: EngineId | null): Promise<Initiative> {
     const { initiative, event } = await this.engineReferences.holding(async () => {
       const stored = await this.read(id);
-      if (!changeInitiativeEngine(stored, engine)) return { initiative: stored, event: undefined };
-      const unlisted = await engineModelProblems(this.engineModels, engine);
+      if (!changeInitiativeEngine(stored, engineId))
+        return { initiative: stored, event: undefined };
+      const unlisted = await engineOverrideProblems(this.engineModels, engineId);
       if (unlisted.length > 0) throw new InitiativeRefused(unlisted);
       const problems = await this.engineChecks.problemsOf({
         place: inInitiative(stored),
-        moves: inheritedEngineMoves(await this.tasksOf(id), stored.engine, engine),
+        moves: inheritedEngineMoves(await this.tasksOf(id), stored.engineOverride, engineId),
       });
       if (problems.length > 0) throw new InitiativeRefused([...problems]);
-      return this.repository.update(id, (held) => changeInitiativeEngine(held, engine));
+      return this.repository.update(id, (held) => changeInitiativeEngine(held, engineId));
     });
     if (!event) return initiative;
     await this.events.publish(event);
     for (const task of await this.tasksOf(id)) {
-      await this.events.publish(new TaskInitiativeEngineChanged(task.id, initiative.engine));
+      await this.events.publish(
+        new TaskInitiativeEngineOverrideChanged(task.id, initiative.engineOverride),
+      );
     }
     return initiative;
   }
