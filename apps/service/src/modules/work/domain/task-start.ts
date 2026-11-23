@@ -15,6 +15,7 @@ import { FIRE_ALARM_ON } from "./fire-alarm.js";
 import { INITIATIVE_PAUSED } from "./initiative-pause.js";
 import { TaskRefused } from "./task-refused.js";
 import { initiativeBranchGoneRefusal } from "./task-branch-base.js";
+import { brokenPipelineWords } from "./pipeline-commands.js";
 import { STARTED_STATES, TASK_STATE_NAMES } from "./task-states.js";
 import { reasonsOf, type Wait } from "./wait.js";
 
@@ -78,11 +79,14 @@ export interface StartConditions {
   readonly scheduledExitWait: { readonly reason: string; readonly short: string } | undefined;
   /** Undefined when the Task starts from the base branch, or from its Initiative's branch there. */
   readonly initiativeBranch?: InitiativeBranchProblem;
-  /** The Task's Pipeline when it is a Broken Project Pipeline and its Stages weren't edited for it. */
+  /**
+   * The Task's Pipeline when it is a Project Pipeline Broken before The Office updated and its
+   * Stages weren't edited for it.
+   */
   readonly brokenPipeline?: BrokenPipelineAtStart;
 }
 
-/** A Broken Project Pipeline the Task would start on, with each reason it is Broken. */
+/** A Project Pipeline Broken before The Office updated the Task would start on, with each reason. */
 export interface BrokenPipelineAtStart {
   readonly name: string;
   readonly reasons: readonly string[];
@@ -247,10 +251,7 @@ function personRefusals(
 function brokenPipelineRefusals({ brokenPipeline, project }: StartConditions): string[] {
   if (!brokenPipeline) return [];
   const { name, reasons } = brokenPipeline;
-  const where = project ? `${project.name}'s Pipelines` : "its Project's Pipelines";
-  return [
-    `${name} is Broken: ${reasons.join(" ")} Fix it in ${where}, or choose another Pipeline for the Task.`,
-  ];
+  return [brokenPipelineWords(name, reasons, project?.name ?? "its Project")];
 }
 
 function initiativeBranchRefusals(task: Task, conditions: StartConditions): string[] {

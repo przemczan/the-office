@@ -5,7 +5,12 @@ import { aContinuation } from "../../domain/context-policy.fixtures.js";
 import { oneOptionAnswer, oneWordsAnswer } from "../../domain/decision.js";
 import { aDecision, THREE_QUESTIONS } from "../../domain/decision.fixtures.js";
 import { aThread } from "../../domain/thread.fixtures.js";
-import type { InitiativeEdit, Proposal, ProposedChange } from "../../domain/proposal.js";
+import type {
+  InitiativeEdit,
+  ProjectPipelineFields,
+  Proposal,
+  ProposedChange,
+} from "../../domain/proposal.js";
 import { ANN_LEE, BEN_ITO } from "../../domain/user.fixtures.js";
 import {
   toDecisionResponse,
@@ -79,6 +84,35 @@ describe("toProposalResponse", () => {
 
     expect(response.change).toEqual(change);
     expect(proposedChangeSchema.parse(response.change)).toEqual(change);
+  });
+
+  it("answers a Project Pipeline's Proposal drafted before Project Pipelines held their own flow by its name, with no Stages", () => {
+    // As the previous release kept it: a base Pipeline and Stage changes, no Stages.
+    const old = {
+      name: "With Linux check",
+      description: "Then Linux.",
+      basePipelineId: "full",
+      stageChanges: [{ kind: "remove", stageKey: "tests" }],
+    } as unknown as ProjectPipelineFields;
+
+    const response = toProposalResponse(
+      aProposalChanging({
+        kind: "project-pipeline",
+        projectId: "api",
+        pipelineId: "with-linux",
+        from: old,
+        to: { ...old, description: "Proposed." },
+      }),
+    );
+
+    expect(proposedChangeSchema.parse(response.change)).toEqual({
+      kind: "project-pipeline",
+      projectId: "api",
+      pipelineId: "with-linux",
+      from: { name: "With Linux check", description: "Then Linux.", stages: [] },
+      to: { name: "With Linux check", description: "Proposed.", stages: [] },
+      routes: null,
+    });
   });
 });
 

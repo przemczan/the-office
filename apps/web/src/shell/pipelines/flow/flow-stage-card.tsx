@@ -8,7 +8,6 @@ import type { FlowStageMark } from "./flow-marks.ts";
 import type { FlowPick } from "./flow-pick.ts";
 import {
   isPickedRoute,
-  markTone,
   NONE_HOLDS_WORDS,
   noneHoldsAsks,
   routeHasProblem,
@@ -41,8 +40,8 @@ export interface FlowStageCardProps {
 }
 
 /**
- * A mark's Badge, which styles itself inline on one line: a long label ("Changed: Project command")
- * wraps inside a narrow card instead of running out of it.
+ * A mark's Badge, which styles itself inline on one line: a long label wraps inside a narrow card
+ * instead of running out of it.
  */
 const WRAPPING_BADGE: CSSProperties = {
   maxWidth: "100%",
@@ -61,7 +60,6 @@ const WRAPPING_BADGE: CSSProperties = {
  */
 export function FlowStageCard(props: FlowStageCardProps): ReactNode {
   const { stage, cell, mark, dragging } = props;
-  const removed = mark?.tone === "removed";
   const style: CSSProperties = {
     gridColumn: cell.gridColumn,
     gridRow: cell.gridRow,
@@ -69,9 +67,8 @@ export function FlowStageCard(props: FlowStageCardProps): ReactNode {
   };
   return (
     <div
-      className={cardClass(props, removed)}
+      className={cardClass(props)}
       data-flow-stage={stage.key}
-      data-flow-removed={removed ? "" : undefined}
       style={style}
       onPointerDown={(event) => props.onStagePointer(event, stage.key)}
       onClick={(event) => {
@@ -85,14 +82,14 @@ export function FlowStageCard(props: FlowStageCardProps): ReactNode {
         <span className="flow-canvas-stage-tag">
           {props.lockedNote !== undefined && <FlowLock note={props.lockedNote} />}
           {mark && (
-            <Badge tone={markTone(mark)} size="sm" style={WRAPPING_BADGE}>
+            <Badge tone="neutral" size="sm" style={WRAPPING_BADGE}>
               {mark.label}
             </Badge>
           )}
         </span>
       )}
-      {props.listsRoutes && !removed && <RouteRows {...props} />}
-      {props.showsHandle && !removed && (
+      {props.listsRoutes && <RouteRows {...props} />}
+      {props.showsHandle && (
         <button
           type="button"
           className="flow-canvas-handle"
@@ -108,14 +105,14 @@ export function FlowStageCard(props: FlowStageCardProps): ReactNode {
   );
 }
 
-function cardClass(props: FlowStageCardProps, removed: boolean): string {
+function cardClass(props: FlowStageCardProps): string {
   const picked = props.picked?.kind === "stage" && props.picked.key === props.stage.key;
   return [
     "flow-canvas-stage",
     props.mark && `flow-canvas-stage--${props.mark.tone}`,
     picked && "flow-canvas-stage--picked",
     props.ownProblems.length > 0 && "flow-canvas-stage--problem",
-    props.draggable && !removed && "flow-canvas-stage--draggable",
+    props.draggable && "flow-canvas-stage--draggable",
     props.dragging && "flow-canvas-stage--dragging",
     props.target && "flow-canvas-stage--target",
   ]

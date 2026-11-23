@@ -746,7 +746,10 @@ describe("the Initiative's Pipeline and branches", () => {
     await addTask(initiative, owner);
     await addTask(initiative, other);
     const library = projectPipelinesForTests(work.app);
-    const projectPipeline = await library.aProjectPipeline(owner, await library.aBasePipeline());
+    const projectPipeline = await library.aProjectPipeline(
+      owner,
+      await library.anOfficeWidePipeline(),
+    );
 
     expect(await reasonsOf(await choose(initiative, other, projectPipeline.id))).toEqual([
       `${projectPipeline.name} is a Project Pipeline of The ${owner}: only The ${owner}'s Tasks can follow it.`,

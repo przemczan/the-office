@@ -1,5 +1,4 @@
 import type { ProposedRoutes, Route, Stage } from "@the-office/contracts";
-import { sameRoutes } from "../stage-change-edits.ts";
 import { routeTargetName, routeWhen, type RouteSource } from "./condition-words.ts";
 import type { FlowOverlay } from "./flow-marks.ts";
 
@@ -89,4 +88,17 @@ export function checkedSentence(stages: readonly Stage[]): string {
 
 function isAmong(route: Route, routes: readonly Route[]): boolean {
   return routes.some((each) => sameRoutes([each], [route]));
+}
+
+/** Two lists of routes alike, the names kept for their words alone left out. */
+function sameRoutes(one: readonly Route[], other: readonly Route[]): boolean {
+  return JSON.stringify(one, unnamedKeys) === JSON.stringify(other, unnamedKeys);
+}
+
+function unnamedKeys(key: string, value: unknown): unknown {
+  if (key === "toName" || key === "stageName") return undefined;
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return value;
+  return Object.fromEntries(
+    Object.entries(value).toSorted(([one], [other]) => one.localeCompare(other)),
+  );
 }

@@ -10,7 +10,7 @@ import { newProjectSchema, proposedProjectCommandsSchema } from "./projects.js";
 import { proposedTestTargetsSchema } from "./test-targets.js";
 import { pinnedVersionSchema } from "./skills.js";
 import { stageContextLimitsSchema } from "./stage-context-limits.js";
-import { routeSchema, stageChangeSchema, stageProblemSchema, stageSchema } from "./stages.js";
+import { routeSchema, stageProblemSchema, stageSchema } from "./stages.js";
 import { userRefSchema } from "./users.js";
 import { prioritySchema } from "./work.js";
 
@@ -600,14 +600,15 @@ export const PROPOSE_PROMPT_TEMPLATE_RESET_TOOL = "propose_prompt_template_reset
 const roleCardFieldsSchema = roleCardSchema.omit({ skills: true }).partial();
 
 /**
- * What a Proposal of a Project Pipeline gives it: its name, description, base Pipeline (an
- * office-wide one's id) and Stage changes, the whole ordered list.
+ * What a Proposal of a Project Pipeline gives it: its name, description and whole flow, and for a
+ * new one `copyOf`, the Pipeline it is copied from by id. A Proposal drafted before Project
+ * Pipelines held their own flow doesn't read, so applying it is refused.
  */
 export const projectPipelineFieldsSchema = z.object({
   name: z.string(),
   description: z.string(),
-  basePipelineId: z.string(),
-  stageChanges: z.array(stageChangeSchema),
+  stages: z.array(stageSchema),
+  copyOf: z.string().optional(),
 });
 export type ProjectPipelineFields = z.infer<typeof projectPipelineFieldsSchema>;
 
@@ -804,7 +805,7 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
     pipelineId: z.string().nullable(),
     from: projectPipelineFieldsSchema.nullable(),
     to: projectPipelineFieldsSchema,
-    /** The built Stages' routes; null for a Proposal drafted before Proposals carried routes. */
+    /** Its Stages' routes as they were and as proposed. */
     routes: proposedRoutesSchema.nullable(),
   }),
   /**

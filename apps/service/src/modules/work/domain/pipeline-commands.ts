@@ -1,7 +1,7 @@
 /**
  * A Pipeline's name and the Project commands, by key, its Stages run (spec §2.3), and whether one
- * of its Stages is a Gate: one without publishes without the user's review. A Project Pipeline's
- * are its built Stages', and it names its Project and why it is Broken.
+ * of its Stages is a Gate: one without publishes without the user's review. A Project Pipeline
+ * names its Project and why it was Broken before The Office updated.
  */
 export interface PipelineCommands {
   readonly name: string;
@@ -9,7 +9,7 @@ export interface PipelineCommands {
   readonly hasGate: boolean;
   /** The Project whose Project Pipeline it is; undefined for an office-wide one. */
   readonly projectId?: string;
-  /** Each reason it is Broken; empty when it isn't. */
+  /** Each reason it was Broken before The Office updated; empty when it wasn't. */
   readonly broken: readonly string[];
 }
 
@@ -32,10 +32,10 @@ export interface TaskPipelineProject {
 }
 
 /**
- * Why a Task of the Project can't follow the Pipeline (spec §2.3, "Project Pipelines" and "A
- * Broken Project Pipeline"), the first that applies: one neither the library nor the Project has,
- * another Project's Project Pipeline, a Broken one, or one whose built Stages run a command the
- * Project lacks. Empty when it can.
+ * Why a Task of the Project can't follow the Pipeline (spec §2.3.5, "Project Pipelines" and "The
+ * move to routes back and Publish Stages"), the first that applies: one neither the library nor the
+ * Project has, another Project's Project Pipeline, one Broken before The Office updated and not
+ * saved since, or one whose Stages run a command the Project lacks. Empty when it can.
  */
 export function taskPipelineProblems(
   { pipelineId, pipeline, ownerName, choices }: TaskPipelineChoice,
@@ -58,13 +58,16 @@ export function taskPipelineProblems(
   return missing.length > 0 ? [missingCommandsWords(pipeline.name, missing, project.name)] : [];
 }
 
-/** Why a Task can't choose a Broken Project Pipeline, with each reason and where it is fixed. */
+/**
+ * Why a Task can't choose a Project Pipeline Broken before The Office updated, with each reason and
+ * where the user saves it.
+ */
 export function brokenPipelineWords(
   pipelineName: string,
   reasons: readonly string[],
   projectName: string,
 ): string {
-  return `${pipelineName} is Broken: ${reasons.join(" ")} Fix its Stage changes in ${projectName}'s Pipelines, or choose another Pipeline.`;
+  return `${pipelineName} was Broken before The Office updated: ${reasons.join(" ")} Save it once in ${projectName}'s Pipelines, or choose another Pipeline.`;
 }
 
 /**

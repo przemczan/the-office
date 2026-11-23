@@ -316,7 +316,7 @@ describe("ProjectChecks.checkDefaultPipeline", () => {
         checksWith().checkDefaultPipeline(aProject({ defaultPipeline: "spec-change" })),
       ),
     ).toEqual([
-      "Spec change is Broken: Changes Produce, which Document no longer has. A Broken Pipeline can't be the default: fix its Stage changes in Admin panel's Pipelines first, or choose another default Pipeline.",
+      "Spec change was Broken before The Office updated: Changes Produce, which Document no longer has. Save it once in Admin panel's Pipelines, or choose another Pipeline.",
     ]);
   });
 

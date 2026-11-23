@@ -361,8 +361,8 @@ export function withStageOnRoute(
 }
 
 /**
- * The Stages without `key`, its routes carried along as a Project Pipeline's Remove does: each
- * route into it leads where its one route out led, so a straight line stays one. With several
+ * The Stages without `key`, its routes carried along: each route into it leads where its one route
+ * out led, so a straight line stays one. With several
  * routes out, or none, the routes into it go, and the check says where a route is now missing.
  * Every On failure going back to it is cleared.
  */

@@ -45,7 +45,7 @@ import { openPipelinePicker, pickPipeline } from "./pipeline-picker.ts";
 import {
   addedBasePipeline,
   addedProjectPipeline,
-  breakProjectPipelinesOf,
+  flaggedBrokenBeforeUpdate,
 } from "./project-pipelines.ts";
 import { createFromTopBar } from "./top-bar.ts";
 import { screenshotScenario } from "./task-screenshots.ts";
@@ -4214,7 +4214,7 @@ test(
 );
 
 test(
-  "a Project Pipeline is chosen for a Backlog Task, and a Broken one is listed but can't be, nor started on",
+  "a Project Pipeline is chosen for a Backlog Task, and one Broken before The Office updated is listed but can't be, nor started on",
   { tag: "@full" },
   async ({ page }) => {
     const project = await addedProject(page, "Linux checked", "LC");
@@ -4222,7 +4222,8 @@ test(
     const own = await addedProjectPipeline(page, project.id, base, "Checked on Linux");
     const otherBase = await addedBasePipeline(page, "Spec");
     const broken = await addedProjectPipeline(page, project.id, otherBase, "Spec change");
-    await breakProjectPipelinesOf(page, otherBase);
+    const why = `Inserts Verify on Linux after Tests, which ${otherBase.name} no longer has.`;
+    await flaggedBrokenBeforeUpdate(broken, [why]);
     const task = await createdTask(page, project, "Run the checks on Linux too");
     await page.goto(`/tasks/${task.id}`);
 
@@ -4236,11 +4237,11 @@ test(
     const ownGroup = pipelines.getByRole("group", { name: `${project.name}'s Pipelines` });
     await expect(
       ownGroup.getByRole("option", { name: own.name, exact: true }),
-    ).toHaveAccessibleDescription("Build → Tests → Verify on Linux · built from " + base.name);
+    ).toHaveAccessibleDescription("Build → Tests → Verify on Linux · copied from " + base.name);
     const brokenOption = ownGroup.getByRole("option", { name: broken.name, exact: true });
     await expect(brokenOption).toHaveAttribute("aria-disabled", "true");
     await expect(brokenOption).toContainText(
-      `Broken: Inserts Verify on Linux after Tests, which ${otherBase.name} no longer has. Fix it in ${project.name}'s Pipelines.`,
+      `Broken before The Office updated: ${why} Save it once in ${project.name}'s Pipelines to choose it.`,
     );
     await expect(pipelines.getByRole("group", { name: "Office-wide Pipelines" })).toBeVisible();
     // Forced, as Playwright waits for a disabled option to be enabled: clicking it chooses nothing.
@@ -4250,7 +4251,7 @@ test(
     await choosing.getByRole("button", { name: "Save for this Task" }).click();
     await expect(page.getByRole("region", { name: `Pipeline · ${own.name}` })).toBeVisible();
 
-    // Ready on it, then its base Pipeline's save breaks it: the rail flags it and Start refuses it.
+    // Ready on it, then flagged Broken before The Office updated: the rail says why and offers another.
     for (const [method, part, data] of [
       ["PUT", "plan", { plan: "Run the checks on Linux too." }],
       ["PUT", "definition-of-done", { definitionOfDone: ["The Linux run passes."] }],
@@ -4261,19 +4262,22 @@ test(
       const response = await page.request.fetch(`/api/tasks/${task.id}/${part}`, { method, data });
       expect(response.ok()).toBe(true);
     }
-    await breakProjectPipelinesOf(page, base);
+    const ownWhy = `Inserts Verify on Linux after Tests, which ${base.name} no longer has.`;
+    await flaggedBrokenBeforeUpdate(own, [ownWhy]);
     await page.reload();
 
-    const why = `Inserts Verify on Linux after Tests, which ${base.name} no longer has.`;
-    await expect(page.getByText(`${own.name} is Broken`, { exact: true })).toBeVisible();
     await expect(
-      page.getByText(
-        `${why} The Task can't start until it is fixed in ${project.name}'s Pipelines, or another Pipeline is chosen for it.`,
-      ),
+      page.getByText(`${own.name} was Broken before The Office updated`, { exact: true }),
     ).toBeVisible();
     await expect(
       page.getByText(
-        `${own.name} is Broken: ${why} Fix it in ${project.name}'s Pipelines, or choose another Pipeline for the Task.`,
+        `${ownWhy} The Task can't start until it is saved in ${project.name}'s Pipelines, or another Pipeline is chosen for it.`,
+      ),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Choose another Pipeline" })).toBeVisible();
+    await expect(
+      page.getByText(
+        `${own.name} was Broken before The Office updated: ${ownWhy} Save it once in ${project.name}'s Pipelines, or choose another Pipeline.`,
       ),
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "Start", exact: true })).toBeDisabled();

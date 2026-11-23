@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import {
-  officeWidePipelineSchema,
   pipelineCheckSchema,
   pipelineRemovalRefusalSchema,
   pipelineSchema,
@@ -213,7 +212,6 @@ describe("POST /api/pipelines/check", () => {
           text: "Stage 1 · Implement: nobody fills Devops; hire someone or choose who works it.",
         },
       ],
-      breaks: [],
     });
   });
 
@@ -231,7 +229,6 @@ describe("POST /api/pipelines/check", () => {
           text: "Stage 1 · Implement: the run permission can only be narrowed from the Role card's.",
         },
       ],
-      breaks: [],
     });
     expect((await added(edit)).stages).toEqual(straightLineFlow(edit.stages));
   });
@@ -257,7 +254,6 @@ describe("POST /api/pipelines/check", () => {
 
     expect(pipelineCheckSchema.parse(await response.json())).toEqual({
       problems: [],
-      breaks: [],
     });
   });
 });
@@ -348,68 +344,45 @@ describe("GET /api/pipelines/:id/use", () => {
       notStarted: 2,
       running: 1,
       initiatives: 0,
-      projectPipelines: [],
     });
   });
 });
 
-describe("an office-wide Pipeline and the Project Pipelines built from it", () => {
+describe("an office-wide Pipeline and the Project Pipelines copied from it", () => {
   const {
-    aBasePipeline,
+    anOfficeWidePipeline,
     aProject,
     makeDefault,
     added: addedProjectPipeline,
   } = projectPipelineRequests(send, () => pipelines.projects);
 
-  it("refuses a save after which a Project Pipeline would run a command its own Project lacks", async () => {
-    const base = await aBasePipeline();
+  it("saves a command a copy's Project lacks: the copy keeps its own Stages", async () => {
+    const source = await anOfficeWidePipeline();
     const projectId = aProject(["test"]);
-    const projectPipeline = await addedProjectPipeline(aNewProjectPipeline(projectId, base.id));
-    const project = makeDefault(projectId, projectPipeline.id);
-    makeDefault(aProject(["test", "lint"]), base.id);
+    const projectPipeline = await addedProjectPipeline(aNewProjectPipeline(projectId, source.id));
+    makeDefault(projectId, projectPipeline.id);
+    makeDefault(aProject(["test", "lint"]), source.id);
     const lint = scriptStage({ key: "tests", name: "Lint", command: "lint" });
 
-    const response = await send("PUT", `/pipelines/${base.id}`, {
-      name: base.name,
-      description: base.description,
-      // Drawn again as a straight line, as the list editor sends it.
-      stages: straightLineFlow([base.stages[0]!, lint]),
+    const response = await send("PUT", `/pipelines/${source.id}`, {
+      name: source.name,
+      description: source.description,
+      stages: straightLineFlow([source.stages[0]!, lint]),
     });
 
-    expect(response.status).toBe(422);
-    expect(stagesEditRefusalSchema.parse(await response.json()).reasons).toEqual([
-      `${project.name}'s ${projectPipeline.name}, built from it: Stage 2 · Lint: ${project.name} has no command lint (it is its default Pipeline)`,
-    ]);
+    expect(response.status).toBe(200);
   });
 
   it("refuses an office-wide name a Project Pipeline has, naming its Project", async () => {
-    const base = await aBasePipeline();
+    const source = await anOfficeWidePipeline();
     const projectId = aProject();
-    const projectPipeline = await addedProjectPipeline(aNewProjectPipeline(projectId, base.id));
+    const projectPipeline = await addedProjectPipeline(aNewProjectPipeline(projectId, source.id));
 
     const response = await send("POST", "/pipelines", anEdit({ name: projectPipeline.name }));
 
     expect(response.status).toBe(422);
     expect(stagesEditRefusalSchema.parse(await response.json()).reasons).toEqual([
       `Site ${projectId} has a Pipeline of its own named "${projectPipeline.name}".`,
-    ]);
-  });
-
-  it("counts the Project Pipelines built on it, and the Broken ones, by Project", async () => {
-    const base = await aBasePipeline();
-    const projectId = aProject();
-    await addedProjectPipeline(aNewProjectPipeline(projectId, base.id));
-    await addedProjectPipeline(aNewProjectPipeline(projectId, base.id, { stageChanges: [] }));
-    await send("PUT", `/pipelines/${base.id}`, {
-      name: base.name,
-      description: base.description,
-      stages: [agentStage()],
-    });
-
-    const read = await send("GET", `/pipelines/${base.id}`);
-
-    expect(officeWidePipelineSchema.parse(await read.json()).builtOnBy).toEqual([
-      { projectId, projectPipelines: 2, broken: 1 },
     ]);
   });
 });

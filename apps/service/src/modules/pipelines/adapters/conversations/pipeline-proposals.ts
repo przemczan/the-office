@@ -1,10 +1,13 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
-import { stageChangeSchema, stageSchema } from "@the-office/contracts";
+import {
+  projectPipelineFieldsSchema,
+  stageSchema,
+  type ProjectPipelineFields as ProjectPipelineFieldsRead,
+} from "@the-office/contracts";
 import {
   ProposalAppliers,
   ProposalRefused,
   type PipelineStage,
-  type ProjectPipelineFields,
   type ProposedPipelineChange,
   type ProposedProjectPipelineChange,
   type ProposedStageTemplateChange,
@@ -24,8 +27,7 @@ import {
 } from "../../domain/pipeline-library-refusals.js";
 
 const STAGES = stageSchema.array();
-
-const STAGE_CHANGES = stageChangeSchema.array();
+const FIELDS = projectPipelineFieldsSchema;
 
 /**
  * Proposals of a library Pipeline's new Stages, of a Stage template's new Stage and of a Project
@@ -57,10 +59,13 @@ export class PipelineProposals implements OnModuleInit {
       apply: (change) => this.applyStageTemplate(change),
     });
     this.appliers.register("project-pipeline", {
-      problemsWith: async (change) =>
-        (await this.editor.proposedProjectPipelineProblems(proposedOf(change))).map(
+      problemsWith: async (change) => {
+        const proposed = proposedOf(change);
+        if (!proposed) return [changedSinceProposed(change)];
+        return (await this.editor.proposedProjectPipelineProblems(proposed, copyOfIn(change))).map(
           ({ text }) => text,
-        ),
+        );
+      },
       apply: (change) => this.applyProjectPipeline(change),
     });
   }
@@ -69,8 +74,10 @@ export class PipelineProposals implements OnModuleInit {
   private async applyProjectPipeline(
     change: ProposedProjectPipelineChange,
   ): Promise<ProposedProjectPipelineChange> {
-    const { projectPipeline } = await refusedAsProposal(() =>
-      this.editor.saveProposedProjectPipeline(proposedOf(change)),
+    const proposed = proposedOf(change);
+    if (!proposed) throw new ProposalRefused([changedSinceProposed(change)]);
+    const projectPipeline = await refusedAsProposal(() =>
+      this.editor.saveProposedProjectPipeline(proposed, copyOfIn(change)),
     );
     return { ...change, pipelineId: projectPipeline.id };
   }
@@ -124,16 +131,32 @@ function stageOf(stage: PipelineStage): Stage {
   return stageSchema.parse(stage);
 }
 
-/** The Proposal as the editor judges it, its Stage changes read back. */
-function proposedOf({
-  projectId,
-  pipelineId,
-  from,
-  to,
-}: ProposedProjectPipelineChange): ProposedProjectPipeline {
-  return { projectId, pipelineId, from: from && editOf(from), to: editOf(to) };
+/**
+ * The Proposal as the editor judges it, its fields read back; undefined for one drafted before
+ * Project Pipelines held their own flow, whose base Pipeline and Stage changes don't read.
+ */
+function proposedOf(change: ProposedProjectPipelineChange): ProposedProjectPipeline | undefined {
+  const from = change.from && FIELDS.safeParse(change.from);
+  const to = FIELDS.safeParse(change.to);
+  if ((from && !from.success) || !to.success) return undefined;
+  return {
+    projectId: change.projectId,
+    pipelineId: change.pipelineId,
+    from: from ? editOf(from.data) : null,
+    to: editOf(to.data),
+  };
 }
 
-function editOf(fields: ProjectPipelineFields): ProjectPipelineEdit {
-  return { ...fields, stageChanges: STAGE_CHANGES.parse(fields.stageChanges) };
+function editOf({ name, description, stages }: ProjectPipelineFieldsRead): ProjectPipelineEdit {
+  return { name, description, stages };
+}
+
+/** Why a Proposal whose fields don't read can't be applied: what it proposed is no longer kept so. */
+function changedSinceProposed({ from, to }: ProposedProjectPipelineChange): string {
+  return `${from?.name ?? to.name} changed since this was proposed.`;
+}
+
+/** The Pipeline a new Project Pipeline's Proposal copies, by id. */
+function copyOfIn({ to }: ProposedProjectPipelineChange): string | undefined {
+  return to.copyOf;
 }

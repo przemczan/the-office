@@ -9,7 +9,6 @@ import type {
   Pipeline,
   PipelineCheck,
   Project,
-  ProjectPipelineBreak,
   RoleCardOptions,
   StageProblem,
 } from "@the-office/contracts";
@@ -39,26 +38,8 @@ const PROJECTS = [
   { id: "the-office", name: "the-office", mark: { label: "TO", colour: "violet" }, commands: [] },
 ] as unknown as Project[];
 
-const BREAK: ProjectPipelineBreak = {
-  projectPipelineId: "full-with-linux",
-  name: "Full with Linux check",
-  projectId: "the-office",
-  projectName: "the-office",
-  reasons: [
-    {
-      stageChangeIndex: 0,
-      stageIndex: null,
-      stageKey: "review",
-      text: "Inserts Verify on Linux after Review, which Full no longer has.",
-    },
-  ],
-};
-
-/**
- * Answers the check with `breaks` and `problems` and a save with the Pipeline, recording what was
- * sent.
- */
-function serving(breaks: readonly ProjectPipelineBreak[], problems: readonly StageProblem[] = []) {
+/** Answers the check with `problems` and a save with the Pipeline, recording what was sent. */
+function serving(problems: readonly StageProblem[] = []) {
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -70,7 +51,7 @@ function serving(breaks: readonly ProjectPipelineBreak[], problems: readonly Sta
   const fetched = vi.fn<typeof fetch>((input, init) => {
     const url = String(input);
     if (url.endsWith("/pipelines/check")) {
-      const check: PipelineCheck = { problems: [...problems], breaks: [...breaks] };
+      const check: PipelineCheck = { problems: [...problems] };
       return Promise.resolve(Response.json(check));
     }
     if (init?.method === "PUT")
@@ -142,37 +123,16 @@ function saves(fetched: ReturnType<typeof serving>): number {
   return fetched.mock.calls.filter(([, init]) => init?.method === "PUT").length;
 }
 
-describe("saving an office-wide Pipeline that Project Pipelines are built from", () => {
+describe("saving an office-wide Pipeline", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     document.body.replaceChildren();
   });
 
-  it("warns first, naming each one with its Project and why, and Save anyway saves", async () => {
-    const fetched = serving([BREAK]);
+  it("saves at once, with no window first", async () => {
+    const fetched = serving();
     const page = await rendered();
     await describeIt(page, "Implement, test and publish.");
-    expect(page.textContent).toContain("Saving breaks 1 Project Pipeline");
-    expect(page.textContent).toContain("the-office's Full with Linux check name Stages");
-
-    await press("Save the Pipeline");
-    expect(saves(fetched)).toBe(0);
-    const warning = document.querySelector('[role="dialog"]');
-    expect(warning?.textContent).toContain("Saving Full breaks 1 Project Pipeline");
-    expect(warning?.textContent).toContain("Full with Linux check");
-    expect(warning?.textContent).toContain("the-office");
-    expect(warning?.textContent).toContain(BREAK.reasons[0]?.text);
-    expect(warning?.textContent).toContain("Open it on the-office's page");
-
-    await press("Save anyway");
-    expect(saves(fetched)).toBe(1);
-  });
-
-  it("saves at once when it breaks nothing", async () => {
-    const fetched = serving([]);
-    const page = await rendered();
-    await describeIt(page, "Implement, test and publish.");
-    expect(page.textContent).not.toContain("Saving breaks");
     await press("Save the Pipeline");
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(saves(fetched)).toBe(1);
@@ -187,7 +147,7 @@ describe("an office-wide Pipeline in the flow editor", () => {
   });
 
   it("shows its Stages as a flow, and says once that it was converted", async () => {
-    serving([]);
+    serving();
     const page = await rendered();
     expect(page.textContent).toContain("Stages and routes");
     expect(page.textContent).toContain("2 Stages · 2 routes · 0 On failure loops");
@@ -206,7 +166,7 @@ describe("an office-wide Pipeline in the flow editor", () => {
       level: "problem",
       text: "Review has no route out: add one to a later Stage, or to End to make it a final Stage.",
     };
-    const fetched = serving([], [problem]);
+    const fetched = serving([problem]);
     const page = await rendered();
     await describeIt(page, "Implement, test and publish.");
     expect(page.textContent).toContain("1 problem holds Save");

@@ -7,8 +7,7 @@ import { useToast } from "../toasts.tsx";
 /**
  * Removing a Pipeline asks first, an office-wide one or a Project Pipeline alike; the service
  * refuses while something uses it (a Project's default, a Task that hasn't started on it, an
- * Initiative, the Project Pipelines built from it, or onboarding for Onboard), and the dialog shows
- * every reason.
+ * Initiative, or onboarding for Onboard), and the dialog shows every reason.
  */
 export function RemovePipelineDialog({
   name,

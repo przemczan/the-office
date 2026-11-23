@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { asFlow, isStraightLine, straightLineFlow, type FlowStage } from "./flow.js";
 import { plainRoute, type Route } from "./route.js";
-import {
-  buildStages,
-  emptyChangeIndexes,
-  type BaseStages,
-  type EditedStageChange,
-} from "./stage-change.js";
+import { buildStages, type BaseStages, type EditedStageChange } from "./stage-change.js";
 import { agentStage, dutyStage, gate, scriptStage } from "./stage.fixtures.js";
 
 const DOCUMENT_PRODUCE = agentStage({ key: "produce", name: "Produce", effort: "high" });
@@ -355,17 +350,5 @@ describe("buildStages, routes and places by Stage change", () => {
 
     expect(isStraightLine(asFlow(built.stages))).toBe(true);
     expect(built.broken).toEqual([]);
-  });
-});
-
-describe("emptyChangeIndexes", () => {
-  it("finds the Changes that give no field", () => {
-    expect(
-      emptyChangeIndexes([
-        { kind: "change", stageKey: "produce", fields: { brief: "Write." } },
-        { kind: "change", stageKey: "check", fields: {} },
-        { kind: "remove", stageKey: "check" },
-      ]),
-    ).toEqual([1]);
   });
 });

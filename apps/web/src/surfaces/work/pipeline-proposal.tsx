@@ -20,7 +20,7 @@ export const PIPELINE_PROPOSAL_ELEMENT_ID = "task-pipeline-proposal";
 /**
  * The Pipeline the Planner proposes, with why, at the rail's foot: the user takes it, keeps the one
  * the Task follows (when it has one) or chooses another its Project can follow; each ends the
- * proposal. A Broken one can't be taken.
+ * proposal. One that was Broken before The Office updated, not saved since, can't be taken.
  */
 export function PipelineProposal({
   task,
@@ -73,7 +73,7 @@ export function PipelineProposal({
         <Button
           size="sm"
           loading={choosing.isPending && choosing.variables === proposed.pipelineId}
-          // Until the choices are read, whether the proposed Pipeline is Broken isn't known.
+          // Until the choices are read, whether the proposed Pipeline can be taken isn't known.
           disabled={groups.length === 0 || brokenWhy !== undefined}
           title={brokenWhy}
           onClick={() => choosing.mutate(proposed.pipelineId)}

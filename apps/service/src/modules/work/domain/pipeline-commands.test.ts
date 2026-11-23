@@ -40,7 +40,7 @@ describe("taskPipelineProblems", () => {
     ]);
   });
 
-  it("refuses a Broken one with each reason and where it is fixed, before its commands", () => {
+  it("refuses one Broken before The Office updated with each reason and where it is saved, before its commands", () => {
     const broken = {
       ...OWN,
       keys: ["e2e"],
@@ -51,11 +51,11 @@ describe("taskPipelineProblems", () => {
     };
 
     expect(problemsOf(broken)).toEqual([
-      "Full for Admin panel is Broken: Changes Produce, which Document no longer has. Glossary check goes back to Produce on failure, which isn't among the Stages any more. Fix its Stage changes in Admin panel's Pipelines, or choose another Pipeline.",
+      "Full for Admin panel was Broken before The Office updated: Changes Produce, which Document no longer has. Glossary check goes back to Produce on failure, which isn't among the Stages any more. Save it once in Admin panel's Pipelines, or choose another Pipeline.",
     ]);
   });
 
-  it("refuses one whose built Stages run a command the Project lacks", () => {
+  it("refuses one whose Stages run a command the Project lacks", () => {
     expect(problemsOf({ ...OWN, keys: ["test", "e2e"] })).toEqual([
       "The Pipeline Full for Admin panel runs e2e, which Admin panel has no command for. Add it on the Project page, or choose another Pipeline.",
     ]);

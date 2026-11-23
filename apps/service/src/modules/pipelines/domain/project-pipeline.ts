@@ -1,60 +1,61 @@
-import { isDeepStrictEqual } from "node:util";
-import { pipelineProblem, type Pipeline, type StageProblem } from "./pipeline.js";
+import { asFlow, pipelineOrder } from "./flow.js";
+import { pipelineProblem, stageProblems, type Pipeline, type StageProblem } from "./pipeline.js";
 import { UnknownProjectPipeline } from "./pipeline-library-refusals.js";
 import { PipelineAdded, PipelineSaved } from "./pipeline-library-events.js";
 import { pipelineNameProblems, type TakenName } from "./pipeline-names.js";
 import { unnamedRoutes } from "./route.js";
-import {
-  buildStages,
-  emptyChangeIndexes,
-  type BrokenReason,
-  type BuiltStage,
-  type BuiltStages,
-  type EditedStageChange,
-  type StageChange,
-} from "./stage-change.js";
-import type { Stage } from "./stage.js";
+import { sameAsKept, type Stage } from "./stage.js";
+import { buildStages, type StageChange } from "./stage-change.js";
+
+/** The Pipeline a Project Pipeline was copied from, by name, and when; for its words alone. */
+export interface CopiedFrom {
+  readonly name: string;
+  /** Null for one the move made of a Project Pipeline built on a base Pipeline. */
+  readonly at: Date | null;
+}
 
 /**
- * A Pipeline of one Project (spec §2.3, "Project Pipelines"): an office-wide base Pipeline and the
- * Stage changes the Project makes to it, built whenever it is read.
+ * A Pipeline of one Project (spec §2.3.5, "Project Pipelines"): its own Stages, routes and places,
+ * made as a copy of another Pipeline.
  */
 export interface ProjectPipeline {
   readonly id: string;
   readonly projectId: string;
   readonly name: string;
   readonly description: string;
-  readonly basePipelineId: string;
-  readonly stageChanges: readonly StageChange[];
+  readonly stages: readonly Stage[];
+  readonly copiedFrom: CopiedFrom;
+  /**
+   * Why it was Broken when The Office moved it to a flow of its own, each Stage change that didn't
+   * apply then each rule its Stages broke; null when it wasn't, or once the user saved it.
+   */
+  readonly brokenBeforeUpdate: readonly string[] | null;
 }
 
 /** What the user writes of a Project Pipeline; its id and its Project stay. */
 export interface ProjectPipelineEdit {
   readonly name: string;
   readonly description: string;
-  readonly basePipelineId: string;
-  readonly stageChanges: readonly EditedStageChange[];
+  readonly stages: readonly Stage[];
+}
+
+/** A new Project Pipeline: a copy of a Pipeline (`copyOf`, by id) under its own name. */
+export interface NewProjectPipeline {
+  readonly copyOf: string;
+  readonly name: string;
+  readonly description: string;
 }
 
 /**
- * A Proposal of a Project Pipeline (spec §2.3): a new one of the Project (`pipelineId` null), or a
- * change to one, with its fields as they were when drafted (`from`) and as proposed (`to`).
+ * A Proposal of a Project Pipeline: a new one of the Project (`pipelineId` null), copied from
+ * `copyOf`, or a change to one, with its fields as they were when drafted (`from`) and as proposed
+ * (`to`).
  */
 export interface ProposedProjectPipeline {
   readonly projectId: string;
   readonly pipelineId: string | null;
   readonly from: ProjectPipelineEdit | null;
   readonly to: ProjectPipelineEdit;
-}
-
-/** A Project Pipeline built from its base Pipeline's current Stages. */
-export interface BuiltProjectPipeline {
-  readonly projectPipeline: ProjectPipeline;
-  readonly basePipeline: { readonly id: string; readonly name: string };
-  readonly rows: readonly BuiltStage[];
-  readonly stages: readonly Stage[];
-  /** Empty when it isn't Broken. */
-  readonly broken: readonly BrokenReason[];
 }
 
 /** What the Pipelines a Project Pipeline's edit is weighed against hold. */
@@ -64,64 +65,81 @@ export interface PipelinesAround {
   readonly projectPipelines: readonly ProjectPipeline[];
 }
 
-/** A Project Pipeline that a base Pipeline's new Stages would leave Broken, with every reason. */
-export interface BrokenProjectPipeline {
-  readonly projectPipeline: ProjectPipeline;
-  readonly reasons: readonly BrokenReason[];
+/**
+ * A Project Pipeline as The Office kept it before it held its own flow: an office-wide base
+ * Pipeline and the Stage changes the Project made to it.
+ */
+export interface LegacyProjectPipeline {
+  readonly id: string;
+  readonly projectId: string;
+  readonly name: string;
+  readonly description: string;
+  readonly basePipelineId: string;
+  readonly stageChanges: readonly StageChange[];
 }
 
-export function builtProjectPipeline(
-  projectPipeline: ProjectPipeline,
-  base: Pipeline,
-): BuiltProjectPipeline {
-  const { rows, stages, broken } = buildStages(base, projectPipeline.stageChanges);
+/**
+ * The one converter of a legacy Project Pipeline (spec §2.3.5, "The move to routes back and Publish
+ * Stages"): the flow its base Pipeline and its Stage changes build, kept as its own. One that was
+ * Broken keeps what still applied, with why it was Broken. Both the move at start and the read of a
+ * row not yet moved call it, so they can't differ. `base` is undefined when the base Pipeline is gone.
+ */
+export function movedProjectPipeline(
+  legacy: LegacyProjectPipeline,
+  base: Pipeline | undefined,
+): ProjectPipeline {
+  const { id, projectId, name, description } = legacy;
+  if (!base) {
+    return {
+      id,
+      projectId,
+      name,
+      description,
+      stages: [],
+      copiedFrom: { name: legacy.basePipelineId, at: null },
+      brokenBeforeUpdate: [`Its base Pipeline "${legacy.basePipelineId}" is gone.`],
+    };
+  }
+  const { stages, broken } = buildStages(base, legacy.stageChanges);
   return {
-    projectPipeline,
-    basePipeline: { id: base.id, name: base.name },
-    rows,
+    id,
+    projectId,
+    name,
+    description,
     stages,
-    broken,
+    copiedFrom: { name: base.name, at: null },
+    brokenBeforeUpdate: broken.length === 0 ? null : broken.map(({ text }) => text),
   };
 }
 
-/** The built Project Pipeline as a Pipeline a Task copies its Stages from. */
-export function asPipeline({ projectPipeline, stages }: BuiltProjectPipeline): Pipeline {
-  const { id, name, description } = projectPipeline;
+/** The Project Pipeline as a Pipeline a Task copies its Stages from. */
+export function asPipeline({ id, name, description, stages }: ProjectPipeline): Pipeline {
   return { id, name, description, stages };
-}
-
-/** The edit built from its base Pipeline; undefined when that isn't an office-wide Pipeline. */
-export function builtEdit(
-  edit: ProjectPipelineEdit,
-  officeWide: readonly Pipeline[],
-): BuiltStages | undefined {
-  const base = officeWide.find(({ id }) => id === edit.basePipelineId);
-  return base && buildStages(base, edit.stageChanges);
 }
 
 /**
  * Every reason the Project's edited Pipeline can't be saved, but those needing another module (its
- * Project's commands, engines): a name of its own among the office-wide Pipelines and its Project's,
- * an office-wide base Pipeline, no Change left empty, and built Stages that aren't Broken, as a
- * Project Pipeline's own save never leaves it Broken (spec §2.3).
+ * Project's commands, engines): the library's rules (spec §2.3.5), a name of its own among the
+ * office-wide Pipelines and its Project's, and Stages that can run.
  */
 export function projectPipelineEditProblems(
   edit: ProjectPipelineEdit,
   project: { readonly id: string; readonly name: string },
   around: PipelinesAround,
 ): StageProblem[] {
-  const built = builtEdit(edit, around.officeWide);
   return [
-    ...pipelineNameProblems(edit.name, takenByProjectPipeline(project, around)),
-    ...basePipelineProblems(edit.basePipelineId, around),
-    ...emptyChangeIndexes(edit.stageChanges).map((index) =>
-      pipelineProblem(`Stage change ${index + 1} gives no field: say what changes, or remove it.`),
-    ),
-    ...(built?.broken ?? []).map(({ stageKey, at, text }): StageProblem => {
-      if (stageKey === undefined) return pipelineProblem(text);
-      return { ...pipelineProblem(text), stageKey, at: at ?? { kind: "stage" } };
-    }),
+    ...projectPipelineNameProblems(edit.name, project, around),
+    ...stageProblems(edit.stages),
   ];
+}
+
+/** Why the Project Pipeline can't take the name: among the office-wide Pipelines and its Project's. */
+export function projectPipelineNameProblems(
+  name: string,
+  project: { readonly id: string; readonly name: string },
+  around: PipelinesAround,
+): StageProblem[] {
+  return pipelineNameProblems(name, takenByProjectPipeline(project, around));
 }
 
 /**
@@ -143,7 +161,7 @@ export function proposedProjectPipelineProblems(
   if (sameFieldsAsKept(from, to)) {
     return [
       pipelineProblem(
-        "Nothing changes: give the Project Pipeline's name, description, base Pipeline or Stage changes as they should be.",
+        "Nothing changes: give the Project Pipeline's name, description or Stages as they should be, all of them.",
       ),
     ];
   }
@@ -151,39 +169,22 @@ export function proposedProjectPipelineProblems(
 }
 
 /**
- * Fields alike as they are kept, where a field left out and one left undefined are the same; a
- * Stage change's `stageName` and the Stages' names in Change routes are for their words alone, so
- * they don't count.
+ * Fields alike as they are kept, the Stages compared as flows in order; the Stages' names in routes
+ * are for their words alone, so they don't count.
  */
 function sameFieldsAsKept(one: ProjectPipelineEdit, other: ProjectPipelineEdit): boolean {
-  return isDeepStrictEqual(fieldsAsKept(one), fieldsAsKept(other));
-}
-
-function fieldsAsKept(edit: ProjectPipelineEdit): unknown {
-  const stageChanges = edit.stageChanges.map(({ stageName: _stageName, ...unnamed }) =>
-    unnamed.kind === "change-routes"
-      ? { ...unnamed, routes: unnamedRoutes(unnamed.routes) }
-      : unnamed,
+  return (
+    one.name.trim() === other.name.trim() &&
+    one.description.trim() === other.description.trim() &&
+    sameAsKept(comparedFlow(one.stages), comparedFlow(other.stages))
   );
-  const { name, description, basePipelineId } = edit;
-  const fields = {
-    name: name.trim(),
-    description: description.trim(),
-    basePipelineId,
-    stageChanges,
-  };
-  return JSON.parse(JSON.stringify(fields));
 }
 
-function basePipelineProblems(basePipelineId: string, around: PipelinesAround): StageProblem[] {
-  if (around.officeWide.some(({ id }) => id === basePipelineId)) return [];
-  return around.projectPipelines.some(({ id }) => id === basePipelineId)
-    ? [
-        pipelineProblem(
-          "Its base Pipeline must be an office-wide Pipeline, never a Project Pipeline.",
-        ),
-      ]
-    : [pipelineProblem(`There is no office-wide Pipeline "${basePipelineId}" to build it from.`)];
+function comparedFlow(stages: readonly Stage[]): Stage[] {
+  return pipelineOrder(asFlow(stages)).map((stage) => ({
+    ...stage,
+    routes: unnamedRoutes(stage.routes),
+  }));
 }
 
 /** The names a Project Pipeline can't take: the office-wide Pipelines' and its own Project's. */
@@ -200,65 +201,51 @@ function takenByProjectPipeline(
 }
 
 /**
- * A Project Pipeline made from its edit, which `projectPipelineEditProblems` allowed; each Stage
- * change keeps its Stage's name as built now (`built`, from `builtEdit`).
+ * A Project Pipeline copied from `source`'s Stages as they are, under the name its edit gives, which
+ * `projectPipelineNameProblems` allowed; `stages`, when given, are a Proposal's in their place.
  */
-export function addedProjectPipeline(
+export function copiedProjectPipeline(
   id: string,
   projectId: string,
-  edit: ProjectPipelineEdit,
-  built: BuiltStages,
+  { name, description }: Omit<NewProjectPipeline, "copyOf">,
+  source: Pipeline,
+  at: Date,
+  stages: readonly Stage[] = source.stages,
 ): { readonly projectPipeline: ProjectPipeline; readonly event: PipelineAdded } {
   return {
-    projectPipeline: projectPipelineOf(id, projectId, edit, built),
+    projectPipeline: {
+      id,
+      projectId,
+      name: name.trim(),
+      description: description.trim(),
+      stages: flowInOrder(stages),
+      copiedFrom: { name: source.name, at },
+      brokenBeforeUpdate: null,
+    },
     event: new PipelineAdded(id),
   };
 }
 
-/** A Project Pipeline as the user saved it, its Project kept; `built` as `addedProjectPipeline`'s. */
+/**
+ * A Project Pipeline as the user saved it, which `projectPipelineEditProblems` allowed: its Project
+ * and where it was copied from stay, and a save, even unchanged, ends its Broken before the update.
+ */
 export function savedProjectPipeline(
   saved: ProjectPipeline,
-  edit: ProjectPipelineEdit,
-  built: BuiltStages,
+  { name, description, stages }: ProjectPipelineEdit,
 ): { readonly projectPipeline: ProjectPipeline; readonly event: PipelineSaved } {
   return {
-    projectPipeline: projectPipelineOf(saved.id, saved.projectId, edit, built),
+    projectPipeline: {
+      ...saved,
+      name: name.trim(),
+      description: description.trim(),
+      stages: flowInOrder(stages),
+      brokenBeforeUpdate: null,
+    },
     event: new PipelineSaved(saved.id),
   };
 }
 
-/**
- * The Project Pipelines built from the base Pipeline that its edit would break, each with every
- * reason (spec §2.3): the warning before an office-wide Pipeline's save, which still goes through.
- * One already Broken with the saved Stages isn't the edit's doing, so it isn't warned of again.
- */
-export function brokenBy(
-  saved: Pipeline,
-  edited: Pipeline,
-  projectPipelines: readonly ProjectPipeline[],
-): BrokenProjectPipeline[] {
-  return projectPipelines
-    .filter(({ basePipelineId }) => basePipelineId === saved.id)
-    .filter(({ stageChanges }) => buildStages(saved, stageChanges).broken.length === 0)
-    .map((projectPipeline) => ({
-      projectPipeline,
-      reasons: buildStages(edited, projectPipeline.stageChanges).broken,
-    }))
-    .filter(({ reasons }) => reasons.length > 0);
-}
-
-function projectPipelineOf(
-  id: string,
-  projectId: string,
-  { name, description, basePipelineId }: ProjectPipelineEdit,
-  built: BuiltStages,
-): ProjectPipeline {
-  return {
-    id,
-    projectId,
-    name: name.trim(),
-    description: description.trim(),
-    basePipelineId,
-    stageChanges: built.stageChanges,
-  };
+function flowInOrder(stages: readonly Stage[]): Stage[] {
+  return pipelineOrder(asFlow(stages));
 }

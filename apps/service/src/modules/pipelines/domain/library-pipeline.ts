@@ -52,14 +52,6 @@ export interface InitiativeOnPipeline {
   readonly pipelineStarted: boolean;
 }
 
-/** A Project Pipeline built from an office-wide Pipeline, with its Project's name. */
-export interface ProjectPipelineOnPipeline {
-  readonly id: string;
-  readonly name: string;
-  readonly projectId: string;
-  readonly projectName: string;
-}
-
 /** Who uses a library Pipeline: what removing it would leave without one, and what saving changes. */
 export interface PipelineUse {
   readonly defaultFor: readonly { readonly projectId: string; readonly name: string }[];
@@ -67,8 +59,6 @@ export interface PipelineUse {
   readonly running: number;
   /** The names of the shaping and active Initiatives that name it. */
   readonly initiatives: readonly string[];
-  /** The Project Pipelines built from it, which its edits reach. */
-  readonly projectPipelines: readonly ProjectPipelineOnPipeline[];
 }
 
 /** States of a Task that hasn't started: it reads its library Pipeline when it does. */
@@ -179,13 +169,12 @@ export function copiedPipeline(
   };
 }
 
-/** Who uses the Pipeline among these Projects, Tasks, Initiatives and Project Pipelines. */
+/** Who uses the Pipeline among these Projects, Tasks and Initiatives. */
 export function pipelineUse(
   pipelineId: string,
   projects: readonly ProjectOnPipeline[],
   tasks: readonly TaskOnPipeline[],
   initiatives: readonly InitiativeOnPipeline[],
-  projectPipelines: readonly ProjectPipeline[],
 ): PipelineUse {
   const onPipeline = tasks.filter((task) => task.pipelineId === pipelineId);
   return {
@@ -195,14 +184,6 @@ export function pipelineUse(
     notStarted: onPipeline.filter(({ state }) => NOT_STARTED_STATES.includes(state)).length,
     running: onPipeline.filter(({ state }) => RUNNING_STATES.includes(state)).length,
     initiatives: [...new Set(openInitiativesOn(pipelineId, initiatives).map(({ name }) => name))],
-    projectPipelines: projectPipelines
-      .filter(({ basePipelineId }) => basePipelineId === pipelineId)
-      .map(({ id, name, projectId }) => ({
-        id,
-        name,
-        projectId,
-        projectName: projects.find((project) => project.id === projectId)?.name ?? projectId,
-      })),
   };
 }
 
@@ -324,8 +305,7 @@ function initiativesReason(
 /**
  * Why the Pipeline can't be removed, in the UI's words; empty when it can. A Task that hasn't
  * started counts even when its Stages were edited for it: Start still needs its Pipeline. So does
- * each shaping or active Initiative that names it, whose Tasks start on it, and each Project
- * Pipeline built from it.
+ * each shaping or active Initiative that names it, whose Tasks start on it.
  */
 export function removalProblems(pipelineId: string, use: PipelineUse): string[] {
   const problems: string[] = [];
@@ -360,11 +340,6 @@ export function removalProblems(pipelineId: string, use: PipelineUse): string[] 
   }
   for (const name of use.initiatives) {
     problems.push(`The Initiative ${name} names it; choose another Pipeline for it first.`);
-  }
-  for (const { name, projectName } of use.projectPipelines) {
-    problems.push(
-      `${projectName}'s Pipeline ${name} is built from it; remove it or build it from another base Pipeline first.`,
-    );
   }
   return problems;
 }

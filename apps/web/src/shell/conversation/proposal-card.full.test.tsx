@@ -26,6 +26,7 @@ import { ProposalCard } from "./proposal-card.tsx";
 import {
   FULL_NOW,
   FULL_PROPOSED,
+  PROJECT_ROUTES_PROPOSAL,
   ROUTES_PROPOSAL,
   ROUTES_PROPOSAL_ID,
 } from "./proposed-routes.fixtures.ts";
@@ -262,6 +263,16 @@ function serviceReading(answers: Record<string, unknown>, applied?: Proposal): M
   return fetched;
 }
 
+const PP_LINUX = {
+  id: "pp-linux",
+  projectId: "the-office",
+  name: "Full with Linux check",
+  description: "",
+  stages: [TESTS, LINUX],
+  copiedFrom: { name: "Full", at: AT },
+  brokenBeforeUpdate: null,
+};
+
 describe("ProposalCard on a Project Pipeline", () => {
   const newOne = proposalOf({
     kind: "project-pipeline",
@@ -272,44 +283,38 @@ describe("ProposalCard on a Project Pipeline", () => {
     to: {
       name: "Full with Linux check",
       description: "Then Linux.",
-      basePipelineId: "full",
-      stageChanges: [{ kind: "insert-after", stageKey: "tests", stage: LINUX }],
+      stages: [TESTS, LINUX],
+      copyOf: "full",
     },
   });
 
-  it("says it adds the Project Pipeline to its Project, with what the Project gets as the service builds it", async () => {
+  it("says it adds the Project Pipeline to its Project, copied from an office-wide Pipeline, with its Stages", async () => {
     serviceReading({
       "/projects": [],
-      "/pipelines": [{ id: "full", name: "Full", description: "", stages: [TESTS], builtOnBy: [] }],
-      "/project-pipelines/check": {
-        problems: [],
-        rows: [
-          {
-            stage: TESTS,
-            origin: "base",
-            stageChangeIndexes: [],
-            baseStage: TESTS,
-            changedFields: [],
-          },
-          {
-            stage: LINUX,
-            origin: "inserted",
-            stageChangeIndexes: [0],
-            baseStage: null,
-            changedFields: [],
-          },
-        ],
-        stages: [TESTS, LINUX],
-        broken: [],
-      },
+      "/pipelines": [{ id: "full", name: "Full", description: "", stages: [TESTS] }],
     });
     const card = await cardOf(newOne);
 
-    await vi.waitFor(() => expect(card.textContent).toContain("Tests → Verify on Linux"));
+    await vi.waitFor(() => expect(card.textContent).toContain("Copied fromFull"));
     expect(card.textContent).toContain("Add Full with Linux check to the-office's Pipelines");
-    expect(card.textContent).toContain("Base PipelineFull");
-    expect(card.textContent).toContain("Inserts Verify on Linux after Tests");
+    expect(card.textContent).toContain("StagesTests → Verify on Linux");
     expect(card.textContent).toContain("Refused if it changes before you apply this");
+  });
+
+  it("names another of the Project's own Pipelines it is copied from", async () => {
+    serviceReading({ "/projects": [], "/pipelines": [], "/project-pipelines": [PP_LINUX] });
+    const card = await cardOf(
+      proposalOf({
+        kind: "project-pipeline",
+        routes: null,
+        projectId: "the-office",
+        pipelineId: null,
+        from: null,
+        to: { name: "Linux twice", description: "", stages: [TESTS, LINUX], copyOf: "pp-linux" },
+      }),
+    );
+
+    await vi.waitFor(() => expect(card.textContent).toContain("Copied fromFull with Linux check"));
   });
 
   it("refreshes the Pipeline lists once applied, and says so", async () => {
@@ -329,23 +334,48 @@ describe("ProposalCard on a Project Pipeline", () => {
     );
   });
 
-  it("titles a change by the Project Pipeline it changes", async () => {
+  it("titles a change by the Project Pipeline it changes, with the Stages it adds", async () => {
     serviceReading({});
-    const fields = newOne.change.kind === "project-pipeline" ? newOne.change.to : undefined;
-    if (!fields) throw new Error("A Project Pipeline Proposal.");
     const card = await cardOf(
       proposalOf({
         kind: "project-pipeline",
         routes: null,
         projectId: "the-office",
         pipelineId: "pp-linux",
-        from: fields,
-        to: { ...fields, description: "Linux, then publish." },
+        from: { name: "Full with Linux check", description: "Then Linux.", stages: [TESTS] },
+        to: {
+          name: "Full with Linux check",
+          description: "Linux, then publish.",
+          stages: [TESTS, LINUX],
+        },
       }),
     );
 
     expect(card.textContent).toContain("Change the-office's Full with Linux check");
     expect(card.textContent).toContain("DescriptionThen Linux.Linux, then publish.");
+    expect(card.textContent).toContain("AddedVerify on Linux");
+  });
+
+  it("shows a change's routes as Was and Proposed, then the flow as proposed, as an office-wide one does", async () => {
+    serviceReading({ "/projects": [], "/pipelines": [] });
+    const { card } = await routedCardOf(PROJECT_ROUTES_PROPOSAL);
+
+    await vi.waitFor(() =>
+      expect(card.textContent).toContain("Change the-office's Full for the-office"),
+    );
+    const labels = [...card.querySelectorAll(".proposal-change-label")].map(
+      ({ textContent }) => textContent,
+    );
+    expect(labels).toEqual([
+      "Stages",
+      "Routes out of Tests",
+      "Routes out of Review & fix",
+      "Routes out of Verify on Linux",
+      "Routes out of Docs",
+    ]);
+    const flow = card.querySelector('[aria-label="Full for the-office, as proposed"]');
+    expect(flow?.querySelectorAll(".flow-canvas-route-line--proposed")).toHaveLength(4);
+    expect(flow?.querySelector("button")?.textContent).toMatch(/^Show it on the flow/);
   });
 });
 
@@ -401,59 +431,6 @@ describe("ProposalCard on a Project to onboard", () => {
   });
 });
 
-describe("ProposalCard on a library Pipeline's Stages", () => {
-  const proposal = proposalOf({
-    kind: "pipeline",
-    pipelineId: "full",
-    from: [TESTS],
-    to: [],
-    routes: null,
-  });
-
-  it("lists the Project Pipelines it would break while open, and still applies", async () => {
-    serviceReading({
-      "/pipelines": [{ id: "full", name: "Full", description: "", stages: [TESTS], builtOnBy: [] }],
-      "/pipelines/check": {
-        problems: [],
-        breaks: [
-          {
-            projectPipelineId: "pp-linux",
-            name: "Full with Linux check",
-            projectId: "the-office",
-            projectName: "the-office",
-            reasons: [
-              {
-                stageChangeIndex: 0,
-                stageIndex: null,
-                stageKey: "tests",
-                text: "Inserts Verify on Linux after Tests, which Full no longer has.",
-              },
-            ],
-          },
-        ],
-      },
-    });
-    const card = await cardOf(proposal);
-
-    await vi.waitFor(() =>
-      expect(card.textContent).toContain("Applying this breaks 1 Project Pipeline"),
-    );
-    expect(card.textContent).toContain(
-      "the-office › Full with Linux check: Inserts Verify on Linux after Tests, which Full no longer has.",
-    );
-    expect(button(card, "Apply anyway").disabled).toBe(false);
-  });
-
-  it("warns of nothing once it is applied", async () => {
-    serviceReading({
-      "/pipelines": [{ id: "full", name: "Full", description: "", stages: [TESTS], builtOnBy: [] }],
-    });
-    const card = await cardOf({ ...proposal, status: { kind: "applied", at: AT, by: null } });
-
-    expect(card.textContent).not.toContain("breaks");
-  });
-});
-
 describe("ProposalCard on the CTO's change of an Initiative's Pipeline", () => {
   const proposal = proposalOf({
     kind: "initiative",
@@ -463,20 +440,8 @@ describe("ProposalCard on the CTO's change of an Initiative's Pipeline", () => {
 
   it("names the Project and that Project's own Project Pipeline it proposes", async () => {
     serviceReading({
-      "/pipelines": [{ id: "full", name: "Full", description: "", stages: [TESTS], builtOnBy: [] }],
-      "/project-pipelines": [
-        {
-          id: "pp-linux",
-          projectId: "the-office",
-          name: "Full with Linux check",
-          description: "",
-          basePipeline: { id: "full", name: "Full" },
-          stageChanges: [],
-          rows: [],
-          stages: [TESTS],
-          broken: [],
-        },
-      ],
+      "/pipelines": [{ id: "full", name: "Full", description: "", stages: [TESTS] }],
+      "/project-pipelines": [PP_LINUX],
     });
     const card = await cardOf(proposal);
 
@@ -759,11 +724,11 @@ async function routedCardOf(
   return { card, address: () => router.state.location.href };
 }
 
-const FULL = { id: "full", name: "Full", description: "", stages: FULL_NOW, builtOnBy: [] };
+const FULL = { id: "full", name: "Full", description: "", stages: FULL_NOW };
 
 describe("ProposalCard on a Pipeline's routes", () => {
   it("shows each changed Stage's routes as Was and Proposed, then Full as proposed with what was checked", async () => {
-    serviceReading({ "/pipelines": [FULL], "/pipelines/check": { problems: [], breaks: [] } });
+    serviceReading({ "/pipelines": [FULL], "/pipelines/check": { problems: [] } });
     const { card } = await routedCardOf(ROUTES_PROPOSAL);
 
     await vi.waitFor(() => expect(card.textContent).toContain("Change the Full Pipeline"));
@@ -829,7 +794,7 @@ describe("ProposalCard on a Pipeline's routes", () => {
       },
     });
 
-    expect(card.textContent).toContain("Change the full Pipeline");
+    await vi.waitFor(() => expect(card.textContent).toContain("Change the Full Pipeline"));
     expect(card.textContent).not.toContain("Routes out of");
     expect(card.textContent).not.toContain("as proposed");
   });

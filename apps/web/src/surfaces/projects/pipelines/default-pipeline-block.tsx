@@ -22,10 +22,11 @@ import { ProjectBlock } from "../project-block.tsx";
 
 /**
  * The Pipeline the Project's Tasks usually follow, one of its own Project Pipelines or an
- * office-wide one, which the Planner starts from and a Task with none lists first. A Broken
- * default is flagged with why. How its work is published is in the Commands block's Publish group.
- * Under it, a row per Kind (docs/design/issues-as-tasks.html): a Kind's own default, or Same as
- * every Task, which stores null.
+ * office-wide one, which the Planner starts from and a Task with none lists first. A default that
+ * was Broken before The Office updated, not saved since, is flagged. How its work is published is
+ * in the Commands block's Publish group. Under it, a row per Kind
+ * (docs/design/issues-as-tasks.html): a Kind's own default, or Same as every Task, which stores
+ * null.
  */
 export function DefaultPipelineBlock({ project }: { readonly project: Project }): ReactNode {
   const library = useProjectPipelineChoices(project.id);
@@ -51,9 +52,11 @@ export function DefaultPipelineBlock({ project }: { readonly project: Project })
   return (
     <ProjectBlock icon="route" title="Default Pipeline">
       {current?.brokenWhy !== undefined && (
-        <Alert tone="danger" title={`${current.name}, the default, is Broken`}>
-          {current.brokenReasons.join(" ")} New Tasks can't follow it, and {planner} proposes from
-          the others, until it is fixed or another default is chosen.
+        <Alert
+          tone="warning"
+          title={`${current.name}, the default, was Broken before The Office updated`}
+        >
+          New Tasks can&apos;t follow it, and {planner} proposes from the others, until you save it.
         </Alert>
       )}
       <div className="project-setting">
@@ -142,7 +145,6 @@ function KindDefaultRow({
           line: everyTask,
           isDefault: false,
           brokenWhy: undefined,
-          brokenReasons: [],
         },
       ],
     },

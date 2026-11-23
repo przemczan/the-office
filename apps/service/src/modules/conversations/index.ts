@@ -76,7 +76,6 @@ export {
 export { ProposalService } from "./application/proposal-service.js";
 export type {
   PipelineStage,
-  PipelineStageChange,
   ProjectPipelineFields,
   ProposedInitiativeChange,
   ProposedPipelineChange,

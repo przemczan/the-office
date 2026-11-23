@@ -21,7 +21,7 @@ const DEVELOPER_HIRED = new Map<string, RoleFilling>([
   ["developer", { title: "Developer", person: { name: "Ada", taskLimit: 3 } }],
 ]);
 
-const NO_USE = { defaultFor: [], notStarted: 0, running: 0, initiatives: [], projectPipelines: [] };
+const NO_USE = { defaultFor: [], notStarted: 0, running: 0, initiatives: [] };
 
 function anEdit(fields: Partial<PipelineEdit> = {}): PipelineEdit {
   return {
@@ -187,12 +187,11 @@ describe("pipelineUse", () => {
       { state: "ready", projectId: "site", pipelineId: "quick-fix" },
     ];
 
-    expect(pipelineUse("full", projects, tasks, [], [])).toEqual({
+    expect(pipelineUse("full", projects, tasks, [])).toEqual({
       defaultFor: [{ projectId: "site", name: "Site" }],
       notStarted: 3,
       running: 3,
       initiatives: [],
-      projectPipelines: [],
     });
   });
 
@@ -209,10 +208,7 @@ describe("pipelineUse", () => {
       { name: "Exports", state: "active", projectId: "app", pipelineId: "full", started: true },
     ].map(({ started = false, ...initiative }) => ({ ...initiative, pipelineStarted: started }));
 
-    expect(pipelineUse("full", [], [], initiatives, []).initiatives).toEqual([
-      "Checkout",
-      "Search",
-    ]);
+    expect(pipelineUse("full", [], [], initiatives).initiatives).toEqual(["Checkout", "Search"]);
   });
 
   it("names an Initiative whose Pipeline started in one Project's Publishing Task but not another's", () => {
@@ -233,26 +229,11 @@ describe("pipelineUse", () => {
       },
     ];
 
-    expect(pipelineUse("full", [], [], initiatives, []).initiatives).toEqual(["Search"]);
+    expect(pipelineUse("full", [], [], initiatives).initiatives).toEqual(["Search"]);
   });
 });
 
 describe("removalProblems", () => {
-  it("refuses once for each Project Pipeline built from it, naming it and its Project", () => {
-    const use = {
-      ...NO_USE,
-      projectPipelines: [
-        { id: "a", name: "Full with Linux check", projectId: "site", projectName: "Site" },
-        { id: "b", name: "Full with visual check", projectId: "app", projectName: "App" },
-      ],
-    };
-
-    expect(removalProblems("nightly", use)).toEqual([
-      "Site's Pipeline Full with Linux check is built from it; remove it or build it from another base Pipeline first.",
-      "App's Pipeline Full with visual check is built from it; remove it or build it from another base Pipeline first.",
-    ]);
-  });
-
   it("allows removing a Pipeline nobody needs, even with Tasks running on their copy", () => {
     expect(removalProblems("nightly", { ...NO_USE, running: 2 })).toEqual([]);
   });
@@ -290,7 +271,6 @@ describe("removalProblems", () => {
       notStarted: 2,
       running: 0,
       initiatives: [],
-      projectPipelines: [],
     };
 
     expect(removalProblems("nightly", use)).toEqual([

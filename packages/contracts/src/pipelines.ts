@@ -1,12 +1,7 @@
 import { z } from "zod";
 import { contextMoveSchema, tokenTotalsSchema } from "./conversations.js";
 import { webEventSchema } from "./events.js";
-import {
-  keptStageChangeSchema,
-  stageChangeSchema,
-  stageProblemSchema,
-  stageSchema,
-} from "./stages.js";
+import { stageProblemSchema, stageSchema } from "./stages.js";
 
 export const pipelineSchema = z.object({
   id: z.string().min(1),
@@ -18,21 +13,8 @@ export type Pipeline = z.infer<typeof pipelineSchema>;
 
 export const pipelineListSchema = z.array(pipelineSchema);
 
-/** How many of a Project's Project Pipelines are built from an office-wide Pipeline, and how many are Broken. */
-export const builtOnBySchema = z.object({
-  projectId: z.string(),
-  projectPipelines: z.int().positive(),
-  broken: z.int().nonnegative(),
-});
-export type BuiltOnBy = z.infer<typeof builtOnBySchema>;
-
-/**
- * GET /pipelines and GET /pipelines/:id: an office-wide Pipeline, with the Projects whose Project
- * Pipelines are built from it.
- */
-export const officeWidePipelineSchema = pipelineSchema.extend({
-  builtOnBy: z.array(builtOnBySchema),
-});
+/** GET /pipelines and GET /pipelines/:id: an office-wide Pipeline. */
+export const officeWidePipelineSchema = pipelineSchema;
 export type OfficeWidePipeline = z.infer<typeof officeWidePipelineSchema>;
 
 export const officeWidePipelineListSchema = z.array(officeWidePipelineSchema);
@@ -62,10 +44,6 @@ export const pipelineUseSchema = z.object({
   running: z.int().nonnegative(),
   /** Shaping or active Initiatives that name it as the Initiative's Pipeline. */
   initiatives: z.int().nonnegative(),
-  /** The Project Pipelines built from it, each with its Project; none for a Project Pipeline. */
-  projectPipelines: z.array(
-    z.object({ id: z.string(), name: z.string(), projectId: z.string(), projectName: z.string() }),
-  ),
 });
 export type PipelineUse = z.infer<typeof pipelineUseSchema>;
 
@@ -485,88 +463,35 @@ export const pipelineCheckRequestSchema = pipelineEditSchema.extend({
 export type PipelineCheckRequest = z.infer<typeof pipelineCheckRequestSchema>;
 
 /**
- * Why a Project Pipeline is Broken (spec §2.3), in the UI's words: a Stage change that doesn't apply,
- * by its index, or a rule its built Stages break, on the Stage by its index among the built ones.
- */
-export const brokenReasonSchema = z.object({
-  stageChangeIndex: z.int().nonnegative().nullable(),
-  stageIndex: z.int().nonnegative().nullable(),
-  /** The key of the Stage it concerns. */
-  stageKey: z.string().nullable(),
-  text: z.string(),
-});
-export type BrokenReason = z.infer<typeof brokenReasonSchema>;
-
-/** A Project Pipeline an office-wide Pipeline's edit would leave Broken, with its Project and why. */
-export const projectPipelineBreakSchema = z.object({
-  projectPipelineId: z.string(),
-  name: z.string(),
-  projectId: z.string(),
-  projectName: z.string(),
-  reasons: z.array(brokenReasonSchema).min(1),
-});
-export type ProjectPipelineBreak = z.infer<typeof projectPipelineBreakSchema>;
-
-/**
  * What saving a library Pipeline would be refused for, and what the editor warns about but saves,
  * in one list by level: an Agent Stage whose Role nobody fills, which pauses a Task that reaches it,
- * or a Stage whose routes all carry a condition. An office-wide one's check lists the Project
- * Pipelines its edit would leave Broken, which never refuses the save; a Stage template's and a new
- * Pipeline's list none.
+ * or a Stage whose routes all carry a condition. A Project Pipeline's check answers the same.
  */
 export const pipelineCheckSchema = z.object({
   problems: z.array(stageProblemSchema),
-  breaks: z.array(projectPipelineBreakSchema),
 });
 export type PipelineCheck = z.infer<typeof pipelineCheckSchema>;
 
 /**
  * GET /pipelines/library/needs-fixing: the library Pipelines whose saved Stages their own check would
  * list a problem or a warning for, the list's "Needs fixing" flag, in one answer for the whole library.
+ * GET /project-pipelines/check/needs-fixing?projectId= answers the same for a Project's own, one
+ * Broken before The Office updated and not saved since among them.
  */
 export const pipelinesNeedingFixingSchema = z.object({
   pipelineIds: z.array(z.string()),
 });
 export type PipelinesNeedingFixing = z.infer<typeof pipelinesNeedingFixingSchema>;
 
-/** Where a built Stage of a Project Pipeline comes from, as the editor marks its row. */
-export const stageOriginSchema = z.enum(["base", "inserted", "replaced", "changed", "removed"]);
-export type StageOrigin = z.infer<typeof stageOriginSchema>;
-
-/** One row of a Project Pipeline's built Stages: a Stage with where it comes from. */
-export const builtStageSchema = z.object({
-  stage: stageSchema,
-  origin: stageOriginSchema,
-  /** The Stage changes that made it what it is, by their index, in order. */
-  stageChangeIndexes: z.array(z.int().nonnegative()),
-  /** The base Pipeline's Stage it stands for; null for an inserted one. */
-  baseStage: stageSchema.nullable(),
-  /** The fields Changes gave it, by their names in `stageFieldChangesSchema`. */
-  changedFields: z.array(z.string()),
-});
-export type BuiltStage = z.infer<typeof builtStageSchema>;
-
-const builtFields = {
-  /** Every row in order, a removed Stage kept where it was. */
-  rows: z.array(builtStageSchema),
-  /** The Stages a Task on it gets: the rows but the removed ones. */
-  stages: z.array(stageSchema),
-  /** Empty when it isn't Broken. */
-  broken: z.array(brokenReasonSchema),
-};
-
 /**
- * GET /project-pipelines/:id: a Project Pipeline (spec §2.3), built from its base Pipeline's current
- * Stages and its Stage changes in order.
+ * GET /project-pipelines/:id: a Project Pipeline (spec §2.3.5), a full Pipeline of its Project, with
+ * the name of the Pipeline it was copied from and when (null for one the update moved), and why it
+ * was Broken before The Office updated, null when it wasn't or once it was saved.
  */
-export const projectPipelineSchema = z.object({
-  id: z.string().min(1),
+export const projectPipelineSchema = pipelineSchema.extend({
   projectId: z.string().min(1),
-  name: z.string().min(1),
-  description: z.string(),
-  basePipeline: z.object({ id: z.string(), name: z.string() }),
-  stageChanges: z.array(keptStageChangeSchema),
-  ...builtFields,
+  copiedFrom: z.object({ name: z.string(), at: z.iso.datetime().nullable() }),
+  brokenBeforeUpdate: z.array(z.string()).nullable(),
 });
 export type ProjectPipeline = z.infer<typeof projectPipelineSchema>;
 
@@ -574,39 +499,29 @@ export type ProjectPipeline = z.infer<typeof projectPipelineSchema>;
 export const projectPipelineListSchema = z.array(projectPipelineSchema);
 
 /** PUT /project-pipelines/:id: a Project Pipeline as the user edited it; its id and Project stay. */
-export const projectPipelineEditSchema = z.strictObject({
-  name: z.string(),
-  description: z.string(),
-  /** An office-wide Pipeline's id. */
-  basePipelineId: z.string().min(1),
-  stageChanges: z.array(stageChangeSchema),
-});
+export const projectPipelineEditSchema = pipelineEditSchema;
 export type ProjectPipelineEdit = z.infer<typeof projectPipelineEditSchema>;
 
-/** POST /project-pipelines: a new Project Pipeline of the Project. */
-export const newProjectPipelineSchema = projectPipelineEditSchema.extend({
+/**
+ * POST /project-pipelines: a new Project Pipeline of the Project, a copy of `copyOf`'s Stages as
+ * they are: an office-wide Pipeline's, never Onboard, or one of the Project's own.
+ */
+export const newProjectPipelineSchema = z.strictObject({
   projectId: z.string().min(1),
+  copyOf: z.string().min(1),
+  name: z.string(),
+  description: z.string(),
 });
 export type NewProjectPipeline = z.infer<typeof newProjectPipelineSchema>;
 
-/**
- * POST /project-pipelines/check: a Project Pipeline as the editor holds it; `projectPipelineId`
- * names the one being saved, whose Project stays, and is absent for a new one of `projectId`.
- */
-export const projectPipelineCheckRequestSchema = newProjectPipelineSchema.extend({
-  projectPipelineId: z.string().min(1).optional(),
+/** POST /project-pipelines/check: a Project Pipeline as the editor holds it, by its id. */
+export const projectPipelineCheckRequestSchema = projectPipelineEditSchema.extend({
+  projectPipelineId: z.string().min(1),
 });
 export type ProjectPipelineCheckRequest = z.infer<typeof projectPipelineCheckRequestSchema>;
 
-/**
- * What saving a Project Pipeline would be refused for (a Broken one among them) and what the editor
- * warns about but saves, in one list by level, and its Stages built from the edit; no rows without
- * a known base Pipeline.
- */
-export const projectPipelineCheckSchema = z.object({
-  problems: z.array(stageProblemSchema),
-  ...builtFields,
-});
+/** What saving a Project Pipeline would be refused for and what the editor warns about but saves. */
+export const projectPipelineCheckSchema = pipelineCheckSchema;
 export type ProjectPipelineCheck = z.infer<typeof projectPipelineCheckSchema>;
 
 /**

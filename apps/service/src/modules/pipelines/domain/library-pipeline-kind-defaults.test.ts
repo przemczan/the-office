@@ -21,7 +21,7 @@ const PROJECTS = [
 
 describe("a Pipeline a Kind's own default names", () => {
   it("counts as the Project's default, so it can't be removed", () => {
-    const use = pipelineUse("quick-fix", PROJECTS, [], [], []);
+    const use = pipelineUse("quick-fix", PROJECTS, [], []);
 
     expect(use.defaultFor).toEqual([{ projectId: "site", name: "Site" }]);
     expect(removalProblems("quick-fix", use)).toContain(

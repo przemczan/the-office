@@ -587,11 +587,11 @@ describe("initiativePipelineChangeProblems", () => {
     ).toEqual(["App's checks is a Project Pipeline of App: only App's Tasks can follow it."]);
   });
 
-  it("refuses a Broken Project Pipeline", () => {
+  it("refuses a Project Pipeline Broken before The Office updated", () => {
     const broken = { ...full, name: "App's checks", projectId: "app", broken: ["Gone."] };
 
     expect(initiativePipelineChangeProblems(active, app, choice("apps-own", broken), [])).toEqual([
-      "App's checks is Broken: Gone. Fix its Stage changes in App's Pipelines, or choose another Pipeline.",
+      "App's checks was Broken before The Office updated: Gone. Save it once in App's Pipelines, or choose another Pipeline.",
     ]);
   });
 

@@ -5,15 +5,16 @@ import {
   type Duty,
   type DutyHolders,
   type Preset,
-  type ProjectPipelineBreak,
   type Proposal,
   type ProposalStatus,
   type ProposedChange,
   type ProposedFeatureSwitch,
+  type ProposedRoutes,
   type Role,
   type RoleCard,
+  type Stage,
 } from "@the-office/contracts";
-import { Alert, Badge, Button, Icon, Input } from "@the-office/ui";
+import { Badge, Button, Icon, Input } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { actionQueries } from "../../api/actions.ts";
 import { officeInstructionsQuery, sizeThresholdQuery } from "../../api/conversations.ts";
@@ -75,7 +76,6 @@ import {
   ProposedTestTargetChanges,
 } from "./devops-proposal-changes.tsx";
 import { officeSetupApplyLabel, ProposedOfficeSetup } from "./office-setup-changes.tsx";
-import { checkRequest } from "./project-pipeline-check.ts";
 import { ShowOnFlowButton, showsOnFlow } from "./proposal-on-flow.tsx";
 import { ProposedFlow, ProposedRouteChanges } from "./proposed-route-changes.tsx";
 import { useAnswering } from "./use-answering.ts";
@@ -437,10 +437,7 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
   }
 }
 
-/**
- * New Stages for a library Pipeline, and while it is open the Project Pipelines built from it that
- * they would leave Broken, each with its Project and why: applying still applies.
- */
+/** New Stages for a library Pipeline, with its routes as they were and as proposed. */
 function PipelineProposal({
   proposal,
   change,
@@ -455,74 +452,32 @@ function PipelineProposal({
   const pipeline = useQuery(pipelineQueries.list()).data?.find(
     ({ id }) => id === change.pipelineId,
   );
-  const open = proposal.status.kind === "open";
-  const check = useQuery({
-    ...pipelineQueries.libraryCheck({
-      name: pipeline?.name ?? "",
-      description: pipeline?.description ?? "",
-      stages: change.to,
-      pipelineId: change.pipelineId,
-    }),
-    enabled: open && pipeline !== undefined,
-  }).data;
-  const breaks = open ? (check?.breaks ?? []) : [];
   const name = pipeline?.name ?? change.pipelineId;
   return (
     <ProposalFrame proposalId={proposal.id} title={`Change the ${name} Pipeline`}>
       <ProposedStageChanges from={change.from} to={change.to} />
-      {change.routes && (
-        <>
-          <ProposedRouteChanges routes={change.routes} was={change.from} proposed={change.to} />
-          <ProposedFlow
-            title={`${name}, as proposed`}
-            stages={change.to}
-            routes={change.routes}
-            whoWorks={(stage) => whoWorks(stage, roles, undefined, duties)}
-            action={showsOnFlow(proposal) && <ShowOnFlowButton proposal={proposal} />}
-          />
-        </>
-      )}
-      {breaks.length > 0 && <ProjectPipelineBreaks breaks={breaks} />}
+      <ProposedRoutesAndFlow
+        proposal={proposal}
+        routes={change.routes}
+        was={change.from}
+        proposed={change.to}
+        title={`${name}, as proposed`}
+        roles={roles}
+        duties={duties}
+      />
       <AnswerFoot
         proposal={proposal}
         changes={[pipelineQueries.list().queryKey]}
         appliedToast={`${name} changed. Tasks that haven't started follow it.`}
         openNote={STALE_NOTE}
-        applyLabel={breaks.length > 0 ? "Apply anyway" : undefined}
       />
     </ProposalFrame>
   );
 }
 
-/** The Project Pipelines a Proposal of their base Pipeline's Stages would leave Broken, and why. */
-function ProjectPipelineBreaks({
-  breaks,
-}: {
-  readonly breaks: readonly ProjectPipelineBreak[];
-}): ReactNode {
-  const count = breaks.length === 1 ? "1 Project Pipeline" : `${breaks.length} Project Pipelines`;
-  return (
-    <div className="proposal-section">
-      <Alert tone="warning" title={`Applying this breaks ${count}`}>
-        <div className="proposal-breaks">
-          {breaks.map(({ projectPipelineId, projectName, name, reasons }) => (
-            <p key={projectPipelineId}>
-              <b>
-                {projectName} › {name}
-              </b>
-              : {reasons.map(({ text }) => text).join(" ")}
-            </p>
-          ))}
-          <p>Each is Broken until its Stage changes are fixed.</p>
-        </div>
-      </Alert>
-    </div>
-  );
-}
-
 /**
- * A new Project Pipeline of a Project, or a change to one, as the adopted design words it, with the
- * Stages the Project gets built by the service's check. It never sets the Project's default.
+ * A new Project Pipeline of a Project, copied from a Pipeline, or a change to one, shown as an
+ * office-wide Pipeline's Proposal is. It never sets the Project's default.
  */
 function ProjectPipelineProposal({
   proposal,
@@ -539,13 +494,14 @@ function ProjectPipelineProposal({
     useQuery(projectQueries.list()).data?.find(({ id }) => id === change.projectId)?.name ??
     change.projectId;
   const pipelines = useQuery(pipelineQueries.list()).data;
-  const pipelineName = (pipelineId: string): string =>
-    pipelines?.find(({ id }) => id === pipelineId)?.name ?? pipelineId;
-  const proposed = useQuery(projectPipelineQueries.check(checkRequest(change, change.to))).data;
-  const was = useQuery({
-    ...projectPipelineQueries.check(checkRequest(change, change.from ?? change.to)),
-    enabled: change.from !== null,
+  // A new one may be copied from another of the Project's own Pipelines.
+  const projectPipelines = useQuery({
+    ...projectPipelineQueries.list(change.projectId),
+    enabled: change.to.copyOf !== undefined,
   }).data;
+  const pipelineName = (pipelineId: string): string =>
+    [...(pipelines ?? []), ...(projectPipelines ?? [])].find(({ id }) => id === pipelineId)?.name ??
+    pipelineId;
   const { from, to } = change;
   return (
     <ProposalFrame
@@ -560,20 +516,16 @@ function ProjectPipelineProposal({
         change={change}
         projectName={projectName}
         pipelineName={pipelineName}
-        was={was}
-        proposed={proposed}
+      />
+      <ProposedRoutesAndFlow
+        proposal={proposal}
+        routes={change.routes}
+        was={from?.stages ?? []}
+        proposed={to.stages}
+        title={`${to.name}, as proposed`}
         roles={roles}
         duties={duties}
       />
-      {change.routes && proposed && change.routes.stages.length > 0 && (
-        <ProposedFlow
-          title={`${to.name}, as proposed`}
-          stages={proposed.stages}
-          routes={change.routes}
-          whoWorks={(stage) => whoWorks(stage, roles, undefined, duties)}
-          action={showsOnFlow(proposal) && <ShowOnFlowButton proposal={proposal} />}
-        />
-      )}
       <AnswerFoot
         proposal={proposal}
         changes={[pipelineQueries.list().queryKey]}
@@ -585,6 +537,39 @@ function ProjectPipelineProposal({
         openNote={STALE_NOTE}
       />
     </ProposalFrame>
+  );
+}
+
+/** A Pipeline Proposal's routes as they were and as proposed, and its flow as proposed. */
+function ProposedRoutesAndFlow({
+  proposal,
+  routes,
+  was,
+  proposed,
+  title,
+  roles,
+  duties,
+}: {
+  readonly proposal: Proposal;
+  readonly routes: ProposedRoutes | null;
+  readonly was: readonly Stage[];
+  readonly proposed: readonly Stage[];
+  readonly title: string;
+  readonly roles: readonly Role[];
+  readonly duties: readonly Duty[] | undefined;
+}): ReactNode {
+  if (!routes) return null;
+  return (
+    <>
+      <ProposedRouteChanges routes={routes} was={was} proposed={proposed} />
+      <ProposedFlow
+        title={title}
+        stages={proposed}
+        routes={routes}
+        whoWorks={(stage) => whoWorks(stage, roles, undefined, duties)}
+        action={showsOnFlow(proposal) && <ShowOnFlowButton proposal={proposal} />}
+      />
+    </>
   );
 }
 

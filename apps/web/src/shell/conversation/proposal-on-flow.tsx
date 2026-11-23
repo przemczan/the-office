@@ -21,12 +21,12 @@ import { proposalFlow, routesOutSentence } from "../pipelines/flow/proposal-flow
 import { whoWorks } from "../pipelines/pipeline-words.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { useToast } from "../toasts.tsx";
-import { checkRequest, type ProposedProjectPipeline } from "./project-pipeline-check.ts";
 import { RoutesOutChange } from "./proposed-route-changes.tsx";
 import { useAnswering } from "./use-answering.ts";
 import "./conversation.css";
 
 type ProposedPipelineChange = Extract<ProposedChange, { kind: "pipeline" }>;
+type ProposedProjectPipeline = Extract<ProposedChange, { kind: "project-pipeline" }>;
 
 /** A Proposal of a Pipeline's routes, which Show it on the flow can open. */
 type ProposedRoutesChange = (ProposedPipelineChange | ProposedProjectPipeline) & {
@@ -144,32 +144,22 @@ export function OfficeProposalOnFlow({
   );
 }
 
-/** A Project Pipeline's Proposal on its flow on the Project page, its Stages built by the service. */
+/** A Project Pipeline's Proposal on its flow on the Project page. */
 export function ProjectProposalOnFlow({
   proposal,
   change,
-  projectName,
   roles,
   duties,
 }: OnFlowProps & {
   readonly change: ProposedProjectPipeline & { readonly routes: ProposedRoutes };
-  readonly projectName: string;
 }): ReactNode {
-  const proposed = useQuery(projectPipelineQueries.check(checkRequest(change, change.to)));
-  const was = useQuery({
-    ...projectPipelineQueries.check(checkRequest(change, change.from ?? change.to)),
-    enabled: change.from !== null,
-  }).data;
-  if (proposed.error)
-    return <RefusalAlert title="The Proposal can't be shown" error={proposed.error} />;
-  if (!proposed.data) return null;
   return (
     <ProposalOnFlow
       proposal={proposal}
       routes={change.routes}
-      stages={proposed.data.stages}
-      was={was?.stages ?? proposed.data.stages}
-      title={`What ${projectName} gets`}
+      stages={change.to.stages}
+      was={change.from?.stages ?? change.to.stages}
+      title="Stages and routes"
       pipelineName={change.to.name}
       changes={[
         pipelineQueries.list().queryKey,

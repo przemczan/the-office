@@ -170,7 +170,6 @@ describe("POST /api/stage-templates/check", () => {
           text: `Grace's Task limit is none, so ${roleKey} only talks and can't work a Stage.`,
         },
       ],
-      breaks: [],
     });
   });
 
@@ -201,7 +200,6 @@ describe("POST /api/stage-templates/check", () => {
           text: "The run permission can only be narrowed from the Role card's.",
         },
       ],
-      breaks: [],
     });
   });
 
@@ -215,7 +213,6 @@ describe("POST /api/stage-templates/check", () => {
 
     expect(pipelineCheckSchema.parse(await response.json())).toEqual({
       problems: [],
-      breaks: [],
     });
   });
 });

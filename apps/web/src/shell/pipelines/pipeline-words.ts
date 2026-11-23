@@ -3,15 +3,16 @@ import type {
   Duty,
   DutyKey,
   ProjectCommand,
+  ProjectPipeline,
   PublishTarget,
   Role,
   Stage,
-  StageChange as ProjectStageChange,
   StagePermissions,
 } from "@the-office/contracts";
 import { DUTY_LABELS, dutyHolder } from "../duty-words.ts";
 import { EFFORT_LABELS } from "../engine-words.ts";
 import { editLabel, hardSwitchValueLabel, RUN_LABELS, webLabel } from "../role-card-words.ts";
+import { dayOf } from "../time.ts";
 import { commandWords, PUBLISH_COMMAND } from "./stage-commands.ts";
 import { stageWorker } from "./stage-edits.ts";
 
@@ -138,6 +139,17 @@ export function stagesLine({ stages }: { readonly stages: readonly Stage[] }): s
 }
 
 /**
+ * Where a Project Pipeline was copied from, for its words alone: "Copied from Full on 12 Nov", or
+ * "Copied from Full" for one the update moved, which has no date.
+ */
+export function copiedFromWords(
+  { name, at }: ProjectPipeline["copiedFrom"],
+  now: Date = new Date(),
+): string {
+  return at === null ? `Copied from ${name}` : `Copied from ${name} on ${dayOf(at, now)}`;
+}
+
+/**
  * Who works the Stage, as its row says: the Role's person, the duty with its holder ("Implements ·
  * Ada"), its command (by its name when `commands` has its key, else the key), or "waits for you"
  * for a Gate.
@@ -158,6 +170,11 @@ export function whoWorks(
 /** "Implements · Ada", or "Implements · nobody yet" while nobody holds the duty. */
 function dutyWorkerWords(duty: DutyKey, duties: readonly Duty[]): string {
   return `${DUTY_LABELS[duty]} · ${dutyHolder(duty, duties)?.name ?? "nobody yet"}`;
+}
+
+/** "1 Stage" or "3 Stages": a count with its noun in the singular or plural. */
+export function counted(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
 }
 
 /** Tokens in thousands, as a budget is typed and shown. */
@@ -185,34 +202,6 @@ export function stageChanges(from: readonly Stage[], to: readonly Stage[]): Stag
       .filter(({ key }) => !kept.has(key))
       .map(({ name }): StageChange => ({ name, change: "removed" })),
   ];
-}
-
-/**
- * A Project Pipeline's Stage change in the editor's words, its Stage named `stageName`: "Inserts
- * Verify on Linux after Tests", "Replaces Tests with Lint", "Changes Implement", "Removes Tests", "Changes Review's routes".
- */
-export function stageChangeLine(stageChange: ProjectStageChange, stageName: string): string {
-  switch (stageChange.kind) {
-    case "insert-before":
-      return `Inserts ${stageChange.stage.name} before ${stageName}`;
-    case "insert-after":
-      return `Inserts ${stageChange.stage.name} after ${stageName}`;
-    case "replace":
-      return `Replaces ${stageName} with ${stageChange.stage.name}`;
-    case "change":
-      return `Changes ${stageName}`;
-    case "remove":
-      return `Removes ${stageName}`;
-    case "change-routes":
-      return `Changes ${stageName}'s routes`;
-  }
-}
-
-/** Two Stage changes alike, the name each keeps for its words aside. */
-export function sameStageChange(one: ProjectStageChange, other: ProjectStageChange): boolean {
-  const { stageName: _one, ...oneUnnamed } = one;
-  const { stageName: _other, ...otherUnnamed } = other;
-  return JSON.stringify(oneUnnamed, sortedKeys) === JSON.stringify(otherUnnamed, sortedKeys);
 }
 
 function sameStage(one: Stage, other: Stage): boolean {

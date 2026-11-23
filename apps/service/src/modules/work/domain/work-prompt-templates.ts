@@ -299,11 +299,12 @@ export const PLANNING_BRIEF = promptTemplate({
     defaultPipeline: {
       kind: "text",
       description:
-        "The Pipeline the Project gives the Task's Kind (its Kind's default, else the Project's), by name and id, with why it is Broken if it is.",
+        "The Pipeline the Project gives the Task's Kind (its Kind's default, else the Project's), by name and id, with why it was Broken before The Office updated, if it was.",
     },
     defaultPipelineBroken: {
       kind: "flag",
-      description: "That Pipeline is Broken, so it can't be proposed.",
+      description:
+        "That Pipeline was Broken before The Office updated and isn't saved since, so it can't be proposed.",
     },
     ...PIPELINE_LIBRARY_VARIABLE,
     proposedPipeline: {
@@ -562,7 +563,7 @@ export const INITIATIVE_PLANNING_BRIEF = promptTemplate({
         commitType: "The commit type its Kind suggests: feat, fix or chore.",
         bugDetails: "Its Caused by and Found in version, when set; empty when neither is.",
         defaultPipeline:
-          "The Pipeline its Project gives its Kind, by name and id, with why it is Broken if it is.",
+          "The Pipeline its Project gives its Kind, by name and id, with why it was Broken before The Office updated, if it was.",
       },
     },
     hasBeingPlanned: {
@@ -595,7 +596,8 @@ export const INITIATIVE_PLANNING_BRIEF = promptTemplate({
         name: "The Project's name.",
         id: "The Project's id.",
         baseBranch: "Its base branch, such as main.",
-        defaultPipeline: "Its default Pipeline, by name and id, with why it is Broken if it is.",
+        defaultPipeline:
+          "Its default Pipeline, by name and id, with why it was Broken before The Office updated, if it was.",
         commands: "Its install command and other commands, one line each.",
       },
     },

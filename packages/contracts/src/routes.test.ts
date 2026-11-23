@@ -3,7 +3,6 @@ import {
   conditionGroupSchema,
   conditionTestSchema,
   routeSchema,
-  stageChangeSchema,
   stageProblemSchema,
   stageSchema,
 } from "./stages.js";
@@ -85,19 +84,6 @@ describe("a Stage's routes and place", () => {
 
   it("refuses a negative place", () => {
     expect(stageSchema.safeParse({ ...gate, place: { column: -1, row: 0 } }).success).toBe(false);
-  });
-});
-
-describe("the Change routes Stage change", () => {
-  it("gives the Stage's whole list of routes", () => {
-    const change = {
-      kind: "change-routes",
-      stageKey: "review",
-      stageName: "Review",
-      routes: [{ to: null, condition: null }],
-    };
-
-    expect(stageChangeSchema.parse(change)).toEqual(change);
   });
 });
 

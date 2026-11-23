@@ -1,15 +1,9 @@
 import type {
-  BrokenReason as BrokenReasonResponse,
-  BuiltOnBy as BuiltOnByResponse,
-  BuiltStage as BuiltStageResponse,
   ConditionGroup as ConditionGroupResponse,
   GateAction as GateActionResponse,
-  KeptStageChange as KeptStageChangeResponse,
-  OfficeWidePipeline as OfficeWidePipelineResponse,
   Pipeline as PipelineResponse,
   PipelineUse as PipelineUseResponse,
   ProjectPipeline as ProjectPipelineResponse,
-  ProjectPipelineBreak as ProjectPipelineBreakResponse,
   Route as RouteResponse,
   Stage as StageResponse,
   StageProblem as StageProblemResponse,
@@ -20,18 +14,10 @@ import type {
   TaskStage as TaskStageResponse,
   TaskStages as TaskStagesResponse,
 } from "@the-office/contracts";
-import type { BuiltOnBy } from "../../application/pipeline-library.js";
-import type { ProjectPipelineBreak } from "../../application/pipeline-library-editor.js";
 import type { PipelineUse } from "../../domain/library-pipeline.js";
 import type { Pipeline, StageProblem, StageProblemAt } from "../../domain/pipeline.js";
 import { isConditionGroup, type ConditionGroup, type Route } from "../../domain/route.js";
-import type { BuiltProjectPipeline } from "../../domain/project-pipeline.js";
-import type {
-  BrokenReason,
-  BuiltStage,
-  BuiltStages,
-  StageChange,
-} from "../../domain/stage-change.js";
+import type { ProjectPipeline } from "../../domain/project-pipeline.js";
 import type { Stage } from "../../domain/stage.js";
 import type { StageProgress, TaskProgress } from "../../domain/stage-progress.js";
 import type { GateAction, StageOutcome, StageRun } from "../../domain/stage-run.js";
@@ -47,110 +33,25 @@ export function toPipelineResponse(pipeline: Pipeline): PipelineResponse {
   };
 }
 
-/** An office-wide Pipeline with the Projects whose Project Pipelines are built from it. */
-export function toOfficeWidePipelineResponse(
-  pipeline: Pipeline,
-  builtOnBy: readonly BuiltOnBy[],
-): OfficeWidePipelineResponse {
-  return {
-    ...toPipelineResponse(pipeline),
-    builtOnBy: builtOnBy.map(({ projectId, projectPipelines, broken }): BuiltOnByResponse => ({
-      projectId,
-      projectPipelines,
-      broken,
-    })),
-  };
-}
-
 export function toPipelineUseResponse(use: PipelineUse): PipelineUseResponse {
   return {
     defaultFor: [...use.defaultFor],
     notStarted: use.notStarted,
     running: use.running,
     initiatives: use.initiatives.length,
-    projectPipelines: use.projectPipelines.map(({ id, name, projectId, projectName }) => ({
-      id,
-      name,
-      projectId,
-      projectName,
-    })),
   };
 }
 
-export function toProjectPipelineResponse(built: BuiltProjectPipeline): ProjectPipelineResponse {
-  const { projectPipeline, basePipeline } = built;
+export function toProjectPipelineResponse(
+  projectPipeline: ProjectPipeline,
+): ProjectPipelineResponse {
+  const { projectId, copiedFrom, brokenBeforeUpdate } = projectPipeline;
   return {
-    id: projectPipeline.id,
-    projectId: projectPipeline.projectId,
-    name: projectPipeline.name,
-    description: projectPipeline.description,
-    basePipeline: { id: basePipeline.id, name: basePipeline.name },
-    stageChanges: projectPipeline.stageChanges.map(toStageChangeResponse),
-    ...toBuiltStagesResponse(built),
+    ...toPipelineResponse(projectPipeline),
+    projectId,
+    copiedFrom: { name: copiedFrom.name, at: copiedFrom.at?.toISOString() ?? null },
+    brokenBeforeUpdate: brokenBeforeUpdate ? [...brokenBeforeUpdate] : null,
   };
-}
-
-/** A Project Pipeline's built Stages: its rows, the Stages a Task gets, and why it is Broken. */
-export function toBuiltStagesResponse({
-  rows,
-  stages,
-  broken,
-}: Pick<BuiltStages, "rows" | "stages" | "broken">): Pick<
-  ProjectPipelineResponse,
-  "rows" | "stages" | "broken"
-> {
-  return {
-    rows: rows.map(toBuiltStageResponse),
-    stages: stages.map(toStageResponse),
-    broken: broken.map(toBrokenReasonResponse),
-  };
-}
-
-export function toProjectPipelineBreakResponse(
-  projectPipelineBreak: ProjectPipelineBreak,
-): ProjectPipelineBreakResponse {
-  return {
-    projectPipelineId: projectPipelineBreak.projectPipelineId,
-    name: projectPipelineBreak.name,
-    projectId: projectPipelineBreak.projectId,
-    projectName: projectPipelineBreak.projectName,
-    reasons: projectPipelineBreak.reasons.map(toBrokenReasonResponse),
-  };
-}
-
-function toBuiltStageResponse(row: BuiltStage): BuiltStageResponse {
-  return {
-    stage: toStageResponse(row.stage),
-    origin: row.origin,
-    stageChangeIndexes: [...row.stageChangeIndexes],
-    baseStage: row.baseStage ? toStageResponse(row.baseStage) : null,
-    changedFields: [...row.changedFields],
-  };
-}
-
-function toBrokenReasonResponse(reason: BrokenReason): BrokenReasonResponse {
-  return {
-    stageChangeIndex: reason.stageChangeIndex ?? null,
-    stageIndex: reason.stageIndex ?? null,
-    stageKey: reason.stageKey ?? null,
-    text: reason.text,
-  };
-}
-
-function toStageChangeResponse(stageChange: StageChange): KeptStageChangeResponse {
-  const named = { stageKey: stageChange.stageKey, stageName: stageChange.stageName };
-  switch (stageChange.kind) {
-    case "insert-before":
-    case "insert-after":
-    case "replace":
-      return { kind: stageChange.kind, ...named, stage: toStageResponse(stageChange.stage) };
-    case "change":
-      return { kind: "change", ...named, fields: { ...stageChange.fields } };
-    case "remove":
-      return { kind: "remove", ...named };
-    case "change-routes":
-      return { kind: "change-routes", ...named, routes: stageChange.routes.map(toRouteResponse) };
-  }
 }
 
 function toRouteResponse({ to, toName, condition }: Route): RouteResponse {

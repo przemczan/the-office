@@ -55,25 +55,16 @@ const SPEC_CHANGE = {
   projectId: "the-office",
   name: "Spec change",
   description: "",
-  basePipeline: { id: "full", name: "Full" },
-  stageChanges: [],
-  rows: [],
   stages: FULL.stages,
-  broken: [
-    {
-      stageChangeIndex: 0,
-      stageIndex: null,
-      stageKey: "produce",
-      text: "Changes Produce, which Full no longer has.",
-    },
-  ],
+  copiedFrom: { name: "Full", at: null },
+  brokenBeforeUpdate: ["Changes Produce, which Full no longer had."],
 } as unknown as ProjectPipeline;
 
 const LINUX_CHECK = {
   ...SPEC_CHANGE,
   id: "linux-check",
   name: "Full with Linux check",
-  broken: [],
+  brokenBeforeUpdate: null,
 } as unknown as ProjectPipeline;
 
 function stagesOfItsOwn(editedForTask: boolean): TaskStages {
@@ -92,7 +83,7 @@ function rendered(content: ReactNode, { editedForTask = false } = {}): HTMLEleme
   const queryClient = new QueryClient({
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   });
-  queryClient.setQueryData(pipelineQueries.list().queryKey, [{ ...FULL, builtOnBy: [] }]);
+  queryClient.setQueryData(pipelineQueries.list().queryKey, [FULL]);
   queryClient.setQueryData(projectPipelineQueries.list(TASK.projectId).queryKey, [
     SPEC_CHANGE,
     LINUX_CHECK,
@@ -152,27 +143,27 @@ function optionNamed(name: string): HTMLElement | undefined {
   );
 }
 
-describe("a Task on a Broken Project Pipeline", () => {
+describe("a Task on a Project Pipeline that was Broken before The Office updated", () => {
   afterEach(() => document.body.replaceChildren());
 
   it("is flagged on the rail with why while it hasn't started", () => {
     const page = rail(TASK);
 
     const flag = page.querySelector('[role="alert"]') ?? page;
-    expect(page.textContent).toContain("Spec change is Broken");
+    expect(page.textContent).toContain("Spec change was Broken before The Office updated");
     expect(flag.textContent).toContain(
-      "Changes Produce, which Full no longer has. The Task can't start until it is fixed in the-office's Pipelines, or another Pipeline is chosen for it.",
+      "Changes Produce, which Full no longer had. The Task can't start until it is saved in the-office's Pipelines, or another Pipeline is chosen for it.",
     );
     expect(buttonNamed("Choose another Pipeline")).toBeDefined();
   });
 
   it("isn't flagged once its Stages were edited for it, nor once it started", () => {
-    expect(rail(TASK, { editedForTask: true }).textContent).not.toContain("is Broken");
+    expect(rail(TASK, { editedForTask: true }).textContent).not.toContain("was Broken");
     document.body.replaceChildren();
-    expect(rail({ ...TASK, state: "in-progress" } as Task).textContent).not.toContain("is Broken");
+    expect(rail({ ...TASK, state: "in-progress" } as Task).textContent).not.toContain("was Broken");
   });
 
-  it("swaps to another the Project can follow from the flag, the Broken one listed but not offered", () => {
+  it("swaps to another the Project can follow from the flag, the flagged one listed but not offered", () => {
     rail(TASK);
 
     act(() => buttonNamed("Choose another Pipeline")?.click());
@@ -184,7 +175,7 @@ describe("a Task on a Broken Project Pipeline", () => {
   });
 });
 
-describe("the Planner's proposal of a Broken Project Pipeline", () => {
+describe("the Planner's proposal of a Project Pipeline that was Broken before The Office updated", () => {
   afterEach(() => document.body.replaceChildren());
 
   it("can't be taken, saying why, and another is offered", () => {
@@ -199,7 +190,9 @@ describe("the Planner's proposal of a Broken Project Pipeline", () => {
 
     const use = buttonNamed("Use Spec change");
     expect(use?.disabled).toBe(true);
-    expect(use?.title).toContain("Broken: Changes Produce, which Full no longer has.");
+    expect(use?.title).toContain(
+      "Broken before The Office updated: Changes Produce, which Full no longer had.",
+    );
     expect(page.textContent).toContain("Spec change can't be taken");
 
     act(() => page.querySelector<HTMLElement>('[aria-label="Another Pipeline"]')?.click());

@@ -94,13 +94,13 @@ const LIBRARY = [
   { id: "quick-fix", name: "Quick fix", description: "", stages: [IMPLEMENT] },
 ] as unknown as OfficeWidePipeline[];
 
-/** The Task's Project's own Pipelines, one Broken, and another Project's, which is never offered. */
+/** The Task's Project's own Pipelines, one Broken before The Office updated, and another Project's, which is never offered. */
 const PROJECT_PIPELINES = [
   {
     id: "sort-check",
     projectId: "admin-panel",
     name: "Full with sort check",
-    basePipeline: { id: "full", name: "Full" },
+    copiedFrom: { name: "Full", at: null },
     stages: [
       IMPLEMENT,
       {
@@ -112,23 +112,23 @@ const PROJECT_PIPELINES = [
         onFailure: undefined,
       },
     ],
-    broken: [],
+    brokenBeforeUpdate: null,
   },
   {
     id: "spec-change",
     projectId: "admin-panel",
     name: "Spec change",
-    basePipeline: { id: "full", name: "Full" },
+    copiedFrom: { name: "Full", at: null },
     stages: [{ name: "Implement" }],
-    broken: [{ text: "Changes Produce, which Full no longer has." }],
+    brokenBeforeUpdate: ["Changes Produce, which Full no longer had."],
   },
   {
     id: "elsewhere",
     projectId: "engine-shop",
     name: "Engine shop's own",
-    basePipeline: { id: "full", name: "Full" },
+    copiedFrom: { name: "Full", at: null },
     stages: [{ name: "Implement" }],
-    broken: [],
+    brokenBeforeUpdate: null,
   },
 ] as unknown as ProjectPipeline[];
 
@@ -275,8 +275,8 @@ describe("a Task with no Pipeline yet", () => {
     expect(optionNamed("Full")?.textContent).toContain("Default for Bugs");
   });
 
-  it("lists a Broken Project Pipeline with why, and doesn't choose it", () => {
-    // A Broken default isn't opened on, so nothing is chosen at first.
+  it("lists a Project Pipeline that was Broken before The Office updated with why, and doesn't choose it", () => {
+    // Such a default isn't opened on, so nothing is chosen at first.
     rail(TASK, {
       ...PROJECT,
       defaultPipeline: "spec-change",
@@ -288,7 +288,7 @@ describe("a Task with no Pipeline yet", () => {
     const broken = optionNamed("Spec change");
     expect(broken?.getAttribute("aria-disabled")).toBe("true");
     expect(broken?.textContent).toContain(
-      "BrokenBroken: Changes Produce, which Full no longer has. Fix it in Admin panel's Pipelines.",
+      "Was BrokenBroken before The Office updated: Changes Produce, which Full no longer had. Save it once in Admin panel's Pipelines to choose it.",
     );
     act(() => broken?.click());
 

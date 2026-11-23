@@ -4,7 +4,7 @@ import { Badge, Button, Icon, Popover, SplitButton } from "@the-office/ui";
 import { Link } from "@tanstack/react-router";
 import { Fragment, useState, type ReactNode } from "react";
 import { moveToTopOfQueue, moveUpInQueue, takeOutOfQueue, taskQueries } from "../../api/work.ts";
-import { counted } from "../../shell/pipelines/stage-change-words.ts";
+import { counted } from "../../shell/pipelines/pipeline-words.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { distinctShortReasons, reasonsBesideBlockers } from "./queue-reasons.ts";
 import { RecordActionButton, type RecordAction } from "./record-actions.tsx";

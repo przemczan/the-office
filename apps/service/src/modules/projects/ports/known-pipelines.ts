@@ -7,8 +7,8 @@ import type { PipelineCommands } from "../domain/pipeline-commands.js";
  */
 export abstract class KnownPipelines {
   /**
-   * The Pipeline's name and the command keys its Stages run, a Project Pipeline's built Stages, with
-   * its Project and why it is Broken; undefined for one neither the library nor a Project has.
+   * The Pipeline's name and the command keys its Stages run, a Project Pipeline's with its Project
+   * and why it was Broken before The Office updated; undefined for one neither the library nor a Project has.
    */
   abstract commandsNamedBy(id: string): Promise<PipelineCommands | undefined>;
 }

@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { Duty, Pipeline, PipelineEdit, Role, RoleCardOptions } from "@the-office/contracts";
-import { Alert, Button, Card, Input, Textarea, Tooltip } from "@the-office/ui";
+import { Button, Card, Input, Textarea, Tooltip } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import {
   addPipeline,
@@ -10,7 +10,6 @@ import {
   removePipeline,
   savePipeline,
 } from "../../../api/pipelines.ts";
-import { projectQueries } from "../../../api/projects.ts";
 import { useLibraryCommands } from "../../../shell/pipelines/library-commands.ts";
 import { RemovePipelineDialog } from "../../../shell/pipelines/remove-pipeline-dialog.tsx";
 import { ConvertedNote } from "../../../shell/pipelines/flow/converted-note.tsx";
@@ -20,17 +19,13 @@ import { OfficeFlowEditor } from "../../../shell/pipelines/flow/office-flow-edit
 import { byLevel, checkAwaited } from "../../../shell/pipelines/stages-check.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
-import { BreaksDialog } from "./breaks-dialog.tsx";
-import { breaksSentence, breaksTitle } from "./breaks-words.ts";
 
 const NEW_PIPELINE: PipelineEdit = { name: "", description: "", stages: [] };
 
 /**
  * The open library Pipeline's name, description and Stages in the flow editor, saved or discarded
  * as a whole; a new Pipeline is added the same way. Problems the service would refuse
- * hold Save; a Role nobody fills is only flagged. A save that would break Project Pipelines built
- * from it warns above the bar, and Save asks first in a window naming them (spec §2.3, "A Broken
- * Project Pipeline").
+ * hold Save; a Role nobody fills is only flagged.
  */
 export function LibraryPipelineForm({
   pipeline,
@@ -50,7 +45,6 @@ export function LibraryPipelineForm({
   const saved = pipeline ? editOf(pipeline) : NEW_PIPELINE;
   const [draft, setDraft] = useState<PipelineEdit>(saved);
   const [removing, setRemoving] = useState(false);
-  const [warning, setWarning] = useState(false);
   const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
   const check = useQuery({
     ...pipelineQueries.libraryCheck({ ...draft, pipelineId: pipeline?.id }),
@@ -60,16 +54,12 @@ export function LibraryPipelineForm({
     ...(check.data?.problems ?? []),
     ...flowProblems(draft.stages),
   ]);
-  const breaks = dirty ? (check.data?.breaks ?? []) : [];
-  const projects = useQuery(projectQueries.list()).data ?? [];
   const commands = useLibraryCommands();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const showToast = useToast();
   const saving = useMutation({
     mutationFn: () => (pipeline ? savePipeline(pipeline.id, draft) : addPipeline(draft)),
-    // The refusal shows above the save bar, so the warning window closes either way.
-    onSettled: () => setWarning(false),
     onSuccess: async (result) => {
       await refreshPipelineList(queryClient);
       if (pipeline) {
@@ -105,7 +95,7 @@ export function LibraryPipelineForm({
         <Button
           loading={saving.isPending}
           disabled={!dirty || problems.length > 0 || checkAwaited(check)}
-          onClick={() => (breaks.length > 0 ? setWarning(true) : saving.mutate())}
+          onClick={() => saving.mutate()}
         >
           {pipeline ? "Save the Pipeline" : "Add the Pipeline"}
         </Button>
@@ -149,24 +139,8 @@ export function LibraryPipelineForm({
           />
         </div>
       </Card>
-      {breaks.length > 0 && (
-        <Alert tone="warning" title={breaksTitle(undefined, breaks.length)}>
-          {breaksSentence(breaks)} name Stages this edit takes out of {pipeline?.name}. You can save
-          anyway: each is then Broken until its Stage changes are fixed.
-        </Alert>
-      )}
       {saving.error && <RefusalAlert title="The Pipeline wasn't saved" error={saving.error} />}
       <div className="settings-actions">{saveRow(true)}</div>
-      {warning && pipeline && (
-        <BreaksDialog
-          pipelineName={pipeline.name}
-          breaks={breaks}
-          projects={projects}
-          saving={saving.isPending}
-          onSaveAnyway={() => saving.mutate()}
-          onClose={() => setWarning(false)}
-        />
-      )}
       {removing && pipeline && (
         <RemovePipelineDialog
           name={pipeline.name}

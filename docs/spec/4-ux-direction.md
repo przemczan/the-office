@@ -4,7 +4,7 @@ Covers: the UI spec, shell, Project mark, progressive disclosure, palettes, dens
 
 ## The UI spec
 
-- The UI spec is this page and [4.1](4.1-ui-rules.md), with the [designs](../design/README.md) for the screens they name: [the chat drawer](../design/chat-drawer.html), [the Decision card](../design/decision-form.html), [Add a Project](../design/add-project.html), [the Pipeline flow editor](../design/pipeline-flow.html), [Project Pipelines](../design/project-pipelines.html), [the Task page](../design/task-page-2.html), [the Initiative page](../design/initiative-page.html) and [its Pipelines block](../design/initiative-pipelines-block.html), [the Live view](../design/live-view.html).
+- The UI spec is this page and [4.1](4.1-ui-rules.md), with the [designs](../design/README.md) for the screens they name: [the chat drawer](../design/chat-drawer.html), [the Decision card](../design/decision-form.html), [Add a Project](../design/add-project.html), [the Pipeline flow editor](../design/pipeline-flow.html), [the Task page](../design/task-page-2.html), [the Initiative page](../design/initiative-page.html) and [its Pipelines block](../design/initiative-pipelines-block.html), [the Live view](../design/live-view.html).
 - Every screen is built in React with the design system's components ([4.1](4.1-ui-rules.md#components)).
 - Every window follows [4.1](4.1-ui-rules.md#windows).
 - The code wins over a design where [the designs' README](../design/README.md) says it was built differently.

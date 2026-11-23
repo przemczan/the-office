@@ -223,7 +223,7 @@ describe("a planning Brief", () => {
     );
   });
 
-  it("lists the Project's own Pipelines first, its default first, each with its base Pipeline, then the office-wide ones", () => {
+  it("lists the Project's own Pipelines first, its default first, each with the Pipeline it was copied from, then the office-wide ones", () => {
     const pipelines: readonly PlanningPipeline[] = [
       {
         id: "full-with-linux",
@@ -231,7 +231,7 @@ describe("a planning Brief", () => {
         description: "For a change the Linux run can break.",
         stages: [{ name: "Implement" }, { name: "Verify on Linux" }],
         projectId: "admin-panel",
-        basePipeline: { id: "full", name: "Full" },
+        copiedFrom: { name: "Full" },
         broken: [],
       },
       {
@@ -240,7 +240,7 @@ describe("a planning Brief", () => {
         description: "For a change to the spec.",
         stages: [{ name: "Write" }],
         projectId: "admin-panel",
-        basePipeline: { id: "document", name: "Document" },
+        copiedFrom: { name: "Document" },
         broken: ["Changes Produce, which Document no longer has."],
       },
       ...PIPELINES,
@@ -256,8 +256,8 @@ describe("a planning Brief", () => {
 
     expect(brief).toContain(
       [
-        "## The Pipelines\n\nThe Task has no Pipeline yet. The Pipeline Admin panel gives Features is Spec change (spec-change), which is Broken: Changes Produce, which Document no longer has. It can't be proposed. Propose the one its Definition of Done needs with propose_pipeline:",
-        "Admin panel's own Pipelines, which only its Tasks can follow:\n- spec-change: Spec change (Write). Built from Document. For a change to the spec. Broken: Changes Produce, which Document no longer has. It can't be proposed.\n- full-with-linux: Full with Linux check (Implement → Verify on Linux). Built from Full. For a change the Linux run can break.",
+        "## The Pipelines\n\nThe Task has no Pipeline yet. The Pipeline Admin panel gives Features is Spec change (spec-change), which was Broken before The Office updated: Changes Produce, which Document no longer has. It can't be proposed. Propose the one its Definition of Done needs with propose_pipeline:",
+        "Admin panel's own Pipelines, which only its Tasks can follow:\n- spec-change: Spec change (Write). Copied from Document. For a change to the spec. Broken before The Office updated: Changes Produce, which Document no longer has. It can't be proposed.\n- full-with-linux: Full with Linux check (Implement → Verify on Linux). Copied from Full. For a change the Linux run can break.",
         "Office-wide Pipelines:\n- full: Full (Implement → Tests → Publish). For a change to the code.\n- document: Document (Produce → Review & fix). For a document as the result.",
       ].join("\n\n"),
     );

@@ -70,7 +70,7 @@ export interface ProjectCommandsInBrief {
 
 /**
  * A Pipeline, office-wide or a Project Pipeline, as the Planner chooses one: when it fits, and its
- * Stages, a Project Pipeline's as built from its base Pipeline.
+ * Stages.
  */
 export interface PlanningPipeline {
   readonly id: string;
@@ -81,9 +81,12 @@ export interface PlanningPipeline {
   readonly stages: readonly { readonly name: string; readonly role?: string }[];
   /** The Project whose Project Pipeline it is; undefined for an office-wide one. */
   readonly projectId?: string;
-  /** The office-wide Pipeline a Project Pipeline is built from. */
-  readonly basePipeline?: { readonly id: string; readonly name: string };
-  /** Each reason it is Broken; absent or empty when it isn't, as an office-wide one never is. */
+  /** The Pipeline a Project Pipeline was copied from, by name, for its words alone. */
+  readonly copiedFrom?: { readonly name: string };
+  /**
+   * Each reason a Project Pipeline was Broken before The Office updated, which keeps it from being
+   * chosen until the user saves it; absent or empty when it wasn't, as an office-wide one never is.
+   */
   readonly broken?: readonly string[];
 }
 
@@ -274,8 +277,10 @@ function pipelineValues(
   };
 }
 
-/** A Broken default can't be proposed, so the Brief says so where it names it. */
-/** A Project's default Pipeline by name and id, with why it is Broken when it is. */
+/**
+ * A Project's default Pipeline by name and id, with why it was Broken before The Office updated
+ * when it was: such a default can't be proposed, so the Brief says so where it names it.
+ */
 export function defaultPipelineWords(
   pipelines: readonly PlanningPipeline[],
   defaultPipeline: string,
@@ -290,7 +295,9 @@ function brokenDefaultWords(
   defaultPipeline: string,
 ): string {
   const broken = pipelines.find(({ id }) => id === defaultPipeline)?.broken ?? [];
-  return broken.length === 0 ? "" : `, which is Broken: ${broken.join(" ")} It can't be proposed`;
+  return broken.length === 0
+    ? ""
+    : `, which was Broken before The Office updated: ${broken.join(" ")} It can't be proposed`;
 }
 
 /** A Project with its own Pipelines, as a planning Brief lists them. */
@@ -330,15 +337,17 @@ function defaultFirst(
 
 /**
  * The Pipelines, one line each: its id, name, Stages and when it fits; a Project Pipeline names
- * its base Pipeline, and a Broken one why it can't be proposed.
+ * the Pipeline it was copied from, and one Broken before The Office updated why it can't be proposed.
  */
 export function pipelineLibraryLines(pipelines: readonly PlanningPipeline[]): string[] {
-  return pipelines.map(({ id, name, description, stages, basePipeline, broken = [] }) =>
+  return pipelines.map(({ id, name, description, stages, copiedFrom, broken = [] }) =>
     [
       `- ${id}: ${name} (${stages.map((stage) => stage.name).join(" → ")}).`,
-      basePipeline && `Built from ${basePipeline.name}.`,
+      copiedFrom && `Copied from ${copiedFrom.name}.`,
       description,
-      broken.length > 0 ? `Broken: ${broken.join(" ")} It can't be proposed.` : undefined,
+      broken.length > 0
+        ? `Broken before The Office updated: ${broken.join(" ")} It can't be proposed.`
+        : undefined,
     ]
       .filter((part) => part !== undefined && part !== "")
       .join(" "),

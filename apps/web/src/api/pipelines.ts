@@ -133,7 +133,7 @@ export const standInChoiceQueries = {
 };
 
 export const projectPipelineQueries = {
-  /** The Project's Project Pipelines, each built from its base Pipeline's current Stages. */
+  /** The Project's Project Pipelines, each a full Pipeline of its own. */
   list: (projectId: string) =>
     queryOptions({
       queryKey: [...PROJECT_PIPELINES_KEY, { projectId }],
@@ -163,7 +163,22 @@ export const projectPipelineQueries = {
       queryFn: ({ signal }) =>
         getFromApi(`${projectPipelinePath(projectPipelineId)}/use`, pipelineUseSchema, signal),
     }),
-  /** What saving the edit would be refused for and only warned about, and the Stages it builds. */
+  /** The Project's own Pipelines flagged "Needs fixing", in one request rather than one per row. */
+  needingFixing: (projectId: string) =>
+    queryOptions({
+      queryKey: [...PROJECT_PIPELINES_KEY, "check", "needs-fixing", { projectId }],
+      queryFn: async ({ signal }) =>
+        new Set(
+          (
+            await getFromApi(
+              `/project-pipelines/check/needs-fixing?projectId=${encodeURIComponent(projectId)}`,
+              pipelinesNeedingFixingSchema,
+              signal,
+            )
+          ).pipelineIds,
+        ),
+    }),
+  /** What saving the edit would be refused for and only warned about. */
   check: (request: ProjectPipelineCheckRequest) =>
     queryOptions({
       queryKey: [...PROJECT_PIPELINES_KEY, "check", request],
@@ -219,14 +234,17 @@ export function removePipeline(pipelineId: string): Promise<void> {
   return deleteFromApi(pipelinePath(pipelineId));
 }
 
-/** A Project Pipeline of the Project, built from an office-wide Pipeline. */
+/**
+ * A Project Pipeline of the Project, a copy of an office-wide Pipeline (never Onboard) or of one of
+ * the Project's own.
+ */
 export function addProjectPipeline(
   newProjectPipeline: NewProjectPipeline,
 ): Promise<ProjectPipeline> {
   return sendToApi("POST", "/project-pipelines", newProjectPipeline, projectPipelineSchema);
 }
 
-/** Refused while it would be Broken: only an office-wide Pipeline's save breaks one. */
+/** The Project Pipeline saved; saving one Broken before The Office updated clears its flag. */
 export function saveProjectPipeline(
   projectPipelineId: string,
   edit: ProjectPipelineEdit,

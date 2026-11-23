@@ -123,7 +123,6 @@ const QUICK_FIX: OfficeWidePipeline = {
   name: "Quick fix",
   description: "",
   stages: [],
-  builtOnBy: [],
 };
 
 /** The window over a page of its own, its queries answered as given. */

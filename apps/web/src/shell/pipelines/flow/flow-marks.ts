@@ -1,21 +1,18 @@
 import type { Route } from "@the-office/contracts";
 
 /**
- * How a Stage of a Project Pipeline's built flow is marked on its left edge (the adopted Project
- * Pipelines design, carried onto the canvas by docs/design/pipeline-flow.html): green Inserted, blue
- * Replaced, amber Changed and Routes changed, and a removed Stage dashed and struck through, its old
- * routes dotted. In "Edit for this Task", a started Stage is marked locked with its state.
+ * How a Stage is marked on its left edge: in "Edit for this Task", a started Stage is marked locked,
+ * its edge grey, with its state.
  */
-export type FlowStageMarkTone =
-  "inserted" | "replaced" | "changed" | "routes-changed" | "removed" | "locked";
+export type FlowStageMarkTone = "locked";
 
 export interface FlowStageMark {
   readonly tone: FlowStageMarkTone;
-  /** Its words, such as "Inserted after Review & fix", "Routes changed" or "Done". */
+  /** Its words, such as "Done". */
   readonly label: string;
 }
 
-/** The marks by Stage key; a Stage with none is the base Pipeline's as it is. */
+/** The marks by Stage key; a Stage with none shows no mark. */
 export type FlowStageMarks = ReadonlyMap<string, FlowStageMark>;
 
 /**

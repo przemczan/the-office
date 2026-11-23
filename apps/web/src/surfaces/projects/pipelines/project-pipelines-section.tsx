@@ -17,8 +17,8 @@ import { ProjectPipelineList } from "./project-pipeline-list.tsx";
 import "./project-pipelines.css";
 
 /**
- * A Project's Pipelines section (docs/design/project-pipelines.html, "A Project's Pipelines"): its
- * default Pipeline and Publishing, then its own Project Pipelines, the open one edited beside them.
+ * A Project's Pipelines section (spec screens/project-page.md, "Pipelines"): its default Pipeline,
+ * then its own Project Pipelines, the open one edited beside them.
  * On a narrow page the lists or the open one show, not one under the other.
  */
 export function ProjectPipelinesSection(): ReactNode {
@@ -74,7 +74,6 @@ export function ProjectPipelinesSection(): ReactNode {
           <ProjectProposalOnFlow
             proposal={onFlow.shown.proposal}
             change={onFlow.shown.change}
-            projectName={project.name}
             roles={roles.data}
             duties={duties.data}
           />
@@ -84,7 +83,6 @@ export function ProjectPipelinesSection(): ReactNode {
             key={open.id}
             project={project}
             projectPipeline={open}
-            officeWide={officeWide.data}
             roles={roles.data}
             duties={duties.data}
             options={options.data}
@@ -103,6 +101,7 @@ export function ProjectPipelinesSection(): ReactNode {
         <AddProjectPipelineDialog
           project={project}
           officeWide={officeWide.data}
+          projectPipelines={projectPipelines.data}
           onClose={() => setAdding(false)}
         />
       )}

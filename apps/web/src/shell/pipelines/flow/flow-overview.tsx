@@ -17,7 +17,8 @@ export interface FlowOverviewProps {
 
 /**
  * The Overview in the canvas's corner (docs/design/pipeline-editor.html, "The canvas"): the Stages
- * as blocks in their marks' colours, End, and the view as an ember frame; press or drag to move.
+ * as blocks, the picked one in the accent, End, and the view as an ember frame; press or drag to
+ * move.
  */
 export function FlowOverview({
   shape,

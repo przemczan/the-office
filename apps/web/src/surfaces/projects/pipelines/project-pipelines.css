@@ -1,5 +1,5 @@
 /* A Project's Pipelines section: its default and its own Pipelines beside the open one, as
-   Settings › Pipelines lays out its lists (docs/design/project-pipelines.html). */
+   Settings › Pipelines lays out its lists (docs/design/pipeline-editor.html). */
 .project-pipelines {
   display: grid;
   grid-template-columns: 340px minmax(0, 1fr);
@@ -61,21 +61,17 @@
   color: var(--fg-2);
 }
 
+/* The open one's Name and Description over its flow, as Settings › Pipelines lays out its own. */
 .project-pipeline-form {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 12px 14px;
-  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.project-pipeline-form-wide {
-  grid-column: 1 / -1;
-}
-
-@container page (max-width: 600px) {
-  .project-pipeline-form {
-    grid-template-columns: minmax(0, 1fr);
-  }
+/* Each reason a Project Pipeline was Broken before The Office updated. */
+.project-pipeline-reasons {
+  margin: 0 0 6px;
+  padding-left: 18px;
 }
 
 .project-pipeline-actions {
@@ -91,19 +87,33 @@
   color: var(--fg-3);
 }
 
-/* A base Pipeline to choose in Add a Pipeline: its name over its Stages. */
-.base-choice {
+/* The Pipelines to copy from in Copy a Pipeline, in two groups: each one's name over its Stages. */
+.copy-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.copy-choices-label {
+  margin: 0;
+  font: var(--type-overline);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.copy-choice {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
 
-.base-choice-name {
+.copy-choice-name {
   font: var(--type-label);
 }
 
-.base-choice-stages {
+.copy-choice-stages {
   font: var(--type-caption);
   color: var(--fg-3);
   overflow-wrap: anywhere;

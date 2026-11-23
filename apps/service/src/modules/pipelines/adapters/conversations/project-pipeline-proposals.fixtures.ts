@@ -28,11 +28,6 @@ export function aChangeTo(
 }
 
 /** The Project Pipeline's fields as a Proposal of it carries them. */
-export function fieldsOf({
-  name,
-  description,
-  basePipeline,
-  stageChanges,
-}: ProjectPipeline): ProjectPipelineFields {
-  return { name, description, basePipelineId: basePipeline.id, stageChanges };
+export function fieldsOf({ name, description, stages }: ProjectPipeline): ProjectPipelineFields {
+  return { name, description, stages };
 }

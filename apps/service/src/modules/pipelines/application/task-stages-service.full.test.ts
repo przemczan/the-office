@@ -5,7 +5,6 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { TaskMovedToProject, TaskPipelineConfirmed } from "../../work/index.js";
 import { straightLineFlow } from "../domain/flow.js";
 import { agentStage, scriptStage } from "../domain/stage.fixtures.js";
-import type { Pipeline } from "../domain/pipeline.js";
 import { agentStageWorkers, type Stage } from "../domain/stage.js";
 import { TaskStagesReset } from "../domain/task-stages-events.js";
 import {
@@ -13,6 +12,7 @@ import {
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
 import { aPerson } from "../ports/pipelines-ports.fixtures.js";
+import { projectPipelinesForTests } from "../project-pipelines.fixtures.js";
 import { PipelineLibrary } from "./pipeline-library.js";
 import { PipelineLibraryEditor } from "./pipeline-library-editor.js";
 import { namedRoles, TaskStagesService } from "./task-stages-service.js";
@@ -218,8 +218,8 @@ describe("moving the Task to another Project", () => {
 describe("a Task on a Project Pipeline", () => {
   const linux = scriptStage({ key: "linux", name: "Verify on Linux" });
 
-  /** A Project Pipeline of a Project of its own, built on an office-wide Pipeline of its own. */
-  async function aProjectPipeline(): Promise<{ projectId: string; id: string; base: Pipeline }> {
+  /** A Project Pipeline of a Project of its own, copied from an office-wide Pipeline of its own. */
+  async function aProjectPipeline(): Promise<{ projectId: string; id: string }> {
     const editor = pipelines.app.get(PipelineLibraryEditor);
     const projectId = randomUUID();
     pipelines.projects.projects.push({
@@ -228,21 +228,25 @@ describe("a Task on a Project Pipeline", () => {
       defaultPipeline: "quick-fix",
       commands: [{ key: "test" }],
     });
-    const base = await editor.add({
-      name: `Base ${randomUUID()}`,
+    const source = await editor.add({
+      name: `Full ${randomUUID()}`,
       description: "",
       stages: [agentStage(), scriptStage()],
     });
-    const { projectPipeline } = await editor.addProjectPipeline(projectId, {
+    const copy = await editor.addProjectPipeline(projectId, {
+      copyOf: source.id,
       name: `With Linux ${randomUUID()}`,
       description: "",
-      basePipelineId: base.id,
-      stageChanges: [{ kind: "insert-after", stageKey: "tests", stage: linux }],
     });
-    return { projectId, id: projectPipeline.id, base };
+    await editor.saveProjectPipeline(copy.id, {
+      name: copy.name,
+      description: "",
+      stages: [agentStage(), scriptStage(), linux],
+    });
+    return { projectId, id: copy.id };
   }
 
-  it("copies the Stages as built when it starts", async () => {
+  it("copies its own Stages when it starts", async () => {
     const { projectId, id } = await aProjectPipeline();
     const taskId = randomUUID();
     pipelines.tasks.put(taskId, { state: "in-progress", pipelineId: id, projectId });
@@ -252,17 +256,16 @@ describe("a Task on a Project Pipeline", () => {
     );
   });
 
-  it("is refused while it is Broken, naming the Pipeline and why", async () => {
-    const { projectId, id, base } = await aProjectPipeline();
-    await pipelines.app
-      .get(PipelineLibraryEditor)
-      .save(base.id, { name: base.name, description: "", stages: [agentStage()] });
+  it("is refused while it was Broken before The Office updated, naming the Pipeline and why", async () => {
+    const { projectId, id } = await aProjectPipeline();
+    const reason = "Removes Deploy, which isn't among the Stages.";
+    await projectPipelinesForTests(pipelines.app).breakProjectPipeline({ id }, reason);
     const read = await pipelines.app.get(PipelineLibrary).projectPipeline(id);
     const taskId = randomUUID();
     pipelines.tasks.put(taskId, { state: "in-progress", pipelineId: id, projectId });
 
     expect(await refusalOf(service.make(taskId, id))).toEqual([
-      `${read?.projectPipeline.name} is Broken: Inserts Verify on Linux after Tests, which ${base.name} no longer has. Fix its Stage changes first, or choose another Pipeline.`,
+      `${read?.name} was Broken before The Office updated: ${reason} Save it once in Site's Pipelines, or choose another Pipeline.`,
     ]);
   });
 

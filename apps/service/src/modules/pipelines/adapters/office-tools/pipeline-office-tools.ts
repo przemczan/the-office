@@ -1,5 +1,5 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
-import { stageChangeSchema, stageSchema } from "@the-office/contracts";
+import { stageSchema } from "@the-office/contracts";
 import { z } from "zod";
 import {
   LIST_PIPELINES_TOOL,
@@ -16,10 +16,7 @@ import {
   WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL,
   type OfficeToolResult,
 } from "../../../engine/index.js";
-import {
-  PipelineLibraryEditor,
-  type ProjectPipelineBreak,
-} from "../../application/pipeline-library-editor.js";
+import { PipelineLibraryEditor } from "../../application/pipeline-library-editor.js";
 import { PipelineLibrary } from "../../application/pipeline-library.js";
 import { RoleFillings } from "../../application/role-fillings.js";
 import { StageBranchUpdate } from "../../application/stage-branch-update.js";
@@ -31,13 +28,12 @@ import { agentCommandOf } from "../../domain/agent-command.js";
 import { placedInOrder } from "../../domain/flow.js";
 import { proposedEdit } from "../../domain/library-pipeline.js";
 import type { StageProblem } from "../../domain/pipeline.js";
-import type { BuiltProjectPipeline } from "../../domain/project-pipeline.js";
+import type { ProjectPipeline } from "../../domain/project-pipeline.js";
 import {
   proposedRoutes,
   routeChangeWords,
   type ProposedRoutes,
 } from "../../domain/proposed-routes.js";
-import { namedRoutes } from "../../domain/route.js";
 import { agentStageWorkers, type Stage } from "../../domain/stage.js";
 import { UPDATE_BRANCH_TOOL } from "../../domain/stage-commit.js";
 import { dutyLabel, fillingKey } from "../../domain/stage-staffing.js";
@@ -54,7 +50,7 @@ const PIPELINE_DRAFTED =
   "The Proposal is in this Thread as a card, with the Pipeline's Stages and routes now and as proposed; nothing changes until the user applies it, and it is refused if the Stages change first. Don't wait for it: tell the user what you propose and why, in a line or two.";
 
 const PROJECT_PIPELINE_DRAFTED =
-  "The Proposal is in this Thread as a card, with the Project Pipeline's fields and routes now and as proposed; nothing changes until the user applies it, and it is refused if the Project Pipeline changes first. It never sets the Project's default Pipeline: the user does that on the Project's page. Don't wait for it: tell the user what you propose and why, in a line or two.";
+  "The Proposal is in this Thread as a card, with the Project Pipeline's fields, Stages and routes now and as proposed; nothing changes until the user applies it, and it is refused if the Project Pipeline changes first. It never sets the Project's default Pipeline: the user does that on the Project's page. Don't wait for it: tell the user what you propose and why, in a line or two.";
 
 /** How a Stage's routes and their conditions are given, which both propose tools take. */
 const ROUTES_WORDS = [
@@ -200,7 +196,7 @@ export class PipelineOfficeTools implements OnModuleInit {
     this.registry.register({
       name: LIST_PIPELINES_TOOL,
       description:
-        "Lists the Pipelines as JSON: the office-wide Pipelines of the library, each with its id, name, description and Stages in the Pipeline's order, each Stage with its routes out and their conditions and its place on the editor's canvas, in the shape propose_library_pipeline takes them; then the Project Pipelines, each with its id, Project, name, description, base Pipeline (an office-wide one, by id and name), Stage changes (Change routes among them), built Stages with their routes, and Broken with its reasons (empty when it isn't), in the shape propose_project_pipeline takes them; then, for each duty an Agent Stage names instead of a Role, by its key, who holds it, whom the Stage runs as when it starts. Give a Project to list only its Project Pipelines, or a Pipeline to list only that one, office-wide or a Project's, with its duties.",
+        "Lists the Pipelines as JSON: the office-wide Pipelines of the library, each with its id, name, description and Stages in the Pipeline's order, each Stage with its routes out and their conditions and its place on the editor's canvas, in the shape propose_library_pipeline takes them; then the Project Pipelines, each a full Pipeline of its Project, with its id, Project, name, description, the Pipeline it was copied from (its name, and when, null when unknown) and its Stages in the same shape, which propose_project_pipeline takes; one Broken before The Office updated says so, with its reasons, and can't be chosen until the user saves it once; then, for each duty an Agent Stage names instead of a Role, by its key, who holds it, whom the Stage runs as when it starts. Give a Project to list only its Project Pipelines, or a Pipeline to list only that one, office-wide or a Project's, with its duties.",
       input: z.object({
         project: z
           .string()
@@ -229,15 +225,15 @@ export class PipelineOfficeTools implements OnModuleInit {
         ]);
         const isListed = (id: string): boolean => pipelineId === undefined || id === pipelineId;
         const officeWide = allOfficeWide.filter(({ id }) => isListed(id));
-        const projectPipelines = allProjectPipelines.filter(({ projectPipeline }) =>
-          isListed(projectPipeline.id),
-        );
+        const projectPipelines = allProjectPipelines.filter(({ id }) => isListed(id));
         if (pipelineId !== undefined && officeWide.length + projectPipelines.length === 0) {
           return { text: `There is no Pipeline "${pipelineId}".`, isError: true };
         }
         const listed = {
           officeWidePipelines: officeWide.map(toPipelineResponse),
-          projectPipelines: projectPipelines.map((built) => listedProjectPipeline(built, projects)),
+          projectPipelines: projectPipelines.map((projectPipeline) =>
+            listedProjectPipeline(projectPipeline, projects),
+          ),
           duties: await this.dutyWords([
             ...officeWide.flatMap(({ stages }) => stages),
             ...projectPipelines.flatMap(({ stages }) => stages),
@@ -286,7 +282,7 @@ export class PipelineOfficeTools implements OnModuleInit {
           }),
         );
         if (answer.isError) return answer;
-        return draftedWords(answer.text, routes, breakWords(check.breaks));
+        return draftedWords(answer.text, routes);
       },
     });
   }
@@ -295,12 +291,13 @@ export class PipelineOfficeTools implements OnModuleInit {
     this.registry.register({
       name: PROPOSE_PROJECT_PIPELINE_TOOL,
       description: [
-        "Drafts a new Project Pipeline of a Project, or a change to one, as a Proposal the user applies with a click: its name, description, base Pipeline and Stage changes.",
-        'A Change routes Stage change, `{ "kind": "change-routes", "stageKey": <key>, "routes": [...] }`, gives one of its built Stages its whole list of routes out, with their conditions; a Stage an Insert or Replace gives carries its own routes and place.',
+        "Drafts a new Project Pipeline of a Project, copied from a Pipeline, or a change to one, as a Proposal the user applies with a click: its name, description and whole flow, its Stages, where each stands, and their routes with their conditions.",
+        "A new one is a copy of `copyOf`: an office-wide Pipeline other than Onboard, or one of the Project's own; it takes that Pipeline's Stages when `stages` is left out.",
         ROUTES_WORDS,
+        "A Stage's `place` (`column`, `row`) is where it stands on the editor's canvas, which gives the Pipeline's order, the columns left to right; leave every place out to have the Stages stand one to a column in the order given. Stages that all leave their routes out are taken as a straight line, each to the next.",
         ROUTES_EXAMPLE,
         CHECKED_WORDS,
-        "It shows in this Thread as a card, each value now and as proposed, with each built Stage whose routes change, its routes as they were and as proposed, and changes nothing until the user applies it. It never removes a Project Pipeline or sets a Project's default. It returns at once.",
+        "It shows in this Thread as a card, each value now and as proposed, with each Stage whose routes change, its routes as they were and as proposed, and changes nothing until the user applies it. It never removes a Project Pipeline or sets a Project's default. It returns at once.",
       ].join(" "),
       input: z.object({
         project: z.string().describe("The Project's id."),
@@ -309,6 +306,12 @@ export class PipelineOfficeTools implements OnModuleInit {
           .optional()
           .describe(
             "The Project Pipeline's id, as list_pipelines gives it, to change it; left out for a new one.",
+          ),
+        copyOf: z
+          .string()
+          .optional()
+          .describe(
+            "For a new one, which needs it: the Pipeline it is copied from, by its id as list_pipelines gives it, an office-wide Pipeline other than Onboard or one of the Project's own. Left out for a change.",
           ),
         name: z
           .string()
@@ -320,62 +323,60 @@ export class PipelineOfficeTools implements OnModuleInit {
           .string()
           .optional()
           .describe("Its description; empty for a new one, kept for a change, when left out."),
-        basePipeline: z
-          .string()
+        stages: z
+          .array(stageSchema)
           .optional()
           .describe(
-            "The office-wide Pipeline it is built from, by its id as list_pipelines gives it, never a Project Pipeline. A new one needs it; a change keeps its base Pipeline when it is left out.",
-          ),
-        stageChanges: z
-          .array(stageChangeSchema)
-          .optional()
-          .describe(
-            "Its Stage changes as they should be, all of them in order, in the shape list_pipelines gives them, each naming its Stage by key: a Stage of the base Pipeline, or one an earlier Stage change inserted. None for a new one, kept for a change, when left out. The built Stages must not be Broken, and the Project must have each command key they name.",
+            "Its Stages as they should be, all of them, each with its routes and place, in the shape list_pipelines gives them; a new one takes the copied Pipeline's, and a change keeps its own, when left out. A Script Stage's command is publish, for Publish, or a Project command by its key, never install; the Project must have each key it names, a command test's among them.",
           ),
       }),
       run: async (input, { sessionId }) => {
         const projectId = input.project.trim();
-        const pipelineId = input.pipeline?.trim();
+        const pipelineId = input.pipeline?.trim() || undefined;
+        const copyOf = pipelineId === undefined ? input.copyOf?.trim() || undefined : undefined;
         let from: ProjectPipelineFields | null = null;
-        let builtBefore: readonly Stage[] | undefined;
+        let stagesBefore: readonly Stage[];
         if (pipelineId !== undefined) {
           const saved = await this.library.projectPipeline(pipelineId);
-          if (!saved || saved.projectPipeline.projectId !== projectId) {
+          if (!saved || saved.projectId !== projectId) {
             return {
               text: `Project "${projectId}" has no Project Pipeline "${pipelineId}".`,
               isError: true,
             };
           }
           from = fieldsOf(saved);
-          builtBefore = saved.stages;
+          stagesBefore = saved.stages;
+        } else {
+          if (copyOf === undefined || input.name === undefined) {
+            return {
+              text: "A new Project Pipeline needs its name and the Pipeline it is copied from (copyOf).",
+              isError: true,
+            };
+          }
+          const source = await this.editor.copySource(projectId, copyOf);
+          if (!source) {
+            return {
+              text: `There is no Pipeline "${copyOf}" to copy: name an office-wide Pipeline or one of Project "${projectId}"'s own.`,
+              isError: true,
+            };
+          }
+          // A new one's routes change from those of the Pipeline it copies.
+          stagesBefore = source.stages;
         }
-        const name = input.name ?? from?.name;
-        const basePipelineId = input.basePipeline?.trim() ?? from?.basePipelineId;
-        if (name === undefined || basePipelineId === undefined) {
-          return {
-            text: "A new Project Pipeline needs its name and its base Pipeline.",
-            isError: true,
-          };
-        }
-        const edit: ProjectPipelineFields = {
-          name,
+        // A new one carries its whole flow too, so it gets the whole check.
+        const stages = placedInOrder(input.stages ?? stagesBefore);
+        const to: ProjectPipelineFields = {
+          name: input.name ?? from?.name ?? "",
           description: input.description ?? from?.description ?? "",
-          basePipelineId,
-          stageChanges: input.stageChanges ?? from?.stageChanges ?? [],
+          stages,
+          ...(copyOf === undefined ? {} : { copyOf }),
         };
-        const check = await this.editor.checkProjectPipeline(edit, {
-          projectId,
-          ...(pipelineId === undefined ? {} : { projectPipelineId: pipelineId }),
-        });
-        if (check.problems.length > 0 || !check.built) return refusedWords(check.problems);
-        const to = withRoutesNamed(edit, check.built.stages);
-        // A new one's routes change from its base Pipeline's.
-        const before = builtBefore ?? (await this.library.find(basePipelineId))?.stages ?? [];
-        const routes = proposedRoutes(
-          placedInOrder(before),
-          placedInOrder(check.built.stages),
-          check.flags,
+        const check = await this.editor.checkProposedProjectPipeline(
+          { projectId, pipelineId: pipelineId ?? null, from, to },
+          copyOf,
         );
+        if (check.problems.length > 0) return refusedWords(check.problems);
+        const routes = proposedRoutes(placedInOrder(stagesBefore), stages, check.flags);
         const answer = await drafted(PROJECT_PIPELINE_DRAFTED, () =>
           this.proposals.draft(sessionId, {
             kind: "project-pipeline",
@@ -387,7 +388,7 @@ export class PipelineOfficeTools implements OnModuleInit {
           }),
         );
         if (answer.isError) return answer;
-        return draftedWords(answer.text, routes, []);
+        return draftedWords(answer.text, routes);
       },
     });
   }
@@ -455,49 +456,36 @@ export class PipelineOfficeTools implements OnModuleInit {
   }
 }
 
-/** A Project Pipeline as list_pipelines lists it: its Project by name too, its rows left out. */
-function listedProjectPipeline(built: BuiltProjectPipeline, projects: readonly ProjectDefault[]) {
-  const { rows: _rows, projectId, broken, ...listed } = toProjectPipelineResponse(built);
+/**
+ * A Project Pipeline as list_pipelines lists it: its Project by name too, where it was copied from,
+ * and, only when it has them, why it was Broken before The Office updated.
+ */
+function listedProjectPipeline(
+  projectPipeline: ProjectPipeline,
+  projects: readonly ProjectDefault[],
+) {
+  const { projectId, copiedFrom, brokenBeforeUpdate, ...listed } =
+    toProjectPipelineResponse(projectPipeline);
   const projectName = projects.find(({ id }) => id === projectId)?.name ?? projectId;
   return {
     ...listed,
     project: { id: projectId, name: projectName },
-    broken: broken.map(({ text }) => text),
+    copiedFrom,
+    ...(brokenBeforeUpdate === null
+      ? {}
+      : {
+          brokenBeforeUpdate: {
+            words:
+              "Broken before The Office updated: it can't be chosen until the user saves it once.",
+            reasons: brokenBeforeUpdate,
+          },
+        }),
   };
 }
 
 /** The Project Pipeline's fields as a Proposal of it starts from. */
-function fieldsOf({ projectPipeline }: BuiltProjectPipeline): ProjectPipelineFields {
-  const { name, description, basePipelineId, stageChanges } = projectPipeline;
-  return { name, description, basePipelineId, stageChanges };
-}
-
-/** What Devops is told of the Project Pipelines a Proposal of the base Pipeline's Stages breaks. */
-function breakWords(breaks: readonly ProjectPipelineBreak[]): string[] {
-  if (breaks.length === 0) return [];
-  return [
-    "Applying it leaves these Project Pipelines Broken, as the card warns the user; each stays Broken until its Stage changes are fixed:",
-    ...breaks.map(
-      ({ projectName, name, reasons }) =>
-        `- ${projectName}'s ${name}: ${reasons.map(({ text }) => text).join(" ")}`,
-    ),
-  ];
-}
-
-/** A Project Pipeline's fields with each Change routes naming the Stages by their built names. */
-function withRoutesNamed(
-  fields: ProjectPipelineFields,
-  built: readonly Stage[],
-): ProjectPipelineFields {
-  const names = new Map(built.map(({ key, name }) => [key, name]));
-  return {
-    ...fields,
-    stageChanges: fields.stageChanges.map((stageChange) =>
-      stageChange.kind === "change-routes"
-        ? { ...stageChange, routes: namedRoutes(stageChange.routes, names) }
-        : stageChange,
-    ),
-  };
+function fieldsOf({ name, description, stages }: ProjectPipeline): ProjectPipelineFields {
+  return { name, description, stages };
 }
 
 /** What the Agent is told of a draft the check refused: every problem, on its Stage. */
@@ -511,12 +499,8 @@ function refusedWords(problems: readonly StageProblem[]): OfficeToolResult {
   };
 }
 
-/** What the Agent is told of a draft: its route changes, the check's warnings and `more`. */
-function draftedWords(
-  draftedText: string,
-  { stages, check }: ProposedRoutes,
-  more: readonly string[],
-): OfficeToolResult {
+/** What the Agent is told of a draft: its route changes and the check's warnings. */
+function draftedWords(draftedText: string, { stages, check }: ProposedRoutes): OfficeToolResult {
   const lines = [draftedText];
   if (stages.length > 0) lines.push("Its route changes:", ...routeChangeWords(stages));
   if (check.length > 0) {
@@ -525,7 +509,7 @@ function draftedWords(
       ...check.map(({ text }) => `- ${text}`),
     );
   }
-  return { text: [...lines, ...more].join("\n"), isError: false };
+  return { text: lines.join("\n"), isError: false };
 }
 
 /** Drafts with `draft`, answering the Agent `draftedText`, or with why it was refused. */

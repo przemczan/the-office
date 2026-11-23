@@ -768,7 +768,7 @@ test(
 
 // Script Stages and Gates only, as nobody may fill a Role in this file (see the Pipeline test above).
 test(
-  "the user adds a Project Pipeline on its Project's page, edits it in the flow editor, sees it Broken by a base Pipeline's save and fixes it",
+  "the user copies a Pipeline into its Project's page, edits the copy in the flow editor and removes it; the one copied stays as it was",
   { tag: "@full" },
   async ({ page }) => {
     const stamp = Date.now();
@@ -795,140 +795,46 @@ test(
       await expect(list).toContainText(
         `None yet: ${project.name}'s Tasks choose from the office-wide Pipelines.`,
       );
-      await page.getByRole("button", { name: "Add a Pipeline built from…" }).click();
-      const adding = page.getByRole("dialog");
-      await adding.getByRole("radio", { name: new RegExp(base.name) }).check();
-      await expect(adding.getByLabel("Name", { exact: true })).toHaveValue(name);
+      await page.getByRole("button", { name: "New Pipeline" }).click();
+      const copying = page.getByRole("dialog", { name: `Copy a Pipeline into ${project.name}` });
+      await copying.getByRole("radio", { name: new RegExp(base.name) }).check();
+      await expect(copying.getByLabel("Name", { exact: true })).toHaveValue(name);
       await screenshotScenario(page, "project-pipelines-add");
-      await adding.getByRole("button", { name: "Add the Pipeline" }).click();
-      await expect(page.getByText(`${name} added to ${project.name}'s Pipelines.`)).toBeVisible();
+      await copying.getByRole("button", { name: `Copy into ${project.name}` }).click();
+      await expect(
+        page.getByText(`${name} copied into ${project.name}'s Pipelines.`),
+      ).toBeVisible();
       await expect(page).toHaveURL(/\/projects\/[^/]+\/pipelines\/[^/]+$/);
       const projectPipelineId = page.url().split("/").at(-1) ?? "";
       const item = list.getByRole("link", { name: new RegExp(`^${name}`) });
-      await expect(item).toContainText(`Built from ${base.name} · 0 Stage changes`);
+      await expect(item).toContainText(`Copied from ${base.name} · 3 Stages`);
+      await expect(
+        page.getByText(`Project Pipeline of ${project.name} · Copied from ${base.name} on `),
+      ).toBeVisible();
       await screenshotScenario(page, "project-pipelines-list");
 
-      // Insert a Gate after Tests, change Lint's command, remove Review.
+      // The copy is a whole Pipeline in the office flow editor: Lint runs the Project's build.
       const flow = page.getByRole("region", { name: "Flow" });
-      const card = (stageName: string): Locator =>
-        flow.locator("[data-flow-stage]").filter({
-          has: page.getByRole("button", { name: stageName, exact: true }),
-        });
-      const pickStage = (stageName: string): Promise<void> =>
-        flow.getByRole("button", { name: stageName, exact: true }).click();
-      const panel = (stageName: string): Locator =>
-        page.getByRole("region", { name: stageName, exact: true });
-      await expect(page.getByRole("button", { name: "Insert a Stage" })).toBeDisabled();
-      await pickStage("Tests");
-      await page.getByRole("button", { name: "Insert after Tests" }).click();
-      const inserting = page.getByRole("menu");
-      for (const kind of ["Agent Stage", "Script Stage", "Gate before Tests"]) {
-        await expect(inserting.getByRole("button", { name: kind, exact: true })).toBeVisible();
-      }
-      await inserting.getByRole("button", { name: "Gate", exact: true }).click();
-      await expect(card("Gate")).toContainText("Inserted after Tests");
-      await expect(panel("Gate")).toBeVisible();
-      await screenshotScenario(page, "project-pipelines-inserted");
-      await pickStage("Lint");
+      await flow.getByRole("button", { name: "Lint", exact: true }).click();
+      const lint = page.getByRole("region", { name: "Lint", exact: true });
       // The Project's own commands alone.
-      await panel("Lint").getByLabel("Project command").selectOption("build");
-      await expect(card("Lint")).toContainText("Changed: Project command");
-      await expect(panel("Lint").getByRole("table")).toContainText(`${base.name} has`);
-
-      // Change routes: a route Review lacks, shown beside the base Pipeline's, then undone.
-      await pickStage("Review");
-      await panel("Review").getByRole("button", { name: "Add a route" }).click();
-      await expect(card("Review")).toContainText("Routes changed");
-      const routes = page.getByRole("group", { name: "Review's routes" });
-      await expect(routes).toContainText(`${base.name} has`);
-      await expect(routes).toContainText(`${project.name} gets`);
-      await expect(page.getByRole("region", { name: "Route" })).toContainText(
-        "Route from Review to End",
-      );
+      await lint.getByLabel("Project command").selectOption("build");
+      await expect(page.getByText("Unsaved changes")).toBeVisible();
       await screenshotScenario(page, "project-pipeline-flow", { inView: flow });
-      await screenshotScenario(page, "project-pipeline-flow-routes", { inView: routes });
-      await page
-        .getByRole("button", { name: `Undo: give Review ${base.name}'s routes back` })
-        .click();
-      await expect(card("Review")).not.toContainText("Routes changed");
-      await expect(routes).toHaveCount(0);
-
-      await pickStage("Review");
-      await panel("Review").getByRole("button", { name: "More for Review" }).click();
-      await page
-        .getByRole("menu")
-        .getByRole("button", { name: `Remove from ${project.name}'s Stages` })
-        .click();
-      await expect(card("Review")).toContainText("Removed");
-      await screenshotScenario(page, "project-pipelines-kinds");
-
       await page.getByRole("button", { name: "Save the Pipeline" }).click();
       await expect(page.getByText("Pipeline saved.", { exact: false })).toBeVisible();
       await page.reload();
-      await expect(card("Review")).toContainText("Removed");
-      expect((await projectPipeline(page, projectPipelineId)).stageChanges).toEqual([
-        expect.objectContaining({
-          kind: "insert-after",
-          stageKey: "tests",
-          stage: expect.objectContaining({ kind: "gate" }),
-        }),
-        { kind: "change", stageKey: "lint", stageName: "Lint", fields: { command: "build" } },
-        { kind: "remove", stageKey: "review", stageName: "Review" },
-      ]);
+      await flow.getByRole("button", { name: "Lint", exact: true }).click();
+      await expect(lint.getByLabel("Project command")).toHaveValue("build");
+      const saved = await projectPipeline(page, projectPipelineId);
+      expect(saved.stages.map(({ key }) => key)).toEqual(["tests", "review", "lint"]);
+      expect(saved.stages.find(({ key }) => key === "lint")).toMatchObject({ command: "build" });
+      expect(saved.copiedFrom).toEqual({ name: base.name, at: expect.any(String) });
 
-      // Undo one Stage change alone.
-      await pickStage("Review");
-      await panel("Review")
-        .getByRole("button", { name: `Undo: put ${base.name}'s Review back` })
-        .click();
-      await expect(card("Review")).not.toContainText("Removed");
-      await page.getByRole("button", { name: "Save the Pipeline" }).click();
-      await expect(page.getByText("Pipeline saved.", { exact: false })).toBeVisible();
-      expect((await projectPipeline(page, projectPipelineId)).stageChanges).toHaveLength(2);
-
-      // Removing Tests from the base Pipeline breaks the inserted Gate, which names it: it warns first.
-      await page.goto(`/settings/pipelines/${base.id}`);
-      await expect(
-        page
-          .getByRole("navigation", { name: "Office-wide Pipelines" })
-          .getByRole("link", { name: new RegExp(`^${base.name}`) }),
-      ).toContainText("Built on by 1 Project Pipeline");
-      await pickStage("Tests");
-      await panel("Tests").getByRole("button", { name: "More for Tests" }).click();
-      await page.getByRole("menu").getByRole("button", { name: "Remove Tests" }).click();
-      await expect(page.getByText("Saving breaks 1 Project Pipeline")).toBeVisible();
-      await page.getByRole("button", { name: "Save the Pipeline" }).click();
-      const warning = page.getByRole("dialog");
-      await expect(warning).toContainText(`Saving ${base.name} breaks 1 Project Pipeline`);
-      await expect(warning).toContainText(name);
-      await expect(warning).toContainText(project.name);
-      await expect(warning).toContainText(`which ${base.name} no longer has`);
-      await screenshotScenario(page, "project-pipelines-warning");
-      await warning.getByRole("button", { name: "Save anyway" }).click();
-      await expect(page.getByText("Pipeline saved.", { exact: false })).toBeVisible();
-      await expect(
-        page.getByRole("link", { name: new RegExp(`^${base.name}`) }).first(),
-      ).toContainText("1 Broken");
-      await expect(
-        page.getByRole("list", { name: "Built on by 1 Project Pipeline" }),
-      ).toContainText("1 Broken");
-      await screenshotScenario(page, "settings-pipelines-built-on-by");
-
-      // Broken on its Project's page, with why, and fixed there.
-      await page.goto(`/projects/${project.id}/pipelines/${projectPipelineId}`);
-      await expect(item).toContainText("1 Stage change doesn't apply");
-      await expect(
-        page.getByText(`${name} is Broken: 1 Stage change no longer applies to ${base.name}`),
-      ).toBeVisible();
-      await expect(page.getByRole("button", { name: "Save the Pipeline" })).toBeDisabled();
-      await screenshotScenario(page, "project-pipelines-broken");
-      await page.getByLabel("Apply it to").selectOption({ label: "Review" });
-      await expect(
-        page.getByText(`Fixed: save it, and Tasks can choose ${name} again`),
-      ).toBeVisible();
-      await page.getByRole("button", { name: "Save the Pipeline" }).click();
-      await expect(page.getByText("Pipeline saved.", { exact: false })).toBeVisible();
-      expect((await projectPipeline(page, projectPipelineId)).broken).toEqual([]);
+      // Its edits never reach the Pipeline it was copied from.
+      expect(
+        (await libraryPipeline(page, base.id)).stages.find(({ key }) => key === "lint"),
+      ).toMatchObject({ command: "lint" });
 
       // Removing it asks first.
       await page.getByRole("button", { name: "Remove", exact: true }).click();
@@ -1555,7 +1461,7 @@ asOwnUser.describe("Account › Appearance", { tag: "@full" }, () => {
   });
 });
 
-test("the flow canvas moves with the right mouse button, zooms, fits the whole Pipeline and goes full screen; a Project Pipeline's Stage says why it stays", async ({
+test("the flow canvas moves with the right mouse button, zooms, fits the whole Pipeline and goes full screen, on a Project Pipeline too", async ({
   page,
 }) => {
   test.setTimeout(90_000);
@@ -1629,25 +1535,10 @@ test("the flow canvas moves with the right mouse button, zooms, fits the whole P
       path: path.join(TASK_SCREENSHOTS, "settings-stage-templates-tab.png"),
     });
 
-    // A Project Pipeline keeps its base Pipeline's places, and says so when a Stage is dragged.
-    // The card is measured again on each try: the page around the canvas can still be laying out
-    // after the card shows, moving it from under a press made at the first measure.
+    // A Project Pipeline is a whole Pipeline on the same canvas.
     await page.goto(`/projects/${project.id}/pipelines/${own.id}`);
-    const toldWhy = page.getByRole("status").filter({ hasText: "Its place comes from" });
-    await expect(async () => {
-      const build = await boxOf(flow.locator('[data-flow-stage="build"]'));
-      await page.mouse.move(build.x + build.width / 2, build.y + 12);
-      await page.mouse.down();
-      try {
-        await page.mouse.move(build.x + build.width / 2 + 80, build.y + 40, { steps: 4 });
-        await expect(toldWhy).toHaveText(
-          `Its place comes from ${base.name}, the base Pipeline: move it there.`,
-          { timeout: 2_000 },
-        );
-      } finally {
-        await page.mouse.up();
-      }
-    }).toPass({ timeout: 20_000 });
+    await expect(flow.locator('[data-flow-stage="linux"]')).toBeVisible();
+    await expect(tools.getByRole("button", { name: "Fit the Pipeline" })).toBeVisible();
     await screenshotScenario(page, "project-pipelines-canvas", { inView: view });
   } finally {
     await repository.remove();

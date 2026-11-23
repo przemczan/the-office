@@ -270,13 +270,15 @@ export interface ProposedProjectPipelineChange {
 }
 
 /**
- * What a Proposal of a Project Pipeline gives it, its Stage changes kept unread as its Stages are.
+ * What a Proposal of a Project Pipeline gives it: its whole flow, kept unread as a Pipeline's Stages
+ * are, and for a new one the Pipeline it is copied from, by id. A Proposal drafted before Project
+ * Pipelines held their own flow kept a base Pipeline and Stage changes instead; Pipelines refuses it.
  */
 export interface ProjectPipelineFields {
   readonly name: string;
   readonly description: string;
-  readonly basePipelineId: string;
-  readonly stageChanges: readonly PipelineStageChange[];
+  readonly stages: readonly PipelineStage[];
+  readonly copyOf?: string;
 }
 
 /** A feature switch proposed for a Project to onboard (spec §2.1.1): on or off, and why. */
@@ -372,9 +374,6 @@ export interface ProposedSkill {
 
 /** A Stage of a Pipeline, as Pipelines' library keeps it; Conversations doesn't read it. */
 export type PipelineStage = object;
-
-/** A Stage change of a Project Pipeline, as Pipelines keeps it; Conversations doesn't read it. */
-export type PipelineStageChange = object;
 
 /**
  * What a Proposal of a Pipeline does to its routes, each Stage's as they were and as proposed, with

@@ -69,7 +69,6 @@ const PUBLISH: Stage = {
 
 const REVIEWED: OfficeWidePipeline = {
   id: "reviewed",
-  builtOnBy: [],
   name: "Reviewed release",
   description: "",
   stages: [TEST, REVIEW, PUBLISH],
@@ -77,7 +76,6 @@ const REVIEWED: OfficeWidePipeline = {
 
 const UNREVIEWED: OfficeWidePipeline = {
   id: "straight",
-  builtOnBy: [],
   name: "Straight out",
   description: "",
   stages: [PUBLISH],
@@ -89,10 +87,8 @@ const ADMINS_OWN = {
   id: "admin-reviewed",
   projectId: "admin-panel",
   name: "Admin's reviewed",
-  basePipeline: { id: REVIEWED.id, name: REVIEWED.name },
-  stageChanges: [],
-  rows: [],
-  broken: [],
+  copiedFrom: { name: REVIEWED.name, at: null },
+  brokenBeforeUpdate: null,
 } as unknown as ProjectPipeline;
 
 const PROJECTS = [

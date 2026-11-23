@@ -5,7 +5,7 @@ import type { FlowBox, FlowOrientation } from "./flow-layout.ts";
 export interface FlowOverviewBlock {
   readonly key: string;
   readonly box: FlowBox;
-  readonly tone: "plain" | "picked" | "inserted" | "replaced" | "changed" | "removed";
+  readonly tone: "plain" | "picked";
 }
 
 export interface FlowOverviewShape {

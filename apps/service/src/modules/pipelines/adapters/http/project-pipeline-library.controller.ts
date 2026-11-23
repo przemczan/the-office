@@ -8,6 +8,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
   UseFilters,
 } from "@nestjs/common";
 import {
@@ -16,6 +17,7 @@ import {
   projectPipelineEditSchema,
   type NewProjectPipeline,
   type PipelineUse,
+  type PipelinesNeedingFixing,
   type ProjectPipeline as ProjectPipelineResponse,
   type ProjectPipelineCheck,
   type ProjectPipelineCheckRequest,
@@ -25,7 +27,6 @@ import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { PipelineLibraryEditor } from "../../application/pipeline-library-editor.js";
 import { PipelineLibraryRefusalsFilter } from "./pipeline-library-refusals.filter.js";
 import {
-  toBuiltStagesResponse,
   toPipelineUseResponse,
   toProjectPipelineResponse,
   toStageProblemResponse,
@@ -48,21 +49,21 @@ export class ProjectPipelineLibraryController {
     return toProjectPipelineResponse(await this.editor.addProjectPipeline(projectId, edit));
   }
 
-  /** What saving the edit would be refused for, what it would only flag, and its built Stages. */
+  /** What saving the edit would be refused for and what it would only flag; it saves nothing. */
   @Post("check")
   @HttpCode(HttpStatus.OK)
   async check(
     @Body(new ContractPipe(projectPipelineCheckRequestSchema))
-    { projectId, projectPipelineId, ...edit }: ProjectPipelineCheckRequest,
+    { projectPipelineId, ...edit }: ProjectPipelineCheckRequest,
   ): Promise<ProjectPipelineCheck> {
-    const { problems, flags, built } = await this.editor.checkProjectPipeline(edit, {
-      projectId,
-      projectPipelineId,
-    });
-    return {
-      problems: [...problems, ...flags].map(toStageProblemResponse),
-      ...toBuiltStagesResponse(built ?? { rows: [], stages: [], broken: [] }),
-    };
+    const { problems, flags } = await this.editor.checkProjectPipeline(projectPipelineId, edit);
+    return { problems: [...problems, ...flags].map(toStageProblemResponse) };
+  }
+
+  /** The Project's own Pipelines flagged "Needs fixing", checked in one go. */
+  @Get("check/needs-fixing")
+  async needingFixing(@Query("projectId") projectId: string): Promise<PipelinesNeedingFixing> {
+    return { pipelineIds: await this.editor.projectPipelinesNeedingFixing(projectId) };
   }
 
   /** Saves the edit; the Project Pipeline's Project stays. */

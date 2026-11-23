@@ -28,7 +28,6 @@ import { PipelineLibraryRefusalsFilter } from "./pipeline-library-refusals.filte
 import {
   toPipelineResponse,
   toPipelineUseResponse,
-  toProjectPipelineBreakResponse,
   toStageProblemResponse,
 } from "./pipeline-responses.js";
 import { StagesEditRefusalsFilter } from "./stages-edit-refusals.filter.js";
@@ -52,21 +51,15 @@ export class PipelineLibraryController {
     return toPipelineResponse(pipeline);
   }
 
-  /**
-   * What saving the edit would be refused for, what it would only flag, and the Project Pipelines
-   * it would leave Broken, which never refuses it; it saves nothing.
-   */
+  /** What saving the edit would be refused for and what it would only flag; it saves nothing. */
   @Post("check")
   @HttpCode(HttpStatus.OK)
   async check(
     @Body(new ContractPipe(pipelineCheckRequestSchema))
     { pipelineId, ...edit }: PipelineCheckRequest,
   ): Promise<PipelineCheck> {
-    const { problems, flags, breaks } = await this.editor.check(edit, pipelineId);
-    return {
-      problems: [...problems, ...flags].map(toStageProblemResponse),
-      breaks: breaks.map(toProjectPipelineBreakResponse),
-    };
+    const { problems, flags } = await this.editor.check(edit, pipelineId);
+    return { problems: [...problems, ...flags].map(toStageProblemResponse) };
   }
 
   /**

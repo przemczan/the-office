@@ -99,7 +99,9 @@ function OnRail({ task }: { readonly task: Task }): ReactNode {
   const pipelines = useEveryPipeline();
   const projectPipelines = useProjectPipelineChoices(task.projectId)?.projectPipelines;
   const brokenOne = (pipelineId: string | null | undefined) =>
-    projectPipelines?.find(({ id, broken }) => id === pipelineId && broken.length > 0);
+    projectPipelines?.find(
+      ({ id, brokenBeforeUpdate }) => id === pipelineId && brokenBeforeUpdate !== null,
+    );
   const proposed = task.proposedPipeline?.pipelineId;
   const brokenProposed = brokenOne(proposed);
   const brokenCurrent = brokenOne(task.pipelineId);
@@ -107,8 +109,8 @@ function OnRail({ task }: { readonly task: Task }): ReactNode {
     const broken = brokenProposed ?? brokenCurrent;
     return (
       <>
-        {brokenProposed ? `${planner} proposes ${brokenProposed.name}` : broken?.name}, which is
-        Broken ·{" "}
+        {brokenProposed ? `${planner} proposes ${brokenProposed.name}` : broken?.name}, which was
+        Broken before The Office updated ·{" "}
         <TextButton onClick={() => bringIntoView(PIPELINE_RAIL_ELEMENT_ID)}>
           choose another on the rail
         </TextButton>

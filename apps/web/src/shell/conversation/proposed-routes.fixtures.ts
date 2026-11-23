@@ -85,13 +85,9 @@ export const ROUTES_PROPOSAL: Proposal = {
 
 export const PROJECT_ROUTES_PROPOSAL_ID = "6f1c2a52-1d0e-4a59-9d55-3c1f7f1f0b03";
 
-const FULL_FOR_THE_OFFICE = {
-  name: "Full for the-office",
-  description: "",
-  basePipelineId: "full",
-};
+const FULL_FOR_THE_OFFICE = { name: "Full for the-office", description: "" };
 
-/** Devops' Proposal of the same routes on the-office's Project Pipeline built on Full. */
+/** Devops' Proposal of the same routes on the-office's Project Pipeline copied from Full. */
 export const PROJECT_ROUTES_PROPOSAL: Proposal = {
   ...ROUTES_PROPOSAL,
   id: PROJECT_ROUTES_PROPOSAL_ID,
@@ -99,18 +95,8 @@ export const PROJECT_ROUTES_PROPOSAL: Proposal = {
     kind: "project-pipeline",
     projectId: "the-office",
     pipelineId: "pp-full",
-    from: { ...FULL_FOR_THE_OFFICE, stageChanges: [] },
-    to: {
-      ...FULL_FOR_THE_OFFICE,
-      stageChanges: FULL_ROUTES.stages
-        .filter(({ to }) => to.length > 0)
-        .map(({ stageKey, stageName, to }) => ({
-          kind: "change-routes",
-          stageKey,
-          stageName,
-          routes: to,
-        })),
-    },
+    from: { ...FULL_FOR_THE_OFFICE, stages: [...FULL_NOW] },
+    to: { ...FULL_FOR_THE_OFFICE, stages: [...FULL_PROPOSED] },
     routes: FULL_ROUTES,
   },
 };

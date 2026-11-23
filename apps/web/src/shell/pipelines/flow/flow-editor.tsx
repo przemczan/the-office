@@ -46,11 +46,11 @@ export function useFlowEditorControls(): FlowEditorControls {
 }
 
 export interface FlowEditorProps {
-  /** The head's title, such as "Stages and routes" or "What the-office gets". */
+  /** The head's title, such as "Stages and routes". */
   readonly title: string;
   /** Under the title, such as "4 Stages · 5 routes · 3 On failure loops". */
   readonly summary: string;
-  /** The flow, each Stage with its place and routes; a Project Pipeline's removed ones too. */
+  /** The flow, each Stage with its place and routes. */
   readonly stages: readonly Stage[];
   readonly problems: readonly StageProblem[];
   readonly warnings: readonly StageProblem[];
@@ -58,8 +58,6 @@ export interface FlowEditorProps {
   readonly whoWorks: (stage: Stage) => string;
   /** Nothing moves or opens for editing: a Proposal on the flow. */
   readonly readOnly?: boolean;
-  /** False on a Project page, where Stages keep the base Pipeline's places. */
-  readonly draggable?: boolean;
   readonly marks?: FlowStageMarks;
   readonly overlay?: FlowOverlay;
   /**
@@ -75,10 +73,8 @@ export interface FlowEditorProps {
   readonly controls: FlowEditorControls;
   /** Applies a canvas's edit, as the host keeps its Stages. */
   readonly onEdit?: (edit: FlowCanvasEdit) => void;
-  /** The head's menu, such as Add a Stage, or Insert after the picked Stage. */
+  /** The head's menu, such as Add a Stage. */
   readonly head?: ReactNode;
-  /** Why a Stage that can't be dragged keeps its place, said when someone tries. */
-  readonly whyItStays?: (stage: Stage) => string | undefined;
   /** The panel under the canvas, for what `controls` has picked. */
   readonly panel: ReactNode;
   /** In full screen, before the title, such as "Full ·". */
@@ -91,9 +87,9 @@ export interface FlowEditorProps {
  * The Pipeline flow editor (docs/design/pipeline-flow.html, docs/design/pipeline-editor.html): a head
  * with the host's menu, the hint, the canvas in its viewport (pan, zoom, Fit, the Overview, full
  * screen), the host's panel for what is picked, and the check's problems, each a link that picks
- * where it is. The host keeps the Stages and applies every edit: an office-wide Pipeline with
- * flow-model (Settings › Pipelines), a Task's Stages, a Project Pipeline as Stage changes; a
- * Proposal shows on it read-only.
+ * where it is. The host keeps the Stages and applies every edit with flow-model: a Pipeline
+ * (Settings › Pipelines, a Project's Pipelines) or a Task's Stages; a Proposal shows on it
+ * read-only.
  */
 export function FlowEditor(props: FlowEditorProps): ReactNode {
   const [fullScreen, setFullScreen] = useState(false);
@@ -130,7 +126,6 @@ function FlowEditorBody(
     warnings,
     whoWorks: props.whoWorks,
     readOnly,
-    draggable: props.draggable,
     marks: props.marks,
     locked: props.locked,
     onEdit: props.onEdit,
@@ -165,7 +160,7 @@ function FlowEditorBody(
         <span>{words}</span>
       </p>
       <FlowViewport fullScreen={fullScreen} onFullScreen={props.onFullScreen}>
-        <FlowCanvas {...shared} overlay={props.overlay} whyItStays={props.whyItStays} />
+        <FlowCanvas {...shared} overlay={props.overlay} />
       </FlowViewport>
       <div ref={panel} className="flow-editor-panel">
         {props.panel}

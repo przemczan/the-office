@@ -11,7 +11,7 @@ import { namedRoles, TaskStagesService } from "./task-stages-service.js";
 
 /**
  * Tells People's capability check which Roles Agent Stages name (spec §5.4): the office-wide
- * Pipelines', run in any Project; and open Tasks' own Stages' and Project Pipelines' built Stages',
+ * Pipelines', run in any Project; and open Tasks' own Stages' and Project Pipelines' Stages',
  * each run only in its Project. People merges the two sources. A Task under an engine override,
  * its own or its Initiative's, is left out of its Project's: it is weighed at its override alone
  * (spec §5.4.5), by whom its own Agent Stages name, which this also tells.

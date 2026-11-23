@@ -258,7 +258,7 @@ describe("startReasons", () => {
 
     expect(reasons).toEqual(
       refused(
-        "Spec change is Broken: Changes Produce, which Document no longer has. Fix it in Admin panel's Pipelines, or choose another Pipeline for the Task.",
+        "Spec change was Broken before The Office updated: Changes Produce, which Document no longer has. Save it once in Admin panel's Pipelines, or choose another Pipeline.",
       ),
     );
   });

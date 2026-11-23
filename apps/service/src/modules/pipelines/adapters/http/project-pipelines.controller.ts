@@ -4,8 +4,8 @@ import { PipelineLibrary } from "../../application/pipeline-library.js";
 import { toProjectPipelineResponse } from "./pipeline-responses.js";
 
 /**
- * Reading the Project Pipelines, each built from its base Pipeline's current Stages. Their changes
- * are `ProjectPipelineLibraryController`'s, with the rest of Pipelines.
+ * Reading the Project Pipelines, each a full Pipeline of its Project. Their changes are
+ * `ProjectPipelineLibraryController`'s, with the rest of Pipelines.
  */
 @Controller("project-pipelines")
 export class ProjectPipelinesController {

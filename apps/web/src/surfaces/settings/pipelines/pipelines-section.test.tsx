@@ -22,8 +22,8 @@ declare global {
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const PIPELINES = [
-  { id: "full", name: "Full", description: "", stages: [], builtOnBy: [] },
-  { id: "quick", name: "Quick", description: "", stages: [], builtOnBy: [] },
+  { id: "full", name: "Full", description: "", stages: [] },
+  { id: "quick", name: "Quick", description: "", stages: [] },
 ] as unknown as OfficeWidePipeline[];
 
 const TEMPLATES: StageTemplate[] = [
@@ -44,7 +44,7 @@ const TEMPLATES: StageTemplate[] = [
 ];
 
 function answerOf(path: string, needingFixing: readonly string[]): unknown {
-  if (path.endsWith("/check")) return { problems: [], breaks: [] };
+  if (path.endsWith("/check")) return { problems: [] };
   if (path.endsWith("/needs-fixing")) return { pipelineIds: needingFixing };
   return [];
 }

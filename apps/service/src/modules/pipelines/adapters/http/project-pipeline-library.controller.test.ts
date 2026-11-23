@@ -41,44 +41,43 @@ function send(method: string, path: string, body?: unknown): Promise<Response> {
   });
 }
 
-const { aBasePipeline, aProject, makeDefault, added } = projectPipelineRequests(
+const { anOfficeWidePipeline, aProject, makeDefault, added } = projectPipelineRequests(
   send,
   () => pipelines.projects,
 );
 
 describe("Project Pipelines over HTTP", () => {
-  it("adds one, reads it built, and reads a base Pipeline's later save in it", async () => {
-    const base = await aBasePipeline();
+  it("adds one as a copy, saves its own Stages, and keeps them through the source's later save", async () => {
+    const source = await anOfficeWidePipeline();
     const projectId = aProject();
 
-    const projectPipeline = await added(aNewProjectPipeline(projectId, base.id));
+    const projectPipeline = await added(aNewProjectPipeline(projectId, source.id));
 
     expect(projectPipeline).toMatchObject({
       projectId,
-      basePipeline: { id: base.id, name: base.name },
-      stageChanges: [
-        { kind: "insert-after", stageKey: "tests", stageName: "Tests", stage: LINUX_CHECK },
-      ],
-      stages: straightLineFlow([...base.stages, LINUX_CHECK]),
-      broken: [],
+      stages: source.stages,
+      copiedFrom: { name: source.name },
+      brokenBeforeUpdate: null,
     });
     expect(pipelines.published.some((event) => event instanceof PipelineAdded)).toBe(true);
 
-    const saved = await send("PUT", `/pipelines/${base.id}`, {
-      name: base.name,
-      description: base.description,
-      // Drawn again as a straight line, as the list editor sends it.
-      stages: straightLineFlow([
-        agentStage({ brief: "Implement it well." }),
-        ...base.stages.slice(1),
-      ]),
+    const own = await send("PUT", `/project-pipelines/${projectPipeline.id}`, {
+      name: projectPipeline.name,
+      description: projectPipeline.description,
+      stages: straightLineFlow([...source.stages, LINUX_CHECK]),
+    });
+    expect(own.status).toBe(200);
+    const saved = await send("PUT", `/pipelines/${source.id}`, {
+      name: source.name,
+      description: source.description,
+      stages: straightLineFlow([agentStage({ brief: "Implement it well." })]),
     });
     expect(saved.status).toBe(200);
 
     const read = await send("GET", `/project-pipelines/${projectPipeline.id}`);
-    expect(projectPipelineSchema.parse(await read.json()).stages[0]).toMatchObject({
-      brief: "Implement it well.",
-    });
+    expect(projectPipelineSchema.parse(await read.json()).stages).toEqual(
+      straightLineFlow([...source.stages, LINUX_CHECK]),
+    );
     const list = await send("GET", `/project-pipelines?projectId=${projectId}`);
     expect(projectPipelineListSchema.parse(await list.json()).map(({ id }) => id)).toEqual([
       projectPipeline.id,
@@ -86,24 +85,24 @@ describe("Project Pipelines over HTTP", () => {
   });
 
   it("refuses a name an office-wide Pipeline has", async () => {
-    const base = await aBasePipeline();
+    const source = await anOfficeWidePipeline();
 
     const response = await send(
       "POST",
       "/project-pipelines",
-      aNewProjectPipeline(aProject(), base.id, { name: base.name }),
+      aNewProjectPipeline(aProject(), source.id, { name: source.name }),
     );
 
     expect(response.status).toBe(422);
     expect(stagesEditRefusalSchema.parse(await response.json()).reasons).toEqual([
-      `Another Pipeline is named "${base.name}".`,
+      `Another Pipeline is named "${source.name}".`,
     ]);
   });
 
   it("refuses removing it while it is its Project's default", async () => {
-    const base = await aBasePipeline();
+    const source = await anOfficeWidePipeline();
     const projectId = aProject();
-    const projectPipeline = await added(aNewProjectPipeline(projectId, base.id));
+    const projectPipeline = await added(aNewProjectPipeline(projectId, source.id));
     const project = makeDefault(projectId, projectPipeline.id);
 
     const refused = await send("DELETE", `/project-pipelines/${projectPipeline.id}`);

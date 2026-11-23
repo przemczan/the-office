@@ -237,61 +237,31 @@ describe("DELETE /api/pipelines/:id", () => {
   });
 });
 
-describe("an office-wide Pipeline with Project Pipelines built from it", () => {
-  const projectPipelineRequestsOf = projectPipelineRequests(send, () => pipelines.projects);
+describe("an office-wide Pipeline with Project Pipelines copied from it", () => {
+  const {
+    anOfficeWidePipeline,
+    aProject,
+    added: addedProjectPipeline,
+  } = projectPipelineRequests(send, () => pipelines.projects);
 
-  it("lists each Project Pipeline its edit would break, with its Project and why, and still saves", async () => {
-    const { aBasePipeline, aProject, added: addedProjectPipeline } = projectPipelineRequestsOf;
-    const base = await aBasePipeline();
-    const projectId = aProject();
-    const projectPipeline = await addedProjectPipeline(aNewProjectPipeline(projectId, base.id));
-    const edit = { name: base.name, description: base.description, stages: [agentStage()] };
+  it("checks and saves its edit, warning of nothing about them, and removes it", async () => {
+    const source = await anOfficeWidePipeline();
+    await addedProjectPipeline(aNewProjectPipeline(aProject(), source.id));
+    const edit = { name: source.name, description: source.description, stages: [agentStage()] };
 
-    const check = await send("POST", "/pipelines/check", { ...edit, pipelineId: base.id });
-    const saved = await send("PUT", `/pipelines/${base.id}`, edit);
+    const check = await send("POST", "/pipelines/check", { ...edit, pipelineId: source.id });
+    const saved = await send("PUT", `/pipelines/${source.id}`, edit);
+    const use = await send("GET", `/pipelines/${source.id}/use`);
+    const removed = await send("DELETE", `/pipelines/${source.id}`);
 
-    expect(pipelineCheckSchema.parse(await check.json())).toEqual({
-      problems: [],
-      breaks: [
-        {
-          projectPipelineId: projectPipeline.id,
-          name: projectPipeline.name,
-          projectId,
-          projectName: `Site ${projectId}`,
-          reasons: [
-            {
-              stageChangeIndex: 0,
-              stageIndex: null,
-              stageKey: "tests",
-              text: `Inserts Verify on Linux after Tests, which ${base.name} no longer has.`,
-            },
-          ],
-        },
-      ],
-    });
+    expect(pipelineCheckSchema.parse(await check.json())).toEqual({ problems: [] });
     expect(saved.status).toBe(200);
-  });
-
-  it("refuses removing it, once for each Project Pipeline built from it", async () => {
-    const { aBasePipeline, aProject, added: addedProjectPipeline } = projectPipelineRequestsOf;
-    const base = await aBasePipeline();
-    const projectId = aProject();
-    const projectPipeline = await addedProjectPipeline(aNewProjectPipeline(projectId, base.id));
-
-    const refused = await send("DELETE", `/pipelines/${base.id}`);
-    const use = await send("GET", `/pipelines/${base.id}/use`);
-
-    expect(refused.status).toBe(422);
-    expect(pipelineRemovalRefusalSchema.parse(await refused.json()).reasons).toEqual([
-      `Site ${projectId}'s Pipeline ${projectPipeline.name} is built from it; remove it or build it from another base Pipeline first.`,
-    ]);
-    expect(pipelineUseSchema.parse(await use.json()).projectPipelines).toEqual([
-      {
-        id: projectPipeline.id,
-        name: projectPipeline.name,
-        projectId,
-        projectName: `Site ${projectId}`,
-      },
-    ]);
+    expect(pipelineUseSchema.parse(await use.json())).toEqual({
+      defaultFor: [],
+      notStarted: 0,
+      running: 0,
+      initiatives: 0,
+    });
+    expect(removed.status).toBe(204);
   });
 });

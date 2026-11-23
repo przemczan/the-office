@@ -12,18 +12,19 @@ import { stagesLine } from "./pipeline-words.ts";
 export interface PipelineChoice {
   readonly id: string;
   readonly name: string;
-  /** The Stages a Task on it gets: a Project Pipeline's built ones. */
+  /** The Stages a Task on it gets. */
   readonly stages: readonly Stage[];
-  /** Its second line: its Stages, and the base Pipeline a Project Pipeline is built from. */
+  /** Its second line: its Stages, and the Pipeline a Project Pipeline was copied from. */
   readonly line: string;
   /** Whether it is the Project's default, or its Task's Kind's, marked as such in a Task's picker. */
   readonly isDefault: boolean;
   /** The Kind it is the default for, where a Task's Kind chose it: "Default for Bugs". */
   readonly defaultFor?: TaskKind;
-  /** Why it can't be chosen: a Broken one's reasons; undefined when it can be. */
+  /**
+   * Why it can't be chosen: a Project Pipeline that was Broken before The Office updated and isn't
+   * saved since, with its reasons; undefined when it can be.
+   */
   readonly brokenWhy: string | undefined;
-  /** A Broken one's reasons alone; empty when it isn't Broken. */
-  readonly brokenReasons: readonly string[];
 }
 
 export interface PipelineChoiceGroup {
@@ -46,10 +47,11 @@ const OFFICE_WIDE_PIPELINES = "Office-wide Pipelines";
 
 /**
  * A Task's choices (spec §2.3, "Project Pipelines"): its Project's own Pipelines, then the
- * office-wide ones, the Project's default first in its group and marked; a Broken one is listed
- * with why and can't be chosen. Another Project's Project Pipelines are never offered. Given the
- * Task's Kind, its Kind's default is the one first and marked: "Default for Bugs" when the Kind
- * sets its own, the Project's default otherwise.
+ * office-wide ones, the Project's default first in its group and marked; one that was Broken
+ * before The Office updated, not saved since, is listed with why and can't be chosen. Another
+ * Project's Project Pipelines are never offered. Given the Task's Kind, its Kind's default is the
+ * one first and marked: "Default for Bugs" when the Kind sets its own, the Project's default
+ * otherwise.
  */
 export function taskPipelineChoices(
   project: ChoosingProject,
@@ -68,7 +70,7 @@ export function taskPipelineChoices(
   });
 }
 
-/** The Pipeline a Task's picker opens on: its marked default, unless that one is Broken. */
+/** The Pipeline a Task's picker opens on: its marked default, unless that one can't be chosen. */
 export function openingChoice(groups: readonly PipelineChoiceGroup[]): PipelineChoice | undefined {
   return groups
     .flatMap(({ choices }) => choices)
@@ -91,10 +93,17 @@ export function choiceById(
   return groups.flatMap(({ choices }) => choices).find((choice) => choice.id === id);
 }
 
-/** Why a Broken Project Pipeline can't be chosen, in the picker's words. */
-export function brokenWords(projectPipeline: ProjectPipeline, projectName: string): string {
-  const reasons = projectPipeline.broken.map(({ text }) => text).join(" ");
-  return `Broken: ${reasons} Fix it in ${projectName}'s Pipelines.`;
+/**
+ * Why a Project Pipeline that was Broken before The Office updated can't be chosen, in the picker's
+ * words; undefined for one that can be.
+ */
+export function brokenWords(
+  projectPipeline: ProjectPipeline,
+  projectName: string,
+): string | undefined {
+  const reasons = projectPipeline.brokenBeforeUpdate;
+  if (reasons === null) return undefined;
+  return `Broken before The Office updated: ${reasons.join(" ")} Save it once in ${projectName}'s Pipelines to choose it.`;
 }
 
 function grouped(
@@ -139,7 +148,6 @@ function officeWideChoice(pipeline: Pipeline): PipelineChoice {
     line: stagesLine(pipeline),
     isDefault: false,
     brokenWhy: undefined,
-    brokenReasons: [],
   };
 }
 
@@ -151,10 +159,8 @@ function projectPipelineChoice(
     id: projectPipeline.id,
     name: projectPipeline.name,
     stages: projectPipeline.stages,
-    line: `${stagesLine(projectPipeline)} · built from ${projectPipeline.basePipeline.name}`,
+    line: `${stagesLine(projectPipeline)} · copied from ${projectPipeline.copiedFrom.name}`,
     isDefault: false,
-    brokenWhy:
-      projectPipeline.broken.length > 0 ? brokenWords(projectPipeline, projectName) : undefined,
-    brokenReasons: projectPipeline.broken.map(({ text }) => text),
+    brokenWhy: brokenWords(projectPipeline, projectName),
   };
 }

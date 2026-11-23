@@ -97,40 +97,9 @@
   border-color: var(--danger);
 }
 
-.flow-canvas-stage--inserted {
-  --edge: var(--success);
-}
-
-.flow-canvas-stage--replaced {
-  --edge: var(--info);
-}
-
-.flow-canvas-stage--changed,
-.flow-canvas-stage--routes-changed {
-  --edge: var(--warning);
-}
-
-.flow-canvas-stage--inserted,
-.flow-canvas-stage--replaced,
-.flow-canvas-stage--changed,
-.flow-canvas-stage--routes-changed {
-  border-left: 3px solid var(--edge);
-}
-
-/* A Task's started Stage: locked, its edge grey beside the marks' colours. */
+/* A Task's started Stage: locked, its edge grey. */
 .flow-canvas-stage--locked {
   border-left: 3px solid var(--border-strong);
-}
-
-.flow-canvas-stage--removed {
-  border-style: dashed;
-  background: transparent;
-  box-shadow: none;
-  color: var(--fg-3);
-}
-
-.flow-canvas-stage--removed .flow-canvas-stage-name {
-  text-decoration: line-through;
 }
 
 .flow-canvas-stage--dragging {
@@ -400,14 +369,6 @@
   fill: var(--fg-3);
 }
 
-.flow-canvas-route-line--inserted {
-  --flow-line: var(--success);
-}
-
-.flow-canvas-route-line--changed {
-  --flow-line: var(--warning);
-}
-
 .flow-canvas-route-line--problem {
   --flow-line: var(--danger);
 }
@@ -428,7 +389,7 @@
   stroke-width: 2.25;
 }
 
-/* A Proposal's: what it proposes dashed in the accent, what it takes away dotted, as a removed Stage's */
+/* A Proposal's: what it proposes dashed in the accent, what it takes away dotted */
 .flow-canvas-route-line--proposed {
   --flow-line: var(--accent);
 }
@@ -438,13 +399,11 @@
   stroke-dasharray: 5 4;
 }
 
-.flow-canvas-route-line--taken-away,
-.flow-canvas-route-line--ghost {
+.flow-canvas-route-line--taken-away {
   opacity: 0.6;
 }
 
-.flow-canvas-route-line--taken-away .flow-canvas-line,
-.flow-canvas-route-line--ghost .flow-canvas-line {
+.flow-canvas-route-line--taken-away .flow-canvas-line {
   stroke-dasharray: 2 3;
 }
 

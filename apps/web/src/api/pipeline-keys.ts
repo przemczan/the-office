@@ -1,6 +1,6 @@
 /**
- * The office-wide Pipelines and the Project Pipelines alike: a save of an office-wide one changes
- * the Project Pipelines built from it, and both publish the same events.
+ * The office-wide Pipelines and the Project Pipelines alike: both publish the same events, and a
+ * Task's picker reads them together.
  */
 export const PIPELINES_KEY: readonly unknown[] = ["pipelines"];
 

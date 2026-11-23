@@ -13,6 +13,7 @@ import {
   type Message as MessageResponse,
   type NewProject as NewProjectResponse,
   type PeopleWorking,
+  type ProjectPipelineFields as ProjectPipelineFieldsResponse,
   type ProposedActions as ProposedActionsResponse,
   type ProposedProjectCommands as ProposedProjectCommandsResponse,
   type Proposal as ProposalResponse,
@@ -49,6 +50,7 @@ import { stageLimitsWithin } from "../../domain/stage-context-limits.js";
 import type { TaskPeopleWorking } from "../../domain/people-working.js";
 import type {
   PipelineRoutes,
+  ProjectPipelineFields,
   Proposal,
   ProposedActionsChange,
   ProposedChange,
@@ -365,9 +367,9 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
         kind: "project-pipeline",
         projectId: change.projectId,
         pipelineId: change.pipelineId,
-        // The Stage changes are kept unread, as a Pipeline's Stages are.
-        from: change.from && projectPipelineFieldsSchema.parse(change.from),
-        to: projectPipelineFieldsSchema.parse(change.to),
+        // The Stages are kept unread, as a Pipeline's Stages are, so they are read here.
+        from: change.from && projectPipelineFieldsOf(change.from),
+        to: projectPipelineFieldsOf(change.to),
         routes: routesOf(change.routes),
       };
     case "project":
@@ -658,5 +660,21 @@ function toFormAnswerResponse(answer: DecisionAnswer): DecisionFormAnswerRespons
           },
         }),
     ...(answer.createdTaskId === undefined ? {} : { createdTaskId: answer.createdTaskId }),
+  };
+}
+
+/**
+ * A Project Pipeline Proposal's fields as the card shows them. One drafted before Project Pipelines
+ * held their own flow kept a base Pipeline and Stage changes, which don't read: it shows by its name
+ * with no Stages, and applying it is refused.
+ */
+function projectPipelineFieldsOf(fields: ProjectPipelineFields): ProjectPipelineFieldsResponse {
+  const read = projectPipelineFieldsSchema.safeParse(fields);
+  if (read.success) return read.data;
+  const { name, description } = fields as Partial<ProjectPipelineFields>;
+  return {
+    name: typeof name === "string" ? name : "",
+    description: typeof description === "string" ? description : "",
+    stages: [],
   };
 }

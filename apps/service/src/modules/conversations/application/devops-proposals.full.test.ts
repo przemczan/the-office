@@ -835,41 +835,28 @@ describe("Devops' Proposals of a Project Pipeline, through the scripted engine",
         project: { id: project.id, name: project.name },
         name: projectPipeline.name,
         description: "Then lint.",
-        basePipeline: { id: base.id, name: base.name },
-        stageChanges: projectPipeline.stageChanges,
+        copiedFrom: projectPipeline.copiedFrom,
         stages: projectPipeline.stages,
-        broken: [],
       },
     ]);
   }, 30_000);
 
-  it("drafts a new one, which applied is added under its id; the Project's default stays", async () => {
+  it("drafts a new one copied from a Pipeline, which applied is added under its id; the Project's default stays", async () => {
     const project = await aProject();
     const base = await aPipeline();
     const name = `Quick with lint ${randomUUID().slice(0, 8)}`;
 
     const [proposal] = await chat.ninaProposes([
       PROPOSE_PROJECT_PIPELINE_TOOL,
-      {
-        project: project.id,
-        name,
-        basePipeline: base.id,
-        stageChanges: [{ kind: "insert-after", stageKey: "tests", stage: LINT }],
-      },
+      { project: project.id, name, copyOf: base.id, stages: withLint(base.stages) },
     ]);
 
-    const to = {
-      name,
-      description: "",
-      basePipelineId: base.id,
-      stageChanges: [{ kind: "insert-after", stageKey: "tests", stage: LINT }],
-    };
     expect(proposal?.change).toEqual({
       kind: "project-pipeline",
       projectId: project.id,
       pipelineId: null,
       from: null,
-      to,
+      to: { name, description: "", copyOf: base.id, stages: expect.any(Array) },
       routes: expect.objectContaining({ stages: expect.any(Array) }),
     });
     expect(await projectPipelinesOf(project)).toEqual([]);
@@ -878,7 +865,11 @@ describe("Devops' Proposals of a Project Pipeline, through the scripted engine",
     const applied = proposalSchema.parse(await response.json());
     const [added] = await projectPipelinesOf(project);
     expect(applied.change).toEqual({ ...proposal?.change, pipelineId: added?.id });
-    expect(added).toMatchObject({ name, basePipeline: { id: base.id }, broken: [] });
+    expect(added).toMatchObject({
+      name,
+      copiedFrom: { name: base.name },
+      brokenBeforeUpdate: null,
+    });
     expect(added?.stages.map(({ key }) => key)).toEqual(["implement", "tests", "lint", "publish"]);
     expect(projectSchema.parse(await chat.read(`/projects/${project.id}`)).defaultPipeline).toBe(
       "quick-fix",
@@ -890,38 +881,35 @@ describe("Devops' Proposals of a Project Pipeline, through the scripted engine",
     const project = await aProject();
     const base = await aPipeline();
     const projectPipeline = await aProjectPipeline(project, base);
-    const stageChanges = [
-      ...projectPipeline.stageChanges,
-      { kind: "change", stageKey: "implement", fields: { brief: "Implement it, then lint." } },
-    ];
+    const stages = projectPipeline.stages.map((stage) =>
+      stage.kind === "agent" && stage.key === "implement"
+        ? { ...stage, brief: "Implement it, then lint." }
+        : stage,
+    );
 
     const [proposal] = await chat.ninaProposes([
       PROPOSE_PROJECT_PIPELINE_TOOL,
-      { project: project.id, pipeline: projectPipeline.id, stageChanges },
+      { project: project.id, pipeline: projectPipeline.id, stages },
     ]);
 
     const from = {
       name: projectPipeline.name,
       description: "Then lint.",
-      basePipelineId: base.id,
-      stageChanges: projectPipeline.stageChanges,
+      stages: projectPipeline.stages,
     };
     expect(proposal?.change).toEqual({
       kind: "project-pipeline",
       projectId: project.id,
       pipelineId: projectPipeline.id,
       from,
-      to: { ...from, stageChanges },
+      to: { ...from, stages: expect.any(Array) },
       routes: expect.objectContaining({ stages: [] }),
     });
     expect(await aProjectPipelineNow(projectPipeline.id)).toEqual(projectPipeline);
     const response = await chat.api("POST", `/proposals/${proposal?.id}/apply`, {});
     expect(response.status).toBe(200);
     const saved = await aProjectPipelineNow(projectPipeline.id);
-    expect(saved.stageChanges).toEqual([
-      ...projectPipeline.stageChanges,
-      { ...stageChanges[1], stageName: "Implement" },
-    ]);
+    expect(saved.stages.map(({ key }) => key)).toEqual(["implement", "tests", "lint", "publish"]);
     expect(saved.stages[0]).toMatchObject({ key: "implement", brief: "Implement it, then lint." });
     // The whole app, a real repository and a chat session: slow under a full run.
   }, 30_000);
@@ -940,8 +928,7 @@ describe("Devops' Proposals of a Project Pipeline, through the scripted engine",
         await chat.api("PUT", `/project-pipelines/${projectPipeline.id}`, {
           name: projectPipeline.name,
           description: "Edited by hand.",
-          basePipelineId: base.id,
-          stageChanges: projectPipeline.stageChanges,
+          stages: projectPipeline.stages,
         })
       ).json(),
     );
@@ -956,7 +943,7 @@ describe("Devops' Proposals of a Project Pipeline, through the scripted engine",
     // The whole app, a real repository and a chat session: slow under a full run.
   }, 30_000);
 
-  it("refuses drafting for the editor's reasons, an unknown Project, and a change that changes nothing", async () => {
+  it("refuses drafting for the editor's reasons, an unknown Pipeline to copy, an unknown Project, and a change that changes nothing", async () => {
     const project = await aProject();
     const base = await aPipeline();
     const projectPipeline = await aProjectPipeline(project, base);
@@ -964,17 +951,24 @@ describe("Devops' Proposals of a Project Pipeline, through the scripted engine",
     const taken = await chat.ninaCalls(PROPOSE_PROJECT_PIPELINE_TOOL, {
       project: project.id,
       name: base.name,
-      basePipeline: "no-such-pipeline",
+      copyOf: base.id,
     });
-    const missingKey = await chat.ninaCalls(PROPOSE_PROJECT_PIPELINE_TOOL, {
+    const unknownCopy = await chat.ninaCalls(PROPOSE_PROJECT_PIPELINE_TOOL, {
+      project: project.id,
+      name: "Mine",
+      copyOf: "no-such-pipeline",
+    });
+    const brokenRule = await chat.ninaCalls(PROPOSE_PROJECT_PIPELINE_TOOL, {
       project: project.id,
       pipeline: projectPipeline.id,
-      stageChanges: [{ kind: "remove", stageKey: "no-such-stage" }],
+      stages: projectPipeline.stages.map((stage) =>
+        stage.key === "tests" ? { ...stage, routes: [] } : stage,
+      ),
     });
     const unknownProject = await chat.ninaCalls(PROPOSE_PROJECT_PIPELINE_TOOL, {
       project: "no-such-project",
       name: "Mine",
-      basePipeline: base.id,
+      copyOf: base.id,
     });
     const nothing = await chat.ninaCalls(PROPOSE_PROJECT_PIPELINE_TOOL, {
       project: project.id,
@@ -984,38 +978,17 @@ describe("Devops' Proposals of a Project Pipeline, through the scripted engine",
 
     expect(taken.isError).toBe(true);
     expect(taken.text).toContain(`"${base.name}"`);
-    expect(taken.text).toContain(
-      'There is no office-wide Pipeline "no-such-pipeline" to build it from.',
-    );
-    expect(missingKey).toMatchObject({ isError: true });
-    expect(missingKey.text).toContain("Removes no-such-stage, which isn't among the Stages.");
+    expect(unknownCopy).toMatchObject({ isError: true });
+    expect(unknownCopy.text).toContain('There is no Pipeline "no-such-pipeline" to copy');
+    expect(brokenRule).toMatchObject({ isError: true });
+    expect(brokenRule.text).toContain("Tests: give it a route out");
     expect(unknownProject).toMatchObject({ isError: true });
     expect(unknownProject.text).toContain('There is no Project "no-such-project".');
     expect(nothing).toMatchObject({ isError: true });
     expect(nothing.text).toContain("Nothing changes");
     expect(await projectPipelinesOf(project)).toEqual([projectPipeline]);
-    // The whole app, a real repository and four chat sessions: slow under a full run.
+    // The whole app, a real repository and five chat sessions: slow under a full run.
   }, 60_000);
-
-  it("answers a library Pipeline's Proposal with the Project Pipelines its Stages would break", async () => {
-    const project = await aProject();
-    const base = await aPipeline();
-    const projectPipeline = await aProjectPipeline(project, base);
-    const withoutTests = asPlainList(base.stages).filter(({ key }) => key !== "tests");
-
-    const answer = await chat.ninaCalls(PROPOSE_LIBRARY_PIPELINE_TOOL, {
-      pipeline: base.id,
-      stages: withoutTests,
-    });
-
-    expect(answer.isError).toBe(false);
-    expect(answer.text).toContain("Applying it leaves these Project Pipelines Broken");
-    expect(answer.text).toContain(
-      `- ${project.name}'s ${projectPipeline.name}: Inserts Lint after Tests, which ${base.name} no longer has.`,
-    );
-    expect(await aProjectPipelineNow(projectPipeline.id)).toEqual(projectPipeline);
-    // The whole app, a real repository and a chat session: slow under a full run.
-  }, 30_000);
 });
 
 describe("Devops' Proposals of test targets, through the scripted engine", () => {
@@ -1451,20 +1424,23 @@ const REVIEW: Stage = {
   optional: false,
 };
 
-/** A Lint Stage, the Project's lint command. */
-const LINT: Stage = { kind: "script", key: "lint", name: "Lint", optional: false, command: "lint" };
-
-/** A Project Pipeline of the Project, built from `base` with Lint inserted after Tests. */
+/** A Project Pipeline of the Project, copied from `base`, with Lint before its last Stage. */
 async function aProjectPipeline(project: Project, base: Pipeline): Promise<ProjectPipeline> {
-  const response = await chat.api("POST", "/project-pipelines", {
+  const copied = await chat.api("POST", "/project-pipelines", {
     projectId: project.id,
+    copyOf: base.id,
     name: `${base.name} with lint`,
     description: "Then lint.",
-    basePipelineId: base.id,
-    stageChanges: [{ kind: "insert-after", stageKey: "tests", stage: LINT }],
   });
-  expect(response.status).toBe(201);
-  return projectPipelineSchema.parse(await response.json());
+  expect(copied.status).toBe(201);
+  const { id, name, description } = projectPipelineSchema.parse(await copied.json());
+  const saved = await chat.api("PUT", `/project-pipelines/${id}`, {
+    name,
+    description,
+    stages: withLint(base.stages),
+  });
+  expect(saved.status).toBe(200);
+  return projectPipelineSchema.parse(await saved.json());
 }
 
 async function aProjectPipelineNow(id: string): Promise<ProjectPipeline> {

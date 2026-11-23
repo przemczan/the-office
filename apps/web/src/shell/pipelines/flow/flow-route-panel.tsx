@@ -30,10 +30,6 @@ export function FlowRoutePanel(
   props: FlowPanelProps & {
     readonly stage: Stage;
     readonly routeIndex: number;
-    /** False on a Project page, where a Stage is added only by Insert. */
-    readonly insertsOnRoute?: boolean;
-    /** Under the condition, such as a Project Pipeline's "Full has" beside "the-office gets". */
-    readonly after?: ReactNode;
   },
 ): ReactNode {
   const { stage, stages, routeIndex, onEdited, problems, locked = NO_LOCKS } = props;
@@ -56,18 +52,14 @@ export function FlowRoutePanel(
           </small>
         </h4>
         <span className="flow-panel-tools">
-          {props.insertsOnRoute !== false && (
-            <FlowAddMenu
-              label="Insert a Stage on this route"
-              heading="Insert on this route"
-              variant="ghost"
-              disabled={note !== undefined}
-              title={note}
-              onAdd={(added) =>
-                onEdited(stageOnRoute(stages, stage.key, routeIndex, added, locked))
-              }
-            />
-          )}
+          <FlowAddMenu
+            label="Insert a Stage on this route"
+            heading="Insert on this route"
+            variant="ghost"
+            disabled={note !== undefined}
+            title={note}
+            onAdd={(added) => onEdited(stageOnRoute(stages, stage.key, routeIndex, added, locked))}
+          />
           <Button
             size="sm"
             variant="danger-ghost"
@@ -154,7 +146,6 @@ export function FlowRoutePanel(
         {commandKeys.length > 0 && (
           <p className="flow-panel-hint">{commandNote(commandKeys, stage.name)}</p>
         )}
-        {props.after}
       </div>
     </section>
   );

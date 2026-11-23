@@ -685,16 +685,16 @@ describe("Start", () => {
     expect(webEventsOf(work)).toEqual([{ type: "task.started", taskId: task.id }]);
   });
 
-  it("refuses a Task on a Broken Project Pipeline, naming it and why, unless its Stages were edited for it", async () => {
+  it("refuses a Task on a Project Pipeline Broken before The Office updated, naming it and why, unless its Stages were edited for it", async () => {
     const library = projectPipelinesForTests(work.app);
-    const base = await library.aBasePipeline();
+    const base = await library.anOfficeWidePipeline();
     const own = await library.aProjectPipeline(projectId, base);
     const task = await proposedTask();
     await saveAndConfirmParts(task.id, MY_PLAN);
     await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: own.id });
     await sendJson(work, "POST", `/tasks/${task.id}/ready`);
-    await library.breakProjectPipelinesOf(base);
-    const brokenRefusal = `${own.name} is Broken: Inserts Verify on Linux after Tests, which ${base.name} no longer has. Fix it in The ${projectId}'s Pipelines, or choose another Pipeline for the Task.`;
+    await library.breakProjectPipeline(own);
+    const brokenRefusal = `${own.name} was Broken before The Office updated: Inserts Verify on Linux after Tests, which its base Pipeline no longer has. Save it once in The ${projectId}'s Pipelines, or choose another Pipeline.`;
 
     const check = await startCheck(task.id);
     const refused = await start(task.id);
@@ -707,13 +707,13 @@ describe("Start", () => {
     expect(edited.refusals).toEqual([]);
   });
 
-  it("lets the user keep a Task's Pipeline that has become Broken, declining a proposal of another", async () => {
+  it("lets the user keep a Task's Pipeline that was Broken before The Office updated, declining a proposal of another", async () => {
     const library = projectPipelinesForTests(work.app);
-    const base = await library.aBasePipeline();
+    const base = await library.anOfficeWidePipeline();
     const own = await library.aProjectPipeline(projectId, base);
     const task = await proposedTask();
     await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: own.id });
-    await library.breakProjectPipelinesOf(base);
+    await library.breakProjectPipeline(own);
     const planning = work.app.get(PlanningService);
     await planning.proposePipeline(
       task.id,

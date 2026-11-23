@@ -6,13 +6,13 @@ import {
   RouterProvider,
 } from "@tanstack/react-router";
 import type {
-  OfficeWidePipeline,
+  PipelineEdit,
   Project,
   ProjectPipeline,
   ProjectPipelineCheck,
+  ProjectPipelineCheckRequest,
   RoleCardOptions,
   Stage,
-  StageChange,
 } from "@the-office/contracts";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -56,74 +56,49 @@ const PROJECT = {
   mark: { label: "TO", colour: "violet" },
 } as unknown as Project;
 
-const DOCUMENT: OfficeWidePipeline = {
-  id: "document",
-  name: "Document",
-  description: "",
-  stages: [TESTS, WRITE],
-  builtOnBy: [],
-};
-
-/** Spec change: its Change of Produce no longer applies, as Document has Write instead. */
-const PRODUCE_CHANGE: ProjectPipeline["stageChanges"][number] = {
-  kind: "change",
-  stageKey: "produce",
-  stageName: "Produce",
-  fields: { optional: true },
-};
-
-const SPEC_CHANGE: ProjectPipeline = {
-  id: "spec-change",
+const NORMAL: ProjectPipeline = {
+  id: "docs-for-the-office",
   projectId: "the-office",
-  name: "Spec change",
+  name: "Document for the-office",
   description: "",
-  basePipeline: { id: "document", name: "Document" },
-  stageChanges: [PRODUCE_CHANGE],
-  rows: [
-    { stage: TESTS, origin: "base", stageChangeIndexes: [], baseStage: TESTS, changedFields: [] },
-    { stage: WRITE, origin: "base", stageChangeIndexes: [], baseStage: WRITE, changedFields: [] },
-  ],
   stages: [TESTS, WRITE],
-  broken: [
-    {
-      stageChangeIndex: 0,
-      stageIndex: null,
-      stageKey: "produce",
-      text: "Changes Produce, which Document no longer has.",
-    },
-  ],
+  copiedFrom: { name: "Document", at: "2026-11-12T10:00:00.000Z" },
+  brokenBeforeUpdate: null,
 };
 
-/** The Stage changes the editor last asked the service to check. */
-const checked: { stageChanges: readonly StageChange[] } = { stageChanges: [] };
+/** Spec change: Broken before The Office updated, as its Change of Produce no longer applied. */
+const SPEC_CHANGE: ProjectPipeline = {
+  ...NORMAL,
+  id: "spec-change",
+  name: "Spec change",
+  copiedFrom: { name: "Document", at: null },
+  brokenBeforeUpdate: ["Changes Produce, which Document no longer had."],
+};
 
-/** Builds the check from the draft as the service would here: Broken while it names Produce. */
+/** What the editor last asked the service to check, and what it last saved. */
+const sent: { checked?: ProjectPipelineCheckRequest; saved?: PipelineEdit } = {};
+
+/** Answers the check with no problem, a save with the Pipeline saved, and the use line's counts. */
 function serving(removal: Response = new Response(null, { status: 204 })) {
+  sent.checked = undefined;
+  sent.saved = undefined;
   const fetched = vi.fn<typeof fetch>((input, init) => {
     const url = String(input);
     if (url.endsWith("/project-pipelines/check")) {
-      const { stageChanges } = JSON.parse(String(init?.body)) as ProjectPipeline;
-      checked.stageChanges = stageChanges;
-      const check: ProjectPipelineCheck = {
-        problems: [],
-        rows: SPEC_CHANGE.rows,
-        stages: SPEC_CHANGE.stages,
-        broken: stageChanges.some(({ stageKey }) => stageKey === "produce")
-          ? SPEC_CHANGE.broken
-          : [],
-      };
+      sent.checked = JSON.parse(String(init?.body)) as ProjectPipelineCheckRequest;
+      const check: ProjectPipelineCheck = { problems: [] };
       return Promise.resolve(Response.json(check));
+    }
+    if (init?.method === "PUT") {
+      sent.saved = JSON.parse(String(init.body)) as PipelineEdit;
+      return Promise.resolve(
+        Response.json({ ...SPEC_CHANGE, ...sent.saved, brokenBeforeUpdate: null }),
+      );
     }
     if (init?.method === "DELETE") return Promise.resolve(removal.clone());
     if (url.endsWith("/use")) {
       return Promise.resolve(
-        Response.json({
-          defaultFor: [],
-          notStarted: 1,
-          running: 0,
-          initiatives: 0,
-          projectPipelines: [],
-        }),
+        Response.json({ defaultFor: [], notStarted: 1, running: 0, initiatives: 0 }),
       );
     }
     return Promise.resolve(Response.json([]));
@@ -132,7 +107,7 @@ function serving(removal: Response = new Response(null, { status: 204 })) {
   return fetched;
 }
 
-async function rendered(): Promise<HTMLElement> {
+async function rendered(projectPipeline: ProjectPipeline = NORMAL): Promise<HTMLElement> {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   });
@@ -145,8 +120,7 @@ async function rendered(): Promise<HTMLElement> {
             <ToastProvider>
               <ProjectPipelineForm
                 project={PROJECT}
-                projectPipeline={SPEC_CHANGE}
-                officeWide={[DOCUMENT]}
+                projectPipeline={projectPipeline}
                 roles={[]}
                 duties={[]}
                 options={{} as RoleCardOptions}
@@ -191,6 +165,9 @@ async function press(label: string): Promise<void> {
 
 describe("a Project Pipeline's editor", () => {
   beforeEach(() => {
+    // "on 12 Nov" leaves the year out within the year.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-23T09:00:00.000Z"));
     vi.stubGlobal(
       "ResizeObserver",
       class {
@@ -202,66 +179,55 @@ describe("a Project Pipeline's editor", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
     document.body.replaceChildren();
   });
 
-  it("flags a Broken one with why, holds Save, and saves once the Stage change is fixed", async () => {
+  it("says what it was copied from in words, and edits its Stages in the flow editor", async () => {
     serving();
     const page = await rendered();
-    expect(
-      page.querySelector('[role="group"][aria-label="1 Stage change doesn\'t apply to Document"]'),
-    ).not.toBeNull();
-    expect(buttonNamed("Save the Pipeline").disabled).toBe(true);
-    expect(page.textContent).toContain(
-      "Spec change is Broken: 1 Stage change no longer applies to Document",
+    expect(page.querySelector(".project-pipeline-facts")?.textContent).toBe(
+      "Project Pipeline of the-office · Copied from Document on 12 Nov · 1 not started Task uses it · 0 running Tasks keep the copy they started with",
     );
-    expect(page.textContent).toContain("Changes Produce, which Document no longer has.");
+    expect(page.querySelector(".project-pipeline-facts a")).toBeNull();
+    expect(page.textContent).toContain("Stages and routes");
+    expect(page.querySelector('[role="region"][aria-label="Flow"]')).not.toBeNull();
+    expect(page.textContent).not.toContain("was Broken before The Office updated");
+    expect(buttonNamed("Save the Pipeline").disabled).toBe(true);
 
-    await press("Remove this Stage change");
-    expect(page.textContent).toContain("Fixed: save it, and Tasks can choose Spec change again");
-    expect(buttonNamed("Save the Pipeline").disabled).toBe(false);
-  });
-
-  it("inserts a Stage after the picked one from the head's menu", async () => {
-    serving();
-    const page = await rendered();
-    expect(page.textContent).toContain("What the-office gets");
-    expect(buttonNamed("Insert a Stage").disabled).toBe(true);
-    await press("Tests");
-    await press("Insert after Tests");
-    await press("Gate");
-    expect(checked.stageChanges).toEqual([
-      PRODUCE_CHANGE,
-      expect.objectContaining({
-        kind: "insert-after",
-        stageKey: "tests",
-        stageName: "Tests",
-        stage: expect.objectContaining({ kind: "gate" }),
-      }),
-    ]);
-    expect(page.textContent).toContain("was inserted after Tests");
-  });
-
-  it("makes a Change routes of a route's edit, compares it with the base, and Undo drops it", async () => {
-    serving();
-    const page = await rendered();
     await press("Tests");
     await press("Remove the route to Write");
-    expect(checked.stageChanges).toEqual([
-      PRODUCE_CHANGE,
-      { kind: "change-routes", stageKey: "tests", stageName: "Tests", routes: [] },
-    ]);
-    expect(page.textContent).toContain("Routes changed");
-    const compare = page.querySelector('[role="group"][aria-label="Tests\'s routes"]');
-    expect(compare?.textContent).toContain("Document has1. → Write, always");
-    expect(compare?.textContent).toContain("the-office gets");
+    expect(sent.checked).toEqual(
+      expect.objectContaining({
+        projectPipelineId: "docs-for-the-office",
+        name: "Document for the-office",
+        stages: [expect.objectContaining({ key: "tests", routes: [] }), WRITE],
+      }),
+    );
     expect(page.textContent).toContain("Unsaved changes");
+    expect(buttonNamed("Save the Pipeline").disabled).toBe(false);
 
-    await press("Undo: give Tests Document's routes back");
-    expect(page.textContent).not.toContain("Routes changed");
+    await press("Discard");
     expect(page.textContent).toContain("Saved");
     expect(buttonNamed("Save the Pipeline").disabled).toBe(true);
+  });
+
+  it("flags one that was Broken before The Office updated with why, and saves it unchanged", async () => {
+    serving();
+    const page = await rendered(SPEC_CHANGE);
+    expect(page.textContent).toContain("Spec change was Broken before The Office updated");
+    expect(page.textContent).toContain("Changes Produce, which Document no longer had.");
+    expect(page.textContent).toContain("Tasks can choose it once you save it.");
+    expect(page.querySelector(".project-pipeline-facts")?.textContent).toContain(
+      "Copied from Document ·",
+    );
+    expect(page.querySelector(".project-pipeline-facts")?.textContent).not.toContain(" on ");
+
+    expect(buttonNamed("Discard").disabled).toBe(true);
+    expect(buttonNamed("Save the Pipeline").disabled).toBe(false);
+    await press("Save the Pipeline");
+    expect(sent.saved).toEqual({ name: "Spec change", description: "", stages: [TESTS, WRITE] });
   });
 
   it("asks before removing it, and shows the service's reason when it is refused", async () => {
@@ -275,7 +241,7 @@ describe("a Project Pipeline's editor", () => {
         { status: 422 },
       ),
     );
-    await rendered();
+    await rendered(SPEC_CHANGE);
     await press("Remove");
     expect(fetched.mock.calls.some(([, init]) => init?.method === "DELETE")).toBe(false);
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Remove Spec change?");

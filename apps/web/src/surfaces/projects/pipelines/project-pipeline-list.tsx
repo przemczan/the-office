@@ -5,11 +5,13 @@ import { Badge, Button, Icon, PickList, PickListItem } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { projectPipelineQueries } from "../../../api/pipelines.ts";
 import { AskDevopsButton } from "../../../shell/ask-devops.tsx";
-import { projectPipelineLine } from "../../../shell/pipelines/stage-change-words.ts";
+import { counted } from "../../../shell/pipelines/pipeline-words.ts";
 
 /**
- * The Project's own Pipelines, each a link to its address with what it is built from; Default and
- * Broken at a row's end, Needs fixing from its check. Its foot adds one, or asks Devops for one.
+ * The Project's own Pipelines, each a link to its address with what it was copied from and its
+ * Stages; Default at a row's end, and Needs fixing while its check finds a problem or a warning, or
+ * while it was Broken before The Office updated and isn't saved since. Its foot copies one in, or
+ * asks Devops for one.
  */
 export function ProjectPipelineList({
   project,
@@ -22,21 +24,22 @@ export function ProjectPipelineList({
   readonly open: ProjectPipeline | undefined;
   readonly onAdd: () => void;
 }): ReactNode {
+  const needingFixing = useQuery(projectPipelineQueries.needingFixing(project.id)).data;
   return (
     <PickList
       name={`${project.name}'s Pipelines`}
       count={projectPipelines.length}
-      empty={`None yet: ${project.name}'s Tasks choose from the office-wide Pipelines. Add one to change a few Stages for ${project.name} alone.`}
+      empty={`None yet: ${project.name}'s Tasks choose from the office-wide Pipelines. Copy one to change it for ${project.name} alone.`}
       foot={
         <div className="project-pipelines-foot">
           <Button
             size="sm"
             variant="secondary"
-            title={`A Pipeline of ${project.name}'s own, built from an office-wide one`}
+            title={`A Pipeline of ${project.name}'s own, copied from another`}
             iconLeft={<Icon name="plus" size={14} />}
             onClick={onAdd}
           >
-            Add a Pipeline built from…
+            New Pipeline
           </Button>
           <AskDevopsButton
             label={(name) => `Ask ${name}`}
@@ -51,6 +54,7 @@ export function ProjectPipelineList({
           project={project}
           projectPipeline={projectPipeline}
           picked={projectPipeline.id === open?.id}
+          needsFixing={needingFixing?.has(projectPipeline.id) ?? false}
         />
       ))}
     </PickList>
@@ -61,43 +65,21 @@ function ProjectPipelineItem({
   project,
   projectPipeline,
   picked,
+  needsFixing,
 }: {
   readonly project: Project;
   readonly projectPipeline: ProjectPipeline;
   readonly picked: boolean;
+  readonly needsFixing: boolean;
 }): ReactNode {
-  const { id, name, description, basePipeline, stageChanges, broken } = projectPipeline;
-  const check = useQuery(
-    projectPipelineQueries.check({
-      name,
-      description,
-      basePipelineId: basePipeline.id,
-      stageChanges,
-      projectId: project.id,
-      projectPipelineId: id,
-    }),
-  );
-  const isBroken = broken.length > 0;
-  const needsFixing = !isBroken && (check.data?.problems.length ?? 0) > 0;
+  const { id, name, stages, copiedFrom } = projectPipeline;
   const isDefault = project.defaultPipeline === id;
   return (
     <PickListItem
       picked={picked}
       name={name}
-      line={projectPipelineLine(projectPipeline)}
-      lineTone={isBroken ? "danger" : undefined}
-      aside={
-        (isDefault || isBroken) && (
-          <>
-            {isDefault && <Badge size="sm">Default</Badge>}
-            {isBroken && (
-              <Badge size="sm" tone="danger">
-                Broken
-              </Badge>
-            )}
-          </>
-        )
-      }
+      line={`Copied from ${copiedFrom.name} · ${counted(stages.length, "Stage", "Stages")}`}
+      aside={isDefault && <Badge size="sm">Default</Badge>}
       warning={needsFixing ? "Needs fixing" : undefined}
       renderLink={(parts) => (
         <Link

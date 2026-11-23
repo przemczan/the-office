@@ -22,12 +22,17 @@ export interface ProposedStageTemplateChange {
   readonly to: Stage;
 }
 
-/** A Project Pipeline's fields a Proposal gives it: its name, description, base Pipeline and Stage changes. */
-export type ProjectPipelineFields = ProjectPipelineEdit;
+/**
+ * A Project Pipeline's fields a Proposal gives it: its name, description and whole flow, and for a
+ * new one the Pipeline it is copied from (`copyOf`, by id).
+ */
+export interface ProjectPipelineFields extends ProjectPipelineEdit {
+  readonly copyOf?: string;
+}
 
 /**
  * Devops' new Project Pipeline of the Project, or its change to one: its fields now (`from`, null
- * for a new one) and as proposed (`to`), with what it does to the routes of its built Stages.
+ * for a new one) and as proposed (`to`), with what it does to the routes of its Stages.
  * `pipelineId` is null for a new one until it is applied.
  */
 export interface ProposedProjectPipelineChange {

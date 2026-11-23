@@ -7,12 +7,7 @@ import {
   Outlet,
   RouterProvider,
 } from "@tanstack/react-router";
-import type {
-  ProjectPipelineCheck,
-  ProjectPipelineCheckRequest,
-  Proposal,
-  Stage,
-} from "@the-office/contracts";
+import type { Proposal } from "@the-office/contracts";
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
@@ -26,8 +21,6 @@ import {
 } from "./proposal-on-flow.tsx";
 import { proposalSearchOf } from "./proposal-search.ts";
 import {
-  FULL_NOW,
-  FULL_PROPOSED,
   PROJECT_ROUTES_PROPOSAL,
   PROJECT_ROUTES_PROPOSAL_ID,
   ROUTES_PROPOSAL,
@@ -67,22 +60,15 @@ afterEach(() => {
 });
 
 /**
- * Reads the Proposal as `proposal`, and answers applying or declining it with its new status; a
- * Project Pipeline's check builds Full as it is with no Stage changes, else Full as proposed.
+ * Reads the Proposal as `proposal`, and answers applying or declining it with its new status.
  */
 function serving(proposal: Proposal): Mock<ServiceCall> {
-  const fetched = vi.fn<ServiceCall>((url, init) => {
+  const fetched = vi.fn<ServiceCall>((url) => {
     if (url.endsWith("/apply"))
       return Promise.resolve(Response.json({ ...proposal, status: answered("applied") }));
     if (url.endsWith("/decline"))
       return Promise.resolve(Response.json({ ...proposal, status: answered("declined") }));
     if (url.endsWith(`/proposals/${proposal.id}`)) return Promise.resolve(Response.json(proposal));
-    if (url.endsWith("/project-pipelines/check")) {
-      const request = JSON.parse(String(init?.body)) as ProjectPipelineCheckRequest;
-      return Promise.resolve(
-        Response.json(built(request.stageChanges.length === 0 ? FULL_NOW : FULL_PROPOSED)),
-      );
-    }
     return Promise.resolve(Response.json([]));
   });
   vi.stubGlobal("fetch", fetched);
@@ -91,22 +77,6 @@ function serving(proposal: Proposal): Mock<ServiceCall> {
 
 function answered(kind: "applied" | "declined"): Proposal["status"] {
   return { kind, at: AT, by: null };
-}
-
-/** The service's check of a Project Pipeline that gets `stages`, each as its base has it. */
-function built(stages: readonly Stage[]): ProjectPipelineCheck {
-  return {
-    problems: [],
-    rows: stages.map((stage) => ({
-      stage,
-      origin: "base",
-      stageChangeIndexes: [],
-      baseStage: stage,
-      changedFields: [],
-    })),
-    stages: [...stages],
-    broken: [],
-  };
 }
 
 /** Settings › Pipelines' choice, in small: the Proposal on Full's flow, or the editor as usual. */
@@ -140,7 +110,6 @@ function ProjectPipelineDetail(): ReactNode {
     <ProjectProposalOnFlow
       proposal={onFlow.shown.proposal}
       change={onFlow.shown.change}
-      projectName="the-office"
       roles={[DEVOPS_ROLE] as never}
       duties={[]}
     />
@@ -301,7 +270,7 @@ describe("a Project Pipeline Proposal shown on the flow", () => {
     expect(banner.textContent).toContain(
       "Dwight's Proposal, shown on Full for the-office: not applied yet",
     );
-    expect(page.textContent).toContain("What the-office gets");
+    expect(page.textContent).toContain("Stages and routes");
     expect(page.querySelectorAll(".flow-canvas-route-line--proposed")).toHaveLength(4);
     expect(page.querySelectorAll(".flow-canvas-route-line--taken-away")).toHaveLength(1);
 

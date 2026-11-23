@@ -66,11 +66,3 @@ export function drawnHint(from: Stage, to: string | null, stages: readonly Stage
     ? `Route drawn from ${from.name} to ${where}. As ${from.name} has other routes out, set when it is followed, below.`
     : `Route drawn from ${from.name} to ${where}.`;
 }
-
-/** How to use a Project Pipeline's editor, where Stages keep the base Pipeline's places. */
-export function projectHowToHint(orientation: FlowOrientation): string {
-  if (orientation === "down") {
-    return "Press a Stage or a route to edit it below: a route's edit becomes a Change routes Stage change, with its Undo. Drag from a Stage's + to draw a route.";
-  }
-  return `Pick a Stage or a route to edit it below: a route's edit becomes a Change routes Stage change, with its Undo, and an edit of one of a Stage's own fields a Change Stage change of only that field. A Project Pipeline's Stages keep the places its base Pipeline gives them.${MOVE_AROUND}`;
-}

@@ -157,8 +157,9 @@ function PublishingWait({ task }: { readonly task: Task }): ReactNode {
 }
 
 /**
- * A Task that hasn't started on a Broken Project Pipeline, with no Stages edited for it, can't start
- * (spec §2.3, "A Broken Project Pipeline"): said with why, and another Pipeline offered.
+ * A Task that hasn't started on a Project Pipeline that was Broken before The Office updated, not
+ * saved since, with no Stages edited for it, can't start (spec §2.3.5, "The move to routes back and
+ * Publish Stages"): said with why, and another Pipeline offered.
  */
 function BrokenPipelineFlag({
   task,
@@ -170,22 +171,22 @@ function BrokenPipelineFlag({
   const choices = useProjectPipelineChoices(task.projectId);
   const project = useQuery(projectQueries.one(task.projectId)).data;
   const broken = choices?.projectPipelines.find(
-    ({ id, broken: reasons }) => id === task.pipelineId && reasons.length > 0,
+    ({ id, brokenBeforeUpdate }) => id === task.pipelineId && brokenBeforeUpdate !== null,
   );
   if (!broken || !NOT_STARTED.includes(task.state)) return null;
   const projectName = project?.name ?? "its Project";
   return (
     <Alert
-      tone="danger"
-      title={`${broken.name} is Broken`}
+      tone="warning"
+      title={`${broken.name} was Broken before The Office updated`}
       action={
         <Button size="sm" variant="secondary" onClick={onChooseAnother}>
           Choose another Pipeline
         </Button>
       }
     >
-      {broken.broken.map(({ text }) => text).join(" ")} The Task can't start until it is fixed in{" "}
-      {projectName}'s Pipelines, or another Pipeline is chosen for it.
+      {broken.brokenBeforeUpdate?.join(" ")} The Task can&apos;t start until it is saved in{" "}
+      {projectName}&apos;s Pipelines, or another Pipeline is chosen for it.
     </Alert>
   );
 }

@@ -45,8 +45,8 @@ export interface FlowMeasure {
   readonly end: FlowBox | undefined;
 }
 
-/** How a line looks: a route as it is, one a Proposal proposes or takes away, a removed Stage's. */
-export type FlowLineLook = "plain" | "proposed" | "taken-away" | "ghost";
+/** How a line looks: a route as it is, or one a Proposal proposes or takes away. */
+export type FlowLineLook = "plain" | "proposed" | "taken-away";
 
 /** One line to draw from a Stage to a Stage or End. */
 export interface FlowLine {
@@ -139,24 +139,19 @@ export function listsRoutes(stage: Stage): boolean {
 }
 
 /**
- * The lines to draw: each Stage's routes, a removed Stage's as ghosts, then a Proposal's proposed
- * and taken-away routes, which no press picks.
+ * The lines to draw: each Stage's routes, then a Proposal's proposed and taken-away routes, which
+ * no press picks.
  */
-export function flowLines(
-  stages: readonly Stage[],
-  removed: ReadonlySet<string>,
-  overlay?: FlowOverlay,
-): readonly FlowLine[] {
+export function flowLines(stages: readonly Stage[], overlay?: FlowOverlay): readonly FlowLine[] {
   const own = stages.flatMap((stage) => {
-    const ghost = removed.has(stage.key);
-    const lists = !ghost && listsRoutes(stage);
+    const lists = listsRoutes(stage);
     return (stage.routes ?? []).map((route, index): FlowLine => ({
       id: `${stage.key}:${index}`,
       fromKey: stage.key,
       to: route.to,
-      routeIndex: ghost ? undefined : index,
+      routeIndex: index,
       port: lists ? index : undefined,
-      look: ghost ? "ghost" : "plain",
+      look: "plain",
     }));
   });
   return [

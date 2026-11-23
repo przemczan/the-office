@@ -81,7 +81,7 @@ export function namedAmong(stage: Stage, stages: readonly Stage[]): Stage {
 }
 
 /** A key for the Stage, from its name, that none of `stages` has. */
-export function keyAmong(stage: Stage, stages: readonly Stage[]): string {
+function keyAmong(stage: Stage, stages: readonly Stage[]): string {
   return unique(
     slugOf(stage.name) || slugOf(NEW_STAGE_NAMES[stage.kind]),
     stages.map(({ key }) => key),

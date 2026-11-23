@@ -368,7 +368,7 @@ describe("the Initiative's planning Thread", () => {
             description: "For the spec.",
             stages: [{ name: "Write" }],
             projectId: "admin-panel",
-            basePipeline: { id: "document", name: "Document" },
+            copiedFrom: { name: "Document" },
             broken: ["Changes Produce, which Document no longer has."],
           },
         ]),
@@ -386,7 +386,7 @@ describe("the Initiative's planning Thread", () => {
 
     expect(brief).toContain(
       [
-        "Admin panel's own Pipelines, which only its Tasks can follow:\n- spec-change: Spec change (Write). Built from Document. For the spec. Broken: Changes Produce, which Document no longer has. It can't be proposed.",
+        "Admin panel's own Pipelines, which only its Tasks can follow:\n- spec-change: Spec change (Write). Copied from Document. For the spec. Broken before The Office updated: Changes Produce, which Document no longer has. It can't be proposed.",
         "Office-wide Pipelines:\n- full: Full (Implement → Review). For most work.",
       ].join("\n\n"),
     );

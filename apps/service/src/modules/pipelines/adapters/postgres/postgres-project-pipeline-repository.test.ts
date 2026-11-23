@@ -1,20 +1,26 @@
 import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
+import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import { straightLineFlow } from "../../domain/flow.js";
 import type { Pipeline } from "../../domain/pipeline.js";
-import type { ProjectPipeline } from "../../domain/project-pipeline.js";
+import {
+  movedProjectPipeline,
+  type LegacyProjectPipeline,
+  type ProjectPipeline,
+} from "../../domain/project-pipeline.js";
+import type { StageChange } from "../../domain/stage-change.js";
 import { agentStage, scriptStage } from "../../domain/stage.fixtures.js";
 import { PostgresPipelineRepository } from "./postgres-pipeline-repository.js";
 import { PostgresProjectPipelineRepository } from "./postgres-project-pipeline-repository.js";
+import { projectPipelines } from "./project-pipelines.schema.js";
 
 // The test database is shared by every test file: these Pipelines and Projects are this file's own.
 
-/** Postgres' error codes. */
+/** Postgres' error code. */
 const UNIQUE_VIOLATION = "23505";
-const FOREIGN_KEY_VIOLATION = "23503";
-const RESTRICT_VIOLATION = "23001";
 
 let app: INestApplication;
 let database: Database;
@@ -28,94 +34,170 @@ afterAll(async () => {
   await app.close();
 });
 
-async function aBasePipeline(): Promise<Pipeline> {
+async function anOfficeWidePipeline(): Promise<Pipeline> {
   const pipeline: Pipeline = {
     id: randomUUID(),
-    name: `Base ${randomUUID()}`,
-    description: "To build on.",
-    stages: [agentStage(), scriptStage()],
+    name: `Full ${randomUUID()}`,
+    description: "To copy.",
+    stages: straightLineFlow([agentStage(), scriptStage()]),
   };
   await new PostgresPipelineRepository(database).add(pipeline);
   return pipeline;
 }
 
-function aProjectPipeline(fields: Partial<ProjectPipeline>): ProjectPipeline {
+function aProjectPipeline(
+  source: Pipeline,
+  fields: Partial<ProjectPipeline> = {},
+): ProjectPipeline {
   return {
     id: randomUUID(),
     projectId: randomUUID(),
     name: "With Linux check",
     description: "Then Linux.",
-    basePipelineId: "set by the test",
-    stageChanges: [
-      {
-        kind: "insert-after",
-        stageKey: "tests",
-        stageName: "Tests",
-        stage: scriptStage({ key: "linux", name: "Verify on Linux", command: "linux" }),
-      },
-      { kind: "change", stageKey: "implement", stageName: "Implement", fields: { effort: null } },
-      { kind: "remove", stageKey: "tests", stageName: "Tests" },
-    ],
+    stages: source.stages,
+    copiedFrom: { name: source.name, at: new Date("2026-11-12T09:30:00.000Z") },
+    brokenBeforeUpdate: null,
     ...fields,
   };
 }
 
+const LINUX_AFTER_TESTS: StageChange = {
+  kind: "insert-after",
+  stageKey: "tests",
+  stageName: "Tests",
+  stage: scriptStage({ key: "linux", name: "Verify on Linux", command: "linux" }),
+};
+
+/** A row as the release before kept it: a base Pipeline and Stage changes, no flow of its own. */
+async function aLegacyRow(
+  basePipelineId: string,
+  stageChanges: readonly StageChange[],
+): Promise<LegacyProjectPipeline> {
+  const legacy: LegacyProjectPipeline = {
+    id: randomUUID(),
+    projectId: randomUUID(),
+    name: "Legacy",
+    description: "Built on a base.",
+    basePipelineId,
+    stageChanges,
+  };
+  await database.insert(projectPipelines).values({ ...legacy, stageChanges: [...stageChanges] });
+  return legacy;
+}
+
+async function legacyColumnsOf(id: string) {
+  const [row] = await database
+    .select({
+      basePipelineId: projectPipelines.basePipelineId,
+      stageChanges: projectPipelines.stageChanges,
+    })
+    .from(projectPipelines)
+    .where(eq(projectPipelines.id, id));
+  return row;
+}
+
 describe("PostgresProjectPipelineRepository", () => {
   it("keeps a Project Pipeline as added and saved, in the order added, until it is removed", async () => {
-    const base = await aBasePipeline();
+    const source = await anOfficeWidePipeline();
     const repository = new PostgresProjectPipelineRepository(database);
-    const first = aProjectPipeline({ basePipelineId: base.id });
-    const second = aProjectPipeline({
-      basePipelineId: base.id,
-      projectId: first.projectId,
-      name: "Second",
-    });
-    const elsewhere = aProjectPipeline({ basePipelineId: base.id, name: "With Linux check" });
+    const first = aProjectPipeline(source);
+    const second = aProjectPipeline(source, { projectId: first.projectId, name: "Second" });
+    const elsewhere = aProjectPipeline(source);
 
-    await repository.add(first);
-    await repository.add(second);
-    await repository.add(elsewhere);
-    const saved = { ...first, name: "Renamed", stageChanges: [], projectId: randomUUID() };
+    await repository.add(first, source.id);
+    await repository.add(second, source.id);
+    await repository.add(elsewhere, source.id);
+    const saved = {
+      ...first,
+      name: "Renamed",
+      stages: straightLineFlow([agentStage()]),
+      projectId: randomUUID(),
+    };
     await repository.save(saved);
 
+    // A save keeps its Project.
     const kept = { ...saved, projectId: first.projectId };
     expect(await repository.find(first.id)).toEqual(kept);
     expect(await repository.listOf(first.projectId)).toEqual([kept, second]);
-    expect(await repository.builtFrom(base.id)).toEqual([kept, second, elsewhere]);
     expect(await repository.list()).toEqual(expect.arrayContaining([kept, second, elsewhere]));
 
     await repository.remove(second.id);
     expect(await repository.find(second.id)).toBeUndefined();
   });
 
-  it("refuses a second name of the same Project in any case, and a base Pipeline that isn't there", async () => {
-    const base = await aBasePipeline();
+  it("names the office-wide Pipeline at the root of a copy in the legacy columns, with no Stage changes", async () => {
+    const source = await anOfficeWidePipeline();
     const repository = new PostgresProjectPipelineRepository(database);
-    const first = aProjectPipeline({ basePipelineId: base.id });
-    await repository.add(first);
+    const copy = aProjectPipeline(source);
+    await repository.add(copy, source.id);
+    const copyOfCopy = aProjectPipeline(source, { projectId: copy.projectId, name: "Again" });
+    await repository.add(copyOfCopy, copy.id);
+
+    expect(await legacyColumnsOf(copy.id)).toEqual({ basePipelineId: source.id, stageChanges: [] });
+    expect(await legacyColumnsOf(copyOfCopy.id)).toEqual({
+      basePipelineId: source.id,
+      stageChanges: [],
+    });
+  });
+
+  it("refuses a second name of the same Project in any case", async () => {
+    const source = await anOfficeWidePipeline();
+    const repository = new PostgresProjectPipelineRepository(database);
+    const first = aProjectPipeline(source);
+    await repository.add(first, source.id);
 
     await expect(
       repository.add(
-        aProjectPipeline({
-          basePipelineId: base.id,
-          projectId: first.projectId,
-          name: "with LINUX check",
-        }),
+        aProjectPipeline(source, { projectId: first.projectId, name: "with LINUX check" }),
+        source.id,
       ),
     ).rejects.toMatchObject({ cause: { code: UNIQUE_VIOLATION } });
-    await expect(
-      repository.add(aProjectPipeline({ basePipelineId: randomUUID() })),
-    ).rejects.toMatchObject({ cause: { code: FOREIGN_KEY_VIOLATION } });
   });
 
-  it("keeps a base Pipeline while a Project Pipeline is built from it", async () => {
-    const base = await aBasePipeline();
-    await new PostgresProjectPipelineRepository(database).add(
-      aProjectPipeline({ basePipelineId: base.id }),
-    );
+  it("lets the office-wide Pipeline a Project Pipeline was copied from be removed", async () => {
+    const source = await anOfficeWidePipeline();
+    const repository = new PostgresProjectPipelineRepository(database);
+    const copy = aProjectPipeline(source);
+    await repository.add(copy, source.id);
 
-    await expect(new PostgresPipelineRepository(database).remove(base.id)).rejects.toMatchObject({
-      cause: { code: RESTRICT_VIOLATION },
-    });
+    await new PostgresPipelineRepository(database).remove(source.id);
+    expect(await repository.find(copy.id)).toEqual(copy);
+  });
+
+  it("reads a row not yet moved as the move makes it, Broken when its base Pipeline is gone", async () => {
+    const base = await anOfficeWidePipeline();
+    const repository = new PostgresProjectPipelineRepository(database);
+    const legacy = await aLegacyRow(base.id, [LINUX_AFTER_TESTS]);
+    const orphan = await aLegacyRow(randomUUID(), []);
+
+    const read = movedProjectPipeline(legacy, base);
+    expect(read.stages.map(({ key }) => key)).toEqual(["implement", "tests", "linux"]);
+    expect(await repository.find(legacy.id)).toEqual(read);
+    expect(await repository.listOf(legacy.projectId)).toEqual([read]);
+    expect(await repository.find(orphan.id)).toEqual(movedProjectPipeline(orphan, undefined));
+    expect((await repository.find(orphan.id))?.brokenBeforeUpdate).toHaveLength(1);
+  });
+
+  it("moves a legacy row over once, and a save ends its Broken flag", async () => {
+    const repository = new PostgresProjectPipelineRepository(database);
+    const legacy = await aLegacyRow(randomUUID(), []);
+    expect(await repository.rowsToMoveOver()).toContainEqual(legacy);
+
+    const moved = movedProjectPipeline(legacy, undefined);
+    await repository.moveOver(moved);
+    expect((await repository.rowsToMoveOver()).map(({ id }) => id)).not.toContain(legacy.id);
+    expect(await repository.find(legacy.id)).toEqual(moved);
+
+    // A second move, as from another start, changes nothing.
+    await repository.moveOver({ ...moved, stages: straightLineFlow([agentStage()]) });
+    expect(await repository.find(legacy.id)).toEqual(moved);
+
+    const edit = {
+      ...moved,
+      stages: straightLineFlow([agentStage()]),
+      brokenBeforeUpdate: ["Still broken."],
+    };
+    await repository.save(edit);
+    expect(await repository.find(legacy.id)).toEqual({ ...edit, brokenBeforeUpdate: null });
   });
 });

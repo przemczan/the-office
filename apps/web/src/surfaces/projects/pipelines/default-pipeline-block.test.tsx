@@ -28,23 +28,25 @@ const FULL = {
   stages: [{ name: "Implement" }, { name: "Tests" }],
 } as unknown as Pipeline;
 
-function projectPipeline(id: string, name: string, broken: readonly string[]): ProjectPipeline {
+function projectPipeline(
+  id: string,
+  name: string,
+  brokenBeforeUpdate: readonly string[] | null,
+): ProjectPipeline {
   return {
     id,
     projectId: "the-office",
     name,
     description: "",
-    basePipeline: { id: "full", name: "Full" },
-    stageChanges: [],
-    rows: [],
     stages: [{ name: "Implement" }, { name: "Verify on Linux" }],
-    broken: broken.map((text) => ({ stageChangeIndex: 0, stageIndex: null, stageKey: null, text })),
+    copiedFrom: { name: "Full", at: "2026-11-12T10:00:00.000Z" },
+    brokenBeforeUpdate,
   } as unknown as ProjectPipeline;
 }
 
-const LINUX_CHECK = projectPipeline("linux-check", "Full with Linux check", []);
+const LINUX_CHECK = projectPipeline("linux-check", "Full with Linux check", null);
 const SPEC_CHANGE = projectPipeline("spec-change", "Spec change", [
-  "Changes Produce, which Full no longer has.",
+  "Changes Produce, which Full no longer had.",
 ]);
 
 const PROJECT = {
@@ -67,7 +69,7 @@ function block(project: Project): HTMLElement {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   });
-  queryClient.setQueryData(pipelineQueries.list().queryKey, [{ ...FULL, builtOnBy: [] }]);
+  queryClient.setQueryData(pipelineQueries.list().queryKey, [FULL]);
   queryClient.setQueryData(projectPipelineQueries.list(project.id).queryKey, [
     LINUX_CHECK,
     SPEC_CHANGE,
@@ -118,9 +120,9 @@ describe("the Default Pipeline block", () => {
     expect(broken?.getAttribute("aria-disabled")).toBe("true");
   });
 
-  it("reads the default's built Stages", () => {
+  it("reads the default's Stages", () => {
     expect(block(PROJECT).textContent).toContain(
-      "Implement → Verify on Linux · built from Full. A new Task has no Pipeline until Angela proposes one",
+      "Implement → Verify on Linux · copied from Full. A new Task has no Pipeline until Angela proposes one",
     );
   });
 
@@ -131,12 +133,14 @@ describe("the Default Pipeline block", () => {
     expect(page.textContent).not.toContain("Publishing");
   });
 
-  it("flags a Broken default with why", () => {
+  it("flags a default that was Broken before The Office updated", () => {
     const page = block({ ...PROJECT, defaultPipeline: "spec-change" });
 
-    expect(page.textContent).toContain("Spec change, the default, is Broken");
     expect(page.textContent).toContain(
-      "Changes Produce, which Full no longer has. New Tasks can't follow it, and Angela proposes from the others, until it is fixed or another default is chosen.",
+      "Spec change, the default, was Broken before The Office updated",
+    );
+    expect(page.textContent).toContain(
+      "New Tasks can't follow it, and Angela proposes from the others, until you save it.",
     );
   });
 

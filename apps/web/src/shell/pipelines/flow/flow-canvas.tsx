@@ -29,13 +29,7 @@ import {
   routePaths,
   startPath,
 } from "./flow-layout.ts";
-import {
-  type FlowLocks,
-  type FlowOverlay,
-  type FlowStageMarks,
-  type FlowStageMarkTone,
-  NO_LOCKS,
-} from "./flow-marks.ts";
+import { type FlowLocks, type FlowOverlay, type FlowStageMarks, NO_LOCKS } from "./flow-marks.ts";
 import { canDropAt, canMoveStage, inFlowOrder, stepInOrder } from "./flow-model.ts";
 import type { FlowPick } from "./flow-pick.ts";
 import { FlowStageCard } from "./flow-stage-card.tsx";
@@ -49,18 +43,14 @@ import {
   routeName,
   stageProblemsOf,
 } from "./flow-view.ts";
-import {
-  type FlowOverviewBlock,
-  type FlowOverviewShape,
-  useFlowViewport,
-} from "./flow-viewport-context.ts";
+import { type FlowOverviewShape, useFlowViewport } from "./flow-viewport-context.ts";
 import { type FlowDrag, useFlowDrag } from "./use-flow-drag.ts";
 import { type FlowView, useFlowMeasure } from "./use-flow-measure.ts";
 
 export type { FlowCanvasEdit } from "./flow-view.ts";
 
 export interface FlowCanvasProps {
-  /** In the flow's order, each with its place and routes; a Project Pipeline's removed ones too. */
+  /** In the flow's order, each with its place and routes. */
   readonly stages: readonly Stage[];
   readonly picked: FlowPick | undefined;
   /** Without it nothing is picked: a press reads only. */
@@ -70,17 +60,13 @@ export interface FlowCanvasProps {
   readonly whoWorks: (stage: Stage) => string;
   /** Nothing moves: no +, no dragging, no keyboard edits. */
   readonly readOnly?: boolean;
-  /** False on a Project page: Stages keep the base Pipeline's places, though routes are drawn. */
-  readonly draggable?: boolean;
   readonly marks?: FlowStageMarks;
   readonly overlay?: FlowOverlay;
-  /** A Task's started Stages: each with its lock, none dragged, moved or drawn from. */
-  readonly locked?: FlowLocks;
   /**
-   * Why a Stage that can't be dragged keeps its place, said when someone tries, such as a Project
-   * Pipeline's base Pipeline places; a Task's started Stage says it without.
+   * A Task's started Stages: each with its lock, none dragged, moved or drawn from; trying to drag
+   * one says why it stays.
    */
-  readonly whyItStays?: (stage: Stage) => string | undefined;
+  readonly locked?: FlowLocks;
   readonly onEdit?: (edit: FlowCanvasEdit) => void;
 }
 
@@ -93,33 +79,24 @@ const NO_MARKS: FlowStageMarks = new Map();
  * the FlowViewport around it (docs/design/pipeline-editor.html) moves and zooms it.
  */
 export function FlowCanvas(props: FlowCanvasProps): ReactNode {
-  const { stages, readOnly = false, draggable = true, marks = NO_MARKS, locked = NO_LOCKS } = props;
+  const { stages, readOnly = false, marks = NO_MARKS, locked = NO_LOCKS } = props;
   const canvas = useRef<HTMLDivElement>(null);
   const viewport = useFlowViewport();
   const orientation = viewport?.orientation ?? "across";
   const namesOnly = viewport?.namesOnly ?? false;
   const view = useFlowMeasure(canvas, orientation);
-  const removed = useMemo(
-    () => new Set([...marks].filter(([, mark]) => mark.tone === "removed").map(([key]) => key)),
-    [marks],
-  );
-  const live = useMemo(() => stages.filter(({ key }) => !removed.has(key)), [stages, removed]);
-  const lines = useMemo(
-    () => flowLines(stages, removed, props.overlay),
-    [stages, removed, props.overlay],
-  );
-  const loops = useMemo(() => loopLanes(live), [live]);
+  const lines = useMemo(() => flowLines(stages, props.overlay), [stages, props.overlay]);
+  const loops = useMemo(() => loopLanes(stages), [stages]);
   const room = flowRoom(stages, lines, loops, orientation);
   const loopLines = loopPaths(loops, view.measure, orientation);
   const size = flowGridSize(stages);
   const canDrag = (key: string): boolean =>
-    !readOnly && draggable && orientation === "across" && !removed.has(key) && !locked.has(key);
+    !readOnly && orientation === "across" && !locked.has(key);
   const canDraw = (key: string): boolean => !readOnly && !locked.has(key);
   const whyStays = (key: string): string | undefined => {
     const stage = stages.find((each) => each.key === key);
-    if (!stage || readOnly || orientation !== "across") return undefined;
-    if (locked.has(key)) return `${stage.name} has started, so it stays where it is.`;
-    return props.whyItStays?.(stage);
+    if (!stage || readOnly || orientation !== "across" || !locked.has(key)) return undefined;
+    return `${stage.name} has started, so it stays where it is.`;
   };
   const [told, setTold] = useState<FlowToldWhy | undefined>();
   const forget = useCallback(() => setTold(undefined), []);
@@ -136,7 +113,7 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
       if (words) setTold({ words, x: clientX, y: clientY, at: Date.now() });
     },
   });
-  useOverviewAndPick(view, props.picked, marks, viewport);
+  useOverviewAndPick(view, props.picked, viewport);
   const focusAfter = useRef<string | undefined>(undefined);
   useLayoutEffect(() => {
     const key = focusAfter.current;
@@ -151,13 +128,7 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
     if (!direction) return;
     event.preventDefault();
     if (event.shiftKey) {
-      if (
-        readOnly ||
-        !draggable ||
-        removed.has(key) ||
-        !canMoveStage(stages, key, direction, locked)
-      )
-        return;
+      if (readOnly || !canMoveStage(stages, key, direction, locked)) return;
       focusAfter.current = key;
       props.onPick?.({ kind: "stage", key });
       props.onEdit?.({ kind: "move", key, direction });
@@ -226,13 +197,11 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
       <FlowLines
         {...props}
         stages={stages}
-        live={live}
         view={view}
         orientation={orientation}
         routes={routePaths(stages, lines, view.measure, orientation)}
         loops={loopLines}
         drag={dragging.drag}
-        marksOf={marks}
         onPick={pick}
       />
       <LoopMarks loops={loopLines} stages={stages} problems={props.problems} onPick={pick} />
@@ -270,39 +239,29 @@ function canvasClass(readOnly: boolean, namesOnly: boolean, drag: FlowDrag | und
 function useOverviewAndPick(
   view: FlowView,
   picked: FlowPick | undefined,
-  marks: FlowStageMarks,
   viewport: ReturnType<typeof useFlowViewport>,
 ): void {
   const pickedKey = picked?.key;
   const shown = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (!viewport) return;
-    viewport.showOverview(overviewShape(view, pickedKey, marks));
+    viewport.showOverview(overviewShape(view, pickedKey));
     if (pickedKey === shown.current) return;
     shown.current = pickedKey;
     const box = pickedKey === undefined ? undefined : view.measure.stages.get(pickedKey)?.box;
     if (box) viewport.bringIntoView(box);
-  }, [view, pickedKey, marks, viewport]);
+  }, [view, pickedKey, viewport]);
 }
 
-function overviewShape(
-  view: FlowView,
-  pickedKey: string | undefined,
-  marks: FlowStageMarks,
-): FlowOverviewShape {
+function overviewShape(view: FlowView, pickedKey: string | undefined): FlowOverviewShape {
   return {
     blocks: [...view.measure.stages].map(([key, { box }]) => ({
       key,
       box,
-      tone: key === pickedKey ? "picked" : overviewTone(marks.get(key)?.tone),
+      tone: key === pickedKey ? "picked" : "plain",
     })),
     end: view.measure.end,
   };
-}
-
-function overviewTone(tone: FlowStageMarkTone | undefined): FlowOverviewBlock["tone"] {
-  if (tone === undefined || tone === "locked") return "plain";
-  return tone === "routes-changed" ? "changed" : tone;
 }
 
 interface FlowToldWhy {
@@ -388,20 +347,18 @@ function removeRouteByKey(event: KeyboardEvent<HTMLElement>, props: FlowCanvasPr
 }
 
 interface FlowLinesProps extends Omit<FlowCanvasProps, "onPick"> {
-  readonly live: readonly Stage[];
   readonly view: FlowView;
   readonly orientation: FlowOrientation;
   readonly routes: readonly FlowRoutePath[];
   readonly loops: readonly FlowLoopPath[];
   readonly drag: FlowDrag | undefined;
-  readonly marksOf: FlowStageMarks;
   readonly onPick: (pick: FlowPick) => void;
 }
 
 /** The routes, the loops and where the walk starts, with a hit line under each route to press. */
 function FlowLines(props: FlowLinesProps): ReactNode {
   const { view, orientation, routes, loops } = props;
-  const start = startPath(inFlowOrder(props.live)[0], view.measure, orientation);
+  const start = startPath(inFlowOrder(props.stages)[0], view.measure, orientation);
   return (
     <svg className="flow-canvas-lines" width={view.width} height={view.height} focusable="false">
       <g aria-hidden="true">
@@ -445,20 +402,11 @@ function routeClass(props: FlowLinesProps, { line }: FlowRoutePath): string {
   return [
     "flow-canvas-route-line",
     `flow-canvas-route-line--${look}`,
-    look === "plain" && routeTone(props.marksOf, fromKey, line.to),
     problem && "flow-canvas-route-line--problem",
     picked && "flow-canvas-route-line--picked",
   ]
     .filter(Boolean)
     .join(" ");
-}
-
-/** On a Project Pipeline, a route out of or into an inserted Stage is green, one whose routes changed amber. */
-function routeTone(marks: FlowStageMarks, fromKey: string, to: string | null): string | false {
-  const from = marks.get(fromKey)?.tone;
-  if (from === "inserted" || (to !== null && marks.get(to)?.tone === "inserted"))
-    return "flow-canvas-route-line--inserted";
-  return from === "routes-changed" && "flow-canvas-route-line--changed";
 }
 
 function DrawingLine({ drag, view, orientation }: FlowLinesProps): ReactNode {

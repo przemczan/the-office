@@ -68,7 +68,7 @@ const ADMIN_OWN: readonly PlanningPipeline[] = [
     description: "For a one-line fix.",
     stages: [{ name: "Implement" }, { name: "Publish" }],
     projectId: "admin-panel",
-    basePipeline: { id: "full", name: "Full" },
+    copiedFrom: { name: "Full" },
   },
   {
     id: "admin-full",
@@ -76,8 +76,8 @@ const ADMIN_OWN: readonly PlanningPipeline[] = [
     description: "",
     stages: [{ name: "Implement" }, { name: "Tests" }, { name: "Publish" }],
     projectId: "admin-panel",
-    basePipeline: { id: "full", name: "Full" },
-    broken: ["Its Agent Stage Implement names the Role tester, which nobody fills."],
+    copiedFrom: { name: "Full" },
+    broken: ["Inserts Verify on Linux after Tests, which Full no longer has."],
   },
 ];
 

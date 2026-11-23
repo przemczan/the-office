@@ -1,4 +1,4 @@
-import type { ProjectPipelineCheck, Stage, StageChange } from "@the-office/contracts";
+import type { Stage } from "@the-office/contracts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
@@ -215,41 +215,16 @@ const LINUX: Stage = {
   optional: false,
 };
 
-const INSERT_LINUX: StageChange = {
-  kind: "insert-after",
-  stageKey: "tests",
-  stageName: "Tests",
-  stage: LINUX,
-};
-
-/** A check's answer built from the rows, as the service answers it. */
-function checked(rows: ProjectPipelineCheck["rows"]): ProjectPipelineCheck {
-  return {
-    problems: [],
-    rows,
-    stages: rows.filter(({ origin }) => origin !== "removed").map(({ stage }) => stage),
-    broken: [],
-  };
-}
-
-function baseRow(stage: Stage): ProjectPipelineCheck["rows"][number] {
-  return { stage, origin: "base", stageChangeIndexes: [], baseStage: stage, changedFields: [] };
-}
-
-const WAS = checked([
-  baseRow(IMPLEMENT),
-  baseRow(TESTS),
-  { stage: LINUX, origin: "inserted", stageChangeIndexes: [0], baseStage: null, changedFields: [] },
-]);
-
 function fieldsOfMarkup(markup: string): string[] {
   const list = document.createElement("div");
   list.innerHTML = markup;
   return [...list.querySelectorAll(".proposal-field")].map((field) => field.textContent ?? "");
 }
 
+const pipelineName = (id: string): string => (id === "full" ? "Full" : id);
+
 describe("ProposedProjectPipelineFields", () => {
-  it("shows a new one's every value, its Stage changes as New and what its Project gets", () => {
+  it("shows a new one's every value, the Pipeline it is copied from and its Stages", () => {
     const markup = renderToStaticMarkup(
       <ProposedProjectPipelineFields
         change={{
@@ -261,30 +236,25 @@ describe("ProposedProjectPipelineFields", () => {
           to: {
             name: "Full with Linux check",
             description: "",
-            basePipelineId: "full",
-            stageChanges: [{ kind: "insert-after", stageKey: "tests", stage: LINUX }],
+            stages: [IMPLEMENT, TESTS, LINUX],
+            copyOf: "full",
           },
         }}
         projectName="the-office"
-        pipelineName={(id) => (id === "full" ? "Full" : id)}
-        was={undefined}
-        proposed={WAS}
-        roles={[]}
+        pipelineName={pipelineName}
       />,
     );
 
     expect(rowsOf(markup)).toEqual([
       "Projectthe-office",
       "NameFull with Linux check",
-      "Base PipelineFull",
+      "Copied fromFull",
       "DescriptionNone",
-      "the-office getsImplement → Tests → Verify on Linux",
+      "StagesImplement → Tests → Verify on Linux",
     ]);
-    expect(markup).toContain("Stage changes · 1");
-    expect(fieldsOfMarkup(markup)).toEqual(["NewInserts Verify on Linux after Tests"]);
   });
 
-  it("shows only what a change rewrites, each Stage change Kept or New, a Change's fields as was and proposed", () => {
+  it("shows only what a change rewrites and each Stage it adds, removes or rewrites", () => {
     const changedImplement = { ...IMPLEMENT, brief: "Implement it, then lint." };
     const markup = renderToStaticMarkup(
       <ProposedProjectPipelineFields
@@ -296,57 +266,24 @@ describe("ProposedProjectPipelineFields", () => {
           from: {
             name: "Full with Linux check",
             description: "Then Linux.",
-            basePipelineId: "full",
-            stageChanges: [INSERT_LINUX],
+            stages: [IMPLEMENT, TESTS],
           },
           to: {
             name: "Full with Linux check",
-            description: "Then Linux.",
-            basePipelineId: "full",
-            stageChanges: [
-              { kind: "insert-after", stageKey: "tests", stage: LINUX },
-              {
-                kind: "change",
-                stageKey: "implement",
-                fields: { brief: "Implement it, then lint." },
-              },
-            ],
+            description: "Then Linux on every Task.",
+            stages: [changedImplement, TESTS, LINUX],
           },
         }}
         projectName="the-office"
-        pipelineName={(id) => (id === "full" ? "Full" : id)}
-        was={WAS}
-        proposed={checked([
-          {
-            stage: changedImplement,
-            origin: "changed",
-            stageChangeIndexes: [1],
-            baseStage: IMPLEMENT,
-            changedFields: ["brief"],
-          },
-          baseRow(TESTS),
-          {
-            stage: LINUX,
-            origin: "inserted",
-            stageChangeIndexes: [0],
-            baseStage: null,
-            changedFields: [],
-          },
-        ])}
-        roles={[]}
+        pipelineName={pipelineName}
       />,
     );
 
     expect(rowsOf(markup)).toEqual([
-      "Stage changes12",
-      "BriefImplement the Plan.Implement it, then lint.",
-      "the-office getsImplement → Tests → Verify on Linux",
+      "DescriptionThen Linux.Then Linux on every Task.",
+      "StagesImplement → TestsImplement → Tests → Verify on Linux",
     ]);
-    expect(markup).toContain("Stage changes, as proposed");
-    expect(fieldsOfMarkup(markup)).toEqual([
-      "KeptInserts Verify on Linux after Tests",
-      "NewChanges ImplementBriefImplement the Plan.Implement it, then lint.",
-    ]);
+    expect(fieldsOfMarkup(markup)).toEqual(["ChangedImplement", "AddedVerify on Linux"]);
   });
 });
 
@@ -381,49 +318,6 @@ describe("ProposedRouteChanges", () => {
       ["Routes out of Docs", "→ Publish, always", "None: the Stage is removed"],
     ]);
     expect(markup).toContain('class="proposal-route-side proposal-route-side--from"');
-  });
-});
-
-describe("ProposedProjectPipelineFields with routes", () => {
-  const changeRoutes: StageChange = {
-    kind: "change-routes",
-    stageKey: "tests",
-    stageName: "Tests",
-    routes: FULL_ROUTES.stages[0]?.to ?? [],
-  };
-
-  it("lists a Change routes as Changes X's routes, with its routes out as Was and Proposed", () => {
-    const fields = {
-      name: "Full for the-office",
-      description: "",
-      basePipelineId: "full",
-    };
-    const markup = renderToStaticMarkup(
-      <ProposedProjectPipelineFields
-        change={{
-          kind: "project-pipeline",
-          routes: { stages: FULL_ROUTES.stages.slice(0, 1), check: [] },
-          projectId: "the-office",
-          pipelineId: "pp-full",
-          from: { ...fields, stageChanges: [] },
-          to: { ...fields, stageChanges: [changeRoutes] },
-        }}
-        projectName="the-office"
-        pipelineName={(id) => (id === "full" ? "Full" : id)}
-        was={checked(FULL_NOW.map(baseRow))}
-        proposed={checked(FULL_PROPOSED.map(baseRow))}
-        roles={[]}
-      />,
-    );
-
-    expect(fieldsOfMarkup(markup)[0]).toMatch(/^NewChanges Tests's routes/);
-    expect(routeChangesOf(markup)).toEqual([
-      [
-        "Routes out of Tests",
-        "→ Review & fix, always",
-        "→ Review & fix when Implement changed files | → Publish otherwise",
-      ],
-    ]);
   });
 });
 

@@ -24,24 +24,22 @@ const QUICK_FIX = {
 function projectPipeline(
   id: string,
   projectId: string,
-  broken: readonly string[] = [],
+  brokenBeforeUpdate: readonly string[] | null = null,
 ): ProjectPipeline {
   return {
     id,
     projectId,
     name: `${id} Pipeline`,
     description: "",
-    basePipeline: { id: "full", name: "Full" },
-    stageChanges: [],
-    rows: [],
     stages: [{ name: "Implement" }, { name: "Verify on Linux" }],
-    broken: broken.map((text) => ({ stageChangeIndex: 0, stageIndex: null, stageKey: null, text })),
+    copiedFrom: { name: "Full", at: "2026-11-12T10:00:00.000Z" },
+    brokenBeforeUpdate,
   } as unknown as ProjectPipeline;
 }
 
 const LINUX = projectPipeline("linux", "the-office");
 const SPEC = projectPipeline("spec", "the-office", [
-  "Changes Produce, which Document no longer has.",
+  "Changes Produce, which Document no longer had.",
 ]);
 const ELSEWHERE = projectPipeline("elsewhere", "admin-panel");
 
@@ -80,21 +78,22 @@ describe("a Task's Pipeline choices", () => {
     expect(choiceById(groups, "quick-fix")?.isDefault).toBe(true);
   });
 
-  it("reads a Project Pipeline's built Stages and its base Pipeline", () => {
+  it("reads a Project Pipeline's Stages and the Pipeline it was copied from", () => {
     const groups = taskPipelineChoices(PROJECT, [FULL], [LINUX]);
 
-    expect(choiceById(groups, "linux")?.line).toBe("Implement → Verify on Linux · built from Full");
+    expect(choiceById(groups, "linux")?.line).toBe(
+      "Implement → Verify on Linux · copied from Full",
+    );
     expect(choiceById(groups, "full")?.line).toBe("Implement → Tests");
     expect(choiceById(groups, "linux")?.brokenWhy).toBeUndefined();
   });
 
-  it("lists a Broken one with why, so it can't be chosen", () => {
+  it("lists one that was Broken before The Office updated with why, so it can't be chosen", () => {
     const spec = choiceById(taskPipelineChoices(PROJECT, [FULL], [SPEC]), "spec");
 
     expect(spec?.brokenWhy).toBe(
-      "Broken: Changes Produce, which Document no longer has. Fix it in the-office's Pipelines.",
+      "Broken before The Office updated: Changes Produce, which Document no longer had. Save it once in the-office's Pipelines to choose it.",
     );
-    expect(spec?.brokenReasons).toEqual(["Changes Produce, which Document no longer has."]);
   });
 });
 

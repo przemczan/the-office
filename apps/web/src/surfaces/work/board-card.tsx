@@ -15,7 +15,7 @@ import {
   type PointerEvent,
   type ReactNode,
 } from "react";
-import { counted } from "../../shell/pipelines/stage-change-words.ts";
+import { counted } from "../../shell/pipelines/pipeline-words.ts";
 import { ProjectMark } from "../../shell/project-mark.tsx";
 import { KindMark, PriorityIcon } from "../../shell/work/task-state-badge.tsx";
 import { useUsageEstimate } from "../../shell/work/usage-estimate-line.tsx";

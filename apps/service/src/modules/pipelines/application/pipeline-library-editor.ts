@@ -24,21 +24,20 @@ import {
   type StageProblem,
 } from "../domain/pipeline.js";
 import type { TakenName } from "../domain/pipeline-names.js";
+import { ONBOARD_PIPELINE } from "../domain/built-in-pipelines.js";
 import {
-  addedProjectPipeline,
-  brokenBy,
-  builtEdit,
-  builtProjectPipeline,
+  asPipeline,
+  copiedProjectPipeline,
   projectPipelineEditProblems,
+  projectPipelineNameProblems,
   proposedProjectPipelineProblems,
   savedProjectPipeline,
-  type BuiltProjectPipeline,
+  type NewProjectPipeline,
   type PipelinesAround,
   type ProjectPipeline,
   type ProjectPipelineEdit,
   type ProposedProjectPipeline,
 } from "../domain/project-pipeline.js";
-import { buildStages, type BrokenReason, type BuiltStages } from "../domain/stage-change.js";
 import {
   agentStageWorkers,
   newlyNamedWorkers,
@@ -69,25 +68,6 @@ export interface PipelineCheck {
   readonly flags: StageProblem[];
 }
 
-/** An office-wide Pipeline's check, with the Project Pipelines its edit would leave Broken. */
-export interface OfficeWidePipelineCheck extends PipelineCheck {
-  readonly breaks: readonly ProjectPipelineBreak[];
-}
-
-/** A Project Pipeline's check, with its Stages built from the edit; none without its base Pipeline. */
-export interface ProjectPipelineCheck extends PipelineCheck {
-  readonly built: BuiltStages | undefined;
-}
-
-/** A Project Pipeline an office-wide Pipeline's new Stages would leave Broken, with why. */
-export interface ProjectPipelineBreak {
-  readonly projectPipelineId: string;
-  readonly name: string;
-  readonly projectId: string;
-  readonly projectName: string;
-  readonly reasons: readonly BrokenReason[];
-}
-
 /**
  * Who runs which Pipeline: the Projects, Tasks and Initiatives the commands checks weigh; the Tasks
  * only those on the Pipelines weighed.
@@ -104,8 +84,9 @@ interface PipelineRunners {
  * Saving changes the Tasks that haven't started and follow it; a started Task, or one edited for
  * itself, keeps its own Stages. A save that newly names a Role whose engine can't work an Agent
  * Stage is refused (spec §5.4), and so is one naming a command a Project running the Pipeline
- * lacks (spec §2.3). An office-wide Pipeline's save may leave a Project Pipeline built from it
- * Broken, which its check warns of; a Project Pipeline's own save never does.
+ * lacks (spec §2.3). A Project Pipeline is a copy with its own Stages (spec §2.3.5, "Project
+ * Pipelines"), so an office-wide Pipeline's save or removal never touches the Project Pipelines
+ * copied from it.
  */
 @Injectable()
 export class PipelineLibraryEditor {
@@ -202,32 +183,21 @@ export class PipelineLibraryEditor {
 
   /**
    * Who uses the Pipeline: the Projects naming it as their default, Tasks not started or running,
-   * the shaping and active Initiatives naming it, and the Project Pipelines built from it.
+   * and the shaping and active Initiatives naming it.
    */
   async use(id: string): Promise<PipelineUse> {
     if (!(await this.repository.find(id))) throw new UnknownPipeline(id);
-    const [{ projects, tasks, initiatives }, builtFrom] = await Promise.all([
-      this.runners([id]),
-      this.projectPipelines.builtFrom(id),
-    ]);
-    return pipelineUse(id, projects, tasks, initiatives, builtFrom);
+    const { projects, tasks, initiatives } = await this.runners([id]);
+    return pipelineUse(id, projects, tasks, initiatives);
   }
 
   /**
-   * What saving the edit would be refused for, what it would only flag, and the Project Pipelines
-   * it would leave Broken, which never refuses it; it saves nothing. `pipelineId` is the Pipeline
-   * being saved, undefined for a new one.
+   * What saving the edit would be refused for and what it would only flag; it saves nothing.
+   * `pipelineId` is the Pipeline being saved, undefined for a new one.
    */
-  async check(
-    edit: PipelineEdit,
-    pipelineId: string | undefined,
-  ): Promise<OfficeWidePipelineCheck> {
+  async check(edit: PipelineEdit, pipelineId: string | undefined): Promise<PipelineCheck> {
     const library = await this.repository.list();
-    const saved = library.find(({ id }) => id === pipelineId);
-    return {
-      ...(await this.checkAgainst(edit, pipelineId, library, await this.projectPipelineNames())),
-      breaks: saved ? await this.breaks(saved, { ...saved, ...edit }) : [],
-    };
+    return this.checkAgainst(edit, pipelineId, library, await this.projectPipelineNames());
   }
 
   /**
@@ -253,76 +223,89 @@ export class PipelineLibraryEditor {
     return needing.flat();
   }
 
-  async addProjectPipeline(
-    projectId: string,
-    edit: ProjectPipelineEdit,
-  ): Promise<BuiltProjectPipeline> {
+  /**
+   * Holds the library's lock through `work`, so nothing else adds, saves or removes a Pipeline
+   * meanwhile; the move of the Project Pipelines at start runs under it.
+   */
+  async holdingLibrary<Result>(work: () => Promise<Result>): Promise<Result> {
+    return this.changes.run(LIBRARY, work);
+  }
+
+  /**
+   * Adds a Project Pipeline copied from `copyOf`'s Stages as they are: an office-wide Pipeline but
+   * Onboard, or one of the Project's own. Only its name is checked; the editor flags the rest.
+   */
+  async addProjectPipeline(projectId: string, edit: NewProjectPipeline): Promise<ProjectPipeline> {
     return this.changes.run(LIBRARY, async () => {
+      const source = await this.copySource(projectId, edit.copyOf);
+      if (!source) throw new UnknownPipeline(edit.copyOf);
       const around = await this.around(undefined);
-      const built = await this.refuseProjectPipelineProblems(projectId, edit, around, undefined);
-      const { projectPipeline, event } = addedProjectPipeline(randomUUID(), projectId, edit, built);
-      await this.projectPipelines.add(projectPipeline);
-      await this.events.publish(event);
-      return builtFromAround(projectPipeline, around);
+      const problems = await this.copyProblems(projectId, edit, around);
+      if (problems.length > 0) throw new StagesEditRefused(problems);
+      return this.addCopy(projectId, edit, source);
     });
   }
 
-  /** Saves the Project Pipeline's edit; its Project stays. */
-  async saveProjectPipeline(id: string, edit: ProjectPipelineEdit): Promise<BuiltProjectPipeline> {
+  /** Saves the Project Pipeline's edit; its Project stays. A save ends its Broken before the update. */
+  async saveProjectPipeline(id: string, edit: ProjectPipelineEdit): Promise<ProjectPipeline> {
     return this.changes.run(LIBRARY, async () => {
       const saved = await this.projectPipelines.find(id);
       if (!saved) throw new UnknownProjectPipeline(id);
       const around = await this.around(id);
-      const built = await this.refuseProjectPipelineProblems(saved.projectId, edit, around, id);
-      const { projectPipeline, event } = savedProjectPipeline(saved, edit, built);
-      await this.projectPipelines.save(projectPipeline);
-      await this.events.publish(event);
-      return builtFromAround(projectPipeline, around);
+      const problems = await this.projectPipelineProblems(saved.projectId, edit, around, id);
+      if (problems.length > 0) throw new StagesEditRefused(problems);
+      return this.storeProjectPipeline(saved, edit);
     });
   }
 
   /**
-   * Every reason a Proposal of a Project Pipeline can't be applied now: the Project Pipeline it
-   * changes is unknown, changed since or wouldn't change, or else what its add or save would be
-   * refused for. It saves nothing.
+   * Every reason a Proposal of a Project Pipeline can't be applied now (see
+   * `saveProposedProjectPipeline`); it saves nothing.
    */
   async proposedProjectPipelineProblems(
     proposal: ProposedProjectPipeline,
+    copyOf?: string,
   ): Promise<StageProblem[]> {
-    const saved = await this.proposedOn(proposal);
-    const problems = proposedProjectPipelineProblems(proposal, saved);
-    if (problems.length > 0) return problems;
-    return this.projectPipelineProblems(
-      proposal.projectId,
-      proposal.to,
-      await this.around(saved?.id),
-      saved?.id,
-    );
+    return (await this.proposalOutcome(proposal, copyOf)).problems;
   }
 
   /**
-   * Adds the Proposal's new Project Pipeline, or saves its change whole, as long as the one it
-   * changes still has the fields it was drafted from; refused, changing nothing, otherwise. Never
-   * sets the Project's default.
+   * What applying a Proposal of a Project Pipeline would be refused for and what it would only
+   * flag; it saves nothing.
+   */
+  async checkProposedProjectPipeline(
+    proposal: ProposedProjectPipeline,
+    copyOf?: string,
+  ): Promise<PipelineCheck> {
+    return {
+      problems: (await this.proposalOutcome(proposal, copyOf)).problems,
+      flags: await this.flagsOf(proposal.to.stages),
+    };
+  }
+
+  /**
+   * Applies a Proposal of a Project Pipeline, refused, changing nothing, while it has problems. A
+   * new one (`pipelineId` null) is a copy of `copyOf` with the Proposal's whole flow, checked as a
+   * save is. A change carries the whole flow and applies while the one it changes still has the
+   * fields it was drafted from. Never sets the Project's default.
    */
   async saveProposedProjectPipeline(
     proposal: ProposedProjectPipeline,
-  ): Promise<BuiltProjectPipeline> {
+    copyOf?: string,
+  ): Promise<ProjectPipeline> {
     return this.changes.run(LIBRARY, async () => {
-      const saved = await this.proposedOn(proposal);
-      const problems = proposedProjectPipelineProblems(proposal, saved);
-      if (problems.length > 0) throw new StagesEditRefused(problems);
-      const around = await this.around(saved?.id);
-      const { projectId, to } = proposal;
-      const built = await this.refuseProjectPipelineProblems(projectId, to, around, saved?.id);
-      const { projectPipeline, event } = saved
-        ? savedProjectPipeline(saved, to, built)
-        : addedProjectPipeline(randomUUID(), projectId, to, built);
-      await (saved
-        ? this.projectPipelines.save(projectPipeline)
-        : this.projectPipelines.add(projectPipeline));
-      await this.events.publish(event);
-      return builtFromAround(projectPipeline, around);
+      const outcome = await this.proposalOutcome(proposal, copyOf);
+      if (outcome.problems.length > 0) throw new StagesEditRefused(outcome.problems);
+      if (outcome.saved) return this.storeProjectPipeline(outcome.saved, proposal.to);
+      // Without problems, a new one always has its source.
+      if (!outcome.source) throw new StagesEditRefused(outcome.problems);
+      const { name, description, stages } = proposal.to;
+      return this.addCopy(
+        proposal.projectId,
+        { copyOf: outcome.source.id, name, description },
+        outcome.source,
+        stages,
+      );
     });
   }
 
@@ -344,38 +327,135 @@ export class PipelineLibraryEditor {
     const ownProject = projects.filter(
       ({ id: projectId }) => projectId === projectPipeline.projectId,
     );
-    return pipelineUse(id, ownProject, tasks, initiatives, []);
+    return pipelineUse(id, ownProject, tasks, initiatives);
   }
 
   /**
-   * What saving the Project Pipeline's edit would be refused for, what it would only flag, and its
-   * Stages built from it; it saves nothing. `projectPipelineId` names the one being saved, whose
-   * Project stays, and is undefined for a new one of `projectId`.
+   * What saving the Project Pipeline's edit would be refused for and what it would only flag; it
+   * saves nothing. Its Project stays.
    */
-  async checkProjectPipeline(
-    edit: ProjectPipelineEdit,
-    { projectId, projectPipelineId }: { projectId: string; projectPipelineId?: string },
-  ): Promise<ProjectPipelineCheck> {
-    let ownerId = projectId;
-    if (projectPipelineId !== undefined) {
-      const saved = await this.projectPipelines.find(projectPipelineId);
-      if (!saved) throw new UnknownProjectPipeline(projectPipelineId);
-      ownerId = saved.projectId;
-    }
-    const around = await this.around(projectPipelineId);
-    const built = builtEdit(edit, around.officeWide);
+  async checkProjectPipeline(id: string, edit: ProjectPipelineEdit): Promise<PipelineCheck> {
+    const saved = await this.projectPipelines.find(id);
+    if (!saved) throw new UnknownProjectPipeline(id);
     return {
-      problems: await this.projectPipelineProblems(ownerId, edit, around, projectPipelineId),
-      flags: built ? await this.flagsOf(built.stages) : [],
-      built,
+      problems: await this.projectPipelineProblems(
+        saved.projectId,
+        edit,
+        await this.around(id),
+        id,
+      ),
+      flags: await this.flagsOf(edit.stages),
     };
   }
 
-  /** The Project Pipeline a Proposal changes, as kept now; undefined for a new one or none. */
-  private async proposedOn({
-    pipelineId,
-  }: ProposedProjectPipeline): Promise<ProjectPipeline | undefined> {
-    return pipelineId === null ? undefined : this.projectPipelines.find(pipelineId);
+  /**
+   * The Project's own Pipelines that need fixing: Broken before The Office updated and not saved
+   * since, or whose saved Stages their own check lists a problem or a flag for; all in one read.
+   */
+  async projectPipelinesNeedingFixing(projectId: string): Promise<string[]> {
+    const needing = await Promise.all(
+      (await this.projectPipelines.listOf(projectId)).map(async (projectPipeline) => {
+        if (projectPipeline.brokenBeforeUpdate !== null) return [projectPipeline.id];
+        const { problems, flags } = await this.checkProjectPipeline(
+          projectPipeline.id,
+          projectPipeline,
+        );
+        return problems.length + flags.length > 0 ? [projectPipeline.id] : [];
+      }),
+    );
+    return needing.flat();
+  }
+
+  /**
+   * What a Proposal would store, or why it can't be applied: the one it changes (`saved`), or for a
+   * new one the Pipeline it copies (`source`).
+   */
+  private async proposalOutcome(
+    proposal: ProposedProjectPipeline,
+    copyOf: string | undefined,
+  ): Promise<{
+    readonly problems: StageProblem[];
+    readonly saved?: ProjectPipeline;
+    readonly source?: Pipeline;
+  }> {
+    const { projectId, pipelineId, to } = proposal;
+    if (pipelineId !== null) {
+      const saved = await this.projectPipelines.find(pipelineId);
+      const problems = proposedProjectPipelineProblems(proposal, saved);
+      if (!saved || problems.length > 0) return { problems };
+      const around = await this.around(saved.id);
+      return {
+        problems: await this.projectPipelineProblems(projectId, to, around, saved.id),
+        saved,
+      };
+    }
+    if (copyOf === undefined) {
+      return { problems: [pipelineProblem("Name the Pipeline the new Project Pipeline copies.")] };
+    }
+    const source = await this.copySource(projectId, copyOf);
+    if (!source) return { problems: [pipelineProblem(new UnknownPipeline(copyOf).message)] };
+    const around = await this.around(undefined);
+    const problems = [
+      ...copyOfProblems(copyOf),
+      ...(await this.projectPipelineProblems(projectId, to, around, undefined)),
+    ];
+    return { problems, source };
+  }
+
+  /**
+   * The Pipeline a Project Pipeline may be copied from: an office-wide one, or one of the Project's
+   * own; undefined when there is none such, another Project's included.
+   */
+  async copySource(projectId: string, copyOf: string): Promise<Pipeline | undefined> {
+    const officeWide = await this.repository.find(copyOf);
+    if (officeWide) return officeWide;
+    const projectPipeline = await this.projectPipelines.find(copyOf);
+    return projectPipeline?.projectId === projectId ? asPipeline(projectPipeline) : undefined;
+  }
+
+  /**
+   * Why the copy can't be added: Onboard stays as it is for onboarding, and the name must be the
+   * copy's own. A copy's Stages are the source's as they are, so the rest only flags.
+   */
+  private async copyProblems(
+    projectId: string,
+    { copyOf, name }: NewProjectPipeline,
+    around: PipelinesAround,
+  ): Promise<StageProblem[]> {
+    const onboard = copyOfProblems(copyOf);
+    if (onboard.length > 0) return onboard;
+    const project = (await this.projects.list()).find(({ id }) => id === projectId);
+    if (!project) return [noProject(projectId)];
+    return projectPipelineNameProblems(name, project, around);
+  }
+
+  private async addCopy(
+    projectId: string,
+    edit: NewProjectPipeline,
+    source: Pipeline,
+    stages?: readonly Stage[],
+  ): Promise<ProjectPipeline> {
+    const { projectPipeline, event } = copiedProjectPipeline(
+      randomUUID(),
+      projectId,
+      edit,
+      source,
+      new Date(),
+      stages,
+    );
+    await this.projectPipelines.add(projectPipeline, edit.copyOf);
+    await this.events.publish(event);
+    return projectPipeline;
+  }
+
+  private async storeProjectPipeline(
+    saved: ProjectPipeline,
+    edit: ProjectPipelineEdit,
+  ): Promise<ProjectPipeline> {
+    const { projectPipeline, event } = savedProjectPipeline(saved, edit);
+    await this.projectPipelines.save(projectPipeline);
+    await this.events.publish(event);
+    return projectPipeline;
   }
 
   private async store(id: string, edit: PipelineEdit): Promise<Pipeline> {
@@ -395,7 +475,7 @@ export class PipelineLibraryEditor {
       problems: [
         ...pipelineEditProblems(edit, othersThan(pipelineId, library), takenNames),
         ...(await this.roleEngineProblems(edit.stages, library)),
-        ...(await this.missingCommandProblems(pipelineId, edit.name, edit.stages)),
+        ...(await this.missingCommandProblems(pipelineId, edit.stages)),
       ],
       flags: await this.flagsOf(edit.stages),
     };
@@ -410,7 +490,7 @@ export class PipelineLibraryEditor {
     const problems = [
       ...pipelineEditProblems(edit, others, await this.projectPipelineNames()),
       ...(await this.roleEngineProblems(edit.stages, library)),
-      ...(await this.missingCommandProblems(pipelineId, edit.name, edit.stages)),
+      ...(await this.missingCommandProblems(pipelineId, edit.stages)),
     ];
     if (problems.length > 0) throw new StagesEditRefused(problems);
   }
@@ -430,52 +510,22 @@ export class PipelineLibraryEditor {
         await this.projectPipelineNames(),
       ),
       ...(await this.roleEngineProblems(to, library)),
-      ...(await this.missingCommandProblems(pipeline.id, pipeline.name, to)),
+      ...(await this.missingCommandProblems(pipeline.id, to)),
     ];
   }
 
   /**
    * The commands the Stages name that a Project running the Pipeline lacks: one naming it as its
-   * default, with a not-started Task on it, or spanned by a shaping or active Initiative naming it;
-   * and for each Project Pipeline built from it, built with these Stages, those its own Project
-   * lacks while running it. A new Pipeline has none of them.
+   * default, with a not-started Task on it, or spanned by a shaping or active Initiative naming it.
+   * A new Pipeline has none of them.
    */
   private async missingCommandProblems(
     pipelineId: string | undefined,
-    name: string,
     stages: readonly Stage[],
   ): Promise<StageProblem[]> {
     if (pipelineId === undefined) return [];
-    const builtFrom = await this.projectPipelines.builtFrom(pipelineId);
-    const runners = await this.runners([pipelineId, ...builtFrom.map(({ id }) => id)]);
-    const { projects, tasks, initiatives } = runners;
-    return [
-      ...missingCommandProblems(pipelineId, stages, projects, tasks, initiatives),
-      ...builtFrom.flatMap((projectPipeline) => {
-        const project = projects.find(({ id }) => id === projectPipeline.projectId);
-        if (!project) return [];
-        const built = buildStages({ name, stages }, projectPipeline.stageChanges);
-        // Its Stages are the Project Pipeline's, not the edit's, so the problem sits on no Stage.
-        return projectPipelineCommandProblems(projectPipeline, built.stages, project, runners).map(
-          ({ text }) =>
-            pipelineProblem(`${project.name}'s ${projectPipeline.name}, built from it: ${text}`),
-        );
-      }),
-    ];
-  }
-
-  private async breaks(saved: Pipeline, edited: Pipeline): Promise<ProjectPipelineBreak[]> {
-    const [builtFrom, projects] = await Promise.all([
-      this.projectPipelines.builtFrom(saved.id),
-      this.projects.list(),
-    ]);
-    return brokenBy(saved, edited, builtFrom).map(({ projectPipeline, reasons }) => ({
-      projectPipelineId: projectPipeline.id,
-      name: projectPipeline.name,
-      projectId: projectPipeline.projectId,
-      projectName: projectNameOf(projectPipeline.projectId, projects),
-      reasons,
-    }));
+    const { projects, tasks, initiatives } = await this.runners([pipelineId]);
+    return missingCommandProblems(pipelineId, stages, projects, tasks, initiatives);
   }
 
   /** Every Project Pipeline's name, with its Project's: none an office-wide Pipeline may take. */
@@ -490,21 +540,10 @@ export class PipelineLibraryEditor {
     }));
   }
 
-  private async refuseProjectPipelineProblems(
-    projectId: string,
-    edit: ProjectPipelineEdit,
-    around: PipelinesAround,
-    projectPipelineId: string | undefined,
-  ): Promise<BuiltStages> {
-    const problems = await this.projectPipelineProblems(projectId, edit, around, projectPipelineId);
-    const built = builtEdit(edit, around.officeWide);
-    if (problems.length > 0 || !built) throw new StagesEditRefused(problems);
-    return built;
-  }
-
   /**
-   * Every reason the Project's edited Pipeline can't be saved (`projectPipelineEditProblems`), and
-   * on its built Stages the engine check and missing commands, weighed against its own Project only.
+   * Every reason the Project's edited Pipeline can't be saved (`projectPipelineEditProblems`), the
+   * engine check and missing commands, weighed against its own Project only. A new one has no
+   * runners, so no missing commands.
    */
   private async projectPipelineProblems(
     projectId: string,
@@ -514,19 +553,18 @@ export class PipelineLibraryEditor {
   ): Promise<StageProblem[]> {
     const runners = await this.runners(projectPipelineId === undefined ? [] : [projectPipelineId]);
     const project = runners.projects.find(({ id }) => id === projectId);
-    if (!project) return [pipelineProblem(`There is no Project "${projectId}".`)];
-    const built = builtEdit(edit, around.officeWide);
-    if (!built) return projectPipelineEditProblems(edit, project, around);
+    if (!project) return [noProject(projectId)];
     return [
       ...projectPipelineEditProblems(edit, project, around),
-      ...(await this.projectRoleEngineProblems(built.stages, project.id, around)),
+      ...(await this.projectRoleEngineProblems(edit.stages, project.id, around)),
       ...(projectPipelineId === undefined
         ? []
-        : projectPipelineCommandProblems(
-            { id: projectPipelineId, projectId },
-            built.stages,
-            project,
-            runners,
+        : missingCommandProblems(
+            projectPipelineId,
+            edit.stages,
+            [project],
+            runners.tasks,
+            runners.initiatives,
           )),
     ];
   }
@@ -593,7 +631,7 @@ export class PipelineLibraryEditor {
     around: PipelinesAround,
   ): Promise<StageProblem[]> {
     const projectStages = (await this.projectPipelines.listOf(projectId)).flatMap(
-      (saved) => builtFromAround(saved, around).stages,
+      ({ stages: own }) => own,
     );
     const named = agentStageWorkers([
       ...around.officeWide.flatMap((pipeline) => pipeline.stages),
@@ -615,23 +653,15 @@ export class PipelineLibraryEditor {
   }
 }
 
-/** The commands a Project Pipeline's built Stages name that its own Project lacks while running it. */
-function projectPipelineCommandProblems(
-  projectPipeline: Pick<ProjectPipeline, "id" | "projectId">,
-  stages: readonly Stage[],
-  project: ProjectDefault,
-  { tasks, initiatives }: PipelineRunners,
-): StageProblem[] {
-  return missingCommandProblems(projectPipeline.id, stages, [project], tasks, initiatives);
+/** Onboard stays as it is, for onboarding: no Project copies it. */
+function copyOfProblems(copyOf: string): StageProblem[] {
+  return copyOf === ONBOARD_PIPELINE
+    ? [pipelineProblem("The Onboard Pipeline can't be copied into a Project.")]
+    : [];
 }
 
-function builtFromAround(
-  projectPipeline: ProjectPipeline,
-  around: PipelinesAround,
-): BuiltProjectPipeline {
-  const base = around.officeWide.find(({ id }) => id === projectPipeline.basePipelineId);
-  if (!base) throw new UnknownPipeline(projectPipeline.basePipelineId);
-  return builtProjectPipeline(projectPipeline, base);
+function noProject(projectId: string): StageProblem {
+  return pipelineProblem(`There is no Project "${projectId}".`);
 }
 
 function projectNameOf(projectId: string, projects: readonly ProjectDefault[]): string {

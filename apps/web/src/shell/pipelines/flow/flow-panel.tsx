@@ -47,7 +47,7 @@ export function FlowPanel(props: FlowPanelProps): ReactNode {
   );
 }
 
-export function FlowPanelEmpty(): ReactNode {
+function FlowPanelEmpty(): ReactNode {
   return (
     <section className="flow-panel flow-panel--empty" aria-label="Picked">
       <b>Pick a Stage or a route to edit it here.</b>

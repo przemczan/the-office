@@ -298,18 +298,20 @@ export class TaskStagesService implements OnModuleInit {
     return makeTaskStages(taskId, pipeline, new Date()).taskStages;
   }
 
-  /** The Pipeline the Task copies its Stages from, a Project Pipeline of its Project built now. */
+  /** The Pipeline the Task copies its Stages from: an office-wide one, or one of its Project's. */
   private async pipeline(taskId: string, pipelineId: string, projectId: string): Promise<Pipeline> {
     const found = await this.library.forTask(pipelineId, projectId);
     switch (found.kind) {
       case "found":
         return found.pipeline;
-      case "broken":
+      case "broken": {
+        const project = (await this.projects.list()).find(({ id }) => id === projectId);
         throw new StagesEditRefused([
           pipelineProblem(
-            `${found.name} is Broken: ${found.reasons.map(({ text }) => text).join(" ")} Fix its Stage changes first, or choose another Pipeline.`,
+            `${found.name} was Broken before The Office updated: ${found.reasons.join(" ")} Save it once in ${project?.name ?? projectId}'s Pipelines, or choose another Pipeline.`,
           ),
         ]);
+      }
       case "unknown":
         // Neither the library nor the Task's Project has it, as with another Project's Pipeline.
         throw new StagesEditRefused([

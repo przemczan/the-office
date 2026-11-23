@@ -4,9 +4,9 @@ import { pipelineQueries, projectPipelineQueries } from "../../api/pipelines.ts"
 import type { BlockRead } from "../block-loader.tsx";
 
 /**
- * The office-wide Pipelines and every Project's Project Pipelines as Pipelines, a Project Pipeline
- * with its built Stages, for finding the one a Task or a Project names by its id; undefined until
- * both are read, so a Project Pipeline never reads as removed meanwhile.
+ * The office-wide Pipelines and every Project's Project Pipelines as Pipelines, for finding the one
+ * a Task or a Project names by its id; undefined until both are read, so a Project Pipeline never
+ * reads as removed meanwhile.
  */
 export function useEveryPipeline(): readonly Pipeline[] | undefined {
   return useEveryPipelineRead().pipelines;
@@ -39,7 +39,7 @@ export function useProjectPipelineChoices(projectId: string):
   return officeWide && projectPipelines && { officeWide, projectPipelines };
 }
 
-/** A Project Pipeline as a Task follows it: its built Stages. */
+/** A Project Pipeline as a Task follows it: its own Stages. */
 export function asPipeline({ id, name, description, stages }: ProjectPipeline): Pipeline {
   return { id, name, description, stages };
 }

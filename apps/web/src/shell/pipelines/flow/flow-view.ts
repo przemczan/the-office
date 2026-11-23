@@ -3,12 +3,10 @@ import { routeTargetName, routeWhen } from "./condition-words.ts";
 import type { FlowPick } from "./flow-pick.ts";
 import type { FlowDrop, MoveDirection } from "./flow-model.ts";
 import type { FlowOrientation } from "./flow-layout.ts";
-import type { FlowStageMark } from "./flow-marks.ts";
 
 /**
- * What the flow canvas and its List both show of a Stage, and the edits they ask the host for: the
- * canvas never edits Stages itself, so an Office-wide Pipeline applies them with flow-model and a
- * Project Pipeline as Stage changes.
+ * What the flow canvas shows of a Stage, and the edits it asks the host for: the canvas never edits
+ * Stages itself, so its host applies them with flow-model.
  */
 export type FlowCanvasEdit =
   | { readonly kind: "move"; readonly key: string; readonly direction: MoveDirection }
@@ -102,22 +100,6 @@ export function isPickedRoute(
   routeIndex: number,
 ): boolean {
   return picked?.kind === "route" && picked.key === key && picked.routeIndex === routeIndex;
-}
-
-/** The Badge tone of a mark's label. */
-export function markTone(mark: FlowStageMark): "success" | "info" | "warning" | "neutral" {
-  switch (mark.tone) {
-    case "inserted":
-      return "success";
-    case "replaced":
-      return "info";
-    case "changed":
-    case "routes-changed":
-      return "warning";
-    case "removed":
-    case "locked":
-      return "neutral";
-  }
 }
 
 const ACROSS_KEYS: Readonly<Record<string, MoveDirection>> = {

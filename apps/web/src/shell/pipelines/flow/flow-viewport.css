@@ -121,25 +121,6 @@
   fill: var(--accent);
 }
 
-.flow-overview-stage--inserted {
-  fill: var(--success);
-}
-
-.flow-overview-stage--replaced {
-  fill: var(--info);
-}
-
-.flow-overview-stage--changed {
-  fill: var(--warning);
-}
-
-.flow-overview-stage--removed {
-  fill: none;
-  stroke: var(--border-strong);
-  stroke-dasharray: 6 4;
-  stroke-width: 4;
-}
-
 .flow-overview-end {
   fill: none;
   stroke: var(--fg-3);

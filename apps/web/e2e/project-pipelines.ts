@@ -7,16 +7,17 @@ import {
   type PipelineEdit,
   type ProjectPipeline,
 } from "@the-office/contracts";
+import { queryOfficeDatabase } from "./office-database.ts";
 import { asStageList } from "./stage-list.ts";
 
 /**
- * An office-wide base Pipeline of its own, made through the API: Build, then Tests. Each test makes
- * its own and never touches a built-in.
+ * An office-wide Pipeline of its own to copy, made through the API: Build, then Tests. Each test
+ * makes its own and never touches a built-in.
  */
 export async function addedBasePipeline(page: Page, name: string): Promise<Pipeline> {
   const edit: PipelineEdit = {
     name: `${name} ${crypto.randomUUID().slice(0, 8)}`,
-    description: "A base Pipeline of its own.",
+    description: "A Pipeline of its own to copy.",
     stages: [
       { kind: "script", key: "build", name: "Build", command: "build", optional: false },
       { kind: "script", key: "tests", name: "Tests", command: "test", optional: false },
@@ -27,7 +28,10 @@ export async function addedBasePipeline(page: Page, name: string): Promise<Pipel
   return pipelineSchema.parse(await response.json());
 }
 
-/** A Project Pipeline of the Project, built from `base` with Verify on Linux inserted after Tests. */
+/**
+ * A Project Pipeline of the Project, copied from `base`, then saved with Verify on Linux after
+ * Tests: Build → Tests → Verify on Linux.
+ */
 export async function addedProjectPipeline(
   page: Page,
   projectId: string,
@@ -36,38 +40,37 @@ export async function addedProjectPipeline(
 ): Promise<ProjectPipeline> {
   const newProjectPipeline: NewProjectPipeline = {
     projectId,
+    copyOf: base.id,
     name: `${name} ${crypto.randomUUID().slice(0, 8)}`,
     description: "Then Linux.",
-    basePipelineId: base.id,
-    stageChanges: [
-      {
-        kind: "insert-after",
-        stageKey: "tests",
-        stage: {
-          kind: "script",
-          key: "linux",
-          name: "Verify on Linux",
-          command: "test",
-          optional: false,
-        },
-      },
-    ],
   };
-  const response = await page.request.post("/api/project-pipelines", { data: newProjectPipeline });
-  expect(response.status()).toBe(201);
-  return projectPipelineSchema.parse(await response.json());
+  const copied = await page.request.post("/api/project-pipelines", { data: newProjectPipeline });
+  expect(copied.status()).toBe(201);
+  const copy = projectPipelineSchema.parse(await copied.json());
+  const edit: PipelineEdit = {
+    name: copy.name,
+    description: copy.description,
+    // A plain list, which the service draws again as a straight line.
+    stages: asStageList([
+      ...copy.stages,
+      { kind: "script", key: "linux", name: "Verify on Linux", command: "test", optional: false },
+    ]),
+  };
+  const saved = await page.request.put(`/api/project-pipelines/${copy.id}`, { data: edit });
+  expect(saved.status()).toBe(200);
+  return projectPipelineSchema.parse(await saved.json());
 }
 
 /**
- * Saves `base` without Tests, which each Project Pipeline built from it inserts after, so each is
- * Broken: an office-wide save warns of it but is never refused for it.
+ * Flags the Project Pipeline as Broken before The Office updated with `reasons`, as the update to
+ * flows leaves one that was Broken: no screen makes one, so it is seeded in the database.
  */
-export async function breakProjectPipelinesOf(page: Page, base: Pipeline): Promise<void> {
-  const edit: PipelineEdit = {
-    name: base.name,
-    description: base.description,
-    stages: asStageList(base.stages.filter(({ key }) => key !== "tests")),
-  };
-  const response = await page.request.put(`/api/pipelines/${base.id}`, { data: edit });
-  expect(response.status()).toBe(200);
+export async function flaggedBrokenBeforeUpdate(
+  projectPipeline: ProjectPipeline,
+  reasons: readonly string[],
+): Promise<void> {
+  await queryOfficeDatabase(
+    "UPDATE project_pipelines SET broken_before_update = $1::jsonb WHERE id = $2",
+    [JSON.stringify(reasons), projectPipeline.id],
+  );
 }

@@ -1,3 +1,8 @@
+/**
+ * The Stage changes of a Project Pipeline as The Office kept them before Project Pipelines became
+ * full Pipelines (spec §2.3.5, "The move to routes back and Publish Stages"). This file serves only
+ * `movedProjectPipeline`, which builds a legacy row's flow once; nothing else reads Stage changes.
+ */
 import type { DutyKey } from "../../people/index.js";
 import { asFlow, comparePlaces, pipelineOrder, straightLineFlow, type FlowStage } from "./flow.js";
 import { stageProblems, type StageProblemAt } from "./pipeline.js";
@@ -50,7 +55,7 @@ export interface StageFieldChanges {
 export type StageField = keyof StageFieldChanges;
 
 /** Each field as the UI names it. */
-export const STAGE_FIELD_NAMES: Readonly<Record<StageField, string>> = {
+const STAGE_FIELD_NAMES: Readonly<Record<StageField, string>> = {
   name: "Name",
   optional: "Optional",
   role: "Role",
@@ -543,16 +548,6 @@ const WORKER_FIELD_CLEARED: Partial<Record<StageField, StageField>> = {
 
 function namesRoleAndDuty(fields: StageFieldChanges): boolean {
   return fields.role !== undefined && fields.duty !== undefined;
-}
-
-/** The Stage changes that give their Stage no field at all: an emptied Change is dropped. */
-export function emptyChangeIndexes(stageChanges: readonly EditedStageChange[]): number[] {
-  return stageChanges.flatMap((stageChange, index) =>
-    stageChange.kind === "change" &&
-    Object.values(stageChange.fields).every((value) => value === undefined)
-      ? [index]
-      : [],
-  );
 }
 
 /** "Inserts Verify on Linux after Review & fix", "Changes Produce", in the editor's words. */

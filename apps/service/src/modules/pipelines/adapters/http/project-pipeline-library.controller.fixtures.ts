@@ -12,21 +12,20 @@ import type { ProjectDefault } from "../../ports/project-defaults.js";
 import type { ProjectDefaultsForTests } from "../../ports/pipelines-ports.fixtures.js";
 import { anEdit } from "./pipeline-library.controller.fixtures.js";
 
-/** The Stage a Project Pipeline inserts after Tests, unless `fields` say otherwise. */
+/** A Stage a test adds to a Project Pipeline after Tests. */
 export const LINUX_CHECK = scriptStage({ key: "linux", name: "Verify on Linux", command: "test" });
 
-/** A new Project Pipeline of `projectId` built from `basePipelineId`, under a name of its own. */
+/** A new Project Pipeline of `projectId`, a copy of `copyOf`, under a name of its own. */
 export function aNewProjectPipeline(
   projectId: string,
-  basePipelineId: string,
+  copyOf: string,
   fields: Partial<NewProjectPipeline> = {},
 ): NewProjectPipeline {
   return {
     projectId,
+    copyOf,
     name: `With Linux check ${randomUUID()}`,
     description: "Then Linux.",
-    basePipelineId,
-    stageChanges: [{ kind: "insert-after", stageKey: "tests", stage: LINUX_CHECK }],
     ...fields,
   };
 }
@@ -43,7 +42,7 @@ export function projectPipelineRequests(
 ) {
   return {
     /** An office-wide Pipeline of Implement, then Tests going back to it. */
-    async aBasePipeline(): Promise<Pipeline> {
+    async anOfficeWidePipeline(): Promise<Pipeline> {
       const response = await send("POST", "/pipelines", anEdit());
       expect(response.status).toBe(201);
       return pipelineSchema.parse(await response.json());

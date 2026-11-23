@@ -14,18 +14,18 @@ export abstract class KnownPipelines {
   /** The Project's own Pipelines, then the office-wide ones: what a Task of the Project chooses from. */
   abstract listFor(projectId: string): Promise<readonly PlanningPipeline[]>;
 
-  /** The office-wide Pipelines and every Project's Project Pipelines, built: any a Task follows. */
+  /** The office-wide Pipelines and every Project's Project Pipelines: any a Task follows. */
   abstract every(): Promise<readonly KnownPipeline[]>;
 
   /** An office-wide Pipeline; never a Project Pipeline. */
   abstract find(id: string): Promise<KnownPipeline | undefined>;
 
-  /** An office-wide Pipeline or a Project Pipeline of any Project, built, carrying its Project. */
+  /** An office-wide Pipeline or a Project Pipeline of any Project, carrying its Project. */
   abstract read(id: string): Promise<KnownPipeline | undefined>;
 
   /**
-   * The Pipeline's name and the command keys its Stages run, a Project Pipeline's built Stages, with
-   * its Project and why it is Broken; undefined for one neither the library nor a Project has.
+   * The Pipeline's name and the command keys its Stages run, a Project Pipeline's with its Project
+   * and why it was Broken before The Office updated; undefined for one neither the library nor a Project has.
    */
   abstract commandsNamedBy(id: string): Promise<PipelineCommands | undefined>;
 }

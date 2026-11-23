@@ -5422,7 +5422,7 @@ test(
 );
 
 test(
-  "the user applies Nina's new Project Pipeline and her change to one; a stale one is refused, and a library Pipeline's Proposal warns what it breaks",
+  "the user applies Nina's new Project Pipeline, copied from an office-wide one, and her change to one; a stale one is refused",
   { tag: "@full" },
   async ({ page }) => {
     const repository = await createTemporaryRepository();
@@ -5446,15 +5446,28 @@ test(
         optional: false,
         command: "lint",
       };
-      const withLint = projectPipelineSchema.parse(
+      // A copy of Base, then saved with Lint after Tests.
+      const copy = projectPipelineSchema.parse(
         await (
           await page.request.post("/api/project-pipelines", {
             data: {
               projectId: project.id,
+              copyOf: base.id,
               name: `${base.name} with lint`,
               description: "Then lint.",
-              basePipelineId: base.id,
-              stageChanges: [{ kind: "insert-after", stageKey: "tests", stage: lint }],
+            },
+          })
+        ).json(),
+      );
+      const withLint = projectPipelineSchema.parse(
+        await (
+          await page.request.put(`/api/project-pipelines/${copy.id}`, {
+            data: {
+              name: copy.name,
+              description: copy.description,
+              stages: asStageList(
+                copy.stages.flatMap((stage) => (stage.key === "tests" ? [stage, lint] : [stage])),
+              ),
             },
           })
         ).json(),
@@ -5462,8 +5475,7 @@ test(
       const fields = {
         name: withLint.name,
         description: withLint.description,
-        basePipelineId: base.id,
-        stageChanges: withLint.stageChanges,
+        stages: withLint.stages,
       };
       const nina = chatWith(page, "Nina");
 
@@ -5473,13 +5485,7 @@ test(
         `Can you propose a change to the ${base.name} Pipeline? `,
       );
       const threadId = await chatThreadShown(page);
-      const review: Stage = {
-        kind: "gate",
-        key: "your-review",
-        name: "Your review",
-        optional: false,
-      };
-      const newName = `${base.name} with your review`;
+      const newName = `${base.name} for ${project.name}`;
       await seedProposal(
         threadId,
         {
@@ -5489,10 +5495,11 @@ test(
           from: null,
           to: {
             name: newName,
-            description: "Then your review.",
-            basePipelineId: base.id,
-            stageChanges: [{ kind: "insert-before", stageKey: "publish", stage: review }],
+            description: "Base, for this Project alone.",
+            stages: base.stages,
+            copyOf: base.id,
           },
+          routes: null,
         },
         "devops",
       );
@@ -5504,6 +5511,7 @@ test(
           pipelineId: withLint.id,
           from: fields,
           to: { ...fields, description: "Lint before publishing." },
+          routes: null,
         },
         "devops",
       );
@@ -5516,42 +5524,20 @@ test(
           pipelineId: withLint.id,
           from: { ...fields, description: "Lint, as it was." },
           to: { ...fields, description: "Stale words." },
-        },
-        "devops",
-      );
-      // Base's new Stages leave out Tests, which the Project Pipeline inserts Lint after.
-      await seedProposal(
-        threadId,
-        {
-          kind: "pipeline",
-          pipelineId: base.id,
-          from: base.stages,
-          to: asStageList(base.stages.filter(({ key }) => key !== "tests")),
+          routes: null,
         },
         "devops",
       );
       await page.goto(`/settings/pipelines/${base.id}?chat=devops&thread=${threadId}`);
 
-      const breaking = nina.getByRole("region", {
-        name: `Proposal: Change the ${base.name} Pipeline`,
-      });
-      await expect(breaking).toContainText("Applying this breaks 1 Project Pipeline");
-      await expect(breaking).toContainText(
-        `${project.name} › ${withLint.name}: Inserts Lint after Tests, which ${base.name} no longer has.`,
-      );
-      await breaking.getByRole("button", { name: "Apply anyway" }).scrollIntoViewIfNeeded();
-      await expect(breaking.getByRole("button", { name: "Apply anyway" })).toBeVisible();
-      await page.screenshot({
-        path: path.join(SCREENSHOTS, "light-1600-devops-project-pipeline-proposals.png"),
-      });
-
       const added = nina.getByRole("region", {
         name: `Proposal: Add ${newName} to ${project.name}'s Pipelines`,
       });
-      await expect(added).toContainText("Inserts Your review before Publish");
-      await expect(added).toContainText(
-        `${project.name} getsImplement → Tests → Your review → Publish`,
-      );
+      await expect(added).toContainText(`Copied from${base.name}`);
+      await expect(added).toContainText(`Stages${base.stages.map(({ name }) => name).join(" → ")}`);
+      await page.screenshot({
+        path: path.join(SCREENSHOTS, "light-1600-devops-project-pipeline-proposals.png"),
+      });
       await added.getByRole("button", { name: "Apply change" }).click();
       await expect(added).toContainText("Applied");
       const projectPipelines = projectPipelineListSchema.parse(

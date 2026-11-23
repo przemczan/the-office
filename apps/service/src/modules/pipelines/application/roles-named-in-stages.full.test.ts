@@ -118,11 +118,15 @@ describe("RolesNamedInStages, with Project Pipelines", () => {
       description: "",
       stages: [agentStage()],
     });
-    await editor.addProjectPipeline(projectId, {
+    const designed = await editor.addProjectPipeline(projectId, {
+      copyOf: base.id,
       name: `Designed ${randomUUID()}`,
       description: "",
-      basePipelineId: base.id,
-      stageChanges: [{ kind: "change", stageKey: "implement", fields: { role: roleKey } }],
+    });
+    await editor.saveProjectPipeline(designed.id, {
+      name: designed.name,
+      description: "",
+      stages: [agentStage({ role: roleKey })],
     });
 
     const named = await pipelines.app.get(PipelineRoleSources, { strict: false }).rolesNamed();

@@ -135,7 +135,7 @@ describe("the routes' lines", () => {
   const stages = [tests, review, publish];
 
   it("leave a Stage that lists its routes from each route's port, in their order", () => {
-    const lines = flowLines(stages, new Set());
+    const lines = flowLines(stages);
     expect(lines.map(({ id, port }) => [id, port])).toEqual([
       ["tests:0", 0],
       ["tests:1", 1],
@@ -151,18 +151,10 @@ describe("the routes' lines", () => {
   });
 
   it("leave from the bottom edge down, spread across it", () => {
-    const lines = flowLines(stages, new Set());
+    const lines = flowLines(stages);
     const paths = routePaths(stages, lines, measureOf(stages, { tests: [30, 70] }), "down");
     expect(paths[0]?.d.startsWith("M33.33")).toBe(true);
     expect(paths[0]?.d).toContain(",40");
-  });
-
-  it("draw a removed Stage's routes as ghosts no press picks", () => {
-    const lines = flowLines(stages, new Set(["review"]));
-    expect(lines.find(({ fromKey }) => fromKey === "review")).toMatchObject({
-      look: "ghost",
-      routeIndex: undefined,
-    });
   });
 
   it("go round a Stage in between, or back, each in a lane of its own", () => {
@@ -171,7 +163,7 @@ describe("the routes' lines", () => {
     expect(needsDetour(flow, skipping, publish)).toBe(true);
     expect(needsDetour(flow, flow[1]!, publish)).toBe(false);
     expect(needsDetour(flow, publish, skipping)).toBe(true);
-    const room = flowRoom(flow, flowLines(flow, new Set()), [], "across");
+    const room = flowRoom(flow, flowLines(flow), [], "across");
     expect(room.detours).toBeGreaterThan(0);
   });
 });

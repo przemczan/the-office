@@ -18,7 +18,7 @@ export function pipelineUseLine({
 
 /**
  * Who uses a Project Pipeline, beside its Project's default, which its head names apart: "2 not
- * started Tasks use it · 1 running Task keeps the copy it started with". No Initiative names one.
+ * started Tasks use it · 1 running Task keeps the copy it started with".
  */
 export function projectPipelineUseLine({ notStarted, running }: PipelineUse): string {
   return tasksLine(notStarted, running);

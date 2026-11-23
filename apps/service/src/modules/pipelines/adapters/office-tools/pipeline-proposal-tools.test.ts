@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -29,8 +30,10 @@ import {
 } from "../../pipelines-application.fixtures.js";
 import { ProposalDraftsForTests } from "../../ports/pipelines-ports.fixtures.js";
 import type { ProposedLibraryChange } from "../../ports/proposal-drafts.js";
+import { projectPipelinesForTests } from "../../project-pipelines.fixtures.js";
 import {
   aNewProjectPipeline,
+  LINUX_CHECK,
   projectPipelineRequests,
 } from "../http/project-pipeline-library.controller.fixtures.js";
 
@@ -57,7 +60,10 @@ function send(method: string, path: string, body?: unknown): Promise<Response> {
   });
 }
 
-const { aBasePipeline, aProject, added } = projectPipelineRequests(send, () => pipelines.projects);
+const { anOfficeWidePipeline, aProject, added } = projectPipelineRequests(
+  send,
+  () => pipelines.projects,
+);
 
 function propose(tool: string, input: Record<string, unknown>) {
   const [officeTool] = pipelines.app.get(OfficeToolRegistry).named([tool]);
@@ -127,7 +133,7 @@ function reviewOnlyWhenNeeded(base: Pipeline): Stage[] {
 
 describe("propose_library_pipeline", () => {
   it('drafts "run Review only when Tests changed files or ended Failed, otherwise Publish" as the whole flow; applied, it saves it', async () => {
-    const base = await aBasePipeline();
+    const base = await anOfficeWidePipeline();
     const drafted = draftedFrom();
 
     const answer = await propose(PROPOSE_LIBRARY_PIPELINE_TOOL, {
@@ -174,7 +180,7 @@ describe("propose_library_pipeline", () => {
   });
 
   it("refuses a flow that breaks a rule, naming the Stage and the rule, and drafts nothing", async () => {
-    const base = await aBasePipeline();
+    const base = await anOfficeWidePipeline();
     const drafted = draftedFrom();
     const stages = reviewOnlyWhenNeeded(base).map((stage) =>
       stage.key === "review" ? { ...stage, routes: [] } : stage,
@@ -192,7 +198,7 @@ describe("propose_library_pipeline", () => {
   });
 
   it("drafts a flow with only warnings, telling the agent them; applied, it saves it", async () => {
-    const base = await aBasePipeline();
+    const base = await anOfficeWidePipeline();
     const drafted = draftedFrom();
     const whileNotMet: Route = {
       to: "publish",
@@ -223,7 +229,7 @@ describe("propose_library_pipeline", () => {
   });
 
   it("applies a Proposal still open from before flows, holding plain lists, as its straight line", async () => {
-    const base = await aBasePipeline();
+    const base = await anOfficeWidePipeline();
     const from = base.stages.map(asPlainStage);
     const lint = scriptStage({ key: "lint", name: "Lint", command: "test" });
 
@@ -238,7 +244,7 @@ describe("propose_library_pipeline", () => {
   });
 
   it("is refused at apply once the Pipeline changed since, changing nothing", async () => {
-    const base = await aBasePipeline();
+    const base = await anOfficeWidePipeline();
     const drafted = draftedFrom();
     await propose(PROPOSE_LIBRARY_PIPELINE_TOOL, {
       pipeline: base.id,
@@ -259,52 +265,57 @@ describe("propose_library_pipeline", () => {
 });
 
 describe("propose_project_pipeline", () => {
-  it("drafts Change routes with each changed Stage's routes; applied, it saves them, and a later one is refused once it changed since", async () => {
-    const base = await aBasePipeline();
+  const linuxWhenChanged: Route[] = [
+    {
+      to: "linux",
+      condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "changed" }] },
+    },
+    always(null),
+  ];
+
+  /** The Project Pipeline's flow with Verify on Linux after Tests, run only when Tests changed files. */
+  function linuxWhenTestsChanged(projectPipeline: ProjectPipeline): Stage[] {
+    return [
+      ...projectPipeline.stages.map((stage) =>
+        stage.key === "tests" ? { ...stage, routes: linuxWhenChanged } : stage,
+      ),
+      { ...LINUX_CHECK, routes: [always(null)] },
+    ];
+  }
+
+  it("drafts a change to a Project Pipeline's whole flow with each changed Stage's routes; applied, it saves it, and a later one is refused once it changed since", async () => {
+    const base = await anOfficeWidePipeline();
     const projectId = aProject();
     const projectPipeline = await added(aNewProjectPipeline(projectId, base.id));
-    const linuxWhenChanged: Route[] = [
-      {
-        to: "linux",
-        condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "changed" }] },
-      },
-      always(null),
-    ];
     const drafted = draftedFrom();
 
     const answer = await propose(PROPOSE_PROJECT_PIPELINE_TOOL, {
       project: projectId,
       pipeline: projectPipeline.id,
-      stageChanges: [
-        ...projectPipeline.stageChanges,
-        { kind: "change-routes", stageKey: "tests", routes: linuxWhenChanged },
-      ],
+      stages: linuxWhenTestsChanged(projectPipeline),
     });
 
     expect(answer.isError).toBe(false);
-    expect(answer.text).toContain(
-      "- Tests: was to Verify on Linux always; now to Verify on Linux when the previous Stage changed files, otherwise to End always.",
-    );
+    expect(answer.text).toContain("- Verify on Linux (new): to End always.");
     const [change] = drafted();
     if (change?.kind !== "project-pipeline") throw new Error("A Proposal of the Project Pipeline.");
-    const namedRoutes = [{ ...linuxWhenChanged[0], toName: "Verify on Linux" }, always(null)];
-    expect(change.to.stageChanges.at(-1)).toEqual({
-      kind: "change-routes",
-      stageKey: "tests",
-      routes: namedRoutes,
-    });
-    expect(change.routes.stages).toEqual([
-      {
-        stageKey: "tests",
-        stageName: "Tests",
-        from: [{ to: "linux", toName: "Verify on Linux", condition: null }],
-        to: namedRoutes,
-      },
+    expect(change.pipelineId).toBe(projectPipeline.id);
+    expect(change.from?.stages).toEqual(projectPipeline.stages);
+    expect(change.to.copyOf).toBeUndefined();
+    // Placed one to a column in the order given, each route naming the Stage it leads to.
+    expect(change.to.stages.map(({ key, place }) => [key, place])).toEqual([
+      ["implement", { column: 0, row: 0 }],
+      ["tests", { column: 1, row: 0 }],
+      ["linux", { column: 2, row: 0 }],
     ]);
+    const namedRoutes = [{ ...linuxWhenChanged[0], toName: "Verify on Linux" }, always(null)];
+    expect(change.to.stages[1]?.routes).toEqual(namedRoutes);
+    expect(change.routes.stages.map(({ stageKey }) => stageKey)).toEqual(["tests", "linux"]);
 
     await apply(change);
     const saved = await readProjectPipeline(projectPipeline.id);
-    expect(saved.stages.find(({ key }) => key === "tests")?.routes).toEqual(namedRoutes);
+    expect(saved.stages.map(({ key }) => key)).toEqual(["implement", "tests", "linux"]);
+    expect(saved.stages[1]?.routes).toEqual(namedRoutes);
 
     // Drafted from the Project Pipeline as it is now, then edited by hand first.
     await propose(PROPOSE_PROJECT_PIPELINE_TOOL, {
@@ -315,8 +326,7 @@ describe("propose_project_pipeline", () => {
     const edited = await send("PUT", `/project-pipelines/${projectPipeline.id}`, {
       name: saved.name,
       description: "Edited by hand.",
-      basePipelineId: base.id,
-      stageChanges: saved.stageChanges,
+      stages: saved.stages,
     });
     expect(edited.status).toBe(200);
     const [, later] = drafted();
@@ -326,8 +336,89 @@ describe("propose_project_pipeline", () => {
     expect((await readProjectPipeline(projectPipeline.id)).description).toBe("Edited by hand.");
   });
 
-  it("refuses Change routes that break a rule, naming the Stage and the rule, and drafts nothing", async () => {
-    const base = await aBasePipeline();
+  it("drafts a new Project Pipeline as a copy carrying the copied Pipeline's whole flow when it gives no Stages; applied, it adds it", async () => {
+    const base = await anOfficeWidePipeline();
+    const projectId = aProject();
+    const drafted = draftedFrom();
+    const name = `Copied ${randomUUID()}`;
+
+    const answer = await propose(PROPOSE_PROJECT_PIPELINE_TOOL, {
+      project: projectId,
+      copyOf: base.id,
+      name,
+    });
+
+    expect(answer.isError).toBe(false);
+    const [change] = drafted();
+    if (change?.kind !== "project-pipeline") throw new Error("A Proposal of the Project Pipeline.");
+    expect(change).toMatchObject({ projectId, pipelineId: null, from: null });
+    expect(change.to).toMatchObject({ name, description: "", copyOf: base.id });
+    expect(change.to.stages.map(({ key }) => key)).toEqual(base.stages.map(({ key }) => key));
+    expect(change.routes.stages).toEqual([]);
+
+    const applied = await apply(change);
+    if (applied.kind !== "project-pipeline" || applied.pipelineId === null) {
+      throw new Error("The Project Pipeline it added.");
+    }
+    const saved = await readProjectPipeline(applied.pipelineId);
+    expect(saved).toMatchObject({ projectId, name, brokenBeforeUpdate: null });
+    expect(saved.copiedFrom.name).toBe(base.name);
+    expect(saved.stages.map(({ key }) => key)).toEqual(base.stages.map(({ key }) => key));
+  });
+
+  it("drafts a new Project Pipeline copied from one of the Project's own, with the Stages it gives", async () => {
+    const base = await anOfficeWidePipeline();
+    const projectId = aProject();
+    const source = await added(aNewProjectPipeline(projectId, base.id));
+    const drafted = draftedFrom();
+
+    const answer = await propose(PROPOSE_PROJECT_PIPELINE_TOOL, {
+      project: projectId,
+      copyOf: source.id,
+      name: `Copied ${randomUUID()}`,
+      stages: linuxWhenTestsChanged(source),
+    });
+
+    expect(answer.isError).toBe(false);
+    expect(answer.text).toContain("- Verify on Linux (new): to End always.");
+    const [change] = drafted();
+    if (change?.kind !== "project-pipeline") throw new Error("A Proposal of the Project Pipeline.");
+    expect(change.to.copyOf).toBe(source.id);
+    expect(change.to.stages.map(({ key }) => key)).toEqual(["implement", "tests", "linux"]);
+  });
+
+  it("refuses a new one without the Pipeline it copies, or copying Onboard or another Project's, and drafts nothing", async () => {
+    const base = await anOfficeWidePipeline();
+    const projectId = aProject();
+    const othersOwn = await added(aNewProjectPipeline(aProject(), base.id));
+    const drafted = draftedFrom();
+    const name = `Copied ${randomUUID()}`;
+
+    expect(await propose(PROPOSE_PROJECT_PIPELINE_TOOL, { project: projectId, name })).toEqual({
+      text: "A new Project Pipeline needs its name and the Pipeline it is copied from (copyOf).",
+      isError: true,
+    });
+    expect(
+      await propose(PROPOSE_PROJECT_PIPELINE_TOOL, { project: projectId, copyOf: "onboard", name }),
+    ).toEqual({
+      text: expect.stringContaining("- The Onboard Pipeline can't be copied into a Project."),
+      isError: true,
+    });
+    expect(
+      await propose(PROPOSE_PROJECT_PIPELINE_TOOL, {
+        project: projectId,
+        copyOf: othersOwn.id,
+        name,
+      }),
+    ).toEqual({
+      text: expect.stringContaining(`There is no Pipeline "${othersOwn.id}"`),
+      isError: true,
+    });
+    expect(drafted()).toEqual([]);
+  });
+
+  it("refuses a flow that breaks a rule, naming the Stage and the rule, and drafts nothing", async () => {
+    const base = await anOfficeWidePipeline();
     const projectId = aProject();
     const projectPipeline = await added(aNewProjectPipeline(projectId, base.id));
     const drafted = draftedFrom();
@@ -335,10 +426,9 @@ describe("propose_project_pipeline", () => {
     const answer = await propose(PROPOSE_PROJECT_PIPELINE_TOOL, {
       project: projectId,
       pipeline: projectPipeline.id,
-      stageChanges: [
-        ...projectPipeline.stageChanges,
-        { kind: "change-routes", stageKey: "tests", routes: [] },
-      ],
+      stages: projectPipeline.stages.map((stage) =>
+        stage.key === "tests" ? { ...stage, routes: [] } : stage,
+      ),
     });
 
     expect(answer).toEqual({
@@ -354,11 +444,11 @@ describe("propose_project_pipeline", () => {
 describe("list_pipelines", () => {
   interface Listed {
     readonly officeWidePipelines: readonly { readonly id: string }[];
-    readonly projectPipelines: readonly { readonly id: string }[];
+    readonly projectPipelines: readonly Record<string, unknown>[];
   }
 
   it("lists only the Pipeline it is given, office-wide or a Project's", async () => {
-    const base = await aBasePipeline();
+    const base = await anOfficeWidePipeline();
     const projectPipeline = await added(aNewProjectPipeline(aProject(), base.id));
 
     const officeWide = await propose(LIST_PIPELINES_TOOL, { pipeline: base.id });
@@ -372,6 +462,36 @@ describe("list_pipelines", () => {
     const listedOfProject = JSON.parse(ofProject.text) as Listed;
     expect(listedOfProject.officeWidePipelines).toEqual([]);
     expect(listedOfProject.projectPipelines.map(({ id }) => id)).toEqual([projectPipeline.id]);
+  });
+
+  it("lists a Project Pipeline with its Project, where it was copied from and its Stages, and one Broken before The Office updated with its reasons", async () => {
+    const base = await anOfficeWidePipeline();
+    const projectId = aProject();
+    const projectPipeline = await added(aNewProjectPipeline(projectId, base.id));
+    const reason = "Inserts Verify on Linux after Tests, which its base Pipeline no longer has.";
+
+    const listedNow = JSON.parse(
+      (await propose(LIST_PIPELINES_TOOL, { pipeline: projectPipeline.id })).text,
+    ) as Listed;
+    await projectPipelinesForTests(pipelines.app).breakProjectPipeline(projectPipeline, reason);
+    const listedBroken = JSON.parse(
+      (await propose(LIST_PIPELINES_TOOL, { pipeline: projectPipeline.id })).text,
+    ) as Listed;
+
+    expect(listedNow.projectPipelines).toEqual([
+      {
+        id: projectPipeline.id,
+        name: projectPipeline.name,
+        description: projectPipeline.description,
+        stages: projectPipeline.stages,
+        project: { id: projectId, name: `Site ${projectId}` },
+        copiedFrom: projectPipeline.copiedFrom,
+      },
+    ]);
+    expect(listedBroken.projectPipelines[0]?.["brokenBeforeUpdate"]).toEqual({
+      words: "Broken before The Office updated: it can't be chosen until the user saves it once.",
+      reasons: [reason],
+    });
   });
 
   it("refuses a Pipeline there is none of", async () => {

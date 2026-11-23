@@ -1,22 +1,16 @@
 import type {
-  BuiltStage,
   Duty,
   ProjectCommandFields,
-  ProjectPipelineCheck,
-  ProjectPipelineFields,
   ProposedChange,
   ProposedActions,
   ProposedProjectCommands,
   ProposedTestTargets,
   Role,
   Stage,
-  StageChange as ProjectStageChange,
 } from "@the-office/contracts";
 import { Badge, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import {
-  sameStageChange,
-  stageChangeLine,
   stageChanges,
   stageFieldChanges,
   stagesLine,
@@ -29,10 +23,8 @@ import {
   testTargetFieldsOf,
   testTargetFieldWords,
 } from "../test-target-words.ts";
-import type { ProposedStageRoutes } from "../pipelines/flow/proposal-flow.ts";
 import { SkillUpdateDiff } from "../skill-update-diff.tsx";
 import { pinnedVersionLabel, sourceLabel } from "../skill-words.ts";
-import { RoutesOutChange } from "./proposed-route-changes.tsx";
 
 type ProposedSkillInstall = Extract<ProposedChange, { kind: "skill-install" }>;
 type ProposedSkillUpdate = Extract<ProposedChange, { kind: "skill-update" }>;
@@ -294,195 +286,46 @@ export function ProposedStageFieldChanges({
 }
 
 /**
- * A Project Pipeline a Proposal adds or changes (the adopted design, "Devops' Proposal of a Project
- * Pipeline"): a new one's every value, or each value a change rewrites, as was → proposed; its Stage
- * changes, each Kept or New; and the Stages the Project gets, built by the service (`was` from the
- * fields as drafted, `proposed` from those proposed), once they are read.
+ * A Project Pipeline a Proposal adds or changes, as an office-wide Pipeline's Proposal shows it: a new
+ * one's every value, the Pipeline it is copied from among them, and its Stages; or each value a
+ * change rewrites, as was → proposed, and its Stages from now to as proposed.
  */
 export function ProposedProjectPipelineFields({
   change,
   projectName,
   pipelineName,
-  was,
-  proposed,
-  roles,
-  duties,
 }: {
   readonly change: ProposedProjectPipeline;
   readonly projectName: string;
-  /** An office-wide Pipeline's name by its id. */
+  /** A Pipeline's name by its id, office-wide or one of the Project's own. */
   readonly pipelineName: (pipelineId: string) => string;
-  readonly was: ProjectPipelineCheck | undefined;
-  readonly proposed: ProjectPipelineCheck | undefined;
-  readonly roles: readonly Role[];
-  /** Who holds each duty, for a Stage naming one. */
-  readonly duties?: readonly Duty[];
 }): ReactNode {
   const { from, to } = change;
-  const stageChangesDiffer = !from || !sameStageChanges(from.stageChanges, to.stageChanges);
-  return (
-    <>
+  if (from === null)
+    return (
       <ul className="proposal-changes">
-        {from === null ? (
-          <>
-            <ChangeRow label="Project" to={projectName} />
-            <ChangeRow label="Name" to={to.name} />
-            <ChangeRow label="Base Pipeline" to={pipelineName(to.basePipelineId)} />
-            <ChangeRow label="Description" to={to.description || "None"} />
-          </>
-        ) : (
-          projectPipelineFieldChanges(from, to, pipelineName).map((row) => (
-            <ChangeRow key={row.label} {...row} />
-          ))
-        )}
+        <ChangeRow label="Project" to={projectName} />
+        <ChangeRow label="Name" to={to.name} />
+        {to.copyOf !== undefined && <ChangeRow label="Copied from" to={pipelineName(to.copyOf)} />}
+        <ChangeRow label="Description" to={to.description || "None"} />
+        <ChangeRow label="Stages" to={stagesLine(to)} />
       </ul>
-      {stageChangesDiffer && to.stageChanges.length > 0 && (
-        <div className="proposal-section">
-          <span className="proposal-section-title">
-            {from === null
-              ? `Stage changes · ${to.stageChanges.length}`
-              : "Stage changes, as proposed"}
-          </span>
-          <dl className="proposal-fields">
-            {to.stageChanges.map((stageChange, index) => (
-              <ProposedStageChange
-                // Stage changes have no id: the list is shown as proposed, never reordered.
-                key={index}
-                stageChange={stageChange}
-                kept={
-                  from?.stageChanges.some((each) => sameStageChange(each, stageChange)) ?? false
-                }
-                row={proposed?.rows.find(({ stageChangeIndexes }) =>
-                  stageChangeIndexes.includes(index),
-                )}
-                rows={proposed?.rows ?? []}
-                routes={routesOf(change, stageChange)}
-                was={was?.stages ?? proposed?.stages ?? []}
-                proposed={proposed?.stages ?? []}
-                roles={roles}
-                duties={duties}
-              />
-            ))}
-          </dl>
-        </div>
-      )}
-      {proposed && (
-        <ul className="proposal-changes">
-          <ChangeRow
-            label={`${projectName} gets`}
-            from={was && stagesLine(was) !== stagesLine(proposed) ? stagesLine(was) : undefined}
-            to={stagesLine(proposed)}
-          />
-        </ul>
-      )}
-    </>
-  );
-}
-
-/**
- * One Stage change as proposed: its line in the editor's words, Kept or New, and a Change's fields
- * or a Change routes' routes out as Was and Proposed.
- */
-function ProposedStageChange({
-  stageChange,
-  kept,
-  row,
-  rows,
-  routes,
-  was,
-  proposed,
-  roles,
-  duties,
-}: {
-  readonly stageChange: ProjectStageChange;
-  readonly kept: boolean;
-  /** The built Stage it made, once read. */
-  readonly row: BuiltStage | undefined;
-  readonly rows: readonly BuiltStage[];
-  /** A Change routes' Stage's routes as they were and as proposed, when it changes them. */
-  readonly routes: ProposedStageRoutes | undefined;
-  /** The Stages the Project gets now and as proposed, which name where routes lead. */
-  readonly was: readonly Stage[];
-  readonly proposed: readonly Stage[];
-  readonly roles: readonly Role[];
-  readonly duties: readonly Duty[] | undefined;
-}): ReactNode {
-  const stageName =
-    rows.find(({ stage }) => stage.key === stageChange.stageKey)?.stage.name ??
-    stageChange.stageName ??
-    stageChange.stageKey;
-  const fields =
-    stageChange.kind === "change" && row?.baseStage
-      ? stageFieldChanges(row.baseStage, row.stage, roles, duties)
-      : [];
-  return (
-    <div className="proposal-field">
-      <dt>{kept ? "Kept" : <Badge tone="success">New</Badge>}</dt>
-      <dd>
-        {stageChangeLine(stageChange, stageName)}
-        {fields.length > 0 && (
-          <ul className="proposal-changes">
-            {fields.map((field) => (
-              <ChangeRow key={field.label} {...field} />
-            ))}
-          </ul>
-        )}
-        {routes && (
-          <ul className="proposal-changes">
-            <RoutesOutChange change={routes} was={was} proposed={proposed} />
-          </ul>
-        )}
-      </dd>
-    </div>
-  );
-}
-
-/** The routes a Change routes Stage change gives its Stage, as the Proposal words them. */
-function routesOf(
-  change: ProposedProjectPipeline,
-  stageChange: ProjectStageChange,
-): ProposedStageRoutes | undefined {
-  if (stageChange.kind !== "change-routes") return undefined;
-  return change.routes?.stages.find(({ stageKey }) => stageKey === stageChange.stageKey);
-}
-
-/** The values a change of a Project Pipeline rewrites, as was → proposed. */
-function projectPipelineFieldChanges(
-  from: ProjectPipelineFields,
-  to: ProjectPipelineFields,
-  pipelineName: (pipelineId: string) => string,
-): { readonly label: string; readonly from: string; readonly to: string }[] {
+    );
   const rows = [
     { label: "Name", from: from.name, to: to.name },
-    {
-      label: "Base Pipeline",
-      from: pipelineName(from.basePipelineId),
-      to: pipelineName(to.basePipelineId),
-    },
     { label: "Description", from: from.description || "None", to: to.description || "None" },
   ].filter((row) => row.from !== row.to);
-  return sameStageChanges(from.stageChanges, to.stageChanges)
-    ? rows
-    : [
-        ...rows,
-        {
-          label: "Stage changes",
-          from: String(from.stageChanges.length),
-          to: String(to.stageChanges.length),
-        },
-      ];
-}
-
-function sameStageChanges(
-  one: readonly ProjectStageChange[],
-  other: readonly ProjectStageChange[],
-): boolean {
   return (
-    one.length === other.length &&
-    one.every((stageChange, index) => {
-      const otherChange = other[index];
-      return otherChange !== undefined && sameStageChange(stageChange, otherChange);
-    })
+    <>
+      {rows.length > 0 && (
+        <ul className="proposal-changes">
+          {rows.map((row) => (
+            <ChangeRow key={row.label} {...row} />
+          ))}
+        </ul>
+      )}
+      <ProposedStageChanges from={from.stages} to={to.stages} />
+    </>
   );
 }
 

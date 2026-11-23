@@ -94,7 +94,7 @@ export class ProjectChecks {
 
   /**
    * Why the commands can't be removed: the Project's default Pipeline, or a Kind's own default
-   * Pipeline, runs one, a Project Pipeline of its own by its built Stages, so each default stays
+   * Pipeline, runs one, a Project Pipeline of its own by its Stages, so each default stays
    * runnable in its Project. Another Pipeline's Stage fails as could-not-run instead.
    */
   async commandRemovalProblems(

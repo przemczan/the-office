@@ -19,13 +19,11 @@ import {
   useProposalShown,
 } from "../../../shell/conversation/proposal-on-flow.tsx";
 import { stagesLine, whoWorks } from "../../../shell/pipelines/pipeline-words.ts";
-import { builtOnByWords, counted } from "../../../shell/pipelines/stage-change-words.ts";
 import {
   STAGE_KIND_ICONS,
   STAGE_KIND_NAMES,
   type StageKind,
 } from "../../../shell/pipelines/stage-edits.ts";
-import { BuiltOnByCard, brokenBuiltOnByTotal, builtOnByTotal } from "./built-on-by-card.tsx";
 import { pipelineUseLine } from "../../../shell/pipelines/pipeline-use-words.ts";
 import { StageTemplateForm, type StageTemplateOpened } from "./stage-template-form.tsx";
 
@@ -36,12 +34,11 @@ type Making =
   { readonly what: "pipeline" } | { readonly what: "stage-template"; readonly kind: StageKind };
 
 /**
- * Settings › Pipelines (prototypes/app/settings.js `pipelinesSection`, and for what Project Pipelines
- * add docs/design/project-pipelines.html): the office-wide Pipelines beside the open one, which the
+ * Settings › Pipelines (prototypes/app/settings.js `pipelinesSection`, and
+ * docs/design/pipeline-editor.html): the office-wide Pipelines beside the open one, which the
  * user edits, duplicates or removes, and "New Pipeline" made from scratch; the Stage templates on a
  * second tab, each opened in the same place, the first when none is in the address. Project
- * Pipelines are on their Project's page; here each office-wide Pipeline says which Projects build on
- * it. On a narrow page the list or the open item shows, not one under the other.
+ * Pipelines are on their Project's page, and nothing here touches them. On a narrow page the list or the open item shows, not one under the other.
  */
 export function PipelinesSection(): ReactNode {
   usePageHeading({ title: "Settings", crumb: "Pipelines" });
@@ -157,7 +154,6 @@ export function PipelinesSection(): ReactNode {
           ) : tab === "pipelines" ? (
             <>
               {open && <PipelineHead pipeline={open} />}
-              {open && <BuiltOnByCard pipeline={open} />}
               {open && onFlow.shown?.change.kind === "pipeline" ? (
                 <OfficeProposalOnFlow
                   proposal={onFlow.shown.proposal}
@@ -265,10 +261,7 @@ function LibraryList({
   );
 }
 
-/**
- * A Pipeline in the list, flagged when its Stages need fixing or name a Role nobody fills; one that
- * Project Pipelines are built from says how many, and how many are Broken.
- */
+/** A Pipeline in the list, flagged when its Stages need fixing or name a Role nobody fills. */
 function LibraryItem({
   pipeline,
   picked,
@@ -281,25 +274,11 @@ function LibraryItem({
   readonly onOpen: () => void;
 }): ReactNode {
   const { id, name } = pipeline;
-  const builtOn = builtOnByTotal(pipeline);
-  const broken = brokenBuiltOnByTotal(pipeline);
   return (
     <PickListItem
       picked={picked}
       name={name}
       line={stagesLine(pipeline)}
-      secondLine={builtOn > 0 ? builtOnByWords(builtOn) : undefined}
-      aside={
-        broken > 0 && (
-          <span
-            title={`${counted(broken, "Project Pipeline built on it is", "Project Pipelines built on it are")} Broken`}
-          >
-            <Badge size="sm" tone="danger">
-              {broken} Broken
-            </Badge>
-          </span>
-        )
-      }
       warning={needsFixing ? "Needs fixing" : undefined}
       renderLink={(parts) => (
         <Link

@@ -1635,7 +1635,7 @@
   font-weight: 600;
 }
 
-/* A titled part of a card: a Project Pipeline's Stage changes, or what a Proposal would break. */
+/* A titled part of a card: a Stage a Proposal changes, or the routes and flow it proposes. */
 .proposal-section {
   padding: 8px 12px;
   border-top: 1px solid var(--border-subtle);
@@ -1781,10 +1781,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.proposal-breaks p {
-  margin: 0 0 4px;
 }
 
 /* The Caretaker's set-up: each person it hires, then every duty's holder after it. */

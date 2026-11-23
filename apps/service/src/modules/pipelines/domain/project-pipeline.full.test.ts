@@ -1,28 +1,33 @@
 import { describe, expect, it } from "vitest";
 import { builtInPipelines } from "./built-in-pipelines.js";
+import { straightLineFlow } from "./flow.js";
 import { copiedPipeline, pipelineEditProblems } from "./library-pipeline.js";
 import type { Pipeline } from "./pipeline.js";
 import { PipelineAdded, PipelineSaved } from "./pipeline-library-events.js";
 import {
-  addedProjectPipeline,
-  brokenBy,
-  builtEdit,
-  builtProjectPipeline,
+  asPipeline,
+  copiedProjectPipeline,
+  movedProjectPipeline,
   projectPipelineEditProblems,
+  proposedProjectPipelineProblems,
   savedProjectPipeline,
+  type LegacyProjectPipeline,
   type ProjectPipeline,
   type ProjectPipelineEdit,
 } from "./project-pipeline.js";
+import { buildStages } from "./stage-change.js";
 import { agentStage, scriptStage } from "./stage.fixtures.js";
 
 const FULL: Pipeline = {
   id: "full-for-tests",
   name: "Full for tests",
   description: "Everything.",
-  stages: [agentStage(), scriptStage({ onFailure: { goBackTo: "implement", rounds: 2 } })],
+  stages: straightLineFlow([agentStage(), scriptStage()]),
 };
 
 const SITE = { id: "site", name: "Site" };
+
+const LINUX = scriptStage({ key: "linux", name: "Verify on Linux" });
 
 function aProjectPipeline(fields: Partial<ProjectPipeline> = {}): ProjectPipeline {
   return {
@@ -30,15 +35,9 @@ function aProjectPipeline(fields: Partial<ProjectPipeline> = {}): ProjectPipelin
     projectId: SITE.id,
     name: "Full with Linux check",
     description: "Full, then Linux.",
-    basePipelineId: FULL.id,
-    stageChanges: [
-      {
-        kind: "insert-after",
-        stageKey: "tests",
-        stageName: "Tests",
-        stage: scriptStage({ key: "linux", name: "Verify on Linux" }),
-      },
-    ],
+    stages: straightLineFlow([agentStage(), scriptStage(), LINUX]),
+    copiedFrom: { name: FULL.name, at: new Date("2026-11-12T09:30:00.000Z") },
+    brokenBeforeUpdate: null,
     ...fields,
   };
 }
@@ -47,26 +46,98 @@ function anEdit(fields: Partial<ProjectPipelineEdit> = {}): ProjectPipelineEdit 
   return {
     name: "Full with visual check",
     description: "Full, then a look.",
-    basePipelineId: FULL.id,
-    stageChanges: [{ kind: "change", stageKey: "implement", fields: { brief: "Build it." } }],
+    stages: straightLineFlow([agentStage({ brief: "Build it." }), scriptStage()]),
     ...fields,
   };
 }
 
-describe("builtProjectPipeline", () => {
-  it("builds the Stages from the base Pipeline's, naming it", () => {
-    const built = builtProjectPipeline(aProjectPipeline(), FULL);
+function aLegacy(fields: Partial<LegacyProjectPipeline> = {}): LegacyProjectPipeline {
+  return {
+    id: "legacy",
+    projectId: SITE.id,
+    name: "Full with Linux check",
+    description: "Full, then Linux.",
+    basePipelineId: FULL.id,
+    stageChanges: [{ kind: "insert-after", stageKey: "tests", stageName: "Tests", stage: LINUX }],
+    ...fields,
+  };
+}
 
-    expect(built.basePipeline).toEqual({ id: FULL.id, name: FULL.name });
-    expect(built.stages.map(({ key }) => key)).toEqual(["implement", "tests", "linux"]);
-    expect(built.broken).toEqual([]);
+describe("movedProjectPipeline", () => {
+  it("keeps the flow its base Pipeline and Stage changes build as its own, copied from the base", () => {
+    const legacy = aLegacy();
+
+    expect(movedProjectPipeline(legacy, FULL)).toEqual({
+      id: legacy.id,
+      projectId: SITE.id,
+      name: legacy.name,
+      description: legacy.description,
+      stages: buildStages(FULL, legacy.stageChanges).stages,
+      copiedFrom: { name: FULL.name, at: null },
+      brokenBeforeUpdate: null,
+    });
+    expect(movedProjectPipeline(legacy, FULL).stages.map(({ key }) => key)).toEqual([
+      "implement",
+      "tests",
+      "linux",
+    ]);
+  });
+
+  it("keeps the routes a Change routes gave a Stage", () => {
+    const routes = [
+      {
+        to: null,
+        condition: {
+          combine: "all" as const,
+          tests: [{ kind: "definitionOfDone" as const, is: "all-met" as const }],
+        },
+      },
+      { to: "tests", toName: "Tests", condition: null },
+    ];
+    const legacy = aLegacy({
+      stageChanges: [
+        { kind: "change-routes", stageKey: "implement", stageName: "Implement", routes },
+      ],
+    });
+
+    const moved = movedProjectPipeline(legacy, FULL);
+
+    expect(moved.stages).toEqual(buildStages(FULL, legacy.stageChanges).stages);
+    expect(moved.stages[0]?.routes).toEqual(routes);
+    expect(moved.brokenBeforeUpdate).toBeNull();
+  });
+
+  it("keeps what still applied of a Broken one, with why it was Broken", () => {
+    const legacy = aLegacy({
+      stageChanges: [
+        { kind: "insert-after", stageKey: "tests", stageName: "Tests", stage: LINUX },
+        { kind: "remove", stageKey: "deploy", stageName: "Deploy" },
+      ],
+    });
+
+    const moved = movedProjectPipeline(legacy, FULL);
+
+    expect(moved.stages.map(({ key }) => key)).toEqual(["implement", "tests", "linux"]);
+    expect(moved.brokenBeforeUpdate).toEqual(
+      buildStages(FULL, legacy.stageChanges).broken.map(({ text }) => text),
+    );
+    expect(moved.brokenBeforeUpdate).toEqual([expect.stringContaining("Deploy")]);
+  });
+
+  it("keeps no Stages, Broken, when its base Pipeline is gone", () => {
+    expect(movedProjectPipeline(aLegacy(), undefined)).toMatchObject({
+      id: "legacy",
+      stages: [],
+      copiedFrom: { name: FULL.id, at: null },
+      brokenBeforeUpdate: [`Its base Pipeline "${FULL.id}" is gone.`],
+    });
   });
 });
 
 describe("projectPipelineEditProblems", () => {
   const around = { officeWide: [FULL], projectPipelines: [aProjectPipeline()] };
 
-  it("allows a named edit built from an office-wide Pipeline that isn't Broken", () => {
+  it("allows a named edit whose Stages can run", () => {
     expect(projectPipelineEditProblems(anEdit(), SITE, around)).toEqual([]);
   });
 
@@ -89,96 +160,114 @@ describe("projectPipelineEditProblems", () => {
     ).toEqual([]);
   });
 
-  it("refuses a base Pipeline that isn't office-wide, or isn't there", () => {
-    expect(
-      projectPipelineEditProblems(anEdit({ basePipelineId: "with-linux" }), SITE, around),
-    ).toEqual([
-      {
-        level: "problem",
-        text: "Its base Pipeline must be an office-wide Pipeline, never a Project Pipeline.",
-      },
-    ]);
-    expect(projectPipelineEditProblems(anEdit({ basePipelineId: "gone" }), SITE, around)).toEqual([
-      { level: "problem", text: 'There is no office-wide Pipeline "gone" to build it from.' },
-    ]);
-  });
-
-  it("refuses an empty Change and a Broken build, every reason at once", () => {
-    const edit = anEdit({
-      stageChanges: [
-        { kind: "change", stageKey: "implement", fields: {} },
-        { kind: "remove", stageKey: "implement" },
-      ],
-    });
-
-    expect(projectPipelineEditProblems(edit, SITE, around)).toEqual([
-      { level: "problem", text: "Stage change 1 gives no field: say what changes, or remove it." },
-      {
-        stageKey: "tests",
-        at: { kind: "onFailure" },
-        level: "problem",
-        text: "Stage 1 · Tests: on failure it can only go back to an earlier Stage.",
-      },
-    ]);
+  it("refuses Stages that can't run, as the library's Pipelines are", () => {
+    expect(projectPipelineEditProblems(anEdit({ stages: [] }), SITE, around)).not.toEqual([]);
   });
 });
 
-describe("addedProjectPipeline and savedProjectPipeline", () => {
-  it("keep each Stage change's Stage name as built, and tell the library's events", () => {
-    const edit = anEdit({ name: "  Visual  " });
-    const built = builtEdit(edit, [FULL])!;
+describe("proposedProjectPipelineProblems", () => {
+  const saved = aProjectPipeline();
+  const fields = { name: saved.name, description: saved.description, stages: saved.stages };
 
-    const added = addedProjectPipeline("visual", SITE.id, edit, built);
-    const saved = savedProjectPipeline(added.projectPipeline, anEdit(), built);
+  it("lets a new one through to its add's check", () => {
+    expect(
+      proposedProjectPipelineProblems(
+        { projectId: SITE.id, pipelineId: null, from: null, to: anEdit() },
+        undefined,
+      ),
+    ).toEqual([]);
+  });
+
+  it("refuses a change of one unknown or another Project's", () => {
+    const proposal = { projectId: "app", pipelineId: saved.id, from: fields, to: anEdit() };
+
+    expect(proposedProjectPipelineProblems(proposal, undefined)).toEqual([
+      { level: "problem", text: `There is no Project Pipeline "${saved.id}".` },
+    ]);
+    expect(proposedProjectPipelineProblems(proposal, saved)).toEqual([
+      { level: "problem", text: `There is no Project Pipeline "${saved.id}".` },
+    ]);
+  });
+
+  it("refuses a change drafted from fields it no longer has, or one that changes nothing", () => {
+    const base = { projectId: SITE.id, pipelineId: saved.id };
+
+    expect(
+      proposedProjectPipelineProblems(
+        { ...base, from: { ...fields, name: "Before" }, to: anEdit() },
+        saved,
+      ),
+    ).toEqual([{ level: "problem", text: `${saved.name} changed since this was proposed.` }]);
+    expect(proposedProjectPipelineProblems({ ...base, from: fields, to: fields }, saved)).toEqual([
+      {
+        level: "problem",
+        text: "Nothing changes: give the Project Pipeline's name, description or Stages as they should be, all of them.",
+      },
+    ]);
+    expect(proposedProjectPipelineProblems({ ...base, from: fields, to: anEdit() }, saved)).toEqual(
+      [],
+    );
+  });
+});
+
+describe("copiedProjectPipeline and savedProjectPipeline", () => {
+  it("copy the source's Stages as they are, naming where and when, and tell the library's events", () => {
+    const at = new Date("2026-11-23T10:00:00.000Z");
+
+    const added = copiedProjectPipeline(
+      "visual",
+      SITE.id,
+      { name: "  Visual  ", description: " A look. " },
+      FULL,
+      at,
+    );
 
     expect(added.projectPipeline).toEqual({
       id: "visual",
       projectId: SITE.id,
       name: "Visual",
-      description: "Full, then a look.",
-      basePipelineId: FULL.id,
-      stageChanges: [
-        {
-          kind: "change",
-          stageKey: "implement",
-          stageName: "Implement",
-          fields: { brief: "Build it." },
-        },
-      ],
+      description: "A look.",
+      stages: FULL.stages,
+      copiedFrom: { name: FULL.name, at },
+      brokenBeforeUpdate: null,
     });
     expect(added.event).toBeInstanceOf(PipelineAdded);
     expect(added.event.pipelineId).toBe("visual");
-    expect(saved.projectPipeline.projectId).toBe(SITE.id);
-    expect(saved.event).toBeInstanceOf(PipelineSaved);
-    expect(saved.event.pipelineId).toBe("visual");
   });
-});
 
-describe("brokenBy", () => {
-  it("names each Project Pipeline built from the base Pipeline that its new Stages break", () => {
-    const fine = aProjectPipeline({ id: "fine", stageChanges: [] });
-    const other = aProjectPipeline({ id: "other", basePipelineId: "elsewhere" });
-    const alreadyBroken = aProjectPipeline({
-      id: "already",
-      stageChanges: [{ kind: "remove", stageKey: "lint", stageName: "Lint" }],
+  it("copy a Proposal's Stages in place of the source's", () => {
+    const stages = straightLineFlow([agentStage(), LINUX]);
+
+    const added = copiedProjectPipeline("visual", SITE.id, anEdit(), FULL, new Date(), stages);
+
+    expect(added.projectPipeline.stages).toEqual(stages);
+  });
+
+  it("save the edit, keeping its Project and where it was copied from, and end its Broken flag", () => {
+    const broken = aProjectPipeline({ brokenBeforeUpdate: ["Removes deploy."] });
+
+    const saved = savedProjectPipeline(broken, anEdit({ name: " Visual " }));
+
+    expect(saved.projectPipeline).toEqual({
+      ...broken,
+      name: "Visual",
+      description: anEdit().description,
+      stages: anEdit().stages,
+      brokenBeforeUpdate: null,
     });
-    const withoutTests = { ...FULL, stages: [agentStage()] };
+    expect(saved.event).toBeInstanceOf(PipelineSaved);
+    expect(saved.event.pipelineId).toBe(broken.id);
+  });
 
-    const broken = brokenBy(FULL, withoutTests, [aProjectPipeline(), fine, other, alreadyBroken]);
+  it("asPipeline gives the Stages a Task copies", () => {
+    const projectPipeline = aProjectPipeline();
 
-    expect(broken).toEqual([
-      {
-        projectPipeline: aProjectPipeline(),
-        reasons: [
-          {
-            stageChangeIndex: 0,
-            stageIndex: undefined,
-            stageKey: "tests",
-            text: "Inserts Verify on Linux after Tests, which Full for tests no longer has.",
-          },
-        ],
-      },
-    ]);
+    expect(asPipeline(projectPipeline)).toEqual({
+      id: projectPipeline.id,
+      name: projectPipeline.name,
+      description: projectPipeline.description,
+      stages: projectPipeline.stages,
+    });
   });
 });
 

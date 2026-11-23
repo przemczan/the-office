@@ -48,7 +48,7 @@
 - `people.e2e.ts`
 - `pipeline-picker.ts`: openPipelinePicker, pickPipeline, optionNames
 - `project-engine.e2e.ts`
-- `project-pipelines.ts`: addedBasePipeline, addedProjectPipeline, breakProjectPipelinesOf
+- `project-pipelines.ts`: addedBasePipeline, addedProjectPipeline, flaggedBrokenBeforeUpdate
 - `projects.e2e.ts`
 - `queue.e2e.ts`
 - `serve-office.ts`

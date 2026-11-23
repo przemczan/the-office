@@ -230,9 +230,7 @@ function targetUnder(
   from: string,
 ): string | null | undefined {
   const hit = document.elementFromPoint?.(clientX, clientY);
-  const place = hit?.closest<HTMLElement>(
-    "[data-flow-stage]:not([data-flow-removed]), [data-flow-end]",
-  );
+  const place = hit?.closest<HTMLElement>("[data-flow-stage], [data-flow-end]");
   if (!place || !canvas?.contains(place)) return undefined;
   if (place.dataset.flowEnd !== undefined) return null;
   const key = place.dataset.flowStage;

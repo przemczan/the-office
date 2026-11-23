@@ -1,15 +1,14 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import type {
   Duty,
-  OfficeWidePipeline,
+  PipelineEdit,
   Project,
   ProjectPipeline,
-  ProjectPipelineEdit,
   Role,
   RoleCardOptions,
 } from "@the-office/contracts";
-import { Alert, Badge, Button, Card, Icon, Input, Select, Textarea } from "@the-office/ui";
+import { Alert, Badge, Button, Card, Icon, Input, Textarea } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import {
   projectPipelineQueries,
@@ -19,57 +18,47 @@ import {
 import { AskDevopsButton } from "../../../shell/ask-devops.tsx";
 import { projectCommandsOf } from "../../../shell/pipelines/library-commands.ts";
 import { projectPipelineUseLine } from "../../../shell/pipelines/pipeline-use-words.ts";
+import { copiedFromWords } from "../../../shell/pipelines/pipeline-words.ts";
 import { RemovePipelineDialog } from "../../../shell/pipelines/remove-pipeline-dialog.tsx";
 import { flowProblems } from "../../../shell/pipelines/flow/flow-checks.ts";
-import { ProjectFlowEditor } from "../../../shell/pipelines/flow/project-flow-editor.tsx";
-import { counted } from "../../../shell/pipelines/stage-change-words.ts";
+import { asFlow } from "../../../shell/pipelines/flow/flow-model.ts";
+import { OfficeFlowEditor } from "../../../shell/pipelines/flow/office-flow-editor.tsx";
 import { byLevel, checkAwaited } from "../../../shell/pipelines/stages-check.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
 
 /**
- * The open Project Pipeline (docs/design/project-pipelines.html, "The editor"): its head, then its
- * name, base Pipeline and description, and what the Project gets on the flow editor, saved or
- * discarded as a whole. The service builds and checks every edit; problems and Broken hold Save (a save never
- * leaves it Broken), warnings don't.
+ * The open Project Pipeline (spec §2.3.5, "Project Pipelines"): its head, then its name and
+ * description, and its Stages in the same flow editor as an office-wide one, saved or discarded as
+ * a whole. The service checks every draft; problems hold Save, warnings don't. One that was Broken
+ * before The Office updated is flagged with why and can be saved unchanged, which clears the flag.
  */
 export function ProjectPipelineForm({
   project,
   projectPipeline,
-  officeWide,
   roles,
   duties,
   options,
 }: {
   readonly project: Project;
   readonly projectPipeline: ProjectPipeline;
-  readonly officeWide: readonly OfficeWidePipeline[];
   readonly roles: readonly Role[];
   readonly duties: readonly Duty[];
   readonly options: RoleCardOptions;
 }): ReactNode {
   const saved = editOf(projectPipeline);
-  const [draft, setDraft] = useState<ProjectPipelineEdit>(saved);
+  const [draft, setDraft] = useState<PipelineEdit>(saved);
   const [removing, setRemoving] = useState(false);
   const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
+  const flagged = projectPipeline.brokenBeforeUpdate;
   const check = useQuery({
-    ...projectPipelineQueries.check({
-      ...draft,
-      projectId: project.id,
-      projectPipelineId: projectPipeline.id,
-    }),
+    ...projectPipelineQueries.check({ ...draft, projectPipelineId: projectPipeline.id }),
     placeholderData: keepPreviousData,
   });
-  // Until the check answers, the Stages as they were saved.
-  const built = check.data ?? projectPipeline;
   const { problems, warnings } = byLevel([
     ...(check.data?.problems ?? []),
-    ...flowProblems(built.stages),
+    ...flowProblems(draft.stages),
   ]);
-  const broken = built.broken.length > 0;
-  const baseName =
-    officeWide.find(({ id }) => id === draft.basePipelineId)?.name ??
-    projectPipeline.basePipeline.name;
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const showToast = useToast();
@@ -78,12 +67,13 @@ export function ProjectPipelineForm({
     onSuccess: async (result) => {
       // The saved list first, so the bar never reads Unsaved changes against the old one.
       await queryClient.invalidateQueries(projectPipelineQueries.list(project.id));
+      // A save may fix it, or end its Broken before the update: the list's flag follows at once.
+      void queryClient.invalidateQueries(projectPipelineQueries.needingFixing(project.id));
       setDraft(editOf(result));
       showToast("Pipeline saved. Tasks not started yet follow it; running ones keep their copy.");
     },
   });
-  const change = (changed: Partial<ProjectPipelineEdit>): void =>
-    setDraft({ ...draft, ...changed });
+  const change = (changed: Partial<PipelineEdit>): void => setDraft({ ...draft, ...changed });
   // Under the form, and under the editor in full screen, so Save stays at hand.
   const saveRow = (withRemove: boolean): ReactNode => (
     <>
@@ -98,12 +88,8 @@ export function ProjectPipelineForm({
       </Button>
       <Button
         loading={saving.isPending}
-        disabled={!dirty || broken || problems.length > 0 || checkAwaited(check)}
-        title={
-          broken
-            ? "Fix the Stage changes that don't apply first: a save never leaves it Broken"
-            : undefined
-        }
+        // One the update left from a Broken one is saved even unchanged, which clears its flag.
+        disabled={(!dirty && flagged === null) || problems.length > 0 || checkAwaited(check)}
         onClick={() => saving.mutate()}
       >
         Save the Pipeline
@@ -112,30 +98,19 @@ export function ProjectPipelineForm({
   );
   return (
     <>
-      <ProjectPipelineHead
-        project={project}
-        projectPipeline={projectPipeline}
-        broken={broken}
-        baseName={baseName}
-        basePipelineId={draft.basePipelineId}
-      />
-      {broken ? (
+      <ProjectPipelineHead project={project} projectPipeline={projectPipeline} />
+      {flagged !== null && (
         <Alert
-          tone="danger"
-          title={`${draft.name || projectPipeline.name} is Broken: ${counted(built.broken.length, "Stage change no longer applies", "Stage changes no longer apply")} to ${baseName}`}
+          tone="warning"
+          title={`${projectPipeline.name} was Broken before The Office updated`}
         >
-          Until {built.broken.length === 1 ? "it is" : "they are"} fixed, Tasks can't choose{" "}
-          {projectPipeline.name}. Tasks already started keep their Stages. Fix each one marked in
-          red below, then save.
+          <ul className="project-pipeline-reasons">
+            {flagged.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+          <p>Tasks can choose it once you save it.</p>
         </Alert>
-      ) : (
-        projectPipeline.broken.length > 0 &&
-        check.data && (
-          <Alert
-            tone="success"
-            title={`Fixed: save it, and Tasks can choose ${projectPipeline.name} again`}
-          />
-        )
       )}
       <Card>
         <div className="project-pipeline-form">
@@ -144,38 +119,25 @@ export function ProjectPipelineForm({
             value={draft.name}
             onChange={(event) => change({ name: event.target.value })}
           />
-          <Select
-            label="Base Pipeline"
-            hint="An office-wide Pipeline: its edits reach this one, and the Stage changes apply on top."
-            value={draft.basePipelineId}
-            options={officeWide.map(({ id, name }) => ({ value: id, label: name }))}
-            onChange={(basePipelineId) => change({ basePipelineId })}
+          <Textarea
+            label="Description"
+            rows={2}
+            value={draft.description}
+            onChange={(event) => change({ description: event.target.value })}
           />
-          <div className="project-pipeline-form-wide">
-            <Textarea
-              label="Description"
-              rows={2}
-              value={draft.description}
-              onChange={(event) => change({ description: event.target.value })}
-            />
-          </div>
+          <OfficeFlowEditor
+            stages={draft.stages}
+            onChange={(stages) => change({ stages: [...stages] })}
+            problems={problems}
+            warnings={warnings}
+            roles={roles}
+            duties={duties}
+            options={options}
+            commands={projectCommandsOf(project)}
+            fullScreenName={`${draft.name || projectPipeline.name} ·`}
+            fullScreenBar={saveRow(false)}
+          />
         </div>
-        <ProjectFlowEditor
-          projectName={project.name}
-          baseName={baseName}
-          built={built}
-          stageChanges={draft.stageChanges}
-          onChange={(stageChanges) => change({ stageChanges: [...stageChanges] })}
-          problems={problems}
-          warnings={warnings}
-          pending={checkAwaited(check)}
-          roles={roles}
-          duties={duties}
-          options={options}
-          commands={projectCommandsOf(project)}
-          fullScreenName={`${draft.name || projectPipeline.name} ·`}
-          fullScreenBar={saveRow(false)}
-        />
       </Card>
       {saving.error && <RefusalAlert title="The Pipeline wasn't saved" error={saving.error} />}
       <div className="project-pipeline-actions">{saveRow(true)}</div>
@@ -199,25 +161,25 @@ export function ProjectPipelineForm({
 }
 
 /**
- * The open Project Pipeline's name with Default and Broken, Ask Devops, its description, and
- * "Project Pipeline of the-office · Built from Full · Default for the-office · 2 not started Tasks
- * use it", Built from linking to its base Pipeline in Settings › Pipelines.
+ * The open Project Pipeline's name with Default, Ask Devops, its description, and "Project
+ * Pipeline of the-office · Copied from Full on 12 Nov · Default for the-office · 2 not started
+ * Tasks use it", the copy's words alone, as the two Pipelines no longer share anything.
  */
 function ProjectPipelineHead({
   project,
   projectPipeline,
-  broken,
-  baseName,
-  basePipelineId,
 }: {
   readonly project: Project;
   readonly projectPipeline: ProjectPipeline;
-  readonly broken: boolean;
-  readonly baseName: string;
-  readonly basePipelineId: string;
 }): ReactNode {
   const use = useQuery(projectPipelineQueries.use(projectPipeline.id));
   const isDefault = project.defaultPipeline === projectPipeline.id;
+  const facts = [
+    `Project Pipeline of ${project.name}`,
+    copiedFromWords(projectPipeline.copiedFrom),
+    ...(isDefault ? [`Default for ${project.name}`] : []),
+    ...(use.data ? [projectPipelineUseLine(use.data)] : []),
+  ];
   return (
     <Card
       title={
@@ -225,11 +187,6 @@ function ProjectPipelineHead({
           <Icon name="route" size={15} strokeWidth={1.6} />
           {projectPipeline.name}
           {isDefault && <Badge size="sm">Default</Badge>}
-          {broken && (
-            <Badge size="sm" tone="danger">
-              Broken
-            </Badge>
-          )}
         </span>
       }
       actions={
@@ -242,41 +199,12 @@ function ProjectPipelineHead({
       {projectPipeline.description !== "" && (
         <p className="project-block-text">{projectPipeline.description}</p>
       )}
-      <p className="project-pipeline-facts">
-        <span>Project Pipeline of {project.name}</span>
-        <span aria-hidden="true">·</span>
-        <span>
-          Built from{" "}
-          <Link
-            to="/settings/pipelines/$pipelineId"
-            params={{ pipelineId: basePipelineId }}
-            title={`Open ${baseName} in Settings › Pipelines`}
-          >
-            {baseName}
-          </Link>
-        </span>
-        {isDefault && (
-          <>
-            <span aria-hidden="true">·</span>
-            <span>Default for {project.name}</span>
-          </>
-        )}
-        {use.data && (
-          <>
-            <span aria-hidden="true">·</span>
-            <span>{projectPipelineUseLine(use.data)}</span>
-          </>
-        )}
-      </p>
+      <p className="project-pipeline-facts">{facts.join(" · ")}</p>
     </Card>
   );
 }
 
-function editOf({
-  name,
-  description,
-  basePipeline,
-  stageChanges,
-}: ProjectPipeline): ProjectPipelineEdit {
-  return { name, description, basePipelineId: basePipeline.id, stageChanges };
+/** The Pipeline as the editor holds it: its Stages a flow, each with its place and routes. */
+function editOf({ name, description, stages }: ProjectPipeline): PipelineEdit {
+  return { name, description, stages: [...asFlow(stages)] };
 }
