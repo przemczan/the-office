@@ -53,14 +53,17 @@ describe("the Task's Engine fold's words", () => {
   });
 
   it("says in the hint where the engine it takes is set", () => {
-    const shop = { name: "Shop", projectDefault: SONNET_ON_WORK };
+    const shop = {
+      name: "Shop",
+      engine: { default: { engineType: "claude-code" as const, engineId: "work" } },
+    };
     expect(taskNoneHint({ initiativeEngine: OPUS_ON_PERSONAL }, shop)).toBe(
       "Set on its Initiative. Pick an engine to run this Task on its own.",
     );
     expect(taskNoneHint({ initiativeEngine: null }, shop)).toBe(
       "Shop's Project default. Pick an engine to run this Task on its own.",
     );
-    expect(taskNoneHint({ initiativeEngine: null }, { ...shop, projectDefault: null })).toBe(
+    expect(taskNoneHint({ initiativeEngine: null }, { ...shop, engine: { default: null } })).toBe(
       "The Office default, as Shop has no Project default. Pick an engine to run this Task on its own.",
     );
   });
@@ -89,7 +92,7 @@ describe("the Task's Engine fold's words", () => {
     );
   });
 
-  it("takes the Project default, else the Office default on its engine's default model", () => {
+  it("takes the Project default's account, else the Office default's, on its engine's default model", () => {
     const settings: Pick<EngineSettings, "engines" | "officeDefault"> = {
       engines: [
         { ...WORK_ENGINE, id: "personal", name: "Personal", defaultModel: "claude-opus-5-5" },
@@ -98,11 +101,13 @@ describe("the Task's Engine fold's words", () => {
       officeDefault: { engineType: "claude-code", engineId: "work" },
     };
 
-    expect(projectEngineOf({ projectDefault: SONNET_ON_WORK }, settings)).toEqual(SONNET_ON_WORK);
-    expect(projectEngineOf({ projectDefault: null }, settings)).toEqual(HAIKU_ON_WORK);
-    expect(
-      projectEngineOf({ projectDefault: null }, { ...settings, officeDefault: null }),
-    ).toBeNull();
+    const personal = {
+      engine: { default: { engineType: "claude-code" as const, engineId: "personal" } },
+    };
+    const none = { engine: { default: null } };
+    expect(projectEngineOf(personal, settings)).toEqual(OPUS_ON_PERSONAL);
+    expect(projectEngineOf(none, settings)).toEqual(HAIKU_ON_WORK);
+    expect(projectEngineOf(none, { ...settings, officeDefault: null })).toBeNull();
     expect(projectEngineOf(undefined, undefined)).toBeNull();
   });
 });

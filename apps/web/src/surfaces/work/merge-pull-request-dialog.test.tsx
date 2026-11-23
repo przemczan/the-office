@@ -49,9 +49,7 @@ const PROJECT: Project = {
   environment: { set: [], unset: [], prependPath: [] },
   useProjectSkills: false,
   projectSkillsOff: [],
-  projectDefault: null,
-  useForEveryRole: false,
-  roleOverrides: [],
+  engine: { default: null, force: null, people: [] },
   runEnvironment: "not-decided",
   features: {
     "connected-devices": false,

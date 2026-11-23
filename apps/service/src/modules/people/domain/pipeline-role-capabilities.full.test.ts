@@ -9,6 +9,8 @@ import {
 
 const officeDefault = { engineId: "claude-code", model: "claude-sonnet-5-5" };
 const local = { engineId: "local", model: "gpt-oss" };
+const onLocal = { engineType: "openai-compatible-api", engineId: "local" } as const;
+const onClaudeCode = { engineType: "claude-code", engineId: "claude-code" } as const;
 
 /** "local" can't hold an answer to a schema or interrupt; every other engine can do everything. */
 function missingCapabilities(engineId: string): readonly EngineCapability[] {
@@ -16,12 +18,12 @@ function missingCapabilities(engineId: string): readonly EngineCapability[] {
 }
 
 function aProject(levels: Partial<ProjectCascadeLevels> = {}): ProjectCascadeLevels {
-  return { projectDefault: null, useForEveryRole: false, roleOverrides: [], ...levels };
+  return { default: null, force: null, people: [], ...levels };
 }
 
 describe("rolesOnIncapableEngines", () => {
   it("finds the Roles the cascade puts on an engine lacking what Agent Stages need", () => {
-    const project = aProject({ projectDefault: local });
+    const project = aProject({ default: onLocal });
 
     expect(
       rolesOnIncapableEngines(
@@ -36,31 +38,17 @@ describe("rolesOnIncapableEngines", () => {
     ]);
   });
 
-  it("weighs a Project's Role override over its default", () => {
+  it("weighs the force and the settings for people as models and efforts only, never engines", () => {
     const project = aProject({
-      projectDefault: local,
-      roleOverrides: [{ roleKey: "reviewer", ...officeDefault }],
+      default: onClaudeCode,
+      force: { model: "gpt-oss", effort: null },
+      people: [
+        { roleKey: "reviewer", engineSettings: { codex: { model: "gpt-6", effort: null } } },
+      ],
     });
 
     expect(
-      rolesOnIncapableEngines(
-        ["developer", "reviewer"],
-        officeDefault,
-        project,
-        missingCapabilities,
-      ),
-    ).toEqual([{ roleKey: "developer", engineId: "local", missing: ["outputSchema"] }]);
-  });
-
-  it("weighs a forced Project default as a model only, never an engine", () => {
-    const project = aProject({
-      projectDefault: local,
-      useForEveryRole: true,
-      roleOverrides: [{ roleKey: "reviewer", ...officeDefault }],
-    });
-
-    expect(
-      rolesOnIncapableEngines(["reviewer"], officeDefault, project, missingCapabilities),
+      rolesOnIncapableEngines(["developer", "reviewer"], local, project, missingCapabilities),
     ).toEqual([]);
   });
 
@@ -74,7 +62,7 @@ describe("rolesOnIncapableEngines", () => {
   });
 
   it("weighs a Task's engine over the Project's default", () => {
-    const project = aProject({ projectDefault: officeDefault });
+    const project = aProject({ default: onClaudeCode });
 
     expect(
       rolesOnIncapableEngines(["developer"], officeDefault, project, missingCapabilities, {

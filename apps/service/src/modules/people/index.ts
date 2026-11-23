@@ -20,6 +20,7 @@ export { DUTIES, type DutyHolding, type DutyKey } from "./domain/duties.js";
 export { DutyHolderChanged } from "./domain/duty-events.js";
 export {
   EngineCascade,
+  type EngineAtPlace,
   type EngineCascadeLocation,
   type EngineCascadeWork,
 } from "./application/engine-cascade.js";

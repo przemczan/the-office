@@ -14,6 +14,7 @@ import {
   DUTIES,
   permissionNarrowingProblems,
   PipelineRoleSources,
+  type EngineAtPlace,
   type EngineInCascade,
 } from "../../people/index.js";
 import {
@@ -153,8 +154,9 @@ export class StageRoleEnginesForTests extends StageRoleEngines {
 }
 
 /**
- * People's engine cascade as a test sets it: every Role on `officeDefault`, unless a test gives
- * the Role, or the Task, an engine with `set`. Every question asked is kept.
+ * People's engine cascade as a test sets it: every Task on `officeDefault`'s engine unless
+ * `setEngineFor` gives it another, and every Role working as `officeDefault` says unless `setFor`
+ * gives the Role, on every Task or one, how it works. Every question asked is kept.
  */
 @Injectable()
 export class RoleEngineCascadeForTests extends RoleEngineCascade {
@@ -168,11 +170,27 @@ export class RoleEngineCascadeForTests extends RoleEngineCascade {
     effortLevel: "engine",
   };
   readonly asked: { readonly roleKey: string; readonly place: TaskSessionPlace }[] = [];
+  readonly askedForEngine: TaskSessionPlace[] = [];
   private readonly set = new Map<string, EngineInCascade>();
+  private readonly engines = new Map<string, EngineAtPlace>();
 
   /** The Role runs on `engine` on every Task, or on the Task `taskId` only. */
   setFor(roleKey: string, engine: EngineInCascade, taskId?: string): void {
     this.set.set(JSON.stringify([roleKey, taskId ?? null]), engine);
+  }
+
+  /** Every session about the Task `taskId` runs on `engine`. */
+  setEngineFor(taskId: string, engine: EngineAtPlace): void {
+    this.engines.set(taskId, engine);
+  }
+
+  async engineAt(place: TaskSessionPlace): Promise<EngineAtPlace | null> {
+    this.askedForEngine.push(place);
+    const set = this.engines.get(place.taskId);
+    if (set) return set;
+    if (this.officeDefault === null) return null;
+    const { engineId, engineType, level } = this.officeDefault;
+    return { engineId, engineType, level };
   }
 
   async applying(roleKey: string, place: TaskSessionPlace): Promise<EngineInCascade | null> {

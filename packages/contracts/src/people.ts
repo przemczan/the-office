@@ -221,7 +221,6 @@ export const engineCascadeLevelSchema = z.enum([
   "project-default",
   "initiative-engine",
   "task-engine",
-  "project-role-override",
 ]);
 export type EngineCascadeLevel = z.infer<typeof engineCascadeLevelSchema>;
 
@@ -252,18 +251,36 @@ export const engineInCascadeSchema = engineModelSchema.extend({
 });
 export type EngineInCascade = z.infer<typeof engineInCascadeSchema>;
 
+/** The engine everyone in a place runs on, with the level that gave it. */
+export const placeEngineInCascadeSchema = z.object({
+  engineId: engineModelSchema.shape.engineId,
+  engineType: engineTypeSchema,
+  level: engineCascadeLevelSchema,
+});
+export type PlaceEngineInCascade = z.infer<typeof placeEngineInCascadeSchema>;
+
+/** The model and effort a person works with on the place's engine, each with the level that gave it. */
+export const workInCascadeSchema = engineInCascadeSchema.pick({
+  model: true,
+  effort: true,
+  modelLevel: true,
+  effortLevel: true,
+});
+export type WorkInCascade = z.infer<typeof workInCascadeSchema>;
+
 /**
- * GET /tasks/:id/engine-cascade: what the Planner and each Role the Task's Stages name run on for
- * the Task, with the model and effort each works with and the level that gave each; `engine` null
- * while no engine is listed. Planner first, then in the Stages' order, each Role once, with each of
- * its Stages that sets its own effort.
+ * GET /tasks/:id/engine-cascade: the one engine the Task's sessions run on, and the model and effort
+ * the Planner and each Role the Task's Stages name work with there, with the level that gave each;
+ * `engine` and each `work` null while no engine is listed. Planner first, then in the Stages' order,
+ * each Role once, with each of its Stages that sets its own effort.
  */
 export const taskEngineCascadeSchema = z.object({
+  engine: placeEngineInCascadeSchema.nullable(),
   people: z.array(
     z.object({
       roleKey: z.string(),
       roleName: z.string(),
-      engine: engineInCascadeSchema.nullable(),
+      work: workInCascadeSchema.nullable(),
       stages: z.array(z.object({ stageName: z.string(), effort: effortSchema })),
     }),
   ),

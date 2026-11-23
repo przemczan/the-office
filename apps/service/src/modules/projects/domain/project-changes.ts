@@ -1,5 +1,5 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
-import type { EngineModel } from "../../engine/index.js";
+import type { EngineRemoval } from "../../engine/index.js";
 import {
   DEFAULT_ISSUE_SETTINGS,
   type IssueSettings,
@@ -15,6 +15,7 @@ import {
   DEFAULT_PROJECT_LIMIT,
   INSTALL_COMMAND_KEY,
   installInputsProblems,
+  NO_PROJECT_ENGINE,
   markProblem,
   newProjectProblems,
   projectLimitProblem,
@@ -28,6 +29,8 @@ import {
   type Project,
   type ProjectCommand,
   type ProjectCommandFields,
+  type ProjectEngine,
+  type ProjectEnginePerson,
   type ProjectMark,
   type PublishingLine,
   type PublishingMode,
@@ -40,7 +43,6 @@ import {
   ProjectCommandAdded,
   ProjectCommandChanged,
   ProjectCommandRemoved,
-  ProjectDefaultChanged,
   ProjectDefaultPipelineChanged,
   ProjectFeaturesChanged,
   ProjectIssueSettingsChanged,
@@ -53,10 +55,9 @@ import {
   ProjectMarkChanged,
   ProjectPublishingModeChanged,
   ProjectDeleteMergedBranchesChanged,
-  ProjectRoleOverrideChanged,
+  ProjectEngineChanged,
   ProjectRunEnvironmentChanged,
   ProjectSkillUseChanged,
-  ProjectUseForEveryRoleChanged,
   ProjectUseProjectSkillsChanged,
 } from "./project-events.js";
 import {
@@ -77,6 +78,13 @@ import {
   sameFeatureSwitches,
   type ProjectFeatureSwitches,
 } from "./project-features.js";
+import {
+  engineTypeOffersOf,
+  forceOfferedBy,
+  sameProjectEngine,
+  type EngineTypeOffers,
+  type ProjectEngineChange,
+} from "./project-engine.js";
 import { ProjectRefused } from "./project-refused.js";
 import { proposedCommandsProblems, type ProposedCommands } from "./proposed-commands.js";
 
@@ -132,27 +140,27 @@ export function changeCommandsAsProposed(
 }
 
 /**
- * Moves the Project default and each Role override where `move` puts them, as the user removing
- * an engine moves them (spec §5.4), each with its own event; none when nothing names the engine.
- * Moved to none, with the only engine, the Project default takes "Use for every Role" with it.
+ * Moves the Project default naming the engine being removed to the replacement, which gives it its
+ * type (spec §5.4.5, "Removing an engine"); a forced model or effort a new type doesn't offer goes
+ * back to "Engine's default". Moved to none, with the only engine, the default and the force clear.
+ * People's settings name engine types, so they stay. None when the default names another engine.
  */
-export function moveEngineLevels(
-  project: Project,
-  move: (reference: EngineModel) => EngineModel | null,
-): ProjectChanges {
-  const { projectDefault } = project;
-  const movedDefault = projectDefault && move(projectDefault);
-  return changesInTurn(project, [
-    // A Project default moved to none takes "Use for every Role" with it.
-    (current) =>
-      projectDefault && movedDefault === null ? changeUseForEveryRole(current, false) : undefined,
-    (current) => (projectDefault ? changeProjectDefault(current, movedDefault) : undefined),
-    ...project.roleOverrides.map(
-      ({ roleKey, engineId, model }) =>
-        (current: Project) =>
-          changeRoleOverride(current, roleKey, move({ engineId, model })),
-    ),
-  ]);
+export function moveEngineLevels(project: Project, removal: EngineRemoval): ProjectChanges {
+  const { default: projectDefault, force } = project.engine;
+  if (projectDefault?.engineId !== removal.engineId) return asProjectChanges(project, undefined);
+  const { replacement } = removal;
+  const engine: ProjectEngine =
+    replacement === null
+      ? { ...project.engine, default: null, force: null }
+      : {
+          ...project.engine,
+          default: { engineType: replacement.kind, engineId: replacement.id },
+          force:
+            force && replacement.kind !== projectDefault.engineType
+              ? forceOfferedBy(force, replacement.kind, engineTypeOffersOf([replacement]))
+              : force,
+        };
+  return asProjectChanges(project, engineChange(project, engine));
 }
 
 /** Each change applied to the Project the one before left, kept together. */
@@ -190,9 +198,7 @@ export function addProject(
     environment: UNCHANGED_ENVIRONMENT,
     useProjectSkills: true,
     projectSkillsOff: [],
-    projectDefault: null,
-    useForEveryRole: false,
-    roleOverrides: [],
+    engine: NO_PROJECT_ENGINE,
     runEnvironment: "not-decided",
     runEnvironmentSetUpProblems: [],
     projectLimit: DEFAULT_PROJECT_LIMIT,
@@ -528,71 +534,65 @@ export function changeFeatures(
 }
 
 /**
- * Undefined when it is already the Project default. That the engine is listed and offers the model
- * is checked by the caller, which can ask the Engine module.
+ * Saves the Project page's Engine block (spec §5.4.5, "The API"): each level sent replaces the
+ * Project's, each left out stays. Refused for a force without a default engine type and for a
+ * person named twice or by no Role key; a person with nothing set on any type isn't kept. Clearing
+ * the default clears the force; a default changed to another type keeps the force on with what the
+ * new type doesn't offer, among `offers`, back to "Engine's default". That the engines are listed
+ * and offer what is set is checked by the caller (`projectEngineProblems`); that a Role is filled
+ * under a person's key is not, since People reads these levels and not the other way round.
+ * Undefined when nothing changes.
  */
-export function changeProjectDefault(
+export function changeProjectEngine(
   project: Project,
-  projectDefault: EngineModel | null,
-): ProjectChange<ProjectDefaultChanged> | undefined {
-  if (sameEngineModel(project.projectDefault, projectDefault)) return undefined;
-  if (projectDefault === null && project.useForEveryRole) {
-    throw new ProjectRefused([
-      'Turn off "Use for every Role" before leaving the Project without a default.',
-    ]);
+  change: ProjectEngineChange,
+  offers: EngineTypeOffers,
+): ProjectChange<ProjectEngineChanged> | undefined {
+  const stored = project.engine;
+  const projectDefault = change.default === undefined ? stored.default : change.default;
+  let force = change.force === undefined ? stored.force : change.force;
+  if (projectDefault === null) {
+    if (change.force !== undefined && change.force !== null) {
+      throw new ProjectRefused(["Pick an engine type first."]);
+    }
+    force = null;
+  } else if (
+    change.force === undefined &&
+    force !== null &&
+    projectDefault.engineType !== stored.default?.engineType
+  ) {
+    force = forceOfferedBy(force, projectDefault.engineType, offers);
   }
-  return {
-    project: { ...project, projectDefault },
-    event: new ProjectDefaultChanged(project.id, projectDefault),
-  };
+  const people = change.people === undefined ? stored.people : keptPeople(change.people);
+  return engineChange(project, { default: projectDefault, force, people });
 }
 
-/** Undefined when the Project default already is, or isn't, used for every Role. */
-export function changeUseForEveryRole(
-  project: Project,
-  useForEveryRole: boolean,
-): ProjectChange<ProjectUseForEveryRoleChanged> | undefined {
-  if (project.useForEveryRole === useForEveryRole) return undefined;
-  if (useForEveryRole && project.projectDefault === null) {
-    throw new ProjectRefused(["Choose a Project default before using it for every Role."]);
+/** The people sent, without those that set nothing; refused for a person named twice or by none. */
+function keptPeople(people: readonly ProjectEnginePerson[]): readonly ProjectEnginePerson[] {
+  const problems: string[] = [];
+  const seen = new Set<string>();
+  for (const { roleKey } of people) {
+    if (roleKey.trim() === "") {
+      problems.push("Each person's setting names its person.");
+    } else if (seen.has(roleKey)) {
+      problems.push(`"${roleKey}" is named twice.`);
+    }
+    seen.add(roleKey);
   }
-  return {
-    project: { ...project, useForEveryRole },
-    event: new ProjectUseForEveryRoleChanged(project.id, useForEveryRole),
-  };
+  if (problems.length > 0) throw new ProjectRefused([...new Set(problems)]);
+  return people.filter(({ engineSettings }) =>
+    Object.values(engineSettings).some(
+      (setting) => setting.model !== null || setting.effort !== null,
+    ),
+  );
 }
 
-/**
- * Sets the Role's override in the Project, or removes it when `roleOverride` is null; undefined
- * when that is already so. That the engine offers the model is checked by the caller; that a Role
- * is filled under `roleKey` is not, since People reads these levels and not the other way round.
- */
-export function changeRoleOverride(
+function engineChange(
   project: Project,
-  roleKey: string,
-  roleOverride: EngineModel | null,
-): ProjectChange<ProjectRoleOverrideChanged> | undefined {
-  if (roleKey.trim() === "") throw new ProjectRefused(["A Role override names its Role."]);
-  const current = project.roleOverrides.find((override) => override.roleKey === roleKey) ?? null;
-  if (sameEngineModel(current, roleOverride)) return undefined;
-  const others = project.roleOverrides.filter((override) => override.roleKey !== roleKey);
-  const roleOverrides =
-    roleOverride === null
-      ? others
-      : current === null
-        ? [...others, { roleKey, ...roleOverride }]
-        : project.roleOverrides.map((override) =>
-            override.roleKey === roleKey ? { roleKey, ...roleOverride } : override,
-          );
-  return {
-    project: { ...project, roleOverrides },
-    event: new ProjectRoleOverrideChanged(project.id, roleKey, roleOverride),
-  };
-}
-
-function sameEngineModel(first: EngineModel | null, second: EngineModel | null): boolean {
-  if (first === null || second === null) return first === second;
-  return first.engineId === second.engineId && first.model === second.model;
+  engine: ProjectEngine,
+): ProjectChange<ProjectEngineChanged> | undefined {
+  if (sameProjectEngine(project.engine, engine)) return undefined;
+  return { project: { ...project, engine }, event: new ProjectEngineChanged(project.id, engine) };
 }
 
 /** Undefined when the Project already does, or doesn't, use its own skills. */

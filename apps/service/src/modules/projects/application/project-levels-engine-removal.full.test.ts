@@ -7,7 +7,7 @@ import { EventsModule } from "../../../platform/events/events.module.js";
 import { OfficeDataModule } from "../../../platform/office-data/office-data.module.js";
 import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
-import { EngineReferenceMoves, FIRST_CLAUDE_CODE_ENGINE } from "../../engine/index.js";
+import { EngineReferenceMoves, FIRST_CLAUDE_CODE_ENGINE, type Engine } from "../../engine/index.js";
 import {
   EngineSettingsForTests,
   EngineSettingsRepository,
@@ -29,7 +29,19 @@ import { ProjectService } from "./project-service.js";
 // the Projects are in the shared database, so each test adds one of its own name.
 const suffix = randomUUID().slice(0, 8);
 const RACING = { ...FIRST_CLAUDE_CODE_ENGINE, id: `racing-${suffix}`, name: `Racing ${suffix}` };
-const ON_RACING = { engineId: RACING.id, model: "claude-haiku-5-5" };
+const CODEX: Engine = {
+  id: `codex-${suffix}`,
+  name: `Codex ${suffix}`,
+  kind: "codex",
+  defaultModel: "gpt-6-luna",
+  defaultEffort: null,
+  apiKey: null,
+};
+const ON_RACING = { default: { engineType: "claude-code", engineId: RACING.id } } as const;
+const CTO_ON_CLAUDE = {
+  roleKey: "cto",
+  engineSettings: { "claude-code": { model: "claude-opus-5-5", effort: "max" } },
+} as const;
 
 let repository: TemporaryRepository;
 let app: INestApplication;
@@ -59,7 +71,9 @@ beforeEach(async () => {
     overrides: [
       {
         provide: EngineSettingsRepository,
-        useValue: new EngineSettingsForTests({ engines: [FIRST_CLAUDE_CODE_ENGINE, RACING] }),
+        useValue: new EngineSettingsForTests({
+          engines: [FIRST_CLAUDE_CODE_ENGINE, RACING, CODEX],
+        }),
       },
     ],
   }));
@@ -100,8 +114,8 @@ function aProjectOfItsOwn(): Promise<Project> {
   });
 }
 
-function removeRacing(): Promise<unknown> {
-  return app.get(EngineSettingsService).remove(RACING.id, FIRST_CLAUDE_CODE_ENGINE.id);
+function removeRacing(replacementId = FIRST_CLAUDE_CODE_ENGINE.id): Promise<unknown> {
+  return app.get(EngineSettingsService).remove(RACING.id, replacementId);
 }
 
 /** A promise held until `release`, and one kept when something starts waiting on it. */
@@ -119,7 +133,7 @@ describe("a Project level saved while an engine is removed", () => {
     const hold = aHold();
     app.get(EngineLevelsChecks).register(async () => (await hold.wait(), []));
 
-    const saving = projects.changeProjectDefault(project.id, ON_RACING);
+    const saving = projects.changeEngine(project.id, ON_RACING);
     await hold.reached;
     let removed = false;
     const removing = removeRacing().then(() => (removed = true));
@@ -129,66 +143,75 @@ describe("a Project level saved while an engine is removed", () => {
     await saving;
     await removing;
 
-    expect((await projects.read(project.id)).projectDefault).toEqual({
+    expect((await projects.read(project.id)).engine.default).toEqual({
+      engineType: "claude-code",
       engineId: FIRST_CLAUDE_CODE_ENGINE.id,
-      model: "claude-haiku-5-5",
     });
   });
 
-  it("is refused when the removal started first, as a Project default and a Role override", async () => {
+  it("is refused when the removal started first", async () => {
     const project = await aProjectOfItsOwn();
     const hold = aHold();
     app.get(EngineReferenceMoves).register({ movesOf: async () => [], move: hold.wait });
 
     const removing = removeRacing();
     await hold.reached;
-    const settingDefault = projects.changeProjectDefault(project.id, ON_RACING);
-    const settingOverride = projects.changeRoleOverride(project.id, "developer", ON_RACING);
-    // Settled from now: the saves are refused while the removal still announces itself.
-    const saves = Promise.allSettled([settingDefault, settingOverride]);
+    // Settled from now: the save is refused while the removal still announces itself.
+    const saves = Promise.allSettled([projects.changeEngine(project.id, ON_RACING)]);
     hold.release();
     await removing;
 
     const noEngine = new ProjectRefused([`There is no engine "${RACING.id}".`]);
-    const refused = { status: "rejected", reason: noEngine };
-    expect(await saves).toEqual([refused, refused]);
-    const levels = await projects.engineLevelsOf(project.id);
-    expect(levels).toMatchObject({ projectDefault: null, roleOverrides: [] });
+    expect(await saves).toEqual([{ status: "rejected", reason: noEngine }]);
+    expect((await projects.engineLevelsOf(project.id)).default).toBeNull();
   });
 });
 
-describe("removing an engine a Project's levels name", () => {
-  it("previews the moves it then makes, the Project default and a Role override", async () => {
+describe("removing an engine a Project's default names", () => {
+  it("previews the move it then makes, the people's settings staying", async () => {
     const { id, name } = await aProjectOfItsOwn();
-    await projects.changeProjectDefault(id, ON_RACING);
-    await projects.changeRoleOverride(id, "developer", {
-      engineId: RACING.id,
-      model: "claude-opus-5-5",
-    });
+    await projects.changeEngine(id, { ...ON_RACING, people: [CTO_ON_CLAUDE] });
     const settings = app.get(EngineSettingsService);
 
     const preview = await settings.removalPreview(RACING.id, FIRST_CLAUDE_CODE_ENGINE.id);
     await removeRacing();
 
-    const moved = await projects.read(id);
-    const project = { id, name };
     expect(preview).toEqual({
       moves: [
-        { roleKey: null, project, work: null, from: ON_RACING, to: moved.projectDefault },
         {
-          roleKey: "developer",
-          project,
+          roleKey: null,
+          project: { id, name },
           work: null,
-          from: { engineId: RACING.id, model: "claude-opus-5-5" },
-          to: { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-opus-5-5" },
+          from: { engineId: RACING.id, model: RACING.defaultModel },
+          to: {
+            engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+            model: FIRST_CLAUDE_CODE_ENGINE.defaultModel,
+          },
         },
       ],
       problems: [],
     });
-    expect(moved.projectDefault).toEqual({
-      engineId: FIRST_CLAUDE_CODE_ENGINE.id,
-      model: "claude-haiku-5-5",
+    expect((await projects.read(id)).engine).toEqual({
+      default: { engineType: "claude-code", engineId: FIRST_CLAUDE_CODE_ENGINE.id },
+      force: null,
+      people: [CTO_ON_CLAUDE],
     });
-    expect(moved.roleOverrides).toEqual([expect.objectContaining(preview.moves[1]!.to)]);
+  });
+
+  it("gives the default the replacement's type, the forced model it doesn't offer back to the engine's default", async () => {
+    const { id } = await aProjectOfItsOwn();
+    await projects.changeEngine(id, {
+      ...ON_RACING,
+      force: { model: "claude-opus-5-5", effort: "high" },
+      people: [CTO_ON_CLAUDE],
+    });
+
+    await removeRacing(CODEX.id);
+
+    expect((await projects.read(id)).engine).toEqual({
+      default: { engineType: "codex", engineId: CODEX.id },
+      force: { model: null, effort: "high" },
+      people: [CTO_ON_CLAUDE],
+    });
   });
 });

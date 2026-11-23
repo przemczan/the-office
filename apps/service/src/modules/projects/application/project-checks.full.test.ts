@@ -374,26 +374,76 @@ describe("ProjectChecks.checkCommandRemoval", () => {
   });
 });
 
-describe("ProjectChecks.checkEngineModel", () => {
+describe("ProjectChecks.checkProjectEngine", () => {
   const engineId = FIRST_CLAUDE_CODE_ENGINE.id;
+  const NONE = { default: null, force: null, people: [] } as const;
+  const onClaude = { engineType: "claude-code", engineId } as const;
 
-  it("passes a listed engine with a model it offers", async () => {
+  it("passes a listed engine of its type with a force and people's settings its types offer", async () => {
     await expect(
-      checksWith().checkEngineModel({ engineId, model: "claude-haiku-5-5" }),
+      checksWith().checkProjectEngine(
+        {
+          default: onClaude,
+          force: { model: "claude-haiku-5-5", effort: "max" },
+          people: [
+            { roleKey: "cto", engineSettings: { "claude-code": { model: null, effort: "low" } } },
+          ],
+        },
+        NONE,
+      ),
     ).resolves.toBeUndefined();
   });
 
-  it("refuses an engine Settings › Engines doesn't list", async () => {
+  it("refuses an engine Settings › Engines doesn't list, or one of another type than the default's", async () => {
     expect(
       await reasonsOf(
-        checksWith().checkEngineModel({ engineId: "gone", model: "claude-haiku-5-5" }),
+        checksWith().checkProjectEngine(
+          { ...NONE, default: { engineType: "claude-code", engineId: "gone" } },
+          NONE,
+        ),
       ),
     ).toEqual(['There is no engine "gone".']);
+    expect(
+      await reasonsOf(
+        checksWith().checkProjectEngine(
+          { ...NONE, default: { engineType: "codex", engineId } },
+          NONE,
+        ),
+      ),
+    ).toEqual(["Claude Code isn't a Codex account."]);
   });
 
-  it("refuses a model the engine doesn't offer", async () => {
-    expect(await reasonsOf(checksWith().checkEngineModel({ engineId, model: "gpt-oss" }))).toEqual([
-      "Choose a model the engine offers.",
-    ]);
+  it("refuses a forced or a person's model or effort the type doesn't offer", async () => {
+    expect(
+      await reasonsOf(
+        checksWith().checkProjectEngine(
+          { ...NONE, default: onClaude, force: { model: "gpt-oss", effort: null } },
+          NONE,
+        ),
+      ),
+    ).toEqual(["Choose a model Claude Code offers."]);
+    expect(
+      await reasonsOf(
+        checksWith().checkProjectEngine(
+          {
+            ...NONE,
+            people: [
+              { roleKey: "cto", engineSettings: { codex: { model: "gpt-5.5", effort: "max" } } },
+            ],
+          },
+          NONE,
+        ),
+      ),
+    ).toEqual(["Choose a model Codex offers.", "Choose an effort Codex takes."]);
+  });
+
+  it("passes a person's setting for a type as it is stored, though no engine of the type is listed", async () => {
+    const people = [
+      { roleKey: "cto", engineSettings: { codex: { model: "gpt-5.5", effort: "high" } } },
+    ] as const;
+
+    await expect(
+      checksWith().checkProjectEngine({ ...NONE, people }, { ...NONE, people }),
+    ).resolves.toBeUndefined();
   });
 });

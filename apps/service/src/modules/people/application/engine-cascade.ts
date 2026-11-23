@@ -6,12 +6,14 @@ import {
   offeredModels,
   type Effort,
   type Engine,
+  type EngineKind,
 } from "../../engine/index.js";
 import {
   engineInCascade,
   roleEngineCascade,
   workInCascade,
   type EngineInCascade,
+  type EngineInPlace,
   type LandedEngine,
   type ProjectCascadeLevels,
   type RoleEngineCascade,
@@ -35,6 +37,11 @@ export interface EngineCascadeLocation {
 /** What a session brings to the model and effort cascade besides its place: a Stage's own effort. */
 export interface EngineCascadeWork {
   readonly stageEffort?: Effort | null;
+}
+
+/** The engine everyone in a place runs on, its type and the level that gave it. */
+export interface EngineAtPlace extends EngineInPlace {
+  readonly engineType: EngineKind;
 }
 
 /** Resolves both cascades (spec §5.4.5) for every session The Office starts. */
@@ -79,6 +86,25 @@ export class EngineCascade {
   }
 
   /**
+   * The one engine every session at `location` runs on, whatever its Role, with the level that gave
+   * it; none while no engine is listed.
+   */
+  async engineAt({
+    projectId,
+    taskId,
+    initiativeId,
+  }: EngineCascadeLocation = {}): Promise<EngineAtPlace | null> {
+    const project =
+      projectId === undefined ? undefined : await this.projects.engineLevelsOf(projectId);
+    const found = await this.inPlace(
+      await this.engineModels.engines(),
+      project,
+      await this.workLevels(taskId, initiativeId),
+    );
+    return found && { ...found.inPlace, engineType: found.engine.kind };
+  }
+
+  /**
    * What the Role `roleKey` works with outside any Project, and the Projects where something else
    * applies, as its card says. Throws RoleNotFound when nobody fills the Role.
    */
@@ -107,23 +133,32 @@ export class EngineCascade {
     },
   ): Promise<EngineInCascade | null> {
     const { project, work, stageEffort } = place;
-    const inPlace = engineInCascade(roleKey, {
-      officeDefault: await this.engineModels.officeDefault(),
-      project,
-      work,
-    });
-    const engine = inPlace && engines.find(({ id }) => id === inPlace.engineId);
-    if (!inPlace || !engine) return null;
-    const projectDefaultId = project?.projectDefault?.engineId;
+    const found = await this.inPlace(engines, project, work);
+    if (!found) return null;
+    const { inPlace, engine } = found;
     return workInCascade({
       roleKey,
       engine: landed(engine),
       inPlace,
       person,
       project,
-      projectDefaultType: engines.find(({ id }) => id === projectDefaultId)?.kind,
       stageEffort,
     });
+  }
+
+  /** The engine listed that everyone in the place runs on; none while no engine is listed. */
+  private async inPlace(
+    engines: readonly Engine[],
+    project: ProjectCascadeLevels | undefined,
+    work: WorkCascadeLevels | undefined,
+  ): Promise<{ readonly inPlace: EngineInPlace; readonly engine: Engine } | null> {
+    const inPlace = engineInCascade({
+      officeDefault: await this.engineModels.officeDefault(),
+      project,
+      work,
+    });
+    const engine = inPlace && engines.find(({ id }) => id === inPlace.engineId);
+    return inPlace && engine ? { inPlace, engine } : null;
   }
 
   private async workLevels(

@@ -1,7 +1,7 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { readEach } from "../../../platform/database/fan-out.js";
 import type { Effort } from "../../engine/index.js";
-import type { DutyKey, EngineInCascade } from "../../people/index.js";
+import type { DutyKey, EngineAtPlace, EngineInCascade } from "../../people/index.js";
 import { TaskEngineChecks, type TaskEngineChange } from "../../work/index.js";
 import { agentStageWorkers, stageWorker, type Stage } from "../domain/stage.js";
 import { KnownPeople } from "../ports/known-people.js";
@@ -20,16 +20,26 @@ export interface StageOwnEffort {
   readonly effort: Effort;
 }
 
+/** The model and effort a person works with on the Task's engine, each with the level that gave it. */
+export type TaskRoleWork = Pick<EngineInCascade, "model" | "effort" | "modelLevel" | "effortLevel">;
+
 /**
- * A person who works on a Task, the engine their sessions about the Task run on with the model and
- * effort they work with there, and each of the Task's Stages they work that sets its own effort.
+ * A person who works on a Task, the model and effort they work with on the Task's engine, and each
+ * of the Task's Stages they work that sets its own effort.
  */
 export interface TaskRoleEngine {
   readonly roleKey: string;
   readonly roleName: string;
   /** None while no engine is listed. */
-  readonly engine: EngineInCascade | null;
+  readonly work: TaskRoleWork | null;
   readonly stages: readonly StageOwnEffort[];
+}
+
+/** The one engine a Task's sessions run on (spec §5.4.5), and how each person works there. */
+export interface TaskEngines {
+  /** None while no engine is listed. */
+  readonly engine: EngineAtPlace | null;
+  readonly people: readonly TaskRoleEngine[];
 }
 
 /**
@@ -94,23 +104,27 @@ export class TaskRoleEngines implements OnModuleInit {
   }
 
   /**
-   * Whoever plans, then each Role the Task's Agent Stages name in the Stages' order, once each, a
-   * duty by its holder, with the Stages they work that set their own effort; a Role or duty nobody
-   * fills is left out. Undefined for no such Task.
+   * The Task's engine, resolved once, then whoever plans and each Role the Task's Agent Stages name
+   * in the Stages' order, once each, a duty by its holder, with the model and effort they work with
+   * there and the Stages they work that set their own effort; a Role or duty nobody fills is left
+   * out. Undefined for no such Task.
    */
-  async of(taskId: string): Promise<readonly TaskRoleEngine[] | undefined> {
+  async of(taskId: string): Promise<TaskEngines | undefined> {
     const task = await this.tasks.find(taskId);
     if (task === undefined) return undefined;
+    const place = { projectId: task.projectId, taskId };
     const working = await this.peopleWorking(taskId);
     const filled = await readEach([...working.keys()], async (roleKey) =>
       (await this.people.find(roleKey)) === undefined ? [] : [roleKey],
     );
-    return readEach(filled.flat(), async (roleKey) => ({
+    const engine = await this.cascade.engineAt(place);
+    const people = await readEach(filled.flat(), async (roleKey) => ({
       roleKey,
       roleName: this.people.roleTitle(roleKey),
-      engine: await this.cascade.applying(roleKey, { projectId: task.projectId, taskId }),
+      work: engine && workOf(await this.cascade.applying(roleKey, place)),
       stages: working.get(roleKey) ?? [],
     }));
+    return { engine, people };
   }
 
   /** Each person working on the Task, in order, with the Stages they work that set an effort. */
@@ -133,6 +147,12 @@ export class TaskRoleEngines implements OnModuleInit {
     }
     return working;
   }
+}
+
+function workOf(applying: EngineInCascade | null): TaskRoleWork | null {
+  if (applying === null) return null;
+  const { model, effort, modelLevel, effortLevel } = applying;
+  return { model, effort, modelLevel, effortLevel };
 }
 
 /** Who works the Stage: its Role, or its duty's holder; none for a Stage no Agent works. */

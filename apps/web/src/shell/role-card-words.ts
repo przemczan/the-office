@@ -200,7 +200,6 @@ export const ENGINE_CASCADE_LEVEL_WORDS: Readonly<Record<EngineCascadeLevel, str
   "project-default": "the Project default",
   "initiative-engine": "the Initiative's engine",
   "task-engine": "the Task's engine",
-  "project-role-override": "the Project's Role override",
 };
 
 /** Where a model or effort comes from, "from Pam's Role card", for the person named. */

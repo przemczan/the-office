@@ -25,6 +25,10 @@ import { DutyChangeChecks } from "./duty-change-checks.js";
 
 const officeDefault = { engineId: "claude-code", model: "claude-sonnet-5-5" };
 const local = { engineId: "local", model: "gpt-oss" };
+/** Local models as a Project default: an engine type and the account. */
+const localDefault = { engineType: "claude-code", engineId: "local" } as const;
+const claudeCodeDefault = { engineType: "claude-code", engineId: "claude-code" } as const;
+const noProjectLevels: ProjectCascadeLevels = { default: null, force: null, people: [] };
 const engines: readonly Engine[] = [
   {
     id: "claude-code",
@@ -74,17 +78,10 @@ const projectLevels = [
   {
     projectId: "admin-panel",
     projectName: "Admin panel",
-    projectDefault: local,
-    useForEveryRole: false,
-    roleOverrides: [],
+    ...noProjectLevels,
+    default: localDefault,
   },
-  {
-    projectId: "billing",
-    projectName: "Billing",
-    projectDefault: null,
-    useForEveryRole: false,
-    roleOverrides: [],
-  },
+  { projectId: "billing", projectName: "Billing", ...noProjectLevels },
 ];
 
 /** Projects a test adds after the two above. */
@@ -168,7 +165,7 @@ function dutyNamedByTheLibrary(duty: DutyKey): void {
 }
 
 function aSave(before: Partial<ProjectCascadeLevels>, after: Partial<ProjectCascadeLevels>) {
-  const levels = { projectDefault: null, useForEveryRole: false, roleOverrides: [] };
+  const levels = noProjectLevels;
   return {
     projectId: "admin-panel",
     projectName: "Admin panel",
@@ -178,55 +175,52 @@ function aSave(before: Partial<ProjectCascadeLevels>, after: Partial<ProjectCasc
 }
 
 describe("PipelineRoleCapabilityChecks on a save of a Project's levels", () => {
-  it("refuses a Project default that puts a Role a Pipeline names on an incapable engine", async () => {
-    await expect(check(aSave({}, { projectDefault: local }))).resolves.toEqual([
+  it("refuses a Project default's account that puts the Roles a Pipeline names on an incapable engine", async () => {
+    await expect(check(aSave({}, { default: localDefault }))).resolves.toEqual([
       "Local models can't use Office tools, which the Agent Stages of the Developer and the Reviewer need in Admin panel.",
     ]);
+    await expect(
+      check(aSave({ default: claudeCodeDefault }, { default: localDefault })),
+    ).resolves.toHaveLength(1);
   });
 
-  it("refuses a Project's Role override that puts a Role a Pipeline names on an incapable engine", async () => {
-    await expect(
-      check(aSave({}, { roleOverrides: [{ roleKey: "reviewer", ...local }] })),
-    ).resolves.toEqual([
-      "Local models can't use Office tools, which the Agent Stages of the Reviewer need in Admin panel.",
-    ]);
-  });
+  it("never weighs the force nor the settings for people, which name no engine", async () => {
+    const force = { model: "gpt-oss", effort: null };
+    const people = [
+      {
+        roleKey: "reviewer",
+        engineSettings: { "claude-code": { model: "gpt-oss", effort: null } },
+      },
+    ];
 
-  it("lets through Use for every Role, which gives a model and never moves a session to another engine", async () => {
     await expect(
-      check(
-        aSave(
-          { projectDefault: officeDefault },
-          { projectDefault: officeDefault, useForEveryRole: true },
-        ),
-      ),
+      check(aSave({ default: claudeCodeDefault }, { default: claudeCodeDefault, force, people })),
+    ).resolves.toEqual([]);
+    // Already on Local models: the force or a person's setting there newly puts no one on it.
+    await expect(
+      check(aSave({ default: localDefault }, { default: localDefault, force, people })),
     ).resolves.toEqual([]);
   });
 
-  it("lets through a Role no Pipeline names, and a Role already there", async () => {
-    const onLocal = [{ roleKey: "cto", ...local }];
-    const reviewerOnLocal = [{ roleKey: "reviewer", ...local }];
-
-    await expect(check(aSave({}, { roleOverrides: onLocal }))).resolves.toEqual([]);
+  it("lets through a Project default no Role a Pipeline names would run on, and one already there", async () => {
+    rolesNamed = { everywhere: new Set(), byProject: new Map() };
+    await expect(check(aSave({}, { default: localDefault }))).resolves.toEqual([]);
+    rolesNamed = { everywhere: new Set(["developer"]), byProject: new Map() };
     await expect(
-      check(
-        aSave(
-          { roleOverrides: reviewerOnLocal },
-          { roleOverrides: [...reviewerOnLocal, ...onLocal] },
-        ),
-      ),
+      check(aSave({ default: localDefault }, { default: { ...localDefault } })),
     ).resolves.toEqual([]);
   });
 
   it("counts an open Task's Roles in its own Project only", async () => {
-    const ctoOnLocal = { roleOverrides: [{ roleKey: "cto", ...local }] };
+    rolesNamed = { everywhere: new Set(), byProject: new Map() };
+    const onLocal = { default: localDefault };
 
     ctoNamedByATaskIn("admin-panel");
-    await expect(check(aSave({}, ctoOnLocal))).resolves.toEqual([
+    await expect(check(aSave({}, onLocal))).resolves.toEqual([
       "Local models can't use Office tools, which the Agent Stages of the Cto need in Admin panel.",
     ]);
     ctoNamedByATaskIn("billing");
-    await expect(check(aSave({}, ctoOnLocal))).resolves.toEqual([]);
+    await expect(check(aSave({}, onLocal))).resolves.toEqual([]);
   });
 });
 
@@ -239,9 +233,8 @@ describe("PipelineRoleCapabilityChecks on a save of Settings › Engines", () =>
       {
         projectId: "shop",
         projectName: "Shop",
-        projectDefault: null,
-        useForEveryRole: false,
-        roleOverrides: [{ roleKey: "reviewer", engineId: "spare", model: "claude-haiku-5-5" }],
+        ...noProjectLevels,
+        default: { engineType: "claude-code", engineId: "spare" },
       },
     ];
 
@@ -252,7 +245,7 @@ describe("PipelineRoleCapabilityChecks on a save of Settings › Engines", () =>
         removal: { engineId: "spare", replacement: engines[1]! },
       }),
     ).resolves.toEqual([
-      "Local models can't use Office tools, which the Agent Stages of the Reviewer need in Shop.",
+      "Local models can't use Office tools, which the Agent Stages of the Developer and the Reviewer need in Shop.",
     ]);
   });
 
@@ -355,15 +348,9 @@ describe("PipelineRoleCapabilityChecks on Roles a save of Stages newly names", (
     ).resolves.toEqual([]);
   });
 
-  it("weighs a Project's Role override", async () => {
+  it("weighs a Project default's account", async () => {
     moreProjects = [
-      {
-        projectId: "shop",
-        projectName: "Shop",
-        projectDefault: local,
-        useForEveryRole: false,
-        roleOverrides: [{ roleKey: "cto", ...officeDefault }],
-      },
+      { projectId: "shop", projectName: "Shop", ...noProjectLevels, default: claudeCodeDefault },
     ];
 
     await expect(
@@ -402,7 +389,7 @@ describe("PipelineRoleCapabilityChecks on Stages naming a duty", () => {
     dutyNamedByTheLibrary("reviews");
 
     // The Developer and the Reviewer, whom the library names too, are put there with the Cto.
-    await expect(check(aSave({}, { projectDefault: local }))).resolves.toEqual([
+    await expect(check(aSave({}, { default: localDefault }))).resolves.toEqual([
       expect.stringContaining("Cto"),
     ]);
   });
@@ -449,28 +436,11 @@ describe("PipelineRoleCapabilityChecks on a change of Tasks' engines", () => {
     ]);
   });
 
-  it("lets through a Role with a Project's Role override of its own, and a Role already there", async () => {
-    moreProjects = [
-      {
-        projectId: "shop",
-        projectName: "Shop",
-        projectDefault: null,
-        useForEveryRole: false,
-        roleOverrides: [{ roleKey: "developer", ...officeDefault }],
-      },
-    ];
-
+  it("lets through a Role already there", async () => {
     await expect(
       checks.workLevelsChangeProblems({
         place: "On “Fix the login”",
         tasks: [
-          {
-            projectId: "shop",
-            roleKeys: ["developer"],
-            dutyKeys: [],
-            before: noEngine,
-            after: { taskEngine: local, initiativeEngine: null },
-          },
           {
             projectId: "admin-panel",
             roleKeys: ["reviewer"],
@@ -679,10 +649,8 @@ describe("PipelineRoleCapabilityChecks on a save above a Task that sets an engin
   it("skips a Task in a Project the save leaves alone", async () => {
     aTaskOnLocalIn("billing");
 
-    await expect(
-      check(aSave({}, { roleOverrides: [{ roleKey: "developer", ...local }] })),
-    ).resolves.toEqual([
-      "Local models can't use Office tools, which the Agent Stages of the Developer need in Admin panel.",
+    await expect(check(aSave({}, { default: localDefault }))).resolves.toEqual([
+      "Local models can't use Office tools, which the Agent Stages of the Developer and the Reviewer need in Admin panel.",
     ]);
   });
 });

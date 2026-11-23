@@ -13,100 +13,87 @@ import {
 } from "./engine-cascade.js";
 
 const officeDefault = { engineId: "claude-code", model: "claude-sonnet-5-5" };
-const projectDefault = { engineId: "second-account", model: "claude-haiku-5-5" };
-const projectRoleOverride = { engineId: "local", model: "qwen3-coder" };
+const projectDefault = { engineType: "claude-code", engineId: "second-account" } as const;
 const taskEngine = { engineId: "codex", model: "gpt-6" };
 const initiativeEngine = { engineId: "gemini", model: "gemini-4-pro" };
 
 function aProject(levels: Partial<ProjectCascadeLevels> = {}): ProjectCascadeLevels {
-  return { projectDefault: null, useForEveryRole: false, roleOverrides: [], ...levels };
+  return { default: null, force: null, people: [], ...levels };
+}
+
+function forDeveloper(
+  engineSettings: ProjectCascadeLevels["people"][number]["engineSettings"],
+): ProjectCascadeLevels["people"] {
+  return [{ roleKey: "developer", engineSettings }];
 }
 
 describe("the engine cascade", () => {
-  it("runs on the Office default when no other level is set, naming no model of its own", () => {
-    const onOfficeDefault = { engineId: "claude-code", level: "office-default", placeModel: null };
+  it("runs on the Office default when no other level is set", () => {
+    const onOfficeDefault = { engineId: "claude-code", level: "office-default" };
 
-    expect(engineInCascade("developer", { officeDefault })).toEqual(onOfficeDefault);
-    expect(engineInCascade("developer", { officeDefault, project: aProject() })).toEqual(
-      onOfficeDefault,
-    );
+    expect(engineInCascade({ officeDefault })).toEqual(onOfficeDefault);
+    expect(engineInCascade({ officeDefault, project: aProject() })).toEqual(onOfficeDefault);
   });
 
-  it("takes the Project default over the Office default, with the model it named", () => {
+  it("takes the Project default's account over the Office default", () => {
     expect(
-      engineInCascade("developer", { officeDefault, project: aProject({ projectDefault }) }),
-    ).toEqual({
-      engineId: "second-account",
-      level: "project-default",
-      placeModel: "claude-haiku-5-5",
-    });
+      engineInCascade({ officeDefault, project: aProject({ default: projectDefault }) }),
+    ).toEqual({ engineId: "second-account", level: "project-default" });
   });
 
-  it("takes the Project's Role override over every other level, its own Role's only", () => {
+  it("puts everyone in the place on the same engine, whatever the Project sets for a person", () => {
     const project = aProject({
-      projectDefault,
-      useForEveryRole: true,
-      roleOverrides: [{ roleKey: "developer", ...projectRoleOverride }],
+      default: projectDefault,
+      force: { model: "claude-haiku-5-5", effort: null },
+      people: [
+        { roleKey: "developer", engineSettings: { codex: { model: "gpt-6", effort: null } } },
+      ],
     });
-    const work = { taskEngine, initiativeEngine };
 
-    expect(engineInCascade("developer", { officeDefault, project, work })).toEqual({
-      engineId: "local",
-      level: "project-role-override",
-      placeModel: null,
-    });
-    expect(engineInCascade("reviewer", { officeDefault, project })).toMatchObject({
+    expect(engineInCascade({ officeDefault, project })).toEqual({
       engineId: "second-account",
       level: "project-default",
     });
   });
 
   it("takes the Task's engine over the Initiative's, and the Initiative's over the Project default", () => {
-    const project = aProject({ projectDefault });
+    const project = aProject({ default: projectDefault });
 
     expect(
-      engineInCascade("developer", {
-        officeDefault,
-        project,
-        work: { taskEngine, initiativeEngine },
-      }),
-    ).toEqual({ engineId: "codex", level: "task-engine", placeModel: "gpt-6" });
+      engineInCascade({ officeDefault, project, work: { taskEngine, initiativeEngine } }),
+    ).toEqual({ engineId: "codex", level: "task-engine" });
     expect(
-      engineInCascade("developer", {
-        officeDefault,
-        work: { taskEngine: null, initiativeEngine },
-      }),
-    ).toEqual({ engineId: "gemini", level: "initiative-engine", placeModel: "gemini-4-pro" });
-    expect(
-      engineInCascade("developer", { officeDefault, project, work: NO_WORK_LEVELS }),
-    ).toMatchObject({ level: "project-default" });
+      engineInCascade({ officeDefault, project, work: { taskEngine: null, initiativeEngine } }),
+    ).toEqual({ engineId: "gemini", level: "initiative-engine" });
+    expect(engineInCascade({ officeDefault, project, work: NO_WORK_LEVELS })).toMatchObject({
+      level: "project-default",
+    });
   });
 
   it("gives none when no level is set, as while no engine is listed", () => {
-    expect(engineInCascade("developer", { officeDefault: null, project: aProject() })).toBeNull();
+    expect(engineInCascade({ officeDefault: null, project: aProject() })).toBeNull();
   });
 });
 
 describe("movedProjectLevels", () => {
-  it("drops levels moved to none, and the force with the Project default", () => {
-    const onClaudeCode = { engineId: "claude-code", model: "claude-opus-5-5" };
-    const project = aProject({
-      projectDefault,
-      useForEveryRole: true,
-      roleOverrides: [
-        { roleKey: "developer", ...projectRoleOverride },
-        { roleKey: "reviewer", ...onClaudeCode },
-      ],
-    });
-    const moved = movedProjectLevels(project, (reference) =>
-      reference.engineId === "claude-code" ? reference : null,
-    );
+  const force = { model: "claude-haiku-5-5", effort: "low" } as const;
+  const people = [
+    { roleKey: "developer", engineSettings: { "claude-code": { model: null, effort: "max" } } },
+  ] as const;
 
-    expect(moved).toEqual({
-      projectDefault: null,
-      useForEveryRole: false,
-      roleOverrides: [{ roleKey: "reviewer", ...onClaudeCode }],
-    });
+  it("moves the Project default, keeping the force and the settings for people", () => {
+    const moved = movedProjectLevels(aProject({ default: projectDefault, force, people }), () => ({
+      engineType: "codex",
+      engineId: "codex",
+    }));
+
+    expect(moved).toEqual({ default: { engineType: "codex", engineId: "codex" }, force, people });
+  });
+
+  it("drops the force with a Project default moved to none", () => {
+    expect(
+      movedProjectLevels(aProject({ default: projectDefault, force, people }), () => null),
+    ).toEqual({ default: null, force: null, people });
   });
 });
 
@@ -119,11 +106,8 @@ describe("the model and effort cascade", () => {
     models: ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"],
     efforts: ["low", "medium", "high", "xhigh", "max"],
   };
-  const onOfficeDefault: EngineInPlace = {
-    engineId: "claude-code",
-    level: "office-default",
-    placeModel: null,
-  };
+  const onOfficeDefault: EngineInPlace = { engineId: "claude-code", level: "office-default" };
+  const onClaudeCode = { ...projectDefault, engineId: "claude-code" };
 
   function working(levels: Partial<WorkInCascadeLevels> = {}): EngineInCascade {
     return workInCascade({
@@ -171,51 +155,117 @@ describe("the model and effort cascade", () => {
     });
   });
 
-  it("puts the model an earlier place level named below the person's", () => {
-    const onTask: EngineInPlace = {
-      engineId: "claude-code",
-      level: "task-engine",
-      placeModel: "claude-haiku-5-5",
-    };
+  it("names no model at an engine override: the person's setting for its type applies", () => {
+    expect(
+      working({
+        inPlace: { engineId: "claude-code", level: "task-engine" },
+        person: { "claude-code": { model: "claude-opus-5-5", effort: null } },
+      }),
+    ).toMatchObject({ level: "task-engine", model: "claude-opus-5-5", modelLevel: "person" });
+  });
 
-    expect(working({ inPlace: onTask })).toMatchObject({
-      level: "task-engine",
+  it("takes the Project's setting for the person over the person's own, each field apart", () => {
+    const person = { "claude-code": { model: "claude-opus-5-5", effort: "max" } } as const;
+
+    expect(
+      working({
+        person,
+        project: aProject({
+          people: forDeveloper({ "claude-code": { model: "claude-haiku-5-5", effort: null } }),
+        }),
+      }),
+    ).toMatchObject({
       model: "claude-haiku-5-5",
-      modelLevel: "engine",
+      modelLevel: "projectPerson",
+      effort: "max",
+      effortLevel: "person",
     });
     expect(
       working({
-        inPlace: onTask,
-        person: { "claude-code": { model: "claude-opus-5-5", effort: null } },
+        person,
+        project: aProject({
+          people: forDeveloper({ "claude-code": { model: null, effort: "low" } }),
+        }),
       }),
-    ).toMatchObject({ model: "claude-opus-5-5", modelLevel: "person" });
+    ).toMatchObject({
+      model: "claude-opus-5-5",
+      modelLevel: "person",
+      effort: "low",
+      effortLevel: "projectPerson",
+    });
   });
 
-  it("takes the Project's Role override's model over the person's", () => {
+  it("leaves the Project's setting for another person or another type out", () => {
+    const project = aProject({
+      people: [
+        {
+          roleKey: "reviewer",
+          engineSettings: { "claude-code": { model: "claude-haiku-5-5", effort: "low" } },
+        },
+        { roleKey: "developer", engineSettings: { codex: { model: "gpt-6", effort: "low" } } },
+      ],
+    });
+
+    expect(working({ project })).toMatchObject({ modelLevel: "engine", effortLevel: "engine" });
+  });
+
+  it("takes the force over the Project's setting for the person", () => {
+    expect(
+      working({
+        project: aProject({
+          default: onClaudeCode,
+          force: { model: "claude-haiku-5-5", effort: "low" },
+          people: forDeveloper({ "claude-code": { model: "claude-opus-5-5", effort: "max" } }),
+        }),
+      }),
+    ).toMatchObject({
+      model: "claude-haiku-5-5",
+      modelLevel: "projectForce",
+      effort: "low",
+      effortLevel: "projectForce",
+    });
+  });
+
+  it("forces the engine's default for a field the force leaves unset", () => {
+    expect(
+      working({
+        person: { "claude-code": { model: "claude-opus-5-5", effort: "max" } },
+        project: aProject({ default: onClaudeCode, force: { model: null, effort: null } }),
+      }),
+    ).toMatchObject({
+      model: "claude-sonnet-5-5",
+      modelLevel: "projectForce",
+      effort: "medium",
+      effortLevel: "projectForce",
+    });
+  });
+
+  it("forces only on the Project default's engine type", () => {
     expect(
       working({
         person: { "claude-code": { model: "claude-opus-5-5", effort: null } },
         project: aProject({
-          roleOverrides: [
-            { roleKey: "developer", engineId: "claude-code", model: "claude-haiku-5-5" },
-          ],
+          default: { engineType: "codex", engineId: "codex" },
+          force: { model: "gpt-6", effort: "low" },
         }),
       }),
-    ).toMatchObject({ model: "claude-haiku-5-5", modelLevel: "projectPerson" });
+    ).toMatchObject({ model: "claude-opus-5-5", modelLevel: "person", effortLevel: "engine" });
   });
 
-  it("forces Use for every Role's model only on its engine type", () => {
-    const project = aProject({ projectDefault, useForEveryRole: true });
-    const person = { "claude-code": { model: "claude-opus-5-5", effort: null } };
+  it("takes the Stage's effort over the force, unless the type doesn't take it", () => {
+    const project = aProject({ default: onClaudeCode, force: { model: null, effort: "low" } });
 
-    expect(working({ person, project, projectDefaultType: "claude-code" })).toMatchObject({
-      model: "claude-haiku-5-5",
-      modelLevel: "projectForce",
+    expect(working({ project, stageEffort: "xhigh" })).toMatchObject({
+      effort: "xhigh",
+      effortLevel: "stage",
     });
-    expect(working({ person, project, projectDefaultType: "codex" })).toMatchObject({
-      model: "claude-opus-5-5",
-      modelLevel: "person",
-    });
+    expect(
+      working({
+        project,
+        stageEffort: "max",
+        engine: { ...claudeCode, efforts: ["low", "medium", "high"] },
+      }),
+    ).toMatchObject({ effort: "low", effortLevel: "projectForce" });
   });
 
   it("takes the Stage's effort over the person's, unless the type doesn't take it", () => {
@@ -232,6 +282,18 @@ describe("the model and effort cascade", () => {
         engine: { ...claudeCode, efforts: ["low", "medium", "high"] },
       }),
     ).toMatchObject({ effort: "low", effortLevel: "person" });
+  });
+
+  it("gives an effort the type doesn't take way to the level below", () => {
+    expect(
+      working({
+        person: { "claude-code": { model: null, effort: "high" } },
+        project: aProject({
+          people: forDeveloper({ "claude-code": { model: null, effort: "max" } }),
+        }),
+        engine: { ...claudeCode, efforts: ["low", "medium", "high"] },
+      }),
+    ).toMatchObject({ effort: "high", effortLevel: "person" });
   });
 
   it("gives a model the engine doesn't offer way to the engine's default, naming it", () => {

@@ -1,15 +1,27 @@
 import { sql } from "drizzle-orm";
 import { boolean, check, integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import type { EngineKind } from "../../../engine/index.js";
 import type {
+  ModelEffort,
   ProjectCommand,
+  ProjectEnginePerson,
   ProjectMarkColour,
-  ProjectRoleOverride,
   PublishingMode,
   RunEnvironmentSetting,
 } from "../../domain/project.js";
 import type { IssueUser } from "../../domain/issue-settings.js";
 import type { StoredEnvironment } from "./stored-environment.js";
 import { NO_PROJECT_IMAGE, type ProjectImageVersions } from "../../domain/project-image.js";
+
+/**
+ * A Project's Role override as the release before the two cascades kept it (spec §5.4.5, "Moving
+ * the earlier engine settings over"): stored, unread, for a rollback.
+ */
+export interface EarlierProjectRoleOverride {
+  readonly roleKey: string;
+  readonly engineId: string;
+  readonly model: string;
+}
 
 /** A command as it is kept: one saved before re-run commands has none, read as blank. */
 export type StoredProjectCommand = Omit<ProjectCommand, "rerunCommandLine"> & {
@@ -48,12 +60,25 @@ export const projects = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'`),
-    /** The Project default: both set, or neither. */
+    /**
+     * The earlier engine levels, moved over by migration 0203 and kept, unread and unwritten, for a
+     * rollback to the release before; a later release drops them.
+     */
     projectDefaultEngineId: text("project_default_engine_id"),
     projectDefaultModel: text("project_default_model"),
     useForEveryRole: boolean("use_for_every_role").notNull().default(false),
     roleOverrides: jsonb("role_overrides")
-      .$type<readonly ProjectRoleOverride[]>()
+      .$type<readonly EarlierProjectRoleOverride[]>()
+      .notNull()
+      .default([]),
+    /** The Project default: both set, or neither ("Office's default"). */
+    engineDefaultType: text("engine_default_type").$type<EngineKind>(),
+    engineDefaultEngineId: text("engine_default_engine_id"),
+    /** Force this model and effort for everyone; null is off. */
+    engineForce: jsonb("engine_force").$type<ModelEffort>(),
+    /** The Project's setting for each person, at most one per Role key. */
+    enginePeople: jsonb("engine_people")
+      .$type<readonly ProjectEnginePerson[]>()
       .notNull()
       .default([]),
     runEnvironment: text("run_environment")
@@ -80,5 +105,11 @@ export const projects = pgTable(
     /** Only the feature switches the Project set; read through `featureSwitchesOfStored`. */
     features: jsonb("features").$type<Record<string, unknown>>().notNull().default({}),
   },
-  (table) => [check("projects_project_limit", sql`${table.projectLimit} > 0`)],
+  (table) => [
+    check("projects_project_limit", sql`${table.projectLimit} > 0`),
+    check(
+      "projects_engine_default",
+      sql`(${table.engineDefaultType} IS NULL) = (${table.engineDefaultEngineId} IS NULL)`,
+    ),
+  ],
 );

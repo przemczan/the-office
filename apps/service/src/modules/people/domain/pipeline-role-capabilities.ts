@@ -27,7 +27,7 @@ export interface RoleOnIncapableEngine {
 }
 
 /**
- * The Roles of `roleKeys` whose engine in the cascade, in `project` or in no Project, and on a Task or
+ * The Roles of `roleKeys` whose engine in the cascade, the one everyone in the place runs on, in `project` or in no Project, and on a Task or
  * an Initiative setting `work`, lacks a capability their Agent Stages need; a Role on no engine,
  * with none listed, lacks nothing here. `missingCapabilities` gives what an engine can't do.
  */
@@ -38,15 +38,14 @@ export function rolesOnIncapableEngines(
   missingCapabilities: (engineId: string) => readonly EngineCapability[],
   work: WorkCascadeLevels = NO_WORK_LEVELS,
 ): RoleOnIncapableEngine[] {
-  return [...roleKeys].flatMap((roleKey) => {
-    const applying = engineInCascade(roleKey, { officeDefault, project, work });
-    if (applying === null) return [];
-    const { engineId } = applying;
-    const missing = PIPELINE_ROLE_CAPABILITIES.filter((capability) =>
-      missingCapabilities(engineId).includes(capability),
-    );
-    return missing.length === 0 ? [] : [{ roleKey, engineId, missing }];
-  });
+  const applying = engineInCascade({ officeDefault, project, work });
+  if (applying === null) return [];
+  const { engineId } = applying;
+  const missing = PIPELINE_ROLE_CAPABILITIES.filter((capability) =>
+    missingCapabilities(engineId).includes(capability),
+  );
+  if (missing.length === 0) return [];
+  return [...roleKeys].map((roleKey) => ({ roleKey, engineId, missing }));
 }
 
 /** Those of `after` that `before` didn't hold: what a save would newly cause. */

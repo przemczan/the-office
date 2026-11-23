@@ -142,13 +142,11 @@ function TaskRunsOn({ task }: { readonly task: Task }): ReactNode {
           return (
             <li key={person.roleKey} className="work-engine-row">
               <span className="work-engine-row-name">{name}</span>
-              {person.engine ? (
+              {cascade.engine && person.work ? (
                 <span className="work-engine-row-what">
-                  <span className="work-engine-row-engine">
-                    {modelAndEffortText(person.engine)}
-                  </span>
+                  <span className="work-engine-row-engine">{modelAndEffortText(person.work)}</span>
                   <span className="work-engine-row-source">
-                    {workSourceText(person.engine, firstName)}
+                    {workSourceText(person.work, firstName)}
                   </span>
                   {person.stages.map(({ stageName, effort }) => (
                     <span key={stageName} className="work-engine-row-source here">

@@ -41,14 +41,17 @@ export function onEngine({ engineId, model }: EngineModel, engineName: EngineNam
 }
 
 /**
- * What a Project's Tasks run on while nothing more specific is set: its default, else the Office
- * default's account on that engine's own default model.
+ * What a Project's Tasks run on while nothing more specific is set: the account its default names,
+ * else the Office default's, on that engine's own default model.
  */
 export function projectEngineOf(
-  project: Pick<Project, "projectDefault"> | undefined,
+  project: { readonly engine: Pick<Project["engine"], "default"> } | undefined,
   engineSettings: Pick<EngineSettings, "engines" | "officeDefault"> | undefined,
 ): EngineModel | null {
-  return project?.projectDefault ?? officeDefaultEngineModel(engineSettings);
+  const engineId = project?.engine.default?.engineId;
+  const engine = engineSettings?.engines.find(({ id }) => id === engineId);
+  if (engine) return { engineId: engine.id, model: engine.defaultModel };
+  return officeDefaultEngineModel(engineSettings);
 }
 
 /** The Engine fold's summary: what the Task sets, else what it takes. */
@@ -79,12 +82,13 @@ export function taskNoneLabel(
 /** The hint under the Task's Engine field while it sets none. */
 export function taskNoneHint(
   task: Pick<Task, "initiativeEngine">,
-  project: Pick<Project, "name" | "projectDefault"> | undefined,
+  project:
+    (Pick<Project, "name"> & { readonly engine: Pick<Project["engine"], "default"> }) | undefined,
 ): string {
   const pick = "Pick an engine to run this Task on its own.";
   if (task.initiativeEngine) return `Set on its Initiative. ${pick}`;
   if (project === undefined) return pick;
-  return project.projectDefault
+  return project.engine.default
     ? `${project.name}'s Project default. ${pick}`
     : `The Office default, as ${project.name} has no Project default. ${pick}`;
 }

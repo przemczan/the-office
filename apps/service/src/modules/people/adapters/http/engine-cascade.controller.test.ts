@@ -19,7 +19,8 @@ import { KnownProjectLevels } from "../../ports/known-project-levels.js";
 import { WorkLevelsForTests } from "../../ports/known-work-levels.fixtures.js";
 import { ProjectLevelsSaves } from "../../ports/project-levels-saves.js";
 
-const haiku = { engineId: "claude-code", model: "claude-haiku-5-5" };
+/** The Project "forced" forces Haiku at low effort on Claude Code, its default's type. */
+const forced = { model: "claude-haiku-5-5", effort: "low" } as const;
 
 @Injectable()
 class TwoProjects implements KnownProjectLevels {
@@ -27,16 +28,16 @@ class TwoProjects implements KnownProjectLevels {
     {
       projectId: "forced",
       projectName: "Forced",
-      projectDefault: haiku,
-      useForEveryRole: true,
-      roleOverrides: [],
+      default: { engineType: "claude-code", engineId: "claude-code" },
+      force: forced,
+      people: [],
     },
     {
       projectId: "quiet",
       projectName: "Quiet",
-      projectDefault: null,
-      useForEveryRole: false,
-      roleOverrides: [],
+      default: null,
+      force: null,
+      people: [],
     },
   ];
 
@@ -100,12 +101,7 @@ describe("GET /api/roles/:key/engine-cascade", () => {
 
     const response = await fetch(`${url}/api/roles/${role.key}/engine-cascade`);
 
-    const onClaudeCode = {
-      engineId: "claude-code",
-      engineType: "claude-code",
-      effort: "high",
-      effortLevel: "person",
-    };
+    const onClaudeCode = { engineId: "claude-code", engineType: "claude-code" };
     expect(response.status).toBe(200);
     expect(roleEngineCascadeSchema.parse(await response.json())).toEqual({
       outsideProjects: {
@@ -113,14 +109,17 @@ describe("GET /api/roles/:key/engine-cascade", () => {
         model: "claude-opus-5-5",
         level: "office-default",
         modelLevel: "person",
+        effort: "high",
+        effortLevel: "person",
       },
       elsewhereInProjects: [
         {
           projectId: "forced",
           ...onClaudeCode,
-          model: haiku.model,
+          ...forced,
           level: "project-default",
           modelLevel: "projectForce",
+          effortLevel: "projectForce",
         },
       ],
     });

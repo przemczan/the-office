@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { FIRST_CLAUDE_CODE_ENGINE, type Engine } from "../../engine/index.js";
 import {
   addCommand,
   addProject,
@@ -10,12 +11,10 @@ import {
   changeInstallInputs,
   changeImage,
   changeMark,
-  changeProjectDefault,
+  changeProjectEngine,
   changeProjectLimit,
   changePublishingMode,
-  changeRoleOverride,
   changeRunEnvironment,
-  changeUseForEveryRole,
   changeProjectSkillUse,
   changeUseProjectSkills,
   finishRunEnvironmentSetUp,
@@ -27,21 +26,21 @@ import {
   ProjectCommandAdded,
   ProjectCommandChanged,
   ProjectCommandRemoved,
-  ProjectDefaultChanged,
   ProjectDefaultPipelineChanged,
+  ProjectEngineChanged,
   ProjectEnvironmentChanged,
   ProjectImageChanged,
   ProjectInstallCommandChanged,
   ProjectInstallInputsChanged,
   ProjectMarkChanged,
   ProjectPublishingModeChanged,
-  ProjectRoleOverrideChanged,
   ProjectRunEnvironmentChanged,
-  ProjectUseForEveryRoleChanged,
   ProjectSkillUseChanged,
   ProjectUseProjectSkillsChanged,
 } from "./project-events.js";
 import { aNewProject, aProject, startingCommands } from "./project.fixtures.js";
+import type { ProjectEngine } from "./project.js";
+import type { EngineTypeOffers } from "./project-engine.js";
 import { ProjectRefused } from "./project-refused.js";
 import type { ProposedCommands } from "./proposed-commands.js";
 
@@ -623,160 +622,194 @@ describe("changeProjectSkillUse", () => {
   });
 });
 
-const SONNET = { engineId: "claude-code", model: "claude-sonnet-5-5" };
-const HAIKU = { engineId: "claude-code", model: "claude-haiku-5-5" };
+const CLAUDE = { engineType: "claude-code", engineId: "claude-code" } as const;
+const CODEX = { engineType: "codex", engineId: "codex" } as const;
+/** Claude Code offers Sonnet and Opus at every effort, Codex gpt-5.5 at low to xhigh. */
+const OFFERS: EngineTypeOffers = (type) =>
+  type === "claude-code"
+    ? {
+        models: ["claude-sonnet-5-5", "claude-opus-5-5"],
+        efforts: ["low", "medium", "high", "xhigh", "max"],
+      }
+    : { models: ["gpt-5.5"], efforts: ["low", "medium", "high", "xhigh"] };
+const OPUS_ON_CLAUDE = {
+  roleKey: "cto",
+  engineSettings: { "claude-code": { model: "claude-opus-5-5", effort: "high" } },
+} as const;
 
-describe("changeProjectDefault", () => {
-  it("sets the Project default, clears it, and changes nothing when it already is", () => {
-    const change = changeProjectDefault(aProject(), SONNET);
+function withEngine(engine: Partial<ProjectEngine>) {
+  return aProject({ engine: { default: null, force: null, people: [], ...engine } });
+}
 
-    expect(change?.project.projectDefault).toEqual(SONNET);
-    expect(change?.event).toBeInstanceOf(ProjectDefaultChanged);
-    expect(change?.event).toMatchObject({ projectId: "admin-panel", projectDefault: SONNET });
+describe("changeProjectEngine", () => {
+  it("replaces each level sent, keeps each left out, and announces the levels with one event", () => {
+    const project = withEngine({ default: CLAUDE, people: [OPUS_ON_CLAUDE] });
+
+    const change = changeProjectEngine(project, { force: { model: null, effort: "max" } }, OFFERS);
+
+    expect(change?.project.engine).toEqual({
+      default: CLAUDE,
+      force: { model: null, effort: "max" },
+      people: [OPUS_ON_CLAUDE],
+    });
+    expect(change?.event).toBeInstanceOf(ProjectEngineChanged);
+    expect(change?.event).toMatchObject({
+      projectId: "admin-panel",
+      engine: change?.project.engine,
+    });
+  });
+
+  it("changes nothing when every level sent already is so", () => {
+    const project = withEngine({ default: CLAUDE, people: [OPUS_ON_CLAUDE] });
+
     expect(
-      changeProjectDefault(aProject({ projectDefault: SONNET }), { ...SONNET }),
+      changeProjectEngine(project, { default: { ...CLAUDE }, people: [OPUS_ON_CLAUDE] }, OFFERS),
     ).toBeUndefined();
-    expect(changeProjectDefault(aProject({ projectDefault: SONNET }), null)?.project).toEqual(
+    expect(changeProjectEngine(project, {}, OFFERS)).toBeUndefined();
+  });
+
+  it("refuses a force without a default engine type", () => {
+    expect(() =>
+      changeProjectEngine(aProject(), { force: { model: null, effort: null } }, OFFERS),
+    ).toThrow(new ProjectRefused(["Pick an engine type first."]));
+    expect(() =>
+      changeProjectEngine(
+        withEngine({ default: CLAUDE }),
+        { default: null, force: { model: "claude-opus-5-5", effort: null } },
+        OFFERS,
+      ),
+    ).toThrow(new ProjectRefused(["Pick an engine type first."]));
+  });
+
+  it("clears the force with the default", () => {
+    const forced = withEngine({
+      default: CLAUDE,
+      force: { model: "claude-opus-5-5", effort: null },
+    });
+
+    expect(changeProjectEngine(forced, { default: null }, OFFERS)?.project.engine).toEqual({
+      default: null,
+      force: null,
+      people: [],
+    });
+  });
+
+  it("keeps the force on through a change of type, with what the new type doesn't offer back to the engine's default", () => {
+    const forced = withEngine({
+      default: CLAUDE,
+      force: { model: "claude-opus-5-5", effort: "max" },
+    });
+
+    expect(changeProjectEngine(forced, { default: CODEX }, OFFERS)?.project.engine.force).toEqual({
+      model: null,
+      effort: null,
+    });
+    const offered = withEngine({ default: CLAUDE, force: { model: null, effort: "high" } });
+    expect(changeProjectEngine(offered, { default: CODEX }, OFFERS)?.project.engine.force).toEqual({
+      model: null,
+      effort: "high",
+    });
+  });
+
+  it("refuses a person named twice or by no Role key", () => {
+    expect(() =>
+      changeProjectEngine(aProject(), { people: [OPUS_ON_CLAUDE, OPUS_ON_CLAUDE] }, OFFERS),
+    ).toThrow(new ProjectRefused(['"cto" is named twice.']));
+    expect(() =>
+      changeProjectEngine(aProject(), { people: [{ ...OPUS_ON_CLAUDE, roleKey: " " }] }, OFFERS),
+    ).toThrow(new ProjectRefused(["Each person's setting names its person."]));
+  });
+
+  it("doesn't keep a person with nothing set on any type", () => {
+    const change = changeProjectEngine(
       aProject(),
+      {
+        people: [
+          OPUS_ON_CLAUDE,
+          { roleKey: "reviewer", engineSettings: { codex: { model: null, effort: null } } },
+          { roleKey: "writer", engineSettings: {} },
+        ],
+      },
+      OFFERS,
     );
-    expect(changeProjectDefault(aProject(), null)).toBeUndefined();
-  });
 
-  it("refuses to clear the default while it is used for every Role", () => {
-    const forced = aProject({ projectDefault: SONNET, useForEveryRole: true });
-
-    expect(() => changeProjectDefault(forced, null)).toThrow(
-      new ProjectRefused([
-        'Turn off "Use for every Role" before leaving the Project without a default.',
-      ]),
-    );
-    expect(changeProjectDefault(forced, HAIKU)?.project.projectDefault).toEqual(HAIKU);
-  });
-});
-
-describe("changeUseForEveryRole", () => {
-  it("forces the Project default on every Role, and changes nothing when it already is", () => {
-    const change = changeUseForEveryRole(aProject({ projectDefault: SONNET }), true);
-
-    expect(change?.project.useForEveryRole).toBe(true);
-    expect(change?.event).toBeInstanceOf(ProjectUseForEveryRoleChanged);
-    expect(change?.event).toMatchObject({ projectId: "admin-panel", useForEveryRole: true });
-    expect(changeUseForEveryRole(aProject(), false)).toBeUndefined();
-  });
-
-  it("refuses it without a Project default", () => {
-    expect(() => changeUseForEveryRole(aProject(), true)).toThrow(
-      new ProjectRefused(["Choose a Project default before using it for every Role."]),
-    );
+    expect(change?.project.engine.people).toEqual([OPUS_ON_CLAUDE]);
   });
 });
 
 describe("moveEngineLevels", () => {
-  const LOCAL = { engineId: "local", model: "gpt-oss" };
-  const toLocal = (reference: typeof SONNET) =>
-    reference.engineId === "claude-code" ? LOCAL : reference;
+  const CODEX_ENGINE: Engine = {
+    id: "codex",
+    name: "Codex",
+    kind: "codex",
+    defaultModel: "gpt-5.5",
+    defaultEffort: null,
+    apiKey: null,
+  };
+  const SECOND_CLAUDE: Engine = { ...FIRST_CLAUDE_CODE_ENGINE, id: "second", name: "Second" };
 
-  it("moves the Project default and each Role override naming the engine, each with its event", () => {
-    const project = aProject({
-      projectDefault: SONNET,
-      useForEveryRole: true,
-      roleOverrides: [
-        { roleKey: "cto", ...HAIKU },
-        { roleKey: "reviewer", engineId: "other", model: "m" },
-      ],
+  it("moves the Project default to the replacement, keeping the force on its type and the people", () => {
+    const project = withEngine({
+      default: CLAUDE,
+      force: { model: "claude-opus-5-5", effort: "max" },
+      people: [OPUS_ON_CLAUDE],
     });
 
-    const { project: moved, events } = moveEngineLevels(project, toLocal);
-
-    expect(moved).toEqual({
-      ...project,
-      projectDefault: LOCAL,
-      roleOverrides: [
-        { roleKey: "cto", ...LOCAL },
-        { roleKey: "reviewer", engineId: "other", model: "m" },
-      ],
+    const { project: moved, events } = moveEngineLevels(project, {
+      engineId: "claude-code",
+      replacement: SECOND_CLAUDE,
     });
-    expect(events.map((event) => event.constructor)).toEqual([
-      ProjectDefaultChanged,
-      ProjectRoleOverrideChanged,
-    ]);
+
+    expect(moved.engine).toEqual({
+      default: { engineType: "claude-code", engineId: "second" },
+      force: { model: "claude-opus-5-5", effort: "max" },
+      people: [OPUS_ON_CLAUDE],
+    });
     expect(events).toEqual([
-      expect.objectContaining({ projectId: "admin-panel", projectDefault: LOCAL }),
-      expect.objectContaining({ projectId: "admin-panel", roleKey: "cto", roleOverride: LOCAL }),
+      expect.objectContaining({ projectId: "admin-panel", engine: moved.engine }),
     ]);
   });
 
-  it("moves every level to none when the only engine goes, turning off the force first", () => {
-    const project = aProject({
-      projectDefault: SONNET,
-      useForEveryRole: true,
-      roleOverrides: [{ roleKey: "cto", ...HAIKU }],
+  it("gives the default the replacement's type, the forced model and effort it doesn't offer back to the engine's default", () => {
+    const project = withEngine({
+      default: CLAUDE,
+      force: { model: "claude-opus-5-5", effort: "max" },
+      people: [OPUS_ON_CLAUDE],
     });
 
-    const { project: moved, events } = moveEngineLevels(project, () => null);
-
-    expect(moved).toEqual({
-      ...project,
-      projectDefault: null,
-      useForEveryRole: false,
-      roleOverrides: [],
-    });
-    expect(events.map((event) => event.constructor)).toEqual([
-      ProjectUseForEveryRoleChanged,
-      ProjectDefaultChanged,
-      ProjectRoleOverrideChanged,
-    ]);
-  });
-
-  it("changes nothing when nothing names the engine", () => {
-    const project = aProject({ roleOverrides: [{ roleKey: "cto", ...LOCAL }] });
-
-    expect(moveEngineLevels(project, toLocal)).toEqual({ project, events: [] });
-  });
-});
-
-describe("changeRoleOverride", () => {
-  it("adds a Role's override, replaces it in place, and removes it", () => {
-    const added = changeRoleOverride(aProject(), "cto", SONNET);
-    expect(added?.project.roleOverrides).toEqual([{ roleKey: "cto", ...SONNET }]);
-    expect(added?.event).toBeInstanceOf(ProjectRoleOverrideChanged);
-    expect(added?.event).toMatchObject({
-      projectId: "admin-panel",
-      roleKey: "cto",
-      roleOverride: SONNET,
+    const { project: moved } = moveEngineLevels(project, {
+      engineId: "claude-code",
+      replacement: CODEX_ENGINE,
     });
 
-    const two = aProject({
-      roleOverrides: [
-        { roleKey: "cto", ...SONNET },
-        { roleKey: "reviewer", ...SONNET },
-      ],
-    });
-    expect(changeRoleOverride(two, "cto", HAIKU)?.project.roleOverrides).toEqual([
-      { roleKey: "cto", ...HAIKU },
-      { roleKey: "reviewer", ...SONNET },
-    ]);
-
-    const removed = changeRoleOverride(two, "cto", null);
-    expect(removed?.project.roleOverrides).toEqual([{ roleKey: "reviewer", ...SONNET }]);
-    expect(removed?.event).toBeInstanceOf(ProjectRoleOverrideChanged);
-    expect(removed?.event).toMatchObject({
-      projectId: "admin-panel",
-      roleKey: "cto",
-      roleOverride: null,
+    expect(moved.engine).toEqual({
+      default: CODEX,
+      force: { model: null, effort: null },
+      people: [OPUS_ON_CLAUDE],
     });
   });
 
-  it("changes nothing when the override already is so", () => {
-    const project = aProject({ roleOverrides: [{ roleKey: "cto", ...SONNET }] });
+  it("clears the default and the force when the only engine goes, keeping the people", () => {
+    const project = withEngine({
+      default: CLAUDE,
+      force: { model: null, effort: "high" },
+      people: [OPUS_ON_CLAUDE],
+    });
 
-    expect(changeRoleOverride(project, "cto", { ...SONNET })).toBeUndefined();
-    expect(changeRoleOverride(project, "reviewer", null)).toBeUndefined();
+    const { project: moved, events } = moveEngineLevels(project, {
+      engineId: "claude-code",
+      replacement: null,
+    });
+
+    expect(moved.engine).toEqual({ default: null, force: null, people: [OPUS_ON_CLAUDE] });
+    expect(events).toHaveLength(1);
   });
 
-  it("refuses an override that names no Role", () => {
-    expect(() => changeRoleOverride(aProject(), " ", SONNET)).toThrow(
-      new ProjectRefused(["A Role override names its Role."]),
-    );
+  it("changes nothing when the default names another engine", () => {
+    const project = withEngine({ default: CODEX, people: [OPUS_ON_CLAUDE] });
+
+    expect(
+      moveEngineLevels(project, { engineId: "claude-code", replacement: SECOND_CLAUDE }),
+    ).toEqual({ project, events: [] });
   });
 });

@@ -3,8 +3,8 @@ import { taskEngineCascadeSchema, type TaskEngineCascade } from "@the-office/con
 import { TaskRoleEngines } from "../../application/task-role-engines.js";
 
 /**
- * What the Task page's Engine block lists: the engine each person working on the Task lands on,
- * the model and effort they work with there, and the Stages that set their own effort.
+ * What the Task page's Engine block lists: the one engine the Task's sessions run on, the model and
+ * effort each person working on it works with there, and the Stages that set their own effort.
  */
 @Controller("tasks")
 export class TaskEngineCascadeController {
@@ -12,8 +12,8 @@ export class TaskEngineCascadeController {
 
   @Get(":id/engine-cascade")
   async read(@Param("id", ParseUUIDPipe) id: string): Promise<TaskEngineCascade> {
-    const people = await this.taskRoleEngines.of(id);
-    if (people === undefined) throw new NotFoundException(`There is no Task "${id}".`);
-    return taskEngineCascadeSchema.parse({ people });
+    const engines = await this.taskRoleEngines.of(id);
+    if (engines === undefined) throw new NotFoundException(`There is no Task "${id}".`);
+    return taskEngineCascadeSchema.parse(engines);
   }
 }

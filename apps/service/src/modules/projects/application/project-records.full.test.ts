@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { FIRST_CLAUDE_CODE_ENGINE, type EngineModels } from "../../engine/index.js";
 import type { ProjectMcpServerValues, ProjectServerValues } from "../../mcp-servers/index.js";
 import type { EnvironmentCheck } from "../domain/environment-check.js";
 import { aProject } from "../domain/project.fixtures.js";
@@ -51,6 +52,10 @@ function recordsOver(projects: Project[], surroundings: Surroundings = {}): Proj
   };
   const devices = new ProjectDeviceLines();
   devices.register((id) => Promise.resolve(surroundings.devices?.[id] ?? []));
+  const engines: Pick<EngineModels, "engines"> = {
+    engines: () =>
+      Promise.resolve([{ ...FIRST_CLAUDE_CODE_ENGINE, id: "claude", name: "Ann's Claude" }]),
+  };
   return new ProjectRecords(
     service as ProjectService,
     bases as BaseCheckouts,
@@ -59,6 +64,7 @@ function recordsOver(projects: Project[], surroundings: Surroundings = {}): Proj
     testTargets as TestTargetRepository,
     actions as ActionRepository,
     devices,
+    engines as EngineModels,
   );
 }
 
@@ -108,8 +114,9 @@ describe("ProjectRecords.of", () => {
         "- Variables to remove: none",
         "- Folders in front of PATH: none",
         "- Environment check: never run",
-        "- Project default engine: none, the Office default applies",
-        "- Role overrides: none",
+        "- Default engine: the Office's default",
+        "- Forced model and effort: none",
+        "- Model and effort per person: none",
         "- Project skills: used",
         "- Server values: none",
         "- Test targets: none",
@@ -133,9 +140,20 @@ describe("ProjectRecords.of", () => {
         unset: ["CI"],
         prependPath: ["/opt/tools"],
       },
-      projectDefault: { engineId: "claude", model: "sonnet" },
-      useForEveryRole: true,
-      roleOverrides: [{ roleKey: "cto", engineId: "claude", model: "opus" }],
+      engine: {
+        default: { engineType: "claude-code", engineId: "claude" },
+        force: { model: "claude-sonnet-5-5", effort: null },
+        people: [
+          {
+            roleKey: "cto",
+            engineSettings: {
+              "claude-code": { model: "claude-opus-5-5", effort: "high" },
+              codex: { model: null, effort: "low" },
+            },
+          },
+          { roleKey: "reviewer", engineSettings: { codex: { model: "gpt-5.5", effort: null } } },
+        ],
+      },
       projectSkillsOff: ["deploy"],
     });
     const records = recordsOver([project], {
@@ -183,8 +201,9 @@ describe("ProjectRecords.of", () => {
         "- Variables to remove: CI",
         "- Folders in front of PATH: /opt/tools",
         "- Environment check: failed, 2026-11-19T08:05:00.000Z; failed: test",
-        "- Project default engine: engine claude, model sonnet, used for every Role",
-        "- Role overrides: cto on engine claude, model opus",
+        "- Default engine: Claude Code, account Ann's Claude",
+        "- Forced model and effort: Claude Code: claude-sonnet-5-5 · Engine's default",
+        "- Model and effort per person: cto: Claude Code claude-opus-5-5 · high, Codex Person's setting · low; reviewer: Codex gpt-5.5 · Person's setting",
         "- Project skills: used, but off: deploy",
         "- Server values: sentry TOKEN: the Project's own secret value, sentry ORG: the Office-wide value, sentry REGION: the Project's own `eu`",
       ]),

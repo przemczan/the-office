@@ -53,8 +53,25 @@ const onTheTask = {
   effortLevel: "projectPerson",
 } as const;
 
+const officeDefaultWork = {
+  model: "claude-sonnet-5-5",
+  effort: null,
+  modelLevel: "engine",
+  effortLevel: "engine",
+} as const;
+
 describe("GET /api/tasks/:id/engine-cascade", () => {
-  it("lists whoever plans, then each person the Stages name once, in their order, each resolved on the Task", async () => {
+  it("gives the one engine the Task's sessions run on, resolved once", async () => {
+    pipelines.people.people.set("planner", aPerson("Pat"));
+    const taskId = await aTaskWith([anAgentStage("implement")]);
+    const onCodex = { engineId: "codex", engineType: "codex", level: "task-engine" } as const;
+    pipelines.cascade.setEngineFor(taskId, onCodex);
+
+    expect((await cascadeOf(taskId)).engine).toEqual(onCodex);
+    expect(pipelines.cascade.askedForEngine).toEqual([{ projectId: "billing", taskId }]);
+  });
+
+  it("lists whoever plans, then each person the Stages name once, in their order, each working as resolved on the Task", async () => {
     pipelines.people.people.set("planner", aPerson("Pat"));
     pipelines.people.people.set("reviewer", aPerson("Rae"));
     pipelines.people.titles.set("planner", "Planner");
@@ -68,20 +85,21 @@ describe("GET /api/tasks/:id/engine-cascade", () => {
     pipelines.cascade.setFor("developer", onTheTask, taskId);
 
     expect(await cascadeOf(taskId)).toEqual({
+      engine: { engineId: "claude-code", engineType: "claude-code", level: "office-default" },
       people: [
+        { roleKey: "planner", roleName: "Planner", work: officeDefaultWork, stages: [] },
+        { roleKey: "reviewer", roleName: "Reviewer", work: officeDefaultWork, stages: [] },
         {
-          roleKey: "planner",
-          roleName: "Planner",
-          engine: pipelines.cascade.officeDefault,
+          roleKey: "developer",
+          roleName: "Developer",
+          work: {
+            model: "gpt-6",
+            effort: "medium",
+            modelLevel: "person",
+            effortLevel: "projectPerson",
+          },
           stages: [],
         },
-        {
-          roleKey: "reviewer",
-          roleName: "Reviewer",
-          engine: pipelines.cascade.officeDefault,
-          stages: [],
-        },
-        { roleKey: "developer", roleName: "Developer", engine: onTheTask, stages: [] },
       ],
     });
     expect(pipelines.cascade.asked.map(({ place }) => place)).toEqual(
@@ -116,16 +134,17 @@ describe("GET /api/tasks/:id/engine-cascade", () => {
   it("leaves out a Role nobody fills, and whoever plans while nobody does", async () => {
     const taskId = await aTaskWith([anAgentStage("translate", { role: "translator" })]);
 
-    expect(await cascadeOf(taskId)).toEqual({ people: [] });
+    expect((await cascadeOf(taskId)).people).toEqual([]);
   });
 
-  it("gives none for an engine while no engine is listed", async () => {
+  it("gives no engine, and no one's work, while no engine is listed", async () => {
     pipelines.cascade.officeDefault = null;
     const taskId = await aTaskWith([anAgentStage("implement")]);
 
-    expect((await cascadeOf(taskId)).people).toEqual([
-      { roleKey: "developer", roleName: "developer", engine: null, stages: [] },
-    ]);
+    expect(await cascadeOf(taskId)).toEqual({
+      engine: null,
+      people: [{ roleKey: "developer", roleName: "developer", work: null, stages: [] }],
+    });
   });
 
   it("answers 404 for no such Task", async () => {

@@ -1,7 +1,7 @@
 import { isAbsolute, resolve } from "node:path";
 import { Injectable } from "@nestjs/common";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
-import { EngineModels, offeredModels, type EngineModel } from "../../engine/index.js";
+import { EngineModels } from "../../engine/index.js";
 import {
   defaultPipelineOwnerProblems,
   missingPipelineCommandsProblems,
@@ -17,7 +17,13 @@ import {
   trimmedNewProject,
   type NewProject,
   type Project,
+  type ProjectEngine,
 } from "../domain/project.js";
+import {
+  engineTypeOffersOf,
+  projectEngineProblems,
+  type EngineTypeOffers,
+} from "../domain/project-engine.js";
 import { environmentProblems, type ProjectEnvironment } from "../domain/project-environment.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import { CLONE_REMOTE, Git, type FolderInspection } from "../ports/git.js";
@@ -113,13 +119,18 @@ export class ProjectChecks {
     return problems.flat();
   }
 
-  /** Refuses an engine Settings › Engines doesn't list, or a model it doesn't offer. */
-  async checkEngineModel({ engineId, model }: EngineModel): Promise<void> {
-    const engine = await this.engines.find(engineId);
-    if (engine === undefined) throw new ProjectRefused([`There is no engine "${engineId}".`]);
-    if (!offeredModels(engine).includes(model)) {
-      throw new ProjectRefused(["Choose a model the engine offers."]);
-    }
+  /** What each engine type offers among the engines Settings › Engines lists now. */
+  async engineTypeOffers(): Promise<EngineTypeOffers> {
+    return engineTypeOffersOf(await this.engines.engines());
+  }
+
+  /**
+   * Refuses the Project's engine levels `after` with every reason they can't run on the engines
+   * listed now (`projectEngineProblems`), what `before` already has passing.
+   */
+  async checkProjectEngine(after: ProjectEngine, before: ProjectEngine): Promise<void> {
+    const problems = projectEngineProblems(after, before, await this.engines.engines());
+    if (problems.length > 0) throw new ProjectRefused(problems);
   }
 
   /**

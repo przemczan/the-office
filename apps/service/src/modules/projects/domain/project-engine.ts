@@ -1,0 +1,143 @@
+import {
+  effortsTakenBy,
+  ENGINE_TYPE_NAMES,
+  offeredModels,
+  type Effort,
+  type Engine,
+  type EngineKind,
+} from "../../engine/index.js";
+import type {
+  ModelEffort,
+  ProjectEngine,
+  ProjectEngineDefault,
+  ProjectEnginePerson,
+} from "./project.js";
+
+/** A save of the Project page's Engine block: a level sent replaces it, one left out stays. */
+export interface ProjectEngineChange {
+  readonly default?: ProjectEngineDefault | null;
+  readonly force?: ModelEffort | null;
+  readonly people?: readonly ProjectEnginePerson[];
+}
+
+/** What an engine type offers among the engines listed now: their models together, its efforts. */
+export type EngineTypeOffers = (type: EngineKind) => {
+  readonly models: readonly string[];
+  readonly efforts: readonly Effort[];
+};
+
+/** The lookup of what each engine type offers among `engines`, as the Role card's. */
+export function engineTypeOffersOf(engines: readonly Engine[]): EngineTypeOffers {
+  return (type) => ({
+    models: [
+      ...new Set(
+        engines.filter(({ kind }) => kind === type).flatMap((each) => offeredModels(each)),
+      ),
+    ],
+    efforts: effortsTakenBy(type),
+  });
+}
+
+/**
+ * Why the Project can't run on `after` with the engines listed now, in the spec's words (§5.4.5,
+ * "The API"): a default on an engine not listed or of another type than it names, a forced model
+ * or effort its type doesn't offer, a person's model or effort their type doesn't offer. What is
+ * already stored in `before` passes, so a setting for a type no engine is listed of can stay.
+ */
+export function projectEngineProblems(
+  after: ProjectEngine,
+  before: ProjectEngine,
+  engines: readonly Engine[],
+): string[] {
+  const offers = engineTypeOffersOf(engines);
+  const problems: string[] = [];
+  const { default: projectDefault, force } = after;
+  if (projectDefault !== null && !sameDefault(projectDefault, before.default)) {
+    const engine = engines.find(({ id }) => id === projectDefault.engineId);
+    if (engine === undefined) {
+      problems.push(`There is no engine "${projectDefault.engineId}".`);
+    } else if (engine.kind !== projectDefault.engineType) {
+      problems.push(
+        `${engine.name} isn't a ${ENGINE_TYPE_NAMES[projectDefault.engineType]} account.`,
+      );
+    }
+  }
+  if (projectDefault !== null && force !== null) {
+    const kept = before.default?.engineType === projectDefault.engineType ? before.force : null;
+    problems.push(...modelEffortProblems(projectDefault.engineType, force, kept, offers));
+  }
+  for (const { roleKey, engineSettings } of after.people) {
+    const stored = before.people.find((person) => person.roleKey === roleKey)?.engineSettings;
+    for (const [key, setting] of Object.entries(engineSettings)) {
+      const type = key as EngineKind;
+      problems.push(...modelEffortProblems(type, setting, stored?.[type] ?? null, offers));
+    }
+  }
+  return [...new Set(problems)];
+}
+
+/** A model or an effort `type` doesn't offer, each passing when it is what `kept` has. */
+function modelEffortProblems(
+  type: EngineKind,
+  { model, effort }: ModelEffort,
+  kept: ModelEffort | null,
+  offers: EngineTypeOffers,
+): string[] {
+  const offer = offers(type);
+  const name = ENGINE_TYPE_NAMES[type];
+  const problems: string[] = [];
+  if (model !== null && model !== kept?.model && !offer.models.includes(model)) {
+    problems.push(`Choose a model ${name} offers.`);
+  }
+  if (effort !== null && effort !== kept?.effort && !offer.efforts.includes(effort)) {
+    problems.push(`Choose an effort ${name} takes.`);
+  }
+  return problems;
+}
+
+/** The force with what `type` doesn't offer back to "Engine's default". */
+export function forceOfferedBy(
+  force: ModelEffort,
+  type: EngineKind,
+  offers: EngineTypeOffers,
+): ModelEffort {
+  const offer = offers(type);
+  return {
+    model: force.model !== null && offer.models.includes(force.model) ? force.model : null,
+    effort: force.effort !== null && offer.efforts.includes(force.effort) ? force.effort : null,
+  };
+}
+
+/** Whether two sets of the Project's engine levels are the same, setting for setting. */
+export function sameProjectEngine(first: ProjectEngine, second: ProjectEngine): boolean {
+  return (
+    sameDefault(first.default, second.default) &&
+    sameModelEffort(first.force, second.force) &&
+    first.people.length === second.people.length &&
+    first.people.every((person, index) => samePerson(person, second.people[index]!))
+  );
+}
+
+export function sameDefault(
+  first: ProjectEngineDefault | null,
+  second: ProjectEngineDefault | null,
+): boolean {
+  if (first === null || second === null) return first === second;
+  return first.engineType === second.engineType && first.engineId === second.engineId;
+}
+
+function sameModelEffort(first: ModelEffort | null, second: ModelEffort | null): boolean {
+  if (first === null || second === null) return first === second;
+  return first.model === second.model && first.effort === second.effort;
+}
+
+function samePerson(first: ProjectEnginePerson, second: ProjectEnginePerson): boolean {
+  const firstTypes = Object.keys(first.engineSettings) as EngineKind[];
+  return (
+    first.roleKey === second.roleKey &&
+    firstTypes.length === Object.keys(second.engineSettings).length &&
+    firstTypes.every((type) =>
+      sameModelEffort(first.engineSettings[type] ?? null, second.engineSettings[type] ?? null),
+    )
+  );
+}

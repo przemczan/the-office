@@ -7,7 +7,6 @@ export const ENGINE_CASCADE_LEVELS = [
   "project-default",
   "initiative-engine",
   "task-engine",
-  "project-role-override",
 ] as const;
 export type EngineCascadeLevel = (typeof ENGINE_CASCADE_LEVELS)[number];
 
@@ -24,15 +23,10 @@ export const WORK_CASCADE_LEVELS = [
 ] as const;
 export type WorkCascadeLevel = (typeof WORK_CASCADE_LEVELS)[number];
 
-/**
- * The engine a session runs on and the level that gave it. `placeModel` is the model an earlier
- * Project default, Task engine or Initiative engine named with it, which the person's own setting
- * wins over until the Projects' and Work's levels name no model.
- */
+/** The engine everyone in a place runs on, and the level that gave it. */
 export interface EngineInPlace {
   readonly engineId: EngineId;
   readonly level: EngineCascadeLevel;
-  readonly placeModel: string | null;
 }
 
 /**
@@ -49,37 +43,51 @@ export interface EngineInCascade extends EngineModel {
   readonly gaveWay?: string;
 }
 
-/** A Project's levels of the cascade, which the Projects module keeps. */
-export interface ProjectCascadeLevels {
-  readonly projectDefault: EngineModel | null;
-  /** "Use for every Role": the Project default's model for everyone on its engine type. */
-  readonly useForEveryRole: boolean;
-  readonly roleOverrides: readonly (EngineModel & { readonly roleKey: string })[];
+/** A Project default: an engine type and one of its accounts. */
+export interface ProjectDefaultEngine {
+  readonly engineType: EngineKind;
+  readonly engineId: EngineId;
+}
+
+/** A model and an effort, each null for "Engine's default" or the level below. */
+export interface ModelAndEffort {
+  readonly model: string | null;
+  readonly effort: Effort | null;
 }
 
 /**
- * The levels with the Project default and each Role override where `move` puts them; one moved to
- * none is dropped, and "Use for every Role" goes with the Project default.
+ * A Project's levels of both cascades, which the Projects module keeps (its `ProjectEngine`): the
+ * Project default, the force for everyone on the default's engine type, and its setting for each
+ * person per engine type.
+ */
+export interface ProjectCascadeLevels {
+  /** Null is "Office's default". */
+  readonly default: ProjectDefaultEngine | null;
+  /** Null is off; on only while `default` names an engine type. */
+  readonly force: ModelAndEffort | null;
+  readonly people: readonly {
+    readonly roleKey: string;
+    readonly engineSettings: PersonEngineSettings;
+  }[];
+}
+
+/**
+ * The levels with the Project default where `move` puts it; the force goes with a default moved to
+ * none, as it is on only while the default names an engine type. The settings for people name
+ * engine types, so they stay.
  */
 export function movedProjectLevels(
   levels: ProjectCascadeLevels,
-  move: (reference: EngineModel) => EngineModel | null,
+  move: (reference: ProjectDefaultEngine) => ProjectDefaultEngine | null,
 ): ProjectCascadeLevels {
-  const projectDefault = levels.projectDefault && move(levels.projectDefault);
-  return {
-    projectDefault,
-    useForEveryRole: levels.useForEveryRole && projectDefault !== null,
-    roleOverrides: levels.roleOverrides.flatMap((override) => {
-      const moved = move(override);
-      return moved ? [{ roleKey: override.roleKey, ...moved }] : [];
-    }),
-  };
+  const moved = levels.default && move(levels.default);
+  return { ...levels, default: moved, force: moved === null ? null : levels.force };
 }
 
 /**
  * The levels a Task or an Initiative sets, which the Work module keeps: a Task's engine, and the
  * engine of the Initiative it is in (or the Initiative's own, for its Threads). They take the
- * Project default's place (spec §5.4.5).
+ * Project default's place (spec §5.4.5); the model they still name is never read.
  */
 export interface WorkCascadeLevels {
   readonly taskEngine: EngineModel | null;
@@ -88,7 +96,7 @@ export interface WorkCascadeLevels {
 
 export const NO_WORK_LEVELS: WorkCascadeLevels = { taskEngine: null, initiativeEngine: null };
 
-/** What the engine cascade weighs for one Role: in no Project, only the Office level. */
+/** What the engine cascade weighs in a place: in no Project, only the Office level. */
 export interface EngineCascadeLevels {
   /** None only while no engine is listed. */
   readonly officeDefault: EngineModel | null;
@@ -98,24 +106,19 @@ export interface EngineCascadeLevels {
 }
 
 /**
- * Where a session of the Role `roleKey` runs: the most specific level set wins; none when no level
- * is, which happens only while no engine is listed, as the Office default is set whenever one is.
- * A Task's and an Initiative's engine take the Project default's place.
+ * Where every session in a place runs, whatever its Role: the most specific level set wins; none
+ * when no level is, which happens only while no engine is listed, as the Office default is set
+ * whenever one is. A Task's and an Initiative's engine take the Project default's place.
  */
-export function engineInCascade(
-  roleKey: string,
-  { officeDefault, project, work }: EngineCascadeLevels,
-): EngineInPlace | null {
-  const projectRoleOverride = project?.roleOverrides.find((each) => each.roleKey === roleKey);
-  if (projectRoleOverride) return at("project-role-override", projectRoleOverride, null);
-  if (work?.taskEngine) return at("task-engine", work.taskEngine, work.taskEngine.model);
-  if (work?.initiativeEngine) {
-    return at("initiative-engine", work.initiativeEngine, work.initiativeEngine.model);
-  }
-  if (project?.projectDefault) {
-    return at("project-default", project.projectDefault, project.projectDefault.model);
-  }
-  return officeDefault && at("office-default", officeDefault, null);
+export function engineInCascade({
+  officeDefault,
+  project,
+  work,
+}: EngineCascadeLevels): EngineInPlace | null {
+  if (work?.taskEngine) return at("task-engine", work.taskEngine);
+  if (work?.initiativeEngine) return at("initiative-engine", work.initiativeEngine);
+  if (project?.default) return at("project-default", project.default);
+  return officeDefault && at("office-default", officeDefault);
 }
 
 /** The engine a session landed on, as the model and effort cascade reads it. */
@@ -135,18 +138,21 @@ export interface WorkInCascadeLevels {
   readonly inPlace: EngineInPlace;
   readonly person: PersonEngineSettings;
   readonly project?: ProjectCascadeLevels;
-  /** The engine type of the Project default's engine, which "Use for every Role" holds to. */
-  readonly projectDefaultType?: EngineKind;
   /** The Stage's own effort, for a Stage run that sets one. */
   readonly stageEffort?: Effort | null;
 }
 
+/** A level's value, or "the engine's default" at that level, which a forced unset field is. */
+type LevelValue<Value> = Value | null | undefined | typeof ENGINE_DEFAULT;
+const ENGINE_DEFAULT = Symbol("engine's default");
+
 /**
  * The model and the effort the person works with on the engine they landed on, each from the most
- * specific level that sets it, least specific first: the engine's default, the model an earlier
- * place level named, the person's setting for the type, the Project's Role override, "Use for every
- * Role" on its engine type only, and the Stage's effort. A model the engine doesn't offer gives way
- * to its default, and an effort the type doesn't take to the level below.
+ * specific level that sets it, apart, least specific first: the engine's default, the person's
+ * setting for the type, the Project's setting for the person on the type, the Project's force on
+ * its default's engine type only (a field it leaves unset is the engine's default), and the
+ * Stage's effort. A model the engine doesn't offer gives way to its default, and an effort the type
+ * doesn't take to the level below.
  */
 export function workInCascade({
   roleKey,
@@ -154,31 +160,33 @@ export function workInCascade({
   inPlace,
   person,
   project,
-  projectDefaultType,
   stageEffort,
 }: WorkInCascadeLevels): EngineInCascade {
-  const setting = person[engine.kind];
-  const projectRoleOverride = project?.roleOverrides.find((each) => each.roleKey === roleKey);
+  const own = person[engine.kind];
+  const projectPerson = project?.people.find((each) => each.roleKey === roleKey)?.engineSettings[
+    engine.kind
+  ];
   const force =
-    project?.useForEveryRole && project.projectDefault && projectDefaultType === engine.kind
-      ? project.projectDefault
-      : undefined;
+    project?.force && project.default?.engineType === engine.kind ? project.force : undefined;
   const [modelLevel, model] = mostSpecific<string>(
     [
-      ["projectForce", force?.model],
-      ["projectPerson", projectRoleOverride?.model],
-      ["person", setting?.model],
-      ["engine", inPlace.placeModel],
+      ["projectForce", force && (force.model ?? ENGINE_DEFAULT)],
+      ["projectPerson", projectPerson?.model],
+      ["person", own?.model],
     ],
     () => true,
+    engine.defaultModel,
   ) ?? ["engine", engine.defaultModel];
   const givesWay = !engine.models.includes(model);
-  const [effortLevel, effort] = mostSpecific<Effort>(
+  const [effortLevel, effort] = mostSpecific<Effort | null>(
     [
       ["stage", stageEffort],
-      ["person", setting?.effort],
+      ["projectForce", force && (force.effort ?? ENGINE_DEFAULT)],
+      ["projectPerson", projectPerson?.effort],
+      ["person", own?.effort],
     ],
-    (each) => engine.efforts.includes(each),
+    (each) => each !== null && engine.efforts.includes(each),
+    engine.defaultEffort,
   ) ?? ["engine", engine.defaultEffort];
   return {
     engineId: engine.id,
@@ -192,12 +200,17 @@ export function workInCascade({
   };
 }
 
-/** The first level, most specific first, that sets a value `accepts` takes. */
+/**
+ * The first level, most specific first, that sets a value `accepts` takes, or that sets the
+ * engine's default, which is `engineDefault` and always taken.
+ */
 function mostSpecific<Value>(
-  levels: readonly (readonly [WorkCascadeLevel, Value | null | undefined])[],
+  levels: readonly (readonly [WorkCascadeLevel, LevelValue<Value>])[],
   accepts: (value: Value) => boolean,
+  engineDefault: Value,
 ): readonly [WorkCascadeLevel, Value] | undefined {
   for (const [level, value] of levels) {
+    if (value === ENGINE_DEFAULT) return [level, engineDefault];
     if (value !== null && value !== undefined && accepts(value)) return [level, value];
   }
   return undefined;
@@ -241,8 +254,7 @@ function sameWork(one: EngineInCascade, other: EngineInCascade | null): boolean 
 
 function at(
   level: EngineCascadeLevel,
-  { engineId }: EngineModel,
-  placeModel: string | null,
+  { engineId }: { readonly engineId: EngineId },
 ): EngineInPlace {
-  return { engineId, level, placeModel };
+  return { engineId, level };
 }

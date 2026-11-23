@@ -24,7 +24,7 @@ import {
   runEnvironmentSetUpAnswerSchema,
   testTargetListSchema,
   type AddProject,
-  type EngineModel,
+  type ProjectEngineChange,
   type EnvironmentCheck,
   type Mark,
   type Project,
@@ -449,36 +449,12 @@ export function importIssues(id: string, numbers: readonly number[]): Promise<Is
   );
 }
 
-/** The engine and model every Role in the Project runs on unless a more specific level wins; null clears it. */
-export function changeProjectDefault(
-  id: string,
-  projectDefault: EngineModel | null,
-): Promise<Project> {
-  return sendToApi("PUT", `${projectPath(id)}/project-default`, { projectDefault }, projectSchema);
-}
-
-/** The Project default wins over the Office-wide Role overrides, or doesn't. */
-export function changeUseForEveryRole(id: string, useForEveryRole: boolean): Promise<Project> {
-  return sendToApi(
-    "PUT",
-    `${projectPath(id)}/use-for-every-role`,
-    { useForEveryRole },
-    projectSchema,
-  );
-}
-
-/** The engine and model one Role runs on in the Project; null removes the override. */
-export function changeRoleOverride(
-  id: string,
-  roleKey: string,
-  roleOverride: EngineModel | null,
-): Promise<Project> {
-  return sendToApi(
-    "PUT",
-    `${projectPath(id)}/role-overrides/${encodeURIComponent(roleKey)}`,
-    { roleOverride },
-    projectSchema,
-  );
+/**
+ * Changes the Project's levels of the engine cascades (spec §5.4.5): a field sent replaces that level,
+ * a field left out keeps the Project's.
+ */
+export function changeProjectEngine(id: string, change: ProjectEngineChange): Promise<Project> {
+  return sendToApi("PUT", `${projectPath(id)}/engine`, change, projectSchema);
 }
 
 /** Sessions started from now on get the repository's own skills, or don't. */
@@ -574,9 +550,7 @@ export const projectEventInvalidations: Readonly<
   "project.default-pipeline-changed": () => [PROJECTS],
   "project.use-project-skills-changed": () => [PROJECTS],
   "project.skill-use-changed": () => [PROJECTS],
-  "project.project-default-changed": () => [PROJECTS, ENGINE_CASCADE],
-  "project.use-for-every-role-changed": () => [PROJECTS, ENGINE_CASCADE],
-  "project.role-override-changed": () => [PROJECTS, ENGINE_CASCADE],
+  "project.engine-changed": () => [PROJECTS, ENGINE_CASCADE],
   "project.issue-settings-changed": () => [PROJECTS],
   "project.features-changed": () => [PROJECTS],
   "project.issues-imported": () => [PROJECTS, OPEN_ISSUES],

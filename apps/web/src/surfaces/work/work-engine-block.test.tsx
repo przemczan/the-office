@@ -68,7 +68,7 @@ const SETTINGS = {
 const PROJECT = {
   id: "the-office",
   name: "The Office",
-  projectDefault: SONNET_ON_WORK,
+  engine: { default: { engineType: "claude-code", engineId: "work" }, force: null, people: [] },
 } as unknown as Project;
 
 const TASK: Task = {
@@ -118,14 +118,13 @@ const TASK: Task = {
 };
 
 const CASCADE: TaskEngineCascade = {
+  engine: { engineId: "work", engineType: "claude-code", level: "project-default" },
   people: [
     {
       roleKey: "planner",
       roleName: "Pam",
-      engine: {
-        ...SONNET_ON_WORK,
-        level: "project-default",
-        engineType: "claude-code",
+      work: {
+        model: SONNET_ON_WORK.model,
         effort: "high",
         modelLevel: "engine",
         effortLevel: "person",
@@ -135,10 +134,8 @@ const CASCADE: TaskEngineCascade = {
     {
       roleKey: "developer",
       roleName: "Dwight",
-      engine: {
-        ...OPUS_ON_PERSONAL,
-        level: "project-default",
-        engineType: "claude-code",
+      work: {
+        model: OPUS_ON_PERSONAL.model,
         effort: "medium",
         modelLevel: "person",
         effortLevel: "person",

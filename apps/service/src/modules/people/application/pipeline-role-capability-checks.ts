@@ -4,7 +4,6 @@ import {
   EngineModels,
   EngineSessions,
   EngineSettingsChecks,
-  movedEngineModel,
   type Engine,
   type EngineCapability,
   type EngineModel,
@@ -13,6 +12,7 @@ import {
 import {
   movedProjectLevels,
   type ProjectCascadeLevels,
+  type ProjectDefaultEngine,
   type ProjectWithCascadeLevels,
   type WorkCascadeLevels,
 } from "../domain/engine-cascade.js";
@@ -172,13 +172,17 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
     );
   }
 
-  /** Only the saved Project's sessions change, so only it is weighed. */
+  /**
+   * Only the saved Project's sessions change, so only it is weighed; and only its default's account
+   * names an engine, so a save leaving it as it is (the force, the settings for people) never is.
+   */
   async projectLevelsSaveProblems({
     projectId,
     projectName,
     before,
     after,
   }: ProjectLevelsSave): Promise<readonly string[]> {
+    if (before.default?.engineId === after.default?.engineId) return [];
     const office = await this.officeCascadeNow();
     return this.newlyIncapableProblems(office, office, [{ projectId, projectName, before, after }]);
   }
@@ -196,8 +200,11 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
     removal,
   }: EngineSettingsSave): Promise<readonly string[]> {
     const office = await this.officeCascadeNow();
-    const move = (reference: EngineModel) =>
-      removal ? movedEngineModel(reference, removal) : reference;
+    const move = (reference: ProjectDefaultEngine): ProjectDefaultEngine | null => {
+      if (!removal || reference.engineId !== removal.engineId) return reference;
+      const { replacement } = removal;
+      return replacement && { engineType: replacement.kind, engineId: replacement.id };
+    };
     return this.newlyIncapableProblems(
       { ...office, officeDefault: before.officeDefault, engines: before.engines },
       { ...office, officeDefault: after.officeDefault, engines: after.engines },

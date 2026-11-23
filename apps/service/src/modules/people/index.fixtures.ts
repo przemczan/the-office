@@ -37,9 +37,10 @@ export type StandInWork = EngineModel &
 /**
  * The engine cascade as a test sets it, for tests that stand in for People: every Role runs on
  * `officeDefault` unless `set` gave it, or it in one Project, an engine and model of its own, or
- * `setForTask` or `setForInitiative` gave the Task or the Initiative a session is about one. Levels
- * win as the cascade's do: the Project's Role override, then what `set` gave everywhere, the Task's
- * engine, the Initiative's, the Office default (it has no Project default). Every engine is a
+ * `setForTask` or `setForInitiative` gave the Task or the Initiative a session is about one. Unlike
+ * the cascade, where everyone in a place runs on one engine, a Role may be set apart: what `set`
+ * gave it in the Project (at the Project default's level), then what `set` gave it everywhere, the
+ * Task's engine, the Initiative's, the Office default. Every engine is a
  * Claude Code one unless `set` says otherwise; the effort is `effort` unless `set` or a Stage's own
  * effort says otherwise. Every location asked is kept in `asked`, for a test to check where a
  * session resolved the cascade.
@@ -113,7 +114,7 @@ export class EngineCascadeStandIn implements Pick<EngineCascade, "of" | "applyin
   ): { readonly at: StandInWork; readonly level: EngineCascadeLevel } | null {
     const inProject =
       projectId === undefined ? undefined : this.overrides.get(keyOf(roleKey, projectId));
-    if (inProject) return { at: inProject, level: "project-role-override" };
+    if (inProject) return { at: inProject, level: "project-default" };
     const everywhere = this.overrides.get(keyOf(roleKey, undefined));
     if (everywhere) return { at: everywhere, level: "office-default" };
     const task = taskId === undefined ? undefined : this.tasks.get(taskId);

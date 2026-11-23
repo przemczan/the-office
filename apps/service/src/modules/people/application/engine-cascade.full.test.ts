@@ -27,7 +27,8 @@ import { RoleCards, type SessionRole } from "./role-cards.js";
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../index.fixtures.js";
 
 const officeDefault = { engineId: "claude-code", model: "claude-sonnet-5-5" };
-const projectDefault = { engineId: "claude-code", model: "claude-haiku-5-5" };
+const projectDefault = { engineType: "claude-code", engineId: "claude-code" } as const;
+const forcedModel = "claude-haiku-5-5";
 const taskEngine = { engineId: "codex", model: "gpt-6-luna" };
 const initiativeEngine = { engineId: "gemini", model: "pro" };
 const codex: Engine = {
@@ -55,12 +56,13 @@ const onOfficeDefault = {
   effort: null,
   effortLevel: "engine",
 } as const;
-/** Where the Project's force puts every person on Claude Code. */
+/** Where the Project's force puts every person on Claude Code: its model, the engine's default effort. */
 const forcedInTheProject = {
   ...onOfficeDefault,
-  model: projectDefault.model,
+  model: forcedModel,
   level: "project-default",
   modelLevel: "projectForce",
+  effortLevel: "projectForce",
 } as const;
 
 /** The Task "the-task" sets its own engine and is in "the-initiative", which sets another. */
@@ -102,21 +104,28 @@ async function cascadeWith(
     },
   };
   const forcedProject: ProjectCascadeLevels = {
-    projectDefault,
-    useForEveryRole: true,
-    roleOverrides: [],
+    default: projectDefault,
+    force: { model: forcedModel, effort: null },
+    people: [],
+  };
+  const quietProject: ProjectCascadeLevels = { default: null, force: null, people: [] };
+  const personProject: ProjectCascadeLevels = {
+    default: null,
+    force: null,
+    people: [
+      { roleKey: "developer", engineSettings: { "claude-code": { model: null, effort: "low" } } },
+    ],
+  };
+  const byId: Readonly<Record<string, ProjectCascadeLevels>> = {
+    "the-project": forcedProject,
+    "a-quiet-project": quietProject,
+    "a-person-project": personProject,
   };
   const projects: KnownProjectLevels = {
-    engineLevelsOf: async () => forcedProject,
+    engineLevelsOf: async (projectId) => byId[projectId] ?? quietProject,
     engineLevelsOfEveryProject: async (): Promise<readonly ProjectWithCascadeLevels[]> => [
       { projectId: "the-project", projectName: "The project", ...forcedProject },
-      {
-        projectId: "a-quiet-project",
-        projectName: "A quiet project",
-        projectDefault: null,
-        useForEveryRole: false,
-        roleOverrides: [],
-      },
+      { projectId: "a-quiet-project", projectName: "A quiet project", ...quietProject },
     ],
   };
   const moduleRef = await Test.createTestingModule({
@@ -162,16 +171,47 @@ describe("EngineCascade", () => {
     });
   });
 
-  it("weighs the Project's levels in a Project", async () => {
+  it("weighs the Project's force over the person's settings in a Project", async () => {
     const cascade = await cascadeWith({
       "claude-code": { model: "claude-opus-5-5", effort: "high" },
     });
 
-    await expect(cascade.of("developer", { projectId: "the-project" })).resolves.toEqual({
-      ...forcedInTheProject,
-      effort: "high",
-      effortLevel: "person",
+    await expect(cascade.of("developer", { projectId: "the-project" })).resolves.toEqual(
+      forcedInTheProject,
+    );
+  });
+
+  it("weighs the Project's setting for the person over the person's own", async () => {
+    const cascade = await cascadeWith({
+      "claude-code": { model: "claude-opus-5-5", effort: "high" },
     });
+
+    await expect(cascade.of("developer", { projectId: "a-person-project" })).resolves.toEqual({
+      ...onOfficeDefault,
+      model: "claude-opus-5-5",
+      modelLevel: "person",
+      effort: "low",
+      effortLevel: "projectPerson",
+    });
+  });
+
+  it("resolves the one engine a place runs on, whatever the Role", async () => {
+    const cascade = await cascadeWith({});
+
+    await expect(cascade.engineAt()).resolves.toEqual({
+      engineId: "claude-code",
+      engineType: "claude-code",
+      level: "office-default",
+    });
+    await expect(cascade.engineAt({ projectId: "the-project" })).resolves.toEqual({
+      engineId: "claude-code",
+      engineType: "claude-code",
+      level: "project-default",
+    });
+    await expect(
+      cascade.engineAt({ projectId: "the-project", taskId: "the-task" }),
+    ).resolves.toEqual({ engineId: "codex", engineType: "codex", level: "task-engine" });
+    await expect((await cascadeWith({}, null)).engineAt()).resolves.toBeNull();
   });
 
   it("weighs a Task's engine, and its Initiative's, in the Project default's place, the force on its type only", async () => {
@@ -181,7 +221,8 @@ describe("EngineCascade", () => {
     await expect(
       cascade.of("developer", { projectId: "the-project", taskId: "the-task" }),
     ).resolves.toEqual({
-      ...taskEngine,
+      engineId: "codex",
+      model: codex.defaultModel,
       level: "task-engine",
       engineType: "codex",
       modelLevel: "engine",
@@ -191,7 +232,8 @@ describe("EngineCascade", () => {
     await expect(
       cascade.of("developer", { projectId: "the-project", initiativeId: "the-initiative" }),
     ).resolves.toEqual({
-      ...initiativeEngine,
+      engineId: "gemini",
+      model: gemini.defaultModel,
       level: "initiative-engine",
       engineType: "gemini-cli",
       modelLevel: "engine",
@@ -214,7 +256,7 @@ describe("EngineCascade", () => {
 
     await expect(
       cascade.of("developer", { taskId: "the-task", initiativeId: "the-initiative" }),
-    ).resolves.toMatchObject({ ...taskEngine, level: "task-engine" });
+    ).resolves.toMatchObject({ engineId: taskEngine.engineId, level: "task-engine" });
     expect(work.asked).toEqual([{ taskId: "the-task" }]);
   });
 

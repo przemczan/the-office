@@ -1,10 +1,11 @@
 import type {
+  ProjectEngine as ProjectEngineResponse,
   ProjectEnvironment as ProjectEnvironmentResponse,
   Project as ProjectResponse,
   ProjectImageVersions as ProjectImageVersionsResponse,
 } from "@the-office/contracts";
 import { defaultPipelineOfKind } from "../../domain/kind-default-pipeline.js";
-import type { Project } from "../../domain/project.js";
+import type { Project, ProjectEngine } from "../../domain/project.js";
 import { featureStatesOf } from "../../domain/project-features.js";
 import type { ProjectImageVersions } from "../../domain/project-image.js";
 import { shownEnvironment, type ProjectEnvironment } from "../../domain/project-environment.js";
@@ -44,13 +45,7 @@ export function toProjectResponse(project: Project, codeHost: string | null): Pr
     environment: toEnvironmentResponse(project.environment),
     useProjectSkills: project.useProjectSkills,
     projectSkillsOff: [...project.projectSkillsOff],
-    projectDefault: project.projectDefault && { ...project.projectDefault },
-    useForEveryRole: project.useForEveryRole,
-    roleOverrides: project.roleOverrides.map(({ roleKey, engineId, model }) => ({
-      roleKey,
-      engineId,
-      model,
-    })),
+    engine: toEngineResponse(project.engine),
     runEnvironment: project.runEnvironment,
     projectLimit: project.projectLimit,
     addedAt: project.addedAt.toISOString(),
@@ -78,5 +73,22 @@ export function toEnvironmentResponse(environment: ProjectEnvironment): ProjectE
     ),
     unset: [...shown.unset],
     prependPath: [...shown.prependPath],
+  };
+}
+
+function toEngineResponse({
+  default: projectDefault,
+  force,
+  people,
+}: ProjectEngine): ProjectEngineResponse {
+  return {
+    default: projectDefault && { ...projectDefault },
+    force: force && { ...force },
+    people: people.map(({ roleKey, engineSettings }) => ({
+      roleKey,
+      engineSettings: Object.fromEntries(
+        Object.entries(engineSettings).map(([type, setting]) => [type, { ...setting }]),
+      ),
+    })),
   };
 }
