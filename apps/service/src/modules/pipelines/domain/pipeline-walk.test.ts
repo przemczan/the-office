@@ -652,7 +652,12 @@ describe("nextMove", () => {
     expect(nextMove(stages, ran, NO_DEFINITION_OF_DONE)).toEqual({
       move: "ask",
       run: ran[5],
-      question: { kind: "no-retries-left", stage: stages[1], error: "Third." },
+      question: {
+        kind: "no-retries-left",
+        stage: stages[1],
+        error: "Third.",
+        sendBackTo: stages[0],
+      },
     });
   });
 
@@ -689,7 +694,12 @@ describe("nextMove", () => {
     expect(nextMove(stages, ran, NO_DEFINITION_OF_DONE)).toEqual({
       move: "ask",
       run: ran[0],
-      question: { kind: "no-retries-left", stage: stages[0], error: "The session ended." },
+      question: {
+        kind: "no-retries-left",
+        stage: stages[0],
+        error: "The session ended.",
+        sendBackTo: undefined,
+      },
     });
   });
 
@@ -765,6 +775,92 @@ describe("nextMove", () => {
         move: "run",
         stage: stages[0],
         carriedFailure: { stageKey: "write", error: "The session ended.", round: 1, rounds: 1 },
+      });
+    });
+
+    describe("a failed Script Stage sent back", () => {
+      const implementThenTests = [agentStage("implement"), scriptStage("tests")];
+      const sentBack = (guidedBy?: string): WalkAnswer => ({
+        kind: "send-back",
+        to: "implement",
+        guidance: "Cap the workers' memory.",
+        ...(guidedBy !== undefined && { guidedBy }),
+      });
+
+      it("offers the last Agent Stage the walk ran to send the work back to", () => {
+        const ran = runs(["implement", done], ["tests", failed("Workers ran out of memory.")]);
+
+        expect(nextMove(implementThenTests, ran, NO_DEFINITION_OF_DONE)).toMatchObject({
+          move: "ask",
+          question: { kind: "no-retries-left", sendBackTo: { key: "implement" } },
+        });
+      });
+
+      it("offers none when the walk ran no Agent Stage before it", () => {
+        const ran = runs(["tests", failed("Workers ran out of memory.")]);
+
+        expect(
+          nextMove([scriptStage("tests"), agentStage("implement")], ran, NO_DEFINITION_OF_DONE),
+        ).toMatchObject({
+          move: "ask",
+          question: { kind: "no-retries-left", sendBackTo: undefined },
+        });
+      });
+
+      it("runs Implement with the failure and the CTO's words, using a round of Tests", () => {
+        const ran = runs(
+          ["implement", done],
+          [
+            "tests",
+            failed("Workers ran out of memory."),
+            decided("no-retries-left", sentBack("cto")),
+          ],
+        );
+
+        expect(nextMove(implementThenTests, ran, NO_DEFINITION_OF_DONE)).toEqual({
+          move: "run",
+          stage: implementThenTests[0],
+          carriedFailure: {
+            stageKey: "tests",
+            error: "Workers ran out of memory.",
+            round: 1,
+            rounds: 1,
+            guidance: "Cap the workers' memory.",
+            guidedBy: "cto",
+          },
+          sentBack: undefined,
+        });
+      });
+
+      it("goes on from Implement by its routes, and asks again when Tests fails again", () => {
+        const ran = runs(
+          ["implement", done],
+          ["tests", failed("Workers ran out of memory."), decided("no-retries-left", sentBack())],
+          ["implement", done],
+          ["tests", failed("Still out of memory.")],
+        );
+
+        expect(nextMove(implementThenTests, ran.slice(0, 3), NO_DEFINITION_OF_DONE)).toMatchObject({
+          move: "run",
+          stage: { key: "tests" },
+          carriedFailure: undefined,
+        });
+        expect(nextMove(implementThenTests, ran, NO_DEFINITION_OF_DONE)).toMatchObject({
+          move: "ask",
+          run: { stageKey: "tests", number: 4 },
+          question: { kind: "no-retries-left", error: "Still out of memory." },
+        });
+      });
+
+      it("counts the send-back on from the rounds of a loop used up", () => {
+        const ran = answeredUsedUp({ kind: "send-back", to: "write", guidance: undefined });
+
+        expect(nextMove(stages, ran, NO_DEFINITION_OF_DONE)).toEqual({
+          move: "run",
+          stage: stages[0],
+          carriedFailure: { stageKey: "check", error: "Third.", round: 3, rounds: 3 },
+          sentBack: undefined,
+        });
       });
     });
 

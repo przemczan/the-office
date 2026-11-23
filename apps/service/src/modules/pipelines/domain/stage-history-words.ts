@@ -401,6 +401,8 @@ function answerWords(answer: WalkAnswer | undefined): string {
       return `Answered: ${answer.rounds} more rounds.`;
     case "one-more-round":
       return `Answered: one more round${answer.guidedBy === undefined ? "" : `, chosen by the Role ${answer.guidedBy}`}${answer.guidance === undefined ? "." : `, with: ${answer.guidance}`}`;
+    case "send-back":
+      return `Answered: send the work back to the Stage "${answer.to}"${answer.guidedBy === undefined ? "" : `, chosen by the Role ${answer.guidedBy}`}${answer.guidance === undefined ? "." : `, with: ${answer.guidance}`}`;
     case "accept-issues":
       return "Answered: go on, with the failure accepted as an issue.";
     case "mark-done":

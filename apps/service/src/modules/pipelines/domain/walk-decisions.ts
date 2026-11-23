@@ -54,7 +54,7 @@ const GUIDANCE_HINT = "Or answer in your own words: your answer guides one more 
 export function walkDecision(run: StageRun, question: WalkQuestion): WalkDecision {
   switch (question.kind) {
     case "no-retries-left":
-      return noRetriesLeft(question.stage, question.error);
+      return noRetriesLeft(question.stage, question.error, question.sendBackTo);
     case "budget":
       return budgetDecision(question.stage, question.reached);
     case "definition-of-done":
@@ -74,10 +74,11 @@ export function walkDecision(run: StageRun, question: WalkQuestion): WalkDecisio
 
 /**
  * What the user's answer lets the walk do: the chosen option's, its comments guiding the round
- * when it is one more round, keeps the branch or follows a route, or for words of their own, the
- * Agent's question answered, the first route followed with their words as its notes, or one more
- * round with their words as its guidance (spec §2.3). The guidance names who
- * gave it: the Consultant (`guidedBy`), or the user when it names nobody.
+ * when it is one more round or a send-back, keeps the branch or follows a route, or for words of
+ * their own, the Agent's question answered, the first route followed with their words as its notes,
+ * a failed Script Stage's work sent back to the last Agent Stage, or one more round, with their
+ * words as its guidance (spec §2.3). The guidance names who gave it: the Consultant (`guidedBy`),
+ * or the user when it names nobody.
  */
 export function walkAnswerOf(decision: StageRunDecision, answer: DecisionAnswer): WalkAnswer {
   if (answer.kind === "option") {
@@ -85,20 +86,20 @@ export function walkAnswerOf(decision: StageRunDecision, answer: DecisionAnswer)
     if (!chosen) throw new Error(`Decision ${decision.id} has no option ${answer.option}.`);
     return withGuidance(chosen, answer);
   }
-  if (decision.kind === "agent") return { kind: "answered", answer: answer.text.trim() };
-  if (decision.kind === "branch-moved")
-    return { kind: "keep-branch", guidance: answer.text.trim() };
+  const words = answer.text.trim();
+  if (decision.kind === "agent") return { kind: "answered", answer: words };
+  if (decision.kind === "branch-moved") return { kind: "keep-branch", guidance: words };
   const firstRoute = decision.options[0];
   if (decision.kind === "no-route-holds" && firstRoute?.kind === "follow-route") {
-    return { ...firstRoute, guidance: answer.text.trim() };
+    return { ...firstRoute, guidance: words };
   }
   const raise = decision.options.find(({ kind }) => kind === "raise-budget");
   if (decision.kind === "budget" && raise) return raise;
-  return {
-    kind: "one-more-round",
-    guidance: answer.text.trim(),
-    ...(answer.answeredBy !== undefined && { guidedBy: answer.answeredBy }),
-  };
+  const guidedBy = answer.answeredBy === undefined ? {} : { guidedBy: answer.answeredBy };
+  // Words on a failed Script Stage's Decision go to an Agent who reads them, never into a rerun.
+  const sendBack = decision.options.find(({ kind }) => kind === "send-back");
+  if (sendBack?.kind === "send-back") return { ...sendBack, guidance: words, ...guidedBy };
+  return { kind: "one-more-round", guidance: words, ...guidedBy };
 }
 
 /** The chosen option, guided by the comments given beside it when it takes guidance. */
@@ -110,9 +111,9 @@ function withGuidance(
   if (!guidance) return chosen;
   if (chosen.kind === "keep-branch") return { kind: "keep-branch", guidance };
   if (chosen.kind === "follow-route") return { ...chosen, guidance };
-  if (chosen.kind !== "one-more-round") return chosen;
+  if (chosen.kind !== "one-more-round" && chosen.kind !== "send-back") return chosen;
   return {
-    kind: "one-more-round",
+    ...chosen,
     guidance,
     ...(answer.answeredBy !== undefined && { guidedBy: answer.answeredBy }),
   };
@@ -121,7 +122,7 @@ function withGuidance(
 /**
  * Whether The Office puts what the walk asks to a Consultant before the user, whoever holds Asked
  * first when a Stage runs out of tries (spec §2.3): a Stage failing with no retries left, unless a
- * Consultant already sent that Stage back once in this walk; and
+ * Consultant already gave that Stage one more round, or sent its work back, once in this walk; and
  * a Publish's after publishing line failing, the first time only, so a second failure reaches the
  * user. Every other question, budget limits included, is the user's.
  */
@@ -140,7 +141,7 @@ export function asksAConsultantFirst(question: WalkQuestion, runs: readonly Stag
       decisions.some(
         ({ kind, answer }) =>
           kind === "no-retries-left" &&
-          answer?.kind === "one-more-round" &&
+          (answer?.kind === "one-more-round" || answer?.kind === "send-back") &&
           answer.guidedBy !== undefined,
       ),
   );
@@ -182,32 +183,68 @@ function budgetDecision(stage: Stage, { used, budget }: BudgetReached): WalkDeci
   return decision;
 }
 
-function noRetriesLeft(stage: Stage, error: string): WalkDecision {
+/**
+ * A Stage failed with no retries left (spec §2.3, "When a Stage fails"): more rounds of its loop,
+ * or of itself, continue with the issues, or drop the Task. A Script Stage's failure can also be
+ * sent back to `sendBackTo`, the last Agent Stage the walk ran, which is recommended and takes the
+ * words given, as rerunning the Script Stage with no change can't use them. The more rounds option
+ * stays first, as an Off-board Task's Retry answers the first option.
+ */
+function noRetriesLeft(stage: Stage, error: string, sendBackTo: Stage | undefined): WalkDecision {
   const onFailure = stage.kind === "gate" ? undefined : stage.onFailure;
+  const runAgain =
+    stage.kind === "script" ? `Run "${stage.name}" again` : `Run "${stage.name}" once more`;
   const again = onFailure
     ? {
         words: `Allow ${moreRounds(onFailure.rounds)}`,
         answer: { kind: "more-rounds", rounds: onFailure.rounds } as const,
       }
-    : {
-        words: `Run "${stage.name}" once more`,
-        answer: { kind: "one-more-round", guidance: undefined } as const,
-      };
+    : { words: runAgain, answer: { kind: "one-more-round", guidance: undefined } as const };
   const question = onFailure
     ? `"${stage.name}" failed, and its rounds are used up. What now?`
     : `"${stage.name}" failed, with no round to go back to. What now?`;
+  const rest = {
+    words: [CONTINUE_WITH_ISSUES, DROP_THE_TASK],
+    answers: [{ kind: "accept-issues" }, { kind: "drop" }] as const,
+  };
+  if (sendBackTo) {
+    return {
+      kind: "no-retries-left",
+      draft: {
+        question,
+        context: `${error}\n\nOr answer in your own words: the work goes back to "${sendBackTo.name}" with them as its guidance.`,
+        options: [again.words, `Send back to "${sendBackTo.name}" with these words`, ...rest.words],
+        recommendation: {
+          option: 1,
+          reason: `"${sendBackTo.name}" can fix what failed: the failure and your words go into its Brief. Run it again only when the failure may be flaky.`,
+        },
+      },
+      options: [
+        again.answer,
+        { kind: "send-back", to: sendBackTo.key, guidance: undefined },
+        ...rest.answers,
+      ],
+    };
+  }
+  const context =
+    stage.kind === "script"
+      ? `${error}\n\nNo Agent Stage ran before "${stage.name}" in this walk, so the work can't be sent back to one. Words of your own run "${stage.name}" again, which no Agent reads.`
+      : `${error}\n\n${GUIDANCE_HINT}`;
   return {
     kind: "no-retries-left",
     draft: {
       question,
-      context: `${error}\n\n${GUIDANCE_HINT}`,
-      options: [again.words, CONTINUE_WITH_ISSUES, DROP_THE_TASK],
+      context,
+      options: [again.words, ...rest.words],
       recommendation: {
         option: 0,
-        reason: "Another round may fix it: the failure goes into its Brief.",
+        reason:
+          stage.kind === "script" && !onFailure
+            ? "It may pass when it runs again, if the failure was flaky."
+            : "Another round may fix it: the failure goes into its Brief.",
       },
     },
-    options: [again.answer, { kind: "accept-issues" }, { kind: "drop" }],
+    options: [again.answer, ...rest.answers],
   };
 }
 

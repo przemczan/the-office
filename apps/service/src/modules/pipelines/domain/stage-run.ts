@@ -336,6 +336,17 @@ export type WalkAnswer =
       readonly guidance: string | undefined;
       readonly guidedBy?: string;
     }
+  /**
+   * The failed Script Stage sends the work back to `to`, the last Agent Stage the walk ran, with its
+   * failure and the words given, if any, as that Stage's guidance, using a round of the failed Stage
+   * as one more round does; `guidedBy` is the Consultant whose words they are.
+   */
+  | {
+      readonly kind: "send-back";
+      readonly to: string;
+      readonly guidance: string | undefined;
+      readonly guidedBy?: string;
+    }
   /** The walk goes on past the failed Stage; its failure is recorded as an accepted issue. */
   | { readonly kind: "accept-issues" }
   /** The Task is Done although the Definition of Done isn't reported met. */

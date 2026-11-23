@@ -26,6 +26,14 @@ export const tests: Stage = {
   command: "test",
   onFailure: { goBackTo: "implement", rounds: 3 },
 };
+/** Tests with no on-failure loop, which only a Decision sends back. */
+export const testsWithoutLoop: Stage = {
+  kind: "script",
+  key: "tests",
+  name: "Tests",
+  optional: false,
+  command: "test",
+};
 
 export function aRun(
   stageKey: string,

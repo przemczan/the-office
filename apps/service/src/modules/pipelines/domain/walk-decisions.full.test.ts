@@ -316,7 +316,12 @@ describe("the budget Decision", () => {
 });
 
 describe("asksAConsultantFirst", () => {
-  const noRetriesLeft = { kind: "no-retries-left", stage: tests, error: "2 tests fail." } as const;
+  const noRetriesLeft = {
+    kind: "no-retries-left",
+    stage: tests,
+    error: "2 tests fail.",
+    sendBackTo: implement,
+  } as const;
 
   it("asks the user once a Consultant sent that Stage back in this walk", () => {
     const runs = [aRun("tests", failed, [sentBack("cto")]), aRun("tests", failed)];

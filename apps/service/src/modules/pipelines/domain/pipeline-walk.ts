@@ -32,8 +32,17 @@ export interface UnmetOutOfReach {
 
 /** What the walk stops to ask the user, before The Office words it as a Decision. */
 export type WalkQuestion =
-  /** The Stage failed with no retries left: it has no loop, or its loop used up its rounds. */
-  | { readonly kind: "no-retries-left"; readonly stage: Stage; readonly error: string }
+  /**
+   * The Stage failed with no retries left: it has no loop, or its loop used up its rounds. A failed
+   * Script Stage (Publish among them) may send the work back to `sendBackTo`, the last Agent Stage
+   * the walk ran other than Resolve; undefined for an Agent Stage, or when the walk ran none.
+   */
+  | {
+      readonly kind: "no-retries-left";
+      readonly stage: Stage;
+      readonly error: string;
+      readonly sendBackTo: Stage | undefined;
+    }
   /** The Task's tokens reached the Stage's budget before an engine call. */
   | { readonly kind: "budget"; readonly stage: Stage; readonly reached: BudgetReached }
   /**
@@ -342,11 +351,15 @@ function afterNoRetriesLeft(
   stage: Stage,
   error: string,
 ): StoppingMove | undefined {
-  const question = { kind: "no-retries-left", stage, error } as const;
+  const sendBackTo = stage.kind === "script" ? lastAgentStage(walk) : undefined;
+  const question = { kind: "no-retries-left", stage, error, sendBackTo } as const;
   const waiting = waitingOn(run, "no-retries-left", question);
   if (waiting) return waiting;
   const answer = answerOf(run, "no-retries-left");
   switch (answer.kind) {
+    case "send-back":
+      walk.position = sentBackAfterFailure(walk, stage, error, answer);
+      return undefined;
     case "more-rounds":
     case "one-more-round": {
       const rounds = answer.kind === "more-rounds" ? answer.rounds : 1;
@@ -762,6 +775,7 @@ function checkDefinitionOfDone(walk: Walk, run: StageRun): StoppingMove | undefi
     case "resolved-in-worktree":
     case "keep-branch":
     case "follow-route":
+    case "send-back":
       throw new Error(
         `Stage run ${run.id} was answered "${answer.kind}" at the Definition of Done.`,
       );
@@ -773,13 +787,53 @@ function checkDefinitionOfDone(walk: Walk, run: StageRun): StoppingMove | undefi
  * never Resolve, or the Stage the run ended when there is none.
  */
 function againStage(walk: Walk, run: StageRun): Stage {
+  return lastAgentStage(walk) ?? stageOf(walk, run.stageKey);
+}
+
+/** The last Agent Stage the walk ran, never Resolve; undefined when it ran none. */
+function lastAgentStage(walk: Walk): Stage | undefined {
   const agentStages = new Map(
     walk.stages
       .filter((stage) => stage.kind === "agent" && stage.key !== RESOLVE_KEY)
       .map((stage) => [stage.key, stage]),
   );
   const lastAgentRun = walk.replayed.findLast(({ stageKey }) => agentStages.has(stageKey));
-  return (lastAgentRun && agentStages.get(lastAgentRun.stageKey)) ?? stageOf(walk, run.stageKey);
+  return lastAgentRun && agentStages.get(lastAgentRun.stageKey);
+}
+
+/**
+ * Where a failed Script Stage's send-back goes (spec §2.3, "When a Stage fails"): to the Agent
+ * Stage the answer names, carrying the failure and the words given, the walk going on from there by
+ * its routes. It uses a round of the failed Stage, as one more round does, so its next failure asks
+ * again.
+ */
+function sentBackAfterFailure(
+  walk: Walk,
+  failed: Stage,
+  error: string,
+  answer: Extract<WalkAnswer, { readonly kind: "send-back" }>,
+): WalkPosition {
+  const target = stageOf(walk, answer.to);
+  // The Decision offers only the last Agent Stage the walk ran, so another is a fault.
+  if (target.kind !== "agent") {
+    throw new Error(`Stage "${failed.key}" was sent back to "${answer.to}", no Agent Stage.`);
+  }
+  const added = (walk.roundsAdded.get(failed.key) ?? 0) + 1;
+  walk.roundsAdded.set(failed.key, added);
+  const loopRounds = failed.kind === "gate" ? 0 : (failed.onFailure?.rounds ?? 0);
+  const round = (walk.roundsUsed.get(failed.key) ?? 0) + 1;
+  walk.roundsUsed.set(failed.key, round);
+  return {
+    key: target.key,
+    carriedFailure: {
+      stageKey: failed.key,
+      error,
+      round,
+      rounds: loopRounds + added,
+      ...guidanceOf(answer),
+    },
+    sentBack: undefined,
+  };
 }
 
 /**
@@ -878,9 +932,9 @@ function goBack(
  */
 type Guided = Pick<CarriedFailure, "guidance" | "guidedBy">;
 
-type OneMoreRound = Extract<WalkAnswer, { readonly kind: "one-more-round" }>;
+type GuidedAnswer = Extract<WalkAnswer, { readonly kind: "one-more-round" | "send-back" }>;
 
-function guidanceOf({ guidance, guidedBy }: OneMoreRound): Guided {
+function guidanceOf({ guidance, guidedBy }: GuidedAnswer): Guided {
   return {
     ...(guidance !== undefined && { guidance }),
     ...(guidance !== undefined && guidedBy !== undefined && { guidedBy }),

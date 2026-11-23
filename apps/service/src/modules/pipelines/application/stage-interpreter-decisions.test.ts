@@ -95,7 +95,12 @@ describe("StageInterpreter's Decisions", () => {
         threadId: runs[2]?.threadId,
         draft: {
           question: '"measure" failed, and its rounds are used up. What now?',
-          options: ["Allow 1 more round", "Continue with the issues recorded", "Drop the Task"],
+          options: [
+            "Allow 1 more round",
+            'Send back to "draft" with these words',
+            "Continue with the issues recorded",
+            "Drop the Task",
+          ],
         },
       });
       expect(decision?.draft.context).toContain("Still 2.");
@@ -105,6 +110,7 @@ describe("StageInterpreter's Decisions", () => {
           kind: "no-retries-left",
           options: [
             { kind: "more-rounds", rounds: 1 },
+            { kind: "send-back", to: "draft", guidance: undefined },
             { kind: "accept-issues" },
             { kind: "drop" },
           ],
@@ -158,6 +164,38 @@ describe("StageInterpreter's Decisions", () => {
       const work = pipelines.stageThreads.requests.at(-1)?.work;
       expect(work).toContain("Guidance for this round from Bob (Architect):\n\nMock the clock.");
       expect(statesOf(taskId)).toEqual(["waiting-on-you", "in-progress", "done"]);
+    });
+
+    it("has its words send a failed Script Stage's work back to the last Agent Stage, never running the Script Stage again", async () => {
+      await startWith(agentDone, agentDone);
+      hireTheArchitect();
+      failing("Workers ran out of memory.");
+      const taskId = await walkStages(pipelines, [draft, scriptStage("measure")]);
+
+      await answerLastDecision(pipelines, taskId, {
+        kind: "free-answer",
+        text: "Cap the workers' memory.",
+        answeredBy: ARCHITECT,
+      });
+
+      expect(await statusesOf(taskId)).toEqual([
+        ["draft", "done"],
+        ["measure", "failed"],
+        ["draft", "done"],
+        ["measure", "done"],
+      ]);
+      const runs = await runsOf(pipelines, taskId);
+      expect(runs[2]?.carriedFailure).toMatchObject({
+        stageKey: "measure",
+        round: 1,
+        rounds: 1,
+        guidedBy: ARCHITECT,
+      });
+      const work = pipelines.stageThreads.requests.at(-1)?.work;
+      expect(work).toContain("Workers ran out of memory.");
+      expect(work).toContain(
+        "Guidance for this round from Bob (Architect):\n\nCap the workers' memory.",
+      );
     });
   });
 
