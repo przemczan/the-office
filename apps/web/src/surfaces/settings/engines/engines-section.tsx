@@ -48,11 +48,14 @@ import {
   priceTextIn,
   savedApiEngines,
   standInsOf,
+  windowStartAt,
   withOfficeDefaultType,
+  withWindowStart,
   type EngineSettingsDraft,
 } from "./engine-settings-draft.ts";
 import { RemoveEngineDialog } from "./remove-engine-dialog.tsx";
 import { StandInEnginesCard } from "./stand-in-engines-card.tsx";
+import { WindowStartFields } from "./window-start-fields.tsx";
 import "./engines.css";
 
 /**
@@ -217,6 +220,16 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
                     modelPrices: { ...draft.modelPrices, [offeredModelKey(model)]: text },
                   }),
               }}
+              windowStart={
+                engine.id !== undefined && (
+                  <EngineWindowStart
+                    engineId={engine.id}
+                    draft={draft}
+                    saved={saved}
+                    change={setDraft}
+                  />
+                )
+              }
               change={(edit) => changeEngine(shown, edit)}
               remove={() => removeEngine(shown, engine)}
             />
@@ -239,7 +252,7 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => held.selection && select(held.selection, "prices")}
+                onClick={() => held.selection && select(held.selection, held.tab)}
               >
                 Show it
               </Button>
@@ -270,5 +283,34 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
         />
       )}
     </>
+  );
+}
+
+/**
+ * A saved engine's Window start while it has usage windows: the draft's settings, with its next
+ * and last start as saved, so the event stream's refetch updates them and leaves the draft be.
+ */
+function EngineWindowStart({
+  engineId,
+  draft,
+  saved,
+  change,
+}: {
+  readonly engineId: EngineId;
+  readonly draft: EngineSettingsDraft;
+  readonly saved: EngineSettings;
+  readonly change: (draft: EngineSettingsDraft) => void;
+}): ReactNode {
+  const windowStart = windowStartAt(draft, saved, engineId);
+  const status = saved.windowStarts.find((each) => each.engineId === engineId);
+  if (!windowStart || !status) return null;
+  return (
+    <WindowStartFields
+      windowStart={windowStart}
+      timeZone={saved.timeZone}
+      nextStartAt={status.nextStartAt}
+      last={status.last}
+      change={(changed) => change(withWindowStart(draft, engineId, changed))}
+    />
   );
 }

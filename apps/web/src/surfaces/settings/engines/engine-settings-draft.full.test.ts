@@ -25,9 +25,12 @@ import {
   searchEndpointOf,
   standInsOf,
   switchSizeOf,
+  windowStartAt,
   withOfficeDefaultType,
+  withWindowStart,
   type EngineSettingsDraft,
 } from "./engine-settings-draft.ts";
+import { saveHeldBy } from "./engine-list-words.ts";
 import { NO_PRICE_TEXT, type ModelPriceText } from "./model-price-fields.ts";
 
 const CLAUDE_CODE: ClaudeCodeEngine = {
@@ -150,6 +153,7 @@ describe("Settings › Engines' draft", () => {
       },
       standInEngines: ["strata"],
       askBeforeSwitchAbove: "100000",
+      windowStarts: {},
     });
   });
 
@@ -603,5 +607,106 @@ describe("Settings › Engines' draft", () => {
         accounts: [{ id: "copilot", name: "Copilot" }],
       });
     });
+  });
+});
+
+describe("Settings › Engines' draft of a Window start", () => {
+  const WITH_WINDOW_START: EngineSettings = {
+    ...SAVED,
+    windowStarts: [
+      {
+        engineId: "claude-code",
+        startAtTimes: ["07:00"],
+        startAfterReset: false,
+        nextStartAt: "2026-11-23T07:00:00.000Z",
+        last: null,
+      },
+    ],
+  };
+
+  it("starts from the saved Window start, its set times on while it has any", () => {
+    expect(draftOf(WITH_WINDOW_START).windowStarts).toEqual({
+      "claude-code": { setTimesOn: true, startAtTimes: ["07:00"], startAfterReset: false },
+    });
+  });
+
+  it("sends each saved Window start with its times sorted, a change to save", () => {
+    const draft = withWindowStart(draftOf(WITH_WINDOW_START), "claude-code", {
+      setTimesOn: true,
+      startAtTimes: ["17:00", "07:00"],
+      startAfterReset: true,
+    });
+
+    expect(draftChanged(draft, WITH_WINDOW_START)).toBe(true);
+    expect(engineSettingsEditOf(draft, WITH_WINDOW_START)?.windowStarts).toEqual([
+      { engineId: "claude-code", startAtTimes: ["07:00", "17:00"], startAfterReset: true },
+    ]);
+  });
+
+  it("sends no times once set times are off, whatever the list held", () => {
+    const draft = withWindowStart(draftOf(WITH_WINDOW_START), "claude-code", {
+      setTimesOn: false,
+      startAtTimes: ["07:00"],
+      startAfterReset: false,
+    });
+
+    expect(engineSettingsEditOf(draft, WITH_WINDOW_START)?.windowStarts).toEqual([
+      { engineId: "claude-code", startAtTimes: [], startAfterReset: false },
+    ]);
+  });
+
+  it("counts times only moved in the list as no change", () => {
+    const saved: EngineSettings = {
+      ...WITH_WINDOW_START,
+      windowStarts: WITH_WINDOW_START.windowStarts.map((windowStart) => ({
+        ...windowStart,
+        startAtTimes: ["07:00", "17:00"],
+      })),
+    };
+    const draft = withWindowStart(draftOf(saved), "claude-code", {
+      setTimesOn: true,
+      startAtTimes: ["17:00", "07:00"],
+      startAfterReset: false,
+    });
+
+    expect(draftChanged(draft, saved)).toBe(false);
+  });
+
+  it.each([
+    ["a repeated time", ["07:00", "07:00"]],
+    ["an empty time", ["07:00", ""]],
+  ])(
+    "holds Save on %s, a change Discard takes back, naming the engine on its Settings tab",
+    (_case, startAtTimes) => {
+      const draft = withWindowStart(draftOf(WITH_WINDOW_START), "claude-code", {
+        setTimesOn: true,
+        startAtTimes,
+        startAfterReset: false,
+      });
+
+      expect(engineSettingsEditOf(draft, WITH_WINDOW_START)).toBeUndefined();
+      expect(draftChanged(draft, WITH_WINDOW_START)).toBe(true);
+      expect(saveHeldBy(draft, WITH_WINDOW_START)).toEqual({
+        selection: { kind: "claude-code", index: 0 },
+        tab: "settings",
+        line: "A time under Window start of Claude Code needs fixing before Save.",
+      });
+      expect(draftChanged(draftOf(WITH_WINDOW_START), WITH_WINDOW_START)).toBe(false);
+    },
+  );
+
+  it("reads the saved Window start of an engine that gained usage windows since the draft was made, and none once it lost them", () => {
+    const draft = draftOf(SAVED);
+
+    expect(windowStartAt(draft, WITH_WINDOW_START, "claude-code")).toEqual({
+      setTimesOn: true,
+      startAtTimes: ["07:00"],
+      startAfterReset: false,
+    });
+    expect(engineSettingsEditOf(draft, WITH_WINDOW_START)?.windowStarts).toEqual([
+      { engineId: "claude-code", startAtTimes: ["07:00"], startAfterReset: false },
+    ]);
+    expect(windowStartAt(draftOf(WITH_WINDOW_START), SAVED, "claude-code")).toBeUndefined();
+    expect(engineSettingsEditOf(draftOf(WITH_WINDOW_START), SAVED)?.windowStarts).toEqual([]);
   });
 });

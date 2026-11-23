@@ -4,6 +4,8 @@ import {
   COPILOT_CLI_MODELS,
   engineIdFor,
   GEMINI_CLI_MODELS,
+  MAX_WINDOW_START_TIMES,
+  windowStartTimeSchema,
   type ApiEngine,
   type ApiEngineEdit,
   type ClaudeCodeEngineEdit,
@@ -14,10 +16,12 @@ import {
   type EngineKind,
   type EngineSettings,
   type EngineSettingsEdit,
+  type EngineWindowStartEdit,
   type GeminiCliEngineEdit,
   type OfferedModel,
   type OfficeDefault,
   type SearchEndpoint,
+  type WindowStartSettings,
 } from "@the-office/contracts";
 import type { EngineTypeChoice } from "../../../shell/engine-type-account-fields.tsx";
 import { ENGINE_KINDS } from "../../../shell/engine-words.ts";
@@ -55,6 +59,20 @@ export interface EngineSettingsDraft {
    * first, as its field reads: text, since an emptied field isn't a size yet.
    */
   readonly askBeforeSwitchAbove: string;
+  /**
+   * Each engine with usage windows' Window start as its fields read, by engine id; an engine that
+   * gained usage windows since the draft was made reads its saved one (`windowStartAt`).
+   */
+  readonly windowStarts: Readonly<Record<EngineId, WindowStartDraft>>;
+}
+
+/** An engine's Window start as its fields read. */
+export interface WindowStartDraft {
+  /** "Start at set times"; off, Save sends no times, whatever the list holds. */
+  readonly setTimesOn: boolean;
+  /** As the time fields read: `HH:MM`, or empty while a field is. */
+  readonly startAtTimes: readonly string[];
+  readonly startAfterReset: boolean;
 }
 
 /**
@@ -84,6 +102,7 @@ export function draftOf({
   modelPrices,
   standInEngines,
   askBeforeSwitchAbove,
+  windowStarts,
 }: EngineSettings): EngineSettingsDraft {
   return {
     claudeCodeEngines: engines.flatMap((engine) =>
@@ -109,7 +128,93 @@ export function draftOf({
     ),
     standInEngines: [...standInEngines],
     askBeforeSwitchAbove: String(askBeforeSwitchAbove),
+    windowStarts: Object.fromEntries(
+      windowStarts.map((windowStart) => [windowStart.engineId, windowStartDraftOf(windowStart)]),
+    ),
   };
+}
+
+function windowStartDraftOf({
+  startAtTimes,
+  startAfterReset,
+}: WindowStartSettings): WindowStartDraft {
+  return { setTimesOn: startAtTimes.length > 0, startAtTimes: [...startAtTimes], startAfterReset };
+}
+
+/**
+ * The engine's Window start as drafted: its saved one when it gained usage windows since the draft
+ * was made, and none once it has none.
+ */
+export function windowStartAt(
+  draft: EngineSettingsDraft,
+  saved: EngineSettings,
+  engineId: EngineId,
+): WindowStartDraft | undefined {
+  const savedWindowStart = saved.windowStarts.find((each) => each.engineId === engineId);
+  if (!savedWindowStart) return undefined;
+  return draft.windowStarts[engineId] ?? windowStartDraftOf(savedWindowStart);
+}
+
+export function withWindowStart(
+  draft: EngineSettingsDraft,
+  engineId: EngineId,
+  windowStart: WindowStartDraft,
+): EngineSettingsDraft {
+  return { ...draft, windowStarts: { ...draft.windowStarts, [engineId]: windowStart } };
+}
+
+/**
+ * What's wrong with each set time as its field reads, in order, or undefined for one that's fine:
+ * empty, not `HH:MM`, or a repeat of one above it.
+ */
+export function setTimeProblems(startAtTimes: readonly string[]): readonly (string | undefined)[] {
+  return startAtTimes.map((time, index) => {
+    if (time === "") return "Give a time, or remove it.";
+    if (!windowStartTimeSchema.safeParse(time).success) return "Give a time as HH:MM.";
+    return startAtTimes.indexOf(time) < index ? `${time} is set already.` : undefined;
+  });
+}
+
+/** What holds Save in the Window start, or undefined: a set time's problem, or too many times. */
+export function windowStartProblem({
+  setTimesOn,
+  startAtTimes,
+}: WindowStartDraft): string | undefined {
+  if (!setTimesOn) return undefined;
+  if (startAtTimes.length > MAX_WINDOW_START_TIMES) {
+    return `At most ${MAX_WINDOW_START_TIMES} set times.`;
+  }
+  return setTimeProblems(startAtTimes).find((problem) => problem !== undefined);
+}
+
+/**
+ * The Window start as Save sends it: its set times sorted, or none while they're off. A repeated
+ * time holds Save (`windowStartProblem`), so the times sent are unique; it is kept here, so the
+ * repeat counts as a change.
+ */
+function windowStartEditOf(
+  engineId: EngineId,
+  { setTimesOn, startAtTimes, startAfterReset }: WindowStartDraft,
+): EngineWindowStartEdit {
+  return {
+    engineId,
+    startAtTimes: setTimesOn ? startAtTimes.toSorted() : [],
+    startAfterReset,
+  };
+}
+
+/** Every saved Window start as Save sends it, or undefined while one holds Save. */
+function windowStartEditsOf(
+  draft: EngineSettingsDraft,
+  saved: EngineSettings,
+): EngineWindowStartEdit[] | undefined {
+  const edits: EngineWindowStartEdit[] = [];
+  for (const { engineId } of saved.windowStarts) {
+    const windowStart = windowStartAt(draft, saved, engineId);
+    if (!windowStart || windowStartProblem(windowStart) !== undefined) return undefined;
+    edits.push(windowStartEditOf(engineId, windowStart));
+  }
+  return edits;
 }
 
 /** The API engines among the saved engines, in order. */
@@ -241,6 +346,8 @@ export function engineSettingsEditOf(
   }
   const askBeforeSwitchAbove = switchSizeOf(draft.askBeforeSwitchAbove);
   if (askBeforeSwitchAbove === undefined) return undefined;
+  const windowStarts = windowStartEditsOf(draft, saved);
+  if (windowStarts === undefined) return undefined;
   return {
     engines: [
       ...draft.claudeCodeEngines,
@@ -254,6 +361,7 @@ export function engineSettingsEditOf(
     modelPrices,
     standInEngines: [...draft.standInEngines],
     askBeforeSwitchAbove,
+    windowStarts,
   };
 }
 
@@ -419,6 +527,11 @@ function whatSaveSees(draft: EngineSettingsDraft, saved: EngineSettings): unknow
     standInEngines: draft.standInEngines,
     askBeforeSwitchAbove:
       switchSizeOf(draft.askBeforeSwitchAbove) ?? draft.askBeforeSwitchAbove.trim(),
+    // As Save sends them, so a time moved in the list or set while the times are off isn't a change.
+    windowStarts: saved.windowStarts.flatMap(({ engineId }) => {
+      const windowStart = windowStartAt(draft, saved, engineId);
+      return windowStart ? [windowStartEditOf(engineId, windowStart)] : [];
+    }),
   };
 }
 

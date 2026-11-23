@@ -14,6 +14,8 @@ import {
   offeredModelsOf,
   priceTextIn,
   switchSizeOf,
+  windowStartAt,
+  windowStartProblem,
   type DraftedEngines,
   type EngineSettingsDraft,
   type PricedModel,
@@ -315,38 +317,68 @@ export function engineProblem(
     }
   }
   const engine = engineAt(draft, selection);
+  if (engine && windowStartHoldsSave(draft, saved, engine)) {
+    return "A Window start time needs fixing";
+  }
   if (engine?.kind === "openai-compatible-api" && modelsOf(engine).length === 0) {
     return "It offers no model yet";
   }
   return undefined;
 }
 
+/** Whether the saved engine's Window start holds Save: a set time repeated, empty or too many. */
+function windowStartHoldsSave(
+  draft: EngineSettingsDraft,
+  saved: EngineSettings,
+  engine: EngineEdit,
+): boolean {
+  const windowStart = engine.id === undefined ? undefined : windowStartAt(draft, saved, engine.id);
+  return windowStart !== undefined && windowStartProblem(windowStart) !== undefined;
+}
+
 /**
- * The first engine whose prices hold Save, and what the Save bar says of it. A Claude model's price
- * still holds Save once no Claude Code engine is listed to show it: then the line alone.
+ * The first engine whose prices or Window start hold Save, what the Save bar says of it, and the
+ * tab that shows it. A Claude model's price still holds Save once no Claude Code engine is listed
+ * to show it: then the line alone.
  */
 export function saveHeldBy(
   draft: EngineSettingsDraft,
   saved: EngineSettings,
-): { readonly selection: EngineSelection | undefined; readonly line: string } | undefined {
+):
+  | {
+      readonly selection: EngineSelection | undefined;
+      readonly tab: EngineTab;
+      readonly line: string;
+    }
+  | undefined {
   for (const selection of engineSelectionsOf(draft)) {
     const engine = engineAt(draft, selection);
     if (engine && pricesHoldSave(draft, saved, selection)) {
       return {
         selection,
+        tab: "prices",
         line: `A price under Models and prices of ${engineCalled(engine)} needs fixing before Save.`,
+      };
+    }
+    if (engine && windowStartHoldsSave(draft, saved, engine)) {
+      return {
+        selection,
+        tab: "settings",
+        line: `A time under Window start of ${engineCalled(engine)} needs fixing before Save.`,
       };
     }
   }
   if (pricesHoldSave(draft, saved, { kind: "claude-code", index: 0 })) {
     return {
       selection: undefined,
+      tab: "prices",
       line: "A Claude model's price needs fixing before Save: add a Claude Code engine to show it, or Discard.",
     };
   }
   if (switchSizeOf(draft.askBeforeSwitchAbove) === undefined) {
     return {
       selection: undefined,
+      tab: "settings",
       line: "The context size under Stand-in Engines needs fixing before Save.",
     };
   }

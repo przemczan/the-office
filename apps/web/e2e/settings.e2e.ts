@@ -1,5 +1,5 @@
 import path from "node:path";
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page, type WebSocketRoute } from "@playwright/test";
 import {
   pipelineSchema,
   projectPipelineSchema,
@@ -11,6 +11,7 @@ import {
   type Effort,
   type EngineSettings,
   type EngineSettingsEdit,
+  type EngineWindowStart,
   type NewProject,
   type Pipeline,
   type Project,
@@ -1388,6 +1389,208 @@ test(
     });
   },
 );
+
+// Routed as above, with an engine of the test's own that has usage windows. The service's clock is
+// Warsaw's and the browser's New York's, so a time shown at 17:00 is on the service's.
+test.describe("Settings › Engines' Window start", { tag: "@full" }, () => {
+  test.use({ timezoneId: "America/New_York" });
+
+  test("the user sets times and the start after each reset, a refusal shows its reasons, and a start skipped shows live", async ({
+    page,
+  }) => {
+    const nightRuns = {
+      id: "night-runs",
+      name: "Night runs",
+      kind: "claude-code",
+      defaultModel: "claude-sonnet-5-5",
+      defaultEffort: null,
+      claudeCodeP: false,
+    } as const;
+    let windowStart: EngineWindowStart = {
+      engineId: nightRuns.id,
+      startAtTimes: [],
+      startAfterReset: false,
+      nextStartAt: null,
+      last: {
+        at: "2026-01-12T16:00:00.000Z",
+        outcome: "started",
+        reason: null,
+        error: null,
+        trigger: "after-reset",
+        fiveHourResetsAt: "2026-01-12T21:00:00.000Z",
+      },
+    };
+    let refusing = true;
+    const sent: EngineSettingsEdit[] = [];
+    await page.route("**/api/settings/engines", async (route) => {
+      // Read apart from the page, which page.route doesn't reach.
+      const saved = (await (
+        await page.request.get("/api/settings/engines")
+      ).json()) as EngineSettings;
+      const shown = (): EngineSettings => ({
+        ...saved,
+        engines: [...saved.engines, nightRuns],
+        windowStarts: [...saved.windowStarts, windowStart],
+        timeZone: "Europe/Warsaw",
+      });
+      if (route.request().method() === "PUT") {
+        const edit = route.request().postDataJSON() as EngineSettingsEdit;
+        sent.push(edit);
+        if (refusing) {
+          refusing = false;
+          return route.fulfill({
+            status: 422,
+            json: {
+              message: "The engines weren't saved.",
+              reasons: [
+                "Night runs: 07:30 is set twice.",
+                "Night runs: 21:15 isn't a time of day.",
+              ],
+            },
+          });
+        }
+        const sentWindowStart = edit.windowStarts?.find(
+          ({ engineId }) => engineId === nightRuns.id,
+        );
+        windowStart = {
+          ...windowStart,
+          ...sentWindowStart,
+          nextStartAt: "2030-01-15T06:30:00.000Z",
+        };
+        return route.fulfill({ json: shown() });
+      }
+      return route.fulfill({ json: shown() });
+    });
+    await page.route(/\/api\/settings\/engines\/night-runs\/account$/, (route) =>
+      route.fulfill({
+        json: { signedIn: false, pastedToken: false, apiKey: false, email: null, plan: null },
+      }),
+    );
+    // The event stream stands for the service, so the test sends the Window start's event itself
+    // once the page is subscribed and has read everything again.
+    const streams: WebSocketRoute[] = [];
+    let caughtUp: Promise<unknown> | undefined;
+    await page.routeWebSocket(/\/api\/events$/, (stream) => {
+      const service = stream.connectToServer();
+      service.onMessage((message) => {
+        if (typeof message === "string" && message.includes('"type":"subscriptions"')) {
+          caughtUp ??= page.waitForResponse(
+            (response) =>
+              response.url().endsWith("/api/settings/engines") &&
+              response.request().method() === "GET",
+          );
+        }
+        stream.send(message);
+      });
+      streams.push(stream);
+    });
+    await page.goto("/settings/engines");
+    await page.setViewportSize({ width: 1600, height: 1100 });
+
+    const list = page.getByRole("navigation", { name: "Engines" });
+    // A saved engine without usage windows shows no Window start, nor one not saved yet.
+    const saved = (await (
+      await page.request.get("/api/settings/engines")
+    ).json()) as EngineSettings;
+    const withoutWindows = saved.engines.find(
+      ({ id }) => !saved.windowStarts.some(({ engineId }) => engineId === id),
+    );
+    if (withoutWindows) {
+      await list.getByRole("button", { name: new RegExp(`^${withoutWindows.name}`) }).click();
+      await expect(
+        page.getByRole("group", { name: withoutWindows.name, exact: true }),
+      ).toBeVisible();
+      await expect(page.getByRole("region", { name: "Window start" })).toHaveCount(0);
+    }
+    await list.getByRole("button", { name: /^Night runs/ }).click();
+    const block = page.getByRole("region", { name: "Window start" });
+    await expect(block).toContainText("Last: started Mon 12 Jan 17:00");
+    await expect(block).not.toContainText("Next start");
+    await expect(block.locator('input[type="time"]')).toHaveCount(0);
+
+    // Set times start with the next whole hour on the service's clock, beside its time zone.
+    await block.getByText("Start at set times").click();
+    const firstTime = block.getByLabel("Set time 1");
+    await expect(firstTime).toHaveValue(/^\d\d:00$/);
+    await expect(block).toContainText("Times in Europe/Warsaw");
+    await block.getByRole("button", { name: "Add a time" }).click();
+    await block.getByLabel("Set time 2").fill("21:15");
+    await block.getByRole("button", { name: "Add a time" }).click();
+    const save = page.getByRole("button", { name: "Save", exact: true });
+    const saveBar = page.locator(".settings-actions");
+    // An empty time, then a repeated one, holds Save and names the engine.
+    await expect(save).toBeDisabled();
+    await expect(saveBar.getByRole("status")).toContainText(
+      "A time under Window start of Night runs needs fixing before Save.",
+    );
+    await block.getByLabel("Set time 3").fill("21:15");
+    await expect(block).toContainText("21:15 is set already.");
+    await expect(save).toBeDisabled();
+    // Show it brings the engine's Settings tab back from another tab.
+    await page.getByRole("tab", { name: "Models and prices" }).click();
+    await saveBar.getByRole("button", { name: "Show it" }).click();
+    await expect(block.getByLabel("Set time 3")).toHaveValue("21:15");
+    await block.getByLabel("Set time 3").fill("07:30");
+    const first = await firstTime.inputValue();
+    await block.getByRole("button", { name: `Remove ${first}` }).click();
+    await expect(block.getByLabel("Set time 3")).toHaveCount(0);
+    await block.getByText("Start again after each reset").click();
+    await expect(saveBar).toContainText("Unsaved changes");
+
+    // The service's refusal shows every reason, and the draft stays for another try.
+    await save.click();
+    const refusal = page.getByRole("status").filter({ hasText: "The engines weren't saved" });
+    await expect(refusal).toContainText("Night runs: 07:30 is set twice.");
+    await expect(refusal).toContainText("Night runs: 21:15 isn't a time of day.");
+    await save.click();
+    await expect(saveBar.getByText("Saved", { exact: true })).toBeVisible();
+    expect(sent).toHaveLength(2);
+    expect(sent[1]?.windowStarts).toContainEqual({
+      engineId: nightRuns.id,
+      startAtTimes: ["07:30", "21:15"],
+      startAfterReset: true,
+    });
+    await expect(block).toContainText("Next start Tue 15 Jan 07:30");
+
+    // A start skipped since shows without a reload, and an edit not saved yet stays as it was.
+    await expect.poll(() => caughtUp).toBeDefined();
+    await caughtUp;
+    await block.getByText("Start again after each reset").click();
+    await expect(saveBar).toContainText("Unsaved changes");
+    windowStart = {
+      ...windowStart,
+      last: {
+        at: "2026-01-14T16:00:00.000Z",
+        outcome: "skipped",
+        reason: "window-running",
+        error: null,
+        trigger: "set-time",
+        fiveHourResetsAt: null,
+      },
+    };
+    const event = {
+      type: "engine.window-start-changed",
+      engineId: nightRuns.id,
+      occurredAt: new Date().toISOString(),
+    };
+    for (const stream of streams) stream.send(JSON.stringify({ type: "event", event }));
+    await expect(block).toContainText(
+      "Last: skipped Wed 14 Jan 17:00 · 5-hour window already running",
+    );
+    await expect(saveBar).toContainText("Unsaved changes");
+    await expect(block.getByLabel("Set time 2")).toHaveValue("21:15");
+
+    const detail = page.locator(".library-detail");
+    for (const colorScheme of ["light", "dark"] as const) {
+      await page.emulateMedia({ colorScheme });
+      await expect(page.locator("html")).toHaveAttribute("data-palette", colorScheme);
+      await detail.screenshot({
+        path: path.join(TASK_SCREENSHOTS, `settings-engines-window-start-${colorScheme}.png`),
+      });
+    }
+    await page.emulateMedia({ colorScheme: "light" });
+  });
+});
 
 /**
  * For each palette and at 1600 and 600 wide: the list's rows of as many lines all one height, each

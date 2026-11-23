@@ -8,7 +8,7 @@ import {
   type EventInvalidations,
 } from "./api/event-stream-provider.tsx";
 import { deviceEventInvalidations, projectDeviceEventInvalidations } from "./api/devices.ts";
-import { engineEventInvalidations } from "./api/engine.ts";
+import { engineEventCacheUpdates, engineEventInvalidations } from "./api/engine.ts";
 import { gitHubEventInvalidations } from "./api/github.ts";
 import { liveViewEventCacheUpdates } from "./api/live-view.ts";
 import { promptTemplateEventInvalidations } from "./api/prompt-templates.ts";
@@ -59,6 +59,7 @@ const EVENT_CACHE_UPDATES: EventCacheUpdates = {
   ...threadEventCacheUpdates,
   ...notificationEventCacheUpdates,
   ...skillEventCacheUpdates,
+  ...engineEventCacheUpdates,
   ...workEventCacheUpdates,
   ...liveViewEventCacheUpdates,
 };

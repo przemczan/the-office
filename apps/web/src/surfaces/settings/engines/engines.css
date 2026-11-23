@@ -57,6 +57,54 @@
   gap: 12px;
 }
 
+/* An engine with usage windows' Window start, under its kind's fields on the Settings tab. */
+.window-start {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: var(--gap-card);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.window-start-title {
+  margin: 0;
+  font: var(--type-label);
+  color: var(--fg-1);
+}
+
+.window-start-times {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.window-start-time {
+  display: grid;
+  grid-template-columns: minmax(0, 160px) auto;
+  align-items: start;
+  gap: 8px;
+}
+
+.window-start-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.window-start-zone,
+.window-start-status {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.window-start-status {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--fg-2);
+}
+
 /* An API endpoint's models: each its id, context window and Remove, its four prices under them. */
 .api-endpoint-models {
   display: flex;

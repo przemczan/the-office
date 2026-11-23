@@ -1,4 +1,4 @@
-import { queryOptions } from "@tanstack/react-query";
+import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import {
   engineAccountSchema,
   engineRemovalPreviewSchema,
@@ -17,7 +17,11 @@ import {
   sendToApi,
   sendToApiWithNoAnswer,
 } from "./api-client.ts";
-import { useOfficeEvent, type EventInvalidations } from "./event-stream-provider.tsx";
+import {
+  useOfficeEvent,
+  type EventCacheUpdates,
+  type EventInvalidations,
+} from "./event-stream-provider.tsx";
 import { nowQueries } from "./notifications.ts";
 import { usageSettingsQuery } from "./work.ts";
 
@@ -131,22 +135,39 @@ export function useEngineAccountChanged(engineId: string, onChanged: () => void)
   });
 }
 
+/** The engine events that change the engines' settings exactly, which `engineEventCacheUpdates` applies. */
+type ExactEventType = "engine.window-start-changed";
+
 /**
  * An engine's account that changed is read again by its id, and with it what shows its usage
  * windows: an engine an API key signs in has none, so Now's readings and its Window caps in the
- * usage settings come and go with the account. An engine's Window start that changed is read again
- * with the engines' settings.
+ * usage settings come and go with the account.
  */
 export const engineEventInvalidations: Readonly<
-  Record<EngineWebEvent["type"], EventInvalidations[string]>
+  Record<Exclude<EngineWebEvent["type"], ExactEventType>, EventInvalidations[string]>
 > = {
   "engine.account-changed": (event) => [
     engineAccountKey(engineWebEventSchema.parse(event).engineId),
     nowQueries.now().queryKey,
     usageSettingsQuery().queryKey,
   ],
-  "engine.window-start-changed": () => [ENGINE_SETTINGS],
 };
+
+/**
+ * An engine's Window start that changed, or its account, which gives or takes its usage windows and
+ * so its Window start, reads the engines' settings again: exactly those, as ["settings", "engines"]
+ * as a prefix would read each engine's account and removal again.
+ */
+export const engineEventCacheUpdates: Readonly<
+  Record<EngineWebEvent["type"], EventCacheUpdates[string]>
+> = {
+  "engine.account-changed": (_event, queryClient) => invalidateEngineSettings(queryClient),
+  "engine.window-start-changed": (_event, queryClient) => invalidateEngineSettings(queryClient),
+};
+
+function invalidateEngineSettings(queryClient: QueryClient): void {
+  void queryClient.invalidateQueries({ queryKey: engineSettingsQuery().queryKey, exact: true });
+}
 
 function enginePath(engineId: string): `/${string}` {
   return `/settings/engines/${encodeURIComponent(engineId)}`;

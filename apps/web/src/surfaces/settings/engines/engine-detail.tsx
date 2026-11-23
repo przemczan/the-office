@@ -40,6 +40,7 @@ export function EngineDetail({
   pricedModels,
   draftedId,
   prices,
+  windowStart,
   change,
   remove,
 }: {
@@ -54,6 +55,8 @@ export function EngineDetail({
   /** The id Save gives it: empty while a new one has no name. */
   readonly draftedId: EngineId;
   readonly prices: PriceFields;
+  /** Its Window start, under its fields on the Settings tab; none on an engine without usage windows. */
+  readonly windowStart: ReactNode;
   readonly change: (edit: EngineEdit) => void;
   /** Drops one not saved yet from the draft; opens the remove dialog for a saved one. */
   readonly remove: () => void;
@@ -149,6 +152,7 @@ export function EngineDetail({
         ) : (
           <ApiEndpointFields edit={engine} saved={savedEndpoint} change={change} />
         )}
+        {tab === "settings" && windowStart}
       </div>
     </Card>
   );
