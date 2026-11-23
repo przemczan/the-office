@@ -10,6 +10,7 @@ import { allowedCommands } from "./allowed-commands.js";
 import { hardSwitchesSection, type FollowedHardSwitches } from "./followed-hard-switches.js";
 import { GATE_REACHED } from "./gate.js";
 import type { AgentStage, Stage } from "./stage.js";
+import { goingBackOnFailure } from "./stage.fixtures.js";
 import { aStageRun } from "./stage-run.fixtures.js";
 import { defaultPromptTexts } from "../../prompt-templates/index.js";
 import { PIPELINES_PROMPT_TEMPLATES } from "./pipelines-prompt-templates.js";
@@ -229,7 +230,7 @@ describe("agentStageWork", () => {
         },
       ),
     ).toBe(
-      '## The Stage: Implement\n\nBuild it.\n\n## Why this Stage runs again\n\n"Tests" failed after it, so the Pipeline went back here (round 1 of 2):\n\n1 fails.',
+      '## The Stage: Implement\n\nBuild it.\n\n## Why this Stage runs again\n\n"Tests" failed after it, so the Pipeline went back here (round 1 of at most 2):\n\n1 fails.',
     );
   });
 
@@ -381,8 +382,8 @@ describe("agentStageWork's Later Stages", () => {
   it("marks a Stage whose failure comes back here, and no longer an optional one", () => {
     const work = workIn(implement, [
       implement,
-      { ...lint, onFailure: { goBackTo: "implement", rounds: 2 } },
-      { ...review, optional: true, onFailure: { goBackTo: "lint-after", rounds: 1 } },
+      goingBackOnFailure(lint, "implement", 2),
+      goingBackOnFailure({ ...review, optional: true }, "lint-after", 1),
     ]);
 
     expect(work).toContain(

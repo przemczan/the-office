@@ -9,7 +9,7 @@ import {
   EngineReferenceMoves,
   type EngineReferences,
 } from "../../application/engine-reference-moves.js";
-import { EngineRemoved } from "../../domain/engine-events.js";
+import { EngineRemoved, WindowStartSettingsChanged } from "../../domain/engine-events.js";
 import { CodexApiKey } from "../../domain/codex-api-key.js";
 import type { EngineRemoval } from "../../domain/engine-removal.js";
 import { DEFAULT_ENGINE_SETTINGS, FIRST_OFFICE_DEFAULT } from "../../domain/engine-settings.js";
@@ -20,6 +20,8 @@ import { EventsModule } from "../../../../platform/events/events.module.js";
 import { EngineSettingsModule } from "../../engine-settings.module.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
 import { EngineSettingsForTests } from "../../ports/engine-settings-repository.fixtures.js";
+import { WindowStartRepository } from "../../ports/window-start-repository.js";
+import { WindowStartsForTests } from "../../ports/window-start-repository.fixtures.js";
 
 // What engine-settings.controller.test.ts and engine-settings.controller.full.test.ts share.
 
@@ -52,6 +54,8 @@ let app: INestApplication;
 let url: string;
 
 let repository: EngineSettingsForTests;
+
+let windowStarts: WindowStartsForTests;
 
 function put(body: unknown): Promise<Response> {
   return fetch(`${url}/api/settings/engines`, {
@@ -86,9 +90,13 @@ async function read(): Promise<string> {
 function setUpEachTest(): void {
   beforeEach(async () => {
     repository = new EngineSettingsForTests();
+    windowStarts = new WindowStartsForTests();
     ({ app, url } = await startTestApplication({
       imports: [EventsModule, EngineSettingsModule],
-      overrides: [{ provide: EngineSettingsRepository, useValue: repository }],
+      overrides: [
+        { provide: EngineSettingsRepository, useValue: repository },
+        { provide: WindowStartRepository, useValue: windowStarts },
+      ],
     }));
   });
 
@@ -135,6 +143,16 @@ describe("/api/settings/engines", () => {
       ],
       standInEngines: [],
       askBeforeSwitchAbove: 100_000,
+      windowStarts: [
+        {
+          engineId: "claude-code",
+          startAtTimes: [],
+          startAfterReset: false,
+          nextStartAt: null,
+          last: null,
+        },
+      ],
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     });
     expect((await repository.read()).engines[1]).toMatchObject({ id: "strata", key: KEY });
   });
@@ -272,6 +290,124 @@ describe("/api/settings/engines", () => {
       "Pick the Office default among the engines listed.",
     ]);
     expect(await repository.read()).toEqual(DEFAULT_ENGINE_SETTINGS);
+  });
+});
+
+describe("/api/settings/engines Window starts", () => {
+  const racing = {
+    name: "Racing",
+    kind: "codex",
+    defaultModel: "gpt-5.6-terra",
+  } as const;
+
+  /** Saves Strata and Racing, a Codex engine with usage windows, ids given back. */
+  async function savedWithRacing(): Promise<EngineSettingsEdit> {
+    const saved = await put({ ...strataEdit, engines: [...strataEdit.engines, racing] });
+    if (!saved.ok) throw new Error(`Racing wasn't saved: ${saved.status}`);
+    const { engines } = engineSettingsSchema.parse(await saved.json());
+    return {
+      ...strataEdit,
+      engines: [
+        ...strataEdit.engines.slice(0, 1),
+        { ...strataEdit.engines[1]!, id: "strata" },
+        { ...racing, id: engines[2]!.id },
+      ],
+    };
+  }
+
+  it("keeps each engine's Window start, its times sorted, announces each change, and keeps them on a PUT without them", async () => {
+    const edit = await savedWithRacing();
+    const changed: string[] = [];
+    app
+      .get(EventBus)
+      .subscribe(WindowStartSettingsChanged, ({ engineId }) => void changed.push(engineId));
+
+    const saved = await put({
+      ...edit,
+      windowStarts: [
+        { engineId: "racing", startAtTimes: ["12:30", "06:00"], startAfterReset: true },
+        { engineId: "claude-code", startAtTimes: [], startAfterReset: false },
+      ],
+    });
+    const kept = await put(edit);
+
+    expect(saved.status).toBe(200);
+    expect(engineSettingsSchema.parse(await saved.json()).windowStarts).toEqual([
+      {
+        engineId: "claude-code",
+        startAtTimes: [],
+        startAfterReset: false,
+        nextStartAt: null,
+        last: null,
+      },
+      {
+        engineId: "racing",
+        startAtTimes: ["06:00", "12:30"],
+        startAfterReset: true,
+        nextStartAt: null,
+        last: null,
+      },
+    ]);
+    // Claude Code's was the defaults already, so only Racing's changed.
+    expect(changed).toEqual(["racing"]);
+    expect(kept.status).toBe(200);
+    // A Save of the engines keeps their ids, so the Window start stays with Racing.
+    const listed = engineSettingsSchema.parse(JSON.parse(await read()));
+    expect(listed.engines.map(({ id }) => id)).toEqual(["claude-code", "strata", "racing"]);
+    expect(listed.windowStarts[1]).toMatchObject({
+      engineId: "racing",
+      startAtTimes: ["06:00", "12:30"],
+    });
+    expect(changed).toEqual(["racing"]);
+  });
+
+  it("sends the last start, skip or failure", async () => {
+    const at = new Date("2026-11-23T07:00:00.000Z");
+    await windowStarts.record("claude-code", {
+      at,
+      outcome: "skipped",
+      trigger: "set-time",
+      reason: "window-running",
+    });
+
+    const { windowStarts: sent } = engineSettingsSchema.parse(JSON.parse(await read()));
+
+    expect(sent[0]?.last).toEqual({
+      at: at.toISOString(),
+      outcome: "skipped",
+      trigger: "set-time",
+      reason: "window-running",
+      error: null,
+      fiveHourResetsAt: null,
+    });
+  });
+
+  it("refuses a malformed or twice-set time, and a Window start on an engine without usage windows or not saved, in words, keeping none", async () => {
+    const edit = await savedWithRacing();
+    const refused = await put({
+      ...edit,
+      engines: [...edit.engines.slice(0, 2), { ...edit.engines[2]!, name: "" }],
+      windowStarts: [
+        {
+          engineId: "racing",
+          startAtTimes: ["25:00", "7:00", "06:00", "06:00"],
+          startAfterReset: false,
+        },
+        { engineId: "strata", startAtTimes: [], startAfterReset: true },
+        { engineId: "gone", startAtTimes: [], startAfterReset: true },
+      ],
+    });
+
+    expect(refused.status).toBe(422);
+    expect(engineSettingsRefusalSchema.parse(await refused.json()).reasons).toEqual([
+      "Give each engine a name.",
+      'Racing: "25:00" isn\'t a time of day as HH:MM, 00:00 to 23:59.',
+      'Racing: "7:00" isn\'t a time of day as HH:MM, 00:00 to 23:59.',
+      "Racing: 06:00 is set twice.",
+      "Strata has no usage windows, so it can't start its 5-hour window.",
+      'There is no saved engine "gone" to start a 5-hour window on.',
+    ]);
+    expect(await windowStarts.all()).toEqual([]);
   });
 });
 

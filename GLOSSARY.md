@@ -261,6 +261,10 @@ _Avoid_: Quota, rate limit, plan limit
 The cap of a Claude Code engine or a Codex engine on a ChatGPT plan, one for each of its windows, on how much of a Usage window (the 5-hour or the 7-day window) a Start may bring the window to, with its Usage estimate, before it waits in the Queue for the reset. A Start that would pass it first runs the Task on a Stand-in Engine with room, and waits only when none has.
 _Avoid_: Quota gate, budget, limit (the Office-wide limit, Project limits and Task limits count started Tasks), threshold
 
+**Window start**:
+An engine with usage windows (a Claude Code engine signed in with an account, a Codex engine signed in with ChatGPT) starting its 5-hour window by itself with one small turn on its cheapest model, at set times or right after each reset, unless a fresh reading shows the window running or the weekly window (nearly) used up ([5.4.6](docs/spec/5.4.6-stand-in-engines-and-usage-windows.md#starting-the-5-hour-window)). Off unless set.
+_Avoid_: Session window, session start, warm-up, keep-alive
+
 **Daily cap**:
 An engine's cap on the tokens, or the dollars, used on it in one day; a Start that would pass it, with its Usage estimate, waits in the Queue until midnight. Off unless set.
 _Avoid_: Budget, quota, daily limit

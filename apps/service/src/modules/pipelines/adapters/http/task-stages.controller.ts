@@ -21,6 +21,7 @@ import {
   type TaskStages as TaskStagesResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { withGivenLimits } from "../../domain/flow.js";
 import { TaskStagesService } from "../../application/task-stages-service.js";
 import { toStageProblemResponse, toTaskStagesResponse } from "./pipeline-responses.js";
 import { StagesEditRefusalsFilter } from "./stages-edit-refusals.filter.js";
@@ -53,7 +54,7 @@ export class TaskStagesController {
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(taskStagesEditSchema)) { stages }: TaskStagesEdit,
   ): Promise<TaskStagesResponse> {
-    return toTaskStagesResponse(await this.taskStages.edit(id, stages));
+    return toTaskStagesResponse(await this.taskStages.edit(id, withGivenLimits(stages)));
   }
 
   /**
@@ -67,7 +68,7 @@ export class TaskStagesController {
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(stagesCheckRequestSchema)) { stages, pipelineId }: StagesCheckRequest,
   ): Promise<StagesCheck> {
-    const problems = await this.taskStages.check(id, stages, pipelineId);
+    const problems = await this.taskStages.check(id, withGivenLimits(stages), pipelineId);
     return { problems: problems.map(toStageProblemResponse) };
   }
 }

@@ -71,13 +71,19 @@ describe("GET /api/stage-templates", () => {
 });
 
 describe("POST /api/stage-templates", () => {
-  it("adds a template under an id of its own, dropping a loop target", async () => {
-    const stage = aStage({ onFailure: { goBackTo: "plan", rounds: 2 } });
+  it("adds a template under an id of its own, dropping its routes and place", async () => {
+    const stage = aStage({
+      routes: [{ to: "plan", condition: null, limit: 2 }],
+      place: { column: 1, row: 0 },
+    });
 
     const template = await added(stage);
 
-    expect(template).toEqual({ id: expect.any(String), stage: { ...stage, onFailure: undefined } });
-    expect(template.stage).not.toHaveProperty("onFailure");
+    expect(template).toEqual({
+      id: expect.any(String),
+      stage: { ...stage, routes: undefined, place: undefined },
+    });
+    expect(template.stage).not.toHaveProperty("routes");
     const read = await send("GET", `/stage-templates/${template.id}`);
     expect(stageTemplateSchema.parse(await read.json())).toEqual(template);
     expect(publishedFor(StageTemplateAdded, template.id)).toBe(true);

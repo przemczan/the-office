@@ -1,6 +1,7 @@
 import {
   addressableStatements,
   RESTARTS_ASKED_AT,
+  type RouteAtLimit,
   statementList,
   type UnmetOutOfReach,
   type WalkQuestion,
@@ -40,6 +41,7 @@ export interface WalkDecision {
 }
 
 const CONTINUE_WITH_ISSUES = "Continue with the issues recorded";
+const FOLLOW_ONCE_MORE = "Follow it once more";
 const DROP_THE_TASK = "Drop the Task";
 const MARK_DONE = "Mark the Task Done";
 const CALL_IT_MET = "Call it met and publish";
@@ -47,14 +49,18 @@ const GUIDANCE_HINT = "Or answer in your own words: your answer guides one more 
 
 /**
  * The Decision for what the walk asks (spec §2.3), The Office's: when a Stage fails with no
- * retries left or reaches its budget, the Definition of Done isn't reported met before Publish or
- * as a Pipeline without one ends, The Office restarted during a Stage too often, a conflict at
- * Publish is left to the user, or no route out of an ended Stage holds. The Agent asks its own with an Office tool, never through the walk. The user always may answer in their own words (`walkAnswerOf`).
+ * failure route left or reaches its budget, the route the walk would follow is at its limit, the
+ * Definition of Done isn't reported met before Publish or as a Pipeline without one ends, The
+ * Office restarted during a Stage too often, a conflict at Publish is left to the user, or no route
+ * out of an ended Stage holds. The Agent asks its own with an Office tool, never through the walk.
+ * The user always may answer in their own words (`walkAnswerOf`).
  */
 export function walkDecision(run: StageRun, question: WalkQuestion): WalkDecision {
   switch (question.kind) {
     case "no-retries-left":
-      return noRetriesLeft(question.stage, question.error);
+      return noRetriesLeft(question);
+    case "route-limit":
+      return routeLimitDecision(question);
     case "budget":
       return budgetDecision(question.stage, question.reached);
     case "definition-of-done":
@@ -94,36 +100,46 @@ export function walkAnswerOf(decision: StageRunDecision, answer: DecisionAnswer)
   }
   const raise = decision.options.find(({ kind }) => kind === "raise-budget");
   if (decision.kind === "budget" && raise) return raise;
+  // On a route at its limit, the words follow that route once more.
+  const again = decision.options.find(({ kind }) => kind === "one-more-round");
   return {
     kind: "one-more-round",
     guidance: answer.text.trim(),
     ...(answer.answeredBy !== undefined && { guidedBy: answer.answeredBy }),
+    ...(again?.kind === "one-more-round" && again.to !== undefined && { to: again.to }),
   };
 }
 
-/** The chosen option, guided by the comments given beside it when it takes guidance. */
+/**
+ * The chosen option, guided by the comments given beside it when it takes guidance. One more round
+ * names the Consultant who chose it even without comments, so `asksAConsultantFirst` puts the next
+ * question to the user.
+ */
 function withGuidance(
   chosen: WalkAnswer,
   answer: Extract<DecisionAnswer, { kind: "option" }>,
 ): WalkAnswer {
   const guidance = answer.guidance?.trim();
+  if (chosen.kind === "one-more-round") {
+    return {
+      ...chosen,
+      ...(guidance && { guidance }),
+      ...(answer.answeredBy !== undefined && { guidedBy: answer.answeredBy }),
+    };
+  }
   if (!guidance) return chosen;
   if (chosen.kind === "keep-branch") return { kind: "keep-branch", guidance };
   if (chosen.kind === "follow-route") return { ...chosen, guidance };
-  if (chosen.kind !== "one-more-round") return chosen;
-  return {
-    kind: "one-more-round",
-    guidance,
-    ...(answer.answeredBy !== undefined && { guidedBy: answer.answeredBy }),
-  };
+  return chosen;
 }
 
 /**
  * Whether The Office puts what the walk asks to a Consultant before the user, whoever holds Asked
- * first when a Stage runs out of tries (spec §2.3): a Stage failing with no retries left, unless a
- * Consultant already sent that Stage back once in this walk; and
- * a Publish's after publishing line failing, the first time only, so a second failure reaches the
- * user. Every other question, budget limits included, is the user's.
+ * first when a Stage runs out of tries (spec §2.3, "Who is asked"): a Stage failing with no failure
+ * route left, unless a Consultant already sent that Stage on once in this walk; a route at its
+ * limit, unless a Consultant already let that route go once more in this walk; and a Publish's
+ * after publishing line failing, the first time only, so a second failure reaches the user. Every
+ * other question, budget limits included, is the user's.
  */
 export function asksAConsultantFirst(question: WalkQuestion, runs: readonly StageRun[]): boolean {
   if (question.kind === "after-publishing-failed") {
@@ -131,6 +147,20 @@ export function asksAConsultantFirst(question: WalkQuestion, runs: readonly Stag
       ({ stageKey, decisions }) =>
         stageKey === question.stage.key &&
         decisions.some(({ kind }) => kind === "after-publishing-failed"),
+    );
+  }
+  if (question.kind === "route-limit") {
+    const { to } = question.atLimit.route;
+    return !runs.some(
+      ({ stageKey, decisions }) =>
+        stageKey === question.stage.key &&
+        decisions.some(
+          ({ kind, answer }) =>
+            kind === "route-limit" &&
+            answer?.kind === "one-more-round" &&
+            answer.guidedBy !== undefined &&
+            answer.to === to,
+        ),
     );
   }
   if (question.kind !== "no-retries-left") return false;
@@ -182,33 +212,99 @@ function budgetDecision(stage: Stage, { used, budget }: BudgetReached): WalkDeci
   return decision;
 }
 
-function noRetriesLeft(stage: Stage, error: string): WalkDecision {
-  const onFailure = stage.kind === "gate" ? undefined : stage.onFailure;
-  const again = onFailure
-    ? {
-        words: `Allow ${moreRounds(onFailure.rounds)}`,
-        answer: { kind: "more-rounds", rounds: onFailure.rounds } as const,
-      }
-    : {
-        words: `Run "${stage.name}" once more`,
-        answer: { kind: "one-more-round", guidance: undefined } as const,
-      };
-  const question = onFailure
-    ? `"${stage.name}" failed, and its rounds are used up. What now?`
-    : `"${stage.name}" failed, with no round to go back to. What now?`;
+/**
+ * A Stage failed with no failure route left (spec §2.3, "When a Stage fails"): with one used up,
+ * the user follows it once more, goes on by another route out of the Stage, continues with the
+ * issues or drops the Task; with none, they run the Stage once more itself instead.
+ */
+function noRetriesLeft({
+  stage,
+  error,
+  atLimit,
+  others,
+}: Extract<WalkQuestion, { kind: "no-retries-left" }>): WalkDecision {
+  const recommendation = {
+    option: 0,
+    reason: "Another round may fix it: the failure goes into its Brief.",
+  };
+  if (!atLimit) {
+    return {
+      kind: "no-retries-left",
+      draft: {
+        question: `"${stage.name}" failed, with no failure route to follow. What now?`,
+        context: `${error}\n\n${GUIDANCE_HINT}`,
+        options: [`Run "${stage.name}" once more`, CONTINUE_WITH_ISSUES, DROP_THE_TASK],
+        recommendation,
+      },
+      options: [
+        { kind: "one-more-round", guidance: undefined },
+        { kind: "accept-issues" },
+        { kind: "drop" },
+      ],
+    };
+  }
   return {
     kind: "no-retries-left",
     draft: {
-      question,
-      context: `${error}\n\n${GUIDANCE_HINT}`,
-      options: [again.words, CONTINUE_WITH_ISSUES, DROP_THE_TASK],
+      question: `"${stage.name}" failed, and its failure route is used up: ${routeCountWords(stage, atLimit)}. What now?`,
+      context: `${error}\n\nFollow it once more and the walk takes it one time past its limit. ${GUIDANCE_HINT}`,
+      options: [
+        FOLLOW_ONCE_MORE,
+        ...others.map(routeOptionWords),
+        CONTINUE_WITH_ISSUES,
+        DROP_THE_TASK,
+      ],
+      recommendation,
+    },
+    options: [
+      { kind: "one-more-round", guidance: undefined, to: atLimit.route.to },
+      ...others.map(({ to }) => ({ kind: "follow-route", to }) as const),
+      { kind: "accept-issues" },
+      { kind: "drop" },
+    ],
+  };
+}
+
+/**
+ * The route the walk would follow out of the ended Stage is at its limit (spec §2.3, "When a limit
+ * runs out"): the user follows it once more, goes on by another route out of the Stage whatever its
+ * condition, or drops the Task. Words of their own follow it once more and go with the Stages after
+ * it, as a Gate's notes do.
+ */
+function routeLimitDecision({
+  stage,
+  atLimit,
+  others,
+  note,
+}: Extract<WalkQuestion, { kind: "route-limit" }>): WalkDecision {
+  const words = note === undefined ? "" : `${note}\n\n`;
+  return {
+    kind: "route-limit",
+    draft: {
+      question: `${routeCountWords(stage, atLimit)}. What now?`,
+      context: `${words}Follow it once more and the walk takes it one time past its limit. Or answer in your own words: the walk follows it once more, and your answer goes with the Stages after it.`,
+      options: [FOLLOW_ONCE_MORE, ...others.map(routeOptionWords), DROP_THE_TASK],
       recommendation: {
         option: 0,
-        reason: "Another round may fix it: the failure goes into its Brief.",
+        reason: "It is the route the Pipeline chose: one more time may settle what it is for.",
       },
     },
-    options: [again.answer, { kind: "accept-issues" }, { kind: "drop" }],
+    options: [
+      { kind: "one-more-round", guidance: undefined, to: atLimit.route.to },
+      ...others.map(({ to }) => ({ kind: "follow-route", to }) as const),
+      { kind: "drop" },
+    ],
   };
+}
+
+/** "Tests" has sent the work back to "Implement" 3 times, at most 3. */
+function routeCountWords(stage: Stage, { route, times, limit, back }: RouteAtLimit): string {
+  const target = route.to === null ? "End" : `"${route.toName ?? route.to}"`;
+  return `"${stage.name}" has sent the work ${back ? "back" : "on"} to ${target} ${timesWords(times)}, at most ${limit}`;
+}
+
+function timesWords(times: number): string {
+  return times === 1 ? "once" : times === 2 ? "twice" : `${times} times`;
 }
 
 /** Another round can't help here: only the user knows what the move was (spec §2.3). */
@@ -420,10 +516,6 @@ function notMetContext(
   const userChecks = `"${again.name}" can't verify these, so check them yourself:\n${unreachable}`;
   if (addressable.length === 0) return userChecks;
   return `"${again.name}" can address:\n${statementList(addressable)}\n\n${userChecks}`;
-}
-
-function moreRounds(rounds: number): string {
-  return rounds === 1 ? "1 more round" : `${rounds} more rounds`;
 }
 
 /** A failure the user chose to continue with, which later commit messages name. */

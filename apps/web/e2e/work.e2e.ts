@@ -3193,6 +3193,7 @@ function aStageRun(
     tokens: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
     context: null,
     carriedFailure: null,
+    route: null,
     sentBack: null,
     commandRuns: [],
     gateAction,
@@ -3250,7 +3251,14 @@ test("selecting a Stage opens its history window, to move between Stages and run
     name: "Tests",
     optional: false,
     command: "test",
-    onFailure: { goBackTo: "implement", rounds: 3 },
+    routes: [
+      {
+        to: "implement",
+        condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "failed" }] },
+        limit: 3,
+      },
+      { to: "look", condition: null, limit: null },
+    ],
   };
   const look: Stage = { kind: "gate", key: "look", name: "UI acceptance", optional: false };
   const tokens = { input: 40_000, output: 2_000, cacheRead: 900_000, cacheCreation: 0 };
@@ -3306,6 +3314,7 @@ test("selecting a Stage opens its history window, to move between Stages and run
         runs: [
           {
             ...aStageRun(2, at(5), at(6)),
+            route: { to: "implement", times: 1, limit: 3 },
             commandRuns: [
               {
                 purpose: "command",
@@ -3387,6 +3396,8 @@ test("selecting a Stage opens its history window, to move between Stages and run
   await runOf(testsHistory, 2).click();
   const failedRun = detailsOf(testsHistory, 2);
   await expect(failedRun).toContainText("2 tests failed.");
+  // It names the route the walk left it by, with its count.
+  await expect(failedRun).toContainText("Went back to Implement (1 of at most 3)");
   const npmTest = failedRun.getByRole("region", { name: "npm test" });
   await expect(npmTest).toContainText("failed");
   await expect(npmTest).toContainText("1m");

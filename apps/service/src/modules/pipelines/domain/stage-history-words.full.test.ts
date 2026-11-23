@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { agentStage, scriptStage } from "./stage.fixtures.js";
+import { agentStage, goingBackOnFailure, scriptStage } from "./stage.fixtures.js";
 import type { StageCommandRun } from "./stage-command-run.js";
 import { aStageRun } from "./stage-run.fixtures.js";
 import {
@@ -13,7 +13,7 @@ import {
 const NO_THREADS: ReadonlyMap<string, number> = new Map();
 
 const implement = agentStage();
-const tests = scriptStage({ onFailure: { goBackTo: "implement", rounds: 2 } });
+const tests = goingBackOnFailure(scriptStage(), "implement", 2);
 const stages = [implement, tests];
 
 function aCommand(fields: Partial<StageCommandRun> = {}): StageCommandRun {
@@ -94,7 +94,9 @@ describe("stageHistoryWords", () => {
     expect(words).toContain("2. Command: `npm test`, failed, exit code 1, 2 min 5 s.");
     expect(words).toContain("3. Re-run: `npm test`, failed, exit code 1, 2 min 5 s.");
     expect(words).toContain("```\nFAIL renames a device\n```");
-    expect(words).toContain('Ran again as "Tests" failed (round 1 of 2).');
+    expect(words).toContain('Ran again as "Tests" failed (round 1 of at most 2).');
+    expect(words).toContain('Left by the route to "Implement", followed 1 of at most 2 times.');
+    expect(words).toContain('Left by the route to "Tests", followed 2 times, with No limit.');
     expect(words).toContain("Handover note: Renamed in the store.");
     expect(words).toContain("```\nAll 12 tests passed.\n```");
     expect(words).toContain("Outcome: done. `npm test` passed.");
@@ -159,7 +161,7 @@ describe("stageHistoryWords", () => {
     expect(words).toContain('Outcome: needs a decision. The Agent asked: "Keep the old route?"');
     expect(words).toContain("Options: 1. Keep it; 2. Remove it. Recommended: 2");
     expect(words).toContain('- The Agent asked "Keep the old route?". Answered: No, remove it.');
-    expect(words).toContain("- The Stage failed with no retries left. Not answered yet.");
+    expect(words).toContain("- The Stage failed with no failure route left. Not answered yet.");
     expect(words).toContain("Engine: Claude Code, model claude-sonnet-5-5.");
     expect(words).toContain(
       "Tokens: 1200 input, 300 output, 40000 cache read, 2000 cache creation.",
@@ -314,9 +316,11 @@ describe("stageRunWords", () => {
       failedRun!,
       ["added 12 packages\nwhole", "the whole first run", "the whole re-run"],
       undefined,
+      { to: "implement", times: 1, limit: 2 },
     );
 
     expect(words).toMatch(/^## Run 2: Tests \(Script Stage\)/);
+    expect(words).toContain('Left by the route to "Implement", followed 1 of at most 2 times.');
     expect(words).toContain("```\nthe whole first run\n```");
     expect(words).toContain("```\nthe whole re-run\n```");
     expect(words).not.toContain("FAIL renames a device\n```");

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { READ_STAGE_HISTORY_TOOL } from "../../../conversations/index.js";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
-import type { Stage } from "../../domain/stage.js";
+import { goingBackOnFailure } from "../../domain/stage.fixtures.js";
 import {
   aDoneResult,
   anAgentSession,
@@ -28,14 +28,12 @@ afterEach(async () => {
   await pipelines.app.close();
 });
 
-const tests: Stage = {
-  kind: "script",
-  key: "test",
-  name: "Set up check",
-  optional: false,
-  command: "test",
-  onFailure: { goBackTo: "implement", rounds: 1 },
-};
+/** As a previous release kept it, its on-failure setting read as a failure route back. */
+const tests = goingBackOnFailure(
+  { kind: "script", key: "test", name: "Set up check", optional: false, command: "test" },
+  "implement",
+  1,
+);
 
 function readStageHistory(input: Record<string, unknown>) {
   const [tool] = pipelines.app.get(OfficeToolRegistry).named([READ_STAGE_HISTORY_TOOL]);

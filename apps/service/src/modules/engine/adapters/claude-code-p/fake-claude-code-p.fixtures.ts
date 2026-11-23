@@ -6,13 +6,22 @@ export const FAKE_FIVE_HOUR_RESET = "2027-01-15T10:00:00.000Z";
 /** When the stand-in's 7-day window resets. */
 export const FAKE_SEVEN_DAY_RESET = "2027-01-20T10:00:00.000Z";
 
+/** The tokens of the turn the stand-in answers a user message with, as the binary's result counts them. */
+export const FAKE_TURN_USAGE = {
+  input_tokens: 9,
+  output_tokens: 2,
+  cache_read_input_tokens: 0,
+  cache_creation_input_tokens: 4,
+};
+
 /** How the stand-in answers: `answers` a usage query, `silent` answers nothing and won't end by itself. */
 export type FakeClaudeCodePMode = "answers" | "silent";
 
 /**
  * A stand-in for the pinned binary in `-p` with stream-json, a Node script: in `answers` mode it
  * answers `get_usage` with an account's 5-hour window at 12% and 7-day window at 30%
- * (`FAKE_FIVE_HOUR_RESET`, `FAKE_SEVEN_DAY_RESET`), every other control request with an error, and
+ * (`FAKE_FIVE_HOUR_RESET`, `FAKE_SEVEN_DAY_RESET`), a user message with a successful turn's result
+ * of `FAKE_TURN_USAGE`, every other control request with an error, and
  * ends once its input closes; in `silent` mode it answers nothing and runs on after its input
  * closes, until it is ended. It appends to the file its first argument names, one JSON line each:
  * how it started (its process id and its arguments) and every line it received.
@@ -27,7 +36,12 @@ const lines = require("node:readline").createInterface({ input: process.stdin })
 lines.on("line", (line) => {
   const m = JSON.parse(line);
   log({ received: m });
-  if (mode === "silent" || m.type !== "control_request") return;
+  if (mode === "silent") return;
+  if (m.type === "user") {
+    return out({ type: "result", subtype: "success", is_error: false, result: "OK",
+      usage: ${JSON.stringify(FAKE_TURN_USAGE)} });
+  }
+  if (m.type !== "control_request") return;
   const request_id = m.request_id;
   if (m.request.subtype !== "get_usage") {
     return out({ type: "control_response", response: { subtype: "error", request_id, error: "unknown" } });

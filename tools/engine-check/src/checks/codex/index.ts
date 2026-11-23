@@ -9,6 +9,7 @@ import { codexSandboxCheck } from "./sandbox.ts";
 import { codexStartCheck } from "./start.ts";
 import { codexUsageReadAloneCheck } from "./usage-read-alone.ts";
 import { codexUsageReadingCheck } from "./usage-reading.ts";
+import { codexWindowStartCheck } from "./window-start.ts";
 
 /**
  * The Codex engine's runs (spec §5.4 Defaults, the Codex engine) on the pinned `codex app-server`,
@@ -22,6 +23,7 @@ export const codexChecks: readonly Check[] = [
   codexOutputSchemaCheck,
   codexUsageReadingCheck,
   codexUsageReadAloneCheck,
+  codexWindowStartCheck,
   codexInterruptCheck,
   codexResumeCheck,
   codexBargeInCheck,

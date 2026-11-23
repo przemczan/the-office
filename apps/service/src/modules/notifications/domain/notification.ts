@@ -222,9 +222,13 @@ export function taskDone(taskId: string, personRole: string | undefined): Notifi
   return taskOutcome("outcomes.task-done", taskId, personRole, "I finished the Task.", "Done.");
 }
 
-/** Why a Stage failed for good (spec §2.7 Defaults: a failed Task). */
+/**
+ * Why a Stage failed for good (spec §2.7 Defaults: a failed Task): no failure route left, a route
+ * at its limit (to `toName`, or End when undefined), or the Definition of Done not met.
+ */
 export type Failure =
   | { readonly kind: "no-retries-left"; readonly stageName: string }
+  | { readonly kind: "route-limit"; readonly stageName: string; readonly toName?: string }
   | { readonly kind: "definition-of-done" };
 
 export function taskFailed(
@@ -232,17 +236,28 @@ export function taskFailed(
   personRole: string | undefined,
   failure: Failure,
 ): NotificationDraft {
-  const [firstPerson, officeVoice] =
-    failure.kind === "no-retries-left"
-      ? [
-          `${failure.stageName} failed and I have no retries left.`,
-          `${failure.stageName} failed with no retries left.`,
-        ]
-      : [
-          "I ran every Stage, but the Definition of Done isn't met.",
-          "Every Stage ran, but the Definition of Done isn't met.",
-        ];
+  const [firstPerson, officeVoice] = failureWords(failure);
   return taskOutcome("outcomes.task-failed", taskId, personRole, firstPerson, officeVoice);
+}
+
+/** A failure in the person's own words and in The Office's. */
+function failureWords(failure: Failure): readonly [string, string] {
+  switch (failure.kind) {
+    case "no-retries-left":
+      return [
+        `${failure.stageName} failed and I have no retries left.`,
+        `${failure.stageName} failed with no retries left.`,
+      ];
+    case "route-limit": {
+      const route = `${failure.stageName}'s route to ${failure.toName ?? "End"}`;
+      return [`${route} reached its limit, so I stopped.`, `${route} reached its limit.`];
+    }
+    case "definition-of-done":
+      return [
+        "I ran every Stage, but the Definition of Done isn't met.",
+        "Every Stage ran, but the Definition of Done isn't met.",
+      ];
+  }
 }
 
 /** Held by Pause, or by Stop, which keeps the work as Pause does but ends the running step. */

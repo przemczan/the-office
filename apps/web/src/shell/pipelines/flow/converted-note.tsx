@@ -42,8 +42,8 @@ export function ConvertedNote({
       <p>
         As The Office updated, every Pipeline became the same flow drawn as a straight line: its
         Stages in the same order, one route with no condition from each to the next and from the
-        last to End, and each On failure loop as it was. Nothing else changed, and Tasks walk it as
-        before.
+        last to End, and each On failure setting as a route back with the same limit. Nothing else
+        changed, and Tasks walk it as before.
       </p>
       {optionalStageSentences(stages).map((sentence) => (
         <p key={sentence}>{sentence}</p>

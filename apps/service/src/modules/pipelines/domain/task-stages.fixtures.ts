@@ -1,5 +1,5 @@
 import type { Stage } from "./stage.js";
-import { agentStage, scriptStage } from "./stage.fixtures.js";
+import { agentStage, goingBackOnFailure, scriptStage } from "./stage.fixtures.js";
 import { aStageRun } from "./stage-run.fixtures.js";
 import type { RoleFilling } from "./stage-staffing.js";
 import { makeTaskStages, type TaskStages } from "./task-stages.js";
@@ -7,7 +7,7 @@ import { makeTaskStages, type TaskStages } from "./task-stages.js";
 // What task-stages.test.ts and task-stages.full.test.ts share: a Task's copy of a Pipeline and its Roles.
 
 export const implement = agentStage();
-export const tests = scriptStage({ onFailure: { goBackTo: "implement", rounds: 2 } });
+export const tests = goingBackOnFailure(scriptStage(), "implement", 2);
 export const review = agentStage({ key: "review", name: "Review & fix" });
 export const publish = scriptStage({ key: "publish", name: "Publish", command: "publish" });
 export const stages: readonly Stage[] = [implement, tests, review, publish];

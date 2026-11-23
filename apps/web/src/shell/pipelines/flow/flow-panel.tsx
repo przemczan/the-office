@@ -30,8 +30,7 @@ export interface FlowPanelProps {
 
 /**
  * Under the canvas, an office-wide Pipeline's picked Stage or route (docs/design/pipeline-flow.html):
- * a Stage's fields, its Routes out and its On failure; a route's Goes to and condition. A pick of a
- * Stage's On failure opens the Stage there.
+ * a Stage's fields and its Routes out; a route's Goes to, its limit and its condition.
  */
 export function FlowPanel(props: FlowPanelProps): ReactNode {
   const { picked, stages } = props;
@@ -42,14 +41,7 @@ export function FlowPanel(props: FlowPanelProps): ReactNode {
     if (!route) return <FlowPanelEmpty />;
     return <FlowRoutePanel {...props} stage={stage} routeIndex={picked.routeIndex} />;
   }
-  return (
-    <FlowStagePanel
-      key={stage.key}
-      {...props}
-      stage={stage}
-      onFailurePicked={picked.kind === "onFailure"}
-    />
-  );
+  return <FlowStagePanel key={stage.key} {...props} stage={stage} />;
 }
 
 function FlowPanelEmpty(): ReactNode {
@@ -57,8 +49,7 @@ function FlowPanelEmpty(): ReactNode {
     <section className="flow-panel flow-panel--empty" aria-label="Picked">
       <b>Pick a Stage or a route to edit it here.</b>
       <span>
-        A Stage's settings, its Routes out and its On failure loop; a route's place and its
-        condition.
+        A Stage's settings and its Routes out; a route's place, its condition and its limit.
       </span>
     </section>
   );

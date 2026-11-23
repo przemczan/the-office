@@ -1,5 +1,12 @@
-import type { ConditionGroup, ConditionTest, Route, Stage } from "@the-office/contracts";
+import type {
+  ConditionGroup,
+  ConditionTest,
+  Route,
+  RouteLimit,
+  Stage,
+} from "@the-office/contracts";
 import { isGroup, type DefinitionOfDoneIs, type StageTestIs } from "./condition-edits.ts";
+import { isFailureRoute, limitOf } from "./flow-model.ts";
 
 /**
  * A route's condition in plain words (docs/design/pipeline-flow.html): "Followed when Implement changed files and either the Definition of Done has
@@ -7,8 +14,11 @@ import { isGroup, type DefinitionOfDoneIs, type StageTestIs } from "./condition-
  * of `stage: null` names; `stages` the flow, which names every other.
  */
 
-/** What words need of the Stage a route leaves: its name, and its routes for their order. */
-export type RouteSource = Pick<Stage, "name" | "routes">;
+/**
+ * What words need of the Stage a route leaves: its name, its routes for their order, and its kind
+ * when known, as an Agent Stage's failure route reads "when it fails".
+ */
+export type RouteSource = Pick<Stage, "name" | "routes"> & { readonly kind?: Stage["kind"] };
 
 /** The second select of a Stage test, and its words after the Stage's name. */
 export const STAGE_TEST_WORDS: Readonly<Record<StageTestIs, string>> = {
@@ -90,8 +100,9 @@ export function routeTargetName(route: Route, stages: readonly Stage[]): string 
 }
 
 /**
- * When a route is followed, as its line inside its Stage reads: "when …", or with no condition
- * "always" when it is the first route, "otherwise" after another.
+ * When a route is followed, as its line inside its Stage reads: "when …" ("when it fails" for an
+ * Agent Stage's failure route), or with no condition "always" when it is the first route,
+ * "otherwise" after another.
  */
 export function routeWhen(
   route: Route,
@@ -99,25 +110,47 @@ export function routeWhen(
   stages: readonly Stage[],
   routeIndex = indexOf(route, from),
 ): string {
+  if (from.kind === "agent" && isFailureRoute(route)) return "when it fails";
   if (route.condition !== null) {
     return `when ${groupWords(route.condition, from, stages, { short: true })}`;
   }
   return routeIndex > 0 ? "otherwise" : "always";
 }
 
-/** When a route is followed, as a sentence under its condition in the panel. */
+/** A limit's mark, "≤3×", or none for No limit. */
+export function limitMark(limit: RouteLimit | undefined): string {
+  return limit === null || limit === undefined ? "" : `≤${limit}×`;
+}
+
+/** "at most 3 times", "at most 1 time". */
+export function atMostWords(limit: number): string {
+  return `at most ${limit} ${limit === 1 ? "time" : "times"}`;
+}
+
+/**
+ * When a route is followed and its limit, as a sentence under its condition in the panel: "Followed
+ * when Tests ended Failed, at most 3 times in a walk; then you're asked (or the CTO first)."
+ */
 export function followedWhen(
   route: Route,
   from: Stage,
   stages: readonly Stage[],
   routeIndex = indexOf(route, from),
 ): string {
-  if (route.condition !== null)
-    return `Followed when ${groupWords(route.condition, from, stages)}.`;
+  const limit = limitOf(stages, from.key, route);
+  const limited =
+    limit === null ? "" : `, ${atMostWords(limit)} in a walk; then you're asked (or the CTO first)`;
+  const withLimit = `${limited || ", with no limit"}.`;
+  if (from.kind === "agent" && isFailureRoute(route)) {
+    return `Followed when ${from.name} fails${withLimit}`;
+  }
+  if (route.condition !== null) {
+    return `Followed when ${groupWords(route.condition, from, stages)}${withLimit}`;
+  }
   const count = from.routes?.length ?? 0;
-  if (count <= 1) return `Always followed: it is ${from.name}'s one route out.`;
+  if (count <= 1) return `Always followed: it is ${from.name}'s one route out${limited}.`;
   return routeIndex === count - 1
-    ? "Followed otherwise, when no route before it holds."
+    ? `Followed otherwise, when no route before it holds${withLimit}`
     : "Always holds, so no route after it can be followed.";
 }
 

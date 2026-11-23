@@ -50,7 +50,7 @@ export class ConditionCommands {
   }
 
   private async runCommand(
-    { run, stage, condition }: WeighCommandMove,
+    { run, stage, condition, route }: WeighCommandMove,
     task: TaskRecord,
     stages: readonly Stage[],
     earlierRuns: readonly StageRun[],
@@ -67,7 +67,7 @@ export class ConditionCommands {
       }
       const file = stageRunsFile(
         { id: run.taskId, title: task.title, project: projectId },
-        { from: stage.key, to: condition.to },
+        { from: stage.key, to: condition.to, times: route.times, limit: route.limit },
         task.definitionOfDone,
         earlierRuns,
         stages,

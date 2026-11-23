@@ -1,17 +1,36 @@
-import type { ConditionGroup, Route, Stage, StagePlace } from "@the-office/contracts";
+import type { ConditionGroup, Route, RouteLimit, Stage, StagePlace } from "@the-office/contracts";
 import { namedAmong, removeStage } from "../stage-edits.ts";
 
 /**
  * The flow editor's edits of a Pipeline's Stages (docs/design/pipeline-flow.html), each answering
  * the new Stages. A Stage's place gives the Pipeline's order: columns left to right, then rows top to
  * bottom. After an edit that moves places, the Stages come back in that order with empty columns and
- * rows closed up. What makes a flow unusable (a route leading back, a Stage no route reaches) is the
+ * rows closed up. What makes a flow unusable (a loop with no limit, a Stage no route reaches) is the
  * service's check to say, so these never refuse an edit for it: the check names it, in words.
+ *
+ * Every route has its limit (spec §2.3, "A route's limit"): one these make leading back, to its own
+ * Stage or one before it in the Pipeline's order, starts at `ROUTE_BACK_LIMIT`, one leading on at No
+ * limit. Moving a Stage keeps every limit.
  *
  * A Task's started Stages are locked (`LockedStages`): no edit moves one, and the columns up to the
  * last holding one are frozen, so none is made or closed up there and the locked Stages keep their
  * places. What still breaks a lock, such as a Stage put on a locked Stage's route, the check names.
  */
+
+/** The limit a route leading back starts at: at most 3 times. */
+export const ROUTE_BACK_LIMIT = 3;
+
+/** An Agent Stage's When it fails: the built-in "the previous Stage ended Failed" on its own. */
+export const FAILED_CONDITION: ConditionGroup = {
+  combine: "all",
+  tests: [{ kind: "stage", stage: null, is: "failed" }],
+};
+
+/**
+ * The forms of a row of Routes out (spec §2.3, "The route forms"): When it fails, an Agent Stage's
+ * alone; When these hold; and Otherwise, with no condition.
+ */
+export type RouteForm = "fails" | "holds" | "otherwise";
 
 export type MoveDirection = "earlier" | "later" | "up" | "down";
 
@@ -77,7 +96,9 @@ export function asFlow(stages: readonly Stage[]): readonly Stage[] {
   const order = inFlowOrder(placed);
   return closedUp(
     order.map((stage, index) =>
-      stage.routes ? stage : { ...stage, routes: [{ to: nextKey(order, index), condition: null }] },
+      stage.routes
+        ? stage
+        : { ...stage, routes: [{ to: nextKey(order, index), condition: null, limit: null }] },
     ),
   );
 }
@@ -203,45 +224,133 @@ export function stepInOrder(stages: readonly Stage[], key: string, by: -1 | 1): 
   return index < 0 ? undefined : order[index + by]?.key;
 }
 
-/** The Stages in columns strictly before `key`'s, in the Pipeline's order. */
-export function earlierStages(stages: readonly Stage[], key: string): readonly Stage[] {
-  return byColumn(stages, key, (column, own) => column < own);
-}
-
 /** The Stages in columns strictly after `key`'s, in the Pipeline's order: where a route may lead. */
 export function laterStages(stages: readonly Stage[], key: string): readonly Stage[] {
   return byColumn(stages, key, (column, own) => column > own);
 }
 
-/** The Stages a failure of `key` may go back to: earlier columns' Stages that work, not Gates. */
-export function flowFailureTargets(stages: readonly Stage[], key: string): readonly Stage[] {
-  return earlierStages(stages, key).filter((stage) => stage.kind !== "gate");
+/**
+ * Whether a route from `fromKey` to `to` leads back: to its own Stage, or one before it in the
+ * Pipeline's order. A route to End, or to a Stage the flow doesn't have, leads on.
+ */
+export function isRouteBack(stages: readonly Stage[], fromKey: string, to: string | null): boolean {
+  if (to === null) return false;
+  if (to === fromKey) return true;
+  const order = inFlowOrder(stages);
+  const from = order.findIndex(({ key }) => key === fromKey);
+  const target = order.findIndex(({ key }) => key === to);
+  return from >= 0 && target >= 0 && target < from;
+}
+
+/** The limit a route from `fromKey` to `to` starts at: 3 back, No limit on. */
+export function defaultLimit(
+  stages: readonly Stage[],
+  fromKey: string,
+  to: string | null,
+): RouteLimit {
+  return isRouteBack(stages, fromKey, to) ? ROUTE_BACK_LIMIT : null;
+}
+
+/** A route's limit, or, given without one, the default for where it leads. */
+export function limitOf(stages: readonly Stage[], fromKey: string, route: Route): RouteLimit {
+  return route.limit === undefined ? defaultLimit(stages, fromKey, route.to) : route.limit;
+}
+
+/** Whether the route's condition is "the previous Stage ended Failed" on its own. */
+export function isFailureRoute({ condition }: Pick<Route, "condition">): boolean {
+  const [test, ...others] = condition?.tests ?? [];
+  return (
+    others.length === 0 &&
+    test !== undefined &&
+    "kind" in test &&
+    test.kind === "stage" &&
+    test.stage === null &&
+    test.is === "failed"
+  );
+}
+
+/** A row's form: When it fails only on an Agent Stage, which has it apart from its conditions. */
+export function routeFormOf(
+  stage: Pick<Stage, "kind">,
+  route: Pick<Route, "condition">,
+): RouteForm {
+  if (route.condition === null) return "otherwise";
+  return stage.kind === "agent" && isFailureRoute(route) ? "fails" : "holds";
 }
 
 /**
- * The routes with one drawn to `to` (a Stage's key, or null for End). The first route needs no
- * condition; a later one goes in before the first route with none, as that one always holds and
- * must go last, with a condition still to set. A route to where one already leads is that one.
+ * The routes with one drawn to `to` (a Stage's key, or null for End), at `limit`. The first route
+ * needs no condition; a later one goes in before the first route with none, as that one always
+ * holds and must go last, with a condition still to set. A route to where one already leads is
+ * that one.
  */
-export function routesWithDrawn(routes: readonly Route[], to: string | null): RoutesDrawn {
+export function routesWithDrawn(
+  routes: readonly Route[],
+  to: string | null,
+  limit: RouteLimit,
+): RoutesDrawn {
   const existing = routes.findIndex((route) => route.to === to);
   if (existing >= 0) return { routes, routeIndex: existing };
-  if (routes.length === 0) return { routes: [{ to, condition: null }], routeIndex: 0 };
-  const open = routes.findIndex((route) => route.condition === null);
-  const routeIndex = open >= 0 ? open : routes.length;
-  return {
-    routes: routes.toSpliced(routeIndex, 0, { to, condition: UNSET_CONDITION }),
-    routeIndex,
-  };
+  if (routes.length === 0) return { routes: [{ to, condition: null, limit }], routeIndex: 0 };
+  return routesWithAdded(routes, "holds", to, limit);
+}
+
+/**
+ * The routes with a row of `form` added (Add a route): When it fails first, When these hold before
+ * the first route with no condition, with a condition still to set, and Otherwise last.
+ */
+export function routesWithAdded(
+  routes: readonly Route[],
+  form: RouteForm,
+  to: string | null,
+  limit: RouteLimit,
+): RoutesDrawn {
+  switch (form) {
+    case "fails":
+      return { routes: [{ to, condition: FAILED_CONDITION, limit }, ...routes], routeIndex: 0 };
+    case "otherwise":
+      return { routes: [...routes, { to, condition: null, limit }], routeIndex: routes.length };
+    case "holds": {
+      const open = routes.findIndex((route) => route.condition === null);
+      const routeIndex = open >= 0 ? open : routes.length;
+      return {
+        routes: routes.toSpliced(routeIndex, 0, { to, condition: UNSET_CONDITION, limit }),
+        routeIndex,
+      };
+    }
+  }
+}
+
+/** The forms Add a route offers a Stage: When it fails and Otherwise only while it has none. */
+export function formsToAdd(stage: Stage): readonly RouteForm[] {
+  const routes = stage.routes ?? [];
+  const has = (form: RouteForm): boolean =>
+    routes.some((route) => routeFormOf(stage, route) === form);
+  return [
+    ...(stage.kind === "agent" && !has("fails") ? (["fails"] as const) : []),
+    "holds",
+    ...(has("otherwise") ? [] : (["otherwise"] as const)),
+  ];
 }
 
 export function routesWithout(routes: readonly Route[], index: number): readonly Route[] {
   return index >= 0 && index < routes.length ? routes.toSpliced(index, 1) : routes;
 }
 
-/** Whether the route can move a step in the order its Stage's routes are weighed. */
-export function canMoveRouteAmong(routes: readonly Route[], index: number, by: -1 | 1): boolean {
-  return index >= 0 && index < routes.length && index + by >= 0 && index + by < routes.length;
+/**
+ * Whether the route can move a step in the order its Stage's routes are weighed: When it fails
+ * stays first and Otherwise last, so neither moves and no row passes them.
+ */
+export function canMoveRouteAmong(
+  stage: Pick<Stage, "kind">,
+  routes: readonly Route[],
+  index: number,
+  by: -1 | 1,
+): boolean {
+  const route = routes[index];
+  const other = routes[index + by];
+  if (!route || !other) return false;
+  return [route, other].every((each) => routeFormOf(stage, each) === "holds");
 }
 
 export function routesMoved(routes: readonly Route[], index: number, by: -1 | 1): readonly Route[] {
@@ -251,7 +360,10 @@ export function routesMoved(routes: readonly Route[], index: number, by: -1 | 1)
   return routes.with(index, other).with(index + by, route);
 }
 
-/** The route leading to `to` instead; its saved name was the old target's, so it goes. */
+/**
+ * The route leading to `to` instead, its limit kept; its saved name was the old target's, so it
+ * goes.
+ */
 export function routesWithTarget(
   routes: readonly Route[],
   index: number,
@@ -259,6 +371,15 @@ export function routesWithTarget(
 ): readonly Route[] {
   const route = routes[index];
   return route ? routes.with(index, { ...withoutToName(route), to }) : routes;
+}
+
+export function routesWithLimit(
+  routes: readonly Route[],
+  index: number,
+  limit: RouteLimit,
+): readonly Route[] {
+  const route = routes[index];
+  return route ? routes.with(index, { ...route, limit }) : routes;
 }
 
 export function routesWithCondition(
@@ -271,9 +392,8 @@ export function routesWithCondition(
 }
 
 /**
- * The Stages with a route drawn from `fromKey` to `to`, as `routesWithDrawn` draws it. A route
- * leading back is drawn too, for the check to say why it can't stay. The index is -1 when no Stage
- * has the key.
+ * The Stages with a route drawn from `fromKey` to `to`, as `routesWithDrawn` draws it, at the
+ * default limit for where it leads. The index is -1 when no Stage has the key.
  */
 export function withRouteDrawn(
   stages: readonly Stage[],
@@ -282,8 +402,27 @@ export function withRouteDrawn(
 ): RouteDrawn {
   const from = stageNamed(stages, fromKey);
   if (!from) return { stages, routeIndex: -1 };
-  const drawn = routesWithDrawn(from.routes ?? [], to);
+  const drawn = routesWithDrawn(from.routes ?? [], to, defaultLimit(stages, fromKey, to));
   return { stages: withRoutes(stages, fromKey, () => drawn.routes), routeIndex: drawn.routeIndex };
+}
+
+/**
+ * The Stages with a row of `form` added to `fromKey`'s routes (Add a route): to the first later
+ * Stage it has no route to, or End, at the default limit for where it leads.
+ */
+export function withRouteAdded(
+  stages: readonly Stage[],
+  fromKey: string,
+  form: RouteForm,
+): RouteDrawn {
+  const from = stageNamed(stages, fromKey);
+  if (!from) return { stages, routeIndex: -1 };
+  const routes = from.routes ?? [];
+  const to =
+    laterStages(stages, fromKey).find(({ key }) => !routes.some((route) => route.to === key))
+      ?.key ?? null;
+  const added = routesWithAdded(routes, form, to, defaultLimit(stages, fromKey, to));
+  return { stages: withRoutes(stages, fromKey, () => added.routes), routeIndex: added.routeIndex };
 }
 
 export function withRouteRemoved(
@@ -300,7 +439,8 @@ export function canMoveRoute(
   routeIndex: number,
   by: -1 | 1,
 ): boolean {
-  return canMoveRouteAmong(stageNamed(stages, key)?.routes ?? [], routeIndex, by);
+  const stage = stageNamed(stages, key);
+  return stage !== undefined && canMoveRouteAmong(stage, stage.routes ?? [], routeIndex, by);
 }
 
 export function withRouteMoved(
@@ -312,13 +452,34 @@ export function withRouteMoved(
   return withRoutes(stages, key, (routes) => routesMoved(routes, routeIndex, by));
 }
 
+/**
+ * The route leading to `to` instead. Its limit stays while it leads the same way, back or on; one
+ * turned from on to back, or back to on, takes the default for where it now leads.
+ */
 export function withRouteTarget(
   stages: readonly Stage[],
   key: string,
   routeIndex: number,
   to: string | null,
 ): readonly Stage[] {
-  return withRoutes(stages, key, (routes) => routesWithTarget(routes, routeIndex, to));
+  return withRoutes(stages, key, (routes) => {
+    const route = routes[routeIndex];
+    if (!route) return routes;
+    return routesWithLimit(
+      routesWithTarget(routes, routeIndex, to),
+      routeIndex,
+      limitLeading(stages, key, route, to),
+    );
+  });
+}
+
+export function withRouteLimit(
+  stages: readonly Stage[],
+  key: string,
+  routeIndex: number,
+  limit: RouteLimit,
+): readonly Stage[] {
+  return withRoutes(stages, key, (routes) => routesWithLimit(routes, routeIndex, limit));
 }
 
 export function withRouteCondition(
@@ -331,10 +492,10 @@ export function withRouteCondition(
 }
 
 /**
- * The Stages with `stage` put on a route: the route leads to it, its condition kept, and it leads
- * on where the route led, by one route that always holds. It takes a column of its own right after
- * the route's Stage (or after the frozen ones), on its row. With no such route, nothing changes and
- * `key` stays the route's Stage's.
+ * The Stages with `stage` put on a route: the route leads to it, its condition and limit kept, and
+ * it leads on where the route led, by one route that always holds, at the default limit for where
+ * that leads. It takes a column of its own right after the route's Stage (or after the frozen
+ * ones), on its row. With no such route, nothing changes and `key` stays the route's Stage's.
  */
 export function withStageOnRoute(
   stages: readonly Stage[],
@@ -347,24 +508,24 @@ export function withStageOnRoute(
   const route = from?.routes?.[routeIndex];
   if (!from || !route) return { stages, key };
   const { column, row } = placeOf(from);
-  const onward: Route = { ...route, condition: null };
   const at = Math.max(column + 1, frozenColumns(stages, locked));
-  const added: Stage = {
-    ...namedAmong(stage, stages),
-    routes: [onward],
-    place: { column: at, row },
-  };
+  const named: Stage = { ...namedAmong(stage, stages), place: { column: at, row } };
   const flow = withRoutes(shiftedFrom(stages, at), key, (routes) =>
-    routesWithTarget(routes, routeIndex, added.key),
+    routesWithTarget(routes, routeIndex, named.key),
   );
+  const onward: Route = {
+    ...route,
+    condition: null,
+    limit: defaultLimit([...flow, named], named.key, route.to),
+  };
+  const added: Stage = { ...named, routes: [onward] };
   return { stages: closedUp([...flow, added], locked), key: added.key };
 }
 
 /**
  * The Stages without `key`, its routes carried along: each route into it leads where its one route
- * out led, so a straight line stays one. With several
+ * out led, so a straight line stays one, its limit kept while it leads the same way. With several
  * routes out, or none, the routes into it go, and the check says where a route is now missing.
- * Every On failure going back to it is cleared.
  */
 export function withStageRemovedFromFlow(
   stages: readonly Stage[],
@@ -379,25 +540,53 @@ export function withStageRemovedFromFlow(
   return closedUp(
     removeStage(stages, index).map((stage) =>
       stage.routes?.some((route) => route.to === key)
-        ? { ...stage, routes: [...carried(stage.routes, key, onward)] }
+        ? { ...stage, routes: [...carried(stages, stage, key, onward)] }
         : stage,
     ),
     locked,
   );
 }
 
-/** Every route to `key` leading where `onward` leads, or gone with none, less any made needless. */
-function carried(routes: readonly Route[], key: string, onward: Route | undefined): Route[] {
+/**
+ * Every route of `from` to `key` leading where `onward` leads, or gone with none, less any made
+ * needless. `stages` are the Stages with `key` still among them, whose order the others keep.
+ */
+function carried(
+  stages: readonly Stage[],
+  from: Stage,
+  key: string,
+  onward: Route | undefined,
+): Route[] {
   return withoutNeedless(
-    routes.flatMap((route): Route[] => {
+    (from.routes ?? []).flatMap((route): Route[] => {
       if (route.to !== key) return [route];
       if (!onward) return [];
       const { toName } = onward;
       return [
-        { ...withoutToName(route), to: onward.to, ...(toName === undefined ? {} : { toName }) },
+        {
+          ...withoutToName(route),
+          to: onward.to,
+          ...(toName === undefined ? {} : { toName }),
+          limit: limitLeading(stages, from.key, route, onward.to),
+        },
       ];
     }),
   );
+}
+
+/**
+ * The limit of `route` out of `fromKey` once it leads to `to`: its own while it leads the same way,
+ * back or on, else the default for where it now leads.
+ */
+function limitLeading(
+  stages: readonly Stage[],
+  fromKey: string,
+  route: Route,
+  to: string | null,
+): RouteLimit {
+  return isRouteBack(stages, fromKey, route.to) === isRouteBack(stages, fromKey, to)
+    ? limitOf(stages, fromKey, route)
+    : defaultLimit(stages, fromKey, to);
 }
 
 /** The routes less any just before a route that always holds and leads to the same place. */

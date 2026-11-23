@@ -1,11 +1,12 @@
-import type { Route, Stage, StagePlace } from "@the-office/contracts";
-import type { FlowDrop } from "./flow-model.ts";
+import type { Route, RouteLimit, Stage, StagePlace } from "@the-office/contracts";
+import { type FlowDrop, isRouteBack, limitOf } from "./flow-model.ts";
 import type { FlowOverlay } from "./flow-marks.ts";
 
 /**
  * The flow canvas's geometry (docs/design/pipeline-flow.html), apart from React: where each Stage
- * goes in the grid of places, and, from the boxes the canvas measured, the routes' and loops' lines
- * as SVG path data. Across, the columns run left to right in the Pipeline's order; down (a canvas
+ * goes in the grid of places, and, from the boxes the canvas measured, the routes' lines as SVG
+ * path data: a route on runs to the right, a route back curves back above the Stages in a lane of
+ * its own, and each with a limit carries its ≤N× mark. Across, the columns run left to right in the Pipeline's order; down (a canvas
  * under 560px wide) they become bands top to bottom, a column's rows side by side.
  */
 
@@ -58,6 +59,8 @@ export interface FlowLine {
   /** The route line in the card it leaves from, by its index; the card's edge's middle without. */
   readonly port: number | undefined;
   readonly look: FlowLineLook;
+  /** Its limit, which its ≤N× mark shows; null for No limit. */
+  readonly limit: RouteLimit;
 }
 
 export interface FlowPath {
@@ -68,15 +71,13 @@ export interface FlowPath {
 
 export interface FlowRoutePath extends FlowPath {
   readonly line: FlowLine;
+  /** Where its ≤N× mark sits, its middle, when it has a limit. */
+  readonly mark: FlowPoint;
 }
 
-export interface FlowLoopPath extends FlowPath {
-  readonly fromKey: string;
-  readonly toKey: string;
-  readonly rounds: number;
+/** A route back's path, in its lane above the Stages (beside them, down). */
+export interface FlowLoopPath extends FlowRoutePath {
   readonly lane: number;
-  /** Where the ↺ N× mark sits, its middle. */
-  readonly mark: FlowPoint;
 }
 
 export interface FlowStartPath extends FlowPath {
@@ -96,6 +97,8 @@ export interface FlowGridCell {
 interface Loop {
   readonly from: Stage;
   readonly to: Stage;
+  readonly routeIndex: number;
+  readonly limit: RouteLimit;
   readonly lo: number;
   readonly hi: number;
 }
@@ -132,27 +135,37 @@ export function endCellOf(size: FlowGridSize, orientation: FlowOrientation): Flo
     : { gridColumn: "1 / -1", gridRow: after };
 }
 
-/** Whether a Stage lists its routes inside it: more than one, or one with a condition. */
-export function listsRoutes(stage: Stage): boolean {
+/** Whether a Stage lists its routes inside it: more than one, or one with a condition or a limit. */
+export function listsRoutes(stage: Stage, stages: readonly Stage[] = [stage]): boolean {
   const routes = stage.routes ?? [];
-  return routes.length > 1 || routes.some((route) => route.condition !== null);
+  return (
+    routes.length > 1 ||
+    routes.some((route) => route.condition !== null || limitOf(stages, stage.key, route) !== null)
+  );
 }
 
 /**
- * The lines to draw: each Stage's routes, then a Proposal's proposed and taken-away routes, which
- * no press picks.
+ * The lines to draw on: each Stage's routes on, then a Proposal's proposed and taken-away routes,
+ * which no press picks. The routes back are `loopLanes`'.
  */
 export function flowLines(stages: readonly Stage[], overlay?: FlowOverlay): readonly FlowLine[] {
   const own = stages.flatMap((stage) => {
-    const lists = listsRoutes(stage);
-    return (stage.routes ?? []).map((route, index): FlowLine => ({
-      id: `${stage.key}:${index}`,
-      fromKey: stage.key,
-      to: route.to,
-      routeIndex: index,
-      port: lists ? index : undefined,
-      look: "plain",
-    }));
+    const lists = listsRoutes(stage, stages);
+    return (stage.routes ?? []).flatMap((route, index): FlowLine[] =>
+      isRouteBack(stages, stage.key, route.to)
+        ? []
+        : [
+            {
+              id: `${stage.key}:${index}`,
+              fromKey: stage.key,
+              to: route.to,
+              routeIndex: index,
+              port: lists ? index : undefined,
+              look: "plain",
+              limit: limitOf(stages, stage.key, route),
+            },
+          ],
+    );
   });
   return [
     ...own,
@@ -173,13 +186,15 @@ function overlayLines(
       routeIndex: undefined,
       port: undefined,
       look,
+      limit: route.limit ?? null,
     })),
   );
 }
 
 /**
- * Whether a line must go round rather than straight: it leads to its own or an earlier column, or
- * a Stage stands between on its row. A line to End never does, as End is after every column.
+ * Whether a line must go round rather than straight: it leads to its own or an earlier column (a
+ * later row of its own column, or a Proposal's route back), or a Stage stands between on its row. A
+ * line to End never does, as End is after every column.
  */
 export function needsDetour(
   stages: readonly Stage[],
@@ -198,19 +213,22 @@ export function needsDetour(
 }
 
 /**
- * The On failure loops, each in a lane of its own above the Stages (beside them, down), so two
- * loops that overlap never share a line: the shortest get the lanes nearest the Stages.
+ * The routes back, to their own Stage or an earlier one, each in a lane of its own above the Stages
+ * (beside them, down), so two that overlap never share a line: the shortest get the lanes nearest
+ * the Stages.
  */
 export function loopLanes(stages: readonly Stage[]): readonly LaidLoop[] {
   const loops = stages
-    .flatMap((from): Loop[] => {
-      if (from.kind === "gate" || !from.onFailure) return [];
-      const to = stages.find(({ key }) => key === from.onFailure?.goBackTo);
-      if (!to) return [];
-      const a = placeOf(stages, from).column;
-      const b = placeOf(stages, to).column;
-      return [{ from, to, lo: Math.min(a, b), hi: Math.max(a, b) }];
-    })
+    .flatMap((from): Loop[] =>
+      (from.routes ?? []).flatMap((route, routeIndex): Loop[] => {
+        const to = stages.find(({ key }) => key === route.to);
+        if (!to || !isRouteBack(stages, from.key, to.key)) return [];
+        const a = placeOf(stages, from).column;
+        const b = placeOf(stages, to).column;
+        const limit = limitOf(stages, from.key, route);
+        return [{ from, to, routeIndex, limit, lo: Math.min(a, b), hi: Math.max(a, b) }];
+      }),
+    )
     .toSorted((a, b) => a.hi - a.lo - (b.hi - b.lo));
   const lanes: Loop[][] = [];
   return loops.map((loop) => {
@@ -230,7 +248,7 @@ function lanesClash(a: Loop, b: Loop): boolean {
   return a.lo < b.hi && b.lo < a.hi;
 }
 
-/** The ↺ N× mark's size at --text-2xs, its border included (flow-canvas.css). */
+/** The ≤N× mark's size at --text-2xs, its border included (flow-canvas.css). */
 const MARK_WIDTH = 40;
 const MARK_HEIGHT = 18;
 /** Parallel lines closer than this blur into one at the canvas's stroke. */
@@ -248,7 +266,7 @@ const SIDE_STEP = 10;
 const MARK_AIR = 4;
 const CORNER = 6;
 
-/** The room the canvas keeps for the loops' lanes and for the lines that go round, in px. */
+/** The room the canvas keeps for the routes back's lanes and for the lines that go round, in px. */
 export function flowRoom(
   stages: readonly Stage[],
   lines: readonly FlowLine[],
@@ -270,7 +288,7 @@ interface MarkHalf {
   readonly across: number;
 }
 
-/** Half a mark along its loop's run and across it: across, the run is level; down, upright. */
+/** Half a mark along its route's run and across it: across, the run is level; down, upright. */
 function markHalf(orientation: FlowOrientation): MarkHalf {
   return orientation === "across"
     ? { along: MARK_WIDTH / 2, across: MARK_HEIGHT / 2 }
@@ -335,7 +353,10 @@ const polygon = (points: readonly Pt[]): string => points.map(([x, y]) => `${x},
 const middleX = (box: FlowBox): number => box.x + box.width / 2;
 const middleY = (box: FlowBox): number => box.y + box.height / 2;
 
-/** The lines' paths, each from its port; lines that go round take a lane each, below or beside. */
+/**
+ * The lines' paths, each from its port, with its mark in the middle of its longest stretch; lines
+ * that go round take a lane each, below or beside.
+ */
 export function routePaths(
   stages: readonly Stage[],
   lines: readonly FlowLine[],
@@ -368,12 +389,24 @@ export function routePaths(
   });
 }
 
+/** The middle of the longest stretch of an orthogonal line, where its mark sits. */
+function longestMiddle(points: readonly Pt[]): FlowPoint {
+  let best: readonly [Pt, Pt] = [points[0] ?? [0, 0], points[0] ?? [0, 0]];
+  let length = -1;
+  for (let i = 1; i < points.length; i += 1) {
+    const [a, b] = [points[i - 1]!, points[i]!];
+    const reach = Math.abs(b[0] - a[0]) + Math.abs(b[1] - a[1]);
+    if (reach > length) [best, length] = [[a, b], reach];
+  }
+  return { x: (best[0][0] + best[1][0]) / 2, y: (best[0][1] + best[1][1]) / 2 };
+}
+
 function acrossPath(
   from: MeasuredStage,
   port: number | undefined,
   target: FlowBox,
   detourY: number | undefined,
-): FlowPath {
+): FlowPath & { readonly mark: FlowPoint } {
   const sx = from.box.x + from.box.width;
   const sy = (port === undefined ? undefined : from.rowCentres[port]) ?? middleY(from.box);
   const ex = target.x;
@@ -400,7 +433,11 @@ function acrossPath(
             [mx, ey],
             [ex - 6, ey],
           ];
-  return { d: orthogonalPath(points), arrow: arrowHead(ex, ey, "right") };
+  return {
+    d: orthogonalPath(points),
+    arrow: arrowHead(ex, ey, "right"),
+    mark: longestMiddle(points),
+  };
 }
 
 function downPath(
@@ -408,7 +445,7 @@ function downPath(
   port: number | undefined,
   target: FlowBox,
   detourX: number | undefined,
-): FlowPath {
+): FlowPath & { readonly mark: FlowPoint } {
   const sx = downPortX(from, port);
   const sy = from.box.y + from.box.height;
   const ex = middleX(target);
@@ -435,7 +472,11 @@ function downPath(
             [ex, my],
             [ex, ey - 6],
           ];
-  return { d: orthogonalPath(points), arrow: arrowHead(ex, ey, "down") };
+  return {
+    d: orthogonalPath(points),
+    arrow: arrowHead(ex, ey, "down"),
+    mark: longestMiddle(points),
+  };
 }
 
 /** Down, a card's route lines leave from its bottom edge, spread across it in their order. */
@@ -452,7 +493,7 @@ export function drawingStart(box: FlowBox, orientation: FlowOrientation): FlowPo
 }
 
 /**
- * The On failure loops' paths, dashed above the Stages (beside them, down), with their marks.
+ * The routes back's paths above the Stages (beside them, down), each with its mark on its run.
  * Worked out across; down is the same drawing with x and y swapped.
  */
 export function loopPaths(
@@ -491,9 +532,15 @@ export function loopPaths(
     const points = [...legPoints(leave, run.y), ...legPoints(short(enter), run.y).toReversed()];
     const [x, y] = out([marks[index]!, run.y]);
     return {
-      fromKey: loop.from.key,
-      toKey: loop.to.key,
-      rounds: loop.from.kind === "gate" ? 0 : (loop.from.onFailure?.rounds ?? 0),
+      line: {
+        id: `${loop.from.key}:${loop.routeIndex}`,
+        fromKey: loop.from.key,
+        to: loop.to.key,
+        routeIndex: loop.routeIndex,
+        port: undefined,
+        look: "plain",
+        limit: loop.limit,
+      },
       lane: loop.lane,
       d: orthogonalPath(points.map(out)),
       arrow: polygon(arrowPoints(enter.edge, enter.into).map(out)),

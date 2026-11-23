@@ -162,8 +162,8 @@ export interface LoopBack {
   readonly toIndex: number;
   /** How many times the work went back, which a resumed run doesn't add to. */
   readonly count: number;
-  /** How many it may, with any rounds the user allowed since. */
-  readonly rounds: number;
+  /** How many it may, with any rounds the user allowed since; null for a route with No limit. */
+  readonly rounds: number | null;
   /** The lowest height, from 0, free of the loops it overlaps; a shorter one sits under a longer. */
   readonly level: number;
 }
@@ -300,5 +300,6 @@ export function loopBackEnds(
 /** What a loop-back's mark says in full. */
 export function loopBackWords({ from, to, count, rounds }: LoopBack, names: StageNames): string {
   const times = count === 1 ? "1 time" : `${count} times`;
-  return `${names(from)} failed and went back to ${names(to)} ${times}, of at most ${rounds}`;
+  const limit = rounds === null ? "" : `, of at most ${rounds}`;
+  return `${names(from)} failed and went back to ${names(to)} ${times}${limit}`;
 }

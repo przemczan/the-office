@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, notInArray, sql } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { forgettingReads, readKey, readOnce } from "../../../../platform/database/read-scope.js";
 import { CodexApiKey } from "../../domain/codex-api-key.js";
@@ -14,6 +14,7 @@ import type { Engine, EngineId, OfficeDefault } from "../../domain/engines.js";
 import { GeminiApiKey } from "../../domain/gemini-api-key.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
 import { engines, engineSettings, modelPrices } from "./engine-settings.schema.js";
+import { engineWindowStarts } from "./window-starts.schema.js";
 
 type EngineRow = typeof engines.$inferSelect;
 type EngineSettingsRow = typeof engineSettings.$inferSelect;
@@ -72,6 +73,15 @@ export class PostgresEngineSettings extends EngineSettingsRepository {
       this.database.transaction(async (transaction) => {
         await transaction.delete(engines);
         if (listed.length > 0) await transaction.insert(engines).values(listed.map(engineRowOf));
+        // A removed engine's Window start goes with it; a listed one's stays, as its id does.
+        await transaction.delete(engineWindowStarts).where(
+          listed.length > 0
+            ? notInArray(
+                engineWindowStarts.engineId,
+                listed.map(({ id }) => id),
+              )
+            : undefined,
+        );
         await transaction
           .insert(engineSettings)
           .values(settingsRow)

@@ -13,6 +13,7 @@ import type {
 } from "@the-office/contracts";
 import { tokensShort } from "../../shell/conversation/context-words.ts";
 import { sumTokens } from "../../shell/token-words.ts";
+import { isFailureRoute } from "../../shell/pipelines/flow/flow-model.ts";
 import { STOPPED } from "../../shell/work/work-words.ts";
 
 /** The words of a Task's Stages that the rail and the Stage history share. */
@@ -96,12 +97,15 @@ export function stageNamesOf(stages: readonly Stage[]): StageNames {
   return (key) => stages.find((stage) => stage.key === key)?.name ?? key;
 }
 
-/** "on failure back to Implement, at most 3×": what a Stage not yet run will do. */
+/**
+ * "when it fails, goes to Implement, at most 3×": where a Stage's failure route, the ended-Failed
+ * test on its own, leads; a Gate never fails.
+ */
 export function stageRule(stage: Stage, names: StageNames): string[] {
-  const onFailure = stage.kind !== "gate" ? stage.onFailure : undefined;
-  return onFailure
-    ? [`on failure back to ${names(onFailure.goBackTo)}, at most ${onFailure.rounds}×`]
-    : [];
+  const route = stage.kind === "gate" ? undefined : stage.routes?.find(isFailureRoute);
+  if (!route) return [];
+  const most = route.limit === null || route.limit === undefined ? "" : `, at most ${route.limit}×`;
+  return [`when it fails, goes to ${route.to === null ? "End" : names(route.to)}${most}`];
 }
 
 /**

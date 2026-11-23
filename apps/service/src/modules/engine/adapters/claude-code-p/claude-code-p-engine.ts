@@ -19,6 +19,7 @@ import {
   SessionSkillsDiffer,
   type EngineCapabilities,
   type NewSession,
+  type UsageWindowStart,
 } from "../../ports/agent-engine.js";
 import type {
   ContextUsage,
@@ -55,6 +56,15 @@ import { pinnedBinaryPath } from "./pinned-binary.js";
 import { SessionEndpoints, type OpenEndpoints } from "./session-endpoints.js";
 import { StreamJson } from "./stream-json.js";
 import { claudeCodePReadArguments, readUsageWindowsOnStreamJson } from "./usage-window-read.js";
+import {
+  claudeCodePWindowStartArguments,
+  startUsageWindowOnStreamJson,
+} from "./usage-window-start.js";
+import {
+  requireUsageWindows,
+  WINDOW_START_PROMPT,
+  windowStartWhat,
+} from "../claude-code/usage-window-start.js";
 import { toolDecision } from "../office-rules/tool-decision.js";
 import {
   officeToolCall,
@@ -73,6 +83,7 @@ export const CLAUDE_CODE_P_CAPABILITIES: EngineCapabilities = {
   outputSchema: true,
   languageServers: true,
   carrySession: true,
+  startsUsageWindow: true,
 };
 
 /** What a session opens beside its engine's process, which ending it closes. */
@@ -133,6 +144,24 @@ export class ClaudeCodePEngine extends AgentEngine {
       },
       this.operatingSystem.processTrees,
       { what: `Reading the usage windows of the engine ${engine.id}`, signal },
+    );
+  }
+
+  /** On the pinned binary started for the start alone, on the engine's config folder. */
+  override async startUsageWindow(engine: Engine, signal: AbortSignal): Promise<UsageWindowStart> {
+    this.require("startsUsageWindow");
+    requireUsageWindows(engine);
+    const configFolder = await preparedEngineConfigFolder(this.officeData, engine.id);
+    return startUsageWindowOnStreamJson(
+      {
+        command: pinnedBinaryPath(this.operatingSystem.claudeCodeBinaries),
+        args: claudeCodePWindowStartArguments(),
+        cwd: configFolder,
+        env: sessionEnvironment(serviceVariables(), configFolder),
+      },
+      WINDOW_START_PROMPT,
+      this.operatingSystem.processTrees,
+      { what: windowStartWhat(engine), signal },
     );
   }
 

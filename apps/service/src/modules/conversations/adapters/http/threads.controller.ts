@@ -229,7 +229,9 @@ export class ThreadsController {
     ]);
     const records = {
       decisions: new Map(decisions.map((decision) => [decision.id, decision])),
-      proposals: new Map(proposals.map((proposal) => [proposal.id, proposal])),
+      proposals: new Map(
+        proposals.map((proposal) => [proposal.id, this.proposals.shown(proposal)]),
+      ),
       letGo: await this.linkCards.letGoIn(messages),
     };
     return messages.map((message) => toMessageResponse(message, records));

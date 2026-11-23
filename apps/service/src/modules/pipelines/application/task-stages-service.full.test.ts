@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { TaskMovedToProject, TaskPipelineConfirmed } from "../../work/index.js";
-import { straightLineFlow } from "../domain/flow.js";
+import { asFlow } from "../domain/flow.js";
 import { agentStage, scriptStage } from "../domain/stage.fixtures.js";
 import { agentStageWorkers, type Stage } from "../domain/stage.js";
 import { TaskStagesReset } from "../domain/task-stages-events.js";
@@ -67,7 +67,7 @@ describe("Edit for this Task", () => {
     await service.edit(aTask(), withGate);
 
     expect((await pipelines.app.get(PipelineLibrary).find("quick-fix"))?.stages).toEqual(
-      straightLineFlow(quickFix),
+      asFlow(quickFix),
     );
   });
 
@@ -141,7 +141,7 @@ describe("swapping the Pipeline before Start", () => {
 
     expect(await service.progress(taskId)).toBeUndefined();
     expect(eventsOf(TaskStagesReset)).toMatchObject([{ taskId, pipelineId: "quick-fix" }]);
-    expect((await service.make(taskId, "full")).stages).toEqual(straightLineFlow(builtIn("full")));
+    expect((await service.make(taskId, "full")).stages).toEqual(asFlow(builtIn("full")));
   });
 
   it("starts with the new Pipeline even when the copy wasn't set aside", async () => {
@@ -151,7 +151,7 @@ describe("swapping the Pipeline before Start", () => {
 
     expect(await service.find(taskId)).toBeUndefined();
     expect(await service.make(taskId, "full")).toMatchObject({
-      stages: builtIn("full"),
+      stages: asFlow(builtIn("full")),
       editedForTask: false,
     });
   });
@@ -209,9 +209,7 @@ describe("moving the Task to another Project", () => {
 
     expect(await service.progress(taskId)).toBeUndefined();
     expect(eventsOf(TaskStagesReset)).toMatchObject([{ taskId, pipelineId: "quick-fix" }]);
-    expect((await service.make(taskId, "quick-fix")).stages).toEqual(
-      straightLineFlow(builtIn("quick-fix")),
-    );
+    expect((await service.make(taskId, "quick-fix")).stages).toEqual(asFlow(builtIn("quick-fix")));
   });
 });
 
@@ -252,7 +250,7 @@ describe("a Task on a Project Pipeline", () => {
     pipelines.tasks.put(taskId, { state: "in-progress", pipelineId: id, projectId });
 
     expect((await service.make(taskId, id)).stages).toEqual(
-      straightLineFlow([agentStage(), scriptStage(), linux]),
+      asFlow([agentStage(), scriptStage(), linux]),
     );
   });
 

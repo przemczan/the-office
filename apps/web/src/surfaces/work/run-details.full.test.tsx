@@ -49,6 +49,7 @@ function aRun(fields: Pick<StageRun, "id" | "number" | "startedAt" | "endedAt">)
     tokens: NO_TOKENS,
     context: null,
     carriedFailure: null,
+    route: null,
     sentBack: null,
     commandRuns: [],
     gateAction: null,

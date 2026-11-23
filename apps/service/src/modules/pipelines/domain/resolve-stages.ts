@@ -1,6 +1,6 @@
 import { promptTemplate, type PromptTexts } from "../../prompt-templates/index.js";
 import { asFlow, type FlowStage } from "./flow.js";
-import { plainRoute } from "./route.js";
+import { ENDED_FAILED, plainRoute, type Route } from "./route.js";
 import type { AgentStage, Gate, ScriptStage, Stage } from "./stage.js";
 import type { CarriedFailure, StageRun } from "./stage-run.js";
 
@@ -27,7 +27,7 @@ export const RESOLVE_ROUNDS = 3;
 /** The Project command the Test after Resolve runs (spec §2.3). */
 export const RESOLVE_TEST_COMMAND = "test";
 
-/** How many times a failing Test after Resolve goes back to Resolve. */
+/** How many times a failing Test after Resolve goes back to Resolve: its failure route's limit. */
 const RESOLVE_TEST_ROUNDS = 2;
 
 /**
@@ -78,7 +78,8 @@ export function walkedStages<Of extends Stage>(
 
 /**
  * `stages` with the Resolve Stages before the Publish at `publishIndex`, unless they stand already:
- * each at the Publish's place, with one route to the next and the last to the Publish.
+ * each at the Publish's place, with one route to the next and the last to the Publish, after the
+ * Test's failure route back to Resolve.
  */
 export function withResolveStages<Of extends Stage>(
   stages: readonly Of[],
@@ -89,7 +90,7 @@ export function withResolveStages<Of extends Stage>(
   const resolve = resolveStages(stages, publish);
   const chained = resolve.map((stage, index): FlowStage => ({
     ...stage,
-    routes: [plainRoute(resolve[index + 1]?.key ?? publish.key)],
+    routes: [...stage.routes, plainRoute(resolve[index + 1]?.key ?? publish.key)],
     place: publish.place ?? { column: publishIndex, row: 0 },
   }));
   return [...stages.slice(0, publishIndex), ...chained, ...stages.slice(publishIndex)];
@@ -191,11 +192,15 @@ export function resolveBrief(
   return prompts.render(RESOLVE_BRIEF, { baseBranch, conflictedFiles });
 }
 
-function resolveStages(stages: readonly Stage[], publish: Stage): readonly Stage[] {
+/** The Resolve Stages for `publish`, each with its routes back alone. */
+function resolveStages(
+  stages: readonly Stage[],
+  publish: Stage,
+): readonly (Stage & { readonly routes: Route[] })[] {
   const agentStages = stages.filter((stage): stage is AgentStage => stage.kind === "agent");
   const person = agentStages[0];
   if (!person) return [];
-  const resolve: AgentStage = {
+  const resolve: AgentStage & { readonly routes: Route[] } = {
     kind: "agent",
     key: RESOLVE_KEY,
     name: "Resolve",
@@ -206,20 +211,29 @@ function resolveStages(stages: readonly Stage[], publish: Stage): readonly Stage
     brief: "",
     session: "fresh",
     budget: Math.max(...agentStages.map(({ budget }) => budget)) + RESOLVE_BUDGET,
+    routes: [],
   };
-  const test: ScriptStage = {
+  const test: ScriptStage & { readonly routes: Route[] } = {
     kind: "script",
     key: RESOLVE_TEST_KEY,
     name: "Test after Resolve",
     optional: false,
     command: RESOLVE_TEST_COMMAND,
-    onFailure: { goBackTo: RESOLVE_KEY, rounds: RESOLVE_TEST_ROUNDS },
+    routes: [
+      {
+        to: RESOLVE_KEY,
+        toName: resolve.name,
+        condition: ENDED_FAILED,
+        limit: RESOLVE_TEST_ROUNDS,
+      },
+    ],
   };
-  const gate: Gate = {
+  const gate: Gate & { readonly routes: Route[] } = {
     kind: "gate",
     key: RESOLVE_GATE_KEY,
     name: "Review the resolved conflict",
     optional: false,
+    routes: [],
   };
   const reviewed = publish.kind === "script" && publish.afterConflict === "review";
   return reviewed ? [resolve, test, gate] : [resolve, test];

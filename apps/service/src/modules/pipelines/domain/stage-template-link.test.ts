@@ -22,9 +22,8 @@ const linked = agentStage({
   key: "review-2",
   name: "Review again",
   templateId: "review",
-  routes: [{ to: null, condition: null }],
+  routes: [{ to: null, condition: null, limit: null }],
   place: { column: 3, row: 0 },
-  onFailure: { goBackTo: "implement", rounds: 2 },
 });
 
 describe("templateFields", () => {

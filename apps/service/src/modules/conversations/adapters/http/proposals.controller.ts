@@ -17,7 +17,7 @@ import {
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import { ProposalService } from "../../application/proposal-service.js";
-import type { EditedHire } from "../../domain/proposal.js";
+import type { EditedHire, Proposal } from "../../domain/proposal.js";
 import { toProposalResponse } from "./conversation-responses.js";
 import { ThreadRefusalsFilter } from "./thread-refusals.filter.js";
 
@@ -29,12 +29,12 @@ export class ProposalsController {
   /** Before `:id`, which would take "open" for an id. */
   @Get("open")
   async listOpen(): Promise<ProposalResponse[]> {
-    return (await this.proposals.listOpen()).map(toProposalResponse);
+    return (await this.proposals.listOpen()).map((proposal) => this.answer(proposal));
   }
 
   @Get(":id")
   async read(@Param("id", ParseUUIDPipe) id: string): Promise<ProposalResponse> {
-    return toProposalResponse(await this.proposals.read(id));
+    return this.answer(await this.proposals.read(id));
   }
 
   /** The signed-in user applies it, a new Role as they edited it before hiring when they did. */
@@ -45,9 +45,7 @@ export class ProposalsController {
     @Body(new ContractPipe(proposalApplicationSchema)) application: ProposalApplication,
     @SignedIn() signedIn: SignedIn,
   ): Promise<ProposalResponse> {
-    return toProposalResponse(
-      await this.proposals.apply(id, userOf(signedIn), editedHire(application)),
-    );
+    return this.answer(await this.proposals.apply(id, userOf(signedIn), editedHire(application)));
   }
 
   /** The signed-in user declines it ("Not now"): nothing changes. */
@@ -57,7 +55,12 @@ export class ProposalsController {
     @Param("id", ParseUUIDPipe) id: string,
     @SignedIn() signedIn: SignedIn,
   ): Promise<ProposalResponse> {
-    return toProposalResponse(await this.proposals.decline(id, userOf(signedIn)));
+    return this.answer(await this.proposals.decline(id, userOf(signedIn)));
+  }
+
+  /** The Proposal as its card shows it. */
+  private answer(proposal: Proposal): ProposalResponse {
+    return toProposalResponse(this.proposals.shown(proposal));
   }
 }
 

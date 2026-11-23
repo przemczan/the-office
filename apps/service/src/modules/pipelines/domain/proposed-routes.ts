@@ -55,8 +55,8 @@ export function proposedRoutes(
 }
 
 /**
- * Each Stage whose routes differ between the flows `from` and `to`, weighed as kept, the Stages'
- * names in them left out: `to`'s in its order, then those it removes in `from`'s.
+ * Each Stage whose routes differ between the flows `from` and `to`, weighed as kept (targets,
+ * conditions and limits), the Stages' names in them left out: `to`'s in its order, then those it removes in `from`'s.
  */
 export function routeChangesOf(
   from: readonly FlowStage[],
@@ -105,16 +105,20 @@ export function routeChangeWords(changes: readonly StageRouteChange[]): string[]
   });
 }
 
-/** A Stage's routes, weighed in order: "to Review when …, otherwise to Publish". */
+/**
+ * A Stage's routes, weighed in order, each with its limit, No limit saying nothing: "to Implement
+ * when …, at most 3 times, otherwise to Publish always".
+ */
 export function routesWords(routes: readonly Route[]): string {
   return routes
     .map((route, index) => `${index === 0 ? "" : "otherwise "}${routeWords(route)}`)
     .join(", ");
 }
 
-function routeWords({ to, toName, condition }: Route): string {
+function routeWords({ to, toName, condition, limit }: Route): string {
   const place = to === null ? "End" : (toName ?? to);
-  return condition ? `to ${place} when ${groupWords(condition)}` : `to ${place} always`;
+  const when = condition ? `to ${place} when ${groupWords(condition)}` : `to ${place} always`;
+  return limit === null ? when : `${when}, at most ${limit === 1 ? "once" : `${limit} times`}`;
 }
 
 function groupWords({ combine, tests }: ConditionGroup): string {

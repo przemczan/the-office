@@ -126,23 +126,26 @@ export class BudgetReached extends DomainEvent {
   }
 }
 
-/** A failed Stage's loop went back to an earlier Stage, with the error for that Stage's Brief. */
+/**
+ * A failed Stage's failure route, or a round an answer allowed, led to a Stage with the error for
+ * that Stage's Brief: which time of how many (`rounds`, null for a route with No limit).
+ */
 export class WentBackToStage extends DomainEvent {
   constructor(
     readonly taskId: string,
-    /** The failed Stage, which owns the loop. */
+    /** The failed Stage, which the route leaves. */
     readonly fromStageKey: string,
     readonly toStageKey: string,
     readonly round: number,
-    readonly rounds: number,
+    readonly rounds: number | null,
   ) {
     super();
   }
 }
 
 /**
- * A Stage failed with no retries left: it has no loop, or its loop went back as many times as it
- * may. The Task waits on the answer to The Office's Decision: the user's, or first that of the
+ * A Stage failed with no failure route left: it has none that holds, or each that holds was followed
+ * as many times as its limit allows. The Task waits on the answer to The Office's Decision: the user's, or first that of the
  * Consultant it is put to (`putTo`, by the key of their Role): whoever held Asked first when a
  * Stage runs out of tries as it was asked (spec §2.3).
  */
@@ -151,6 +154,25 @@ export class NoRetriesLeft extends DomainEvent {
     readonly taskId: string,
     readonly stageKey: string,
     readonly error: string,
+    readonly putTo: string | undefined,
+  ) {
+    super();
+  }
+}
+
+/**
+ * The route the walk would follow out of an ended Stage was followed as many times as its limit
+ * allows (spec §2.3, "When a limit runs out"): the Task waits on the answer to The Office's
+ * Decision, put first to a Consultant (`putTo`) as when a Stage has no failure route left.
+ */
+export class RouteLimitReached extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly stageKey: string,
+    /** Where the route leads: a Stage's key, or null for End. */
+    readonly toStageKey: string | null,
+    readonly times: number,
+    readonly limit: number,
     readonly putTo: string | undefined,
   ) {
     super();

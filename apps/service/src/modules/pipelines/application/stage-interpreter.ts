@@ -42,6 +42,7 @@ import {
   DefinitionOfDoneNotMet,
   NoRetriesLeft,
   PipelineCompleted,
+  RouteLimitReached,
   StopHeldAsPause,
   WentBackToStage,
 } from "../domain/stage-run-events.js";
@@ -669,6 +670,12 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     ]);
     if (question.kind === "no-retries-left") {
       await this.events.publish(new NoRetriesLeft(taskId, run.stageKey, question.error, putTo));
+    }
+    if (question.kind === "route-limit") {
+      const { route, times, limit } = question.atLimit;
+      await this.events.publish(
+        new RouteLimitReached(taskId, run.stageKey, route.to, times, limit, putTo),
+      );
     }
     if (question.kind === "budget") {
       const { used, budget } = question.reached;

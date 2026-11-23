@@ -41,7 +41,7 @@ export function projectPipelineRequests(
   projectDefaults: () => ProjectDefaultsForTests,
 ) {
   return {
-    /** An office-wide Pipeline of Implement, then Tests going back to it. */
+    /** An office-wide Pipeline of Implement, then Tests. */
     async anOfficeWidePipeline(): Promise<Pipeline> {
       const response = await send("POST", "/pipelines", anEdit());
       expect(response.status).toBe(201);

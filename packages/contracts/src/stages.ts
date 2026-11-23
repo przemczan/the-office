@@ -8,12 +8,6 @@ import {
 import { projectCommandKeySchema } from "./projects.js";
 import { stageContextLimitsOverrideSchema } from "./stage-context-limits.js";
 
-/** "On failure go back to Stage X, at most N times": the Stage's key and its rounds. */
-export const onFailureSchema = z.object({
-  goBackTo: z.string().min(1),
-  rounds: z.int().positive(),
-});
-
 /** Where a Publish Stage takes the Task's branch (spec §2.3). */
 export const publishTargetSchema = z.enum(["publishing-mode", "branch-only"]);
 export type PublishTarget = z.infer<typeof publishTargetSchema>;
@@ -96,12 +90,27 @@ export const conditionGroupSchema: z.ZodType<ConditionGroup> = z.lazy(() =>
   }),
 );
 
-/** A route out of a Stage (spec §2.3): to a later Stage by its key, or to End; null holds always. */
+/** The most times a route's limit lets the walk follow it in one walk (spec §2.3, "A route's limit"). */
+export const ROUTE_LIMIT_MAX = 9;
+
+/** "At most N times", N from 1 to `ROUTE_LIMIT_MAX`; null is No limit. */
+export const routeLimitSchema = z.int().min(1).max(ROUTE_LIMIT_MAX).nullable();
+export type RouteLimit = z.infer<typeof routeLimitSchema>;
+
+/**
+ * A route out of a Stage (spec §2.3): to any Stage by its key, its own included, or to End; a null
+ * condition holds always.
+ */
 export const routeSchema = z.strictObject({
   to: z.string().min(1).nullable(),
   /** The name of the Stage it leads to when it was last saved, for its words alone. */
   toName: z.string().optional(),
   condition: conditionGroupSchema.nullable(),
+  /**
+   * Its limit. Absent only as given: it then takes the default for where it leads, 3 back and No
+   * limit on; every answer carries it.
+   */
+  limit: routeLimitSchema.optional(),
 });
 export type Route = z.infer<typeof routeSchema>;
 
@@ -156,7 +165,6 @@ export const stageSchema = z.discriminatedUnion("kind", [
     permissions: stagePermissionsSchema.optional(),
     /** Absent takes the Office defaults of Settings › Office limits (spec §2.5). */
     contextLimits: stageContextLimitsOverrideSchema.optional(),
-    onFailure: onFailureSchema.optional(),
   }),
   z.object({
     kind: z.literal("script"),
@@ -169,15 +177,14 @@ export const stageSchema = z.discriminatedUnion("kind", [
     publishTarget: publishTargetSchema.optional(),
     /** A Publish Stage's alone: absent publishes automatically. */
     afterConflict: afterConflictSchema.optional(),
-    onFailure: onFailureSchema.optional(),
   }),
   z.object({ kind: z.literal("gate"), ...stageFields }),
 ]);
 export type Stage = z.infer<typeof stageSchema>;
 
 /**
- * Where on its Stage a problem is: the Stage itself, one of its routes (by its index among the
- * Stage's routes, and a test of its condition by its indexes, `[0, 1]`), or its on-failure setting.
+ * Where on its Stage a problem is: the Stage itself, or one of its routes (by its index among the
+ * Stage's routes, and a test of its condition by its indexes, `[0, 1]`).
  */
 export const stageProblemAtSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("stage") }),
@@ -186,7 +193,6 @@ export const stageProblemAtSchema = z.discriminatedUnion("kind", [
     routeIndex: z.int().nonnegative(),
     testPath: z.array(z.int().nonnegative()).optional(),
   }),
-  z.object({ kind: z.literal("onFailure") }),
 ]);
 export type StageProblemAt = z.infer<typeof stageProblemAtSchema>;
 

@@ -29,7 +29,6 @@ const LINKED: Stage = {
   templateId: "review",
   routes: [{ to: null, condition: null }],
   place: { column: 2, row: 0 },
-  onFailure: { goBackTo: "implement", rounds: 2 },
 };
 
 describe("fieldsDiffering", () => {

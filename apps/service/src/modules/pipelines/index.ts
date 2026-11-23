@@ -19,6 +19,7 @@ export {
   GateReached,
   NoRetriesLeft,
   PipelineCompleted,
+  RouteLimitReached,
   SentBackFromGate,
   StageAwaitsStandInChoice,
   StageRunEnded,

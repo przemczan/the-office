@@ -89,6 +89,11 @@ export class ProposalService {
     }
   }
 
+  /** The Proposal as its card shows it, its change read as this release reads it (`ProposalAppliers.shown`). */
+  shown(proposal: Proposal): Proposal {
+    return { ...proposal, change: this.appliers.shown(proposal.change) };
+  }
+
   async read(id: string): Promise<Proposal> {
     const proposal = await this.repository.proposal(id);
     if (!proposal) throw new ProposalNotFound(id);

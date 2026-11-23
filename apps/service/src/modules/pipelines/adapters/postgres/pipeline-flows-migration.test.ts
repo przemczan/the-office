@@ -6,8 +6,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { rolledBackMigration } from "../../../../../test/test-database.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
-import { builtInPipelines } from "../../domain/built-in-pipelines.js";
-import { straightLineFlow } from "../../domain/flow.js";
+import { builtInPipelinesBeforeFlows } from "../../domain/built-in-pipelines-before-flows.fixtures.js";
+import { straightLineFlow, type FlowStage } from "../../domain/flow.js";
+import type { KeptStage } from "../../domain/routes-back.js";
 import type { Stage } from "../../domain/stage.js";
 import { agentStage, gate, scriptStage } from "../../domain/stage.fixtures.js";
 
@@ -26,8 +27,19 @@ afterAll(async () => {
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
 /** `stage` as kept before the migration: without routes or a place. */
-function asAList({ routes: _routes, place: _place, ...stage }: Stage): Stage {
+function asAList({ routes: _routes, place: _place, ...stage }: KeptStage): KeptStage {
   return stage;
+}
+
+/**
+ * `stages` as the migration draws them: the straight line, each route without a limit, as the
+ * release before routes had limits kept them, and a kept on-failure setting left as it was.
+ */
+function drawnByTheMigration(stages: readonly KeptStage[]): unknown[] {
+  return straightLineFlow(stages).map((stage: FlowStage) => ({
+    ...stage,
+    routes: stage.routes.map(({ limit: _limit, ...route }) => route),
+  }));
 }
 
 const implement = agentStage();
@@ -46,8 +58,16 @@ const LISTS: Readonly<Record<string, readonly Stage[]>> = {
 };
 
 const ALREADY_A_FLOW: readonly Stage[] = [
-  { ...implement, routes: [{ to: null, condition: null }], place: { column: 0, row: 1 } },
-  { ...tests, routes: [{ to: "implement", condition: null }], place: { column: 3, row: 0 } },
+  {
+    ...implement,
+    routes: [{ to: null, condition: null, limit: null }],
+    place: { column: 0, row: 1 },
+  },
+  {
+    ...tests,
+    routes: [{ to: "implement", condition: null, limit: 3 }],
+    place: { column: 3, row: 0 },
+  },
 ];
 
 async function stagesOf(transaction: Transaction, query: ReturnType<typeof sql>) {
@@ -91,7 +111,7 @@ describe("migration 0163", () => {
   it("draws every Pipeline's and Task's list of Stages as a straight line, keeping optional", async () => {
     const lists = Object.entries(LISTS);
     const after = await rolledBackMigration(database, async (transaction) => {
-      for (const { id, stages } of builtInPipelines) {
+      for (const { id, stages } of builtInPipelinesBeforeFlows) {
         await transaction.execute(
           sql`UPDATE "pipelines" SET "stages" = ${JSON.stringify(stages.map(asAList))}::jsonb WHERE "id" = ${id}`,
         );
@@ -105,7 +125,7 @@ describe("migration 0163", () => {
       }
       await applyMigration(transaction);
       const builtIns = [];
-      for (const { id } of builtInPipelines) {
+      for (const { id } of builtInPipelinesBeforeFlows) {
         builtIns.push(
           await stagesOf(transaction, sql`SELECT "stages" FROM "pipelines" WHERE "id" = ${id}`),
         );
@@ -127,10 +147,10 @@ describe("migration 0163", () => {
     });
 
     expect(after.builtIns).toEqual(
-      builtInPipelines.map(({ stages }) => straightLineFlow(stages.map(asAList))),
+      builtInPipelinesBeforeFlows.map(({ stages }) => drawnByTheMigration(stages.map(asAList))),
     );
     lists.forEach(([shows, stages], index) => {
-      const flow = straightLineFlow(stages);
+      const flow = drawnByTheMigration(stages);
       // Each paired with what it shows, so a failure names the list.
       expect({ shows, ...after.converted[index] }).toEqual({ shows, pipeline: flow, task: flow });
       expect({

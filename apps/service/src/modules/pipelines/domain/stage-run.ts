@@ -253,17 +253,20 @@ export interface HoldingUser {
 }
 
 /**
- * The failure an on-failure loop went back with, which the next run of the Stage it went back to
- * carries into its Brief.
+ * The failure a failure route carried on, or a round the user or a Consultant allowed went back
+ * with, which the next run of the Stage it leads to carries into its Brief.
  */
 export interface CarriedFailure {
-  /** The key of the Stage that failed and owns the loop. */
+  /** The key of the Stage that failed, which the route leaves. */
   readonly stageKey: string;
   readonly error: string;
-  /** Which time the loop goes back, from 1. */
+  /** Which time the walk follows the route, from 1, this one included. */
   readonly round: number;
-  /** How many times the loop may go back. */
-  readonly rounds: number;
+  /**
+   * How many times it may: the route's limit with the times answers allowed past it; null for a
+   * route with No limit.
+   */
+  readonly rounds: number | null;
   /** What the user said to do differently this round, when they gave it in a Decision. */
   readonly guidance?: string;
   /** The Consultant whose words the guidance is, by the key of their Role; undefined for the user. */
@@ -307,12 +310,13 @@ export interface SentBack {
  * retries left, the Task's tokens reaching a Stage's budget, a Pipeline that ended with the
  * Definition of Done not reported met, a Stage The Office restarted during (spec §2.4), a Publish
  * that found the Task's branch no longer applies cleanly on the base branch, a branch moved
- * outside The Office, a Publish that shipped but whose after publishing line failed, or no route
- * out of an ended Stage holding.
+ * outside The Office, a Publish that shipped but whose after publishing line failed, no route
+ * out of an ended Stage holding, or the route the walk would follow being at its limit.
  */
 export type StageDecisionKind =
   | "agent"
   | "no-retries-left"
+  | "route-limit"
   | "budget"
   | "definition-of-done"
   | "restart"
@@ -325,16 +329,22 @@ export type StageDecisionKind =
 export type WalkAnswer =
   /** The Agent's question is answered, in these words: its Stage runs again with them. */
   | { readonly kind: "answered"; readonly answer: string }
-  /** The failed Stage's loop may go back this many more times. */
+  /**
+   * Kept from before routes had limits: the failed Stage's first failure route may be followed this
+   * many more times.
+   */
   | { readonly kind: "more-rounds"; readonly rounds: number }
   /**
    * One more round, with what the user said to do differently, if anything, or the Consultant The
-   * Office put the Decision to first (`guidedBy`, by the key of their Role).
+   * Office put the Decision to first (`guidedBy`, by the key of their Role). On a route at its limit
+   * (spec §2.3, "When a limit runs out"), it follows the route one time past it: `to` names the
+   * route by where it leads (null: End), so whoever let it go once more is known.
    */
   | {
       readonly kind: "one-more-round";
       readonly guidance: string | undefined;
       readonly guidedBy?: string;
+      readonly to?: string | null;
     }
   /** The walk goes on past the failed Stage; its failure is recorded as an accepted issue. */
   | { readonly kind: "accept-issues" }
@@ -347,8 +357,9 @@ export type WalkAnswer =
   /** The Stage runs from the branch as it is now, guided by the user's words, if any. */
   | { readonly kind: "keep-branch"; readonly guidance: string | undefined }
   /**
-   * The walk follows the route to `to` (null: the Pipeline's End) though none held, with the
-   * user's notes for the Stage it goes on to, if any.
+   * The walk follows the route to `to` (null: the Pipeline's End) though none held, or instead of
+   * a route at its limit or a failure with none left, with the user's notes for the Stage it goes
+   * on to, if any.
    */
   | { readonly kind: "follow-route"; readonly to: string | null; readonly guidance?: string }
   | { readonly kind: "drop" };

@@ -1,11 +1,16 @@
-import { asFlow, hasPath, pipelineOrder, reachableFrom, type FlowStage } from "./flow.js";
-import { testsOf, type ConditionTest, type Route } from "./route.js";
+import { asFlow, pipelineOrder, reachableFrom, type FlowStage } from "./flow.js";
+import {
+  isFailureRoute,
+  ROUTE_LIMIT_MAX,
+  testsOf,
+  type ConditionTest,
+  type Route,
+} from "./route.js";
 import {
   PUBLISH_COMMAND,
   sameWorkerNamed,
   stageWorker,
   type AgentStage,
-  type OnFailure,
   type Stage,
 } from "./stage.js";
 
@@ -21,7 +26,7 @@ export interface Pipeline {
   readonly stages: readonly Stage[];
 }
 
-/** Where on its Stage a problem is: the Stage, one of its routes (and a test in it), or On failure. */
+/** Where on its Stage a problem is: the Stage, or one of its routes (and a test in it). */
 export type StageProblemAt =
   | { readonly kind: "stage" }
   | {
@@ -29,8 +34,7 @@ export type StageProblemAt =
       readonly routeIndex: number;
       /** The test's indexes in the route's condition, `[0, 1]`. */
       readonly testPath?: readonly number[];
-    }
-  | { readonly kind: "onFailure" };
+    };
 
 /** A `problem` refuses a save; a `warning` is shown and saved. */
 export type StageProblemLevel = "problem" | "warning";
@@ -55,8 +59,9 @@ export function asWarnings(problems: readonly StageProblem[]): StageProblem[] {
 
 /**
  * Every reason the Stages can't run, so an editor can flag them all at once; empty when they can.
- * Stages with no routes are weighed as converted (`asFlow`); the rest in the Pipeline's order, which
- * the Stage's number in the words and "earlier" refer to. Rules that need other modules (who fills
+ * Stages with no routes are weighed as converted (`asFlow`), a kept on-failure setting as its route
+ * back; the rest in the Pipeline's order, which the Stage's number in the words and "earlier" refer
+ * to. Rules that need other modules (who fills
  * a Role, and their Task limit) are checked where those are known.
  */
 export function stageProblems(stages: readonly Stage[]): StageProblem[] {
@@ -73,6 +78,8 @@ function flowChecks(stages: readonly Stage[]): StageProblem[] {
   const [first] = ordered;
   if (!first) return [pipelineProblem("A Pipeline needs at least one Stage.")];
   const reachable = reachableFrom(ordered, first.key);
+  const reachingEnd = stagesReachingEnd(ordered);
+  const loops = loopsWithNoLimit(ordered);
   return ordered.flatMap((stage, stageIndex) => {
     const located = (problem: LocatedProblem) =>
       problemOnStage(stage, stageIndex, problem.text, problem.at, problem.level);
@@ -81,7 +88,12 @@ function flowChecks(stages: readonly Stage[]): StageProblem[] {
       ...(reachable.has(stage.key)
         ? []
         : [located({ text: "no path of routes leads to it from the first Stage." })]),
+      // A Stage with no route out is told to give it one instead.
+      ...(reachingEnd.has(stage.key) || stage.routes.length === 0
+        ? []
+        : [located({ text: "no path of routes leads from it to End." })]),
       ...flowProblems(stage, ordered).map(located),
+      ...loops.filter(({ from }) => from === stage.key).map((loop) => located(loopProblem(loop))),
     ];
   });
 }
@@ -188,11 +200,6 @@ function flowProblems(stage: FlowStage, ordered: readonly FlowStage[]): LocatedP
       problems.push({ text, at: { ...at, testPath } });
     }
   });
-  if (stage.kind !== "gate" && stage.onFailure) {
-    for (const text of onFailureProblems(stage, stage.onFailure, ordered)) {
-      problems.push({ text, at: { kind: "onFailure" } });
-    }
-  }
   return problems;
 }
 
@@ -205,24 +212,34 @@ function routeProblems(
   const problems: string[] = [];
   const earlierRoutes = stage.routes.slice(0, routeIndex);
   const routeWords = `its route to ${placeName(route.to, route.toName, ordered)}`;
-  if (route.to !== null) {
-    const target = ordered.find(({ key }) => key === route.to);
-    if (!target) problems.push(`${routeWords} leads to a Stage the Pipeline doesn't have.`);
-    else if (target.place.column <= stage.place.column) {
-      problems.push(
-        `${routeWords} leads to its own or an earlier column; routes lead forward, and On failure is the way back.`,
-      );
-    }
+  if (route.to !== null && !ordered.some(({ key }) => key === route.to)) {
+    problems.push(`${routeWords} leads to a Stage the Pipeline doesn't have.`);
+  }
+  if (!isRouteLimit(route.limit)) {
+    problems.push(
+      `${routeWords} has a limit of ${String(route.limit)}; give it 1 to ${ROUTE_LIMIT_MAX} times, or No limit.`,
+    );
   }
   if (earlierRoutes.some(({ condition }) => condition === null)) {
     problems.push(`${routeWords} comes after one with no condition, so it is never followed.`);
   }
-  if (earlierRoutes.some(({ to }) => to === route.to)) {
+  // A failure route may lead where another route does: the Stage goes there whether it failed or not.
+  const failure = isFailureRoute(route, stage.key);
+  if (
+    earlierRoutes.some(
+      (earlier) => earlier.to === route.to && isFailureRoute(earlier, stage.key) === failure,
+    )
+  ) {
     problems.push(
       `${routeWords} leads where an earlier route does; join their conditions with Any of in one route.`,
     );
   }
   return problems;
+}
+
+/** "At most N times", N from 1 to `ROUTE_LIMIT_MAX`, or No limit. */
+function isRouteLimit(limit: Route["limit"]): boolean {
+  return limit === null || (Number.isInteger(limit) && limit >= 1 && limit <= ROUTE_LIMIT_MAX);
 }
 
 function conditionProblems(
@@ -248,14 +265,15 @@ function testProblems(
   if (test.kind === "command") return commandTestProblems(test.key);
   if (test.kind !== "stage") return [];
   const problems: string[] = [];
-  if (test.stage !== null) {
-    const testedIndex = ordered.findIndex(({ key }) => key === test.stage);
-    const testedName = placeName(test.stage, test.stageName, ordered);
-    if (testedIndex === -1)
-      problems.push(`tests ${testedName}, a Stage the Pipeline doesn't have.`);
-    else if (testedIndex > ordered.indexOf(stage)) {
-      problems.push(`tests ${testedName}, a later Stage; test this Stage or an earlier one.`);
-    }
+  // Any Stage of the Pipeline may be tested, before or after the route's own: its latest run.
+  if (test.stage !== null && !ordered.some(({ key }) => key === test.stage)) {
+    problems.push(
+      `tests ${placeName(test.stage, test.stageName, ordered)}, a Stage the Pipeline doesn't have.`,
+    );
+  }
+  const testsItsOwnStage = test.stage === null || test.stage === stage.key;
+  if (stage.kind === "gate" && testsItsOwnStage && test.is === "failed") {
+    problems.push("tests whether this Gate failed, and a Gate never fails.");
   }
   if (test.is === "ran" && !isPositiveWholeNumber(test.times)) {
     problems.push("needs how many times the Stage ran, 1 or more.");
@@ -278,27 +296,6 @@ function commandTestProblems(key: string): string[] {
 const COMMAND_KEY = /^[a-z][a-z0-9-]*$/;
 const COMMAND_KEY_LENGTH = 40;
 
-function onFailureProblems(
-  stage: FlowStage,
-  onFailure: OnFailure,
-  ordered: readonly FlowStage[],
-): string[] {
-  const problems: string[] = [];
-  const target = ordered.find((other) => other.key === onFailure.goBackTo);
-  if (!target || target.place.column >= stage.place.column) {
-    problems.push("on failure it can only go back to an earlier Stage.");
-  } else if (target.kind === "gate") problems.push("on failure it can't go back to a Gate.");
-  else if (!hasPath(ordered, target.key, stage.key)) {
-    problems.push(
-      `on failure it goes back to ${target.name.trim() || target.key}, but no path of routes leads from there back to it.`,
-    );
-  }
-  if (!isPositiveWholeNumber(onFailure.rounds)) {
-    problems.push("on failure it must go back a whole number of times, at least once.");
-  }
-  return problems;
-}
-
 /** A Stage by its name in `ordered`, else the name kept beside its key, else its key; End for null. */
 function placeName(
   key: string | null,
@@ -312,4 +309,153 @@ function placeName(
 
 function isPositiveWholeNumber(value: number): boolean {
   return Number.isInteger(value) && value > 0;
+}
+
+/**
+ * The keys of the Stages a path of routes leads from to End, whatever their conditions (spec §2.3,
+ * "End can be reached").
+ */
+function stagesReachingEnd(ordered: readonly FlowStage[]): ReadonlySet<string> {
+  const keys = new Set(ordered.map(({ key }) => key));
+  // A route to a Stage the Pipeline doesn't have is refused on its own, so it counts as reaching.
+  const reaching = new Set(
+    ordered
+      .filter(({ routes }) => routes.some(({ to }) => to === null || !keys.has(to)))
+      .map(({ key }) => key),
+  );
+  for (let grown = true; grown;) {
+    grown = false;
+    for (const { key, routes } of ordered) {
+      if (!reaching.has(key) && routes.some(({ to }) => to !== null && reaching.has(to))) {
+        reaching.add(key);
+        grown = true;
+      }
+    }
+  }
+  return reaching;
+}
+
+/**
+ * A loop of routes with No limit (spec §2.3, "Every loop has a limit"): its Stages' keys in the
+ * order the walk could go round, from the Stage whose route starts it back to that Stage, and that
+ * route's index among the Stage's routes.
+ */
+interface LoopWithNoLimit {
+  readonly from: string;
+  readonly routeIndex: number;
+  readonly path: readonly string[];
+  readonly names: readonly string[];
+}
+
+/**
+ * One loop of No-limit routes per set of Stages they join into loops, so the walk could go round
+ * it for ever; empty when every loop passes through a route with a limit. A set is a strongly
+ * connected component of the No-limit routes; the loop named is the shortest round from its last
+ * Stage in the Pipeline's order, so it starts with the route that leads back, the one to limit.
+ */
+function loopsWithNoLimit(ordered: readonly FlowStage[]): LoopWithNoLimit[] {
+  const unlimited = new Map(
+    ordered.map(({ key, routes }) => [
+      key,
+      routes.flatMap(({ to, limit }, routeIndex) =>
+        limit === null && to !== null ? [{ to, routeIndex }] : [],
+      ),
+    ]),
+  );
+  const names = new Map(ordered.map(({ key, name }) => [key, name.trim() || key]));
+  return stronglyConnected(
+    ordered.map(({ key }) => key),
+    (key) => (unlimited.get(key) ?? []).map(({ to }) => to),
+  ).flatMap((component) => {
+    const last = ordered.findLast(({ key }) => component.has(key));
+    if (!last) return [];
+    const round = shortestRound(last.key, component, unlimited);
+    return round ? [{ ...round, names: round.path.map((key) => names.get(key) ?? key) }] : [];
+  });
+}
+
+function loopProblem({ routeIndex, names }: LoopWithNoLimit): LocatedProblem {
+  return {
+    text: `the loop ${names.join(" → ")} has no route with a limit, so it could run for ever.`,
+    at: { kind: "route", routeIndex },
+  };
+}
+
+/**
+ * The shortest way round from `start` back to it through `component`'s No-limit routes, by a search
+ * breadth first; none when `start` has no route into the component (a lone Stage without a route to
+ * itself).
+ */
+function shortestRound(
+  start: string,
+  component: ReadonlySet<string>,
+  unlimited: ReadonlyMap<string, readonly { readonly to: string; readonly routeIndex: number }[]>,
+): Omit<LoopWithNoLimit, "names"> | undefined {
+  const cameFrom = new Map<string, string>();
+  const queue = [start];
+  for (let index = 0; index < queue.length; index++) {
+    const key = queue[index] as string;
+    for (const { to } of unlimited.get(key) ?? []) {
+      if (!component.has(to)) continue;
+      if (to === start) {
+        const path = [start];
+        for (let at: string | undefined = key; at !== start && at !== undefined;) {
+          path.splice(1, 0, at);
+          at = cameFrom.get(at);
+        }
+        path.push(start);
+        const second = path[1];
+        const routeIndex = unlimited
+          .get(start)
+          ?.find(({ to: next }) => next === second)?.routeIndex;
+        return routeIndex === undefined ? undefined : { from: start, routeIndex, path };
+      }
+      if (!cameFrom.has(to)) {
+        cameFrom.set(to, key);
+        queue.push(to);
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
+ * The sets of `keys` that routes join into loops (Tarjan's strongly connected components), each
+ * with more than one Stage, or one Stage with a route to itself.
+ */
+function stronglyConnected(
+  keys: readonly string[],
+  next: (key: string) => readonly string[],
+): ReadonlySet<string>[] {
+  const indexes = new Map<string, number>();
+  const lowest = new Map<string, number>();
+  const stack: string[] = [];
+  const onStack = new Set<string>();
+  const components: ReadonlySet<string>[] = [];
+  const known = new Set(keys);
+  const visit = (key: string) => {
+    indexes.set(key, indexes.size);
+    lowest.set(key, indexes.get(key) as number);
+    stack.push(key);
+    onStack.add(key);
+    for (const to of next(key)) {
+      if (!known.has(to)) continue;
+      if (!indexes.has(to)) {
+        visit(to);
+        lowest.set(key, Math.min(lowest.get(key) as number, lowest.get(to) as number));
+      } else if (onStack.has(to)) {
+        lowest.set(key, Math.min(lowest.get(key) as number, indexes.get(to) as number));
+      }
+    }
+    if (lowest.get(key) !== indexes.get(key)) return;
+    const component = new Set<string>();
+    for (let member = stack.pop(); member !== undefined; member = stack.pop()) {
+      onStack.delete(member);
+      component.add(member);
+      if (member === key) break;
+    }
+    if (component.size > 1 || next(key).includes(key)) components.push(component);
+  };
+  for (const key of keys) if (!indexes.has(key)) visit(key);
+  return components;
 }

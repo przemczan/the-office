@@ -14,15 +14,12 @@ export interface StageTemplate {
 }
 
 /**
- * The Stage as a template keeps it: its name trimmed and without a loop target, routes, place or
- * link, since "on failure go back" and routes name other Stages, which only a Pipeline has.
+ * The Stage as a template keeps it: its name trimmed and without routes, place or link, since
+ * routes name other Stages, which only a Pipeline has.
  */
 export function templateStage(stage: Stage): Stage {
-  const name = stage.name.trim();
   const { routes: _routes, place: _place, templateId: _templateId, ...unplaced } = stage;
-  if (unplaced.kind === "gate") return { ...unplaced, name };
-  const { onFailure: _onFailure, ...rest } = unplaced;
-  return { ...rest, name };
+  return { ...unplaced, name: stage.name.trim() };
 }
 
 /**

@@ -23,6 +23,7 @@ import {
   type StageTemplate as StageTemplateResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { givenStage } from "./given-stages.js";
 import { LinkedStages } from "../../application/linked-stages.js";
 import { StageTemplateLibraryEditor } from "../../application/stage-template-library-editor.js";
 import { PipelineLibraryRefusalsFilter } from "./pipeline-library-refusals.filter.js";
@@ -50,7 +51,7 @@ export class StageTemplateLibraryController {
   async add(
     @Body(new ContractPipe(stageTemplateEditSchema)) { stage }: StageTemplateEdit,
   ): Promise<StageTemplateResponse> {
-    return toStageTemplateResponse(await this.editor.add(stage));
+    return toStageTemplateResponse(await this.editor.add(givenStage(stage)));
   }
 
   /** What saving the template would be refused for, and what it would only flag; it saves nothing. */
@@ -60,7 +61,7 @@ export class StageTemplateLibraryController {
     @Body(new ContractPipe(stageTemplateCheckRequestSchema))
     { stage, stageTemplateId }: StageTemplateCheckRequest,
   ): Promise<PipelineCheck> {
-    const { problems, flags } = await this.editor.check(stage, stageTemplateId);
+    const { problems, flags } = await this.editor.check(givenStage(stage), stageTemplateId);
     return { problems: [...problems, ...flags].map(toStageProblemResponse) };
   }
 
@@ -69,7 +70,7 @@ export class StageTemplateLibraryController {
     @Param("id") id: string,
     @Body(new ContractPipe(stageTemplateEditSchema)) { stage }: StageTemplateEdit,
   ): Promise<StageTemplateResponse> {
-    return toStageTemplateResponse(await this.editor.save(id, stage));
+    return toStageTemplateResponse(await this.editor.save(id, givenStage(stage)));
   }
 
   /** The Stages of office-wide and Project Pipelines linked to the template. */

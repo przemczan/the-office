@@ -25,7 +25,7 @@ import { StageProjectCommands } from "../../application/stage-project-commands.j
 import { StageRunEnvironmentDefinitions } from "../../application/stage-run-environment-definitions.js";
 import { StageTemplateLibrary } from "../../application/stage-template-library.js";
 import { agentCommandOf } from "../../domain/agent-command.js";
-import { placedInOrder } from "../../domain/flow.js";
+import { placedInOrder, withGivenLimits } from "../../domain/flow.js";
 import { proposedEdit } from "../../domain/library-pipeline.js";
 import type { StageProblem } from "../../domain/pipeline.js";
 import type { ProjectPipeline } from "../../domain/project-pipeline.js";
@@ -40,6 +40,7 @@ import { dutyLabel, fillingKey } from "../../domain/stage-staffing.js";
 import { STAGE_HISTORY_READ_LIMIT } from "../../domain/stage-history-words.js";
 import { ProjectDefaults, type ProjectDefault } from "../../ports/project-defaults.js";
 import { ProposalDrafts, type ProjectPipelineFields } from "../../ports/proposal-drafts.js";
+import { givenStage } from "../http/given-stages.js";
 import {
   toPipelineResponse,
   toProjectPipelineResponse,
@@ -52,15 +53,17 @@ const PIPELINE_DRAFTED =
 const PROJECT_PIPELINE_DRAFTED =
   "The Proposal is in this Thread as a card, with the Project Pipeline's fields, Stages and routes now and as proposed; nothing changes until the user applies it, and it is refused if the Project Pipeline changes first. It never sets the Project's default Pipeline: the user does that on the Project's page. Don't wait for it: tell the user what you propose and why, in a line or two.";
 
-/** How a Stage's routes and their conditions are given, which both propose tools take. */
+/** How a Stage's routes, their conditions and their limits are given, which both propose tools take. */
 const ROUTES_WORDS = [
-  "Each Stage's routes are weighed in order, and the walk follows the first whose condition holds: a route leads to a later Stage by its key (`to`), or to End with `to` null, and a condition null holds always, so the last route usually carries none.",
-  'A condition is a group, `combine` "all" (every test in it holds) or "any" (one does), of tests and nested groups: a Stage test `{ "kind": "stage", "stage": <key>, "is": … }`, where the key is the route\'s own Stage or an earlier one, or null for the route\'s own, and `is` is "done" (it ended Done), "failed" (it ended Failed), "skipped", "changed" (it changed files), "unchanged" (it changed no files), or "ran" with `times`, holding once it ran that many times or more; a Definition of Done test `{ "kind": "definitionOfDone", "is": "all-met" | "some-not-met" }`; or a Project command test `{ "kind": "command", "key": <the Project\'s command key> }`, which holds when that command exits 0.',
+  "Each Stage's routes are weighed in order, and the walk follows the first whose condition holds: a route leads to any Stage by its key (`to`), the route's own Stage and earlier ones included, or to End with `to` null, and a condition null holds always, so the last route usually carries none.",
+  'A condition is a group, `combine` "all" (every test in it holds) or "any" (one does), of tests and nested groups: a Stage test `{ "kind": "stage", "stage": <key>, "is": … }`, where the key is any Stage of the Pipeline, or null for the route\'s own, testing its latest run, and `is` is "done" (it ended Done), "failed" (it ended Failed), "skipped", "changed" (it changed files), "unchanged" (it changed no files), or "ran" with `times`, holding once it ran that many times or more; a Definition of Done test `{ "kind": "definitionOfDone", "is": "all-met" | "some-not-met" }`; or a Project command test `{ "kind": "command", "key": <the Project\'s command key> }`, which holds when that command exits 0.',
+  "Each route has its `limit`, the most times the walk follows it in one walk, 1 to 9, or null for No limit; left out, it is 3 for a route back (to its own Stage or one before it in the Pipeline's order) and No limit for a route on (to a later Stage or End). A route at its limit stops the walk and asks. Every loop of routes must pass through a route with a limit, so the walk always ends.",
+  'Only a failure route carries a Stage\'s failure on (an Agent Stage\'s "When it fails"): a route whose condition is `{ "combine": "all", "tests": [{ "kind": "stage", "stage": null, "is": "failed" }] }`, placed first among the Stage\'s routes, usually back to the Stage that fixes the work; it may lead where another of its routes leads. A Stage that fails with none is asked about.',
 ].join(" ");
 
 /** The worked example both propose tools give. */
 const ROUTES_EXAMPLE =
-  'For example, "run Review only when Tests changed files or ended Failed, otherwise Publish" gives the Tests Stage the routes `[{ "to": "review", "condition": { "combine": "any", "tests": [{ "kind": "stage", "stage": null, "is": "changed" }, { "kind": "stage", "stage": null, "is": "failed" }] } }, { "to": "publish", "condition": null }]`, Review the routes `[{ "to": "publish", "condition": null }]`, and Publish `[{ "to": null, "condition": null }]`.';
+  'For example, "run Review only when Tests changed files or ended Failed, otherwise Publish" gives the Tests Stage the routes `[{ "to": "review", "condition": { "combine": "any", "tests": [{ "kind": "stage", "stage": null, "is": "changed" }, { "kind": "stage", "stage": null, "is": "failed" }] } }, { "to": "publish", "condition": null }]`, Review the routes `[{ "to": "publish", "condition": null }]`, and Publish `[{ "to": null, "condition": null }]`; and "when Tests fail, go back to Implement at most 2 times" puts `{ "to": "implement", "condition": { "combine": "all", "tests": [{ "kind": "stage", "stage": null, "is": "failed" }] }, "limit": 2 }` first among Tests\' routes.';
 
 /** What both propose tools do before drafting. */
 const CHECKED_WORDS =
@@ -248,7 +251,7 @@ export class PipelineOfficeTools implements OnModuleInit {
     this.registry.register({
       name: PROPOSE_LIBRARY_PIPELINE_TOOL,
       description: [
-        "Drafts an office-wide Pipeline's whole new flow as a Proposal the user applies with a click: its Stages, where each stands, and their routes with their conditions; its name and description stay.",
+        "Drafts an office-wide Pipeline's whole new flow as a Proposal the user applies with a click: its Stages, where each stands, and their routes with their conditions and limits; its name and description stay.",
         ROUTES_WORDS,
         "A Stage's `place` (`column`, `row`) is where it stands on the editor's canvas, which gives the Pipeline's order, the columns left to right; leave every place out to have the Stages stand one to a column in the order given. Stages that all leave their routes out are taken as a straight line, each to the next.",
         ROUTES_EXAMPLE,
@@ -268,7 +271,7 @@ export class PipelineOfficeTools implements OnModuleInit {
         if (!pipeline) {
           return { text: `The library has no Pipeline "${pipelineId}".`, isError: true };
         }
-        const to = placedInOrder(stages);
+        const to = placedInOrder(withGivenLimits(stages));
         const check = await this.editor.check(proposedEdit(pipeline, to), pipeline.id);
         if (check.problems.length > 0) return refusedWords(check.problems);
         const routes = proposedRoutes(placedInOrder(pipeline.stages), to, check.flags);
@@ -291,7 +294,7 @@ export class PipelineOfficeTools implements OnModuleInit {
     this.registry.register({
       name: PROPOSE_PROJECT_PIPELINE_TOOL,
       description: [
-        "Drafts a new Project Pipeline of a Project, copied from a Pipeline, or a change to one, as a Proposal the user applies with a click: its name, description and whole flow, its Stages, where each stands, and their routes with their conditions.",
+        "Drafts a new Project Pipeline of a Project, copied from a Pipeline, or a change to one, as a Proposal the user applies with a click: its name, description and whole flow, its Stages, where each stands, and their routes with their conditions and limits.",
         "A new one is a copy of `copyOf`: an office-wide Pipeline other than Onboard, or one of the Project's own; it takes that Pipeline's Stages when `stages` is left out.",
         ROUTES_WORDS,
         "A Stage's `place` (`column`, `row`) is where it stands on the editor's canvas, which gives the Pipeline's order, the columns left to right; leave every place out to have the Stages stand one to a column in the order given. Stages that all leave their routes out are taken as a straight line, each to the next.",
@@ -364,7 +367,9 @@ export class PipelineOfficeTools implements OnModuleInit {
           stagesBefore = source.stages;
         }
         // A new one carries its whole flow too, so it gets the whole check.
-        const stages = placedInOrder(input.stages ?? stagesBefore);
+        const stages = placedInOrder(
+          input.stages === undefined ? stagesBefore : withGivenLimits(input.stages),
+        );
         const to: ProjectPipelineFields = {
           name: input.name ?? from?.name ?? "",
           description: input.description ?? from?.description ?? "",
@@ -431,7 +436,7 @@ export class PipelineOfficeTools implements OnModuleInit {
     this.registry.register({
       name: PROPOSE_STAGE_TEMPLATE_TOOL,
       description:
-        "Drafts a new Stage for a Stage template as a Proposal the user applies with a click. It shows in this Thread as a card, with the Stage now and the one proposed, and changes nothing until the user applies it. A template keeps no loop target. It returns at once.",
+        "Drafts a new Stage for a Stage template as a Proposal the user applies with a click. It shows in this Thread as a card, with the Stage now and the one proposed, and changes nothing until the user applies it. A template keeps no routes or place, which only a Pipeline gives meaning. It returns at once.",
       input: z.object({
         template: z.string().describe("The template's id, as list_stage_templates gives it."),
         stage: stageSchema.describe(
@@ -448,7 +453,7 @@ export class PipelineOfficeTools implements OnModuleInit {
             kind: "stage-template",
             templateId: template.id,
             from: template.stage,
-            to: stage,
+            to: givenStage(stage),
           }),
         );
       },

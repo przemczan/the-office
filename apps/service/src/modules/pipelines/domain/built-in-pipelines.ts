@@ -5,6 +5,7 @@ import {
 import { PROPOSE_ACTIONS_TOOL, PROPOSE_TEST_TARGETS_TOOL } from "../../conversations/index.js";
 import type { DutyKey } from "../../people/index.js";
 import type { Pipeline } from "./pipeline.js";
+import { ENDED_FAILED, plainRoute, type Route, type RouteLimit } from "./route.js";
 import { UPDATE_BRANCH_TOOL } from "./stage-commit.js";
 
 /**
@@ -29,6 +30,16 @@ export const RESOLVE_CONFLICTS_PIPELINE = "resolve-conflicts";
 // A budget is checked against the whole Task's tokens (spec §2.3), so each Agent Stage's is the
 // budgets of the Stages before it plus its own, written as that sum.
 
+// Each built-in is a straight line of Stages, a column each, with a failure route back placed first
+// where the previous releases' "On failure go back" was, its rounds the route's limit: the flow
+// `asFlow` reads those releases' built-ins as, so an Office seeded before and one seeded now walk
+// alike.
+
+/** A failure route back to the Stage `to`, named `toName`, at most `limit` times. */
+function backOnFailure(to: string, toName: string, limit: RouteLimit): Route {
+  return { to, toName, condition: ENDED_FAILED, limit };
+}
+
 const full: Pipeline = {
   id: "full",
   name: "Full",
@@ -44,6 +55,8 @@ const full: Pipeline = {
       session: "fresh",
       budget: 250_000,
       optional: false,
+      routes: [plainRoute("tests")],
+      place: { column: 0, row: 0 },
     },
     {
       kind: "script",
@@ -51,7 +64,8 @@ const full: Pipeline = {
       name: "Tests",
       command: "test",
       optional: false,
-      onFailure: { goBackTo: "implement", rounds: 3 },
+      routes: [backOnFailure("implement", "Implement", 3), plainRoute("review-and-fix")],
+      place: { column: 1, row: 0 },
     },
     {
       kind: "agent",
@@ -63,7 +77,8 @@ const full: Pipeline = {
       session: "fresh",
       budget: 250_000 + 120_000,
       optional: false,
-      onFailure: { goBackTo: "implement", rounds: 1 },
+      routes: [backOnFailure("implement", "Implement", 1), plainRoute("publish")],
+      place: { column: 2, row: 0 },
     },
     {
       kind: "script",
@@ -71,7 +86,8 @@ const full: Pipeline = {
       name: "Publish",
       command: "publish",
       optional: false,
-      onFailure: { goBackTo: "review-and-fix", rounds: 1 },
+      routes: [backOnFailure("review-and-fix", "Review & fix", 1), plainRoute(null)],
+      place: { column: 3, row: 0 },
     },
   ],
 };
@@ -90,6 +106,8 @@ const quickFix: Pipeline = {
       session: "fresh",
       budget: 200_000,
       optional: false,
+      routes: [plainRoute("tests")],
+      place: { column: 0, row: 0 },
     },
     {
       kind: "script",
@@ -97,9 +115,18 @@ const quickFix: Pipeline = {
       name: "Tests",
       command: "test",
       optional: false,
-      onFailure: { goBackTo: "implement", rounds: 2 },
+      routes: [backOnFailure("implement", "Implement", 2), plainRoute("publish")],
+      place: { column: 1, row: 0 },
     },
-    { kind: "script", key: "publish", name: "Publish", command: "publish", optional: false },
+    {
+      kind: "script",
+      key: "publish",
+      name: "Publish",
+      command: "publish",
+      optional: false,
+      routes: [plainRoute(null)],
+      place: { column: 2, row: 0 },
+    },
   ],
 };
 
@@ -118,6 +145,8 @@ const document: Pipeline = {
       session: "fresh",
       budget: 80_000,
       optional: false,
+      routes: [plainRoute("review-and-fix")],
+      place: { column: 0, row: 0 },
     },
     {
       kind: "agent",
@@ -128,6 +157,8 @@ const document: Pipeline = {
       session: "fresh",
       budget: 80_000 + 40_000,
       optional: false,
+      routes: [plainRoute(null)],
+      place: { column: 1, row: 0 },
     },
   ],
 };
@@ -147,6 +178,8 @@ const onboard: Pipeline = {
       session: "fresh",
       budget: 150_000,
       optional: false,
+      routes: [plainRoute("verify")],
+      place: { column: 0, row: 0 },
     },
     {
       kind: "script",
@@ -154,9 +187,18 @@ const onboard: Pipeline = {
       name: "Verify",
       command: "test",
       optional: false,
-      onFailure: { goBackTo: "onboard", rounds: 2 },
+      routes: [backOnFailure("onboard", "Onboard", 2), plainRoute("publish")],
+      place: { column: 1, row: 0 },
     },
-    { kind: "script", key: "publish", name: "Publish", command: "publish", optional: false },
+    {
+      kind: "script",
+      key: "publish",
+      name: "Publish",
+      command: "publish",
+      optional: false,
+      routes: [plainRoute(null)],
+      place: { column: 2, row: 0 },
+    },
   ],
 };
 
@@ -175,6 +217,8 @@ const proofOfConcept: Pipeline = {
       session: "fresh",
       budget: 200_000,
       optional: false,
+      routes: [plainRoute("tests")],
+      place: { column: 0, row: 0 },
     },
     {
       kind: "script",
@@ -182,7 +226,8 @@ const proofOfConcept: Pipeline = {
       name: "Tests",
       command: "test",
       optional: false,
-      onFailure: { goBackTo: "implement", rounds: 2 },
+      routes: [backOnFailure("implement", "Implement", 2), plainRoute("publish")],
+      place: { column: 1, row: 0 },
     },
     {
       kind: "script",
@@ -191,6 +236,8 @@ const proofOfConcept: Pipeline = {
       command: "publish",
       publishTarget: "branch-only",
       optional: false,
+      routes: [plainRoute(null)],
+      place: { column: 2, row: 0 },
     },
   ],
 };
@@ -214,6 +261,8 @@ const setUpRunEnvironment: Pipeline = {
       session: "fresh",
       budget: 150_000,
       optional: false,
+      routes: [plainRoute("verify")],
+      place: { column: 0, row: 0 },
     },
     {
       kind: "script",
@@ -221,9 +270,18 @@ const setUpRunEnvironment: Pipeline = {
       name: "Verify",
       command: "test",
       optional: false,
-      onFailure: { goBackTo: "set-up", rounds: 2 },
+      routes: [backOnFailure("set-up", "Set up", 2), plainRoute("publish")],
+      place: { column: 1, row: 0 },
     },
-    { kind: "script", key: "publish", name: "Publish", command: "publish", optional: false },
+    {
+      kind: "script",
+      key: "publish",
+      name: "Publish",
+      command: "publish",
+      optional: false,
+      routes: [plainRoute(null)],
+      place: { column: 2, row: 0 },
+    },
   ],
 };
 
@@ -247,6 +305,8 @@ const resolveConflicts: Pipeline = {
       session: "fresh",
       budget: 150_000,
       optional: false,
+      routes: [plainRoute("test")],
+      place: { column: 0, row: 0 },
     },
     {
       kind: "script",
@@ -254,7 +314,8 @@ const resolveConflicts: Pipeline = {
       name: "Test",
       command: "test",
       optional: false,
-      onFailure: { goBackTo: "resolve-conflicts", rounds: 2 },
+      routes: [backOnFailure("resolve-conflicts", "Resolve conflicts", 2), plainRoute("publish")],
+      place: { column: 1, row: 0 },
     },
     {
       kind: "script",
@@ -263,6 +324,8 @@ const resolveConflicts: Pipeline = {
       command: "publish",
       publishTarget: "branch-only",
       optional: false,
+      routes: [plainRoute(null)],
+      place: { column: 2, row: 0 },
     },
   ],
 };
@@ -286,6 +349,8 @@ const setUpTestTargets: Pipeline = {
       session: "fresh",
       budget: 100_000,
       optional: false,
+      routes: [plainRoute(null)],
+      place: { column: 0, row: 0 },
     },
   ],
 };

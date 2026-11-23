@@ -1,7 +1,9 @@
 import { EventBus } from "../../platform/events/event-bus.js";
 import { DecisionAnswered } from "../conversations/index.js";
 import type { SessionScript } from "../engine/index.js";
-import type { OnFailure, Stage } from "./domain/stage.js";
+import type { KeptOnFailure } from "./domain/routes-back.js";
+import type { Stage } from "./domain/stage.js";
+import { goingBackOnFailure } from "./domain/stage.fixtures.js";
 import { NoRetriesLeft } from "./domain/stage-run-events.js";
 import {
   A_WAITING_RESULT,
@@ -15,15 +17,10 @@ import {
 import { aCommandRun, aPerson } from "./ports/pipelines-ports.fixtures.js";
 import { StageInterpreter } from "./application/stage-interpreter.js";
 
-export function scriptStage(key: string, onFailure?: OnFailure): Stage {
-  return {
-    kind: "script",
-    key,
-    name: key,
-    optional: false,
-    command: "test",
-    ...(onFailure && { onFailure }),
-  };
+/** A Script Stage running the tests, going back on failure as a previous release kept it. */
+export function scriptStage(key: string, onFailure?: KeptOnFailure): Stage {
+  const stage: Stage = { kind: "script", key, name: key, optional: false, command: "test" };
+  return onFailure ? goingBackOnFailure(stage, onFailure.goBackTo, onFailure.rounds) : stage;
 }
 
 export const draft = anAgentStage("draft");

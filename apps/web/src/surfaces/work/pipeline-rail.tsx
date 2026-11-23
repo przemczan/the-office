@@ -411,7 +411,8 @@ function LoopBackArc({
         title={words}
         onClick={onSelect}
       >
-        ↺ {loop.count} of {loop.rounds}
+        ↺ {loop.count}
+        {loop.rounds !== null && ` of ${loop.rounds}`}
       </button>
     </div>
   );

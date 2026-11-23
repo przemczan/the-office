@@ -8,7 +8,14 @@ import {
   walkAnswerOf,
   walkDecision,
 } from "./walk-decisions.js";
-import { implement, tests, aRun, failed, sentBack } from "./walk-decisions.fixtures.js";
+import {
+  implement,
+  tests,
+  aRun,
+  failed,
+  sentBack,
+  usedUpRouteBack,
+} from "./walk-decisions.fixtures.js";
 
 describe("walkDecision", () => {
   it("names the statements not reported met at the end of the Pipeline", () => {
@@ -316,7 +323,13 @@ describe("the budget Decision", () => {
 });
 
 describe("asksAConsultantFirst", () => {
-  const noRetriesLeft = { kind: "no-retries-left", stage: tests, error: "2 tests fail." } as const;
+  const noRetriesLeft = {
+    kind: "no-retries-left",
+    stage: tests,
+    error: "2 tests fail.",
+    atLimit: usedUpRouteBack,
+    others: [],
+  } as const;
 
   it("asks the user once a Consultant sent that Stage back in this walk", () => {
     const runs = [aRun("tests", failed, [sentBack("cto")]), aRun("tests", failed)];

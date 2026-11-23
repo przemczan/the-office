@@ -14,7 +14,7 @@ import {
   PipelineRemoved,
   PipelineSaved,
 } from "../../domain/pipeline-library-events.js";
-import { straightLineFlow } from "../../domain/flow.js";
+import { straightLineFlow, withGivenLimits } from "../../domain/flow.js";
 import { agentStage, scriptStage } from "../../domain/stage.fixtures.js";
 import {
   startPipelinesApplication,
@@ -163,7 +163,7 @@ describe("a Stage naming a Role whose engine can't work an Agent Stage", () => {
     const checked = await send("POST", "/pipelines/check", { ...edit, pipelineId: pipeline.id });
     const proposed = pipelines.app
       .get(PipelineLibraryEditor)
-      .proposedStagesProblems(pipeline.id, pipeline.stages, edit.stages);
+      .proposedStagesProblems(pipeline.id, withGivenLimits(pipeline.stages), edit.stages);
 
     expect(saved.status).toBe(422);
     expect(stagesEditRefusalSchema.parse(await saved.json()).problems).toEqual([
@@ -188,7 +188,9 @@ describe("a Stage naming a Role whose engine can't work an Agent Stage", () => {
     pipelines.roleEngines.incapableRoles.add(roleKey);
 
     expect((await added({ copyOf: named.id })).stages).toEqual(named.stages);
-    expect((await added(anEdit({ stages: named.stages }))).stages).toEqual(named.stages);
+    expect((await added(anEdit({ stages: withGivenLimits(named.stages) }))).stages).toEqual(
+      named.stages,
+    );
   });
 });
 
@@ -276,7 +278,10 @@ describe("PUT /api/pipelines/:id", () => {
     const response = await send(
       "PUT",
       `/pipelines/${pipeline.id}`,
-      anEdit({ name: " ", stages: [scriptStage({ onFailure: { goBackTo: "x", rounds: 1 } })] }),
+      anEdit({
+        name: " ",
+        stages: [scriptStage({ routes: [{ to: "x", condition: null, limit: null }] })],
+      }),
     );
 
     expect(response.status).toBe(422);
@@ -284,9 +289,9 @@ describe("PUT /api/pipelines/:id", () => {
       { stageKey: null, at: null, level: "problem", text: "Give the Pipeline a name." },
       {
         stageKey: "tests",
-        at: { kind: "onFailure" },
+        at: { kind: "route", routeIndex: 0 },
         level: "problem",
-        text: "Stage 1 · Tests: on failure it can only go back to an earlier Stage.",
+        text: "Stage 1 · Tests: its route to x leads to a Stage the Pipeline doesn't have.",
       },
     ]);
   });
@@ -367,7 +372,7 @@ describe("an office-wide Pipeline and the Project Pipelines copied from it", () 
     const response = await send("PUT", `/pipelines/${source.id}`, {
       name: source.name,
       description: source.description,
-      stages: straightLineFlow([source.stages[0]!, lint]),
+      stages: straightLineFlow(withGivenLimits([source.stages[0]!, lint])),
     });
 
     expect(response.status).toBe(200);

@@ -7,6 +7,7 @@ import {
   type TaskStages,
 } from "@the-office/contracts";
 import { afterEach, describe, expect, it } from "vitest";
+import { ENDED_FAILED } from "../../domain/route.js";
 import type { Stage } from "../../domain/stage.js";
 import type { StageOutcome } from "../../domain/stage-run.js";
 import {
@@ -28,7 +29,6 @@ const publish: Stage = {
   name: "Publish",
   optional: false,
   command: "publish",
-  onFailure: undefined,
 };
 
 let pipelines: PipelinesApplication | undefined;
@@ -160,16 +160,22 @@ describe("POST /api/tasks/:id/stages/check", () => {
     pipelines.tasks.put(taskId, { state: "ready", pipelineId: "quick-fix" });
 
     const response = await check(taskId, [
-      { ...tests, onFailure: { goBackTo: "tests", rounds: 1 } },
+      {
+        ...tests,
+        routes: [
+          { to: "tests", condition: ENDED_FAILED, limit: null },
+          { to: null, condition: null, limit: null },
+        ],
+      },
     ]);
 
     expect(response.status).toBe(200);
     expect(stagesCheckSchema.parse(await response.json()).problems).toEqual([
       {
         stageKey: "tests",
-        at: { kind: "onFailure" },
+        at: { kind: "route", routeIndex: 0 },
         level: "problem",
-        text: "Stage 1 · Tests: on failure it can only go back to an earlier Stage.",
+        text: "Stage 1 · Tests: the loop Tests → Tests has no route with a limit, so it could run for ever.",
       },
     ]);
     expect((await stagesOf(taskId)).stages).toBeNull();

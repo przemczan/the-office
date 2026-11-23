@@ -6,5 +6,4 @@ export const tests: ScriptStage = {
   name: "Tests",
   optional: false,
   command: "test",
-  onFailure: { goBackTo: "implement", rounds: 2 },
 };

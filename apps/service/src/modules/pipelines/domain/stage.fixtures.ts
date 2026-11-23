@@ -1,5 +1,6 @@
 import type { DutyKey } from "../../people/index.js";
-import type { AgentStage, Gate, ScriptStage } from "./stage.js";
+import type { KeptStage } from "./routes-back.js";
+import type { AgentStage, Gate, ScriptStage, Stage } from "./stage.js";
 
 /** The Developer's `implement` Stage, unless `fields` say otherwise. */
 export function agentStage(fields: Partial<AgentStage> = {}): AgentStage {
@@ -36,4 +37,16 @@ export function scriptStage(fields: Partial<ScriptStage> = {}): ScriptStage {
 
 export function gate(fields: Partial<Gate> = {}): Gate {
   return { kind: "gate", key: "gate", name: "Gate", optional: false, ...fields };
+}
+
+/**
+ * `stage` with the on-failure setting a previous release kept on it, going back to `goBackTo` at
+ * most `rounds` times, which `asFlow` reads as its failure route back: a plain list's way back.
+ */
+export function goingBackOnFailure<Of extends Stage>(
+  stage: Of,
+  goBackTo: string,
+  rounds: number,
+): KeptStage<Of> {
+  return { ...stage, onFailure: { goBackTo, rounds } };
 }

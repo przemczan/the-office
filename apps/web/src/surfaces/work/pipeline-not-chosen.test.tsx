@@ -109,7 +109,6 @@ const PROJECT_PIPELINES = [
         name: "Sort check",
         optional: false,
         command: "test",
-        onFailure: undefined,
       },
     ],
     brokenBeforeUpdate: null,

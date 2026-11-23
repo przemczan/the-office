@@ -13,6 +13,7 @@ export const engineCapabilitySchema = z.enum([
   "outputSchema",
   "languageServers",
   "carrySession",
+  "startsUsageWindow",
 ]);
 export type EngineCapability = z.infer<typeof engineCapabilitySchema>;
 
@@ -206,6 +207,68 @@ export const offeredModelSchema = z.object({
 });
 export type OfferedModel = z.infer<typeof offeredModelSchema>;
 
+/** A Window start's set time of day, `HH:MM` on the service's clock (spec §5.4.6). */
+export const windowStartTimeSchema = z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/);
+
+/** At most one Window start a set time a day for each hour, more than any account needs. */
+export const MAX_WINDOW_START_TIMES = 24;
+
+/**
+ * When an engine with usage windows starts its 5-hour window by itself (spec §5.4.6, "Starting the
+ * 5-hour window"): at each set time, and right after each reset when `startAfterReset` is on.
+ */
+export const windowStartSettingsSchema = z.object({
+  /** Unique and sorted; a malformed or duplicate time is refused (422), not by the contract. */
+  startAtTimes: z.array(z.string()).max(MAX_WINDOW_START_TIMES),
+  startAfterReset: z.boolean(),
+});
+export type WindowStartSettings = z.infer<typeof windowStartSettingsSchema>;
+
+/** Why a Window start was skipped, the first rule that applies (spec §5.4.6). */
+export const windowStartSkipReasonSchema = z.enum([
+  "readings-unknown",
+  "engine-used-up",
+  "no-5-hour-window",
+  "window-running",
+  "weekly-used-up",
+  "weekly-nearly-used-up",
+]);
+export type WindowStartSkipReason = z.infer<typeof windowStartSkipReasonSchema>;
+
+/** What set a Window start off: one of the set times, or a 5-hour window's reset. */
+export const windowStartTriggerSchema = z.enum(["set-time", "after-reset"]);
+export type WindowStartTrigger = z.infer<typeof windowStartTriggerSchema>;
+
+/** The last Window start of an engine: started, skipped with its reason, or failed with its error. */
+export const windowStartRecordSchema = z.object({
+  at: z.iso.datetime(),
+  outcome: z.enum(["started", "skipped", "failed"]),
+  /** Only when skipped. */
+  reason: windowStartSkipReasonSchema.nullable(),
+  /** Only when failed. */
+  error: z.string().nullable(),
+  trigger: windowStartTriggerSchema,
+  /** When started, the 5-hour window's reset the read after it showed; null when it didn't tell. */
+  fiveHourResetsAt: z.iso.datetime().nullable(),
+});
+export type WindowStartRecord = z.infer<typeof windowStartRecordSchema>;
+
+/** One engine's Window start, as Settings › Engines shows it on an engine with usage windows. */
+export const engineWindowStartSchema = windowStartSettingsSchema.extend({
+  engineId: engineIdSchema,
+  /** Null when neither setting starts one. */
+  nextStartAt: z.iso.datetime().nullable(),
+  /** Null until the first start or skip. */
+  last: windowStartRecordSchema.nullable(),
+});
+export type EngineWindowStart = z.infer<typeof engineWindowStartSchema>;
+
+/** A Window start's settings as Settings › Engines saves them. */
+export const engineWindowStartEditSchema = windowStartSettingsSchema.extend({
+  engineId: engineIdSchema,
+});
+export type EngineWindowStartEdit = z.infer<typeof engineWindowStartEditSchema>;
+
 /** GET and PUT /settings/engines: the Office-wide settings of the engines. */
 export const engineSettingsSchema = z.object({
   /** In the order Settings › Engines lists them. */
@@ -229,6 +292,13 @@ export const engineSettingsSchema = z.object({
   standInEngines: z.array(engineIdSchema),
   /** The context size, in tokens, above which a switch of a running Stage asks first; 0 always asks. */
   askBeforeSwitchAbove: z.number(),
+  /**
+   * Each engine with usage windows' Window start, in the order of `engines`; a top-level list, as
+   * the engine edit schemas extend the engines' read schemas.
+   */
+  windowStarts: z.array(engineWindowStartSchema),
+  /** The service's IANA time zone, which the set times of a Window start follow. */
+  timeZone: z.string(),
 });
 export type EngineSettings = z.infer<typeof engineSettingsSchema>;
 
@@ -317,6 +387,12 @@ export const engineSettingsEditSchema = z.object({
   standInEngines: z.array(engineIdSchema).optional(),
   /** Left out, the stored size is kept. One that isn't a whole number 0–10,000,000 is refused (422). */
   askBeforeSwitchAbove: z.number().optional(),
+  /**
+   * Left out, the stored Window starts are kept; an engine left out of the list keeps its own. A
+   * malformed or duplicate time, or a Window start on an engine without usage windows, is refused
+   * (422).
+   */
+  windowStarts: z.array(engineWindowStartEditSchema).optional(),
 });
 export type EngineSettingsEdit = z.infer<typeof engineSettingsEditSchema>;
 
@@ -474,10 +550,15 @@ export type EngineApiKey = z.infer<typeof engineApiKeySchema>;
 
 /**
  * A Claude Code, Codex or Copilot CLI engine's account changed (a Sign in ended, a token or an API
- * key was given, or it was signed out), so an open Settings page refetches it.
+ * key was given, or it was signed out), so an open Settings page refetches it; or an engine's
+ * Window start changed (its settings, a start, skip or failure, or its next start moved).
  */
 export const engineWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("engine.account-changed"), engineId: engineIdSchema }),
+  webEventSchema.extend({
+    type: z.literal("engine.window-start-changed"),
+    engineId: engineIdSchema,
+  }),
 ]);
 export type EngineWebEvent = z.infer<typeof engineWebEventSchema>;
 

@@ -17,7 +17,14 @@ const tests: Stage = {
   name: "Tests",
   optional: false,
   command: "test",
-  onFailure: { goBackTo: "implement", rounds: 3 },
+  routes: [
+    {
+      to: "implement",
+      condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "failed" }] },
+      limit: 3,
+    },
+    { to: null, condition: null, limit: null },
+  ],
 };
 
 function aRun(fields: Partial<StageRun>): StageRun {
@@ -34,6 +41,7 @@ function aRun(fields: Partial<StageRun>): StageRun {
     tokens: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
     context: null,
     carriedFailure: null,
+    route: null,
     sentBack: null,
     gateAction: null,
     commandRuns: [],

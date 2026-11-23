@@ -27,7 +27,7 @@ function anEdit(fields: Partial<PipelineEdit> = {}): PipelineEdit {
   return {
     name: "Nightly",
     description: "For the nightly run.",
-    stages: [agentStage(), scriptStage({ onFailure: { goBackTo: "implement", rounds: 2 } })],
+    stages: [agentStage(), scriptStage()],
     ...fields,
   };
 }
@@ -50,12 +50,12 @@ describe("pipelineEditProblems", () => {
     const stages = [
       agentStage(),
       agentStage({ key: "review", name: "Review", role: "reviewer", session: "continue" }),
-      scriptStage({ onFailure: { goBackTo: "publish", rounds: 1 } }),
+      scriptStage({ publishTarget: "branch-only" }),
     ];
 
     expect(pipelineEditProblems(anEdit({ stages }), [], []).map(({ text }) => text)).toEqual([
       "Stage 2 · Review: continuing a session needs the same Role or the same duty in the Stage before.",
-      "Stage 3 · Tests: on failure it can only go back to an earlier Stage.",
+      "Stage 3 · Tests: only a Publish Stage has a publish target.",
     ]);
     expect(pipelineEditProblems(anEdit({ stages: [] }), [], [])).toEqual([
       { level: "problem", text: "A Pipeline needs at least one Stage." },
@@ -104,7 +104,7 @@ describe("proposedStagesProblems", () => {
 
   it("allows new Stages for a Pipeline whose Stages are as they were when proposed", () => {
     // A field left undefined is the same as one left out, as the Stages are kept.
-    const drafted = [agentStage({ onFailure: undefined }), ...nightly.stages.slice(1)];
+    const drafted = [agentStage({ effort: undefined }), ...nightly.stages.slice(1)];
 
     expect(proposedStagesProblems(nightly, drafted, proposed, builtInPipelines, [])).toEqual([]);
   });

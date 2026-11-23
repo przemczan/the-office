@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   asFlow,
+  isRouteBack,
   isStraightLine,
   pipelineOrder,
   placedInOrder,
   straightLineFlow,
+  withGivenLimits,
   type FlowStage,
 } from "./flow.js";
 import type { Route } from "./route.js";
@@ -30,11 +32,19 @@ describe("straightLineFlow", () => {
     expect(flowOf(straightLineFlow([implement, tests, publish]))).toEqual([
       {
         key: "implement",
-        routes: [{ to: "tests", condition: null }],
+        routes: [{ to: "tests", condition: null, limit: null }],
         place: { column: 0, row: 0 },
       },
-      { key: "tests", routes: [{ to: "publish", condition: null }], place: { column: 1, row: 0 } },
-      { key: "publish", routes: [{ to: null, condition: null }], place: { column: 2, row: 0 } },
+      {
+        key: "tests",
+        routes: [{ to: "publish", condition: null, limit: null }],
+        place: { column: 1, row: 0 },
+      },
+      {
+        key: "publish",
+        routes: [{ to: null, condition: null, limit: null }],
+        place: { column: 2, row: 0 },
+      },
     ]);
   });
 
@@ -45,13 +55,21 @@ describe("straightLineFlow", () => {
       {
         key: "implement",
         routes: [
-          { to: "look", condition: WHILE_SOME_NOT_MET },
-          { to: "publish", condition: null },
+          { to: "look", condition: WHILE_SOME_NOT_MET, limit: null },
+          { to: "publish", condition: null, limit: null },
         ],
         place: { column: 0, row: 0 },
       },
-      { key: "look", routes: [{ to: "publish", condition: null }], place: { column: 1, row: 0 } },
-      { key: "publish", routes: [{ to: null, condition: null }], place: { column: 2, row: 0 } },
+      {
+        key: "look",
+        routes: [{ to: "publish", condition: null, limit: null }],
+        place: { column: 1, row: 0 },
+      },
+      {
+        key: "publish",
+        routes: [{ to: null, condition: null, limit: null }],
+        place: { column: 2, row: 0 },
+      },
     ]);
   });
 
@@ -67,19 +85,19 @@ describe("straightLineFlow", () => {
       {
         key: "implement",
         routes: [
-          { to: "tests", condition: WHILE_SOME_NOT_MET },
-          { to: "publish", condition: null },
+          { to: "tests", condition: WHILE_SOME_NOT_MET, limit: null },
+          { to: "publish", condition: null, limit: null },
         ],
       },
       {
         key: "tests",
         routes: [
-          { to: "look", condition: WHILE_SOME_NOT_MET },
-          { to: "publish", condition: null },
+          { to: "look", condition: WHILE_SOME_NOT_MET, limit: null },
+          { to: "publish", condition: null, limit: null },
         ],
       },
-      { key: "look", routes: [{ to: "publish", condition: null }] },
-      { key: "publish", routes: [{ to: null, condition: null }] },
+      { key: "look", routes: [{ to: "publish", condition: null, limit: null }] },
+      { key: "publish", routes: [{ to: null, condition: null, limit: null }] },
     ]);
   });
 
@@ -93,14 +111,14 @@ describe("straightLineFlow", () => {
       ),
     ).toEqual([
       [
-        { to: "tests", condition: WHILE_SOME_NOT_MET },
-        { to: null, condition: null },
+        { to: "tests", condition: WHILE_SOME_NOT_MET, limit: null },
+        { to: null, condition: null, limit: null },
       ],
       [
-        { to: "look", condition: WHILE_SOME_NOT_MET },
-        { to: null, condition: null },
+        { to: "look", condition: WHILE_SOME_NOT_MET, limit: null },
+        { to: null, condition: null, limit: null },
       ],
-      [{ to: null, condition: null }],
+      [{ to: null, condition: null, limit: null }],
     ]);
   });
 
@@ -110,10 +128,10 @@ describe("straightLineFlow", () => {
     expect(flowOf(straightLineFlow([implement, optionalLook])).map(({ routes }) => routes)).toEqual(
       [
         [
-          { to: "look", condition: WHILE_SOME_NOT_MET },
-          { to: null, condition: null },
+          { to: "look", condition: WHILE_SOME_NOT_MET, limit: null },
+          { to: null, condition: null, limit: null },
         ],
-        [{ to: null, condition: null }],
+        [{ to: null, condition: null, limit: null }],
       ],
     );
   });
@@ -126,23 +144,31 @@ describe("straightLineFlow", () => {
     expect(flowOf(flow)).toEqual([
       {
         key: "implement",
-        routes: [{ to: "tests", condition: null }],
+        routes: [{ to: "tests", condition: null, limit: null }],
         place: { column: 0, row: 0 },
       },
-      { key: "tests", routes: [{ to: "publish", condition: null }], place: { column: 1, row: 0 } },
-      { key: "publish", routes: [{ to: null, condition: null }], place: { column: 2, row: 0 } },
+      {
+        key: "tests",
+        routes: [{ to: "publish", condition: null, limit: null }],
+        place: { column: 1, row: 0 },
+      },
+      {
+        key: "publish",
+        routes: [{ to: null, condition: null, limit: null }],
+        place: { column: 2, row: 0 },
+      },
     ]);
     expect(flow.flatMap(({ routes }) => routes).some(({ to }) => to === "implement")).toBe(false);
   });
 
   it("keeps the optional setting and every other field of each Stage", () => {
     const optionalLook = { ...look, optional: true };
-    const looping = scriptStage({ onFailure: { goBackTo: "implement", rounds: 2 } });
+    const linting = scriptStage({ key: "lint", name: "Lint", command: "lint" });
 
-    const [first, second, third] = straightLineFlow([implement, looping, optionalLook]);
+    const [first, second, third] = straightLineFlow([implement, linting, optionalLook]);
 
     expect(first).toMatchObject(implement);
-    expect(second).toMatchObject(looping);
+    expect(second).toMatchObject(linting);
     expect(third).toMatchObject({ ...optionalLook, optional: true });
   });
 });
@@ -157,24 +183,31 @@ describe("asFlow", () => {
       {
         ...implement,
         routes: [
-          { to: "publish", condition: WHILE_SOME_NOT_MET },
-          { to: null, condition: null },
+          { to: "publish", condition: WHILE_SOME_NOT_MET, limit: null },
+          { to: null, condition: null, limit: null },
         ],
         place: { column: 0, row: 0 },
       },
-      { ...publish, routes: [{ to: null, condition: null }], place: { column: 3, row: 1 } },
+      {
+        ...publish,
+        routes: [{ to: null, condition: null, limit: null }],
+        place: { column: 3, row: 1 },
+      },
     ];
 
     expect(asFlow(branching)).toEqual(branching);
   });
 
   it("gives a Stage missing its routes none, and one missing its place its index's column, once another carries routes", () => {
-    const flow = asFlow([{ ...implement, routes: [{ to: "tests", condition: null }] }, tests]);
+    const flow = asFlow([
+      { ...implement, routes: [{ to: "tests", condition: null, limit: null }] },
+      tests,
+    ]);
 
     expect(flowOf(flow)).toEqual([
       {
         key: "implement",
-        routes: [{ to: "tests", condition: null }],
+        routes: [{ to: "tests", condition: null, limit: null }],
         place: { column: 0, row: 0 },
       },
       { key: "tests", routes: [], place: { column: 1, row: 0 } },
@@ -187,6 +220,64 @@ function at(key: string, column: number, row: number): FlowStage {
   return { ...scriptStage({ key, name: key }), routes: [], place: { column, row } };
 }
 
+describe("a route's limit", () => {
+  const unlimited = { ...implement, routes: [{ to: "tests", condition: null }] };
+
+  it("is set where a route is given without one: 3 back, to its own Stage or before it, No limit on", () => {
+    const flow = asFlow([
+      { ...implement, routes: [{ to: "tests", condition: null }], place: { column: 0, row: 0 } },
+      {
+        ...tests,
+        routes: [
+          { to: "implement", condition: WHILE_SOME_NOT_MET },
+          { to: "tests", condition: WHILE_SOME_NOT_MET },
+          { to: null, condition: null },
+        ],
+        place: { column: 1, row: 0 },
+      },
+    ] as FlowStage[]);
+
+    expect(flow.map(({ routes }) => routes.map(({ limit }) => limit))).toEqual([
+      [null],
+      [3, 3, null],
+    ]);
+  });
+
+  it("is kept where a route is given with one", () => {
+    const given: FlowStage = {
+      ...tests,
+      routes: [{ to: "tests", condition: WHILE_SOME_NOT_MET, limit: 7 }, plain(null)],
+      place: { column: 0, row: 0 },
+    };
+
+    expect(asFlow([given])).toEqual([given]);
+  });
+
+  it("is set by the places of the Stages an edit gives, a Stage without one at its index", () => {
+    const stages = withGivenLimits([
+      { ...unlimited, place: { column: 1, row: 0 } },
+      { ...tests, routes: [{ to: "implement", condition: null }], place: { column: 0, row: 0 } },
+    ]);
+
+    expect(stages.map(({ routes }) => routes?.map(({ limit }) => limit))).toEqual([[3], [null]]);
+    expect(withGivenLimits([unlimited, tests])[0]?.routes).toEqual([plain("tests")]);
+  });
+
+  it("says which routes lead back: to the Stage's own or one before it in the order, never End", () => {
+    const flow = straightLineFlow([implement, tests]);
+
+    expect(isRouteBack(flow, "tests", "implement")).toBe(true);
+    expect(isRouteBack(flow, "tests", "tests")).toBe(true);
+    expect(isRouteBack(flow, "implement", "tests")).toBe(false);
+    expect(isRouteBack(flow, "tests", null)).toBe(false);
+  });
+});
+
+/** A route with no condition and No limit. */
+function plain(to: string | null): Route {
+  return { to, condition: null, limit: null };
+}
+
 describe("placedInOrder", () => {
   it("places the Stages an agent left without places one to a column in the order given, each route naming its Stages", () => {
     const changed: Route["condition"] = {
@@ -197,21 +288,21 @@ describe("placedInOrder", () => {
       ],
     };
     const placed = placedInOrder([
-      { ...implement, routes: [{ to: "tests", condition: null }] },
+      { ...implement, routes: [{ to: "tests", condition: null, limit: null }] },
       {
         ...tests,
         routes: [
-          { to: "look", condition: changed },
-          { to: null, condition: null },
+          { to: "look", condition: changed, limit: null },
+          { to: null, condition: null, limit: null },
         ],
       },
-      { ...look, routes: [{ to: null, toName: "Old", condition: null }] },
+      { ...look, routes: [{ to: null, toName: "Old", condition: null, limit: null }] },
     ]);
 
     expect(flowOf(placed)).toEqual([
       {
         key: "implement",
-        routes: [{ to: "tests", toName: "Tests", condition: null }],
+        routes: [{ to: "tests", toName: "Tests", condition: null, limit: null }],
         place: { column: 0, row: 0 },
       },
       {
@@ -227,25 +318,38 @@ describe("placedInOrder", () => {
                 { kind: "definitionOfDone", is: "some-not-met" },
               ],
             },
+            limit: null,
           },
-          { to: null, condition: null },
+          { to: null, condition: null, limit: null },
         ],
         place: { column: 1, row: 0 },
       },
-      { key: "look", routes: [{ to: null, condition: null }], place: { column: 2, row: 0 } },
+      {
+        key: "look",
+        routes: [{ to: null, condition: null, limit: null }],
+        place: { column: 2, row: 0 },
+      },
     ]);
   });
 
   it("orders Stages by the places given, and draws a plain list as its straight line", () => {
     const placed = placedInOrder([
-      { ...tests, routes: [{ to: null, condition: null }], place: { column: 1, row: 0 } },
-      { ...implement, routes: [{ to: "tests", condition: null }], place: { column: 0, row: 0 } },
+      {
+        ...tests,
+        routes: [{ to: null, condition: null, limit: null }],
+        place: { column: 1, row: 0 },
+      },
+      {
+        ...implement,
+        routes: [{ to: "tests", condition: null, limit: null }],
+        place: { column: 0, row: 0 },
+      },
     ]);
 
     expect(placed.map(({ key }) => key)).toEqual(["implement", "tests"]);
     expect(flowOf(placedInOrder([implement, tests])).map(({ routes }) => routes)).toEqual([
-      [{ to: "tests", toName: "Tests", condition: null }],
-      [{ to: null, condition: null }],
+      [{ to: "tests", toName: "Tests", condition: null, limit: null }],
+      [{ to: null, condition: null, limit: null }],
     ]);
   });
 });
@@ -280,7 +384,11 @@ describe("isStraightLine", () => {
     expect(isStraightLine([first, { ...second, place: { column: 1, row: 1 } }, third])).toBe(false);
     expect(isStraightLine([first, second, { ...third, place: { column: 3, row: 0 } }])).toBe(false);
     expect(
-      isStraightLine([{ ...first, routes: [{ to: "publish", condition: null }] }, second, third]),
+      isStraightLine([
+        { ...first, routes: [{ to: "publish", condition: null, limit: null }] },
+        second,
+        third,
+      ]),
     ).toBe(false);
   });
 });

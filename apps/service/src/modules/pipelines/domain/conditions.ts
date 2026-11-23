@@ -177,19 +177,3 @@ function weighDefinitionOfDoneTest(
 function weightOf(holds: boolean): Weight {
   return holds ? HOLDS : DOES_NOT_HOLD;
 }
-
-/**
- * Whether the route carries a failure on (spec §2.3, "When a Stage fails"): its condition is the
- * previous Stage's "ended Failed" test, on its own or within an All of group at its top.
- */
-export function carriesAFailure({ condition }: Route, stageKey: string): boolean {
-  if (!condition) return false;
-  const endedFailed = condition.tests.some(
-    (test) =>
-      !isConditionGroup(test) &&
-      test.kind === "stage" &&
-      (test.stage === null || test.stage === stageKey) &&
-      test.is === "failed",
-  );
-  return endedFailed && (condition.combine === "all" || condition.tests.length === 1);
-}

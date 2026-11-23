@@ -80,7 +80,7 @@ describe("StageInterpreter's Decisions", () => {
     });
   });
 
-  describe("a round limit", () => {
+  describe("a failure route at its limit", () => {
     const measure = scriptStage("measure", { goBackTo: "draft", rounds: 1 });
 
     it("asks the user in the last Agent Stage's Thread, as The Office", async () => {
@@ -94,8 +94,14 @@ describe("StageInterpreter's Decisions", () => {
       expect(decision).toMatchObject({
         threadId: runs[2]?.threadId,
         draft: {
-          question: '"measure" failed, and its rounds are used up. What now?',
-          options: ["Allow 1 more round", "Continue with the issues recorded", "Drop the Task"],
+          question:
+            '"measure" failed, and its failure route is used up: "measure" has sent the work back to "draft" once, at most 1. What now?',
+          options: [
+            "Follow it once more",
+            "End the Pipeline here",
+            "Continue with the issues recorded",
+            "Drop the Task",
+          ],
         },
       });
       expect(decision?.draft.context).toContain("Still 2.");
@@ -104,7 +110,8 @@ describe("StageInterpreter's Decisions", () => {
           id: decision?.id,
           kind: "no-retries-left",
           options: [
-            { kind: "more-rounds", rounds: 1 },
+            { kind: "one-more-round", guidance: undefined, to: "draft" },
+            { kind: "follow-route", to: null },
             { kind: "accept-issues" },
             { kind: "drop" },
           ],
@@ -114,7 +121,7 @@ describe("StageInterpreter's Decisions", () => {
       expect(statesOf(taskId)).toEqual(["waiting-on-you"]);
     });
 
-    it("goes back for the rounds the user allows, and on to Done", async () => {
+    it("follows the route once more as the user allows, and on to Done", async () => {
       await startWith(agentDone, agentDone, agentDone);
       failing("2 tests fail.", "Still 2.");
       const taskId = await walkStages(pipelines, [draft, measure]);

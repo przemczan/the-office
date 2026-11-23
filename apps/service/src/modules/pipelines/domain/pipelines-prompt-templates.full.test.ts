@@ -17,7 +17,7 @@ import {
 } from "./agent-stage-brief.js";
 import { GATE_REACHED } from "./gate.js";
 import { PUBLISH_COMMAND, type Stage } from "./stage.js";
-import { agentStage, dutyStage, gate, scriptStage } from "./stage.fixtures.js";
+import { agentStage, dutyStage, gate, goingBackOnFailure, scriptStage } from "./stage.fixtures.js";
 import type { StageOutcome } from "./stage-run.js";
 import { allowedCommands, type RunPermission } from "./allowed-commands.js";
 import { hardSwitchesSection, type FollowedHardSwitchValue } from "./followed-hard-switches.js";
@@ -432,12 +432,12 @@ describe("pipelines.stage-runs-again", () => {
     [
       "a later Stage's loop went back",
       () => again({ ...ROUND, stageKey: "tests", stageName: "Tests" }),
-      '## The Stage: Implement\n\nBuild it.\nKeep it small.\n\n## Why this Stage runs again\n\n"Tests" failed after it, so the Pipeline went back here (round 2 of 3):\n\nIt broke.\nTwice.',
+      '## The Stage: Implement\n\nBuild it.\nKeep it small.\n\n## Why this Stage runs again\n\n"Tests" failed after it, so the Pipeline went back here (round 2 of at most 3):\n\nIt broke.\nTwice.',
     ],
     [
       "a later Stage's loop went back, with the user's guidance",
       () => again({ ...ROUND, stageKey: "tests", stageName: "Tests", guidance: WORDS }),
-      '## The Stage: Implement\n\nBuild it.\nKeep it small.\n\n## Why this Stage runs again\n\n"Tests" failed after it, so the Pipeline went back here (round 2 of 3):\n\nIt broke.\nTwice.\n\nThe user\'s guidance for this round:\n\nUse the new API.\nNot the old one.',
+      '## The Stage: Implement\n\nBuild it.\nKeep it small.\n\n## Why this Stage runs again\n\n"Tests" failed after it, so the Pipeline went back here (round 2 of at most 3):\n\nIt broke.\nTwice.\n\nThe user\'s guidance for this round:\n\nUse the new API.\nNot the old one.',
     ],
     [
       "a later Stage's loop went back, with a Consultant's guidance",
@@ -449,7 +449,7 @@ describe("pipelines.stage-runs-again", () => {
           guide: "the Architect",
           guidance: WORDS,
         }),
-      '## The Stage: Implement\n\nBuild it.\nKeep it small.\n\n## Why this Stage runs again\n\n"Tests" failed after it, so the Pipeline went back here (round 2 of 3):\n\nIt broke.\nTwice.\n\nGuidance for this round from the Architect:\n\nUse the new API.\nNot the old one.',
+      '## The Stage: Implement\n\nBuild it.\nKeep it small.\n\n## Why this Stage runs again\n\n"Tests" failed after it, so the Pipeline went back here (round 2 of at most 3):\n\nIt broke.\nTwice.\n\nGuidance for this round from the Architect:\n\nUse the new API.\nNot the old one.',
     ],
   ]);
 });
@@ -559,28 +559,21 @@ describe("pipelines.earlier-stage-result", () => {
 const IMPLEMENT = agentStage({ key: "implement", name: "Implement", brief: STAGE.brief });
 const LATER: readonly Stage[] = [
   IMPLEMENT,
-  agentStage({
-    key: "review",
-    name: "Review",
-    role: "reviewer",
-    brief: "Review it.\nCarefully.",
-    onFailure: { goBackTo: "implement", rounds: 2 },
-  }),
+  goingBackOnFailure(
+    agentStage({
+      key: "review",
+      name: "Review",
+      role: "reviewer",
+      brief: "Review it.\nCarefully.",
+    }),
+    "implement",
+    2,
+  ),
   dutyStage("asked-first-when-out-of-tries", { key: "ask", name: "Ask", brief: "Ask." }),
   agentStage({ key: "nobody", name: "Nobody", role: undefined, brief: "Nobody's." }),
   gate({ key: "look", name: "Look" }),
-  scriptStage({
-    key: "tests",
-    name: "Tests",
-    command: "test",
-    onFailure: { goBackTo: "implement", rounds: 3 },
-  }),
-  scriptStage({
-    key: "lint",
-    name: "Lint",
-    command: "lint",
-    onFailure: { goBackTo: "review", rounds: 1 },
-  }),
+  goingBackOnFailure(scriptStage({ key: "tests", name: "Tests", command: "test" }), "implement", 3),
+  goingBackOnFailure(scriptStage({ key: "lint", name: "Lint", command: "lint" }), "review", 1),
   scriptStage({ key: "publish", name: "Publish", command: PUBLISH_COMMAND }),
 ];
 const PIPELINE: StagePipeline = {
@@ -699,7 +692,7 @@ describe("pipelines.stage-message", () => {
           sentBack: { gateKey: "look", gateName: "Look", feedback: NOTES },
           installProblem: "npm ci failed.",
         }),
-      "## The Stage: Implement\n\nBuild it.\nKeep it small.\n\n## Later Stages\n\nThese Stages come after this one in the Task's Pipeline, in order:\n\n- Tests (Script Stage): runs `npm test`.\n- Tests (Script Stage): The Office publishes the Task's work.\n\nWhile you iterate, run only the tests that cover the files you change: a later Stage runs the Project's full command.\n\n## Recheck the commit message\n\nYours is the last Agent Stage before Publish, which lands the Task on main as one commit with the Task's commit message. Before you end the Stage, read the Task's whole diff (`git diff origin/main...HEAD`; the Brief's \"What changed so far\" summarises it), check the message against that diff and the commit convention the Project's own docs define (CLAUDE.md, AGENTS.md, README, CONTRIBUTING and the like), and fix it with write_commit_message where it no longer fits. It reads now:\n\n```\nRename a device\n\nAdds a rename dialog.\n```\n\n## Paused by the user Ben Ito\n\nThe user Ben Ito paused this Stage after your last turn, and has resumed it. Your edits are in the worktree as you left them: go on with the Stage's work from there, and end with its result.\n\n## Your question, answered\n\nYou asked the user: Which page?\n\nTheir answer: The device page.\n\nGo on with the Stage from there.\n\n## Why this Stage runs again\n\n\"Tests\" failed after it, so the Pipeline went back here (round 2 of 3):\n\nIt broke.\nTwice.\n\n## Sent back from Look\n\nThe user looked at the work so far at the Gate and sent it back to this Stage with their feedback. It is no failure: act on it, then end the Stage with its result.\n\nBuild version B.\nKeep the colours.\n\n## The install before this Stage\n\nnpm ci failed.\n\nCommands that need the dependencies may fail until it passes. If the Task's changes broke it, fix that first; The Office installs again before the next Stage.",
+      "## The Stage: Implement\n\nBuild it.\nKeep it small.\n\n## Later Stages\n\nThese Stages come after this one in the Task's Pipeline, in order:\n\n- Tests (Script Stage): runs `npm test`.\n- Tests (Script Stage): The Office publishes the Task's work.\n\nWhile you iterate, run only the tests that cover the files you change: a later Stage runs the Project's full command.\n\n## Recheck the commit message\n\nYours is the last Agent Stage before Publish, which lands the Task on main as one commit with the Task's commit message. Before you end the Stage, read the Task's whole diff (`git diff origin/main...HEAD`; the Brief's \"What changed so far\" summarises it), check the message against that diff and the commit convention the Project's own docs define (CLAUDE.md, AGENTS.md, README, CONTRIBUTING and the like), and fix it with write_commit_message where it no longer fits. It reads now:\n\n```\nRename a device\n\nAdds a rename dialog.\n```\n\n## Paused by the user Ben Ito\n\nThe user Ben Ito paused this Stage after your last turn, and has resumed it. Your edits are in the worktree as you left them: go on with the Stage's work from there, and end with its result.\n\n## Your question, answered\n\nYou asked the user: Which page?\n\nTheir answer: The device page.\n\nGo on with the Stage from there.\n\n## Why this Stage runs again\n\n\"Tests\" failed after it, so the Pipeline went back here (round 2 of at most 3):\n\nIt broke.\nTwice.\n\n## Sent back from Look\n\nThe user looked at the work so far at the Gate and sent it back to this Stage with their feedback. It is no failure: act on it, then end the Stage with its result.\n\nBuild version B.\nKeep the colours.\n\n## The install before this Stage\n\nnpm ci failed.\n\nCommands that need the dependencies may fail until it passes. If the Task's changes broke it, fix that first; The Office installs again before the next Stage.",
     ],
     [
       "held, not started, with no words, and nothing else",

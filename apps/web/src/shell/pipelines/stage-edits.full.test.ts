@@ -27,7 +27,14 @@ const tests: Stage = {
   name: "Tests",
   optional: false,
   command: "test",
-  onFailure: { goBackTo: "implement", rounds: 3 },
+  routes: [
+    {
+      to: "implement",
+      condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "failed" }] },
+      limit: 3,
+    },
+    { to: null, condition: null, limit: null },
+  ],
 };
 const publish: Stage = {
   kind: "script",
@@ -64,7 +71,7 @@ describe("the Stage editor's changes", () => {
     });
   });
 
-  it("adds a Stage template as a copy where its kind goes, with its own key and no failure rule", () => {
+  it("adds a Stage template as a copy where its kind goes, with its own key and no routes", () => {
     const template = { id: "tests", stage: { ...tests, key: "tests", name: "Lint first" } };
     const added = addStageFrom(quickFix, template, false);
     expect(added.index).toBe(3);
@@ -88,11 +95,11 @@ describe("the Stage editor's changes", () => {
   it("names a Stage template's copy apart from the Stages it joins", () => {
     const added = addStageFrom(quickFix, { id: "tests", stage: tests }, false);
     expect(added.stages[3]).toMatchObject({ key: "tests-2", name: "Tests 2" });
-    expect(added.stages[3]).not.toHaveProperty("onFailure");
   });
 
-  it("drops a Stage with every failure rule that went back to it", () => {
-    expect(removeStage(quickFix, 0)).toEqual([{ ...tests, onFailure: undefined }, publish]);
+  it("drops a Stage, the routes into it left for the flow editor to carry on", () => {
+    expect(removeStage(quickFix, 0)).toEqual([tests, publish]);
+    expect(removeStage(quickFix, 5)).toBe(quickFix);
   });
 
   it("continues a session only after the same Role, and starts fresh once the Role changes", () => {

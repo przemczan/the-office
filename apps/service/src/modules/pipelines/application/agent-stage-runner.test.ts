@@ -1,3 +1,4 @@
+import { goingBackOnFailure } from "../domain/stage.fixtures.js";
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -139,7 +140,7 @@ describe("AgentStageRunner", () => {
 
     await walkStages(pipelines, [
       implement,
-      aScriptStage("test", { onFailure: { goBackTo: "implement", rounds: 1 } }),
+      goingBackOnFailure(aScriptStage("test"), "implement", 1),
       anAgentStage("review", { name: "Review" }),
     ]);
 
@@ -460,10 +461,7 @@ describe("AgentStageRunner after the session", () => {
     pipelines.stageThreads.whileWorking = ({ stageName }) => {
       if (stageName === "Review") pipelines.git.move(taskId, { commit: "f".repeat(40), branch });
     };
-    const review = anAgentStage("review", {
-      name: "Review",
-      onFailure: { goBackTo: "implement", rounds: 1 },
-    });
+    const review = goingBackOnFailure(anAgentStage("review", { name: "Review" }), "implement", 1);
 
     await walkStages(pipelines, [implement, review], taskId);
 

@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { straightLineFlow } from "./flow.js";
+import { ENDED_FAILED } from "./route.js";
 import { agentStage, gate } from "./stage.fixtures.js";
 import {
   editProblems,
@@ -66,11 +68,18 @@ describe("editProblems", () => {
     ]);
   });
 
-  it("flags an on-failure target that isn't earlier", () => {
-    const edited = [{ ...implement, onFailure: { goBackTo: "review", rounds: 1 } }, review];
+  it("flags a loop with no route with a limit", () => {
+    const edited = straightLineFlow([implement, review]).map((stage) =>
+      stage.key === "review"
+        ? {
+            ...stage,
+            routes: [{ to: "implement", condition: ENDED_FAILED, limit: null }, ...stage.routes],
+          }
+        : stage,
+    );
 
     expect(editProblems(own, edited, [], roles).map(({ text }) => text)).toEqual([
-      "Stage 1 · Implement: on failure it can only go back to an earlier Stage.",
+      "Stage 2 · Review & fix: the loop Review & fix → Implement → Review & fix has no route with a limit, so it could run for ever.",
     ]);
   });
 });

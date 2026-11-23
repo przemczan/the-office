@@ -25,6 +25,7 @@ import {
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { PipelineLibraryEditor } from "../../application/pipeline-library-editor.js";
 import { PipelineLibraryRefusalsFilter } from "./pipeline-library-refusals.filter.js";
+import { withStagesGiven } from "./given-stages.js";
 import {
   toPipelineResponse,
   toPipelineUseResponse,
@@ -47,7 +48,9 @@ export class PipelineLibraryController {
     @Body(new ContractPipe(newPipelineSchema)) given: NewPipeline,
   ): Promise<PipelineResponse> {
     const pipeline =
-      "copyOf" in given ? await this.editor.copy(given.copyOf) : await this.editor.add(given);
+      "copyOf" in given
+        ? await this.editor.copy(given.copyOf)
+        : await this.editor.add(withStagesGiven(given));
     return toPipelineResponse(pipeline);
   }
 
@@ -58,7 +61,7 @@ export class PipelineLibraryController {
     @Body(new ContractPipe(pipelineCheckRequestSchema))
     { pipelineId, ...edit }: PipelineCheckRequest,
   ): Promise<PipelineCheck> {
-    const { problems, flags } = await this.editor.check(edit, pipelineId);
+    const { problems, flags } = await this.editor.check(withStagesGiven(edit), pipelineId);
     return { problems: [...problems, ...flags].map(toStageProblemResponse) };
   }
 
@@ -76,7 +79,7 @@ export class PipelineLibraryController {
     @Param("id") id: string,
     @Body(new ContractPipe(pipelineEditSchema)) edit: PipelineEdit,
   ): Promise<PipelineResponse> {
-    return toPipelineResponse(await this.editor.save(id, edit));
+    return toPipelineResponse(await this.editor.save(id, withStagesGiven(edit)));
   }
 
   @Delete(":id")

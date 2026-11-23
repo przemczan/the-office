@@ -238,22 +238,28 @@ describe("Devops' Proposals, through the scripted engine", () => {
     const [applied] = await chat.ninaProposes(proposing);
     if (applied?.change.kind !== "pipeline" || !declined) throw new Error("Two Proposals.");
 
+    // Quick fix's Tests goes back to Implement on failure, which the Proposal leaves out; every
+    // route given without a limit leads on, so takes No limit.
+    const toPublish = { to: "publish", toName: "Publish", condition: null, limit: null };
     expect(applied.change.routes?.stages).toEqual([
       {
         stageKey: "tests",
         stageName: "Tests",
-        from: [{ to: "publish", toName: "Publish", condition: null }],
+        from: [
+          {
+            to: "implement",
+            toName: "Implement",
+            condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "failed" }] },
+            limit: 2,
+          },
+          toPublish,
+        ],
         to: [
-          { ...REVIEW_WHEN_TESTS_CHANGED_OR_FAILED[0], toName: "Review" },
-          { to: "publish", toName: "Publish", condition: null },
+          { ...REVIEW_WHEN_TESTS_CHANGED_OR_FAILED[0], toName: "Review", limit: null },
+          toPublish,
         ],
       },
-      {
-        stageKey: "review",
-        stageName: "Review",
-        from: [],
-        to: [{ to: "publish", toName: "Publish", condition: null }],
-      },
+      { stageKey: "review", stageName: "Review", from: [], to: [toPublish] },
     ]);
     const declinedResponse = await chat.api("POST", `/proposals/${declined.id}/decline`, {});
     expect(declinedResponse.status).toBe(200);

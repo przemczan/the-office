@@ -3,7 +3,7 @@ import { straightLineFlow, type FlowStage } from "./flow.js";
 import type { StageProblem } from "./pipeline.js";
 import type { ConditionGroup } from "./route.js";
 import type { Stage } from "./stage.js";
-import { agentStage, gate, scriptStage } from "./stage.fixtures.js";
+import { agentStage, gate, goingBackOnFailure, scriptStage } from "./stage.fixtures.js";
 import type { StageRun } from "./stage-run.js";
 import { aStageRun } from "./stage-run.fixtures.js";
 import { TaskStagesEdited } from "./task-stages-events.js";
@@ -89,36 +89,37 @@ describe("editProblems", () => {
   it("refuses a started Stage's route changed or reordered, on that route", () => {
     const retargeted = withStage("tests", (stage) => ({
       ...stage,
-      routes: [{ to: "publish", condition: null }],
+      routes: [{ to: "publish", condition: null, limit: null }],
     }));
     const branching = withStage("tests", (stage) => ({
       ...stage,
       routes: [
-        { to: "review", condition: failed },
-        { to: "publish", condition: null },
+        { to: "review", condition: failed, limit: null },
+        { to: "publish", condition: null, limit: null },
       ],
     }));
     const reordered = branching.map((stage) =>
       stage.key === "tests" ? { ...stage, routes: stage.routes.toReversed() } : stage,
     );
 
+    // Tests' first route is the failure route back its on-failure setting reads as.
     expect(lockProblems(retargeted)).toEqual([
       {
         stageKey: "tests",
-        at: { kind: "route", routeIndex: 0 },
+        at: { kind: "route", routeIndex: 1 },
         level: "problem",
         text: `Stage 2 · Tests: ${ROUTES_OUT}`,
       },
     ]);
     expect(lockProblems(reordered, branching).map(({ at }) => at)).toEqual([
-      { kind: "route", routeIndex: 0 },
+      { kind: "route", routeIndex: 1 },
     ]);
   });
 
   it("refuses a started Stage's condition changed, on its route", () => {
     const conditioned = withStage("implement", (stage) => ({
       ...stage,
-      routes: [{ to: "tests", condition: failed }],
+      routes: [{ to: "tests", condition: failed, limit: null }],
     }));
 
     expect(lockProblems(conditioned).map(({ stageKey, at }) => ({ stageKey, at }))).toEqual([
@@ -129,7 +130,7 @@ describe("editProblems", () => {
   it("refuses a route added to or removed from a started Stage, on the Stage", () => {
     const added = withStage("tests", (stage) => ({
       ...stage,
-      routes: [...stage.routes, { to: "publish", condition: null }],
+      routes: [...stage.routes, { to: "publish", condition: null, limit: null }],
     }));
     const removed = withStage("tests", (stage) => ({ ...stage, routes: [] }));
 
@@ -166,11 +167,17 @@ describe("editProblems", () => {
     expect(lockProblems(edited)).toEqual([
       {
         stageKey: "tests",
-        at: { kind: "route", routeIndex: 0 },
+        at: { kind: "route", routeIndex: 1 },
         level: "problem",
         text: `Stage 2 · Tests: ${ROUTES_OUT}`,
       },
     ]);
+  });
+
+  it("refuses a started Stage's route limit changed, on that route", () => {
+    const limited = withStage("tests", (stage) => goingBackOnFailure(stage, "implement", 3));
+
+    expect(lockProblems(limited).map(({ at }) => at)).toEqual([{ kind: "route", routeIndex: 0 }]);
   });
 
   it("passes a Stage inserted after one that hasn't started", () => {
@@ -193,21 +200,33 @@ describe("editProblems", () => {
       {
         ...implement,
         routes: [
-          { to: "fix", condition: failed },
-          { to: "review", condition: null },
+          { to: "fix", condition: failed, limit: null },
+          { to: "review", condition: null, limit: null },
         ],
         place: { column: 0, row: 0 },
       },
-      { ...fix, routes: [{ to: "check", condition: null }], place: { column: 1, row: 0 } },
-      { ...check, routes: [{ to: "review", condition: null }], place: { column: 2, row: 0 } },
-      { ...review, routes: [{ to: null, condition: null }], place: { column: 3, row: 0 } },
+      {
+        ...fix,
+        routes: [{ to: "check", condition: null, limit: null }],
+        place: { column: 1, row: 0 },
+      },
+      {
+        ...check,
+        routes: [{ to: "review", condition: null, limit: null }],
+        place: { column: 2, row: 0 },
+      },
+      {
+        ...review,
+        routes: [{ to: null, condition: null, limit: null }],
+        place: { column: 3, row: 0 },
+      },
     ];
     const ran = [ranOnce("implement", 1), ranOnce("review", 2)];
     const [first, notTaken, , last] = branching;
 
     it("passes it edited, or removed with the routes into it changed", () => {
       if (!first || !notTaken || !last) throw new Error("The flow has four Stages.");
-      const rerouted = { ...notTaken, routes: [{ to: "review", condition: null }] };
+      const rerouted = { ...notTaken, routes: [{ to: "review", condition: null, limit: null }] };
 
       expect(
         editProblems(
@@ -225,7 +244,10 @@ describe("editProblems", () => {
     it("passes a new route from it into a started Stage", () => {
       const intoReview = branching.map((stage) =>
         stage.key === "fix"
-          ? { ...stage, routes: [{ to: "review", condition: failed }, ...stage.routes] }
+          ? {
+              ...stage,
+              routes: [{ to: "review", condition: failed, limit: null }, ...stage.routes],
+            }
           : stage,
       );
 
@@ -244,6 +266,7 @@ describe("editProblems", () => {
             combine: "all",
             tests: [{ kind: "stage", stage: "implement", stageName: "Old", is: "done" }],
           },
+          limit: null,
         },
       ],
     }));
@@ -253,6 +276,7 @@ describe("editProblems", () => {
         {
           to: "review",
           condition: { combine: "all", tests: [{ kind: "stage", stage: "implement", is: "done" }] },
+          limit: null,
         },
       ],
     }));

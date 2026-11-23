@@ -1,7 +1,10 @@
 import type { ConditionGroup, ConditionTest, Route, Stage } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
+import { FAILED_CONDITION } from "./flow-model.ts";
 import {
+  atMostWords,
   followedWhen,
+  limitMark,
   groupWords,
   previousStageLabel,
   routeTargetName,
@@ -81,7 +84,7 @@ describe("a test in words", () => {
 describe("a group in words", () => {
   it("reads a nested group of two with either … or …", () => {
     expect(followedWhen(toReview, tests, stages)).toBe(
-      "Followed when Implement changed files and either the Definition of Done has some not Reported met or Tests ran 2 or more times.",
+      "Followed when Implement changed files and either the Definition of Done has some not Reported met or Tests ran 2 or more times, with no limit.",
     );
   });
 
@@ -125,7 +128,7 @@ describe("a route in words", () => {
 
   it("says why a route with no condition is followed", () => {
     expect(followedWhen(otherwise, tests, stages)).toBe(
-      "Followed otherwise, when no route before it holds.",
+      "Followed otherwise, when no route before it holds, with no limit.",
     );
     const only: Route = { to: null, condition: null };
     expect(followedWhen(only, { ...implement, routes: [only] }, stages)).toBe(
@@ -135,5 +138,34 @@ describe("a route in words", () => {
     expect(followedWhen(otherwise, first, stages)).toBe(
       "Always holds, so no route after it can be followed.",
     );
+  });
+
+  it("says an Agent Stage's failure route and each route's limit", () => {
+    const agent: Stage = {
+      kind: "agent",
+      key: "implement",
+      name: "Implement",
+      optional: false,
+      brief: "",
+      session: "fresh",
+      budget: 1000,
+      place: { column: 1, row: 0 },
+    };
+    const failing: Route = { to: "implement", condition: FAILED_CONDITION, limit: 3 };
+    const from: Stage = { ...agent, routes: [failing, { to: null, condition: null, limit: null }] };
+    expect(routeWhen(failing, from, [from])).toBe("when it fails");
+    expect(followedWhen(failing, from, [from])).toBe(
+      "Followed when Implement fails, at most 3 times in a walk; then you're asked (or the CTO first).",
+    );
+    // A Script Stage's reads as its condition, with the default limit of a route back.
+    const script: Stage = { ...tests, place: { column: 2, row: 0 }, routes: [] };
+    const back: Route = { to: "tests", condition: FAILED_CONDITION };
+    expect(routeWhen(back, script, [script])).toBe("when Tests ended Failed");
+    expect(followedWhen(back, { ...script, routes: [back] }, [script])).toBe(
+      "Followed when Tests ended Failed, at most 3 times in a walk; then you're asked (or the CTO first).",
+    );
+    expect(limitMark(1)).toBe("≤1×");
+    expect(limitMark(null)).toBe("");
+    expect(atMostWords(1)).toBe("at most 1 time");
   });
 });

@@ -1867,7 +1867,8 @@
   color: var(--danger-fg);
 }
 
-/* A switch to a Stand-in Engine is no failure: it reads as the Thread's notice of it does. */
+/* The route the walk left the run by, with its count. */
+.run-route,
 .run-engine-switch {
   display: flex;
   gap: 6px;

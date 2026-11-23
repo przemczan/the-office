@@ -150,7 +150,7 @@ describe("an office-wide Pipeline in the flow editor", () => {
     serving();
     const page = await rendered();
     expect(page.textContent).toContain("Stages and routes");
-    expect(page.textContent).toContain("2 Stages · 2 routes · 0 On failure loops");
+    expect(page.textContent).toContain("2 Stages · 2 routes · 0 routes back");
     expect(page.querySelector('[role="region"][aria-label="Flow"]')).not.toBeNull();
     expect(page.textContent).toContain("Full is now drawn as a flow");
 

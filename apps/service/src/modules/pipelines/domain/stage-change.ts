@@ -8,12 +8,14 @@ import { asFlow, comparePlaces, pipelineOrder, straightLineFlow, type FlowStage 
 import { stageProblems, type StageProblemAt } from "./pipeline.js";
 import {
   isConditionGroup,
+  isFailureRoute,
   plainRoute,
   testsOf,
   type ConditionGroup,
   type ConditionTest,
   type Route,
 } from "./route.js";
+import type { KeptOnFailure, KeptStage } from "./routes-back.js";
 import type { StageContextLimitsOverride } from "./stage-context-limits.js";
 import type { StagePermissions } from "./stage-permissions.js";
 import {
@@ -21,7 +23,6 @@ import {
   STAGE_KIND_NAMES,
   type AfterConflict,
   type Effort,
-  type OnFailure,
   type PublishTarget,
   type ScriptStageCommand,
   type Stage,
@@ -46,7 +47,11 @@ export interface StageFieldChanges {
   readonly effort?: Effort | null;
   readonly permissions?: StagePermissions | null;
   readonly contextLimits?: StageContextLimitsOverride | null;
-  readonly onFailure?: OnFailure | null;
+  /**
+   * The on-failure setting the previous releases kept: it replaces the failure route back the
+   * Stage's own setting became, and the build reads it as that route.
+   */
+  readonly onFailure?: KeptOnFailure | null;
   readonly command?: ScriptStageCommand;
   readonly publishTarget?: PublishTarget | null;
   readonly afterConflict?: AfterConflict | null;
@@ -190,6 +195,10 @@ export function buildStages(
   base: BaseStages,
   stageChanges: readonly EditedStageChange[],
 ): BuiltStages {
+  const keptStages: readonly KeptStage[] = base.stages;
+  const routesBack = new Set(
+    keptStages.flatMap(({ key, onFailure }) => (onFailure === undefined ? [] : [key])),
+  );
   const rows: FlowRow[] = asFlow(base.stages).map((stage) => ({
     stage,
     origin: "base",
@@ -205,7 +214,7 @@ export function buildStages(
     );
     const stageName = row ? nameOf(row.stage) : (stageChange.stageName ?? stageChange.stageKey);
     named.push({ ...stageChange, stageName });
-    const reason = applied(rows, row, stageChange, index, stageName, base.name);
+    const reason = applied(rows, row, stageChange, index, stageName, base.name, routesBack);
     if (reason !== undefined) {
       broken.push({
         stageChangeIndex: index,
@@ -215,7 +224,13 @@ export function buildStages(
       });
     }
   });
-  const stages = pipelineOrder(liveStages(rows));
+  // An on-failure setting a Stage change gave reads as its failure route back, as `asFlow` reads it.
+  const stages = pipelineOrder(asFlow(liveStages(rows)));
+  const flowStages = new Map(stages.map((stage) => [stage.key, stage]));
+  rows.forEach((row, at) => {
+    const stage = row.origin === "removed" ? undefined : flowStages.get(row.stage.key);
+    if (stage) rows[at] = { ...row, stage };
+  });
   for (const { stageKey, at, text } of stageProblems(stages)) {
     const stageIndex = stages.findIndex(({ key }) => key === stageKey);
     broken.push({
@@ -233,6 +248,8 @@ export function buildStages(
 /**
  * Applies the Stage change to `rows` at `row`, its Stage's row (undefined when it isn't there);
  * answers why it doesn't apply, or doesn't wholly, and leaves `rows` as they were then.
+ * `routesBack` holds the keys of the Stages whose first route is the one their on-failure setting
+ * became, which a Replace or a Change of On failure replaces.
  */
 function applied(
   rows: FlowRow[],
@@ -241,6 +258,7 @@ function applied(
   index: number,
   stageName: string,
   baseName: string,
+  routesBack: Set<string>,
 ): string | undefined {
   const words = stageChangeWords(stageChange, stageName);
   if (!row) {
@@ -257,8 +275,8 @@ function applied(
     case "insert-after": {
       const taken = keyTakenWords(rows, -1, stageChange.stage.key, baseName);
       if (taken) return `${words}, but ${taken}`;
-      const insert = stageChange.kind === "insert-before" ? insertBefore : insertAfter;
-      insert(rows, row, stageChange.stage, index);
+      if (stageChange.kind === "insert-before") insertBefore(rows, row, stageChange.stage, index);
+      else insertAfter(rows, row, stageChange.stage, index, routesBack);
       return undefined;
     }
     case "replace": {
@@ -269,7 +287,7 @@ function applied(
         ...row,
         stage: {
           ...withoutFlow(stageChange.stage),
-          routes: row.stage.routes,
+          routes: withoutRouteBack(row.stage, routesBack),
           place: row.stage.place,
         },
         origin: row.origin === "inserted" ? "inserted" : "replaced",
@@ -282,9 +300,9 @@ function applied(
       return undefined;
     }
     case "change":
-      return changeFields(rows, row, stageChange.fields, index, words, stageName);
+      return changeFields(rows, row, stageChange.fields, index, words, stageName, routesBack);
     case "remove":
-      removeStage(rows, row, index);
+      removeStage(rows, row, index, routesBack);
       return undefined;
     case "change-routes": {
       const gone = goneStageWords(rows, stageChange.routes);
@@ -316,14 +334,25 @@ function insertBefore(rows: FlowRow[], row: FlowRow, stage: Stage, index: number
 /**
  * Insert after: the new Stage takes the column after its Stage's, on its row, every later column
  * moving right by one; it takes over its Stage's routes out, whose tests of the previous Stage now
- * name that Stage, and its Stage gets one route with no condition to it.
+ * name that Stage, and its Stage gets one route with no condition to it, after the failure route
+ * back its on-failure setting became, which stays its own.
  */
-function insertAfter(rows: FlowRow[], row: FlowRow, stage: Stage, index: number): void {
+function insertAfter(
+  rows: FlowRow[],
+  row: FlowRow,
+  stage: Stage,
+  index: number,
+  routesBack: ReadonlySet<string>,
+): void {
   const at = rows.indexOf(row);
   const { key, place, routes } = row.stage;
   movedColumns(rows, place.column + 1, 1);
-  const handed = routes.map((route) => withStageTests(route, (tested) => tested ?? key));
-  rows[at] = { ...row, stage: { ...row.stage, routes: [plainRoute(stage.key)] } };
+  const routeBack = routeBackOf(row.stage, routesBack);
+  const kept = routeBack ? [routeBack] : [];
+  const handed = routes
+    .slice(kept.length)
+    .map((route) => withStageTests(route, (tested) => tested ?? key));
+  rows[at] = { ...row, stage: { ...row.stage, routes: [...kept, plainRoute(stage.key)] } };
   const newPlace = { column: place.column + 1, row: place.row };
   rows.splice(at + 1, 0, insertedRow(stage, handed, newPlace, index));
 }
@@ -355,53 +384,75 @@ function changeFields(
   index: number,
   words: string,
   stageName: string,
+  routesBack: Set<string>,
 ): string | undefined {
   if (namesRoleAndDuty(fields)) {
     return `${words}, giving it both a Role and a duty; name one of them.`;
   }
-  const converted = fields.optional !== undefined && isConvertedLine(rows);
+  const converted = fields.optional !== undefined && isConvertedLine(rows, routesBack);
   const { stage, given, lacked } = withFields(row.stage, fields);
+  const routes = given.includes("onFailure")
+    ? withoutRouteBack(row.stage, routesBack)
+    : row.stage.routes;
   rows[rows.indexOf(row)] = {
     ...row,
-    stage: { ...stage, routes: row.stage.routes, place: row.stage.place },
+    stage: { ...stage, routes, place: row.stage.place },
     origin: row.origin === "base" && given.length > 0 ? "changed" : row.origin,
     stageChangeIndexes: [...row.stageChangeIndexes, index],
     changedFields: [...new Set([...row.changedFields, ...given])],
   };
-  if (converted) redrawnAsLine(rows);
+  if (converted) redrawnAsLine(rows, routesBack);
   if (lacked.length === 0) return undefined;
   const fieldNames = lacked.map((field) => STAGE_FIELD_NAMES[field]).join(", ");
   return `Changes ${fieldNames} of ${stageName}, which is now ${kindWords(row.stage.kind)}.`;
 }
 
-/** Whether the built Stages are exactly the conversion's straight line of themselves. */
-function isConvertedLine(rows: readonly FlowRow[]): boolean {
-  const ordered = pipelineOrder(liveStages(rows));
+/**
+ * Whether the built Stages are exactly the conversion's straight line of themselves, but the
+ * failure routes back their on-failure settings became, as the conversion read those apart.
+ */
+function isConvertedLine(rows: readonly FlowRow[], routesBack: ReadonlySet<string>): boolean {
+  const ordered = pipelineOrder(liveStages(rows)).map((stage) => ({
+    ...stage,
+    routes: stage.routes.slice(routeBackOf(stage, routesBack) ? 1 : 0),
+  }));
   return sameAsKept(ordered, straightLineFlow(ordered));
 }
 
-/** Draws the built Stages' routes and places again as the conversion does. */
-function redrawnAsLine(rows: FlowRow[]): void {
+/** Draws the built Stages' routes and places again as the conversion does, keeping routes back. */
+function redrawnAsLine(rows: FlowRow[], routesBack: ReadonlySet<string>): void {
   const line = new Map(
     straightLineFlow(pipelineOrder(liveStages(rows))).map((stage) => [stage.key, stage]),
   );
   rows.forEach((row, at) => {
     const stage = row.origin === "removed" ? undefined : line.get(row.stage.key);
-    if (stage) rows[at] = { ...row, stage };
+    const routeBack = routeBackOf(row.stage, routesBack);
+    if (stage) {
+      rows[at] = {
+        ...row,
+        stage: { ...stage, routes: routeBack ? [routeBack, ...stage.routes] : stage.routes },
+      };
+    }
   });
 }
 
 /**
  * Remove: the Stage and its routes out are taken away, and each route into it leads where its one
- * route out led, keeping its own condition; when it had several, those routes in are taken away
+ * route out led (its route back from an on-failure setting aside), keeping its own condition and
+ * limit; when it had several, those routes in are taken away
  * too. A route the next one then makes needless is dropped, as a converted optional Stage's
  * Stage before it leaves one to the same place. A column it leaves empty is closed, the later
  * columns moving left by one.
  */
-function removeStage(rows: FlowRow[], row: FlowRow, index: number): void {
+function removeStage(
+  rows: FlowRow[],
+  row: FlowRow,
+  index: number,
+  routesBack: ReadonlySet<string>,
+): void {
   const at = rows.indexOf(row);
   const { key, routes, place } = row.stage;
-  const [only, ...more] = routes;
+  const [only, ...more] = routes.slice(routeBackOf(row.stage, routesBack) ? 1 : 0);
   rows.forEach((other, otherAt) => {
     if (other.origin === "removed" || !other.stage.routes.some(({ to }) => to === key)) return;
     const led = other.stage.routes.flatMap((route) => {
@@ -473,9 +524,9 @@ function withoutNeedlessRoutes(routes: readonly Route[]): Route[] {
   }, []);
 }
 
-/** The route, keeping its condition, led to `to`. */
+/** The route, keeping its condition and its limit, led to `to`. */
 function redirected(route: Route, to: string | null): Route {
-  return { to, condition: route.condition };
+  return { to, condition: route.condition, limit: route.limit };
 }
 
 /** The route with each Stage test naming the Stage `retarget` gives for the one it named. */
@@ -501,6 +552,22 @@ function groupWithStageTests(
 
 function liveStages(rows: readonly FlowRow[]): FlowStage[] {
   return rows.filter(({ origin }) => origin !== "removed").map(({ stage }) => stage);
+}
+
+/**
+ * The Stage's routes less the failure route back its on-failure setting became, when it has one:
+ * a new setting, or none, takes its place.
+ */
+function withoutRouteBack(stage: FlowStage, routesBack: Set<string>): Route[] {
+  const routeBack = routeBackOf(stage, routesBack);
+  routesBack.delete(stage.key);
+  return routeBack ? stage.routes.slice(1) : stage.routes;
+}
+
+/** The failure route back the Stage's on-failure setting became, first among its routes. */
+function routeBackOf(stage: FlowStage, routesBack: ReadonlySet<string>): Route | undefined {
+  const [first] = stage.routes;
+  return first && routesBack.has(stage.key) && isFailureRoute(first, stage.key) ? first : undefined;
 }
 
 /** A Stage change's Stage as a build reads it: never with routes or a place of its own. */

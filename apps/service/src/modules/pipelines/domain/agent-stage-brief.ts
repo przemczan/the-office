@@ -27,7 +27,9 @@ import {
   type StageKind,
 } from "./stage.js";
 import { reportedMetIn } from "./definition-of-done-reports.js";
+import { asFlow } from "./flow.js";
 import { isResolveStage } from "./resolve-stages.js";
+import { isFailureRoute } from "./route.js";
 import { holdingUserWords } from "./stage-interruption.js";
 import type {
   CarriedFailure,
@@ -208,7 +210,7 @@ export type CarriedRound = CarriedFailure & {
 
 /** Why the Stage runs now, beside its brief; each is left out when it doesn't apply. */
 export interface StageWorkReasons {
-  /** The failure an on-failure loop, or a round the user or a Consultant gave, went back with. */
+  /** The failure a failure route, or a round the user or a Consultant gave, went back with. */
   readonly carried?: CarriedRound;
   /** The user's feedback from a Gate, when they sent the work back to this Stage. */
   readonly sentBack?: SentBack & { readonly gateName: string };
@@ -382,6 +384,8 @@ function laterStages(
   { stages, commands, roleTitle }: StagePipeline,
 ): LaterStage[] {
   const later = stages.slice(stages.findIndex(({ key }) => key === stage.key) + 1);
+  // A kept on-failure setting reads as a failure route back (`asFlow`), as every route does here.
+  const routes = new Map(asFlow(stages).map(({ key, routes: out }) => [key, out]));
   return later.map((laterStage) => {
     const agent = laterStage.kind === "agent" ? laterStage : undefined;
     const script =
@@ -405,7 +409,9 @@ function laterStages(
       commandLine,
       unsetCommand: script && commandLine === "" ? script.command : "",
       comesBack: flagField(
-        laterStage.kind !== "gate" && laterStage.onFailure?.goBackTo === stage.key,
+        (routes.get(laterStage.key) ?? []).some(
+          (route) => route.to === stage.key && isFailureRoute(route, laterStage.key),
+        ),
       ),
     };
   });
@@ -467,7 +473,7 @@ function refusedMessageValues(
 }
 
 /**
- * Why the Stage runs again: a later Stage's loop went back to it, or the user, or the Consultant
+ * Why the Stage runs again: a later Stage's failure route went back to it, or the user, or the Consultant
  * asked first, gave it one more round itself; with what they said to do differently, when they said
  * it.
  */
@@ -482,7 +488,8 @@ function whyAgain(
     guide: carried.guide ?? "",
     stageName: carried.stageName,
     round: String(carried.round),
-    rounds: String(carried.rounds),
+    limited: carried.rounds !== null,
+    rounds: carried.rounds === null ? "" : String(carried.rounds),
     error: carried.error,
     hasGuidance: carried.guidance !== undefined,
     guidance: carried.guidance ?? "",
@@ -549,8 +556,16 @@ export function earlierResults(
   });
 }
 
-/** The notes the user answered the run's no-route-holds Decision with, if any. */
+/**
+ * The notes the run's route was chosen with, if any: the words of an answer that followed a route
+ * when none held, at a route's limit or after a failure with none left, or that followed the route
+ * at its limit once more. A failure route followed once more carries its words as the failure's
+ * guidance instead.
+ */
 function routeNotesOf({ decisions }: StageRun): string | undefined {
-  const answer = decisions.find(({ kind }) => kind === "no-route-holds")?.answer;
-  return answer?.kind === "follow-route" ? answer.guidance : undefined;
+  for (const { kind, answer } of decisions) {
+    if (answer?.kind === "follow-route" && kind !== "agent") return answer.guidance;
+    if (answer?.kind === "one-more-round" && kind === "route-limit") return answer.guidance;
+  }
+  return undefined;
 }

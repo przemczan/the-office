@@ -1,3 +1,4 @@
+import { routesFollowed, type FollowedRoute } from "./pipeline-walk.js";
 import { STAGE_KIND_NAMES, type Stage } from "./stage.js";
 import { holdingUserWords } from "./stage-interruption.js";
 import type { CommandOutcome, StageCommandPurpose, StageCommandRun } from "./stage-command-run.js";
@@ -36,7 +37,8 @@ const HISTORY_WORDS_ROOM = STAGE_HISTORY_READ_LIMIT / 2;
 
 /**
  * A Task's Stage history as text (spec §2.3), in the order the runs ran: each run with its Stage,
- * its times, outcome, Handover note, Decisions, engine and tokens, how many messages an Agent
+ * its times, outcome, the route the walk left it by with its count, Handover note, Decisions,
+ * engine and tokens, how many messages an Agent
  * Stage's run logged in its Stage Thread (`threadMessageCounts`, by the run's id), and every
  * Project command with its filtered output. Capped as `STAGE_HISTORY_READ_LIMIT` says: the earliest
  * runs are left out when their words alone would crowd the outputs out, and each output keeps its
@@ -48,9 +50,16 @@ export function stageHistoryWords(
   threadMessageCounts: ReadonlyMap<string, number>,
 ): string {
   if (runs.length === 0) return "The Task has no Stage runs yet.";
+  const routes = routesFollowed(stages, runs);
   const shown = latestRunsParts(
     runs.map((run) =>
-      runParts(stages, run, filteredOutputs(run), threadCountLines(run, threadMessageCounts)),
+      runParts(
+        stages,
+        run,
+        filteredOutputs(run),
+        threadCountLines(run, threadMessageCounts),
+        routes.get(run.id),
+      ),
     ),
   );
   const parts = shown.flatMap((run) => [...run, wordsPart("\n\n")]);
@@ -103,17 +112,19 @@ function threadCountLines(
 /**
  * One Stage run as text, as `stageHistoryWords` gives it but with each command's whole output in
  * place of its filtered one, as the Stage history shows it, and an Agent Stage's run ending with
- * its Stage Thread's messages (`threadWords`, worded within `stageRunThreadRoom`).
+ * its Stage Thread's messages (`threadWords`, worded within `stageRunThreadRoom`). `route` is the
+ * route the walk left it by (`routesFollowed`).
  */
 export function stageRunWords(
   stages: readonly Stage[],
   run: StageRun,
   wholeOutputs: readonly string[],
   threadWords: string | undefined,
+  route?: FollowedRoute,
 ): string {
   const thread =
     threadWords === undefined ? [] : [wordsPart(`${threadHeading(run)}${threadWords}`)];
-  return capped([...runParts(stages, run, wholeOutputs, []), ...thread]);
+  return capped([...runParts(stages, run, wholeOutputs, [], route), ...thread]);
 }
 
 function threadHeading({ endedAt }: StageRun): string {
@@ -129,8 +140,9 @@ export function stageRunThreadRoom(
   stages: readonly Stage[],
   run: StageRun,
   wholeOutputs: readonly string[],
+  route?: FollowedRoute,
 ): number {
-  const parts = runParts(stages, run, wholeOutputs, []);
+  const parts = runParts(stages, run, wholeOutputs, [], route);
   const outputs = parts.filter(({ kind }) => kind === "output");
   const room =
     STAGE_HISTORY_READ_LIMIT -
@@ -160,6 +172,7 @@ function runParts(
   run: StageRun,
   outputs: readonly string[],
   threadLines: readonly string[],
+  route: FollowedRoute | undefined,
 ): Part[] {
   const lines = [
     `## Run ${run.number}: ${stageName(stages, run.stageKey)}`,
@@ -167,6 +180,7 @@ function runParts(
     timesLine(run),
     ...whyItRanLines(stages, run),
     outcomeWords(run.outcome),
+    ...routeLines(stages, route),
     ...handoverNoteLines(run.outcome),
     ...gateActionLines(stages, run.gateAction),
     ...decisionLines(run.decisions),
@@ -204,9 +218,7 @@ function whyItRanLines(
       carriedFailure.stageKey === stageKey
         ? "this Stage"
         : `"${nameOf(stages, carriedFailure.stageKey)}"`;
-    lines.push(
-      `Ran again as ${which} failed (round ${carriedFailure.round} of ${carriedFailure.rounds}).`,
-    );
+    lines.push(`Ran again as ${which} failed (${roundWords(carriedFailure)}).`);
     if (carriedFailure.guidance !== undefined) {
       lines.push(
         `Guidance for the round${guideWords(carriedFailure.guidedBy)}: ${carriedFailure.guidance}`,
@@ -219,6 +231,26 @@ function whyItRanLines(
     );
   }
   return lines;
+}
+
+/** "round 2 of at most 3", or with No limit "round 2". */
+function roundWords({ round, rounds }: NonNullable<StageRun["carriedFailure"]>): string {
+  return rounds === null ? `round ${round}` : `round ${round} of at most ${rounds}`;
+}
+
+/**
+ * The route the walk left the run by, with its count (spec §2.3, "Which route the walk follows"):
+ * "followed 2 of at most 3 times".
+ */
+function routeLines(stages: readonly Stage[], route: FollowedRoute | undefined): string[] {
+  if (!route) return [];
+  const { to, times, limit } = route;
+  const target = to === null ? "End" : `"${nameOf(stages, to)}"`;
+  const count =
+    limit === null
+      ? `${times} ${times === 1 ? "time" : "times"}, with No limit`
+      : `${times} of at most ${limit} ${limit === 1 ? "time" : "times"}`;
+  return [`Left by the route to ${target}, followed ${count}.`];
 }
 
 function guideWords(guidedBy: string | undefined): string {
@@ -367,7 +399,8 @@ function gateActionLines(stages: readonly Stage[], action: GateAction | undefine
 }
 
 const WALK_DECISION_WORDS: Readonly<Record<WalkDecisionKind, string>> = {
-  "no-retries-left": "The Stage failed with no retries left",
+  "no-retries-left": "The Stage failed with no failure route left",
+  "route-limit": "The route the walk would follow was at its limit",
   budget: "The Task's tokens reached the Stage's budget",
   // Asked before Publish, or as a Pipeline without one ended.
   "definition-of-done": "The Definition of Done wasn't reported met",
@@ -400,7 +433,7 @@ function answerWords(answer: WalkAnswer | undefined): string {
     case "more-rounds":
       return `Answered: ${answer.rounds} more rounds.`;
     case "one-more-round":
-      return `Answered: one more round${answer.guidedBy === undefined ? "" : `, chosen by the Role ${answer.guidedBy}`}${answer.guidance === undefined ? "." : `, with: ${answer.guidance}`}`;
+      return `Answered: ${answer.to === undefined ? "one more round" : "follow the route once more"}${answer.guidedBy === undefined ? "" : `, chosen by the Role ${answer.guidedBy}`}${answer.guidance === undefined ? "." : `, with: ${answer.guidance}`}`;
     case "accept-issues":
       return "Answered: go on, with the failure accepted as an issue.";
     case "mark-done":

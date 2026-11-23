@@ -35,8 +35,12 @@ const A_LIST: readonly Stage[] = [implement, review, tests];
 
 /** A flow whose places put the Stages in another order than the array's. */
 const OUT_OF_ORDER: readonly Stage[] = [
-  { ...tests, routes: [{ to: null, condition: null }], place: { column: 1, row: 0 } },
-  { ...implement, routes: [{ to: "tests", condition: null }], place: { column: 0, row: 0 } },
+  { ...tests, routes: [{ to: null, condition: null, limit: null }], place: { column: 1, row: 0 } },
+  {
+    ...implement,
+    routes: [{ to: "tests", condition: null, limit: null }],
+    place: { column: 0, row: 0 },
+  },
 ];
 
 describe("The Stages of a Pipeline and of a Task, kept in Postgres", () => {

@@ -91,8 +91,9 @@ describe("movedProjectPipeline", () => {
           combine: "all" as const,
           tests: [{ kind: "definitionOfDone" as const, is: "all-met" as const }],
         },
+        limit: null,
       },
-      { to: "tests", toName: "Tests", condition: null },
+      { to: "tests", toName: "Tests", condition: null, limit: null },
     ];
     const legacy = aLegacy({
       stageChanges: [

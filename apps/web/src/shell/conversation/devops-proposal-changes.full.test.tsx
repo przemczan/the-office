@@ -7,6 +7,7 @@ import {
   ProposedProjectPipelineFields,
   ProposedTestTargetChanges,
 } from "./devops-proposal-changes.tsx";
+import { FAILED_CONDITION } from "../pipelines/flow/flow-model.ts";
 import { FULL_NOW, FULL_PROPOSED, FULL_ROUTES } from "./proposed-routes.fixtures.ts";
 import { ProposedRouteChanges } from "./proposed-route-changes.tsx";
 
@@ -318,6 +319,41 @@ describe("ProposedRouteChanges", () => {
       ["Routes out of Docs", "→ Publish, always", "None: the Stage is removed"],
     ]);
     expect(markup).toContain('class="proposal-route-side proposal-route-side--from"');
+  });
+
+  it("marks each route's limit as it was and as proposed, none for No limit", () => {
+    const failed = FAILED_CONDITION;
+    const markup = renderToStaticMarkup(
+      <ProposedRouteChanges
+        routes={{
+          stages: [
+            {
+              stageKey: "tests",
+              stageName: "Tests",
+              from: [
+                { to: "implement", condition: failed, limit: 3 },
+                { to: "publish", condition: null, limit: null },
+              ],
+              to: [
+                { to: "implement", condition: failed, limit: 2 },
+                { to: "publish", condition: null, limit: null },
+              ],
+            },
+          ],
+          check: [],
+        }}
+        was={FULL_NOW}
+        proposed={FULL_PROPOSED}
+      />,
+    );
+    expect(routeChangesOf(markup)).toEqual([
+      [
+        "Routes out of Tests",
+        "→ Implement when Tests ended Failed≤3× | → Publish otherwise",
+        "→ Implement when Tests ended Failed≤2× | → Publish otherwise",
+      ],
+    ]);
+    expect(markup).toContain('title="at most 2 times"');
   });
 });
 

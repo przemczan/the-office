@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { asFlow, isStraightLine, straightLineFlow, type FlowStage } from "./flow.js";
-import { plainRoute, type Route } from "./route.js";
+import { ENDED_FAILED, plainRoute, type Route } from "./route.js";
 import { buildStages, type BaseStages, type EditedStageChange } from "./stage-change.js";
-import { agentStage, dutyStage, gate, scriptStage } from "./stage.fixtures.js";
+import { agentStage, dutyStage, gate, goingBackOnFailure, scriptStage } from "./stage.fixtures.js";
 
 const DOCUMENT_PRODUCE = agentStage({ key: "produce", name: "Produce", effort: "high" });
 
@@ -10,11 +10,7 @@ const DOCUMENT: BaseStages = {
   name: "Document",
   stages: [
     DOCUMENT_PRODUCE,
-    scriptStage({
-      key: "check",
-      name: "Glossary check",
-      onFailure: { goBackTo: "produce", rounds: 2 },
-    }),
+    goingBackOnFailure(scriptStage({ key: "check", name: "Glossary check" }), "produce", 2),
   ],
 };
 
@@ -26,7 +22,7 @@ describe("buildStages, field by field", () => {
     ]);
 
     expect(built.stages[0]).not.toHaveProperty("effort");
-    expect(built.stages[1]).not.toHaveProperty("onFailure");
+    expect(built.stages[1]?.routes).toEqual([plainRoute(null)]);
     expect(built.broken).toEqual([]);
   });
 
@@ -175,19 +171,58 @@ describe("buildStages, the rules on the built Stages", () => {
     ]);
   });
 
-  it("is Broken when the Stage an inserted one loops back to becomes a Gate", () => {
+  it("reads an inserted Stage's on-failure setting as its failure route back, to a Gate too", () => {
     const base = { ...DOCUMENT, stages: [gate({ key: "produce", name: "Produce" })] };
 
     const built = buildStages(base, [
       {
         kind: "insert-after",
         stageKey: "produce",
-        stage: scriptStage({ onFailure: { goBackTo: "produce", rounds: 1 } }),
+        stage: goingBackOnFailure(scriptStage(), "produce", 1),
       },
     ]);
 
-    expect(built.broken.map(({ text }) => text)).toEqual([
-      "Stage 2 · Tests: on failure it can't go back to a Gate.",
+    expect(built.stages[1]?.routes).toEqual([
+      { to: "produce", toName: "Produce", condition: ENDED_FAILED, limit: 1 },
+      plainRoute(null),
+    ]);
+    expect(built.broken).toEqual([]);
+  });
+
+  it("replaces the route back a Stage's on-failure setting became with the one a Change gives", () => {
+    const built = buildStages(DOCUMENT, [
+      {
+        kind: "change",
+        stageKey: "check",
+        fields: { onFailure: { goBackTo: "check", rounds: 3 } },
+      },
+    ]);
+
+    expect(built.stages[1]?.routes).toEqual([
+      { to: "check", toName: "Glossary check", condition: ENDED_FAILED, limit: 3 },
+      plainRoute(null),
+    ]);
+  });
+
+  it("keeps a Stage's route back on it when a Stage is inserted after it", () => {
+    const built = buildStages(DOCUMENT, [
+      {
+        kind: "insert-after",
+        stageKey: "check",
+        stage: scriptStage({ key: "lint", name: "Lint" }),
+      },
+    ]);
+
+    expect(built.stages.map(({ key, routes }) => [key, routes])).toEqual([
+      ["produce", [plainRoute("check")]],
+      [
+        "check",
+        [
+          { to: "produce", toName: "Produce", condition: ENDED_FAILED, limit: 2 },
+          plainRoute("lint"),
+        ],
+      ],
+      ["lint", [plainRoute(null)]],
     ]);
   });
 
@@ -214,6 +249,7 @@ function branching(from = 0): [FlowStage, FlowStage, FlowStage] {
         {
           to: "notes",
           condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "changed" }] },
+          limit: null,
         },
         plainRoute("check"),
       ],
@@ -235,6 +271,7 @@ function whenDone(to: string | null, stage: string, stageName?: string): Route {
   return {
     to,
     condition: { combine: "all", tests: [{ kind: "stage", stage, is: "done", stageName }] },
+    limit: null,
   };
 }
 
@@ -306,7 +343,7 @@ describe("buildStages, routes and places by Stage change", () => {
       {
         kind: "change-routes",
         stageKey: "check",
-        routes: [{ to: "notes", toName: "Release notes", condition: null }],
+        routes: [{ to: "notes", toName: "Release notes", condition: null, limit: null }],
       },
     ]);
     const tested = buildStages(BRANCHING, [

@@ -44,8 +44,8 @@ export function addStage(stages: readonly Stage[], kind: StageKind): AddedStage 
 
 /**
  * The Stage template's Stage, added where a new Stage of its kind goes: it gets its own key, keeps
- * its name unless another Stage has it, and has no failure rule, which only names a Stage of the
- * list it goes into. Linked to the template in a Pipeline's Stages; a copy in a Task's own.
+ * its name unless another Stage has it, and has no routes or place, which only a Pipeline gives
+ * meaning. Linked to the template in a Pipeline's Stages; a copy in a Task's own.
  */
 export function addStageFrom(
   stages: readonly Stage[],
@@ -55,17 +55,10 @@ export function addStageFrom(
   return placed(stages, stageFromTemplate(template, linked));
 }
 
-/** The template's Stage as added, without its failure rule, and linked to it when `linked`. */
+/** The template's Stage as added, without routes or place, and linked to it when `linked`. */
 export function stageFromTemplate(template: StageTemplate, linked: boolean): Stage {
-  const stage = withoutFailureRule(template.stage);
+  const { routes: _routes, place: _place, ...stage } = template.stage;
   return linked ? { ...stage, templateId: template.id } : stage;
-}
-
-/** A Stage as a Stage template keeps it: no failure rule, which only a Pipeline gives meaning. */
-export function withoutFailureRule(stage: Stage): Stage {
-  if (stage.kind === "gate") return stage;
-  const { onFailure: _onFailure, ...rest } = stage;
-  return rest;
 }
 
 /** The Stages after an addition, and where the added one is. */
@@ -105,17 +98,9 @@ export function standaloneStage(kind: StageKind): Stage {
   return newStage(kind, slugOf(name), name);
 }
 
-/** The Stage dropped, and every failure rule that went back to it with it. */
+/** The Stage dropped; the routes into it are the flow editor's to carry on (flow-model). */
 export function removeStage(stages: readonly Stage[], index: number): readonly Stage[] {
-  const gone = stages[index];
-  if (!gone) return stages;
-  return stages
-    .filter((_stage, at) => at !== index)
-    .map((stage) =>
-      stage.kind !== "gate" && stage.onFailure?.goBackTo === gone.key
-        ? { ...stage, onFailure: undefined }
-        : stage,
-    );
+  return stages[index] ? stages.filter((_stage, at) => at !== index) : stages;
 }
 
 export function replaceStage(

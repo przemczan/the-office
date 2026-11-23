@@ -88,16 +88,23 @@ describe("POST /api/stage-templates", () => {
 });
 
 describe("PUT /api/stage-templates/:id", () => {
-  it("saves the template's Stage, keeping its id and dropping a loop target", async () => {
+  it("saves the template's Stage, keeping its id and dropping its routes and place", async () => {
     const template = await added();
-    const stage = aStage({ budget: 50_000, onFailure: { goBackTo: "plan", rounds: 1 } });
+    const stage = aStage({
+      budget: 50_000,
+      routes: [{ to: "plan", condition: null, limit: null }],
+      place: { column: 1, row: 0 },
+    });
 
     const response = await send("PUT", `/stage-templates/${template.id}`, { stage });
 
     expect(response.status).toBe(200);
     const saved = stageTemplateSchema.parse(await response.json());
-    expect(saved).toEqual({ id: template.id, stage: { ...stage, onFailure: undefined } });
-    expect(saved.stage).not.toHaveProperty("onFailure");
+    expect(saved).toEqual({
+      id: template.id,
+      stage: { ...stage, routes: undefined, place: undefined },
+    });
+    expect(saved.stage).not.toHaveProperty("routes");
     expect(publishedFor(StageTemplateSaved, template.id)).toBe(true);
   });
 

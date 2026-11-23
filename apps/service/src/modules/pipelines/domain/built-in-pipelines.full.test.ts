@@ -6,7 +6,10 @@ import {
   SET_UP_RUN_ENVIRONMENT_PIPELINE,
   SET_UP_TEST_TARGETS_PIPELINE,
 } from "./built-in-pipelines.js";
+import { builtInPipelinesBeforeFlows } from "./built-in-pipelines-before-flows.fixtures.js";
+import { asFlow } from "./flow.js";
 import { stageProblems } from "./pipeline.js";
+import { ENDED_FAILED } from "./route.js";
 import { stageWorker, type Stage } from "./stage.js";
 
 function stagesOf(name: string): string[] {
@@ -92,13 +95,22 @@ describe("the built-in Pipelines", () => {
     ]);
   });
 
-  it("send failed tests back to Implement and make Publish optional", () => {
+  it.each(builtInPipelines.map((pipeline) => [pipeline.name, pipeline] as const))(
+    "%s is the flow its earlier list with on-failure settings reads as",
+    (_name, pipeline) => {
+      const before = builtInPipelinesBeforeFlows.find(({ id }) => id === pipeline.id);
+
+      expect(pipeline.stages).toEqual(asFlow(before?.stages ?? []));
+    },
+  );
+
+  it("send failed tests back to Implement by a failure route placed first, and make Publish optional", () => {
     for (const name of ["Full", "Quick fix", "Proof of concept"]) {
       const stages = builtInPipelines.find((pipeline) => pipeline.name === name)!.stages;
 
-      expect(stages.find((stage) => stage.key === "tests")).toMatchObject({
-        command: "test",
-        onFailure: { goBackTo: "implement" },
+      expect(stages.find((stage) => stage.key === "tests")?.routes?.[0]).toMatchObject({
+        to: "implement",
+        condition: ENDED_FAILED,
       });
       expect(stages.at(-1)).toMatchObject({ kind: "script", command: "publish", optional: false });
     }
@@ -110,7 +122,7 @@ describe("the built-in Pipelines", () => {
     expect(stages.find(({ key }) => key === "verify")).toMatchObject({
       kind: "script",
       command: "test",
-      onFailure: { goBackTo: "onboard" },
+      routes: [{ to: "onboard", condition: ENDED_FAILED, limit: 2 }, { to: "publish" }],
     });
   });
 
@@ -121,6 +133,8 @@ describe("the built-in Pipelines", () => {
       name: "Publish",
       command: "publish",
       optional: false,
+      routes: [{ to: null, condition: null, limit: null }],
+      place: { column: 2, row: 0 },
     });
     expect(lastStageOf("proof-of-concept")).toMatchObject({ publishTarget: "branch-only" });
   });
@@ -137,7 +151,7 @@ describe("the built-in Pipelines", () => {
     expect(stages[1]).toMatchObject({
       kind: "script",
       command: "test",
-      onFailure: { goBackTo: "resolve-conflicts", rounds: 2 },
+      routes: [{ to: "resolve-conflicts", condition: ENDED_FAILED, limit: 2 }, { to: "publish" }],
     });
     expect(lastStageOf(RESOLVE_CONFLICTS_PIPELINE)).toMatchObject({
       command: "publish",

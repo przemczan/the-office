@@ -1,14 +1,40 @@
 /**
- * A route out of a Stage (spec §2.3, "A Pipeline is a flow"): to a later Stage by its key, or to the
- * Pipeline's End (`null`), and a condition that must hold for the walk to follow it, `null` holding
- * always.
+ * A route out of a Stage (spec §2.3, "A Pipeline is a flow"): to any Stage by its key, its own
+ * included, or to the Pipeline's End (`null`), a condition that must hold for the walk to follow
+ * it, `null` holding always, and its limit.
  */
 export interface Route {
   readonly to: string | null;
   /** The name of the Stage it leads to when it was last saved, for its words alone. */
   readonly toName?: string;
   readonly condition: ConditionGroup | null;
+  readonly limit: RouteLimit;
 }
+
+/**
+ * "At most N times" in one walk, N from 1 to `ROUTE_LIMIT_MAX`; null is No limit (spec §2.3, "A
+ * route's limit").
+ */
+export type RouteLimit = number | null;
+
+export const ROUTE_LIMIT_MAX = 9;
+
+/** The limit a route back starts at: one to its own Stage or one before it in the Pipeline's order. */
+export const ROUTE_BACK_LIMIT = 3;
+
+/** A route as given or kept, before `asFlow` sets its limit: absent takes the default. */
+export type GivenRoute = Omit<Route, "limit"> & { readonly limit?: RouteLimit };
+
+/** The limit a route takes when it is drawn, or given without one: 3 back, No limit on. */
+export function defaultRouteLimit(leadsBack: boolean): RouteLimit {
+  return leadsBack ? ROUTE_BACK_LIMIT : null;
+}
+
+/** The condition of a failure route as the forms write it: the previous Stage ended Failed. */
+export const ENDED_FAILED: ConditionGroup = {
+  combine: "all",
+  tests: [{ kind: "stage", stage: null, is: "failed" }],
+};
 
 /** All of (AND) or Any of (OR) its tests and nested groups, weighed in order. */
 export interface ConditionGroup {
@@ -51,9 +77,27 @@ export interface StagePlace {
   readonly row: number;
 }
 
-/** The one route out of a straight line's Stage: to `to`, always. */
+/** The one route out of a straight line's Stage: to `to`, always, with No limit. */
 export function plainRoute(to: string | null): Route {
-  return { to, condition: null };
+  return { to, condition: null, limit: null };
+}
+
+/**
+ * Whether `route`, out of the Stage `stageKey`, is a failure route (spec §2.3, "When a Stage
+ * fails"): its condition is that Stage's "ended Failed" test, on its own or within an All of group at
+ * its top. Only such a route carries a failure on, and only it may lead where another route of the
+ * Stage does.
+ */
+export function isFailureRoute({ condition }: Route, stageKey: string): boolean {
+  if (!condition) return false;
+  const endedFailed = condition.tests.some(
+    (test) =>
+      !isConditionGroup(test) &&
+      test.kind === "stage" &&
+      (test.stage === null || test.stage === stageKey) &&
+      test.is === "failed",
+  );
+  return endedFailed && (condition.combine === "all" || condition.tests.length === 1);
 }
 
 /** The test is a group of tests, not a test. */
@@ -77,12 +121,13 @@ export function testsOf(
  * `names`, by key; a Stage `names` lacks keeps the name it had.
  */
 export function namedRoutes(routes: readonly Route[], names: ReadonlyMap<string, string>): Route[] {
-  return routes.map(({ to, toName, condition }) => {
+  return routes.map(({ to, toName, condition, limit }) => {
     const name = to === null ? undefined : (names.get(to) ?? toName);
     return {
       to,
       ...(name === undefined ? {} : { toName: name }),
       condition: condition && namedGroup(condition, names),
+      limit,
     };
   });
 }
@@ -102,9 +147,10 @@ function namedGroup(group: ConditionGroup, names: ReadonlyMap<string, string>): 
 
 /** `routes` without the Stages' names, which are for their words alone: what a comparison weighs. */
 export function unnamedRoutes(routes: readonly Route[]): Route[] {
-  return routes.map(({ to, condition }) => ({
+  return routes.map(({ to, condition, limit }) => ({
     to,
     condition: condition && unnamedGroup(condition),
+    limit,
   }));
 }
 

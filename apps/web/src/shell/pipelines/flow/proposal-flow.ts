@@ -1,5 +1,5 @@
 import type { ProposedRoutes, Route, Stage } from "@the-office/contracts";
-import { routeTargetName, routeWhen, type RouteSource } from "./condition-words.ts";
+import { atMostWords, routeTargetName, routeWhen, type RouteSource } from "./condition-words.ts";
 import type { FlowOverlay } from "./flow-marks.ts";
 
 /** One Stage whose routes a Proposal changes: as they were (none for a new Stage) and as proposed. */
@@ -50,15 +50,20 @@ export function routeWhenAfterTarget(
 }
 
 /**
- * The banner's sentence for one changed Stage: "Routes out of Tests: to Review & fix when
- * Implement changed files, otherwise to Publish."
+ * The banner's sentence for one changed Stage, with each route's limit: "Routes out of Tests: to
+ * Implement when Tests ended Failed, at most 3 times, to Review & fix when Implement changed files,
+ * otherwise to Publish."
  */
 export function routesOutSentence(change: ProposedStageRoutes, stages: readonly Stage[]): string {
   const from = sourceOf(change, "to");
   const parts = change.to.map((route, index) => {
     const target = `to ${routeTargetName(route, stages)}`;
     const when = routeWhen(route, from, stages, index);
-    return when === "always" || when === "otherwise" ? `${when} ${target}` : `${target} ${when}`;
+    const said =
+      when === "always" || when === "otherwise" ? `${when} ${target}` : `${target} ${when}`;
+    return route.limit === null || route.limit === undefined
+      ? said
+      : `${said}, ${atMostWords(route.limit)}`;
   });
   const said = parts.length > 0 ? parts.join(", ") : "taken away with the Stage";
   return `Routes out of ${change.stageName}: ${said}.`;
@@ -71,19 +76,10 @@ export function sourceOf(change: ProposedStageRoutes, side: "from" | "to"): Rout
 
 /**
  * What the check found when the Proposal was drafted, as the card's "Checked: …" line says it; a
- * problem refuses the draft, so only what it passed is said, then the On failure loops kept.
+ * problem refuses the draft, so only what it passed is said.
  */
-export function checkedSentence(stages: readonly Stage[]): string {
-  const passed =
-    "Checked: every Stage is reached, each has a route out and every route leads forward.";
-  const looping = stages.filter((stage) => stage.kind !== "gate" && stage.onFailure);
-  const [only] = looping;
-  if (only === undefined) return passed;
-  if (looping.length === 1)
-    return `${passed} ${only.name}'s On failure loop still has a path back.`;
-  const names = looping.map(({ name }) => `${name}'s`);
-  const joined = `${names.slice(0, -1).join(", ")} and ${names.at(-1) ?? ""}`;
-  return `${passed} ${joined} On failure loops still have a path back.`;
+export function checkedSentence(): string {
+  return "Checked: every Stage is reached, each has a route out, End can be reached from each, and every loop has a route with a limit.";
 }
 
 function isAmong(route: Route, routes: readonly Route[]): boolean {

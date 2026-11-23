@@ -70,6 +70,8 @@ const SAVED: EngineSettings = {
   ],
   standInEngines: [],
   askBeforeSwitchAbove: 100_000,
+  windowStarts: [],
+  timeZone: "UTC",
 };
 
 const CLAUDE_CODE_FIRST = { kind: "claude-code", index: 0 } as const;
@@ -282,6 +284,7 @@ describe("Codex engines in Settings › Engines' list", () => {
     expect(engineProblem(draft, SAVED_WITH_CODEX, CLAUDE_CODE_FIRST)).toBeUndefined();
     expect(saveHeldBy(draft, SAVED_WITH_CODEX)).toEqual({
       selection: CODEX_FIRST,
+      tab: "prices",
       line: "A price under Models and prices of Codex needs fixing before Save.",
     });
     // With no Codex engine left, its models aren't offered, so their prices hold nothing.
@@ -291,6 +294,7 @@ describe("Codex engines in Settings › Engines' list", () => {
   it("says on the Save bar when the Stand-in Engines' context size holds Save", () => {
     expect(saveHeldBy({ ...draftOf(SAVED), askBeforeSwitchAbove: "" }, SAVED)).toEqual({
       selection: undefined,
+      tab: "settings",
       line: "The context size under Stand-in Engines needs fixing before Save.",
     });
   });
@@ -326,6 +330,7 @@ describe("what holds Save in Settings › Engines", () => {
     expect(engineProblem(draft, SAVED, CLAUDE_CODE_FIRST)).toBeUndefined();
     expect(saveHeldBy(draft, SAVED)).toEqual({
       selection: STRATA_FIRST,
+      tab: "prices",
       line: "A price under Models and prices of Strata needs fixing before Save.",
     });
   });
@@ -356,6 +361,7 @@ describe("what holds Save in Settings › Engines", () => {
 
     expect(saveHeldBy(draft, SAVED)).toEqual({
       selection: undefined,
+      tab: "prices",
       line: "A Claude model's price needs fixing before Save: add a Claude Code engine to show it, or Discard.",
     });
   });
@@ -438,6 +444,7 @@ describe("Copilot CLI engines in Settings › Engines' list", () => {
     );
     expect(saveHeldBy(draft, SAVED_WITH_COPILOT_CLI)).toEqual({
       selection: COPILOT_CLI_FIRST,
+      tab: "prices",
       line: "A price under Models and prices of Copilot needs fixing before Save.",
     });
   });

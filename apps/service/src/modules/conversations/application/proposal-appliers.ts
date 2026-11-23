@@ -11,7 +11,8 @@ import type {
 
 /**
  * How the module that owns a kind of change sees to Proposals of it: what is wrong with one as it
- * is drafted, and carrying it out when the user applies it.
+ * is drafted, carrying it out when the user applies it, and, for a kind whose kept shape changed, how
+ * its card shows one a previous release kept.
  */
 export interface ProposalApplier<Kind extends ProposedChangeKind> {
   /** Every reason applying the change would be refused now, in words the drafter acts on. */
@@ -28,6 +29,11 @@ export interface ProposalApplier<Kind extends ProposedChangeKind> {
     appliedBy: UserRef,
     proposalId?: string,
   ): Promise<ProposedChanges[Kind]>;
+  /**
+   * The change as its card shows it: one a previous release kept read as this release reads it, as
+   * applying it does. Absent when every kept change reads as it is.
+   */
+  shown?(change: ProposedChanges[Kind]): ProposedChanges[Kind];
 }
 
 /** How the module that owns an Office setting sees to Proposals of it, and the value it has now. */
@@ -210,6 +216,21 @@ export class ProposalAppliers {
         return this.applierOf("skill-update").apply(change, proposedBy, appliedBy);
       case "skill":
         return this.applierOf("skill").apply(change, proposedBy, appliedBy);
+    }
+  }
+
+  /**
+   * The change as its card shows it, by the module that owns its kind: Pipelines reads the Stages
+   * and routes of a Proposal a previous release kept as it applies them.
+   */
+  shown(change: ProposedChange): ProposedChange {
+    switch (change.kind) {
+      case "pipeline":
+        return this.appliers.pipeline?.shown?.(change) ?? change;
+      case "project-pipeline":
+        return this.appliers["project-pipeline"]?.shown?.(change) ?? change;
+      default:
+        return change;
     }
   }
 

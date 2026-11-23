@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -42,6 +43,8 @@ import {
 } from "./codex-engine.js";
 import { CodexAppServer } from "./codex-rpc.js";
 import { CodexThreadMissing } from "./codex-thread-file.js";
+import { CODEX_WINDOW_START_MODEL, codexWindowStartThread } from "./codex-usage-window-start.js";
+import { WINDOW_START_PROMPT } from "../claude-code/usage-window-start.js";
 import { CodexWireRecorder } from "./codex-wire-recording.fixtures.js";
 import {
   FAKE_FIVE_HOUR_RESET,
@@ -332,6 +335,57 @@ describe("CodexAppServerEngine on a stand-in app-server", () => {
         new AbortController().signal,
       ),
     ).resolves.toBeUndefined();
+    expect(await fakeAppServerRuns(report)).toEqual([]);
+  });
+
+  it("starts the engine's 5-hour window with one turn on an ephemeral thread of an app-server of its own, then ends it", async () => {
+    await expect(
+      engineOn().startUsageWindow(ENGINE, new AbortController().signal),
+    ).resolves.toEqual({
+      tokens: { input: 60, output: 10, cacheRead: 40, cacheCreation: 0 },
+      model: CODEX_WINDOW_START_MODEL,
+    });
+
+    const [run, ...more] = await fakeAppServerRuns(report);
+    if (run === undefined) throw new Error("The app-server never started.");
+    expect(more).toEqual([]);
+    expect(run.received.map(({ method }) => method)).toEqual([
+      "initialize",
+      "initialized",
+      "thread/start",
+      "turn/start",
+    ]);
+    const thread = run.received[2]?.params as { cwd: string };
+    expect(thread).toEqual(codexWindowStartThread(thread.cwd));
+    expect(thread).toMatchObject({ ephemeral: true, sandbox: "read-only" });
+    expect(existsSync(thread.cwd)).toBe(false);
+    expect(run.received[3]?.params).toMatchObject({
+      input: [{ type: "text", text: WINDOW_START_PROMPT }],
+      effort: "low",
+    });
+    expect(run.env["CODEX_HOME"]).toBe(join(officeData, "engines", ENGINE.id));
+    expect(isRunning(run.processId)).toBe(false);
+  });
+
+  it("ends the window start's app-server when it doesn't answer in time, throwing EngineReadTimedOut", async () => {
+    const engine = engineOn({ ...fakeAppServer(report, { silent: true }), readTimeoutMs: 300 });
+
+    await expect(
+      engine.startUsageWindow(ENGINE, new AbortController().signal),
+    ).rejects.toBeInstanceOf(EngineReadTimedOut);
+
+    const [run] = await fakeAppServerRuns(report);
+    if (run === undefined) throw new Error("The app-server never started.");
+    expect(isRunning(run.processId)).toBe(false);
+  });
+
+  it("refuses to start the window of an account on an API key, starting no app-server", async () => {
+    await expect(
+      engineOn().startUsageWindow(
+        { ...ENGINE, apiKey: CodexApiKey.of("sk-test") },
+        new AbortController().signal,
+      ),
+    ).rejects.toThrow("has no usage windows");
     expect(await fakeAppServerRuns(report)).toEqual([]);
   });
 

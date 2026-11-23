@@ -6,7 +6,6 @@ import { STAGE_KIND_ICONS, STAGE_KIND_NAMES } from "../stage-edits.ts";
 import { StageForm } from "../stage-form.tsx";
 import { shownName, useSaveAsTemplate } from "../use-save-as-template.ts";
 import { FlowLockedFields, FlowLockedNote, lockedTitle } from "./flow-locked.tsx";
-import { FlowOnFailure } from "./flow-on-failure.tsx";
 import { canMoveStage, inFlowOrder, type MoveDirection, withStageMoved } from "./flow-model.ts";
 import { NO_LOCKS } from "./flow-marks.ts";
 import type { FlowPanelProps } from "./flow-panel.tsx";
@@ -26,12 +25,10 @@ const MOVES: readonly { direction: MoveDirection; icon: string }[] = [
 /**
  * The picked Stage's panel: its place in the Pipeline's order with Move earlier, later, up and down
  * and its ⋯ menu; its link to its Stage template, if any, and its fields as the Stage form has them;
- * then Routes out and On failure. A locked Stage's (a Task's started one) reads only: its Moves
- * disabled, no ⋯ menu.
+ * then Routes out. A locked Stage's (a Task's started one) reads only: its Moves disabled, no ⋯
+ * menu.
  */
-export function FlowStagePanel(
-  props: FlowPanelProps & { readonly stage: Stage; readonly onFailurePicked: boolean },
-): ReactNode {
+export function FlowStagePanel(props: FlowPanelProps & { readonly stage: Stage }): ReactNode {
   const { stage, stages, onEdited, problems, locked = NO_LOCKS } = props;
   const name = shownName(stage);
   const note = locked.get(stage.key);
@@ -121,7 +118,6 @@ export function FlowStagePanel(
           />
         </FlowLockedFields>
         <FlowRoutesOut {...props} note={note} />
-        {stage.kind !== "gate" && <FlowOnFailure {...props} stage={stage} note={note} />}
       </div>
     </section>
   );

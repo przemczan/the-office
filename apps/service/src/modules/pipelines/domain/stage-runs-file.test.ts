@@ -9,6 +9,9 @@ import { aStageRun } from "./stage-run.fixtures.js";
 import { stageRunsFile } from "./stage-runs-file.js";
 
 const TASK = { id: "6b5af1e7", title: "Add routes", project: "the-office" };
+
+/** The route from Tests to End, followed twice before, at most 3 times. */
+const AT_END = { from: "tests", to: null, times: 2, limit: 3 };
 const DEFINITION_OF_DONE = ["Routes are kept", "Conditions are weighed", "The docs say so"];
 
 const implement = agentStage();
@@ -61,11 +64,17 @@ describe("stageRunsFile", () => {
     ];
 
     expect(
-      stageRunsFile(TASK, { from: "tests", to: "review" }, DEFINITION_OF_DONE, runs, stages),
+      stageRunsFile(
+        TASK,
+        { from: "tests", to: "review", times: 1, limit: null },
+        DEFINITION_OF_DONE,
+        runs,
+        stages,
+      ),
     ).toEqual({
       version: 1,
       task: TASK,
-      route: { from: "tests", to: "review" },
+      route: { from: "tests", to: "review", times: 1, limit: null },
       definitionOfDone: [
         { number: 1, statement: "Routes are kept", state: "reported-met" },
         {
@@ -116,9 +125,9 @@ describe("stageRunsFile", () => {
       aStageRun({ number: 5, stageKey: "review", outcome: undefined, endedAt: undefined }),
     ];
 
-    const file = stageRunsFile(TASK, { from: "tests", to: null }, [], runs, stages);
+    const file = stageRunsFile(TASK, AT_END, [], runs, stages);
 
-    expect(file.route).toEqual({ from: "tests", to: null });
+    expect(file.route).toEqual(AT_END);
     expect(file.stageRuns.map(({ stage, run }) => `${stage} ${run}`)).toEqual([
       "implement 1",
       "tests 1",
@@ -152,7 +161,7 @@ describe("stageRunsFile", () => {
 
     const file = stageRunsFile(
       TASK,
-      { from: RESOLVE_TEST_KEY, to: "publish" },
+      { from: RESOLVE_TEST_KEY, to: "publish", times: 0, limit: null },
       [],
       runs,
       walkedStages(flow, runs),
@@ -185,7 +194,7 @@ describe("stageRunsFile", () => {
       }),
     ];
 
-    const file = stageRunsFile(TASK, { from: "implement", to: null }, [], runs, stages);
+    const file = stageRunsFile(TASK, { ...AT_END, from: "implement" }, [], runs, stages);
 
     expect(file.stageRuns.map(({ outcome, error }) => [outcome, error])).toEqual([
       ["skipped", null],
@@ -197,7 +206,7 @@ describe("stageRunsFile", () => {
   it("lists no changed files for a run that kept none, and no command for one that didn't run", () => {
     const runs = [aStageRun({ stageKey: "tests", changedFiles: undefined, commandRuns: [] })];
 
-    const [only] = stageRunsFile(TASK, { from: "tests", to: null }, [], runs, stages).stageRuns;
+    const [only] = stageRunsFile(TASK, AT_END, [], runs, stages).stageRuns;
 
     expect(only?.changedFiles).toEqual([]);
     expect(only?.command).toEqual({ key: "test", exitCode: null });

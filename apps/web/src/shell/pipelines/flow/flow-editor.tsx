@@ -49,7 +49,7 @@ export function useFlowEditorControls(initial?: FlowPick): FlowEditorControls {
 export interface FlowEditorProps {
   /** The head's title, such as "Stages and routes". */
   readonly title: string;
-  /** Under the title, such as "4 Stages · 5 routes · 3 On failure loops". */
+  /** Under the title, such as "4 Stages · 5 routes · 2 routes back". */
   readonly summary: string;
   /** The flow, each Stage with its place and routes. */
   readonly stages: readonly Stage[];
@@ -244,8 +244,8 @@ function OfficeLegend(): ReactNode {
         Route
       </li>
       <li>
-        <span className="flow-editor-legend-line flow-editor-legend-line--loop" />
-        On failure loop
+        <span className="flow-editor-legend-mark">≤N×</span>
+        At most N times
       </li>
     </ul>
   );

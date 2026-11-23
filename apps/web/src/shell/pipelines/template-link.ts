@@ -17,7 +17,6 @@ const PIPELINE_FIELDS: ReadonlySet<string> = new Set([
   "place",
   "routes",
   "optional",
-  "onFailure",
   "templateId",
 ]);
 

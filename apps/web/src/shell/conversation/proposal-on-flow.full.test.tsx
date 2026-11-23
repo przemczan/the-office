@@ -194,7 +194,7 @@ describe("a Proposal shown on the flow", () => {
     expect(banner.textContent).toContain("Nothing changes until you apply it.");
     expect(banner.textContent).not.toContain("Back to the Thread");
     const legend = page.querySelector('[aria-label="What the lines mean"]');
-    expect(legend?.textContent).toBe("As it isProposed by DwightTaken away");
+    expect(legend?.textContent).toBe("As it isProposed by DwightTaken away≤N×At most N times");
     expect(page.querySelectorAll(".flow-canvas-route-line--proposed")).toHaveLength(4);
     expect(page.querySelectorAll(".flow-canvas-route-line--taken-away")).toHaveLength(1);
     expect(page.querySelector(".flow-canvas--read-only")).not.toBeNull();

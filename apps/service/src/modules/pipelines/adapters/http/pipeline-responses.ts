@@ -18,6 +18,7 @@ import type {
 import type { LinkedStage } from "../../application/linked-stages.js";
 import type { PipelineUse } from "../../domain/library-pipeline.js";
 import type { Pipeline, StageProblem, StageProblemAt } from "../../domain/pipeline.js";
+import type { FollowedRoute } from "../../domain/pipeline-walk.js";
 import { isConditionGroup, type ConditionGroup, type Route } from "../../domain/route.js";
 import type { ProjectPipeline } from "../../domain/project-pipeline.js";
 import type { Stage } from "../../domain/stage.js";
@@ -56,11 +57,13 @@ export function toProjectPipelineResponse(
   };
 }
 
-function toRouteResponse({ to, toName, condition }: Route): RouteResponse {
+/** A route as answered: always with its limit, which only a given route may leave out. */
+function toRouteResponse({ to, toName, condition, limit }: Route): RouteResponse {
   return {
     to,
     ...(toName === undefined ? {} : { toName }),
     condition: condition ? toConditionGroupResponse(condition) : null,
+    limit,
   };
 }
 
@@ -101,7 +104,7 @@ export function toStageProblemResponse({
 }
 
 function toStageProblemAtResponse(at: StageProblemAt): StageProblemAtResponse {
-  if (at.kind !== "route") return { kind: at.kind };
+  if (at.kind === "stage") return { kind: "stage" };
   const { routeIndex, testPath } = at;
   return { kind: "route", routeIndex, ...(testPath ? { testPath: [...testPath] } : {}) };
 }
@@ -158,7 +161,7 @@ function toTaskStageResponse(progress: StageProgress): TaskStageResponse {
     ...(progress.stage.kind === "agent" && progress.stage.duty !== undefined
       ? { workedBy: progress.workedBy ?? null }
       : {}),
-    runs: progress.runs.map(toStageRunResponse),
+    runs: progress.runs.map((run) => toStageRunResponse(run, progress.routes.get(run.id))),
   };
 }
 
@@ -184,7 +187,6 @@ function toStageResponse(stage: Stage): StageResponse {
         effort: stage.effort,
         permissions: stage.permissions,
         contextLimits: stage.contextLimits,
-        onFailure: stage.onFailure,
       };
     case "script":
       return {
@@ -193,14 +195,13 @@ function toStageResponse(stage: Stage): StageResponse {
         command: stage.command,
         publishTarget: stage.publishTarget,
         afterConflict: stage.afterConflict,
-        onFailure: stage.onFailure,
       };
     case "gate":
       return { kind: "gate", ...fields };
   }
 }
 
-function toStageRunResponse(run: StageRun): StageRunResponse {
+function toStageRunResponse(run: StageRun, route: FollowedRoute | undefined): StageRunResponse {
   const carried = run.carriedFailure;
   return {
     id: run.id,
@@ -222,6 +223,7 @@ function toStageRunResponse(run: StageRun): StageRunResponse {
     carriedFailure: carried
       ? { stageKey: carried.stageKey, round: carried.round, rounds: carried.rounds }
       : null,
+    route: route ? { to: route.to, times: route.times, limit: route.limit } : null,
     sentBack: run.sentBack
       ? { gateKey: run.sentBack.gateKey, feedback: run.sentBack.feedback }
       : null,

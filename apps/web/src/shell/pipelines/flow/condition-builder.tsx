@@ -24,7 +24,7 @@ import {
   STAGE_TEST_WORDS,
   stageNameOrGone,
 } from "./condition-words.ts";
-import { earlierStages } from "./flow-model.ts";
+import { inFlowOrder } from "./flow-model.ts";
 
 /** The most runs "ran N or more times" offers. */
 const MOST_TIMES = 20;
@@ -251,31 +251,29 @@ function subjectOfValue(value: string): TestSubject {
 }
 
 /**
- * The first select: the previous Stage, each earlier Stage by name, the Definition of Done and a
- * Project command. A Stage the test names that is no longer earlier stays listed, flagged.
+ * The first select: the previous Stage, every other Stage by name in the Pipeline's order, the
+ * Definition of Done and a Project command. A Stage the test names that is gone stays listed, flagged.
  */
 function subjectChoices(
   test: ConditionTest,
   from: Stage,
   stages: readonly Stage[],
 ): { value: string; label: string }[] {
-  const earlier = earlierStages(stages, from.key);
+  const others = inFlowOrder(stages).filter(({ key }) => key !== from.key);
   const named = test.kind === "stage" && test.stage !== null && test.stage !== from.key;
-  const stale =
-    named && !earlier.some(({ key }) => key === test.stage)
+  const gone =
+    named && !stages.some(({ key }) => key === test.stage)
       ? [
           {
             value: STAGE_PREFIX + test.stage,
-            label: `${stageNameOrGone(test.stage ?? "", test.stageName, stages)} (${
-              stages.some(({ key }) => key === test.stage) ? "later" : "gone"
-            })`,
+            label: `${stageNameOrGone(test.stage ?? "", test.stageName, stages)} (gone)`,
           },
         ]
       : [];
   return [
     { value: PREVIOUS, label: previousStageLabel(from) },
-    ...earlier.map(({ key, name }) => ({ value: STAGE_PREFIX + key, label: name })),
-    ...stale,
+    ...others.map(({ key, name }) => ({ value: STAGE_PREFIX + key, label: name })),
+    ...gone,
     { value: DEFINITION_OF_DONE, label: "The Definition of Done" },
     { value: COMMAND, label: "A Project command" },
   ];

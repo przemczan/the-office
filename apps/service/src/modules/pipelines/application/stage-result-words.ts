@@ -92,7 +92,8 @@ export class StageResultWords {
             threadId: run.threadId,
             error: run.outcome?.status === "failed" ? run.outcome.error : undefined,
             openOutOfTriesDecisionId: run.decisions.find(
-              ({ kind, answer }) => kind === "no-retries-left" && answer === undefined,
+              ({ kind, answer }) =>
+                (kind === "no-retries-left" || kind === "route-limit") && answer === undefined,
             )?.id,
           })),
       };

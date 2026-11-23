@@ -1,5 +1,6 @@
 import type { DutyKey } from "../../people/index.js";
 import { asFlow, reachableFrom } from "./flow.js";
+import { routesFollowed, type FollowedRoute } from "./pipeline-walk.js";
 import type { Stage } from "./stage.js";
 import { staffedRole, staffedStages } from "./stage-staffing.js";
 import {
@@ -27,11 +28,13 @@ export type StageState =
   | "failed"
   | "not-taken";
 
-/** Where a failed run's on-failure loop went back to, and which time. */
+/**
+ * Where a failed run's failure route went back to, and which time of how many (null: No limit).
+ */
 export interface WentBack {
   readonly stageKey: string;
   readonly round: number;
-  readonly rounds: number;
+  readonly rounds: number | null;
 }
 
 /** One of a started Task's Stages with its runs, for the Task page. */
@@ -42,8 +45,10 @@ export interface StageProgress {
   readonly runs: readonly StageRun[];
   /** Every token its runs' engine calls used, by kind; budgets leave cache reads out. */
   readonly tokens: StageTokens;
-  /** Set when its latest run failed and its loop went back to an earlier Stage. */
+  /** Set when its latest run failed and its failure route carried the failure to a Stage. */
   readonly wentBack: WentBack | undefined;
+  /** The route the walk left each of its runs by, with its count, by the run's id. */
+  readonly routes: ReadonlyMap<string, FollowedRoute>;
   /**
    * For an Agent Stage naming a duty, the Role working it: its latest run's once started, the
    * duty's holder before; undefined while nobody holds it, and for any other Stage.
@@ -74,6 +79,7 @@ export function stagesProgress(
 ): StageProgress[] {
   const staffed = staffedStages(stages, runs, holders);
   const notTaken = notTakenStages(stages, runs);
+  const followed = routesFollowed(stages, runs);
   return stages.map((stage, index) => {
     const own = runs.filter(({ stageKey }) => stageKey === stage.key);
     const latest = own.at(-1);
@@ -84,6 +90,7 @@ export function stagesProgress(
       runs: own,
       tokens: own.reduce((sum, run) => addTokens(sum, run.tokens), NO_STAGE_TOKENS),
       wentBack: latest && wentBackFrom(latest, runs),
+      routes: new Map(own.flatMap(({ id }) => routeOf(followed, id))),
       workedBy:
         staffedStage?.kind === "agent" && staffedStage.duty !== undefined
           ? staffedRole(staffedStage)
@@ -131,6 +138,14 @@ function heldState(interrupted: StageInterruption | undefined): StageState | und
   }
   if (interrupted === "stop") return "stopped";
   return undefined;
+}
+
+function routeOf(
+  followed: ReadonlyMap<string, FollowedRoute>,
+  runId: string,
+): [string, FollowedRoute][] {
+  const route = followed.get(runId);
+  return route ? [[runId, route]] : [];
 }
 
 function wentBackFrom(run: StageRun, runs: readonly StageRun[]): WentBack | undefined {

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  carriesAFailure,
   type CommandResults,
   type CommandTest,
   weighGroup,
@@ -247,9 +246,9 @@ describe("weighing groups", () => {
 
 describe("weighRoutes", () => {
   const ran = [aRun("tests", failed)];
-  const toFix: Route = { to: "fix", condition: all(previousIs("failed")) };
-  const toReview: Route = { to: "review", condition: all(previousIs("done")) };
-  const toEnd: Route = { to: null, condition: null };
+  const toFix: Route = { to: "fix", condition: all(previousIs("failed")), limit: null };
+  const toReview: Route = { to: "review", condition: all(previousIs("done")), limit: null };
+  const toEnd: Route = { to: null, condition: null, limit: null };
 
   it("follows the first route that holds, a route with no condition always holding", () => {
     expect(weighRoutes([toReview, toFix, toEnd], weighing(ran))).toEqual({
@@ -264,7 +263,11 @@ describe("weighRoutes", () => {
   });
 
   it("stops at a route it can't weigh, as a later one may be followed only once it doesn't hold", () => {
-    const byCommand: Route = { to: "review", condition: all({ kind: "command", key: "lint" }) };
+    const byCommand: Route = {
+      to: "review",
+      condition: all({ kind: "command", key: "lint" }),
+      limit: null,
+    };
 
     expect(weighRoutes([byCommand, toEnd], weighing(ran, COULD_NOT_RUN))).toEqual({
       kind: "cannot-be-weighed",
@@ -274,8 +277,16 @@ describe("weighRoutes", () => {
   });
 
   it("asks for a route's command test to run, by the route's place, before weighing later routes", () => {
-    const byLint: Route = { to: "review", condition: all({ kind: "command", key: "lint" }) };
-    const byBuild: Route = { to: "fix", condition: all({ kind: "command", key: "build" }) };
+    const byLint: Route = {
+      to: "review",
+      condition: all({ kind: "command", key: "lint" }),
+      limit: null,
+    };
+    const byBuild: Route = {
+      to: "fix",
+      condition: all({ kind: "command", key: "build" }),
+      limit: null,
+    };
 
     expect(weighRoutes([toReview, byLint, byBuild, toEnd], weighing(ran))).toEqual({
       kind: "run-command",
@@ -285,41 +296,15 @@ describe("weighRoutes", () => {
   });
 
   it("goes on to the next route once a command test's recorded result doesn't hold", () => {
-    const byLint: Route = { to: "review", condition: all({ kind: "command", key: "lint" }) };
+    const byLint: Route = {
+      to: "review",
+      condition: all({ kind: "command", key: "lint" }),
+      limit: null,
+    };
 
     expect(weighRoutes([byLint, toEnd], weighing(ran, FIRST_ROUTE_FAILED))).toEqual({
       kind: "follow",
       route: toEnd,
     });
-  });
-});
-
-describe("carriesAFailure", () => {
-  it("takes a route whose condition is the previous Stage's ended Failed, alone or in an All of at its top", () => {
-    const alone: Route = { to: "fix", condition: any(previousIs("failed")) };
-    const inAllOf: Route = {
-      to: "fix",
-      condition: all(previousIs("failed"), { kind: "stage", stage: null, is: "ran", times: 2 }),
-    };
-    const byKey: Route = {
-      to: "fix",
-      condition: all({ kind: "stage", stage: "tests", is: "failed" }),
-    };
-
-    expect(carriesAFailure(alone, "tests")).toBe(true);
-    expect(carriesAFailure(inAllOf, "tests")).toBe(true);
-    expect(carriesAFailure(byKey, "tests")).toBe(true);
-  });
-
-  it("never takes a route with no condition, another test, an Any of with more, or a nested one", () => {
-    const routes: Route[] = [
-      { to: "fix", condition: null },
-      { to: "fix", condition: all(previousIs("done")) },
-      { to: "fix", condition: any(previousIs("failed"), previousIs("done")) },
-      { to: "fix", condition: all(any(previousIs("failed"))) },
-      { to: "fix", condition: all({ kind: "stage", stage: "build", is: "failed" }) },
-    ];
-
-    for (const route of routes) expect(carriesAFailure(route, "tests")).toBe(false);
   });
 });

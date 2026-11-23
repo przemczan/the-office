@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ENDED_FAILED, plainRoute, type Route } from "./route.js";
 import { agentStage, gate, scriptStage } from "./stage.fixtures.js";
 import {
   addedStageTemplate,
@@ -13,17 +14,20 @@ import { StageTemplateAdded, StageTemplateSaved } from "./stage-template-events.
 
 const implement: StageTemplate = { id: "implement", stage: agentStage() };
 
+/** A failure route back to `to`, as a Pipeline's Stage carries it. */
+function backTo(to: string): Route[] {
+  return [{ to, condition: ENDED_FAILED, limit: 2 }, plainRoute(null)];
+}
+
 describe("templateStage", () => {
-  it("drops a loop target, which only a Pipeline gives meaning, and trims the name", () => {
+  it("drops routes and a place, which only a Pipeline gives meaning, and trims the name", () => {
+    const place = { column: 1, row: 0 };
+
     expect(
-      templateStage(
-        scriptStage({ name: " Tests ", onFailure: { goBackTo: "implement", rounds: 2 } }),
-      ),
+      templateStage(scriptStage({ name: " Tests ", routes: backTo("implement"), place })),
     ).toEqual(scriptStage());
-    expect(templateStage(agentStage({ onFailure: { goBackTo: "plan", rounds: 1 } }))).toEqual(
-      agentStage(),
-    );
-    expect(templateStage(gate())).toEqual(gate());
+    expect(templateStage(agentStage({ routes: backTo("plan") }))).toEqual(agentStage());
+    expect(templateStage(gate({ routes: [plainRoute(null)], place }))).toEqual(gate());
   });
 });
 
@@ -68,7 +72,7 @@ describe("stageTemplateProblems", () => {
         agentStage({
           name: "Review",
           session: "continue",
-          onFailure: { goBackTo: "x", rounds: 0 },
+          routes: [{ to: "x", condition: null, limit: 0 }],
         }),
         [],
       ),
@@ -100,8 +104,8 @@ describe("proposedStageProblems", () => {
     expect(
       proposedStageProblems(implement, implement.stage, agentStage({ name: "tests" }), [tests]),
     ).toEqual([{ level: "problem", text: 'Another Stage template is named "tests".' }]);
-    // The loop target a template doesn't keep changes nothing either.
-    const withLoop = agentStage({ onFailure: { goBackTo: "plan", rounds: 1 } });
+    // The routes a template doesn't keep change nothing either.
+    const withLoop = agentStage({ routes: backTo("plan") });
     expect(proposedStageProblems(implement, implement.stage, withLoop, [])).toEqual([
       {
         level: "problem",
@@ -145,8 +149,8 @@ describe("stageTemplateFlags", () => {
 });
 
 describe("addedStageTemplate and savedStageTemplate", () => {
-  it("keep the Stage without its loop target and name the template in their event", () => {
-    const stage = scriptStage({ onFailure: { goBackTo: "implement", rounds: 2 } });
+  it("keep the Stage without its routes and name the template in their event", () => {
+    const stage = scriptStage({ routes: backTo("implement") });
 
     expect(addedStageTemplate("tests", stage)).toEqual({
       template: { id: "tests", stage: scriptStage() },

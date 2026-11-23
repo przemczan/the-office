@@ -6,13 +6,18 @@ import {
   routeChangeWords,
   routesWords,
 } from "./proposed-routes.js";
-import type { Route } from "./route.js";
+import { ENDED_FAILED, ROUTE_BACK_LIMIT, type ConditionGroup, type Route } from "./route.js";
 import { agentStage, gate, scriptStage } from "./stage.fixtures.js";
 
 const implement = agentStage();
 const tests = scriptStage();
 const review = agentStage({ key: "review", name: "Review" });
 const publish = scriptStage({ key: "publish", name: "Publish", command: "publish" });
+
+const ENDED_DONE: ConditionGroup = {
+  combine: "all",
+  tests: [{ kind: "stage", stage: null, is: "done" }],
+};
 
 const before = straightLineFlow([implement, tests, publish]);
 
@@ -27,16 +32,25 @@ const reviewWhenChangedOrFailed: Route[] = [
         { kind: "stage", stage: "tests", stageName: "Tests", is: "failed" },
       ],
     },
+    limit: null,
   },
-  { to: "publish", toName: "Publish", condition: null },
+  { to: "publish", toName: "Publish", condition: null, limit: null },
 ];
 
 /** `before` with Review after Tests, run only when Tests changed files or ended Failed. */
 const after: FlowStage[] = [
   before[0] as FlowStage,
   { ...tests, routes: reviewWhenChangedOrFailed, place: { column: 1, row: 0 } },
-  { ...review, routes: [{ to: "publish", condition: null }], place: { column: 2, row: 0 } },
-  { ...publish, routes: [{ to: null, condition: null }], place: { column: 3, row: 0 } },
+  {
+    ...review,
+    routes: [{ to: "publish", condition: null, limit: null }],
+    place: { column: 2, row: 0 },
+  },
+  {
+    ...publish,
+    routes: [{ to: null, condition: null, limit: null }],
+    place: { column: 3, row: 0 },
+  },
 ];
 
 describe("routeChangesOf", () => {
@@ -45,21 +59,25 @@ describe("routeChangesOf", () => {
       {
         stageKey: "tests",
         stageName: "Tests",
-        from: [{ to: "publish", condition: null }],
+        from: [{ to: "publish", condition: null, limit: null }],
         to: reviewWhenChangedOrFailed,
       },
       {
         stageKey: "review",
         stageName: "Review",
         from: [],
-        to: [{ to: "publish", condition: null }],
+        to: [{ to: "publish", condition: null, limit: null }],
       },
     ]);
   });
 
   it("lists a removed Stage last, its routes as to none", () => {
     const withoutTests: FlowStage[] = [
-      { ...implement, routes: [{ to: "publish", condition: null }], place: { column: 0, row: 0 } },
+      {
+        ...implement,
+        routes: [{ to: "publish", condition: null, limit: null }],
+        place: { column: 0, row: 0 },
+      },
       before[2] as FlowStage,
     ];
 
@@ -67,20 +85,26 @@ describe("routeChangesOf", () => {
       {
         stageKey: "implement",
         stageName: "Implement",
-        from: [{ to: "tests", condition: null }],
-        to: [{ to: "publish", condition: null }],
+        from: [{ to: "tests", condition: null, limit: null }],
+        to: [{ to: "publish", condition: null, limit: null }],
       },
-      { stageKey: "tests", stageName: "Tests", from: [{ to: "publish", condition: null }], to: [] },
+      {
+        stageKey: "tests",
+        stageName: "Tests",
+        from: [{ to: "publish", condition: null, limit: null }],
+        to: [],
+      },
     ]);
   });
 
   it("weighs routes as kept: the Stages' names in them don't count, nor a field left undefined", () => {
     const named: FlowStage[] = after.map((stage) => ({
       ...stage,
-      routes: stage.routes.map(({ to, condition }) => ({
+      routes: stage.routes.map(({ to, condition, limit }) => ({
         to,
         ...(to === null ? {} : { toName: `Renamed ${to}` }),
         condition,
+        limit,
       })),
     }));
     const unnamedTests: Route[] = [
@@ -93,8 +117,9 @@ describe("routeChangesOf", () => {
             { kind: "stage", stage: "tests", stageName: undefined, is: "failed" },
           ],
         },
+        limit: null,
       },
-      { to: "publish", condition: null },
+      { to: "publish", condition: null, limit: null },
     ];
     const withUnnamedTests = named.map((stage) =>
       stage.key === "tests" ? { ...stage, routes: unnamedTests } : stage,
@@ -102,6 +127,30 @@ describe("routeChangesOf", () => {
 
     expect(routeChangesOf(after, named)).toEqual([]);
     expect(routeChangesOf(after, withUnnamedTests)).toEqual([]);
+  });
+
+  it("lists a Stage whose route only changes its limit", () => {
+    const backToImplement: Route = {
+      to: "implement",
+      condition: ENDED_FAILED,
+      limit: ROUTE_BACK_LIMIT,
+    };
+    const withRouteBack = (limit: number | null): FlowStage[] =>
+      after.map((stage) =>
+        stage.key === "tests"
+          ? { ...stage, routes: [{ ...backToImplement, limit }, ...stage.routes] }
+          : stage,
+      );
+
+    expect(routeChangesOf(withRouteBack(3), withRouteBack(3))).toEqual([]);
+    expect(routeChangesOf(withRouteBack(3), withRouteBack(2))).toEqual([
+      {
+        stageKey: "tests",
+        stageName: "Tests",
+        from: [{ ...backToImplement, limit: 3 }, ...reviewWhenChangedOrFailed],
+        to: [{ ...backToImplement, limit: 2 }, ...reviewWhenChangedOrFailed],
+      },
+    ]);
   });
 });
 
@@ -127,7 +176,12 @@ describe("routeChangeWords", () => {
     expect(
       routeChangeWords([
         ...routeChangesOf(before, after),
-        { stageKey: "look", stageName: look.name, from: [{ to: null, condition: null }], to: [] },
+        {
+          stageKey: "look",
+          stageName: look.name,
+          from: [{ to: null, condition: null, limit: null }],
+          to: [],
+        },
       ]),
     ).toEqual([
       "- Tests: was to publish always; now to Review when the previous Stage changed files or Tests ended Failed, otherwise to Publish always.",
@@ -138,6 +192,18 @@ describe("routeChangeWords", () => {
 });
 
 describe("routesWords", () => {
+  it("says a route's limit, and nothing of No limit", () => {
+    const routes: Route[] = [
+      { to: "implement", toName: "Implement", condition: ENDED_FAILED, limit: 3 },
+      { to: "tests", toName: "Tests", condition: ENDED_DONE, limit: 1 },
+      { to: null, condition: null, limit: null },
+    ];
+
+    expect(routesWords(routes)).toBe(
+      "to Implement when the previous Stage ended Failed, at most 3 times, otherwise to Tests when the previous Stage ended Done, at most once, otherwise to End always",
+    );
+  });
+
   it("names every built-in test and nests groups in brackets", () => {
     const routes: Route[] = [
       {
@@ -159,10 +225,12 @@ describe("routesWords", () => {
             },
           ],
         },
+        limit: null,
       },
       {
         to: null,
         condition: { combine: "all", tests: [{ kind: "definitionOfDone", is: "all-met" }] },
+        limit: null,
       },
     ];
 

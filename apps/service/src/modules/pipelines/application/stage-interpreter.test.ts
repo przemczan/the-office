@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import type { SessionScript } from "../../engine/index.js";
 import { TaskStarted } from "../../work/index.js";
-import type { OnFailure, Stage } from "../domain/stage.js";
+import type { KeptOnFailure } from "../domain/routes-back.js";
+import type { Stage } from "../domain/stage.js";
+import { goingBackOnFailure } from "../domain/stage.fixtures.js";
 import {
   NoRetriesLeft,
   PipelineCompleted,
@@ -27,19 +29,18 @@ import { aCommandRun } from "../ports/pipelines-ports.fixtures.js";
 import { TaskStagesRepository } from "../ports/task-stages-repository.js";
 import { StageInterpreter } from "./stage-interpreter.js";
 
-function agentStage(key: string, onFailure?: OnFailure): Stage {
-  return anAgentStage(key, onFailure && { onFailure });
+/** An Agent Stage, going back on failure as a previous release kept it when `onFailure` is given. */
+function agentStage(key: string, onFailure?: KeptOnFailure): Stage {
+  return kept(anAgentStage(key), onFailure);
 }
 
-function scriptStage(key: string, onFailure?: OnFailure): Stage {
-  return {
-    kind: "script",
-    key,
-    name: key,
-    optional: false,
-    command: "test",
-    ...(onFailure && { onFailure }),
-  };
+/** A Script Stage running the tests, going back on failure as `agentStage` takes it. */
+function scriptStage(key: string, onFailure?: KeptOnFailure): Stage {
+  return kept({ kind: "script", key, name: key, optional: false, command: "test" }, onFailure);
+}
+
+function kept(stage: Stage, onFailure: KeptOnFailure | undefined): Stage {
+  return onFailure ? goingBackOnFailure(stage, onFailure.goBackTo, onFailure.rounds) : stage;
 }
 
 const agentDone = anAgentSession(aDoneResult());

@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { EngineAdded, EngineRemoved } from "../domain/engine-events.js";
+import { EngineAdded, EngineRemoved, WindowStartSettingsChanged } from "../domain/engine-events.js";
 import {
   engineRemovalAmong,
   movedStandInList,
@@ -14,11 +14,20 @@ import {
   type EngineSettingsEdit,
 } from "../domain/engine-settings.js";
 import { EngineSettingsRefused } from "../domain/engine-settings-refused.js";
-import type { Engine, EngineId } from "../domain/engines.js";
+import { hasUsageWindows, type Engine, type EngineId } from "../domain/engines.js";
+import {
+  NO_WINDOW_START,
+  sortedWindowStartTimes,
+  windowStartTimeProblems,
+  type WindowStartSettings,
+} from "../domain/window-starts.js";
 import { EngineSettingsRepository } from "../ports/engine-settings-repository.js";
+import { WindowStartRepository, type KeptWindowStart } from "../ports/window-start-repository.js";
+import { EngineModels } from "./engine-models.js";
 import { EngineReferenceLock } from "./engine-reference-lock.js";
 import { EngineReferenceMoves } from "./engine-reference-moves.js";
 import { engineCascadeSettingsOf, EngineSettingsChecks } from "./engine-settings-checks.js";
+import { NextWindowStarts } from "./next-window-starts.js";
 
 /**
  * Settings › Engines: the engines, the Office default and the search endpoint, Office-wide.
@@ -32,6 +41,9 @@ export class EngineSettingsService {
     private readonly checks: EngineSettingsChecks,
     private readonly referenceMoves: EngineReferenceMoves,
     private readonly lock: EngineReferenceLock,
+    private readonly windowStarts: WindowStartRepository,
+    private readonly models: EngineModels,
+    private readonly nextStarts: NextWindowStarts,
   ) {}
 
   current(): Promise<EngineSettings> {
@@ -39,31 +51,105 @@ export class EngineSettingsService {
   }
 
   /**
+   * What Settings › Engines shows beside `settings`: the Window start of each engine with usage
+   * windows, in the engines' order, the defaults for one never set, and the service's time zone,
+   * which the set times follow (spec §5.4.6).
+   */
+  async windowStartsOf(settings: EngineSettings): Promise<EngineWindowStarts> {
+    const kept = await this.windowStarts.all();
+    const windowStarts = this.models
+      .listed(settings.engines)
+      .filter(hasUsageWindows)
+      .map(({ id }): EngineWindowStart => {
+        const { startAtTimes, startAfterReset, last } = kept.find(
+          ({ engineId }) => engineId === id,
+        ) ?? { ...NO_WINDOW_START, last: undefined };
+        return {
+          engineId: id,
+          startAtTimes,
+          startAfterReset,
+          last,
+          nextStartAt: this.nextStarts.of(id)?.at,
+        };
+      });
+    return { windowStarts, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone };
+  }
+
+  /**
    * Keeps the settings `edit` makes, refusing with every reason when they break a rule or a
    * registered check refuses them, and announces each engine added. Held under the
    * `EngineReferenceLock` from the read through the write, so a removal can't come in between.
    */
-  async change(edit: EngineSettingsEdit): Promise<EngineSettings> {
-    const { stored, changed } = await this.lock.holding(() => this.kept(edit));
+  async change(edit: EngineSettingsChange): Promise<EngineSettings> {
+    const { stored, changed, windowStartsChanged } = await this.lock.holding(() => this.kept(edit));
     for (const { id, kind } of enginesMissingFrom(changed.engines, stored.engines)) {
       await this.events.publish(new EngineAdded(id, kind));
+    }
+    for (const engineId of windowStartsChanged) {
+      await this.events.publish(new WindowStartSettingsChanged(engineId));
     }
     return changed;
   }
 
-  private async kept(edit: EngineSettingsEdit): Promise<{
+  private async kept(edit: EngineSettingsChange): Promise<{
     readonly stored: EngineSettings;
     readonly changed: EngineSettings;
+    readonly windowStartsChanged: readonly EngineId[];
   }> {
     const stored = await this.repository.read();
-    const changed = changedEngineSettings(stored, edit);
-    const problems = await this.checks.problemsOf({
-      before: engineCascadeSettingsOf(stored),
-      after: engineCascadeSettingsOf(changed),
-    });
+    const windowStartProblems = this.windowStartProblems(stored, edit.windowStarts ?? []);
+    let changed: EngineSettings;
+    try {
+      changed = changedEngineSettings(stored, edit);
+    } catch (error) {
+      if (!(error instanceof EngineSettingsRefused)) throw error;
+      throw new EngineSettingsRefused([...error.reasons, ...windowStartProblems]);
+    }
+    const problems = [
+      ...(await this.checks.problemsOf({
+        before: engineCascadeSettingsOf(stored),
+        after: engineCascadeSettingsOf(changed),
+      })),
+      ...windowStartProblems,
+    ];
     if (problems.length > 0) throw new EngineSettingsRefused(problems);
     await this.repository.replace(changed);
-    return { stored, changed };
+    const windowStartsChanged = await this.savedWindowStarts(edit.windowStarts ?? []);
+    return { stored, changed, windowStartsChanged };
+  }
+
+  /**
+   * Why the Window starts of an edit are refused: one on an engine not saved yet or without usage
+   * windows, or set times that are malformed, given twice or too many, each named by its engine.
+   */
+  private windowStartProblems(
+    stored: EngineSettings,
+    edits: readonly EngineWindowStartEdit[],
+  ): string[] {
+    const engines = this.models.listed(stored.engines);
+    return edits.flatMap(({ engineId, startAtTimes }) => {
+      const engine = engines.find(({ id }) => id === engineId);
+      if (engine === undefined) {
+        return [`There is no saved engine "${engineId}" to start a 5-hour window on.`];
+      }
+      if (!hasUsageWindows(engine)) {
+        return [`${engine.name} has no usage windows, so it can't start its 5-hour window.`];
+      }
+      return windowStartTimeProblems(startAtTimes).map((problem) => `${engine.name}: ${problem}`);
+    });
+  }
+
+  /** Keeps each Window start given, its times unique and sorted; the engines whose one changed. */
+  private async savedWindowStarts(edits: readonly EngineWindowStartEdit[]): Promise<EngineId[]> {
+    const changed: EngineId[] = [];
+    for (const { engineId, startAtTimes, startAfterReset } of edits) {
+      const settings = { startAtTimes: sortedWindowStartTimes(startAtTimes), startAfterReset };
+      const kept = (await this.windowStarts.of(engineId)) ?? NO_WINDOW_START;
+      if (sameWindowStart(kept, settings)) continue;
+      await this.windowStarts.saveSettings(engineId, settings);
+      changed.push(engineId);
+    }
+    return changed;
   }
 
   /**
@@ -156,6 +242,35 @@ export class EngineSettingsService {
 export interface EngineRemovalPreview {
   readonly moves: readonly MovedEngineReference[];
   readonly problems: readonly string[];
+}
+
+/** An engine's Window start settings as a Save of Settings › Engines gives them. */
+export interface EngineWindowStartEdit extends WindowStartSettings {
+  readonly engineId: EngineId;
+}
+
+/** What a Save of Settings › Engines changes; Window starts left out keep the stored ones. */
+export interface EngineSettingsChange extends EngineSettingsEdit {
+  readonly windowStarts?: readonly EngineWindowStartEdit[];
+}
+
+/** An engine's Window start as Settings › Engines shows it. */
+export interface EngineWindowStart extends KeptWindowStart {
+  /** Undefined when neither setting starts one, or no scheduler plans it. */
+  readonly nextStartAt: Date | undefined;
+}
+
+export interface EngineWindowStarts {
+  readonly windowStarts: readonly EngineWindowStart[];
+  /** The service's IANA time zone, which the set times follow. */
+  readonly timeZone: string;
+}
+
+function sameWindowStart(kept: WindowStartSettings, settings: WindowStartSettings): boolean {
+  return (
+    kept.startAfterReset === settings.startAfterReset &&
+    kept.startAtTimes.join(",") === settings.startAtTimes.join(",")
+  );
 }
 
 /** The engines of `engines` that `others` doesn't list. */

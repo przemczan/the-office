@@ -180,16 +180,26 @@ function routePanel(): HTMLElement {
   return panel;
 }
 
+/** Opens a route out of `stage` by its row in Routes out, the one leading to `target`. */
+async function openRoute(stage: string, target: string): Promise<void> {
+  await press(stage);
+  const row = [...document.querySelectorAll(".flow-route-row-words")].find((button) =>
+    button.textContent?.includes(`→ ${target}`),
+  );
+  if (!(row instanceof HTMLButtonElement))
+    throw new Error(`No route to ${target} under Routes out.`);
+  await act(async () => row.click());
+}
+
 /** Opens Tests' route to Publish and gives it a condition. */
 async function openTestsRoute(): Promise<void> {
-  await press("Tests");
-  const row = [...document.querySelectorAll("button")].find((button) =>
-    button.textContent?.startsWith("→ Publish"),
-  );
-  if (!row) throw new Error("No route to Publish under Routes out.");
-  await act(async () => row.click());
-  const some = routePanel().querySelector<HTMLInputElement>('input[value="some"]');
-  await act(async () => some?.click());
+  await openRoute("Tests", "Publish");
+  const holds = routePanel().querySelector<HTMLInputElement>('input[value="holds"]');
+  await act(async () => holds?.click());
+}
+
+function routesOf(key: string): Stage["routes"] {
+  return seen.stages.find((stage) => stage.key === key)?.routes;
 }
 
 describe("the flow editor's condition builder", () => {
@@ -225,7 +235,7 @@ describe("the flow editor's condition builder", () => {
     expect(selects("What it tests")[0]?.selectedOptions[0]?.textContent).toBe(
       "The previous Stage (Tests)",
     );
-    expect(routePanel().textContent).toContain("Followed when Tests ended Done.");
+    expect(routePanel().textContent).toContain("Followed when Tests ended Done, with no limit.");
   });
 
   it("builds a test of each kind a Stage has, ran N or more times with its Stepper", async () => {
@@ -247,7 +257,7 @@ describe("the flow editor's condition builder", () => {
     expect(routePanel().textContent).toContain("Tests ran 3 or more times");
   });
 
-  it("tests an earlier Stage by its name and the Definition of Done", async () => {
+  it("tests any other Stage by its name, later ones included, and the Definition of Done", async () => {
     await rendered();
     await openTestsRoute();
     const subjects = [...(selects("What it tests")[0]?.options ?? [])].map(
@@ -256,6 +266,7 @@ describe("the flow editor's condition builder", () => {
     expect(subjects).toEqual([
       "The previous Stage (Tests)",
       "Implement",
+      "Publish",
       "The Definition of Done",
       "A Project command",
     ]);
@@ -270,7 +281,7 @@ describe("the flow editor's condition builder", () => {
     await choose(selects("Test")[1], "all-met");
     expect(conditionOf("tests")?.tests[1]).toEqual({ kind: "definitionOfDone", is: "all-met" });
     expect(routePanel().textContent).toContain(
-      "Followed when Implement changed files and the Definition of Done is all Reported met.",
+      "Followed when Implement changed files and the Definition of Done is all Reported met, with no limit.",
     );
   });
 
@@ -287,7 +298,7 @@ describe("the flow editor's condition builder", () => {
       tests: [{ kind: "stage", stage: null, is: "failed" }],
     });
     expect(routePanel().textContent).toContain(
-      "Followed when Tests ended Done, Tests ended Done or Tests ended Failed.",
+      "Followed when Tests ended Done, Tests ended Done or Tests ended Failed, with no limit.",
     );
     await press("Remove this group", routePanel());
     expect(conditionOf("tests")?.tests).toHaveLength(2);
@@ -313,13 +324,142 @@ describe("the flow editor's condition builder", () => {
     );
   });
 
-  it("No condition takes the condition away", async () => {
+  it("Otherwise takes the condition away", async () => {
     await rendered();
     await openTestsRoute();
-    const none = routePanel().querySelector<HTMLInputElement>('input[value="none"]');
-    await act(async () => none?.click());
+    const otherwise = routePanel().querySelector<HTMLInputElement>('input[value="otherwise"]');
+    await act(async () => otherwise?.click());
     expect(conditionOf("tests")).toBeNull();
     expect(routePanel().querySelector(".condition-group")).toBeNull();
+  });
+
+  it("offers When it fails on an Agent Stage's route only, as the ended-Failed test alone", async () => {
+    await rendered();
+    await openRoute("Tests", "Publish");
+    expect(routePanel().querySelector('input[value="fails"]')).toBeNull();
+    await openRoute("Implement", "Tests");
+    const fails = routePanel().querySelector<HTMLInputElement>('input[value="fails"]');
+    await act(async () => fails?.click());
+    expect(conditionOf("implement")).toEqual({
+      combine: "all",
+      tests: [{ kind: "stage", stage: null, is: "failed" }],
+    });
+    expect(routePanel().textContent).toContain("When Implement ends Failed.");
+    expect(routePanel().textContent).toContain("Followed when Implement fails, with no limit.");
+  });
+});
+
+describe("the flow editor's routes and their limits", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe(): void {}
+        unobserve(): void {}
+        disconnect(): void {}
+      },
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.resolve(Response.json([]))),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.body.replaceChildren();
+  });
+
+  it("offers every Stage as where a route goes, its own and earlier ones too, then End", async () => {
+    await rendered();
+    await openRoute("Tests", "Publish");
+    const goesTo = routePanel().querySelector("select");
+    expect([...(goesTo?.options ?? [])].map(({ textContent }) => textContent)).toEqual([
+      "Implement",
+      "Tests",
+      "Publish",
+      "End",
+    ]);
+    expect(routePanel().textContent).toContain(
+      "Any Stage, this one or an earlier one to go back, or End to make Tests a final Stage.",
+    );
+  });
+
+  it("starts a route turned back at most 3 times, and its limit is stepped or taken away", async () => {
+    await rendered();
+    await openRoute("Tests", "Publish");
+    expect(routePanel().textContent).toContain("A route on: it starts at No limit.");
+    await choose(routePanel().querySelector("select") ?? undefined, "implement");
+    expect(routesOf("tests")).toEqual([{ to: "implement", condition: null, limit: 3 }]);
+    expect(routePanel().textContent).toContain("A route back: it starts at 3.");
+    expect(routePanel().textContent).toContain(
+      "Always followed: it is Tests's one route out, at most 3 times in a walk; then you're asked (or the CTO first).",
+    );
+    await press("Raise times on the route to Implement", routePanel());
+    expect(routesOf("tests")?.[0]?.limit).toBe(4);
+    const noLimit = routePanel().querySelector<HTMLInputElement>(".flow-route-limit-none input");
+    await act(async () => noLimit?.click());
+    expect(routesOf("tests")?.[0]?.limit).toBeNull();
+    expect(buttonNamed("Raise times on the route to Implement", routePanel()).disabled).toBe(true);
+    await act(async () => noLimit?.click());
+    expect(routesOf("tests")?.[0]?.limit).toBe(3);
+  });
+
+  it("lists each route out with its Goes to and At most, and adds a row by its form", async () => {
+    await rendered();
+    await press("Implement");
+    const routesOut = document.querySelector<HTMLElement>('section[aria-label="Routes out"]');
+    expect(
+      routesOut?.querySelectorAll('[role="group"][aria-label="At most, route to Tests"]'),
+    ).toHaveLength(1);
+    expect(routesOut?.textContent).toContain(
+      "A route back starts at 3, a route on at No limit. Every loop needs one route with a limit, so the walk always ends.",
+    );
+    await press("Add a route");
+    // Otherwise is taken already: When it fails and When these hold are offered.
+    expect(buttonsNamed("Otherwise")).toEqual([]);
+    await press("When it fails");
+    expect(routesOf("implement")).toEqual([
+      {
+        to: "publish",
+        condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "failed" }] },
+        limit: null,
+      },
+      { to: "tests", condition: null },
+    ]);
+    await press("Implement");
+    expect(document.querySelector('section[aria-label="Routes out"]')?.textContent).toContain(
+      "When it fails→ Publish",
+    );
+    // When it fails stays first and Otherwise last.
+    expect(buttonNamed("Move the route to Publish down").disabled).toBe(true);
+    expect(buttonNamed("Move the route to Tests up").disabled).toBe(true);
+  });
+
+  it("draws a route back with its ≤N× mark, names its limit and counts the routes back", async () => {
+    const back: Stage = {
+      ...TESTS,
+      routes: [
+        {
+          to: "implement",
+          condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "failed" }] },
+          limit: 2,
+        },
+        { to: "publish", condition: null, limit: null },
+      ],
+    };
+    await rendered([IMPLEMENT, back, PUBLISH]);
+    expect(document.body.textContent).toContain("3 Stages · 4 routes · 1 route back");
+    const marks = [...document.querySelectorAll("[data-flow-limit-mark]")].map((mark) => [
+      mark.getAttribute("data-flow-limit-mark"),
+      mark.textContent,
+    ]);
+    expect(marks).toEqual([["tests:0", "≤2×"]]);
+    const row = buttonNamed("Route from Tests to Implement, at most 2 times");
+    expect(row.textContent).toContain("≤2×");
+    expect(document.querySelector('[aria-label="What the lines mean"]')?.textContent).toContain(
+      "≤N×At most N times",
+    );
   });
 });
 
@@ -330,11 +470,11 @@ describe("the flow editor's problems", () => {
     level: "problem",
     text: "The condition of Tests' route to Publish runs the Project command docs-changed, which notnullsoft doesn't have, and Full is notnullsoft's default.",
   };
-  const LOOP_WARNING: StageProblem = {
-    stageKey: "tests",
-    at: { kind: "onFailure" },
+  const CONFLICT_WARNING: StageProblem = {
+    stageKey: "publish",
+    at: { kind: "stage" },
     level: "warning",
-    text: "Tests goes back to Implement on failure, but no path of routes leads from Implement to Tests.",
+    text: "Publish: no route takes Conflict, so a conflict asks you.",
   };
   const WITH_COMMAND: Stage = {
     ...TESTS,
@@ -368,7 +508,7 @@ describe("the flow editor's problems", () => {
   });
 
   it("lists each problem as a link to its spot, and shows it on the select there", async () => {
-    await rendered([IMPLEMENT, WITH_COMMAND, PUBLISH], [COMMAND_PROBLEM], [LOOP_WARNING]);
+    await rendered([IMPLEMENT, WITH_COMMAND, PUBLISH], [COMMAND_PROBLEM], [CONFLICT_WARNING]);
     expect(document.body.textContent).toContain("The Pipeline can't be saved yet");
     expect(document.body.textContent).toContain("Worth a look, though it doesn't hold Save");
     expect(document.querySelector('section[aria-label="Route"]')).toBeNull();
@@ -384,9 +524,11 @@ describe("the flow editor's problems", () => {
       COMMAND_PROBLEM.text,
     );
 
-    await press(LOOP_WARNING.text, document.querySelector('[aria-label="Warnings"]') ?? document);
-    const loop = document.querySelector('section[aria-label="On failure"]');
-    expect(loop?.className).toContain("flow-panel-section--picked");
+    await press(
+      CONFLICT_WARNING.text,
+      document.querySelector('[aria-label="Warnings"]') ?? document,
+    );
+    expect(document.querySelector('section[aria-label="Publish"]')).not.toBeNull();
   });
 });
 
@@ -442,7 +584,7 @@ describe("the flow editor for a Task, its started Stages locked", () => {
     document.body.replaceChildren();
   });
 
-  it("shows a locked Stage's lock and state, with no +, no Move or Remove, and its routes and loop read only", async () => {
+  it("shows a locked Stage's lock and state, with no +, no Move or Remove, and its routes read only", async () => {
     await renderedTask({ implement: "Done" });
     expect(
       document.querySelector(`[aria-label="Flow"] [role="img"][aria-label="${DONE}"]`),
@@ -465,10 +607,10 @@ describe("the flow editor for a Task, its started Stages locked", () => {
       document.querySelector<HTMLFieldSetElement>('section[aria-label="Implement"] fieldset')
         ?.disabled,
     ).toBe(true);
-    const loop = document.querySelector<HTMLFieldSetElement>(
-      'section[aria-label="On failure"] fieldset',
+    const fields = document.querySelector<HTMLFieldSetElement>(
+      'section[aria-label="Routes out"] fieldset',
     );
-    expect([loop?.disabled, loop?.title]).toEqual([true, DONE]);
+    expect([fields?.disabled, fields?.title]).toEqual([true, DONE]);
 
     await press("Tests");
     expect(buttonNamed("Move Tests later").disabled).toBe(false);
@@ -478,6 +620,7 @@ describe("the flow editor for a Task, its started Stages locked", () => {
     await renderedTask({ publish: "Done" });
     await press("Implement");
     await press("Add a route");
+    await press("When these hold");
     expect(seen.stages.find(({ key }) => key === "implement")?.routes?.map(({ to }) => to)).toEqual(
       ["publish", "tests"],
     );
@@ -570,7 +713,6 @@ describe("the flow editor's Stages linked to their Stage template", () => {
     await settled();
     await press("Implementation");
     expect(stageKeyed("implementation")).toMatchObject({ templateId: "implementation" });
-    expect(stageKeyed("implementation")).not.toHaveProperty("onFailure");
 
     await openTestsRoute();
     await press("Insert a Stage on this route", routePanel());

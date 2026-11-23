@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { GATE_REACHED } from "./gate.js";
 import type { Stage } from "./stage.js";
+import { goingBackOnFailure } from "./stage.fixtures.js";
 import { stagesProgress } from "./stage-progress.js";
 import {
   NO_STAGE_TOKENS,
@@ -28,7 +29,6 @@ const tests: Stage = {
   name: "Tests",
   optional: false,
   command: "test",
-  onFailure: { goBackTo: "implement", rounds: 3 },
 };
 const review: Stage = { ...implement, key: "review", name: "Review & fix", optional: true };
 
@@ -108,12 +108,13 @@ describe("stagesProgress", () => {
               combine: "all",
               tests: [{ kind: "definitionOfDone", is: "some-not-met" }],
             },
+            limit: null,
           },
-          { to: "tests", condition: null },
+          { to: "tests", condition: null, limit: null },
         ],
       },
-      { ...review, optional: false, routes: [{ to: "tests", condition: null }] },
-      { ...tests, routes: [{ to: null, condition: null }] },
+      { ...review, optional: false, routes: [{ to: "tests", condition: null, limit: null }] },
+      { ...tests, routes: [{ to: null, condition: null, limit: null }] },
     ];
 
     expect(statesOf(flow, [])).toEqual(["pending", "pending", "pending"]);
@@ -137,10 +138,10 @@ describe("stagesProgress", () => {
     ).toEqual(["running", "pending"]);
   });
 
-  it("goes by each Stage's latest run, and tells where a failed one's loop went back", () => {
+  it("goes by each Stage's latest run, and tells where a failed one's route went back, and each run's route", () => {
     const carried = { stageKey: "tests", error: "2 failed.", round: 1, rounds: 3 };
     const progress = stagesProgress(
-      [implement, tests],
+      [implement, goingBackOnFailure(tests, "implement", 3)],
       runs(
         { stageKey: "implement", outcome: done },
         { stageKey: "tests", outcome: failed },
@@ -152,6 +153,12 @@ describe("stagesProgress", () => {
     expect(progress[0]?.runs.map(({ number }) => number)).toEqual([1, 3]);
     expect(progress[1]?.wentBack).toEqual({ stageKey: "implement", round: 1, rounds: 3 });
     expect(progress[0]?.wentBack).toBeUndefined();
+    expect(progress[0]?.routes).toEqual(
+      new Map([["run-1", { to: "tests", times: 1, limit: null }]]),
+    );
+    expect(progress[1]?.routes).toEqual(
+      new Map([["run-2", { to: "implement", times: 1, limit: 3 }]]),
+    );
   });
 
   it("waits on you while a Decision on the latest run is open, or an Agent's is about to open", () => {

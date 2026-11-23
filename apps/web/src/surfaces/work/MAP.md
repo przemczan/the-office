@@ -148,7 +148,7 @@ An Initiative's block is a `group`, never a region or a heading: the e2e tests f
 - `saved-views.tsx`: SavedViewsRow
 - `search-box.tsx`: SearchBox
 - `stage-history-window.tsx`: StageHistoryWindow
-- `stage-history-words.ts`: RunTab, stageHistoryLine, runTimeWords, runBadge, runResultText, engineSwitchWords, runGist, openingRunTab, runThreadClosedWords, RunPlace, runOfHandoverNote, carriedFailureWords, gateChoiceWords, commandMarkWords, commandTimeWords
+- `stage-history-words.ts`: RunTab, stageHistoryLine, runTimeWords, runBadge, runResultText, engineSwitchWords, runGist, openingRunTab, runThreadClosedWords, RunPlace, runOfHandoverNote, carriedFailureWords, routeFollowedWords, gateChoiceWords, commandMarkWords, commandTimeWords
 - `stage-mark.tsx`: StageMark
 - `stage-rail-words.ts`: stagesOnRail, currentStageIndex, stoppedAtCurrentStage, railScrollLeft, railCaption, stageWorkerWords, workingRoleKey, stageWaitsForRunEnvironment, railStateWords, railRunsWords, LoopBack, loopBacks, LoopBackPath, RailPlace, loopBackPath, LoopBackEnd, loopBackEnds, loopBackWords
 - `stage-selection.ts`: stageElementId, focusStage

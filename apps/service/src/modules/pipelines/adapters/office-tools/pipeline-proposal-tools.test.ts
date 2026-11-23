@@ -23,6 +23,7 @@ import {
 import { ANN_LEE } from "../../../conversations/index.fixtures.js";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
+import { ENDED_FAILED, type Route as DomainRoute } from "../../domain/route.js";
 import { agentStage, scriptStage } from "../../domain/stage.fixtures.js";
 import {
   startPipelinesApplication,
@@ -102,7 +103,8 @@ function asPlainStage({ routes: _routes, place: _place, ...stage }: Stage): Stag
   return stage;
 }
 
-const always = (to: string | null): Route => ({ to, condition: null });
+/** A route on, with no condition, as an answer gives it: with No limit. */
+const always = (to: string | null): DomainRoute => ({ to, condition: null, limit: null });
 
 /** "Run Review only when Tests changed files or ended Failed, otherwise Publish." */
 const REVIEW_WHEN_TESTS_CHANGED_OR_FAILED: Route[] = [
@@ -115,6 +117,7 @@ const REVIEW_WHEN_TESTS_CHANGED_OR_FAILED: Route[] = [
         { kind: "stage", stage: null, is: "failed" },
       ],
     },
+    limit: null,
   },
   always("publish"),
 ];
@@ -158,7 +161,7 @@ describe("propose_library_pipeline", () => {
     ]);
     expect(change.to[1]?.routes).toEqual([
       { ...REVIEW_WHEN_TESTS_CHANGED_OR_FAILED[0], toName: "Review" },
-      { to: "publish", toName: "Publish", condition: null },
+      { to: "publish", toName: "Publish", condition: null, limit: null },
     ]);
     expect(change.routes.stages).toEqual([
       { stageKey: "tests", stageName: "Tests", from: [always(null)], to: change.to[1]?.routes },
@@ -166,7 +169,7 @@ describe("propose_library_pipeline", () => {
         stageKey: "review",
         stageName: "Review",
         from: [],
-        to: [{ to: "publish", toName: "Publish", condition: null }],
+        to: [{ to: "publish", toName: "Publish", condition: null, limit: null }],
       },
       { stageKey: "publish", stageName: "Publish", from: [], to: [always(null)] },
     ]);
@@ -203,6 +206,7 @@ describe("propose_library_pipeline", () => {
     const whileNotMet: Route = {
       to: "publish",
       condition: { combine: "all", tests: [{ kind: "definitionOfDone", is: "some-not-met" }] },
+      limit: null,
     };
     const stages = reviewOnlyWhenNeeded(base).map((stage) =>
       stage.key === "review" ? { ...stage, routes: [whileNotMet] } : stage,
@@ -226,6 +230,115 @@ describe("propose_library_pipeline", () => {
     expect((await readPipeline(base.id)).stages[2]?.routes).toEqual([
       { ...whileNotMet, toName: "Publish" },
     ]);
+  });
+
+  it("drafts routes back, a limit left out taking at most 3 times; applied, it saves them", async () => {
+    const base = await anOfficeWidePipeline();
+    const drafted = draftedFrom();
+    const [implement, tests] = base.stages.map(asPlainStage);
+    if (!implement || !tests) throw new Error("The base Pipeline has Implement and Tests.");
+    const againWhenUnchanged: Route = {
+      to: "implement",
+      condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "unchanged" }] },
+    };
+    const stages: Stage[] = [
+      { ...implement, routes: [againWhenUnchanged, always("tests")] },
+      {
+        ...tests,
+        routes: [{ to: "implement", condition: ENDED_FAILED, limit: 2 }, always(null)],
+      },
+    ];
+
+    const answer = await propose(PROPOSE_LIBRARY_PIPELINE_TOOL, { pipeline: base.id, stages });
+
+    expect(answer.isError).toBe(false);
+    expect(answer.text).toContain(
+      "- Tests: was to End always; now to Implement when the previous Stage ended Failed, at most 2 times, otherwise to End always.",
+    );
+    const [change] = drafted();
+    if (change?.kind !== "pipeline") throw new Error("A Proposal of the library Pipeline.");
+    expect(change.to.map(({ routes }) => routes?.map(({ limit }) => limit))).toEqual([
+      [3, null],
+      [2, null],
+    ]);
+    await apply(change);
+    expect((await readPipeline(base.id)).stages.map(({ routes }) => routes)).toEqual(
+      change.to.map(({ routes }) => routes),
+    );
+  });
+
+  it("refuses a loop with no route with a limit, naming its Stages, and drafts nothing", async () => {
+    const base = await anOfficeWidePipeline();
+    const drafted = draftedFrom();
+    const [implement, tests] = base.stages.map(asPlainStage);
+    if (!implement || !tests) throw new Error("The base Pipeline has Implement and Tests.");
+    const stages: Stage[] = [
+      { ...implement, routes: [always("tests")] },
+      {
+        ...tests,
+        routes: [{ to: "implement", condition: ENDED_FAILED, limit: null }, always(null)],
+      },
+    ];
+
+    const answer = await propose(PROPOSE_LIBRARY_PIPELINE_TOOL, { pipeline: base.id, stages });
+
+    expect(answer).toEqual({
+      text: expect.stringContaining(
+        "- Stage 2 · Tests: the loop Tests → Implement → Tests has no route with a limit, so it could run for ever.",
+      ),
+      isError: true,
+    });
+    expect(drafted()).toEqual([]);
+  });
+
+  it("shows and applies a Proposal kept with an on-failure setting as its failure route back placed first, every route with its limit", async () => {
+    const base = await anOfficeWidePipeline();
+    // As a previous release kept it: routes without limits, and Tests going back on failure.
+    const from = base.stages.map(({ routes, ...stage }) => ({
+      ...stage,
+      routes: routes?.map(({ limit: _limit, ...route }) => route),
+    }));
+    const to = from.map((stage) =>
+      stage.key === "tests" ? { ...stage, onFailure: { goBackTo: "implement", rounds: 2 } } : stage,
+    );
+    const kept: KeptChange = {
+      kind: "pipeline",
+      pipelineId: base.id,
+      from,
+      to,
+      routes: { stages: [], check: [] },
+    };
+    const failureRoute: DomainRoute = {
+      to: "implement",
+      toName: "Implement",
+      condition: ENDED_FAILED,
+      limit: 2,
+    };
+
+    const shown = pipelines.app.get(ProposalAppliers).shown(kept);
+    await apply(kept);
+
+    if (shown.kind !== "pipeline") throw new Error("A Proposal of the library Pipeline.");
+    expect(shown.to).toEqual([
+      expect.objectContaining({
+        key: "implement",
+        routes: [always("tests")],
+      }),
+      expect.objectContaining({ key: "tests", routes: [failureRoute, always(null)] }),
+    ]);
+    expect(shown.to[1]).not.toHaveProperty("onFailure");
+    expect(shown.routes).toEqual({
+      stages: [
+        {
+          stageKey: "tests",
+          stageName: "Tests",
+          from: [always(null)],
+          to: [failureRoute, always(null)],
+        },
+      ],
+      check: [],
+    });
+    expect((await readPipeline(base.id)).stages[1]?.routes).toEqual([failureRoute, always(null)]);
   });
 
   it("applies a Proposal still open from before flows, holding plain lists, as its straight line", async () => {
@@ -269,6 +382,7 @@ describe("propose_project_pipeline", () => {
     {
       to: "linux",
       condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "changed" }] },
+      limit: null,
     },
     always(null),
   ];

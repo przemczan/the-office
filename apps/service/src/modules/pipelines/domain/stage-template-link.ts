@@ -13,8 +13,8 @@ export const WHO_FIELD = "who";
 
 /**
  * Fields a template never gives: those naming the Stage within its Pipeline, its place and routes,
- * which belong to the Pipeline, the loop target, which names another Stage, the rollback's
- * `optional`, the link itself, and the kind, which a link never crosses.
+ * which belong to the Pipeline, the rollback's `optional`, the link itself, and the kind, which a
+ * link never crosses.
  */
 const PIPELINE_FIELDS: ReadonlySet<string> = new Set([
   "kind",
@@ -23,7 +23,6 @@ const PIPELINE_FIELDS: ReadonlySet<string> = new Set([
   "place",
   "routes",
   "optional",
-  "onFailure",
   "templateId",
 ]);
 

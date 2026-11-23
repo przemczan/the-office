@@ -3,6 +3,7 @@ import { Badge, Icon } from "@the-office/ui";
 import type { CSSProperties, KeyboardEvent, PointerEvent, ReactNode } from "react";
 import { STAGE_KIND_ICONS } from "../stage-edits.ts";
 import type { FlowGridCell } from "./flow-layout.ts";
+import { isRouteBack } from "./flow-model.ts";
 import { FlowLock } from "./flow-locked.tsx";
 import type { FlowStageMark } from "./flow-marks.ts";
 import type { FlowPick } from "./flow-pick.ts";
@@ -165,7 +166,7 @@ function RouteRows({
   return (
     <div className="flow-canvas-routes">
       {(stage.routes ?? []).map((route, index) => {
-        const { target, when } = routeLine(stage, route, index, stages);
+        const { target, when, mark } = routeLine(stage, route, index, stages);
         const rowClass = [
           "flow-canvas-route-row",
           isPickedRoute(picked, stage.key, index) && "flow-canvas-route-row--picked",
@@ -181,15 +182,19 @@ function RouteRows({
               className={rowClass}
               aria-label={routeName(stage, route, stages)}
               aria-current={isPickedRoute(picked, stage.key, index) ? "true" : undefined}
-              title={`${target} ${when}`}
+              title={`${target} ${when}${mark === "" ? "" : ` ${mark}`}`}
               data-flow-route={`${stage.key}:${index}`}
               onClick={() => onPick({ kind: "route", key: stage.key, routeIndex: index })}
             >
               <span className="flow-canvas-route-words">
                 <b>{target}</b> {when}
               </span>
+              {mark !== "" && <span className="flow-canvas-limit-mark-inline">{mark}</span>}
             </button>
-            <span className="flow-canvas-port" aria-hidden="true" />
+            {/* A route back leaves its card's top edge for its lane, so its row has no port. */}
+            {!isRouteBack(stages, stage.key, route.to) && (
+              <span className="flow-canvas-port" aria-hidden="true" />
+            )}
           </div>
         );
       })}

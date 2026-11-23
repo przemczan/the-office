@@ -14,6 +14,7 @@ import {
   runOfHandoverNote,
   runResultText,
   runThreadClosedWords,
+  routeFollowedWords,
   runTimeWords,
   stageHistoryLine,
 } from "./stage-history-words.ts";
@@ -35,7 +36,14 @@ const tests: Stage = {
   name: "Tests",
   optional: true,
   command: "test",
-  onFailure: { goBackTo: "implement", rounds: 3 },
+  routes: [
+    {
+      to: "implement",
+      condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "failed" }] },
+      limit: 3,
+    },
+    { to: null, condition: null, limit: null },
+  ],
 };
 const look: Stage = { kind: "gate", key: "look", name: "UI acceptance", optional: false };
 const names = stageNamesOf([implement, tests, look]);
@@ -56,6 +64,7 @@ function aRun(fields: Partial<StageRun> = {}): StageRun {
     tokens: NO_TOKENS,
     context: null,
     carriedFailure: null,
+    route: null,
     sentBack: null,
     gateAction: null,
     commandRuns: [],
@@ -99,7 +108,7 @@ describe("stageHistoryLine", () => {
 
   it("says a Script Stage's command and rule", () => {
     expect(stageHistoryLine(aTaskStage(tests), roles, names)).toBe(
-      "Project command · test · on failure back to Implement, at most 3×",
+      "Project command · test · when it fails, goes to Implement, at most 3×",
     );
   });
 
@@ -357,6 +366,21 @@ describe("a run's other words", () => {
     expect(carriedFailureWords({ stageKey: "tests", round: 1, rounds: 3 }, names)).toBe(
       "Briefed with what failed in Tests, round 1 of 3",
     );
+  });
+
+  it("names the route the walk left the run by, with its count", () => {
+    const placed = [
+      { ...implement, place: { column: 0, row: 0 } },
+      { ...tests, place: { column: 1, row: 0 } },
+      { ...look, place: { column: 2, row: 0 } },
+    ];
+    const left = (to: string | null, times: number, limit: number | null) =>
+      routeFollowedWords({ to, times, limit }, "tests", placed, names);
+    expect(left("implement", 2, 3)).toBe("Went back to Implement (2 of at most 3)");
+    expect(left("tests", 1, null)).toBe("Went back to Tests (1 time)");
+    expect(left("look", 1, null)).toBe("Went on to UI acceptance");
+    expect(left("look", 1, 2)).toBe("Went on to UI acceptance (1 of at most 2)");
+    expect(left(null, 1, null)).toBe("Went to End");
   });
 
   it("says what the user did at the Gate", () => {

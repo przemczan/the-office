@@ -5,13 +5,16 @@ import {
   canDropAt,
   canMoveRoute,
   canMoveStage,
-  earlierStages,
-  flowFailureTargets,
+  FAILED_CONDITION,
+  formsToAdd,
+  isRouteBack,
   laterStages,
   routesMoved,
   stepInOrder,
+  withRouteAdded,
   withRouteCondition,
   withRouteDrawn,
+  withRouteLimit,
   withRouteMoved,
   withRouteRemoved,
   withRouteTarget,
@@ -30,7 +33,6 @@ const tests: Stage = {
   name: "Tests",
   optional: false,
   command: "test",
-  onFailure: { goBackTo: "plan", rounds: 3 },
 };
 const review: Stage = { kind: "gate", key: "review", name: "Review", optional: false };
 const publish: Stage = {
@@ -39,7 +41,6 @@ const publish: Stage = {
   name: "Publish",
   optional: false,
   command: "publish",
-  onFailure: { goBackTo: "tests", rounds: 2 },
 };
 const gate: Stage = { kind: "gate", key: "", name: "Gate", optional: false };
 const changed: ConditionGroup = {
@@ -61,9 +62,9 @@ describe("a flow", () => {
       ["publish", 2, 0],
     ]);
     expect(line.map(({ routes }) => routes)).toEqual([
-      [{ to: "tests", condition: null }],
-      [{ to: "publish", condition: null }],
-      [{ to: null, condition: null }],
+      [{ to: "tests", condition: null, limit: null }],
+      [{ to: "publish", condition: null, limit: null }],
+      [{ to: null, condition: null, limit: null }],
     ]);
     expect(isConvertedFlow(line)).toBe(true);
   });
@@ -78,7 +79,7 @@ describe("a flow", () => {
       ["review", 1, 0],
     ]);
     expect(flow[0]?.routes).toEqual([{ to: "review", condition: changed }]);
-    expect(flow[1]?.routes).toEqual([{ to: null, condition: null }]);
+    expect(flow[1]?.routes).toEqual([{ to: null, condition: null, limit: null }]);
     expect(isConvertedFlow(flow)).toBe(false);
   });
 
@@ -86,12 +87,20 @@ describe("a flow", () => {
     expect(isConvertedFlow(withStageMoved(line, "tests", "down"))).toBe(false);
   });
 
-  it("says which Stages come earlier and later by column, and where a failure may go back", () => {
+  it("says which Stages come later by column", () => {
     const flow = withStageDropped(line, "publish", { column: 1, row: 1, newColumn: false });
-    expect(earlierStages(flow, "tests").map(({ key }) => key)).toEqual(["plan"]);
     expect(laterStages(flow, "plan").map(({ key }) => key)).toEqual(["tests", "publish"]);
     expect(laterStages(flow, "tests")).toEqual([]);
-    expect(flowFailureTargets(line, "publish").map(({ key }) => key)).toEqual(["tests"]);
+  });
+
+  it("says a route leads back to its own Stage or one before it in the Pipeline's order", () => {
+    const flow = withStageDropped(line, "publish", { column: 1, row: 1, newColumn: false });
+    expect(isRouteBack(flow, "tests", "tests")).toBe(true);
+    expect(isRouteBack(flow, "tests", "plan")).toBe(true);
+    // A row below in the same column comes later in the order; one above comes before.
+    expect(isRouteBack(flow, "tests", "publish")).toBe(false);
+    expect(isRouteBack(flow, "publish", "tests")).toBe(true);
+    expect(isRouteBack(flow, "publish", null)).toBe(false);
   });
 });
 
@@ -179,8 +188,8 @@ describe("drawing a route", () => {
     const drawn = withRouteDrawn(line, "plan", "publish");
     expect(drawn.routeIndex).toBe(0);
     expect(routesOf(drawn.stages, "plan")).toEqual([
-      { to: "publish", condition: { combine: "all", tests: [] } },
-      { to: "tests", condition: null },
+      { to: "publish", condition: { combine: "all", tests: [] }, limit: null },
+      { to: "tests", condition: null, limit: null },
     ]);
   });
 
@@ -189,15 +198,75 @@ describe("drawing a route", () => {
     expect(drawn).toEqual({ stages: line, routeIndex: 0 });
   });
 
-  it("needs no condition as a Stage's first route, and draws one leading back too", () => {
+  it("needs no condition as a Stage's first route, and draws a route back at most 3 times", () => {
     const added = withStageAdded(line, gate, "tests");
     expect(
       withRouteDrawn(added.stages, "gate", null).stages.find(({ key }) => key === "gate"),
-    ).toMatchObject({ routes: [{ to: null, condition: null }] });
+    ).toMatchObject({ routes: [{ to: null, condition: null, limit: null }] });
     expect(routesOf(withRouteDrawn(line, "publish", "plan").stages, "publish")).toEqual([
-      { to: "plan", condition: { combine: "all", tests: [] } },
-      { to: null, condition: null },
+      { to: "plan", condition: { combine: "all", tests: [] }, limit: 3 },
+      { to: null, condition: null, limit: null },
     ]);
+    // To its own Stage too.
+    expect(routesOf(withRouteDrawn(line, "tests", "tests").stages, "tests")?.[0]).toEqual({
+      to: "tests",
+      condition: { combine: "all", tests: [] },
+      limit: 3,
+    });
+  });
+});
+
+describe("adding a route by its form", () => {
+  const agent: Stage = {
+    kind: "agent",
+    key: "implement",
+    name: "Implement",
+    optional: false,
+    brief: "",
+    session: "fresh",
+    budget: 1000,
+  };
+  const flow = asFlow([agent, plan]);
+
+  it("offers When it fails on an Agent Stage, and Otherwise, only while it has none", () => {
+    expect(formsToAdd(flow[0]!)).toEqual(["fails", "holds"]);
+    expect(formsToAdd(flow[1]!)).toEqual(["holds"]);
+    const failing = withRouteAdded(flow, "implement", "fails").stages;
+    expect(formsToAdd(failing[0]!)).toEqual(["holds"]);
+    expect(formsToAdd(withRouteRemoved(flow, "plan", 0)[1]!)).toEqual(["holds", "otherwise"]);
+  });
+
+  it("puts When it fails first, When these hold before Otherwise and Otherwise last", () => {
+    const failing = withRouteAdded(flow, "implement", "fails");
+    expect(failing.routeIndex).toBe(0);
+    expect(routesOf(failing.stages, "implement")).toEqual([
+      { to: null, condition: FAILED_CONDITION, limit: null },
+      { to: "plan", condition: null, limit: null },
+    ]);
+    const holding = withRouteAdded(failing.stages, "implement", "holds");
+    expect(holding.routeIndex).toBe(1);
+    expect(routesOf(holding.stages, "implement")?.[1]).toEqual({
+      to: null,
+      condition: { combine: "all", tests: [] },
+      limit: null,
+    });
+    const bare = withRouteRemoved(flow, "plan", 0);
+    expect(routesOf(withRouteAdded(bare, "plan", "otherwise").stages, "plan")).toEqual([
+      { to: null, condition: null, limit: null },
+    ]);
+  });
+
+  it("never moves a row above When it fails or below Otherwise", () => {
+    const three = withRouteAdded(
+      withRouteAdded(flow, "implement", "fails").stages,
+      "implement",
+      "holds",
+    ).stages;
+    expect(canMoveRoute(three, "implement", 1, -1)).toBe(false);
+    expect(canMoveRoute(three, "implement", 1, 1)).toBe(false);
+    expect(canMoveRoute(three, "implement", 0, 1)).toBe(false);
+    const four = withRouteAdded(three, "implement", "holds").stages;
+    expect(canMoveRoute(four, "implement", 1, 1)).toBe(true);
   });
 });
 
@@ -207,33 +276,57 @@ const two = withRouteCondition(withRouteDrawn(line, "plan", "publish").stages, "
 describe("editing routes", () => {
   it("removes a route", () => {
     expect(routesOf(withRouteRemoved(two, "plan", 0), "plan")).toEqual([
-      { to: "tests", condition: null },
+      { to: "tests", condition: null, limit: null },
     ]);
   });
 
-  it("reorders routes within their bounds", () => {
-    expect(canMoveRoute(two, "plan", 0, 1)).toBe(true);
-    expect(canMoveRoute(two, "plan", 1, 1)).toBe(false);
-    expect(routesOf(withRouteMoved(two, "plan", 0, 1), "plan")).toEqual([
-      { to: "tests", condition: null },
-      { to: "publish", condition: changed },
+  it("reorders routes within their bounds, Otherwise staying last", () => {
+    const three = withRouteCondition(withRouteDrawn(two, "plan", null).stages, "plan", 1, changed);
+    expect(canMoveRoute(three, "plan", 0, 1)).toBe(true);
+    expect(canMoveRoute(three, "plan", 1, 1)).toBe(false);
+    expect(canMoveRoute(three, "plan", 2, -1)).toBe(false);
+    expect(routesOf(withRouteMoved(three, "plan", 0, 1), "plan")?.map(({ to }) => to)).toEqual([
+      null,
+      "publish",
+      "tests",
     ]);
     const routes = routesOf(two, "plan") ?? [];
     expect(routesMoved(routes, 0, -1)).toBe(routes);
   });
 
-  it("leads a route elsewhere, its saved name gone", () => {
+  it("leads a route elsewhere, its saved name gone and its limit kept while it leads the same way", () => {
     const named = withRouteTarget(
       line.with(0, {
         ...plan,
         place: { column: 0, row: 0 },
-        routes: [{ to: "tests", toName: "Tests", condition: null }],
+        routes: [{ to: "tests", toName: "Tests", condition: null, limit: 2 }],
       }),
       "plan",
       0,
       null,
     );
-    expect(routesOf(named, "plan")).toEqual([{ to: null, condition: null }]);
+    expect(routesOf(named, "plan")).toEqual([{ to: null, condition: null, limit: 2 }]);
+  });
+
+  it("gives a route turned back 3 times, and one turned on No limit", () => {
+    const back = withRouteTarget(line, "publish", 0, "plan");
+    expect(routesOf(back, "publish")).toEqual([{ to: "plan", condition: null, limit: 3 }]);
+    const limited = withRouteLimit(back, "publish", 0, 5);
+    expect(routesOf(limited, "publish")).toEqual([{ to: "plan", condition: null, limit: 5 }]);
+    expect(routesOf(withRouteTarget(limited, "publish", 0, "tests"), "publish")?.[0]?.limit).toBe(
+      5,
+    );
+    expect(
+      routesOf(withRouteTarget(limited, "publish", 0, null), "publish")?.[0]?.limit,
+    ).toBeNull();
+    expect(routesOf(withRouteLimit(back, "publish", 0, null), "publish")?.[0]?.limit).toBeNull();
+  });
+
+  it("keeps every limit as a Stage moves, a route back turning into one on", () => {
+    const back = withRouteDrawn(line, "publish", "plan").stages;
+    const moved = withStageMoved(back, "publish", "earlier");
+    expect(routesOf(moved, "publish")).toEqual(routesOf(back, "publish"));
+    expect(isRouteBack(moved, "publish", "tests")).toBe(false);
   });
 });
 
@@ -248,10 +341,19 @@ describe("a Stage on a route", () => {
       ["publish", 3, 0],
     ]);
     expect(routesOf(added.stages, "plan")).toEqual([
-      { to: "gate", condition: changed },
-      { to: "tests", condition: null },
+      { to: "gate", condition: changed, limit: null },
+      { to: "tests", condition: null, limit: null },
     ]);
-    expect(routesOf(added.stages, "gate")).toEqual([{ to: "publish", condition: null }]);
+    expect(routesOf(added.stages, "gate")).toEqual([
+      { to: "publish", condition: null, limit: null },
+    ]);
+  });
+
+  it("on a route back keeps its limit, and leads back from the new Stage at most 3 times", () => {
+    const back = withRouteLimit(withRouteDrawn(line, "publish", "tests").stages, "publish", 0, 2);
+    const added = withStageOnRoute(back, "publish", 0, gate);
+    expect(routesOf(added.stages, "publish")?.[0]).toMatchObject({ to: "gate", limit: 2 });
+    expect(routesOf(added.stages, "gate")).toEqual([{ to: "tests", condition: null, limit: 3 }]);
   });
 
   it("changes nothing on a route that isn't there", () => {
@@ -260,17 +362,16 @@ describe("a Stage on a route", () => {
 });
 
 describe("removing a Stage", () => {
-  it("leads each route into it where its one route out led, and clears loops back to it", () => {
+  it("leads each route into it where its one route out led", () => {
     const removed = withStageRemovedFromFlow(line, "tests");
-    expect(routesOf(removed, "plan")).toEqual([{ to: "publish", condition: null }]);
-    expect(removed.find(({ key }) => key === "publish")).toMatchObject({ onFailure: undefined });
+    expect(routesOf(removed, "plan")).toEqual([{ to: "publish", condition: null, limit: null }]);
     expect(isConvertedFlow(removed)).toBe(true);
   });
 
   it("drops a route made needless by the one after it", () => {
     const flow = withRouteDrawn(line, "plan", "publish").stages;
     expect(routesOf(withStageRemovedFromFlow(flow, "tests"), "plan")).toEqual([
-      { to: "publish", condition: null },
+      { to: "publish", condition: null, limit: null },
     ]);
   });
 

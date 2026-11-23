@@ -32,6 +32,7 @@ import {
   GateDropped,
   GateReached,
   NoRetriesLeft,
+  RouteLimitReached,
   SentBackFromGate,
   StandInChoicesChanged,
 } from "../../pipelines/index.js";
@@ -280,6 +281,17 @@ export class NotificationService implements OnModuleInit {
       if (putTo !== undefined) return;
       const stage = await this.stageOf(taskId, stageKey);
       await this.raiseFailure(taskId, { kind: "no-retries-left", stageName: stage.name });
+    });
+    this.events.subscribe(RouteLimitReached, async ({ taskId, stageKey, toStageKey, putTo }) => {
+      // As a failure with no retries left: put to a Consultant first, it reaches the user later.
+      if (putTo !== undefined) return;
+      const stage = await this.stageOf(taskId, stageKey);
+      const to = toStageKey === null ? undefined : await this.stageOf(taskId, toStageKey);
+      await this.raiseFailure(taskId, {
+        kind: "route-limit",
+        stageName: stage.name,
+        ...(to && { toName: to.name }),
+      });
     });
     this.events.subscribe(DefinitionOfDoneNotMet, ({ taskId }) =>
       this.raiseFailure(taskId, { kind: "definition-of-done" }),

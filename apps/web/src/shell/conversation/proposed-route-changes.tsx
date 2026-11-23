@@ -1,7 +1,7 @@
 import type { ProposedRoutes, Route, Stage } from "@the-office/contracts";
 import { Icon } from "@the-office/ui";
 import { useMemo, type ReactNode } from "react";
-import { routeTargetName } from "../pipelines/flow/condition-words.ts";
+import { atMostWords, limitMark, routeTargetName } from "../pipelines/flow/condition-words.ts";
 import { FlowCanvas } from "../pipelines/flow/flow-canvas.tsx";
 import { FlowViewport } from "../pipelines/flow/flow-viewport.tsx";
 import {
@@ -14,7 +14,8 @@ import {
 
 /**
  * A Proposal's route changes (docs/design/pipeline-flow.html): for each Stage whose
- * routes change, new and removed Stages too, its routes out as they were and as proposed.
+ * routes change, new and removed Stages too, its routes out as they were and as proposed, each with
+ * its limit's mark (≤N×, none for No limit).
  */
 export function ProposedRouteChanges({
   routes,
@@ -85,6 +86,11 @@ function RouteSide({
               <span className="proposal-route-when">
                 {routeWhenAfterTarget(route, from, stages, index)}
               </span>
+              {route.limit !== null && route.limit !== undefined && (
+                <span className="proposal-route-limit" title={atMostWords(route.limit)}>
+                  {limitMark(route.limit)}
+                </span>
+              )}
             </li>
           ))}
         </ol>
@@ -135,7 +141,7 @@ export function ProposedFlow({
       </FlowViewport>
       <p className="proposal-checked">
         <Icon name="check" size={12} />
-        <span>{checkedSentence(stages)}</span>
+        <span>{checkedSentence()}</span>
       </p>
       {routes.check.map(({ stageKey, text }) => (
         <p key={`${stageKey}:${text}`} className="proposal-checked proposal-checked--warning">

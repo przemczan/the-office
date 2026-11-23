@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import { PipelineLibraryEditor } from "../../application/pipeline-library-editor.js";
 import { StageTemplateLibraryEditor } from "../../application/stage-template-library-editor.js";
+import type { KeptStage } from "../../domain/routes-back.js";
 import type { Stage } from "../../domain/stage.js";
 import {
   aDoneResult,
@@ -14,7 +15,8 @@ import {
 } from "../../pipelines-application.fixtures.js";
 import { aCommandRun } from "../../ports/pipelines-ports.fixtures.js";
 
-const tests: Stage = {
+/** Tests going back to Implement on failure, as a previous release kept the setting. */
+const tests: KeptStage = {
   kind: "script",
   key: "tests",
   name: "Tests",

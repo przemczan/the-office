@@ -10,7 +10,9 @@ import {
 import {
   type LockedStages,
   NOTHING_LOCKED,
+  type RouteForm,
   stageNamed,
+  withRouteAdded,
   withRouteDrawn,
   withRouteRemoved,
   withStageAdded,
@@ -69,6 +71,16 @@ export function routeDrawn(
     stages: drawn.stages,
     pick: { kind: "route", key: fromKey, routeIndex: drawn.routeIndex },
     hint: drawnHint(from, to, stages),
+  };
+}
+
+/** A row of `form` added to Routes out (Add a route), picked so its target and condition are set. */
+export function routeAdded(stages: readonly Stage[], fromKey: string, form: RouteForm): FlowEdited {
+  const added = withRouteAdded(stages, fromKey, form);
+  if (added.routeIndex < 0) return { stages };
+  return {
+    stages: added.stages,
+    pick: { kind: "route", key: fromKey, routeIndex: added.routeIndex },
   };
 }
 

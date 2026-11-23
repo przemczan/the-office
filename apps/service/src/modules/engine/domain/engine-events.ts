@@ -96,6 +96,25 @@ export class EngineAccountChanged extends DomainEvent {
 }
 
 /**
+ * An engine's Window start settings were saved (spec §5.4.6), so its next start is worked out again.
+ */
+export class WindowStartSettingsChanged extends DomainEvent {
+  constructor(readonly engineId: EngineId) {
+    super();
+  }
+}
+
+/**
+ * An engine's Window start changed as the user sees it (spec §5.4.6): its settings were saved, a
+ * start, skip or failure was recorded, or its next start moved.
+ */
+export class WindowStartRecorded extends DomainEvent {
+  constructor(readonly engineId: EngineId) {
+    super();
+  }
+}
+
+/**
  * A session's Agent, or one of its subagents, called the Skill tool, on any engine, so its owner
  * can count a Skill use (spec §2.6). `skill` is as the call names it, without a leading `/`.
  */

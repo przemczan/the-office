@@ -22,6 +22,7 @@ import {
   SessionSkillsDiffer,
   type EngineCapabilities,
   type NewSession,
+  type UsageWindowStart,
 } from "../../ports/agent-engine.js";
 import type { EngineSession } from "../../ports/engine-session.js";
 import type { SessionOptions } from "../../ports/session-options.js";
@@ -47,6 +48,8 @@ import { CodexAppServer, CodexRpcError, METHOD_NOT_FOUND, type CodexWireTap } fr
 import { codexEffort, CodexSession, type CodexConnect } from "./codex-session.js";
 import { CodexThreadFile } from "./codex-thread-file.js";
 import { codexUsageWindows, codexWindowsOf } from "./codex-usage-windows.js";
+import { startCodexUsageWindow } from "./codex-usage-window-start.js";
+import { WINDOW_START_PROMPT, windowStartWhat } from "../claude-code/usage-window-start.js";
 import { SessionMcpEndpoint } from "./session-mcp-endpoint.js";
 
 /**
@@ -63,6 +66,7 @@ export const CODEX_CAPABILITIES: EngineCapabilities = {
   outputSchema: true,
   languageServers: false,
   carrySession: false,
+  startsUsageWindow: true,
 };
 
 /** One app-server process of a session, as a recording names its places. */
@@ -180,6 +184,44 @@ export class CodexAppServerEngine extends AgentEngine {
       },
       async () => {
         await server?.kill();
+      },
+    );
+  }
+
+  /**
+   * On an app-server started for the start alone, on the engine's folder: one turn on an ephemeral
+   * thread, so no thread is left behind (`startCodexUsageWindow`).
+   */
+  override async startUsageWindow(engine: Engine, signal: AbortSignal): Promise<UsageWindowStart> {
+    this.require("startsUsageWindow");
+    if (engine.kind !== "codex" || !hasUsageWindows(engine)) {
+      throw new Error(`The engine ${engine.id} has no usage windows to start.`);
+    }
+    const codexHome =
+      this.setup.codexHome ?? (await preparedEngineConfigFolder(this.officeData, engine.id));
+    return startCodexUsageWindow(
+      {
+        command: {
+          command:
+            this.setup.appServer?.command ?? pinnedCodexPath(this.operatingSystem.codexBinary),
+          args: [...(this.setup.appServer?.args ?? []), ...codexAppServerArguments()],
+          cwd: codexHome,
+          env: codexEnvironment(serviceVariables(), codexHome),
+        },
+        processTrees: this.operatingSystem.processTrees,
+        wire: this.setup.wire?.({
+          sessionId: "window-start",
+          folder: codexHome,
+          codexHome,
+          temporaryFolder: codexHome,
+          officeData: this.officeData.path,
+        }),
+      },
+      WINDOW_START_PROMPT,
+      {
+        what: windowStartWhat(engine),
+        signal,
+        timeoutMs: this.setup.readTimeoutMs,
       },
     );
   }

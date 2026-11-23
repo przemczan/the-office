@@ -4,6 +4,7 @@ import { fallbackForegroundSubAgentsCheck } from "../engine/foreground-sub-agent
 import { fallbackLongOfficeToolCheck } from "../engine/long-office-tool.ts";
 import { fallbackSessionCarryOverCheck } from "../engine/session-carry-over.ts";
 import { fallbackUsageWindowRefusalCheck } from "../engine/usage-window-refusal.ts";
+import { fallbackWindowStartCheck } from "../engine/window-start.ts";
 import { fallbackHookUnreachableCheck } from "./hook-unreachable.ts";
 import { fallbackInterruptCheck } from "./interrupt.ts";
 import { fallbackPriorityLaterCheck, fallbackPriorityNextCheck } from "./message-priority.ts";
@@ -20,6 +21,7 @@ export const fallbackChecks: readonly Check[] = [
   fallbackOutputSchemaCheck,
   fallbackUsageWindowRefusalCheck,
   fallbackSessionCarryOverCheck,
+  fallbackWindowStartCheck,
   fallbackInterruptCheck,
   fallbackPriorityNextCheck,
   fallbackOfficeToolBargeInCheck,

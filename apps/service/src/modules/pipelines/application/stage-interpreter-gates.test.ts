@@ -3,6 +3,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { TaskResumed } from "../../work/index.js";
 import { GateRefused } from "../domain/gate-refused.js";
 import type { Stage } from "../domain/stage.js";
+import { goingBackOnFailure } from "../domain/stage.fixtures.js";
 import {
   GateContinued,
   GateDropped,
@@ -32,14 +33,11 @@ const agentDone = anAgentSession(aDoneResult());
 const FEEDBACK = "The button is too small to tap.";
 
 const draft = anAgentStage("draft");
-const measure: Stage = {
-  kind: "script",
-  key: "measure",
-  name: "Measure",
-  optional: false,
-  command: "test",
-  onFailure: { goBackTo: "draft", rounds: 1 },
-};
+const measure: Stage = goingBackOnFailure(
+  { kind: "script", key: "measure", name: "Measure", optional: false, command: "test" },
+  "draft",
+  1,
+);
 const look: Stage = { kind: "gate", key: "look", name: "Look", optional: false };
 const ship: Stage = {
   kind: "script",

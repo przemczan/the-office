@@ -405,7 +405,7 @@ export const STAGE_RUNS_AGAIN = promptTemplate({
   domain: "pipelines",
   name: "Stage runs again",
   description:
-    "The part of a Stage's message that says why it runs again: a later Stage's loop went back to it, or one more round was chosen, with the guidance given.",
+    "The part of a Stage's message that says why it runs again: a later Stage's failure route went back to it, or one more round was chosen, with the guidance given.",
   variables: {
     sameStage: {
       kind: "flag",
@@ -419,9 +419,16 @@ export const STAGE_RUNS_AGAIN = promptTemplate({
       kind: "text",
       description: 'The Consultant who chose the round, such as "Bob (Architect)".',
     },
-    stageName: { kind: "text", description: "The later Stage that failed, whose loop went back." },
-    round: { kind: "text", description: "Which time the loop goes back, from 1." },
-    rounds: { kind: "text", description: "How many times the loop may go back." },
+    stageName: {
+      kind: "text",
+      description: "The later Stage that failed, whose failure route went back.",
+    },
+    round: { kind: "text", description: "Which time the route goes back, from 1." },
+    limited: { kind: "flag", description: "The route has a limit; with No limit it has none." },
+    rounds: {
+      kind: "text",
+      description: "How many times the route may go back, its limit; empty with No limit.",
+    },
     error: { kind: "text", description: "The failure the round goes back with." },
     hasGuidance: { kind: "flag", description: "Guidance was given for this round." },
     guidance: { kind: "text", description: "What to do differently this round." },
@@ -432,7 +439,7 @@ export const STAGE_RUNS_AGAIN = promptTemplate({
 {{#hasGuide}}One more round of this Stage was chosen by {{guide}}{{/hasGuide}}{{^hasGuide}}The user chose one more round of this Stage{{/hasGuide}} after:
 {{/sameStage}}
 {{^sameStage}}
-"{{stageName}}" failed after it, so the Pipeline went back here (round {{round}} of {{rounds}}):
+"{{stageName}}" failed after it, so the Pipeline went back here (round {{round}}{{#limited}} of at most {{rounds}}{{/limited}}):
 {{/sameStage}}
 
 {{error}}

@@ -47,14 +47,19 @@ describe("commandKeysNamedBy", () => {
               { combine: "all", tests: [{ kind: "command", key: "lint" }] },
             ],
           },
+          limit: null,
         },
-        { to: null, condition: { combine: "all", tests: [{ kind: "command", key: "lint" }] } },
+        {
+          to: null,
+          condition: { combine: "all", tests: [{ kind: "command", key: "lint" }] },
+          limit: null,
+        },
       ],
       place: { column: 0, row: 0 },
     });
     const full = {
       ...fullTests,
-      routes: [{ to: null, condition: null }],
+      routes: [{ to: null, condition: null, limit: null }],
       place: { column: 1, row: 0 },
     };
 

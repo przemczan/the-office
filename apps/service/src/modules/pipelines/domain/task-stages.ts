@@ -212,9 +212,10 @@ const ROUTES_OUT_LOCKED =
   "it has started, so its routes out stay as they are. To change where the walk goes, change the routes of a Stage that hasn't started.";
 
 /**
- * Where the routes out changed: on the first route that differs in where it leads or its
- * condition, on the Stage when one was added or removed; undefined when they are the same. The
- * Stages' names in routes are for their words alone and don't count.
+ * Where the routes out changed: on the first route that differs in where it leads, its condition
+ * or its limit, on the Stage when one was added or removed; undefined when they are the same. The
+ * Stages' names in routes are for their words alone and don't count. A kept on-failure setting was
+ * read as its failure route back on both sides (`asFlow`), so it is weighed as that route.
  */
 function changedRoutesAt(
   routes: readonly Route[],

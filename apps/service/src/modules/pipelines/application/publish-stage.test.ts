@@ -75,7 +75,7 @@ describe("A Publish Stage", () => {
     const file = await pipelines.app.get(StageRunsFiles, { strict: false }).write(taskId, {
       version: 1,
       task: { id: taskId, title: "", project: "" },
-      route: { from: "implement", to: null },
+      route: { from: "implement", to: null, times: 0, limit: null },
       definitionOfDone: [],
       stageRuns: [],
     });

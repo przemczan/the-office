@@ -3,41 +3,166 @@ import type { Route } from "./route.js";
 import type { Stage } from "./stage.js";
 import { type StageRunDecision } from "./stage-run.js";
 import { asksAConsultantFirst, walkAnswerOf, walkDecision } from "./walk-decisions.js";
-import { implement, tests, aRun, failed } from "./walk-decisions.fixtures.js";
+import { implement, tests, aRun, failed, usedUpRouteBack } from "./walk-decisions.fixtures.js";
+
+const toPublish: Route = { to: "publish", toName: "Publish", condition: null, limit: null };
 
 describe("walkDecision", () => {
-  it("offers a failed loop more rounds, its issues recorded, or dropping the Task", () => {
+  it("offers a used-up failure route once more, another route, its issues recorded, or dropping the Task", () => {
     const decision = walkDecision(aRun("tests", failed), {
       kind: "no-retries-left",
       stage: tests,
       error: "2 tests fail.",
+      atLimit: usedUpRouteBack,
+      others: [toPublish],
     });
 
     expect(decision).toMatchObject({
       kind: "no-retries-left",
       draft: {
-        question: '"Tests" failed, and its rounds are used up. What now?',
-        options: ["Allow 3 more rounds", "Continue with the issues recorded", "Drop the Task"],
+        question:
+          '"Tests" failed, and its failure route is used up: "Tests" has sent the work back to "Implement" 3 times, at most 3. What now?',
+        options: [
+          "Follow it once more",
+          "Go on to Publish",
+          "Continue with the issues recorded",
+          "Drop the Task",
+        ],
         recommendation: { option: 0 },
       },
-      options: [{ kind: "more-rounds", rounds: 3 }, { kind: "accept-issues" }, { kind: "drop" }],
+      options: [
+        { kind: "one-more-round", guidance: undefined, to: "implement" },
+        { kind: "follow-route", to: "publish" },
+        { kind: "accept-issues" },
+        { kind: "drop" },
+      ],
     });
     expect(decision.draft.context).toContain("2 tests fail.");
     expect(decision.draft.context).toContain("your answer guides one more round");
   });
 
-  it("offers a failed Stage without a loop one more round of its own", () => {
+  it("offers a failed Stage without a failure route one more round of its own", () => {
     const decision = walkDecision(aRun("implement", failed), {
       kind: "no-retries-left",
       stage: implement,
       error: "The session ended.",
+      atLimit: undefined,
+      others: [],
     });
 
     expect(decision.draft.question).toBe(
-      '"Implement" failed, with no round to go back to. What now?',
+      '"Implement" failed, with no failure route to follow. What now?',
     );
     expect(decision.draft.options[0]).toBe('Run "Implement" once more');
     expect(decision.options[0]).toEqual({ kind: "one-more-round", guidance: undefined });
+  });
+});
+
+/** A route-limit Decision answered with the route to `to` once more, by `guidedBy`'s words. */
+const allowed = (to: string, guidedBy?: string): StageRunDecision => ({
+  id: "decision-5",
+  kind: "route-limit",
+  options: [],
+  answer: {
+    kind: "one-more-round",
+    guidance: "Look again.",
+    to,
+    ...(guidedBy !== undefined && { guidedBy }),
+  },
+});
+
+describe("the route-limit Decision", () => {
+  const review: Stage = { ...implement, key: "review", name: "Review" };
+  const question = {
+    kind: "route-limit",
+    stage: review,
+    atLimit: { ...usedUpRouteBack, route: { ...usedUpRouteBack.route, condition: null } },
+    others: [toPublish],
+    note: "The name still doesn't persist.",
+  } as const;
+  const decision = walkDecision(aRun("review", { status: "done", summary: "Done." }), question);
+
+  it("names the route and its count, with the last run's note, and offers it once more, another route, or dropping the Task", () => {
+    expect(decision).toMatchObject({
+      kind: "route-limit",
+      draft: {
+        question: '"Review" has sent the work back to "Implement" 3 times, at most 3. What now?',
+        options: ["Follow it once more", "Go on to Publish", "Drop the Task"],
+        recommendation: { option: 0 },
+      },
+      options: [
+        { kind: "one-more-round", guidance: undefined, to: "implement" },
+        { kind: "follow-route", to: "publish" },
+        { kind: "drop" },
+      ],
+    });
+    expect(decision.draft.context).toContain("The name still doesn't persist.");
+  });
+
+  it("says a route on leads on, and counts once and twice in words", () => {
+    const on = walkDecision(aRun("review", { status: "done", summary: "Done." }), {
+      ...question,
+      atLimit: { route: toPublish, times: 2, limit: 2, back: false },
+      others: [],
+    });
+
+    expect(on.draft.question).toBe(
+      '"Review" has sent the work on to "Publish" twice, at most 2. What now?',
+    );
+  });
+
+  it("follows the route once more with words of their own, naming the Consultant", () => {
+    const kept: StageRunDecision = {
+      id: "decision-4",
+      kind: "route-limit",
+      options: decision.options,
+      answer: undefined,
+    };
+
+    expect(
+      walkAnswerOf(kept, { kind: "free-answer", text: "Check persistence.", answeredBy: "cto" }),
+    ).toEqual({
+      kind: "one-more-round",
+      guidance: "Check persistence.",
+      guidedBy: "cto",
+      to: "implement",
+    });
+    expect(walkAnswerOf(kept, { kind: "option", option: 0, guidance: "Look again." })).toEqual({
+      kind: "one-more-round",
+      guidance: "Look again.",
+      to: "implement",
+    });
+  });
+
+  it("is put to a Consultant first, unless one already let that route go once more", () => {
+    const done = { status: "done", summary: "Done." } as const;
+
+    expect(asksAConsultantFirst(question, [aRun("review", done)])).toBe(true);
+    expect(asksAConsultantFirst(question, [aRun("review", done, [allowed("implement")])])).toBe(
+      true,
+    );
+    expect(
+      asksAConsultantFirst(question, [aRun("review", done, [allowed("publish", "cto")])]),
+    ).toBe(true);
+    expect(
+      asksAConsultantFirst(question, [aRun("review", done, [allowed("implement", "cto")])]),
+    ).toBe(false);
+  });
+
+  it("goes to the user next once the Consultant chose Follow it once more without comments", () => {
+    const options = decision.options;
+    const answer = walkAnswerOf(
+      { id: "decision-5", kind: "route-limit", options, answer: undefined },
+      { kind: "option", option: 0, answeredBy: "cto" },
+    );
+    const answered: StageRunDecision = { id: "decision-5", kind: "route-limit", options, answer };
+
+    expect(answer).toEqual({ kind: "one-more-round", guidedBy: "cto", to: "implement" });
+    expect(
+      asksAConsultantFirst(question, [
+        aRun("review", { status: "done", summary: "Done." }, [answered]),
+      ]),
+    ).toBe(false);
   });
 });
 
@@ -181,10 +306,12 @@ describe("the no-route-holds Decision", () => {
       to: "review",
       toName: "Review",
       condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "failed" }] },
+      limit: null,
     },
     {
       to: null,
       condition: { combine: "all", tests: [{ kind: "definitionOfDone", is: "all-met" }] },
+      limit: null,
     },
   ] as const satisfies readonly Route[];
   const asked = (why?: string) =>
@@ -242,7 +369,13 @@ describe("the no-route-holds Decision", () => {
 });
 
 describe("asksAConsultantFirst", () => {
-  const noRetriesLeft = { kind: "no-retries-left", stage: tests, error: "2 tests fail." } as const;
+  const noRetriesLeft = {
+    kind: "no-retries-left",
+    stage: tests,
+    error: "2 tests fail.",
+    atLimit: usedUpRouteBack,
+    others: [],
+  } as const;
 
   it("puts a Stage failing with no retries left to a Consultant first", () => {
     expect(asksAConsultantFirst(noRetriesLeft, [aRun("tests", failed)])).toBe(true);

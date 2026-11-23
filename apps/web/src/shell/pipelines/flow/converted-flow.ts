@@ -1,12 +1,13 @@
 import type { ConditionGroup, Route, Stage } from "@the-office/contracts";
-import { inFlowOrder } from "./flow-model.ts";
+import { inFlowOrder, isFailureRoute, isRouteBack } from "./flow-model.ts";
 
 /**
  * Whether a Pipeline still reads as The Office's update converted it (spec §2.3, "Converting
  * existing Pipelines"), and what the converted note says of it: each Stage in a column of its own on
  * row 0, one route with no condition to the next and from the last to End. Where the Stage after
  * one was optional, the routes are to it while the Definition of Done has some not Reported met,
- * otherwise to the first Stage after it that wasn't optional, or End. The Stages keep `optional`,
+ * otherwise to the first Stage after it that wasn't optional, or End. A failure route back, as an
+ * On failure setting became, is left out of the comparison. The Stages keep `optional`,
  * which only the previous release reads, so the note can tell how a Stage became routes.
  */
 
@@ -17,7 +18,12 @@ export function isConvertedFlow(stages: readonly Stage[]): boolean {
     (stage, index) =>
       stage.place?.column === index &&
       stage.place.row === 0 &&
-      sameRoutes(stage.routes ?? [], convertedRoutes(order, index)),
+      sameRoutes(
+        (stage.routes ?? []).filter(
+          (route) => !(isFailureRoute(route) && isRouteBack(stages, stage.key, route.to)),
+        ),
+        convertedRoutes(order, index),
+      ),
   );
 }
 

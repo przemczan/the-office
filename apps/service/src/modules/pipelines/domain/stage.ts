@@ -49,16 +49,6 @@ export type StageSession = "fresh" | "continue";
 /** How hard the model thinks, as the engine names it. */
 export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 
-/**
- * "On failure go back to Stage X, at most N times": a Pipeline's only control flow. Its rounds are
- * the Stage's round limit; once they are used up, the Task goes to the user.
- */
-export interface OnFailure {
-  /** The key of an earlier Stage that isn't a Gate. */
-  readonly goBackTo: string;
-  readonly rounds: number;
-}
-
 interface StageFields {
   /** Names the Stage within its Pipeline and stays when the Stage is renamed. */
   readonly key: string;
@@ -102,7 +92,6 @@ export interface AgentStage extends StageFields {
   readonly permissions?: StagePermissions;
   /** Its own context limits, or No limit; absent takes the Office defaults (spec §2.5). */
   readonly contextLimits?: StageContextLimitsOverride;
-  readonly onFailure?: OnFailure;
 }
 
 export interface ScriptStage extends StageFields {
@@ -112,7 +101,6 @@ export interface ScriptStage extends StageFields {
   readonly publishTarget?: PublishTarget;
   /** A Publish Stage's alone; absent publishes automatically. */
   readonly afterConflict?: AfterConflict;
-  readonly onFailure?: OnFailure;
 }
 
 /** The Task waits for the user to look at the work so far and let it continue. */

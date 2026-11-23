@@ -26,6 +26,8 @@ import { EventsModule } from "../../../../platform/events/events.module.js";
 import { EngineSettingsModule } from "../../engine-settings.module.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
 import { EngineSettingsForTests } from "../../ports/engine-settings-repository.fixtures.js";
+import { WindowStartRepository } from "../../ports/window-start-repository.js";
+import { WindowStartsForTests } from "../../ports/window-start-repository.fixtures.js";
 
 // What engine-settings.controller.test.ts and engine-settings.controller.full.test.ts share.
 
@@ -94,7 +96,10 @@ function setUpEachTest(): void {
     repository = new EngineSettingsForTests();
     ({ app, url } = await startTestApplication({
       imports: [EventsModule, EngineSettingsModule],
-      overrides: [{ provide: EngineSettingsRepository, useValue: repository }],
+      overrides: [
+        { provide: EngineSettingsRepository, useValue: repository },
+        { provide: WindowStartRepository, useValue: new WindowStartsForTests() },
+      ],
     }));
   });
 
@@ -125,6 +130,16 @@ describe("/api/settings/engines", () => {
       modelPrices: UNPRICED_CLAUDE_MODELS,
       standInEngines: [],
       askBeforeSwitchAbove: 100_000,
+      windowStarts: [
+        {
+          engineId: "claude-code",
+          startAtTimes: [],
+          startAfterReset: false,
+          nextStartAt: null,
+          last: null,
+        },
+      ],
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     });
   });
 

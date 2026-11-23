@@ -100,8 +100,18 @@
   border-top: 1.5px solid var(--fg-3);
 }
 
-.flow-editor-legend-line--loop {
-  border-top: 1.5px dashed var(--danger);
+/* The limit mark, as a route's line and row show it (flow-canvas.css, .flow-canvas-limit-mark) */
+.flow-editor-legend-mark {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--fg-2);
+  font: 600 var(--text-2xs) / 1 var(--font-sans);
+  white-space: nowrap;
 }
 
 /* A Proposal's lines, as the canvas draws them: proposed dashed in the accent, taken away dotted. */
@@ -196,13 +206,6 @@
   border-top: 1px solid var(--border-subtle);
 }
 
-.flow-panel-section--picked {
-  margin: 0 -8px;
-  padding: 12px 8px 8px;
-  border-radius: var(--radius-md);
-  background: var(--danger-subtle);
-}
-
 .flow-panel-section-head {
   display: flex;
   flex-wrap: wrap;
@@ -284,19 +287,54 @@
   font: var(--type-caption);
 }
 
-.flow-loop-row {
+/* A route's Goes to and At most: under its row in Routes out, side by side in its panel */
+.flow-route-row-fields,
+.flow-route-panel-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 16px;
+}
+
+.flow-route-row-fields {
+  grid-column: 2 / -1;
+}
+
+.flow-route-row-fields > .flow-locked-fields {
+  display: contents;
+}
+
+.flow-route-limit {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.flow-route-limit-label {
+  color: var(--fg-1);
+  font: var(--type-label);
+}
+
+.flow-route-limit-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 8px;
+  gap: 6px 10px;
   color: var(--fg-2);
+  font: var(--type-body-sm);
 }
 
-.flow-when-fails {
+.flow-route-limit-none {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.flow-route-limit-none input {
   margin: 0;
-  padding-left: 20px;
-  color: var(--fg-2);
-  font: var(--type-caption);
+  accent-color: var(--accent);
 }
 
 .flow-condition-reads {

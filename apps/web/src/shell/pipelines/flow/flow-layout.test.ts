@@ -7,6 +7,7 @@ import {
   flowLines,
   flowRoom,
   gridCellOf,
+  listsRoutes,
   loopLanes,
   loopPaths,
   markSpot,
@@ -16,6 +17,7 @@ import {
   orientationFor,
   routePaths,
 } from "./flow-layout.ts";
+import { FAILED_CONDITION } from "./flow-model.ts";
 
 function gate(key: string, place: StagePlace, routes: Stage["routes"] = []): Stage {
   return { kind: "gate", key, name: key, optional: false, place, routes };
@@ -29,12 +31,14 @@ function script(key: string, place: StagePlace, routes: Stage["routes"], goBackT
     optional: false,
     command: "test",
     place,
-    routes,
-    ...(goBackTo === undefined ? {} : { onFailure: { goBackTo, rounds: 2 } }),
+    routes: [
+      ...(goBackTo === undefined ? [] : [{ to: goBackTo, condition: FAILED_CONDITION, limit: 2 }]),
+      ...(routes ?? []),
+    ],
   };
 }
 
-const plain = (to: string | null) => ({ to, condition: null });
+const plain = (to: string | null) => ({ to, condition: null, limit: null });
 
 /** A Stage's box: 100 by 40, its column 140 apart, its row 60 apart. */
 function boxAt({ column, row }: StagePlace): FlowBox {
@@ -166,9 +170,34 @@ describe("the routes' lines", () => {
     const room = flowRoom(flow, flowLines(flow), [], "across");
     expect(room.detours).toBeGreaterThan(0);
   });
+
+  it("leave the routes back to their lanes, and mark a route on with a limit in its middle", () => {
+    const limited = gate("review", { column: 1, row: 0 }, [{ ...plain("publish"), limit: 2 }]);
+    const back = gate("publish", { column: 2, row: 0 }, [
+      { to: "review", condition: null },
+      plain(null),
+    ]);
+    const flow = [tests, limited, back];
+    expect(listsRoutes(limited, flow)).toBe(true);
+    expect(listsRoutes(review, stages)).toBe(false);
+    const lines = flowLines(flow);
+    expect(lines.map(({ id, limit }) => [id, limit])).toEqual([
+      ["tests:0", null],
+      ["tests:1", null],
+      ["review:0", 2],
+      ["publish:1", null],
+    ]);
+    const [path] = routePaths(flow, [lines[2]!], measureOf(flow), "across");
+    // From Review's right edge (x 240, y 20) into Publish's left (x 280): its middle.
+    expect(path?.mark).toEqual({ x: 257, y: 20 });
+    // Publish's route back to Review, a route with no limit given, takes the default of 3.
+    expect(loopLanes(flow).map(({ from, to, limit }) => [from.key, to.key, limit])).toEqual([
+      ["publish", "review", 3],
+    ]);
+  });
 });
 
-describe("the On failure loops", () => {
+describe("the routes back", () => {
   it("each get a lane, the shortest nearest the Stages, overlapping ones apart", () => {
     const stages = [
       gate("plan", { column: 0, row: 0 }, [plain("implement")]),
@@ -199,8 +228,8 @@ describe("the On failure loops", () => {
     ];
     const paths = loopPaths(loopLanes(stages), measureOf(stages), "across");
     const atImplement = paths.flatMap((path) => [
-      ...(path.toKey === "implement" ? [arrowTip(path.arrow)] : []),
-      ...(path.fromKey === "implement" ? [startOf(path.d)] : []),
+      ...(path.line.to === "implement" ? [arrowTip(path.arrow)] : []),
+      ...(path.line.fromKey === "implement" ? [startOf(path.d)] : []),
     ]);
     expect(atImplement).toHaveLength(3);
     const xs = atImplement.map(([x]) => x);
@@ -241,7 +270,7 @@ describe("the On failure loops", () => {
     }
     // Across, B leaves its left side (x 140) and turns up in the gutter's middle (x 120).
     const across = loopPaths(loopLanes(stages), measure, "across");
-    const fromB = pointsOf(across.find(({ fromKey }) => fromKey === "b")!.d);
+    const fromB = pointsOf(across.find(({ line }) => line.fromKey === "b")!.d);
     expect(fromB[0]).toEqual([140, 72]);
     expect(fromB).toContainEqual([120, 72]);
   });
@@ -254,8 +283,8 @@ describe("the On failure loops", () => {
       script("d", { column: 3, row: 0 }, [], "b"),
     ];
     const paths = loopPaths(loopLanes(stages), measureOf(stages), "across");
-    const low = paths.find(({ fromKey }) => fromKey === "c")!;
-    const high = paths.find(({ fromKey }) => fromKey === "d")!;
+    const low = paths.find(({ line }) => line.fromKey === "c")!;
+    const high = paths.find(({ line }) => line.fromKey === "d")!;
     expect(low.lane).toBeLessThan(high.lane);
     // D's line comes down into B at x 190, the middle of C's run from x 50 to 330.
     expect(arrowTip(high.arrow)[0]).toBe(190);
@@ -304,6 +333,23 @@ describe("the On failure loops", () => {
       script("e", { column: 4, row: 0 }, [], "gone"),
     ];
     expect(loopLanes(stages).map(({ lane }) => lane)).toEqual([0, 0]);
+  });
+
+  it("draw a route to its own Stage out of and into its top edge, with its limit", () => {
+    const stages = [
+      gate("a", { column: 0, row: 0 }, [plain("b")]),
+      script("b", { column: 1, row: 0 }, [plain(null)], "b"),
+    ];
+    const [path] = loopPaths(loopLanes(stages), measureOf(stages), "across");
+    expect(path?.line).toMatchObject({ fromKey: "b", to: "b", routeIndex: 0, limit: 2 });
+    const [tipX, tipY] = arrowTip(path!.arrow);
+    const [startX, startY] = startOf(path!.d);
+    // Both ends on B's top edge (x 140 to 240, y 0), the arrow coming down into it.
+    expect(startY).toBe(0);
+    expect(tipY).toBe(0);
+    expect(tipX).toBeLessThan(startX);
+    for (const x of [tipX, startX]) expect(x > 140 && x < 240).toBe(true);
+    expect(path?.mark.y).toBe(-24);
   });
 });
 

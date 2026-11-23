@@ -1,5 +1,5 @@
 import { recordedCommandResults } from "./condition-command-results.js";
-import { carriesAFailure, weighRoutes } from "./conditions.js";
+import { type RouteChoice, weighRoutes } from "./conditions.js";
 import { reportedOutOfReach, unmetStatements } from "./definition-of-done-reports.js";
 import { asFlow, pipelineOrder } from "./flow.js";
 import {
@@ -10,7 +10,7 @@ import {
   withoutResolveStages,
   withResolveStages,
 } from "./resolve-stages.js";
-import { namedRoutes, type Route } from "./route.js";
+import { isFailureRoute, namedRoutes, type Route } from "./route.js";
 import { isPublishStage, type Stage } from "./stage.js";
 import type { ConditionCommandTest } from "./stage-command-run.js";
 import type {
@@ -30,10 +30,56 @@ export interface UnmetOutOfReach {
   readonly why: string;
 }
 
+/**
+ * How often the walk followed a route (spec §2.3, "A route's limit"), and how often it may: the
+ * route's limit with the times answers allowed past it, null for No limit.
+ */
+export interface RouteCount {
+  readonly times: number;
+  readonly limit: number | null;
+}
+
+/** The route the walk left a run by, by where it leads (null: End), with its count, this time included. */
+export interface FollowedRoute extends RouteCount {
+  readonly to: string | null;
+}
+
+/**
+ * A route out of the Stage at its limit, named, with its count: `back` when it leads to its own
+ * Stage or one before it.
+ */
+export interface RouteAtLimit {
+  readonly route: Route;
+  readonly times: number;
+  readonly limit: number;
+  readonly back: boolean;
+}
+
 /** What the walk stops to ask the user, before The Office words it as a Decision. */
 export type WalkQuestion =
-  /** The Stage failed with no retries left: it has no loop, or its loop used up its rounds. */
-  | { readonly kind: "no-retries-left"; readonly stage: Stage; readonly error: string }
+  /**
+   * The Stage failed with no failure route left to follow (spec §2.3, "When a Stage fails"):
+   * `atLimit` is the first that held but is used up, when one did, and `others` the Stage's other
+   * routes out, by where they lead, which the walk may follow instead.
+   */
+  | {
+      readonly kind: "no-retries-left";
+      readonly stage: Stage;
+      readonly error: string;
+      readonly atLimit: RouteAtLimit | undefined;
+      readonly others: readonly Route[];
+    }
+  /**
+   * The route the ended Stage's walk would follow is at its limit (spec §2.3, "When a limit runs
+   * out"), with the last run's error or Handover note (`note`) and the Stage's other routes out.
+   */
+  | {
+      readonly kind: "route-limit";
+      readonly stage: Stage;
+      readonly atLimit: RouteAtLimit;
+      readonly others: readonly Route[];
+      readonly note: string | undefined;
+    }
   /** The Task's tokens reached the Stage's budget before an engine call. */
   | { readonly kind: "budget"; readonly stage: Stage; readonly reached: BudgetReached }
   /**
@@ -78,7 +124,8 @@ export type WalkQuestion =
 /** What the walk over a Task's Stages does next. */
 export type NextMove =
   /**
-   * Run the Stage; `carriedFailure` is set when a loop or a round the user allowed went back, and
+   * Run the Stage; `carriedFailure` is set when a failure route or a round the user allowed led
+   * there with a failure, and
    * `sentBack` when the user sent the work back to it from a Gate.
    */
   | {
@@ -100,13 +147,15 @@ export type NextMove =
   /**
    * Run the Project command a condition of the routes out of `stage` names, for the test
    * `condition`, recording its result on `run`, the Stage's ended run, before the walk goes on
-   * (spec §2.3, "The Project-command condition").
+   * (spec §2.3, "The Project-command condition"). `route` is the count of the route weighed, the
+   * times the walk followed it before.
    */
   | {
       readonly move: "weigh-command";
       readonly run: StageRun;
       readonly stage: Stage;
       readonly condition: ConditionCommandTest;
+      readonly route: RouteCount;
     };
 
 type StoppingMove = Exclude<NextMove, { move: "run" }>;
@@ -133,10 +182,18 @@ interface Walk {
   position: WalkPosition;
   /** The runs replayed so far, the current one last. */
   replayed: readonly StageRun[];
-  /** Each loop's rounds gone back, by the key of the failed Stage that owns it. */
-  readonly roundsUsed: Map<string, number>;
-  /** Rounds the user allowed beyond each loop's own, by the same key. */
-  readonly roundsAdded: Map<string, number>;
+  /** The times the walk followed each route, by `routeId`. */
+  readonly followed: Map<string, number>;
+  /** The times answers allowed each route past its limit, by `routeId`. */
+  readonly allowedPast: Map<string, number>;
+  /**
+   * The times answers ran each Stage that failed with no failure route again itself, by its key.
+   */
+  readonly ranAgain: Map<string, number>;
+  /** The rounds the Definition of Done check's answers ran, which no route counts. */
+  definitionOfDoneRounds: number;
+  /** The route the walk left each run by, by the run's id. */
+  readonly left: Map<string, FollowedRoute>;
   /** Every run of the Task, oldest first, of which `replayed` is a start. */
   readonly runs: readonly StageRun[];
   /**
@@ -157,42 +214,76 @@ interface Walk {
  */
 export const RESTARTS_ASKED_AT = 3;
 
-/** The key the Definition of Done check's own rounds count under: no Stage's key has a space. */
-const DEFINITION_OF_DONE_ROUNDS = "definition of done";
-
 /**
  * The one walk over a Task's Stages (spec §2.3), a flow: from the first Stage, as each Stage ends
- * it follows the first of its routes whose condition holds, to a later Stage or to End, and asks
- * the user when none holds. A failing Stage goes back by its on-failure loop, at most N times, then
- * on by a route only when its condition says the Stage ended Failed, and otherwise asks the user.
- * The Definition of Done is checked as the walk enters a Publish, or at End on a path that entered
- * none, unless a Gate just before it was the check; each Gate waits for the user, who may send the
- * work back to an earlier Stage without using a round. The position, each loop's rounds, the
- * user's answers and Gate actions are replayed from the Task's Stage runs, oldest first, so they
- * are kept nowhere else; a recorded run of a Stage a route leads to is followed as it was, without
- * weighing again. A loop's rounds belong to the Stage that owns it and count over the whole Task:
- * going back again never resets them. A Project-command test's result is replayed from the run
- * the routes leave; one not recorded yet is asked for with `weigh-command`.
+ * it follows the first of its routes whose condition holds, to any Stage or to End, and asks the
+ * user when none holds, or when that route is at its limit, never passing over it. A failing Stage
+ * follows the first of its failure routes that holds and still has times left, passing over a used
+ * up one to the next, and otherwise asks. The Definition of Done is checked as the walk enters a
+ * Publish, or at End on a path that entered none, unless a Gate just before it was the check; each
+ * Gate waits for the user, who may send the work back to an earlier Stage without using a route's
+ * times. The position, each route's count, the user's answers and Gate actions are replayed from
+ * the Task's Stage runs, oldest first, so they are kept nowhere else; a recorded run of a Stage a
+ * route leads to is followed as it was, without weighing again. A route's count is per walk, over
+ * the whole Task: going back again never resets it. A Project-command test's result is replayed
+ * from the run the routes leave; one not recorded yet is asked for with `weigh-command`.
  */
 export function nextMove(
   stages: readonly Stage[],
   runs: readonly StageRun[],
   definitionOfDone: readonly string[],
 ): NextMove {
+  return replayAll(walkOver(stages, runs, definitionOfDone));
+}
+
+/**
+ * The route the walk left each run by, by the run's id, with its count then (spec §2.3, "Which
+ * route the walk follows"): only a run the next run followed by it, as the latest run's routes are
+ * weighed with the Definition of Done, which only the walk itself reads. Resolve's Stages among
+ * `stages` are left out, as the walk puts them in itself; a history the walk can't replay keeps the
+ * routes it followed up to there.
+ */
+export function routesFollowed(
+  stages: readonly Stage[],
+  runs: readonly StageRun[],
+): ReadonlyMap<string, FollowedRoute> {
+  const walk = walkOver(withoutResolveStages(stages), runs, []);
+  try {
+    replayAll(walk);
+  } catch {
+    // The Task's page and its history still show the runs; the walk itself reports the fault.
+  }
+  const next = new Map(runs.map((run, index) => [run.id, runs[index + 1]?.stageKey]));
+  return new Map([...walk.left].filter(([runId, { to }]) => to !== null && next.get(runId) === to));
+}
+
+function walkOver(
+  stages: readonly Stage[],
+  runs: readonly StageRun[],
+  definitionOfDone: readonly string[],
+): Walk {
   const flow = pipelineOrder(asFlow(stages));
   const given = new Map(stages.map((stage) => [stage.key, stage]));
-  const walk: Walk = {
+  return {
     stages: flow.flatMap(({ key }) => given.get(key) ?? []),
     routes: new Map(flow.map(({ key, routes }) => [key, routes])),
     definitionOfDone,
     position: at(flow[0]?.key ?? null),
     replayed: [],
-    roundsUsed: new Map(),
-    roundsAdded: new Map(),
+    followed: new Map(),
+    allowedPast: new Map(),
+    ranAgain: new Map(),
+    definitionOfDoneRounds: 0,
+    left: new Map(),
     runs,
     calledMet: false,
     enteredPublish: false,
   };
+}
+
+/** Replays every run of the walk, oldest first, and answers what it does next. */
+function replayAll(walk: Walk): NextMove {
+  const { runs } = walk;
   for (const [index, run] of runs.entries()) {
     walk.replayed = runs.slice(0, index + 1);
     const stopped = replay(walk, run);
@@ -311,8 +402,10 @@ function afterGate(walk: Walk, run: StageRun, gate: Stage): StoppingMove | undef
 }
 
 /**
- * A Stage failed (spec §2.3, "When a Stage fails"): its on-failure loop goes first, then a route
- * whose condition says it ended Failed, and with neither the user is asked.
+ * A Stage failed (spec §2.3, "When a Stage fails"): only its failure routes count, the first that
+ * holds and still has times left followed with the failure, a used-up one passed over to the next;
+ * with none, the user is asked. A kept on-failure setting is the first of them (`asFlow`), so a Task
+ * that went back by it before routes had limits goes on with the same count.
  */
 function afterFailure(
   walk: Walk,
@@ -320,43 +413,100 @@ function afterFailure(
   stage: Stage,
   error: string,
 ): StoppingMove | undefined {
-  const back = goBack(walk, stage, error, {});
-  if (back) {
-    walk.position = back;
-    return undefined;
-  }
   if (decisionOf(run, "no-retries-left")) return afterNoRetriesLeft(walk, run, stage, error);
-  return follow(
-    walk,
-    run,
-    stage,
-    routesOf(walk, stage),
-    () => afterNoRetriesLeft(walk, run, stage, error),
-    (route) => carriesAFailure(route, stage.key),
-  );
+  const asked = decisionOf(run, "no-route-holds");
+  if (asked) return afterNoRouteHolds(walk, run, stage, asked);
+  const routes = routesOf(walk, stage);
+  const recorded = recordedNext(walk, routes, (route) => isFailureRoute(route, stage.key));
+  if (recorded) return followRoute(walk, run, stage, recorded, { error, guided: {} });
+  const { choice } = weighFailureRoutes(walk, run, stage, routes);
+  switch (choice.kind) {
+    case "follow":
+      return followRoute(walk, run, stage, choice.route, { error, guided: {} });
+    case "none-holds":
+      return afterNoRetriesLeft(walk, run, stage, error);
+    case "cannot-be-weighed": {
+      const failureRoutes = routes.filter((route) => isFailureRoute(route, stage.key));
+      return noRouteHolds(walk, run, stage, choice.why, failureRoutes);
+    }
+    case "run-command":
+      return weighCommand(walk, run, stage, choice);
+  }
 }
 
+/**
+ * Weighs the failed Stage's failure routes in their order: the first that holds and still has
+ * times left is to follow, and `usedUp` is the first that held at its limit, passed over.
+ */
+function weighFailureRoutes(
+  walk: Walk,
+  run: StageRun,
+  stage: Stage,
+  routes: readonly Route[],
+): { readonly choice: RouteChoice; readonly usedUp: Route | undefined } {
+  const passed = new Set<Route>();
+  let usedUp: Route | undefined;
+  for (;;) {
+    const choice = weigh(
+      walk,
+      run,
+      stage,
+      routes,
+      (route) => isFailureRoute(route, stage.key) && !passed.has(route),
+    );
+    if (choice.kind !== "follow" || hasTimesLeft(countOf(walk, stage.key, choice.route))) {
+      return { choice, usedUp };
+    }
+    usedUp ??= choice.route;
+    passed.add(choice.route);
+  }
+}
+
+/**
+ * The failed Stage has no failure route left to follow: the user, or the Consultant asked first,
+ * follows the used-up one once more, goes on by another route, continues with the issues or drops
+ * the Task. With none used up, once more runs the Stage itself again. An answer kept from before
+ * routes had limits, more rounds, allows the used-up route that many times more.
+ */
 function afterNoRetriesLeft(
   walk: Walk,
   run: StageRun,
   stage: Stage,
   error: string,
 ): StoppingMove | undefined {
-  const question = { kind: "no-retries-left", stage, error } as const;
+  const { usedUp } = weighFailureRoutes(walk, run, stage, routesOf(walk, stage));
+  const question = {
+    kind: "no-retries-left",
+    stage,
+    error,
+    atLimit: usedUp && atLimitOf(walk, stage, usedUp),
+    others: usedUp ? otherRoutes(walk, stage, usedUp.to) : [],
+  } as const;
   const waiting = waitingOn(run, "no-retries-left", question);
   if (waiting) return waiting;
   const answer = answerOf(run, "no-retries-left");
   switch (answer.kind) {
     case "more-rounds":
+      if (!usedUp) throw new Error(`Stage "${stage.key}" got more rounds, yet has no route back.`);
+      allowPast(walk, stage, usedUp, answer.rounds);
+      return followRoute(walk, run, stage, usedUp, { error, guided: {} });
     case "one-more-round": {
-      const rounds = answer.kind === "more-rounds" ? answer.rounds : 1;
-      walk.roundsAdded.set(stage.key, (walk.roundsAdded.get(stage.key) ?? 0) + rounds);
-      const guided = answer.kind === "one-more-round" ? guidanceOf(answer) : {};
-      const allowed = goBack(walk, stage, error, guided);
-      if (!allowed) throw new Error(`Stage "${stage.key}" got more rounds, yet can't go back.`);
-      walk.position = allowed;
+      const guided = guidanceOf(answer);
+      if (usedUp) {
+        allowPast(walk, stage, usedUp, 1);
+        return followRoute(walk, run, stage, usedUp, { error, guided });
+      }
+      const round = (walk.ranAgain.get(stage.key) ?? 0) + 1;
+      walk.ranAgain.set(stage.key, round);
+      walk.position = {
+        key: stage.key,
+        carriedFailure: { stageKey: stage.key, error, round, rounds: round, ...guided },
+        sentBack: undefined,
+      };
       return undefined;
     }
+    case "follow-route":
+      return followTo(walk, run, stage, answer.to);
     case "accept-issues":
       // Every route is weighed as usual, the Stage's outcome staying Failed.
       return advance(walk, run, stage);
@@ -367,7 +517,6 @@ function afterNoRetriesLeft(
     case "raise-budget":
     case "resolved-in-worktree":
     case "keep-branch":
-    case "follow-route":
       throw new Error(`Stage run ${run.id} was answered "${answer.kind}" after a failure.`);
   }
 }
@@ -571,37 +720,72 @@ function afterResolveGaveUp(
   }
 }
 
-/** The Stage ended: the walk follows the first of its routes that holds, or asks the user. */
+/**
+ * The Stage ended (spec §2.3, "Which route the walk follows"): the walk follows the route the user
+ * chose in the run's Decision; the route to the Stage of the next recorded run, which the walk
+ * followed then, so a replay doesn't weigh again; or the first route whose condition holds now,
+ * failure routes left out, as they carry only a failure. With none holding, or one that can't be
+ * weighed, the user is asked, and a command test whose result the run doesn't hold yet is weighed
+ * first. The route that holds at its limit stops the walk and asks: it is never passed over.
+ */
 function advance(walk: Walk, run: StageRun, stage: Stage): StoppingMove | undefined {
-  return follow(walk, run, stage, routesOf(walk, stage), () =>
-    noRouteHolds(walk, run, stage, undefined),
-  );
+  const asked = decisionOf(run, "no-route-holds");
+  if (asked) return afterNoRouteHolds(walk, run, stage, asked);
+  if (decisionOf(run, "route-limit")) return afterRouteLimit(walk, run, stage);
+  const routes = routesOf(walk, stage);
+  const onward = (route: Route): boolean => !isFailureRoute(route, stage.key);
+  const recorded = recordedNext(walk, routes, onward);
+  if (recorded) return followRoute(walk, run, stage, recorded);
+  const choice = weigh(walk, run, stage, routes, onward);
+  switch (choice.kind) {
+    case "follow":
+      return hasTimesLeft(countOf(walk, stage.key, choice.route))
+        ? followRoute(walk, run, stage, choice.route)
+        : {
+            move: "ask",
+            run,
+            question: {
+              kind: "route-limit",
+              stage,
+              atLimit: atLimitOf(walk, stage, choice.route),
+              others: otherRoutes(walk, stage, choice.route.to),
+              note: lastWordsOf(run),
+            },
+          };
+    case "none-holds":
+      return noRouteHolds(walk, run, stage, undefined);
+    case "cannot-be-weighed":
+      return noRouteHolds(walk, run, stage, choice.why);
+    case "run-command":
+      return weighCommand(walk, run, stage, choice);
+  }
 }
 
 /**
- * Follows one of `routes` out of the Stage the run ended (spec §2.3, "Which route the walk
- * follows"): the route the user chose in the run's no-route-holds Decision; the route to the Stage
- * of the next recorded run, which the walk followed then, so a replay doesn't weigh again; or the
- * first route whose condition holds now. With none holding, `whenNoneHolds` decides; a route that
- * can't be weighed asks the user, and a command test whose result the run doesn't hold yet is
- * weighed first. Only the routes `followable` keeps are followed, each weighed at its place among
- * all of `routes`, so a command test's result recorded on the run stays its own.
+ * The route among `routes` that `followable` keeps and leads to the Stage of the run recorded after
+ * the one replayed now: the walk followed it then.
  */
-function follow(
+function recordedNext(
+  walk: Walk,
+  routes: readonly Route[],
+  followable: (route: Route) => boolean,
+): Route | undefined {
+  const recorded = walk.runs[walk.replayed.length];
+  return recorded && routes.find((route) => followable(route) && route.to === recorded.stageKey);
+}
+
+/**
+ * Weighs `routes` out of the Stage the run ended, only those `followable` keeps, each at its place
+ * among all of them, so a command test's result recorded on the run stays its own.
+ */
+function weigh(
   walk: Walk,
   run: StageRun,
   stage: Stage,
   routes: readonly Route[],
-  whenNoneHolds: () => StoppingMove | undefined,
-  followable: (route: Route) => boolean = () => true,
-): StoppingMove | undefined {
-  const asked = decisionOf(run, "no-route-holds");
-  if (asked) return afterNoRouteHolds(walk, run, asked);
-  const candidates = routes.filter(followable);
-  const recorded = walk.runs[walk.replayed.length];
-  const followed = recorded && candidates.find(({ to }) => to === recorded.stageKey);
-  if (followed) return goTo(walk, run, followed.to);
-  const choice = weighRoutes(
+  followable: (route: Route) => boolean,
+): RouteChoice {
+  return weighRoutes(
     routes,
     {
       stageKey: stage.key,
@@ -611,21 +795,68 @@ function follow(
     },
     followable,
   );
-  switch (choice.kind) {
-    case "follow":
-      return goTo(walk, run, choice.route.to);
-    case "none-holds":
-      return whenNoneHolds();
-    case "cannot-be-weighed":
-      return noRouteHolds(walk, run, stage, choice.why, candidates);
-    case "run-command":
-      return {
-        move: "weigh-command",
-        run,
-        stage,
-        condition: { ...choice.test, to: choice.route.to },
-      };
+}
+
+/** Asks for the result of the command test weighing reached, recording it on the run. */
+function weighCommand(
+  walk: Walk,
+  run: StageRun,
+  stage: Stage,
+  choice: Extract<RouteChoice, { kind: "run-command" }>,
+): StoppingMove {
+  return {
+    move: "weigh-command",
+    run,
+    stage,
+    condition: { ...choice.test, to: choice.route.to },
+    route: countOf(walk, stage.key, choice.route),
+  };
+}
+
+/**
+ * The user's answer to the route-limit Decision (spec §2.3, "When a limit runs out"): follow the
+ * route once more, one time past its limit, go on by another route, or drop the Task. Words given
+ * with it go to the Stages after it as the run's route notes.
+ */
+function afterRouteLimit(walk: Walk, run: StageRun, stage: Stage): StoppingMove | undefined {
+  const decision = decisionOf(run, "route-limit");
+  if (!decision?.answer) return { move: "wait", run };
+  const { answer } = decision;
+  switch (answer.kind) {
+    case "one-more-round": {
+      const route = routeAskedAbout(walk, stage, decision);
+      allowPast(walk, stage, route, 1);
+      return followRoute(walk, run, stage, route);
+    }
+    case "follow-route":
+      return followTo(walk, run, stage, answer.to);
+    case "drop":
+      return { move: "drop" };
+    default:
+      throw new Error(`Stage run ${run.id} was answered "${answer.kind}" at a route's limit.`);
   }
+}
+
+/** The route a route-limit Decision asked about, by where its follow-once-more option leads. */
+function routeAskedAbout(walk: Walk, stage: Stage, decision: StageRunDecision): Route {
+  const again = decision.options.find(({ kind }) => kind === "one-more-round");
+  const to = again?.kind === "one-more-round" ? again.to : undefined;
+  const route = routesOf(walk, stage).find(
+    (candidate) => candidate.to === to && !isFailureRoute(candidate, stage.key),
+  );
+  if (to === undefined || !route) {
+    throw new Error(`Decision ${decision.id} asks about no route out of "${stage.key}".`);
+  }
+  return route;
+}
+
+/**
+ * The last run's error, or its Handover note, which the route-limit Decision shows; a Script
+ * Stage's summary for a run with no note.
+ */
+function lastWordsOf({ outcome }: StageRun): string | undefined {
+  if (outcome?.status === "failed") return outcome.error;
+  return outcome?.handoverNote ?? (outcome?.status === "done" ? outcome.summary : undefined);
 }
 
 /** Asks the user where the walk goes on from the Stage, as none of its routes holds. */
@@ -636,11 +867,10 @@ function noRouteHolds(
   why: string | undefined,
   routes: readonly Route[] = routesOf(walk, stage),
 ): StoppingMove {
-  const names = new Map(walk.stages.map(({ key, name }) => [key, name]));
   return {
     move: "ask",
     run,
-    question: { kind: "no-route-holds", stage, routes: namedRoutes(routes, names), why },
+    question: { kind: "no-route-holds", stage, routes: named(walk, routes), why },
   };
 }
 
@@ -648,13 +878,14 @@ function noRouteHolds(
 function afterNoRouteHolds(
   walk: Walk,
   run: StageRun,
+  stage: Stage,
   decision: StageRunDecision,
 ): StoppingMove | undefined {
   const { answer } = decision;
   if (!answer) return { move: "wait", run };
   switch (answer.kind) {
     case "follow-route":
-      return goTo(walk, run, answer.to);
+      return followTo(walk, run, stage, answer.to);
     case "drop":
       return { move: "drop" };
     default:
@@ -663,12 +894,126 @@ function afterNoRouteHolds(
 }
 
 /**
- * Moves the walk to the Stage `to`, or End (null). Before it enters a Publish Stage that isn't
- * first, or at End on a path that entered none, the Definition of Done must be reported met (spec
- * §2.3), so an unmet statement is asked about before anything is pushed or merged.
+ * Follows the route out of the Stage to `to` that an answer chose, whatever its condition and its
+ * count, counting it as any follow: one that isn't a failure route first, as a failure route may
+ * lead where another does. A route no longer there is no route to count, and the walk goes on.
  */
-function goTo(walk: Walk, run: StageRun, to: string | null): StoppingMove | undefined {
-  walk.position = at(to);
+function followTo(
+  walk: Walk,
+  run: StageRun,
+  stage: Stage,
+  to: string | null,
+): StoppingMove | undefined {
+  const routes = routesOf(walk, stage).filter((route) => route.to === to);
+  const route = routes.find((candidate) => !isFailureRoute(candidate, stage.key)) ?? routes[0];
+  return route ? followRoute(walk, run, stage, route) : goTo(walk, run, to);
+}
+
+/**
+ * Follows the route out of the Stage the run ended, counting the time on it and keeping it as the
+ * route the walk left the run by. A failure route carries `failure` to the Stage it leads to, with
+ * which time of how many this is.
+ */
+function followRoute(
+  walk: Walk,
+  run: StageRun,
+  stage: Stage,
+  route: Route,
+  failure?: { readonly error: string; readonly guided: Guided },
+): StoppingMove | undefined {
+  const id = routeId(stage.key, route);
+  const times = (walk.followed.get(id) ?? 0) + 1;
+  const { limit } = countOf(walk, stage.key, route);
+  const carriedFailure =
+    failure && route.to !== null
+      ? {
+          stageKey: stage.key,
+          error: failure.error,
+          round: times,
+          rounds: limit,
+          ...failure.guided,
+        }
+      : undefined;
+  const stopped = goTo(walk, run, route.to, carriedFailure);
+  // The Definition of Done check before a Publish may stop the walk there, or send it elsewhere.
+  if (stopped || walk.position.key !== route.to) return stopped;
+  walk.followed.set(id, times);
+  walk.left.set(run.id, { to: route.to, times, limit });
+  return undefined;
+}
+
+/**
+ * A route's count, by the Stage it leaves, where it leads and whether it is a failure route: a
+ * Stage's routes are locked once it ran (`lockedStageProblems`), and only its failure route may
+ * lead where another of its routes does.
+ */
+function routeId(fromKey: string, route: Route): string {
+  return JSON.stringify([fromKey, route.to, isFailureRoute(route, fromKey)]);
+}
+
+function countOf(walk: Walk, fromKey: string, route: Route): RouteCount {
+  const id = routeId(fromKey, route);
+  const times = walk.followed.get(id) ?? 0;
+  if (route.limit === null) return { times, limit: null };
+  return { times, limit: route.limit + (walk.allowedPast.get(id) ?? 0) };
+}
+
+function hasTimesLeft({ times, limit }: RouteCount): boolean {
+  return limit === null || times < limit;
+}
+
+/** An answer lets the route be followed `times` more past its limit. */
+function allowPast(walk: Walk, stage: Stage, route: Route, times: number): void {
+  const id = routeId(stage.key, route);
+  walk.allowedPast.set(id, (walk.allowedPast.get(id) ?? 0) + times);
+}
+
+/** The route at its limit, named, with its count and whether it leads back. */
+function atLimitOf(walk: Walk, stage: Stage, route: Route): RouteAtLimit {
+  const { times, limit } = countOf(walk, stage.key, route);
+  const [namedRoute = route] = named(walk, [route]);
+  return { route: namedRoute, times, limit: limit ?? times, back: leadsBack(walk, stage, route) };
+}
+
+/**
+ * Whether the route leads back, to its own Stage or one before it in the order the walk holds the
+ * Stages in, Resolve's put in.
+ */
+function leadsBack(walk: Walk, stage: Stage, { to }: Route): boolean {
+  if (to === null) return false;
+  const keys = walk.stages.map(({ key }) => key);
+  const target = keys.indexOf(to);
+  return target >= 0 && target <= keys.indexOf(stage.key);
+}
+
+/** The Stage's routes out other than to `to`, one for each place they lead to, named. */
+function otherRoutes(walk: Walk, stage: Stage, to: string | null): Route[] {
+  const seen = new Set<string | null>([to]);
+  return named(walk, routesOf(walk, stage)).filter((route) => {
+    if (seen.has(route.to)) return false;
+    seen.add(route.to);
+    return true;
+  });
+}
+
+/** `routes` with the names of the Stages they lead to and test, as the walk holds them. */
+function named(walk: Walk, routes: readonly Route[]): Route[] {
+  return namedRoutes(routes, new Map(walk.stages.map(({ key, name }) => [key, name])));
+}
+
+/**
+ * Moves the walk to the Stage `to`, or End (null), carrying the failure a failure route carries
+ * there. Before it enters a Publish Stage that isn't first, or at End on a path that entered none,
+ * the Definition of Done must be reported met (spec §2.3), so an unmet statement is asked about
+ * before anything is pushed or merged.
+ */
+function goTo(
+  walk: Walk,
+  run: StageRun,
+  to: string | null,
+  carriedFailure?: CarriedFailure,
+): StoppingMove | undefined {
+  walk.position = { key: to, carriedFailure, sentBack: undefined };
   const next = to === null ? undefined : stageOf(walk, to);
   const checksHere = next ? checksBefore(walk.stages, next) : !walk.enteredPublish;
   if (next && checksHere) walk.enteredPublish = true;
@@ -737,8 +1082,9 @@ function checkDefinitionOfDone(walk: Walk, run: StageRun): StoppingMove | undefi
     case "drop":
       return { move: "drop" };
     case "one-more-round": {
-      const round = (walk.roundsUsed.get(DEFINITION_OF_DONE_ROUNDS) ?? 0) + 1;
-      walk.roundsUsed.set(DEFINITION_OF_DONE_ROUNDS, round);
+      // No route: it uses none of a route's times (spec §2.3, "A route's limit").
+      const round = walk.definitionOfDoneRounds + 1;
+      walk.definitionOfDoneRounds = round;
       // A round answered before reports counted across Stages may find nothing unmet now.
       const carried = unmet.length > 0 ? unmet : walk.definitionOfDone;
       const error = definitionOfDoneCarried(carried, outOfReach);
@@ -838,39 +1184,6 @@ function stageOfRun(walk: Walk, run: StageRun): Stage {
     );
   }
   return stageOf(walk, key);
-}
-
-/**
- * Where the failed Stage goes back to, or undefined when it has no retries left. Its loop goes
- * back to an earlier Stage in the Pipeline's order; rounds the user allowed a Stage without a loop
- * run it again.
- */
-function goBack(
-  walk: Walk,
-  failed: Stage,
-  error: string,
-  guided: Guided,
-): (WalkPosition & { readonly carriedFailure: CarriedFailure }) | undefined {
-  const onFailure = failed.kind === "gate" ? undefined : failed.onFailure;
-  const rounds = (onFailure?.rounds ?? 0) + (walk.roundsAdded.get(failed.key) ?? 0);
-  const round = (walk.roundsUsed.get(failed.key) ?? 0) + 1;
-  if (round > rounds) return undefined;
-  const failedIndex = walk.stages.findIndex(({ key }) => key === failed.key);
-  const index = onFailure
-    ? walk.stages.findIndex(({ key }) => key === onFailure.goBackTo)
-    : failedIndex;
-  // The library refuses a loop to a Stage that isn't earlier (stageProblems), so this is a fault.
-  if (onFailure && (index < 0 || index >= failedIndex)) {
-    throw new Error(
-      `Stage "${failed.key}" goes back to "${onFailure.goBackTo}", which isn't earlier.`,
-    );
-  }
-  walk.roundsUsed.set(failed.key, round);
-  return {
-    key: onFailure ? onFailure.goBackTo : failed.key,
-    carriedFailure: { stageKey: failed.key, error, round, rounds, ...guided },
-    sentBack: undefined,
-  };
 }
 
 /**

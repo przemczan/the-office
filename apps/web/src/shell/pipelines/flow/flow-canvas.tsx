@@ -17,7 +17,6 @@ import {
   endCellOf,
   flowGridSize,
   flowLines,
-  type FlowLoopPath,
   type FlowOrientation,
   flowRoom,
   type FlowRoutePath,
@@ -33,12 +32,11 @@ import { type FlowLocks, type FlowOverlay, type FlowStageMarks, NO_LOCKS } from 
 import { canDropAt, canMoveStage, inFlowOrder, stepInOrder } from "./flow-model.ts";
 import type { FlowPick } from "./flow-pick.ts";
 import { FlowStageCard } from "./flow-stage-card.tsx";
+import { limitMark } from "./condition-words.ts";
 import {
   arrowDirection,
   type FlowCanvasEdit,
   isPickedRoute,
-  loopHasProblem,
-  loopWords,
   routeHasProblem,
   routeName,
   stageProblemsOf,
@@ -74,8 +72,8 @@ const NO_MARKS: FlowStageMarks = new Map();
 
 /**
  * The flow editor's canvas (docs/design/pipeline-flow.html): the Stages in a grid of places, End
- * after the last column, and the routes and On failure loops drawn over it in one SVG from the
- * boxes the grid laid out. It asks the host for every edit through `onEdit`. A card keeps its size:
+ * after the last column, and the routes, on and back, drawn over it in one SVG from the boxes the
+ * grid laid out, each with a limit marked ≤N× on its line. It asks the host for every edit through `onEdit`. A card keeps its size:
  * the FlowViewport around it (docs/design/pipeline-editor.html) moves and zooms it.
  */
 export function FlowCanvas(props: FlowCanvasProps): ReactNode {
@@ -88,7 +86,10 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
   const lines = useMemo(() => flowLines(stages, props.overlay), [stages, props.overlay]);
   const loops = useMemo(() => loopLanes(stages), [stages]);
   const room = flowRoom(stages, lines, loops, orientation);
-  const loopLines = loopPaths(loops, view.measure, orientation);
+  const drawn: readonly FlowRoutePath[] = [
+    ...routePaths(stages, lines, view.measure, orientation),
+    ...loopPaths(loops, view.measure, orientation),
+  ];
   const size = flowGridSize(stages);
   const canDrag = (key: string): boolean =>
     !readOnly && orientation === "across" && !locked.has(key);
@@ -173,7 +174,7 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
             warningWords={warningWords(props.warnings, stage.key)}
             mark={marks.get(stage.key)}
             lockedNote={locked.get(stage.key)}
-            listsRoutes={!namesOnly && listsRoutes(stage)}
+            listsRoutes={!namesOnly && listsRoutes(stage, stages)}
             showsHandle={canDraw(stage.key)}
             draggable={canDrag(stage.key)}
             dragging={stageOffset(dragging.drag, stage.key)}
@@ -199,12 +200,11 @@ export function FlowCanvas(props: FlowCanvasProps): ReactNode {
         stages={stages}
         view={view}
         orientation={orientation}
-        routes={routePaths(stages, lines, view.measure, orientation)}
-        loops={loopLines}
+        routes={drawn}
         drag={dragging.drag}
         onPick={pick}
       />
-      <LoopMarks loops={loopLines} stages={stages} problems={props.problems} onPick={pick} />
+      <LimitMarks routes={drawn} picked={props.picked} problems={props.problems} />
       {told && <FlowToldWhyToast key={told.at} told={told} onGone={forget} />}
       {dragging.drag?.kind === "stage" && dragging.drag.at && (
         <div
@@ -349,15 +349,15 @@ function removeRouteByKey(event: KeyboardEvent<HTMLElement>, props: FlowCanvasPr
 interface FlowLinesProps extends Omit<FlowCanvasProps, "onPick"> {
   readonly view: FlowView;
   readonly orientation: FlowOrientation;
+  /** The routes on, then the routes back. */
   readonly routes: readonly FlowRoutePath[];
-  readonly loops: readonly FlowLoopPath[];
   readonly drag: FlowDrag | undefined;
   readonly onPick: (pick: FlowPick) => void;
 }
 
-/** The routes, the loops and where the walk starts, with a hit line under each route to press. */
+/** The routes and where the walk starts, with a hit line under each route to press. */
 function FlowLines(props: FlowLinesProps): ReactNode {
-  const { view, orientation, routes, loops } = props;
+  const { view, orientation, routes } = props;
   const start = startPath(inFlowOrder(props.stages)[0], view.measure, orientation);
   return (
     <svg className="flow-canvas-lines" width={view.width} height={view.height} focusable="false">
@@ -373,15 +373,6 @@ function FlowLines(props: FlowLinesProps): ReactNode {
           <g key={path.line.id} className={routeClass(props, path)}>
             <path className="flow-canvas-line" d={path.d} />
             <polygon className="flow-canvas-arrow" points={path.arrow} />
-          </g>
-        ))}
-        {loops.map((loop) => (
-          <g
-            key={`${loop.fromKey}:loop`}
-            className={`flow-canvas-loop${loopHasProblem(props.problems, loop.fromKey) ? " flow-canvas-loop--problem" : ""}`}
-          >
-            <path className="flow-canvas-line" d={loop.d} />
-            <polygon className="flow-canvas-arrow" points={loop.arrow} />
           </g>
         ))}
         <DrawingLine {...props} />
@@ -424,7 +415,7 @@ function DrawingLine({ drag, view, orientation }: FlowLinesProps): ReactNode {
 
 /**
  * The wide, unseen line under a route that a press picks. A route its Stage doesn't list (its one
- * route, with no condition) has no line in the card, so this is where Tab reaches it.
+ * route, with no condition and No limit) has no line in the card, so this is where Tab reaches it.
  */
 function RouteHit({
   path,
@@ -437,7 +428,7 @@ function RouteHit({
   if (!from || !route || line.routeIndex === undefined) return null;
   const routeIndex = line.routeIndex;
   const choose = (): void => onPick({ kind: "route", key: from.key, routeIndex });
-  const reachable = line.port === undefined;
+  const reachable = !listsRoutes(from, stages);
   return (
     <path
       className="flow-canvas-hit"
@@ -457,32 +448,44 @@ function RouteHit({
   );
 }
 
-interface LoopMarksProps {
-  readonly loops: readonly FlowLoopPath[];
-  readonly stages: readonly Stage[];
+interface LimitMarksProps {
+  readonly routes: readonly FlowRoutePath[];
+  readonly picked: FlowPick | undefined;
   readonly problems: readonly StageProblem[];
-  readonly onPick: (pick: FlowPick) => void;
 }
 
-/** Each loop's ↺ N× mark, which opens its Stage at On failure. */
-function LoopMarks({ loops, stages, problems, onPick }: LoopMarksProps): ReactNode {
+/**
+ * Each route's ≤N× mark on its line, for a route with a limit: in the route's own colour, never
+ * pressed itself, as its line and its row pick it, whose names say the limit too.
+ */
+function LimitMarks({ routes, picked, problems }: LimitMarksProps): ReactNode {
   return (
-    <div className="flow-canvas-marks">
-      {loops.map((loop) => {
-        const from = stages.find(({ key }) => key === loop.fromKey);
-        const words = from ? loopWords(from, stages)?.name : undefined;
+    <div className="flow-canvas-marks" aria-hidden="true">
+      {routes.map(({ line, mark }) => {
+        const words = limitMark(line.limit);
+        if (words === "") return null;
+        const { fromKey, routeIndex, look } = line;
+        const markClass = [
+          "flow-canvas-limit-mark",
+          `flow-canvas-limit-mark--${look}`,
+          routeIndex !== undefined &&
+            routeHasProblem(problems, fromKey, routeIndex) &&
+            "flow-canvas-limit-mark--problem",
+          routeIndex !== undefined &&
+            isPickedRoute(picked, fromKey, routeIndex) &&
+            "flow-canvas-limit-mark--picked",
+        ]
+          .filter(Boolean)
+          .join(" ");
         return (
-          <button
-            key={loop.fromKey}
-            type="button"
-            className={`flow-canvas-loop-mark${loopHasProblem(problems, loop.fromKey) ? " flow-canvas-loop-mark--problem" : ""}`}
-            style={{ left: loop.mark.x, top: loop.mark.y }}
-            aria-label={words}
-            title={words}
-            onClick={() => onPick({ kind: "onFailure", key: loop.fromKey })}
+          <span
+            key={line.id}
+            className={markClass}
+            data-flow-limit-mark={line.id}
+            style={{ left: mark.x, top: mark.y }}
           >
-            ↺ {loop.rounds}×
-          </button>
+            {words}
+          </span>
         );
       })}
     </div>

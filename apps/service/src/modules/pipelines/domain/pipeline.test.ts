@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { stageProblems, stageWarnings } from "./pipeline.js";
-import type { ConditionGroup, ConditionTest, Route } from "./route.js";
+import { ENDED_FAILED, type ConditionGroup, type ConditionTest, type Route } from "./route.js";
+import type { KeptStage } from "./routes-back.js";
 import type { Stage } from "./stage.js";
 import { agentStage, dutyStage, gate, scriptStage } from "./stage.fixtures.js";
 
@@ -12,7 +13,7 @@ describe("stageProblems", () => {
   it("passes a straight list of Agent, Script and Gate Stages", () => {
     const stages = [
       agentStage(),
-      scriptStage({ onFailure: { goBackTo: "implement", rounds: 3 } }),
+      scriptStage(),
       gate(),
       scriptStage({ key: "publish", name: "Publish", command: "publish", optional: false }),
     ];
@@ -38,8 +39,6 @@ describe("stageProblems", () => {
 
   it("refuses two Stages with the same key, and a Stage with no name", () => {
     expect(problemTexts([agentStage(), scriptStage({ key: "implement", name: " " })])).toEqual([
-      // Converted, the first Stage's route leads to the key both have, which is its own.
-      "Stage 1 · Implement: its route to Implement leads to its own or an earlier column; routes lead forward, and On failure is the way back.",
       'Stage 2 · implement: another Stage has the key "implement".',
       "Stage 2 · implement: give it a name.",
     ]);
@@ -104,14 +103,19 @@ function placed<Of extends Stage>(stage: Of, column: number, routes: Route[], ro
   return { ...stage, routes, place: { column, row } };
 }
 
-/** A route to `to` (null for End), always followed. */
-function to(key: string | null): Route {
-  return { to: key, condition: null };
+/** A route to `to` (null for End), always followed, with `limit`. */
+function to(key: string | null, limit: Route["limit"] = null): Route {
+  return { to: key, condition: null, limit };
 }
 
-/** A route to `to` (null for End) while all of `tests` hold. */
+/** A route to `to` (null for End) while all of `tests` hold, with No limit. */
 function when(key: string | null, ...tests: (ConditionTest | ConditionGroup)[]): Route {
-  return { to: key, condition: { combine: "all", tests } };
+  return { to: key, condition: { combine: "all", tests }, limit: null };
+}
+
+/** A failure route to `to`, at most `limit` times. */
+function onFailure(key: string, limit: Route["limit"] = 3): Route {
+  return { to: key, condition: ENDED_FAILED, limit };
 }
 
 const SOME_NOT_MET: ConditionTest = { kind: "definitionOfDone", is: "some-not-met" };
@@ -150,10 +154,104 @@ describe("stageProblems of a flow", () => {
     const stages = [
       placed(implement, 0, [when("tests", SOME_NOT_MET), to("lint")]),
       placed(tests, 1, [to("lint")]),
-      placed({ ...lint, onFailure: { goBackTo: "implement", rounds: 1 } }, 2, [to(null)]),
+      placed(lint, 2, [onFailure("implement", 1), to(null)]),
     ];
 
     expect(stageProblems(stages)).toEqual([]);
+  });
+
+  it("passes a kept on-failure setting, read as its failure route back", () => {
+    const kept: KeptStage = { ...lint, onFailure: { goBackTo: "implement", rounds: 2 } };
+
+    expect(stageProblems([implement, tests, kept])).toEqual([]);
+  });
+
+  it("passes routes back, to an earlier Stage and to the Stage's own, with a limit", () => {
+    const stages = [
+      placed(implement, 0, [to("tests")]),
+      placed(tests, 1, [
+        onFailure("implement"),
+        { ...when("tests", SOME_NOT_MET), limit: 2 },
+        to(null),
+      ]),
+    ];
+    const toItsOwn = [
+      placed(implement, 0, [{ ...when("implement", SOME_NOT_MET), limit: 2 }, to(null)]),
+    ];
+
+    expect(stageProblems(stages)).toEqual([]);
+    expect(stageProblems(toItsOwn)).toEqual([]);
+  });
+
+  it("passes a loop through one route with a limit, whatever the others' limits", () => {
+    const stages = [
+      placed(implement, 0, [to("tests")]),
+      placed(tests, 1, [when("implement", SOME_NOT_MET), to("lint")]),
+      placed(lint, 2, [{ ...when("tests", SOME_NOT_MET), limit: 1 }, to(null)]),
+    ];
+
+    expect(problemTexts(stages)).toEqual([
+      "Stage 2 · Tests: the loop Tests → Implement → Tests has no route with a limit, so it could run for ever.",
+    ]);
+    expect(
+      stageProblems(
+        stages.map((stage) =>
+          stage.key === "tests"
+            ? { ...stage, routes: [{ ...when("implement", SOME_NOT_MET), limit: 3 }, to("lint")] }
+            : stage,
+        ),
+      ),
+    ).toEqual([]);
+  });
+
+  it("refuses a loop of routes with No limit, on the route that leads back, naming its Stages", () => {
+    const stages = [
+      placed(implement, 0, [to("tests")]),
+      placed(tests, 1, [{ ...onFailure("implement"), limit: null }, to(null)]),
+    ];
+
+    expect(stageProblems(stages)).toEqual([
+      {
+        stageKey: "tests",
+        at: { kind: "route", routeIndex: 0 },
+        level: "problem",
+        text: "Stage 2 · Tests: the loop Tests → Implement → Tests has no route with a limit, so it could run for ever.",
+      },
+    ]);
+  });
+
+  it("refuses a route to its own Stage with No limit", () => {
+    expect(
+      problemTexts([placed(implement, 0, [when("implement", SOME_NOT_MET), to(null)])]),
+    ).toEqual([
+      "Stage 1 · Implement: the loop Implement → Implement has no route with a limit, so it could run for ever.",
+    ]);
+  });
+
+  it.each([0, 10, 1.5, -1])("refuses a limit of %s, on the route", (limit) => {
+    const stages = [placed(implement, 0, [to("tests")]), placed(tests, 1, [to(null, limit)])];
+
+    expect(stageProblems(stages)).toEqual([
+      {
+        stageKey: "tests",
+        at: { kind: "route", routeIndex: 0 },
+        level: "problem",
+        text: `Stage 2 · Tests: its route to End has a limit of ${limit}; give it 1 to 9 times, or No limit.`,
+      },
+    ]);
+  });
+
+  it("refuses a Stage no path of routes leads from to End", () => {
+    const stages = [
+      placed(implement, 0, [when("tests", SOME_NOT_MET), to(null)]),
+      placed(tests, 1, [to("lint")]),
+      placed(lint, 2, [to("tests", 2)]),
+    ];
+
+    expect(problemTexts(stages)).toEqual([
+      "Stage 2 · Tests: no path of routes leads from it to End.",
+      "Stage 3 · Lint: no path of routes leads from it to End.",
+    ]);
   });
 
   it("refuses a Stage no path of routes leads to from the first Stage, on that Stage", () => {
@@ -180,32 +278,6 @@ describe("stageProblems of a flow", () => {
     ]);
   });
 
-  it("refuses a route to an earlier column, on the route", () => {
-    const stages = [placed(implement, 0, [to("tests")]), placed(tests, 1, [to("implement")])];
-
-    expect(stageProblems(stages)).toEqual([
-      {
-        stageKey: "tests",
-        at: { kind: "route", routeIndex: 0 },
-        level: "problem",
-        text: "Stage 2 · Tests: its route to Implement leads to its own or an earlier column; routes lead forward, and On failure is the way back.",
-      },
-    ]);
-  });
-
-  it("refuses a route to a Stage in its own column", () => {
-    const stages = [placed(implement, 0, [to("tests")]), placed(tests, 0, [to(null)], 1)];
-
-    expect(stageProblems(stages)).toEqual([
-      {
-        stageKey: "implement",
-        at: { kind: "route", routeIndex: 0 },
-        level: "problem",
-        text: "Stage 1 · Implement: its route to Tests leads to its own or an earlier column; routes lead forward, and On failure is the way back.",
-      },
-    ]);
-  });
-
   it("refuses a route to a Stage the Pipeline doesn't have, by the name kept beside its key", () => {
     expect(stageProblems([placed(implement, 0, [when("nowhere", ALL_MET), to(null)])])).toEqual([
       {
@@ -216,43 +288,11 @@ describe("stageProblems of a flow", () => {
       },
     ]);
     expect(
-      problemTexts([placed(implement, 0, [{ to: "gone", toName: "Review", condition: null }])]),
+      problemTexts([
+        placed(implement, 0, [{ to: "gone", toName: "Review", condition: null, limit: null }]),
+      ]),
     ).toEqual([
       "Stage 1 · Implement: its route to Review leads to a Stage the Pipeline doesn't have.",
-    ]);
-  });
-
-  it("refuses going back on failure to a Stage not in an earlier column, though earlier in the order", () => {
-    const stages = [
-      placed(implement, 0, [when("tests", SOME_NOT_MET), to("lint")]),
-      placed(tests, 1, [to(null)]),
-      placed({ ...lint, onFailure: { goBackTo: "tests", rounds: 1 } }, 1, [to(null)], 1),
-    ];
-
-    expect(stageProblems(stages)).toEqual([
-      {
-        stageKey: "lint",
-        at: { kind: "onFailure" },
-        level: "problem",
-        text: "Stage 3 · Lint: on failure it can only go back to an earlier Stage.",
-      },
-    ]);
-  });
-
-  it("refuses going back on failure to a Stage with no path of routes back to it", () => {
-    const stages = [
-      placed(implement, 0, [when("tests", SOME_NOT_MET), to("lint")]),
-      placed(tests, 1, [to(null)]),
-      placed({ ...lint, onFailure: { goBackTo: "tests", rounds: 1 } }, 2, [to(null)]),
-    ];
-
-    expect(stageProblems(stages)).toEqual([
-      {
-        stageKey: "lint",
-        at: { kind: "onFailure" },
-        level: "problem",
-        text: "Stage 3 · Lint: on failure it goes back to Tests, but no path of routes leads from there back to it.",
-      },
     ]);
   });
 
@@ -288,9 +328,43 @@ describe("stageProblems of a flow", () => {
     ]);
   });
 
+  it("passes a failure route leading where another route of the Stage does, but not two", () => {
+    const stages = [
+      placed(implement, 0, [to("tests")]),
+      placed(tests, 1, [onFailure("implement"), when("implement", SOME_NOT_MET), to(null)]),
+    ];
+    const twoFailureRoutes = [
+      placed(implement, 0, [to("tests")]),
+      placed(tests, 1, [onFailure("implement"), onFailure("implement", 1), to(null)]),
+    ];
+
+    expect(problemTexts(stages)).toEqual([
+      "Stage 2 · Tests: the loop Tests → Implement → Tests has no route with a limit, so it could run for ever.",
+    ]);
+    expect(
+      stageProblems(
+        stages.map((stage) =>
+          stage.key === "tests"
+            ? {
+                ...stage,
+                routes: [
+                  onFailure("implement"),
+                  { ...when("implement", SOME_NOT_MET), limit: 2 },
+                  to(null),
+                ],
+              }
+            : stage,
+        ),
+      ),
+    ).toEqual([]);
+    expect(problemTexts(twoFailureRoutes)).toEqual([
+      "Stage 2 · Tests: its route to Implement leads where an earlier route does; join their conditions with Any of in one route.",
+    ]);
+  });
+
   describe("a Stage test in a route's condition", () => {
-    it("passes for its own Stage, an earlier one, and the route's own Stage (null)", () => {
-      for (const stage of ["tests", "implement", null]) {
+    it("passes for its own Stage, an earlier one, a later one, and the route's own Stage (null)", () => {
+      for (const stage of ["tests", "implement", "lint", null]) {
         expect(stageProblems(testing({ kind: "stage", stage, is: "failed" }))).toEqual([]);
       }
       expect(stageProblems(testing({ kind: "stage", stage: null, is: "ran", times: 2 }))).toEqual(
@@ -298,21 +372,10 @@ describe("stageProblems of a flow", () => {
       );
     });
 
-    it("refuses one naming a later Stage, on the test", () => {
-      expect(stageProblems(testing({ kind: "stage", stage: "lint", is: "done" }))).toEqual([
-        {
-          stageKey: "tests",
-          at: { kind: "route", routeIndex: 0, testPath: [0] },
-          level: "problem",
-          text: "Stage 2 · Tests: a condition of its route to Lint tests Lint, a later Stage; test this Stage or an earlier one.",
-        },
-      ]);
-    });
-
     it("locates a test nested in a group by its indexes", () => {
       const nested: ConditionGroup = {
         combine: "any",
-        tests: [SOME_NOT_MET, { kind: "stage", stage: "lint", is: "changed" }],
+        tests: [SOME_NOT_MET, { kind: "command", key: "install" }],
       };
 
       expect(stageProblems(testing(nested)).map(({ at }) => at)).toEqual([
@@ -330,6 +393,36 @@ describe("stageProblems of a flow", () => {
       expect(problemTexts(testing({ kind: "stage", stage: null, is: "ran", times }))).toEqual([
         "Stage 2 · Tests: a condition of its route to Lint needs how many times the Stage ran, 1 or more.",
       ]);
+    });
+  });
+
+  describe("a Gate's route", () => {
+    it.each([null, "gate"])("refuses a test of the Gate (%s) for Failed, on the test", (stage) => {
+      const stages = [
+        placed(gate(), 0, [when("tests", { kind: "stage", stage, is: "failed" }), to("tests")]),
+        placed(tests, 1, [to(null)]),
+      ];
+
+      expect(stageProblems(stages)).toEqual([
+        {
+          stageKey: "gate",
+          at: { kind: "route", routeIndex: 0, testPath: [0] },
+          level: "problem",
+          text: "Stage 1 · Gate: a condition of its route to Tests tests whether this Gate failed, and a Gate never fails.",
+        },
+      ]);
+    });
+
+    it("passes a test of another Stage for Failed", () => {
+      const stages = [
+        placed(tests, 0, [to("gate")]),
+        placed(gate(), 1, [
+          { ...when("tests", { kind: "stage", stage: "tests", is: "failed" }), limit: 1 },
+          to(null),
+        ]),
+      ];
+
+      expect(stageProblems(stages)).toEqual([]);
     });
   });
 

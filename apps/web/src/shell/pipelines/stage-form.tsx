@@ -64,9 +64,8 @@ export interface StageFormProps {
 
 /**
  * One Stage's fields (spec §2.3), the same in the flow editor's panel and for a Stage template, each
- * change answering the list with the Stage replaced. On failure isn't among them: the flow editor
- * sets it in a section of its own (`flow-on-failure.tsx`), and a Stage template has none, as going
- * back names an earlier Stage of a Pipeline.
+ * change answering the list with the Stage replaced. Its routes aren't among them: the flow editor
+ * sets them in Routes out, and a Stage template has none, as a route names a Stage of a Pipeline.
  */
 export function StageForm(props: StageFormProps): ReactNode {
   const { stages, index } = props;

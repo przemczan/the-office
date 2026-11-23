@@ -17,6 +17,7 @@ import { sessionCarryOverCheck } from "./session-carry-over.ts";
 import { turnUsageCheck } from "./turn-usage.ts";
 import { usageReadAloneCheck } from "./usage-read-alone.ts";
 import { usageWindowRefusalCheck } from "./usage-window-refusal.ts";
+import { windowStartCheck } from "./window-start.ts";
 
 /** The engine behaviours of spec §5.4 the Office builds on. */
 export const engineChecks: readonly Check[] = [
@@ -32,6 +33,7 @@ export const engineChecks: readonly Check[] = [
   rateLimitEventCheck,
   usageWindowRefusalCheck,
   usageReadAloneCheck,
+  windowStartCheck,
   apiKeySignInCheck,
   parallelSessionsCheck,
   leanOptionsCheck,

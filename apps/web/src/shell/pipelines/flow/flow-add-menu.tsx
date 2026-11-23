@@ -15,9 +15,8 @@ const KINDS: readonly StageKind[] = ["agent", "script", "gate"];
 
 /**
  * A menu of a new Stage's kinds (Agent Stage, Script Stage, Gate) and, with `templates`, the Stage
- * templates, each added without its failure rule, linked to its template with `links` (a Pipeline's
- * Stages) or else a copy (a Task's own): the head's Add a Stage, and a route's Insert a Stage on
- * this route.
+ * templates, each linked to its template with `links` (a Pipeline's Stages) or else a copy (a
+ * Task's own): the head's Add a Stage, and a route's Insert a Stage on this route.
  */
 export function FlowAddMenu({
   label,

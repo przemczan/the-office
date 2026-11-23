@@ -13,6 +13,7 @@ import { ChangedAccountUsage } from "./application/changed-account-usage.js";
 import { RemovedEngineUsage } from "./application/removed-engine-usage.js";
 import { UsageWindowSamples } from "./application/usage-window-samples.js";
 import { UsageWindowChecks } from "./application/usage-window-checks.js";
+import { WindowStarts } from "./application/window-starts.js";
 import { UsageWindowReadings } from "./application/usage-window-readings.js";
 import { UsageWindowState } from "./application/usage-window-state.js";
 import { UsageWindowTelemetry } from "./application/usage-window-telemetry.js";
@@ -49,6 +50,7 @@ export class ScriptedEngineModule {
         UsageWindowSamples,
         UsageWindowReadings,
         UsageWindowChecks,
+        WindowStarts,
         RemovedEngineUsage,
         ChangedAccountUsage,
         UsageWindowTelemetry,

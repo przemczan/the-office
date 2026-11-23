@@ -16,6 +16,7 @@ import {
   SessionSkillsDiffer,
   type EngineCapabilities,
   type NewSession,
+  type UsageWindowStart,
 } from "../../ports/agent-engine.js";
 import type {
   ContextUsage,
@@ -43,6 +44,12 @@ import { engineStopped, isInit, StreamEvents, userMessage } from "../claude-code
 import { serviceVariables } from "../claude-code/engine-read.js";
 import { sdkMcpConfig, sdkOptions, type SdkSession } from "./sdk-options.js";
 import { readUsageWindowsOnSdk } from "./usage-window-read.js";
+import { startUsageWindowOnSdk } from "./usage-window-start.js";
+import {
+  requireUsageWindows,
+  WINDOW_START_PROMPT,
+  windowStartWhat,
+} from "../claude-code/usage-window-start.js";
 
 /**
  * Sessions on the TypeScript Claude Agent SDK, on the user's own login (spec §5.4): one long-lived
@@ -60,6 +67,7 @@ export class AgentSdkEngine extends AgentEngine {
     outputSchema: true,
     languageServers: true,
     carrySession: true,
+    startsUsageWindow: true,
   };
 
   private readonly operatingSystem = currentOperatingSystem();
@@ -91,6 +99,21 @@ export class AgentSdkEngine extends AgentEngine {
         processTrees: this.operatingSystem.processTrees,
       },
       { what: `Reading the usage windows of the engine ${engine.id}`, signal },
+    );
+  }
+
+  /** On a query opened for the start alone, on the engine's config folder, keeping no session. */
+  override async startUsageWindow(engine: Engine, signal: AbortSignal): Promise<UsageWindowStart> {
+    this.require("startsUsageWindow");
+    requireUsageWindows(engine);
+    return startUsageWindowOnSdk(
+      {
+        configFolder: await preparedEngineConfigFolder(this.officeData, engine.id),
+        environment: serviceVariables(),
+        processTrees: this.operatingSystem.processTrees,
+      },
+      WINDOW_START_PROMPT,
+      { what: windowStartWhat(engine), signal },
     );
   }
 

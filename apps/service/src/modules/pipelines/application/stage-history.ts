@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { readEach } from "../../../platform/database/fan-out.js";
 import { TASK_STATE_NAMES } from "../../work/index.js";
+import { routesFollowed } from "../domain/pipeline-walk.js";
 import { walkedStages } from "../domain/resolve-stages.js";
 import type { StageRun } from "../domain/stage-run.js";
 import {
@@ -56,10 +57,11 @@ export class StageHistory {
     if (!run) return noRunWords(runNumber, runs.length);
     const stages = walkedStages(own?.stages ?? [], runs);
     const outputs = (await this.runs.commandOutputs(taskId, run.id)) ?? [];
+    const route = routesFollowed(stages, runs).get(run.id);
     const window = threadWindow(taskId, run);
-    const threadWords =
-      window && (await this.threadMessages.words(window, stageRunThreadRoom(stages, run, outputs)));
-    return stageRunWords(stages, run, outputs, threadWords);
+    const room = stageRunThreadRoom(stages, run, outputs, route);
+    const threadWords = window && (await this.threadMessages.words(window, room));
+    return stageRunWords(stages, run, outputs, threadWords, route);
   }
 
   /** A Task with no own Stages and no runs: one The Office has no record of, or one not started. */

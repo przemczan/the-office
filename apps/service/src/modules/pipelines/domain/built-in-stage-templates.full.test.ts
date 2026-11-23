@@ -20,14 +20,20 @@ describe("builtInStageTemplates", () => {
     ]);
   });
 
-  it("keep the first Pipeline's Stage of the name, without its loop target", () => {
+  it("keep the first Pipeline's Stage of the name, without its routes and place", () => {
     const fullsReviewAndFix = builtInPipelines[0]?.stages.find(
       ({ key }) => key === "review-and-fix",
     );
 
     // toEqual takes a field set to undefined as left out.
-    expect(builtInStageTemplates[2]?.stage).toEqual({ ...fullsReviewAndFix, onFailure: undefined });
-    expect(builtInStageTemplates.some(({ stage }) => "onFailure" in stage)).toBe(false);
+    expect(builtInStageTemplates[2]?.stage).toEqual({
+      ...fullsReviewAndFix,
+      routes: undefined,
+      place: undefined,
+    });
+    expect(builtInStageTemplates.some(({ stage }) => "routes" in stage || "place" in stage)).toBe(
+      false,
+    );
   });
 
   it("name a duty in every Agent Stage, never a Role", () => {

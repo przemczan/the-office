@@ -41,13 +41,9 @@ describe("PipelineLibrary", () => {
   it("starts with the built-ins its migration seeded, in their order", async () => {
     const listed = await library.list();
 
-    // Migration 0163 converted the seeded Stages to flows, as straightLineFlow does.
-    expect(listed.slice(0, builtInPipelines.length)).toEqual(
-      builtInPipelines.map((pipeline) => ({
-        ...pipeline,
-        stages: straightLineFlow(pipeline.stages),
-      })),
-    );
+    // Migration 0163 converted the seeded Stages to flows, and their on-failure settings read as
+    // the failure routes back the built-ins now carry.
+    expect(listed.slice(0, builtInPipelines.length)).toEqual(builtInPipelines);
   });
 
   it("finds a Pipeline by its id", async () => {

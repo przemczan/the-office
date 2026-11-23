@@ -73,11 +73,14 @@ export const stageStateSchema = z.enum([
 ]);
 export type StageState = z.infer<typeof stageStateSchema>;
 
-/** "On failure go back": where the loop went back to, and which time of how many. */
+/**
+ * A failure route back: the Stage it went back to, and which time of how many its limit allows,
+ * with the times answers allowed past it; `rounds` null for a route with No limit.
+ */
 export const wentBackSchema = z.object({
   stageKey: z.string(),
   round: z.int().positive(),
-  rounds: z.int().positive(),
+  rounds: z.int().positive().nullable(),
 });
 export type WentBack = z.infer<typeof wentBackSchema>;
 
@@ -359,8 +362,21 @@ export const stageRunSchema = z.object({
       contextWindow: z.int().positive(),
     })
     .nullable(),
-  /** The failure a loop went back with, which the run was briefed with. */
+  /** The failure a failure route carried to the run, which the run was briefed with. */
   carriedFailure: wentBackSchema.nullable(),
+  /**
+   * The route the walk left the run by (spec §2.3, "Which route the walk follows"): where it leads
+   * (`to`, a Stage's key or null for End), the times the walk followed it so far, this one
+   * included, and the times it may, its limit with those answers allowed past it, null for No
+   * limit. Null until a later run started, and for a run left by no route.
+   */
+  route: z
+    .object({
+      to: z.string().nullable(),
+      times: z.int().positive(),
+      limit: z.int().positive().nullable(),
+    })
+    .nullable(),
   /** The feedback a Gate sent the work back to this Stage with, which the run was briefed with. */
   sentBack: z.object({ gateKey: z.string(), feedback: z.string() }).nullable(),
   commandRuns: z.array(stageCommandRunSchema),
@@ -377,7 +393,7 @@ export const taskStageSchema = z.object({
   state: stageStateSchema,
   /** Every token of its runs, by kind. */
   tokens: tokenTotalsSchema,
-  /** Set when its latest run failed and its loop went back to an earlier Stage. */
+  /** Set when its latest run failed and its failure route carried the failure to a Stage. */
   wentBack: wentBackSchema.nullable(),
   /**
    * Only for an Agent Stage naming a duty: the key of the Role working it, its latest run's once
@@ -527,7 +543,7 @@ export type ProjectPipelineCheck = z.infer<typeof projectPipelineCheckSchema>;
 /**
  * A Stage template (spec §2.3): a Stage kept in the Pipeline library to add to a Pipeline, whose
  * Stage stays linked to it, or to a Task's Stages as a copy. Its name is its Stage's; it never has
- * `onFailure`, which only a Pipeline gives meaning, nor `templateId`.
+ * routes, which only a Pipeline gives meaning, nor `templateId`.
  */
 export const stageTemplateSchema = z.object({ id: z.string().min(1), stage: stageSchema });
 export type StageTemplate = z.infer<typeof stageTemplateSchema>;
@@ -536,7 +552,7 @@ export const stageTemplateListSchema = z.array(stageTemplateSchema);
 
 /**
  * POST /stage-templates and PUT /stage-templates/:id: the template's Stage as the user edited it,
- * or a Stage saved as a template; an `onFailure` in it is dropped.
+ * or a Stage saved as a template; its routes and place are dropped.
  */
 export const stageTemplateEditSchema = z.strictObject({ stage: stageSchema });
 export type StageTemplateEdit = z.infer<typeof stageTemplateEditSchema>;
@@ -679,7 +695,7 @@ export const pipelinesWebEventSchema = z.discriminatedUnion("type", [
     fromStageKey: z.string(),
     toStageKey: z.string(),
     round: z.int().positive(),
-    rounds: z.int().positive(),
+    rounds: z.int().positive().nullable(),
   }),
   webEventSchema.extend({
     type: z.literal("stage-run.budget-reached"),

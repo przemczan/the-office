@@ -36,7 +36,14 @@ const tests: Stage = {
   name: "Tests",
   optional: false,
   command: "test",
-  onFailure: { goBackTo: "implement", rounds: 3 },
+  routes: [
+    {
+      to: "implement",
+      condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "failed" }] },
+      limit: 3,
+    },
+    { to: null, condition: null, limit: null },
+  ],
 };
 const review: Stage = { kind: "gate", key: "review", name: "Review", optional: false };
 const names = stageNamesOf([implement, tests, review]);
@@ -56,6 +63,7 @@ function aRun(fields: Partial<StageRun> = {}): StageRun {
     tokens: NO_TOKENS,
     context: null,
     carriedFailure: null,
+    route: null,
     sentBack: null,
     gateAction: null,
     commandRuns: [],
@@ -337,6 +345,21 @@ describe("loopBacks", () => {
     ]);
     expect(loopBackWords(loopBacks(stages)[0]!, names)).toBe(
       "Tests failed and went back to Implement 2 times, of at most 3",
+    );
+  });
+
+  it("names no limit for a failure route back with No limit", () => {
+    const unlimitedLoop: LoopBack = {
+      from: "tests",
+      to: "implement",
+      fromIndex: 1,
+      toIndex: 0,
+      count: 1,
+      rounds: null,
+      level: 0,
+    };
+    expect(loopBackWords(unlimitedLoop, names)).toBe(
+      "Tests failed and went back to Implement 1 time",
     );
   });
 

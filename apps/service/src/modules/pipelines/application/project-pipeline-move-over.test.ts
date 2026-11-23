@@ -91,8 +91,9 @@ describe("ProjectPipelineMoveOver", () => {
             to: "review",
             toName: "Review",
             condition: { combine: "all", tests: [{ kind: "definitionOfDone", is: "all-met" }] },
+            limit: null,
           },
-          { to: "tests", toName: "Tests", condition: null },
+          { to: "tests", toName: "Tests", condition: null, limit: null },
         ],
       },
     ];

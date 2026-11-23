@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
-import { straightLineFlow } from "../domain/flow.js";
+import { asFlow } from "../domain/flow.js";
 import type { Stage } from "../domain/stage.js";
 import type { StagePermissions } from "../domain/stage-permissions.js";
 import { aStageRun } from "../domain/stage-run.fixtures.js";
@@ -47,7 +47,7 @@ describe("TaskStagesService", () => {
     expect(await service.find(taskId)).toMatchObject({
       taskId,
       pipelineId: "quick-fix",
-      stages: quickFix,
+      stages: asFlow(quickFix),
       editedForTask: false,
     });
     expect(eventsOf(TaskStagesMade)).toMatchObject([{ taskId, pipelineId: "quick-fix" }]);
@@ -77,7 +77,7 @@ describe("Edit for this Task", () => {
     expect(progress.editedForTask).toBe(true);
     expect(progress.stages.map(({ stage }) => stage.key)).toEqual(withGate.map(({ key }) => key));
     expect(eventsOf(TaskStagesEdited)).toMatchObject([{ taskId, pipelineId: "quick-fix" }]);
-    expect((await service.make(taskId, "quick-fix")).stages).toEqual(straightLineFlow(withGate));
+    expect((await service.make(taskId, "quick-fix")).stages).toEqual(asFlow(withGate));
   });
 
   it("changes a running Task's Stages after the started ones, and refuses changing those", async () => {
@@ -128,7 +128,7 @@ describe("Edit for this Task", () => {
       mcpTools: { "github/merge": { kind: "never" } },
     });
     await service.edit(taskId, narrowing);
-    expect((await service.find(taskId))?.stages).toEqual(straightLineFlow(narrowing));
+    expect((await service.find(taskId))?.stages).toEqual(asFlow(narrowing));
   });
 
   it("refuses a Script Stage whose command the Task's Project lacks", async () => {
@@ -166,7 +166,7 @@ describe("Edit for this Task", () => {
     ];
     const taskId = aTask("in-progress");
     const own = await service.make(taskId, "quick-fix");
-    await pipelines.app.get(TaskStagesRepository).save({ ...own, stages: straightLineFlow(kept) });
+    await pipelines.app.get(TaskStagesRepository).save({ ...own, stages: asFlow(kept) });
     await pipelines.app
       .get(StageRunRepository)
       .saveNew(aStageRun({ id: randomUUID(), taskId, stageKey: "implement" }));

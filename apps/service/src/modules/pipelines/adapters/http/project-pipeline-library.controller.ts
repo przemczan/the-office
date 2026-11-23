@@ -24,6 +24,7 @@ import {
   type ProjectPipelineEdit,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { withStagesGiven } from "./given-stages.js";
 import { PipelineLibraryEditor } from "../../application/pipeline-library-editor.js";
 import { PipelineLibraryRefusalsFilter } from "./pipeline-library-refusals.filter.js";
 import {
@@ -56,7 +57,10 @@ export class ProjectPipelineLibraryController {
     @Body(new ContractPipe(projectPipelineCheckRequestSchema))
     { projectPipelineId, ...edit }: ProjectPipelineCheckRequest,
   ): Promise<ProjectPipelineCheck> {
-    const { problems, flags } = await this.editor.checkProjectPipeline(projectPipelineId, edit);
+    const { problems, flags } = await this.editor.checkProjectPipeline(
+      projectPipelineId,
+      withStagesGiven(edit),
+    );
     return { problems: [...problems, ...flags].map(toStageProblemResponse) };
   }
 
@@ -72,7 +76,9 @@ export class ProjectPipelineLibraryController {
     @Param("id") id: string,
     @Body(new ContractPipe(projectPipelineEditSchema)) edit: ProjectPipelineEdit,
   ): Promise<ProjectPipelineResponse> {
-    return toProjectPipelineResponse(await this.editor.saveProjectPipeline(id, edit));
+    return toProjectPipelineResponse(
+      await this.editor.saveProjectPipeline(id, withStagesGiven(edit)),
+    );
   }
 
   @Delete(":id")

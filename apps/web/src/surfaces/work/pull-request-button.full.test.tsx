@@ -44,6 +44,7 @@ function publishStage(...outcomes: readonly StageRun["outcome"][]): TaskStage {
       tokens: NO_TOKENS,
       context: null,
       carriedFailure: null,
+      route: null,
       sentBack: null,
       commandRuns: [],
       gateAction: null,

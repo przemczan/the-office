@@ -3,11 +3,13 @@ import {
   type EngineSwitch,
   type GateAction,
   type Role,
+  type Stage,
   type StageRun,
   type TaskStage,
 } from "@the-office/contracts";
 import type { BadgeProps } from "@the-office/ui";
 import { tokensShort } from "../../shell/conversation/context-words.ts";
+import { isRouteBack } from "../../shell/pipelines/flow/flow-model.ts";
 import { momentWords, shortDurationWords } from "../../shell/time.ts";
 import { workingRoleKey } from "./stage-rail-words.ts";
 import {
@@ -234,12 +236,35 @@ export function runOfHandoverNote(
   return undefined;
 }
 
-/** "Briefed with what failed in Tests, round 1 of 3". */
+/** "Briefed with what failed in Tests, round 1 of 3", or "round 1" for a route with No limit. */
 export function carriedFailureWords(
   { stageKey, round, rounds }: NonNullable<StageRun["carriedFailure"]>,
   names: StageNames,
 ): string {
-  return `Briefed with what failed in ${names(stageKey)}, round ${round} of ${rounds}`;
+  const of = rounds === null ? "" : ` of ${rounds}`;
+  return `Briefed with what failed in ${names(stageKey)}, round ${round}${of}`;
+}
+
+/**
+ * The route the walk left a run by, with its count (spec §2.3, "Which route the walk follows"):
+ * "Went on to Review", "Went back to Implement (2 of at most 3)", "Went to End"; a route with No
+ * limit counts only going back, "Went back to Implement (2 times)".
+ */
+export function routeFollowedWords(
+  { to, times, limit }: NonNullable<StageRun["route"]>,
+  fromKey: string,
+  stages: readonly Stage[],
+  names: StageNames,
+): string {
+  const back = isRouteBack(stages, fromKey, to);
+  const count =
+    limit !== null
+      ? ` (${times} of at most ${limit})`
+      : back
+        ? ` (${times} ${times === 1 ? "time" : "times"})`
+        : "";
+  if (to === null) return `Went to End${count}`;
+  return `${back ? "Went back to" : "Went on to"} ${names(to)}${count}`;
 }
 
 /** "You sent back to Implement": what the user did at a Gate's run. */

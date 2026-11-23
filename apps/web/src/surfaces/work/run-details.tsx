@@ -26,6 +26,7 @@ import { NEEDS_YOU_ELEMENT_ID } from "./needs-you-words.ts";
 import { bringIntoView } from "./record-blocks.ts";
 import {
   carriedFailureWords,
+  routeFollowedWords,
   commandMarkWords,
   commandTimeWords,
   engineSwitchWords,
@@ -71,6 +72,7 @@ export function RunDetails({
   const { stage } = taskStage;
   const summary = (
     <RunSummary
+      stages={stages}
       taskStage={taskStage}
       run={run}
       roles={roles}
@@ -255,6 +257,7 @@ function RunHead({
 
 /** What a run came to and handed on, at reading width: a Handover note often has its own headings. */
 function RunSummary({
+  stages,
   taskStage,
   run,
   roles,
@@ -262,6 +265,7 @@ function RunSummary({
   now,
   onClose,
 }: {
+  readonly stages: readonly TaskStage[];
   readonly taskStage: TaskStage;
   readonly run: StageRun;
   readonly roles: readonly Role[] | undefined;
@@ -270,7 +274,7 @@ function RunSummary({
   readonly onClose: () => void;
 }): ReactNode {
   const { stage, state } = taskStage;
-  const { carriedFailure, sentBack, gateAction, outcome, engineSwitches } = run;
+  const { carriedFailure, sentBack, gateAction, outcome, engineSwitches, route } = run;
   const result = runResultText(taskStage, run);
   return (
     <div className="run-summary">
@@ -291,6 +295,17 @@ function RunSummary({
         </div>
       )}
       {result !== undefined && <MarkdownText text={result} />}
+      {route && (
+        <p className="run-route">
+          <Icon name="route" size={12} />
+          {routeFollowedWords(
+            route,
+            stage.key,
+            stages.map((each) => each.stage),
+            names,
+          )}
+        </p>
+      )}
       {stage.kind === "gate" && state === "waiting-on-you" && outcome === null && (
         <div>
           <Button

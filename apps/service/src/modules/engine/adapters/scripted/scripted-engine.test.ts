@@ -18,14 +18,18 @@ import {
   SESSIONLESS_SCENARIOS,
   type ContractScenario,
 } from "../../ports/agent-engine.contract.js";
-import { SessionSkillsDiffer, type EngineCapabilities } from "../../ports/agent-engine.js";
+import {
+  SessionSkillsDiffer,
+  type AgentEngine,
+  type EngineCapabilities,
+} from "../../ports/agent-engine.js";
 import type { SessionEvent } from "../../ports/session-events.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { CODEX_CAPABILITIES } from "../codex/codex-engine.js";
 import { COPILOT_CLI_CAPABILITIES } from "../copilot-cli/copilot-cli-engine.js";
 import { CONTRACT_MCP_SERVER } from "../mcp-servers/contract-mcp-server.fixtures.js";
 import { RecordingEngine } from "./recording-engine.js";
-import { ScriptedEngine, ScriptMismatch } from "./scripted-engine.js";
+import { DEFAULT_WINDOW_START, ScriptedEngine, ScriptMismatch } from "./scripted-engine.js";
 import {
   PLACEHOLDERS,
   readRecording,
@@ -66,6 +70,7 @@ const NO_CAPABILITY: EngineCapabilities = {
   outputSchema: false,
   languageServers: false,
   carrySession: false,
+  startsUsageWindow: false,
 };
 
 describeAgentEngineContract("ScriptedEngine replaying the recordings", {
@@ -77,6 +82,7 @@ describeAgentEngineContract("ScriptedEngine replaying the recordings", {
   backgroundCommands: true,
   usageWindowUsedUp: true,
   failedTurns: true,
+  windowStart: { sessionsKept: scriptedSessions },
   engineFor: (scenario) => replaying(RECORDINGS, scenario),
 });
 
@@ -101,6 +107,7 @@ describeAgentEngineContract("ScriptedEngine replaying the Codex recordings", {
   fiveHourAndSevenDayWindows: false,
   mcpServer: CONTRACT_MCP_SERVER,
   backgroundCommands: false,
+  windowStart: { sessionsKept: scriptedSessions },
   engineFor: (scenario) => replaying(CODEX_RECORDINGS, scenario, CODEX_CAPABILITIES),
 });
 
@@ -113,6 +120,13 @@ describeAgentEngineContract("ScriptedEngine replaying the Copilot CLI recordings
   backgroundCommands: false,
   engineFor: (scenario) => replaying(COPILOT_CLI_RECORDINGS, scenario, COPILOT_CLI_CAPABILITIES),
 });
+
+/** The sessions a scripted engine started or resumed, by id: what a window start must not add to. */
+function scriptedSessions(engine: AgentEngine): Promise<readonly string[]> {
+  return Promise.resolve(
+    engine instanceof ScriptedEngine ? engine.sessions.map((session) => session.id) : [],
+  );
+}
 
 /**
  * A scenario's engine: on its recording, or with the account's windows set for a scenario that
@@ -480,6 +494,46 @@ describe("ScriptedEngine", () => {
       FIRST_CLAUDE_CODE_ENGINE.id,
       FIRST_CLAUDE_CODE_ENGINE.id,
     ]);
+  });
+
+  it("starts an engine's 5-hour window as the test sets it, counting each start, and reads on as set", async () => {
+    const engine = new ScriptedEngine([]);
+    const signal = new AbortController().signal;
+    const opened = {
+      fiveHour: { percentUsed: 1, resetsAt: new Date("2027-01-15T15:00:00Z") },
+      sevenDay: { percentUsed: 30, resetsAt: undefined },
+      source: "usage-endpoint",
+    } as const;
+    const answer = {
+      tokens: { input: 7, output: 1, cacheRead: 3, cacheCreation: 0 },
+      model: "claude-haiku-5-5",
+    };
+
+    await expect(engine.startUsageWindow(FIRST_CLAUDE_CODE_ENGINE, signal)).resolves.toEqual(
+      DEFAULT_WINDOW_START,
+    );
+    await expect(
+      engine.readUsageWindows(FIRST_CLAUDE_CODE_ENGINE, signal),
+    ).resolves.toBeUndefined();
+    engine.setWindowsAfterStart(FIRST_CLAUDE_CODE_ENGINE.id, opened);
+    engine.setWindowStart(FIRST_CLAUDE_CODE_ENGINE.id, answer);
+    await expect(engine.startUsageWindow(FIRST_CLAUDE_CODE_ENGINE, signal)).resolves.toEqual(
+      answer,
+    );
+    await expect(engine.readUsageWindows(FIRST_CLAUDE_CODE_ENGINE, signal)).resolves.toEqual(
+      opened,
+    );
+    engine.failWindowStarts(FIRST_CLAUDE_CODE_ENGINE.id, new Error("Refused."));
+    await expect(engine.startUsageWindow(FIRST_CLAUDE_CODE_ENGINE, signal)).rejects.toThrow(
+      "Refused.",
+    );
+
+    expect(engine.windowStarts).toEqual([
+      FIRST_CLAUDE_CODE_ENGINE.id,
+      FIRST_CLAUDE_CODE_ENGINE.id,
+      FIRST_CLAUDE_CODE_ENGINE.id,
+    ]);
+    expect(engine.sessions).toEqual([]);
   });
 
   it("refuses a session no script is left for, and a request once the script has ended", async () => {

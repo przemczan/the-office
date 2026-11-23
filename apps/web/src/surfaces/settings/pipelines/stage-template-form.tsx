@@ -42,7 +42,7 @@ export type StageTemplateOpened =
 /**
  * The open Stage template in the Stage editor's own form, saved or discarded as a whole; a new one
  * is added the same way. Problems the service would refuse hold Save; a Role nobody fills is only
- * flagged. A template has no "On failure": going back names a Stage only a Pipeline has. A draft
+ * flagged. A template has no routes: a route names a Stage only a Pipeline has. A draft
  * with no changes follows the saved template, so one changed elsewhere, such as by a Proposal
  * applied in a chat, shows as saved. Saving an edit of its fields while Stages are linked to it
  * first asks which of them get it; an edit of only its name saves at once.

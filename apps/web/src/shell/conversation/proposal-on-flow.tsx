@@ -326,6 +326,10 @@ function ProposalLegend({ draftedBy }: { readonly draftedBy: string }): ReactNod
         <span className="flow-editor-legend-line flow-editor-legend-line--taken-away" />
         Taken away
       </li>
+      <li>
+        <span className="flow-editor-legend-mark">≤N×</span>
+        At most N times
+      </li>
     </ul>
   );
 }

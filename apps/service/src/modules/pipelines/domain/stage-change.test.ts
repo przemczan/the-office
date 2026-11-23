@@ -1,19 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { straightLineFlow } from "./flow.js";
-import { plainRoute, type Route } from "./route.js";
+import { asFlow } from "./flow.js";
+import { ENDED_FAILED, plainRoute, type Route } from "./route.js";
 import { buildStages, type BaseStages } from "./stage-change.js";
-import { agentStage, gate, scriptStage } from "./stage.fixtures.js";
+import { agentStage, gate, goingBackOnFailure, scriptStage } from "./stage.fixtures.js";
 
 const IMPLEMENT = agentStage();
-const TESTS = scriptStage({ onFailure: { goBackTo: "implement", rounds: 2 } });
+const TESTS = goingBackOnFailure(scriptStage(), "implement", 2);
 const REVIEW = agentStage({ key: "review", name: "Review & fix", role: "reviewer" });
 
 const FULL: BaseStages = { name: "Full", stages: [IMPLEMENT, TESTS, REVIEW] };
 
 const LINUX = scriptStage({ key: "linux", name: "Verify on Linux", command: "linux-check" });
 
-/** Full as the conversion reads it. */
-const FULL_LINE = straightLineFlow(FULL.stages);
+/** Full as the conversion reads it, Tests' on-failure setting as its failure route back. */
+const FULL_LINE = asFlow(FULL.stages);
 
 /** Run Review & fix only when Implement changed files; the paths join again at Tests. */
 const WHEN_CHANGED: Route["condition"] = {
@@ -24,7 +24,7 @@ const WHEN_CHANGED: Route["condition"] = {
 /** Plan, Implement, then Review & fix (one row down) when it changed files, then Tests. */
 const PLAN = gate({ key: "plan", name: "Plan", routes: [plainRoute("implement")], place: at(0) });
 const BRANCH = agentStage({
-  routes: [{ to: "review", condition: WHEN_CHANGED }, plainRoute("tests")],
+  routes: [{ to: "review", condition: WHEN_CHANGED, limit: null }, plainRoute("tests")],
   place: at(1),
 });
 const BRANCH_REVIEW = { ...REVIEW, routes: [plainRoute("tests")], place: at(2, 1) };
@@ -56,8 +56,8 @@ describe("buildStages", () => {
     const before = buildStages(FULL, [{ kind: "insert-before", stageKey: "review", stage: LINUX }]);
     const after = buildStages(FULL, [{ kind: "insert-after", stageKey: "review", stage: LINUX }]);
 
-    expect(before.stages).toEqual(straightLineFlow([IMPLEMENT, TESTS, LINUX, REVIEW]));
-    expect(after.stages).toEqual(straightLineFlow([...FULL.stages, LINUX]));
+    expect(before.stages).toEqual(asFlow([IMPLEMENT, TESTS, LINUX, REVIEW]));
+    expect(after.stages).toEqual(asFlow([...FULL.stages, LINUX]));
     expect(after.rows[3]).toEqual({
       stage: { ...LINUX, routes: [plainRoute(null)], place: at(3) },
       origin: "inserted",
@@ -71,7 +71,7 @@ describe("buildStages", () => {
   it("replaces a Stage with a whole new one, keeping the base Pipeline's beside it", () => {
     const built = buildStages(FULL, [{ kind: "replace", stageKey: "tests", stage: LINUX }]);
 
-    expect(built.stages).toEqual(straightLineFlow([IMPLEMENT, LINUX, REVIEW]));
+    expect(built.stages).toEqual(asFlow([IMPLEMENT, LINUX, REVIEW]));
     expect(built.rows[1]).toMatchObject({ origin: "replaced", baseStage: FULL_LINE[1] });
     expect(built.broken).toEqual([]);
   });
@@ -110,7 +110,7 @@ describe("buildStages", () => {
   it("removes a Stage, keeping its row where it was", () => {
     const built = buildStages(FULL, [{ kind: "remove", stageKey: "tests" }]);
 
-    expect(built.stages).toEqual(straightLineFlow([IMPLEMENT, REVIEW]));
+    expect(built.stages).toEqual(asFlow([IMPLEMENT, REVIEW]));
     expect(keysOf(built.rows.map(({ stage }) => stage))).toEqual(["implement", "tests", "review"]);
     expect(built.rows.map(({ origin }) => origin)).toEqual(["base", "removed", "base"]);
     expect(built.broken).toEqual([]);
@@ -161,18 +161,14 @@ describe("buildStages", () => {
     ]);
   });
 
-  it("is Broken when a loop no longer goes back to an earlier built Stage", () => {
+  it("leads a route back into a removed Stage where its route out led, keeping its limit", () => {
     const built = buildStages(FULL, [{ kind: "remove", stageKey: "implement" }]);
 
-    expect(built.broken).toEqual([
-      {
-        stageChangeIndex: undefined,
-        stageIndex: 0,
-        stageKey: "tests",
-        at: { kind: "onFailure" },
-        text: "Stage 1 · Tests: on failure it can only go back to an earlier Stage.",
-      },
+    expect(built.stages[0]?.routes).toEqual([
+      { to: "tests", condition: ENDED_FAILED, limit: 2 },
+      plainRoute("review"),
     ]);
+    expect(built.broken).toEqual([]);
   });
 
   it("gives every reason at once, and the Stage changes that apply still do", () => {
@@ -187,7 +183,6 @@ describe("buildStages", () => {
     expect(built.broken.map(({ text }) => text)).toEqual([
       "Removes Produce, which Full no longer has.",
       "Inserts Again before Tests, but Full now has a Stage of its own with the same key.",
-      "Stage 1 · Tests: on failure it can only go back to an earlier Stage.",
     ]);
   });
 });
@@ -207,7 +202,10 @@ describe("buildStages, routes and places", () => {
 
     expect(built.stages).toEqual([
       PLAN,
-      { ...BRANCH, routes: [{ to: "review", condition: WHEN_CHANGED }, plainRoute("linux")] },
+      {
+        ...BRANCH,
+        routes: [{ to: "review", condition: WHEN_CHANGED, limit: null }, plainRoute("linux")],
+      },
       { ...BRANCH_REVIEW, routes: [plainRoute("linux")] },
       { ...LINUX, routes: [plainRoute("tests")], place: at(3) },
       { ...BRANCH_TESTS, place: at(4) },
@@ -248,6 +246,7 @@ describe("buildStages, routes and places", () => {
             combine: "all",
             tests: [{ kind: "stage", stage: "implement", is: "changed" }],
           },
+          limit: null,
         },
         plainRoute("tests"),
       ],
@@ -261,7 +260,10 @@ describe("buildStages, routes and places", () => {
 
     expect(built.stages).toEqual([
       PLAN,
-      { ...BRANCH, routes: [{ to: "review", condition: WHEN_CHANGED }, plainRoute(null)] },
+      {
+        ...BRANCH,
+        routes: [{ to: "review", condition: WHEN_CHANGED, limit: null }, plainRoute(null)],
+      },
       { ...BRANCH_REVIEW, routes: [plainRoute(null)] },
     ]);
     expect(built.rows.map(({ origin }) => origin)).toEqual(["base", "base", "base", "removed"]);
@@ -285,7 +287,7 @@ describe("buildStages, routes and places", () => {
       { kind: "remove", stageKey: "review" },
     ]);
 
-    expect(built.stages).toEqual(straightLineFlow([IMPLEMENT, TESTS]));
+    expect(built.stages).toEqual(asFlow([IMPLEMENT, TESTS]));
     expect(built.broken).toEqual([]);
   });
   it("changes a Stage's routes for the ones it gives", () => {

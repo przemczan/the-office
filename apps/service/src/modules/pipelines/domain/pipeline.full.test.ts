@@ -1,10 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { stageProblems } from "./pipeline.js";
+import type { KeptStage } from "./routes-back.js";
 import type { Stage } from "./stage.js";
-import { agentStage, gate, scriptStage } from "./stage.fixtures.js";
+import { agentStage, scriptStage } from "./stage.fixtures.js";
 
 function problemTexts(stages: readonly Stage[]): string[] {
   return stageProblems(stages).map((problem) => problem.text);
+}
+
+/** Implement, then Tests going back to `goBackTo` on failure at most `rounds` times, then Publish. */
+function goingBack(goBackTo: string, rounds: number): KeptStage[] {
+  return [
+    agentStage(),
+    { ...scriptStage(), onFailure: { goBackTo, rounds } },
+    scriptStage({ key: "publish", name: "Publish", command: "publish" }),
+  ];
 }
 
 describe("stageProblems", () => {
@@ -52,40 +62,29 @@ describe("stageProblems", () => {
     });
   });
 
-  describe("on failure", () => {
+  describe("a kept on-failure setting, read as its failure route", () => {
     it.each([
-      ["a later Stage", "publish"],
+      ["an earlier Stage", "implement"],
       ["itself", "tests"],
-      ["a Stage that doesn't exist", "nowhere"],
-    ])("can't go back to %s", (_target, goBackTo) => {
-      const stages = [
-        agentStage(),
-        scriptStage({ onFailure: { goBackTo, rounds: 1 } }),
-        scriptStage({ key: "publish", name: "Publish", command: "publish" }),
-      ];
+      ["a later Stage, where its other route leads too", "publish"],
+    ])("may go to %s", (_target, goBackTo) => {
+      expect(stageProblems(goingBack(goBackTo, 1))).toEqual([]);
+    });
 
-      expect(problemTexts(stages)).toEqual([
-        "Stage 2 · Tests: on failure it can only go back to an earlier Stage.",
+    it("can't go to a Stage that doesn't exist", () => {
+      expect(stageProblems(goingBack("nowhere", 1))).toEqual([
+        {
+          stageKey: "tests",
+          at: { kind: "route", routeIndex: 0 },
+          level: "problem",
+          text: "Stage 2 · Tests: its route to nowhere leads to a Stage the Pipeline doesn't have.",
+        },
       ]);
     });
 
-    it("can't go back to a Gate", () => {
-      const stages = [
-        agentStage(),
-        gate(),
-        scriptStage({ onFailure: { goBackTo: "gate", rounds: 1 } }),
-      ];
-
-      expect(problemTexts(stages)).toEqual([
-        "Stage 3 · Tests: on failure it can't go back to a Gate.",
-      ]);
-    });
-
-    it.each([0, 2.5])("can't go back %s times", (rounds) => {
-      const stages = [agentStage(), scriptStage({ onFailure: { goBackTo: "implement", rounds } })];
-
-      expect(problemTexts(stages)).toEqual([
-        "Stage 2 · Tests: on failure it must go back a whole number of times, at least once.",
+    it.each([0, 2.5, 10])("can't go back %s times", (rounds) => {
+      expect(problemTexts(goingBack("implement", rounds))).toEqual([
+        `Stage 2 · Tests: its route to Implement has a limit of ${rounds}; give it 1 to 9 times, or No limit.`,
       ]);
     });
   });

@@ -1,3 +1,4 @@
+import { goingBackOnFailure } from "../domain/stage.fixtures.js";
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
@@ -55,12 +56,7 @@ describe("AgentStageRunner, a turn refused for a used-up usage window (spec 2.3)
 
     await walkStages(
       pipelines,
-      [
-        anAgentStage("implement", {
-          name: "Implement",
-          onFailure: { goBackTo: "implement", rounds: 2 },
-        }),
-      ],
+      [goingBackOnFailure(anAgentStage("implement", { name: "Implement" }), "implement", 2)],
       taskId,
     );
 

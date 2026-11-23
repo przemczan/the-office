@@ -40,8 +40,16 @@ export interface StageRunsFileRun {
 export interface StageRunsFile {
   readonly version: 1;
   readonly task: { readonly id: string; readonly title: string; readonly project: string };
-  /** `to` is a Stage's key, or null for End. */
-  readonly route: { readonly from: string; readonly to: string | null };
+  /**
+   * The route being weighed: `to` is a Stage's key, or null for End; `times` counts the times the
+   * walk followed it before, and `limit` the times it may, null for No limit.
+   */
+  readonly route: {
+    readonly from: string;
+    readonly to: string | null;
+    readonly times: number;
+    readonly limit: number | null;
+  };
   readonly definitionOfDone: readonly StageRunsFileStatement[];
   readonly stageRuns: readonly StageRunsFileRun[];
 }

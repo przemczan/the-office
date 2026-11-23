@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { reportedMet, reportedOutOfReach, unmetStatements } from "./definition-of-done-reports.js";
 import { GATE_REACHED } from "./gate.js";
-import { gateChecksDefinitionOfDone, nextMove } from "./pipeline-walk.js";
+import { gateChecksDefinitionOfDone, nextMove, routesFollowed } from "./pipeline-walk.js";
 import {
   RESOLVE_GATE_KEY,
   RESOLVE_KEY,
@@ -10,7 +10,8 @@ import {
   walkedStages,
 } from "./resolve-stages.js";
 import { type ConditionGroup, type ConditionTest, plainRoute, type Route } from "./route.js";
-import type { OnFailure, Stage } from "./stage.js";
+import type { KeptOnFailure, KeptStage } from "./routes-back.js";
+import type { Stage } from "./stage.js";
 import type { CommandOutcome, StageCommandPurpose, StageCommandRun } from "./stage-command-run.js";
 import {
   NO_STAGE_TOKENS,
@@ -22,7 +23,11 @@ import {
   type WalkAnswer,
 } from "./stage-run.js";
 
-function agentStage(key: string, onFailure?: OnFailure): Stage {
+/**
+ * An Agent Stage, with the on-failure setting a previous release kept when `onFailure` is given,
+ * which the walk reads as its failure route back.
+ */
+function agentStage(key: string, onFailure?: KeptOnFailure): KeptStage {
   return {
     kind: "agent",
     key,
@@ -36,7 +41,8 @@ function agentStage(key: string, onFailure?: OnFailure): Stage {
   };
 }
 
-function scriptStage(key: string, onFailure?: OnFailure): Stage {
+/** A Script Stage, with a kept on-failure setting as `agentStage` takes it. */
+function scriptStage(key: string, onFailure?: KeptOnFailure): KeptStage {
   return {
     kind: "script",
     key,
@@ -486,7 +492,10 @@ describe("nextMove", () => {
       expect(walked[3]).toMatchObject({
         kind: "script",
         command: "test",
-        onFailure: { goBackTo: RESOLVE_KEY, rounds: 2 },
+        routes: [
+          { to: RESOLVE_KEY, condition: { tests: [{ is: "failed" }] }, limit: 2 },
+          { to: RESOLVE_GATE_KEY, condition: null },
+        ],
       });
       expect(walked[4]).toMatchObject({ kind: "gate" });
       expect(nextMove(pipeline, ran, NO_DEFINITION_OF_DONE)).toEqual({
@@ -646,13 +655,29 @@ describe("nextMove", () => {
     });
   });
 
-  it("asks the user once a loop has gone back as many times as it may", () => {
+  it("asks the user once a kept loop's route back has gone back as many times as it may", () => {
     const ran = runs(...checkUsedUp);
 
     expect(nextMove(stages, ran, NO_DEFINITION_OF_DONE)).toEqual({
       move: "ask",
       run: ran[5],
-      question: { kind: "no-retries-left", stage: stages[1], error: "Third." },
+      question: {
+        kind: "no-retries-left",
+        stage: stages[1],
+        error: "Third.",
+        atLimit: {
+          route: {
+            to: "write",
+            toName: "write",
+            condition: { combine: "all", tests: [{ kind: "stage", stage: null, is: "failed" }] },
+            limit: 2,
+          },
+          times: 2,
+          limit: 2,
+          back: true,
+        },
+        others: [{ to: "look", toName: "look", condition: null, limit: null }],
+      },
     });
   });
 
@@ -689,7 +714,13 @@ describe("nextMove", () => {
     expect(nextMove(stages, ran, NO_DEFINITION_OF_DONE)).toEqual({
       move: "ask",
       run: ran[0],
-      question: { kind: "no-retries-left", stage: stages[0], error: "The session ended." },
+      question: {
+        kind: "no-retries-left",
+        stage: stages[0],
+        error: "The session ended.",
+        atLimit: undefined,
+        others: [],
+      },
     });
   });
 
@@ -1400,8 +1431,9 @@ function routed(stage: Stage, ...routes: Route[]): Stage {
   return { ...stage, routes };
 }
 
+/** A route to `to` while all of `tests` hold, with No limit. */
 function when(to: string | null, ...tests: ConditionGroup["tests"]): Route {
-  return { to, condition: { combine: "all", tests } };
+  return { to, condition: { combine: "all", tests }, limit: null };
 }
 
 const unmet: ConditionGroup["tests"][number] = { kind: "definitionOfDone", is: "some-not-met" };
@@ -1605,6 +1637,7 @@ describe("nextMove over routes", () => {
         run: ran[0],
         stage: byCommand[0],
         condition: lintTest,
+        route: { times: 0, limit: null },
       });
     });
 
@@ -1668,7 +1701,11 @@ describe("nextMove over routes", () => {
     });
 
     it("weighs the tests in order and asks for no command once the result is settled", () => {
-      const anyOf: Route = { to: "review", condition: { combine: "any", tests: [lint, build] } };
+      const anyOf: Route = {
+        to: "review",
+        condition: { combine: "any", tests: [lint, build] },
+        limit: null,
+      };
       const either = [
         routed(agentStage("write"), anyOf, plainRoute("check")),
         ...byCommand.slice(1),
@@ -1705,7 +1742,7 @@ describe("nextMove over routes", () => {
       ["check", failed("Second.")],
     );
 
-    it("goes back by its loop first, then on by a route whose condition says it ended Failed", () => {
+    it("goes back by its kept loop first, then on by a failure route, carrying the failure", () => {
       expect(
         nextMove(toFixOnFailure, failedTwice.slice(0, 2), NO_DEFINITION_OF_DONE),
       ).toMatchObject({
@@ -1716,7 +1753,7 @@ describe("nextMove over routes", () => {
       expect(nextMove(toFixOnFailure, failedTwice, NO_DEFINITION_OF_DONE)).toMatchObject({
         move: "run",
         stage: { key: "fix" },
-        carriedFailure: undefined,
+        carriedFailure: { stageKey: "check", error: "Second.", round: 1, rounds: null },
       });
     });
 
@@ -1769,26 +1806,29 @@ describe("nextMove over routes", () => {
         exitCode: 1,
         durationMs: 1000,
         output: "",
-        condition: { key: "lint", to: "publish", routeIndex: 1, testPath: [1] },
+        // The kept loop's route back is the first of the Stage's routes, as `asFlow` reads it.
+        condition: { key: "lint", to: "publish", routeIndex: 2, testPath: [1] },
       } satisfies StageCommandRun;
-      const weighedThenAccepted = failedTwice.map((run, index) =>
+      const weighedLint = failedTwice.map((run, index) =>
+        index === 3 ? { ...run, commandRuns: [failedLint] } : run,
+      );
+      const accepted = weighedLint.map((run, index) =>
         index === 3
-          ? {
-              ...run,
-              commandRuns: [failedLint],
-              decisions: [decided("no-retries-left", { kind: "accept-issues" })],
-            }
+          ? { ...run, decisions: [decided("no-retries-left", { kind: "accept-issues" })] }
           : run,
       );
 
       expect(nextMove(flow, failedTwice, NO_DEFINITION_OF_DONE)).toMatchObject({
         move: "weigh-command",
-        condition: { key: "lint", to: "publish", routeIndex: 1, testPath: [1] },
+        condition: { key: "lint", to: "publish", routeIndex: 2, testPath: [1] },
       });
-      // The recorded result is found again once every route is weighed: no command runs twice.
-      expect(nextMove(flow, weighedThenAccepted, NO_DEFINITION_OF_DONE)).toEqual({
-        move: "complete",
+      // The recorded result is found again: no command runs twice.
+      expect(nextMove(flow, weighedLint, NO_DEFINITION_OF_DONE)).toMatchObject({
+        move: "ask",
+        question: { kind: "no-retries-left", atLimit: { route: { to: "write" } } },
       });
+      // Continuing with the issues weighs the routes as when the Stage ends done: none carries a failure.
+      expect(nextMove(flow, accepted, NO_DEFINITION_OF_DONE)).toEqual({ move: "complete" });
     });
   });
 
@@ -1829,6 +1869,177 @@ describe("nextMove over routes", () => {
         question: { kind: "definition-of-done", before: undefined, again: { key: "write" } },
       });
     });
+  });
+});
+
+/** `route` with the limit `limit`. */
+function limited(route: Route, limit: number | null): Route {
+  return { ...route, limit };
+}
+
+describe("nextMove at a route's limit", () => {
+  // Review sends the work back to Write while something is unmet, at most once, else on to Publish.
+  const reviewing = [
+    routed(agentStage("write"), plainRoute("review")),
+    routed(agentStage("review"), limited(when("write", unmet), 1), plainRoute("publish")),
+    routed(PUBLISH, plainRoute(null)),
+  ];
+  const sentBackOnce: Ran[] = [
+    ["write", meeting(1)],
+    ["review", done],
+    ["write", meeting(1)],
+    ["review", { ...done, handoverNote: "The second name still doesn't persist." }],
+  ];
+
+  it("follows a route while it has times left, then asks rather than passing over it", () => {
+    expect(nextMove(reviewing, runs(...sentBackOnce.slice(0, 2)), DEFINITION_OF_DONE)).toEqual({
+      move: "run",
+      stage: reviewing[0],
+      carriedFailure: undefined,
+      sentBack: undefined,
+    });
+    const ran = runs(...sentBackOnce);
+    expect(nextMove(reviewing, ran, DEFINITION_OF_DONE)).toEqual({
+      move: "ask",
+      run: ran[3],
+      question: {
+        kind: "route-limit",
+        stage: reviewing[1],
+        atLimit: {
+          route: { ...when("write", unmet), toName: "write", limit: 1 },
+          times: 1,
+          limit: 1,
+          back: true,
+        },
+        others: [{ to: "publish", toName: "publish", condition: null, limit: null }],
+        note: "The second name still doesn't persist.",
+      },
+    });
+  });
+
+  it("follows the route once more past its limit, then asks again the next time", () => {
+    const onceMore = { kind: "one-more-round", guidance: "Persist it.", to: "write" } as const;
+    const answered = runs(...sentBackOnce.slice(0, 3), [
+      "review",
+      done,
+      { ...decided("route-limit", onceMore), options: [onceMore] },
+    ]);
+
+    expect(nextMove(reviewing, answered, DEFINITION_OF_DONE)).toMatchObject({
+      move: "run",
+      stage: { key: "write" },
+      carriedFailure: undefined,
+    });
+    const again = [...answered, ...runs(["write", meeting(1)], ["review", done])].map(
+      (run, index) => ({ ...run, id: `run-${index + 1}`, number: index + 1 }),
+    );
+    expect(nextMove(reviewing, again, DEFINITION_OF_DONE)).toMatchObject({
+      move: "ask",
+      question: { kind: "route-limit", atLimit: { times: 2, limit: 2 } },
+    });
+  });
+
+  /** Review at its route's limit the first time, the Decision answered `answer`. */
+  const answered = (answer: WalkAnswer) =>
+    runs(...sentBackOnce.slice(0, 3), ["review", done, decided("route-limit", answer)]);
+
+  it("goes on by another route, or drops the Task, as the answer says", () => {
+    expect(
+      nextMove(reviewing, answered({ kind: "follow-route", to: "publish" }), DEFINITION_OF_DONE),
+    ).toMatchObject({ move: "ask", question: { kind: "definition-of-done" } });
+    expect(
+      nextMove(reviewing, answered({ kind: "follow-route", to: "publish" }), NO_DEFINITION_OF_DONE),
+    ).toMatchObject({ move: "run", stage: { key: "publish" } });
+    expect(nextMove(reviewing, answered({ kind: "drop" }), DEFINITION_OF_DONE)).toEqual({
+      move: "drop",
+    });
+  });
+
+  it("asks at the limit of a route that leads on as well", () => {
+    const onceOnly = [
+      routed(agentStage("write"), limited(plainRoute("review"), 1)),
+      routed(agentStage("review"), limited(when("write", unmet), 3), plainRoute(null)),
+    ];
+    const ran = runs(["write", meeting(1)], ["review", done], ["write", meeting(1)]);
+
+    expect(nextMove(onceOnly, ran, DEFINITION_OF_DONE)).toMatchObject({
+      move: "ask",
+      question: {
+        kind: "route-limit",
+        atLimit: { route: { to: "review" }, times: 1, limit: 1, back: false },
+        others: [],
+      },
+    });
+  });
+
+  it("passes a failure over a used-up failure route to the next one", () => {
+    const twoWays = [
+      routed(agentStage("write"), plainRoute("check")),
+      routed(
+        scriptStage("check"),
+        limited(when("write", endedFailed), 1),
+        when("fix", endedFailed),
+        plainRoute("publish"),
+      ),
+      routed(agentStage("fix"), plainRoute("check")),
+      routed(PUBLISH, plainRoute(null)),
+    ];
+    const ran = runs(
+      ["write", done],
+      ["check", failed("First.")],
+      ["write", done],
+      ["check", failed("Second.")],
+    );
+
+    expect(nextMove(twoWays, ran, NO_DEFINITION_OF_DONE)).toMatchObject({
+      move: "run",
+      stage: { key: "fix" },
+      carriedFailure: { stageKey: "check", error: "Second.", round: 1, rounds: null },
+    });
+  });
+
+  it("goes on by another route of a failed Stage whose failure route is used up", () => {
+    const ran = answeredUsedUp({ kind: "follow-route", to: "look" });
+
+    expect(nextMove(stages, ran, NO_DEFINITION_OF_DONE)).toMatchObject({
+      move: "run",
+      stage: { key: "look" },
+      carriedFailure: undefined,
+    });
+  });
+});
+
+describe("routesFollowed", () => {
+  it("replays an in-progress Task's runs as the times its kept loop's route back was followed", () => {
+    const ran = runs(...checkUsedUp);
+
+    expect(routesFollowed(stages, ran)).toEqual(
+      new Map([
+        ["run-1", { to: "check", times: 1, limit: null }],
+        ["run-2", { to: "write", times: 1, limit: 2 }],
+        ["run-3", { to: "check", times: 2, limit: null }],
+        ["run-4", { to: "write", times: 2, limit: 2 }],
+        ["run-5", { to: "check", times: 3, limit: null }],
+      ]),
+    );
+  });
+
+  it("counts the times an answer allowed past the limit", () => {
+    const ran = [
+      ...answeredUsedUp({ kind: "more-rounds", rounds: 2 }),
+      ...runs(["write", done]).map((run) => ({ ...run, id: "run-7", number: 7 })),
+    ];
+
+    expect(routesFollowed(stages, ran).get("run-6")).toEqual({ to: "write", times: 3, limit: 4 });
+  });
+
+  it("keeps the routes followed before a run the walk can't replay", () => {
+    const ran = runs(["write", done], ["look", done], ["check", done]);
+
+    expect(routesFollowed(stages, ran)).toEqual(new Map());
+    expect(routesFollowed(stages, runs(["write", done], ["check", done], ["write", done]))).toEqual(
+      new Map([["run-1", { to: "check", times: 1, limit: null }]]),
+    );
   });
 });
 

@@ -31,6 +31,7 @@ import {
   GateDropped,
   GateReached,
   NoRetriesLeft,
+  RouteLimitReached,
   SentBackFromGate,
   StageRunEnded,
   StageRunStarted,
@@ -382,6 +383,9 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
     );
     // A failure put to a Consultant first isn't the user's outcome unless they pass it on.
     this.events.subscribe(NoRetriesLeft, ({ taskId, occurredAt, putTo }) =>
+      putTo === undefined ? this.keepOutcome(taskId, "failed", occurredAt) : undefined,
+    );
+    this.events.subscribe(RouteLimitReached, ({ taskId, occurredAt, putTo }) =>
       putTo === undefined ? this.keepOutcome(taskId, "failed", occurredAt) : undefined,
     );
     this.events.subscribe(DefinitionOfDoneNotMet, ({ taskId, occurredAt }) =>

@@ -44,7 +44,7 @@
 .flow-canvas--names-only .flow-canvas-stage-tag,
 .flow-canvas--names-only .flow-canvas-stage-flag,
 .flow-canvas--names-only .flow-canvas-handle,
-.flow-canvas--names-only .flow-canvas-loop-mark {
+.flow-canvas--names-only .flow-canvas-marks {
   display: none;
 }
 
@@ -207,7 +207,9 @@
 }
 
 .flow-canvas-route-row {
-  display: block;
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
   width: 100%;
   padding: 2px 14px 2px var(--flow-card-pad);
   border: 0;
@@ -220,6 +222,8 @@
 
 /* Two lines at most on the canvas; the whole words are on hover and in the panel */
 .flow-canvas-route-words {
+  flex: 1;
+  min-width: 0;
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
@@ -407,19 +411,6 @@
   stroke-dasharray: 2 3;
 }
 
-.flow-canvas-loop .flow-canvas-line {
-  stroke: var(--danger);
-  stroke-dasharray: 4 3;
-}
-
-.flow-canvas-loop .flow-canvas-arrow {
-  fill: var(--danger);
-}
-
-.flow-canvas-loop--problem .flow-canvas-line {
-  stroke-width: 2.5;
-}
-
 .flow-canvas-start {
   fill: var(--fg-2);
 }
@@ -455,7 +446,7 @@
   cursor: pointer;
 }
 
-/* The loops' ↺ N× marks, over the lines */
+/* A route's limit, ≤N×, on its line in the route's own colour; the same mark sits in its row */
 .flow-canvas-marks {
   position: absolute;
   inset: 0;
@@ -463,23 +454,38 @@
   pointer-events: none;
 }
 
-.flow-canvas-loop-mark {
-  position: absolute;
-  padding: 1px 7px;
-  border: 1px solid var(--danger-border);
+.flow-canvas-limit-mark,
+.flow-canvas-limit-mark-inline {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: 16px;
+  padding: 0 6px;
+  border: 1px solid var(--flow-line, var(--border-strong));
   border-radius: var(--radius-full);
   background: var(--surface);
-  color: var(--danger-fg);
-  font: 600 var(--text-2xs) / 1.4 var(--font-sans);
+  color: var(--flow-line, var(--fg-2));
+  font: 600 var(--text-2xs) / 1 var(--font-sans);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  transform: translate(-50%, -50%);
-  cursor: pointer;
-  pointer-events: auto;
 }
 
-.flow-canvas-loop-mark--problem {
-  border-width: 2px;
-  border-color: var(--danger);
+.flow-canvas-limit-mark {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+.flow-canvas-limit-mark--problem {
+  --flow-line: var(--danger);
+}
+
+.flow-canvas-limit-mark--picked,
+.flow-canvas-limit-mark--proposed {
+  --flow-line: var(--accent);
+}
+
+.flow-canvas-limit-mark--taken-away {
+  opacity: 0.6;
 }
 
 .flow-canvas-drop {

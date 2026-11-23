@@ -2048,6 +2048,7 @@ test(
       await panel("Route").getByLabel("Goes to").selectOption({ label: "New Stage" });
       await onFlow("New Stage").click();
       await added.getByRole("button", { name: "Add a route" }).click();
+      await page.getByRole("menu").getByRole("button", { name: "Otherwise" }).click();
       await expect(panel("Route")).toContainText("Route from New Stage to Tests");
       await expect(problems).not.toContainText("give it a route out");
       // It continues Implement's session with the same Role, and with someone to work it the
@@ -2060,22 +2061,25 @@ test(
       await expect(added.getByText(/^Optional/)).toHaveCount(0);
       await added.getByLabel("Name", { exact: true }).fill("Review");
 
-      // On failure, Tests goes back to Review, offered only the Stages before it.
+      // When it fails, Tests goes back to Review instead of Implement: its failure route is offered
+      // every Stage, its own included, and keeps its limit as it still leads back.
       await onFlow("Tests").click();
       const tests = panel("Tests");
-      const onFailure = tests
-        .getByRole("region", { name: "On failure" })
-        .getByRole("combobox", { name: "On failure" });
-      await expect(onFailure.locator("option")).toHaveText([
-        "No loop",
-        "Go back to Implement",
-        "Go back to Review",
+      const failureRoute = tests
+        .getByRole("region", { name: "Routes out" })
+        .getByRole("listitem")
+        .first();
+      await expect(failureRoute).toContainText("When Tests ended Failed");
+      const failureGoesTo = failureRoute.getByLabel("Goes to");
+      await expect(failureGoesTo.locator("option")).toContainText([
+        "Implement",
+        "Review",
+        "Tests",
+        "End",
       ]);
-      await onFailure.selectOption({ label: "Go back to Review" });
+      await failureGoesTo.selectOption({ label: "Review" });
+      await expect(failureRoute.getByLabel("times on the route to Review")).toHaveText("2");
       await tests.getByLabel("Project command").selectOption("lint");
-      await expect(tests.getByRole("list", { name: "When Tests fails" })).toContainText(
-        "Back to Review while it has rounds left: at most 2 times.",
-      );
 
       // A Script Stage added and removed again leaves nothing behind.
       await addAStage("Script Stage");
@@ -2124,7 +2128,7 @@ test(
           session: "continue",
           budget: 100_000,
         },
-        { ...libraryTests, command: "lint", onFailure: { goBackTo: "new-stage", rounds: 2 } },
+        { ...libraryTests, command: "lint" },
         { kind: "gate", key: "gate", name: "UI acceptance", optional: false },
         libraryPublish,
       ]);
@@ -2132,7 +2136,7 @@ test(
       expect(ownStages.map(({ key, routes }) => [key, routes?.map(({ to }) => to)])).toEqual([
         ["implement", ["new-stage"]],
         ["new-stage", ["tests"]],
-        ["tests", ["gate"]],
+        ["tests", ["new-stage", "gate"]],
         ["gate", ["publish"]],
         ["publish", [null]],
       ]);
@@ -2150,7 +2154,7 @@ test(
       await expect(implement.getByLabel("Budget")).toHaveValue("120");
       await expect(implement.getByLabel("Runs", { exact: true })).toHaveValue("read-only-git");
       await onFlow("Tests").click();
-      await expect(onFailure).toHaveValue("new-stage");
+      await expect(failureGoesTo).toHaveValue("new-stage");
       await expect(onFlow("Review")).toBeVisible();
       await expect(onFlow("UI acceptance")).toBeVisible();
       await dialog.getByRole("button", { name: "Close", exact: true }).click();
@@ -2977,7 +2981,7 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
       const open = await page.request.get("/api/decisions/open");
       return JSON.stringify(await open.json());
     })
-    .toContain('\\"Publish\\" failed, with no round to go back to.');
+    .toContain('\\"Publish\\" failed, with no failure route to follow.');
   const consultationLog = async (): Promise<string> => {
     const taskId = new URL(page.url()).pathname.split("/").at(-1);
     const threads = threadListSchema.parse(

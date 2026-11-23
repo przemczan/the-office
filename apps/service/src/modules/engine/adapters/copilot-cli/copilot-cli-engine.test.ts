@@ -616,6 +616,7 @@ describe("CopilotSdkEngine on a stand-in runtime", () => {
       outputSchema: true,
       languageServers: false,
       carrySession: false,
+      startsUsageWindow: false,
     });
   });
 });

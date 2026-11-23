@@ -1,7 +1,7 @@
 import type { Route, Stage, StageProblem } from "@the-office/contracts";
-import { routeTargetName, routeWhen } from "./condition-words.ts";
+import { atMostWords, limitMark, routeTargetName, routeWhen } from "./condition-words.ts";
 import type { FlowPick } from "./flow-pick.ts";
-import type { FlowDrop, MoveDirection } from "./flow-model.ts";
+import { type FlowDrop, limitOf, type MoveDirection } from "./flow-model.ts";
 import type { FlowOrientation } from "./flow-layout.ts";
 
 /**
@@ -14,7 +14,7 @@ export type FlowCanvasEdit =
   | { readonly kind: "draw-route"; readonly from: string; readonly to: string | null }
   | { readonly kind: "remove-route"; readonly key: string; readonly routeIndex: number };
 
-/** A Stage's own problems: on it as a whole, not on a route or its On failure. */
+/** A Stage's own problems: on it as a whole, not on a route. */
 export function stageProblemsOf(
   problems: readonly StageProblem[],
   key: string,
@@ -45,10 +45,6 @@ export function routeProblems(
   );
 }
 
-export function loopHasProblem(problems: readonly StageProblem[], key: string): boolean {
-  return problems.some(({ stageKey, at }) => stageKey === key && at?.kind === "onFailure");
-}
-
 /** Whether every route out carries a condition, so when none holds the walk stops and asks. */
 export function noneHoldsAsks(stage: Stage): boolean {
   const routes = stage.routes ?? [];
@@ -57,36 +53,27 @@ export function noneHoldsAsks(stage: Stage): boolean {
 
 export const NONE_HOLDS_WORDS = "When none holds, you're asked";
 
+/** "Route from Tests to Implement", with ", at most 3 times" on a route with a limit. */
 export function routeName(from: Stage, route: Route, stages: readonly Stage[]): string {
-  return `Route from ${from.name} to ${routeTargetName(route, stages)}`;
+  const limit = limitOf(stages, from.key, route);
+  const most = limit === null ? "" : `, ${atMostWords(limit)}`;
+  return `Route from ${from.name} to ${routeTargetName(route, stages)}${most}`;
 }
 
-/** A route's line: where it leads, and when ("when …", "always", "otherwise"). */
+/**
+ * A route's line: where it leads, when ("when …", "when it fails", "always", "otherwise") and its
+ * limit's mark ("≤3×", none for No limit).
+ */
 export function routeLine(
   from: Stage,
   route: Route,
   index: number,
   stages: readonly Stage[],
-): { readonly target: string; readonly when: string } {
-  return { target: routeTargetName(route, stages), when: routeWhen(route, from, stages, index) };
-}
-
-function times(count: number): string {
-  return count === 1 ? "1 time" : `${count} times`;
-}
-
-/** A Stage's On failure loop in words, or undefined without one. */
-export function loopWords(
-  stage: Stage,
-  stages: readonly Stage[],
-): { readonly to: string; readonly rounds: number; readonly name: string } | undefined {
-  if (stage.kind === "gate" || !stage.onFailure) return undefined;
-  const { goBackTo, rounds } = stage.onFailure;
-  const to = stages.find(({ key }) => key === goBackTo)?.name ?? goBackTo;
+): { readonly target: string; readonly when: string; readonly mark: string } {
   return {
-    to,
-    rounds,
-    name: `On failure, ${stage.name} goes back to ${to}, at most ${times(rounds)}`,
+    target: routeTargetName(route, stages),
+    when: routeWhen(route, from, stages, index),
+    mark: limitMark(limitOf(stages, from.key, route)),
   };
 }
 

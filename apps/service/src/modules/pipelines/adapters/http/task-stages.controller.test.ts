@@ -8,6 +8,7 @@ import {
 } from "@the-office/contracts";
 import { afterEach, describe, expect, it } from "vitest";
 import { straightLineFlow } from "../../domain/flow.js";
+import { ENDED_FAILED, plainRoute } from "../../domain/route.js";
 import type { Stage } from "../../domain/stage.js";
 import { aStageRun } from "../../domain/stage-run.fixtures.js";
 import {
@@ -95,6 +96,7 @@ describe("GET /api/tasks/:id/stages", () => {
         tokens: { input: 10, output: 10, cacheRead: 0, cacheCreation: 0 },
         context: null,
         carriedFailure: null,
+        route: { to: "tests", times: 1, limit: null },
         sentBack: null,
         commandRuns: [],
         gateAction: null,
@@ -201,17 +203,23 @@ describe("PUT /api/tasks/:id/stages", () => {
     pipelines.tasks.put(taskId, { state: "ready", pipelineId: "quick-fix" });
 
     const response = await edit(taskId, [
-      { ...tests, onFailure: { goBackTo: "implement", rounds: 1 } },
-      anAgentStage("implement", { session: "continue" }),
+      {
+        ...tests,
+        routes: [
+          { to: "tests", condition: ENDED_FAILED, limit: null },
+          { to: "implement", condition: null, limit: null },
+        ],
+      },
+      anAgentStage("implement", { session: "continue", routes: [plainRoute(null)] }),
     ]);
 
     expect(response.status).toBe(422);
     expect(stagesEditRefusalSchema.parse(await response.json()).problems).toEqual([
       {
         stageKey: "tests",
-        at: { kind: "onFailure" },
+        at: { kind: "route", routeIndex: 0 },
         level: "problem",
-        text: "Stage 1 · Tests: on failure it can only go back to an earlier Stage.",
+        text: "Stage 1 · Tests: the loop Tests → Tests has no route with a limit, so it could run for ever.",
       },
       {
         stageKey: "implement",

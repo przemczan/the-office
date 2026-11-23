@@ -1,4 +1,7 @@
+import type { RouteAtLimit } from "./pipeline-walk.js";
+import { ENDED_FAILED } from "./route.js";
 import type { Stage } from "./stage.js";
+import { goingBackOnFailure } from "./stage.fixtures.js";
 import {
   NO_STAGE_TOKENS,
   type StageOutcome,
@@ -18,13 +21,19 @@ export const implement: Stage = {
   session: "fresh",
   budget: 100_000,
 };
-export const tests: Stage = {
-  kind: "script",
-  key: "tests",
-  name: "Tests",
-  optional: false,
-  command: "test",
-  onFailure: { goBackTo: "implement", rounds: 3 },
+/** Tests, going back to Implement on failure as a previous release kept it, at most 3 times. */
+export const tests: Stage = goingBackOnFailure(
+  { kind: "script", key: "tests", name: "Tests", optional: false, command: "test" },
+  "implement",
+  3,
+);
+
+/** Tests' failure route back to Implement, followed as many times as it may. */
+export const usedUpRouteBack: RouteAtLimit = {
+  route: { to: "implement", toName: "Implement", condition: ENDED_FAILED, limit: 3 },
+  times: 3,
+  limit: 3,
+  back: true,
 };
 
 export function aRun(

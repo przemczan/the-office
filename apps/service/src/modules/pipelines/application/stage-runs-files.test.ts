@@ -10,7 +10,7 @@ function aFile(title: string): StageRunsFile {
   return {
     version: 1,
     task: { id: "task-1", title, project: "the-office" },
-    route: { from: "tests", to: "review" },
+    route: { from: "tests", to: "review", times: 0, limit: null },
     definitionOfDone: [],
     stageRuns: [],
   };

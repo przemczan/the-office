@@ -1,3 +1,4 @@
+import { goingBackOnFailure } from "../domain/stage.fixtures.js";
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import type { StageOutcome } from "../domain/stage-run.js";
@@ -52,7 +53,7 @@ describe("ScriptStageRunner", () => {
 
     const taskId = await walkStages(pipelines, [
       anAgentStage("implement"),
-      aScriptStage("test", { onFailure: { goBackTo: "implement", rounds: 1 } }),
+      goingBackOnFailure(aScriptStage("test"), "implement", 1),
     ]);
 
     const error =

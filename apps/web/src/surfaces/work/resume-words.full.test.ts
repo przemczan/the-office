@@ -19,6 +19,7 @@ function aRun(fields: Partial<StageRun>): StageRun {
     tokens: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
     context: null,
     carriedFailure: null,
+    route: null,
     sentBack: null,
     gateAction: null,
     commandRuns: [],

@@ -178,11 +178,11 @@ describe("A flow's routes", () => {
   /** Implement goes to Review while something isn't met, else straight to Ship. */
   const FLOW: readonly Stage[] = [
     placed(anAgentStage("implement"), 0, 0, [
-      { to: "review", condition: WHILE_SOME_NOT_MET },
-      { to: "ship", condition: null },
+      { to: "review", condition: WHILE_SOME_NOT_MET, limit: null },
+      { to: "ship", condition: null, limit: null },
     ]),
-    placed(anAgentStage("review"), 1, 1, [{ to: "ship", condition: null }]),
-    placed(ship, 2, 0, [{ to: null, condition: null }]),
+    placed(anAgentStage("review"), 1, 1, [{ to: "ship", condition: null, limit: null }]),
+    placed(ship, 2, 0, [{ to: null, condition: null, limit: null }]),
   ];
 
   it("take the branch whose condition holds, and pass the other by with no run", async () => {
@@ -216,8 +216,12 @@ describe("A flow's routes", () => {
   describe("when none holds", () => {
     /** Implement goes on only while something isn't met; everything is. */
     const STUCK: readonly Stage[] = [
-      placed(anAgentStage("implement"), 0, 0, [{ to: "review", condition: WHILE_SOME_NOT_MET }]),
-      placed(anAgentStage("review", { name: "Review" }), 1, 0, [{ to: null, condition: null }]),
+      placed(anAgentStage("implement"), 0, 0, [
+        { to: "review", condition: WHILE_SOME_NOT_MET, limit: null },
+      ]),
+      placed(anAgentStage("review", { name: "Review" }), 1, 0, [
+        { to: null, condition: null, limit: null },
+      ]),
     ];
 
     it("asks the user where the walk goes on, the Task waiting on them", async () => {
@@ -269,11 +273,17 @@ describe("A route whose condition runs a Project command", () => {
   /** Implement goes to Review when `lint` passes, else straight to Ship. */
   const BY_LINT: readonly Stage[] = [
     placed(anAgentStage("implement"), 0, 0, [
-      { to: "review", condition: { combine: "all", tests: [{ kind: "command", key: "lint" }] } },
-      { to: "ship", condition: null },
+      {
+        to: "review",
+        condition: { combine: "all", tests: [{ kind: "command", key: "lint" }] },
+        limit: null,
+      },
+      { to: "ship", condition: null, limit: null },
     ]),
-    placed(anAgentStage("review", { name: "Review" }), 1, 1, [{ to: "ship", condition: null }]),
-    placed(ship, 2, 0, [{ to: null, condition: null }]),
+    placed(anAgentStage("review", { name: "Review" }), 1, 1, [
+      { to: "ship", condition: null, limit: null },
+    ]),
+    placed(ship, 2, 0, [{ to: null, condition: null, limit: null }]),
   ];
   const LINT_TEST = { key: "lint", to: "review", routeIndex: 0, testPath: [0] };
 
@@ -314,7 +324,7 @@ describe("A route whose condition runs a Project command", () => {
       expect(JSON.parse(file?.text ?? "")).toMatchObject({
         version: 1,
         task: { id: taskId },
-        route: { from: "implement", to: "review" },
+        route: { from: "implement", to: "review", times: 0, limit: null },
         stageRuns: [{ stage: "implement", kind: "agent", run: 1, outcome: "done" }],
       });
     });

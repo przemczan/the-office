@@ -754,7 +754,7 @@ describe("ProposalCard on a Pipeline's routes", () => {
     expect(flow?.querySelectorAll(".flow-canvas-route-line--proposed")).toHaveLength(4);
     expect(flow?.querySelectorAll(".flow-canvas-route-line--taken-away")).toHaveLength(1);
     expect(flow?.textContent).toContain(
-      "Checked: every Stage is reached, each has a route out and every route leads forward.",
+      "Checked: every Stage is reached, each has a route out, End can be reached from each, and every loop has a route with a limit.",
     );
     expect(flow?.querySelector("button")?.textContent).toMatch(/^Show it on the flow/);
   });

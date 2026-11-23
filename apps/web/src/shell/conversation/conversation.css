@@ -1703,6 +1703,22 @@
   color: var(--fg-2);
 }
 
+/* A route's limit, ≤N×, as the flow editor marks it */
+.proposal-route-limit {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  margin-left: 6px;
+  padding: 0 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--fg-2);
+  font: 600 var(--text-2xs) / 1 var(--font-sans);
+  white-space: nowrap;
+  vertical-align: 1px;
+}
+
 .proposal-route-none {
   margin: 0;
   color: var(--fg-3);
