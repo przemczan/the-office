@@ -1,3 +1,4 @@
+import type { StageProblem } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import { byLevel, checkAwaited } from "./stages-check.ts";
 
@@ -23,5 +24,20 @@ describe("byLevel", () => {
     const warning = { stageKey: null, at: null, level: "warning", text: "Nobody." } as const;
 
     expect(byLevel([warning, problem])).toEqual({ problems: [problem], warnings: [warning] });
+  });
+
+  it("keeps a problem both the editor and the service found once", () => {
+    const fromEditor: StageProblem = {
+      stageKey: "review",
+      at: { kind: "route", routeIndex: 1, testPath: [0] },
+      level: "problem",
+      text: "Stage 2 · Review: a condition of its route to End is a choice with no words; say when the Agent chooses it.",
+    };
+    const fromService: StageProblem = {
+      ...fromEditor,
+      at: { testPath: [0], routeIndex: 1, kind: "route" },
+    };
+
+    expect(byLevel([fromEditor, fromService]).problems).toEqual([fromEditor]);
   });
 });

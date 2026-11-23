@@ -14,11 +14,16 @@ export type StageTest = Extract<ConditionTest, { kind: "stage" }>;
 export type StageTestIs = StageTestOutcome | "ran";
 export type DefinitionOfDoneIs = Extract<ConditionTest, { kind: "definitionOfDone" }>["is"];
 
-/** What a test tests, the first of its two selects: `stage: null` is the previous Stage. */
+/**
+ * What a test tests, the first of its two selects: `stage: null` is the previous Stage. An Agent's
+ * choice is never offered there (a choice row has its words instead); a condition mixing one in
+ * shows it, for the check's problem to say why.
+ */
 export type TestSubject =
   | { readonly kind: "stage"; readonly stage: string | null }
   | { readonly kind: "definitionOfDone" }
-  | { readonly kind: "command" };
+  | { readonly kind: "command" }
+  | { readonly kind: "choice" };
 
 /** How many runs "ran N or more times" starts with: a Stage running again is the case worth a route. */
 const DEFAULT_TIMES = 2;
@@ -112,6 +117,8 @@ export function withSubject(
         return { kind: "definitionOfDone", is: "some-not-met" };
       case "command":
         return { kind: "command", key: defaultCommandKey };
+      case "choice":
+        return test;
     }
   });
 }

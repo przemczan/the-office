@@ -36,13 +36,14 @@ function at(minute: number): Date {
 }
 
 describe("stageRunsFile", () => {
-  it("is version 2 in the spec's shape, the run the route leaves last", () => {
+  it("is version 2 in the spec's shape, an Agent's choice among it, the run the route leaves last", () => {
     const runs: StageRun[] = [
       aStageRun({
         roleKey: "developer",
         startedAt: at(0),
         endedAt: at(40),
         changedFiles: ["docs/spec/2.3-pipelines.md"],
+        choice: { to: "tests", reason: "The routes need their tests." },
         outcome: {
           status: "done",
           summary: "Done.",
@@ -95,7 +96,7 @@ describe("stageRunsFile", () => {
           endedAt: "2026-11-17T10:40:00.000Z",
           outcome: "done",
           result: null,
-          choice: null,
+          choice: { to: "tests", reason: "The routes need their tests." },
           changedFiles: ["docs/spec/2.3-pipelines.md"],
           handoverNote: "Routes are in.",
           error: null,

@@ -34,6 +34,7 @@ import {
   type FollowedHardSwitchValue,
 } from "../domain/followed-hard-switches.js";
 import { installFailure } from "../domain/script-stage-outcome.js";
+import { hasChoiceRows, namedChoice } from "../domain/route-choices.js";
 import {
   stageCommitMessage,
   UPDATE_BRANCH_TOOL,
@@ -90,6 +91,7 @@ import { ResolveStageGit } from "./resolve-stage-git.js";
 import { StageCommandRuns } from "./stage-command-runs.js";
 import { StageRunWaits } from "./stage-run-waits.js";
 import { StageGit } from "./stage-git.js";
+import { CHOOSE_ROUTE_TOOL } from "./stage-route-choices.js";
 import { STAGE_STAND_IN_NEEDS } from "./stand-in-choices.js";
 import type { StageRunner, StageWork } from "./stage-runner.js";
 import { StageRunners } from "./stage-runners.js";
@@ -435,7 +437,10 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       session: {
         instructions: prompts.render(AGENT_STAGE_THREAD_INSTRUCTIONS, {}),
         profile: { ...profile, run: commands.permission },
-        officeTools: AGENT_STAGE_OFFICE_TOOLS,
+        // choose_route only for a Stage whose Agent chooses its route (spec §2.3).
+        officeTools: hasChoiceRows(stage.key, stages)
+          ? [...AGENT_STAGE_OFFICE_TOOLS, CHOOSE_ROUTE_TOOL]
+          : AGENT_STAGE_OFFICE_TOOLS,
         outputSchema: STAGE_RESULT_SCHEMA,
       },
       engineStandIns: task.engineStandIns,
@@ -456,6 +461,8 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     { card, mcpToolDefault }: KnownPerson,
     task: TaskRecord,
     installProblem: string | undefined,
+    // A fresh session's Handover section names the run's choice as it stands now instead.
+    namesHeldChoice = true,
   ): Promise<{
     readonly prompts: PromptTexts;
     readonly profile: ReturnType<typeof narrowedPermissionProfile>;
@@ -491,11 +498,12 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         },
         answered,
         installProblem,
-        held: held && heldRunOf(held),
+        held: held && heldRunOf(namesHeldChoice ? held : { ...held, choice: undefined }, stages),
         pipeline: {
           stages,
           commands: task.project.commands,
           roleTitle: (roleKey) => this.people.roleTitle(roleKey),
+          earlierRuns,
         },
         commitMessage: {
           ...task.commitMessage,
@@ -518,10 +526,17 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     handoverNote: string | undefined,
   ): Promise<FreshSession> {
     const task = await this.records.read(work.run.taskId);
-    const brief = await this.briefOf(work, person, task, installProblem);
+    const brief = await this.briefOf(work, person, task, installProblem, false);
+    // The route the earlier session chose stands, saved on the run as it chose (spec §2.3).
+    const { id } = work.run;
+    const choice = (await this.runs.list(work.run.taskId)).find((run) => run.id === id)?.choice;
     return {
       record: brief.record,
-      work: restartedSessionWork(brief.prompts, { work: brief.work, handoverNote }),
+      work: restartedSessionWork(brief.prompts, {
+        work: brief.work,
+        handoverNote,
+        ...(choice && { choice: namedChoice(work.stages, choice) }),
+      }),
     };
   }
 
@@ -1128,7 +1143,10 @@ function heldRun(stage: Stage, earlierRuns: readonly StageRun[]): StageRun | und
   return last.outcome.interrupted ? last : undefined;
 }
 
-function heldRunOf({ outcome, decisions, engineSwitches }: StageRun): HeldRun | undefined {
+function heldRunOf(
+  { outcome, decisions, engineSwitches, choice }: StageRun,
+  stages: readonly Stage[],
+): HeldRun | undefined {
   if (outcome?.status !== "failed" || !outcome.interrupted) return undefined;
   const answer = decisions.find(({ kind }) => kind === "restart")?.answer;
   const guidance = answer?.kind === "one-more-round" ? answer.guidance : undefined;
@@ -1143,6 +1161,7 @@ function heldRunOf({ outcome, decisions, engineSwitches }: StageRun): HeldRun | 
     ...(outcome.cutShort && { cutShort: true }),
     ...(guidance !== undefined && { guidance }),
     ...(outcome.refused && { refused: outcome.refused }),
+    ...(choice && { choice: namedChoice(stages, choice) }),
   };
 }
 

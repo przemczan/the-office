@@ -188,6 +188,65 @@ describe("propose_library_pipeline", () => {
     expect(saved.stages[1]?.routes).toEqual(change.to[1]?.routes);
   });
 
+  it("drafts an Agent Stage's choices; applied, list_pipelines gives them with their words", async () => {
+    const base = await anOfficeWidePipeline();
+    const drafted = draftedFrom();
+    const toReview: Route = {
+      to: "review",
+      condition: {
+        combine: "all",
+        tests: [{ kind: "choice", words: "the change touches what the user sees" }],
+      },
+      limit: 1,
+    };
+    const stages = reviewOnlyWhenNeeded(base).map((stage) =>
+      stage.key === "implement" ? { ...stage, routes: [toReview, always("tests")] } : stage,
+    );
+
+    const answer = await propose(PROPOSE_LIBRARY_PIPELINE_TOOL, { pipeline: base.id, stages });
+
+    expect(answer.isError).toBe(false);
+    expect(answer.text).toContain(
+      '- Implement: was to Tests always; now to Review if the Agent chooses: "the change touches what the user sees", at most once, otherwise to Tests always.',
+    );
+    const [change] = drafted();
+    if (change?.kind !== "pipeline") throw new Error("A Proposal of the library Pipeline.");
+    await apply(change);
+    const listed = await propose(LIST_PIPELINES_TOOL, { pipeline: base.id });
+    const [pipeline] = (JSON.parse(listed.text) as { officeWidePipelines: Pipeline[] })
+      .officeWidePipelines;
+    expect(pipeline?.stages[0]?.routes?.[0]).toEqual({ ...toReview, toName: "Review" });
+  });
+
+  it("refuses a choice on a Stage that isn't an Agent Stage, and drafts nothing", async () => {
+    const base = await anOfficeWidePipeline();
+    const drafted = draftedFrom();
+    const stages = reviewOnlyWhenNeeded(base).map((stage) =>
+      stage.key === "tests"
+        ? {
+            ...stage,
+            routes: [
+              {
+                to: "review",
+                condition: { combine: "all", tests: [{ kind: "choice", words: "needs a look" }] },
+              },
+              always("publish"),
+            ],
+          }
+        : stage,
+    );
+
+    const answer = await propose(PROPOSE_LIBRARY_PIPELINE_TOOL, { pipeline: base.id, stages });
+
+    expect(answer).toEqual({
+      text: expect.stringContaining(
+        "Tests: a condition of its route to Review is the Agent's choice, which only an Agent Stage has.",
+      ),
+      isError: true,
+    });
+    expect(drafted()).toEqual([]);
+  });
+
   it("refuses a flow that breaks a rule, naming the Stage and the rule, and drafts nothing", async () => {
     const base = await anOfficeWidePipeline();
     const drafted = draftedFrom();

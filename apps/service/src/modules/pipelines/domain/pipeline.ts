@@ -1,6 +1,8 @@
 import { conflictOnlyStages } from "./conflict-handling.js";
 import { asFlow, pipelineOrder, reachableFrom, type FlowStage } from "./flow.js";
 import {
+  agentChoiceOf,
+  hasChoiceTest,
   isFailureRoute,
   ROUTE_LIMIT_MAX,
   testsOf,
@@ -279,7 +281,39 @@ function routeProblems(
       `${routeWords} leads where an earlier route does; join their conditions with Any of in one route.`,
     );
   }
-  return problems;
+  return [...problems, ...choiceRouteProblems(route, earlierRoutes, routeWords)];
+}
+
+/**
+ * An Agent's choice is the only test of its route, and no two choice rows of a Stage share their
+ * words, trimmed and whatever the case (spec §2.3, "Validation"); the test's own rules are
+ * `testProblems`'.
+ */
+function choiceRouteProblems(
+  route: Route,
+  earlierRoutes: readonly Route[],
+  routeWords: string,
+): string[] {
+  if (!route.condition || !hasChoiceTest(route.condition)) return [];
+  const words = agentChoiceOf(route);
+  if (words === undefined) {
+    return [
+      `${routeWords} mixes the Agent's choice with other tests; a choice is the only test of its route.`,
+    ];
+  }
+  const same = choiceWordsKey(words);
+  if (same === "") return [];
+  const repeated = earlierRoutes.some((earlier) => {
+    const earlierWords = agentChoiceOf(earlier);
+    return earlierWords !== undefined && choiceWordsKey(earlierWords) === same;
+  });
+  return repeated
+    ? [`${routeWords} has the same words as an earlier choice; give each choice its own words.`]
+    : [];
+}
+
+function choiceWordsKey(words: string): string {
+  return words.trim().toLowerCase();
 }
 
 /**
@@ -347,6 +381,7 @@ function testProblems(
   ordered: readonly FlowStage[],
 ): string[] {
   if (test.kind === "command") return commandTestProblems(test.key);
+  if (test.kind === "choice") return choiceTestProblems(test.words, stage);
   if (test.kind !== "stage") return [];
   const problems: string[] = [];
   // Any Stage of the Pipeline may be tested, before or after the route's own: its latest run.
@@ -368,6 +403,17 @@ function testProblems(
   if (test.is === "ran" && !isPositiveWholeNumber(test.times)) {
     problems.push("needs how many times the Stage ran, 1 or more.");
   }
+  return problems;
+}
+
+/** An Agent's choice is an Agent Stage's alone, and the Agent chooses it by its words. */
+function choiceTestProblems(words: string, stage: FlowStage): string[] {
+  const problems: string[] = [];
+  if (stage.kind !== "agent") {
+    problems.push("is the Agent's choice, which only an Agent Stage has.");
+  }
+  if (words.trim() === "")
+    problems.push("is a choice with no words; say when the Agent chooses it.");
   return problems;
 }
 

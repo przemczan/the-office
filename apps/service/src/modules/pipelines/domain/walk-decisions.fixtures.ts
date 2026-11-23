@@ -35,6 +35,14 @@ export const usedUpRouteBack: RouteAtLimit = {
   limit: 3,
   back: true,
 };
+/** Tests with no failure route, which only a Decision sends back. */
+export const testsWithoutLoop: Stage = {
+  kind: "script",
+  key: "tests",
+  name: "Tests",
+  optional: false,
+  command: "test",
+};
 
 export function aRun(
   stageKey: string,
@@ -64,6 +72,7 @@ export function aRun(
     heldBy: undefined,
     heldByUser: undefined,
     published: undefined,
+    choice: undefined,
     waitingSince: undefined,
     sentBack: undefined,
     gateAction: undefined,

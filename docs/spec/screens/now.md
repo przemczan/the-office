@@ -29,7 +29,7 @@ Covers: Now (the home), Needs you (the Off-board Task failed card among it) and 
   - the badge **Off-board Task failed**, the Task's title (link to its page), its Project chip and "<time> ago";
   - "<Stage> failed, and its rounds are used up." and the error, in monospace;
   - **Retry**, hover "Retry runs <Stage> again, with the failure in its Brief.", which answers the Decision with its first option and no guidance; a refusal toasts the service's words;
-  - **Open the Decision**: the Task page at the Decision, for guidance, Continue with the issues or Drop.
+  - **Open the Decision**: the Task page at the Decision, for guidance, a failed Script Stage's send-back to the last Agent Stage ([2.3.2](../2.3.2-flows.md#sending-a-failed-script-stage-back)), Continue with the issues or Drop.
 - A **Gate**: the Task's title and Project chip over the Gate's card, which reads the Task's changes and its Stages ([task-page.md](task-page.md)).
 - A **Stand-in choice**: The Office's own Decision on the Stages Paused by a used-up usage window whose context is over Settings › Engines' size; one card for all of them, its rows read from `GET /stand-in-choices` and narrowed by each Task's Project. Each row has **Switch now** and, with two or more, **Switch all now**; each run's result shows beside its row while the row is still listed.
 - Counted once in the tab and the strip.

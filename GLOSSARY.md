@@ -494,7 +494,7 @@ A Stage with a route to End. Every other Stage needs a route to another Stage, s
 _Avoid_: Last Stage (which is the last in the Pipeline's order), terminal Stage
 
 **Walk**:
-A Task's way through its Pipeline: the Stages it ran and the routes it followed, from its first Stage to End, one Stage at a time, going back only by a route back, a Gate's Send back or one more round of the Definition of Done check.
+A Task's way through its Pipeline: the Stages it ran and the routes it followed, from its first Stage to End, one Stage at a time, going back only by a route back, a Gate's Send back, a failed Script Stage's send-back to the last Agent Stage or one more round of the Definition of Done check.
 _Avoid_: Run (a run is one Stage's), execution, journey
 
 **Not taken**:

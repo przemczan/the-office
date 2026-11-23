@@ -19,9 +19,18 @@ export interface StageProblemsByLevel {
   readonly warnings: readonly StageProblem[];
 }
 
+/** Parts `found` by level; a problem both the editor and the service found (flow-checks) is kept once. */
 export function byLevel(found: readonly StageProblem[] = []): StageProblemsByLevel {
+  const once = [...new Map(found.map((problem) => [sameProblemKey(problem), problem])).values()];
   return {
-    problems: found.filter(({ level }) => level === "problem"),
-    warnings: found.filter(({ level }) => level === "warning"),
+    problems: once.filter(({ level }) => level === "problem"),
+    warnings: once.filter(({ level }) => level === "warning"),
   };
+}
+
+/** What makes two problems one: the same words at the same place. */
+function sameProblemKey({ stageKey, at, level, text }: StageProblem): string {
+  const place =
+    at?.kind === "route" ? ["route", at.routeIndex, ...(at.testPath ?? [])] : [at?.kind ?? null];
+  return JSON.stringify([stageKey, place, level, text]);
 }

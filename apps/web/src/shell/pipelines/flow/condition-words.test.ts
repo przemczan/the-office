@@ -1,12 +1,13 @@
 import type { ConditionGroup, ConditionTest, Route, Stage } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { endsCondition, FAILED_CONDITION } from "./flow-model.ts";
+import { choiceCondition, endsCondition, FAILED_CONDITION } from "./flow-model.ts";
 import {
   atMostWords,
   followedWhen,
   limitMark,
   groupWords,
   previousStageLabel,
+  routeRowWhen,
   routeTargetName,
   routeWhen,
   stageNameOrGone,
@@ -167,6 +168,46 @@ describe("a route in words", () => {
     expect(limitMark(1)).toBe("≤1×");
     expect(limitMark(null)).toBe("");
     expect(atMostWords(1)).toBe("at most 1 time");
+  });
+
+  it("says an Agent Stage's choice by its words, on its line, in its row and in its panel", () => {
+    const agent: Stage = {
+      kind: "agent",
+      key: "review",
+      name: "Review",
+      optional: false,
+      brief: "",
+      session: "fresh",
+      budget: 1000,
+      place: { column: 1, row: 0 },
+    };
+    const fix: Route = {
+      to: "review",
+      condition: choiceCondition(" the review found something to fix "),
+      limit: 3,
+    };
+    const unwritten: Route = { to: null, condition: choiceCondition(""), limit: null };
+    const from: Stage = {
+      ...agent,
+      routes: [fix, unwritten, { to: null, condition: null, limit: null }],
+    };
+    expect(routeWhen(fix, from, [from])).toBe(
+      "if the Agent chooses: the review found something to fix",
+    );
+    expect(routeRowWhen(fix, from, [from])).toBe(
+      "the Agent chooses it when the review found something to fix",
+    );
+    expect(routeRowWhen(unwritten, from, [from])).toBe("the Agent chooses it when (no words yet)");
+    expect(followedWhen(fix, from, [from])).toBe(
+      "Followed when the Agent chooses it, at most 3 times in a walk; then you're asked (or the CTO first).",
+    );
+    expect(followedWhen(unwritten, from, [from])).toBe(
+      "Followed when the Agent chooses it, with no limit.",
+    );
+    // A choice on another kind of Stage, which the check refuses, reads as its test.
+    expect(routeRowWhen(fix, { ...tests, routes: [fix] }, stages)).toBe(
+      "when the Agent chooses it when the review found something to fix",
+    );
   });
 
   it("says a Publish Stage's results, joined by or", () => {

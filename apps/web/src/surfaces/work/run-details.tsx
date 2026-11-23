@@ -26,6 +26,7 @@ import { NEEDS_YOU_ELEMENT_ID } from "./needs-you-words.ts";
 import { bringIntoView } from "./record-blocks.ts";
 import {
   carriedFailureWords,
+  routeChoiceWords,
   routeFollowedWords,
   commandMarkWords,
   commandTimeWords,
@@ -274,7 +275,7 @@ function RunSummary({
   readonly onClose: () => void;
 }): ReactNode {
   const { stage, state } = taskStage;
-  const { carriedFailure, sentBack, gateAction, outcome, engineSwitches, route } = run;
+  const { carriedFailure, sentBack, gateAction, outcome, engineSwitches, route, choice } = run;
   const result = runResultText(taskStage, run);
   return (
     <div className="run-summary">
@@ -295,6 +296,12 @@ function RunSummary({
         </div>
       )}
       {result !== undefined && <MarkdownText text={result} />}
+      {choice && (
+        <p className="run-route">
+          <Icon name="route" size={12} />
+          {routeChoiceWords(choice)}
+        </p>
+      )}
       {route && (
         <p className="run-route">
           <Icon name="route" size={12} />

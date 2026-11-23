@@ -14,6 +14,7 @@ import {
   runOfHandoverNote,
   runResultText,
   runThreadClosedWords,
+  routeChoiceWords,
   routeFollowedWords,
   runTimeWords,
   stageHistoryLine,
@@ -65,6 +66,7 @@ function aRun(fields: Partial<StageRun> = {}): StageRun {
     context: null,
     carriedFailure: null,
     route: null,
+    choice: null,
     sentBack: null,
     gateAction: null,
     commandRuns: [],
@@ -399,6 +401,19 @@ describe("a run's other words", () => {
     expect(left("look", 1, null)).toBe("Went on to UI acceptance");
     expect(left("look", 1, 2)).toBe("Went on to UI acceptance (1 of at most 2)");
     expect(left(null, 1, null)).toBe("Went to End");
+  });
+
+  it("says the route an Agent chose, with its reason", () => {
+    expect(
+      routeChoiceWords({
+        to: "review",
+        toName: "Review",
+        reason: "the change touches what the user sees\n",
+      }),
+    ).toBe("Chose Review: the change touches what the user sees");
+    expect(routeChoiceWords({ to: null, toName: "End", reason: "Nothing left to do." })).toBe(
+      "Chose End: Nothing left to do.",
+    );
   });
 
   it("says what the user did at the Gate", () => {

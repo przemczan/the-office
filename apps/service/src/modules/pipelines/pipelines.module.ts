@@ -15,6 +15,7 @@ import { PostgresStaffingHoldRepository } from "./adapters/postgres/postgres-sta
 import { PipelineOfficeTools } from "./adapters/office-tools/pipeline-office-tools.js";
 import { PipelinesPromptTemplates } from "./adapters/prompt-templates/pipelines-prompt-templates.js";
 import { StageBranchUpdate } from "./application/stage-branch-update.js";
+import { StageRouteChoices } from "./application/stage-route-choices.js";
 import { StageCommandRuns } from "./application/stage-command-runs.js";
 import { StandInChoices } from "./application/stand-in-choices.js";
 import { StandInSwitches } from "./application/stand-in-switches.js";
@@ -191,6 +192,7 @@ export class PipelinesModule {
         ConditionCommands,
         ResolveStageGit,
         StageBranchUpdate,
+        StageRouteChoices,
         StageCommandRuns,
         StageProjectCommands,
         StageRunEnvironmentDefinitions,

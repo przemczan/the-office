@@ -3,7 +3,9 @@ import {
   AGENT_STAGE_INSTRUCTIONS,
   agentStageRecord,
   agentStageWork,
+  earlierResults,
   isLastAgentStageBeforePublish,
+  restartedSessionWork,
   type BriefTask,
   type StagePipeline,
 } from "./agent-stage-brief.js";
@@ -11,6 +13,8 @@ import { allowedCommands } from "./allowed-commands.js";
 import { asFlow, pipelineOrder } from "./flow.js";
 import { RESOLVE_KEY } from "./publish-stages.js";
 import { keptPublishStage, publishStage } from "./stage.fixtures.js";
+import { choiceCondition, ENDED_FAILED, plainRoute, type Route } from "./route.js";
+import { aStageRun } from "./stage-run.fixtures.js";
 import type { AgentStage, Stage } from "./stage.js";
 import { defaultPromptTexts } from "../../prompt-templates/index.js";
 import { PIPELINES_PROMPT_TEMPLATES } from "./pipelines-prompt-templates.js";
@@ -240,5 +244,122 @@ describe("isLastAgentStageBeforePublish", () => {
 
   it("isn't one with no Publish after it", () => {
     expect(isLastAgentStageBeforePublish(review, [implement, review, lint])).toBe(false);
+  });
+});
+
+describe("an Agent Stage's Routes out (spec §2.3, How an Agent chooses its route)", () => {
+  const toFix: Route = {
+    to: "implement",
+    condition: choiceCondition("the review found something to fix"),
+    limit: 3,
+  };
+  const toEnd: Route = { to: null, condition: choiceCondition("nothing is left to do"), limit: 1 };
+  const flow: Stage[] = [
+    { ...implement, name: "Implement", routes: [plainRoute("review")] },
+    {
+      ...review,
+      name: "Review",
+      routes: [
+        { to: "implement", condition: ENDED_FAILED, limit: 2 },
+        toFix,
+        toEnd,
+        plainRoute("publish"),
+      ],
+    },
+    { ...publish, routes: [plainRoute(null)] },
+  ];
+  const ranOnce = [
+    aStageRun({ id: "r1", number: 1, stageKey: "implement" }),
+    aStageRun({
+      id: "r2",
+      number: 2,
+      stageKey: "review",
+      choice: { to: "implement", reason: "The dialog loses its focus." },
+    }),
+    aStageRun({ id: "r3", number: 3, stageKey: "implement" }),
+  ];
+
+  it("lists each choice with its count, where the work goes otherwise and on failure, after the Later Stages", () => {
+    const work = agentStageWork(prompts, review, {
+      pipeline: { ...pipelineOf(flow), earlierRuns: ranOnce },
+    });
+
+    expect(work).toContain(
+      "## Routes out\n\nBefore you end this Stage done, choose where the work goes next with choose_route, giving the route by its key and your reason in a sentence or two. You may choose again before you end; the last choice counts. You may choose:\n\n- Implement: the review found something to fix (`implement`, followed 1 of at most 3 times)\n- End: nothing is left to do (`end`, followed 0 of at most 1 time)\n\nWithout a choice, the work goes on to Publish.\nIf the Stage fails, the work goes to Implement, whatever you chose.",
+    );
+    expect(work.indexOf("## Routes out")).toBeGreaterThan(work.indexOf("## Later Stages"));
+  });
+
+  it("says the user is asked without a choice, and what a failure does, with neither row", () => {
+    const work = agentStageWork(prompts, review, {
+      pipeline: pipelineOf([
+        { ...implement, routes: [plainRoute("review")] },
+        { ...review, routes: [toFix, toEnd] },
+      ]),
+    });
+
+    expect(work).toContain(
+      "Without a choice, no route is followed, and the user is asked where the work goes.\nIf the Stage fails, whatever you chose, the walk stops and asks what to do next.",
+    );
+  });
+
+  it("is left out for a Stage with no choice rows", () => {
+    const work = agentStageWork(prompts, implement, {
+      pipeline: { ...pipelineOf(flow), earlierRuns: ranOnce },
+    });
+
+    expect(work).not.toContain("Routes out");
+    expect(work).not.toContain("choose_route");
+  });
+
+  it("names the choice a held run made, but not one a Stop discarded", () => {
+    const choice = { targetName: "Implement", reason: "The dialog loses its focus." };
+    const paused = agentStageWork(prompts, review, { held: { by: "pause", choice } });
+    const stopped = agentStageWork(prompts, review, { held: { by: "stop", choice } });
+
+    expect(paused).toContain(
+      "You already chose the route to Implement: The dialog loses its focus.\nThat choice stands unless you choose again with choose_route.",
+    );
+    expect(stopped).not.toContain("You already chose");
+  });
+
+  it("names the choice in a fresh session's Handover section", () => {
+    const work = restartedSessionWork(prompts, {
+      work: "## The Stage: Review",
+      handoverNote: "Read half the diff.",
+      choice: { targetName: "End", reason: "Nothing is left." },
+    });
+
+    expect(work).toContain(
+      "Its Handover note:\n\nRead half the diff.\n\nYou already chose the route to End: Nothing is left.\nThat choice stands unless you choose again with choose_route.\n\n## The Stage: Review",
+    );
+  });
+
+  it("gives a later Stage the choice of an earlier run that ended done", () => {
+    const earlier = earlierResults(flow, [
+      ...ranOnce,
+      aStageRun({
+        id: "r4",
+        number: 4,
+        stageKey: "review",
+        outcome: { status: "failed", error: "Crashed." },
+        choice: { to: null, reason: "Not counted." },
+      }),
+    ]);
+    const record = agentStageRecord(prompts, {
+      task,
+      earlier,
+      diffSummary: undefined,
+      commands: allowedCommands(prompts, "read-only-git", [], undefined, ["status"]),
+      hardSwitches: {
+        runInstalls: { kind: "consult", person: "Devops" },
+        publishOutsideThePipeline: { kind: "never" },
+      },
+    });
+
+    expect(record).toContain(
+      "- Review (Agent Stage): done. Done.\n  Chose Implement: The dialog loses its focus.\n",
+    );
+    expect(record).not.toContain("Not counted.");
   });
 });

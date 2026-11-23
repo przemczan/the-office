@@ -54,6 +54,7 @@ function aRun(gateAction: StageRun["gateAction"]): StageRun {
     context: null,
     carriedFailure: null,
     route: null,
+    choice: null,
     sentBack: null,
     commandRuns: [],
     gateAction,

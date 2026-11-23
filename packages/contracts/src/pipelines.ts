@@ -381,6 +381,14 @@ export const stageRunSchema = z.object({
       limit: z.int().positive().nullable(),
     })
     .nullable(),
+  /**
+   * The route an Agent Stage's Agent chose with `choose_route` (spec §2.3, "How an Agent chooses
+   * its route"): its target (`to`, a Stage's key or null for End, with `toName` the Stage's name or
+   * "End") and the Agent's reason; null when it chose none.
+   */
+  choice: z
+    .object({ to: z.string().nullable(), toName: z.string(), reason: z.string() })
+    .nullable(),
   /** The feedback a Gate sent the work back to this Stage with, which the run was briefed with. */
   sentBack: z.object({ gateKey: z.string(), feedback: z.string() }).nullable(),
   commandRuns: z.array(stageCommandRunSchema),

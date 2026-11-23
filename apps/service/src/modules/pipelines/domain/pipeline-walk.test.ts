@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { reportedMet, reportedOutOfReach, unmetStatements } from "./definition-of-done-reports.js";
 import { GATE_REACHED } from "./gate.js";
-import { gateChecksDefinitionOfDone, nextMove, routesFollowed } from "./pipeline-walk.js";
+import {
+  gateChecksDefinitionOfDone,
+  nextMove,
+  routeCounts,
+  routesFollowed,
+} from "./pipeline-walk.js";
 import { asFlow, pipelineOrder, type FlowStage } from "./flow.js";
 import {
   CONFLICT_ROUTE_LIMIT,
@@ -10,7 +15,13 @@ import {
   RESOLVE_KEY,
   RESOLVE_TEST_KEY,
 } from "./publish-stages.js";
-import { type ConditionGroup, type ConditionTest, plainRoute, type Route } from "./route.js";
+import {
+  choiceCondition,
+  type ConditionGroup,
+  type ConditionTest,
+  plainRoute,
+  type Route,
+} from "./route.js";
 import type { KeptOnFailure, KeptStage } from "./routes-back.js";
 import type { Stage } from "./stage.js";
 import type { CommandOutcome, StageCommandPurpose, StageCommandRun } from "./stage-command-run.js";
@@ -125,6 +136,7 @@ function runs(...ran: readonly Ran[]): StageRun[] {
     heldBy: undefined,
     heldByUser: undefined,
     published: undefined,
+    choice: undefined,
     waitingSince: undefined,
     sentBack: undefined,
     gateAction: undefined,
@@ -209,6 +221,13 @@ function publishedUnchecked(...decisions: StageRunDecision[]): StageRun[] {
     ["publish", done, ...decisions],
   );
 }
+
+const sendingBack = (guidedBy?: string): WalkAnswer => ({
+  kind: "send-back",
+  to: "implement",
+  guidance: "Cap the workers' memory.",
+  ...(guidedBy !== undefined && { guidedBy }),
+});
 
 describe("nextMove", () => {
   it("runs the first Stage of a Task that hasn't run any", () => {
@@ -895,6 +914,7 @@ describe("nextMove", () => {
           back: true,
         },
         others: [{ to: "look", toName: "look", condition: null, limit: null }],
+        sendBackTo: stages[0],
       },
     });
   });
@@ -938,6 +958,7 @@ describe("nextMove", () => {
         error: "The session ended.",
         atLimit: undefined,
         others: [],
+        sendBackTo: undefined,
       },
     });
   });
@@ -1014,6 +1035,91 @@ describe("nextMove", () => {
         move: "run",
         stage: stages[0],
         carriedFailure: { stageKey: "write", error: "The session ended.", round: 1, rounds: 1 },
+      });
+    });
+
+    describe("a failed Script Stage sent back", () => {
+      const implementThenTests = [agentStage("implement"), scriptStage("tests")];
+
+      it("offers the last Agent Stage the walk ran to send the work back to", () => {
+        const ran = runs(["implement", done], ["tests", failed("Workers ran out of memory.")]);
+
+        expect(nextMove(implementThenTests, ran, NO_DEFINITION_OF_DONE)).toMatchObject({
+          move: "ask",
+          question: { kind: "no-retries-left", sendBackTo: { key: "implement" } },
+        });
+      });
+
+      it("offers none when the walk ran no Agent Stage before it", () => {
+        const ran = runs(["tests", failed("Workers ran out of memory.")]);
+
+        expect(
+          nextMove([scriptStage("tests"), agentStage("implement")], ran, NO_DEFINITION_OF_DONE),
+        ).toMatchObject({
+          move: "ask",
+          question: { kind: "no-retries-left", sendBackTo: undefined },
+        });
+      });
+
+      it("runs Implement with the failure and the CTO's words, using a round of Tests", () => {
+        const ran = runs(
+          ["implement", done],
+          [
+            "tests",
+            failed("Workers ran out of memory."),
+            decided("no-retries-left", sendingBack("cto")),
+          ],
+        );
+
+        expect(nextMove(implementThenTests, ran, NO_DEFINITION_OF_DONE)).toEqual({
+          move: "run",
+          stage: implementThenTests[0],
+          carriedFailure: {
+            stageKey: "tests",
+            error: "Workers ran out of memory.",
+            round: 1,
+            rounds: 1,
+            guidance: "Cap the workers' memory.",
+            guidedBy: "cto",
+          },
+          sentBack: undefined,
+        });
+      });
+
+      it("goes on from Implement by its routes, and asks again when Tests fails again", () => {
+        const ran = runs(
+          ["implement", done],
+          [
+            "tests",
+            failed("Workers ran out of memory."),
+            decided("no-retries-left", sendingBack()),
+          ],
+          ["implement", done],
+          ["tests", failed("Still out of memory.")],
+        );
+
+        expect(nextMove(implementThenTests, ran.slice(0, 3), NO_DEFINITION_OF_DONE)).toMatchObject({
+          move: "run",
+          stage: { key: "tests" },
+          carriedFailure: undefined,
+        });
+        expect(nextMove(implementThenTests, ran, NO_DEFINITION_OF_DONE)).toMatchObject({
+          move: "ask",
+          run: { stageKey: "tests", number: 4 },
+          question: { kind: "no-retries-left", error: "Still out of memory." },
+        });
+      });
+
+      it("follows none of a used-up failure route's times, counting the send-back on its own", () => {
+        const ran = answeredUsedUp({ kind: "send-back", to: "write", guidance: undefined });
+
+        expect(nextMove(stages, ran, NO_DEFINITION_OF_DONE)).toEqual({
+          move: "run",
+          stage: stages[0],
+          carriedFailure: { stageKey: "check", error: "Third.", round: 1, rounds: 1 },
+          sentBack: undefined,
+        });
+        expect(routesFollowed(stages, ran).get(ran.at(-1)?.id ?? "")).toBeUndefined();
       });
     });
 
@@ -1678,6 +1784,21 @@ function weighed(...commandRuns: StageCommandRun[]): StageRun[] {
   return runs(["write", done]).map((run) => ({ ...run, commandRuns }));
 }
 
+/** Write going on by `writeRoutes`, Review and Fix both on to Check, which ends the walk. */
+const choosingFlow = (...writeRoutes: Route[]) => [
+  routed(agentStage("write"), ...writeRoutes),
+  routed(agentStage("review"), plainRoute("check")),
+  routed(agentStage("fix"), plainRoute("check")),
+  routed(scriptStage("check"), plainRoute(null)),
+];
+
+/** Write ended `outcome`, its Agent having chosen `to` when given. */
+function wrote(outcome: StageOutcome, to?: string | null): StageRun[] {
+  const [run] = runs(["write", outcome]);
+  if (!run) throw new Error("Write never ran.");
+  return [{ ...run, choice: to === undefined ? undefined : { to, reason: "Because." } }];
+}
+
 describe("nextMove over routes", () => {
   // Write goes to Review while something is unmet, else straight to Check, which joins both paths.
   const branching = [
@@ -1808,6 +1929,61 @@ describe("nextMove over routes", () => {
       expect(nextMove(byFiles, ran, DEFINITION_OF_DONE)).toMatchObject({
         move: "ask",
         question: { kind: "definition-of-done", unmet: ["The name persists"], before: undefined },
+      });
+    });
+  });
+
+  describe("an Agent's choice rows", () => {
+    const toFix = { ...when("fix", endedFailed), limit: 3 };
+    const toReview: Route = {
+      to: "review",
+      condition: choiceCondition("it needs a look"),
+      limit: 3,
+    };
+    const toEnd: Route = { to: null, condition: choiceCondition("nothing to do"), limit: 1 };
+    const choosing = choosingFlow(toFix, toReview, toEnd, plainRoute("check"));
+
+    it("follows the row the Agent chose", () => {
+      expect(nextMove(choosing, wrote(done, "review"), NO_DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: { key: "review" },
+      });
+      expect(nextMove(choosing, wrote(done, null), NO_DEFINITION_OF_DONE)).toEqual({
+        move: "complete",
+      });
+    });
+
+    it("follows Otherwise when the Agent chose none", () => {
+      expect(nextMove(choosing, wrote(done), NO_DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: { key: "check" },
+      });
+    });
+
+    it("asks when no route holds with no choice and no Otherwise, saying the Agent chose none", () => {
+      const ran = wrote(done);
+      const noOtherwise = choosingFlow(toFix, toReview, toEnd);
+
+      expect(nextMove(noOtherwise, ran, NO_DEFINITION_OF_DONE)).toEqual({
+        move: "ask",
+        run: ran[0],
+        question: {
+          kind: "no-route-holds",
+          stage: noOtherwise[0],
+          routes: [{ ...toFix, toName: "fix" }, { ...toReview, toName: "review" }, toEnd],
+          why: undefined,
+          choseNone: true,
+        },
+      });
+    });
+
+    it("follows only its failure route when the Stage failed, whatever the Agent chose", () => {
+      expect(
+        nextMove(choosing, wrote(failed("Broke."), "review"), NO_DEFINITION_OF_DONE),
+      ).toMatchObject({
+        move: "run",
+        stage: { key: "fix" },
+        carriedFailure: { stageKey: "write", error: "Broke." },
       });
     });
   });
@@ -2146,6 +2322,20 @@ describe("nextMove at a route's limit", () => {
       move: "ask",
       question: { kind: "route-limit", atLimit: { times: 2, limit: 2 } },
     });
+  });
+
+  it("counts a route as the walk does, the time an answer allowed past its limit included", () => {
+    const onceMore = { kind: "one-more-round", guidance: undefined, to: "write" } as const;
+    const ran = runs(...sentBackOnce.slice(0, 3), [
+      "review",
+      done,
+      { ...decided("route-limit", onceMore), options: [onceMore] },
+    ]);
+
+    expect(routeCounts(reviewing, ran, "review", reviewing[1]?.routes ?? [])).toEqual([
+      { times: 2, limit: 2 },
+      { times: 0, limit: null },
+    ]);
   });
 
   /** Review at its route's limit the first time, the Decision answered `answer`. */

@@ -11,6 +11,7 @@ import {
   STAGE_HANDOVER,
   STAGE_HELD,
   STAGE_MESSAGE,
+  STAGE_ROUTES_OUT,
   STAGE_RUNS_AGAIN,
   STAGE_SENT_AGAIN,
 } from "./agent-stage-brief-templates.js";
@@ -30,6 +31,13 @@ import { reportedMetIn } from "./definition-of-done-reports.js";
 import { asFlow } from "./flow.js";
 import { conflictOnlyStages } from "./conflict-handling.js";
 import { isFailureRoute } from "./route.js";
+import {
+  choiceCountWords,
+  choiceRowsOf,
+  namedChoice,
+  routeTargetName,
+  type NamedChoice,
+} from "./route-choices.js";
 import { holdingUserWords } from "./stage-interruption.js";
 import type {
   CarriedFailure,
@@ -118,6 +126,8 @@ export interface EarlierResult {
   readonly gateNotes?: string;
   /** The notes the user chose where the walk goes on with, when none of the Stage's routes held. */
   readonly routeNotes?: string;
+  /** The route the run's Agent chose with `choose_route`, for a run that ended done. */
+  readonly choice?: NamedChoice;
 }
 
 /** What an Agent Stage's Brief is assembled from: the record, with no model call (spec §2.5). */
@@ -237,6 +247,8 @@ export interface StagePipeline {
   readonly commands: readonly Pick<NamedCommand, "key" | "commandLine">[];
   /** The Role's title, such as Developer, by its key. */
   readonly roleTitle: (roleKey: string) => string;
+  /** The Task's runs before this one, which count how often each route was followed. */
+  readonly earlierRuns?: readonly StageRun[];
 }
 
 /**
@@ -267,6 +279,8 @@ export interface HeldRun {
    * for the reset (spec 5.4): the stand-in's name and who chose it.
    */
   readonly standInChosen?: { readonly engineName: string; readonly chosenBy: HoldingUser };
+  /** The route its Agent chose before it was held, which the run going on keeps (spec §2.3). */
+  readonly choice?: NamedChoice;
 }
 
 /**
@@ -297,7 +311,7 @@ export function agentStageWork(
       ? commitMessage
       : undefined;
   const [recheckBase = "", ...otherBases] = (recheck?.changesFrom ?? []).map(shortRevision);
-  return renderedPart(prompts, STAGE_MESSAGE, {
+  const message = renderedPart(prompts, STAGE_MESSAGE, {
     stageName: stage.name,
     stageBrief: stage.brief,
     listsLaterStages: pipeline !== undefined,
@@ -322,6 +336,38 @@ export function agentStageWork(
     feedback: sentBack?.feedback ?? "",
     installProblem: installProblem ?? "",
   });
+  const routesOut = pipeline ? routesOutSection(prompts, stage, pipeline) : undefined;
+  return routesOut === undefined ? message : `${message}\n\n${routesOut}`;
+}
+
+/**
+ * The Routes out section of an Agent Stage with choice rows (spec §2.3, "How an Agent chooses its
+ * route"): each choice with its count, where the work goes otherwise and on failure; undefined for a
+ * Stage with none.
+ */
+function routesOutSection(
+  prompts: PromptTexts,
+  stage: Pick<AgentStage, "key">,
+  { stages, earlierRuns = [] }: StagePipeline,
+): string | undefined {
+  const choices = choiceRowsOf(stage.key, stages, earlierRuns);
+  if (choices.length === 0) return undefined;
+  const flow = asFlow(stages);
+  const routes = flow.find(({ key }) => key === stage.key)?.routes ?? [];
+  const otherwise = routes.find(({ condition }) => condition === null);
+  const failure = routes.find((route) => isFailureRoute(route, stage.key));
+  return renderedPart(prompts, STAGE_ROUTES_OUT, {
+    choices: choices.map(({ targetName, key, words, count }) => ({
+      targetName,
+      key,
+      words,
+      count: choiceCountWords(count),
+    })),
+    hasOtherwise: otherwise !== undefined,
+    otherwiseName: otherwise ? routeTargetName(flow, otherwise.to) : "",
+    hasFailureRoute: failure !== undefined,
+    failureName: failure ? routeTargetName(flow, failure.to) : "",
+  });
 }
 
 /**
@@ -331,13 +377,36 @@ export function agentStageWork(
  */
 export function restartedSessionWork(
   prompts: PromptTexts,
-  { work, handoverNote }: { readonly work: string; readonly handoverNote: string | undefined },
+  {
+    work,
+    handoverNote,
+    choice,
+  }: {
+    readonly work: string;
+    readonly handoverNote: string | undefined;
+    /** The route the earlier session already chose, which stands (spec §2.3). */
+    readonly choice?: NamedChoice;
+  },
 ): string {
   const handover = renderedPart(prompts, STAGE_HANDOVER, {
     hasHandoverNote: handoverNote !== undefined,
     handoverNote: handoverNote ?? "",
+    ...choiceMadeValues(choice),
   });
   return `${handover}\n\n${work}`;
+}
+
+/** A choice already made, as the held run's section and the Handover section name it. */
+function choiceMadeValues(choice: NamedChoice | undefined): {
+  readonly hasChoice: boolean;
+  readonly choiceTarget: string;
+  readonly choiceReason: string;
+} {
+  return {
+    hasChoice: choice !== undefined,
+    choiceTarget: choice?.targetName ?? "",
+    choiceReason: choice?.reason ?? "",
+  };
 }
 
 /**
@@ -415,7 +484,7 @@ function laterStages(
 /** The section for a run held before, or undefined when it has nothing to say. */
 function heldSection(
   prompts: PromptTexts,
-  { by, byUser, notStarted, cutShort, guidance, refused, standInChosen }: HeldRun,
+  { by, byUser, notStarted, cutShort, guidance, refused, standInChosen, choice }: HeldRun,
 ): string | undefined {
   const who = holdingUserWords(byUser);
   const byTheUser = by === "stop" || by === "pause";
@@ -437,6 +506,8 @@ function heldSection(
     cutShortByAlarm: cutShortNow && by === "alarm",
     refused: refused !== undefined,
     ...refusedMessageValues(prompts, refused),
+    // A Stop discards the run's edits, and its choice with them.
+    ...choiceMadeValues(by === "stop" ? undefined : choice),
     hasGuidance: guidance !== undefined,
     guidance: guidance ?? "",
   });
@@ -502,7 +573,7 @@ export function stageResultWords(prompts: PromptTexts, result: EarlierResult): s
 
 function resultWords(
   prompts: PromptTexts,
-  { stageName, kind, outcome, gateNotes, routeNotes }: EarlierResult,
+  { stageName, kind, outcome, gateNotes, routeNotes, choice }: EarlierResult,
   handoverNote: string | undefined,
 ): string {
   const gateContinued = gateNotes !== undefined;
@@ -517,6 +588,7 @@ function resultWords(
     question: outcome.status === "needs-decision" ? outcome.question : "",
     failed: !gateContinued && outcome.status === "failed",
     error: outcome.status === "failed" ? outcome.error : "",
+    ...choiceMadeValues(choice),
     hasRouteNotes: routeNotes !== undefined,
     routeNotes: withinItem(routeNotes ?? ""),
     hasHandoverNote: handoverNote !== undefined,
@@ -543,7 +615,12 @@ export function earlierResults(
     if (!stage || !outcome) return [];
     const routeNotes = routeNotesOf(run);
     const noted = routeNotes === undefined ? {} : { routeNotes };
-    const result = { stageName: stage.name, kind: stage.kind, outcome, ...noted };
+    // The choice counts only for a run that ended done (spec §2.3).
+    const chose =
+      run.choice && outcome.status === "done" && !outcome.skipped
+        ? { choice: namedChoice(stages, run.choice) }
+        : {};
+    const result = { stageName: stage.name, kind: stage.kind, outcome, ...noted, ...chose };
     if (stage.kind !== "gate") return [result];
     const gateNotes = gateAction?.kind === "continue" ? gateAction.feedback : undefined;
     if (gateNotes === undefined && routeNotes === undefined) return [];

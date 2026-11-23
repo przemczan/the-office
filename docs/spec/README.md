@@ -235,7 +235,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Skill use**: [2.6 Skill uses](2.6-skills.md#skill-uses); [2.6 A skill use](2.6-skills.md#a-skill-use)
 - **Stage**: [2.3.1 Stage kinds](2.3.1-stages.md#stage-kinds); [2.3.1 What a Stage declares](2.3.1-stages.md#what-a-stage-declares)
 - **Stage history**: [2.4.6 Reading the Stage history](2.4.6-reading-records.md#reading-the-stage-history); screen: [Task page › Stage history](screens/task-page.md#stage-history)
-- **Stage retry**: [2.3.2 When a Stage fails](2.3.2-flows.md#when-a-stage-fails); [2.3.2 A route's limit](2.3.2-flows.md#a-routes-limit)
+- **Stage retry**: [2.3.2 When a Stage fails](2.3.2-flows.md#when-a-stage-fails); [2.3.2 A route's limit](2.3.2-flows.md#a-routes-limit); [2.3.2 Sending a failed Script Stage back](2.3.2-flows.md#sending-a-failed-script-stage-back)
 - **Stage template**: [2.3.5 Stage templates](2.3.5-library.md#stage-templates); screen: [Pipeline flow editor › Stage templates](screens/pipeline-flow-editor.md#stage-templates)
 - **Stand-in Engine**: [5.4.6 Stand-in Engines](5.4.6-stand-in-engines-and-usage-windows.md#stand-in-engines); [5.4.6 A person's Thread switches](5.4.6-stand-in-engines-and-usage-windows.md#a-persons-thread-switches)
 - **Stand-ins of another engine type**: [5.4.6 Stand-ins of another engine type](5.4.6-stand-in-engines-and-usage-windows.md#stand-ins-of-another-engine-type); [5.4.6 A running Stage switches](5.4.6-stand-in-engines-and-usage-windows.md#a-running-stage-switches)

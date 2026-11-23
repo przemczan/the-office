@@ -3,6 +3,7 @@ import type { FlowStage } from "./flow.js";
 import type { StageProblem, StageProblemAt, StageProblemLevel } from "./pipeline.js";
 import { PUBLISH_RESULT_NAMES } from "./publish-result.js";
 import {
+  agentChoiceOf,
   isConditionGroup,
   unnamedRoutes,
   type ConditionGroup,
@@ -116,9 +117,16 @@ export function routesWords(routes: readonly Route[]): string {
     .join(", ");
 }
 
-function routeWords({ to, toName, condition, limit }: Route): string {
+function routeWords(route: Route): string {
+  const { to, toName, condition, limit } = route;
   const place = to === null ? "End" : (toName ?? to);
-  const when = condition ? `to ${place} when ${groupWords(condition)}` : `to ${place} always`;
+  const choice = agentChoiceOf(route);
+  const when =
+    choice !== undefined
+      ? `to ${place} if the Agent chooses: "${choice}"`
+      : condition
+        ? `to ${place} when ${groupWords(condition)}`
+        : `to ${place} always`;
   return limit === null ? when : `${when}, at most ${limit === 1 ? "once" : `${limit} times`}`;
 }
 
@@ -138,6 +146,8 @@ function testWords(test: ConditionTest): string {
         : "some of the Definition of Done is not Reported met";
     case "command":
       return `the command ${test.key} exits 0`;
+    case "choice":
+      return `the Agent chooses: "${test.words}"`;
     case "stage": {
       const stage = test.stage === null ? "the previous Stage" : (test.stageName ?? test.stage);
       return `${stage} ${stageOutcomeWords(test)}`;

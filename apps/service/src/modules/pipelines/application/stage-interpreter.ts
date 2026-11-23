@@ -34,7 +34,7 @@ import type {
   AskedInterruption,
   HoldingUser,
 } from "../domain/stage-run.js";
-import { endStageRun, startStageRun } from "../domain/stage-run-changes.js";
+import { endStageRun, heldRunChoice, startStageRun } from "../domain/stage-run-changes.js";
 import { startsAtStageBoundary } from "../domain/stage-boundary.js";
 import { staffedRole } from "../domain/stage-staffing.js";
 import {
@@ -488,8 +488,17 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     }
     const { stage, carriedFailure, sentBack } = move;
     const roleKey = stage.kind === "agent" ? staffedRole(stage) : undefined;
+    const choice = heldRunChoice(stage.key, runs);
     const started = startStageRun(
-      { id: randomUUID(), taskId, stageKey: stage.key, carriedFailure, sentBack, roleKey },
+      {
+        id: randomUUID(),
+        taskId,
+        stageKey: stage.key,
+        carriedFailure,
+        sentBack,
+        roleKey,
+        ...(choice && { choice }),
+      },
       runs.length,
       new Date(),
     );

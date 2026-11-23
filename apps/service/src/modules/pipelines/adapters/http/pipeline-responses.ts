@@ -139,8 +139,9 @@ export function toTaskStagesResponse(progress: TaskProgress | undefined): TaskSt
     stages.map(({ stage }) => stage),
     stages.flatMap(({ runs }) => runs),
   );
+  const names = new Map(stages.map(({ stage }) => [stage.key, stage.name]));
   return {
-    stages: stages.map(toTaskStageResponse),
+    stages: stages.map((stage) => toTaskStageResponse(stage, names)),
     editedForTask,
     lockedStages,
     testResults: testResults.map((result) => ({ ...result, detail: result.detail ?? null })),
@@ -153,7 +154,11 @@ export function toTaskStagesResponse(progress: TaskProgress | undefined): TaskSt
   };
 }
 
-function toTaskStageResponse(progress: StageProgress): TaskStageResponse {
+/** A Stage with where it stands, `names` naming each of the Task's Stages by its key. */
+function toTaskStageResponse(
+  progress: StageProgress,
+  names: ReadonlyMap<string, string>,
+): TaskStageResponse {
   return {
     stage: toStageResponse(progress.stage),
     state: progress.state,
@@ -163,7 +168,7 @@ function toTaskStageResponse(progress: StageProgress): TaskStageResponse {
       ? { workedBy: progress.workedBy ?? null }
       : {}),
     runs: progress.runs.map((run) =>
-      toStageRunResponse(run, progress.routes.get(run.id), isPublishStage(progress.stage)),
+      toStageRunResponse(run, progress.routes.get(run.id), isPublishStage(progress.stage), names),
     ),
   };
 }
@@ -201,11 +206,15 @@ function toStageResponse(stage: Stage): StageResponse {
   }
 }
 
-/** A run of a Stage, `ofPublish` when the Stage is a Publish Stage, whose outcome names its result. */
+/**
+ * A run of a Stage, `ofPublish` when the Stage is a Publish Stage, whose outcome names its result;
+ * its Agent's choice names its target by `names`, the Task's Stages', the key for one no longer there.
+ */
 function toStageRunResponse(
   run: StageRun,
   route: FollowedRoute | undefined,
   ofPublish: boolean,
+  names: ReadonlyMap<string, string>,
 ): StageRunResponse {
   const carried = run.carriedFailure;
   return {
@@ -229,6 +238,13 @@ function toStageRunResponse(
       ? { stageKey: carried.stageKey, round: carried.round, rounds: carried.rounds }
       : null,
     route: route ? { to: route.to, times: route.times, limit: route.limit } : null,
+    choice: run.choice
+      ? {
+          to: run.choice.to,
+          toName: run.choice.to === null ? "End" : (names.get(run.choice.to) ?? run.choice.to),
+          reason: run.choice.reason,
+        }
+      : null,
     sentBack: run.sentBack
       ? { gateKey: run.sentBack.gateKey, feedback: run.sentBack.feedback }
       : null,

@@ -77,7 +77,7 @@ export function weighRoutes(
   for (const [routeIndex, route] of routes.entries()) {
     if (!followable(route)) continue;
     const weight = route.condition
-      ? weighGroup(route.condition, weighing, { routeIndex, testPath: [] })
+      ? weighGroup(route.condition, weighing, { routeIndex, testPath: [], routeTo: route.to })
       : HOLDS;
     switch (weight.kind) {
       case "holds":
@@ -93,10 +93,14 @@ export function weighRoutes(
   return { kind: "none-holds" };
 }
 
-/** Where a group sits among the routes, for the command tests in it. */
+/**
+ * Where a group sits among the routes, for the command tests in it, and where its route leads, for
+ * a choice test; undefined for a group weighed on no route, which no choice holds.
+ */
 interface GroupPlace {
   readonly routeIndex: number;
   readonly testPath: readonly number[];
+  readonly routeTo?: string | null;
 }
 
 /**
@@ -113,7 +117,7 @@ export function weighGroup(
   const settledBy = group.combine === "all" ? "does-not-hold" : "holds";
   let unweighed: Weight | undefined;
   for (const [index, test] of group.tests.entries()) {
-    const at = { routeIndex: place.routeIndex, testPath: [...place.testPath, index] };
+    const at = { ...place, testPath: [...place.testPath, index] };
     const weight = isConditionGroup(test)
       ? weighGroup(test, weighing, at)
       : weighTest(test, weighing, at);
@@ -130,10 +134,24 @@ function weighTest(test: ConditionTest, weighing: Weighing, at: GroupPlace): Gro
     case "definitionOfDone":
       return weighDefinitionOfDoneTest(test, weighing);
     case "command": {
-      const commandTest = { key: test.key, ...at };
+      const commandTest = { key: test.key, routeIndex: at.routeIndex, testPath: at.testPath };
       return weighing.commands(commandTest) ?? { kind: "run-command", test: commandTest };
     }
+    case "choice":
+      return weighChoiceTest(weighing, at.routeTo);
   }
+}
+
+/**
+ * A choice test holds when the Stage the routes leave ended done by itself and its Agent chose the
+ * route (spec §2.3, "How an Agent chooses its route"): a failed run, Continue with the issues among
+ * them, and a skipped one never hold it, whatever was chosen.
+ */
+function weighChoiceTest({ stageKey, runs }: Weighing, routeTo: string | null | undefined): Weight {
+  if (routeTo === undefined) return DOES_NOT_HOLD;
+  const latest = runs.filter((run) => run.stageKey === stageKey).findLast(endedByItself);
+  if (latest?.outcome?.status !== "done" || latest.outcome.skipped === true) return DOES_NOT_HOLD;
+  return weightOf(latest.choice !== undefined && latest.choice.to === routeTo);
 }
 
 /**

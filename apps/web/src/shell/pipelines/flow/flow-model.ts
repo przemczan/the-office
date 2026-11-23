@@ -39,11 +39,14 @@ export const FAILED_CONDITION: ConditionGroup = {
 export const PUBLISH_RESULTS: readonly PublishResult[] = publishResultSchema.options;
 
 /**
- * The forms of a row of Routes out (spec §2.3, "The route forms"): When it fails, an Agent Stage's
- * alone; When these hold; When it ends…, a Publish Stage's, naming its results; and Otherwise, with
- * no condition.
+ * The forms of a row of Routes out (spec §2.3, "The route forms"): When it fails and The Agent
+ * chooses it, an Agent Stage's alone; When these hold; When it ends…, a Publish Stage's, naming its
+ * results; and Otherwise, with no condition.
  */
-export type RouteForm = "fails" | "holds" | "ends" | "otherwise";
+export type RouteForm = "fails" | "chooses" | "holds" | "ends" | "otherwise";
+
+/** The forms that keep the order the user sets, between When it fails and Otherwise. */
+type OrderedForm = "chooses" | "holds" | "ends";
 
 export type MoveDirection = "earlier" | "later" | "up" | "down";
 
@@ -283,6 +286,23 @@ export function isFailureRoute({ condition }: Pick<Route, "condition">): boolean
 }
 
 /**
+ * A choice row's condition (spec §2.3, "How an Agent chooses its route"): the Agent's choice in
+ * `words`, the only test of its route.
+ */
+export function choiceCondition(words: string): ConditionGroup {
+  return { combine: "all", tests: [{ kind: "choice", words }] };
+}
+
+/** The words of a choice row, its condition one choice test alone; undefined for any other route. */
+export function choiceWordsOf({ condition }: Pick<Route, "condition">): string | undefined {
+  const [test, ...others] = condition?.tests ?? [];
+  if (test === undefined || others.length > 0 || isGroup(test) || test.kind !== "choice") {
+    return undefined;
+  }
+  return test.words;
+}
+
+/**
  * The Publish Stage's results a route takes, when its condition is a When it ends… row's: each test
  * one of its own Stage's results, Failed being the "ended Failed" test. Undefined for any other
  * condition.
@@ -313,8 +333,8 @@ export function endsCondition(results: readonly PublishResult[]): ConditionGroup
 }
 
 /**
- * A row's form: When it fails only on an Agent Stage, which has it apart from its conditions; When
- * it ends… only on a Publish Stage, for a condition of its results alone.
+ * A row's form: When it fails and The Agent chooses it only on an Agent Stage, which has them apart
+ * from its conditions; When it ends… only on a Publish Stage, for a condition of its results alone.
  */
 export function routeFormOf(
   stage: Pick<Stage, "kind">,
@@ -322,25 +342,31 @@ export function routeFormOf(
 ): RouteForm {
   if (route.condition === null) return "otherwise";
   if (stage.kind === "publish" && endedResults(route) !== undefined) return "ends";
-  return stage.kind === "agent" && isFailureRoute(route) ? "fails" : "holds";
+  if (stage.kind !== "agent") return "holds";
+  if (isFailureRoute(route)) return "fails";
+  return choiceWordsOf(route) === undefined ? "holds" : "chooses";
 }
 
-/** The form a route drawn beside others takes on a Stage: When it ends… on a Publish Stage. */
-function drawnForm(stage: Pick<Stage, "kind">): "holds" | "ends" {
+/**
+ * The form a route drawn beside others takes on a Stage: a choice with no words yet on an Agent
+ * Stage, When it ends… on a Publish Stage, When these hold on any other.
+ */
+function drawnForm(stage: Pick<Stage, "kind">): OrderedForm {
+  if (stage.kind === "agent") return "chooses";
   return stage.kind === "publish" ? "ends" : "holds";
 }
 
 /**
  * The routes with one drawn to `to` (a Stage's key, or null for End), at `limit`. The first route
  * needs no condition; a later one goes in before the first route with none, as that one always
- * holds and must go last, with a condition still to set (of `form`, When it ends… on a Publish
- * Stage). A route to where one already leads is that one.
+ * holds and must go last, with a condition still to set (of `form`: a choice with no words on an
+ * Agent Stage, When it ends… on a Publish Stage). A route to where one already leads is that one.
  */
 export function routesWithDrawn(
   routes: readonly Route[],
   to: string | null,
   limit: RouteLimit,
-  form: "holds" | "ends" = "holds",
+  form: OrderedForm = "holds",
 ): RoutesDrawn {
   const existing = routes.findIndex((route) => route.to === to);
   if (existing >= 0) return { routes, routeIndex: existing };
@@ -349,9 +375,9 @@ export function routesWithDrawn(
 }
 
 /**
- * The routes with a row of `form` added (Add a route): When it fails first, When these hold and When
- * it ends… before the first route with no condition, with a condition still to set, and Otherwise
- * last.
+ * The routes with a row of `form` added (Add a route): When it fails first; a choice, When these hold
+ * and When it ends… before the first route with no condition, with its words or condition still to
+ * set; and Otherwise last.
  */
 export function routesWithAdded(
   routes: readonly Route[],
@@ -364,11 +390,17 @@ export function routesWithAdded(
       return { routes: [{ to, condition: FAILED_CONDITION, limit }, ...routes], routeIndex: 0 };
     case "otherwise":
       return { routes: [...routes, { to, condition: null, limit }], routeIndex: routes.length };
+    case "chooses":
     case "holds":
     case "ends": {
       const open = routes.findIndex((route) => route.condition === null);
       const routeIndex = open >= 0 ? open : routes.length;
-      const condition = form === "ends" ? endsCondition([]) : UNSET_CONDITION;
+      const condition =
+        form === "ends"
+          ? endsCondition([])
+          : form === "chooses"
+            ? choiceCondition("")
+            : UNSET_CONDITION;
       return {
         routes: routes.toSpliced(routeIndex, 0, { to, condition, limit }),
         routeIndex,
@@ -378,18 +410,20 @@ export function routesWithAdded(
 }
 
 /**
- * The forms Add a route offers a Stage: on a Publish Stage When it ends…, on any other When these
- * hold, with When it fails on an Agent Stage, and Otherwise, each only while it has none.
+ * The forms Add a route offers a Stage (docs/spec/screens/pipeline-flow-editor.md, "Routes out"): on
+ * an Agent Stage The Agent chooses it, When these hold and When it fails; on a Publish Stage When it
+ * ends…; on any other When these hold; then Otherwise. When it fails and Otherwise only while the
+ * Stage has none.
  */
 export function formsToAdd(stage: Stage): readonly RouteForm[] {
   const routes = stage.routes ?? [];
   const has = (form: RouteForm): boolean =>
     routes.some((route) => routeFormOf(stage, route) === form);
-  return [
-    ...(stage.kind === "agent" && !has("fails") ? (["fails"] as const) : []),
-    drawnForm(stage),
-    ...(has("otherwise") ? [] : (["otherwise"] as const)),
-  ];
+  const otherwise = has("otherwise") ? [] : (["otherwise"] as const);
+  if (stage.kind === "agent") {
+    return ["chooses", "holds", ...(has("fails") ? [] : (["fails"] as const)), ...otherwise];
+  }
+  return [drawnForm(stage), ...otherwise];
 }
 
 export function routesWithout(routes: readonly Route[], index: number): readonly Route[] {
@@ -411,7 +445,7 @@ export function canMoveRouteAmong(
   if (!route || !other) return false;
   return [route, other].every((each) => {
     const form = routeFormOf(stage, each);
-    return form === "holds" || form === "ends";
+    return form === "chooses" || form === "holds" || form === "ends";
   });
 }
 

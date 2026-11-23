@@ -77,8 +77,9 @@ const testedStageFields = {
 };
 
 /**
- * One built-in test of a route's condition (spec §2.3), by `kind`: a Stage's latest run or how many
- * times it ran, the Definition of Done, or a Project command exiting 0.
+ * One test of a route's condition (spec §2.3), by `kind`: a Stage's latest run or how many times it
+ * ran, the Definition of Done, a Project command exiting 0, or an Agent Stage's choice, in plain
+ * words for its Agent, which holds when the Agent chose the route (the only test of its route).
  */
 export const conditionTestSchema = z.discriminatedUnion("kind", [
   z.discriminatedUnion("is", [
@@ -96,6 +97,7 @@ export const conditionTestSchema = z.discriminatedUnion("kind", [
     is: z.enum(["all-met", "some-not-met"]),
   }),
   z.strictObject({ kind: z.literal("command"), key: projectCommandKeySchema }),
+  z.strictObject({ kind: z.literal("choice"), words: z.string() }),
 ]);
 export type ConditionTest = z.infer<typeof conditionTestSchema>;
 

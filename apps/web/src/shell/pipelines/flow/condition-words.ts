@@ -7,7 +7,7 @@ import type {
 } from "@the-office/contracts";
 import { PUBLISH_RESULT_NAMES } from "../pipeline-words.ts";
 import { isGroup, type DefinitionOfDoneIs, type StageTestIs } from "./condition-edits.ts";
-import { endedResults, isFailureRoute, limitOf } from "./flow-model.ts";
+import { choiceWordsOf, endedResults, isFailureRoute, limitOf } from "./flow-model.ts";
 
 /**
  * A route's condition in plain words (docs/design/pipeline-flow.html): "Followed when Implement changed files and either the Definition of Done has
@@ -18,7 +18,7 @@ import { endedResults, isFailureRoute, limitOf } from "./flow-model.ts";
 /**
  * What words need of the Stage a route leaves: its name, its routes for their order, and its kind
  * when known, as an Agent Stage's failure route reads "when it fails" and a Publish Stage's results
- * "when it ends Conflict".
+ * "when it ends Conflict"; a choice row reads as one whatever is known.
  */
 export type RouteSource = Pick<Stage, "name" | "routes"> & { readonly kind?: Stage["kind"] };
 
@@ -86,6 +86,8 @@ export function testWords(
       return short
         ? `${test.key || "a command"} exits 0`
         : `the Project command ${test.key || "(none picked)"} exits 0`;
+    case "choice":
+      return `the Agent chooses it when ${choiceWords(test.words)}`;
     case "stage": {
       const name =
         test.stage === null ? from.name : stageNameOrGone(test.stage, test.stageName, stages);
@@ -115,8 +117,9 @@ export function routeTargetName(route: Route, stages: readonly Stage[]): string 
 
 /**
  * When a route is followed, as its line inside its Stage reads: "when …" ("when it fails" for an
- * Agent Stage's failure route, "when it ends Conflict or Failed" for a Publish Stage's results), or
- * with no condition "always" when it is the first route, "otherwise" after another.
+ * Agent Stage's failure route, "if the Agent chooses: …" for its choice, "when it ends Conflict or
+ * Failed" for a Publish Stage's results), or with no condition "always" when it is the first route,
+ * "otherwise" after another.
  */
 export function routeWhen(
   route: Route,
@@ -125,12 +128,30 @@ export function routeWhen(
   routeIndex = indexOf(route, from),
 ): string {
   if (from.kind === "agent" && isFailureRoute(route)) return "when it fails";
+  const chosen = agentChoiceWords(route, from);
+  if (chosen !== undefined) return `if the Agent chooses: ${choiceWords(chosen)}`;
   const ends = endsWords(route, from);
   if (ends !== undefined) return ends;
   if (route.condition !== null) {
     return `when ${groupWords(route.condition, from, stages, { short: true })}`;
   }
   return routeIndex > 0 ? "otherwise" : "always";
+}
+
+/**
+ * A row's when-words in Routes out: as `routeWhen`, but a choice row reads "the Agent chooses it when
+ * the review found something to fix".
+ */
+export function routeRowWhen(
+  route: Route,
+  from: RouteSource,
+  stages: readonly Stage[],
+  routeIndex = indexOf(route, from),
+): string {
+  const chosen = agentChoiceWords(route, from);
+  return chosen === undefined
+    ? routeWhen(route, from, stages, routeIndex)
+    : `the Agent chooses it when ${choiceWords(chosen)}`;
 }
 
 /** A limit's mark, "≤3×", or none for No limit. */
@@ -160,6 +181,9 @@ export function followedWhen(
   if (from.kind === "agent" && isFailureRoute(route)) {
     return `Followed when ${from.name} fails${withLimit}`;
   }
+  if (agentChoiceWords(route, from) !== undefined) {
+    return `Followed when the Agent chooses it${withLimit}`;
+  }
   const ends = endsWords(route, from);
   if (ends !== undefined) return `Followed ${ends}${withLimit}`;
   if (route.condition !== null) {
@@ -170,6 +194,19 @@ export function followedWhen(
   return routeIndex === count - 1
     ? `Followed otherwise, when no route before it holds${withLimit}`
     : "Always holds, so no route after it can be followed.";
+}
+
+/**
+ * A choice row's words; undefined for any other route. Only an Agent Stage has choices, so a Stage
+ * of unknown kind (a Proposal's) reads its choice rows as choices too.
+ */
+function agentChoiceWords(route: Route, from: RouteSource): string | undefined {
+  return from.kind === undefined || from.kind === "agent" ? choiceWordsOf(route) : undefined;
+}
+
+/** A choice's words as the Agent reads them, or a mark that none are written yet. */
+function choiceWords(words: string): string {
+  return words.trim() || "(no words yet)";
 }
 
 /**

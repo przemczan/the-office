@@ -33,6 +33,8 @@ const MOST_TIMES = 20;
 const PREVIOUS = "previous";
 const DEFINITION_OF_DONE = "definitionOfDone";
 const COMMAND = "command";
+/** Never offered: a condition mixing in an Agent's choice shows it, for the check to flag. */
+const CHOICE = "choice";
 const STAGE_PREFIX = "stage:";
 
 export interface ConditionBuilderProps {
@@ -236,6 +238,8 @@ function SecondSelect({
           onChange={(key) => onChange(withCommandKey(condition, path, key))}
         />
       );
+    case "choice":
+      return null;
   }
 }
 
@@ -261,6 +265,7 @@ function subjectValue(test: ConditionTest, from: Stage): string {
 }
 
 function subjectOfValue(value: string): TestSubject {
+  if (value === CHOICE) return { kind: "choice" };
   if (value === DEFINITION_OF_DONE) return { kind: "definitionOfDone" };
   if (value === COMMAND) return { kind: "command" };
   return {
@@ -271,7 +276,8 @@ function subjectOfValue(value: string): TestSubject {
 
 /**
  * The first select: the previous Stage, every other Stage by name in the Pipeline's order, the
- * Definition of Done and a Project command. A Stage the test names that is gone stays listed, flagged.
+ * Definition of Done and a Project command. A Stage the test names that is gone stays listed, flagged;
+ * so does an Agent's choice mixed in with other tests, which only a choice row holds.
  */
 function subjectChoices(
   test: ConditionTest,
@@ -293,6 +299,9 @@ function subjectChoices(
     { value: PREVIOUS, label: previousStageLabel(from) },
     ...others.map(({ key, name }) => ({ value: STAGE_PREFIX + key, label: name })),
     ...gone,
+    ...(test.kind === "choice"
+      ? [{ value: CHOICE, label: `The Agent's choice: "${test.words.trim()}"` }]
+      : []),
     { value: DEFINITION_OF_DONE, label: "The Definition of Done" },
     { value: COMMAND, label: "A Project command" },
   ];

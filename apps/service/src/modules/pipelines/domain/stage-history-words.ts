@@ -182,6 +182,7 @@ function runParts(
     ...whyItRanLines(stages, run),
     outcomeWords(run.outcome),
     ...publishResultLines(stages, run),
+    ...choiceLines(stages, run),
     ...routeLines(stages, route),
     ...handoverNoteLines(run.outcome),
     ...gateActionLines(stages, run.gateAction),
@@ -238,6 +239,16 @@ function whyItRanLines(
 /** "round 2 of at most 3", or with No limit "round 2". */
 function roundWords({ round, rounds }: NonNullable<StageRun["carriedFailure"]>): string {
   return rounds === null ? `round ${round}` : `round ${round} of at most ${rounds}`;
+}
+
+/**
+ * The route the run's Agent chose with `choose_route`, with its reason (spec §2.3, "How an Agent
+ * chooses its route"): "Chose Review: the change touches what the user sees".
+ */
+function choiceLines(stages: readonly Stage[], { choice }: StageRun): string[] {
+  if (!choice) return [];
+  const target = choice.to === null ? "End" : nameOf(stages, choice.to);
+  return [`Chose ${target}: ${choice.reason}`];
 }
 
 /**
@@ -471,6 +482,8 @@ function answerWords(answer: WalkAnswer | undefined): string {
       return `Answered: ${answer.rounds} more rounds.`;
     case "one-more-round":
       return `Answered: ${answer.to === undefined ? "one more round" : "follow the route once more"}${answer.guidedBy === undefined ? "" : `, chosen by the Role ${answer.guidedBy}`}${answer.guidance === undefined ? "." : `, with: ${answer.guidance}`}`;
+    case "send-back":
+      return `Answered: send the work back to the Stage "${answer.to}"${answer.guidedBy === undefined ? "" : `, chosen by the Role ${answer.guidedBy}`}${answer.guidance === undefined ? "." : `, with: ${answer.guidance}`}`;
     case "accept-issues":
       return "Answered: go on, with the failure accepted as an issue.";
     case "mark-done":

@@ -3198,6 +3198,7 @@ function aStageRun(
     context: null,
     carriedFailure: null,
     route: null,
+    choice: null,
     sentBack: null,
     commandRuns: [],
     gateAction,

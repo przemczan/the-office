@@ -73,16 +73,17 @@ export function walkDecision(run: StageRun, question: WalkQuestion): WalkDecisio
     case "after-publishing-failed":
       return afterPublishingFailedDecision(question.stage, question.error);
     case "no-route-holds":
-      return noRouteHolds(question.stage, question.routes, question.why);
+      return noRouteHolds(question);
   }
 }
 
 /**
  * What the user's answer lets the walk do: the chosen option's, its comments guiding the round
- * when it is one more round, keeps the branch or follows a route, or for words of their own, the
- * Agent's question answered, the first route followed with their words as its notes, or one more
- * round with their words as its guidance (spec §2.3). The guidance names who
- * gave it: the Consultant (`guidedBy`), or the user when it names nobody.
+ * when it is one more round or a send-back, keeps the branch or follows a route, or for words of
+ * their own, the Agent's question answered, the first route followed with their words as its notes,
+ * a failed Script Stage's work sent back to the last Agent Stage, or one more round, with their
+ * words as its guidance (spec §2.3). The guidance names who gave it: the Consultant (`guidedBy`),
+ * or the user when it names nobody.
  */
 export function walkAnswerOf(decision: StageRunDecision, answer: DecisionAnswer): WalkAnswer {
   if (answer.kind === "option") {
@@ -90,28 +91,32 @@ export function walkAnswerOf(decision: StageRunDecision, answer: DecisionAnswer)
     if (!chosen) throw new Error(`Decision ${decision.id} has no option ${answer.option}.`);
     return withGuidance(chosen, answer);
   }
-  if (decision.kind === "agent") return { kind: "answered", answer: answer.text.trim() };
-  if (decision.kind === "branch-moved")
-    return { kind: "keep-branch", guidance: answer.text.trim() };
+  const words = answer.text.trim();
+  if (decision.kind === "agent") return { kind: "answered", answer: words };
+  if (decision.kind === "branch-moved") return { kind: "keep-branch", guidance: words };
   const firstRoute = decision.options[0];
   if (decision.kind === "no-route-holds" && firstRoute?.kind === "follow-route") {
-    return { ...firstRoute, guidance: answer.text.trim() };
+    return { ...firstRoute, guidance: words };
   }
   const raise = decision.options.find(({ kind }) => kind === "raise-budget");
   if (decision.kind === "budget" && raise) return raise;
+  const guidedBy = answer.answeredBy === undefined ? {} : { guidedBy: answer.answeredBy };
+  // Words on a failed Script Stage's Decision go to an Agent who reads them, never into a rerun.
+  const sendBack = decision.options.find(({ kind }) => kind === "send-back");
+  if (sendBack?.kind === "send-back") return { ...sendBack, guidance: words, ...guidedBy };
   // On a route at its limit, the words follow that route once more.
   const again = decision.options.find(({ kind }) => kind === "one-more-round");
   return {
     kind: "one-more-round",
-    guidance: answer.text.trim(),
-    ...(answer.answeredBy !== undefined && { guidedBy: answer.answeredBy }),
+    guidance: words,
+    ...guidedBy,
     ...(again?.kind === "one-more-round" && again.to !== undefined && { to: again.to }),
   };
 }
 
 /**
  * The chosen option, guided by the comments given beside it when it takes guidance. One more round
- * names the Consultant who chose it even without comments, so `asksAConsultantFirst` puts the next
+ * and a send-back name the Consultant who chose them even without comments, so `asksAConsultantFirst` puts the next
  * question to the user.
  */
 function withGuidance(
@@ -119,7 +124,7 @@ function withGuidance(
   answer: Extract<DecisionAnswer, { kind: "option" }>,
 ): WalkAnswer {
   const guidance = answer.guidance?.trim();
-  if (chosen.kind === "one-more-round") {
+  if (chosen.kind === "one-more-round" || chosen.kind === "send-back") {
     return {
       ...chosen,
       ...(guidance && { guidance }),
@@ -135,7 +140,8 @@ function withGuidance(
 /**
  * Whether The Office puts what the walk asks to a Consultant before the user, whoever holds Asked
  * first when a Stage runs out of tries (spec §2.3, "Who is asked"): a Stage failing with no failure
- * route left, unless a Consultant already sent that Stage on once in this walk; a route at its
+ * route left, unless a Consultant already sent that Stage on, or sent its work back, once in this
+ * walk; a route at its
  * limit, unless a Consultant already let that route go once more in this walk; and a Publish's
  * after publishing line failing, the first time only, so a second failure reaches the user. Every
  * other question, budget limits included, is the user's.
@@ -169,7 +175,7 @@ export function asksAConsultantFirst(question: WalkQuestion, runs: readonly Stag
       decisions.some(
         ({ kind, answer }) =>
           kind === "no-retries-left" &&
-          answer?.kind === "one-more-round" &&
+          (answer?.kind === "one-more-round" || answer?.kind === "send-back") &&
           answer.guidedBy !== undefined,
       ),
   );
@@ -214,53 +220,78 @@ function budgetDecision(stage: Stage, { used, budget }: BudgetReached): WalkDeci
 /**
  * A Stage failed with no failure route left (spec §2.3, "When a Stage fails"): with one used up,
  * the user follows it once more, goes on by another route out of the Stage, continues with the
- * issues or drops the Task; with none, they run the Stage once more itself instead.
+ * issues or drops the Task; with none, they run the Stage once more itself instead. A Script
+ * Stage's failure can also be sent back to `sendBackTo`, the last Agent Stage the walk ran, which is
+ * recommended and takes the words given, as rerunning the Script Stage with no change can't use
+ * them. Once more stays first, as an Off-board Task's Retry answers the first option.
  */
 function noRetriesLeft({
   stage,
   error,
   atLimit,
   others,
+  sendBackTo,
 }: Extract<WalkQuestion, { kind: "no-retries-left" }>): WalkDecision {
-  const recommendation = {
-    option: 0,
-    reason: "Another round may fix it: the failure goes into its Brief.",
-  };
-  if (!atLimit) {
-    return {
-      kind: "no-retries-left",
-      draft: {
+  const again = atLimit
+    ? {
+        question: `"${stage.name}" failed, and its failure route is used up: ${routeCountWords(stage, atLimit)}. What now?`,
+        context: `${error}\n\nFollow it once more and the walk takes it one time past its limit. `,
+        words: FOLLOW_ONCE_MORE,
+        answer: { kind: "one-more-round", guidance: undefined, to: atLimit.route.to } as const,
+      }
+    : {
         question: `"${stage.name}" failed, with no failure route to follow. What now?`,
-        context: `${error}\n\n${GUIDANCE_HINT}`,
-        options: [`Run "${stage.name}" once more`, CONTINUE_WITH_ISSUES, DROP_THE_TASK],
-        recommendation,
-      },
-      options: [
-        { kind: "one-more-round", guidance: undefined },
-        { kind: "accept-issues" },
-        { kind: "drop" },
-      ],
-    };
-  }
-  return {
-    kind: "no-retries-left",
-    draft: {
-      question: `"${stage.name}" failed, and its failure route is used up: ${routeCountWords(stage, atLimit)}. What now?`,
-      context: `${error}\n\nFollow it once more and the walk takes it one time past its limit. ${GUIDANCE_HINT}`,
-      options: [
-        FOLLOW_ONCE_MORE,
-        ...others.map(routeOptionWords),
-        CONTINUE_WITH_ISSUES,
-        DROP_THE_TASK,
-      ],
-      recommendation,
-    },
-    options: [
-      { kind: "one-more-round", guidance: undefined, to: atLimit.route.to },
+        context: `${error}\n\n`,
+        words:
+          stage.kind === "script" ? `Run "${stage.name}" again` : `Run "${stage.name}" once more`,
+        answer: { kind: "one-more-round", guidance: undefined } as const,
+      };
+  const rest = {
+    words: [...others.map(routeOptionWords), CONTINUE_WITH_ISSUES, DROP_THE_TASK],
+    answers: [
       ...others.map(({ to }) => ({ kind: "follow-route", to }) as const),
       { kind: "accept-issues" },
       { kind: "drop" },
-    ],
+    ] as const,
+  };
+  if (sendBackTo) {
+    return {
+      kind: "no-retries-left",
+      draft: {
+        question: again.question,
+        context: `${again.context}Or answer in your own words: the work goes back to "${sendBackTo.name}" with them as its guidance.`,
+        options: [again.words, `Send back to "${sendBackTo.name}" with these words`, ...rest.words],
+        recommendation: {
+          option: 1,
+          reason: `"${sendBackTo.name}" can fix what failed: the failure and your words go into its Brief. Run it again only when the failure may be flaky.`,
+        },
+      },
+      options: [
+        again.answer,
+        { kind: "send-back", to: sendBackTo.key, guidance: undefined },
+        ...rest.answers,
+      ],
+    };
+  }
+  const hint =
+    stage.kind === "script"
+      ? `No Agent Stage ran before "${stage.name}" in this walk, so the work can't be sent back to one. Words of your own ${atLimit ? "follow the route once more" : `run "${stage.name}" again`}, which no Agent reads.`
+      : GUIDANCE_HINT;
+  return {
+    kind: "no-retries-left",
+    draft: {
+      question: again.question,
+      context: `${again.context}${hint}`,
+      options: [again.words, ...rest.words],
+      recommendation: {
+        option: 0,
+        reason:
+          stage.kind === "script" && !atLimit
+            ? "It may pass when it runs again, if the failure was flaky."
+            : "Another round may fix it: the failure goes into its Brief.",
+      },
+    },
+    options: [again.answer, ...rest.answers],
   };
 }
 
@@ -335,22 +366,25 @@ function branchMovedDecision(stage: Stage, error: string): WalkDecision {
  * None of the routes out of the Stage holds, or one can't be weighed, as `why` says (spec §2.3,
  * "When no route holds"): the user follows one of them anyway, the first recommended as the
  * Pipeline puts it first, or drops the Task. Words of their own follow the first route and go with
- * the Stages after it, as a Gate's notes do.
+ * the Stages after it, as a Gate's notes do. An Agent Stage that ended done with none of its choice
+ * rows chosen says so.
  */
-function noRouteHolds(
-  stage: Stage,
-  routes: readonly Route[],
-  why: string | undefined,
-): WalkDecision {
+function noRouteHolds({
+  stage,
+  routes,
+  why,
+  choseNone,
+}: Extract<WalkQuestion, { kind: "no-route-holds" }>): WalkDecision {
   const question =
     why === undefined
       ? `None of the routes out of "${stage.name}" holds. Where does the walk go on?`
       : `The Office can't weigh a route out of "${stage.name}": ${why} Where does the walk go on?`;
+  const noChoice = choseNone ? ` The Agent of "${stage.name}" chose none of its choices.` : "";
   return {
     kind: "no-route-holds",
     draft: {
       question,
-      context: `"${stage.name}" goes ${routesWords(routes)}.\n\nOr answer in your own words: the walk follows the first route, and your answer goes with the Stages after it.`,
+      context: `"${stage.name}" goes ${routesWords(routes)}.${noChoice}\n\nOr answer in your own words: the walk follows the first route, and your answer goes with the Stages after it.`,
       options: [...routes.map(routeOptionWords), DROP_THE_TASK],
       recommendation: {
         option: 0,

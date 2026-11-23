@@ -1,5 +1,5 @@
 import type { ConditionGroup, PublishResult, Route, Stage } from "@the-office/contracts";
-import { Button, Icon, RadioList } from "@the-office/ui";
+import { Button, Icon, Input, RadioList } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { PUBLISH_RESULT_NAMES } from "../pipeline-words.ts";
 import { ConditionBuilder } from "./condition-builder.tsx";
@@ -10,6 +10,8 @@ import { FlowAddMenu } from "./flow-add-menu.tsx";
 import { FlowLockedFields, FlowLockedNote } from "./flow-locked.tsx";
 import { NO_LOCKS } from "./flow-marks.ts";
 import {
+  choiceCondition,
+  choiceWordsOf,
   endedResults,
   endsCondition,
   FAILED_CONDITION,
@@ -29,8 +31,9 @@ import { routeRemoved, stageOnRoute } from "./office-flow-edits.ts";
 
 /**
  * The picked route's panel (docs/spec/screens/pipeline-flow-editor.md): where it goes, any Stage or
- * End, its limit, and its form: When it fails (an Agent Stage's), "When these hold" in the
- * condition builder, When it ends… (a Publish Stage's) with a checkbox per result, or Otherwise,
+ * End, its limit, and its form: When it fails and The Agent chooses it (an Agent Stage's, the
+ * choice with its words), "When these hold" in the condition builder, When it ends… (a Publish
+ * Stage's) with a checkbox per result, or Otherwise,
  * read in plain words under it with its limit. Insert a Stage on
  * this route and Remove route head it. A route out of a locked Stage (a Task's started one) reads
  * only, each control disabled with why.
@@ -133,6 +136,30 @@ export function FlowRoutePanel(
             }
           />
           {form === "fails" && <p className="flow-panel-hint">When {stage.name} ends Failed.</p>}
+          {form === "chooses" && (
+            <Input
+              size="sm"
+              label="When the Agent chooses it"
+              placeholder="In plain words, such as: the review found something to fix"
+              value={choiceWordsOf(route) ?? ""}
+              error={
+                all
+                  .filter(({ at }) => at?.kind === "route" && at.testPath !== undefined)
+                  .map(({ text }) => text)
+                  .join(" ") || undefined
+              }
+              onChange={(event) =>
+                onEdited({
+                  stages: withRouteCondition(
+                    stages,
+                    stage.key,
+                    routeIndex,
+                    choiceCondition(event.target.value),
+                  ),
+                })
+              }
+            />
+          )}
           {form === "ends" && (
             <EndedResults
               routes={routes}
@@ -221,19 +248,21 @@ function EndedResults({
 }
 
 /**
- * The forms a route may take: When it fails only on an Agent Stage with no other failure row; When
- * it ends… on a Publish Stage, and When these hold on any other, or one whose route has it already;
- * then Otherwise.
+ * The forms a route may take, in the order the route panel lists them: The Agent chooses it on an
+ * Agent Stage; When it ends… on a Publish Stage, and When these hold on any other, or one whose
+ * route has it already; When it fails only on an Agent Stage with no other failure row; then
+ * Otherwise.
  */
 function formChoices(stage: Stage, failsElsewhere: boolean, form: RouteForm): FormChoice[] {
   const publishes = stage.kind === "publish";
+  const agent = stage.kind === "agent";
   return [
-    ...(stage.kind === "agent" && !failsElsewhere
+    ...(agent
       ? [
           choice(
-            "fails",
-            "When it fails",
-            `Followed when ${stage.name} ends Failed, weighed first; the Stage it leads to is briefed with the error.`,
+            "chooses",
+            "The Agent chooses it",
+            `In plain words for ${stage.name}'s Agent, which chooses one of these as it ends, giving its reason.`,
           ),
         ]
       : []),
@@ -252,6 +281,15 @@ function formChoices(stage: Stage, failsElsewhere: boolean, form: RouteForm): Fo
             "holds",
             "When these hold",
             "Built-in tests of a Stage or the Definition of Done, or a Project command that exits 0, in All of and Any of groups.",
+          ),
+        ]
+      : []),
+    ...(agent && !failsElsewhere
+      ? [
+          choice(
+            "fails",
+            "When it fails",
+            `Followed when ${stage.name} ends Failed, weighed first; the Stage it leads to is briefed with the error.`,
           ),
         ]
       : []),
@@ -289,6 +327,8 @@ function conditionOf(
   switch (picked) {
     case "fails":
       return FAILED_CONDITION;
+    case "chooses":
+      return was === "chooses" && condition ? condition : choiceCondition("");
     case "ends":
       return was === "ends" && condition ? condition : endsCondition([]);
     case "otherwise":

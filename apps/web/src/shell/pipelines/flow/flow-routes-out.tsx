@@ -1,7 +1,7 @@
 import type { Stage } from "@the-office/contracts";
 import { Button, Icon, IconButton, Menu } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
-import { routeTargetName, routeWhen } from "./condition-words.ts";
+import { routeRowWhen, routeTargetName } from "./condition-words.ts";
 import { FlowLockedFields, lockedTitle } from "./flow-locked.tsx";
 import {
   canMoveRoute,
@@ -19,6 +19,7 @@ import { routeAdded, routeRemoved } from "./office-flow-edits.ts";
 /** Add a route's items, by the row's form (spec §2.3, "The route forms"). */
 const FORM_WORDS: Readonly<Record<RouteForm, string>> = {
   fails: "When it fails",
+  chooses: "The Agent chooses it",
   holds: "When these hold",
   ends: "When it ends…",
   otherwise: "Otherwise",
@@ -27,7 +28,8 @@ const FORM_WORDS: Readonly<Record<RouteForm, string>> = {
 /**
  * Routes out (docs/spec/screens/pipeline-flow-editor.md): the Stage's routes in the order the walk
  * weighs them, each with its when-words, where it goes and its limit, picked to set its condition,
- * moved up or down (never above When it fails or below Otherwise), or removed. Add a route adds a
+ * moved up or down (never above When it fails or below Otherwise), or removed; an Agent Stage's
+ * choices and When these hold rows keep the order the user sets between them. Add a route adds a
  * row of a form to the first later Stage it has none to, or End. A locked Stage's are only picked,
  * every change disabled with why (`note`).
  */
@@ -52,7 +54,7 @@ export function FlowRoutesOut(
           {routes.map((route, index) => {
             const target = routeTargetName(route, stages);
             const why = routeProblems(problems, stage.key, index);
-            const when = routeWhen(route, stage, stages, index);
+            const when = routeRowWhen(route, stage, stages, index);
             return (
               <li
                 key={`${route.to ?? "end"}:${index}`}
@@ -134,8 +136,13 @@ export function FlowRoutesOut(
         The walk follows the first route whose condition holds, from the top. Otherwise always
         holds, so it goes last. To run a Stage only in some cases, give the route into it a
         condition.
-        {stage.kind === "agent" && " When it fails goes first."}
       </p>
+      {stage.kind === "agent" && (
+        <p className="flow-panel-hint">
+          {"The Agent reads each choice's words and chooses one as it ends, giving its reason. "}
+          When it fails goes first and Otherwise last; without a choice, Otherwise is followed.
+        </p>
+      )}
       <p className="flow-panel-hint">
         A route back starts at 3, a route on at No limit. Every loop needs one route with a limit,
         so the walk always ends.

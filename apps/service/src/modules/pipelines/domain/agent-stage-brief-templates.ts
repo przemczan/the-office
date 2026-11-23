@@ -27,13 +27,33 @@ const REFUSED_MESSAGE_VARIABLES = {
   },
 } as const;
 
+/** The route a run already chose, as the held run's section and the Handover section name it. */
+const CHOICE_MADE_VARIABLES = {
+  hasChoice: {
+    kind: "flag",
+    description: "The Stage's Agent already chose its route with choose_route in this run.",
+  },
+  choiceTarget: {
+    kind: "text",
+    description: "The name of the Stage the chosen route leads to, or End.",
+  },
+  choiceReason: { kind: "text", description: "The reason given for the choice." },
+} as const;
+
+/** The choice already made, which stands unless the Agent chooses again. */
+const CHOICE_MADE = `{{#hasChoice}}
+
+You already chose the route to {{choiceTarget}}: {{choiceReason}}
+That choice stands unless you choose again with choose_route.
+{{/hasChoice}}`;
+
 /** A Stage run's result as a line of a Brief, and of the Brief of a person's Thread on the Task. */
 export const EARLIER_STAGE_RESULT = promptTemplate({
   key: "pipelines.earlier-stage-result",
   domain: "pipelines",
   name: "Earlier Stage's result",
   description:
-    "How a Brief lists a Stage run before this one: how it ended, the notes the user let the work go on with, and its Handover note.",
+    "How a Brief lists a Stage run before this one: how it ended, the route its Agent chose, the notes the user let the work go on with, and its Handover note.",
   variables: {
     stageName: { kind: "text", description: "The Stage's name, such as Implement." },
     kindName: { kind: "text", description: "The Stage's kind, such as Agent Stage or Gate." },
@@ -52,6 +72,15 @@ export const EARLIER_STAGE_RESULT = promptTemplate({
     question: { kind: "text", description: "The question the run asked the user." },
     failed: { kind: "flag", description: "The run failed." },
     error: { kind: "text", description: "Why the run failed." },
+    hasChoice: {
+      kind: "flag",
+      description: "The run ended done with a route its Agent chose with choose_route.",
+    },
+    choiceTarget: {
+      kind: "text",
+      description: "The name of the Stage the chosen route leads to, or End.",
+    },
+    choiceReason: { kind: "text", description: "The reason the Agent gave for its choice." },
     hasRouteNotes: {
       kind: "flag",
       description: "None of the Stage's routes held, and the user chose where to go on with notes.",
@@ -80,6 +109,9 @@ export const EARLIER_STAGE_RESULT = promptTemplate({
 {{#failed}}
 - {{stageName}} ({{kindName}}): failed. {{error}}
 {{/failed}}
+{{#hasChoice}}
+  Chose {{choiceTarget}}: {{choiceReason}}
+{{/hasChoice}}
 {{#hasRouteNotes}}
   None of its routes held, so the user chose where the work goes on, with notes for the Stages after it. Follow them:
   {{routeNotes}}
@@ -288,7 +320,7 @@ export const STAGE_HELD = promptTemplate({
   domain: "pipelines",
   name: "Stage held before",
   description:
-    "The part of a Stage's message that says how its last run was held (Stop, Pause, the fire alarm, the usage window or a restart) and where its edits stand.",
+    "The part of a Stage's message that says how its last run was held (Stop, Pause, the fire alarm, the usage window or a restart), where its edits stand, and the route its Agent already chose.",
   variables: {
     notStarted: {
       kind: "flag",
@@ -331,6 +363,7 @@ export const STAGE_HELD = promptTemplate({
       description: "The engine refused the last turn for a used-up usage window.",
     },
     ...REFUSED_MESSAGE_VARIABLES,
+    ...CHOICE_MADE_VARIABLES,
     hasGuidance: {
       kind: "flag",
       description: "The user gave their own words for the run going on.",
@@ -389,6 +422,7 @@ ${REFUSED_HALF_DONE}
 
 ${REFUSED_MESSAGE}
 {{/refused}}
+${CHOICE_MADE}
 {{#hasGuidance}}
 
 The user's words for it:
@@ -638,13 +672,14 @@ export const STAGE_HANDOVER = promptTemplate({
   domain: "pipelines",
   name: "Handover note from this Stage's earlier session",
   description:
-    "The part of a Stage's Brief for the fresh session The Office starts once the Stage's session passed its context limit: the earlier session's Handover note, or that it wrote none.",
+    "The part of a Stage's Brief for the fresh session The Office starts once the Stage's session passed its context limit: the earlier session's Handover note, or that it wrote none, and the route it already chose.",
   variables: {
     hasHandoverNote: {
       kind: "flag",
       description: "The earlier session wrote a Handover note.",
     },
     handoverNote: { kind: "text", description: "The earlier session's Handover note." },
+    ...CHOICE_MADE_VARIABLES,
   },
   text: `## Handover note from this Stage's earlier session
 
@@ -659,6 +694,63 @@ Its Handover note:
 
 It wrote no Handover note: check the worktree's diff first (\`git status\` and \`git diff\`) to see where it left the work.
 {{/hasHandoverNote}}
+${CHOICE_MADE}
+`,
+});
+
+/**
+ * The section of an Agent Stage's message, after its Later Stages, listing the routes its Agent
+ * chooses from with choose_route (spec §2.3, "How an Agent chooses its route"); only a Stage with
+ * choice rows has it.
+ */
+export const STAGE_ROUTES_OUT = promptTemplate({
+  key: "pipelines.stage-routes-out",
+  domain: "pipelines",
+  name: "Stage's routes out",
+  description:
+    "The part of an Agent Stage's message that lists the routes its Agent chooses from, each with its count so far and its limit, where the work goes otherwise and on failure, and that the Agent chooses with choose_route before it ends done.",
+  variables: {
+    choices: {
+      kind: "list",
+      description: "The Stage's choice rows, in their order.",
+      fields: {
+        targetName: "The name of the Stage the route leads to, or End.",
+        key: "The key the Agent names the route by: its Stage's key, or end.",
+        words: "The choice's condition in plain words.",
+        count: 'The route\'s count so far, such as "followed 1 of at most 3 times".',
+      },
+    },
+    hasOtherwise: { kind: "flag", description: "The Stage has an Otherwise row." },
+    otherwiseName: {
+      kind: "text",
+      description: "The name of the Stage the Otherwise row leads to, or End.",
+    },
+    hasFailureRoute: { kind: "flag", description: "The Stage has a When it fails row." },
+    failureName: {
+      kind: "text",
+      description: "The name of the Stage the When it fails row leads to, or End.",
+    },
+  },
+  text: `## Routes out
+
+Before you end this Stage done, choose where the work goes next with choose_route, giving the route by its key and your reason in a sentence or two. You may choose again before you end; the last choice counts. You may choose:
+
+{{#choices}}
+- {{targetName}}: {{words}} (\`{{key}}\`, {{count}})
+{{/choices}}
+
+{{#hasOtherwise}}
+Without a choice, the work goes on to {{otherwiseName}}.
+{{/hasOtherwise}}
+{{^hasOtherwise}}
+Without a choice, no route is followed, and the user is asked where the work goes.
+{{/hasOtherwise}}
+{{#hasFailureRoute}}
+If the Stage fails, the work goes to {{failureName}}, whatever you chose.
+{{/hasFailureRoute}}
+{{^hasFailureRoute}}
+If the Stage fails, whatever you chose, the walk stops and asks what to do next.
+{{/hasFailureRoute}}
 `,
 });
 
@@ -671,4 +763,5 @@ export const AGENT_STAGE_BRIEF_TEMPLATES = [
   STAGE_RUNS_AGAIN,
   STAGE_SENT_AGAIN,
   STAGE_HANDOVER,
+  STAGE_ROUTES_OUT,
 ] as const;

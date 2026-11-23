@@ -5,6 +5,7 @@ import type {
   EngineSwitch,
   GateAction,
   SentBack,
+  ChosenRoute,
   PublishedWork,
   StageOutcome,
   StageRunContext,
@@ -83,6 +84,8 @@ export const stageRuns = pgTable(
     outcome: jsonb("outcome").$type<StageOutcome>(),
     /** What a Publish run shipped, kept before its after publishing line runs. */
     published: jsonb("published").$type<PublishedWork>(),
+    /** The route an Agent Stage's Agent chose with choose_route, and its reason. */
+    choice: jsonb("route_choice").$type<ChosenRoute>(),
     /** Since when a Script Stage's run waits for a free run environment. */
     waitingSince: timestamp("waiting_since", { withTimezone: true }),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),

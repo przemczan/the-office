@@ -2,6 +2,7 @@ import type { StageCommandRunWithOutput } from "../domain/stage-command-run.js";
 import type {
   EngineSwitch,
   GateAction,
+  ChosenRoute,
   PublishedWork,
   StageRun,
   StageRunContext,
@@ -126,6 +127,9 @@ export abstract class StageRunRepository {
 
   /** Saves what a Publish run shipped, before its after publishing line runs. */
   abstract savePublished(runId: string, published: PublishedWork): Promise<void>;
+
+  /** Saves the route the run's Agent chose, replacing the one it chose before. */
+  abstract saveRouteChoice(runId: string, choice: ChosenRoute): Promise<void>;
 
   /** Since when the running run waits for a free run environment; undefined once it doesn't. */
   abstract saveWaitingSince(runId: string, waitingSince: Date | undefined): Promise<void>;

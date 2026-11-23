@@ -186,6 +186,17 @@ function running(key: string): Stage[] {
   ];
 }
 
+const choice = (words: string): ConditionTest => ({ kind: "choice", words });
+
+/** Implement choosing between Tests and End by `first` and `second`, Lint otherwise. */
+function choosing(first: string, second: string): Stage[] {
+  return [
+    placed(implement, 0, [when("tests", choice(first)), when(null, choice(second)), to("lint")]),
+    placed(tests, 1, [to(null)]),
+    placed(lint, 2, [to(null)]),
+  ];
+}
+
 describe("stageProblems of a flow", () => {
   it("weighs Stages with no routes as converted, so a plain list with an optional Stage passes", () => {
     const stages = [agentStage(), scriptStage({ optional: true }), gate()];
@@ -494,6 +505,41 @@ describe("stageProblems of a flow", () => {
         ]);
       },
     );
+  });
+
+  describe("an Agent's choice rows", () => {
+    it("passes an Agent Stage's choice rows, each with words of its own", () => {
+      expect(stageProblems(choosing("it needs tests", "nothing to do"))).toEqual([]);
+    });
+
+    it("refuses a choice on a Stage that isn't an Agent Stage", () => {
+      expect(problemTexts(testing(choice("it passed")))).toEqual([
+        "Stage 2 · Tests: a condition of its route to Lint is the Agent's choice, which only an Agent Stage has.",
+      ]);
+    });
+
+    it("refuses a choice mixed with other tests", () => {
+      const stages = [
+        placed(implement, 0, [when("tests", choice("it needs tests"), SOME_NOT_MET), to(null)]),
+        placed(tests, 1, [to(null)]),
+      ];
+
+      expect(problemTexts(stages)).toEqual([
+        "Stage 1 · Implement: its route to Tests mixes the Agent's choice with other tests; a choice is the only test of its route.",
+      ]);
+    });
+
+    it("refuses a choice with no words", () => {
+      expect(problemTexts(choosing("  ", "nothing to do"))).toEqual([
+        "Stage 1 · Implement: a condition of its route to Tests is a choice with no words; say when the Agent chooses it.",
+      ]);
+    });
+
+    it("refuses two choices with the same words, trimmed and whatever the case", () => {
+      expect(problemTexts(choosing("It needs tests", " it needs TESTS "))).toEqual([
+        "Stage 1 · Implement: its route to End has the same words as an earlier choice; give each choice its own words.",
+      ]);
+    });
   });
 
   it("warns, apart from the problems, of a Stage whose every route out carries a condition", () => {

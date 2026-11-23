@@ -167,7 +167,8 @@ describe("StageInterpreter's Decisions", () => {
         anAgentStage("proof"),
       ]);
 
-      await answerLastDecision(pipelines, taskId, { kind: "option", option: 1 });
+      // Option 1 sends the work back to "draft".
+      await answerLastDecision(pipelines, taskId, { kind: "option", option: 2 });
 
       expect(await statusesOf(taskId)).toEqual([
         ["draft", "done"],
@@ -185,7 +186,7 @@ describe("StageInterpreter's Decisions", () => {
       failing("2 tests fail.");
       const taskId = await walkStages(pipelines, [draft, scriptStage("measure")]);
 
-      await answerLastDecision(pipelines, taskId, { kind: "option", option: 2 });
+      await answerLastDecision(pipelines, taskId, { kind: "option", option: 3 });
 
       expect(await statusesOf(taskId)).toHaveLength(2);
       expect(statesOf(taskId)).toEqual(["waiting-on-you", "in-progress", "dropped"]);

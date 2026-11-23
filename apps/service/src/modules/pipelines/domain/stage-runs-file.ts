@@ -143,7 +143,7 @@ function fileRunOf(
     endedAt: endedAt.toISOString(),
     outcome: ranThrough ? "done" : outcomeOf(outcome),
     result,
-    choice: null,
+    choice: run.choice ? { to: run.choice.to, reason: run.choice.reason } : null,
     changedFiles: run.changedFiles ?? [],
     handoverNote: outcome.handoverNote ?? null,
     error:

@@ -22,6 +22,7 @@ import type { StageCommandRunWithOutput } from "../../domain/stage-command-run.j
 import type {
   EngineSwitch,
   GateAction,
+  ChosenRoute,
   PublishedWork,
   StageRun,
   StageRunContext,
@@ -159,6 +160,10 @@ export class PostgresStageRunRepository extends StageRunRepository {
 
   async savePublished(runId: string, published: PublishedWork): Promise<void> {
     await this.database.update(stageRuns).set({ published }).where(eq(stageRuns.id, runId));
+  }
+
+  async saveRouteChoice(runId: string, choice: ChosenRoute): Promise<void> {
+    await this.database.update(stageRuns).set({ choice }).where(eq(stageRuns.id, runId));
   }
 
   async saveWaitingSince(runId: string, waitingSince: Date | undefined): Promise<void> {
@@ -410,6 +415,7 @@ function stageRunOf({
     gateAction: row.gateAction ?? undefined,
     outcome: row.outcome ?? undefined,
     published: row.published ?? undefined,
+    choice: row.choice ?? undefined,
     waitingSince: row.waitingSince ?? undefined,
     endedAt: row.endedAt ?? undefined,
   };

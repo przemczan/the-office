@@ -4,7 +4,7 @@ import { reportedOutOfReach, unmetStatements } from "./definition-of-done-report
 import { conflictOnlyStages, isConflictRoute, takesPublishResult } from "./conflict-handling.js";
 import { asFlow, pipelineOrder, type FlowStage } from "./flow.js";
 import { publishResultOf } from "./publish-result.js";
-import { isFailureRoute, namedRoutes, type Route } from "./route.js";
+import { choiceRoutesOf, isFailureRoute, namedRoutes, type Route } from "./route.js";
 import { isPublishStage, type Stage } from "./stage.js";
 import type { ConditionCommandTest } from "./stage-command-run.js";
 import type {
@@ -54,7 +54,9 @@ export type WalkQuestion =
   /**
    * The Stage failed with no failure route left to follow (spec §2.3, "When a Stage fails"):
    * `atLimit` is the first that held but is used up, when one did, and `others` the Stage's other
-   * routes out, by where they lead, which the walk may follow instead.
+   * routes out, by where they lead, which the walk may follow instead. A failed Script Stage
+   * (Publish among them) may send the work back to `sendBackTo`, the last Agent Stage the walk ran
+   * outside conflict handling; undefined for an Agent Stage, or when the walk ran none.
    */
   | {
       readonly kind: "no-retries-left";
@@ -62,6 +64,7 @@ export type WalkQuestion =
       readonly error: string;
       readonly atLimit: RouteAtLimit | undefined;
       readonly others: readonly Route[];
+      readonly sendBackTo: Stage | undefined;
     }
   /**
    * The route the ended Stage's walk would follow is at its limit (spec §2.3, "When a limit runs
@@ -106,13 +109,15 @@ export type WalkQuestion =
   /**
    * None of `routes`, the routes out of the ended Stage the walk weighed, holds, or one of them
    * can't be weighed, as `why` says (spec §2.3, "When no route holds"). Each route carries the name
-   * of the Stage it leads to.
+   * of the Stage it leads to. `choseNone` is set when the Stage is an Agent Stage with choice rows
+   * that ended done with no choice made (spec §2.3, "How an Agent chooses its route").
    */
   | {
       readonly kind: "no-route-holds";
       readonly stage: Stage;
       readonly routes: readonly Route[];
       readonly why: string | undefined;
+      readonly choseNone?: true;
     };
 
 /** What the walk over a Task's Stages does next. */
@@ -263,6 +268,26 @@ export function routesFollowed(
   }
   const next = new Map(runs.map((run, index) => [run.id, runs[index + 1]?.stageKey]));
   return new Map([...walk.left].filter(([runId, { to }]) => to !== null && next.get(runId) === to));
+}
+
+/**
+ * How often the walk over `runs` followed each of `routes` out of the Stage keyed `fromKey`, and how
+ * often it may (spec §2.3, "A route's limit"), as the walk itself counts them. A history the walk
+ * can't replay counts the routes it followed up to there.
+ */
+export function routeCounts(
+  stages: readonly Stage[],
+  runs: readonly StageRun[],
+  fromKey: string,
+  routes: readonly Route[],
+): RouteCount[] {
+  const walk = walkOver(stages, runs, []);
+  try {
+    replayAll(walk);
+  } catch {
+    // The walk itself reports the fault, as with `routesFollowed`.
+  }
+  return routes.map((route) => countOf(walk, fromKey, route));
 }
 
 function walkOver(
@@ -498,11 +523,15 @@ function afterNoRetriesLeft(
     error,
     atLimit: usedUp && atLimitOf(walk, stage, usedUp),
     others: usedUp ? otherRoutes(walk, stage, usedUp.to) : [],
+    sendBackTo: stage.kind === "script" ? lastAgentStage(walk) : undefined,
   } as const;
   const waiting = waitingOn(run, "no-retries-left", question);
   if (waiting) return waiting;
   const answer = answerOf(run, "no-retries-left");
   switch (answer.kind) {
+    case "send-back":
+      walk.position = sentBackAfterFailure(walk, stage, error, answer);
+      return undefined;
     case "more-rounds":
       if (!usedUp) throw new Error(`Stage "${stage.key}" got more rounds, yet has no route back.`);
       allowPast(walk, stage, usedUp, answer.rounds);
@@ -953,8 +982,28 @@ function noRouteHolds(
   return {
     move: "ask",
     run,
-    question: { kind: "no-route-holds", stage, routes: named(walk, routes), why },
+    question: {
+      kind: "no-route-holds",
+      stage,
+      routes: named(walk, routes),
+      why,
+      ...(choseNone(run, stage, routes) && { choseNone: true }),
+    },
   };
+}
+
+/**
+ * The Agent Stage ended done by itself with choice rows among `routes` and no choice made, so none
+ * of them held (spec §2.3, "How an Agent chooses its route").
+ */
+function choseNone(run: StageRun, stage: Stage, routes: readonly Route[]): boolean {
+  return (
+    stage.kind === "agent" &&
+    run.outcome?.status === "done" &&
+    run.outcome.skipped !== true &&
+    run.choice === undefined &&
+    choiceRoutesOf(routes).length > 0
+  );
 }
 
 /** The user's answer to the no-route-holds Decision: the route they chose, or Drop. */
@@ -1195,6 +1244,7 @@ function checkDefinitionOfDone(walk: Walk, run: StageRun): StoppingMove | undefi
     case "resolved-in-worktree":
     case "keep-branch":
     case "follow-route":
+    case "send-back":
       throw new Error(
         `Stage run ${run.id} was answered "${answer.kind}" at the Definition of Done.`,
       );
@@ -1206,13 +1256,43 @@ function checkDefinitionOfDone(walk: Walk, run: StageRun): StoppingMove | undefi
  * outside conflict handling, or the Stage the run ended when there is none.
  */
 function againStage(walk: Walk, run: StageRun): Stage {
+  return lastAgentStage(walk) ?? stageOf(walk, run.stageKey);
+}
+
+/** The last Agent Stage the walk ran, never Resolve; undefined when it ran none. */
+function lastAgentStage(walk: Walk): Stage | undefined {
   const agentStages = new Map(
     walk.stages.flatMap(({ key, kind }) => (kind === "agent" ? [[key, stageOf(walk, key)]] : [])),
   );
   const lastAgentRun = walk.replayed.findLast(
     ({ id, stageKey }) => agentStages.has(stageKey) && !walk.conflictRuns.has(id),
   );
-  return (lastAgentRun && agentStages.get(lastAgentRun.stageKey)) ?? stageOf(walk, run.stageKey);
+  return lastAgentRun && agentStages.get(lastAgentRun.stageKey);
+}
+
+/**
+ * Where a failed Script Stage's send-back goes (spec §2.3, "When a Stage fails"): to the Agent
+ * Stage the answer names, carrying the failure and the words given, the walk going on from there by
+ * its routes. It follows none of the failed Stage's routes, so its next failure asks again.
+ */
+function sentBackAfterFailure(
+  walk: Walk,
+  failed: Stage,
+  error: string,
+  answer: Extract<WalkAnswer, { readonly kind: "send-back" }>,
+): WalkPosition {
+  const target = stageOf(walk, answer.to);
+  // The Decision offers only the last Agent Stage the walk ran, so another is a fault.
+  if (target.kind !== "agent") {
+    throw new Error(`Stage "${failed.key}" was sent back to "${answer.to}", no Agent Stage.`);
+  }
+  const round = (walk.ranAgain.get(failed.key) ?? 0) + 1;
+  walk.ranAgain.set(failed.key, round);
+  return {
+    key: target.key,
+    carriedFailure: { stageKey: failed.key, error, round, rounds: round, ...guidanceOf(answer) },
+    sentBack: undefined,
+  };
 }
 
 /**
@@ -1285,9 +1365,9 @@ function stageOfRun(walk: Walk, run: StageRun): Stage {
  */
 type Guided = Pick<CarriedFailure, "guidance" | "guidedBy">;
 
-type OneMoreRound = Extract<WalkAnswer, { readonly kind: "one-more-round" }>;
+type GuidedAnswer = Extract<WalkAnswer, { readonly kind: "one-more-round" | "send-back" }>;
 
-function guidanceOf({ guidance, guidedBy }: OneMoreRound): Guided {
+function guidanceOf({ guidance, guidedBy }: GuidedAnswer): Guided {
   return {
     ...(guidance !== undefined && { guidance }),
     ...(guidance !== undefined && guidedBy !== undefined && { guidedBy }),

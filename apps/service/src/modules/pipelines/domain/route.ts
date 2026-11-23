@@ -44,7 +44,7 @@ export interface ConditionGroup {
   readonly tests: (ConditionTest | ConditionGroup)[];
 }
 
-export type ConditionTest = StageTest | DefinitionOfDoneTest | CommandTest;
+export type ConditionTest = StageTest | DefinitionOfDoneTest | CommandTest | ChoiceTest;
 
 /**
  * What a Stage test says of its Stage's latest run: a Publish Stage's results besides Failed are
@@ -75,6 +75,45 @@ export interface DefinitionOfDoneTest {
 export interface CommandTest {
   readonly kind: "command";
   readonly key: string;
+}
+
+/**
+ * An Agent Stage's choice (spec §2.3, "How an Agent chooses its route"): a condition in plain words
+ * for its Agent, which holds when the Agent chose the route with `choose_route`. It is the only test
+ * of its route, which makes the route a choice row.
+ */
+export interface ChoiceTest {
+  readonly kind: "choice";
+  readonly words: string;
+}
+
+/** A choice row's condition, `words` its only test. */
+export function choiceCondition(words: string): ConditionGroup {
+  return { combine: "all", tests: [{ kind: "choice", words }] };
+}
+
+/** The words of `route`'s choice when it is a choice row, its condition one choice test alone. */
+export function agentChoiceOf({ condition }: Route): string | undefined {
+  const [test, ...others] = condition?.tests ?? [];
+  if (!test || others.length > 0 || isConditionGroup(test) || test.kind !== "choice") {
+    return undefined;
+  }
+  return test.words;
+}
+
+/** The choice rows of an Agent Stage's routes, with their words, in their order. */
+export function choiceRoutesOf(
+  routes: readonly Route[],
+): { readonly route: Route; readonly words: string }[] {
+  return routes.flatMap((route) => {
+    const words = agentChoiceOf(route);
+    return words === undefined ? [] : [{ route, words }];
+  });
+}
+
+/** Whether `condition` has a choice test anywhere in it. */
+export function hasChoiceTest(condition: ConditionGroup): boolean {
+  return testsOf(condition).some(({ test }) => test.kind === "choice");
 }
 
 /** Where a Stage stands on the flow editor's canvas: the columns left to right give the order. */

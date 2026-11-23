@@ -26,6 +26,7 @@ export function aStageRun(fields: Partial<StageRun> = {}): StageRun {
     heldBy: undefined,
     heldByUser: undefined,
     published: undefined,
+    choice: undefined,
     waitingSince: undefined,
     gateAction: undefined,
     outcome: { status: "done", summary: "Done." },

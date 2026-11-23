@@ -21,6 +21,7 @@ import { PipelineLibrary } from "../../application/pipeline-library.js";
 import { RoleFillings } from "../../application/role-fillings.js";
 import { StageBranchUpdate } from "../../application/stage-branch-update.js";
 import { StageHistory } from "../../application/stage-history.js";
+import { CHOOSE_ROUTE_TOOL, StageRouteChoices } from "../../application/stage-route-choices.js";
 import { StageProjectCommands } from "../../application/stage-project-commands.js";
 import { StageRunEnvironmentDefinitions } from "../../application/stage-run-environment-definitions.js";
 import { StageTemplateLibrary } from "../../application/stage-template-library.js";
@@ -60,6 +61,7 @@ const ROUTES_WORDS = [
   "Each route has its `limit`, the most times the walk follows it in one walk, 1 to 9, or null for No limit; left out, it is 3 for a route back (to its own Stage or one before it in the Pipeline's order) and No limit for a route on (to a later Stage or End). A route at its limit stops the walk and asks. Every loop of routes must pass through a route with a limit, so the walk always ends.",
   "A Publish Stage's routes each take one or more of its results, each result leading to one place at most: Published and Nothing to publish end it Done, so its Otherwise takes them, and \"failed\" holds only for Failed; Conflict and After publishing failed are results of their own, and one no route takes asks (Conflict the user directly). Its Conflict route leads to the conflict chain, before it in the Pipeline's order: Resolve, an Agent Stage with `mergeBaseFirst` on, then Test after Resolve, a Script Stage running test that goes back to Resolve when it fails, then the Publish again; with no route taking Conflict, the check warns.",
   'Only a failure route carries a Stage\'s failure on (an Agent Stage\'s "When it fails"): a route whose condition is `{ "combine": "all", "tests": [{ "kind": "stage", "stage": null, "is": "failed" }] }`, placed first among the Stage\'s routes, usually back to the Stage that fixes the work; it may lead where another of its routes leads. A Stage that fails with none is asked about.',
+  'An Agent Stage\'s route may be one of its Agent\'s choices, a condition in plain words for the Agent: `{ "combine": "all", "tests": [{ "kind": "choice", "words": "the review found something to fix" }] }`. A choice test is only on an Agent Stage and the only test of its route; its words are not empty and differ from every other choice of the Stage, trimmed and whatever the case. The walk follows it when the Agent chose it with `choose_route` and the Stage ended done; with no choice made, no choice route holds, so put an Otherwise (condition null) last.',
 ].join(" ");
 
 /** The Stage kinds' own fields, which both propose tools' Stages take. */
@@ -98,6 +100,7 @@ export class PipelineOfficeTools implements OnModuleInit {
     private readonly stageHistory: StageHistory,
     private readonly runEnvironmentDefinitions: StageRunEnvironmentDefinitions,
     private readonly roleFillings: RoleFillings,
+    private readonly routeChoices: StageRouteChoices,
   ) {}
 
   onModuleInit(): void {
@@ -107,6 +110,7 @@ export class PipelineOfficeTools implements OnModuleInit {
     this.registerListStageTemplates();
     this.registerProposeStageTemplate();
     this.registerUpdateBranch();
+    this.registerChooseRoute();
     this.registerRunProjectCommand();
     this.registerWriteRunEnvironmentDefinition();
     this.registerReadStageHistory();
@@ -200,11 +204,27 @@ export class PipelineOfficeTools implements OnModuleInit {
     });
   }
 
+  private registerChooseRoute(): void {
+    this.registry.register({
+      name: CHOOSE_ROUTE_TOOL,
+      description:
+        "Chooses the route your Agent Stage's work goes on by, one of the choices its Routes out section lists, with your reason. The walk follows it only once the Stage ends done; a failed Stage follows its When it fails route. You may choose again before you end, and the last choice counts. A route that isn't one of the Stage's choices is refused, naming those you may choose.",
+      input: z.object({
+        route: z
+          .string()
+          .describe("The route's target, by its Stage key as Routes out lists it, or end for End."),
+        reason: z.string().describe("Why you choose it, in a sentence or two."),
+      }),
+      run: ({ route, reason }, { sessionId }) =>
+        this.routeChoices.inSession(sessionId, { route, reason }),
+    });
+  }
+
   private registerListPipelines(): void {
     this.registry.register({
       name: LIST_PIPELINES_TOOL,
       description:
-        "Lists the Pipelines as JSON: the office-wide Pipelines of the library, each with its id, name, description and Stages in the Pipeline's order, each Stage with its routes out and their conditions and its place on the editor's canvas, in the shape propose_library_pipeline takes them; then the Project Pipelines, each a full Pipeline of its Project, with its id, Project, name, description, the Pipeline it was copied from (its name, and when, null when unknown) and its Stages in the same shape, which propose_project_pipeline takes; one Broken before The Office updated says so, with its reasons, and can't be chosen until the user saves it once; then, for each duty an Agent Stage names instead of a Role, by its key, who holds it, whom the Stage runs as when it starts. Give a Project to list only its Project Pipelines, or a Pipeline to list only that one, office-wide or a Project's, with its duties.",
+        "Lists the Pipelines as JSON: the office-wide Pipelines of the library, each with its id, name, description and Stages in the Pipeline's order, each Stage with its routes out and their conditions (an Agent Stage's choices among them, each a choice test with its words) and its place on the editor's canvas, in the shape propose_library_pipeline takes them; then the Project Pipelines, each a full Pipeline of its Project, with its id, Project, name, description, the Pipeline it was copied from (its name, and when, null when unknown) and its Stages in the same shape, which propose_project_pipeline takes; one Broken before The Office updated says so, with its reasons, and can't be chosen until the user saves it once; then, for each duty an Agent Stage names instead of a Role, by its key, who holds it, whom the Stage runs as when it starts. Give a Project to list only its Project Pipelines, or a Pipeline to list only that one, office-wide or a Project's, with its duties.",
       input: z.object({
         project: z
           .string()

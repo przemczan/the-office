@@ -97,6 +97,7 @@ describe("GET /api/tasks/:id/stages", () => {
         context: null,
         carriedFailure: null,
         route: { to: "tests", times: 1, limit: null },
+        choice: null,
         sentBack: null,
         commandRuns: [],
         gateAction: null,
@@ -161,6 +162,36 @@ describe("GET /api/tasks/:id/stages", () => {
           reason: "Work's window is near its cap.",
         },
       },
+      null,
+    ]);
+  });
+
+  it("gives the route a run's Agent chose by its target's name, End for none", async () => {
+    pipelines = await startPipelinesApplication();
+    const taskId = randomUUID();
+    const repository = pipelines.app.get(StageRunRepository);
+    const toReview = aStageRun({ id: randomUUID(), taskId, number: 1 });
+    const toEnd = aStageRun({ id: randomUUID(), taskId, number: 2 });
+    await repository.saveNew(toReview);
+    await repository.saveRouteChoice(toReview.id, { to: "review", reason: "It touches the UI." });
+    await repository.saveNew(toEnd);
+    await repository.saveRouteChoice(toEnd.id, { to: null, reason: "Nothing to do." });
+    await repository.saveNew(aStageRun({ id: randomUUID(), taskId, number: 3 }));
+    await pipelines.app.get(TaskStagesRepository, { strict: false }).save({
+      taskId,
+      pipelineId: "for-tests",
+      stages: [anAgentStage("implement"), anAgentStage("review", { name: "Review" })],
+      madeAt: new Date(),
+      editedForTask: false,
+      trace: undefined,
+    });
+    pipelines.tasks.put(taskId, { state: "in-progress", pipelineId: "for-tests" });
+
+    const { stages } = await stagesOf(taskId);
+
+    expect(stages?.[0]?.runs.map(({ choice }) => choice)).toEqual([
+      { to: "review", toName: "Review", reason: "It touches the UI." },
+      { to: null, toName: "End", reason: "Nothing to do." },
       null,
     ]);
   });

@@ -64,6 +64,7 @@ function aRun(fields: Partial<StageRun> = {}): StageRun {
     context: null,
     carriedFailure: null,
     route: null,
+    choice: null,
     sentBack: null,
     gateAction: null,
     commandRuns: [],

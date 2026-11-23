@@ -73,6 +73,7 @@ function runs(...ran: readonly Ran[]): StageRun[] {
     heldBy: undefined,
     heldByUser: undefined,
     published: undefined,
+    choice: undefined,
     waitingSince: undefined,
     sentBack: undefined,
     gateAction: each.gateAction,

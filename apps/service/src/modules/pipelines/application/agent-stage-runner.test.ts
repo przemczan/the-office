@@ -30,6 +30,8 @@ import { SIGNED_IN_FOR_TESTS } from "../../../platform/http/signed-in-requests.f
 import { userOf } from "../../../platform/http/signed-in-requests.js";
 import { STAGE_BRIEF, STAGE_MESSAGE } from "../domain/agent-stage-brief-templates.js";
 import { AGENT_STAGE_OFFICE_TOOLS } from "./agent-stage-runner.js";
+import { CHOOSE_ROUTE_TOOL } from "./stage-route-choices.js";
+import { choiceCondition, plainRoute } from "../domain/route.js";
 import { AgentStageRunner } from "./agent-stage-runner.js";
 import { StageRunInterruption } from "./stage-run-interruption.js";
 import { implement, corrected } from "../agent-stage-runner.fixtures.js";
@@ -397,6 +399,36 @@ describe("An Agent Stage's Office tools", () => {
   it("propose a Bug Task, and never create a Task", () => {
     expect(AGENT_STAGE_OFFICE_TOOLS).toContain("propose_bug_task");
     expect(AGENT_STAGE_OFFICE_TOOLS).not.toContain("create_task");
+  });
+
+  it("offer choose_route, with the Routes out section, only to a Stage with choice rows", async () => {
+    pipelines = await startPipelinesApplication([
+      anAgentSession(aDoneResult()),
+      anAgentSession(aDoneResult()),
+    ]);
+    const choosing = anAgentStage("review", {
+      name: "Review",
+      routes: [
+        { to: null, condition: choiceCondition("nothing is left to do"), limit: null },
+        plainRoute(null),
+      ],
+    });
+
+    await walkStages(pipelines, [
+      anAgentStage("implement", { name: "Implement", routes: [plainRoute("review")] }),
+      choosing,
+    ]);
+
+    const [plain, withChoices] = pipelines.stageThreads.requests;
+    expect(plain?.session.officeTools).not.toContain(CHOOSE_ROUTE_TOOL);
+    expect(plain?.work).not.toContain("## Routes out");
+    expect(withChoices?.session.officeTools).toEqual([
+      ...AGENT_STAGE_OFFICE_TOOLS,
+      CHOOSE_ROUTE_TOOL,
+    ]);
+    expect(withChoices?.work).toContain(
+      "## Routes out\n\nBefore you end this Stage done, choose where the work goes next with choose_route",
+    );
   });
 });
 

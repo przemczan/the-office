@@ -5,6 +5,8 @@ import {
   canDropAt,
   canMoveRoute,
   canMoveStage,
+  choiceCondition,
+  choiceWordsOf,
   endedResults,
   endsCondition,
   FAILED_CONDITION,
@@ -269,10 +271,10 @@ describe("adding a route by its form", () => {
   const flow = asFlow([agent, plan]);
 
   it("offers When it fails on an Agent Stage, and Otherwise, only while it has none", () => {
-    expect(formsToAdd(flow[0]!)).toEqual(["fails", "holds"]);
+    expect(formsToAdd(flow[0]!)).toEqual(["chooses", "holds", "fails"]);
     expect(formsToAdd(flow[1]!)).toEqual(["holds"]);
     const failing = withRouteAdded(flow, "implement", "fails").stages;
-    expect(formsToAdd(failing[0]!)).toEqual(["holds"]);
+    expect(formsToAdd(failing[0]!)).toEqual(["chooses", "holds"]);
     expect(formsToAdd(withRouteRemoved(flow, "plan", 0)[1]!)).toEqual(["holds", "otherwise"]);
   });
 
@@ -294,6 +296,56 @@ describe("adding a route by its form", () => {
     expect(routesOf(withRouteAdded(bare, "plan", "otherwise").stages, "plan")).toEqual([
       { to: null, condition: null, limit: null },
     ]);
+  });
+
+  it("adds an Agent's choice with no words yet among the rows the user orders", () => {
+    const failing = withRouteAdded(flow, "implement", "fails").stages;
+    const choosing = withRouteAdded(failing, "implement", "chooses");
+    expect(choosing.routeIndex).toBe(1);
+    expect(routesOf(choosing.stages, "implement")?.[1]).toEqual({
+      to: null,
+      condition: choiceCondition(""),
+      limit: null,
+    });
+    const holding = withRouteAdded(choosing.stages, "implement", "holds").stages;
+    const routes = routesOf(holding, "implement") ?? [];
+    expect(routes.map((route) => routeFormOf(agent, route))).toEqual([
+      "fails",
+      "chooses",
+      "holds",
+      "otherwise",
+    ]);
+    expect(canMoveRoute(holding, "implement", 1, 1)).toBe(true);
+    expect(canMoveRoute(holding, "implement", 1, -1)).toBe(false);
+    expect(canMoveRoute(holding, "implement", 2, 1)).toBe(false);
+  });
+
+  it("draws a later route from an Agent Stage as a choice with no words yet", () => {
+    const drawn = withRouteDrawn(flow, "implement", null);
+    expect(drawn.routeIndex).toBe(0);
+    expect(routesOf(drawn.stages, "implement")?.[0]).toEqual({
+      to: null,
+      condition: choiceCondition(""),
+      limit: null,
+    });
+  });
+
+  it("reads a choice row only on an Agent Stage, and only as its route's one test", () => {
+    const choosing = { condition: choiceCondition("the review found something to fix") };
+    expect(routeFormOf(agent, choosing)).toBe("chooses");
+    expect(choiceWordsOf(choosing)).toBe("the review found something to fix");
+    expect(routeFormOf(plan, choosing)).toBe("holds");
+    const mixed = {
+      condition: {
+        combine: "all" as const,
+        tests: [
+          { kind: "choice" as const, words: "fix" },
+          { kind: "definitionOfDone" as const, is: "all-met" as const },
+        ],
+      },
+    };
+    expect(routeFormOf(agent, mixed)).toBe("holds");
+    expect(choiceWordsOf(mixed)).toBeUndefined();
   });
 
   it("offers a Publish Stage When it ends…, a later route drawn on it taking no result yet", () => {

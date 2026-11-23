@@ -157,3 +157,24 @@ describe("a Publish Stage's result in the Stage history", () => {
     expect(resultOf({ status: "done", summary: "Done." }, "implement")).toEqual([]);
   });
 });
+
+function choiceLines(choice: { to: string | null; reason: string } | undefined): string[] {
+  const run = aStageRun({ outcome: { status: "done", summary: "Done." }, choice });
+  const words = stageRunWords(stages, run, [], undefined);
+  return words.split("\n").filter((line) => line.startsWith("Chose "));
+}
+
+describe("an Agent's choice of route in the Stage history", () => {
+  it("names the route the Agent chose by its target, with its reason", () => {
+    expect(choiceLines({ to: "review", reason: "The change touches what the user sees." })).toEqual(
+      ["Chose Review: The change touches what the user sees."],
+    );
+    expect(choiceLines({ to: null, reason: "Nothing is left to do." })).toEqual([
+      "Chose End: Nothing is left to do.",
+    ]);
+  });
+
+  it("says nothing of a choice for a run that made none", () => {
+    expect(choiceLines(undefined)).toEqual([]);
+  });
+});

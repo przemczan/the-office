@@ -3,18 +3,26 @@ import type { Route } from "./route.js";
 import type { Stage } from "./stage.js";
 import { type StageRunDecision } from "./stage-run.js";
 import { asksAConsultantFirst, walkAnswerOf, walkDecision } from "./walk-decisions.js";
-import { implement, tests, aRun, failed, usedUpRouteBack } from "./walk-decisions.fixtures.js";
+import {
+  implement,
+  tests,
+  testsWithoutLoop,
+  aRun,
+  failed,
+  usedUpRouteBack,
+} from "./walk-decisions.fixtures.js";
 
 const toPublish: Route = { to: "publish", toName: "Publish", condition: null, limit: null };
 
 describe("walkDecision", () => {
-  it("offers a used-up failure route once more, another route, its issues recorded, or dropping the Task", () => {
+  it("offers a used-up failure route once more, a send-back to the last Agent Stage, recommended, another route, its issues recorded, or dropping the Task", () => {
     const decision = walkDecision(aRun("tests", failed), {
       kind: "no-retries-left",
       stage: tests,
       error: "2 tests fail.",
       atLimit: usedUpRouteBack,
       others: [toPublish],
+      sendBackTo: implement,
     });
 
     expect(decision).toMatchObject({
@@ -24,30 +32,73 @@ describe("walkDecision", () => {
           '"Tests" failed, and its failure route is used up: "Tests" has sent the work back to "Implement" 3 times, at most 3. What now?',
         options: [
           "Follow it once more",
+          'Send back to "Implement" with these words',
           "Go on to Publish",
           "Continue with the issues recorded",
           "Drop the Task",
         ],
-        recommendation: { option: 0 },
+        recommendation: { option: 1 },
       },
       options: [
         { kind: "one-more-round", guidance: undefined, to: "implement" },
+        { kind: "send-back", to: "implement", guidance: undefined },
         { kind: "follow-route", to: "publish" },
         { kind: "accept-issues" },
         { kind: "drop" },
       ],
     });
     expect(decision.draft.context).toContain("2 tests fail.");
-    expect(decision.draft.context).toContain("your answer guides one more round");
+    expect(decision.draft.context).toContain(
+      'Or answer in your own words: the work goes back to "Implement" with them as its guidance.',
+    );
   });
 
-  it("offers a failed Stage without a failure route one more round of its own", () => {
+  it("offers a failed Script Stage without a failure route to run it again, for a flaky failure", () => {
+    const decision = walkDecision(aRun("tests", failed), {
+      kind: "no-retries-left",
+      stage: testsWithoutLoop,
+      error: "2 tests fail.",
+      atLimit: undefined,
+      others: [],
+      sendBackTo: implement,
+    });
+
+    expect(decision.draft.options.slice(0, 2)).toEqual([
+      'Run "Tests" again',
+      'Send back to "Implement" with these words',
+    ]);
+    expect(decision.options[0]).toEqual({ kind: "one-more-round", guidance: undefined });
+  });
+
+  it("says why a failed Script Stage can't be sent back when the walk ran no Agent Stage", () => {
+    const decision = walkDecision(aRun("tests", failed), {
+      kind: "no-retries-left",
+      stage: testsWithoutLoop,
+      error: "2 tests fail.",
+      atLimit: undefined,
+      others: [],
+      sendBackTo: undefined,
+    });
+
+    expect(decision.draft.options).toEqual([
+      'Run "Tests" again',
+      "Continue with the issues recorded",
+      "Drop the Task",
+    ]);
+    expect(decision.options.map(({ kind }) => kind)).not.toContain("send-back");
+    expect(decision.draft.context).toContain(
+      'No Agent Stage ran before "Tests" in this walk, so the work can\'t be sent back to one. Words of your own run "Tests" again, which no Agent reads.',
+    );
+  });
+
+  it("offers a failed Agent Stage without a failure route one more round of its own", () => {
     const decision = walkDecision(aRun("implement", failed), {
       kind: "no-retries-left",
       stage: implement,
       error: "The session ended.",
       atLimit: undefined,
       others: [],
+      sendBackTo: undefined,
     });
 
     expect(decision.draft.question).toBe(
@@ -55,6 +106,7 @@ describe("walkDecision", () => {
     );
     expect(decision.draft.options[0]).toBe('Run "Implement" once more');
     expect(decision.options[0]).toEqual({ kind: "one-more-round", guidance: undefined });
+    expect(decision.draft.context).toContain("your answer guides one more round");
   });
 });
 
@@ -223,6 +275,55 @@ describe("walkAnswerOf", () => {
       walkAnswerOf(failedOnce, { kind: "option", option: 1, guidance: "Fine by me." }),
     ).toEqual({ kind: "accept-issues" });
   });
+
+  describe("a failed Script Stage's Decision", () => {
+    const testsFailed: StageRunDecision = {
+      id: "decision-3",
+      ...walkDecision(aRun("tests", failed), {
+        kind: "no-retries-left",
+        stage: testsWithoutLoop,
+        error: "2 tests fail.",
+        atLimit: undefined,
+        others: [],
+        sendBackTo: implement,
+      }),
+      answer: undefined,
+    };
+
+    it("sends the work back with the user's words, never running the Script Stage again", () => {
+      expect(
+        walkAnswerOf(testsFailed, { kind: "free-answer", text: " Cap the workers' memory. " }),
+      ).toEqual({ kind: "send-back", to: "implement", guidance: "Cap the workers' memory." });
+    });
+
+    it("sends the work back with the CTO's words, naming them", () => {
+      expect(
+        walkAnswerOf(testsFailed, {
+          kind: "free-answer",
+          text: "Cap the workers' memory.",
+          answeredBy: "cto",
+        }),
+      ).toEqual({
+        kind: "send-back",
+        to: "implement",
+        guidance: "Cap the workers' memory.",
+        guidedBy: "cto",
+      });
+    });
+
+    it("guides the send-back chosen with the comments given beside it", () => {
+      expect(
+        walkAnswerOf(testsFailed, { kind: "option", option: 1, guidance: "Mock the clock." }),
+      ).toEqual({ kind: "send-back", to: "implement", guidance: "Mock the clock." });
+    });
+
+    it("runs the Script Stage again only when that option is chosen", () => {
+      expect(walkAnswerOf(testsFailed, { kind: "option", option: 0 })).toEqual({
+        kind: "one-more-round",
+        guidance: undefined,
+      });
+    });
+  });
 });
 
 describe("the branch-moved Decision", () => {
@@ -330,6 +431,19 @@ describe("the no-route-holds Decision", () => {
     );
   });
 
+  it("says so when the Agent chose none of its choices", () => {
+    const { draft } = walkDecision(aRun("implement", { status: "done", summary: "Done." }), {
+      kind: "no-route-holds",
+      stage: implement,
+      routes,
+      why: undefined,
+      choseNone: true,
+    });
+
+    expect(draft.context).toContain(' The Agent of "Implement" chose none of its choices.\n\n');
+    expect(asked().draft.context).not.toContain("chose none");
+  });
+
   it("says why when a route can't be weighed", () => {
     expect(asked("The command timed out.").draft.question).toBe(
       'The Office can\'t weigh a route out of "Tests": The command timed out. Where does the walk go on?',
@@ -360,6 +474,18 @@ describe("the no-route-holds Decision", () => {
   });
 });
 
+const sentBackBy = (guidedBy?: string): StageRunDecision => ({
+  id: "decision-1",
+  kind: "no-retries-left",
+  options: [],
+  answer: {
+    kind: "send-back",
+    to: "implement",
+    guidance: "Cap the workers' memory.",
+    ...(guidedBy !== undefined && { guidedBy }),
+  },
+});
+
 describe("asksAConsultantFirst", () => {
   const noRetriesLeft = {
     kind: "no-retries-left",
@@ -367,9 +493,22 @@ describe("asksAConsultantFirst", () => {
     error: "2 tests fail.",
     atLimit: usedUpRouteBack,
     others: [],
+    sendBackTo: implement,
   } as const;
 
   it("puts a Stage failing with no retries left to a Consultant first", () => {
     expect(asksAConsultantFirst(noRetriesLeft, [aRun("tests", failed)])).toBe(true);
+  });
+
+  it("asks the user once a Consultant sent that Stage's work back in this walk", () => {
+    const runs = [aRun("tests", failed, [sentBackBy("cto")]), aRun("tests", failed)];
+
+    expect(asksAConsultantFirst(noRetriesLeft, runs)).toBe(false);
+  });
+
+  it("asks a Consultant again after the user sent the work back", () => {
+    const runs = [aRun("tests", failed, [sentBackBy()]), aRun("tests", failed)];
+
+    expect(asksAConsultantFirst(noRetriesLeft, runs)).toBe(true);
   });
 });

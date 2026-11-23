@@ -98,6 +98,7 @@ describe("StageInterpreter's Decisions", () => {
             '"measure" failed, and its failure route is used up: "measure" has sent the work back to "draft" once, at most 1. What now?',
           options: [
             "Follow it once more",
+            'Send back to "draft" with these words',
             "End the Pipeline here",
             "Continue with the issues recorded",
             "Drop the Task",
@@ -111,6 +112,7 @@ describe("StageInterpreter's Decisions", () => {
           kind: "no-retries-left",
           options: [
             { kind: "one-more-round", guidance: undefined, to: "draft" },
+            { kind: "send-back", to: "draft", guidance: undefined },
             { kind: "follow-route", to: null },
             { kind: "accept-issues" },
             { kind: "drop" },
@@ -145,7 +147,7 @@ describe("StageInterpreter's Decisions", () => {
   describe("whoever holds Asked first when a Stage runs out of tries", () => {
     const measure = scriptStage("measure", { goBackTo: "draft", rounds: 1 });
 
-    it("puts a round limit to its holder, whose own words send the work back one more round", async () => {
+    it("puts a used-up failure route to its holder, whose own words send the work back to the last Agent Stage", async () => {
       await startWith(agentDone, agentDone, agentDone);
       hireTheArchitect();
       const failures = failuresPutTo();
@@ -161,10 +163,42 @@ describe("StageInterpreter's Decisions", () => {
       expect(pipelines.decisions.on(taskId)).toMatchObject([{ putTo: ARCHITECT }]);
       expect(failures).toEqual([ARCHITECT]);
       const runs = await runsOf(pipelines, taskId);
-      expect(runs[4]?.carriedFailure).toMatchObject({ round: 2, rounds: 2, guidedBy: ARCHITECT });
+      expect(runs[4]?.carriedFailure).toMatchObject({ round: 1, rounds: 1, guidedBy: ARCHITECT });
       const work = pipelines.stageThreads.requests.at(-1)?.work;
       expect(work).toContain("Guidance for this round from Bob (Architect):\n\nMock the clock.");
       expect(statesOf(taskId)).toEqual(["waiting-on-you", "in-progress", "done"]);
+    });
+
+    it("has its words send a failed Script Stage's work back to the last Agent Stage, never running the Script Stage again", async () => {
+      await startWith(agentDone, agentDone);
+      hireTheArchitect();
+      failing("Workers ran out of memory.");
+      const taskId = await walkStages(pipelines, [draft, scriptStage("measure")]);
+
+      await answerLastDecision(pipelines, taskId, {
+        kind: "free-answer",
+        text: "Cap the workers' memory.",
+        answeredBy: ARCHITECT,
+      });
+
+      expect(await statusesOf(taskId)).toEqual([
+        ["draft", "done"],
+        ["measure", "failed"],
+        ["draft", "done"],
+        ["measure", "done"],
+      ]);
+      const runs = await runsOf(pipelines, taskId);
+      expect(runs[2]?.carriedFailure).toMatchObject({
+        stageKey: "measure",
+        round: 1,
+        rounds: 1,
+        guidedBy: ARCHITECT,
+      });
+      const work = pipelines.stageThreads.requests.at(-1)?.work;
+      expect(work).toContain("Workers ran out of memory.");
+      expect(work).toContain(
+        "Guidance for this round from Bob (Architect):\n\nCap the workers' memory.",
+      );
     });
   });
 

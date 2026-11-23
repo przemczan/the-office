@@ -6,7 +6,13 @@ import {
   weighRoutes,
   type Weighing,
 } from "./conditions.js";
-import type { ConditionGroup, ConditionTest, Route, StageTestOutcome } from "./route.js";
+import {
+  choiceCondition,
+  type ConditionGroup,
+  type ConditionTest,
+  type Route,
+  type StageTestOutcome,
+} from "./route.js";
 import { NO_STAGE_TOKENS, type StageOutcome, type StageRun } from "./stage-run.js";
 
 const done: StageOutcome = { status: "done", summary: "Done." };
@@ -45,6 +51,7 @@ function aRun(
     gateAction: undefined,
     outcome,
     published: undefined,
+    choice: undefined,
     waitingSince: undefined,
     startedAt: new Date(0),
     endedAt: outcome && new Date(0),
@@ -387,6 +394,88 @@ describe("weighRoutes", () => {
     expect(weighRoutes([byLint, toEnd], weighing(ran, FIRST_ROUTE_FAILED))).toEqual({
       kind: "follow",
       route: toEnd,
+    });
+  });
+});
+
+function chose(to: string | null, outcome: StageOutcome = done): StageRun {
+  return { ...aRun("tests", outcome), choice: { to, reason: "Because." } };
+}
+
+describe("weighing an Agent's choice rows", () => {
+  const toReview: Route = {
+    to: "review",
+    condition: choiceCondition("the change touches what the user sees"),
+    limit: 3,
+  };
+  const toEndByChoice: Route = { to: null, condition: choiceCondition("nothing to do"), limit: 1 };
+  const toFix: Route = { to: "fix", condition: all(previousIs("failed")), limit: 3 };
+  const otherwise: Route = { to: "publish", condition: null, limit: null };
+  const routes = [toFix, toReview, toEndByChoice, otherwise];
+
+  it("holds the chosen row once the Stage ended done", () => {
+    expect(weighRoutes(routes, weighing([chose("review")]))).toEqual({
+      kind: "follow",
+      route: toReview,
+    });
+    expect(weighRoutes(routes, weighing([chose(null)]))).toEqual({
+      kind: "follow",
+      route: toEndByChoice,
+    });
+  });
+
+  it("holds no choice row of a failed Stage, Continue with the issues among them, or a skipped one", () => {
+    const failedRun = chose("review", failed);
+    const acceptedIssues: StageRun = {
+      ...failedRun,
+      decisions: [
+        {
+          id: "decision-1",
+          kind: "no-retries-left",
+          options: [{ kind: "accept-issues" }],
+          answer: { kind: "accept-issues" },
+        },
+      ],
+    };
+
+    expect(weighRoutes([toReview, otherwise], weighing([failedRun]))).toEqual({
+      kind: "follow",
+      route: otherwise,
+    });
+    expect(weighRoutes([toReview, otherwise], weighing([acceptedIssues]))).toEqual({
+      kind: "follow",
+      route: otherwise,
+    });
+    expect(weighRoutes([toReview, otherwise], weighing([chose("review", skipped)]))).toEqual({
+      kind: "follow",
+      route: otherwise,
+    });
+  });
+
+  it("holds no row another target was chosen for, nor any when none was chosen", () => {
+    expect(weighRoutes([toReview, otherwise], weighing([chose(null)]))).toEqual({
+      kind: "follow",
+      route: otherwise,
+    });
+    expect(weighRoutes([toReview, otherwise], weighing([aRun("tests", done)]))).toEqual({
+      kind: "follow",
+      route: otherwise,
+    });
+    expect(weighRoutes([toReview, toEndByChoice], weighing([aRun("tests", done)]))).toEqual({
+      kind: "none-holds",
+    });
+  });
+
+  it("weighs the rows in their order, a When these hold row before the chosen one taking it", () => {
+    const whenDone: Route = { to: "fix", condition: all(previousIs("done")), limit: 3 };
+
+    expect(weighRoutes([whenDone, toReview, otherwise], weighing([chose("review")]))).toEqual({
+      kind: "follow",
+      route: whenDone,
+    });
+    expect(weighRoutes([toReview, whenDone, otherwise], weighing([chose("review")]))).toEqual({
+      kind: "follow",
+      route: toReview,
     });
   });
 });

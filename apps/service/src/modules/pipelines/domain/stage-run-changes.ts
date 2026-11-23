@@ -4,6 +4,7 @@ import {
   NO_STAGE_TOKENS,
   type AskedInterruption,
   type CarriedFailure,
+  type ChosenRoute,
   type EngineSwitch,
   type SentBack,
   type StageInterruption,
@@ -20,6 +21,8 @@ export interface NewStageRun {
   readonly sentBack: SentBack | undefined;
   /** The Role working an Agent Stage's run; left out for another kind's. */
   readonly roleKey?: string;
+  /** The route the held run this one resumes had chosen (spec §2.3); left out for none. */
+  readonly choice?: ChosenRoute;
 }
 
 /** The Task's next Stage run, after `earlierRuns` of them, with the event that announces it. */
@@ -48,6 +51,7 @@ export function startStageRun(
     heldBy: undefined,
     heldByUser: undefined,
     published: undefined,
+    choice: given.choice,
     waitingSince: undefined,
     gateAction: undefined,
     outcome: undefined,
@@ -55,6 +59,22 @@ export function startStageRun(
     endedAt: undefined,
   };
   return { run, event: new StageRunStarted(run.taskId, run.id, run.stageKey) };
+}
+
+/**
+ * The route the Stage's held run had chosen, which the run resuming it starts with (spec §2.3, "How
+ * an Agent chooses its route"): the run before is the Stage's own, held by a Pause, the fire alarm,
+ * a used-up usage window or a restart, its edits kept. A Stop discards the run's edits, and its
+ * choice with them.
+ */
+export function heldRunChoice(
+  stageKey: string,
+  earlierRuns: readonly StageRun[],
+): ChosenRoute | undefined {
+  const last = earlierRuns.at(-1);
+  if (last?.stageKey !== stageKey || last.outcome?.status !== "failed") return undefined;
+  const held = last.outcome.interrupted;
+  return held === undefined || held === "stop" ? undefined : last.choice;
 }
 
 /** A run that has already ended is a fault of the caller: each run ends once. */

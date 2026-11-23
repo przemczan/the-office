@@ -291,6 +291,14 @@ export function routeFollowedWords(
   return `${back ? "Went back to" : "Went on to"} ${names(to)}${count}`;
 }
 
+/**
+ * The route an Agent chose with its reason (spec §2.3, "How an Agent chooses its route"): "Chose
+ * Review: the change touches what the user sees".
+ */
+export function routeChoiceWords({ toName, reason }: NonNullable<StageRun["choice"]>): string {
+  return `Chose ${toName}: ${reason.trim()}`;
+}
+
 /** "You sent back to Implement": what the user did at a Gate's run. */
 export function gateChoiceWords(action: GateAction, names: StageNames): string {
   return `You ${gateActionWords(action, names)}`;
