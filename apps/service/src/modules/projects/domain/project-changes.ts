@@ -1,5 +1,5 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
-import { standInListWithout, type EngineRemoval } from "../../engine/index.js";
+import { standInListWithout, type Engine, type EngineRemoval } from "../../engine/index.js";
 import {
   DEFAULT_ISSUE_SETTINGS,
   type IssueSettings,
@@ -141,17 +141,23 @@ export function changeCommandsAsProposed(
 
 /**
  * Moves the Project's levels naming the engine being removed (spec §5.4.5, "Removing an engine"):
- * the Project default to the replacement, which gives it its type, a forced model or effort a new
- * type doesn't offer going back to "Engine's default", or, moved to none with the only engine, the
- * default and the force clear; and its Stand-in Engine list, used or not, with the replacement in
- * the engine's place (`standInListWithout`). People's settings name engine types, so they stay.
- * None when no level names the engine.
+ * the Project default to the replacement, which gives it its type, a forced model or effort the new
+ * type doesn't offer among the engines `listed` but the removed one going back to "Engine's
+ * default", or, moved to none with the only engine, the default and the force clear; and its
+ * Stand-in Engine list, used or not, with the replacement in the engine's place
+ * (`standInListWithout`). People's settings name engine types, so they stay. None when no level
+ * names the engine.
  */
-export function moveEngineLevels(project: Project, removal: EngineRemoval): ProjectChanges {
+export function moveEngineLevels(
+  project: Project,
+  removal: EngineRemoval,
+  listed: readonly Engine[],
+): ProjectChanges {
   const { replacement } = removal;
+  const left = engineTypeOffersOf(listed.filter(({ id }) => id !== removal.engineId));
   const engine: ProjectEngine = {
     ...project.engine,
-    ...movedDefault(project.engine, removal),
+    ...movedDefault(project.engine, removal, left),
     standIns: {
       ...project.engine.standIns,
       engineIds: standInListWithout(
@@ -168,6 +174,7 @@ export function moveEngineLevels(project: Project, removal: EngineRemoval): Proj
 function movedDefault(
   { default: projectDefault, force }: ProjectEngine,
   { engineId, replacement }: EngineRemoval,
+  offers: EngineTypeOffers,
 ): Pick<ProjectEngine, "default" | "force"> {
   if (projectDefault?.engineId !== engineId) return { default: projectDefault, force };
   if (replacement === null) return { default: null, force: null };
@@ -175,7 +182,7 @@ function movedDefault(
     default: { engineType: replacement.kind, engineId: replacement.id },
     force:
       force && replacement.kind !== projectDefault.engineType
-        ? forceOfferedBy(force, replacement.kind, engineTypeOffersOf([replacement]))
+        ? forceOfferedBy(force, replacement.kind, offers)
         : force,
   };
 }

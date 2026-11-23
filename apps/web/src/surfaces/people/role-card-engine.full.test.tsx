@@ -51,8 +51,6 @@ const OPTIONS = {
   engines: [
     {
       engine: "work",
-      models: ["claude-opus-5-5", "claude-sonnet-5-5"],
-      defaultModel: "claude-sonnet-5-5",
       missingCapabilities: ["usageWindows"],
     },
   ],
@@ -90,6 +88,7 @@ const CASCADE: RoleEngineCascade = {
     model: "claude-opus-5-5",
     level: "office",
     engineType: "claude-code",
+    engineName: "Work account",
     effort: "medium",
     modelLevel: "person",
     effortLevel: "engine",
@@ -101,6 +100,7 @@ const CASCADE: RoleEngineCascade = {
       model: "claude-sonnet-5-5",
       level: "project",
       engineType: "claude-code",
+      engineName: "Work account",
       effort: "low",
       modelLevel: "person",
       effortLevel: "projectForce",

@@ -333,17 +333,17 @@ export const engineRemovalSchema = z.object({
 export type EngineRemoval = z.infer<typeof engineRemovalSchema>;
 
 /**
- * A level naming the engine being removed, where it stands and where the removal puts it (none
- * when the only engine goes). What it belongs to tells the level: a Role and a Project for a
- * Project's Role override, a Project alone for its Project default, a Role alone for its Role
- * override, neither for the Office default; a Task or an Initiative for its engine, with its
- * Project, Done and Dropped ones too, and its state, which marks those; `standInList` for a
- * Stand-in Engine list, the Office's with no Project, a Project's own (used or not) with it.
+ * A level naming the engine being removed, where it stands and where the removal puts it: from the
+ * removed engine to the replacement, or to none when the only engine goes. What it belongs to tells
+ * the level: a Project for its Project default, none for the Office default; a Task or an
+ * Initiative for its engine override, with its Project, Done and Dropped ones too, and its state,
+ * which marks those; `standInList` for a Stand-in Engine list, the Office's with no Project, a
+ * Project's own (used or not) with it. Every level names an engine, not a model, so people's
+ * settings, which name engine types, never move.
  */
 export const movedEngineReferenceSchema = z.object({
-  roleKey: z.string().nullable(),
   project: z.object({ id: z.string(), name: z.string() }).nullable(),
-  /** The Task or Initiative whose engine it is, with its state; null for every other level. */
+  /** The Task or Initiative whose engine override it is, with its state; null otherwise. */
   work: z
     .discriminatedUnion("kind", [
       z.object({
@@ -361,13 +361,12 @@ export const movedEngineReferenceSchema = z.object({
     ])
     .nullable(),
   /**
-   * Set on a Stand-in Engine list's move, from the removed engine to the replacement taking its
-   * place (or none), each on its engine's default model since a list names no model; left out
-   * for every other level.
+   * Set on a Stand-in Engine list's move, to none when the engine is just dropped, as the list
+   * already names the replacement; left out for every other level.
    */
   standInList: z.literal(true).optional(),
-  from: engineModelSchema,
-  to: engineModelSchema.nullable(),
+  from: engineIdSchema,
+  to: engineIdSchema.nullable(),
 });
 export type MovedEngineReference = z.infer<typeof movedEngineReferenceSchema>;
 

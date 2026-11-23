@@ -69,7 +69,6 @@ export {
   type EngineModel,
   type OfficeDefault,
 } from "./domain/engines.js";
-export { officeDefaultEngineModel } from "./domain/engine-settings.js";
 export {
   engineThroughStandIns,
   engineToRunOn,

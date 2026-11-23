@@ -241,6 +241,7 @@ describe("moveEngineSettingsOver", () => {
         codex: { model: null, effort: "high" },
       },
       changes: [
+        { field: "engineSettingsMovedOver", from: null, to: null },
         {
           field: "engineSettings",
           from: {},
@@ -256,7 +257,7 @@ describe("moveEngineSettingsOver", () => {
     ).toEqual({ "claude-code": { model: null, effort: "max" } });
   });
 
-  it("makes a Role override the model on its engine's type, naming the override left behind", () => {
+  it("makes a Role override the model on its engine's type, naming the type it moved to", () => {
     const moved = moveEngineSettingsOver(
       { roleOverride: opusOnClaudeCode, effort: "low" },
       engines,
@@ -266,10 +267,10 @@ describe("moveEngineSettingsOver", () => {
       "claude-code": { model: "claude-opus-5-5", effort: "low" },
       codex: { model: null, effort: "low" },
     });
-    expect(moved.changes[1]).toEqual({
+    expect(moved.changes[0]).toEqual({
       field: "engineSettingsMovedOver",
       from: opusOnClaudeCode,
-      to: null,
+      to: "claude-code",
     });
   });
 
@@ -293,10 +294,11 @@ describe("moveEngineSettingsOver", () => {
       "claude-code": { model: null, effort: "high" },
       codex: { model: null, effort: "high" },
     });
-    expect(moved.changes.map(({ field }) => field)).toEqual([
-      "engineSettings",
-      "engineSettingsMovedOver",
-    ]);
+    expect(moved.changes[0]).toEqual({
+      field: "engineSettingsMovedOver",
+      from: onRemoved,
+      to: null,
+    });
   });
 });
 
@@ -326,6 +328,7 @@ describe("engineSettingsMovedOver", () => {
     });
     expect(event).toEqual(
       new RoleCardChanged(moved, [
+        { field: "engineSettingsMovedOver", from: null, to: null },
         { field: "engineSettings", from: {}, to: moved.card.engineSettings },
       ]),
     );

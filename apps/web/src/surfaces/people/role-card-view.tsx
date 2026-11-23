@@ -33,7 +33,6 @@ import {
   taskLimitLabel,
   type RoleTitles,
 } from "../../shell/role-card-words.ts";
-import { useEngineName } from "../../shell/use-engine-name.ts";
 import { sessionSkillsOf } from "./session-skills.ts";
 
 /** Every setting of a Role card, read-only, grouped as its form groups them. */
@@ -230,7 +229,6 @@ function EngineThatApplies({
 }): ReactNode {
   const cascade = useQuery(roleQueries.engineCascade(role.key)).data;
   const projects = useQuery(projectQueries.list()).data;
-  const engineName = useEngineName();
   if (!cascade) return null;
   const projectName = (projectId: string): string =>
     projects?.find(({ id }) => id === projectId)?.name ?? projectId;
@@ -241,15 +239,13 @@ function EngineThatApplies({
   const cantDo = missing && missingCapabilitiesWords(missing);
   return (
     <RoleCardValue label="Runs on">
-      {outside
-        ? engineInCascadeText(outside, engineName)
-        : "No engine: add one in Settings › Engines"}
+      {outside ? engineInCascadeText(outside) : "No engine: add one in Settings › Engines"}
       {cantDo && <span className="role-card-note">{cantDo}</span>}
       {cascade.elsewhereInProjects.length > 0 && (
         <ul className="role-card-elsewhere" aria-label="Projects where something else applies">
           {cascade.elsewhereInProjects.map((inProject) => (
             <li key={inProject.projectId}>
-              In {projectName(inProject.projectId)}: {engineInCascadeText(inProject, engineName)}
+              In {projectName(inProject.projectId)}: {engineInCascadeText(inProject)}
               {projectSource(inProject, role.card.name)}
             </li>
           ))}

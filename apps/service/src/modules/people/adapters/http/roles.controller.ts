@@ -43,10 +43,8 @@ export class RolesController {
         models: models.map(({ model, onEveryAccount }) => ({ model, onEveryAccount })),
         efforts: [...efforts],
       })),
-      engines: options.engines.map(({ engine, models, defaultModel, missingCapabilities }) => ({
+      engines: options.engines.map(({ engine, missingCapabilities }) => ({
         engine,
-        models: [...models],
-        defaultModel,
         missingCapabilities: [...missingCapabilities],
       })),
       knownRoles: options.knownRoles.map(({ key, title }) => ({ key, title })),

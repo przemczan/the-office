@@ -360,7 +360,10 @@ function PersonSettingsDialog({
       onClose();
     },
   });
-  const setsSomething = types.some((type) => setsAnything(draft[type]));
+  const settings = mergedSettings(stored, draft);
+  // A setting kept for a type with no engine listed counts: the person still has one, so Save
+  // stays on and nothing points at Remove, which would drop it.
+  const setsSomething = Object.values(settings).some(setsAnything);
   const change = (type: EngineKind, setting: EngineTypeSetting): void => {
     saving.reset();
     setDraft((before) => ({ ...before, [type]: setting }));
@@ -377,9 +380,7 @@ function PersonSettingsDialog({
           variant="primary"
           loading={saving.isPending}
           disabled={picked === "" || !setsSomething}
-          onClick={() =>
-            saving.mutate({ roleKey: picked, engineSettings: mergedSettings(stored, draft) })
-          }
+          onClick={() => saving.mutate({ roleKey: picked, engineSettings: settings })}
         >
           {editing === null ? "Add" : "Save"}
         </Button>

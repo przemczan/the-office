@@ -277,12 +277,17 @@ export interface ProjectWithCascadeLevels extends ProjectCascadeLevels {
   readonly projectName: string;
 }
 
+/** What a Role's session runs on in a place, as the Role card names it: with the engine's name. */
+export interface NamedEngineInCascade extends EngineInCascade {
+  readonly engineName: string;
+}
+
 /** What a Role runs on outside any Project, and in each Project where something else applies. */
 export interface RoleEngineCascade {
   /** None while no engine is listed. */
-  readonly outsideProjects: EngineInCascade | null;
+  readonly outsideProjects: NamedEngineInCascade | null;
   /** In the order given, only the Projects whose engine, model or effort differs. */
-  readonly elsewhereInProjects: readonly (EngineInCascade & { readonly projectId: string })[];
+  readonly elsewhereInProjects: readonly (NamedEngineInCascade & { readonly projectId: string })[];
 }
 
 /**
@@ -290,8 +295,11 @@ export interface RoleEngineCascade {
  * Project and in each Project; a Project where nothing runs is left out.
  */
 export function roleEngineCascade(
-  outsideProjects: EngineInCascade | null,
-  inProjects: readonly { readonly projectId: string; readonly applying: EngineInCascade | null }[],
+  outsideProjects: NamedEngineInCascade | null,
+  inProjects: readonly {
+    readonly projectId: string;
+    readonly applying: NamedEngineInCascade | null;
+  }[],
 ): RoleEngineCascade {
   return {
     outsideProjects,

@@ -103,7 +103,11 @@ describe("GET /api/roles/:key/engine-cascade", () => {
 
     const response = await fetch(`${url}/api/roles/${role.key}/engine-cascade`);
 
-    const onClaudeCode = { engineId: "claude-code", engineType: "claude-code" };
+    const onClaudeCode = {
+      engineId: "claude-code",
+      engineType: "claude-code",
+      engineName: "Claude Code",
+    };
     expect(response.status).toBe(200);
     expect(roleEngineCascadeSchema.parse(await response.json())).toEqual({
       outsideProjects: {

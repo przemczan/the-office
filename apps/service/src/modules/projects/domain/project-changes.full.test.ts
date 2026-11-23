@@ -773,6 +773,20 @@ describe("changeProjectEngine", () => {
   });
 });
 
+/** An API endpoint engine offering the one model. */
+function endpoint(id: string, model: string): Engine {
+  return {
+    id,
+    name: id,
+    kind: "openai-compatible-api",
+    defaultModel: model,
+    defaultEffort: null,
+    baseUrl: `http://localhost:11434/${id}`,
+    key: "",
+    models: [{ id: model, contextWindow: 200_000 }],
+  };
+}
+
 describe("moveEngineLevels", () => {
   const CODEX_ENGINE: Engine = {
     id: "codex",
@@ -783,6 +797,7 @@ describe("moveEngineLevels", () => {
     apiKey: null,
   };
   const SECOND_CLAUDE: Engine = { ...FIRST_CLAUDE_CODE_ENGINE, id: "second", name: "Second" };
+  const LISTED = [FIRST_CLAUDE_CODE_ENGINE, SECOND_CLAUDE, CODEX_ENGINE];
 
   it("moves the Project default to the replacement, keeping the force on its type and the people", () => {
     const project = withEngine({
@@ -791,10 +806,11 @@ describe("moveEngineLevels", () => {
       people: [OPUS_ON_CLAUDE],
     });
 
-    const { project: moved, events } = moveEngineLevels(project, {
-      engineId: "claude-code",
-      replacement: SECOND_CLAUDE,
-    });
+    const { project: moved, events } = moveEngineLevels(
+      project,
+      { engineId: "claude-code", replacement: SECOND_CLAUDE },
+      LISTED,
+    );
 
     expect(moved.engine).toEqual({
       default: { engineType: "claude-code", engineId: "second" },
@@ -814,16 +830,35 @@ describe("moveEngineLevels", () => {
       people: [OPUS_ON_CLAUDE],
     });
 
-    const { project: moved } = moveEngineLevels(project, {
-      engineId: "claude-code",
-      replacement: CODEX_ENGINE,
-    });
+    const { project: moved } = moveEngineLevels(
+      project,
+      { engineId: "claude-code", replacement: CODEX_ENGINE },
+      LISTED,
+    );
 
     expect(moved.engine).toEqual({
       default: CODEX,
       force: { model: null, effort: null },
       people: [OPUS_ON_CLAUDE],
       standIns: NO_STAND_INS,
+    });
+  });
+
+  it("keeps a forced model another engine of the replacement's type offers", () => {
+    const project = withEngine({
+      default: CLAUDE,
+      force: { model: "claude-opus-5-5", effort: "max" },
+    });
+
+    const { project: moved } = moveEngineLevels(
+      project,
+      { engineId: "claude-code", replacement: endpoint("local", "coder") },
+      [FIRST_CLAUDE_CODE_ENGINE, endpoint("local", "coder"), endpoint("proxy", "claude-opus-5-5")],
+    );
+
+    expect(moved.engine).toMatchObject({
+      default: { engineType: "openai-compatible-api", engineId: "local" },
+      force: { model: "claude-opus-5-5", effort: null },
     });
   });
 
@@ -834,10 +869,11 @@ describe("moveEngineLevels", () => {
       people: [OPUS_ON_CLAUDE],
     });
 
-    const { project: moved, events } = moveEngineLevels(project, {
-      engineId: "claude-code",
-      replacement: null,
-    });
+    const { project: moved, events } = moveEngineLevels(
+      project,
+      { engineId: "claude-code", replacement: null },
+      [FIRST_CLAUDE_CODE_ENGINE],
+    );
 
     expect(moved.engine).toEqual({
       default: null,
@@ -851,10 +887,11 @@ describe("moveEngineLevels", () => {
   it("puts the replacement in the engine's place in the Project's own list, used or not", () => {
     for (const useOwnList of [true, false]) {
       const listed = withEngine({ standIns: { useOwnList, engineIds: ["claude-code", "codex"] } });
-      const { project: moved, events } = moveEngineLevels(listed, {
-        engineId: "claude-code",
-        replacement: SECOND_CLAUDE,
-      });
+      const { project: moved, events } = moveEngineLevels(
+        listed,
+        { engineId: "claude-code", replacement: SECOND_CLAUDE },
+        LISTED,
+      );
 
       expect(moved.engine.standIns).toEqual({ useOwnList, engineIds: ["second", "codex"] });
       expect(events).toHaveLength(1);
@@ -868,14 +905,15 @@ describe("moveEngineLevels", () => {
     });
 
     expect(
-      moveEngineLevels(project, { engineId: "claude-code", replacement: CODEX_ENGINE }).project
-        .engine,
+      moveEngineLevels(project, { engineId: "claude-code", replacement: CODEX_ENGINE }, LISTED)
+        .project.engine,
     ).toMatchObject({ default: CODEX, standIns: { useOwnList: true, engineIds: ["codex"] } });
     expect(
-      moveEngineLevels(withEngine({ standIns: { useOwnList: true, engineIds: ["claude-code"] } }), {
-        engineId: "claude-code",
-        replacement: null,
-      }).project.engine.standIns,
+      moveEngineLevels(
+        withEngine({ standIns: { useOwnList: true, engineIds: ["claude-code"] } }),
+        { engineId: "claude-code", replacement: null },
+        [FIRST_CLAUDE_CODE_ENGINE],
+      ).project.engine.standIns,
     ).toEqual({ useOwnList: true, engineIds: [] });
   });
 
@@ -887,7 +925,7 @@ describe("moveEngineLevels", () => {
     });
 
     expect(
-      moveEngineLevels(project, { engineId: "claude-code", replacement: SECOND_CLAUDE }),
+      moveEngineLevels(project, { engineId: "claude-code", replacement: SECOND_CLAUDE }, LISTED),
     ).toEqual({ project, events: [] });
   });
 });

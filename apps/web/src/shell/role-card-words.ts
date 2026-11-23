@@ -227,11 +227,8 @@ export function modelAndEffortText({
 }
 
 /** "Sonnet 5.5 · effort high on Work account"; an effort left to the runtime is left out. */
-export function engineInCascadeText(
-  applies: EngineInCascade,
-  engineName: (engineId: EngineId) => string,
-): string {
-  return `${modelAndEffortText(applies)} on ${engineName(applies.engineId)}`;
+export function engineInCascadeText(applies: EngineInCascade): string {
+  return `${modelAndEffortText(applies)} on ${applies.engineName}`;
 }
 
 /**
@@ -349,13 +346,22 @@ export function fieldLabel(field: RoleCardField): string {
 export function changeLine(change: RoleCardFieldChange, names: FieldValueNames): string {
   const label = FIELD_LABELS[change.field];
   if (LONG_TEXT_FIELDS.has(change.field)) return `${label} edited`;
-  if (change.field === "engineSettingsMovedOver") {
-    const dropped = change.from;
-    return dropped !== null && typeof dropped === "object" && "engineId" in dropped
-      ? `${label}, the Role override ${fieldValueText(change.field, dropped, names)} dropped`
-      : label;
-  }
+  if (change.field === "engineSettingsMovedOver") return movedOverLine(change, names);
   return `${label} ${fieldValueText(change.field, change.from, names)} → ${fieldValueText(change.field, change.to, names)}`;
+}
+
+/**
+ * The line of a card moved over to engine settings: a Role override's model kept on the engine type
+ * it moved to, naming the account its sessions no longer run on, or one on an engine no longer
+ * listed dropped (spec §5.4.5, "Moving the earlier engine settings over").
+ */
+function movedOverLine({ from, to }: RoleCardFieldChange, names: FieldValueNames): string {
+  const label = FIELD_LABELS.engineSettingsMovedOver;
+  if (from === null || typeof from !== "object" || !("engineId" in from)) return label;
+  const movedTo = ENGINE_KINDS.find((type) => type === to);
+  return movedTo
+    ? `${label}, ${modelLabel(from.model)} kept on ${ENGINE_KIND_LABELS[movedTo]}; sessions no longer run on ${names.engineName(from.engineId)}`
+    : `${label}, the Role override ${fieldValueText("roleOverride", from, names)} dropped`;
 }
 
 /**

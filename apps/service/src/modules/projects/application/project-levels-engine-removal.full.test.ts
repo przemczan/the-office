@@ -180,14 +180,10 @@ describe("removing an engine a Project's default names", () => {
     expect(preview).toEqual({
       moves: [
         {
-          roleKey: null,
           project: { id, name },
           work: null,
-          from: { engineId: RACING.id, model: RACING.defaultModel },
-          to: {
-            engineId: FIRST_CLAUDE_CODE_ENGINE.id,
-            model: FIRST_CLAUDE_CODE_ENGINE.defaultModel,
-          },
+          from: RACING.id,
+          to: FIRST_CLAUDE_CODE_ENGINE.id,
         },
       ],
       problems: [],
@@ -235,12 +231,11 @@ describe("removing an engine a Project's own Stand-in Engine list names", () => 
     await removeRacing();
 
     const listMove = (project: Project) => ({
-      roleKey: null,
       project: { id: project.id, name: project.name },
       work: null,
       standInList: true,
-      from: { engineId: RACING.id, model: RACING.defaultModel },
-      to: { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: FIRST_CLAUDE_CODE_ENGINE.defaultModel },
+      from: RACING.id,
+      to: FIRST_CLAUDE_CODE_ENGINE.id,
     });
     expect(preview.moves).toEqual(expect.arrayContaining([listMove(used), listMove(unused)]));
     expect(preview.moves).toHaveLength(2);

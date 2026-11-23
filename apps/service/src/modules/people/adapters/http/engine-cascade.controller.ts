@@ -1,5 +1,8 @@
 import { Controller, Get, Param, UseFilters } from "@nestjs/common";
-import type { RoleEngineCascade as RoleEngineCascadeResponse } from "@the-office/contracts";
+import {
+  roleEngineCascadeSchema,
+  type RoleEngineCascade as RoleEngineCascadeResponse,
+} from "@the-office/contracts";
 import { EngineCascade } from "../../application/engine-cascade.js";
 import { RoleRefusalsFilter } from "./role-refusals.filter.js";
 
@@ -11,10 +14,6 @@ export class EngineCascadeController {
 
   @Get("roles/:key/engine-cascade")
   async ofRole(@Param("key") key: string): Promise<RoleEngineCascadeResponse> {
-    const { outsideProjects, elsewhereInProjects } = await this.cascade.acrossProjects(key);
-    return {
-      outsideProjects: outsideProjects && { ...outsideProjects },
-      elsewhereInProjects: elsewhereInProjects.map((inProject) => ({ ...inProject })),
-    };
+    return roleEngineCascadeSchema.parse(await this.cascade.acrossProjects(key));
   }
 }

@@ -160,7 +160,10 @@ interface Answer {
   readonly role: SessionRole;
   /** The text of the Office instructions' version the session runs with. */
   readonly officeInstructions: string;
-  /** The model the engine cascade gives now, which a resumed session takes too. */
+  /**
+   * The model the person works with now on the session's engine, a Stand-in Engine's type too,
+   * which a resumed session takes too.
+   */
   readonly model: string;
   /** The effort the cascade gives with it; null leaves it to the engine's runtime. */
   readonly effort: Effort | null;
@@ -182,14 +185,14 @@ interface Answer {
   readonly answers: readonly Decision[];
 }
 
-/** What a session is opened with, which resumes it on a Stand-in Engine too. */
-type Reopening = Pick<
-  Answer,
-  "role" | "officeInstructions" | "model" | "effort" | "place" | "standIns"
->;
+/**
+ * What a session is opened with, which resumes it on a Stand-in Engine too. Never the Stand-in
+ * Engine list: a turn refused reads the one that applies then (`goOnOnStandIn`).
+ */
+type Reopening = Pick<Answer, "role" | "officeInstructions" | "model" | "effort" | "place">;
 
 /** What a new session is started with: an Answer but for the Context policy's move. */
-type SessionStart = Omit<Answer, "decision" | "answers">;
+type SessionStart = Omit<Answer, "decision" | "answers" | "standIns">;
 
 /** A Stand-in Engine a session goes on on, as its engine's usage window is used up. */
 interface StandInAhead {
@@ -963,7 +966,8 @@ export class ThreadRunner implements OnModuleDestroy {
    * The Context policy's move for the Thread's next message, the session it opens, if any, and the
    * model it runs on: the engine cascade's resolved for the Thread's home (its Task or Initiative)
    * and Project, where it has one. A resumed session keeps its engine, card version and Office
-   * instructions and takes the cascade's model; a changed engine starts the Thread fresh.
+   * instructions and takes the model the person works with now on its engine's type; a changed
+   * engine starts the Thread fresh.
    */
   private async moveFor(
     thread: Thread,
@@ -1050,11 +1054,8 @@ export class ThreadRunner implements OnModuleDestroy {
       officeInstructions: office.text,
       model: engine.model,
       effort: engine.effort,
-      // A model giving way is logged only on the cascade's own engine, never on a stand-in.
-      ...(standInFor === undefined &&
-        applying.gaveWay !== undefined && {
-          gaveWay: applying.gaveWay,
-        }),
+      // Of the engine the session landed on, the cascade's or a stand-in (spec §5.4.5).
+      ...(engine.gaveWay !== undefined && { gaveWay: engine.gaveWay }),
       standIns,
       newSession,
     };
@@ -1080,7 +1081,7 @@ export class ThreadRunner implements OnModuleDestroy {
       readonly needs: readonly EngineCapability[];
     },
   ): Promise<{
-    readonly engine: Pick<EngineInCascade, "engineId" | "model" | "effort">;
+    readonly engine: Pick<EngineInCascade, "engineId" | "model" | "effort" | "gaveWay">;
     readonly standInFor?: SessionStandIn;
   }> {
     const usedUp = this.engine.usedUpUntil(applying.engineId);
@@ -1114,7 +1115,7 @@ export class ThreadRunner implements OnModuleDestroy {
    */
   private async standInAhead(
     running: EngineId,
-    { standIns, place }: Pick<Reopening, "standIns" | "place">,
+    { standIns, place }: Pick<Answer, "standIns" | "place">,
   ): Promise<StandInAhead | undefined> {
     const usedUp = this.engine.usedUpUntil(running);
     const standIn =
@@ -1214,7 +1215,6 @@ export class ThreadRunner implements OnModuleDestroy {
           briefed: said.skillCommand ? place.brief.text : answer.briefed,
           ...(said.skillCommand && { commandAfterBrief: said }),
           place,
-          standIns: answer.standIns,
         });
       }
       const moved = ahead && (await this.carryToStandIn(thread.id, session, answer, ahead));
@@ -1401,7 +1401,7 @@ export class ThreadRunner implements OnModuleDestroy {
     old: ThreadSession,
     { standIn, window, resetsAt }: StandInAhead,
     start: SessionStartWatch,
-    opening: Pick<SessionStart, "said" | "briefed" | "commandAfterBrief" | "place" | "standIns">,
+    opening: Pick<SessionStart, "said" | "briefed" | "commandAfterBrief" | "place">,
     sessionId: string = randomUUID(),
   ): Promise<void> {
     const thread = await this.threadOf(threadId);
@@ -1454,6 +1454,7 @@ export class ThreadRunner implements OnModuleDestroy {
           officeInstructions: office.text,
           model: work.model,
           effort: work.effort,
+          ...(work.gaveWay !== undefined && { gaveWay: work.gaveWay }),
           replaced: old,
         },
         start,
@@ -1485,14 +1486,21 @@ export class ThreadRunner implements OnModuleDestroy {
     { usedUpWindow, usage }: TurnEndedEvent,
     context: ContextUsage | undefined,
   ): Promise<boolean> {
-    const session = (await this.repository.find(threadId))?.session;
+    const thread = await this.repository.find(threadId);
+    const session = thread?.session;
     const refused = live.turnMessage;
-    if (!usedUpWindow || !session || !refused || live.handingOver) return false;
+    if (!usedUpWindow || !thread || !session || !refused || live.handingOver) return false;
     // Under a new id: the carried transcript holds the refused message's, and the engine skips a
     // message whose id it already has, which would leave the Thread answering with no turn running.
     const sentAgain = { ...refused, id: randomUUID() };
+    // The list that applies now, not as the session opened: an engine override or a Project's own
+    // list turned on or changed since counts, as a session goes on across messages.
+    const applying = await this.engineCascade.applying(
+      thread.roleKey,
+      cascadeLocationOf(thread.home, live.reopening.place.project?.id),
+    );
     const standIn = await this.engine.standInFor(session.engineId, {
-      standIns: live.reopening.standIns,
+      standIns: applying?.standIns.engineIds ?? [],
       needs: needsOf(live.reopening.place),
     });
     if (!standIn) return false;
@@ -1504,8 +1512,8 @@ export class ThreadRunner implements OnModuleDestroy {
       ? await this.carryToStandIn(threadId, session, live.reopening, ahead)
       : undefined;
     if (carried && !moved) return false;
-    await this.change(threadId, (thread) =>
-      endTurn(thread, {
+    await this.change(threadId, (latest) =>
+      endTurn(latest, {
         usage,
         contextTokens: context?.tokens ?? 0,
         contextWindow: context?.window,
@@ -1545,7 +1553,7 @@ export class ThreadRunner implements OnModuleDestroy {
           session,
           ahead,
           start,
-          { said: sentAgain, briefed, place, standIns: live.reopening.standIns },
+          { said: sentAgain, briefed, place },
           freshId,
         );
       })

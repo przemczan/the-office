@@ -65,12 +65,14 @@ describe("RolesNamedInStages", () => {
     pipelines.cascade.setEngineFor(ownOverride, {
       engineId: "codex",
       engineType: "codex",
+      engineName: "Codex",
       level: "task",
       standIns: none,
     });
     pipelines.cascade.setEngineFor(initiativeOverride, {
       engineId: "codex",
       engineType: "codex",
+      engineName: "Codex",
       level: "initiative",
       standIns: none,
     });

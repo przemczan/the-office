@@ -3,19 +3,20 @@ import type { EngineId, EngineRemovalPreview, EngineSettings } from "@the-office
 import { Alert, Button, Dialog, Select } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { engineRemovalQuery, removeEngine } from "../../../api/engine.ts";
-import { roleQueries } from "../../../api/people.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { TaskStateBadge } from "../../../shell/work/task-state-badge.tsx";
 import {
   endedStateOf,
   movedReferenceChange,
   movedReferencePlace,
+  removalTypeNotes,
   suggestedReplacement,
 } from "./engine-removal-words.ts";
 
 /**
- * Removing a saved engine (spec §5.4): the replacement that takes over everything naming it, the
- * Office default's engine suggested, and what moves, read from the service before anything is done.
+ * Removing a saved engine (spec §5.4.5): the replacement that takes over everything naming it, one
+ * of the same type suggested, else the Office default's engine, what moves, read from the service
+ * before anything is done, and a note when the type changes or its last engine leaves.
  */
 export function RemoveEngineDialog({
   engineId,
@@ -36,14 +37,10 @@ export function RemoveEngineDialog({
   const name = engineName(engineId);
   const others = saved.engines.filter(({ id }) => id !== engineId);
   const [replacement, setReplacement] = useState<EngineId | null>(() =>
-    suggestedReplacement(
-      saved.engines.map(({ id }) => id),
-      engineId,
-      saved.officeDefault,
-    ),
+    suggestedReplacement(saved.engines, engineId, saved.officeDefault),
   );
   const preview = useQuery(engineRemovalQuery(engineId, replacement));
-  const roles = useQuery(roleQueries.list());
+  const typeNotes = removalTypeNotes(saved.engines, engineId, replacement);
   const removing = useMutation({
     mutationFn: () => removeEngine(engineId, replacement),
     onSuccess: async (left) => {
@@ -79,7 +76,7 @@ export function RemoveEngineDialog({
           <>
             <Select
               label="Replacement"
-              hint="Takes over everything that names it, on the same model where it offers it, else on its default model."
+              hint="Takes over every level that names it. A level names an engine, not a model: people's models and efforts name engine types, so they stay."
               options={others.map(({ id, name: otherName }) => ({ value: id, label: otherName }))}
               value={replacement}
               onChange={setReplacement}
@@ -90,6 +87,11 @@ export function RemoveEngineDialog({
             </p>
           </>
         )}
+        {typeNotes.map((note) => (
+          <p key={note} className="dialog-text">
+            {note}
+          </p>
+        ))}
         {unsavedChanges && (
           <p className="dialog-text">The changes not saved on this page are discarded.</p>
         )}
@@ -100,7 +102,7 @@ export function RemoveEngineDialog({
           <RemovalMoves
             preview={preview.data}
             name={name}
-            describePlace={(move) => movedReferencePlace(move, roles.data)}
+            describePlace={movedReferencePlace}
             describeChange={(move) => movedReferenceChange(move, engineName)}
           />
         )}
@@ -139,7 +141,7 @@ function RemovalMoves({
             const ended = endedStateOf(move);
             return (
               <li
-                key={`${move.work?.id ?? ""}/${move.roleKey ?? ""}/${move.project?.id ?? ""}/${move.standInList ? "stand-ins" : ""}`}
+                key={`${move.work?.id ?? ""}/${move.project?.id ?? ""}/${move.standInList ? "stand-ins" : ""}`}
               >
                 <span className="engine-removal-place">
                   {describePlace(move)}

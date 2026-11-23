@@ -410,12 +410,11 @@ describe("DELETE /api/settings/engines/:engineId", () => {
 
 describe("GET /api/settings/engines/:engineId/removal", () => {
   const strataDefault = STRATA_DEFAULT;
-  const developerOnStrata = {
-    roleKey: "developer",
-    project: null,
+  const shopDefaultOnStrata = {
+    project: { id: "shop", name: "Shop" },
     work: null,
-    from: STRATA_ON_ITS_MODEL,
-    to: CLAUDE_CODE_ON_ITS_MODEL,
+    from: "strata",
+    to: "claude-code",
   };
 
   beforeEach(async () => {
@@ -426,7 +425,7 @@ describe("GET /api/settings/engines/:engineId/removal", () => {
   it("lists the Office default and every registered move, the check's refusals too, moving nothing", async () => {
     const removals: EngineRemoval[] = [];
     app.get(EngineReferenceMoves).register({
-      movesOf: async (removal) => (removals.push(removal), [developerOnStrata]),
+      movesOf: async (removal) => (removals.push(removal), [shopDefaultOnStrata]),
       move: async () => {
         throw new Error("A preview moves nothing.");
       },
@@ -441,13 +440,12 @@ describe("GET /api/settings/engines/:engineId/removal", () => {
     expect(engineRemovalPreviewSchema.parse(await preview.json())).toEqual({
       moves: [
         {
-          roleKey: null,
           project: null,
           work: null,
-          from: STRATA_ON_ITS_MODEL,
-          to: CLAUDE_CODE_ON_ITS_MODEL,
+          from: "strata",
+          to: "claude-code",
         },
-        developerOnStrata,
+        shopDefaultOnStrata,
       ],
       problems: [refusal],
     });
@@ -469,19 +467,17 @@ describe("GET /api/settings/engines/:engineId/removal", () => {
 
     expect(engineRemovalPreviewSchema.parse(await preview.json()).moves).toEqual([
       {
-        roleKey: null,
         project: null,
         work: null,
-        from: STRATA_ON_ITS_MODEL,
-        to: CLAUDE_CODE_ON_ITS_MODEL,
+        from: "strata",
+        to: "claude-code",
       },
       {
-        roleKey: null,
         project: null,
         work: null,
         standInList: true,
-        from: STRATA_ON_ITS_MODEL,
-        to: CLAUDE_CODE_ON_ITS_MODEL,
+        from: "strata",
+        to: "claude-code",
       },
     ]);
     expect((await remove("strata", "claude-code")).status).toBe(200);
@@ -506,7 +502,7 @@ describe("GET /api/settings/engines/:engineId/removal", () => {
     const preview = await previewOf("strata");
 
     expect(engineRemovalPreviewSchema.parse(await preview.json()).moves).toEqual([
-      { roleKey: null, project: null, work: null, from: STRATA_ON_ITS_MODEL, to: null },
+      { project: null, work: null, from: "strata", to: null },
     ]);
   });
 

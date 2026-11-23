@@ -766,6 +766,34 @@ describe("a Stage on the engine the Task sets", () => {
       });
     });
 
+    it("says so in the Stage Thread when the person's model gave way on the stand-in", async () => {
+      await startWith(started(...aTurn({ status: "done" })));
+      vi.spyOn(app.get(EngineModels), "engines").mockResolvedValue([
+        FIRST_CLAUDE_CODE_ENGINE,
+        CODEX,
+      ]);
+      cascade.standIns = { from: "project", engineIds: [CODEX.id] };
+      const request = onCodex();
+      cascade.setOnEngine(request.roleKey, CODEX.id, {
+        model: "gpt-6-luna",
+        engineType: "codex",
+        gaveWay: "gpt-7",
+      });
+
+      const { stageThread } = await aStageRun(request);
+
+      const log = drafts(await repository.messages(stageThread.threadId));
+      expect(log.filter(({ kind }) => kind === "model-gave-way")).toEqual([
+        {
+          kind: "model-gave-way",
+          personName: "Ada",
+          model: "gpt-6-luna",
+          engineName: CODEX.name,
+          notOffered: "gpt-7",
+        },
+      ]);
+    });
+
     it("opens on the cascade's engine once the list that applies no longer names the stand-in", async () => {
       await startWith(started(...aTurn({ status: "done" })));
       vi.spyOn(app.get(EngineModels), "engines").mockResolvedValue([

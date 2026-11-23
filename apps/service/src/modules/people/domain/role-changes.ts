@@ -199,8 +199,9 @@ export interface EngineSettingsMove {
  * Moves `earlier` over to engine settings, with `engines` the engines listed now: the effort goes
  * on every engine type that takes it, listed or not, and a Role override on a listed engine becomes
  * the person's model on its type, its account dropped; one on an engine no longer listed has no
- * type to move to and is dropped. Changes names the whole settings and, when there was an
- * override, the override left behind.
+ * type to move to and is dropped. Changes says the settings moved over, first, and then names the
+ * whole settings. The moved-over entry goes from the Role override, or none, to the engine type its
+ * model moved to, or none when there was no override or it was dropped.
  */
 export function moveEngineSettingsOver(
   earlier: EarlierEngineFields,
@@ -221,11 +222,13 @@ export function moveEngineSettingsOver(
       effort: takingEffort(overridden.kind),
     };
   }
-  const changes: RoleCardFieldChange[] = [{ field: "engineSettings", from: {}, to: settings }];
-  if (roleOverride) {
-    changes.push({ field: "engineSettingsMovedOver", from: roleOverride, to: null });
-  }
-  return { engineSettings: settings, changes };
+  return {
+    engineSettings: settings,
+    changes: [
+      { field: "engineSettingsMovedOver", from: roleOverride, to: overridden?.kind ?? null },
+      { field: "engineSettings", from: {}, to: settings },
+    ],
+  };
 }
 
 /**

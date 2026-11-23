@@ -4363,6 +4363,30 @@ describe("a person's Thread going on on a Stand-in Engine (spec 5.4)", () => {
     expect(log.map(({ kind }) => kind)).not.toContain("engine-switched");
   });
 
+  /** The line saying the Planner works with `model` on `landed`, which doesn't offer `notOffered`. */
+  const gaveWayOn = (landed: Engine, model: string, notOffered: string): MessageDraft => ({
+    kind: "model-gave-way",
+    personName: PLANNER.name,
+    model,
+    engineName: landed.name,
+    notOffered,
+  });
+
+  it("says so when the person's model gave way on the stand-in a new session opens on", async () => {
+    cascade.setOnEngine(roleKey, HOME.id, { model: "claude-sonnet-5-5", gaveWay: "claude-opus-9" });
+    await startOnBoth([], [started(...aTurn("brief", "Hi."))]);
+    workUsedUp();
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Hello.", ANN_LEE);
+    const log = await answered(thread.id, 4);
+
+    expect(home.sessions[0]?.options).toMatchObject({ model: "claude-sonnet-5-5" });
+    expect(drafts(log).filter(({ kind }) => kind === "model-gave-way")).toEqual([
+      gaveWayOn(HOME, "claude-sonnet-5-5", "claude-opus-9"),
+    ]);
+  });
+
   it("carries a resumed session to the stand-in before the message is sent, once its engine is used up", async () => {
     await startOnBoth(
       [started(...aTurn("brief", "Hi."))],
@@ -4432,6 +4456,28 @@ describe("a person's Thread going on on a Stand-in Engine (spec 5.4)", () => {
       },
     });
     expect(forgotten).toContain(onWork?.id);
+  });
+
+  it("says so when the person's model gave way on a stand-in of another type it starts fresh on", async () => {
+    codexStandsIn();
+    cascade.setOnEngine(roleKey, CODEX.id, {
+      model: "gpt-6-luna",
+      engineType: "codex",
+      gaveWay: "gpt-7",
+    });
+    await startOnBoth(
+      [started(...aRefusedTurn("brief"))],
+      [],
+      [started(...aTurn("brief", "Hello from Codex."))],
+    );
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Hello.", ANN_LEE);
+    const log = await answered(thread.id, 5);
+
+    expect(drafts(log).filter(({ kind }) => kind === "model-gave-way")).toEqual([
+      gaveWayOn(CODEX, "gpt-6-luna", "gpt-7"),
+    ]);
   });
 
   it("starts a resumed session fresh on a stand-in of another type before the message is sent, with the Brief first", async () => {
@@ -4635,6 +4681,26 @@ describe("a person's Thread going on on a Stand-in Engine (spec 5.4)", () => {
       await runner.open(consultation.id, "Which Projects does the export cover?");
 
       expect(await whereItEnded(consultation.id)).toEqual(STAYED_ON_WORK);
+    });
+
+    it("keeps a session going on since before the override on the forced engine, the list it opened with left behind", async () => {
+      cascade.standIns = { from: "office", engineIds: [HOME.id, CODEX.id] };
+      await startOnBoth(
+        [started(...aTurn("brief", "Hi."), sent("next"), ...aRefusedTurn("next"))],
+        [[{ step: "resume" }, sent("again"), ...aTurn("again", "From Home.")]],
+        [started(...aTurn("brief", "From Codex."))],
+      );
+      const taskId = randomUUID();
+      const opened = await planningThread(taskId);
+      await runner.send(opened.id, PLAN_IT, ANN_LEE);
+      await answered(opened.id, 3);
+      // On the engine the session already runs on: the next message goes on in it.
+      cascade.setForTask(taskId, ON_WORK);
+
+      await runner.send(opened.id, "And the archived ones?", ANN_LEE);
+
+      expect(engine.sessions).toHaveLength(1);
+      expect(await whereItEnded(opened.id)).toEqual(STAYED_ON_WORK);
     });
 
     it("opens a new session on the forced engine while its window is known used up", async () => {

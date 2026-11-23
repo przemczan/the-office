@@ -5,7 +5,7 @@ import { EngineSettingsForTests } from "../ports/engine-settings-repository.fixt
 import { EngineModels } from "./engine-models.js";
 
 describe("EngineModels.officeDefault", () => {
-  it("gives the Office default's engine on its default model, and the engine type and account as set", async () => {
+  it("gives the Office default's engine on its default model", async () => {
     const models = new EngineModels(
       new EngineSettingsForTests({
         engines: [FIRST_CLAUDE_CODE_ENGINE, { ...codex, defaultModel: "gpt-5.6-terra" }],
@@ -16,10 +16,6 @@ describe("EngineModels.officeDefault", () => {
     await expect(models.officeDefault()).resolves.toEqual({
       engineId: "codex",
       model: "gpt-5.6-terra",
-    });
-    await expect(models.officeDefaultEngine()).resolves.toEqual({
-      engineType: "codex",
-      engineId: "codex",
     });
   });
 

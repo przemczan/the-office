@@ -4,7 +4,6 @@ import {
   EngineModels,
   EngineReferenceLock,
   EngineSessions,
-  offeredModels,
   type EngineCapability,
   type EngineId,
 } from "../../engine/index.js";
@@ -64,12 +63,9 @@ export interface RoleWithAssignments {
 export interface RoleCardOptions {
   /** Every engine type, with the models and efforts a person's settings on it may name. */
   readonly engineTypes: readonly EngineTypeOption[];
-  /** The engines the Project's and the Task's pickers offer. */
+  /** Each engine Settings › Engines lists, with what it declares it can't do. */
   readonly engines: readonly {
     readonly engine: EngineId;
-    readonly models: readonly string[];
-    /** One of `models`: what picking the engine fills in. */
-    readonly defaultModel: string;
     /** What the engine declares it can't do. */
     readonly missingCapabilities: readonly EngineCapability[];
   }[];
@@ -253,8 +249,6 @@ export class RoleService {
       engineTypes: engineTypeOptions(engines),
       engines: engines.map((engine) => ({
         engine: engine.id,
-        models: offeredModels(engine),
-        defaultModel: engine.defaultModel,
         missingCapabilities: this.engineSessions.missingCapabilitiesOf(engine),
       })),
       knownRoles: [...consultable].map((key) => ({ key, title: consultableTitle(key, roles) })),

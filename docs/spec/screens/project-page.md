@@ -597,7 +597,7 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
   - Then a row for each engine type with an engine listed, in the table's order: its icon and name, **Model** and **Effort** ("Person's setting" first, then the type's; a type that takes no effort has no Effort).
   - Once a person is picked, each row's hint reads "Role card: <model> · <effort>", so "Person's setting" shows what it stands for.
   - While the force is on, the forced type's row is dimmed with "Forced above: <model> · <effort> wins while the force is on."; its values stay settable for when it is off.
-  - Bar: **Cancel** and **Add** (primary), off until a person is picked and at least one model or effort is set.
+  - Bar: **Add** (primary), off until a person is picked and at least one model or effort is set, and **Close**.
   - Toast "<person> has their own model and effort in <name>."
 - **Edit** opens the same window, titled "<person>'s model and effort in <name>", with the person fixed and **Save** for **Add**; Save is off while every value reads "Person's setting", with the hint "Nothing is set: Remove <person> instead."; toast "<person>'s model and effort in <name> are saved."
 - **Remove** asks in a small window "Remove <person>'s settings in <name>?" ("They work with their Role card's model and effort here again.", **Remove**, danger); toast "<person>'s model and effort in <name> are removed."

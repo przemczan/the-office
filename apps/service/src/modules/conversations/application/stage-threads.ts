@@ -166,7 +166,7 @@ export interface StageThreadRequest {
   readonly session: StageSessionSettings;
   /**
    * The Stand-in Engines the Task's Start chose, each for a cascade's engine: the Stage Thread's
-   * session runs on the stand-in while it is listed and serves the cascade's model.
+   * session runs on the stand-in while it is still in the Stand-in Engine list that applies.
    */
   readonly engineStandIns: readonly StageThreadStandIn[];
   /**
@@ -437,9 +437,8 @@ export class StageThreads {
       engineId: landed.engineId,
       model: landed.model,
       effort: landed.effort,
-      // A model giving way is logged only on the cascade's own engine, never on a stand-in.
-      ...(through === cascade.engineId &&
-        cascade.gaveWay !== undefined && { gaveWay: cascade.gaveWay }),
+      // Of the engine the session landed on, the cascade's or a stand-in (spec §5.4.5).
+      ...(landed.gaveWay !== undefined && { gaveWay: landed.gaveWay }),
     };
     const standIn =
       applying.engineId === cascade.engineId

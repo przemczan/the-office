@@ -1,5 +1,5 @@
 import { EngineSettingsRefused, ENGINES_CHANGED_MEANWHILE } from "./engine-settings-refused.js";
-import type { Engine, EngineId, EngineModel } from "./engines.js";
+import type { Engine, EngineId } from "./engines.js";
 
 /**
  * An engine being removed and the one that takes over everything naming it, or none when it is
@@ -11,24 +11,23 @@ export interface EngineRemoval {
 }
 
 /**
- * A level naming the engine being removed: where it stands and where the removal puts it. Which
- * level it is follows from what it belongs to: a Role and a Project for a Project's Role override,
- * a Project alone for its Project default, a Role alone for its Role override, neither for the
- * Office default; a Task or an Initiative (`work`) for its engine; `standInList` for a Stand-in
- * Engine list, the Office's with no Project, a Project's own with it.
+ * A level naming the engine being removed: where it stands and where the removal puts it, from the
+ * removed engine to the replacement, or to none. Which level it is follows from what it belongs to:
+ * a Project for its Project default, none for the Office default; a Task or an Initiative (`work`)
+ * for its engine override; `standInList` for a Stand-in Engine list, the Office's with no Project,
+ * a Project's own with it. Every level names an engine, not a model (spec §5.4.5).
  */
 export interface MovedEngineReference {
-  readonly roleKey: string | null;
   readonly project: { readonly id: string; readonly name: string } | null;
-  /** The Task or the Initiative whose engine it is, with its Project; null for every other level. */
+  /** The Task or the Initiative whose engine override it is, with its Project; null otherwise. */
   readonly work: MovedWork | null;
   /**
    * Set on a Stand-in Engine list's move: the removed engine's place in it taken by the
    * replacement, or the engine dropped (`standInListWithout`); left out for every other level.
    */
   readonly standInList?: true;
-  readonly from: EngineModel;
-  readonly to: EngineModel | null;
+  readonly from: EngineId;
+  readonly to: EngineId | null;
 }
 
 /**
@@ -61,25 +60,15 @@ export type MovedInitiativeState = "shaping" | "active" | "done" | "dropped";
 
 /**
  * What `removal` does to an engine override, a Task's or an Initiative's (`work`), when it names
- * the removed engine: from it to the replacement, or none. An override names an engine, not a
- * model, so each side is on its engine's default model, as a Stand-in Engine list's move is.
+ * the removed engine: from it to the replacement, or none.
  */
 export function movedEngineOverride(
   engineOverride: EngineId,
   removal: EngineRemoval,
-  removed: Engine | undefined,
   where: Pick<MovedEngineReference, "project" | "work">,
 ): MovedEngineReference[] {
   if (engineOverride !== removal.engineId) return [];
-  const { replacement } = removal;
-  return [
-    {
-      roleKey: null,
-      ...where,
-      from: { engineId: removal.engineId, model: removed?.defaultModel ?? "" },
-      to: replacement && { engineId: replacement.id, model: replacement.defaultModel },
-    },
-  ];
+  return [{ ...where, from: removal.engineId, to: removal.replacement?.id ?? null }];
 }
 
 /** Where an engine id stands once the removal is done: the replacement's, or none, for the removed engine. */
@@ -91,28 +80,22 @@ export function movedEngineId(engineId: EngineId, removal: EngineRemoval): Engin
  * What `removal` does to a Stand-in Engine list, the Office's (`project` null) or a Project's own,
  * used or not, when it names the removed engine: from the removed engine to the replacement, or to
  * none when the engine is just dropped, with no replacement or one the list already names
- * (`standInListWithout`). A list names engines, not models, so each side is on its engine's default
- * model, as a Project default's move is.
+ * (`standInListWithout`).
  */
 export function movedStandInList(
   standIns: readonly EngineId[],
   removal: EngineRemoval,
-  removed: Engine | undefined,
   project: MovedEngineReference["project"],
 ): MovedEngineReference[] {
   if (!standIns.includes(removal.engineId)) return [];
-  const replacement =
-    removal.replacement !== null && !standIns.includes(removal.replacement.id)
-      ? removal.replacement
-      : null;
+  const replacement = removal.replacement?.id ?? null;
   return [
     {
-      roleKey: null,
       project,
       work: null,
       standInList: true,
-      from: { engineId: removal.engineId, model: removed?.defaultModel ?? "" },
-      to: replacement && { engineId: replacement.id, model: replacement.defaultModel },
+      from: removal.engineId,
+      to: replacement !== null && !standIns.includes(replacement) ? replacement : null,
     },
   ];
 }

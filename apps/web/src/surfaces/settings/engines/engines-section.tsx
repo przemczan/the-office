@@ -8,7 +8,7 @@ import type {
 import { Button, Card, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { changeEngineSettings, engineSettingsQuery } from "../../../api/engine.ts";
-import { ENGINE_CASCADE, roleCardQueries, roleQueries } from "../../../api/people.ts";
+import { ENGINE_CASCADE, roleCardQueries } from "../../../api/people.ts";
 import { projectQueries } from "../../../api/projects.ts";
 import { usageSettingsQuery } from "../../../api/work.ts";
 import { usePageHeading } from "../../../shell/page-heading.tsx";
@@ -100,12 +100,8 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
     },
   });
   const takeRemoval = async (left: EngineSettings): Promise<void> => {
-    // The removal moved Role overrides and Project levels too.
-    await Promise.all([
-      takeSaved(left),
-      queryClient.invalidateQueries(roleQueries.list()),
-      queryClient.invalidateQueries(projectQueries.list()),
-    ]);
+    // The removal moved Project levels too; people's settings name engine types, so they stay.
+    await Promise.all([takeSaved(left), queryClient.invalidateQueries(projectQueries.list())]);
     showToast("Engine removed. What named it moved to the replacement.");
   };
 

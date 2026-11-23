@@ -16,6 +16,7 @@ import {
   type EngineInCascade,
   type EngineInPlace,
   type LandedEngine,
+  type NamedEngineInCascade,
   type ProjectCascadeLevels,
   type RoleEngineCascade,
   type WorkCascadeLevels,
@@ -40,9 +41,10 @@ export interface EngineCascadeWork {
   readonly stageEffort?: Effort | null;
 }
 
-/** The engine everyone in a place runs on, its type and the level that gave it. */
+/** The engine everyone in a place runs on, its type, its name and the level that gave it. */
 export interface EngineAtPlace extends EngineInPlace {
   readonly engineType: EngineKind;
+  readonly engineName: string;
 }
 
 /** Resolves both cascades (spec §5.4.5) for every session The Office starts. */
@@ -131,7 +133,9 @@ export class EngineCascade {
       project,
       await this.workLevels(taskId, initiativeId),
     );
-    return found && { ...found.inPlace, engineType: found.engine.kind };
+    return (
+      found && { ...found.inPlace, engineType: found.engine.kind, engineName: found.engine.name }
+    );
   }
 
   /**
@@ -141,12 +145,14 @@ export class EngineCascade {
   async acrossProjects(roleKey: string): Promise<RoleEngineCascade> {
     const { card } = await this.roleCards.forNewSession(roleKey);
     const engines = await this.engineModels.engines();
-    const outsideProjects = await this.resolved(roleKey, card.engineSettings, engines, {});
+    const named = (applying: EngineInCascade | null): NamedEngineInCascade | null =>
+      applying && { ...applying, engineName: engineNameOf(engines, applying.engineId) };
+    const outsideProjects = named(await this.resolved(roleKey, card.engineSettings, engines, {}));
     const projects = await this.projects.engineLevelsOfEveryProject();
     const inProjects = await Promise.all(
       projects.map(async (project) => ({
         projectId: project.projectId,
-        applying: await this.resolved(roleKey, card.engineSettings, engines, { project }),
+        applying: named(await this.resolved(roleKey, card.engineSettings, engines, { project })),
       })),
     );
     return roleEngineCascade(outsideProjects, inProjects);
@@ -200,6 +206,11 @@ export class EngineCascade {
     if (initiativeId !== undefined) return this.work.engineLevelsOf({ initiativeId });
     return undefined;
   }
+}
+
+/** The name of the engine listed as `engineId`, which the cascade only lands on; its id otherwise. */
+function engineNameOf(engines: readonly Engine[], engineId: EngineId): string {
+  return engines.find(({ id }) => id === engineId)?.name ?? engineId;
 }
 
 function landed(engine: Engine): LandedEngine {

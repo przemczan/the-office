@@ -108,7 +108,12 @@ const TASK: Task = {
 };
 
 const CASCADE: TaskEngineCascade = {
-  engine: { engineId: "work", engineType: "claude-code", level: "project" },
+  engine: {
+    engineId: "work",
+    engineType: "claude-code",
+    engineName: "Work account",
+    level: "project",
+  },
   standIns: { from: "office", engineIds: [] },
   people: [
     {

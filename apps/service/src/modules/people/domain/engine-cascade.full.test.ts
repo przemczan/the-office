@@ -9,6 +9,7 @@ import {
   type EngineInCascade,
   type EngineInPlace,
   type LandedEngine,
+  type NamedEngineInCascade,
   type ProjectCascadeLevels,
   type WorkInCascadeLevels,
 } from "./engine-cascade.js";
@@ -442,8 +443,9 @@ describe("the model and effort cascade", () => {
 });
 
 describe("roleEngineCascade", () => {
-  const outside: EngineInCascade = {
+  const outside: NamedEngineInCascade = {
     engineId: "claude-code",
+    engineName: "Claude Code",
     level: "office",
     standIns: fromOffice,
     engineType: "claude-code",

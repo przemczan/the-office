@@ -601,7 +601,7 @@ describe("StageThreads", () => {
       cascade.standIns = { from: "office", engineIds: [SPARE.id] };
     });
 
-    it("opens the Stage Thread's session on the stand-in with the cascade's model", async () => {
+    it("opens the Stage Thread's session on the stand-in with the person's model for its type", async () => {
       await startWith(started(...aTurn({ status: "done" })));
       const ada = adaOnTheCascade(FIRST_CLAUDE_CODE_ENGINE, SPARE);
 

@@ -192,15 +192,12 @@ export const roleCardOptionsSchema = z.object({
       efforts: z.array(effortSchema),
     }),
   ),
-  /** The engines the Project's and the Task's pickers offer. */
+  /** Each engine Settings › Engines lists, with what it declares it can't do. */
   engines: z.array(
     z.object({
-      /** Each engine Settings › Engines lists, by its id. */
+      /** The engine, by its id. */
       engine: engineIdSchema,
-      models: z.array(z.string()),
-      /** One of `models`: what picking the engine fills in. */
-      defaultModel: z.string(),
-      /** What the engine declares it can't do, which the card names under its Engine field. */
+      /** What the engine declares it can't do, which the card names under Runs on. */
       missingCapabilities: z.array(engineCapabilitySchema),
     }),
   ),
@@ -234,22 +231,25 @@ export const workCascadeLevelSchema = z.enum([
 export type WorkCascadeLevel = z.infer<typeof workCascadeLevelSchema>;
 
 /**
- * The engine a Role's session runs on, with the level that gave it, and the model and effort the
- * person works with there, each with the level that gave it; `effort` null leaves it to the runtime.
+ * The engine a Role's session runs on (its id, type and name), with the level that gave it, and the
+ * model and effort the person works with there, each with the level that gave it; `effort` null
+ * leaves it to the runtime.
  */
 export const engineInCascadeSchema = engineModelSchema.extend({
   level: engineCascadeLevelSchema,
   engineType: engineTypeSchema,
+  engineName: z.string(),
   effort: effortSchema.nullable(),
   modelLevel: workCascadeLevelSchema,
   effortLevel: workCascadeLevelSchema,
 });
 export type EngineInCascade = z.infer<typeof engineInCascadeSchema>;
 
-/** The engine everyone in a place runs on, with the level that gave it. */
+/** The engine everyone in a place runs on (its id, type and name), with the level that gave it. */
 export const placeEngineInCascadeSchema = z.object({
   engineId: engineModelSchema.shape.engineId,
   engineType: engineTypeSchema,
+  engineName: z.string(),
   level: engineCascadeLevelSchema,
 });
 export type PlaceEngineInCascade = z.infer<typeof placeEngineInCascadeSchema>;
@@ -306,7 +306,8 @@ export type RoleEngineCascade = z.infer<typeof roleEngineCascadeSchema>;
  * A part of a Role card as its change history names it, down to each capability and switch.
  * `engine` and `model` are named only by entries saved before the card had a Role override, and
  * `roleOverride` and `effort` only by entries saved before it had `engineSettings`.
- * `engineSettingsMovedOver` names the Role override the move to `engineSettings` left behind.
+ * `engineSettingsMovedOver` says a card moved over to `engineSettings`: from its Role override, or
+ * none, to the engine type the override's model moved to, or none when it had none or it was dropped.
  */
 export const roleCardFieldSchema = z.enum([
   "name",

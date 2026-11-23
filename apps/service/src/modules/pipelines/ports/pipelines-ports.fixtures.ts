@@ -191,7 +191,7 @@ export class RoleEngineCascadeForTests extends RoleEngineCascade {
     if (set) return set;
     if (this.officeDefault === null) return null;
     const { engineId, engineType, level, standIns } = this.officeDefault;
-    return { engineId, engineType, level, standIns };
+    return { engineId, engineType, engineName: "Claude Code", level, standIns };
   }
 
   async applying(roleKey: string, place: TaskSessionPlace): Promise<EngineInCascade | null> {

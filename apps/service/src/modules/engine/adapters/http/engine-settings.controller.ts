@@ -44,13 +44,12 @@ export class EngineSettingsController {
   ): Promise<EngineRemovalPreviewResponse> {
     const { moves, problems } = await this.settings.removalPreview(engineId, replacement ?? null);
     return {
-      moves: moves.map(({ roleKey, project, work, standInList, from, to }) => ({
-        roleKey,
+      moves: moves.map(({ project, work, standInList, from, to }) => ({
         project: project && { ...project },
         work: work && { ...work },
         ...(standInList ? { standInList } : {}),
-        from: { ...from },
-        to: to && { ...to },
+        from,
+        to,
       })),
       problems: [...problems],
     };

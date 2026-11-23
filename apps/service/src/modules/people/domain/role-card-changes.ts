@@ -34,7 +34,8 @@ const CAPABILITY_KEYS = [
  * A part of a Role card as its change history names it, down to each capability and switch.
  * `engine` and `model` are named only by entries saved before the card had a Role override, and
  * `roleOverride` and `effort` only by entries saved before it had `engineSettings`.
- * `engineSettingsMovedOver` names the Role override the move to `engineSettings` left behind.
+ * `engineSettingsMovedOver` says a card moved over to `engineSettings`: from its Role override, or
+ * none, to the engine type the override's model moved to, or none when it had none or it was dropped.
  */
 export type RoleCardField =
   | (typeof PLAIN_FIELDS)[number]

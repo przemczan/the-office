@@ -227,12 +227,14 @@ describe("EngineCascade", () => {
     await expect(cascade.engineAt()).resolves.toEqual({
       engineId: "claude-code",
       engineType: "claude-code",
+      engineName: "Claude Code",
       level: "office",
       standIns: fromOffice,
     });
     await expect(cascade.engineAt({ projectId: "the-project" })).resolves.toEqual({
       engineId: "claude-code",
       engineType: "claude-code",
+      engineName: "Claude Code",
       level: "project",
       standIns: fromOffice,
     });
@@ -241,12 +243,14 @@ describe("EngineCascade", () => {
     ).resolves.toEqual({
       engineId: "codex",
       engineType: "codex",
+      engineName: "Codex",
       level: "task",
       standIns: NO_STAND_INS,
     });
     await expect(cascade.engineAt({ initiativeId: "the-initiative" })).resolves.toEqual({
       engineId: "gemini",
       engineType: "gemini-cli",
+      engineName: "Gemini",
       level: "initiative",
       standIns: NO_STAND_INS,
     });
@@ -357,9 +361,10 @@ describe("EngineCascade", () => {
   it("lists only the Projects where something else applies", async () => {
     const cascade = await cascadeWith({});
 
+    const named = { engineName: "Claude Code" };
     await expect(cascade.acrossProjects("developer")).resolves.toEqual({
-      outsideProjects: onOfficeDefault,
-      elsewhereInProjects: [{ projectId: "the-project", ...forcedInTheProject }],
+      outsideProjects: { ...onOfficeDefault, ...named },
+      elsewhereInProjects: [{ projectId: "the-project", ...forcedInTheProject, ...named }],
     });
   });
 

@@ -79,16 +79,15 @@ describe("movedEngineOverride", () => {
   const work = { kind: "task", id: "task-1", name: "Fix it", state: "backlog" } as const;
   const shop = { id: "shop", name: "Shop" };
 
-  it("moves an override naming the removed engine to the replacement, each on its engine's default model", () => {
+  it("moves an override naming the removed engine to the replacement", () => {
     const removal: EngineRemoval = { engineId: "strata", replacement: second };
 
-    expect(movedEngineOverride("strata", removal, strata, { project: shop, work })).toEqual([
+    expect(movedEngineOverride("strata", removal, { project: shop, work })).toEqual([
       {
-        roleKey: null,
         project: shop,
         work,
-        from: { engineId: "strata", model: "qwen3.8-flash" },
-        to: { engineId: "second-account", model: second.defaultModel },
+        from: "strata",
+        to: "second-account",
       },
     ]);
   });
@@ -96,29 +95,26 @@ describe("movedEngineOverride", () => {
   it("moves it to none when the only engine goes, and leaves an override of another engine out", () => {
     const removal: EngineRemoval = { engineId: "strata", replacement: null };
 
-    expect(movedEngineOverride("strata", removal, strata, { project: null, work })).toEqual([
+    expect(movedEngineOverride("strata", removal, { project: null, work })).toEqual([
       expect.objectContaining({ to: null }),
     ]);
-    expect(movedEngineOverride("claude-code", removal, strata, { project: null, work })).toEqual(
-      [],
-    );
+    expect(movedEngineOverride("claude-code", removal, { project: null, work })).toEqual([]);
   });
 });
 
 describe("movedStandInList", () => {
   const shop = { id: "shop", name: "Shop" };
 
-  it("moves a list naming the removed engine to the replacement, each on its engine's default model", () => {
+  it("moves a list naming the removed engine to the replacement", () => {
     const removal: EngineRemoval = { engineId: "strata", replacement: second };
 
-    expect(movedStandInList(["claude-code", "strata"], removal, strata, shop)).toEqual([
+    expect(movedStandInList(["claude-code", "strata"], removal, shop)).toEqual([
       {
-        roleKey: null,
         project: shop,
         work: null,
         standInList: true,
-        from: { engineId: "strata", model: "qwen3.8-flash" },
-        to: { engineId: "second-account", model: "claude-haiku-5-5" },
+        from: "strata",
+        to: "second-account",
       },
     ]);
   });
@@ -126,13 +122,12 @@ describe("movedStandInList", () => {
   it("moves the Office's list, with no Project, to none when the only engine goes", () => {
     const removal: EngineRemoval = { engineId: "strata", replacement: null };
 
-    expect(movedStandInList(["strata"], removal, strata, null)).toEqual([
+    expect(movedStandInList(["strata"], removal, null)).toEqual([
       {
-        roleKey: null,
         project: null,
         work: null,
         standInList: true,
-        from: { engineId: "strata", model: "qwen3.8-flash" },
+        from: "strata",
         to: null,
       },
     ]);
@@ -141,13 +136,12 @@ describe("movedStandInList", () => {
   it("moves a list already naming the replacement to none, as the removed engine is just dropped", () => {
     const removal: EngineRemoval = { engineId: "strata", replacement: second };
 
-    expect(movedStandInList(["strata", "second-account"], removal, strata, shop)).toEqual([
+    expect(movedStandInList(["strata", "second-account"], removal, shop)).toEqual([
       {
-        roleKey: null,
         project: shop,
         work: null,
         standInList: true,
-        from: { engineId: "strata", model: "qwen3.8-flash" },
+        from: "strata",
         to: null,
       },
     ]);
@@ -156,7 +150,7 @@ describe("movedStandInList", () => {
   it("moves nothing for a list not naming the removed engine", () => {
     const removal: EngineRemoval = { engineId: "strata", replacement: second };
 
-    expect(movedStandInList(["claude-code"], removal, strata, shop)).toEqual([]);
+    expect(movedStandInList(["claude-code"], removal, shop)).toEqual([]);
   });
 });
 

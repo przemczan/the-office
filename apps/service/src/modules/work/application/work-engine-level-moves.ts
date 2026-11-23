@@ -2,7 +2,6 @@ import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { readEach } from "../../../platform/database/fan-out.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import {
-  EngineModels,
   EngineReferenceMoves,
   EngineSettingsChecks,
   movedEngineId,
@@ -41,7 +40,6 @@ export class WorkEngineLevelMoves implements OnModuleInit {
     private readonly referenceMoves: EngineReferenceMoves,
     private readonly engineSettingsChecks: EngineSettingsChecks,
     private readonly engineChecks: TaskEngineChecks,
-    private readonly engines: EngineModels,
   ) {}
 
   onModuleInit(): void {
@@ -70,13 +68,12 @@ export class WorkEngineLevelMoves implements OnModuleInit {
 
   /**
    * Each Task's engine override naming the removed engine, with its Project, then each
-   * Initiative's, each shown on its engine's default model, as an override names no model.
+   * Initiative's.
    */
   async movesOf(removal: EngineRemoval): Promise<MovedEngineReference[]> {
-    const [tasks, initiatives, removed] = await Promise.all([
+    const [tasks, initiatives] = await Promise.all([
       this.tasksNaming(removal.engineId),
       this.initiativesNaming(removal.engineId),
-      this.engines.find(removal.engineId),
     ]);
     const projectNames = new Map<string, string>();
     for (const projectId of new Set(tasks.map((task) => task.projectId))) {
@@ -85,7 +82,7 @@ export class WorkEngineLevelMoves implements OnModuleInit {
     return [
       ...tasks.flatMap(({ engineOverride, projectId, id, title, state }) =>
         engineOverride
-          ? movedEngineOverride(engineOverride, removal, removed, {
+          ? movedEngineOverride(engineOverride, removal, {
               project: { id: projectId, name: projectNames.get(projectId) ?? projectId },
               work: { kind: "task", id, name: title, state },
             })
@@ -94,7 +91,7 @@ export class WorkEngineLevelMoves implements OnModuleInit {
       // An Initiative spans its Tasks' Projects, so it names none of them.
       ...initiatives.flatMap(({ engineOverride, id, name, state }) =>
         engineOverride
-          ? movedEngineOverride(engineOverride, removal, removed, {
+          ? movedEngineOverride(engineOverride, removal, {
               project: null,
               work: { kind: "initiative", id, name, state },
             })

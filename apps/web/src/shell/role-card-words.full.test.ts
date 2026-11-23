@@ -63,16 +63,13 @@ describe("the Role card's words", () => {
       model: "claude-haiku-5-5",
       level: "office",
       engineType: "claude-code",
+      engineName: "Work account",
       effort: "high",
       modelLevel: "person",
       effortLevel: "person",
     } as const;
-    expect(engineInCascadeText(applies, names.engineName)).toBe(
-      "Haiku 5.5 · effort high on Work account",
-    );
-    expect(engineInCascadeText({ ...applies, effort: null }, names.engineName)).toBe(
-      "Haiku 5.5 on Work account",
-    );
+    expect(engineInCascadeText(applies)).toBe("Haiku 5.5 · effort high on Work account");
+    expect(engineInCascadeText({ ...applies, effort: null })).toBe("Haiku 5.5 on Work account");
     expect(workSourceText(applies, "Pam")).toBe("from Pam's Role card");
     expect(workSourceText({ ...applies, effortLevel: "projectForce" }, "Pam")).toBe(
       "model: from Pam's Role card; effort: forced by the Project",
@@ -136,11 +133,23 @@ describe("the Role card's words", () => {
         {
           field: "engineSettingsMovedOver",
           from: { engineId: "claude-code", model: "claude-haiku-5-5" },
+          to: "claude-code",
+        },
+        names,
+      ),
+    ).toBe(
+      "Engine settings moved over, Haiku 5.5 kept on Claude Code; sessions no longer run on Work account",
+    );
+    expect(
+      changeLine(
+        {
+          field: "engineSettingsMovedOver",
+          from: { engineId: "removed", model: "qwen3" },
           to: null,
         },
         names,
       ),
-    ).toBe("Engine settings moved over, the Role override Work account · Haiku 5.5 dropped");
+    ).toBe("Engine settings moved over, the Role override removed · qwen3 dropped");
     expect(changeLine({ field: "engineSettingsMovedOver", from: null, to: null }, names)).toBe(
       "Engine settings moved over",
     );

@@ -41,7 +41,7 @@ type EngineRow = {
  * The Project's new engine columns after migration 0203 runs with two engines listed, Claude Code
  * (`claude-code`, on Sonnet) and Codex (`codex`, on gpt-5.5), and the people `developer`, `reviewer`
  * (with an Office-wide Role override on Codex), `cto` (with one on a removed engine) and `writer`
- * (let go), every other person let go.
+ * (let go); its people's settings are only theirs, leaving out every other person the database has.
  */
 async function migrated(levels: EarlierLevels): Promise<EngineRow | undefined> {
   const migration = await readFile(
@@ -62,7 +62,6 @@ async function migrated(levels: EarlierLevels): Promise<EngineRow | undefined> {
         VALUES ('claude-code', 0, 'Claude Code', 'claude-code', 'claude-sonnet-5-5'),
           ('codex', 1, 'Codex', 'codex', 'gpt-5.5')`,
     );
-    await transaction.execute(sql`UPDATE "roles" SET "let_go_at" = now()`);
     const people = [
       { key: "developer", letGo: false, roleOverride: null },
       { key: "reviewer", letGo: false, roleOverride: { engineId: "codex", model: "gpt-5.5" } },
@@ -100,7 +99,16 @@ async function migrated(levels: EarlierLevels): Promise<EngineRow | undefined> {
           "engine_people", "project_default_model", "use_for_every_role", "role_overrides"
         FROM "projects" WHERE "id" = ${id}`,
     );
-    return rows[0];
+    const row = rows[0];
+    const keys = new Set(people.map(({ key }) => key));
+    return (
+      row && {
+        ...row,
+        engine_people: (row.engine_people as { roleKey: string }[]).filter(({ roleKey }) =>
+          keys.has(roleKey),
+        ),
+      }
+    );
   });
 }
 
@@ -121,16 +129,17 @@ describe("migration 0203", () => {
     });
   });
 
-  it("with the force off, gives the default's model to each person not let go with no Role override on a listed engine", async () => {
+  it("with the force off, gives the default's model to each person, let go or not, with no Role override on a listed engine", async () => {
     const row = await migrated({ projectDefault: OPUS, useForEveryRole: false, roleOverrides: [] });
 
     const opus = { "claude-code": { model: "claude-opus-5-5", effort: null } };
     expect(row).toMatchObject({ engine_default_type: "claude-code", engine_force: null });
-    // The reviewer keeps their Office-wide Role override; the writer is let go; the CTO's override
-    // named a removed engine, so they ran on the Project default's model.
+    // The reviewer keeps their Office-wide Role override; the CTO's override named a removed
+    // engine, so they ran on the Project default's model; the writer, let go, gets it too.
     expect(row?.engine_people).toEqual([
       { roleKey: "cto", engineSettings: opus },
       { roleKey: "developer", engineSettings: opus },
+      { roleKey: "writer", engineSettings: opus },
     ]);
   });
 
@@ -176,6 +185,10 @@ describe("migration 0203", () => {
       { roleKey: "developer", engineSettings: { codex: { model: "gpt-5.5-mini", effort: null } } },
       {
         roleKey: "cto",
+        engineSettings: { "claude-code": { model: "claude-opus-5-5", effort: null } },
+      },
+      {
+        roleKey: "writer",
         engineSettings: { "claude-code": { model: "claude-opus-5-5", effort: null } },
       },
     ]);

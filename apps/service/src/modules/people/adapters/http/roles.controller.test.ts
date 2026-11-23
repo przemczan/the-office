@@ -188,7 +188,7 @@ describe("GET /api/presets", () => {
 });
 
 describe("GET /api/role-card-options", () => {
-  it("offers each engine's models, its default model and what it can't do, the known Roles, how each switch is seen to and where an MCP tool starts", async () => {
+  it("offers each engine type's models and efforts, what each engine can't do, the known Roles, how each switch is seen to and where an MCP tool starts", async () => {
     await hire("devops", "Nina");
     const options = roleCardOptionsSchema.parse(await get("/role-card-options"));
 
@@ -196,8 +196,6 @@ describe("GET /api/role-card-options", () => {
     // The engines are Office-wide settings, which other test files add API engines to.
     expect(options.engines).toContainEqual({
       engine: "claude-code",
-      models,
-      defaultModel: "claude-sonnet-5-5",
       missingCapabilities: [],
     });
     expect(options.engineTypes).toContainEqual({

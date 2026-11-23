@@ -65,7 +65,12 @@ describe("GET /api/tasks/:id/engine-cascade", () => {
   it("gives the one engine the Task's sessions run on, resolved once", async () => {
     pipelines.people.people.set("planner", aPerson("Pat"));
     const taskId = await aTaskWith([anAgentStage("implement")]);
-    const onCodex = { engineId: "codex", engineType: "codex", level: "project" } as const;
+    const onCodex = {
+      engineId: "codex",
+      engineType: "codex",
+      engineName: "Codex",
+      level: "project",
+    } as const;
     pipelines.cascade.setEngineFor(taskId, {
       ...onCodex,
       standIns: { from: "office", engineIds: [] },
@@ -82,13 +87,19 @@ describe("GET /api/tasks/:id/engine-cascade", () => {
       pipelines.cascade.setEngineFor(taskId, {
         engineId: "codex",
         engineType: "codex",
+        engineName: "Codex",
         level,
         standIns: { from: "none", engineIds: [] },
       });
 
       const cascade = await cascadeOf(taskId);
 
-      expect(cascade.engine).toEqual({ engineId: "codex", engineType: "codex", level });
+      expect(cascade.engine).toEqual({
+        engineId: "codex",
+        engineType: "codex",
+        engineName: "Codex",
+        level,
+      });
       expect(cascade.standIns).toEqual({ from: "none", engineIds: [] });
     },
   );
@@ -99,6 +110,7 @@ describe("GET /api/tasks/:id/engine-cascade", () => {
     pipelines.cascade.setEngineFor(taskId, {
       engineId: "claude-code",
       engineType: "claude-code",
+      engineName: "Claude Code",
       level: "project",
       standIns: ownList,
     });
@@ -120,7 +132,12 @@ describe("GET /api/tasks/:id/engine-cascade", () => {
     pipelines.cascade.setFor("developer", onTheTask, taskId);
 
     expect(await cascadeOf(taskId)).toEqual({
-      engine: { engineId: "claude-code", engineType: "claude-code", level: "office" },
+      engine: {
+        engineId: "claude-code",
+        engineType: "claude-code",
+        engineName: "Claude Code",
+        level: "office",
+      },
       standIns: { from: "office", engineIds: [] },
       people: [
         { roleKey: "planner", roleName: "Planner", work: officeDefaultWork, stages: [] },

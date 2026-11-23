@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import type { INestApplication } from "@nestjs/common";
+import { roleCardSchema } from "@the-office/contracts";
 import { and, eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
@@ -119,6 +120,7 @@ describe("EngineSettingsMoveOver", () => {
     });
     const [moved] = await repository.versions(key);
     expect(moved?.changes).toEqual([
+      { field: "engineSettingsMovedOver", from: null, to: null },
       {
         field: "engineSettings",
         from: {},
@@ -146,10 +148,10 @@ describe("EngineSettingsMoveOver", () => {
       "gemini-cli": { model: "pro", effort: null },
     });
     const [moved] = await repository.versions(toGemini);
-    expect(moved?.changes[1]).toEqual({
+    expect(moved?.changes[0]).toEqual({
       field: "engineSettingsMovedOver",
       from: onGemini,
-      to: null,
+      to: "gemini-cli",
     });
   });
 
@@ -215,13 +217,25 @@ describe("EngineSettingsMoveOver", () => {
 });
 
 describe("migration 0202", () => {
-  it("gives open hire Proposals no engine settings and takes the earlier fields out of open change Proposals", async () => {
+  it("gives every hire Proposal's card no engine settings and takes the earlier fields out of open change Proposals", async () => {
     const migration = await readFile(
       new URL("../../../../drizzle/0202_engine_settings.sql", import.meta.url),
       "utf8",
     );
     const threadId = randomUUID();
     const before = { roleOverride: null, effort: "high", taskLimit: 2 };
+    // A whole card as the release before drafted it, stored as the Proposals store it.
+    const { engineSettings: _engineSettings, ...earlier } = aRoleCard();
+    const cardBefore = { ...earlier, roleOverride: null, effort: "high" };
+    const officeSetup = (hiredKeys?: readonly string[]) => ({
+      kind: "office-setup",
+      hires: [
+        { kind: "hire-from-preset", roleKey: "developer", name: "Ada" },
+        { kind: "hire", card: cardBefore, skills: ["git"] },
+      ],
+      duties: [],
+      ...(hiredKeys && { hiredKeys }),
+    });
 
     const after = await rolledBackMigration(database, async (transaction) => {
       await transaction.execute(
@@ -237,6 +251,20 @@ describe("migration 0202", () => {
         return id;
       };
       const hire = await aProposal({ kind: "hire", card: before, skills: [] });
+      const appliedHire = await aProposal(
+        { kind: "hire", card: cardBefore, skills: [], roleKey: "release-manager" },
+        "applied",
+      );
+      const declinedHire = await aProposal(
+        { kind: "hire", card: cardBefore, skills: [] },
+        "declined",
+      );
+      const openSetUp = await aProposal(officeSetup());
+      const appliedSetUp = await aProposal(
+        officeSetup(["developer", "release-manager"]),
+        "applied",
+      );
+      const presetsOnly = await aProposal({ ...officeSetup(), hires: [] });
       const change = await aProposal({
         kind: "change",
         roleKey: "developer",
@@ -254,14 +282,46 @@ describe("migration 0202", () => {
         sql`SELECT "id", "change" FROM "proposals" WHERE "thread_id" = ${threadId}`,
       );
       const changeOf = (id: string) => rows.rows.find((row) => row.id === id)?.change;
-      return { hire: changeOf(hire), change: changeOf(change), applied: changeOf(applied) };
+      return {
+        hire: changeOf(hire),
+        appliedHire: changeOf(appliedHire),
+        declinedHire: changeOf(declinedHire),
+        openSetUp: changeOf(openSetUp),
+        appliedSetUp: changeOf(appliedSetUp),
+        presetsOnly: changeOf(presetsOnly),
+        change: changeOf(change),
+        applied: changeOf(applied),
+      };
     });
 
+    const cardAfter = { ...cardBefore, engineSettings: {} };
     expect(after.hire).toEqual({
       kind: "hire",
       card: { ...before, engineSettings: {} },
       skills: [],
     });
+    expect(after.appliedHire).toEqual({
+      kind: "hire",
+      card: cardAfter,
+      skills: [],
+      roleKey: "release-manager",
+    });
+    expect(after.declinedHire).toEqual({ kind: "hire", card: cardAfter, skills: [] });
+    for (const [setUp, hiredKeys] of [
+      [after.openSetUp, undefined],
+      [after.appliedSetUp, ["developer", "release-manager"]],
+    ] as const) {
+      expect(setUp).toEqual({
+        ...officeSetup(hiredKeys),
+        hires: [
+          { kind: "hire-from-preset", roleKey: "developer", name: "Ada" },
+          { kind: "hire", card: cardAfter, skills: ["git"] },
+        ],
+      });
+    }
+    expect(after.presetsOnly).toEqual({ ...officeSetup(), hires: [] });
+    // Each card is whole as this release's web reads it, and keeps what the release before reads.
+    expect(() => roleCardSchema.parse({ ...cardAfter, skills: [] })).not.toThrow();
     expect(after.change).toEqual({
       kind: "change",
       roleKey: "developer",

@@ -480,24 +480,18 @@ describe("removing an engine", () => {
     expect((await addToInitiative(initiative, inheriting)).status).toBe(200);
     expect((await setInitiativeEngine(initiative, removed)).status).toBe(200);
     const removal = { engineId: removed, replacement: FIRST_CLAUDE_CODE_ENGINE };
-    // An override names no model, so each side shows on its engine's default model.
-    const from = { engineId: removed, model: FIRST_CLAUDE_CODE_ENGINE.defaultModel };
-    const to = {
-      engineId: FIRST_CLAUDE_CODE_ENGINE.id,
-      model: FIRST_CLAUDE_CODE_ENGINE.defaultModel,
-    };
+    const from = removed;
+    const to = FIRST_CLAUDE_CODE_ENGINE.id;
     const moves = work.app.get(WorkEngineLevelMoves);
 
     expect(await moves.movesOf(removal)).toEqual([
       {
-        roleKey: null,
         project: { id: done.projectId, name: `The ${done.projectId}` },
         work: { kind: "task", id: done.id, name: done.title, state: "done" },
         from,
         to,
       },
       {
-        roleKey: null,
         project: null,
         work: {
           kind: "initiative",
@@ -513,9 +507,9 @@ describe("removing an engine", () => {
     work.published.length = 0;
     await moves.move(removal);
 
-    expect((await readTask(done)).engineOverride).toBe(to.engineId);
-    expect((await readInitiative(initiative)).engineOverride).toBe(to.engineId);
-    expect((await readTask(inheriting)).initiativeEngineOverride).toBe(to.engineId);
+    expect((await readTask(done)).engineOverride).toBe(to);
+    expect((await readInitiative(initiative)).engineOverride).toBe(to);
+    expect((await readTask(inheriting)).initiativeEngineOverride).toBe(to);
     expect(webEventsOf(work)).toEqual(
       expect.arrayContaining([
         { type: "task.engine-override-set", taskId: done.id },

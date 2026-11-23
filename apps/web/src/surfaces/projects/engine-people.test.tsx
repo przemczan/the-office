@@ -224,6 +224,29 @@ describe("the Edit and Remove windows", () => {
     expect(shownText(dialog)).toContain("Nothing is set: Remove Rita instead.");
   });
 
+  it("keeps Save on while a type with no engine listed is still set, sending only that", async () => {
+    const kept: ProjectEnginePerson = {
+      roleKey: "developer",
+      engineSettings: { "gemini-cli": { model: "pro", effort: null } },
+    };
+    const { page, sent } = await engineCard(projectWith({ default: ON_WORK, people: [DWIGHT] }), {
+      [PUT_ENGINE]: savedAs(projectWith({ default: ON_WORK, people: [kept] })),
+    });
+
+    click(buttonNamed(perPerson(page), "Edit Dwight"));
+    const dialog = shownDialog();
+    await pick(selectIn(groupOf(dialog, "Claude Code"), "Model"), "");
+
+    expect(shownText(dialog)).not.toContain("Nothing is set");
+    expect(buttonNamed(dialog, "Save")?.disabled).toBe(false);
+    click(buttonNamed(dialog, "Save"));
+
+    await until(() =>
+      expect(shownText(page)).toContain("Dwight's model and effort in Shop are saved."),
+    );
+    expect(sentPeople(sent)).toEqual([kept]);
+  });
+
   it("asks before removing a person's settings, then sends the rest", async () => {
     const { page, sent } = await engineCard(
       projectWith({ default: ON_WORK, people: [DWIGHT, RITA] }),

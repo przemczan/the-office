@@ -9,7 +9,6 @@ import {
 } from "../domain/engine-removal.js";
 import {
   changedEngineSettings,
-  officeDefaultEngineModel,
   settingsWithoutEngine,
   type EngineSettings,
   type EngineSettingsEdit,
@@ -98,23 +97,19 @@ export class EngineSettingsService {
       engineId,
       replacementId,
     );
-    // Where `settingsWithoutEngine` puts the Office default, as `remove` keeps it, on the engine's
-    // default model.
-    const from = officeDefaultEngineModel(stored);
+    // Where `settingsWithoutEngine` puts the Office default, as `remove` keeps it.
     const officeDefault: MovedEngineReference[] =
-      from?.engineId === engineId
+      stored.officeDefault?.engineId === engineId
         ? [
             {
-              roleKey: null,
               project: null,
               work: null,
-              from,
-              to: officeDefaultEngineModel(changed),
+              from: engineId,
+              to: changed.officeDefault?.engineId ?? null,
             },
           ]
         : [];
-    const removed = stored.engines.find(({ id }) => id === engineId);
-    const officeStandIns = movedStandInList(stored.standInEngines, removal, removed, null);
+    const officeStandIns = movedStandInList(stored.standInEngines, removal, null);
     return {
       moves: [...officeDefault, ...officeStandIns, ...(await this.referenceMoves.movesOf(removal))],
       problems,
