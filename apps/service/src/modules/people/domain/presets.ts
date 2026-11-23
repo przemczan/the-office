@@ -2,7 +2,8 @@ import { isBuiltIn } from "./caretaker.js";
 import { DUTIES, type DutyKey } from "./duties.js";
 import { ALLOWED, ASK_ME, consult, NEVER } from "./hard-switches.js";
 import { CTO, DEVELOPER, DEVOPS, OFFICE_MANAGER, PLANNER, REVIEWER } from "./known-roles.js";
-import type { RoleCard } from "./role-card.js";
+import { effortsTakenBy, ENGINE_TYPE_NAMES, type EngineKind } from "../../engine/index.js";
+import type { Effort, PersonEngineSettings, RoleCard } from "./role-card.js";
 
 /**
  * A template to hire from. It sets the Role's key and every field of its card but the person's
@@ -14,6 +15,19 @@ export interface Preset {
   /** Offered in the name field when hiring. */
   readonly suggestedName: string;
   readonly card: Omit<RoleCard, "name">;
+}
+
+/**
+ * A preset's engine settings: `effort` on each engine type that takes it, every model the engine's
+ * default; a type taking no effort is left out.
+ */
+function workingWith(effort: Effort): PersonEngineSettings {
+  const types = Object.keys(ENGINE_TYPE_NAMES) as EngineKind[];
+  return Object.fromEntries(
+    types
+      .filter((type) => effortsTakenBy(type).includes(effort))
+      .map((type) => [type, { model: null, effort }]),
+  );
 }
 
 const planner: Preset = {
@@ -29,8 +43,7 @@ const planner: Preset = {
       "Consult the CTO first: a Plan that touches architecture.",
       "Ask the user: marking a Task Ready, splitting a Task in two.",
     ].join("\n\n"),
-    roleOverride: null,
-    effort: "high",
+    engineSettings: workingWith("high"),
     capabilities: { sharedMemory: true, chat: true, consultant: true, runEnvironment: false },
     permissionProfile: { edit: false, run: "read-only-git", web: true, mcpTools: {} },
     hardSwitches: {
@@ -57,8 +70,7 @@ const developer: Preset = {
       "Consult Devops first: a check that cannot run because the machine or the Project's setup lacks something (a database that refuses its login, a missing service or tool). Do not ask the user to supply it or work around it yourself.",
       "Ask the user: changing the Definition of Done or a public API.",
     ].join("\n\n"),
-    roleOverride: null,
-    effort: "high",
+    engineSettings: workingWith("high"),
     capabilities: { sharedMemory: false, chat: false, consultant: false, runEnvironment: true },
     permissionProfile: { edit: true, run: "anything", web: true, mcpTools: {} },
     hardSwitches: {
@@ -84,8 +96,7 @@ const reviewer: Preset = {
       "Consult the CTO first: a finding about architecture.",
       "Ask the user: sending a change back a third time.",
     ].join("\n\n"),
-    roleOverride: null,
-    effort: "high",
+    engineSettings: workingWith("high"),
     capabilities: { sharedMemory: false, chat: false, consultant: false, runEnvironment: false },
     permissionProfile: { edit: false, run: "project-commands", web: true, mcpTools: {} },
     hardSwitches: {
@@ -112,8 +123,7 @@ const cto: Preset = {
       "Consult Devops first: installing anything that changes the machine outside the worktree.",
       "Ask the user: changing a Project's architecture, confirming an Initiative, changing an Initiative once it is active.",
     ].join("\n\n"),
-    roleOverride: null,
-    effort: "high",
+    engineSettings: workingWith("high"),
     capabilities: { sharedMemory: true, chat: true, consultant: true, runEnvironment: false },
     permissionProfile: { edit: true, run: "anything", web: true, mcpTools: {} },
     hardSwitches: {
@@ -139,8 +149,7 @@ const devops: Preset = {
       "Consult the CTO first: changing a Project's build system, publishing outside the Pipeline.",
       "Ask the user: changing a Pipeline or a Project's commands, through a Proposal.",
     ].join("\n\n"),
-    roleOverride: null,
-    effort: "high",
+    engineSettings: workingWith("high"),
     capabilities: { sharedMemory: true, chat: true, consultant: true, runEnvironment: true },
     // Onboarding makes a Project build and test in its worktree, so Devops edits and runs there.
     permissionProfile: { edit: true, run: "anything", web: true, mcpTools: {} },
@@ -166,8 +175,7 @@ const officeManager: Preset = {
       "Decide alone: answering for the state of The Office, capturing an Idea, drafting a Proposal.",
       "Ask the user: creating, changing or letting go of a Role; changing Office settings; starting, stopping or moving work; publishing anything.",
     ].join("\n\n"),
-    roleOverride: null,
-    effort: "medium",
+    engineSettings: workingWith("medium"),
     capabilities: { sharedMemory: true, chat: true, consultant: false, runEnvironment: false },
     // A chat only reads (spec §6), and the Office Manager never works a Stage.
     permissionProfile: { edit: false, run: "read-only-git", web: true, mcpTools: {} },

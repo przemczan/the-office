@@ -27,6 +27,8 @@ export interface TaskEngineLevels {
  */
 export interface TaskEngineMove {
   readonly taskId: string;
+  /** In an Initiative's change, the Task's title, which its refusal names ("… need on “<Task>”"). */
+  readonly taskTitle?: string;
   readonly projectId: string;
   readonly before: TaskEngineLevels;
   readonly after: TaskEngineLevels;
@@ -109,7 +111,7 @@ export function taskEngineMoves(
  * open Task that sets no engine of its own, Publishing Tasks included; none when it doesn't change.
  */
 export function inheritedEngineMoves(
-  tasks: readonly Pick<TaskSummary, "id" | "projectId" | "state" | "engine">[],
+  tasks: readonly Pick<TaskSummary, "id" | "title" | "projectId" | "state" | "engine">[],
   before: EngineModel | null,
   after: EngineModel | null,
 ): TaskEngineMove[] {
@@ -118,6 +120,7 @@ export function inheritedEngineMoves(
     .filter((task) => !isEnded(task) && task.engine === null)
     .map((task) => ({
       taskId: task.id,
+      taskTitle: task.title,
       projectId: task.projectId,
       before: { taskEngine: null, initiativeEngine: before },
       after: { taskEngine: null, initiativeEngine: after },

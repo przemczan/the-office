@@ -45,6 +45,10 @@ describe("sdkOptions", () => {
     expect(options.outputFormat).toBeUndefined();
   });
 
+  it("leaves the effort to the runtime when the session sets none", () => {
+    expect(optionsFor({ options: { ...OPTIONS, effort: undefined } })).not.toHaveProperty("effort");
+  });
+
   it("decides every tool call by the one PreToolUse hook", () => {
     expect(optionsFor().hooks).toEqual({ PreToolUse: [{ hooks: [PRE_TOOL_USE] }] });
   });

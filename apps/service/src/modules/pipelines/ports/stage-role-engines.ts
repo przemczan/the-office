@@ -34,6 +34,8 @@ export interface TaskStageRolesMove extends StageRolesNamed {
   readonly projectId: string;
   readonly before: WorkCascadeLevels;
   readonly after: WorkCascadeLevels;
+  /** In an Initiative's change, the Task's title, which its refusal names. */
+  readonly taskTitle?: string;
 }
 
 /**

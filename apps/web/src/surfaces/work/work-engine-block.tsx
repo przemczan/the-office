@@ -8,10 +8,10 @@ import { roleCardQueries, roleQueries, taskEngineCascadeKey } from "../../api/pe
 import { projectQueries } from "../../api/projects.ts";
 import { changeInitiativeEngine, changeTaskEngine, taskQueries } from "../../api/work.ts";
 import { EngineModelFields, type OfferedEngine } from "../../shell/engine-model-fields.tsx";
-import { modelLabel } from "../../shell/engine-words.ts";
+import { EFFORT_LABELS, modelLabel } from "../../shell/engine-words.ts";
 import { roleName } from "../../shell/person-name.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
-import { ENGINE_CASCADE_LEVEL_WORDS } from "../../shell/role-card-words.ts";
+import { modelAndEffortText, workSourceText } from "../../shell/role-card-words.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { useEngineName } from "../../shell/use-engine-name.ts";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
@@ -120,12 +120,14 @@ export function TaskEngineBlock({ task }: { readonly task: Task }): ReactNode {
   );
 }
 
-/** What the Planner and each Role the Task's Stages name run on for it, and where it comes from. */
+/**
+ * The model and effort the Planner and each Role the Task's Stages name work with on the Task's
+ * engine, where each comes from, and each Stage that sets its own effort.
+ */
 function TaskRunsOn({ task }: { readonly task: Task }): ReactNode {
   const cascade = useQuery(taskQueries.engineCascade(task.id)).data;
   const roles = useQuery(roleQueries.list()).data;
-  const engineName = useEngineName();
-  if (!cascade || cascade.roles.length === 0) return null;
+  if (!cascade || cascade.people.length === 0) return null;
   return (
     <div className="work-engine-list">
       <div className="work-engine-list-head">
@@ -133,28 +135,26 @@ function TaskRunsOn({ task }: { readonly task: Task }): ReactNode {
         <span className="task-quiet">{RUNS_ON_NOTE}</span>
       </div>
       <ul aria-label="Runs on">
-        {cascade.roles.map((role) => {
-          const name = roles?.some(({ key }) => key === role.roleKey)
-            ? roleName(role.roleKey, roles)
-            : role.roleName;
+        {cascade.people.map((person) => {
+          const filled = roles?.find(({ key }) => key === person.roleKey);
+          const name = filled ? roleName(person.roleKey, roles) : person.roleName;
+          const firstName = filled?.card.name ?? person.roleName;
           return (
-            <li key={role.roleKey} className="work-engine-row">
+            <li key={person.roleKey} className="work-engine-row">
               <span className="work-engine-row-name">{name}</span>
-              {role.engine ? (
+              {person.engine ? (
                 <span className="work-engine-row-what">
                   <span className="work-engine-row-engine">
-                    {onEngine(role.engine, engineName)}
+                    {modelAndEffortText(person.engine)}
                   </span>
-                  <span
-                    className={
-                      role.engine.level === "task-engine" ||
-                      role.engine.level === "initiative-engine"
-                        ? "work-engine-row-source here"
-                        : "work-engine-row-source"
-                    }
-                  >
-                    from {ENGINE_CASCADE_LEVEL_WORDS[role.engine.level]}
+                  <span className="work-engine-row-source">
+                    {workSourceText(person.engine, firstName)}
                   </span>
+                  {person.stages.map(({ stageName, effort }) => (
+                    <span key={stageName} className="work-engine-row-source here">
+                      {EFFORT_LABELS[effort]} on {stageName}
+                    </span>
+                  ))}
                 </span>
               ) : (
                 <span className="work-engine-row-what task-quiet">

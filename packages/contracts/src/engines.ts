@@ -163,7 +163,8 @@ export const ENGINE_TYPE_EFFORTS: Readonly<Record<EngineKind, readonly Effort[]>
 export const engineModelSchema = z.object({ engineId: engineIdSchema, model: z.string() });
 export type EngineModel = z.infer<typeof engineModelSchema>;
 
-const engineKindSchema = z.enum([
+/** An engine type, by its key: the `kind` of each of its engines. */
+export const engineTypeSchema = z.enum([
   "claude-code",
   "openai-compatible-api",
   "codex",
@@ -176,7 +177,7 @@ const engineKindSchema = z.enum([
  * default model it runs on.
  */
 export const officeDefaultSchema = z.object({
-  engineType: engineKindSchema,
+  engineType: engineTypeSchema,
   engineId: engineIdSchema,
 });
 export type OfficeDefault = z.infer<typeof officeDefaultSchema>;

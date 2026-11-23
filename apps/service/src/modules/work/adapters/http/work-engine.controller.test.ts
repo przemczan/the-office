@@ -149,7 +149,9 @@ describe("PUT /api/tasks/:id/engine", () => {
 
   it("refuses with the check's reasons, keeping the engine it had", async () => {
     const task = await createTask();
-    refusal = ["On “Export the usage”, the Developer would run on Racing, which can't use tools."];
+    refusal = [
+      "On “Export the usage”, Racing can't use Office tools, which the Agent Stages of the Developer need.",
+    ];
 
     const reasons = await reasonsOf(await setTaskEngine(task, anEngine()));
 
@@ -209,6 +211,7 @@ describe("PUT /api/initiatives/:id/engine", () => {
         moves: [
           {
             taskId: inheriting.id,
+            taskTitle: inheriting.title,
             projectId: inheriting.projectId,
             before: { taskEngine: null, initiativeEngine: null },
             after: { taskEngine: null, initiativeEngine: engine },
@@ -268,6 +271,7 @@ describe("a Task joining or leaving an Initiative with an engine", () => {
       moves: [
         {
           taskId: task.id,
+          taskTitle: task.title,
           projectId: task.projectId,
           before: { taskEngine: null, initiativeEngine: null },
           after: { taskEngine: null, initiativeEngine: engine },
@@ -310,7 +314,9 @@ describe("choosing a Task's Pipeline", () => {
     const engine = anEngine();
     expect((await setTaskEngine(task, engine)).status).toBe(200);
     checked = [];
-    refusal = ["On “Export the usage”, the Developer would run on Racing."];
+    refusal = [
+      "On “Export the usage”, Racing can't use Office tools, which the Agent Stages of the Developer need.",
+    ];
 
     expect(await reasonsOf(await choosePipeline(task, "full"))).toEqual(refusal);
     expect((await readTask(task)).pipelineId).toBeNull();
@@ -404,6 +410,7 @@ describe("removing an engine", () => {
         moves: [
           {
             taskId: inheriting.id,
+            taskTitle: inheriting.title,
             projectId: inheriting.projectId,
             before: { taskEngine: null, initiativeEngine: removed },
             after: { taskEngine: null, initiativeEngine: to },

@@ -112,13 +112,13 @@ async function setInitiativeEngine(
 }
 
 /**
- * How many Roles the Task's "Runs on" list names: its Planner and the Roles its Stages name, each
+ * How many people the Task's "Runs on" list names: its Planner and the Roles its Stages name, each
  * left out while nobody fills it (hiring is people.e2e.ts's, which a file run alone goes without).
  */
 async function rolesWorking(page: Page, task: Task): Promise<number> {
   const cascade = await page.request.get(`/api/tasks/${task.id}/engine-cascade`);
   expect(cascade.ok()).toBe(true);
-  return taskEngineCascadeSchema.parse(await cascade.json()).roles.length;
+  return taskEngineCascadeSchema.parse(await cascade.json()).people.length;
 }
 
 /** The record's Engine fold, unfolded. */
@@ -154,7 +154,8 @@ test.describe("a Task's and an Initiative's engine", { tag: "@full" }, () => {
     const working = await rolesWorking(page, task);
     if (working > 0) {
       await expect(runsOn.getByRole("listitem")).toHaveCount(working);
-      await expect(runsOn).not.toContainText("from the Task's engine");
+      // Each person works with their own model and effort, from their Role card.
+      await expect(runsOn).toContainText("Role card");
     } else {
       await expect(runsOn).toHaveCount(0);
     }
@@ -172,10 +173,7 @@ test.describe("a Task's and an Initiative's engine", { tag: "@full" }, () => {
       page.getByText(`Model saved for ${task.title}: its next sessions resume, on Haiku 5.5.`),
     ).toBeVisible();
     await expect(model).toHaveValue("claude-haiku-5-5");
-    if (working > 0) {
-      await expect(runsOn).toContainText("Haiku 5.5 on Claude Code");
-      await expect(runsOn).toContainText("from the Task's engine");
-    }
+    if (working > 0) await expect(runsOn).toContainText("effort high");
     await expect(fold.getByRole("button", { name: /^Engine/ })).toContainText(
       "Haiku 5.5 on Claude Code · set for this Task",
     );
@@ -199,7 +197,7 @@ test.describe("a Task's and an Initiative's engine", { tag: "@full" }, () => {
       ),
     ).toBeVisible();
     await expect(model).toHaveCount(0);
-    if (working > 0) await expect(runsOn).not.toContainText("from the Task's engine");
+    if (working > 0) await expect(runsOn.getByRole("listitem")).toHaveCount(working);
   });
 
   test("a Task in an Initiative that sets an engine offers the Initiative's engine as its empty choice", async ({
@@ -228,9 +226,7 @@ test.describe("a Task's and an Initiative's engine", { tag: "@full" }, () => {
       "Set on its Initiative. Pick an engine to run this Task on its own.",
     );
     if ((await rolesWorking(page, task)) > 0) {
-      await expect(fold.getByRole("list", { name: "Runs on" })).toContainText(
-        "from the Initiative's engine",
-      );
+      await expect(fold.getByRole("list", { name: "Runs on" })).toContainText("Role card");
     }
     await screenshotScenario(page, "task-engine-inherited", { inView: fold });
   });

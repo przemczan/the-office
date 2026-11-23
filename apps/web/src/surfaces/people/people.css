@@ -387,6 +387,51 @@
   color: var(--fg-2);
 }
 
+.role-card-works-with {
+  border-collapse: collapse;
+  font: var(--type-body);
+}
+
+.role-card-works-with th,
+.role-card-works-with td {
+  padding: 4px 16px 4px 0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.role-card-works-with thead th {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.role-card-works-with tbody th {
+  font-weight: inherit;
+}
+
+.role-card-muted {
+  color: var(--fg-3);
+}
+
+.role-card-engine-types {
+  display: grid;
+  gap: 12px;
+}
+
+.role-card-engine-type {
+  display: grid;
+  gap: 6px;
+}
+
+.role-card-engine-type-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.role-card-engine-type-name .role-card-note {
+  display: inline;
+}
+
 .role-card-empty {
   margin: 0;
   font: 400 var(--text-body) / 1.45 var(--font-sans);

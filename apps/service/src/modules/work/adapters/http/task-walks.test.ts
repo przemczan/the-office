@@ -387,8 +387,7 @@ const DEVELOPER_CARD: SessionRole["card"] = {
   title: "Developer",
   responsibilities: "Builds what the Plan says.",
   instructions: "Keep each change small.",
-  roleOverride: null,
-  effort: "low",
+  engineSettings: { "claude-code": { model: null, effort: "low" } },
   capabilities: { sharedMemory: false, chat: true, consultant: false, runEnvironment: false },
   permissionProfile: { edit: true, run: "read-only-git", web: false, mcpTools: {} },
   hardSwitches: {

@@ -47,14 +47,13 @@ describe("the Caretaker's fixed parts", () => {
 });
 
 describe("the Caretaker's card", () => {
-  it("takes a change to its instructions, effort, Role override and MCP tool settings", () => {
+  it("takes a change to its instructions, engine settings and MCP tool settings", () => {
     const changed = changeRoleCard(
       caretaker,
       {
         ...caretakerCard,
         instructions: "Look after the backups first.",
-        effort: "medium",
-        roleOverride: { engineId: "claude-code", model: "claude-opus-5-5" },
+        engineSettings: { "claude-code": { model: "claude-opus-5-5", effort: "medium" } },
         permissionProfile: {
           ...caretakerCard.permissionProfile,
           mcpTools: { "github/list_issues": { kind: "allowed" } },
@@ -66,7 +65,9 @@ describe("the Caretaker's card", () => {
     );
 
     expect(changed?.role.cardVersion).toBe(2);
-    expect(changed?.role.card.effort).toBe("medium");
+    expect(changed?.role.card.engineSettings).toEqual({
+      "claude-code": { model: "claude-opus-5-5", effort: "medium" },
+    });
   });
 
   it.each([

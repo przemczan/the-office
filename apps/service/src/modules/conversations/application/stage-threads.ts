@@ -8,6 +8,7 @@ import {
   EngineModels,
   EngineSessions,
   engineThroughStandIns,
+  type Effort,
   type EngineId,
   type EngineModel,
   type UsageWindowName,
@@ -140,8 +141,8 @@ export interface StageThreadRequest {
   /** The Task's Pipeline's name, and its Project's, which the session's telemetry carries. */
   readonly pipelineName: string;
   readonly projectName: string;
-  /** The Stage's own effort; undefined keeps the Role card's. */
-  readonly effort: SessionSettings["effort"] | undefined;
+  /** The Stage's own effort, the model and effort cascade's most specific level; undefined for none. */
+  readonly effort: Effort | undefined;
   /** The session the Stage declares, which wins at a Stage boundary (spec §2.5). */
   /** Undefined lets the Context policy decide, as inside a Thread. */
   readonly declared: "fresh" | "continue" | undefined;
@@ -188,7 +189,8 @@ export interface StageThreadStandIn {
 type StageSessionRequest = Pick<
   StageThreadRequest,
   "taskId" | "projectId" | "roleKey" | "declared" | "previousThreadId" | "record" | "engineStandIns"
->;
+> &
+  Partial<Pick<StageThreadRequest, "effort">>;
 
 /** What a Stage's session would be were it to begin now. */
 export interface StageSessionAhead {
@@ -412,17 +414,25 @@ export class StageThreads {
   > {
     const current = await this.roleCards.forNewSession(request.roleKey);
     const held = await this.duties.heldBy(request.roleKey);
-    const cascade = await this.engineCascade.of(request.roleKey, {
-      projectId: request.projectId,
-      taskId: request.taskId,
-    });
+    const cascade = await this.engineCascade.of(
+      request.roleKey,
+      { projectId: request.projectId, taskId: request.taskId },
+      { stageEffort: request.effort },
+    );
     // Mapped before the Context policy compares it with the session's engine, so a session is
     // never resumed on another engine; a stand-in removed since gives the cascade's back.
-    const applying = engineThroughStandIns(
+    const through = engineThroughStandIns(
       cascade,
       request.engineStandIns,
       await this.engineModels.engines(),
     );
+    const applying: StageEngine = {
+      ...through,
+      effort: cascade.effort,
+      // On a Stand-in Engine the model is the stand-in's, so nothing gave way there.
+      ...(through.engineId === cascade.engineId &&
+        cascade.gaveWay !== undefined && { gaveWay: cascade.gaveWay }),
+    };
     const standIn =
       applying.engineId === cascade.engineId
         ? undefined
@@ -581,13 +591,20 @@ export class StageThreads {
       ),
     );
     const start = this.startWatch(previous.id, session, role.card.name, "resume");
-    const reopening: Reopening = { threadId: previous.id, request, person, held };
+    const reopening: Reopening = {
+      threadId: previous.id,
+      request,
+      person,
+      held,
+      effort: applying.effort,
+    };
     const { opened, canInterrupt, leftOut } = await this.opening(
       start,
       previous.id,
       undefined,
       () => this.reopen(session, reopening, applying, start),
     );
+    await this.sayModelGaveWay(previous.id, role.card.name, applying);
     const work = { id: randomUUID(), text: request.work };
     opened.send(
       {
@@ -663,6 +680,7 @@ export class StageThreads {
       { text: openingMessage(brief.text, request.work), images },
       now,
     );
+    await this.sayModelGaveWay(thread.id, role.card.name, applying);
     return this.live(
       {
         threadId: thread.id,
@@ -762,6 +780,7 @@ export class StageThreads {
           person,
           held,
           applying,
+          applying.effort,
           skills,
           servers.servers,
         ),
@@ -777,8 +796,29 @@ export class StageThreads {
       canInterrupt,
       start,
       firstMessageId,
-      reopening: { threadId, request, person, held },
+      reopening: { threadId, request, person, held, effort: applying.effort },
     };
+  }
+
+  /**
+   * The Thread's line saying the person works with the engine's default model, as the model a level
+   * of the cascade set isn't offered there (spec §5.4.5); nothing when none gave way.
+   */
+  private async sayModelGaveWay(
+    threadId: string,
+    personName: string,
+    { engineId, model, gaveWay }: StageEngine,
+  ): Promise<void> {
+    if (gaveWay === undefined) return;
+    await this.log(threadId, [
+      {
+        kind: "model-gave-way",
+        personName,
+        model,
+        engineName: await this.engine.nameOf(engineId),
+        notOffered: gaveWay,
+      },
+    ]);
   }
 
   /** The Stage's context limits on `engineId`: none on an engine that doesn't report its context. */
@@ -838,7 +878,7 @@ export class StageThreads {
    */
   private async reopen(
     session: ThreadSession,
-    { threadId, request, person, held }: Reopening,
+    { threadId, request, person, held, effort }: Reopening,
     applying: EngineModel,
     start: SessionStartWatch,
   ): Promise<Reopened> {
@@ -860,6 +900,7 @@ export class StageThreads {
         person,
         held,
         applying,
+        effort,
         skills,
         servers.servers,
       ),
@@ -880,6 +921,7 @@ export class StageThreads {
     }: SessionRole & Pick<SessionPerson, "officeInstructions">,
     held: HeldDuties,
     applying: EngineModel,
+    effort: Effort | null,
     skills: Awaited<ReturnType<SessionSkills["prepare"]>>,
     mcpServers: SessionSettings["mcpServers"],
   ): SessionSettings {
@@ -888,7 +930,7 @@ export class StageThreads {
       model: applying.model,
       folder: request.folder,
       environment: request.environment,
-      effort: request.effort ?? card.effort,
+      effort: effort ?? undefined,
       instructions: workThreadInstructions(
         prompts,
         { card, officeInstructions },
@@ -1213,7 +1255,7 @@ export class StageThreads {
           request,
           role,
           held: await this.duties.heldBy(roleKey),
-          applying: { engineId: engine, model },
+          applying: { engineId: engine, model, effort: reopening.effort },
           standInFor,
           prompts,
         },
@@ -1499,7 +1541,7 @@ interface StageWorkPlace {
  */
 interface StageSessionDecision {
   readonly held: HeldDuties;
-  readonly applying: EngineModel;
+  readonly applying: StageEngine;
   /** The cascade's engine `applying` stands in for; undefined when it is the cascade's. */
   readonly standInFor: SessionStandIn | undefined;
   readonly move: ContextDecision;
@@ -1508,12 +1550,26 @@ interface StageSessionDecision {
   readonly prompts: PromptTexts;
 }
 
-/** What a Stage's session is resumed with: its Thread, the Stage's request, its person and duties. */
+/**
+ * The engine and model a Stage's session runs on, and the effort the model and effort cascade gives
+ * (null leaves it to the runtime); `gaveWay` names the model a level set that the engine doesn't
+ * offer, which gave way to its default.
+ */
+interface StageEngine extends EngineModel {
+  readonly effort: Effort | null;
+  readonly gaveWay?: string;
+}
+
+/**
+ * What a Stage's session is resumed with: its Thread, the Stage's request, its person and duties,
+ * and the effort it works with.
+ */
 interface Reopening {
   readonly threadId: string;
   readonly request: StageThreadRequest;
   readonly person: SessionRole & Pick<SessionPerson, "officeInstructions">;
   readonly held: HeldDuties;
+  readonly effort: Effort | null;
 }
 
 /**

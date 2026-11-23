@@ -23,7 +23,6 @@ import { DutyRepository } from "../ports/duty-repository.js";
 import { DutyRepositoryForTests } from "../ports/duty-repository.fixtures.js";
 import { ANN_LEE } from "../domain/user.fixtures.js";
 import { RoleCards } from "./role-cards.js";
-import { RoleOverrideChecks } from "./role-override-checks.js";
 import { RoleService } from "./role-service.js";
 
 let app: INestApplication;
@@ -49,7 +48,6 @@ beforeAll(async () => {
       { provide: RoleRepository, useClass: PostgresRoleRepository },
       { provide: DutyRepository, useClass: DutyRepositoryForTests },
       RoleService,
-      RoleOverrideChecks,
       RoleCards,
       Duties,
       DutyChangeChecks,
@@ -65,13 +63,20 @@ afterAll(async () => {
   await rm(officeData, { recursive: true, force: true });
 });
 
+const LOW_ON_CLAUDE_CODE = { "claude-code": { model: null, effort: "low" } } as const;
+
 describe("RoleCards", () => {
   it("gives a Role card change only to sessions started after it", async () => {
     const role = aRole({ key: `role-${randomUUID()}` });
     await repository.add(role);
 
     const before = await roleCards.forNewSession(role.key);
-    await roles.changeCard(role.key, aRoleCard({ effort: "medium", taskLimit: 2 }), [], ANN_LEE);
+    await roles.changeCard(
+      role.key,
+      aRoleCard({ engineSettings: LOW_ON_CLAUDE_CODE, taskLimit: 2 }),
+      [],
+      ANN_LEE,
+    );
     const after = await roleCards.forNewSession(role.key);
 
     // Where an MCP tool starts follows Devops, whom roles.controller.test hires and lets go.
@@ -79,7 +84,7 @@ describe("RoleCards", () => {
     expect(after).toMatchObject({
       roleKey: role.key,
       cardVersion: 2,
-      card: aRoleCard({ effort: "medium", taskLimit: 2 }),
+      card: aRoleCard({ engineSettings: LOW_ON_CLAUDE_CODE, taskLimit: 2 }),
     });
     await expect(roleCards.forResumedSession(role.key, before.cardVersion)).resolves.toEqual(
       before,

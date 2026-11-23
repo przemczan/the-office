@@ -372,7 +372,9 @@ function threadSettings(
     sandbox: "workspace-write",
     developerInstructions: codexInstructions(prompts, options.instructions, skills),
     config: {
-      model_reasoning_effort: codexEffort(options.effort),
+      ...(options.effort !== undefined && {
+        model_reasoning_effort: codexEffort(options.effort),
+      }),
       projects: { [projectRoot]: { trust_level: "untrusted" } },
       ...(Object.keys(mcpServers).length === 0 ? {} : { mcp_servers: mcpServers }),
     },

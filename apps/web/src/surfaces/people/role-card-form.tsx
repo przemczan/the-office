@@ -4,6 +4,8 @@ import {
   effortSchema,
   runPermissionSchema,
   sessionDefaultSchema,
+  type EngineKind,
+  type EngineTypeSetting,
   type HardSwitchKey,
   type HardSwitchValue,
   type McpServer,
@@ -21,9 +23,9 @@ import {
   Card,
   Checkbox,
   Field,
+  Icon,
   Input,
   RadioGroup,
-  SegmentedControl,
   Select,
   Switch,
   Textarea,
@@ -40,13 +42,13 @@ import {
 } from "../../api/people.ts";
 import { skillQueries } from "../../api/skills.ts";
 import { SkillCommandClash } from "../../shell/commands/command-notes.tsx";
-import { EngineModelFields } from "../../shell/engine-model-fields.tsx";
-import { EFFORT_LABELS } from "../../shell/engine-words.ts";
+import { EFFORT_LABELS, ENGINE_KIND_ICONS, modelLabel } from "../../shell/engine-words.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { personName } from "../../shell/person-name.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { blankRoleCard } from "./blank-role-card.ts";
+import { engineTypeRows, noEngineListedWords, type EngineTypeRow } from "./engine-type-rows.ts";
 import { FixedForTheCaretaker, RoleCardGroup } from "./role-card-layout.tsx";
 import { McpServerFields } from "./role-card-mcp-server-fields.tsx";
 import {
@@ -58,6 +60,7 @@ import {
   ASKS_YOU_UNTIL_HIRED,
   CAPABILITIES,
   ENFORCEMENT_LABELS,
+  ENGINES_DEFAULT,
   HARD_SWITCH_LABELS,
   hardSwitchChoiceOf,
   hardSwitchChoices,
@@ -405,32 +408,101 @@ function WorkFields({
   );
 }
 
-function EngineFields({
+/** The Engine choices' "Engine's default": nothing set at the person's level. */
+const ENGINES_DEFAULT_CHOICE = "";
+
+export function EngineFields({
   draft,
   options,
   change,
 }: FieldsProps & { readonly options: RoleCardOptions }): ReactNode {
+  const changeType = (type: EngineKind, setting: EngineTypeSetting | undefined): void => {
+    const others = Object.entries(draft.engineSettings).filter(([other]) => other !== type);
+    const unset = setting === undefined || (setting.model === null && setting.effort === null);
+    change({
+      engineSettings: Object.fromEntries(unset ? others : [...others, [type, setting]]),
+    });
+  };
+  const name = draft.name.trim() === "" ? "them" : draft.name;
   return (
     <RoleCardGroup group="engine">
-      <div className="role-card-form-pair">
-        <EngineModelFields
-          value={draft.roleOverride}
-          engines={options.engines}
-          noneLabel="Office default"
-          onChange={(roleOverride) => change({ roleOverride })}
-        />
-      </div>
-      <Field label="Effort" hint="How hard the model thinks.">
-        <SegmentedControl
-          value={draft.effort}
-          options={effortSchema.options.map((effort) => ({
-            value: effort,
-            label: EFFORT_LABELS[effort],
-          }))}
-          onChange={(effort) => change({ effort: effortSchema.parse(effort) })}
-        />
+      <Field
+        label="Model and effort for each engine type"
+        hint={`Used on whichever account of the type a session lands on, and on a Stand-in Engine of that type. A Project can set its own for ${name}.`}
+      >
+        <div className="role-card-engine-types">
+          {engineTypeRows(options, draft.engineSettings).map((row) => (
+            <EngineTypeFields
+              key={row.type}
+              row={row}
+              onChange={(setting) => changeType(row.type, setting)}
+            />
+          ))}
+        </div>
       </Field>
     </RoleCardGroup>
+  );
+}
+
+/** One engine type's Model and Effort; a type with no engine listed can only be cleared. */
+function EngineTypeFields({
+  row,
+  onChange,
+}: {
+  readonly row: EngineTypeRow;
+  readonly onChange: (setting: EngineTypeSetting | undefined) => void;
+}): ReactNode {
+  const setting = row.setting ?? { model: null, effort: null };
+  const offered = row.models.some(({ model }) => model === setting.model);
+  const modelChoices = [
+    { value: ENGINES_DEFAULT_CHOICE, label: ENGINES_DEFAULT },
+    ...row.models.map(({ model, onEveryAccount }) => ({
+      value: model,
+      label: onEveryAccount ? modelLabel(model) : `${modelLabel(model)} · Not on every account`,
+    })),
+    // A model the type no longer offers stays as the card names it until it is changed.
+    ...(setting.model !== null && !offered
+      ? [{ value: setting.model, label: modelLabel(setting.model) }]
+      : []),
+  ];
+  return (
+    <div className="role-card-engine-type" role="group" aria-label={row.label}>
+      <div className="role-card-engine-type-name">
+        <Icon name={ENGINE_KIND_ICONS[row.type]} size={14} />
+        <span>{row.label}</span>
+        {!row.listed && (
+          <>
+            <span className="role-card-note">{noEngineListedWords(row.type)}</span>
+            <Button type="button" size="sm" variant="ghost" onClick={() => onChange(undefined)}>
+              Clear
+            </Button>
+          </>
+        )}
+      </div>
+      <div className="role-card-form-pair">
+        <Select
+          label="Model"
+          value={setting.model ?? ENGINES_DEFAULT_CHOICE}
+          options={modelChoices}
+          onChange={(model) =>
+            onChange({ ...setting, model: model === ENGINES_DEFAULT_CHOICE ? null : model })
+          }
+        />
+        {row.efforts.length > 0 && (
+          <Select
+            label="Effort"
+            value={setting.effort ?? ENGINES_DEFAULT_CHOICE}
+            options={[
+              { value: ENGINES_DEFAULT_CHOICE, label: ENGINES_DEFAULT },
+              ...row.efforts.map((effort) => ({ value: effort, label: EFFORT_LABELS[effort] })),
+            ]}
+            onChange={(effort) =>
+              onChange({ ...setting, effort: effortSchema.safeParse(effort).data ?? null })
+            }
+          />
+        )}
+      </div>
+    </div>
   );
 }
 

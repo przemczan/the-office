@@ -36,8 +36,8 @@ import { StageContextLimitFields } from "./stage-context-limit-fields.tsx";
 import { StagePermissionFields } from "./stage-permission-fields.tsx";
 import "./stage-form.css";
 
-/** A Select's value for "keep the Role's effort": the Stage leaves it out. */
-const ROLE_DEFAULT = "";
+/** A Select's value for "keep the person's effort": the Stage leaves it out. */
+const PERSONS_EFFORT = "";
 
 /**
  * What "Who works it" holds for a duty, apart from a Role's key by its prefix; only the form reads
@@ -223,9 +223,10 @@ function AgentFields({
       <BudgetInput stage={stage} change={change} />
       <Select
         label="Effort"
-        value={stage.effort ?? ROLE_DEFAULT}
+        hint="Wins over the person's and the Project's; one the engine type doesn't take gives way to the person's"
+        value={stage.effort ?? PERSONS_EFFORT}
         options={[
-          { value: ROLE_DEFAULT, label: "Role default" },
+          { value: PERSONS_EFFORT, label: "Person's effort" },
           ...effortSchema.options.map((effort) => ({
             value: effort,
             label: EFFORT_LABELS[effort],

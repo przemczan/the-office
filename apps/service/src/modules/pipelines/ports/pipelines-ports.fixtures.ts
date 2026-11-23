@@ -162,6 +162,10 @@ export class RoleEngineCascadeForTests extends RoleEngineCascade {
     engineId: "claude-code",
     model: "claude-sonnet-5-5",
     level: "office-default",
+    engineType: "claude-code",
+    effort: null,
+    modelLevel: "engine",
+    effortLevel: "engine",
   };
   readonly asked: { readonly roleKey: string; readonly place: TaskSessionPlace }[] = [];
   private readonly set = new Map<string, EngineInCascade>();

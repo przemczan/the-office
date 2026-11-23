@@ -31,7 +31,6 @@ import {
 import {
   DayUsage,
   EngineModule,
-  FIRST_CLAUDE_CODE_ENGINE,
   ModelPrices,
   UsageWindowSamples,
   UsageWindowState,
@@ -180,8 +179,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
           );
           await api("PUT", "/roles/planner/card", {
             ...hired.card,
-            roleOverride: { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-haiku-5-5" },
-            effort: "low",
+            engineSettings: { "claude-code": { model: "claude-haiku-5-5", effort: "low" } },
             skills: [],
           });
           const project = projectSchema.parse(

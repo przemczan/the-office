@@ -1,5 +1,6 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { readEach } from "../../../platform/database/fan-out.js";
+import type { Effort } from "../../engine/index.js";
 import type { DutyKey, EngineInCascade } from "../../people/index.js";
 import { TaskEngineChecks, type TaskEngineChange } from "../../work/index.js";
 import { agentStageWorkers, stageWorker, type Stage } from "../domain/stage.js";
@@ -13,12 +14,22 @@ import { namedRoles, TaskStagesService } from "./task-stages-service.js";
 /** The duty of whoever plans Tasks (People's `plans`), whose sessions run on a Task too. */
 const PLANS: DutyKey = "plans";
 
-/** A Role that works on a Task, and the engine its sessions about the Task run on. */
+/** A Stage of a Task that sets its own effort, the model and effort cascade's most specific level. */
+export interface StageOwnEffort {
+  readonly stageName: string;
+  readonly effort: Effort;
+}
+
+/**
+ * A person who works on a Task, the engine their sessions about the Task run on with the model and
+ * effort they work with there, and each of the Task's Stages they work that sets its own effort.
+ */
 export interface TaskRoleEngine {
   readonly roleKey: string;
   readonly roleName: string;
   /** None while no engine is listed. */
   readonly engine: EngineInCascade | null;
+  readonly stages: readonly StageOwnEffort[];
 }
 
 /**
@@ -51,7 +62,7 @@ export class TaskRoleEngines implements OnModuleInit {
   async changeProblems({ place, moves }: TaskEngineChange): Promise<readonly string[]> {
     const tasks = await readEach(
       moves,
-      async ({ taskId, projectId, before, after, pipelineId }) => {
+      async ({ taskId, taskTitle, projectId, before, after, pipelineId }) => {
         const stages = await this.taskStages.stagesToWork(taskId);
         if (pipelineId === undefined) {
           if (stages === undefined) return [];
@@ -60,6 +71,7 @@ export class TaskRoleEngines implements OnModuleInit {
             projectId,
             before,
             after,
+            taskTitle,
           };
           return [move];
         }
@@ -71,6 +83,7 @@ export class TaskRoleEngines implements OnModuleInit {
           projectId,
           before,
           after,
+          taskTitle,
         };
         return [move];
       },
@@ -82,35 +95,49 @@ export class TaskRoleEngines implements OnModuleInit {
 
   /**
    * Whoever plans, then each Role the Task's Agent Stages name in the Stages' order, once each, a
-   * duty by its holder; a Role or duty nobody fills is left out. Undefined for no such Task.
+   * duty by its holder, with the Stages they work that set their own effort; a Role or duty nobody
+   * fills is left out. Undefined for no such Task.
    */
   async of(taskId: string): Promise<readonly TaskRoleEngine[] | undefined> {
     const task = await this.tasks.find(taskId);
     if (task === undefined) return undefined;
-    const roleKeys = await this.rolesWorking(taskId);
-    const filled = await readEach(roleKeys, async (roleKey) =>
+    const working = await this.peopleWorking(taskId);
+    const filled = await readEach([...working.keys()], async (roleKey) =>
       (await this.people.find(roleKey)) === undefined ? [] : [roleKey],
     );
     return readEach(filled.flat(), async (roleKey) => ({
       roleKey,
       roleName: this.people.roleTitle(roleKey),
       engine: await this.cascade.applying(roleKey, { projectId: task.projectId, taskId }),
+      stages: working.get(roleKey) ?? [],
     }));
   }
 
-  private async rolesWorking(taskId: string): Promise<string[]> {
+  /** Each person working on the Task, in order, with the Stages they work that set an effort. */
+  private async peopleWorking(taskId: string): Promise<Map<string, StageOwnEffort[]>> {
     const [planner, holders, stages] = await Promise.all([
       this.people.holderOf(PLANS),
       this.people.dutyHolders(),
       this.taskStages.stagesToWork(taskId),
     ]);
-    const named = (stages ?? []).flatMap((stage: Stage) => {
-      const worker = stageWorker(stage);
-      if (worker === undefined) return [];
-      if ("role" in worker) return [worker.role];
-      const holder = holders.get(worker.duty);
-      return holder === undefined ? [] : [holder];
-    });
-    return [...new Set([...(planner === undefined ? [] : [planner]), ...named])];
+    const working = new Map<string, StageOwnEffort[]>();
+    if (planner !== undefined) working.set(planner, []);
+    for (const stage of stages ?? []) {
+      const roleKey = workerOf(stage, holders);
+      if (roleKey === undefined) continue;
+      const own = working.get(roleKey) ?? [];
+      working.set(roleKey, own);
+      if (stage.kind === "agent" && stage.effort !== undefined) {
+        own.push({ stageName: stage.name, effort: stage.effort });
+      }
+    }
+    return working;
   }
+}
+
+/** Who works the Stage: its Role, or its duty's holder; none for a Stage no Agent works. */
+function workerOf(stage: Stage, holders: ReadonlyMap<string, string>): string | undefined {
+  const worker = stageWorker(stage);
+  if (worker === undefined) return undefined;
+  return "role" in worker ? worker.role : holders.get(worker.duty);
 }

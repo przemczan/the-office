@@ -532,6 +532,18 @@ describe("CodexAppServerEngine on a stand-in app-server", () => {
     expect(turn.errors).toEqual([expect.stringContaining("isn't JSON")]);
   });
 
+  it("leaves the effort to Codex when the session sets none", async () => {
+    const { session, log } = await started(message("answer hi"), { effort: undefined });
+    await log.turn(0);
+    await session.end();
+
+    const [run] = await fakeAppServerRuns(report);
+    const threadStart = run?.received.find(({ method }) => method === "thread/start");
+    const turnStart = run?.received.find(({ method }) => method === "turn/start");
+    expect(JSON.stringify(threadStart?.params)).not.toContain("model_reasoning_effort");
+    expect(turnStart?.params).not.toHaveProperty("effort");
+  });
+
   it("fails the session's events when the app-server exits by itself", async () => {
     const { session, log } = await started(message("crash"));
 

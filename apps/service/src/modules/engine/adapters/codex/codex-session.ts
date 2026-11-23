@@ -68,7 +68,8 @@ export interface CodexSessionParts {
   readonly shellTool: ShellTool;
   /** What the session lists, those only the user runs among them, which skill commands run. */
   readonly skills: readonly ListedSkill[];
-  readonly effort: Effort;
+  /** Undefined leaves it to Codex. */
+  readonly effort: Effort | undefined;
   /** Whether the account has usage windows to read: a ChatGPT sign-in's, not an API key's. */
   readonly usageWindows: boolean;
   /** What each turn's answer must match, or undefined for a reply in plain words. */
@@ -315,7 +316,7 @@ export class CodexSession implements EngineSession {
       const started = await this.rpc().request("turn/start", {
         threadId,
         input,
-        effort: codexEffort(this.parts.effort),
+        ...(this.parts.effort !== undefined && { effort: codexEffort(this.parts.effort) }),
         ...(this.parts.outputSchema === undefined ? {} : { outputSchema: this.parts.outputSchema }),
       });
       turn.id = started.turn.id;

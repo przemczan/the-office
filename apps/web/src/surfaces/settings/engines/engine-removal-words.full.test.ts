@@ -25,9 +25,6 @@ describe("where a removal moves a reference", () => {
     expect(movedReferencePlace({ roleKey: null, project: SHOP, work: null }, ROLES)).toBe(
       "The Project default of Shop",
     );
-    expect(movedReferencePlace({ roleKey: "data-analyst", project: null, work: null }, ROLES)).toBe(
-      "The Role override of Mia · Data Analyst",
-    );
     expect(movedReferencePlace({ roleKey: "data-analyst", project: SHOP, work: null }, ROLES)).toBe(
       "The Role override of Mia · Data Analyst in Shop",
     );
@@ -65,11 +62,11 @@ describe("where a removal moves a reference", () => {
   });
 
   it("marks a person let go, and falls back to the key for a Role not read", () => {
-    expect(movedReferencePlace({ roleKey: "reviewer", project: null, work: null }, ROLES)).toBe(
-      "The Role override of Rex · Reviewer (let go)",
+    expect(movedReferencePlace({ roleKey: "reviewer", project: SHOP, work: null }, ROLES)).toBe(
+      "The Role override of Rex · Reviewer (let go) in Shop",
     );
-    expect(movedReferencePlace({ roleKey: "planner", project: null, work: null }, undefined)).toBe(
-      "The Role override of planner",
+    expect(movedReferencePlace({ roleKey: "planner", project: SHOP, work: null }, undefined)).toBe(
+      "The Role override of planner in Shop",
     );
   });
 });

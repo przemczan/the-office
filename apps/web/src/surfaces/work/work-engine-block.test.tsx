@@ -118,16 +118,32 @@ const TASK: Task = {
 };
 
 const CASCADE: TaskEngineCascade = {
-  roles: [
+  people: [
     {
       roleKey: "planner",
       roleName: "Pam",
-      engine: { ...SONNET_ON_WORK, level: "project-default" },
+      engine: {
+        ...SONNET_ON_WORK,
+        level: "project-default",
+        engineType: "claude-code",
+        effort: "high",
+        modelLevel: "engine",
+        effortLevel: "person",
+      },
+      stages: [],
     },
     {
       roleKey: "developer",
       roleName: "Dwight",
-      engine: { ...OPUS_ON_PERSONAL, level: "role-override" },
+      engine: {
+        ...OPUS_ON_PERSONAL,
+        level: "project-default",
+        engineType: "claude-code",
+        effort: "medium",
+        modelLevel: "person",
+        effortLevel: "person",
+      },
+      stages: [{ stageName: "Implement", effort: "max" }],
     },
   ],
 };
@@ -269,15 +285,15 @@ describe("the Task's Engine fold", () => {
     expect(summaryOf(page)).toBe("Initiative's engine · Opus 5.5 on Personal");
   });
 
-  it("lists what each Role runs on for it, and the level it comes from", async () => {
+  it("lists the model and effort each person works with, where each comes from, and a Stage's own effort", async () => {
     const page = await taskPage(TASK);
 
     const rows = [...page.querySelectorAll('[aria-label="Runs on"] li')].map(
       ({ textContent }) => textContent,
     );
     expect(rows).toEqual([
-      "PamSonnet 5.5 on Work accountfrom the Project default",
-      "DwightOpus 5.5 on Personalfrom the Role override",
+      "PamSonnet 5.5 · effort highmodel: the engine's default; effort: from Pam's Role card",
+      "DwightOpus 5.5 · effort mediumfrom Dwight's Role cardMax on Implement",
     ]);
   });
 

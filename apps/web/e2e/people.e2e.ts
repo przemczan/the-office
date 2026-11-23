@@ -401,8 +401,13 @@ test(
     await expect(permissions).toContainText("Asks you until someone is hired");
     await expect(permissions).toContainText("Change RolesNever");
     await expect(roleCardGroup(page, "Work")).toContainText("3 at once");
-    await expect(roleCardGroup(page, "Engine")).toContainText("Office default · effort high");
-    await expect(roleCardGroup(page, "Engine")).toContainText("from the Office default");
+    const worksWith = roleCardGroup(page, "Engine").getByRole("table");
+    await expect(worksWith.getByRole("row", { name: /Claude Code/ })).toContainText(
+      "Claude CodeEngine's defaultHigh",
+    );
+    await expect(roleCardGroup(page, "Engine")).toContainText(
+      "Sonnet 5.5 · effort high on Claude Code",
+    );
     await expect(page.getByText("Hired", { exact: true })).toBeVisible();
     await page.screenshot({
       path: path.join(SCREENSHOTS, "light-1600-person-role-card.png"),
@@ -440,10 +445,12 @@ test("the user edits every field of a Role card, and it holds after a reload", a
   await form.getByLabel("Instructions").fill("Work from the Plan.\n\nAsk the user: a public API.");
   await form.getByLabel("Task limit").selectOption("4");
   await form.getByText("Prefer to continue", { exact: true }).click();
-  await form.getByRole("combobox", { name: "Engine" }).selectOption({ label: "Claude Code" });
-  // Picking an engine fills in its default model.
-  await expect(form.getByLabel("Model")).toHaveValue("claude-sonnet-5-5");
-  await form.getByRole("tab", { name: "Max" }).click();
+  const claudeCode = form.getByRole("group", { name: "Claude Code" });
+  // The preset works with the engine's default model, at effort High.
+  await expect(claudeCode.getByLabel("Model")).toHaveValue("");
+  await expect(claudeCode.getByLabel("Effort")).toHaveValue("high");
+  await claudeCode.getByLabel("Model").selectOption({ label: "Sonnet 5.5" });
+  await claudeCode.getByLabel("Effort").selectOption({ label: "Max" });
   await form.getByText("Chat", { exact: true }).click();
   await form.getByText("Consultant", { exact: true }).click();
   await form.getByText("Run environment", { exact: true }).click();
@@ -474,11 +481,11 @@ test("the user edits every field of a Role card, and it holds after a reload", a
   await expect(roleCardGroup(page, "Work")).toContainText("Ask the user: a public API.");
   await expect(roleCardGroup(page, "Work")).toContainText("4 at once");
   await expect(roleCardGroup(page, "Work")).toContainText("Prefer to continue");
+  await expect(
+    roleCardGroup(page, "Engine").getByRole("row", { name: /Claude Code/ }),
+  ).toContainText("Claude CodeSonnet 5.5Max");
   await expect(roleCardGroup(page, "Engine")).toContainText(
-    "Sonnet 5.5 · effort max · Claude Code",
-  );
-  await expect(roleCardGroup(page, "Engine")).toContainText(
-    "Sonnet 5.5 on Claude Code, from the Role override",
+    "Sonnet 5.5 · effort max on Claude Code",
   );
   const capabilities = roleCardGroup(page, "Capabilities").getByRole("listitem");
   await expect(capabilities.filter({ hasText: "Chat" })).toHaveClass("on");
@@ -495,13 +502,18 @@ test("the user edits every field of a Role card, and it holds after a reload", a
   await expect(roleCardGroup(page, "Skills")).toContainText(SKILL);
 
   const changes = page.getByRole("listitem").filter({ hasText: "Role card version 2" });
-  await expect(changes).toContainText("Engine and model Office default → Claude Code · Sonnet 5.5");
+  await expect(changes).toContainText("Model and effort");
+  await expect(changes).toContainText("→ Claude Code: Sonnet 5.5 · effort max");
   await expect(changes).toContainText("Task limit 3 → 4");
   await expect(page.getByText(`Skills gained ${SKILL}`)).toBeVisible();
   await page.screenshot({
     path: path.join(SCREENSHOTS, "light-1600-role-card-changed.png"),
     fullPage: true,
   });
+
+  // The Overview's Works with names the type's model and effort.
+  await page.goto("/people/developer");
+  await expect(page.getByText("Claude Code: Sonnet 5.5 · effort max")).toBeVisible();
 });
 
 test(
@@ -515,7 +527,7 @@ test(
       project = await addedProject(page, repository, "Cascade shop", "CS");
       await page.goto("/people/developer/role");
       const engine = roleCardGroup(page, "Engine");
-      await expect(engine).toContainText("Sonnet 5.5 on Claude Code, from the Role override");
+      await expect(engine).toContainText("Sonnet 5.5 · effort max on Claude Code");
       const elsewhere = engine.getByRole("list", { name: "Projects where something else applies" });
       await expect(elsewhere).toHaveCount(0);
 
@@ -525,8 +537,8 @@ test(
         { data: { roleOverride: haiku } },
       );
       expect(overridden.ok()).toBe(true);
-      await expect(elsewhere).toHaveText(
-        "In Cascade shop: Haiku 5.5 on Claude Code, from the Project's Role override",
+      await expect(elsewhere).toContainText(
+        "In Cascade shop: Haiku 5.5 · effort max on Claude Code",
       );
     } finally {
       if (project) {
@@ -574,9 +586,7 @@ test(
         name: "Projects where something else applies",
       });
       await page.goto("/people/developer/role");
-      await expect(elsewhere).toContainText(
-        "In Engine shop: Haiku 5.5 on Claude Code, from the Project default",
-      );
+      await expect(elsewhere).toContainText("In Engine shop: Haiku 5.5");
 
       await page.goto(`/projects/${project.id}/engine`);
       const adding = block.getByRole("group", { name: "Add a Role override" });
@@ -594,9 +604,7 @@ test(
 
       // The Project's Role override wins over the force.
       await page.goto("/people/developer/role");
-      await expect(elsewhere).toContainText(
-        "In Engine shop: Haiku 5.5 on Claude Code, from the Project's Role override",
-      );
+      await expect(elsewhere).toContainText("In Engine shop: Haiku 5.5");
 
       await page.goto(`/projects/${project.id}/engine`);
       await overrides.getByRole("button", { name: "Remove" }).click();
@@ -744,23 +752,22 @@ test(
 
     await page.goto("/people/data-analyst/role/edit");
     const form = page.locator("form.role-card-form");
-    await form.getByRole("combobox", { name: "Engine" }).selectOption({ label: "People Strata" });
-    await expect(
-      form.getByText("It has no usage windows, so the 5-hour window doesn't count it."),
-    ).toBeVisible();
-    await form.getByLabel("Model").selectOption({ label: "org/coder:q4" });
+    // An API endpoint takes no effort, so its row has a Model only.
+    const apiEndpoint = form.getByRole("group", { name: "API endpoint" });
+    await expect(apiEndpoint.getByLabel("Effort")).toHaveCount(0);
+    await apiEndpoint.getByLabel("Model").selectOption({ label: "org/coder:q4" });
     await page.getByRole("button", { name: "Save changes" }).click();
 
     await expect(page).toHaveURL(/\/people\/data-analyst\/role$/);
     await page.reload();
-    await expect(roleCardGroup(page, "Engine")).toContainText(
-      "org/coder:q4 · effort medium · People Strata",
-    );
-    await expect(roleCardGroup(page, "Engine")).toContainText("It has no usage windows");
+    await expect(
+      roleCardGroup(page, "Engine").getByRole("row", { name: /API endpoint/ }),
+    ).toContainText("API endpointorg/coder:q4");
     await expect(
       page
         .getByRole("listitem")
-        .filter({ hasText: "Engine and model Office default → People Strata · org/coder:q4" }),
+        .filter({ hasText: "Model and effort" })
+        .filter({ hasText: "API endpoint: org/coder:q4" }),
     ).toBeVisible();
 
     // An API engine has Daily caps only: it has no usage windows.
@@ -933,9 +940,6 @@ test(
   { tag: "@full" },
   async ({ page }) => {
     const repository = await createTemporaryRepository();
-    const miasCard = roleSchema.parse(
-      await (await page.request.get("/api/roles/data-analyst")).json(),
-    ).card;
     let project: Project | undefined;
     try {
       // An engine of the test's own: removing one moves every reference to it, whoever made it.
@@ -950,10 +954,6 @@ test(
       ]);
       const leaving = await engineIdOf(page, "Leaving account");
       project = await addedProject(page, repository, "Removal shop", "RS");
-      const overridden = await page.request.put("/api/roles/data-analyst/card", {
-        data: { ...miasCard, roleOverride: { engineId: leaving, model: "claude-haiku-5-5" } },
-      });
-      expect(overridden.ok()).toBe(true);
       const defaulted = await page.request.put(`/api/projects/${project.id}/project-default`, {
         data: { projectDefault: { engineId: leaving, model: "claude-sonnet-5-5" } },
       });
@@ -968,10 +968,8 @@ test(
       const confirm = dialog.getByRole("button", { name: "Remove Leaving account" });
       // The Office default's engine is suggested.
       await expect(replacement).toHaveValue("claude-code");
-      await expect(moves.getByRole("listitem")).toHaveCount(2);
-      await expect(
-        moves.getByRole("listitem").filter({ hasText: "The Role override of Mia · Data Analyst" }),
-      ).toContainText("Haiku 5.5 on Leaving account → Haiku 5.5 on Claude Code");
+      // A person's model and effort name engine types, so only the Project default moves.
+      await expect(moves.getByRole("listitem")).toHaveCount(1);
       await expect(
         moves.getByRole("listitem").filter({ hasText: "The Project default of Removal shop" }),
       ).toContainText("Sonnet 5.5 on Leaving account → Sonnet 5.5 on Claude Code");
@@ -980,8 +978,8 @@ test(
       // A replacement without a model a reference named gives its default model.
       await replacement.selectOption({ label: "People Strata" });
       await expect(
-        moves.getByRole("listitem").filter({ hasText: "The Role override of Mia · Data Analyst" }),
-      ).toContainText("Haiku 5.5 on Leaving account → org/coder:q4 on People Strata");
+        moves.getByRole("listitem").filter({ hasText: "The Project default of Removal shop" }),
+      ).toContainText("Sonnet 5.5 on Leaving account → org/coder:q4 on People Strata");
 
       await replacement.selectOption({ label: "Claude Code" });
       await expect(confirm).toBeEnabled();
@@ -993,16 +991,11 @@ test(
       // Another engine shows in its place.
       await expect(shownEngine(page)).toHaveCount(1);
 
-      const mia = roleSchema.parse(
-        await (await page.request.get("/api/roles/data-analyst")).json(),
-      );
-      expect(mia.card.roleOverride).toEqual({ engineId: "claude-code", model: "claude-haiku-5-5" });
       const shop = projectSchema.parse(
         await (await page.request.get(`/api/projects/${project.id}`)).json(),
       );
       expect(shop.projectDefault).toEqual({ engineId: "claude-code", model: "claude-sonnet-5-5" });
     } finally {
-      await page.request.put("/api/roles/data-analyst/card", { data: miasCard });
       if (project) {
         await page.request.put(`/api/projects/${project.id}/project-default`, {
           data: { projectDefault: null },
@@ -4803,8 +4796,16 @@ test(
     await seedProposal(threadId, {
       kind: "change",
       roleKey: "reviewer",
-      from: { effort: reviewer.effort },
-      to: { effort: reviewer.effort === "low" ? "medium" : "low" },
+      from: { engineSettings: reviewer.engineSettings },
+      to: {
+        engineSettings: {
+          ...reviewer.engineSettings,
+          "claude-code": {
+            model: reviewer.engineSettings["claude-code"]?.model ?? null,
+            effort: reviewer.engineSettings["claude-code"]?.effort === "low" ? "medium" : "low",
+          },
+        },
+      },
     });
     const consultantLine = `Consultant ${onOrOff(reviewer.capabilities.consultant)} → ${onOrOff(consultantNow.consultant)}`;
 
@@ -4834,7 +4835,7 @@ test(
     await expect(change).toContainText("Ola works with it from the next session");
 
     // "Not now": nothing changes.
-    const effort = changes.filter({ hasText: "Effort" });
+    const effort = changes.filter({ hasText: "Model and effort" });
     await effort.getByRole("button", { name: "Not now" }).click();
     await expect(effort).toContainText("Not applied");
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-proposals.png") });
@@ -4858,7 +4859,7 @@ test(
       page.getByText(`${consultantLine} · proposed by Marta, applied by you`),
     ).toBeVisible();
     // The declined change saved no version of its own.
-    await expect(page.getByText(/Effort .* proposed by Marta/)).toHaveCount(0);
+    await expect(page.getByText(/Model and effort .* proposed by Marta/)).toHaveCount(0);
 
     await page.goto(`/people?chat=office-manager&thread=${threadId}`);
     await expect(proposalCard(page, "New Role · Iga · Designer")).toContainText("Hired");

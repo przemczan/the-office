@@ -1414,7 +1414,7 @@ describe("continuing a Thread", () => {
     // The service restarts, the cache cools, and the card changes meanwhile.
     await runner.onModuleDestroy();
     await cooled(thread.id, 12_000);
-    versions.push({ ...PLANNER, effort: "low" });
+    versions.push({ ...PLANNER, instructions: "Plan in French." });
 
     await runner.send(thread.id, "Still there?", ANN_LEE);
     const log = await answered(thread.id, 6);
@@ -1542,8 +1542,12 @@ describe("continuing a Thread", () => {
     await runner.send(thread.id, "Read the deploy workflow.", ANN_LEE);
     await answered(thread.id, 3);
     await cooled(thread.id, 80_000);
-    versions.push({ ...PLANNER, effort: "low" });
-    cascade.set(roleKey, { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-sonnet-5-5" });
+    versions.push({ ...PLANNER, instructions: "Plan in French." });
+    cascade.set(roleKey, {
+      engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+      model: "claude-sonnet-5-5",
+      effort: "low",
+    });
 
     await runner.send(thread.id, "And the tests?", ANN_LEE);
     const log = await answered(thread.id, 6);
@@ -1552,6 +1556,7 @@ describe("continuing a Thread", () => {
     expect(fresh?.id).not.toBe(first?.id);
     expect(forgotten).toEqual([first?.id]);
     expect(fresh?.options).toMatchObject({ model: "claude-sonnet-5-5", effort: "low" });
+    expect(fresh?.options.instructions).toContain("Plan in French.");
     const brief = fresh?.received[0];
     expect(brief?.step === "start" && brief.brief.text).toMatch(
       /in a fresh session[\s\S]*## The Thread\n\nRead the deploy workflow[\s\S]*The user Ann Lee: Read the deploy workflow\.\n\nYou: It deploys on push\.[\s\S]*## The message from the user Ann Lee\n\nAnd the tests\?$/,
@@ -1702,6 +1707,38 @@ describe("a Thread on the OpenAI-compatible API, its own sessions on a fake serv
       model: "claude-haiku-5-5",
     });
     expect(label).toMatchObject({ move: "resume", reason: "cache-warm" });
+  });
+
+  it("works with the cascade's effort, leaving none to the runtime, and says once when a model gave way", async () => {
+    await startWith(started(...aTurn("brief", "Hello.")), [
+      { step: "resume" },
+      sent("m-2"),
+      ...aTurn("m-2", "Still here."),
+    ]);
+    cascade.set(roleKey, {
+      engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+      model: "claude-sonnet-5-5",
+      effort: null,
+      gaveWay: "claude-opus-4-1",
+    });
+    const thread = await threads.startInChat(roleKey);
+    await runner.send(thread.id, "Hello.", ANN_LEE);
+    await answered(thread.id, 4);
+    await runner.onModuleDestroy();
+    await cooled(thread.id, 12_000);
+    await runner.send(thread.id, "Still there?", ANN_LEE);
+    const log = await answered(thread.id, 7);
+
+    expect(engine.sessions.map(({ options }) => options.effort)).toEqual([undefined, undefined]);
+    expect(drafts(log).filter(({ kind }) => kind === "model-gave-way")).toEqual([
+      {
+        kind: "model-gave-way",
+        personName: "Jan",
+        model: "claude-sonnet-5-5",
+        engineName: "Claude Code",
+        notOffered: "claude-opus-4-1",
+      },
+    ]);
   });
 
   it("resumes a cooled Thread with a small context from the conversation the engine kept", async () => {
@@ -2249,6 +2286,7 @@ describe("the engine cascade a Thread's session resolves", () => {
     expect(cascade.asked).toContainEqual({
       roleKey,
       location: { projectId: "admin-panel", taskId },
+      work: {},
     });
     expect(engine.sessions[0]?.options).toMatchObject(HAIKU_ON_CLAUDE_CODE);
   });
@@ -2276,6 +2314,7 @@ describe("the engine cascade a Thread's session resolves", () => {
     expect(cascade.asked).toContainEqual({
       roleKey,
       location: { projectId: "admin-panel", taskId },
+      work: {},
     });
     expect(engine.sessions[0]?.options).toMatchObject(HAIKU_ON_CLAUDE_CODE);
   });
@@ -2293,7 +2332,7 @@ describe("the engine cascade a Thread's session resolves", () => {
     });
     await answered(opened.id, 2);
 
-    expect(cascade.asked).toContainEqual({ roleKey, location: { initiativeId } });
+    expect(cascade.asked).toContainEqual({ roleKey, location: { initiativeId }, work: {} });
     expect(engine.sessions[0]?.options).toMatchObject(HAIKU_ON_CLAUDE_CODE);
   });
 

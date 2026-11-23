@@ -42,6 +42,7 @@ describe("a Task's and an Initiative's engine", () => {
     expect(moves).toEqual([
       {
         taskId: "task-1",
+        taskTitle: inheriting.title,
         projectId: inheriting.projectId,
         before: { taskEngine: null, initiativeEngine: null },
         after: { taskEngine: null, initiativeEngine: ON_QWEN },

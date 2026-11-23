@@ -39,12 +39,16 @@ import {
 } from "../../domain/session-instructions.js";
 import { refusedToTheAgent } from "./refused-to-the-agent.js";
 
-// A Role override is the user's to set on the card: a proposed Role runs on the Office default.
-const roleCardFieldsSchema = roleCardSchema.omit({ skills: true, roleOverride: true }).extend({
+const roleCardFieldsSchema = roleCardSchema.omit({ skills: true }).extend({
   name: z
     .string()
     .describe(
       "The person's first name, apart from the Role's title: a person is never named by it.",
+    ),
+  engineSettings: roleCardSchema.shape.engineSettings
+    .optional()
+    .describe(
+      "The model and effort the person works with on each engine type, by the type (claude-code, codex, copilot-cli, gemini-cli, openai-compatible-api): { model, effort }, null for the engine's default. Leave a type out to keep the engine's default; a new Role left without it works with each engine's defaults.",
     ),
 });
 
@@ -87,7 +91,7 @@ export class ProposalOfficeTools implements OnModuleInit {
     this.registry.register({
       name: PROPOSE_ROLE_TOOL,
       description:
-        "Drafts a Role as a Proposal the user applies with a click: a new Role on its whole card, a person hired into a preset's Role, or a change to a hired Role's card. It shows in this chat as a card and changes nothing until the user applies it. It returns at once.",
+        "Drafts a Role as a Proposal the user applies with a click: a new Role on its whole card, a person hired into a preset's Role, or a change to a hired Role's card, its model and effort on each engine type included. It shows in this chat as a card and changes nothing until the user applies it. It returns at once.",
       input: z.object({
         role: z
           .string()
@@ -418,7 +422,7 @@ function newRole(
   return (
     nameProblem(card.data.name, card.data.title) ?? {
       kind: "hire",
-      card: { ...card.data, roleOverride: null },
+      card: { ...card.data, engineSettings: card.data.engineSettings ?? {} },
       skills: skills ?? [],
       roleKey: undefined,
     }

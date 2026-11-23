@@ -36,8 +36,10 @@ describe("read_role", () => {
       cardSavedAt: new Date("2026-11-01T10:00:00.000Z"),
       card: aRoleCard({
         instructions,
-        effort: "high",
-        roleOverride: { engineId: "claude-code", model: "claude-sonnet-5-5" },
+        engineSettings: {
+          codex: { model: null, effort: "low" },
+          "claude-code": { model: "claude-sonnet-5-5", effort: "high" },
+        },
         capabilities: { sharedMemory: true, chat: false, consultant: true, runEnvironment: false },
         permissionProfile: {
           edit: true,
@@ -76,8 +78,7 @@ describe("read_role", () => {
         `responsibilities: ${ada.card.responsibilities}`,
         `instructions:\n${instructions}`,
         [
-          "effort: high",
-          "Role override: claude-code, claude-sonnet-5-5",
+          "engineSettings: Claude Code: claude-sonnet-5-5 · high; Codex: Engine's default · low",
           'capabilities: {"sharedMemory":true,"chat":false,"consultant":true,"runEnvironment":false}',
           'permissionProfile: {"edit":true,"run":"project-commands","web":false,"mcpTools":{"github/create_issue":{"kind":"allowed"}}}',
           'hardSwitches: {"runInstalls":{"kind":"consult","role":"devops"},"publishOutsideThePipeline":{"kind":"ask-me"},"changeRoles":{"kind":"never"}}',
@@ -101,12 +102,15 @@ describe("read_role", () => {
     expect(result.text).toContain("MCP servers: github (on): merge Ask me");
   });
 
-  it("says when the Role runs on the Office default, with no Skills or MCP servers", async () => {
-    const result = await toolsOver([{ role: aRole(), skills: [], mcpServers: [] }])
+  it("says when the person works with each engine's defaults, with no Skills or MCP servers", async () => {
+    const role = aRole({ card: aRoleCard({ engineSettings: {} }) });
+    const result = await toolsOver([{ role, skills: [], mcpServers: [] }])
       .readRole()
       .run({ role: "developer" }, anOfficeToolCall("s-1"));
 
-    expect(result.text).toContain("\nRole override: none, so the Office default\n");
+    expect(result.text).toContain(
+      "\nengineSettings: none set, so each engine's default model and effort\n",
+    );
     expect(result.text).toContain("\nSkills: none besides the skills for everyone\n");
     expect(result.text).toMatch(/\nMCP servers: none$/);
   });

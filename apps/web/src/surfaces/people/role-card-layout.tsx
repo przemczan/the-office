@@ -5,7 +5,11 @@ import { useId, type ReactNode } from "react";
 export const ROLE_CARD_GROUPS = {
   identity: { title: "Identity", description: "Who the person is, as People shows them." },
   work: { title: "Work", description: "What the Agent works from, and how much at once." },
-  engine: { title: "Engine", description: "What every session of the person runs on." },
+  engine: {
+    title: "Engine",
+    description:
+      "How the person works on each engine type. Where they run is set by the Office, the Project, the Initiative or the Task.",
+  },
   capabilities: {
     title: "Capabilities",
     description: "Enforced by The Office; combine them freely.",

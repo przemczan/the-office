@@ -30,7 +30,6 @@ import { RoleRepository } from "../ports/role-repository.js";
 import { Duties } from "./duties.js";
 import { DutyChangeChecks } from "./duty-change-checks.js";
 import { OfficeSetup } from "./office-setup.js";
-import { RoleOverrideChecks } from "./role-override-checks.js";
 import { RoleService } from "./role-service.js";
 
 /**
@@ -56,6 +55,14 @@ class RolesInMemory extends RoleRepository {
 
   update(): never {
     throw new Error("A set-up changes no card.");
+  }
+
+  rolesToMoveOver(): never {
+    throw new Error("A set-up moves no card over.");
+  }
+
+  moveOver(): never {
+    throw new Error("A set-up moves no card over.");
   }
 
   changeStanding(): never {
@@ -105,7 +112,6 @@ beforeAll(async () => {
           new OfficeSetupRepositoryForTests(roleRepository, dutyRepository),
       },
       RoleService,
-      RoleOverrideChecks,
       Duties,
       DutyChangeChecks,
       OfficeSetup,

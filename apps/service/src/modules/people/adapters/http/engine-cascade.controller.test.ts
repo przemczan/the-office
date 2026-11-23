@@ -93,16 +93,36 @@ afterEach(async () => {
 
 describe("GET /api/roles/:key/engine-cascade", () => {
   it("says what applies outside any Project and lists the Projects where something else does", async () => {
-    const opus = { engineId: "claude-code", model: "claude-opus-5-5" };
-    const card = aRoleCard({ title: `Cascade ${randomUUID().slice(0, 8)}`, roleOverride: opus });
+    const engineSettings = { "claude-code": { model: "claude-opus-5-5", effort: "high" } } as const;
+    const title = `Cascade ${randomUUID().slice(0, 8)}`;
+    const card = aRoleCard({ title, engineSettings });
     const { role } = await app.get(RoleService).hireFromScratch(card, [], ANN_LEE);
 
     const response = await fetch(`${url}/api/roles/${role.key}/engine-cascade`);
 
+    const onClaudeCode = {
+      engineId: "claude-code",
+      engineType: "claude-code",
+      effort: "high",
+      effortLevel: "person",
+    };
     expect(response.status).toBe(200);
     expect(roleEngineCascadeSchema.parse(await response.json())).toEqual({
-      outsideProjects: { ...opus, level: "role-override" },
-      elsewhereInProjects: [{ projectId: "forced", ...haiku, level: "project-default" }],
+      outsideProjects: {
+        ...onClaudeCode,
+        model: "claude-opus-5-5",
+        level: "office-default",
+        modelLevel: "person",
+      },
+      elsewhereInProjects: [
+        {
+          projectId: "forced",
+          ...onClaudeCode,
+          model: haiku.model,
+          level: "project-default",
+          modelLevel: "projectForce",
+        },
+      ],
     });
   });
 

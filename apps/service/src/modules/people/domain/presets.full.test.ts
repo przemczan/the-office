@@ -76,8 +76,15 @@ describe("PRESETS", () => {
     expect(roleCardProblems(preset.roleKey, card, CARD_CONTEXT)).toEqual([]);
   });
 
-  it.each(PRESETS)("run on the Office default, with no Role override ($roleKey)", (preset) => {
-    expect(preset.card.roleOverride).toBeNull();
+  it("work with each engine's default model, and their effort on each type that takes it", () => {
+    expect(presetFor("developer")?.card.engineSettings).toEqual({
+      "claude-code": { model: null, effort: "high" },
+      codex: { model: null, effort: "high" },
+    });
+    expect(presetFor("office-manager")?.card.engineSettings).toEqual({
+      "claude-code": { model: null, effort: "medium" },
+      codex: { model: null, effort: "medium" },
+    });
   });
 });
 

@@ -661,6 +661,7 @@ describe("a Stage on the engine the Task sets", () => {
     expect(cascade.asked).toContainEqual({
       roleKey: request.roleKey,
       location: { projectId: "admin-panel", taskId: request.taskId },
+      work: { stageEffort: undefined },
     });
     expect(stageThread).toMatchObject({
       engine: FIRST_CLAUDE_CODE_ENGINE.id,

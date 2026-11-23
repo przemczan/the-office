@@ -162,7 +162,7 @@
 - `rail.tsx`: Rail
 - `record-mention.tsx`: OpenMentionedDecisionContext, RecordMention
 - `refusal-alert.tsx`: RefusalAlert
-- `role-card-words.ts`: CapabilityInfo, CAPABILITIES, missingCapabilitiesWords, SESSION_DEFAULTS, HARD_SWITCH_LABELS, ENFORCEMENT_LABELS, ASKS_YOU_UNTIL_HIRED, RUN_LABELS, RoleTitles, roleTitlesOf, FieldValueNames, worksWithText, ENGINE_CASCADE_LEVEL_WORDS, engineInCascadeText, taskLimitLabel, taskLimitShort, hardSwitchValueLabel, hardSwitchChoiceOf, hardSwitchValueOf, hardSwitchChoices, editLabel, webLabel, mcpToolKey, mcpToolSettingLines, permissionProfileLines, RoleCardFieldChange, fieldLabel, changeLine, proposedFieldChanges, roleChangeByLine, skillsChangeLine, fieldValueText
+- `role-card-words.ts`: CapabilityInfo, CAPABILITIES, missingCapabilitiesWords, SESSION_DEFAULTS, HARD_SWITCH_LABELS, ENFORCEMENT_LABELS, ASKS_YOU_UNTIL_HIRED, RUN_LABELS, RoleTitles, roleTitlesOf, FieldValueNames, ENGINES_DEFAULT, EACH_ENGINES_DEFAULT, effortText, takesEffort, engineSettingsLines, worksWithLines, ENGINE_CASCADE_LEVEL_WORDS, workCascadeLevelWords, modelAndEffortText, engineInCascadeText, workSourceText, taskLimitLabel, taskLimitShort, hardSwitchValueLabel, hardSwitchChoiceOf, hardSwitchValueOf, hardSwitchChoices, editLabel, webLabel, mcpToolKey, mcpToolSettingLines, permissionProfileLines, RoleCardFieldChange, fieldLabel, changeLine, proposedFieldChanges, roleChangeByLine, skillsChangeLine, fieldValueText
 - `root-layout.tsx`: RootLayout
 - `run-environment-words.ts`: RUN_ENVIRONMENT_QUESTION, RUN_ENVIRONMENT_QUESTION_HINT, RUN_ENVIRONMENT_ANSWER_LABELS, RUN_ENVIRONMENT_ANSWERS, settingChosenWords, setUpWords
 - `secret-value-input.tsx`: SecretValueInput

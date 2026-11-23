@@ -7,7 +7,12 @@ import {
 } from "./hard-switches.js";
 import type { McpToolSettings } from "./mcp-tool-settings.js";
 import type { PermissionProfile } from "./permission-profile.js";
-import type { Capabilities, RoleCard } from "./role-card.js";
+import type {
+  Capabilities,
+  EngineTypeSetting,
+  PersonEngineSettings,
+  RoleCard,
+} from "./role-card.js";
 import type { TaskLimit } from "./task-limit.js";
 
 const PLAIN_FIELDS = [
@@ -15,7 +20,6 @@ const PLAIN_FIELDS = [
   "title",
   "responsibilities",
   "instructions",
-  "effort",
   "taskLimit",
   "sessionDefault",
 ] as const;
@@ -28,20 +32,32 @@ const CAPABILITY_KEYS = [
 
 /**
  * A part of a Role card as its change history names it, down to each capability and switch.
- * `engine` and `model` are named only by entries saved before the card had a Role override.
+ * `engine` and `model` are named only by entries saved before the card had a Role override, and
+ * `roleOverride` and `effort` only by entries saved before it had `engineSettings`.
+ * `engineSettingsMovedOver` names the Role override the move to `engineSettings` left behind.
  */
 export type RoleCardField =
   | (typeof PLAIN_FIELDS)[number]
   | "engine"
   | "model"
   | "roleOverride"
+  | "effort"
+  | "engineSettings"
+  | "engineSettingsMovedOver"
   | `capabilities.${keyof Capabilities}`
   | "permissionProfile"
   | `hardSwitches.${HardSwitchKey}`;
 
-/** A Role override of none reads as the Office default. */
+/** A Role override of none read as the Office default. */
 export type RoleCardValue =
-  string | TaskLimit | boolean | PermissionProfile | HardSwitchValue | EngineModel | null;
+  | string
+  | TaskLimit
+  | boolean
+  | PermissionProfile
+  | HardSwitchValue
+  | EngineModel
+  | PersonEngineSettings
+  | null;
 
 /** One part of the card, from what it was to what it became. */
 export interface RoleCardFieldChange {
@@ -65,8 +81,12 @@ export function roleCardChanges(
       changes.push({ field, from: before[field], to: after[field] });
     }
   }
-  if (!sameRoleOverride(before.roleOverride, after.roleOverride)) {
-    changes.push({ field: "roleOverride", from: before.roleOverride, to: after.roleOverride });
+  if (!sameEngineSettings(before.engineSettings, after.engineSettings)) {
+    changes.push({
+      field: "engineSettings",
+      from: before.engineSettings,
+      to: after.engineSettings,
+    });
   }
   for (const key of CAPABILITY_KEYS) {
     const from = before.capabilities[key];
@@ -88,8 +108,22 @@ export function roleCardChanges(
   return changes;
 }
 
-function sameRoleOverride(first: EngineModel | null, second: EngineModel | null): boolean {
-  return first?.engineId === second?.engineId && first?.model === second?.model;
+/** A type left out and one set to the engine's default model and effort are the same setting. */
+function sameEngineSettings(first: PersonEngineSettings, second: PersonEngineSettings): boolean {
+  const types = new Set([...Object.keys(first), ...Object.keys(second)]) as Set<
+    keyof PersonEngineSettings
+  >;
+  return [...types].every((type) => sameSetting(first[type], second[type]));
+}
+
+function sameSetting(
+  first: EngineTypeSetting | undefined,
+  second: EngineTypeSetting | undefined,
+): boolean {
+  return (
+    (first?.model ?? null) === (second?.model ?? null) &&
+    (first?.effort ?? null) === (second?.effort ?? null)
+  );
 }
 
 function samePermissionProfile(

@@ -715,6 +715,16 @@ function MessageItem({
           <span>{engineSwitchedWords(message)}</span>
         </div>
       );
+    case "model-gave-way":
+      return (
+        <div className="message-office">
+          <Icon name="info" size={12} />
+          <span>
+            {message.personName} works with {message.model} on {message.engineName}, which
+            doesn&apos;t offer {message.notOffered}.
+          </span>
+        </div>
+      );
     case "held":
       return (
         <div className="message-office">

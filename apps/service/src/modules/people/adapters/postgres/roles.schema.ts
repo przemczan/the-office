@@ -1,6 +1,7 @@
 import { integer, jsonb, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
 import type { Avatar } from "../../domain/avatar.js";
-import type { RoleCard } from "../../domain/role-card.js";
+import type { PersonEngineSettings, RoleCard } from "../../domain/role-card.js";
+import type { EarlierEngineFields } from "../../domain/role-changes.js";
 import type { RoleCardFieldChange } from "../../domain/role-card-changes.js";
 import type { UserRef } from "../../domain/user.js";
 
@@ -15,6 +16,14 @@ export const roles = pgTable("roles", {
   avatar: jsonb("avatar").$type<Avatar>(),
 });
 
+/**
+ * A card as kept: a version saved before `engineSettings` lacks it until the move-over gives the
+ * Role a version with it, and every version keeps the earlier fields for a rollback to read.
+ */
+export type StoredRoleCard = Omit<RoleCard, "engineSettings"> & {
+  readonly engineSettings?: PersonEngineSettings;
+} & EarlierEngineFields;
+
 /** Every version of each Role's card, kept for the sessions that started with it. */
 export const roleCardVersions = pgTable(
   "role_card_versions",
@@ -23,7 +32,7 @@ export const roleCardVersions = pgTable(
       .notNull()
       .references(() => roles.key, { onDelete: "cascade" }),
     version: integer("version").notNull(),
-    card: jsonb("card").$type<RoleCard>().notNull(),
+    card: jsonb("card").$type<StoredRoleCard>().notNull(),
     /** From the version before; empty for the first. */
     changes: jsonb("changes").$type<RoleCardFieldChange[]>().notNull(),
     savedAt: timestamp("saved_at", { withTimezone: true }).notNull(),

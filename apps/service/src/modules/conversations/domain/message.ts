@@ -37,6 +37,7 @@ export type MessageDraft =
   | ChangesAllowedLine
   | UsageWindowUsedUpLine
   | EngineSwitchedLine
+  | ModelGaveWayLine
   | StageContextLimitLine
   | StageSessionRestartedLine
   | StageWorkClosing;
@@ -115,6 +116,31 @@ export function usageWindowUsedUpWords({
   resetsAt,
 }: Omit<UsageWindowUsedUpLine, "kind">): string {
   return `${engineName}'s ${usageWindowWords(window)} is used up until ${resetsAt.slice(0, 10)} ${resetsAt.slice(11, 16)} UTC.`;
+}
+
+/**
+ * A model a level of the model and effort cascade set isn't offered by the engine the session landed
+ * on, so the person works with the engine's default (spec §5.4.5): The Office's line, written as the
+ * session starts. The engine by its name then.
+ */
+export interface ModelGaveWayLine {
+  readonly kind: "model-gave-way";
+  readonly personName: string;
+  /** The engine's default model, which the session works with. */
+  readonly model: string;
+  readonly engineName: string;
+  /** The model the cascade set, which the engine doesn't offer. */
+  readonly notOffered: string;
+}
+
+/** "Pam works with gpt-6 on Codex, which doesn't offer gpt-5.", the line in words. */
+export function modelGaveWayWords({
+  personName,
+  model,
+  engineName,
+  notOffered,
+}: Omit<ModelGaveWayLine, "kind">): string {
+  return `${personName} works with ${model} on ${engineName}, which doesn't offer ${notOffered}.`;
 }
 
 /**

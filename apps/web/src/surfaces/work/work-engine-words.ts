@@ -29,7 +29,7 @@ export const ENGINE_REFUSED = "The engine wasn't saved";
 export const PROJECTS_ENGINE = "Project's engine";
 export const EACH_PROJECTS_ENGINE = "Each Project's engine";
 export const RUNS_ON_NOTE =
-  "Its Planner and the Roles its Stages name, as the engine cascade gives them now. A Consultant on it runs the same way.";
+  "Its Planner and the Roles its Stages name, with the model and effort each works with on its engine now. A Consultant on it works the same way.";
 export const INITIATIVE_NONE_HINT =
   "A Task in it that sets no engine runs on its Project default, or the Office default where its Project has none.";
 export const ITS_TASKS_NOTE =

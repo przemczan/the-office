@@ -18,7 +18,11 @@ export {
 } from "./application/duty-change-checks.js";
 export { DUTIES, type DutyHolding, type DutyKey } from "./domain/duties.js";
 export { DutyHolderChanged } from "./domain/duty-events.js";
-export { EngineCascade, type EngineCascadeLocation } from "./application/engine-cascade.js";
+export {
+  EngineCascade,
+  type EngineCascadeLocation,
+  type EngineCascadeWork,
+} from "./application/engine-cascade.js";
 export {
   KnownWorkLevels,
   type TaskOnWorkLevels,
@@ -37,6 +41,7 @@ export type { PipelineRolesNamed } from "./domain/pipeline-roles-named.js";
 export type {
   EngineCascadeLevel,
   EngineInCascade,
+  WorkCascadeLevel,
   ProjectCascadeLevels,
   WorkCascadeLevels,
 } from "./domain/engine-cascade.js";
@@ -60,7 +65,7 @@ export {
   permissionNarrowingProblems,
   type PermissionNarrowing,
 } from "./domain/permission-profile.js";
-export type { RoleCard } from "./domain/role-card.js";
+export type { EngineTypeSetting, PersonEngineSettings, RoleCard } from "./domain/role-card.js";
 export { RoleNotFound } from "./domain/role-not-found.js";
 export { RoleRefused } from "./domain/role-refused.js";
 export { PeopleModule } from "./people.module.js";

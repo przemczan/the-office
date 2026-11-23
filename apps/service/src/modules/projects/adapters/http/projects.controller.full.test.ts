@@ -596,7 +596,9 @@ describe("the Project's engine levels", () => {
     app.get(EngineLevelsChecks).register(async (save) => {
       saves.push(save);
       return save.after.projectDefault
-        ? ["In this Project, the Developer would run on Local models."]
+        ? [
+            "Local models can't use Office tools, which the Agent Stages of the Developer need in this Project.",
+          ]
         : [];
     });
     published = [];
@@ -607,7 +609,9 @@ describe("the Project's engine levels", () => {
 
     expect(response.status).toBe(422);
     expect(await response.json()).toMatchObject({
-      reasons: ["In this Project, the Developer would run on Local models."],
+      reasons: [
+        "Local models can't use Office tools, which the Agent Stages of the Developer need in this Project.",
+      ],
     });
     const levels = { projectDefault: null, useForEveryRole: false, roleOverrides: [] };
     expect(saves).toEqual([

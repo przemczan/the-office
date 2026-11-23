@@ -57,11 +57,14 @@ export {
 } from "./domain/engine-removal.js";
 export {
   effortsTakenBy,
+  ENGINE_TYPE_NAMES,
   FIRST_CLAUDE_CODE_ENGINE,
   hasUsageWindows,
   offeredModels,
+  type Effort,
   type Engine,
   type EngineId,
+  type EngineKind,
   type EngineModel,
   type OfficeDefault,
 } from "./domain/engines.js";

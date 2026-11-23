@@ -533,7 +533,7 @@ function adaOnTheCascade(...engines: Engine[]): string {
 }
 
 describe("StageThreads", () => {
-  it("opens the session on the cascade's model, with the Stage's own effort over the Role card's", async () => {
+  it("opens the session on the cascade's model and effort, the Stage's own effort its most specific level", async () => {
     await startWith(started(...aTurn({ status: "done" })));
     const ada = aPerson("Ada");
     const request = aStage({ roleKey: ada, effort: "low" });
@@ -546,6 +546,40 @@ describe("StageThreads", () => {
     await aStageRun(request);
 
     expect(engine.sessions[0]?.options).toMatchObject({ model: "claude-haiku-5-5", effort: "low" });
+    expect(cascade.asked.at(-1)?.work).toEqual({ stageEffort: "low" });
+  });
+
+  it("leaves no effort to the runtime, and says when the person's model gave way to the engine's default", async () => {
+    await startWith(started(...aTurn({ status: "done" })));
+    const ada = aPerson("Ada");
+    const request = aStage({ roleKey: ada });
+    cascade.set(
+      ada,
+      {
+        engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+        model: "claude-sonnet-5-5",
+        effort: null,
+        gaveWay: "claude-opus-4-1",
+      },
+      request.projectId,
+    );
+
+    const { stageThread } = await aStageRun(request);
+
+    expect(engine.sessions[0]?.options.effort).toBeUndefined();
+    expect(
+      drafts(await repository.messages(stageThread.threadId)).filter(
+        ({ kind }) => kind === "model-gave-way",
+      ),
+    ).toEqual([
+      {
+        kind: "model-gave-way",
+        personName: "Ada",
+        model: "claude-sonnet-5-5",
+        engineName: FIRST_CLAUDE_CODE_ENGINE.name,
+        notOffered: "claude-opus-4-1",
+      },
+    ]);
   });
 
   describe("on a Stand-in Engine chosen at the Task's Start", () => {

@@ -51,22 +51,32 @@ describe("roleCardChanges", () => {
     ]);
   });
 
-  it("names a Role override set, changed or cleared, none reading as the Office default", () => {
-    const opus = { engineId: "claude-code", model: "claude-opus-5-5" };
-    const haiku = { engineId: "claude-code", model: "claude-haiku-5-5" };
-    const none = aRoleCard({ roleOverride: null });
+  it("names the engine settings changed, whole, from and to", () => {
+    const before = aRoleCard({ engineSettings: { codex: { model: null, effort: "high" } } });
+    const after = aRoleCard({
+      engineSettings: {
+        codex: { model: null, effort: "low" },
+        "claude-code": { model: "claude-opus-5-5", effort: null },
+      },
+    });
 
-    expect(roleCardChanges(none, aRoleCard({ roleOverride: opus }))).toEqual([
-      { field: "roleOverride", from: null, to: opus },
+    expect(roleCardChanges(before, after)).toEqual([
+      { field: "engineSettings", from: before.engineSettings, to: after.engineSettings },
     ]);
+  });
+
+  it("reads a type left out as one set to the engine's default model and effort", () => {
+    const leftOut = aRoleCard({ engineSettings: {} });
+    const atDefaults = aRoleCard({
+      engineSettings: { "gemini-cli": { model: null, effort: null } },
+    });
+
+    expect(roleCardChanges(leftOut, atDefaults)).toEqual([]);
     expect(
-      roleCardChanges(aRoleCard({ roleOverride: opus }), aRoleCard({ roleOverride: haiku })),
-    ).toEqual([{ field: "roleOverride", from: opus, to: haiku }]);
-    expect(roleCardChanges(aRoleCard({ roleOverride: haiku }), none)).toEqual([
-      { field: "roleOverride", from: haiku, to: null },
-    ]);
-    expect(
-      roleCardChanges(aRoleCard({ roleOverride: { ...opus } }), aRoleCard({ roleOverride: opus })),
+      roleCardChanges(
+        aRoleCard({ engineSettings: { codex: { model: "gpt-6-luna", effort: "low" } } }),
+        aRoleCard({ engineSettings: { codex: { model: "gpt-6-luna", effort: "low" } } }),
+      ),
     ).toEqual([]);
   });
 

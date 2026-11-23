@@ -18,14 +18,13 @@ import {
   type HardSwitchValue,
 } from "../domain/hard-switches.js";
 import { mcpToolDefault } from "../domain/duties.js";
-import type { SetUpHire } from "../domain/office-setup.js";
 import {
-  consultableRoleKeys,
-  PRESETS,
-  presetFor,
-  presetTitle,
-  type Preset,
-} from "../domain/presets.js";
+  engineTypeOptions,
+  engineTypesOffered,
+  type EngineTypeOption,
+} from "../domain/engine-type-offers.js";
+import type { SetUpHire } from "../domain/office-setup.js";
+import { consultableRoleKeys, PRESETS, presetTitle, type Preset } from "../domain/presets.js";
 import type { Role } from "../domain/role.js";
 import {
   roleCardProblems,
@@ -50,7 +49,6 @@ import type { UserRef } from "../domain/user.js";
 import { RoleRepository, type RoleUpdate } from "../ports/role-repository.js";
 import { Duties } from "./duties.js";
 import { roleHistory, type RoleHistoryEntry } from "./role-history.js";
-import { RoleOverrideChecks } from "./role-override-checks.js";
 
 /**
  * A Role with what its card names from the libraries: its skills, which the Skills module keeps,
@@ -64,6 +62,9 @@ export interface RoleWithAssignments {
 
 /** The choices the Role card form offers, and how each Hard switch is seen to. */
 export interface RoleCardOptions {
+  /** Every engine type, with the models and efforts a person's settings on it may name. */
+  readonly engineTypes: readonly EngineTypeOption[];
+  /** The engines the Project's and the Task's pickers offer. */
   readonly engines: readonly {
     readonly engine: EngineId;
     readonly models: readonly string[];
@@ -122,7 +123,6 @@ export class RoleService {
     private readonly engineModels: EngineModels,
     private readonly engineSessions: EngineSessions,
     private readonly events: EventBus,
-    private readonly roleOverrideChecks: RoleOverrideChecks,
     private readonly engineReferences: EngineReferenceLock,
     private readonly duties: Duties,
   ) {}
@@ -160,7 +160,7 @@ export class RoleService {
     return refusalReasons(() => this.hiringFromPreset(roleKey, name, new Date(), null));
   }
 
-  /** Presets carry no Role override today; the check still weighs the card the hire brings. */
+  /** A person names no engine, so the hire isn't weighed against the engines (spec §5.4.5). */
   private async hiringFromPreset(
     roleKey: string,
     name: string,
@@ -169,11 +169,7 @@ export class RoleService {
     proposedBy?: string,
   ): Promise<RoleChange<RoleHired>> {
     const filledBy = await this.repository.find(roleKey);
-    const preset = presetFor(roleKey);
-    const problems = preset ? await this.roleOverrideProblems(roleKey, filledBy, preset.card) : [];
-    return refusingAlso(problems, () =>
-      hire(roleKey, name, filledBy, hiredAt, savedBy, proposedBy),
-    );
+    return hire(roleKey, name, filledBy, hiredAt, savedBy, proposedBy);
   }
 
   /**
@@ -224,10 +220,7 @@ export class RoleService {
     const roleKey = roleKeyFor(card.title);
     const context = await this.cardContext();
     const filledBy = await this.repository.find(roleKey);
-    const problems = [
-      ...(await this.roleSkills.problemsWith(skills)),
-      ...(await this.roleOverrideProblems(roleKey, filledBy, card)),
-    ];
+    const problems = await this.roleSkills.problemsWith(skills);
     return refusingAlso(problems, () =>
       hireFromScratch(roleKey, card, context, filledBy, hiredAt, savedBy, proposedBy),
     );
@@ -257,6 +250,7 @@ export class RoleService {
     const roles = await this.repository.list();
     const { consultable, mcpConsultant } = await this.cardContext();
     return {
+      engineTypes: engineTypeOptions(engines),
       engines: engines.map((engine) => ({
         engine: engine.id,
         models: offeredModels(engine),
@@ -328,14 +322,12 @@ export class RoleService {
     const context = await this.cardContext();
     const filledBy = await this.repository.find(key);
     const problems = [
-      ...roleCardProblems(key, trimmedRoleCard(edit), context),
+      ...roleCardProblems(key, trimmedRoleCard(edit), withStored(context, filledBy)),
       ...(await this.roleSkills.problemsWith(skills)),
-      // Nobody filling the Role is refused as RoleNotFound by the update below.
-      ...(filledBy ? await this.roleOverrideProblems(key, filledBy, edit) : []),
     ];
     if (problems.length > 0) throw new RoleRefused(problems);
     return this.repository.update(key, (stored) =>
-      changeRoleCard(stored, edit, context, new Date(), savedBy, proposedBy),
+      changeRoleCard(stored, edit, withStored(context, stored), new Date(), savedBy, proposedBy),
     );
   }
 
@@ -364,42 +356,26 @@ export class RoleService {
     const { role } = await this.read(key);
     const context = await this.cardContext();
     const reasons = await refusalReasons(() =>
-      Promise.resolve(changeRoleCard(role, edit, context, new Date(), null)),
+      Promise.resolve(changeRoleCard(role, edit, withStored(context, role), new Date(), null)),
     );
-    return [...new Set([...reasons, ...(await this.roleOverrideProblems(key, role, edit))])];
+    return [...new Set(reasons)];
   }
 
   /**
-   * What a card is checked against now: the models offered, the Roles a switch may consult, and who
+   * What a card is checked against now: what each engine type offers, the Roles a switch may consult, and who
    * holds Default Consultant for MCP tool hard switches.
    */
   private async cardContext(): Promise<RoleCardContext> {
-    const [modelsOffered, roles, mcpConsultant] = await Promise.all([
-      this.engineModels.modelsOffered(),
+    const [engines, roles, mcpConsultant] = await Promise.all([
+      this.engineModels.engines(),
       this.repository.list(),
       this.duties.mcpConsultant(),
     ]);
     return {
-      modelsOffered,
+      engineTypes: engineTypesOffered(engines),
       consultable: consultableRoleKeys(roles.map((role) => role.key)),
       mcpConsultant,
     };
-  }
-
-  /**
-   * What the registered checks refuse in giving the Role `roleKey`, `stored` until now, the card
-   * `edit`. They weigh the Role as read just before, so a change made in between goes unchecked.
-   */
-  private roleOverrideProblems(
-    roleKey: string,
-    stored: Role | undefined,
-    edit: Pick<RoleCard, "roleOverride">,
-  ): Promise<readonly string[]> {
-    return this.roleOverrideChecks.problemsOf({
-      roleKey,
-      before: stored?.card.roleOverride ?? null,
-      after: edit.roleOverride,
-    });
   }
 
   /**
@@ -437,16 +413,9 @@ export class RoleService {
 
   /**
    * Hires the person let go back into their Role, with their card, Memory and chats as they were.
-   * Refused when the Role override returning with the card fails a registered check: while let go,
-   * the Role ran without it.
+   * A person names no engine, so it isn't weighed against the engines (spec §5.4.5).
    */
   async hireBack(key: string): Promise<RoleWithAssignments> {
-    const person = await this.repository.find(key);
-    // Anyone else (nobody let go, never hired) is refused by the change below.
-    if (person?.letGoAt) {
-      const problems = await this.roleOverrideProblems(key, undefined, person.card);
-      if (problems.length > 0) throw new RoleRefused(problems);
-    }
     const { role, event } = await this.repository.changeStanding(key, (stored) =>
       hireBack(stored, new Date()),
     );
@@ -463,6 +432,11 @@ export class RoleService {
       await this.roleSkills.changes(key),
     );
   }
+}
+
+/** `context` for a change of the card `stored` has now, whose engine settings stay acceptable. */
+function withStored(context: RoleCardContext, stored: Role | undefined): RoleCardContext {
+  return stored ? { ...context, storedEngineSettings: stored.card.engineSettings } : context;
 }
 
 /** A preset's title, else the title on the card of the Role hired from scratch under `key`. */

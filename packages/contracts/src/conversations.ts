@@ -1035,6 +1035,19 @@ export const messageSchema = z.discriminatedUnion("kind", [
     personName: z.string().optional(),
   }),
   /**
+   * A model a level of the model and effort cascade set isn't offered by the engine the session
+   * landed on, so `personName` works with its default `model` there: The Office's line as the
+   * session starts, "Pam works with <model> on <engineName>, which doesn't offer <notOffered>."
+   */
+  z.object({
+    ...messageFields,
+    kind: z.literal("model-gave-way"),
+    personName: z.string(),
+    model: z.string(),
+    engineName: z.string(),
+    notOffered: z.string(),
+  }),
+  /**
    * The user held the Stage with Pause or Stop, the fire alarm held it, or a used-up usage window
    * did, which is no failure: The Office's line.
    */

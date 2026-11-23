@@ -10,9 +10,9 @@ import { personName } from "../../../shell/person-name.ts";
 
 /**
  * The level a removal moves, in the glossary's terms: "The Office default", "The Project default
- * of Shop", "The Role override of Mia · Data Analyst", "The Role override of Mia · Data Analyst
- * in Shop", "The engine of the Task “Export Stats as CSV”", "The engine of the Initiative “Usage
- * reports”".
+ * of Shop", "The Role override of Mia · Data Analyst in Shop", "The engine of the Task “Export
+ * Stats as CSV”", "The engine of the Initiative “Usage reports”". A person's model and effort name
+ * engine types, not engines, so no level of a person's own is among them.
  */
 export function movedReferencePlace(
   { roleKey, project, work }: Pick<MovedEngineReference, "roleKey" | "project" | "work">,
@@ -21,11 +21,10 @@ export function movedReferencePlace(
   if (work !== null) {
     return `The engine of the ${work.kind === "task" ? "Task" : "Initiative"} “${work.name}”`;
   }
-  if (roleKey === null) {
-    return project === null ? "The Office default" : `The Project default of ${project.name}`;
-  }
-  const override = `The Role override of ${removalRoleName(roleKey, roles)}`;
-  return project === null ? override : `${override} in ${project.name}`;
+  if (project === null) return "The Office default";
+  return roleKey === null
+    ? `The Project default of ${project.name}`
+    : `The Role override of ${removalRoleName(roleKey, roles)} in ${project.name}`;
 }
 
 /**

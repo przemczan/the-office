@@ -117,6 +117,18 @@ const EVERY_KIND: {
     },
     "so the Stage went on on Claude Code 2",
   ],
+  "model-gave-way": [
+    {
+      at,
+      id: "7m",
+      kind: "model-gave-way",
+      personName: "Pam",
+      model: "gpt-6-luna",
+      engineName: "Codex work",
+      notOffered: "gpt-5.6-terra",
+    },
+    "Pam works with gpt-6-luna on Codex work, which doesn't offer gpt-5.6-terra.",
+  ],
   held: [{ at, id: "8", kind: "held", heldBy: "pause", text: "Paused here" }, "Paused here"],
   decision: [{ at, id: "9", kind: "decision", roleKey: "developer", decision }, "A Decision card"],
   "decision-answer": [

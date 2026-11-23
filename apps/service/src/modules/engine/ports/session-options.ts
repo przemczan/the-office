@@ -109,7 +109,8 @@ export interface SessionOptions {
   readonly engine: Engine;
   /** One of the engine's models, by its id there. */
   readonly model: string;
-  readonly effort: Effort;
+  /** The effort the person works with; undefined leaves it to the engine's runtime. */
+  readonly effort: Effort | undefined;
   /**
    * The Agent's standing instructions, such as its Role card's, added to the engine's system
    * prompt. The same for every session of a card version, so they stay in the cached prefix.

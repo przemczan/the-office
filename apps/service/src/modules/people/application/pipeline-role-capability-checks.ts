@@ -17,11 +17,9 @@ import {
   type WorkCascadeLevels,
 } from "../domain/engine-cascade.js";
 import {
-  eachRoleOnEngineOnce,
   incapableEngineProblems,
   newlyOnIncapableEngines,
   rolesOnIncapableEngines,
-  type PipelineRole,
 } from "../domain/pipeline-role-capabilities.js";
 import type { DutyKey } from "../domain/duties.js";
 import {
@@ -29,8 +27,6 @@ import {
   mergedRolesNamed,
   namedWhere,
   NO_PIPELINE_ROLES,
-  onlyRole,
-  rolesNamedAnywhere,
   rolesNamedIn,
   withDutiesResolved,
   type PipelineRolesNamed,
@@ -43,15 +39,12 @@ import { DutyChangeChecks, type DutyHolderSave } from "./duty-change-checks.js";
 import { Duties } from "./duties.js";
 import { PipelineRoleSources } from "./pipeline-role-sources.js";
 import { RoleCards } from "./role-cards.js";
-import { RoleOverrideChecks, type RoleOverrideSave } from "./role-override-checks.js";
 
 /** The Roles Agent Stages name, each duty's holder among them, the Office levels of the cascade for them, and the engines listed. */
 interface OfficeCascade {
   readonly rolesNamed: PipelineRolesNamed;
   /** Each duty's holder, by whom a Task's Stages naming the duty are weighed. */
   readonly holders: ReadonlyMap<DutyKey, string>;
-  /** Each named Role's override; a Role nobody fills has none. */
-  readonly roleOverrides: ReadonlyMap<string, EngineModel | null>;
   readonly officeDefault: EngineModel | null;
   readonly engines: readonly Engine[];
 }
@@ -100,6 +93,8 @@ export interface WorkLevelsMove extends RolesAndDuties {
   readonly projectId: string;
   readonly before: WorkCascadeLevels;
   readonly after: WorkCascadeLevels;
+  /** In an Initiative's change, the Task's title, which its refusal names ("… need on “<Task>”"). */
+  readonly taskTitle?: string;
 }
 
 /** One Task's sessions on either side of a change: whom it names and at which levels. */
@@ -111,6 +106,7 @@ interface TaskSide {
 /** One Task weighed in its Project, before a change and after. */
 interface TaskWeighed {
   readonly projectId: string;
+  readonly taskTitle?: string;
   readonly before: TaskSide;
   readonly after: TaskSide;
 }
@@ -132,12 +128,13 @@ const OUTSIDE_ANY_PROJECT: Place = {
 
 /**
  * Refuses a save of the engine cascade that would newly put a Role a Pipeline names on an engine
- * lacking what its Agent Stages need (spec §5.4). It registers with each level's save as it starts:
- * the Office default's (Settings › Engines), the Role override's, and a Project's levels'; and with
- * each duty change, which moves the Stages naming the duty to its new holder. The other way round,
+ * lacking what its Agent Stages need (spec §5.4.5). It registers with each level's save as it
+ * starts: the Office default's (Settings › Engines) and a Project's levels'; and with each duty
+ * change, which moves the Stages naming the duty to its new holder. The other way round,
  * Pipelines asks it about the Roles and duties a save of Stages newly names. A Stage naming a duty
  * counts as naming its holder's Role (`withDutiesResolved`). Each save is also weighed at every open
- * Task that sets an engine, or whose Initiative does (`workLevelsProblems`).
+ * Task that sets an engine, or whose Initiative does (`workLevelsProblems`). A person names no
+ * engine, so no save of a Role card nor a hire is weighed.
  */
 @Injectable()
 export class PipelineRoleCapabilityChecks implements OnModuleInit {
@@ -149,7 +146,6 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
     private readonly projects: KnownProjectLevels,
     private readonly work: KnownWorkLevels,
     private readonly projectLevelsSaves: ProjectLevelsSaves,
-    private readonly roleOverrideChecks: RoleOverrideChecks,
     private readonly engineSettingsChecks: EngineSettingsChecks,
     private readonly duties: Duties,
     private readonly dutyChangeChecks: DutyChangeChecks,
@@ -157,7 +153,6 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
 
   onModuleInit(): void {
     this.projectLevelsSaves.register((save) => this.projectLevelsSaveProblems(save));
-    this.roleOverrideChecks.register((save) => this.roleOverrideSaveProblems(save));
     this.engineSettingsChecks.register((save) => this.engineSettingsSaveProblems(save));
     this.dutyChangeChecks.register((save) => this.dutyChangeProblems(save));
   }
@@ -188,26 +183,10 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
     return this.newlyIncapableProblems(office, office, [{ projectId, projectName, before, after }]);
   }
 
-  /** Only the saved Role's sessions change, outside any Project and in each one. */
-  async roleOverrideSaveProblems({
-    roleKey,
-    before,
-    after,
-  }: RoleOverrideSave): Promise<readonly string[]> {
-    const office = await this.officeCascadeNow();
-    if (!rolesNamedAnywhere(office.rolesNamed).has(roleKey)) return [];
-    const onlyItsRole = { ...office, rolesNamed: onlyRole(office.rolesNamed, roleKey) };
-    return this.newlyIncapableProblems(
-      { ...onlyItsRole, roleOverrides: new Map([[roleKey, before]]) },
-      { ...onlyItsRole, roleOverrides: new Map([[roleKey, after]]) },
-      await this.everyPlace(),
-    );
-  }
-
   /**
    * The Office default and the engines change every Role's sessions everywhere; each side is
    * weighed on its own engines, so a rename or a switch saved with it counts. A removal also
-   * moves the Role overrides and the Projects' levels naming the engine, weighed as moved; the
+   * moves the Projects' levels naming the engine, weighed as moved; the
    * Tasks' and Initiatives' engines it moves are weighed by Work's own check of the removal, so
    * here a Task stays at the levels it has, which name no listed engine once moved.
    */
@@ -221,17 +200,7 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
       removal ? movedEngineModel(reference, removal) : reference;
     return this.newlyIncapableProblems(
       { ...office, officeDefault: before.officeDefault, engines: before.engines },
-      {
-        ...office,
-        roleOverrides: new Map(
-          [...office.roleOverrides].map(([roleKey, override]) => [
-            roleKey,
-            override && move(override),
-          ]),
-        ),
-        officeDefault: after.officeDefault,
-        engines: after.engines,
-      },
+      { ...office, officeDefault: after.officeDefault, engines: after.engines },
       (await this.everyPlace()).map((place) => ({
         ...place,
         after: place.after && movedProjectLevels(place.after, move),
@@ -289,10 +258,11 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
     if (tasks.length === 0) return [];
     const holders = await this.duties.holders();
     return this.tasksProblems(
-      tasks.map(({ projectId, roleKeys, dutyKeys, namedBefore, before, after }) => {
+      tasks.map(({ projectId, roleKeys, dutyKeys, namedBefore, before, after, taskTitle }) => {
         const named = rolesOf({ roleKeys, dutyKeys }, holders);
         return {
           projectId,
+          ...(taskTitle !== undefined && { taskTitle }),
           before: { roleKeys: namedBefore ? rolesOf(namedBefore, holders) : named, work: before },
           after: { roleKeys: named, work: after },
         };
@@ -301,56 +271,56 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
     );
   }
 
-  /** A Task's own Stages saved while it runs at its work levels: whom they newly name there. */
+  /**
+   * A Task's own Stages saved while it runs at its work levels: whom they newly name there, "On
+   * “<Task>”".
+   */
   private async taskStagesProblems(
     projectId: string,
-    { before, after }: TaskStagesSave,
+    { taskId, before, after }: TaskStagesSave,
     work: WorkCascadeLevels,
   ): Promise<readonly string[]> {
     const holders = await this.duties.holders();
-    return this.tasksProblems([
-      {
-        projectId,
-        before: { roleKeys: rolesOf(before, holders), work },
-        after: { roleKeys: rolesOf(after, holders), work },
-      },
-    ]);
+    const onTask = (await this.work.openTasksOnWorkLevels()).find((task) => task.taskId === taskId);
+    return this.tasksProblems(
+      [
+        {
+          projectId,
+          before: { roleKeys: rolesOf(before, holders), work },
+          after: { roleKeys: rolesOf(after, holders), work },
+        },
+      ],
+      onTask?.place,
+    );
   }
 
   /**
    * What each Task's `after` puts on an incapable engine that its `before` didn't, in its Project;
-   * named in `place`, or each Project by its name.
+   * named in `place`, with the Task's title where it has one, or each Project by its name.
    */
   private async tasksProblems(
     tasks: readonly TaskWeighed[],
     place?: string,
   ): Promise<readonly string[]> {
-    const roleKeys = new Set(
-      tasks.flatMap(({ before, after }) => [...before.roleKeys, ...after.roleKeys]),
-    );
-    const roleOverrides = await this.roleOverridesOf(roleKeys);
     const officeDefault = await this.engineModels.officeDefault();
     const engines = await this.engineModels.engines();
     const projects = await this.projects.engineLevelsOfEveryProject();
     const onIncapableEngines = (side: TaskSide, project: ProjectCascadeLevels | undefined) =>
       rolesOnIncapableEngines(
-        [...side.roleKeys].map((roleKey) => ({
-          roleKey,
-          roleOverride: roleOverrides.get(roleKey) ?? null,
-        })),
+        side.roleKeys,
         officeDefault,
         project,
         (engineId) => this.missingCapabilitiesAmong(engines, engineId),
         side.work,
       );
-    const found = tasks.map(({ projectId, before, after }) => {
+    const found = tasks.map(({ projectId, taskTitle, before, after }) => {
       const project = projects.find((each) => each.projectId === projectId);
       return {
         projectName: project?.projectName,
         found: newlyOnIncapableEngines(
           onIncapableEngines(before, project),
           onIncapableEngines(after, project),
-        ),
+        ).map((each) => (taskTitle === undefined ? each : { ...each, taskTitle })),
       };
     });
     const names = {
@@ -358,18 +328,19 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
       engineName: (engineId: string) => engines.find(({ id }) => id === engineId)?.name ?? engineId,
     };
     if (place !== undefined) {
-      return incapableEngineProblems(eachRoleOnEngineOnce(found.flatMap((each) => each.found)), {
-        ...names,
-        projectName: undefined,
-        place,
-      });
+      return incapableEngineProblems(
+        found.flatMap((each) => each.found),
+        {
+          ...names,
+          projectName: undefined,
+          place,
+        },
+      );
     }
     const projectNames = [...new Set(found.map(({ projectName }) => projectName))];
     return projectNames.flatMap((projectName) =>
       incapableEngineProblems(
-        eachRoleOnEngineOnce(
-          found.filter((each) => each.projectName === projectName).flatMap((each) => each.found),
-        ),
+        found.filter((each) => each.projectName === projectName).flatMap((each) => each.found),
         { ...names, projectName },
       ),
     );
@@ -402,7 +373,7 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
       project: ProjectCascadeLevels | undefined,
     ) =>
       rolesOnIncapableEngines(
-        pipelineRolesIn(office, projectId),
+        rolesNamedIn(office.rolesNamed, projectId),
         office.officeDefault,
         project,
         (engineId) => this.missingCapabilitiesAmong(office.engines, engineId),
@@ -496,7 +467,6 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
     return {
       rolesNamed,
       holders,
-      roleOverrides: await this.roleOverridesOf(rolesNamedAnywhere(rolesNamed)),
       officeDefault: await this.engineModels.officeDefault(),
       engines: await this.engineModels.engines(),
     };
@@ -507,38 +477,16 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
     const projects = await this.projects.engineLevelsOfEveryProject();
     return [OUTSIDE_ANY_PROJECT, ...projects.map(unchangedPlace)];
   }
-
-  private async roleOverridesOf(
-    roleKeys: ReadonlySet<string>,
-  ): Promise<ReadonlyMap<string, EngineModel | null>> {
-    return new Map(
-      await readEach(
-        [...roleKeys],
-        async (roleKey) =>
-          [roleKey, (await this.roleCards.find(roleKey))?.card.roleOverride ?? null] as const,
-      ),
-    );
-  }
 }
 
-/** The Roles named where sessions run in the Project, or outside any, each with its override. */
-function pipelineRolesIn(office: OfficeCascade, projectId: string | undefined): PipelineRole[] {
-  return [...rolesNamedIn(office.rolesNamed, projectId)].map((roleKey) => ({
-    roleKey,
-    roleOverride: office.roleOverrides.get(roleKey) ?? null,
-  }));
-}
-
-/** The Roles a Task names among those the save weighs where its sessions run, each with its override. */
+/** The Roles a Task names among those the save weighs where its sessions run. */
 function taskRolesIn(
   office: OfficeCascade,
   { projectId }: Pick<TaskOnWorkLevels, "projectId">,
   named: ReadonlySet<string>,
-): PipelineRole[] {
+): string[] {
   const weighed = rolesNamedIn(office.rolesNamed, projectId);
-  return [...named]
-    .filter((roleKey) => weighed.has(roleKey))
-    .map((roleKey) => ({ roleKey, roleOverride: office.roleOverrides.get(roleKey) ?? null }));
+  return [...named].filter((roleKey) => weighed.has(roleKey));
 }
 
 /** Whether a Task or an Initiative sets an engine, so its sessions run there. */

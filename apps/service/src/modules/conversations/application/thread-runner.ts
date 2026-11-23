@@ -6,6 +6,7 @@ import { Schedule } from "../../../platform/schedule/schedule.js";
 import {
   EngineSessions,
   NoEngineListed,
+  type Effort,
   type EngineModel,
   type UsageWindowName,
 } from "../../engine/index.js";
@@ -157,6 +158,13 @@ interface Answer {
   readonly officeInstructions: string;
   /** The model the engine cascade gives now, which a resumed session takes too. */
   readonly model: string;
+  /** The effort the cascade gives with it; null leaves it to the engine's runtime. */
+  readonly effort: Effort | null;
+  /**
+   * The model a level of the cascade set that the new session's engine doesn't offer, which gave
+   * way to its default; the Thread says so as the session starts (spec §5.4.5).
+   */
+  readonly gaveWay?: string;
   /** The session the move replaces, which can't be resumed any more. */
   readonly replaced: ThreadSession | undefined;
   readonly place: SessionPlace;
@@ -165,7 +173,7 @@ interface Answer {
 }
 
 /** What a session is opened with, which resumes it on a Stand-in Engine too. */
-type Reopening = Pick<Answer, "role" | "officeInstructions" | "model" | "place">;
+type Reopening = Pick<Answer, "role" | "officeInstructions" | "model" | "effort" | "place">;
 
 /**
  * A session carried to a Stand-in Engine as its engine's usage window is used up (spec 5.4): the
@@ -939,6 +947,8 @@ export class ThreadRunner implements OnModuleDestroy {
     readonly role: SessionRole;
     readonly officeInstructions: string;
     readonly model: string;
+    readonly effort: Effort | null;
+    readonly gaveWay?: string;
     readonly newSession: ThreadSession | undefined;
   }> {
     const applying = await this.engineCascade
@@ -971,6 +981,7 @@ export class ThreadRunner implements OnModuleDestroy {
         role,
         officeInstructions: office.text,
         model: applying.model,
+        effort: applying.effort,
         newSession: undefined,
       };
     }
@@ -987,7 +998,19 @@ export class ThreadRunner implements OnModuleDestroy {
       },
       now,
     );
-    return { decision, role, officeInstructions: office.text, model: engine.model, newSession };
+    return {
+      decision,
+      role,
+      officeInstructions: office.text,
+      model: engine.model,
+      effort: applying.effort,
+      // On a Stand-in Engine the model is the stand-in's, so nothing gave way there.
+      ...(standInFor === undefined &&
+        applying.gaveWay !== undefined && {
+          gaveWay: applying.gaveWay,
+        }),
+      newSession,
+    };
   }
 
   /**
@@ -1151,6 +1174,17 @@ export class ThreadRunner implements OnModuleDestroy {
     } catch (error) {
       await this.forget(session.id);
       throw error;
+    }
+    if (answer.gaveWay !== undefined) {
+      await this.log(thread.id, [
+        {
+          kind: "model-gave-way",
+          personName: role.card.name,
+          model: answer.model,
+          engineName: await this.engine.nameOf(session.engineId),
+          notOffered: answer.gaveWay,
+        },
+      ]);
     }
     start.at("waiting for the engine's first event");
     this.watch(thread, answer, opened, start, brief);
@@ -1330,7 +1364,8 @@ export class ThreadRunner implements OnModuleDestroy {
       role: { roleKey, card, mcpToolDefault },
       officeInstructions,
       model,
-    }: Pick<Answer, "role" | "officeInstructions" | "model">,
+      effort,
+    }: Pick<Answer, "role" | "officeInstructions" | "model" | "effort">,
     { skills, mcpServers }: Pick<SessionSettings, "skills" | "mcpServers">,
     place: SessionPlace,
   ): SessionSettings {
@@ -1340,7 +1375,7 @@ export class ThreadRunner implements OnModuleDestroy {
       folder: place.folder,
       readableFolders: place.readableFolders,
       environment: place.environment,
-      effort: card.effort,
+      effort: effort ?? undefined,
       instructions: place.instructions({ card, officeInstructions }),
       skills: skills && {
         folder: skills.folder,

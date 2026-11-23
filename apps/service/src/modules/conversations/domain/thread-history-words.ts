@@ -4,7 +4,12 @@ import {
   type Decision,
   type DecisionAnswer,
 } from "./decision.js";
-import { engineSwitchedWords, usageWindowUsedUpWords, type Message } from "./message.js";
+import {
+  engineSwitchedWords,
+  modelGaveWayWords,
+  usageWindowUsedUpWords,
+  type Message,
+} from "./message.js";
 import type { Proposal, ProposedChange } from "./proposal.js";
 import { userWords } from "./user.js";
 
@@ -140,6 +145,8 @@ function speakerAndText(
       return { speaker: THE_OFFICE, text: usageWindowUsedUpWords(message) };
     case "engine-switched":
       return { speaker: THE_OFFICE, text: engineSwitchedWords(message) };
+    case "model-gave-way":
+      return { speaker: THE_OFFICE, text: modelGaveWayWords(message) };
     case "stage-context-limit":
       return {
         speaker: THE_OFFICE,

@@ -49,7 +49,7 @@ const STAGE_FIELDS: readonly { readonly label: string; readonly words: StageFiel
   {
     label: "Effort",
     words: (stage) =>
-      agentOnly(stage, ({ effort }) => (effort ? EFFORT_LABELS[effort] : "Role default")),
+      agentOnly(stage, ({ effort }) => (effort ? EFFORT_LABELS[effort] : "Person's effort")),
   },
   { label: "Brief", words: (stage) => agentOnly(stage, ({ brief }) => brief) },
   {

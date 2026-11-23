@@ -54,7 +54,7 @@ import {
   SESSION_DEFAULTS,
   taskLimitLabel,
   type RoleTitles,
-  worksWithText,
+  worksWithLines,
 } from "../role-card-words.ts";
 import { SkillChip } from "../skill-chip.tsx";
 import { pinnedVersionLabel } from "../skill-words.ts";
@@ -635,7 +635,6 @@ function ProposedCard({
   readonly card: RoleCard;
   readonly roleTitles: RoleTitles;
 }): ReactNode {
-  const engineName = useEngineName();
   const capabilities = CAPABILITIES.filter(({ key }) => card.capabilities[key]);
   return (
     <dl className="proposal-fields">
@@ -648,7 +647,7 @@ function ProposedCard({
       </ProposedField>
       <ProposedField label="Task limit">{taskLimitLabel(card.taskLimit)}</ProposedField>
       <ProposedField label="Works with">
-        {worksWithText(card, engineName)}
+        {worksWithLines(card).join("; ")}
         <span className="proposal-note">
           Sessions: {SESSION_DEFAULTS[card.sessionDefault].label}
         </span>

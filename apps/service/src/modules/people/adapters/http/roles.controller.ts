@@ -37,6 +37,12 @@ export class RolesController {
   async cardOptions(): Promise<RoleCardOptions> {
     const options = await this.roles.cardOptions();
     return {
+      engineTypes: options.engineTypes.map(({ type, listed, models, efforts }) => ({
+        type,
+        listed,
+        models: models.map(({ model, onEveryAccount }) => ({ model, onEveryAccount })),
+        efforts: [...efforts],
+      })),
       engines: options.engines.map(({ engine, models, defaultModel, missingCapabilities }) => ({
         engine,
         models: [...models],

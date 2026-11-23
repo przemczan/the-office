@@ -35,21 +35,12 @@ import {
   signedInAs,
 } from "../../../../platform/http/signed-in-requests.fixtures.js";
 import { FAKE_STDIO_MCP_SERVER } from "../../../../platform/mcp/fake-mcp-servers.fixtures.js";
-import { FIRST_CLAUDE_CODE_ENGINE } from "../../../engine/index.js";
 import { RoleSkills, SkillLibrary } from "../../../skills/index.js";
-import {
-  RoleOverrideChecks,
-  type RoleOverrideSave,
-} from "../../application/role-override-checks.js";
 import { MemoryService } from "../../application/memory-service.js";
 import { MemoryTaskTitles } from "../../application/memory-task-titles.js";
-import { RoleOverrideMoves } from "../../application/role-override-moves.js";
 import { RoleService } from "../../application/role-service.js";
 import { PRESETS } from "../../domain/presets.js";
-import { CARD_CONTEXT } from "../../domain/role.fixtures.js";
-import { changeRoleCard } from "../../domain/role-changes.js";
 import { ANN_LEE, BEN_ITO } from "../../domain/user.fixtures.js";
-import { RoleRepository } from "../../ports/role-repository.js";
 import { PeopleModule } from "../../people.module.js";
 import { roles } from "../postgres/roles.schema.js";
 
@@ -209,6 +200,19 @@ describe("GET /api/role-card-options", () => {
       defaultModel: "claude-sonnet-5-5",
       missingCapabilities: [],
     });
+    expect(options.engineTypes).toContainEqual({
+      type: "claude-code",
+      listed: true,
+      models: models.map((model) => ({ model, onEveryAccount: true })),
+      efforts: ["low", "medium", "high", "xhigh", "max"],
+    });
+    expect(options.engineTypes.map(({ type }) => type).toSorted()).toEqual([
+      "claude-code",
+      "codex",
+      "copilot-cli",
+      "gemini-cli",
+      "openai-compatible-api",
+    ]);
     expect(options.knownRoles).toContainEqual({ key: "devops", title: "Devops" });
     expect(options.hardSwitches).toEqual([
       { key: "runInstalls", enforcement: "followed" },
@@ -245,10 +249,12 @@ describe("GET /api/role-card-options", () => {
     }
   });
 
-  it("runs every preset on the Office default", async () => {
+  it("works every preset with each engine's default model", async () => {
     const presets = presetListSchema.parse(await get("/presets"));
 
-    for (const { card } of presets) expect(card.roleOverride).toBeNull();
+    for (const { card } of presets) {
+      for (const setting of Object.values(card.engineSettings)) expect(setting.model).toBeNull();
+    }
   });
 });
 
@@ -483,42 +489,6 @@ describe("POST /api/roles/:key/let-go and /hire-back", () => {
   it("answers 404 for a Role nobody was hired into", async () => {
     expect((await send("POST", "/roles/developer/let-go", {})).status).toBe(404);
   });
-
-  it("refuses hiring back a person whose Role override a registered check refuses", async () => {
-    const hired = await hire("developer", "Ada");
-    const roleOverride = { engineId: "claude-code", model: "claude-haiku-5-5" };
-    await send("PUT", "/roles/developer/card", { ...editOf(hired), roleOverride });
-    await send("POST", "/roles/developer/let-go", {});
-    const refusal = "Outside any Project, the Developer would run on Local models.";
-    const saves: RoleOverrideSave[] = [];
-    app.get(RoleOverrideChecks).register(async (save) => {
-      saves.push(save);
-      return save.after ? [refusal] : [];
-    });
-    published = [];
-
-    const response = await send("POST", "/roles/developer/hire-back", {});
-
-    expect(await reasonsOf(response)).toEqual([refusal]);
-    expect(saves).toEqual([{ roleKey: "developer", before: null, after: roleOverride }]);
-    expect(roleSchema.parse(await get("/roles/developer")).letGoAt).not.toBeNull();
-    expect(published).toEqual([]);
-  });
-});
-
-describe("POST /api/roles from a preset", () => {
-  it("passes the check with no Role override before or after, so it can't change the cascade", async () => {
-    const saves: RoleOverrideSave[] = [];
-    app.get(RoleOverrideChecks).register(async (save) => {
-      saves.push(save);
-      return save.before === save.after ? [] : ["Changed the cascade."];
-    });
-
-    const role = await hire("developer", "Ada");
-
-    expect(role.card.roleOverride).toBeNull();
-    expect(saves).toEqual([{ roleKey: "developer", before: null, after: null }]);
-  });
 });
 
 describe("PUT /api/roles/:key/card", () => {
@@ -574,101 +544,36 @@ describe("PUT /api/roles/:key/card", () => {
     ]);
   });
 
-  it("saves a Role override and clears it back to the Office default", async () => {
+  it("saves the person's model and effort on an engine type and clears them back", async () => {
     const hired = await hire("developer", "Ada");
-    const roleOverride = { engineId: "claude-code", model: "claude-haiku-5-5" };
+    const engineSettings = { "claude-code": { model: "claude-haiku-5-5", effort: "low" } };
 
-    const set = await send("PUT", "/roles/developer/card", { ...editOf(hired), roleOverride });
+    const set = await send("PUT", "/roles/developer/card", { ...editOf(hired), engineSettings });
     const cleared = await send("PUT", "/roles/developer/card", {
       ...editOf(hired),
-      roleOverride: null,
+      engineSettings: {},
     });
 
     expect(set.status).toBe(200);
-    expect(roleSchema.parse(await set.json()).card.roleOverride).toEqual(roleOverride);
-    expect(roleSchema.parse(await cleared.json()).card.roleOverride).toBeNull();
+    expect(roleSchema.parse(await set.json()).card.engineSettings).toEqual(engineSettings);
+    expect(roleSchema.parse(await cleared.json()).card.engineSettings).toEqual({});
   });
 
-  it("moves a Role override on a removed engine as the card's next version, a let-go Role's too", async () => {
-    await hire("developer", "Ada");
-    await hire("reviewer", "Ola");
-    // An engine of this test's own, set past the checks, so other test files' Roles stay.
-    const roleOverride = { engineId: `removed-${randomUUID()}`, model: "claude-opus-5-5" };
-    await app
-      .get(RoleRepository)
-      .update("developer", (stored) =>
-        changeRoleCard(stored, { ...stored.card, roleOverride }, CARD_CONTEXT, new Date(), ANN_LEE),
-      );
-    await send("POST", "/roles/developer/let-go", {});
-    const second = { ...FIRST_CLAUDE_CODE_ENGINE, id: "second", defaultModel: "claude-haiku-5-5" };
-    published = [];
-
-    await app.get(RoleOverrideMoves).moveRoleOverrides({
-      engineId: roleOverride.engineId,
-      replacement: second,
-    });
-
-    const moved = { engineId: "second", model: "claude-opus-5-5" };
-    expect(roleSchema.parse(await get("/roles/developer")).card.roleOverride).toEqual(moved);
-    const [latest] = roleChangeListSchema.parse(await get("/roles/developer/changes"));
-    expect(latest).toMatchObject({
-      kind: "card-changed",
-      cardVersion: 3,
-      changes: [{ field: "roleOverride", from: roleOverride, to: moved }],
-      proposedBy: null,
-      savedBy: null,
-    });
-    expect(roleSchema.parse(await get("/roles/reviewer")).cardVersion).toBe(1);
-    expect(webEvents()).toEqual([expect.objectContaining({ type: "role.card-changed" })]);
-  });
-
-  it("refuses a Role override on an engine Settings › Engines doesn't list", async () => {
+  it("refuses a model the engine type doesn't offer and an effort it doesn't take", async () => {
     const hired = await hire("developer", "Ada");
 
     const response = await send("PUT", "/roles/developer/card", {
       ...editOf(hired),
-      roleOverride: { engineId: "removed", model: "claude-haiku-5-5" },
+      engineSettings: {
+        "claude-code": { model: "qwen3-coder", effort: null },
+        "gemini-cli": { model: null, effort: "high" },
+      },
     });
 
     expect(await reasonsOf(response)).toEqual([
-      "Choose an engine Settings › Engines lists, and a model it offers.",
+      "Choose a model Claude Code offers.",
+      "Choose an effort Gemini CLI takes.",
     ]);
-  });
-
-  it("refuses a Role override a registered check refuses, before keeping it, and says so when asked first", async () => {
-    const hired = await hire("developer", "Ada");
-    const roleOverride = { engineId: "claude-code", model: "claude-haiku-5-5" };
-    const refusal = "Outside any Project, the Developer would run on Local models.";
-    const saves: RoleOverrideSave[] = [];
-    app.get(RoleOverrideChecks).register(async (save) => {
-      saves.push(save);
-      return save.after ? [refusal] : [];
-    });
-    published = [];
-
-    const asked = await app
-      .get(RoleService)
-      .cardChangeProblems("developer", { ...editOf(hired), roleOverride });
-    const response = await send("PUT", "/roles/developer/card", { ...editOf(hired), roleOverride });
-
-    expect(asked).toEqual([refusal]);
-    expect(await reasonsOf(response)).toEqual([refusal]);
-    const save = { roleKey: "developer", before: null, after: roleOverride };
-    expect(saves).toEqual([save, save]);
-    expect(roleSchema.parse(await get("/roles/developer")).card.roleOverride).toBeNull();
-    expect(published).toEqual([]);
-  });
-
-  it("refuses hiring from scratch with a Role override a registered check refuses", async () => {
-    const { card } = roleSchema.parse(await hire("developer", "Ada"));
-    const roleOverride = { engineId: "claude-code", model: "claude-haiku-5-5" };
-    app.get(RoleOverrideChecks).register(async (save) => (save.after ? ["Not there."] : []));
-
-    const response = await send("POST", "/roles", {
-      card: { ...card, title: `Analyst ${randomUUID().slice(0, 8)}`, roleOverride },
-    });
-
-    expect(await reasonsOf(response)).toEqual(["Not there."]);
   });
 
   it("gives the Role exactly the skills the card names, for its next sessions", async () => {
@@ -717,7 +622,8 @@ describe("GET /api/roles/:key/changes", () => {
   it("lists the change history, newest first, down to the hire, each naming the user who made it", async () => {
     const hired = await hire("developer", "Ada");
     const tdd = await anOnSkill();
-    const edit = { ...editOf(hired), effort: "max", skills: [tdd] };
+    const engineSettings = { "claude-code": { model: null, effort: "max" } };
+    const edit = { ...editOf(hired), engineSettings, skills: [tdd] };
     await send("PUT", "/roles/developer/card", edit, signedInAs(ANOTHER_SIGNED_IN_FOR_TESTS));
 
     const changes = roleChangeListSchema.parse(await get("/roles/developer/changes"));
@@ -734,7 +640,7 @@ describe("GET /api/roles/:key/changes", () => {
         kind: "card-changed",
         at: expect.any(String),
         cardVersion: 2,
-        changes: [{ field: "effort", from: "high", to: "max" }],
+        changes: [{ field: "engineSettings", from: hired.card.engineSettings, to: engineSettings }],
         proposedBy: null,
         savedBy: BEN_ITO,
       },

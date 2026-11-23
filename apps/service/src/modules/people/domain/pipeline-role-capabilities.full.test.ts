@@ -5,7 +5,6 @@ import {
   incapableEngineProblems,
   newlyOnIncapableEngines,
   rolesOnIncapableEngines,
-  type PipelineRole,
 } from "./pipeline-role-capabilities.js";
 
 const officeDefault = { engineId: "claude-code", model: "claude-sonnet-5-5" };
@@ -21,30 +20,67 @@ function aProject(levels: Partial<ProjectCascadeLevels> = {}): ProjectCascadeLev
 }
 
 describe("rolesOnIncapableEngines", () => {
-  const developer: PipelineRole = { roleKey: "developer", roleOverride: null };
-  const reviewer: PipelineRole = { roleKey: "reviewer", roleOverride: officeDefault };
-
   it("finds the Roles the cascade puts on an engine lacking what Agent Stages need", () => {
     const project = aProject({ projectDefault: local });
 
     expect(
-      rolesOnIncapableEngines([developer, reviewer], officeDefault, project, missingCapabilities),
+      rolesOnIncapableEngines(
+        ["developer", "reviewer"],
+        officeDefault,
+        project,
+        missingCapabilities,
+      ),
+    ).toEqual([
+      { roleKey: "developer", engineId: "local", missing: ["outputSchema"] },
+      { roleKey: "reviewer", engineId: "local", missing: ["outputSchema"] },
+    ]);
+  });
+
+  it("weighs a Project's Role override over its default", () => {
+    const project = aProject({
+      projectDefault: local,
+      roleOverrides: [{ roleKey: "reviewer", ...officeDefault }],
+    });
+
+    expect(
+      rolesOnIncapableEngines(
+        ["developer", "reviewer"],
+        officeDefault,
+        project,
+        missingCapabilities,
+      ),
     ).toEqual([{ roleKey: "developer", engineId: "local", missing: ["outputSchema"] }]);
   });
 
-  it("weighs a forced Project default over the Role overrides", () => {
-    const project = aProject({ projectDefault: local, useForEveryRole: true });
+  it("weighs a forced Project default as a model only, never an engine", () => {
+    const project = aProject({
+      projectDefault: local,
+      useForEveryRole: true,
+      roleOverrides: [{ roleKey: "reviewer", ...officeDefault }],
+    });
 
     expect(
-      rolesOnIncapableEngines([reviewer], officeDefault, project, missingCapabilities),
-    ).toEqual([{ roleKey: "reviewer", engineId: "local", missing: ["outputSchema"] }]);
+      rolesOnIncapableEngines(["reviewer"], officeDefault, project, missingCapabilities),
+    ).toEqual([]);
   });
 
-  it("weighs the Office levels alone outside any Project", () => {
-    const onLocal: PipelineRole = { roleKey: "developer", roleOverride: local };
+  it("weighs the Office default alone outside any Project", () => {
+    expect(rolesOnIncapableEngines(["developer"], local, undefined, missingCapabilities)).toEqual([
+      { roleKey: "developer", engineId: "local", missing: ["outputSchema"] },
+    ]);
+    expect(
+      rolesOnIncapableEngines(["developer"], officeDefault, undefined, missingCapabilities),
+    ).toEqual([]);
+  });
+
+  it("weighs a Task's engine over the Project's default", () => {
+    const project = aProject({ projectDefault: officeDefault });
 
     expect(
-      rolesOnIncapableEngines([onLocal, reviewer], officeDefault, undefined, missingCapabilities),
+      rolesOnIncapableEngines(["developer"], officeDefault, project, missingCapabilities, {
+        taskEngine: local,
+        initiativeEngine: null,
+      }),
     ).toEqual([{ roleKey: "developer", engineId: "local", missing: ["outputSchema"] }]);
   });
 });
@@ -68,28 +104,75 @@ describe("incapableEngineProblems", () => {
     engineName: (engineId: string) => (engineId === "local" ? "Local models" : engineId),
   };
 
-  it("names the Roles on each engine, what it lacks and the Project", () => {
+  it("names the engine, what it lacks, the Roles on it once each and the Project", () => {
     const problems = incapableEngineProblems(
       [
-        { roleKey: "developer", engineId: "local", missing: ["outputSchema"] },
-        { roleKey: "reviewer", engineId: "local", missing: ["officeTools", "outputSchema"] },
+        { roleKey: "developer", engineId: "local", missing: ["officeTools"] },
+        { roleKey: "reviewer", engineId: "local", missing: ["officeTools"] },
+        { roleKey: "developer", engineId: "local", missing: ["officeTools"] },
       ],
       { ...names, projectName: "Admin panel" },
     );
 
     expect(problems).toEqual([
-      "In Admin panel, the Developer and the Reviewer would run on Local models, which can't use Office tools or hold a Stage's answer to a schema, as their Pipelines' Agent Stages need.",
+      "Local models can't use Office tools, which the Agent Stages of the Developer and the Reviewer need in Admin panel.",
     ]);
   });
 
-  it("says outside any Project when there is none", () => {
+  it("says outside any Project when there is none, and a schema it can't hold its answer to", () => {
     const problems = incapableEngineProblems(
       [{ roleKey: "developer", engineId: "local", missing: ["outputSchema"] }],
       { ...names, projectName: undefined },
     );
 
     expect(problems).toEqual([
-      "Outside any Project, the Developer would run on Local models, which can't hold a Stage's answer to a schema, as their Pipelines' Agent Stages need.",
+      "Local models can't hold its answer to the Stage result's schema, which the Agent Stages of the Developer need outside any Project.",
+    ]);
+  });
+
+  it("names both when the engine lacks both", () => {
+    const problems = incapableEngineProblems(
+      [{ roleKey: "reviewer", engineId: "local", missing: ["officeTools", "outputSchema"] }],
+      { ...names, projectName: "Admin panel" },
+    );
+
+    expect(problems).toEqual([
+      "Local models can't use Office tools or hold its answer to the Stage result's schema, which the Agent Stages of the Reviewer need in Admin panel.",
+    ]);
+  });
+
+  it("says it on a Task", () => {
+    const problems = incapableEngineProblems(
+      [{ roleKey: "developer", engineId: "local", missing: ["officeTools"] }],
+      { ...names, projectName: "Admin panel", place: "On “Fix the login”" },
+    );
+
+    expect(problems).toEqual([
+      "On “Fix the login”, Local models can't use Office tools, which the Agent Stages of the Developer need.",
+    ]);
+  });
+
+  it("says it in an Initiative, on the Tasks it was found on", () => {
+    const problems = incapableEngineProblems(
+      [
+        {
+          roleKey: "developer",
+          engineId: "local",
+          missing: ["officeTools"],
+          taskTitle: "Fix the login",
+        },
+        {
+          roleKey: "developer",
+          engineId: "local",
+          missing: ["officeTools"],
+          taskTitle: "Add a refund",
+        },
+      ],
+      { ...names, projectName: undefined, place: "In Payments" },
+    );
+
+    expect(problems).toEqual([
+      "In Payments, Local models can't use Office tools, which the Agent Stages of the Developer need on “Fix the login” and “Add a refund”.",
     ]);
   });
 });

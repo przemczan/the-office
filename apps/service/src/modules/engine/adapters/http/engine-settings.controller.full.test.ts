@@ -194,7 +194,8 @@ describe("/api/settings/engines", () => {
   });
 
   it("refuses settings a registered check refuses, keeping and announcing none", async () => {
-    const refusal = "Outside any Project, the Developer would run on Strata.";
+    const refusal =
+      "Strata can't use Office tools, which the Agent Stages of the Developer need outside any Project.";
     const saves: EngineSettingsSave[] = [];
     app.get(EngineSettingsChecks).register(async (save) => {
       saves.push(save);
@@ -300,7 +301,8 @@ describe("DELETE /api/settings/engines/:engineId", () => {
   });
 
   it("weighs the removal in the registered checks, moving and removing nothing when one refuses", async () => {
-    const refusal = "Outside any Project, the Developer would run on Claude Code.";
+    const refusal =
+      "Claude Code can't use Office tools, which the Agent Stages of the Developer need outside any Project.";
     const saves: EngineSettingsSave[] = [];
     app.get(EngineSettingsChecks).register(async (save) => {
       saves.push(save);
@@ -428,7 +430,8 @@ describe("GET /api/settings/engines/:engineId/removal", () => {
         throw new Error("A preview moves nothing.");
       },
     });
-    const refusal = "Outside any Project, the Developer would run on Claude Code.";
+    const refusal =
+      "Claude Code can't use Office tools, which the Agent Stages of the Developer need outside any Project.";
     app.get(EngineSettingsChecks).register(async ({ removal }) => (removal ? [refusal] : []));
 
     const preview = await previewOf("strata", "claude-code");

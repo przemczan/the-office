@@ -9,7 +9,8 @@ import {
   roleChangeByLine,
   skillsChangeLine,
   taskLimitShort,
-  worksWithText,
+  workSourceText,
+  worksWithLines,
 } from "./role-card-words.ts";
 import { userName } from "./use-user-name.ts";
 import { BY_ANN, BY_YOU, SIGNED_IN } from "./user.fixtures.ts";
@@ -31,33 +32,56 @@ describe("the Role card's words", () => {
     expect(taskLimitShort(3)).toBe("Up to 3 Tasks");
   });
 
-  it("says what the card works with, the Office default when it has no Role override", () => {
-    expect(worksWithText({ roleOverride: null, effort: "high" }, names.engineName)).toBe(
-      "Office default · effort high",
-    );
-    const roleOverride = { engineId: "claude-code", model: "claude-sonnet-5-5" };
-    expect(worksWithText({ roleOverride, effort: "max" }, names.engineName)).toBe(
-      "Sonnet 5.5 · effort max · Work account",
-    );
-  });
-
-  it("says what applies and the level of the cascade it comes from", () => {
-    const applies = { engineId: "claude-code", model: "claude-haiku-5-5" };
-    expect(engineInCascadeText({ ...applies, level: "office-default" }, names.engineName)).toBe(
-      "Haiku 5.5 on Work account, from the Office default",
-    );
+  it("says what the card works with on each engine type it sets, each engine's default when none", () => {
+    expect(worksWithLines({ engineSettings: {} })).toEqual([
+      "Each engine's default model and effort",
+    ]);
     expect(
-      engineInCascadeText({ ...applies, level: "project-role-override" }, names.engineName),
-    ).toBe("Haiku 5.5 on Work account, from the Project's Role override");
+      worksWithLines({
+        engineSettings: {
+          codex: { model: null, effort: "high" },
+          "claude-code": { model: "claude-sonnet-5-5", effort: "max" },
+          "gemini-cli": { model: "flash", effort: null },
+          "copilot-cli": { model: null, effort: null },
+        },
+      }),
+    ).toEqual([
+      "Claude Code: Sonnet 5.5 · effort max",
+      "Codex: Engine's default · effort high",
+      "Gemini CLI: Flash",
+    ]);
+    expect(
+      worksWithLines({
+        engineSettings: { "claude-code": { model: "claude-opus-5-5", effort: null } },
+      }),
+    ).toEqual(["Claude Code: Opus 5.5 · Engine's default"]);
   });
 
-  it("names a Task's and an Initiative's engine as the levels they are", () => {
-    const applies = { engineId: "claude-code", model: "claude-opus-5-5" };
-    expect(engineInCascadeText({ ...applies, level: "task-engine" }, names.engineName)).toBe(
-      "Opus 5.5 on Work account, from the Task's engine",
+  it("says the model and effort on the engine that applies, and where each comes from", () => {
+    const applies = {
+      engineId: "claude-code",
+      model: "claude-haiku-5-5",
+      level: "office-default",
+      engineType: "claude-code",
+      effort: "high",
+      modelLevel: "person",
+      effortLevel: "person",
+    } as const;
+    expect(engineInCascadeText(applies, names.engineName)).toBe(
+      "Haiku 5.5 · effort high on Work account",
     );
-    expect(engineInCascadeText({ ...applies, level: "initiative-engine" }, names.engineName)).toBe(
-      "Opus 5.5 on Work account, from the Initiative's engine",
+    expect(engineInCascadeText({ ...applies, effort: null }, names.engineName)).toBe(
+      "Haiku 5.5 on Work account",
+    );
+    expect(workSourceText(applies, "Pam")).toBe("from Pam's Role card");
+    expect(workSourceText({ ...applies, effortLevel: "projectForce" }, "Pam")).toBe(
+      "model: from Pam's Role card; effort: forced by the Project",
+    );
+    expect(workSourceText({ ...applies, modelLevel: "projectPerson", effort: null }, "Pam")).toBe(
+      "from the Project's setting for Pam",
+    );
+    expect(workSourceText({ ...applies, modelLevel: "engine", effortLevel: "engine" }, "Pam")).toBe(
+      "the engine's default",
     );
   });
 
@@ -95,6 +119,31 @@ describe("the Role card's words", () => {
         names,
       ),
     ).toBe("Engine and model Office default → Work account · Haiku 5.5");
+    expect(
+      changeLine(
+        {
+          field: "engineSettings",
+          from: {},
+          to: { "claude-code": { model: "claude-haiku-5-5", effort: "low" } },
+        },
+        names,
+      ),
+    ).toBe(
+      "Model and effort Each engine's default model and effort → Claude Code: Haiku 5.5 · effort low",
+    );
+    expect(
+      changeLine(
+        {
+          field: "engineSettingsMovedOver",
+          from: { engineId: "claude-code", model: "claude-haiku-5-5" },
+          to: null,
+        },
+        names,
+      ),
+    ).toBe("Engine settings moved over, the Role override Work account · Haiku 5.5 dropped");
+    expect(changeLine({ field: "engineSettingsMovedOver", from: null, to: null }, names)).toBe(
+      "Engine settings moved over",
+    );
     expect(changeLine({ field: "taskLimit", from: 3, to: "none" }, names)).toBe(
       "Task limit 3 → none",
     );
@@ -149,10 +198,10 @@ describe("the Role card's words", () => {
     } as const;
     expect(
       proposedFieldChanges(
-        { taskLimit: 2, effort: "high", capabilities, hardSwitches },
+        { taskLimit: 2, engineSettings: {}, capabilities, hardSwitches },
         {
           taskLimit: 3,
-          effort: "high",
+          engineSettings: {},
           capabilities: { ...capabilities, consultant: true, runEnvironment: false },
           hardSwitches: { ...hardSwitches, runInstalls: { kind: "ask-me" } },
         },
