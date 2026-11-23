@@ -749,7 +749,8 @@ test.describe.serial("Sign in with GitHub", () => {
       ).toHaveAttribute("aria-checked", "true");
       await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "workflow-action-editor.png") });
       await editor.getByRole("button", { name: "Add the Action" }).click();
-      await expect(editor).toBeHidden();
+      // The window closes once the save answers, which under the full run's load outlasts 5 s.
+      await expect(editor).toBeHidden({ timeout: 15_000 });
       const row = page
         .getByRole("navigation", { name: `${project.name}'s Actions` })
         .getByRole("listitem")
