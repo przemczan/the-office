@@ -56,8 +56,8 @@ export function TaskEngineBlock({ task }: { readonly task: Task }): ReactNode {
   const queryClient = useQueryClient();
   const engines = useQuery(roleCardQueries.options()).data?.engines;
   const project = useQuery(projectQueries.one(task.projectId)).data;
-  const officeDefault = useQuery(engineSettingsQuery()).data?.officeDefault;
-  const projectEngine = projectEngineOf(project, officeDefault);
+  const engineSettings = useQuery(engineSettingsQuery()).data;
+  const projectEngine = projectEngineOf(project, engineSettings);
   const fold = useFold({ kind: "task", id: task.id }, "engine", false);
   const changing = useRecordChange(task, (engine: EngineModel | null) =>
     changeTaskEngine(task.id, engine),
@@ -187,11 +187,11 @@ export function InitiativeEngineBlock({
   const engineName = useEngineName();
   const showToast = useToast();
   const engines = useQuery(roleCardQueries.options()).data?.engines;
-  const officeDefault = useQuery(engineSettingsQuery()).data?.officeDefault;
+  const engineSettings = useQuery(engineSettingsQuery()).data;
   const projectEngine = (projectId: string): EngineModel | null =>
     projectEngineOf(
       projects?.find(({ id }) => id === projectId),
-      officeDefault,
+      engineSettings,
     );
   const onlyProject = initiative.projectIds.length === 1 ? initiative.projectIds[0] : undefined;
   const fold = useFold({ kind: "initiative", id: initiative.id }, "engine", false);

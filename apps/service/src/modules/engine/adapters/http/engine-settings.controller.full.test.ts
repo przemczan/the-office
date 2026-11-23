@@ -53,6 +53,13 @@ const strataEdit: EngineSettingsEdit = {
   modelPrices: [],
 };
 
+/** The Office default on Strata, as Settings › Engines sets it. */
+const STRATA_DEFAULT = { engineType: "openai-compatible-api", engineId: "strata" } as const;
+
+/** The engine and model each Office default gives, as the checks and the moves read it. */
+const STRATA_ON_ITS_MODEL = { engineId: "strata", model: "qwen3.8-flash" };
+const CLAUDE_CODE_ON_ITS_MODEL = { engineId: "claude-code", model: "claude-sonnet-5-5" };
+
 let app: INestApplication;
 
 let url: string;
@@ -113,7 +120,7 @@ describe("/api/settings/engines", () => {
   it("lists the first Claude Code engine as the Office default, with no search endpoint and no Model price until the user sets them", async () => {
     expect(engineSettingsSchema.parse(JSON.parse(await read()))).toEqual({
       engines: [FIRST_CLAUDE_CODE_ENGINE],
-      officeDefault: { engineId: "claude-code", model: "claude-sonnet-5-5" },
+      officeDefault: { engineType: "claude-code", engineId: "claude-code" },
       searchEndpoint: null,
       modelPrices: UNPRICED_CLAUDE_MODELS,
       standInEngines: [],
@@ -195,20 +202,58 @@ describe("/api/settings/engines", () => {
     });
     const announced: EngineAdded[] = [];
     app.get(EventBus).subscribe(EngineAdded, (event) => void announced.push(event));
-    const strataDefault = { engineId: "strata", model: "qwen3.8-flash" };
 
-    const refused = await put({ ...strataEdit, officeDefault: strataDefault });
+    const refused = await put({ ...strataEdit, officeDefault: STRATA_DEFAULT });
 
     expect(refused.status).toBe(422);
     expect(engineSettingsRefusalSchema.parse(await refused.json()).reasons).toEqual([refusal]);
     expect(saves).toHaveLength(1);
-    expect(saves[0]?.before).toEqual(DEFAULT_ENGINE_SETTINGS);
+    expect(saves[0]?.before).toEqual({
+      engines: DEFAULT_ENGINE_SETTINGS.engines,
+      officeDefault: CLAUDE_CODE_ON_ITS_MODEL,
+    });
     expect(saves[0]?.after).toMatchObject({
       engines: [FIRST_CLAUDE_CODE_ENGINE, { id: "strata", name: "Strata" }],
-      officeDefault: strataDefault,
+      officeDefault: STRATA_ON_ITS_MODEL,
     });
     expect(await repository.read()).toEqual(DEFAULT_ENGINE_SETTINGS);
     expect(announced).toEqual([]);
+  });
+
+  it("keeps the stored default effort on a PUT that leaves it out", async () => {
+    const [claudeCode, strata] = strataEdit.engines;
+    await put({ ...strataEdit, engines: [{ ...claudeCode, defaultEffort: "max" }, strata] });
+    const { defaultEffort: _leftOut, ...withoutEffort } = { ...FIRST_CLAUDE_CODE_ENGINE };
+
+    const saved = await put({
+      ...strataEdit,
+      engines: [
+        { ...withoutEffort, name: "Work account" },
+        { ...strata, id: "strata" },
+      ],
+    });
+
+    expect(saved.status).toBe(200);
+    expect(engineSettingsSchema.parse(await saved.json()).engines[0]).toMatchObject({
+      name: "Work account",
+      defaultEffort: "max",
+    });
+  });
+
+  it("refuses an Office default whose type isn't its account's, and an effort its type doesn't take, in words", async () => {
+    const [claudeCode, strata] = strataEdit.engines;
+
+    const refused = await put({
+      ...strataEdit,
+      engines: [claudeCode!, { ...strata!, defaultEffort: "low" }],
+      officeDefault: { engineType: "codex", engineId: "claude-code" },
+    });
+
+    expect(refused.status).toBe(422);
+    expect(await reasonsOf(refused)).toEqual([
+      'Pick the default effort of "Strata" among the efforts API endpoint takes.',
+      "Pick the Office default's account among the Codex engines.",
+    ]);
   });
 
   it("refuses a model without its context window in words, as Settings › Engines shows them", async () => {
@@ -240,7 +285,7 @@ describe("/api/settings/engines", () => {
 });
 
 describe("DELETE /api/settings/engines/:engineId", () => {
-  const strataDefault = { engineId: "strata", model: "qwen3.8-flash" };
+  const strataDefault = STRATA_DEFAULT;
 
   beforeEach(async () => {
     const saved = await put({ ...strataEdit, officeDefault: strataDefault });
@@ -270,8 +315,8 @@ describe("DELETE /api/settings/engines/:engineId", () => {
     expect(engineSettingsRefusalSchema.parse(await refused.json()).reasons).toEqual([refusal]);
     expect(saves).toEqual([
       {
-        before: expect.objectContaining({ officeDefault: strataDefault }),
-        after: expect.objectContaining({ officeDefault: FIRST_OFFICE_DEFAULT }),
+        before: expect.objectContaining({ officeDefault: STRATA_ON_ITS_MODEL }),
+        after: expect.objectContaining({ officeDefault: CLAUDE_CODE_ON_ITS_MODEL }),
         removal: { engineId: "strata", replacement: FIRST_CLAUDE_CODE_ENGINE },
       },
     ]);
@@ -361,13 +406,13 @@ describe("DELETE /api/settings/engines/:engineId", () => {
 });
 
 describe("GET /api/settings/engines/:engineId/removal", () => {
-  const strataDefault = { engineId: "strata", model: "qwen3.8-flash" };
+  const strataDefault = STRATA_DEFAULT;
   const developerOnStrata = {
     roleKey: "developer",
     project: null,
     work: null,
-    from: strataDefault,
-    to: FIRST_OFFICE_DEFAULT,
+    from: STRATA_ON_ITS_MODEL,
+    to: CLAUDE_CODE_ON_ITS_MODEL,
   };
 
   beforeEach(async () => {
@@ -391,7 +436,13 @@ describe("GET /api/settings/engines/:engineId/removal", () => {
     expect(preview.status).toBe(200);
     expect(engineRemovalPreviewSchema.parse(await preview.json())).toEqual({
       moves: [
-        { roleKey: null, project: null, work: null, from: strataDefault, to: FIRST_OFFICE_DEFAULT },
+        {
+          roleKey: null,
+          project: null,
+          work: null,
+          from: STRATA_ON_ITS_MODEL,
+          to: CLAUDE_CODE_ON_ITS_MODEL,
+        },
         developerOnStrata,
       ],
       problems: [refusal],
@@ -418,7 +469,7 @@ describe("GET /api/settings/engines/:engineId/removal", () => {
     const preview = await previewOf("strata");
 
     expect(engineRemovalPreviewSchema.parse(await preview.json()).moves).toEqual([
-      { roleKey: null, project: null, work: null, from: strataDefault, to: null },
+      { roleKey: null, project: null, work: null, from: STRATA_ON_ITS_MODEL, to: null },
     ]);
   });
 

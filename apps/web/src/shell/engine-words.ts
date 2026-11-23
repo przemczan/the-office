@@ -1,6 +1,33 @@
-import { COPILOT_CLI_AUTO_MODEL, type Effort } from "@the-office/contracts";
+import {
+  COPILOT_CLI_AUTO_MODEL,
+  type Effort,
+  type EngineKind,
+  type EngineModel,
+  type EngineSettings,
+} from "@the-office/contracts";
 
-/** The words for a model and its effort, wherever a Role card or a Stage names them. */
+/** The words for an engine type, a model and its effort, wherever the web names them. */
+
+/** Each engine type as a person reads it, in the order the spec lists the types. */
+export const ENGINE_KIND_LABELS: Readonly<Record<EngineKind, string>> = {
+  "claude-code": "Claude Code",
+  codex: "Codex",
+  "copilot-cli": "Copilot CLI",
+  "gemini-cli": "Gemini CLI",
+  "openai-compatible-api": "API endpoint",
+};
+
+/** Each engine type's icon: in Settings › Engines' rows, "Add an engine" and the type pickers. */
+export const ENGINE_KIND_ICONS: Readonly<Record<EngineKind, string>> = {
+  "claude-code": "terminal",
+  codex: "bot",
+  "copilot-cli": "github",
+  "gemini-cli": "sparkles",
+  "openai-compatible-api": "server",
+};
+
+/** The engine types in the spec's order: Claude Code, Codex, Copilot CLI, Gemini CLI, API endpoint. */
+export const ENGINE_KINDS = Object.keys(ENGINE_KIND_LABELS) as readonly EngineKind[];
 
 export const EFFORT_LABELS: Readonly<Record<Effort, string>> = {
   low: "Low",
@@ -45,4 +72,16 @@ export function runEngineWords({
 /** "Stand-in for Work": a run's badge when its engine stood in for the cascade's. */
 export function standInForWords(engineName: string): string {
   return `Stand-in for ${engineName}`;
+}
+
+/**
+ * The Office default as the engine cascade's lowest level gives it: its account on that engine's
+ * own default model; none while no engine is listed or the settings aren't read yet.
+ */
+export function officeDefaultEngineModel(
+  settings: Pick<EngineSettings, "engines" | "officeDefault"> | undefined,
+): EngineModel | null {
+  const engineId = settings?.officeDefault?.engineId;
+  const engine = settings?.engines.find(({ id }) => id === engineId);
+  return engine ? { engineId: engine.id, model: engine.defaultModel } : null;
 }

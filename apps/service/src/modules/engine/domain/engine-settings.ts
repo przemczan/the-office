@@ -1,8 +1,10 @@
-import { movedEngineModel, type EngineRemoval } from "./engine-removal.js";
+import type { EngineRemoval } from "./engine-removal.js";
 import { EngineSettingsRefused, ENGINES_CHANGED_MEANWHILE } from "./engine-settings-refused.js";
 import {
   CLAUDE_CODE_MODELS,
   CODEX_MODELS,
+  effortsTakenBy,
+  ENGINE_TYPE_NAMES,
   engineIdFor,
   FIRST_CLAUDE_CODE_ENGINE,
   offeredModels,
@@ -11,10 +13,12 @@ import {
   type ClaudeCodeEngine,
   type CodexEngine,
   type CopilotCliEngine,
+  type Effort,
   type Engine,
   type EngineId,
   type EngineModel,
   type GeminiCliEngine,
+  type OfficeDefault,
 } from "./engines.js";
 import {
   keptModelPrices,
@@ -33,10 +37,10 @@ export interface EngineSettings {
   /** In the order Settings › Engines lists them. */
   readonly engines: readonly Engine[];
   /**
-   * The engine and model every Role runs on unless something more specific applies; none only
-   * while no engine is listed, so nothing runs.
+   * The engine type and account every Role runs on unless something more specific applies; none
+   * only while no engine is listed, so nothing runs.
    */
-  readonly officeDefault: EngineModel | null;
+  readonly officeDefault: OfficeDefault | null;
   /** Null until the user sets one. */
   readonly searchEndpoint: SearchEndpoint | null;
   /** Only the models offered now that have a Model price. */
@@ -56,10 +60,10 @@ export const DEFAULT_ASK_BEFORE_SWITCH_ABOVE = 100_000;
 /** Above any model's context window, and within the `integer` column it is kept in. */
 export const ASK_BEFORE_SWITCH_ABOVE_MOST = 10_000_000;
 
-/** The first Claude Code engine on its default model, as the upgrade leaves it. */
-export const FIRST_OFFICE_DEFAULT: EngineModel = {
+/** The first Claude Code engine, as the upgrade leaves it. */
+export const FIRST_OFFICE_DEFAULT: OfficeDefault = {
+  engineType: FIRST_CLAUDE_CODE_ENGINE.kind,
   engineId: FIRST_CLAUDE_CODE_ENGINE.id,
-  model: FIRST_CLAUDE_CODE_ENGINE.defaultModel,
 };
 
 export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
@@ -71,39 +75,44 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   askBeforeSwitchAbove: DEFAULT_ASK_BEFORE_SWITCH_ABOVE,
 };
 
+/**
+ * What every engine edit leaves out or may: the `id` of a new engine, and the default effort, which
+ * left out keeps the stored one (Not set on a new engine).
+ */
+type EditOf<E extends Engine, Kept extends keyof E = never> = Omit<
+  E,
+  "id" | "defaultEffort" | Kept
+> & {
+  readonly id?: EngineId;
+  readonly defaultEffort?: Effort | null;
+};
+
 /** A Claude Code engine as Settings › Engines saves it: without an `id` when it is new. */
-export type ClaudeCodeEngineEdit = Omit<ClaudeCodeEngine, "id"> & { readonly id?: EngineId };
+export type ClaudeCodeEngineEdit = EditOf<ClaudeCodeEngine>;
 
 /**
  * An API engine as Settings › Engines saves it: without an `id` when it is new, and without a `key`
  * when it keeps the one kept.
  */
-export type ApiEngineEdit = Omit<ApiEngine, "id" | "key"> & {
-  readonly id?: EngineId;
-  readonly key?: string;
-};
+export type ApiEngineEdit = EditOf<ApiEngine, "key"> & { readonly key?: string };
 
 /**
  * A Codex engine as Settings › Engines saves it: without an `id` when it is new, and never with
  * its API key, which only signing it in sets (a Save keeps the one kept).
  */
-export type CodexEngineEdit = Omit<CodexEngine, "id" | "apiKey"> & { readonly id?: EngineId };
+export type CodexEngineEdit = EditOf<CodexEngine, "apiKey">;
 
 /**
  * A Copilot CLI engine as Settings › Engines saves it: without an `id` when it is new, and never
  * with its token, which only "Paste a token instead" sets (a Save keeps the one kept).
  */
-export type CopilotCliEngineEdit = Omit<CopilotCliEngine, "id" | "token"> & {
-  readonly id?: EngineId;
-};
+export type CopilotCliEngineEdit = EditOf<CopilotCliEngine, "token">;
 
 /**
  * A Gemini CLI engine as Settings › Engines saves it: without an `id` when it is new, and never
  * with its API key, which only its own route sets (a Save keeps the one kept).
  */
-export type GeminiCliEngineEdit = Omit<GeminiCliEngine, "id" | "apiKey"> & {
-  readonly id?: EngineId;
-};
+export type GeminiCliEngineEdit = EditOf<GeminiCliEngine, "apiKey">;
 
 export type EngineEdit =
   | ClaudeCodeEngineEdit
@@ -116,7 +125,7 @@ export interface EngineSettingsEdit {
   /** Every engine, in order; a saved one left out is refused, as removing one moves what names it. */
   readonly engines: readonly EngineEdit[];
   /** None only with no engine listed. */
-  readonly officeDefault: EngineModel | null;
+  readonly officeDefault: OfficeDefault | null;
   readonly searchEndpoint: SearchEndpoint | null;
   readonly modelPrices: readonly OfferedModel[];
   /** Left out, the stored list is kept. */
@@ -179,9 +188,19 @@ export function changedEngineSettings(
 }
 
 /**
- * The settings once the removal is done: the engine gone and the Office default moved by
- * `movedEngineModel`, to none with the only engine, the engine dropped from the Stand-in Engines,
- * the rest kept. Refuses with every reason when they break a rule.
+ * The Engine model the Office default gives: its engine on that engine's default model, the view
+ * the engine cascade reads; none while no engine is listed.
+ */
+export function officeDefaultEngineModel(settings: EngineSettings): EngineModel | null {
+  const { officeDefault, engines } = settings;
+  const engine = officeDefault && engines.find(({ id }) => id === officeDefault.engineId);
+  return engine ? { engineId: engine.id, model: engine.defaultModel } : null;
+}
+
+/**
+ * The settings once the removal is done: the engine gone and the Office default moved to the
+ * replacement, with its engine type, or to none with the only engine, the engine dropped from the
+ * Stand-in Engines, the rest kept. Refuses with every reason when they break a rule.
  */
 export function settingsWithoutEngine(
   stored: EngineSettings,
@@ -189,13 +208,21 @@ export function settingsWithoutEngine(
 ): EngineSettings {
   const edit: EngineSettingsEdit = {
     engines: stored.engines.filter(({ id }) => id !== removal.engineId),
-    officeDefault: stored.officeDefault && movedEngineModel(stored.officeDefault, removal),
+    officeDefault: stored.officeDefault && movedOfficeDefault(stored.officeDefault, removal),
     searchEndpoint: stored.searchEndpoint,
     modelPrices: stored.modelPrices,
     standInEngines: stored.standInEngines.filter((engineId) => engineId !== removal.engineId),
     askBeforeSwitchAbove: stored.askBeforeSwitchAbove,
   };
   return settingsOf(stored, edit, []);
+}
+
+function movedOfficeDefault(
+  officeDefault: OfficeDefault,
+  { engineId, replacement }: EngineRemoval,
+): OfficeDefault | null {
+  if (officeDefault.engineId !== engineId) return officeDefault;
+  return replacement && { engineType: replacement.kind, engineId: replacement.id };
 }
 
 function settingsOf(
@@ -282,7 +309,13 @@ function changedEnginesOf(
     const id = edit.id ?? engineIdFor(name, taken);
     taken.add(id);
     seen.add(id);
-    const common = { id, name, defaultModel: edit.defaultModel.trim() };
+    const common = {
+      id,
+      name,
+      defaultModel: edit.defaultModel.trim(),
+      defaultEffort:
+        edit.defaultEffort === undefined ? (kept?.defaultEffort ?? null) : edit.defaultEffort,
+    };
     if (edit.kind === "claude-code") {
       return { ...common, kind: edit.kind, claudeCodeP: edit.claudeCodeP };
     }
@@ -326,6 +359,14 @@ function engineProblems(engine: Engine): string[] {
   if (engine.kind === "openai-compatible-api") problems.push(...apiEngineProblems(engine, called));
   if (!offeredModels(engine).includes(engine.defaultModel)) {
     problems.push(`Pick the default model of ${called} among its models.`);
+  }
+  if (
+    engine.defaultEffort !== null &&
+    !effortsTakenBy(engine.kind).includes(engine.defaultEffort)
+  ) {
+    problems.push(
+      `Pick the default effort of ${called} among the efforts ${ENGINE_TYPE_NAMES[engine.kind]} takes.`,
+    );
   }
   return problems;
 }
@@ -371,30 +412,32 @@ function leftOutEngineProblems(stored: readonly Engine[], edits: readonly Engine
 
 /**
  * The Office default the edit names; with none named while no engine was listed, the first engine
- * saved takes it on its default model, so sessions start again once an engine is added (spec §5.4).
+ * saved takes it, with its type, so sessions start again once an engine is added (spec §5.4).
  */
 function officeDefaultOf(
-  edited: EngineModel | null,
+  edited: OfficeDefault | null,
   engines: readonly Engine[],
   stored: readonly Engine[],
-): EngineModel | null {
-  if (edited) return { engineId: edited.engineId, model: edited.model };
+): OfficeDefault | null {
+  if (edited) return { engineType: edited.engineType, engineId: edited.engineId };
   const [first] = engines;
-  return first && stored.length === 0 ? { engineId: first.id, model: first.defaultModel } : null;
+  return first && stored.length === 0 ? { engineType: first.kind, engineId: first.id } : null;
 }
 
 function officeDefaultProblems(
-  officeDefault: EngineModel | null,
+  officeDefault: OfficeDefault | null,
   engines: readonly Engine[],
 ): string[] {
   if (officeDefault === null) {
     return engines.length === 0 ? [] : ["Pick the Office default among the engines listed."];
   }
-  const { engineId, model } = officeDefault;
+  const { engineType, engineId } = officeDefault;
   const engine = engines.find(({ id }) => id === engineId);
   if (engine === undefined) return ["Pick the Office default among the engines listed."];
-  if (!offeredModels(engine).includes(model)) {
-    return [`Pick the Office default's model among the models of "${engine.name}".`];
+  if (engine.kind !== engineType) {
+    return [
+      `Pick the Office default's account among the ${ENGINE_TYPE_NAMES[engineType]} engines.`,
+    ];
   }
   return [];
 }

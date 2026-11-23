@@ -1,12 +1,15 @@
 import { z } from "zod";
-import { engineCapabilitySchema, engineIdSchema, engineModelSchema } from "./engines.js";
+import {
+  effortSchema,
+  engineCapabilitySchema,
+  engineIdSchema,
+  engineModelSchema,
+} from "./engines.js";
 import { webEventSchema } from "./events.js";
 import { imageSchema } from "./images.js";
 import { userRefSchema } from "./users.js";
 
-/** How hard the model thinks. */
-export const effortSchema = z.enum(["low", "medium", "high", "xhigh", "max"]);
-export type Effort = z.infer<typeof effortSchema>;
+export { effortSchema, type Effort } from "./engines.js";
 
 /** The Role's default for continuing a Thread. */
 export const sessionDefaultSchema = z.enum([

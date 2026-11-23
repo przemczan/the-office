@@ -6,22 +6,21 @@ import type {
   EngineSettings,
 } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
+import { ENGINE_KIND_LABELS } from "../../../shell/engine-words.ts";
 import {
   apiEndpointSummary,
-  claudeCodeEngineSummary,
-  codexEngineSummary,
-  copilotCliEngineSummary,
-  geminiCliEngineSummary,
   draftedIdAt,
   engineAt,
   engineCalled,
+  engineGroupsOf,
+  ENGINE_GROUP_TITLES,
   engineProblem,
   engineSelectionsOf,
   engineTabsOf,
-  ENGINE_KIND_LABELS,
   pricedModelsAt,
   saveHeldBy,
   shownSelection,
+  signedInEngineSummary,
   withEngineChanged,
   withoutEngine,
 } from "./engine-list-words.ts";
@@ -42,6 +41,7 @@ const CLAUDE_CODE: ClaudeCodeEngine = {
   name: "Claude Code",
   kind: "claude-code",
   defaultModel: "claude-sonnet-5-5",
+  defaultEffort: null,
   claudeCodeP: false,
 };
 
@@ -50,6 +50,7 @@ const STRATA: ApiEngine = {
   name: "Strata",
   kind: "openai-compatible-api",
   defaultModel: "qwen3",
+  defaultEffort: null,
   baseUrl: "http://127.0.0.1:8080/v1",
   keySet: false,
   models: [
@@ -60,7 +61,7 @@ const STRATA: ApiEngine = {
 
 const SAVED: EngineSettings = {
   engines: [CLAUDE_CODE, STRATA],
-  officeDefault: { engineId: "claude-code", model: "claude-sonnet-5-5" },
+  officeDefault: { engineType: "claude-code", engineId: "claude-code" },
   searchEndpoint: null,
   modelPrices: [
     { engineId: null, model: "claude-sonnet-5-5", price: null },
@@ -80,6 +81,7 @@ const CODEX: CodexEngine = {
   name: "Codex",
   kind: "codex",
   defaultModel: "gpt-6-luna",
+  defaultEffort: null,
 };
 
 const SAVED_WITH_CODEX: EngineSettings = {
@@ -131,7 +133,7 @@ describe("Settings › Engines' list", () => {
     ).toBeUndefined();
   });
 
-  it("says whether a Claude Code engine is signed in, and its default model", () => {
+  it("says whether a Claude Code engine is signed in, its default model and its Default effort", () => {
     const signedOut = {
       signedIn: false,
       pastedToken: false,
@@ -139,19 +141,46 @@ describe("Settings › Engines' list", () => {
       email: null,
       plan: null,
     };
+    const onHigh = { ...CLAUDE_CODE, defaultEffort: "high" as const };
 
-    expect(claudeCodeEngineSummary("claude-sonnet-5-5", signedOut)).toBe("Signed out · Sonnet 5.5");
+    expect(signedInEngineSummary(CLAUDE_CODE, signedOut)).toBe("Signed out · Sonnet 5.5");
     expect(
-      claudeCodeEngineSummary("claude-haiku-5-5", {
-        ...signedOut,
-        signedIn: true,
-        pastedToken: true,
-      }),
+      signedInEngineSummary(
+        { ...CLAUDE_CODE, defaultModel: "claude-haiku-5-5" },
+        { ...signedOut, signedIn: true, pastedToken: true },
+      ),
     ).toBe("Signed in · Haiku 5.5");
-    expect(claudeCodeEngineSummary("claude-sonnet-5-5", "not-saved")).toBe(
-      "Signed in once saved · Sonnet 5.5",
+    expect(signedInEngineSummary(onHigh, signedOut)).toBe("Signed out · Sonnet 5.5 · effort high");
+    expect(signedInEngineSummary(onHigh, "not-saved")).toBe(
+      "Signed in once saved · Sonnet 5.5 · effort high",
     );
-    expect(claudeCodeEngineSummary("claude-sonnet-5-5", undefined)).toBe("Sonnet 5.5");
+    expect(signedInEngineSummary(onHigh, undefined)).toBe("Sonnet 5.5 · effort high");
+    expect(signedInEngineSummary({ ...onHigh, defaultEffort: "xhigh" }, undefined)).toBe(
+      "Sonnet 5.5 · effort extra high",
+    );
+  });
+
+  it("groups the rows under a heading per engine type, in the spec's order of types", () => {
+    const rows = [
+      { selection: CLAUDE_CODE_FIRST },
+      { selection: { kind: "claude-code", index: 1 } as const },
+      { selection: CODEX_FIRST },
+      { selection: STRATA_FIRST },
+    ];
+
+    expect(engineGroupsOf(rows)).toEqual([
+      { kind: "claude-code", rows: rows.slice(0, 2) },
+      { kind: "codex", rows: [rows[2]] },
+      { kind: "openai-compatible-api", rows: [rows[3]] },
+    ]);
+    expect(engineGroupsOf([])).toEqual([]);
+    expect(Object.values(ENGINE_GROUP_TITLES)).toEqual([
+      "Claude Code",
+      "Codex",
+      "Copilot CLI",
+      "Gemini CLI",
+      "API endpoints",
+    ]);
   });
 
   it("counts an API endpoint's models, each once", () => {
@@ -209,15 +238,22 @@ describe("Codex engines in Settings › Engines' list", () => {
     expect(engineCalled(newCodexEngine(SAVED))).toBe("the new Codex engine");
   });
 
-  it("says whether a Codex engine is signed in, by ChatGPT or an API key alike, and its default model", () => {
+  it("says whether a Codex engine is signed in, by ChatGPT or an API key alike, its default model and effort", () => {
     const apiKey = { signedIn: true, pastedToken: false, apiKey: true, email: null, plan: null };
 
-    expect(codexEngineSummary("gpt-6-luna", apiKey)).toBe("Signed in · gpt-6-luna");
-    expect(codexEngineSummary("gpt-6-luna", { ...apiKey, signedIn: false })).toBe(
+    expect(signedInEngineSummary(CODEX, apiKey)).toBe("Signed in · gpt-6-luna");
+    expect(signedInEngineSummary(CODEX, { ...apiKey, signedIn: false })).toBe(
       "Signed out · gpt-6-luna",
     );
-    expect(codexEngineSummary("gpt-5.6-terra", "not-saved")).toBe(
-      "Signed in once saved · gpt-5.6-terra",
+    expect(
+      signedInEngineSummary(
+        { ...CODEX, defaultModel: "gpt-5.6-terra", defaultEffort: "low" },
+        "not-saved",
+      ),
+    ).toBe("Signed in once saved · gpt-5.6-terra · effort low");
+    // Max is no Codex effort, so the line names none.
+    expect(signedInEngineSummary({ ...CODEX, defaultEffort: "max" }, apiKey)).toBe(
+      "Signed in · gpt-6-luna",
     );
   });
 
@@ -338,6 +374,7 @@ describe("Copilot CLI engines in Settings › Engines' list", () => {
     name: "Copilot",
     kind: "copilot-cli",
     defaultModel: "auto",
+    defaultEffort: null,
   };
   const COPILOT_CLI_FIRST = { kind: "copilot-cli", index: 0 } as const;
   const SAVED_WITH_COPILOT_CLI: EngineSettings = {
@@ -364,11 +401,15 @@ describe("Copilot CLI engines in Settings › Engines' list", () => {
   it("says whether it is signed in, with its default model as Auto", () => {
     const signedIn = { signedIn: true, pastedToken: true, apiKey: false, email: null, plan: null };
 
-    expect(copilotCliEngineSummary("auto", signedIn)).toBe("Signed in · Auto");
-    expect(copilotCliEngineSummary("auto", { ...signedIn, signedIn: false })).toBe(
+    expect(signedInEngineSummary(COPILOT_CLI, signedIn)).toBe("Signed in · Auto");
+    expect(signedInEngineSummary(COPILOT_CLI, { ...signedIn, signedIn: false })).toBe(
       "Signed out · Auto",
     );
-    expect(copilotCliEngineSummary("auto", "not-saved")).toBe("Signed in once saved · Auto");
+    expect(signedInEngineSummary(COPILOT_CLI, "not-saved")).toBe("Signed in once saved · Auto");
+    // Copilot CLI takes no effort, so its line never names one.
+    expect(signedInEngineSummary({ ...COPILOT_CLI, defaultEffort: "high" }, signedIn)).toBe(
+      "Signed in · Auto",
+    );
   });
 
   it("prices Auto on the engine itself, none while a new one has no name", () => {
@@ -420,14 +461,17 @@ describe("Gemini CLI engines in Settings › Engines' list", () => {
   it("calls the kind Gemini CLI, with an Account tab, and a new one on Auto", () => {
     expect(ENGINE_KIND_LABELS["gemini-cli"]).toBe("Gemini CLI");
     expect(engineTabsOf("gemini-cli")).toEqual(["settings", "account", "prices"]);
-    expect(engineCalled({ name: "", kind: "gemini-cli", defaultModel: "auto" })).toBe(
-      "the new Gemini CLI engine",
-    );
+    expect(
+      engineCalled({ name: "", kind: "gemini-cli", defaultModel: "auto", defaultEffort: null }),
+    ).toBe("the new Gemini CLI engine");
   });
 
   it("gives the engine's line with its model in words", () => {
-    expect(geminiCliEngineSummary("flash-lite", "not-saved")).toBe(
-      "Signed in once saved · Flash-Lite",
-    );
+    expect(
+      signedInEngineSummary(
+        { kind: "gemini-cli", defaultModel: "flash-lite", defaultEffort: null },
+        "not-saved",
+      ),
+    ).toBe("Signed in once saved · Flash-Lite");
   });
 });

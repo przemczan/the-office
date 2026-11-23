@@ -1,3 +1,4 @@
+import type { ClaudeCodeEngine, EngineSettings } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
   INITIATIVE_NONE_HINT,
@@ -18,6 +19,14 @@ const engineName = (engineId: string): string =>
 const OPUS_ON_PERSONAL = { engineId: "personal", model: "claude-opus-5-5" };
 const SONNET_ON_WORK = { engineId: "work", model: "claude-sonnet-5-5" };
 const HAIKU_ON_WORK = { engineId: "work", model: "claude-haiku-5-5" };
+const WORK_ENGINE: ClaudeCodeEngine = {
+  id: "work",
+  name: "Work account",
+  kind: "claude-code",
+  defaultModel: "claude-haiku-5-5",
+  defaultEffort: null,
+  claudeCodeP: false,
+};
 
 describe("the Task's Engine fold's words", () => {
   it("sums up what it sets, else its Initiative's engine, else its Project's", () => {
@@ -80,11 +89,20 @@ describe("the Task's Engine fold's words", () => {
     );
   });
 
-  it("takes the Project default, else the Office default", () => {
-    expect(projectEngineOf({ projectDefault: SONNET_ON_WORK }, HAIKU_ON_WORK)).toEqual(
-      SONNET_ON_WORK,
-    );
-    expect(projectEngineOf({ projectDefault: null }, HAIKU_ON_WORK)).toEqual(HAIKU_ON_WORK);
+  it("takes the Project default, else the Office default on its engine's default model", () => {
+    const settings: Pick<EngineSettings, "engines" | "officeDefault"> = {
+      engines: [
+        { ...WORK_ENGINE, id: "personal", name: "Personal", defaultModel: "claude-opus-5-5" },
+        WORK_ENGINE,
+      ],
+      officeDefault: { engineType: "claude-code", engineId: "work" },
+    };
+
+    expect(projectEngineOf({ projectDefault: SONNET_ON_WORK }, settings)).toEqual(SONNET_ON_WORK);
+    expect(projectEngineOf({ projectDefault: null }, settings)).toEqual(HAIKU_ON_WORK);
+    expect(
+      projectEngineOf({ projectDefault: null }, { ...settings, officeDefault: null }),
+    ).toBeNull();
     expect(projectEngineOf(undefined, undefined)).toBeNull();
   });
 });

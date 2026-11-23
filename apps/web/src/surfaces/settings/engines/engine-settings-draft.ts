@@ -11,13 +11,16 @@ import {
   type CopilotCliEngineEdit,
   type EngineEdit,
   type EngineId,
-  type EngineModel,
+  type EngineKind,
   type EngineSettings,
   type EngineSettingsEdit,
   type GeminiCliEngineEdit,
   type OfferedModel,
+  type OfficeDefault,
   type SearchEndpoint,
 } from "@the-office/contracts";
+import type { EngineTypeChoice } from "../../../shell/engine-type-account-fields.tsx";
+import { ENGINE_KINDS } from "../../../shell/engine-words.ts";
 import { NO_PRICE_TEXT, priceOf, priceTextOf, type ModelPriceText } from "./model-price-fields.ts";
 
 /**
@@ -34,8 +37,11 @@ export interface EngineSettingsDraft {
   readonly copilotCliEngines: readonly CopilotCliEngineEdit[];
   readonly geminiCliEngines: readonly GeminiCliEngineEdit[];
   readonly apiEndpoints: readonly ApiEngineEdit[];
-  /** None only while no engine is listed; Save asks for one once an engine is. */
-  readonly officeDefault: EngineModel | null;
+  /**
+   * An engine type and one of its saved accounts; none only while no engine is saved, until the
+   * first one saved takes it.
+   */
+  readonly officeDefault: OfficeDefault | null;
   readonly searchEndpoint: SearchEndpoint | null;
   /**
    * Each model's Model price as its fields read, by `offeredModelKey`. Kept apart from the models
@@ -274,11 +280,11 @@ export interface StandInChoice {
  * The Stand-in Engines as listed, by name, and the engines "Add a stand-in" offers: those saved,
  * still drafted and not listed yet, since a new engine has no id until Save.
  */
-export function standInsOf(
-  draft: EngineSettingsDraft,
-  saved: EngineSettings,
-): { readonly listed: readonly StandInChoice[]; readonly addable: readonly StandInChoice[] } {
-  const choices = officeDefaultChoicesOf(draft, saved).map(({ id, name }) => ({ id, name }));
+export function standInsOf(draft: EngineSettingsDraft): {
+  readonly listed: readonly StandInChoice[];
+  readonly addable: readonly StandInChoice[];
+} {
+  const choices = savedEnginesOf(draft).map(({ id, name }) => ({ id, name }));
   return {
     listed: draft.standInEngines.map(
       (id) => choices.find((choice) => choice.id === id) ?? { id, name: id },
@@ -323,6 +329,7 @@ export function newClaudeCodeEngine(saved: EngineSettings): ClaudeCodeEngineEdit
     name: "",
     kind: "claude-code",
     defaultModel: firstClaudeCode?.defaultModel ?? claudeModelsOf(saved)[0] ?? "",
+    defaultEffort: null,
     claudeCodeP: false,
   };
 }
@@ -332,62 +339,75 @@ export function newClaudeCodeEngine(saved: EngineSettings): ClaudeCodeEngineEdit
  */
 export function newCodexEngine(saved: EngineSettings): CodexEngineEdit {
   const firstCodex = saved.engines.find(({ kind }) => kind === "codex");
-  return { name: "", kind: "codex", defaultModel: firstCodex?.defaultModel ?? CODEX_MODELS[0] };
+  return {
+    name: "",
+    kind: "codex",
+    defaultModel: firstCodex?.defaultModel ?? CODEX_MODELS[0],
+    defaultEffort: null,
+  };
 }
 
 /** A new Copilot CLI engine, on Auto. */
 export function newCopilotCliEngine(): CopilotCliEngineEdit {
-  return { name: "", kind: "copilot-cli", defaultModel: COPILOT_CLI_AUTO_MODEL };
+  return {
+    name: "",
+    kind: "copilot-cli",
+    defaultModel: COPILOT_CLI_AUTO_MODEL,
+    defaultEffort: null,
+  };
 }
 
 /** A new Gemini CLI engine, on Auto. */
 export function newGeminiCliEngine(): GeminiCliEngineEdit {
-  return { name: "", kind: "gemini-cli", defaultModel: GEMINI_CLI_MODELS[0] };
+  return { name: "", kind: "gemini-cli", defaultModel: GEMINI_CLI_MODELS[0], defaultEffort: null };
 }
 
-/** An engine the Office default may name, with the models it offers. */
-export interface OfficeDefaultChoice {
+/** A saved engine still drafted, by its type and its name as typed. */
+export interface SavedEngineChoice {
   readonly id: EngineId;
+  readonly kind: EngineKind;
   readonly name: string;
-  readonly defaultModel: string;
-  readonly models: readonly string[];
 }
 
 /**
- * The engines the Office default may name: those saved and still drafted, since a new engine's id
- * follows its name until Save.
+ * The saved engines still drafted, in the list's order: those the Office default and the Stand-in
+ * Engines may name, since a new engine's id follows its name until Save.
  */
-export function officeDefaultChoicesOf(
-  draft: EngineSettingsDraft,
-  saved: EngineSettings,
-): readonly OfficeDefaultChoice[] {
-  const claudeModels = claudeModelsOf(saved);
+export function savedEnginesOf(draft: EngineSettingsDraft): readonly SavedEngineChoice[] {
   return [
-    ...draft.claudeCodeEngines.flatMap(({ id, name, defaultModel }) =>
-      id === undefined ? [] : [{ id, name: name.trim(), defaultModel, models: claudeModels }],
-    ),
-    ...draft.codexEngines.flatMap(({ id, name, defaultModel }) =>
-      id === undefined ? [] : [{ id, name: name.trim(), defaultModel, models: CODEX_MODELS }],
-    ),
-    ...draft.copilotCliEngines.flatMap(({ id, name, defaultModel }) =>
-      id === undefined ? [] : [{ id, name: name.trim(), defaultModel, models: COPILOT_CLI_MODELS }],
-    ),
-    ...draft.geminiCliEngines.flatMap(({ id, name, defaultModel }) =>
-      id === undefined ? [] : [{ id, name: name.trim(), defaultModel, models: GEMINI_CLI_MODELS }],
-    ),
-    ...draft.apiEndpoints.flatMap((endpoint) =>
-      endpoint.id === undefined
-        ? []
-        : [
-            {
-              id: endpoint.id,
-              name: endpoint.name.trim(),
-              defaultModel: offeredDefaultModel(endpoint),
-              models: modelsOf(endpoint),
-            },
-          ],
-    ),
-  ];
+    ...draft.claudeCodeEngines,
+    ...draft.codexEngines,
+    ...draft.copilotCliEngines,
+    ...draft.geminiCliEngines,
+    ...draft.apiEndpoints,
+  ].flatMap(({ id, kind, name }) => (id === undefined ? [] : [{ id, kind, name: name.trim() }]));
+}
+
+/**
+ * What the Office default may name: each engine type with a saved engine still drafted, in the
+ * spec's order of types, with those engines as its accounts in the list's order.
+ */
+export function officeDefaultChoicesOf(draft: EngineSettingsDraft): readonly EngineTypeChoice[] {
+  const saved = savedEnginesOf(draft);
+  return ENGINE_KINDS.flatMap((engineType) => {
+    const accounts = saved
+      .filter(({ kind }) => kind === engineType)
+      .map(({ id, name }) => ({ id, name }));
+    return accounts.length === 0 ? [] : [{ engineType, accounts }];
+  });
+}
+
+/**
+ * The draft with the Office default on `engineType`, on its first account in the list's order;
+ * unchanged while the type has no saved engine.
+ */
+export function withOfficeDefaultType(
+  draft: EngineSettingsDraft,
+  engineType: EngineKind,
+): EngineSettingsDraft {
+  const first = officeDefaultChoicesOf(draft).find((choice) => choice.engineType === engineType)
+    ?.accounts[0];
+  return first ? { ...draft, officeDefault: { engineType, engineId: first.id } } : draft;
 }
 
 /** Whether Save would change anything; a price typed for a model no longer offered doesn't count. */
@@ -418,6 +438,7 @@ export const NEW_API_ENDPOINT: ApiEngineEdit = {
   name: "",
   kind: "openai-compatible-api",
   defaultModel: "",
+  defaultEffort: null,
   baseUrl: "",
   models: [{ id: "", contextWindow: 0, seesImages: false }],
 };

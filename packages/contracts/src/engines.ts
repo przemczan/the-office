@@ -38,6 +38,16 @@ export type SearchEndpoint = z.infer<typeof searchEndpointSchema>;
 export const engineIdSchema = z.string().min(1);
 export type EngineId = z.infer<typeof engineIdSchema>;
 
+/** How hard the model thinks. */
+export const effortSchema = z.enum(["low", "medium", "high", "xhigh", "max"]);
+export type Effort = z.infer<typeof effortSchema>;
+
+/**
+ * An engine's Default effort: one its type takes (`ENGINE_TYPE_EFFORTS`), or null, Not set, which
+ * leaves it to the engine type. A type that takes none keeps it null.
+ */
+const defaultEffortSchema = effortSchema.nullable();
+
 /** A Claude Code account, which may run on the `-p` fallback instead of the Agent SDK. */
 export const claudeCodeEngineSchema = z.object({
   id: engineIdSchema,
@@ -45,6 +55,7 @@ export const claudeCodeEngineSchema = z.object({
   kind: z.literal("claude-code"),
   /** One of the Claude models, which picking the engine fills in. */
   defaultModel: z.string(),
+  defaultEffort: defaultEffortSchema,
   claudeCodeP: z.boolean(),
 });
 export type ClaudeCodeEngine = z.infer<typeof claudeCodeEngineSchema>;
@@ -56,6 +67,7 @@ export const apiEngineSchema = z.object({
   kind: z.literal("openai-compatible-api"),
   /** One of its models, by its id there. */
   defaultModel: z.string(),
+  defaultEffort: defaultEffortSchema,
   baseUrl: z.string(),
   /** The key itself is never sent back. */
   keySet: z.boolean(),
@@ -73,6 +85,7 @@ export const codexEngineSchema = z.object({
   kind: z.literal("codex"),
   /** One of the Codex models, which picking the engine fills in. */
   defaultModel: z.string(),
+  defaultEffort: defaultEffortSchema,
 });
 export type CodexEngine = z.infer<typeof codexEngineSchema>;
 
@@ -92,6 +105,7 @@ export const copilotCliEngineSchema = z.object({
   kind: z.literal("copilot-cli"),
   /** One of the Copilot CLI models; Auto unless the user picks another. */
   defaultModel: z.string(),
+  defaultEffort: defaultEffortSchema,
 });
 export type CopilotCliEngine = z.infer<typeof copilotCliEngineSchema>;
 
@@ -112,6 +126,7 @@ export const geminiCliEngineSchema = z.object({
   kind: z.literal("gemini-cli"),
   /** One of the Gemini CLI models; Auto unless the user picks another. */
   defaultModel: z.string(),
+  defaultEffort: defaultEffortSchema,
 });
 export type GeminiCliEngine = z.infer<typeof geminiCliEngineSchema>;
 
@@ -132,9 +147,39 @@ export const engineSchema = z.discriminatedUnion("kind", [
 export type Engine = z.infer<typeof engineSchema>;
 export type EngineKind = Engine["kind"];
 
+/**
+ * The efforts each engine type takes, in order; a type that takes none shows no Effort anywhere.
+ * Mirrors the Engine module's list (its domain doesn't read the contracts).
+ */
+export const ENGINE_TYPE_EFFORTS: Readonly<Record<EngineKind, readonly Effort[]>> = {
+  "claude-code": ["low", "medium", "high", "xhigh", "max"],
+  codex: ["low", "medium", "high", "xhigh"],
+  "copilot-cli": [],
+  "gemini-cli": [],
+  "openai-compatible-api": [],
+};
+
 /** An engine and one of its models, by its id there. */
 export const engineModelSchema = z.object({ engineId: engineIdSchema, model: z.string() });
 export type EngineModel = z.infer<typeof engineModelSchema>;
+
+const engineKindSchema = z.enum([
+  "claude-code",
+  "openai-compatible-api",
+  "codex",
+  "copilot-cli",
+  "gemini-cli",
+]);
+
+/**
+ * The Office default: an engine type and one of its accounts, an engine of that type, whose own
+ * default model it runs on.
+ */
+export const officeDefaultSchema = z.object({
+  engineType: engineKindSchema,
+  engineId: engineIdSchema,
+});
+export type OfficeDefault = z.infer<typeof officeDefaultSchema>;
 
 /**
  * What a model costs, in dollars per million tokens of each kind. A negative price is refused
@@ -165,10 +210,10 @@ export const engineSettingsSchema = z.object({
   /** In the order Settings › Engines lists them. */
   engines: z.array(engineSchema),
   /**
-   * The engine and model every Role runs on unless something more specific applies; null only
-   * while no engine is listed, the only one removed.
+   * The engine type and account every Role runs on unless something more specific applies; null
+   * only while no engine is listed, the only one removed.
    */
-  officeDefault: engineModelSchema.nullable(),
+  officeDefault: officeDefaultSchema.nullable(),
   /** Null until the user sets one; WebSearch is refused meanwhile. */
   searchEndpoint: searchEndpointSchema.nullable(),
   /**
@@ -189,6 +234,8 @@ export type EngineSettings = z.infer<typeof engineSettingsSchema>;
 /** A Claude Code engine as Settings › Engines saves it: without an `id` when it is new. */
 export const claudeCodeEngineEditSchema = claudeCodeEngineSchema.extend({
   id: engineIdSchema.optional(),
+  /** Left out, the stored effort is kept; a new engine gets Not set. */
+  defaultEffort: defaultEffortSchema.optional(),
 });
 export type ClaudeCodeEngineEdit = z.infer<typeof claudeCodeEngineEditSchema>;
 
@@ -199,6 +246,8 @@ export type ClaudeCodeEngineEdit = z.infer<typeof claudeCodeEngineEditSchema>;
  */
 export const apiEngineEditSchema = apiEngineSchema.omit({ keySet: true, models: true }).extend({
   id: engineIdSchema.optional(),
+  /** Left out, the stored effort is kept; a new engine gets Not set. */
+  defaultEffort: defaultEffortSchema.optional(),
   key: z.string().optional(),
   models: z.array(apiEndpointModelSchema.extend({ contextWindow: z.number() })),
 });
@@ -210,6 +259,8 @@ export type ApiEngineEdit = z.infer<typeof apiEngineEditSchema>;
  */
 export const codexEngineEditSchema = codexEngineSchema.extend({
   id: engineIdSchema.optional(),
+  /** Left out, the stored effort is kept; a new engine gets Not set. */
+  defaultEffort: defaultEffortSchema.optional(),
 });
 export type CodexEngineEdit = z.infer<typeof codexEngineEditSchema>;
 
@@ -219,6 +270,8 @@ export type CodexEngineEdit = z.infer<typeof codexEngineEditSchema>;
  */
 export const copilotCliEngineEditSchema = copilotCliEngineSchema.extend({
   id: engineIdSchema.optional(),
+  /** Left out, the stored effort is kept; a new engine gets Not set. */
+  defaultEffort: defaultEffortSchema.optional(),
 });
 export type CopilotCliEngineEdit = z.infer<typeof copilotCliEngineEditSchema>;
 
@@ -228,6 +281,8 @@ export type CopilotCliEngineEdit = z.infer<typeof copilotCliEngineEditSchema>;
  */
 export const geminiCliEngineEditSchema = geminiCliEngineSchema.extend({
   id: engineIdSchema.optional(),
+  /** Left out, the stored effort is kept; a new engine gets Not set. */
+  defaultEffort: defaultEffortSchema.optional(),
 });
 export type GeminiCliEngineEdit = z.infer<typeof geminiCliEngineEditSchema>;
 
@@ -248,8 +303,11 @@ export type EngineEdit = z.infer<typeof engineEditSchema>;
  */
 export const engineSettingsEditSchema = z.object({
   engines: z.array(engineEditSchema),
-  /** Null only with no engine listed; with any listed, one is picked (422 otherwise). */
-  officeDefault: engineModelSchema.nullable(),
+  /**
+   * Null only with no engine listed; with any listed, one is picked, its type the engine's (422
+   * otherwise).
+   */
+  officeDefault: officeDefaultSchema.nullable(),
   searchEndpoint: searchEndpointSchema.nullable(),
   modelPrices: z.array(offeredModelSchema),
   /**

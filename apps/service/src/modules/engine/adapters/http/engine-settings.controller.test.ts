@@ -100,10 +100,12 @@ function setUpEachTest(): void {
 setUpEachTest();
 
 describe("/api/settings/engines", () => {
-  it("keeps the engines, the Office default and the search endpoint, and never sends a key back", async () => {
+  it("keeps the engines with their default efforts, the Office default and the search endpoint, and never sends a key back", async () => {
+    const [claudeCode, strata] = strataEdit.engines;
     const saved = await put({
       ...strataEdit,
-      officeDefault: { engineId: "claude-code", model: "claude-haiku-5-5" },
+      engines: [{ ...claudeCode, defaultModel: "claude-haiku-5-5", defaultEffort: "high" }, strata],
+      officeDefault: { engineType: "claude-code", engineId: "claude-code" },
     });
     const savedText = await saved.text();
     const readText = await read();
@@ -113,18 +115,19 @@ describe("/api/settings/engines", () => {
     expect(readText).not.toContain(KEY);
     expect(engineSettingsSchema.parse(JSON.parse(readText))).toEqual({
       engines: [
-        FIRST_CLAUDE_CODE_ENGINE,
+        { ...FIRST_CLAUDE_CODE_ENGINE, defaultModel: "claude-haiku-5-5", defaultEffort: "high" },
         {
           id: "strata",
           name: "Strata",
           kind: "openai-compatible-api",
           defaultModel: "qwen3.8-flash",
+          defaultEffort: null,
           baseUrl: "http://127.0.0.1:8080/v1",
           keySet: true,
           models: [{ id: "qwen3.8-flash", contextWindow: 100_000, seesImages: true }],
         },
       ],
-      officeDefault: { engineId: "claude-code", model: "claude-haiku-5-5" },
+      officeDefault: { engineType: "claude-code", engineId: "claude-code" },
       searchEndpoint: { baseUrl: "http://127.0.0.1:8888" },
       modelPrices: [
         ...UNPRICED_CLAUDE_MODELS,
@@ -166,6 +169,7 @@ describe("/api/settings/engines", () => {
       name: "Work OpenAI",
       kind: "codex",
       defaultModel: "gpt-5.6-terra",
+      defaultEffort: null,
     });
     expect(sent.modelPrices.map(({ engineId, model }) => [engineId, model])).toEqual([
       ...UNPRICED_CLAUDE_MODELS.map(({ model }) => [null, model]),
@@ -257,7 +261,7 @@ describe("/api/settings/engines", () => {
           models: [],
         },
       ],
-      officeDefault: { engineId: "gone", model: "claude-sonnet-5-5" },
+      officeDefault: { engineType: "claude-code", engineId: "gone" },
     });
 
     expect(refused.status).toBe(422);
@@ -272,7 +276,7 @@ describe("/api/settings/engines", () => {
 });
 
 describe("DELETE /api/settings/engines/:engineId", () => {
-  const strataDefault = { engineId: "strata", model: "qwen3.8-flash" };
+  const strataDefault = { engineType: "openai-compatible-api", engineId: "strata" };
 
   beforeEach(async () => {
     const saved = await put({ ...strataEdit, officeDefault: strataDefault });
@@ -294,7 +298,7 @@ describe("DELETE /api/settings/engines/:engineId", () => {
     expect(removed.status).toBe(200);
     const settings = engineSettingsSchema.parse(await removed.json());
     expect(settings.engines.map(({ id }) => id)).toEqual(["claude-code"]);
-    // The replacement doesn't offer the model, so the Office default takes its default model.
+    // The Office default moves to the replacement, with its engine type.
     expect(settings.officeDefault).toEqual(FIRST_OFFICE_DEFAULT);
     const removal = { engineId: "strata", replacement: FIRST_CLAUDE_CODE_ENGINE };
     expect(moves).toEqual([{ removal, listed: ["claude-code", "strata"] }]);

@@ -1,4 +1,10 @@
-import type { EngineId, EngineModel, MovedEngineReference, Role } from "@the-office/contracts";
+import type {
+  EngineId,
+  EngineModel,
+  MovedEngineReference,
+  OfficeDefault,
+  Role,
+} from "@the-office/contracts";
 import { modelLabel } from "../../../shell/engine-words.ts";
 import { personName } from "../../../shell/person-name.ts";
 
@@ -59,7 +65,7 @@ function removalRoleName(roleKey: string, roles: readonly Role[] | undefined): s
 export function suggestedReplacement(
   engineIds: readonly EngineId[],
   removedId: EngineId,
-  officeDefault: EngineModel | null,
+  officeDefault: Pick<OfficeDefault, "engineId"> | null,
 ): EngineId | null {
   const others = engineIds.filter((id) => id !== removedId);
   const officeDefaultEngine = officeDefault?.engineId;

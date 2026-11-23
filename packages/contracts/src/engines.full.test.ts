@@ -4,8 +4,11 @@ import {
   engineEditSchema,
   engineIdFor,
   engineSchema,
+  engineSettingsEditSchema,
+  engineSettingsSchema,
   engineSignInSchema,
   engineTokenSchema,
+  officeDefaultSchema,
 } from "./engines.js";
 
 // The same cases as the Engine module's own `engineIdFor`, which this mirrors.
@@ -24,7 +27,13 @@ describe("an added engine's id", () => {
 });
 
 describe("a Gemini CLI engine", () => {
-  const engine = { id: "gemini", name: "Gemini", kind: "gemini-cli", defaultModel: "auto" };
+  const engine = {
+    id: "gemini",
+    name: "Gemini",
+    kind: "gemini-cli",
+    defaultModel: "auto",
+    defaultEffort: null,
+  };
 
   it("is listed and saved by its name and default model alone, never with a key", () => {
     expect(engineSchema.parse({ ...engine, apiKey: "AIzaSyKey" })).toEqual(engine);
@@ -45,7 +54,13 @@ describe("a Gemini CLI engine", () => {
 });
 
 describe("a Copilot CLI engine", () => {
-  const engine = { id: "copilot", name: "Copilot", kind: "copilot-cli", defaultModel: "auto" };
+  const engine = {
+    id: "copilot",
+    name: "Copilot",
+    kind: "copilot-cli",
+    defaultModel: "auto",
+    defaultEffort: null,
+  };
 
   it("is listed and saved by its name and default model alone, never with a token", () => {
     expect(engineSchema.parse({ ...engine, token: "github_pat_11A_b" })).toEqual(engine);
@@ -70,5 +85,69 @@ describe("a Copilot CLI engine", () => {
     // The route takes any token and refuses its shape by the engine's kind.
     expect(engineTokenSchema.safeParse({ token: "ghp_aClassicToken" }).success).toBe(true);
     expect(engineTokenSchema.safeParse({ token: "  " }).success).toBe(false);
+  });
+});
+
+describe("an engine's Default effort", () => {
+  const engine = {
+    id: "claude-code",
+    name: "Claude Code",
+    kind: "claude-code",
+    defaultModel: "claude-sonnet-5-5",
+    claudeCodeP: false,
+  };
+
+  it("is listed as an effort or null, Not set, and refused left out or unknown", () => {
+    expect(engineSchema.parse({ ...engine, defaultEffort: "xhigh" })).toMatchObject({
+      defaultEffort: "xhigh",
+    });
+    expect(engineSchema.parse({ ...engine, defaultEffort: null })).toMatchObject({
+      defaultEffort: null,
+    });
+    expect(engineSchema.safeParse(engine).success).toBe(false);
+    expect(engineSchema.safeParse({ ...engine, defaultEffort: "extreme" }).success).toBe(false);
+  });
+
+  it("may be left out of a save, which keeps the stored one", () => {
+    const { id: _id, ...added } = engine;
+    expect(engineEditSchema.parse(added)).toEqual(added);
+    expect(engineEditSchema.parse({ ...added, defaultEffort: null })).toEqual({
+      ...added,
+      defaultEffort: null,
+    });
+  });
+});
+
+describe("the Office default", () => {
+  const officeDefault = { engineType: "codex", engineId: "codex" };
+
+  it("is an engine type and one of its engines", () => {
+    expect(officeDefaultSchema.parse(officeDefault)).toEqual(officeDefault);
+    expect(officeDefaultSchema.safeParse({ engineId: "codex", model: "gpt-6-luna" }).success).toBe(
+      false,
+    );
+    expect(officeDefaultSchema.safeParse({ ...officeDefault, engineType: "gpt" }).success).toBe(
+      false,
+    );
+  });
+
+  it("is read and saved as such, or null", () => {
+    const settings = {
+      engines: [],
+      officeDefault: null,
+      searchEndpoint: null,
+      modelPrices: [],
+      standInEngines: [],
+      askBeforeSwitchAbove: 0,
+    };
+    expect(engineSettingsSchema.parse(settings).officeDefault).toBeNull();
+    expect(
+      engineSettingsEditSchema.parse({
+        engines: [],
+        officeDefault,
+        searchEndpoint: null,
+        modelPrices: [],
+      }).officeDefault,
+    ).toEqual(officeDefault);
   });
 });

@@ -65,6 +65,7 @@ describe("changedEngineSettings", () => {
       name: "OpenAI account",
       kind: "codex",
       defaultModel: "gpt-6-luna",
+      defaultEffort: null,
       apiKey: null,
     });
     expect(renamed.engines[2]).toEqual({ ...added.engines[2], name: "Work OpenAI" });

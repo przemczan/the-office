@@ -143,6 +143,7 @@ describe.runIf(process.env["OFFICE_ENGINE_TESTS"] === "live" && LIVE_BASE_URL &&
       name: "Live",
       kind: "openai-compatible-api",
       defaultModel: LIVE_MODEL ?? "",
+      defaultEffort: null,
       baseUrl: LIVE_BASE_URL ?? "",
       key: process.env["OFFICE_API_KEY"] ?? "",
       models: [{ id: LIVE_MODEL ?? "", contextWindow: 100_000 }],

@@ -93,6 +93,7 @@ const LAB: ApiEngine = {
   name: "Lab",
   kind: "openai-compatible-api",
   defaultModel: "coder",
+  defaultEffort: null,
   baseUrl: "http://localhost:11434/v1",
   key: "",
   models: [{ id: "coder", contextWindow: 32_000 }],
@@ -906,6 +907,7 @@ describe("EngineSessions on each engine's adapter", () => {
         name: "Codex",
         kind: "codex",
         defaultModel: "gpt-6-luna",
+        defaultEffort: null,
         apiKey: null,
       };
       const { sessions } = setUpOn(

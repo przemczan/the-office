@@ -906,17 +906,23 @@ test(
     ).toHaveValue("org/coder:q4");
 
     const officeDefault = page.getByRole("group", { name: "Office default" });
-    const engine = officeDefault.getByRole("combobox", { name: "Engine" });
-    const model = officeDefault.getByRole("combobox", { name: "Model" });
-    await expect(engine).toHaveValue("claude-code");
-    await expect(model).toHaveValue("claude-sonnet-5-5");
-    await engine.selectOption({ label: "Second account" });
-    // Picking an engine fills in its default model.
-    await expect(model).toHaveValue("claude-haiku-5-5");
-    await engine.selectOption({ label: "People Strata" });
-    await expect(model).toHaveValue("org/coder:q4");
+    const engineType = officeDefault.getByRole("combobox", { name: "Engine type" });
+    const account = officeDefault.getByRole("combobox", { name: "Account" });
+    await expect(engineType).toHaveValue("claude-code");
+    await expect(account).toHaveValue("claude-code");
+    // The Account offers the engine type's engines only.
+    await expect(account.getByRole("option", { name: "People Strata" })).toHaveCount(0);
+    await account.selectOption({ label: "Second account" });
+    await expect(page.getByText("Unsaved changes")).toBeVisible();
+    // Picking an engine type picks its first account.
+    await engineType.selectOption({ label: "API endpoint" });
+    await expect(account.getByRole("option", { name: "Second account" })).toHaveCount(0);
+    const firstEndpoint = await account.getByRole("option").first().getAttribute("value");
+    await expect(account).toHaveValue(firstEndpoint ?? "");
+    await account.selectOption({ label: "People Strata" });
     await page.getByRole("button", { name: "Discard" }).click();
-    await expect(engine).toHaveValue("claude-code");
+    await expect(engineType).toHaveValue("claude-code");
+    await expect(account).toHaveValue("claude-code");
 
     await removeEngine(page, "Second account");
   },

@@ -49,6 +49,7 @@ export function endpoint(
     name: "Local",
     kind: "openai-compatible-api",
     defaultModel: models[0]?.id ?? "",
+    defaultEffort: null,
     baseUrl: fake.baseUrl,
     key: "",
     models,

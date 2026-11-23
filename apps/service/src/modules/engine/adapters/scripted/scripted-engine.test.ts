@@ -41,6 +41,7 @@ const CODEX_ENGINE: Engine = {
   name: "Codex",
   kind: "codex",
   defaultModel: "gpt-6-luna",
+  defaultEffort: null,
   apiKey: null,
 };
 
@@ -51,6 +52,7 @@ const COPILOT_CLI_ENGINE: Engine = {
   name: "Copilot",
   kind: "copilot-cli",
   defaultModel: COPILOT_CLI_AUTO_MODEL,
+  defaultEffort: null,
   token: null,
 };
 
@@ -466,6 +468,7 @@ describe("ScriptedEngine", () => {
           name: "Codex",
           kind: "codex",
           defaultModel: "gpt-6-luna",
+          defaultEffort: null,
           apiKey: CodexApiKey.of("sk-test"),
         },
         signal,

@@ -1,6 +1,11 @@
 import { Test } from "@nestjs/testing";
 import { describe, expect, it } from "vitest";
-import { EngineModels, NoEngineListed, type EngineModel } from "../../engine/index.js";
+import {
+  EngineModels,
+  FIRST_CLAUDE_CODE_ENGINE,
+  NoEngineListed,
+  type EngineModel,
+} from "../../engine/index.js";
 import { EngineSettingsForTests } from "../../engine/index.fixtures.js";
 import type {
   ProjectCascadeLevels,
@@ -86,7 +91,17 @@ async function cascadeWith(
       { provide: RoleCards, useValue: roleCards },
       {
         provide: EngineModels,
-        useValue: new EngineModels(new EngineSettingsForTests({ officeDefault: office })),
+        useValue: new EngineModels(
+          new EngineSettingsForTests(
+            office === null
+              ? { officeDefault: null }
+              : {
+                  // The Office default runs on its Claude Code engine's default model.
+                  engines: [{ ...FIRST_CLAUDE_CODE_ENGINE, defaultModel: office.model }],
+                  officeDefault: { engineType: "claude-code", engineId: office.engineId },
+                },
+          ),
+        ),
       },
       { provide: KnownProjectLevels, useValue: projects },
       { provide: KnownWorkLevels, useValue: work },

@@ -35,15 +35,24 @@ const engines: readonly Engine[] = [
     name: "Claude Code",
     kind: "claude-code",
     defaultModel: "",
+    defaultEffort: null,
     claudeCodeP: false,
   },
-  { id: "local", name: "Local models", kind: "claude-code", defaultModel: "", claudeCodeP: false },
+  {
+    id: "local",
+    name: "Local models",
+    kind: "claude-code",
+    defaultModel: "",
+    defaultEffort: null,
+    claudeCodeP: false,
+  },
 ];
 const codex: Engine = {
   id: "codex",
   name: "Codex",
   kind: "codex",
   defaultModel: "gpt-6-luna",
+  defaultEffort: null,
   apiKey: null,
 };
 const gemini: Engine = {
@@ -51,6 +60,7 @@ const gemini: Engine = {
   name: "Gemini",
   kind: "gemini-cli",
   defaultModel: "auto",
+  defaultEffort: null,
   apiKey: null,
 };
 const onGemini = { engineId: gemini.id, model: "auto" };

@@ -23,6 +23,7 @@ const strata: ApiEngine = {
   name: "Strata",
   kind: "openai-compatible-api",
   defaultModel: "qwen3",
+  defaultEffort: null,
   baseUrl: "http://strata/v1",
   key: "",
   models: [
@@ -36,6 +37,7 @@ const codex: CodexEngine = {
   name: "Codex",
   kind: "codex",
   defaultModel: "gpt-6-luna",
+  defaultEffort: null,
   apiKey: null,
 };
 
@@ -44,6 +46,7 @@ const copilot: CopilotCliEngine = {
   name: "Copilot",
   kind: "copilot-cli",
   defaultModel: "auto",
+  defaultEffort: null,
   token: null,
 };
 
@@ -52,6 +55,7 @@ const gemini: GeminiCliEngine = {
   name: "Gemini",
   kind: "gemini-cli",
   defaultModel: "auto",
+  defaultEffort: null,
   apiKey: null,
 };
 

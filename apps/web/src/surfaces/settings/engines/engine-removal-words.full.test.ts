@@ -102,7 +102,7 @@ describe("what a removal moves a reference to", () => {
 });
 
 describe("the replacement suggested", () => {
-  const officeDefault = { engineId: "claude-code", model: "claude-sonnet-5-5" };
+  const officeDefault = { engineType: "claude-code", engineId: "claude-code" } as const;
 
   it("is the Office default's engine", () => {
     expect(suggestedReplacement(["second", "claude-code"], "second", officeDefault)).toBe(

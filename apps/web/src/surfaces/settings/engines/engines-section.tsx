@@ -48,6 +48,7 @@ import {
   priceTextIn,
   savedApiEngines,
   standInsOf,
+  withOfficeDefaultType,
   type EngineSettingsDraft,
 } from "./engine-settings-draft.ts";
 import { RemoveEngineDialog } from "./remove-engine-dialog.tsx";
@@ -127,14 +128,15 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
     setDraft(withoutEngine(draft, at));
   };
   const drafted = draftedEngines(draft, saved);
-  const standIns = standInsOf(draft, saved);
+  const standIns = standInsOf(draft);
   return (
     <>
       <DefaultsCard
         officeDefault={draft.officeDefault}
-        choices={officeDefaultChoicesOf(draft, saved)}
+        choices={officeDefaultChoicesOf(draft)}
         searchEndpoint={draft.searchEndpoint}
         changeOfficeDefault={(officeDefault) => setDraft({ ...draft, officeDefault })}
+        changeOfficeDefaultType={(engineType) => setDraft(withOfficeDefaultType(draft, engineType))}
         changeSearchEndpoint={(searchEndpoint) => setDraft({ ...draft, searchEndpoint })}
       />
       <StandInEnginesCard

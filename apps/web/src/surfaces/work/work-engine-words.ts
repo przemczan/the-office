@@ -1,12 +1,13 @@
 import type {
   EngineId,
   EngineModel,
+  EngineSettings,
   Initiative,
   Project,
   Task,
   TaskSummary,
 } from "@the-office/contracts";
-import { modelLabel } from "../../shell/engine-words.ts";
+import { modelLabel, officeDefaultEngineModel } from "../../shell/engine-words.ts";
 
 /** An engine's name as Settings › Engines lists it. */
 type EngineNamer = (engineId: EngineId) => string;
@@ -39,12 +40,15 @@ export function onEngine({ engineId, model }: EngineModel, engineName: EngineNam
   return `${modelLabel(model)} on ${engineName(engineId)}`;
 }
 
-/** What a Project's Tasks run on while nothing more specific is set: its default, else the Office's. */
+/**
+ * What a Project's Tasks run on while nothing more specific is set: its default, else the Office
+ * default's account on that engine's own default model.
+ */
 export function projectEngineOf(
   project: Pick<Project, "projectDefault"> | undefined,
-  officeDefault: EngineModel | null | undefined,
+  engineSettings: Pick<EngineSettings, "engines" | "officeDefault"> | undefined,
 ): EngineModel | null {
-  return project?.projectDefault ?? officeDefault ?? null;
+  return project?.projectDefault ?? officeDefaultEngineModel(engineSettings);
 }
 
 /** The Engine fold's summary: what the Task sets, else what it takes. */

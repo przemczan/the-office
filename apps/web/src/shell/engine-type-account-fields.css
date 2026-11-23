@@ -1,0 +1,51 @@
+/* ---- an engine type and one of its accounts, side by side: engine-type-account-fields.tsx */
+.engine-type-account {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.engine-type-account-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+/* The type's icon as a tile beside its field, level with the control under the label. */
+.engine-type-field {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.engine-type-field > :last-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.engine-type-icon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--control-md);
+  height: var(--control-md);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--surface-sunken);
+  color: var(--fg-2);
+}
+
+.engine-type-account-hint {
+  margin: 0;
+  font: var(--type-caption);
+  line-height: 1.5;
+  color: var(--fg-3);
+}
+
+@container page (max-width: 904px) {
+  .engine-type-account-fields {
+    grid-template-columns: 1fr;
+  }
+}

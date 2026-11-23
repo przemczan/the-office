@@ -8,6 +8,7 @@ import {
 } from "../domain/engine-removal.js";
 import {
   changedEngineSettings,
+  officeDefaultEngineModel,
   settingsWithoutEngine,
   type EngineSettings,
   type EngineSettingsEdit,
@@ -17,7 +18,7 @@ import type { Engine, EngineId } from "../domain/engines.js";
 import { EngineSettingsRepository } from "../ports/engine-settings-repository.js";
 import { EngineReferenceLock } from "./engine-reference-lock.js";
 import { EngineReferenceMoves } from "./engine-reference-moves.js";
-import { EngineSettingsChecks } from "./engine-settings-checks.js";
+import { engineCascadeSettingsOf, EngineSettingsChecks } from "./engine-settings-checks.js";
 
 /**
  * Settings › Engines: the engines, the Office default and the search endpoint, Office-wide.
@@ -56,7 +57,10 @@ export class EngineSettingsService {
   }> {
     const stored = await this.repository.read();
     const changed = changedEngineSettings(stored, edit);
-    const problems = await this.checks.problemsOf({ before: stored, after: changed });
+    const problems = await this.checks.problemsOf({
+      before: engineCascadeSettingsOf(stored),
+      after: engineCascadeSettingsOf(changed),
+    });
     if (problems.length > 0) throw new EngineSettingsRefused(problems);
     await this.repository.replace(changed);
     return { stored, changed };
@@ -93,16 +97,18 @@ export class EngineSettingsService {
       engineId,
       replacementId,
     );
-    // Where `settingsWithoutEngine` puts the Office default, as `remove` keeps it.
+    // Where `settingsWithoutEngine` puts the Office default, as `remove` keeps it, on the engine's
+    // default model.
+    const from = officeDefaultEngineModel(stored);
     const officeDefault: MovedEngineReference[] =
-      stored.officeDefault?.engineId === engineId
+      from?.engineId === engineId
         ? [
             {
               roleKey: null,
               project: null,
               work: null,
-              from: stored.officeDefault,
-              to: changed.officeDefault,
+              from,
+              to: officeDefaultEngineModel(changed),
             },
           ]
         : [];
@@ -136,7 +142,11 @@ export class EngineSettingsService {
     const stored = await this.repository.read();
     const removal = engineRemovalAmong(stored.engines, engineId, replacementId);
     const changed = settingsWithoutEngine(stored, removal);
-    const problems = await this.checks.problemsOf({ before: stored, after: changed, removal });
+    const problems = await this.checks.problemsOf({
+      before: engineCascadeSettingsOf(stored),
+      after: engineCascadeSettingsOf(changed),
+      removal,
+    });
     return { stored, removal, changed, problems };
   }
 }

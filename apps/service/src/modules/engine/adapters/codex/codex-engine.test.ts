@@ -56,6 +56,7 @@ const ENGINE: CodexEngine = {
   name: "Codex",
   kind: "codex",
   defaultModel: "gpt-6-luna",
+  defaultEffort: null,
   apiKey: null,
 };
 
@@ -551,6 +552,7 @@ describe("CodexAppServerEngine on a stand-in app-server", () => {
           name: "Claude Code",
           kind: "claude-code",
           defaultModel: "claude-sonnet-5-5",
+          defaultEffort: null,
           claudeCodeP: false,
         },
       }),
@@ -626,6 +628,7 @@ const LIVE_ENGINE: Engine = {
   name: "Codex",
   kind: "codex",
   defaultModel: LIVE_MODEL,
+  defaultEffort: null,
   apiKey: null,
 };
 

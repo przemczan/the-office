@@ -35,6 +35,7 @@ const ENGINE: GeminiCliEngine = {
   name: "Gemini",
   kind: "gemini-cli",
   defaultModel: "flash-lite",
+  defaultEffort: null,
   apiKey: GeminiApiKey.of(KEY),
 };
 

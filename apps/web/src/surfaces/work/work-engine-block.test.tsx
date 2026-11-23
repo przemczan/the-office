@@ -57,11 +57,12 @@ const OPTIONS = {
 
 const SETTINGS = {
   engines: [
-    { id: "work", name: "Work account" },
-    { id: "personal", name: "Personal" },
-    { id: "gemini", name: "Gemini" },
+    { id: "work", name: "Work account", kind: "claude-code", defaultModel: "claude-sonnet-5-5" },
+    { id: "personal", name: "Personal", kind: "claude-code", defaultModel: "claude-opus-5-5" },
+    { id: "gemini", name: "Gemini", kind: "gemini-cli", defaultModel: "auto" },
   ],
-  officeDefault: SONNET_ON_WORK,
+  // The Office default runs on its account's own default model: Sonnet 5.5 on Work account.
+  officeDefault: { engineType: "claude-code", engineId: "work" },
 } as unknown as EngineSettings;
 
 const PROJECT = {

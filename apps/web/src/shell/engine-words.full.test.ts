@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { modelLabel, runEngineWords, standInForWords } from "./engine-words.ts";
+import {
+  modelLabel,
+  officeDefaultEngineModel,
+  runEngineWords,
+  standInForWords,
+} from "./engine-words.ts";
 
 describe("the engine's words", () => {
   it("names a model by its family and version, and any other id as it is", () => {
@@ -27,5 +32,28 @@ describe("a run's engine", () => {
 
   it("names the cascade's engine a Stand-in Engine stood in for", () => {
     expect(standInForWords("Work")).toBe("Stand-in for Work");
+  });
+
+  it("gives the Office default on its account's own default model, none while no engine is", () => {
+    const engines = [
+      {
+        id: "work",
+        name: "Work",
+        kind: "claude-code",
+        defaultModel: "claude-opus-5-5",
+        defaultEffort: null,
+        claudeCodeP: false,
+      },
+      { id: "luna", name: "Luna", kind: "codex", defaultModel: "gpt-6-luna", defaultEffort: "low" },
+    ] as const;
+
+    expect(
+      officeDefaultEngineModel({
+        engines: [...engines],
+        officeDefault: { engineType: "codex", engineId: "luna" },
+      }),
+    ).toEqual({ engineId: "luna", model: "gpt-6-luna" });
+    expect(officeDefaultEngineModel({ engines: [], officeDefault: null })).toBeNull();
+    expect(officeDefaultEngineModel(undefined)).toBeNull();
   });
 });

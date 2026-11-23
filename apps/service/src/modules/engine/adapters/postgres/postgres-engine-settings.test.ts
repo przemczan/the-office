@@ -33,16 +33,17 @@ afterAll(async () => {
 
 describe("PostgresEngineSettings", () => {
   // Every test file shares the database, so the settings kept before are put back.
-  it("keeps the engines in their order, an API engine with its key, the Office default, the search endpoint, the Model prices and the Stand-in Engines in order", async () => {
+  it("keeps the engines in their order with their default efforts, an API engine with its key, the Office default, the search endpoint, the Model prices and the Stand-in Engines in order", async () => {
     const before = await settings.read();
     const changed: EngineSettings = {
       engines: [
-        { ...FIRST_CLAUDE_CODE_ENGINE, claudeCodeP: true },
+        { ...FIRST_CLAUDE_CODE_ENGINE, claudeCodeP: true, defaultEffort: "xhigh" },
         {
           id: "strata",
           name: "Strata",
           kind: "openai-compatible-api",
           defaultModel: "org/coder:q4",
+          defaultEffort: null,
           baseUrl: "http://127.0.0.1:8080/v1",
           key: "",
           models: [{ id: "org/coder:q4", contextWindow: 100_000 }],
@@ -52,6 +53,7 @@ describe("PostgresEngineSettings", () => {
           name: "Lab",
           kind: "openai-compatible-api",
           defaultModel: "large",
+          defaultEffort: null,
           baseUrl: "https://lab.example/v1",
           key: "sk-lab",
           models: [
@@ -60,7 +62,7 @@ describe("PostgresEngineSettings", () => {
           ],
         },
       ],
-      officeDefault: { engineId: "lab", model: "small" },
+      officeDefault: { engineType: "openai-compatible-api", engineId: "lab" },
       searchEndpoint: { baseUrl: "http://127.0.0.1:8888" },
       modelPrices: [
         {
@@ -82,7 +84,7 @@ describe("PostgresEngineSettings", () => {
       const kept = await settings.read();
       const reversed: EngineSettings = {
         engines: changed.engines.toReversed(),
-        officeDefault: { engineId: "strata", model: "org/coder:q4" },
+        officeDefault: { engineType: "openai-compatible-api", engineId: "strata" },
         searchEndpoint: null,
         modelPrices: [],
         standInEngines: ["claude-code", "lab", "strata"],
@@ -93,6 +95,36 @@ describe("PostgresEngineSettings", () => {
 
       expect(kept).toEqual(changed);
       expect(replaced).toEqual(reversed);
+    } finally {
+      await settings.replace(before);
+    }
+  });
+
+  it("writes the Office default's model as its engine's default model, for the release before to read", async () => {
+    const before = await settings.read();
+    const database = app.get<Database>(DATABASE);
+    const codex: CodexEngine = {
+      id: "codex",
+      name: "Codex",
+      kind: "codex",
+      defaultModel: "gpt-5.6-terra",
+      defaultEffort: "high",
+      apiKey: null,
+    };
+    try {
+      await settings.replace({
+        ...DEFAULT_ENGINE_SETTINGS,
+        engines: [FIRST_CLAUDE_CODE_ENGINE, codex],
+        officeDefault: { engineType: "codex", engineId: "codex" },
+      });
+      const [row] = await database.select().from(engineSettings);
+      const stored = await database.select().from(engines);
+
+      expect(row).toMatchObject({
+        officeDefaultEngineId: "codex",
+        officeDefaultModel: "gpt-5.6-terra",
+      });
+      expect(stored.find(({ id }) => id === "codex")?.defaultEffort).toBe("high");
     } finally {
       await settings.replace(before);
     }
@@ -122,6 +154,7 @@ describe("PostgresEngineSettings", () => {
       name: "Codex",
       kind: "codex",
       defaultModel: "gpt-6-luna",
+      defaultEffort: null,
       apiKey: CodexApiKey.of("sk-codex-kept"),
     };
     const unsigned: CodexEngine = {
@@ -133,7 +166,7 @@ describe("PostgresEngineSettings", () => {
     };
     const changed: EngineSettings = {
       engines: [FIRST_CLAUDE_CODE_ENGINE, signedIn, unsigned],
-      officeDefault: { engineId: "codex", model: "gpt-6-luna" },
+      officeDefault: { engineType: "codex", engineId: "codex" },
       searchEndpoint: null,
       modelPrices: [
         {
@@ -196,6 +229,7 @@ describe("PostgresEngineSettings", () => {
       name: "Copilot",
       kind: "copilot-cli",
       defaultModel: "auto",
+      defaultEffort: null,
       token: CopilotCliToken.of(TOKEN),
     };
     const unsigned: CopilotCliEngine = {
@@ -206,7 +240,7 @@ describe("PostgresEngineSettings", () => {
     };
     const changed: EngineSettings = {
       engines: [FIRST_CLAUDE_CODE_ENGINE, signedIn, unsigned],
-      officeDefault: { engineId: "copilot", model: "auto" },
+      officeDefault: { engineType: "copilot-cli", engineId: "copilot" },
       searchEndpoint: null,
       modelPrices: [
         {
@@ -264,6 +298,7 @@ describe("PostgresEngineSettings", () => {
       name: "Gemini",
       kind: "gemini-cli",
       defaultModel: "auto",
+      defaultEffort: null,
       apiKey: GeminiApiKey.of("AIzaSyKept"),
     };
     const unsigned: GeminiCliEngine = {
@@ -274,7 +309,7 @@ describe("PostgresEngineSettings", () => {
     };
     const changed: EngineSettings = {
       engines: [FIRST_CLAUDE_CODE_ENGINE, signedIn, unsigned],
-      officeDefault: { engineId: "gemini", model: "pro" },
+      officeDefault: { engineType: "gemini-cli", engineId: "gemini" },
       searchEndpoint: null,
       modelPrices: [
         {

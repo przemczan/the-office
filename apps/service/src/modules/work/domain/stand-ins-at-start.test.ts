@@ -21,7 +21,14 @@ const ENGINES: readonly Engine[] = [
   engine("personal", "Personal"),
   engine("spare", "Spare"),
   engine("home", "Home"),
-  { kind: "codex", id: "lab", name: "Lab", defaultModel: "gpt-5.5", apiKey: null },
+  {
+    kind: "codex",
+    id: "lab",
+    name: "Lab",
+    defaultModel: "gpt-5.5",
+    defaultEffort: null,
+    apiKey: null,
+  },
 ];
 const ENGINE_NAMES = new Map(ENGINES.map(({ id, name }) => [id, name] as const));
 

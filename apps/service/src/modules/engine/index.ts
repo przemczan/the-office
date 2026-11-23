@@ -56,13 +56,16 @@ export {
   type MovedEngineReference,
 } from "./domain/engine-removal.js";
 export {
+  effortsTakenBy,
   FIRST_CLAUDE_CODE_ENGINE,
   hasUsageWindows,
   offeredModels,
   type Engine,
   type EngineId,
   type EngineModel,
+  type OfficeDefault,
 } from "./domain/engines.js";
+export { officeDefaultEngineModel } from "./domain/engine-settings.js";
 export {
   engineThroughStandIns,
   engineToRunOn,

@@ -43,6 +43,7 @@ const ENGINE: CopilotCliEngine = {
   name: "Copilot",
   kind: "copilot-cli",
   defaultModel: "auto",
+  defaultEffort: null,
   token: CopilotCliToken.of(TOKEN),
 };
 
@@ -279,6 +280,7 @@ describe("CopilotSdkEngine on a stand-in runtime", () => {
         name: "Codex",
         kind: "codex",
         defaultModel: "gpt-6-luna",
+        defaultEffort: null,
         apiKey: null,
       };
       await expect(
@@ -641,6 +643,7 @@ function liveEngine(token: CopilotCliToken | null): CopilotCliEngine {
     name: "Copilot",
     kind: "copilot-cli",
     defaultModel: LIVE_MODEL,
+    defaultEffort: null,
     token,
   };
 }

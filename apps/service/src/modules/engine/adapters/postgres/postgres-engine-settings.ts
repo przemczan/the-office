@@ -7,9 +7,10 @@ import { CopilotCliToken } from "../../domain/copilot-cli-token.js";
 import {
   DEFAULT_ENGINE_SETTINGS,
   FIRST_OFFICE_DEFAULT,
+  officeDefaultEngineModel,
   type EngineSettings,
 } from "../../domain/engine-settings.js";
-import type { Engine, EngineId, EngineModel } from "../../domain/engines.js";
+import type { Engine, EngineId, OfficeDefault } from "../../domain/engines.js";
 import { GeminiApiKey } from "../../domain/gemini-api-key.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
 import { engines, engineSettings, modelPrices } from "./engine-settings.schema.js";
@@ -39,7 +40,7 @@ export class PostgresEngineSettings extends EngineSettingsRepository {
     const listed = rows.map(engineOf);
     return {
       engines: listed,
-      officeDefault: row ? officeDefaultOf(row) : FIRST_OFFICE_DEFAULT,
+      officeDefault: row ? officeDefaultOf(row, listed) : FIRST_OFFICE_DEFAULT,
       searchEndpoint: searchEndpointUrl === null ? null : { baseUrl: searchEndpointUrl },
       modelPrices: prices.map(({ engineId, model, ...price }) => ({ engineId, model, price })),
       standInEngines: (row?.standInEngineIds ?? DEFAULT_ENGINE_SETTINGS.standInEngines).filter(
@@ -50,14 +51,16 @@ export class PostgresEngineSettings extends EngineSettingsRepository {
     };
   }
 
-  async replace({
-    engines: listed,
-    officeDefault,
-    searchEndpoint,
-    modelPrices: priced,
-    standInEngines,
-    askBeforeSwitchAbove,
-  }: EngineSettings): Promise<void> {
+  async replace(settings: EngineSettings): Promise<void> {
+    const {
+      engines: listed,
+      searchEndpoint,
+      modelPrices: priced,
+      standInEngines,
+      askBeforeSwitchAbove,
+    } = settings;
+    // The model is no longer read; the release before reads it, so it is the engine's default model.
+    const officeDefault = officeDefaultEngineModel(settings);
     const settingsRow = {
       standInEngineIds: [...standInEngines],
       askBeforeSwitchAbove,
@@ -109,11 +112,13 @@ export class PostgresEngineSettings extends EngineSettingsRepository {
   }
 }
 
-function officeDefaultOf({
-  officeDefaultEngineId: engineId,
-  officeDefaultModel: model,
-}: EngineSettingsRow): EngineModel | null {
-  return engineId === null || model === null ? null : { engineId, model };
+/** The Office default's type is its engine's kind; none when its engine isn't listed. */
+function officeDefaultOf(
+  { officeDefaultEngineId: engineId }: EngineSettingsRow,
+  listed: readonly Engine[],
+): OfficeDefault | null {
+  const engine = listed.find(({ id }) => id === engineId);
+  return engine ? { engineType: engine.kind, engineId: engine.id } : null;
 }
 
 function engineOf({
@@ -121,26 +126,26 @@ function engineOf({
   name,
   kind,
   defaultModel,
+  defaultEffort,
   claudeCodeP,
   baseUrl,
   key,
   models,
 }: EngineRow): Engine {
-  if (kind === "claude-code") return { id, name, kind, defaultModel, claudeCodeP };
+  const common = { id, name, defaultModel, defaultEffort };
+  if (kind === "claude-code") return { ...common, kind, claudeCodeP };
   if (kind === "codex") {
-    return { id, name, kind, defaultModel, apiKey: key === null ? null : CodexApiKey.of(key) };
+    return { ...common, kind, apiKey: key === null ? null : CodexApiKey.of(key) };
   }
   if (kind === "copilot-cli") {
-    return { id, name, kind, defaultModel, token: key === null ? null : CopilotCliToken.of(key) };
+    return { ...common, kind, token: key === null ? null : CopilotCliToken.of(key) };
   }
   if (kind === "gemini-cli") {
-    return { id, name, kind, defaultModel, apiKey: key === null ? null : GeminiApiKey.of(key) };
+    return { ...common, kind, apiKey: key === null ? null : GeminiApiKey.of(key) };
   }
   return {
-    id,
-    name,
+    ...common,
     kind,
-    defaultModel,
     baseUrl: baseUrl ?? "",
     key: key ?? "",
     models: models ?? [],
@@ -148,8 +153,8 @@ function engineOf({
 }
 
 function engineRowOf(engine: Engine, position: number): EngineRow {
-  const { id, name, kind, defaultModel } = engine;
-  const common = { id, position, name, kind, defaultModel };
+  const { id, name, kind, defaultModel, defaultEffort } = engine;
+  const common = { id, position, name, kind, defaultModel, defaultEffort };
   switch (engine.kind) {
     case "claude-code":
       return { ...common, claudeCodeP: engine.claudeCodeP, baseUrl: null, key: null, models: null };

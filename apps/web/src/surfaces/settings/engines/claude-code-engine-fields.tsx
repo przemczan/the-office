@@ -2,8 +2,9 @@ import type { ClaudeCodeEngineEdit } from "@the-office/contracts";
 import { Input, Select, Switch } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { modelLabel } from "../../../shell/engine-words.ts";
+import { EngineEffortField } from "./engine-effort-field.tsx";
 
-/** A Claude Code engine's Settings: its name, default model and `-p` switch. */
+/** A Claude Code engine's Settings: its name, Default model, Default effort and `-p` switch. */
 export function ClaudeCodeEngineFields({
   edit,
   claudeModels,
@@ -27,6 +28,11 @@ export function ClaudeCodeEngineFields({
           options={claudeModels.map((model) => ({ value: model, label: modelLabel(model) }))}
           value={edit.defaultModel}
           onChange={(defaultModel) => change({ ...edit, defaultModel })}
+        />
+        <EngineEffortField
+          kind={edit.kind}
+          value={edit.defaultEffort}
+          onChange={(defaultEffort) => change({ ...edit, defaultEffort })}
         />
       </div>
       <Switch

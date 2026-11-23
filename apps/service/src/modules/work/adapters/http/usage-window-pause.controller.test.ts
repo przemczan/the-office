@@ -420,6 +420,7 @@ const CODEX: Engine = {
   name: "Codex",
   kind: "codex",
   defaultModel: "gpt-6-luna",
+  defaultEffort: null,
   apiKey: null,
 };
 

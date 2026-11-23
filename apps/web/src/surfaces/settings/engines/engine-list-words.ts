@@ -1,10 +1,12 @@
-import type {
-  ApiEngineEdit,
-  EngineAccount,
-  EngineEdit,
-  EngineSettings,
+import {
+  ENGINE_TYPE_EFFORTS,
+  type ApiEngineEdit,
+  type EngineAccount,
+  type EngineEdit,
+  type EngineKind,
+  type EngineSettings,
 } from "@the-office/contracts";
-import { modelLabel } from "../../../shell/engine-words.ts";
+import { EFFORT_LABELS, ENGINE_KINDS, modelLabel } from "../../../shell/engine-words.ts";
 import {
   draftedEngines,
   isCodexModel,
@@ -29,23 +31,6 @@ export interface EngineSelection {
 
 /** A tab of an engine's detail. */
 export type EngineTab = "settings" | "account" | "prices";
-
-export const ENGINE_KIND_LABELS: Readonly<Record<EngineEdit["kind"], string>> = {
-  "claude-code": "Claude Code",
-  codex: "Codex",
-  "copilot-cli": "Copilot CLI",
-  "gemini-cli": "Gemini CLI",
-  "openai-compatible-api": "API endpoint",
-};
-
-/** Each kind's icon, in the list's rows, in "Add an engine" and on the engine's card. */
-export const ENGINE_KIND_ICONS: Readonly<Record<EngineEdit["kind"], string>> = {
-  "claude-code": "terminal",
-  codex: "bot",
-  "copilot-cli": "github",
-  "gemini-cli": "sparkles",
-  "openai-compatible-api": "server",
-};
 
 /**
  * Every engine of the draft, the Claude Code engines first, then the Codex engines, then the
@@ -173,6 +158,34 @@ export function sameSelection(a: EngineSelection | undefined, b: EngineSelection
   return a?.kind === b.kind && a.index === b.index;
 }
 
+/** A heading of the list and the rows under it: one engine type's engines. */
+export interface EngineGroup<Row> {
+  readonly kind: EngineKind;
+  readonly rows: readonly Row[];
+}
+
+/** The heading over each engine type's engines in the list. */
+export const ENGINE_GROUP_TITLES: Readonly<Record<EngineKind, string>> = {
+  "claude-code": "Claude Code",
+  codex: "Codex",
+  "copilot-cli": "Copilot CLI",
+  "gemini-cli": "Gemini CLI",
+  "openai-compatible-api": "API endpoints",
+};
+
+/**
+ * The list's rows grouped by engine type, in the spec's order of types (Claude Code, Codex,
+ * Copilot CLI, Gemini CLI, API endpoints); a type without an engine has no group.
+ */
+export function engineGroupsOf<Row extends { readonly selection: EngineSelection }>(
+  rows: readonly Row[],
+): readonly EngineGroup<Row>[] {
+  return ENGINE_KINDS.flatMap((kind) => {
+    const ofKind = rows.filter(({ selection }) => selection.kind === kind);
+    return ofKind.length === 0 ? [] : [{ kind, rows: ofKind }];
+  });
+}
+
 /** The tabs of an engine's detail: an API endpoint has no account to sign in. */
 export function engineTabsOf(kind: EngineEdit["kind"]): readonly EngineTab[] {
   return kind === "openai-compatible-api"
@@ -203,55 +216,37 @@ export function engineCalled({ name, kind }: EngineEdit): string {
   }
 }
 
-/**
- * A Claude Code engine's line in the list: signed in or out, then its default model. One not saved
- * has no folder to sign in yet; while its account is read, the model alone.
- */
-export function claudeCodeEngineSummary(
-  defaultModel: string,
-  account: EngineAccount | "not-saved" | undefined,
-): string {
-  return signedInEngineSummary(defaultModel, account);
-}
+/** What a Claude Code, Codex, Copilot CLI or Gemini CLI engine's line in the list reads. */
+export type SignedInEngine = Pick<
+  Exclude<EngineEdit, ApiEngineEdit>,
+  "kind" | "defaultModel" | "defaultEffort"
+>;
 
 /**
- * A Codex engine's line in the list, as a Claude Code engine's: signed in or out, by ChatGPT or an
- * API key alike, then its default model.
+ * A Claude Code, Codex, Copilot CLI or Gemini CLI engine's line in the list: signed in or out (by
+ * a sign-in, a token or an API key alike), its default model, then its Default effort, left out
+ * while Not set or for a type that takes none. One not saved has no folder to sign in yet; while
+ * its account is read, the model and effort alone.
  */
-export function codexEngineSummary(
-  defaultModel: string,
+export function signedInEngineSummary(
+  engine: SignedInEngine,
   account: EngineAccount | "not-saved" | undefined,
 ): string {
-  return signedInEngineSummary(defaultModel, account);
+  const settings = [modelLabel(engine.defaultModel), ...effortPartOf(engine)];
+  if (account === undefined) return settings.join(" · ");
+  const signedIn =
+    account === "not-saved"
+      ? "Signed in once saved"
+      : account.signedIn
+        ? "Signed in"
+        : "Signed out";
+  return [signedIn, ...settings].join(" · ");
 }
 
-function signedInEngineSummary(
-  defaultModel: string,
-  account: EngineAccount | "not-saved" | undefined,
-): string {
-  const model = modelLabel(defaultModel);
-  if (account === undefined) return model;
-  if (account === "not-saved") return `Signed in once saved · ${model}`;
-  return `${account.signedIn ? "Signed in" : "Signed out"} · ${model}`;
-}
-
-/**
- * A Copilot CLI engine's line in the list, as a Codex engine's: signed in or out, then its default
- * model (Auto).
- */
-export function copilotCliEngineSummary(
-  defaultModel: string,
-  account: EngineAccount | "not-saved" | undefined,
-): string {
-  return signedInEngineSummary(defaultModel, account);
-}
-
-/** A Gemini CLI engine's line in the list: signed in (by its API key) or out, then its model. */
-export function geminiCliEngineSummary(
-  defaultModel: string,
-  account: EngineAccount | "not-saved" | undefined,
-): string {
-  return signedInEngineSummary(defaultModel, account);
+function effortPartOf({ kind, defaultEffort }: SignedInEngine): readonly string[] {
+  if (defaultEffort === undefined || defaultEffort === null) return [];
+  if (!ENGINE_TYPE_EFFORTS[kind].includes(defaultEffort)) return [];
+  return [`effort ${EFFORT_LABELS[defaultEffort].toLowerCase()}`];
 }
 
 /** An API endpoint's line in the list: how many models it offers. */

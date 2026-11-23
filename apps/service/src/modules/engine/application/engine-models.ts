@@ -1,6 +1,12 @@
 import { Injectable } from "@nestjs/common";
-import type { EngineSettings } from "../domain/engine-settings.js";
-import { offeredModels, type Engine, type EngineId, type EngineModel } from "../domain/engines.js";
+import { officeDefaultEngineModel, type EngineSettings } from "../domain/engine-settings.js";
+import {
+  offeredModels,
+  type Engine,
+  type EngineId,
+  type EngineModel,
+  type OfficeDefault,
+} from "../domain/engines.js";
 import { EngineSettingsRepository } from "../ports/engine-settings-repository.js";
 
 /**
@@ -65,10 +71,15 @@ export class EngineModels {
   }
 
   /**
-   * The engine and model of the engine cascade's least specific level (spec §5.4); none only while
-   * no engine is listed.
+   * The engine and model of the engine cascade's least specific level (spec §5.4): the Office
+   * default's engine on its default model; none only while no engine is listed.
    */
   async officeDefault(): Promise<EngineModel | null> {
+    return officeDefaultEngineModel(await this.settings.read());
+  }
+
+  /** The Office default as Settings › Engines sets it: an engine type and one of its engines. */
+  async officeDefaultEngine(): Promise<OfficeDefault | null> {
     return (await this.settings.read()).officeDefault;
   }
 }

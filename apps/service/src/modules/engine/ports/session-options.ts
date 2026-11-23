@@ -1,10 +1,9 @@
-import type { Engine } from "../domain/engines.js";
+import type { Effort, Engine } from "../domain/engines.js";
 import type { LanguageServer } from "../domain/language-servers.js";
 import type { ApprovalSetting, PermissionProfile } from "../domain/permission-profile.js";
 import type { OfficeTool } from "./office-tool.js";
 
-/** How hard the model thinks, as a Role card names it. */
-export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
+export type { Effort } from "../domain/engines.js";
 
 /** A session's skills, as the Skills module prepared them (spec §5.6). */
 export interface SessionSkills {

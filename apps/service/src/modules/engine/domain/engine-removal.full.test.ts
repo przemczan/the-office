@@ -13,6 +13,7 @@ const strata: ApiEngine = {
   name: "Strata",
   kind: "openai-compatible-api",
   defaultModel: "qwen3.8-flash",
+  defaultEffort: null,
   baseUrl: "http://127.0.0.1:8080/v1",
   key: "",
   models: [
@@ -64,6 +65,7 @@ describe("movedEngineModel", () => {
       name: "Codex",
       kind: "codex",
       defaultModel: "gpt-6-luna",
+      defaultEffort: null,
       apiKey: null,
     };
     const otherCodex: CodexEngine = { ...codex, id: "other-codex", name: "Other Codex" };
