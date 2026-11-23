@@ -17,6 +17,7 @@ import {
 import { StageTemplateRemoved } from "../domain/stage-template-events.js";
 import { StagesEditRefused } from "../domain/stages-edit-refused.js";
 import { StageTemplateRepository } from "../ports/stage-template-repository.js";
+import { LinkedStages } from "./linked-stages.js";
 import { RoleFillings } from "./role-fillings.js";
 
 /** One key for all templates: a name is checked against every other template. */
@@ -24,9 +25,9 @@ const STAGE_TEMPLATES = "stage-templates";
 
 /**
  * The Stage templates' editor (spec §2.3): the user adds a template, saves one and removes one,
- * which is never refused, as nothing points at a template. Its Role is flagged like a library
- * Pipeline's, but a template is no Pipeline: nothing runs from it, so its Role counts for no engine
- * check until it is added to a Pipeline or a Task.
+ * which is never refused: its linked Stages are unlinked, keeping their fields. Its Role is
+ * flagged like a library Pipeline's, but a template is no Pipeline: nothing runs from it, so its
+ * Role counts for no engine check until it is added to a Pipeline or a Task.
  */
 @Injectable()
 export class StageTemplateLibraryEditor {
@@ -35,6 +36,7 @@ export class StageTemplateLibraryEditor {
   constructor(
     private readonly repository: StageTemplateRepository,
     private readonly roleFillings: RoleFillings,
+    private readonly linkedStages: LinkedStages,
     private readonly events: EventBus,
   ) {}
 
@@ -84,6 +86,7 @@ export class StageTemplateLibraryEditor {
     await this.changes.run(STAGE_TEMPLATES, async () => {
       if (!(await this.repository.find(id))) throw new UnknownStageTemplate(id);
       await this.repository.remove(id);
+      await this.linkedStages.unlinkAll(id);
       await this.events.publish(new StageTemplateRemoved(id));
     });
   }

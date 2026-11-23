@@ -4,6 +4,7 @@ import {
   pipelineCheckSchema,
   pipelineSchema,
   pipelinesNeedingFixingSchema,
+  linkedStageListSchema,
   pipelinesWebEventSchema,
   pipelineUseSchema,
   projectPipelineCheckSchema,
@@ -13,6 +14,7 @@ import {
   standInChoicesResponseSchema,
   standInSwitchResponseSchema,
   stagesCheckSchema,
+  stageTemplateApplyResultSchema,
   stageTemplateListSchema,
   stageTemplateSchema,
   taskStagesSchema,
@@ -28,7 +30,9 @@ import {
   type SendBack,
   type ContinueAtGate,
   type Stage,
+  type LinkedStageRef,
   type StageTemplate,
+  type StageTemplateApplyResult,
   type StageTemplateCheckRequest,
   type StandInSwitchResult,
   type TaskStages,
@@ -44,6 +48,9 @@ import { PIPELINES_KEY, PROJECT_PIPELINES_KEY, STAGE_TEMPLATES_KEY } from "./pip
 const COMMAND_OUTPUTS_KEY: readonly unknown[] = ["stage-run-command-outputs"];
 
 const STAND_IN_CHOICES_KEY: readonly unknown[] = ["stand-in-choices"];
+
+/** Under the templates', and stale too on any change to a Pipeline, whose Stages they are. */
+const LINKED_STAGES_KEY: readonly unknown[] = [...STAGE_TEMPLATES_KEY, "linked-stages"];
 
 export const pipelineQueries = {
   list: () =>
@@ -200,6 +207,17 @@ export const stageTemplateQueries = {
       queryFn: ({ signal }) =>
         sendToApi("POST", "/stage-templates/check", request, pipelineCheckSchema, signal),
     }),
+  /** The Stages of office-wide and Project Pipelines linked to the template. */
+  linkedStages: (stageTemplateId: string) =>
+    queryOptions({
+      queryKey: [...LINKED_STAGES_KEY, stageTemplateId],
+      queryFn: ({ signal }) =>
+        getFromApi(
+          `${stageTemplatePath(stageTemplateId)}/linked-stages`,
+          linkedStageListSchema,
+          signal,
+        ),
+    }),
 };
 
 /**
@@ -261,13 +279,34 @@ export function addStageTemplate(stage: Stage): Promise<StageTemplate> {
   return sendToApi("POST", "/stage-templates", { stage }, stageTemplateSchema);
 }
 
-/** The template saved: Pipelines and Tasks that added it keep their copy as it was. */
+/**
+ * The template saved: its linked Stages keep their fields until the user applies the edit to them
+ * (`applyStageTemplateEdit`); Tasks' Stages are copies and never change.
+ */
 export function saveStageTemplate(stageTemplateId: string, stage: Stage): Promise<StageTemplate> {
   return sendToApi("PUT", stageTemplatePath(stageTemplateId), { stage }, stageTemplateSchema);
 }
 
+/** Removing a template unlinks its linked Stages, which keep their fields; it is never refused. */
 export function removeStageTemplate(stageTemplateId: string): Promise<void> {
   return deleteFromApi(stageTemplatePath(stageTemplateId));
+}
+
+/**
+ * Gives the chosen linked Stages the template's named fields, each Pipeline saved under its own
+ * checks; answers how many got them and each Pipeline refused, with why.
+ */
+export function applyStageTemplateEdit(
+  stageTemplateId: string,
+  fields: readonly string[],
+  stages: readonly LinkedStageRef[],
+): Promise<StageTemplateApplyResult> {
+  return sendToApi(
+    "POST",
+    `${stageTemplatePath(stageTemplateId)}/apply`,
+    { fields, stages },
+    stageTemplateApplyResultSchema,
+  );
 }
 
 /** Edit for this Task: the Task's Stages replaced, the library Pipeline left as it is. */
@@ -333,9 +372,12 @@ function commandOutputsKey(taskId: string): readonly unknown[] {
   return [...COMMAND_OUTPUTS_KEY, taskId];
 }
 
-/** A change to the library, or to a Project Pipeline, makes every list of both stale. */
+/**
+ * A change to the library, or to a Project Pipeline, makes every list of both stale, and the
+ * templates' linked Stages.
+ */
 function staleLibrary(): readonly (readonly unknown[])[] {
-  return [PIPELINES_KEY];
+  return [PIPELINES_KEY, LINKED_STAGES_KEY];
 }
 
 /** A change to a Stage template makes every list of them stale. */

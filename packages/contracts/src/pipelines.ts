@@ -525,9 +525,9 @@ export const projectPipelineCheckSchema = pipelineCheckSchema;
 export type ProjectPipelineCheck = z.infer<typeof projectPipelineCheckSchema>;
 
 /**
- * A Stage template (spec §2.3): a Stage kept in the Pipeline library to add to a Pipeline or a
- * Task's Stages as a copy. Its name is its Stage's; it never has `onFailure`, which only a Pipeline
- * gives meaning.
+ * A Stage template (spec §2.3): a Stage kept in the Pipeline library to add to a Pipeline, whose
+ * Stage stays linked to it, or to a Task's Stages as a copy. Its name is its Stage's; it never has
+ * `onFailure`, which only a Pipeline gives meaning, nor `templateId`.
  */
 export const stageTemplateSchema = z.object({ id: z.string().min(1), stage: stageSchema });
 export type StageTemplate = z.infer<typeof stageTemplateSchema>;
@@ -550,6 +550,55 @@ export const stageTemplateCheckRequestSchema = stageTemplateEditSchema.extend({
   stageTemplateId: z.string().min(1).optional(),
 });
 export type StageTemplateCheckRequest = z.infer<typeof stageTemplateCheckRequestSchema>;
+
+/**
+ * One Stage linked to a template (spec §2.3.5, "Editing a template with linked Stages"), with its
+ * Pipeline: office-wide (`projectId` null) or a Project's. The Stage is whole, so the web works out
+ * how it differs.
+ */
+export const linkedStageSchema = z.object({
+  pipelineId: z.string().min(1),
+  pipelineName: z.string(),
+  projectId: z.string().min(1).nullable(),
+  stage: stageSchema,
+});
+export type LinkedStage = z.infer<typeof linkedStageSchema>;
+
+/** GET /stage-templates/:id/linked-stages: the office-wide Pipelines' first, then the Projects'. */
+export const linkedStageListSchema = z.array(linkedStageSchema);
+
+/** A linked Stage by its Pipeline and its key. */
+export const linkedStageRefSchema = z.strictObject({
+  pipelineId: z.string().min(1),
+  stageKey: z.string().min(1),
+});
+export type LinkedStageRef = z.infer<typeof linkedStageRefSchema>;
+
+/**
+ * POST /stage-templates/:id/apply: sets the named template fields (`who` for Role and duty) to the
+ * template's on the Stages chosen, each Pipeline saved as its editor saves it.
+ */
+export const stageTemplateApplyRequestSchema = z.strictObject({
+  fields: z.array(z.string().min(1)).min(1),
+  stages: z.array(linkedStageRefSchema).min(1),
+});
+export type StageTemplateApplyRequest = z.infer<typeof stageTemplateApplyRequestSchema>;
+
+/** A Pipeline the apply refused, keeping its Stages as they were, with why. */
+export const refusedPipelineSchema = z.object({
+  pipelineId: z.string().min(1),
+  pipelineName: z.string(),
+  projectId: z.string().min(1).nullable(),
+  reasons: z.array(z.string()),
+});
+export type RefusedPipeline = z.infer<typeof refusedPipelineSchema>;
+
+/** What the apply did: how many Stages got the edit, and each Pipeline refused. */
+export const stageTemplateApplyResultSchema = z.object({
+  applied: z.int().nonnegative(),
+  refused: z.array(refusedPipelineSchema),
+});
+export type StageTemplateApplyResult = z.infer<typeof stageTemplateApplyResultSchema>;
 
 /**
  * 422 from PUT /tasks/:id/stages: every reason the edit can't be saved, as words like every refusal's

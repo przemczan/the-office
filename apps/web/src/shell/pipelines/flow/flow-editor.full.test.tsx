@@ -76,7 +76,8 @@ function Host({
       warnings={warnings}
       roles={[]}
       duties={[]}
-      options={{} as RoleCardOptions}
+      // An Agent Stage's panel reads the Roles it may name.
+      options={{ knownRoles: [] } as unknown as RoleCardOptions}
       commands={LIBRARY}
     />
   );
@@ -506,6 +507,144 @@ describe("the flow editor for a Task, its started Stages locked", () => {
     ]);
     expect(buttonNamed("Remove route", routePanel()).disabled).toBe(true);
     expect(routePanel().querySelector("fieldset")?.disabled).toBe(true);
+  });
+});
+
+const IMPLEMENTATION_TEMPLATE = {
+  id: "implementation",
+  stage: { ...IMPLEMENT, key: "implementation", name: "Implementation", budget: 200_000 },
+};
+
+/** The Stage templates' list, and a template saved from a Stage answered as "saved-template". */
+function templatesServed(url: string, init?: RequestInit): Response {
+  if (!url.endsWith("/stage-templates")) return Response.json([]);
+  if (init?.method === "POST") {
+    const { stage } = JSON.parse(String(init.body)) as { stage: Stage };
+    return Response.json({ id: "saved-template", stage });
+  }
+  const { place: _place, routes: _routes, ...stage } = IMPLEMENTATION_TEMPLATE.stage;
+  return Response.json([{ ...IMPLEMENTATION_TEMPLATE, stage }]);
+}
+
+/** Lets the templates' list arrive. */
+async function settled(): Promise<void> {
+  await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+}
+
+function stageKeyed(key: string): Stage | undefined {
+  return seen.stages.find((stage) => stage.key === key);
+}
+
+function stagePanel(name: string): HTMLElement {
+  const panel = document.querySelector<HTMLElement>(`section[aria-label="${name}"]`);
+  if (!panel) throw new Error(`No panel of ${name}.`);
+  return panel;
+}
+
+describe("the flow editor's Stages linked to their Stage template", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe(): void {}
+        unobserve(): void {}
+        disconnect(): void {}
+      },
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) =>
+        Promise.resolve(templatesServed(String(input), init)),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.body.replaceChildren();
+  });
+
+  it("links a Stage added from a template to a Pipeline's Stages, from Add a Stage and a route", async () => {
+    await rendered();
+    await press("Add a Stage");
+    await settled();
+    await press("Implementation");
+    expect(stageKeyed("implementation")).toMatchObject({ templateId: "implementation" });
+    expect(stageKeyed("implementation")).not.toHaveProperty("onFailure");
+
+    await openTestsRoute();
+    await press("Insert a Stage on this route", routePanel());
+    await settled();
+    // The menu's, as the canvas has a Stage of that name now.
+    await press("Implementation", document.querySelector('[role="menu"]') ?? undefined);
+    expect(stageKeyed("implementation-2")).toMatchObject({ templateId: "implementation" });
+  });
+
+  it("copies a template added to a Task's own Stages, never linked", async () => {
+    await renderedTask({});
+    await press("Add a Stage");
+    await settled();
+    await press("Implementation");
+    expect(stageKeyed("implementation")).toBeDefined();
+    expect(stageKeyed("implementation")).not.toHaveProperty("templateId");
+  });
+
+  it("shows how a linked Stage differs from its template, never by its name, takes a field back and unlinks", async () => {
+    await rendered([{ ...IMPLEMENT, templateId: "implementation" }, TESTS, PUBLISH]);
+    await press("Implement");
+    await settled();
+    expect(stagePanel("Implement").textContent).toContain(
+      "Linked to the template Implementation · Differs in Budget",
+    );
+
+    await press("Take the template's");
+    await press("Budget");
+    expect(stageKeyed("implement")).toMatchObject({
+      budget: 200_000,
+      templateId: "implementation",
+    });
+    expect(stagePanel("Implement").textContent).toContain(
+      "Linked to the template Implementation · Same as the template",
+    );
+    expect(buttonsNamed("Take the template's")).toEqual([]);
+
+    await press("Unlink");
+    expect(stageKeyed("implement")).not.toHaveProperty("templateId");
+    expect(stageKeyed("implement")).toMatchObject({ budget: 200_000 });
+    expect(stagePanel("Implement").textContent).not.toContain("Linked to the template");
+  });
+
+  it("links a Pipeline's Stage saved as a template to the new template, a Task's Stage not", async () => {
+    await rendered();
+    await press("Implement");
+    await press("More for Implement");
+    await press("Save Implement as a template");
+    await settled();
+    expect(stageKeyed("implement")).toMatchObject({ templateId: "saved-template" });
+    document.body.replaceChildren();
+
+    await renderedTask({});
+    await press("Implement");
+    await press("More for Implement");
+    await press("Save Implement as a template");
+    await settled();
+    expect(stageKeyed("implement")).not.toHaveProperty("templateId");
+  });
+
+  it("opens with the Stage the address names picked", async () => {
+    await mounted(
+      <OfficeFlowEditor
+        stages={[IMPLEMENT, TESTS, PUBLISH]}
+        onChange={() => {}}
+        problems={[]}
+        warnings={[]}
+        roles={[]}
+        duties={[]}
+        options={{ knownRoles: [] } as unknown as RoleCardOptions}
+        pickedStage="tests"
+      />,
+    );
+    expect(stagePanel("Tests")).toBeDefined();
   });
 });
 

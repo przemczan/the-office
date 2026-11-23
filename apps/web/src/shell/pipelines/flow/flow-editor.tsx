@@ -31,8 +31,9 @@ export interface FlowEditorControls {
   readonly say: (hint: string | undefined) => void;
 }
 
-export function useFlowEditorControls(): FlowEditorControls {
-  const [picked, setPicked] = useState<FlowPick | undefined>();
+/** `initial`: what the editor opens picked, such as the Stage an address names. */
+export function useFlowEditorControls(initial?: FlowPick): FlowEditorControls {
+  const [picked, setPicked] = useState<FlowPick | undefined>(initial);
   const [hint, setHint] = useState<string | undefined>();
   return {
     picked,

@@ -66,7 +66,7 @@ describe("the Stage editor's changes", () => {
 
   it("adds a Stage template as a copy where its kind goes, with its own key and no failure rule", () => {
     const template = { id: "tests", stage: { ...tests, key: "tests", name: "Lint first" } };
-    const added = addStageFrom(quickFix, template);
+    const added = addStageFrom(quickFix, template, false);
     expect(added.index).toBe(3);
     expect(added.stages[3]).toEqual({
       kind: "script",
@@ -77,11 +77,16 @@ describe("the Stage editor's changes", () => {
     });
 
     const uiAcceptance: Stage = { kind: "gate", key: "ui", name: "UI acceptance", optional: false };
-    expect(addStageFrom(quickFix, { id: "ui", stage: uiAcceptance }).index).toBe(2);
+    expect(addStageFrom(quickFix, { id: "ui", stage: uiAcceptance }, false).index).toBe(2);
+  });
+
+  it("links a Stage added from a template to a Pipeline's Stages to that template", () => {
+    const added = addStageFrom(quickFix, { id: "tests-template", stage: tests }, true);
+    expect(added.stages[3]).toMatchObject({ key: "tests-2", templateId: "tests-template" });
   });
 
   it("names a Stage template's copy apart from the Stages it joins", () => {
-    const added = addStageFrom(quickFix, { id: "tests", stage: tests });
+    const added = addStageFrom(quickFix, { id: "tests", stage: tests }, false);
     expect(added.stages[3]).toMatchObject({ key: "tests-2", name: "Tests 2" });
     expect(added.stages[3]).not.toHaveProperty("onFailure");
   });

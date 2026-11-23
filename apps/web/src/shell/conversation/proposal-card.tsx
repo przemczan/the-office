@@ -1,9 +1,10 @@
-import { useQuery, type QueryKey } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import {
   dutyKeySchema,
   type Duty,
   type DutyHolders,
+  type LinkedStage,
   type Preset,
   type Proposal,
   type ProposalStatus,
@@ -26,7 +27,9 @@ import {
   stageTemplateQueries,
 } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
+import { ApplyTemplateEditDialog } from "../pipelines/apply-template-edit-dialog.tsx";
 import { whoWorks } from "../pipelines/pipeline-words.ts";
+import { fieldsChanged } from "../pipelines/template-link.ts";
 import { skillQueries } from "../../api/skills.ts";
 import {
   initiativeQueries,
@@ -308,26 +311,19 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
           duties={duties}
         />
       );
-    case "stage-template": {
-      const name =
-        stageTemplates?.find(({ id }) => id === change.templateId)?.stage.name ?? change.from.name;
+    case "stage-template":
       return (
-        <ProposalFrame proposalId={proposal.id} title={`Change the ${name} Stage template`}>
-          <ProposedStageFieldChanges
-            from={change.from}
-            to={change.to}
-            roles={roles ?? []}
-            duties={duties}
-          />
-          <AnswerFoot
-            proposal={proposal}
-            changes={[stageTemplateQueries.list().queryKey]}
-            appliedToast={`${name} changed. Pipelines and Tasks it was added to keep their copy.`}
-            openNote={STALE_NOTE}
-          />
-        </ProposalFrame>
+        <StageTemplateProposal
+          proposal={proposal}
+          change={change}
+          name={
+            stageTemplates?.find(({ id }) => id === change.templateId)?.stage.name ??
+            change.from.name
+          }
+          roles={roles ?? []}
+          duties={duties}
+        />
       );
-    }
     case "project": {
       const { project } = change;
       const pipelineName =
@@ -1103,6 +1099,57 @@ function LimitFoot({
   );
 }
 
+/**
+ * A Stage template's Stage changed by Devops. Once applied, a change of its fields opens "Apply the
+ * edit to linked Stages" while Stages are linked to it, as a Save in Settings does.
+ */
+function StageTemplateProposal({
+  proposal,
+  change,
+  name,
+  roles,
+  duties,
+}: {
+  readonly proposal: Proposal;
+  readonly change: Extract<ProposedChange, { kind: "stage-template" }>;
+  readonly name: string;
+  readonly roles: readonly Role[];
+  readonly duties: readonly Duty[] | undefined;
+}): ReactNode {
+  const queryClient = useQueryClient();
+  const [applyingTo, setApplyingTo] = useState<readonly LinkedStage[] | undefined>();
+  const asking = useMutation({
+    mutationFn: () => queryClient.fetchQuery(stageTemplateQueries.linkedStages(change.templateId)),
+    onSuccess: (linked) => {
+      if (linked.length > 0) setApplyingTo(linked);
+    },
+  });
+  return (
+    <ProposalFrame proposalId={proposal.id} title={`Change the ${name} Stage template`}>
+      <ProposedStageFieldChanges from={change.from} to={change.to} roles={roles} duties={duties} />
+      <AnswerFoot
+        proposal={proposal}
+        changes={[stageTemplateQueries.list().queryKey]}
+        appliedToast={`${name} changed. Its linked Stages keep their fields until you apply it.`}
+        openNote={STALE_NOTE}
+        onApplied={() => {
+          if (fieldsChanged(change.from, change.to).length > 0) asking.mutate();
+        }}
+      />
+      {asking.error && (
+        <RefusalAlert title="The linked Stages can't be read" error={asking.error} />
+      )}
+      {applyingTo && (
+        <ApplyTemplateEditDialog
+          edit={{ templateId: change.templateId, before: change.from, after: change.to }}
+          linked={applyingTo}
+          onClose={() => setApplyingTo(undefined)}
+        />
+      )}
+    </ProposalFrame>
+  );
+}
+
 /** "Apply change" and "Not now" on a change applied as proposed, then what became of it. */
 function AnswerFoot({
   proposal,
@@ -1112,6 +1159,7 @@ function AnswerFoot({
   openNote,
   applyLabel = "Apply change",
   declineLabel = "Not now",
+  onApplied,
 }: {
   readonly proposal: Proposal;
   /** What applying it changes, refreshed once it is applied. */
@@ -1121,9 +1169,14 @@ function AnswerFoot({
   readonly openNote: string;
   readonly applyLabel?: string | undefined;
   readonly declineLabel?: string;
+  /** Told once it is applied, after the toast. */
+  readonly onApplied?: () => void;
 }): ReactNode {
   const showToast = useToast();
-  const answering = useAnswering(proposal, changes, () => showToast(appliedToast));
+  const answering = useAnswering(proposal, changes, () => {
+    showToast(appliedToast);
+    onApplied?.();
+  });
   const { status } = proposal;
   return (
     <div className="proposal-foot">

@@ -56,6 +56,8 @@ export function FlowRoutePanel(
             label="Insert a Stage on this route"
             heading="Insert on this route"
             variant="ghost"
+            templates
+            links={props.links ?? false}
             disabled={note !== undefined}
             title={note}
             onAdd={(added) => onEdited(stageOnRoute(stages, stage.key, routeIndex, added, locked))}

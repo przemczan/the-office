@@ -79,6 +79,7 @@ import { SignInPage } from "./surfaces/sign-in/sign-in-page.tsx";
 import { ProjectActionsSection } from "./surfaces/projects/actions/project-actions-section.tsx";
 import { ProjectPipelinesSection } from "./surfaces/projects/pipelines/project-pipelines-section.tsx";
 import { PipelinesSection } from "./surfaces/settings/pipelines/pipelines-section.tsx";
+import { pipelineSearchOf } from "./shell/pipelines/pipeline-search.ts";
 import { SkillsSection } from "./surfaces/settings/skills/skills-section.tsx";
 import { ArchivedPage } from "./surfaces/work/archived-page.tsx";
 import { archivedSearchOf, type ArchivedSearch } from "./surfaces/work/archive-words.ts";
@@ -94,7 +95,6 @@ import {
 import { InitiativesBoard } from "./surfaces/work/initiatives-board.tsx";
 import { CiRunsPage } from "./surfaces/work/ci-runs-page.tsx";
 import { PullRequestsPage } from "./surfaces/work/pull-requests-page.tsx";
-import { proposalSearchOf } from "./shell/conversation/proposal-search.ts";
 import { recordTabOf, type RecordTab } from "./shell/work/record-tab.ts";
 import { TaskPage } from "./surfaces/work/task-page.tsx";
 import { WorkPage } from "./surfaces/work/work-page.tsx";
@@ -584,7 +584,7 @@ const projectPipelineRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: "pipelines/$projectPipelineId",
   component: ProjectPipelinesSection,
-  validateSearch: proposalSearchOf,
+  validateSearch: pipelineSearchOf,
   staticData: { title: "Projects" },
 });
 
@@ -696,7 +696,7 @@ const settingsPipelineRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: "pipelines/$pipelineId",
   component: PipelinesSection,
-  validateSearch: proposalSearchOf,
+  validateSearch: pipelineSearchOf,
   staticData: { title: "Settings" },
 });
 

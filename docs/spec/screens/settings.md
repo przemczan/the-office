@@ -30,17 +30,18 @@ Covers: the Settings page and its sections (Pipelines list, Stage templates and 
 - With `?proposal=<id>` and "Show it on the flow" on a Proposal's card, the Proposal shows read-only on the flow under the banner in place of the form.
 - **Stage templates** tab: a list "Stage templates" with **New template** (a menu of the Stage kinds: **Agent Stage**, **Script Stage**, **Gate**, **Publish Stage**). Each row links to its template with its kind's icon, who works it or its command, and a warning mark from its own check. Empty: "No Stage template yet. Make one with New template, or use Save as template on a Stage in a Pipeline."
 - An open template shows in the detail column: its one Stage in the Stage form (no Routes out; its Project command picked from every Project's keys), **Ask Devops** in its head with a draft naming the template, **Save**, **Discard** and **Remove**.
-- Under the form, a **Linked Stages · N** card: a row per linked Stage with its Pipeline (office-wide, or "<Project>'s"), the Stage's name and "Same as the template" or "Differs in <fields>", each linking to the Stage in its Pipeline's editor. Empty: "No Stage is linked to it."
+- Under the form, a **Linked Stages · N** card: a row per linked Stage with its Pipeline ("<Pipeline> · office-wide", or "<Project>'s <Pipeline>"), the Stage's name and "Same as the template" or "Differs in <fields>", each linking to the Stage in its Pipeline's editor. Empty: "No Stage is linked to it."
 - Only Pipelines' Stages are linked; a Task's own Stages are copies and never listed ([2.3.1](../2.3.1-stages.md#a-stage-linked-to-its-stage-template)).
 - **Save** of an edit, while it has linked Stages, opens the dialog "Apply the edit to linked Stages":
   - "This edit changes <fields>.";
-  - a table: a checkbox, **Pipeline** (office-wide or "<Project>'s"), **Stage**, **How it differs** ("Same as the template" or "Differs in <fields>"), and "Its own <field> is replaced" where the Stage differs in a field the edit changes;
+  - a table: a checkbox, **Pipeline** ("<Pipeline> · office-wide" or "<Project>'s <Pipeline>"), **Stage**, **How it differs** ("Same as the template" or "Differs in <fields>"), and "Its own <field> is replaced" where the Stage differs in a field the edit changes;
   - the Stages that don't differ in the fields the edit changes are ticked to begin with;
   - buttons **Save and apply to N Stages**, **Save the template only**, **Cancel**.
 - Its result: the toast "<template> saved and applied to N Stages."; a Pipeline that refused the edit is named with why in an alert, the others applied ([2.3.5](../2.3.5-library.md#editing-a-template-with-linked-stages)).
-- With no linked Stage, Save saves the template at once.
+- **Save the template only**: the toast "<template> saved. Its linked Stages keep their fields."
+- With no linked Stage, or an edit of only the name, Save saves the template at once: the toast "<template> saved."
 - **Remove** confirms, saying its N linked Stages keep their fields and are unlinked; it is never refused.
-- Ask Devops' Proposal of the template's Stage, applied, opens the same dialog to choose the linked Stages that get it.
+- Ask Devops' Proposal of the template's Stage, applied, opens the same dialog to choose the linked Stages that get it, the template saved already: buttons **Apply to N Stages**, **Leave them as they are**, **Cancel**; the toast "<template>'s edit applied to N Stages."
 - Under 1224px, the list or the open item shows, with "‹ All Pipelines" or "‹ All Stage templates" to go back.
 - Facts: [2.3](../2.3-pipelines.md), [2.3.5](../2.3.5-library.md).
 

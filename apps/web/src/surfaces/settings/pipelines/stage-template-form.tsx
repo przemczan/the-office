@@ -1,6 +1,13 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import type { Duty, Role, RoleCardOptions, Stage, StageTemplate } from "@the-office/contracts";
+import type {
+  Duty,
+  LinkedStage,
+  Role,
+  RoleCardOptions,
+  Stage,
+  StageTemplate,
+} from "@the-office/contracts";
 import { Button, Card, Dialog, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import {
@@ -11,6 +18,7 @@ import {
   stageTemplateQueries,
 } from "../../../api/pipelines.ts";
 import { AskDevopsButton } from "../../../shell/ask-devops.tsx";
+import { ApplyTemplateEditDialog } from "../../../shell/pipelines/apply-template-edit-dialog.tsx";
 import { StageCheckAlerts } from "../../../shell/pipelines/stage-check-alerts.tsx";
 import { useLibraryCommands } from "../../../shell/pipelines/library-commands.ts";
 import {
@@ -21,8 +29,10 @@ import {
 } from "../../../shell/pipelines/stage-edits.ts";
 import { StageForm } from "../../../shell/pipelines/stage-form.tsx";
 import { byLevel, checkAwaited } from "../../../shell/pipelines/stages-check.ts";
+import { fieldsChanged, stageCount } from "../../../shell/pipelines/template-link.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
+import { LinkedStagesCard } from "./linked-stages-card.tsx";
 
 /** Where a new Stage template starts: the kind the user picked, or the template opened. */
 export type StageTemplateOpened =
@@ -34,7 +44,8 @@ export type StageTemplateOpened =
  * is added the same way. Problems the service would refuse hold Save; a Role nobody fills is only
  * flagged. A template has no "On failure": going back names a Stage only a Pipeline has. A draft
  * with no changes follows the saved template, so one changed elsewhere, such as by a Proposal
- * applied in a chat, shows as saved.
+ * applied in a chat, shows as saved. Saving an edit of its fields while Stages are linked to it
+ * first asks which of them get it; an edit of only its name saves at once.
  */
 export function StageTemplateForm({
   opened,
@@ -65,6 +76,7 @@ export function StageTemplateForm({
     }
   }
   const [removing, setRemoving] = useState(false);
+  const [applyingTo, setApplyingTo] = useState<readonly LinkedStage[] | undefined>();
   const dirty = JSON.stringify(draft) !== savedText;
   const check = useQuery({
     ...stageTemplateQueries.check({ stage: draft, stageTemplateId: template?.id }),
@@ -81,7 +93,7 @@ export function StageTemplateForm({
       await refreshStageTemplateList(queryClient);
       if (template) {
         setDraft(result.stage);
-        showToast("Stage template saved. Pipelines and Tasks that added it keep their copy.");
+        showToast(`${result.stage.name} saved.`);
         return;
       }
       showToast(`${result.stage.name} added to the Stage templates.`);
@@ -92,6 +104,19 @@ export function StageTemplateForm({
       });
     },
   });
+  // The linked Stages, read as Save is pressed: only an edit of the template's fields asks.
+  const asking = useMutation({
+    mutationFn: (linkedTo: StageTemplate) =>
+      queryClient.fetchQuery(stageTemplateQueries.linkedStages(linkedTo.id)),
+    onSuccess: (linked) => {
+      if (linked.length > 0) setApplyingTo(linked);
+      else saving.mutate();
+    },
+  });
+  const save = (): void => {
+    if (template && fieldsChanged(template.stage, draft).length > 0) asking.mutate(template);
+    else saving.mutate();
+  };
   const name = draft.name.trim() || "New Stage template";
   return (
     <>
@@ -112,8 +137,9 @@ export function StageTemplateForm({
         }
       >
         <p className="settings-note">
-          {STAGE_KIND_NAMES[draft.kind]} template. Adding it to a Pipeline or a Task copies it in:
-          editing or removing it later changes no Stage made from it.
+          {STAGE_KIND_NAMES[draft.kind]} template. A Stage added from it to a Pipeline stays linked
+          to it, and an edit applies to the linked Stages you choose; added to a Task's own Stages,
+          it is a copy.
         </p>
         <div className="library-form">
           <StageCheckAlerts
@@ -133,6 +159,10 @@ export function StageTemplateForm({
           />
         </div>
       </Card>
+      {template && <LinkedStagesCard template={template} />}
+      {asking.error && (
+        <RefusalAlert title="The linked Stages can't be read" error={asking.error} />
+      )}
       {saving.error && (
         <RefusalAlert title="The Stage template wasn't saved" error={saving.error} />
       )}
@@ -153,16 +183,28 @@ export function StageTemplateForm({
           Discard
         </Button>
         <Button
-          loading={saving.isPending}
+          loading={saving.isPending || asking.isPending}
           // A new one may be added as it starts: a Gate needs nothing more.
           disabled={
             (template !== undefined && !dirty) || problems.length > 0 || checkAwaited(check)
           }
-          onClick={() => saving.mutate()}
+          onClick={save}
         >
           {template ? "Save the template" : "Add the template"}
         </Button>
       </div>
+      {applyingTo && template && (
+        <ApplyTemplateEditDialog
+          edit={{ templateId: template.id, before: template.stage, after: draft }}
+          linked={applyingTo}
+          save={async () => {
+            const result = await saveStageTemplate(template.id, draft);
+            await refreshStageTemplateList(queryClient);
+            setDraft(result.stage);
+          }}
+          onClose={() => setApplyingTo(undefined)}
+        />
+      )}
       {removing && template && (
         <RemoveStageTemplateDialog template={template} onClose={() => setRemoving(false)} />
       )}
@@ -170,7 +212,10 @@ export function StageTemplateForm({
   );
 }
 
-/** Removing asks first; it is never refused, as Stages added from it are copies. */
+/**
+ * Removing asks first, saying how many Stages are linked to it; it is never refused: they keep
+ * their fields and are unlinked.
+ */
 function RemoveStageTemplateDialog({
   template,
   onClose,
@@ -182,6 +227,7 @@ function RemoveStageTemplateDialog({
   const navigate = useNavigate();
   const showToast = useToast();
   const { name } = template.stage;
+  const linked = useQuery(stageTemplateQueries.linkedStages(template.id)).data;
   const removing = useMutation({
     mutationFn: () => removeStageTemplate(template.id),
     onSuccess: async () => {
@@ -203,11 +249,17 @@ function RemoveStageTemplateDialog({
       }
     >
       <div className="dialog-stack">
-        <p className="dialog-text">Pipelines and Tasks that added it keep their copy.</p>
+        <p className="dialog-text">{linkedWords(linked)} Tasks that added it keep their copy.</p>
         {removing.error && (
           <RefusalAlert title={`${name} can't be removed`} error={removing.error} />
         )}
       </div>
     </Dialog>
   );
+}
+
+function linkedWords(linked: readonly LinkedStage[] | undefined): string {
+  if (linked === undefined) return "Its linked Stages keep their fields and are unlinked.";
+  if (linked.length === 0) return "No Stage is linked to it.";
+  return `Its ${stageCount(linked.length)} linked to it keep their fields and are unlinked.`;
 }

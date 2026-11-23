@@ -1,6 +1,7 @@
 import type {
   ConditionGroup as ConditionGroupResponse,
   GateAction as GateActionResponse,
+  LinkedStage as LinkedStageResponse,
   Pipeline as PipelineResponse,
   PipelineUse as PipelineUseResponse,
   ProjectPipeline as ProjectPipelineResponse,
@@ -14,6 +15,7 @@ import type {
   TaskStage as TaskStageResponse,
   TaskStages as TaskStagesResponse,
 } from "@the-office/contracts";
+import type { LinkedStage } from "../../application/linked-stages.js";
 import type { PipelineUse } from "../../domain/library-pipeline.js";
 import type { Pipeline, StageProblem, StageProblemAt } from "../../domain/pipeline.js";
 import { isConditionGroup, type ConditionGroup, type Route } from "../../domain/route.js";
@@ -73,6 +75,15 @@ function toConditionGroupResponse({ combine, tests }: ConditionGroup): Condition
 
 export function toStageTemplateResponse({ id, stage }: StageTemplate): StageTemplateResponse {
   return { id, stage: toStageResponse(stage) };
+}
+
+export function toLinkedStageResponse({
+  pipelineId,
+  pipelineName,
+  projectId,
+  stage,
+}: LinkedStage): LinkedStageResponse {
+  return { pipelineId, pipelineName, projectId, stage: toStageResponse(stage) };
 }
 
 export function toStageProblemResponse({
@@ -158,6 +169,7 @@ function toStageResponse(stage: Stage): StageResponse {
     optional: stage.optional,
     ...(stage.routes ? { routes: stage.routes.map(toRouteResponse) } : {}),
     ...(stage.place ? { place: { ...stage.place } } : {}),
+    ...(stage.templateId !== undefined ? { templateId: stage.templateId } : {}),
   };
   switch (stage.kind) {
     case "agent":

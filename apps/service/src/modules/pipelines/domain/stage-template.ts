@@ -4,8 +4,9 @@ import { StageTemplateAdded, StageTemplateSaved } from "./stage-template-events.
 import { stageStaffingProblem, type RoleFilling } from "./stage-staffing.js";
 
 /**
- * A Stage kept in the Pipeline library to add to a Pipeline or a Task's Stages as a copy (spec
- * §2.3). Its name is its Stage's, unique in the library in any case.
+ * A Stage kept in the Pipeline library to add to a Pipeline or a Task's Stages (spec §2.3); a
+ * Pipeline's Stage added from it stays linked to it (spec §2.3.1). Its name is its Stage's, unique
+ * in the library in any case.
  */
 export interface StageTemplate {
   readonly id: string;
@@ -13,12 +14,12 @@ export interface StageTemplate {
 }
 
 /**
- * The Stage as a template keeps it: its name trimmed and without a loop target, routes or place,
- * since "on failure go back" and routes name other Stages, which only a Pipeline has.
+ * The Stage as a template keeps it: its name trimmed and without a loop target, routes, place or
+ * link, since "on failure go back" and routes name other Stages, which only a Pipeline has.
  */
 export function templateStage(stage: Stage): Stage {
   const name = stage.name.trim();
-  const { routes: _routes, place: _place, ...unplaced } = stage;
+  const { routes: _routes, place: _place, templateId: _templateId, ...unplaced } = stage;
   if (unplaced.kind === "gate") return { ...unplaced, name };
   const { onFailure: _onFailure, ...rest } = unplaced;
   return { ...rest, name };

@@ -6,7 +6,8 @@ import { STAGE_KIND_NAMES, withoutFailureRule } from "./stage-edits.ts";
 
 /**
  * Save as template: the Stage added to the templates as it is, without its failure rule or its
- * place and routes, which only a Pipeline gives meaning.
+ * place and routes, which only a Pipeline gives meaning, nor its own link. A Pipeline's host links
+ * the Stage to the new template on success.
  */
 export function useSaveAsTemplate() {
   const queryClient = useQueryClient();
@@ -21,7 +22,12 @@ export function useSaveAsTemplate() {
 }
 
 function asTemplateStage(stage: Stage): Stage {
-  const { routes: _routes, place: _place, ...rest } = withoutFailureRule(stage);
+  const {
+    routes: _routes,
+    place: _place,
+    templateId: _templateId,
+    ...rest
+  } = withoutFailureRule(stage);
   return rest;
 }
 

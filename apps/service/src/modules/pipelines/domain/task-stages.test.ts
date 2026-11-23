@@ -7,7 +7,7 @@ import { agentStage, gate, scriptStage } from "./stage.fixtures.js";
 import type { StageRun } from "./stage-run.js";
 import { aStageRun } from "./stage-run.fixtures.js";
 import { TaskStagesEdited } from "./task-stages-events.js";
-import { editProblems, editTaskStages, firstStageToWork } from "./task-stages.js";
+import { editProblems, editTaskStages, firstStageToWork, makeTaskStages } from "./task-stages.js";
 import {
   implement,
   tests,
@@ -283,5 +283,25 @@ describe("editTaskStages", () => {
     // The event's time is its own, so only what it says is compared.
     expect(event).toBeInstanceOf(TaskStagesEdited);
     expect(event).toMatchObject({ taskId: "task-1", pipelineId: "full" });
+  });
+
+  it("never keeps a Stage's link to its template: a Task's Stages are copies", () => {
+    const { taskStages } = editTaskStages(own, [{ ...implement, templateId: "review" }, publish]);
+
+    expect(taskStages.stages.map(({ templateId }) => templateId)).toEqual([undefined, undefined]);
+  });
+});
+
+describe("makeTaskStages", () => {
+  it("copies the Pipeline's Stages without their links to templates", () => {
+    const linked = straightLineFlow([{ ...implement, templateId: "review" }, publish]);
+
+    const { taskStages } = makeTaskStages(
+      "task-1",
+      { id: "full", name: "Full", description: "", stages: linked },
+      new Date(),
+    );
+
+    expect(taskStages.stages).toEqual(linked.map(({ templateId: _templateId, ...stage }) => stage));
   });
 });

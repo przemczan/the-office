@@ -23,16 +23,21 @@ export interface OfficeFlowEditorProps {
   readonly fullScreenName?: string;
   /** In full screen, under the panel: the host's Save. */
   readonly fullScreenBar?: ReactNode;
+  /** The key of the Stage the editor opens picked, as the address's `?stage=` names it. */
+  readonly pickedStage?: string | undefined;
 }
 
 /**
  * The flow editor as Settings › Pipelines hosts it for an office-wide Pipeline: every edit, from
- * the canvas, the head's Add a Stage or the panel, applied to its Stages with flow-model.
+ * the canvas, the head's Add a Stage or the panel, applied to its Stages with flow-model. Its Stages
+ * are a Pipeline's, so one added from a Stage template, or saved as one, is linked to it.
  */
 export function OfficeFlowEditor(props: OfficeFlowEditorProps): ReactNode {
   const { stages, onChange, roles, duties, commands } = props;
   const named = commands && namedCommands(commands);
-  const controls = useFlowEditorControls();
+  const controls = useFlowEditorControls(
+    props.pickedStage === undefined ? undefined : { kind: "stage", key: props.pickedStage },
+  );
   const apply = (edited: FlowEdited): void => {
     onChange(edited.stages);
     if ("pick" in edited) controls.pick(edited.pick);
@@ -55,11 +60,18 @@ export function OfficeFlowEditor(props: OfficeFlowEditorProps): ReactNode {
           label="Add a Stage"
           heading="Add a Stage"
           templates
+          links
           onAdd={(stage) => apply(stageAdded(stages, stage, controls.picked))}
         />
       }
       panel={
-        <FlowPanel {...props} picked={controls.picked} onPick={controls.pick} onEdited={apply} />
+        <FlowPanel
+          {...props}
+          links
+          picked={controls.picked}
+          onPick={controls.pick}
+          onEdited={apply}
+        />
       }
     />
   );

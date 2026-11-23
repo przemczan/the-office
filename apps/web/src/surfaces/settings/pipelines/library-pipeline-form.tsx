@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { Duty, Pipeline, PipelineEdit, Role, RoleCardOptions } from "@the-office/contracts";
 import { Button, Card, Input, Textarea, Tooltip } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
@@ -57,6 +57,7 @@ export function LibraryPipelineForm({
   const commands = useLibraryCommands();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { stage: pickedStage } = useSearch({ strict: false });
   const showToast = useToast();
   const saving = useMutation({
     mutationFn: () => (pipeline ? savePipeline(pipeline.id, draft) : addPipeline(draft)),
@@ -136,6 +137,7 @@ export function LibraryPipelineForm({
             commands={commands}
             fullScreenName={`${draft.name || "New Pipeline"} ·`}
             fullScreenBar={saveRow(false)}
+            pickedStage={pickedStage}
           />
         </div>
       </Card>

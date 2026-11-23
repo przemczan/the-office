@@ -45,6 +45,7 @@ import {
   type StageWorkers,
 } from "../domain/stage.js";
 import { PipelineRemoved } from "../domain/pipeline-library-events.js";
+import { withLiveLinks } from "../domain/stage-template-link.js";
 import {
   PipelineRemovalRefused,
   UnknownPipeline,
@@ -56,6 +57,7 @@ import { PipelineRepository } from "../ports/pipeline-repository.js";
 import { ProjectDefaults, type ProjectDefault } from "../ports/project-defaults.js";
 import { ProjectPipelineRepository } from "../ports/project-pipeline-repository.js";
 import { StageRoleEngines } from "../ports/stage-role-engines.js";
+import { StageTemplateRepository } from "../ports/stage-template-repository.js";
 import { StartedTasks, type StartedTask } from "../ports/started-tasks.js";
 import { RoleFillings } from "./role-fillings.js";
 
@@ -100,6 +102,7 @@ export class PipelineLibraryEditor {
     private readonly tasks: StartedTasks,
     private readonly roleEngines: StageRoleEngines,
     private readonly initiatives: PipelineInitiatives,
+    private readonly stageTemplates: StageTemplateRepository,
     private readonly events: EventBus,
   ) {}
 
@@ -107,7 +110,7 @@ export class PipelineLibraryEditor {
     return this.changes.run(LIBRARY, async () => {
       const library = await this.repository.list();
       await this.refuseProblems(undefined, edit, library, library);
-      const { pipeline, event } = addedPipeline(randomUUID(), edit);
+      const { pipeline, event } = addedPipeline(randomUUID(), await this.withLiveLinks(edit));
       await this.repository.add(pipeline);
       await this.events.publish(event);
       return pipeline;
@@ -441,7 +444,7 @@ export class PipelineLibraryEditor {
       edit,
       source,
       new Date(),
-      stages,
+      stages && (await this.withLiveLinks({ stages })).stages,
     );
     await this.projectPipelines.add(projectPipeline, edit.copyOf);
     await this.events.publish(event);
@@ -452,17 +455,28 @@ export class PipelineLibraryEditor {
     saved: ProjectPipeline,
     edit: ProjectPipelineEdit,
   ): Promise<ProjectPipeline> {
-    const { projectPipeline, event } = savedProjectPipeline(saved, edit);
+    const { projectPipeline, event } = savedProjectPipeline(saved, await this.withLiveLinks(edit));
     await this.projectPipelines.save(projectPipeline);
     await this.events.publish(event);
     return projectPipeline;
   }
 
   private async store(id: string, edit: PipelineEdit): Promise<Pipeline> {
-    const { pipeline, event } = savedPipeline(id, edit);
+    const { pipeline, event } = savedPipeline(id, await this.withLiveLinks(edit));
     await this.repository.save(pipeline);
     await this.events.publish(event);
     return pipeline;
+  }
+
+  /**
+   * The edit keeping only its Stages' links to a template that still exists and is of their kind
+   * (spec §2.3.1): a link never refuses a save, it is dropped.
+   */
+  private async withLiveLinks<Edit extends { readonly stages: readonly Stage[] }>(
+    edit: Edit,
+  ): Promise<Edit> {
+    if (!edit.stages.some(({ templateId }) => templateId !== undefined)) return edit;
+    return { ...edit, stages: withLiveLinks(edit.stages, await this.stageTemplates.list()) };
   }
 
   private async checkAgainst(

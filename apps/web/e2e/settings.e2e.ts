@@ -539,16 +539,15 @@ test(
     await page.getByLabel("Command key").fill("build");
     await expect(page.getByText("Unsaved changes")).toBeVisible();
     await page.getByRole("button", { name: "Save the template" }).click();
-    await expect(
-      page.getByText("Stage template saved. Pipelines and Tasks that added it keep their copy."),
-    ).toBeVisible();
+    // No Stage is linked to it, so Save saves at once.
+    await expect(page.getByText(`${name} saved.`, { exact: true })).toBeVisible();
     await page.reload();
     await expect(page.getByLabel("Project command")).toHaveValue("build");
     await expect(item).toContainText("build");
 
     await page.getByRole("button", { name: "Remove", exact: true }).click();
     await expect(
-      page.getByText("Pipelines and Tasks that added it keep their copy."),
+      page.getByText("No Stage is linked to it. Tasks that added it keep their copy."),
     ).toBeVisible();
     await page.getByRole("button", { name: "Remove the template" }).click();
     await expect(page.getByText(`${name} removed from the Stage templates.`)).toBeVisible();
@@ -617,7 +616,7 @@ test(
 );
 
 test(
-  "a Stage added from a template is a copy: it saves in a library Pipeline and in Edit for this Task, and editing the template leaves it as it was",
+  "a Stage added from a template is linked in a library Pipeline and a copy in Edit for this Task; editing the template changes neither unless applied, and removing it unlinks",
   { tag: "@full" },
   async ({ page }) => {
     const stamp = Date.now();
@@ -676,6 +675,7 @@ test(
     // Its own key, from its name, as any added Stage's.
     expect(savedStages[1]).toEqual({
       ...copied,
+      templateId: template.id,
       key: `publish-preview-${stamp}`,
       place: expect.any(Object),
       routes: [{ to: null, condition: null }],
@@ -749,17 +749,28 @@ test(
         routes: expect.any(Array),
       });
 
-      // Editing the template, then removing it, leaves every copy as it was.
+      // The template lists the Pipeline's Stage, linked, never the Task's copy.
       await page.goto(`/settings/pipelines/stage-templates/${template.id}`);
+      await expect(page.getByText("Linked Stages · 1")).toBeVisible();
+      // Saving an edit asks which linked Stages get it; saving only the template changes none.
       await page
         .getByLabel("Publishes")
         .selectOption({ label: "By the Project's publishing mode" });
       await page.getByRole("button", { name: "Save the template" }).click();
-      await expect(page.getByText("Stage template saved.", { exact: false })).toBeVisible();
+      const applyDialog = page.getByRole("dialog", { name: "Apply the edit to linked Stages" });
+      await expect(applyDialog).toContainText("Same as the template");
+      await applyDialog.getByRole("button", { name: "Save the template only" }).click();
+      await expect(
+        page.getByText(`${templateName} saved. Its linked Stages keep their fields.`),
+      ).toBeVisible();
       expect((await libraryPipeline(page, pipeline.id)).stages).toEqual(savedStages);
       expect((await taskStages()).find(({ name }) => name === copyName)).toEqual(copy);
+      // Removing it unlinks the Stage, which keeps its fields.
       await removeStageTemplate(page, template);
-      expect((await libraryPipeline(page, pipeline.id)).stages).toEqual(savedStages);
+      // toEqual takes a property set to undefined as one not there.
+      expect((await libraryPipeline(page, pipeline.id)).stages).toEqual(
+        savedStages.map((stage) => ({ ...stage, templateId: undefined })),
+      );
     } finally {
       await repository.remove();
     }

@@ -1,6 +1,6 @@
 import type { Stage } from "@the-office/contracts";
 import { Icon, IconButton, Menu } from "@the-office/ui";
-import { useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { RefusalAlert } from "../../refusal-alert.tsx";
 import { STAGE_KIND_ICONS, STAGE_KIND_NAMES } from "../stage-edits.ts";
 import { StageForm } from "../stage-form.tsx";
@@ -12,6 +12,7 @@ import { NO_LOCKS } from "./flow-marks.ts";
 import type { FlowPanelProps } from "./flow-panel.tsx";
 import { FlowProblemAlert } from "./flow-problem-alert.tsx";
 import { FlowRoutesOut } from "./flow-routes-out.tsx";
+import { FlowTemplateLine } from "./flow-template-line.tsx";
 import { stageProblemsOf } from "./flow-view.ts";
 import { stageRemoved } from "./office-flow-edits.ts";
 
@@ -24,8 +25,9 @@ const MOVES: readonly { direction: MoveDirection; icon: string }[] = [
 
 /**
  * The picked Stage's panel: its place in the Pipeline's order with Move earlier, later, up and down
- * and its ⋯ menu; its fields as the Stage form has them; then Routes out and On failure. A locked
- * Stage's (a Task's started one) reads only: its Moves disabled, no ⋯ menu.
+ * and its ⋯ menu; its link to its Stage template, if any, and its fields as the Stage form has them;
+ * then Routes out and On failure. A locked Stage's (a Task's started one) reads only: its Moves
+ * disabled, no ⋯ menu.
  */
 export function FlowStagePanel(
   props: FlowPanelProps & { readonly stage: Stage; readonly onFailurePicked: boolean },
@@ -36,6 +38,17 @@ export function FlowStagePanel(
   const order = inFlowOrder(stages);
   const index = stages.indexOf(stage);
   const saving = useSaveAsTemplate();
+  // The draft as it is once the template is saved, which edits made meanwhile may have changed.
+  const latest = useRef(stages);
+  useLayoutEffect(() => {
+    latest.current = stages;
+  });
+  const linkTo = (templateId: string): void =>
+    onEdited({
+      stages: latest.current.map((each) =>
+        each.key === stage.key ? { ...each, templateId } : each,
+      ),
+    });
   return (
     <section className="flow-panel" aria-label={name}>
       <div className="flow-panel-head">
@@ -67,7 +80,13 @@ export function FlowStagePanel(
             <StageMenu
               name={name}
               saving={saving.isPending}
-              onSave={() => saving.mutate(stage)}
+              onSave={() =>
+                saving.mutate(stage, {
+                  onSuccess: ({ id }) => {
+                    if (props.links) linkTo(id);
+                  },
+                })
+              }
               onRemove={() => onEdited(stageRemoved(stages, stage.key, locked))}
             />
           )}
@@ -83,6 +102,13 @@ export function FlowStagePanel(
             error={saving.error}
           />
         )}
+        <FlowTemplateLine
+          stage={stage}
+          disabled={note !== undefined}
+          onChange={(changed) =>
+            onEdited({ stages: stages.map((each) => (each.key === stage.key ? changed : each)) })
+          }
+        />
         <FlowLockedFields note={note}>
           <StageForm
             stages={stages}

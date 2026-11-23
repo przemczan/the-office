@@ -40,6 +40,7 @@ import { ConditionCommands } from "./application/condition-commands.js";
 import { StageGit } from "./application/stage-git.js";
 import { StaffingHolds } from "./application/staffing-holds.js";
 import { StageTemplateLibraryEditor } from "./application/stage-template-library-editor.js";
+import { LinkedStages } from "./application/linked-stages.js";
 import { StageInterpreter } from "./application/stage-interpreter.js";
 import { StageRunsRunningNow } from "./application/stage-runs-running-now.js";
 import { DroppedTaskWorktrees } from "./application/dropped-task-worktrees.js";
@@ -177,6 +178,7 @@ export class PipelinesModule {
         PipelineLibraryEditor,
         ProjectPipelineMoveOver,
         StageTemplateLibraryEditor,
+        LinkedStages,
         StaffingHolds,
         StageRunners,
         StageInterpreter,

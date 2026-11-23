@@ -75,6 +75,11 @@ interface StageFields {
   readonly routes?: Route[];
   /** Absent where `routes` is. */
   readonly place?: StagePlace;
+  /**
+   * The Stage template it is linked to (spec §2.3.1), kept on an office-wide or Project Pipeline's
+   * Stage alone (`domain/stage-template-link.ts`). Absent is unlinked.
+   */
+  readonly templateId?: string;
 }
 
 export interface AgentStage extends StageFields {

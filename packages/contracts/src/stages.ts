@@ -127,6 +127,11 @@ const stageFields = {
   routes: z.array(routeSchema).optional(),
   /** Absent where `routes` is. */
   place: stagePlaceSchema.optional(),
+  /**
+   * The Stage template it is linked to (spec §2.3.1), on an office-wide or Project Pipeline's Stage
+   * alone: never on a template's own Stage or a Task's. Absent is unlinked.
+   */
+  templateId: z.string().min(1).optional(),
 };
 
 /**

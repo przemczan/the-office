@@ -21,6 +21,11 @@ export interface FlowPanelProps {
   readonly commands?: StageCommandSource;
   /** A Task's started Stages: their panels, and their routes', read only. */
   readonly locked?: FlowLocks;
+  /**
+   * A Pipeline's Stages, office-wide or a Project's: one added from a Stage template, or saved as
+   * one, is linked to it. A Task's own Stages are copies, never linked.
+   */
+  readonly links?: boolean;
 }
 
 /**

@@ -43,12 +43,22 @@ export function addStage(stages: readonly Stage[], kind: StageKind): AddedStage 
 }
 
 /**
- * A copy of the Stage template's Stage, added where a new Stage of its kind goes. A copy, never a
- * link: it gets its own key, keeps its name unless another Stage has it, and has no failure rule,
- * which only names a Stage of the list it goes into.
+ * The Stage template's Stage, added where a new Stage of its kind goes: it gets its own key, keeps
+ * its name unless another Stage has it, and has no failure rule, which only names a Stage of the
+ * list it goes into. Linked to the template in a Pipeline's Stages; a copy in a Task's own.
  */
-export function addStageFrom(stages: readonly Stage[], template: StageTemplate): AddedStage {
-  return placed(stages, withoutFailureRule(template.stage));
+export function addStageFrom(
+  stages: readonly Stage[],
+  template: StageTemplate,
+  linked: boolean,
+): AddedStage {
+  return placed(stages, stageFromTemplate(template, linked));
+}
+
+/** The template's Stage as added, without its failure rule, and linked to it when `linked`. */
+export function stageFromTemplate(template: StageTemplate, linked: boolean): Stage {
+  const stage = withoutFailureRule(template.stage);
+  return linked ? { ...stage, templateId: template.id } : stage;
 }
 
 /** A Stage as a Stage template keeps it: no failure rule, which only a Pipeline gives meaning. */

@@ -17,6 +17,7 @@ import {
 } from "./stage.js";
 import type { StageRun } from "./stage-run.js";
 import { staffingProblems, type RoleFilling } from "./stage-staffing.js";
+import { unlinked } from "./stage-template-link.js";
 import { TaskStagesEdited, TaskStagesMade } from "./task-stages-events.js";
 
 /**
@@ -51,7 +52,7 @@ export function makeTaskStages(
   const taskStages: TaskStages = {
     taskId,
     pipelineId: pipeline.id,
-    stages: pipeline.stages,
+    stages: unlinked(pipeline.stages),
     madeAt,
     editedForTask: false,
     trace: undefined,
@@ -171,7 +172,7 @@ export function editTaskStages(
   edited: readonly Stage[],
 ): { readonly taskStages: TaskStages; readonly event: TaskStagesEdited } {
   return {
-    taskStages: { ...own, stages: pipelineOrder(asFlow(edited)), editedForTask: true },
+    taskStages: { ...own, stages: pipelineOrder(asFlow(unlinked(edited))), editedForTask: true },
     event: new TaskStagesEdited(own.taskId, own.pipelineId),
   };
 }
@@ -233,7 +234,12 @@ function samePlace(place: StagePlace, other: StagePlace): boolean {
  * The Stage's own fields as `sorted` JSON, wherever it was read from. Its routes and place are
  * weighed apart (`changedRoutesAt`, `samePlace`), each giving its own problem.
  */
-function comparable({ routes: _routes, place: _place, ...stage }: Stage): string {
+function comparable({
+  routes: _routes,
+  place: _place,
+  templateId: _templateId,
+  ...stage
+}: Stage): string {
   return sorted(stage);
 }
 

@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import type {
   Duty,
   PipelineEdit,
@@ -61,6 +61,7 @@ export function ProjectPipelineForm({
   ]);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { stage: pickedStage } = useSearch({ strict: false });
   const showToast = useToast();
   const saving = useMutation({
     mutationFn: () => saveProjectPipeline(projectPipeline.id, draft),
@@ -136,6 +137,7 @@ export function ProjectPipelineForm({
             commands={projectCommandsOf(project)}
             fullScreenName={`${draft.name || projectPipeline.name} ·`}
             fullScreenBar={saveRow(false)}
+            pickedStage={pickedStage}
           />
         </div>
       </Card>

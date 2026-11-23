@@ -6,8 +6,8 @@ import { stageTemplateQueries } from "../../../api/pipelines.ts";
 import {
   STAGE_KIND_ICONS,
   STAGE_KIND_NAMES,
+  stageFromTemplate,
   standaloneStage,
-  withoutFailureRule,
   type StageKind,
 } from "../stage-edits.ts";
 
@@ -15,13 +15,15 @@ const KINDS: readonly StageKind[] = ["agent", "script", "gate"];
 
 /**
  * A menu of a new Stage's kinds (Agent Stage, Script Stage, Gate) and, with `templates`, the Stage
- * templates, each added as a copy without its failure rule: the head's Add a Stage, and a route's
- * Insert a Stage on this route.
+ * templates, each added without its failure rule, linked to its template with `links` (a Pipeline's
+ * Stages) or else a copy (a Task's own): the head's Add a Stage, and a route's Insert a Stage on
+ * this route.
  */
 export function FlowAddMenu({
   label,
   heading,
   templates = false,
+  links = false,
   variant = "secondary",
   disabled = false,
   title,
@@ -32,6 +34,8 @@ export function FlowAddMenu({
   /** The menu's heading over the kinds. */
   readonly heading: string;
   readonly templates?: boolean;
+  /** A Stage added from a template is linked to it. */
+  readonly links?: boolean;
   readonly variant?: "secondary" | "ghost";
   readonly disabled?: boolean;
   /** Why it is disabled, as its tooltip. */
@@ -57,7 +61,7 @@ export function FlowAddMenu({
           ? (listed.data ?? []).map((template) => ({
               label: template.stage.name,
               icon: <Icon name={STAGE_KIND_ICONS[template.stage.kind]} size={14} />,
-              onSelect: () => onAdd(withoutFailureRule(template.stage)),
+              onSelect: () => onAdd(stageFromTemplate(template, links)),
             }))
           : [
               {

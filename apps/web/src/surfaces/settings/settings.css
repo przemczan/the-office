@@ -472,3 +472,43 @@
   flex-direction: column;
   gap: 16px;
 }
+
+/* ---- a Stage template's linked Stages */
+.linked-stages {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.linked-stage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.linked-stage:last-child {
+  border-bottom: none;
+}
+
+.linked-stage-link {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.linked-stage-link:hover .linked-stage-name {
+  text-decoration: underline;
+}
+
+.linked-stage-name {
+  font: var(--type-label);
+  color: var(--fg-1);
+}
