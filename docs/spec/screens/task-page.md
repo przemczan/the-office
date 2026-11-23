@@ -140,9 +140,9 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - Each Stage is a column with: its mark, its name (a button that opens the Stage history), its worker, its state words, its runs and tokens.
 - Mark: the Stage kind by shape, its state by colour and icon (done check, failed x, waiting or paused pause, stopped square, skipped minus, not taken skip-forward); a running Stage's line is live.
 - Worker: the Role's person, "You" at a Gate, the command for a Script Stage, or "<label> · nobody holds it" for a duty nobody holds.
-- State words: Pending, Running, Waiting on you, Paused, Stopped, Done, Skipped, Not taken, Failed, with "· went back to <Stage>" when a failure sent the work back; "Waiting for a run environment" for a Script Stage whose command hasn't started.
+- State words: Pending, Running, Waiting on you, Paused, Stopped, Done, Skipped, Not taken, Failed, with "· went back to <Stage>" when a route back sent the work back; "Waiting for a run environment" for a Script Stage whose command hasn't started.
 - Runs words: "Not started", "Not run yet", "Not needed" (skipped), "Not run" (not taken), else the count and time ("so far" while running).
-- Loop-backs: an arc over the Stages from the failing Stage to where the work went back, marked "↺ <n> of <rounds>"; the mark selects the failing Stage; its words say "<Stage> failed and went back to <Stage> <times>, of at most <rounds>".
+- Routes back the walk followed: an arc over the Stages from the Stage to where the route sent the work back, marked "<n> of at most <limit>" ("<n> times" for a route with No limit); the mark selects the Stage the route leaves; its words say "<Stage> went back to <Stage> <n> times, of at most <limit>".
 - When the Stages don't fit (150px a Stage at least) the rail scrolls sideways and keeps the current Stage in view.
 - A Task whose Pipeline was removed from the library shows "Its Pipeline was removed from the library."
 - A Publishing Task that waits shows "Waits for “<blocker>” before its next Stage." ([initiative-page.md](initiative-page.md#pipelines-block)).
@@ -157,31 +157,28 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 
 - At the rail's foot, a row that wraps: the badge "Proposed by <Planner>", the Pipeline's name ("(the one it follows)" when it is the current one) and the reason.
 - **Use <name>**, or **Confirm** when it is the current one; **Keep <current>** (none for a Task with no Pipeline); and an **Another Pipeline…** picker for the rest.
-- A Broken proposed Pipeline can't be taken: Use or Confirm is disabled with why, and an alert "<name> can't be taken" says why.
+- A proposed Pipeline that can't be chosen can't be taken: Use or Confirm is disabled with why, and an alert "<name> can't be taken" says why.
 - A refusal shows as "The Pipeline wasn't set".
 - Each choice ends the proposal.
-
-## Broken Pipeline flag
-
-- A not-started Task on a Broken Project Pipeline with no Stages edited for it shows an alert "<name> is Broken" with why, "The Task can't start until it is fixed in <Project>'s Pipelines, or another Pipeline is chosen for it.", and **Choose another Pipeline**.
-- Rules: [2.3.5](../2.3.5-library.md).
 
 ## Edit for this Task
 
 - Window "Stages of <Task>" (one height, large); for a Task with no Pipeline "Choose a Pipeline for <Task>".
 - It edits the Task's own copy of the Stages and the Pipeline swap before Start, both a draft until **Save for this Task**.
 - Each Stage with a run is locked, with its state's words.
-- Script Stages are offered the Project's commands and Publish.
+- Script Stages are offered the Project's commands, never Publish; a Publish Stage is a kind of its own in Add a Stage ([pipeline-flow-editor.md](pipeline-flow-editor.md#stage-templates)).
 - A swap or an edit naming a command the Project lacks is refused by the service, shown as an alert.
-- With no Pipeline chosen yet, the picker opens on the default for the Task's Kind, its Stages shown, so one press of Save chooses it; it is listed first and badged "Default for Features", "Default for Bugs" or "Default for Chores" ("Project default" when the Kind has none of its own, [2.1.1](../2.1.1-projects.md#project-settings)), then the Project's own Pipelines and the office-wide ones; a Broken one is listed with why and never chosen, and with none to open on Save is disabled with "Choose a Pipeline first."; Save sets the Pipeline, then saves the Stages if edited.
+- With no Pipeline chosen yet, the picker opens on the default for the Task's Kind, its Stages shown, so one press of Save chooses it; it is listed first and badged "Default for Features", "Default for Bugs" or "Default for Chores" ("Project default" when the Kind has none of its own, [2.1.1](../2.1.1-projects.md#project-settings)), then the Project's own Pipelines and the office-wide ones; one that can't be chosen (a Project Pipeline the move left from a Broken one, not saved since, [2.3.5](../2.3.5-library.md#the-move-to-routes-back-and-publish-stages)) is listed with why and never chosen, and with none to open on Save is disabled with "Choose a Pipeline first."; Save sets the Pipeline, then saves the Stages if edited.
 
 ## Stage history
 
-- A large window opened by pressing a Stage on the rail, or a loop-back mark.
+- A large window opened by pressing a Stage on the rail, or a route back's mark.
 - Title: "Stage history: <Stage>", the worker, a badge with the state, and the hint "← → Stages".
 - Under the title: the Pipeline in small to move between Stages, then a line saying what the Stage is for and who works it.
 - Left: the runs, newest first, as buttons "Run <n>" with an outcome badge, a "Briefed with what failed" mark when it carried a failure, then time, tokens, the engine ("Stand-in for <engine>" when it ran on a Stand-in Engine) and a gist.
 - Right: the run picked; it stays picked while the window is open.
+- An ended run names the route it followed, with its count: "Went on to Review", "Went back to Implement (2 of at most 3)", or "Went to End".
+- An Agent's choice shows with its reason: "Chose Review: the change touches what the user sees"; a Publish Stage's result with what shipped: "Published: pull request #212 opened", "Conflict with main in 3 files".
 - A Stage with no runs says "Runs once the Task starts." (not started) or "Hasn't run yet."
 - ← and → move to the previous or next Stage, heard on the document, unless a field is typed in or an Attachment viewer is over the window.
 - Closing returns focus to the Stage on the rail.
@@ -224,7 +221,7 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - Each unmet line says where it is settled and links there:
   - Plan: "Write it" or "Confirm it" "on the Plan" (shows Overview, opens the block and scrolls to it);
   - Definition of Done: the same, "on the Definition of Done";
-  - Pipeline: "<Planner> proposes <name> · confirm it on the rail", "Choose a Pipeline on the rail", ending ": <name> is the default for <Bugs|Features|Chores>" when the Task's Kind has a default of its own (Backlog), "<Planner> proposes one while planning", or "<name>, which is Broken · choose another on the rail";
+  - Pipeline: "<Planner> proposes <name> · confirm it on the rail", "Choose a Pipeline on the rail", ending ": <name> is the default for <Bugs|Features|Chores>" when the Task's Kind has a default of its own (Backlog), "<Planner> proposes one while planning", or "<name>, which can't be chosen · choose another on the rail";
   - Decisions: "<n> open, in Needs you".
 
 ## Gate

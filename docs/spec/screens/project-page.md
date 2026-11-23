@@ -275,40 +275,40 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
 
 ### Default Pipeline
 
-- Card **Default Pipeline** (route icon): a row **Every Task**, "What <planner> proposes first, unless the Task's Kind has its own below.", with a Pipeline picker (hidden label "Default Pipeline"), saved at once, with the groups "<Project>'s Pipelines" then "Office-wide Pipelines"; each Pipeline shows its Stages line (a Project Pipeline adds "· built from <base>"), the current default first; a Broken Pipeline is listed with why and can't be chosen.
+- Card **Default Pipeline** (route icon): a row **Every Task**, "What <planner> proposes first, unless the Task's Kind has its own below.", with a Pipeline picker (hidden label "Default Pipeline"), saved at once, with the groups "<Project>'s Pipelines" then "Office-wide Pipelines"; each Pipeline shows its Stages line (a Project Pipeline adds "· copied from <name>"), the current default first; a Project Pipeline the move left from a Broken one, not saved since, is listed with why and can't be chosen.
 - Toast "<Project>'s default Pipeline is <name> now."
-- A Broken default shows the danger alert "<name>, the default, is Broken": the reasons, then "New Tasks can't follow it, and <planner> proposes from the others, until it is fixed or another default is chosen."
-- A sound default shows its line and "A new Task has no Pipeline until <planner> proposes one at planning, starting from this one, or you choose one." (<planner> is whoever holds Plans, or "whoever holds Plans" while nobody does).
+- A default the move left from a Broken one, not saved since, shows the warning alert "<name>, the default, was Broken before The Office updated", then "New Tasks can't follow it, and <planner> proposes from the others, until you save it." ([2.3.5](../2.3.5-library.md#the-move-to-routes-back-and-publish-stages)).
+- Any other default shows its line and "A new Task has no Pipeline until <planner> proposes one at planning, starting from this one, or you choose one." (<planner> is whoever holds Plans, or "whoever holds Plans" while nobody does).
 - Under it, **By Kind**: a row each for **Features**, **Bugs** and **Chores** with its Kind's glyph, a Pipeline picker (hidden label "Default Pipeline for <Kind>s") whose first group, "Every Task's", holds **Same as every Task** with the default's name, then the same groups ([2.1.1](../2.1.1-projects.md#project-settings), "Default Pipeline per Kind").
 - Each row saves at once; toasts "<Project>'s Bugs follow <name> now." or, for Same as every Task, "<Project>'s Bugs follow its default Pipeline again."; a refusal shows under the row.
 
 ### Project Pipelines list
 
 - A list named "<Project>'s Pipelines" with a count; each row links to the Project Pipeline.
-- Row: name, line "Built from <base> · N Stage changes" (or "· N Stage changes don't apply" while Broken), **Default** badge, **Broken** badge (danger), and the warning "Needs fixing" while its check has problems.
-- Empty: "None yet: <Project>'s Tasks choose from the office-wide Pipelines. Add one to change a few Stages for <Project> alone."
-- Foot: **Add a Pipeline built from…** (tooltip "A Pipeline of <Project>'s own, built from an office-wide one") and Ask Devops (**Ask <name>**, draft "Can you propose a Project Pipeline for <Project>? ").
+- Row: name, line "Copied from <name> · N Stages", **Default** badge, and the warning "Needs fixing" while its check has problems.
+- Empty: "None yet: <Project>'s Tasks choose from the office-wide Pipelines. Copy one to change it for <Project> alone."
+- Foot: **New Pipeline** (tooltip "A Pipeline of <Project>'s own, copied from another") and Ask Devops (**Ask <name>**, draft "Can you propose a Project Pipeline for <Project>? ").
 
-### Add a Pipeline window
+### Copy a Pipeline window
 
-- A medium window "Add a Pipeline to <Project>", keeping one height.
-- Text: "A Project Pipeline: only <Project>'s Tasks and its default can choose it."
-- **Base Pipeline**: radios of the office-wide Pipelines (each with its Stages line), leaving out Onboard (its fixed id `onboard`); hint "The office-wide Pipeline it is built from. It starts as its Stages exactly; you then insert, replace, change or remove Stages, and <base>'s later edits still reach it."
-- **Name**, filled with "<base> for <Project>" until typed; hint "Not a name an office-wide Pipeline or another of <Project>'s has."
+- **New Pipeline** opens a medium window "Copy a Pipeline into <Project>", keeping one height.
+- Text: "A Project Pipeline: only <Project>'s Tasks and its default can choose it. Edits of the one it is copied from never reach it."
+- Radios, in two groups, "Office-wide Pipelines" then "<Project>'s Pipelines", each Pipeline with its Stages line; Onboard (its fixed id `onboard`) is left out.
+- **Name**, filled with "<name> for <Project>" until typed; hint "Not a name an office-wide Pipeline or another of <Project>'s has."
 - **Description** (placeholder "What it is for, in a sentence").
-- **Add the Pipeline** adds it with no Stage change, shows "<name> added to <Project>'s Pipelines.", closes and opens it. **Ask <name> instead** (when someone holds the duty) opens their chat with the draft.
-- Refusals: **The Pipeline wasn't added**, **The chat didn't open**.
+- **Copy into <Project>** copies its Stages, routes and places as they are, shows "<name> copied into <Project>'s Pipelines.", closes and opens it. **Ask <name> instead** (when someone holds the duty) opens their chat with the draft.
+- Refusals: **The Pipeline wasn't copied**, **The chat didn't open**.
 
 ### The open Project Pipeline
 
-- Head card: its name with **Default** and **Broken** badges, **Ask <name>** (draft "Can you propose a change to <Project>'s <name> Pipeline? "), its description, and the facts line: "Project Pipeline of <Project> · Built from <base> · Default for <Project> · <use line>".
-  - **Built from <base>** links to the base Pipeline in Settings › Pipelines (tooltip "Open <base> in Settings › Pipelines").
+- Head card: its name with the **Default** badge, **Ask <name>** (draft "Can you propose a change to <Project>'s <name> Pipeline? "), its description, and the facts line: "Project Pipeline of <Project> · Copied from <name> on <date> · Default for <Project> · <use line>".
+  - "Copied from <name> on <date>" is words only, not a link: the two Pipelines no longer share anything.
   - The use line counts the not started Tasks that use it.
-- A Broken Pipeline shows the danger alert "<name> is Broken: N Stage changes no longer apply to <base>" with "Until it is fixed Tasks can't choose <name>. Tasks already started keep their Stages. Fix each one marked in red below, then save." After fixing (checked, before saving), the success alert "Fixed: save it, and Tasks can choose <name> again".
-- Card with **Name**, **Base Pipeline** (hint "An office-wide Pipeline: its edits reach this one, and the Stage changes apply on top.") and **Description**, then the flow editor in its Project mode ([pipeline-flow-editor.md](pipeline-flow-editor.md#in-a-project-pipeline)).
-- The service builds and checks every draft; Stages shown are the built ones until the check answers.
+- A Pipeline the move left from a Broken one, not saved since, shows the warning alert "<name> was Broken before The Office updated": a list of the Stage changes that didn't apply, each by its kind and the Stage it named, then "Tasks can choose it once you save it." ([2.3.5](../2.3.5-library.md#the-move-to-routes-back-and-publish-stages)).
+- Card with **Name** and **Description**, then the flow editor, the same as an office-wide Pipeline's ([pipeline-flow-editor.md](pipeline-flow-editor.md)).
+- The service checks every draft; the problems shown are the last answer's until the check answers.
 - The bar: "Unsaved changes" or "Saved"; **Remove** (danger ghost; opens the remove window of the Pipeline), **Discard**, **Save the Pipeline**.
-  - Save is disabled while nothing changed, the Pipeline is Broken, a problem stands or the check is awaited; while Broken its tooltip is "Fix the Stage changes that don't apply first: a save never leaves it Broken".
+  - Save is disabled while nothing changed, a problem stands or the check is awaited; a Pipeline the move left from a Broken one can be saved unchanged.
   - Toast "Pipeline saved. Tasks not started yet follow it; running ones keep their copy."
   - A refusal shows as **The Pipeline wasn't saved**.
   - Remove toasts "<name> removed from <Project>'s Pipelines." and returns to the list.
@@ -684,7 +684,7 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
 - Icon and Logo: [2.1.1](../2.1.1-projects.md#icon-and-logo).
 - Onboarding: [2.1.1](../2.1.1-projects.md#onboarding-a-project).
 - Off-board Tasks and setting up the run environment: [2.1.3](../2.1.3-tasks.md#off-board-tasks).
-- Project Pipelines and a Broken Project Pipeline: [2.3.5](../2.3.5-library.md#project-pipelines), [2.3.5](../2.3.5-library.md#a-broken-project-pipeline).
+- Project Pipelines, and the move that left them as copies: [2.3.5](../2.3.5-library.md#project-pipelines), [2.3.5](../2.3.5-library.md#the-move-to-routes-back-and-publish-stages).
 - Which Pipeline a Task follows: [2.3.5](../2.3.5-library.md#which-pipeline-a-task-follows).
 - GitHub issues: [2.1.1](../2.1.1-projects.md#github-issues).
 - Publishing, Publish's before and after lines: [2.3.4](../2.3.4-publish.md#publishs-before-and-after-lines).

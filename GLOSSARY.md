@@ -30,7 +30,7 @@ A Project's optional command line that runs in the Task's worktree before Publis
 _Avoid_: Pre-publish hook, publish command
 
 **After publishing**:
-A Project's optional command line that runs in the Task's worktree once Publish opened the pull request or merged, with the Project's own variables and what shipped. Not a Project command: it has no key, and blank runs nothing. Its failure is escalated, never looped.
+A Project's optional command line that runs in the Task's worktree once Publish opened the pull request or merged, with the Project's own variables and what shipped. Not a Project command: it has no key, and blank runs nothing. Its failure ends the Publish Stage with the Publish result After publishing failed, which its routes may take; with none, it goes to the CTO, then the user.
 _Avoid_: Post-publish hook, publish command
 
 **Mark**:
@@ -282,7 +282,7 @@ The files and folders a Plan expects to change, written by the Planner with the 
 _Avoid_: Touch set, affected files, scope
 
 **Resolve**:
-The Stage The Office adds before Publish when the Task's branch conflicts with the base, or with the Initiative's branch it publishes into: The Office merges the base in, the Task's person edits the conflicted files, then the Project's Test runs, and a Gate if the Publish Stage asks for a review, before Publish again.
+An ordinary Agent Stage of a Pipeline's conflict chain, made from the built-in Resolve Stage template and linked to it: a Publish Stage's Conflict route leads to it, it merges the base first and its Agent (the holder of Implements by default) edits the conflicted files, then a Script Stage runs the Project's Test before the walk goes back to Publish.
 _Avoid_: Rebase, merge fix, conflict Stage
 
 **Attachment**:
@@ -454,15 +454,27 @@ A daily window of each user's own, off until they set it, in which no Notificati
 _Avoid_: Do not disturb, silent mode, mute
 
 **Pipeline**:
-A named flow of Stages joined by routes, each with an optional condition, that a Task's work follows from its first Stage to End, one path at a time; a Publishing Task follows its Project's Initiative's Pipeline. Its Stages keep an order, the Pipeline's order, in which every route leads forward, so only an "on failure go back" loop goes back. It is an office-wide Pipeline or a Project Pipeline. "Flow" says what shape it has, as in the flow editor, and never names it.
+A named flow of Stages joined by routes, each with an optional condition and its limit, that a Task's work follows from its first Stage to End, one path at a time; a Publishing Task follows its Project's Initiative's Pipeline. Its Stages keep an order, the Pipeline's order, their places on the canvas from left to right and top to bottom; a route may lead to any Stage, so routes back go round again, each loop held by a route limit. It is an office-wide Pipeline or a Project Pipeline. "Flow" says what shape it has, as in the flow editor, and never names it.
 _Avoid_: Workflow, graph, process (a Process is a session's background command)
 
 **Route**:
-A link in a Pipeline from one Stage to another, or to End, that the walk follows as the Stage ends when its condition holds; the first route out of a Stage that holds is followed, and one with no condition always holds.
+A link in a Pipeline from one Stage to any Stage, itself or an earlier one included, or to End, that the walk follows as the Stage ends when its condition holds, while its route limit lasts; the first route out of a Stage that holds is followed, and one with no condition (Otherwise) always holds.
 _Avoid_: Edge, arrow, transition, branch (a branch is git's)
 
+**Route back**:
+A route to its own Stage or one before it in the Pipeline's order, how the work goes round again: test-fix and review-fix rounds, repair after a failed Stage, Resolve after a conflict. It starts with a route limit of 3 and is drawn as any route, its limit marked on its line.
+_Avoid_: Loop, On failure, retry, loop-back
+
+**Route limit**:
+How many times the walk may follow one route in a walk, "at most N times" from 1 to 9, or No limit; a route back starts at 3, a route on at No limit, and every loop of routes needs one route with a limit. When the walk would follow a route past it, the holder of Asked first when a Stage runs out of tries, then the user, chooses: follow it once more, go on by another route, or drop the Task.
+_Avoid_: Rounds, retries, loop, max attempts
+
+**Choice** (an Agent Stage's route):
+A route out of an Agent Stage that its Agent chooses, worded as a condition in plain words ("the review found something to fix"); the Agent chooses one with the `choose_route` Office tool and a reason before it ends done, and the walk follows it as the first route that holds. Not a Decision's Choice.
+_Avoid_: Agent route, decision route, branch
+
 **Condition**:
-What a route needs to be followed: built-in tests of the previous Stage or a named one (ended Done, ended Failed, was Skipped, changed files, changed no files, ran N or more times) or of the Definition of Done (all Reported met, some not Reported met), and Project-command tests that hold when the command exits 0, combined in All of and Any of groups.
+What a route needs to be followed: built-in tests of the previous Stage or a named one (ended Done, ended Failed, was Skipped, changed files, changed no files, ran N or more times, and for a Publish Stage the Publish result it ended with) or of the Definition of Done (all Reported met, some not Reported met), and Project-command tests that hold when the command exits 0, combined in All of and Any of groups; or, for an Agent Stage's choice, plain words its Agent chooses by.
 _Avoid_: Rule, guard, filter, expression
 
 **Join**:
@@ -478,7 +490,7 @@ A Stage with a route to End. Every other Stage needs a route to another Stage, s
 _Avoid_: Last Stage (which is the last in the Pipeline's order), terminal Stage
 
 **Walk**:
-A Task's way through its Pipeline: the Stages it ran and the routes it followed, from its first Stage to End, one Stage at a time, going back only by an on-failure loop, a Gate's Send back or one more round of the Definition of Done check.
+A Task's way through its Pipeline: the Stages it ran and the routes it followed, from its first Stage to End, one Stage at a time, going back only by a route back, a Gate's Send back or one more round of the Definition of Done check.
 _Avoid_: Run (a run is one Stage's), execution, journey
 
 **Not taken**:
@@ -490,24 +502,12 @@ The office-wide Pipelines and, beside them, the Stage templates, edited in Setti
 _Avoid_: Pipeline catalog, Pipeline templates
 
 **Project Pipeline**:
-A Pipeline that belongs to one Project, built from a base Pipeline plus its Stage changes each time it is read; only that Project's Tasks, its default and an Initiative's Pipeline in that Project can choose it.
-_Avoid_: Custom Pipeline, derived Pipeline, Project-owned Pipeline
+A full Pipeline that belongs to one Project, with its own Stages, routes and places, made on its Project's page as a copy of an office-wide Pipeline or of another of the Project's own, and then changed in any way; it keeps the name it was copied from and when ("Copied from Full on 12 Nov"), for its words alone, and no later edit of either reaches the other. Only that Project's Tasks, its default and an Initiative's Pipeline in that Project can choose it.
+_Avoid_: Custom Pipeline, derived Pipeline, Project-owned Pipeline, base Pipeline
 
 **Office-wide Pipeline**:
 A Pipeline of the library that belongs to no Project, which every Project and Initiative can choose; the built-in Pipelines are office-wide.
 _Avoid_: Global Pipeline, shared Pipeline
-
-**Base Pipeline**:
-The office-wide Pipeline a Project Pipeline is built from. Always "base Pipeline": bare "base" is the base branch.
-_Avoid_: Parent, template, base
-
-**Stage change**:
-One entry in a Project Pipeline's ordered list, naming a Stage by its key: Insert before, Insert after, Replace, Change or Remove a Stage, or Change routes of a Stage (its whole list of routes out). Inserting and removing a Stage carry the routes around it along, so a straight line stays one. Never bare "changes", which is the Changes tab.
-_Avoid_: Override, patch, diff, changes
-
-**Broken**:
-Said of a Project Pipeline whose Stage changes no longer apply to its base Pipeline as it is now; it is flagged and can't be chosen until they are fixed.
-_Avoid_: Invalid, stale, out of date
 
 **Onboarding**:
 Making a Project build and test in a fresh worktree on the workstation, done by the holder of Onboards and repairs Projects (Devops by default) in the Project's Onboard Task, an Off-board Task started at once by applying Devops' Project Proposal, or by Onboard or Onboard again on the Project page. One open per Project; the Project's onboarding (Onboarding, Onboarded) reads its latest Onboard Task.
@@ -618,12 +618,32 @@ The amber "Test instance" banner every page of a test instance of The Office (`O
 _Avoid_: staging banner, sandbox warning
 
 **Stage**:
-One node of a Pipeline's flow, with its routes out and an optional "on failure go back" loop: work by an Agent in a Role, or in the Role holding a duty, a Project command run without an Agent, or a Gate.
+One node of a Pipeline's flow, with its routes out, each with its condition and its route limit; of one of four kinds: an Agent Stage (work by an Agent in a Role, or in the Role holding a duty), a Script Stage (a Project command run without an Agent), a Gate, or a Publish Stage.
 _Avoid_: Phase, step (as a noun for the record)
 
 **Stage template**:
-A Stage kept in the Pipeline library to add to a Pipeline or a Task's Stages as a copy; made from scratch or saved from a Stage, the built-in Stages among them.
+A Stage kept in the Pipeline library, made from scratch or saved from a Stage, the built-in Stages among them (Resolve too). Added to a Pipeline's Stages it stays linked to them as a Linked Stage; added to a Task's own Stages it is a copy. Saving an edit of it lists its linked Stages, and the user chooses which get the edit.
 _Avoid_: Stage preset, Stage blueprint
+
+**Linked Stage**:
+A Pipeline's Stage that is linked to the Stage template it was added from or saved as; it may still be edited, and then differs from the template in those fields. **Take the template's** sets one field, or all, back to the template's; **Unlink** makes it a plain copy, its fields as they are. Its name, key, place and routes are its Pipeline's own.
+_Avoid_: Synced Stage, inherited Stage, template instance
+
+**Merge the base first**:
+An Agent Stage's setting, off by default: as the Stage starts The Office merges the base into the Task's branch with one merge commit and leaves any conflicted files for its Agent to resolve, which The Office commits as the Stage ends. The Resolve Stage template has it on.
+_Avoid_: Rebase first, auto-merge, update branch (the `update_branch` Office tool, which an Agent asks for)
+
+**Publish Stage**:
+The Stage kind that publishes a Task's work by The Office's own git code and credentials, out of every Agent's reach: by the Project's publishing mode (push + PR, or merge), or pushing the Task's branch only. It runs no Agent and no Project command, and ends with one of its Publish results, which its routes take.
+_Avoid_: Publish command, publish script, `publish` Script Stage
+
+**Publish result**:
+How a Publish Stage ends, which its routes name: **Published** (the work shipped and any After publishing line passed), **Nothing to publish** (the branch holds no change), **Conflict** (it would conflict with the base; nothing left), **After publishing failed** (it shipped, but the After publishing line failed), or Failed (nothing shipped for another reason).
+_Avoid_: Publish status, publish outcome, exit code
+
+**Conflict chain**:
+The Stages of a Pipeline's own flow that take a Publish Stage's Conflict: Publish → (Conflict) Resolve → a Script Stage running the Project's Test → Publish again, drawn and edited like any routes. **Conflict handling** is the Stages the walk runs from a Publish that ended Conflict until it reaches a Publish again; the Definition of Done check doesn't run again there.
+_Avoid_: Resolve loop, conflict Stage, After a conflict
 
 **Gate**:
 A Stage at which the Task waits for the user to look at the work so far and let it continue. A Gate with no Agent Stage between it and Publish is the Definition of Done check: its Continue calls the Definition of Done met.
@@ -876,7 +896,7 @@ The Grafana Viewer service account token Stats reads the user's own Grafana with
 _Avoid_: API key, Grafana token, access token, header (the export headers are for the endpoint)
 
 **Stage retry**:
-A Stage run whose Stage already had a run on the same Task, whenever that one ran: a loop-back, a Stage sent back at a Gate, or a failed Stage run again. Counted in the week its run started.
+A Stage run whose Stage already had a run on the same Task, whenever that one ran: a route back, a Stage sent back at a Gate, or a failed Stage run again. Counted in the week its run started.
 _Avoid_: Rerun, attempt, repeat
 
 **Proposal**:

@@ -32,6 +32,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Android phone over wireless debugging, adb pair, pairing code, pairing port**: [2.13 Android phone over wireless debugging](2.13-connected-devices.md#android-phone-over-wireless-debugging); [2.13 The run environment's network](2.13-connected-devices.md#the-run-environments-network); [6 Connected devices](6-permissions-and-safety.md#connected-devices); screen: [Task page › Devices](screens/task-page.md#devices)
 - **adb key**: [2.13 The adb key](2.13-connected-devices.md#the-adb-key); [6 Connected devices](6-permissions-and-safety.md#connected-devices)
 - **Agent**: [2.2 Agent](2.2-people.md#agent)
+- **Agent's choice of route, choose_route, Choice row**: [2.3.2 How an Agent chooses its route](2.3.2-flows.md#how-an-agent-chooses-its-route); [2.3.2 The route forms](2.3.2-flows.md#the-route-forms); screen: [Pipeline flow editor › Routes out](screens/pipeline-flow-editor.md#routes-out)
 - **After publishing, Before publishing**: [2.3.4 Publish's before and after lines](2.3.4-publish.md#publishs-before-and-after-lines); screen: [Project page › Commands](screens/project-page.md#commands)
 - **All clear**: [2.8 All clear](2.8-fire-alarm.md#all-clear); screen: [Now › The all clear's review](screens/now.md#the-all-clears-review)
 - **Allow changes**: [2.4.1 Allow changes](2.4.1-threads.md#allow-changes); screen: [Thread › Allow changes bar](screens/thread.md#allow-changes-bar)
@@ -46,11 +47,9 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 ### B
 
 - **Back to Shaping**: [2.1.4 Back to Shaping](2.1.4-initiatives.md#back-to-shaping); screen: [Initiative page › Back to Shaping](screens/initiative-page.md#back-to-shaping)
-- **Base Pipeline, Stage change**: [2.3.5 Project Pipelines](2.3.5-library.md#project-pipelines); screen: [Pipeline flow editor › In a Project Pipeline](screens/pipeline-flow-editor.md#in-a-project-pipeline)
 - **Basic stats, Full stats**: [2.11.2 Basic stats](2.11.2-tokens-and-cost.md#basic-stats); [2.11.2 Full stats](2.11.2-tokens-and-cost.md#full-stats)
 - **Branch picker**: screen: [Project page › The Branch picker](screens/project-page.md#the-branch-picker); [2.15 What it runs from](2.15-actions.md#what-it-runs-from)
 - **Brief**: [2.5 The Brief](2.5-context-policy.md#the-brief)
-- **Broken, Broken Pipeline**: [2.3.5 A Broken Project Pipeline](2.3.5-library.md#a-broken-project-pipeline); screen: [Task page › Broken Pipeline flag](screens/task-page.md#broken-pipeline-flag)
 - **Bug Task Decision**: [2.4.2 The Bug Task Decision](2.4.2-decisions.md#the-bug-task-decision); screen: [Decision card › The Bug Task card](screens/decision-card.md#the-bug-task-card)
 
 ### C
@@ -66,7 +65,8 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Compose install, Direct install**: [5.1.1 Installing with Docker Compose](5.1.1-releases-and-installs.md#installing-with-docker-compose); [5.1.1 Installing on Debian/Ubuntu](5.1.1-releases-and-installs.md#installing-on-debianubuntu)
 - **Condition, Route, Not taken**: [2.3.2 Which route the walk follows](2.3.2-flows.md#which-route-the-walk-follows); [2.3.2 Built-in conditions](2.3.2-flows.md#built-in-conditions); screen: [Pipeline flow editor › Condition builder](screens/pipeline-flow-editor.md#condition-builder)
 - **Confirm, Save**: [4.1 A step before an action](4.1-ui-rules.md#a-step-before-an-action)
-- **Conflict resolution Task**: [2.1.3 Conflict resolution Tasks](2.1.3-tasks.md#conflict-resolution-tasks); [2.3.4 Conflicts at Publish](2.3.4-publish.md#conflicts-at-publish); screen: [Pull requests › Resolve conflicts](screens/pull-requests.md#resolve-conflicts)
+- **Conflict chain, Conflict handling**: [2.3.4 Conflicts in the flow](2.3.4-publish.md#conflicts-in-the-flow); screen: [Pipeline flow editor › Routes out](screens/pipeline-flow-editor.md#routes-out)
+- **Conflict resolution Task**: [2.1.3 Conflict resolution Tasks](2.1.3-tasks.md#conflict-resolution-tasks); [2.3.4 Resolve conflicts](2.3.4-publish.md#resolve-conflicts); screen: [Pull requests › Resolve conflicts](screens/pull-requests.md#resolve-conflicts)
 - **Connected device, device key, Waiting for the run environment, Disconnected reasons**: [2.13 Connected device](2.13-connected-devices.md#connected-device); [2.13 One device to one Task](2.13-connected-devices.md#one-device-to-one-task); [2.13 States](2.13-connected-devices.md#states); [2.13 Lifecycle](2.13-connected-devices.md#lifecycle); [6 Connected devices](6-permissions-and-safety.md#connected-devices); screen: [Task page › Devices](screens/task-page.md#devices)
 - **Consultant, Consultation**: [2.4.3 Consultation](2.4.3-consultations.md#consultation); [2.2 Calls](2.2-people.md#calls)
 - **Continue with GitHub, Continue with Google, Continue with <name>, OpenID Connect provider**: [2.10 Continue with GitHub](2.10-users-and-signing-in.md#continue-with-github); [2.10 Continue with an OpenID Connect provider](2.10-users-and-signing-in.md#continue-with-an-openid-connect-provider); screen: [Sign in › Ways to sign in](screens/sign-in.md#ways-to-sign-in)
@@ -142,6 +142,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Lent to a Task, Use a Project device**: [2.13 Lent to a Task](2.13-connected-devices.md#lent-to-a-task); screen: [Task page › Devices](screens/task-page.md#devices)
 - **Launcher, Office updater**: [5.1.2 Updating The Office](5.1.2-updates-and-restarts.md#updating-the-office); [5.1.2 Restarting The Office](5.1.2-updates-and-restarts.md#restarting-the-office)
 - **Link card, Office status**: [2.2 What each person is doing now](2.2-people.md#what-each-person-is-doing-now); screen: [Thread › Lines and cards in the log](screens/thread.md#lines-and-cards-in-the-log)
+- **Linked Stage, Take the template's, Unlink**: [2.3.1 A Stage linked to its Stage template](2.3.1-stages.md#a-stage-linked-to-its-stage-template); [2.3.5 Editing a template with linked Stages](2.3.5-library.md#editing-a-template-with-linked-stages); screen: [Pipeline flow editor › Stage templates](screens/pipeline-flow-editor.md#stage-templates); [Settings › Pipelines](screens/settings.md#pipelines)
 - **Linked identity**: [2.10 Linking](2.10-users-and-signing-in.md#linking); screen: [Account › Linked identities](screens/account.md#linked-identities)
 - **Live view**: screen: [Live view](screens/live-view.md#live-view); [2.2 A person's headline state on the Live view](2.2-people.md#a-persons-headline-state-on-the-live-view)
 - **Lockout**: [2.10 Slow-down and lockout](2.10-users-and-signing-in.md#slow-down-and-lockout); [2.10 Wrong tries](2.10-users-and-signing-in.md#wrong-tries)
@@ -153,6 +154,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Memory, Memory note**: [2.2 Shared memory](2.2-people.md#shared-memory); screen: [People › Memory tab](screens/people.md#memory-tab)
 - **Mention**: [2.4.4 Mentions](2.4.4-messages.md#mentions); screen: [Thread › Mentions](screens/thread.md#mentions)
 - **Merge method**: [2.3.4 Publish](2.3.4-publish.md#publish); screen: [Pull requests › Merge window](screens/pull-requests.md#merge-window)
+- **Merge the base first**: [2.3.1 An Agent Stage may merge the base first](2.3.1-stages.md#an-agent-stage-may-merge-the-base-first)
 - **Model and effort cascade, a person's Model and effort per engine type, the Stage's effort**: [5.4.5 Two cascades](5.4.5-engines-and-cascade.md#two-cascades); [5.4.5 The model and effort cascade](5.4.5-engines-and-cascade.md#the-model-and-effort-cascade); [5.4.5 A session whose engine changes](5.4.5-engines-and-cascade.md#a-session-whose-engine-changes); screens: [People › Role card tab](screens/people.md#role-card-tab), [Pipeline flow editor › Stage panel](screens/pipeline-flow-editor.md#stage-panel)
 - **Model price**: [2.11.2 Estimated cost](2.11.2-tokens-and-cost.md#estimated-cost); [5.2 Estimated cost](5.2-stack.md#estimated-cost)
 - **Move**: [2.1.3 Moving a Task](2.1.3-tasks.md#moving-a-task); screen: [Task page › Move to another Project](screens/task-page.md#move-to-another-project)
@@ -201,6 +203,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Prompt template**: [2.2 Prompt templates](2.2-people.md#prompt-templates); [5.3 Prompt templates is its own module](5.3-modules.md#prompt-templates-is-its-own-module); screen: [Settings › Prompt templates](screens/settings.md#prompt-templates)
 - **Proposal**: [2.3.2 Route and condition Proposals](2.3.2-flows.md#route-and-condition-proposals); [2.3.5 Project commands by Proposal and by hand](2.3.5-library.md#project-commands-by-proposal-and-by-hand); screen: [Task page › Pipeline proposal](screens/task-page.md#pipeline-proposal)
 - **Public address**: [5.1 The public address](5.1-shape.md#the-public-address); [2.10 Which ways work on which address](2.10-users-and-signing-in.md#which-ways-work-on-which-address)
+- **Publish Stage, Publish's results (Published, Nothing to publish, Conflict, After publishing failed)**: [2.3.4 Publish](2.3.4-publish.md#publish); [2.3.4 Publish's results](2.3.4-publish.md#publishs-results); screen: [Pipeline flow editor › Routes out](screens/pipeline-flow-editor.md#routes-out)
 - **Publishing Task**: [2.1.4 Publishing Tasks](2.1.4-initiatives.md#publishing-tasks); [2.3.4 A Publishing Task's Publish](2.3.4-publish.md#a-publishing-tasks-publish)
 - **Pull request**: [2.3.4 The Office records the pull requests it opens](2.3.4-publish.md#the-office-records-the-pull-requests-it-opens-and-refreshes-them-every-minute); [2.1.6 The Pull requests tab](2.1.6-board-and-search.md#the-pull-requests-tab); screen: [Pull requests tab](screens/pull-requests.md#pull-requests-tab)
 
@@ -216,8 +219,9 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Repository file browser**: screen: [Project page › Files](screens/project-page.md#files)
 - **Repository URL**: [5.5 Clones](5.5-git-and-isolation.md#clones); screen: [Projects › A git URL](screens/projects.md#a-git-url)
 - **Request**: [2.2 Calls](2.2-people.md#calls); [2.4.3 Calls from chats](2.4.3-consultations.md#calls-from-chats)
-- **Resolve**: [2.3.4 Conflicts at Publish](2.3.4-publish.md#conflicts-at-publish); screen: [Pull requests › Resolve conflicts](screens/pull-requests.md#resolve-conflicts)
+- **Resolve**: [2.3.4 The Resolve Stage](2.3.4-publish.md#the-resolve-stage); [2.3.4 Resolve conflicts](2.3.4-publish.md#resolve-conflicts); screen: [Pull requests › Resolve conflicts](screens/pull-requests.md#resolve-conflicts)
 - **Role, Role card**: [2.2 Role](2.2-people.md#role); [2.2 Role card](2.2-people.md#role-card); screen: [People › Role card tab](screens/people.md#role-card-tab)
+- **Route back, Route limit, When a limit runs out**: [2.3.2 A route's limit](2.3.2-flows.md#a-routes-limit); [2.3.2 When a limit runs out](2.3.2-flows.md#when-a-limit-runs-out); screen: [Pipeline flow editor › Routes out](screens/pipeline-flow-editor.md#routes-out)
 - **Run environment, Set up run environment**: [2.3.1 Script Stages in the run environment](2.3.1-stages.md#script-stages-in-the-run-environment); [2.1.3 Setting up the run environment](2.1.3-tasks.md#setting-up-the-run-environment); [5.5 Writing the run environment definition](5.5-git-and-isolation.md#writing-the-run-environment-definition); screen: [Project page › Run environment](screens/project-page.md#run-environment)
 
 ### S
@@ -231,7 +235,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Skill use**: [2.6 Skill uses](2.6-skills.md#skill-uses); [2.6 A skill use](2.6-skills.md#a-skill-use)
 - **Stage**: [2.3.1 Stage kinds](2.3.1-stages.md#stage-kinds); [2.3.1 What a Stage declares](2.3.1-stages.md#what-a-stage-declares)
 - **Stage history**: [2.4.6 Reading the Stage history](2.4.6-reading-records.md#reading-the-stage-history); screen: [Task page › Stage history](screens/task-page.md#stage-history)
-- **Stage retry**: [2.3.2 When a Stage fails](2.3.2-flows.md#when-a-stage-fails); [2.3.2 On failure](2.3.2-flows.md#on-failure)
+- **Stage retry**: [2.3.2 When a Stage fails](2.3.2-flows.md#when-a-stage-fails); [2.3.2 A route's limit](2.3.2-flows.md#a-routes-limit)
 - **Stage template**: [2.3.5 Stage templates](2.3.5-library.md#stage-templates); screen: [Pipeline flow editor › Stage templates](screens/pipeline-flow-editor.md#stage-templates)
 - **Stand-in Engine**: [5.4.6 Stand-in Engines](5.4.6-stand-in-engines-and-usage-windows.md#stand-in-engines); [5.4.6 A person's Thread switches](5.4.6-stand-in-engines-and-usage-windows.md#a-persons-thread-switches)
 - **Stand-ins of another engine type**: [5.4.6 Stand-ins of another engine type](5.4.6-stand-in-engines-and-usage-windows.md#stand-ins-of-another-engine-type); [5.4.6 A running Stage switches](5.4.6-stand-in-engines-and-usage-windows.md#a-running-stage-switches)
@@ -294,7 +298,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Operating systems (Windows and Linux)**: [5.1 Operating systems](5.1-shape.md#operating-systems); [5.1 Windows and Linux](5.1-shape.md#windows-and-linux)
 - **Only hashes are stored**: [6 Only hashes are stored](6-permissions-and-safety.md#only-hashes-are-stored)
 - **Permissions: the two layers and the threat model**: [6 Threat model](6-permissions-and-safety.md#threat-model); [6 Two layers](6-permissions-and-safety.md#two-layers)
-- **Publish**: [2.3.4 Publish](2.3.4-publish.md#publish); [2.3.4 Merge mode when the base moved](2.3.4-publish.md#merge-mode-when-the-base-moved)
+- **Publish**: [2.3.4 Publish](2.3.4-publish.md#publish); [2.3.4 Merge mode when the base moved](2.3.4-publish.md#merge-mode-when-the-base-moved); [2.3.4 Conflicts in the flow](2.3.4-publish.md#conflicts-in-the-flow)
 - **Releases and installs**: [5.1.1 Released versions](5.1.1-releases-and-installs.md#released-versions)
 - **Restarting The Office**: [5.1.2 Restarting The Office](5.1.2-updates-and-restarts.md#restarting-the-office); [2.4.5 Restarting](2.4.5-stopping-and-restarts.md#restarting)
 - **Sign-in ways**: [2.10 Ways to sign in](2.10-users-and-signing-in.md#ways-to-sign-in); screen: [Sign in › Ways to sign in](screens/sign-in.md#ways-to-sign-in)
@@ -331,11 +335,11 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
   - [2.1.6 Board and search](2.1.6-board-and-search.md): the board, the Kind filter, search, Saved views, Group by Initiative, the Pull requests and CI tabs.
 - [2.2 People](2.2-people.md): Role, Agent, Role card, authority, escalation, presets, duties, the Office Manager, limits.
 - [2.3 Pipelines](2.3-pipelines.md): index of the pages below.
-  - [2.3.1 Stages](2.3.1-stages.md): Stage kinds, what a Stage declares, how it ends, skipping, Review & fix.
-  - [2.3.2 Flows](2.3.2-flows.md): routes, conditions, the stage runs file, on failure, who is asked, validation.
+  - [2.3.1 Stages](2.3.1-stages.md): Stage kinds, what a Stage declares, how it ends, skipping, Review & fix, linked Stages.
+  - [2.3.2 Flows](2.3.2-flows.md): routes, routes back and their limits, the route forms, an Agent's choice, conditions, the stage runs file, who is asked, validation.
   - [2.3.3 Gates and checks](2.3.3-gates-and-checks.md): Gates, Send back, Gate notes, Reported met and Out of reach.
-  - [2.3.4 Publish](2.3.4-publish.md): Publish, the commit message, before and after publishing, pull requests, conflicts.
-  - [2.3.5 Library and Project Pipelines](2.3.5-library.md): built-in Pipelines, the library, Stage templates, Project Pipelines.
+  - [2.3.4 Publish](2.3.4-publish.md): the Publish Stage and its results, conflicts in the flow, the commit message, before and after publishing, pull requests.
+  - [2.3.5 Library and Project Pipelines](2.3.5-library.md): built-in Pipelines, the library, Stage templates, Project Pipelines, the move to routes back and Publish Stages.
 - [2.4 Conversations](2.4-conversations.md): index of the pages below.
   - [2.4.1 Threads](2.4.1-threads.md): homes, Threads, what a Thread reads, Allow changes.
   - [2.4.2 Decisions](2.4.2-decisions.md): the form, Submit and Ask me again, the Bug Task Decision, where it shows, Waiting for you.
@@ -472,6 +476,7 @@ Where each default lives, by page:
   - [A Stage names a Role or a duty](2.3.1-stages.md#a-stage-names-a-role-or-a-duty)
   - [An Agent Stage's Project commands](2.3.1-stages.md#an-agent-stages-project-commands)
   - [An Agent Stage's message names the Stages after it](2.3.1-stages.md#an-agent-stages-message-names-the-stages-after-it)
+  - [An Agent Stage may merge the base first](2.3.1-stages.md#an-agent-stage-may-merge-the-base-first)
   - [Script Stages in the run environment](2.3.1-stages.md#script-stages-in-the-run-environment)
   - [The Task's branch keeps up with the base](2.3.1-stages.md#the-tasks-branch-keeps-up-with-the-base)
   - [A branch moved outside The Office](2.3.1-stages.md#a-branch-moved-outside-the-office)
@@ -484,13 +489,13 @@ Where each default lives, by page:
   - [A Gate just before Publish is the check](2.3.3-gates-and-checks.md#a-gate-just-before-publish-is-the-check)
 - 2.3.4 Publish
   - [The Office's own credentials for publishing](2.3.4-publish.md#the-offices-own-credentials-for-publishing)
-  - [Publish is a publishing mode, not a Project command](2.3.4-publish.md#publish-is-a-publishing-mode-not-a-project-command)
+  - [Publish is a Stage kind, not a Project command](2.3.4-publish.md#publish-is-a-stage-kind-not-a-project-command)
   - [The Task's commit message](2.3.4-publish.md#the-tasks-commit-message)
   - [Publish's before and after lines](2.3.4-publish.md#publishs-before-and-after-lines)
   - [Merge mode when the base moved](2.3.4-publish.md#merge-mode-when-the-base-moved)
   - [The Changes tab after Publish shows what Publish shipped](2.3.4-publish.md#the-changes-tab-after-publish-shows-what-publish-shipped)
   - [The proof-of-concept publish target](2.3.4-publish.md#the-proof-of-concept-publish-target)
-  - [Conflicts at Publish](2.3.4-publish.md#conflicts-at-publish)
+  - [The merge order stays first to Publish](2.3.4-publish.md#the-merge-order-stays-first-to-publish)
   - [Publishing into an Initiative's branch](2.3.4-publish.md#publishing-into-an-initiatives-branch)
   - [A Publishing Task's Publish](2.3.4-publish.md#a-publishing-tasks-publish)
   - [The Office records the pull requests it opens, and refreshes them every minute](2.3.4-publish.md#the-office-records-the-pull-requests-it-opens-and-refreshes-them-every-minute)
@@ -498,7 +503,7 @@ Where each default lives, by page:
   - [Project commands by Proposal and by hand](2.3.5-library.md#project-commands-by-proposal-and-by-hand)
   - [A Pipeline needs the commands it runs](2.3.5-library.md#a-pipeline-needs-the-commands-it-runs)
   - [Project Pipelines](2.3.5-library.md#project-pipelines)
-  - [A Broken Project Pipeline](2.3.5-library.md#a-broken-project-pipeline)
+  - [The move to routes back and Publish Stages](2.3.5-library.md#the-move-to-routes-back-and-publish-stages)
 - 2.4.1 Threads
   - [Thread titles](2.4.1-threads.md#thread-titles)
 - 2.4.2 Decisions
