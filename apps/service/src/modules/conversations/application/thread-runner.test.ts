@@ -136,6 +136,7 @@ import { signedInWithGitHubForTests } from "../../github/index.fixtures.js";
 import { ProjectOutputMasks } from "../ports/project-output-masks.js";
 import { ProjectOutputMasksForTests } from "../ports/project-output-masks.fixtures.js";
 import { SubAgentsAndProcesses } from "./sub-agents-and-processes.js";
+import { SessionStops } from "./session-stops.js";
 import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
@@ -411,6 +412,7 @@ async function startOn(
         useClass: PostgresSubAgentAndProcessRepository,
       },
       SubAgentsAndProcesses,
+      SessionStops,
       InterruptedAnswers,
       DecisionService,
       Consultations,

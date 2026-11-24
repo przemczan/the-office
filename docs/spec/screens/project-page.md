@@ -266,9 +266,9 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
 - Note: "Tries the saved environment in a fresh worktree of <base branch>: install, then each of the Project's commands. It changes nothing."
 - "Not checked yet." while there is no check.
 - A list "Environment checks", each line with a state icon named **Waiting**, **Running**, **Passed**, **Failed** or **Skipped**:
-  - The worktree line: "A fresh worktree of <remote branch>" (or "A worktree of <base branch>, which tracks no remote branch", or "A fresh worktree of <base branch>"), with "at <short commit>" or git's problem.
+  - The worktree line: "A fresh worktree of <remote branch>" (or "A worktree of <base branch>, which tracks no remote branch", or "A fresh worktree of <base branch>"), with "at <short commit>" or git's problem; for a check of a Task's branch, "A worktree of the branch of <Task>", the Task's title linking to its page.
   - **Install** and each command by its name, with its line in monospace ("Not set" for a skipped one), a summary ("passed in 12 s", "failed with exit code 2", "failed after 3 s", "could not run: is its program installed and on PATH?", "ran out of time after 3 s", "stopped when The Office shut down") and, with output, **Show the output** / **Hide the output**; a failed line shows its output until hidden.
-- **Run the environment check** (play icon; "Checking…" while it runs) starts it with no body; reasons of a refusal show under the list.
+- **Run the environment check** (play icon; "Checking…" while it runs, but not while a Task's runs) starts it with no body; reasons of a refusal show under the list.
 
 ## Pipelines
 

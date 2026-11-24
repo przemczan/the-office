@@ -18,15 +18,20 @@ export interface EnvironmentCheckChange<Event> {
   readonly event: Event;
 }
 
-/** Starts a check of every command the Project has; one that isn't set is skipped from the start. */
+/**
+ * Starts a check of every command the Project has, of the Task's branch when `taskId` is given;
+ * one that isn't set is skipped from the start.
+ */
 export function startEnvironmentCheck(
   projectId: string,
   { installCommand, commands }: Pick<Project, "installCommand" | "commands">,
   environment: ProjectEnvironment,
   startedAt: Date,
+  taskId?: string,
 ): EnvironmentCheckChange<EnvironmentCheckStarted> {
   const check: EnvironmentCheck = {
     projectId,
+    ...(taskId !== undefined && { taskId }),
     environment,
     state: "running",
     checks: [

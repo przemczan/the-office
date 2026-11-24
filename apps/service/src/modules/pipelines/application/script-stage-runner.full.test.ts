@@ -10,6 +10,7 @@ import {
 } from "../pipelines-application.fixtures.js";
 import {
   aCommandRun,
+  aPerson,
   aTaskRecord,
   PLANNED_COMMIT,
   recordedRun,
@@ -134,6 +135,21 @@ describe("ScriptStageRunner", () => {
     expect(pipelines.git.commits).toEqual([]);
     const [run] = await runsOf(pipelines, taskId);
     expect(run?.outcome?.status).toBe("failed");
+  });
+
+  it.each([
+    ["names the holder of Onboards and repairs Projects", "devops", { name: "Dana" }],
+    ["names nobody while nobody holds it", undefined, undefined],
+  ])("%s as who sets up a command", async (_, holder, expected) => {
+    pipelines = await startPipelinesApplication();
+    if (holder) {
+      pipelines.people.people.set(holder, aPerson("Dana"));
+      pipelines.people.holders.set("onboards-projects", holder);
+    } else pipelines.people.holders.set("onboards-projects", null);
+
+    await walkStages(pipelines, [aScriptStage("e2e", { name: "E2E" })]);
+
+    expect(pipelines.commands.setUpBy).toEqual([expected]);
   });
 
   it("doesn't run its command when HEAD isn't where The Office left it", async () => {

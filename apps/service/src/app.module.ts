@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { Module, type DynamicModule } from "@nestjs/common";
 import { ActivityModule } from "./modules/activity/index.js";
 import {
+  ConsultationsOnTasks,
   ContextPolicySettingsService,
   ConversationsModule,
   DecisionService,
@@ -218,6 +219,7 @@ export class AppModule {
       stageRoleEngines: PipelineRoleCapabilityChecks,
       roleEngineCascade: EngineCascade,
       runEnvironmentDefinitions: RunEnvironmentDefinitions,
+      taskConsultations: ConsultationsOnTasks,
       pipelineInitiatives: InitiativeService,
     });
     // One instance, so Now and Settings › Updates read the same update found.

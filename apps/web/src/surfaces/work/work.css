@@ -1952,6 +1952,12 @@
   margin: 0;
 }
 
+.command-log-place {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
 .command-log-head {
   display: flex;
   flex-wrap: wrap;

@@ -42,6 +42,7 @@ function toRow(check: EnvironmentCheck): EnvironmentCheckRow {
   }
   return {
     projectId: check.projectId,
+    taskId: check.taskId ?? null,
     environment: check.environment,
     state: check.state,
     checks: [...check.checks],
@@ -53,6 +54,7 @@ function toRow(check: EnvironmentCheck): EnvironmentCheckRow {
 function toEnvironmentCheck(row: EnvironmentCheckRow): EnvironmentCheck {
   return {
     projectId: row.projectId,
+    ...(row.taskId !== null && { taskId: row.taskId }),
     environment: environmentOfStored(row.environment),
     state: row.state,
     checks: row.checks,

@@ -40,6 +40,7 @@ import {
   changeProjectSkillUse,
   changeUseProjectSkills,
   finishRunEnvironmentSetUp,
+  landRunEnvironmentDefinition,
   removeCommand,
   type ProjectChange,
   type ProjectChanges,
@@ -395,6 +396,14 @@ export class ProjectService {
     definitionProblems: readonly string[],
   ): Promise<Project> {
     return this.update(id, (project) => finishRunEnvironmentSetUp(project, definitionProblems));
+  }
+
+  /**
+   * A Task's change carrying a valid definition landed on the base branch: On while Not decided
+   * yet, an explicit On or Off kept; recorded as no setting change, as nobody turned the switch.
+   */
+  async landRunEnvironmentDefinition(id: string): Promise<Project> {
+    return this.update(id, landRunEnvironmentDefinition);
   }
 
   /** Lowering it stops no started Task: nothing new starts in the Project until enough end. */

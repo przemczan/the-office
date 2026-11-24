@@ -4,6 +4,7 @@ import {
   OPEN_DECISION_TOOL as CONTRACT_OPEN_DECISION_TOOL,
 } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
+import { WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL } from "../../engine/index.js";
 import { oneOptionAnswer, oneWordsAnswer } from "./decision.js";
 import { aDecision, THREE_QUESTIONS } from "./decision.fixtures.js";
 import {
@@ -40,6 +41,8 @@ import {
   READ_THREADS_TOOL,
   READING_OFFICE_TOOLS,
   PROPOSE_ROLE_TOOL,
+  roleOfficeTools,
+  RUN_ENVIRONMENT_CHECK_TOOL,
   type HeldDuties,
   WRITING_FOR_THE_USER_RULE,
 } from "./session-instructions.js";
@@ -264,9 +267,9 @@ describe("chatOfficeTools", () => {
         expect.arrayContaining([LIST_PIPELINES_TOOL, LIST_STAGE_TEMPLATES_TOOL]),
       );
     }
-    expect(consultationOfficeTools(PLANNER, false)).toEqual(
-      expect.arrayContaining([LIST_PIPELINES_TOOL, LIST_STAGE_TEMPLATES_TOOL]),
-    );
+    expect(
+      consultationOfficeTools(PLANNER, { canCall: false, onTask: false, runEnvironment: false }),
+    ).toEqual(expect.arrayContaining([LIST_PIPELINES_TOOL, LIST_STAGE_TEMPLATES_TOOL]));
     expect(chatOfficeTools(DEVOPS)).toContain(PROPOSE_LIBRARY_PIPELINE_TOOL);
     for (const held of [PLANNER, OFFICE_MANAGER, CARETAKER]) {
       expect(chatOfficeTools(held)).not.toContain(PROPOSE_LIBRARY_PIPELINE_TOOL);
@@ -277,7 +280,9 @@ describe("chatOfficeTools", () => {
     for (const held of [PLANNER, DEVOPS, CARETAKER, OFFICE_MANAGER]) {
       expect(chatOfficeTools(held)).toContain(READ_THREADS_TOOL);
     }
-    expect(consultationOfficeTools(DEVOPS, true)).toContain(READ_THREADS_TOOL);
+    expect(
+      consultationOfficeTools(DEVOPS, { canCall: true, onTask: false, runEnvironment: false }),
+    ).toContain(READ_THREADS_TOOL);
     expect(PERSON_READING_OFFICE_TOOLS).toContain(READ_THREADS_TOOL);
     expect(READING_OFFICE_TOOLS).not.toContain(READ_THREADS_TOOL);
   });
@@ -288,7 +293,9 @@ describe("answer_decision", () => {
     for (const held of [PLANNER, DEVOPS, CARETAKER, OFFICE_MANAGER]) {
       expect(chatOfficeTools(held)).toContain(ANSWER_DECISION_TOOL);
     }
-    expect(consultationOfficeTools(PLANNER, true)).not.toContain(ANSWER_DECISION_TOOL);
+    expect(
+      consultationOfficeTools(PLANNER, { canCall: true, onTask: false, runEnvironment: false }),
+    ).not.toContain(ANSWER_DECISION_TOOL);
     expect(PERSON_READING_OFFICE_TOOLS).not.toContain(ANSWER_DECISION_TOOL);
     expect(ANSWER_DECISION_TOOL).toBe(CONTRACT_ANSWER_DECISION_TOOL);
   });
@@ -300,7 +307,9 @@ describe("open_decision in a chat", () => {
       expect(chatOfficeTools(held)).toContain(OPEN_DECISION_TOOL);
     }
     expect(caretakerChatOfficeTools(CARETAKER)).toContain(OPEN_DECISION_TOOL);
-    expect(consultationOfficeTools(PLANNER, true)).not.toContain(OPEN_DECISION_TOOL);
+    expect(
+      consultationOfficeTools(PLANNER, { canCall: true, onTask: false, runEnvironment: false }),
+    ).not.toContain(OPEN_DECISION_TOOL);
     expect(OPEN_DECISION_TOOL).toBe(CONTRACT_OPEN_DECISION_TOOL);
   });
 
@@ -410,16 +419,62 @@ describe("calling a person", () => {
   });
 
   it("is in a Consultation only while its chain of calls may ask one more", () => {
-    expect(consultationOfficeTools(PLANNER, true)).toContain(CONSULT_TOOL);
-    expect(consultationOfficeTools(PLANNER, false)).not.toContain(CONSULT_TOOL);
+    expect(
+      consultationOfficeTools(PLANNER, { canCall: true, onTask: false, runEnvironment: false }),
+    ).toContain(CONSULT_TOOL);
+    expect(
+      consultationOfficeTools(PLANNER, { canCall: false, onTask: false, runEnvironment: false }),
+    ).not.toContain(CONSULT_TOOL);
+  });
+
+  it("gives a Consultation on a Task writing the run environment definition only with the Run environment capability, never off a Task or in a chat", () => {
+    expect(
+      consultationOfficeTools(DEVOPS, { canCall: false, onTask: true, runEnvironment: true }),
+    ).toContain(WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL);
+    expect(
+      consultationOfficeTools(DEVOPS, { canCall: false, onTask: true, runEnvironment: false }),
+    ).not.toContain(WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL);
+    expect(
+      consultationOfficeTools(DEVOPS, { canCall: true, onTask: false, runEnvironment: true }),
+    ).not.toContain(WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL);
+    for (const held of [PLANNER, DEVOPS, CARETAKER, OFFICE_MANAGER]) {
+      expect(chatOfficeTools(held)).not.toContain(WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL);
+    }
+    expect(caretakerChatOfficeTools(CARETAKER)).not.toContain(
+      WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL,
+    );
+  });
+
+  it("offers run_environment_check to holders of Onboards and repairs Projects in a chat, a Stage and a Consultation, and to nobody else", () => {
+    expect(RUN_ENVIRONMENT_CHECK_TOOL).toBe("run_environment_check");
+    expect(chatOfficeTools(DEVOPS)).toContain(RUN_ENVIRONMENT_CHECK_TOOL);
+    expect(roleOfficeTools(DEVOPS)).toContain(RUN_ENVIRONMENT_CHECK_TOOL);
+    for (const onTask of [false, true]) {
+      expect(
+        consultationOfficeTools(DEVOPS, { canCall: false, onTask, runEnvironment: false }),
+      ).toContain(RUN_ENVIRONMENT_CHECK_TOOL);
+      expect(
+        consultationOfficeTools(PLANNER, { canCall: false, onTask, runEnvironment: false }),
+      ).not.toContain(RUN_ENVIRONMENT_CHECK_TOOL);
+    }
+    for (const held of [PLANNER, OFFICE_MANAGER, CARETAKER]) {
+      expect(chatOfficeTools(held)).not.toContain(RUN_ENVIRONMENT_CHECK_TOOL);
+      expect(roleOfficeTools(held)).not.toContain(RUN_ENVIRONMENT_CHECK_TOOL);
+    }
   });
 
   it("gives a Consultation its Consultant's own drafting tools, never the asker's", () => {
-    expect(consultationOfficeTools(DEVOPS, false)).toEqual(
+    expect(
+      consultationOfficeTools(DEVOPS, { canCall: false, onTask: false, runEnvironment: false }),
+    ).toEqual(
       expect.arrayContaining(["propose_project_commands", "read_repository", "create_task"]),
     );
-    expect(consultationOfficeTools(PLANNER, false)).not.toContain("propose_project_commands");
-    expect(consultationOfficeTools(DEVOPS, true)).not.toContain(CHANGE_ROLE_TOOL);
+    expect(
+      consultationOfficeTools(PLANNER, { canCall: false, onTask: false, runEnvironment: false }),
+    ).not.toContain("propose_project_commands");
+    expect(
+      consultationOfficeTools(DEVOPS, { canCall: true, onTask: false, runEnvironment: false }),
+    ).not.toContain(CHANGE_ROLE_TOOL);
   });
 });
 
@@ -502,10 +557,22 @@ describe("a chat's built-in tools and instructions, by the duties held", () => {
   });
 
   it("give a Consultant their duties' drafting tools alone, whatever key their Role has", () => {
-    expect(consultationOfficeTools(["onboards-projects"], false)).toContain(READ_REPOSITORY_TOOL);
-    expect(consultationOfficeTools(["default-person-to-talk-to"], false)).not.toContain(
-      "post_link_card",
-    );
-    expect(consultationOfficeTools([], false)).not.toContain("propose_project_commands");
+    expect(
+      consultationOfficeTools(["onboards-projects"], {
+        canCall: false,
+        onTask: false,
+        runEnvironment: false,
+      }),
+    ).toContain(READ_REPOSITORY_TOOL);
+    expect(
+      consultationOfficeTools(["default-person-to-talk-to"], {
+        canCall: false,
+        onTask: false,
+        runEnvironment: false,
+      }),
+    ).not.toContain("post_link_card");
+    expect(
+      consultationOfficeTools([], { canCall: false, onTask: false, runEnvironment: false }),
+    ).not.toContain("propose_project_commands");
   });
 });

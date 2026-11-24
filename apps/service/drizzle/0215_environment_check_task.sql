@@ -1,0 +1,1 @@
+ALTER TABLE "environment_checks" ADD COLUMN "task_id" uuid;

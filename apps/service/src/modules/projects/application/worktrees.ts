@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { mkdir, readdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { Injectable, Logger } from "@nestjs/common";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../platform/os/current-operating-system.js";
@@ -95,7 +95,7 @@ export interface TaskChanges extends BranchChanges {
   readonly worktreePath: string | undefined;
 }
 
-/** A throwaway worktree of the base branch, such as the environment check's. */
+/** A throwaway worktree of the base branch or a Task's branch, such as the environment check's. */
 export interface ThrowawayWorktree {
   readonly path: string;
   readonly base: BaseBranch;
@@ -110,6 +110,8 @@ export interface ThrowawayWorktree {
 export class Worktrees {
   private readonly logger = new Logger(Worktrees.name);
   private readonly operatingSystem = currentOperatingSystem();
+  /** The throwaway worktrees added and not yet removed, which no other add removes. */
+  private readonly throwawaysInUse = new Set<string>();
 
   constructor(
     private readonly git: Git,
@@ -353,6 +355,50 @@ export class Worktrees {
     return this.git.commit(path, message, this.variablesOf(project));
   }
 
+  /** The uncommitted paths under `folder` of the Task's worktree at `worktreePath`. */
+  async uncommittedPathsUnder(
+    project: Project,
+    worktreePath: string,
+    folder: string,
+  ): Promise<readonly string[]> {
+    return this.git.uncommittedPathsUnder(worktreePath, folder, this.variablesOf(project));
+  }
+
+  /**
+   * Commits only `folder` of the Task's worktree at `worktreePath` to its branch, everything else
+   * in it left out and as it was. Returns the new commit, or undefined when it was as committed.
+   */
+  async commitFolder(
+    project: Project,
+    worktreePath: string,
+    folder: string,
+    message: string,
+  ): Promise<string | undefined> {
+    return this.git.commitFolder(worktreePath, folder, message, this.variablesOf(project));
+  }
+
+  /**
+   * Puts only `folder` of the Task's worktree at `worktreePath` back as HEAD has it, its untracked
+   * files removed; everything else in it stays as it was. Returns the paths put back.
+   */
+  async restoreFolder(
+    project: Project,
+    worktreePath: string,
+    folder: string,
+  ): Promise<readonly string[]> {
+    return this.git.restoreFolder(worktreePath, folder, this.variablesOf(project));
+  }
+
+  /**
+   * The Project whose Task's worktree `worktreePath` names by its place,
+   * `<office-data>/worktrees/<project>/<task>`; undefined for any other path.
+   */
+  projectIdOfWorktree(worktreePath: string): string | undefined {
+    const parts = relative(this.officeData.folder("worktrees"), worktreePath).split(sep);
+    if (parts.length !== 2 || parts[0] === "" || parts[0] === "..") return undefined;
+    return TASK_ID.test(parts[1] ?? "") ? parts[0] : undefined;
+  }
+
   /** The paths one of the Task's commits changed against its first parent. */
   async committedPaths(
     project: Project,
@@ -493,8 +539,8 @@ export class Worktrees {
 
   /**
    * A detached worktree of the freshly fetched base branch at a path of its own. The Project's
-   * earlier throwaway worktrees go first: one a running process kept from being removed would
-   * otherwise stay for good.
+   * earlier throwaway worktrees no longer in use go first: one a running process kept from being
+   * removed would otherwise stay for good.
    */
   async addThrowaway(
     project: Project,
@@ -502,19 +548,26 @@ export class Worktrees {
   ): Promise<ThrowawayWorktree> {
     const variables = this.commands.variablesFor(environment);
     await this.removeThrowaways(project, variables);
-    const path = join(
-      this.projectFolder(project),
-      `${THROWAWAY_PREFIX}${randomBytes(4).toString("hex")}`,
-    );
-    this.refuseTooLong(path);
-    const base = await this.freshBase(project, variables);
-    await mkdir(dirname(path), { recursive: true });
-    await this.git.addWorktree(
-      project.path,
-      { path, checkout: { kind: "detached", startPoint: base.commit } },
-      variables,
-    );
-    return { path, base };
+    return this.addThrowawayAt(project, await this.freshBase(project, variables), variables);
+  }
+
+  /**
+   * A detached worktree of the head of the Task's branch (`branchOf`), as committed, at a path of
+   * its own; once the branch is deleted, at the tip kept then. Nothing is fetched.
+   */
+  async addThrowawayOfTask(
+    project: Project,
+    taskId: string,
+    environment: ProjectEnvironment,
+  ): Promise<ThrowawayWorktree> {
+    const variables = this.commands.variablesFor(environment);
+    await this.removeThrowaways(project, variables);
+    const branch = await this.branchOf(project, taskId);
+    const commit =
+      (await this.git.findCommit(project.path, `refs/heads/${branch}`)) ??
+      (await this.git.findCommit(project.path, this.branchTipRefOf(taskId)));
+    if (commit === undefined) throw new Error(`The Task has no branch ${branch} yet.`);
+    return this.addThrowawayAt(project, { commit, fetchedFrom: undefined }, variables);
   }
 
   async removeThrowaway(
@@ -522,13 +575,44 @@ export class Worktrees {
     path: string,
     environment: ProjectEnvironment,
   ): Promise<void> {
-    await this.git.removeWorktree(project.path, path, this.commands.variablesFor(environment));
+    try {
+      await this.git.removeWorktree(project.path, path, this.commands.variablesFor(environment));
+    } finally {
+      this.throwawaysInUse.delete(path);
+    }
+  }
+
+  private async addThrowawayAt(
+    project: Project,
+    base: BaseBranch,
+    variables: GitVariables,
+  ): Promise<ThrowawayWorktree> {
+    const path = join(
+      this.projectFolder(project),
+      `${THROWAWAY_PREFIX}${randomBytes(4).toString("hex")}`,
+    );
+    this.refuseTooLong(path);
+    this.throwawaysInUse.add(path);
+    try {
+      await mkdir(dirname(path), { recursive: true });
+      await this.git.addWorktree(
+        project.path,
+        { path, checkout: { kind: "detached", startPoint: base.commit } },
+        variables,
+      );
+    } catch (error) {
+      this.throwawaysInUse.delete(path);
+      throw error;
+    }
+    return { path, base };
   }
 
   private async removeThrowaways(project: Project, variables: GitVariables): Promise<void> {
     const folder = this.projectFolder(project);
     const names = await readdir(folder).catch(() => []);
     for (const name of names.filter((each) => each.startsWith(THROWAWAY_PREFIX))) {
+      // Another check's, still running: a Task's and the base branch's may run at once.
+      if (this.throwawaysInUse.has(join(folder, name))) continue;
       await this.git.removeWorktree(project.path, join(folder, name), variables).catch((error) => {
         this.logger.warn(`A throwaway worktree stays at ${join(folder, name)}: ${String(error)}`);
       });

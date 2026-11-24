@@ -21,6 +21,7 @@ import {
   repositoryFilePreviewSchema,
   repositoryFolderSchema,
   taskChangesSchema,
+  taskRunEnvironmentSchema,
   projectTestTargetsChatSchema,
   runEnvironmentSetUpAnswerSchema,
   testTargetListSchema,
@@ -261,6 +262,20 @@ export const projectQueries = {
           signal,
         ),
     }),
+  /**
+   * Whether the Task's commands run in its run environment because its branch carries the
+   * definition; under the Task's key, as its Changes are, so a Stage run's end reads it again.
+   */
+  taskRunEnvironment: (projectId: string, taskId: string) =>
+    queryOptions({
+      queryKey: taskRunEnvironmentKey(taskId),
+      queryFn: ({ signal }) =>
+        getFromApi(
+          `${projectPath(projectId)}/tasks/${encodeURIComponent(taskId)}/run-environment`,
+          taskRunEnvironmentSchema,
+          signal,
+        ),
+    }),
 };
 
 /**
@@ -269,6 +284,11 @@ export const projectQueries = {
  */
 export function taskChangesKey(taskId: string): readonly unknown[] {
   return ["tasks", taskId, "changes"];
+}
+
+/** Under the Task's key too: a Stage run's end may commit a definition to its branch. */
+export function taskRunEnvironmentKey(taskId: string): readonly unknown[] {
+  return ["tasks", taskId, "run-environment"];
 }
 
 export function addProject(request: AddProject): Promise<Project> {

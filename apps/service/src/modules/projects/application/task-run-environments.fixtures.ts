@@ -23,6 +23,8 @@ export class ScriptedTaskRunEnvironments implements TaskRunEnvironmentRunner {
   refusal: string | undefined = undefined;
   /** Set for the next command to wait for a free run environment until this resolves. */
   waitsUntil: Promise<void> | undefined = undefined;
+  /** Whether every worktree asked of carries a valid run environment definition. */
+  definitionCarried = false;
 
   /** `shell` runs the commands, as the run environment's own shell would. */
   constructor(private readonly shell: CommandRunner) {}
@@ -68,6 +70,10 @@ export class ScriptedTaskRunEnvironments implements TaskRunEnvironmentRunner {
   start(task: TaskInRunEnvironment): Promise<readonly string[]> {
     this.starts.push(task);
     return Promise.resolve(this.refusal === undefined ? [] : [this.refusal]);
+  }
+
+  carriesDefinition(): Promise<boolean> {
+    return Promise.resolve(this.definitionCarried);
   }
 }
 

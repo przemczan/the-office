@@ -278,7 +278,7 @@ describe("ScriptCommands.run", REAL_GIT_TEST, () => {
         expect.objectContaining({
           commandLine: "",
           outcome: "could-not-run",
-          output: `The Project's ${key} command isn't set yet. Set it on the Project's page, or ask whoever onboards Projects.`,
+          output: `The Project's ${key} command isn't set yet. Set it on the Project's page.`,
           movedFiles: undefined,
         }),
       ]);
@@ -295,12 +295,30 @@ describe("ScriptCommands.run", REAL_GIT_TEST, () => {
       expect.objectContaining({
         commandLine: "",
         outcome: "could-not-run",
-        output:
-          "The Project has no e2e command. Add it on the Project's page, or ask whoever onboards Projects.",
+        output: "The Project has no e2e command. Add it on the Project's page.",
         movedFiles: undefined,
       }),
     ]);
     expect(await exists(runLog)).toBe(false);
+  });
+
+  it("names who sets up a command that isn't set or that the Project lacks, when told", async () => {
+    const { project, taskId } = await aTask(1, { build: "" });
+    const setUpBy = { name: "Dana" };
+
+    const [unset] = await scriptCommands.run(project, taskId, "build", "stage-run", { setUpBy });
+    const [lacking] = await scriptCommands.run(project, taskId, "e2e", "stage-run", { setUpBy });
+    const condition = await scriptCommands.runCondition(project, taskId, "e2e", "/none", "c", {
+      setUpBy,
+    });
+
+    expect(unset?.output).toBe(
+      "The Project's build command isn't set yet. Consult Dana, who holds Onboards and repairs Projects, to set it up; they change the Project's settings themselves.",
+    );
+    expect(lacking?.output).toBe(
+      "The Project has no e2e command. Consult Dana, who holds Onboards and repairs Projects, to add it; they change the Project's settings themselves.",
+    );
+    expect(condition.output).toBe(lacking?.output);
   });
 
   it.each(["build", "lint"])(
@@ -488,8 +506,7 @@ describe("ScriptCommands.runCondition", REAL_GIT_TEST, () => {
       expect.objectContaining({
         commandLine: "",
         outcome: "could-not-run",
-        output:
-          "The Project has no e2e command. Add it on the Project's page, or ask whoever onboards Projects.",
+        output: "The Project has no e2e command. Add it on the Project's page.",
       }),
     );
     expect(await exists(runLog)).toBe(false);

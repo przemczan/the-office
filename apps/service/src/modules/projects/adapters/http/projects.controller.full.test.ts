@@ -10,6 +10,7 @@ import {
   projectRefusalSchema,
   projectSchema,
   taskChangesSchema,
+  taskRunEnvironmentSchema,
   type NewProject,
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -24,6 +25,9 @@ import {
   type EngineLevelsSave,
 } from "../../application/engine-levels-checks.js";
 import { ProjectLevelMoves } from "../../application/project-level-moves.js";
+import { TaskRunEnvironments } from "../../application/task-run-environments.js";
+import { ScriptedTaskRunEnvironments } from "../../application/task-run-environments.fixtures.js";
+import { ShellCommandRunner } from "../shell/shell-command-runner.js";
 import { ProjectEngineChanged } from "../../domain/project-events.js";
 import type { ProjectEngine } from "../../domain/project.js";
 import { ProjectRepository } from "../../ports/project-repository.js";
@@ -905,6 +909,50 @@ describe("GET /api/projects/:id/tasks/:taskId/changes", () => {
 
     const missing = await fetch(`${url}/api/projects/nowhere/tasks/${randomUUID()}/changes`);
     const malformed = await fetch(`${url}/api/projects/${project.id}/tasks/not-a-task/changes`);
+
+    expect(missing.status).toBe(404);
+    expect(malformed.status).toBe(400);
+  });
+});
+
+/** Has every Task's worktree carry a valid run environment definition, or none. */
+function runEnvironmentsCarrying(carried: boolean): void {
+  const scripted = new ScriptedTaskRunEnvironments(new ShellCommandRunner());
+  scripted.definitionCarried = carried;
+  app.get(TaskRunEnvironments).register(scripted);
+}
+
+describe("GET /api/projects/:id/tasks/:taskId/run-environment", () => {
+  it("says the Task's commands run in its run environment while the Project hasn't decided and its worktree carries the definition", async () => {
+    const project = await addProject();
+    const taskId = randomUUID();
+
+    runEnvironmentsCarrying(true);
+    const carried = await fetch(
+      `${url}/api/projects/${project.id}/tasks/${taskId}/run-environment`,
+    );
+    runEnvironmentsCarrying(false);
+    const bare = await fetch(`${url}/api/projects/${project.id}/tasks/${taskId}/run-environment`);
+
+    expect(project.runEnvironment).toBe("not-decided");
+    expect(taskRunEnvironmentSchema.parse(await carried.json())).toEqual({
+      carriesDefinition: true,
+    });
+    expect(taskRunEnvironmentSchema.parse(await bare.json())).toEqual({
+      carriesDefinition: false,
+    });
+  });
+
+  it("answers 404 for a Project that doesn't exist and 400 for a Task id that isn't one", async () => {
+    const project = await addProject();
+    runEnvironmentsCarrying(true);
+
+    const missing = await fetch(
+      `${url}/api/projects/nowhere/tasks/${randomUUID()}/run-environment`,
+    );
+    const malformed = await fetch(
+      `${url}/api/projects/${project.id}/tasks/not-a-task/run-environment`,
+    );
 
     expect(missing.status).toBe(404);
     expect(malformed.status).toBe(400);

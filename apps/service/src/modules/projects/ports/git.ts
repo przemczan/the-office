@@ -515,6 +515,39 @@ export abstract class Git {
   ): Promise<string | undefined>;
 
   /**
+   * The worktree's uncommitted paths under `folder`, a path relative to it: staged, unstaged and
+   * untracked ones git doesn't ignore, relative to the worktree with "/" between folders.
+   */
+  abstract uncommittedPathsUnder(
+    worktreePath: string,
+    folder: string,
+    variables: GitVariables,
+  ): Promise<readonly string[]>;
+
+  /**
+   * Commits only `folder`'s changes, untracked files included, without the repository's hooks: a
+   * path-limited commit, so whatever else is staged or changed in the worktree stays out of it and
+   * stays as it was. Returns the new commit, or undefined when the folder was as committed.
+   */
+  abstract commitFolder(
+    worktreePath: string,
+    folder: string,
+    message: string,
+    variables: GitVariables,
+  ): Promise<string | undefined>;
+
+  /**
+   * Puts `folder`, a path relative to the worktree, back as HEAD has it: its staged and unstaged
+   * changes dropped and its untracked files removed; ignored ones, and everything outside it, stay
+   * as they were. Returns the paths it put back.
+   */
+  abstract restoreFolder(
+    worktreePath: string,
+    folder: string,
+    variables: GitVariables,
+  ): Promise<readonly string[]>;
+
+  /**
    * The paths `commit` changed against its first parent: added, changed and deleted ones, and
    * both the old and the new path of a rename. For a merge commit, only the paths it changed
    * against every parent: its own resolution, not what the merged branches brought in.

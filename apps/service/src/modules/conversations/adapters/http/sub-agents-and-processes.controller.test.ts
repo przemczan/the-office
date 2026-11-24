@@ -11,6 +11,7 @@ import { EventsModule } from "../../../../platform/events/events.module.js";
 import { FIRST_CLAUDE_CODE_ENGINE } from "../../../engine/index.js";
 import { BusyWorkModule } from "../../../office-updates/index.js";
 import { SubAgentsAndProcesses } from "../../application/sub-agents-and-processes.js";
+import { SessionStops } from "../../application/session-stops.js";
 import { aThread } from "../../domain/thread.fixtures.js";
 import type { Thread } from "../../domain/thread.js";
 import { NO_MASK } from "../../ports/project-output-masks.js";
@@ -33,6 +34,7 @@ beforeAll(async () => {
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
       { provide: SubAgentAndProcessRepository, useClass: PostgresSubAgentAndProcessRepository },
       SubAgentsAndProcesses,
+      SessionStops,
     ],
   }));
   const sessionId = randomUUID();

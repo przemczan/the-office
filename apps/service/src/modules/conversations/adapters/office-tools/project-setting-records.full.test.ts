@@ -25,16 +25,10 @@ import { RunEnvironmentsModule } from "../../../run-environments/index.js";
 import { ScriptedContainerRuntime } from "../../../run-environments/index.fixtures.js";
 import { TaskService } from "../../../work/index.js";
 import { ownProjectsQueue, workModuleForTests } from "../../../work/index.fixtures.js";
-import {
-  CHANGE_ACTIONS_TOOL,
-  CHANGE_ENVIRONMENT_VARIABLES_TOOL,
-  CHANGE_PROJECT_COMMANDS_TOOL,
-  CHANGE_RUN_ENVIRONMENT_TOOL,
-  CHANGE_TEST_TARGETS_TOOL,
-} from "../../domain/session-instructions.js";
+import type { HeldCallOutcome, HeldCallRequest } from "../../application/held-calls.js";
 import { BY_NINA, runOf, SECRET_VALUE, toolsOn } from "./project-setting-office-tools.fixtures.js";
 
-// The tools over the real Projects and Run environments, each change recorded as Nina's on her Task.
+// The tool over the real Projects and Run environments, each change recorded as Nina's on her Task.
 
 let repository: TemporaryRepository;
 let app: INestApplication;
@@ -89,74 +83,65 @@ afterEach(async () => {
   await repository.remove();
 });
 
-function tools() {
-  return toolsOn({
-    projects: app.get(ProjectService, { strict: false }),
-    testTargets: app.get(TestTargets, { strict: false }),
-    actions: app.get(ProjectActions, { strict: false }),
-    runEnvironments: app.get(RunEnvironmentSwitchRegistry, { strict: false }),
-  });
+function tools(rule?: (request: HeldCallRequest) => HeldCallOutcome) {
+  return toolsOn(
+    {
+      projects: app.get(ProjectService, { strict: false }),
+      testTargets: app.get(TestTargets, { strict: false }),
+      actions: app.get(ProjectActions, { strict: false }),
+      runEnvironments: app.get(RunEnvironmentSwitchRegistry, { strict: false }),
+    },
+    rule,
+  );
 }
 
-async function latest() {
-  const [change] = await app.get(ProjectSettingChanges, { strict: false }).latestOf(projectId, 1);
-  return change;
+async function latest(limit = 1) {
+  return app.get(ProjectSettingChanges, { strict: false }).latestOf(projectId, limit);
 }
 
-describe("the Project setting tools, over Projects", REAL_GIT_TEST, () => {
-  it("turns Run environment Off, recorded as the person's on their Task, and refuses On without a definition", async () => {
-    const { tool } = tools();
+/** Ask me, as HeldCalls rules it: a call waits until `allowOnce` lets the same words run once. */
+function askMe() {
+  const holds: HeldCallRequest[] = [];
+  const approved: string[] = [];
+  return {
+    holds,
+    allowOnce: () => approved.push(holds.at(-1)?.call ?? ""),
+    rule: (request: HeldCallRequest): HeldCallOutcome => {
+      holds.push(request);
+      const spent = approved.indexOf(request.call);
+      if (spent === -1) return { kind: "held", waitingOn: "the user" };
+      approved.splice(spent, 1);
+      return { kind: "proceed", roleKey: "devops" };
+    },
+  };
+}
 
-    const off = await runOf(tool(CHANGE_RUN_ENVIRONMENT_TOOL), {
-      project: projectId,
-      runEnvironment: "off",
-      why: "No Docker here.",
-    });
-    const on = await runOf(tool(CHANGE_RUN_ENVIRONMENT_TOOL), {
-      project: projectId,
-      runEnvironment: "on",
-      why: "Faster.",
-    });
+const E2E = {
+  key: "e2e",
+  name: "End to end",
+  kind: "test",
+  commandLine: "npm run e2e",
+  rerunCommandLine: "",
+};
 
-    expect(off.isError).toBe(false);
-    expect(await latest()).toMatchObject({ setting: "run-environment", by: BY_NINA });
-    expect(on).toEqual({
-      text: "Run environment can't be On: the base branch main has no valid .devcontainer/. The repository has no .devcontainer/devcontainer.json.",
-      isError: true,
-    });
-    expect((await app.get(ProjectService, { strict: false }).read(projectId)).runEnvironment).toBe(
-      "off",
-    );
-  });
+const WEB = {
+  key: "web",
+  name: "Web",
+  kind: "hosted",
+  entryPoint: { kind: "repository-file", path: "src/index.ts", arguments: [] },
+  port: 5173,
+  secretVariables: ["STRIPE_KEY"],
+};
 
-  it("changes the commands, recorded as the person's", async () => {
-    const { tool } = tools();
+const BUILD_APP = {
+  key: "build-app",
+  name: "Build the app",
+  kind: "project-command",
+  settings: { commandKey: "build" },
+};
 
-    const result = await runOf(tool(CHANGE_PROJECT_COMMANDS_TOOL), {
-      project: projectId,
-      install: "npm install",
-      commands: {
-        add: [
-          {
-            key: "e2e",
-            name: "End to end",
-            kind: "test",
-            commandLine: "npm run e2e",
-            rerunCommandLine: "",
-          },
-        ],
-      },
-      why: "Tests.",
-    });
-
-    expect(result.isError).toBe(false);
-    expect(await latest()).toMatchObject({ setting: "commands", by: BY_NINA });
-    const project = await app.get(ProjectService, { strict: false }).read(projectId);
-    expect(project.installCommand).toBe("npm install");
-    expect(project.commands.map(({ key }) => key)).toEqual(["build", "lint", "test", "e2e"]);
-  });
-
-  it("changes the plain Environment variables, keeping the Secret variables' values and never recording one", async () => {
+describe("the change_project_settings tool, over Projects", REAL_GIT_TEST, () => {
+  it("applies a whole setup after one Allow once, each section recorded as the person's on their Task, no Secret variable's value anywhere", async () => {
     const projects = app.get(ProjectService, { strict: false });
     await projects.changeEnvironment(
       projectId,
@@ -167,58 +152,74 @@ describe("the Project setting tools, over Projects", REAL_GIT_TEST, () => {
       },
       { kind: "user", user: { userId: "user-ann", name: "Ann" } },
     );
-    const { tool } = tools();
-
-    const result = await runOf(tool(CHANGE_ENVIRONMENT_VARIABLES_TOOL), {
+    const ruling = askMe();
+    const { tool } = tools(ruling.rule);
+    const setup = {
       project: projectId,
-      variables: [{ name: "GREETING", value: "hello" }],
-      why: "A greeting.",
-    });
+      environmentVariables: { variables: [{ name: "GREETING", value: "hello" }] },
+      install: "npm install",
+      commands: { add: [E2E] },
+      testTargets: { targets: [WEB] },
+      actions: { actions: [BUILD_APP] },
+      runEnvironment: "off",
+      why: "Set it up.",
+    };
 
-    expect(result.isError).toBe(false);
-    const change = await latest();
-    expect(change).toMatchObject({ setting: "environment", by: BY_NINA });
-    expect(JSON.stringify(change)).not.toContain(SECRET_VALUE);
-    expect((await projects.read(projectId)).environment.set).toEqual([
+    const held = await runOf(tool, setup);
+    expect(held.text).toContain("End your turn");
+    expect(ruling.holds).toHaveLength(1);
+    expect(await latest()).toEqual([expect.objectContaining({ setting: "environment" })]);
+
+    ruling.allowOnce();
+    const result = await runOf(tool, setup);
+
+    expect(result).toEqual({
+      text: expect.stringMatching(/^Changed: /),
+      isError: false,
+    });
+    const records = await latest(5);
+    expect(records.map(({ setting }) => setting)).toEqual([
+      "run-environment",
+      "actions",
+      "test-targets",
+      "commands",
+      "environment",
+    ]);
+    for (const record of records) expect(record.by).toEqual(BY_NINA);
+    expect(JSON.stringify(records)).not.toContain(SECRET_VALUE);
+    expect(JSON.stringify(ruling.holds)).not.toContain(SECRET_VALUE);
+    const project = await projects.read(projectId);
+    expect(project.installCommand).toBe("npm install");
+    expect(project.commands.map(({ key }) => key)).toEqual(["build", "lint", "test", "e2e"]);
+    expect(project.runEnvironment).toBe("off");
+    expect(project.environment.set).toEqual([
       { name: "API_TOKEN", value: SECRET_VALUE, secret: true },
       { name: "GREETING", value: "hello", secret: false },
     ]);
-  });
-
-  it("adds a test target and an Action, each recorded as the person's, with no user as the setter", async () => {
-    const { tool } = tools();
-
-    const target = await runOf(tool(CHANGE_TEST_TARGETS_TOOL), {
-      project: projectId,
-      targets: [
-        {
-          key: "web",
-          name: "Web",
-          kind: "hosted",
-          entryPoint: { kind: "repository-file", path: "src/index.ts", arguments: [] },
-          port: 5173,
-        },
-      ],
-      why: "A web app to try.",
-    });
-    expect(target.isError).toBe(false);
-    expect(await latest()).toMatchObject({ setting: "test-targets", by: BY_NINA });
     const [web] = await app.get(TestTargets, { strict: false }).list(projectId);
     expect(web).toMatchObject({ key: "web", setBy: {} });
+    expect(web?.secretVariables.map(({ name }) => name)).toEqual(["STRIPE_KEY"]);
+  });
 
-    const action = await runOf(tool(CHANGE_ACTIONS_TOOL), {
+  it("refuses Run environment On without a definition after applying the sections before it, which stay", async () => {
+    const { tool } = tools();
+
+    const result = await runOf(tool, {
       project: projectId,
-      actions: [
-        {
-          key: "build-app",
-          name: "Build the app",
-          kind: "project-command",
-          settings: { commandKey: "build" },
-        },
-      ],
-      why: "Handy.",
+      install: "npm install",
+      runEnvironment: "on",
+      why: "Faster.",
     });
-    expect(action.isError).toBe(false);
-    expect(await latest()).toMatchObject({ setting: "actions", by: BY_NINA });
+
+    expect(result).toEqual({
+      text: `Changed ${(await app.get(ProjectService, { strict: false }).read(projectId)).name}'s commands, each recorded in its Recent activity. Then the change of its Run environment was refused: Run environment can't be On: the base branch main has no valid .devcontainer/. The repository has no .devcontainer/devcontainer.json.`,
+      isError: true,
+    });
+    expect((await latest()).map(({ setting, by }) => [setting, by])).toEqual([
+      ["commands", BY_NINA],
+    ]);
+    expect(
+      (await app.get(ProjectService, { strict: false }).read(projectId)).runEnvironment,
+    ).not.toBe("on");
   });
 });

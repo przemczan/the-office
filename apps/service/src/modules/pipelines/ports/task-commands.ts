@@ -8,6 +8,11 @@ export type ScriptCommandKind = "build" | "lint" | "test";
 export interface ScriptCommandResult {
   readonly kind: ScriptCommandKind | undefined;
   readonly runs: readonly ScriptCommandRun[];
+  /**
+   * They ran in the Task's run environment only because its worktree carries the definition, the
+   * Project's Run environment being Not decided yet.
+   */
+  readonly inCarriedRunEnvironment?: boolean;
 }
 
 /** Publish's before and after lines (spec §2.3 Defaults), by the Project's names for them. */
@@ -24,6 +29,8 @@ export interface TaskCommandOptions {
   /** Stops the command, with everything it started, or its wait, with nothing run. */
   readonly signal: AbortSignal;
   readonly wait?: CommandWait;
+  /** Whom a command the Project lacks or hasn't set tells the Stage to consult; none, the Project's page. */
+  readonly setUpBy?: { readonly name: string } | undefined;
 }
 
 /** An Agent's command's options: where its whole output goes beside how it is stopped. */

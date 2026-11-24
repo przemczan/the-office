@@ -27,19 +27,26 @@ afterAll(async () => {
 
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
-/** Each reworded built-in Stage: its Pipeline, its key (its template's id too) and its brief before. */
+/**
+ * Each reworded built-in Stage: its Pipeline, its key (its template's id too), its brief before and
+ * the one 0214 writes, naming the change tools of its release, which a later release renames.
+ */
 const REWORDED = [
   {
     pipeline: ONBOARD_PIPELINE,
     key: "onboard",
     oldBrief:
       "Make the Project build and test in a fresh worktree. Propose its commands when they are missing or wrong. Once its commands and test targets are set, propose with propose_actions the Actions its repository suggests, such as a manual release Workflow or an install of a debug build.",
+    newBrief:
+      "Make the Project build and test in a fresh worktree. Set its commands with change_project_commands when they are missing or wrong. Once its commands and test targets are set, add with change_actions the Actions its repository suggests, such as a manual release Workflow or an install of a debug build. Without those tools, propose the same with propose_project_commands and propose_actions; an Action that leaves the workstation is always proposed.",
   },
   {
     pipeline: SET_UP_TEST_TARGETS_PIPELINE,
     key: "set-up-test-targets",
     oldBrief:
       "Read the repository's manifests and their scripts, its Gradle files and wrapper, its own start and build scripts and .devcontainer/, and change no file. Name only the entry points spec 2.12 allows: a file in the repository with its arguments, a script the package manifest lists, a Gradle task through the repository's wrapper, or a .devcontainer/ service (Hosted only); never a command line or inline shell. End with propose_test_targets, giving every target at once.",
+    newBrief:
+      "Read the repository's manifests and their scripts, its Gradle files and wrapper, its own start and build scripts and .devcontainer/, and change no file. Name only the entry points spec 2.12 allows: a file in the repository with its arguments, a script the package manifest lists, a Gradle task through the repository's wrapper, or a .devcontainer/ service (Hosted only); never a command line or inline shell. End with change_test_targets, giving every target at once, or with propose_test_targets without it.",
   },
 ] as const;
 
@@ -107,10 +114,7 @@ async function applyMigration(transaction: Transaction): Promise<void> {
 describe("migration 0214", () => {
   it.each(REWORDED)(
     "tells the built-in $key Stage to change the settings with the change tools, in the library, its template and open Tasks",
-    async ({ pipeline, key, oldBrief }) => {
-      const newBrief = briefIn(builtIn(pipeline)?.stages ?? [], key);
-      expect(newBrief).toContain("change_");
-
+    async ({ pipeline, key, oldBrief, newBrief }) => {
       const after = await rolledBackMigration(database, async (transaction) => {
         await transaction.execute(
           sql`UPDATE "pipelines" SET "stages" = ${JSON.stringify(stagesBriefed(pipeline, key, oldBrief))}::jsonb WHERE "id" = ${pipeline}`,

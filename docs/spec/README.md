@@ -56,7 +56,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 
 - **Caused by, Found in version, Found while working on**: [2.1.3 Bug details](2.1.3-tasks.md#bug-details); screen: [Task page › Bug](screens/task-page.md#bug)
 - **Caretaker**: [2.2 Caretaker](2.2-people.md#caretaker); [6 The Caretaker with Allow changes on](6-permissions-and-safety.md#the-caretaker-with-allow-changes-on)
-- **Change Project settings, Project settings by Agents, `change_*` tools**: [6 Project settings by Agents](6-permissions-and-safety.md#project-settings-by-agents); [2.2 Authority and Hard switches](2.2-people.md#authority-and-hard-switches)
+- **Change Project settings, Project settings by Agents, `change_project_settings`**: [6 Project settings by Agents](6-permissions-and-safety.md#project-settings-by-agents); [2.2 Authority and Hard switches](2.2-people.md#authority-and-hard-switches)
 - **CI run, Workflow**: [2.1.6 The CI tab](2.1.6-board-and-search.md#the-ci-tab); screen: [CI tab › Start a workflow window](screens/ci-runs.md#start-a-workflow-window)
 - **Chat drawer**: [4.1 The chat drawer](4.1-ui-rules.md#the-chat-drawer); screen: [Shell › The chat drawer](screens/shell.md#the-chat-drawer)
 - **Checks**: [2.3.3 Gates](2.3.3-gates-and-checks.md#gates); [2.3.4 Publish](2.3.4-publish.md#publish); screen: [Pull requests › Table](screens/pull-requests.md#table)
@@ -69,7 +69,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Conflict chain, Conflict handling**: [2.3.4 Conflicts in the flow](2.3.4-publish.md#conflicts-in-the-flow); screen: [Pipeline flow editor › Routes out](screens/pipeline-flow-editor.md#routes-out)
 - **Conflict resolution Task**: [2.1.3 Conflict resolution Tasks](2.1.3-tasks.md#conflict-resolution-tasks); [2.3.4 Resolve conflicts](2.3.4-publish.md#resolve-conflicts); screen: [Pull requests › Resolve conflicts](screens/pull-requests.md#resolve-conflicts)
 - **Connected device, device key, Waiting for the run environment, Disconnected reasons**: [2.13 Connected device](2.13-connected-devices.md#connected-device); [2.13 One device to one Task](2.13-connected-devices.md#one-device-to-one-task); [2.13 States](2.13-connected-devices.md#states); [2.13 Lifecycle](2.13-connected-devices.md#lifecycle); [6 Connected devices](6-permissions-and-safety.md#connected-devices); screen: [Task page › Devices](screens/task-page.md#devices)
-- **Consultant, Consultation**: [2.4.3 Consultation](2.4.3-consultations.md#consultation); [2.2 Calls](2.2-people.md#calls)
+- **Consultant, Consultation**: [2.4.3 Consultation](2.4.3-consultations.md#consultation); [2.2 Calls](2.2-people.md#calls); [6 The one exception: the run environment definition](6-permissions-and-safety.md#the-one-exception-the-run-environment-definition)
 - **Continue with GitHub, Continue with Google, Continue with <name>, OpenID Connect provider**: [2.10 Continue with GitHub](2.10-users-and-signing-in.md#continue-with-github); [2.10 Continue with an OpenID Connect provider](2.10-users-and-signing-in.md#continue-with-an-openid-connect-provider); screen: [Sign in › Ways to sign in](screens/sign-in.md#ways-to-sign-in)
 - **CPU limit, Run environments at once**: [5.5 The CPU limit](5.5-git-and-isolation.md#the-cpu-limit); [5.5 The other limits of run environments](5.5-git-and-isolation.md#the-other-limits-of-run-environments)
 
@@ -96,6 +96,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Engine cascade, Office default, Project default**: [5.4.5 Two cascades](5.4.5-engines-and-cascade.md#two-cascades); [5.4.5 The engine cascade](5.4.5-engines-and-cascade.md#the-engine-cascade); screens: [Settings › Engines](screens/settings.md#engines), [Project page › Engine](screens/project-page.md#engine)
 - **Engine override (a Task's, an Initiative's), a forced engine with no stand-ins**: [5.4.5 The engine cascade](5.4.5-engines-and-cascade.md#the-engine-cascade); [2.1.3 A Task's engine](2.1.3-tasks.md#a-tasks-engine); [2.1.4 An Initiative's engine](2.1.4-initiatives.md#an-initiatives-engine); [5.4.6 A forced engine has no stand-ins](5.4.6-stand-in-engines-and-usage-windows.md#a-forced-engine-has-no-stand-ins); screens: [Task page › Engine](screens/task-page.md#engine), [Initiative page › Engine fold](screens/initiative-page.md#engine-fold)
 - **Engine settings moved over (Role override, Project's Role overrides, Use for every Role)**: [5.4.5 Moving the earlier engine settings over](5.4.5-engines-and-cascade.md#moving-the-earlier-engine-settings-over)
+- **Environment check (of the base branch or a Task), `run_environment_check`**: [5.5 The environment check](5.5-git-and-isolation.md#the-environment-check); [5.5 The environment check tool](5.5-git-and-isolation.md#the-environment-check-tool); screen: [Project page › Environment check](screens/project-page.md#environment-check)
 - **Models an engine lists, Refresh models, No longer offered**: [5.4.5 Models an engine lists](5.4.5-engines-and-cascade.md#models-an-engine-lists); screen: [Settings › Engines](screens/settings.md#engines)
 
 ### F
@@ -227,12 +228,13 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Resolve**: [2.3.4 The Resolve Stage](2.3.4-publish.md#the-resolve-stage); [2.3.4 Resolve conflicts](2.3.4-publish.md#resolve-conflicts); screen: [Pull requests › Resolve conflicts](screens/pull-requests.md#resolve-conflicts)
 - **Role, Role card**: [2.2 Role](2.2-people.md#role); [2.2 Role card](2.2-people.md#role-card); screen: [People › Role card tab](screens/people.md#role-card-tab)
 - **Route back, Route limit, When a limit runs out**: [2.3.2 A route's limit](2.3.2-flows.md#a-routes-limit); [2.3.2 When a limit runs out](2.3.2-flows.md#when-a-limit-runs-out); screen: [Pipeline flow editor › Routes out](screens/pipeline-flow-editor.md#routes-out)
-- **Run environment, Set up run environment**: [2.3.1 Script Stages in the run environment](2.3.1-stages.md#script-stages-in-the-run-environment); [2.1.3 Setting up the run environment](2.1.3-tasks.md#setting-up-the-run-environment); [5.5 Writing the run environment definition](5.5-git-and-isolation.md#writing-the-run-environment-definition); screen: [Project page › Run environment](screens/project-page.md#run-environment)
+- **Run environment, Set up run environment, a run environment a Task's branch carries**: [2.3.1 Script Stages in the run environment](2.3.1-stages.md#script-stages-in-the-run-environment); [2.1.3 Setting up the run environment](2.1.3-tasks.md#setting-up-the-run-environment); [5.5 Writing the run environment definition](5.5-git-and-isolation.md#writing-the-run-environment-definition); screen: [Project page › Run environment](screens/project-page.md#run-environment)
 
 ### S
 
 - **Saved view**: [2.1.6 Saved views and the Project filter](2.1.6-board-and-search.md#saved-views-and-the-project-filter); screen: [Work board › Saved views](screens/work-board.md#saved-views)
 - **Secret variable, Server value**: [5.5 Secret variables](5.5-git-and-isolation.md#secret-variables); [6 Secret variables](6-permissions-and-safety.md#secret-variables); screen: [Project page › Server values](screens/project-page.md#server-values)
+- **Setting a Project up (who does it, in a Stage, a Consultation or a chat)**: [2.2 Setting a Project up](2.2-people.md#setting-a-project-up); [2.3.1 Stage kinds](2.3.1-stages.md#stage-kinds)
 - **Setup token**: [2.10 The setup token](2.10-users-and-signing-in.md#the-setup-token)
 - **Shaping**: [2.1.4 Shaping without a CTO](2.1.4-initiatives.md#shaping-without-a-cto); [2.1.4 Initiative states](2.1.4-initiatives.md#initiative-states); screen: [Initiatives tab › Shaping card](screens/initiatives-tab.md#shaping-card)
 - **Sign out, Signed-in device**: [2.10 Signed-in devices](2.10-users-and-signing-in.md#signed-in-devices); screen: [Account › Signed-in devices](screens/account.md#signed-in-devices)
@@ -340,7 +342,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
   - [2.1.4 Initiatives](2.1.4-initiatives.md): Initiative, its states, shaping, Plan the Initiative, its Pipeline, Back to Shaping, Publishing Tasks, Pause, its test instances.
   - [2.1.5 Planning and Start](2.1.5-planning-and-start.md): Plan and Definition of Done, Planning, Auto mode, the queue for Start, overlaps, Usage estimates.
   - [2.1.6 Board and search](2.1.6-board-and-search.md): the board, the Kind filter, search, Saved views, Group by Initiative, the Pull requests and CI tabs.
-- [2.2 People](2.2-people.md): Role, Agent, Role card, authority, escalation, presets, duties, the Office Manager, limits.
+- [2.2 People](2.2-people.md): Role, Agent, Role card, authority, escalation, setting a Project up, presets, duties, the Office Manager, limits.
 - [2.3 Pipelines](2.3-pipelines.md): index of the pages below.
   - [2.3.1 Stages](2.3.1-stages.md): Stage kinds, what a Stage declares, how it ends, skipping, Review & fix, linked Stages.
   - [2.3.2 Flows](2.3.2-flows.md): routes, routes back and their limits, the route forms, an Agent's choice, conditions, the stage runs file, who is asked, validation.
@@ -413,7 +415,7 @@ One page per screen, as built. Where a [design](../design/README.md) differs, th
   - [5.4.5 Engines and the engine cascade](5.4.5-engines-and-cascade.md): the engine list, engine types, the engine cascade, the model and effort cascade, engine overrides, moving the earlier engine settings over.
   - [5.4.6 Stand-in Engines and usage windows](5.4.6-stand-in-engines-and-usage-windows.md): Stand-in Engines, a Project's own list, stand-ins of another engine type, a forced engine, switching, usage windows, Window start.
   - [5.4.7 The Gemini CLI engine](5.4.7-gemini-cli-engine.md)
-- [5.5 Git and isolation](5.5-git-and-isolation.md): a worktree per Task, guards, deleting merged branches, environment as data, the Office identity, run environments, test instances' checkouts.
+- [5.5 Git and isolation](5.5-git-and-isolation.md): a worktree per Task, guards, deleting merged branches, environment as data, the environment check, the Office identity, run environments, test instances' checkouts.
 - [5.6 Skills per session](5.6-skills-per-session.md): what a session lists at start.
 
 ### Safety and risks
@@ -754,6 +756,7 @@ Where each default lives, by page:
   - [The Office device helper in a run environment](5.5-git-and-isolation.md#the-office-device-helper-in-a-run-environment)
   - [Run environments with a non-root Office](5.5-git-and-isolation.md#run-environments-with-a-non-root-office)
   - [Writing the run environment definition](5.5-git-and-isolation.md#writing-the-run-environment-definition)
+  - [The environment check tool](5.5-git-and-isolation.md#the-environment-check-tool)
 - 6 Permissions and safety
   - [Hard switches by role](6-permissions-and-safety.md#hard-switches-by-role)
   - [Project setting changes listed](6-permissions-and-safety.md#project-setting-changes-listed)

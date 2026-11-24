@@ -113,6 +113,11 @@ interface RunningEnvironment {
   /** The worktree folder its containers have bind-mounted, as it was when it started. */
   readonly worktree: FolderIdentity | undefined;
   /**
+   * The path that folder was mounted at: a check in another folder of the Task (the environment
+   * check's throwaway worktree) needs its own mount, whatever the folders' identities.
+   */
+  readonly worktreePath: string;
+  /**
    * The Stage runs' folder its override mounted as it started, which a condition command checks
    * before it runs (`readsStageRuns`): a running container never gains a mount.
    */
@@ -434,12 +439,18 @@ export class RunEnvironments implements OnModuleInit {
   ): Promise<RunningEnvironment> {
     const known = this.running.get(task.taskId);
     if (known !== undefined) {
-      if (sameFolder(known.worktree, await folderIdentityOf(task.worktree))) return known;
-      // Publish removes the worktree and the next Stage adds it again: exec into the old mount
-      // fails in the runtime, so the containers start again on the new folder.
+      const samePath = known.worktreePath === task.worktree;
+      if (samePath && sameFolder(known.worktree, await folderIdentityOf(task.worktree))) {
+        return known;
+      }
+      // Publish removes the worktree and the next Stage adds it again, or a check runs in another
+      // folder of the Task: exec into the old mount fails in the runtime, or never sees the new
+      // folder, so the containers start again on it.
       await note(
         outputFile,
-        "The Task's worktree was replaced; starting the run environment again.",
+        samePath
+          ? "The Task's worktree was replaced; starting the run environment again."
+          : `The run environment runs on another folder; starting it again on ${task.worktree}.`,
       );
       await this.failingAsRefused(outputFile, "The run environment couldn't stop.", () =>
         this.stopNow(task.taskId),
@@ -475,6 +486,7 @@ export class RunEnvironments implements OnModuleInit {
       project,
       definition,
       worktree,
+      worktreePath: task.worktree,
       stageRunsFolder: task.stageRunsFolder,
       idleStop: undefined,
       checksUser: undefined,

@@ -1,6 +1,6 @@
 # 6 Permissions and safety
 
-Covers: threat models, stored hashes, the two layers, language servers, Hard switches, Project settings by Agents, MCP tools, refusals, default profiles, reading records, Consultations' permissions, chats, the Caretaker with Allow changes on, secrets, Secret variables, test instances, Connected devices and Project devices, Actions, build rules.
+Covers: threat models, stored hashes, the two layers, language servers, Hard switches, Project settings by Agents, MCP tools, refusals, default profiles, reading records, Consultations' permissions and their one exception (the run environment definition), chats, the Caretaker with Allow changes on, secrets, Secret variables, test instances, Connected devices and Project devices, Actions, build rules.
 
 ## Threat model
 
@@ -47,6 +47,7 @@ Covers: threat models, stored hashes, the two layers, language servers, Hard swi
 - A Hard switch may consult any hired Role, a preset's or one hired from scratch ([2.2](2.2-people.md#defaults), "Who holds a duty").
 - **Enforced by The Office:** change Roles (an Office tool), change Project settings (Office tools, [below](#project-settings-by-agents)) and git.
 - **Followed by the Agent:** run installs and publish outside the Pipeline.
+  - Run installs is also enforced on one Office tool, `run_environment_check`, which installs ([5.5](5.5-git-and-isolation.md#the-environment-check-tool)).
 - The Office stays agnostic of each Project's stack, so the brief states the followed ones in plain words ("Before you install anything that changes the machine outside the worktree, consult Devops; adding or updating the Project's own dependencies is a code change") and the Agent asks through the consult tool first.
 - The Role card marks which are enforced and which are followed.
 - A held call waits on a Consultation (Consult _person_) or a Decision (Ask me).
@@ -56,21 +57,24 @@ Covers: threat models, stored hashes, the two layers, language servers, Hard swi
 
 ## Project settings by Agents
 
-- **Change Project settings** holds the Office tools that change a Project's everyday settings, each by the Project page's rules:
-  - `change_run_environment`: Run environment On or Off; On is refused unless the base branch, fetched as the call runs, holds a valid `.devcontainer/`;
-  - `change_project_commands`: the install command, Install inputs and the commands (add, change by key, remove); Before and After publishing are refused;
-  - `change_test_targets`: test targets to add, change by key or remove; Secret variables by name only, a value already set kept;
-  - `change_actions`: Actions to add, change by key or remove; one marked Leaves the workstation is refused, pointing to `propose_actions`;
-  - `change_environment_variables`: plain variables, Variables to remove and Folders in front of PATH; Secret variables are refused and kept as they are.
-- **The ruling:** Allowed changes the setting at once; Consult _person_ and Ask me hold the call on an approval card ([Hard switches](#hard-switches)); Never refuses.
+- **Change Project settings** holds one Office tool, `change_project_settings`, which changes a Project's everyday settings by the Project page's rules, in optional sections, at least one per call:
+  - environment variables: plain variables, Variables to remove and Folders in front of PATH; Secret variables are refused and kept as they are;
+  - install and Install inputs;
+  - commands: add, change by key, remove; Before and After publishing are refused;
+  - test targets: add, change by key or remove; Secret variables by name only, a value already set kept;
+  - Actions: add, change by key or remove; one marked Leaves the workstation is refused, pointing to `propose_actions`;
+  - Run environment: On or Off; On is refused unless the base branch, fetched as the call runs, holds a valid `.devcontainer/`.
+- The sections apply in that order, Run environment last, each through the Projects method and Project setting change the Project page's save uses; a section refused leaves the ones before it applied, and the answer names them.
+- Every refusal that needs no section applied is made before the call is held, so no approval is spent on a call refused up front.
+- **The ruling:** one call is one held call: Allowed applies it at once with no card; Consult _person_ and Ask me hold it on one approval card listing every change, Secret variables by name only ([Hard switches](#hard-switches)); Never refuses.
 - After Allow once, the Agent repeats the same call, with the same input, which then runs once; the input is compared in a canonical form, so the order of its fields doesn't count.
-- **Who gets them:** an Agent Stage's session and a Consultation on a Task, unless the switch is Never; a chat, a Planning Thread and a person's Thread on a Task never do.
+- **Who gets it:** an Agent Stage's session and a Consultation on a Task, unless the switch is Never; a chat, a Planning Thread and a person's Thread on a Task never do.
 - A Consultation opens no approval of its own, so there only Allowed changes a setting; a call held by Consult or Ask me is refused.
 - **The user's alone,** by Proposal or on the Project page: Secret variables' values, the Publishing mode, Before and After publishing, Delete branches once merged, GitHub issues write-back, Server values, the Engine, Actions that leave the workstation, Project Pipelines and the Default Pipeline.
 - The Proposal tools (`propose_project_commands`, `propose_test_targets`, `propose_actions`) stay, for those settings and for a person whose switch is Never.
-- **The record:** every change of a Project's commands, test targets, Actions, environment or Run environment is kept as a Project setting change, in the same transaction as the change, by the Project page's saves, an applied Proposal and these tools alike.
+- **The record:** every change of a Project's commands, test targets, Actions, environment or Run environment is kept as a Project setting change, in the same transaction as the change, by the Project page's saves, an applied Proposal and `change_project_settings` alike.
   - It holds the Project, the setting, a short summary naming what changed by name only (never a Secret variable's value), who made it (a user; a Proposal a user applied; a person by Role, name and title, with the Task) and when.
-  - A "Set up the run environment" Task's Done turning Run environment On ([2.1.3](2.1.3-tasks.md#setting-up-the-run-environment)) records nothing.
+  - A Task's Done or merged pull request turning Run environment On ([2.1.3](2.1.3-tasks.md#setting-up-the-run-environment)) records nothing.
   - It is kept with the Project and removed with it.
   - `GET /api/projects/:id/setting-changes` answers the newest ([Defaults](#project-setting-changes-listed)), which the Project page's Recent activity lists ([project-page.md](screens/project-page.md#recent-activity-tile)).
 
@@ -112,8 +116,19 @@ Covers: threat models, stored hashes, the two layers, language servers, Hard swi
 
 - A Consultation works with its callee's own permissions, never the caller's, so a read-only Thread can't get a change made by calling someone.
 - Its session is the Consultant's own, built from them alone: their Role card's permission profile, Hard switches and MCP tool settings, and their chat's tools (capture an Idea, create a Task, draft a skill and their Role's Proposals, and call while the chain allows it).
-- It only reads, as its home does (a Task's worktree on a Task, every Project's base branch in a chat), with no `change_role`, no Allow changes and no write access, so all a call can set up is a record, a Proposal the user applies, or a Project setting the Consultant's Change Project settings allows at once ([Project settings by Agents](#project-settings-by-agents)).
+- It only reads, as its home does (a Task's worktree on a Task, every Project's base branch in a chat), with no `change_role`, no Allow changes and no write access, so all a call can set up is a record, a Proposal the user applies, a Project setting the Consultant's Change Project settings allows at once ([Project settings by Agents](#project-settings-by-agents)), or the one exception below.
 - A Stage that can write lends none of it to its callee.
+
+### The one exception: the run environment definition
+
+- In a Consultation on a Task, a Consultant whose Role card has the Run environment capability ([2.2](2.2-people.md)) writes the run environment definition with `write_run_environment_definition`, as an Agent Stage does ([5.5](5.5-git-and-isolation.md#writing-the-run-environment-definition)).
+- No other write is lent to a Consultation, and a chat, a Planning Thread or a Consultation off a Task never gets the tool.
+- The Office checks the definition, writes `.devcontainer/` into the Task's worktree, and commits only `.devcontainer/` on the Task's branch, "Run environment definition, by <name> (<Role>)"; nothing else staged or unstaged goes into the commit or changes.
+- It refuses, writing nothing:
+  - when `.devcontainer/` has changes not committed yet;
+  - while a Stage of the Task runs other than the one whose Stage Thread waits on the Consultation, a Gate's or a Script Stage's run counting.
+- The commit becomes the asking Stage run's expected head, so the Stage resumes on it rather than asking about a moved branch ([2.3.1](2.3.1-stages.md#a-branch-moved-outside-the-office)).
+- The asking Thread logs The Office's line "Run environment definition, by <name> (<Role>): commit <short commit>, <paths>.", which the Stage history shows.
 
 ## Chats only read
 
@@ -213,9 +228,9 @@ Covers: threat models, stored hashes, the two layers, language servers, Hard swi
 - `.gemini/settings.json`, anywhere in the worktree, is a protected path too, refused the same way on every engine; the rest of `.gemini/` stays writable ([why](5.4.7-gemini-cli-engine.md#gemini-cli-the-repositorys-gemini-settings)).
 - The engine's own protection of those paths (it never auto-approves them, and its refusal reads like any other prompt refusal) stays as a backstop; it still refuses a Claude Code engine's Edit and Write there for the Caretaker too, who changes those paths by commands instead.
 - The Office's own writes there go through Office code, not Agents.
-- `.devcontainer/`, the repository's run environment definition ([5.5](5.5-git-and-isolation.md)), is written only through The Office: the hook refuses Agents' Write and Edit there, with a reason naming `write_run_environment_definition`, the Office tool an Agent Stage of a Role with the Run environment capability gets ([2.2](2.2-people.md)).
+- `.devcontainer/`, the repository's run environment definition ([5.5](5.5-git-and-isolation.md)), is written only through The Office: the hook refuses Agents' Write and Edit there, with a reason naming `write_run_environment_definition`, the Office tool an Agent Stage, or a Consultation on a Task, of a Role with the Run environment capability gets ([2.2](2.2-people.md)).
 - The tool takes devcontainer.json and its compose files whole, checks them as The Office reads the definition, and writes them into the Task's worktree only when it is valid; otherwise it writes nothing and answers every problem found.
-- Chats, Planning Threads and Consultations never get the tool.
+- Who else gets the tool, and who never does, is in [the one exception](#the-one-exception-the-run-environment-definition).
 - No allow rule lifts the engine's own protection of `.devcontainer/`, which refuses a Write there past a hook `allow` (the engine check's `permissions.devcontainer`) and stays as the backstop on every other session.
 
 ## Defaults

@@ -26,7 +26,7 @@ export class ProjectCommandOfficeTools implements OnModuleInit {
     this.registry.register({
       name: PROPOSE_PROJECT_COMMANDS_TOOL,
       description:
-        "Drafts a change to a Project's install command, install inputs, before and after publishing lines and commands as a Proposal the user applies with a click, all or nothing. It shows in this Thread as a card, with the values now and the ones proposed, and changes nothing until the user applies it. It returns at once. When you have change_project_commands, change the install command, install inputs and commands with it instead, and draft a Proposal only for Before and After publishing.",
+        "Drafts a change to a Project's install command, install inputs, before and after publishing lines and commands as a Proposal the user applies with a click, all or nothing. It shows in this Thread as a card, with the values now and the ones proposed, and changes nothing until the user applies it. It returns at once. When you have change_project_settings, change the install command, install inputs and commands with it instead, and draft a Proposal only for Before and After publishing.",
       input: z.object({
         project: z.string().describe("The Project's id, as list_projects gives it."),
         change: z

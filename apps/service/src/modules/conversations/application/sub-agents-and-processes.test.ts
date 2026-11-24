@@ -24,6 +24,7 @@ import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-rep
 import { ThreadRepository } from "../ports/thread-repository.js";
 import type { SessionEvent } from "./session-log.js";
 import { SubAgentsAndProcesses, type SessionFollowing } from "./sub-agents-and-processes.js";
+import { SessionStops } from "./session-stops.js";
 
 const LABEL = `Angela's Sub-agents in an Initiative's Thread, "Planning the Initiative"`;
 
@@ -51,6 +52,7 @@ beforeEach(async () => {
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
       { provide: SubAgentAndProcessRepository, useClass: PostgresSubAgentAndProcessRepository },
       SubAgentsAndProcesses,
+      SessionStops,
     ],
     overrides: [updateSystem()],
   }));

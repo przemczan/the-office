@@ -41,6 +41,11 @@ export interface ScriptCommandOptions {
   /** Stops the command running, with everything it started, or its wait, with nothing run. */
   readonly signal?: AbortSignal;
   readonly wait?: CommandWait;
+  /**
+   * Whom to consult to set up a command the Project lacks or hasn't set, as the caller knows them;
+   * none when nobody holds the duty, and then the run says to set it on the Project's page.
+   */
+  readonly setUpBy?: { readonly name: string } | undefined;
 }
 
 /**
@@ -74,7 +79,7 @@ export class ScriptCommands {
     stageRunId: string,
     options: ScriptCommandOptions = {},
   ): Promise<readonly ScriptCommandRun[]> {
-    const command = setCommandOf(project, key);
+    const command = setCommandOf(project, key, options.setUpBy);
     if (!("kind" in command)) return [command];
     if (command.kind !== "test") {
       const run = await this.runOnce(project, taskId, command.commandLine, options);
@@ -116,7 +121,7 @@ export class ScriptCommands {
     stageRunId: string,
     options: ScriptCommandOptions = {},
   ): Promise<ScriptCommandRun> {
-    const command = setCommandOf(project, key);
+    const command = setCommandOf(project, key, options.setUpBy);
     if (!("kind" in command)) return command;
     const outputFolder = join(stageRunId, `condition-${key}-${randomUUID().slice(0, 8)}`);
     return this.restoring(project, taskId, outputFolder, () =>
@@ -224,18 +229,26 @@ export class ScriptCommands {
 
 /**
  * The Project's command by the key, or, for a key it has no command by or one whose line is blank,
- * the run that couldn't run, saying how to set it.
+ * the run that couldn't run, saying how to set it: by whom, when `setUpBy` names them.
  */
-function setCommandOf(project: Project, key: string): ProjectCommand | ScriptCommandRun {
+function setCommandOf(
+  project: Project,
+  key: string,
+  setUpBy: ScriptCommandOptions["setUpBy"],
+): ProjectCommand | ScriptCommandRun {
   const command = commandOf(project, key);
+  const consult = setUpBy
+    ? (what: string) =>
+        `Consult ${setUpBy.name}, who holds Onboards and repairs Projects, to ${what}; they change the Project's settings themselves.`
+    : undefined;
   if (!command) {
     return couldNotRun(
-      `The Project has no ${key} command. Add it on the Project's page, or ask whoever onboards Projects.`,
+      `The Project has no ${key} command. ${consult?.("add it") ?? "Add it on the Project's page."}`,
     );
   }
   if (!isCommandSet(command.commandLine)) {
     return couldNotRun(
-      `The Project's ${key} command isn't set yet. Set it on the Project's page, or ask whoever onboards Projects.`,
+      `The Project's ${key} command isn't set yet. ${consult?.("set it up") ?? "Set it on the Project's page."}`,
     );
   }
   return command;

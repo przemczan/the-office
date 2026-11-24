@@ -2,6 +2,7 @@ import type { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { OfficeToolRegistry } from "../../engine/index.js";
+import { RoleCards } from "../../people/index.js";
 import { aThread } from "../domain/thread.fixtures.js";
 import type { Thread } from "../domain/thread.js";
 import { ChangesAllowedRepository } from "../ports/changes-allowed-repository.js";
@@ -76,6 +77,7 @@ beforeAll(async () => {
       { provide: ChangesAllowedRepository, useValue: { isAllowed: () => Promise.resolve(false) } },
       { provide: ProjectOutputMasks, useValue: { outputMaskOf: () => Promise.resolve(NO_MASK) } },
       { provide: CallChains, useValue: { ofCaller: () => Promise.resolve([]) } },
+      { provide: RoleCards, useValue: { find: () => Promise.resolve(undefined) } },
       {
         provide: OfficeToolRegistry,
         useValue: { coveredBy: () => [], coveredByCreatorsOf: () => [] },

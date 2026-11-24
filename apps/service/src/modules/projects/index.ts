@@ -153,7 +153,11 @@ export type {
   RunEnvironmentAnswer,
   RunEnvironmentSetting,
 } from "./domain/project.js";
-export { EnvironmentChecks } from "./application/environment-checks.js";
+export {
+  EnvironmentChecks,
+  type AwaitedEnvironmentCheckOptions,
+  type EnvironmentCheckOptions,
+} from "./application/environment-checks.js";
 export { CiRunWatch, type CiRun, type CiRunList } from "./application/ci-run-watch.js";
 export { PullRequestWatch, type PullRequestList } from "./application/pull-request-watch.js";
 export type { EnvironmentCheck } from "./domain/environment-check.js";
@@ -172,6 +176,8 @@ export { ProjectRefused } from "./domain/project-refused.js";
 export {
   FeatureSwitchedOff,
   PROJECT_FEATURES,
+  isFeatureOn,
+  switchedOffWords,
   type ProjectFeature,
   type ProjectFeatureStates,
   type ProjectFeatureSwitches,

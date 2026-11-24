@@ -367,8 +367,12 @@ export class Consultations implements OnModuleInit {
     return consultationOpening(decision, askerName, passers);
   }
 
-  /** The Consultation shows what it was asked and its answer, as the asker's Thread shows its card. */
-  private async logLine(threadId: string, decisionId: string, text: string): Promise<void> {
+  /**
+   * The Office's line about the Consultation of `decisionId`, in the Consultation or its asker's
+   * Thread: what it was asked and its answer, as the asker's Thread shows its card, or what the
+   * Consultant did there (`ConsultationsOnTasks.logOfficeLine`).
+   */
+  async logLine(threadId: string, decisionId: string, text: string): Promise<void> {
     const { event } = await this.repository.update(threadId, (latest) =>
       logMessages(
         latest,

@@ -44,6 +44,7 @@ import {
   READING_OFFICE_TOOLS,
   READ_STAGE_HISTORY_TOOL,
   roleOfficeTools,
+  RUN_ENVIRONMENT_CHECK_TOOL,
   SHOW_OFFICE_STATUS_TOOL,
   type HeldDuties,
   WRITING_FOR_THE_USER_RULE,
@@ -176,7 +177,9 @@ describe("chatOfficeTools", () => {
     expect(roleOfficeTools(CTO)).not.toContain(CREATE_INITIATIVE_TOOL);
     expect(roleOfficeTools(OFFICE_MANAGER)).not.toContain(CREATE_INITIATIVE_TOOL);
     for (const held of [CTO, OFFICE_MANAGER]) {
-      expect(consultationOfficeTools(held, true)).not.toContain(CREATE_INITIATIVE_TOOL);
+      expect(
+        consultationOfficeTools(held, { canCall: true, onTask: false, runEnvironment: false }),
+      ).not.toContain(CREATE_INITIATIVE_TOOL);
     }
   });
 
@@ -238,6 +241,7 @@ describe("chatOfficeTools", () => {
       PROPOSE_SKILL_INSTALL_TOOL,
       READ_SKILL_UPDATE_TOOL,
       PROPOSE_SKILL_UPDATE_TOOL,
+      RUN_ENVIRONMENT_CHECK_TOOL,
       READ_REPOSITORY_TOOL,
       CONSULT_TOOL,
     ]);
@@ -281,12 +285,18 @@ describe("chatOfficeTools", () => {
 
 describe("consultationOfficeTools", () => {
   it("gives a Consultant every reading tool, and no Decision of their own", () => {
-    const tools = consultationOfficeTools(CTO, true);
+    const tools = consultationOfficeTools(CTO, {
+      canCall: true,
+      onTask: false,
+      runEnvironment: false,
+    });
     expect(tools).toEqual(expect.arrayContaining([...READING_OFFICE_TOOLS]));
     expect(tools).not.toContain(OPEN_DECISION_TOOL);
   });
 
   it("gives a Consultant reading the Task's Stage history", () => {
-    expect(consultationOfficeTools(CTO, false)).toContain(READ_STAGE_HISTORY_TOOL);
+    expect(
+      consultationOfficeTools(CTO, { canCall: false, onTask: false, runEnvironment: false }),
+    ).toContain(READ_STAGE_HISTORY_TOOL);
   });
 });

@@ -14,7 +14,7 @@ export interface CheckedBase {
   readonly fetchedFrom: string | undefined;
 }
 
-/** That a fresh worktree of the freshly fetched base branch opens. */
+/** That a fresh worktree of the freshly fetched base branch, or of the Task's branch, opens. */
 export interface WorktreeCheck {
   readonly step: "worktree";
   readonly state: CheckState;
@@ -49,11 +49,17 @@ export type Check = WorktreeCheck | InstallCheck | CommandCheck;
 export type EnvironmentCheckState = "running" | "passed" | "failed" | "stopped";
 
 /**
- * A try of an environment in a fresh worktree of the base branch (spec §5.5): a worktree, then
- * install, then each of the Project's commands in its order. The environment is saved only when every check passes.
+ * A try of an environment in a fresh worktree of the base branch, or of a Task's branch (spec
+ * §5.5): a worktree, then install, then each of the Project's commands in its order. The
+ * environment is saved only when every check passes.
  */
 export interface EnvironmentCheck {
   readonly projectId: string;
+  /**
+   * The Task whose branch it checks, in the Task's run environment when its commands run there;
+   * undefined for the base branch.
+   */
+  readonly taskId?: string;
   /** The Project's saved environment as the check started, which may have changed since. */
   readonly environment: ProjectEnvironment;
   readonly state: EnvironmentCheckState;

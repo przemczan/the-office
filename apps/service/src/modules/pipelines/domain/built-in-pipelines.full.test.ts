@@ -206,7 +206,7 @@ describe("the built-in Pipelines", () => {
     });
   });
 
-  it("set up test targets in one Agent Stage that changes no file, names only the entry points spec 2.12 allows and ends with change_test_targets, or propose_test_targets without it, with no Publish", () => {
+  it("set up test targets in one Agent Stage that changes no file, names only the entry points spec 2.12 allows and ends with change_project_settings, or propose_test_targets without it, with no Publish", () => {
     const stages = builtInPipelines.find(({ id }) => id === SET_UP_TEST_TARGETS_PIPELINE)!.stages;
 
     expect(stages).toHaveLength(1);
@@ -215,7 +215,7 @@ describe("the built-in Pipelines", () => {
     expect(stages[0].brief).toContain("change no file");
     expect(stages[0].brief).toContain("entry points spec 2.12 allows");
     expect(stages[0].brief).toContain(
-      "End with change_test_targets, giving every target at once, or with propose_test_targets without it.",
+      "End with change_project_settings, giving every target at once, or with propose_test_targets without it.",
     );
   });
 
@@ -225,13 +225,26 @@ describe("the built-in Pipelines", () => {
     expect(onboard).toMatchObject({ kind: "agent", key: "onboard" });
     if (onboard?.kind !== "agent") return;
     expect(onboard.brief).toContain(
-      "Set its commands with change_project_commands when they are missing or wrong.",
+      "Set its commands with change_project_settings when they are missing or wrong.",
     );
     expect(onboard.brief).toContain(
-      "Once its commands and test targets are set, add with change_actions the Actions its repository suggests",
+      "Once its commands and test targets are set, add with change_project_settings the Actions its repository suggests",
     );
     expect(onboard.brief).toContain(
-      "Without those tools, propose the same with propose_project_commands and propose_actions; an Action that leaves the workstation is always proposed.",
+      "Without that tool, propose the same with propose_project_commands and propose_actions; an Action that leaves the workstation is always proposed.",
+    );
+    expect(onboard.brief).toContain("Run run_environment_check until it passes before you end.");
+  });
+
+  it("set up run environment checks the environment on the Task's branch after writing it", () => {
+    const setUp = builtInPipelines
+      .find(({ id }) => id === SET_UP_RUN_ENVIRONMENT_PIPELINE)!
+      .stages.find(({ key }) => key === "set-up");
+
+    expect(setUp).toMatchObject({ kind: "agent" });
+    if (setUp?.kind !== "agent") return;
+    expect(setUp.brief).toContain(
+      "Then commit your work so far with update_branch, run run_environment_check on the Task's branch and fix what fails until it passes.",
     );
   });
 });

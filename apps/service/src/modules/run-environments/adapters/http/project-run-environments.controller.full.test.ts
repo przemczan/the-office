@@ -11,7 +11,7 @@ import {
   type RunEnvironmentAnswer,
   type RunEnvironmentSetUpAnswer,
 } from "@the-office/contracts";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
@@ -20,7 +20,7 @@ import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { GitHubModule } from "../../../github/index.js";
 import { PipelineLibrary, PipelineLibraryModule } from "../../../pipelines/index.js";
-import { ProjectsModule, TaskBases } from "../../../projects/index.js";
+import { ProjectsModule, PullRequestMerged, TaskBases } from "../../../projects/index.js";
 import {
   createTemporaryRepository,
   gitIn,
@@ -294,5 +294,48 @@ describe("a set-up Task that ends", REAL_GIT_TEST, () => {
     await finish(taskId, "dropped");
 
     expect(await read()).toMatchObject({ runEnvironment: "not-decided", setUpProblems: [] });
+  });
+});
+
+describe("a Task's pull request that merges", REAL_GIT_TEST, () => {
+  const taskId = "7f3c2a10-0d4e-4b7a-9c1e-2f5a6b7c8d9e";
+
+  async function merge(): Promise<void> {
+    await app
+      .get(EventBus)
+      .publish(
+        new PullRequestMerged(
+          "pull-request-1",
+          project.id,
+          taskId,
+          7,
+          "https://example.com/7",
+          "squash",
+          { kind: "code-host", name: "GitHub" },
+          new Date(),
+        ),
+      );
+  }
+
+  it("turns Not decided yet On once the Task's valid definition is on the base branch", async () => {
+    await commitFiles(`office/${taskId}`, VALID_DEFINITION);
+    await commitFiles("main", VALID_DEFINITION);
+    gitIn(repository.path, "push", "--quiet", "origin", "main");
+
+    await merge();
+
+    await vi.waitFor(async () => {
+      expect(await read()).toMatchObject({ runEnvironment: "on", setUpProblems: [] });
+    });
+  });
+
+  it("leaves it as it was while the base branch lacks the Task's definition", async () => {
+    await commitFiles(`office/${taskId}`, VALID_DEFINITION);
+
+    await merge();
+    // The landing runs in the background; a later read waits for nothing, so give it a moment.
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+
+    expect(await read()).toMatchObject({ runEnvironment: "not-decided" });
   });
 });

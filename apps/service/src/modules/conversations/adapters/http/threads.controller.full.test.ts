@@ -108,6 +108,7 @@ import { PostgresChatActivityRepository } from "../postgres/postgres-chat-activi
 import { ProjectOutputMasks } from "../../ports/project-output-masks.js";
 import { ProjectOutputMasksForTests } from "../../ports/project-output-masks.fixtures.js";
 import { SubAgentsAndProcesses } from "../../application/sub-agents-and-processes.js";
+import { SessionStops } from "../../application/session-stops.js";
 import { SubAgentAndProcessRepository } from "../../ports/sub-agent-and-process-repository.js";
 import { PostgresSubAgentAndProcessRepository } from "../postgres/postgres-sub-agent-and-process-repository.js";
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../../people/index.fixtures.js";
@@ -293,6 +294,7 @@ function setUpEachTest(): void {
           useClass: PostgresSubAgentAndProcessRepository,
         },
         SubAgentsAndProcesses,
+        SessionStops,
         DecisionService,
         BugTaskDecisions,
         ProposalAppliers,

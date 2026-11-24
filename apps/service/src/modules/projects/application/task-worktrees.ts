@@ -28,6 +28,7 @@ import type { BranchUpdate, ConflictHandling } from "../domain/branch-update.js"
 import { BranchUpdates } from "./branch-updates.js";
 import { Resolving } from "./resolving.js";
 import { SCREENSHOTS_FOLDER } from "./screenshots-folder.js";
+import { TaskCommandRunner } from "./task-command-runner.js";
 import {
   ScriptCommands,
   type ScriptCommandOptions,
@@ -40,6 +41,17 @@ import {
   type TaskChanges,
   type TaskInstallOptions,
 } from "./worktrees.js";
+
+/**
+ * A Script Stage's or condition's command run: its kind, undefined for a key the Project lacks, each
+ * run, and whether it ran in the Task's run environment only because its worktree carries the
+ * definition.
+ */
+export interface ScriptCommandResult {
+  readonly kind: ProjectCommandKind | undefined;
+  readonly runs: readonly ScriptCommandRun[];
+  readonly inCarriedRunEnvironment: boolean;
+}
 
 /** A Task's worktree, as a session works in it. */
 export interface SessionWorktree {
@@ -66,7 +78,25 @@ export class TaskWorktrees {
     private readonly publishing: Publishing,
     private readonly resolving: Resolving,
     private readonly branchUpdates: BranchUpdates,
+    private readonly taskCommands: TaskCommandRunner,
   ) {}
+
+  /**
+   * Whether the Task's commands run in its run environment only because its worktree carries a
+   * valid definition, its Project's Run environment being Not decided yet (spec §5.5); false with
+   * no worktree, and under On or Off.
+   */
+  async runsInCarriedRunEnvironment(projectId: string, taskId: string): Promise<boolean> {
+    const project = await this.projects.read(projectId);
+    return this.carried(project, taskId);
+  }
+
+  private carried(project: Project, taskId: string): Promise<boolean> {
+    return this.taskCommands.runsInCarriedRunEnvironment(
+      project,
+      this.worktrees.pathOf(project, taskId),
+    );
+  }
 
   /**
    * The Task's worktree, made the first time on a branch of its own at the freshly fetched base
@@ -265,7 +295,8 @@ export class TaskWorktrees {
    * once. It runs where the Project's Run environment setting
    * says. Returns the command's kind, undefined for a key the Project lacks, and each run, in
    * order. `signal` stops the command running, with everything it started, or its wait for a run
-   * environment, and runs no other; `wait` is told of that wait.
+   * environment, and runs no other; `wait` is told of that wait. `inCarriedRunEnvironment` says it
+   * ran in the Task's run environment only because its worktree carries the definition.
    */
   async runCommand(
     projectId: string,
@@ -273,13 +304,11 @@ export class TaskWorktrees {
     key: string,
     stageRunId: string,
     options: ScriptCommandOptions,
-  ): Promise<{
-    readonly kind: ProjectCommandKind | undefined;
-    readonly runs: readonly ScriptCommandRun[];
-  }> {
+  ): Promise<ScriptCommandResult> {
     const project = await this.projects.read(projectId);
+    const inCarriedRunEnvironment = await this.carried(project, taskId);
     const runs = await this.scriptCommands.run(project, taskId, key, stageRunId, options);
-    return { kind: commandOf(project, key)?.kind, runs };
+    return { kind: commandOf(project, key)?.kind, runs, inCarriedRunEnvironment };
   }
 
   /**
@@ -296,11 +325,9 @@ export class TaskWorktrees {
     stageRunsFile: string,
     stageRunId: string,
     options: ScriptCommandOptions,
-  ): Promise<{
-    readonly kind: ProjectCommandKind | undefined;
-    readonly runs: readonly ScriptCommandRun[];
-  }> {
+  ): Promise<ScriptCommandResult> {
     const project = await this.projects.read(projectId);
+    const inCarriedRunEnvironment = await this.carried(project, taskId);
     const run = await this.scriptCommands.runCondition(
       project,
       taskId,
@@ -309,7 +336,7 @@ export class TaskWorktrees {
       stageRunId,
       options,
     );
-    return { kind: commandOf(project, key)?.kind, runs: [run] };
+    return { kind: commandOf(project, key)?.kind, runs: [run], inCarriedRunEnvironment };
   }
 
   /** The Project's before and after publishing lines, each blank when not set. */

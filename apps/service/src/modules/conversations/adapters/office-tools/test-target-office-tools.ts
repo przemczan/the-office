@@ -103,7 +103,7 @@ export class TestTargetOfficeTools implements OnModuleInit {
     this.registry.register({
       name: PROPOSE_TEST_TARGETS_TOOL,
       description:
-        "Drafts a change to a Project's test targets as a Proposal the user applies with a click, all or nothing: targets to add or change by key, each given whole, and targets to remove. It shows in this Thread as a card, with the values now and the ones proposed, and changes nothing until the user applies it. A value the user set changes only when changeUserSet names it. It returns at once. When you have change_test_targets, change the test targets with it instead.",
+        "Drafts a change to a Project's test targets as a Proposal the user applies with a click, all or nothing: targets to add or change by key, each given whole, and targets to remove. It shows in this Thread as a card, with the values now and the ones proposed, and changes nothing until the user applies it. A value the user set changes only when changeUserSet names it. It returns at once. When you have change_project_settings, change the test targets with it instead.",
       input: z.object({
         project: z.string().describe("The Project's id, as list_projects gives it."),
         targets: z

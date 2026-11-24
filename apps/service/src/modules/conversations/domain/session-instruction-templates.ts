@@ -1,8 +1,9 @@
-import { READ_ONLY_SHELL_RULE } from "../../engine/index.js";
+import { READ_ONLY_SHELL_RULE, WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL } from "../../engine/index.js";
 import { promptTemplate, renderedPart, type PromptTexts } from "../../prompt-templates/index.js";
 import {
   ALLOW_CHANGES_ADVICE,
   CALLING_RULE,
+  CHANGE_PROJECT_SETTINGS_TOOL,
   CHAT_DECISION_RULE,
   CONSULT_TOOL,
   DEFAULT_PERSON_CALLING_RULE,
@@ -10,11 +11,27 @@ import {
   OFFICE_INSTRUCTIONS_LEAD_IN,
   OFFICE_PROPOSALS_RULE,
   OFFICE_SETUP_RULE,
+  PROPOSE_ACTIONS_TOOL,
+  PROPOSE_PROJECT_COMMANDS_TOOL,
+  PROPOSE_TEST_TARGETS_TOOL,
   READ_REPOSITORY_RULE,
+  RUN_ENVIRONMENT_CHECK_TOOL,
   WRITING_FOR_THE_USER_RULE,
   type HeldDuties,
   type SessionPerson,
 } from "./session-instructions.js";
+
+/**
+ * What whoever onboards and repairs Projects does in their chat when the user asks them to set a
+ * Project up: the work, with their tools, never a list of steps for the user.
+ */
+const CHAT_SETUP_BY_THE_HOLDER = `When the user asks you to set a Project up for them, such as its commands or its run environment, do it with your tools rather than listing steps for them: check it with ${RUN_ENVIRONMENT_CHECK_TOOL} and draft what it needs with ${PROPOSE_PROJECT_COMMANDS_TOOL}, ${PROPOSE_TEST_TARGETS_TOOL} or ${PROPOSE_ACTIONS_TOOL}, which the user applies with a click. A Project's settings you change yourself only on a Task, with ${CHANGE_PROJECT_SETTINGS_TOOL}.`;
+
+/**
+ * What anyone else does in their chat when the user asks them to set a Project up: call whoever
+ * holds the duty, rather than listing steps for the user.
+ */
+const CHAT_SETUP_BY_ANOTHER = `When the user asks you to set a Project up for them, such as its commands or its run environment, call whoever holds Onboards and repairs Projects with the ${CONSULT_TOOL} tool rather than listing steps for the user.`;
 
 const PERSON_INSTRUCTIONS_VARIABLE = {
   personInstructions: {
@@ -92,6 +109,12 @@ ${CHAT_DECISION_RULE}
 {{#onboardsProjects}}
 
 ${READ_REPOSITORY_RULE}
+
+${CHAT_SETUP_BY_THE_HOLDER}
+{{/onboardsProjects}}
+{{^onboardsProjects}}
+
+${CHAT_SETUP_BY_ANOTHER}
 {{/onboardsProjects}}`,
 });
 
@@ -164,6 +187,16 @@ export const CONSULTATION_INSTRUCTIONS = promptTemplate({
       kind: "flag",
       description: "The chain of calls allows one more, so the Consultant may call someone.",
     },
+    onboardsProjects: {
+      kind: "flag",
+      description: "The Consultant holds the Onboards and repairs Projects duty.",
+    },
+    onTask: { kind: "flag", description: "The Consultation is on a Task." },
+    writesRunEnvironment: {
+      kind: "flag",
+      description:
+        "The Consultant writes the run environment definition: on a Task, with the Run environment capability.",
+    },
   },
   text: `{{personInstructions}}
 
@@ -174,7 +207,11 @@ Call another person with the ${CONSULT_TOOL} tool only when you can't answer wit
 {{/canCall}}
 {{^canCall}}
 This chain of calls can ask nobody else: answer from what you have, or pass an approval on to the user.
-{{/canCall}}`,
+{{/canCall}}
+{{#onboardsProjects}}
+
+Asked to set a Project up, such as a command that isn't set, no run environment, or a missing tool or service, you do it yourself, never the user: {{#onTask}}change its settings with ${CHANGE_PROJECT_SETTINGS_TOOL}{{#writesRunEnvironment}}, write its run environment definition with ${WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL}{{/writesRunEnvironment}}, and check the Task's branch with ${RUN_ENVIRONMENT_CHECK_TOOL}, fixing what fails until the check passes; then answer with what you changed and how the check went.{{/onTask}}{{^onTask}}check its base branch with ${RUN_ENVIRONMENT_CHECK_TOOL} and draft what it needs with your Proposal tools, as a Project's settings change only on a Task; then answer with what you found and drafted.{{/onTask}} The user is asked only by the approval card a Hard switch raises: never ask them to do it or to confirm it is done.
+{{/onboardsProjects}}`,
 });
 
 /** What The Office asks for when a session's context nears its limit (spec §2.5). */
@@ -291,15 +328,33 @@ export function workThreadInstructions(
   });
 }
 
+/** What a Consultant sets a Project up with, as their duties and their Consultation allow. */
+export interface ConsultantSetup {
+  /** They hold Onboards and repairs Projects. */
+  readonly onboardsProjects: boolean;
+  /** The Consultation is on a Task, where a Project's settings change. */
+  readonly onTask: boolean;
+  /** They write the run environment definition: on a Task, with the Run environment capability. */
+  readonly writesRunEnvironment: boolean;
+}
+
+const NO_SETUP: ConsultantSetup = {
+  onboardsProjects: false,
+  onTask: false,
+  writesRunEnvironment: false,
+};
+
 /** The standing instructions of a Consultant in a Consultation. */
 export function consultationInstructions(
   prompts: PromptTexts,
   person: SessionPerson,
   canCall: boolean,
+  setup: ConsultantSetup = NO_SETUP,
 ): string {
   return renderedPart(prompts, CONSULTATION_INSTRUCTIONS, {
     personInstructions: personInstructions(prompts, person),
     canCall,
+    ...setup,
   });
 }
 

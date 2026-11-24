@@ -225,6 +225,41 @@ describe("a run's head", () => {
   });
 });
 
+const place = (page: HTMLElement): Element | null => page.querySelector(".command-log-place");
+
+describe("a run's command log", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.body.replaceChildren();
+  });
+
+  const condition = {
+    purpose: "condition",
+    commandLine: "npm run lint",
+    outcome: "passed",
+    durationMs: 1200,
+    condition: { to: null },
+  } as const;
+
+  it("says its commands ran in the run environment the Task's branch carries", () => {
+    vi.stubGlobal("fetch", () => new Promise(() => undefined));
+    const page = showRun(
+      { ...secondRun, commandRuns: [{ ...condition, inCarriedRunEnvironment: true }] },
+      [],
+    );
+    expect(place(page)?.textContent).toBe(
+      "Runs in this Task's run environment (its branch carries the definition)",
+    );
+  });
+
+  it("says nothing of the kind for commands run elsewhere", () => {
+    vi.stubGlobal("fetch", () => new Promise(() => undefined));
+    const page = showRun({ ...secondRun, commandRuns: [condition] }, []);
+    expect(page.querySelector(".command-log")).not.toBeNull();
+    expect(place(page)).toBeNull();
+  });
+});
+
 describe("a run that went on on a Stand-in Engine", () => {
   it("says each switch on a line of its own, the run's engine being the last stand-in", () => {
     const resetsAt = "2026-11-04T14:00:00.000Z";

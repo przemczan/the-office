@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import { Injectable, Logger } from "@nestjs/common";
 import { KnowledgeBase } from "../../../platform/knowledge-base/knowledge-base.js";
 import { OfficeToolRegistry } from "../../engine/index.js";
-import { CARETAKER, Duties } from "../../people/index.js";
+import { CARETAKER, Duties, RoleCards } from "../../people/index.js";
 import { PromptTemplates, type PromptTexts } from "../../prompt-templates/index.js";
 import type { Brief } from "../domain/brief.js";
 import { canCall } from "../domain/consult.js";
@@ -134,6 +134,7 @@ export class SessionPlaces {
     private readonly tools: OfficeToolRegistry,
     private readonly promptTemplates: PromptTemplates,
     private readonly knowledgeBase: KnowledgeBase,
+    private readonly roleCards: RoleCards,
   ) {}
 
   /**
@@ -207,8 +208,9 @@ export class SessionPlaces {
       brief: await this.briefs.forTaskThread(thread, setup, logBefore),
       span: { "office.task": taskId, "office.initiative": setup.initiativeId ?? "" },
       metric: { "office.project": setup.projectName, "office.pipeline": setup.pipelineName },
+      // A Task planned in its Initiative's Thread has no worktree yet to write the definition in.
       ...(thread.consultation
-        ? await this.consultationTools(thread, held)
+        ? await this.consultationTools(thread, held, setup.folder !== undefined)
         : {
             officeTools: setup.officeTools,
             callsCanWait: !setup.asking,
@@ -267,17 +269,31 @@ export class SessionPlaces {
 
   /**
    * What a Consultation's session works with, from its Consultant alone (spec §6): their own tools,
-   * `consult` while the chain of calls may ask one more, and nothing that waits in it or writes.
+   * `consult` while the chain of calls may ask one more, and nothing that waits in it or writes but
+   * the run environment definition, on a Task (`onTask`), when the Consultant's card has the Run
+   * environment capability now.
    */
   private async consultationTools(
     thread: Thread,
     held: HeldDuties,
+    onTask: boolean,
   ): Promise<Pick<HomePlace, "officeTools" | "callsCanWait" | "instructions">> {
-    const canCallMore = canCall(await this.chains.ofCaller(thread));
+    const consultation = {
+      canCall: canCall(await this.chains.ofCaller(thread)),
+      onTask,
+      runEnvironment:
+        onTask &&
+        ((await this.roleCards.find(thread.roleKey))?.card.capabilities.runEnvironment ?? false),
+    };
     return {
-      officeTools: consultationOfficeTools(held, canCallMore),
+      officeTools: consultationOfficeTools(held, consultation),
       callsCanWait: false,
-      instructions: (prompts, person) => consultationInstructions(prompts, person, canCallMore),
+      instructions: (prompts, person) =>
+        consultationInstructions(prompts, person, consultation.canCall, {
+          onboardsProjects: held.includes("onboards-projects"),
+          onTask,
+          writesRunEnvironment: consultation.onTask && consultation.runEnvironment,
+        }),
     };
   }
 
@@ -290,7 +306,7 @@ export class SessionPlaces {
     if (thread.consultation) {
       return {
         ...this.basesPlace(thread),
-        ...(await this.consultationTools(thread, held)),
+        ...(await this.consultationTools(thread, held, false)),
         brief,
         span: {},
         metric: NO_PROJECT_METRIC,

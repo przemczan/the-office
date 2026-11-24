@@ -31,6 +31,7 @@ export class EnvironmentChecksController {
 function toEnvironmentCheckResponse(check: EnvironmentCheck): EnvironmentCheckResponse {
   return {
     projectId: check.projectId,
+    ...(check.taskId !== undefined && { taskId: check.taskId }),
     environment: toEnvironmentResponse(check.environment),
     state: check.state,
     checks: check.checks.map(toCheckResponse),

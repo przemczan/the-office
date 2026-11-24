@@ -30,4 +30,7 @@ export abstract class SetUpTasks {
 
   /** Undefined when the Task isn't a set-up Task. */
   abstract setUpTaskOf(taskId: string): Promise<SetUpTask | undefined>;
+
+  /** The Project of any Task, set-up Task or not; undefined when there is no such Task. */
+  abstract projectOf(taskId: string): Promise<string | undefined>;
 }

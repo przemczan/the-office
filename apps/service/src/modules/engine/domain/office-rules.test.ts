@@ -407,7 +407,7 @@ describe.each([WINDOWS, LINUX])("OfficeRules on $name paths", (platform) => {
       expect(decide({ kind: "edit", paths: [path] })).toEqual({
         allowed: false,
         reason:
-          "Refused by The Office: .devcontainer/ is written only with write_run_environment_definition, which checks the run environment definition first; only Roles with the Run environment capability have it, in an Agent Stage.",
+          "Refused by The Office: .devcontainer/ is written only with write_run_environment_definition, which checks the run environment definition first; only Roles with the Run environment capability have it, in an Agent Stage or a Consultation on a Task.",
       });
     });
 

@@ -90,9 +90,11 @@ import type { CommitMessage, Publication, ResolveEnd, ResolveStart } from "../do
 import type { BranchUpdate, PublishingBranchPush } from "../domain/stage-commit.js";
 import {
   RunEnvironmentDefinitions,
+  type RunEnvironmentDefinitionCommit,
   type RunEnvironmentDefinitionFile,
   type RunEnvironmentDefinitionWriting,
 } from "./run-environment-definitions.js";
+import { TaskConsultations, type TaskConsultation } from "./task-consultations.js";
 import { TaskGit, type WorktreeHead } from "./task-git.js";
 import { TaskPublishing } from "./task-publishing.js";
 import { TaskRecords, type TaskRecord } from "./task-records.js";
@@ -117,6 +119,47 @@ export class RunEnvironmentDefinitionsForTests extends RunEnvironmentDefinitions
     return Promise.resolve(
       this.next ?? { written: true, paths: files.map(({ path }) => path), service: "app" },
     );
+  }
+
+  /** Every write and commit asked, in order. */
+  readonly commits: {
+    worktree: string;
+    files: readonly RunEnvironmentDefinitionFile[];
+    message: string;
+  }[] = [];
+
+  /** The commit a written definition is committed as. */
+  commit = "4f2a9c1e0b7d3a6c5e8f9a0b1c2d3e4f5a6b7c8d";
+
+  writeAndCommit(
+    worktree: string,
+    files: readonly RunEnvironmentDefinitionFile[],
+    message: string,
+  ): Promise<RunEnvironmentDefinitionCommit> {
+    this.commits.push({ worktree, files, message });
+    const writing = this.next ?? {
+      written: true,
+      paths: files.map(({ path }) => path),
+      service: "app",
+    };
+    return Promise.resolve(writing.written ? { ...writing, commit: this.commit } : writing);
+  }
+}
+
+/** Conversations' Consultations on Tasks: a test puts each Consultation by its session. */
+@Injectable()
+export class TaskConsultationsForTests extends TaskConsultations {
+  readonly bySession = new Map<string, TaskConsultation>();
+  /** Every line logged, in order. */
+  readonly lines: { readonly threadId: string; readonly decisionId: string; text: string }[] = [];
+
+  consultationOnTask(sessionId: string): Promise<TaskConsultation | undefined> {
+    return Promise.resolve(this.bySession.get(sessionId));
+  }
+
+  logOfficeLine(threadId: string, decisionId: string, text: string): Promise<void> {
+    this.lines.push({ threadId, decisionId, text });
+    return Promise.resolve();
   }
 }
 
@@ -1095,6 +1138,8 @@ export class TaskCommandsForTests extends TaskCommands {
     ["lint", "lint"],
     ["test", "test"],
   ]);
+  /** Whom each command run, in order, was told to consult for a command the Project lacks. */
+  readonly setUpBy: ({ readonly name: string } | undefined)[] = [];
   /** Every command run, in order. */
   readonly ran: {
     readonly taskId: string;
@@ -1105,6 +1150,8 @@ export class TaskCommandsForTests extends TaskCommands {
   observe: ((call: "install" | "runCommand") => void) | undefined = undefined;
   /** Set while the next command runs until its signal stops it, as a hung test run would. */
   runsUntilStopped = false;
+  /** Set to have every command run in a run environment the Task's branch carries. */
+  inCarriedRunEnvironment = false;
 
   /**
    * Set to make the next command wait for a free run environment first: it tells the wait, then
@@ -1138,7 +1185,11 @@ export class TaskCommandsForTests extends TaskCommands {
     options: TaskCommandOptions,
   ): Promise<ScriptCommandResult> {
     const runs = await this.runsOf(taskId, key, stageRunId, options);
-    return { kind: this.commandKinds.get(key), runs };
+    return {
+      kind: this.commandKinds.get(key),
+      runs,
+      inCarriedRunEnvironment: this.inCarriedRunEnvironment,
+    };
   }
 
   /**
@@ -1165,9 +1216,10 @@ export class TaskCommandsForTests extends TaskCommands {
     taskId: string,
     key: string,
     stageRunId: string,
-    { signal, wait }: TaskCommandOptions,
+    { signal, wait, setUpBy }: TaskCommandOptions,
   ): Promise<readonly ScriptCommandRun[]> {
     this.observe?.("runCommand");
+    this.setUpBy.push(setUpBy);
     if (this.waitsUntil) {
       const waited = await this.waitFor(this.waitsUntil, signal, wait);
       this.waitsUntil = undefined;
@@ -1395,6 +1447,7 @@ export class PipelinesPortsForTestsModule {
       StageRoleEnginesForTests,
       RoleEngineCascadeForTests,
       RunEnvironmentDefinitionsForTests,
+      TaskConsultationsForTests,
       ProposalAppliers,
       PipelineRoleSources,
       TaskStageEdits,

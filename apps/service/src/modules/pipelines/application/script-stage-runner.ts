@@ -13,8 +13,10 @@ import { interruptedOutcome } from "../domain/stage-interruption.js";
 import type { StageOutcome } from "../domain/stage-run.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { TaskCommands } from "../ports/task-commands.js";
+import { KnownPeople } from "../ports/known-people.js";
 import { TaskRecords, type TaskRecord } from "../ports/task-records.js";
 import { BusyWork } from "../../office-updates/index.js";
+import { setUpByOf } from "./command-set-up-by.js";
 import { StageGit } from "./stage-git.js";
 import { StageRunWaits } from "./stage-run-waits.js";
 import type { StageRunner, StageWork } from "./stage-runner.js";
@@ -40,6 +42,7 @@ export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
     private readonly runs: StageRunRepository,
     private readonly busyWork: BusyWork,
     private readonly waits: StageRunWaits,
+    private readonly people: KnownPeople,
   ) {}
 
   onModuleInit(): void {
@@ -73,14 +76,15 @@ export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
         error: `${installFailure(failed)}\n\nThe Stage's command didn't run.`,
       };
     }
-    const { kind, runs: commandRuns } = await this.commands.runCommand(
-      task.project.id,
-      run.taskId,
-      command,
-      run.id,
-      options,
-    );
-    const ran = [...installed, ...commandRunsOf(commandRuns)];
+    const {
+      kind,
+      runs: commandRuns,
+      inCarriedRunEnvironment,
+    } = await this.commands.runCommand(task.project.id, run.taskId, command, run.id, {
+      ...options,
+      setUpBy: await setUpByOf(this.people),
+    });
+    const ran = [...installed, ...commandRunsOf(commandRuns, inCarriedRunEnvironment)];
     if (anyStopped(ran)) return this.stopped(work, task, expected, ran);
     await this.runs.saveCommandRuns(run.id, ran);
     const outcome = scriptStageOutcome(commandRuns);

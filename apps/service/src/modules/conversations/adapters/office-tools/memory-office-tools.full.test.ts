@@ -3,7 +3,7 @@ import { type HardSwitchValue } from "../../../people/index.js";
 import { aThread } from "../../domain/thread.fixtures.js";
 import {
   CHANGE_ROLE_TOOL,
-  PROJECT_SETTING_TOOLS,
+  CHANGE_PROJECT_SETTINGS_TOOL,
   READ_ROLE_TOOL,
   REMEMBER_TOOL,
   sessionOfficeTools,
@@ -75,7 +75,7 @@ describe("the Office tools of a session", () => {
     (changeProjectSettings) => {
       expect(
         sessionOfficeTools(["read_task"], card(false, NEVER, changeProjectSettings), false, true),
-      ).toEqual(["read_task", ...PROJECT_SETTING_TOOLS]);
+      ).toEqual(["read_task", CHANGE_PROJECT_SETTINGS_TOOL]);
     },
   );
 

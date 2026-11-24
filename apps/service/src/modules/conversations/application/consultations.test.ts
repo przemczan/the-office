@@ -81,6 +81,7 @@ import { sessionMcpServersStandIn } from "./session-mcp-servers.fixtures.js";
 import { ProjectOutputMasks } from "../ports/project-output-masks.js";
 import { ProjectOutputMasksForTests } from "../ports/project-output-masks.fixtures.js";
 import { SubAgentsAndProcesses } from "./sub-agents-and-processes.js";
+import { SessionStops } from "./session-stops.js";
 import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
 import { PostgresSubAgentAndProcessRepository } from "../adapters/postgres/postgres-sub-agent-and-process-repository.js";
 import { MCP_TOOL_DEFAULT_STAND_IN } from "../../people/index.fixtures.js";
@@ -261,6 +262,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
         useClass: PostgresSubAgentAndProcessRepository,
       },
       SubAgentsAndProcesses,
+      SessionStops,
       StageDecisions,
       InterruptedAnswers,
       DecisionService,
@@ -284,9 +286,11 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
           ],
   }));
   // As the Work, People and Skills modules register the tools a Consultation reads and drafts with.
-  for (const name of consultationOfficeTools(await duties.heldBy(consultantKey), true).filter(
-    (tool) => tool !== ANSWER_CONSULTATION_TOOL && tool !== CONSULT_TOOL,
-  )) {
+  for (const name of consultationOfficeTools(await duties.heldBy(consultantKey), {
+    canCall: true,
+    onTask: false,
+    runEnvironment: false,
+  }).filter((tool) => tool !== ANSWER_CONSULTATION_TOOL && tool !== CONSULT_TOOL)) {
     app.get(OfficeToolRegistry).register({
       name,
       description: `Reads ${name}.`,
@@ -571,7 +575,11 @@ describe("a consult of a hired Consultant", () => {
     const opening = consultantSession?.received[0];
     expect(opening?.step === "start" && opening.brief.text).toContain(QUESTION);
     expect(consultantSession?.options.officeTools.map(({ name }) => name)).toEqual([
-      ...consultationOfficeTools(await duties.heldBy(consultantKey), true),
+      ...consultationOfficeTools(await duties.heldBy(consultantKey), {
+        canCall: true,
+        onTask: false,
+        runEnvironment: false,
+      }),
     ]);
     const consultationLog = await threads.messages(consultation.id);
     expect(consultationLog).toContainEqual(
@@ -914,7 +922,11 @@ describe("a call from a chat", () => {
 
     const [, calleeSession] = engine.sessions;
     expect(calleeSession?.options.officeTools.map(({ name }) => name)).toEqual([
-      ...consultationOfficeTools(await duties.heldBy(devopsKey), true),
+      ...consultationOfficeTools(await duties.heldBy(devopsKey), {
+        canCall: true,
+        onTask: false,
+        runEnvironment: false,
+      }),
     ]);
     expect(calleeSession?.options.profile).toMatchObject({
       edit: false,

@@ -227,6 +227,24 @@ export function goldenCaseOutputs(
     ),
     "Consultation instructions, can call": consultationInstructions(prompts, PERSON, true),
     "Consultation instructions, can't call": consultationInstructions(prompts, PERSON, false),
+    "Consultation instructions, onboards Projects on a Task, writes the run environment":
+      consultationInstructions(prompts, PERSON, true, {
+        onboardsProjects: true,
+        onTask: true,
+        writesRunEnvironment: true,
+      }),
+    "Consultation instructions, onboards Projects on a Task": consultationInstructions(
+      prompts,
+      PERSON,
+      true,
+      { onboardsProjects: true, onTask: true, writesRunEnvironment: false },
+    ),
+    "Consultation instructions, onboards Projects on no Task": consultationInstructions(
+      prompts,
+      PERSON,
+      false,
+      { onboardsProjects: true, onTask: false, writesRunEnvironment: false },
+    ),
     "Handover request": handoverRequest(prompts),
     "new chat Brief, no Project": newChatThreadBrief(prompts, [], NO_MEMORY).text,
     "new chat Brief, base branches, one note": newChatThreadBrief(prompts, BASE_PROJECTS, ONE_NOTE)

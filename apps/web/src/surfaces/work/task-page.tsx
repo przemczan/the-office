@@ -22,6 +22,7 @@ import {
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { KindGlyph, PriorityGlyph, TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
+import { CarriedRunEnvironmentNote } from "./carried-run-environment-note.tsx";
 import { DropNote } from "./drop-note.tsx";
 import { OffBoardTaskBadge } from "../../shell/work/off-board-task-badge.tsx";
 import { OffBoardTaskNote } from "./off-board-task-note.tsx";
@@ -252,6 +253,7 @@ function TaskHead({
         className="task-head-actions"
       />
       <OffBoardTaskNote task={task} projects={projects} />
+      <CarriedRunEnvironmentNote task={task} projects={projects} />
       <StartNotes task={task} />
       <DropNote task={task} />
     </header>

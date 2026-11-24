@@ -231,6 +231,38 @@ describe("RunEnvironments.run", () => {
     );
   });
 
+  it("starts the run environment again on another folder of the Task, and again on its own", async () => {
+    const task = await taskWithDefinition("task-1");
+    await testbed.environments.run(task, command(outputOf("first")));
+    // As the environment check runs in a throwaway worktree of the Task.
+    const throwaway = { ...task, worktree: join(testbed.folder, "throwaway", "task-1") };
+    await writeFiles(throwaway.worktree, DEFINITION);
+
+    await testbed.environments.run(throwaway, command(outputOf("throwaway")));
+    await testbed.environments.run(task, command(outputOf("own again")));
+
+    const name = composeProjectNameOf(testbed.folders.instance, "task-1");
+    expect(runtime.steps.filter((step) => step.endsWith(name))).toEqual([
+      `up ${name}`,
+      `exec ${name}`,
+      `stop ${name}`,
+      `up ${name}`,
+      `exec ${name}`,
+      `stop ${name}`,
+      `up ${name}`,
+      `exec ${name}`,
+    ]);
+    expect(await readFile(outputOf("throwaway"), "utf8")).toContain(
+      `The run environment runs on another folder; starting it again on ${throwaway.worktree}.`,
+    );
+    const override = await readFile(
+      join(testbed.folders.taskFolder("task-1"), "office-override.yaml"),
+      "utf8",
+    );
+    expect(override).toContain(task.worktree);
+    expect(override).not.toContain(throwaway.worktree);
+  });
+
   it("frees the slot when the run environment doesn't start", async () => {
     const first = await taskWithDefinition("task-1");
     const second = await taskWithDefinition("task-2");

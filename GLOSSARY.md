@@ -366,7 +366,7 @@ One author's neighbouring messages in a Thread, shown together under one name.
 _Avoid_: Bubble
 
 **Consultation**:
-A Thread in which a Consultant answers what another person asks them: a Decision, answered as the same form the user would answer, approval of a call past a Hard switch, or a Request. It is on the asker's Task, or in the Consultant's own chat for a call made outside a Task; the Consultant works in it with their own tools and permissions and changes no file. On a Task the user can read it or take it over, but not join it.
+A Thread in which a Consultant answers what another person asks them: a Decision, answered as the same form the user would answer, approval of a call past a Hard switch, or a Request. It is on the asker's Task, or in the Consultant's own chat for a call made outside a Task; the Consultant works in it with their own tools and permissions and changes no file, but for one exception: on a Task, a Consultant whose Role has the Run environment capability writes `.devcontainer/` with `write_run_environment_definition`, committed on the Task's branch ([§6](docs/spec/6-permissions-and-safety.md#the-one-exception-the-run-environment-definition)). On a Task the user can read it or take it over, but not join it.
 _Avoid_: Delegation, escalation (for this), handoff
 
 **Request**:
@@ -522,7 +522,7 @@ Making a Project build and test in a fresh worktree on the workstation, done by 
 _Avoid_: Setup, initialization, provisioning
 
 **Run environment**:
-A Project's containers, defined by its repository's `.devcontainer/` (devcontainer.json and the compose files it names), that its checks run in when the Project's Run environment setting is On. The setting is "Not decided yet" until the user picks On or Off, the checks running on the workstation meanwhile, and On needs a valid definition on the base branch. "Set up run environment" turns it On at once when there is one, else makes and starts the Project's "Set up the run environment" Off-board Task, in which Devops writes it with The Office's `write_run_environment_definition`, which checks it first, and its Done turns the setting On.
+A Project's containers, defined by its repository's `.devcontainer/` (devcontainer.json and the compose files it names), that its checks run in when the Project's Run environment setting is On. The setting is "Not decided yet" until the user picks On or Off, the checks running on the workstation meanwhile except a Task whose branch carries a valid definition, which runs in its own run environment and turns the setting On once that definition lands on the base branch; On needs a valid definition on the base branch. "Set up run environment" turns it On at once when there is one, else makes and starts the Project's "Set up the run environment" Off-board Task, in which Devops writes it with The Office's `write_run_environment_definition`, which checks it first, and its Done turns the setting On.
 _Avoid_: dev container, sandbox
 
 **CPU limit**:
@@ -684,7 +684,7 @@ A job the user hires for, filled by one named person: its responsibilities, inst
 _Avoid_: Persona, profile, agent type
 
 **Role card**:
-Everything that defines a Role: its person's name and title, responsibilities, instructions, model and effort for each engine type, capabilities (shared memory, chat, Consultant, Run environment: in an Agent Stage, writing a Project's run environment definition through The Office's `write_run_environment_definition`), permission profile, authority, Task limit and Skills.
+Everything that defines a Role: its person's name and title, responsibilities, instructions, model and effort for each engine type, capabilities (shared memory, chat, Consultant, Run environment: in an Agent Stage or a Consultation on a Task, writing a Project's run environment definition through The Office's `write_run_environment_definition`), permission profile, authority, Task limit and Skills.
 _Avoid_: Role config, definition, settings
 
 **Duty**:

@@ -30,4 +30,10 @@ export abstract class ProjectSettings {
 
   /** A set-up Task is Done: On with no problems, else the setting stays and they say why. */
   abstract finishSetUp(projectId: string, definitionProblems: readonly string[]): Promise<void>;
+
+  /**
+   * A Task's change carrying a valid definition landed on the base branch: On while Not decided
+   * yet, an explicit On or Off kept. Nobody turned the switch, so no change is recorded.
+   */
+  abstract landDefinition(projectId: string): Promise<void>;
 }

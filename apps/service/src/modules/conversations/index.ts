@@ -2,6 +2,10 @@ export { ContextPolicySettingsService } from "./application/context-policy-setti
 export type { StageContextLimits } from "./domain/stage-context-limits.js";
 export { DecisionService, type DecisionWaitingOnTheUser } from "./application/decision-service.js";
 export {
+  ConsultationsOnTasks,
+  type ConsultationOnTask,
+} from "./application/consultations-on-tasks.js";
+export {
   InitiativeThreadSetups,
   type InitiativeThreadRequest,
   type InitiativeThreadSetup,
@@ -87,9 +91,7 @@ export type {
 } from "./domain/proposal.js";
 export {
   CALLING_RULE,
-  CHANGE_ACTIONS_TOOL,
-  CHANGE_PROJECT_COMMANDS_TOOL,
-  CHANGE_TEST_TARGETS_TOOL,
+  CHANGE_PROJECT_SETTINGS_TOOL,
   LIST_PIPELINES_TOOL,
   PROPOSE_ACTIONS_TOOL,
   PROPOSE_PROJECT_COMMANDS_TOOL,
@@ -103,5 +105,6 @@ export {
   READ_STAGE_HISTORY_TOOL,
   READ_THREADS_TOOL,
   READING_OFFICE_TOOLS,
+  RUN_ENVIRONMENT_CHECK_TOOL,
 } from "./domain/session-instructions.js";
 export { ProposalRefused } from "./domain/proposal-refused.js";

@@ -18,4 +18,25 @@ export abstract class RunEnvironmentDefinitions {
     worktree: string,
     files: readonly RunEnvironmentDefinitionFile[],
   ): Promise<RunEnvironmentDefinitionWriting>;
+
+  /**
+   * Writes the definition as `write` does, then commits only `.devcontainer/` on the Task's branch
+   * with `message`, leaving everything else in the worktree as it was. Refused, with nothing
+   * written, while `.devcontainer/` has changes not committed yet.
+   */
+  abstract writeAndCommit(
+    worktree: string,
+    files: readonly RunEnvironmentDefinitionFile[],
+    message: string,
+  ): Promise<RunEnvironmentDefinitionCommit>;
 }
+
+/** How writing and committing the definition went: as writing it, with the commit when written. */
+export type RunEnvironmentDefinitionCommit =
+  | {
+      readonly written: true;
+      readonly paths: readonly string[];
+      readonly service: string;
+      readonly commit: string;
+    }
+  | { readonly written: false; readonly problems: readonly string[] };

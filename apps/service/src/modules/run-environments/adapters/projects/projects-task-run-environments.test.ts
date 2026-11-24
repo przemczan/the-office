@@ -204,4 +204,21 @@ describe("Projects' run environments", () => {
     expect(install?.args).toEqual({});
     expect(install?.image).not.toContain("npm_s3cret");
   });
+
+  it("says a worktree carries a definition only when its .devcontainer/ is valid", async () => {
+    const task = await aTask("task-1");
+    const bare = join(testbed.folder, "worktrees", "bare");
+    const broken = join(testbed.folder, "worktrees", "broken");
+    await writeFiles(bare, { "README.md": "# Shop\n" });
+    await writeFiles(broken, {
+      ".devcontainer/devcontainer.json": `{ "dockerComposeFile": "compose.yaml", "service": "web" }`,
+      ".devcontainer/compose.yaml": "services:\n  app:\n    image: node:22\n",
+    });
+
+    expect(await registry.carriesDefinition(task.worktree)).toBe(true);
+    expect(await registry.carriesDefinition(bare)).toBe(false);
+    expect(await registry.carriesDefinition(broken)).toBe(false);
+    expect(await registry.carriesDefinition(join(testbed.folder, "worktrees", "gone"))).toBe(false);
+    expect(runtime.steps).toEqual([]);
+  });
 });

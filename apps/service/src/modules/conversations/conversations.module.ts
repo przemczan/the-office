@@ -32,6 +32,7 @@ import { DecisionOfficeTools } from "./adapters/office-tools/decision-office-too
 import { LinkCardOfficeTools } from "./adapters/office-tools/link-card-office-tools.js";
 import { ProjectCommandOfficeTools } from "./adapters/office-tools/project-command-office-tools.js";
 import { ProjectSettingOfficeTools } from "./adapters/office-tools/project-setting-office-tools.js";
+import { EnvironmentCheckOfficeTools } from "./adapters/office-tools/environment-check-office-tools.js";
 import { TestTargetOfficeTools } from "./adapters/office-tools/test-target-office-tools.js";
 import { ActionOfficeTools } from "./adapters/office-tools/action-office-tools.js";
 import { ProjectsTestTargetsChatRegistration } from "./adapters/projects/projects-test-targets-chat-registration.js";
@@ -54,6 +55,8 @@ import { LiveViewWebEvents } from "./adapters/websocket/live-view-web-events.js"
 import { ThreadWebEvents } from "./adapters/websocket/thread-web-events.js";
 import { Briefs } from "./application/briefs.js";
 import { Consultations } from "./application/consultations.js";
+import { ConsultationsOnTasks } from "./application/consultations-on-tasks.js";
+import { SessionStops } from "./application/session-stops.js";
 import { ContextPolicySettingsService } from "./application/context-policy-settings.js";
 import { BugTaskDecisions } from "./application/bug-task-decisions.js";
 import { DecisionService } from "./application/decision-service.js";
@@ -173,6 +176,7 @@ export class ConversationsModule implements NestModule {
           useClass: PostgresSubAgentAndProcessRepository,
         },
         SubAgentsAndProcesses,
+        SessionStops,
         ChatActivity,
         ContextPolicySettingsService,
         OfficeInstructions,
@@ -197,6 +201,7 @@ export class ConversationsModule implements NestModule {
         DecisionService,
         BugTaskDecisions,
         Consultations,
+        ConsultationsOnTasks,
         FireAlarmInThreads,
         FireAlarmLifts,
         AllowChanges,
@@ -221,6 +226,7 @@ export class ConversationsModule implements NestModule {
         BugTaskOfficeTools,
         RoleOfficeTools,
         ProjectSettingOfficeTools,
+        EnvironmentCheckOfficeTools,
         ProposalOfficeTools,
         PromptTemplateOfficeTools,
         ProjectCommandOfficeTools,
@@ -242,6 +248,7 @@ export class ConversationsModule implements NestModule {
       ],
       exports: [
         ContextPolicySettingsService,
+        ConsultationsOnTasks,
         DecisionService,
         FireAlarmInThreads,
         InterruptedAnswers,

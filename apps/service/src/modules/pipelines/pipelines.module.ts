@@ -60,6 +60,7 @@ import { StageRoleEngines } from "./ports/stage-role-engines.js";
 import { StageThreadMessages } from "./ports/stage-thread-messages.js";
 import { StageThreads } from "./ports/stage-threads.js";
 import { RunEnvironmentDefinitions } from "./ports/run-environment-definitions.js";
+import { TaskConsultations } from "./ports/task-consultations.js";
 import { StaffingHoldRepository } from "./ports/staffing-hold-repository.js";
 import { StartedTasks } from "./ports/started-tasks.js";
 import { TaskCommands } from "./ports/task-commands.js";
@@ -99,6 +100,8 @@ export interface PipelinesModuleOptions {
   /** People's engine cascade, for the engines a Task's Roles run on. */
   readonly roleEngineCascade: Type<RoleEngineCascade>;
   readonly runEnvironmentDefinitions: Type<RunEnvironmentDefinitions>;
+  /** Conversations' Consultations on Tasks, whose Consultants write the definition too. */
+  readonly taskConsultations: Type<TaskConsultations>;
   readonly pipelineInitiatives: Type<PipelineInitiatives>;
 }
 
@@ -128,6 +131,7 @@ export class PipelinesModule {
     stageRoleEngines,
     roleEngineCascade,
     runEnvironmentDefinitions,
+    taskConsultations,
     pipelineInitiatives,
   }: PipelinesModuleOptions): DynamicModule {
     return {
@@ -170,6 +174,7 @@ export class PipelinesModule {
         { provide: StageRoleEngines, useExisting: stageRoleEngines },
         { provide: RoleEngineCascade, useExisting: roleEngineCascade },
         { provide: RunEnvironmentDefinitions, useExisting: runEnvironmentDefinitions },
+        { provide: TaskConsultations, useExisting: taskConsultations },
         { provide: PipelineInitiatives, useExisting: pipelineInitiatives },
         { provide: StaffingHoldRepository, useClass: PostgresStaffingHoldRepository },
         RoleFillings,

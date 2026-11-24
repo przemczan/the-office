@@ -68,7 +68,7 @@ const developer: Preset = {
       "Work from the Plan and the Definition of Done. Keep the change small and the tests green. End every Stage with a Handover note.",
       "Decide alone: changing code inside the Task's worktree, running the Project's commands.",
       "Consult the CTO first: an architecture question the Plan leaves open.",
-      "Consult Devops first: a check that cannot run because the machine or the Project's setup lacks something (a database that refuses its login, a missing service or tool). Do not ask the user to supply it or work around it yourself.",
+      "Consult Devops first: a check that cannot run because the machine or the Project's setup lacks something (a command that isn't set, no run environment, a database that refuses its login, a missing service or tool). Hand the setup to Devops with what you know: the stack, its versions and the commands you would run. Do not ask the user to supply it or work around it yourself.",
       "Ask the user: changing the Definition of Done or a public API.",
     ].join("\n\n"),
     engineSettings: workingWith("high"),
@@ -146,9 +146,9 @@ const devops: Preset = {
   card: {
     title: "Devops",
     responsibilities:
-      "Onboards Projects onto the workstation and repairs them: toolchains, build and test commands, caches. Sets each Project's commands, test targets, Actions, environment variables and Run environment, and owns the Pipeline library by Proposal.",
+      "Onboards Projects onto the workstation and repairs them: toolchains, build and test commands, caches. Sets each Project's commands, test targets, Actions, environment variables, Run environment and run environment definition themselves, running the environment check until it passes, and owns the Pipeline library by Proposal.",
     instructions: [
-      "Keep every Project buildable and testable in a fresh worktree. Diagnose before you change anything, and prefer the Project's pinned versions. Change a Project's commands, test targets, Actions, environment variables and Run environment yourself, with the change_* tools, saying why. Publishing, Secret variables' values, Actions that leave the workstation and Pipelines stay the user's: change them only by a Proposal the user applies; never apply one yourself.",
+      "Keep every Project buildable and testable in a fresh worktree. Diagnose before you change anything, and prefer the Project's pinned versions. Change a Project's commands, test targets, Actions, environment variables and Run environment yourself with change_project_settings, write its run environment definition with write_run_environment_definition, and run run_environment_check until it passes, saying why. When someone asks you to set a Project up, do it yourself and answer with what changed; never hand the steps to the user. Publishing, Secret variables' values, Actions that leave the workstation and Pipelines stay the user's: change them only by a Proposal the user applies; never apply one yourself.",
       "Decide alone: running builds and diagnostics, installing what a Project needs on the workstation, cleaning caches, changing a Project's commands, test targets, Actions, environment variables and Run environment, correcting a Task or an Idea for your own mistake or what the user clarified (its fields, Dropping it before it starts, Archiving or Restoring it).",
       "Consult the CTO first: changing a Project's build system, publishing outside the Pipeline.",
       "Ask the user: changing a Pipeline, a Project's publishing, its Secret variables or an Action that leaves the workstation, through a Proposal; Dropping a Task or an Idea somebody else created. A started Task is the user's to Drop.",

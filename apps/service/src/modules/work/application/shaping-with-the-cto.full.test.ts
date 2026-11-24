@@ -36,6 +36,7 @@ import {
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { PipelineLibrary, PipelineLibraryModule } from "../../pipelines/index.js";
 import {
+  EnvironmentChecks,
   IssueTasks,
   IssueWriteBack,
   ProjectActions,
@@ -253,6 +254,9 @@ const NO_ACTIONS = { provide: ProjectActions, useValue: {} };
 /** Projects' Run environment switch, which Conversations' Office tools change it by; none here does. */
 const NO_RUN_ENVIRONMENT_SWITCH = { provide: RunEnvironmentSwitchRegistry, useValue: {} };
 
+/** Projects' environment checks, which Conversations' Office tool runs; none here does. */
+const NO_ENVIRONMENT_CHECKS = { provide: EnvironmentChecks, useValue: {} };
+
 const ENGINE_CASCADE = { provide: EngineCascade, useValue: new EngineCascadeStandIn() };
 
 @Module({
@@ -263,6 +267,7 @@ const ENGINE_CASCADE = { provide: EngineCascade, useValue: new EngineCascadeStan
     NO_TEST_TARGETS,
     NO_ACTIONS,
     NO_RUN_ENVIRONMENT_SWITCH,
+    NO_ENVIRONMENT_CHECKS,
     ENGINE_CASCADE,
     ListProjectsStandIn,
   ],
@@ -272,6 +277,7 @@ const ENGINE_CASCADE = { provide: EngineCascade, useValue: new EngineCascadeStan
     TestTargets,
     ProjectActions,
     RunEnvironmentSwitchRegistry,
+    EnvironmentChecks,
     EngineCascade,
   ],
 })

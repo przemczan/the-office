@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { aThread } from "../../domain/thread.fixtures.js";
-import { PROJECT_SETTING_TOOLS, sessionOfficeTools } from "../../domain/session-instructions.js";
+import {
+  CHANGE_PROJECT_SETTINGS_TOOL,
+  sessionOfficeTools,
+} from "../../domain/session-instructions.js";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 import { SESSION, toolWith, card } from "./memory-office-tools.fixtures.js";
 
@@ -38,7 +41,7 @@ describe("the Office tools of a session", () => {
 
     expect(sessionOfficeTools(["read_task"], allowed, true, true)).toEqual([
       "read_task",
-      ...PROJECT_SETTING_TOOLS,
+      CHANGE_PROJECT_SETTINGS_TOOL,
     ]);
     expect(
       sessionOfficeTools(

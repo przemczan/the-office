@@ -8,6 +8,7 @@ import {
   type TaskRunEnvironmentCommand,
   type TaskRunEnvironmentRunner,
 } from "../../../projects/index.js";
+import { readDefinitionIn } from "../../application/definition-files.js";
 import { RunEnvironmentFolders } from "../../application/run-environment-folders.js";
 import { RunEnvironments, type CommandEnd } from "../../application/run-environments.js";
 import { RunEnvironmentRefused } from "../../domain/run-environment-refused.js";
@@ -97,6 +98,11 @@ export class ProjectsTaskRunEnvironments implements TaskRunEnvironmentRunner, On
     } finally {
       await rm(folder, { recursive: true, force: true });
     }
+  }
+
+  /** Whether the worktree's `.devcontainer/` is a valid definition, read as a start reads it. */
+  async carriesDefinition(worktree: string): Promise<boolean> {
+    return (await readDefinitionIn(worktree)).value !== undefined;
   }
 
   private async taskInWorktree(task: TaskInRunEnvironment): Promise<TaskInWorktree> {

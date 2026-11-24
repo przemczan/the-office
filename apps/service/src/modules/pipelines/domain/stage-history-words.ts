@@ -547,17 +547,31 @@ function commandParts(
   ];
 }
 
+/** Where a command ran while the Project's Run environment is Not decided yet and the branch carries one. */
+const CARRIED_RUN_ENVIRONMENT_WORDS =
+  "Runs in this Task's run environment (its branch carries the definition)";
+
 function commandHeading(
   stages: readonly Stage[],
-  { purpose, commandLine, outcome, exitCode, durationMs, movedFiles, condition }: StageCommandRun,
+  {
+    purpose,
+    commandLine,
+    outcome,
+    exitCode,
+    durationMs,
+    movedFiles,
+    condition,
+    inCarriedRunEnvironment,
+  }: StageCommandRun,
 ): string {
   const exit = exitCode === undefined ? "no exit code" : `exit code ${exitCode}`;
   const moved =
     movedFiles && movedFiles.paths.length > 0
       ? `\n   Files the test run wrote, moved out of the worktree: ${movedFiles.paths.join(", ")}`
       : "";
+  const carried = inCarriedRunEnvironment ? `\n   ${CARRIED_RUN_ENVIRONMENT_WORDS}.` : "";
   const forCondition = condition ? conditionWords(stages, purpose, condition.to) : "";
-  return `${PURPOSE_WORDS[purpose]}${forCondition}: \`${commandLine}\`, ${OUTCOME_WORDS[outcome]}, ${exit}, ${durationWords(durationMs)}.${moved}\n   Output:`;
+  return `${PURPOSE_WORDS[purpose]}${forCondition}: \`${commandLine}\`, ${OUTCOME_WORDS[outcome]}, ${exit}, ${durationWords(durationMs)}.${carried}${moved}\n   Output:`;
 }
 
 /** Which route a condition command, or the install before it, was run for. */

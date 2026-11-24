@@ -1506,6 +1506,20 @@
       "when": 1795512773246,
       "tag": "0214_project_setting_briefs",
       "breakpoints": true
+    },
+    {
+      "idx": 215,
+      "version": "7",
+      "when": 1795515671277,
+      "tag": "0215_environment_check_task",
+      "breakpoints": true
+    },
+    {
+      "idx": 216,
+      "version": "7",
+      "when": 1795518206897,
+      "tag": "0216_built_in_setup_briefs",
+      "breakpoints": true
     }
   ]
 }

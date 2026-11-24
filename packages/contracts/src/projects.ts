@@ -716,6 +716,8 @@ export type EnvironmentCheckState = z.infer<typeof environmentCheckStateSchema>;
 /** A try of the Project's saved environment in a fresh worktree; it changes nothing. */
 export const environmentCheckSchema = z.object({
   projectId: z.string(),
+  /** The Task whose branch it checked; absent for the base branch. */
+  taskId: z.uuid().optional(),
   environment: projectEnvironmentSchema,
   state: environmentCheckStateSchema,
   /** The worktree's check, then install, then each command in the Project's order. */
@@ -935,6 +937,19 @@ export const taskChangesSchema = z.object({
   diffCut: z.boolean(),
 });
 export type TaskChanges = z.infer<typeof taskChangesSchema>;
+
+/**
+ * GET /projects/:id/tasks/:taskId/run-environment: where the Task's commands run, as the Task page
+ * says it.
+ */
+export const taskRunEnvironmentSchema = z.object({
+  /**
+   * True only while the Project's Run environment is Not decided yet and the Task's worktree carries
+   * a valid definition, so its commands run in its own run environment; false under On or Off.
+   */
+  carriesDefinition: z.boolean(),
+});
+export type TaskRunEnvironment = z.infer<typeof taskRunEnvironmentSchema>;
 
 /** The Project settings whose changes are recorded (spec §6, "Project settings by Agents"). */
 export const projectSettingSchema = z.enum([

@@ -320,6 +320,13 @@ export const READ_SKILL_UPDATE_TOOL = "read_skill_update";
 export const PROPOSE_SKILL_UPDATE_TOOL = "propose_skill_update";
 
 /**
+ * The Office tool whoever onboards and repairs Projects checks a Project's setup with: the
+ * environment check of the Task's branch on a Task, or of the base branch elsewhere, its answer
+ * waited for. It installs, so the Run installs Hard switch holds it.
+ */
+export const RUN_ENVIRONMENT_CHECK_TOOL = "run_environment_check";
+
+/**
  * The Office tool whoever onboards Projects reads a repository with before it is a Project, on the
  * workstation by its path or on a host by its Repository URL, which Projects registers: its
  * branches, and the names and manifest files of one folder at a time.
@@ -445,8 +452,8 @@ function draftingOfficeTools(held: HeldDuties): readonly string[] {
 /**
  * The Office tools a person has in their chat and their Stage Threads alike, for the duties they
  * hold: whoever onboards and repairs Projects proposes Project commands, test targets, Actions, library
- * Pipelines, Project Pipelines and Stage templates, drafts a Project to onboard, and installs and
- * updates skills from a Source (spec §2.1, §2.2, §2.3, §2.6).
+ * Pipelines, Project Pipelines and Stage templates, drafts a Project to onboard, installs and
+ * updates skills from a Source, and runs the environment check (spec §2.1, §2.2, §2.3, §2.6, §5.5).
  */
 export function roleOfficeTools(held: HeldDuties): readonly string[] {
   return held.includes("onboards-projects")
@@ -460,14 +467,16 @@ export function roleOfficeTools(held: HeldDuties): readonly string[] {
         PROPOSE_SKILL_INSTALL_TOOL,
         READ_SKILL_UPDATE_TOOL,
         PROPOSE_SKILL_UPDATE_TOOL,
+        RUN_ENVIRONMENT_CHECK_TOOL,
       ]
     : [];
 }
 
 /**
- * The Office tools only an Agent Stage's session gets, as its card's capabilities say: the Run
+ * The Office tools an Agent Stage's session gets as its card's capabilities say: the Run
  * environment capability writes the run environment definition, in the Task's worktree, which
- * Write and Edit can't reach (spec §2.2, §6). A chat, a Planning Thread or a Consultation has none.
+ * Write and Edit can't reach (spec §2.2, §6). Of these, only a Consultation on a Task gets it too
+ * (`consultationOfficeTools`); a chat or a Planning Thread has none.
  */
 export function stageCapabilityOfficeTools(capabilities: {
   readonly runEnvironment: boolean;
@@ -481,14 +490,28 @@ export function stageCapabilityOfficeTools(capabilities: {
  */
 export const ANSWER_CONSULTATION_TOOL = "answer_consultation";
 
+/** Where a Consultation sits and what its Consultant's card allows, which decide its tools. */
+export interface ConsultationPlace {
+  /** The chain of calls allows one more, so the Consultant may call someone. */
+  readonly canCall: boolean;
+  /** It is on a Task, so it has the Task's worktree to write the run environment definition in. */
+  readonly onTask: boolean;
+  /** The Consultant's card has the Run environment capability now. */
+  readonly runEnvironment: boolean;
+}
+
 /**
  * The Office tools a Consultant works a Consultation with: their own, never the asker's (spec §6).
  * They read every record and the Stage history, give their answer, and draft what their chat
  * drafts (an Idea, a Task in Backlog, a skill and their duties' Proposals), which the user applies.
  * They call someone themselves while the chain of calls allows one more (`canCall`); they open no
- * Decision of their own and change no file.
+ * Decision of their own and change no file, but for the run environment definition, which a
+ * Consultant whose card has the Run environment capability writes on a Task, as in an Agent Stage.
  */
-export function consultationOfficeTools(held: HeldDuties, canCall: boolean): readonly string[] {
+export function consultationOfficeTools(
+  held: HeldDuties,
+  { canCall, onTask, runEnvironment }: ConsultationPlace,
+): readonly string[] {
   return [
     ...PERSON_READING_OFFICE_TOOLS,
     ANSWER_CONSULTATION_TOOL,
@@ -496,6 +519,7 @@ export function consultationOfficeTools(held: HeldDuties, canCall: boolean): rea
     "create_task",
     PROPOSE_SKILL_TOOL,
     ...draftingOfficeTools(held),
+    ...(onTask ? stageCapabilityOfficeTools({ runEnvironment }) : []),
     ...(canCall ? [CONSULT_TOOL] : []),
   ];
 }
@@ -509,27 +533,16 @@ export const REMEMBER_TOOL = "remember";
 export const CHANGE_ROLE_TOOL = "change_role";
 
 /**
- * The Office tools an Agent changes a Project's everyday settings with (spec §6, "Project settings
- * by Agents"); they sit behind the Change Project settings Hard switch.
+ * The Office tool an Agent changes a Project's everyday settings with, every section of a setup in
+ * one call (spec §6, "Project settings by Agents"); it sits behind the Change Project settings Hard
+ * switch.
  */
-export const CHANGE_RUN_ENVIRONMENT_TOOL = "change_run_environment";
-export const CHANGE_PROJECT_COMMANDS_TOOL = "change_project_commands";
-export const CHANGE_TEST_TARGETS_TOOL = "change_test_targets";
-export const CHANGE_ACTIONS_TOOL = "change_actions";
-export const CHANGE_ENVIRONMENT_VARIABLES_TOOL = "change_environment_variables";
-
-export const PROJECT_SETTING_TOOLS = [
-  CHANGE_RUN_ENVIRONMENT_TOOL,
-  CHANGE_PROJECT_COMMANDS_TOOL,
-  CHANGE_TEST_TARGETS_TOOL,
-  CHANGE_ACTIONS_TOOL,
-  CHANGE_ENVIRONMENT_VARIABLES_TOOL,
-] as const;
+export const CHANGE_PROJECT_SETTINGS_TOOL = "change_project_settings";
 
 /**
  * The Office tools a session gets: its place's; `remember` when its card has Shared memory;
  * `change_role` on a Task, where a held call has a Thread to wait in (`callsCanWait`), unless its
- * Change Roles is Never, with `read_role` to start the change from; and the Project setting tools
+ * Change Roles is Never, with `read_role` to start the change from; and `change_project_settings`
  * in an Agent Stage or a Consultation on a Task (`changesProjectSettings`), unless its Change
  * Project settings is Never. A chat, a Planning Thread and a person's Thread on a Task never get
  * them.
@@ -555,8 +568,10 @@ export function sessionOfficeTools(
     ...(callsCanWait && hardSwitches.changeRoles.kind !== "never"
       ? [CHANGE_ROLE_TOOL, ...(placeTools.includes(READ_ROLE_TOOL) ? [] : [READ_ROLE_TOOL])]
       : []),
-    ...(changesProjectSettings && hardSwitches.changeProjectSettings.kind !== "never"
-      ? PROJECT_SETTING_TOOLS.filter((name) => !placeTools.includes(name))
+    ...(changesProjectSettings &&
+    hardSwitches.changeProjectSettings.kind !== "never" &&
+    !placeTools.includes(CHANGE_PROJECT_SETTINGS_TOOL)
+      ? [CHANGE_PROJECT_SETTINGS_TOOL]
       : []),
   ];
 }

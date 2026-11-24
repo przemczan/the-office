@@ -70,6 +70,159 @@ describe("CommandLineGit.commit", REAL_GIT_TEST, () => {
   });
 });
 
+describe("CommandLineGit.commitFolder", REAL_GIT_TEST, () => {
+  it("commits only the folder, its new files included, leaving other staged and unstaged changes as they were", async () => {
+    const worktree = await worktrees.aWorktree();
+    await writeFile(join(worktree.path, "staged.txt"), "staged\n");
+    gitIn(worktree.path, "add", "staged.txt");
+    await writeFile(join(worktree.path, "src", "index.ts"), "export const unstaged = true;\n");
+    await writeFile(join(worktree.path, "untracked.txt"), "untracked\n");
+    await mkdir(join(worktree.path, ".devcontainer"));
+    await writeFile(join(worktree.path, ".devcontainer", "devcontainer.json"), "{}\n");
+    const statusBefore = gitIn(worktree.path, "status", "--porcelain", "--", ":!.devcontainer");
+
+    const commit = await git.commitFolder(
+      worktree.path,
+      ".devcontainer",
+      "Add the run environment",
+      serviceVariables,
+    );
+
+    expect(commit).toMatch(/^[0-9a-f]{40}$/);
+    await expect(git.head(worktree.path)).resolves.toEqual({ commit, branch: worktree.branch });
+    expect(gitIn(worktree.path, "log", "-1", "--format=%B")).toBe("Add the run environment");
+    expect(gitIn(worktree.path, "show", "--name-only", "--format=", "HEAD")).toBe(
+      ".devcontainer/devcontainer.json",
+    );
+    expect(gitIn(worktree.path, "status", "--porcelain")).toBe(statusBefore);
+    expect(gitIn(worktree.path, "diff", "--cached", "--name-only")).toBe("staged.txt");
+    expect(gitIn(worktree.path, "diff", "--name-only")).toBe("src/index.ts");
+    expect(gitIn(worktree.path, "ls-files", "--others", "--exclude-standard")).toBe(
+      "untracked.txt",
+    );
+  });
+
+  it("commits nothing when the folder is as committed", async () => {
+    const worktree = await worktrees.aWorktree();
+    const head = gitIn(worktree.path, "rev-parse", "HEAD");
+    await writeFile(join(worktree.path, "other.txt"), "other\n");
+
+    await expect(
+      git.commitFolder(worktree.path, ".devcontainer", "Nothing", serviceVariables),
+    ).resolves.toBeUndefined();
+    expect(gitIn(worktree.path, "rev-parse", "HEAD")).toBe(head);
+  });
+});
+
+describe("CommandLineGit.restoreFolder", REAL_GIT_TEST, () => {
+  it("puts the folder back as HEAD has it, staged, unstaged and untracked, leaving everything else as it was", async () => {
+    const worktree = await worktrees.aWorktree();
+    await mkdir(join(worktree.path, ".devcontainer"));
+    await writeFile(join(worktree.path, ".devcontainer", "devcontainer.json"), "{}\n");
+    await writeFile(join(worktree.path, ".devcontainer", "Dockerfile"), "FROM node:22\n");
+    gitIn(worktree.path, "add", ".devcontainer");
+    gitIn(worktree.path, "commit", "--quiet", "--message", "Add the definition");
+    await writeFile(join(worktree.path, "staged.txt"), "staged\n");
+    gitIn(worktree.path, "add", "staged.txt");
+    await writeFile(join(worktree.path, "src", "index.ts"), "export const unstaged = true;\n");
+    await writeFile(join(worktree.path, "untracked.txt"), "untracked\n");
+    const statusBefore = gitIn(worktree.path, "status", "--porcelain", "--", ":!.devcontainer");
+    await writeFile(join(worktree.path, ".devcontainer", "devcontainer.json"), "{ }\n");
+    await rm(join(worktree.path, ".devcontainer", "Dockerfile"));
+    await writeFile(join(worktree.path, ".devcontainer", "compose.yaml"), "services:\n");
+    gitIn(worktree.path, "add", "--all", ".devcontainer");
+    await mkdir(join(worktree.path, ".devcontainer", "scripts"));
+    await writeFile(join(worktree.path, ".devcontainer", "scripts", "start.sh"), "true\n");
+
+    const paths = await git.restoreFolder(worktree.path, ".devcontainer", serviceVariables);
+
+    expect(paths.toSorted()).toEqual([
+      ".devcontainer/Dockerfile",
+      ".devcontainer/compose.yaml",
+      ".devcontainer/devcontainer.json",
+      ".devcontainer/scripts/start.sh",
+    ]);
+    expect(gitIn(worktree.path, "status", "--porcelain", "--", ".devcontainer")).toBe("");
+    await expect(
+      readFile(join(worktree.path, ".devcontainer", "devcontainer.json"), "utf8"),
+    ).resolves.toBe("{}\n");
+    await expect(
+      readFile(join(worktree.path, ".devcontainer", "Dockerfile"), "utf8"),
+    ).resolves.toBe("FROM node:22\n");
+    expect(gitIn(worktree.path, "status", "--porcelain")).toBe(statusBefore);
+    expect(gitIn(worktree.path, "diff", "--cached", "--name-only")).toBe("staged.txt");
+  });
+
+  it("removes a folder HEAD doesn't have, staged or not, and only it", async () => {
+    const worktree = await worktrees.aWorktree();
+    await mkdir(join(worktree.path, ".devcontainer"));
+    await writeFile(join(worktree.path, ".devcontainer", "devcontainer.json"), "{}\n");
+    gitIn(worktree.path, "add", ".devcontainer");
+    await writeFile(join(worktree.path, ".devcontainer", "compose.yaml"), "services:\n");
+    await writeFile(join(worktree.path, "untracked.txt"), "untracked\n");
+
+    await git.restoreFolder(worktree.path, ".devcontainer", serviceVariables);
+
+    await expect(
+      readFile(join(worktree.path, ".devcontainer", "devcontainer.json")),
+    ).rejects.toThrow(/ENOENT/);
+    expect(gitIn(worktree.path, "status", "--porcelain")).toBe("?? untracked.txt");
+    await expect(
+      git.restoreFolder(worktree.path, ".devcontainer", serviceVariables),
+    ).resolves.toEqual([]);
+  });
+
+  it("puts back what a commit refused during a merge wrote, the merge left in progress", async () => {
+    const worktree = await worktrees.aWorktree();
+    await writeFile(join(worktree.path, "src", "index.ts"), "export const ours = true;\n");
+    gitIn(worktree.path, "commit", "--quiet", "--all", "--message", "Ours");
+    gitIn(worktree.path, "checkout", "--quiet", "-b", `${worktree.branch}-theirs`, "HEAD~1");
+    await writeFile(join(worktree.path, "src", "index.ts"), "export const theirs = true;\n");
+    gitIn(worktree.path, "commit", "--quiet", "--all", "--message", "Theirs");
+    gitIn(worktree.path, "checkout", "--quiet", worktree.branch);
+    expect(() => gitIn(worktree.path, "merge", "--quiet", `${worktree.branch}-theirs`)).toThrow(
+      /Command failed/,
+    );
+    await mkdir(join(worktree.path, ".devcontainer"));
+    await writeFile(join(worktree.path, ".devcontainer", "devcontainer.json"), "{}\n");
+
+    await expect(
+      git.commitFolder(worktree.path, ".devcontainer", "Add the definition", serviceVariables),
+    ).rejects.toThrow(/partial commit during a merge/);
+    await git.restoreFolder(worktree.path, ".devcontainer", serviceVariables);
+
+    expect(gitIn(worktree.path, "status", "--porcelain")).toBe("UU src/index.ts");
+  });
+});
+
+describe("CommandLineGit.uncommittedPathsUnder", REAL_GIT_TEST, () => {
+  it("names the folder's staged, unstaged and untracked paths, and nothing outside it", async () => {
+    const worktree = await worktrees.aWorktree();
+    await mkdir(join(worktree.path, ".devcontainer"));
+    await writeFile(join(worktree.path, ".devcontainer", "devcontainer.json"), "{}\n");
+    await writeFile(join(worktree.path, ".devcontainer", "compose.yaml"), "services: {}\n");
+    gitIn(worktree.path, "add", ".devcontainer");
+    gitIn(worktree.path, "commit", "--quiet", "--message", "Add the definition");
+    await expect(
+      git.uncommittedPathsUnder(worktree.path, ".devcontainer", serviceVariables),
+    ).resolves.toEqual([]);
+    await writeFile(join(worktree.path, ".devcontainer", "devcontainer.json"), "{ }\n");
+    await writeFile(join(worktree.path, ".devcontainer", "compose.yaml"), "services:\n");
+    gitIn(worktree.path, "add", ".devcontainer/compose.yaml");
+    await mkdir(join(worktree.path, ".devcontainer", "scripts"));
+    await writeFile(join(worktree.path, ".devcontainer", "scripts", "start.sh"), "true\n");
+    await writeFile(join(worktree.path, "outside.txt"), "outside\n");
+
+    const paths = await git.uncommittedPathsUnder(worktree.path, ".devcontainer", serviceVariables);
+
+    expect(paths.toSorted()).toEqual([
+      ".devcontainer/compose.yaml",
+      ".devcontainer/devcontainer.json",
+      ".devcontainer/scripts/start.sh",
+    ]);
+  });
+});
+
 describe("CommandLineGit.committedPaths", REAL_GIT_TEST, () => {
   it("gives the paths a commit added, changed and deleted, and both paths of a rename", async () => {
     const worktree = await worktrees.aWorktree();

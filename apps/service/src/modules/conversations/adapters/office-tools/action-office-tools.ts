@@ -126,7 +126,7 @@ export class ActionOfficeTools implements OnModuleInit {
     this.registry.register({
       name: PROPOSE_ACTIONS_TOOL,
       description:
-        "Drafts a change to a Project's Actions as a Proposal the user applies with a click, all or nothing: Actions to add or change by key, each given whole, and Actions to remove. It shows in this Thread as a card, with the values now and the ones proposed, and changes nothing until the user applies it. A value the user set changes only when changeUserSet names it. It may mark an Action Leaves the workstation, never clear the mark. It returns at once. When you have change_actions, change the Actions that stay on the workstation with it instead, and draft a Proposal only for an Action that leaves the workstation.",
+        "Drafts a change to a Project's Actions as a Proposal the user applies with a click, all or nothing: Actions to add or change by key, each given whole, and Actions to remove. It shows in this Thread as a card, with the values now and the ones proposed, and changes nothing until the user applies it. A value the user set changes only when changeUserSet names it. It may mark an Action Leaves the workstation, never clear the mark. It returns at once. When you have change_project_settings, change the Actions that stay on the workstation with it instead, and draft a Proposal only for an Action that leaves the workstation.",
       input: z.object({
         project: z.string().describe("The Project's id, as list_projects gives it."),
         actions: z

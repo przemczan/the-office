@@ -38,6 +38,10 @@ export class ProjectsSettings extends ProjectSettings {
   async finishSetUp(projectId: string, definitionProblems: readonly string[]): Promise<void> {
     await this.projects.finishRunEnvironmentSetUp(projectId, definitionProblems);
   }
+
+  async landDefinition(projectId: string): Promise<void> {
+    await this.projects.landRunEnvironmentDefinition(projectId);
+  }
 }
 
 /** Runs `work`, a Projects refusal answered as this module's. */

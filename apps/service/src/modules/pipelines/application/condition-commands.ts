@@ -8,6 +8,8 @@ import { stageRunsFile } from "../domain/stage-runs-file.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { TaskCommands } from "../ports/task-commands.js";
 import type { TaskRecord } from "../ports/task-records.js";
+import { setUpByOf } from "./command-set-up-by.js";
+import { KnownPeople } from "../ports/known-people.js";
 import { StageRunWaits } from "./stage-run-waits.js";
 import { StageRunsFiles } from "./stage-runs-files.js";
 
@@ -29,6 +31,7 @@ export class ConditionCommands {
     private readonly files: StageRunsFiles,
     private readonly waits: StageRunWaits,
     private readonly busyWork: BusyWork,
+    private readonly people: KnownPeople,
   ) {}
 
   /**
@@ -79,11 +82,11 @@ export class ConditionCommands {
         condition.key,
         path,
         run.id,
-        options,
+        { ...options, setUpBy: await setUpByOf(this.people) },
       );
       await this.runs.addCommandRuns(run.id, [
         ...installed,
-        ...conditionRunsOf(ran.runs, condition),
+        ...conditionRunsOf(ran.runs, condition, ran.inCarriedRunEnvironment),
       ]);
     } finally {
       // The run has ended: a wait stopped before its end is no wait any more.

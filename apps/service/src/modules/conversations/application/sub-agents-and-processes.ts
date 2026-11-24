@@ -28,6 +28,7 @@ import type { TextMask } from "../ports/project-output-masks.js";
 import { SubAgentAndProcessRepository } from "../ports/sub-agent-and-process-repository.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import type { SessionEvent } from "./session-log.js";
+import { SessionStops } from "./session-stops.js";
 
 /** About a second: how long a Process's unfinished last line is held before it is kept anyway. */
 const HELD_LINE_MS = 1_000;
@@ -72,11 +73,19 @@ export class SubAgentsAndProcesses {
     private readonly threads: ThreadRepository,
     private readonly events: EventBus,
     private readonly busyWork: BusyWork,
+    private readonly stops: SessionStops,
   ) {}
 
   /** Keeps what one session reports, from its start or resume until `end`. */
   follow(session: FollowedSession): SessionFollowing {
-    return new SessionFollowing(session, this.repository, this.events, this.busyWork, this.logger);
+    return new SessionFollowing(
+      session,
+      this.repository,
+      this.events,
+      this.busyWork,
+      this.logger,
+      this.stops,
+    );
   }
 
   /** The Thread's current session's Sub-agents and Processes, in the order they started. */
@@ -174,6 +183,7 @@ export class SessionFollowing {
     private readonly events: EventBus,
     private readonly busyWork: BusyWork,
     private readonly logger: Logger,
+    private readonly stops: SessionStops,
   ) {
     // A resumed session goes on with what it started before.
     void this.inTurn(async () => {
@@ -203,12 +213,13 @@ export class SessionFollowing {
   }
 
   /**
-   * The session ended: held lines are kept, and whatever still runs is Stopped with the session.
-   * Nothing it reports later is kept.
+   * The session ended: held lines are kept, and whatever still runs is Stopped with the session,
+   * an Office tool's work waiting on `SessionStops` too. Nothing it reports later is kept.
    */
   end(): Promise<void> {
     if (this.ended) return this.queue;
     this.ended = true;
+    this.stops.stopped(this.session.sessionId);
     return this.inTurn(async () => {
       for (const timer of this.heldLineTimers.values()) clearTimeout(timer);
       this.heldLineTimers.clear();

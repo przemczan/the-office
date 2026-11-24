@@ -249,12 +249,13 @@ function toStageRunResponse(
       ? { gateKey: run.sentBack.gateKey, feedback: run.sentBack.feedback }
       : null,
     commandRuns: run.commandRuns.map(
-      ({ purpose, commandLine, outcome, durationMs, condition }) => ({
+      ({ purpose, commandLine, outcome, durationMs, condition, inCarriedRunEnvironment }) => ({
         purpose,
         commandLine,
         outcome,
         durationMs,
         ...(condition && { condition: { to: condition.to } }),
+        ...(inCarriedRunEnvironment && { inCarriedRunEnvironment }),
       }),
     ),
     gateAction: run.gateAction ? toGateActionResponse(run.gateAction) : null,

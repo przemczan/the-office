@@ -41,7 +41,12 @@ import {
   type RunTab,
 } from "./stage-history-words.ts";
 import { stageWorkerWords } from "./stage-rail-words.ts";
-import { SESSION_WORDS, type StageNames } from "./stage-words.ts";
+import {
+  CARRIED_RUN_ENVIRONMENT,
+  ranInCarriedRunEnvironment,
+  SESSION_WORDS,
+  type StageNames,
+} from "./stage-words.ts";
 import { chapterWork } from "./timeline-words.ts";
 
 /** Everything about the run picked in the Stage history. */
@@ -401,6 +406,12 @@ function CommandLog({
   return (
     <div className="command-log">
       <p className="overline">Log</p>
+      {ranInCarriedRunEnvironment(run) && (
+        <p className="task-quiet command-log-place">
+          <Icon name="container" size={14} />
+          {CARRIED_RUN_ENVIRONMENT}
+        </p>
+      )}
       {outputs.error && <RefusalAlert title="The output wasn't read" error={outputs.error} />}
       {run.commandRuns.map((commandRun, place) => {
         const output = outputs.data?.outputs[place];

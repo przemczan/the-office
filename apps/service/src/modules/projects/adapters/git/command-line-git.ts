@@ -887,6 +887,93 @@ export class CommandLineGit extends Git {
     });
   }
 
+  async uncommittedPathsUnder(
+    worktreePath: string,
+    folder: string,
+    variables: GitVariables,
+  ): Promise<readonly string[]> {
+    const status = await this.process.output({
+      folder: worktreePath,
+      gitArguments: [
+        "status",
+        "--porcelain=v1",
+        "-z",
+        "--no-renames",
+        "--untracked-files=all",
+        "--",
+        folder,
+      ],
+      variables,
+    });
+    // Each entry is `XY <path>`.
+    return nulSeparated(status).map((entry) => entry.slice(3));
+  }
+
+  async commitFolder(
+    worktreePath: string,
+    folder: string,
+    message: string,
+    variables: GitVariables,
+  ): Promise<string | undefined> {
+    return this.locked(worktreePath, async () => {
+      // Asked first: `add` refuses a folder neither there nor tracked.
+      if ((await this.uncommittedPathsUnder(worktreePath, folder, variables)).length === 0) {
+        return undefined;
+      }
+      await this.process.output({
+        folder: worktreePath,
+        gitArguments: ["add", "--all", "--", folder],
+        variables,
+      });
+      // With paths, `commit` takes only theirs (`--only`): the index's other staged paths stay
+      // staged and out of the commit.
+      await this.process.output({
+        folder: worktreePath,
+        gitArguments: ["commit", "--quiet", "--no-verify", "--only", "--file", "-", "--", folder],
+        variables,
+        input: message,
+      });
+      return commitOf(this.process, worktreePath, "HEAD");
+    });
+  }
+
+  async restoreFolder(
+    worktreePath: string,
+    folder: string,
+    variables: GitVariables,
+  ): Promise<readonly string[]> {
+    return this.locked(worktreePath, async () => {
+      const paths = await this.uncommittedPathsUnder(worktreePath, folder, variables);
+      if (paths.length === 0) return paths;
+      // The index first, so a path staged but not at HEAD becomes untracked and goes with clean.
+      await this.process.output({
+        folder: worktreePath,
+        gitArguments: ["reset", "--quiet", "HEAD", "--", folder],
+        variables,
+      });
+      // `checkout` refuses a folder with no tracked file.
+      const tracked = await this.process.output({
+        folder: worktreePath,
+        gitArguments: ["ls-files", "-z", "--", folder],
+        variables,
+      });
+      if (nulSeparated(tracked).length > 0) {
+        await this.process.output({
+          folder: worktreePath,
+          gitArguments: ["checkout", "--quiet", "--", folder],
+          variables,
+        });
+      }
+      // Without -x, so ignored files stay.
+      await this.process.output({
+        folder: worktreePath,
+        gitArguments: ["clean", "--quiet", "-f", "-d", "--", folder],
+        variables,
+      });
+      return paths;
+    });
+  }
+
   async committedPaths(worktreePath: string, commit: string): Promise<readonly string[]> {
     const secondParent = await this.process.run({
       folder: worktreePath,

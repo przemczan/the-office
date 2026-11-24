@@ -18,6 +18,7 @@ import {
   changeProjectSkillUse,
   changeUseProjectSkills,
   finishRunEnvironmentSetUp,
+  landRunEnvironmentDefinition,
   moveEngineLevels,
   removeCommand,
 } from "./project-changes.js";
@@ -461,6 +462,25 @@ describe("finishRunEnvironmentSetUp", () => {
         problems,
       ),
     ).toBeUndefined();
+  });
+});
+
+describe("landRunEnvironmentDefinition", () => {
+  it("turns Not decided yet On, clearing the set-up's problems", () => {
+    const change = landRunEnvironmentDefinition(
+      aProject({ runEnvironment: "not-decided", runEnvironmentSetUpProblems: ["An earlier one."] }),
+    );
+
+    expect(change?.project).toMatchObject({
+      runEnvironment: "on",
+      runEnvironmentSetUpProblems: [],
+    });
+    expect(change?.event).toMatchObject({ runEnvironment: "on", setUpProblems: [] });
+  });
+
+  it("keeps an explicit On or Off", () => {
+    expect(landRunEnvironmentDefinition(aProject({ runEnvironment: "off" }))).toBeUndefined();
+    expect(landRunEnvironmentDefinition(aProject({ runEnvironment: "on" }))).toBeUndefined();
   });
 });
 

@@ -39,7 +39,9 @@ function setUpBriefIn(stages: readonly Stage[]): string | undefined {
   return setUp?.kind === "agent" ? setUp.brief : undefined;
 }
 
-const NEW_BRIEF = setUpBriefIn(builtIn?.stages ?? []);
+/** The brief 0112 writes, which a later release rewords. */
+const NEW_BRIEF =
+  "Write .devcontainer/ (devcontainer.json and a compose file for the services) for the Project's stack, from its manifests and commands, with write_run_environment_definition: it checks the files and writes them only when they are valid. Write and Edit can't reach .devcontainer/.";
 
 /** The built-in's Stages, its Set up Stage's brief as `brief`. */
 function stagesBriefed(brief: string): readonly Stage[] {

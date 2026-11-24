@@ -11,11 +11,12 @@ import {
   type TestTargets,
 } from "../../../projects/index.js";
 import type { HeldCallOutcome, HeldCallRequest, HeldCalls } from "../../application/held-calls.js";
+import { CHANGE_PROJECT_SETTINGS_TOOL } from "../../domain/session-instructions.js";
 import { aThread } from "../../domain/thread.fixtures.js";
 import type { ThreadRepository } from "../../ports/thread-repository.js";
 import { ProjectSettingOfficeTools } from "./project-setting-office-tools.js";
 
-// What project-setting-office-tools.test.ts and project-setting-office-tools.full.test.ts share.
+// What the change_project_settings tool's tests share.
 
 export const SESSION = "session-1";
 export const TASK = "task-1";
@@ -57,6 +58,8 @@ export const SHOP = {
     unset: ["NODE_OPTIONS"],
     prependPath: [],
   },
+  features: {},
+  runEnvironment: "not-decided",
 } as unknown as Project;
 
 export const WEB_TARGET: TestTarget = {
@@ -94,18 +97,26 @@ export const RELEASE_ACTION: Action = {
 /** How the session's Change Project settings rules, as HeldCalls would. */
 export type Ruling = "allowed" | "ask-me" | "never";
 
-/** Every change the tools asked of Projects, by method, with what it was given. */
+/** Every change the tool asked of Projects, by method, with what it was given. */
 export interface Change {
   readonly method: string;
   readonly args: readonly unknown[];
 }
 
 /**
- * The tools as registered, over a Projects that keeps what it was asked and a hold that rules as
+ * The tool as registered, over a Projects that keeps what it was asked and a hold that rules as
  * told: Ask me holds a call until `allowOnce` approves it, and runs the same call once then, as
  * HeldCalls finds the approval by the call's words.
  */
-export function toolsWith(ruling: Ruling, options: { readonly definitionValid?: boolean } = {}) {
+export function toolsWith(
+  ruling: Ruling,
+  options: {
+    readonly definitionValid?: boolean;
+    readonly failingActions?: boolean;
+    readonly project?: Project;
+  } = {},
+) {
+  const project = options.project ?? SHOP;
   const changes: Change[] = [];
   const holds: HeldCallRequest[] = [];
   const approved: string[] = [];
@@ -116,8 +127,9 @@ export function toolsWith(ruling: Ruling, options: { readonly definitionValid?: 
       return Promise.resolve();
     };
   const projects = {
-    find: (id: string) => Promise.resolve(id === SHOP.id ? SHOP : undefined),
-    read: () => Promise.resolve(SHOP),
+    find: (id: string) => Promise.resolve(id === project.id ? project : undefined),
+    read: () => Promise.resolve(project),
+    proposedCommandsProblems: () => Promise.resolve([]),
     changeCommandsAsProposed: record("changeCommandsAsProposed"),
     changeEnvironment: record("changeEnvironment"),
   } as unknown as ProjectService;
@@ -127,7 +139,10 @@ export function toolsWith(ruling: Ruling, options: { readonly definitionValid?: 
   } as unknown as TestTargets;
   const actions = {
     list: () => Promise.resolve([BUILD_ACTION, RELEASE_ACTION]),
-    change: record("actions.change"),
+    change: options.failingActions
+      ? () =>
+          Promise.reject(new ProjectRefused(['Action "lint-all" runs no command the Project has.']))
+      : record("actions.change"),
   } as unknown as ProjectActions;
   const runEnvironments = new RunEnvironmentSwitchRegistry();
   runEnvironments.register((projectId, runEnvironment, by) => {
@@ -162,7 +177,7 @@ export function toolsWith(ruling: Ruling, options: { readonly definitionValid?: 
   };
 }
 
-/** What the tools change Projects' settings through. */
+/** What the tool changes Projects' settings through. */
 export interface ProjectSettingServices {
   readonly projects: ProjectService;
   readonly testTargets: TestTargets;
@@ -171,7 +186,7 @@ export interface ProjectSettingServices {
 }
 
 /**
- * The tools as registered over `services`, in Nina's session on a Task, each call ruled by `rule`
+ * The tool as registered over `services`, in Nina's session on a Task, each call ruled by `rule`
  * (Allowed when left out).
  */
 export function toolsOn(
@@ -203,13 +218,9 @@ export function toolsOn(
     threads,
     roleCards,
   ).onModuleInit();
-  return {
-    tool: (name: string): OfficeTool => {
-      const [tool] = registry.named([name]);
-      if (!tool) throw new Error(`${name} is not registered.`);
-      return tool;
-    },
-  };
+  const [tool] = registry.named([CHANGE_PROJECT_SETTINGS_TOOL]);
+  if (!tool) throw new Error(`${CHANGE_PROJECT_SETTINGS_TOOL} is not registered.`);
+  return { tool };
 }
 
 /** Runs the tool on the input as the engine gives it: parsed, its defaults filled. */

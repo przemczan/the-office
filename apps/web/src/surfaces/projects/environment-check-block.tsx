@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import type {
   CheckState,
   CommandCheck,
@@ -11,6 +12,7 @@ import { Badge, Button, Icon } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
 import { ApiError } from "../../api/api-client.ts";
 import { projectQueries, startEnvironmentCheck } from "../../api/projects.ts";
+import { taskQueries } from "../../api/work.ts";
 import {
   checkBadge,
   commandCheckLabel,
@@ -52,7 +54,8 @@ export function EnvironmentCheckBlock({ project }: { readonly project: Project }
       });
     },
   });
-  const running = check.data?.state === "running";
+  // A Task's check running doesn't hold the base branch's.
+  const running = check.data?.state === "running" && check.data.taskId === undefined;
   const reasons =
     starting.error instanceof ApiError
       ? starting.error.reasons
@@ -116,7 +119,7 @@ function Checks({
     <ul className="environment-checks" aria-label="Environment checks">
       {check.checks.map((each) =>
         each.step === "worktree" ? (
-          <WorktreeCheckLine key={each.step} check={each} project={project} />
+          <WorktreeCheckLine key={each.step} check={each} project={project} taskId={check.taskId} />
         ) : (
           <CommandCheckLine
             key={each.step === "command" ? `command:${each.key}` : each.step}
@@ -131,15 +134,26 @@ function Checks({
 function WorktreeCheckLine({
   check,
   project,
+  taskId,
 }: {
   readonly check: WorktreeCheck;
   readonly project: Project;
+  /** The Task whose branch the check is of; undefined for the base branch. */
+  readonly taskId: string | undefined;
 }): ReactNode {
   const detail = worktreeCheckDetail(check);
   return (
     <li className={`environment-check ${check.state}`}>
       <CheckIcon state={check.state} />
-      <span className="environment-check-label">{worktreeCheckLabel(check, project)}</span>
+      <span className="environment-check-label">
+        {taskId === undefined ? (
+          worktreeCheckLabel(check, project)
+        ) : (
+          <>
+            A worktree of the branch of <TaskLink taskId={taskId} />
+          </>
+        )}
+      </span>
       {detail !== undefined && (
         <span className="environment-check-meta">
           <span className="environment-check-detail">{detail}</span>
@@ -188,6 +202,16 @@ function CommandCheckLine({ check }: { readonly check: InstallCheck | CommandChe
         </pre>
       )}
     </li>
+  );
+}
+
+/** The Task by its title, or "this Task" until its title is read. */
+function TaskLink({ taskId }: { readonly taskId: string }): ReactNode {
+  const task = useQuery(taskQueries.one(taskId));
+  return (
+    <Link to="/tasks/$taskId" params={{ taskId }}>
+      {task.data?.title ?? "this Task"}
+    </Link>
   );
 }
 

@@ -86,6 +86,11 @@ export interface TaskRunEnvironmentRunner {
    * usual; every reason it couldn't, in the UI's words, none once it runs.
    */
   start(task: TaskInRunEnvironment): Promise<readonly string[]>;
+  /**
+   * Whether the worktree carries a valid run environment definition (`.devcontainer/`), which
+   * puts a Project whose Run environment setting is Not decided yet's commands in it.
+   */
+  carriesDefinition(worktree: string): Promise<boolean>;
 }
 
 /**
@@ -110,6 +115,10 @@ export class TaskRunEnvironments implements TaskRunEnvironmentRunner {
 
   start(task: TaskInRunEnvironment): Promise<readonly string[]> {
     return this.runner().start(task);
+  }
+
+  carriesDefinition(worktree: string): Promise<boolean> {
+    return this.runner().carriesDefinition(worktree);
   }
 
   private runner(): TaskRunEnvironmentRunner {

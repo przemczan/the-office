@@ -38,6 +38,18 @@ export function waitsForRunEnvironment({ outcome, waitingSince }: StageRun): boo
   return outcome === null && waitingSince !== null;
 }
 
+/**
+ * Where a Task's commands run while its Project's Run environment is Not decided yet and its branch
+ * carries a valid definition: the Task head's note and a Script Stage run's log both say it.
+ */
+export const CARRIED_RUN_ENVIRONMENT =
+  "Runs in this Task's run environment (its branch carries the definition)";
+
+/** Whether any of the run's commands ran in the run environment the Task's branch carries. */
+export function ranInCarriedRunEnvironment({ commandRuns }: StageRun): boolean {
+  return commandRuns.some(({ inCarriedRunEnvironment }) => inCarriedRunEnvironment === true);
+}
+
 export const SESSION_WORDS: Readonly<Record<ContextMove, string>> = {
   resume: "continued session",
   fresh: "fresh session",

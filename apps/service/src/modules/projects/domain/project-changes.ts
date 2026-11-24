@@ -415,6 +415,19 @@ export function finishRunEnvironmentSetUp(
     : runEnvironmentChange(project, project.runEnvironment, definitionProblems);
 }
 
+/**
+ * A Task's change carrying a valid definition landed on the base branch: On while the setting is
+ * Not decided yet, as nobody picked; an explicit On or Off is kept. Undefined when nothing would
+ * change.
+ */
+export function landRunEnvironmentDefinition(
+  project: Project,
+): ProjectChange<ProjectRunEnvironmentChanged> | undefined {
+  return project.runEnvironment === "not-decided"
+    ? runEnvironmentChange(project, "on", [])
+    : undefined;
+}
+
 function runEnvironmentChange(
   project: Project,
   runEnvironment: RunEnvironmentSetting,

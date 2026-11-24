@@ -41,8 +41,9 @@ const PROTECTED_FILES: readonly (readonly [folder: string, name: string])[] = [
 const RUN_ENVIRONMENT_DEFINITION_FOLDER = ".devcontainer";
 
 /**
- * The Office tool an Agent Stage writes the run environment definition with, offered to Roles with
- * the Run environment capability, which the refusal points to. Pipelines registers it.
+ * The Office tool an Agent Stage, or a Consultation on a Task, writes the run environment definition
+ * with, offered to Roles with the Run environment capability, which the refusal points to.
+ * Pipelines registers it.
  */
 export const WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL = "write_run_environment_definition";
 
@@ -155,7 +156,7 @@ export class OfficeRules {
     }
     return names[0] === RUN_ENVIRONMENT_DEFINITION_FOLDER
       ? this.advised(
-          `Refused by The Office: ${RUN_ENVIRONMENT_DEFINITION_FOLDER}/ is written only with ${WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL}, which checks the run environment definition first; only Roles with the Run environment capability have it, in an Agent Stage.`,
+          `Refused by The Office: ${RUN_ENVIRONMENT_DEFINITION_FOLDER}/ is written only with ${WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL}, which checks the run environment definition first; only Roles with the Run environment capability have it, in an Agent Stage or a Consultation on a Task.`,
         )
       : undefined;
   }
