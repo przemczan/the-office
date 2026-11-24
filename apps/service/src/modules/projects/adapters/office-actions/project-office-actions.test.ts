@@ -92,7 +92,7 @@ describe("the rerun_ci_run Office tool", REAL_GIT_TEST, () => {
     expect(registry.named([RERUN_CI_RUN_ACTION.name])).toEqual([
       expect.objectContaining({
         description: `${RERUN_CI_RUN_ACTION.description} ${FOLLOW_YOUR_AUTHORITY}`,
-        coveredBy: RERUN_CI_RUN_ACTION.duties,
+        coveredBy: RERUN_CI_RUN_ACTION.coveredBy,
       }),
     ]);
   });

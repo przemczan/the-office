@@ -136,21 +136,30 @@ export class TaskRecords {
    */
   async recordText(taskId: string): Promise<string> {
     const task = await this.tasks.read(taskId);
-    const [attachments, links, stageResults, stateChanges, decisionsWaiting, connectedDeviceLines] =
-      await Promise.all([
-        this.attachments.listOf({ kind: "task", taskId }),
-        this.linksOf(task),
-        this.stageResults.ofTask(taskId),
-        this.tasks.stateChangesOf(taskId),
-        this.decisions.waitingOnTheUserOn(taskId),
-        this.connectedDevices.linesOf(taskId),
-      ]);
+    const [
+      attachments,
+      links,
+      stageResults,
+      stateChanges,
+      edits,
+      decisionsWaiting,
+      connectedDeviceLines,
+    ] = await Promise.all([
+      this.attachments.listOf({ kind: "task", taskId }),
+      this.linksOf(task),
+      this.stageResults.ofTask(taskId),
+      this.tasks.stateChangesOf(taskId),
+      this.tasks.editsOf(taskId),
+      this.decisions.waitingOnTheUserOn(taskId),
+      this.connectedDevices.linesOf(taskId),
+    ]);
     const namesEngine = task.engineOverride !== null || links.initiative?.engineOverride;
     return taskRecordText(task, {
       attachments,
       links,
       stageResults,
       stateChanges,
+      edits,
       decisionsWaiting,
       connectedDeviceLines,
       engineNames: namesEngine ? await engineNamesOf(this.engineModels) : new Map(),

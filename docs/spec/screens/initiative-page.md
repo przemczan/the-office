@@ -1,6 +1,6 @@
 # Initiative page
 
-Covers: the Initiative page's head and actions (Confirm, Back to Shaping, Plan the Initiative, Plan with…, Start Ready Tasks, Pause, Resume, Add a Task, Drop, Archive), the Tasks block and its graph, membership (Add an existing Task, Take out), the Pipelines block and its editor, the Engine fold, the Test instances block (Launch, states, Open, Download and the QR code, Stop, Log), the record's folds (Outcome, Attachments, Origin), and the shaping and planning Threads.
+Covers: the Initiative page's head and actions (Confirm, Back to Shaping, Plan the Initiative, Plan with…, Start Ready Tasks, Pause, Resume, Add a Task, Drop, Archive), the Tasks block and its graph, membership (Add an existing Task, Take out), the Pipelines block and its editor, the Engine fold, the Test instances block (Launch, states, Open, Download and the QR code, Stop, Log), the record's folds (Outcome, Attachments, Origin, History), and the shaping and planning Threads.
 
 ## Where it is
 
@@ -16,7 +16,7 @@ Covers: the Initiative page's head and actions (Confirm, Back to Shaping, Plan t
 - Under the head, once Start Ready Tasks has run: its note.
 - The Tasks block, across the page.
 - Below it two columns: the record on the left, the conversation on the right.
-- The record column holds, top to bottom: the shaping note (while shaping), Pipelines, Test instances (once active), Outcome, Attachments, Origin.
+- The record column holds, top to bottom: the shaping note (while shaping), Pipelines, Test instances (once active), Outcome, Attachments, Origin, History.
 - At 900px and below the conversation is a drawer, as on the Task page ([task-page.md](task-page.md#conversation-drawer)).
 
 ## Head
@@ -213,6 +213,15 @@ Covers: the Initiative page's head and actions (Confirm, Back to Shaping, Plan t
 
 - A fold "Origin" (lightbulb), folded by default, shown only when the Initiative was shaped from an Idea.
 - Summary "Idea: <title>"; body: the Idea linked to Work › Ideas, its Project chip, "captured <day and time>" and its notes.
+
+## History
+
+- A fold "History" (history icon), after Origin, starting folded.
+- Summary: "Nothing yet", or "<n> changes · last <when>".
+- One row per entry, oldest first: "Created in Backlog by …", "Moved from Ready to Planning by …", "Title edited by …", each with its day and clock.
+- Who reads as [2.1.3 History](../2.1.3-tasks.md#history) names them: "the user Ann Lee", "the person in the Role planner".
+- Empty: "Nothing has changed yet."; a failed read shows a danger alert "The History wasn't read" with the service's message.
+- Rules: [2.1.3](../2.1.3-tasks.md#history).
 
 ## Conversation
 

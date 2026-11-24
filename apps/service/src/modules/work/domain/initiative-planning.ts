@@ -257,6 +257,7 @@ export function rewriteInInitiative<Event extends DomainEvent>(
     return {
       task: written.task,
       event: new TaskRewrittenInInitiative(task.id, written.event, []),
+      edits: written.edits,
     };
   }
   return withStateChange(
@@ -265,6 +266,7 @@ export function rewriteInInitiative<Event extends DomainEvent>(
       event: new TaskRewrittenInInitiative(task.id, written.event, [
         new TaskStateChanged(task.id, "ready", "planning"),
       ]),
+      edits: written.edits,
     },
     task,
     by,

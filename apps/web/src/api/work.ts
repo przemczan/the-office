@@ -7,8 +7,26 @@ import {
 import {
   ADD_DEPENDENCY_ACTION,
   ADD_TO_INITIATIVE_ACTION,
+  ARCHIVE_INITIATIVE_ACTION,
+  ARCHIVE_TASK_ACTION,
+  CHANGE_TASK_DEFINITION_OF_DONE_ACTION,
+  CHANGE_TASK_DESCRIPTION_ACTION,
+  CHANGE_TASK_KIND_ACTION,
+  CHANGE_TASK_PLAN_ACTION,
+  CHANGE_TASK_PRIORITY_ACTION,
+  CHANGE_TASK_TITLE_ACTION,
+  DROP_IDEA_ACTION,
+  DROP_INITIATIVE_ACTION,
+  DROP_TASK_ACTION,
+  EDIT_IDEA_ACTION,
   REMOVE_DEPENDENCY_ACTION,
+  RESTORE_IDEA_ACTION,
+  RESTORE_INITIATIVE_ACTION,
+  RESTORE_TASK_ACTION,
   TAKE_OUT_OF_INITIATIVE_ACTION,
+  WRITE_INITIATIVE_OUTCOME_ACTION,
+  historySchema,
+  type History,
   archivedInitiativesPageSchema,
   autoModeSettingSchema,
   attachmentListSchema,
@@ -127,6 +145,13 @@ export const ideaQueries = {
       queryKey: [...IDEAS, id],
       queryFn: ({ signal }) => getFromApi(ideaPath(id), ideaSchema, signal),
     }),
+  /** Its History, oldest first; under the Ideas' key, so their events refresh it. */
+  history: (id: string) =>
+    queryOptions({
+      queryKey: [...IDEAS, id, "history"],
+      queryFn: ({ signal }): Promise<History> =>
+        getFromApi(`${ideaPath(id)}/history`, historySchema, signal),
+    }),
 };
 
 /** What a page of the Archive of Initiatives is asked for. */
@@ -173,6 +198,13 @@ export const initiativeQueries = {
     queryOptions({
       queryKey: [...INITIATIVES, id],
       queryFn: ({ signal }) => getFromApi(initiativePath(id), initiativeSchema, signal),
+    }),
+  /** Its History, oldest first; under the Initiatives' key, so their events refresh it. */
+  history: (id: string) =>
+    queryOptions({
+      queryKey: [...INITIATIVES, id, "history"],
+      queryFn: ({ signal }): Promise<History> =>
+        getFromApi(`${initiativePath(id)}/history`, historySchema, signal),
     }),
 };
 
@@ -313,6 +345,13 @@ export const taskQueries = {
       queryKey: [...TASKS, id],
       queryFn: ({ signal }) => getFromApi(taskPath(id), taskSchema, signal),
     }),
+  /** Its History, oldest first; under the Task's key, so any Task event refreshes it. */
+  history: (id: string) =>
+    queryOptions({
+      queryKey: [...TASKS, id, "history"],
+      queryFn: ({ signal }): Promise<History> =>
+        getFromApi(`${taskPath(id)}/history`, historySchema, signal),
+    }),
   /** What the Planner and each Role the Task's Stages name run on for it, and the level it comes from. */
   engineCascade: (id: string) =>
     queryOptions({
@@ -444,7 +483,7 @@ export function captureIdea(newIdea: NewIdea): Promise<Idea> {
 
 /** Its title, notes and Project, until it is shaped. */
 export function editIdea(id: string, edit: IdeaEdit): Promise<Idea> {
-  return sendToApi("PUT", ideaPath(id), edit, ideaSchema);
+  return callOfficeAction(EDIT_IDEA_ACTION, { ideaId: id, ...edit });
 }
 
 /** The Task the Idea became, in Backlog in the Project. */
@@ -524,22 +563,22 @@ export function resumeInitiative(id: string): Promise<InitiativePauseAnswer> {
 
 /** Its Tasks stay as they are. */
 export function dropInitiative(id: string): Promise<Initiative> {
-  return sendToApi("POST", `${initiativePath(id)}/drop`, {}, initiativeSchema);
+  return callOfficeAction(DROP_INITIATIVE_ACTION, { initiativeId: id });
 }
 
 /** Archive: a Done or Dropped Initiative leaves the board, its state kept. */
 export function archiveInitiative(id: string): Promise<Initiative> {
-  return sendToApi("POST", `${initiativePath(id)}/archive`, {}, initiativeSchema);
+  return callOfficeAction(ARCHIVE_INITIATIVE_ACTION, { initiativeId: id });
 }
 
 /** Restore: an archived Initiative returns to the board in the state it had. */
 export function restoreInitiative(id: string): Promise<Initiative> {
-  return sendToApi("POST", `${initiativePath(id)}/restore`, {}, initiativeSchema);
+  return callOfficeAction(RESTORE_INITIATIVE_ACTION, { initiativeId: id });
 }
 
 /** The user's outcome, while the Initiative is being shaped. */
 export function writeInitiativeOutcome(id: string, change: OutcomeChange): Promise<Initiative> {
-  return sendToApi("PUT", `${initiativePath(id)}/outcome`, change, initiativeSchema);
+  return callOfficeAction(WRITE_INITIATIVE_OUTCOME_ACTION, { initiativeId: id, ...change });
 }
 
 /**
@@ -563,11 +602,11 @@ export function addTaskToInitiative(id: string, newTask: NewInitiativeTask): Pro
 }
 
 export function dropIdea(id: string): Promise<Idea> {
-  return sendToApi("POST", `${ideaPath(id)}/drop`, {}, ideaSchema);
+  return callOfficeAction(DROP_IDEA_ACTION, { ideaId: id });
 }
 
 export function restoreIdea(id: string): Promise<Idea> {
-  return sendToApi("POST", `${ideaPath(id)}/restore`, {}, ideaSchema);
+  return callOfficeAction(RESTORE_IDEA_ACTION, { ideaId: id });
 }
 
 export function createTask(newTask: NewTask): Promise<Task> {
@@ -575,12 +614,12 @@ export function createTask(newTask: NewTask): Promise<Task> {
 }
 
 export function changePriority(id: string, priority: Priority): Promise<Task> {
-  return sendToApi("PUT", `${taskPath(id)}/priority`, { priority }, taskSchema);
+  return callOfficeAction(CHANGE_TASK_PRIORITY_ACTION, { taskId: id, priority });
 }
 
 /** The Task's Kind, until it is Done or Dropped. */
 export function changeKind(id: string, kind: TaskKind): Promise<Task> {
-  return sendToApi("PUT", `${taskPath(id)}/kind`, { kind }, taskSchema);
+  return callOfficeAction(CHANGE_TASK_KIND_ACTION, { taskId: id, kind });
 }
 
 /** The Task whose work caused this Bug; null for none. */
@@ -605,12 +644,12 @@ export function placeTask(id: string, placement: TaskPlacement): Promise<Task> {
 
 /** The Task's title, in any state but Done and Dropped. */
 export function changeTitle(id: string, title: string): Promise<Task> {
-  return sendToApi("PUT", `${taskPath(id)}/title`, { title }, taskSchema);
+  return callOfficeAction(CHANGE_TASK_TITLE_ACTION, { taskId: id, title });
 }
 
 /** The user's Description, until the Task starts; empty leaves none. */
 export function changeDescription(id: string, description: string): Promise<Task> {
-  return sendToApi("PUT", `${taskPath(id)}/description`, { description }, taskSchema);
+  return callOfficeAction(CHANGE_TASK_DESCRIPTION_ACTION, { taskId: id, description });
 }
 
 /** The Task's commit message, until Publish lands it; empty takes the default again. */
@@ -652,7 +691,7 @@ export type PlanSaving = Required<Omit<PlanChange, "estimatedTokens">>;
  * Backlog when it has no planning Thread.
  */
 export function savePlan(id: string, plan: PlanSaving): Promise<Task> {
-  return sendToApi("PUT", `${taskPath(id)}/plan`, plan, taskSchema);
+  return callOfficeAction(CHANGE_TASK_PLAN_ACTION, { taskId: id, ...plan });
 }
 
 /** Confirm: the Plan as it reads. */
@@ -665,7 +704,10 @@ export function saveDefinitionOfDone(
   id: string,
   definitionOfDone: readonly string[],
 ): Promise<Task> {
-  return sendToApi("PUT", `${taskPath(id)}/definition-of-done`, { definitionOfDone }, taskSchema);
+  return callOfficeAction(CHANGE_TASK_DEFINITION_OF_DONE_ACTION, {
+    taskId: id,
+    definitionOfDone: [...definitionOfDone],
+  });
 }
 
 /** Confirm: the Definition of Done as it reads. */
@@ -766,17 +808,17 @@ export function moveTask(id: string, projectId: string): Promise<Task> {
 }
 
 export function dropTask(id: string, reason?: DropReason): Promise<Task> {
-  return sendToApi("POST", `${taskPath(id)}/drop`, reason ? { reason } : {}, taskSchema);
+  return callOfficeAction(DROP_TASK_ACTION, reason ? { taskId: id, reason } : { taskId: id });
 }
 
 /** Archive: a Done or Dropped Task leaves the board, its state as it was. */
 export function archiveTask(id: string): Promise<Task> {
-  return sendToApi("POST", `${taskPath(id)}/archive`, {}, taskSchema);
+  return callOfficeAction(ARCHIVE_TASK_ACTION, { taskId: id });
 }
 
 /** Restore: an archived Task returns to the board in the state it had. */
 export function restoreTask(id: string): Promise<Task> {
-  return sendToApi("POST", `${taskPath(id)}/restore`, {}, taskSchema);
+  return callOfficeAction(RESTORE_TASK_ACTION, { taskId: id });
 }
 
 export function addLink(owner: AttachmentOwner, link: NewLink): Promise<Attachment> {

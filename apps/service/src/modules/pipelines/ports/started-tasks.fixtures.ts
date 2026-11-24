@@ -82,8 +82,11 @@ export class OwnProjectsStartedTasks extends StartedTasks {
     return this.tasks.resume(taskId, by);
   }
 
-  drop(taskId: string, by: ResumedOrDroppedBy): Promise<StartedTask> {
-    return this.tasks.drop(taskId, by);
+  dropAsAnswered(
+    taskId: string,
+    answer: { readonly decisionId: string; readonly by: ResumedOrDroppedBy },
+  ): Promise<StartedTask> {
+    return this.tasks.dropAsAnswered(taskId, answer);
   }
 
   waitingFor(taskId: string): Promise<readonly TaskBlocker[]> {

@@ -17,9 +17,16 @@ import {
 import { IdeaNotFound } from "../domain/idea-not-found.js";
 import { IdeaRefused } from "../domain/idea-refused.js";
 import { orderAfter } from "../domain/manual-order.js";
+import {
+  historyOf,
+  withIdeaEdits,
+  type HistoryEntry,
+  type RecordEdit,
+} from "../domain/record-edits.js";
 import type { Task } from "../domain/task.js";
 import { IdeaRepository } from "../ports/idea-repository.js";
 import { KnownProjects } from "../ports/known-projects.js";
+import { RecordEdits } from "../ports/record-edits.js";
 
 /**
  * The Ideas use cases: captured in seconds, then shaped into a Task or dropped. Each change is
@@ -31,6 +38,7 @@ export class IdeaService {
     private readonly repository: IdeaRepository,
     private readonly projects: KnownProjects,
     private readonly events: EventBus,
+    private readonly edits: RecordEdits,
   ) {}
 
   /** Refuses with every reason, before saving, when the Idea breaks a rule. */
@@ -44,12 +52,26 @@ export class IdeaService {
     return idea;
   }
 
-  /** Refuses with every reason, before saving, when the edit breaks a rule or the Idea is shaped. */
-  async edit(id: string, given: IdeaEdit): Promise<Idea> {
+  /**
+   * Its title, notes and Project, by `by`, each field that changed kept in its History. Refuses with
+   * every reason, before saving, when the edit breaks a rule or the Idea is shaped.
+   */
+  async edit(id: string, given: IdeaEdit, by: Author): Promise<Idea> {
     if (given.projectId !== undefined && !(await this.projects.find(given.projectId))) {
       throw new IdeaRefused([...newIdeaProblems(given), unknownProject(given.projectId)]);
     }
-    return this.update(id, (idea) => editIdea(idea, given, new Date()));
+    return this.update(id, (idea) => withIdeaEdits(editIdea(idea, given, new Date()), idea, by));
+  }
+
+  /** The Idea's History, oldest first: the edits of its fields, each with who made it. */
+  async history(id: string): Promise<readonly HistoryEntry[]> {
+    await this.read(id);
+    return historyOf([], await this.edits.of({ kind: "idea", id }));
+  }
+
+  /** The Idea's kept edits, oldest first, each with who made it. */
+  async editsOf(id: string): Promise<readonly RecordEdit[]> {
+    return this.edits.of({ kind: "idea", id });
   }
 
   async list(): Promise<readonly Idea[]> {

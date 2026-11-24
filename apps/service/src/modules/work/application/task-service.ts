@@ -8,6 +8,12 @@ import { EngineModels, EngineReferenceLock, type EngineId } from "../../engine/i
 import type { Author } from "../domain/author.js";
 import { boardOrder, orderAfter } from "../domain/manual-order.js";
 import { BY_THE_PIPELINE, type StateChange } from "../domain/state-change.js";
+import {
+  historyOf,
+  withTaskEdits,
+  type HistoryEntry,
+  type RecordEdit,
+} from "../domain/record-edits.js";
 import type { DropReason } from "../domain/drop-reason.js";
 import {
   newTaskProblems,
@@ -25,6 +31,8 @@ import {
   changeStartedTaskState,
   createTask,
   dropTask,
+  dropTaskAsAnswered,
+  type DropAnswer,
   pauseTask,
   pauseTaskForAlarm,
   pauseTaskForUsageWindow,
@@ -73,6 +81,7 @@ import { FireAlarmRepository } from "../ports/fire-alarm-repository.js";
 import { InitiativeRepository } from "../ports/initiative-repository.js";
 import { KnownProjects } from "../ports/known-projects.js";
 import { ProjectWorktrees } from "../ports/project-worktrees.js";
+import { RecordEdits } from "../ports/record-edits.js";
 import { TaskRepository, type NeighbourIds, type TaskUpdate } from "../ports/task-repository.js";
 import { publishDependencyChanges } from "./dependency-events.js";
 import { engineOverrideProblems } from "./engine-override-choice.js";
@@ -118,6 +127,7 @@ export class TaskService {
     private readonly engineChecks: TaskEngineChecks,
     private readonly engineModels: EngineModels,
     private readonly engineReferences: EngineReferenceLock,
+    private readonly edits: RecordEdits,
   ) {}
 
   /**
@@ -273,18 +283,22 @@ export class TaskService {
     };
   }
 
-  async changePriority(id: string, priority: Priority): Promise<Task> {
-    return this.update(id, (task) => changePriority(task, priority));
+  /** The priority, by `by`, kept in the Task's History when it changes. */
+  async changePriority(id: string, priority: Priority, by: Author): Promise<Task> {
+    return this.update(id, (task) => withTaskEdits(changePriority(task, priority), task, by));
   }
 
-  /** The title, in any state but Done and Dropped. */
-  async changeTitle(id: string, title: string): Promise<Task> {
-    return this.update(id, (task) => changeTitle(task, title));
+  /** The title, in any state but Done and Dropped, by `by`, kept in the Task's History. */
+  async changeTitle(id: string, title: string, by: Author): Promise<Task> {
+    return this.update(id, (task) => withTaskEdits(changeTitle(task, title), task, by));
   }
 
-  /** Feature, Bug or Chore, in any state but Done and Dropped; the Task never moves for it. */
-  async changeKind(id: string, kind: TaskKind): Promise<Task> {
-    return this.update(id, (task) => changeKind(task, kind));
+  /**
+   * Feature, Bug or Chore, in any state but Done and Dropped; the Task never moves for it. By `by`,
+   * kept in the Task's History.
+   */
+  async changeKind(id: string, kind: TaskKind, by: Author): Promise<Task> {
+    return this.update(id, (task) => withTaskEdits(changeKind(task, kind), task, by));
   }
 
   /**
@@ -329,9 +343,27 @@ export class TaskService {
     return this.update(id, (task) => changeFoundInVersion(task, foundInVersion));
   }
 
-  /** The user's Description, until the Task starts. */
-  async changeDescription(id: string, description: string): Promise<Task> {
-    return this.update(id, (task) => changeDescription(task, description));
+  /** The Description, until the Task starts, by `by`, kept in the Task's History. */
+  async changeDescription(id: string, description: string, by: Author): Promise<Task> {
+    return this.update(id, (task) => withTaskEdits(changeDescription(task, description), task, by));
+  }
+
+  /**
+   * The Task's History, oldest first: its kept state changes and the edits of its fields, each with
+   * who or what made it. Throws TaskNotFound when there is no such Task.
+   */
+  async history(id: string): Promise<readonly HistoryEntry[]> {
+    await this.read(id);
+    const [stateChanges, edits] = await Promise.all([
+      this.repository.stateChangesOf(id),
+      this.edits.of({ kind: "task", id }),
+    ]);
+    return historyOf(stateChanges, edits);
+  }
+
+  /** The Task's kept edits, oldest first, each with who made it. */
+  async editsOf(id: string): Promise<readonly RecordEdit[]> {
+    return this.edits.of({ kind: "task", id });
   }
 
   /**
@@ -471,13 +503,22 @@ export class TaskService {
   }
 
   /**
-   * Drops the Task, by the user: on its page, or by their answer to a Decision, with the reason
-   * they gave, if any, kept with the move.
+   * Drops the Task, by the user (on its page, or by their answer to a Decision) or by a person
+   * (drop_task, only before it starts), with the reason given, if any, kept with the move.
    */
   async drop(id: string, by: Author, reason?: DropReason): Promise<Task> {
     if (reason?.kind === "duplicate" && reason.taskId !== id)
       await this.refuseUnknown(reason.taskId);
     return this.update(id, (task) => dropTask(task, by, reason));
+  }
+
+  /**
+   * Drops the Task as the answer to a Decision The Office put to the user or a duty holder, such as
+   * a staffing Decision: a Consultant's answer Drops it even once started (spec 2.1.3, "Dropping").
+   * Pipelines' answered Decisions call it; no route or Office action does.
+   */
+  async dropAsAnswered(id: string, answer: DropAnswer): Promise<Task> {
+    return this.update(id, (task) => dropTaskAsAnswered(task, answer));
   }
 
   /** Takes a Done or Dropped Task off the board into the Archive, its state as it was. */

@@ -58,6 +58,7 @@ import {
   holdManualOrder,
   holdShortNames,
   insertTask,
+  keepEdits,
   saveTask,
   takenOrders,
   toInitiative,
@@ -157,6 +158,7 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
         const changed = change(initiative, await tasksOf(transaction, id));
         if (!changed) return { initiative, event: undefined };
         await saveInitiative(transaction, changed.initiative);
+        await keepEdits(transaction, { kind: "initiative", id }, changed.edits);
         return changed;
       }),
     );

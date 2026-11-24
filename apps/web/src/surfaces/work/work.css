@@ -894,6 +894,37 @@
   margin-top: 8px;
 }
 
+.idea-card-history {
+  margin-top: 8px;
+}
+
+.idea-card-history summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  list-style: none;
+  cursor: pointer;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.idea-card-history summary::-webkit-details-marker {
+  display: none;
+}
+
+.idea-card-history[open] summary {
+  margin-bottom: 4px;
+}
+
+.record-history {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 .ideas-shaped,
 .ideas-dropped {
   border: 1px solid var(--border);

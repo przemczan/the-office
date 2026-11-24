@@ -1,6 +1,6 @@
 # Task page
 
-Covers: the Task page's head and actions, the Kind, the drop note, Start and the queue, planning actions, the Needs you card and Before Ready, the Pipeline rail and Stage history, the record's tabs (Overview, Changes, Attachments), the record blocks (the Bug section, the GitHub issue, the Engine fold and the Devices section with Use a Project device among them), the Task menu, the Delete branch window, run controls, Gate actions, Conflict resolution, publishing, and the Task's conversation.
+Covers: the Task page's head and actions, the Kind, the drop note, Start and the queue, planning actions, the Needs you card and Before Ready, the Pipeline rail and Stage history, the record's tabs (Overview, Changes, Attachments), the record blocks (the Bug section, the GitHub issue, the Engine fold, the Devices section with Use a Project device among them, and History), the Task menu, the Delete branch window, run controls, Gate actions, Conflict resolution, publishing, and the Task's conversation.
 
 ## Where it is
 
@@ -246,9 +246,9 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 
 ## Overview
 
-- Blocks, top to bottom: **Description**, **Plan**, **Commit message**, **Definition of Done**, **Engine**, **Devices**.
+- Blocks, top to bottom: **Description**, **Plan**, **Commit message**, **Definition of Done**, **Engine**, **Devices**, **History**.
 - Each is a fold remembered per Task in this browser; a folded body stays mounted, so an editor keeps what was typed, and **Edit** opens the fold first.
-- Open at the start: Description always; Plan and Definition of Done in Planning; Commit message and Engine folded.
+- Open at the start: Description always; Plan and Definition of Done in Planning; Commit message, Engine and History folded.
 - Each fold's header has an icon, title, a summary line while folded, and its actions.
 
 ### Description
@@ -403,6 +403,15 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
   - no ADB interface: "The phone doesn't offer USB debugging. Turn on USB debugging in Developer options, then connect again.";
   - the system denied access: "This computer didn't let the browser open the phone.", then on Linux a udev rule for the phone's vendor id (`SUBSYSTEM=="usb", ATTR{idVendor}=="<vid>", MODE="0660", GROUP="plugdev"` in `/etc/udev/rules.d/51-android.rules`, in the plugdev group), on Windows the WinUSB driver (the Google USB Driver, or the phone maker's), both elsewhere, and "Then unplug the phone and connect again."
 - Rules: [2.13](../2.13-connected-devices.md).
+
+### History
+
+- A fold "History" (history icon), last, starting folded.
+- Summary: "Nothing yet", or "<n> changes · last <when>".
+- One row per entry, oldest first: "Created in Backlog by …", "Moved from Ready to Planning by …", "Title edited by …", each with its day and clock.
+- Who reads as [2.1.3 History](../2.1.3-tasks.md#history) names them: "the user Ann Lee", "the person in the Role planner".
+- Empty: "Nothing has changed yet."; a failed read shows a danger alert "The History wasn't read" with the service's message.
+- Rules: [2.1.3](../2.1.3-tasks.md#history).
 
 ## Changes tab
 

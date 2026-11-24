@@ -8,6 +8,22 @@ export type OfficeActionRecord = "task" | "initiative" | "idea" | "project" | "r
 export type OfficeActionMethod = "POST" | "PUT" | "DELETE";
 
 /**
+ * The records a person creates in a Thread with an Office tool: create_task, capture_idea and
+ * create_initiative.
+ */
+export type CreatedRecord = "task" | "idea" | "initiative";
+
+/**
+ * Who gets an Office action's tool, exactly one kind of cover (spec 5.4.1, "Office actions"):
+ * - `duties`: a person holding one of them, in every Thread the user talks to them in;
+ * - `creators`: whoever can create the record in the Thread, wherever its create tool is offered,
+ *   so a person can fix what they made. Never in an Agent Stage.
+ */
+export type OfficeActionCover =
+  | { readonly kind: "duties"; readonly duties: readonly [DutyKey, ...DutyKey[]] }
+  | { readonly kind: "creators"; readonly record: CreatedRecord };
+
+/**
  * One thing the user can do on a record, declared once (the Office action convention, spec 5.4):
  * the route the web calls and the Office tool Agents call both come from it, and both call the
  * one handler of the module that owns the record.
@@ -31,10 +47,10 @@ export interface OfficeAction<
   /** Under `/api`, its path parameters written `:name`. */
   readonly route: { readonly method: OfficeActionMethod; readonly path: string };
   /**
-   * The duties that cover it: a person holding one gets its tool in every Thread the user talks to
-   * them in. Whether it is allowed is the handler's domain rules, the same for the user and Agents.
+   * Who gets its tool (`OfficeActionCover`). Whether a call is allowed is the handler's domain
+   * rules, the same for the user and Agents.
    */
-  readonly duties: readonly DutyKey[];
+  readonly coveredBy: OfficeActionCover;
 }
 
 /** Declares an Office action, refusing one whose path names a parameter its input doesn't have. */
@@ -52,7 +68,8 @@ export function officeAction<Input extends z.ZodObject, Answer extends z.ZodType
       `The Office action ${action.name} is a DELETE, so its path names all its input.`,
     );
   }
-  if (action.duties.length === 0) {
+  // The tuple type keeps duties non-empty for typed callers; this refuses an empty one cast past it.
+  if (action.coveredBy.kind === "duties" && action.coveredBy.duties.length === 0) {
     throw new Error(`The Office action ${action.name} names no duty that covers it.`);
   }
   return action;

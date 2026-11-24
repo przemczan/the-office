@@ -9,6 +9,7 @@ import type { Idea } from "../../domain/idea.js";
 import type { Initiative } from "../../domain/initiative.js";
 import type { Task, TaskSummary, TaskTextField } from "../../domain/task.js";
 import type { PullRequestEnd } from "../../domain/task-pull-request.js";
+import type { EditedRecord, RecordEdit } from "../../domain/record-edits.js";
 import type { StateChange, StateChangeCause } from "../../domain/state-change.js";
 import type { TaskChange } from "../../domain/task-changes.js";
 import type { DependencyChange, DependencyChanges } from "../../domain/task-dependencies.js";
@@ -20,6 +21,7 @@ import {
   attachments,
   ideas,
   initiatives,
+  recordEdits,
   tasks,
   taskStateChanges,
   type AuthorRow,
@@ -158,11 +160,12 @@ export async function insertTask(
   await keepStateChange(transaction, created);
 }
 
-/** Keeps the change's move between states with the Task, when it makes one. */
+/** Keeps the change's move between states and its edits with the Task, when it makes them. */
 export async function keepStateChange(
   transaction: Transaction,
-  { task, stateChange }: TaskChange<DomainEvent>,
+  { task, stateChange, edits }: TaskChange<DomainEvent>,
 ): Promise<void> {
+  await keepEdits(transaction, { kind: "task", id: task.id }, edits);
   if (!stateChange) return;
   await transaction.insert(taskStateChanges).values({
     taskId: task.id,
@@ -171,6 +174,38 @@ export async function keepStateChange(
     changedAt: stateChange.at,
     changedBy: stateChange.by,
   });
+}
+
+/** Keeps the edits a change of the record made, in the change's transaction; none for none. */
+export async function keepEdits(
+  transaction: Transaction,
+  record: EditedRecord,
+  edits: readonly RecordEdit[] | undefined,
+): Promise<void> {
+  if (!edits || edits.length === 0) return;
+  await transaction.insert(recordEdits).values(
+    edits.map(({ field, at, by }) => ({
+      recordKind: record.kind,
+      recordId: record.id,
+      field,
+      editedAt: at,
+      editedBy: by,
+    })),
+  );
+}
+
+/** The record's kept edits, in the order they were saved. */
+export async function editsOf(
+  database: Database | Transaction,
+  record: EditedRecord,
+): Promise<RecordEdit[]> {
+  if (!canBeRowId(record.id)) return [];
+  const rows = await database
+    .select()
+    .from(recordEdits)
+    .where(and(eq(recordEdits.recordKind, record.kind), eq(recordEdits.recordId, record.id)))
+    .orderBy(recordEdits.id);
+  return rows.map((row) => ({ field: row.field, at: row.editedAt, by: causeOf(row.editedBy) }));
 }
 
 /** The Task's kept state changes, in the order they were saved. */

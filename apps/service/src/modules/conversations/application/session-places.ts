@@ -18,6 +18,7 @@ import {
   caretakerChatOfficeTools,
   chatOfficeTools,
   consultationOfficeTools,
+  recordsCreatedWith,
   type HeldDuties,
   type SessionPerson,
 } from "../domain/session-instructions.js";
@@ -137,7 +138,8 @@ export class SessionPlaces {
 
   /**
    * Every Thread the user talks to a person in also gets the Office actions' tools their held
-   * duties cover (spec 5.4); a Stage's Thread does its Stage's work only, so gets none. Its
+   * duties cover, and those of the records its tools create (spec 5.4.1); a Stage's Thread does its
+   * Stage's work only, so gets none. Its
    * instructions render with the templates' texts as they are now, so a resumed session gets the
    * current text too. Every session reads the knowledge base its Brief names, never changing it.
    * `logBefore` is the id of the message the session answers, once it is logged
@@ -147,9 +149,7 @@ export class SessionPlaces {
     const held = await this.duties.heldBy(thread.roleKey);
     const home = await this.homePlace(thread, held, logBefore);
     const prompts = await this.promptTemplates.textsOf(SESSION_INSTRUCTION_TEMPLATES);
-    const actionTools = thread.stageThread
-      ? []
-      : this.tools.coveredBy(held).filter((name) => !home.officeTools.includes(name));
+    const actionTools = thread.stageThread ? [] : this.actionTools(held, home.officeTools);
     return {
       ...home,
       readableFolders: [...this.knowledgeBase.readableFolders, ...home.readableFolders],
@@ -157,6 +157,18 @@ export class SessionPlaces {
       heldDuties: held,
       instructions: (person) => home.instructions(prompts, person),
     };
+  }
+
+  /**
+   * The Office actions' tools a Thread the user talks in adds to its home's: those the person's
+   * held duties cover, and those covered by whoever creates a record the home's tools create.
+   */
+  private actionTools(held: HeldDuties, homeTools: readonly string[]): string[] {
+    const covered = new Set([
+      ...this.tools.coveredBy(held),
+      ...this.tools.coveredByCreatorsOf(recordsCreatedWith(homeTools)),
+    ]);
+    return [...covered].filter((name) => !homeTools.includes(name));
   }
 
   private async homePlace(

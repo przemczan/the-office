@@ -76,22 +76,21 @@ export class StaffingHolds implements OnModuleInit {
 
   /**
    * The answer, given `by` a user or a Consultant: drop the Task, or resume it, which holds it again
-   * while the lack stands.
+   * while the lack stands. The Drop goes before the hold is let go, so a refused one leaves the Task
+   * held behind the Decision; a Resume goes after, so the lack can hold it again.
    */
   private async answered(
     decisionId: string,
     answer: { readonly kind: string; readonly option?: number },
     by: ResumedOrDroppedBy,
   ): Promise<void> {
-    const taskId = await this.holds.release(decisionId);
+    const taskId = await this.holds.taskHeldBy(decisionId);
     if (!taskId) return;
-    const { state } = await this.tasks.read(taskId);
-    if (state !== "paused") return;
-    if (answer.kind === "option" && answer.option === STAFFING_OPTIONS.drop) {
-      await this.tasks.drop(taskId, by);
-      return;
-    }
-    await this.tasks.resume(taskId, by);
+    const paused = (await this.tasks.read(taskId)).state === "paused";
+    const drops = answer.kind === "option" && answer.option === STAFFING_OPTIONS.drop;
+    if (paused && drops) await this.tasks.dropAsAnswered(taskId, { decisionId, by });
+    if (!(await this.holds.release(decisionId))) return;
+    if (paused && !drops) await this.tasks.resume(taskId, by);
   }
 }
 

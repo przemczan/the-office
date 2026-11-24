@@ -5,6 +5,7 @@ import {
   type ProposedInitiativeChange,
 } from "../../../conversations/index.js";
 import { InitiativeService } from "../../application/initiative-service.js";
+import { byTheUser, type UserRef } from "../../domain/author.js";
 import { InitiativeNotFound } from "../../domain/initiative-not-found.js";
 import { InitiativeRefused } from "../../domain/initiative-refused.js";
 import { TaskNotFound } from "../../domain/task-not-found.js";
@@ -26,20 +27,26 @@ export class InitiativeProposals implements OnModuleInit {
     this.appliers.register("initiative", {
       problemsWith: ({ initiativeId, edit }) =>
         this.initiatives.problemsWithProposal(initiativeId, edit),
-      apply: (change, proposedBy) => this.apply(change, proposedBy),
+      apply: (change, proposedBy, appliedBy) => this.apply(change, proposedBy, appliedBy),
     });
   }
 
-  /** A refusal leaves the Proposal open, in the words Work refuses the change with. */
+  /**
+   * A refusal leaves the Proposal open, in the words Work refuses the change with. What it adds is
+   * the proposer's; the edits it makes are kept as the user's who applied it.
+   */
   private async apply(
     change: ProposedInitiativeChange,
     proposedBy: string,
+    appliedBy: UserRef,
   ): Promise<ProposedInitiativeChange> {
     try {
-      const edit = await this.initiatives.applyProposal(change.initiativeId, change.edit, {
-        kind: "person",
-        roleKey: proposedBy,
-      });
+      const edit = await this.initiatives.applyProposal(
+        change.initiativeId,
+        change.edit,
+        { kind: "person", roleKey: proposedBy },
+        byTheUser(appliedBy),
+      );
       return { ...change, edit };
     } catch (error) {
       if (error instanceof InitiativeRefused || error instanceof TaskRefused) {

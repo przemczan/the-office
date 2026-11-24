@@ -18,6 +18,7 @@ import {
   canBeRowId,
   holdManualOrder,
   insertTask,
+  keepEdits,
   ownerColumns,
   takenOrders,
   toAttachment,
@@ -63,6 +64,7 @@ export class PostgresIdeaRepository extends IdeaRepository {
         const changed = change(idea);
         if (!changed) return { idea, event: undefined };
         await transaction.update(ideas).set(toIdeaRow(changed.idea)).where(eq(ideas.id, id));
+        await keepEdits(transaction, { kind: "idea", id }, changed.edits);
         return changed;
       }),
     );

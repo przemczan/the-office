@@ -1,5 +1,13 @@
 import type { z } from "zod";
 
+/**
+ * Who gets an Office action's tool, as its declaration says (the contracts' `OfficeActionCover`):
+ * a holder of one of the duties, or whoever creates the record in the Thread.
+ */
+export type OfficeToolCover =
+  | { readonly kind: "duties"; readonly duties: readonly string[] }
+  | { readonly kind: "creators"; readonly record: string };
+
 /** The session's Office rules' decision on a command line: run it, or refuse it in these words. */
 export type CommandJudgement =
   { readonly allowed: true } | { readonly allowed: false; readonly reason: string };
@@ -51,10 +59,11 @@ export interface OfficeTool<Input extends z.ZodObject = z.ZodObject> {
   readonly description: string;
   readonly input: Input;
   /**
-   * For an Office action's tool, the duties that cover it: a person holding one gets it in every
-   * Thread the user talks to them in (`OfficeToolRegistry.coveredBy`). Undefined for any other tool,
-   * which a session gets only by name.
+   * For an Office action's tool, its declared cover: the duties whose holder
+   * gets it (`OfficeToolRegistry.coveredBy`), or the record whose creators get it
+   * (`OfficeToolRegistry.coveredByCreatorsOf`). Undefined for any other tool, which a session gets
+   * only by name.
    */
-  readonly coveredBy?: readonly string[];
+  readonly coveredBy?: OfficeToolCover;
   run(input: z.output<Input>, call: OfficeToolCall): Promise<OfficeToolResult>;
 }

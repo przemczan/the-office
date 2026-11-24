@@ -76,6 +76,18 @@ describe("PRESETS", () => {
     expect(roleCardProblems(preset.roleKey, card, CARD_CONTEXT)).toEqual([]);
   });
 
+  // Spec §2.2, "Authority and Hard switches": the records a person creates in a chat.
+  it.each(["planner", "cto", "devops", "office-manager"])(
+    "let the %s correct the records they create, asking the user before Dropping another's",
+    (roleKey) => {
+      const instructions = presetFor(roleKey)?.card.instructions ?? "";
+
+      expect(instructions).toMatch(/Decide alone: [^\n]*correcting [^\n]*your own mistake/);
+      expect(instructions).toMatch(/Ask the user: [^\n]*somebody else created/);
+      expect(instructions).toMatch(/started is the user's to Drop|started Task is the user's/);
+    },
+  );
+
   it("work with each engine's default model, and their effort on each type that takes it", () => {
     expect(presetFor("developer")?.card.engineSettings).toEqual({
       "claude-code": { model: null, effort: "high" },

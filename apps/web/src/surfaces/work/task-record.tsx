@@ -4,6 +4,7 @@ import { usePlanner } from "../../shell/work/use-planner.ts";
 import { CommitMessageBlock } from "./commit-message-block.tsx";
 import { DescriptionBlock } from "./description-block.tsx";
 import { DevicesBlock } from "./devices-block.tsx";
+import { HistoryBlock } from "./history-block.tsx";
 import { DefinitionOfDoneBlock, PlanBlock } from "./planning-parts.tsx";
 import { TaskEngineBlock } from "./work-engine-block.tsx";
 
@@ -23,6 +24,7 @@ export function TaskRecord({ task }: { readonly task: Task }): ReactNode {
       <DefinitionOfDoneBlock task={task} planner={planner} />
       <TaskEngineBlock task={task} />
       <DevicesBlock task={task} />
+      <HistoryBlock record={{ kind: "task", id: task.id }} />
     </section>
   );
 }

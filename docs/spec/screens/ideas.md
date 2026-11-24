@@ -1,6 +1,6 @@
 # Ideas tab
 
-Covers: the Ideas tab of Work, New Ideas and their cards, shaping an Idea into a Task or an Initiative, planning it at once, editing, attaching, dropping and restoring, Shaped and Dropped Ideas, a linked Idea.
+Covers: the Ideas tab of Work, New Ideas and their cards, shaping an Idea into a Task or an Initiative, planning it at once, editing, attaching, dropping and restoring, an Idea's History, Shaped and Dropped Ideas, a linked Idea.
 
 ## Where it is
 
@@ -36,6 +36,14 @@ Covers: the Ideas tab of Work, New Ideas and their cards, shaping an Idea into a
 - The notes, when there are any.
 - The Idea's Attachments as a gallery ([2.1.2](../2.1.2-ideas-and-attachments.md)).
 - A row of actions, as many as fit one line; the More menu lists every one.
+- Last, a fold **History** (history icon), folded; the History is read only once it is unfolded ([History](#history)).
+
+### History
+
+- One row per entry, oldest first: "Created in Backlog by …", "Moved from Ready to Planning by …", "Title edited by …", each with its day and clock.
+- Who reads as [2.1.3 History](../2.1.3-tasks.md#history) names them: "the user Ann Lee", "the person in the Role planner".
+- Empty: "Nothing has changed yet."; a failed read shows a danger alert "The History wasn't read" with the service's message.
+- Rules: [2.1.3](../2.1.3-tasks.md#history).
 
 ### Idea actions
 

@@ -10,6 +10,7 @@ export type {
   CommandJudgement,
   OfficeTool,
   OfficeToolCall,
+  OfficeToolCover,
   OfficeToolPicture,
   OfficeToolResult,
 } from "./ports/office-tool.js";

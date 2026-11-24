@@ -109,7 +109,7 @@ export const RERUN_CI_RUN_ACTION = officeAction({
   }),
   answer: ciRunRerunSchema,
   route: { method: "POST", path: "/projects/:projectId/ci-runs/:runId/rerun" },
-  duties: ["onboards-projects"],
+  coveredBy: { kind: "duties", duties: ["onboards-projects"] },
 });
 
 /** The kinds of a workflow's input, in words no code host owns. */
@@ -199,7 +199,7 @@ export const START_WORKFLOW_ACTION = officeAction({
   }),
   answer: workflowStartSchema,
   route: { method: "POST", path: "/projects/:projectId/workflows/:workflow/start" },
-  duties: ["onboards-projects"],
+  coveredBy: { kind: "duties", duties: ["onboards-projects"] },
 });
 
 /** Projects' Office actions, each declared above. */

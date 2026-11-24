@@ -14,39 +14,26 @@ import {
 import {
   causedByChangeSchema,
   commitMessageChangeSchema,
-  definitionOfDoneChangeSchema,
-  descriptionChangeSchema,
-  dropSchema,
   foundInVersionChangeSchema,
-  kindChangeSchema,
   workEngineChangeSchema,
   makeAPlanSchema,
   markReadyRequestSchema,
   newTaskSchema,
   pipelineChangeSchema,
-  planChangeSchema,
-  priorityChangeSchema,
   taskListQuerySchema,
   tagsChangeSchema,
-  titleChangeSchema,
   taskMoveCheckQuerySchema,
   taskMoveSchema,
   taskPlacementSchema,
   type CausedByChange,
   type CommitMessageChange,
-  type DefinitionOfDoneChange,
-  type DescriptionChange,
-  type Drop,
+  type History,
   type FoundInVersionChange,
-  type KindChange,
   type WorkEngineChange,
-  type TitleChange,
   type MakeAPlan,
   type MarkReadyRequest,
   type NewTask,
   type PipelineChange,
-  type PlanChange,
-  type PriorityChange,
   type Readiness,
   type TaskListQuery,
   startRequestSchema,
@@ -71,7 +58,7 @@ import { TaskService } from "../../application/task-service.js";
 import { reasonsOf } from "../../domain/wait.js";
 import { searchedQuery } from "./searched-query.js";
 import { authorOf } from "./signed-in-author.js";
-import { toQueueResponse, toUsageEstimateResponse } from "./work-responses.js";
+import { toHistoryResponse, toQueueResponse, toUsageEstimateResponse } from "./work-responses.js";
 import { TaskResponses } from "./task-responses.js";
 import { WorkRefusalsFilter } from "./work-refusals.filter.js";
 
@@ -114,30 +101,10 @@ export class TasksController {
     return this.responses.task(await this.tasks.read(id));
   }
 
-  @Put(":id/priority")
-  async changePriority(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(priorityChangeSchema)) { priority }: PriorityChange,
-  ): Promise<TaskResponse> {
-    return this.responses.task(await this.tasks.changePriority(id, priority));
-  }
-
-  /** The user's new title, in any state but Done and Dropped. */
-  @Put(":id/title")
-  async changeTitle(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(titleChangeSchema)) { title }: TitleChange,
-  ): Promise<TaskResponse> {
-    return this.responses.task(await this.tasks.changeTitle(id, title));
-  }
-
-  /** Feature, Bug or Chore, in any state but Done and Dropped; the Task never moves for it. */
-  @Put(":id/kind")
-  async changeKind(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(kindChangeSchema)) { kind }: KindChange,
-  ): Promise<TaskResponse> {
-    return this.responses.task(await this.tasks.changeKind(id, kind));
+  /** Its History, oldest first: its state changes and the edits of its fields, with who made each. */
+  @Get(":id/history")
+  async history(@Param("id", ParseUUIDPipe) id: string): Promise<History> {
+    return toHistoryResponse(await this.tasks.history(id));
   }
 
   /** The Task whose work caused this Bug, or null for none. */
@@ -158,15 +125,6 @@ export class TasksController {
     return this.responses.task(
       await this.tasks.changeFoundInVersion(id, foundInVersion ?? undefined),
     );
-  }
-
-  /** The user's Description, until the Task starts. */
-  @Put(":id/description")
-  async changeDescription(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(descriptionChangeSchema)) { description }: DescriptionChange,
-  ): Promise<TaskResponse> {
-    return this.responses.task(await this.tasks.changeDescription(id, description));
   }
 
   /** The user's commit message, until Publish lands it (spec §2.3). */
@@ -237,34 +195,11 @@ export class TasksController {
     return this.responses.task(await this.planning.makeAPlan(id, autoMode, authorOf(signedIn)));
   }
 
-  /** Save: the user's Plan, unconfirmed once changed; a change moves a Ready Task to Backlog. */
-  @Put(":id/plan")
-  async savePlan(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(planChangeSchema)) change: PlanChange,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<TaskResponse> {
-    return this.responses.task(await this.planning.savePlan(id, change, authorOf(signedIn)));
-  }
-
   /** Confirm: the Plan as it reads. */
   @Post(":id/plan/confirm")
   @HttpCode(HttpStatus.OK)
   async confirmPlan(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
     return this.responses.task(await this.planning.confirmPlan(id));
-  }
-
-  /** Save, as with the Plan. */
-  @Put(":id/definition-of-done")
-  async saveDefinitionOfDone(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(definitionOfDoneChangeSchema))
-    { definitionOfDone }: DefinitionOfDoneChange,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<TaskResponse> {
-    return this.responses.task(
-      await this.planning.saveDefinitionOfDone(id, definitionOfDone, authorOf(signedIn)),
-    );
   }
 
   /** Confirm: the Definition of Done as it reads. */
@@ -399,37 +334,6 @@ export class TasksController {
     @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
     return this.responses.task(await this.tasks.resume(id, authorOf(signedIn)));
-  }
-
-  /** Drop, with the reason the user gave, if any; no body is a Drop with no reason. */
-  @Post(":id/drop")
-  @HttpCode(HttpStatus.OK)
-  async drop(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(dropSchema.optional())) body: Drop | undefined,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<TaskResponse> {
-    return this.responses.task(await this.tasks.drop(id, authorOf(signedIn), body?.reason));
-  }
-
-  /** Archive: a Done or Dropped Task leaves the board, its state as it was. */
-  @Post(":id/archive")
-  @HttpCode(HttpStatus.OK)
-  async archive(
-    @Param("id", ParseUUIDPipe) id: string,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<TaskResponse> {
-    return this.responses.task(await this.tasks.archive(id, authorOf(signedIn)));
-  }
-
-  /** Restore: an archived Task returns to the board in the state it had. */
-  @Post(":id/restore")
-  @HttpCode(HttpStatus.OK)
-  async restore(
-    @Param("id", ParseUUIDPipe) id: string,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<TaskResponse> {
-    return this.responses.task(await this.tasks.restore(id, authorOf(signedIn)));
   }
 
   /** Move's check: every reason the Task can't move to another Project now. */

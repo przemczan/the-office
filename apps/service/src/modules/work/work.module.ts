@@ -70,6 +70,7 @@ import { PostgresInitiativeRepository } from "./adapters/postgres/postgres-initi
 import { PostgresSavedViewRepository } from "./adapters/postgres/postgres-saved-view-repository.js";
 import { PostgresQueueRepository } from "./adapters/postgres/postgres-queue-repository.js";
 import { PostgresTaskRepository } from "./adapters/postgres/postgres-task-repository.js";
+import { PostgresRecordEdits } from "./adapters/postgres/postgres-record-edits.js";
 import { WorkEarlierRecords } from "./adapters/postgres/work-earlier-records.js";
 import { PostgresWorkSearch } from "./adapters/postgres/postgres-work-search.js";
 import { PostgresWorkSettings } from "./adapters/postgres/postgres-work-settings.js";
@@ -151,6 +152,7 @@ import { SessionInitiatives } from "./ports/session-initiatives.js";
 import { SessionTasks } from "./ports/session-tasks.js";
 import { QueueRepository } from "./ports/queue-repository.js";
 import { TaskRepository } from "./ports/task-repository.js";
+import { RecordEdits } from "./ports/record-edits.js";
 import { TaskDecisions } from "./ports/task-decisions.js";
 import { TaskThreads } from "./ports/task-threads.js";
 import { TaskTokens } from "./ports/task-tokens.js";
@@ -268,6 +270,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         { provide: IdeaRepository, useClass: PostgresIdeaRepository },
         { provide: InitiativeRepository, useClass: PostgresInitiativeRepository },
         { provide: TaskRepository, useClass: PostgresTaskRepository },
+        { provide: RecordEdits, useClass: PostgresRecordEdits },
         { provide: QueueRepository, useClass: PostgresQueueRepository },
         { provide: AttachmentRepository, useClass: PostgresAttachmentRepository },
         { provide: AttachmentFiles, useClass: FilesystemAttachmentFiles },

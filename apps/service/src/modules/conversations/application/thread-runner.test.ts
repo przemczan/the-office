@@ -34,6 +34,7 @@ import {
   ScriptedEngine,
   ScriptedEngineModule,
   type Engine,
+  type OfficeToolCover,
   type SessionScript,
 } from "../../engine/index.js";
 import {
@@ -4879,8 +4880,17 @@ function standInsFor(names: readonly string[]): void {
   }
 }
 
-/** Registers a stand-in for an Office action's tool, covered by `coveredBy`. */
-function actionStandIn(name: string, coveredBy: readonly string[]): void {
+/** Registers a stand-in for an Office action's tool, covered by `coveringDuties`. */
+function actionStandIn(name: string, coveringDuties: readonly string[]): void {
+  coveredStandIn(name, { kind: "duties", duties: coveringDuties });
+}
+
+/** Registers a stand-in for an Office action's tool, covered by whoever creates `record`. */
+function creatorsActionStandIn(name: string, record: string): void {
+  coveredStandIn(name, { kind: "creators", record });
+}
+
+function coveredStandIn(name: string, coveredBy: OfficeToolCover): void {
   app.get(OfficeToolRegistry).register({
     name,
     description: `Stands in for ${name}.`,
@@ -4888,6 +4898,13 @@ function actionStandIn(name: string, coveredBy: readonly string[]): void {
     coveredBy,
     run: () => Promise.resolve({ text: "Nothing.", isError: false }),
   });
+}
+
+/** Stands in for an Office action of each record its creators get. */
+function creatorsActionStandIns(): void {
+  creatorsActionStandIn("change_task_title", "task");
+  creatorsActionStandIn("edit_idea", "idea");
+  creatorsActionStandIn("write_initiative_outcome", "initiative");
 }
 
 /** The Office tools of the Thread's `index`th session, by name. */
@@ -4982,6 +4999,55 @@ describe("a chat's built-in tools, by the duties its person holds", () => {
     expect(stages.officeTools).not.toContain("add_dependency");
   });
 
+  it("give a chat the Office actions of the records it creates, the Default person's no Task's", async () => {
+    await startWith();
+    creatorsActionStandIns();
+    const places = app.get(SessionPlaces);
+
+    const plain = await places.of(await threads.startInChat(roleKey));
+    duties.set("default-person-to-talk-to", roleKey);
+    const defaultPerson = await places.of(await threads.startInChat(roleKey));
+
+    expect(plain.officeTools).toEqual([
+      ...CHAT_OFFICE_TOOLS,
+      CONSULT_TOOL,
+      "change_task_title",
+      "edit_idea",
+    ]);
+    expect(defaultPerson.officeTools).toEqual(
+      expect.arrayContaining(["edit_idea", "write_initiative_outcome"]),
+    );
+    expect(defaultPerson.officeTools).not.toContain("change_task_title");
+  });
+
+  it("give a Consultation the Office actions of the records it creates, and a Stage's Thread none", async () => {
+    await startWith();
+    creatorsActionStandIns();
+    const consultation = aThread({
+      id: randomUUID(),
+      home: { kind: "task", taskId: randomUUID() },
+      roleKey,
+      title: "Ann asks Ada",
+      consultation: {
+        decisionId: randomUUID(),
+        askerThreadId: randomUUID(),
+        askerRoleKey: undefined,
+      },
+    });
+    await repository.add(consultation);
+    const places = app.get(SessionPlaces);
+
+    const consulted = await places.of(consultation);
+    const stages = await places.of(await storedThreadOnATask({ stageThread: true }));
+
+    expect(consulted.officeTools).toEqual(
+      expect.arrayContaining(["change_task_title", "edit_idea"]),
+    );
+    expect(consulted.officeTools).not.toContain("write_initiative_outcome");
+    expect(stages.officeTools).not.toContain("change_task_title");
+    expect(stages.officeTools).not.toContain("edit_idea");
+  });
+
   it("give a Role holding no duty the plain chat's tools, its key the default holder's or not", async () => {
     await startWith(started(...aTurn("brief", "Hello.")));
     const thread = await threads.startInChat(roleKey);
@@ -5066,6 +5132,19 @@ describe("the Caretaker's chat", () => {
     expect(toolsOf(0)).not.toContain(POST_LINK_CARD_TOOL);
     expect(engine.sessions[0]?.options.instructions).toContain(CALLING_RULE);
     expect((await threads.read(thread.id)).session?.heldDuties).toEqual([]);
+  });
+
+  it("gets the Office actions of the Tasks and Ideas it creates, after its own tools", async () => {
+    await startWith();
+    creatorsActionStandIns();
+
+    const place = await app.get(SessionPlaces).of(await threads.startInChat(roleKey));
+
+    expect(place.officeTools).toEqual([
+      ...caretakerChatOfficeTools([]),
+      "change_task_title",
+      "edit_idea",
+    ]);
   });
 
   it("starts the next session on the workstation once changes are allowed, and only reads again once switched off", async () => {

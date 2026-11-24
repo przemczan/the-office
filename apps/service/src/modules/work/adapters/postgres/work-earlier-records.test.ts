@@ -148,8 +148,8 @@ describe("Work's claim on its records from before users existed", () => {
       .listOf({ kind: "task", taskId: task.id });
     expect(attachment).toMatchObject({ id: link.id, addedBy: BY_THE_FIRST_USER });
     const record = await work.app.get(TaskRecords).recordText(task.id);
-    expect(record.slice(record.indexOf("State changes:")).split("\n")).toEqual([
-      "State changes:",
+    expect(record.slice(record.indexOf("History:")).split("\n")).toEqual([
+      "History:",
       expect.stringMatching(/: created in Backlog, by the user Dee Ray$/),
       expect.stringMatching(
         /: Ready → In progress, by the queue, as its turn came \(queued by the user Dee Ray\)$/,

@@ -3,6 +3,7 @@ import type { Author } from "./author.js";
 import { normalizedFilesToChange } from "./files-to-change.js";
 import type { ProposedPipeline, Task } from "./task.js";
 import type { AutoModeConfirmation, StateChangeCause } from "./state-change.js";
+import { withTaskEdits } from "./record-edits.js";
 import { markTaskReady, withStateChange, type TaskChange } from "./task-changes.js";
 import {
   TaskAcceptedInAutoMode,
@@ -167,8 +168,21 @@ function savedPart<Event extends DomainEvent>(
   by: Author,
   announced: (leftReady: TaskStateChanged | undefined) => Event,
 ): TaskChange<Event> {
-  if (task.state !== "ready") return { task: saved, event: announced(undefined) };
-  return outOfReady(task, saved, task.hasPlanningThread ? "planning" : "backlog", by, announced);
+  if (task.state !== "ready") return edited({ task: saved, event: announced(undefined) }, task, by);
+  return edited(
+    outOfReady(task, saved, task.hasPlanningThread ? "planning" : "backlog", by, announced),
+    task,
+    by,
+  );
+}
+
+/** The part's change with its edit kept, by whoever wrote it (record-edits.ts). */
+function edited<Event extends DomainEvent>(
+  change: TaskChange<Event>,
+  before: Task,
+  by: Author,
+): TaskChange<Event> {
+  return withTaskEdits(change, before, by) ?? change;
 }
 
 /**
@@ -184,13 +198,15 @@ function proposedPart<Event extends DomainEvent>(
   by: Author,
 ): TaskChange<Event> {
   const unmarked: Task = { ...proposed, markedPlanned: false };
-  if (task.state !== "ready") return { task: unmarked, event: announced(undefined) };
+  if (task.state !== "ready") {
+    return edited({ task: unmarked, event: announced(undefined) }, task, by);
+  }
   const inOwnThread: Task = {
     ...unmarked,
     initiativePlanningThreadId: undefined,
     hasPlanningThread: true,
   };
-  return outOfReady(task, inOwnThread, "planning", by, announced);
+  return edited(outOfReady(task, inOwnThread, "planning", by, announced), task, by);
 }
 
 function outOfReady<Event extends DomainEvent>(

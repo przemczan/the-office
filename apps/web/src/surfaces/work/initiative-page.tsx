@@ -31,6 +31,7 @@ import { planningProgressWords } from "./initiative-planning-words.ts";
 import { ordinaryTasksOf, tasksFoldSummary, tasksOfInitiative } from "./initiative-words.ts";
 import { MissingRecord } from "./missing-record.tsx";
 import { WorkTabs } from "./work-tabs.tsx";
+import { HistoryBlock } from "./history-block.tsx";
 import { OriginBlock } from "./origin-block.tsx";
 import { OutcomeBlock } from "./outcome-block.tsx";
 import { RecordFold } from "./record-fold.tsx";
@@ -125,6 +126,7 @@ export function InitiativePage(): ReactNode {
               record={{ kind: "initiative", id: record.id }}
               ideaId={record.originIdeaId}
             />
+            <HistoryBlock record={{ kind: "initiative", id: record.id }} />
           </section>
           <InitiativeConversation initiative={record} />
         </div>

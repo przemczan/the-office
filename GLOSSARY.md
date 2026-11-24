@@ -121,6 +121,10 @@ _Avoid_: Background Task, hidden Task, system Task, set-up Task
 Why a Task was Dropped, optional: Won't fix, Duplicate (of another Task), Can't reproduce, or Other (with words).
 _Avoid_: Resolution, Close reason
 
+**History**:
+A Task's, an Idea's or an Initiative's record of what happened to it, oldest first: its state changes and each edit of its fields (which field, when, and who: the user, a person or The Office), never the old or new text. Shown on the record's page and read by Agents with its record. See [2.1.3](docs/spec/2.1.3-tasks.md#history). Not the Stage history, which is a Task's Stage runs.
+_Avoid_: Audit log, changelog, activity (Activity is what The Office is running)
+
 **Caused by**:
 The Task whose change brought a Bug in. The other Task lists it under "Caused bugs".
 _Avoid_: Regression of, Introduced by
@@ -688,7 +692,7 @@ A built-in job The Office gives to whichever hired Role holds it, set in Setting
 _Avoid_: Responsibility (the Role card has responsibilities), assignment, function
 
 **Office action**:
-One thing the user can do on a record, such as adding a Task to an Initiative, declared once with the duties that cover it; its route on the record's page and its Office tool for Agents both come from that declaration. A person gets the tool when they hold a duty that covers it, in every Thread the user talks to them in; their Role's authority still says when they may use it without a Decision. Not an Action, which is a Project's on-demand run.
+One thing the user can do on a record, such as adding a Task to an Initiative, declared once with exactly one cover, the duties that cover it or the creators of a record; its route on the record's page and its Office tool for Agents both come from that declaration. A person gets the tool when they hold a duty that covers it, or when their Thread may create that record (changing, Dropping, Archiving and Restoring Tasks, Ideas and Initiatives), in every Thread the user talks to them in but an Agent Stage; their Role's authority still says when they may use it without a Decision. Not an Action, which is a Project's on-demand run.
 _Avoid_: Command, operation, endpoint (in the UI), capability (a Role card's capabilities are another thing)
 
 **Avatar**:

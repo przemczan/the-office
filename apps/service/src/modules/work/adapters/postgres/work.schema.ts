@@ -19,6 +19,7 @@ import type { ArchivedBy, Author } from "../../domain/author.js";
 import type { DropReasonKind } from "../../domain/drop-reason.js";
 import type { IdeaState } from "../../domain/idea.js";
 import type { InitiativeState } from "../../domain/initiative.js";
+import type { EditedField, EditedRecordKind } from "../../domain/record-edits.js";
 import type { EngineStandIn } from "../../domain/stand-ins-at-start.js";
 import type { StateChangeCause } from "../../domain/state-change.js";
 import type {
@@ -355,6 +356,25 @@ export const taskStateChanges = pgTable(
     changedBy: jsonb("changed_by").$type<StateChangeCauseRow>().notNull(),
   },
   (table) => [index("task_state_changes_task").on(table.taskId)],
+);
+
+/**
+ * The edits of a Task's, an Idea's or an Initiative's fields, each saved with the change that made
+ * it, for their History: which field, when and by whom, never the old or new value. No foreign key,
+ * as the record is in one of three tables.
+ */
+export const recordEdits = pgTable(
+  "record_edits",
+  {
+    /** In the order they were saved: one record's edits are saved one at a time, its row held. */
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    recordKind: text("record_kind").$type<EditedRecordKind>().notNull(),
+    recordId: uuid("record_id").notNull(),
+    field: text("field").$type<EditedField>().notNull(),
+    editedAt: timestamp("edited_at", { withTimezone: true }).notNull(),
+    editedBy: jsonb("edited_by").$type<StateChangeCauseRow>().notNull(),
+  },
+  (table) => [index("record_edits_record").on(table.recordKind, table.recordId)],
 );
 
 /**

@@ -9,6 +9,9 @@ export abstract class StaffingHoldRepository {
   /** Keeps the Decision the Task waits on. */
   abstract hold(taskId: string, decisionId: string): Promise<void>;
 
+  /** The Task the Decision holds, still held; undefined when it holds none. */
+  abstract taskHeldBy(decisionId: string): Promise<string | undefined>;
+
   /** Lets the Decision go and returns its Task; undefined when it holds none. */
   abstract release(decisionId: string): Promise<string | undefined>;
 }

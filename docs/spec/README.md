@@ -82,6 +82,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Description**: [2.1.3 Description](2.1.3-tasks.md#description)
 - **Details**: [2.9.3 The details](2.9.3-streaming-and-ui.md#the-details); screen: [Decision card › The details window](screens/decision-card.md#the-details-window-open-details)
 - **Devices section, Connect a device, Pair over wireless debugging**: [2.13 Two ways to connect](2.13-connected-devices.md#two-ways-to-connect); [2.13 Who connects](2.13-connected-devices.md#who-connects); screen: [Task page › Devices](screens/task-page.md#devices)
+- **Drop, who may Drop**: [2.1.3 Dropping](2.1.3-tasks.md#dropping); [2.1.4 An Initiative is done](2.1.4-initiatives.md#an-initiative-is-done)
 - **Drop reason**: [2.1.3 Drop reason](2.1.3-tasks.md#drop-reason); screen: [Task page › Task menu](screens/task-page.md#task-menu); [Archived tab › Archived Tasks](screens/archived.md#archived-tasks)
 - **Dismiss, Dismissed**: [2.4.2 Dismiss](2.4.2-decisions.md#sending-a-decision); screen: [Decision card › Dismiss](screens/decision-card.md#dismiss)
 - **Duty**: [2.2 Duty](2.2-people.md#duty); [2.2 Duties](2.2-people.md#duties); screen: [Settings › Duties](screens/settings.md#duties)
@@ -117,6 +118,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Handover note**: [2.5 Handover note](2.5-context-policy.md#handover-note); screen: [Thread › Handover note prefilled](screens/thread.md#handover-note-prefilled)
 - **Hard switch**: [6 Hard switches](6-permissions-and-safety.md#hard-switches); [2.2 Authority and Hard switches](2.2-people.md#authority-and-hard-switches)
 - **Health reading, Statement shape**: [2.11.3 System health](2.11.3-system-health.md#system-health); [2.11.3 Routes are named by their template, statements by their shape](2.11.3-system-health.md#routes-are-named-by-their-template-statements-by-their-shape)
+- **History (of a Task, an Idea, an Initiative)**: [2.1.3 History](2.1.3-tasks.md#history); screens: [Task page › History](screens/task-page.md#history), [Ideas tab › History](screens/ideas.md#history), [Initiative page › History](screens/initiative-page.md#history)
 
 ### I
 
@@ -166,7 +168,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 
 ### O
 
-- **Office action**: [2.4.4 Office actions in Threads](2.4.4-messages.md#office-actions-in-threads); [5.4.1 Office actions](5.4.1-engine-kinds.md#office-actions)
+- **Office action, covered by duties or by a record's creators**: [2.4.4 Office actions in Threads](2.4.4-messages.md#office-actions-in-threads); [5.4.1 Office actions](5.4.1-engine-kinds.md#office-actions); [2.1.3 Office actions on a Task](2.1.3-tasks.md#office-actions-on-a-task); [2.1.4 Office actions on an Initiative](2.1.4-initiatives.md#office-actions-on-an-initiative)
 - **Office command, Skill command**: [2.4.4 Commands in the message box](2.4.4-messages.md#commands-in-the-message-box); [2.6 Skill commands](2.6-skills.md#skill-commands); screen: [Thread › Commands](screens/thread.md#commands)
 - **Office device helper, the relay**: [2.13 The relay](2.13-connected-devices.md#the-relay); [2.13 The helper's start and stop](2.13-connected-devices.md#the-helpers-start-and-stop); [2.13 What the image needs](2.13-connected-devices.md#what-the-image-needs); [5.5 The Office device helper in a run environment](5.5-git-and-isolation.md#the-office-device-helper-in-a-run-environment); [5.3 Devices uses Run environments through their public interface](5.3-modules.md#devices-uses-run-environments-through-their-public-interface)
 - **Office identity, Office ssh key, Trusted host, Unconfirmed host, Sign in with GitHub**: [5.5 The Office identity](5.5-git-and-isolation.md#the-office-identity); [2.3.4 The Office's own credentials for publishing](2.3.4-publish.md#the-offices-own-credentials-for-publishing); screen: [Settings › Office identity](screens/settings.md#office-identity)
@@ -332,7 +334,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - [2.1 Work](2.1-work.md): index of the pages below.
   - [2.1.1 Projects](2.1.1-projects.md): Project, its settings, a Kind's default Pipeline, test targets, Project limit, Icon and Logo, Project commands, the re-run command, feature switches, GitHub issues.
   - [2.1.2 Ideas and Attachments](2.1.2-ideas-and-attachments.md): Idea, Attachment, text files and PDFs, pasted images.
-  - [2.1.3 Tasks](2.1.3-tasks.md): Task, its Kind and bug details, its states, Ready, Description, Commit message, dependencies, Drop reason, GitHub issue, priority, Off-board Tasks, setting up the run environment, archive, moving.
+  - [2.1.3 Tasks](2.1.3-tasks.md): Task, its Kind and bug details, its states, Ready, Description, Commit message, dependencies, Dropping, Drop reason, GitHub issue, priority, History, Office actions on a Task, Off-board Tasks, setting up the run environment, archive, moving.
   - [2.1.4 Initiatives](2.1.4-initiatives.md): Initiative, its states, shaping, Plan the Initiative, its Pipeline, Back to Shaping, Publishing Tasks, Pause, its test instances.
   - [2.1.5 Planning and Start](2.1.5-planning-and-start.md): Plan and Definition of Done, Planning, Auto mode, the queue for Start, overlaps, Usage estimates.
   - [2.1.6 Board and search](2.1.6-board-and-search.md): the board, the Kind filter, search, Saved views, Group by Initiative, the Pull requests and CI tabs.
@@ -451,6 +453,7 @@ Where each default lives, by page:
   - [Publishing Tasks](2.1.4-initiatives.md#publishing-tasks)
   - [Start Ready Tasks](2.1.4-initiatives.md#start-ready-tasks)
   - [Pause the Initiative](2.1.4-initiatives.md#pause-the-initiative)
+  - [Office actions on an Initiative](2.1.4-initiatives.md#office-actions-on-an-initiative)
   - [The Initiatives tab is a board](2.1.4-initiatives.md#the-initiatives-tab-is-a-board)
 - 2.1.5 Planning and Start
   - [Waiting on you while planning](2.1.5-planning-and-start.md#waiting-on-you-while-planning)

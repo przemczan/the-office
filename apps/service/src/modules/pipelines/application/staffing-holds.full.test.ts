@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { DecisionAnswered } from "../../conversations/index.js";
 import { RoleLetGo } from "../../people/index.js";
@@ -12,6 +12,7 @@ import {
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
 import { aPerson } from "../ports/pipelines-ports.fixtures.js";
+import { StaffingHoldRepository } from "../ports/staffing-hold-repository.js";
 import { StageInterpreter } from "./stage-interpreter.js";
 import { TaskStagesService } from "./task-stages-service.js";
 
@@ -193,6 +194,18 @@ describe("a Task whose next Stage names a Role let go", () => {
     await answering(taskId, 1, { answeredBy: "cto" });
 
     expect(pipelines.tasks.drops).toEqual([{ taskId, by: { kind: "person", roleKey: "cto" } }]);
+  });
+
+  it("stays held behind the Decision when Work refuses the Drop", async () => {
+    pipelines = await startWithDevops();
+    const taskId = await taskWaitingAtGate(deploy);
+    await lettingGo("devops");
+    vi.spyOn(pipelines.tasks, "dropAsAnswered").mockRejectedValueOnce(new Error("Refused."));
+
+    await answering(taskId, 1).catch(() => undefined);
+
+    expect(await stateOf(taskId)).toBe("paused");
+    expect(await pipelines.app.get(StaffingHoldRepository).isHeld(taskId)).toBe(true);
   });
 
   it("is flagged in the editor as let go, not as never hired", async () => {

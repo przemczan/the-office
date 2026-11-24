@@ -1,6 +1,5 @@
 import { authorWords, type Author, type UserRef } from "./author.js";
 import type { TaskState } from "./task.js";
-import { TASK_STATE_NAMES } from "./task-states.js";
 
 /** A part of a Task that auto mode confirmed on the user's behalf, the Pipeline by its id. */
 export type AutoModeConfirmation =
@@ -41,26 +40,6 @@ export interface StateChange {
   readonly to: TaskState;
   readonly at: Date;
   readonly by: StateChangeCause;
-}
-
-/** The record's lines for the Task's state changes, oldest first, as an Agent reads them. */
-export function stateChangeLines(changes: readonly StateChange[]): string[] {
-  const first = changes[0];
-  const keptFromCreation = first !== undefined && first.from === undefined;
-  return [
-    keptFromCreation
-      ? "State changes:"
-      : "State changes since The Office began keeping them (earlier ones weren't kept):",
-    ...(changes.length === 0 ? ["None kept yet."] : changes.map(stateChangeLine)),
-  ];
-}
-
-function stateChangeLine({ from, to, at, by }: StateChange): string {
-  const move =
-    from === undefined
-      ? `created in ${TASK_STATE_NAMES[to]}`
-      : `${TASK_STATE_NAMES[from]} → ${TASK_STATE_NAMES[to]}`;
-  return `- ${at.toISOString()}: ${move}, by ${stateChangeCauseWords(by)}`;
 }
 
 /** Who or what made a state change, as a record names them after "by". */

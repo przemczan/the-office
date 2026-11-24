@@ -4,8 +4,27 @@ import { join } from "node:path";
 import {
   ADD_DEPENDENCY_ACTION,
   ADD_TO_INITIATIVE_ACTION,
+  ARCHIVE_INITIATIVE_ACTION,
+  ARCHIVE_TASK_ACTION,
+  CHANGE_TASK_DEFINITION_OF_DONE_ACTION,
+  CHANGE_TASK_DESCRIPTION_ACTION,
+  CHANGE_TASK_KIND_ACTION,
+  CHANGE_TASK_PLAN_ACTION,
+  CHANGE_TASK_PRIORITY_ACTION,
+  CHANGE_TASK_TITLE_ACTION,
+  DROP_IDEA_ACTION,
+  DROP_INITIATIVE_ACTION,
+  DROP_TASK_ACTION,
+  EDIT_IDEA_ACTION,
   REMOVE_DEPENDENCY_ACTION,
+  RESTORE_IDEA_ACTION,
+  RESTORE_INITIATIVE_ACTION,
+  RESTORE_TASK_ACTION,
   TAKE_OUT_OF_INITIATIVE_ACTION,
+  WRITE_INITIATIVE_OUTCOME_ACTION,
+  historySchema,
+  ideaSchema,
+  initiativeSchema,
   taskSchema,
   workRefusalSchema,
   type Initiative,
@@ -14,9 +33,13 @@ import {
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 import { FOLLOW_YOUR_AUTHORITY, OfficeToolRegistry } from "../../../engine/index.js";
+import { PlanningService } from "../../application/planning-service.js";
 import { TaskService } from "../../application/task-service.js";
+import { TaskStateChanged } from "../../domain/task-events.js";
 import { aProjectId, initiativesHttp } from "../../initiatives.controller.fixtures.js";
-import { SessionPeopleForTests } from "../../ports/work-ports.fixtures.js";
+import { SessionPeopleForTests, SessionTasksForTests } from "../../ports/work-ports.fixtures.js";
+import { TaskRepository } from "../../ports/task-repository.js";
+import { WRITE_PLAN } from "../office-tools/planning-office-tools.js";
 import {
   sendJson,
   startWorkApplication,
@@ -30,11 +53,32 @@ let work: WorkApplication;
 const http = initiativesHttp(() => work);
 
 const SHAPER_SESSION = "shaper-session";
+const CTO: { kind: "person"; roleKey: string } = { kind: "person", roleKey: "cto" };
+/** The actions whoever shapes Initiatives or plans is covered for. */
 const ACTIONS = [
   ADD_DEPENDENCY_ACTION,
   REMOVE_DEPENDENCY_ACTION,
   ADD_TO_INITIATIVE_ACTION,
   TAKE_OUT_OF_INITIATIVE_ACTION,
+];
+/** The actions whoever can create a Task, an Idea or an Initiative is covered for, each. */
+const TASK_CREATORS_ACTIONS = [
+  CHANGE_TASK_TITLE_ACTION,
+  CHANGE_TASK_DESCRIPTION_ACTION,
+  CHANGE_TASK_KIND_ACTION,
+  CHANGE_TASK_PRIORITY_ACTION,
+  CHANGE_TASK_PLAN_ACTION,
+  CHANGE_TASK_DEFINITION_OF_DONE_ACTION,
+  DROP_TASK_ACTION,
+  ARCHIVE_TASK_ACTION,
+  RESTORE_TASK_ACTION,
+];
+const IDEA_CREATORS_ACTIONS = [EDIT_IDEA_ACTION, DROP_IDEA_ACTION, RESTORE_IDEA_ACTION];
+const INITIATIVE_CREATORS_ACTIONS = [
+  WRITE_INITIATIVE_OUTCOME_ACTION,
+  DROP_INITIATIVE_ACTION,
+  ARCHIVE_INITIATIVE_ACTION,
+  RESTORE_INITIATIVE_ACTION,
 ];
 
 beforeAll(async () => {
@@ -94,16 +138,35 @@ describe("the derived Office tools", () => {
     expect(registry.coveredBy(["shapes-initiatives"])).toEqual(ACTIONS.map(({ name }) => name));
     expect(registry.coveredBy(["plans"])).toEqual(ACTIONS.map(({ name }) => name));
     expect(registry.coveredBy(["reviews", "implements"])).toEqual([]);
-    for (const action of ACTIONS) {
+    for (const action of [
+      ...ACTIONS,
+      ...TASK_CREATORS_ACTIONS,
+      ...IDEA_CREATORS_ACTIONS,
+      ...INITIATIVE_CREATORS_ACTIONS,
+    ]) {
       const [tool] = registry.named([action.name]);
       expect(tool).toMatchObject({
         description: `${action.description} ${FOLLOW_YOUR_AUTHORITY}`,
-        coveredBy: action.duties,
+        coveredBy: action.coveredBy,
         input: action.input,
       });
     }
   });
+
+  it("cover the edits of a record by whoever can create one of its kind", () => {
+    const registry = work.app.get(OfficeToolRegistry);
+
+    expect(registry.coveredByCreatorsOf(["task"])).toEqual(names(TASK_CREATORS_ACTIONS));
+    expect(registry.coveredByCreatorsOf(["idea"])).toEqual(names(IDEA_CREATORS_ACTIONS));
+    expect(registry.coveredByCreatorsOf(["initiative"])).toEqual(
+      names(INITIATIVE_CREATORS_ACTIONS),
+    );
+  });
 });
+
+function names(actions: readonly { name: string }[]): string[] {
+  return actions.map(({ name }) => name);
+}
 
 describe("add_to_initiative and take_out_of_initiative", () => {
   it("add a Task to an active Initiative and take it out through the route, keeping its state", async () => {
@@ -293,5 +356,443 @@ describe("add_dependency and remove_dependency", () => {
     });
 
     expect(response.status).toBe(400);
+  });
+});
+
+/** As a Start and the walk take a Task In progress, which this module leaves to Pipelines. */
+async function startedWithoutAWalk(task: Task): Promise<void> {
+  const { event } = await work.app.get(TaskRepository).update(task.id, (held) => ({
+    task: { ...held, state: "in-progress" },
+    event: new TaskStateChanged(held.id, held.state, "in-progress"),
+  }));
+  expect(event).toBeDefined();
+}
+
+async function historyOf(path: string) {
+  const response = await sendJson(work, "GET", `${path}/history`);
+  expect(response.status).toBe(200);
+  return historySchema.parse(await response.json());
+}
+
+/** The edits of the record's History, with who made each. */
+async function editsOf(path: string) {
+  return (await historyOf(path)).flatMap((entry) =>
+    entry.kind === "edit" ? [{ field: entry.field, by: entry.by }] : [],
+  );
+}
+
+describe("a Task's title, Description, Kind and priority", () => {
+  it("change through the route and the tool alike, each kept in its History with who made it", async () => {
+    const task = await aTaskInNoInitiative();
+
+    const titled = await sendJson(work, "PUT", `/tasks/${task.id}/title`, {
+      title: "Offline banner, sticky",
+    });
+    const answer = await callTool(CHANGE_TASK_TITLE_ACTION.name, {
+      taskId: task.id,
+      title: "Sticky offline banner",
+    });
+    const described = await callTool(CHANGE_TASK_DESCRIPTION_ACTION.name, {
+      taskId: task.id,
+      description: "Keep it up while offline.",
+    });
+    const kind = await sendJson(work, "PUT", `/tasks/${task.id}/kind`, { kind: "bug" });
+    const priority = await callTool(CHANGE_TASK_PRIORITY_ACTION.name, {
+      taskId: task.id,
+      priority: "high",
+    });
+
+    expect(titled.status).toBe(200);
+    expect(taskSchema.parse(await titled.json()).title).toBe("Offline banner, sticky");
+    expect(answer).toEqual({
+      text: `"Offline banner, sticky" is titled "Sticky offline banner" now.`,
+      isError: false,
+    });
+    expect(described).toEqual({
+      text: `"Sticky offline banner" has the Description as given now.`,
+      isError: false,
+    });
+    expect(taskSchema.parse(await kind.json()).kind).toBe("bug");
+    expect(priority.text).toBe(`"Sticky offline banner" has high priority now.`);
+    expect(await work.app.get(TaskService).read(task.id)).toMatchObject({
+      title: "Sticky offline banner",
+      description: "Keep it up while offline.",
+      kind: "bug",
+      priority: "high",
+    });
+    expect(await editsOf(`/tasks/${task.id}`)).toEqual([
+      { field: "title", by: "the user Ann Lee" },
+      { field: "title", by: "the person in the Role cto" },
+      { field: "description", by: "the person in the Role cto" },
+      { field: "kind", by: "the user Ann Lee" },
+      { field: "priority", by: "the person in the Role cto" },
+    ]);
+  });
+
+  it("keep no edit for a value that didn't change", async () => {
+    const task = await aTaskInNoInitiative();
+
+    await sendJson(work, "PUT", `/tasks/${task.id}/title`, { title: " Offline banner " });
+    await callTool(CHANGE_TASK_PRIORITY_ACTION.name, { taskId: task.id, priority: "normal" });
+    await callTool(CHANGE_TASK_KIND_ACTION.name, { taskId: task.id, kind: task.kind });
+
+    expect(await editsOf(`/tasks/${task.id}`)).toEqual([]);
+  });
+
+  it("refuse a Description after Start and a title once Done, in the same words to both", async () => {
+    const started = await aTaskInNoInitiative("Started");
+    const done = await aTaskInNoInitiative("Done");
+    await startedWithoutAWalk(started);
+    await http.end(done, "done");
+
+    const description = await refusalOf(
+      await sendJson(work, "PUT", `/tasks/${started.id}/description`, { description: "Late." }),
+    );
+    const descriptionByTool = await callTool(CHANGE_TASK_DESCRIPTION_ACTION.name, {
+      taskId: started.id,
+      description: "Late.",
+    });
+    const title = await refusalOf(
+      await sendJson(work, "PUT", `/tasks/${done.id}/title`, { title: "Renamed" }),
+    );
+    const titleByTool = await callTool(CHANGE_TASK_TITLE_ACTION.name, {
+      taskId: done.id,
+      title: "Renamed",
+    });
+
+    expect(description).toEqual(["A Task keeps its Description once it has started."]);
+    expect(descriptionByTool).toEqual({ text: description.join(" "), isError: true });
+    expect(title).toEqual(["A Task keeps its title once it is Done or Dropped."]);
+    expect(titleByTool).toEqual({ text: title.join(" "), isError: true });
+  });
+});
+
+describe("a Task's Plan and Definition of Done", () => {
+  it("save as the user's Save does, Not confirmed and a Ready Task back to Backlog, kept with who saved each", async () => {
+    const task = await aTaskInNoInitiative();
+    await sendJson(work, "PUT", `/tasks/${task.id}/plan`, { plan: "Show a banner." });
+    await sendJson(work, "PUT", `/tasks/${task.id}/definition-of-done`, {
+      definitionOfDone: ["The banner shows offline."],
+    });
+    await work.app.get(PlanningService).confirmPlan(task.id);
+    await work.app.get(PlanningService).confirmDefinitionOfDone(task.id);
+    await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: "quick-fix" });
+    await sendJson(work, "POST", `/tasks/${task.id}/ready`);
+    expect((await work.app.get(TaskService).read(task.id)).state).toBe("ready");
+
+    const plan = await callTool(CHANGE_TASK_PLAN_ACTION.name, {
+      taskId: task.id,
+      plan: "Show a sticky banner.",
+      filesToChange: ["src/banner.ts"],
+    });
+    const definitionOfDone = await callTool(CHANGE_TASK_DEFINITION_OF_DONE_ACTION.name, {
+      taskId: task.id,
+      definitionOfDone: ["The banner stays up offline."],
+    });
+
+    expect(plan).toEqual({
+      text: `"Offline banner" has the Plan as given now, not yet confirmed, in Backlog.`,
+      isError: false,
+    });
+    expect(definitionOfDone.text).toBe(
+      `"Offline banner" has the Definition of Done as given now, not yet confirmed, in Backlog.`,
+    );
+    expect(await work.app.get(TaskService).read(task.id)).toMatchObject({
+      state: "backlog",
+      plan: "Show a sticky banner.",
+      filesToChange: ["src/banner.ts"],
+      planConfirmed: false,
+      definitionOfDone: ["The banner stays up offline."],
+      definitionOfDoneConfirmed: false,
+    });
+    expect(await editsOf(`/tasks/${task.id}`)).toEqual([
+      { field: "plan", by: "the user Ann Lee" },
+      { field: "definition-of-done", by: "the user Ann Lee" },
+      { field: "plan", by: "the person in the Role cto" },
+      { field: "definition-of-done", by: "the person in the Role cto" },
+    ]);
+  });
+
+  it("keep the Planner's write_plan in the History as the person in the session's", async () => {
+    const planningSession = "planning-session";
+    const created = await work.app
+      .get(TaskService)
+      .create(
+        { title: "Fix the login redirect", projectId: aProjectId(), priority: "normal" },
+        ANN_LEE,
+      );
+    await work.app.get(PlanningService).plan(created.id, ANN_LEE);
+    work.app.get(SessionTasksForTests).tasks.set(planningSession, created.id);
+
+    const answer = await callTool(
+      WRITE_PLAN,
+      { plan: "Keep the requested path through the sign-in." },
+      planningSession,
+    );
+    await callTool(
+      WRITE_PLAN,
+      { plan: "Keep the requested path through the sign-in." },
+      planningSession,
+    );
+
+    expect(answer.isError).toBe(false);
+    expect(await editsOf(`/tasks/${created.id}`)).toEqual([
+      { field: "plan", by: "the person in the Role planner" },
+    ]);
+  });
+});
+
+describe("a Task's History", () => {
+  it("merges its state changes and edits oldest first, with who made each", async () => {
+    const task = await aTaskInNoInitiative();
+    await sendJson(work, "PUT", `/tasks/${task.id}/title`, { title: "Sticky offline banner" });
+    await callTool(DROP_TASK_ACTION.name, { taskId: task.id });
+
+    const history = await historyOf(`/tasks/${task.id}`);
+
+    expect(history.map(({ at: _at, ...entry }) => entry)).toEqual([
+      { kind: "state-change", from: null, to: "backlog", by: "the user Ann Lee" },
+      { kind: "edit", field: "title", by: "the user Ann Lee" },
+      { kind: "state-change", from: "backlog", to: "dropped", by: "the person in the Role cto" },
+    ]);
+    const times = history.map(({ at }) => at);
+    expect(times).toEqual(times.toSorted());
+    expect(await work.app.get(TaskService).history(task.id)).toHaveLength(3);
+  });
+
+  it("is in the Task's record, read_task's", async () => {
+    const task = await aTaskInNoInitiative();
+    await callTool(CHANGE_TASK_TITLE_ACTION.name, { taskId: task.id, title: "Renamed" });
+
+    const [tool] = work.app.get(OfficeToolRegistry).named(["read_task"]);
+    const record = (await tool?.run({ taskId: task.id }, anOfficeToolCall(SHAPER_SESSION)))?.text;
+    const lines = (record ?? "").slice((record ?? "").indexOf("History:")).split("\n");
+
+    expect(lines).toEqual([
+      "History:",
+      expect.stringMatching(/^- .+: created in Backlog, by the user Ann Lee$/),
+      expect.stringMatching(/^- .+: Title edited, by the person in the Role cto$/),
+    ]);
+  });
+});
+
+describe("drop_task, archive_task and restore_task", () => {
+  it("drop a Task with a Duplicate reason, archive and restore it, through the tool and the route", async () => {
+    const task = await aTaskInNoInitiative();
+    const original = await aTaskInNoInitiative("The original");
+
+    const dropped = await callTool(DROP_TASK_ACTION.name, {
+      taskId: task.id,
+      reason: { kind: "duplicate", taskId: original.id },
+    });
+    const archived = await sendJson(work, "POST", `/tasks/${task.id}/archive`);
+    const restored = await callTool(RESTORE_TASK_ACTION.name, { taskId: task.id });
+
+    expect(dropped).toEqual({ text: `"Offline banner" is Dropped now.`, isError: false });
+    expect(taskSchema.parse(await archived.json()).archivedAt).not.toBeNull();
+    expect(restored.text).toBe(`"Offline banner" is back on the board now, in Dropped.`);
+    expect(await work.app.get(TaskService).read(task.id)).toMatchObject({
+      state: "dropped",
+      dropReason: { kind: "duplicate", taskId: original.id },
+      archivedAt: undefined,
+      restoredBy: CTO,
+    });
+  });
+
+  it("refuse a Duplicate of no Task, and the archive of a Task not Done or Dropped, in the same words", async () => {
+    const task = await aTaskInNoInitiative();
+    const missing = "00000000-0000-4000-8000-00000000dead";
+
+    const duplicate = await refusalOf(
+      await sendJson(work, "POST", `/tasks/${task.id}/drop`, {
+        reason: { kind: "duplicate", taskId: missing },
+      }),
+    );
+    const duplicateByTool = await callTool(DROP_TASK_ACTION.name, {
+      taskId: task.id,
+      reason: { kind: "duplicate", taskId: missing },
+    });
+    const archive = await refusalOf(await sendJson(work, "POST", `/tasks/${task.id}/archive`));
+    const archiveByTool = await callTool(ARCHIVE_TASK_ACTION.name, { taskId: task.id });
+
+    expect(duplicate).toEqual([`There is no Task ${missing}.`]);
+    expect(duplicateByTool).toEqual({ text: duplicate.join(" "), isError: true });
+    expect(archive.length).toBeGreaterThan(0);
+    expect(archiveByTool).toEqual({ text: archive.join(" "), isError: true });
+  });
+
+  it("refuse an Agent's Drop of a started Task, while the user's Drop of it goes through", async () => {
+    const task = await aTaskInNoInitiative();
+    await startedWithoutAWalk(task);
+
+    const answer = await callTool(DROP_TASK_ACTION.name, { taskId: task.id });
+    const stillStarted = await work.app.get(TaskService).read(task.id);
+    const response = await sendJson(work, "POST", `/tasks/${task.id}/drop`);
+
+    expect(answer).toEqual({
+      text: `"Offline banner" has started, so only the user Drops it: ask them to.`,
+      isError: true,
+    });
+    expect(stillStarted.state).toBe("in-progress");
+    expect(response.status).toBe(200);
+    expect(taskSchema.parse(await response.json()).state).toBe("dropped");
+  });
+
+  it("let a Consultant's Drop answer to a Decision Drop a Paused Task their own drop_task can't", async () => {
+    const tasks = work.app.get(TaskService);
+    const task = await aTaskInNoInitiative();
+    await startedWithoutAWalk(task);
+    await tasks.hold(task.id, "Nobody fills the Role developer.");
+
+    const answer = await callTool(DROP_TASK_ACTION.name, { taskId: task.id });
+    const dropped = await tasks.dropAsAnswered(task.id, {
+      decisionId: "00000000-0000-4000-8000-00000000d0d0",
+      by: CTO,
+    });
+
+    expect(answer).toEqual({
+      text: `"Offline banner" has started, so only the user Drops it: ask them to.`,
+      isError: true,
+    });
+    expect(dropped.state).toBe("dropped");
+    expect((await tasks.stateChangesOf(task.id)).at(-1)).toMatchObject({
+      from: "paused",
+      to: "dropped",
+      by: CTO,
+    });
+  });
+});
+
+describe("edit_idea, drop_idea and restore_idea", () => {
+  it("edit an Idea through the tool and the route, one edit kept per field that changed", async () => {
+    const idea = await http.capture();
+    const projectId = aProjectId();
+
+    const answer = await callTool(EDIT_IDEA_ACTION.name, {
+      ideaId: idea.id,
+      title: "Usage exports as CSV",
+      notes: "",
+      projectId: null,
+    });
+    const edited = await sendJson(work, "PUT", `/ideas/${idea.id}`, {
+      title: "Usage exports as CSV",
+      notes: "For the accountants.",
+      projectId,
+    });
+    await sendJson(work, "PUT", `/ideas/${idea.id}`, {
+      title: "Usage exports as CSV",
+      notes: "For the accountants.",
+      projectId,
+    });
+
+    expect(answer).toEqual({
+      text: `The Idea "Usage exports as CSV" reads as given now.`,
+      isError: false,
+    });
+    expect(ideaSchema.parse(await edited.json())).toMatchObject({
+      notes: "For the accountants.",
+      projectId,
+    });
+    expect(await editsOf(`/ideas/${idea.id}`)).toEqual([
+      { field: "title", by: "the person in the Role cto" },
+      { field: "notes", by: "the user Ann Lee" },
+      { field: "project", by: "the user Ann Lee" },
+    ]);
+  });
+
+  it("drop and restore an Idea, and refuse a shaped one's Drop in the same words", async () => {
+    const idea = await http.capture();
+    const shaped = await http.capture();
+    await http.shape(shaped);
+
+    const dropped = await callTool(DROP_IDEA_ACTION.name, { ideaId: idea.id });
+    const restored = await sendJson(work, "POST", `/ideas/${idea.id}/restore`);
+    const again = await callTool(RESTORE_IDEA_ACTION.name, { ideaId: idea.id });
+    const reasons = await refusalOf(await sendJson(work, "POST", `/ideas/${shaped.id}/drop`));
+    const byTool = await callTool(DROP_IDEA_ACTION.name, { ideaId: shaped.id });
+
+    expect(dropped.text).toBe(`The Idea "Usage exports" is Dropped now.`);
+    expect(ideaSchema.parse(await restored.json()).state).toBe("new");
+    expect(again.text).toBe(`The Idea "Usage exports" is new again.`);
+    expect(reasons).toEqual(["A shaped Idea can't be dropped; drop its Initiative instead."]);
+    expect(byTool).toEqual({ text: reasons.join(" "), isError: true });
+  });
+});
+
+describe("write_initiative_outcome, drop_initiative, archive_initiative and restore_initiative", () => {
+  it("write the outcome through the tool and the route, each kept with who wrote it", async () => {
+    const initiative = await aShapingInitiative();
+
+    const answer = await callTool(WRITE_INITIATIVE_OUTCOME_ACTION.name, {
+      initiativeId: initiative.id,
+      outcome: "Accountants get usage as CSV.",
+    });
+    const written = await sendJson(work, "PUT", `/initiatives/${initiative.id}/outcome`, {
+      outcome: "Accountants get usage as CSV, monthly.",
+    });
+    await sendJson(work, "PUT", `/initiatives/${initiative.id}/outcome`, {
+      outcome: "Accountants get usage as CSV, monthly.",
+    });
+
+    expect(answer).toEqual({
+      text: `The Initiative "Usage exports" has the outcome as given now.`,
+      isError: false,
+    });
+    expect(initiativeSchema.parse(await written.json()).outcome).toBe(
+      "Accountants get usage as CSV, monthly.",
+    );
+    expect(await editsOf(`/initiatives/${initiative.id}`)).toEqual([
+      { field: "outcome", by: "the person in the Role cto" },
+      { field: "outcome", by: "the user Ann Lee" },
+    ]);
+  });
+
+  it("drop an Initiative, archive and restore it", async () => {
+    const initiative = await aShapingInitiative();
+
+    const dropped = await callTool(DROP_INITIATIVE_ACTION.name, { initiativeId: initiative.id });
+    const archived = await callTool(ARCHIVE_INITIATIVE_ACTION.name, {
+      initiativeId: initiative.id,
+    });
+    const restored = await sendJson(work, "POST", `/initiatives/${initiative.id}/restore`);
+
+    expect(dropped.text).toBe(`The Initiative "Usage exports" is Dropped now.`);
+    expect(archived.text).toBe(
+      `The Initiative "Usage exports" is in the Archive now, off the board, dropped.`,
+    );
+    expect(initiativeSchema.parse(await restored.json())).toMatchObject({
+      state: "dropped",
+      archivedAt: null,
+    });
+  });
+
+  it("refuse an Agent's Drop of an Initiative with a started Task, while the user's Drop goes through", async () => {
+    const initiative = await aShapingInitiative();
+    const task = await http.addTask(initiative);
+    expect((await http.post(initiative, "confirm")).status).toBe(200);
+    await startedWithoutAWalk(task);
+
+    const answer = await callTool(DROP_INITIATIVE_ACTION.name, { initiativeId: initiative.id });
+    const response = await sendJson(work, "POST", `/initiatives/${initiative.id}/drop`);
+
+    expect(answer).toEqual({
+      text: `"Usage exports" has a Task that has started, "Export endpoint", so only the user Drops it: ask them to.`,
+      isError: true,
+    });
+    expect(response.status).toBe(200);
+    expect(initiativeSchema.parse(await response.json()).state).toBe("dropped");
+    expect((await work.app.get(TaskService).read(task.id)).state).toBe("dropped");
+  });
+
+  it("refuse the archive of an Initiative being shaped in the same words to both", async () => {
+    const initiative = await aShapingInitiative();
+
+    const reasons = await refusalOf(
+      await sendJson(work, "POST", `/initiatives/${initiative.id}/archive`),
+    );
+    const answer = await callTool(ARCHIVE_INITIATIVE_ACTION.name, { initiativeId: initiative.id });
+
+    expect(reasons.length).toBeGreaterThan(0);
+    expect(answer).toEqual({ text: reasons.join(" "), isError: true });
   });
 });

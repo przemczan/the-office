@@ -76,7 +76,10 @@ beforeAll(async () => {
       { provide: ChangesAllowedRepository, useValue: { isAllowed: () => Promise.resolve(false) } },
       { provide: ProjectOutputMasks, useValue: { outputMaskOf: () => Promise.resolve(NO_MASK) } },
       { provide: CallChains, useValue: { ofCaller: () => Promise.resolve([]) } },
-      { provide: OfficeToolRegistry, useValue: { coveredBy: () => [] } },
+      {
+        provide: OfficeToolRegistry,
+        useValue: { coveredBy: () => [], coveredByCreatorsOf: () => [] },
+      },
     ],
   }));
   app.get(TaskThreadSetups).provide({

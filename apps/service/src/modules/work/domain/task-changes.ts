@@ -28,6 +28,7 @@ import {
   type UsageWindowRefusal,
 } from "./task-events.js";
 import type { EngineStandIn } from "./stand-ins-at-start.js";
+import type { RecordEdit } from "./record-edits.js";
 import { FIRE_ALARM_ON } from "./fire-alarm.js";
 import {
   BY_THE_FIRE_ALARM,
@@ -51,13 +52,14 @@ import {
 } from "./task-states.js";
 
 /**
- * A Task after a change, with the event that announces it, and the move between states it makes,
- * kept with the Task as it is saved.
+ * A Task after a change, with the event that announces it, and the move between states and the
+ * edits it makes (`withTaskEdits`), kept with the Task as it is saved.
  */
 export interface TaskChange<Event extends DomainEvent> {
   readonly task: Task;
   readonly event: Event;
   readonly stateChange?: StateChange;
+  readonly edits?: readonly RecordEdit[];
 }
 
 /**
@@ -680,14 +682,19 @@ function refuseUnlessRunning(task: Task, verb: "paused" | "stopped"): void {
 }
 
 /**
- * Drop, by the user, with the reason they gave, if any (drop-reason.ts): the reason and the move
- * are one change, so they are saved together. Undefined when the Task is Dropped already.
+ * Drop, by the user or a person, with the reason given, if any (drop-reason.ts): the reason and the
+ * move are one change, so they are saved together. Undefined when the Task is Dropped already. A
+ * person (an Agent's drop_task) Drops only a Task that hasn't started; one that has is the user's
+ * to Drop.
  */
 export function dropTask(
   task: Task,
   by: StateChangeCause,
   reason?: DropReason,
 ): TaskChange<TaskStateChanged> | undefined {
+  if (by.kind === "person" && STARTED_STATES.includes(task.state)) {
+    throw new TaskRefused([startedTaskDropWords(task.title)]);
+  }
   if (reason) {
     const problems = dropReasonProblems(task.id, reason);
     if (problems.length > 0) throw new TaskRefused(problems);
@@ -695,6 +702,32 @@ export function dropTask(
   const dropped = changeTaskState(task, "dropped", by);
   if (!dropped || !reason) return dropped;
   return { ...dropped, task: { ...dropped.task, dropReason: keptDropReason(reason) } };
+}
+
+/**
+ * A Decision The Office put to the user or a duty holder, answered with Drop: by the user, or by the
+ * Consultant whose Role holds the duty the Decision went to.
+ */
+export interface DropAnswer {
+  readonly decisionId: string;
+  readonly by: Author;
+}
+
+/**
+ * Drop as a Decision's answer (spec 2.1.3, "Dropping"): the one exception to a person Dropping only
+ * unstarted work, since The Office asked them on the user's behalf. Only Pipelines' answered
+ * Decisions reach it, never a route or an Office action.
+ */
+export function dropTaskAsAnswered(
+  task: Task,
+  answer: DropAnswer,
+): TaskChange<TaskStateChanged> | undefined {
+  return changeTaskState(task, "dropped", answer.by);
+}
+
+/** Why a person can't Drop a started Task: only the user Drops one. */
+export function startedTaskDropWords(title: string): string {
+  return `"${title}" has started, so only the user Drops it: ask them to.`;
 }
 
 /** A Task's Kind and bug details change in any state but Done and Dropped, never moving it. */

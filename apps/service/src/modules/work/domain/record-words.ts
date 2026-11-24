@@ -12,7 +12,8 @@ import {
   type TaskLinks,
   whereOf,
 } from "./linked-records.js";
-import { stateChangeLines, type StateChange } from "./state-change.js";
+import { historyLines, historyOf, taskHistoryLines, type RecordEdit } from "./record-edits.js";
+import type { StateChange } from "./state-change.js";
 import { isPublishingTask, type Task } from "./task.js";
 import { commitMessageOf } from "./task-commit-message.js";
 import { NO_DESCRIPTION } from "./task-description.js";
@@ -59,6 +60,8 @@ export interface TaskRecordParts {
   readonly links: TaskLinks;
   readonly stageResults: AllStageResults;
   readonly stateChanges: readonly StateChange[];
+  /** The edits of its fields, oldest first; none when left out. */
+  readonly edits?: readonly RecordEdit[];
   readonly decisionsWaiting: readonly DecisionWaitingOnTheUser[];
   /** One line per Connected device that isn't Disconnected; none when it has none. */
   readonly connectedDeviceLines: readonly string[];
@@ -74,8 +77,8 @@ function pipelineWords({ pipelineId }: Task): string {
  * A Task's record as an Agent reads it, through `read_task` or mentioned in a chat: its state,
  * Kind, priority, Tags and Pipeline, the version a Bug was found in, its Plan, Definition of Done and Attachments, its Moves to another
  * Project, its Connected devices that aren't Disconnected, its linked records (one line each, never their own links), its Decisions waiting on the
- * user with their numbered options, its Stage results with every Handover note, and its kept state
- * changes with who or what made each.
+ * user with their numbered options, its Stage results with every Handover note, and its History:
+ * its kept state changes and edits, oldest first, with who or what made each.
  */
 export function taskRecordText(
   task: Task,
@@ -84,6 +87,7 @@ export function taskRecordText(
     links,
     stageResults,
     stateChanges,
+    edits = [],
     decisionsWaiting,
     connectedDeviceLines,
     engineNames = new Map(),
@@ -145,7 +149,7 @@ export function taskRecordText(
     ...orNone(stageResults.lines),
     ...handoverNoteLines(stageResults.handoverNotes),
     "",
-    ...stateChangeLines(stateChanges),
+    ...taskHistoryLines(stateChanges, edits),
   ].join("\n");
 }
 
@@ -239,12 +243,15 @@ export interface InitiativeRecord {
   readonly pipelineNames: ReadonlyMap<string, string>;
   /** The engines' names its engine override is named by; by its id when left out. */
   readonly engineNames?: EngineNames;
+  /** The edits of its outcome, oldest first; none when left out. */
+  readonly edits?: readonly RecordEdit[];
 }
 
 /**
  * An Initiative's record as an Agent reads it, in its Thread or mentioned in a chat: its state and
- * outcome, the Idea it was shaped from if any, its Attachments, and its Tasks in the order they were
- * added, each with its Project, state and the Tasks it waits for, its Publishing Tasks apart.
+ * outcome, the Idea it was shaped from if any, its Attachments, its Tasks in the order they were
+ * added, each with its Project, state and the Tasks it waits for, its Publishing Tasks apart, and
+ * its History, the edits of its outcome with who made each.
  */
 export function initiativeRecordText({
   initiative,
@@ -254,6 +261,7 @@ export function initiativeRecordText({
   attachments,
   pipelineNames,
   engineNames = new Map(),
+  edits = [],
 }: InitiativeRecord): string {
   const ordinary = tasks.filter((task) => !isPublishingTask(task));
   const publishing = tasks.filter(isPublishingTask);
@@ -288,6 +296,8 @@ export function initiativeRecordText({
     "",
     "Attachments:",
     ...attachmentLines(attachments),
+    "",
+    ...historyLines(historyOf([], edits)),
   ].join("\n");
 }
 
@@ -355,12 +365,14 @@ export type ShapedInto =
 
 /**
  * An Idea's record as an Agent reads it, through `read_idea` or mentioned in a chat: its notes,
- * who captured it and when, its Attachments, and the Task or Initiative it was shaped into.
+ * who captured it and when, its Attachments, the Task or Initiative it was shaped into, and its
+ * History, the edits of its title, notes and Project with who made each.
  */
 export function ideaRecordText(
   idea: Idea,
   shapedInto: ShapedInto | undefined,
   attachments: readonly Attachment[],
+  edits: readonly RecordEdit[] = [],
 ): string {
   return [
     `${idea.title} (Idea ${idea.id})`,
@@ -373,6 +385,8 @@ export function ideaRecordText(
     "",
     "Attachments:",
     ...attachmentLines(attachments),
+    "",
+    ...historyLines(historyOf([], edits)),
   ].join("\n");
 }
 

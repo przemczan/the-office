@@ -17,19 +17,18 @@ import {
   initiativePipelinesChangeSchema,
   initiativePlanningSchema,
   newInitiativeTaskSchema,
-  outcomeChangeSchema,
   workEngineChangeSchema,
   searchQuerySchema,
   shortNameChangeSchema,
   type ArchivedInitiativesPage,
   type ArchivedInitiativesQuery,
+  type History,
   type Initiative as InitiativeResponse,
   type InitiativePauseAnswer,
   type InitiativePipelineChoice,
   type InitiativePipelinesChange,
   type InitiativePlanningRequest,
   type NewInitiativeTask,
-  type OutcomeChange,
   type WorkEngineChange,
   type ReadyTasksStarted,
   type SearchQuery,
@@ -48,9 +47,11 @@ import { InitiativeStart } from "../../application/initiative-start.js";
 import type { Initiative } from "../../domain/initiative.js";
 import {
   toArchivedInitiativesPageResponse,
+  toHistoryResponse,
   toInitiativeResponse,
   toTaskResponse,
 } from "./work-responses.js";
+import { initiativeResponse } from "./initiative-response.js";
 import { authorOf } from "./signed-in-author.js";
 import { WorkRefusalsFilter } from "./work-refusals.filter.js";
 
@@ -100,6 +101,12 @@ export class InitiativesController {
     return this.respond(await this.initiatives.read(id));
   }
 
+  /** Its History, oldest first: the edits of its outcome, with who made each. */
+  @Get(":id/history")
+  async history(@Param("id", ParseUUIDPipe) id: string): Promise<History> {
+    return toHistoryResponse(await this.initiatives.history(id));
+  }
+
   /** "Confirm the Initiative": active, or done at once when its Tasks already are. */
   @Post(":id/confirm")
   @HttpCode(HttpStatus.OK)
@@ -118,15 +125,6 @@ export class InitiativesController {
     @SignedIn() signedIn: SignedIn,
   ): Promise<InitiativeResponse> {
     return this.respond(await this.initiatives.backToShaping(id, authorOf(signedIn)));
-  }
-
-  /** The user's outcome; refused once the Initiative is no longer being shaped. */
-  @Put(":id/outcome")
-  async writeOutcome(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(outcomeChangeSchema)) { outcome }: OutcomeChange,
-  ): Promise<InitiativeResponse> {
-    return this.respond(await this.initiatives.writeOutcome(id, outcome, "straight"));
   }
 
   /**
@@ -178,36 +176,6 @@ export class InitiativesController {
     @Body(new ContractPipe(shortNameChangeSchema)) { shortName }: ShortNameChange,
   ): Promise<InitiativeResponse> {
     return this.respond(await this.initiatives.writeShortName(id, shortName));
-  }
-
-  /** Its Tasks stay as they are, and so do its branches. */
-  @Post(":id/drop")
-  @HttpCode(HttpStatus.OK)
-  async drop(
-    @Param("id", ParseUUIDPipe) id: string,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<InitiativeResponse> {
-    return this.respond(await this.initiatives.drop(id, authorOf(signedIn)));
-  }
-
-  /** Takes a Done or Dropped Initiative off the board into the Archive; its state stays. */
-  @Post(":id/archive")
-  @HttpCode(HttpStatus.OK)
-  async archive(
-    @Param("id", ParseUUIDPipe) id: string,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<InitiativeResponse> {
-    return this.respond(await this.initiatives.archive(id, authorOf(signedIn)));
-  }
-
-  /** Puts an archived Initiative back on the board, in Done or Dropped as it was. */
-  @Post(":id/restore")
-  @HttpCode(HttpStatus.OK)
-  async restore(
-    @Param("id", ParseUUIDPipe) id: string,
-    @SignedIn() signedIn: SignedIn,
-  ): Promise<InitiativeResponse> {
-    return this.respond(await this.initiatives.restore(id, authorOf(signedIn)));
   }
 
   /**
@@ -327,7 +295,6 @@ export class InitiativesController {
   }
 
   private async respond(initiative: Initiative): Promise<InitiativeResponse> {
-    const tasks = await this.initiatives.tasksByInitiative();
-    return toInitiativeResponse(initiative, tasks.get(initiative.id) ?? []);
+    return initiativeResponse(this.initiatives, initiative);
   }
 }

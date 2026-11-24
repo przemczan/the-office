@@ -4,6 +4,7 @@ import type {
   AttachmentOwner as AttachmentOwnerResponse,
   Author as AuthorResponse,
   EngineUsageEstimate as EngineUsageEstimateResponse,
+  History as HistoryResponse,
   Idea as IdeaResponse,
   Initiative as InitiativeResponse,
   PullRequestEnd as PullRequestEndResponse,
@@ -27,6 +28,8 @@ import {
   type ArchiveSearch,
 } from "../../domain/initiative-archive.js";
 import type { QueuedTask } from "../../domain/queue.js";
+import type { HistoryEntry } from "../../domain/record-edits.js";
+import { stateChangeCauseWords } from "../../domain/state-change.js";
 import type { SavedView } from "../../domain/saved-view.js";
 import { initiativeBranchOf } from "../../domain/short-name.js";
 import type { Task, TaskSummary } from "../../domain/task.js";
@@ -318,4 +321,24 @@ export function toUsageSettingsResponse({ measures, caps }: UsageSettings): Usag
       dailyDollars: dailyDollars ?? null,
     })),
   };
+}
+
+/** A record's History, oldest first, each entry's maker as the record words them after "by". */
+export function toHistoryResponse(entries: readonly HistoryEntry[]): HistoryResponse {
+  return entries.map((entry) =>
+    entry.kind === "edit"
+      ? {
+          kind: "edit",
+          at: entry.at.toISOString(),
+          field: entry.field,
+          by: stateChangeCauseWords(entry.by),
+        }
+      : {
+          kind: "state-change",
+          at: entry.at.toISOString(),
+          from: entry.from ?? null,
+          to: entry.to,
+          by: stateChangeCauseWords(entry.by),
+        },
+  );
 }

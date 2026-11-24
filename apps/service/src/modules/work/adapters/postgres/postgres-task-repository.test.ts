@@ -419,7 +419,7 @@ describe("a Task's and an Initiative's engine override as their rows keep it", (
     const { id } = await aTask(`project-${randomUUID()}`);
     await withColumns(id, { engineId: "claude-code", model: "claude-opus-5-5" });
 
-    await work.app.get(TaskService).changeTitle(id, "Export button, renamed");
+    await work.app.get(TaskService).changeTitle(id, "Export button, renamed", ANN_LEE);
     expect(await taskModel(id)).toBe("claude-opus-5-5");
 
     await repository().update(id, (task) => changeTaskEngine(task, "strata"));

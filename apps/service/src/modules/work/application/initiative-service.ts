@@ -63,6 +63,12 @@ import {
 import { initiativeBranchOf } from "../domain/short-name.js";
 import { InitiativeRefused } from "../domain/initiative-refused.js";
 import { orderAfter } from "../domain/manual-order.js";
+import {
+  historyOf,
+  withInitiativeEdits,
+  withTaskEdits,
+  type HistoryEntry,
+} from "../domain/record-edits.js";
 import { initiativeRecordText, type InitiativeRecord } from "../domain/record-words.js";
 import { searchWords } from "../domain/search.js";
 import { NOBODY_SHAPES_INITIATIVES, SHAPES_INITIATIVES } from "../domain/duties.js";
@@ -91,6 +97,7 @@ import { taskPipelineProblems } from "../domain/pipeline-commands.js";
 import { KnownProjects, type KnownProject } from "../ports/known-projects.js";
 import { ProjectInitiativeBranches } from "../ports/project-initiative-branches.js";
 import { ProposalDrafts } from "../ports/proposal-drafts.js";
+import { RecordEdits } from "../ports/record-edits.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { WorkSearch } from "../ports/work-search.js";
 import { publishDependencyChanges } from "./dependency-events.js";
@@ -170,6 +177,7 @@ export class InitiativeService implements OnModuleInit {
     private readonly engineChecks: TaskEngineChecks,
     private readonly engineModels: EngineModels,
     private readonly engineReferences: EngineReferenceLock,
+    private readonly edits: RecordEdits,
   ) {}
 
   onModuleInit(): void {
@@ -340,7 +348,8 @@ export class InitiativeService implements OnModuleInit {
             ({ id: engineId, name }) => [engineId, name] as const,
           ),
     );
-    return { initiative, idea, tasks, blockers, attachments, pipelineNames, engineNames };
+    const edits = await this.edits.of({ kind: "initiative", id });
+    return { initiative, idea, tasks, blockers, attachments, pipelineNames, engineNames, edits };
   }
 
   /** The names of the Pipelines the Initiative has in its Projects, by id, those still known. */
@@ -641,14 +650,24 @@ export class InitiativeService implements OnModuleInit {
 
   /**
    * What must be true once it is done: by the user, or by whoever shapes Initiatives, straight onto
-   * it while it is being shaped, or by Proposal.
+   * it while it is being shaped, or by Proposal; `by` who wrote it, or applied its Proposal, kept in
+   * its History.
    */
   async writeOutcome(
     id: string,
     outcome: string,
     route: InitiativeChangeRoute,
+    by: Author,
   ): Promise<Initiative> {
-    return this.update(id, (initiative) => writeOutcome(initiative, outcome, route));
+    return this.update(id, (initiative) =>
+      withInitiativeEdits(writeOutcome(initiative, outcome, route), initiative, by),
+    );
+  }
+
+  /** The Initiative's History, oldest first: the edits of its outcome, each with who made it. */
+  async history(id: string): Promise<readonly HistoryEntry[]> {
+    await this.read(id);
+    return historyOf([], await this.edits.of({ kind: "initiative", id }));
   }
 
   /**
@@ -755,27 +774,31 @@ export class InitiativeService implements OnModuleInit {
   }
 
   /**
-   * Carries out a Proposal of whoever shapes Initiatives the user applied, as proposed by
-   * `proposedBy`, and answers the edit as applied: a new Task with its id. An edit that changes
-   * nothing now holds already.
+   * Carries out a Proposal of whoever shapes Initiatives the user `appliedBy` applied, as proposed
+   * by `proposedBy`, and answers the edit as applied: a new Task with its id, created by
+   * `proposedBy`. Its edits are kept as `appliedBy`'s, the person who proposed them when no user is
+   * known. An edit that changes nothing now holds already.
    */
   async applyProposal(
     id: string,
     edit: InitiativeEdit,
     proposedBy: Author,
+    appliedBy: Author = proposedBy,
   ): Promise<InitiativeEdit> {
-    return this.applyEdit(id, edit, proposedBy, "by-proposal");
+    return this.applyEdit(id, edit, proposedBy, "by-proposal", appliedBy);
   }
 
+  /** The edit, by `shaper`, its edits of fields kept as `editedBy`'s. */
   private async applyEdit(
     id: string,
     edit: InitiativeEdit,
     shaper: Author,
     route: InitiativeChangeRoute,
+    editedBy: Author = shaper,
   ): Promise<InitiativeEdit> {
     switch (edit.kind) {
       case "outcome":
-        await this.writeOutcome(id, edit.outcome, route);
+        await this.writeOutcome(id, edit.outcome, route, editedBy);
         return edit;
       case "add-task": {
         const task = await this.addShaperTask(id, newTaskOf(edit), edit.blockedBy, shaper, route);
@@ -792,7 +815,12 @@ export class InitiativeService implements OnModuleInit {
           id,
           edit.taskId,
           route,
-          (initiative, task) => changeTitleOfItsTask(initiative, route, task, edit.title),
+          (initiative, task) =>
+            withTaskEdits(
+              changeTitleOfItsTask(initiative, route, task, edit.title),
+              task,
+              editedBy,
+            ),
           sameTitleWords,
         );
         return edit;
@@ -802,7 +830,11 @@ export class InitiativeService implements OnModuleInit {
           edit.taskId,
           route,
           (initiative, task) =>
-            changeDescriptionOfItsTask(initiative, route, task, edit.description),
+            withTaskEdits(
+              changeDescriptionOfItsTask(initiative, route, task, edit.description),
+              task,
+              editedBy,
+            ),
           sameDescriptionWords,
         );
         return edit;

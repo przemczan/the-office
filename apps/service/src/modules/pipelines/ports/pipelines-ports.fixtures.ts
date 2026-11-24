@@ -381,6 +381,14 @@ export class StartedTasksForTests extends StartedTasks {
   /** Each Drop, with who it is recorded by, in order. */
   readonly drops: { readonly taskId: string; readonly by: ResumedOrDroppedBy }[] = [];
 
+  dropAsAnswered(
+    taskId: string,
+    { by }: { readonly decisionId: string; readonly by: ResumedOrDroppedBy },
+  ): Promise<StartedTask> {
+    return this.drop(taskId, by);
+  }
+
+  /** Drops the Task as Work does, for a test's Drop from outside Pipelines too. */
   async drop(taskId: string, by: ResumedOrDroppedBy): Promise<StartedTask> {
     this.drops.push({ taskId, by });
     const task = await this.read(taskId);

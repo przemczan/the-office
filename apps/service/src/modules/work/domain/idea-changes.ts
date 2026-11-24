@@ -10,6 +10,7 @@ import {
   IdeaShapedIntoInitiative,
 } from "./idea-events.js";
 import { IdeaRefused } from "./idea-refused.js";
+import type { RecordEdit } from "./record-edits.js";
 import type { Initiative } from "./initiative.js";
 import type { InitiativeChange } from "./initiative-changes.js";
 import { InitiativeCreated } from "./initiative-events.js";
@@ -17,10 +18,11 @@ import { createTask, type NewTaskSetting, type TaskChange } from "./task-changes
 import type { TaskCreated } from "./task-events.js";
 import type { TaskKind } from "./task.js";
 
-/** An Idea after a change, with the event that announces it. */
+/** An Idea after a change, with the event that announces it and the edits it makes. */
 export interface IdeaChange<Event extends DomainEvent> {
   readonly idea: Idea;
   readonly event: Event;
+  readonly edits?: readonly RecordEdit[];
 }
 
 /** Refuses with every reason. */

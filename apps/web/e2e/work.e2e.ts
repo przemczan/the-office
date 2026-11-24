@@ -2237,8 +2237,10 @@ async function seedAnsweredDecision(
 /**
  * Needs you, or Before Ready in its place, sits above the record's tabs, as wide as the record; the
  * conversation has its own column beside them on a wide page, and comes after them below 1281px.
+ * Measured with the page at its top: scrolled, the sticky conversation stays where it is.
  */
 async function expectNeedsYouInTheRecordColumn(page: Page, block: Locator): Promise<void> {
+  await page.locator(".shell-main").evaluate((view) => view.scrollTo({ top: 0 }));
   const blockBox = await block.boundingBox();
   const tabBox = await page.getByRole("tab", { name: "Overview" }).boundingBox();
   const recordBox = await page.getByRole("region", { name: "Record" }).boundingBox();

@@ -223,8 +223,8 @@ export class PlanningOfficeTools implements OnModuleInit {
       }),
       run: ({ taskId, kind }, { sessionId }) =>
         answered(async () => {
-          const { taskId: target } = await this.planningTaskOf(sessionId, taskId);
-          const task = await this.tasks.changeKind(target, kind);
+          const { taskId: target, by } = await this.planningTaskOf(sessionId, taskId);
+          const task = await this.tasks.changeKind(target, kind, by);
           return `The Task is a ${TASK_KIND_NAMES[task.kind]} now.`;
         }),
     });

@@ -48,7 +48,9 @@ import {
 } from "./task-dependencies.js";
 import { changeDescription, changeTitle } from "./task-description.js";
 import { TaskRefused } from "./task-refused.js";
+import type { RecordEdit } from "./record-edits.js";
 import type { StateChangeCause } from "./state-change.js";
+import { NOT_STARTED_STATES } from "./task-states.js";
 import type {
   TaskCreated,
   TaskDependencyAdded,
@@ -58,10 +60,11 @@ import type {
   TaskTitleChanged,
 } from "./task-events.js";
 
-/** An Initiative after a change, with the event that announces it. */
+/** An Initiative after a change, with the event that announces it and the edits it makes. */
 export interface InitiativeChange<Event extends DomainEvent> {
   readonly initiative: Initiative;
   readonly event: Event;
+  readonly edits?: readonly RecordEdit[];
 }
 
 /** An Initiative's change that changes its Tasks too, each by a change of its own. */
@@ -413,7 +416,9 @@ export function addBranch(
 /**
  * Undefined when it is already dropped. Every one of its Tasks not yet Done or Dropped drops with
  * it, started ones and those its Pause held too, each as by the user's own Drop, by `by` (spec 2.1,
- * "An Initiative is done"); a paused one is no longer paused.
+ * "An Initiative is done"); a paused one is no longer paused. A person (an Agent's drop_initiative)
+ * Drops only an Initiative none of whose Tasks has started; one with a started Task is the user's
+ * to Drop.
  */
 export function dropInitiative(
   initiative: Initiative,
@@ -424,6 +429,14 @@ export function dropInitiative(
   if (initiative.state === "dropped") return undefined;
   if (initiative.state === "done") {
     throw new InitiativeRefused(["A done Initiative can't be dropped."]);
+  }
+  const started = tasks.find(
+    ({ state }) => state !== "dropped" && !NOT_STARTED_STATES.includes(state),
+  );
+  if (by.kind === "person" && started) {
+    throw new InitiativeRefused([
+      `"${initiative.name}" has a Task that has started, "${started.title}", so only the user Drops it: ask them to.`,
+    ]);
   }
   return { ...moveTo(initiative, "dropped", at), taskChanges: dropOpen(tasks, by) };
 }

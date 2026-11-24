@@ -962,8 +962,12 @@ describe("Start", () => {
 
     const record = await work.app.get(TaskRecords).recordText(task.id);
 
-    expect(record.slice(record.indexOf("State changes:")).split("\n")).toEqual([
-      "State changes:",
+    const stateChanges = record
+      .slice(record.indexOf("History:"))
+      .split("\n")
+      .filter((line) => !line.includes(" edited, by "));
+    expect(stateChanges).toEqual([
+      "History:",
       expect.stringMatching(/: created in Backlog, by the user Ann Lee$/),
       expect.stringMatching(/: Backlog → Planning, by the user Ann Lee$/),
       expect.stringMatching(/: Planning → Ready, by the user Ann Lee$/),

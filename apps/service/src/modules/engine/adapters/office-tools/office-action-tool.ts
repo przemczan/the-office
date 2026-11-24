@@ -11,7 +11,7 @@ export const FOLLOW_YOUR_AUTHORITY =
 
 /**
  * The Office tool of a declared Office action (the Office action convention): its name, input and
- * covering duties from the declaration, and `run` calling the owning module's one handler, as the
+ * cover from the declaration, and `run` calling the owning module's one handler, as the
  * action's route does.
  */
 export function officeActionTool<Input extends z.ZodObject>(
@@ -22,7 +22,7 @@ export function officeActionTool<Input extends z.ZodObject>(
     name: action.name,
     description: `${action.description} ${FOLLOW_YOUR_AUTHORITY}`,
     input: action.input,
-    coveredBy: action.duties,
+    coveredBy: action.coveredBy,
     run,
   };
 }

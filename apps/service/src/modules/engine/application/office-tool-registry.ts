@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import type { z } from "zod";
-import type { OfficeTool } from "../ports/office-tool.js";
+import type { OfficeTool, OfficeToolCover } from "../ports/office-tool.js";
 
 /** What an engine accepts as a tool's name, as Office tools name themselves: snake_case. */
 const TOOL_NAME = /^[a-z][a-z0-9_]{0,63}$/;
@@ -35,8 +35,22 @@ export class OfficeToolRegistry {
 
   /** The names of the Office actions' tools any of `duties` covers, in the order registered. */
   coveredBy(duties: readonly string[]): string[] {
+    return this.namesWhere(
+      (cover) => cover.kind === "duties" && cover.duties.some((duty) => duties.includes(duty)),
+    );
+  }
+
+  /**
+   * The names of the Office actions' tools covered by whoever creates one of `records`, in the
+   * order registered.
+   */
+  coveredByCreatorsOf(records: readonly string[]): string[] {
+    return this.namesWhere((cover) => cover.kind === "creators" && records.includes(cover.record));
+  }
+
+  private namesWhere(covers: (cover: OfficeToolCover) => boolean): string[] {
     return [...this.tools.values()]
-      .filter(({ coveredBy }) => coveredBy?.some((duty) => duties.includes(duty)))
+      .filter(({ coveredBy }) => coveredBy !== undefined && covers(coveredBy))
       .map(({ name }) => name);
   }
 }

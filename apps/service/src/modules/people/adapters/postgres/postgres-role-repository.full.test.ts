@@ -53,6 +53,17 @@ describe("PostgresRoleRepository", () => {
     expect(caretaker && roleCardProblems(CARETAKER, caretaker.card, CARD_CONTEXT)).toEqual([]);
   });
 
+  it("gives the seeded Caretaker the presets' words on correcting and Dropping records", async () => {
+    const caretaker = await repository.find(CARETAKER);
+
+    expect(caretaker?.card.instructions).toContain(
+      "Decide alone: reading and diagnosing anything but secrets, correcting a Task or an Idea for your own mistake or what the user clarified (its fields, Dropping it before it starts, Archiving or Restoring it).",
+    );
+    expect(caretaker?.card.instructions).toContain(
+      "and Dropping a Task or an Idea somebody else created. A started Task is the user's to Drop.",
+    );
+  });
+
   it("keeps the Role as it was when someone already fills it", async () => {
     const role = aRoleOfItsOwn();
     await repository.add(role);

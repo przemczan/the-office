@@ -699,7 +699,20 @@ export type TaskPlacement = z.infer<typeof taskPlacementSchema>;
  * The duties covering what is done on an Initiative's Tasks: whoever shapes Initiatives, and whoever
  * plans the Tasks.
  */
-const SHAPES_OR_PLANS = ["shapes-initiatives", "plans"] as const;
+const SHAPES_OR_PLANS = { kind: "duties", duties: ["shapes-initiatives", "plans"] } as const;
+
+/** Whoever can create a Task in the Thread, to fix what they made. */
+const TASK_CREATORS = { kind: "creators", record: "task" } as const;
+
+/** Whoever can capture an Idea in the Thread. */
+const IDEA_CREATORS = { kind: "creators", record: "idea" } as const;
+
+/** Whoever can create an Initiative in the Thread. */
+const INITIATIVE_CREATORS = { kind: "creators", record: "initiative" } as const;
+
+const taskIdInput = z.uuid().describe("The id of the Task.");
+const ideaIdInput = z.uuid().describe("The id of the Idea.");
+const initiativeIdInput = z.uuid().describe("The id of the Initiative.");
 
 /** Office action: the Task waits for another to be Done before it can start. */
 export const ADD_DEPENDENCY_ACTION = officeAction({
@@ -713,7 +726,7 @@ export const ADD_DEPENDENCY_ACTION = officeAction({
   }),
   answer: taskSchema,
   route: { method: "POST", path: "/tasks/:taskId/dependencies" },
-  duties: SHAPES_OR_PLANS,
+  coveredBy: SHAPES_OR_PLANS,
 });
 
 /** Office action: the Task no longer waits for one it waits for. */
@@ -728,7 +741,7 @@ export const REMOVE_DEPENDENCY_ACTION = officeAction({
   }),
   answer: taskSchema,
   route: { method: "DELETE", path: "/tasks/:taskId/dependencies/:blockerId" },
-  duties: SHAPES_OR_PLANS,
+  coveredBy: SHAPES_OR_PLANS,
 });
 
 /** Office action: an existing Task joins an Initiative. */
@@ -743,7 +756,7 @@ export const ADD_TO_INITIATIVE_ACTION = officeAction({
   }),
   answer: taskSchema,
   route: { method: "PUT", path: "/initiatives/:initiativeId/tasks/:taskId" },
-  duties: SHAPES_OR_PLANS,
+  coveredBy: SHAPES_OR_PLANS,
 });
 
 /** Office action: the Task leaves its Initiative. */
@@ -758,7 +771,233 @@ export const TAKE_OUT_OF_INITIATIVE_ACTION = officeAction({
   }),
   answer: taskSchema,
   route: { method: "DELETE", path: "/initiatives/:initiativeId/tasks/:taskId" },
-  duties: SHAPES_OR_PLANS,
+  coveredBy: SHAPES_OR_PLANS,
+});
+
+/** Office action: the Task's title. */
+export const CHANGE_TASK_TITLE_ACTION = officeAction({
+  name: "change_task_title",
+  record: "task",
+  description:
+    "Changes a Task's title, in any state but Done and Dropped. The change is kept in the Task's History, with who made it.",
+  input: z.object({ taskId: taskIdInput, title: z.string().describe("The new title.") }),
+  answer: taskSchema,
+  route: { method: "PUT", path: "/tasks/:taskId/title" },
+  coveredBy: TASK_CREATORS,
+});
+
+/** Office action: the Task's Description. */
+export const CHANGE_TASK_DESCRIPTION_ACTION = officeAction({
+  name: "change_task_description",
+  record: "task",
+  description:
+    "Replaces a Task's Description, in Markdown, until the Task starts. The change is kept in the Task's History, with who made it.",
+  input: z.object({
+    taskId: taskIdInput,
+    description: z.string().describe("The whole new Description, in Markdown."),
+  }),
+  answer: taskSchema,
+  route: { method: "PUT", path: "/tasks/:taskId/description" },
+  coveredBy: TASK_CREATORS,
+});
+
+/** Office action: the Task's Kind. */
+export const CHANGE_TASK_KIND_ACTION = officeAction({
+  name: "change_task_kind",
+  record: "task",
+  description:
+    "Changes a Task's Kind (Feature, Bug or Chore), in any state but Done and Dropped; the Task never moves for it. The change is kept in the Task's History, with who made it.",
+  input: z.object({ taskId: taskIdInput, kind: taskKindSchema.describe("The new Kind.") }),
+  answer: taskSchema,
+  route: { method: "PUT", path: "/tasks/:taskId/kind" },
+  coveredBy: TASK_CREATORS,
+});
+
+/** Office action: the Task's priority. */
+export const CHANGE_TASK_PRIORITY_ACTION = officeAction({
+  name: "change_task_priority",
+  record: "task",
+  description:
+    "Changes a Task's priority (high, normal or low), which orders the board and the queue. The change is kept in the Task's History, with who made it.",
+  input: z.object({
+    taskId: taskIdInput,
+    priority: prioritySchema.describe("The new priority."),
+  }),
+  answer: taskSchema,
+  route: { method: "PUT", path: "/tasks/:taskId/priority" },
+  coveredBy: TASK_CREATORS,
+});
+
+/** Office action: the Task's Plan, saved as the user's Save does. */
+export const CHANGE_TASK_PLAN_ACTION = officeAction({
+  name: "change_task_plan",
+  record: "task",
+  description:
+    "Replaces a Task's Plan, in Markdown, with its files to change, until the Task starts, as the user's Save on the Plan does: a changed Plan is Not confirmed until the user confirms it, and a Ready Task goes back to Planning, or to Backlog when it never had a planning Thread. The change is kept in the Task's History, with who made it.",
+  input: z.object({
+    taskId: taskIdInput,
+    plan: z.string().describe("The whole new Plan, in Markdown."),
+    filesToChange: z
+      .array(z.string())
+      .optional()
+      .describe("The files the Plan expects to change, by their paths in the repository."),
+    estimatedTokens: estimatedTokensSchema
+      .optional()
+      .describe(
+        "How many tokens the whole Pipeline is expected to use; kept as it is when left out.",
+      ),
+  }),
+  answer: taskSchema,
+  route: { method: "PUT", path: "/tasks/:taskId/plan" },
+  coveredBy: TASK_CREATORS,
+});
+
+/** Office action: the Task's Definition of Done, saved as the user's Save does. */
+export const CHANGE_TASK_DEFINITION_OF_DONE_ACTION = officeAction({
+  name: "change_task_definition_of_done",
+  record: "task",
+  description:
+    "Replaces a Task's Definition of Done, one statement per item, until the Task starts, as the user's Save does: a changed one is Not confirmed until the user confirms it, and a Ready Task goes back to Planning, or to Backlog when it never had a planning Thread. The change is kept in the Task's History, with who made it.",
+  input: z.object({
+    taskId: taskIdInput,
+    definitionOfDone: z
+      .array(z.string())
+      .describe("Every statement of the new Definition of Done, in order."),
+  }),
+  answer: taskSchema,
+  route: { method: "PUT", path: "/tasks/:taskId/definition-of-done" },
+  coveredBy: TASK_CREATORS,
+});
+
+/** Office action: Drop the Task, with the reason given, if any. */
+export const DROP_TASK_ACTION = officeAction({
+  name: "drop_task",
+  record: "task",
+  description:
+    "Drops a Task, with an optional Drop reason: won't fix, can't reproduce, or a duplicate of another Task, named by its id. A Dropped Task leaves the work but stays on the board until it is archived. You may Drop only a Task that hasn't started; one that has is the user's to Drop.",
+  input: z.object({
+    taskId: taskIdInput,
+    reason: dropReasonSchema.optional().describe("Why it is dropped; none when left out."),
+  }),
+  answer: taskSchema,
+  route: { method: "POST", path: "/tasks/:taskId/drop" },
+  coveredBy: TASK_CREATORS,
+});
+
+/** Office action: a Done or Dropped Task leaves the board for the Archive. */
+export const ARCHIVE_TASK_ACTION = officeAction({
+  name: "archive_task",
+  record: "task",
+  description:
+    "Archives a Done or Dropped Task: it leaves the board for the Archive, its state as it was.",
+  input: z.object({ taskId: taskIdInput }),
+  answer: taskSchema,
+  route: { method: "POST", path: "/tasks/:taskId/archive" },
+  coveredBy: TASK_CREATORS,
+});
+
+/** Office action: an archived Task returns to the board. */
+export const RESTORE_TASK_ACTION = officeAction({
+  name: "restore_task",
+  record: "task",
+  description: "Restores an archived Task: it returns to the board in the state it had.",
+  input: z.object({ taskId: taskIdInput }),
+  answer: taskSchema,
+  route: { method: "POST", path: "/tasks/:taskId/restore" },
+  coveredBy: TASK_CREATORS,
+});
+
+/** Office action: the Idea's title, notes and Project. */
+export const EDIT_IDEA_ACTION = officeAction({
+  name: "edit_idea",
+  record: "idea",
+  description:
+    "Edits an Idea's title, notes and Project, all three given whole, until it is shaped. The change is kept in the Idea's History, with who made it.",
+  input: z.object({
+    ideaId: ideaIdInput,
+    title: z.string().describe("The Idea's title."),
+    notes: z.string().describe("The Idea's notes, in Markdown; empty for none."),
+    projectId: z
+      .string()
+      .nullable()
+      .describe("The id of the Project it is about; null for an Office-wide Idea."),
+  }),
+  answer: ideaSchema,
+  route: { method: "PUT", path: "/ideas/:ideaId" },
+  coveredBy: IDEA_CREATORS,
+});
+
+/** Office action: Drop the Idea. */
+export const DROP_IDEA_ACTION = officeAction({
+  name: "drop_idea",
+  record: "idea",
+  description: "Drops an Idea that isn't shaped yet; Restore brings it back.",
+  input: z.object({ ideaId: ideaIdInput }),
+  answer: ideaSchema,
+  route: { method: "POST", path: "/ideas/:ideaId/drop" },
+  coveredBy: IDEA_CREATORS,
+});
+
+/** Office action: a Dropped Idea is new again. */
+export const RESTORE_IDEA_ACTION = officeAction({
+  name: "restore_idea",
+  record: "idea",
+  description: "Restores a Dropped Idea: it is new again.",
+  input: z.object({ ideaId: ideaIdInput }),
+  answer: ideaSchema,
+  route: { method: "POST", path: "/ideas/:ideaId/restore" },
+  coveredBy: IDEA_CREATORS,
+});
+
+/** Office action: the Initiative's outcome. */
+export const WRITE_INITIATIVE_OUTCOME_ACTION = officeAction({
+  name: "write_initiative_outcome",
+  record: "initiative",
+  description:
+    "Replaces an Initiative's outcome, what it is for, while it is being shaped. The change is kept in the Initiative's History, with who made it.",
+  input: z.object({
+    initiativeId: initiativeIdInput,
+    outcome: z.string().describe("The whole new outcome, in Markdown."),
+  }),
+  answer: initiativeSchema,
+  route: { method: "PUT", path: "/initiatives/:initiativeId/outcome" },
+  coveredBy: INITIATIVE_CREATORS,
+});
+
+/** Office action: Drop the Initiative; its Tasks stay as they are. */
+export const DROP_INITIATIVE_ACTION = officeAction({
+  name: "drop_initiative",
+  record: "initiative",
+  description:
+    "Drops an Initiative being shaped or active; its Tasks and branches stay as they are. You may Drop only an Initiative none of whose Tasks has started; one with a started Task is the user's to Drop.",
+  input: z.object({ initiativeId: initiativeIdInput }),
+  answer: initiativeSchema,
+  route: { method: "POST", path: "/initiatives/:initiativeId/drop" },
+  coveredBy: INITIATIVE_CREATORS,
+});
+
+/** Office action: a Done or Dropped Initiative leaves the board for the Archive. */
+export const ARCHIVE_INITIATIVE_ACTION = officeAction({
+  name: "archive_initiative",
+  record: "initiative",
+  description:
+    "Archives a Done or Dropped Initiative: it leaves the board for the Archive, its state as it was.",
+  input: z.object({ initiativeId: initiativeIdInput }),
+  answer: initiativeSchema,
+  route: { method: "POST", path: "/initiatives/:initiativeId/archive" },
+  coveredBy: INITIATIVE_CREATORS,
+});
+
+/** Office action: an archived Initiative returns to the board. */
+export const RESTORE_INITIATIVE_ACTION = officeAction({
+  name: "restore_initiative",
+  record: "initiative",
+  description:
+    "Restores an archived Initiative: it returns to the board, in Done or Dropped as it was.",
+  input: z.object({ initiativeId: initiativeIdInput }),
+  answer: initiativeSchema,
+  route: { method: "POST", path: "/initiatives/:initiativeId/restore" },
+  coveredBy: INITIATIVE_CREATORS,
 });
 
 /** Work's Office actions, each declared above. */
@@ -767,7 +1006,63 @@ export const WORK_OFFICE_ACTIONS = [
   REMOVE_DEPENDENCY_ACTION,
   ADD_TO_INITIATIVE_ACTION,
   TAKE_OUT_OF_INITIATIVE_ACTION,
+  CHANGE_TASK_TITLE_ACTION,
+  CHANGE_TASK_DESCRIPTION_ACTION,
+  CHANGE_TASK_KIND_ACTION,
+  CHANGE_TASK_PRIORITY_ACTION,
+  CHANGE_TASK_PLAN_ACTION,
+  CHANGE_TASK_DEFINITION_OF_DONE_ACTION,
+  DROP_TASK_ACTION,
+  ARCHIVE_TASK_ACTION,
+  RESTORE_TASK_ACTION,
+  EDIT_IDEA_ACTION,
+  DROP_IDEA_ACTION,
+  RESTORE_IDEA_ACTION,
+  WRITE_INITIATIVE_OUTCOME_ACTION,
+  DROP_INITIATIVE_ACTION,
+  ARCHIVE_INITIATIVE_ACTION,
+  RESTORE_INITIATIVE_ACTION,
 ] as const;
+
+/** A field of a Task, an Idea or an Initiative whose edits its History keeps. */
+export const editedFieldSchema = z.enum([
+  "title",
+  "description",
+  "kind",
+  "priority",
+  "plan",
+  "definition-of-done",
+  "notes",
+  "project",
+  "outcome",
+]);
+export type EditedField = z.infer<typeof editedFieldSchema>;
+
+/**
+ * One line of a record's History, oldest first: a Task's move between states (`from` null for its
+ * creation), or an edit of one field, which keeps no old or new value. `by` is who or what made it,
+ * as the record words it after "by": "the user Ann Lee", "the person in the Role planner".
+ */
+export const historyEntrySchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("state-change"),
+    at: z.iso.datetime(),
+    from: taskStateSchema.nullable(),
+    to: taskStateSchema,
+    by: z.string(),
+  }),
+  z.object({
+    kind: z.literal("edit"),
+    at: z.iso.datetime(),
+    field: editedFieldSchema,
+    by: z.string(),
+  }),
+]);
+export type HistoryEntry = z.infer<typeof historyEntrySchema>;
+
+/** GET /tasks/:id/history, /ideas/:id/history and /initiatives/:id/history. */
+export const historySchema = z.array(historyEntrySchema);
+export type History = z.infer<typeof historySchema>;
 
 /** A started Task in the same Project whose Plan expects to change some of the same files. */
 export const overlapSchema = z.object({

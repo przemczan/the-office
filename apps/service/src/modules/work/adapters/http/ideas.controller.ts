@@ -7,15 +7,13 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
-  Put,
   UseFilters,
 } from "@nestjs/common";
 import {
-  ideaEditSchema,
   ideaShapingSchema,
   newIdeaSchema,
   type Idea as IdeaResponse,
-  type IdeaEdit,
+  type History,
   type IdeaShaping,
   type Initiative as InitiativeResponse,
   type NewIdea,
@@ -26,7 +24,12 @@ import { SignedIn } from "../../../../platform/http/signed-in-requests.js";
 import { IdeaService } from "../../application/idea-service.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import { PlanningService } from "../../application/planning-service.js";
-import { toIdeaResponse, toInitiativeResponse, toTaskResponse } from "./work-responses.js";
+import {
+  toHistoryResponse,
+  toIdeaResponse,
+  toInitiativeResponse,
+  toTaskResponse,
+} from "./work-responses.js";
 import { authorOf } from "./signed-in-author.js";
 import { WorkRefusalsFilter } from "./work-refusals.filter.js";
 
@@ -62,18 +65,10 @@ export class IdeasController {
     return toIdeaResponse(await this.ideas.read(id));
   }
 
-  /** Its title, notes and Project, until it is shaped. */
-  @Put(":id")
-  async edit(
-    @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(ideaEditSchema)) given: IdeaEdit,
-  ): Promise<IdeaResponse> {
-    const idea = await this.ideas.edit(id, {
-      title: given.title,
-      notes: given.notes,
-      projectId: given.projectId ?? undefined,
-    });
-    return toIdeaResponse(idea);
+  /** Its History, oldest first: the edits of its title, notes and Project, with who made each. */
+  @Get(":id/history")
+  async history(@Param("id", ParseUUIDPipe) id: string): Promise<History> {
+    return toHistoryResponse(await this.ideas.history(id));
   }
 
   /** The Task the Idea became, of the Kind chosen (a Feature by default). */
@@ -114,17 +109,5 @@ export class IdeasController {
       await this.planning.shapeAndPlan(id, projectId, authorOf(signedIn)),
       null,
     );
-  }
-
-  @Post(":id/drop")
-  @HttpCode(HttpStatus.OK)
-  async drop(@Param("id", ParseUUIDPipe) id: string): Promise<IdeaResponse> {
-    return toIdeaResponse(await this.ideas.drop(id));
-  }
-
-  @Post(":id/restore")
-  @HttpCode(HttpStatus.OK)
-  async restore(@Param("id", ParseUUIDPipe) id: string): Promise<IdeaResponse> {
-    return toIdeaResponse(await this.ideas.restore(id));
   }
 }

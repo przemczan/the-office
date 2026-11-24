@@ -261,18 +261,21 @@ describe("the whole app, signed out", () => {
     );
   });
 
-  it("derives a route and an Office tool from every declared Office action, each covered by a duty", () => {
+  it("derives a route and an Office tool from every declared Office action, each with its cover", () => {
     const routes = routesOf(served);
     const tools = served.get(OfficeToolRegistry, { strict: false });
 
-    for (const { name, route, duties } of OFFICE_ACTIONS) {
-      expect(duties.length, `${name} names no duty that covers it`).toBeGreaterThan(0);
+    for (const { name, route, coveredBy } of OFFICE_ACTIONS) {
       expect(routes, `${name} has no route`).toContainEqual({
         method: route.method,
         path: `/api${route.path}`.replaceAll(/:\w+/g, "x"),
       });
       // A module registers an action's tool only from its handler, so no handler, no tool.
-      expect(tools.coveredBy(duties), `${name} has no Office tool`).toContain(name);
+      const covered =
+        coveredBy.kind === "duties"
+          ? tools.coveredBy(coveredBy.duties)
+          : tools.coveredByCreatorsOf([coveredBy.record]);
+      expect(covered, `${name} has no Office tool`).toContain(name);
     }
   });
 

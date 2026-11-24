@@ -25,6 +25,14 @@ export class PostgresStaffingHoldRepository extends StaffingHoldRepository {
       .onConflictDoUpdate({ target: staffingHolds.taskId, set: { decisionId } });
   }
 
+  async taskHeldBy(decisionId: string): Promise<string | undefined> {
+    const [held] = await this.database
+      .select({ taskId: staffingHolds.taskId })
+      .from(staffingHolds)
+      .where(eq(staffingHolds.decisionId, decisionId));
+    return held?.taskId;
+  }
+
   async release(decisionId: string): Promise<string | undefined> {
     const [released] = await this.database
       .delete(staffingHolds)

@@ -45,6 +45,7 @@ import { useIdeaPlanning } from "../../shell/work/use-idea-planning.ts";
 import { useShaper } from "../../shell/work/use-shaper.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { authorName, projectIdsOfIdea } from "../../shell/work/work-words.ts";
+import { IdeaHistory } from "./history-block.tsx";
 import {
   actionToneClassName,
   RecordActions,
@@ -317,6 +318,7 @@ function IdeaCard({
       {idea.notes !== "" && <p className="idea-card-notes">{idea.notes}</p>}
       <AttachmentGallery rounds={oneRound(attachments.data ?? [])} />
       <RecordActions actions={options} size="sm" align="start" className="idea-card-options" />
+      <IdeaHistory ideaId={idea.id} />
       {editing && <EditIdeaDialog idea={idea} onClose={() => setEditing(false)} />}
       {attaching && (
         <AddAttachmentDialog

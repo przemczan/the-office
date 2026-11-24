@@ -96,7 +96,11 @@ describe("Records name the signed-in user who did each thing", () => {
     );
 
     const record = await work.app.get(TaskRecords).recordText(task.id);
-    expect(record.slice(record.indexOf("State changes:")).split("\n").slice(4)).toEqual([
+    const stateChanges = record
+      .slice(record.indexOf("History:"))
+      .split("\n")
+      .filter((line) => !line.includes(" edited, by "));
+    expect(stateChanges.slice(4)).toEqual([
       expect.stringMatching(/: Ready → In progress, by the user Ben Ito$/),
       expect.stringMatching(/: In progress → Paused, by the user Ann Lee$/),
       expect.stringMatching(/: Paused → In progress, by the user Ben Ito$/),

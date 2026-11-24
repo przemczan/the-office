@@ -135,8 +135,14 @@ export abstract class StartedTasks {
   /** Resumes a Paused Task, as the user's Resume does. */
   abstract resume(taskId: string, by: ResumedOrDroppedBy): Promise<StartedTask>;
 
-  /** Drops the Task, as the user does. */
-  abstract drop(taskId: string, by: ResumedOrDroppedBy): Promise<StartedTask>;
+  /**
+   * Drops the Task as the answer to the Decision, started or not: a Consultant's answer too, as The
+   * Office put the Decision to them on the user's behalf.
+   */
+  abstract dropAsAnswered(
+    taskId: string,
+    answer: { readonly decisionId: string; readonly by: ResumedOrDroppedBy },
+  ): Promise<StartedTask>;
 
   /**
    * The Tasks still holding the Task back, neither Done nor Dropped: a started Publishing Task waits
