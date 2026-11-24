@@ -129,6 +129,7 @@ describe("/api/initiatives/:id/test-instances", () => {
                 state: "running",
                 files: [],
                 filesRemoved: false,
+                runAs: null,
               }),
             ],
           }),

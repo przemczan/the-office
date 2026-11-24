@@ -34,6 +34,7 @@ import {
   type PullRequestOnHost,
   type PullRequestRequest,
   type RefsOnHost,
+  type RunsStartedByHandQuery,
   type WorkflowStartRequest,
 } from "../../ports/code-host.js";
 
@@ -105,6 +106,23 @@ export class GitHubCodeHost extends CodeHost {
     { workflowId, ref, inputs }: WorkflowStartRequest,
   ): Promise<void> {
     return refusing(this.gitHub.startWorkflow(remoteUrl, { file: workflowId, ref, inputs }));
+  }
+
+  runsStartedByHand(
+    remoteUrl: string,
+    { workflowId, branch, createdSince }: RunsStartedByHandQuery,
+  ): Promise<readonly CiRunOnHost[]> {
+    return refusing(
+      this.gitHub.runsStartedByHand(remoteUrl, { file: workflowId, branch, createdSince }),
+    );
+  }
+
+  ciRun(remoteUrl: string, runId: number): Promise<CiRunOnHost | undefined> {
+    return refusing(this.gitHub.run(remoteUrl, runId));
+  }
+
+  workflowRunsUrl(remoteUrl: string, workflowId: string): string | undefined {
+    return this.gitHub.workflowRunsUrl(remoteUrl, workflowId);
   }
 
   async openIssues(remoteUrl: string, listing: IssueListing): Promise<readonly IssueOnHost[]> {

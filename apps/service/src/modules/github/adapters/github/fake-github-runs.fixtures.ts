@@ -21,6 +21,12 @@ export interface FakeWorkflowRun {
   /** An ISO timestamp, or null while it hasn't started. */
   readonly startedAt?: string | null;
   readonly updatedAt?: string;
+  /** Its workflow's file, such as `.github/workflows/release.yml`; `.github/workflows/ci.yml` unless named. */
+  readonly path?: string;
+  /** The login of the user whose action made it; `octocat` unless named. */
+  readonly actor?: string;
+  /** An ISO timestamp; its `updatedAt` unless named. */
+  readonly createdAt?: string;
 }
 
 /** What `setRun` changes in a run: anything but its id. */
@@ -40,6 +46,9 @@ const runFields = {
   headSha: z.string().optional(),
   startedAt: z.string().nullable().optional(),
   updatedAt: z.string().optional(),
+  path: z.string().optional(),
+  actor: z.string().optional(),
+  createdAt: z.string().optional(),
 };
 
 /**
@@ -74,6 +83,9 @@ interface StoredRun {
   headSha: string;
   startedAt: string | null;
   updatedAt: string;
+  path: string;
+  actor: string;
+  createdAt: string;
 }
 
 /**
@@ -110,6 +122,9 @@ export class FakeWorkflowRuns {
       headSha: run.headSha ?? shaOf(`${repository}#${run.id}`),
       startedAt: run.startedAt === undefined ? DEFAULT_TIME : run.startedAt,
       updatedAt: run.updatedAt ?? DEFAULT_TIME,
+      path: run.path ?? ".github/workflows/ci.yml",
+      actor: run.actor ?? "octocat",
+      createdAt: run.createdAt ?? run.updatedAt ?? DEFAULT_TIME,
     });
   }
 
@@ -127,21 +142,39 @@ export class FakeWorkflowRuns {
     if (changes.headSha !== undefined) run.headSha = changes.headSha;
     if (changes.startedAt !== undefined) run.startedAt = changes.startedAt;
     if (changes.updatedAt !== undefined) run.updatedAt = changes.updatedAt;
+    if (changes.path !== undefined) run.path = changes.path;
+    if (changes.actor !== undefined) run.actor = changes.actor;
+    if (changes.createdAt !== undefined) run.createdAt = changes.createdAt;
   }
 
-  /** The run a `workflow_dispatch` queues on `branch`, with an id no other run has. */
-  queueDispatched(repository: string, name: string, branch: string): void {
+  /**
+   * The run a `workflow_dispatch` of workflow `file` by `actor` queues on `branch`, with an id no
+   * other run has; answers the id.
+   */
+  queueDispatched(
+    repository: string,
+    name: string,
+    branch: string,
+    file = "ci.yml",
+    actor = "octocat",
+  ): number {
     const ids = [...this.runs.values()].flat().map((run) => run.id);
+    const id = Math.max(0, ...ids) + 1;
+    const now = new Date().toISOString();
     this.addRun(repository, {
-      id: Math.max(0, ...ids) + 1,
+      id,
       name,
       event: "workflow_dispatch",
       status: "queued",
       conclusion: null,
       headBranch: branch,
       startedAt: null,
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
+      createdAt: now,
+      path: `.github/workflows/${file}`,
+      actor,
     });
+    return id;
   }
 
   /** Applies a control posted to `/_fake/runs`. */
@@ -162,6 +195,43 @@ export class FakeWorkflowRuns {
         workflow_runs: newestFirst.slice(0, size).map((run) => this.toJson(repository, run)),
       },
     };
+  }
+
+  /**
+   * `GET /repos/{owner}/{repo}/actions/workflows/{file}/runs`, newest first, filtered by `branch`,
+   * `event`, `actor` and `created` (`>=<ISO time>` only), as GitHub does.
+   */
+  listOfWorkflow(repository: string, file: string, request: URL): ApiAnswer {
+    if (!this.installations.reaches(repository)) return notFound();
+    const size = Math.min(Number(request.searchParams.get("per_page") ?? 30), 100);
+    const branch = request.searchParams.get("branch");
+    const event = request.searchParams.get("event");
+    const actor = request.searchParams.get("actor");
+    const created = /^>=(.+)$/.exec(request.searchParams.get("created") ?? "")?.[1];
+    const runs = this.runsOf(repository)
+      .toReversed()
+      .filter(
+        (run) =>
+          run.path.split("/").at(-1) === file &&
+          (branch === null || run.headBranch === branch) &&
+          (event === null || run.event === event) &&
+          (actor === null || run.actor.toLowerCase() === actor.toLowerCase()) &&
+          (created === undefined || Date.parse(run.createdAt) >= Date.parse(created)),
+      );
+    return {
+      status: 200,
+      body: {
+        total_count: runs.length,
+        workflow_runs: runs.slice(0, size).map((run) => this.toJson(repository, run)),
+      },
+    };
+  }
+
+  /** `GET /repos/{owner}/{repo}/actions/runs/{id}`. */
+  one(repository: string, id: number): ApiAnswer {
+    if (!this.installations.reaches(repository)) return notFound();
+    const run = this.runsOf(repository).find((each) => each.id === id);
+    return run === undefined ? notFound() : { status: 200, body: this.toJson(repository, run) };
   }
 
   /** `POST /repos/{owner}/{repo}/actions/runs/{id}/rerun` and `…/rerun-failed-jobs`. */
@@ -214,6 +284,9 @@ export class FakeWorkflowRuns {
       html_url: `${this.web}/${repository}/actions/runs/${run.id}`,
       run_started_at: run.startedAt,
       updated_at: run.updatedAt,
+      created_at: run.createdAt,
+      path: run.path,
+      actor: { login: run.actor },
     };
   }
 }

@@ -317,7 +317,7 @@ function keysOf(project: Project): string[] {
  * Project has an install command, since an instance's checkout has none of the image's installed
  * files; then the Project's own commands.
  */
-function runnableCommandsOf(project: Project): TestTargetCommandBefore[] {
+export function runnableCommandsOf(project: Project): TestTargetCommandBefore[] {
   const install =
     project.installCommand === ""
       ? []

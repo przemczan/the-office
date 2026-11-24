@@ -1,5 +1,6 @@
 import { Injectable, Module } from "@nestjs/common";
 import type {
+  ActivityActionRun,
   ActivityCiRun,
   ActivityDevice,
   ActivityEnvironmentCheck,
@@ -19,6 +20,7 @@ import { ActivityPullRequests } from "./activity-pull-requests.js";
 import { ActivityStages } from "./activity-stages.js";
 import { ActivityTasks } from "./activity-tasks.js";
 import { ActivityTestInstances } from "./activity-test-instances.js";
+import { ActivityActionRuns } from "./activity-action-runs.js";
 
 /** Work's Tasks as a test sets them: `tasks` holds every Task, open or Done. */
 @Injectable()
@@ -87,6 +89,15 @@ export class ActivityTestInstancesForTests extends ActivityTestInstances {
 }
 
 @Injectable()
+export class ActivityActionRunsForTests extends ActivityActionRuns {
+  runs: ActivityActionRun[] = [];
+
+  runningCommandRuns(): Promise<readonly ActivityActionRun[]> {
+    return Promise.resolve(this.runs);
+  }
+}
+
+@Injectable()
 export class ActivityCiRunsForTests extends ActivityCiRuns {
   runs: ActivityCiRun[] = [];
 
@@ -128,6 +139,7 @@ const PORTS = [
   ActivityDecisionsForTests,
   ActivityOffBoardTasksForTests,
   ActivityTestInstancesForTests,
+  ActivityActionRunsForTests,
   ActivityCiRunsForTests,
   ActivityEnvironmentChecksForTests,
   ActivityPullRequestsForTests,
@@ -145,6 +157,7 @@ export const ACTIVITY_PORTS_FOR_TESTS = {
   decisions: ActivityDecisionsForTests,
   offBoardTasks: ActivityOffBoardTasksForTests,
   testInstances: ActivityTestInstancesForTests,
+  actionRuns: ActivityActionRunsForTests,
   ciRuns: ActivityCiRunsForTests,
   environmentChecks: ActivityEnvironmentChecksForTests,
   pullRequests: ActivityPullRequestsForTests,

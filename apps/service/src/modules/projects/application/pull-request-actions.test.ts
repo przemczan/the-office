@@ -89,6 +89,18 @@ class MergingCodeHost extends CodeHost {
     return Promise.reject(new Error("Not started here."));
   }
 
+  runsStartedByHand(): Promise<readonly CiRunOnHost[]> {
+    return Promise.resolve([]);
+  }
+
+  ciRun(): Promise<CiRunOnHost | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  workflowRunsUrl(): string | undefined {
+    return undefined;
+  }
+
   openIssues(): Promise<readonly IssueOnHost[]> {
     return Promise.resolve([]);
   }

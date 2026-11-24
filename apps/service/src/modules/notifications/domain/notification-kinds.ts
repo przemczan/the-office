@@ -14,6 +14,8 @@ export const NOTIFICATION_KINDS = [
   "outcomes.test-instance.running",
   "outcomes.test-instance.built",
   "outcomes.test-instance.failed",
+  "outcomes.action-run.succeeded",
+  "outcomes.action-run.failed",
   "office.window.nearly-used",
   "office.window.used-up",
   "office.window.reset",

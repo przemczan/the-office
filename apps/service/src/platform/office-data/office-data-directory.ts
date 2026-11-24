@@ -19,7 +19,8 @@ export type OfficeDataFolder =
   | "grafana"
   | "test-instances"
   | "test-builds"
-  | "device-helper";
+  | "device-helper"
+  | "action-runs";
 
 /** Where The Office keeps its files outside the database: OFFICE_DATA_DIR or the system's default. */
 export class OfficeDataDirectory {
@@ -43,5 +44,18 @@ export class OfficeDataDirectory {
    */
   testInstanceFolder(instanceId: string): string {
     return join(this.folder("test-instances"), instanceId);
+  }
+
+  /**
+   * An Action's Project command run's own detached checkout of the commit it runs (spec §5.5, "An
+   * Action run's checkout"), removed as the run ends.
+   */
+  actionRunFolder(runId: string): string {
+    return join(this.folder("action-runs"), runId);
+  }
+
+  /** An Action run's log, beside its checkout, kept with the run (spec §2.15, "Log"). */
+  actionRunLog(runId: string): string {
+    return join(this.folder("action-runs"), `${runId}.log`);
   }
 }

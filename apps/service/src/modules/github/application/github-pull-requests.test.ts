@@ -455,6 +455,78 @@ describe("starting GitHub Actions workflows by hand", () => {
     expect(github.notModified).toEqual([]);
   });
 
+  it("finds the runs the signed-in user started by hand of that file on that branch since a moment, oldest first, and reads one", async () => {
+    signIn();
+    github.installations.grant("office", { actions: "write" });
+    github.workflows.addWorkflow("office/tools", {
+      file: "release.yml",
+      name: "Release",
+      yaml: RELEASE,
+    });
+    const since = new Date(Date.now() - 1000);
+    // Before the moment, by someone else, on another branch, of another file, or by push: none fits.
+    github.runs.addRun("office/tools", {
+      id: 1,
+      event: "workflow_dispatch",
+      path: ".github/workflows/release.yml",
+      actor: github.signedInUser,
+      createdAt: "2026-01-01T00:00:00Z",
+    });
+    github.runs.addRun("office/tools", {
+      id: 2,
+      event: "workflow_dispatch",
+      path: ".github/workflows/release.yml",
+      actor: "someone-else",
+      createdAt: new Date().toISOString(),
+    });
+    github.runs.addRun("office/tools", {
+      id: 3,
+      event: "workflow_dispatch",
+      path: ".github/workflows/release.yml",
+      actor: github.signedInUser,
+      headBranch: "fix-login",
+      createdAt: new Date().toISOString(),
+    });
+    github.runs.addRun("office/tools", {
+      id: 4,
+      event: "push",
+      path: ".github/workflows/release.yml",
+      actor: github.signedInUser,
+      createdAt: new Date().toISOString(),
+    });
+
+    await pullRequests.startWorkflow(remoteUrl(), {
+      file: "release.yml",
+      ref: "main",
+      inputs: { version: "1.2.0" },
+    });
+    const found = await pullRequests.runsStartedByHand(remoteUrl(), {
+      file: "release.yml",
+      branch: "main",
+      createdSince: since,
+    });
+
+    expect(found).toMatchObject([
+      {
+        id: 5,
+        workflow: "Release",
+        trigger: "workflow_dispatch",
+        branch: "main",
+        status: "queued",
+      },
+    ]);
+    github.runs.setRun("office/tools", 5, { status: "completed", conclusion: "success" });
+    await expect(pullRequests.run(remoteUrl(), 5)).resolves.toMatchObject({
+      id: 5,
+      status: "succeeded",
+      url: `${github.urls.web}/office/tools/actions/runs/5`,
+    });
+    await expect(pullRequests.run(remoteUrl(), 999)).resolves.toBeUndefined();
+    expect(pullRequests.workflowRunsUrl(remoteUrl(), "release.yml")).toBe(
+      `${github.urls.web}/office/tools/actions/workflows/release.yml`,
+    );
+  });
+
   it("refuses an input the file doesn't declare, in GitHub's words", async () => {
     signIn();
     github.installations.grant("office", { actions: "write" });

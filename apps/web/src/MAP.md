@@ -20,7 +20,9 @@
 
 **The status strip** (`shell/status-strip.tsx`, spec §4, `docs/design/status-strip.html`): each figure a `StripFigure` (`shell/strip-figure.tsx`), a label over its value, a button when it opens something; Needs you, the 5-hour window (`usage-figure.tsx`, its words and `usageTone` in `notifications/now-words.ts`), Desks in use, Activity (`activity/activity-figure.tsx`: Office-wide from `GET /activity`, a live dot while anything runs, the count, a button that opens the Activity panel) and Tokens today on the left, the Fire alarm figure while it is on, then the Workstation figure and the slot (`notifications/office-messages-slot.tsx`, a `Popover`), whose messages and their order are `officeMessages` (`notifications/office-messages.ts`). The strip is its own container (`@container strip`): its widths (1,180 / 900 / 600px) hide words, never a figure, through `.shell-strip-roomy`/`-tight` (under 900px) and `-long`/`-short` (under 600px, two rows); its height (52px, 94px) sets the shell's second row. A word hidden by width stays in the DOM, so an e2e test reads a figure by its accessible name, its title or one visible part, not the whole figure's text.
 
-**The Activity panel** (`shell/activity/`, spec 2.14, [screens/activity.md](../../../docs/spec/screens/activity.md)): a `Drawer` over any page while the address has `?activity=true` (`use-activity-panel.ts`, beside `needsYou` in the router's `OverPageSearch`; opening one of the two panels closes the other; the router's `/activity` redirects to `/now?activity=true`), resized by its left edge like the Needs you panel, both through `shell/side-panel-layout.ts`. Its body, `activity-feed.tsx`, lists what The Office is running and the ended items the user hasn't seen, in seven groups (`ACTIVITY_GROUPS` in `activity-words.ts`, with each item's state, time in state, detail line and where it links), each card marked New until seen; Off-board Tasks (`onboarding` and `run-environment-set-up`, never in Stalled Tasks) share "Off-board Tasks and environment checks" with the environment checks, each naming its kind after its state (`kindWords`) and adding its queue place and short reasons, or its Stage and tokens (`tokensShort`), to its line, narrowed by the Project filter with its "in other Projects" note. **Traps:** `use-marking-seen.ts`' `SeenWatcher` counts a card seen once half of it has been in view for `SEEN_AFTER_MS` while the tab shows and the window has focus, and sends at most once every `SEND_EVERY_MS`; it uses the global `setTimeout`, so tests' fake timers reach it. The feed keeps the ended items it showed while the panel is open (`useItemsThisVisit`, reset as the panel closes and unmounts it): the re-read after marking seen no longer lists them, and without that the row would vanish from under the reader. Only an item in the last read can be New.
+**The Activity panel** (`shell/activity/`, spec 2.14, [screens/activity.md](../../../docs/spec/screens/activity.md)): a `Drawer` over any page while the address has `?activity=true` (`use-activity-panel.ts`, beside `needsYou` in the router's `OverPageSearch`; opening one of the two panels closes the other; the router's `/activity` redirects to `/now?activity=true`), resized by its left edge like the Needs you panel, both through `shell/side-panel-layout.ts`. Its body, `activity-feed.tsx`, lists what The Office is running and the ended items the user hasn't seen, in eight groups (Action runs among them) (`ACTIVITY_GROUPS` in `activity-words.ts`, with each item's state, time in state, detail line and where it links), each card marked New until seen; Off-board Tasks (`onboarding` and `run-environment-set-up`, never in Stalled Tasks) share "Off-board Tasks and environment checks" with the environment checks, each naming its kind after its state (`kindWords`) and adding its queue place and short reasons, or its Stage and tokens (`tokensShort`), to its line, narrowed by the Project filter with its "in other Projects" note. **Traps:** `use-marking-seen.ts`' `SeenWatcher` counts a card seen once half of it has been in view for `SEEN_AFTER_MS` while the tab shows and the window has focus, and sends at most once every `SEND_EVERY_MS`; it uses the global `setTimeout`, so tests' fake timers reach it. The feed keeps the ended items it showed while the panel is open (`useItemsThisVisit`, reset as the panel closes and unmounts it): the re-read after marking seen no longer lists them, and without that the row would vanish from under the reader. Only an item in the last read can be New.
+
+**A streamed log** (`shell/use-streamed-log.ts`): `useStreamedLog` reads a log from byte 0, then on from its offset each second while what it logs is active and at once on its event (`isAbout`), appending only what is new, until an ended one has nothing left to read; another id starts again. A test instance's Log (`useTestInstanceLog`) and an Action run's log window both use it. An Action run is also an Activity kind (`action-run`, "Action runs" after Test instances, linking to its Action) and a Notification Pointer (`action-run`, opening `/projects/$projectId/actions/$actionKey?run=<id>`).
 
 **Words more than one surface draws** live in the shell, as a surface never imports another: `shell/tone-words.ts` (`Tone`, `ToneWords`), `shell/ci-run-status-words.ts` (a CI run's status, for Work's CI tab and Activity), `shell/device-state-words.ts` (a Connected device's state, for a Task's Devices and Activity) and `shell/environment-check-words.ts` (an environment check's state, for a Project's Environment and Activity).
 
@@ -58,12 +60,13 @@
 
 - `app.tsx`: App
 - `main.tsx`
-- `router.tsx`: OverPageSearch, SignInSearch, LinkedIdentitiesSearch, IdeasSearch, InitiativeSearch, TestInstanceSearch, TaskSearch, HireSearch, StatsSearch, SystemHealthSearch, OfficeIdentitySearch, PromptTemplatesSearch, FirstRunSetupSearch, router, OfficeRouter
+- `router.tsx`: OverPageSearch, SignInSearch, LinkedIdentitiesSearch, IdeasSearch, InitiativeSearch, TestInstanceSearch, ActionRunSearch, TaskSearch, HireSearch, StatsSearch, SystemHealthSearch, OfficeIdentitySearch, PromptTemplatesSearch, FirstRunSetupSearch, router, OfficeRouter
 - `signed-out.ts`: officeQueryClient, sendToSignIn
 - Tests: app.test.tsx, first-run-setup.test.tsx
 
 ### api/
 
+- `action-runs.ts`: actionRunQueries, startActionRun, stopActionRun, readActionRunLog, changeActionSettings, ACTION_RUN_CHANGED, actionRunEventInvalidations
 - `actions.ts`: actionQueries, saveActions, useSaveActions
 - `activity.ts`: activityQueries, markActivitySeen, activityEventInvalidations
 - `api-client.ts`: ApiError, SignedOut, RefusedAs, shouldRetry, getFromApi, sendToApi, deleteFromApiReturning, callOfficeAction, sendFileToApi, sendToApiWithNoAnswer, sendToApiRefusedAs, sendToApiWithNoAnswerRefusedAs, deleteFromApi
@@ -202,6 +205,7 @@
 - `use-narrow-page.ts`: useNarrowPage
 - `use-placed-list.ts`: usePlacedList
 - `use-sign-out.ts`: SignOutOf, useSignOut
+- `use-streamed-log.ts`: StreamedLog, LogRead, LogSource, useStreamedLog
 - `use-tab-visible.ts`: useTabVisible
 - `use-user-name.ts`: You, UserNamer, isSignedInUser, userName, useSignedInUserId, useUserName
 - `user-activity.ts`: pageAt, useReportingActivity
@@ -217,7 +221,7 @@
 - `activity-panel-width.ts`: ACTIVITY_PANEL_WIDTH_STORAGE_KEY, ACTIVITY_PANEL_WIDTHS, showActivityPanelWidth, rememberActivityPanelWidth, useActivityPanelLayout
 - `activity-panel.tsx`: ActivityPanel
 - `activity-words.ts`: ActivityGroup, ACTIVITY_GROUPS, GroupedActivity, groupedActivity, StateWords, stateWords, kindWords, inStateWords, spanWords, detailWords, ActivityPlace, activityPlaceOf, activityCountWords, NOTHING_RUNNING, NOTHING_RUNNING_HERE, WHAT_SHOWS_HERE
-- `activity.fixtures.ts`: TASK_ID, INITIATIVE_ID, NOW, taskItem, environmentCheckItem, ciRunItem, testInstanceItem, failedTaskItem, OFF_BOARD_TASK_ID, offBoardTaskItem, minutesAgo
+- `activity.fixtures.ts`: TASK_ID, INITIATIVE_ID, NOW, taskItem, environmentCheckItem, ciRunItem, testInstanceItem, actionRunItem, failedTaskItem, OFF_BOARD_TASK_ID, offBoardTaskItem, minutesAgo
 - `use-activity-panel.ts`: ActivityPanelControls, useActivityPanel
 - `use-marking-seen.ts`: SEEN_AFTER_MS, SEND_EVERY_MS, useMarkingSeen, SeenWatcher
 - Tests: activity-feed.test.tsx, activity-figure.test.tsx, activity-words.full.test.ts, use-marking-seen.full.test.ts

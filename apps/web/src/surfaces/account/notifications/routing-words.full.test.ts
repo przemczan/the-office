@@ -14,11 +14,12 @@ describe("cellTitle", () => {
 });
 
 describe("ROUTING_GROUPS", () => {
-  it("lists a test instance's kinds as one Outcomes row, after Initiative done", () => {
+  it("lists a test instance's and an Action run's kinds as one Outcomes row each, after Initiative done", () => {
     const outcomes = ROUTING_GROUPS.find(({ level }) => level === "outcomes");
-    expect(outcomes?.kinds.map(({ level }) => level).slice(-2)).toEqual([
+    expect(outcomes?.kinds.map(({ level }) => level).slice(-3)).toEqual([
       "outcomes.initiative-done",
       "outcomes.test-instance",
+      "outcomes.action-run",
     ]);
   });
 });

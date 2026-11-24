@@ -41,6 +41,13 @@ export type Pointer =
       readonly instanceId: string;
       readonly projectId: string;
       readonly initiativeId?: string;
+    }
+  /** An Action run, in its Action's History in the Project's Actions section, its log open. */
+  | {
+      readonly kind: "action-run";
+      readonly runId: string;
+      readonly projectId: string;
+      readonly actionKey: string;
     };
 
 /**
@@ -440,6 +447,50 @@ function testInstanceOutcome(
   };
 }
 
+/** The Action run a Notification is about. */
+export interface ActionRunWords {
+  readonly runId: string;
+  readonly projectId: string;
+  readonly actionKey: string;
+  readonly actionName: string;
+  /** The branch it ran from. */
+  readonly branch: string;
+}
+
+/**
+ * Action run Outcomes are in the UI's own voice, naming the Action, then what it ran from (spec
+ * §2.7, "Action run Outcomes").
+ */
+export function actionRunSucceeded(run: ActionRunWords): NotificationDraft {
+  return actionRunOutcome(
+    "outcomes.action-run.succeeded",
+    run,
+    `${run.actionName} on ${run.branch} succeeded.`,
+  );
+}
+
+export function actionRunFailed(run: ActionRunWords, reason: string): NotificationDraft {
+  return actionRunOutcome(
+    "outcomes.action-run.failed",
+    run,
+    `${run.actionName} on ${run.branch} failed: ${reason}`,
+  );
+}
+
+function actionRunOutcome(
+  kind: NotificationKind,
+  { runId, projectId, actionKey }: ActionRunWords,
+  line: string,
+): NotificationDraft {
+  return {
+    kind,
+    roleKey: undefined,
+    line,
+    shortLine: undefined,
+    pointsTo: { kind: "action-run", runId, projectId, actionKey },
+  };
+}
+
 /**
  * Office kinds come from `defaultPerson`, by their Role's key: whoever holds Default person to talk
  * to, or the Caretaker while nobody does (spec §2.7 and its Defaults); in the UI's own voice
@@ -648,6 +699,15 @@ export type Handling =
   | { readonly kind: "test-instances-opened"; readonly projectId: string }
   /** A test instance moved to another state, so what was told of the last one is stale. */
   | { readonly kind: "test-instance-moved"; readonly instanceId: string }
+  /**
+   * The user opened an Action's History, or a later run of the Action ended, so what was told of
+   * its earlier runs is looked at or stale.
+   */
+  | {
+      readonly kind: "action-history-opened";
+      readonly projectId: string;
+      readonly actionKey: string;
+    }
   /** The user opened Now, where the 5-hour window shows. */
   | { readonly kind: "now-opened" }
   | { readonly kind: "window-reset"; readonly engineId: string }
@@ -696,6 +756,12 @@ export function handles(handling: Handling, { kind, pointsTo }: Notification): b
       );
     case "test-instance-moved":
       return pointsTo.kind === "test-instance" && pointsTo.instanceId === handling.instanceId;
+    case "action-history-opened":
+      return (
+        pointsTo.kind === "action-run" &&
+        pointsTo.projectId === handling.projectId &&
+        pointsTo.actionKey === handling.actionKey
+      );
     case "now-opened":
       return levelsOf(kind).includes("office.window");
     case "window-reset":

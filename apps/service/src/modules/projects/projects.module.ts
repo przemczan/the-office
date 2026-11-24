@@ -54,6 +54,11 @@ import { BaseCheckouts } from "./application/base-checkouts.js";
 import { CiRunWatch } from "./application/ci-run-watch.js";
 import { CodeHosts } from "./application/code-hosts.js";
 import { ManualWorkflows } from "./application/manual-workflows.js";
+import { ActionLastRuns } from "./application/action-last-runs.js";
+import { ActionRunCheckouts } from "./application/action-run-checkouts.js";
+import { ActionRunSettings } from "./application/action-run-settings.js";
+import { ActionWorkflows } from "./application/action-workflows.js";
+import { WorkflowStarts } from "./application/workflow-starts.js";
 import { ProjectFeatures } from "./application/project-features.js";
 import { ProjectRecords } from "./application/project-records.js";
 import { ProjectDeviceLines } from "./application/project-device-lines.js";
@@ -200,6 +205,11 @@ export class ProjectsModule implements NestModule {
         PullRequestWatch,
         CiRunWatch,
         ManualWorkflows,
+        WorkflowStarts,
+        ActionWorkflows,
+        ActionRunSettings,
+        ActionRunCheckouts,
+        ActionLastRuns,
         PullRequestActions,
         { provide: CommandRunner, useClass: ShellCommandRunner },
         ProjectCommandRunner,
@@ -261,6 +271,10 @@ export class ProjectsModule implements NestModule {
         PullRequestRecords,
       ],
       exports: [
+        ActionWorkflows,
+        ActionRunSettings,
+        ActionRunCheckouts,
+        ActionLastRuns,
         BaseCheckouts,
         CommittedFiles,
         EngineLevelsChecks,

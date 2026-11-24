@@ -115,6 +115,18 @@ export class CodeHostForTests extends CodeHost {
     return Promise.reject(new CodeHostRefused("Publishing starts no Workflow."));
   }
 
+  runsStartedByHand(): Promise<readonly CiRunOnHost[]> {
+    return Promise.resolve([]);
+  }
+
+  ciRun(): Promise<CiRunOnHost | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  workflowRunsUrl(): string | undefined {
+    return undefined;
+  }
+
   openIssues(): Promise<readonly IssueOnHost[]> {
     return Promise.resolve([]);
   }

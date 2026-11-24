@@ -49,6 +49,10 @@ export const testInstances = pgTable(
     files: jsonb("files").$type<readonly { name: string; size: number }[]>().notNull().default([]),
     /** When a Built instance's files were removed; null while they are kept. */
     filesRemovedAt: timestamp("files_removed_at", { withTimezone: true }),
+    /** The key of the Action whose run launched it; null when launched by hand. */
+    actionKey: text("action_key"),
+    /** That Action's name at the launch; null when launched by hand. */
+    actionName: text("action_name"),
   },
   (table) => [
     index("test_instances_initiative").on(table.initiativeId, table.launchedAt),

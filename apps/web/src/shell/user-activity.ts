@@ -12,10 +12,11 @@ const ACTIVITY_EVENTS = ["pointermove", "pointerdown", "keydown", "wheel", "focu
 const TASK_PAGE = /^\/tasks\/([^/]+)/;
 const INITIATIVE_PAGE = /^\/work\/initiatives\/([^/]+)/;
 const TEST_TARGETS_PAGE = /^\/projects\/([^/]+)\/test-targets\/?$/;
+const ACTION_HISTORY_PAGE = /^\/projects\/([^/]+)\/actions\/([^/]+)\/?$/;
 
 /**
  * The page at a path, as far as Notifications care: Now, a Task's or an Initiative's page, a
- * Project's Test targets, Settings › Updates, or another.
+ * Project's Test targets or an Action's History, Settings › Updates, or another.
  */
 export function pageAt(pathname: string): UserActivityReport["page"] {
   if (pathname === "/now") return { kind: "now" };
@@ -24,6 +25,14 @@ export function pageAt(pathname: string): UserActivityReport["page"] {
   if (taskId) return { kind: "task", taskId };
   const initiativeId = INITIATIVE_PAGE.exec(pathname)?.[1];
   if (initiativeId) return { kind: "initiative", initiativeId };
+  const history = ACTION_HISTORY_PAGE.exec(pathname);
+  if (history?.[1] && history[2]) {
+    return {
+      kind: "action-history",
+      projectId: decodeURIComponent(history[1]),
+      actionKey: decodeURIComponent(history[2]),
+    };
+  }
   const projectId = TEST_TARGETS_PAGE.exec(pathname)?.[1];
   return projectId
     ? { kind: "test-instances", projectId: decodeURIComponent(projectId) }

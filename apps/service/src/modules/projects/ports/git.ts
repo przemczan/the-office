@@ -258,6 +258,9 @@ export abstract class Git {
   /** The commit a branch, tag or other revision names. */
   abstract commitOf(repositoryPath: string, revision: string): Promise<string>;
 
+  /** The first line of the message of the commit `commit`. */
+  abstract subjectOf(repositoryPath: string, commit: string): Promise<string>;
+
   /**
    * The URL or path `remote` is fetched from, as git resolves it: `insteadOf` applied, and the
    * remote itself when it is no configured remote's name.

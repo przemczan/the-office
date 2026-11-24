@@ -1,8 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import type { Action, Project, Proposal } from "@the-office/contracts";
-import { Badge, Button, Card, Icon, PickList, PickListItem } from "@the-office/ui";
+import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
+import type {
+  Action,
+  ActionRun,
+  ProjectActionRuns,
+  Project,
+  Proposal,
+} from "@the-office/contracts";
+import { Badge, Button, Card, Dialog, Icon, PickList, PickListItem } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
+import { actionRunQueries } from "../../../api/action-runs.ts";
 import { actionQueries, useSaveActions } from "../../../api/actions.ts";
 import { ciRunQueries } from "../../../api/ci-runs.ts";
 import { proposalQueries } from "../../../api/conversations.ts";
@@ -15,6 +22,16 @@ import { useToast } from "../../../shell/toasts.tsx";
 import { useSignedInUserId } from "../../../shell/use-user-name.ts";
 import { useOpenProject } from "../project-page.tsx";
 import { ActionEditorDialog } from "./action-editor-dialog.tsx";
+import { ActionHistory } from "./action-history.tsx";
+import { ActionRunLogWindow } from "./action-run-log-window.tsx";
+import { ActionRunStateBadge, RunActionButton } from "./action-run-parts.tsx";
+import {
+  isRunning,
+  lastRunLine,
+  lastRunOf,
+  removeRunningWords,
+  runsOf,
+} from "./action-run-words.ts";
 import {
   ActionRunsLine,
   ActionTools,
@@ -27,6 +44,7 @@ import {
   actionWarnings,
   type ActionContext,
 } from "./action-words.ts";
+import { RunWindow } from "./run-window.tsx";
 import "./project-actions.css";
 
 /** What the editor has open: an Action by its key, or a new one. */
@@ -34,13 +52,20 @@ type Editing = { readonly key: string } | "new";
 
 /**
  * A Project's Actions section (spec: project-page.md, "Actions"): the list on the left, Devops'
- * open Proposal of them above it, and the open Action on the right, laid out as Pipelines are.
+ * open Proposal of them above it, and the open Action's History on the right, laid out as Pipelines
+ * are. `?run=<id>` on an open Action opens that run's log.
  */
 export function ProjectActionsSection(): ReactNode {
   const project = useOpenProject();
   const { actionKey } = useParams({ strict: false });
+  const { run: shownRunId } = useSearch({ strict: false });
+  const navigate = useNavigate();
   const read = useQuery(actionQueries.list(project.id));
+  const runsRead = useQuery(actionRunQueries.ofProject(project.id));
+  const runs = runsRead.data;
   const [editing, setEditing] = useState<Editing>();
+  const [running, setRunning] = useState<string>();
+  const [removingRunning, setRemovingRunning] = useState<Action>();
   const context = useActionContext(project, read.data?.actions);
   const removing = useRemoveAction(project, actionKey);
   if (read.error) {
@@ -50,17 +75,42 @@ export function ProjectActionsSection(): ReactNode {
   const { actions } = read.data;
   const open = actions.find(({ key }) => key === actionKey);
   const listName = `${project.name}'s Actions`;
+  const remove = (action: Action): void => {
+    removing.reset();
+    const last = lastRunOf(runs, action.key);
+    if (last !== undefined && isRunning(last)) setRemovingRunning(action);
+    else removing.mutate({ actions, removed: action });
+  };
   const tools = (action: Action): ReactNode => (
     <ActionTools
       action={action}
+      before={
+        <RunActionButton
+          action={action}
+          lastRun={lastRunOf(runs, action.key)}
+          onRun={() => setRunning(action.key)}
+        />
+      }
       disabled={removing.isPending}
       onChange={() => {
         removing.reset();
         setEditing({ key: action.key });
       }}
-      onRemove={() => removing.mutate({ actions, removed: action })}
+      onRemove={() => remove(action)}
     />
   );
+  const openRuns = open === undefined ? [] : runsOf(runs, open.key);
+  const shownRun = openRuns.find(({ id }) => id === shownRunId);
+  const showRun = (run: ActionRun | undefined): void => {
+    if (open === undefined) return;
+    void navigate({
+      to: "/projects/$projectId/actions/$actionKey",
+      params: { projectId: project.id, actionKey: open.key },
+      search: run === undefined ? {} : { run: run.id },
+      replace: run === undefined,
+    });
+  };
+  const runWindowFor = actions.find(({ key }) => key === running);
   const edited =
     typeof editing === "object" ? actions.find(({ key }) => key === editing.key) : undefined;
   return (
@@ -70,6 +120,7 @@ export function ProjectActionsSection(): ReactNode {
         <ActionList
           project={project}
           actions={actions}
+          runs={runs}
           open={open}
           context={context}
           tools={tools}
@@ -78,7 +129,9 @@ export function ProjectActionsSection(): ReactNode {
             setEditing("new");
           }}
         />
-        {removing.error && <RefusalAlert title="Nothing was removed" error={removing.error} />}
+        {removing.error && !removingRunning && (
+          <RefusalAlert title="Nothing was removed" error={removing.error} />
+        )}
       </div>
       <div className="project-actions-detail">
         <Link
@@ -90,7 +143,20 @@ export function ProjectActionsSection(): ReactNode {
           {listName}
         </Link>
         {open ? (
-          <OpenAction project={project} action={open} context={context} tools={tools(open)} />
+          <>
+            <OpenAction project={project} action={open} context={context} tools={tools(open)} />
+            {runsRead.error && (
+              <RefusalAlert title={`${open.name}'s runs can't be read`} error={runsRead.error} />
+            )}
+            {runs !== undefined && (
+              <ActionHistory
+                projectId={project.id}
+                runs={openRuns}
+                shownRunId={shownRunId}
+                onOpenRun={showRun}
+              />
+            )}
+          </>
         ) : (
           <Card>
             <p className="project-block-text">
@@ -101,6 +167,33 @@ export function ProjectActionsSection(): ReactNode {
           </Card>
         )}
       </div>
+      {runWindowFor && (
+        <RunWindow project={project} action={runWindowFor} onClose={() => setRunning(undefined)} />
+      )}
+      {shownRun && <ActionRunLogWindow run={shownRun} onClose={() => showRun(undefined)} />}
+      {removingRunning && (
+        <Dialog
+          size="small"
+          title={`Remove ${removingRunning.name}`}
+          onClose={() => setRemovingRunning(undefined)}
+          actions={
+            <Button
+              variant="danger"
+              loading={removing.isPending}
+              onClick={() =>
+                removing.mutate({ actions, removed: removingRunning }, () =>
+                  setRemovingRunning(undefined),
+                )
+              }
+            >
+              Remove
+            </Button>
+          }
+        >
+          <p className="project-block-text">{removeRunningWords(removingRunning.name)}</p>
+          {removing.error && <RefusalAlert title="Nothing was removed" error={removing.error} />}
+        </Dialog>
+      )}
       {editing !== undefined && (editing === "new" || edited) && (
         <ActionEditorDialog
           project={project}
@@ -138,17 +231,21 @@ function useRemoveAction(project: Project, openKey: string | undefined) {
     isPending: saving.isPending,
     error: saving.error,
     reset: saving.reset,
-    mutate: ({
-      actions,
-      removed,
-    }: {
-      readonly actions: readonly Action[];
-      readonly removed: Action;
-    }) =>
+    mutate: (
+      {
+        actions,
+        removed,
+      }: {
+        readonly actions: readonly Action[];
+        readonly removed: Action;
+      },
+      onRemoved?: () => void,
+    ) =>
       saving.mutate(
         { actions: actionsWith(actions, { removedKey: removed.key }) },
         {
           onSuccess: () => {
+            onRemoved?.();
             showToast(`${removed.name} removed.`);
             if (openKey === removed.key) {
               void navigate({
@@ -165,6 +262,7 @@ function useRemoveAction(project: Project, openKey: string | undefined) {
 function ActionList({
   project,
   actions,
+  runs,
   open,
   context,
   tools,
@@ -172,6 +270,7 @@ function ActionList({
 }: {
   readonly project: Project;
   readonly actions: readonly Action[];
+  readonly runs: ProjectActionRuns | undefined;
   readonly open: Action | undefined;
   readonly context: ActionContext;
   readonly tools: (action: Action) => ReactNode;
@@ -209,6 +308,8 @@ function ActionList({
             key={action.key}
             project={project}
             action={action}
+            lastRun={lastRunOf(runs, action.key)}
+            runsRead={runs !== undefined}
             picked={action.key === open?.key}
             context={context}
             tools={tools(action)}
@@ -222,12 +323,17 @@ function ActionList({
 function ActionItem({
   project,
   action,
+  lastRun,
+  runsRead,
   picked,
   context,
   tools,
 }: {
   readonly project: Project;
   readonly action: Action;
+  /** Undefined before its first, or while the runs are read. */
+  readonly lastRun: ActionRun | undefined;
+  readonly runsRead: boolean;
   readonly picked: boolean;
   readonly context: ActionContext;
   readonly tools: ReactNode;
@@ -251,7 +357,12 @@ function ActionItem({
         </span>
       }
       line={<ActionRunsLine action={action} targets={context.targets} />}
-      secondLine={setBy}
+      secondLine={
+        [lastRun === undefined ? undefined : lastRunLine(lastRun), setBy]
+          .filter((part) => part !== undefined)
+          .join(" · ") || undefined
+      }
+      aside={runsRead ? <ActionRunStateBadge run={lastRun} /> : undefined}
       renderLink={(parts) => (
         <>
           <Link

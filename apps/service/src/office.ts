@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import { Logger, type DynamicModule, type INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module.js";
+import { ActionRuns } from "./modules/actions/index.js";
 import { InterruptedAnswers, SubAgentsAndProcesses } from "./modules/conversations/index.js";
 import { ScheduledExits } from "./modules/office-updates/index.js";
 import { FirstRunSetup } from "./modules/users/index.js";
@@ -176,6 +177,13 @@ async function takeUpWhereTheOfficeStopped(app: INestApplication): Promise<void>
     .sweep()
     .catch((error: unknown) => {
       logger.warn(`The test instances the last run left were not swept: ${String(error)}`);
+    });
+  // A restart ended every Project command run; Workflow and Test target runs are picked up again.
+  void app
+    .get(ActionRuns)
+    .sweep()
+    .catch((error: unknown) => {
+      logger.warn(`The Action runs the last run left were not swept: ${String(error)}`);
     });
   void app
     .get(BundledGrafanaKeeper)

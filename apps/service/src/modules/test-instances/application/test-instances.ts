@@ -50,6 +50,7 @@ import {
   withCommit,
   type LaunchedBy,
   type TestInstance,
+  type TestInstanceRunAs,
   type TestInstanceKind,
   type TestInstanceState,
 } from "../domain/test-instance.js";
@@ -129,6 +130,8 @@ interface LaunchRequest {
   readonly branch: string;
   readonly targetKey: string;
   readonly initiativeId: string | undefined;
+  /** The Action whose run launches it; undefined for a launch by hand. */
+  readonly runAs?: TestInstanceRunAs | undefined;
 }
 
 /** The instance's log from an offset, and its state, so a reader stops once it has ended. */
@@ -287,16 +290,19 @@ export class TestInstances implements OnModuleInit {
   /**
    * Launches the target on any branch of the Project, from its page: linked to the active
    * Initiative whose branch it is, if any, else to none. A branch neither the repository nor its
-   * remote has fails the launch as its checkout's fetch does, naming the branch.
+   * remote has fails the launch as its checkout's fetch does, naming the branch. `runAs` names the
+   * Action whose run launches it, kept and shown "Run as <Action>" (spec §2.15, "Action run"); the
+   * launch is otherwise the same, refused by the same rules.
    */
   async launchOnBranch(
     projectId: string,
     branch: string,
     targetKey: string,
     by: LaunchedBy,
+    runAs?: TestInstanceRunAs,
   ): Promise<TestInstanceOnBranch> {
     const initiative = await this.initiatives.activeInitiativeOnBranch(projectId, branch);
-    return this.launch({ projectId, branch, targetKey, initiativeId: initiative?.id }, by);
+    return this.launch({ projectId, branch, targetKey, initiativeId: initiative?.id, runAs }, by);
   }
 
   /**
@@ -333,6 +339,7 @@ export class TestInstances implements OnModuleInit {
         targetName: target.name,
         launchedBy: by,
         at: this.schedule.now(),
+        runAs: launch.runAs,
       };
       const made = hosted
         ? launchedInstance({ ...given, kind: "hosted", port: this.proxyPortFor(settings, active) })

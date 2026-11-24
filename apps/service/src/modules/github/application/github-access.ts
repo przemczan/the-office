@@ -52,6 +52,12 @@ export class GitHubAccess {
     return (await this.signIns.read())?.status === "signed-in";
   }
 
+  /** The login of the user signed in, without reading or refreshing the token; undefined while signed out. */
+  async signedInLogin(): Promise<string | undefined> {
+    const kept = await this.signIns.read();
+    return kept?.status === "signed-in" ? kept.login : undefined;
+  }
+
   /**
    * The user token for one command, or undefined while signed out, which a refused refresh makes
    * the user. Read in turn with refreshes and sign-in changes, so a caller waiting on a refresh gets

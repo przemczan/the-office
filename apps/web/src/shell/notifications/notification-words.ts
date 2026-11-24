@@ -17,7 +17,8 @@ export const OFFICE_TITLE = "The Office";
 /**
  * Where opening a Notification goes: the Task or the Initiative it is about (for a Decision on no
  * Task, the Initiative's Thread it waits in, at its card), a test instance's row in the Test
- * instances fold of its Initiative or, linked to none, its Project's Test targets, Settings ›
+ * instances fold of its Initiative or, linked to none, its Project's Test targets, an Action run's
+ * log in its Action's History, Settings ›
  * Updates for an Office update,
  * or Now for the Office's own state, with the chat of the person who speaks over it, and for the
  * Stages waiting for a Stand-in Engine, whose card is in Now's Needs you.
@@ -35,6 +36,11 @@ export type NotificationTarget =
       readonly to: "/projects/$projectId/test-targets";
       readonly params: { readonly projectId: string };
       readonly search: { readonly testInstance: string };
+    }
+  | {
+      readonly to: "/projects/$projectId/actions/$actionKey";
+      readonly params: { readonly projectId: string; readonly actionKey: string };
+      readonly search: { readonly run: string };
     }
   | { readonly to: "/now"; readonly search?: { readonly chat: string } }
   | { readonly to: "/settings/updates" };
@@ -74,6 +80,14 @@ export function targetOf({
     return initiativeId === undefined
       ? { to: "/projects/$projectId/test-targets", params: { projectId }, search }
       : { to: "/work/initiatives/$initiativeId", params: { initiativeId }, search };
+  }
+  if (pointsTo.kind === "action-run") {
+    const { runId, projectId, actionKey } = pointsTo;
+    return {
+      to: "/projects/$projectId/actions/$actionKey",
+      params: { projectId, actionKey },
+      search: { run: runId },
+    };
   }
   return { to: "/tasks/$taskId", params: { taskId: pointsTo.taskId } };
 }

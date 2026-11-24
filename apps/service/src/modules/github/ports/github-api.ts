@@ -155,6 +155,26 @@ export abstract class GitHubApi {
   ): Promise<readonly WorkflowRunOnGitHub[]>;
 
   /**
+   * The runs of workflow `file` the query names, newest first, one page of at most 100. Throws
+   * `GitHubApiFailure` when GitHub refuses (403, 404) or fails.
+   */
+  abstract workflowRunsOfFile(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    query: WorkflowRunsQuery,
+  ): Promise<readonly WorkflowRunOnGitHub[]>;
+
+  /**
+   * Workflow run `runId`; undefined when GitHub has none (404). Throws `GitHubApiFailure` when
+   * GitHub refuses (403) or fails.
+   */
+  abstract workflowRunOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    runId: number,
+  ): Promise<WorkflowRunOnGitHub | undefined>;
+
+  /**
    * Runs workflow run `runId` again, or only its failed jobs. Throws `GitHubApiFailure`, quoting
    * GitHub's message, when GitHub refuses (403, 404, 422).
    */
@@ -309,6 +329,23 @@ export interface WorkflowRunOnGitHub {
   readonly url: string;
   readonly runStartedAt: string | null;
   readonly updatedAt: string;
+  /** When GitHub made it, an ISO timestamp. */
+  readonly createdAt: string;
+  /** The login of the user whose action made it; null when GitHub doesn't say. */
+  readonly actor: string | null;
+}
+
+/**
+ * Which runs of a workflow file to list (docs.github.com/rest/actions/workflow-runs#list-workflow-runs-for-a-workflow):
+ * on a branch, made by an event, by a user, created at or after a moment.
+ */
+export interface WorkflowRunsQuery {
+  /** The workflow's file name, such as release.yml. */
+  readonly file: string;
+  readonly branch: string;
+  readonly event: string;
+  readonly actor: string;
+  readonly createdSince: Date;
 }
 
 /** A merge as GitHub is asked for it: the method, and the head commit it must still be at. */

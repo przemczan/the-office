@@ -1,5 +1,4 @@
-import { rm } from "node:fs/promises";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { isAbsolute, join, relative, sep } from "node:path";
 import { Injectable } from "@nestjs/common";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import type { CommandOutcome } from "../domain/command-run.js";
@@ -7,14 +6,12 @@ import type { ProjectVariable } from "../domain/project-environment.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import type { Project } from "../domain/project.js";
-import { ExistingBranchUnusable } from "../domain/task-base.js";
-import { Git, GitCommandFailed } from "../ports/git.js";
+import { Git } from "../ports/git.js";
 import { ProjectRepository } from "../ports/project-repository.js";
+import { DetachedCheckouts } from "./detached-checkouts.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { TaskBases } from "./task-bases.js";
 import { runEnvironmentInstallOf, type RunEnvironmentInstall } from "./task-run-environments.js";
-
-const REMOVE_RETRIES = 5;
 
 /**
  * A Build to install test instance's build on the workstation, with the Project's Run environment
@@ -51,13 +48,23 @@ export interface WorkstationBuildEnd {
  */
 @Injectable()
 export class TestInstanceCheckouts {
+  private readonly checkouts: DetachedCheckouts;
+
   constructor(
     private readonly projects: ProjectRepository,
-    private readonly taskBases: TaskBases,
+    taskBases: TaskBases,
     private readonly git: Git,
     private readonly commands: ProjectCommandRunner,
-    private readonly officeData: OfficeDataDirectory,
-  ) {}
+    officeData: OfficeDataDirectory,
+  ) {
+    this.checkouts = new DetachedCheckouts(
+      taskBases,
+      git,
+      commands,
+      officeData.folder("test-instances"),
+      "a test instance's",
+    );
+  }
 
   /**
    * Makes `folder`, one directly inside `<office-data>/test-instances/`, a checkout of the tip of
@@ -67,21 +74,10 @@ export class TestInstanceCheckouts {
    * checkout leaves no folder.
    */
   async checkOut(projectId: string, branch: string, folder: string): Promise<{ commit: string }> {
-    this.ensureTestInstanceFolder(folder);
+    this.checkouts.ensureInside(folder);
     const project = await this.projectOf(projectId);
-    const variables = this.commands.variablesFor(project.environment);
-    const commit = await this.git
-      .exclusively(project.path, () => this.taskBases.freshBranchTip(project, branch, variables))
-      .catch((error: unknown) => {
-        throw branchRefusal(error, `Fetching ${branch} of ${project.name} failed.`);
-      });
-    await this.remove(folder);
-    try {
-      await this.git.exportCommit(project.path, commit, folder, variables);
-    } catch (error) {
-      await this.remove(folder);
-      throw branchRefusal(error, `Checking out ${branch} of ${project.name} at ${commit} failed.`);
-    }
+    const commit = await this.checkouts.freshTip(project, branch);
+    await this.checkouts.exportInto(project, branch, commit, folder);
     return { commit };
   }
 
@@ -108,7 +104,7 @@ export class TestInstanceCheckouts {
    * target's over them; never the Project's environment, whose Secret variables it must not see.
    */
   async runBuild(build: WorkstationBuild): Promise<WorkstationBuildEnd> {
-    this.ensureTestInstanceFolder(build.checkout);
+    this.checkouts.ensureInside(build.checkout);
     const folder = join(build.checkout, build.folder);
     const fromCheckout = relative(build.checkout, folder);
     if (fromCheckout === ".." || fromCheckout.startsWith(`..${sep}`) || isAbsolute(fromCheckout)) {
@@ -129,10 +125,7 @@ export class TestInstanceCheckouts {
 
   /** Removes a test instance's checkout, best effort: one already gone is no failure. */
   async remove(folder: string): Promise<void> {
-    this.ensureTestInstanceFolder(folder);
-    await rm(folder, { recursive: true, force: true, maxRetries: REMOVE_RETRIES }).catch(
-      () => undefined,
-    );
+    await this.checkouts.remove(folder);
   }
 
   /** What the Project's run environment image is made from, exactly as a Task's is. */
@@ -145,22 +138,4 @@ export class TestInstanceCheckouts {
     if (!project) throw new ProjectNotFound(projectId);
     return project;
   }
-
-  /** A folder removed or written here is a test instance's own, never anywhere else. */
-  private ensureTestInstanceFolder(folder: string): void {
-    const parent = this.officeData.folder("test-instances");
-    const resolved = resolve(folder);
-    if (dirname(resolved) !== resolve(parent) || relative(parent, resolved) === "") {
-      throw new Error(`${folder} isn't a test instance's folder in ${parent}.`);
-    }
-  }
-}
-
-/** git's failure or an unusable branch as a refusal in `words`; anything else stays as it is. */
-export function branchRefusal(error: unknown, words: string): unknown {
-  if (error instanceof ExistingBranchUnusable) return new ProjectRefused([error.message]);
-  if (error instanceof GitCommandFailed) {
-    return new ProjectRefused([`${words} git said: ${error.detail}`]);
-  }
-  return error;
 }

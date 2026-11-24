@@ -21,6 +21,7 @@ import {
   PullRequestReopened,
   PullRequestsChecked,
 } from "../../projects/index.js";
+import { ActionRunStarted, ActionRunStateChanged } from "../../actions/index.js";
 import { TestInstanceLaunched, TestInstanceStateChanged } from "../../test-instances/index.js";
 import {
   TaskLeftQueue,
@@ -51,6 +52,7 @@ import { ActivitySeenRepository } from "../ports/activity-seen-repository.js";
 import { ActivityStages } from "../ports/activity-stages.js";
 import { ActivityTasks } from "../ports/activity-tasks.js";
 import { ActivityTestInstances } from "../ports/activity-test-instances.js";
+import { ActivityActionRuns } from "../ports/activity-action-runs.js";
 
 /** The events of the modules Activity reads that can change what it lists. */
 const SOURCE_CHANGES: readonly DomainEventClass[] = [
@@ -70,6 +72,8 @@ const SOURCE_CHANGES: readonly DomainEventClass[] = [
   DecisionReopened,
   TestInstanceLaunched,
   TestInstanceStateChanged,
+  ActionRunStarted,
+  ActionRunStateChanged,
   CiRunsChecked,
   EnvironmentCheckStarted,
   EnvironmentCheckFinished,
@@ -97,6 +101,7 @@ export class ActivityService implements OnModuleInit, OnModuleDestroy {
     private readonly decisions: ActivityDecisions,
     private readonly offBoardTasks: ActivityOffBoardTasks,
     private readonly testInstances: ActivityTestInstances,
+    private readonly actionRuns: ActivityActionRuns,
     private readonly ciRuns: ActivityCiRuns,
     private readonly environmentChecks: ActivityEnvironmentChecks,
     private readonly pullRequests: ActivityPullRequests,
@@ -143,6 +148,7 @@ export class ActivityService implements OnModuleInit, OnModuleDestroy {
       openDecisions,
       offBoardTasks,
       testInstances,
+      actionRuns,
       environmentChecks,
       devices,
       { pullRequests },
@@ -152,6 +158,7 @@ export class ActivityService implements OnModuleInit, OnModuleDestroy {
       this.decisions.listOpen(),
       this.offBoardTasks.listAll(),
       this.testInstances.activity(cut),
+      this.actionRuns.runningCommandRuns(),
       this.environmentChecks.latestOfAll(),
       this.devices.open(),
       this.pullRequests.list(),
@@ -162,6 +169,7 @@ export class ActivityService implements OnModuleInit, OnModuleDestroy {
       openDecisionTaskIds: new Set(openDecisions.flatMap(({ taskId }) => taskId ?? [])),
       offBoardTasks,
       testInstances,
+      actionRuns,
       ciRuns: this.ciRuns.list().runs,
       environmentChecks,
       devices,

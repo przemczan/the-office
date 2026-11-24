@@ -1,10 +1,4 @@
-import type {
-  Action,
-  ActionsEdit,
-  ManualWorkflowList,
-  Project,
-  TestTarget,
-} from "@the-office/contracts";
+import type { Action, ActionsEdit } from "@the-office/contracts";
 import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -16,6 +10,7 @@ import {
   until,
   type Answers,
 } from "../../../shell/page.fixtures.tsx";
+import { ANDROID, BUILD, GONE_TARGET, INSTALL, RELEASE, WORKFLOWS } from "./actions.fixtures.ts";
 import { ProjectActionsSection } from "./project-actions-section.tsx";
 
 vi.mock("../../../shell/ask-devops.tsx", () => ({
@@ -24,137 +19,14 @@ vi.mock("../../../shell/ask-devops.tsx", () => ({
     <button type="button">{label("Nina")}</button>
   ),
 }));
-vi.mock("../../../shell/use-user-name.ts", () => ({ useSignedInUserId: () => "u1" }));
-vi.mock("../project-page.tsx", () => ({ useOpenProject: () => PROJECT }));
-
-const PROJECT: Project = {
-  id: "admin-panel",
-  name: "Admin panel",
-  path: "/projects/admin-panel",
-  baseBranch: "main",
-  mark: { label: "AP", colour: "teal" },
-  installCommand: "npm ci",
-  commands: [
-    {
-      key: "build",
-      name: "Build",
-      kind: "build",
-      commandLine: "npm run build",
-      rerunCommandLine: "",
-    },
-    { key: "seed", name: "Seed", kind: "build", commandLine: "npm run seed", rerunCommandLine: "" },
-  ],
-  installInputs: ["package-lock.json"],
-  publishingMode: "merge",
-  defaultPipeline: "full",
-  icon: { light: null, dark: null },
-  logo: { light: null, dark: null },
-  repositoryUrl: null,
-  beforePublishingCommand: "",
-  afterPublishingCommand: "",
-  deleteMergedBranches: false,
-  environment: { set: [], unset: [], prependPath: [] },
-  useProjectSkills: true,
-  projectSkillsOff: [],
-  engine: {
-    default: null,
-    force: null,
-    people: [],
-    standIns: { useOwnList: false, engineIds: [] },
-  },
-  runEnvironment: "on",
-  features: {
-    "connected-devices": false,
-    "test-targets": true,
-    "github-issues": true,
-    "run-environment": true,
-    actions: true,
-  },
-  projectLimit: 1,
-  addedAt: "2026-11-01T10:00:00.000Z",
-  codeHost: null,
-  kindDefaultPipelines: { feature: null, bug: null, chore: null },
-  defaultPipelineOfKind: { feature: "full", bug: "full", chore: "full" },
-  issueSettings: {
-    autoImportLabel: null,
-    closeOnDone: true,
-    commentOnStartAndDone: false,
-    closeOnDrop: false,
-  },
-};
-
-const BUILD: Action = {
-  key: "build-it",
-  name: "Build it",
-  kind: "project-command",
-  leavesTheWorkstation: false,
-  settings: { commandKey: "build", commandsBefore: ["install", "gone"], timeLimitMinutes: null },
-  setBy: { name: { by: "user", user: { userId: "u1", name: "Ada" } } },
-};
-
-const INSTALL: Action = {
-  key: "install-phone",
-  name: "Install on my phone",
-  kind: "test-target",
-  leavesTheWorkstation: false,
-  settings: { targetKey: "android" },
-  setBy: {
-    name: { by: "user", user: { userId: "u1", name: "Ada" } },
-    settings: { by: "proposal", proposalId: "p1", agent: { roleKey: "devops", name: "Nina" } },
-  },
-};
-
-const RELEASE: Action = {
-  key: "release",
-  name: "Release",
-  kind: "workflow",
-  leavesTheWorkstation: true,
-  settings: { file: "release.yml", inputs: {} },
-  setBy: {},
-};
-
-const GONE_TARGET: Action = {
-  ...INSTALL,
-  key: "install-tablet",
-  name: "Install on my tablet",
-  settings: { targetKey: "tablet" },
-  setBy: {},
-};
-
-const ANDROID: TestTarget = {
-  key: "android",
-  name: "Android app",
-  kind: "build-to-install",
-  entryPoint: { kind: "gradle-task", task: "assembleDebug", arguments: [] },
-  outputPatterns: ["app/build/*.apk"],
-  variables: [],
-  secretVariables: [],
-  commandsBefore: [],
-  memoryMegabytes: null,
-  setBy: {},
-};
-
-const WORKFLOWS: ManualWorkflowList = {
-  ref: "main",
-  problem: null,
-  workflows: [
-    {
-      id: "deploy.yml",
-      name: "Deploy",
-      url: "https://github.com/ada/admin-panel/actions/workflows/deploy.yml",
-      inputs: [
-        {
-          name: "channel",
-          description: "Where it goes.",
-          required: true,
-          default: "beta",
-          kind: "choice",
-          options: ["beta", "stable"],
-        },
-      ],
-    },
-  ],
-};
+vi.mock("../../../shell/use-user-name.ts", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  useSignedInUserId: () => "u1",
+}));
+vi.mock("../project-page.tsx", async () => {
+  const { PROJECT } = await import("./actions.fixtures.ts");
+  return { useOpenProject: () => PROJECT };
+});
 
 const ACTIONS_PATH = "/api/projects/admin-panel/actions";
 

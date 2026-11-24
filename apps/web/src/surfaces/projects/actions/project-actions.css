@@ -137,3 +137,111 @@
   flex-wrap: wrap;
   min-width: 0;
 }
+
+/* A run's state badge; Running, Building and Starting spin, held still with reduced motion. */
+.action-run-state {
+  display: inline-flex;
+}
+
+.action-run-spinner {
+  display: inline-flex;
+  margin-right: 4px;
+  contain: paint;
+  animation: action-run-spin 1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .action-run-spinner {
+    animation: none;
+  }
+}
+
+@keyframes action-run-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.action-not-run {
+  font: var(--type-caption);
+  color: var(--fg-3);
+  white-space: nowrap;
+}
+
+.action-run-button {
+  display: inline-flex;
+  margin-right: 4px;
+}
+
+/* The Run window: Run from, what it will run, what it runs, the refusal. */
+.run-window {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.run-window-fixed {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.run-window-label {
+  font: var(--type-label);
+}
+
+.run-window-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.run-window-note,
+.run-window-tip,
+.run-window-runs,
+.run-window-confirm {
+  margin: 0;
+  font: var(--type-body);
+  color: var(--fg-2);
+}
+
+.run-window-note {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.run-window-confirm {
+  color: var(--fg-1);
+}
+
+.run-window-problem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--warning-fg);
+}
+
+.run-window-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* History: a row's state is also its button opening the log, for the keyboard. */
+.action-history-open {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.action-history-from {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+}

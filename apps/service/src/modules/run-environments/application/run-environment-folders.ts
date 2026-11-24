@@ -43,6 +43,15 @@ export class RunEnvironmentFolders {
     return join(this.testInstances, testInstanceId);
   }
 
+  /** Each Action run's files: the compose file The Office puts over its checkout's. */
+  get actionRuns(): string {
+    return join(this.root, "action-runs");
+  }
+
+  actionRunFolder(runId: string): string {
+    return join(this.actionRuns, runId);
+  }
+
   /** Each pairing environment's files: the compose file The Office puts over the definition's. */
   get pairings(): string {
     return join(this.root, "pairings");

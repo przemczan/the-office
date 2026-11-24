@@ -11,6 +11,7 @@ import type { TestTargetRepository } from "../ports/test-target-repository.js";
 import type { BaseCheckouts } from "./base-checkouts.js";
 import type { EnvironmentChecks } from "./environment-checks.js";
 import type { ProjectService } from "./project-service.js";
+import { ActionLastRuns, type ActionLastRun } from "./action-last-runs.js";
 import { ProjectDeviceLines, type ProjectDeviceLine } from "./project-device-lines.js";
 import { ProjectRecords } from "./project-records.js";
 
@@ -20,6 +21,8 @@ interface Surroundings {
   readonly testTargets?: Readonly<Record<string, readonly TestTarget[]>>;
   readonly actions?: Readonly<Record<string, readonly Action[]>>;
   readonly devices?: Readonly<Record<string, readonly ProjectDeviceLine[]>>;
+  /** Each Project's Actions' last runs by key, read through a registered stand-in of Actions'. */
+  readonly lastRuns?: Readonly<Record<string, Readonly<Record<string, ActionLastRun>>>>;
 }
 
 function recordsOver(projects: Project[], surroundings: Surroundings = {}): ProjectRecords {
@@ -56,6 +59,11 @@ function recordsOver(projects: Project[], surroundings: Surroundings = {}): Proj
     engines: () =>
       Promise.resolve([{ ...FIRST_CLAUDE_CODE_ENGINE, id: "claude", name: "Ann's Claude" }]),
   };
+  const lastRuns = new ActionLastRuns();
+  if (surroundings.lastRuns !== undefined) {
+    const kept = surroundings.lastRuns;
+    lastRuns.register((id) => Promise.resolve(new Map(Object.entries(kept[id] ?? {}))));
+  }
   return new ProjectRecords(
     service as ProjectService,
     bases as BaseCheckouts,
@@ -65,6 +73,7 @@ function recordsOver(projects: Project[], surroundings: Surroundings = {}): Proj
     actions as ActionRepository,
     devices,
     engines as EngineModels,
+    lastRuns,
   );
 }
 
@@ -320,10 +329,47 @@ describe("ProjectRecords.of", () => {
 
     expect(record.split("\n").slice(-5, -1)).toEqual([
       "- Actions:",
-      "  - build-web (Build web, Project command): command build; commands before it install; time limit the default 60 minutes; stays on the workstation; set by: name the user Ann, kind the user Ann, settings the user Ann, leaves the workstation the user Ann",
-      "  - phone (Install on my phone, Test target): test target android; stays on the workstation; set by: name unknown, kind unknown, settings unknown, leaves the workstation unknown",
-      "  - release (Release, Workflow): Workflow release.yml; inputs `channel=stable`; leaves the workstation; set by: name a Proposal by Dana (devops), kind a Proposal by Dana (devops), settings a Proposal by Dana (devops), leaves the workstation a Proposal by Dana (devops)",
+      "  - build-web (Build web, Project command): command build; commands before it install; time limit the default 60 minutes; stays on the workstation; set by: name the user Ann, kind the user Ann, settings the user Ann, leaves the workstation the user Ann; last run: none",
+      "  - phone (Install on my phone, Test target): test target android; stays on the workstation; set by: name unknown, kind unknown, settings unknown, leaves the workstation unknown; last run: none",
+      "  - release (Release, Workflow): Workflow release.yml; inputs `channel=stable`; leaves the workstation; set by: name a Proposal by Dana (devops), kind a Proposal by Dana (devops), settings a Proposal by Dana (devops), leaves the workstation a Proposal by Dana (devops); last run: none",
     ]);
+  });
+
+  it("names each Action's last run as the Actions module's registered reader gives it", async () => {
+    const records = recordsOver([aProject()], {
+      actions: {
+        "admin-panel": [
+          {
+            key: "build-web",
+            name: "Build web",
+            kind: "project-command",
+            settings: { commandKey: "build", commandsBefore: [], timeLimitMinutes: 15 },
+            leavesTheWorkstation: false,
+            setBy: {},
+          },
+          {
+            key: "lint",
+            name: "Lint",
+            kind: "project-command",
+            settings: { commandKey: "lint", commandsBefore: [], timeLimitMinutes: null },
+            leavesTheWorkstation: false,
+            setBy: {},
+          },
+        ],
+      },
+      lastRuns: {
+        "admin-panel": {
+          "build-web": { state: "Failed", startedAt: new Date("2026-11-20T09:30:00.000Z") },
+        },
+      },
+    });
+
+    const record = (await records.of("admin-panel")) ?? "";
+
+    expect(record).toContain(
+      "set by: name unknown, kind unknown, settings unknown, leaves the workstation unknown; last run: Failed, started 2026-11-20T09:30:00.000Z",
+    );
+    expect(record).toMatch(/- lint \(Lint, Project command\).*; last run: none$/m);
   });
 
   it("lists each device by id, name, kind and state, never its address", async () => {

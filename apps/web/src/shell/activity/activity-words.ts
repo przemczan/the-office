@@ -32,6 +32,7 @@ export const ACTIVITY_GROUPS: readonly ActivityGroup[] = [
     icon: "flask-conical",
     kinds: ["test-instance"],
   },
+  { key: "action-runs", title: "Action runs", icon: "play", kinds: ["action-run"] },
   { key: "ci-runs", title: "CI runs", icon: "workflow", kinds: ["ci-run"] },
   {
     key: "off-board-tasks",
@@ -102,6 +103,9 @@ export function stateWords(item: ActivityItem): StateWords {
         label: TEST_INSTANCE_STATE_WORDS[item.state],
         tone: TEST_INSTANCE_STATE_TONES[item.state],
       };
+    case "action-run":
+      // Listed only while it runs: an ended one leaves Activity (spec §2.14).
+      return { label: "Running", tone: "info" };
     case "ci-run": {
       const { label, tone } = CI_RUN_STATUS_WORDS[item.status];
       return { label, tone };
@@ -166,6 +170,8 @@ export function detailWords(item: ActivityItem): string | undefined {
       return item.branch ?? undefined;
     case "pull-request":
       return `#${item.number}`;
+    case "action-run":
+      return `${item.branch} · started by ${item.startedBy}`;
     case "onboarding":
     case "run-environment-set-up":
       return offBoardDetailWords(item);
@@ -193,6 +199,7 @@ export type ActivityPlace =
   | { readonly kind: "initiative"; readonly initiativeId: string }
   | { readonly kind: "test-targets"; readonly projectId: string }
   | { readonly kind: "environment"; readonly projectId: string }
+  | { readonly kind: "actions"; readonly projectId: string; readonly actionKey: string }
   | { readonly kind: "ci-runs"; readonly url: string }
   | { readonly kind: "pull-requests"; readonly url: string };
 
@@ -213,6 +220,8 @@ export function activityPlaceOf(item: ActivityItem): ActivityPlace {
       return { kind: "ci-runs", url: item.url };
     case "environment-check":
       return { kind: "environment", projectId: item.projectId };
+    case "action-run":
+      return { kind: "actions", projectId: item.projectId, actionKey: item.actionKey };
     case "pull-request":
       return { kind: "pull-requests", url: item.url };
   }

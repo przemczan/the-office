@@ -40,6 +40,7 @@ function partsWith(overrides: Partial<ActivityParts>): ActivityParts {
     openDecisionTaskIds: new Set(),
     offBoardTasks: [],
     testInstances: [],
+    actionRuns: [],
     ciRuns: [],
     environmentChecks: [],
     devices: [],
@@ -472,6 +473,43 @@ describe("activityOf", () => {
         since: hoursAgo(5),
         ended: true,
         link: { kind: "project", projectId: "office" },
+      },
+    ]);
+  });
+
+  it("lists a running Project command run since its start, leading to its Project", () => {
+    const activity = activityOf(
+      partsWith({
+        actionRuns: [
+          {
+            id: "00000000-0000-4000-8000-000000007201",
+            projectId: "office",
+            actionKey: "build-web",
+            actionName: "Build web",
+            branch: "fix-login",
+            startedBy: "Ann Lee",
+            startedAt: hoursAgo(1),
+          },
+        ],
+      }),
+      new Set(),
+      NOW,
+    );
+
+    expect(activity.items).toEqual([
+      {
+        kind: "action-run",
+        id: "action-run:00000000-0000-4000-8000-000000007201",
+        projectId: "office",
+        title: "Build web",
+        link: { kind: "project", projectId: "office" },
+        runId: "00000000-0000-4000-8000-000000007201",
+        actionKey: "build-web",
+        branch: "fix-login",
+        startedBy: "Ann Lee",
+        since: hoursAgo(1),
+        ended: false,
+        endedAt: undefined,
       },
     ]);
   });

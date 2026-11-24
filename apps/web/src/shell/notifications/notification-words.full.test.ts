@@ -84,6 +84,20 @@ describe("targetOf", () => {
     });
   });
 
+  it("opens an Action run's log in its Action's History", () => {
+    const runId = "4e9d7c4b-9d88-4f4f-8a84-5c3a8d4f0b43";
+    expect(
+      targetOf({
+        pointsTo: { kind: "action-run", runId, projectId: "billing", actionKey: "release" },
+        roleKey: null,
+      }),
+    ).toEqual({
+      to: "/projects/$projectId/actions/$actionKey",
+      params: { projectId: "billing", actionKey: "release" },
+      search: { run: runId },
+    });
+  });
+
   it("opens the chat of whoever speaks an Office kind over Now", () => {
     expect(targetOf({ pointsTo: { kind: "office" }, roleKey: "receptionist" })).toEqual({
       to: "/now",

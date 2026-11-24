@@ -94,6 +94,15 @@ export const activityItemSchema = z.discriminatedUnion("kind", [
     branch: z.string().nullable(),
     initiativeId: z.uuid().nullable(),
   }),
+  /** A Project command run of an Action, while it is running. */
+  z.object({
+    ...activityItemFields,
+    kind: z.literal("action-run"),
+    runId: z.uuid(),
+    actionKey: z.string(),
+    branch: z.string(),
+    startedBy: z.string(),
+  }),
   z.object({
     ...activityItemFields,
     kind: z.literal("ci-run"),

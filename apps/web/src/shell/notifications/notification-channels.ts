@@ -108,7 +108,9 @@ async function shownNotification(
     person: personOf(notification, roles),
     line: notificationLineOf(notification.line, notification),
     about: aboutLine(
-      pointsTo.kind === "test-instance" ? { projectId: pointsTo.projectId } : task,
+      pointsTo.kind === "test-instance" || pointsTo.kind === "action-run"
+        ? { projectId: pointsTo.projectId }
+        : task,
       projects,
     ),
     open: () => open(targetOf(notification)),

@@ -12,14 +12,12 @@ import {
   type OfficeToolResult,
 } from "../../../engine/index.js";
 import { CiRunWatch } from "../../application/ci-run-watch.js";
-import { workflowFileName } from "../../domain/action.js";
+import { WorkflowStarts, type WorkflowStarted } from "../../application/workflow-starts.js";
 import { ensureRerunnable, type CiRunJobs } from "../../domain/ci-run.js";
-import { inputsToSend, type ManualWorkflow } from "../../domain/manual-workflow.js";
 import type { Project } from "../../domain/project.js";
 import { ProjectNotFound } from "../../domain/project-not-found.js";
 import { ProjectRefused } from "../../domain/project-refused.js";
 import { CodeHostRefused, type CiRunOnHost } from "../../ports/code-host.js";
-import { ActionRepository } from "../../ports/action-repository.js";
 import { ProjectRepository } from "../../ports/project-repository.js";
 
 /**
@@ -50,13 +48,6 @@ interface Rerun {
   readonly jobs: CiRunJobs;
 }
 
-/** A Workflow started by hand, as the start answers it. */
-interface WorkflowStarted {
-  readonly project: Project;
-  readonly workflow: ManualWorkflow;
-  readonly ref: string;
-}
-
 /**
  * Projects' Office actions (the Office action convention): the one handler of each action Projects
  * declares, which its route (`ProjectOfficeActionsController`) and its Office tool, registered
@@ -71,7 +62,7 @@ export class ProjectOfficeActions implements OnModuleInit {
     private readonly registry: OfficeToolRegistry,
     private readonly projects: ProjectRepository,
     private readonly ciRuns: CiRunWatch,
-    private readonly actions: ActionRepository,
+    private readonly workflowStarts: WorkflowStarts,
   ) {
     this.handlers = new Map(
       [this.rerunCiRun(), this.startWorkflow()].map((each) => [each.action.name, each]),
@@ -113,7 +104,7 @@ export class ProjectOfficeActions implements OnModuleInit {
     return handler({
       action: START_WORKFLOW_ACTION,
       handle: ({ projectId, workflow, ref, inputs }) =>
-        this.start(projectId, workflow, ref, inputs),
+        this.workflowStarts.byHand(projectId, workflow, ref, inputs),
       response: ({ project, workflow, ref }: WorkflowStarted) => ({
         projectId: project.id,
         workflow: workflow.id,
@@ -122,64 +113,6 @@ export class ProjectOfficeActions implements OnModuleInit {
       words: ({ project, workflow, ref }) =>
         `Workflow ${workflow.name} (${workflow.id}) of "${project.name}" starts on ${ref}; its run shows in Work › CI once the code host lists it.`,
     });
-  }
-
-  /**
-   * Starts a Workflow by hand on the Project's code host, with the inputs its file declares at
-   * `ref`, defaults filling the rest, then lists the Project's runs every round for a while, as the
-   * host answers the start with no run. Refuses, whatever its inputs, a Workflow that an Action
-   * of the Project marked Leaves the workstation starts, so neither the user's Start a workflow nor
-   * an Agent's start_workflow goes around the Action's base branch and confirm step (spec §6,
-   * "Actions").
-   */
-  private async start(
-    projectId: string,
-    workflowId: string,
-    ref: string,
-    given: Readonly<Record<string, string>>,
-  ): Promise<WorkflowStarted> {
-    const project = await this.projects.find(projectId);
-    if (project === undefined) throw new ProjectNotFound(projectId);
-    const guarding = (await this.actions.listOf(project.id)).find(
-      (action) =>
-        action.kind === "workflow" &&
-        action.leavesTheWorkstation &&
-        workflowFileName(action.settings.file) === workflowFileName(workflowId),
-    );
-    if (guarding !== undefined) {
-      throw new ProjectRefused([
-        `${workflowId} is started by the Action ${guarding.name}, from «${project.name}»'s Actions.`,
-      ]);
-    }
-    const onHost = await this.ciRuns.onHost(project);
-    if (onHost === undefined) {
-      throw new ProjectRefused([
-        `"${project.name}" has no Workflow to start: its base branch tracks no remote on a code host The Office knows.`,
-      ]);
-    }
-    const { remoteUrl, host } = onHost;
-    try {
-      const workflow = (await host.manualWorkflows(remoteUrl, ref)).find(
-        (each) => each.id === workflowId,
-      );
-      if (workflow === undefined) {
-        throw new ProjectRefused([
-          `${workflowId} can't be started by hand on ${ref}: it has no workflow_dispatch there.`,
-        ]);
-      }
-      const inputs = inputsToSend(workflow, given);
-      await host.startWorkflow(remoteUrl, { workflowId: workflow.id, ref, inputs });
-      // Its listing failing fails no start: the run goes all the same, and a later round lists it.
-      await this.ciRuns.expectRun(project.id).catch((error: unknown) => {
-        this.logger.warn(
-          `Listing the CI runs of ${project.name} after a start by hand failed: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      });
-      return { project, workflow, ref };
-    } catch (error) {
-      if (error instanceof CodeHostRefused) throw new ProjectRefused([error.message]);
-      throw error;
-    }
   }
 
   /**

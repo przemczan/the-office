@@ -151,6 +151,8 @@ export const LABEL = {
   buildCache: "office.build-cache",
   /** A pairing environment's compose project, by the Project device's id. */
   pairing: "office.pairing",
+  /** An Action's Project command run's compose project, by the run's id. */
+  actionRun: "office.action-run",
 } as const;
 
 export type Labels = Readonly<Record<string, string>>;
@@ -442,6 +444,66 @@ export function buildOverrideOf(
     },
     problems: [],
   };
+}
+
+/** The labels of what an Action run's compose project holds; the run's id is enough to find it. */
+export function actionRunLabels(instance: string, runId: string): Labels {
+  return { ...officeLabels(instance), [LABEL.actionRun]: runId };
+}
+
+/**
+ * The compose project of an Action's Project command run (spec §5.5, "An Action run's checkout"),
+ * unique to the Office and the run, and never a Task's, a Test instance's or a pairing's, whose ids
+ * carry no `action-`.
+ */
+export function actionRunProjectNameOf(instance: string, runId: string): string {
+  return composeProjectNameOf(instance, `action-${runId}`);
+}
+
+/** What an Action run's override is made of, beside the definition, image and limits. */
+export interface ActionRunMounts {
+  readonly runId: string;
+  readonly projectId: string;
+  /** The run's checkout, an absolute path: the one host folder mounted, at its own path. */
+  readonly checkout: string;
+  /** `<office-data>/device-helper/`, mounted read-only when the Action names a device; else none. */
+  readonly deviceHelperFolder: string | undefined;
+}
+
+/**
+ * The compose file The Office puts over the checkout's for an Action's Project command run (spec
+ * §5.5, "An Action run's checkout"): the checkout alone mounted, at its own path, in the
+ * devcontainer's service on the Project's image, with the device helper's folder when the Action
+ * names a device; no port published; the labels on every service, network and volume, and the
+ * limits on every service. Its variables reach each command by `exec`, never the override.
+ */
+export function actionRunOverrideOf(
+  definition: RunEnvironmentDefinition,
+  run: ActionRunMounts,
+  image: string,
+  instance: string,
+  limits: RunEnvironmentLimits,
+  hostCores: number,
+): Record<string, unknown> {
+  const labels = { ...actionRunLabels(instance, run.runId), [LABEL.project]: run.projectId };
+  const services = Object.fromEntries(
+    definition.services.map((service) => [
+      service,
+      {
+        labels,
+        ...serviceLimitsOf(limits, hostCores, service === definition.service),
+        ...(service === definition.service
+          ? devcontainerServiceOverride(definition, run.checkout, image, [
+              bindMount(run.checkout, false),
+              ...(run.deviceHelperFolder === undefined
+                ? []
+                : [deviceHelperMount(run.deviceHelperFolder)]),
+            ])
+          : {}),
+      },
+    ]),
+  );
+  return { services, ...networksAndVolumesOf(definition, labels) };
 }
 
 /** The labels of what a pairing environment holds; the Project device's id is enough to find it. */

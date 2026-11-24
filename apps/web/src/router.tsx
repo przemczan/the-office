@@ -349,6 +349,15 @@ function testInstanceSearchOf(search: Record<string, unknown>): TestInstanceSear
   return typeof search["testInstance"] === "string" ? { testInstance: search["testInstance"] } : {};
 }
 
+/** An Action run whose log is open in its Action's History, by its id. */
+export interface ActionRunSearch {
+  readonly run?: string;
+}
+
+function actionRunSearchOf(search: Record<string, unknown>): ActionRunSearch {
+  return typeof search["run"] === "string" ? { run: search["run"] } : {};
+}
+
 // An Initiative's page, at the path its links name (`recordPath`), outside Work's tabs as a Task's is.
 const initiativeRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -626,10 +635,12 @@ const projectActionsRoute = createRoute({
   staticData: { title: "Projects" },
 });
 
+// An open Action's History; `?run=<id>` (an Action run Notification's link) opens that run's log.
 const projectActionRoute = createRoute({
   getParentRoute: () => projectRoute,
   path: "actions/$actionKey",
   component: ProjectActionsSection,
+  validateSearch: actionRunSearchOf,
   staticData: { title: "Projects" },
 });
 

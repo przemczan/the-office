@@ -23,4 +23,13 @@ describe("pageAt", () => {
     expect(pageAt("/projects/billing")).toEqual({ kind: "elsewhere" });
     expect(pageAt("/projects/billing/commands")).toEqual({ kind: "elsewhere" });
   });
+
+  it("tells an Action's History from the Actions section", () => {
+    expect(pageAt("/projects/billing/actions/release")).toEqual({
+      kind: "action-history",
+      projectId: "billing",
+      actionKey: "release",
+    });
+    expect(pageAt("/projects/billing/actions")).toEqual({ kind: "elsewhere" });
+  });
 });

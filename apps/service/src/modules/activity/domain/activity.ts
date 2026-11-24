@@ -104,6 +104,18 @@ export interface ActivityTestInstance {
   readonly endedAt: Date | undefined;
 }
 
+/** A Project command run of an Action, running now. */
+export interface ActivityActionRun {
+  readonly id: string;
+  readonly projectId: string;
+  readonly actionKey: string;
+  readonly actionName: string;
+  readonly branch: string;
+  /** Who started it, by name. */
+  readonly startedBy: string;
+  readonly startedAt: Date;
+}
+
 export interface ActivityCiRun {
   readonly id: number;
   readonly attempt: number;
@@ -159,6 +171,8 @@ export interface ActivityParts {
   /** Every Off-board Task off the Archive. */
   readonly offBoardTasks: readonly ActivityOffBoardTask[];
   readonly testInstances: readonly ActivityTestInstance[];
+  /** The Project command runs running now. */
+  readonly actionRuns: readonly ActivityActionRun[];
   readonly ciRuns: readonly ActivityCiRun[];
   readonly environmentChecks: readonly ActivityEnvironmentCheck[];
   readonly devices: readonly ActivityDevice[];
@@ -208,6 +222,13 @@ export type ActivityItem = ItemFields &
         readonly state: string;
         readonly branch: string | null;
         readonly initiativeId: string | null;
+      }
+    | {
+        readonly kind: "action-run";
+        readonly runId: string;
+        readonly actionKey: string;
+        readonly branch: string;
+        readonly startedBy: string;
       }
     | {
         readonly kind: "ci-run";
@@ -282,6 +303,7 @@ function itemsOf(parts: ActivityParts): ActivityItem[] {
     ...parts.done.filter(onBoard).map(doneTaskItem),
     ...parts.offBoardTasks.flatMap(offBoardTaskItem),
     ...parts.testInstances.flatMap(testInstanceItem),
+    ...parts.actionRuns.map(actionRunItem),
     ...parts.ciRuns.map(ciRunItem),
     ...parts.environmentChecks.map(environmentCheckItem),
     ...parts.devices.flatMap(deviceItem),
@@ -413,6 +435,27 @@ function testInstanceItem(instance: ActivityTestInstance): ActivityItem[] {
       endedAt,
     },
   ];
+}
+
+/**
+ * A Project command run, listed only while it runs: it leaves Activity as it ends (spec §2.14,
+ * "Items"), so it is never seen ended.
+ */
+function actionRunItem(run: ActivityActionRun): ActivityItem {
+  return {
+    kind: "action-run",
+    id: `action-run:${run.id}`,
+    projectId: run.projectId,
+    title: run.actionName,
+    link: { kind: "project", projectId: run.projectId },
+    runId: run.id,
+    actionKey: run.actionKey,
+    branch: run.branch,
+    startedBy: run.startedBy,
+    since: run.startedAt,
+    ended: false,
+    endedAt: undefined,
+  };
 }
 
 function ciRunItem(run: ActivityCiRun): ActivityItem {

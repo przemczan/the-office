@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Module, type DynamicModule } from "@nestjs/common";
+import { ActionRuns, ActionsModule } from "./modules/actions/index.js";
 import { ActivityModule } from "./modules/activity/index.js";
 import {
   ConsultationsOnTasks,
@@ -274,16 +275,23 @@ export class AppModule {
       officePort: config.port,
       officeHost: config.host,
     });
+    // Action runs: Projects' Actions, checkouts and code host, Run environments' command runs,
+    // Test instances' launches and Work's Tasks, Initiatives and fire alarm.
+    const actions = ActionsModule.register({
+      imports: [work, projects, runEnvironments, testInstances],
+    });
     return {
       module: AppModule,
       imports: [
+        actions,
         ActivityModule.register({
-          imports: [work, pipelines, conversations, testInstances, projects, devices],
+          imports: [work, pipelines, conversations, testInstances, actions, projects, devices],
           tasks: TaskService,
           stages: TaskStagesService,
           decisions: DecisionService,
           offBoardTasks: OffBoardTaskReader,
           testInstances: TestInstances,
+          actionRuns: ActionRuns,
           ciRuns: CiRunWatch,
           environmentChecks: EnvironmentChecks,
           pullRequests: PullRequestWatch,

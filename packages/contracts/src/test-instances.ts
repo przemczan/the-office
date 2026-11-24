@@ -56,6 +56,8 @@ export const testInstanceSchema = z.object({
   files: z.array(testBuildFileSchema),
   /** Whether a Built instance's files were removed, as newer builds or its Initiative's end do. */
   filesRemoved: z.boolean(),
+  /** The Action whose run launched it, shown "Run as <Action>"; null when launched by hand. */
+  runAs: z.object({ actionKey: z.string(), actionName: z.string() }).nullable(),
 });
 export type TestInstance = z.infer<typeof testInstanceSchema>;
 

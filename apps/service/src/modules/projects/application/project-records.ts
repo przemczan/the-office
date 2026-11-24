@@ -38,6 +38,7 @@ import {
 } from "../domain/action.js";
 import { ActionRepository } from "../ports/action-repository.js";
 import { TestTargetRepository } from "../ports/test-target-repository.js";
+import { ActionLastRuns, type ActionLastRun } from "./action-last-runs.js";
 import { BaseCheckouts } from "./base-checkouts.js";
 import { EnvironmentChecks } from "./environment-checks.js";
 import { ProjectDeviceLines, type ProjectDeviceLine } from "./project-device-lines.js";
@@ -50,6 +51,8 @@ interface ProjectSurroundings {
   readonly serverValues: readonly ProjectMcpServerValues[];
   readonly testTargets: readonly TestTarget[];
   readonly actions: readonly Action[];
+  /** Each Action's last run, by its key; an Action never run has none. */
+  readonly lastRuns: ReadonlyMap<string, ActionLastRun>;
   readonly devices: readonly ProjectDeviceLine[];
   /** The engines listed now, which name the Project default's account. */
   readonly engines: readonly Engine[];
@@ -76,6 +79,7 @@ export class ProjectRecords {
     private readonly actions: ActionRepository,
     private readonly devices: ProjectDeviceLines,
     private readonly engines: EngineModels,
+    private readonly lastRuns: ActionLastRuns,
   ) {}
 
   /** Every Project's record, or that there is none. */
@@ -100,12 +104,13 @@ export class ProjectRecords {
     project: Project,
     checkouts: ReadonlyMap<string, string>,
   ): Promise<ProjectSurroundings> {
-    const [environmentCheck, serverValues, testTargets, actions, devices, engines] =
+    const [environmentCheck, serverValues, testTargets, actions, lastRuns, devices, engines] =
       await Promise.all([
         this.environmentChecks.latest(project.id),
         this.serverValues.of(project.id),
         this.testTargets.listOf(project.id),
         this.actions.listOf(project.id),
+        this.lastRuns.of(project.id),
         this.devices.of(project.id),
         this.engines.engines(),
       ]);
@@ -115,6 +120,7 @@ export class ProjectRecords {
       serverValues,
       testTargets,
       actions,
+      lastRuns,
       devices,
       engines,
     };
@@ -128,7 +134,8 @@ export class ProjectRecords {
 }
 
 function projectRecord(project: Project, surroundings: ProjectSurroundings): string {
-  const { checkout, environmentCheck, serverValues, testTargets, actions, devices } = surroundings;
+  const { checkout, environmentCheck, serverValues, testTargets, actions, lastRuns, devices } =
+    surroundings;
   const commands = project.commands.map(
     ({ key, name, kind, commandLine }) => `${key} (${name}, ${kind}) \`${commandLine || "none"}\``,
   );
@@ -153,7 +160,7 @@ function projectRecord(project: Project, surroundings: ProjectSurroundings): str
     `- Project skills: ${projectSkillsWords(project)}`,
     `- Server values: ${serverValuesWords(serverValues)}`,
     ...testTargetLines(testTargets),
-    ...actionLines(actions),
+    ...actionLines(actions, lastRuns),
     ...deviceLines(devices),
   ].join("\n");
 }
@@ -223,8 +230,14 @@ const ACTION_FIELD_WORDS: Readonly<Record<ActionField, string>> = {
   leavesTheWorkstation: "leaves the workstation",
 };
 
-/** Each Action with its settings and who set each value last (spec §2.15, "Action"). */
-function actionLines(actions: readonly Action[]): string[] {
+/**
+ * Each Action with its settings, who set each value last and its last run's state (spec §2.15,
+ * "Action").
+ */
+function actionLines(
+  actions: readonly Action[],
+  lastRuns: ReadonlyMap<string, ActionLastRun>,
+): string[] {
   if (actions.length === 0) return ["- Actions: none"];
   return [
     "- Actions:",
@@ -237,9 +250,16 @@ function actionLines(actions: readonly Action[]): string[] {
         `  - ${action.key} (${action.name}, ${ACTION_KIND_NAMES[action.kind]}): ${actionSettingsWords(action)}`,
         action.leavesTheWorkstation ? "leaves the workstation" : "stays on the workstation",
         `set by: ${setBy}`,
+        `last run: ${lastRunWords(lastRuns.get(action.key))}`,
       ].join("; ");
     }),
   ];
+}
+
+function lastRunWords(lastRun: ActionLastRun | undefined): string {
+  return lastRun === undefined
+    ? "none"
+    : `${lastRun.state}, started ${lastRun.startedAt.toISOString()}`;
 }
 
 function actionSettingsWords(action: Action): string {

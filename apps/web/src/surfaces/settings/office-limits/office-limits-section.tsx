@@ -25,6 +25,7 @@ import {
 import { tokensShort } from "../../../shell/conversation/context-words.ts";
 import { usePageHeading } from "../../../shell/page-heading.tsx";
 import { SettingsCardTitle, SettingsProblem } from "../settings-card-parts.tsx";
+import { ActionsCard } from "./actions-card.tsx";
 import { RunEnvironmentsCard } from "./run-environments-card.tsx";
 import { TestInstancesCard } from "./test-instances-card.tsx";
 import { UsageCard } from "./usage-card.tsx";
@@ -32,7 +33,7 @@ import { UsageCard } from "./usage-card.tsx";
 /**
  * Settings › Office limits: the desks, the usage measures and caps, the size threshold and the
  * Agent Stage sessions' context limits, the Archive period, the run environments' CPU limit and
- * the test instances' limits.
+ * the test instances' and the Actions' limits.
  */
 export function OfficeLimitsSection(): ReactNode {
   usePageHeading({ title: "Settings", crumb: "Office limits" });
@@ -44,6 +45,7 @@ export function OfficeLimitsSection(): ReactNode {
       <ArchiveCard />
       <RunEnvironmentsCard />
       <TestInstancesCard />
+      <ActionsCard />
     </>
   );
 }

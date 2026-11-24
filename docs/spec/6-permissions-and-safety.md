@@ -229,6 +229,9 @@ Covers: threat models, stored hashes, the two layers, language servers, Hard swi
 - No later build lets an Agent start an Action that leaves the workstation without a Hard switch of its own.
 - `start_workflow` ([2.1.6](2.1.6-board-and-search.md#the-ci-tab), [5.4.1](5.4.1-engine-kinds.md#office-actions)) refuses a Workflow file that a Leaves the workstation Action of the Project starts, naming the Action, so an Agent can't start a release around the Action; the file is refused whatever its inputs, a dry run's among them.
 - Work › CI's Start a workflow, by a user, refuses such a file too, pointing to the Action: "<file> is started by the Action <name>, from <Project>'s Actions.", so the base branch and the confirm step can't be gone around.
+- Both refuse such a file only while the Project's Actions are switched on.
+- While they are switched off, the guard is lifted for everyone: Start a workflow and `start_workflow` start the file as any other ([2.15](2.15-actions.md#the-actions-feature-switch)).
+- The Action's own run starts its Workflow past the guard: the Action is the guard.
 - A Project command run never gets The Office's own credentials ([2.15](2.15-actions.md#where-a-run-runs)).
 - A test instance of The Office refuses every Action start ([Test instances](#test-instances)).
 

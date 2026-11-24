@@ -97,6 +97,7 @@ const BUILDING: TestInstance = {
   endedAt: null,
   files: [],
   filesRemoved: false,
+  runAs: null,
 };
 
 const RUNNING: TestInstance = {

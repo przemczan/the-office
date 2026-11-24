@@ -195,17 +195,32 @@ function BranchGroup({
   const rows = shown.targets
     .map((target) => ({ target, instances: instancesOf(testBranch, target) }))
     .filter(({ instances }) => !launchedOnly || instances.length > 0);
-  const initiativeOf = (instance: TestInstance): ReactNode => {
+  // "Run as <Action>" for one an Action launched, then "in <Initiative>" for a linked one.
+  const aboutInstance = (instance: TestInstance): ReactNode => {
     const initiative = shown.initiatives.find(({ id }) => id === instance.initiativeId);
+    const { runAs } = instance;
     return (
-      initiative && (
-        <span className="project-test-instances-initiative">
-          in{" "}
-          <Link to="/work/initiatives/$initiativeId" params={{ initiativeId: initiative.id }}>
-            {initiative.name}
-          </Link>
-        </span>
-      )
+      <>
+        {runAs && (
+          <span className="project-test-instances-run-as">
+            Run as{" "}
+            <Link
+              to="/projects/$projectId/actions/$actionKey"
+              params={{ projectId: project.id, actionKey: runAs.actionKey }}
+            >
+              {runAs.actionName}
+            </Link>
+          </span>
+        )}
+        {initiative && (
+          <span className="project-test-instances-initiative">
+            in{" "}
+            <Link to="/work/initiatives/$initiativeId" params={{ initiativeId: initiative.id }}>
+              {initiative.name}
+            </Link>
+          </span>
+        )}
+      </>
     );
   };
   return (
@@ -240,7 +255,7 @@ function BranchGroup({
                 })
               }
               actions={actions}
-              aboutInstance={initiativeOf}
+              aboutInstance={aboutInstance}
               linkedTo={linkedTo}
             />
           );

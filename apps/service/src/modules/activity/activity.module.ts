@@ -14,15 +14,20 @@ import { ActivitySeenRepository } from "./ports/activity-seen-repository.js";
 import { ActivityStages } from "./ports/activity-stages.js";
 import { ActivityTasks } from "./ports/activity-tasks.js";
 import { ActivityTestInstances } from "./ports/activity-test-instances.js";
+import { ActivityActionRuns } from "./ports/activity-action-runs.js";
 
 export interface ActivityModuleOptions {
-  /** The modules that provide the ports below: Work, Pipelines, Conversations, Test instances, Projects and Devices. */
+  /**
+   * The modules that provide the ports below: Work, Pipelines, Conversations, Test instances,
+   * Actions, Projects and Devices.
+   */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
   readonly tasks: Type<ActivityTasks>;
   readonly stages: Type<ActivityStages>;
   readonly decisions: Type<ActivityDecisions>;
   readonly offBoardTasks: Type<ActivityOffBoardTasks>;
   readonly testInstances: Type<ActivityTestInstances>;
+  readonly actionRuns: Type<ActivityActionRuns>;
   readonly ciRuns: Type<ActivityCiRuns>;
   readonly environmentChecks: Type<ActivityEnvironmentChecks>;
   readonly pullRequests: Type<ActivityPullRequests>;
@@ -43,6 +48,7 @@ export class ActivityModule {
     decisions,
     offBoardTasks,
     testInstances,
+    actionRuns,
     ciRuns,
     environmentChecks,
     pullRequests,
@@ -58,6 +64,7 @@ export class ActivityModule {
         { provide: ActivityDecisions, useExisting: decisions },
         { provide: ActivityOffBoardTasks, useExisting: offBoardTasks },
         { provide: ActivityTestInstances, useExisting: testInstances },
+        { provide: ActivityActionRuns, useExisting: actionRuns },
         { provide: ActivityCiRuns, useExisting: ciRuns },
         { provide: ActivityEnvironmentChecks, useExisting: environmentChecks },
         { provide: ActivityPullRequests, useExisting: pullRequests },

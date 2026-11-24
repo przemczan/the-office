@@ -8,7 +8,7 @@ import { Git } from "../ports/git.js";
 import { ProjectRepository } from "../ports/project-repository.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { TaskBases } from "./task-bases.js";
-import { branchRefusal } from "./test-instance-checkouts.js";
+import { branchRefusal } from "./detached-checkouts.js";
 
 /** The Run environment definition's folder in a repository. */
 const DEFINITION_FOLDER = ".devcontainer";

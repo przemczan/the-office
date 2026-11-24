@@ -32,6 +32,7 @@ import {
 } from "../../engine/index.js";
 import { OfficeUpdated, OfficeUpdateFailed } from "../../office-updates/index.js";
 import { CARETAKER } from "../../people/index.js";
+import { ActionRunStateChanged } from "../../actions/index.js";
 import { TestInstanceStateChanged } from "../../test-instances/index.js";
 import {
   GateContinued,
@@ -195,6 +196,33 @@ function moved(
   );
 }
 
+/** An Action run of the-office's Action `release`, on main, moving as `to` says. */
+function actionRunMoved(
+  runId: string,
+  to: ActionRunStateChanged["to"],
+  details: {
+    readonly kind?: ActionRunStateChanged["kind"];
+    readonly endedBecause?: string;
+    readonly outcome?: ActionRunStateChanged["outcome"];
+  } = {},
+): ActionRunStateChanged {
+  const outcome =
+    details.outcome ?? (to === "succeeded" || to === "failed" || to === "stopped" ? to : undefined);
+  return new ActionRunStateChanged(
+    runId,
+    "the-office",
+    "release",
+    "Release",
+    details.kind ?? "project-command",
+    "main",
+    "running",
+    to,
+    outcome,
+    details.endedBecause,
+    to === "stopped" ? "by-user" : undefined,
+  );
+}
+
 /** A user of the test's own, as a request signs them in. */
 function aUser(id: string = randomUUID()): SignedIn {
   return { userId: id, name: "Ada", signedInDeviceId: randomUUID() };
@@ -272,6 +300,12 @@ describe("NotificationService", () => {
     const response = await fetch(`${url}/api/notifications`, { headers: signedInAs(as) });
     expect(response.status).toBe(200);
     return notificationListSchema.parse(await response.json());
+  }
+
+  async function ownOpenRuns(actionKey: string): Promise<Notification[]> {
+    return (await openNotifications()).filter(
+      ({ pointsTo }) => pointsTo.kind === "action-run" && pointsTo.actionKey === actionKey,
+    );
   }
 
   async function ownOpen(instanceId: string): Promise<Notification[]> {
@@ -837,6 +871,56 @@ describe("NotificationService", () => {
     expect(cleared).not.toContain(home);
     await events.publish(turnEndedOn("home-account"));
     expect(cleared).toContain(home);
+  });
+
+  describe("an Action run's end", () => {
+    it("tells Succeeded in the UI's voice, unbatched, until the user opens the Action's History", async () => {
+      const runId = randomUUID();
+
+      await events.publish(actionRunMoved(runId, "succeeded"));
+
+      const [notification] = raised.map((event) => event.notification);
+      expect(notification).toMatchObject({
+        kind: "outcomes.action-run.succeeded",
+        roleKey: undefined,
+        line: "Release on main succeeded.",
+        pointsTo: { kind: "action-run", runId, projectId: "the-office", actionKey: "release" },
+        channels: ["in-app", "desktop"],
+      });
+      await reportActivity({ kind: "test-instances", projectId: "the-office" });
+      expect(await ownOpenRuns("release")).toHaveLength(1);
+      await reportActivity({
+        kind: "action-history",
+        projectId: "the-office",
+        actionKey: "release",
+      });
+      expect(await ownOpenRuns("release")).toEqual([]);
+    });
+
+    it("tells Failed saying why, leaving only the Action's latest open", async () => {
+      await events.publish(actionRunMoved(randomUUID(), "succeeded"));
+      await events.publish(
+        actionRunMoved(randomUUID(), "failed", {
+          endedBecause: "The command ended with exit code 1.",
+        }),
+      );
+
+      expect(raised.map(({ notification }) => notification.line)).toEqual([
+        "Release on main succeeded.",
+        "Release on main failed: The command ended with exit code 1.",
+      ]);
+      expect((await ownOpenRuns("release")).map(({ kind }) => kind)).toEqual([
+        "outcomes.action-run.failed",
+      ]);
+    });
+
+    it("tells nothing of a Stopped run, a Test target run or a run going on", async () => {
+      await events.publish(actionRunMoved(randomUUID(), "stopped"));
+      await events.publish(actionRunMoved(randomUUID(), "failed", { kind: "test-target" }));
+      await events.publish(actionRunMoved(randomUUID(), "running"));
+
+      expect(raised).toEqual([]);
+    });
   });
 
   describe("a test instance's state", () => {

@@ -76,6 +76,7 @@ const RUNNING: TestInstance = {
   endedAt: null,
   files: [],
   filesRemoved: false,
+  runAs: null,
 };
 
 const STOPPED: TestInstance = {
@@ -269,6 +270,27 @@ describe("a Project's Test instances", () => {
         ".project-test-instances-initiative",
       ),
     ).toBeNull();
+  });
+
+  it("says an instance an Action launched is Run as it, linking to that Action's History", async () => {
+    const { page } = await rendered(
+      shownWith([
+        {
+          name: "fix-login",
+          branchCommit: null,
+          instances: [{ ...ON_FIX, runAs: { actionKey: "install-phone", actionName: "Install" } }],
+        },
+      ]),
+      notFound,
+    );
+
+    const runAs = rowOf(groupOf(page, "fix-login"), "Office").querySelector(
+      ".project-test-instances-run-as",
+    );
+    expect(runAs?.textContent).toBe("Run as Install");
+    expect(runAs?.querySelector("a")?.getAttribute("href")).toBe(
+      `/projects/${PROJECT.id}/actions/install-phone`,
+    );
   });
 
   it("reads the branches only once the picker opens, the base branch first, remote ones by name", async () => {

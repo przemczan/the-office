@@ -24,6 +24,7 @@ import {
   OfficeUpdateFailed,
   officeVersionWords,
 } from "../../office-updates/index.js";
+import { ActionRunStateChanged } from "../../actions/index.js";
 import { CARETAKER } from "../../people/index.js";
 import { TestInstanceStateChanged } from "../../test-instances/index.js";
 import {
@@ -59,6 +60,8 @@ import {
   taskFailed,
   taskPaused,
   taskPausedByUsageWindow,
+  actionRunFailed,
+  actionRunSucceeded,
   testInstanceBuilt,
   testInstanceFailed,
   testInstanceRunning,
@@ -109,6 +112,8 @@ export type Page =
   | { readonly kind: "office-update" }
   /** A Project's Test targets, with its Test instances. */
   | { readonly kind: "test-instances"; readonly projectId: string }
+  /** An Action's History in a Project's Actions section. */
+  | { readonly kind: "action-history"; readonly projectId: string; readonly actionKey: string }
   | { readonly kind: "elsewhere" };
 
 /**
@@ -147,6 +152,7 @@ export class NotificationService implements OnModuleInit {
     this.subscribeToNeedsYou();
     this.subscribeToOutcomes();
     this.subscribeToTestInstances();
+    this.subscribeToActionRuns();
     this.subscribeToOffice();
   }
 
@@ -168,6 +174,10 @@ export class NotificationService implements OnModuleInit {
     if (page.kind === "office-update") await this.handle({ kind: "office-update-opened" });
     if (page.kind === "test-instances") {
       await this.handle({ kind: "test-instances-opened", projectId: page.projectId });
+    }
+    if (page.kind === "action-history") {
+      const { projectId, actionKey } = page;
+      await this.handle({ kind: "action-history-opened", projectId, actionKey });
     }
   }
 
@@ -308,6 +318,26 @@ export class NotificationService implements OnModuleInit {
       await this.handle({ kind: "test-instance-moved", instanceId: changed.instanceId });
       const draft = await this.testInstanceOutcome(changed);
       if (draft) await this.raise(draft);
+    });
+  }
+
+  /**
+   * A Project command or Workflow run Succeeded or Failed is an Outcome in the UI's voice; a Test
+   * target run's instance raises its own, and a Stopped run tells nothing (spec §2.7, "Action run
+   * Outcomes"). Only the Action's latest is left open.
+   */
+  private subscribeToActionRuns(): void {
+    this.events.subscribe(ActionRunStateChanged, async (changed) => {
+      const { runId, projectId, actionKey, actionName, branch, kind, outcome } = changed;
+      if (kind === "test-target") return;
+      if (outcome !== "succeeded" && outcome !== "failed") return;
+      await this.handle({ kind: "action-history-opened", projectId, actionKey });
+      const run = { runId, projectId, actionKey, actionName, branch };
+      await this.raise(
+        outcome === "succeeded"
+          ? actionRunSucceeded(run)
+          : actionRunFailed(run, changed.endedBecause ?? ""),
+      );
     });
   }
 

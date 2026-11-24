@@ -55,7 +55,7 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
 
 - The Project's dashboard: how it stands, each tile linking to where its details live.
 - Top to bottom:
-  - the Actions tile, first, while the Project's `actions` feature switch is on; until Actions are built ([2.15](../2.15-actions.md)) this place shows nothing;
+  - the Actions tile, first, while the Project's `actions` feature switch is on ([Actions tile](#actions-tile));
   - Onboarding;
   - Work;
   - a grid of tiles: Initiatives, Ideas, CI, Pull requests, Test instances, Environment, Remote sign-in, Recent activity.

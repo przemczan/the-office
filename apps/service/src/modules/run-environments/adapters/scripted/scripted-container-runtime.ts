@@ -396,6 +396,11 @@ function labelsOf(project: ComposeProject): Labels {
       [LABEL.testInstance]: testInstance,
     };
   }
+  const actionRun = /^office-([^-]+)-action-(.+)$/.exec(project.name);
+  if (actionRun !== null) {
+    const [, instance = "", runId = ""] = actionRun;
+    return { "office.managed": "true", "office.instance": instance, [LABEL.actionRun]: runId };
+  }
   const pairing = /^office-([^-]+)-pairing-(.+)$/.exec(project.name);
   if (pairing !== null) {
     const [, instance = "", deviceId = ""] = pairing;

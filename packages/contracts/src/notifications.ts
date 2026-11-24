@@ -336,6 +336,8 @@ export const notificationKindSchema = z.enum([
   "outcomes.test-instance.running",
   "outcomes.test-instance.built",
   "outcomes.test-instance.failed",
+  "outcomes.action-run.succeeded",
+  "outcomes.action-run.failed",
   "office.window.nearly-used",
   "office.window.used-up",
   "office.window.reset",
@@ -401,6 +403,13 @@ export const pointerSchema = z.discriminatedUnion("kind", [
     instanceId: z.uuid(),
     projectId: z.string().min(1),
     initiativeId: z.uuid().optional(),
+  }),
+  /** An Action run, in its Action's History in the Project's Actions section, its log open. */
+  z.object({
+    kind: z.literal("action-run"),
+    runId: z.uuid(),
+    projectId: z.string().min(1),
+    actionKey: z.string().min(1),
   }),
 ]);
 export type Pointer = z.infer<typeof pointerSchema>;
@@ -485,6 +494,12 @@ export const userActivityReportSchema = z.object({
     z.object({ kind: z.literal("office-update") }),
     /** A Project's Test targets, with its Test instances. */
     z.object({ kind: z.literal("test-instances"), projectId: z.string().min(1) }),
+    /** An Action's History in a Project's Actions section. */
+    z.object({
+      kind: z.literal("action-history"),
+      projectId: z.string().min(1),
+      actionKey: z.string().min(1),
+    }),
     z.object({ kind: z.literal("elsewhere") }),
   ]),
 });

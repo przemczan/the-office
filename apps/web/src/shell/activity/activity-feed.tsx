@@ -241,6 +241,16 @@ function PlaceLink({
           {children}
         </Link>
       );
+    case "actions":
+      return (
+        <Link
+          to="/projects/$projectId/actions/$actionKey"
+          params={{ projectId: place.projectId, actionKey: place.actionKey }}
+          className={className}
+        >
+          {children}
+        </Link>
+      );
     case "ci-runs":
       return (
         <>

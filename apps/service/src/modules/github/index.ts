@@ -16,6 +16,7 @@ export {
   type PullRequestOnRemote,
   type PullRequestStatusOnGitHub,
   type RefsOfRepositoryOnGitHub,
+  type RunsStartedByHandOnGitHub,
   type WorkflowStartOnGitHub,
 } from "./application/github-pull-requests.js";
 export {

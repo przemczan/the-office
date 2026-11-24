@@ -226,6 +226,7 @@ export function anInstance(id: string, fields: Partial<TestInstance> = {}): Test
     endedAt: null,
     files: [],
     filesRemoved: false,
+    runAs: null,
     ...fields,
   };
 }

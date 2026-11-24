@@ -94,13 +94,17 @@ export function shownOf<Open extends Notification>(open: readonly Open[]): Open[
 }
 
 /**
- * An Outcome batching collapses: a test instance's is left out, as a collapse opens Since you left,
- * which lists no test instances (spec §2.7 Defaults, "Test instance Outcomes").
+ * An Outcome batching collapses: a test instance's and an Action run's are left out, as a collapse
+ * opens Since you left, which lists neither (spec §2.7, "Batching Outcomes").
  */
 export function isOutcome({ kind }: Pick<Notification, "kind">): boolean {
   if (kind === "collapsed-outcomes") return true;
   const levels = levelsOf(kind);
-  return levels.includes("outcomes") && !levels.includes("outcomes.test-instance");
+  return (
+    levels.includes("outcomes") &&
+    !levels.includes("outcomes.test-instance") &&
+    !levels.includes("outcomes.action-run")
+  );
 }
 
 /**

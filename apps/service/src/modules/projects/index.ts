@@ -73,13 +73,43 @@ export {
 } from "./domain/test-target.js";
 export type { EntryPoint } from "./domain/entry-point.js";
 export { ProjectActions } from "./application/project-actions.js";
+export {
+  ActionLastRuns,
+  type ActionLastRun,
+  type ActionLastRunReader,
+} from "./application/action-last-runs.js";
+export {
+  ActionRunCheckouts,
+  type ActionRunCommandEnd,
+  type ActionRunCommandLine,
+  type ActionRunTip,
+  type ActionRunVariable,
+  type WorkstationActionRun,
+} from "./application/action-run-checkouts.js";
+export {
+  ActionRunSettings,
+  type ActionRunProject,
+  type ProjectCommandRunSettings,
+} from "./application/action-run-settings.js";
+export {
+  ActionWorkflows,
+  type ActionCiRun,
+  type ActionWorkflowStart,
+} from "./application/action-workflows.js";
+export type { CiRunStatus } from "./domain/ci-run.js";
+export type { CommandOutcome } from "./domain/command-run.js";
+export type { ProjectEnvironment, ProjectVariable } from "./domain/project-environment.js";
 export type {
   Action,
   ActionField,
   ActionFields,
   ActionKind,
   ActionSetter,
+  ProjectCommandActionSettings,
+  TestTargetActionSettings,
+  WorkflowActionSettings,
 } from "./domain/action.js";
+export { ACTION_TIME_LIMIT_MINUTES, ACTION_RESERVED_VARIABLES } from "./domain/action.js";
 export type {
   ActionsToPropose,
   ProposedAction,

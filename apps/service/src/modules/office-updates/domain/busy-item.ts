@@ -6,7 +6,8 @@ export type BusyKind =
   | "publish"
   | "clone"
   | "environment-check"
-  | "run-environment";
+  | "run-environment"
+  | "action-run";
 
 /** One piece of work going on now, which a scheduled Office update waits for. */
 export interface BusyItem {

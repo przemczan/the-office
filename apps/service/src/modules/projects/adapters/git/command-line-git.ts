@@ -299,6 +299,14 @@ export class CommandLineGit extends Git {
     return commitOf(this.process, repositoryPath, revision);
   }
 
+  async subjectOf(repositoryPath: string, commit: string): Promise<string> {
+    const output = await this.process.output({
+      folder: repositoryPath,
+      gitArguments: ["log", "--max-count=1", "--format=%s", `${commit}^{commit}`, "--"],
+    });
+    return output.trim();
+  }
+
   async fetchUrlOf(repositoryPath: string, remote: string): Promise<string> {
     const output = await this.process.output({
       folder: repositoryPath,

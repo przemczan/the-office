@@ -163,7 +163,7 @@ export class FakeWorkflows {
   }
 
   /** `POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches`, by file name or id. */
-  dispatch(repository: string, workflowId: string, body: string): ApiAnswer {
+  dispatch(repository: string, workflowId: string, body: string, actor?: string): ApiAnswer {
     if (!this.installations.reaches(repository)) return notFound();
     if (!this.installations.grants(repository, "actions", "write")) {
       return { status: 403, body: { message: "Resource not accessible by integration" } };
@@ -194,7 +194,13 @@ export class FakeWorkflows {
       return unprocessable(`Required input '${missing.name}' not provided`);
     }
     this.accepted.push({ repository, file: workflow.file, ref, inputs });
-    this.runs.queueDispatched(repository, workflow.name ?? workflow.file, name);
+    this.runs.queueDispatched(
+      repository,
+      workflow.name ?? workflow.file,
+      name,
+      workflow.file,
+      actor,
+    );
     return { status: 204, body: undefined };
   }
 

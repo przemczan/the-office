@@ -128,6 +128,8 @@ function rowOf(instance: TestInstance): Row {
     endedAt: instance.endedAt ?? null,
     files: instance.files,
     filesRemovedAt: instance.filesRemovedAt ?? null,
+    actionKey: instance.runAs?.actionKey ?? null,
+    actionName: instance.runAs?.actionName ?? null,
   };
 }
 
@@ -150,5 +152,9 @@ function instanceOf(row: Row): TestInstance {
     endedAt: row.endedAt ?? undefined,
     files: row.files,
     filesRemovedAt: row.filesRemovedAt ?? undefined,
+    runAs:
+      row.actionKey === null || row.actionName === null
+        ? undefined
+        : { actionKey: row.actionKey, actionName: row.actionName },
   };
 }

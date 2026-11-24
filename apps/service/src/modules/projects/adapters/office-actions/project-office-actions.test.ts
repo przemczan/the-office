@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { anOfficeToolCall } from "../../../engine/index.fixtures.js";
 import { FOLLOW_YOUR_AUTHORITY, OfficeToolRegistry } from "../../../engine/index.js";
 import { FakeGitHub, signedInWithGitHubForTests } from "../../../github/index.fixtures.js";
+import { ActionWorkflows } from "../../application/action-workflows.js";
 import { CiRunTestbed, REPOSITORY } from "../../ci-run-watch.fixtures.js";
 import type { Project } from "../../domain/project.js";
 import { REAL_GIT_TEST } from "../git/temporary-repository.fixtures.js";
@@ -302,6 +303,92 @@ describe("start_workflow", REAL_GIT_TEST, () => {
       const response = await start("release.yml", "main", { channel: "beta" });
 
       expect(response.status).toBe(200);
+    });
+
+    describe("while the Project's Actions are switched off", () => {
+      beforeEach(() => {
+        project = { ...project, features: { actions: false } };
+        testbed.replace(project);
+      });
+
+      it("is started by the user's Start a workflow: the guard is lifted", async () => {
+        const response = await start("release.yml", "main", { channel: "beta" });
+
+        expect(response.status).toBe(200);
+        expect(github.workflows.dispatches()).toMatchObject([{ file: "release.yml", ref: "main" }]);
+      });
+
+      it("is started by an Agent's start_workflow too", async () => {
+        const answer = await testbed.tool(START_WORKFLOW_ACTION.name).run(
+          {
+            projectId: project.id,
+            workflow: "release.yml",
+            ref: "main",
+            inputs: { channel: "beta" },
+          },
+          anOfficeToolCall("s-1"),
+        );
+
+        expect(answer.isError).toBe(false);
+        expect(github.workflows.dispatches()).toHaveLength(1);
+      });
+
+      it("is refused again once they are switched back on", async () => {
+        testbed.replace({ ...project, features: { actions: true } });
+
+        const reasons = await refusalOf(await start("release.yml", "main", { channel: "beta" }));
+
+        expect(reasons).toEqual([releaseRefusal()]);
+      });
+    });
+
+    describe("started by the Action's own run (ActionWorkflows)", () => {
+      it("starts with the Action's inputs past the guard, then finds its CI run and follows it", async () => {
+        const workflows = testbed.app.get(ActionWorkflows);
+
+        const started = await workflows.start(project.id, "release.yml", "main", {
+          channel: "stable",
+        });
+
+        expect(started).toMatchObject({
+          workflowId: "release.yml",
+          workflowName: "Release",
+          hostName: "GitHub",
+          runsUrl: `${github.urls.web}/${REPOSITORY}/actions/workflows/release.yml`,
+        });
+        expect(github.workflows.dispatches()).toEqual([
+          {
+            repository: REPOSITORY,
+            file: "release.yml",
+            ref: "main",
+            inputs: { channel: "stable", "dry-run": "false" },
+          },
+        ]);
+        const [run, ...more] = await workflows.runsStartedByHand(
+          project.id,
+          "release.yml",
+          "main",
+          started.askedAt,
+        );
+        expect(run).toMatchObject({ workflowName: "Release", status: "queued" });
+        expect(more).toEqual([]);
+        expect(
+          await workflows.runsStartedByHand(
+            project.id,
+            "release.yml",
+            "fix-login",
+            started.askedAt,
+          ),
+        ).toEqual([]);
+        github.runs.setRun(REPOSITORY, run?.id ?? 0, {
+          status: "completed",
+          conclusion: "failure",
+        });
+        await expect(workflows.ciRunOf(project.id, run?.id ?? 0)).resolves.toMatchObject({
+          id: run?.id,
+          status: "failed",
+        });
+      });
     });
   });
 

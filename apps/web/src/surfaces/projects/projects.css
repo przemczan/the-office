@@ -1258,7 +1258,8 @@ button.github-repository.selected:hover:not(:disabled) {
   color: var(--fg-2);
 }
 
-.project-test-instances-initiative {
+.project-test-instances-initiative,
+.project-test-instances-run-as {
   color: var(--fg-3);
 }
 

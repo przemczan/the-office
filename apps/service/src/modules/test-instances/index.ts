@@ -5,6 +5,13 @@ export {
 export { TestBuildRetention } from "./application/test-build-retention.js";
 export { TestInstanceProxy } from "./application/test-instance-proxy.js";
 export { TestInstances } from "./application/test-instances.js";
+export type {
+  LaunchedBy,
+  TestInstance,
+  TestInstanceRunAs,
+  TestInstanceState,
+} from "./domain/test-instance.js";
+export type { TestInstanceOnBranch } from "./application/test-instances.js";
 export {
   TestInstanceCommitRecorded,
   TestInstanceFilesRemoved,

@@ -222,6 +222,22 @@ describe("launching on any branch of a Project", () => {
     expect(project?.targets.flatMap(({ instances }) => instances)).toEqual([]);
   });
 
+  it("keeps the Action whose run launched it, launched otherwise as by hand", async () => {
+    const launched = await testbed.instances.launchOnBranch("shop", "feature/search", "web", ANN, {
+      actionKey: "preview",
+      actionName: "Preview the shop",
+    });
+    await testbed.instances.settled();
+
+    expect(launched.runAs).toEqual({ actionKey: "preview", actionName: "Preview the shop" });
+    expect(await testbed.instances.read(launched.id)).toMatchObject({
+      state: "running",
+      runAs: { actionKey: "preview", actionName: "Preview the shop" },
+    });
+    const byHand = await launchOn("feature/filters");
+    expect(byHand.runAs).toBeUndefined();
+  });
+
   it("links to the active Initiative whose branch it is, which then lists it", async () => {
     const launched = await launchOn("initiative/checkout");
     await testbed.instances.settled();

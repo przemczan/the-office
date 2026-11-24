@@ -46,6 +46,21 @@ function anInstance(initiativeId: string, port: number, at: Date): TestInstance 
 }
 
 describe("PostgresTestInstanceRepository", () => {
+  it("keeps the Action whose run launched an instance, and none for one launched by hand", async () => {
+    const initiativeId = randomUUID();
+    const runAs = { actionKey: "preview", actionName: "Preview the shop" };
+    const asAction = {
+      ...anInstance(initiativeId, 61_011, new Date("2003-01-02T10:00:00Z")),
+      runAs,
+    };
+    const byHand = anInstance(initiativeId, 61_012, new Date("2003-01-02T11:00:00Z"));
+    await repository.add(asAction);
+    await repository.add(byHand);
+
+    expect(await repository.find(asAction.id)).toMatchObject({ runAs });
+    expect((await repository.find(byHand.id))?.runAs).toBeUndefined();
+  });
+
   it("keeps an instance through its states, lists the Initiative's newest first and the active ones", async () => {
     const initiativeId = randomUUID();
     const older = anInstance(initiativeId, 61_001, new Date("2003-01-01T10:00:00Z"));

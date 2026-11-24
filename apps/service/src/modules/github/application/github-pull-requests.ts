@@ -31,9 +31,10 @@ import {
   type PullRequestOnGitHub,
   type RefsOnGitHub,
   type WorkflowDispatch,
+  type WorkflowRunOnGitHub,
 } from "../ports/github-api.js";
 import { failedAccess, GitHubAccess } from "./github-access.js";
-import { GitHubUrls } from "./github-urls.js";
+import { gitHubUrl, GitHubUrls } from "./github-urls.js";
 
 /** A pull request asked for by the remote the branch was pushed to, `head` into `base`. */
 export interface PullRequestOnRemote {
@@ -97,6 +98,13 @@ export type RefsOfRepositoryOnGitHub = RefsOnGitHub;
 
 /** A start by hand: the workflow by its file name, the branch or tag, and the inputs as strings. */
 export type WorkflowStartOnGitHub = WorkflowDispatch;
+
+/** Which runs started by hand to list: a workflow by its file name, on a branch, since a moment. */
+export interface RunsStartedByHandOnGitHub {
+  readonly file: string;
+  readonly branch: string;
+  readonly createdSince: Date;
+}
 
 /** The merge methods a repository allows, and whether GitHub deletes a branch once merged. */
 export interface MergeMethodsOnGitHub {
@@ -234,20 +242,57 @@ export class GitHubPullRequests {
   async recentRuns(remoteUrl: string, count: number): Promise<readonly CiRunOnGitHub[]> {
     const { repository, token } = await this.reading(remoteUrl);
     const runs = await this.api.workflowRunsOf(token, repository, count).catch(failedAccess);
-    return runs.map((run) => ({
-      id: run.id,
-      number: run.runNumber,
-      attempt: run.runAttempt,
-      workflow: run.name,
-      title: run.displayTitle,
-      trigger: run.event,
-      branch: run.headBranch,
-      commit: run.headSha,
-      status: ciRunStatusOf(run.status, run.conclusion),
-      startedAt: run.runStartedAt === null ? null : new Date(run.runStartedAt),
-      updatedAt: new Date(run.updatedAt),
-      url: run.url,
-    }));
+    return runs.map(toCiRun);
+  }
+
+  /**
+   * The runs of workflow `file` on `branch` that the signed-in user started by hand
+   * (`workflow_dispatch`), created at or after `createdSince`, oldest first: what an Action's start
+   * made. Throws as `openPullRequests` does.
+   */
+  async runsStartedByHand(
+    remoteUrl: string,
+    { file, branch, createdSince }: RunsStartedByHandOnGitHub,
+  ): Promise<readonly CiRunOnGitHub[]> {
+    const { repository, token } = await this.reading(remoteUrl);
+    const actor = await this.access.signedInLogin();
+    if (actor === undefined) throw new NotSignedInWithGitHub();
+    const event = "workflow_dispatch";
+    const runs = await this.api
+      .workflowRunsOfFile(token, repository, { file, branch, event, actor, createdSince })
+      .catch(failedAccess);
+    // GitHub's own filters, checked again: its created time has whole seconds only.
+    const since = Math.floor(createdSince.getTime() / 1000) * 1000;
+    return runs
+      .filter(
+        (run) =>
+          run.event === event &&
+          run.headBranch === branch &&
+          run.actor?.toLowerCase() === actor.toLowerCase() &&
+          Date.parse(run.createdAt) >= since,
+      )
+      .toSorted(
+        (one, other) =>
+          Date.parse(one.createdAt) - Date.parse(other.createdAt) || one.id - other.id,
+      )
+      .map(toCiRun);
+  }
+
+  /** Run `runId` of the remote's repository as it stands now; undefined when GitHub has none. */
+  async run(remoteUrl: string, runId: number): Promise<CiRunOnGitHub | undefined> {
+    const { repository, token } = await this.reading(remoteUrl);
+    const run = await this.api.workflowRunOf(token, repository, runId).catch(failedAccess);
+    return run && toCiRun(run);
+  }
+
+  /** The page of workflow `file`'s runs on GitHub; undefined for a remote that isn't GitHub's. */
+  workflowRunsUrl(remoteUrl: string, file: string): string | undefined {
+    const repository = repositoryOnGitHubOf(remoteUrl, this.urls.web);
+    if (repository === undefined) return undefined;
+    return gitHubUrl(
+      this.urls.web,
+      `/${repository.owner}/${repository.name}/actions/workflows/${encodeURIComponent(file)}`,
+    ).href;
   }
 
   /**
@@ -375,4 +420,21 @@ export class GitHubPullRequests {
 function unreachable(error: unknown): never {
   if (error instanceof GitHubUnreachable) throw new PullRequestNotChanged(GITHUB_UNREACHABLE);
   return failedAccess(error);
+}
+
+function toCiRun(run: WorkflowRunOnGitHub): CiRunOnGitHub {
+  return {
+    id: run.id,
+    number: run.runNumber,
+    attempt: run.runAttempt,
+    workflow: run.name,
+    title: run.displayTitle,
+    trigger: run.event,
+    branch: run.headBranch,
+    commit: run.headSha,
+    status: ciRunStatusOf(run.status, run.conclusion),
+    startedAt: run.runStartedAt === null ? null : new Date(run.runStartedAt),
+    updatedAt: new Date(run.updatedAt),
+    url: run.url,
+  };
 }

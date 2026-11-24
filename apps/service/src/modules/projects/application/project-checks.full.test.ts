@@ -50,6 +50,7 @@ class FakeGit extends Git {
   clone = notUsed;
   readBranchTip = notUsed;
   commitTree = notUsed;
+  subjectOf = notUsed;
   reachedUrlOf = notUsed;
   fetchBranches = notUsed;
   trackRemoteBranch = notUsed;

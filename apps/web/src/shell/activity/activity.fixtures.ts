@@ -80,6 +80,24 @@ export function testInstanceItem(
   };
 }
 
+export function actionRunItem(overrides: Partial<ItemOf<"action-run">> = {}): ItemOf<"action-run"> {
+  return {
+    kind: "action-run",
+    id: "action-run:1",
+    projectId: "p1",
+    title: "Build web on main",
+    since: minutesAgo(3),
+    ended: false,
+    endedAt: null,
+    link: { kind: "project", projectId: "p1" },
+    runId: "6e1d9b3f-4a7c-4b8d-9e0f-8c2d5f7b9d21",
+    actionKey: "build-web",
+    branch: "main",
+    startedBy: "Ann Lee",
+    ...overrides,
+  };
+}
+
 export function failedTaskItem(
   overrides: Partial<ItemOf<"failed-task">> = {},
 ): ItemOf<"failed-task"> {

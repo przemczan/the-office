@@ -1,6 +1,7 @@
 import type { ActivityItemKind } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
+  actionRunItem,
   ciRunItem,
   environmentCheckItem,
   failedTaskItem,
@@ -29,6 +30,7 @@ const EVERY_KIND: readonly ActivityItemKind[] = [
   "stopped-task",
   "failed-task",
   "test-instance",
+  "action-run",
   "ci-run",
   "environment-check",
   "onboarding",
@@ -38,10 +40,11 @@ const EVERY_KIND: readonly ActivityItemKind[] = [
 ];
 
 describe("Activity's groups", () => {
-  it("are the seven of the page, in its order, each kind in exactly one", () => {
+  it("are the eight of the page, in its order, each kind in exactly one", () => {
     expect(ACTIVITY_GROUPS.map(({ title }) => title)).toEqual([
       "Tasks",
       "Test instances",
+      "Action runs",
       "CI runs",
       "Off-board Tasks and environment checks",
       "Connected devices",
@@ -162,6 +165,16 @@ describe("where an Activity item leads", () => {
       initiativeId: INITIATIVE_ID,
     });
     expect(activityPlaceOf(testInstanceItem())).toEqual({ kind: "test-targets", projectId: "p1" });
+  });
+
+  it("is an Action run's Action in its Project's Actions, Running, naming who started it", () => {
+    expect(activityPlaceOf(actionRunItem())).toEqual({
+      kind: "actions",
+      projectId: "p1",
+      actionKey: "build-web",
+    });
+    expect(stateWords(actionRunItem())).toEqual({ label: "Running", tone: "info" });
+    expect(detailWords(actionRunItem())).toBe("main · started by Ann Lee");
   });
 
   it("is Work › CI with the run's page, and the Project's environment for a check", () => {

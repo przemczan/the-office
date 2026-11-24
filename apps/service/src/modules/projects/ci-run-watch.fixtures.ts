@@ -24,6 +24,8 @@ import { ProjectOfficeActionsController } from "./adapters/http/project-office-a
 import { ProjectOfficeActions } from "./adapters/office-actions/project-office-actions.js";
 import { CI_RUN_WATCH, CiRunWatch } from "./application/ci-run-watch.js";
 import { CodeHosts } from "./application/code-hosts.js";
+import { ActionWorkflows } from "./application/action-workflows.js";
+import { WorkflowStarts } from "./application/workflow-starts.js";
 import { ManualWorkflows } from "./application/manual-workflows.js";
 import { aProject } from "./domain/project.fixtures.js";
 import type { Project } from "./domain/project.js";
@@ -83,6 +85,8 @@ export class CiRunTestbed {
         },
         CiRunWatch,
         ManualWorkflows,
+        WorkflowStarts,
+        ActionWorkflows,
         OfficeToolRegistry,
         ProjectOfficeActions,
       ],
@@ -114,6 +118,12 @@ export class CiRunTestbed {
     const project = aProject({ id: `project-${randomUUID()}`, path: folder.path });
     this.projects.include(project);
     return project;
+  }
+
+  /** Puts `project` in place of the test's Project of its id, as a change of its settings does. */
+  replace(project: Project): void {
+    this.projects.remove(project.id);
+    this.projects.include(project);
   }
 
   /** Runs the watch's round by the clock, as every `CI_RUN_WATCH_EVERY` does. */

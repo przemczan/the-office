@@ -51,20 +51,24 @@ export function LeavesTheWorkstationBadge({
   );
 }
 
-/** The pencil and the trash of an Action, in its row and on its open card. */
+/** Run, the pencil and the trash of an Action, in its row and on its open card. */
 export function ActionTools({
   action,
+  before,
   disabled,
   onChange,
   onRemove,
 }: {
   readonly action: Action;
+  /** What comes before the pencil, such as Run. */
+  readonly before?: ReactNode;
   readonly disabled: boolean;
   readonly onChange: () => void;
   readonly onRemove: () => void;
 }): ReactNode {
   return (
     <span className="action-tools">
+      {before}
       <IconButton
         icon={<Icon name="pencil" size={14} />}
         label={`Change ${action.name}`}

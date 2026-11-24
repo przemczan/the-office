@@ -20,6 +20,7 @@ export const busyItemSchema = z.object({
     "environment-check",
     "run-environment",
     "sub-agents",
+    "action-run",
   ]),
   label: z.string().min(1),
 });

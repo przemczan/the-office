@@ -33,6 +33,7 @@ import {
   type TokenAnswer,
   type WorkflowDispatch,
   type WorkflowRunOnGitHub,
+  type WorkflowRunsQuery,
 } from "../../ports/github-api.js";
 
 const REST_HEADERS = {
@@ -134,25 +135,25 @@ const checkRunsPageSchema = z.object({
 
 const combinedStatusSchema = z.object({ statuses: z.array(z.object({ state: z.string() })) });
 
-const workflowRunsPageSchema = z.object({
-  workflow_runs: z.array(
-    z.object({
-      id: z.number().int(),
-      name: z.string().nullish(),
-      display_title: z.string().nullish(),
-      run_number: z.number().int(),
-      run_attempt: z.number().int().nullish(),
-      event: z.string(),
-      status: z.string().nullish(),
-      conclusion: z.string().nullish(),
-      head_branch: z.string().nullish(),
-      head_sha: z.string(),
-      html_url: z.string(),
-      run_started_at: z.string().nullish(),
-      updated_at: z.string(),
-    }),
-  ),
+const workflowRunSchema = z.object({
+  id: z.number().int(),
+  name: z.string().nullish(),
+  display_title: z.string().nullish(),
+  run_number: z.number().int(),
+  run_attempt: z.number().int().nullish(),
+  event: z.string(),
+  status: z.string().nullish(),
+  conclusion: z.string().nullish(),
+  head_branch: z.string().nullish(),
+  head_sha: z.string(),
+  html_url: z.string(),
+  run_started_at: z.string().nullish(),
+  updated_at: z.string(),
+  created_at: z.string().nullish(),
+  actor: z.object({ login: z.string() }).nullish(),
 });
+
+const workflowRunsPageSchema = z.object({ workflow_runs: z.array(workflowRunSchema) });
 
 const workflowsPageSchema = z.object({
   workflows: z.array(
@@ -553,21 +554,60 @@ export class GitHubRestApi extends GitHubApi {
           : `GitHub didn't list the Actions runs of ${fullNameOf(repository)} (HTTP ${answer.status}).`,
       );
     }
-    return answer.parsed.map((run) => ({
-      id: run.id,
-      name: run.name ?? "",
-      displayTitle: run.display_title ?? run.name ?? "",
-      runNumber: run.run_number,
-      runAttempt: run.run_attempt ?? 1,
-      event: run.event,
-      status: run.status ?? null,
-      conclusion: run.conclusion ?? null,
-      headBranch: run.head_branch ?? null,
-      headSha: run.head_sha,
-      url: run.html_url,
-      runStartedAt: run.run_started_at ?? null,
-      updatedAt: run.updated_at,
-    }));
+    return answer.parsed.map(toWorkflowRun);
+  }
+
+  async workflowRunsOfFile(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    { file, branch, event, actor, createdSince }: WorkflowRunsQuery,
+  ): Promise<readonly WorkflowRunOnGitHub[]> {
+    // docs.github.com/rest/actions/workflow-runs#list-workflow-runs-for-a-workflow: one page.
+    const url = gitHubUrl(
+      this.urls.api,
+      `${repositoryPathOf(repository)}/actions/workflows/${encodeURIComponent(file)}/runs`,
+    );
+    url.searchParams.set("branch", branch);
+    url.searchParams.set("event", event);
+    url.searchParams.set("actor", actor);
+    url.searchParams.set("created", `>=${createdSince.toISOString().replace(/\.\d{3}Z$/, "Z")}`);
+    url.searchParams.set("per_page", PAGE_SIZE);
+    const answer = await this.read(
+      url,
+      accessToken,
+      (body) => workflowRunsPageSchema.safeParse(body).data?.workflow_runs,
+    );
+    if (answer.parsed === undefined) {
+      throw new GitHubApiFailure(
+        answer.status === 403 || answer.status === 404
+          ? `GitHub refused to read the runs of ${file} of ${fullNameOf(repository)} (HTTP ${answer.status})${answer.message === undefined ? "." : `: ${answer.message}`}`
+          : `GitHub didn't list the runs of ${file} of ${fullNameOf(repository)} (HTTP ${answer.status}).`,
+      );
+    }
+    return answer.parsed.map(toWorkflowRun);
+  }
+
+  async workflowRunOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    runId: number,
+  ): Promise<WorkflowRunOnGitHub | undefined> {
+    // docs.github.com/rest/actions/workflow-runs#get-a-workflow-run
+    const url = gitHubUrl(this.urls.api, `${runsPathOf(repository)}/${runId}`);
+    const answer = await this.read(
+      url,
+      accessToken,
+      (body) => workflowRunSchema.safeParse(body).data,
+    );
+    if (answer.status === 404) return undefined;
+    if (answer.parsed === undefined) {
+      throw new GitHubApiFailure(
+        answer.status === 403
+          ? `GitHub refused to read run ${runId} of ${fullNameOf(repository)} (HTTP 403)${answer.message === undefined ? "." : `: ${answer.message}`}`
+          : `GitHub didn't answer run ${runId} of ${fullNameOf(repository)} (HTTP ${answer.status}).`,
+      );
+    }
+    return toWorkflowRun(answer.parsed);
   }
 
   async rerunWorkflowRun(
@@ -1059,6 +1099,26 @@ function pullsPathOf(repository: RepositoryOnGitHub): string {
 /** A refusal's `message`, which GitHub writes for the user; nothing else of its body. */
 function refusalMessageOf(answer: unknown): string | undefined {
   return refusalMessageSchema.safeParse(answer).data?.message;
+}
+
+function toWorkflowRun(run: z.infer<typeof workflowRunSchema>): WorkflowRunOnGitHub {
+  return {
+    id: run.id,
+    name: run.name ?? "",
+    displayTitle: run.display_title ?? run.name ?? "",
+    runNumber: run.run_number,
+    runAttempt: run.run_attempt ?? 1,
+    event: run.event,
+    status: run.status ?? null,
+    conclusion: run.conclusion ?? null,
+    headBranch: run.head_branch ?? null,
+    headSha: run.head_sha,
+    url: run.html_url,
+    runStartedAt: run.run_started_at ?? null,
+    updatedAt: run.updated_at,
+    createdAt: run.created_at ?? run.updated_at,
+    actor: run.actor?.login ?? null,
+  };
 }
 
 function runsPathOf(repository: RepositoryOnGitHub): string {

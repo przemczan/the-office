@@ -1,6 +1,8 @@
-import type { Project } from "@the-office/contracts";
+import type { Action, ActionRun, Project } from "@the-office/contracts";
+import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  buttonNamed,
   closePage,
   openPage,
   shownText,
@@ -33,6 +35,7 @@ const WEB = uuid(7);
 const NINA_TASK = uuid(8);
 
 const TILE_TITLES = [
+  "Actions",
   "Initiatives",
   "Ideas",
   "CI",
@@ -45,10 +48,72 @@ const TILE_TITLES = [
 
 const ok = (body: unknown) => () => ({ status: 200, body });
 
+/** A Project command Action named `name`, keyed by it. */
+function anAction(key: string, name: string): Action {
+  return {
+    key,
+    name,
+    kind: "project-command",
+    leavesTheWorkstation: false,
+    settings: { commandKey: "build", commandsBefore: [], timeLimitMinutes: null },
+    setBy: {},
+  };
+}
+
+const RELEASE: Action = {
+  key: "release",
+  name: "Release",
+  kind: "workflow",
+  leavesTheWorkstation: true,
+  settings: { file: "release.yml", inputs: {} },
+  setBy: {},
+};
+
+/** A run of `actionKey`, running unless `outcome` says how it ended. */
+function aRunOf(actionKey: string, fields: Partial<ActionRun> = {}): ActionRun {
+  return {
+    id: uuid(60),
+    projectId: PROJECT.id,
+    actionKey,
+    actionName: actionKey,
+    status: { kind: "project-command", state: "running" },
+    outcome: null,
+    ranFrom: { kind: "branch" },
+    branch: "main",
+    commit: null,
+    note: null,
+    startedBy: { userId: uuid(90), name: "Ann Lee" },
+    startedAt: hoursAgo(1),
+    endedAt: null,
+    exitCode: null,
+    endedBecause: null,
+    testInstanceId: null,
+    ciRun: null,
+    workflowRunsUrl: null,
+    ...fields,
+  };
+}
+
 /** Every read the Overview makes, answered with the Shop Project's records. */
 function withData(more: Answers = {}): Answers {
   return {
     "GET /api/projects": ok([PROJECT]),
+    "GET /api/projects/shop/actions": ok({ actions: [anAction("build", "Build"), RELEASE] }),
+    "GET /api/projects/shop/actions/runs": ok({
+      actions: [
+        { actionKey: "build", runs: [aRunOf("build")] },
+        {
+          actionKey: "release",
+          runs: [
+            aRunOf("release", {
+              status: { kind: "workflow", state: "succeeded" },
+              outcome: "succeeded",
+              endedAt: hoursAgo(1),
+            }),
+          ],
+        },
+      ],
+    }),
     "GET /api/onboardings": ok([]),
     "GET /api/tasks": ok([
       aTask(PLANNED, { initiativeId: LAUNCH, state: "done", endedAt: hoursAgo(2) }),
@@ -129,6 +194,8 @@ function withData(more: Answers = {}): Answers {
 /** Every read answered with nothing in it. */
 function withNothing(): Answers {
   return withData({
+    "GET /api/projects/shop/actions": ok({ actions: [] }),
+    "GET /api/projects/shop/actions/runs": ok({ actions: [] }),
     "GET /api/tasks": ok([]),
     "GET /api/initiatives": ok([]),
     "GET /api/ideas": ok([]),
@@ -235,6 +302,9 @@ describe("a Project's Overview", () => {
   it("gives every tile its empty state", async () => {
     const page = await shown(withNothing());
 
+    expect(shownText(tileNamed(page, "Actions"))).toContain(
+      "No Actions yet: things to run on demand, such as an install on a phone or a release. Add one under Actions",
+    );
     expect(shownText(tileNamed(page, "Initiatives"))).toContain(
       "No Initiative spans Shop right now.",
     );
@@ -294,6 +364,60 @@ describe("a Project's Overview", () => {
     const failed = tilesOf(page).filter((tile) => tile.querySelector('[role="alert"]') !== null);
     expect(failed).toEqual([tileNamed(page, "Environment")]);
     expect(shownText(tileNamed(page, "Ideas"))).toContain("Dark mode");
+  });
+
+  it("lists the Actions first, each with its last run and Run, disabled while it runs", async () => {
+    const page = await shown(withData());
+
+    const tile = tileNamed(page, "Actions");
+    expect(page.querySelector(".project-overview > *")).toBe(tile);
+    expect(shownText(tile)).toContain("Build");
+    expect(shownText(tile)).toContain("Running");
+    expect(shownText(tile)).toContain("Leaves the workstation");
+    expect(shownText(tile)).toContain("Succeeded");
+    expect(buttonNamed(tile, "Run Build")?.disabled).toBe(true);
+    expect(buttonNamed(tile, "Run Release")?.disabled).toBe(false);
+    expect(hrefOf(tile, "All Actions")).toBe("/projects/shop/actions");
+    expect(hrefOf(tile, "Build")).toBe("/projects/shop/actions/build");
+  });
+
+  it("names 5 Actions in the Actions tile and links the rest", async () => {
+    const actions = Array.from({ length: 7 }, (_, index) =>
+      anAction(`a${index}`, `Action ${index}`),
+    );
+    const page = await shown(withData({ "GET /api/projects/shop/actions": ok({ actions }) }));
+
+    const tile = tileNamed(page, "Actions");
+    expect(tile.querySelectorAll("li")).toHaveLength(5);
+    expect(shownText(tile)).toContain("Not run yet");
+    expect(hrefOf(tile, "2 more under Actions")).toBe("/projects/shop/actions");
+  });
+
+  it("opens the Run window from the Actions tile", async () => {
+    const page = await shown(
+      withData({
+        "GET /api/projects/shop/actions/source?kind=branch&branch=main": ok({
+          kind: "tip",
+          branch: "main",
+          commit: "f00ba1200000000000000000000000000000000",
+          subject: "Fix the login",
+        }),
+      }),
+    );
+
+    act(() => buttonNamed(tileNamed(page, "Actions"), "Run Release")?.click());
+    await until(() =>
+      expect(document.body.textContent).toContain("Run Release on main at f00ba12"),
+    );
+  });
+
+  it("leaves out the Actions tile while Actions is switched off", async () => {
+    const page = await shown(withData(), {
+      ...PROJECT,
+      features: { ...PROJECT.features, actions: false },
+    });
+
+    expect(titlesOf(page)).toEqual(TILE_TITLES.filter((title) => title !== "Actions"));
   });
 
   it("leaves out Test instances while Test targets is switched off", async () => {

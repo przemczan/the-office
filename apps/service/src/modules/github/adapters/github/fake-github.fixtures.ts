@@ -311,6 +311,12 @@ export class FakeGitHub {
       `^${API_PATH}/repos/([^/]+/[^/]+)/commits/([^/]+)/(check-runs|status)$`,
     ).exec(url.pathname);
     const runs = new RegExp(`^${API_PATH}/repos/([^/]+/[^/]+)/actions/runs$`).exec(url.pathname);
+    const oneRun = new RegExp(`^${API_PATH}/repos/([^/]+/[^/]+)/actions/runs/([0-9]+)$`).exec(
+      url.pathname,
+    );
+    const workflowRuns = new RegExp(
+      `^${API_PATH}/repos/([^/]+/[^/]+)/actions/workflows/([^/]+)/runs$`,
+    ).exec(url.pathname);
     const rerun = new RegExp(
       `^${API_PATH}/repos/([^/]+/[^/]+)/actions/runs/([0-9]+)/(rerun|rerun-failed-jobs)$`,
     ).exec(url.pathname);
@@ -392,6 +398,15 @@ export class FakeGitHub {
     } else if (request.method === "GET" && runs) {
       const repository = decodeURIComponent(runs[1] ?? "");
       this.readApi(request, recorded, response, () => this.runs.list(repository, url));
+    } else if (request.method === "GET" && oneRun) {
+      const repository = decodeURIComponent(oneRun[1] ?? "");
+      this.readApi(request, recorded, response, () => this.runs.one(repository, Number(oneRun[2])));
+    } else if (request.method === "GET" && workflowRuns) {
+      const repository = decodeURIComponent(workflowRuns[1] ?? "");
+      const file = decodeURIComponent(workflowRuns[2] ?? "");
+      this.readApi(request, recorded, response, () =>
+        this.runs.listOfWorkflow(repository, file, url),
+      );
     } else if (request.method === "POST" && rerun) {
       if (this.loginOf(request.headers.authorization) === undefined) {
         sendBadCredentials(response);
@@ -415,7 +430,8 @@ export class FakeGitHub {
         this.workflows.listRefs(repository, kind, url),
       );
     } else if (request.method === "POST" && dispatch) {
-      if (this.loginOf(request.headers.authorization) === undefined) {
+      const login = this.loginOf(request.headers.authorization);
+      if (login === undefined) {
         sendBadCredentials(response);
         return;
       }
@@ -423,6 +439,7 @@ export class FakeGitHub {
         decodeURIComponent(dispatch[1] ?? ""),
         decodeURIComponent(dispatch[2] ?? ""),
         body,
+        login,
       );
       if (answer.status === 204) response.writeHead(204).end();
       else sendJson(response, answer.status, answer.body, answer.headers);

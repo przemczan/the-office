@@ -151,6 +151,7 @@ export function instanceResponse(instance: TestInstanceOnBranch): TestInstanceRe
     endedAt: instance.endedAt?.toISOString() ?? null,
     files: instance.files.map(({ name, size }) => ({ name, size })),
     filesRemoved: instance.filesRemovedAt !== undefined,
+    runAs: instance.runAs === undefined ? null : { ...instance.runAs },
   };
 }
 

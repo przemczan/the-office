@@ -142,6 +142,21 @@ export abstract class CodeHost {
   /** Starts a Workflow by hand; the host refuses, such as for an input its file doesn't declare. */
   abstract startWorkflow(remoteUrl: string, start: WorkflowStartRequest): Promise<void>;
 
+  /**
+   * The runs of a Workflow on a branch that were started by hand by the signed-in user, created at
+   * or after `createdSince`, oldest first: how an Action's start finds the CI run it made.
+   */
+  abstract runsStartedByHand(
+    remoteUrl: string,
+    query: RunsStartedByHandQuery,
+  ): Promise<readonly CiRunOnHost[]>;
+
+  /** CI run `runId` as it stands now; undefined when the host has no such run. */
+  abstract ciRun(remoteUrl: string, runId: number): Promise<CiRunOnHost | undefined>;
+
+  /** The page listing the runs of Workflow `workflowId` on the host, without asking it. */
+  abstract workflowRunsUrl(remoteUrl: string, workflowId: string): string | undefined;
+
   /** The repository's open issues as `listing` asks, pull requests left out. */
   abstract openIssues(remoteUrl: string, listing: IssueListing): Promise<readonly IssueOnHost[]>;
 
@@ -200,4 +215,11 @@ export interface WorkflowStartRequest {
   readonly workflowId: string;
   readonly ref: string;
   readonly inputs: Readonly<Record<string, string>>;
+}
+
+/** Which runs started by hand to list: a Workflow by its file name, on a branch, since a moment. */
+export interface RunsStartedByHandQuery {
+  readonly workflowId: string;
+  readonly branch: string;
+  readonly createdSince: Date;
 }

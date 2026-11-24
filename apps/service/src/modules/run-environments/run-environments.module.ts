@@ -21,6 +21,7 @@ import {
   HostedServiceReadiness,
   type HostedServiceReadinessOptions,
 } from "./application/hosted-service-readiness.js";
+import { ActionRunEnvironments } from "./application/action-run-environments.js";
 import { HostedServices } from "./application/hosted-services.js";
 import { PairingEnvironments } from "./application/pairing-environments.js";
 import { ProjectRunEnvironments } from "./application/project-run-environments.js";
@@ -98,6 +99,7 @@ export class RunEnvironmentsModule {
         { provide: DeviceHelperSource, useValue: new DeviceHelperSource(deviceHelperSource) },
         DeviceHelperFiles,
         HostedServices,
+        ActionRunEnvironments,
         PairingEnvironments,
         RunEnvironmentCommandVariables,
         RunEnvironmentFolders,
@@ -120,6 +122,7 @@ export class RunEnvironmentsModule {
         RunEnvironments,
         RunEnvironmentDefinitions,
         HostedServices,
+        ActionRunEnvironments,
         PairingEnvironments,
         RunEnvironmentCommandVariables,
         DeviceHelperFiles,

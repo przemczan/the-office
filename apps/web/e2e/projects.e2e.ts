@@ -24,6 +24,7 @@ import { screenshotScenario } from "./task-screenshots.ts";
 import {
   commitFiles,
   createTemporaryRepository,
+  createTemporaryRepositoryWithRemote,
   type TemporaryRepository,
 } from "./temporary-repository.ts";
 
@@ -2430,6 +2431,136 @@ test("a Project command Action is added, marked Leaves the workstation, and remo
   await row.getByRole("button", { name: "Remove Build web" }).click();
   await expect(page.getByText("Build web removed.")).toBeVisible();
   await expect(page.getByText(/^No Actions yet\./)).toBeVisible();
+});
+
+test("a Project command Action runs from the Overview's Actions tile, Running then Succeeded, its log in History", async ({
+  page,
+}) => {
+  // The command waits a moment, so the run is seen Running before it Succeeds.
+  const project = await addedProject(page, "Actions run", {
+    install: "npm ci",
+    build: `node -e "console.log('built for ' + process.env.OFFICE_ACTION_BRANCH); setTimeout(() => {}, 1500)"`,
+    lint: "npm run lint",
+    test: "npm test",
+  });
+  const defined = await page.request.put(`/api/projects/${project.id}/actions`, {
+    data: {
+      actions: [
+        {
+          key: "build-web",
+          name: "Build web",
+          leavesTheWorkstation: false,
+          kind: "project-command",
+          settings: { commandKey: "build", commandsBefore: [], timeLimitMinutes: null },
+        },
+      ],
+    },
+  });
+  expect(defined.status()).toBe(200);
+  await page.goto(`/projects/${project.id}`);
+  const tile = page.getByRole("list", { name: `${project.name}'s Actions` });
+  const row = tile.getByRole("listitem").filter({ hasText: "Build web" });
+  await expect(row).toContainText("Not run yet");
+
+  await row.getByRole("button", { name: "Run Build web" }).click();
+  const runWindow = page.getByRole("dialog", { name: "Run Build web" });
+  await expect(runWindow.locator(".run-window-tip code")).toHaveText(/^[0-9a-f]{7}$/);
+  await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "light-1600-run-window.png") });
+  await runWindow.getByRole("button", { name: "Run", exact: true }).click();
+  await expect(runWindow).toBeHidden();
+  await expect(page.getByText("Build web started on main.")).toBeVisible();
+  await expect(row).toContainText("Running");
+  await expect(row.getByRole("button", { name: "Run Build web" })).toBeDisabled();
+  await expect(row).toContainText("Succeeded", { timeout: 20_000 });
+
+  await row.getByRole("link", { name: "Build web" }).click();
+  await expect(page).toHaveURL(`/projects/${project.id}/actions/build-web`);
+  const history = page.locator(".action-history");
+  await expect(history.getByRole("row")).toHaveCount(2);
+  await history.getByRole("button", { name: /^Open the log of the run started / }).click();
+  const log = page.getByRole("dialog").getByLabel("Build web's log");
+  await expect(log).toContainText("built for main");
+  await expect(log).toContainText("Succeeded.");
+  await expect(page).toHaveURL(/\?run=[0-9a-f-]{36}$/);
+  await page.screenshot({ path: path.join(TASK_SCREENSHOTS, "light-1600-action-run-log.png") });
+
+  // ?run=<id> opens the run's log, as an Outcome Notification does.
+  await page.reload();
+  await expect(page.getByRole("dialog").getByLabel("Build web's log")).toContainText(
+    "built for main",
+  );
+});
+
+test("an Action that leaves the workstation runs from the base branch after its confirm step, refused once the branch moved", async ({
+  page,
+}) => {
+  // A local remote, which the Run window's read of main fetches.
+  const remoteRepository = await createTemporaryRepositoryWithRemote();
+  try {
+    const project = await addedProject(
+      page,
+      "Actions confirm",
+      {
+        install: "npm ci",
+        build: `node -e "console.log('deployed ' + process.env.OFFICE_ACTION_COMMIT)"`,
+        lint: "npm run lint",
+        test: "npm test",
+      },
+      remoteRepository.path,
+    );
+    const defined = await page.request.put(`/api/projects/${project.id}/actions`, {
+      data: {
+        actions: [
+          {
+            key: "deploy",
+            name: "Deploy",
+            leavesTheWorkstation: true,
+            kind: "project-command",
+            settings: { commandKey: "build", commandsBefore: [], timeLimitMinutes: null },
+          },
+        ],
+      },
+    });
+    expect(defined.status(), await defined.text()).toBe(200);
+    await page.goto(`/projects/${project.id}`);
+    const row = page
+      .getByRole("list", { name: `${project.name}'s Actions` })
+      .getByRole("listitem")
+      .filter({ hasText: "Deploy" });
+    await row.getByRole("button", { name: "Run Deploy" }).click();
+    const runWindow = page.getByRole("dialog", { name: "Run Deploy" });
+
+    // The base branch only, no Branch picker, and its commit and subject.
+    await expect(runWindow).toContainText("It leaves the workstation, so it runs from main only.");
+    await expect(runWindow.getByRole("combobox")).toHaveCount(0);
+    const confirm = runWindow.getByRole("button", { name: /^Run Deploy on main at [0-9a-f]{7}$/ });
+    await expect(confirm).toBeEnabled();
+    await expect(runWindow.locator(".run-window-confirm")).toContainText("(First commit)?");
+    await page.screenshot({
+      path: path.join(TASK_SCREENSHOTS, "light-1600-run-window-confirm.png"),
+    });
+
+    // main moves on the remote after the window read it: the start is refused, and the window
+    // reads main again for the next try.
+    const shown = (await confirm.textContent()) ?? "";
+    execFileSync("git", ["commit", "--quiet", "--allow-empty", "--message", "Second commit"], {
+      cwd: remoteRepository.path,
+    });
+    execFileSync("git", ["push", "--quiet", "origin", "main"], { cwd: remoteRepository.path });
+    await confirm.click();
+    const refusal = runWindow.getByRole("status");
+    await expect(refusal).toContainText("The Action didn't start");
+    await expect(refusal).toContainText("since you looked. Run it again to run that commit.");
+    await expect(runWindow.locator(".run-window-confirm")).toContainText("(Second commit)?");
+    expect(await confirm.textContent()).not.toBe(shown);
+
+    await confirm.click();
+    await expect(runWindow).toBeHidden();
+    await expect(page.getByText("Deploy started on main.")).toBeVisible();
+    await expect(row).toContainText("Succeeded", { timeout: 20_000 });
+  } finally {
+    await remoteRepository.remove();
+  }
 });
 
 test("the Files tab shows a branch's files, a folder read as it unfolds, and opens from a Task's and an Initiative's Browse files", async ({

@@ -124,11 +124,12 @@ export function workModuleForTests(): DynamicModule {
 /** The events published, as the web receives them, without their times. */
 export function webEventsOf({ app, published }: WorkApplication): unknown[] {
   const forwarding = app.get(WebEventForwarding);
-  return published.map((event) => {
-    const { occurredAt: _occurredAt, ...webEvent } = workWebEventSchema.parse(
-      forwarding.toWebEvent(event),
-    );
-    return webEvent;
+  // An event with no web form, such as one a background reaction publishes late, never reaches it.
+  return published.flatMap((event) => {
+    const forwarded = forwarding.toWebEvent(event);
+    if (forwarded === undefined) return [];
+    const { occurredAt: _occurredAt, ...webEvent } = workWebEventSchema.parse(forwarded);
+    return [webEvent];
   });
 }
 

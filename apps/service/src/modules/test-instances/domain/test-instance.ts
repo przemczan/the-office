@@ -52,6 +52,17 @@ export interface TestInstance {
   readonly files: readonly { readonly name: string; readonly size: number }[];
   /** When a Built instance's files were removed (spec §2.12, "Kept Build to install files"). */
   readonly filesRemovedAt: Date | undefined;
+  /** The Action whose run launched it, shown "Run as <Action>"; undefined when launched by hand. */
+  readonly runAs: TestInstanceRunAs | undefined;
+}
+
+/**
+ * The Action a launch runs as (spec §2.15, "Action run"), named by its key and its name at the
+ * launch; Test instances only keep and show it, never reading Actions.
+ */
+export interface TestInstanceRunAs {
+  readonly actionKey: string;
+  readonly actionName: string;
 }
 
 /** A change to an instance, with the event it carries; undefined when nothing would change. */
@@ -74,6 +85,7 @@ export function launchedInstance(
     readonly targetName: string;
     readonly launchedBy: LaunchedBy;
     readonly at: Date;
+    readonly runAs?: TestInstanceRunAs | undefined;
   } & ({ readonly kind: "hosted"; readonly port: number } | { readonly kind: "build-to-install" }),
 ): TestInstance {
   return {
@@ -94,6 +106,7 @@ export function launchedInstance(
     endedAt: undefined,
     files: [],
     filesRemovedAt: undefined,
+    runAs: given.runAs,
   };
 }
 
