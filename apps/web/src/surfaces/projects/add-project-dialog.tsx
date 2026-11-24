@@ -80,8 +80,7 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
   const [labelEdited, setLabelEdited] = useState(false);
   // Kept as typed, so a comma just written isn't dropped before the next path.
   const [installInputs, setInstallInputs] = useState("");
-  const [runEnvironmentAnswer, setRunEnvironmentAnswer] =
-    useState<RunEnvironmentAnswer>("decide-later");
+  const [runEnvironmentAnswer, setRunEnvironmentAnswer] = useState<RunEnvironmentAnswer>("no");
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const showToast = useToast();

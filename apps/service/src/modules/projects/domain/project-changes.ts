@@ -223,7 +223,7 @@ export function addProject(
     useProjectSkills: true,
     projectSkillsOff: [],
     engine: NO_PROJECT_ENGINE,
-    runEnvironment: "not-decided",
+    runEnvironment: "off",
     runEnvironmentSetUpProblems: [],
     projectLimit: DEFAULT_PROJECT_LIMIT,
     addedAt,
@@ -385,20 +385,13 @@ export function changePublishingMode(
 }
 
 /**
- * The user's On or Off. On is refused, with `definitionProblems` as the reasons, unless the base
- * branch holds a valid definition; Off always stands. Undefined when nothing would change.
+ * The user's On or Off, either way at any time: nothing is checked, as each Task's checks read the
+ * definition on its own branch. Undefined when nothing would change.
  */
 export function changeRunEnvironment(
   project: Project,
-  runEnvironment: Exclude<RunEnvironmentSetting, "not-decided">,
-  definitionProblems: readonly string[],
+  runEnvironment: RunEnvironmentSetting,
 ): ProjectChange<ProjectRunEnvironmentChanged> | undefined {
-  if (runEnvironment === "on" && definitionProblems.length > 0) {
-    throw new ProjectRefused([
-      `Run environment can't be On: the base branch ${project.baseBranch} has no valid .devcontainer/.`,
-      ...definitionProblems,
-    ]);
-  }
   return runEnvironmentChange(project, runEnvironment, []);
 }
 
@@ -413,19 +406,6 @@ export function finishRunEnvironmentSetUp(
   return definitionProblems.length === 0
     ? runEnvironmentChange(project, "on", [])
     : runEnvironmentChange(project, project.runEnvironment, definitionProblems);
-}
-
-/**
- * A Task's change carrying a valid definition landed on the base branch: On while the setting is
- * Not decided yet, as nobody picked; an explicit On or Off is kept. Undefined when nothing would
- * change.
- */
-export function landRunEnvironmentDefinition(
-  project: Project,
-): ProjectChange<ProjectRunEnvironmentChanged> | undefined {
-  return project.runEnvironment === "not-decided"
-    ? runEnvironmentChange(project, "on", [])
-    : undefined;
 }
 
 function runEnvironmentChange(

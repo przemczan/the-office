@@ -175,24 +175,8 @@ describe("its install and commands", () => {
 });
 
 describe("its Run environment", () => {
-  it("is refused On, with the page's reasons, without a valid definition on the base branch", async () => {
+  it("turns On with nothing checked on the base branch", async () => {
     const { tool, changes } = toolsWith("allowed");
-
-    await expect(
-      runOf(tool, {
-        project: "shop",
-        runEnvironment: "on",
-        why: "Faster.",
-      }),
-    ).resolves.toEqual({
-      text: "Run environment can't be On: the base branch main has no valid .devcontainer/. The repository has no .devcontainer/devcontainer.json.",
-      isError: true,
-    });
-    expect(changes).toEqual([]);
-  });
-
-  it("turns On with a valid definition", async () => {
-    const { tool, changes } = toolsWith("allowed", { definitionValid: true });
 
     await runOf(tool, {
       project: "shop",

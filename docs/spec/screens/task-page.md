@@ -32,8 +32,7 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - Tokens: a plain count labelled "tokens", or a meter against the Planner's estimate when the Task has one.
 - Tags: the shell's tags input, saved as each is added or removed, in any state; the last change sent wins.
 - Right: the actions (see Head actions), then **More**.
-- Under the head: the Off-board Task note, the carried run environment note, the Start notes (see Start and the queue), then the drop note.
-- Carried run environment note: while the Project's Run environment is Not decided yet and the Task's branch carries a valid definition, "Runs in this Task's run environment (its branch carries the definition)" (container icon); none under On or Off, or on any other Task ([2.3.1](../2.3.1-stages.md#script-stages-in-the-run-environment)).
+- Under the head: the Off-board Task note, the Start notes (see Start and the queue), then the drop note.
 - Off-board Task note: on an Off-board Task, "The Office started this Off-board Task at once and keeps it off the Work board. Follow it here or on <Project>'s page.", the last words a link to the Project page's Onboarding (an Onboard Task) or Run environment (a "Set up the run environment" Task).
 - Drop note: on a Task dropped with a reason, "Dropped: won't fix", "Dropped: can't reproduce", "Dropped: <Other's words>" or "Dropped as a duplicate of <Task>" (linked, with its state badge), then when; none for a Task dropped with no reason ([2.1.3](../2.1.3-tasks.md#drop-reason)).
 
@@ -104,13 +103,8 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
   - "Overlap: “<title>” is in progress and expects to change some of the same files." (files icon);
   - what holds Start: the refusals and waits (lock icon);
   - "Start joins the queue: <waits>" (clock icon);
-  - the Usage estimate line;
-  - the run environment question.
+  - the Usage estimate line.
 - A queued Task shows a **Queued** badge with "Place <n> · <reasons>" in the notes instead.
-- The run environment question shows on a Ready Task while its Project's Run environment is Not decided yet and no "Set up the run environment" Task is open; Start never waits for it; Yes and No call the Project page's Set up run environment and Off ([project-page.md](project-page.md#run-environment)).
-  - Its hint under Yes: "Yes starts an Off-board Task at once, off the board. It takes one of <Project>'s running slots while it runs.", which with a Project limit of 1 ends ", so with a Project limit of 1 this Task's Start queues behind it." ([2.1.3](../2.1.3-tasks.md#setting-up-the-run-environment)).
-  - After Yes, the line "<Person> is setting up <Project>'s run environment." (or "<title> is queued, place N: <reasons>.") "Follow it on <Project>'s Run environment. It turns On when the Off-board Task is Done.", the link to the Project page's Run environment.
-  - A refused Yes makes nothing and shows "The run environment's set-up didn't start" with the reasons under the question.
 - Ready's Needs you words: "Ready: start it when you want; nothing starts by itself."
 
 ## Planning actions
@@ -201,7 +195,6 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - A run held by a used-up window whose context is over Settings › Engines' ask-above size says it waits for the user's choice of the Stand-in Engine or the reset.
 - A Handover note in the Thread shows its first lines and "Read it in full", which opens the Summary of the run that kept it, in whichever Stage.
 - A Project command's run shows its outcome and each command's line, result, duration and output (the last 64 KB).
-- A run whose commands ran in the run environment the Task's branch carries says "Runs in this Task's run environment (its branch carries the definition)" above its log.
 - An ended Stage's Thread keeps the run's last context reading in the row above it ("Ended at 132k of 200k"; [2.5](../2.5-context-policy.md)).
 - A Gate's run links to Needs you and shows its Attachments of every kind.
 - The Thread follows live (it leaves a reader who scrolled up be), has a **Details** switch, and while the Stage runs takes a message at the next safe point; the draft is kept as the tab or run changes; a closed Thread says why.

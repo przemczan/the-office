@@ -46,23 +46,6 @@ export class CommittedFiles {
     );
   }
 
-  /**
-   * Where the Task's branch, at `tip`, forked from the base branch: as its last Publish recorded
-   * it, which holds after the base took the branch in; else where `tip` and `base` last met.
-   */
-  async taskForkPoint(
-    projectId: string,
-    taskId: string,
-    tip: string,
-    base: string,
-  ): Promise<string> {
-    const project = await this.projects.read(projectId);
-    return (
-      (await this.git.findCommit(project.path, this.worktrees.publishedFromRefOf(taskId))) ??
-      (await this.git.mergeBase(project.path, tip, base))
-    );
-  }
-
   /** Whether `path` names a file at `commit`, whatever its size or contents; nothing of it is read. */
   async isFileAt(projectId: string, commit: string, path: string): Promise<boolean> {
     const project = await this.projects.read(projectId);

@@ -16,7 +16,7 @@ import {
   type TaskInWorktree,
 } from "../domain/run-environment.js";
 import { ContainerRuntimeFailed, type Execution } from "../ports/container-runtime.js";
-import type { RunEnvironmentCommand } from "./run-environments.js";
+import { NO_VALID_DEFINITION, type RunEnvironmentCommand } from "./run-environments.js";
 import {
   runEnvironmentsTestbed,
   taskIn,
@@ -140,7 +140,7 @@ describe("RunEnvironments.prepare", () => {
     expect(override).toContain("pids_limit: 1024");
   });
 
-  it("refuses an invalid definition with every problem in the UI's words", async () => {
+  it("refuses an invalid definition, never running on the host, with every problem in the UI's words", async () => {
     const task = taskIn(testbed, "task-1");
     await mkdir(task.worktree, { recursive: true });
 
@@ -148,7 +148,7 @@ describe("RunEnvironments.prepare", () => {
 
     await expect(preparing).rejects.toThrow(RunEnvironmentRefused);
     await expect(preparing).rejects.toMatchObject({
-      reasons: ["The repository has no .devcontainer/devcontainer.json."],
+      reasons: [NO_VALID_DEFINITION, "The repository has no .devcontainer/devcontainer.json."],
     });
     expect(runtime.steps).toEqual([]);
   });

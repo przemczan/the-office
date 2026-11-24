@@ -37,7 +37,7 @@ type Project = Awaited<ReturnType<ProjectService["read"]>>;
 const SECRET_VALUES_ARE_THE_USERS =
   "Secret variables' values are the user's: they type them on the Project page.";
 
-const DESCRIPTION = `Changes a Project's everyday settings in one call: give everything a setup needs at once, in the sections it changes, each optional, at least one: environmentVariables, install, installInputs and commands, testTargets, actions, and runEnvironment. They apply in that order, Run environment last, as On needs the rest in place and the base branch's .devcontainer/ valid as it is fetched now; each is changed as the Project page would, recorded in its Recent activity, and if one is refused, those before it stay applied and the answer names them. Your Change Project settings Hard switch decides the whole call: Allowed applies it at once; Ask me holds it as one approval card listing every change, so end your turn: the answer comes as your next message, and after "Allow once" you repeat the same call, word for word, which then applies once; Never refuses it. These stay the user's, so draft them with the Proposal tools (propose_*) or leave them to the Project page: Secret variables' values (only their names go here), the Publishing mode, Before and After publishing (${PROPOSE_PROJECT_COMMANDS_TOOL}), Delete branches once merged, GitHub issues write-back, Server values, the Engine, Actions that leave the workstation (${PROPOSE_ACTIONS_TOOL}), Project Pipelines and the Default Pipeline.`;
+const DESCRIPTION = `Changes a Project's everyday settings in one call: give everything a setup needs at once, in the sections it changes, each optional, at least one: environmentVariables, install, installInputs and commands, testTargets, actions, and runEnvironment. They apply in that order, Run environment last; each is changed as the Project page would, recorded in its Recent activity, and if one is refused, those before it stay applied and the answer names them. Your Change Project settings Hard switch decides the whole call: Allowed applies it at once; Ask me holds it as one approval card listing every change, so end your turn: the answer comes as your next message, and after "Allow once" you repeat the same call, word for word, which then applies once; Never refuses it. These stay the user's, so draft them with the Proposal tools (propose_*) or leave them to the Project page: Secret variables' values (only their names go here), the Publishing mode, Before and After publishing (${PROPOSE_PROJECT_COMMANDS_TOOL}), Delete branches once merged, GitHub issues write-back, Server values, the Engine, Actions that leave the workstation (${PROPOSE_ACTIONS_TOOL}), Project Pipelines and the Default Pipeline.`;
 
 const commandsInput = z
   .object({
@@ -154,7 +154,7 @@ const input = z.object({
     .enum(["on", "off"])
     .optional()
     .describe(
-      "The Run environment, on or off: On, its checks and Agents' commands run in the Task's run environment built from the base branch's .devcontainer/, which must be valid.",
+      "The Run environment, on or off, switched at any time: On, each Task's checks and Agents' commands run in its run environment, built from the .devcontainer/ on the Task's own branch, and never on this computer instead; Off, on this computer.",
     ),
   beforePublishingCommand: z
     .string()
@@ -342,7 +342,7 @@ export class ProjectSettingOfficeTools implements OnModuleInit {
     });
   }
 
-  /** Each section's change, in the order they apply: Run environment last, as On needs the rest. */
+  /** Each section's change, in the order they apply, Run environment last. */
   private steps(
     project: Project,
     sections: Sections,

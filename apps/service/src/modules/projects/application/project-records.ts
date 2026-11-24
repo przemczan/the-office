@@ -56,7 +56,6 @@ interface ProjectSurroundings {
 }
 
 const RUN_ENVIRONMENT_WORDS: Readonly<Record<RunEnvironmentSetting, string>> = {
-  "not-decided": "not decided yet",
   on: "on",
   off: "off",
 };

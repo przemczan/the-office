@@ -129,13 +129,9 @@ function useOpenSection(projectId: string): Section {
   );
 }
 
-/**
- * Whether a section's feature is on. Run environment's tab hides only once it is set Off: while it
- * is Not decided yet its tab is where that shows and where it is decided.
- */
+/** Whether a section's feature is on; Run environment's tab hides while it is Off. */
 function switchedOn(project: Project, section: Section): boolean {
   if (!("feature" in section)) return true;
-  if (section.feature === "run-environment") return project.runEnvironment !== "off";
   // Connected devices read off while Run environment isn't On, which the section itself says.
   if (section.feature === "connected-devices") {
     return project.runEnvironment !== "on" || project.features["connected-devices"];

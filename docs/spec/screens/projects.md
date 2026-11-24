@@ -112,7 +112,7 @@ Covers: the Projects page (the Projects list beside the open Project, a list ite
   - **Commands**, hint "Optional. Leave any you don't know yet: set them later on the Project's page, or ask whoever onboards Projects.": inputs **Install** (placeholder `npm ci`), **Build** (`npm run build`), **Lint** (`npm run lint`), **Test** (`npm test`), all monospace and optional.
   - **Install inputs**, hint "Files whose change makes a worktree install again, separated by commas. With none, a worktree installs once.", placeholder `package-lock.json`.
   - **Publishing**: radios, "Push and open a pull request" (default) or "Merge into <base branch>" (or "the base branch" while it is blank).
-  - **Run this Project's checks in a run environment?**, hint "In the containers its .devcontainer/ defines. Until you decide, they run on this computer.": radios **Yes**, **No**, **Decide later** (picked first); the answer is sent with Add the Project, Yes acting as Set up run environment ([2.1.3](../2.1.3-tasks.md#setting-up-the-run-environment)).
+  - **Run this Project's checks in a run environment?**, hint "In the containers its .devcontainer/ defines. With No, they run on this computer.": radios **No**, then **Yes**; the answer is sent with Add the Project, No (or none picked) leaving Run environment Off and Yes acting as Set up run environment ([2.1.3](../2.1.3-tasks.md#setting-up-the-run-environment)).
 - A new Project starts with the commands Build, Lint and Test (keys `build`, `lint`, `test`), install blank and no install inputs.
 
 ## States
@@ -141,6 +141,6 @@ Covers: the Projects page (the Projects list beside the open Project, a list ite
 - Project commands and Install inputs: [2.1.1](../2.1.1-projects.md#project-commands).
 - Onboarding a Project: [2.1.1](../2.1.1-projects.md#onboarding-a-project).
 - Publishing modes: [2.3.4](../2.3.4-publish.md#publish).
-- Run environment (On, Off, Not decided yet) and Script Stages in it: [2.3.1](../2.3.1-stages.md#script-stages-in-the-run-environment).
+- Run environment (On or Off) and Script Stages in it: [2.3.1](../2.3.1-stages.md#script-stages-in-the-run-environment).
 - Repository URL (a Project's repository cloned into the Office data directory): [2.1.1](../2.1.1-projects.md#onboarding-a-project).
 - The Office identity (Sign in with GitHub, ssh key): [5.5](../5.5-git-and-isolation.md).

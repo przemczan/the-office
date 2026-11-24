@@ -107,7 +107,7 @@ describe("ProjectRecords.of", () => {
         "- Delete branches once merged: off",
         "- Default Pipeline: full",
         "- Project limit: 1 Task started at once",
-        "- Run environment: not decided yet",
+        "- Run environment: off",
         "- Features: Connected devices off (needs Run environment), Test targets on, GitHub issues on, Run environment off, Actions on",
         "- Variables to set: none",
         "- Secret variables (values never shown): none",

@@ -11,9 +11,9 @@ const git = {
   repositoryGitFolderOf: () => Promise.resolve("/work/admin-panel/.git"),
 } as unknown as Git;
 
-function runnerWith(definitionCarried: boolean) {
+function runnerWith(setUpTaskIds: readonly string[]) {
   const runEnvironments = new ScriptedTaskRunEnvironments(new ShellCommandRunner());
-  runEnvironments.definitionCarried = definitionCarried;
+  for (const taskId of setUpTaskIds) runEnvironments.setUpTaskIds.add(taskId);
   const commands = new ProjectCommandRunner(new ShellCommandRunner());
   return taskCommandsOver(commands, git, runEnvironments.registry());
 }
@@ -22,22 +22,18 @@ describe("TaskCommandRunner: where a Task's commands run", () => {
   it.each<[RunEnvironmentSetting, boolean, boolean]>([
     ["on", false, true],
     ["on", true, true],
-    ["not-decided", true, true],
-    ["not-decided", false, false],
-    ["off", true, false],
     ["off", false, false],
+    // The Project's "Set up the run environment" Task runs in the one it sets up even while Off.
+    ["off", true, true],
   ])(
-    "Run environment %s, with a definition carried %s: in the run environment %s",
-    async (runEnvironment, carried, inRunEnvironment) => {
-      const runner = runnerWith(carried);
+    "Run environment %s, the Project's set-up Task %s: in the run environment %s",
+    async (runEnvironment, setsUp, inRunEnvironment) => {
+      const runner = runnerWith(setsUp ? ["t"] : []);
       const project = aProject({ runEnvironment });
 
-      expect(await runner.usesRunEnvironment(project, "/work/t")).toBe(inRunEnvironment);
+      expect(await runner.usesRunEnvironment(project, "t")).toBe(inRunEnvironment);
       expect((await runner.placeOf(project, "t", "/work/t")).kind).toBe(
         inRunEnvironment ? "run-environment" : "host",
-      );
-      expect(await runner.runsInCarriedRunEnvironment(project, "/work/t")).toBe(
-        runEnvironment === "not-decided" && carried,
       );
     },
   );

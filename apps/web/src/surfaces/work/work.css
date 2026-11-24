@@ -1952,12 +1952,6 @@
   margin: 0;
 }
 
-.command-log-place {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
 .command-log-head {
   display: flex;
   flex-wrap: wrap;
@@ -3087,17 +3081,6 @@
 
 .task-head-notes .queued-mark > :first-child {
   flex: none;
-}
-
-/* Its answers sit on the line, centred on the words, and wrap under them on a narrow head. */
-.task-head-question {
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.task-head-question-answers {
-  display: flex;
-  gap: 6px;
 }
 
 /* One width, as the estimate's own icon is smaller, so the words of every line start together. */

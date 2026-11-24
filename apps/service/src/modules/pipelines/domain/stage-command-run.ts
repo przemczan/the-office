@@ -61,12 +61,6 @@ export interface StageCommandRun extends Omit<CommandRun, "wholeOutput"> {
    * on the run of the Stage the route leaves.
    */
   readonly condition?: ConditionCommandTest;
-  /**
-   * Set when it ran in the Task's run environment only because the Task's branch carries the
-   * definition, the Project's Run environment being Not decided yet; absent otherwise, and on runs
-   * kept before it was recorded.
-   */
-  readonly inCarriedRunEnvironment?: true;
 }
 
 /** A command a Stage run ran, as it is saved. */
@@ -97,37 +91,25 @@ export function failedInstall(installation: Installation): CommandRun | undefine
     : undefined;
 }
 
-/**
- * A Script Stage's command's runs, in order: the first, then a re-run when there was one; each
- * marked when it ran in a run environment the Task's branch carries.
- */
-export function commandRunsOf(
-  runs: readonly ScriptCommandRun[],
-  inCarriedRunEnvironment = false,
-): StageCommandRunWithOutput[] {
+/** A Script Stage's command's runs, in order: the first, then a re-run when there was one. */
+export function commandRunsOf(runs: readonly ScriptCommandRun[]): StageCommandRunWithOutput[] {
   return runs.map(({ movedFiles, ...run }, index) => ({
     ...run,
     purpose: index === 0 ? "command" : "re-run",
     ...(movedFiles && { movedFiles }),
-    ...(inCarriedRunEnvironment && { inCarriedRunEnvironment: true as const }),
   }));
 }
 
-/**
- * A condition command's runs, each marked with the test it was run for, and when it ran in a run
- * environment the Task's branch carries.
- */
+/** A condition command's runs, each marked with the test it was run for. */
 export function conditionRunsOf(
   runs: readonly ScriptCommandRun[],
   condition: ConditionCommandTest,
-  inCarriedRunEnvironment = false,
 ): StageCommandRunWithOutput[] {
   return runs.map(({ movedFiles, ...run }) => ({
     ...run,
     purpose: "condition",
     condition,
     ...(movedFiles && { movedFiles }),
-    ...(inCarriedRunEnvironment && { inCarriedRunEnvironment: true as const }),
   }));
 }
 

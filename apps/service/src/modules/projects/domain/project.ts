@@ -61,17 +61,17 @@ export const PUBLISHING_LINE_NAMES: Readonly<Record<PublishingLine, string>> = {
 };
 
 /**
- * Whether the Project's checks run in its run environment: "not-decided" until the user picks On
- * or Off, and run on the host meanwhile, as with Off.
+ * Whether a Task's checks run in its run environment, built from the .devcontainer/ on the Task's
+ * own branch ("on"), or on the host ("off"). It switches either way at any time.
  */
-export const RUN_ENVIRONMENT_SETTINGS = ["not-decided", "on", "off"] as const;
+export const RUN_ENVIRONMENT_SETTINGS = ["on", "off"] as const;
 export type RunEnvironmentSetting = (typeof RUN_ENVIRONMENT_SETTINGS)[number];
 
 /**
- * The answer to the question asked once while the setting is "not-decided": "yes" acts as Set up
- * run environment, "no" sets Off, "decide-later" leaves it.
+ * The Add a Project window's answer to "Run this Project's checks in a run environment?": "yes"
+ * acts as Set up run environment, "no" leaves it Off.
  */
-export type RunEnvironmentAnswer = "yes" | "no" | "decide-later";
+export type RunEnvironmentAnswer = "yes" | "no";
 
 /** The design system's ramps offered as a mark's quick choices. */
 export const NAMED_MARK_COLOURS = ["teal", "violet", "gray", "ink"] as const;

@@ -82,7 +82,7 @@ function isKnownStoredFeature(key: string): key is StoredProjectFeature {
   );
 }
 
-/** On only when its own switch is on and every feature it needs is on; "not-decided" reads as off. */
+/** On only when its own switch is on and every feature it needs is on. */
 export function isFeatureOn(source: ProjectFeatureSource, feature: ProjectFeature): boolean {
   const entry = PROJECT_FEATURE_REGISTRY[feature];
   return ownSwitchOf(source, feature) && entry.needs.every((needed) => isFeatureOn(source, needed));

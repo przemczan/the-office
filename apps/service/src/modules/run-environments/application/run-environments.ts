@@ -57,6 +57,13 @@ import {
 } from "./runtime-steps.js";
 import { ServiceOwner } from "./service-owner.js";
 
+/**
+ * Leads the problems of a Task's branch's definition: its checks never fall back to the host, as
+ * the setting asked for its run environment.
+ */
+export const NO_VALID_DEFINITION =
+  "This Task's checks run in its run environment, but its branch has no valid .devcontainer/; they don't run on this computer instead.";
+
 /** The name of the compose file The Office puts over the repository's, in the Task's folder. */
 const OVERRIDE_FILE = "office-override.yaml";
 
@@ -457,7 +464,9 @@ export class RunEnvironments implements OnModuleInit {
       );
     }
     const reading = await readDefinitionIn(task.worktree);
-    if (reading.value === undefined) throw new RunEnvironmentRefused(reading.problems);
+    if (reading.value === undefined) {
+      throw new RunEnvironmentRefused([NO_VALID_DEFINITION, ...reading.problems]);
+    }
     const definition = reading.value;
 
     const image = await this.failingAsRefused(

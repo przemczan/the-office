@@ -52,7 +52,7 @@ describe("migration 0196", () => {
     expect(
       featureStatesOf({
         features: featureSwitchesOfStored(row?.features),
-        runEnvironment: row?.run_environment ?? "not-decided",
+        runEnvironment: row?.run_environment ?? "off",
       }),
     ).toEqual({
       "connected-devices": true,

@@ -31,8 +31,8 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
-const UNDECIDED: ProjectRunEnvironment = {
-  runEnvironment: "not-decided",
+const OFF: ProjectRunEnvironment = {
+  runEnvironment: "off",
   definition: { state: "not-found" },
   setUpProblems: [],
   setUpTask: null,
@@ -58,8 +58,8 @@ function servingRunEnvironment(
 describe("the Project page's Run environment block", () => {
   it("starts the set-up Off-board Task at the press, and says who sets it up", async () => {
     const started = offBoardTask({ state: "running" }, SET_UP);
-    const fetched = servingRunEnvironment(UNDECIDED, NONE, {
-      runEnvironment: UNDECIDED,
+    const fetched = servingRunEnvironment(OFF, NONE, {
+      runEnvironment: OFF,
       start: { outcome: "started", offBoardTask: started },
     });
     const { page, queryClient } = await rendered(<RunEnvironmentBlock project={PROJECT} />);
@@ -76,8 +76,8 @@ describe("the Project page's Run environment block", () => {
   });
 
   it("shows a refused set-up under the button", async () => {
-    servingRunEnvironment(UNDECIDED, NONE, {
-      runEnvironment: UNDECIDED,
+    servingRunEnvironment(OFF, NONE, {
+      runEnvironment: OFF,
       start: { outcome: "refused", reasons: ["Nobody holds Onboards and repairs Projects."] },
     });
     const { page, queryClient } = await rendered(<RunEnvironmentBlock project={PROJECT} />);
@@ -88,7 +88,7 @@ describe("the Project page's Run environment block", () => {
   });
 
   it("shows the Off-board Task in flight in place of the button", async () => {
-    servingRunEnvironment(UNDECIDED, {
+    servingRunEnvironment(OFF, {
       ...NONE,
       runEnvironmentSetUp: offBoardTask(
         {
@@ -108,7 +108,7 @@ describe("the Project page's Run environment block", () => {
 
   it("says it is On and which Off-board Task set it up once that is Done", async () => {
     servingRunEnvironment(
-      { ...UNDECIDED, runEnvironment: "on", definition: { state: "valid" } },
+      { ...OFF, runEnvironment: "on", definition: { state: "valid" } },
       {
         ...NONE,
         runEnvironmentSetUp: offBoardTask(
@@ -130,11 +130,32 @@ describe("the Project page's Run environment block", () => {
     expect(buttonWith(page, "Set up run environment")).toBeUndefined();
   });
 
-  it("says why a Done set-up left the setting as it was", async () => {
-    servingRunEnvironment(
-      { ...UNDECIDED, setUpProblems: ["devcontainer.json: no compose file."] },
-      NONE,
+  it("turns On at once with no .devcontainer/ on the base branch, saying where checks run", async () => {
+    const fetched = serving((url, request) => {
+      if (url.endsWith("/run-environment") && request?.method === "PUT") {
+        return { ...OFF, runEnvironment: "on" };
+      }
+      if (url.endsWith("/run-environment")) return OFF;
+      if (url.endsWith("/off-board-tasks")) return NONE;
+      return [];
+    });
+    const { page, queryClient } = await rendered(<RunEnvironmentBlock project={PROJECT} />);
+    expect(page.textContent).toContain(
+      "each Task's checks run in the containers the .devcontainer/ on the Task's own branch defines",
     );
+    expect(page.textContent).not.toContain("Not decided yet");
+    const on = [...page.querySelectorAll("button")].find((each) => each.textContent === "On");
+    if (on) await pressed(on, queryClient);
+    const put = fetched.mock.calls.find(([, request]) => request?.method === "PUT");
+    expect(put?.[1]?.body).toBe(JSON.stringify({ runEnvironment: "on" }));
+    expect(document.body.textContent).toContain(
+      "Checks in Admin panel run in its run environment.",
+    );
+    expect(page.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it("says why a Done set-up left the setting as it was", async () => {
+    servingRunEnvironment({ ...OFF, setUpProblems: ["devcontainer.json: no compose file."] }, NONE);
     const { page } = await rendered(<RunEnvironmentBlock project={PROJECT} />);
     expect(page.textContent).toContain(
       "The last Off-board Task was Done, but the .devcontainer/ on its branch isn't valid",

@@ -43,19 +43,6 @@ describe("ScriptStageRunner", () => {
     expect(pipelines.tasks.changes).toEqual([{ taskId, state: "waiting-on-you" }]);
   });
 
-  it("marks its command's run when it ran in the run environment the Task's branch carries", async () => {
-    pipelines = await startPipelinesApplication();
-    pipelines.commands.inCarriedRunEnvironment = true;
-    pipelines.commands.commandRuns.push([passing]);
-
-    const taskId = await walkStages(pipelines, [tests]);
-
-    const [run] = await runsOf(pipelines, taskId);
-    expect(run?.commandRuns).toEqual([
-      { ...recordedRun(passing, "command"), inCarriedRunEnvironment: true },
-    ]);
-  });
-
   it("fails when the test command's re-run command fails too, handing what it printed to the Agent that fixes it", async () => {
     pipelines = await startPipelinesApplication([
       anAgentSession(aDoneResult()),

@@ -1,13 +1,10 @@
 import { Controller, Get, Param, ParseUUIDPipe, UseFilters } from "@nestjs/common";
-import type { TaskChanges as TaskChangesResponse, TaskRunEnvironment } from "@the-office/contracts";
+import type { TaskChanges as TaskChangesResponse } from "@the-office/contracts";
 import { TaskWorktrees } from "../../application/task-worktrees.js";
 import type { TaskChanges } from "../../application/worktrees.js";
 import { ProjectRefusalsFilter } from "./project-refusals.filter.js";
 
-/**
- * What a Task's commits changed in its Project, for the Changes tab and a Gate, and where its
- * commands run, for the Task page.
- */
+/** What a Task's commits changed in its Project, for the Changes tab and a Gate. */
 @Controller("projects")
 @UseFilters(ProjectRefusalsFilter)
 export class TaskChangesController {
@@ -19,17 +16,6 @@ export class TaskChangesController {
     @Param("taskId", ParseUUIDPipe) taskId: string,
   ): Promise<TaskChangesResponse> {
     return toTaskChangesResponse(await this.taskWorktrees.changes(id, taskId));
-  }
-
-  /** Whether its commands run in its run environment because its worktree carries the definition. */
-  @Get(":id/tasks/:taskId/run-environment")
-  async runEnvironment(
-    @Param("id") id: string,
-    @Param("taskId", ParseUUIDPipe) taskId: string,
-  ): Promise<TaskRunEnvironment> {
-    return {
-      carriesDefinition: await this.taskWorktrees.runsInCarriedRunEnvironment(id, taskId),
-    };
   }
 }
 

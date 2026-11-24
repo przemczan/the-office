@@ -39,8 +39,9 @@ const SETTING_OPTIONS = [
 ] as const;
 
 /**
- * Whether the Project's checks run in its run environment, the repository's .devcontainer/ on the
- * base branch, and setting one up.
+ * Whether each Task's checks run in its run environment, the containers the .devcontainer/ on the
+ * Task's own branch defines, switched On or Off at any time; the base branch's .devcontainer/ as
+ * last fetched, and setting one up.
  */
 export function RunEnvironmentBlock({ project }: { readonly project: Project }): ReactNode {
   const runEnvironment = useQuery(projectQueries.runEnvironment(project.id));
@@ -83,14 +84,11 @@ export function RunEnvironmentBlock({ project }: { readonly project: Project }):
   const start = settingUp.data?.start;
   const refused = start?.outcome === "refused" ? start.reasons : undefined;
   return (
-    <ProjectBlock
-      icon="container"
-      title="Run environment"
-      actions={data?.runEnvironment === "not-decided" && <Badge>Not decided yet</Badge>}
-    >
+    <ProjectBlock icon="container" title="Run environment">
       <p className="project-block-text">
-        With Run environment On, the Project's checks run in the containers its .devcontainer/
-        defines; until then they run on this computer.
+        With Run environment On, each Task's checks run in the containers the .devcontainer/ on the
+        Task's own branch defines, and a Stage without a valid one there fails saying so. Off, they
+        run on this computer.
       </p>
       {data && (
         <>

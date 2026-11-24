@@ -84,6 +84,7 @@ describe.skipIf(missing !== undefined)(
         testbed.environments,
         testbed.knownTasks,
         testbed.folders,
+        testbed.setUpTasks,
       ).onModuleInit();
     }, REAL_RUNTIME_TEST.timeout);
 
@@ -256,6 +257,7 @@ describe.skipIf(missing !== undefined)(
         testbed.environments,
         testbed.knownTasks,
         testbed.folders,
+        testbed.setUpTasks,
       ).onModuleInit();
     }, REAL_RUNTIME_TEST.timeout);
 

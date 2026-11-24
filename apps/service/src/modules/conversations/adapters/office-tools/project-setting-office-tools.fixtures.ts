@@ -59,7 +59,7 @@ export const SHOP = {
     prependPath: [],
   },
   features: {},
-  runEnvironment: "not-decided",
+  runEnvironment: "off",
 } as unknown as Project;
 
 export const WEB_TARGET: TestTarget = {
@@ -111,7 +111,6 @@ export interface Change {
 export function toolsWith(
   ruling: Ruling,
   options: {
-    readonly definitionValid?: boolean;
     readonly failingActions?: boolean;
     readonly project?: Project;
   } = {},
@@ -146,12 +145,6 @@ export function toolsWith(
   } as unknown as ProjectActions;
   const runEnvironments = new RunEnvironmentSwitchRegistry();
   runEnvironments.register((projectId, runEnvironment, by) => {
-    if (runEnvironment === "on" && !options.definitionValid) {
-      throw new ProjectRefused([
-        "Run environment can't be On: the base branch main has no valid .devcontainer/.",
-        "The repository has no .devcontainer/devcontainer.json.",
-      ]);
-    }
     changes.push({ method: "runEnvironments.change", args: [projectId, runEnvironment, by] });
     return Promise.resolve();
   });

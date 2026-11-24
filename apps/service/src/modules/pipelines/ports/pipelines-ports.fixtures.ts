@@ -1150,8 +1150,6 @@ export class TaskCommandsForTests extends TaskCommands {
   observe: ((call: "install" | "runCommand") => void) | undefined = undefined;
   /** Set while the next command runs until its signal stops it, as a hung test run would. */
   runsUntilStopped = false;
-  /** Set to have every command run in a run environment the Task's branch carries. */
-  inCarriedRunEnvironment = false;
 
   /**
    * Set to make the next command wait for a free run environment first: it tells the wait, then
@@ -1185,11 +1183,7 @@ export class TaskCommandsForTests extends TaskCommands {
     options: TaskCommandOptions,
   ): Promise<ScriptCommandResult> {
     const runs = await this.runsOf(taskId, key, stageRunId, options);
-    return {
-      kind: this.commandKinds.get(key),
-      runs,
-      inCarriedRunEnvironment: this.inCarriedRunEnvironment,
-    };
+    return { kind: this.commandKinds.get(key), runs };
   }
 
   /**

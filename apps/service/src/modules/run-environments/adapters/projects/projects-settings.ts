@@ -26,21 +26,16 @@ export class ProjectsSettings extends ProjectSettings {
 
   async change(
     projectId: string,
-    runEnvironment: Exclude<RunEnvironmentSetting, "not-decided">,
-    definitionProblems: readonly string[],
+    runEnvironment: RunEnvironmentSetting,
     by: SettingChangedBy,
   ): Promise<void> {
     await refusedInOurWords(() =>
-      this.projects.changeRunEnvironment(projectId, runEnvironment, definitionProblems, by),
+      this.projects.changeRunEnvironment(projectId, runEnvironment, by),
     );
   }
 
   async finishSetUp(projectId: string, definitionProblems: readonly string[]): Promise<void> {
     await this.projects.finishRunEnvironmentSetUp(projectId, definitionProblems);
-  }
-
-  async landDefinition(projectId: string): Promise<void> {
-    await this.projects.landRunEnvironmentDefinition(projectId);
   }
 }
 

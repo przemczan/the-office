@@ -18,7 +18,6 @@ import {
   changeProjectSkillUse,
   changeUseProjectSkills,
   finishRunEnvironmentSetUp,
-  landRunEnvironmentDefinition,
   moveEngineLevels,
   removeCommand,
 } from "./project-changes.js";
@@ -389,15 +388,15 @@ describe("changeProjectLimit", () => {
 describe("changeRunEnvironment", () => {
   const NO_DEFINITION = ["The repository has no .devcontainer/devcontainer.json."];
 
-  it("starts every Project at Not decided yet", () => {
+  it("starts every Project Off", () => {
     expect(addProject("admin-panel", aNewProject(), addedAt).project).toMatchObject({
-      runEnvironment: "not-decided",
+      runEnvironment: "off",
       runEnvironmentSetUpProblems: [],
     });
   });
 
-  it("turns On with a valid definition, and changes nothing when it already is", () => {
-    const change = changeRunEnvironment(aProject(), "on", []);
+  it("turns On with nothing checked, and changes nothing when it already is", () => {
+    const change = changeRunEnvironment(aProject(), "on");
 
     expect(change?.project.runEnvironment).toBe("on");
     expect(change?.event).toEqual(
@@ -408,23 +407,19 @@ describe("changeRunEnvironment", () => {
       }),
     );
     expect(change?.event).toBeInstanceOf(ProjectRunEnvironmentChanged);
-    expect(changeRunEnvironment(aProject({ runEnvironment: "on" }), "on", [])).toBeUndefined();
+    expect(changeRunEnvironment(aProject({ runEnvironment: "on" }), "on")).toBeUndefined();
   });
 
-  it("refuses On without a valid definition, with its problems as the reasons", () => {
-    expect(() => changeRunEnvironment(aProject(), "on", NO_DEFINITION)).toThrow(
-      new ProjectRefused([
-        "Run environment can't be On: the base branch main has no valid .devcontainer/.",
-        ...NO_DEFINITION,
-      ]),
-    );
+  it("turns Off from On", () => {
+    expect(changeRunEnvironment(aProject({ runEnvironment: "on" }), "off")?.project).toMatchObject({
+      runEnvironment: "off",
+    });
   });
 
-  it("always takes Off, and clears why the last set-up left it as it was", () => {
+  it("clears why the last set-up left it as it was", () => {
     const change = changeRunEnvironment(
       aProject({ runEnvironment: "off", runEnvironmentSetUpProblems: NO_DEFINITION }),
       "off",
-      NO_DEFINITION,
     );
 
     expect(change?.project).toMatchObject({
@@ -462,25 +457,6 @@ describe("finishRunEnvironmentSetUp", () => {
         problems,
       ),
     ).toBeUndefined();
-  });
-});
-
-describe("landRunEnvironmentDefinition", () => {
-  it("turns Not decided yet On, clearing the set-up's problems", () => {
-    const change = landRunEnvironmentDefinition(
-      aProject({ runEnvironment: "not-decided", runEnvironmentSetUpProblems: ["An earlier one."] }),
-    );
-
-    expect(change?.project).toMatchObject({
-      runEnvironment: "on",
-      runEnvironmentSetUpProblems: [],
-    });
-    expect(change?.event).toMatchObject({ runEnvironment: "on", setUpProblems: [] });
-  });
-
-  it("keeps an explicit On or Off", () => {
-    expect(landRunEnvironmentDefinition(aProject({ runEnvironment: "off" }))).toBeUndefined();
-    expect(landRunEnvironmentDefinition(aProject({ runEnvironment: "on" }))).toBeUndefined();
   });
 });
 

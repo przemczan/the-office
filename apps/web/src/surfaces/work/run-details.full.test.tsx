@@ -225,8 +225,6 @@ describe("a run's head", () => {
   });
 });
 
-const place = (page: HTMLElement): Element | null => page.querySelector(".command-log-place");
-
 describe("a run's command log", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -241,22 +239,10 @@ describe("a run's command log", () => {
     condition: { to: null },
   } as const;
 
-  it("says its commands ran in the run environment the Task's branch carries", () => {
-    vi.stubGlobal("fetch", () => new Promise(() => undefined));
-    const page = showRun(
-      { ...secondRun, commandRuns: [{ ...condition, inCarriedRunEnvironment: true }] },
-      [],
-    );
-    expect(place(page)?.textContent).toBe(
-      "Runs in this Task's run environment (its branch carries the definition)",
-    );
-  });
-
-  it("says nothing of the kind for commands run elsewhere", () => {
+  it("shows the log of the commands the run ran", () => {
     vi.stubGlobal("fetch", () => new Promise(() => undefined));
     const page = showRun({ ...secondRun, commandRuns: [condition] }, []);
-    expect(page.querySelector(".command-log")).not.toBeNull();
-    expect(place(page)).toBeNull();
+    expect(page.querySelector(".command-log")?.textContent).toContain("npm run lint");
   });
 });
 

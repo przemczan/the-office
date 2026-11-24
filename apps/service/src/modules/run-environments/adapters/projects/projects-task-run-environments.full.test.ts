@@ -38,6 +38,7 @@ beforeEach(async () => {
     testbed.environments,
     testbed.knownTasks,
     testbed.folders,
+    testbed.setUpTasks,
   ).onModuleInit();
 });
 

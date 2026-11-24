@@ -63,7 +63,7 @@ Covers: threat models, stored hashes, the two layers, language servers, Hard swi
   - commands: add, change by key, remove; Before and After publishing are refused;
   - test targets: add, change by key or remove; Secret variables by name only, a value already set kept;
   - Actions: add, change by key or remove; one marked Leaves the workstation is refused, pointing to `propose_actions`;
-  - Run environment: On or Off; On is refused unless the base branch, fetched as the call runs, holds a valid `.devcontainer/`.
+  - Run environment: On or Off, with no check of the base branch's `.devcontainer/` ([2.3.1](2.3.1-stages.md#script-stages-in-the-run-environment)).
 - The sections apply in that order, Run environment last, each through the Projects method and Project setting change the Project page's save uses; a section refused leaves the ones before it applied, and the answer names them.
 - Every refusal that needs no section applied is made before the call is held, so no approval is spent on a call refused up front.
 - **The ruling:** one call is one held call: Allowed applies it at once with no card; Consult _person_ and Ask me hold it on one approval card listing every change, Secret variables by name only ([Hard switches](#hard-switches)); Never refuses.
@@ -74,7 +74,7 @@ Covers: threat models, stored hashes, the two layers, language servers, Hard swi
 - The Proposal tools (`propose_project_commands`, `propose_test_targets`, `propose_actions`) stay, for those settings and for a person whose switch is Never.
 - **The record:** every change of a Project's commands, test targets, Actions, environment or Run environment is kept as a Project setting change, in the same transaction as the change, by the Project page's saves, an applied Proposal and `change_project_settings` alike.
   - It holds the Project, the setting, a short summary naming what changed by name only (never a Secret variable's value), who made it (a user; a Proposal a user applied; a person by Role, name and title, with the Task) and when.
-  - A Task's Done or merged pull request turning Run environment On ([2.1.3](2.1.3-tasks.md#setting-up-the-run-environment)) records nothing.
+  - The "Set up the run environment" Task's Done turning Run environment On ([2.1.3](2.1.3-tasks.md#setting-up-the-run-environment)) records nothing.
   - It is kept with the Project and removed with it.
   - `GET /api/projects/:id/setting-changes` answers the newest ([Defaults](#project-setting-changes-listed)), which the Project page's Recent activity lists ([project-page.md](screens/project-page.md#recent-activity-tile)).
 

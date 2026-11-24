@@ -53,7 +53,7 @@ export function aProject(fields: Partial<Project> = {}): Project {
     useProjectSkills: true,
     projectSkillsOff: [],
     engine: NO_PROJECT_ENGINE,
-    runEnvironment: "not-decided",
+    runEnvironment: "off",
     runEnvironmentSetUpProblems: [],
     projectLimit: 1,
     addedAt: new Date("2026-10-25T09:00:00.000Z"),

@@ -562,12 +562,22 @@ export class Worktrees {
   ): Promise<ThrowawayWorktree> {
     const variables = this.commands.variablesFor(environment);
     await this.removeThrowaways(project, variables);
-    const branch = await this.branchOf(project, taskId);
-    const commit =
-      (await this.git.findCommit(project.path, `refs/heads/${branch}`)) ??
-      (await this.git.findCommit(project.path, this.branchTipRefOf(taskId)));
-    if (commit === undefined) throw new Error(`The Task has no branch ${branch} yet.`);
+    const commit = await this.taskBranchTip(project, taskId);
+    if (commit === undefined) throw new Error(`The Task has no branch in ${project.name} yet.`);
     return this.addThrowawayAt(project, { commit, fetchedFrom: undefined }, variables);
+  }
+
+  /**
+   * The head of the Task's branch (`branchOf`) in the Project's repository, as committed; once the
+   * branch is deleted, the tip kept then. Undefined when the repository has neither, as for a Task
+   * not started yet or one of another Project.
+   */
+  async taskBranchTip(project: Project, taskId: string): Promise<string | undefined> {
+    const branch = await this.branchOf(project, taskId);
+    return (
+      (await this.git.findCommit(project.path, `refs/heads/${branch}`)) ??
+      (await this.git.findCommit(project.path, this.branchTipRefOf(taskId)))
+    );
   }
 
   async removeThrowaway(

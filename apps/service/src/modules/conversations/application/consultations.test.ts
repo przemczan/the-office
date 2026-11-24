@@ -734,7 +734,9 @@ describe("a Consultation whose engine's usage window is used up", () => {
       }),
     );
     await settled(asker.id);
-  });
+    // Two sessions, the switch between engines and a 5s wait of its own: the default 5s runs out
+    // under the full run's load.
+  }, 15_000);
 });
 
 describe("a consult on a Task with no worktree yet", () => {

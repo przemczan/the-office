@@ -161,7 +161,7 @@ describe("the change_project_settings tool, over Projects", REAL_GIT_TEST, () =>
       commands: { add: [E2E] },
       testTargets: { targets: [WEB] },
       actions: { actions: [BUILD_APP] },
-      runEnvironment: "off",
+      runEnvironment: "on",
       why: "Set it up.",
     };
 
@@ -191,7 +191,7 @@ describe("the change_project_settings tool, over Projects", REAL_GIT_TEST, () =>
     const project = await projects.read(projectId);
     expect(project.installCommand).toBe("npm install");
     expect(project.commands.map(({ key }) => key)).toEqual(["build", "lint", "test", "e2e"]);
-    expect(project.runEnvironment).toBe("off");
+    expect(project.runEnvironment).toBe("on");
     expect(project.environment.set).toEqual([
       { name: "API_TOKEN", value: SECRET_VALUE, secret: true },
       { name: "GREETING", value: "hello", secret: false },
@@ -201,7 +201,7 @@ describe("the change_project_settings tool, over Projects", REAL_GIT_TEST, () =>
     expect(web?.secretVariables.map(({ name }) => name)).toEqual(["STRIPE_KEY"]);
   });
 
-  it("refuses Run environment On without a definition after applying the sections before it, which stay", async () => {
+  it("turns Run environment On after the sections before it, with no definition on the base branch", async () => {
     const { tool } = tools();
 
     const result = await runOf(tool, {
@@ -211,15 +211,13 @@ describe("the change_project_settings tool, over Projects", REAL_GIT_TEST, () =>
       why: "Faster.",
     });
 
-    expect(result).toEqual({
-      text: `Changed ${(await app.get(ProjectService, { strict: false }).read(projectId)).name}'s commands, each recorded in its Recent activity. Then the change of its Run environment was refused: Run environment can't be On: the base branch main has no valid .devcontainer/. The repository has no .devcontainer/devcontainer.json.`,
-      isError: true,
-    });
-    expect((await latest()).map(({ setting, by }) => [setting, by])).toEqual([
+    expect(result).toEqual({ text: expect.stringMatching(/^Changed: /), isError: false });
+    expect((await latest(2)).map(({ setting, by }) => [setting, by])).toEqual([
+      ["run-environment", BY_NINA],
       ["commands", BY_NINA],
     ]);
-    expect(
-      (await app.get(ProjectService, { strict: false }).read(projectId)).runEnvironment,
-    ).not.toBe("on");
+    expect((await app.get(ProjectService, { strict: false }).read(projectId)).runEnvironment).toBe(
+      "on",
+    );
   });
 });

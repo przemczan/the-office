@@ -13,6 +13,7 @@ import {
   writeFiles,
   type RunEnvironmentsTestbed,
 } from "../../application/run-environments.fixtures.js";
+import { NO_VALID_DEFINITION } from "../../application/run-environments.js";
 import { DEFAULT_RUN_ENVIRONMENT_OPTIONS } from "../../domain/run-environment.js";
 import { ScriptedContainerRuntime } from "../scripted/scripted-container-runtime.js";
 import { ProjectsTaskRunEnvironments } from "./projects-task-run-environments.js";
@@ -39,6 +40,7 @@ beforeEach(async () => {
     testbed.environments,
     testbed.knownTasks,
     testbed.folders,
+    testbed.setUpTasks,
   ).onModuleInit();
 });
 
@@ -205,20 +207,33 @@ describe("Projects' run environments", () => {
     expect(install?.image).not.toContain("npm_s3cret");
   });
 
-  it("says a worktree carries a definition only when its .devcontainer/ is valid", async () => {
+  it("runs nothing when the Task's branch has no valid definition, never on the host instead", async () => {
     const task = await aTask("task-1");
-    const bare = join(testbed.folder, "worktrees", "bare");
-    const broken = join(testbed.folder, "worktrees", "broken");
-    await writeFiles(bare, { "README.md": "# Shop\n" });
-    await writeFiles(broken, {
-      ".devcontainer/devcontainer.json": `{ "dockerComposeFile": "compose.yaml", "service": "web" }`,
-      ".devcontainer/compose.yaml": "services:\n  app:\n    image: node:22\n",
+    await rm(join(task.worktree, ".devcontainer"), { recursive: true, force: true });
+
+    const finished = await registry.run(task, aCommand());
+
+    expect(finished).toEqual({
+      outcome: "could-not-run",
+      exitCode: undefined,
+      durationMs: 0,
+      output: [NO_VALID_DEFINITION, "The repository has no .devcontainer/devcontainer.json."].join(
+        "\n",
+      ),
+      droppedOutputBytes: 0,
+    });
+    expect(runtime.steps).toEqual([]);
+  });
+
+  it("says only the Project's set-up Task sets up its run environment", async () => {
+    testbed.setUpTasks.setUps.push({
+      id: "task-1",
+      projectId: "shop",
+      title: "Set up",
+      state: "in-progress",
     });
 
-    expect(await registry.carriesDefinition(task.worktree)).toBe(true);
-    expect(await registry.carriesDefinition(bare)).toBe(false);
-    expect(await registry.carriesDefinition(broken)).toBe(false);
-    expect(await registry.carriesDefinition(join(testbed.folder, "worktrees", "gone"))).toBe(false);
-    expect(runtime.steps).toEqual([]);
+    expect(await registry.setsUpRunEnvironment("task-1")).toBe(true);
+    expect(await registry.setsUpRunEnvironment("task-2")).toBe(false);
   });
 });

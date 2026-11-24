@@ -34,7 +34,7 @@ export async function addAnswering(
   page: Page,
   name: string,
   folder: string,
-  answer: "Yes" | "No" | "Decide later",
+  answer: "Yes" | "No",
 ): Promise<Project> {
   await page.goto("/projects");
   await page.getByRole("button", { name: "Add a Project", exact: true }).click();
@@ -42,7 +42,8 @@ export async function addAnswering(
   const question = page
     .getByRole("dialog")
     .getByRole("radiogroup", { name: "Run this Project's checks in a run environment?" });
-  await expect(question.getByRole("radio", { name: "Decide later" })).toBeChecked();
+  await expect(question.getByRole("radio")).toHaveText(["No", "Yes"]);
+  await expect(question.getByRole("radio", { name: "No", exact: true })).toBeChecked();
   await question.getByRole("radio", { name: answer, exact: true }).check();
   const added = page.waitForResponse(
     (response) =>

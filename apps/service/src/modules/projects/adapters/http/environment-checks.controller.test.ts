@@ -13,6 +13,7 @@ import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import { BusyWorkChanged } from "../../../office-updates/index.js";
+import { EnvironmentCheckFinished } from "../../domain/environment-check-events.js";
 import {
   commitOnOrigin,
   createTemporaryRepository,
@@ -27,6 +28,9 @@ import {
   SLEEPS,
 } from "./environment-checks.controller.fixtures.js";
 import { EnvironmentChecks } from "../../application/environment-checks.js";
+import { TaskRunEnvironments } from "../../application/task-run-environments.js";
+import { ScriptedTaskRunEnvironments } from "../../application/task-run-environments.fixtures.js";
+import { CommandRunner } from "../../ports/command-runner.js";
 import { startProjectsApplication } from "../../projects.controller.fixtures.js";
 
 // Real git and real commands, in the default shell of the system the tests run on.
@@ -104,6 +108,51 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
       "project.environment-changed",
       ...Array<string>(12).fill("project.environment-check-changed"),
     ]);
+  });
+
+  it("checks a Task's branch when the body names the Task, and refuses one whose branch the Project doesn't have", async () => {
+    // Run environments' runner stood in for: the Task sets nothing up, so Off runs on the host.
+    app.get(TaskRunEnvironments).register(new ScriptedTaskRunEnvironments(app.get(CommandRunner)));
+    const taskId = randomUUID();
+    gitIn(repository.path, "branch", "--quiet", `office/${taskId}`, "main");
+    const tip = gitIn(repository.path, "rev-parse", `office/${taskId}`);
+    const project = await addProject();
+    expect((await save(project, GREETING)).status).toBe(200);
+    const finished = new Promise<void>((resolve) => {
+      const unsubscribe = app.get(EventBus).subscribe(EnvironmentCheckFinished, (event) => {
+        if (event.projectId !== project.id) return;
+        unsubscribe();
+        resolve();
+      });
+    });
+
+    const started = await send("POST", `/projects/${project.id}/environment-check`, { taskId });
+
+    expect(started.status).toBe(202);
+    expect(environmentCheckSchema.parse(await started.json())).toMatchObject({
+      taskId,
+      state: "running",
+    });
+    await finished;
+    const check = latestEnvironmentCheckSchema.parse(
+      await (await send("GET", `/projects/${project.id}/environment-check`)).json(),
+    ).check;
+    expect(check).toMatchObject({ taskId, state: "passed" });
+    expect(check?.checks[0]).toEqual({ step: "worktree", state: "passed", base: { commit: tip } });
+
+    const other = randomUUID();
+    const refused = await send("POST", `/projects/${project.id}/environment-check`, {
+      taskId: other,
+    });
+    expect(refused.status).toBe(422);
+    expect(projectRefusalSchema.parse(await refused.json()).reasons).toEqual([
+      `The Task ${other} has no branch in the Project "${project.name}": check a Task of this Project once it has started.`,
+    ]);
+
+    const malformed = await send("POST", `/projects/${project.id}/environment-check`, {
+      taskId: "not-a-task",
+    });
+    expect(malformed.status).toBe(400);
   });
 
   it("refuses a second check while one runs", async () => {

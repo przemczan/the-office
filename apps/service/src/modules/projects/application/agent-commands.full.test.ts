@@ -83,7 +83,7 @@ interface ATask {
 async function aTask({
   installCommand = `node "${join(repository.folder, "install.cjs")}"`,
   variables = {},
-  runEnvironment = "not-decided",
+  runEnvironment = "off",
 }: {
   readonly installCommand?: string;
   readonly variables?: Readonly<Record<string, string>>;

@@ -1,9 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import {
-  PUBLISHING_TEST,
-  PublishingTestbed,
-  commitMessage,
-} from "../adapters/git/publishing-testbed.fixtures.js";
+import { PUBLISHING_TEST, PublishingTestbed } from "../adapters/git/publishing-testbed.fixtures.js";
 import { gitIn } from "../adapters/git/temporary-repository.fixtures.js";
 import type { Project } from "../domain/project.js";
 import { CommittedFiles } from "./committed-files.js";
@@ -49,24 +45,5 @@ describe("CommittedFiles.taskBranchTip", PUBLISHING_TEST, () => {
 
   it("answers undefined for a Task with no branch, nor a tip kept", async () => {
     await expect(files.taskBranchTip(project.id, "task-without-a-branch")).resolves.toBeUndefined();
-  });
-});
-
-describe("CommittedFiles.taskForkPoint", PUBLISHING_TEST, () => {
-  it("is where the tip and the base last met, then where the branch forked as its Publish recorded it", async () => {
-    gitIn(testbed.repository.path, "fetch", "--quiet", "origin");
-    const forkedFrom = gitIn(testbed.repository.path, "rev-parse", "origin/main");
-    const task = await testbed.aTaskWithACommit(project);
-
-    await expect(
-      files.taskForkPoint(project.id, task.taskId, task.commit, forkedFrom),
-    ).resolves.toBe(forkedFrom);
-
-    await testbed.publishing.publish(project, task.taskId, commitMessage, "branch-only");
-
-    // A base that took the branch in by a merge holds its tip, where they last met.
-    await expect(
-      files.taskForkPoint(project.id, task.taskId, task.commit, task.commit),
-    ).resolves.toBe(forkedFrom);
   });
 });

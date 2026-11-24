@@ -21,13 +21,13 @@ import {
   repositoryFilePreviewSchema,
   repositoryFolderSchema,
   taskChangesSchema,
-  taskRunEnvironmentSchema,
   projectTestTargetsChatSchema,
   runEnvironmentSetUpAnswerSchema,
   testTargetListSchema,
   type AddProject,
   type ProjectEngineChange,
   type EnvironmentCheck,
+  type EnvironmentCheckStart,
   type Mark,
   type Project,
   type ProjectEnvironmentEdit,
@@ -262,20 +262,6 @@ export const projectQueries = {
           signal,
         ),
     }),
-  /**
-   * Whether the Task's commands run in its run environment because its branch carries the
-   * definition; under the Task's key, as its Changes are, so a Stage run's end reads it again.
-   */
-  taskRunEnvironment: (projectId: string, taskId: string) =>
-    queryOptions({
-      queryKey: taskRunEnvironmentKey(taskId),
-      queryFn: ({ signal }) =>
-        getFromApi(
-          `${projectPath(projectId)}/tasks/${encodeURIComponent(taskId)}/run-environment`,
-          taskRunEnvironmentSchema,
-          signal,
-        ),
-    }),
 };
 
 /**
@@ -284,11 +270,6 @@ export const projectQueries = {
  */
 export function taskChangesKey(taskId: string): readonly unknown[] {
   return ["tasks", taskId, "changes"];
-}
-
-/** Under the Task's key too: a Stage run's end may commit a definition to its branch. */
-export function taskRunEnvironmentKey(taskId: string): readonly unknown[] {
-  return ["tasks", taskId, "run-environment"];
 }
 
 export function addProject(request: AddProject): Promise<Project> {
@@ -348,8 +329,13 @@ export function saveEnvironment(id: string, environment: ProjectEnvironmentEdit)
 }
 
 /** Starts a check of the Project's saved environment, which changes nothing. */
-export function startEnvironmentCheck(id: string): Promise<EnvironmentCheck> {
-  return sendToApi("POST", `${projectPath(id)}/environment-check`, {}, environmentCheckSchema);
+/**
+ * Starts an environment check of the base branch on the host, or, given a Task's id, of that Task's
+ * branch, in its run environment while the Project's is On.
+ */
+export function startEnvironmentCheck(id: string, taskId?: string): Promise<EnvironmentCheck> {
+  const body: EnvironmentCheckStart = taskId === undefined ? {} : { taskId };
+  return sendToApi("POST", `${projectPath(id)}/environment-check`, body, environmentCheckSchema);
 }
 
 export function changePublishingMode(id: string, publishingMode: PublishingMode): Promise<Project> {

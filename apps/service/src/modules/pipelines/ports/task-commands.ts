@@ -8,11 +8,6 @@ export type ScriptCommandKind = "build" | "lint" | "test";
 export interface ScriptCommandResult {
   readonly kind: ScriptCommandKind | undefined;
   readonly runs: readonly ScriptCommandRun[];
-  /**
-   * They ran in the Task's run environment only because its worktree carries the definition, the
-   * Project's Run environment being Not decided yet.
-   */
-  readonly inCarriedRunEnvironment?: boolean;
 }
 
 /** Publish's before and after lines (spec §2.3 Defaults), by the Project's names for them. */

@@ -1,10 +1,9 @@
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import type { SignedInUser } from "../../../platform/http/signed-in-requests.js";
-import { PullRequestMerged, type SettingChangedBy } from "../../projects/index.js";
+import type { SettingChangedBy } from "../../projects/index.js";
 import { TaskStateChanged, type OffBoardTaskStart } from "../../work/index.js";
 import {
-  DEFINITION_FILE,
   definitionProblemsOf,
   definitionStatusOf,
   type DefinitionStatus,
@@ -36,11 +35,10 @@ export interface RunEnvironmentSetUp {
 }
 
 /**
- * A Project's Run environment setting and its set-up: On only with a valid definition on the base
- * branch, "Set up run environment" turning it On at once with one, else making and starting the Project's
- * "Set up the run environment" Task, whose Done turns it On with a valid definition on its branch.
- * Any other Task's Done, or its pull request's merge, turns a Not decided yet setting On once the
- * Task's own valid definition landed on the base branch.
+ * A Project's Run environment setting and its set-up: On or Off at any time, nothing checked, as
+ * each Task's checks read the definition on its own branch. "Set up run environment" turns it On at
+ * once with a valid definition on the base branch, else makes and starts the Project's "Set up the
+ * run environment" Task, whose Done turns it On with a valid definition on its branch.
  */
 @Injectable()
 export class ProjectRunEnvironments implements OnModuleInit {
@@ -57,14 +55,9 @@ export class ProjectRunEnvironments implements OnModuleInit {
     this.events.subscribe(TaskStateChanged, async ({ taskId, to }) => {
       if (to !== "done") return;
       // Caught here: the Task is Done either way, and the setting stays as it was.
-      const setUp = await this.finishSetUp(taskId).catch((error: unknown) => {
+      await this.finishSetUp(taskId).catch((error: unknown) => {
         this.logger.error(`The Task ${taskId}'s run environment set-up wasn't read.`, error);
-        return true;
       });
-      if (!setUp) this.landInBackground(taskId, undefined);
-    });
-    this.events.subscribe(PullRequestMerged, ({ taskId, projectId }) => {
-      this.landInBackground(taskId, projectId);
     });
   }
 
@@ -86,18 +79,16 @@ export class ProjectRunEnvironments implements OnModuleInit {
   }
 
   /**
-   * On is refused, with the reasons, unless the base branch, fetched now, has a valid definition.
-   * Projects records the change as made `by`.
+   * On or Off at any time, with no definition checked: each Task's checks read the one on its own
+   * branch. Projects records the change as made `by`.
    */
   async change(
     projectId: string,
-    runEnvironment: Exclude<RunEnvironmentSetting, "not-decided">,
+    runEnvironment: RunEnvironmentSetting,
     by: SettingChangedBy,
   ): Promise<ProjectRunEnvironment> {
     await this.settingOf(projectId);
-    const problems =
-      runEnvironment === "on" ? definitionProblemsOf(await this.freshDefinition(projectId)) : [];
-    await this.settings.change(projectId, runEnvironment, problems, by);
+    await this.settings.change(projectId, runEnvironment, by);
     return this.read(projectId);
   }
 
@@ -108,7 +99,7 @@ export class ProjectRunEnvironments implements OnModuleInit {
   async setUp(projectId: string, by: SignedInUser): Promise<RunEnvironmentSetUp> {
     await this.settingOf(projectId);
     if ((await this.freshDefinition(projectId)).state === "valid") {
-      await this.settings.change(projectId, "on", [], {
+      await this.settings.change(projectId, "on", {
         kind: "user",
         user: { userId: by.userId, name: by.name },
       });
@@ -119,78 +110,19 @@ export class ProjectRunEnvironments implements OnModuleInit {
   }
 
   /**
-   * Whether the Task is a set-up Task, its Done read here.
+   * A set-up Task's Done, read here; any other Task's changes nothing.
    * Read from the Task's own branch: in Push + PR mode it is Done before its pull request merges,
    * so the base branch may not have the definition yet.
    */
-  private async finishSetUp(taskId: string): Promise<boolean> {
+  private async finishSetUp(taskId: string): Promise<void> {
     const task = await this.setUpTasks.setUpTaskOf(taskId);
-    if (!task) return false;
+    if (!task) return;
     const tip = await this.files.taskBranchTip(task.projectId, task.id);
     const problems =
       tip === undefined
         ? [`The Task ${task.title} has no branch to read .devcontainer/ from.`]
         : definitionProblemsOf(await this.definitionAt(task.projectId, tip));
     await this.settings.finishSetUp(task.projectId, problems);
-    return true;
-  }
-
-  /**
-   * In the background, as it fetches and the bus waits for its handlers; caught there, the setting
-   * staying as it was.
-   */
-  private landInBackground(taskId: string, projectId: string | undefined): void {
-    void this.landDefinition(taskId, projectId).catch((error: unknown) => {
-      this.logger.error(`The Task ${taskId}'s run environment definition wasn't read.`, error);
-    });
-  }
-
-  /**
-   * A Not decided yet setting turns On once the Task's change carrying a valid definition landed:
-   * the Task's branch changed the definition since it forked from the base, its tip's is valid,
-   * and the base branch, fetched now, has its files byte for byte. A push-only publish leaves the
-   * base without them, so nothing changes; nor does a definition the Task only inherited, such as
-   * one committed on the base by hand, an invalid one, or an explicit On or Off.
-   */
-  private async landDefinition(taskId: string, given: string | undefined): Promise<void> {
-    const projectId = given ?? (await this.setUpTasks.projectOf(taskId));
-    if (projectId === undefined) return;
-    if ((await this.settings.settingOf(projectId))?.runEnvironment !== "not-decided") return;
-    const tip = await this.files.taskBranchTip(projectId, taskId);
-    if (tip === undefined) return;
-    const atTip = await this.definitionFilesAt(projectId, tip);
-    if (atTip === undefined) return;
-    const base = await this.files.freshBase(projectId);
-    if (!(await this.holds(projectId, base, atTip))) return;
-    const forkPoint = await this.files.taskForkPoint(projectId, taskId, tip, base);
-    if (await this.holds(projectId, forkPoint, atTip)) return;
-    await this.settings.landDefinition(projectId);
-  }
-
-  /** Whether `commit` has each of `files` byte for byte. */
-  private async holds(
-    projectId: string,
-    commit: string,
-    files: ReadonlyMap<string, string>,
-  ): Promise<boolean> {
-    for (const [path, text] of files) {
-      if ((await this.files.textAt(projectId, commit, path)) !== text) return false;
-    }
-    return true;
-  }
-
-  /** The files a valid definition at `commit` is read from, by path; undefined when not valid. */
-  private async definitionFilesAt(
-    projectId: string,
-    commit: string,
-  ): Promise<ReadonlyMap<string, string> | undefined> {
-    const texts = new Map<string, string>();
-    const { reading } = await readDefinitionWith(async (path) => {
-      const text = await this.files.textAt(projectId, commit, path);
-      if (text !== undefined) texts.set(path, text);
-      return text;
-    });
-    return reading.value === undefined || !texts.has(DEFINITION_FILE) ? undefined : texts;
   }
 
   private async settingOf(projectId: string): Promise<ProjectSetting> {

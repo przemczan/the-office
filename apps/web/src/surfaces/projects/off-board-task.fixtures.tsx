@@ -68,7 +68,7 @@ export const PROJECT: Project = {
     people: [],
     standIns: { useOwnList: false, engineIds: [] },
   },
-  runEnvironment: "not-decided",
+  runEnvironment: "off",
   projectLimit: 1,
   addedAt: "2026-11-01T10:00:00.000Z",
   codeHost: null,

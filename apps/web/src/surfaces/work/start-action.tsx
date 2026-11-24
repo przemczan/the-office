@@ -19,7 +19,6 @@ import { useToast } from "../../shell/toasts.tsx";
 import { UsageEstimateLine } from "../../shell/work/usage-estimate-line.tsx";
 import { QueuedMark, useQueueActions, useQueued } from "./queue-parts.tsx";
 import type { RecordAction } from "./record-actions.tsx";
-import { RunEnvironmentNote, useAskedProject } from "./run-environment-question.tsx";
 import { useStartPastUsageCapsAction } from "./start-past-usage-caps.tsx";
 
 interface StartStanding {
@@ -111,32 +110,25 @@ export function useStartActions(task: Task): RecordAction[] {
 
 /**
  * What the Task head says about Start, a line each, nothing with none to say: the Overlaps, what
- * Start would do (spec §2.1, "A queue for Start"), the Usage estimate, then the run environment
- * question while the Project's is Not decided yet; or, for a queued Task, its place and reasons.
+ * Start would do (spec §2.1, "A queue for Start") and the Usage estimate; or, for a queued Task, its
+ * place and reasons.
  */
 export function StartNotes({ task }: { readonly task: Task }): ReactNode {
   const { ready, check, queued, overlaps } = useStartStanding(task);
-  // Asked on a queued Task too: Yes may have queued it behind the set-up it started.
-  const askedRunEnvironment = useAskedProject(task.projectId, ready);
   if (!ready) return null;
   if (queued) {
     return (
       <div className="task-head-notes">
         <QueuedMark queued={queued} />
-        {askedRunEnvironment?.kind === "setting-up" && (
-          <RunEnvironmentNote asked={askedRunEnvironment} />
-        )}
       </div>
     );
   }
-  const checkNotes = check !== undefined && hasNote(check, overlaps);
-  if (!checkNotes && !askedRunEnvironment) return null;
+  if (check === undefined || !hasNote(check, overlaps)) return null;
   return (
     <div className="task-head-notes">
       {overlaps.length > 0 && <OverlapNote overlaps={overlaps} />}
-      {check && <HeldNote check={check} />}
-      {check && <UsageEstimateLine estimate={check.usageEstimate} />}
-      {askedRunEnvironment && <RunEnvironmentNote asked={askedRunEnvironment} />}
+      <HeldNote check={check} />
+      <UsageEstimateLine estimate={check.usageEstimate} />
     </div>
   );
 }

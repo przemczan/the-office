@@ -19,7 +19,7 @@ describe("a Project's features", () => {
       "run-environment": true,
       actions: true,
     });
-    for (const runEnvironment of ["off", "not-decided"] as const) {
+    for (const runEnvironment of ["off"] as const) {
       expect(featureStatesOf(aProject({ runEnvironment }))).toEqual({
         "connected-devices": false,
         "test-targets": true,

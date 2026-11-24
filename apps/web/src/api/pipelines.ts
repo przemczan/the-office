@@ -40,7 +40,7 @@ import {
 import { deleteFromApi, getFromApi, sendToApi } from "./api-client.ts";
 import { OFF_BOARD_TASKS } from "./off-board-tasks.ts";
 import { taskEngineCascadeKey } from "./people.ts";
-import { taskChangesKey, taskRunEnvironmentKey } from "./projects.ts";
+import { taskChangesKey } from "./projects.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 import { PIPELINES_KEY, PROJECT_PIPELINES_KEY, STAGE_TEMPLATES_KEY } from "./pipeline-keys.ts";
 
@@ -407,7 +407,6 @@ function staleTaskStagesAndChanges(event: unknown): readonly (readonly unknown[]
   return [
     taskStagesKey(taskId),
     taskChangesKey(taskId),
-    taskRunEnvironmentKey(taskId),
     commandOutputsKey(taskId),
     OFF_BOARD_TASKS,
   ];

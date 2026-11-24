@@ -28,14 +28,20 @@ export const ENVIRONMENT_CHECK_TOOL_TIMEOUT_MS = 60 * 60_000;
 /** How many of a step's last output lines the answer gives. */
 const OUTPUT_TAIL_LINES = 40;
 
-const DESCRIPTION = `Runs the environment check of a Project and answers when it ends: a fresh worktree, then the install command, then each of the Project's commands in its order, with the Project's saved environment. In a Thread on a Task it checks the head of the Task's branch as committed, in the Task's run environment when the Project has one (in a Stage, first commit your work so far with update_branch); anywhere else it checks the freshly fetched base branch. It changes no setting and no file of yours. It answers each step: its state, its command line, its exit code and the last lines of its output, then whether the check passed. A check of the same branch already running is waited for rather than started again. It installs, so your Run installs Hard switch decides the call: Allowed runs it at once; Ask me or Consult holds it as an approval card, so end your turn: the answer comes as your next message, and after "Allow once" you repeat the same call, word for word, which then runs once; Never refuses it.`;
+const DESCRIPTION = `Runs the environment check of a Project and answers when it ends: a fresh worktree, then the install command, then each of the Project's commands in its order, with the Project's saved environment. Given a Task, from any Thread, it checks the head of that Task's branch as committed; given none, in a Thread on a Task it checks that Task's branch, and anywhere else the freshly fetched base branch. A Task's branch is checked in the Task's run environment, built from the .devcontainer/ on that branch, while the Project's Run environment is On, else on the host (in a Stage, first commit your work so far with update_branch); the base branch always on the host. It changes no setting and no file of yours. It answers each step: its state, its command line, its exit code and the last lines of its output, then whether the check passed. A check of the same branch already running is waited for rather than started again. It installs, so your Run installs Hard switch decides the call: Allowed runs it at once; Ask me or Consult holds it as an approval card, so end your turn: the answer comes as your next message, and after "Allow once" you repeat the same call, word for word, which then runs once; Never refuses it.`;
 
 const input = z.object({
   project: z
     .string()
     .optional()
     .describe(
-      "The Project's id, as list_projects gives it. Required outside a Task; on a Task leave it out, or give the Task's Project.",
+      "The Project's id, as list_projects gives it. Required when no Task is checked; with a Task leave it out, or give the Task's Project.",
+    ),
+  task: z
+    .string()
+    .optional()
+    .describe(
+      "A Task's id, as list_tasks gives it, to check that Task's branch from any Thread. Left out, a Thread on a Task checks its own Task's branch, any other Thread the base branch.",
     ),
   why: z.string().describe("Why you run the check, in a sentence or two."),
 });
@@ -44,8 +50,8 @@ type Input = z.infer<typeof input>;
 
 /**
  * The Office tool that runs a Project's environment check for whoever onboards and repairs
- * Projects (spec §5.5), so they find out whether their setup works: of the Task's branch in a Thread
- * on a Task, else of the base branch. It installs, so the Run installs Hard switch holds it. It waits
+ * Projects (spec §5.5), so they find out whether their setup works: of the given Task's branch, else
+ * of the Thread's Task's branch in a Thread on a Task, else of the base branch. It installs, so the Run installs Hard switch holds it. It waits
  * for the check, which stops when the session does or after `ENVIRONMENT_CHECK_TOOL_TIMEOUT_MS`.
  */
 @Injectable()
@@ -72,18 +78,29 @@ export class EnvironmentCheckOfficeTools implements OnModuleInit {
   private async run(sessionId: string, given: Input): Promise<OfficeToolResult> {
     const thread = await this.threads.findBySession(sessionId);
     if (!thread) return refusal("The Office doesn't know this session's Thread.");
-    const taskId = thread.home.kind === "task" ? thread.home.taskId : undefined;
-    const projectId = await this.projectIdOf(taskId, given.project?.trim());
+    const threadTaskId = thread.home.kind === "task" ? thread.home.taskId : undefined;
+    const givenTaskId = given.task?.trim() || undefined;
+    const taskId = givenTaskId ?? threadTaskId;
+    const projectId = await this.projectIdOf(
+      taskId,
+      given.project?.trim(),
+      givenTaskId !== undefined,
+    );
     if (projectId.kind === "refused") return refusal(projectId.reason);
     try {
       const project = await this.projects.find(projectId.id);
       if (!project) return refusal(`The Office has no Project "${projectId.id}".`);
-      const where = taskId === undefined ? `base branch ${project.baseBranch}` : "Task's branch";
+      const where =
+        taskId === undefined
+          ? `base branch ${project.baseBranch}`
+          : taskId === threadTaskId
+            ? "Task's branch"
+            : `branch of the Task ${taskId}`;
       const outcome = await this.heldCalls.hold({
         sessionId,
         switchKey: "runInstalls",
         call: `Run the environment check of the Project ${project.name} on its ${where}`,
-        context: `${given.why}\n\nThe check makes a fresh worktree of ${project.name}'s ${where}, then runs its install command and each of its commands there, with its saved environment${taskId === undefined ? "" : ", in the Task's run environment when the Project has one"}. It changes no setting.`,
+        context: `${given.why}\n\nThe check makes a fresh worktree of ${project.name}'s ${where}, then runs its install command and each of its commands there, with its saved environment, ${taskId === undefined ? "on the host" : "in the Task's run environment, built from the branch's .devcontainer/, while the Project's Run environment is On, else on the host"}. It changes no setting.`,
         why: given.why,
       });
       if (outcome.kind === "refused") return refusal(outcome.reason);
@@ -102,10 +119,14 @@ export class EnvironmentCheckOfficeTools implements OnModuleInit {
     }
   }
 
-  /** The Project to check: the Task's on a Task, where another one is refused; else the given. */
+  /**
+   * The Project to check: the checked Task's, where another one given is refused; else the given.
+   * `taskGiven` says the Task came from the call rather than the Thread.
+   */
   private async projectIdOf(
     taskId: string | undefined,
     given: string | undefined,
+    taskGiven: boolean,
   ): Promise<{ kind: "found"; id: string } | { kind: "refused"; reason: string }> {
     if (taskId === undefined) {
       return given
@@ -120,7 +141,9 @@ export class EnvironmentCheckOfficeTools implements OnModuleInit {
     if (given && given !== subject.projectId) {
       return {
         kind: "refused",
-        reason: `This Thread is on a Task of the Project ${subject.projectId}: on a Task you check only its Project's Task branch. Leave project out, or check another Project from a Thread on no Task.`,
+        reason: taskGiven
+          ? `The Task ${taskId} is of the Project ${subject.projectId}, not ${given}. Leave project out, or give the Task's Project.`
+          : `This Thread is on a Task of the Project ${subject.projectId}: with no task given you check only this Task's branch. Leave project out, give another Task with task, or check another Project's base branch from a Thread on no Task.`,
       };
     }
     return { kind: "found", id: subject.projectId };

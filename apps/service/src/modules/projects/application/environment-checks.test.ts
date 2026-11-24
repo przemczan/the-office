@@ -88,14 +88,13 @@ afterAll(async () => {
   await repository.remove();
 });
 
-function withSetting(runEnvironment: RunEnvironmentSetting, definitionCarried: boolean): void {
+function withSetting(runEnvironment: RunEnvironmentSetting): void {
   project = { ...project, runEnvironment };
-  runEnvironments.definitionCarried = definitionCarried;
 }
 
 describe("EnvironmentChecks of a Task's branch", REAL_GIT_TEST, () => {
   it("checks the head of the Task's branch on the host when the Run environment is Off", async () => {
-    withSetting("off", true);
+    withSetting("off");
     const ran = runEnvironments.runs.length;
 
     const check = await checks.check(project.id, { taskId: TASK });
@@ -109,8 +108,8 @@ describe("EnvironmentChecks of a Task's branch", REAL_GIT_TEST, () => {
     expect(runEnvironments.runs.length).toBe(ran);
   });
 
-  it("runs in the Task's run environment when Not decided yet and its branch carries a definition", async () => {
-    withSetting("not-decided", true);
+  it("runs in the Task's run environment when the Run environment is On", async () => {
+    withSetting("on");
     const ran = runEnvironments.runs.length;
     const started = runEnvironments.starts.length;
 
@@ -131,7 +130,7 @@ describe("EnvironmentChecks of a Task's branch", REAL_GIT_TEST, () => {
   });
 
   it("waits for the check already running instead of starting another, and stops it on abort", async () => {
-    withSetting("off", false);
+    withSetting("off");
     project = { ...project, commands: startingCommands({ build: SLEEPS, lint: "", test: "" }) };
     let starts = 0;
     const unsubscribe = events.subscribe(EnvironmentCheckStarted, () => void (starts += 1));
@@ -150,7 +149,7 @@ describe("EnvironmentChecks of a Task's branch", REAL_GIT_TEST, () => {
   });
 
   it("leaves a check it joined running when its own signal aborts, answering it as it stands", async () => {
-    withSetting("off", false);
+    withSetting("off");
     project = { ...project, commands: startingCommands({ build: SLEEPS, lint: "", test: "" }) };
     const starter = new AbortController();
     const joiner = new AbortController();
@@ -165,5 +164,18 @@ describe("EnvironmentChecks of a Task's branch", REAL_GIT_TEST, () => {
     await expect(checks.start(project.id, { taskId: TASK })).rejects.toThrow(/already running/);
     starter.abort();
     expect((await started).state).toBe("stopped");
+  });
+
+  it("refuses to start a check of a Task whose branch the Project's repository doesn't have", async () => {
+    withSetting("off");
+    let starts = 0;
+    const unsubscribe = events.subscribe(EnvironmentCheckStarted, () => void (starts += 1));
+    const elsewhere = "7b2d4f60-1c3e-4a5b-8d7f-9e0a1b2c3d4e";
+
+    await expect(checks.start(project.id, { taskId: elsewhere })).rejects.toThrow(
+      `The Task ${elsewhere} has no branch in the Project "${project.name}": check a Task of this Project once it has started.`,
+    );
+    unsubscribe();
+    expect(starts).toBe(0);
   });
 });

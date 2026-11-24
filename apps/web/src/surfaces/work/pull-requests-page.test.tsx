@@ -92,7 +92,7 @@ function aProject(id: string, name: string): Project {
       people: [],
       standIns: { useOwnList: false, engineIds: [] },
     },
-    runEnvironment: "not-decided",
+    runEnvironment: "off",
     features: {
       "connected-devices": false,
       "test-targets": true,

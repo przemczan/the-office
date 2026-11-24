@@ -1,9 +1,21 @@
-import { Controller, Get, HttpCode, HttpStatus, Param, Post, UseFilters } from "@nestjs/common";
-import type {
-  CommandRun as CommandRunResponse,
-  EnvironmentCheck as EnvironmentCheckResponse,
-  LatestEnvironmentCheck,
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  UseFilters,
+} from "@nestjs/common";
+import {
+  environmentCheckStartSchema,
+  type CommandRun as CommandRunResponse,
+  type EnvironmentCheck as EnvironmentCheckResponse,
+  type EnvironmentCheckStart,
+  type LatestEnvironmentCheck,
 } from "@the-office/contracts";
+import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { EnvironmentChecks } from "../../application/environment-checks.js";
 import type { Check, CheckedCommandRun, EnvironmentCheck } from "../../domain/environment-check.js";
 import { ProjectRefusalsFilter } from "./project-refusals.filter.js";
@@ -20,11 +32,22 @@ export class EnvironmentChecksController {
     return { check: check ? toEnvironmentCheckResponse(check) : null };
   }
 
-  /** Answers as soon as the check starts; its progress reaches the web as events. */
+  /**
+   * Answers as soon as the check starts; its progress reaches the web as events. With a Task in the
+   * body it checks that Task's branch, in its run environment while the Project's is On; with none,
+   * or no body, the base branch on the host.
+   */
   @Post()
   @HttpCode(HttpStatus.ACCEPTED)
-  async start(@Param("id") id: string): Promise<EnvironmentCheckResponse> {
-    return toEnvironmentCheckResponse(await this.environmentChecks.start(id));
+  async start(
+    @Param("id") id: string,
+    @Body(new ContractPipe(environmentCheckStartSchema.optional()))
+    body: EnvironmentCheckStart | undefined,
+  ): Promise<EnvironmentCheckResponse> {
+    const taskId = body?.taskId;
+    return toEnvironmentCheckResponse(
+      await this.environmentChecks.start(id, taskId === undefined ? {} : { taskId }),
+    );
   }
 }
 

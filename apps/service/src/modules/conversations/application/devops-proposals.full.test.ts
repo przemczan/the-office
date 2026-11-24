@@ -401,8 +401,8 @@ describe("Devops' Proposals, through the scripted engine", () => {
       name,
       path: repository,
       defaultPipeline: "quick-fix",
-      // Asked at its first Start: the Proposal carries no answer.
-      runEnvironment: "not-decided",
+      // The Proposal carries no answer, so it is added Off.
+      runEnvironment: "off",
     });
     const task = taskSchema.parse(await chat.read(`/tasks/${change.taskId}`));
     expect(task).toMatchObject({
@@ -456,7 +456,7 @@ describe("Devops' Proposals, through the scripted engine", () => {
     expect(change.features).toHaveLength(3);
     const project = projectSchema.parse(await chat.read(`/projects/${change.projectId}`));
     expect(project.features).toEqual({
-      // Proposed on, and stored, but read off while the Project's Run environment is not decided.
+      // Proposed on, and stored, but read off while the Project's Run environment is Off.
       "connected-devices": false,
       // Off as proposed, where a Project added without them reads them on.
       "test-targets": false,

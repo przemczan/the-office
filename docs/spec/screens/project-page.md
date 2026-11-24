@@ -353,15 +353,15 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
 
 ## Run environment
 
-- Card **Run environment** (container icon); the badge **Not decided yet** while no setting has been picked.
-- Text: "With Run environment On, the Project's checks run in the containers its .devcontainer/ defines; until then they run on this computer."
-- A row **Run environment** with an **On** / **Off** segmented control, saved at once; toasts "Checks in <name> run in its run environment." or "Checks in <name> run on this computer."
+- Card **Run environment** (container icon).
+- Text: "With Run environment On, each Task's checks run in the containers the .devcontainer/ on its branch defines; Off, they run on this computer."
+- A row **Run environment** with an **On** / **Off** segmented control, saved at once whatever the base branch holds ([2.3.1](../2.3.1-stages.md#script-stages-in-the-run-environment)); toasts "Checks in <name> run in its run environment." or "Checks in <name> run on this computer."
 - A row **.devcontainer/** with the badge **Valid** (success), **Not valid** (warning) or **Not found**, "on <base branch>, as last fetched"; a not valid definition lists each problem.
 - After a "Set up the run environment" Task was Done but its `.devcontainer/` isn't valid: "The last Off-board Task was Done, but the .devcontainer/ on its branch isn't valid, so Run environment stayed as it was:" with the problems.
 - **Set up run environment** (wrench icon): shown unless it is On with a valid definition; note "With a valid .devcontainer/ on the base branch it turns On at once; otherwise Devops writes one in an Off-board Task that starts now." ([2.1.3](../2.1.3-tasks.md#setting-up-the-run-environment)). Toasts: "Run environment is On: <name>'s .devcontainer/ is valid.", "<Person> is setting up <Project>'s run environment." or "<title> is queued, place N: <reasons>."; a refused start shows **Nothing was set up** with the reasons.
 - With an open "Set up the run environment" Task, the button is replaced by that Task as [Following an Off-board Task](#following-an-off-board-task) shows it, with "Run environment turns On when it is Done." while Queued or Running.
 - Once that Task is Done and Run environment is On with a valid definition: the success alert "Run environment is On: <name>'s .devcontainer/ is valid." over "Set up in the Off-board Task <title> · Done on <day> · <N> tokens", the title a link to the Task.
-- A refused change shows the service's reasons under the block (a refused On shows why).
+- A refused change shows the service's reasons under the block.
 
 ## Devices
 
@@ -638,12 +638,12 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
   - **Connected devices**, hint "Devices connected to a Task or kept for the Project.";
   - **Test targets**, hint "What can be launched on an Initiative's branch to try the work.";
   - **GitHub issues**, hint "Import issues as Tasks and write back to them.";
-  - **Run environment**, hint "Checks run in the containers .devcontainer/ defines."; it shows and writes the Project's Run environment setting ([Run environment](#run-environment)), "Not decided" showing as off;
+  - **Run environment**, hint "Checks run in the containers .devcontainer/ defines."; it shows and writes the Project's Run environment setting, turned On or Off at once whatever the base branch holds ([Run environment](#run-environment)); while Off, an open "Set up the run environment" Task shows under it, "Run environment turns On when it is Done.";
   - **Actions**, hint "Things to run on demand, outside the Task queue."; on unless set.
 - A switch whose needed feature is off is disabled, saying "Needs Run environment".
 - Turning one off turns off the features that need it; a refused change shows the service's reasons under the block.
 - The tab sits before Appearance.
-- A switched-off feature's tab (GitHub issues, Run environment, Devices, Test targets, Actions) is gone from the tabs; Run environment's only while it is Off, so Not decided yet still shows its tab.
+- A switched-off feature's tab (GitHub issues, Run environment, Devices, Test targets, Actions) is gone from the tabs; Run environment's while it is Off.
   - Devices' tab is gone only while Run environment is On and Connected devices are switched off; while Run environment isn't On the section shows, saying it needs Run environment On ([Devices](#devices)).
   - Its address shows a note, "GitHub issues are switched off for <name>.", "Run environment is switched off for <name>.", "Connected devices are switched off for <name>.", "Test targets are switched off for <name>." or "Actions are switched off for <name>.", with a link to Features; it doesn't redirect.
 

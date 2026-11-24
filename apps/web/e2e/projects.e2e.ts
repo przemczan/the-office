@@ -1961,10 +1961,18 @@ function runEnvironmentBlock(page: Page): Locator {
   return page.locator(".project-section");
 }
 
+/** Turns the Project's Run environment On or Off as its block's switch does. */
+async function switchRunEnvironment(page: Page, projectId: string, setting: "on" | "off") {
+  const changed = await page.request.put(`/api/projects/${projectId}/run-environment`, {
+    data: { runEnvironment: setting },
+  });
+  expect(changed.status(), await changed.text()).toBe(200);
+}
+
 // Set up run environment without a valid .devcontainer/ starts an Off-board Task, whose session
 // takes a script, so pressing it is people.e2e.ts's, as is Add a Project's Yes on such a repository.
 test(
-  "Run environment starts Not decided yet, refuses On without .devcontainer/, and offers to set up one that isn't valid",
+  "Run environment starts Off with its tab hidden, turns On with no .devcontainer/ on the base branch, and offers to set up one that isn't valid",
   { tag: "@full" },
   async ({ page }) => {
     const ownRepository = await createTemporaryRepository();
@@ -1975,32 +1983,33 @@ test(
         undefined,
         ownRepository.path,
       );
-      expect(project.runEnvironment).toBe("not-decided");
+      expect(project.runEnvironment).toBe("off");
       await page.goto(`/projects/${project.id}/run-environment`);
-      const block = runEnvironmentBlock(page);
-      await expect(block.getByText("Not decided yet")).toBeVisible();
-      await expect(block.getByText("Not found")).toBeVisible();
+      await expect(
+        page.getByText(`Run environment is switched off for «${project.name}».`),
+      ).toBeVisible();
 
-      await block.getByRole("tab", { name: "On" }).click();
-      await expect(block.getByRole("alert")).toContainText(
-        "Run environment can't be On: the base branch main has no valid .devcontainer/.",
+      await switchRunEnvironment(page, project.id, "on");
+      await page.reload();
+      const block = runEnvironmentBlock(page);
+      await expect(block.getByRole("tab", { name: "On" })).toHaveAttribute("aria-selected", "true");
+      await expect(block.getByText("Not found")).toBeVisible();
+      await expect(block).toContainText(
+        "each Task's checks run in the containers the .devcontainer/ on the Task's own branch defines",
       );
-      await expect(block.getByRole("alert")).toContainText(
-        "The repository has no .devcontainer/devcontainer.json.",
-      );
-      await expect(block.getByText("Not decided yet")).toBeVisible();
+      await expect(block.getByText("Not decided yet")).toHaveCount(0);
+      await expect(block.getByRole("alert")).toHaveCount(0);
 
       await block.getByRole("tab", { name: "Off" }).click();
       await expect(page.getByText(`Checks in ${project.name} run on this computer.`)).toBeVisible();
-      await expect(block.getByRole("tab", { name: "Off" })).toHaveAttribute(
-        "aria-selected",
-        "true",
-      );
-      await expect(block.getByText("Not decided yet")).toHaveCount(0);
+      await expect(
+        page.getByText(`Run environment is switched off for «${project.name}».`),
+      ).toBeVisible();
 
       await commitFiles(ownRepository, {
         ".devcontainer/devcontainer.json": '{ "dockerComposeFile": "compose.yaml" }',
       });
+      await switchRunEnvironment(page, project.id, "on");
       await page.reload();
       await expect(block.getByText("Not valid")).toBeVisible();
       await expect(block.getByText("devcontainer.json names no service")).toBeVisible();
@@ -2012,42 +2021,30 @@ test(
 );
 
 test(
-  "Set up run environment turns On at once with a valid .devcontainer/ on the base branch",
+  "Features' Run environment switch turns it On at once, with no .devcontainer/ on the base branch",
   { tag: "@full" },
   async ({ page }) => {
-    const ownRepository = await createTemporaryRepository();
-    try {
-      await commitFiles(ownRepository, VALID_RUN_ENVIRONMENT);
-      const project = await addedProject(
-        page,
-        "Run environment at once",
-        undefined,
-        ownRepository.path,
-      );
-      await page.goto(`/projects/${project.id}/run-environment`);
-      const block = runEnvironmentBlock(page);
-      await expect(block.getByText("Valid", { exact: true })).toBeVisible();
+    const project = await addedProject(page, "Run environment at once");
+    await page.goto(`/projects/${project.id}/features`);
+    await page
+      .getByRole("group", { name: "Run environment", exact: true })
+      .getByRole("switch")
+      .click();
 
-      await block.getByRole("button", { name: "Set up run environment" }).click();
-
-      await expect(page.getByText(/Run environment is On/)).toBeVisible();
-      await expect(block.getByRole("tab", { name: "On" })).toHaveAttribute("aria-selected", "true");
-      await expect(block.getByRole("button", { name: "Set up run environment" })).toHaveCount(0);
-      await expect(
-        block.getByRole("region", { name: /^Set up the run environment · / }),
-      ).toHaveCount(0);
-    } finally {
-      await ownRepository.remove();
-    }
+    await expect(page.getByText(/run in its run environment\./)).toBeVisible();
+    await page.goto(`/projects/${project.id}/run-environment`);
+    const block = runEnvironmentBlock(page);
+    await expect(block.getByRole("tab", { name: "On" })).toHaveAttribute("aria-selected", "true");
+    await expect(block.getByRole("button", { name: "Set up run environment" })).toBeVisible();
   },
 );
 
 /**
  * Adds a Project from the folder in the window, answering its run environment question, which
- * starts at Decide later.
+ * starts at No.
  */
 test(
-  "Add a Project asks about a run environment: Yes turns a valid one On, No sets Off, Decide later leaves it",
+  "Add a Project asks about a run environment: Yes turns a valid one On, No leaves it Off",
   { tag: "@full" },
   async ({ page }) => {
     const withDefinition = await createTemporaryRepository();
@@ -2055,26 +2052,12 @@ test(
       await commitFiles(withDefinition, VALID_RUN_ENVIRONMENT);
       const block = runEnvironmentBlock(page);
 
-      const later = await addAnswering(
-        page,
-        "Run environment later",
-        repository.path,
-        "Decide later",
-      );
-      expect(later.runEnvironment).toBe("not-decided");
-      await page.goto(`/projects/${later.id}/run-environment`);
-      await expect(block.getByText("Not decided yet")).toBeVisible();
-      await expect(
-        block.getByRole("region", { name: /^Set up the run environment · / }),
-      ).toHaveCount(0);
-
       const off = await addAnswering(page, "Run environment no", repository.path, "No");
       expect(off.runEnvironment).toBe("off");
       await page.goto(`/projects/${off.id}/run-environment`);
-      await expect(block.getByRole("tab", { name: "Off" })).toHaveAttribute(
-        "aria-selected",
-        "true",
-      );
+      await expect(
+        page.getByText(`Run environment is switched off for «${off.name}».`),
+      ).toBeVisible();
 
       const on = await addAnswering(
         page,
@@ -2099,13 +2082,15 @@ test(
   { tag: "@full" },
   async ({ page }) => {
     const project = await addedProject(page, "Menu sections");
+    // A new Project's Run environment is Off, which hides its tab.
+    const shown = SECTIONS.filter(({ name }) => name !== "Run environment");
     await page.goto(`/projects/${project.id}`);
     await expect(projectTabs(page).getByRole("tab")).toHaveText(
-      SECTIONS.map((section) => section.name),
+      shown.map((section) => section.name),
     );
 
     // Overview last, as it opens first and its tab must also come back from a section.
-    for (const section of [...SECTIONS.slice(1), SECTIONS[0]!]) {
+    for (const section of [...shown.slice(1), shown[0]!]) {
       await projectTabs(page).getByRole("tab", { name: section.name, exact: true }).click();
       await expect(page).toHaveURL(`/projects/${project.id}${section.address}`);
       await expectOpenSection(page, project, section);

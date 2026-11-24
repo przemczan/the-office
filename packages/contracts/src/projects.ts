@@ -55,10 +55,10 @@ export const publishingModeSchema = z.enum(["push-and-pull-request", "merge"]);
 export type PublishingMode = z.infer<typeof publishingModeSchema>;
 
 /**
- * Whether the Project's checks run in its run environment: "not-decided" until the user picks On or
- * Off, and run on the host meanwhile.
+ * Whether a Task's checks run in its run environment, built from the .devcontainer/ on the Task's
+ * own branch ("on"), or on the host ("off"). It switches either way at any time.
  */
-export const runEnvironmentSettingSchema = z.enum(["not-decided", "on", "off"]);
+export const runEnvironmentSettingSchema = z.enum(["on", "off"]);
 export type RunEnvironmentSetting = z.infer<typeof runEnvironmentSettingSchema>;
 
 /** The design system's ramps offered as a Project mark's quick choices. */
@@ -111,15 +111,15 @@ export const newProjectSchema = z.object({
 export type NewProject = z.infer<typeof newProjectSchema>;
 
 /**
- * The answer to "Run this Project's checks in a run environment?", asked once while the setting is
- * "not-decided": "yes" acts as Set up run environment, "no" sets Off, "decide-later" leaves it.
+ * The Add a Project window's answer to "Run this Project's checks in a run environment?": "yes" acts
+ * as Set up run environment, "no" leaves it Off.
  */
-export const runEnvironmentAnswerSchema = z.enum(["yes", "no", "decide-later"]);
+export const runEnvironmentAnswerSchema = z.enum(["yes", "no"]);
 export type RunEnvironmentAnswer = z.infer<typeof runEnvironmentAnswerSchema>;
 
 /** The Add a Project window's request (POST /projects): the Project and the window's answers. */
 export const addProjectSchema = newProjectSchema.extend({
-  /** Left out, "decide-later". */
+  /** Left out, "no". */
   runEnvironmentAnswer: runEnvironmentAnswerSchema.optional(),
 });
 export type AddProject = z.infer<typeof addProjectSchema>;
@@ -729,6 +729,13 @@ export const environmentCheckSchema = z.object({
 });
 export type EnvironmentCheck = z.infer<typeof environmentCheckSchema>;
 
+/**
+ * POST /projects/:id/environment-check's body: the Task whose branch it checks, in the Task's run
+ * environment while the Project's is On; left out, the base branch on the host.
+ */
+export const environmentCheckStartSchema = z.object({ taskId: z.uuid().optional() });
+export type EnvironmentCheckStart = z.infer<typeof environmentCheckStartSchema>;
+
 /** GET /projects/:id/environment-check: the running check, or the last finished one. */
 export const latestEnvironmentCheckSchema = z.object({ check: environmentCheckSchema.nullable() });
 export type LatestEnvironmentCheck = z.infer<typeof latestEnvironmentCheckSchema>;
@@ -937,19 +944,6 @@ export const taskChangesSchema = z.object({
   diffCut: z.boolean(),
 });
 export type TaskChanges = z.infer<typeof taskChangesSchema>;
-
-/**
- * GET /projects/:id/tasks/:taskId/run-environment: where the Task's commands run, as the Task page
- * says it.
- */
-export const taskRunEnvironmentSchema = z.object({
-  /**
-   * True only while the Project's Run environment is Not decided yet and the Task's worktree carries
-   * a valid definition, so its commands run in its own run environment; false under On or Off.
-   */
-  carriesDefinition: z.boolean(),
-});
-export type TaskRunEnvironment = z.infer<typeof taskRunEnvironmentSchema>;
 
 /** The Project settings whose changes are recorded (spec §6, "Project settings by Agents"). */
 export const projectSettingSchema = z.enum([

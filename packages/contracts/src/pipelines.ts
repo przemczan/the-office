@@ -188,11 +188,6 @@ export const stageCommandRunSchema = z.object({
    * leads to, or null for End. Absent for any other command.
    */
   condition: z.object({ to: z.string().nullable() }).optional(),
-  /**
-   * True when it ran in the Task's run environment only because the Task's branch carries the
-   * definition, the Project's Run environment being Not decided yet; absent otherwise.
-   */
-  inCarriedRunEnvironment: z.literal(true).optional(),
 });
 
 /**

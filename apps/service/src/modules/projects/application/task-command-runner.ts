@@ -49,8 +49,8 @@ export interface TaskCommand {
 
 /**
  * Runs a Task's Project commands where the Project's Run environment setting says (spec §5.5): in
- * the Task's run environment when it is On, or Not decided yet and the worktree carries a valid
- * definition; on the host otherwise, an explicit Off always.
+ * the Task's run environment, built from the definition on the Task's own branch, when it is On;
+ * on the host when it is Off, but for the Project's own "Set up the run environment" Task.
  */
 @Injectable()
 export class TaskCommandRunner {
@@ -61,30 +61,18 @@ export class TaskCommandRunner {
     private readonly officeData: OfficeDataDirectory,
   ) {}
 
-  /** Whether the Task's commands in `worktree` run in its run environment; decided only here. */
-  async usesRunEnvironment(project: Project, worktree: string): Promise<boolean> {
-    switch (project.runEnvironment) {
-      case "on":
-        return true;
-      case "off":
-        return false;
-      case "not-decided":
-        return this.runEnvironments.carriesDefinition(worktree);
-    }
-  }
-
   /**
-   * Whether the Task's commands run in its run environment only because its worktree carries a
-   * valid definition, the Project's setting being Not decided yet; never under On or Off.
+   * Whether the Task's commands run in its run environment; decided only here. On always, Off
+   * never, but for the Project's "Set up the run environment" Task, which runs in the one it sets
+   * up even while Off, so its checks prove the definition it writes.
    */
-  async runsInCarriedRunEnvironment(project: Project, worktree: string): Promise<boolean> {
-    return (
-      project.runEnvironment === "not-decided" && (await this.usesRunEnvironment(project, worktree))
-    );
+  async usesRunEnvironment(project: Project, taskId: string): Promise<boolean> {
+    if (project.runEnvironment === "on") return true;
+    return this.runEnvironments.setsUpRunEnvironment(taskId);
   }
 
   async placeOf(project: Project, taskId: string, worktree: string): Promise<CommandPlace> {
-    if (!(await this.usesRunEnvironment(project, worktree))) return { kind: "host" };
+    if (!(await this.usesRunEnvironment(project, taskId))) return { kind: "host" };
     return {
       kind: "run-environment",
       image: await this.runEnvironments.imageOf(
@@ -109,7 +97,7 @@ export class TaskCommandRunner {
     }: TaskCommand,
   ): Promise<CommandRun> {
     const environment = withVariables(project.environment, variables);
-    if (!(await this.usesRunEnvironment(project, worktree))) {
+    if (!(await this.usesRunEnvironment(project, taskId))) {
       return this.host.run({
         commandLine,
         folder: worktree,
@@ -146,7 +134,7 @@ export class TaskCommandRunner {
     taskId: string,
     worktree: string,
   ): Promise<readonly string[]> {
-    if (!(await this.usesRunEnvironment(project, worktree))) return [RUN_ENVIRONMENT_NOT_USED];
+    if (!(await this.usesRunEnvironment(project, taskId))) return [RUN_ENVIRONMENT_NOT_USED];
     return this.runEnvironments.start(await this.taskInRunEnvironment(project, taskId, worktree));
   }
 

@@ -48,7 +48,6 @@ class WorktreeGit extends RepositoryFiles {
   lastFetchedBase = notUsed;
   freshBase = notUsed;
   taskBranchTip = notUsed;
-  taskForkPoint = notUsed;
   textAt = notUsed;
 }
 

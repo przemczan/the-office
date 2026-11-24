@@ -89,7 +89,7 @@ export class ProjectProposals implements OnModuleInit {
 
 /**
  * The switches as proposed, stored as they are: Connected devices proposed on is stored on while
- * the new Project's Run environment is not decided yet, and reads on once it is On.
+ * the new Project's Run environment is Off, and reads on once it is On.
  */
 function switchesOf(features: ProposedFeatureSwitches): ProjectFeatureSwitches {
   return Object.fromEntries(

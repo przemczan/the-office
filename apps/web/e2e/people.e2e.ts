@@ -3818,11 +3818,6 @@ async function runEnvironmentOf(page: Page, projectId: string): Promise<Project[
   return projectSchema.parse(await read.json()).runEnvironment;
 }
 
-/** The run environment question in the Task head, beside Start. */
-function startQuestion(page: Page): Locator {
-  return page.locator(".task-head").getByRole("group", { name: "Run environment" });
-}
-
 /** What a parked Off-board Task's session says first in `sessions.jsonl`, before it waits. */
 const PARKED_OFF_BOARD_TASK_WORDS = "I am reading the repository's manifests.";
 
@@ -3868,7 +3863,7 @@ async function dropParkedOffBoardTask(
 }
 
 test(
-  "Start asks about a Not decided yet run environment, starts on this computer without an answer, and No ends the asking",
+  "Start asks nothing about the run environment: a new Project's is Off and its checks run on this computer",
   { tag: "@full" },
   async ({ page }) => {
     const repository = await createTemporaryRepository();
@@ -3876,95 +3871,31 @@ test(
       const project = await addedProject(
         page,
         repository,
-        "Asked at Start",
+        "Starts on this computer",
         "AA",
         PASSING_COMMANDS,
       );
+      expect(await runEnvironmentOf(page, project.id)).toBe("off");
       const start = page.getByRole("button", { name: "Start", exact: true });
-      const question = startQuestion(page);
 
-      const unanswered = await readyTask(page, project.id, "Starts with no answer");
-      await seedBuildOnly(page, unanswered);
-      await page.goto(`/tasks/${unanswered}`);
-      await expect(question).toContainText("Run this Project's checks in a run environment?");
+      const taskId = await readyTask(page, project.id, "Starts with no question");
+      await seedBuildOnly(page, taskId);
+      await page.goto(`/tasks/${taskId}`);
       await expect(start).toBeEnabled();
-      await page.screenshot({
-        path: path.join(SCREENSHOTS, "light-1600-start-run-environment.png"),
-      });
+      await expect(
+        page.locator(".task-head").getByRole("group", { name: "Run environment" }),
+      ).toHaveCount(0);
+      await expect(page.locator(".task-head")).not.toContainText(
+        "Run this Project's checks in a run environment?",
+      );
       await start.click();
-      await expect(question).toHaveCount(0);
       // Build ran on this computer and passed, and the walk asks before the Task can end.
       const needsYou = page.getByRole("region", { name: "Needs you" });
       await needsYou.getByRole("button", { name: "Mark the Task Done" }).click();
       await expect(needsYou).toContainText("Nothing needs you: this Task is Done.");
-      expect(await runEnvironmentOf(page, project.id)).toBe("not-decided");
-
-      const answered = await readyTask(page, project.id, "Asked again at Start");
-      await page.goto(`/tasks/${answered}`);
-      await expect(question).toBeVisible();
-      await question.getByRole("button", { name: "No", exact: true }).click();
-      await expect(page.getByText(`Checks in ${project.name} run on this computer.`)).toBeVisible();
-      await expect(question).toHaveCount(0);
       expect(await runEnvironmentOf(page, project.id)).toBe("off");
-
-      const never = await readyTask(page, project.id, "Never asked again");
-      await page.goto(`/tasks/${never}`);
-      await expect(page.locator(".task-head").getByText("Never asked again")).toBeVisible();
-      await expect(start).toBeVisible();
-      await expect(question).toHaveCount(0);
     } finally {
       await repository.remove();
-    }
-  },
-);
-
-test(
-  "Yes at Start sets up the run environment: in a Task without .devcontainer/, at once with one",
-  { tag: "@full" },
-  async ({ page }) => {
-    const bare = await createTemporaryRepository();
-    const defined = await createTemporaryRepository();
-    let toSetUp: Project | undefined;
-    try {
-      await commitFiles(defined, {
-        ".devcontainer/devcontainer.json":
-          '{ "dockerComposeFile": "compose.yaml", "service": "app" }',
-        ".devcontainer/compose.yaml": "services:\n  app:\n    image: node:22\n",
-      });
-      const question = startQuestion(page);
-
-      toSetUp = await addedProject(page, bare, "Set up at Start", "SS", PASSING_COMMANDS);
-      await page.goto(`/tasks/${await readyTask(page, toSetUp.id, "Asks to set one up")}`);
-      await question.getByRole("button", { name: "Yes", exact: true }).click();
-      // Yes starts the Off-board Task at once; the head says who sets it up, or its queue place,
-      // and links to the Project's Run environment.
-      const settingUp = page
-        .locator(".task-head")
-        .getByRole("status")
-        .filter({
-          hasText: /(is setting up .+’s run environment|is queued, place \d+)/,
-        });
-      await expect(settingUp).toBeVisible();
-      await expect(
-        settingUp.getByRole("link", { name: `${toSetUp.name}’s Run environment` }),
-      ).toHaveAttribute("href", `/projects/${toSetUp.id}/run-environment`);
-      // The set-up Task is the answer until it is Done, so neither Task asks again meanwhile.
-      await expect(question).toHaveCount(0);
-      expect(await runEnvironmentOf(page, toSetUp.id)).toBe("not-decided");
-      await page.reload();
-      await expect(page.locator(".task-head").getByText("Asks to set one up")).toBeVisible();
-      await expect(question).toHaveCount(0);
-
-      const atOnce = await addedProject(page, defined, "On at Start", "OS", PASSING_COMMANDS);
-      await page.goto(`/tasks/${await readyTask(page, atOnce.id, "Turns it On")}`);
-      await question.getByRole("button", { name: "Yes", exact: true }).click();
-      await expect(page.getByText(/Run environment is On/)).toBeVisible();
-      await expect(question).toHaveCount(0);
-      expect(await runEnvironmentOf(page, atOnce.id)).toBe("on");
-    } finally {
-      if (toSetUp) await dropParkedOffBoardTask(page, toSetUp.id, "runEnvironmentSetUp");
-      await bare.remove();
-      await defined.remove();
     }
   },
 );
@@ -3983,6 +3914,11 @@ test(
         ".devcontainer/devcontainer.json": '{ "dockerComposeFile": "compose.yaml" }',
       });
       fromThePage = await addedProject(page, invalid, "Set up from the page", "SP");
+      // Off hides the Run environment tab; On needs no valid .devcontainer/ on the base branch.
+      const on = await page.request.put(`/api/projects/${fromThePage.id}/run-environment`, {
+        data: { runEnvironment: "on" },
+      });
+      expect(on.status(), await on.text()).toBe(200);
       await page.goto(`/projects/${fromThePage.id}/run-environment`);
       const block = page.locator(".section-body");
       await expect(block.getByText("Not valid")).toBeVisible();
@@ -4000,13 +3936,12 @@ test(
       await dropParkedOffBoardTask(page, fromThePage.id, "runEnvironmentSetUp");
 
       fromAdding = await addAnswering(page, "Set up from Add a Project", bare.path, "Yes");
-      expect(fromAdding.runEnvironment).toBe("not-decided");
-      await page.goto(`/projects/${fromAdding.id}/run-environment`);
-      await expect(
-        page
-          .locator(".section-body")
-          .getByRole("region", { name: /^Set up the run environment · / }),
-      ).toBeVisible();
+      // Off until the set-up Task is Done, so its tab is hidden: Features' row names that Task.
+      expect(fromAdding.runEnvironment).toBe("off");
+      await page.goto(`/projects/${fromAdding.id}/features`);
+      await expect(page.getByRole("group", { name: "Run environment", exact: true })).toContainText(
+        "Being set up in the Task Set up the run environment",
+      );
     } finally {
       if (fromThePage) await dropParkedOffBoardTask(page, fromThePage.id, "runEnvironmentSetUp");
       if (fromAdding) await dropParkedOffBoardTask(page, fromAdding.id, "runEnvironmentSetUp");

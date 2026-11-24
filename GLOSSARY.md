@@ -522,7 +522,7 @@ Making a Project build and test in a fresh worktree on the workstation, done by 
 _Avoid_: Setup, initialization, provisioning
 
 **Run environment**:
-A Project's containers, defined by its repository's `.devcontainer/` (devcontainer.json and the compose files it names), that its checks run in when the Project's Run environment setting is On. The setting is "Not decided yet" until the user picks On or Off, the checks running on the workstation meanwhile except a Task whose branch carries a valid definition, which runs in its own run environment and turns the setting On once that definition lands on the base branch; On needs a valid definition on the base branch. "Set up run environment" turns it On at once when there is one, else makes and starts the Project's "Set up the run environment" Off-board Task, in which Devops writes it with The Office's `write_run_environment_definition`, which checks it first, and its Done turns the setting On.
+A Project's containers, defined by its repository's `.devcontainer/` (devcontainer.json and the compose files it names), that its checks run in when the Project's Run environment setting is On; Off, the default, they run on the workstation. A Task's run environment is built from the `.devcontainer/` on the Task's own branch, and a Task whose branch has no valid one fails its Stage while the setting is On. "Set up run environment" turns it On at once when there is one, else makes and starts the Project's "Set up the run environment" Off-board Task, in which Devops writes it with The Office's `write_run_environment_definition`, which checks it first, and its Done turns the setting On.
 _Avoid_: dev container, sandbox
 
 **CPU limit**:

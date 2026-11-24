@@ -83,6 +83,7 @@ export class EnvironmentChecks implements BeforeApplicationShutdown {
    */
   async start(projectId: string, options: EnvironmentCheckOptions = {}): Promise<EnvironmentCheck> {
     const project = await this.projects.read(projectId);
+    if (options.taskId !== undefined) await this.refuseWithoutBranch(project, options.taskId);
     // Nothing is awaited from here until the check is held, so two starts can't both pass.
     if (this.running.has(keyOf(projectId, options))) {
       throw new ProjectRefused([
@@ -147,6 +148,19 @@ export class EnvironmentChecks implements BeforeApplicationShutdown {
     await Promise.all(running.map((each) => each.done));
   }
 
+  /**
+   * Refuses a Task whose branch the Project's repository doesn't have: one of another Project, one
+   * not started yet, or no Task at all (Work's lookup throws for it).
+   */
+  private async refuseWithoutBranch(project: Project, taskId: string): Promise<void> {
+    const tip = await this.worktrees.taskBranchTip(project, taskId).catch(() => undefined);
+    if (tip === undefined) {
+      throw new ProjectRefused([
+        `The Task ${taskId} has no branch in the Project "${project.name}": check a Task of this Project once it has started.`,
+      ]);
+    }
+  }
+
   /** Holds a new check and runs it in the background. */
   private begin(project: Project, options: EnvironmentCheckOptions): RunningCheck {
     const key = keyOf(project.id, options);
@@ -208,7 +222,7 @@ export class EnvironmentChecks implements BeforeApplicationShutdown {
       running.inRunEnvironment =
         worktree !== undefined &&
         taskId !== undefined &&
-        (await this.taskCommands.usesRunEnvironment(project, worktree.path));
+        (await this.taskCommands.usesRunEnvironment(project, taskId));
       if (worktree && (await this.install(project, worktree, running))) {
         for (const check of running.check.checks) {
           if (check.step !== "command" || check.state === "skipped") continue;

@@ -256,29 +256,6 @@ describe("stageHistoryWords", () => {
     expect(words).not.toContain("/var/lib/the-office");
   });
 
-  it("says a command ran in the Task's run environment when its branch carries the definition, and nothing of the kind otherwise", () => {
-    const carried = stageHistoryWords(
-      stages,
-      [
-        aStageRun({
-          stageKey: "tests",
-          commandRuns: [aCommand({ inCarriedRunEnvironment: true })],
-        }),
-      ],
-      NO_THREADS,
-    );
-    const elsewhere = stageHistoryWords(
-      stages,
-      [aStageRun({ stageKey: "tests", commandRuns: [aCommand()] })],
-      NO_THREADS,
-    );
-
-    expect(carried).toContain(
-      "Runs in this Task's run environment (its branch carries the definition).",
-    );
-    expect(elsewhere).not.toContain("its branch carries the definition");
-  });
-
   it("names how many messages each Agent Stage's run logged in its Stage Thread, and that its number reads them, without the messages", () => {
     const words = stageHistoryWords(
       stages,

@@ -182,8 +182,12 @@ describe("a Project's tabs and its switched-off features", () => {
     expect(page.textContent).toContain("Run environment is switched off for «Shop».");
   });
 
-  it("keeps Run environment's tab while it is Not decided yet", async () => {
-    shownProject = { ...PROJECT, runEnvironment: "not-decided" };
+  it("shows Run environment's tab while it is On", async () => {
+    shownProject = {
+      ...PROJECT,
+      runEnvironment: "on",
+      features: { ...PROJECT.features, "run-environment": true },
+    };
     const page = await open("/projects/shop/run-environment");
 
     expect(tabs(page)).toContain("Run environment");

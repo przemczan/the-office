@@ -22,10 +22,6 @@ export class ProjectsRepositoryFiles extends RepositoryFiles {
     return this.files.taskBranchTip(projectId, taskId);
   }
 
-  taskForkPoint(projectId: string, taskId: string, tip: string, base: string): Promise<string> {
-    return refusedInOurWords(() => this.files.taskForkPoint(projectId, taskId, tip, base));
-  }
-
   textAt(projectId: string, commit: string, path: string): Promise<string | undefined> {
     return refusedInOurWords(() => this.files.textAt(projectId, commit, path));
   }

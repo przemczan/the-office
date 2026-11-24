@@ -40,7 +40,6 @@ import {
   changeProjectSkillUse,
   changeUseProjectSkills,
   finishRunEnvironmentSetUp,
-  landRunEnvironmentDefinition,
   removeCommand,
   type ProjectChange,
   type ProjectChanges,
@@ -114,9 +113,9 @@ export class ProjectService {
   ) {}
 
   /**
-   * Refuses with every reason, before saving, when the Project breaks a rule. The answer to the run
-   * environment question is applied once the Project is added: a Project to onboard is added with
-   * none, so it is asked at its first Start.
+   * Refuses with every reason, before saving, when the Project breaks a rule. Every Project is added
+   * with its Run environment Off; the answer to the run environment question, when given, is
+   * applied once it is added, and one added with none, such as a Proposal's, stays Off.
    */
   async add(given: NewProject, answered?: RunEnvironmentAnswered): Promise<Project> {
     const newProject = withResolvedPath(trimmedNewProject(given));
@@ -136,24 +135,17 @@ export class ProjectService {
   }
 
   /**
-   * The Project is added either way: an answer that fails leaves the setting "not-decided", so the
-   * question comes back at its next Start.
+   * The Project is added Off either way: "no" leaves it so, and "yes" runs Set up run environment;
+   * a set-up that fails is logged and leaves it Off.
    */
   private async answerRunEnvironment(
     project: Project,
     { answer, by }: RunEnvironmentAnswered,
   ): Promise<Project> {
+    if (answer !== "yes") return project;
     try {
-      if (answer === "no") {
-        return await this.changeRunEnvironment(project.id, "off", [], {
-          kind: "user",
-          user: { userId: by.userId, name: by.name },
-        });
-      }
-      if (answer === "yes") {
-        await this.runEnvironmentSetUp.setUp(project.id, by);
-        return await this.read(project.id);
-      }
+      await this.runEnvironmentSetUp.setUp(project.id, by);
+      return await this.read(project.id);
     } catch (error) {
       this.logger.error(
         `The Project ${project.name}'s run environment answer wasn't applied.`,
@@ -370,19 +362,15 @@ export class ProjectService {
     return this.update(id, (project) => changePublishingMode(project, publishingMode));
   }
 
-  /**
-   * The user's On or Off; On refused with `definitionProblems`, the problems of the definition on
-   * the base branch, which the caller reads.
-   */
+  /** The user's On or Off, either way at any time, with nothing checked. */
   async changeRunEnvironment(
     id: string,
-    runEnvironment: Exclude<RunEnvironmentSetting, "not-decided">,
-    definitionProblems: readonly string[],
+    runEnvironment: RunEnvironmentSetting,
     by: SettingChangedBy,
   ): Promise<Project> {
     return this.update(
       id,
-      (project) => changeRunEnvironment(project, runEnvironment, definitionProblems),
+      (project) => changeRunEnvironment(project, runEnvironment),
       recorded("run-environment", runEnvironmentSummary(runEnvironment), by),
     );
   }
@@ -396,14 +384,6 @@ export class ProjectService {
     definitionProblems: readonly string[],
   ): Promise<Project> {
     return this.update(id, (project) => finishRunEnvironmentSetUp(project, definitionProblems));
-  }
-
-  /**
-   * A Task's change carrying a valid definition landed on the base branch: On while Not decided
-   * yet, an explicit On or Off kept; recorded as no setting change, as nobody turned the switch.
-   */
-  async landRunEnvironmentDefinition(id: string): Promise<Project> {
-    return this.update(id, landRunEnvironmentDefinition);
   }
 
   /** Lowering it stops no started Task: nothing new starts in the Project until enough end. */

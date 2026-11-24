@@ -86,7 +86,7 @@ export class ConditionCommands {
       );
       await this.runs.addCommandRuns(run.id, [
         ...installed,
-        ...conditionRunsOf(ran.runs, condition, ran.inCarriedRunEnvironment),
+        ...conditionRunsOf(ran.runs, condition),
       ]);
     } finally {
       // The run has ended: a wait stopped before its end is no wait any more.

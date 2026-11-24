@@ -14,17 +14,6 @@ export abstract class RepositoryFiles {
    */
   abstract taskBranchTip(projectId: string, taskId: string): Promise<string | undefined>;
 
-  /**
-   * Where the Task's branch, at `tip`, forked from the base branch: as its last Publish recorded
-   * it, else where `tip` and `base` last met. Its changes are what `tip` holds over it.
-   */
-  abstract taskForkPoint(
-    projectId: string,
-    taskId: string,
-    tip: string,
-    base: string,
-  ): Promise<string>;
-
   /** The text of the file `path` names at `commit`; undefined when it names no file there. */
   abstract textAt(projectId: string, commit: string, path: string): Promise<string | undefined>;
 

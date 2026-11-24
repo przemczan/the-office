@@ -71,7 +71,7 @@ test.afterEach(async () => {
 /**
  * A Project that may start as many Tasks at once as The Office, so only the wait a test is about
  * holds its Tasks: these tests start one beside another in the same Project. Its run environment
- * is answered Off, so the run environment question never joins the Task head's notes.
+ * is Off, so its checks run on this computer.
  */
 async function addedProject(page: Page, name: string, label: string): Promise<Project> {
   const newProject: AddProject = {

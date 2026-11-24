@@ -13,6 +13,7 @@ import type {
 import type { ContainerRuntime } from "../ports/container-runtime.js";
 import { KnownTasks, type KnownTask } from "../ports/known-tasks.js";
 import { RunEnvironmentSettingsForTests } from "../ports/run-environment-settings.fixtures.js";
+import { SetUpTasks, type SetUpTask } from "../ports/set-up-tasks.js";
 import { HostCores } from "./host-cores.js";
 import { RunEnvironmentCommandVariables } from "./run-environment-command-variables.js";
 import {
@@ -41,6 +42,27 @@ export class KnownTasksForTests extends KnownTasks {
   }
 }
 
+/** The Projects' "Set up the run environment" Tasks, as a test lists them; nothing made here. */
+export class SetUpTasksForTests extends SetUpTasks {
+  readonly setUps: SetUpTask[] = [];
+
+  openOf(projectId: string): Promise<SetUpTask | undefined> {
+    return Promise.resolve(
+      this.setUps.find(
+        (task) => task.projectId === projectId && !["done", "dropped"].includes(task.state),
+      ),
+    );
+  }
+
+  add(): never {
+    throw new Error("No set-up Task is made here.");
+  }
+
+  setUpTaskOf(taskId: string): Promise<SetUpTask | undefined> {
+    return Promise.resolve(this.setUps.find((task) => task.id === taskId));
+  }
+}
+
 /** The cores the testbed's computer has, whatever machine runs the test. */
 const TESTBED_HOST_CORES = 4;
 
@@ -54,6 +76,7 @@ export interface RunEnvironmentsTestbed {
   readonly folders: RunEnvironmentFolders;
   readonly settings: RunEnvironmentSettingsForTests;
   readonly knownTasks: KnownTasksForTests;
+  readonly setUpTasks: SetUpTasksForTests;
   readonly schedule: ManualSchedule;
   readonly busyWork: BusyWork;
   readonly events: EventBus;
@@ -124,6 +147,7 @@ export async function runEnvironmentsTestbed(
     folders,
     settings,
     knownTasks,
+    setUpTasks: new SetUpTasksForTests(),
     schedule,
     busyWork,
     events,

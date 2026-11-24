@@ -11,7 +11,7 @@ import {
   type RunEnvironmentAnswer,
   type RunEnvironmentSetUpAnswer,
 } from "@the-office/contracts";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
@@ -20,7 +20,7 @@ import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { GitHubModule } from "../../../github/index.js";
 import { PipelineLibrary, PipelineLibraryModule } from "../../../pipelines/index.js";
-import { ProjectsModule, PullRequestMerged, TaskBases } from "../../../projects/index.js";
+import { ProjectsModule, TaskBases } from "../../../projects/index.js";
 import {
   createTemporaryRepository,
   gitIn,
@@ -143,7 +143,7 @@ describe("GET /projects/:id/run-environment", REAL_GIT_TEST, () => {
 });
 
 describe("PUT /projects/:id/run-environment", REAL_GIT_TEST, () => {
-  it("refuses Not decided yet, which only the start has", async () => {
+  it("refuses a setting other than On or Off", async () => {
     const response = await send("PUT", `/projects/${project.id}/run-environment`, {
       runEnvironment: "not-decided",
     });
@@ -171,7 +171,7 @@ describe("POST /projects/:id/run-environment/set-up", REAL_GIT_TEST, () => {
     const first = await setUpAnswer();
     const second = await setUpAnswer();
 
-    expect(first.runEnvironment.runEnvironment).toBe("not-decided");
+    expect(first.runEnvironment.runEnvironment).toBe("off");
     expect(first.runEnvironment.setUpTask).toEqual({
       id: expect.any(String),
       title: "Set up the run environment",
@@ -219,10 +219,10 @@ describe("POST /projects with the run environment answer", REAL_GIT_TEST, () => 
     expect((await read(added.id)).setUpTask).toBeNull();
   });
 
-  it("starts the set-up Task with Yes and no definition, leaving Not decided yet", async () => {
+  it("starts the set-up Task with Yes and no definition, leaving it Off", async () => {
     const added = await addAnswering("yes");
 
-    expect(added.runEnvironment).toBe("not-decided");
+    expect(added.runEnvironment).toBe("off");
     expect((await read(added.id)).setUpTask).toEqual({
       id: expect.any(String),
       title: "Set up the run environment",
@@ -230,7 +230,7 @@ describe("POST /projects with the run environment answer", REAL_GIT_TEST, () => 
     });
   });
 
-  it("sets Off with No", async () => {
+  it("leaves it Off with No, whatever the base branch has", async () => {
     await commitFiles("main", VALID_DEFINITION, another.path);
 
     const added = await addAnswering("no");
@@ -239,18 +239,18 @@ describe("POST /projects with the run environment answer", REAL_GIT_TEST, () => 
     expect(await read(added.id)).toMatchObject({ runEnvironment: "off", setUpTask: null });
   });
 
-  it("leaves Not decided yet with Decide later, as with no answer", async () => {
-    const later = await addAnswering("decide-later");
-    expect(await read(later.id)).toMatchObject({ runEnvironment: "not-decided", setUpTask: null });
+  it("leaves it Off with no answer, as with No", async () => {
+    await commitFiles("main", VALID_DEFINITION, another.path);
 
-    expect(project.runEnvironment).toBe("not-decided");
-    expect((await read()).setUpTask).toBeNull();
+    const added = await addAnswering();
+
+    expect(await read(added.id)).toMatchObject({ runEnvironment: "off", setUpTask: null });
   });
 
   it("refuses an answer it doesn't know, adding nothing", async () => {
     const response = await send("POST", "/projects", {
       ...newProjectIn(another.path),
-      runEnvironmentAnswer: "maybe",
+      runEnvironmentAnswer: "decide-later",
     });
 
     expect(response.status).toBe(400);
@@ -293,49 +293,18 @@ describe("a set-up Task that ends", REAL_GIT_TEST, () => {
 
     await finish(taskId, "dropped");
 
-    expect(await read()).toMatchObject({ runEnvironment: "not-decided", setUpProblems: [] });
+    expect(await read()).toMatchObject({ runEnvironment: "off", setUpProblems: [] });
   });
 });
 
-describe("a Task's pull request that merges", REAL_GIT_TEST, () => {
-  const taskId = "7f3c2a10-0d4e-4b7a-9c1e-2f5a6b7c8d9e";
-
-  async function merge(): Promise<void> {
-    await app
-      .get(EventBus)
-      .publish(
-        new PullRequestMerged(
-          "pull-request-1",
-          project.id,
-          taskId,
-          7,
-          "https://example.com/7",
-          "squash",
-          { kind: "code-host", name: "GitHub" },
-          new Date(),
-        ),
-      );
-  }
-
-  it("turns Not decided yet On once the Task's valid definition is on the base branch", async () => {
+describe("any other Task that ends", REAL_GIT_TEST, () => {
+  it("changes nothing when Done, even with its valid definition on the base branch", async () => {
+    const taskId = "7f3c2a10-0d4e-4b7a-9c1e-2f5a6b7c8d9e";
     await commitFiles(`office/${taskId}`, VALID_DEFINITION);
     await commitFiles("main", VALID_DEFINITION);
-    gitIn(repository.path, "push", "--quiet", "origin", "main");
 
-    await merge();
+    await finish(taskId, "done");
 
-    await vi.waitFor(async () => {
-      expect(await read()).toMatchObject({ runEnvironment: "on", setUpProblems: [] });
-    });
-  });
-
-  it("leaves it as it was while the base branch lacks the Task's definition", async () => {
-    await commitFiles(`office/${taskId}`, VALID_DEFINITION);
-
-    await merge();
-    // The landing runs in the background; a later read waits for nothing, so give it a moment.
-    await new Promise((resolve) => setTimeout(resolve, 1_000));
-
-    expect(await read()).toMatchObject({ runEnvironment: "not-decided" });
+    expect(await read()).toMatchObject({ runEnvironment: "off" });
   });
 });

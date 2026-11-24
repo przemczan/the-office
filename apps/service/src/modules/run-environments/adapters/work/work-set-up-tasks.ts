@@ -22,10 +22,6 @@ export class WorkSetUpTasks extends SetUpTasks {
     const task = await this.setUps.find(taskId);
     return task?.madeFor === "run-environment-setup" ? setUpTaskOf(task) : undefined;
   }
-
-  async projectOf(taskId: string): Promise<string | undefined> {
-    return (await this.setUps.find(taskId))?.projectId;
-  }
 }
 
 function setUpTaskOf(task: SetUpTask): SetUpTask {

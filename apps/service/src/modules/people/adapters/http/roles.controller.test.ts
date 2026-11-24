@@ -193,17 +193,18 @@ describe("GET /api/role-card-options", () => {
     const options = roleCardOptionsSchema.parse(await get("/role-card-options"));
 
     const models = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"];
-    // The engines are Office-wide settings, which other test files add API engines to.
+    // The engines are Office-wide settings, which other test files add engines to, Claude Code
+    // ones with their own models too, so whether a model is on every account isn't fixed here.
     expect(options.engines).toContainEqual({
       engine: "claude-code",
       missingCapabilities: [],
     });
-    expect(options.engineTypes).toContainEqual({
-      type: "claude-code",
+    const claudeCode = options.engineTypes.find(({ type }) => type === "claude-code");
+    expect(claudeCode).toMatchObject({
       listed: true,
-      models: models.map((model) => ({ model, onEveryAccount: true })),
       efforts: ["low", "medium", "high", "xhigh", "max"],
     });
+    expect(claudeCode?.models.map(({ model }) => model)).toEqual(expect.arrayContaining(models));
     expect(options.engineTypes.map(({ type }) => type).toSorted()).toEqual([
       "claude-code",
       "codex",

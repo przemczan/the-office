@@ -1,29 +1,23 @@
-import {
-  runEnvironmentAnswerSchema,
-  type ProjectRunEnvironment,
-  type RunEnvironmentAnswer,
-  type RunEnvironmentSetUpAnswer,
+import type {
+  ProjectRunEnvironment,
+  RunEnvironmentAnswer,
+  RunEnvironmentSetUpAnswer,
 } from "@the-office/contracts";
 import { offBoardStartWords } from "./off-board-task-words.ts";
 
-/**
- * Asked once, while a Project's Run environment is "Not decided yet": in Add a Project, and at a
- * Task's Start for a Project added before it was asked or onboarded by Devops.
- */
+/** Asked in Add a Project; No, picked at first, leaves Run environment Off. */
 export const RUN_ENVIRONMENT_QUESTION = "Run this Project's checks in a run environment?";
 
 export const RUN_ENVIRONMENT_QUESTION_HINT =
-  "In the containers its .devcontainer/ defines. Until you decide, they run on this computer.";
+  "In the containers the .devcontainer/ on each Task's branch defines. With No they run on this computer; you can switch it on the Project's page at any time.";
 
 export const RUN_ENVIRONMENT_ANSWER_LABELS: Readonly<Record<RunEnvironmentAnswer, string>> = {
-  yes: "Yes",
   no: "No",
-  "decide-later": "Decide later",
+  yes: "Yes",
 };
 
-/** In the order they are offered. */
-export const RUN_ENVIRONMENT_ANSWERS: readonly RunEnvironmentAnswer[] =
-  runEnvironmentAnswerSchema.options;
+/** In the order they are offered: No first, as it is picked at first. */
+export const RUN_ENVIRONMENT_ANSWERS: readonly RunEnvironmentAnswer[] = ["no", "yes"];
 
 /** What On or Off now means for the Project's checks. */
 export function settingChosenWords(saved: ProjectRunEnvironment, projectName: string): string {

@@ -8,18 +8,19 @@ import {
   type TaskRunEnvironmentCommand,
   type TaskRunEnvironmentRunner,
 } from "../../../projects/index.js";
-import { readDefinitionIn } from "../../application/definition-files.js";
 import { RunEnvironmentFolders } from "../../application/run-environment-folders.js";
 import { RunEnvironments, type CommandEnd } from "../../application/run-environments.js";
 import { RunEnvironmentRefused } from "../../domain/run-environment-refused.js";
 import type { TaskInWorktree } from "../../domain/run-environment.js";
 import { KnownTasks } from "../../ports/known-tasks.js";
+import { SetUpTasks } from "../../ports/set-up-tasks.js";
 
 /** The end of a command's output kept, as the host's shell runner keeps it. */
 const OUTPUT_LIMIT_BYTES = 16 * 1024 * 1024;
 
 /**
- * Gives Projects the Tasks' run environments, for a Project whose Run environment setting is On:
+ * Gives Projects the Tasks' run environments, for a Project whose Run environment setting is On, and
+ * for its "Set up the run environment" Task whatever the setting:
  * its Script Stages' install and commands run here, their output read back as the host's are.
  */
 @Injectable()
@@ -29,6 +30,7 @@ export class ProjectsTaskRunEnvironments implements TaskRunEnvironmentRunner, On
     private readonly environments: RunEnvironments,
     private readonly knownTasks: KnownTasks,
     private readonly folders: RunEnvironmentFolders,
+    private readonly setUpTasks: SetUpTasks,
   ) {}
 
   onModuleInit(): void {
@@ -100,9 +102,9 @@ export class ProjectsTaskRunEnvironments implements TaskRunEnvironmentRunner, On
     }
   }
 
-  /** Whether the worktree's `.devcontainer/` is a valid definition, read as a start reads it. */
-  async carriesDefinition(worktree: string): Promise<boolean> {
-    return (await readDefinitionIn(worktree)).value !== undefined;
+  /** Whether the Task is its Project's "Set up the run environment" Task. */
+  async setsUpRunEnvironment(taskId: string): Promise<boolean> {
+    return (await this.setUpTasks.setUpTaskOf(taskId)) !== undefined;
   }
 
   private async taskInWorktree(task: TaskInRunEnvironment): Promise<TaskInWorktree> {

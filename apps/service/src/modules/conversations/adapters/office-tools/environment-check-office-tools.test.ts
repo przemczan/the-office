@@ -23,6 +23,9 @@ const SESSION = "session-1";
 const TASK = "task-1";
 const PROJECT = "project-1";
 const TASK_THREAD = aThread({ home: { kind: "task", taskId: TASK } });
+/** A Task of another Project, which the stubbed Work records give as of OTHER_PROJECT. */
+const OTHER_TASK = "task-2";
+const OTHER_PROJECT = "project-2";
 
 type CheckCall = Parameters<EnvironmentChecks["check"]>;
 
@@ -94,13 +97,19 @@ function setup({
     } as unknown as ThreadRepository,
     {
       taskSubjects: (ids: readonly string[]) =>
-        Promise.resolve(new Map(ids.map((id) => [id, { projectId: PROJECT }]))),
+        Promise.resolve(
+          new Map(
+            ids
+              .filter((id) => id !== "unknown")
+              .map((id) => [id, { projectId: id === OTHER_TASK ? OTHER_PROJECT : PROJECT }]),
+          ),
+        ),
     } as unknown as WorkRecords,
     stops,
   ).onModuleInit();
   const [tool] = registry.named([RUN_ENVIRONMENT_CHECK_TOOL]);
   if (!tool) throw new Error("run_environment_check is not registered.");
-  const run = (input: { project?: string }, session = SESSION) =>
+  const run = (input: { project?: string; task?: string }, session = SESSION) =>
     tool.run({ why: "To see it works.", ...input }, anOfficeToolCall(session));
   return { run, holds, checkCalls, stops };
 }
@@ -130,6 +139,38 @@ describe("the run_environment_check tool", () => {
     expect(checkCalls[0]?.[0]).toBe(PROJECT);
     expect(checkCalls[0]?.[1]).toMatchObject({ taskId: TASK });
     expect(holds[0]?.call).toContain("Task's branch");
+  });
+
+  it("checks a given Task's branch from a Thread on no Task, of the Task's Project", async () => {
+    const { run, checkCalls, holds } = setup();
+
+    const result = await run({ task: OTHER_TASK });
+
+    expect(result.isError).toBe(false);
+    expect(checkCalls[0]?.[0]).toBe(OTHER_PROJECT);
+    expect(checkCalls[0]?.[1]).toMatchObject({ taskId: OTHER_TASK });
+    expect(holds[0]?.call).toContain(`branch of the Task ${OTHER_TASK}`);
+    expect(holds[0]?.context).toContain("while the Project's Run environment is On");
+  });
+
+  it("checks another Task's branch from a Thread on a Task when the call names it", async () => {
+    const { run, checkCalls } = setup({ thread: TASK_THREAD });
+
+    const result = await run({ task: OTHER_TASK, project: OTHER_PROJECT });
+
+    expect(result.isError).toBe(false);
+    expect(checkCalls[0]?.[0]).toBe(OTHER_PROJECT);
+    expect(checkCalls[0]?.[1]).toMatchObject({ taskId: OTHER_TASK });
+  });
+
+  it("refuses a given Task with another Project, and a Task The Office doesn't have", async () => {
+    const { run, checkCalls } = setup();
+
+    const mismatched = await run({ task: OTHER_TASK, project: PROJECT });
+    expect(mismatched.isError).toBe(true);
+    expect(mismatched.text).toContain(`is of the Project ${OTHER_PROJECT}`);
+    expect((await run({ task: "unknown" })).text).toContain('no Task "unknown"');
+    expect(checkCalls).toEqual([]);
   });
 
   it("refuses another Project on a Task, and no or an unknown Project outside one", async () => {

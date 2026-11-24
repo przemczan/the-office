@@ -107,7 +107,7 @@ afterAll(async () => {
 async function aTask(
   passFromRun: number,
   lines: Readonly<Record<string, string>> = {},
-  runEnvironment: Project["runEnvironment"] = "not-decided",
+  runEnvironment: Project["runEnvironment"] = "off",
   rerunLines: Readonly<Record<string, string>> = {},
 ): Promise<{ project: Project; taskId: string; worktreePath: string; runLog: string }> {
   taskCount += 1;
@@ -197,7 +197,7 @@ describe("ScriptCommands.run", REAL_GIT_TEST, () => {
   );
 
   it("runs a failing test command with no re-run command once, the worktree restored", async () => {
-    const { project, taskId, worktreePath } = await aTask(2, {}, "not-decided", { test: " " });
+    const { project, taskId, worktreePath } = await aTask(2, {}, "off", { test: " " });
 
     const runs = await scriptCommands.run(project, taskId, "test", "stage-run-no-rerun");
 
@@ -430,18 +430,26 @@ describe("ScriptCommands.run with the Project's run environment On", REAL_GIT_TE
     }
   });
 
-  it.each(["off", "not-decided"] as const)(
-    "runs on the host with the setting %s",
-    async (runEnvironment) => {
-      const { project, taskId, runLog } = await aTask(1, {}, runEnvironment);
-      const before = runEnvironments.runs.length;
+  it("runs on the host with the setting Off", async () => {
+    const { project, taskId, runLog } = await aTask(1, {}, "off");
+    const before = runEnvironments.runs.length;
 
-      await scriptCommands.run(project, taskId, "build", "stage-run-9");
+    await scriptCommands.run(project, taskId, "build", "stage-run-9");
 
-      expect(runEnvironments.runs.length).toBe(before);
-      expect(await exists(runLog)).toBe(true);
-    },
-  );
+    expect(runEnvironments.runs.length).toBe(before);
+    expect(await exists(runLog)).toBe(true);
+  });
+
+  it("runs the Project's set-up Task in its run environment even with the setting Off", async () => {
+    const { project, taskId, runLog } = await aTask(1, {}, "off");
+    runEnvironments.setUpTaskIds.add(taskId);
+    const before = runEnvironments.runs.length;
+
+    await scriptCommands.run(project, taskId, "build", "stage-run-10");
+
+    expect(runEnvironments.runs.slice(before).map(({ task }) => task.taskId)).toEqual([taskId]);
+    expect(await exists(runLog)).toBe(true);
+  });
 });
 
 /** A condition command that prints the file of the Stage runs it is given, and passes. */

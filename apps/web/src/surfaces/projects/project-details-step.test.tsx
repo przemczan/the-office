@@ -72,7 +72,7 @@ function render(
           draft={draft}
           mark={draft.mark}
           installInputs=""
-          runEnvironmentAnswer="decide-later"
+          runEnvironmentAnswer="no"
           refusal={null}
           onChange={(fields) => changes.push(fields)}
           onMarkChange={() => undefined}
@@ -122,5 +122,21 @@ describe("Add a Project, step 2: the Base branch", () => {
 
     expect(baseBranchField().querySelector("input")).toBeNull();
     expect(document.body.textContent).not.toContain("no commits yet");
+  });
+});
+
+describe("Add a Project, step 2: the run environment question", () => {
+  it("offers No then Yes, with No picked, and nothing to decide later", () => {
+    const source: ProjectSource = { whereItIs: "git-url", clone: aClone({}) };
+    render(source, draftFromSource(DRAFT, source));
+
+    const question = document.body.querySelector(
+      '[role="radiogroup"][aria-label="Run this Project\'s checks in a run environment?"]',
+    );
+    const radios = [...(question?.querySelectorAll<HTMLInputElement>('input[type="radio"]') ?? [])];
+    const labels = radios.map((radio) => radio.closest("label")?.textContent.trim());
+    expect(labels).toEqual(["No", "Yes"]);
+    expect(radios.map(({ checked }) => checked)).toEqual([true, false]);
+    expect(document.body.textContent).not.toContain("Decide later");
   });
 });

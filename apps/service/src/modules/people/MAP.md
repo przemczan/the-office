@@ -138,7 +138,7 @@ RoleCards, Consultant, HiredPerson, SessionRole, RoleService, PersonRecords, Dut
 - `task-limit.ts`: TaskLimit, LOWEST_TASK_LIMIT, HIGHEST_TASK_LIMIT, taskLimitProblem
 - `user.fixtures.ts`: ANN_LEE, BEN_ITO
 - `user.ts`: UserRef
-- Tests: caretaker.full.test.ts, duties.full.test.ts, engine-cascade.full.test.ts, hard-switches.full.test.ts, mcp-tool-settings.full.test.ts, memory-note.full.test.ts, office-setup.full.test.ts, permission-profile.test.ts, pipeline-role-capabilities.full.test.ts, presets.full.test.ts, role-card-changes.full.test.ts, role-card.full.test.ts, role-changes.full.test.ts, role-key.full.test.ts, task-limit.full.test.ts
+- Tests: caretaker.full.test.ts, duties.full.test.ts, engine-cascade.full.test.ts, engine-type-offers.test.ts, hard-switches.full.test.ts, mcp-tool-settings.full.test.ts, memory-note.full.test.ts, office-setup.full.test.ts, permission-profile.test.ts, pipeline-role-capabilities.full.test.ts, presets.full.test.ts, role-card-changes.full.test.ts, role-card.full.test.ts, role-changes.full.test.ts, role-key.full.test.ts, task-limit.full.test.ts
 
 ### ports/
 

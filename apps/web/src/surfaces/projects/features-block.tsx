@@ -4,22 +4,15 @@ import type {
   ProjectFeature,
   ProjectFeaturesChange,
   ProjectRunEnvironment,
-  RunEnvironmentSetUpAnswer,
+  RunEnvironmentSetting,
 } from "@the-office/contracts";
-import { Badge, Switch } from "@the-office/ui";
+import { Switch } from "@the-office/ui";
 import type { ReactNode } from "react";
-import {
-  changeFeatures,
-  changeRunEnvironment,
-  projectQueries,
-  setUpRunEnvironment,
-} from "../../api/projects.ts";
-import { TASKS } from "../../api/work.ts";
+import { changeFeatures, changeRunEnvironment, projectQueries } from "../../api/projects.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
-import { settingChosenWords, setUpWords } from "../../shell/run-environment-words.ts";
+import { settingChosenWords } from "../../shell/run-environment-words.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { FEATURE_NEEDS, FEATURE_ROWS, needsWords } from "./feature-words.ts";
-import { StartRefusal } from "./off-board-task-status.tsx";
 import { ProjectBlock } from "./project-block.tsx";
 import { SetUpTaskLine } from "./set-up-task-line.tsx";
 
@@ -27,9 +20,9 @@ type SwitchedFeature = keyof ProjectFeaturesChange["features"];
 
 /**
  * The Project's feature switches (spec screens/project-page.md, "Features"): a row per feature with
- * a bare `Switch`, saved at once. Run environment's row is the Run environment setting itself: On
- * sets it up as the Run environment block's Set up does, which turns it On at once with a valid
- * .devcontainer/ or adds the set-up Task, and Off turns it off.
+ * a bare `Switch`, saved at once. Run environment's row is the Run environment setting itself, turned
+ * On or Off at once whatever the base branch holds: each Task reads the .devcontainer/ on its own
+ * branch.
  */
 export function FeaturesBlock({ project }: { readonly project: Project }): ReactNode {
   const queryClient = useQueryClient();
@@ -49,28 +42,18 @@ export function FeaturesBlock({ project }: { readonly project: Project }): React
   };
   const turningRunEnvironment = useMutation({
     scope: { id: `features-${project.id}` },
-    mutationFn: async (on: boolean): Promise<RunEnvironmentSetUpAnswer> =>
-      on
-        ? setUpRunEnvironment(project.id)
-        : { runEnvironment: await changeRunEnvironment(project.id, "off"), start: null },
-    onSuccess: (answer, on) => {
-      keep(answer.runEnvironment);
-      // The Off-board Tasks sit under the Tasks' key.
-      if (answer.start) void queryClient.invalidateQueries({ queryKey: TASKS });
-      const words = on
-        ? setUpWords(answer, project.name)
-        : settingChosenWords(answer.runEnvironment, project.name);
-      if (words !== undefined) showToast(words);
+    mutationFn: (setting: RunEnvironmentSetting) => changeRunEnvironment(project.id, setting),
+    onSuccess: (saved) => {
+      keep(saved);
+      showToast(settingChosenWords(saved, project.name));
     },
   });
-  const start = turningRunEnvironment.data?.start;
-  const setUpRefusal = start?.outcome === "refused" ? start.reasons : undefined;
   const pending = switching.isPending || turningRunEnvironment.isPending;
   // One switch's refusal shows until the next change, so another's never shows as its own.
   const turn = (feature: ProjectFeature, on: boolean): void => {
     if (feature === "run-environment") {
       switching.reset();
-      turningRunEnvironment.mutate(on);
+      turningRunEnvironment.mutate(on ? "on" : "off");
       return;
     }
     turningRunEnvironment.reset();
@@ -87,12 +70,7 @@ export function FeaturesBlock({ project }: { readonly project: Project }): React
         return (
           <div key={feature} className="project-setting" role="group" aria-label={name}>
             <div className="project-setting-words">
-              <span className="project-setting-name">
-                {name}
-                {feature === "run-environment" && project.runEnvironment === "not-decided" && (
-                  <Badge>Not decided yet</Badge>
-                )}
-              </span>
+              <span className="project-setting-name">{name}</span>
               <span className="project-setting-line">{line}</span>
               {held && <span className="project-setting-line">{needsWords(needed)}</span>}
               {feature === "run-environment" && setUpTask !== null && (
@@ -111,9 +89,6 @@ export function FeaturesBlock({ project }: { readonly project: Project }): React
           </div>
         );
       })}
-      {setUpRefusal && (
-        <StartRefusal title="Run environment wasn't set up" reasons={setUpRefusal} />
-      )}
       {failure && <RefusalAlert title="The switch wasn't changed" error={failure} />}
     </ProjectBlock>
   );

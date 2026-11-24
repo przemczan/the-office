@@ -88,10 +88,7 @@ export const projects = pgTable(
       .$type<readonly EngineId[]>()
       .notNull()
       .default([]),
-    runEnvironment: text("run_environment")
-      .$type<RunEnvironmentSetting>()
-      .notNull()
-      .default("not-decided"),
+    runEnvironment: text("run_environment").$type<RunEnvironmentSetting>().notNull().default("off"),
     runEnvironmentSetUpProblems: text("run_environment_set_up_problems")
       .array()
       .notNull()

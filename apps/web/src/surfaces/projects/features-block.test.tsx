@@ -12,7 +12,6 @@ import {
   type Answers,
 } from "../../shell/page.fixtures.tsx";
 import { FeaturesBlock } from "./features-block.tsx";
-import { offBoardTask } from "./off-board-task.fixtures.tsx";
 
 const ALL_ON: ProjectFeatures = {
   "connected-devices": true,
@@ -208,44 +207,27 @@ describe("the Features tab", () => {
     expect(sent.some(({ request }) => request.startsWith("PUT"))).toBe(false);
   });
 
-  it("shows Run environment Not decided as off, and turns it on as Set up does", async () => {
-    const notDecided: Project = { ...RUN_ENVIRONMENT_OFF, runEnvironment: "not-decided" };
+  it("turns Run environment on from Off at once, whatever the base branch holds", async () => {
     const sent = stubService(
-      answers(notDecided, {
-        [`POST /api/projects/${PROJECT.id}/run-environment/set-up`]: () => ({
+      answers(RUN_ENVIRONMENT_OFF, {
+        [`PUT /api/projects/${PROJECT.id}/run-environment`]: () => ({
           status: 200,
-          body: {
-            runEnvironment: runEnvironmentOf(notDecided, {
-              id: "task-1",
-              title: "Set up the run environment",
-              state: "ready",
-            }),
-            start: {
-              outcome: "started",
-              offBoardTask: offBoardTask(
-                { state: "running" },
-                { title: "Set up the run environment", kind: "run-environment-setup" },
-              ),
-            },
-          },
+          body: runEnvironmentOf(PROJECT),
         }),
       }),
     );
     const page = await shown();
 
     expect(switchOf(page, "Run environment").getAttribute("aria-checked")).toBe("false");
-    expect(shownText(rowOf(page, "Run environment"))).toContain("Not decided yet");
 
     click(switchOf(page, "Run environment"));
 
     await until(() =>
-      expect(shownText(rowOf(page, "Run environment"))).toContain(
-        "Being set up in the Task Set up the run environment",
-      ),
+      expect(sent.find(({ request }) => request.startsWith("PUT"))?.body).toEqual({
+        runEnvironment: "on",
+      }),
     );
-    expect(sent.map(({ request }) => request)).toContain(
-      `POST /api/projects/${PROJECT.id}/run-environment/set-up`,
-    );
+    expect(sent.some(({ request }) => request.endsWith("/run-environment/set-up"))).toBe(false);
   });
 
   it("turns Run environment off with the Run environment setting", async () => {

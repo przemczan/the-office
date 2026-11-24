@@ -86,7 +86,6 @@ describe("a test target's warnings", () => {
 
   it("asks for Run environment On only for a Hosted target", () => {
     expect(needsRunEnvironment(WEB, "off")).toBe(true);
-    expect(needsRunEnvironment(WEB, "not-decided")).toBe(true);
     expect(needsRunEnvironment(WEB, "on")).toBe(false);
     expect(needsRunEnvironment(APK, "off")).toBe(false);
   });
