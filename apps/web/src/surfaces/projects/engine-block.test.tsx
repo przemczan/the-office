@@ -264,7 +264,8 @@ describe("the Engine card's Stand-in Engines", () => {
 
     await until(() => expect(shownText(page)).toContain("Shop uses its own Stand-in Engines."));
     expect(sent.find(({ request }) => request === PUT_ENGINE)?.body).toEqual(OWN(["codex-1"]));
-    expect(rowsOf(page)?.hasAttribute("data-read-only")).toBe(false);
+    // The toast can show before the card renders the saved Project.
+    await until(() => expect(rowsOf(page)?.hasAttribute("data-read-only")).toBe(false));
     expect(shownText(standIns(page))).toContain(
       "Another engine type: a running Stage waits for the reset rather than switch to it.",
     );
@@ -321,7 +322,7 @@ describe("the Engine card's Stand-in Engines", () => {
     await until(() =>
       expect(shownText(page)).toContain("Shop uses the Office's Stand-in Engines again."),
     );
-    expect(rowsOf(page)?.hasAttribute("data-read-only")).toBe(true);
+    await until(() => expect(rowsOf(page)?.hasAttribute("data-read-only")).toBe(true));
   });
 
   it("shows a refusal under its group", async () => {

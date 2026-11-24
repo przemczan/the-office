@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { startAnswerSchema, type Task } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { ProviderOverride } from "../../../../../test/test-application.js";
+import { freshTestDatabase, type FreshTestDatabase } from "../../../../../test/test-database.js";
 import {
   EngineModels,
   FIRST_CLAUDE_CODE_ENGINE,
@@ -40,6 +41,9 @@ import { ownProjectsQueue } from "../postgres/postgres-queue-repository.fixtures
 // A pause by the usage window (spec §2.1), its resume at the reset and the queue's wait.
 
 let officeData: string;
+// Of its own: a free reading of the first Claude Code engine, which tasks.controller.test.ts and
+// codex-usage.controller.test.ts announce, resumes every Task paused on it in the database.
+let database: FreshTestDatabase;
 let work: WorkApplication;
 let projectId: string;
 let fireAlarm: FireAlarmRepositoryForTests;
@@ -56,13 +60,17 @@ const RESET = new Date(NOW.getTime() + 2 * HOUR);
 async function startApplication(overrides: readonly ProviderOverride[] = []): Promise<void> {
   const settings = new WorkSettingsForTests();
   await settings.changeOfficeWideLimit(12);
-  work = await startWorkApplication(officeData, [
-    { provide: WorkSettings, useValue: settings },
-    { provide: FireAlarmRepository, useValue: fireAlarm },
-    ownProjectsQueue(() => [projectId]),
-    ownProjectTasks(),
-    ...overrides,
-  ]);
+  work = await startWorkApplication(
+    officeData,
+    [
+      { provide: WorkSettings, useValue: settings },
+      { provide: FireAlarmRepository, useValue: fireAlarm },
+      ownProjectsQueue(() => [projectId]),
+      ownProjectTasks(),
+      ...overrides,
+    ],
+    database.url,
+  );
   clock().setTime(NOW);
 }
 
@@ -72,10 +80,12 @@ function clock(): ManualSchedule {
 
 beforeAll(async () => {
   officeData = await mkdtemp(join(tmpdir(), "office-usage-window-"));
+  database = await freshTestDatabase();
 });
 
 afterAll(async () => {
   await rm(officeData, { recursive: true, force: true });
+  await database.drop();
 });
 
 beforeEach(async () => {
