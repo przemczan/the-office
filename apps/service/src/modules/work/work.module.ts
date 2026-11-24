@@ -108,6 +108,8 @@ import { UsageEstimates } from "./application/usage-estimates.js";
 import { TaskConnectedDevices } from "./application/task-connected-devices.js";
 import { TaskRecords } from "./application/task-records.js";
 import { TaskStageEdits } from "./application/task-stage-edits.js";
+import { TaskStartOvers } from "./application/task-start-overs.js";
+import { TaskWaysBack } from "./application/task-ways-back.js";
 import { TaskEngineChecks } from "./application/task-engine-checks.js";
 import { WorkEngineLevelMoves } from "./application/work-engine-level-moves.js";
 import { TaskArchiving } from "./application/task-archiving.js";
@@ -310,6 +312,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         InitiativeService,
         InitiativeBranching,
         TaskService,
+        TaskWaysBack,
         PersonTasks,
         TaskArchiving,
         InitiativeArchiving,
@@ -345,6 +348,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         TaskConnectedDevices,
         TaskRecords,
         TaskStageEdits,
+        TaskStartOvers,
         TaskEngineChecks,
         WorkEngineLevelMoves,
         IdeaRecords,
@@ -396,6 +400,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         TaskConnectedDevices,
         TaskRecords,
         TaskStageEdits,
+        TaskStartOvers,
         TaskEngineChecks,
         StageScreenshots,
       ],

@@ -299,6 +299,28 @@ export function routeChoiceWords({ toName, reason }: NonNullable<StageRun["choic
   return `Chose ${toName}: ${reason.trim()}`;
 }
 
+/** "Restarted from Review by Ann Lee": the user's Restart from… on a held run. */
+export function restartWords(
+  { stageKey, by }: NonNullable<StageRun["restart"]>,
+  names: StageNames,
+): string {
+  return `Restarted from ${names(stageKey)} by ${by}`;
+}
+
+/** "Started over by Ann Lee", with a reset: ", branch reset to main, old head kept as <ref>". */
+export function startedOverWords({
+  by,
+  resetTo,
+  keptRef,
+}: NonNullable<StageRun["startedOver"]>): string {
+  if (resetTo === null) return `Started over by ${by}`;
+  const kept = keptRef === null ? "" : `, old head kept as ${keptRef}`;
+  return `Started over by ${by}, branch reset to ${resetTo}${kept}`;
+}
+
+/** The divider before a Stage's runs of an earlier start, before the latest Start over. */
+export const EARLIER_START_WORDS = "Earlier start";
+
 /** "You sent back to Implement": what the user did at a Gate's run. */
 export function gateChoiceWords(action: GateAction, names: StageNames): string {
   return `You ${gateActionWords(action, names)}`;

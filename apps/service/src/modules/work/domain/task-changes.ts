@@ -1,5 +1,5 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
-import type { Author } from "./author.js";
+import type { Author, UserRef } from "./author.js";
 import { boardOrder, placementBetween, type Neighbours } from "./manual-order.js";
 import { dropReasonProblems, keptDropReason, type DropReason } from "./drop-reason.js";
 import {
@@ -20,8 +20,10 @@ import {
   TaskPaused,
   TaskPlanConfirmed,
   TaskPriorityChanged,
+  TaskReopened,
   TaskReordered,
   TaskResumed,
+  TaskStartedOver,
   TaskStateChanged,
   TaskStopped,
   TaskWentOnOnStandIn,
@@ -29,26 +31,36 @@ import {
 } from "./task-events.js";
 import type { EngineStandIn } from "./stand-ins-at-start.js";
 import type { RecordEdit } from "./record-edits.js";
-import { FIRE_ALARM_ON } from "./fire-alarm.js";
 import {
   BY_THE_FIRE_ALARM,
   BY_THE_PIPELINE,
   BY_THE_USAGE_WINDOW,
+  byWayBack,
   userBehind,
+  type BranchReset,
   type StateChange,
   type StateChangeCause,
 } from "./state-change.js";
 import { TaskRefused } from "./task-refused.js";
+import { restoreTask } from "./task-archive.js";
 import { writtenParts, type WrittenPlanAndDefinitionOfDone } from "./written-parts.js";
 import {
+  ALARM_HOLDS_THE_TASK,
   CONDITIONS_KEPT_WHEN_CONFIRMING,
+  INITIATIVE_PAUSED_RESUME,
   NOT_STARTED_STATES,
   STARTED_STATES,
   TASK_STATE_NAMES,
   moveProblems,
   openDecisionProblems,
   readinessLines,
+  reopenProblems,
+  restartProblems,
+  startOverProblems,
   stateChangeProblems,
+  type ReopenGrounds,
+  type ReopenTo,
+  type WayBackHolds,
 } from "./task-states.js";
 
 /**
@@ -606,8 +618,7 @@ export function resumeTaskForInitiative(
   return resumed(task, by);
 }
 
-/** Why a single Resume is refused while the Task's Initiative is paused. */
-export const INITIATIVE_PAUSED_RESUME = "The Initiative is paused: resume it to go on.";
+export { INITIATIVE_PAUSED_RESUME } from "./task-states.js";
 
 /**
  * Resume: a Paused Task goes on In progress, where its Pipeline was held. While the fire alarm is
@@ -631,7 +642,7 @@ export function resumeTask(
   if (initiativePaused) throw new TaskRefused([INITIATIVE_PAUSED_RESUME]);
   if (!alarmHoldsResume) return resumed(task, by);
   if (task.pausedBy === "alarm") {
-    throw new TaskRefused([`${FIRE_ALARM_ON} The Task resumes with the all clear.`]);
+    throw new TaskRefused([ALARM_HOLDS_THE_TASK]);
   }
   return {
     task: { ...task, pausedBy: "alarm", ...NO_USAGE_WINDOW_RESUME },
@@ -644,6 +655,142 @@ function resumed(task: Task, by: StateChangeCause): TaskChange<TaskResumed> {
     {
       task: { ...task, state: "in-progress", pausedBy: undefined, ...NO_USAGE_WINDOW_RESUME },
       event: new TaskResumed(task.id),
+    },
+    task,
+    by,
+  );
+}
+
+/**
+ * Restart from… (spec 2.4.5): the user's way back on a Task Paused by their own Pause or Stop, which
+ * goes on In progress as Resume does (`TaskResumed`, which the walk reacts to, Pipelines having set
+ * the Stage it goes on from), its History naming the Stage. Refused as `restartProblems` says.
+ */
+export function restartTask(
+  task: Task,
+  holds: WayBackHolds,
+  restart: { readonly stageName: string; readonly user: UserRef },
+): TaskChange<TaskResumed> {
+  const problems = restartProblems(task, holds);
+  if (problems.length > 0) throw new TaskRefused(problems);
+  return resumed(task, byWayBack(restart.user, { kind: "restart", stageName: restart.stageName }));
+}
+
+/** What a Start over did to the Task's branch, as Pipelines answers it. */
+export interface StartingOver {
+  readonly resetBranch: boolean;
+  /** The branch it was reset to; undefined when it wasn't reset. */
+  readonly resetTo: string | undefined;
+  /** The local ref keeping the branch's old head; undefined when none was kept. */
+  readonly keptRef: string | undefined;
+  readonly user: UserRef;
+}
+
+function branchResetOf({ resetTo, keptRef }: StartingOver): BranchReset | null {
+  return resetTo === undefined ? null : { resetTo, keptRef: keptRef ?? null };
+}
+
+/**
+ * Start over (spec 2.4.5): a Task Paused by the user's own Pause or Stop goes to Ready, not queued,
+ * its Plan, Definition of Done and Pipeline kept as confirmed, nothing holding it any more and its
+ * Stand-in Engines left for the next Start to choose; Pipelines has already left its earlier Stage
+ * runs as history and, when asked, reset its branch. Its History says it started over, and where
+ * the branch was reset to and its old head kept. Refused as `startOverProblems` says.
+ */
+export function startTaskOver(
+  task: Task,
+  holds: WayBackHolds,
+  startingOver: StartingOver,
+): TaskChange<TaskStartedOver> {
+  const problems = startOverProblems(task, holds);
+  if (problems.length > 0) throw new TaskRefused(problems);
+  const by = byWayBack(startingOver.user, {
+    kind: "start-over",
+    branchReset: branchResetOf(startingOver),
+  });
+  const stateChanged = new TaskStateChanged(task.id, task.state, "ready");
+  return withStateChange(
+    {
+      task: {
+        ...task,
+        state: "ready",
+        pausedBy: undefined,
+        ...NO_USAGE_WINDOW_RESUME,
+        engineStandIns: [],
+      },
+      event: new TaskStartedOver(
+        task.id,
+        startingOver.resetBranch,
+        startingOver.resetTo,
+        startingOver.keptRef,
+        startingOver.user,
+        stateChanged,
+      ),
+    },
+    task,
+    by,
+  );
+}
+
+/** How the user reopens a Task: who, when, and the Start over of a Task that had started. */
+export interface Reopening {
+  readonly user: UserRef;
+  readonly at: Date;
+  /** The Start over Pipelines made of a Task that had started; undefined for one that hadn't. */
+  readonly startedOver: StartingOver | undefined;
+}
+
+/**
+ * Reopen… (spec 2.1.3): a Dropped Task goes to Backlog or Ready, as the user asks (one of an
+ * Initiative still being shaped to Shaping, its Backlog). An archived one is Restored first, as
+ * Restore does, in the same save. Its drop reason leaves the Task's head, kept in the History line
+ * of the move, which also says whether a Task that had started was started over and where its
+ * branch was reset to. To Backlog, it is no longer planned anywhere, as a new Task isn't; to Ready,
+ * its Plan, Definition of Done and Pipeline stay as confirmed. The Decisions its Drop closed stay
+ * closed. Refused as `reopenProblems` says.
+ */
+export function reopenTask(
+  task: Task,
+  to: ReopenTo,
+  grounds: ReopenGrounds,
+  reopening: Reopening,
+): TaskChange<TaskReopened> {
+  const problems = reopenProblems(task, to, grounds);
+  if (problems.length > 0) throw new TaskRefused(problems);
+  const { user, at, startedOver } = reopening;
+  const state: Task["state"] =
+    to === "ready" ? "ready" : grounds.initiative?.state === "shaping" ? "shaping" : "backlog";
+  const restored = restoreTask(task, at, { kind: "user", user });
+  const from = restored?.task ?? task;
+  const planning: Partial<Task> =
+    state === "ready"
+      ? {}
+      : {
+          autoMode: false,
+          initiativePlanningThreadId: undefined,
+          markedPlanned: false,
+          hasPlanningThread: false,
+        };
+  const by = byWayBack(user, {
+    kind: "reopen",
+    droppedAs: task.dropReason ?? null,
+    startedOver: startedOver ? { branchReset: branchResetOf(startedOver) } : null,
+  });
+  const stateChanged = new TaskStateChanged(task.id, task.state, state);
+  return withStateChange(
+    {
+      task: { ...from, ...planning, state, dropReason: undefined },
+      event: new TaskReopened(
+        task.id,
+        to,
+        startedOver?.resetBranch ?? false,
+        startedOver !== undefined,
+        startedOver?.resetTo,
+        startedOver?.keptRef,
+        user,
+        stateChanged,
+        restored?.event,
+      ),
     },
     task,
     by,

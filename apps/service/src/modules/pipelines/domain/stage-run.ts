@@ -321,6 +321,40 @@ export interface SentBack {
 }
 
 /**
+ * The user's Restart from… on a Task they paused or stopped (spec §2.4.5), kept on its held run:
+ * the walk goes on from the Stage of `stageKey`, any of the Pipeline's, using no route's times.
+ */
+export interface TaskRestart {
+  readonly stageKey: string;
+  /** What the user said with it, for the Stage's Brief; undefined for none. */
+  readonly feedback: string | undefined;
+  readonly byUser: HoldingUser;
+}
+
+/**
+ * The Restart from… that ran a run, kept on that run: an Agent Stage's run is briefed with its
+ * feedback, a Script Stage's only keeps it.
+ */
+export interface Restarted {
+  readonly feedback: string | undefined;
+  readonly byUser: HoldingUser;
+}
+
+/**
+ * The user's Start over (spec §2.4.5), kept on the last run before it: every run up to it is of an
+ * earlier start, history only. `resetTo` and `keptRef` are set when the branch was reset.
+ */
+export interface StartedOver {
+  /** Which Start over of the Task this is, from 1. */
+  readonly number: number;
+  readonly byUser: HoldingUser;
+  /** When, as an ISO time: it is kept as JSON. */
+  readonly at: string;
+  readonly resetTo: string | undefined;
+  readonly keptRef: string | undefined;
+}
+
+/**
  * Why the walk asks the user (spec §2.3): an Agent's own question, a Stage that failed with no
  * retries left, the Task's tokens reaching a Stage's budget, a Pipeline that ended with the
  * Definition of Done not reported met, a Stage The Office restarted during (spec §2.4), a Publish
@@ -448,6 +482,15 @@ export interface StageRun {
   readonly carriedFailure: CarriedFailure | undefined;
   /** The feedback a Gate sent the work back to this Stage with, when it did. */
   readonly sentBack: SentBack | undefined;
+  /**
+   * The user's Restart from… on this held run, which the walk goes on from; undefined when none.
+   * Optional, as runs made before it carry none.
+   */
+  readonly restart?: TaskRestart | undefined;
+  /** The Restart from… that ran this run; undefined for a run no restart ran. */
+  readonly restarted?: Restarted | undefined;
+  /** The Start over that came after this run, the last before it; undefined otherwise. */
+  readonly startedOver?: StartedOver | undefined;
   /** The Stage Thread an Agent Stage's run works in, once it has one. */
   readonly threadId: string | undefined;
   /**

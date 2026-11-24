@@ -5,7 +5,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { TaskLocks } from "../../../platform/locks/task-locks.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import { EngineModels, EngineReferenceLock, type EngineId } from "../../engine/index.js";
-import type { Author } from "../domain/author.js";
+import type { Author, UserRef } from "../domain/author.js";
 import { boardOrder, orderAfter } from "../domain/manual-order.js";
 import { BY_THE_PIPELINE, type StateChange } from "../domain/state-change.js";
 import {
@@ -37,6 +37,7 @@ import {
   pauseTaskForAlarm,
   pauseTaskForUsageWindow,
   reorderTask,
+  restartTask,
   resumeTask,
   resumeTaskAtReset,
   resumeTaskFreedByUsageWindow,
@@ -69,7 +70,12 @@ import { changeTags } from "../domain/task-tags.js";
 import { changeTaskEngine, onTask, taskEngineMoves } from "../domain/work-engine.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import { TaskRefused } from "../domain/task-refused.js";
-import { OPEN_STATES, STARTED_STATES } from "../domain/task-states.js";
+import {
+  OPEN_STATES,
+  STARTED_STATES,
+  restartProblems,
+  type WayBackHolds,
+} from "../domain/task-states.js";
 import { writtenParts, type WrittenPlanAndDefinitionOfDone } from "../domain/written-parts.js";
 import {
   holdsAtStageBoundary,
@@ -461,10 +467,11 @@ export class TaskService {
   }
 
   /**
-   * A Task moved into a Project whose Publishing Task isn't Done or Dropped becomes its blocker
-   * (spec 2.1, "Publishing Tasks"), judged again holding the Initiative and the dependencies.
+   * A Task moved into a Project, or reopened in it, whose Publishing Task isn't Done or Dropped
+   * becomes its blocker (spec 2.1, "Publishing Tasks"), judged again holding the Initiative and the
+   * dependencies.
    */
-  private async blockPublishingTaskIn(
+  async blockPublishingTaskIn(
     initiativeId: string,
     projectId: string,
     blockerId: string,
@@ -646,6 +653,54 @@ export class TaskService {
   }
 
   /**
+   * What holds the Task beyond its own Pause or Stop now, for a way back (spec 2.4.5): its paused
+   * Initiative, and the fire alarm holding a walk of it.
+   */
+  async wayBackHolds(task: Task): Promise<WayBackHolds> {
+    const [alarm, initiative] = await Promise.all([
+      this.fireAlarm.read(),
+      task.initiativeId === undefined ? undefined : this.initiatives.find(task.initiativeId),
+    ]);
+    return {
+      initiativePaused: initiative !== undefined && isInitiativePaused(initiative),
+      alarmHoldsResume: holdsResume(alarm, task),
+    };
+  }
+
+  /**
+   * Why the user can't Restart from… the Task now (spec 2.4.5): it isn't Paused by their own Pause
+   * or Stop, or the fire alarm, its engine's usage window or its paused Initiative holds it, worded
+   * as Resume's refusals are. Empty when they can.
+   */
+  async restartProblems(id: string): Promise<readonly string[]> {
+    const task = await this.read(id);
+    return restartProblems(task, await this.wayBackHolds(task));
+  }
+
+  /**
+   * The user's Restart from… `stageName`, which Pipelines has set the walk to go on from: the Paused
+   * Task goes on In progress as a Resume does, TaskResumed telling Pipelines to walk on, its History
+   * naming the Stage and the user. Refused as `restartProblems` says, judged again holding its
+   * Initiative and the Task; an alarm sounded ASAP meanwhile holds it as it holds a Resume.
+   */
+  async restart(
+    id: string,
+    { stageName, by }: { readonly stageName: string; readonly by: UserRef },
+  ): Promise<Task> {
+    const alarm = await this.fireAlarm.read();
+    const { task, event } = await this.changeWithItsInitiative(id, (held, initiativePaused) =>
+      restartTask(
+        held,
+        { initiativePaused, alarmHoldsResume: holdsResume(alarm, held) },
+        { stageName, user: by },
+      ),
+    );
+    if (event && (await this.alarmStopsEveryWalk())) return this.update(id, pauseTaskForAlarm);
+    if (event) await this.events.publish(event);
+    return task;
+  }
+
+  /**
    * Pauses a Task In progress or Waiting on you as the fire alarm does, if it holds Tasks at their
    * Stage boundary (ASAP or after the current Stages): as the walk reaches one, and as The Office
    * starts again, for a sounding it stopped during. Whether it paused the Task.
@@ -691,31 +746,27 @@ export class TaskService {
     if (event.leftReady) await this.events.publish(event.leftReady);
   }
 
-  /** Whether its Initiative is paused is read holding the Initiative, then the Task. */
   private async resumeHeld(
     id: string,
     alarm: FireAlarm,
     by: Author,
   ): Promise<TaskUpdate<TaskResumed | TaskPaused>> {
+    return this.changeWithItsInitiative(id, (held, initiativePaused) =>
+      resumeTask(held, { alarmHoldsResume: holdsResume(alarm, held), initiativePaused }, by),
+    );
+  }
+
+  /** Whether its Initiative is paused is read holding the Initiative, then the Task. */
+  private async changeWithItsInitiative<Event extends DomainEvent>(
+    id: string,
+    change: (held: Task, initiativePaused: boolean) => TaskChange<Event> | undefined,
+  ): Promise<TaskUpdate<Event>> {
     const { initiativeId } = await this.read(id);
     if (initiativeId === undefined) {
-      return this.repository.update(id, (held) =>
-        resumeTask(
-          held,
-          { alarmHoldsResume: holdsResume(alarm, held), initiativePaused: false },
-          by,
-        ),
-      );
+      return this.repository.update(id, (held) => change(held, false));
     }
     return this.initiatives.changeTask(initiativeId, id, (initiative, held) =>
-      resumeTask(
-        held,
-        {
-          alarmHoldsResume: holdsResume(alarm, held),
-          initiativePaused: isInitiativePaused(initiative),
-        },
-        by,
-      ),
+      change(held, isInitiativePaused(initiative)),
     );
   }
 

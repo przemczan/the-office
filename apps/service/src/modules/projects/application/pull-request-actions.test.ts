@@ -104,6 +104,10 @@ class MergingCodeHost extends CodeHost {
   closeIssue(): Promise<void> {
     return Promise.reject(new Error("Not closed here."));
   }
+
+  reopenIssue(): Promise<void> {
+    return Promise.reject(new Error("Not reopened here."));
+  }
 }
 
 let records: PullRequestRepositoryForTests;

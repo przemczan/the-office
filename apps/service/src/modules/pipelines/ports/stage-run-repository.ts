@@ -12,6 +12,8 @@ import type {
   StageTokens,
   AskedInterruption,
   HoldingUser,
+  StartedOver,
+  TaskRestart,
 } from "../domain/stage-run.js";
 import type { StageRunUsage } from "../domain/usage-history.js";
 
@@ -143,6 +145,17 @@ export abstract class StageRunRepository {
     heldBy: AskedInterruption,
     heldByUser: HoldingUser | undefined,
   ): Promise<void>;
+
+  /**
+   * Saves the user's Restart from… on the Task's ended held run; false when the run has one already
+   * or hasn't ended, as each held run takes one.
+   */
+  abstract saveRestart(runId: string, restart: TaskRestart): Promise<boolean>;
+
+  /**
+   * Saves the Start over on the last run before it; false when that run has one already.
+   */
+  abstract saveStartedOver(runId: string, startedOver: StartedOver): Promise<boolean>;
 
   /**
    * Saves what the user did at a Gate's run; false when an action was saved first, as each Gate

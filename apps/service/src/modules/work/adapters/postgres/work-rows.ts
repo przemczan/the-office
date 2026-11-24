@@ -234,6 +234,7 @@ export function authorOf(row: AuthorRow): Author {
 function causeOf(row: StateChangeCauseRow): StateChangeCause {
   switch (row.kind) {
     case "user":
+      return "wayBack" in row ? row : authorOf(row);
     case "person":
       return authorOf(row);
     case "queue":

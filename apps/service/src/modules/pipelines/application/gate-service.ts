@@ -11,6 +11,7 @@ import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { StartedTasks } from "../ports/started-tasks.js";
 import { StageInterpreter } from "./stage-interpreter.js";
 import { TaskStagesService } from "./task-stages-service.js";
+import { runsOfLatestStart } from "../domain/start-over.js";
 
 /**
  * What the user does at a Gate (spec §2.3): Continue, with notes or none, Send back with feedback
@@ -72,7 +73,7 @@ export class GateService {
 
   /** The Task's Stages after the action; refused with the reasons when the Gate doesn't allow it. */
   private async act(taskId: string, action: GateAction): Promise<TaskProgress | undefined> {
-    const runs = await this.runs.list(taskId);
+    const runs = runsOfLatestStart(await this.runs.list(taskId));
     const stages = pipelineOrder(asFlow((await this.taskStages.find(taskId))?.stages ?? []));
     const problems = gateActionProblems(stages, runs, action);
     const gate = waitingGateRun(stages, runs);

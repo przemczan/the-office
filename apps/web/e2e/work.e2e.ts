@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { existsSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
 import { expect, test, type Locator, type Page } from "@playwright/test";
@@ -3202,6 +3203,10 @@ function aStageRun(
     route: null,
     choice: null,
     sentBack: null,
+    restart: null,
+    restarted: null,
+    startedOver: null,
+    earlierStart: false,
     commandRuns: [],
     gateAction,
     outcome: null,
@@ -3927,6 +3932,132 @@ test(
 
     await page.getByRole("tab", { name: "Overview" }).click();
     await expect(page.getByRole("region", { name: "Record" })).toBeVisible();
+  },
+);
+
+test(
+  "the user stops a started Task, then restarts it from a later Stage: its half-done edits go, and it goes on from that Stage",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Restart from", "RF");
+    const task = await createdTask(page, project, "Rerun the invoice export");
+    await choosePipeline(page, task);
+    // Started without a walk: an Implement run that ended, then a Review Gate, so going on from the
+    // Gate opens no session. The Caretaker works Implement, as the one person sure to be hired here.
+    const implement: Stage = {
+      kind: "agent",
+      key: "implement",
+      name: "Implement",
+      optional: false,
+      role: "caretaker",
+      brief: "Do it.",
+      session: "fresh",
+      budget: 100_000,
+    };
+    const review: Stage = { kind: "gate", key: "review", name: "Review", optional: false };
+    await queryOfficeDatabase(
+      `insert into task_stages (task_id, pipeline_id, stages, made_at)
+       select id, pipeline_id, $2, now() from tasks where id = $1`,
+      [task.id, JSON.stringify([implement, review])],
+    );
+    await queryOfficeDatabase(
+      `insert into stage_runs (id, task_id, stage_key, number, role_key, session, outcome, started_at, ended_at)
+       values ($1, $2, 'implement', 1, 'caretaker', 'fresh', $3, now() - interval '1 minute', now())`,
+      [crypto.randomUUID(), task.id, { status: "done", summary: "Exported the usage." }],
+    );
+    await commitOnTaskBranch(repository, task.id, "export.ts", "export const EXPORT = true;\n");
+    const worktree = taskWorktreePath(project.id, task.id);
+    addTaskWorktree(repository, task.id, worktree);
+    const halfDone = path.join(worktree, "half-done.ts");
+    writeFileSync(halfDone, "export const HALF = 1;\n");
+    await queryOfficeDatabase(`update tasks set state = 'in-progress' where id = $1`, [task.id]);
+    const stateOf = async (): Promise<string> =>
+      taskSchema.parse(await (await page.request.get(`/api/tasks/${task.id}`)).json()).state;
+
+    try {
+      await page.goto(`/tasks/${task.id}`);
+      const head = page.locator(".task-head-actions");
+      await head.getByRole("button", { name: "Stop", exact: true }).click();
+      await expect(
+        page.getByText("Stopped: the Stage's uncommitted edits are discarded."),
+      ).toBeVisible();
+      await expect.poll(stateOf).toBe("paused");
+
+      // Held by the user's own Stop: Restart from… and Start over sit beside Resume.
+      await expect(head.getByRole("button", { name: /^Resume/ })).toBeVisible();
+      await expect(head.getByRole("button", { name: "Start over", exact: true })).toBeVisible();
+      await head.getByRole("button", { name: "Restart from…", exact: true }).click();
+      const dialog = page.getByRole("dialog", { name: `Restart ${task.title} from…` });
+      const from = dialog.getByLabel("Restart from");
+      await expect(from).toBeEnabled();
+      await expect(from.locator("option")).toHaveText(["Implement", "Review"]);
+      await from.selectOption({ label: "Review" });
+      await dialog.getByLabel("Feedback").fill("The export is done: look at it again.");
+      await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-restart-from.png") });
+      const restarted = page.waitForResponse(
+        (response) =>
+          response.url().endsWith(`/api/tasks/${task.id}/restart`) &&
+          response.request().method() === "POST",
+      );
+      await dialog.getByRole("button", { name: "Restart", exact: true }).click();
+
+      expect((await restarted).status()).toBe(204);
+      await expect(page.getByText("Restarted from Review.")).toBeVisible();
+      await expect(dialog).toHaveCount(0);
+      // The edits Stop's held run left are discarded, and the walk goes on from Review, its Gate.
+      expect(existsSync(halfDone)).toBe(false);
+      await expect.poll(stateOf).toBe("waiting-on-you");
+      await expect(page.getByRole("region", { name: "Gate · Review" })).toBeVisible();
+
+      // The held run keeps the Restart from…, in the Stage history.
+      await page
+        .getByRole("region", { name: /^Pipeline · / })
+        .getByRole("button", { name: "Implement", exact: true })
+        .click();
+      const history = page.getByRole("dialog", { name: /^Stage history: Implement/ });
+      await expect(detailsOf(history, 1)).toContainText(
+        `Restarted from Review by ${E2E_USER.name}`,
+      );
+    } finally {
+      await page.request.post(`/api/tasks/${task.id}/drop`);
+    }
+  },
+);
+
+test(
+  "the user reopens a Dropped Task to Backlog from its page",
+  { tag: "@full" },
+  async ({ page }) => {
+    const project = await addedProject(page, "Reopen", "RO");
+    const task = await createdTask(page, project, "Reopen the dropped import");
+    expect((await page.request.post(`/api/tasks/${task.id}/drop`)).status()).toBe(200);
+
+    await page.goto(`/tasks/${task.id}`);
+    const head = page.locator(".task-head-actions");
+    await expect(head.getByRole("button", { name: "Reopen…", exact: true })).toBeVisible();
+    await head.getByRole("button", { name: `More for ${task.title}` }).click();
+    await page.getByRole("menu").getByRole("button", { name: "Reopen…", exact: true }).click();
+
+    const dialog = page.getByRole("dialog", { name: `Reopen ${task.title}?` });
+    const to = dialog.getByRole("radiogroup", { name: "Reopen to" });
+    await expect(to.getByRole("radio", { name: "To Backlog" })).toBeChecked();
+    // No Plan, Definition of Done or Pipeline confirmed: To Ready says why it can't be picked.
+    await expect(to.getByRole("radio", { name: "To Ready" })).toBeDisabled();
+    await expect(dialog).toContainText("To Ready:");
+    // It never started, so there is no branch to reset.
+    await expect(dialog.getByRole("checkbox")).toHaveCount(0);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-reopen-task.png") });
+    await dialog.getByRole("button", { name: "Reopen the Task" }).click();
+
+    await expect(page.getByText("Reopened to Backlog.")).toBeVisible();
+    await expect(dialog).toHaveCount(0);
+    await expect(
+      page.locator(".task-head-title").getByText("Backlog", { exact: true }),
+    ).toBeVisible();
+    expect(
+      taskSchema.parse(await (await page.request.get(`/api/tasks/${task.id}`)).json()).state,
+    ).toBe("backlog");
+    await expect(head.getByRole("button", { name: "Reopen…", exact: true })).toHaveCount(0);
   },
 );
 

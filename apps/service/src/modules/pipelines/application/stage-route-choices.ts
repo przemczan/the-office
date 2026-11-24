@@ -13,6 +13,7 @@ import { KnownPeople } from "../ports/known-people.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { StageThreads } from "../ports/stage-threads.js";
 import { TaskStagesRepository } from "../ports/task-stages-repository.js";
+import { runsOfLatestStart } from "../domain/start-over.js";
 
 /** The Office tool an Agent chooses its Stage's route with (spec §2.3, "How an Agent chooses its route"). */
 export const CHOOSE_ROUTE_TOOL = "choose_route";
@@ -52,7 +53,7 @@ export class StageRouteChoices {
 
   async inSession(sessionId: string, asked: AskedRouteChoice): Promise<StageRouteChoiceAnswer> {
     const taskId = await this.threads.taskInSession(sessionId);
-    const runs = taskId === undefined ? [] : await this.runs.list(taskId);
+    const runs = taskId === undefined ? [] : runsOfLatestStart(await this.runs.list(taskId));
     const run = runs.findLast(({ outcome }) => outcome === undefined);
     if (!run) return refused(NOT_IN_A_STAGE);
     const stages = asFlow((await this.taskStages.find(run.taskId))?.stages ?? []);

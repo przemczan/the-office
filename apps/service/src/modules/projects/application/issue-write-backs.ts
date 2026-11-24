@@ -6,6 +6,7 @@ import { IssueLinkChanged } from "../domain/issue-link-events.js";
 import {
   doneComment,
   droppedComment,
+  REOPENED_COMMENT,
   startedComment,
   type DuplicateOf,
   type IssueDoneIn,
@@ -16,6 +17,7 @@ import {
 } from "../domain/issue-link.js";
 import type { Project } from "../domain/project.js";
 import { isFeatureOn } from "../domain/project-features.js";
+import type { CodeHost } from "../ports/code-host.js";
 import { IssueLinkRepository } from "../ports/issue-link-repository.js";
 import { ProjectRepository } from "../ports/project-repository.js";
 import { PullRequestRepository } from "../ports/pull-request-repository.js";
@@ -79,6 +81,25 @@ export class IssueWriteBacks extends IssueWriteBack {
     await this.write(found.link, [
       ["comment", droppedComment(dropReason, duplicateOf)],
       ["close", ""],
+    ]);
+  }
+
+  /**
+   * The Dropped Task was reopened: the watch reads its issue again, and an issue its Drop closed
+   * (the link's latest close or reopen is a close) gets a comment and is opened again, whatever the
+   * switches say now, as the close was The Office's own.
+   */
+  async taskReopened(taskId: string): Promise<void> {
+    const found = await this.linked(taskId);
+    if (!found) return;
+    await this.links.reopenTask(found.link.id);
+    const lastOpenOrClose = (await this.links.writeBacksOf(found.link.id))
+      .filter(({ action }) => action !== "comment")
+      .at(-1);
+    if (lastOpenOrClose?.action !== "close") return;
+    await this.write(found.link, [
+      ["comment", REOPENED_COMMENT],
+      ["reopen", ""],
     ]);
   }
 
@@ -173,11 +194,7 @@ export class IssueWriteBacks extends IssueWriteBack {
         if (host === undefined) {
           throw new Error("The issue's repository isn't on a code host The Office knows.");
         }
-        if (entry.action === "comment") {
-          await host.commentOnIssue(link.remoteUrl, link.number, entry.body);
-        } else {
-          await host.closeIssue(link.remoteUrl, link.number);
-        }
+        await sendWriteBack(host, link, entry);
         await this.links.writeBackDone(entry.id, this.schedule.now());
       } catch (error) {
         const problem = error instanceof Error ? error.message : String(error);
@@ -200,4 +217,20 @@ export class IssueWriteBacks extends IssueWriteBack {
  */
 function writesBack(project: Project, setting: "commentOnStartAndDone" | "closeOnDrop"): boolean {
   return isFeatureOn(project, "github-issues") && project.issueSettings[setting];
+}
+
+/** Does the write-back on the issue, by its action. */
+async function sendWriteBack(
+  host: CodeHost,
+  link: IssueLink,
+  entry: IssueWriteBackEntry,
+): Promise<void> {
+  switch (entry.action) {
+    case "comment":
+      return host.commentOnIssue(link.remoteUrl, link.number, entry.body);
+    case "close":
+      return host.closeIssue(link.remoteUrl, link.number);
+    case "reopen":
+      return host.reopenIssue(link.remoteUrl, link.number);
+  }
 }

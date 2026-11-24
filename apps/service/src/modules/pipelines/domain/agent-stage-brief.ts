@@ -11,6 +11,7 @@ import {
   STAGE_HANDOVER,
   STAGE_HELD,
   STAGE_MESSAGE,
+  STAGE_RESTARTED,
   STAGE_ROUTES_OUT,
   STAGE_RUNS_AGAIN,
   STAGE_SENT_AGAIN,
@@ -43,6 +44,7 @@ import type {
   CarriedFailure,
   HoldingUser,
   RefusedTurn,
+  Restarted,
   SentBack,
   StageInterruption,
   StageOutcome,
@@ -224,6 +226,8 @@ export interface StageWorkReasons {
   readonly carried?: CarriedRound;
   /** The user's feedback from a Gate, when they sent the work back to this Stage. */
   readonly sentBack?: SentBack & { readonly gateName: string };
+  /** The user's Restart from… that runs the Stage, with their feedback (spec §2.4.5). */
+  readonly restarted?: Restarted;
   /** The Agent's question the user answered, when the Stage runs again for it. */
   readonly answered?: AnsweredQuestion;
   /** Why the install before the Stage failed. */
@@ -298,6 +302,7 @@ export function agentStageWork(
   {
     carried,
     sentBack,
+    restarted,
     answered,
     installProblem,
     held,
@@ -337,7 +342,17 @@ export function agentStageWork(
     installProblem: installProblem ?? "",
   });
   const routesOut = pipeline ? routesOutSection(prompts, stage, pipeline) : undefined;
-  return routesOut === undefined ? message : `${message}\n\n${routesOut}`;
+  const restart = restarted && restartedSection(prompts, restarted);
+  return [message, routesOut, restart].filter((part) => part !== undefined).join("\n\n");
+}
+
+/** Why the Stage runs now after the user's Restart from… (spec §2.4.5), with their feedback. */
+function restartedSection(prompts: PromptTexts, { feedback, byUser }: Restarted): string {
+  return renderedPart(prompts, STAGE_RESTARTED, {
+    userName: byUser.name,
+    hasFeedback: feedback !== undefined && feedback !== "",
+    feedback: feedback ?? "",
+  });
 }
 
 /**

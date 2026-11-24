@@ -72,6 +72,43 @@ export class BranchUpdates {
       });
   }
 
+  /**
+   * Resets the Task's branch to its first fresh base, its Initiative's branch or else the base
+   * branch, for a Start over (spec §2.4.5): its head now is kept under the local ref `keptRef`
+   * first. In the Task's worktree, when it has one, uncommitted changes go and ignored files stay;
+   * without one, only the branch moves. Answers the base branch's name and the branch's commit now.
+   */
+  async resetToBase(
+    project: Project,
+    taskId: string,
+    keptRef: string,
+  ): Promise<{ readonly resetTo: string; readonly commit: string }> {
+    const variables = this.commands.variablesFor(project.environment);
+    const branchRef = `refs/heads/${await this.worktrees.branchOf(project, taskId)}`;
+    const worktree = (await this.worktrees.exists(project, taskId))
+      ? this.worktrees.pathOf(project, taskId)
+      : undefined;
+    return this.git.exclusively(project.path, async () => {
+      const [base] = await this.worktrees.freshBases(project, taskId, variables);
+      if (!base) throw new Error(`The Task ${taskId} has no base to reset its branch to.`);
+      const head = await this.git.findCommit(project.path, branchRef);
+      if (head === undefined) {
+        await this.git.setRef(project.path, branchRef, base.commit);
+      } else {
+        // A ref already kept under this name (a second reset with no Stage run between) keeps the
+        // head it named: the branch is at its base since.
+        if ((await this.git.findCommit(project.path, keptRef)) === undefined) {
+          await this.git.createRef(project.path, keptRef, head);
+        }
+        await this.git.moveRef(project.path, branchRef, base.commit, head);
+      }
+      // With the branch moved, the worktree's files differ from its HEAD: discarding them takes
+      // the worktree to the base, as a hard reset would.
+      if (worktree) await this.git.discard(worktree, variables);
+      return { resetTo: base.name.branch, commit: base.commit };
+    });
+  }
+
   /** Whether the worktree holds a merge with files still conflicted in git's records. */
   async mergeInProgress(project: Project, taskId: string): Promise<boolean> {
     const conflicted = await this.git.mergeConflicts(this.worktrees.pathOf(project, taskId));

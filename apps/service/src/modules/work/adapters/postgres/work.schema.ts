@@ -21,7 +21,7 @@ import type { IdeaState } from "../../domain/idea.js";
 import type { InitiativeState } from "../../domain/initiative.js";
 import type { EditedField, EditedRecordKind } from "../../domain/record-edits.js";
 import type { EngineStandIn } from "../../domain/stand-ins-at-start.js";
-import type { StateChangeCause } from "../../domain/state-change.js";
+import type { StateChangeCause, UserWayBack } from "../../domain/state-change.js";
 import type {
   Priority,
   ProposedPipeline,
@@ -43,12 +43,13 @@ import { searchVectorOf, taskSearchVector } from "./search-vector.js";
 export type AuthorRow = Author | { readonly kind: "user"; readonly user?: undefined };
 
 /**
- * A state change's cause as jsonb keeps it: an Author's as `AuthorRow`, and a start by the queue
- * kept before who queued it was has no `queuedBy` (`causeOf`).
+ * A state change's cause as jsonb keeps it: an Author's as `AuthorRow`, a way back's with its step,
+ * and a start by the queue kept before who queued it was has no `queuedBy` (`causeOf`).
  */
 export type StateChangeCauseRow =
   | Exclude<StateChangeCause, { readonly kind: "user" | "queue" }>
   | AuthorRow
+  | UserWayBack
   | { readonly kind: "queue"; readonly queuedBy?: AuthorRow | null };
 
 /** A Task's Move to another Project as jsonb keeps it: its time as an ISO string. */

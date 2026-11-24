@@ -11,6 +11,8 @@ export interface RadioListOption {
   readonly aside?: ReactNode;
   /** What the option asks further while it is picked, such as a field, shown right under it. */
   readonly detail?: ReactNode;
+  /** Why the option can't be picked now, said on hover; the option is disabled while set. */
+  readonly disabledWhy?: string;
 }
 
 export interface RadioListProps {
@@ -41,13 +43,16 @@ export function RadioList({
         const picked = option.value === value;
         return (
           <Fragment key={option.value}>
-            <label className={`radio-list-item${picked ? " picked" : ""}`}>
+            <label
+              className={`radio-list-item${picked ? " picked" : ""}`}
+              title={option.disabledWhy}
+            >
               <input
                 type="radio"
                 name={name}
                 value={option.value}
                 checked={picked}
-                disabled={disabled}
+                disabled={disabled || option.disabledWhy !== undefined}
                 onChange={() => onChange(option.value)}
                 // A radio already checked fires no change, only its click.
                 onClick={() => {

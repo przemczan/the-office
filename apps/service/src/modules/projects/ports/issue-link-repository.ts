@@ -35,6 +35,12 @@ export abstract class IssueLinkRepository {
   /** Marks the link's Task Done or Dropped at `at`, unless it already ended. */
   abstract endTask(id: string, at: Date): Promise<void>;
 
+  /** Marks the link's Task open again, as it was reopened, so the watch reads its issue again. */
+  abstract reopenTask(id: string): Promise<void>;
+
+  /** Every write-back of the link, done or not, oldest first. */
+  abstract writeBacksOf(issueLinkId: string): Promise<readonly IssueWriteBackEntry[]>;
+
   /** Adds write-backs to the outbox. */
   abstract addWriteBacks(entries: readonly IssueWriteBackEntry[]): Promise<void>;
 

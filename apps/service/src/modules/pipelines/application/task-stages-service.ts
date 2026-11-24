@@ -17,6 +17,7 @@ import { reportedMet, reportedOutOfReach } from "../domain/definition-of-done-re
 import { gateChecksDefinitionOfDone } from "../domain/pipeline-walk.js";
 import { stagesProgress, type TaskProgress } from "../domain/stage-progress.js";
 import type { StageRun } from "../domain/stage-run.js";
+import { runsOfLatestStart } from "../domain/start-over.js";
 import { staffingProblems } from "../domain/stage-staffing.js";
 import { StagesEditRefused } from "../domain/stages-edit-refused.js";
 import {
@@ -121,12 +122,12 @@ export class TaskStagesService implements OnModuleInit {
    */
   async edit(taskId: string, edited: readonly Stage[]): Promise<TaskProgress> {
     return this.changes.run(taskId, async () => {
-      const { own, runs, problems } = await this.review(taskId, edited);
+      const { own, allRuns, problems } = await this.review(taskId, edited);
       if (problems.length > 0) throw new StagesEditRefused(problems);
       const { taskStages, event } = editTaskStages(own, edited);
       await this.repository.save(taskStages);
       await this.events.publish(event);
-      return progressOf(taskStages, runs, await this.roleFillings.holders(taskStages.stages));
+      return progressOf(taskStages, allRuns, await this.roleFillings.holders(taskStages.stages));
     });
   }
 
@@ -150,7 +151,7 @@ export class TaskStagesService implements OnModuleInit {
   async staffingProblems(taskId: string): Promise<readonly StageProblem[]> {
     const own = await this.find(taskId);
     if (!own) return [];
-    const runs = await this.runs.list(taskId);
+    const runs = runsOfLatestStart(await this.runs.list(taskId));
     const stages = pipelineOrder(asFlow(await this.roleFillings.staffed(own.stages, runs)));
     const before = stages.slice(0, firstStageToWork(stages, runs)).map(({ key }) => key);
     return staffingProblems(stages, new Set(before), await this.roleFillings.of(stages));
@@ -206,7 +207,8 @@ export class TaskStagesService implements OnModuleInit {
       ]);
     }
     const own = await this.ownOrCopied(taskId, pipelineId, projectId);
-    const runs = await this.runs.list(taskId);
+    const allRuns = await this.runs.list(taskId);
+    const runs = runsOfLatestStart(allRuns);
     const started = startedStageKeys(runs);
     const keptBecause = whyStagesAreKept(state);
     const problems = keptBecause
@@ -217,7 +219,7 @@ export class TaskStagesService implements OnModuleInit {
           ...(await this.roleEngineProblems(taskId, edited, own, projectId)),
           ...(await this.missingCommandProblems(edited, started, projectId)),
         ];
-    return { own, runs, problems };
+    return { own, allRuns, problems };
   }
 
   /** The commands the Stages not started yet name that the Task's Project lacks. */
@@ -326,18 +328,21 @@ export function namedRoles(workers: StageWorkers): StageRolesNamed {
 /** The user's edit weighed against the Task's own Stages and their runs. */
 interface ReviewedEdit {
   readonly own: TaskStages;
-  readonly runs: readonly StageRun[];
+  /** Every run of the Task, those of earlier starts included. */
+  readonly allRuns: readonly StageRun[];
   readonly problems: readonly StageProblem[];
 }
 
+/** Where the Task's Stages stand, from its runs since its latest Start over (spec §2.4.5). */
 function progressOf(
   own: TaskStages,
-  runs: readonly StageRun[],
+  allRuns: readonly StageRun[],
   holders: ReadonlyMap<DutyKey, string>,
 ): TaskProgress {
   const stages = pipelineOrder(asFlow(own.stages));
+  const runs = runsOfLatestStart(allRuns);
   return {
-    stages: stagesProgress(stages, runs, holders),
+    stages: stagesProgress(stages, allRuns, holders),
     editedForTask: own.editedForTask,
     lockedStages: lockedStageCount(stages, runs),
     definitionOfDoneMet: reportedMet(runs),

@@ -132,9 +132,11 @@ function issuesAnswering(failure?: Error): {
   issues: GitHubIssues;
   listed: [string, OpenIssuesOnGitHub][];
   closed: [string, number, IssueCloseReason][];
+  reopened: [string, number][];
 } {
   const listed: [string, OpenIssuesOnGitHub][] = [];
   const closed: [string, number, IssueCloseReason][] = [];
+  const reopened: [string, number][] = [];
   const answer = <Answer>(value: Answer): Promise<Answer> =>
     failure ? Promise.reject(failure) : Promise.resolve(value);
   const issues = {
@@ -148,13 +150,17 @@ function issuesAnswering(failure?: Error): {
       closed.push([remoteUrl, number, reason]);
       return answer(undefined);
     },
+    reopen: (remoteUrl: string, number: number) => {
+      reopened.push([remoteUrl, number]);
+      return answer(undefined);
+    },
   } as unknown as GitHubIssues;
-  return { issues, listed, closed };
+  return { issues, listed, closed, reopened };
 }
 
 describe("GitHub issues through the code host", () => {
-  it("lists, reads and closes issues as not planned", async () => {
-    const { issues, listed, closed } = issuesAnswering();
+  it("lists, reads and closes issues as not planned, and opens them again", async () => {
+    const { issues, listed, closed, reopened } = issuesAnswering();
     const host = new GitHubCodeHost(gitHubAnswering().gitHub, issues);
     const listing = { label: "office", order: "oldest-first", most: 50 } as const;
 
@@ -164,9 +170,11 @@ describe("GitHub issues through the code host", () => {
       state: { state: "open" },
     });
     await host.closeIssue(REQUEST.remoteUrl, 418);
+    await host.reopenIssue(REQUEST.remoteUrl, 418);
 
     expect(listed).toEqual([[REQUEST.remoteUrl, listing]]);
     expect(closed).toEqual([[REQUEST.remoteUrl, 418, "not_planned"]]);
+    expect(reopened).toEqual([[REQUEST.remoteUrl, 418]]);
   });
 
   it("refuses in the github module's words", async () => {

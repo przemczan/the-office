@@ -9,6 +9,7 @@ import {
   engineSwitchWords,
   gateChoiceWords,
   openingRunTab,
+  restartWords,
   runBadge,
   runGist,
   runOfHandoverNote,
@@ -18,6 +19,7 @@ import {
   routeFollowedWords,
   runTimeWords,
   stageHistoryLine,
+  startedOverWords,
 } from "./stage-history-words.ts";
 import { stageNamesOf } from "./stage-words.ts";
 
@@ -68,6 +70,10 @@ function aRun(fields: Partial<StageRun> = {}): StageRun {
     route: null,
     choice: null,
     sentBack: null,
+    restart: null,
+    restarted: null,
+    startedOver: null,
+    earlierStart: false,
     gateAction: null,
     commandRuns: [],
     outcome: null,
@@ -452,5 +458,21 @@ describe("a run's other words", () => {
     expect(commandTimeWords({ ...run, purpose: "condition", condition: { to: null } }, names)).toBe(
       "condition for the route to End · 12s",
     );
+  });
+
+  it("says who restarted a held run and from which Stage", () => {
+    expect(restartWords({ stageKey: "implement", feedback: null, by: "Ann Lee" }, names)).toBe(
+      "Restarted from Implement by Ann Lee",
+    );
+  });
+
+  it("says who started the Task over, and where a reset took its branch", () => {
+    const at = "2026-11-20T10:00:00.000Z";
+    expect(startedOverWords({ by: "Ann Lee", at, resetTo: null, keptRef: null })).toBe(
+      "Started over by Ann Lee",
+    );
+    expect(
+      startedOverWords({ by: "Ann Lee", at, resetTo: "main", keptRef: "refs/office/kept/1" }),
+    ).toBe("Started over by Ann Lee, branch reset to main, old head kept as refs/office/kept/1");
   });
 });

@@ -496,6 +496,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
           ...run.sentBack,
           gateName: stageOf(stages, run.sentBack.gateKey)?.name ?? run.sentBack.gateKey,
         },
+        ...(run.restarted && { restarted: run.restarted }),
         answered,
         installProblem,
         held: held && heldRunOf(namesHeldChoice ? held : { ...held, choice: undefined }, stages),
@@ -1140,6 +1141,8 @@ function previousAgentThread(
 function heldRun(stage: Stage, earlierRuns: readonly StageRun[]): StageRun | undefined {
   const last = earlierRuns.at(-1);
   if (last?.stageKey !== stage.key || last.outcome?.status !== "failed") return undefined;
+  // A Restart from… ended the held run, its edits discarded: the Stage begins anew.
+  if (last.restart) return undefined;
   return last.outcome.interrupted ? last : undefined;
 }
 
@@ -1174,7 +1177,7 @@ function answeredQuestion(
   earlierRuns: readonly StageRun[],
 ): AnsweredQuestion | undefined {
   const last = earlierRuns.at(-1);
-  if (last?.stageKey !== stage.key) return undefined;
+  if (last?.stageKey !== stage.key || last.restart) return undefined;
   // The run that asked ended needing the Decision, or was held with it.
   const asked = last.decisions.find((decision) => decision.kind === "agent");
   if (asked?.answer?.kind !== "answered") return undefined;

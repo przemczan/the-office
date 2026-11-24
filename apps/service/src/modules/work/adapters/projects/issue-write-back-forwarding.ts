@@ -2,12 +2,12 @@ import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { IssueWriteBack, type IssueDropReason } from "../../../projects/index.js";
 import type { DropReason } from "../../domain/drop-reason.js";
-import { TaskStarted, TaskStateChanged } from "../../domain/task-events.js";
+import { TaskReopened, TaskStarted, TaskStateChanged } from "../../domain/task-events.js";
 import { TaskRepository } from "../../ports/task-repository.js";
 
 /**
  * Tells Projects that a Task started, was Done or was Dropped, with its drop reason (a Duplicate's
- * with the other Task's title), so Projects writes back on the issue it was imported from, as the
+ * with the other Task's title), or was reopened, so Projects writes back on the issue it was imported from, as the
  * Project's switches say (docs/design/issues-as-tasks.html). Work knows nothing of issues:
  * Projects passes over a Task with no issue link.
  */
@@ -31,6 +31,7 @@ export class IssueWriteBackForwarding implements OnModuleInit {
         await this.writeBack.taskDropped(taskId, await this.issueDropReason(task?.dropReason));
       }
     });
+    this.events.subscribe(TaskReopened, ({ taskId }) => this.writeBack.taskReopened(taskId));
   }
 
   private async issueDropReason(

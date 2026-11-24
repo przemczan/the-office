@@ -37,6 +37,7 @@ import {
   WorkPortsForTestsModule,
 } from "./ports/work-ports.fixtures.js";
 import { TaskStageEdits } from "./application/task-stage-edits.js";
+import { TaskStartOvers, type StartOverWork } from "./application/task-start-overs.js";
 import { WorkModule } from "./work.module.js";
 import { ownProjectsQueue } from "./adapters/postgres/postgres-queue-repository.fixtures.js";
 
@@ -73,8 +74,18 @@ export async function startWorkApplication(
   app.get(EventBus).subscribeToEveryEvent((event) => void published.push(event));
   // Pipelines isn't here to say: no Task's Stages are edited unless a test registers its own.
   app.get(TaskStageEdits).register(async () => false);
+  // Nor to start a Task's work over: nothing refuses, no Task had started, and no branch is reset.
+  app.get(TaskStartOvers).register(START_OVER_WORK_FOR_TESTS);
   return { app, url, published };
 }
+
+/** Pipelines' part of a Start over as a Work application without Pipelines has it. */
+export const START_OVER_WORK_FOR_TESTS: StartOverWork = {
+  refusals: async () => [],
+  resetTo: async () => "main",
+  hadStarted: async () => false,
+  startOver: async () => ({ resetTo: undefined, keptRef: undefined }),
+};
 
 /** Work on the test ports, every Project known but UNKNOWN_PROJECT, and the library's Pipelines. */
 export function workModuleForTests(): DynamicModule {

@@ -25,6 +25,8 @@ import {
   taskMoveCheckQuerySchema,
   taskMoveSchema,
   taskPlacementSchema,
+  taskReopenSchema,
+  taskStartOverSchema,
   type CausedByChange,
   type CommitMessageChange,
   type History,
@@ -47,14 +49,18 @@ import {
   type TaskMoveCheckQuery,
   type TaskMoveCheck,
   type TaskPlacement,
+  type TaskReopen,
+  type TaskStartOver,
+  type TaskWaysBack as TaskWaysBackResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
-import { SignedIn } from "../../../../platform/http/signed-in-requests.js";
+import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.js";
 import { PlanningService } from "../../application/planning-service.js";
 import { SearchService } from "../../application/search-service.js";
 import { QueueService } from "../../application/queue-service.js";
 import { StartService } from "../../application/start-service.js";
 import { TaskService } from "../../application/task-service.js";
+import { TaskWaysBack } from "../../application/task-ways-back.js";
 import { reasonsOf } from "../../domain/wait.js";
 import { searchedQuery } from "./searched-query.js";
 import { authorOf } from "./signed-in-author.js";
@@ -72,6 +78,7 @@ export class TasksController {
     private readonly queue: QueueService,
     private readonly search: SearchService,
     private readonly responses: TaskResponses,
+    private readonly waysBack: TaskWaysBack,
   ) {}
 
   @Post()
@@ -334,6 +341,46 @@ export class TasksController {
     @SignedIn() signedIn: SignedIn,
   ): Promise<TaskResponse> {
     return this.responses.task(await this.tasks.resume(id, authorOf(signedIn)));
+  }
+
+  /**
+   * The Task's ways back (spec 2.4.5): Restart from… and Start over for a Task Paused by the user,
+   * Reopen… to Backlog or Ready for a Dropped one, each offered or why not (null where the Task's
+   * state has no such way back), whether it had started and where a reset takes its branch.
+   */
+  @Get(":id/ways-back")
+  async waysBackOf(@Param("id", ParseUUIDPipe) id: string): Promise<TaskWaysBackResponse> {
+    const { restart, startOver, reopen, reopenToReady, started, resetTo } =
+      await this.waysBack.waysBack(id);
+    return { restart, startOver, reopen, reopenToReady, started, resetTo };
+  }
+
+  /**
+   * Start over: a Task Paused by the user's Pause or Stop goes to Ready, its earlier Stage runs kept
+   * as history only, its branch reset to the base with `resetBranch`.
+   */
+  @Post(":id/start-over")
+  @HttpCode(HttpStatus.OK)
+  async startOver(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(taskStartOverSchema)) { resetBranch }: TaskStartOver,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<TaskResponse> {
+    return this.responses.task(await this.waysBack.startOver(id, resetBranch, userOf(signedIn)));
+  }
+
+  /**
+   * Reopen…: a Dropped Task goes to Backlog or Ready, Restored first when archived; one that had
+   * started is started over, its branch reset to the base with `resetBranch`.
+   */
+  @Post(":id/reopen")
+  @HttpCode(HttpStatus.OK)
+  async reopen(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(taskReopenSchema)) { to, resetBranch }: TaskReopen,
+    @SignedIn() signedIn: SignedIn,
+  ): Promise<TaskResponse> {
+    return this.responses.task(await this.waysBack.reopen(id, to, resetBranch, userOf(signedIn)));
   }
 
   /** Move's check: every reason the Task can't move to another Project now. */

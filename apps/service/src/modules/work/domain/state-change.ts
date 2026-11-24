@@ -1,4 +1,5 @@
 import { authorWords, type Author, type UserRef } from "./author.js";
+import type { DropReason } from "./drop-reason.js";
 import type { TaskState } from "./task.js";
 
 /** A part of a Task that auto mode confirmed on the user's behalf, the Pipeline by its id. */
@@ -7,14 +8,52 @@ export type AutoModeConfirmation =
   | { readonly part: "definition-of-done" }
   | { readonly part: "pipeline"; readonly pipelineId: string };
 
+/** What a reset of the Task's branch did: the branch it was reset to and the ref keeping its old head. */
+export interface BranchReset {
+  readonly resetTo: string;
+  readonly keptRef: string | null;
+}
+
 /**
- * Who or what moved a Task between states: the user, or a person, as an Author; its Pipeline, as a
+ * The user's way back that made a move (spec 2.1.3, "Work moves forward"), with what the History
+ * names: Restart from… a Stage, Start over (with the branch reset, or null when it wasn't), and
+ * Reopen… of a Dropped Task, with the reason it was dropped (kept here, as the Task's head no
+ * longer holds it) and the Start over it made of a Task that had started (null for none).
+ */
+export type WayBackStep =
+  | { readonly kind: "restart"; readonly stageName: string }
+  | { readonly kind: "start-over"; readonly branchReset: BranchReset | null }
+  | {
+      readonly kind: "reopen";
+      readonly droppedAs: DropReason | null;
+      readonly startedOver: { readonly branchReset: BranchReset | null } | null;
+    };
+
+/**
+ * A move the user made by a way back: an Author's cause with the step, which a release that
+ * doesn't know `wayBack` reads as the user alone.
+ */
+export interface UserWayBack {
+  readonly kind: "user";
+  readonly user: UserRef;
+  readonly wayBack: WayBackStep;
+}
+
+/** The user's way back, as the cause of the move it makes. */
+export function byWayBack(user: UserRef, wayBack: WayBackStep): UserWayBack {
+  return { kind: "user", user, wayBack };
+}
+
+/**
+ * Who or what moved a Task between states: the user, or a person, as an Author, the user's by a
+ * way back with its step; its Pipeline, as a
  * Stage waits on the user, completes or drops it; the fire alarm; the queue, starting it as its turn
  * came, with who queued it (null for a start kept before that was); its engine's usage window, used up or reset; auto mode, marking it Ready with what it confirmed first; or The Office itself, for the
  * reason it gives.
  */
 export type StateChangeCause =
   | Author
+  | UserWayBack
   | { readonly kind: "pipeline" }
   | { readonly kind: "fire-alarm" }
   | { readonly kind: "queue"; readonly queuedBy: Author | null }
@@ -46,6 +85,9 @@ export interface StateChange {
 export function stateChangeCauseWords(cause: StateChangeCause): string {
   switch (cause.kind) {
     case "user":
+      return "wayBack" in cause
+        ? `${authorWords(cause)}: ${wayBackWords(cause.wayBack)}`
+        : authorWords(cause);
     case "person":
       return authorWords(cause);
     case "pipeline":
@@ -62,6 +104,42 @@ export function stateChangeCauseWords(cause: StateChangeCause): string {
       return autoModeWords(cause.confirmed);
     case "office":
       return `The Office: ${cause.reason}`;
+  }
+}
+
+/** What the way back did, as the History names it after who did it. */
+export function wayBackWords(step: WayBackStep): string {
+  switch (step.kind) {
+    case "restart":
+      return `Restarted from ${step.stageName}`;
+    case "start-over":
+      return `Started over${branchResetWords(step.branchReset)}`;
+    case "reopen": {
+      const dropped = step.droppedAs ? ` (dropped as ${droppedAsWords(step.droppedAs)})` : "";
+      const startedOver = step.startedOver
+        ? ` and started over${branchResetWords(step.startedOver.branchReset)}`
+        : "";
+      return `Reopened${dropped}${startedOver}`;
+    }
+  }
+}
+
+function branchResetWords(reset: BranchReset | null): string {
+  if (!reset) return "";
+  const kept = reset.keptRef === null ? "" : `, its old head kept under ${reset.keptRef}`;
+  return `, its branch reset to ${reset.resetTo}${kept}`;
+}
+
+function droppedAsWords(reason: DropReason): string {
+  switch (reason.kind) {
+    case "wont-fix":
+      return "Won't fix";
+    case "cant-reproduce":
+      return "Can't reproduce";
+    case "duplicate":
+      return `a duplicate of ${reason.taskId}`;
+    case "other":
+      return `"${reason.text}"`;
   }
 }
 

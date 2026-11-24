@@ -169,6 +169,18 @@ describe("writing on an issue on GitHub", () => {
     });
   });
 
+  it("opens a closed issue again", async () => {
+    signIn();
+    github.installations.grant("office", { issues: "write" });
+    github.issues.addIssue("office/tools", { number: 6, state: "closed" });
+
+    await issues.reopen(remoteUrl(), 6);
+
+    await expect(issues.issue(remoteUrl(), 6)).resolves.toMatchObject({
+      state: { state: "open" },
+    });
+  });
+
   it("refuses in GitHub's words without the App's Issues permission", async () => {
     signIn();
     github.issues.addIssue("office/tools", { number: 5 });

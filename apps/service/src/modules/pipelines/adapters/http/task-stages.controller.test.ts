@@ -99,6 +99,10 @@ describe("GET /api/tasks/:id/stages", () => {
         route: { to: "tests", times: 1, limit: null },
         choice: null,
         sentBack: null,
+        restart: null,
+        restarted: null,
+        startedOver: null,
+        earlierStart: false,
         commandRuns: [],
         gateAction: null,
         outcome: {

@@ -6,6 +6,7 @@ import { TaskRecords } from "../ports/task-records.js";
 import { AgentStageRunner } from "./agent-stage-runner.js";
 import { RoleFillings } from "./role-fillings.js";
 import { TaskStagesService } from "./task-stages-service.js";
+import { runsOfLatestStart } from "../domain/start-over.js";
 
 /**
  * How each Task the fire alarm paused would go on at the all clear, and at what cost (spec §2.8):
@@ -29,7 +30,7 @@ export class AlarmResumes {
   async of(taskId: string): Promise<TaskResume | undefined> {
     const own = await this.taskStages.find(taskId);
     if (!own) return taskResumeOf({ kind: "goes-on", stage: undefined }, undefined);
-    const runs = await this.runs.list(taskId);
+    const runs = runsOfLatestStart(await this.runs.list(taskId));
     const stages = pipelineOrder(asFlow(await this.roleFillings.staffed(own.stages, runs)));
     const { definitionOfDone } = await this.records.read(taskId);
     const ahead = walkAhead(stages, runs, definitionOfDone);

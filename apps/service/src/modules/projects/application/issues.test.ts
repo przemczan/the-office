@@ -387,6 +387,33 @@ describe("writing back on the issue", () => {
     ]);
   });
 
+  it("opens an issue its Drop closed again as the Task is reopened, and only that one", async () => {
+    setUp({ closeOnDrop: true });
+    host.addIssue({ number: 13 });
+    host.addIssue({ number: 14 });
+    const closed = await imported(13);
+    const leftOpen = await imported(14);
+    await writeBacks.taskDropped(closed, { kind: "wont-fix" });
+    await writeBacks.taskDone(leftOpen);
+    host.writes.length = 0;
+
+    await writeBacks.taskReopened(closed);
+    await writeBacks.taskReopened(leftOpen);
+    await writeBacks.taskReopened(closed);
+
+    expect(host.writes).toEqual([
+      { action: "comment", number: 13, body: "Reopened: the Task was reopened." },
+      { action: "reopen", number: 13 },
+    ]);
+    expect(host.issues.get(13)?.state).toEqual({ state: "open" });
+    expect([...links.links.values()].filter(({ taskEndedAt }) => taskEndedAt === null)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ number: 13 }),
+        expect.objectContaining({ number: 14 }),
+      ]),
+    );
+  });
+
   it("names a Duplicate's issue, or its title when that Task has none", async () => {
     setUp({ closeOnDrop: true });
     host.addIssue({ number: 10 });

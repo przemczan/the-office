@@ -34,9 +34,9 @@ export interface IssueForTests {
 export class IssueHostForTests extends CodeHost {
   readonly name = "GitHub";
   readonly issues = new Map<number, Required<IssueForTests>>();
-  /** Every comment and close taken, in order. */
+  /** Every comment, close and reopen taken, in order. */
   readonly writes: {
-    readonly action: "comment" | "close";
+    readonly action: "comment" | "close" | "reopen";
     readonly number: number;
     readonly body?: string;
   }[] = [];
@@ -109,6 +109,13 @@ export class IssueHostForTests extends CodeHost {
     if (this.refusal !== undefined) throw new CodeHostRefused(this.refusal);
     this.writes.push({ action: "close", number });
     this.closeOnHost(number);
+  }
+
+  async reopenIssue(_remoteUrl: string, number: number): Promise<void> {
+    if (this.refusal !== undefined) throw new CodeHostRefused(this.refusal);
+    this.writes.push({ action: "reopen", number });
+    const issue = this.issues.get(number);
+    if (issue) this.issues.set(number, { ...issue, state: { state: "open" } });
   }
 
   open(): Promise<OpenedPullRequest> {

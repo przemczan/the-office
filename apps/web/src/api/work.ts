@@ -55,6 +55,7 @@ import {
   taskEngineCascadeSchema,
   taskSchema,
   taskUsageEstimateListSchema,
+  taskWaysBackSchema,
   usageSettingsSchema,
   type ArchiveStateFilter,
   type Attachment,
@@ -94,6 +95,9 @@ import {
   type SoundFireAlarm,
   type Task,
   type TaskMoveCheck,
+  type TaskReopen,
+  type TaskRestart,
+  type TaskWaysBack,
   type TaskSummary,
   type TaskPlacement,
   type TaskUsageEstimateList,
@@ -393,6 +397,16 @@ export const taskQueries = {
       queryKey: [...TASKS, id, "move"],
       queryFn: ({ signal }): Promise<TaskMoveCheck> =>
         getFromApi(`${taskPath(id)}/move`, taskMoveCheckSchema, signal),
+    }),
+  /**
+   * Restart from…, Start over and Reopen…, each offered or why not; under the Task's key, so any
+   * Task event refreshes it.
+   */
+  waysBack: (id: string) =>
+    queryOptions({
+      queryKey: [...TASKS, id, "ways-back"],
+      queryFn: ({ signal }): Promise<TaskWaysBack> =>
+        getFromApi(`${taskPath(id)}/ways-back`, taskWaysBackSchema, signal),
     }),
   /** The "Before Ready" checklist; under the Task's key, and a Decision's events refresh it too. */
   readiness: (id: string) =>
@@ -800,6 +814,24 @@ export function stopTask(id: string): Promise<Task> {
 /** Resume: a Paused Task goes on through the Context policy. */
 export function resumeTask(id: string): Promise<Task> {
   return sendToApi("POST", `${taskPath(id)}/resume`, {}, taskSchema);
+}
+
+/**
+ * Restart from…: the held run of a Task the user paused or stopped ends, its uncommitted edits
+ * discarded, and the Task goes on from the Stage picked, briefed with the feedback.
+ */
+export function restartTask(id: string, restart: TaskRestart): Promise<void> {
+  return sendToApiWithNoAnswer("POST", `${taskPath(id)}/restart`, restart);
+}
+
+/** Start over: the paused Task goes to Ready, its branch reset to the base with `resetBranch`. */
+export function startTaskOver(id: string, resetBranch: boolean): Promise<Task> {
+  return sendToApi("POST", `${taskPath(id)}/start-over`, { resetBranch }, taskSchema);
+}
+
+/** Reopen…: a Dropped Task goes back to Backlog or Ready, started over when it had started. */
+export function reopenTask(id: string, reopen: TaskReopen): Promise<Task> {
+  return sendToApi("POST", `${taskPath(id)}/reopen`, reopen, taskSchema);
 }
 
 /** Move: the Task goes to another Project, back in Backlog with both parts Not confirmed. */

@@ -4560,7 +4560,7 @@ test(
       await gate.getByRole("button", { name: "Show details" }).click();
       const drop = page.getByRole("dialog").getByRole("button", { name: "Drop", exact: true });
       await drop.click();
-      await expect(page.getByRole("dialog")).toContainText("a dropped Task can't be picked up");
+      await expect(page.getByRole("dialog")).toContainText("Reopen… brings it back to Backlog or");
       await drop.click();
       await expect(page.getByRole("region", { name: "Needs you" })).toContainText(
         "This Task was dropped",

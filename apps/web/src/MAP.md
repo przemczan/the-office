@@ -99,7 +99,7 @@
 - `telemetry.ts`: TELEMETRY_SETTINGS, BASIC_STATS, BASIC_STATS_REFRESH_MS, FULL_STATS, FULL_STATS_STARTING_REFRESH_MS, SYSTEM_HEALTH, SYSTEM_HEALTH_HOUR_REFRESH_MS, SYSTEM_HEALTH_TIMEOUT_MS, statsQueries, telemetryQueries, saveTelemetry, startBundledGrafana, checkGrafana
 - `test-instances.ts`: testInstanceQueries, launchTestInstance, launchOnBranch, stopTestInstance, openTestInstance, testBuildFileAddress, linkTestBuildFile, readTestInstanceLog, changeTestInstanceSettings, TEST_INSTANCE_CHANGED, testInstanceEventInvalidations
 - `users.ts`: ACCOUNT, USERS, FIRST_RUN_SETUP, userQueries, userEventInvalidations, addUser, newOneTimePassword, removeUser, setFirstPassword, changeProfile, changePassword, saveAppearance, createFirstUser, closeFirstRunSetup, signInWithPassword, signInWithCode, setUpAuthenticator, confirmAuthenticator, turnOffAuthenticator, makeNewRecoveryCodes, signOut, signOutDevice, SIGN_IN_PATH, SIGN_IN_CODE_PATH, returnPathOf
-- `work.ts`: TASKS, PERSON_TASKS, FIRE_ALARM, ideaQueries, ArchivedInitiativesAsked, initiativeQueries, officeWideLimitQuery, changeOfficeWideLimit, archivePeriodQuery, changeArchivePeriod, autoModeQuery, usageSettingsQuery, changeUsageSettings, soundTheAlarm, giveTheAllClear, savedViewsQuery, saveView, removeView, searchQuery, taskQueries, EveryTask, useEveryTask, onboardingsQuery, attachmentQueries, SHOWN_TEXT_LIMIT, ShownText, captureIdea, editIdea, shapeIdea, planIdea, shapeIntoInitiative, startShapingThread, planInitiative, planInitiativeWith, startReadyTasks, confirmInitiative, initiativeBackToShaping, pauseInitiative, resumeInitiative, dropInitiative, archiveInitiative, restoreInitiative, writeInitiativeOutcome, setInitiativePipelines, addTaskToInitiative, dropIdea, restoreIdea, createTask, changePriority, changeKind, changeCausedBy, changeFoundInVersion, changeTags, placeTask, changeTitle, changeDescription, changeCommitMessage, changeTaskEngine, changeInitiativeEngine, planTask, makeAPlan, PlanSaving, savePlan, confirmPlan, saveDefinitionOfDone, confirmDefinitionOfDone, setPipeline, addDependency, removeDependency, addToInitiative, takeOutOfInitiative, markReady, startTask, resolveConflicts, takeOutOfQueue, moveUpInQueue, moveToTopOfQueue, pauseTask, stopTask, resumeTask, moveTask, dropTask, archiveTask, restoreTask, addLink, addFile, removeAttachment, attachmentContentUrl, workEventInvalidations, workEventCacheUpdates
+- `work.ts`: TASKS, PERSON_TASKS, FIRE_ALARM, ideaQueries, ArchivedInitiativesAsked, initiativeQueries, officeWideLimitQuery, changeOfficeWideLimit, archivePeriodQuery, changeArchivePeriod, autoModeQuery, usageSettingsQuery, changeUsageSettings, soundTheAlarm, giveTheAllClear, savedViewsQuery, saveView, removeView, searchQuery, taskQueries, EveryTask, useEveryTask, onboardingsQuery, attachmentQueries, SHOWN_TEXT_LIMIT, ShownText, captureIdea, editIdea, shapeIdea, planIdea, shapeIntoInitiative, startShapingThread, planInitiative, planInitiativeWith, startReadyTasks, confirmInitiative, initiativeBackToShaping, pauseInitiative, resumeInitiative, dropInitiative, archiveInitiative, restoreInitiative, writeInitiativeOutcome, setInitiativePipelines, addTaskToInitiative, dropIdea, restoreIdea, createTask, changePriority, changeKind, changeCausedBy, changeFoundInVersion, changeTags, placeTask, changeTitle, changeDescription, changeCommitMessage, changeTaskEngine, changeInitiativeEngine, planTask, makeAPlan, PlanSaving, savePlan, confirmPlan, saveDefinitionOfDone, confirmDefinitionOfDone, setPipeline, addDependency, removeDependency, addToInitiative, takeOutOfInitiative, markReady, startTask, resolveConflicts, takeOutOfQueue, moveUpInQueue, moveToTopOfQueue, pauseTask, stopTask, resumeTask, restartTask, startTaskOver, reopenTask, moveTask, dropTask, archiveTask, restoreTask, addLink, addFile, removeAttachment, attachmentContentUrl, workEventInvalidations, workEventCacheUpdates
 - `workstation.ts`: WORKSTATION_REFRESH_MS, workstationQueries
 - Tests: api-client.test.ts, appearance-ids.test.ts, conversations.full.test.ts, device-relay.test.ts, engine.full.test.ts, event-stream.full.test.ts, skills.full.test.ts, users.full.test.ts
 
@@ -509,7 +509,10 @@
 - `new-task-dialog.tsx`: NewTaskDraft, EMPTY_TASK_DRAFT, NewTaskForm, useNewTask, NewTaskDialog, NewTaskActions, NewTaskBody
 - `off-board-task-badge.tsx`: OFF_BOARD_TASK, OffBoardTaskBadge
 - `record-tab.ts`: RecordTab, RECORD_ELEMENT_ID, recordTabOf
+- `reopen-task-dialog.tsx`: ReopenTaskDialog
+- `restart-task-dialog.tsx`: RestartTaskDialog
 - `shape-idea-dialog.tsx`: IdeaShapeChoice, ShapeIdeaDialog
+- `start-over-dialog.tsx`: StartOverDialog
 - `tag-words.ts`: tagOf, withTag, tagsInUse
 - `tags-input.tsx`: TagsInput
 - `task-state-badge.tsx`: TaskStateBadge, PriorityIcon, PriorityGlyph, KindMark, KindGlyph
@@ -519,8 +522,10 @@
 - `use-planner.ts`: usePlanner
 - `use-shaper.ts`: useShaper
 - `waiting-on-you.ts`: waitsOnYou, waitsOnYouInItsState, useWaitingOnYou, useWaitingOnYouInItsState
+- `way-back-dialogs.fixtures.tsx`: TASK, aWaysBack, rendered, unmounted, button, choice, written
+- `way-back-parts.tsx`: useWayBack, ResetBranchField, EARLIER_RUNS_STAY
 - `work-words.ts`: TASK_STATE_NAMES, STOPPED, PausedHold, taskStateWords, Archived, isArchived, canBeArchived, NOT_STARTED, TASK_STATE_TONES, PRIORITY_NAMES, PRIORITY_ICONS, KIND_NAMES, KIND_ICONS, KIND_PLURALS, kindDefaultWords, BUG_DESCRIPTION_OUTLINE, BUG_OUTLINE_CURSOR, descriptionForKind, authorName, creatorName, reportedMetCount, projectIdsOfIdea
-- Tests: create-dialog.test.tsx, drop-task-dialog.test.tsx, gate-card-words.full.test.ts, gate-words.full.test.ts, new-task-dialog.test.tsx, tag-words.full.test.ts, usage-estimate-words.full.test.ts, waiting-on-you.full.test.ts, work-words.full.test.ts
+- Tests: create-dialog.test.tsx, drop-task-dialog.test.tsx, gate-card-words.full.test.ts, gate-words.full.test.ts, new-task-dialog.test.tsx, reopen-task-dialog.test.tsx, restart-task-dialog.test.tsx, start-over-dialog.test.tsx, tag-words.full.test.ts, usage-estimate-words.full.test.ts, waiting-on-you.full.test.ts, work-words.full.test.ts
 
 ### shell/workstation/
 

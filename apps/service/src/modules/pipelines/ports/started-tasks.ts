@@ -136,6 +136,25 @@ export abstract class StartedTasks {
   abstract resume(taskId: string, by: ResumedOrDroppedBy): Promise<StartedTask>;
 
   /**
+   * Why the user can't Restart from… the Task now (spec 2.4.5): it isn't Paused by their own Pause
+   * or Stop, or the fire alarm, a usage window or its paused Initiative holds it. Empty when they
+   * can.
+   */
+  abstract restartProblems(taskId: string): Promise<readonly string[]>;
+
+  /**
+   * The user's Restart from… `stageName`: the Paused Task goes on In progress as a Resume does
+   * (`TaskResumed`), its History naming the Stage and the user; refused as `restartProblems` says.
+   */
+  abstract restart(
+    taskId: string,
+    restart: {
+      readonly stageName: string;
+      readonly by: { readonly userId: string; readonly name: string };
+    },
+  ): Promise<StartedTask>;
+
+  /**
    * Drops the Task as the answer to the Decision, started or not: a Consultant's answer too, as The
    * Office put the Decision to them on the user's behalf.
    */

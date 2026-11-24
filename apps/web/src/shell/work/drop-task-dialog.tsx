@@ -13,7 +13,7 @@ import {
 } from "./drop-reason-field.tsx";
 
 /**
- * Dropping is the Task's exit: it can't come back. A small window still, with the optional reason:
+ * Dropping is the Task's exit, until Reopen… brings it back. A small window still, with the optional reason:
  * picking one is unsaved input.
  */
 export function DropTaskDialog({
@@ -88,8 +88,8 @@ export function WhatDroppingDoes({ error }: { readonly error: Error | null }): R
     <>
       {error && <RefusalAlert title="The Task can't be dropped" error={error} />}
       <p className="dialog-text">
-        It moves to Done as dropped and stays readable there; a dropped Task can't be picked up
-        again.
+        It moves to Done as dropped and stays readable there; Reopen… brings it back to Backlog or
+        Ready.
       </p>
     </>
   );

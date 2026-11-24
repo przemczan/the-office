@@ -222,6 +222,17 @@ export const sendBackSchema = z.object({
 });
 export type SendBack = z.infer<typeof sendBackSchema>;
 
+/**
+ * POST /tasks/:id/restart, Restart from… a Task the user paused or stopped: any Stage of its
+ * Pipeline, later ones too, with optional feedback. The held run ends, its uncommitted edits
+ * discarded, and the Task goes on In progress from that Stage. Answers 204.
+ */
+export const taskRestartSchema = z.object({
+  stageKey: z.string().min(1),
+  feedback: z.string().trim().optional(),
+});
+export type TaskRestart = z.infer<typeof taskRestartSchema>;
+
 /** What a refused Gate action answers: every reason, also joined into Nest's `message`. */
 export const gateRefusalSchema = z.object({
   statusCode: z.literal(422),
@@ -391,6 +402,35 @@ export const stageRunSchema = z.object({
     .nullable(),
   /** The feedback a Gate sent the work back to this Stage with, which the run was briefed with. */
   sentBack: z.object({ gateKey: z.string(), feedback: z.string() }).nullable(),
+  /**
+   * The user's Restart from… on this held run: the Stage the walk went on from, by key, the
+   * feedback given (null for none) and who restarted it, by their name then.
+   */
+  restart: z
+    .object({ stageKey: z.string(), feedback: z.string().nullable(), by: z.string() })
+    .nullable(),
+  /**
+   * The feedback of the Restart from… that ran this run, null when none was given, which an Agent
+   * Stage's run was briefed with; null for a run no restart ran.
+   */
+  restarted: z.object({ feedback: z.string().nullable(), by: z.string() }).nullable(),
+  /**
+   * The user's Start over after this run, the last before it: who, when, and with the branch reset,
+   * the branch it was reset to and the local ref keeping the old head; null otherwise.
+   */
+  startedOver: z
+    .object({
+      by: z.string(),
+      at: z.iso.datetime(),
+      resetTo: z.string().nullable(),
+      keptRef: z.string().nullable(),
+    })
+    .nullable(),
+  /**
+   * Whether the run is of an earlier start, before the latest Start over: kept as history only, the
+   * walk, the rail and Reported met ignore it.
+   */
+  earlierStart: z.boolean(),
   commandRuns: z.array(stageCommandRunSchema),
   /** What the user did at a Gate's run; null while the Gate waits, and for other kinds. */
   gateAction: gateActionSchema.nullable(),

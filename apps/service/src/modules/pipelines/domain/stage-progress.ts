@@ -3,6 +3,7 @@ import { asFlow, reachableFrom } from "./flow.js";
 import { routesFollowed, type FollowedRoute } from "./pipeline-walk.js";
 import type { Stage } from "./stage.js";
 import { staffedRole, staffedStages } from "./stage-staffing.js";
+import { runsOfLatestStart } from "./start-over.js";
 import {
   addTokens,
   NO_STAGE_TOKENS,
@@ -41,8 +42,13 @@ export interface WentBack {
 export interface StageProgress {
   readonly stage: Stage;
   readonly state: StageState;
-  /** The Stage's runs, oldest first. */
+  /**
+   * The Stage's runs, oldest first, those of earlier starts (`earlierStart`) included, which the
+   * Stage history shows as history only.
+   */
   readonly runs: readonly StageRun[];
+  /** The ids of `runs` before the Task's latest Start over (spec §2.4.5). */
+  readonly earlierStart: ReadonlySet<string>;
   /** Every token its runs' engine calls used, by kind; budgets leave cache reads out. */
   readonly tokens: StageTokens;
   /** Set when its latest run failed and its failure route carried the failure to a Stage. */
@@ -71,23 +77,37 @@ export interface TaskProgress {
   readonly gatesCheckingDefinitionOfDone: readonly string[];
 }
 
-/** Each of the Task's Stages, in order, with where it stands from the Task's runs. */
+/**
+ * Each of the Task's Stages, in order, with where it stands from the Task's runs since its latest
+ * Start over (spec §2.4.5): those before it are history only.
+ */
 export function stagesProgress(
   stages: readonly Stage[],
-  runs: readonly StageRun[],
+  allRuns: readonly StageRun[],
   holders: ReadonlyMap<DutyKey, string> = new Map(),
 ): StageProgress[] {
+  const runs = runsOfLatestStart(allRuns);
+  const current = new Set(runs.map(({ id }) => id));
   const staffed = staffedStages(stages, runs, holders);
   const notTaken = notTakenStages(stages, runs);
+  const jumped = jumpedStages(stages, runs);
   const followed = routesFollowed(stages, runs);
   return stages.map((stage, index) => {
     const own = runs.filter(({ stageKey }) => stageKey === stage.key);
+    const ownEver = allRuns.filter(({ stageKey }) => stageKey === stage.key);
     const latest = own.at(-1);
     const staffedStage = staffed[index];
     return {
       stage,
-      state: latest ? stateOf(stage, latest) : notTaken.has(stage.key) ? "not-taken" : "pending",
-      runs: own,
+      state: jumped.has(stage.key)
+        ? "skipped"
+        : latest
+          ? stateOf(stage, latest)
+          : notTaken.has(stage.key)
+            ? "not-taken"
+            : "pending",
+      runs: ownEver,
+      earlierStart: new Set(ownEver.flatMap(({ id }) => (current.has(id) ? [] : [id]))),
       tokens: own.reduce((sum, run) => addTokens(sum, run.tokens), NO_STAGE_TOKENS),
       wentBack: latest && wentBackFrom(latest, runs),
       routes: new Map(own.flatMap(({ id }) => routeOf(followed, id))),
@@ -112,8 +132,28 @@ function notTakenStages(stages: readonly Stage[], runs: readonly StageRun[]): Re
   return new Set(flow.flatMap(({ key }) => (reached.has(key) ? [] : [key])));
 }
 
-function stateOf(stage: Stage, { outcome, decisions, gateAction }: StageRun): StageState {
+/**
+ * The keys of the Stages a Restart from… jumped over (spec §2.4.5): those after the held run's
+ * Stage and before the later Stage it restarted from, in the Pipeline's order, with no run since.
+ */
+function jumpedStages(stages: readonly Stage[], runs: readonly StageRun[]): ReadonlySet<string> {
+  const keys = stages.map(({ key }) => key);
+  const jumped = new Set<string>();
+  for (const [index, run] of runs.entries()) {
+    if (!run.restart) continue;
+    const from = keys.indexOf(run.stageKey);
+    const to = keys.indexOf(run.restart.stageKey);
+    if (from < 0 || to <= from + 1) continue;
+    const since = new Set(runs.slice(index + 1).map(({ stageKey }) => stageKey));
+    for (const key of keys.slice(from + 1, to)) if (!since.has(key)) jumped.add(key);
+  }
+  return jumped;
+}
+
+function stateOf(stage: Stage, { outcome, decisions, gateAction, restart }: StageRun): StageState {
   if (!outcome) return "running";
+  // The user's Restart from… ended the held run, its uncommitted edits discarded.
+  if (restart) return "stopped";
   if (decisions.some(({ answer }) => answer === undefined)) return "waiting-on-you";
   switch (outcome.status) {
     case "done":

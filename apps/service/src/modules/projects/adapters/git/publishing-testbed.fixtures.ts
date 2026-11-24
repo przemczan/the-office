@@ -131,6 +131,10 @@ export class CodeHostForTests extends CodeHost {
     return Promise.resolve();
   }
 
+  reopenIssue(): Promise<void> {
+    return Promise.resolve();
+  }
+
   mergeMethods(): Promise<MergeMethodsOnHost> {
     return Promise.reject(new CodeHostRefused("Publishing merges no pull request."));
   }

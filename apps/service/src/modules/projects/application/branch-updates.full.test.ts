@@ -213,3 +213,38 @@ describe("BranchUpdates.update", REAL_GIT_TEST, () => {
     });
   });
 });
+
+describe("BranchUpdates.resetToBase", REAL_GIT_TEST, () => {
+  it("keeps the branch's head under the ref and takes the worktree to the fresh base", async () => {
+    const task = await aTask();
+    await writeFile(join(task.path, `own-${task.taskId}.txt`), "by the Task\n");
+    await git.commit(task.path, "Its own", variables);
+    const { commit: ownHead } = await git.head(task.path);
+    await writeFile(join(task.path, `edit-${task.taskId}.txt`), "half done\n");
+    await commitOnOrigin(repository, "main", `ahead-${task.taskId}.txt`);
+    const keptRef = `refs/office/started-over/${task.taskId}/1`;
+
+    await expect(updates.resetToBase(project(), task.taskId, keptRef)).resolves.toEqual({
+      resetTo: "main",
+      commit: originMain(),
+    });
+    expect(gitIn(repository.path, "rev-parse", keptRef)).toBe(ownHead);
+    await expect(git.head(task.path)).resolves.toMatchObject({ commit: originMain() });
+    await expect(git.hasUncommittedChanges(task.path, variables)).resolves.toBe(false);
+  });
+
+  it("moves the branch alone when the Task's worktree is gone", async () => {
+    const task = await aTask();
+    await writeFile(join(task.path, `own-${task.taskId}.txt`), "by the Task\n");
+    await git.commit(task.path, "Its own", variables);
+    const { commit: ownHead } = await git.head(task.path);
+    const branch = await worktrees.branchOf(project(), task.taskId);
+    await worktrees.remove(project(), task.taskId);
+    const keptRef = `refs/office/started-over/${task.taskId}/1`;
+
+    await updates.resetToBase(project(), task.taskId, keptRef);
+
+    expect(gitIn(repository.path, "rev-parse", keptRef)).toBe(ownHead);
+    expect(gitIn(repository.path, "rev-parse", `refs/heads/${branch}`)).toBe(originMain());
+  });
+});

@@ -55,6 +55,16 @@ export class IssueLinkRepositoryForTests extends IssueLinkRepository {
     this.change(id, (link) => (link.taskEndedAt === null ? { ...link, taskEndedAt: at } : link));
   }
 
+  async reopenTask(id: string): Promise<void> {
+    this.change(id, (link) => ({ ...link, taskEndedAt: null }));
+  }
+
+  async writeBacksOf(issueLinkId: string): Promise<readonly IssueWriteBackEntry[]> {
+    return [...this.writeBacks.values()]
+      .filter((entry) => entry.issueLinkId === issueLinkId)
+      .toSorted((one, other) => one.createdAt.getTime() - other.createdAt.getTime());
+  }
+
   async addWriteBacks(entries: readonly IssueWriteBackEntry[]): Promise<void> {
     for (const entry of entries) this.writeBacks.set(entry.id, entry);
   }

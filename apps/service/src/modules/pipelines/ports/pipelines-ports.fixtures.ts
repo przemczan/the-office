@@ -22,6 +22,7 @@ import {
   TaskPaused,
   TaskResumed,
   TaskStageEdits,
+  TaskStartOvers,
   TaskStateChanged,
 } from "../../work/index.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
@@ -415,6 +416,38 @@ export class StartedTasksForTests extends StartedTasks {
   async resume(taskId: string): Promise<StartedTask> {
     const fails = this.resumeFails.get(taskId);
     if (fails) throw fails;
+    const task = await this.read(taskId);
+    this.put(taskId, { ...task, state: "in-progress", pausedBy: undefined });
+    await this.announce(new TaskResumed(taskId));
+    return this.read(taskId);
+  }
+
+  /** Why each Task can't be restarted, when a test says it can't. */
+  readonly restartRefusals = new Map<string, readonly string[]>();
+  /** Every Restart from…, with the Stage's name and who, in order. */
+  readonly restarts: {
+    readonly taskId: string;
+    readonly stageName: string;
+    readonly by: { readonly userId: string; readonly name: string };
+  }[] = [];
+
+  async restartProblems(taskId: string): Promise<readonly string[]> {
+    const refused = this.restartRefusals.get(taskId);
+    if (refused) return refused;
+    const task = await this.read(taskId);
+    return task.state === "paused" && task.pausedBy === undefined
+      ? []
+      : ["Only a Task the user paused or stopped can be restarted."];
+  }
+
+  async restart(
+    taskId: string,
+    restart: {
+      readonly stageName: string;
+      readonly by: { readonly userId: string; readonly name: string };
+    },
+  ): Promise<StartedTask> {
+    this.restarts.push({ taskId, ...restart });
     const task = await this.read(taskId);
     this.put(taskId, { ...task, state: "in-progress", pausedBy: undefined });
     await this.announce(new TaskResumed(taskId));
@@ -1081,6 +1114,22 @@ export class TaskGitForTests extends TaskGit {
     return Promise.resolve(["refs/remotes/origin/main"]);
   }
 
+  /** The commit each Task's base is at, fetched fresh, as a Start over's reset takes it. */
+  baseCommit = "b".repeat(40);
+  /** Every local ref kept by a Start over's reset, with the head it keeps. */
+  readonly keptRefs = new Map<string, string>();
+
+  resetBranchToBase(
+    _projectId: string,
+    taskId: string,
+    keptRef: string,
+  ): Promise<{ readonly resetTo: string; readonly commit: string }> {
+    this.keptRefs.set(keptRef, this.headOf(taskId).commit);
+    this.uncommitted.delete(taskId);
+    this.move(taskId, { commit: this.baseCommit, branch: this.headOf(taskId).branch });
+    return Promise.resolve({ resetTo: aTaskRecord().project.baseBranch, commit: this.baseCommit });
+  }
+
   removeWorktree(_projectId: string, taskId: string): Promise<void> {
     this.observe?.("removeWorktree");
     if (this.removalFailure) return Promise.reject(new Error(this.removalFailure));
@@ -1445,6 +1494,7 @@ export class PipelinesPortsForTestsModule {
       ProposalAppliers,
       PipelineRoleSources,
       TaskStageEdits,
+      TaskStartOvers,
       TaskEngineChecks,
     ];
     return { module: PipelinesPortsForTestsModule, imports, providers, exports: providers };

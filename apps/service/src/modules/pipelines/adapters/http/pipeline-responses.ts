@@ -168,7 +168,13 @@ function toTaskStageResponse(
       ? { workedBy: progress.workedBy ?? null }
       : {}),
     runs: progress.runs.map((run) =>
-      toStageRunResponse(run, progress.routes.get(run.id), isPublishStage(progress.stage), names),
+      toStageRunResponse(
+        run,
+        progress.routes.get(run.id),
+        isPublishStage(progress.stage),
+        names,
+        progress.earlierStart.has(run.id),
+      ),
     ),
   };
 }
@@ -215,6 +221,7 @@ function toStageRunResponse(
   route: FollowedRoute | undefined,
   ofPublish: boolean,
   names: ReadonlyMap<string, string>,
+  earlierStart: boolean,
 ): StageRunResponse {
   const carried = run.carriedFailure;
   return {
@@ -248,6 +255,25 @@ function toStageRunResponse(
     sentBack: run.sentBack
       ? { gateKey: run.sentBack.gateKey, feedback: run.sentBack.feedback }
       : null,
+    restart: run.restart
+      ? {
+          stageKey: run.restart.stageKey,
+          feedback: run.restart.feedback ?? null,
+          by: run.restart.byUser.name,
+        }
+      : null,
+    restarted: run.restarted
+      ? { feedback: run.restarted.feedback ?? null, by: run.restarted.byUser.name }
+      : null,
+    startedOver: run.startedOver
+      ? {
+          by: run.startedOver.byUser.name,
+          at: run.startedOver.at,
+          resetTo: run.startedOver.resetTo ?? null,
+          keptRef: run.startedOver.keptRef ?? null,
+        }
+      : null,
+    earlierStart,
     commandRuns: run.commandRuns.map(
       ({ purpose, commandLine, outcome, durationMs, condition }) => ({
         purpose,

@@ -34,7 +34,7 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - Right: the actions (see Head actions), then **More**.
 - Under the head: the Off-board Task note, the Start notes (see Start and the queue), then the drop note.
 - Off-board Task note: on an Off-board Task, "The Office started this Off-board Task at once and keeps it off the Work board. Follow it here or on <Project>'s page.", the last words a link to the Project page's Onboarding (an Onboard Task) or Run environment (a "Set up the run environment" Task).
-- Drop note: on a Task dropped with a reason, "Dropped: won't fix", "Dropped: can't reproduce", "Dropped: <Other's words>" or "Dropped as a duplicate of <Task>" (linked, with its state badge), then when; none for a Task dropped with no reason ([2.1.3](../2.1.3-tasks.md#drop-reason)).
+- Drop note: on a Task dropped with a reason, "Dropped: won't fix", "Dropped: can't reproduce", "Dropped: <Other's words>" or "Dropped as a duplicate of <Task>" (linked, with its state badge), then when; none for a Task dropped with no reason ([2.1.3](../2.1.3-tasks.md#drop-reason)); gone once the Task is reopened, the reason staying in History.
 
 ## Head actions
 
@@ -43,7 +43,8 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - In order: planning actions, Start or the queue's actions, run controls, **Open pull request**, **Browse files**, **Restore**.
 - Each is coloured by its tone, in the buttons and in **More** ([Action tones](../4.1-ui-rules.md#action-tones)).
 - Planning actions: **Plan with <Planner>** and **Mark Ready** (see Planning actions).
-- Run controls: **Pause**, **Stop**, **Resume** (see Run controls).
+- Run controls: **Pause**, **Stop**, **Resume**, **Restart from…**, **Start over** (see Run controls).
+- **Reopen…**: on a Dropped Task, after the planning actions (see Reopen window).
 - **Open pull request**: a link in a new tab, shown once the newest finished Publish opened a pull request, or the ended pull request's address is known.
 - Once the pull request ended, a badge sits beside it: "Pull request merged" or "Pull request closed"; hover says the method, who ("on GitHub" for the code host) and when.
 - The Task's record gets a line for it, such as "Pull request #12 (<url>) merged (squash) by the user Ann Lee on …".
@@ -60,8 +61,9 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - **Edit Stages for this Task**: until it ends, never in Shaping; opens the Stage editor (see Edit for this Task).
 - **Move to another Project…**: until it ends; shown even where it is refused, as its window says why.
 - **Delete branch…**: on a Done or Dropped Task while its branch `office/<task id>` is known here, locally or as a remote-tracking ref (`GET /tasks/:id/branch`, no fetch); a Publishing Task and a Conflict resolution Task show none (see Delete branch window).
+- **Reopen…**: on a Dropped Task, as in the head; on an archived one it is offered once the Task is Restored.
 - A divider, then **Drop…** (danger), until it ends.
-- Drop… opens "Drop <title>?" (Small) with the button **Drop the Task**; it says the Task moves to Done as dropped, stays readable there, and can't be picked up again; a refusal shows as "The Task can't be dropped"; success toasts "Task dropped."
+- Drop… opens "Drop <title>?" (Small) with the button **Drop the Task**; it says the Task moves to Done as dropped, stays readable there, and can be reopened later; a refusal shows as "The Task can't be dropped"; success toasts "Task dropped."
 - Its optional **Reason** (hint "Optional."): a radio list of **Won't fix**, **Duplicate**, **Can't reproduce** and **Other**, none picked at first; pressing the picked one again clears it ([2.1.3](../2.1.3-tasks.md#drop-reason)).
   - What Duplicate and Other ask shows right under them while picked.
   - Duplicate shows "Find a Task by its title", a searchable select of every other Task in any Project and state, with the hint "The Task this one duplicates. Required for Duplicate."; Drop the Task waits with "Pick the Task it duplicates".
@@ -124,7 +126,20 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - Pause hint: "Hold the Task once the Agent's current turn ends, keeping the Stage's edits"; toast "Pausing once the Agent's current turn ends."
 - Stop hint: "Interrupt the Agent now and discard the Stage's uncommitted edits"; toast "Stopped: the Stage's uncommitted edits are discarded."
 - **Resume** (play, primary): on a Paused Task; its label and hint say how the Task goes on (from the latest run, its Thread's context and whether a Decision is open); toast "Resumed."
-- Rules: [2.4.5](../2.4.5-stopping-and-restarts.md#stop-and-pause).
+- **Restart from…** and **Start over**: on a Paused Task, including one Stopped, the user's alone; while the fire alarm, a usage window or a paused Initiative holds the Task they are refused with the reason, as Pause and Stop are.
+- Restart from… opens a window "Restart <title> from…" with a **Restart from** picker of every Stage of the Pipeline, later ones too, optional **Feedback**, and the button **Restart**; it says the held run ends and the Stage's uncommitted edits Pause kept are discarded; toast "Restarted from <Stage>."
+- Start over opens "Start <title> over?" with the checkbox **Reset the branch to <base>**, checked, <base> being the Initiative's branch for an Initiative Task, else the Project's base branch; it says the Task goes to Ready, keeps its Plan, Definition of Done and Pipeline, and keeps its earlier Stage runs as history; the button **Start over**; toast "Started over: the Task is Ready."
+- A Task whose Publish pushed its branch or opened a pull request refuses Start over: "Its work has left the workstation: use Restart from… instead."
+- Rules: [2.4.5](../2.4.5-stopping-and-restarts.md#stop-and-pause), [Restart from](../2.4.5-stopping-and-restarts.md#restart-from), [Start over](../2.4.5-stopping-and-restarts.md#start-over).
+
+## Reopen window
+
+- "Reopen <title>?" (Small), button **Reopen the Task**, from the head or **More** on a Dropped Task.
+- Radios **To Backlog** and **To Ready**; To Ready is disabled with the reason unless the Plan, Definition of Done and Pipeline are confirmed.
+- For a Task that had started: the checkbox **Reset the branch to <base>**, checked, and the words that its earlier Stage runs stay as history; refused once Publish pushed: "Its work has left the workstation."
+- It notes a closed GitHub issue is reopened, and that the Decisions the Drop closed stay closed.
+- A refusal shows in the window ("The Task can't be reopened", with the reason); success toasts "Reopened to <Backlog|Ready>."
+- Rules: [2.1.3](../2.1.3-tasks.md#reopen).
 
 ## Pipeline rail
 
@@ -180,6 +195,9 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - Right: the run picked; it stays picked while the window is open.
 - An ended run names the route it followed, with its count: "Went on to Review", "Went back to Implement (2 of at most 3)", or "Went to End".
 - An Agent's choice shows with its reason: "Chose Review: the change touches what the user sees"; a Publish Stage's result with what shipped: "Published: pull request #212 opened", "Conflict with main in 3 files".
+- A Stage Skipped by a restart shows Skipped, with "Not needed" on the rail.
+- A run the user's Restart from… held reads "Restarted from <Stage> by <user>" with its feedback, and the run the restart ran shows the feedback as well; a Script Stage keeps it on its run.
+- A Start over shows "Started over by <user>" (with "Branch reset to <base>, old head kept as <ref>" when it reset) and a divider "Earlier start" before the runs of an earlier start, which are history only ([2.4.5](../2.4.5-stopping-and-restarts.md#start-over)).
 - A Stage with no runs says "Runs once the Task starts." (not started) or "Hasn't run yet."
 - ← and → move to the previous or next Stage, heard on the document, unless a field is typed in or an Attachment viewer is over the window.
 - Closing returns focus to the Stage on the rail.
@@ -407,7 +425,7 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 
 - A fold "History" (history icon), last, starting folded.
 - Summary: "Nothing yet", or "<n> changes · last <when>".
-- One row per entry, oldest first: "Created in Backlog by …", "Moved from Ready to Planning by …", "Title edited by …", each with its day and clock.
+- One row per entry, oldest first: "Created in Backlog by …", "Moved from Ready to Planning by …", "Title edited by …", "Reopened to Ready by …", "Started over by …", each with its day and clock.
 - Who reads as [2.1.3 History](../2.1.3-tasks.md#history) names them: "the user Ann Lee", "the person in the Role planner".
 - Empty: "Nothing has changed yet."; a failed read shows a danger alert "The History wasn't read" with the service's message.
 - Rules: [2.1.3](../2.1.3-tasks.md#history).

@@ -52,6 +52,10 @@ function aRun(fields: Pick<StageRun, "id" | "number" | "startedAt" | "endedAt">)
     route: null,
     choice: null,
     sentBack: null,
+    restart: null,
+    restarted: null,
+    startedOver: null,
+    earlierStart: false,
     commandRuns: [],
     gateAction: null,
     outcome: {
@@ -422,5 +426,39 @@ describe("an Agent run's Sub-agents and processes", () => {
     await act(async () => line?.click());
     expect(onTab).toHaveBeenCalledWith("sub-agents-and-processes");
     expect(document.querySelector('[role="dialog"]')).toBeNull();
+  });
+});
+
+describe("a run's ways back", () => {
+  it("says who restarted a held run, from where and with what, and who started the Task over", () => {
+    const page = showRun(
+      {
+        ...firstRun,
+        restart: { stageKey: "implement", feedback: "Mind the edge case.", by: "Ann Lee" },
+        startedOver: {
+          by: "Ann Lee",
+          at: "2026-11-04T12:00:00.000Z",
+          resetTo: "main",
+          keptRef: "refs/office/kept/1",
+        },
+      },
+      [],
+    );
+
+    expect(page.textContent).toContain("Restarted from implement by Ann Lee");
+    expect(page.textContent).toContain("Mind the edge case.");
+    expect(page.textContent).toContain(
+      "Started over by Ann Lee, branch reset to main, old head kept as refs/office/kept/1",
+    );
+  });
+
+  it("shows the feedback a restart ran the run with", () => {
+    const page = showRun(
+      { ...secondRun, restarted: { feedback: "Try again.", by: "Ann Lee" } },
+      [],
+    );
+
+    expect(page.textContent).toContain("Restarted by Ann Lee");
+    expect(page.textContent).toContain("Try again.");
   });
 });

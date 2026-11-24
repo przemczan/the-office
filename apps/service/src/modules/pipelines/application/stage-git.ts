@@ -175,6 +175,23 @@ export class StageGit {
     return this.settleInterrupted(work.run, task, expected, interruption);
   }
 
+  /**
+   * Ends the Task's held run for the user's Restart from… (spec §2.4.5): drops the uncommitted
+   * edits Pause kept, from where the run expected HEAD. Returns the dropped paths.
+   */
+  async discardHeld(work: StageAt, task: TaskRecord): Promise<readonly string[]> {
+    return this.settleLeftRunning(work, task, "stop");
+  }
+
+  /**
+   * Resets the Task's branch to its freshly fetched base for a Start over, its old head kept under
+   * `keptRef` (spec §2.4.5); answers the branch it was reset to.
+   */
+  async resetForStartOver(task: TaskRecord, taskId: string, keptRef: string): Promise<string> {
+    const { resetTo } = await this.git.resetBranchToBase(task.project.id, taskId, keptRef);
+    return resetTo;
+  }
+
   /** Records that the run left the branch where it found it, committing nothing. */
   async leaveAt(run: StageRun, expected: ExpectedHead): Promise<void> {
     await this.runs.saveLeftBranch(run.id, { headCommit: expected.commit, changedFiles: [] });

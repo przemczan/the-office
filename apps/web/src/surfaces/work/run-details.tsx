@@ -32,11 +32,13 @@ import {
   commandTimeWords,
   engineSwitchWords,
   gateChoiceWords,
+  restartWords,
   runBadge,
   runOfHandoverNote,
   runResultText,
   runThreadClosedWords,
   runTimeWords,
+  startedOverWords,
   type RunPlace,
   type RunTab,
 } from "./stage-history-words.ts";
@@ -276,9 +278,16 @@ function RunSummary({
 }): ReactNode {
   const { stage, state } = taskStage;
   const { carriedFailure, sentBack, gateAction, outcome, engineSwitches, route, choice } = run;
+  const { restart, restarted, startedOver } = run;
   const result = runResultText(taskStage, run);
   return (
     <div className="run-summary">
+      {restarted && (
+        <div>
+          <p className="run-label">Restarted by {restarted.by}</p>
+          {restarted.feedback !== null && <MarkdownText text={restarted.feedback} />}
+        </div>
+      )}
       {carriedFailure && (
         <p className="run-carried">
           <Icon name="rotate-ccw" size={12} /> {carriedFailureWords(carriedFailure, names)}
@@ -311,6 +320,21 @@ function RunSummary({
             stages.map((each) => each.stage),
             names,
           )}
+        </p>
+      )}
+      {restart && (
+        <div>
+          <p className="run-route">
+            <Icon name="rotate-ccw" size={12} />
+            {restartWords(restart, names)}
+          </p>
+          {restart.feedback !== null && <MarkdownText text={restart.feedback} />}
+        </div>
+      )}
+      {startedOver && (
+        <p className="run-route">
+          <Icon name="refresh-ccw" size={12} />
+          {startedOverWords(startedOver)}
         </p>
       )}
       {stage.kind === "gate" && state === "waiting-on-you" && outcome === null && (

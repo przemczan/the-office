@@ -224,6 +224,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 
 - **Re-run command**: [2.1.1 The re-run command](2.1.1-projects.md#the-re-run-command); screen: [Project page › Commands](screens/project-page.md#commands)
 - **Recovery code**: [2.10 Recovery codes](2.10-users-and-signing-in.md#recovery-codes); screen: [Account › Recovery codes](screens/account.md#recovery-codes)
+- **Reopen, reopen a Dropped Task**: [2.1.3 Reopen](2.1.3-tasks.md#reopen); screen: [Task page › Reopen window](screens/task-page.md#reopen-window)
 - **Repository file browser**: screen: [Project page › Files](screens/project-page.md#files)
 - **Repository URL**: [5.5 Clones](5.5-git-and-isolation.md#clones); screen: [Projects › A git URL](screens/projects.md#a-git-url)
 - **Request**: [2.2 Calls](2.2-people.md#calls); [2.4.3 Calls from chats](2.4.3-consultations.md#calls-from-chats)
@@ -315,6 +316,8 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Sign-in ways**: [2.10 Ways to sign in](2.10-users-and-signing-in.md#ways-to-sign-in); screen: [Sign in › Ways to sign in](screens/sign-in.md#ways-to-sign-in)
 - **Skipping a Stage**: [2.3.1 Skipping](2.3.1-stages.md#skipping)
 - **Review & fix Stage**: [2.3.1 Review & fix Stage](2.3.1-stages.md#review--fix-stage)
+- **Restart from, Skipped by a restart**: [2.4.5 Restart from](2.4.5-stopping-and-restarts.md#restart-from); screen: [Task page › Run controls](screens/task-page.md#run-controls)
+- **Start over, Reset the branch, earlier start**: [2.4.5 Start over](2.4.5-stopping-and-restarts.md#start-over); screen: [Task page › Run controls](screens/task-page.md#run-controls)
 - **Stop and Pause a Task**: [2.4.5 Stop and Pause](2.4.5-stopping-and-restarts.md#stop-and-pause)
 - **Task states**: [2.1.3 Task states](2.1.3-tasks.md#task-states)
 - **Telemetry, traces, metrics and logs**: [5.2 Telemetry](5.2-stack.md#telemetry); [5.2 The telemetry setting](5.2-stack.md#the-telemetry-setting)
@@ -340,7 +343,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - [2.1 Work](2.1-work.md): index of the pages below.
   - [2.1.1 Projects](2.1.1-projects.md): Project, its settings, a Kind's default Pipeline, test targets, Project limit, Icon and Logo, Project commands, the re-run command, feature switches, GitHub issues.
   - [2.1.2 Ideas and Attachments](2.1.2-ideas-and-attachments.md): Idea, Attachment, text files and PDFs, pasted images.
-  - [2.1.3 Tasks](2.1.3-tasks.md): Task, its Kind and bug details, its states, Ready, Description, Commit message, dependencies, Dropping, Drop reason, GitHub issue, priority, History, Office actions on a Task, Off-board Tasks, setting up the run environment, archive, moving.
+  - [2.1.3 Tasks](2.1.3-tasks.md): Task, its Kind and bug details, its states, Ready, Description, Commit message, dependencies, Dropping, Drop reason, Reopen, GitHub issue, priority, History, Office actions on a Task, Off-board Tasks, setting up the run environment, archive, moving.
   - [2.1.4 Initiatives](2.1.4-initiatives.md): Initiative, its states, shaping, Plan the Initiative, its Pipeline, Back to Shaping, Publishing Tasks, Pause, its test instances.
   - [2.1.5 Planning and Start](2.1.5-planning-and-start.md): Plan and Definition of Done, Planning, Auto mode, the queue for Start, overlaps, Usage estimates.
   - [2.1.6 Board and search](2.1.6-board-and-search.md): the board, the Kind filter, search, Saved views, Group by Initiative, the Pull requests and CI tabs.
@@ -356,7 +359,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
   - [2.4.2 Decisions](2.4.2-decisions.md): the form, Submit and Ask me again, the Bug Task Decision, where it shows, Waiting for you.
   - [2.4.3 Consultations](2.4.3-consultations.md): Consultation, calls from chats, Proposals in a Consultation.
   - [2.4.4 Messages](2.4.4-messages.md): barge-in, Office actions, Mentions, images, Open page, commands.
-  - [2.4.5 Stopping and restarts](2.4.5-stopping-and-restarts.md): Stop, Pause, shutdown, restarts, refused turns.
+  - [2.4.5 Stopping and restarts](2.4.5-stopping-and-restarts.md): Stop, Pause, Restart from, Start over, shutdown, restarts, refused turns.
   - [2.4.6 Reading records](2.4.6-reading-records.md): reading the Stage history and the Threads.
 - [2.5 Context policy](2.5-context-policy.md): resume, fresh or hand off; the Brief, the Handover note, overrides, a Stage's context limits.
 - [2.6 Skills](2.6-skills.md): the library, adding skills, Project skills, what a session gets.

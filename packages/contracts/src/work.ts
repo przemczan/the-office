@@ -637,6 +637,46 @@ export type FoundInVersionChange = z.infer<typeof foundInVersionChangeSchema>;
 export const dropSchema = z.object({ reason: dropReasonSchema.optional() });
 export type Drop = z.infer<typeof dropSchema>;
 
+/**
+ * POST /tasks/:id/start-over, Start over a Task the user paused or stopped: it goes to Ready, its
+ * earlier Stage runs kept as history only; with `resetBranch`, its branch is reset to the freshly
+ * fetched base, the old head kept under a local ref. Answers the Task.
+ */
+export const taskStartOverSchema = z.object({ resetBranch: z.boolean() });
+export type TaskStartOver = z.infer<typeof taskStartOverSchema>;
+
+/** Where Reopen… takes a Dropped Task. */
+export const reopenToSchema = z.enum(["backlog", "ready"]);
+export type ReopenTo = z.infer<typeof reopenToSchema>;
+
+/**
+ * POST /tasks/:id/reopen, Reopen… a Dropped Task to Backlog or Ready; one that had started is
+ * started over, its branch reset to the base with `resetBranch`. Answers the Task.
+ */
+export const taskReopenSchema = z.object({ to: reopenToSchema, resetBranch: z.boolean() });
+export type TaskReopen = z.infer<typeof taskReopenSchema>;
+
+/** Whether one of a Task's ways back is offered now, and the reason when it isn't. */
+export const wayBackSchema = z.object({ offered: z.boolean(), why: z.string().nullable() });
+export type WayBack = z.infer<typeof wayBackSchema>;
+
+/**
+ * GET /tasks/:id/ways-back: Restart from… and Start over, for a Task Paused by the user's Pause or
+ * Stop, and Reopen… to Backlog or to Ready, for a Dropped Task, each offered or why not, as the
+ * Task page offers them; with whether the Task had started, so Start over and Reopen… ask about
+ * resetting its branch, and the branch a reset takes it to.
+ */
+export const taskWaysBackSchema = z.object({
+  restart: wayBackSchema,
+  startOver: wayBackSchema,
+  reopen: wayBackSchema,
+  reopenToReady: wayBackSchema,
+  started: z.boolean(),
+  /** The branch a reset takes the Task's branch to: its Initiative's branch, else the base branch. */
+  resetTo: z.string(),
+});
+export type TaskWaysBack = z.infer<typeof taskWaysBackSchema>;
+
 /** PUT /tasks/:id/commit-message: the Task's commit message; empty takes the default again. */
 export const commitMessageChangeSchema = z.object({ message: z.string() });
 export type CommitMessageChange = z.infer<typeof commitMessageChangeSchema>;

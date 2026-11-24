@@ -758,6 +758,22 @@ export class GitHubRestApi extends GitHubApi {
     await this.refuseIssueWrite(response, `close #${number} of ${fullNameOf(repository)}`);
   }
 
+  async reopenIssue(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    number: number,
+  ): Promise<void> {
+    // docs.github.com/rest/issues/issues#update-an-issue
+    const path = `${repositoryPathOf(repository)}/issues/${number}`;
+    const response = await this.call(gitHubUrl(this.urls.api, path), {
+      method: "PATCH",
+      headers: this.writeHeaders(accessToken),
+      body: JSON.stringify({ state: "open" }),
+    });
+    if (response.status === 200) return;
+    await this.refuseIssueWrite(response, `reopen #${number} of ${fullNameOf(repository)}`);
+  }
+
   async repositoryOf(
     accessToken: string,
     repository: RepositoryOnGitHub,

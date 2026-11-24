@@ -126,6 +126,18 @@ export class TaskWorktrees {
     return this.branchUpdates.update(await this.projects.read(projectId), taskId, onConflict);
   }
 
+  /**
+   * Resets the Task's branch to its freshly fetched base for a Start over, its head now kept under
+   * the local ref `keptRef` (`BranchUpdates.resetToBase`).
+   */
+  async resetBranchToBase(
+    projectId: string,
+    taskId: string,
+    keptRef: string,
+  ): Promise<{ readonly resetTo: string; readonly commit: string }> {
+    return this.branchUpdates.resetToBase(await this.projects.read(projectId), taskId, keptRef);
+  }
+
   /** Whether the Task's worktree holds a merge of the base left for an Agent to resolve. */
   async mergeInProgress(projectId: string, taskId: string): Promise<boolean> {
     return this.branchUpdates.mergeInProgress(await this.projects.read(projectId), taskId);

@@ -90,6 +90,19 @@ export class PostgresIssueLinkRepository extends IssueLinkRepository {
       .where(and(eq(issueLinks.id, id), isNull(issueLinks.taskEndedAt)));
   }
 
+  async reopenTask(id: string): Promise<void> {
+    await this.database.update(issueLinks).set({ taskEndedAt: null }).where(eq(issueLinks.id, id));
+  }
+
+  async writeBacksOf(issueLinkId: string): Promise<readonly IssueWriteBackEntry[]> {
+    const rows = await this.database
+      .select()
+      .from(issueWriteBacks)
+      .where(eq(issueWriteBacks.issueLinkId, issueLinkId))
+      .orderBy(asc(issueWriteBacks.createdAt), asc(issueWriteBacks.id));
+    return rows.map(toWriteBack);
+  }
+
   async addWriteBacks(entries: readonly IssueWriteBackEntry[]): Promise<void> {
     if (entries.length === 0) return;
     await this.database.insert(issueWriteBacks).values([...entries]);

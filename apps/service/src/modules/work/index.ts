@@ -37,6 +37,12 @@ export { TaskRecords } from "./application/task-records.js";
 export type { EngineStandIn } from "./domain/stand-ins-at-start.js";
 export { TaskStageEdits, type TaskStageEditLookup } from "./application/task-stage-edits.js";
 export {
+  TaskStartOvers,
+  type StartOverWork,
+  type StartedOverWork,
+  type StartingOverUser,
+} from "./application/task-start-overs.js";
+export {
   TaskEngineChecks,
   type TaskEngineChange,
   type TaskEngineCheck,
@@ -88,14 +94,16 @@ export {
   TaskPlanSaved,
   TaskPriorityChanged,
   TaskTagsChanged,
+  TaskReopened,
   TaskReordered,
   TaskResumed,
   TaskStarted,
+  TaskStartedOver,
   TaskStateChanged,
   TaskStopped,
   TaskTakenOutOfInitiative,
   TaskWentOnOnStandIn,
 } from "./domain/task-events.js";
 export { TaskRefused } from "./domain/task-refused.js";
-export { STARTED_STATES, TASK_STATE_NAMES } from "./domain/task-states.js";
+export { LEFT_THE_WORKSTATION, STARTED_STATES, TASK_STATE_NAMES } from "./domain/task-states.js";
 export { WorkModule } from "./work.module.js";

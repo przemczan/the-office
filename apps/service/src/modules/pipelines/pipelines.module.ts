@@ -9,6 +9,7 @@ import { PipelineLibraryController } from "./adapters/http/pipeline-library.cont
 import { ProjectPipelineLibraryController } from "./adapters/http/project-pipeline-library.controller.js";
 import { StageTemplateLibraryController } from "./adapters/http/stage-template-library.controller.js";
 import { TaskGateController } from "./adapters/http/task-gate.controller.js";
+import { TaskRestartController } from "./adapters/http/task-restart.controller.js";
 import { TaskEngineCascadeController } from "./adapters/http/task-engine-cascade.controller.js";
 import { TaskStagesController } from "./adapters/http/task-stages.controller.js";
 import { PostgresStaffingHoldRepository } from "./adapters/postgres/postgres-staffing-hold-repository.js";
@@ -49,6 +50,8 @@ import { InitiativeBranchStages } from "./application/initiative-branch-stages.j
 import { StageRunners } from "./application/stage-runners.js";
 import { TaskRoleEngines } from "./application/task-role-engines.js";
 import { TaskStagesService } from "./application/task-stages-service.js";
+import { TaskRestarts } from "./application/task-restarts.js";
+import { TaskStartOverWork } from "./application/task-start-over-work.js";
 import { PipelineLibraryModule } from "./pipeline-library.module.js";
 import { KnownPeople } from "./ports/known-people.js";
 import { PipelineInitiatives } from "./ports/pipeline-initiatives.js";
@@ -77,8 +80,9 @@ export interface PipelinesModuleOptions {
   /**
    * The modules that provide the ports below, Work, People (with its engine cascade),
    * Conversations, Projects and Run environments (Work's Initiatives too), and
-   * Conversations' `ProposalAppliers`, which Pipelines fills with its kind of Proposal, and Work's
-   * `TaskStageEdits`, which it fills with whether a Task's Stages were edited for it.
+   * Conversations' `ProposalAppliers`, which Pipelines fills with its kind of Proposal, Work's
+   * `TaskStageEdits`, which it fills with whether a Task's Stages were edited for it, and Work's
+   * `TaskStartOvers`, which it fills with its part of a Start over.
    */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
   readonly startedTasks: Type<StartedTasks>;
@@ -150,6 +154,7 @@ export class PipelinesModule {
         TaskStagesController,
         TaskEngineCascadeController,
         TaskGateController,
+        TaskRestartController,
         PipelineLibraryController,
         ProjectPipelineLibraryController,
         StageTemplateLibraryController,
@@ -207,6 +212,8 @@ export class PipelinesModule {
         PublishStage,
         GateStageRunner,
         GateService,
+        TaskRestarts,
+        TaskStartOverWork,
         PipelineProposals,
         StageHistory,
         StandInChoices,

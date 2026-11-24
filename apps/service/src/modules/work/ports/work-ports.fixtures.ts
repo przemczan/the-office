@@ -894,7 +894,7 @@ export class TaskBasesForTests {
 @Injectable()
 export class IssueWriteBackForTests extends IssueWriteBack {
   readonly told: (
-    | { readonly what: "started" | "done"; readonly taskId: string }
+    | { readonly what: "started" | "done" | "reopened"; readonly taskId: string }
     | { readonly what: "dropped"; readonly taskId: string; readonly reason: IssueDropReason | null }
   )[] = [];
 
@@ -908,6 +908,10 @@ export class IssueWriteBackForTests extends IssueWriteBack {
 
   async taskDropped(taskId: string, reason: IssueDropReason | null): Promise<void> {
     this.told.push({ what: "dropped", taskId, reason });
+  }
+
+  async taskReopened(taskId: string): Promise<void> {
+    this.told.push({ what: "reopened", taskId });
   }
 }
 

@@ -74,6 +74,20 @@ export abstract class TaskGit {
   abstract changeBases(projectId: string, taskId: string): Promise<readonly string[]>;
 
   /**
+   * Resets the Task's branch for a Start over (spec §2.4.5): fetches its base fresh (its
+   * Initiative's branch for a Task of one, else the Project's base branch, as `updateFromBase`
+   * takes them in), keeps the branch's head now under the local ref `keptRef`, then hard-resets
+   * the branch to the fetched base: in its worktree, uncommitted changes dropped and ignored files
+   * kept, when it has one, else by moving the branch in the Project's repository. Answers the base
+   * branch it was reset to, by name, and the commit the branch is at now.
+   */
+  abstract resetBranchToBase(
+    projectId: string,
+    taskId: string,
+    keptRef: string,
+  ): Promise<{ readonly resetTo: string; readonly commit: string }>;
+
+  /**
    * Removes the Task's worktree with whatever it holds, as after Publish; its branch stays, and a
    * later Stage gets the worktree back from it.
    */

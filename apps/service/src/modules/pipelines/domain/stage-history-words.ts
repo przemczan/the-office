@@ -186,6 +186,7 @@ function runParts(
     ...routeLines(stages, route),
     ...handoverNoteLines(run.outcome),
     ...gateActionLines(stages, run.gateAction),
+    ...afterRunLines(stages, run),
     ...decisionLines(run.decisions),
     ...engineLines(run),
     ...run.engineSwitches.map(
@@ -213,9 +214,14 @@ function timesLine({ startedAt, endedAt }: StageRun): string {
 
 function whyItRanLines(
   stages: readonly Stage[],
-  { stageKey, carriedFailure, sentBack }: StageRun,
+  { stageKey, carriedFailure, sentBack, restarted }: StageRun,
 ): string[] {
   const lines: string[] = [];
+  if (restarted) {
+    const feedback =
+      restarted.feedback === undefined ? "" : ` with feedback: ${restarted.feedback}`;
+    lines.push(`Ran as ${restarted.byUser.name} restarted the Task from this Stage${feedback}.`);
+  }
   if (carriedFailure) {
     const which =
       carriedFailure.stageKey === stageKey
@@ -231,6 +237,29 @@ function whyItRanLines(
   if (sentBack) {
     lines.push(
       `Sent back from "${nameOf(stages, sentBack.gateKey)}" with the user's feedback: ${sentBack.feedback}`,
+    );
+  }
+  return lines;
+}
+
+/**
+ * What the user did after the run (spec §2.4.5): restarted the Task from a Stage, which ended it,
+ * or started the Task over, every run up to this one history only.
+ */
+function afterRunLines(stages: readonly Stage[], { restart, startedOver }: StageRun): string[] {
+  const lines: string[] = [];
+  if (restart) {
+    lines.push(
+      `${restart.byUser.name} restarted the Task from "${nameOf(stages, restart.stageKey)}", its uncommitted edits discarded.`,
+    );
+  }
+  if (startedOver) {
+    const reset =
+      startedOver.resetTo === undefined
+        ? "its branch kept"
+        : `its branch reset to ${startedOver.resetTo}, the old head kept as ${startedOver.keptRef ?? "a local ref"}`;
+    lines.push(
+      `${startedOver.byUser.name} started the Task over at ${startedOver.at}, ${reset}: the runs up to here are history only.`,
     );
   }
   return lines;

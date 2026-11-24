@@ -230,6 +230,16 @@ export abstract class GitHubApi {
     number: number,
     reason: IssueCloseReason,
   ): Promise<void>;
+
+  /**
+   * Opens issue `number` again. Throws `GitHubApiFailure`, quoting GitHub's message, when it
+   * refuses.
+   */
+  abstract reopenIssue(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    number: number,
+  ): Promise<void>;
 }
 
 /** Which open issues to list: with a label, in the order they were opened, and how many at most. */

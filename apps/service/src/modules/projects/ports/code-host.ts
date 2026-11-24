@@ -156,6 +156,9 @@ export abstract class CodeHost {
 
   /** Closes issue `number` as not planned; one already closed stays so. */
   abstract closeIssue(remoteUrl: string, number: number): Promise<void>;
+
+  /** Opens issue `number` again; one already open stays so. */
+  abstract reopenIssue(remoteUrl: string, number: number): Promise<void>;
 }
 
 /** Which open issues to list: with a label (any case), in the order they were opened, how many at most. */

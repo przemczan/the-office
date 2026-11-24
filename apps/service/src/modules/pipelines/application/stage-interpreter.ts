@@ -36,6 +36,7 @@ import type {
 } from "../domain/stage-run.js";
 import { endStageRun, heldRunChoice, startStageRun } from "../domain/stage-run-changes.js";
 import { startsAtStageBoundary } from "../domain/stage-boundary.js";
+import { runsOfLatestStart } from "../domain/start-over.js";
 import { staffedRole } from "../domain/stage-staffing.js";
 import {
   BudgetReached,
@@ -453,7 +454,9 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     record: TaskRecord,
     interruption: StageRunInterruption,
   ): Promise<WalkStep> {
-    const runs = await this.runs.list(taskId);
+    const allRuns = await this.runs.list(taskId);
+    // Runs before the latest Start over are history only (spec §2.4.5).
+    const runs = runsOfLatestStart(allRuns);
     // Read once per move, so a Stage starts with whoever holds its duty now (spec §2.3).
     const staffed = await this.roleFillings.staffed(stages, runs);
     const move = nextMove(staffed, runs, record.definitionOfDone);
@@ -486,7 +489,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
       if ((await this.tasks.waitingFor(taskId)).length > 0) return { step: "over" };
       this.heldForBlocker.delete(taskId);
     }
-    const { stage, carriedFailure, sentBack } = move;
+    const { stage, carriedFailure, sentBack, restarted } = move;
     const roleKey = stage.kind === "agent" ? staffedRole(stage) : undefined;
     const choice = heldRunChoice(stage.key, runs);
     const started = startStageRun(
@@ -498,8 +501,9 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
         sentBack,
         roleKey,
         ...(choice && { choice }),
+        ...(restarted && { restarted }),
       },
-      runs.length,
+      allRuns.length,
       new Date(),
     );
     if (!(await this.runs.saveNew(started.run))) return { step: "over" };
@@ -648,7 +652,8 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     definitionOfDone: readonly string[],
   ): Promise<boolean> {
     if ((await this.tasks.read(taskId)).state !== "waiting-on-you") return false;
-    const move = nextMove(stages, await this.runs.list(taskId), definitionOfDone);
+    const runs = runsOfLatestStart(await this.runs.list(taskId));
+    const move = nextMove(stages, runs, definitionOfDone);
     return move.move !== "wait" || this.takeRecordedAnswers(move.run);
   }
 

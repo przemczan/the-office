@@ -754,6 +754,34 @@ If the Stage fails, whatever you chose, the walk stops and asks what to do next.
 `,
 });
 
+/**
+ * The part of an Agent Stage's message, after its routes out, when the user restarted the Task from
+ * this Stage with Restart from… (spec §2.4.5), with their feedback, if any, as a Gate's Send back
+ * words its own.
+ */
+export const STAGE_RESTARTED = promptTemplate({
+  key: "pipelines.stage-restarted",
+  domain: "pipelines",
+  name: "Restarted from this Stage",
+  description:
+    "The part of a Stage's message when the user paused or stopped the Task and restarted it from this Stage with Restart from…, with their feedback when they gave some.",
+  variables: {
+    userName: { kind: "text", description: "The user who restarted the Task." },
+    hasFeedback: { kind: "flag", description: "The user gave feedback with the restart." },
+    feedback: { kind: "text", description: "The user's feedback." },
+  },
+  text: `## Restarted from this Stage
+
+{{userName}} held the Task and restarted it from this Stage. The held Stage's uncommitted edits were discarded; the worktree holds the Task's commits so far. It is no failure: do this Stage's work from there, then end the Stage with its result.
+{{#hasFeedback}}
+
+Their feedback:
+
+{{feedback}}
+{{/hasFeedback}}
+`,
+});
+
 /** Every template an Agent Stage's Brief and message render, which the runner loads together. */
 export const AGENT_STAGE_BRIEF_TEMPLATES = [
   STAGE_BRIEF,
@@ -764,4 +792,5 @@ export const AGENT_STAGE_BRIEF_TEMPLATES = [
   STAGE_SENT_AGAIN,
   STAGE_HANDOVER,
   STAGE_ROUTES_OUT,
+  STAGE_RESTARTED,
 ] as const;

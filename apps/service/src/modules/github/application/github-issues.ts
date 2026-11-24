@@ -97,6 +97,12 @@ export class GitHubIssues {
     await this.api.closeIssue(token, repository, number, reason).catch(failedAccess);
   }
 
+  /** Opens issue `number` again; one already open stays so. */
+  async reopen(remoteUrl: string, number: number): Promise<void> {
+    const { repository, token } = await this.reading(remoteUrl);
+    await this.api.reopenIssue(token, repository, number).catch(failedAccess);
+  }
+
   /** The remote's repository on GitHub and the token to ask with. */
   private async reading(
     remoteUrl: string,

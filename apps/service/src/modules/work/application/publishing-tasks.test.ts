@@ -219,6 +219,36 @@ describe("Publishing Tasks", () => {
     expect((await taskOf(here)).blockedBy).toEqual([fix.id]);
   });
 
+  it("is blocked again by a dropped Task reopened before it starts, and refuses the Reopen… once it has", async () => {
+    const { initiative, tasks } = await activeOnQuickFix([projectId, projectId]);
+    const [done, dropped] = tasks as [Task, Task];
+    await end(done, "done");
+    await end(dropped, "dropped");
+    const [publishing] = await publishingTasksOf(initiative);
+
+    const reopened = await sendJson(work, "POST", `/tasks/${dropped.id}/reopen`, {
+      to: "backlog",
+      resetBranch: false,
+    });
+
+    expect(taskSchema.parse(await reopened.json()).state).toBe("backlog");
+    expect((await taskOf(publishing!)).blockedBy).toEqual([dropped.id]);
+
+    await end(dropped, "dropped");
+    // As its walk starts it, which this module leaves to Pipelines.
+    await work.app.get(TaskRepository).update(publishing!.id, (held) => ({
+      task: { ...held, state: "in-progress" },
+      event: new TaskStateChanged(held.id, held.state, "in-progress"),
+    }));
+    const refused = await sendJson(work, "POST", `/tasks/${dropped.id}/reopen`, {
+      to: "backlog",
+      resetBranch: false,
+    });
+    expect(await reasonsOf(refused)).toEqual([
+      `Its Initiative's Publishing Task "${publishing!.title}" has started in its Project, so its Tasks there stay as they ended.`,
+    ]);
+  });
+
   it("takes the Pipeline the CTO's applied Proposal names in its Project until it has started, unless its Stages were edited", async () => {
     const { initiative, tasks } = await activeOnQuickFix([projectId, otherProjectId]);
     for (const task of tasks) await end(task, "done");

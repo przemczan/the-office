@@ -4,6 +4,7 @@ import { reportedOutOfReach, unmetStatements } from "./definition-of-done-report
 import { conflictOnlyStages, isConflictRoute, takesPublishResult } from "./conflict-handling.js";
 import { asFlow, pipelineOrder, type FlowStage } from "./flow.js";
 import { publishResultOf } from "./publish-result.js";
+import { runsOfLatestStart } from "./start-over.js";
 import { RESOLVE_GATE_KEY, RESOLVE_KEY, RESOLVE_TEST_KEY } from "./publish-stages.js";
 import { choiceRoutesOf, isFailureRoute, namedRoutes, type Route } from "./route.js";
 import { isPublishStage, type Stage } from "./stage.js";
@@ -12,6 +13,7 @@ import type {
   BudgetReached,
   CarriedFailure,
   GateDropReason,
+  Restarted,
   SentBack,
   StageRun,
   StageRunDecision,
@@ -133,6 +135,8 @@ export type NextMove =
       readonly stage: Stage;
       readonly carriedFailure: CarriedFailure | undefined;
       readonly sentBack: SentBack | undefined;
+      /** Set when the user's Restart from… on the held run chose this Stage (spec §2.4.5). */
+      readonly restarted?: Restarted | undefined;
     }
   /**
    * The last run is still running, the Decision opened on it waits on the user, or its Gate does.
@@ -165,6 +169,8 @@ interface WalkPosition {
   readonly key: string | null;
   readonly carriedFailure: CarriedFailure | undefined;
   readonly sentBack: SentBack | undefined;
+  /** The user's Restart from… that chose the Stage, when one did. */
+  readonly restarted?: Restarted | undefined;
 }
 
 /** The position at the Stage of `key`, with nothing carried to it. */
@@ -321,7 +327,8 @@ function walkOver(
     ranAgain: new Map(),
     definitionOfDoneRounds: 0,
     left: new Map(),
-    runs: withOlderChainRunsMoved(flow, runs),
+    // Runs before the latest Start over are history only (spec §2.4.5).
+    runs: withOlderChainRunsMoved(flow, runsOfLatestStart(runs)),
     calledMet: false,
     enteredPublish: false,
     conflictHandling: false,
@@ -404,9 +411,15 @@ function replayAll(walk: Walk): NextMove {
       `Stage run ${run.number} of Task ${run.taskId} stopped the walk (${stopped.move}), yet runs follow it.`,
     );
   }
-  const { key, carriedFailure, sentBack } = walk.position;
+  const { key, carriedFailure, sentBack, restarted } = walk.position;
   if (key === null) return { move: "complete" };
-  return { move: "run", stage: stageOf(walk, key), carriedFailure, sentBack };
+  return {
+    move: "run",
+    stage: stageOf(walk, key),
+    carriedFailure,
+    sentBack,
+    ...(restarted && { restarted }),
+  };
 }
 
 /** The unmet statements Out of reach, in the words of the Definition of Done, with why. */
@@ -457,6 +470,8 @@ function replay(walk: Walk, run: StageRun): StoppingMove | undefined {
   if (walk.conflictHandling) walk.conflictRuns.add(run.id);
   const { outcome } = run;
   if (!outcome) return { move: "wait", run };
+  // The user's Restart from… on the held run outranks however it ended.
+  if (run.restart) return restartFrom(walk, run, run.restart);
   switch (outcome.status) {
     case "done":
       return stage.kind === "gate" ? afterGate(walk, run, stage) : advance(walk, run, stage);
@@ -509,6 +524,33 @@ function afterGate(walk: Walk, run: StageRun, gate: Stage): StoppingMove | undef
       return undefined;
     }
   }
+}
+
+/**
+ * The user restarted the held Task from the Stage of `restart.stageKey`, any of the Pipeline's
+ * (spec §2.4.5, "Restart from"): the walk goes on from it by its routes, with the user's feedback
+ * for it, following no route, so no route's times are used. The Definition of Done check before a
+ * Publish Stage still runs as the walk enters one, asked on the held run.
+ */
+function restartFrom(
+  walk: Walk,
+  run: StageRun,
+  restart: NonNullable<StageRun["restart"]>,
+): StoppingMove | undefined {
+  const target = stageOf(walk, restart.stageKey);
+  walk.position = {
+    key: target.key,
+    carriedFailure: undefined,
+    sentBack: undefined,
+    restarted: { feedback: restart.feedback, byUser: restart.byUser },
+  };
+  if (isPublishStage(target)) walk.conflictHandling = false;
+  const checksHere = checksBefore(walk, target);
+  if (checksHere) walk.enteredPublish = true;
+  // Replayed where it was asked, as `goTo` does.
+  if (decisionOf(run, "definition-of-done")) return checkDefinitionOfDone(walk, run);
+  if (!checksHere || walk.calledMet || run !== walk.runs.at(-1)) return undefined;
+  return checkDefinitionOfDone(walk, run);
 }
 
 /**

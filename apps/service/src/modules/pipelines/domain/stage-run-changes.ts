@@ -6,6 +6,7 @@ import {
   type CarriedFailure,
   type ChosenRoute,
   type EngineSwitch,
+  type Restarted,
   type SentBack,
   type StageInterruption,
   type StageOutcome,
@@ -23,6 +24,8 @@ export interface NewStageRun {
   readonly roleKey?: string;
   /** The route the held run this one resumes had chosen (spec §2.3); left out for none. */
   readonly choice?: ChosenRoute;
+  /** The user's Restart from… that runs it (spec §2.4.5); left out for none. */
+  readonly restarted?: Restarted;
 }
 
 /** The Task's next Stage run, after `earlierRuns` of them, with the event that announces it. */
@@ -73,6 +76,8 @@ export function heldRunChoice(
 ): ChosenRoute | undefined {
   const last = earlierRuns.at(-1);
   if (last?.stageKey !== stageKey || last.outcome?.status !== "failed") return undefined;
+  // A Restart from… discarded the held run's edits, its choice with them.
+  if (last.restart) return undefined;
   const held = last.outcome.interrupted;
   return held === undefined || held === "stop" ? undefined : last.choice;
 }

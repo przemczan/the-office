@@ -14,6 +14,9 @@ import type {
   StageTokens,
   AskedInterruption,
   HoldingUser,
+  Restarted,
+  StartedOver,
+  TaskRestart,
 } from "../../domain/stage-run.js";
 
 /** Each run of a started Task's Stages; the number keeps one walk per Task. */
@@ -27,6 +30,12 @@ export const stageRuns = pgTable(
     carriedFailure: jsonb("carried_failure").$type<CarriedFailure>(),
     /** The feedback a Gate sent the work back to this Stage with. */
     sentBack: jsonb("sent_back").$type<SentBack>(),
+    /** The user's Restart from… on this held run: the Stage the walk went on from, and who. */
+    restart: jsonb("restart").$type<TaskRestart>(),
+    /** The Restart from… that ran this run, with its feedback. */
+    restarted: jsonb("restarted").$type<Restarted>(),
+    /** The Start over after this run, the last before it: every run up to it is history only. */
+    startedOver: jsonb("started_over").$type<StartedOver>(),
     /** The Stage Thread an Agent Stage's run works in. */
     threadId: uuid("thread_id"),
     /**

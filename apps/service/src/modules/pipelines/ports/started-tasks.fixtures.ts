@@ -82,6 +82,20 @@ export class OwnProjectsStartedTasks extends StartedTasks {
     return this.tasks.resume(taskId, by);
   }
 
+  restartProblems(taskId: string): Promise<readonly string[]> {
+    return this.tasks.restartProblems(taskId);
+  }
+
+  restart(
+    taskId: string,
+    restart: {
+      readonly stageName: string;
+      readonly by: { readonly userId: string; readonly name: string };
+    },
+  ): Promise<StartedTask> {
+    return this.tasks.restart(taskId, restart);
+  }
+
   dropAsAnswered(
     taskId: string,
     answer: { readonly decisionId: string; readonly by: ResumedOrDroppedBy },

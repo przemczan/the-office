@@ -1,12 +1,13 @@
 import { countedTokens, type Role, type StageRun, type TaskStage } from "@the-office/contracts";
 import { Badge, Dialog, Icon, isTopmost } from "@the-office/ui";
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { runEngineWords, standInForWords } from "../../shell/engine-words.ts";
 import { TokenFigure } from "../../shell/token-count.tsx";
 import { useClock } from "../../shell/use-clock.ts";
 import { PipelineInSmall } from "./pipeline-in-small.tsx";
 import { RunDetails } from "./run-details.tsx";
 import {
+  EARLIER_START_WORDS,
   openingRunTab,
   runBadge,
   runGist,
@@ -92,16 +93,26 @@ export function StageHistoryWindow({
         {shownRun ? (
           <div className="stage-history-panes">
             <ol className="stage-history-runs" aria-label="Runs">
-              {runs.toReversed().map((run) => (
-                <RunItem
-                  key={run.id}
-                  run={run}
-                  taskStage={taskStage}
-                  isShown={run === shownRun}
-                  names={names}
-                  now={now}
-                  onPick={() => setPickedRuns(new Map(pickedRuns).set(stage.key, run.id))}
-                />
+              {runs.toReversed().map((run, index, newestFirst) => (
+                <Fragment key={run.id}>
+                  {run.earlierStart && newestFirst[index - 1]?.earlierStart !== true && (
+                    <li
+                      className="stage-history-earlier-start"
+                      role="separator"
+                      aria-label={EARLIER_START_WORDS}
+                    >
+                      {EARLIER_START_WORDS}
+                    </li>
+                  )}
+                  <RunItem
+                    run={run}
+                    taskStage={taskStage}
+                    isShown={run === shownRun}
+                    names={names}
+                    now={now}
+                    onPick={() => setPickedRuns(new Map(pickedRuns).set(stage.key, run.id))}
+                  />
+                </Fragment>
               ))}
             </ol>
             <RunDetails

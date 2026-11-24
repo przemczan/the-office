@@ -14,8 +14,8 @@ export type IssueDropReason =
   | { readonly kind: "cant-reproduce" }
   | { readonly kind: "other"; readonly text: string };
 
-/** What a write-back does on the issue: comment on it, or close it. */
-export const ISSUE_WRITE_BACK_ACTIONS = ["comment", "close"] as const;
+/** What a write-back does on the issue: comment on it, close it, or open it again. */
+export const ISSUE_WRITE_BACK_ACTIONS = ["comment", "close", "reopen"] as const;
 export type IssueWriteBackAction = (typeof ISSUE_WRITE_BACK_ACTIONS)[number];
 
 /**
@@ -110,3 +110,6 @@ export function droppedComment(
         : `Closed as a duplicate of another Task in The Office: ${duplicateOf?.title ?? reason.title}.`;
   }
 }
+
+/** The comment on an issue a Drop closed, as its Task is reopened and the issue with it. */
+export const REOPENED_COMMENT = "Reopened: the Task was reopened.";

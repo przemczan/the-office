@@ -124,6 +124,10 @@ export class GitHubCodeHost extends CodeHost {
     return refusing(this.issues.close(remoteUrl, number, "not_planned"));
   }
 
+  reopenIssue(remoteUrl: string, number: number): Promise<void> {
+    return refusing(this.issues.reopen(remoteUrl, number));
+  }
+
   mergeMethods(remoteUrl: string, _number: number): Promise<MergeMethodsOnHost> {
     // GitHub's merge methods are the repository's, the same for each of its pull requests.
     return refusing(this.gitHub.mergeMethods(remoteUrl));

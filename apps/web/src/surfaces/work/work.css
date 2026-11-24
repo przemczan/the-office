@@ -1645,6 +1645,22 @@
   list-style: none;
 }
 
+/* Before a Stage's runs of an earlier start, the latest Start over's line across the list. */
+.stage-history-earlier-start {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-left: -20px;
+  font-size: var(--text-xs);
+  color: var(--fg-3);
+}
+
+.stage-history-earlier-start::after {
+  content: "";
+  flex: 1;
+  border-top: 1px dashed var(--border-strong);
+}
+
 .stage-history-run {
   position: relative;
   display: flex;

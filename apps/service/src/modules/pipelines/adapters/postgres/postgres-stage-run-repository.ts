@@ -31,6 +31,8 @@ import type {
   StageTokens,
   AskedInterruption,
   HoldingUser,
+  StartedOver,
+  TaskRestart,
 } from "../../domain/stage-run.js";
 import type { StageRunUsage } from "../../domain/usage-history.js";
 import {
@@ -182,6 +184,24 @@ export class PostgresStageRunRepository extends StageRunRepository {
       .update(stageRuns)
       .set({ heldBy, heldByUser: heldByUser ?? null })
       .where(eq(stageRuns.id, runId));
+  }
+
+  async saveRestart(runId: string, restart: TaskRestart): Promise<boolean> {
+    const saved = await this.database
+      .update(stageRuns)
+      .set({ restart })
+      .where(and(eq(stageRuns.id, runId), isNull(stageRuns.restart), isNotNull(stageRuns.outcome)))
+      .returning({ id: stageRuns.id });
+    return saved.length > 0;
+  }
+
+  async saveStartedOver(runId: string, startedOver: StartedOver): Promise<boolean> {
+    const saved = await this.database
+      .update(stageRuns)
+      .set({ startedOver })
+      .where(and(eq(stageRuns.id, runId), isNull(stageRuns.startedOver)))
+      .returning({ id: stageRuns.id });
+    return saved.length > 0;
   }
 
   async saveGateAction(runId: string, gateAction: GateAction): Promise<boolean> {
@@ -401,6 +421,9 @@ function stageRunOf({
           },
     carriedFailure: row.carriedFailure ?? undefined,
     sentBack: row.sentBack ?? undefined,
+    restart: row.restart ?? undefined,
+    restarted: row.restarted ?? undefined,
+    startedOver: row.startedOver ?? undefined,
     threadId: row.threadId ?? undefined,
     roleKey: row.roleKey ?? undefined,
     session: row.session ?? undefined,

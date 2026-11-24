@@ -215,7 +215,19 @@ _Avoid_: Archived as a Task or Initiative state, closed
 
 **Restore** (an archived Task or Initiative):
 Returning an archived Task or Initiative to its board in the state it had; a dropped Idea has a Restore of its own.
-_Avoid_: Unarchive, reopen
+_Avoid_: Unarchive (Reopen is another action, on a Dropped Task)
+
+**Restart from** (a Task):
+The user's action on a paused or stopped Task that has the walk run a chosen Stage next, any Stage of the Pipeline, with optional feedback; the held run ends, Stages jumped over are Skipped, and it is no route. See [2.4.5](docs/spec/2.4.5-stopping-and-restarts.md#restart-from).
+_Avoid_: Rewind, Retry, Send back (a Gate's)
+
+**Start over** (a Task):
+The user's action on a paused or stopped Task that takes it back to Ready, optionally resetting its branch to the base; earlier Stage runs stay as history only. See [2.4.5](docs/spec/2.4.5-stopping-and-restarts.md#start-over).
+_Avoid_: Reset the Task, Restart (that is Restart from)
+
+**Reopen** (a Dropped Task):
+Returning a Dropped Task to Backlog or Ready, started over when it had started; not Restore, which only returns an archived Task to its board. See [2.1.3](docs/spec/2.1.3-tasks.md#reopen).
+_Avoid_: Undrop, Restore
 
 **Move** (a Task):
 Putting a Task in another Project; not a change of state, though it can return the Task to Backlog.

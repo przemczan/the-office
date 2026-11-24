@@ -458,3 +458,44 @@ export class TaskStarted extends DomainEvent {
     super();
   }
 }
+
+/**
+ * Paused → Ready: the user started the Task over (spec 2.4.5, "Start over"), its earlier Stage runs
+ * kept as history only. With `resetBranch`, its branch was reset to `resetTo`, its old head kept
+ * under `keptRef`; both undefined when it wasn't. `stateChanged`, the move, is published before it.
+ */
+export class TaskStartedOver extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly resetBranch: boolean,
+    readonly resetTo: string | undefined,
+    readonly keptRef: string | undefined,
+    readonly user: UserRef,
+    readonly stateChanged: TaskStateChanged,
+  ) {
+    super();
+  }
+}
+
+/**
+ * Dropped → Backlog or Ready (Shaping for a Task of an Initiative still being shaped): the user
+ * reopened the Task (spec 2.1.3, "Reopen…"), as `to` asked. `restored` is the Restore an archived
+ * one took first, and `stateChanged` the move, both published before it. `startedOver` is whether
+ * a Task that had started was started over with it, its branch reset to `resetTo` with
+ * `resetBranch`, the old head kept under `keptRef`.
+ */
+export class TaskReopened extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly to: "backlog" | "ready",
+    readonly resetBranch: boolean,
+    readonly startedOver: boolean,
+    readonly resetTo: string | undefined,
+    readonly keptRef: string | undefined,
+    readonly user: UserRef,
+    readonly stateChanged: TaskStateChanged,
+    readonly restored: TaskRestored | undefined,
+  ) {
+    super();
+  }
+}
