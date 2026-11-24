@@ -2,6 +2,8 @@ import { Inject, Injectable } from "@nestjs/common";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { forgettingReads, readKey, readOnce } from "../../../../platform/database/read-scope.js";
+import { CARETAKER_FIXED_PARTS, isBuiltIn } from "../../domain/caretaker.js";
+import { ASK_ME, type HardSwitchValue } from "../../domain/hard-switches.js";
 import type { Role, RoleCardVersion } from "../../domain/role.js";
 import type { RoleCard } from "../../domain/role-card.js";
 import type { EarlierEngineFields, RoleChange } from "../../domain/role-changes.js";
@@ -252,19 +254,38 @@ function earlierFieldsOf({ roleOverride, effort }: StoredRoleCard): EarlierEngin
   };
 }
 
-/** The card as the domain reads it: the earlier fields left out, no engine settings read as none. */
-function cardOf({
-  roleOverride: _roleOverride,
-  effort: _effort,
-  ...card
-}: StoredRoleCard): RoleCard {
-  return { ...card, engineSettings: card.engineSettings ?? {} };
+/**
+ * The card as the domain reads it: the earlier fields left out, no engine settings read as none,
+ * and no Change Project settings read as Ask me.
+ *
+ * Migration 0212 gave every stored card Change Project settings, but the release before reads a
+ * card through its own request schema, which drops the switch it doesn't know: a card it saves
+ * after a rollback lacks it. Such a card asks the user, as a Role hired from scratch starts; the
+ * Caretaker's stays at its fixed Never, so its next save isn't refused for a fixed part changed.
+ */
+function cardOf(
+  roleKey: string,
+  { roleOverride: _roleOverride, effort: _effort, ...card }: StoredRoleCard,
+): RoleCard {
+  const { changeProjectSettings, ...hardSwitches } = card.hardSwitches;
+  return {
+    ...card,
+    engineSettings: card.engineSettings ?? {},
+    hardSwitches: {
+      ...hardSwitches,
+      changeProjectSettings: changeProjectSettings ?? changeProjectSettingsMissing(roleKey),
+    },
+  };
+}
+
+function changeProjectSettingsMissing(roleKey: string): HardSwitchValue {
+  return isBuiltIn(roleKey) ? CARETAKER_FIXED_PARTS.hardSwitches.changeProjectSettings : ASK_ME;
 }
 
 function toRole(row: RoleRow, version: RoleCardVersionRow): Role {
   return {
     key: row.key,
-    card: cardOf(version.card),
+    card: cardOf(row.key, version.card),
     cardVersion: row.cardVersion,
     hiredAt: row.hiredAt,
     cardSavedAt: version.savedAt,
@@ -278,7 +299,7 @@ function toRole(row: RoleRow, version: RoleCardVersionRow): Role {
 function toVersion(row: RoleCardVersionRow): RoleCardVersion {
   return {
     version: row.version,
-    card: cardOf(row.card),
+    card: cardOf(row.roleKey, row.card),
     changes: row.changes,
     savedAt: row.savedAt,
     proposedBy: row.proposedBy ?? undefined,

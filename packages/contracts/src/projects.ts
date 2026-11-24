@@ -3,6 +3,7 @@ import { engineIdSchema, officeDefaultSchema } from "./engines.js";
 import { webEventSchema } from "./events.js";
 import { imageSchema } from "./images.js";
 import { engineTypeSettingSchema, personEngineSettingsSchema } from "./people.js";
+import { userRefSchema } from "./users.js";
 import { OFFICE_WIDE_LIMIT_MAX, taskCreatorSchema, taskKindSchema } from "./work.js";
 
 /** What a Project command does; a test command also gets the test handling (spec §5.5). */
@@ -934,3 +935,52 @@ export const taskChangesSchema = z.object({
   diffCut: z.boolean(),
 });
 export type TaskChanges = z.infer<typeof taskChangesSchema>;
+
+/** The Project settings whose changes are recorded (spec §6, "Project settings by Agents"). */
+export const projectSettingSchema = z.enum([
+  "run-environment",
+  "commands",
+  "environment",
+  "test-targets",
+  "actions",
+]);
+export type ProjectSetting = z.infer<typeof projectSettingSchema>;
+
+/**
+ * Who changed a Project setting: a user on the Project page, a Proposal a user applied, or a
+ * person through their Office tools on a Task.
+ */
+export const settingChangedBySchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("user"), user: userRefSchema }),
+  z.object({
+    kind: z.literal("proposal"),
+    proposalId: z.string(),
+    /** Null for a Proposal applied before users existed. */
+    user: userRefSchema.nullable(),
+  }),
+  z.object({
+    kind: z.literal("person"),
+    roleKey: z.string(),
+    name: z.string(),
+    title: z.string(),
+    taskId: z.string(),
+  }),
+]);
+export type SettingChangedBy = z.infer<typeof settingChangedBySchema>;
+
+/** One recorded change: never a Secret variable's value, only names. */
+export const projectSettingChangeSchema = z.object({
+  id: z.string(),
+  setting: projectSettingSchema,
+  /** What changed, as a phrase that follows who did it: "turned Run environment On". */
+  summary: z.string(),
+  by: settingChangedBySchema,
+  at: z.iso.datetime(),
+});
+export type ProjectSettingChange = z.infer<typeof projectSettingChangeSchema>;
+
+/** GET /projects/:id/setting-changes: the Project's latest recorded setting changes, newest first. */
+export const projectSettingChangesSchema = z.object({
+  changes: z.array(projectSettingChangeSchema),
+});
+export type ProjectSettingChanges = z.infer<typeof projectSettingChangesSchema>;

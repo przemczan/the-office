@@ -216,6 +216,7 @@ describe("GET /api/role-card-options", () => {
       { key: "runInstalls", enforcement: "followed" },
       { key: "publishOutsideThePipeline", enforcement: "followed" },
       { key: "changeRoles", enforcement: "enforced" },
+      { key: "changeProjectSettings", enforcement: "enforced" },
     ]);
     expect(options.mcpToolDefault).toEqual({ kind: "consult", role: "devops" });
     expect(options.taskLimits).toEqual({ lowest: 1, highest: 6 });
@@ -271,9 +272,10 @@ describe("POST /api/roles", () => {
           runInstalls: { kind: "consult", role: "devops" },
           publishOutsideThePipeline: { kind: "consult", role: "cto" },
           changeRoles: { kind: "never" },
+          changeProjectSettings: { kind: "consult", role: "devops" },
         },
       },
-      askingYouUntilHired: ["runInstalls", "publishOutsideThePipeline"],
+      askingYouUntilHired: ["runInstalls", "publishOutsideThePipeline", "changeProjectSettings"],
     });
     expect(webEvents()).toEqual([{ type: "role.hired", roleKey: "developer" }]);
   });
@@ -308,9 +310,10 @@ describe("POST /api/roles", () => {
           runInstalls: { kind: "consult", role: "devops" },
           publishOutsideThePipeline: { kind: "ask-me" },
           changeRoles: { kind: "never" },
+          changeProjectSettings: { kind: "consult", role: "devops" },
         },
       },
-      askingYouUntilHired: ["runInstalls"],
+      askingYouUntilHired: ["runInstalls", "changeProjectSettings"],
     });
   });
 

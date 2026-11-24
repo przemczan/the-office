@@ -33,8 +33,12 @@ export function toolWith(thread: Thread | undefined, refusal?: string) {
   return { tool, written };
 }
 
-export const card = (sharedMemory: boolean, changeRoles: HardSwitchValue) =>
+export const card = (
+  sharedMemory: boolean,
+  changeRoles: HardSwitchValue,
+  changeProjectSettings: HardSwitchValue = { kind: "never" },
+) =>
   aPlannerCard({
     capabilities: { sharedMemory, chat: true, consultant: true, runEnvironment: false },
-    hardSwitches: { ...aPlannerCard().hardSwitches, changeRoles },
+    hardSwitches: { ...aPlannerCard().hardSwitches, changeRoles, changeProjectSettings },
   });

@@ -3,6 +3,7 @@ export const HARD_SWITCH_KEYS = [
   "runInstalls",
   "publishOutsideThePipeline",
   "changeRoles",
+  "changeProjectSettings",
 ] as const;
 export type HardSwitchKey = (typeof HARD_SWITCH_KEYS)[number];
 
@@ -10,6 +11,7 @@ export const HARD_SWITCH_LABELS: Readonly<Record<HardSwitchKey, string>> = {
   runInstalls: "Run installs",
   publishOutsideThePipeline: "Publish outside the Pipeline",
   changeRoles: "Change Roles",
+  changeProjectSettings: "Change Project settings",
 };
 
 /**
@@ -22,6 +24,7 @@ export const HARD_SWITCH_ENFORCEMENT: Readonly<Record<HardSwitchKey, HardSwitchE
   runInstalls: "followed",
   publishOutsideThePipeline: "followed",
   changeRoles: "enforced",
+  changeProjectSettings: "enforced",
 };
 
 /** A Consult value names the Role to consult, by its key, so it holds before anyone fills it. */

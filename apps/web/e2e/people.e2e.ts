@@ -456,6 +456,7 @@ test("the user edits every field of a Role card, and it holds after a reload", a
   await form.getByText("Run environment", { exact: true }).click();
   await form.getByLabel("Run installs").selectOption("ask-me");
   await form.getByLabel("Publish outside the Pipeline").selectOption("never");
+  await form.getByLabel("Change Project settings").selectOption("ask-me");
   await form.getByLabel("Runs").selectOption("project-commands");
   await form.getByText("Searches and fetches the web", { exact: true }).click();
   await form.getByText(SKILL, { exact: true }).click();
@@ -495,6 +496,7 @@ test("the user edits every field of a Role card, and it holds after a reload", a
   const permissions = roleCardGroup(page, "Permissions");
   await expect(permissions).toContainText("Run installsAsk me");
   await expect(permissions).toContainText("Publish outside the PipelineNever");
+  await expect(permissions).toContainText("Change Project settingsAsk me");
   await expect(permissions).not.toContainText("Asks you until someone is hired");
   await expect(permissions).toContainText("Edits files in its worktree");
   await expect(permissions).toContainText("Runs the Project's commands and read-only git");

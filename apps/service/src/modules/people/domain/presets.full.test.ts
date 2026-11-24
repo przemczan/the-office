@@ -38,20 +38,56 @@ describe("PRESETS", () => {
 
   // Spec §6's Hard switches table.
   it.each([
-    ["planner", { runInstalls: consult("devops"), publishOutsideThePipeline: NEVER }],
-    ["developer", { runInstalls: consult("devops"), publishOutsideThePipeline: consult("cto") }],
-    ["reviewer", { runInstalls: consult("devops"), publishOutsideThePipeline: NEVER }],
-    ["cto", { runInstalls: consult("devops"), publishOutsideThePipeline: ASK_ME }],
-    ["devops", { runInstalls: ALLOWED, publishOutsideThePipeline: consult("cto") }],
+    [
+      "planner",
+      {
+        runInstalls: consult("devops"),
+        publishOutsideThePipeline: NEVER,
+        changeProjectSettings: NEVER,
+      },
+    ],
+    [
+      "developer",
+      {
+        runInstalls: consult("devops"),
+        publishOutsideThePipeline: consult("cto"),
+        changeProjectSettings: consult("devops"),
+      },
+    ],
+    [
+      "reviewer",
+      {
+        runInstalls: consult("devops"),
+        publishOutsideThePipeline: NEVER,
+        changeProjectSettings: NEVER,
+      },
+    ],
+    [
+      "cto",
+      {
+        runInstalls: consult("devops"),
+        publishOutsideThePipeline: ASK_ME,
+        changeProjectSettings: consult("devops"),
+      },
+    ],
+    [
+      "devops",
+      {
+        runInstalls: ALLOWED,
+        publishOutsideThePipeline: consult("cto"),
+        changeProjectSettings: ALLOWED,
+      },
+    ],
   ])("give the %s the Hard switches %o, and Change Roles Never", (roleKey, switches) => {
     expect(presetFor(roleKey)?.card.hardSwitches).toEqual({ ...switches, changeRoles: NEVER });
   });
 
-  it("let the Office Manager change Roles only by asking the user", () => {
+  it("let the Office Manager change Roles only by asking the user, and never Project settings", () => {
     expect(presetFor("office-manager")?.card.hardSwitches).toEqual({
       runInstalls: NEVER,
       publishOutsideThePipeline: NEVER,
       changeRoles: ASK_ME,
+      changeProjectSettings: NEVER,
     });
   });
 

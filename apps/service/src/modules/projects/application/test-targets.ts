@@ -7,6 +7,8 @@ import type { ProjectVariable } from "../domain/project-environment.js";
 import { isFeatureOn, switchedOffWords } from "../domain/project-features.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
 import { ProjectRefused } from "../domain/project-refused.js";
+import type { SettingChangedBy, SettingChangeUser } from "../domain/project-setting-change.js";
+import { testTargetsSummary } from "../domain/setting-change-summaries.js";
 import { ProjectTestTargetsChanged } from "../domain/project-events.js";
 import {
   appliedTargets,
@@ -94,15 +96,19 @@ export class TestTargets {
 
   /**
    * Saves the page's whole list: a target left out is removed, a Secret variable sent without a
-   * value keeps its own, and each field that changed is marked set by `user`. Refused
-   * (FeatureSwitchedOff) while the Project has Test targets switched off.
+   * value keeps its own, and each field that changed is marked set by `user`; with no user, as for
+   * a person's change on a Task (`by`), it has no known setter. Refused (FeatureSwitchedOff) while
+   * the Project has Test targets switched off.
    */
   async change(
     projectId: string,
     edit: readonly EditedTestTarget[],
-    user: { userId: string; name: string },
+    user: SettingChangeUser | null,
+    by: SettingChangedBy,
   ): Promise<readonly TestTarget[]> {
-    const setter: TestTargetSetter = { by: "user", user: { userId: user.userId, name: user.name } };
+    const setter: TestTargetSetter | undefined = user
+      ? { by: "user", user: { userId: user.userId, name: user.name } }
+      : undefined;
     const project = await this.projects.read(projectId);
     ensureFeatureOn(project, "test-targets");
     const commandKeys = keysOf(project);
@@ -112,26 +118,34 @@ export class TestTargets {
       entryPointsChanged(before, editedTestTargets(before, edit)).length > 0
         ? await this.files.freshBase(projectId)
         : undefined;
-    const changed = await this.repository.update(projectId, async (stored) => {
-      const edited = editedTestTargets(stored, edit);
-      const problems = testTargetProblems(edited, commandKeys);
-      if (problems.length > 0) throw new ProjectRefused(problems);
-      const toCheck = entryPointsChanged(stored, edited);
-      if (toCheck.length > 0) {
-        const commit = freshBase ?? (await this.files.freshBase(projectId));
-        const entryProblems = await this.entryPointsProblems(projectId, commit, toCheck);
-        if (entryProblems.length > 0) throw new ProjectRefused(entryProblems);
-      }
-      const after = edited.map((target) => ({
-        ...target,
-        setBy: setByAfter(
-          stored.find(({ key }) => key === target.key),
-          target,
-          setter,
-        ),
-      }));
-      return sameTestTargets(stored, after) ? undefined : after;
-    });
+    const changed = await this.repository.update(
+      projectId,
+      async (stored) => {
+        const edited = editedTestTargets(stored, edit);
+        const problems = testTargetProblems(edited, commandKeys);
+        if (problems.length > 0) throw new ProjectRefused(problems);
+        const toCheck = entryPointsChanged(stored, edited);
+        if (toCheck.length > 0) {
+          const commit = freshBase ?? (await this.files.freshBase(projectId));
+          const entryProblems = await this.entryPointsProblems(projectId, commit, toCheck);
+          if (entryProblems.length > 0) throw new ProjectRefused(entryProblems);
+        }
+        const after = edited.map((target) => ({
+          ...target,
+          setBy: setByAfter(
+            stored.find(({ key }) => key === target.key),
+            target,
+            setter,
+          ),
+        }));
+        return sameTestTargets(stored, after) ? undefined : after;
+      },
+      (stored, saved) => ({
+        setting: "test-targets",
+        summary: testTargetsSummary(stored, saved),
+        by,
+      }),
+    );
     if (changed === undefined) return this.repository.listOf(projectId);
     await this.events.publish(new ProjectTestTargetsChanged(projectId));
     return changed;
@@ -179,6 +193,7 @@ export class TestTargets {
     projectId: string,
     proposed: ProposedTestTargets,
     setter: { proposalId: string; agent: { roleKey: string; name: string } },
+    by: SettingChangedBy,
   ): Promise<void> {
     const byProposal: TestTargetSetter = {
       by: "proposal",
@@ -190,15 +205,23 @@ export class TestTargets {
     const commandKeys = keysOf(project);
     const toCheck = entryPointsProposed(proposed);
     const commit = toCheck.length > 0 ? await this.files.freshBase(projectId) : undefined;
-    await this.repository.update(projectId, async (current) => {
-      const problems = proposedTestTargetsProblems(current, proposed, commandKeys);
-      if (problems.length > 0) throw new ProjectRefused(problems);
-      if (commit !== undefined) {
-        const entryProblems = await this.entryPointsProblems(projectId, commit, toCheck);
-        if (entryProblems.length > 0) throw new ProjectRefused(entryProblems);
-      }
-      return appliedTargets(current, proposed, byProposal);
-    });
+    await this.repository.update(
+      projectId,
+      async (current) => {
+        const problems = proposedTestTargetsProblems(current, proposed, commandKeys);
+        if (problems.length > 0) throw new ProjectRefused(problems);
+        if (commit !== undefined) {
+          const entryProblems = await this.entryPointsProblems(projectId, commit, toCheck);
+          if (entryProblems.length > 0) throw new ProjectRefused(entryProblems);
+        }
+        return appliedTargets(current, proposed, byProposal);
+      },
+      (stored, saved) => ({
+        setting: "test-targets",
+        summary: testTargetsSummary(stored, saved),
+        by,
+      }),
+    );
     await this.events.publish(new ProjectTestTargetsChanged(projectId));
   }
 

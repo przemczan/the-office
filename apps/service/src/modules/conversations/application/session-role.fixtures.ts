@@ -14,6 +14,7 @@ export function aPlannerCard(fields: Partial<SessionRole["card"]> = {}): Session
       runInstalls: { kind: "consult", role: "devops" },
       publishOutsideThePipeline: { kind: "never" },
       changeRoles: { kind: "never" },
+      changeProjectSettings: { kind: "never" },
     },
     taskLimit: 2,
     sessionDefault: "context-policy",

@@ -16,6 +16,7 @@ import {
   type TestTarget,
 } from "../../domain/test-target.js";
 import { ProjectRefusalsFilter } from "./project-refusals.filter.js";
+import { byUser } from "./setting-changed-by.js";
 
 /** The Project page's Test targets: saved whole, a Secret variable's value never sent back. */
 @Controller("projects")
@@ -34,7 +35,9 @@ export class ProjectTestTargetsController {
     @Body(new ContractPipe(testTargetsEditSchema)) { targets }: TestTargetsEdit,
     @SignedIn() signedIn: SignedIn,
   ): Promise<TestTargetList> {
-    return toResponse(await this.testTargets.change(id, targets, userOf(signedIn)));
+    return toResponse(
+      await this.testTargets.change(id, targets, userOf(signedIn), byUser(signedIn)),
+    );
   }
 }
 

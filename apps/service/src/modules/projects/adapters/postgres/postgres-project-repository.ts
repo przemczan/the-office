@@ -6,7 +6,9 @@ import type { Project, ProjectCommand, ProjectEngineDefault } from "../../domain
 import type { ProjectChanges } from "../../domain/project-changes.js";
 import { featureSwitchesOfStored } from "../../domain/project-features.js";
 import { ProjectNotFound } from "../../domain/project-not-found.js";
+import type { SettingChangeRecording } from "../../domain/setting-change-summaries.js";
 import { ProjectRepository } from "../../ports/project-repository.js";
+import { recordSettingChange } from "./postgres-project-setting-change-repository.js";
 import { projects, type StoredProjectCommand } from "./projects.schema.js";
 import { environmentOfStored } from "./stored-environment.js";
 
@@ -48,7 +50,11 @@ export class PostgresProjectRepository extends ProjectRepository {
     });
   }
 
-  async update(id: string, change: (project: Project) => ProjectChanges): Promise<ProjectChanges> {
+  async update(
+    id: string,
+    change: (project: Project) => ProjectChanges,
+    record?: SettingChangeRecording<Project>,
+  ): Promise<ProjectChanges> {
     return forgettingReads(() =>
       this.database.transaction(async (transaction) => {
         const [row] = await transaction
@@ -57,9 +63,11 @@ export class PostgresProjectRepository extends ProjectRepository {
           .where(eq(projects.id, id))
           .for("update");
         if (!row) throw new ProjectNotFound(id);
-        const changed = change(toProject(row));
+        const before = toProject(row);
+        const changed = change(before);
         if (changed.events.length === 0) return changed;
         await transaction.update(projects).set(toRow(changed.project)).where(eq(projects.id, id));
+        await recordSettingChange(transaction, id, record, before, changed.project);
         return changed;
       }),
     );

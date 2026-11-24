@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { ProjectRefused, ProjectService } from "../../../projects/index.js";
+import { ProjectRefused, ProjectService, type SettingChangedBy } from "../../../projects/index.js";
 import { RunEnvironmentSettingRefused } from "../../domain/run-environment-setting-refused.js";
 import {
   ProjectSettings,
@@ -28,9 +28,10 @@ export class ProjectsSettings extends ProjectSettings {
     projectId: string,
     runEnvironment: Exclude<RunEnvironmentSetting, "not-decided">,
     definitionProblems: readonly string[],
+    by: SettingChangedBy,
   ): Promise<void> {
     await refusedInOurWords(() =>
-      this.projects.changeRunEnvironment(projectId, runEnvironment, definitionProblems),
+      this.projects.changeRunEnvironment(projectId, runEnvironment, definitionProblems, by),
     );
   }
 

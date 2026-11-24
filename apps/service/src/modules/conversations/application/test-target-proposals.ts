@@ -3,6 +3,7 @@ import { RoleCards } from "../../people/index.js";
 import { ProjectNotFound, ProjectRefused, TestTargets } from "../../projects/index.js";
 import type { ProposedTestTargetsChange } from "../domain/proposal.js";
 import { ProposalRefused } from "../domain/proposal-refused.js";
+import type { UserRef } from "../domain/user.js";
 import { ProposalAppliers } from "./proposal-appliers.js";
 
 /**
@@ -23,24 +24,34 @@ export class TestTargetProposals implements OnModuleInit {
     this.appliers.register("test-targets", {
       problemsWith: ({ projectId, changes }) =>
         this.testTargets.proposedProblems(projectId, changes),
-      apply: (change, proposedBy, _appliedBy, proposalId) =>
-        this.apply(change, proposedBy, proposalId),
+      apply: (change, proposedBy, appliedBy, proposalId) =>
+        this.apply(change, proposedBy, appliedBy, proposalId),
     });
   }
 
   private async apply(
     change: ProposedTestTargetsChange,
     proposedBy: string,
+    appliedBy: UserRef,
     proposalId: string | undefined,
   ): Promise<ProposedTestTargetsChange> {
     if (proposalId === undefined) {
       throw new Error("A Proposal of test targets is applied only as a stored Proposal.");
     }
     try {
-      await this.testTargets.changeAsProposed(change.projectId, change.changes, {
-        proposalId,
-        agent: { roleKey: proposedBy, name: await this.nameOf(proposedBy) },
-      });
+      await this.testTargets.changeAsProposed(
+        change.projectId,
+        change.changes,
+        {
+          proposalId,
+          agent: { roleKey: proposedBy, name: await this.nameOf(proposedBy) },
+        },
+        {
+          kind: "proposal",
+          proposalId,
+          user: { userId: appliedBy.userId, name: appliedBy.name },
+        },
+      );
       return change;
     } catch (error) {
       if (error instanceof ProjectRefused) throw new ProposalRefused(error.reasons);

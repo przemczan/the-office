@@ -23,6 +23,7 @@ import {
   projectOnboardingListSchema,
   projectPipelineSchema,
   projectSchema,
+  projectSettingChangesSchema,
   projectTestTargetsChatSchema,
   proposalSchema,
   skillReviewSchema,
@@ -45,6 +46,7 @@ import { startTestApplication } from "../../../../test/test-application.js";
 import { testDatabaseUrl } from "../../../../test/test-database.js";
 import { AppModule } from "../../../app.module.js";
 import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
+import { SIGNED_IN_FOR_TESTS } from "../../../platform/http/signed-in-requests.fixtures.js";
 import { EngineModule, ScriptedEngine, ScriptedEngineModule } from "../../engine/index.js";
 import { EngineCascade, RoleCards } from "../../people/index.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
@@ -205,6 +207,22 @@ describe("Devops' Proposals, through the scripted engine", () => {
       ],
       installInputs: [".nvmrc"],
     });
+    // Projects records the change as the Proposal's, applied by the signed-in user.
+    const [commandsDraft] = drafted;
+    expect(
+      projectSettingChangesSchema.parse(await chat.read(`/projects/${project.id}/setting-changes`))
+        .changes,
+    ).toEqual([
+      expect.objectContaining({
+        setting: "commands",
+        summary: "changed Commands",
+        by: {
+          kind: "proposal",
+          proposalId: commandsDraft?.id,
+          user: { userId: SIGNED_IN_FOR_TESTS.userId, name: SIGNED_IN_FOR_TESTS.name },
+        },
+      }),
+    ]);
     // Read back as the straight line the library converted the plain list to.
     const saved = pipelineSchema.parse(await chat.read(`/pipelines/${pipeline.id}`));
     expect(saved).toEqual({ ...pipeline, stages: expect.any(Array) });

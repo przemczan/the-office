@@ -14,6 +14,7 @@ import {
   anInitiative,
   anInstance,
   aPullRequest,
+  aSettingChange,
   aTask,
   hoursAgo,
   NOW,
@@ -29,6 +30,7 @@ const SHIPPED = uuid(4);
 const DARK_MODE = uuid(5);
 const GIFT_CARDS = uuid(6);
 const WEB = uuid(7);
+const NINA_TASK = uuid(8);
 
 const TILE_TITLES = [
   "Initiatives",
@@ -95,6 +97,31 @@ function withData(more: Answers = {}): Answers {
     "GET /api/projects/shop/remote-needs": ok({
       remoteNeeds: { kind: "github-https", missing: [] },
     }),
+    "GET /api/projects/shop/setting-changes": ok({
+      changes: [
+        aSettingChange(uuid(11), {
+          setting: "run-environment",
+          summary: "turned Run environment On",
+          by: {
+            kind: "person",
+            roleKey: "devops",
+            name: "Nina",
+            title: "Devops",
+            taskId: NINA_TASK,
+          },
+          at: hoursAgo(5),
+        }),
+        aSettingChange(uuid(12), {
+          by: {
+            kind: "proposal",
+            proposalId: uuid(20),
+            user: { userId: uuid(90), name: "Ann Lee" },
+          },
+          at: hoursAgo(6),
+        }),
+        aSettingChange(uuid(13), { summary: "changed Install", at: hoursAgo(7) }),
+      ],
+    }),
     ...more,
   };
 }
@@ -118,6 +145,7 @@ function withNothing(): Answers {
     }),
     "GET /api/projects/shop/environment-check": ok({ check: null }),
     "GET /api/projects/shop/remote-needs": ok({ remoteNeeds: null }),
+    "GET /api/projects/shop/setting-changes": ok({ changes: [] }),
   });
 }
 
@@ -187,6 +215,21 @@ describe("a Project's Overview", () => {
     expect(activity).toContain(`Done: Task ${SHIPPED} · published`);
     expect(activity).toContain("Idea captured: Dark mode");
     expect(activity.indexOf(`Task ${SHIPPED}`)).toBeLessThan(activity.indexOf(`Task ${PLANNED}`));
+  });
+
+  it("lists the Project's setting changes in Recent activity by who made them, a person's linked to their Task", async () => {
+    const page = await shown(withData());
+
+    const activity = shownText(tileNamed(page, "Recent activity"));
+    expect(activity).toContain("Nina (Devops) turned Run environment On");
+    expect(activity).toContain("Ann Lee changed Commands by Proposal");
+    expect(activity).toContain("Ann Lee changed Install");
+    expect(activity.indexOf("Idea captured: Gift cards")).toBeLessThan(
+      activity.indexOf("turned Run environment On"),
+    );
+    expect(hrefOf(tileNamed(page, "Recent activity"), "turned Run environment On")).toBe(
+      `/tasks/${NINA_TASK}`,
+    );
   });
 
   it("gives every tile its empty state", async () => {

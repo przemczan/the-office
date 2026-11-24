@@ -9,6 +9,7 @@ import { RunEnvironmentOfficeLimitsController } from "./adapters/http/run-enviro
 import { ProjectsRepositoryFiles } from "./adapters/projects/projects-repository-files.js";
 import { ProjectsSettings } from "./adapters/projects/projects-settings.js";
 import { ProjectsDevcontainerServicesRegistration } from "./adapters/projects/projects-devcontainer-services-registration.js";
+import { ProjectsRunEnvironmentSwitchRegistration } from "./adapters/projects/projects-run-environment-switch-registration.js";
 import { ProjectsSetUpRegistration } from "./adapters/projects/projects-set-up-registration.js";
 import { ProjectsTaskRunEnvironments } from "./adapters/projects/projects-task-run-environments.js";
 import { WorkSetUpTasks } from "./adapters/work/work-set-up-tasks.js";
@@ -111,6 +112,7 @@ export class RunEnvironmentsModule {
         { provide: SetUpTasks, useClass: WorkSetUpTasks },
         ProjectRunEnvironments,
         ProjectsSetUpRegistration,
+        ProjectsRunEnvironmentSwitchRegistration,
         ProjectsDevcontainerServicesRegistration,
         ProjectsTaskRunEnvironments,
       ],

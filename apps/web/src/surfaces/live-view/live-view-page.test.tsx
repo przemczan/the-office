@@ -118,6 +118,7 @@ function roleOf(person: OfficePerson): Role {
         runInstalls: { kind: "ask-me" },
         publishOutsideThePipeline: { kind: "ask-me" },
         changeRoles: { kind: "never" },
+        changeProjectSettings: { kind: "never" },
       },
       taskLimit: person.taskLimit,
       sessionDefault: "context-policy",

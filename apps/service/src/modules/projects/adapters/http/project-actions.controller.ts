@@ -10,6 +10,7 @@ import { SignedIn, userOf } from "../../../../platform/http/signed-in-requests.j
 import { ProjectActions } from "../../application/project-actions.js";
 import type { Action } from "../../domain/action.js";
 import { ProjectRefusalsFilter } from "./project-refusals.filter.js";
+import { byUser } from "./setting-changed-by.js";
 
 /** The Project page's Actions (spec §2.15, "Defining Actions"): saved whole, in order. */
 @Controller("projects")
@@ -28,7 +29,7 @@ export class ProjectActionsController {
     @Body(new ContractPipe(actionsEditSchema)) { actions }: ActionsEdit,
     @SignedIn() signedIn: SignedIn,
   ): Promise<ActionList> {
-    return toResponse(await this.actions.change(id, actions, userOf(signedIn)));
+    return toResponse(await this.actions.change(id, actions, userOf(signedIn), byUser(signedIn)));
   }
 }
 

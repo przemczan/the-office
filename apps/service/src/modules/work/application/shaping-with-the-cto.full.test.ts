@@ -41,6 +41,7 @@ import {
   ProjectActions,
   ProjectFeatures,
   ProjectService,
+  RunEnvironmentSwitchRegistry,
   TaskBases,
   TestTargets,
   TestTargetsChatThreads,
@@ -102,6 +103,7 @@ const CTO_ROLE: SessionRole = {
       runInstalls: { kind: "consult", role: "devops" },
       publishOutsideThePipeline: { kind: "ask-me" },
       changeRoles: { kind: "never" },
+      changeProjectSettings: { kind: "never" },
     },
     taskLimit: 2,
     sessionDefault: "context-policy",
@@ -248,6 +250,9 @@ const NO_TEST_TARGETS = { provide: TestTargets, useValue: {} };
 /** Projects' Actions, which Conversations judges their Proposals by; none is drafted here. */
 const NO_ACTIONS = { provide: ProjectActions, useValue: {} };
 
+/** Projects' Run environment switch, which Conversations' Office tools change it by; none here does. */
+const NO_RUN_ENVIRONMENT_SWITCH = { provide: RunEnvironmentSwitchRegistry, useValue: {} };
+
 const ENGINE_CASCADE = { provide: EngineCascade, useValue: new EngineCascadeStandIn() };
 
 @Module({
@@ -257,10 +262,18 @@ const ENGINE_CASCADE = { provide: EngineCascade, useValue: new EngineCascadeStan
     NO_PROJECT_SERVICE,
     NO_TEST_TARGETS,
     NO_ACTIONS,
+    NO_RUN_ENVIRONMENT_SWITCH,
     ENGINE_CASCADE,
     ListProjectsStandIn,
   ],
-  exports: [...STAND_INS, ProjectService, TestTargets, ProjectActions, EngineCascade],
+  exports: [
+    ...STAND_INS,
+    ProjectService,
+    TestTargets,
+    ProjectActions,
+    RunEnvironmentSwitchRegistry,
+    EngineCascade,
+  ],
 })
 class StandInsModule {}
 

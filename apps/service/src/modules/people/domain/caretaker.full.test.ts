@@ -40,6 +40,7 @@ describe("the Caretaker's fixed parts", () => {
         runInstalls: ALLOWED,
         publishOutsideThePipeline: ALLOWED,
         changeRoles: NEVER,
+        changeProjectSettings: NEVER,
       },
       taskLimit: "none",
     });

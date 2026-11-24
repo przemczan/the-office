@@ -82,6 +82,7 @@ describe("a change to a Role", () => {
         // The same switches, in another order, as a stored card may have them.
         hardSwitches: {
           changeRoles: { kind: "never" },
+          changeProjectSettings: { kind: "never" },
           runInstalls: { kind: "never" },
           publishOutsideThePipeline: { kind: "never" },
         },

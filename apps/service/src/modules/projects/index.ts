@@ -13,6 +13,13 @@ export {
   type ProjectDeviceLister,
 } from "./application/project-device-lines.js";
 export { ProjectService } from "./application/project-service.js";
+export { ProjectSettingChanges } from "./application/project-setting-changes.js";
+export type {
+  ProjectSetting,
+  ProjectSettingChange,
+  SettingChangedBy,
+  SettingChangeUser,
+} from "./domain/project-setting-change.js";
 export { PullRequestRecords } from "./application/pull-request-records.js";
 export type { PullRequest } from "./domain/pull-request.js";
 export {
@@ -24,6 +31,10 @@ export {
   RunEnvironmentSetUpRegistry,
   type RunEnvironmentSetUp,
 } from "./application/run-environment-set-up-registry.js";
+export {
+  RunEnvironmentSwitchRegistry,
+  type RunEnvironmentSwitch,
+} from "./application/run-environment-switch-registry.js";
 export {
   DevcontainerServices,
   type DevcontainerServicesReader,

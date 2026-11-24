@@ -36,6 +36,7 @@ export const hardSwitchKeySchema = z.enum([
   "runInstalls",
   "publishOutsideThePipeline",
   "changeRoles",
+  "changeProjectSettings",
 ]);
 export type HardSwitchKey = z.infer<typeof hardSwitchKeySchema>;
 
@@ -64,6 +65,7 @@ export const hardSwitchesSchema = z.object({
   runInstalls: hardSwitchValueSchema,
   publishOutsideThePipeline: hardSwitchValueSchema,
   changeRoles: hardSwitchValueSchema,
+  changeProjectSettings: hardSwitchValueSchema,
 });
 export type HardSwitches = z.infer<typeof hardSwitchesSchema>;
 
@@ -330,6 +332,7 @@ export const roleCardFieldSchema = z.enum([
   "hardSwitches.runInstalls",
   "hardSwitches.publishOutsideThePipeline",
   "hardSwitches.changeRoles",
+  "hardSwitches.changeProjectSettings",
 ]);
 export type RoleCardField = z.infer<typeof roleCardFieldSchema>;
 

@@ -175,6 +175,16 @@ describe("the Role card's words", () => {
         names,
       ),
     ).toBe("Publish outside the Pipeline Consult CTO → Never");
+    expect(
+      changeLine(
+        {
+          field: "hardSwitches.changeProjectSettings",
+          from: { kind: "ask-me" },
+          to: { kind: "consult", role: "devops" },
+        },
+        names,
+      ),
+    ).toBe("Change Project settings Ask me → Consult Devops");
     const profile = { edit: false, run: "read-only-git", web: true, mcpTools: {} } as const;
     expect(
       changeLine(
@@ -204,6 +214,7 @@ describe("the Role card's words", () => {
       runInstalls: { kind: "consult", role: "devops" },
       publishOutsideThePipeline: { kind: "never" },
       changeRoles: { kind: "never" },
+      changeProjectSettings: { kind: "never" },
     } as const;
     expect(
       proposedFieldChanges(
@@ -212,7 +223,11 @@ describe("the Role card's words", () => {
           taskLimit: 3,
           engineSettings: {},
           capabilities: { ...capabilities, consultant: true, runEnvironment: false },
-          hardSwitches: { ...hardSwitches, runInstalls: { kind: "ask-me" } },
+          hardSwitches: {
+            ...hardSwitches,
+            runInstalls: { kind: "ask-me" },
+            changeProjectSettings: { kind: "allowed" },
+          },
         },
       ),
     ).toEqual([
@@ -222,6 +237,11 @@ describe("the Role card's words", () => {
         field: "hardSwitches.runInstalls",
         from: { kind: "consult", role: "devops" },
         to: { kind: "ask-me" },
+      },
+      {
+        field: "hardSwitches.changeProjectSettings",
+        from: { kind: "never" },
+        to: { kind: "allowed" },
       },
     ]);
   });

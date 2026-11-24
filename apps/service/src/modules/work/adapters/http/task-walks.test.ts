@@ -405,6 +405,7 @@ const DEVELOPER_CARD: SessionRole["card"] = {
     runInstalls: { kind: "never" },
     publishOutsideThePipeline: { kind: "never" },
     changeRoles: { kind: "never" },
+    changeProjectSettings: { kind: "never" },
   },
   taskLimit: 1,
   sessionDefault: "context-policy",

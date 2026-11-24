@@ -13,7 +13,7 @@ export const ONBOARD_TASK_TITLE = "Onboard";
 export function onboardTaskPlan(projectName: string): string {
   return [
     `Make ${projectName} build and test in a fresh worktree of its base branch.`,
-    "Run its install, build, lint and test commands there, fix what fails in the repository, and propose better commands where they are wrong.",
+    "Run its install, build, lint and test commands there, fix what fails in the repository, and set better commands where they are wrong, or propose them when you can't change them.",
     "Ask before installing anything on the workstation.",
     "Verify then runs the Test command; Publish ships the fixes by the Project's publishing mode. A repository that needs no fixes is onboarded as it is: report the Definition of Done met.",
   ].join("\n\n");

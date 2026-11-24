@@ -202,7 +202,7 @@ AlarmResumes, PipelineLibrary, StageTemplateLibrary, StageResultWords, TaskGateR
 - `stage-runs.schema.ts`: stageRuns
 - `stage-templates.schema.ts`: stageTemplates
 - `task-stages.schema.ts`: taskStages
-- Tests: onboard-actions-brief-migration.test.ts, pipeline-flows-migration.test.ts, postgres-project-pipeline-repository.test.ts, postgres-stage-run-repository.test.ts, postgres-stages-as-flows.test.ts, resolve-template-migration.test.ts, set-up-brief-migration.test.ts, stage-duties-migration.test.ts
+- Tests: onboard-actions-brief-migration.test.ts, pipeline-flows-migration.test.ts, postgres-project-pipeline-repository.test.ts, postgres-stage-run-repository.test.ts, postgres-stages-as-flows.test.ts, project-setting-briefs-migration.test.ts, resolve-template-migration.test.ts, set-up-brief-migration.test.ts, stage-duties-migration.test.ts
 
 ### adapters/prompt-templates/
 

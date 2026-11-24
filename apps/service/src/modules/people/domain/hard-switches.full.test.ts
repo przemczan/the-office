@@ -3,6 +3,9 @@ import {
   ALLOWED,
   ASK_ME,
   consult,
+  HARD_SWITCH_ENFORCEMENT,
+  HARD_SWITCH_KEYS,
+  HARD_SWITCH_LABELS,
   hardSwitchesProblems,
   hardSwitchInEffect,
   NEVER,
@@ -18,6 +21,7 @@ const switches = (fields: Partial<HardSwitches> = {}): HardSwitches => ({
   runInstalls: consult("devops"),
   publishOutsideThePipeline: consult("cto"),
   changeRoles: NEVER,
+  changeProjectSettings: NEVER,
   ...fields,
 });
 
@@ -39,6 +43,16 @@ describe("hardSwitchesProblems", () => {
       ).toEqual([]);
     },
   );
+
+  it("refuses Change Project settings, an enforced switch, consulting the Role itself", () => {
+    expect(
+      hardSwitchesProblems(
+        "devops",
+        switches({ runInstalls: ALLOWED, changeProjectSettings: consult("devops") }),
+        CONSULTABLE,
+      ),
+    ).toEqual(["Change Project settings can't consult the Role itself."]);
+  });
 
   it("refuses a Consult value naming a Role The Office doesn't know, or the Role itself", () => {
     const problems = hardSwitchesProblems(
@@ -64,6 +78,18 @@ describe("hardSwitchesProblems", () => {
         CONSULTABLE,
       ),
     ).toEqual(["Change Roles consults a Role The Office doesn't know."]);
+  });
+});
+
+describe("the Hard switches", () => {
+  it("enforce Change Roles and Change Project settings in code, and leave the rest to the Agent", () => {
+    expect(HARD_SWITCH_KEYS.map((key) => [key, HARD_SWITCH_ENFORCEMENT[key]])).toEqual([
+      ["runInstalls", "followed"],
+      ["publishOutsideThePipeline", "followed"],
+      ["changeRoles", "enforced"],
+      ["changeProjectSettings", "enforced"],
+    ]);
+    expect(HARD_SWITCH_LABELS.changeProjectSettings).toBe("Change Project settings");
   });
 });
 

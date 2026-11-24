@@ -1,6 +1,6 @@
 # 6 Permissions and safety
 
-Covers: threat models, stored hashes, the two layers, language servers, Hard switches, MCP tools, refusals, default profiles, reading records, Consultations' permissions, chats, the Caretaker with Allow changes on, secrets, Secret variables, test instances, Connected devices and Project devices, Actions, build rules.
+Covers: threat models, stored hashes, the two layers, language servers, Hard switches, Project settings by Agents, MCP tools, refusals, default profiles, reading records, Consultations' permissions, chats, the Caretaker with Allow changes on, secrets, Secret variables, test instances, Connected devices and Project devices, Actions, build rules.
 
 ## Threat model
 
@@ -45,7 +45,7 @@ Covers: threat models, stored hashes, the two layers, language servers, Hard swi
 - The values are in [Defaults](#hard-switches-by-role).
 - They are the presets' values, and Consult names a Role key, not a duty: a Role hired from a preset keeps them whoever holds which duty.
 - A Hard switch may consult any hired Role, a preset's or one hired from scratch ([2.2](2.2-people.md#defaults), "Who holds a duty").
-- **Enforced by The Office:** change Roles (an Office tool) and git.
+- **Enforced by The Office:** change Roles (an Office tool), change Project settings (Office tools, [below](#project-settings-by-agents)) and git.
 - **Followed by the Agent:** run installs and publish outside the Pipeline.
 - The Office stays agnostic of each Project's stack, so the brief states the followed ones in plain words ("Before you install anything that changes the machine outside the worktree, consult Devops; adding or updating the Project's own dependencies is a code change") and the Agent asks through the consult tool first.
 - The Role card marks which are enforced and which are followed.
@@ -53,6 +53,26 @@ Covers: threat models, stored hashes, the two layers, language servers, Hard swi
 - Its approval stays a card of its own, one question answered Allow once or Deny (or Pass on, by a Consultant), never a question in a Decision's form, so it has no comments and no Ask me again.
 - Approvals by colleagues show on the Task, in the Stage log and as one line in Since you left; never a Notification.
 - A Decision never grants "always"; widening permissions is a Role card change.
+
+## Project settings by Agents
+
+- **Change Project settings** holds the Office tools that change a Project's everyday settings, each by the Project page's rules:
+  - `change_run_environment`: Run environment On or Off; On is refused unless the base branch, fetched as the call runs, holds a valid `.devcontainer/`;
+  - `change_project_commands`: the install command, Install inputs and the commands (add, change by key, remove); Before and After publishing are refused;
+  - `change_test_targets`: test targets to add, change by key or remove; Secret variables by name only, a value already set kept;
+  - `change_actions`: Actions to add, change by key or remove; one marked Leaves the workstation is refused, pointing to `propose_actions`;
+  - `change_environment_variables`: plain variables, Variables to remove and Folders in front of PATH; Secret variables are refused and kept as they are.
+- **The ruling:** Allowed changes the setting at once; Consult _person_ and Ask me hold the call on an approval card ([Hard switches](#hard-switches)); Never refuses.
+- After Allow once, the Agent repeats the same call, with the same input, which then runs once; the input is compared in a canonical form, so the order of its fields doesn't count.
+- **Who gets them:** an Agent Stage's session and a Consultation on a Task, unless the switch is Never; a chat, a Planning Thread and a person's Thread on a Task never do.
+- A Consultation opens no approval of its own, so there only Allowed changes a setting; a call held by Consult or Ask me is refused.
+- **The user's alone,** by Proposal or on the Project page: Secret variables' values, the Publishing mode, Before and After publishing, Delete branches once merged, GitHub issues write-back, Server values, the Engine, Actions that leave the workstation, Project Pipelines and the Default Pipeline.
+- The Proposal tools (`propose_project_commands`, `propose_test_targets`, `propose_actions`) stay, for those settings and for a person whose switch is Never.
+- **The record:** every change of a Project's commands, test targets, Actions, environment or Run environment is kept as a Project setting change, in the same transaction as the change, by the Project page's saves, an applied Proposal and these tools alike.
+  - It holds the Project, the setting, a short summary naming what changed by name only (never a Secret variable's value), who made it (a user; a Proposal a user applied; a person by Role, name and title, with the Task) and when.
+  - A "Set up the run environment" Task's Done turning Run environment On ([2.1.3](2.1.3-tasks.md#setting-up-the-run-environment)) records nothing.
+  - It is kept with the Project and removed with it.
+  - `GET /api/projects/:id/setting-changes` answers the newest ([Defaults](#project-setting-changes-listed)), which the Project page's Recent activity lists ([project-page.md](screens/project-page.md#recent-activity-tile)).
 
 ## MCP tools
 
@@ -92,7 +112,7 @@ Covers: threat models, stored hashes, the two layers, language servers, Hard swi
 
 - A Consultation works with its callee's own permissions, never the caller's, so a read-only Thread can't get a change made by calling someone.
 - Its session is the Consultant's own, built from them alone: their Role card's permission profile, Hard switches and MCP tool settings, and their chat's tools (capture an Idea, create a Task, draft a skill and their Role's Proposals, and call while the chain allows it).
-- It only reads, as its home does (a Task's worktree on a Task, every Project's base branch in a chat), with no `change_role`, no Allow changes and no write access, so all a call can set up is a record or a Proposal the user applies.
+- It only reads, as its home does (a Task's worktree on a Task, every Project's base branch in a chat), with no `change_role`, no Allow changes and no write access, so all a call can set up is a record, a Proposal the user applies, or a Project setting the Consultant's Change Project settings allows at once ([Project settings by Agents](#project-settings-by-agents)).
 - A Stage that can write lends none of it to its callee.
 
 ## Chats only read
@@ -202,14 +222,21 @@ Covers: threat models, stored hashes, the two layers, language servers, Hard swi
 
 ### Hard switches by role
 
-|                   | Run installs   | Publish outside the Pipeline | Change Roles |
-| ----------------- | -------------- | ---------------------------- | ------------ |
-| Developer         | Consult Devops | Consult CTO                  | Never        |
-| Reviewer, Planner | Consult Devops | Never                        | Never        |
-| Devops            | Allowed        | Consult CTO                  | Never        |
-| CTO               | Consult Devops | Ask me                       | Never        |
-| Office Manager    | Never          | Never                        | Ask me       |
-| Caretaker (fixed) | Allowed        | Allowed                      | Never        |
+|                   | Run installs   | Publish outside the Pipeline | Change Roles | Change Project settings |
+| ----------------- | -------------- | ---------------------------- | ------------ | ----------------------- |
+| Developer         | Consult Devops | Consult CTO                  | Never        | Consult Devops          |
+| Reviewer, Planner | Consult Devops | Never                        | Never        | Never                   |
+| Devops            | Allowed        | Consult CTO                  | Never        | Allowed                 |
+| CTO               | Consult Devops | Ask me                       | Never        | Consult Devops          |
+| Office Manager    | Never          | Never                        | Ask me       | Never                   |
+| Caretaker (fixed) | Allowed        | Allowed                      | Never        | Never                   |
+
+- A Role hired from scratch starts with Change Project settings at Ask me.
+- A card saved before Change Project settings existed is given it by an update (migration 0212), by its Role's key as above, Ask me for any other Role; one still missing it, as a rollback's save leaves it, reads as Ask me, the Caretaker's as Never.
+
+### Project setting changes listed
+
+- `GET /api/projects/:id/setting-changes` answers a Project's newest 20 Project setting changes, newest first; every one is kept until the Project is removed.
 
 ### Default profiles
 

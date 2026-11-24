@@ -19,6 +19,7 @@ import { alias, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { afterCursor, newestFirst } from "../../../../platform/database/page-sql.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
+import { CARETAKER, type RoleCard } from "../../../people/index.js";
 import {
   DEFAULT_PORT_VARIABLE,
   type ProjectCommandFields,
@@ -35,7 +36,7 @@ import {
 } from "../../domain/decision.js";
 import type { Message, MessageDraft } from "../../domain/message.js";
 import { NO_OFFICE_INSTRUCTIONS } from "../../domain/office-instructions.js";
-import type { Proposal, ProposalStatus } from "../../domain/proposal.js";
+import type { Proposal, ProposalStatus, RoleCardFields } from "../../domain/proposal.js";
 import type { ProposalChange } from "../../domain/proposal-changes.js";
 import { ProposalNotFound } from "../../domain/proposal-not-found.js";
 import type { Home, Thread, ThreadSession } from "../../domain/thread.js";
@@ -801,7 +802,24 @@ function toProposedChange(change: Proposal["change"]): Proposal["change"] {
   switch (change.kind) {
     // A hire not applied yet has no Role key, which its JSON leaves out.
     case "hire":
-      return { ...change, roleKey: change.roleKey ?? undefined };
+      return {
+        ...change,
+        card: withChangeProjectSettings(change.card),
+        roleKey: change.roleKey ?? undefined,
+      };
+    case "office-setup":
+      return {
+        ...change,
+        hires: change.hires.map((hire) =>
+          hire.kind === "hire" ? { ...hire, card: withChangeProjectSettings(hire.card) } : hire,
+        ),
+      };
+    case "change":
+      return {
+        ...change,
+        from: withChangeProjectSettings(change.from, change.roleKey),
+        to: withChangeProjectSettings(change.to, change.roleKey),
+      };
     // A Proposal of commands drafted before re-run commands has none, read as blank.
     case "project-commands":
       return {
@@ -832,6 +850,26 @@ function toProposedChange(change: Proposal["change"]): Proposal["change"] {
     default:
       return change;
   }
+}
+
+/**
+ * A card, or a change's fields, saved by the release before Change Project settings after a
+ * rollback lacks the switch, which the web's schema needs: read as Ask me, as a Role hired from
+ * scratch starts, and the Caretaker's as its fixed Never.
+ */
+function withChangeProjectSettings<Card extends RoleCardFields>(
+  card: Card,
+  roleKey?: string,
+): Card {
+  const hardSwitches: Partial<RoleCard["hardSwitches"]> | undefined = card.hardSwitches;
+  if (hardSwitches === undefined || hardSwitches.changeProjectSettings !== undefined) return card;
+  return {
+    ...card,
+    hardSwitches: {
+      ...hardSwitches,
+      changeProjectSettings: roleKey === CARETAKER ? { kind: "never" } : { kind: "ask-me" },
+    },
+  };
 }
 
 function withTargetDefaults(fields: ProposedTestTargetFields): ProposedTestTargetFields {

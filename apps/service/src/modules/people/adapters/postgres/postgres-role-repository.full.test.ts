@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
@@ -191,5 +191,30 @@ describe("PostgresRoleRepository", () => {
     ]);
     expect(await repository.find(role.key)).not.toHaveProperty("card.effort");
     expect(await repository.find(role.key)).not.toHaveProperty("card.roleOverride");
+  });
+
+  it("reads Change Project settings as Ask me on a card the release before saved after a rollback", async () => {
+    const role = aRoleOfItsOwn({
+      card: aRoleCard({
+        hardSwitches: { ...aRoleCard().hardSwitches, changeProjectSettings: { kind: "allowed" } },
+      }),
+    });
+    await repository.add(role);
+    // The release before reads a card through its own request schema, which drops the switch.
+    await app
+      .get<Database>(DATABASE)
+      .update(roleCardVersions)
+      .set({ card: sql`${roleCardVersions.card} #- '{hardSwitches,changeProjectSettings}'` })
+      .where(eq(roleCardVersions.roleKey, role.key));
+
+    const read = await repository.find(role.key);
+
+    expect(read?.card.hardSwitches).toEqual({
+      ...role.card.hardSwitches,
+      changeProjectSettings: { kind: "ask-me" },
+    });
+    expect(
+      (await repository.version(role.key, 1))?.card.hardSwitches.changeProjectSettings,
+    ).toEqual({ kind: "ask-me" });
   });
 });

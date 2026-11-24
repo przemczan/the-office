@@ -32,7 +32,9 @@ describe("The Set up test targets Pipeline", () => {
     expect(
       runs.map(({ stageKey, roleKey, outcome }) => [stageKey, roleKey, outcome?.status]),
     ).toEqual([["set-up-test-targets", "devops", "done"]]);
-    expect(pipelines.stageThreads.requests[0]?.work).toContain("End with propose_test_targets");
+    expect(pipelines.stageThreads.requests[0]?.work).toContain(
+      "End with change_test_targets, giving every target at once, or with propose_test_targets without it.",
+    );
     expect(pipelines.tasks.changes.filter((change) => change.taskId === taskId)).toEqual([
       { taskId, state: "done" },
     ]);

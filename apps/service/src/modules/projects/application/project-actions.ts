@@ -21,6 +21,8 @@ import { ProjectActionsChanged } from "../domain/project-events.js";
 import { isFeatureOn, switchedOffWords } from "../domain/project-features.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
 import { ProjectRefused } from "../domain/project-refused.js";
+import type { SettingChangedBy, SettingChangeUser } from "../domain/project-setting-change.js";
+import { actionsSummary } from "../domain/setting-change-summaries.js";
 import {
   appliedActions,
   proposedActions,
@@ -65,15 +67,19 @@ export class ProjectActions {
   /**
    * Saves the page's whole list: an Action left out is removed, Leaves the workstation is kept as
    * sent (the editor ticks it for a Workflow, and the user may clear it), and each value that
-   * changed is marked set by `user`.
+   * changed is marked set by `user`; with no user, as for a person's change on a Task (`by`), it
+   * has no known setter.
    * Refused (FeatureSwitchedOff) while the Project has Actions switched off.
    */
   async change(
     projectId: string,
     edit: readonly ActionFields[],
-    user: { userId: string; name: string },
+    user: SettingChangeUser | null,
+    by: SettingChangedBy,
   ): Promise<readonly Action[]> {
-    const setter: ActionSetter = { by: "user", user: { userId: user.userId, name: user.name } };
+    const setter: ActionSetter | undefined = user
+      ? { by: "user", user: { userId: user.userId, name: user.name } }
+      : undefined;
     const project = await this.projects.read(projectId);
     ensureFeatureOn(project, "actions");
     const context = await this.contextOf(project);
@@ -84,28 +90,36 @@ export class ProjectActions {
       workflowsChanged(before, editedActions(before, edit)),
     );
     let removed: string[] = [];
-    const changed = await this.repository.update(projectId, async (stored) => {
-      const edited = editedActions(stored, edit);
-      const problems = actionProblems(edited, context);
-      if (problems.length > 0) throw new ProjectRefused(problems);
-      const toCheck = workflowsChanged(stored, edited);
-      const workflowProblems = workflowsProblems(
-        project,
-        toCheck,
-        listed ?? (await this.workflowsFor(project, toCheck)),
-      );
-      if (workflowProblems.length > 0) throw new ProjectRefused(workflowProblems);
-      const after = edited.map((action) => ({
-        ...action,
-        setBy: setByAfter(
-          stored.find(({ key }) => key === action.key),
-          action,
-          setter,
-        ),
-      }));
-      removed = removedKeys(stored, after);
-      return sameActions(stored, after) ? undefined : after;
-    });
+    const changed = await this.repository.update(
+      projectId,
+      async (stored) => {
+        const edited = editedActions(stored, edit);
+        const problems = actionProblems(edited, context);
+        if (problems.length > 0) throw new ProjectRefused(problems);
+        const toCheck = workflowsChanged(stored, edited);
+        const workflowProblems = workflowsProblems(
+          project,
+          toCheck,
+          listed ?? (await this.workflowsFor(project, toCheck)),
+        );
+        if (workflowProblems.length > 0) throw new ProjectRefused(workflowProblems);
+        const after = edited.map((action) => ({
+          ...action,
+          setBy: setByAfter(
+            stored.find(({ key }) => key === action.key),
+            action,
+            setter,
+          ),
+        }));
+        removed = removedKeys(stored, after);
+        return sameActions(stored, after) ? undefined : after;
+      },
+      (stored, saved) => ({
+        setting: "actions",
+        summary: actionsSummary(stored, saved),
+        by,
+      }),
+    );
     if (changed === undefined) return this.repository.listOf(projectId);
     await this.events.publish(new ProjectActionsChanged(projectId, removed));
     return changed;
@@ -150,6 +164,7 @@ export class ProjectActions {
     projectId: string,
     proposed: ProposedActions,
     setter: { proposalId: string; agent: { roleKey: string; name: string } },
+    by: SettingChangedBy,
   ): Promise<void> {
     const byProposal: ActionSetter = {
       by: "proposal",
@@ -162,15 +177,23 @@ export class ProjectActions {
     const toCheck = workflowsProposed(proposed);
     const listed = await this.workflowsFor(project, toCheck);
     let removed: string[] = [];
-    await this.repository.update(projectId, async (current) => {
-      const problems = proposedActionsProblems(current, proposed, context);
-      if (problems.length > 0) throw new ProjectRefused(problems);
-      const workflowProblems = workflowsProblems(project, toCheck, listed);
-      if (workflowProblems.length > 0) throw new ProjectRefused(workflowProblems);
-      const applied = appliedActions(current, proposed, byProposal);
-      removed = removedKeys(current, applied);
-      return applied;
-    });
+    await this.repository.update(
+      projectId,
+      async (current) => {
+        const problems = proposedActionsProblems(current, proposed, context);
+        if (problems.length > 0) throw new ProjectRefused(problems);
+        const workflowProblems = workflowsProblems(project, toCheck, listed);
+        if (workflowProblems.length > 0) throw new ProjectRefused(workflowProblems);
+        const applied = appliedActions(current, proposed, byProposal);
+        removed = removedKeys(current, applied);
+        return applied;
+      },
+      (stored, saved) => ({
+        setting: "actions",
+        summary: actionsSummary(stored, saved),
+        by,
+      }),
+    );
     await this.events.publish(new ProjectActionsChanged(projectId, removed));
   }
 

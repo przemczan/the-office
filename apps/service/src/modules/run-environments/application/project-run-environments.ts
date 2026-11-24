@@ -1,6 +1,7 @@
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import type { SignedInUser } from "../../../platform/http/signed-in-requests.js";
+import type { SettingChangedBy } from "../../projects/index.js";
 import { TaskStateChanged, type OffBoardTaskStart } from "../../work/index.js";
 import {
   definitionProblemsOf,
@@ -76,15 +77,19 @@ export class ProjectRunEnvironments implements OnModuleInit {
     return (await this.settings.settingOf(projectId))?.runEnvironment === "on";
   }
 
-  /** On is refused, with the reasons, unless the base branch, fetched now, has a valid definition. */
+  /**
+   * On is refused, with the reasons, unless the base branch, fetched now, has a valid definition.
+   * Projects records the change as made `by`.
+   */
   async change(
     projectId: string,
     runEnvironment: Exclude<RunEnvironmentSetting, "not-decided">,
+    by: SettingChangedBy,
   ): Promise<ProjectRunEnvironment> {
     await this.settingOf(projectId);
     const problems =
       runEnvironment === "on" ? definitionProblemsOf(await this.freshDefinition(projectId)) : [];
-    await this.settings.change(projectId, runEnvironment, problems);
+    await this.settings.change(projectId, runEnvironment, problems, by);
     return this.read(projectId);
   }
 
@@ -95,7 +100,10 @@ export class ProjectRunEnvironments implements OnModuleInit {
   async setUp(projectId: string, by: SignedInUser): Promise<RunEnvironmentSetUp> {
     await this.settingOf(projectId);
     if ((await this.freshDefinition(projectId)).state === "valid") {
-      await this.settings.change(projectId, "on", []);
+      await this.settings.change(projectId, "on", [], {
+        kind: "user",
+        user: { userId: by.userId, name: by.name },
+      });
       return { runEnvironment: await this.read(projectId), start: undefined };
     }
     const start = await this.setUpTasks.add(projectId, by);

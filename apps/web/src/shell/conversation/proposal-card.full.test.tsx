@@ -569,6 +569,7 @@ describe("ProposalCard on the set-up of The Office", () => {
             runInstalls: { kind: "never" },
             publishOutsideThePipeline: { kind: "never" },
             changeRoles: { kind: "never" },
+            changeProjectSettings: { kind: "never" },
           },
           taskLimit: "none",
           sessionDefault: "context-policy",

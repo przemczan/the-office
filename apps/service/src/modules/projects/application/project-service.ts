@@ -61,6 +61,22 @@ import {
   type ProposedCommands,
 } from "../domain/proposed-commands.js";
 import { reservedEnvironmentProblems } from "../domain/action.js";
+import type {
+  ProjectSetting,
+  SettingChangedBy,
+  SettingChangeToRecord,
+} from "../domain/project-setting-change.js";
+import {
+  COMMANDS_CHANGED,
+  INSTALL_CHANGED,
+  INSTALL_INPUTS_CHANGED,
+  commandAddedSummary,
+  commandChangedSummary,
+  commandRemovedSummary,
+  environmentSummary,
+  runEnvironmentSummary,
+  type SettingChangeRecording,
+} from "../domain/setting-change-summaries.js";
 import { ActionRepository } from "../ports/action-repository.js";
 import { CLONE_REMOTE, Git } from "../ports/git.js";
 import { ProjectRepository } from "../ports/project-repository.js";
@@ -127,7 +143,12 @@ export class ProjectService {
     { answer, by }: RunEnvironmentAnswered,
   ): Promise<Project> {
     try {
-      if (answer === "no") return await this.changeRunEnvironment(project.id, "off", []);
+      if (answer === "no") {
+        return await this.changeRunEnvironment(project.id, "off", [], {
+          kind: "user",
+          user: { userId: by.userId, name: by.name },
+        });
+      }
       if (answer === "yes") {
         await this.runEnvironmentSetUp.setUp(project.id, by);
         return await this.read(project.id);
@@ -200,27 +221,60 @@ export class ProjectService {
   }
 
   /** A worktree installs again before its next Stage, as its last install ran another line. */
-  async changeInstallCommand(id: string, commandLine: string): Promise<Project> {
-    return this.update(id, (project) => changeInstallCommand(project, commandLine));
+  async changeInstallCommand(
+    id: string,
+    commandLine: string,
+    by: SettingChangedBy,
+  ): Promise<Project> {
+    return this.update(
+      id,
+      (project) => changeInstallCommand(project, commandLine),
+      recorded("commands", INSTALL_CHANGED, by),
+    );
   }
 
-  async addCommand(id: string, command: ProjectCommand): Promise<Project> {
-    return this.update(id, (project) => addCommand(project, command));
+  async addCommand(id: string, command: ProjectCommand, by: SettingChangedBy): Promise<Project> {
+    return this.update(
+      id,
+      (project) => addCommand(project, command),
+      recorded("commands", commandAddedSummary(command.key), by),
+    );
   }
 
   /** A running Task runs the new line from its next Script Stage, which reads it when it runs. */
-  async changeCommand(id: string, key: string, change: ProjectCommandFields): Promise<Project> {
-    return this.update(id, (project) => changeCommand(project, key, change));
+  async changeCommand(
+    id: string,
+    key: string,
+    change: ProjectCommandFields,
+    by: SettingChangedBy,
+  ): Promise<Project> {
+    return this.update(
+      id,
+      (project) => changeCommand(project, key, change),
+      recorded("commands", commandChangedSummary(key), by),
+    );
   }
 
   /** Refused while the Project's default Pipeline, or a Kind's, runs the command (spec §2.1). */
-  async removeCommand(id: string, key: string): Promise<Project> {
+  async removeCommand(id: string, key: string, by: SettingChangedBy): Promise<Project> {
     await this.checks.checkCommandRemoval(await this.read(id), key);
-    return this.update(id, (project) => removeCommand(project, key));
+    return this.update(
+      id,
+      (project) => removeCommand(project, key),
+      recorded("commands", commandRemovedSummary(key), by),
+    );
   }
 
-  async changeInstallInputs(id: string, installInputs: readonly string[]): Promise<Project> {
-    return this.update(id, (project) => changeInstallInputs(project, installInputs));
+  async changeInstallInputs(
+    id: string,
+    installInputs: readonly string[],
+    by: SettingChangedBy,
+  ): Promise<Project> {
+    return this.update(
+      id,
+      (project) => changeInstallInputs(project, installInputs),
+      recorded("commands", INSTALL_INPUTS_CHANGED, by),
+    );
   }
 
   /**
@@ -241,13 +295,21 @@ export class ProjectService {
    * row is held and saved in one go, so a hand edit can't land between fields. Refused while the
    * default Pipeline, or a Kind's, runs a command it removes.
    */
-  async changeCommandsAsProposed(id: string, proposed: ProposedCommands): Promise<Project> {
+  async changeCommandsAsProposed(
+    id: string,
+    proposed: ProposedCommands,
+    by: SettingChangedBy,
+  ): Promise<Project> {
     const removalProblems = await this.checks.commandRemovalProblems(
       await this.read(id),
       removedCommandKeys(proposed),
     );
     if (removalProblems.length > 0) throw new ProjectRefused(removalProblems);
-    return this.updateTogether(id, (project) => changeCommandsAsProposed(project, proposed));
+    return this.updateTogether(
+      id,
+      (project) => changeCommandsAsProposed(project, proposed),
+      recorded("commands", COMMANDS_CHANGED, by),
+    );
   }
 
   /**
@@ -265,17 +327,29 @@ export class ProjectService {
    * named as one The Office sets in an Action's run among them while the Project has a Project
    * command Action (spec §2.15, "What The Office sets").
    */
-  async changeEnvironment(id: string, edit: ProjectEnvironmentEdit): Promise<Project> {
+  async changeEnvironment(
+    id: string,
+    edit: ProjectEnvironmentEdit,
+    by: SettingChangedBy,
+  ): Promise<Project> {
     const actions = await this.actions.listOf(id);
-    return this.update(id, (project) => {
-      const environment = trimmedEnvironment(editedEnvironment(edit, project.environment));
-      const problems = [
-        ...this.checks.environmentProblems(environment),
-        ...reservedEnvironmentProblems(environment.set, actions),
-      ];
-      if (problems.length > 0) throw new ProjectRefused(problems);
-      return changeEnvironment(project, environment);
-    });
+    return this.update(
+      id,
+      (project) => {
+        const environment = trimmedEnvironment(editedEnvironment(edit, project.environment));
+        const problems = [
+          ...this.checks.environmentProblems(environment),
+          ...reservedEnvironmentProblems(environment.set, actions),
+        ];
+        if (problems.length > 0) throw new ProjectRefused(problems);
+        return changeEnvironment(project, environment);
+      },
+      (before, after) => ({
+        setting: "environment",
+        summary: environmentSummary(before.environment, after.environment),
+        by,
+      }),
+    );
   }
 
   /** Publish's before or after line (spec §2.3 Defaults); blank clears it. */
@@ -303,13 +377,19 @@ export class ProjectService {
     id: string,
     runEnvironment: Exclude<RunEnvironmentSetting, "not-decided">,
     definitionProblems: readonly string[],
+    by: SettingChangedBy,
   ): Promise<Project> {
-    return this.update(id, (project) =>
-      changeRunEnvironment(project, runEnvironment, definitionProblems),
+    return this.update(
+      id,
+      (project) => changeRunEnvironment(project, runEnvironment, definitionProblems),
+      recorded("run-environment", runEnvironmentSummary(runEnvironment), by),
     );
   }
 
-  /** A set-up Task is Done, with these problems of the definition on its branch. */
+  /**
+   * A set-up Task is Done, with these problems of the definition on its branch; recorded as no
+   * setting change, as nobody turned the switch.
+   */
   async finishRunEnvironmentSetUp(
     id: string,
     definitionProblems: readonly string[],
@@ -431,15 +511,18 @@ export class ProjectService {
   private async update(
     id: string,
     change: (project: Project) => ProjectChange<DomainEvent> | undefined,
+    record?: SettingChangeRecording<Project>,
   ): Promise<Project> {
-    return this.updateTogether(id, (project) => asProjectChanges(project, change(project)));
+    return this.updateTogether(id, (project) => asProjectChanges(project, change(project)), record);
   }
 
+  /** `record`, when given, is kept with the change, and only when the change saves something. */
   private async updateTogether(
     id: string,
     change: (project: Project) => ProjectChanges,
+    record?: SettingChangeRecording<Project>,
   ): Promise<Project> {
-    const { project, events } = await this.repository.update(id, change);
+    const { project, events } = await this.repository.update(id, change, record);
     await this.publish(events);
     return project;
   }
@@ -447,6 +530,14 @@ export class ProjectService {
   private async publish(events: readonly DomainEvent[]): Promise<void> {
     for (const event of events) await this.events.publish(event);
   }
+}
+
+function recorded(
+  setting: ProjectSetting,
+  summary: string,
+  by: SettingChangedBy,
+): SettingChangeToRecord {
+  return { setting, summary, by };
 }
 
 function withResolvedPath(newProject: NewProject): NewProject {

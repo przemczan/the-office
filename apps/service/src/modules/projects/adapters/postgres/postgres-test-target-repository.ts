@@ -3,8 +3,10 @@ import { asc, eq } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { forgettingReads } from "../../../../platform/database/read-scope.js";
 import { ProjectNotFound } from "../../domain/project-not-found.js";
+import type { SettingChangeRecording } from "../../domain/setting-change-summaries.js";
 import type { TestTarget } from "../../domain/test-target.js";
 import { TestTargetRepository } from "../../ports/test-target-repository.js";
+import { recordSettingChange } from "./postgres-project-setting-change-repository.js";
 import { projects } from "./projects.schema.js";
 import { storedTestTarget, testTargetOfStored } from "./stored-test-target.js";
 import { testTargets } from "./test-targets.schema.js";
@@ -27,6 +29,7 @@ export class PostgresTestTargetRepository extends TestTargetRepository {
   async update(
     projectId: string,
     change: (targets: readonly TestTarget[]) => Promise<readonly TestTarget[] | undefined>,
+    record?: SettingChangeRecording<readonly TestTarget[]>,
   ): Promise<readonly TestTarget[] | undefined> {
     return forgettingReads(() =>
       this.database.transaction(async (transaction) => {
@@ -42,7 +45,8 @@ export class PostgresTestTargetRepository extends TestTargetRepository {
           .from(testTargets)
           .where(eq(testTargets.projectId, projectId))
           .orderBy(asc(testTargets.position));
-        const changed = await change(rows.map(testTargetOfStored));
+        const before = rows.map(testTargetOfStored);
+        const changed = await change(before);
         if (changed === undefined) return undefined;
         await transaction.delete(testTargets).where(eq(testTargets.projectId, projectId));
         if (changed.length > 0) {
@@ -56,6 +60,7 @@ export class PostgresTestTargetRepository extends TestTargetRepository {
             })),
           );
         }
+        await recordSettingChange(transaction, projectId, record, before, changed);
         return changed;
       }),
     );

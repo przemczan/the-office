@@ -800,8 +800,16 @@ The context size, 180k tokens by default, past which The Office stops an Agent S
 _Avoid_: Max context, cutoff
 
 **Hard switch**:
-One of the few actions on a Role card that need someone's say whatever the Agent thinks (run installs, publish outside the Pipeline, change Roles), set to Allowed, Consult a person, Ask me or Never.
+One of the few actions on a Role card that need someone's say whatever the Agent thinks (run installs, publish outside the Pipeline, change Roles, change Project settings), set to Allowed, Consult a person, Ask me or Never.
 _Avoid_: Permission flag, guard, gate (for this)
+
+**Change Project settings**:
+The Hard switch, enforced by The Office, behind the Office tools with which an Agent changes a Project's commands, test targets, Actions, environment variables and Run environment itself, recorded as its change; publishing, Secret variables' values, the Engine and Pipelines stay the user's, by Proposal or on the Project page.
+_Avoid_: Settings permission, config access
+
+**Project setting change**:
+The record of one change to a Project's commands, test targets, Actions, environment or Run environment: the setting, what changed by name (never a Secret variable's value), who made it (a user, a Proposal a user applied, or a person on a Task) and when; the Project page's Recent activity lists them.
+_Avoid_: Settings audit, config log
 
 **Skill**:
 A packaged set of instructions and files from The Office's library that a person may use when the work calls for it.

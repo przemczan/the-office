@@ -509,9 +509,30 @@ export const REMEMBER_TOOL = "remember";
 export const CHANGE_ROLE_TOOL = "change_role";
 
 /**
- * The Office tools a session gets: its place's; `remember` when its card has Shared memory; and
- * `change_role` on a Task, where a held call has a Thread to wait in, unless its Change Roles is
- * Never, with `read_role` to start the change from.
+ * The Office tools an Agent changes a Project's everyday settings with (spec §6, "Project settings
+ * by Agents"); they sit behind the Change Project settings Hard switch.
+ */
+export const CHANGE_RUN_ENVIRONMENT_TOOL = "change_run_environment";
+export const CHANGE_PROJECT_COMMANDS_TOOL = "change_project_commands";
+export const CHANGE_TEST_TARGETS_TOOL = "change_test_targets";
+export const CHANGE_ACTIONS_TOOL = "change_actions";
+export const CHANGE_ENVIRONMENT_VARIABLES_TOOL = "change_environment_variables";
+
+export const PROJECT_SETTING_TOOLS = [
+  CHANGE_RUN_ENVIRONMENT_TOOL,
+  CHANGE_PROJECT_COMMANDS_TOOL,
+  CHANGE_TEST_TARGETS_TOOL,
+  CHANGE_ACTIONS_TOOL,
+  CHANGE_ENVIRONMENT_VARIABLES_TOOL,
+] as const;
+
+/**
+ * The Office tools a session gets: its place's; `remember` when its card has Shared memory;
+ * `change_role` on a Task, where a held call has a Thread to wait in (`callsCanWait`), unless its
+ * Change Roles is Never, with `read_role` to start the change from; and the Project setting tools
+ * in an Agent Stage or a Consultation on a Task (`changesProjectSettings`), unless its Change
+ * Project settings is Never. A chat, a Planning Thread and a person's Thread on a Task never get
+ * them.
  */
 export function sessionOfficeTools(
   placeTools: readonly string[],
@@ -520,15 +541,22 @@ export function sessionOfficeTools(
     hardSwitches,
   }: {
     readonly capabilities: { readonly sharedMemory: boolean };
-    readonly hardSwitches: { readonly changeRoles: { readonly kind: string } };
+    readonly hardSwitches: {
+      readonly changeRoles: { readonly kind: string };
+      readonly changeProjectSettings: { readonly kind: string };
+    };
   },
-  onTask: boolean,
+  callsCanWait: boolean,
+  changesProjectSettings: boolean,
 ): string[] {
   return [
     ...placeTools,
     ...(capabilities.sharedMemory ? [REMEMBER_TOOL] : []),
-    ...(onTask && hardSwitches.changeRoles.kind !== "never"
+    ...(callsCanWait && hardSwitches.changeRoles.kind !== "never"
       ? [CHANGE_ROLE_TOOL, ...(placeTools.includes(READ_ROLE_TOOL) ? [] : [READ_ROLE_TOOL])]
+      : []),
+    ...(changesProjectSettings && hardSwitches.changeProjectSettings.kind !== "never"
+      ? PROJECT_SETTING_TOOLS.filter((name) => !placeTools.includes(name))
       : []),
   ];
 }

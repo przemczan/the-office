@@ -31,6 +31,7 @@ import { BugTaskOfficeTools } from "./adapters/office-tools/bug-task-office-tool
 import { DecisionOfficeTools } from "./adapters/office-tools/decision-office-tools.js";
 import { LinkCardOfficeTools } from "./adapters/office-tools/link-card-office-tools.js";
 import { ProjectCommandOfficeTools } from "./adapters/office-tools/project-command-office-tools.js";
+import { ProjectSettingOfficeTools } from "./adapters/office-tools/project-setting-office-tools.js";
 import { TestTargetOfficeTools } from "./adapters/office-tools/test-target-office-tools.js";
 import { ActionOfficeTools } from "./adapters/office-tools/action-office-tools.js";
 import { ProjectsTestTargetsChatRegistration } from "./adapters/projects/projects-test-targets-chat-registration.js";
@@ -219,6 +220,7 @@ export class ConversationsModule implements NestModule {
         DecisionOfficeTools,
         BugTaskOfficeTools,
         RoleOfficeTools,
+        ProjectSettingOfficeTools,
         ProposalOfficeTools,
         PromptTemplateOfficeTools,
         ProjectCommandOfficeTools,

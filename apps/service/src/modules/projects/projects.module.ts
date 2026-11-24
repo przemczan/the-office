@@ -32,6 +32,7 @@ import { ProjectOfficeActionsController } from "./adapters/http/project-office-a
 import { ProjectServerValuesController } from "./adapters/http/project-server-values.controller.js";
 import { ProjectTestTargetsController } from "./adapters/http/project-test-targets.controller.js";
 import { ProjectActionsController } from "./adapters/http/project-actions.controller.js";
+import { ProjectSettingChangesController } from "./adapters/http/project-setting-changes.controller.js";
 import { ProjectsController } from "./adapters/http/projects.controller.js";
 import { PullRequestsController } from "./adapters/http/pull-requests.controller.js";
 import { RepositoryClonesController } from "./adapters/http/repository-clones.controller.js";
@@ -42,6 +43,7 @@ import { PostgresProjectRepository } from "./adapters/postgres/postgres-project-
 import { PostgresPullRequestRepository } from "./adapters/postgres/postgres-pull-request-repository.js";
 import { PostgresTestTargetRepository } from "./adapters/postgres/postgres-test-target-repository.js";
 import { PostgresActionRepository } from "./adapters/postgres/postgres-action-repository.js";
+import { PostgresProjectSettingChangeRepository } from "./adapters/postgres/postgres-project-setting-change-repository.js";
 import { ShellCommandRunner } from "./adapters/shell/shell-command-runner.js";
 import { CiRunWebEvents } from "./adapters/websocket/ci-run-web-events.js";
 import { IssueWebEvents } from "./adapters/websocket/issue-web-events.js";
@@ -59,6 +61,7 @@ import { CommittedFiles } from "./application/committed-files.js";
 import { EngineLevelsChecks } from "./application/engine-levels-checks.js";
 import { FirstCommits } from "./application/first-commits.js";
 import { RunEnvironmentSetUpRegistry } from "./application/run-environment-set-up-registry.js";
+import { RunEnvironmentSwitchRegistry } from "./application/run-environment-switch-registry.js";
 import { DevcontainerServices } from "./application/devcontainer-services.js";
 import { TestTargets } from "./application/test-targets.js";
 import { ProjectActions } from "./application/project-actions.js";
@@ -67,6 +70,8 @@ import { PairingDefinitionExports } from "./application/pairing-definition-expor
 import { TestTargetsChatRepository } from "./ports/test-targets-chat-repository.js";
 import { TestTargetRepository } from "./ports/test-target-repository.js";
 import { ActionRepository } from "./ports/action-repository.js";
+import { ProjectSettingChangeRepository } from "./ports/project-setting-change-repository.js";
+import { ProjectSettingChanges } from "./application/project-setting-changes.js";
 import { TaskCommandRunner } from "./application/task-command-runner.js";
 import { TaskRunEnvironments } from "./application/task-run-environments.js";
 import { EnvironmentChecks } from "./application/environment-checks.js";
@@ -152,6 +157,7 @@ export class ProjectsModule implements NestModule {
         ProjectServerValuesController,
         ProjectTestTargetsController,
         ProjectActionsController,
+        ProjectSettingChangesController,
         TestTargetsChatsController,
         EnvironmentChecksController,
         TaskChangesController,
@@ -177,6 +183,10 @@ export class ProjectsModule implements NestModule {
         { provide: IssueLinkRepository, useClass: PostgresIssueLinkRepository },
         { provide: TestTargetRepository, useClass: PostgresTestTargetRepository },
         { provide: ActionRepository, useClass: PostgresActionRepository },
+        {
+          provide: ProjectSettingChangeRepository,
+          useClass: PostgresProjectSettingChangeRepository,
+        },
         { provide: TestTargetsChatRepository, useClass: PostgresTestTargetsChatRepository },
         GitHubCodeHost,
         // Each remote's pull requests and CI runs go to the first host that reaches its URL; another host,
@@ -202,9 +212,11 @@ export class ProjectsModule implements NestModule {
         FirstCommits,
         EngineLevelsChecks,
         RunEnvironmentSetUpRegistry,
+        RunEnvironmentSwitchRegistry,
         DevcontainerServices,
         TestTargets,
         ProjectActions,
+        ProjectSettingChanges,
         TestTargetsChats,
         TestTargetsChatThreads,
         TestTargetsSetUpTasks,
@@ -255,6 +267,7 @@ export class ProjectsModule implements NestModule {
         InitiativeBranches,
         BranchDeletions,
         RunEnvironmentSetUpRegistry,
+        RunEnvironmentSwitchRegistry,
         DevcontainerServices,
         TestTargets,
         ProjectActions,

@@ -103,6 +103,7 @@ export const HARD_SWITCH_LABELS: Readonly<Record<HardSwitchKey, string>> = {
   runInstalls: "Run installs",
   publishOutsideThePipeline: "Publish outside the Pipeline",
   changeRoles: "Change Roles",
+  changeProjectSettings: "Change Project settings",
 };
 
 export const ENFORCEMENT_LABELS = {
@@ -140,6 +141,7 @@ const FIELD_LABELS: Readonly<Record<RoleCardField, string>> = {
   "hardSwitches.runInstalls": HARD_SWITCH_LABELS.runInstalls,
   "hardSwitches.publishOutsideThePipeline": HARD_SWITCH_LABELS.publishOutsideThePipeline,
   "hardSwitches.changeRoles": HARD_SWITCH_LABELS.changeRoles,
+  "hardSwitches.changeProjectSettings": HARD_SWITCH_LABELS.changeProjectSettings,
 };
 
 /** Too long to show both versions in a line of the change history. */

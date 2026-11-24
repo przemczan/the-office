@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import type { Project } from "@the-office/contracts";
 import { Badge, Icon, ProgressBar, Timeline, type TimelineItem } from "@the-office/ui";
 import type { ReactNode } from "react";
+import { projectQueries } from "../../../api/projects.ts";
 import { ideaQueries, initiativeQueries, taskQueries } from "../../../api/work.ts";
 import { checkedWords } from "../../../shell/code-host-words.ts";
 import { useClock } from "../../../shell/use-clock.ts";
@@ -13,6 +14,7 @@ import {
   activityLines,
   initiativesOfProject,
   newIdeasOfProject,
+  settingChangeWords,
   type ActivityLine,
   type OverviewInitiative,
 } from "./overview-words.ts";
@@ -147,6 +149,7 @@ export function IdeasTile({ project }: { readonly project: Project }): ReactNode
 export function RecentActivityTile({ project }: { readonly project: Project }): ReactNode {
   const tasks = useQuery(taskQueries.list());
   const ideas = useQuery(ideaQueries.list());
+  const settingChanges = useQuery(projectQueries.settingChanges(project.id));
   const now = useClock();
   return (
     <OverviewTile
@@ -158,10 +161,16 @@ export function RecentActivityTile({ project }: { readonly project: Project }): 
           Open in Work
         </Link>
       }
-      readings={[tasks, ideas]}
+      readings={[tasks, ideas, settingChanges]}
     >
       {() => {
-        const lines = activityLines(tasks.data ?? [], ideas.data ?? [], project.id, now);
+        const lines = activityLines(
+          tasks.data ?? [],
+          ideas.data ?? [],
+          settingChanges.data ?? [],
+          project.id,
+          now,
+        );
         if (lines.length === 0) {
           return <TileEmpty>Nothing in the last {ACTIVITY_DAYS} days.</TileEmpty>;
         }
@@ -173,6 +182,25 @@ export function RecentActivityTile({ project }: { readonly project: Project }): 
 
 function timelineItemOf(line: ActivityLine): TimelineItem {
   const time = checkedWords(line.at);
+  if (line.kind === "setting-changed") {
+    const { change } = line;
+    const { who, what } = settingChangeWords(change);
+    return {
+      id: `setting-${change.id}`,
+      icon: "settings",
+      tone: "neutral",
+      actor: who,
+      title:
+        change.by.kind === "person" ? (
+          <Link to="/tasks/$taskId" params={{ taskId: change.by.taskId }}>
+            {what}
+          </Link>
+        ) : (
+          what
+        ),
+      time,
+    };
+  }
   if (line.kind === "idea-captured") {
     return {
       id: `idea-${line.idea.id}`,

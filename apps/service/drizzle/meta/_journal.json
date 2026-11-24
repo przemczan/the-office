@@ -1485,6 +1485,27 @@
       "when": 1795506958121,
       "tag": "0211_caretaker_corrects_records",
       "breakpoints": true
+    },
+    {
+      "idx": 212,
+      "version": "7",
+      "when": 1795509930890,
+      "tag": "0212_change_project_settings_switch",
+      "breakpoints": true
+    },
+    {
+      "idx": 213,
+      "version": "7",
+      "when": 1795510071639,
+      "tag": "0213_project_setting_changes",
+      "breakpoints": true
+    },
+    {
+      "idx": 214,
+      "version": "7",
+      "when": 1795512773246,
+      "tag": "0214_project_setting_briefs",
+      "breakpoints": true
     }
   ]
 }

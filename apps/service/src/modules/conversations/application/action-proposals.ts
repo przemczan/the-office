@@ -3,6 +3,7 @@ import { RoleCards } from "../../people/index.js";
 import { ProjectActions, ProjectNotFound, ProjectRefused } from "../../projects/index.js";
 import type { ProposedActionsChange } from "../domain/proposal.js";
 import { ProposalRefused } from "../domain/proposal-refused.js";
+import type { UserRef } from "../domain/user.js";
 import { ProposalAppliers } from "./proposal-appliers.js";
 
 /**
@@ -23,24 +24,34 @@ export class ActionProposals implements OnModuleInit {
   onModuleInit(): void {
     this.appliers.register("actions", {
       problemsWith: ({ projectId, changes }) => this.actions.proposedProblems(projectId, changes),
-      apply: (change, proposedBy, _appliedBy, proposalId) =>
-        this.apply(change, proposedBy, proposalId),
+      apply: (change, proposedBy, appliedBy, proposalId) =>
+        this.apply(change, proposedBy, appliedBy, proposalId),
     });
   }
 
   private async apply(
     change: ProposedActionsChange,
     proposedBy: string,
+    appliedBy: UserRef,
     proposalId: string | undefined,
   ): Promise<ProposedActionsChange> {
     if (proposalId === undefined) {
       throw new Error("A Proposal of Actions is applied only as a stored Proposal.");
     }
     try {
-      await this.actions.changeAsProposed(change.projectId, change.changes, {
-        proposalId,
-        agent: { roleKey: proposedBy, name: await this.nameOf(proposedBy) },
-      });
+      await this.actions.changeAsProposed(
+        change.projectId,
+        change.changes,
+        {
+          proposalId,
+          agent: { roleKey: proposedBy, name: await this.nameOf(proposedBy) },
+        },
+        {
+          kind: "proposal",
+          proposalId,
+          user: { userId: appliedBy.userId, name: appliedBy.name },
+        },
+      );
       return change;
     } catch (error) {
       // FeatureSwitchedOff is a ProjectRefused, so a switched-off Project is refused in its words.

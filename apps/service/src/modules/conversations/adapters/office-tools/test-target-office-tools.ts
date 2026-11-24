@@ -22,7 +22,8 @@ import { refusedToTheAgent } from "./refused-to-the-agent.js";
 const DRAFTED =
   "The Proposal is in this Thread as a card, with each test target's values now and as proposed; nothing changes until the user applies it, and it is refused if those values change first. Don't wait for it: tell the user what you propose and why, in a line or two, and name any Secret variable whose value they type on the Project page once it is applied.";
 
-const targetInput = z.object({
+/** A test target as an Office tool takes it, whole. */
+export const targetInput = z.object({
   key: z
     .string()
     .describe(
@@ -82,7 +83,7 @@ const targetInput = z.object({
     ),
 });
 
-type TargetInput = z.infer<typeof targetInput>;
+export type TargetInput = z.infer<typeof targetInput>;
 
 /**
  * The Office tool whoever onboards Projects drafts a change to a Project's test targets with (spec
@@ -102,7 +103,7 @@ export class TestTargetOfficeTools implements OnModuleInit {
     this.registry.register({
       name: PROPOSE_TEST_TARGETS_TOOL,
       description:
-        "Drafts a change to a Project's test targets as a Proposal the user applies with a click, all or nothing: targets to add or change by key, each given whole, and targets to remove. It shows in this Thread as a card, with the values now and the ones proposed, and changes nothing until the user applies it. A value the user set changes only when changeUserSet names it. It returns at once.",
+        "Drafts a change to a Project's test targets as a Proposal the user applies with a click, all or nothing: targets to add or change by key, each given whole, and targets to remove. It shows in this Thread as a card, with the values now and the ones proposed, and changes nothing until the user applies it. A value the user set changes only when changeUserSet names it. It returns at once. When you have change_test_targets, change the test targets with it instead.",
       input: z.object({
         project: z.string().describe("The Project's id, as list_projects gives it."),
         targets: z
@@ -155,7 +156,7 @@ export class TestTargetOfficeTools implements OnModuleInit {
 }
 
 /** Each target as Projects takes it, refused when it lacks its kind's own field. */
-function proposedTargets(targets: readonly TargetInput[]): ProposedTestTargetFields[] {
+export function proposedTargets(targets: readonly TargetInput[]): ProposedTestTargetFields[] {
   const problems: string[] = [];
   const proposed = targets.flatMap((target): ProposedTestTargetFields[] => {
     const { key, name, entryPoint, variables, secretVariables, commandsBefore, memoryMegabytes } =

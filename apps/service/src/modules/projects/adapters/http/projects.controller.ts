@@ -55,6 +55,7 @@ import { ProjectService } from "../../application/project-service.js";
 import type { Project } from "../../domain/project.js";
 import { ProjectRefusalsFilter } from "./project-refusals.filter.js";
 import { toProjectResponse } from "./project-responses.js";
+import { byUser } from "./setting-changed-by.js";
 
 @Controller("projects")
 @UseFilters(ProjectRefusalsFilter)
@@ -99,16 +100,20 @@ export class ProjectsController {
   async changeInstallCommand(
     @Param("id") id: string,
     @Body(new ContractPipe(installCommandChangeSchema)) { commandLine }: InstallCommandChange,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<ProjectResponse> {
-    return this.respond(await this.projects.changeInstallCommand(id, commandLine));
+    return this.respond(
+      await this.projects.changeInstallCommand(id, commandLine, byUser(signedIn)),
+    );
   }
 
   @Post(":id/commands")
   async addCommand(
     @Param("id") id: string,
     @Body(new ContractPipe(projectCommandSchema)) command: ProjectCommand,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<ProjectResponse> {
-    return this.respond(await this.projects.addCommand(id, command));
+    return this.respond(await this.projects.addCommand(id, command, byUser(signedIn)));
   }
 
   @Put(":id/commands/:key")
@@ -116,32 +121,38 @@ export class ProjectsController {
     @Param("id") id: string,
     @Param("key") key: string,
     @Body(new ContractPipe(commandChangeSchema)) change: CommandChange,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<ProjectResponse> {
-    return this.respond(await this.projects.changeCommand(id, key, change));
+    return this.respond(await this.projects.changeCommand(id, key, change, byUser(signedIn)));
   }
 
   @Delete(":id/commands/:key")
   async removeCommand(
     @Param("id") id: string,
     @Param("key") key: string,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<ProjectResponse> {
-    return this.respond(await this.projects.removeCommand(id, key));
+    return this.respond(await this.projects.removeCommand(id, key, byUser(signedIn)));
   }
 
   @Put(":id/install-inputs")
   async changeInstallInputs(
     @Param("id") id: string,
     @Body(new ContractPipe(installInputsChangeSchema)) { installInputs }: InstallInputsChange,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<ProjectResponse> {
-    return this.respond(await this.projects.changeInstallInputs(id, installInputs));
+    return this.respond(
+      await this.projects.changeInstallInputs(id, installInputs, byUser(signedIn)),
+    );
   }
 
   @Put(":id/environment")
   async changeEnvironment(
     @Param("id") id: string,
     @Body(new ContractPipe(environmentChangeSchema)) { environment }: EnvironmentChange,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<ProjectResponse> {
-    return this.respond(await this.projects.changeEnvironment(id, environment));
+    return this.respond(await this.projects.changeEnvironment(id, environment, byUser(signedIn)));
   }
 
   @Put(":id/publishing-mode")

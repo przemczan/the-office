@@ -34,9 +34,9 @@ function onboardBriefIn(stages: readonly Stage[]): string | undefined {
   return onboard?.kind === "agent" ? onboard.brief : undefined;
 }
 
-const NEW_BRIEF = onboardBriefIn(
-  builtInPipelines.find(({ id }) => id === ONBOARD_PIPELINE)?.stages ?? [],
-);
+/** The brief 0198 writes; migration 0214 rewords it since. */
+const NEW_BRIEF =
+  "Make the Project build and test in a fresh worktree. Propose its commands when they are missing or wrong. Once its commands and test targets are set, propose with propose_actions the Actions its repository suggests, such as a manual release Workflow or an install of a debug build.";
 
 /** Sets the Onboard Stage's brief in the library's Onboard Pipeline, its Stages kept as stored. */
 async function libraryBriefed(transaction: Transaction, brief: string): Promise<void> {

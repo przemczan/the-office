@@ -3,6 +3,7 @@ import type {
   Idea,
   Initiative,
   Project,
+  ProjectSettingChange,
   PullRequest,
   TaskSummary,
   TestInstance,
@@ -67,6 +68,21 @@ export function uuid(n: number): string {
 /** "2026-11-20T12:00:00.000Z" less `hours`. */
 export function hoursAgo(hours: number): string {
   return new Date(NOW.getTime() - hours * 60 * 60_000).toISOString();
+}
+
+/** A change to one of the Shop Project's settings, by the user Ann Lee unless `fields` says. */
+export function aSettingChange(
+  id: string,
+  fields: Partial<ProjectSettingChange> = {},
+): ProjectSettingChange {
+  return {
+    id,
+    setting: "commands",
+    summary: "changed Commands",
+    by: { kind: "user", user: { userId: uuid(90), name: "Ann Lee" } },
+    at: hoursAgo(1),
+    ...fields,
+  };
 }
 
 export function aTask(id: string, fields: Partial<TaskSummary> = {}): TaskSummary {

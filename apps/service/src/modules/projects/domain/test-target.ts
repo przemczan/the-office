@@ -294,19 +294,21 @@ export function changedFields<Secret>(
 /**
  * Who set each of `after`'s fields: `setter` for each that changed from `before` (every one for a
  * target added; Secret variables when a name or a value changed), the earlier setter for the rest.
+ * With no `setter`, as for a person's change on a Task, a field that changed has no known setter.
  * A field `after`'s kind doesn't have is forgotten.
  */
 export function setByAfter(
   before: TestTarget | undefined,
   after: TestTargetFields<TestTargetSecret>,
-  setter: TestTargetSetter,
+  setter: TestTargetSetter | undefined,
 ): TestTargetSetBy {
   const changed = changedFields(before, after, sameSecret);
   const setBy: Partial<Record<TestTargetField, TestTargetSetter>> = {};
   for (const field of fieldsOfKind(after.kind)) {
     const kept = before?.setBy[field];
-    if (changed.includes(field)) setBy[field] = setter;
-    else if (kept) setBy[field] = kept;
+    if (changed.includes(field)) {
+      if (setter) setBy[field] = setter;
+    } else if (kept) setBy[field] = kept;
   }
   return setBy;
 }

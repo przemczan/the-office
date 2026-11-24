@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import { aRole } from "../../../people/index.fixtures.js";
 import type { DecisionAnswer, DecisionQuestion } from "../../domain/decision.js";
 import type { Message } from "../../domain/message.js";
 import type { Thread, ThreadSession } from "../../domain/thread.js";
@@ -706,6 +707,67 @@ describe("PostgresThreadRepository's Proposals", () => {
           ],
         },
       },
+    });
+  });
+
+  it("reads a card saved by the release before Change Project settings as Ask me, the Caretaker's as Never", async () => {
+    const thread = aThreadOfItsOwn(`role-${randomUUID()}`);
+    await repository.add(thread);
+    const { changeProjectSettings: _left, ...hardSwitches } = aRole().card.hardSwitches;
+    // As the release before kept a card after a rollback: without the switch it didn't know.
+    const card = { ...aRole().card, hardSwitches };
+    const saved = async (change: unknown): Promise<string> => {
+      const id = randomUUID();
+      await database()
+        .insert(proposals)
+        .values({
+          id,
+          threadId: thread.id,
+          draftedBy: "caretaker",
+          draftedAt: AT,
+          change: change as never,
+          status: "open",
+          statusAt: null,
+        });
+      return id;
+    };
+    const askMe = { ...hardSwitches, changeProjectSettings: { kind: "ask-me" } };
+
+    const hire = await saved({ kind: "hire", card, skills: [] });
+    const setup = await saved({
+      kind: "office-setup",
+      hires: [{ kind: "hire", card, skills: [] }],
+      duties: [],
+    });
+    const change = await saved({
+      kind: "change",
+      roleKey: "developer",
+      from: { hardSwitches },
+      to: { name: "Ada" },
+    });
+    const caretaker = await saved({
+      kind: "change",
+      roleKey: "caretaker",
+      from: { hardSwitches },
+      to: { hardSwitches },
+    });
+
+    await expect(repository.proposal(hire)).resolves.toMatchObject({
+      change: { card: { hardSwitches: askMe } },
+    });
+    await expect(repository.proposal(setup)).resolves.toMatchObject({
+      change: { hires: [{ card: { hardSwitches: askMe } }] },
+    });
+    const changed = await repository.proposal(change);
+    expect(changed?.change).toEqual({
+      kind: "change",
+      roleKey: "developer",
+      from: { hardSwitches: askMe },
+      to: { name: "Ada" },
+    });
+    const never = { ...hardSwitches, changeProjectSettings: { kind: "never" } };
+    await expect(repository.proposal(caretaker)).resolves.toMatchObject({
+      change: { from: { hardSwitches: never }, to: { hardSwitches: never } },
     });
   });
 });

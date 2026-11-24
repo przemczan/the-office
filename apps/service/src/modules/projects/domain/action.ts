@@ -217,18 +217,22 @@ export function changedFields(
   return ACTION_FIELDS.filter((field) => before === undefined || !sameField(field, before, after));
 }
 
-/** Who set each of `after`'s values: `setter` for each that changed from `before`, else as kept. */
+/**
+ * Who set each of `after`'s values: `setter` for each that changed from `before`, else as kept.
+ * With no `setter`, as for a person's change on a Task, a value that changed has no known setter.
+ */
 export function setByAfter(
   before: Action | undefined,
   after: ActionFields,
-  setter: ActionSetter,
+  setter: ActionSetter | undefined,
 ): ActionSetBy {
   const changed = changedFields(before, after);
   const setBy: Partial<Record<ActionField, ActionSetter>> = {};
   for (const field of ACTION_FIELDS) {
     const kept = before?.setBy[field];
-    if (changed.includes(field)) setBy[field] = setter;
-    else if (kept) setBy[field] = kept;
+    if (changed.includes(field)) {
+      if (setter) setBy[field] = setter;
+    } else if (kept) setBy[field] = kept;
   }
   return setBy;
 }

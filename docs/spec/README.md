@@ -56,6 +56,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 
 - **Caused by, Found in version, Found while working on**: [2.1.3 Bug details](2.1.3-tasks.md#bug-details); screen: [Task page › Bug](screens/task-page.md#bug)
 - **Caretaker**: [2.2 Caretaker](2.2-people.md#caretaker); [6 The Caretaker with Allow changes on](6-permissions-and-safety.md#the-caretaker-with-allow-changes-on)
+- **Change Project settings, Project settings by Agents, `change_*` tools**: [6 Project settings by Agents](6-permissions-and-safety.md#project-settings-by-agents); [2.2 Authority and Hard switches](2.2-people.md#authority-and-hard-switches)
 - **CI run, Workflow**: [2.1.6 The CI tab](2.1.6-board-and-search.md#the-ci-tab); screen: [CI tab › Start a workflow window](screens/ci-runs.md#start-a-workflow-window)
 - **Chat drawer**: [4.1 The chat drawer](4.1-ui-rules.md#the-chat-drawer); screen: [Shell › The chat drawer](screens/shell.md#the-chat-drawer)
 - **Checks**: [2.3.3 Gates](2.3.3-gates-and-checks.md#gates); [2.3.4 Publish](2.3.4-publish.md#publish); screen: [Pull requests › Table](screens/pull-requests.md#table)
@@ -202,6 +203,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Project filter**: [2.1.6 Saved views and the Project filter](2.1.6-board-and-search.md#saved-views-and-the-project-filter); screen: [Shell › Project filter](screens/shell.md#project-filter)
 - **Project limit, Task limit**: [2.1.1 Project limit](2.1.1-projects.md#project-limit); [2.2 Limits](2.2-people.md#limits)
 - **Project Pipeline**: [2.3.5 Project Pipelines](2.3.5-library.md#project-pipelines); screen: [Project page › Pipelines](screens/project-page.md#pipelines)
+- **Project setting change, `GET /api/projects/:id/setting-changes`**: [6 Project settings by Agents](6-permissions-and-safety.md#project-settings-by-agents), "The record"; screen: [Project page › Recent activity tile](screens/project-page.md#recent-activity-tile)
 - **Project's own stand-in list, Use this Project's own list**: [5.4.6 A Project's own list](5.4.6-stand-in-engines-and-usage-windows.md#a-projects-own-list); screen: [Project page › Engine](screens/project-page.md#engine)
 - **Prompt template**: [2.2 Prompt templates](2.2-people.md#prompt-templates); [5.3 Prompt templates is its own module](5.3-modules.md#prompt-templates-is-its-own-module); screen: [Settings › Prompt templates](screens/settings.md#prompt-templates)
 - **Proposal**: [2.3.2 Route and condition Proposals](2.3.2-flows.md#route-and-condition-proposals); [2.3.5 Project commands by Proposal and by hand](2.3.5-library.md#project-commands-by-proposal-and-by-hand); screen: [Task page › Pipeline proposal](screens/task-page.md#pipeline-proposal)
@@ -754,6 +756,7 @@ Where each default lives, by page:
   - [Writing the run environment definition](5.5-git-and-isolation.md#writing-the-run-environment-definition)
 - 6 Permissions and safety
   - [Hard switches by role](6-permissions-and-safety.md#hard-switches-by-role)
+  - [Project setting changes listed](6-permissions-and-safety.md#project-setting-changes-listed)
   - [Default profiles](6-permissions-and-safety.md#default-profiles)
 
 A new default goes into the Defaults of the page it belongs to and gets a line here; a new concept gets a line in the [topic map](#topic-map) ([AGENTS.md](../../AGENTS.md), "Knowledge base").

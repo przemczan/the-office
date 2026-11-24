@@ -1605,7 +1605,13 @@ export class ThreadRunner implements OnModuleDestroy {
       workstation: place.workstation,
       readsEngineTranscripts: place.readsEngineTranscripts,
       refusalAdvice: place.refusalAdvice,
-      officeTools: sessionOfficeTools(place.officeTools, card, place.callsCanWait),
+      officeTools: sessionOfficeTools(
+        place.officeTools,
+        card,
+        place.callsCanWait,
+        // A Consultation on a Task changes Project settings as an Agent Stage does (spec §6).
+        thread.consultation !== undefined && thread.home.kind === "task",
+      ),
       mcpServers,
       outputSchema: undefined,
       // Asked at each call, so an alarm sounding or lifted mid-session holds or frees the next.

@@ -1,10 +1,15 @@
-import type { EnvironmentCheck, ProjectTestInstances } from "@the-office/contracts";
+import type {
+  EnvironmentCheck,
+  ProjectSettingChange,
+  ProjectTestInstances,
+} from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
   aCiRun,
   anIdea,
   anInitiative,
   anInstance,
+  aSettingChange,
   aTask,
   hoursAgo,
   NOW,
@@ -14,11 +19,13 @@ import {
   ACTIVITY_LINES,
   activeTestInstances,
   activityLines,
+  type ActivityLine,
   firstFailedStep,
   initiativesOfProject,
   newestCiRuns,
   newIdeasOfProject,
   remoteSignIn,
+  settingChangeWords,
 } from "./overview-words.ts";
 
 const DAY_HOURS = 24;
@@ -132,7 +139,7 @@ describe("newestCiRuns", () => {
 });
 
 describe("activityLines", () => {
-  it("lists Tasks done or published and Ideas captured in the last 7 days, newest first", () => {
+  it("lists Tasks done or published, Ideas captured and setting changes in the last 7 days, newest first", () => {
     const tasks = [
       aTask("done", { state: "done", endedAt: hoursAgo(1) }),
       aTask("done-and-published", {
@@ -151,17 +158,22 @@ describe("activityLines", () => {
       anIdea("idea-elsewhere", { projectId: null }),
     ];
 
-    const lines = activityLines(tasks, ideas, PROJECT.id, NOW);
+    const settingChanges = [
+      aSettingChange("commands", { at: hoursAgo(2.5) }),
+      aSettingChange("setting-too-old", { at: hoursAgo(8 * DAY_HOURS) }),
+    ];
 
-    expect(
-      lines.map((line) => [line.kind, line.kind === "idea-captured" ? line.idea.id : line.task.id]),
-    ).toEqual([
+    const lines = activityLines(tasks, ideas, settingChanges, PROJECT.id, NOW);
+
+    expect(lines.map((line) => [line.kind, recordIdOf(line)])).toEqual([
       ["done", "done"],
       ["idea-captured", "captured"],
+      ["setting-changed", "commands"],
       ["done", "done-and-published"],
       ["published", "published"],
     ]);
     expect(lines.map((line) => line.kind === "done" && line.published)).toEqual([
+      false,
       false,
       false,
       true,
@@ -174,12 +186,46 @@ describe("activityLines", () => {
       anIdea(`idea-${index}`, { capturedAt: hoursAgo(index + 1) }),
     );
 
-    const lines = activityLines([], ideas, PROJECT.id, NOW);
+    const lines = activityLines([], ideas, [], PROJECT.id, NOW);
 
     expect(lines).toHaveLength(ACTIVITY_LINES);
     expect(lines[0]?.at).toBe(hoursAgo(1));
   });
 });
+
+describe("settingChangeWords", () => {
+  it("names who made the change: a user, a user by Proposal, a Proposal alone, or a person by title", () => {
+    const ann = { userId: "user-ann", name: "Ann Lee" };
+
+    expect(sentence({ kind: "user", user: ann })).toBe("Ann Lee changed Commands");
+    expect(sentence({ kind: "proposal", proposalId: "p-1", user: ann })).toBe(
+      "Ann Lee changed Commands by Proposal",
+    );
+    expect(sentence({ kind: "proposal", proposalId: "p-1", user: null })).toBe(
+      "A Proposal changed Commands",
+    );
+    expect(
+      sentence({ kind: "person", roleKey: "devops", name: "Nina", title: "Devops", taskId: "t-1" }),
+    ).toBe("Nina (Devops) changed Commands");
+  });
+});
+
+/** A setting change's line read as one sentence, made `by`. */
+function sentence(by: ProjectSettingChange["by"]): string {
+  const { who, what } = settingChangeWords(aSettingChange("change", { by }));
+  return `${who} ${what}`;
+}
+
+function recordIdOf(line: ActivityLine): string {
+  switch (line.kind) {
+    case "idea-captured":
+      return line.idea.id;
+    case "setting-changed":
+      return line.change.id;
+    default:
+      return line.task.id;
+  }
+}
 
 describe("firstFailedStep", () => {
   const failed: EnvironmentCheck = {

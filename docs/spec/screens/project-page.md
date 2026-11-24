@@ -64,7 +64,7 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
 - Each tile is a card with its icon and title, and its link at the title's end.
 - While a tile's reads load it shows a skeleton; a failed read shows its error in that tile only, the others as they are.
 - A tile tied to a feature switch is gone while the switch is off; `project.features-changed` shows or hides it.
-- Each tile refreshes from the events already named below; the Overview adds no read or event of its own.
+- Each tile refreshes from the events named below; the Overview adds one read of its own, the Project setting changes of Recent activity, and no event.
 
 ### Onboarding
 
@@ -177,11 +177,14 @@ Covers: a Project's page and its head, the section tabs, Overview (the dashboard
 - A timeline of the Project's last 7 days, newest first, 10 lines at most ([2.1.1 Recent activity](../2.1.1-projects.md#recent-activity)), each with its age:
   - "Done: <Task>", with " · published" when its commit message was published too;
   - "Published: <Task>", for a Task published but not Done;
-  - "Idea captured: <title>".
-- Each names its record with a link: the Task's page, or the Idea on Work › Ideas.
+  - "Idea captured: <title>";
+  - a Project setting change ([6](../6-permissions-and-safety.md#project-settings-by-agents)): who made it, then its summary, "Ann Lee changed Install", "Ann Lee changed Commands by Proposal" for a Proposal a user applied, "A Proposal changed Commands" for one applied before users existed, or "Nina (Devops) turned Run environment On" for a person on a Task, with the settings icon.
+- Each names its record with a link: the Task's page, or the Idea on Work › Ideas; a person's setting change links its summary to the Task it was made on, and a user's has no link.
+- A setting change's summary names what changed, never a value: "changed Install", "changed Install inputs", "changed Commands", "added the command <key>", "changed the command <key>", "removed the command <key>", "turned Run environment On" (or Off), "set the Environment variable <name>", "removed the Environment variables <names>", "changed Variables to remove", "changed Folders in front of PATH", "added the Test target <name>", "changed Test targets", "removed the Action <name>", "changed Actions", and the like.
+- Setting changes come from `GET /api/projects/:id/setting-changes` ([its newest](../6-permissions-and-safety.md#project-setting-changes-listed)).
 - A Done Task archived since leaves it, as the Task list holds no archived Task.
 - Empty: "Nothing in the last 7 days."
-- It follows `task.*` and `idea.*`.
+- It follows `task.*` and `idea.*`, and for setting changes the events of the settings they record (`project.install-command-changed`, `project.command-*`, `project.install-inputs-changed`, `project.environment-changed`, `project.run-environment-changed`, `project.test-targets-changed`, `project.actions-changed`).
 
 ### Actions tile
 

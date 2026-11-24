@@ -197,7 +197,7 @@ export class ProposalAppliers {
       case "initiative":
         return this.applierOf("initiative").apply(change, proposedBy, appliedBy);
       case "project-commands":
-        return this.applierOf("project-commands").apply(change, proposedBy, appliedBy);
+        return this.applierOf("project-commands").apply(change, proposedBy, appliedBy, proposalId);
       case "test-targets":
         return this.applierOf("test-targets").apply(change, proposedBy, appliedBy, proposalId);
       case "actions":

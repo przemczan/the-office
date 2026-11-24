@@ -14,6 +14,7 @@ import {
   projectRemoteNeedsSchema,
   projectRunEnvironmentSchema,
   projectSchema,
+  projectSettingChangesSchema,
   projectSkillListSchema,
   repositoryCloneSchema,
   repositoryCloneWebEventSchema,
@@ -119,6 +120,17 @@ export const projectQueries = {
       queryKey: [...RUN_ENVIRONMENTS, id],
       queryFn: ({ signal }) =>
         getFromApi(`${projectPath(id)}/run-environment`, projectRunEnvironmentSchema, signal),
+    }),
+  /**
+   * The Project's latest recorded setting changes, newest first, for its Recent activity; under
+   * the Projects' key, so each setting's event reads them again.
+   */
+  settingChanges: (id: string) =>
+    queryOptions({
+      queryKey: [...PROJECTS, id, "setting-changes"],
+      queryFn: ({ signal }) =>
+        getFromApi(`${projectPath(id)}/setting-changes`, projectSettingChangesSchema, signal),
+      select: ({ changes }) => changes,
     }),
   /** The running environment check, or the last finished one. */
   environmentCheck: (id: string) =>

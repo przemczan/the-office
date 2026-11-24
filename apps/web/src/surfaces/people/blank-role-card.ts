@@ -17,6 +17,7 @@ export function blankRoleCard({ taskLimits }: RoleCardOptions): RoleCard {
       runInstalls: { kind: "ask-me" },
       publishOutsideThePipeline: { kind: "ask-me" },
       changeRoles: { kind: "never" },
+      changeProjectSettings: { kind: "ask-me" },
     },
     taskLimit: taskLimits.lowest,
     sessionDefault: "context-policy",

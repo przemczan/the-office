@@ -2,7 +2,14 @@ import {
   RUN_PROJECT_COMMAND_TOOL,
   WRITE_RUN_ENVIRONMENT_DEFINITION_TOOL,
 } from "../../engine/index.js";
-import { PROPOSE_ACTIONS_TOOL, PROPOSE_TEST_TARGETS_TOOL } from "../../conversations/index.js";
+import {
+  CHANGE_ACTIONS_TOOL,
+  CHANGE_PROJECT_COMMANDS_TOOL,
+  CHANGE_TEST_TARGETS_TOOL,
+  PROPOSE_ACTIONS_TOOL,
+  PROPOSE_PROJECT_COMMANDS_TOOL,
+  PROPOSE_TEST_TARGETS_TOOL,
+} from "../../conversations/index.js";
 import type { DutyKey } from "../../people/index.js";
 import type { Pipeline } from "./pipeline.js";
 import {
@@ -240,7 +247,7 @@ const onboard: Pipeline = {
       key: "onboard",
       name: "Onboard",
       duty: ONBOARDS_PROJECTS,
-      brief: `Make the Project build and test in a fresh worktree. Propose its commands when they are missing or wrong. Once its commands and test targets are set, propose with ${PROPOSE_ACTIONS_TOOL} the Actions its repository suggests, such as a manual release Workflow or an install of a debug build.`,
+      brief: `Make the Project build and test in a fresh worktree. Set its commands with ${CHANGE_PROJECT_COMMANDS_TOOL} when they are missing or wrong. Once its commands and test targets are set, add with ${CHANGE_ACTIONS_TOOL} the Actions its repository suggests, such as a manual release Workflow or an install of a debug build. Without those tools, propose the same with ${PROPOSE_PROJECT_COMMANDS_TOOL} and ${PROPOSE_ACTIONS_TOOL}; an Action that leaves the workstation is always proposed.`,
       session: "fresh",
       budget: 150_000,
       optional: false,
@@ -396,20 +403,21 @@ const resolveConflicts: Pipeline = {
 
 /**
  * Test targets are settings kept in The Office, not files (spec §2.12), so nothing is verified or
- * published: the Task is Done once the Agent has proposed them, and the user applies the Proposal.
+ * published: the Task is Done once the Agent has set them, or proposed them for the user to apply
+ * when its Change Project settings is Never (spec §6, "Project settings by Agents").
  */
 const setUpTestTargets: Pipeline = {
   id: SET_UP_TEST_TARGETS_PIPELINE,
   name: "Set up test targets",
   description:
-    "Reads a Project's repository and proposes its test targets, for the user to apply; changes no file.",
+    "Reads a Project's repository and sets its test targets, or proposes them for the user to apply; changes no file.",
   stages: [
     {
       kind: "agent",
       key: "set-up-test-targets",
       name: "Set up test targets",
       duty: ONBOARDS_PROJECTS,
-      brief: `Read the repository's manifests and their scripts, its Gradle files and wrapper, its own start and build scripts and .devcontainer/, and change no file. Name only the entry points spec 2.12 allows: a file in the repository with its arguments, a script the package manifest lists, a Gradle task through the repository's wrapper, or a .devcontainer/ service (Hosted only); never a command line or inline shell. End with ${PROPOSE_TEST_TARGETS_TOOL}, giving every target at once.`,
+      brief: `Read the repository's manifests and their scripts, its Gradle files and wrapper, its own start and build scripts and .devcontainer/, and change no file. Name only the entry points spec 2.12 allows: a file in the repository with its arguments, a script the package manifest lists, a Gradle task through the repository's wrapper, or a .devcontainer/ service (Hosted only); never a command line or inline shell. End with ${CHANGE_TEST_TARGETS_TOOL}, giving every target at once, or with ${PROPOSE_TEST_TARGETS_TOOL} without it.`,
       session: "fresh",
       budget: 100_000,
       optional: false,

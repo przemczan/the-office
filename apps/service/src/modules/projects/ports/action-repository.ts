@@ -1,4 +1,5 @@
 import type { Action } from "../domain/action.js";
+import type { SettingChangeRecording } from "../domain/setting-change-summaries.js";
 
 /** Where each Project's Actions are kept, in the order added (spec §2.15). */
 export abstract class ActionRepository {
@@ -13,5 +14,6 @@ export abstract class ActionRepository {
   abstract update(
     projectId: string,
     change: (actions: readonly Action[]) => Promise<readonly Action[] | undefined>,
+    record?: SettingChangeRecording<readonly Action[]>,
   ): Promise<readonly Action[] | undefined>;
 }

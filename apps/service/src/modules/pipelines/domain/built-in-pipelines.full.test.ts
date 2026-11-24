@@ -206,7 +206,7 @@ describe("the built-in Pipelines", () => {
     });
   });
 
-  it("set up test targets in one Agent Stage that changes no file, names only the entry points spec 2.12 allows and ends with propose_test_targets, with no Publish", () => {
+  it("set up test targets in one Agent Stage that changes no file, names only the entry points spec 2.12 allows and ends with change_test_targets, or propose_test_targets without it, with no Publish", () => {
     const stages = builtInPipelines.find(({ id }) => id === SET_UP_TEST_TARGETS_PIPELINE)!.stages;
 
     expect(stages).toHaveLength(1);
@@ -214,17 +214,24 @@ describe("the built-in Pipelines", () => {
     if (stages[0]?.kind !== "agent") return;
     expect(stages[0].brief).toContain("change no file");
     expect(stages[0].brief).toContain("entry points spec 2.12 allows");
-    expect(stages[0].brief).toContain("End with propose_test_targets");
+    expect(stages[0].brief).toContain(
+      "End with change_test_targets, giving every target at once, or with propose_test_targets without it.",
+    );
   });
 
-  it("onboards a Project proposing its Actions with propose_actions once its commands and test targets are set", () => {
+  it("onboards a Project setting its commands and then its Actions with the change tools, proposing them without those tools", () => {
     const onboard = builtInPipelines.find(({ id }) => id === ONBOARD_PIPELINE)!.stages[0];
 
     expect(onboard).toMatchObject({ kind: "agent", key: "onboard" });
     if (onboard?.kind !== "agent") return;
-    expect(onboard.brief).toContain("Propose its commands when they are missing or wrong.");
     expect(onboard.brief).toContain(
-      "Once its commands and test targets are set, propose with propose_actions the Actions its repository suggests",
+      "Set its commands with change_project_commands when they are missing or wrong.",
+    );
+    expect(onboard.brief).toContain(
+      "Once its commands and test targets are set, add with change_actions the Actions its repository suggests",
+    );
+    expect(onboard.brief).toContain(
+      "Without those tools, propose the same with propose_project_commands and propose_actions; an Action that leaves the workstation is always proposed.",
     );
   });
 });

@@ -963,6 +963,7 @@ export class StageThreads {
         ],
         card,
         true,
+        true,
       ),
       mcpServers,
       outputSchema: request.session.outputSchema,

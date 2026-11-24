@@ -11,7 +11,12 @@ import type { RoleCard } from "./role-card.js";
 export const CARETAKER_FIXED_PARTS = {
   capabilities: { sharedMemory: true, chat: true, consultant: false, runEnvironment: false },
   permissionProfile: { edit: true, run: "anything", web: true },
-  hardSwitches: { runInstalls: ALLOWED, publishOutsideThePipeline: ALLOWED, changeRoles: NEVER },
+  hardSwitches: {
+    runInstalls: ALLOWED,
+    publishOutsideThePipeline: ALLOWED,
+    changeRoles: NEVER,
+    changeProjectSettings: NEVER,
+  },
   taskLimit: "none",
 } as const satisfies Pick<RoleCard, "capabilities" | "hardSwitches" | "taskLimit"> & {
   readonly permissionProfile: Omit<RoleCard["permissionProfile"], "mcpTools">;

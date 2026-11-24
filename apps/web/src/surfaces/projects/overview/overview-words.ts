@@ -6,6 +6,7 @@ import {
   type Idea,
   type Initiative,
   type Project,
+  type ProjectSettingChange,
   type ProjectTestInstances,
   type PullRequestProblem,
   type RemoteNeeds,
@@ -106,15 +107,21 @@ export type ActivityLine =
       readonly published: boolean;
     }
   | { readonly kind: "published"; readonly task: TaskSummary; readonly at: string }
-  | { readonly kind: "idea-captured"; readonly idea: Idea; readonly at: string };
+  | { readonly kind: "idea-captured"; readonly idea: Idea; readonly at: string }
+  | {
+      readonly kind: "setting-changed";
+      readonly change: ProjectSettingChange;
+      readonly at: string;
+    };
 
 /**
- * The Project's Tasks done or published and Ideas captured in the last 7 days, newest first, 10 at
- * most. A Done Task that was also published is one Done line.
+ * The Project's Tasks done or published, Ideas captured and setting changes in the last 7 days,
+ * newest first, 10 at most. A Done Task that was also published is one Done line.
  */
 export function activityLines(
   tasks: readonly TaskSummary[],
   ideas: readonly Idea[],
+  settingChanges: readonly ProjectSettingChange[],
   projectId: string,
   now: Date,
 ): ActivityLine[] {
@@ -132,17 +139,47 @@ export function activityLines(
   const ideaLines = ideas
     .filter((idea) => idea.projectId === projectId && within(idea.capturedAt))
     .map((idea): ActivityLine => ({ kind: "idea-captured", idea, at: idea.capturedAt }));
-  return [...taskLines, ...ideaLines]
+  const settingLines = settingChanges
+    .filter((change) => within(change.at))
+    .map((change): ActivityLine => ({ kind: "setting-changed", change, at: change.at }));
+  return [...taskLines, ...ideaLines, ...settingLines]
     .toSorted((first, second) => second.at.localeCompare(first.at))
     .slice(0, ACTIVITY_LINES);
 }
 
-/** The words before an activity line's record. */
-export const ACTIVITY_LEADS: Readonly<Record<ActivityLine["kind"], string>> = {
+/** The words before an activity line's record; a setting change's are who made it. */
+export const ACTIVITY_LEADS: Readonly<
+  Record<Exclude<ActivityLine["kind"], "setting-changed">, string>
+> = {
   done: "Done:",
   published: "Published:",
   "idea-captured": "Idea captured:",
 };
+
+/** A setting change's line: who made it, then what changed, read together as one sentence. */
+export interface SettingChangeWords {
+  /** "Ann Lee", "Nina (Devops)", or "A Proposal" for one applied before users existed. */
+  readonly who: string;
+  /** The change's summary; " by Proposal" after it when a user applied a Proposal. */
+  readonly what: string;
+}
+
+/**
+ * "Ann Lee changed Commands", "Ann Lee changed Commands by Proposal", "A Proposal changed
+ * Commands" or "Nina (Devops) turned Run environment On".
+ */
+export function settingChangeWords({ by, summary }: ProjectSettingChange): SettingChangeWords {
+  switch (by.kind) {
+    case "user":
+      return { who: by.user.name, what: summary };
+    case "proposal":
+      return by.user === null
+        ? { who: "A Proposal", what: summary }
+        : { who: by.user.name, what: `${summary} by Proposal` };
+    case "person":
+      return { who: `${by.name} (${by.title})`, what: summary };
+  }
+}
 
 /** The name of a failed environment check's first failed step; undefined unless it Failed. */
 export function firstFailedStep(check: EnvironmentCheck, project: Project): string | undefined {

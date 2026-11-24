@@ -15,6 +15,7 @@ export function aProposedCard(fields: Partial<RoleCard> = {}): RoleCard {
       runInstalls: { kind: "never" },
       publishOutsideThePipeline: { kind: "never" },
       changeRoles: { kind: "never" },
+      changeProjectSettings: { kind: "never" },
     },
     taskLimit: 1,
     sessionDefault: "context-policy",

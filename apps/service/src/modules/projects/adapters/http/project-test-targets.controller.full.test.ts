@@ -288,6 +288,7 @@ describe("A test target's memory", () => {
 
 describe("A Proposal of test targets", REAL_GIT_TEST, () => {
   const DEVOPS = { proposalId: "proposal-1", agent: { roleKey: "devops", name: "Dana" } };
+  const APPLIED = { kind: "proposal", proposalId: "proposal-1", user: null } as const;
 
   it("applies all or nothing, keeping Secret values by name and marking what it changed", async () => {
     const project = await addProject();
@@ -309,7 +310,7 @@ describe("A Proposal of test targets", REAL_GIT_TEST, () => {
     ]);
     expect(await testTargets.proposedProblems(project.id, proposed)).toEqual([]);
 
-    await testTargets.changeAsProposed(project.id, proposed, DEVOPS);
+    await testTargets.changeAsProposed(project.id, proposed, DEVOPS, APPLIED);
 
     const [target] = await testTargets.list(project.id);
     expect(target).toMatchObject({
@@ -320,9 +321,9 @@ describe("A Proposal of test targets", REAL_GIT_TEST, () => {
       ],
       setBy: { port: { by: "proposal", ...DEVOPS }, name: { by: "user" } },
     });
-    await expect(testTargets.changeAsProposed(project.id, proposed, DEVOPS)).rejects.toThrow(
-      new ProjectRefused([`Test target "web" changed since this was proposed.`]),
-    );
+    await expect(
+      testTargets.changeAsProposed(project.id, proposed, DEVOPS, APPLIED),
+    ).rejects.toThrow(new ProjectRefused([`Test target "web" changed since this was proposed.`]));
   });
 
   it("refuses a command before the entry point the Project hasn't, as the page does", async () => {
@@ -349,6 +350,7 @@ describe("A Proposal of test targets", REAL_GIT_TEST, () => {
 
 describe("Test targets switched off", REAL_GIT_TEST, () => {
   const DEVOPS = { proposalId: "proposal-1", agent: { roleKey: "devops", name: "Dana" } };
+  const APPLIED = { kind: "proposal", proposalId: "proposal-1", user: null } as const;
 
   it("refuse the page's save, a Proposal and a launch, naming the Project, and still list the targets", async () => {
     const project = await addProject();
@@ -388,9 +390,9 @@ describe("Test targets switched off", REAL_GIT_TEST, () => {
       }),
     ).rejects.toThrow(refusal);
     expect(await testTargets.proposedProblems(project.id, proposed)).toEqual([words]);
-    await expect(testTargets.changeAsProposed(project.id, proposed, DEVOPS)).rejects.toThrow(
-      refusal,
-    );
+    await expect(
+      testTargets.changeAsProposed(project.id, proposed, DEVOPS, APPLIED),
+    ).rejects.toThrow(refusal);
     await expect(testTargets.launchSettingsOf(project.id, "web")).rejects.toThrow(refusal);
 
     const listed = await fetch(`${url}/api/projects/${project.id}/test-targets`);

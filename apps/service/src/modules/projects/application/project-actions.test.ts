@@ -58,6 +58,8 @@ const RELEASE: ActionFields = {
 
 const ANN = { userId: "user-ann", name: "Ann" };
 const BY_ANN = { by: "user", user: ANN } as const;
+const ANN_SAVES = { kind: "user", user: ANN } as const;
+const ANN_APPLIES = { kind: "proposal", proposalId: "proposal-1", user: ANN } as const;
 const DANA = { proposalId: "proposal-1", agent: { roleKey: "devops", name: "Dana" } };
 
 function setUp(project: Project = aProject()) {
@@ -125,6 +127,7 @@ describe("ProjectActions.change", () => {
       "admin-panel",
       [BUILD, { ...RELEASE, leavesTheWorkstation: true }],
       ANN,
+      ANN_SAVES,
     );
 
     const setByAnn = {
@@ -146,10 +149,15 @@ describe("ProjectActions.change", () => {
 
   it("lets the user clear the mark, as they add a Workflow or later, and names the keys removed", async () => {
     const { actions, published } = setUp();
-    await actions.change("admin-panel", [BUILD, { ...RELEASE, leavesTheWorkstation: true }], ANN);
+    await actions.change(
+      "admin-panel",
+      [BUILD, { ...RELEASE, leavesTheWorkstation: true }],
+      ANN,
+      ANN_SAVES,
+    );
     published.length = 0;
 
-    const saved = await actions.change("admin-panel", [RELEASE], ANN);
+    const saved = await actions.change("admin-panel", [RELEASE], ANN, ANN_SAVES);
 
     expect(saved).toEqual([
       expect.objectContaining({ key: "release", leavesTheWorkstation: false }),
@@ -157,18 +165,28 @@ describe("ProjectActions.change", () => {
     expect(published).toEqual([
       expect.objectContaining({ projectId: "admin-panel", removedKeys: ["build-web"] }),
     ]);
-    expect(await actions.change("admin-panel", [{ ...RELEASE, key: "release-beta" }], ANN)).toEqual(
-      [expect.objectContaining({ key: "release-beta", leavesTheWorkstation: false })],
-    );
+    expect(
+      await actions.change("admin-panel", [{ ...RELEASE, key: "release-beta" }], ANN, ANN_SAVES),
+    ).toEqual([expect.objectContaining({ key: "release-beta", leavesTheWorkstation: false })]);
   });
 
   it("saves nothing and tells nobody when nothing changed, asking the code host nothing", async () => {
     const { actions, published, listedTimes } = setUp();
-    await actions.change("admin-panel", [BUILD, { ...RELEASE, leavesTheWorkstation: true }], ANN);
+    await actions.change(
+      "admin-panel",
+      [BUILD, { ...RELEASE, leavesTheWorkstation: true }],
+      ANN,
+      ANN_SAVES,
+    );
     published.length = 0;
     const before = listedTimes();
 
-    await actions.change("admin-panel", [BUILD, { ...RELEASE, leavesTheWorkstation: true }], ANN);
+    await actions.change(
+      "admin-panel",
+      [BUILD, { ...RELEASE, leavesTheWorkstation: true }],
+      ANN,
+      ANN_SAVES,
+    );
 
     expect(published).toEqual([]);
     expect(listedTimes()).toBe(before);
@@ -190,6 +208,7 @@ describe("ProjectActions.change", () => {
             },
           ],
           ANN,
+          ANN_SAVES,
         ),
       ),
     ).toEqual([
@@ -204,7 +223,7 @@ describe("ProjectActions.change", () => {
     const { actions, listWorkflows } = setUp();
     listWorkflows({ ref: "main", workflows: [], problem: "GitHub couldn't be reached." });
 
-    expect(await refusalOf(actions.change("admin-panel", [RELEASE], ANN))).toEqual([
+    expect(await refusalOf(actions.change("admin-panel", [RELEASE], ANN, ANN_SAVES))).toEqual([
       `Action "release": release.yml can't be checked on main: GitHub couldn't be reached.`,
     ]);
   });
@@ -220,20 +239,20 @@ describe("ProjectActions.change", () => {
       }),
     );
 
-    expect(await refusalOf(actions.change("admin-panel", [BUILD], ANN))).toEqual([
+    expect(await refusalOf(actions.change("admin-panel", [BUILD], ANN, ANN_SAVES))).toEqual([
       `Action "build-web": OFFICE_ACTION_COMMIT is a variable The Office sets in an Action's run; rename the Project variable.`,
     ]);
   });
 
   it("refuses every write while Actions are switched off, but lists them", async () => {
     const { actions, projects } = setUp();
-    await actions.change("admin-panel", [BUILD], ANN);
+    await actions.change("admin-panel", [BUILD], ANN, ANN_SAVES);
     projects.set("admin-panel", aProject({ features: { actions: false } }));
 
-    await expect(actions.change("admin-panel", [], ANN)).rejects.toThrowError(
+    await expect(actions.change("admin-panel", [], ANN, ANN_SAVES)).rejects.toThrowError(
       new FeatureSwitchedOff("actions", "Admin panel"),
     );
-    await expect(actions.change("admin-panel", [], ANN)).rejects.toThrow(
+    await expect(actions.change("admin-panel", [], ANN, ANN_SAVES)).rejects.toThrow(
       "Actions are switched off for «Admin panel».",
     );
     expect(await actions.list("admin-panel")).toHaveLength(1);
@@ -243,7 +262,7 @@ describe("ProjectActions.change", () => {
 describe("a Proposal of Actions", () => {
   it("is drafted, checked and applied all or nothing, set by the Proposal", async () => {
     const { actions, published } = setUp();
-    await actions.change("admin-panel", [BUILD], ANN);
+    await actions.change("admin-panel", [BUILD], ANN, ANN_SAVES);
     published.length = 0;
 
     const proposed = await actions.propose("admin-panel", {
@@ -262,7 +281,7 @@ describe("a Proposal of Actions", () => {
     ]);
     expect(await actions.proposedProblems("admin-panel", proposed)).toEqual([]);
 
-    await actions.changeAsProposed("admin-panel", proposed, DANA);
+    await actions.changeAsProposed("admin-panel", proposed, DANA, ANN_APPLIES);
 
     const byDana = { by: "proposal", ...DANA };
     expect(await actions.list("admin-panel")).toEqual([
@@ -279,19 +298,19 @@ describe("a Proposal of Actions", () => {
 
   it("is refused once what it changes changed, and while Actions are switched off", async () => {
     const { actions, projects } = setUp();
-    await actions.change("admin-panel", [BUILD], ANN);
+    await actions.change("admin-panel", [BUILD], ANN, ANN_SAVES);
     const proposed = await actions.propose("admin-panel", {
       actions: [{ ...BUILD, name: "Build" }],
       changeUserSet: ["build-web.name"],
     });
-    await actions.change("admin-panel", [{ ...BUILD, name: "Build it" }], ANN);
+    await actions.change("admin-panel", [{ ...BUILD, name: "Build it" }], ANN, ANN_SAVES);
 
     expect(await actions.proposedProblems("admin-panel", proposed)).toEqual([
       `Action "build-web" changed since this was proposed.`,
     ]);
-    await expect(actions.changeAsProposed("admin-panel", proposed, DANA)).rejects.toThrow(
-      ProjectRefused,
-    );
+    await expect(
+      actions.changeAsProposed("admin-panel", proposed, DANA, ANN_APPLIES),
+    ).rejects.toThrow(ProjectRefused);
 
     projects.set("admin-panel", aProject({ features: { actions: false } }));
     expect(await actions.proposedProblems("admin-panel", proposed)).toEqual([

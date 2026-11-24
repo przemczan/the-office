@@ -30,8 +30,14 @@ export class ProjectRunEnvironmentsController {
   async change(
     @Param("id") id: string,
     @Body(new ContractPipe(runEnvironmentChangeSchema)) { runEnvironment }: RunEnvironmentChange,
+    @SignedIn() signedIn: SignedIn,
   ): Promise<ProjectRunEnvironmentResponse> {
-    return toResponse(await this.runEnvironments.change(id, runEnvironment));
+    return toResponse(
+      await this.runEnvironments.change(id, runEnvironment, {
+        kind: "user",
+        user: userOf(signedIn),
+      }),
+    );
   }
 
   /** On at once with a valid definition, else the start of its set-up Off-board Task. */
