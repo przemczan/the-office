@@ -76,7 +76,9 @@ function serving(proposal: Proposal): Mock<ServiceCall> {
 }
 
 function answered(kind: "applied" | "declined"): Proposal["status"] {
-  return { kind, at: AT, by: null };
+  return kind === "applied"
+    ? { kind, at: AT, by: null }
+    : { kind, at: AT, by: null, because: null };
 }
 
 /** Settings › Pipelines' choice, in small: the Proposal on Full's flow, or the editor as usual. */

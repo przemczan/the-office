@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { describe, expect, it } from "vitest";
-import type { EventBus } from "../../../platform/events/event-bus.js";
+import { describe, expect, it, vi } from "vitest";
+import { EventBus } from "../../../platform/events/event-bus.js";
 import type { RoleCards } from "../../people/index.js";
 import {
   AT,
@@ -8,13 +8,25 @@ import {
   repository,
   setUpEachTest,
 } from "../adapters/postgres/postgres-thread-repository.fixtures.js";
+import {
+  DecisionAnswered,
+  DecisionClosed,
+  DecisionReopened,
+} from "../domain/conversation-events.js";
+import type { Decision } from "../domain/decision.js";
 import type { Message } from "../domain/message.js";
 import type { ProposedChange } from "../domain/proposal.js";
 import { applyProposal, declineProposal } from "../domain/proposal-changes.js";
 import type { Home, Thread, ThreadSession } from "../domain/thread.js";
-import { draftProposal, logMessages, openDecision } from "../domain/thread-changes.js";
+import {
+  closeDecision,
+  draftProposal,
+  logMessages,
+  openDecision,
+} from "../domain/thread-changes.js";
 import { aUserMessage } from "../domain/thread.fixtures.js";
 import { BEN_ITO } from "../domain/user.fixtures.js";
+import { ClosedConsultationProposals } from "./closed-consultation-proposals.js";
 import type { ProposalAppliers } from "./proposal-appliers.js";
 import { ProposalService } from "./proposal-service.js";
 import type { ThreadRunner } from "./thread-runner.js";
@@ -40,6 +52,12 @@ async function drafted(thread: Thread, minute: number, change = SIZE_THRESHOLD):
 
 function proposals(): ProposalService {
   return new ProposalService(repository, {} as ProposalAppliers, NO_EVENTS);
+}
+
+/** The Proposals use cases with appliers that carry out every change as drafted. */
+function applyingProposals(): ProposalService {
+  const appliers = { apply: (change: ProposedChange) => Promise.resolve(change) };
+  return new ProposalService(repository, appliers as unknown as ProposalAppliers, NO_EVENTS);
 }
 
 function threads(): ThreadService {
@@ -110,6 +128,176 @@ describe("ProposalService.waitingOnTheUser", () => {
     ]);
   });
 });
+
+/**
+ * An Agent's Thread on a new Task with a Decision put to Devops, and Consultations on it: Devops'
+ * own, which waits on them, and Angela's, who passed it on to Devops. With `closed`, the Decision
+ * is closed, so neither waits on its Consultant.
+ */
+async function consultationsOnATask(closed = false): Promise<{
+  readonly waiting: Thread;
+  readonly passedOn: Thread;
+}> {
+  const home: Home = { kind: "task", taskId: randomUUID() };
+  const asker = aThreadOfItsOwn("developer", { home, stageThread: true });
+  await repository.add(asker);
+  const decisionId = randomUUID();
+  await repository.update(asker.id, (latest) =>
+    openDecision(latest, {
+      id: decisionId,
+      context: "The commands aren't set.",
+      questions: [{ kind: "open", question: "Set them up?" }],
+      askedAt: at(0),
+      putTo: "devops",
+    }),
+  );
+  if (closed)
+    await repository.update(asker.id, (latest) => closeDecision(latest, decisionId, at(9)));
+  const consultation = { decisionId, askerThreadId: asker.id, askerRoleKey: "developer" };
+  const waiting = aThreadOfItsOwn("devops", { home, consultation });
+  const passedOn = aThreadOfItsOwn("angela", { home, consultation });
+  for (const thread of [waiting, passedOn]) await repository.add(thread);
+  return { waiting, passedOn };
+}
+
+/** A Consultation in Devops' chat, for a call from a chat, whose Decision is gone. */
+async function aConsultationInAChat(): Promise<Thread> {
+  const consultation = {
+    decisionId: randomUUID(),
+    askerThreadId: randomUUID(),
+    askerRoleKey: "pam",
+  };
+  const thread = aThreadOfItsOwn("devops", { consultation });
+  await repository.add(thread);
+  return thread;
+}
+
+describe("a Proposal drafted in a Consultation on a Task", () => {
+  it("waits on the user while the Consultation waits on its Consultant, and never once it closed", async () => {
+    const { waiting, passedOn } = await consultationsOnATask();
+    const closed = await consultationsOnATask(true);
+    const inChat = await aConsultationInAChat();
+    const inOpen = await drafted(waiting, 1);
+    const inPassedOn = await drafted(passedOn, 2);
+    const inClosed = await drafted(closed.waiting, 3);
+    const inChatConsultation = await drafted(inChat, 4);
+
+    const listed = new Set((await proposals().waitingOnTheUser()).map(({ id }) => id));
+
+    expect(listed.has(inOpen)).toBe(true);
+    expect(listed.has(inChatConsultation)).toBe(true);
+    expect(listed.has(inPassedOn)).toBe(false);
+    expect(listed.has(inClosed)).toBe(false);
+  });
+
+  it("is declined by The Office once its Consultation closed, saying so, and the rest stay open", async () => {
+    const { waiting, passedOn } = await consultationsOnATask();
+    const closed = await consultationsOnATask(true);
+    const inChat = await aConsultationInAChat();
+    const inOpen = await drafted(waiting, 1);
+    const inPassedOn = await drafted(passedOn, 2);
+    const inClosed = await drafted(closed.waiting, 3);
+    const inChatConsultation = await drafted(inChat, 4);
+
+    await proposals().declineInClosedConsultations();
+
+    for (const id of [inPassedOn, inClosed]) {
+      expect((await repository.proposal(id))?.status).toEqual({
+        kind: "declined",
+        at: expect.any(Date),
+        by: null,
+        because: { kind: "consultation-closed" },
+      });
+    }
+    for (const id of [inOpen, inChatConsultation]) {
+      expect((await repository.proposal(id))?.status).toEqual({ kind: "open" });
+    }
+  });
+});
+
+describe("ClosedConsultationProposals", () => {
+  it("declines them as a Decision is answered, closed or passed on, and at each start", async () => {
+    const events = new EventBus();
+    const proposalService = {
+      declineInClosedConsultations: vi.fn<() => Promise<void>>(() => Promise.resolve()),
+    };
+    const closing = new ClosedConsultationProposals(
+      proposalService as unknown as ProposalService,
+      events,
+    );
+    closing.onModuleInit();
+    const asker = aThreadOfItsOwn("developer");
+    const decision = { id: randomUUID() } as Decision;
+
+    await closing.onApplicationBootstrap();
+    await events.publish(new DecisionAnswered(asker, decision, at(1)));
+    await events.publish(new DecisionClosed(asker, decision, at(2)));
+    await events.publish(new DecisionReopened(asker, decision, at(3)));
+
+    expect(proposalService.declineInClosedConsultations).toHaveBeenCalledTimes(4);
+  });
+});
+
+/** A new text for the prompt template `key`. */
+function ofTemplate(key: string, to: string): ProposedChange {
+  return { kind: "prompt-template", key, name: "The brief", from: "Old text.", to };
+}
+
+describe("applying a Proposal", () => {
+  it("declines the older open Proposals of the same thing as superseded, and no other", async () => {
+    const thread = aThreadOfItsOwn("caretaker");
+    await repository.add(thread);
+    const key = `template-${randomUUID()}`;
+    const older = await drafted(thread, 1, ofTemplate(key, "First try."));
+    const ofAnother = await drafted(thread, 2, ofTemplate(`template-${randomUUID()}`, "Other."));
+    const applied = await drafted(thread, 3, ofTemplate(key, "Second try."));
+    const newer = await drafted(thread, 4, ofTemplate(key, "Third try."));
+
+    await applyingProposals().apply(applied, BEN_ITO);
+
+    expect((await repository.proposal(older))?.status).toEqual({
+      kind: "declined",
+      at: expect.any(Date),
+      by: null,
+      because: { kind: "superseded", proposalId: applied },
+    });
+    for (const id of [ofAnother, newer]) {
+      expect((await repository.proposal(id))?.status).toEqual({ kind: "open" });
+    }
+  });
+
+  it("declines an older Proposal of a Project's commands only when it changes some of the same", async () => {
+    const thread = aThreadOfItsOwn("devops");
+    await repository.add(thread);
+    const projectId = randomUUID();
+    const ofTestAndLint = await drafted(thread, 1, ofCommands(projectId, ["test", "lint"]));
+    const ofBuild = await drafted(thread, 2, ofCommands(projectId, ["build"]));
+    const applied = await drafted(thread, 3, ofCommands(projectId, ["test"]));
+
+    await applyingProposals().apply(applied, BEN_ITO);
+
+    expect((await repository.proposal(ofTestAndLint))?.status).toMatchObject({
+      kind: "declined",
+      because: { kind: "superseded", proposalId: applied },
+    });
+    expect((await repository.proposal(ofBuild))?.status).toEqual({ kind: "open" });
+  });
+});
+
+/** New commands `keys` for Project `projectId`. */
+function ofCommands(projectId: string, keys: readonly string[]): ProposedChange {
+  return {
+    kind: "project-commands",
+    projectId,
+    changes: {
+      commands: keys.map((key) => ({
+        key,
+        from: null,
+        to: { name: key, kind: "test", commandLine: `npm run ${key}`, rerunCommandLine: "" },
+      })),
+    },
+  };
+}
 
 /** A session the shaper's Thread has once they first answered. */
 function aSession(roleKey: string): ThreadSession {

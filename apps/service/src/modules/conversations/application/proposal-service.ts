@@ -2,21 +2,29 @@ import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
+import { isClosedConsultationOnTask } from "../domain/conversation-tabs.js";
 import {
   changeToApply,
   holdersNamedIn,
+  proposalTargets,
   type EditedHire,
   type Proposal,
+  type ProposalDeclinedBecause,
   type ProposedChange,
   type ProposedSettingValue,
 } from "../domain/proposal.js";
-import { applyProposal, declineProposal, type ProposalChange } from "../domain/proposal-changes.js";
+import {
+  applyProposal,
+  declineProposal,
+  declineProposalOnItsOwn,
+  type ProposalChange,
+} from "../domain/proposal-changes.js";
 import { ProposalNotFound } from "../domain/proposal-not-found.js";
 import { ProposalRefused } from "../domain/proposal-refused.js";
 import type { Home, Thread } from "../domain/thread.js";
 import type { UserRef } from "../domain/user.js";
 import { draftProposal } from "../domain/thread-changes.js";
-import { ThreadRepository } from "../ports/thread-repository.js";
+import { ThreadRepository, type ProposalInHome } from "../ports/thread-repository.js";
 import { ProposalAppliers } from "./proposal-appliers.js";
 
 /** An open Proposal, where it waits on the user. */
@@ -110,17 +118,59 @@ export class ProposalService {
     return this.repository.openProposals();
   }
 
-  /** Every open Proposal with its Thread's home, the oldest first, for what waits on the user. */
+  /**
+   * Every open Proposal with its Thread's home, the oldest first, for what waits on the user: never
+   * one in a closed Consultation on a Task, whose card can't be opened (spec §2.4.2).
+   */
   async waitingOnTheUser(): Promise<readonly ProposalWaitingOnTheUser[]> {
     const open = await this.repository.openProposalsInHomes();
-    return open.map(({ proposal: { id, threadId, draftedBy, draftedAt, change }, home }) => ({
-      id,
-      threadId,
-      draftedBy,
-      draftedAt,
-      home,
-      skillUpdate: change.kind === "skill-update" ? change.name : undefined,
-    }));
+    const unreachable = await this.inClosedConsultations(open);
+    return open
+      .filter(({ proposal }) => !unreachable.has(proposal.id))
+      .map(({ proposal: { id, threadId, draftedBy, draftedAt, change }, thread: { home } }) => ({
+        id,
+        threadId,
+        draftedBy,
+        draftedAt,
+        home,
+        skillUpdate: change.kind === "skill-update" ? change.name : undefined,
+      }));
+  }
+
+  /**
+   * Declines every open Proposal in a Consultation on a Task that has closed (spec §2.4.3): nobody
+   * can open its card to answer it any more.
+   */
+  async declineInClosedConsultations(): Promise<void> {
+    const unreachable = await this.inClosedConsultations(
+      await this.repository.openProposalsInHomes(),
+    );
+    for (const id of unreachable) await this.declineOnItsOwn(id, { kind: "consultation-closed" });
+  }
+
+  /** The ids of the open Proposals of `open` drafted in a Consultation on a Task that has closed. */
+  private async inClosedConsultations(
+    open: readonly ProposalInHome[],
+  ): Promise<ReadonlySet<string>> {
+    const inConsultationsOnTasks = open.filter(
+      ({ thread }) => thread.home.kind === "task" && thread.consultation,
+    );
+    if (inConsultationsOnTasks.length === 0) return new Set();
+    const decisions = await this.repository.decisionsWithIds([
+      ...new Set(
+        inConsultationsOnTasks.flatMap(({ thread }) => thread.consultation?.decisionId ?? []),
+      ),
+    ]);
+    return new Set(
+      inConsultationsOnTasks
+        .filter(({ thread }) =>
+          isClosedConsultationOnTask(
+            thread,
+            decisions.find(({ id }) => id === thread.consultation?.decisionId),
+          ),
+        )
+        .map(({ proposal }) => proposal.id),
+    );
   }
 
   /**
@@ -130,15 +180,17 @@ export class ProposalService {
    */
   async apply(id: string, by: UserRef, edited?: EditedHire): Promise<Proposal> {
     const thread = await this.threadOf(id);
-    return this.change(id, async (stored) => {
-      const applied = await this.appliers.apply(
+    const applied = await this.change(id, async (stored) => {
+      const change = await this.appliers.apply(
         changeToApply(stored, edited),
         stored.draftedBy,
         by,
         stored.id,
       );
-      return applyProposal(stored, thread, applied, new Date(), by);
+      return applyProposal(stored, thread, change, new Date(), by);
     });
+    await this.declineSupersededBy(applied);
+    return applied;
   }
 
   /** The user `by` declines the Proposal ("Not now"): nothing changes but who declined it. */
@@ -147,6 +199,35 @@ export class ProposalService {
     return this.change(id, (stored) =>
       Promise.resolve(declineProposal(stored, thread, new Date(), by)),
     );
+  }
+
+  /**
+   * Declines every open Proposal drafted before `applied` that changes some of the same (spec
+   * §2.2): the user's choice is made, and what those started from has changed.
+   */
+  private async declineSupersededBy(applied: Proposal): Promise<void> {
+    const targets = new Set(proposalTargets(applied.change));
+    if (targets.size === 0) return;
+    const superseded = (await this.repository.openProposals()).filter(
+      ({ change, draftedAt }) =>
+        draftedAt < applied.draftedAt &&
+        proposalTargets(change).some((target) => targets.has(target)),
+    );
+    for (const { id } of superseded) {
+      await this.declineOnItsOwn(id, { kind: "superseded", proposalId: applied.id });
+    }
+  }
+
+  /** The Office declines the Proposal on its own; one answered meanwhile is left as it is. */
+  private async declineOnItsOwn(id: string, because: ProposalDeclinedBecause): Promise<void> {
+    const thread = await this.threadOf(id);
+    try {
+      await this.change(id, (stored) =>
+        Promise.resolve(declineProposalOnItsOwn(stored, thread, new Date(), because)),
+      );
+    } catch (error) {
+      if (!(error instanceof ProposalRefused)) throw error;
+    }
   }
 
   private async change<Event extends DomainEvent>(

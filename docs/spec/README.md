@@ -69,7 +69,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Conflict chain, Conflict handling**: [2.3.4 Conflicts in the flow](2.3.4-publish.md#conflicts-in-the-flow); screen: [Pipeline flow editor › Routes out](screens/pipeline-flow-editor.md#routes-out)
 - **Conflict resolution Task**: [2.1.3 Conflict resolution Tasks](2.1.3-tasks.md#conflict-resolution-tasks); [2.3.4 Resolve conflicts](2.3.4-publish.md#resolve-conflicts); screen: [Pull requests › Resolve conflicts](screens/pull-requests.md#resolve-conflicts)
 - **Connected device, device key, Waiting for the run environment, Disconnected reasons**: [2.13 Connected device](2.13-connected-devices.md#connected-device); [2.13 One device to one Task](2.13-connected-devices.md#one-device-to-one-task); [2.13 States](2.13-connected-devices.md#states); [2.13 Lifecycle](2.13-connected-devices.md#lifecycle); [6 Connected devices](6-permissions-and-safety.md#connected-devices); screen: [Task page › Devices](screens/task-page.md#devices)
-- **Consultant, Consultation**: [2.4.3 Consultation](2.4.3-consultations.md#consultation); [2.2 Calls](2.2-people.md#calls); [6 The one exception: the run environment definition](6-permissions-and-safety.md#the-one-exception-the-run-environment-definition)
+- **Consultant, Consultation**: [2.4.3 Consultation](2.4.3-consultations.md#consultation); [2.2 Calls](2.2-people.md#calls); [6 The one exception: the run environment definition](6-permissions-and-safety.md#the-one-exception-the-run-environment-definition); [2.4.3 Proposals in a Consultation](2.4.3-consultations.md#proposals-in-a-consultation)
 - **Continue with GitHub, Continue with Google, Continue with <name>, OpenID Connect provider**: [2.10 Continue with GitHub](2.10-users-and-signing-in.md#continue-with-github); [2.10 Continue with an OpenID Connect provider](2.10-users-and-signing-in.md#continue-with-an-openid-connect-provider); screen: [Sign in › Ways to sign in](screens/sign-in.md#ways-to-sign-in)
 - **CPU limit, Run environments at once**: [5.5 The CPU limit](5.5-git-and-isolation.md#the-cpu-limit); [5.5 The other limits of run environments](5.5-git-and-isolation.md#the-other-limits-of-run-environments)
 
@@ -354,7 +354,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - [2.4 Conversations](2.4-conversations.md): index of the pages below.
   - [2.4.1 Threads](2.4.1-threads.md): homes, Threads, what each Thread adds, what a Thread reads, Allow changes.
   - [2.4.2 Decisions](2.4.2-decisions.md): the form, Submit and Ask me again, the Bug Task Decision, where it shows, Waiting for you.
-  - [2.4.3 Consultations](2.4.3-consultations.md): Consultation, calls from chats.
+  - [2.4.3 Consultations](2.4.3-consultations.md): Consultation, calls from chats, Proposals in a Consultation.
   - [2.4.4 Messages](2.4.4-messages.md): barge-in, Office actions, Mentions, images, Open page, commands.
   - [2.4.5 Stopping and restarts](2.4.5-stopping-and-restarts.md): Stop, Pause, shutdown, restarts, refused turns.
   - [2.4.6 Reading records](2.4.6-reading-records.md): reading the Stage history and the Threads.

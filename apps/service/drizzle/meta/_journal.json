@@ -1534,6 +1534,13 @@
       "when": 1795526547666,
       "tag": "0218_run_environment_on_or_off",
       "breakpoints": true
+    },
+    {
+      "idx": 219,
+      "version": "7",
+      "when": 1795532329740,
+      "tag": "0219_proposal_declined_because",
+      "breakpoints": true
     }
   ]
 }

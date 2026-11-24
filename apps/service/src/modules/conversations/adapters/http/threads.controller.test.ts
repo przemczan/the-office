@@ -1149,6 +1149,7 @@ describe("what each signed-in user does", () => {
       kind: "declined",
       at: expect.any(String),
       by: ANN_LEE,
+      because: null,
     });
     expect(saved.status).toBe(200);
     const { version } = await app.get(OfficeInstructions).current();

@@ -251,6 +251,7 @@ describe("the user a record names, as the web reads it", () => {
       kind: "declined",
       at: answeredAt.toISOString(),
       by: BEN_ITO,
+      because: null,
     });
   });
 });

@@ -872,13 +872,29 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
 export type ProposedChange = z.infer<typeof proposedChangeSchema>;
 
 /**
+ * Why The Office declined a Proposal on its own: its Consultation on a Task closed, or the user
+ * applied a newer Proposal changing some of the same (`proposalId`).
+ */
+export const proposalDeclinedBecauseSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("consultation-closed") }),
+  z.object({ kind: z.literal("superseded"), proposalId: z.uuid() }),
+]);
+export type ProposalDeclinedBecause = z.infer<typeof proposalDeclinedBecauseSchema>;
+
+/**
  * Open until a user applies or declines it; nothing changes before they apply it. `by` is the user
- * who did, null on a Proposal from before users existed.
+ * who did, null on a Proposal from before users existed and on one The Office declined on its own,
+ * which says why (`because`, null otherwise).
  */
 export const proposalStatusSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("open") }),
   z.object({ kind: z.literal("applied"), at: z.iso.datetime(), by: userRefSchema.nullable() }),
-  z.object({ kind: z.literal("declined"), at: z.iso.datetime(), by: userRefSchema.nullable() }),
+  z.object({
+    kind: z.literal("declined"),
+    at: z.iso.datetime(),
+    by: userRefSchema.nullable(),
+    because: proposalDeclinedBecauseSchema.nullable(),
+  }),
 ]);
 export type ProposalStatus = z.infer<typeof proposalStatusSchema>;
 

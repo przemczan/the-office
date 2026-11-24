@@ -51,10 +51,13 @@ export interface LoggedMessage {
   readonly message: Message;
 }
 
-/** An open Proposal with the home of the Thread it was drafted in. */
+/**
+ * An open Proposal with the Thread it was drafted in: its home, its person and, for a Consultation,
+ * the Decision it answers.
+ */
 export interface ProposalInHome {
   readonly proposal: Proposal;
-  readonly home: Home;
+  readonly thread: Pick<Thread, "home" | "roleKey" | "consultation">;
 }
 
 /**

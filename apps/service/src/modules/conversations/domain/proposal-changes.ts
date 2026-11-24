@@ -1,5 +1,10 @@
 import { ProposalApplied, ProposalDeclined } from "./conversation-events.js";
-import { refuseUnlessOpen, type Proposal, type ProposedChange } from "./proposal.js";
+import {
+  refuseUnlessOpen,
+  type Proposal,
+  type ProposalDeclinedBecause,
+  type ProposedChange,
+} from "./proposal.js";
 import type { Thread } from "./thread.js";
 import type { UserRef } from "./user.js";
 
@@ -40,5 +45,20 @@ export function declineProposal(
 ): ProposalChange<ProposalDeclined> {
   refuseUnlessOpen(proposal);
   const changed: Proposal = { ...proposal, status: { kind: "declined", at: declinedAt, by } };
+  return { proposal: changed, event: new ProposalDeclined(thread, changed, declinedAt) };
+}
+
+/** The Office declined the Proposal on its own, `because` says why; it names no user. */
+export function declineProposalOnItsOwn(
+  proposal: Proposal,
+  thread: Thread,
+  declinedAt: Date,
+  because: ProposalDeclinedBecause,
+): ProposalChange<ProposalDeclined> {
+  refuseUnlessOpen(proposal);
+  const changed: Proposal = {
+    ...proposal,
+    status: { kind: "declined", at: declinedAt, by: null, because },
+  };
   return { proposal: changed, event: new ProposalDeclined(thread, changed, declinedAt) };
 }

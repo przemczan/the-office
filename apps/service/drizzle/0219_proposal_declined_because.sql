@@ -1,0 +1,1 @@
+ALTER TABLE "proposals" ADD COLUMN "declined_because" jsonb;

@@ -1,4 +1,4 @@
-import { decisionSummary, formAnswerWords, type Decision } from "./decision.js";
+import { decisionSummary, formAnswerWords, isOpen, type Decision } from "./decision.js";
 import { isPersonsThread, type Thread } from "./thread.js";
 
 /** A Consultation on the Task, from the moment it starts. */
@@ -102,6 +102,20 @@ function consultationsOfConsultants(
       (one, other) =>
         answeredTime(one.consultation.answeredAt) - answeredTime(other.consultation.answeredAt),
     );
+}
+
+/**
+ * A Consultation on a Task that no longer waits on its Consultant, `decision` being the one it was
+ * opened for (undefined once gone): answered, taken over, passed on or closed. Its tab shows only its
+ * note then, so nothing in its log, a Proposal's card included, can be opened again. One in a chat
+ * stays in the callee's Thread list, and isn't closed in this sense.
+ */
+export function isClosedConsultationOnTask(
+  { home, roleKey, consultation }: Pick<Thread, "home" | "roleKey" | "consultation">,
+  decision: Decision | undefined,
+): boolean {
+  if (home.kind !== "task" || !consultation) return false;
+  return !decision || !isOpen(decision) || decision.putTo !== roleKey;
 }
 
 function isConsultantsOwn({ answer, putTo }: Decision, roleKey: string): boolean {

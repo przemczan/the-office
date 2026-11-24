@@ -24,7 +24,11 @@ import type {
   Recommendation,
 } from "../../domain/decision.js";
 import type { MessageDraft } from "../../domain/message.js";
-import type { ProposalStatus, ProposedChange } from "../../domain/proposal.js";
+import type {
+  ProposalDeclinedBecause,
+  ProposalStatus,
+  ProposedChange,
+} from "../../domain/proposal.js";
 import type { StageContextLimits } from "../../domain/stage-context-limits.js";
 import type {
   Consultation,
@@ -264,6 +268,8 @@ export const proposals = pgTable(
      * existed until the first user claims it.
      */
     statusBy: jsonb("status_by").$type<UserRef>(),
+    /** Why The Office declined it on its own; null while open, once applied, and when a user declined it. */
+    declinedBecause: jsonb("declined_because").$type<ProposalDeclinedBecause>(),
   },
   (table) => [index("proposals_thread").on(table.threadId, table.draftedAt)],
 );

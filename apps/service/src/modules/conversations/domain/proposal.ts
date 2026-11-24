@@ -382,13 +382,28 @@ export type PipelineStage = object;
 export type PipelineRoutes = object;
 
 /**
+ * Why The Office declined a Proposal on its own (spec §2.2): its Consultation on a Task closed, so
+ * no card of it can be opened any more, or the user applied a newer Proposal changing some of the
+ * same.
+ */
+export type ProposalDeclinedBecause =
+  | { readonly kind: "consultation-closed" }
+  | { readonly kind: "superseded"; readonly proposalId: string };
+
+/**
  * Open until a user applies it or declines it; nothing changes before they apply it. `by` is the
- * user who did, null on a Proposal from before users existed.
+ * user who did, null on a Proposal from before users existed and on one The Office declined on its
+ * own, which says why (`because`).
  */
 export type ProposalStatus =
   | { readonly kind: "open" }
   | { readonly kind: "applied"; readonly at: Date; readonly by: UserRef | null }
-  | { readonly kind: "declined"; readonly at: Date; readonly by: UserRef | null };
+  | {
+      readonly kind: "declined";
+      readonly at: Date;
+      readonly by: UserRef | null;
+      readonly because?: ProposalDeclinedBecause | undefined;
+    };
 
 /**
  * A change a person drafts for the user to confirm with a click (spec §2.2), shown as a card in
@@ -458,6 +473,59 @@ export function changeToApply(proposal: Proposal, edited: EditedHire | undefined
     return { ...change, name: edited.name };
   }
   throw new ProposalRefused(["Only a new Role is edited before hiring, as it was proposed."]);
+}
+
+/**
+ * What a Proposal changes, each as a key two Proposals share when they change the same thing: a
+ * field of a Role's card, an Office setting, a prompt template, one of a Project's commands, test
+ * targets or Actions (each carries only what it changes), a Pipeline, a Stage template, a Project
+ * Pipeline or an installed skill's version. None for one that adds something new, edits an
+ * Initiative or names some duties, which another Proposal never makes stale.
+ */
+export function proposalTargets(change: ProposedChange): readonly string[] {
+  switch (change.kind) {
+    case "change":
+      return Object.keys(change.to).map((field) => `role:${change.roleKey}:${field}`);
+    case "office-wide-limit":
+    case "size-threshold":
+    case "office-instructions":
+      return [`setting:${change.kind}`];
+    case "prompt-template":
+      return [`prompt-template:${change.key}`];
+    case "project-commands":
+      return commandTargets(change.projectId, change.changes);
+    case "test-targets":
+      return change.changes.targets.map(({ key }) => `test-target:${change.projectId}:${key}`);
+    case "actions":
+      return change.changes.actions.map(({ key }) => `action:${change.projectId}:${key}`);
+    case "pipeline":
+      return [`pipeline:${change.pipelineId}`];
+    case "stage-template":
+      return [`stage-template:${change.templateId}`];
+    case "project-pipeline":
+      return change.pipelineId === null ? [] : [`project-pipeline:${change.pipelineId}`];
+    case "skill-update":
+      return [`skill-update:${change.name}`];
+    case "hire":
+    case "hire-from-preset":
+    case "office-setup":
+    case "duties":
+    case "initiative":
+    case "project":
+    case "skill-install":
+    case "skill":
+      return [];
+  }
+}
+
+/** Each of the Project's fields and commands a Proposal of its commands changes. */
+function commandTargets(projectId: string, { commands, ...fields }: ProposedCommands): string[] {
+  return [
+    ...Object.entries(fields)
+      .filter(([, value]) => value !== undefined)
+      .map(([field]) => `project-commands:${projectId}:${field}`),
+    ...commands.map(({ key }) => `project-command:${projectId}:${key}`),
+  ];
 }
 
 /** Refuses a change of a Proposal the user applied or declined already. */

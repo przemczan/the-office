@@ -7,6 +7,7 @@ import {
   type LinkedStage,
   type Preset,
   type Proposal,
+  type ProposalDeclinedBecause,
   type ProposalStatus,
   type ProposedChange,
   type ProposedFeatureSwitch,
@@ -1221,7 +1222,10 @@ function AnswerFoot({
   );
 }
 
-/** Who applied or declined it, "by you" or "by Ann Lee", and when; then `more`, if any. */
+/**
+ * Who applied or declined it, "by you" or "by Ann Lee", or why The Office declined it on its own,
+ * and when; then `more`, if any.
+ */
 function AnsweredNote({
   status,
   more,
@@ -1230,12 +1234,23 @@ function AnsweredNote({
   readonly more?: string | undefined;
 }): ReactNode {
   const nameOfUser = useUserName();
+  const because = status.kind === "declined" ? status.because : null;
   return (
     <span className="proposal-note">
-      by {nameOfUser(status.by, "you")} · {momentWords(status.at)}
+      {because === null ? `by ${nameOfUser(status.by, "you")}` : declinedBecauseWords(because)} ·{" "}
+      {momentWords(status.at)}
       {more && ` · ${more}`}
     </span>
   );
+}
+
+function declinedBecauseWords(because: ProposalDeclinedBecause): string {
+  switch (because.kind) {
+    case "consultation-closed":
+      return "Declined as its Consultation closed";
+    case "superseded":
+      return "Declined as a newer Proposal changing the same was applied";
+  }
 }
 
 function firstName(roleKey: string, roles: readonly Role[] | undefined): string {

@@ -8,6 +8,7 @@ import {
 import type {
   Preset,
   Proposal,
+  ProposalDeclinedBecause,
   ProposalStatus,
   ProposedFeatureSwitch,
   Stage,
@@ -201,7 +202,7 @@ describe("ProposalCard on the Office instructions", () => {
 
   it.each([
     [{ kind: "applied", at: AT, by: null }, "Applied"],
-    [{ kind: "declined", at: AT, by: null }, "Not applied"],
+    [{ kind: "declined", at: AT, by: null, because: null }, "Not applied"],
   ] satisfies [ProposalStatus, string][])("shows what became of it: %j", async (status, words) => {
     serviceAnswering(officeInstructionsProposal(SEVERAL_LINES));
     const card = await cardOf(officeInstructionsProposal(SEVERAL_LINES, status));
@@ -213,8 +214,8 @@ describe("ProposalCard on the Office instructions", () => {
   it.each([
     [{ kind: "applied", at: AT, by: BY_YOU }, "Applied", "by you"],
     [{ kind: "applied", at: AT, by: BY_ANN }, "Applied", "by Ann Lee"],
-    [{ kind: "declined", at: AT, by: BY_YOU }, "Not applied", "by you"],
-    [{ kind: "declined", at: AT, by: BY_ANN }, "Not applied", "by Ann Lee"],
+    [{ kind: "declined", at: AT, by: BY_YOU, because: null }, "Not applied", "by you"],
+    [{ kind: "declined", at: AT, by: BY_ANN, because: null }, "Not applied", "by Ann Lee"],
   ] satisfies [ProposalStatus, string, string][])(
     "names the user who applied or declined it: %j",
     async (status, badge, by) => {
@@ -225,6 +226,25 @@ describe("ProposalCard on the Office instructions", () => {
       expect(card.querySelector(".proposal-foot")?.textContent).toContain(badge);
       expect(card.querySelector(".proposal-foot .proposal-note")?.textContent).toMatch(
         new RegExp(`^${by} · `),
+      );
+    },
+  );
+
+  it.each([
+    [{ kind: "consultation-closed" }, "Declined as its Consultation closed"],
+    [
+      { kind: "superseded", proposalId: PROPOSAL_ID },
+      "Declined as a newer Proposal changing the same was applied",
+    ],
+  ] satisfies [ProposalDeclinedBecause, string][])(
+    "says why The Office declined it on its own: %j",
+    async (because, words) => {
+      serviceAnswering(officeInstructionsProposal(SEVERAL_LINES));
+      const status: ProposalStatus = { kind: "declined", at: AT, by: null, because };
+      const card = await cardOf(officeInstructionsProposal(SEVERAL_LINES, status));
+      expect(card.querySelector(".proposal-foot")?.textContent).toContain("Not applied");
+      expect(card.querySelector(".proposal-foot .proposal-note")?.textContent).toMatch(
+        new RegExp(`^${words} · `),
       );
     },
   );
@@ -775,7 +795,7 @@ describe("ProposalCard on a Pipeline's routes", () => {
     serviceReading({ "/pipelines": [FULL] });
     const { card } = await routedCardOf({
       ...ROUTES_PROPOSAL,
-      status: { kind: "declined", at: AT, by: null },
+      status: { kind: "declined", at: AT, by: null, because: null },
     });
 
     expect(card.querySelector('[aria-label="Full, as proposed"]')).not.toBeNull();

@@ -36,7 +36,12 @@ import {
 } from "../../domain/decision.js";
 import type { Message, MessageDraft } from "../../domain/message.js";
 import { NO_OFFICE_INSTRUCTIONS } from "../../domain/office-instructions.js";
-import type { Proposal, ProposalStatus, RoleCardFields } from "../../domain/proposal.js";
+import type {
+  Proposal,
+  ProposalDeclinedBecause,
+  ProposalStatus,
+  RoleCardFields,
+} from "../../domain/proposal.js";
 import type { ProposalChange } from "../../domain/proposal-changes.js";
 import { ProposalNotFound } from "../../domain/proposal-not-found.js";
 import type { Home, Thread, ThreadSession } from "../../domain/thread.js";
@@ -424,14 +429,20 @@ export class PostgresThreadRepository extends ThreadRepository {
 
   async openProposalsInHomes(): Promise<readonly ProposalInHome[]> {
     const rows = await this.database
-      .select({ proposal: proposals, homeKind: threads.homeKind, homeId: threads.homeId })
+      .select({
+        proposal: proposals,
+        homeKind: threads.homeKind,
+        homeId: threads.homeId,
+        roleKey: threads.roleKey,
+        consultation: threads.consultation,
+      })
       .from(proposals)
       .innerJoin(threads, eq(threads.id, proposals.threadId))
       .where(eq(proposals.status, "open"))
       .orderBy(asc(proposals.draftedAt), asc(proposals.id));
-    return rows.map(({ proposal, homeKind, homeId }) => ({
+    return rows.map(({ proposal, homeKind, homeId, roleKey, consultation }) => ({
       proposal: toProposal(proposal),
-      home: toHome(homeKind, homeId),
+      thread: { home: toHome(homeKind, homeId), roleKey, consultation: consultation ?? undefined },
     }));
   }
 
@@ -482,10 +493,16 @@ export class PostgresThreadRepository extends ThreadRepository {
         .for("update");
       if (!row) throw new ProposalNotFound(id);
       const changed = await change(toProposal(row));
-      const { change: proposed, status, statusAt, statusBy } = toProposalRow(changed.proposal);
+      const {
+        change: proposed,
+        status,
+        statusAt,
+        statusBy,
+        declinedBecause,
+      } = toProposalRow(changed.proposal);
       await transaction
         .update(proposals)
-        .set({ change: proposed, status, statusAt, statusBy })
+        .set({ change: proposed, status, statusAt, statusBy, declinedBecause })
         .where(eq(proposals.id, id));
       return changed;
     });
@@ -787,14 +804,22 @@ function toProposalRow({ status, ...proposal }: Proposal): ProposalRow {
     status: status.kind,
     statusAt: status.kind === "open" ? null : status.at,
     statusBy: status.kind === "open" ? null : status.by,
+    declinedBecause: status.kind === "declined" ? (status.because ?? null) : null,
   };
 }
 
-function toProposal({ status, statusAt, statusBy, change, ...row }: ProposalRow): Proposal {
+function toProposal({
+  status,
+  statusAt,
+  statusBy,
+  declinedBecause,
+  change,
+  ...row
+}: ProposalRow): Proposal {
   return {
     ...row,
     change: toProposedChange(change),
-    status: toProposalStatus(status, statusAt, statusBy),
+    status: toProposalStatus(status, statusAt, statusBy, declinedBecause),
   };
 }
 
@@ -898,8 +923,10 @@ function toProposalStatus(
   kind: ProposalStatus["kind"],
   at: Date | null,
   by: UserRef | null,
+  because: ProposalDeclinedBecause | null,
 ): ProposalStatus {
   if (kind === "open") return { kind };
   if (!at) throw new Error(`A ${kind} Proposal has no time it was ${kind}.`);
+  if (kind === "declined" && because) return { kind, at, by, because };
   return { kind, at, by };
 }

@@ -12,8 +12,8 @@ import { decisions, proposals, threadMessages } from "./threads.schema.js";
  * Allow changes line, Decision answer (the user's own and one given at their request), Proposal
  * applied or declined and Office instructions version that names no user names the first user. One
  * UPDATE each, touching only what still names none, so running it again changes nothing; what an
- * Agent did names no user and stays so. The log's UPDATEs read every message of every Thread: the
- * users module runs claims until they finish once, never at each start.
+ * Agent or The Office did names no user and stays so. The log's UPDATEs read every message of every
+ * Thread: the users module runs claims until they finish once, never at each start.
  */
 @Injectable()
 export class ConversationsEarlierRecords implements OnModuleInit {
@@ -54,7 +54,7 @@ export class ConversationsEarlierRecords implements OnModuleInit {
       );
       await transaction.execute(
         sql`update ${proposals} set ${sql.identifier(proposals.statusBy.name)} = ${user}
-          where ${proposals.status} <> 'open' and ${proposals.statusBy} is null`,
+          where ${proposals.status} <> 'open' and ${proposals.statusBy} is null and ${proposals.declinedBecause} is null`,
       );
       await transaction.execute(
         sql`update ${officeInstructionsVersions} set ${sql.identifier(officeInstructionsVersions.savedBy.name)} = ${user}

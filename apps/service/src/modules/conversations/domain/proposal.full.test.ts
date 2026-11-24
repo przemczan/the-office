@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ProposalApplied, ProposalDeclined, ProposalDrafted } from "./conversation-events.js";
 import {
   changeToApply,
+  proposalTargets,
   proposedChangeProblems,
   proposedRoleChange,
   type ProposedChange,
@@ -150,5 +151,55 @@ describe("declining a Proposal", () => {
 
     expect(proposal).toEqual({ ...aProposal(), status: { kind: "declined", at: AT, by: ANN_LEE } });
     expect(event).toBeInstanceOf(ProposalDeclined);
+  });
+});
+
+/** A Proposal of Project `projectId`'s commands that sets its install command and `keys`. */
+function commands(projectId: string, keys: readonly string[]): ProposedChange {
+  return {
+    kind: "project-commands",
+    projectId,
+    changes: {
+      installCommand: { from: "", to: "npm ci" },
+      commands: keys.map((key) => ({
+        key,
+        from: null,
+        to: { name: key, kind: "test", commandLine: `npm run ${key}`, rerunCommandLine: "" },
+      })),
+    },
+  };
+}
+
+describe("what a Proposal changes", () => {
+  it("names each of a Project's commands and fields it changes, by Project", () => {
+    expect(proposalTargets(commands("a", ["test", "lint"]))).toEqual([
+      "project-commands:a:installCommand",
+      "project-command:a:test",
+      "project-command:a:lint",
+    ]);
+    expect(proposalTargets(commands("b", ["test"]))).toEqual([
+      "project-commands:b:installCommand",
+      "project-command:b:test",
+    ]);
+  });
+
+  it("names each field of a Role's card it changes", () => {
+    const change = proposedRoleChange("tester", aProposedCard(), { taskLimit: 2 });
+
+    expect(proposalTargets(change)).toEqual(["role:tester:taskLimit"]);
+  });
+
+  it("is none for a Proposal that adds something new", () => {
+    expect(
+      proposalTargets({ kind: "hire", card: aProposedCard(), skills: [], roleKey: undefined }),
+    ).toEqual([]);
+    expect(
+      proposalTargets({
+        kind: "skill",
+        name: "notes",
+        description: "Notes.",
+        instructions: "Write.",
+      }),
+    ).toEqual([]);
   });
 });

@@ -270,7 +270,14 @@ export function toProposalResponse({
     status:
       status.kind === "open"
         ? status
-        : { kind: status.kind, at: status.at.toISOString(), by: status.by },
+        : status.kind === "applied"
+          ? { kind: status.kind, at: status.at.toISOString(), by: status.by }
+          : {
+              kind: status.kind,
+              at: status.at.toISOString(),
+              by: status.by,
+              because: status.because ?? null,
+            },
   };
 }
 

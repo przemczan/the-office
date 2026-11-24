@@ -84,6 +84,7 @@ import { MentionedRecords } from "./application/mentioned-records.js";
 import { OfficeInstructions } from "./application/office-instructions.js";
 import { ProposalAppliers } from "./application/proposal-appliers.js";
 import { ProposalService } from "./application/proposal-service.js";
+import { ClosedConsultationProposals } from "./application/closed-consultation-proposals.js";
 import { ProjectCommandProposals } from "./application/project-command-proposals.js";
 import { TestTargetProposals } from "./application/test-target-proposals.js";
 import { ActionProposals } from "./application/action-proposals.js";
@@ -211,6 +212,7 @@ export class ConversationsModule implements NestModule {
         TaskTokens,
         ProposalAppliers,
         ProposalService,
+        ClosedConsultationProposals,
         RoleProposals,
         ProjectCommandProposals,
         TestTargetProposals,
