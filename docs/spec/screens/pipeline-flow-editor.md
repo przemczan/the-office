@@ -215,7 +215,7 @@ Covers: the Pipeline flow editor shared by Settings › Pipelines, a Project's P
   - Problems (a warning alert titled "The Pipeline can't be saved yet", "These Stages can't be saved yet" for Edit for this Task, or "The Stage template can't be saved yet"): they hold Save. Each on a Stage is a link that picks where it is (a Stage, a route, a test) and scrolls to the panel.
   - Warnings (an info alert "Worth a look, though it doesn't hold Save"), such as a Role nobody fills.
 - Problems of the routes, among the [Validation](../2.3.2-flows.md#validation) rules:
-  - "<Stage>: the loop <A → B → A> has no route with a limit, so it could run for ever: give one of its routes a limit."
+  - "<Stage>: the loop <A → B → A> has no route with a limit, so it could run for ever."
   - "<Stage>: no path of routes leads from it to End."
 - A warning: "Publish: no route takes Conflict, so a conflict asks you." (by the Publish Stage's name).
 - Beside the service's check, the editor refuses on its own a condition group with no test: "Stage N · <name>: its route to <target> has a group with no test yet: add a test, or remove the group."

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { asFlow, straightLineFlow, type FlowStage } from "./flow.js";
-import { ENDED_FAILED, plainRoute, type Route } from "./route.js";
+import { ENDED_FAILED, plainRoute, ROUTE_LIMIT_MAX, type Route } from "./route.js";
 import { withRoutesBack, type KeptStage } from "./routes-back.js";
 import { agentStage, scriptStage } from "./stage.fixtures.js";
 
@@ -41,6 +41,17 @@ describe("withRoutesBack", () => {
     const [, read] = withRoutesBack([...straightLineFlow([implement]), kept]);
 
     expect(read?.routes).toEqual([BACK_TO_IMPLEMENT, own, plainRoute(null)]);
+  });
+
+  it("reads rounds above the most a route's limit is as that most, as only the old editor capped them", () => {
+    const [, read] = withRoutesBack(
+      straightLineFlow([
+        implement,
+        { ...keptTests, onFailure: { goBackTo: "implement", rounds: 12 } },
+      ]),
+    );
+
+    expect(read?.routes[0]).toEqual({ ...BACK_TO_IMPLEMENT, limit: ROUTE_LIMIT_MAX });
   });
 
   it("leaves a Stage without a kept setting as it was", () => {

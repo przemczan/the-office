@@ -221,12 +221,15 @@ export class ProposalAppliers {
 
   /**
    * The change as its card shows it, by the module that owns its kind: Pipelines reads the Stages
-   * and routes of a Proposal a previous release kept as it applies them.
+   * and routes of a Proposal a previous release kept as it applies them, a Stage template's Stage
+   * among them.
    */
   shown(change: ProposedChange): ProposedChange {
     switch (change.kind) {
       case "pipeline":
         return this.appliers.pipeline?.shown?.(change) ?? change;
+      case "stage-template":
+        return this.appliers["stage-template"]?.shown?.(change) ?? change;
       case "project-pipeline":
         return this.appliers["project-pipeline"]?.shown?.(change) ?? change;
       default:

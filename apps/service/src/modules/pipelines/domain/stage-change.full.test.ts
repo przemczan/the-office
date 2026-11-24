@@ -226,6 +226,61 @@ describe("buildStages, the rules on the built Stages", () => {
     ]);
   });
 
+  it("keeps a route back going back to its Stage when a Stage is inserted before that one", () => {
+    const built = buildStages(DOCUMENT, [
+      { kind: "insert-before", stageKey: "produce", stage: gate({ key: "plan", name: "Plan" }) },
+    ]);
+
+    expect(built.stages.map(({ key, routes }) => [key, routes])).toEqual([
+      ["plan", [plainRoute("produce")]],
+      ["produce", [plainRoute("check")]],
+      [
+        "check",
+        [{ to: "produce", toName: "Produce", condition: ENDED_FAILED, limit: 2 }, plainRoute(null)],
+      ],
+    ]);
+  });
+
+  it("keeps a Stage's route back before the routes a Change routes gives it", () => {
+    const built = buildStages(DOCUMENT, [
+      { kind: "change-routes", stageKey: "check", routes: [whenDone(null, "produce")] },
+    ]);
+
+    expect(built.stages[1]?.routes).toEqual([
+      { to: "produce", toName: "Produce", condition: ENDED_FAILED, limit: 2 },
+      whenDone(null, "produce"),
+    ]);
+  });
+
+  it("finds the route back of a base read through asFlow, as the library gives it", () => {
+    const read = { ...DOCUMENT, stages: asFlow(DOCUMENT.stages) };
+
+    const built = buildStages(read, [
+      {
+        kind: "insert-after",
+        stageKey: "check",
+        stage: scriptStage({ key: "lint", name: "Lint" }),
+      },
+      {
+        kind: "change",
+        stageKey: "check",
+        fields: { onFailure: { goBackTo: "produce", rounds: 1 } },
+      },
+    ]);
+
+    expect(built.stages.map(({ key, routes }) => [key, routes])).toEqual([
+      ["produce", [plainRoute("check")]],
+      [
+        "check",
+        [
+          { to: "produce", toName: "Produce", condition: ENDED_FAILED, limit: 1 },
+          plainRoute("lint"),
+        ],
+      ],
+      ["lint", [plainRoute(null)]],
+    ]);
+  });
+
   it("is Broken with nothing left to run", () => {
     const built = buildStages(DOCUMENT, [
       { kind: "remove", stageKey: "produce" },

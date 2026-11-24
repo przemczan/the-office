@@ -19,9 +19,10 @@ export interface RemoteBranch {
 }
 
 /**
- * How Resolve's merge began (spec §2.3, "Conflicts at Publish"): the fetched base merged into the
- * Task's branch with the conflicted files left in the worktree for the Agent; merged cleanly, as
- * the base moved on past the conflict; or a failure, such as a fetch git refused.
+ * How Resolve's merge began (spec §2.3.1, "An Agent Stage may merge the base first"): the fetched
+ * base merged into the Task's branch with the conflicted files left in the worktree for the Agent;
+ * merged cleanly, as the base moved on past the conflict; or a failure, such as a fetch git
+ * refused.
  */
 export type ResolveStart =
   | {

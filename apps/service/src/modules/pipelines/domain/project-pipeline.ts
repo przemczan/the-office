@@ -229,10 +229,13 @@ export function copiedProjectPipeline(
 /**
  * A Project Pipeline as the user saved it, which `projectPipelineEditProblems` allowed: its Project
  * and where it was copied from stay, and a save, even unchanged, ends its Broken before the update.
+ * A save the user made elsewhere (`keepsBroken`, a template's edit applied) keeps it, as only their
+ * save in its editor ends it.
  */
 export function savedProjectPipeline(
   saved: ProjectPipeline,
   { name, description, stages }: ProjectPipelineEdit,
+  { keepsBroken = false }: { readonly keepsBroken?: boolean } = {},
 ): { readonly projectPipeline: ProjectPipeline; readonly event: PipelineSaved } {
   return {
     projectPipeline: {
@@ -240,7 +243,7 @@ export function savedProjectPipeline(
       name: name.trim(),
       description: description.trim(),
       stages: flowInOrder(stages),
-      brokenBeforeUpdate: null,
+      brokenBeforeUpdate: keepsBroken ? saved.brokenBeforeUpdate : null,
     },
     event: new PipelineSaved(saved.id),
   };

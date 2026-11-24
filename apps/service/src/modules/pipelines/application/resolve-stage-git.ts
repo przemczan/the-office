@@ -10,7 +10,9 @@ import {
   resolveBrief,
   resolvedByTheUser,
 } from "../domain/merge-base-first.js";
+import type { Stage } from "../domain/stage.js";
 import type { ExpectedHead } from "../domain/stage-commit.js";
+import { discardsEdits } from "../domain/stage-interruption.js";
 import type { StageOutcome, StageRun } from "../domain/stage-run.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { TaskGit } from "../ports/task-git.js";
@@ -76,7 +78,9 @@ export class ResolveStageGit {
    * Merges the freshly fetched base into the Task's branch as the Stage starts. A run the walk
    * brought back after its merge was committed merges only what the base gained since, and is
    * briefed with why it came back; one whose previous run the user answered with "I resolved it in
-   * the worktree" only commits the merge.
+   * the worktree" only commits the merge. A run going on with a held run whose Agent's edits stay
+   * in the worktree merges nothing new: a merge in progress is taken as it is, and a committed one
+   * stays, as merging the base again over those edits could be refused.
    */
   async begin(
     { stage, run, stages, earlierRuns }: StageWork<"agent">,
@@ -99,6 +103,18 @@ export class ResolveStageGit {
         : broughtBack === "send-back"
           ? prompts.render(RESOLVE_AFTER_GATE, {})
           : undefined;
+    // A held run's merge, committed under its Agent's kept edits: git could refuse another over them.
+    if (
+      goesOnWithKeptEdits(stage, earlierRuns) &&
+      !(await this.git.mergeInProgress(task.project.id, run.taskId))
+    ) {
+      const committed =
+        broughtBack === undefined
+          ? prompts.render(MERGE_BASE_CLEAN, { baseBranch: baseWords(task) })
+          : undefined;
+      return { kind: "agent", brief: sections(why, committed), merging: false, expected };
+    }
+    // A merge in progress, as a held run's conflicted one, is taken as it is.
     const start = await this.publishing.startResolve(task.project.id, run.taskId);
     switch (start.kind) {
       case "failed":
@@ -161,6 +177,22 @@ export class ResolveStageGit {
       ...(result.handoverNote !== undefined && { handoverNote: result.handoverNote }),
     };
   }
+}
+
+/**
+ * Whether the run goes on with held runs of the same Stage, just before it, one of which began its
+ * Agent's turn, after its merge, and kept its edits (a Pause, the fire alarm, a used-up usage window
+ * or a restart; a Stop discards them, leaving the worktree clean for a merge).
+ */
+function goesOnWithKeptEdits(stage: Stage, earlierRuns: readonly StageRun[]): boolean {
+  for (const earlier of earlierRuns.toReversed()) {
+    const { outcome } = earlier;
+    if (earlier.stageKey !== stage.key || outcome?.status !== "failed") return false;
+    if (!outcome.interrupted || discardsEdits(outcome.interrupted)) return false;
+    // A run held before its Agent's turn, which opens its Thread, left no edits of its own.
+    if (earlier.threadId !== undefined) return true;
+  }
+  return false;
 }
 
 function sections(...parts: readonly (string | undefined)[]): string {

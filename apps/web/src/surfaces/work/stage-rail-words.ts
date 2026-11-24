@@ -1,5 +1,6 @@
 import type { Role, Stage, TaskStage, TaskState } from "@the-office/contracts";
 import { DUTY_LABELS } from "../../shell/duty-words.ts";
+import { isRouteBack } from "../../shell/pipelines/flow/flow-model.ts";
 import { stageWorker } from "../../shell/pipelines/stage-edits.ts";
 import { shortDurationWords } from "../../shell/time.ts";
 import { NO_TOKENS } from "../../shell/token-words.ts";
@@ -158,7 +159,7 @@ export function railRunsWords(
   return `${count} · ${time}${state === "running" ? " so far" : ""}`;
 }
 
-/** The trips back from a failing Stage to an earlier one, at its height among the rail's arcs. */
+/** The trips back along a route from a Stage to an earlier one, at its height among the rail's arcs. */
 export interface LoopBack {
   readonly from: string;
   readonly to: string;
@@ -166,37 +167,33 @@ export interface LoopBack {
   readonly toIndex: number;
   /** How many times the work went back, which a resumed run doesn't add to. */
   readonly count: number;
-  /** How many it may, with any rounds the user allowed since; null for a route with No limit. */
-  readonly rounds: number | null;
+  /** How many it may, with any times the user allowed since; null for a route with No limit. */
+  readonly limit: number | null;
   /** The lowest height, from 0, free of the loops it overlaps; a shorter one sits under a longer. */
   readonly level: number;
 }
 
 /**
- * The rail's loop-backs, from the runs' `carriedFailure`. A run counts as a trip when the failing
- * Stage ran just before it: a run resumed after a Decision or a Pause carries the same failure. A
- * Stage the user let run again in place goes nowhere to draw, and a Gate's send-back is no loop.
+ * The rail's loop-backs, from the route each run was left by (`route`) where it leads back: a
+ * failure route, an Agent's chosen route or any other. A run counts as a trip when the route's
+ * Stage ran just after it, so a run resumed after a Decision or a Pause, left by no route, adds
+ * none. A route back to its own Stage goes nowhere to draw, and a Gate's send-back is no route.
  */
 export function loopBacks(stages: readonly TaskStage[]): readonly LoopBack[] {
+  const flow = stages.map(({ stage }) => stage);
   const runs = stages
     .flatMap(({ stage, runs: stageRuns }) => stageRuns.map((run) => ({ key: stage.key, run })))
     .toSorted((earlier, later) => earlier.run.number - later.run.number);
   const indexOf = (key: string): number => stages.findIndex(({ stage }) => stage.key === key);
   const loops = new Map<string, Omit<LoopBack, "level">>();
-  runs.forEach(({ key: to, run: { carriedFailure } }, place) => {
-    if (!carriedFailure || runs[place - 1]?.key !== carriedFailure.stageKey) return;
-    const from = carriedFailure.stageKey;
+  runs.forEach(({ key: from, run: { route } }, place) => {
+    const to = route?.to ?? null;
+    if (!route || to === null || runs[place + 1]?.key !== to) return;
+    if (!isRouteBack(flow, from, to)) return;
     const [fromIndex, toIndex] = [indexOf(from), indexOf(to)];
     if (fromIndex <= toIndex) return;
     const count = (loops.get(`${from}>${to}`)?.count ?? 0) + 1;
-    loops.set(`${from}>${to}`, {
-      from,
-      to,
-      fromIndex,
-      toIndex,
-      count,
-      rounds: carriedFailure.rounds,
-    });
+    loops.set(`${from}>${to}`, { from, to, fromIndex, toIndex, count, limit: route.limit });
   });
   return withLevels([...loops.values()]);
 }
@@ -236,13 +233,13 @@ const ARC_LEAVES_BEFORE_PX = 4;
 const ARC_LANDS_AFTER_PX = 6;
 
 /**
- * A loop-back's square path over the rail: up from the failing Stage, across at its level's height
+ * A loop-back's square path over the rail: up from the Stage the route leaves, across at its level's height
  * and down onto the Stage the work went back to. Its ends are shares of the rail's width, so it
  * needs no measuring; `top` and `height` are pixels from the rail's top, with the markers at
  * `markerTop`.
  */
 export interface LoopBackPath {
-  /** Where it goes up, from the rail's right: a little before the failing Stage's centre. */
+  /** Where it goes up, from the rail's right: a little before the centre of the Stage it leaves. */
   readonly leaves: RailPlace;
   /** Where it comes down, from the rail's left: a little after the earlier Stage's centre. */
   readonly landsOn: RailPlace;
@@ -301,9 +298,18 @@ export function loopBackEnds(
   return [...ends.values()];
 }
 
-/** What a loop-back's mark says in full. */
-export function loopBackWords({ from, to, count, rounds }: LoopBack, names: StageNames): string {
-  const times = count === 1 ? "1 time" : `${count} times`;
-  const limit = rounds === null ? "" : `, of at most ${rounds}`;
-  return `${names(from)} failed and went back to ${names(to)} ${times}${limit}`;
+/** A loop-back's count, as its mark shows it: "2 of at most 3", or "2 times" with No limit. */
+export function loopBackMarkWords({ count, limit }: Pick<LoopBack, "count" | "limit">): string {
+  return limit === null ? timesWords(count) : `${count} of at most ${limit}`;
+}
+
+/** What a loop-back's mark says in full: "Tests went back to Implement 2 times, of at most 3". */
+export function loopBackWords({ from, to, count, limit }: LoopBack, names: StageNames): string {
+  const atMost = limit === null ? "" : `, of at most ${limit}`;
+  return `${names(from)} went back to ${names(to)} ${timesWords(count)}${atMost}`;
+}
+
+/** "1 time", "2 times". */
+export function timesWords(count: number): string {
+  return count === 1 ? "1 time" : `${count} times`;
 }

@@ -10,6 +10,7 @@ import {
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
 import {
   currentStageIndex,
+  loopBackMarkWords,
   stageWaitsForRunEnvironment,
   type LoopBack,
 } from "./stage-rail-words.ts";
@@ -236,10 +237,13 @@ export function trackStageWords(taskStage: TaskStage, who: string): string {
     : STAGE_STATE_WORDS[taskStage.state];
 }
 
-/** A loop-back in words, as a stacked track says it: "Check failed: back to Integrate, round 1 of 2". */
+/**
+ * A loop-back in words, as a stacked track says it: "Check went back to Integrate, 1 of at most 2",
+ * or "…, 2 times" for a route with No limit.
+ */
 export function stackedLoopBackWords(
-  { from, to, count, rounds }: Pick<LoopBack, "from" | "to" | "count" | "rounds">,
+  loop: Pick<LoopBack, "from" | "to" | "count" | "limit">,
   names: StageNames,
 ): string {
-  return `${names(from)} failed: back to ${names(to)}, round ${count} of ${rounds}`;
+  return `${names(loop.from)} went back to ${names(loop.to)}, ${loopBackMarkWords(loop)}`;
 }

@@ -24,6 +24,7 @@ import { PipelinePicker } from "../../shell/pipelines/pipeline-picker.tsx";
 import { asWholeFlow } from "../../shell/pipelines/flow/flow-model.ts";
 import { TaskFlowEditor } from "../../shell/pipelines/flow/task-flow-editor.tsx";
 import { byLevel, checkAwaited } from "../../shell/pipelines/stages-check.ts";
+import { unlinkedStage } from "../../shell/pipelines/template-link.ts";
 import { useProjectPipelineChoices } from "../../shell/pipelines/use-pipelines.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
@@ -107,7 +108,8 @@ function EditTaskStagesForm({
   const stagesOf = (pipelineId: string): readonly Stage[] =>
     asWholeFlow(
       (pipelineId === task.pipelineId ? taskStages.stages?.map(({ stage }) => stage) : undefined) ??
-        choiceById(groups, pipelineId)?.stages ??
+        // A Task's own Stages are copies, never linked to a Stage template.
+        choiceById(groups, pipelineId)?.stages.map(unlinkedStage) ??
         [],
     );
   // "" while a Task with no Pipeline has none chosen yet.

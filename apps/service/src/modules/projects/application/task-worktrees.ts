@@ -203,8 +203,9 @@ export class TaskWorktrees {
   }
 
   /**
-   * Resolve's start (spec §2.3, "Conflicts at Publish"): merges the freshly fetched base into the
-   * Task's branch, leaving the conflicted files in its worktree for the Task's person.
+   * Resolve's start (spec §2.3.1, "An Agent Stage may merge the base first"): merges the freshly
+   * fetched base into the Task's branch, leaving the conflicted files in its worktree for the
+   * Task's person.
    */
   async startResolve(projectId: string, taskId: string): Promise<ResolveStart> {
     return this.resolving.start(await this.projects.read(projectId), taskId);

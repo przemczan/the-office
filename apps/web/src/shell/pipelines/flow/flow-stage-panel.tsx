@@ -24,8 +24,8 @@ const MOVES: readonly { direction: MoveDirection; icon: string }[] = [
 
 /**
  * The picked Stage's panel: its place in the Pipeline's order with Move earlier, later, up and down
- * and its ⋯ menu; its link to its Stage template, if any, and its fields as the Stage form has them;
- * then Routes out. A locked Stage's (a Task's started one) reads only: its Moves disabled, no ⋯
+ * and its ⋯ menu; its link to its Stage template, if any, on a Pipeline's Stages only (`links`: a
+ * Task's own Stages are copies), and its fields as the Stage form has them; then Routes out. A locked Stage's (a Task's started one) reads only: its Moves disabled, no ⋯
  * menu.
  */
 export function FlowStagePanel(props: FlowPanelProps & { readonly stage: Stage }): ReactNode {
@@ -99,13 +99,15 @@ export function FlowStagePanel(props: FlowPanelProps & { readonly stage: Stage }
             error={saving.error}
           />
         )}
-        <FlowTemplateLine
-          stage={stage}
-          disabled={note !== undefined}
-          onChange={(changed) =>
-            onEdited({ stages: stages.map((each) => (each.key === stage.key ? changed : each)) })
-          }
-        />
+        {props.links && (
+          <FlowTemplateLine
+            stage={stage}
+            disabled={note !== undefined}
+            onChange={(changed) =>
+              onEdited({ stages: stages.map((each) => (each.key === stage.key ? changed : each)) })
+            }
+          />
+        )}
         <FlowLockedFields note={note}>
           <StageForm
             stages={stages}

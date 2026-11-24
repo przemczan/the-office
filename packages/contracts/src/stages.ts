@@ -72,7 +72,7 @@ export type StageTestOutcome = z.infer<typeof stageTestOutcomeSchema>;
 const testedStageFields = {
   /** The key of the Stage it tests; null is the route's own Stage, the one the walk just left. */
   stage: z.string().min(1).nullable(),
-  /** The tested Stage's name when it was last saved, for its words alone, as a Stage change keeps. */
+  /** The tested Stage's name when it was last saved, for its words alone. */
   stageName: z.string().optional(),
 };
 
@@ -154,8 +154,9 @@ const stageFields = {
    */
   optional: z.boolean(),
   /**
-   * Its routes out, in the order the walk weighs them. Absent only on a Stage template and a Stage a
-   * Stage change gives; a Pipeline's and a Task's Stages always carry them.
+   * Its routes out, in the order the walk weighs them. Absent only on a Stage template's Stage and
+   * on Stages given as a plain list, read as a straight line; a Pipeline's and a Task's Stages
+   * always carry them.
    */
   routes: z.array(routeSchema).optional(),
   /** Absent where `routes` is. */

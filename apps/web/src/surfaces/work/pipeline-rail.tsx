@@ -29,6 +29,7 @@ import {
   loopBackEnds,
   loopBackPath,
   loopBacks,
+  loopBackMarkWords,
   loopBackWords,
   railCaption,
   railRunsWords,
@@ -384,8 +385,9 @@ function useCurrentStageInView(
 }
 
 /**
- * The line across of a loop-back from the failing Stage to where the work went back, between two
- * `LoopBackArcEnd`s it may share with other loop-backs; its mark selects the failing Stage.
+ * The line across of a loop-back from the Stage a route back leaves to where the work went back,
+ * between two `LoopBackArcEnd`s it may share with other loop-backs; its mark selects the Stage it
+ * leaves.
  */
 function LoopBackArc({
   loop,
@@ -411,8 +413,7 @@ function LoopBackArc({
         title={words}
         onClick={onSelect}
       >
-        ↺ {loop.count}
-        {loop.rounds !== null && ` of ${loop.rounds}`}
+        {loopBackMarkWords(loop)}
       </button>
     </div>
   );

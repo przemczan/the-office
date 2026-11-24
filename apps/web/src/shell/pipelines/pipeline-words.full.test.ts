@@ -1,4 +1,4 @@
-import type { Duty, Role, Stage } from "@the-office/contracts";
+import type { ConditionGroup, Duty, Role, Stage } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import { stageChanges, stageFieldChanges, stagesLine, whoWorks } from "./pipeline-words.ts";
 
@@ -8,6 +8,53 @@ const PUBLISH: Stage = { kind: "publish", key: "publish", name: "Publish", optio
 describe("stagesLine", () => {
   it("joins the Stages' names in order", () => {
     expect(stagesLine({ stages: [LOOK, PUBLISH] })).toBe("Look → Publish");
+  });
+
+  it("leaves out the conflict chain's Stages, which run only after a conflict", () => {
+    const conflict: ConditionGroup = {
+      combine: "all",
+      tests: [{ kind: "stage", stage: null, is: "conflict" }],
+    };
+    const implement: Stage = {
+      kind: "agent",
+      key: "implement",
+      name: "Implement",
+      optional: false,
+      role: "developer",
+      brief: "",
+      session: "fresh",
+      budget: 1000,
+      place: { column: 0, row: 0 },
+      routes: [{ to: "publish", condition: null, limit: null }],
+    };
+    const resolve: Stage = {
+      ...implement,
+      key: "office:resolve",
+      name: "Resolve",
+      place: { column: 1, row: 1 },
+      routes: [{ to: "office:test-after-resolve", condition: null, limit: null }],
+    };
+    const testAfterResolve: Stage = {
+      kind: "script",
+      key: "office:test-after-resolve",
+      name: "Test after Resolve",
+      optional: false,
+      command: "test",
+      place: { column: 2, row: 1 },
+      routes: [{ to: "publish", condition: null, limit: null }],
+    };
+    const publish: Stage = {
+      ...PUBLISH,
+      place: { column: 3, row: 0 },
+      routes: [
+        { to: "office:resolve", condition: conflict, limit: 3 },
+        { to: null, condition: null, limit: null },
+      ],
+    };
+
+    expect(stagesLine({ stages: [implement, resolve, testAfterResolve, publish] })).toBe(
+      "Implement → Publish",
+    );
   });
 });
 

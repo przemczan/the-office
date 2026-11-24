@@ -97,7 +97,7 @@ export class PostgresProjectPipelineRepository extends ProjectPipelineRepository
       const { id, name, description } = projectPipeline;
       await this.database
         .update(projectPipelines)
-        .set({ name, description, ...flowColumnsOf(projectPipeline), brokenBeforeUpdate: null })
+        .set({ name, description, ...flowColumnsOf(projectPipeline) })
         .where(eq(projectPipelines.id, id));
     });
   }

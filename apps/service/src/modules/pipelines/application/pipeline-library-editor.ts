@@ -249,15 +249,23 @@ export class PipelineLibraryEditor {
     });
   }
 
-  /** Saves the Project Pipeline's edit; its Project stays. A save ends its Broken before the update. */
-  async saveProjectPipeline(id: string, edit: ProjectPipelineEdit): Promise<ProjectPipeline> {
+  /**
+   * Saves the Project Pipeline's edit; its Project stays. A save ends its Broken before the update,
+   * but one with `keepsBroken` (a template's edit applied to it, spec §2.3.5), which the user didn't
+   * make in its editor.
+   */
+  async saveProjectPipeline(
+    id: string,
+    edit: ProjectPipelineEdit,
+    { keepsBroken = false }: { readonly keepsBroken?: boolean } = {},
+  ): Promise<ProjectPipeline> {
     return this.changes.run(LIBRARY, async () => {
       const saved = await this.projectPipelines.find(id);
       if (!saved) throw new UnknownProjectPipeline(id);
       const around = await this.around(id);
       const problems = await this.projectPipelineProblems(saved.projectId, edit, around, id);
       if (problems.length > 0) throw new StagesEditRefused(problems);
-      return this.storeProjectPipeline(saved, edit);
+      return this.storeProjectPipeline(saved, edit, keepsBroken);
     });
   }
 
@@ -454,8 +462,11 @@ export class PipelineLibraryEditor {
   private async storeProjectPipeline(
     saved: ProjectPipeline,
     edit: ProjectPipelineEdit,
+    keepsBroken = false,
   ): Promise<ProjectPipeline> {
-    const { projectPipeline, event } = savedProjectPipeline(saved, await this.withLiveLinks(edit));
+    const { projectPipeline, event } = savedProjectPipeline(saved, await this.withLiveLinks(edit), {
+      keepsBroken,
+    });
     await this.projectPipelines.save(projectPipeline);
     await this.events.publish(event);
     return projectPipeline;

@@ -783,6 +783,125 @@ describe("nextMove", () => {
       });
     });
 
+    it("replays an older Task's chain runs onto the chain of the second Publish, which went to Resolve first", () => {
+      const ship = { ...scriptStage("ship"), command: "publish" } as KeptStage;
+      const twoPublishes = [agentStage("write"), keptPublish(), scriptStage("check"), ship];
+      const older: readonly Ran[] = [
+        ["write", done],
+        ["publish", done],
+        ["check", done],
+        ["ship", conflicted],
+        [RESOLVE_KEY, done],
+        [RESOLVE_TEST_KEY, failed("1 test fails.")],
+        [RESOLVE_KEY, done],
+      ];
+
+      expect(nextMove(twoPublishes, runs(...older), NO_DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: { key: `${RESOLVE_TEST_KEY}-2` },
+      });
+      const shipped = runs(
+        ...older,
+        [`${RESOLVE_TEST_KEY}-2`, done],
+        ["ship", conflicted],
+        [`${RESOLVE_KEY}-2`, done],
+        [`${RESOLVE_TEST_KEY}-2`, done],
+        ["ship", done],
+      );
+      expect(nextMove(twoPublishes, shipped, NO_DEFINITION_OF_DONE)).toEqual({ move: "complete" });
+      expect(routeCounts(twoPublishes, shipped, "ship", [])).toEqual([]);
+      const conflictRoute = pipelineOrder(asFlow(twoPublishes))
+        .find(({ key }) => key === "ship")
+        ?.routes.find(({ to }) => to === `${RESOLVE_KEY}-2`);
+      if (!conflictRoute) throw new Error("No Conflict route was drawn for the second Publish.");
+      expect(routeCounts(twoPublishes, shipped, "ship", [conflictRoute])).toEqual([
+        { times: 2, limit: CONFLICT_ROUTE_LIMIT },
+      ]);
+    });
+
+    describe("sent back out of the conflict chain", () => {
+      const testFailed = failed("1 test fails.");
+      /** The Test after Resolve's route back used up, then sent back to the write as answered. */
+      const sentBackFromTest: readonly Ran[] = [
+        ["write", meeting(1)],
+        ["check", done],
+        ["publish", conflicted],
+        [RESOLVE_KEY, done],
+        [RESOLVE_TEST_KEY, testFailed],
+        [RESOLVE_KEY, done],
+        [RESOLVE_TEST_KEY, testFailed],
+        [RESOLVE_KEY, done],
+        [
+          RESOLVE_TEST_KEY,
+          testFailed,
+          decided("no-retries-left", { kind: "send-back", to: "write", guidance: undefined }),
+        ],
+      ];
+      /** The resolved conflict's Gate sending the work back to the write. */
+      function sentBackFromGate(...after: readonly Ran[]): StageRun[] {
+        return runs(
+          ["write", meeting(1)],
+          ["check", done],
+          ["publish", conflicted],
+          [RESOLVE_KEY, done],
+          [RESOLVE_TEST_KEY, done],
+          [RESOLVE_GATE_KEY, done],
+          ...after,
+        ).map((run) =>
+          run.stageKey === RESOLVE_GATE_KEY
+            ? { ...run, gateAction: { kind: "send-back", stageKey: "write", feedback: "Smaller." } }
+            : run,
+        );
+      }
+
+      it("offers the write as the Test after Resolve's send-back, the walk going on from there", () => {
+        const asked = runs(...sentBackFromTest.slice(0, -1), [RESOLVE_TEST_KEY, testFailed]);
+        expect(nextMove(pipeline, asked, DEFINITION_OF_DONE)).toMatchObject({
+          move: "ask",
+          question: { kind: "no-retries-left", sendBackTo: { key: "write" } },
+        });
+        expect(nextMove(pipeline, runs(...sentBackFromTest), DEFINITION_OF_DONE)).toMatchObject({
+          move: "run",
+          stage: { key: "write" },
+          carriedFailure: { stageKey: RESOLVE_TEST_KEY },
+        });
+      });
+
+      it("checks the Definition of Done again at Publish after a send-back from a failure or the Gate", () => {
+        const fromTest = runs(...sentBackFromTest, ["write", meeting(1)], ["check", done]);
+        const fromGate = sentBackFromGate(["write", meeting(1)], ["check", done]);
+
+        for (const ran of [fromTest, fromGate]) {
+          expect(nextMove(pipeline, ran, DEFINITION_OF_DONE)).toMatchObject({
+            move: "ask",
+            run: { id: ran.at(-1)?.id },
+            question: {
+              kind: "definition-of-done",
+              again: { key: "write" },
+              before: { key: "publish" },
+            },
+          });
+        }
+      });
+
+      it("asks a later failure with no failure route as no retries left, not as the conflict", () => {
+        const fromTest = runs(...sentBackFromTest, ["write", done], ["check", failed("It broke.")]);
+        const fromGate = sentBackFromGate(["write", done], ["check", failed("It broke.")]);
+
+        for (const ran of [fromTest, fromGate]) {
+          expect(nextMove(pipeline, ran, DEFINITION_OF_DONE)).toMatchObject({
+            move: "ask",
+            run: { id: ran.at(-1)?.id },
+            question: {
+              kind: "no-retries-left",
+              stage: { key: "check" },
+              sendBackTo: { key: "write" },
+            },
+          });
+        }
+      });
+    });
+
     it("asks to publish again or drop when no route takes Conflict, and publishes again as answered", () => {
       const noChain = [agentStage("write"), publishOf("publish")];
       const conflict: StageOutcome = { ...conflicted, publishResult: "conflict" };

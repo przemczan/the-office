@@ -161,6 +161,12 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - A refusal shows as "The Pipeline wasn't set".
 - Each choice ends the proposal.
 
+## Broken Pipeline flag
+
+- A Task that hasn't started, on a Project Pipeline that was Broken before The Office updated and isn't saved since, with no Stages edited for it, can't start ([2.3.5](../2.3.5-library.md#the-move-to-routes-back-and-publish-stages)).
+- At the rail's foot, before the proposal, a warning "<name> was Broken before The Office updated" with why, "The Task can't start until it is saved in <Project>'s Pipelines, or another Pipeline is chosen for it.", and **Choose another Pipeline**, which opens Edit for this Task.
+- Rules: [2.3.5](../2.3.5-library.md).
+
 ## Edit for this Task
 
 - Window "Stages of <Task>" (one height, large); for a Task with no Pipeline "Choose a Pipeline for <Task>".
@@ -221,7 +227,7 @@ Covers: the Task page's head and actions, the Kind, the drop note, Start and the
 - Each unmet line says where it is settled and links there:
   - Plan: "Write it" or "Confirm it" "on the Plan" (shows Overview, opens the block and scrolls to it);
   - Definition of Done: the same, "on the Definition of Done";
-  - Pipeline: "<Planner> proposes <name> · confirm it on the rail", "Choose a Pipeline on the rail", ending ": <name> is the default for <Bugs|Features|Chores>" when the Task's Kind has a default of its own (Backlog), "<Planner> proposes one while planning", or "<name>, which can't be chosen · choose another on the rail";
+  - Pipeline: "<Planner> proposes <name> · confirm it on the rail", "Choose a Pipeline on the rail", ending ": <name> is the default for <Bugs|Features|Chores>" when the Task's Kind has a default of its own (Backlog), "<Planner> proposes one while planning", or, for a current or proposed Pipeline that can't be chosen, "<name>, which was Broken before The Office updated · choose another on the rail" ("<Planner> proposes <name>, which …" when proposed; [Broken Pipeline flag](#broken-pipeline-flag));
   - Decisions: "<n> open, in Needs you".
 
 ## Gate

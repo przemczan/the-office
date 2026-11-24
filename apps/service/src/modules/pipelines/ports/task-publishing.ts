@@ -17,9 +17,9 @@ export abstract class TaskPublishing {
   ): Promise<Publication>;
 
   /**
-   * Resolve's start (spec §2.3, "Conflicts at Publish"): merges the freshly fetched base into the
-   * Task's branch, leaving the conflicted files in its worktree for the Task's person to edit. A
-   * merge already in progress there is taken as it is.
+   * Resolve's start (spec §2.3.1, "An Agent Stage may merge the base first"): merges the freshly
+   * fetched base into the Task's branch, leaving the conflicted files in its worktree for the
+   * Task's person to edit. A merge already in progress there is taken as it is.
    */
   abstract startResolve(projectId: string, taskId: string): Promise<ResolveStart>;
 

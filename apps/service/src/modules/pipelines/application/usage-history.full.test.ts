@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
 import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
+import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
 import {
   EngineModule,
   ModelPrices,
@@ -36,7 +37,8 @@ describe("UsageHistory", () => {
     const engineModule = ScriptedEngineModule.register(new ScriptedEngine([]));
     ({ app } = await startTestApplication({
       database: true,
-      imports: [EventsModule, TelemetryModule, engineModule, UsageHistoryModule],
+      // Prompt templates, which UsageHistoryModule imports, forward their changes to the web.
+      imports: [EventsModule, EventStreamModule, TelemetryModule, engineModule, UsageHistoryModule],
       moduleOverrides: [{ module: EngineModule, useModule: engineModule }],
       overrides: [{ provide: ModelPrices, useValue: modelPrices }],
     }));

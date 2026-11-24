@@ -267,7 +267,19 @@ describe("Devops' Proposals, through the scripted engine", () => {
     const appliedResponse = await chat.api("POST", `/proposals/${applied.id}/apply`, {});
     expect(appliedResponse.status).toBe(200);
     const saved = pipelineSchema.parse(await chat.read(`/pipelines/${pipeline.id}`));
-    expect(saved.stages.map(({ key }) => key)).toEqual(["implement", "tests", "review", "publish"]);
+    // Quick fix's conflict chain stays as it was, on its row under Publish.
+    expect(saved.stages.map(({ key }) => key)).toEqual([
+      "implement",
+      "office:resolve",
+      "tests",
+      "office:resolve-test",
+      "review",
+      "publish",
+    ]);
+    expect(saved.stages.find(({ key }) => key === "publish")?.routes?.map(({ to }) => to)).toEqual([
+      "office:resolve",
+      null,
+    ]);
     expect(saved.stages.find(({ key }) => key === "tests")?.routes).toEqual(
       applied.change.routes?.stages[0]?.to,
     );
@@ -1534,7 +1546,11 @@ async function aPipeline(): Promise<Pipeline> {
   return pipelineSchema.parse(await response.json());
 }
 
-/** The Stages with a Lint Stage before the last. */
+/**
+ * The Stages of the main line, with a Lint Stage before the last, as a plain list. The conflict
+ * chain, on its own row under its Publish, is left out: a plain list is a straight line, where its
+ * Stages would run every time.
+ */
 function withLint(stages: readonly Stage[]): Stage[] {
   const lint: Stage = {
     kind: "script",
@@ -1543,7 +1559,7 @@ function withLint(stages: readonly Stage[]): Stage[] {
     optional: false,
     command: "lint",
   };
-  const plain = asPlainList(stages);
+  const plain = asPlainList(stages.filter(({ place }) => (place?.row ?? 0) === 0));
   return [...plain.slice(0, -1), lint, ...plain.slice(-1)];
 }
 

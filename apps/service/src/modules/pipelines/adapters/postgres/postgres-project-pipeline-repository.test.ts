@@ -178,7 +178,7 @@ describe("PostgresProjectPipelineRepository", () => {
     expect((await repository.find(orphan.id))?.brokenBeforeUpdate).toHaveLength(1);
   });
 
-  it("moves a legacy row over once, and a save ends its Broken flag", async () => {
+  it("moves a legacy row over once, and a save writes its Broken flag as given", async () => {
     const repository = new PostgresProjectPipelineRepository(database);
     const legacy = await aLegacyRow(randomUUID(), []);
     expect(await repository.rowsToMoveOver()).toContainEqual(legacy);
@@ -192,12 +192,15 @@ describe("PostgresProjectPipelineRepository", () => {
     await repository.moveOver({ ...moved, stages: straightLineFlow([agentStage()]) });
     expect(await repository.find(legacy.id)).toEqual(moved);
 
-    const edit = {
+    // Ending it is the user's save (`savedProjectPipeline`); a template's edit applied keeps it.
+    const kept = {
       ...moved,
       stages: straightLineFlow([agentStage()]),
       brokenBeforeUpdate: ["Still broken."],
     };
-    await repository.save(edit);
-    expect(await repository.find(legacy.id)).toEqual({ ...edit, brokenBeforeUpdate: null });
+    await repository.save(kept);
+    expect(await repository.find(legacy.id)).toEqual(kept);
+    await repository.save({ ...kept, brokenBeforeUpdate: null });
+    expect(await repository.find(legacy.id)).toEqual({ ...kept, brokenBeforeUpdate: null });
   });
 });

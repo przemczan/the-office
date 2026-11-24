@@ -237,6 +237,7 @@ This spec is The Office's one source of truth, and the knowledge base Agents rea
 - **Stage history**: [2.4.6 Reading the Stage history](2.4.6-reading-records.md#reading-the-stage-history); screen: [Task page › Stage history](screens/task-page.md#stage-history)
 - **Stage retry**: [2.3.2 When a Stage fails](2.3.2-flows.md#when-a-stage-fails); [2.3.2 A route's limit](2.3.2-flows.md#a-routes-limit); [2.3.2 Sending a failed Script Stage back](2.3.2-flows.md#sending-a-failed-script-stage-back)
 - **Stage template**: [2.3.5 Stage templates](2.3.5-library.md#stage-templates); screen: [Pipeline flow editor › Stage templates](screens/pipeline-flow-editor.md#stage-templates)
+- **Stages line**: [2.3.5 Library](2.3.5-library.md#library); screen: [Settings › Pipelines](screens/settings.md#pipelines)
 - **Stand-in Engine**: [5.4.6 Stand-in Engines](5.4.6-stand-in-engines-and-usage-windows.md#stand-in-engines); [5.4.6 A person's Thread switches](5.4.6-stand-in-engines-and-usage-windows.md#a-persons-thread-switches)
 - **Stand-ins of another engine type**: [5.4.6 Stand-ins of another engine type](5.4.6-stand-in-engines-and-usage-windows.md#stand-ins-of-another-engine-type); [5.4.6 A running Stage switches](5.4.6-stand-in-engines-and-usage-windows.md#a-running-stage-switches)
 - **Start anyway past the usage caps**: [2.1.5 Start anyway past the usage caps](2.1.5-planning-and-start.md#start-anyway-past-the-usage-caps); screen: [Task page › Start and the queue](screens/task-page.md#start-and-the-queue)
@@ -482,6 +483,7 @@ Where each default lives, by page:
   - [The Task's branch keeps up with the base](2.3.1-stages.md#the-tasks-branch-keeps-up-with-the-base)
   - [A branch moved outside The Office](2.3.1-stages.md#a-branch-moved-outside-the-office)
 - 2.3.2 Flows
+  - [A route's limit by default](2.3.2-flows.md#a-routes-limit-by-default)
   - [The holder of Asked first on failures](2.3.2-flows.md#the-holder-of-asked-first-on-failures)
   - [A refused turn is no failure](2.3.2-flows.md#a-refused-turn-is-no-failure)
 - 2.3.3 Gates and checks

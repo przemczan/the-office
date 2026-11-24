@@ -7,7 +7,7 @@ import { straightLineFlow } from "../domain/flow.js";
 import type { Pipeline } from "../domain/pipeline.js";
 import { PipelineLibraryModule } from "../pipeline-library.module.js";
 import { PipelineRepository } from "../ports/pipeline-repository.js";
-import { PipelineLibrary } from "./pipeline-library.js";
+import { PipelineLibrary, type ReadPipeline } from "./pipeline-library.js";
 
 // The test database is shared by every test file: these add Pipelines of their own and never change
 // the built-ins, which others read.
@@ -26,6 +26,11 @@ afterAll(async () => {
   await app.close();
 });
 
+/** A Pipeline as the library reads it, without what it adds for Work. */
+function unmarked({ broken: _broken, stages, ...pipeline }: ReadPipeline): Pipeline {
+  return { ...pipeline, stages: stages.map(({ onlyAfterConflict: _mark, ...stage }) => stage) };
+}
+
 function aPipeline(fields: Partial<Pipeline> = {}): Pipeline {
   const id = randomUUID();
   return {
@@ -43,7 +48,18 @@ describe("PipelineLibrary", () => {
 
     // Migration 0163 converted the seeded Stages to flows, and their on-failure settings read as
     // the failure routes back the built-ins now carry.
-    expect(listed.slice(0, builtInPipelines.length)).toEqual(builtInPipelines);
+    expect(listed.slice(0, builtInPipelines.length).map(unmarked)).toEqual(builtInPipelines);
+  });
+
+  it("marks the conflict chain's Stages, which run only after a conflict, and no other", async () => {
+    const full = (await library.list()).find(({ id }) => id === "full");
+    const document = await library.read("document");
+
+    expect(
+      full?.stages.flatMap(({ key, onlyAfterConflict }) => (onlyAfterConflict ? [key] : [])),
+    ).toEqual(["office:resolve", "office:resolve-test"]);
+    expect(full?.stages).toHaveLength(6);
+    expect(document?.stages.some(({ onlyAfterConflict }) => onlyAfterConflict)).toBe(false);
   });
 
   it("finds a Pipeline by its id", async () => {

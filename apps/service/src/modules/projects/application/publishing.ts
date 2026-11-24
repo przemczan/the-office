@@ -707,7 +707,9 @@ function failure(error: unknown, words: (said: string) => string): unknown {
   return error instanceof GitCommandFailed ? new PublishFailed(words(error.detail)) : error;
 }
 
-/** The branch would conflict with the base: Resolve takes it (spec §2.3, "Conflicts at Publish"). */
+/**
+ * The branch would conflict with the base: Publish ends Conflict (spec §2.3.4, "Publish's results").
+ */
 function conflicting(
   { branch, base }: { readonly branch: string; readonly base: RemoteBranch },
   conflictedFiles: readonly string[],

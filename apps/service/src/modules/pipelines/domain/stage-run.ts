@@ -81,8 +81,9 @@ export type StageOutcome = (
        */
       readonly cutShort?: true;
       /**
-       * Set on a Publish run that found the Task's branch conflicts with the base branch, which
-       * goes to Resolve rather than going back (spec §2.3, "Conflicts at Publish").
+       * Set on a Publish run that found the Task's branch conflicts with the base branch: its
+       * Conflict result, which takes the Publish Stage's Conflict route (spec §2.3.4, "Publish's
+       * results").
        */
       readonly baseMoved?: BaseMoved;
       /**

@@ -3379,12 +3379,10 @@ test("selecting a Stage opens its history window, to move between Stages and run
   const historyOf = (name: string): Locator =>
     page.getByRole("dialog", { name: new RegExp(`^Stage history: ${name}`) });
   // Tests went back once; the Gate's send-back draws nothing.
-  const loop = rail.getByRole("button", { name: /failed and went back/ });
+  const loop = rail.getByRole("button", { name: / went back to / });
   await expect(loop).toHaveCount(1);
-  await expect(loop).toHaveAccessibleName(
-    "Tests failed and went back to Implement 1 time, of at most 3",
-  );
-  await expect(loop).toHaveText("↺ 1 of 3");
+  await expect(loop).toHaveAccessibleName("Tests went back to Implement 1 time, of at most 3");
+  await expect(loop).toHaveText("1 of at most 3");
   await expect(stageButton("UI acceptance")).toHaveAttribute("aria-current", "step");
 
   // The window opens on the newest run, the Stage shown marked in the Pipeline in small.

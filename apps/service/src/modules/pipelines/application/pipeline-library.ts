@@ -1,4 +1,6 @@
 import { Injectable } from "@nestjs/common";
+import { conflictOnlyStages } from "../domain/conflict-handling.js";
+import { asFlow } from "../domain/flow.js";
 import type { Pipeline } from "../domain/pipeline.js";
 import { asPipeline, type CopiedFrom, type ProjectPipeline } from "../domain/project-pipeline.js";
 import {
@@ -6,6 +8,7 @@ import {
   commandKeysNamedBy,
   mergedWorkers,
   NO_STAGE_WORKERS,
+  type Stage,
   type StageWorkers,
 } from "../domain/stage.js";
 import { PipelineRepository } from "../ports/pipeline-repository.js";
@@ -26,11 +29,19 @@ export interface PipelineCommands {
 }
 
 /**
+ * A Stage as Work reads it: one of the conflict chain (`conflictOnlyStages`) is marked, as it runs
+ * only after a conflict and a Pipeline's Stages line leaves it out (spec §2.3.5, "Library").
+ */
+export type ReadStage = Stage & { readonly onlyAfterConflict?: true };
+
+/**
  * A Pipeline as Work reads it to plan and start a Task: an office-wide one, or a Project Pipeline
  * with its Project, where it was copied from, and why it was Broken before The Office updated,
- * which keeps it from being chosen until the user saves it.
+ * which keeps it from being chosen until the user saves it. Every Stage is there, the conflict
+ * chain's marked.
  */
 export interface ReadPipeline extends Pipeline {
+  readonly stages: readonly ReadStage[];
   /** The Project whose Project Pipeline it is; undefined for an office-wide one. */
   readonly projectId?: string;
   readonly copiedFrom?: CopiedFrom;
@@ -60,18 +71,15 @@ export class PipelineLibrary {
   ) {}
 
   /** The office-wide Pipelines only. */
-  async list(): Promise<readonly Pipeline[]> {
-    return this.repository.list();
+  async list(): Promise<readonly ReadPipeline[]> {
+    return (await this.repository.list()).map(officeWideRead);
   }
 
   /** The office-wide Pipelines, then every Project's Project Pipelines. */
   async every(): Promise<readonly ReadPipeline[]> {
     const projectPipelines = await this.projectPipelines();
     const officeWide = await this.list();
-    return [
-      ...officeWide.map((pipeline) => ({ ...pipeline, broken: [] })),
-      ...projectPipelines.map(readOf),
-    ];
+    return [...officeWide, ...projectPipelines.map(readOf)];
   }
 
   /** An office-wide Pipeline; never a Project Pipeline. */
@@ -90,7 +98,7 @@ export class PipelineLibrary {
    */
   async read(id: string): Promise<ReadPipeline | undefined> {
     const officeWide = await this.find(id);
-    if (officeWide) return { ...officeWide, broken: [] };
+    if (officeWide) return officeWideRead(officeWide);
     const projectPipeline = await this.projectPipeline(id);
     return projectPipeline && readOf(projectPipeline);
   }
@@ -99,7 +107,7 @@ export class PipelineLibrary {
   async listFor(projectId: string): Promise<readonly ReadPipeline[]> {
     const own = await this.projectPipelines(projectId);
     const officeWide = await this.list();
-    return [...own.map(readOf), ...officeWide.map((pipeline) => ({ ...pipeline, broken: [] }))];
+    return [...own.map(readOf), ...officeWide];
   }
 
   /**
@@ -159,11 +167,25 @@ export class PipelineLibrary {
   }
 }
 
+function officeWideRead(pipeline: Pipeline): ReadPipeline {
+  return { ...pipeline, stages: withConflictChainMarked(pipeline.stages), broken: [] };
+}
+
 function readOf(projectPipeline: ProjectPipeline): ReadPipeline {
+  const pipeline = asPipeline(projectPipeline);
   return {
-    ...asPipeline(projectPipeline),
+    ...pipeline,
+    stages: withConflictChainMarked(pipeline.stages),
     projectId: projectPipeline.projectId,
     copiedFrom: projectPipeline.copiedFrom,
     broken: projectPipeline.brokenBeforeUpdate ?? [],
   };
+}
+
+/** The Stages, each of the conflict chain marked `onlyAfterConflict`. */
+function withConflictChainMarked(stages: readonly Stage[]): readonly ReadStage[] {
+  const chain = conflictOnlyStages(asFlow(stages));
+  return stages.map((stage) =>
+    chain.has(stage.key) ? { ...stage, onlyAfterConflict: true as const } : stage,
+  );
 }

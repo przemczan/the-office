@@ -9,11 +9,11 @@ import { TaskBases } from "./task-bases.js";
 import { Worktrees } from "./worktrees.js";
 
 /**
- * The git of Resolve (spec §2.3, "Conflicts at Publish"; §5.5): The Office merges the Task's
- * freshly fetched bases into its branch in its worktree, its Initiative's branch first when it has
- * one, then the base branch, each one merge commit rather than a rebase stop by stop, and leaves
- * the first conflict's files for the Task's person, who edits files only; then it commits the
- * merge once no conflict marker remains, or gives the worktree back as it was.
+ * The git of Resolve (spec §2.3.1, "An Agent Stage may merge the base first"; §5.5): The Office
+ * merges the Task's freshly fetched bases into its branch in its worktree, its Initiative's branch
+ * first when it has one, then the base branch, each one merge commit rather than a rebase stop by
+ * stop, and leaves the first conflict's files for the Task's person, who edits files only; then it
+ * commits the merge once no conflict marker remains, or gives the worktree back as it was.
  */
 @Injectable()
 export class Resolving {

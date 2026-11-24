@@ -4,7 +4,14 @@
  * `movedProjectPipeline`, which builds a legacy row's flow once; nothing else reads Stage changes.
  */
 import type { DutyKey } from "../../people/index.js";
-import { asFlow, comparePlaces, pipelineOrder, straightLineFlow, type FlowStage } from "./flow.js";
+import {
+  asFlow,
+  comparePlaces,
+  isRouteBack,
+  pipelineOrder,
+  straightLineFlow,
+  type FlowStage,
+} from "./flow.js";
 import { stageProblems, type StageProblemAt } from "./pipeline.js";
 import {
   isConditionGroup,
@@ -15,14 +22,16 @@ import {
   type ConditionTest,
   type Route,
 } from "./route.js";
-import type { KeptPublishStage } from "./publish-stages.js";
-import type { KeptOnFailure, KeptStage } from "./routes-back.js";
+import { RESOLVE_KEY, type KeptPublishStage } from "./publish-stages.js";
+import type { KeptOnFailure } from "./routes-back.js";
 import type { StageContextLimitsOverride } from "./stage-context-limits.js";
 import type { StagePermissions } from "./stage-permissions.js";
 import {
+  PUBLISH_COMMAND,
   sameAsKept,
   STAGE_KIND_NAMES,
   type Effort,
+  type PublishStage,
   type PublishTarget,
   type ScriptStageCommand,
   type Stage,
@@ -55,8 +64,9 @@ export interface StageFieldChanges {
   readonly command?: ScriptStageCommand;
   readonly publishTarget?: PublishTarget | null;
   /**
-   * What followed a conflict before the conflict chain was the Pipeline's own: taken on a Publish
-   * Stage and read as nothing, as the chain `asFlow` drew in for it stands for it now.
+   * What followed a conflict before the conflict chain was the Pipeline's own: kept on a Publish
+   * Stage the build reads as it was kept, whose chain `asFlow` draws from it; read as nothing on
+   * one whose chain is the Pipeline's own.
    */
   readonly afterConflict?: KeptPublishStage["afterConflict"] | null;
 }
@@ -101,7 +111,7 @@ const FIELDS_OF_KIND: Readonly<Record<StageKind, readonly StageField[]>> = {
   publish: ["name", "optional", "publishTarget", "afterConflict", "onFailure"],
 };
 
-/** Fields a Change may give that the Stage no longer keeps. */
+/** Fields a Change may give that a Stage of its own flow no longer keeps. */
 const FIELDS_READ_AS_NOTHING: ReadonlySet<StageField> = new Set(["afterConflict"]);
 
 /**
@@ -176,7 +186,10 @@ export interface BaseStages {
 export interface BuiltStages {
   /** Every row in order, a removed Stage kept where it was. */
   readonly rows: readonly BuiltStage[];
-  /** The Stages a Task on it would get: the rows but the removed ones. */
+  /**
+   * The Stages a Task on it would get: the rows but the removed ones, as `asFlow` reads them, with
+   * the conflict chain drawn in for each built Publish Stage that gets one.
+   */
   readonly stages: readonly Stage[];
   /** The Stage changes, each with its Stage's name as it is now, or as kept when it is gone. */
   readonly stageChanges: readonly StageChange[];
@@ -190,24 +203,28 @@ interface FlowRow extends BuiltStage {
 }
 
 /**
- * Builds the Stages (spec §2.3, "A Broken Project Pipeline"): the base Pipeline's Stages and routes,
- * then each Stage change in order, the rows and Stages coming out in the Pipeline's order. One that
- * doesn't apply is skipped with why, so every reason shows at once and the built Stages still read.
- * Broken means the built Stages can't run: a Stage change naming a key that isn't there, an inserted
- * key already there, a field its Stage's kind lacks, routes naming a Stage that is gone, or a rule
- * of the library's Pipelines (`stageProblems`) the built Stages break; its warnings don't. Rules
- * needing a Project or another module (commands, engines, who fills a Role) are weighed where those
- * are known.
+ * Builds the Stages as the previous release did (spec §2.3.5, "The move to routes back and Publish
+ * Stages"): the base Pipeline's Stages and routes, then each Stage change in order, the rows and
+ * Stages coming out in the Pipeline's order. The base is read as that release kept it: a failure
+ * route back first among a Stage's routes is its on-failure setting, which no route edit touches,
+ * and a Publish Stage is the Script `publish` Stage it was, its conflict chain drawn again for it as
+ * built. One that doesn't apply is skipped with why, so every reason shows at once and the built
+ * Stages still read. Broken means the built Stages can't run: a Stage change naming a key that isn't
+ * there, an inserted key already there, a field its Stage's kind lacks, routes naming a Stage that
+ * is gone, or a rule of the library's Pipelines (`stageProblems`) the built Stages break; its
+ * warnings don't. Rules needing a Project or another module (commands, engines, who fills a Role)
+ * are weighed where those are known.
  */
 export function buildStages(
   base: BaseStages,
   stageChanges: readonly EditedStageChange[],
 ): BuiltStages {
-  const keptStages: readonly KeptStage[] = base.stages;
+  // The base comes as `asFlow` reads it, or as it was kept: either reads alike once read so.
+  const baseFlow = withKeptPublishStages(asFlow(base.stages));
   const routesBack = new Set(
-    keptStages.flatMap(({ key, onFailure }) => (onFailure === undefined ? [] : [key])),
+    baseFlow.flatMap((stage) => (leadsBackOnFailure(baseFlow, stage) ? [stage.key] : [])),
   );
-  const rows: FlowRow[] = asFlow(base.stages).map((stage) => ({
+  const rows: FlowRow[] = baseFlow.map((stage) => ({
     stage,
     origin: "base",
     stageChangeIndexes: [],
@@ -232,7 +249,8 @@ export function buildStages(
       });
     }
   });
-  // An on-failure setting a Stage change gave reads as its failure route back, as `asFlow` reads it.
+  // An on-failure setting reads as its failure route back, and a kept Publish Stage as a Publish
+  // Stage with the conflict chain its target and what follows a conflict give, as `asFlow` reads them.
   const stages = pipelineOrder(asFlow(liveStages(rows)));
   const flowStages = new Map(stages.map((stage) => [stage.key, stage]));
   rows.forEach((row, at) => {
@@ -257,7 +275,7 @@ export function buildStages(
  * Applies the Stage change to `rows` at `row`, its Stage's row (undefined when it isn't there);
  * answers why it doesn't apply, or doesn't wholly, and leaves `rows` as they were then.
  * `routesBack` holds the keys of the Stages whose first route is the one their on-failure setting
- * became, which a Replace or a Change of On failure replaces.
+ * became, which a Replace or a Change of On failure replaces and nothing else moves.
  */
 function applied(
   rows: FlowRow[],
@@ -283,8 +301,8 @@ function applied(
     case "insert-after": {
       const taken = keyTakenWords(rows, -1, stageChange.stage.key, baseName);
       if (taken) return `${words}, but ${taken}`;
-      if (stageChange.kind === "insert-before") insertBefore(rows, row, stageChange.stage, index);
-      else insertAfter(rows, row, stageChange.stage, index, routesBack);
+      const insert = stageChange.kind === "insert-before" ? insertBefore : insertAfter;
+      insert(rows, row, stageChange.stage, index, routesBack);
       return undefined;
     }
     case "replace": {
@@ -303,7 +321,7 @@ function applied(
         changedFields: [],
       };
       if (stageChange.stage.key !== row.stage.key) {
-        rekeyed(rows, row.stage.key, stageChange.stage.key);
+        rekeyed(rows, row.stage.key, stageChange.stage.key, routesBack);
       }
       return undefined;
     }
@@ -315,9 +333,14 @@ function applied(
     case "change-routes": {
       const gone = goneStageWords(rows, stageChange.routes);
       if (gone) return `${words}, which ${gone}, a Stage it no longer has.`;
+      // The routes it gives are those out, as kept beside its on-failure setting, which stays.
+      const routeBack = routeBackOf(row.stage, routesBack);
       rows[rows.indexOf(row)] = {
         ...row,
-        stage: { ...row.stage, routes: stageChange.routes },
+        stage: {
+          ...row.stage,
+          routes: routeBack ? [routeBack, ...stageChange.routes] : stageChange.routes,
+        },
         origin: row.origin === "base" ? "changed" : row.origin,
         stageChangeIndexes: [...row.stageChangeIndexes, index],
       };
@@ -328,14 +351,25 @@ function applied(
 
 /**
  * Insert before: the new Stage takes its Stage's column on its row, that column and every later one
- * moving right by one; the routes that led into its Stage lead into it, and its one route, with no
+ * moving right by one; the routes that led into its Stage lead into it, but the routes back
+ * on-failure settings became, which still go back to its Stage, and its one route, with no
  * condition, leads to its Stage.
  */
-function insertBefore(rows: FlowRow[], row: FlowRow, stage: Stage, index: number): void {
+function insertBefore(
+  rows: FlowRow[],
+  row: FlowRow,
+  stage: Stage,
+  index: number,
+  routesBack: ReadonlySet<string>,
+): void {
   const at = rows.indexOf(row);
   const { key, place } = row.stage;
   movedColumns(rows, place.column, 1);
-  routesMapped(rows, (route) => [route.to === key ? redirected(route, stage.key) : route]);
+  routesMapped(
+    rows,
+    (route) => [route.to === key ? redirected(route, stage.key) : route],
+    routesBack,
+  );
   rows.splice(at, 0, insertedRow(stage, [plainRoute(key)], place, index));
 }
 
@@ -412,7 +446,7 @@ function changeFields(
   if (converted) redrawnAsLine(rows, routesBack);
   if (lacked.length === 0) return undefined;
   const fieldNames = lacked.map((field) => STAGE_FIELD_NAMES[field]).join(", ");
-  return `Changes ${fieldNames} of ${stageName}, which is now ${kindWords(row.stage.kind)}.`;
+  return `Changes ${fieldNames} of ${stageName}, which is now ${kindWords(kindOf(row.stage))}.`;
 }
 
 /**
@@ -449,22 +483,20 @@ function redrawnAsLine(rows: FlowRow[], routesBack: ReadonlySet<string>): void {
  * route out led (its route back from an on-failure setting aside), keeping its own condition and
  * limit; when it had several, those routes in are taken away
  * too. A route the next one then makes needless is dropped, as a converted optional Stage's
- * Stage before it leaves one to the same place. A column it leaves empty is closed, the later
- * columns moving left by one.
+ * Stage before it leaves one to the same place. A route back another Stage's on-failure setting
+ * became still goes back to it, gone, so the check finds it Broken, as the setting was. A column
+ * it leaves empty is closed, the later columns moving left by one.
  */
-function removeStage(
-  rows: FlowRow[],
-  row: FlowRow,
-  index: number,
-  routesBack: ReadonlySet<string>,
-): void {
+function removeStage(rows: FlowRow[], row: FlowRow, index: number, routesBack: Set<string>): void {
   const at = rows.indexOf(row);
   const { key, routes, place } = row.stage;
   const [only, ...more] = routes.slice(routeBackOf(row.stage, routesBack) ? 1 : 0);
+  routesBack.delete(key);
   rows.forEach((other, otherAt) => {
     if (other.origin === "removed" || !other.stage.routes.some(({ to }) => to === key)) return;
+    const routeBack = routeBackOf(other.stage, routesBack);
     const led = other.stage.routes.flatMap((route) => {
-      if (route.to !== key) return [route];
+      if (route.to !== key || route === routeBack) return [route];
       return only && more.length === 0 ? [redirected(route, only.to)] : [];
     });
     rows[otherAt] = { ...other, stage: { ...other.stage, routes: withoutNeedlessRoutes(led) } };
@@ -479,12 +511,24 @@ function removeStage(
   }
 }
 
-/** A Replace giving a new key: the routes into the old key, and the tests naming it, name the new. */
-function rekeyed(rows: FlowRow[], oldKey: string, newKey: string): void {
-  routesMapped(rows, (route) => {
-    const kept = route.to === oldKey ? redirected(route, newKey) : route;
-    return [withStageTests(kept, (tested) => (tested === oldKey ? newKey : tested))];
-  });
+/**
+ * A Replace giving a new key: the routes into the old key, and the tests naming it, name the new;
+ * a route back an on-failure setting became still goes back to the old key, as the setting did.
+ */
+function rekeyed(
+  rows: FlowRow[],
+  oldKey: string,
+  newKey: string,
+  routesBack: ReadonlySet<string>,
+): void {
+  routesMapped(
+    rows,
+    (route) => {
+      const kept = route.to === oldKey ? redirected(route, newKey) : route;
+      return [withStageTests(kept, (tested) => (tested === oldKey ? newKey : tested))];
+    },
+    routesBack,
+  );
 }
 
 /** The words for the first Stage `routes` lead to or test that isn't among the built Stages. */
@@ -513,11 +557,22 @@ function movedColumns(rows: FlowRow[], fromColumn: number, by: number): void {
   });
 }
 
-/** Gives every built Stage the routes `map` makes of each of its routes. */
-function routesMapped(rows: FlowRow[], map: (route: Route) => readonly Route[]): void {
+/**
+ * Gives every built Stage the routes `map` makes of each of its routes, but the route back its
+ * on-failure setting became, which stays as it is.
+ */
+function routesMapped(
+  rows: FlowRow[],
+  map: (route: Route) => readonly Route[],
+  routesBack: ReadonlySet<string>,
+): void {
   rows.forEach((row, at) => {
     if (row.origin === "removed") return;
-    rows[at] = { ...row, stage: { ...row.stage, routes: row.stage.routes.flatMap(map) } };
+    const routeBack = routeBackOf(row.stage, routesBack);
+    const routes = row.stage.routes.flatMap((route) =>
+      route === routeBack ? [route] : map(route),
+    );
+    rows[at] = { ...row, stage: { ...row.stage, routes } };
   });
 }
 
@@ -578,6 +633,136 @@ function routeBackOf(stage: FlowStage, routesBack: ReadonlySet<string>): Route |
   return first && routesBack.has(stage.key) && isFailureRoute(first, stage.key) ? first : undefined;
 }
 
+/**
+ * Whether the Stage's first route is a failure route back, to its own Stage or one before it among
+ * `flow`: what its on-failure setting became, as a built-in or a Pipeline saved since has it too.
+ */
+function leadsBackOnFailure(flow: readonly FlowStage[], stage: FlowStage): boolean {
+  const [first] = stage.routes;
+  return (
+    first !== undefined &&
+    isFailureRoute(first, stage.key) &&
+    isRouteBack(flow, stage.key, first.to)
+  );
+}
+
+/**
+ * `flow` with each Publish Stage read back as the Script `publish` Stage the previous release kept,
+ * so the Stage changes apply to what they were made on and `asFlow` draws its conflict chain again
+ * from the built Stage's target and what follows a conflict (spec §2.3.5): the chain drawn for it
+ * is taken away, with its Conflict route and the columns only the chain took, and a Gate in it
+ * reads as "After a conflict" being review. One whose chain is the Pipeline's own stays as it is:
+ * one leading to Stages the conversion doesn't draw, or none where the conversion would draw one.
+ */
+function withKeptPublishStages(flow: readonly FlowStage[]): FlowStage[] {
+  const hasAgentStage = flow.some(({ kind, key }) => kind === "agent" && !isChainKey(key));
+  let kept = [...flow];
+  for (const publish of flow) {
+    if (publish.kind !== "publish") continue;
+    const conflictRoute = publish.routes.find(isConflictRoute);
+    const chain = conflictRoute ? drawnChain(flow, publish.key, conflictRoute) : [];
+    const drawsChain = publish.publishTarget !== "branch-only" && hasAgentStage;
+    if (chain === undefined || (conflictRoute === undefined && drawsChain)) continue;
+    const chainKeys = new Set(chain.map(({ key }) => key));
+    const afterConflict = chain.some(({ kind }) => kind === "gate") ? "review" : undefined;
+    kept = withColumnsClosed(
+      kept.filter(({ key }) => !chainKeys.has(key)),
+      chain.map(({ place }) => place.column),
+    ).map((stage) =>
+      stage.key === publish.key && stage.kind === "publish"
+        ? keptPublishOf(stage, afterConflict, conflictRoute)
+        : stage,
+    );
+  }
+  return kept;
+}
+
+/** The conflict chain's keys, `office:resolve` and those it starts, as `withPublishStages` gives them. */
+function isChainKey(key: string): boolean {
+  return key.startsWith(RESOLVE_KEY);
+}
+
+/** A Publish Stage's Conflict route: it ended Conflict. */
+function isConflictRoute({ condition }: Route): boolean {
+  return (
+    condition?.tests.some(
+      (test) => !isConditionGroup(test) && test.kind === "stage" && test.is === "conflict",
+    ) ?? false
+  );
+}
+
+/**
+ * The Stages the conflict chain of the Publish `publishKey` takes, from where its Conflict route
+ * leads on to the Publish; undefined when the chain isn't the one the conversion draws: a Stage of
+ * it without a key the conversion gives, a route of it to End, or a route into it from elsewhere.
+ */
+function drawnChain(
+  flow: readonly FlowStage[],
+  publishKey: string,
+  conflictRoute: Route,
+): FlowStage[] | undefined {
+  const byKey = new Map(flow.map((stage) => [stage.key, stage]));
+  const chain: FlowStage[] = [];
+  const toVisit: (string | null)[] = [conflictRoute.to];
+  for (let key = toVisit.pop(); key !== undefined; key = toVisit.pop()) {
+    if (key === publishKey || chain.some((stage) => stage.key === key)) continue;
+    const stage = key === null ? undefined : byKey.get(key);
+    if (!stage || !isChainKey(stage.key)) return undefined;
+    chain.push(stage);
+    toVisit.push(...stage.routes.map(({ to }) => to));
+  }
+  const keys = new Set(chain.map(({ key }) => key));
+  const enteredElsewhere = flow.some(
+    (stage) =>
+      !keys.has(stage.key) &&
+      stage.routes.some(
+        (route) => route !== conflictRoute && route.to !== null && keys.has(route.to),
+      ),
+  );
+  return enteredElsewhere ? undefined : chain;
+}
+
+/** `stages` with each of `columns` that none of them takes closed, the later columns moving left. */
+function withColumnsClosed(stages: readonly FlowStage[], columns: readonly number[]): FlowStage[] {
+  const emptied = [...new Set(columns)]
+    .filter((column) => !stages.some(({ place }) => place.column === column))
+    .toSorted((one, other) => other - one);
+  return emptied.reduce<FlowStage[]>(
+    (closed, column) =>
+      closed.map((stage) =>
+        stage.place.column > column
+          ? { ...stage, place: { ...stage.place, column: stage.place.column - 1 } }
+          : stage,
+      ),
+    [...stages],
+  );
+}
+
+/** The Publish Stage as the Script `publish` Stage it was kept as, without its Conflict route. */
+function keptPublishOf(
+  publish: FlowStage<PublishStage>,
+  afterConflict: KeptPublishStage["afterConflict"],
+  conflictRoute: Route | undefined,
+): FlowStage<KeptPublishStage> {
+  const { kind: _kind, routes, ...fields } = publish;
+  return {
+    ...fields,
+    kind: "script",
+    command: PUBLISH_COMMAND,
+    ...(afterConflict === undefined ? {} : { afterConflict }),
+    routes: routes.filter((route) => route !== conflictRoute),
+  };
+}
+
+function isKeptPublishStage(stage: Stage): stage is KeptPublishStage {
+  return stage.kind === "script" && stage.command === PUBLISH_COMMAND;
+}
+
+/** The Stage's kind, a kept Script `publish` Stage's being Publish, as `asFlow` reads it. */
+function kindOf(stage: Stage): StageKind {
+  return isKeptPublishStage(stage) ? "publish" : stage.kind;
+}
+
 /** A Stage change's Stage as a build reads it: never with routes or a place of its own. */
 function withoutFlow(stage: Stage): Stage {
   const { routes: _routes, place: _place, ...rest } = stage;
@@ -592,7 +777,8 @@ function withFields(
   stage: Stage,
   fields: StageFieldChanges,
 ): { readonly stage: Stage; readonly given: StageField[]; readonly lacked: StageField[] } {
-  const kindFields = FIELDS_OF_KIND[stage.kind];
+  const kindFields = FIELDS_OF_KIND[kindOf(stage)];
+  const ownFlow = !isKeptPublishStage(stage);
   const changed: Record<string, unknown> = { ...stage };
   const given: StageField[] = [];
   const lacked: StageField[] = [];
@@ -603,7 +789,7 @@ function withFields(
       lacked.push(field);
       continue;
     }
-    if (value === null || FIELDS_READ_AS_NOTHING.has(field)) delete changed[field];
+    if (value === null || (ownFlow && FIELDS_READ_AS_NOTHING.has(field))) delete changed[field];
     else {
       changed[field] = value;
       const named = WORKER_FIELD_CLEARED[field];

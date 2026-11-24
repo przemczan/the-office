@@ -184,14 +184,27 @@ describe("buildStages", () => {
     ]);
   });
 
-  it("leads a route back into a removed Stage where its route out led, keeping its limit", () => {
+  it("keeps a route back an on-failure setting became going back to a removed Stage, Broken as the setting was", () => {
     const built = buildStages(FULL, [{ kind: "remove", stageKey: "implement" }]);
 
     expect(built.stages[0]?.routes).toEqual([
-      { to: "tests", condition: ENDED_FAILED, limit: 2 },
+      { to: "implement", toName: "Implement", condition: ENDED_FAILED, limit: 2 },
       plainRoute("review"),
     ]);
-    expect(built.broken).toEqual([]);
+    expect(built.broken).not.toEqual([]);
+  });
+
+  it("leads a route into a removed Stage where its route out led, keeping its limit", () => {
+    const back: Route = { to: "review", condition: ENDED_FAILED, limit: 2 };
+    const built = buildStages(BRANCHING, [
+      { kind: "change-routes", stageKey: "tests", routes: [back, plainRoute(null)] },
+      { kind: "remove", stageKey: "review" },
+    ]);
+
+    expect(built.stages.find(({ key }) => key === "tests")?.routes).toEqual([
+      { to: "tests", condition: ENDED_FAILED, limit: 2 },
+      plainRoute(null),
+    ]);
   });
 
   it("gives every reason at once, and the Stage changes that apply still do", () => {
@@ -206,6 +219,8 @@ describe("buildStages", () => {
     expect(built.broken.map(({ text }) => text)).toEqual([
       "Removes Produce, which Full no longer has.",
       "Inserts Again before Tests, but Full now has a Stage of its own with the same key.",
+      // Tests' On failure still goes back to the removed Implement.
+      "Stage 1 · Tests: its route to Implement leads to a Stage the Pipeline doesn't have.",
     ]);
   });
 });

@@ -4,6 +4,7 @@ import { reportedOutOfReach, unmetStatements } from "./definition-of-done-report
 import { conflictOnlyStages, isConflictRoute, takesPublishResult } from "./conflict-handling.js";
 import { asFlow, pipelineOrder, type FlowStage } from "./flow.js";
 import { publishResultOf } from "./publish-result.js";
+import { RESOLVE_GATE_KEY, RESOLVE_KEY, RESOLVE_TEST_KEY } from "./publish-stages.js";
 import { choiceRoutesOf, isFailureRoute, namedRoutes, type Route } from "./route.js";
 import { isPublishStage, type Stage } from "./stage.js";
 import type { ConditionCommandTest } from "./stage-command-run.js";
@@ -180,6 +181,8 @@ interface Walk {
    * or read it as another kind (a kept Script `publish` Stage as a Publish Stage).
    */
   readonly shown: ReadonlyMap<string, Stage>;
+  /** The keys of the conflict chain's Stages (`conflictOnlyStages`). */
+  readonly chain: ReadonlySet<string>;
   /**
    * The first Stage in the Pipeline's order that isn't of the conflict chain (`conflictOnlyStages`):
    * the walk starts there, and the Definition of Done isn't checked before it.
@@ -215,7 +218,8 @@ interface Walk {
   enteredPublish: boolean;
   /**
    * Whether the walk is in conflict handling (spec §2.3.4, "Conflicts in the flow"): it followed a
-   * Publish Stage's Conflict route and hasn't entered a Publish Stage since.
+   * Publish Stage's Conflict route and hasn't entered a Publish Stage, nor run a Stage outside the
+   * conflict chain (one an answer or a Gate sent the work back to), since.
    */
   conflictHandling: boolean;
   /** The ids of the runs of conflict handling's Stages. */
@@ -266,7 +270,7 @@ export function routesFollowed(
   } catch {
     // The Task's page and its history still show the runs; the walk itself reports the fault.
   }
-  const next = new Map(runs.map((run, index) => [run.id, runs[index + 1]?.stageKey]));
+  const next = new Map(walk.runs.map((run, index) => [run.id, walk.runs[index + 1]?.stageKey]));
   return new Map([...walk.left].filter(([runId, { to }]) => to !== null && next.get(runId) === to));
 }
 
@@ -307,6 +311,7 @@ function walkOver(
   return {
     stages: flow,
     shown: new Map(flow.map((stage) => [stage.key, shownStage(stage)])),
+    chain,
     firstKey,
     definitionOfDone,
     position: at(firstKey ?? null),
@@ -316,12 +321,75 @@ function walkOver(
     ranAgain: new Map(),
     definitionOfDoneRounds: 0,
     left: new Map(),
-    runs,
+    runs: withOlderChainRunsMoved(flow, runs),
     calledMet: false,
     enteredPublish: false,
     conflictHandling: false,
     conflictRuns: new Set(),
   };
+}
+
+/** The keys of the conflict chain's Stages the conversion draws in, before any `-2`, `-3`… */
+const DRAWN_CHAIN_KEYS: ReadonlySet<string> = new Set([
+  RESOLVE_KEY,
+  RESOLVE_TEST_KEY,
+  RESOLVE_GATE_KEY,
+]);
+
+/** The drawn chain key `key` is one of, its `-2`, `-3`… left out; undefined for any other. */
+function drawnChainKeyOf(key: string): string | undefined {
+  const unnumbered = key.replace(/-\d+$/, "");
+  return DRAWN_CHAIN_KEYS.has(unnumbered) ? unnumbered : undefined;
+}
+
+/**
+ * `runs` with an older Task's runs of the conflict chain moved onto the chain of the Publish they
+ * came from (spec §2.3.5): the releases before put `office:resolve…` before whichever Publish
+ * went to Resolve first, while `withPublishStages` gives those keys to the first Publish in the
+ * Pipeline and `-2`, `-3`… to the others. Only the runs before any run of that Publish's own keys
+ * move, as this release records those.
+ */
+function withOlderChainRunsMoved(
+  flow: readonly FlowStage[],
+  runs: readonly StageRun[],
+): readonly StageRun[] {
+  const byKey = new Map(flow.map((stage) => [stage.key, stage]));
+  // A conflict asked about before The Office resolved conflicts went to no Resolve.
+  const conflicted = runs.find(
+    (run) =>
+      isPublishStage(byKey.get(run.stageKey)) &&
+      publishResultOf(run) === "conflict" &&
+      !decisionOf(run, "base-moved"),
+  );
+  const publish = conflicted && byKey.get(conflicted.stageKey);
+  if (!publish) return runs;
+  // The Publish's own drawn chain, from its Conflict route along routes between drawn Stages.
+  const own = new Set(
+    publish.routes.flatMap((route) =>
+      isConflictRoute(route, publish) && route.to !== null && drawnChainKeyOf(route.to)
+        ? [route.to]
+        : [],
+    ),
+  );
+  for (const key of own) {
+    for (const { to } of byKey.get(key)?.routes ?? []) {
+      if (to !== null && drawnChainKeyOf(to) !== undefined) own.add(to);
+    }
+  }
+  const moved = new Map(
+    [...own].flatMap((key) => {
+      const older = drawnChainKeyOf(key);
+      return older === undefined || older === key ? [] : [[older, key] as const];
+    }),
+  );
+  if (moved.size === 0) return runs;
+  const movedTo = new Set(moved.values());
+  const ownSince = runs.findIndex(({ stageKey }) => movedTo.has(stageKey));
+  return runs.map((run, index) => {
+    const key = moved.get(run.stageKey);
+    if (key === undefined || (ownSince >= 0 && index > ownSince)) return run;
+    return { ...run, stageKey: key };
+  });
 }
 
 /** Replays every run of the walk, oldest first, and answers what it does next. */
@@ -383,6 +451,9 @@ function definitionOfDoneCarried(
 /** Moves the walk past the run; a move that stops it is returned. */
 function replay(walk: Walk, run: StageRun): StoppingMove | undefined {
   const stage = stageOfRun(walk, run);
+  // A run of a Stage outside the conflict chain ends conflict handling, however the walk got there:
+  // a send-back from a failure or a Gate as much as a Publish entered (`goTo`).
+  if (!walk.chain.has(stage.key)) walk.conflictHandling = false;
   if (walk.conflictHandling) walk.conflictRuns.add(run.id);
   const { outcome } = run;
   if (!outcome) return { move: "wait", run };

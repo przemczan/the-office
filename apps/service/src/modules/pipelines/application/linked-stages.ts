@@ -79,7 +79,8 @@ export class LinkedStages {
   /**
    * Sets the named template fields to the template's on each Stage named that is still linked to
    * it, its other fields kept, and saves each Pipeline through the editor, under its checks. A
-   * refused Pipeline keeps its Stages and is named with why; the others are still applied.
+   * refused Pipeline keeps its Stages and is named with why; the others are still applied. A
+   * Project Pipeline Broken before the update stays Broken, as the user hasn't saved it.
    */
   async apply(
     templateId: string,
@@ -100,7 +101,7 @@ export class LinkedStages {
 
   /**
    * Unlinks every Stage linked to the template, keeping its fields, as the template is removed: no
-   * check, as the Stages change in nothing a Pipeline runs.
+   * check, as the Stages change in nothing a Pipeline runs, and a Broken Project Pipeline stays so.
    */
   async unlinkAll(templateId: string): Promise<void> {
     await this.editor.holdingLibrary(async () => {
@@ -136,7 +137,8 @@ export class LinkedStages {
     const edit = { name: pipeline.name, description: pipeline.description, stages };
     try {
       if (projectId === null) await this.editor.save(pipeline.id, edit);
-      else await this.editor.saveProjectPipeline(pipeline.id, edit);
+      // Only the user's own save ends a Project Pipeline's Broken before the update (spec §2.3.5).
+      else await this.editor.saveProjectPipeline(pipeline.id, edit, { keepsBroken: true });
       return { applied };
     } catch (error) {
       if (!(error instanceof StagesEditRefused)) throw error;

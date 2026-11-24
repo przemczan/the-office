@@ -81,10 +81,13 @@ describe("a Project's track", () => {
     expect(trackStageWords(aTaskStage(PUBLISH, "not-taken"), "publish")).toBe("Not taken");
   });
 
-  it("says a loop-back in words when stacked", () => {
+  it("says a loop-back in words when stacked, with its limit or No limit", () => {
     expect(
-      stackedLoopBackWords({ from: "review", to: "integrate", count: 1, rounds: 2 }, nameOf),
-    ).toBe("Check failed: back to Integrate, round 1 of 2");
+      stackedLoopBackWords({ from: "review", to: "integrate", count: 1, limit: 2 }, nameOf),
+    ).toBe("Check went back to Integrate, 1 of at most 2");
+    expect(
+      stackedLoopBackWords({ from: "review", to: "integrate", count: 2, limit: null }, nameOf),
+    ).toBe("Check went back to Integrate, 2 times");
   });
 
   it("counts a Pipeline's Stages and Gates", () => {

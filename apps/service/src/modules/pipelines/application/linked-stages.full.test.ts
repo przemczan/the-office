@@ -18,6 +18,7 @@ import {
 } from "../pipelines-application.fixtures.js";
 import { PipelineRepository } from "../ports/pipeline-repository.js";
 import { ProjectPipelineRepository } from "../ports/project-pipeline-repository.js";
+import { projectPipelinesForTests } from "../project-pipelines.fixtures.js";
 import { PipelineLibraryEditor } from "./pipeline-library-editor.js";
 import { StageTemplateLibraryEditor } from "./stage-template-library-editor.js";
 
@@ -200,6 +201,23 @@ describe("applying a template's edit", () => {
     expect((await stagesOf(officeWide.id))[0]).toMatchObject({ command: "lint" });
   });
 
+  it("keeps a Project Pipeline Broken before the update Broken, its Stages applied", async () => {
+    const template = await aTemplate();
+    const own = await aProjectPipeline(aProject(), [agentStage({ templateId: template.id })]);
+    await projectPipelinesForTests(pipelines.app).breakProjectPipeline(own, "Removes deploy.");
+    await templates.save(template.id, agentStage({ name: template.stage.name, budget: 300_000 }));
+
+    const response = await send("POST", `/stage-templates/${template.id}/apply`, {
+      fields: ["budget"],
+      stages: [{ pipelineId: own.id, stageKey: "implement" }],
+    });
+
+    expect(stageTemplateApplyResultSchema.parse(await response.json()).applied).toBe(1);
+    const saved = await pipelines.app.get(ProjectPipelineRepository).find(own.id);
+    expect(saved?.stages[0]).toMatchObject({ budget: 300_000 });
+    expect(saved?.brokenBeforeUpdate).toEqual(["Removes deploy."]);
+  });
+
   it("leaves a Stage no longer linked to the template as it is", async () => {
     const template = await aTemplate();
     const pipeline = await anOfficeWidePipeline([agentStage()]);
@@ -238,5 +256,17 @@ describe("removing a template", () => {
         ),
       ).toBe(true);
     }
+  });
+
+  it("keeps a Project Pipeline Broken before the update Broken", async () => {
+    const template = await aTemplate();
+    const own = await aProjectPipeline(aProject(), [agentStage({ templateId: template.id })]);
+    await projectPipelinesForTests(pipelines.app).breakProjectPipeline(own, "Removes deploy.");
+
+    await templates.remove(template.id);
+
+    const saved = await pipelines.app.get(ProjectPipelineRepository).find(own.id);
+    expect(saved?.stages[0]?.templateId).toBeUndefined();
+    expect(saved?.brokenBeforeUpdate).toEqual(["Removes deploy."]);
   });
 });

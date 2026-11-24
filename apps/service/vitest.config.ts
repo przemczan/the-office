@@ -21,6 +21,14 @@ export default defineProject({
   test: {
     name: "service",
     environment: "node",
+    // A worker keeps the modules it loaded from one test file to the next: reloading Nest, the
+    // engine SDKs and the app for every file was over half of the run. A test file must therefore
+    // undo what it changes in a module's state (mocks, stubs, fake timers) before it ends.
+    isolate: false,
+    // A worker living the whole run lets V8 grow its heap toward its default limit before
+    // collecting: workers reached 1.4 GB each and the run environment killed them for memory.
+    // Most of it was garbage; at this limit a worker peaks near 600 MB.
+    execArgv: ["--max-old-space-size=768"],
     // The cache keys miss tsconfig.json, so a changed decorator flag would keep stale transforms.
     fsModuleCache: false,
     // A throwaway database for the run, on the Postgres DATABASE_URL names (test/test-database.ts).

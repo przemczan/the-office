@@ -22,6 +22,7 @@ import {
   type ProposedRoutes as ProposedRoutesResponse,
   type ProposedTestTargetFields as ProposedTestTargetFieldsResponse,
   type ProposedTestTargets as ProposedTestTargetsResponse,
+  type Stage as StageResponse,
   type Thread as ThreadResponse,
   type ThreadSummary as ThreadSummaryResponse,
   type TaskConversation,
@@ -50,6 +51,7 @@ import { stageLimitsWithin } from "../../domain/stage-context-limits.js";
 import type { TaskPeopleWorking } from "../../domain/people-working.js";
 import type {
   PipelineRoutes,
+  PipelineStage,
   ProjectPipelineFields,
   Proposal,
   ProposedActionsChange,
@@ -351,16 +353,14 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
         kind: "pipeline",
         pipelineId: change.pipelineId,
         // Pipelines gave the Stages; Conversations keeps them unread, so they are read here.
-        from: STAGES.parse(change.from),
-        to: STAGES.parse(change.to),
+        ...pipelineStagesOf(change.from, change.to),
         routes: routesOf(change.routes),
       };
     case "stage-template":
       return {
         kind: "stage-template",
         templateId: change.templateId,
-        from: stageSchema.parse(change.from),
-        to: stageSchema.parse(change.to),
+        ...templateStagesOf(change.from, change.to),
       };
     case "project-pipeline":
       return {
@@ -441,9 +441,55 @@ function toNewProjectResponse(project: NewProject): NewProjectResponse {
 
 const STAGES = stageSchema.array();
 
-/** Pipelines gave the routes; Conversations keeps them unread, so they are read here. */
+/**
+ * Pipelines gave the routes; Conversations keeps them unread, so they are read here. Ones that
+ * don't read show as none, so one kept Proposal can't stop its Thread from reading.
+ */
 function routesOf(routes: PipelineRoutes | undefined): ProposedRoutesResponse | null {
-  return routes ? proposedRoutesSchema.parse(routes) : null;
+  const read = routes && proposedRoutesSchema.safeParse(routes);
+  return read?.success ? read.data : null;
+}
+
+/**
+ * A library Pipeline Proposal's Stages as the card shows them. Ones Pipelines' card reading
+ * (`ProposalAppliers.shown`) left unread show as none, both sides alike, so one kept Proposal can't
+ * stop its Thread from reading; applying it is refused.
+ */
+function pipelineStagesOf(
+  from: readonly PipelineStage[],
+  to: readonly PipelineStage[],
+): { readonly from: StageResponse[]; readonly to: StageResponse[] } {
+  const readFrom = STAGES.safeParse(from);
+  const readTo = STAGES.safeParse(to);
+  return readFrom.success && readTo.success
+    ? { from: readFrom.data, to: readTo.data }
+    : { from: [], to: [] };
+}
+
+/**
+ * A Stage template Proposal's Stage as the card shows it. One Pipelines' card reading left unread
+ * shows, both sides alike, as a Gate by its key and name, so the card names only a change of name
+ * and one kept Proposal can't stop its Thread from reading; applying it is refused.
+ */
+function templateStagesOf(
+  from: PipelineStage,
+  to: PipelineStage,
+): { readonly from: StageResponse; readonly to: StageResponse } {
+  const readFrom = stageSchema.safeParse(from);
+  const readTo = stageSchema.safeParse(to);
+  return readFrom.success && readTo.success
+    ? { from: readFrom.data, to: readTo.data }
+    : { from: unreadStage(from), to: unreadStage(to) };
+}
+
+function unreadStage(stage: PipelineStage): StageResponse {
+  const { key, name } = stage as { readonly key?: unknown; readonly name?: unknown };
+  return {
+    kind: "gate",
+    key: typeof key === "string" && key !== "" ? key : "stage",
+    name: typeof name === "string" ? name : "",
+    optional: false,
+  };
 }
 
 function toProposedProjectCommandsResponse({

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { planningBrief, type PlanningPipeline, type PlanningRecord } from "./planning.js";
+import {
+  pipelineLibraryLines,
+  planningBrief,
+  type PlanningPipeline,
+  type PlanningRecord,
+} from "./planning.js";
 import type { TaskLinks } from "./linked-records.js";
 import { aLink, anIdea, anInitiative, aPlannedTask, aTask } from "./work.fixtures.js";
 import { defaultWorkPrompts } from "./work-prompt-templates.fixtures.js";
@@ -277,5 +282,26 @@ describe("a planning Brief", () => {
     expect(planningBrief(prompts, { ...RECORD, task })).toContain(
       "## Auto mode\n\nOn: once you mark the Task planned with mark_planned and no Decision on it is open, The Office confirms the Plan, the Definition of Done and the proposed Pipeline and marks the Task Ready.",
     );
+  });
+});
+
+describe("the Pipelines' lines", () => {
+  it("leave out the conflict chain's Stages, which run only after a conflict", () => {
+    const full: PlanningPipeline = {
+      id: "full",
+      name: "Full",
+      description: "For a change to the code.",
+      stages: [
+        { name: "Implement", role: "developer" },
+        { name: "Tests" },
+        { name: "Resolve", role: "developer", onlyAfterConflict: true },
+        { name: "Test after Resolve", onlyAfterConflict: true },
+        { name: "Publish" },
+      ],
+    };
+
+    expect(pipelineLibraryLines([full])).toEqual([
+      "- full: Full (Implement → Tests → Publish). For a change to the code.",
+    ]);
   });
 });

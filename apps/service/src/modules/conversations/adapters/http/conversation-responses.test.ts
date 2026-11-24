@@ -114,6 +114,49 @@ describe("toProposalResponse", () => {
       routes: null,
     });
   });
+
+  it("answers a Stage template's Proposal whose Stage doesn't read as Gates by their names, not refusing the Thread", () => {
+    // As the previous release kept the Publish template, before Pipelines reads it for the card.
+    const kept = { kind: "script", key: "publish", name: "Publish", optional: false };
+
+    const response = toProposalResponse(
+      aProposalChanging({
+        kind: "stage-template",
+        templateId: "publish",
+        from: { ...kept, command: "publish" },
+        to: { ...kept, name: "Ship", command: "publish" },
+      }),
+    );
+
+    expect(proposedChangeSchema.parse(response.change)).toEqual({
+      kind: "stage-template",
+      templateId: "publish",
+      from: { kind: "gate", key: "publish", name: "Publish", optional: false },
+      to: { kind: "gate", key: "publish", name: "Ship", optional: false },
+    });
+  });
+
+  it("answers a library Pipeline's Proposal whose Stages or routes don't read with none", () => {
+    const tests = { kind: "script", key: "tests", name: "Tests", optional: false, command: "test" };
+
+    const response = toProposalResponse(
+      aProposalChanging({
+        kind: "pipeline",
+        pipelineId: "full",
+        from: [tests],
+        to: [{ ...tests, command: "publish" }],
+        routes: { stages: "unread", check: [] },
+      }),
+    );
+
+    expect(proposedChangeSchema.parse(response.change)).toEqual({
+      kind: "pipeline",
+      pipelineId: "full",
+      from: [],
+      to: [],
+      routes: null,
+    });
+  });
 });
 
 describe("a Decision as the web reads it", () => {

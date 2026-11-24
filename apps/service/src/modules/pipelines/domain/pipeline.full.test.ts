@@ -69,10 +69,14 @@ describe("stageProblems", () => {
       ]);
     });
 
-    it.each([0, 2.5, 10])("can't go back %s times", (rounds) => {
+    it.each([0, 2.5])("can't go back %s times", (rounds) => {
       expect(problemTexts(goingBack("implement", rounds))).toEqual([
         `Stage 2 · Tests: its route to Implement has a limit of ${rounds}; give it 1 to 9 times, or No limit.`,
       ]);
+    });
+
+    it("reads going back more than 9 times as at most 9, as a kept setting may", () => {
+      expect(problemTexts(goingBack("implement", 10))).toEqual([]);
     });
   });
 });

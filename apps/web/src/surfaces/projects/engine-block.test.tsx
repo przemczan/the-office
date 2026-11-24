@@ -264,7 +264,7 @@ describe("the Engine card's Stand-in Engines", () => {
 
     await until(() => expect(shownText(page)).toContain("Shop uses its own Stand-in Engines."));
     expect(sent.find(({ request }) => request === PUT_ENGINE)?.body).toEqual(OWN(["codex-1"]));
-    // The toast shows at once; the saved Project reaches the card on the query's next notify.
+    // The toast can show before the card renders the saved Project.
     await until(() => expect(rowsOf(page)?.hasAttribute("data-read-only")).toBe(false));
     expect(shownText(standIns(page))).toContain(
       "Another engine type: a running Stage waits for the reset rather than switch to it.",

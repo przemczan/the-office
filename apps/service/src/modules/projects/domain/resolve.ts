@@ -1,10 +1,10 @@
 import type { RemoteBranch } from "./publication.js";
 
 /**
- * How Resolve's merge began (spec §2.3, "Conflicts at Publish"): the Task's fetched bases merged
- * into its branch in turn, with the first conflict's files left in the worktree for the Agent;
- * merged cleanly, as the bases moved on past the conflict; or a failure, such as a fetch git
- * refused.
+ * How Resolve's merge began (spec §2.3.1, "An Agent Stage may merge the base first"): the Task's
+ * fetched bases merged into its branch in turn, with the first conflict's files left in the
+ * worktree for the Agent; merged cleanly, as the bases moved on past the conflict; or a failure,
+ * such as a fetch git refused.
  */
 export type ResolveStart =
   | {

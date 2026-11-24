@@ -35,8 +35,10 @@ import {
   startPipelinesApplication,
   type PipelinesApplication,
 } from "../../pipelines-application.fixtures.js";
+import { StageTemplateLibraryEditor } from "../../application/stage-template-library-editor.js";
 import { ProposalDraftsForTests } from "../../ports/pipelines-ports.fixtures.js";
 import type { ProposedLibraryChange } from "../../ports/proposal-drafts.js";
+import { StageTemplateRepository } from "../../ports/stage-template-repository.js";
 import { projectPipelinesForTests } from "../../project-pipelines.fixtures.js";
 import {
   aNewProjectPipeline,
@@ -673,6 +675,65 @@ describe("propose_project_pipeline", () => {
       isError: true,
     });
     expect(drafted()).toEqual([]);
+  });
+});
+
+describe("a Proposal of a Stage template", () => {
+  it("shows and applies one kept with a Script Stage running publish as a Publish Stage", async () => {
+    const name = `Publish ${randomUUID()}`;
+    const template = await pipelines.app
+      .get(StageTemplateLibraryEditor)
+      .add(publishStage({ name }));
+    // As the previous release kept the Publish template: a Script Stage running publish.
+    const keptPublish = {
+      kind: "script",
+      key: "publish",
+      name,
+      optional: false,
+      command: "publish",
+      afterConflict: "review",
+    };
+    const kept: KeptChange = {
+      kind: "stage-template",
+      templateId: template.id,
+      from: keptPublish,
+      to: { ...keptPublish, publishTarget: "branch-only" },
+    };
+
+    const shown = pipelines.app.get(ProposalAppliers).shown(kept);
+    await apply(kept);
+
+    expect(shown).toEqual({
+      ...kept,
+      from: publishStage({ name }),
+      to: publishStage({ name, publishTarget: "branch-only" }),
+    });
+    expect((await pipelines.app.get(StageTemplateRepository).find(template.id))?.stage).toEqual(
+      publishStage({ name, publishTarget: "branch-only" }),
+    );
+  });
+
+  it("shows one whose Stage doesn't read as it is, and refuses applying it", async () => {
+    const template = await pipelines.app
+      .get(StageTemplateLibraryEditor)
+      .add(agentStage({ name: `Review ${randomUUID()}` }));
+    const unread = { kind: "script", key: "lint", name: "Lint", optional: false, command: "Lint!" };
+    const kept: KeptChange = {
+      kind: "stage-template",
+      templateId: template.id,
+      from: template.stage,
+      to: unread,
+    };
+    const appliers = pipelines.app.get(ProposalAppliers);
+
+    expect(appliers.shown(kept)).toEqual(kept);
+    expect(await appliers.problemsWith(kept)).toEqual([
+      `The ${template.stage.name} Stage template changed since this was proposed.`,
+    ]);
+    await expect(apply(kept)).rejects.toThrow(ProposalRefused);
+    expect((await pipelines.app.get(StageTemplateRepository).find(template.id))?.stage).toEqual(
+      template.stage,
+    );
   });
 });
 

@@ -16,7 +16,7 @@ export const projectPipelines = pgTable(
     name: text("name").notNull(),
     description: text("description").notNull(),
     /**
-     * Legacy, kept for the previous release to read (migration `0205`): the office-wide Pipeline it
+     * Legacy, kept for the previous release to read (migration `0206`): the office-wide Pipeline it
      * was built on, or for a later copy the one at the root of its copies. Read only by the move.
      */
     basePipelineId: text("base_pipeline_id").notNull(),

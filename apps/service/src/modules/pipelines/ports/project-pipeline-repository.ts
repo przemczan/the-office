@@ -16,7 +16,10 @@ export abstract class ProjectPipelineRepository {
    */
   abstract add(projectPipeline: ProjectPipeline, copyOf: string): Promise<void>;
 
-  /** Replaces the stored Project Pipeline's name, description and Stages; ends its Broken flag. */
+  /**
+   * Replaces the stored Project Pipeline's name, description and Stages, and its Broken flag as
+   * given: the user's save ends it (`savedProjectPipeline`), a template's edit or removal keeps it.
+   */
   abstract save(projectPipeline: ProjectPipeline): Promise<void>;
 
   abstract remove(id: string): Promise<void>;

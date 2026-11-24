@@ -474,7 +474,7 @@ How many times the walk may follow one route in a walk, "at most N times" from 1
 _Avoid_: Rounds, retries, loop, max attempts
 
 **Choice** (an Agent Stage's route):
-A route out of an Agent Stage that its Agent chooses, worded as a condition in plain words ("the review found something to fix"); the Agent chooses one with the `choose_route` Office tool and a reason before it ends done, and the walk follows it as the first route that holds. Not a Decision's Choice.
+A route out of an Agent Stage that its Agent chooses, worded as a condition in plain words ("the review found something to fix"); the Agent chooses one with the `choose_route` Office tool and a reason before it ends done; the walk weighs the Stage's routes in order, so the chosen route is followed unless a When these hold row above it holds first. Not a Decision's Choice.
 _Avoid_: Agent route, decision route, branch
 
 **Condition**:

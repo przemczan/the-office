@@ -13,6 +13,7 @@ import {
   loopBackEnds,
   loopBackPath,
   loopBacks,
+  loopBackMarkWords,
   loopBackWords,
   stageWaitsForRunEnvironment,
   stageWorkerWords,
@@ -229,7 +230,7 @@ function StackedTrack(parts: TrackParts): ReactNode {
           aria-haspopup="dialog"
           onClick={() => onSelect(loop.from)}
         >
-          ↺ {stackedLoopBackWords(loop, names)}
+          {stackedLoopBackWords(loop, names)}
         </button>
       ))}
     </>
@@ -284,7 +285,7 @@ function StageWords({
   );
 }
 
-/** A loop-back's line across, square over the marks, with "↺ 1 of 2", which opens the failing Stage. */
+/** A loop-back's line across, square over the marks, with "1 of at most 2", which opens the Stage it leaves. */
 function LoopBackArc({
   loop,
   stageCount,
@@ -309,8 +310,7 @@ function LoopBackArc({
         title={words}
         onClick={onSelect}
       >
-        ↺ {loop.count}
-        {loop.rounds !== null && ` of ${loop.rounds}`}
+        {loopBackMarkWords(loop)}
       </button>
     </div>
   );

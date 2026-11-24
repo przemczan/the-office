@@ -819,6 +819,20 @@ describe("the flow editor's Stages linked to their Stage template", () => {
     expect(stagePanel("Implement").textContent).not.toContain("Linked to the template");
   });
 
+  it("draws no linked-template line on a Task's own Stages, which are copies", async () => {
+    await mounted(
+      <TaskHost
+        stages={[{ ...IMPLEMENT, templateId: "implementation" }, TESTS, PUBLISH]}
+        started={new Map()}
+        problems={[]}
+      />,
+    );
+    await press("Implement");
+    await settled();
+    expect(stagePanel("Implement").textContent).not.toContain("Linked to the template");
+    expect(buttonsNamed("Unlink")).toEqual([]);
+  });
+
   it("links a Pipeline's Stage saved as a template to the new template, a Task's Stage not", async () => {
     await rendered();
     await press("Implement");

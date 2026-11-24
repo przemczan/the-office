@@ -77,8 +77,15 @@ export interface PlanningPipeline {
   readonly name: string;
   /** When to choose it, in a sentence. */
   readonly description: string;
-  /** In order; an Agent Stage names the Role that works it. */
-  readonly stages: readonly { readonly name: string; readonly role?: string }[];
+  /**
+   * In order; an Agent Stage names the Role that works it. A Stage of the conflict chain is marked
+   * `onlyAfterConflict`: it runs only after a conflict at Publish, so the Pipeline's line leaves it out.
+   */
+  readonly stages: readonly {
+    readonly name: string;
+    readonly role?: string;
+    readonly onlyAfterConflict?: boolean;
+  }[];
   /** The Project whose Project Pipeline it is; undefined for an office-wide one. */
   readonly projectId?: string;
   /** The Pipeline a Project Pipeline was copied from, by name, for its words alone. */
@@ -338,11 +345,12 @@ function defaultFirst(
 /**
  * The Pipelines, one line each: its id, name, Stages and when it fits; a Project Pipeline names
  * the Pipeline it was copied from, and one Broken before The Office updated why it can't be proposed.
+ * The Stages are its Stages line, the conflict chain's left out (spec §2.3.5, "Library").
  */
 export function pipelineLibraryLines(pipelines: readonly PlanningPipeline[]): string[] {
   return pipelines.map(({ id, name, description, stages, copiedFrom, broken = [] }) =>
     [
-      `- ${id}: ${name} (${stages.map((stage) => stage.name).join(" → ")}).`,
+      `- ${id}: ${name} (${stagesLine(stages)}).`,
       copiedFrom && `Copied from ${copiedFrom.name}.`,
       description,
       broken.length > 0
@@ -352,6 +360,14 @@ export function pipelineLibraryLines(pipelines: readonly PlanningPipeline[]): st
       .filter((part) => part !== undefined && part !== "")
       .join(" "),
   );
+}
+
+/** A Pipeline's Stages line: its Stages' names in order, but those run only after a conflict. */
+function stagesLine(stages: PlanningPipeline["stages"]): string {
+  return stages
+    .filter(({ onlyAfterConflict }) => onlyAfterConflict !== true)
+    .map(({ name }) => name)
+    .join(" → ");
 }
 
 /** The Idea's notes are left out when they are the Description still, which the Brief has already. */

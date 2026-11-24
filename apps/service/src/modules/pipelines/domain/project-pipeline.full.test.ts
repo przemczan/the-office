@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { builtInPipelines } from "./built-in-pipelines.js";
-import { straightLineFlow } from "./flow.js";
+import { builtInPipelinesBeforeFlows } from "./built-in-pipelines-before-flows.fixtures.js";
+import { asFlow, pipelineOrder, straightLineFlow } from "./flow.js";
 import { copiedPipeline, pipelineEditProblems } from "./library-pipeline.js";
 import type { Pipeline } from "./pipeline.js";
 import { PipelineAdded, PipelineSaved } from "./pipeline-library-events.js";
@@ -15,7 +16,10 @@ import {
   type ProjectPipeline,
   type ProjectPipelineEdit,
 } from "./project-pipeline.js";
-import { buildStages } from "./stage-change.js";
+import { RESOLVE_GATE_KEY, RESOLVE_KEY } from "./publish-stages.js";
+import { ENDED_FAILED, plainRoute, unnamedRoutes } from "./route.js";
+import type { Stage } from "./stage.js";
+import { buildStages, type StageChange } from "./stage-change.js";
 import { agentStage, scriptStage } from "./stage.fixtures.js";
 
 const FULL: Pipeline = {
@@ -132,6 +136,203 @@ describe("movedProjectPipeline", () => {
       copiedFrom: { name: FULL.id, at: null },
       brokenBeforeUpdate: [`Its base Pipeline "${FULL.id}" is gone.`],
     });
+  });
+});
+
+function builtIn(id: string): Pipeline {
+  const pipeline = builtInPipelines.find((one) => one.id === id);
+  if (!pipeline) throw new Error(`No built-in ${id}.`);
+  return pipeline;
+}
+
+/** A built-in as the previous release seeded and kept it, its Stages keyed by key. */
+function keptBuiltIn(id: string): Map<string, Stage> {
+  const seeded = builtInPipelinesBeforeFlows.find((one) => one.id === id);
+  return new Map(seeded?.stages.map((stage) => [stage.key, stage]));
+}
+
+function keptStagesOf(id: string, keys: readonly string[], changed: Record<string, object> = {}) {
+  const kept = keptBuiltIn(id);
+  return keys.map((key) => {
+    const stage = kept.get(key) ?? (key === LINUX.key ? LINUX : undefined);
+    if (!stage) throw new Error(`No Stage ${key}.`);
+    return { ...stage, ...changed[key] } as Stage;
+  });
+}
+
+/** Stages as a Task walks them: in the Pipeline's order, the routes' names for their words alone. */
+function walked(stages: readonly Stage[]): Stage[] {
+  return pipelineOrder(asFlow(stages)).map((stage) => ({
+    ...stage,
+    routes: unnamedRoutes(stage.routes),
+  }));
+}
+
+function movedOnto(base: Pipeline, stageChanges: StageChange[]): ProjectPipeline {
+  return movedProjectPipeline(aLegacy({ basePipelineId: base.id, stageChanges }), base);
+}
+
+describe("movedProjectPipeline on a built-in, as the previous release built it", () => {
+  // The library reads a built-in seeded by the previous release through `asFlow`; one seeded since
+  // is in flow form. A Project Pipeline on either moves to what the previous release built.
+  const bases: [string, (id: string) => Pipeline][] = [
+    ["as seeded now", builtIn],
+    [
+      "as kept by the previous release",
+      (id) => ({ ...builtIn(id), stages: asFlow([...keptBuiltIn(id).values()]) }),
+    ],
+  ];
+
+  it.each(bases)(
+    "keeps Tests' route back on it when a Stage is inserted after it (%s)",
+    (_, of) => {
+      const built = movedOnto(of("full"), [
+        { kind: "insert-after", stageKey: "tests", stageName: "Tests", stage: LINUX },
+      ]);
+
+      expect(walked(built.stages)).toEqual(
+        walked(keptStagesOf("full", ["implement", "tests", "linux", "review-and-fix", "publish"])),
+      );
+      expect(built.stages.find(({ key }) => key === "tests")?.routes).toEqual([
+        { to: "implement", toName: "Implement", condition: ENDED_FAILED, limit: 3 },
+        plainRoute("linux"),
+      ]);
+      expect(built.brokenBeforeUpdate).toBeNull();
+    },
+  );
+
+  it.each(bases)(
+    "leads into the next Stage past a removed one, its routes back as they were (%s)",
+    (_, of) => {
+      const built = movedOnto(of("full"), [
+        { kind: "remove", stageKey: "review-and-fix", stageName: "Review & fix" },
+      ]);
+
+      // Publish still goes back to Review & fix on failure, Broken as its On failure was.
+      expect(walked(built.stages)).toEqual(
+        walked(keptStagesOf("full", ["implement", "tests", "publish"])),
+      );
+      expect(built.stages.find(({ key }) => key === "tests")?.routes?.at(-1)).toEqual(
+        plainRoute("publish"),
+      );
+      expect(built.brokenBeforeUpdate).not.toBeNull();
+    },
+  );
+
+  it.each(bases)("replaces a route back by a Change of On failure, or clears it (%s)", (_, of) => {
+    const changed = movedOnto(of("full"), [
+      {
+        kind: "change",
+        stageKey: "tests",
+        stageName: "Tests",
+        fields: { onFailure: { goBackTo: "implement", rounds: 1 } },
+      },
+    ]);
+    const cleared = movedOnto(of("full"), [
+      { kind: "change", stageKey: "tests", stageName: "Tests", fields: { onFailure: null } },
+    ]);
+    const keys = ["implement", "tests", "review-and-fix", "publish"];
+
+    expect(walked(changed.stages)).toEqual(
+      walked(
+        keptStagesOf("full", keys, { tests: { onFailure: { goBackTo: "implement", rounds: 1 } } }),
+      ),
+    );
+    expect(walked(cleared.stages)).toEqual(
+      walked(keptStagesOf("full", keys, { tests: { onFailure: undefined } })),
+    );
+    expect(changed.brokenBeforeUpdate).toBeNull();
+    expect(cleared.brokenBeforeUpdate).toBeNull();
+  });
+
+  it.each(bases)("draws the review Gate a Change of After a conflict asks for (%s)", (_, of) => {
+    const built = movedOnto(of("full"), [
+      {
+        kind: "change",
+        stageKey: "publish",
+        stageName: "Publish",
+        fields: { afterConflict: "review" },
+      },
+    ]);
+
+    expect(walked(built.stages)).toEqual(
+      walked(
+        keptStagesOf("full", ["implement", "tests", "review-and-fix", "publish"], {
+          publish: { afterConflict: "review" },
+        }),
+      ),
+    );
+    expect(built.stages.map(({ key }) => key)).toContain(RESOLVE_GATE_KEY);
+    expect(built.brokenBeforeUpdate).toBeNull();
+  });
+
+  it.each(bases)(
+    "draws no conflict chain for a Publish changed to push the branch only (%s)",
+    (_, of) => {
+      const built = movedOnto(of("full"), [
+        {
+          kind: "change",
+          stageKey: "publish",
+          stageName: "Publish",
+          fields: { publishTarget: "branch-only" },
+        },
+      ]);
+
+      expect(built.stages.map(({ key }) => key)).toEqual([
+        "implement",
+        "tests",
+        "review-and-fix",
+        "publish",
+      ]);
+      expect(built.stages.at(-1)?.routes).toEqual([
+        { to: "review-and-fix", toName: "Review & fix", condition: ENDED_FAILED, limit: 1 },
+        plainRoute(null),
+      ]);
+      expect(built.brokenBeforeUpdate).toBeNull();
+    },
+  );
+
+  it.each(bases)(
+    "draws the conflict chain for a Proof of concept Publish changed to the publishing mode (%s)",
+    (_, of) => {
+      const built = movedOnto(of("proof-of-concept"), [
+        {
+          kind: "change",
+          stageKey: "publish",
+          stageName: "Publish",
+          fields: { publishTarget: null },
+        },
+      ]);
+
+      expect(walked(built.stages)).toEqual(
+        walked(
+          keptStagesOf("proof-of-concept", ["implement", "tests", "publish"], {
+            publish: { publishTarget: undefined },
+          }),
+        ),
+      );
+      expect(built.stages.map(({ key }) => key)).toContain(RESOLVE_KEY);
+      expect(built.brokenBeforeUpdate).toBeNull();
+    },
+  );
+
+  it("keeps the review Gate of a base whose Publish asked for one through other Stage changes", () => {
+    const stages = keptStagesOf("full", ["implement", "tests", "review-and-fix", "publish"], {
+      publish: { afterConflict: "review" },
+    });
+    const base: Pipeline = { ...builtIn("full"), stages: asFlow(stages) };
+
+    const built = movedOnto(base, [
+      { kind: "insert-after", stageKey: "tests", stageName: "Tests", stage: LINUX },
+    ]);
+
+    expect(walked(built.stages)).toEqual(
+      walked(
+        keptStagesOf("full", ["implement", "tests", "linux", "review-and-fix", "publish"], {
+          publish: { afterConflict: "review" },
+        }),
+      ),
+    );
   });
 });
 
@@ -258,6 +459,15 @@ describe("copiedProjectPipeline and savedProjectPipeline", () => {
     });
     expect(saved.event).toBeInstanceOf(PipelineSaved);
     expect(saved.event.pipelineId).toBe(broken.id);
+  });
+
+  it("keep its Broken flag on a save the user didn't make in its editor", () => {
+    const broken = aProjectPipeline({ brokenBeforeUpdate: ["Removes deploy."] });
+
+    const saved = savedProjectPipeline(broken, anEdit(), { keepsBroken: true });
+
+    expect(saved.projectPipeline.brokenBeforeUpdate).toEqual(["Removes deploy."]);
+    expect(saved.projectPipeline.stages).toEqual(anEdit().stages);
   });
 
   it("asPipeline gives the Stages a Task copies", () => {

@@ -101,11 +101,16 @@ export class PipelineProposals implements OnModuleInit {
       shown: shownPipelineChange,
     });
     this.appliers.register("stage-template", {
-      problemsWith: async ({ templateId, from, to }) =>
-        (
-          await this.templateEditor.proposedStageProblems(templateId, stageOf(from), stageOf(to))
-        ).map(({ text }) => text),
+      problemsWith: async (change) => {
+        const from = stageOf(change.from);
+        const to = stageOf(change.to);
+        if (!from || !to) return [templateChangedSinceProposed(change)];
+        return (await this.templateEditor.proposedStageProblems(change.templateId, from, to)).map(
+          ({ text }) => text,
+        );
+      },
       apply: (change) => this.applyStageTemplate(change),
+      shown: shownStageTemplateChange,
     });
     this.appliers.register("project-pipeline", {
       problemsWith: async (change) => {
@@ -142,12 +147,11 @@ export class PipelineProposals implements OnModuleInit {
   private async applyStageTemplate(
     change: ProposedStageTemplateChange,
   ): Promise<ProposedStageTemplateChange> {
+    const from = stageOf(change.from);
+    const to = stageOf(change.to);
+    if (!from || !to) throw new ProposalRefused([templateChangedSinceProposed(change)]);
     await refusedAsProposal(() =>
-      this.templateEditor.saveProposedStage(
-        change.templateId,
-        stageOf(change.from),
-        stageOf(change.to),
-      ),
+      this.templateEditor.saveProposedStage(change.templateId, from, to),
     );
     return change;
   }
@@ -183,10 +187,32 @@ function stagesOf(stages: readonly PipelineStage[]): KeptStage[] {
 
 /**
  * A Stage template's Stage, whose on-failure setting, never kept on a template, is dropped, and a
- * Publish Stage kept as a Script Stage running `publish` read as the library reads it.
+ * Publish Stage kept as a Script Stage running `publish` read as the library reads it; undefined
+ * when it doesn't read.
  */
-function stageOf(stage: PipelineStage): Stage {
-  return storedTemplateStage(givenStage(KEPT_TEMPLATE_STAGE.parse(stage)));
+function stageOf(stage: PipelineStage): Stage | undefined {
+  const read = KEPT_TEMPLATE_STAGE.safeParse(stage);
+  return read.success ? storedTemplateStage(givenStage(read.data)) : undefined;
+}
+
+/** Why a Proposal of a Stage template whose Stage doesn't read can't be applied. */
+function templateChangedSinceProposed({ from }: ProposedStageTemplateChange): string {
+  const { name } = from as { readonly name?: unknown };
+  const template = typeof name === "string" && name !== "" ? `The ${name}` : "The";
+  return `${template} Stage template changed since this was proposed.`;
+}
+
+/**
+ * A Proposal of a Stage template as its card shows it: its Stages as applying reads them, so one a
+ * previous release kept with its Publish Stage a Script Stage running `publish` shows a Publish
+ * Stage. One whose Stages don't read shows as it is.
+ */
+function shownStageTemplateChange(
+  change: ProposedStageTemplateChange,
+): ProposedStageTemplateChange {
+  const from = stageOf(change.from);
+  const to = stageOf(change.to);
+  return from && to ? { ...change, from, to } : change;
 }
 
 /** `stages` as the domain takes them, each keeping its on-failure setting. */
